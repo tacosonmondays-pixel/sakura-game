@@ -36,6 +36,21 @@ let openSheetApi = null;
 const reduced = () => document.documentElement.hasAttribute('data-reduce-motion') || matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /**
+ * Scrolls `scroller` (and only it) so `el` shows, the nearest way: its bottom comes into view without pushing its
+ * top out. scrollIntoView would also scroll the sheet itself (overflow: hidden is still a scroll container) and
+ * push the tab rail and ✕ off the top.
+ */
+function revealIn(scroller, el) {
+  if (!scroller?.isConnected || !el?.isConnected) return;
+  const s = scroller.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  let dy = 0;
+  if (r.bottom > s.bottom) dy = Math.min(r.bottom - s.bottom, r.top - s.top);
+  else if (r.top < s.top) dy = r.top - s.top;
+  if (Math.abs(dy) >= 1) scroller.scrollBy({ top: dy, behavior: reduced() ? 'auto' : 'smooth' });
+}
+
+/**
  * Opens (or replaces) the sheet.
  * @param {string} unitId
  * @param {{ tab?: 'build'|'info'|'upgrades', allowFullPage?: boolean, origin?: HTMLElement|null,
@@ -148,7 +163,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
       onPick: (cell) => {
         picked = cell;
         draw();
-        requestAnimationFrame(() => detail.scrollIntoView?.({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' }));
+        requestAnimationFrame(() => revealIn(host, detail));
       },
     });
     loadStudent().then((m) => {

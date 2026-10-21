@@ -216,10 +216,12 @@
 
 /* ---------- The menu hold sheet: the Glance sheet (§6.2) ---------- */
 .modal-overlay.us-overlay.gs-overlay { display: block; padding: 0; z-index: 170; background: var(--scrim); backdrop-filter: none; animation: fade-in 160ms var(--ease); }
+/* a definite height (the bottom sheet's max, §5.4) so the row holds its children: the tab rail, Full page and ✕ stay
+   put and only .gs-body scrolls (Build and Tree run past one sheet); the art fills the row, the plate on its bottom */
 .us-sheet.gs {
   position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
-  width: min(100%, 640px); height: auto; max-height: var(--sheet-max-h); min-height: 0;
-  display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: var(--sp-3);
+  width: min(100%, 640px); height: min(var(--sheet-max-h), 100%); min-height: 0;
+  display: grid; grid-template-columns: 172px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--sp-3);
   padding: var(--sp-3); padding-bottom: calc(var(--sp-3) + var(--safe-bottom));
   border-radius: var(--radius) var(--radius) 0 0; background: rgba(255, 255, 255, 0.97); overflow: hidden;
 }
