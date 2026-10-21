@@ -20,7 +20,6 @@ import {
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { ITEMS, bookId, materialId } from '../../data/items.js';
-import { unitSubclassLabel, ROLE_SUBCLASS } from '../../data/wiki.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
   awakenCost, canAwaken, awaken, unitBattleStats, unitPower, MAX_LEVEL, MAX_BREAKTHROUGH, MAX_AWAKEN,
@@ -52,7 +51,7 @@ import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, ico
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
-import { headlineStats, roleSentence, traitList, matchupList } from '../girlView.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchupList, matchArrows } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
 import { buildTreeModel } from '../treeModel.js';
@@ -194,7 +193,8 @@ export function effectivenessRow(attackType) {
     return h(`div.mb-eff.${multCell(m)}`, { title: `${c.name}: ${effectivenessLabel(m)}` },
       svgEl(armorClassIcon(c.id), 'mb-eff-icon'),
       h('div.mb-eff-name', c.name),
-      h('div.mb-eff-mult', `×${m}`));
+      // the arrow carries the meaning, not only the colour (as the Info tab's matchup row)
+      h('div.mb-eff-mult', matchArrows(m) ? `${matchArrows(m)} ×${m}` : `×${m}`));
   }));
 }
 
@@ -576,6 +576,7 @@ function openMatchup(unit) {
 /** The Profile sheet: her quote, bio, personality, Codex kit, tips and how to get her. */
 function openProfile(unit, { owned = true } = {}) {
   const how = howToGet(unit);
+  const tips = profileTips(unit); // no ⚡ ability tips while abilities are dormant
   return openSheet({
     title: `${unit.name} · Profile`, testid: 'profile-sheet', cls: 'gp-details', full: true,
     body: h('div.gp-sheet-body',
@@ -583,15 +584,29 @@ function openProfile(unit, { owned = true } = {}) {
       h('p', unit.bio),
       unit.personality ? h('p.gp-sub', unit.personality) : null,
       codexLine(unit),
-      unit.tips?.length ? h('div.ui-kicker.gp-kick', 'Tips') : null,
-      unit.tips?.length ? h('ul.mb-tips', unit.tips.map((t) => h('li', t))) : null,
+      tips.length ? h('div.ui-kicker.gp-kick', 'Tips') : null,
+      tips.length ? h('ul.mb-tips', { 'data-testid': 'profile-tips' }, tips.map((t) => h('li', t))) : null,
       owned ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
   });
 }
 
+/** Base stats › Role: her subclass, both role lines, good against and limitation (the old Info tab's role text). */
+function roleSection(unit, role) {
+  const r = roleDetails(unit);
+  return h('section.mb-card.gp-role-sec', { 'data-testid': 'stats-role' },
+    h('h3.mb-card-title', 'Role'),
+    h('div.gp-role-full', svgEl(roleIcon(unit.role), 'gp-trait-ico'),
+      h('div', h('b', { 'data-testid': 'stats-subclass' }, r.label), role?.name && role.name !== r.label ? h('span.gp-sub', ` · ${role.name}`) : null)),
+    r.lines.map((t) => h('p.gp-role-line', t)),
+    h('div.mb-good-bad',
+      h('div.mb-good', h('b', 'Good against'), h('span', role?.goodAgainst || '')),
+      h('div.mb-bad', h('b', 'Limitation'), h('span', role?.limitation || ''))));
+}
+
 /**
- * Details (MORE): every base stat next to hers, good against and limitation, the type table, capabilities, the
- * hero's ultimate and her awakening passive. Opened from her page and from the menu hold sheet.
+ * Details (MORE): every base stat next to hers, her role in full (subclass, both role lines, good against and
+ * limitation), the type table, capabilities, the hero's ultimate and her awakening passive. Opened from her page
+ * and from the menu hold sheet.
  */
 export function openBaseStats(unit, { profile = store.profile, label = 'yours' } = {}) {
   const role = ROLES[unit.role];
@@ -603,9 +618,7 @@ export function openBaseStats(unit, { profile = store.profile, label = 'yours' }
     title: `${unit.name} · Base stats`, testid: 'stats-sheet', cls: 'gp-details', full: true,
     body: h('div.mb-tab-body.gp-sheet-body',
       section('Base stats', statsTable(unit, battle, { owned: !!st, label })),
-      section(null, h('div.mb-good-bad',
-        h('div.mb-good', h('b', 'Good against'), h('span', role?.goodAgainst || '')),
-        h('div.mb-bad', h('b', 'Limitation'), h('span', role?.limitation || '')))),
+      roleSection(unit, role),
       section('Type effectiveness',
         h('p.muted', `${ATTACK_TYPES[unit.attackType]?.name} — ${ATTACK_TYPES[unit.attackType]?.desc}`),
         effectivenessRow(unit.attackType)),

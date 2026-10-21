@@ -93,6 +93,30 @@ export function roleSentence(unit) {
 }
 
 /**
+ * Her role in full for Details (the Base stats sheet's Role section, §6.2 "nothing is deleted"): the subclass
+ * label ("Generalist", "Frontline", "Arcane Caster") and both lines, the Glance one first.
+ * @returns {{ label: string, lines: string[] }}
+ */
+export function roleDetails(unit) {
+  const label = ROLE_SUBCLASS[unit.role]?.label || ROLES[unit.role]?.name || unit.role;
+  const glance = roleSentence(unit);
+  const lines = [glance, ROLE_SUBCLASS[unit.role]?.desc || '', ROLES[unit.role]?.desc || ''].filter(Boolean);
+  return { label, lines: [...new Set(lines)] };
+}
+
+/**
+ * The tips her Profile sheet lists. A ⚡ tip ("<path> tier 3 teaches <ability>: …") is about an ability, and
+ * abilities are dormant in this build (nothing in a battle casts one yet), so it stays out until the ability bar
+ * ships: never promise a button players cannot use (the same rule as the menus' shownTips in v0.1.40).
+ */
+const ABILITY_TIPS_SHOWN = false;
+export const isAbilityTip = (tip) => typeof tip === 'string' && (tip.startsWith('⚡') || /\bteaches\b/.test(tip));
+export function profileTips(unit) {
+  const tips = unit?.tips || [];
+  return ABILITY_TIPS_SHOWN ? tips : tips.filter((t) => !isAbilityTip(t));
+}
+
+/**
  * Her traits, Glance first: the attack type, the element, the tier-0 capabilities, water placement; then the
  * capabilities her upgrades add (`later`). The Info tab shows 3 and a "+N" chip for the rest.
  * @returns {{ id: string, kind: 'attack'|'element'|'cap'|'place', key: string, name: string, desc: string, later?: boolean }[]}

@@ -2,8 +2,10 @@
 // headline stats (owner, Oct 20: shooters DMG · RATE · RANGE, supports BUFF · RANGE · AFFECTS, income COINS/WAVE ·
 // RANGE · COST, heroes DMG · RATE · ULT), the trait chips, the matchup row and the hero track band.
 import { describe, it, expect } from 'vitest';
-import { headlineStats, headlineKind, roleSentence, traitList, matchupList, matchArrows, heroBandView } from '../../src/ui/girlView.js';
+import { headlineStats, headlineKind, roleSentence, roleDetails, profileTips, isAbilityTip, traitList, matchupList, matchArrows, heroBandView } from '../../src/ui/girlView.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
+import { ROLES } from '../../src/data/types.js';
+import { ROLE_SUBCLASS } from '../../src/data/wiki.js';
 import { newUnitState } from '../../src/systems/save.js';
 
 const profileWith = (over = {}) => {
@@ -66,6 +68,39 @@ describe('roleSentence', () => {
       const s = roleSentence(u);
       expect(s.length, u.id).toBeGreaterThan(5);
       expect(s.length).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe('roleDetails (Base stats › Role)', () => {
+  it('her subclass label and both role lines, the Glance one first: nothing of the old Info tab is lost', () => {
+    for (const u of UNITS) {
+      const r = roleDetails(u);
+      expect(r.label, u.id).toBe(ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name);
+      expect(r.lines[0], u.id).toBe(roleSentence(u));
+      for (const line of [ROLE_SUBCLASS[u.role]?.desc, ROLES[u.role]?.desc].filter(Boolean)) expect(r.lines, u.id).toContain(line);
+      expect(new Set(r.lines).size).toBe(r.lines.length);
+    }
+    expect(roleDetails(UNIT_MAP.aoi).lines).toContain('Cheap, reliable shots; good vs crystal shells.');
+  });
+});
+
+describe('profileTips (abilities are dormant)', () => {
+  it('no ⚡ ability tip and no ability promise in any girl\'s Profile sheet; the other tips stay, in order', () => {
+    let hidden = 0;
+    for (const u of UNITS) {
+      const t = profileTips(u);
+      for (const x of t) {
+        expect(x.startsWith('⚡'), `${u.id}: ${x}`).toBe(false);
+        expect(/\bteaches\b/.test(x), `${u.id}: ${x}`).toBe(false);
+      }
+      expect(t).toEqual((u.tips || []).filter((x) => !isAbilityTip(x)));
+      hidden += (u.tips || []).length - t.length;
+    }
+    expect(hidden).toBeGreaterThan(0);
+    for (const id of ['aoi', 'chika', 'momo', 'umeko', 'miko', 'akane', 'ouka']) {
+      expect(UNIT_MAP[id].tips.some(isAbilityTip), id).toBe(true);
+      expect(profileTips(UNIT_MAP[id]).some((x) => x.includes('⚡')), id).toBe(false);
     }
   });
 });

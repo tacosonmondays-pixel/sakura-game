@@ -209,6 +209,21 @@
 .gp-details .mb-quote { margin: 0; }
 .gp-details .mb-tips { font-size: var(--fs-body); }
 .gp-details .pot-section { margin: 0; box-shadow: none; border: 0; padding: 0; background: none; }
+/* P1: Details may scroll, but the type floor and contrast still hold (the old meta-b / potential styles did not) */
+.gp-details .muted { font-size: max(var(--fs-label), 0.9em); color: var(--muted); }
+.gp-details .mb-stats td.mb-yours { color: var(--good-text); }
+.gp-details .mb-stats-note { margin: var(--sp-2) 0 0; font-size: var(--fs-label); }
+.gp-details .mb-eff-mult { font: 700 var(--fs-num-s)/1 var(--font-num); white-space: nowrap; }
+.gp-details .mb-eff.super .mb-eff-mult, .gp-details .mb-eff.good .mb-eff-mult { color: var(--good-text); }
+.gp-details .mb-eff.normal .mb-eff-mult { color: var(--ink); }
+.gp-details .mb-eff.resist .mb-eff-mult, .gp-details .mb-eff.weak .mb-eff-mult { color: var(--bad-text); }
+.gp-details .pot-step-next { background: var(--pink-text); color: #fff; }
+/* Base stats › Role */
+.gp-role-full { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
+.gp-role-full b { font: italic 900 var(--fs-name)/var(--lh-tight) var(--font-head); color: var(--navy); }
+.gp-role-line { margin: 0 0 var(--sp-1); }
+.gp-role-sec .mb-good-bad { margin-top: var(--sp-2); }
+.gp-role-sec .mb-good-bad > div { font-size: var(--fs-body); }
 
 /* ---------- The menu hold sheet: the Glance sheet (§6.2) ---------- */
 .modal-overlay.us-overlay.gs-overlay { display: block; padding: 0; z-index: 170; background: var(--scrim); backdrop-filter: none; animation: fade-in 160ms var(--ease); }
