@@ -302,7 +302,7 @@ function buildBand(unit, onCycle, onPotential) {
       // close-up viewer: full-detail GLB regardless of the quality setting (chibis-v2)
       preloadModels([unit.id], { detail: 'full', skins: { [unit.id]: skin } }).then(() => {
         if (disposed || !viewer || view.mode !== '3d' || stageSkin !== skin) return;
-        model = buildChibi(unit, { quality: store.profile.settings?.quality || 'high', detail: 'full', skin });
+        model = buildChibi(unit, { quality: store.profile.settings?.quality || 'high', detail: 'full', skin, companion: true });
         viewer.setObject(model);
       });
       for (const [state, label] of [['idle', 'Idle'], ['attack', 'Attack'], ['cheer', 'Cheer'], ['victory', 'Victory']]) {
