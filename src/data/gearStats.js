@@ -77,7 +77,8 @@ export const GEAR_FIT = Object.freeze({
   sango: { fill: ['ultHaste', 'armorPen', 'auraPct'] },
   shiro: { fill: ['ultHaste', 'rangePct', 'armorPen', 'auraPct'] },
   suzu: { fill: ['ultHaste', 'critChance', 'critDmg', 'armorPen', 'auraPct'] },
-  kaede: { fill: ['ultHaste', 'armorPen', 'piercePct', 'auraPct'] },
+  // (Kaede: gear Pierce adds targets to her blade arts, src/sim/towers.js bladeArts, so it is real for her)
+  kaede: { fill: ['ultHaste', 'armorPen', 'auraPct'] },
   chika: { fill: DEAD_TOWER },
   hotaru: { fill: ['ultHaste', 'auraPct'], until: { auraPct: { potential: 2 } } },
   miko: { fillTo: 'aura', fill: ['atkPct', 'ratePct', 'critChance', 'critDmg', 'armorPen', 'piercePct', 'ultHaste'] },

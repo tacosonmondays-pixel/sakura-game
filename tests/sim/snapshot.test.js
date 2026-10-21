@@ -267,7 +267,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     for (const k of ['strip', 'hitUids', 'stripAirSpec', 'stripBoomSpec', 'straight', 'ringTurn', 'rings', 'hydrated', 'sentries', 'sentrySpecs']) expect(json, k).toContain(`"${k}"`);
   });
 
-  it('Marumi mid-wave (UNIT_GAPS §5.9): balls on the road, a sticky ball, a Giant Strike rolling', () => {
+  it('Marumi mid-wave (UNIT_GAPS §5.9): balls on the road, a Giant Strike rolling', () => {
     const team = ['marumi', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
     const stats = { costMul: 0.3 };
     const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3333, options: { autoStart: true, autoAbilities: true } };

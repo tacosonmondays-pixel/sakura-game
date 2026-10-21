@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -51,8 +51,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Kage's storm every 8th throw and her one pierce step at P5, Shiro's Silver Line rhythm, Kaede's
     // 0.1-tile Maple Gale at her plain hit, Aoi's crit, Raika's and Hotaru's trims; an upgrade also
     // waits while its player's placement is in flight (it arrived unaffordable once).
+    // Re-pinned for Kaede's AoE rework (was 23752 / '317/222' / 4242036526 / '57997ea1'): her Maple
+    // Cleave every 3rd strike and her new P5 (Maple Gale ×1.1 on her blade arts, not the 0.1-tile cut);
+    // only Kaede's kit changed (every other girl resolves bit-identically, tests/sim/mods.test.js)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23752, state: 'won', wallets: '317/222', final: 4242036526, hashes: '57997ea1' });
+      .toEqual({ ticks: 23827, state: 'won', wallets: '317/222', final: 1924477857, hashes: 'dec1d574' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -69,9 +72,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.mech.proc).toBeGreaterThan(0);
     expect(runPotentialBossBattle().final).toBe(r.final);
     // pinned in Potential v3 V2 (change only with a deliberate sim / data change, and say why).
-    // Re-pinned for the B1 re-price (was 35232 / '6768/4510' / 2047586365 / 'a01bc9ff'): see above
+    // Re-pinned for the B1 re-price (was 35232 / '6768/4510' / 2047586365 / 'a01bc9ff'): see above.
+    // Re-pinned for Kaede's AoE rework (was 35101 / '6568/4679' / 3492961063 / 'b2b2f34d'): her Maple
+    // Cleave, her full-focus maple splash on Unbroken Rhythm, Crimson Eternity ×1.6 vs bosses (was ×1.5)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 35101, state: 'lost', wallets: '6568/4679', final: 3492961063, hashes: 'b2b2f34d' });
+      .toEqual({ ticks: 35035, state: 'lost', wallets: '6700/4594', final: 2141169952, hashes: '20c45d69' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
@@ -134,6 +139,23 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
       .toEqual({ ticks: 54615, state: 'won', wallets: '5521/5179', final: 3900917007, hashes: '7ad51e89', iroha: '572/522/885' });
+  }, 240000);
+
+  it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
+    const r = runGlowBowlBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    expect(r.tiers.split(' ').slice(0, 2)).toEqual(['205', '501']); // Glow Bowl (host), Bowling Thunder (guest)
+    const [pops, bounced, finales] = r.bowl.split('/').map(Number);
+    expect(pops).toBeGreaterThan(bounced);
+    expect(bounced).toBeGreaterThan(0);
+    expect(finales).toBeGreaterThan(0);
+    expect(runGlowBowlBattle().final).toBe(r.final);
+    // pinned when the battle was added (v0.1.41: Marumi's rework with the lob for flyers only and the
+    // Heavy Ball share tune). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, bowl: r.bowl })
+      .toEqual({ ticks: 72006, state: 'wave', wave: 26, wallets: '7258/6667', final: 821407225, hashes: '018423c4', bowl: '659/397/7/0' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {
