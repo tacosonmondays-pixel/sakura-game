@@ -281,7 +281,12 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
   const close = () => {
     if (closed) return;
     closed = true;
+    // it fades out for 160 ms, but taps go through at once (.closing: pointer-events none), and it
+    // is inert and hidden from assistive tech from its first frame of closing (tests skip a
+    // .modal-overlay.closing: its buttons are on their way out)
     overlay.classList.add('closing');
+    overlay.inert = true;
+    overlay.setAttribute('aria-hidden', 'true');
     setTimeout(() => overlay.remove(), 160);
     modalStack = modalStack.filter((m) => m !== overlay);
     modalClosers.delete(overlay);
@@ -447,6 +452,24 @@ export function showItemInfo(itemId) {
       : h('p.muted', 'Not obtainable yet.'),
   );
   const actions = [{ label: 'Close', kind: 'ghost' }];
+  // [ascension] family materials: the Craft Room (combine 3 → 1, swap 2 → 1); a Kindred Essence nobody
+  // can use: release it for a spare
+  if (item?.category === 'material' && item.family) {
+    actions.push({ label: 'Craft Room', kind: 'primary', testid: 'item-craft', onClick: (close) => { close(); import('./craftRoom.js').then((mod) => mod.openCraftRoom(itemId)); } });
+  }
+  if (item?.kindred && owned > 0) {
+    import('../systems/essence.js').then((ess) => {
+      if (ess.kindredUseful(store.profile, itemId) || !m) return;
+      const row = h('div.modal-actions', button('Release for Mementos', { kind: 'ghost', small: true, testid: 'kindred-release', onClick: () => {
+        const r = ess.releaseKindred(store.profile, itemId);
+        if (!r.ok) return;
+        store.commit('kindred-release');
+        m.close();
+        toast(`Released: +${r.pay.mementos} Mementos${r.pay.moonpearls ? ` · +${r.pay.moonpearls} Moonpearls` : ''}`, 'good');
+      } }));
+      m.el.querySelector('.modal-body')?.append(h('p.muted', 'No girl can use this Essence right now.'), row);
+    }).catch(() => {});
+  }
   // usable items (SSR Select Ticket): open their picker
   if (item?.usable === 'ssrSelect' && owned > 0) {
     actions.push({ label: 'Use', kind: 'yellow', testid: 'item-use', onClick: (close) => { close(); import('./selectTicket.js').then((mod) => mod.openSelectTicket()); } });

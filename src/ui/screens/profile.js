@@ -29,6 +29,7 @@ import { ribbonArt, liveHonors } from '../honorFx.js';
 import { openSheetFor, onEscape } from '../hold.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName, ensureOnline } from '../online/common.js';
+import { inlineLoader, holdInline } from '../loading/loader.js';
 import { getBackend } from '../../online/backend.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { presenceText } from '../../online/socialRules.js';
@@ -379,19 +380,23 @@ function renderVisit(root, userId) {
   };
 
   /** A centred card (loading, a state with no profile to show), with the basic player line when known. */
-  function stateScreen({ title = 'Sensei Profile', who = null, text, testid, buttons = [] }) {
+  function stateScreen({ title = 'Sensei Profile', who = null, text, testid, buttons = [], loading = false }) {
     closeSheet();
     clearDetach();
+    // loading: a little Mochi instead of the text (shown after 150 ms, then at least 450 ms)
+    const mochi = loading ? inlineLoader(text || 'Loading') : null;
     const card = h('div.pf-empty-card', { 'data-testid': testid },
       who ? h('div.pf-basic',
         avatarEl(who.avatar, null),
         h('div.pf-basic-who',
           h('div.pf-name-row', h('span.pf-name', { 'data-testid': 'profile-name' }, who.name), tagChips(userId, { all: true, size: 'lg' }), h('span.pf-lv', h('span', h('small', 'Lv.'), h('b', String(who.level || 1))))),
           who.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', who.clan.tag), who.clan.name) : null)) : null,
-      text ? h('b', { 'data-testid': 'profile-state' }, text) : null,
+      mochi || (text ? h('b', { 'data-testid': 'profile-state' }, text) : null),
       buttons.length ? h('div.pf-basic-acts', buttons) : null);
-    host.replaceChildren(h('div.screen.pf.pf-visit-state', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
-      h('div.pf-banner', bannerArt('academy:day')), topBar({ title }), card));
+    const node = h('div.screen.pf.pf-visit-state', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
+      h('div.pf-banner', bannerArt('academy:day')), topBar({ title }), card);
+    host.replaceChildren(node);
+    if (mochi) holdInline(host, node, mochi);
   }
 
   /**
@@ -420,7 +425,7 @@ function renderVisit(root, userId) {
       h('div.pf-banner', bannerArt('academy:day')), topBar({ title: `${view.name}'s Profile`, acts: top }), card));
   }
 
-  const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading…', testid: 'profile-loading' }); how().finally(load); } });
+  const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading', testid: 'profile-loading', loading: true }); how().finally(load); } });
 
   // After an action (friend, block, report…) the page loads again: one profile_view per tap. playerActions
   // asks reload() for the next card and hands it to repaint(); here reload() fetches nothing and repaint()
@@ -526,7 +531,7 @@ function renderVisit(root, userId) {
     detach.push(liveHonors(host.querySelector('.pf-shelf') || host, { budget: 4 }));
   }
 
-  stateScreen({ text: 'Loading…', testid: 'profile-loading' });
+  stateScreen({ text: 'Loading', testid: 'profile-loading', loading: true });
   load();
   return () => {
     disposed = true;

@@ -53,6 +53,8 @@ export const MOD_TAGS = {
   silence: 'enemies', knockback: 'enemies',
   mark: 'team', reveal: 'team',
   income: 'coins',
+  // roster B3: the flyer bonus and a familiar / mirror's reach are hers; a gather pulls enemies
+  airMul: 'self', relay: 'self', gather: 'enemies',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -69,12 +71,13 @@ const SUB_KEYS = {
   crit: new Set(['chance', 'mul']),
   ramp: new Set(['per', 'max']),
   mark: new Set(['bonus', 'duration']),
+  relay: new Set(['reach']),
 };
 
 /** Status types that make enemies easier for EVERY girl to hit or hurt. */
 const TEAM_STATUS = new Set(['vulnerable', 'shred', 'mark', 'reveal']);
 /** Strongest-first order for the tier icon of a status tier. */
-const STATUS_STRENGTH = ['stun', 'freeze', 'vulnerable', 'shred', 'mark', 'slow', 'silence', 'reveal', 'burn', 'poison', 'shock', 'soak'];
+const STATUS_STRENGTH = ['stun', 'freeze', 'curse', 'hex', 'ground', 'vulnerable', 'shred', 'mark', 'slow', 'silence', 'reveal', 'burn', 'poison', 'shock', 'soak'];
 
 /**
  * Tier notes where a tier's authored text and the battle disagree (keyed unit.path.tier, 0-based).
@@ -252,7 +255,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', none: 'Support' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {
@@ -271,6 +274,9 @@ export function statusShort(s) {
     case 'mark': core = `Mark +${Math.round((s.bonus || 0) * 100)}%`; break;
     case 'silence': core = `Silence ${round1(s.duration || 0)}s`; break;
     case 'reveal': core = `Reveal ${round1(s.duration || 0)}s`; break;
+    case 'ground': core = `Ground ${round1(s.duration || 0)}s`; break;
+    case 'curse': core = `Curse ${Math.round((s.burstMul || 0) * 100)}%`; break;
+    case 'hex': core = `Hex ${round1((s.pct || 0) * 100)}%/s`; break;
     default: core = STATUSES[s.type]?.name || s.type;
   }
   return s.chance != null && s.chance < 1 ? `${core} (${Math.round(s.chance * 100)}%)` : core;
@@ -334,6 +340,9 @@ const SHORT_ORDER = [
   ['reveal', (m) => `Reveal ${round1(m.reveal)}s`],
   ['silence', (m) => `Silence ${round1(m.silence)}s`],
   ['knockback', (m) => `Push back ${round1(m.knockback)}`],
+  ['gather', () => 'Pulls the wave together'],
+  ['airMul', (m) => `×${round1(m.airMul)} vs flyers`],
+  ['relay', (m) => `Reach +${round1(m.relay.reach || 0)}`],
   ['income', (m) => (m.income.perWave ? `+${m.income.perWave} coins/wave` : `+${Math.round((m.income.interest || 0) * 100)}% interest`)],
   ['canHitAir', () => 'Hits flyers'],
   ['detection', () => 'Veil Sight'],
@@ -361,7 +370,8 @@ export const SHORT_KEYS = SHORT_ORDER.map(([k]) => k);
  * varied icons (a sword only when damage is all the tier does).
  */
 const ICON_ORDER = [
-  'behavior', 'attackType', 'element', 'aura', 'brew', 'link', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'income',
+  'behavior', 'attackType', 'element', 'aura', 'brew', 'link', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'gather', 'income',
+  'airMul', 'relay',
   'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'hpPct', 'eliteMul', 'bossMul',
   'barrierMul', 'ramp', 'rateMul', 'range', 'projectileSpeed', 'damageMul', 'damage',
 ];
@@ -410,6 +420,9 @@ const ICON_RULES = {
   reveal: () => ({ set: 'cap', key: 'reveal' }),
   silence: () => ({ set: 'cap', key: 'silence' }),
   knockback: () => ({ set: 'cap', key: 'stun' }),
+  gather: () => ({ set: 'cap', key: 'slow' }),
+  airMul: () => ({ set: 'cap', key: 'antiAir' }),
+  relay: () => ({ set: 'cap', key: 'summon' }),
   income: () => ({ set: 'cap', key: 'income' }),
   canHitAir: () => ({ set: 'cap', key: 'antiAir' }),
   detection: () => ({ set: 'cap', key: 'detection' }),

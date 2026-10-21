@@ -58,13 +58,18 @@ export function frameName(frame) {
   return frame && FRAMES[frame] ? `${FRAMES[frame].name} frame` : '';
 }
 
+/** A profile title's tier → its plate (src/ui/honorFx.js). */
+const PLATE_OF_TIER = { std: 'standard', gold: 'gold', prism: 'prism' };
 /**
  * A title on its plate (Standard / Gold / Prism: the achievements' own plate, src/ui/honorFx.js). Only the equipped
- * plate under the name moves (`still: false`). A title this build doesn't know reads "—".
+ * plate under the name moves (`still: false`). A title this build doesn't know reads "—". The name and the plate come
+ * from the profile's own table (achievement, freeplay, tag AND event titles): honorFx's TITLE_MAP has no event
+ * titles, so an event title (Pumpkin Patroller) read "✦ —" on the Standard plate in v0.1.38.
  */
 export function titlePlate(id, { still = false, small = false, locked = false } = {}) {
   if (!id) return null;
-  const el = honorPlate(id, { live: !still, small, locked, text: TITLES[id] ? null : '—' });
+  const t = TITLES[id];
+  const el = honorPlate(id, { live: !still, small, locked, text: t ? t.text : '—', plate: t ? PLATE_OF_TIER[t.tier] : null });
   el.classList.add('pf-title');
   el.dataset.testid = 'profile-title';
   return el;

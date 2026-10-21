@@ -41,15 +41,17 @@ function arg(name, def) {
   return v == null || v.startsWith('--') ? true : v;
 }
 
-export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', maxWave = 400, seed = 7, towers = 60, coop = false, potential = 1, log = () => {} }) {
+export function runBot({ stageId, tier, build = 'team', difficulty = 'normal', maxWave = 400, seed = 7, towers = 60, coop = false, potential = 1, base = MAXED, per = null, log = () => {} }) {
   const b = BUILDS[build];
-  const stats = potential > 1 ? { ...MAXED, potential } : MAXED;
+  const stats = potential > 1 ? { ...base, potential } : base;
+  // `per`: a girl's own extra keys on top (gear guard runs: her club, Pierce; tools/gearGuard.mjs)
+  const statsOf = (unitId) => (per?.[unitId] ? { ...stats, ...per[unitId] } : stats);
   const stage = coop ? coopStage(stageId, { freeplay: tier }) : soloFreeplayStage(stageId, tier);
   if (!stage?.freeplay) throw new Error(`no freeplay for ${stageId}/${tier}`);
   const sim = new Sim({
     stageId, difficulty, seed,
-    loadout: b.girls.map((unitId) => ({ unitId, stats })),
-    hero: b.hero ? { unitId: b.hero, stats } : null,
+    loadout: b.girls.map((unitId) => ({ unitId, stats: statsOf(unitId) })),
+    hero: b.hero ? { unitId: b.hero, stats: statsOf(b.hero) } : null,
     options: { freeplay: true, autoStart: false },
     data: { stage },
   });

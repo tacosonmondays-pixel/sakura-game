@@ -8,14 +8,22 @@
 // Levels above 60 (Potential raises the cap, LEVEL_PAST_GATES) continue the same curve.
 
 import { UNIT_MAP, getUnit } from '../data/units.js';
-import { ITEMS, materialId, bookId } from '../data/items.js';
+import { ITEMS, materialId, bookId, zenithId } from '../data/items.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
-import { gearStatTotals } from './gear.js';
+import { gearStatTotals, gearFillIn, gearSetInfo } from './gear.js';
+import { BATTLE_CAPS } from '../data/gearStats.js';
+
+export { BATTLE_CAPS };
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
+import { mirrorUnit, LEVEL_MIRROR_PREFIX } from './ascensionSave.js';
+import { writeRosterMark } from './rosterSave.js';
 
-export const MAX_BREAKTHROUGH = 5;
+/** Breakthrough gates: 1–5 to level 60, then gates 6–10 (Ascension) to 85. */
+export const MAX_BREAKTHROUGH = 10;
+/** The gates every girl breaks with materials alone (gates past it also need Potential). */
+export const BASE_GATES = 5;
 export const MAX_AWAKEN = 5;
 /** Coins charged per point of EXP applied (up to level 60; LEVEL_PAST_GATES prices the levels above). */
 export const COINS_PER_EXP = 0.4;
@@ -56,19 +64,34 @@ const PER_STAR_DAMAGE = 0.05;
 const PER_LEVEL_RATE = 0.004;
 
 /**
- * The level-cap rule with her gates and her Potential given: 10 + 10 × gates below gate 5; with
- * every gate open, her Potential's cap (P1 60 · P2 63 · P3 67 · P4 72 · P5 78 · P6 85). A P6 girl at
- * gate 3 is capped at 40: the gates come first, and there is no gate 6 (the duplicate is the gate).
- * Callers that already know her P (a profile card, a co-op loadout, the Potential screens) pass it
- * here, so nothing outside src/systems/potential.js potentialLevel says where P comes from.
- * @param {number} gates breakthrough gates open (0…5)
+ * Level cap after each number of gates (docs/specs/ASCENSION.md §B.1): 10 + 10 × gates up to gate 5
+ * (60), then gates 6–10: 63 · 67 · 72 · 78 · 85.
+ */
+export const GATE_CAPS = Object.freeze([10, 20, 30, 40, 50, 60, 63, 67, 72, 78, 85]);
+
+/** The Potential gate k (6–10) needs: P(k − 4). Gates 1–5 need none (P1). */
+export function gatePotential(gate) {
+  return gate > BASE_GATES ? gate - 4 : 1;
+}
+
+/** The most gates her Potential allows (P1 → 5 … P6 → 10). */
+export function gatesAllowed(p) {
+  return Math.min(MAX_BREAKTHROUGH, BASE_GATES + Math.max(0, Math.min(5, Math.floor(Number(p) || 1) - 1)));
+}
+
+/**
+ * The level-cap rule with her gates and her Potential given: GATE_CAPS[gates], where gates past what
+ * her Potential allows (a hostile mirror, an old save) do not count. Gate k needs P(k − 4), so the cap
+ * is never above her Potential's cap (POTENTIAL_LEVEL_CAPS[P − 1]): a P6 girl at gate 7 is capped at
+ * 67; a P2 girl stops after gate 6 (63). Callers that already know her P (a co-op loadout, the
+ * Potential screens) pass it here, so nothing outside src/systems/potential.js potentialLevel says
+ * where P comes from.
+ * @param {number} gates breakthrough gates open (0…10)
  * @param {number} p her Potential (1…6)
  */
 export function levelCapAt(gates, p) {
-  const g = Math.max(0, Math.floor(Number(gates) || 0));
-  if (g < MAX_BREAKTHROUGH) return 10 + 10 * g;
-  const i = Math.max(1, Math.min(POTENTIAL_LEVEL_CAPS.length, Math.floor(Number(p) || 1))) - 1;
-  return POTENTIAL_LEVEL_CAPS[i];
+  const g = Math.max(0, Math.min(MAX_BREAKTHROUGH, Math.floor(Number(gates) || 0)));
+  return GATE_CAPS[Math.min(g, gatesAllowed(p))];
 }
 
 /** Level cap for a unit state: levelCapAt(her gates, potentialLevel(her state)). */
@@ -77,18 +100,29 @@ export function levelCap(unitState) {
 }
 
 /**
- * Her level cap and what raises it next, for the screens. Below gate 5: the next breakthrough
- * gate (+10). With every gate open: her next Potential step (`next` at `nextP`, one duplicate
- * away), or `full` at P6.
- * @returns {{ cap: number, max: number, p: number, by: 'gate'|'potential', next: number|null, nextGate?: number, nextP?: number|null, full: boolean }}
+ * The fewest gates (at least 5) that allow `level` at Potential `p`: a viewer that knows only her
+ * level and P (a profile card carries at most 5 gates) rebuilds her state from it.
+ */
+export function gatesForLevel(level, p) {
+  const top = gatesAllowed(p);
+  for (let g = BASE_GATES; g <= top; g++) if (GATE_CAPS[g] >= level) return g;
+  return top;
+}
+
+/**
+ * Her level cap and what raises it next, for the screens: always her next gate (`nextGate`, cap
+ * `next`); a gate her Potential does not open yet sets `by: 'potential'` with `nextP` (the P it needs).
+ * `full` at gate 10.
+ * @returns {{ cap: number, max: number, p: number, by: 'gate'|'potential', next: number|null, nextGate: number|null, nextP: number|null, full: boolean }}
  */
 export function levelCapInfo(unitState) {
   const cap = levelCap(unitState);
-  const gates = Math.max(0, Math.floor(Number(unitState?.breakthrough) || 0));
+  const gates = Math.max(0, Math.min(MAX_BREAKTHROUGH, Math.floor(Number(unitState?.breakthrough) || 0)));
   const p = potentialLevel(unitState);
-  if (gates < MAX_BREAKTHROUGH) return { cap, max: MAX_LEVEL, p, by: 'gate', next: cap + 10, nextGate: gates + 1, full: false };
-  const full = p >= POTENTIAL_LEVEL_CAPS.length;
-  return { cap, max: MAX_LEVEL, p, by: 'potential', next: full ? null : POTENTIAL_LEVEL_CAPS[p], nextP: full ? null : p + 1, full };
+  if (gates >= MAX_BREAKTHROUGH) return { cap, max: MAX_LEVEL, p, by: 'gate', next: null, nextGate: null, nextP: null, full: true };
+  const gate = gates + 1;
+  const needP = gatePotential(gate);
+  return { cap, max: MAX_LEVEL, p, by: needP > p ? 'potential' : 'gate', next: GATE_CAPS[gate], nextGate: gate, nextP: needP > p ? needP : null, full: false };
 }
 
 /**
@@ -126,22 +160,33 @@ function coinsFor(unit, toLevel, toExp, applied) {
  * before the level cap rose clamps a girl's level to 60 when it loads and saves (its cleanUnit), but
  * keeps `missions.counters` word for word; migrateProfile (src/systems/save.js) lifts her back to
  * min(shadow, levelCap). At most the EXP inside one level is lost that way.
+ * Ascension writes the same level to its own mirror, 'lvA:<id>' (ascensionSave.js LEVEL_MIRROR_PREFIX):
+ * a Potential-v3 build (v0.1.37, v0.1.38) does not know `pl`, clamps a girl whose bought P is above
+ * 1 + dupes to its lower cap and rewrites 'lv:' down to that clamped level, but never writes 'lvA:'.
  */
 export const LEVEL_SHADOW_PREFIX = 'lv:';
 
-/** Write her level shadow when her level is above 60 (levelUp calls it; so does every load). */
+/** Write her level shadows ('lv:' and 'lvA:') when her level is above 60 (levelUp calls it; so does every load). */
 export function shadowLevel(profile, unitId) {
   const level = profile?.units?.[unitId]?.level;
   if (!(level > BREAKTHROUGH_LEVEL_CAP)) return;
   const c = ((profile.missions ||= {}).counters ||= {});
   if (c[LEVEL_SHADOW_PREFIX + unitId] !== level) c[LEVEL_SHADOW_PREFIX + unitId] = level;
+  if (c[LEVEL_MIRROR_PREFIX + unitId] !== level) c[LEVEL_MIRROR_PREFIX + unitId] = level;
+}
+
+/** The level her shadows hold: the higher of 'lv:<id>' and 'lvA:<id>' (0 when neither is set). */
+export function shadowedLevel(counters, unitId) {
+  const read = (k) => Math.max(0, Math.floor(Number(counters?.[k]) || 0));
+  return Math.max(read(LEVEL_SHADOW_PREFIX + unitId), read(LEVEL_MIRROR_PREFIX + unitId));
 }
 
 /**
  * After a load (the sanitizer let levels up to MAX_LEVEL through before her duplicates were known):
- * restore a level an older build clamped to 60 from her shadow, never above levelCap, then clamp
- * her to levelCap (EXP 0 when clamped or at the cap, as a level-up at the cap leaves it) and rewrite
- * the shadow. A hostile shadow never lifts a girl above her cap. Idempotent.
+ * restore a level an older build clamped (to 60, or to a Potential-v3 cap) from her shadows
+ * (max of 'lv:' and 'lvA:'), never above levelCap, then clamp her to levelCap (EXP 0 when clamped or
+ * at the cap, as a level-up at the cap leaves it) and rewrite both shadows. A hostile shadow never
+ * lifts a girl above her cap. Idempotent.
  * @param {object} profile
  * @returns {string[]} ids whose level changed
  */
@@ -151,7 +196,7 @@ export function settleLevels(profile) {
   for (const [id, u] of Object.entries(profile?.units || {})) {
     const cap = levelCap(u);
     const before = u.level;
-    const shadow = Math.floor(Number(c[LEVEL_SHADOW_PREFIX + id]) || 0);
+    const shadow = shadowedLevel(c, id);
     // only a girl at 60 or above (where an older build's clamp leaves her) is lifted
     if (shadow > u.level && u.level >= BREAKTHROUGH_LEVEL_CAP) {
       u.level = Math.min(shadow, cap);
@@ -243,6 +288,7 @@ export function levelUp(profile, unitId, books) {
   unit.level = preview.toLevel;
   unit.exp = preview.expAfter;
   shadowLevel(profile, unitId);
+  writeRosterMark(profile, unitId);
   if (preview.toLevel > fromLevel) track(profile, 'levelUp', preview.toLevel - fromLevel);
   track(profile, 'spendCoins', preview.coinCost);
   return { ok: true, fromLevel, toLevel: unit.level, coinCost: preview.coinCost };
@@ -294,28 +340,42 @@ export function autoSelectBooks(profile, unitId) {
 // Breakthrough (level cap gates) — uses the unit's material family
 // ---------------------------------------------------------------------------
 
-/** Per gate: [rarity, count] pairs + coins. Rarity escalates with each gate. */
+/**
+ * Per gate: [rarity, count] pairs (`zenith` = the family's Zenith item) + Rainbow Crowns + coins.
+ * Gates 6–10 are Ascension's (docs/specs/ASCENSION.md §B.2).
+ */
 const GATE_COSTS = [
   { mats: [['common', 8]], coins: 5000 },
   { mats: [['common', 12], ['rare', 5]], coins: 15000 },
   { mats: [['rare', 10], ['superRare', 4]], coins: 40000 },
   { mats: [['superRare', 10], ['mythic', 3]], coins: 100000 },
   { mats: [['mythic', 8], ['legendary', 2]], coins: 250000 },
+  { mats: [['mythic', 8], ['legendary', 2]], coins: 150000 },
+  { mats: [['mythic', 10], ['legendary', 3], ['zenith', 1]], coins: 200000 },
+  { mats: [['legendary', 4], ['zenith', 2]], coins: 300000 },
+  { mats: [['legendary', 5], ['zenith', 3]], crowns: 1, coins: 450000 },
+  { mats: [['legendary', 6], ['zenith', 4]], crowns: 1, coins: 800000 },
 ];
 
+const matFor = (family, tier) => (tier === 'zenith' ? zenithId(family) : materialId(family, tier));
+
 /**
- * Cost of breakthrough gate 1..5 (raises the cap from 10·gate to 10·gate + 10).
+ * Cost of breakthrough gate 1..10.
  * @returns {{id:string,count:number}[]}
  */
 export function breakthroughCost(unitId, gate) {
   const unit = getUnit(unitId);
   const g = GATE_COSTS[gate - 1];
   if (!g) return [];
-  return [...g.mats.map(([r, count]) => ({ id: materialId(unit.materialFamily, r), count })), { id: 'coins', count: g.coins }];
+  return [
+    ...g.mats.map(([r, count]) => ({ id: matFor(unit.materialFamily, r), count })),
+    ...(g.crowns ? [{ id: 'crown_rainbow', count: g.crowns }] : []),
+    { id: 'coins', count: g.coins },
+  ];
 }
 
 /**
- * @returns {{ ok: boolean, reason?: 'notOwned'|'max'|'level'|'missing', missing: {id,need,have}[], gate?: number, cost?: object[] }}
+ * @returns {{ ok: boolean, reason?: 'notOwned'|'max'|'potential'|'level'|'missing', missing: {id,need,have}[], gate?: number, cost?: object[], needP?: number, needLevel?: number }}
  */
 export function canBreakthrough(profile, unitId) {
   const unit = profile.units[unitId];
@@ -324,6 +384,8 @@ export function canBreakthrough(profile, unitId) {
   const gate = unit.breakthrough + 1;
   const cost = breakthroughCost(unitId, gate);
   const missing = missingItems(profile, cost);
+  const needP = gatePotential(gate);
+  if (potentialLevel(unit) < needP) return { ok: false, reason: 'potential', missing, gate, cost, needP };
   if (unit.level < levelCap(unit)) return { ok: false, reason: 'level', missing, gate, cost, needLevel: levelCap(unit) };
   if (missing.length) return { ok: false, reason: 'missing', missing, gate, cost };
   return { ok: true, missing: [], gate, cost };
@@ -336,6 +398,8 @@ export function breakthrough(profile, unitId) {
   if (!consumeItems(profile, check.cost)) return { ok: false, error: 'missing', missing: missingItems(profile, check.cost) };
   const unit = profile.units[unitId];
   unit.breakthrough += 1;
+  mirrorUnit(profile, unitId);
+  writeRosterMark(profile, unitId);
   track(profile, 'spendCoins', check.cost.find((c) => c.id === 'coins').count);
   return { ok: true, gate: unit.breakthrough, cap: levelCap(unit) };
 }
@@ -382,6 +446,7 @@ export function awaken(profile, unitId) {
   if (!consumeItems(profile, check.cost)) return { ok: false, error: 'missing', missing: missingItems(profile, check.cost) };
   const unit = profile.units[unitId];
   unit.awaken += 1;
+  writeRosterMark(profile, unitId);
   track(profile, 'spendCoins', check.cost.find((c) => c.id === 'coins').count);
   return { ok: true, star: unit.awaken, passiveUnlocked: unit.awaken === 3 };
 }
@@ -390,28 +455,50 @@ export function awaken(profile, unitId) {
 // Battle stats
 // ---------------------------------------------------------------------------
 
+/** Most a girl's burns and poisons grow from her gear ATK (half of it reaches them, gear-stats §B.3). */
+export const GEAR_DOT_CAP = 1.25;
+
 /**
  * Multipliers fed into the sim (CONTRACTS §5 / INTEGRATION_NOTES [sim]).
  * Unowned units get neutral level-1 stats so previews still work.
  * `potential` (1…6) is her Potential (src/systems/potential.js); the sim adds its steps.
- * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive, level, awaken, breakthrough, potential }}
+ * Gear (docs/specs/GEAR_STATS.md, GEAR_AWAKEN.md): every total is capped here (BATTLE_CAPS, the MAX tags),
+ * Every Line Counts adds its fill-in to the gear ATK part (Umeko / Miko: to Aura Power and aura radius),
+ * and the club set travels as `club` / `clubN` for the sim's tricks. `pierceK` is her Pierce in whole
+ * hundredths (the sim never handles the fraction); `rainbow` (UR pieces worn) is for the renderer only.
+ * This is the one place gear reaches a tower's battle stats.
+ * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, pierceK, auraPct, auraRangeMul, dotMul, club, clubN, rainbow, awakenPassive, level, awaken, breakthrough, potential }}
  */
 export function unitBattleStats(profile, unitId) {
   const unit = profile?.units?.[unitId] || { level: 1, awaken: 0, breakthrough: 0 };
-  const g = gearStatTotals(profile || { units: {}, gear: {} }, unitId);
+  const prof = profile || { units: {}, gear: {} };
+  const g = gearStatTotals(prof, unitId);
+  const fill = gearFillIn(prof, unitId);
+  const set = gearSetInfo(prof, unitId);
+  const atkFill = fill.target === 'atk' ? fill.total : 0;
+  const auraFill = fill.target === 'aura' ? fill.total : 0;
+  const gearAtk = g.atkPct + atkFill;
   const level = unit.level || 1;
   const stars = unit.awaken || 0;
   const gates = unit.breakthrough || 0;
   const r4 = (v) => Math.round(v * 10000) / 10000;
+  const C = BATTLE_CAPS;
   return {
-    damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + g.atkPct)),
+    damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + gearAtk)),
     rateMul: r4((1 + PER_LEVEL_RATE * (level - 1)) * (1 + g.ratePct)),
-    rangeMul: r4(1 + g.rangePct),
-    critChance: r4(Math.min(0.75, g.critChance)),
-    critMul: r4(1 + g.critDmg),
+    rangeMul: r4(1 + Math.min(C.rangePct, g.rangePct)),
+    critChance: r4(Math.min(C.critChance, g.critChance)),
+    critMul: r4(1 + Math.min(C.critDmg, g.critDmg)),
     armorPen: Math.round(g.armorPen * 10) / 10,
-    costMul: r4(Math.max(0.75, 1 - g.costCut)),
-    ultHaste: r4(Math.min(0.5, g.ultHaste)),
+    costMul: r4(Math.max(1 - C.costCut, 1 - g.costCut)),
+    ultHaste: r4(Math.min(C.ultHaste, g.ultHaste)),
+    pierceK: Math.round(100 * Math.min(C.piercePct, g.piercePct)),
+    auraPct: r4(Math.min(C.auraPct, g.auraPct) + auraFill),
+    auraRangeMul: r4(1 + auraFill),
+    dotMul: r4(Math.min(GEAR_DOT_CAP, 1 + 0.5 * gearAtk)),
+    club: set.club,
+    clubN: set.clubN,
+    rainbow: set.ur,
     awakenPassive: stars >= 3,
     level,
     awaken: stars,

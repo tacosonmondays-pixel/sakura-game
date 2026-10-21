@@ -19,7 +19,7 @@
 import { store } from '../../core/store.js';
 import { APP_VERSION, SIM_ID } from '../../core/buildInfo.js';
 import {
-  RECORD_V, slotKey, getBattleSave, putBattleSave, clearBattleSave, newRunId, saveSummary, saveToEvict, listBattleSaves,
+  recordVersion, slotKey, getBattleSave, putBattleSave, clearBattleSave, newRunId, saveSummary, saveToEvict, listBattleSaves,
 } from '../../systems/battleSave.js';
 import { snapshotSim, useWaveStream } from './snapshot.js';
 
@@ -102,7 +102,8 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, evict =
     if (created && !makeRoom()) return false;
     if (created) {
       rec = {
-        v: RECORD_V,
+        // 1, or 2 for a run on an event variant (the Golem's Nightmare): an older build drops that one
+        v: recordVersion(req.stageId, sim.difficulty),
         id: newRunId(now),
         slot,
         stageId: req.stageId,

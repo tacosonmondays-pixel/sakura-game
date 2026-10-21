@@ -90,7 +90,8 @@ describe('equip', () => {
     const expect1 = {};
     for (const s of [g1.main, ...g1.subs, g2.main, ...g2.subs]) expect1[s.stat] = (expect1[s.stat] || 0) + s.value;
     for (const [k, v] of Object.entries(expect1)) expect(t[k]).toBeCloseTo(v, 3);
-    expect(Object.keys(t).sort()).toEqual(Object.keys(GEAR_STATS).sort());
+    // today's eight + the club-only Pierce and Aura Power (docs/specs/GEAR_STATS.md §A.1)
+    expect(Object.keys(t).sort()).toEqual([...Object.keys(GEAR_STATS), 'piercePct', 'auraPct'].sort());
   });
 });
 

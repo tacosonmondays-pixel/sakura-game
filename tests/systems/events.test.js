@@ -213,19 +213,32 @@ describe('missions, login gifts, exchange, episodes (ES-8, ES-9)', () => {
 
   it('ES-9 the exchange: stock, funds checked first, cosmetics once, closed after the exchange', () => {
     const p = joined();
-    p.items[CANDY] = 1000;
+    p.items[CANDY] = 2500;
     expect(buyEventOffer(p, EV.id, 'hw_book_r', 2, MID).ok).toBe(true);
-    expect(itemCount(p, CANDY)).toBe(920);
+    expect(itemCount(p, CANDY)).toBe(2360); // 2 × 70
     expect(itemCount(p, 'book_rare')).toBe(5 + 10);
     expect(shopRows(p, EV, MID).find((o) => o.id === 'hw_book_r').left).toBe(8);
     expect(buyEventOffer(p, EV.id, 'hw_book_r', 9, MID).error).toBe('soldOut');
-    expect(buyEventOffer(p, EV.id, 'hw_box_my', 1, MID).ok).toBe(true);
-    expect(buyEventOffer(p, EV.id, 'hw_frame', 1, MID).error).toBe('funds');
-    expect(itemCount(p, CANDY)).toBe(470);
-    expect(buyEventOffer(p, EV.id, 'hw_title', 1, END + 1).ok).toBe(true); // exchange phase still sells
+    expect(buyEventOffer(p, EV.id, 'hw_box_my', 1, MID).ok).toBe(true); // 1,000
+    expect(buyEventOffer(p, EV.id, 'hw_frame', 1, MID).error).toBe('funds'); // 1,500 > 1,360
+    expect(itemCount(p, CANDY)).toBe(1360);
+    expect(buyEventOffer(p, EV.id, 'hw_title', 1, END + 1).ok).toBe(true); // exchange phase still sells (900)
+    expect(itemCount(p, CANDY)).toBe(460);
     expect(buyEventOffer(p, EV.id, 'hw_title', 1, END + 2).error).toBe('soldOut');
     expect(eventCosmetics(p).titles).toEqual(['ev_halloween_2026']);
     expect(buyEventOffer(p, EV.id, 'hw_notes', 1, XEND).error).toBe('closed');
+  });
+
+  it('ES-9b the raised prices (owner, Oct 20): the limited stock costs 15,800 candy, every stock limit unchanged', () => {
+    const PRICES = {
+      hw_title: [900, 1], hw_frame: [1500, 1], hw_ticket: [1100, 2], hw_gems: [700, 2], hw_box_my: [1000, 1], hw_box_sr: [300, 4],
+      hw_book_my: [650, 2], hw_book_sr: [160, 8], hw_book_r: [70, 10], hw_charm_sr: [240, 4], hw_rune_sr: [240, 4], hw_frag: [300, 4],
+      hw_coins: [60, 20], hw_notes: [40, null],
+    };
+    expect(Object.fromEntries(EV.shop.map((o) => [o.id, [o.price, o.limit]]))).toEqual(PRICES);
+    expect(EV.shop.filter((o) => o.limit != null).reduce((a, o) => a + o.price * o.limit, 0)).toBe(15800);
+    // the Exchange tab shows them (shopRows is what it draws)
+    expect(shopRows(joined(), EV, MID).map((o) => o.price)).toEqual(EV.shop.map((o) => o.price));
   });
 
   it('episodes: first read pays once (skips count), replays nothing, locks in chain order', () => {
@@ -263,8 +276,8 @@ describe('save (ES-11)', () => {
     const raw = JSON.parse(JSON.stringify(p));
     delete raw.events;
     expect(migrateProfile(raw).events).toEqual({ v: 1, byId: {} });
-    p.items[CANDY] = 400;
-    buyEventOffer(p, EV.id, 'hw_title', 1, MID);
+    p.items[CANDY] = 900;
+    expect(buyEventOffer(p, EV.id, 'hw_title', 1, MID).ok).toBe(true);
     readEpisode(p, EV.id, 'ev.halloween.01', MID);
     const back = deserializeProfile(serializeProfile(p));
     expect(back.events.byId['halloween-2026'].owned).toEqual(['title:ev_halloween_2026']);

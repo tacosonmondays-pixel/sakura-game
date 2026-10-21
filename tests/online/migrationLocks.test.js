@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { MIGRATION_FILES, migrationText } from './pgHarness.js';
 
 /** The files that must start with the quiet moment (every file after the social one that touches a live table). */
-const FILES = ['20261013000000_social.sql', '20261016000000_profile.sql', '20261017000000_player_tags.sql', '20261018000000_clan_invites.sql'];
+const FILES = ['20261013000000_social.sql', '20261016000000_profile.sql', '20261017000000_player_tags.sql', '20261018000000_clan_invites.sql', '20261021000000_titan_board.sql'];
 
 /** Live tables a file changes or points at: foreign keys, triggers, ALTER TABLE (not the tables it creates itself). */
 function touched(sql) {

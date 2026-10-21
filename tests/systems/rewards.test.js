@@ -206,14 +206,14 @@ describe('unlocks', () => {
     expect(canPlayEndless(p, res.id)).toBe(false); // bounty/assault arenas never run endless
   });
 
-  it('grantUnit gives fragments for duplicates', () => {
+  it('grantUnit gives Essence (not fragments) for duplicates', () => {
     const p = createProfile();
-    expect(grantUnit(p, 'kaede')).toMatchObject({ isNew: true, fragments: 0 });
-    expect(grantUnit(p, 'kaede')).toMatchObject({ isNew: false, fragments: 40 });
-    expect(grantUnit(p, 'shiro')).toMatchObject({ isNew: true, fragments: 0 });
-    expect(grantUnit(p, 'shiro')).toMatchObject({ isNew: false, fragments: 10 });
-    expect(p.items.star_fragment).toBe(50);
-    // duplicates also count toward Potential (src/systems/potential.js)
+    expect(grantUnit(p, 'kaede')).toMatchObject({ isNew: true, essence: 0, spare: null });
+    expect(grantUnit(p, 'kaede')).toMatchObject({ isNew: false, essence: 1, spare: null, essenceHeld: 1 });
+    expect(grantUnit(p, 'shiro')).toMatchObject({ isNew: true, essence: 0, spare: null });
+    expect(grantUnit(p, 'shiro')).toMatchObject({ isNew: false, essence: 1, spare: null, essenceHeld: 1 });
+    expect(p.items.star_fragment || 0).toBe(0);
+    // duplicates are counted as her Essence history (src/systems/essence.js)
     expect(p.units.kaede.dupes).toBe(1);
     expect(p.units.shiro.dupes).toBe(1);
   });

@@ -169,7 +169,7 @@ export class Overlays {
       let model = null;
       const mats = [];
       if (def) {
-        model = buildChibi(def, { quality: this.quality === 'high' ? 'medium' : this.quality });
+        model = buildChibi(def, { quality: this.quality === 'high' ? 'medium' : this.quality, skin: this.actors?.skins?.[unitId] });
         model.traverse((o) => {
           if (!o.isMesh) return;
           const src = o.material;
@@ -242,7 +242,9 @@ export class Overlays {
       const v = this.actors.towerView(uid);
       const y = v?.water ? WATER_Y + 0.04 : PATH_H + 0.03;
       this.selRange.visible = range > 0;
-      this.selRange.position.set(tower.x, y, tower.y);
+      // relay girls (familiar / mirror) fight from their origin: the ring is centred there
+      const rc = tower.stats?.relay && tower.origin ? tower.origin : tower;
+      this.selRange.position.set(rc.x, y, rc.y);
       this.selRange.scale.setScalar(range);
       this.selRange.material.uniforms.uRadius.value = range;
       this.selRange.material.uniforms.uColor.value.set('#ffffff');

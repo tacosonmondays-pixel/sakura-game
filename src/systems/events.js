@@ -15,15 +15,23 @@
 // claimed, 'evp:<eventId>:<run>:<missionId>' = one-time mission progress. The login gifts sent are
 // read back from mail.delivered ('ev:<eventId>:<run>:login:<n>'). The run's 'evb:' / 'evm:' / 'evp:'
 // marks are removed once it is settled (the block is pruned then and 'evs:' keeps it final).
+// Nightmare (Halloween 2026, Oct 20): its medals are progress.stages[id].nightmare, which every build's migrate keeps;
+// its one-time missions are shadowed like the others, so a v0.1.38 tab that drops their ids from the block never
+// makes them pay twice. Missions added mid-event are one-time only (daily claims have no shadow).
+// Sweep limit (owner, Oct 20: "Sweep limit for now"): EVENT_SWEEPS_PER_DAY sweeps per game day across all of an
+// event's stages together, counted in profile.missions.counters only ('evsw:<eventId>' = sweeps used that game day,
+// 'evswd:<eventId>' = its gameDayNumber), never in the block, so a v0.1.38 tab's cleanEvents can't drop the count and
+// refill it. That tab doesn't know the limit and sweeps as before (accepted); a sweep pays once in either build.
 
 import '../data/events/wire.js';
 import { ALL_EVENTS, EVENTS, EVENT_MAP, eventById, eventOfStage } from '../data/events/index.js';
 import { STAGE_MAP } from '../data/stages.js';
 import { getItem } from '../data/items.js';
-import { gameDay, gameDayStart, gameDayEnd, isNewPeriod, formatCountdown } from '../core/reset.js';
+import { DIFFICULTIES } from '../data/types.js';
+import { gameDay, gameDayNumber, gameDayStart, gameDayEnd, nextDailyReset, isNewPeriod, formatCountdown } from '../core/reset.js';
 import { addItems, consumeItems, itemCount, normalizeList } from './inventory.js';
 import { deliverMail } from './mail.js';
-import { isStageCleared } from './unlocks.js';
+import { isStageCleared, stageMedals } from './unlocks.js';
 
 const DAY = 24 * 3600 * 1000;
 const ms = (t) => (t instanceof Date ? t.getTime() : Number(t));
@@ -36,6 +44,11 @@ export const READ_MARK = 'evr:';
 export const BOUGHT_MARK = 'evb:';
 export const CLAIM_MARK = 'evm:';
 export const PROGRESS_MARK = 'evp:';
+export const SWEEP_MARK = 'evsw:';
+export const SWEEP_DAY_MARK = 'evswd:';
+
+/** Event sweeps per game day, all of an event's stages together; battles played are never limited. */
+export const EVENT_SWEEPS_PER_DAY = 10;
 
 const runKey = (mark, eventId, run, id) => `${mark}${eventId}:${run}:${id}`;
 const loginId = (eventId, run, n) => `ev:${eventId}:${run}:login:${n}`;
@@ -180,12 +193,14 @@ function lastLoginDay(ev, run, mail) {
   return letter && Number(letter.sentAt) > 0 ? gameDay(Number(letter.sentAt)) : null;
 }
 
-/** Drops a settled run's 'evb:' / 'evm:' / 'evp:' shadows (the 'evs:' mark keeps the settle final). */
+/** Drops a settled run's 'evb:' / 'evm:' / 'evp:' shadows and the sweep count (the 'evs:' mark keeps the settle final). */
 function dropRunShadows(profile, eventId, run) {
   const c = profile.missions?.counters;
   if (!isObj(c)) return;
   const heads = [BOUGHT_MARK, CLAIM_MARK, PROGRESS_MARK].map((m) => `${m}${eventId}:${run}:`);
   for (const k of Object.keys(c)) if (heads.some((h) => k.startsWith(h))) delete c[k];
+  delete c[`${SWEEP_MARK}${eventId}`];
+  delete c[`${SWEEP_DAY_MARK}${eventId}`];
 }
 
 // ---------------------------------------------------------------------------
@@ -306,6 +321,24 @@ export function eventStageStatus(profile, stageId, now = Date.now(), opts = {}) 
 }
 
 /**
+ * Does this event stage offer `difficulty` to this save now? Event stages play only their own
+ * `difficulties`, and a stage's `unlockAfter` names the medal a difficulty waits for: an operation's
+ * Nightmare opens after its Normal medal, the Golem's after its Hard medal. Every other stage: ok.
+ * @returns {{ ok: boolean, reason: null|'difficulty'|'medal', needs: string|null, text: string }}
+ *   text: "Clear Hard first" (the stage-prep picker's line)
+ */
+export function eventDifficultyStatus(profile, stageId, difficulty) {
+  const stage = STAGE_MAP[stageId];
+  if (stage?.kind !== 'event') return { ok: true, reason: null, needs: null, text: '' };
+  if (Array.isArray(stage.difficulties) && !stage.difficulties.includes(difficulty)) {
+    return { ok: false, reason: 'difficulty', needs: null, text: `${DIFFICULTIES[difficulty]?.name || difficulty} isn't offered here` };
+  }
+  const needs = stage.unlockAfter?.[difficulty] || null;
+  if (needs && !stageMedals(profile, stageId)[needs]) return { ok: false, reason: 'medal', needs, text: `Clear ${DIFFICULTIES[needs].name} first` };
+  return { ok: true, reason: null, needs: null, text: '' };
+}
+
+/**
  * The reward gate of a finished event battle: the stage's status at the battle's START time, so a
  * battle begun before the end still pays (EVENT_SPEC §3.2).
  * @returns {{ ok: boolean, text: string }}
@@ -321,21 +354,54 @@ export function eventRunGate(profile, stage, startedAt = Date.now()) {
 
 /**
  * Event missions + episode unlocks after an event battle (called by applyBattleResult just before
- * it adds the rewards). Only ever counts while the event is active.
+ * it adds the rewards). Only ever counts while the event is active. `eventStage` counts a stage's
+ * first clear and each new medal on it (with its difficulty: "Clear Hayride on Nightmare");
+ * `eventClear` and `eventBoss` carry the difficulty too.
  * @returns {{ event?: { id: string, newEpisodes: string[] } }}
  */
-export function eventAfterBattle(profile, stage, { won, firstClear, difficulty, totalKills = 0, now = Date.now() } = {}) {
+export function eventAfterBattle(profile, stage, { won, firstClear, newMedal = false, difficulty, totalKills = 0, now = Date.now() } = {}) {
   const ev = stage?.kind === 'event' ? eventOfStage(stage.id) : null;
   if (!ev) return {};
   if (won) {
-    trackEvent(profile, ev.id, 'eventClear', 1, { now });
+    trackEvent(profile, ev.id, 'eventClear', 1, { now, difficulty });
     if (stage.boss) trackEvent(profile, ev.id, 'eventBoss', 1, { now, difficulty });
-    if (firstClear) trackEvent(profile, ev.id, 'eventStage', 1, { now, stageId: stage.id });
+    if (firstClear || newMedal) trackEvent(profile, ev.id, 'eventStage', 1, { now, stageId: stage.id, difficulty });
   }
   if (totalKills > 0) trackEvent(profile, ev.id, 'eventKill', totalKills, { now });
   // episodes this first clear opened (their stage gate is this stage)
   const newEpisodes = won && firstClear ? episodeRows(profile, ev, now).filter((r) => r.state === 'new' && r.gate.stage === stage.id).map((r) => r.id) : [];
   return { event: { id: ev.id, newEpisodes } };
+}
+
+// ---------------------------------------------------------------------------
+// Sweep limit (EVENT_SPEC §3.6 "Daily sweep limit")
+// ---------------------------------------------------------------------------
+
+/**
+ * Today's event sweeps: EVENT_SWEEPS_PER_DAY on the 7 PM Central game day, all of the event's stages together.
+ * Forward only (isNewPeriod): a stored day later than the clock (set back) keeps its count, so it never refills early.
+ * @returns {{ limit: number, used: number, left: number, refillsAt: number }} refillsAt: the next 7 PM Central (ms)
+ */
+export function eventSweepsLeft(profile, eventId, now = Date.now()) {
+  const c = profile?.missions?.counters || {};
+  const t = ms(now);
+  const limit = EVENT_SWEEPS_PER_DAY;
+  const used = isNewPeriod(c[`${SWEEP_DAY_MARK}${eventId}`], gameDayNumber(t)) ? 0 : Math.min(limit, intOf(c[`${SWEEP_MARK}${eventId}`]));
+  return { limit, used, left: limit - used, refillsAt: nextDailyReset(t) };
+}
+
+/** Counts `n` event sweeps that just paid (rewards.js sweep: never more than eventSweepsLeft allowed). */
+export function useEventSweeps(profile, eventId, n, now = Date.now()) {
+  const c = ((profile.missions ||= {}).counters ||= {});
+  const today = gameDayNumber(ms(now));
+  const dayKey = `${SWEEP_DAY_MARK}${eventId}`;
+  const key = `${SWEEP_MARK}${eventId}`;
+  if (isNewPeriod(c[dayKey], today)) {
+    c[dayKey] = today;
+    c[key] = 0;
+  }
+  c[key] = intOf(c[key]) + Math.max(0, Math.floor(n) || 0);
+  return eventSweepsLeft(profile, eventId, now);
 }
 
 // ---------------------------------------------------------------------------
@@ -598,7 +664,12 @@ function fill(text, vars) {
  * - at endAt: one letter with every finished but unclaimed mission reward (expires with the exchange
  *   when it holds event currency). A player first back after exchangeEndAt gets it without the
  *   currency and without an expiry: that currency joins the leftover count below instead, so the
- *   letter is never born expired and nothing in it is lost.
+ *   letter is never born expired and nothing in it is lost. When that letter was already sent by an
+ *   older build that knew fewer one-time missions (a v0.1.38 tab and the Nightmare missions), the
+ *   one-time missions it left finished but unclaimed come in one follow-up letter
+ *   ('ev:<eventId>:<run>:unclaimed:2'), with the same late and expiry rules and the same claims and
+ *   'evm:' marks, so it is sent once. (A v0.1.38 tab that also closes the run after exchangeEndAt
+ *   drops those missions' progress and marks with it: nothing is left to recover then.)
  * - at exchangeEndAt: the leftover currency is removed and mailed back as coins; `settled` is set
  *   (final: a clock rolled back never reopens it) and the state is pruned.
  * @returns {{ letters: object[], settled: string[] }}
@@ -616,11 +687,16 @@ export function settleEvents(profile, now = Date.now()) {
     let lateCurrency = 0; // the unclaimed missions' currency when the exchange had already closed
     if (t >= w.endAt && st) {
       const rows = missionRows(profile, ev, Math.min(t, w.endAt - 1));
-      const list = [...rows.daily, ...rows.total].filter((m) => m.done && !m.claimed);
+      const delivered = Array.isArray(profile.mail?.delivered) ? profile.mail.delivered : [];
+      // An older build that mailed the letter first knew fewer one-time missions (v0.1.38 has no Nightmare ones)
+      // and claimed only its own: the ones still finished but unclaimed go in one follow-up letter, same rules.
+      const firstId = `ev:${ev.id}:${st.run}:unclaimed`;
+      const followUp = delivered.includes(firstId);
+      const id = followUp ? `${firstId}:2` : firstId;
+      const list = (followUp ? rows.total : [...rows.daily, ...rows.total]).filter((m) => m.done && !m.claimed);
       const bucketOf = (m) => (m.kind === 'daily' ? st.daily : st.total);
       const rewards = normalizeList(list.flatMap((m) => m.rewards));
-      const id = `ev:${ev.id}:${st.run}:unclaimed`;
-      if (rewards.length && !profile.mail?.delivered?.includes(id)) {
+      if (rewards.length && !delivered.includes(id)) {
         const tpl = ev.mail?.unclaimed || {};
         const late = t >= w.exchangeEndAt;
         const currency = rewards.filter((r) => r.id === cur).reduce((a, r) => a + r.count, 0);

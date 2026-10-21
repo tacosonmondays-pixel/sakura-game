@@ -13,6 +13,7 @@ import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { ownedUnits, nextStage, recommendedFor } from '../../systems/unlocks.js';
 import { unitPower } from '../../systems/progression.js';
+import { hasOutfitOn, equippedSkin } from '../../systems/skins.js';
 import { capabilityIcon, uiIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
@@ -59,6 +60,7 @@ function slotTile(unitId, onRemove, needCaps) {
     h('span.mb-fslot-x', '×'),
     ur ? h('span.mb-fslot-ur', urBadge()) : null,
     st && potentialLevel(st) >= 2 ? h('span.mb-fslot-pot', { 'data-testid': 'fslot-pot' }, potPill(potentialLevel(st), { compact: true })) : null,
+    hasOutfitOn(store.profile, unitId) ? h('span.mb-fslot-outfit', { title: `Wearing ${equippedSkin(store.profile, unitId).name}` }, svgEl(uiIcon('hanger'))) : null,
     h('div.mb-fslot-name', u.name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${st?.level || 1}`)));
   if (ur) applyUrFrame(el, u, store.profile);
   return el;
@@ -203,6 +205,7 @@ export function render(root, params = {}) {
           return h(`div.mb-pick${team.includes(u.id) ? '.in' : ''}${covers.length ? '.mb-pick-glow' : ''}`,
             card,
             team.includes(u.id) ? h('span.mb-pick-check', svgEl(uiIcon('check'))) : null,
+            hasOutfitOn(profile, u.id) ? h('span.mb-card-outfit', { title: `Wearing ${equippedSkin(profile, u.id).name}` }, svgEl(uiIcon('hanger'))) : null,
             covers.length ? h('div.mb-pick-need', covers.map((c) => svgEl(capabilityIcon(c)))) : null,
             h('span.mb-pick-cost', u.kind === 'hero' ? 'Free' : formatNumber(u.base.cost)));
         }))

@@ -351,4 +351,14 @@ export const ATTACK_SPRITES = [
       ctx.fill();
     }
   }],
+  ['card', 24, 32, (ctx, w, h) => {
+    // holo fortune card (portrait): white face, a soft rim and a diamond sigil in the middle
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(1.5, 1.5, w - 3, h - 3);
+    ctx.strokeStyle = 'rgba(150,120,140,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(4, 4, w - 8, h - 8);
+    ctx.fillStyle = 'rgba(150,110,130,0.7)';
+    fillPath(ctx, [w / 2, h * 0.3, w * 0.68, h / 2, w / 2, h * 0.7, w * 0.32, h / 2]);
+  }],
 ];

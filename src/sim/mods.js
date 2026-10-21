@@ -12,9 +12,10 @@ import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
 import { BREW_TARGETS_MAX } from './constants.js';
+import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
 
-const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
-const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
+const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
+const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul', 'airMul'];
 const REPLACE_KEYS = ['attackType', 'element', 'behavior'];
 
 function normAura(a = {}) {
@@ -136,6 +137,11 @@ export function normalizeBase(base = {}, unitDef = {}) {
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
+    // roster merge (ROSTER_SPEC §6.2): flyer damage multiplier, gather pull, relay origin
+    airMul: b.airMul ?? 1,
+    gather: b.gather ?? 0,
+    // both: she also fires from her own spot (Iroha's two firing points)
+    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
   };
 }
 
@@ -299,6 +305,9 @@ export function applyModSet(s, mods, acc) {
       s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
       s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
       s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
+    } else if (key === 'relay') {
+      // only a girl who already has a familiar / mirror can extend its reach
+      if (s.relay) s.relay.reach += v.reach ?? 0;
     } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }
@@ -351,6 +360,7 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.crit.mul *= u.critMul || 1;
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
+  applyGearReach(s, u);
   if (s.turret) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;
@@ -359,6 +369,38 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
     if (s.turret.build > 0) s.turret.build /= u.rateMul;
   }
   return s;
+}
+
+/**
+ * Gear's reach past hits (docs/specs/GEAR_STATS.md §A.3, §A.4, §B.3): Pierce widens blasts and traps
+ * (×(1 + 0.2 × Pierce)); Aura Power grows her aura's bonus parts (never its cost cut); gear Range and the
+ * aura girls' fill-in widen her aura; half of gear ATK reaches her burns and poisons (dotMul, never the
+ * %-of-max-HP part). Shots, beams, sweeps, chains and drones take Pierce per attack (towers.js).
+ */
+function applyGearReach(s, u) {
+  const pk = Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(u.pierceK || 0)));
+  if (pk > 0) {
+    const blast = 1 + BLAST_PER_PIERCE * (pk / 100);
+    if (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) s.splash *= blast;
+    if (s.trap && s.trap.splash > 0) s.trap = { ...s.trap, splash: s.trap.splash * blast };
+  }
+  if (s.aura) {
+    const a = { ...s.aura };
+    const ap = Math.max(0, u.auraPct || 0);
+    if (ap > 0) {
+      for (const k of ['dmgMul', 'rateMul', 'rangeMul']) if (typeof a[k] === 'number' && a[k] > 1) a[k] = 1 + (a[k] - 1) * (1 + ap);
+      for (const k of ['armorPen', 'critChance']) if (typeof a[k] === 'number' && a[k] > 0) a[k] *= 1 + ap;
+    }
+    if (typeof a.range === 'number') a.range *= (u.rangeMul || 1) * Math.max(1, u.auraRangeMul || 1);
+    s.aura = a;
+  }
+  const dm = Math.max(1, u.dotMul || 1);
+  if (dm > 1) {
+    const grow = (list) => (list || []).map((st) => ((st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number' ? { ...st, dps: st.dps * dm } : st));
+    if (s.status) s.status = grow(s.status);
+    if (s.trap?.status) s.trap = { ...s.trap, status: grow(s.trap.status) };
+    if (s.turret?.status) s.turret = { ...s.turret, status: grow(s.turret.status) };
+  }
 }
 
 /**
