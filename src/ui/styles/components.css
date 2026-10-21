@@ -287,3 +287,54 @@
 }
 @keyframes ui-sheet-in { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes ui-drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- Icons, icon buttons and ghost buttons (§5.5; added with M1a) ---------- */
+.ui-ico { display: inline-grid; place-items: center; flex: none; width: var(--icon-s); height: var(--icon-s); }
+.ui-ico > svg { width: 100%; height: 100%; display: block; }
+/* Icon: 44 × 44, icon only, an accessible name. .glass sits on art (a white glass disc). */
+.ui-ibtn {
+  width: var(--tap); height: var(--tap); flex: none; position: relative;
+  display: inline-grid; place-items: center;
+  border: 0; border-radius: 50%; padding: 0;
+  background: var(--sky-1); color: var(--ink);
+  transition: transform var(--t-press) var(--ease);
+}
+.ui-ibtn > .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+.ui-ibtn:active { transform: scale(0.96); }
+.ui-ibtn.glass { background: rgba(255, 255, 255, 0.9); color: var(--plate); box-shadow: 0 2px 6px rgba(14, 25, 48, 0.28); }
+.ui-ibtn.plate { background: var(--plate-glass); color: var(--on-plate); }
+.ui-ibtn.small { width: 32px; height: 32px; }
+.ui-ibtn.small::before { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); }
+/* Ghost: text only, the text-safe blue (Where to get, Full page) */
+.ui-ghost {
+  min-height: var(--tap); padding: 0 var(--sp-2);
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  border: 0; background: transparent; color: var(--blue-text);
+  font: 700 var(--fs-body)/1 var(--font); white-space: nowrap;
+}
+.ui-ghost > .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+/* star glyphs (awakening): lit gold, unlit a soft outline that still reads on ink and white */
+.ui-stars { display: inline-flex; gap: 1px; }
+.ui-star { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.3); }
+.ui-star.on { color: #ffd23f; }
+@media (min-height: 481px) { .ui-star { width: 18px; height: 18px; } }
+
+/* ---------- Glass panel (§5.4; added with M1a): white glass, one --cut chamfer at the top-right ---------- */
+/* the chamfer clips the inner box; the shadow sits on the outer one so it follows the cut */
+.ui-panel { display: block; min-width: 0; filter: drop-shadow(0 4px 10px rgba(29, 78, 137, 0.14)); border: 0; padding: 0; background: none; color: inherit; text-align: left; font: inherit; }
+.ui-panel-in {
+  height: 100%; padding: var(--sp-3);
+  background: rgba(255, 255, 255, 0.92); border-radius: var(--radius);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+@media (min-height: 481px) { .ui-panel-in { padding: var(--sp-4); } }
+.ui-panel-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; margin-bottom: var(--sp-2); }
+.ui-panel-head > :last-child:not(:first-child) { margin-left: auto; }
+/* a section kicker: caps label with a short slanted ink bar */
+.ui-kicker { font: 600 var(--fs-label)/var(--lh-tight) var(--font-num); text-transform: uppercase; letter-spacing: var(--track-label); color: var(--muted); display: inline-flex; align-items: center; }
+.ui-kicker::before { content: ''; display: inline-block; width: 3px; height: 10px; margin-right: 6px; border-radius: 1px; background: var(--plate); transform: skewX(var(--skew)); }
+/* visually hidden, still read out */
+.ui-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* a sheet layer (src/ui/sheet.js): the scrim and its sheet */
+.ui-layer { position: fixed; inset: 0; }
+.ui-layer.closing { opacity: 0; transition: opacity 140ms var(--ease); pointer-events: none; }

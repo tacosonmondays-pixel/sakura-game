@@ -51,7 +51,7 @@ export const HOLD_ROUTES = new Set(['formation', 'students', 'stage', 'recruit',
  * Never a hold target inside these: the sheet itself, unflipped gacha cards (no spoilers), the
  * recruit SSR showcase (a tap there means "continue"), the student page's showcase, the battle.
  */
-export const HOLD_EXCLUDE = '[data-hold-info="off"], .us-overlay, .ma-gc:not(.flipped), .ma-showcase, .mb-showcase, .bt-root';
+export const HOLD_EXCLUDE = '[data-hold-info="off"], .us-overlay, .ui-layer, .ma-gc:not(.flipped), .ma-showcase, .mb-showcase, .bt-root';
 /** The visual "card" that scales and gets the ring (the nearest of these around the target). */
 const ANCHOR = 'button, .unit-card, .ma-gc, .ol-unit, .mb-unit-mini, .mb-fslot';
 /** Routes where "Open full page" would break something (leaving the co-op lobby closes the room). */
