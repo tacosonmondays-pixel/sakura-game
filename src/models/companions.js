@@ -257,6 +257,9 @@ export function attachCompanionFigure(girl, unitId, { quality = 'high', detail =
   }).then((r) => {
     if (!r?.asset || gone) return;
     fig = buildCompanion(r.asset, { quality });
+    // manifest pageScale: a figure-viewer-only size factor (battle uses battleScale)
+    const ps = companionEntry(r.id)?.pageScale;
+    if (ps > 0) fig.scale.multiplyScalar(ps);
     const anchor = new HomeAnchor(companionEntry(r.id));
     fig.userData.playClip?.('appear');
     const place = () => {

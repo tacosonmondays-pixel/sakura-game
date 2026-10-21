@@ -98,9 +98,13 @@ describe('companion figures', () => {
     for (const [id, m] of Object.entries(manifest)) {
       if (m.battleScale == null) continue;
       expect(m.battleScale, id).toBeGreaterThanOrEqual(1);
-      expect(m.battleScale, id).toBeLessThanOrEqual(1.6);
+      expect(m.battleScale, id).toBeLessThanOrEqual(2.5);
     }
     expect(manifest.kaze.battleScale).toBeCloseTo(1.3, 5);
+    // owner (Oct 21): Kon was too tiny, so he is drawn 2x in battle and on Ruri's page
+    expect(manifest.kon.battleScale).toBeCloseTo(2, 5);
+    expect(manifest.kon.pageScale).toBeCloseTo(2, 5);
+    for (const [id, m] of Object.entries(manifest)) if (m.pageScale != null) expect(m.pageScale, id).toBeGreaterThanOrEqual(1);
   });
 
   it("the doll's threads ride a 'bar' bone the runtime can pin to Yoriko's control bar", () => {

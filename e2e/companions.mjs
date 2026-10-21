@@ -1,7 +1,7 @@
 // End-to-end check of the companion figures (src/render/companions.js) in a battle at 844×390:
 //   Ruri, Hana and Yoriko (hero) are placed; their three companions exist as 3D figures (Kon, Kaze, the doll);
 //   Kon runs from Ruri to her relay origin and sits there; Kaze leaves Hana's shoulder on one of her attacks and
-//   comes back (and is drawn 1.3x in battle); the doll dashes on Yoriko's needles (an enemy parked by her on the
+//   comes back (and is drawn 1.3x in battle, Kon 2x); the doll dashes on Yoriko's needles (an enemy parked by her on the
 //   road; Dream Detour is only a fallback after that check); the lowest graphics setting drops the figures (Kon falls back
 //   to the procedural holo fox); the student page shows the companion beside the girl; no console errors.
 // Frame strips of each behaviour (the battle paused, the renderer stepped by hand) and overview shots go to
@@ -244,7 +244,8 @@ try {
     // battle only: Kaze is drawn 1.3x over Hana's scale (Kon rides Ruri's tower scale, the same as Hana's)
     const kon2 = await actor('kon');
     const ratio = k2?.scale && kon2?.scale ? k2.scale / kon2.scale : 0;
-    check(k2?.battleScale === 1.3 && Math.abs(ratio - 1.3) < 0.03, `Kaze is drawn 1.3x in battle (battleScale ${k2?.battleScale}, ${ratio.toFixed(3)}x Kon's scale)`);
+    // Kon is drawn 2x (owner: he was too tiny), Kaze 1.3x, both over the same tower scale: Kaze / Kon = 0.65
+    check(k2?.battleScale === 1.3 && kon2?.battleScale === 2 && Math.abs(ratio - 0.65) < 0.02, `Kaze 1.3x and Kon 2x in battle (battleScale ${k2?.battleScale} / ${kon2?.battleScale}, ratio ${ratio.toFixed(3)})`);
     await page.evaluate(() => window.__battle.renderer.resetCamera());
     await step(0.05);
   }

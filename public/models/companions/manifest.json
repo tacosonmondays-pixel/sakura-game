@@ -63,6 +63,8 @@
    "move"
   ],
   "height": 0.174,
+  "battleScale": 2.0,
+  "pageScale": 2.0,
   "owner": "ruri",
   "home": {
    "offset": [
