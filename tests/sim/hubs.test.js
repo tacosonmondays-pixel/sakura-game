@@ -1,7 +1,8 @@
 // Ouka's campus hub (src/sim/hubs.js, UNIT_GAPS §5.5) and her ⚡ Assembly Bell (a map rally,
-// ABILITIES §5.3): the base rules (discount, sell value), free tiers, coins per kill, faster ability
-// charge, the stat and grant keys, the type floor, banners by the aim command, a sabotaged hub, the
-// Bell itself and determinism. Without her no girl ever carries `rules`.
+// ABILITIES §5.3): the base rules (discount, sell value), free tiers, coins per kill, the stat and
+// grant keys, the type floor, banners by the aim command, a sabotaged hub, the Bell itself and
+// determinism; the faster ability charge rule (cdCut) on a test Ouka, as no tier carries it until the
+// ability bar ships. Without her no girl ever carries `rules`.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
@@ -111,10 +112,12 @@ describe('the office rules', () => {
     expect(o.stats.hub.killBounty).toBe(2);
   });
 
-  test('Morning Bell / Student Body / Academy Charter fold into her buff; Hall Monitors and Rooftop Watch grant', () => {
+  test('Morning Bell / Club Mentors / Student Body / Academy Charter fold into her buff; Hall Monitors and Rooftop Watch grant', () => {
     const plain = makeSim().placeTower('rei', 9.7, 6.2);
+    const bell = setup({ tiers: [0, 1, 0], girl: 'rei' });
+    expect(bell.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.1, 9);
     const { g } = setup({ tiers: [0, 4, 0], girl: 'rei' });
-    expect(g.eff.rate).toBeCloseTo(plain.eff.rate * 1.1, 9);
+    expect(g.eff.rate).toBeCloseTo(plain.eff.rate * 1.15, 9); // Club Mentors' 15% (strongest wins)
     expect(g.eff.range).toBeCloseTo(plain.eff.range * 1.1, 9);
     const safe = setup({ tiers: [0, 0, 2], girl: 'rei' });
     expect(plain.eff.canHitAir).toBe(false);
@@ -136,9 +139,33 @@ describe('the office rules', () => {
     expect(floored.typeMul).toBeGreaterThanOrEqual(low.typeMul);
   });
 
-  test('Club Mentors: abilities in her radius charge 15% faster (115 points a tick), Festival 25%', () => {
-    const { sim, g } = setup({ tiers: [0, 3, 0] });
+  test('Club Mentors: girls in her radius attack 15% faster; Festival of Clubs: 25% faster and 15% further', () => {
+    const plain = makeSim().placeTower('rei', 9.7, 6.2);
+    const t3 = setup({ tiers: [0, 3, 0], girl: 'rei' });
+    expect(t3.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.15, 9);
+    expect(t3.g.eff.range).toBeCloseTo(plain.eff.range, 9);
+    const t5 = setup({ tiers: [0, 5, 0], girl: 'rei' });
+    expect(t5.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.25, 9);
+    expect(t5.g.eff.range).toBeCloseTo(plain.eff.range * 1.15, 9);
+    // no Assembly tier waits on the ability bar: none of them carries the ability-charge rule
+    for (const t of units.ouka.paths[1].tiers) expect(t.mods.hub.cdCut, t.name).toBeUndefined();
+    expect(t5.g.rules.cdCut).toBe(0);
+  });
+
+  test('the ability-charge rule (cdCut, for the ability bar): abilities in her radius charge 15% faster (115 points a tick)', () => {
+    // no tier carries cdCut today; a test Ouka whose Club Mentors does
+    const o = units.ouka;
+    const paths = o.paths.map((p, pi) => (pi !== 1 ? p : {
+      ...p, tiers: p.tiers.map((t, ti) => (ti !== 2 ? t : { ...t, mods: { ...t.mods, hub: { ...t.mods.hub, cdCut: 0.15 } } })),
+    }));
+    const data = { stage: STAGE, map: MAP, units: { ...units, ouka: { ...o, paths } }, enemies: ENEMIES };
+    const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }, { unitId: 'rei' }], seed: 7, data });
+    sim.cash = 1e9;
+    const hub = sim.placeTower('ouka', 8.5, 6.2);
+    buy(sim, hub, [0, 3, 0]);
+    const g = sim.placeTower('aoi', 9.7, 6.2);
     buy(sim, g, [0, 3, 0]);
+    expect(g.rules.cdCut).toBe(0.15);
     const plain = makeSim();
     const p = plain.placeTower('aoi', 9.7, 6.2);
     buy(plain, p, [0, 3, 0]);

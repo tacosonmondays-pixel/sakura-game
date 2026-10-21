@@ -41,6 +41,7 @@ import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, R
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek, TIER_STAGE } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
+import { shownTips } from '../../data/unitTips.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -335,7 +336,7 @@ export function secretaryLines(profile) {
   lines.push(u.quote);
   if (next) lines.push(`Next mission: ${next} ${STAGE_MAP[next].name}. Shall we go?`);
   lines.push(`This week is ${event.name}! ${event.arenaName} Bounty drops are doubled.`);
-  if (u.tips?.length) lines.push(...u.tips.slice(0, 2));
+  lines.push(...shownTips(u).slice(0, 2)); // (no ⚡ tips until the ability bar ships)
   return lines;
 }
 

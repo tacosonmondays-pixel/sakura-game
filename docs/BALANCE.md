@@ -49,6 +49,15 @@ Hard 21 → 25 lives, 8-4 Hard 37 → 37; Kinu 5-4 Hard 21 → 13, 6-1 Hard 44 �
 for the free team) is lost with any ninth girl the bot adds, either of them: its plan spends on her
 before the second copies it relies on.
 
+Ouka's Assembly (v0.1.40 ship check): Club Mentors (T3, 1,100) and Festival of Clubs (T5, 19,200) only
+sped up ability charge (`cdCut`), and nothing casts an ability until the ability bar ships, so both
+were dead buys (and T3 gates T4). They now give a live effect at the same prices: Club Mentors, girls
+in her radius attack 15% faster (Morning Bell's 10% raised to 15%; strongest wins with the auras);
+Festival of Clubs, 25% faster and 15% further (Student Body's 10% range raised to 15%). Her ⚡ tier-3
+total stays 2,090. `cdCut` stays in the sim for the bar (`tests/sim/hubs.test.js` runs it on a test
+Ouka); give a tier its charge rule back when the bar ships. Gates: GACHA_GOLDEN Ouka rows unchanged
+(5-4 Hard, 8-4 Hard), Easy gate 40 / 40 (she is gacha, never in the free pool).
+
 **Chigusa** (SR, gacha; Greenhouse Gardener, nature caster). Walking-stream bench (as above): 75 / 278 /
 1422 at 3/2 / 4/2 / 5/2 (SR band: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150). The spec's seeds (2
 damage, Fresh Seeds +1, Full Bloom +4, Season of Plenty +10) benched at 28 / 139 / 550, a third of the

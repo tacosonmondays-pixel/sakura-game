@@ -31,6 +31,7 @@ import { CLUBS, LIVE_CLUBS } from './clubs.js';
 import { LEGACY, LEGACY_IDS } from './legacy.js';
 import { EXPANSION_IDS } from './unitsExpansion.js';
 import { NEW_GIRL_IDS } from './unitsNewGirls.js';
+import { shownTips } from './unitTips.js';
 import { CHAPTERS, STAGE_MAP } from './stages.js';
 import { FAMILIES, FAMILY_ORDER } from './enemies.js';
 import { ITEMS, materialId, bookId } from './items.js';
@@ -702,7 +703,7 @@ function returningArticle() {
     sec('Who is back',
       p('Kanna, Yoriko and Seiran are adult staff heroes; Fuu, Hana, Ruri, Noa, Iroha and Ena are students. Noa joins free after 6-2 and Hana after 7-5; the others come from recruiting. All nine have their painted portraits; Noa, Hana and Ruri have their finished 3D chibis, and the other six have simpler temporary ones until theirs are ready.'),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
-        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, u.tips[0],
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, shownTips(u)[0],
       ]))),
     sec('Aim points',
       p('Some girls have an aim point: Iroha\'s mirror panel and Seiran\'s Dragonflight. Select her and tap Set aim, then tap the map; Auto lets her choose again. In co-op only her owner can aim her.'),
@@ -721,34 +722,34 @@ function returningArticle() {
 function newGirlsArticle() {
   const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const free = girls.filter((u) => u.acquisition.type === 'free');
-  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'spiral', 'wakaba', 'drink', 'hydrated', 'time out', 'yuzuha', 'sentry', 'sentries', 'net', 'deploy', 'ouka', 'council', 'office', 'banner', 'free tier', 'assembly bell', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'overgrowth', 'marumi', 'bowling', 'ball', 'pins', 'sticky', 'giant strike'], [
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'wakaba', 'drink', 'hydrated', 'yuzuha', 'sentry', 'sentries', 'net', 'ouka', 'council', 'office', 'banner', 'free tier', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'marumi', 'bowling', 'ball', 'sticky'], [
     sec('Who joined',
       p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
-        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, u.tips[0],
+        { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, shownTips(u)[0],
       ]))),
     sec('Spike strips (Azami)',
       p('Azami lays a spike strip on the road in her range every few seconds. A strip hits each ground enemy that crosses it once, until its hits run out, and folds up after 30 seconds. Flyers pass over unless she has Tall Barbs.'),
       p('Her panel has three placement chips: Near exit (the free spot nearest the exit), Spread (one strip after another along the road) and, from Checkpoint tier 3, Checkpoint: tap the road and her strips land around that point.'),
-      tip('Strips end when the wave is cleared, except Sticky Tar strips (Long Watch tier 3), which wait for the next wave. Spike Rain (Checkpoint Duty tier 3) lays a burst of extra strips along her whole road.', 'info')),
+      tip('Strips end when the wave is cleared, except Sticky Tar strips (Long Watch tier 3), which wait for the next wave.', 'info')),
     sec('Rings of pins (Kinu)',
       p('Kinu fires a ring of pins in every direction whenever an enemy is in her short range. The pins fly straight and stop after a short hop, so she shines where the road wraps around her. Twin Spools turns each ring a little to fill the gaps; Iron Ring swaps the pins for an expanding heat ring that hits each enemy once, flyers too.'),
-      tip('Orbit Scissors (Pin Cushion tier 4) circle her and cut whatever they touch. Blade Spiral (Spinning Bobbin tier 3) adds a turning spiral of blades for a few seconds.', 'info')),
+      tip('Orbit Scissors (Pin Cushion tier 4) circle her and cut whatever they touch.', 'info')),
     sec('Sports drinks (Wakaba)',
       p('Wakaba never attacks. Every few seconds she throws a sports drink at the girl in her range who has dealt the most damage (with Big Bottles it also splashes onto the girls next to her). A Hydrated girl attacks faster and reaches further for her next few attacks; drinks stack with auras and end when the wave is cleared.'),
-      tip('Time Out! (Game Plan tier 3) powers up one girl: select Wakaba\'s ability and aim at the girl, or let her pick her top damage dealer.', 'info')),
+      tip('Coach\'s Eye (Game Plan tier 3) gives Hydrated girls Veil Sight, and Recovery Plan (First Aid tier 4) gives a life back for each wave cleared without a leak (at most 10 a battle).', 'info')),
     sec('Sentries and nets (Yuzuha)',
       p('Yuzuha shoots taser darts herself, and while a wave runs she sets a sentry at the road\'s edge in her range every few seconds. Sentries fire on their own and fold up after 20 seconds or when the wave is cleared. With Specialist Kits each new sentry is typed for the threat: flash for veiled enemies, flak for flyers, heavy for elites and nets for the rest.'),
-      tip('Capture Net (tier 3) catches weak ground enemies outright out of a hit-point budget that refills every wave; caught enemies pay extra coins. Emergency Deploy (Field Ops tier 3) drops extra sentries at once.', 'info')),
+      tip('Capture Net (tier 3) catches weak ground enemies outright out of a hit-point budget that refills every wave; caught enemies pay extra coins.', 'info')),
     sec('Vines and thorns (Chigusa)',
       p('Chigusa throws a fan of thorn seeds. Every few seconds a vine holds the lead walker in her range: it cannot move until the vine lets go. Minibosses slip free sooner, and bosses and flyers shrug vines off. Thorn Beds leaves thorns where her seeds finish a walker; Bloom Rush makes her faster the longer she keeps attacking.'),
-      tip('Harvest grows coins every wave and, from Herb Garden, a life back for each wave cleared (at most 30 a battle, never above your starting lives). Overgrowth (Greenhouse tier 3) holds a whole group of walkers at once.', 'info')),
+      tip('Harvest grows coins every wave and, from Herb Garden, a life back for each wave cleared (at most 30 a battle, never above your starting lives).', 'info')),
     sec('Rolling bombs (Marumi)',
       p('Marumi rolls bomb balls up the road from the spot nearest her, against the flow of enemies. A ball blows up on the first walker it meets: a blast that hurts everyone around it and pushes them back up the road. Balls never touch flyers; Lob (Spin Shot tier 2) throws an arcing bomb at them instead.'),
-      tip('Place her where the road runs toward the spawn in front of her. Giant Strike (Lane Master tier 3) rolls a giant ball back up her road that hits every walker once; Sticky Ball (Spin Shot tier 3) sticks to elites and bosses and explodes three times as hard.', 'info')),
+      tip('Place her where the road runs toward the spawn in front of her. Sticky Ball (Spin Shot tier 3) sticks to elites and bosses and explodes three times as hard.', 'info')),
     sec('The council office (Ouka)',
-      p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly speeds them up and recharges their abilities faster; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
-      tip('Place Ouka first and build around her. Rally Banner (Safety Code tier 3): aim her to plant a banner up to 5 tiles away, and the girls next to it follow her rules too. Assembly Bell (Assembly tier 3) speeds up every girl on the map for a few seconds.', 'info')),
+      p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly makes them attack faster and reach further; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
+      tip('Place Ouka first and build around her. Rally Banner (Safety Code tier 3): aim her to plant a banner up to 5 tiles away, and the girls next to it follow her rules too.', 'info')),
   ]);
 }
 
