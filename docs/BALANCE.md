@@ -1,5 +1,80 @@
 # Balance notes
 
+## New girls, wave 1 (2026-10-20, `feature/new-girls-w1`; UNIT_GAPS §5)
+
+Azami (R, free after 2-2), Kinu (R, gacha), Wakaba (R, free after 6-5), Yuzuha (SR, free after 4-2).
+Bench: a **walking stream** on 4-5 (one 3000-HP slime every 0.5 s along the road, 60 s, the girl on the
+bot's own spot for her, best main/cross split) — the stationary bench cannot judge a strip layer.
+
+| Girl | 3/2 | 4/2 | 5/2 | Band (same bench) |
+|---|---|---|---|---|
+| Azami | 46 | 139 | 998 | R: Aoi 56 / 173 / 1269, Rei 57 / 181 / 1072, Yuki 24 / 159 / 1273 |
+| Kinu | 46 | 244 | 1125 | R (as above) |
+| Yuzuha | 67 | 213 | 1672 | SR: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150, Suzu 107 / 331 / 2805 |
+
+Moves from the spec's first numbers: Azami strip damage 2 → 3 (Shredder +4, Detonation +16); Yuzuha's
+sentries ×4 (base 12 dmg at 1.5/s, darts 4; tier 4-5 damage and bursts raised) — the spec's sentries
+sat at a fifth of the SR band. Tier 5s are in the live 12,000-36,000 window (spec × ~1.6).
+
+Bot (`src/sim/headless.js`, keys only the new girls carry, so base-roster plans are unchanged): a strip
+layer is placed after the damage dealers, gets no extra copies, and her tiers wait for the carry's focus
+push (v0.1.40 merge: main's Gourdlight Golem gate EB-2 lost Normal seed 1 by a one-second boss leak
+when Azami's early spending delayed Shiro and Sango; the base team kills the Golem 20 s before it
+leaks); a buff thrower is a support placed where her drinks reach the planned carry; `pathScore` reads sentry and strip
+tiers like turret tiers.
+
+**Easy gate: 40 / 40** with the full roster; with the four new girls left out every row is bit-identical
+to the merged base (the modes goldens pin the same as a "base roster" block). 8-5 Easy over seeds 1-9:
+full roster 5 / 9 (seed 1 won), base 6 / 9 — the same near coin flip the roster wave measured.
+
+**Ouka** (SR, gacha; Student Council President, campus hub). She never attacks, so the damage bench does
+not apply; her value is coins. Six girls inside her office, each built to 4/2 (Aoi, Rei, Yuki, Kage, Shiro,
+Sango: 27,820 coins of upgrades):
+
+| Ouka | team upgrades | saved | Ouka cost | net |
+|---|---|---|---|---|
+| 0-0-0 (5% off) | 26,440 | 1,380 | 550 | +830 |
+| 2-0-0 (14% off) | 23,925 | 3,895 | 1,050 | +2,845 |
+| 3-0-0 (+ first tier free) | 22,705 | 5,115 | 2,250 | +2,865 |
+| 4-0-0 (+ two free, +2 coins a kill) | 19,735 | 8,085 | 5,850 | +2,235 (before kill coins) |
+| 5-0-0 Golden Charter | 18,360 | 9,460 | 25,050 | a prestige buy (+5 a kill, 90% sell) |
+
+She is gacha, so the Easy gate (free roster) never fields her: the gate rows are unchanged (full roster
+40 / 40, identical to wave 1; base roster bit-identical to the merged base). The balance bot fields her
+poorly (it places her last, after the first upgrade round, where she covers two girls: 4-5 Normal over
+seeds 1-2, 178 → 153 lives left; 6-5 184 → 181; 8-5 lost either way): a player places her first and
+builds around her. Rules are "strongest wins" with the auras, so her discount never stacks with Momo's.
+Bot goldens for the gacha girls (`modesGolden` GACHA_GOLDEN, the free team plus her, seed 1): Ouka 5-4
+Hard 21 → 25 lives, 8-4 Hard 37 → 37; Kinu 5-4 Hard 21 → 13, 6-1 Hard 44 → 38. 4-2 Hard (a 4-life win
+for the free team) is lost with any ninth girl the bot adds, either of them: its plan spends on her
+before the second copies it relies on.
+
+Ouka's Assembly (v0.1.40 ship check): Club Mentors (T3, 1,100) and Festival of Clubs (T5, 19,200) only
+sped up ability charge (`cdCut`), and nothing casts an ability until the ability bar ships, so both
+were dead buys (and T3 gates T4). They now give a live effect at the same prices: Club Mentors, girls
+in her radius attack 15% faster (Morning Bell's 10% raised to 15%; strongest wins with the auras);
+Festival of Clubs, 25% faster and 15% further (Student Body's 10% range raised to 15%). Her ⚡ tier-3
+total stays 2,090. `cdCut` stays in the sim for the bar (`tests/sim/hubs.test.js` runs it on a test
+Ouka); give a tier its charge rule back when the bar ships. Gates: GACHA_GOLDEN Ouka rows unchanged
+(5-4 Hard, 8-4 Hard), Easy gate 40 / 40 (she is gacha, never in the free pool).
+
+**Chigusa** (SR, gacha; Greenhouse Gardener, nature caster). Walking-stream bench (as above): 75 / 278 /
+1422 at 3/2 / 4/2 / 5/2 (SR band: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150). The spec's seeds (2
+damage, Fresh Seeds +1, Full Bloom +4, Season of Plenty +10) benched at 28 / 139 / 550, a third of the
+band: base damage 3, Fresh Seeds +2, Bloom Rush +3, Full Bloom +6, Season of Plenty +30. Forest Corridor
+(her T5, a final tier at 19,200) also raises vine damage to 30/s and thorn beds to 10. Bot goldens (the
+free team plus her): 5-4 Hard 21 → 29 lives, 8-4 Hard 37 → 41. Her Harvest coins use the existing
+`income` (pooled like Momo's wave income); her lives respect healing, income and the 30-a-battle cap.
+
+**Marumi** (SR, gacha; Strike Bowler, rolling bombs). Walking-stream bench: 80 / 335 / 1854 at 3/2 /
+4/2 / 5/2 with the spec's numbers unchanged (Akane 94 / 353 / 3738, Sango 79 / 236 / 2303). Her tier 5s
+are in the final-tier window (spec × 1.6); Turkey Strike also adds +40 damage and 9 pins of 16. Bot
+goldens (the free team plus her): 5-4 Hard 21 → 25 lives, 8-4 Hard 37 → 36. Shared stretches (P-17):
+a ball and its pins also touch walkers of another path where the two roads run the same way (a fork's
+shared entrance, a join's shared exit), never on a crossing or an overpass. Bowling Thunder: minibosses
+take her whole push (`pushBig`; KNOCKBACK_RESIST halves everyone else's miniboss pushes as before).
+
+
 ## Roster wave (2026-10-20, `feature/roster-wave`, track 5)
 
 First pass for the nine returning girls; the owner's balance pass comes later. Method: the hero-rework

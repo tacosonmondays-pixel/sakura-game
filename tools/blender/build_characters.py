@@ -40,7 +40,8 @@ DEFAULT_LOOK = dict(hairStyle='bob', bangs='straight', accessory='none', outfit=
 # Per-unit extra parts and horn shapes (tools-only, keyed by unit id — no unit schema change). Every extra is
 # joined into the vertex-coloured body mesh, so a GLB keeps exactly three primitives (lib/extras.py).
 EXTRA_PARTS = dict(luna=['foxTail'], hana=['falcon', 'quiver'], ruri=['foxFamiliar'], kanna=['taikoStand'],
-                   tsubaki=['mortarTube'], kohaku=['monocle'], fuu=['tailBows'], ena=['cardDealer'], seiran=['flightHeadset'])
+                   tsubaki=['mortarTube'], kohaku=['monocle'], fuu=['tailBows'], ena=['cardDealer'], seiran=['flightHeadset'],
+                   chigusa=['sunHat'])
 HORN_SHAPE = dict(raika='curl', seiran='crescent', kanna='oni')
 
 # Tools-only look / palette / body-colour overrides keyed by unit id, merged in _build_unit() over the unit's own
@@ -100,6 +101,10 @@ LOOK_OVERRIDES = dict(
     # ice-cyan blade; laughing grin
     seiran=dict(outfit='flightJacket', weapon='stormSpear', expression='cheerful', eyeStyle='round', **BATTLE_FACE,
                 browTone=0.55, hairLen=1.12, bangRaise=13, chinUp=22),
+    # The new girls (UNIT_GAPS §5): a 12 deg chin-up in every clip so the face, not just the bangs, reads at the
+    # 48 deg battle camera; Chigusa's halo floats above her straw sun hat (haloLift; EXTRA_PARTS sunHat)
+    **{uid: dict(chinUp=12) for uid in ('azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'marumi')},
+    chigusa=dict(chinUp=12, haloLift=0.1),
 )
 PALETTE_OVERRIDES = dict(
     # Fuu: jade eyes, mint jacket + ribbons, mint pleated skirt, pine-green leggings, white high-tops
@@ -176,7 +181,8 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
     P = proportions(adult)
     spec = {**outfit.spec(look, pal), **SPEC_OVERRIDES.get(uid, {})}
     ctx = dict(unit=unit, pal=pal, look=look, P=P, spec=spec, parts=[], hair_bones=[], H=Head(P), adult=adult,
-               weapon_kind=weapon.kind_of(look['weapon']), horn_shape=HORN_SHAPE.get(unit['id']))
+               weapon_kind=weapon.kind_of(look['weapon']), horn_shape=HORN_SHAPE.get(unit['id']),
+               **({'halo_lift': look['haloLift']} if look.get('haloLift') else {}))
 
     # --- face atlas ---
     atlas_path = os.path.join(tmpdir, f'{unit["id"]}_face.png')

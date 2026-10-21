@@ -5,6 +5,7 @@ import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 import { ensureBetaGift, ensurePotentialLetter, ensureEssenceLetter } from './systems/mail.js';
+import { ensureCatchUpJoins, joinToastText } from './systems/catchUpJoins.js';
 import { createRng, hashString } from './core/rng.js';
 import { settleEvents, markEventLogin } from './systems/events.js';
 import { eventNow } from './ui/events/clock.js';
@@ -62,6 +63,7 @@ applyLoadingLook(store.profile.settings);
 store.on('change', () => applyLoadingLook(store.profile.settings));
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
 window.__sakura = { store, transitions: { log: txLog, busy: transitionBusy } };
+let caughtUp = [];
 try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
   ensureBetaGift(store.profile); // Beta Tester Thank-You mail (accounts up to 2026-11-07 CST), once
@@ -69,9 +71,21 @@ try {
   settleEvents(store.profile, eventNow()); // [events] ended events: unclaimed rewards + leftover currency → coins by mail (once)
   markEventLogin(store.profile, eventNow()); // [events] the day's event visit: login mission + the daily gift letter
   ensureEssenceLetter(store.profile); // [ascension] "Duplicates are now Essence!" once, to a save the switch-over ran on
+  caughtUp = ensureCatchUpJoins(store.profile); // Azami / Yuzuha / Noa / Wakaba / Hana join once (a letter each) when 2-2 / 4-2 / 6-2 / 6-5 / 7-5 was cleared before they existed
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);
+}
+// the girls who just joined because their stage was already cleared: one toast on the first lobby
+// naming them all ("Azami, Yuzuha and Wakaba joined your academy!"), never one per girl on top of each other
+if (caughtUp.length) {
+  const text = joinToastText(caughtUp);
+  const onLobby = () => {
+    if (currentRoute().name !== 'lobby') return;
+    window.removeEventListener('lobby-stage-ready', onLobby);
+    import('./ui/components.js').then(({ toast }) => toast(text, 'good', 6000)).catch(() => {});
+  };
+  window.addEventListener('lobby-stage-ready', onLobby);
 }
 // [achievements] Honor Ribbon masks, the unlock toasts (the first check is the baseline: nothing toasts on app start)
 // and the one-time update-day notice on the lobby

@@ -38,6 +38,8 @@ const SCEN = {
   'colosseum to wave 30': { stageId: 'challenge', difficulty: 'normal', endless: true, towers: ['aoi', 'rei', 'akane', 'sango', 'umeko', 'kaede', 'hotaru', 'chika'], hero: 'hikari', stats: { damageMul: 6, rateMul: 1.4 }, seed: 4242, maxCopies: 4, maxWave: 30, forks: [10, 22] },
   // Potential v3 (format 3): every girl at P6, so rhythms, echoes, tempo, the shuriken carry, a kept
   // focus, aura boosts and drone overclocks run (and their counters cross the calm points)
+  // the new girls (UNIT_GAPS §5): Azami's strips (Spread / Near exit through the random target modes)
+  '2-5 normal (new girls)': { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'kinu', 'wakaba', 'yuzuha', 'aoi', 'rei', 'yuki', 'kage'], hero: 'hikari', stats: { damageMul: 1.6, rateMul: 1.1 }, seed: 2505, forks: [5, 12], keep: ['azami', 'kinu', 'wakaba', 'yuzuha'] },
   '3-5 hard (Potential P6)': { stageId: '3-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'miko', 'hotaru'], hero: 'luna', stats: { damageMul: 1.6, rateMul: 1.2, potential: 6 }, seed: 3506, forks: [6, 14] },
 };
 
@@ -252,7 +254,9 @@ function play(c, { stopAt = Infinity } = {}) {
       }
       if (!sold && sim.wave === 6 && sim.state === 'between' && sim.towers.length > 3) {
         sold = true;
-        issue('sell', sim.towers[sim.towers.length - 1].uid);
+        // (the newest girl, or the newest one the scenario does not keep for its checks)
+        const keep = c.keep || [];
+        issue('sell', [...sim.towers].reverse().find((t) => !keep.includes(t.unitId))?.uid ?? sim.towers[sim.towers.length - 1].uid);
       }
       // (a wave can end with shots still flying at the last enemy's spot; this player taps Start, or
       // turns Auto on, once they have landed: the calm point the snapshot is defined for)
@@ -995,6 +999,203 @@ describe('battle save and Potential v3 (format 3: rhythms, tempo, shuriken carry
   });
 });
 
+describe('abilities in a battle save (src/sim/abilities.js)', SLOW, () => {
+  const c = { stageId: '3-5', difficulty: 'normal', towers: ['aoi', 'hotaru', 'momo', 'rei'], hero: 'hikari', stats: { damageMul: 2, rateMul: 1.2 }, seed: 3355 };
+  /** Every girl on her ⚡ path to tier 3, Aoi on Auto, waves 1–3 played; Aoi fires by hand in wave 2, Hotaru in wave 3. */
+  function build() {
+    const sim = makeSim(c);
+    wrapWaves(sim, c.seed);
+    sim.cash = 1e6;
+    for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    for (const t of sim.towers) {
+      const p = t.isHero ? -1 : t.def.paths.findIndex((q) => q.ability);
+      for (let k = 0; k < 3 && p >= 0; k++) expect(sim.upgradeTower(t.uid, p), t.unitId).toBe(true);
+    }
+    const of = (id) => sim.towers.find((t) => t.unitId === id);
+    sim.setAbilityAuto(of('aoi').uid, true);
+    for (let w = 1; w <= 3; w++) {
+      sim.startNextWave();
+      let fired = false;
+      let aoi = false;
+      while (sim.state === 'wave') {
+        sim.update(STEP);
+        sim.drainEvents();
+        if (w === 2 && !aoi && sim.enemies.length) {
+          of('aoi').abil.cd = 0;
+          aoi = sim.castAbility(of('aoi').uid).ok;
+        }
+        if (w === 3 && !fired && sim.enemies.length) {
+          of('hotaru').abil.cd = 0;
+          fired = sim.castAbility(of('hotaru').uid).ok;
+        }
+      }
+      // (the calm point a save is taken at: the last shots have landed)
+      for (let k = 0; k < 600 && sim.projectiles.length; k++) sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(sim.state).toBe('between');
+    return { sim, of };
+  }
+
+  it('cooldowns left, Auto, casts and map-scope cooldowns come back exactly, and the run plays on the same', () => {
+    const { sim, of } = build();
+    expect(of('aoi').abil.n).toBeGreaterThan(0);
+    expect(of('aoi').abil.auto).toBe(true);
+    expect(of('hotaru').abil.n).toBe(1);
+    expect(sim.abilGroups.has('0|hotaru.hush')).toBe(true);
+    expect(sim.result().stats.abilitiesUsed).toBeGreaterThan(1);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    expect(snap.ag).toEqual([...sim.abilGroups].map(([k, g]) => [k, g.cd, g.cdMax, g.rate]));
+    for (const row of snap.towers) {
+      const t = sim.getTower(row.uid);
+      expect(row.ak, t.unitId).toEqual(t.abil ? [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n] : undefined);
+    }
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of sim.towers) expect(back.getTower(t.uid).abil, t.unitId).toEqual(t.abil);
+    expect([...back.abilGroups]).toEqual([...sim.abilGroups]);
+    expect(back._abilOn).toBe(sim._abilOn);
+    expect(back.result().stats.abilityByTower).toEqual(sim.result().stats.abilityByTower);
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    wrapWaves(back, c.seed);
+    autoplay(sim, 6);
+    autoplay(back, 6);
+    expect(diffPaths(digest(back), digest(sim))).toEqual([]);
+  });
+
+  it('a save without the ability fields restores every ability at its first charge (econ empty)', () => {
+    const { sim } = build();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    for (const row of snap.towers) delete row.ak;
+    delete snap.ag;
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of back.towers) {
+      if (!t.abil) continue;
+      expect(t.abil.cd, t.unitId).toBe(t.abil.kind === 'econ' ? t.abil.cdMax : Math.round(t.abil.cdMax / 3));
+      expect(t.abil.auto).toBe(false);
+    }
+    expect(back.abilGroups.size).toBe(0);
+  });
+
+  it('a hand-edited ability row cannot put non-numbers or out-of-range cooldowns into the sim', () => {
+    const { sim } = build();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    for (const row of snap.towers) if (row.ak) row.ak = ['x', 'yes', -4];
+    snap.ag = [['0|hotaru.hush', 1e12, 'q', null], ['bad key', 5, 5, 5], 'nope'];
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    for (const t of back.towers) {
+      if (!t.abil) continue;
+      expect(t.abil.cd).toBe(0);
+      expect(t.abil.auto).toBe(true);
+      expect(t.abil.n).toBe(0);
+    }
+    expect([...back.abilGroups.keys()]).toEqual([]);
+  });
+
+  it('the Auto-cast setting reaches a continued run (abilities unlocked later start on Auto)', () => {
+    const { sim } = build();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap), { settings: { autoCastAbilities: true } });
+    expect(back.abilityAutoDefault).toEqual([true, false]);
+  });
+});
+
+describe('the new girls in a battle save (UNIT_GAPS §5, §7.3)', SLOW, () => {
+  it('Azami\'s Sticky Tar strips carry over the calm point with their hits and lifetime; the rest end', () => {
+    const c = { stageId: '2-5', difficulty: 'normal', towers: ['azami', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 2552 };
+    const sim = makeSim(c);
+    wrapWaves(sim, c.seed);
+    sim.cash = 1e6;
+    for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    const az = sim.towers.find((t) => t.unitId === 'azami');
+    const watch = az.def.paths.findIndex((p) => p.id === 'watch');
+    for (let k = 0; k < 3; k++) expect(sim.upgradeTower(az.uid, watch)).toBe(true);
+    sim.setTargetMode(az.uid, 'last'); // Spread: her cursor rides in the save too
+    sim.startNextWave();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    const carried = sim.traps.filter((tr) => tr.strip);
+    expect(carried.length).toBeGreaterThan(0);
+    expect(carried.every((tr) => !tr.extra && tr.hitUids.length === 0)).toBe(true);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'azami');
+    expect(row.tr).toHaveLength(carried.length);
+    expect(row.sc).toBe(az.stripCursor);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const strip = (tr) => [tr.uid, tr.x, tr.y, tr.armed, tr.armLeft, tr.hits, tr.ttl, tr.extra, tr.hitUids.length];
+    expect(back.traps.filter((tr) => tr.strip).map(strip)).toEqual(carried.map(strip));
+    const baz = back.towers.find((t) => t.unitId === 'azami');
+    expect(baz.trapCount).toBe(az.trapCount);
+    expect(baz.stripCursor).toBe(az.stripCursor);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+  });
+});
+
+describe('the new girls in a battle save: Yuzuha\'s nets (UNIT_GAPS §7.3)', SLOW, () => {
+  it('her Capture Net stays at the calm point with its budget and wave; her sentries end', () => {
+    const c = { stageId: '4-2', difficulty: 'normal', towers: ['yuzuha', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 4242 };
+    const sim = makeSim(c);
+    wrapWaves(sim, c.seed);
+    sim.cash = 1e6;
+    for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    const yz = sim.towers.find((t) => t.unitId === 'yuzuha');
+    const net = yz.def.paths.findIndex((p) => p.id === 'net');
+    for (let k = 0; k < 3; k++) expect(sim.upgradeTower(yz.uid, net)).toBe(true);
+    sim.startNextWave();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(yz.nets.length).toBe(1);
+    expect(yz.sentries).toEqual([]);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    expect(snap.towers.find((t) => t.u === 'yuzuha').nt).toHaveLength(1);
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    expect(back.towers.find((t) => t.unitId === 'yuzuha').nets).toEqual(yz.nets);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+  });
+});
+
+/** Ouka with a Rally Banner planted by Rei, after one wave (her rules cover Aoi, the banner Rei). */
+function oukaRun() {
+  const c = { stageId: '3-3', difficulty: 'normal', towers: ['ouka', 'aoi', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 3303 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan(c.stageId, [...c.towers, c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const ou = sim.towers.find((t) => t.unitId === 'ouka');
+  const safety = ou.def.paths.findIndex((p) => p.id === 'safety');
+  for (let k = 0; k < 3; k++) expect(sim.upgradeTower(ou.uid, safety)).toBe(true);
+  const rei = sim.towers.find((t) => t.unitId === 'rei');
+  expect(sim.setAim(ou.uid, rei.x + 0.3, rei.y)).toBe(true);
+  sim.startNextWave();
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    sim.drainEvents();
+  }
+  return { c, sim, ou, rei };
+}
+
+describe('the new girls in a battle save: Ouka\'s banners (UNIT_GAPS §7.3)', SLOW, () => {
+  it('her banners stay where they are; the rules they give come back with them', () => {
+    const { c, sim, ou, rei } = oukaRun();
+    expect(ou.banners).toHaveLength(1);
+    expect(rei.rules).toBeTruthy();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'ouka');
+    expect(row.bn).toEqual(ou.banners.map((b) => [b.x, b.y]));
+    expect('am' in row).toBe(false);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bo = back.towers.find((t) => t.unitId === 'ouka');
+    expect(bo.banners).toEqual(ou.banners);
+    expect(back.towers.find((t) => t.unitId === 'rei').rules).toEqual(rei.rules);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)
@@ -1013,6 +1214,46 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const name of Object.keys(SCEN)) for (const t of fullRun(name).sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the Potential team: Suzu's trap rhythm, Kage's tempo and carry, Kaede's kept focus …)
     for (const t of potRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and a girl mid-wave with Wakaba's drink: it only exists while a wave runs)
+    const mid = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['wakaba', 'aoi'], hero: null, stats: {}, seed: 11 });
+    mid.cash = 1e6;
+    for (const a of autoPlan('1-1', ['wakaba', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') mid.placeTower(a.unitId, a.x, a.y);
+    mid.startNextWave();
+    for (let i = 0; i < 60 * 20 && !mid.towers.some((t) => t.hydrated); i++) mid.update(STEP);
+    expect(mid.towers.some((t) => t.hydrated)).toBe(true);
+    for (const t of mid.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Ouka's banners and the rules she gives)
+    for (const t of oukaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Chigusa mid-wave: a held enemy, thorn beds, Bloom Rush; all of it ends at the wave clear)
+    const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: {}, seed: 12 });
+    cg.cash = 1e6;
+    for (const a of autoPlan('1-1', ['chigusa', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') cg.placeTower(a.unitId, a.x, a.y);
+    const ch = cg.towers.find((t) => t.unitId === 'chigusa');
+    for (const [p, n] of [[0, 3], [1, 2]]) for (let k = 0; k < n; k++) expect(cg.upgradeTower(ch.uid, p)).toBe(true);
+    cg.startNextWave();
+    for (let i = 0; i < 60 * 60 && !(ch.vineHold && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
+    expect(!!(ch.vineHold && ch.beds?.length && ch.bloomT > 0)).toBe(true);
+    for (const t of cg.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Marumi mid-wave: balls on the road, Lob on, so every spec of hers exists)
+    const mr = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 13 });
+    mr.cash = 1e6;
+    for (const a of autoPlan('1-1', ['marumi', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') mr.placeTower(a.unitId, a.x, a.y);
+    const mb = mr.towers.find((t) => t.unitId === 'marumi');
+    for (let k = 0; k < 2; k++) expect(mr.upgradeTower(mb.uid, 2)).toBe(true);
+    mr.startNextWave();
+    for (let i = 0; i < 60 * 60 && !mb.balls?.length; i++) mr.update(STEP);
+    expect(mb.balls?.length > 0).toBe(true);
+    for (const t of mr.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Azami in Spread mode: her road cursor)
+    const az = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['azami', 'aoi'], hero: null, stats: {}, seed: 14 });
+    az.cash = 1e6;
+    for (const a of autoPlan('1-1', ['azami', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') az.placeTower(a.unitId, a.x, a.y);
+    const azg = az.towers.find((t) => t.unitId === 'azami');
+    az.setTargetMode(azg.uid, 'last');
+    az.startNextWave();
+    for (let i = 0; i < 60 * 60 && !azg.stripCursor; i++) az.update(STEP);
+    expect(azg.stripCursor > 0).toBe(true);
+    for (const t of az.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and an Archery trap girl: Follow-Through's trap count)

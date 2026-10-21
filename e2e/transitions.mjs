@@ -14,6 +14,9 @@
 //      shown, the screen is never bare black (no Mochi) for long before the reveal. Then Pause → Quit →
 //      stage prep through the cut again
 //   4. a closing dialog lets taps through at once; reduced motion: only opacity moves
+//   4b. battle → results: a loss (a leak on the last life) brings the DEFEAT band, then (Retry) a stage
+//      win the VICTORY band (.tx-band.win): each inserted while the sheet waits under it (.bt-banded),
+//      before it rises, recorded inside the page; reduced motion: no band, the sheet is up at once
 //   5. the look (Settings → Loading screen): the row is in Graphics with Mint / Pink and Black /
 //      Colour (mint on black by default); a pick saves in the settings and recolours every Mochi at
 //      once; after a reload the boot loader already wears it when it is parsed (index.html's inline
@@ -423,6 +426,109 @@ async function run(vp, { reduced = false } = {}) {
     const still = await page.evaluate(() => document.querySelectorAll('.mochi *').length === 0 || [...document.querySelectorAll('.mochi *')].every((el) => getComputedStyle(el).animationName === 'none'));
     check(still, 'reduced motion: Mochi stands still');
   }
+
+  // ---- 4b. battle → results: DEFEAT, then (Retry) VICTORY, each band before the sheet rises -------
+  // A recorder in the page (MutationObserver, as e2e/ascension.mjs does for titans: a busy machine
+  // cannot miss the 0.9 s band) notes when the result sheet is added and whether the overlay holds it
+  // (.bt-banded), when the band (.tx-band-clip > .tx-band.<tone>) is inserted and what it says, and
+  // when the sheet rises (.bt-banded comes off). Reduced motion: no band, the sheet is up at once.
+  const watchResult = () => page.evaluate(() => {
+    window.__resObs?.disconnect();
+    const t = () => Math.round(performance.now());
+    const r = { sheetAt: null, kind: null, sheetHeld: null, bandAt: null, word: null, tone: null, heldAtBand: null, riseAt: null };
+    window.__res = r;
+    const SHEET = '.bt-result.bt-win, .bt-result.bt-lose';
+    window.__resObs = new MutationObserver((ms) => {
+      for (const m of ms) {
+        if (m.type === 'attributes') {
+          const el = m.target;
+          if (r.sheetAt != null && r.riseAt == null && el.matches('.bt-result-overlay') && /\bbt-banded\b/.test(m.oldValue || '') && !el.classList.contains('bt-banded')) r.riseAt = t();
+          continue;
+        }
+        for (const n of m.addedNodes) {
+          if (!(n instanceof Element)) continue;
+          const sheet = n.matches(SHEET) ? n : n.querySelector(SHEET);
+          if (sheet && r.sheetAt == null) {
+            r.sheetAt = t();
+            r.kind = sheet.classList.contains('bt-win') ? 'win' : 'lose';
+            r.sheetHeld = !!sheet.closest('.bt-result-overlay')?.classList.contains('bt-banded');
+          }
+          if (n.matches('.tx-band-clip') && r.bandAt == null) {
+            r.bandAt = t();
+            r.word = n.textContent;
+            r.tone = ['win', 'lose'].find((c) => n.querySelector('.tx-band')?.classList.contains(c)) || null;
+            r.heldAtBand = !!n.parentElement?.classList.contains('bt-banded');
+          }
+        }
+      }
+    });
+    window.__resObs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+  });
+  /** Waits for the sheet (and, with motion, the band and the rise), then returns the record. */
+  const resultRecord = async () => {
+    await page.waitForFunction(() => window.__res?.sheetAt != null, null, { timeout: 30000 }).catch(() => null);
+    if (!reduced) await page.waitForFunction(() => window.__res?.riseAt != null, null, { timeout: 30000 }).catch(() => null);
+    else await page.waitForTimeout(1500); // (long enough for a band that should not come)
+    return page.evaluate(() => {
+      window.__resObs?.disconnect();
+      return window.__res;
+    });
+  };
+  const bandChecks = (rr, word, tone) => {
+    if (reduced) {
+      check(rr?.sheetAt != null && rr.word == null && rr.sheetHeld === false, `reduced motion: no ${word} band, the ${tone} sheet is up at once (${JSON.stringify(rr)})`);
+      return;
+    }
+    check(rr?.word === word && rr.tone === tone, `the ${word} band (.tx-band.${tone}) plays at the end (${rr?.word} / ${rr?.tone})`);
+    check(rr?.kind === tone && rr.sheetHeld === true && rr.heldAtBand === true, `the ${tone} sheet waits under it (.bt-banded when added and when the band comes in)`);
+    check(rr?.bandAt != null && rr.riseAt != null && rr.bandAt < rr.riseAt, `the band is inserted before the sheet rises (band +${rr?.bandAt != null && rr?.sheetAt != null ? rr.bandAt - rr.sheetAt : '?'} ms, rise +${rr?.riseAt != null && rr?.sheetAt != null ? rr.riseAt - rr.sheetAt : '?'} ms after the sheet)`);
+  };
+  const battleUp = (old = null) => page.waitForFunction((had) => {
+    const b = window.__battle;
+    return !!b?.ui?.settleFinished && b !== window[had] && document.querySelector('#app .bt-hud') && !document.documentElement.dataset.tx;
+  }, old, { timeout: 90000, polling: 200 }).then(() => true, () => false);
+
+  await page.evaluate(() => {
+    const { store } = window.__sakura;
+    store.profile.battleSaves = {}; // the quit battle saved itself: this link starts a new one
+    store.commit('battle-save');
+    document.querySelectorAll('.modal-overlay').forEach((m) => m.remove());
+    location.hash = '#/battle?stage=1-1&difficulty=normal';
+  });
+  check(await battleUp(), 'results: a new battle on 1-1');
+  // a loss through the sim's own path: one life left, the first enemy on the road leaks
+  await watchResult();
+  const lost = await page.evaluate(async () => {
+    const { sim } = window.__battle;
+    if (sim.state === 'prep' || sim.state === 'between') sim.startNextWave();
+    for (let i = 0; i < 400 && !sim.enemies.some((e) => !e.dead); i++) await new Promise((r) => setTimeout(r, 25));
+    const e = sim.enemies.find((x) => !x.dead);
+    if (!e) return sim.state;
+    sim.lives = 1;
+    sim._leak(e);
+    return sim.state;
+  });
+  check(lost === 'lost', `results: the battle is lost (${lost})`);
+  const lose = await resultRecord();
+  await shot('result-defeat');
+  bandChecks(lose, 'DEFEAT', 'lose');
+  // Retry, then a stage win (the battle marked won, the controller ends it as on the last wave)
+  await page.evaluate(() => { window.__oldBattle = window.__battle; });
+  await tap('#app .bt-result-overlay [data-testid="retry"]');
+  check(await battleUp('__oldBattle'), 'results: Retry starts the battle again');
+  await watchResult();
+  await page.evaluate(() => {
+    const b = window.__battle;
+    b.sim.state = 'won';
+    b.ui.settleFinished();
+  });
+  const win = await resultRecord();
+  await shot('result-victory');
+  bandChecks(win, 'VICTORY', 'win');
+  check(await page.evaluate(() => document.querySelector('.bt-result.bt-win .bt-result-ribbon')?.textContent === 'VICTORY!'), `results: the victory sheet is up${reduced ? '' : ' after the band'}`);
+  left = await page.evaluate(() => (document.querySelector('.tx-band-clip') ? ['a band is left over'] : []));
+  check(left.length === 0, `results: the band is gone once the sheet is up (${left.join('; ') || 'clean'})`);
+
   check(!(await page.evaluate(() => /mochi/i.test(document.body.innerText))), 'the game never shows the name "Mochi"');
   check(!errors.length, `no page / console errors${errors.length ? `\n       ${errors.slice(0, 6).join('\n       ')}` : ''}`);
   await context.close();

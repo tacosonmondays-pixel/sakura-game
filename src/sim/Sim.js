@@ -40,8 +40,19 @@ import { generateWave, summarizeWave } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
+import {
+  syncAbility, tickAbilities, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
+  setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
+} from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
+import { endStripWave } from './strips.js';
+import { endRingWave } from './rings.js';
+import { endDrinkWave, clearDrinksFrom } from './drinks.js';
+import { endSentryWave } from './sentries.js';
+import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
+import { onVineKill, endVineWave } from './vines.js';
+import { endBallWave } from './balls.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -169,6 +180,18 @@ export class Sim {
     this._buffTimer = 0;
     this._buffsDirty = true;
     this._globalBuffs = [];
+    // Abilities (src/sim/abilities.js): map-scope cooldowns per player ("<owner>|<id>" → { cd, cdMax,
+    // rate }), econ casts per player this wave, running rallies and queued hits / shells (both empty at
+    // every calm point), owner-credited coins (null solo: straight to cash; co-op sets [0, 0] and moves
+    // them into the wallets after every command and step), each player's Auto-cast setting (default
+    // Off) and how many girls have an ability (0: the step skips it all).
+    this.abilGroups = new Map();
+    this.abilUses = [0, 0];
+    this._rallies = [];
+    this._abilQueue = [];
+    this.ownerCash = null;
+    this.abilityAutoDefault = [!!this.options.autoAbilities, false];
+    this._abilOn = 0;
     /** Seconds until every girl's recentDps is re-measured (src/sim/buffs.js). */
     this._dpsTimer = DPS_WINDOW;
     /** Finale Pop's budget for the whole battle, in half-pops (src/sim/gearRules.js). */
@@ -261,6 +284,9 @@ export class Sim {
       if (this.state === 'lost') return;
     }
     this._updateBuffs(dt);
+    // abilities: charge, expire, queued shells, auto-cast — before the girls attack, so a boost or a
+    // rally cast this step applies this step
+    if (this._abilOn > 0 || this.abilGroups.size > 0) tickAbilities(this);
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
     updateProjectiles(this, dt);
     updateTraps(this, dt);
@@ -362,6 +388,22 @@ export class Sim {
     this._cashCarry -= whole;
     this.cash += whole;
     this.stats.cashEarned += whole;
+    return whole;
+  }
+
+  /**
+   * Owner-credited coins (an econ ability; GAPS P-16): whole coins for player `owner`. Solo: straight
+   * into cash. Co-op (ownerCash set): into ownerCash[owner], which the command layer moves into that
+   * player's wallet, never into the pooled cash a step splits between the players.
+   * @returns {number} coins credited
+   */
+  _gainCashFor(owner, amount) {
+    if (!(amount > 0)) return 0;
+    const whole = Math.floor(amount + 1e-9);
+    if (!(whole > 0)) return 0;
+    this.stats.cashEarned += whole;
+    if (this.ownerCash) this.ownerCash[owner] = (this.ownerCash[owner] || 0) + whole;
+    else this.cash += whole;
     return whole;
   }
 
@@ -500,7 +542,8 @@ export class Sim {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
-        let amt = spec.knockback * (KNOCKBACK_RESIST[e.tier] ?? 1);
+        // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
+        let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
         if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
@@ -603,9 +646,11 @@ export class Sim {
     // Potential N7 (Momo's Lucky Pouch): a kill inside her range pays × her bounty aura (1 = none)
     const bm = bountyMulAt(this, e.x, e.y);
     const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
+    if (this._hubBounty) payHubBounty(this, e); // Ouka's Sponsorship (src/sim/hubs.js)
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
     if (tower && !tower.removed) {
       tower.kills++;
+      if (!drone && tower.stats?.vine) onVineKill(this, tower, e); // Chigusa's thorn beds (src/sim/vines.js)
       if (drone) {
         drone.kills++;
         tower.droneKills++;
@@ -721,6 +766,7 @@ export class Sim {
     this._fp = w.freeplay?.pressure || null;
     this._autoTimer = -1;
     this.state = 'wave';
+    startAbilityWave(this);
     if (this.rule) {
       this._waveTick = 0;
       ruleWaveStart(this);
@@ -758,6 +804,18 @@ export class Sim {
     // queued curse burst nobody to burst on: they end with the wave (GAPS §7.3)
     this.shells.length = 0;
     this.runners.length = 0;
+    // spike strips end too, except Sticky Tar ones (src/sim/strips.js); Suzu's traps stay
+    if (this.traps.length) endStripWave(this);
+    // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
+    endRingWave(this);
+    // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
+    endDrinkWave(this);
+    // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)
+    endSentryWave(this);
+    // Chigusa's thorn beds and holds end; her harvest gives lives back (src/sim/vines.js)
+    endVineWave(this);
+    // Marumi's balls end (src/sim/balls.js)
+    endBallWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
@@ -768,6 +826,8 @@ export class Sim {
       ruleWaveClear(this);
       ruleWaveEnd(this);
     }
+    // every lasting ability effect ends with the wave (the calm point holds none)
+    endAbilityWave(this);
     if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
@@ -931,6 +991,7 @@ export class Sim {
     this.stats.towerUnits[t.uid] = unitId;
     this._emit('place', { towerUid: t.uid, unitId, x, y, tx: t.tx, ty: t.ty });
     updateRelayOrigin(this, t);
+    syncAbility(this, t); // (a fixture girl whose ability unlocks at tier 0)
     return t;
   }
 
@@ -944,6 +1005,8 @@ export class Sim {
     refreshTowerStats(t, this.globalRateMul, this.globalDmgMul);
     updateRelayOrigin(this, t); // relay reach may have grown
     this._buffsDirty = true;
+    // an upgrade or a hero level: her ability unlocks (tier 3 / Lv 7) or upgrades (tier 5 / Lv 17)
+    syncAbility(this, t);
   }
 
   /**
@@ -1028,7 +1091,8 @@ export class Sim {
   }
 
   /** Upgrade cost for the next tier of a path (applies difficulty, profile and cost-cut auras). */
-  _upgradeCost(t, tier) {
+  _upgradeCost(t, tier, index = null) {
+    if (t.rules && isFreeTier(t, index)) return 0; // Ouka's Club Grants (src/sim/hubs.js)
     const us = t.unitStats || DEFAULT_UNIT_STATS;
     const cut = Math.min(0.5, t.buff?.costCut || 0);
     return roundCost((tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
@@ -1054,7 +1118,7 @@ export class Sim {
     const block = crosspathBlock(t.tiers, path, Math.min(5, tiersDef.length));
     const next = tiersDef[tier] || null;
     if (block === 'max' || !next) return { tier, next: null, cost: 0, locked: true, reason: 'max', holder: null };
-    const cost = this._upgradeCost(t, next);
+    const cost = this._upgradeCost(t, next, tier);
     if (block) return { tier, next, cost, locked: true, reason: block, holder: null };
     if (!restoring && !t.isHero && tier + 1 >= finalTierOf(t.def, path)) {
       const holder = findFinalHolder(this.towers, t.unitId, t.owner ?? 0, path, t.uid);
@@ -1086,7 +1150,9 @@ export class Sim {
   /** Coins returned when selling (70% of everything spent on the tower). */
   sellValue(uid) {
     const t = this.getTower(uid);
-    return t ? Math.floor(t.spent * BATTLE.sellRefund) : 0;
+    if (!t) return 0;
+    // Ouka's rules (src/sim/hubs.js) may raise the share for a girl she covers
+    return Math.floor(t.spent * (t.rules?.sellMul > BATTLE.sellRefund ? t.rules.sellMul : BATTLE.sellRefund));
   }
 
   /**
@@ -1108,6 +1174,8 @@ export class Sim {
     if (!t || this.state === 'won' || this.state === 'lost') return 0;
     const refund = this.sellValue(uid);
     this.cash += refund;
+    clearAbilityEffects(this, t);
+    clearDrinksFrom(this, t);
     t.removed = true;
     this.towers = this.towers.filter((x) => x !== t);
     this._towerByUid.delete(uid);
@@ -1163,8 +1231,9 @@ export class Sim {
     let ay = Math.round(y * AIM_QUANT) / AIM_QUANT;
     ax = Math.min(this.map.width || 0, Math.max(0, ax));
     ay = Math.min(this.map.height || 0, Math.max(0, ay));
-    if (mode === 'mirror') {
-      const reach = t.stats.relay.reach;
+    if (mode === 'mirror' || mode === 'checkpoint') {
+      // a mirror stays within its reach, a checkpoint within her range
+      const reach = mode === 'mirror' ? t.stats.relay.reach : t.eff.range;
       const dx = ax - t.x;
       const dy = ay - t.y;
       const d2 = dx * dx + dy * dy;
@@ -1173,6 +1242,13 @@ export class Sim {
         ax = t.x + dx * k;
         ay = t.y + dy * k;
       }
+    }
+    if (mode === 'banner') {
+      // Ouka's Rally Banner: a banner there (the oldest moves past her count; src/sim/hubs.js)
+      const b = plantBanner(this, t, ax, ay);
+      recomputeBuffs(this);
+      this._emit('aim', { towerUid: uid, x: b.x, y: b.y, banners: t.banners.map((o) => [o.x, o.y]) });
+      return true;
     }
     t.aim = { x: ax, y: ay };
     if (mode === 'mirror') updateRelayOrigin(this, t);
@@ -1185,6 +1261,10 @@ export class Sim {
     const t = this.getTower(uid);
     if (!t || this.state === 'won' || this.state === 'lost' || !aimMode(t)) return false;
     t.aim = null;
+    if (t.banners) {
+      clearBanners(this, t);
+      recomputeBuffs(this);
+    }
     updateRelayOrigin(this, t);
     this._emit('aim', { towerUid: uid, x: null, y: null });
     return true;
@@ -1351,6 +1431,8 @@ export class Sim {
       levelSpent: t.isHero ? t.levelSpent || 0 : 0,
       moveCd: t.isHero ? t.moveCd || 0 : 0,
       moveLock: t.isHero ? t.moveLock || 0 : 0,
+      // her ⚡ ability (null without one; a locked one is the teaser): src/sim/abilities.js abilityStatus
+      ability: abilityStatusOf(this, t),
       // Potential (only on a girl whose steps have them): her rhythm and its count, tempo, extra projectiles
       ...(e.proc ? { proc: { name: e.proc.name, every: e.proc.every, of: e.proc.of, count: t.potCount || 0 } } : null),
       ...(e.tempo ? { tempo: { stacks: t.tempoStacks || 0, max: Math.round(e.tempo.max / e.tempo.per), per: e.tempo.per } } : null),
@@ -1456,6 +1538,41 @@ export class Sim {
   }
 
   // -------------------------------------------------------------------------
+  // Abilities (src/sim/abilities.js; co-op: the abil / acast commands)
+  // -------------------------------------------------------------------------
+
+  /** A girl's ability for the UI (null: she has none; a locked one is the teaser). */
+  abilityStatus(uid) {
+    return abilityStatusOf(this, this.getTower(uid));
+  }
+
+  /**
+   * Fires a girl's ability (only during a wave). `group`: the best ready copy of the same girl and
+   * player; `owner`: the commanding player (co-op), refused `notYours` for another player's girl.
+   * @param {number} uid
+   * @param {{ group?: boolean, owner?: number|null, auto?: boolean, aim?: number[]|null }} [opts]
+   * @returns {{ ok: boolean, reason: null|'ended'|'locked'|'notYours'|'notWave'|'disabled'|'moving'|'active'|'cooldown'|'cap'|'noIncome'|'noTarget', casterUid: number|null }}
+   */
+  castAbility(uid, opts = {}) {
+    return castAbilityOn(this, this.getTower(uid), opts);
+  }
+
+  /** A girl's Auto switch. @returns {{ ok: boolean, reason: null|'locked' }} */
+  setAbilityAuto(uid, on) {
+    return setAbilityAutoOn(this, this.getTower(uid), on);
+  }
+
+  /** A player's Auto-cast setting: every girl of hers now, and the default for later unlocks. */
+  setAbilityAutoAll(owner, on) {
+    return setAbilityAutoAllOn(this, owner, on);
+  }
+
+  /** A player's ability bar (UI only; allocates): one slot per ability, copies grouped. */
+  abilitySlots(owner = 0) {
+    return abilitySlotsOf(this, owner);
+  }
+
+  // -------------------------------------------------------------------------
   // Scouting warnings and debrief
   // -------------------------------------------------------------------------
 
@@ -1520,6 +1637,8 @@ export class Sim {
         leaksByEnemy: { ...this.stats.leaksByEnemy },
         leaksByWave: { ...this.stats.leaksByWave },
         towerUnits: { ...this.stats.towerUnits },
+        // abilities (only once one was cast: a battle without casts keeps its result exactly)
+        ...(this.stats.abilityByTower ? { abilityByTower: { ...this.stats.abilityByTower } } : null),
         time: this.time,
         heroLevel: this.hero ? this.hero.level : 0,
         heroLevels: this.heroes.map((h) => (h ? h.level : 0)),

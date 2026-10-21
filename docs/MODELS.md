@@ -8,7 +8,7 @@ quad **cages** that get a Catmull-Clark **Subdivision Surface**, creased edges w
 sharp, and a **painted face texture** instead of face geometry.
 
 ```
-python3 tools/blender/build_characters.py              # all 19 units, full + LOD
+python3 tools/blender/build_characters.py              # every roster unit, full + LOD
 python3 tools/blender/build_characters.py hikari aoi    # just these
 python3 tools/blender/build_characters.py hikari --blend /tmp/hikari.blend   # also save a .blend to inspect
 python3 tools/blender/build_characters.py --no-lod --no-anim                 # faster look-dev builds
@@ -164,6 +164,14 @@ for id in fuu iroha ena kanna yoriko seiran; do python3 tools/blender/build_char
 | Kanna | 463,576 / 235,908 B (9,494 / 3,146 verts) | 67 px | high coral twin-tails flaring out with gold cuffs, tall ivory oni horns, a crimson staff track jacket with black panels and gold piping, black slacks, crimson high-tops, carbon bachi with glowing tips, her taiko on a stand at her front-left (weighted to `root`, so it stays put in every clip); round amber eyes; chin-up 20° | `attack_smash` leans her forward and hides her face for a few frames; the sticks strike forward, not on the drum |
 | Yoriko | 445,584 / 232,684 B (8,992 / 3,061 verts) | 64 px | a lilac high ponytail tied on her right, a navy cat-ear headset with glowing ears and a mic, an indigo stage frock coat over a lilac waistcoat with gold edging and long tails, navy gloves, trousers and boots, the marionette bar with a dancing doll held up in her left hand (`pin`), the crescent halo; round violet eyes; chin-up 22° | the bar arm stays up in every clip, cheer and victory included; the bind pose stores the prop pre-rotated (no runtime path shows it) |
 | Seiran | 439,068 / 229,656 B (8,888 / 3,059 verts) | 64 px | pale sky-blue waves, two gold crescent horns, a white flight headset, a light-blue flight jacket with gold shoulder boards and a teal tie, a steel-blue pleated skirt, blue-grey tights, white flight boots, a white storm spear with a glowing ice blade, a laughing grin; chin-up 22° | in the shared `victory` / `cheer` clips the spear passes through her hair |
+
+## The new girls' figures (UNIT_GAPS §5)
+
+Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi use the same tools-only `LOOK_OVERRIDES` table: `chinUp: 12`
+(the same per-clip chin-up as the returning girls, smaller because their bangs already clear the eyes) and, for
+Chigusa, `haloLift` (her halo floats above the straw sun hat, `EXTRA_PARTS` `sunHat`). Their props (strip reel,
+needle, tablet, council banner, watering can, bowling ball) are in `lib/weapon.py`. Every other girl rebuilds
+byte-identically with them in the library.
 
 ## Adding a character
 

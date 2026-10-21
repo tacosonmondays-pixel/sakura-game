@@ -211,6 +211,56 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('WAKE', '+8% damage. Dragonflight hits 50% harder and its mark is 5 points stronger.', 1.08, 'rim'),
     t('CROWN', '+9% attack speed; one more jump; Dragonflight recharges a further 10%.', 1.14, 'rim'),
   ),
+  // the new girls (UNIT_GAPS §5)
+  azami: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('STRIP+1', '+4% damage. 1 more strip on the road at once.', 1.08, 'rim'),
+    t('SHRED', '+4% damage. Her strips crack 1 armor for 2 s.', 1.09, 'rim'),
+    t('PEN+1', '+4% damage. Her strips ignore 1 more armor.', 1.08, 'rim'),
+    t('LOCKDOWN', '+5% damage. 2 more strips on the road at once, and struck enemies are Brittle +8% for 2 s.', 1.14, 'rim'),
+  ),
+  kinu: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('PIERCE+1', '+4% attack speed. Every pin passes through 1 more enemy.', 1.07, 'rim'),
+    t('CRIT+5%', '+4% damage; +5% crit chance.', 1.07, 'rim'),
+    t('PEN+1', '+4% attack speed. Her pins ignore 1 more armor.', 1.07, 'rim'),
+    t('FITTING', '+5% damage. Pins pierce 1 more and leave enemies Brittle +6% for 2 s.', 1.14, 'rim'),
+  ),
+  wakaba: row(
+    t('+4% SPD', '+4% throwing speed.', 1.04, 'rim'),
+    t('SHOTS+2', '+4% throwing speed. Her drinks last 2 more attacks.', 1.08, 'rim'),
+    t('SPLASH+', '+4% throwing speed. Her drinks splash 0.2 tiles wider.', 1.08, 'rim'),
+    t('DMG+3%', '+4% throwing speed. Hydrated girls deal 3% more damage.', 1.08, 'rim'),
+    t('CAPTAIN', '+5% throwing speed. Hydrated girls attack 5% faster, and her drinks last 2 more attacks.', 1.14, 'rim'),
+  ),
+  yuzuha: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('TTL+4s', '+5% attack speed. Her sentries last 4 s longer.', 1.10, 'rim'),
+    t('SENTRY+1', '+5% damage. Her sentries deal 1 more damage.', 1.10, 'rim'),
+    t('PEN+1', '+6% attack speed. Her darts ignore 1 more armor.', 1.08, 'rim'),
+    t('DEPLOYED', '+7% damage. 1 more sentry at a time, and her sentries deal 2 more damage.', 1.20, 'rim'),
+  ),
+  marumi: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('LANE+1', '+5% attack speed. Her balls roll 1 tile further.', 1.10, 'rim'),
+    t('SPEED+1', '+5% damage. Her balls roll 1 tile a second faster.', 1.10, 'rim'),
+    t('PINS+2', '+6% attack speed. Her pins deal 2 more damage.', 1.10, 'rim'),
+    t('STRIKE', '+7% damage. Her balls roll 1 tile further and her pins deal 2 more damage.', 1.18, 'rim'),
+  ),
+  chigusa: row(
+    t('+4% DMG', '+4% damage.', 1.04, 'rim'),
+    t('HOLD+0.2', '+5% attack speed. Her vine holds 0.2 s longer.', 1.10, 'rim'),
+    t('THORNS+1', '+5% damage. Her thorn beds deal 1 more damage.', 1.10, 'rim'),
+    t('VINE-0.5', '+6% attack speed. Her vine comes 0.5 s sooner.', 1.12, 'rim'),
+    t('EVERGREEN', '+7% damage. Seeds pierce 1 more; her vine holds 0.3 s longer and comes 0.5 s sooner.', 1.18, 'rim'),
+  ),
+  ouka: row(
+    t('CUT ×1.03', 'Her upgrade discounts are 3% deeper (5% off → 5.15% off).', 1.03, 'rim'),
+    t('CUT+2%', 'Her discounts are 3% deeper, and upgrades in her radius cost 2% less on top.', 1.06, 'rim'),
+    t('OFFICE+', 'Her discounts are 4% deeper, and her office radius is 0.2 tiles wider.', 1.07, 'rim'),
+    t('CUT+2%', 'Her discounts are 4% deeper, and upgrades in her radius cost 2% less on top.', 1.08, 'rim'),
+    t('SEAL', 'Her discounts are 4% deeper, her office radius is 0.3 tiles wider, and upgrades in it cost 3% less on top.', 1.12, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */

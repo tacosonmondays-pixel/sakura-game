@@ -77,6 +77,8 @@ function reduceByModifiers(enemy, dmg, attackType) {
 export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
   if (!isEligible(enemy, hit)) return null;
   let typeMul = typeMultiplier(hit.attackType, enemy.armorClass);
+  // Ouka's Academy Charter (src/sim/hubs.js): the girls she covers never drop below this on the chart
+  if (hit.typeFloor > typeMul) typeMul = hit.typeFloor;
   // Potential N16 (Hotaru's Lantern Rite): × vs one armour class, after the type chart
   if (hit.classMul) typeMul *= hit.classMul[enemy.armorClass] ?? 1;
   let dmg = (hit.damage || 0) * scale * tierMultiplier(enemy, hit) * typeMul;

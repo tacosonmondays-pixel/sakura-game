@@ -11,9 +11,9 @@
 // reads a view slot, the clock or Math.random. The pick command (setBuffPick) is the only player input.
 import { BREW_EVERY, BREW_TIME, BREW_DROP, DPS_WINDOW, LINK_SCAN } from './constants.js';
 
-/** Aura winner uid per buff key (-1: none). */
+/** Aura winner uid per buff key (-1: none); `rally`: the girl whose ability rally reaches her. */
 export function emptyBuffBy() {
-  return { dmg: -1, rate: -1, range: -1, pen: -1, crit: -1, det: -1, cost: -1, cleanse: -1 };
+  return { dmg: -1, rate: -1, range: -1, pen: -1, crit: -1, det: -1, cost: -1, cleanse: -1, rally: -1 };
 }
 
 /** What a girl holds: the brew (source uid, seconds left), the link (source uid) and overclock. */
@@ -272,6 +272,78 @@ export function applyLimited(sim, t, nb) {
   }
 }
 
+/**
+ * The ability rallies that reach a girl (src/sim/abilities.js: Miko's Shrine Chorus, Hikari's Morning
+ * Rally, Umeko's Lantern Flare rider), every rally in sim._rallies order: within its radius of its
+ * caster (never the caster herself, like an aura), or anywhere for a map rally. Strongest per key
+ * wins across both players' rallies. UI only (buffSources' rows: `by` / `left` name each key's winner);
+ * recomputeBuffs folds the same maxima in through applyRallies without allocating.
+ * @returns {{ dmgMul: number, rateMul: number, rangeMul: number, detection: boolean, ward: boolean, src: number,
+ *   by: object, left: object }|null}
+ */
+export function ralliesOn(sim, t) {
+  let out = null;
+  for (const r of sim._rallies) {
+    if (!rallyReaches(sim, r, t)) continue;
+    if (!out) out = { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, ward: false, src: r.src, by: { dmg: -1, rate: -1, range: -1, det: -1, ward: -1 }, left: {} };
+    const o = out;
+    if (r.dmgMul > o.dmgMul) { o.dmgMul = r.dmgMul; o.by.dmg = r.src; o.left.dmg = r.left; }
+    if (r.rateMul > o.rateMul) { o.rateMul = r.rateMul; o.by.rate = r.src; o.left.rate = r.left; }
+    if (r.rangeMul > o.rangeMul) { o.rangeMul = r.rangeMul; o.by.range = r.src; o.left.range = r.left; }
+    if (r.detection && !o.detection) { o.detection = true; o.by.det = r.src; o.left.det = r.left; }
+    if (r.ward && !o.ward) { o.ward = true; o.by.ward = r.src; o.left.ward = r.left; }
+  }
+  return out;
+}
+
+/** Does rally `r` reach girl `t`? Never its caster; within its radius of her (squared), or anywhere for a map rally. */
+function rallyReaches(sim, r, t) {
+  if (r.to != null) return r.to === t.uid; // a rally on one girl (Wakaba's Time Out!)
+  if (r.src === t.uid) return false;
+  const c = sim.getTower(r.src);
+  if (!c || c.removed) return false;
+  if (r.map) return true;
+  const dx = c.x - t.x;
+  const dy = c.y - t.y;
+  return !(dx * dx + dy * dy > r.r2);
+}
+
+/**
+ * recomputeBuffs, after the limited buffs: the strongest rally per key multiplies her damage, attack
+ * speed and range, and a rally's Veil Sight and ward (blocks sabotage, like a cleanse aura) are OR-ed in.
+ * The same maxima as ralliesOn, without its UI rows (no allocation: this runs for every girl on every
+ * rebuild while a rally lasts).
+ */
+export function applyRallies(sim, t, nb, by) {
+  const list = sim._rallies;
+  let src = -1;
+  let dmgMul = 1;
+  let rateMul = 1;
+  let rangeMul = 1;
+  let detection = false;
+  let ward = false;
+  let pierceAdd = 0;
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i];
+    if (!rallyReaches(sim, r, t)) continue;
+    if (r.pierceAdd > pierceAdd) pierceAdd = r.pierceAdd;
+    if (src < 0) src = r.src;
+    if (r.dmgMul > dmgMul) dmgMul = r.dmgMul;
+    if (r.rateMul > rateMul) rateMul = r.rateMul;
+    if (r.rangeMul > rangeMul) rangeMul = r.rangeMul;
+    if (r.detection) detection = true;
+    if (r.ward) ward = true;
+  }
+  if (src < 0) return;
+  nb.dmgMul *= dmgMul;
+  nb.rateMul *= rateMul;
+  nb.rangeMul *= rangeMul;
+  if (detection) nb.detection = true;
+  if (ward) nb.cleanse = true;
+  if (pierceAdd > 0) nb.pierceAdd = pierceAdd; // (Ouka's Assembly Bell; absent otherwise)
+  if (by) by.rally = src;
+}
+
 const KEY_OF = { dmgMul: 'dmg', rateMul: 'rate', armorPen: 'pen', critChance: 'crit' };
 
 function limitedRows(sim, src, set, kind, left, rows, oc = 1) {
@@ -314,7 +386,8 @@ export function buffSources(sim, uid) {
     const src = sim.getTower(uidSrc);
     if (src) rows.push({ key, value, kind: 'aura', src: uidSrc, unitId: src.unitId, left: null });
   };
-  const au = (u) => sim.getTower(u)?.stats?.aura;
+  // (an aura, or Ouka's office: her hub carries the same key names)
+  const au = (u) => { const s = sim.getTower(u)?.stats; return s?.aura || s?.hub; };
   if (by.dmg >= 0) aura('dmg', by.dmg, (au(by.dmg)?.dmgMul ?? 1) - 1);
   if (by.rate >= 0) aura('rate', by.rate, (au(by.rate)?.rateMul ?? 1) - 1);
   if (by.pen >= 0) aura('pen', by.pen, au(by.pen)?.armorPen ?? 0);
@@ -332,6 +405,20 @@ export function buffSources(sim, uid) {
     rows.push({ key, value: mul - 1, kind: 'ult', src: best?.src ?? -1, unitId: src?.unitId ?? null, left: best?.left ?? null });
   }
   if (t.envRangeMul > 1) rows.push({ key: 'range', value: t.envRangeMul - 1, kind: 'map', src: -1, unitId: null, left: null });
+  // ability rallies (src/sim/abilities.js), seconds left from their tick countdowns
+  const ra = sim._rallies?.length ? ralliesOn(sim, t) : null;
+  if (ra) {
+    const row = (key, k, value) => {
+      const uidSrc = ra.by[k];
+      if (uidSrc < 0) return;
+      rows.push({ key, value, kind: 'rally', src: uidSrc, unitId: sim.getTower(uidSrc)?.unitId ?? null, left: ra.left[k] / 60 });
+    };
+    row('dmg', 'dmg', ra.dmgMul - 1);
+    row('rate', 'rate', ra.rateMul - 1);
+    row('range', 'range', ra.rangeMul - 1);
+    row('det', 'det', true);
+    row('cleanse', 'ward', true);
+  }
   return rows;
 }
 
@@ -370,7 +457,7 @@ export function buffTargets(sim, uid) {
   for (const o of sim.towers) {
     const by = o.buffBy;
     if (!by || o === t) continue;
-    for (const key of Object.keys(by)) if (by[key] === uid) add(o, 'aura', key);
+    for (const key of Object.keys(by)) if (by[key] === uid) add(o, key === 'rally' ? 'rally' : 'aura', key === 'rally' ? null : key);
   }
   return [...out.values()];
 }

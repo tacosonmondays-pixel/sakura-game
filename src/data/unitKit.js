@@ -25,6 +25,8 @@ export const S = {
   mark: (bonus, duration) => ({ type: 'mark', bonus, duration }),
   /** pct of max HP per second for `duration` s, no regen (less on minibosses and bosses). */
   hex: (pct, duration) => ({ type: 'hex', pct, duration }),
+  /** Cannot move for `duration` s (Chigusa's vines): minibosses resist; bosses and flyers are immune. */
+  hold: (duration) => ({ type: 'hold', duration }),
 };
 
 /** Full BaseStats with contract defaults; `o` overrides. */

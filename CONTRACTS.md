@@ -166,9 +166,38 @@ StatusSpec = { type: 'slow', amount: 0.3, duration: 1.5 }
            | { type: 'soak', duration }
   // any StatusSpec may carry `chance` (0-1, default 1)
 
-PathDef = { id, name, focus, tiers: [TierDef ×5] }
+PathDef = { id, name, focus, tiers: [TierDef ×5], ability?: AbilityDef }   // ability: the ⚡ path (below)
 TierDef = { name, cost, desc, mods: ModSet }   // cost in battle coins
 ```
+
+**Abilities** — `src/data/abilities.js` (numbers; in the co-op graph and the data hash) and
+`src/data/abilityText.js` (name, icon, desc templates; UI only, not hashed). Spec: ABILITIES_SPEC §5–§6
+(design scratch). `units.js` calls `attachAbilities(UNITS)` once: every tower's ⚡ path gets a frozen
+`ability` (it unlocks at tier 3; tier 5 upgrades it), every hero gets `hero.skill` (Lv 7, rank 2 at Lv 17).
+`attachAbilities` throws on a row for an unknown girl or a path id she does not have. A kit variant's row is
+`id@kitStyle` (`abilityRow(def)`). The sim reads them in one place, `src/sim/abilities.js` (§6 Abilities).
+
+```js
+AbilityDef = { path, unlockTier: 3, id /* 'aoi.skyfall' */, kind, scope, cooldown /* s of wave time */,
+               duration /* s; 0 = instant */, effect, auto: { when, min?, orElite?, orCaster?, orVeiled?, orLeak?, reach? },
+               t5: { cooldown?, duration?, effect? } }            // merged by spread at tier 5 (abilityAtTier)
+SkillDef   = { unlockLevel: 7, id, kind, scope, cooldown, duration, effect, auto,
+               ranks: [{ level /* 17 */, cooldown?, duration?, effect? }] }   // skillAtLevel
+ABILITIES  = { [id | 'id@kitStyle']: AbilityDef[] /* towers: one per ⚡ path */ | { skill: SkillDef } /* heroes */ }
+ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6,
+                  econCapPerWave: 2, densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'] }
+ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
+ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
+AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready
+ABILITY_TEXT = { [abilityId]: { name, icon /* a glyph key */, desc, short, up } }   // abilityValues + fillAbilityText
+```
+
+Rules (tests/data/abilities.test.js): one ⚡ path per tower (the spec's), the kind mix of §5.1, Momo has
+one ability (Market Day); cooldowns 20–60 s (hero skills 20–45 s), an upgrade never slower; every duration,
+delay and status time a whole number of ticks; no `chance` on an ability status; effect keys from the kind's
+vocabulary (the header of abilities.js); a text row per ability whose templates fill at tier 3 and tier 5 (Lv 7
+and Lv 17); ability names unique and unused anywhere else; no other game's words; one ⚡ tip per girl naming
+her ⚡ path and her ability.
 
 **ModSet** — the only keys the sim understands (add = additive, mul = multiplicative):
 
@@ -214,6 +243,7 @@ HeroDef = {                       // src/data/heroTracks.js (hero rework, docs/s
   growth?: { damage, rate },      // default HERO_GROWTH { damage: 0.03, rate: 0 } per level above 1
   ult: { name, desc, unlockLevel: 3, cooldown: seconds, effect: UltEffect,
          ranks: [{ level, desc, effect: Partial<UltEffect>, cooldownMul }] },  // rank 2 at Lv 10, rank 3 at Lv 20
+  skill?: SkillDef,               // the Lv 7 skill, attached from src/data/abilities.js (see Abilities above)
 }
 UltEffect = { type: 'nova', damage, radius /*0 = whole map*/, attackType, status?: StatusSpec[], reveal?: seconds }
           | { type: 'timeWarp', slow, duration, rateBuff, buffDuration }
@@ -1025,9 +1055,10 @@ const sim = new Sim({
   hero: { unitId, stats } | null,
   heroes: [{ unitId, stats } | null, …],  // co-op: one per player, by player index (instead of `hero`)
   seed,               // number
-  options: { endless: false, autoStart: false, freeplay: false, mode: 'standard', rule: undefined },
+  options: { endless: false, autoStart: false, freeplay: false, mode: 'standard', rule: undefined, autoAbilities: false },
   // freeplay: co-op freeplay (needs stage.freeplay); mode: a BATTLE_MODES id (unknown → standard);
-  // rule: overrides stage.rule (tests and headless only; null = no rule)
+  // rule: overrides stage.rule (tests and headless only; null = no rule); autoAbilities: player 0's
+  // Auto-cast setting (sim.abilityAutoDefault[0]; default Off)
   data: { stage, map, units: {id: UnitDef}, enemies: {id: EnemyDef} }, // OPTIONAL overrides (tests); default = src/data/*
 });
 sim.update(dt)        // seconds of game time (UI multiplies by speed). Internally fixed-steps at 1/60.
@@ -1064,7 +1095,7 @@ sim.upgradeTower(uid, path, opts?)  // -> boolean
 sim.finalTierHolder(uid, path)      // -> the uid of another copy (same type, same owner) holding that path's tier 5 | null
 sim.finalTierHolders(unitId, owner) // -> [uid|null ×3] by path
 sim.buffSources(uid)                // -> [{ key: 'dmg'|'rate'|'range'|'pen'|'crit'|'det'|'cost'|'cleanse', value,
-                                    //   kind: 'aura'|'brew'|'link'|'overclock'|'ult'|'map', src: uid|-1, unitId, left }]
+                                    //   kind: 'aura'|'brew'|'link'|'overclock'|'ult'|'map'|'rally', src: uid|-1, unitId, left }]
 sim.buffTargets(uid)                // -> [{ uid, kinds: [...], keys: [...] }] the girls she buffs (limited first)
 sim.aurasCovering(uid)              // -> [{ src, unitId, keys, won }] every aura in reach, losers included
 sim.setBuffPick(uid, targetUid)     // Midori / Chika: who to buff first (-1 = auto) -> { ok, reason: 'noBuff'|'self'|'gone'|'range'|null }
@@ -1100,7 +1131,8 @@ TowerRT = { uid, unitId, def, x, y /*continuous footprint centre*/, radius /*foo
             // step earlier: draw between), jam (s), tgt/targetUid, moving, dmg, kills, shots, born (wave);
             // the girl: droneDmg, droneKills, droneShots, droneSerial, flight (null = hover)
             flight: null | { mode: 'hover'|'hold'|'patrol'|'pursuit', ax, ay, bx, by, cx, cy /*wing centre*/, leg },
-            owner /*co-op slot, 0 solo*/, buffBy /*{ dmg, rate, range, pen, crit, det, cost, cleanse }: the winning aura's uid or -1*/,
+            owner /*co-op slot, 0 solo*/, buffBy /*{ dmg, rate, range, pen, crit, det, cost, cleanse, rally }: the winning aura's (rally's) uid or -1*/,
+            abil?, abilMods? /*her ability (below), only once it unlocked*/,
             buffPick /*limited buff pin, -1 auto*/, lim /*her brew / link state*/, limIn /*{ brew, brewLeft, link, oc } she holds*/,
             recentDps /*damage per second over the last DPS_WINDOW, picks*/ }
 ProjectileRT = { uid, kind /*'arrow'|'bullet'|'shell'|'fireball'|'shuriken'|'orb'|'needle'|'flask'|'bolt'|'spark'*/, x, y, z, vx, vy, ownerUid, element, attackType }
@@ -1114,7 +1146,10 @@ SimEvent = { type, ...payload } with types:
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level,towerUid} 'ult' {name,effect,x,y,towerUid,rank} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
-  'bossPhase' {uid, announce} 'cash' {amount, reason} 'won' {} 'lost' {}
+  'bossPhase' {uid, announce} 'cash' {amount, reason /*…|'ability' (+ towerUid, owner)*/} 'won' {} 'lost' {}
+  'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
+  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
+  'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
   'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
@@ -1163,6 +1198,37 @@ sim.findDrone(uid)    // -> { tower, drone } | null
 sim.towerStats(uid)   // + own: { dps, dealt, kills } (her own attack); turret + { leash, speed, build, rate,
                       //   range (after buffs), dealt, kills, shots, nextIn, flight } for roaming drones
 ```
+
+**Abilities** (`src/sim/abilities.js`; data §3 Abilities; spec ABILITIES_SPEC §3–§6, milestone A1). A tower girl's
+⚡ ability unlocks at tier 3 of its path (tier 5 upgrades it: the cooldown left becomes min(left, new full)); a
+hero's skill at Lv 7 (rank 2 at Lv 17). Kinds live in A1: strike, burst, boost, rally, debuff, econ; deploy (Kage,
+Suzu, Chika) stays locked until A4 (`abilityStatus` → `later: true`). Rules: cooldowns are integer charge points
+(100 a tick; Skill Haste = gear `ultHaste` at half rate, never for rally / debuff) and charge only in 'wave'; a
+fresh ability starts with 1/3 of its cooldown left, econ empty; casting only in a wave; refusals (none spends
+the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `moving`, `active`, `cooldown`, `cap`
+(econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
+(`sim.abilGroups`, key "owner|id"). Ability hits never crit and their statuses are certain (no rng draw); a
+miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
+`abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
+calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies
+fold into `t.buff` after the limited buffs (strongest per key, both players' girls, never the caster). Coins go to
+the caster's owner: `sim._gainCashFor(owner, n)` (solo: cash; co-op: `sim.ownerCash[owner]`, moved into that
+player's wallet by the command layer, A2). Auto-cast (per girl, default Off; `sim.abilityAutoDefault[owner]` for
+later unlocks) runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds.
+```js
+t.abil              // { id, kind, scope, cdMax, cd /*charge points*/, rate /*points a tick*/, active /*ticks*/, auto, t5, n /*casts*/ }
+sim.castAbility(uid, { group?, owner?, auto? })  // -> { ok, reason, casterUid }; group: the selected copy if ready, else her
+                    //   player's ready copy with the most enemies in reach (ties: lower uid), even while the selected
+                    //   copy is locked; none ready: the selected copy's refusal (locked: her first copy that has it)
+sim.abilityStatus(uid)   // -> null | { id, kind, scope, unlocked, ready, reason, later, path, unlockTier, unlockLevel, cooldown (s),
+                         //   cooldownLeft (s), duration, activeLeft, auto, t5, uses, group, charge (0..1) }   (also towerStats().ability)
+sim.setAbilityAuto(uid, on) / sim.setAbilityAutoAll(owner, on)   // the switch / the player's setting (+ every girl of hers)
+sim.abilitySlots(owner)  // -> [{ id, unitId, kind, scope, casters: [uid], ready: n, best: status }] (towers only; UI, allocates)
+sim.result().stats       // + abilitiesUsed, abilityByTower {uid: n} — created on the first cast (no cast: result unchanged)
+```
+Headless: `runHeadless({ …, autoAbilities })`, plan action `{ action: 'ability', uid | x, y, group? }` (waits on a
+refusal a later moment can lift), `autoPlan(stageId, units, { ability: true })` (every girl's main path = her ⚡ path).
+Bench: `tools/abilityBench.mjs` (spec §11).
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
 checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is
@@ -1213,6 +1279,61 @@ a between-waves snapshot needs only `routeReversed`; the generic checkpoint rebu
 (`REBUILT`) and `AFTER_RESTORE` puts the live orientation back. Geometry caches (placement, wave lengths, pads, vents)
 come from `sim._pathsFwd`. Past the goal (`wave > stage.waves`) a rule keeps its combat effects and stops its € ones.
 Standard with `options.rule = null` is bit-identical to the pre-modes sim (`tests/sim/modesGolden.test.js`).
+
+### 3d. The new girls — `src/data/unitsNewGirls.js` (owner: units; UNIT_GAPS §5, wave 1)
+
+```js
+export const NEW_GIRLS      // [AZAMI, KINU, WAKABA, YUZUHA, OUKA, CHIGUSA, MARUMI]; units.js appends them after the returning girls
+export const NEW_GIRL_IDS   // their ids (goldens pin a "base roster" block with them left out)
+```
+New BaseStats blocks, each present ONLY on a girl whose base declares it (`mods.js normalizeBase`), so
+every other girl resolves bit-identically; ModSets with the same key add numbers, OR flags:
+`strip` (Azami: hits, ttl, forever, carry, boom/boomR/boomStun, air, aim, opening, lanes, pair, rain,
+rainCount; plus `trap.triggerRadius` adds), `ring` (Kinu: travel, turn, heat, double, sparks, scissors,
+scissorDmg, scissorMul ×, spiral, spiralPierce), `drink` (Wakaba: splash, shots, dmg, rate, range, pierce,
+detection, cleanse, permanent, season, towel, towelDmg, life), `sentry` (Yuzuha: max, every, speed, ttl,
+damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss), `hub` (Ouka: a tier states the
+new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, cdCut, rateMul, rangeMul,
+dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
+cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
+bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
+lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
+uses `none`). Roles spiker, ring, manager, builder, council, botanist, bowler. Weapons `strip`, `needle`, `tablet`,
+`banner`, `wateringCan`, `ball`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
+immune; `isHeld`).
+
+```js
+strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, endStripWave   // traps with strip: true
+rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
+drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
+sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
+balls.js:    addBall, rollBall, ballTick, endBallWave                        // t.balls [{ uid, pathIndex, dist, left, through, hit, stuck }]
+  BALLS_PER_GIRL 6 / BALLS_PER_SIM 48 (oldest first); blasts use t.blastSpec (pushLock: true; pushBig with
+  Bowling Thunder: Sim._hit skips KNOCKBACK_RESIST for minibosses); shared stretches (P-17): another
+  path's walker counts where its road segment runs parallel to the ball's (dot > 0.95)
+  abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
+vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
+  Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
+  (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)
+  abilities.js debuff: pick 'ground' (non-boss walkers, lead first), dmgMul (a hit each), reachMul
+hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner, clearBanners          // t.rules, t.banners
+  recomputeBuffs folds a hub's costCut / rateMul / rangeMul / dmgMul / detection / cleanse into t.buff
+  (strongest wins with the auras) and its rule keys into t.rules { src, freeTiers, sellMul, cdCut,
+  airGrant, typeFloor } (absent on a girl no hub covers); Sim._upgradeCost(t, tier, index) is 0 for a
+  free tier; sellValue uses max(sellRefund, rules.sellMul); _killEnemy pays killBounty to the hub's owner
+  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut));
+  refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
+aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
+  setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
+abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
+  (effect.target 'girl'; rally record `to`) or the whole map (effect.radius 'map', scope 'map'; record
+  `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
+  castAbility(sim, t, { aim }) passes the aim to the kind
+Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 per player/sim, oldest first
+```
+Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
+`nt` nets, `bn` Ouka's banners (replaces `am` for her); everything else of theirs ends at the wave clear
+(UNIT_GAPS §7.3).
 
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 
@@ -1790,8 +1911,8 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 6 (`version.js`; 6 is v0.1.39: the nine returning girls with the `aim` command, UR gear in
-  battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
+  `COOP_PROTOCOL` 7 (`version.js`; 7 is v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in
   `hello` / `start` with the version banner (`sameVersion`).

@@ -117,6 +117,15 @@ export const HERO_PUSH_LOCK = 0.5;
 /** Fraction of the ult cooldown that must still charge when the ult unlocks. */
 export const ULT_INITIAL_CHARGE = 0.5;
 
+/**
+ * Offsets (tiles) of the shells of a multi-shell ability burst around its aim point (src/sim/abilities.js;
+ * Akane's Starmine Barrage). Fixed literals, so no trig runs and every JS engine drops the same shells.
+ */
+export const ABILITY_SCATTER = Object.freeze([
+  [0, 0], [0.45, 0], [-0.22, 0.39], [-0.22, -0.39], [0, 0.62], [0.54, -0.31],
+  [-0.54, -0.31], [0.7, 0.35], [-0.7, 0.35], [0, -0.78], [0.36, 0.7], [-0.36, -0.7],
+].map((p) => Object.freeze(p)));
+
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;
 /** How often tower aura buffs are recomputed (also recomputed on any change). */
@@ -201,3 +210,63 @@ export const HEX_TIER_MUL = { normal: 1, elite: 1, miniboss: 2 / 3, boss: 1 / 3 
 export const HEX_BOSS_CAP = 0.1;
 /** Sky dragon (Seiran's Dragonflight, a path runner): hit radius of each body segment (tiles). */
 export const RUNNER_HIT_RADIUS = 0.6;
+
+// ---------------------------------------------------------------------------
+// New girls (UNIT_GAPS §5, §7.2): performance caps. When a cap is full the oldest object (lowest uid)
+// goes first, so the totals stay bounded however many copies a player places.
+// ---------------------------------------------------------------------------
+/** Road objects (Azami's strips, her Spike Rain strips): per player and per sim. */
+export const ROAD_OBJECTS_PER_PLAYER = 80;
+export const ROAD_OBJECTS_PER_SIM = 160;
+/** Strip spots: path samples this far apart (tiles); two strips never lie closer than STRIP_SPACING. */
+export const STRIP_SPOT_STEP = 0.5;
+export const STRIP_SPACING = 0.45;
+/** Checkpoint mode: strips land within this many tiles of her aim point. */
+export const STRIP_AIM_RADIUS = 0.5;
+/** Opening burst: she lays this many times faster in the first strip.opening s of each wave. */
+export const STRIP_OPENING_MUL = 4;
+/** Straight shots (Kinu's pins, blades and sparks; src/sim/rings.js): per girl, per player, per sim. */
+export const STRAIGHT_PER_GIRL = 60;
+export const STRAIGHT_PER_PLAYER = 200;
+export const STRAIGHT_PER_SIM = 400;
+/** Ring directions: one table of this many unit vectors holds 8, 10, 16 and 24-pin rings and 1/16 turns. */
+export const RING_DIRS = 240;
+/** Pin flight speed (tiles/s): a 1.8-tile pin lives about 9 steps. */
+export const RING_PIN_SPEED = 12;
+/** Iron Ring: how fast the heat ring grows (tiles/s). */
+export const HEAT_RING_SPEED = 6;
+/** Orbit Scissors: contact radius, orbit radius, table steps per sim step (one turn in 2 s), re-hit gap (s). */
+export const SCISSOR_RADIUS = 0.35;
+export const SCISSOR_REACH = 1.2;
+export const SCISSOR_STEPS = 2;
+export const SCISSOR_EVERY = 0.25;
+/** Blade Spiral: a pair of blades every this many seconds. */
+export const SPIRAL_EVERY = 0.1;
+/** Wakaba's Towel Snap: one flick every this many seconds. Recovery Plan: lives back per battle at most. */
+export const TOWEL_EVERY = 1;
+export const MAX_LIVES_RESTORED = 10;
+/** Molten Hem: spark bursts per sim step at most (the rest of that step's kills throw none). */
+export const SPARKS_PER_STEP = 8;
+/** Yuzuha's sentries (src/sim/sentries.js): road-edge spots every SENTRY_SPOT_STEP tiles, SENTRY_OFFSET off
+ *  the centreline, SENTRY_SPACING apart; per player and per sim caps. */
+export const SENTRY_SPOT_STEP = 0.5;
+export const SENTRY_OFFSET = 0.7;
+export const SENTRY_SPACING = 0.6;
+export const SENTRIES_PER_PLAYER = 24;
+export const SENTRIES_PER_SIM = 40;
+/** Capture Net: catch radius, nets at least this far apart, extra coins for a caught enemy (+50%). */
+export const NET_RADIUS = 0.5;
+export const NET_SPACING = 1.0;
+export const NET_COIN_BONUS = 0.5;
+/** Chigusa's thorn beds (src/sim/vines.js): hit radius, per girl and per sim caps (oldest first). */
+export const BED_RADIUS = 0.45;
+export const BEDS_PER_GIRL = 6;
+export const BEDS_PER_SIM = 40;
+/** Chigusa's vines: a held enemy takes the vine's damage once a second (the first at the grab). */
+export const VINE_TICK = 1;
+/** Marumi's bowling balls (src/sim/balls.js): contact radius, caps (oldest first), how far along the
+ *  road a blast's pins look for walkers. */
+export const BALL_RADIUS = 0.45;
+export const BALLS_PER_GIRL = 6;
+export const BALLS_PER_SIM = 48;
+export const PIN_REACH = 2;

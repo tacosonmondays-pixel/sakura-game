@@ -31,10 +31,19 @@ import { ruri } from './styles/ruri.js';
 import { noa } from './styles/noa.js';
 import { iroha } from './styles/iroha.js';
 import { ena } from './styles/ena.js';
+// the new girls (UNIT_GAPS §5, src/data/unitsNewGirls.js)
+import { azami } from './styles/azami.js';
+import { kinu } from './styles/kinu.js';
+import { wakaba } from './styles/wakaba.js';
+import { yuzuha } from './styles/yuzuha.js';
+import { ouka } from './styles/ouka.js';
+import { chigusa } from './styles/chigusa.js';
+import { marumi } from './styles/marumi.js';
 
 export const STYLE_BY_UNIT = {
   chika, hikari, luna, nami, aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede,
   kanna, yoriko, seiran, fuu, hana, ruri, noa, iroha, ena,
+  azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi,
 };
 
 /** Fallback per sim behaviour (any turret owner gets drones). */
@@ -45,6 +54,10 @@ export const BEHAVIOR_DEFAULT = {
   beam: generic,
   chain: generic,
   trap: generic,
+  strip: generic,
+  ring: generic,
+  drink: generic,
+  roll: generic,
   turret: chika,
 };
 

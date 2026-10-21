@@ -74,6 +74,7 @@ export const STATUSES = {
   reveal: { name: 'Revealed', desc: 'Veiled enemy can be targeted by anyone.' },
   ground: { name: 'Grounded', desc: 'A flyer knocked out of the sky: ground-only attacks can hit it. Bosses take 25% duration.' },
   hex: { name: 'Hexed', desc: 'Loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses; one hex takes at most 10% of their HP).' },
+  hold: { name: 'Held', desc: 'Held by vines: cannot move, but can still use abilities. Minibosses take 50% duration; bosses and flyers are immune.' },
   curse: { name: 'Cursed', desc: 'Bursts when it falls: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
 };
 
@@ -120,6 +121,14 @@ export const ROLES = {
   hexer: { name: 'Hex Caster', category: 'dps', goodAgainst: 'Dense waves that fall together', limitation: 'Curses need kills to spread', desc: 'Curses that burst and spread on death.' },
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
+  // the new girls (UNIT_GAPS §5)
+  bowler: { name: 'Demolition Bowler', category: 'dps', goodAgainst: 'Walking crowds coming straight at her', limitation: 'Balls never touch flyers', desc: 'Rolls bomb balls up the road against the enemies: blasts that push the crowd back.' },
+  botanist: { name: 'Botanist', category: 'control', goodAgainst: 'Walking crowds and long games', limitation: 'Vines never hold bosses or flyers', desc: 'Throws thorn seeds; her vines hold walkers in place and her harvest grows coins and lives.' },
+  council: { name: 'Council Hub', category: 'support', goodAgainst: 'Saving coins and building a strong core', limitation: 'No attack of her own', desc: 'Changes the rules in her office radius: cheaper upgrades, free tiers, coins per kill.' },
+  builder: { name: 'Field Builder', category: 'support', goodAgainst: 'Long roads and mixed threats', limitation: 'Sentries need time and road', desc: 'Sets timed sentries at the road\'s edge and nets on the road.' },
+  manager: { name: 'Team Manager', category: 'support', goodAgainst: 'Making the team\'s best girl even better', limitation: 'No attack of her own', desc: 'Throws sports drinks that speed up the girls she picks.' },
+  ring: { name: 'Burst Emitter', category: 'dps', goodAgainst: 'Crowds that wrap around her', limitation: 'Very short reach', desc: 'Fires a ring of pins in every direction at once.' },
+  spiker: { name: 'Spike Layer', category: 'control', goodAgainst: 'Ground crowds and leaks near the exit', limitation: 'Flyers fly over her strips', desc: 'Lays spike strips that hit everything that walks over them.' },
   stormrider: { name: 'Storm Rider', category: 'hero', goodAgainst: 'Flyers and spread-out waves', limitation: 'Halved by warded oni and fae', desc: 'Amphibious lightning hero with an aimed storm.' },
 };
 

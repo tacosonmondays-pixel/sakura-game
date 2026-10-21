@@ -55,6 +55,18 @@ export const MOD_TAGS = {
   income: 'coins',
   // roster B3: the flyer bonus and a familiar / mirror's reach are hers; a gather pulls enemies
   airMul: 'self', relay: 'self', gather: 'enemies',
+  // the new girls (UNIT_GAPS §5): Azami's spike strips are her traps; Kinu's ring is her attack
+  strip: 'traps', ring: 'self',
+  // Wakaba's drink makes the girls she picks stronger
+  drink: 'limited',
+  // Ouka's office rules cover the girls around her
+  hub: 'allies',
+  // Chigusa's vine holds enemies; her thorn beds are her traps
+  vine: 'enemies',
+  // Marumi's balls are her attack
+  ball: 'self',
+  // Yuzuha's lane sentries are her summons
+  sentry: 'drones',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -72,6 +84,13 @@ const SUB_KEYS = {
   ramp: new Set(['per', 'max']),
   mark: new Set(['bonus', 'duration']),
   relay: new Set(['reach']),
+  sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
+  ball: new Set(['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'sticky', 'stickyStack', 'stickyTime']),
+  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap']),
+  hub: new Set(['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'detection', 'airGrant', 'cleanse', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd']),
+  drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
+  ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
+  strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
 };
 
 /** Status types that make enemies easier for EVERY girl to hit or hurt. */
@@ -188,9 +207,10 @@ export function modsTags(mods = {}, { radius = 0, reach = 0 } = {}) {
  * @param {{ current?: number }} [opts]
  */
 export function auraRadius(unit, path, tier, { current = 0 } = {}) {
-  let r = Math.max(unit?.base?.aura?.range ?? 0, current || 0);
+  // (Ouka's office radius counts as her aura: her rules cover the girls inside it)
+  let r = Math.max(unit?.base?.aura?.range ?? 0, unit?.base?.hub?.radius ?? 0, current || 0);
   const tiers = unit?.paths?.[path]?.tiers || [];
-  for (let k = 0; k < Math.min(tier, tiers.length); k++) r = Math.max(r, tiers[k]?.mods?.aura?.range ?? 0);
+  for (let k = 0; k < Math.min(tier, tiers.length); k++) r = Math.max(r, tiers[k]?.mods?.aura?.range ?? 0, tiers[k]?.mods?.hub?.radius ?? 0);
   return r;
 }
 

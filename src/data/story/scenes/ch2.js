@@ -1,5 +1,5 @@
 // Chapter 2: Moonlit Lakeshore — the Moon-Pier Lantern (docs/story/BIBLE.md §7, Chapter 2).
-// Join: Kage (2-5). Laugh: the smug basilisk. Heart: Aoi's courage in the dark; Nami sees through Hikari.
+// Join: Azami (2-2), Kage (2-5). Laugh: the smug basilisk. Heart: Aoi's courage in the dark; Nami sees through Hikari.
 // Clue: lizards cuddle lanterns for warmth; scale #2, "two's a pattern"; the suspect board starts.
 
 import { scene, say, narrate, cue, choice } from '../format.js';
@@ -24,6 +24,23 @@ export default [
       { text: 'Want to borrow a lantern?', lines: [say('aoi', "Hehe, only if the lizards don't borrow it first!", { face: 'laugh' })] },
     ]),
     say('hikari', "Lanterns up, Sentinels. Let's light this shore again!", { face: 'determined' }),
+  ]),
+
+  scene('ch2.azami', {
+    title: 'No Running on My Road', chapter: 2, kind: 'join', trigger: { after: '2-2' }, bg: 'stage:2-2', music: 'calm',
+  }, [
+    narrate('A whistle shrills across the reeds. Every lizard on the shore stops mid-step.'),
+    say('azami', 'Halt! This road is a walking zone. No running, no shoving, and absolutely no hiding in the reeds.', { at: 'right', fx: 'slide-in', face: 'determined' }),
+    say('hikari', "Sensei, this is {name:azami}, our checkpoint prefect. Even third-years walk slower near her.", { at: 'center', face: 'laugh' }),
+    say('aoi', 'She lays spike strips on the road. Anything that walks over them gets a very rude surprise.', { at: 'left' }),
+    say('azami', 'They are folding strips. Fully regulation. I check every one of them twice.'),
+    choice([
+      { text: 'Will you guard our road?', lines: [say('azami', 'Only if everyone signs the clipboard. …Fine. You can sign later.')] },
+      { text: 'Is the whistle regulation too?', lines: [say('azami', 'The whistle is the regulation, Sensei.', { face: 'deadpan' })] },
+    ]),
+    say('aoi', '…Are first-years allowed to run, if a slime is chasing them?'),
+    say('azami', 'First-years may walk briskly. I will handle the slime.', { face: 'smile' }),
+    say('hikari', 'Then the checkpoint is open! Sentinels, onward along the shore!'),
   ]),
 
   scene('ch2.mid', {
