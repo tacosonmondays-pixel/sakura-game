@@ -20,6 +20,12 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.44', version: '0.1.44', date: '2026-10-21', title: 'A Rainbow Without Scrollbars',
+    fixed: [
+      'The "Awakened to UR!" moment shows its dark rainbow look again, without stray scrollbars around the gem.',
+    ],
+  },
+  {
     id: 'v0.1.43', version: '0.1.43', date: '2026-10-21', title: 'A Bigger Kon',
     changed: [
       'Kon is much bigger (about 2.4 times), in battle and next to Ruri on her page, so you can actually see him run to his spot.',
