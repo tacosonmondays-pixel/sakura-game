@@ -13,7 +13,7 @@ import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
 import { hashString, createRng } from '../core/rng.js';
 import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
-import { eventRunGate, eventAfterBattle, eventStageStatus, trackEvent } from './events.js';
+import { eventRunGate, eventAfterBattle, eventStageStatus, eventDifficultyStatus, trackEvent, eventSweepsLeft, useEventSweeps } from './events.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
 export const DIFFICULTY_COIN_MUL = { easy: 0.8, normal: 1, hard: 1.25, nightmare: 1.5 };
@@ -25,7 +25,7 @@ export const MODE_RIBBON_GEMS = Object.freeze({ easy: 0, normal: 0, hard: 0, nig
 
 const diffIndex = (d) => Math.max(0, DIFFICULTY_ORDER.indexOf(d));
 
-/** [events] An event stage pays only on its own `difficulties`; every other stage on all four. */
+/** [events] An event stage pays only on its own `difficulties`; every other stage on all four (a locked one: eventDifficultyStatus). */
 export function eventDifficultyOk(stage, difficulty) {
   return stage?.kind !== 'event' || !Array.isArray(stage.difficulties) || stage.difficulties.includes(difficulty);
 }
@@ -192,9 +192,12 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   const gate = eventRunGate(profile, stage, startedAt ?? eventAt?.getTime?.() ?? now.getTime());
   if (!gate.ok) return { ...out, practice: true, note: gate.text };
   const difficulty = DIFFICULTIES[result.difficulty] ? result.difficulty : 'normal';
-  // [events] and only on its own difficulties (an operation is Normal only, the boss Normal / Hard):
-  // a hand-edited battle link on any other one is practice, never a medal or a first clear
+  // [events] and only on its own difficulties (an operation Normal / Nightmare, the boss Normal / Hard /
+  // Nightmare): a hand-edited battle link on any other one is practice, never a medal or a first clear
   if (!eventDifficultyOk(stage, difficulty)) return { ...out, practice: true, note: `${DIFFICULTIES[difficulty].name} isn't offered on this event stage — this run was practice, no rewards.` };
+  // [events] and a difficulty still locked there (Nightmare before its Normal / Hard medal) is practice too
+  const locked = eventDifficultyStatus(profile, stage.id, difficulty);
+  if (!locked.ok) return { ...out, practice: true, note: `${DIFFICULTIES[difficulty].name} opens here after a ${DIFFICULTIES[locked.needs].name} clear — this run was practice, no rewards.` };
   const won = !!result.won;
   const encountered = [...new Set([...(result.encountered || []), ...Object.keys(result.kills || {})])];
   const kills = result.kills || {};
@@ -294,7 +297,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   countSoloBattle(profile, result, { won, difficulty, eventBonus: out.eventBonus });
 
   out.sandboxUnlocked = clearsBefore < SANDBOX_UNLOCK_CLEARS && campaignClears(profile) >= SANDBOX_UNLOCK_CLEARS;
-  if (stage.kind === 'event') Object.assign(out, eventAfterBattle(profile, stage, { won, firstClear: out.firstClear, difficulty, totalKills, now: now.getTime() }));
+  if (stage.kind === 'event') Object.assign(out, eventAfterBattle(profile, stage, { won, firstClear: out.firstClear, newMedal: out.newMedal, difficulty, totalKills, now: now.getTime() }));
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
   return out;
@@ -302,6 +305,8 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
 
 /**
  * Sweeping is unlocked once a stage is cleared on Hard or Nightmare (not for the endless challenge).
+ * An event operation sweeps once cleared (on any difficulty up to its best medal: Nightmare after its
+ * Nightmare medal), while the event is open; an event boss never.
  * @returns {boolean}
  */
 export function canSweep(profile, stageId, now = Date.now()) {
@@ -315,19 +320,27 @@ export function canSweep(profile, stageId, now = Date.now()) {
 
 /**
  * Instantly collect drops `times` times (max 10 per call) on a difficulty already cleared
- * (or easier). No medals, first clears or bestiary changes.
- * @returns {{ ok: boolean, error?: string, runs: object[][], rewards: object[], gear: object[] }}
+ * (or easier). No medals, first clears or bestiary changes. [events] An event stage also spends the
+ * event's daily sweeps (events.js eventSweepsLeft): a tap with fewer left sweeps only those, none left →
+ * error 'limit'; `sweepsLeft` is what is left after it.
+ * @returns {{ ok: boolean, error?: string, runs: object[][], rewards: object[], gear: object[], sweepsLeft?: number }}
  */
 export function sweep(profile, stageId, difficulty, times, rng, { now = new Date() } = {}) {
   const evStage = STAGE_MAP[stageId]?.kind === 'event';
+  const evId = evStage ? STAGE_MAP[stageId].event : null;
   if (evStage && !canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'event', runs: [], rewards: [], gear: [] };
   if (!canSweep(profile, stageId, now.getTime())) return { ok: false, error: 'locked', runs: [], rewards: [], gear: [] };
   const d = DIFFICULTIES[difficulty] ? difficulty : 'hard';
-  if (!eventDifficultyOk(STAGE_MAP[stageId], d)) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
+  if (!eventDifficultyOk(STAGE_MAP[stageId], d) || !eventDifficultyStatus(profile, stageId, d).ok) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
   const m = stageMedals(profile, stageId);
   const best = Math.max(...DIFFICULTY_ORDER.map((x, i) => (m[x] ? i : -1)));
   if (diffIndex(d) > best) return { ok: false, error: 'difficulty', runs: [], rewards: [], gear: [] };
-  const n = Math.max(1, Math.min(MAX_SWEEPS, Math.floor(times) || 1));
+  let n = Math.max(1, Math.min(MAX_SWEEPS, Math.floor(times) || 1));
+  if (evStage) {
+    const { left } = eventSweepsLeft(profile, evId, now.getTime());
+    if (left <= 0) return { ok: false, error: 'limit', runs: [], rewards: [], gear: [], sweepsLeft: 0 };
+    n = Math.min(n, left);
+  }
   const mul = eventMul(stageId, now);
   const runs = [];
   const allItems = [];
@@ -344,7 +357,9 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
   const entry = stageEntry(profile, stageId);
   entry.clears += n;
   track(profile, 'sweep', n);
-  if (evStage) trackEvent(profile, STAGE_MAP[stageId].event, 'eventClear', n, { now: now.getTime() });
   if (STAGE_MAP[stageId].kind === 'boss') track(profile, 'assaultClear', n);
-  return { ok: true, runs, rewards, gear: allGear };
+  if (!evStage) return { ok: true, runs, rewards, gear: allGear };
+  const { left } = useEventSweeps(profile, evId, n, now.getTime());
+  trackEvent(profile, evId, 'eventClear', n, { now: now.getTime(), difficulty: d });
+  return { ok: true, runs, rewards, gear: allGear, sweepsLeft: left };
 }

@@ -6,11 +6,20 @@
 //   EB-2 the Gourdlight Golem: Normal is won by a mid free-player team (the roster at the end of
 //        chapter 3, level 20) on every seed; Hard is a challenge (that team loses; a late free
 //        team at level 50 wins).
+//   EB-3 the Golem's Nightmare ("Lantern Night Never Ends", src/data/events/wire.js eventBattleStage) is
+//        really hard: a mid team (level 40, no gear) and a level-60 team with maxed gear at P1 lose; the
+//        late free-player profile (level 85, late gear, R/SR at P6: tools/potentialProfiles.mjs f2p-late)
+//        wins. Same build as the design bench (docs/specs/HALLOWEEN_2026.md "Nightmare").
+//   EB-4 an operation's Nightmare is the campaign's: Op 4 (the farm) is won by a smart level-40 team
+//        and lost by the free roster of its tuneLike stage at that chapter's level.
 import { describe, test, expect } from 'vitest';
 import '../../src/data/events/wire.js';
+import { eventBattleStage } from '../../src/data/events/wire.js';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { withDetMath } from '../../src/core/detMath.js';
+import { profileStats, PROFILES } from '../../tools/potentialProfiles.mjs';
 
 const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
 
@@ -45,6 +54,24 @@ function run(stageId, difficulty, rosterAt, level, seed) {
 
 const SEEDS = [1, 2, 3];
 
+/** A smart mixed team (veil sight, holy / mystic, splash, armor pierce, slow): the design bench's "build A". */
+const BUILD_A = { towers: ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'], hero: 'hikari' };
+
+/** One battle with BUILD_A on the stage a difficulty plays (the variant when it has one, as createBattleSim passes it). */
+function runBuild(stageId, difficulty, statsOf, seed) {
+  const stage = eventBattleStage(stageId, difficulty);
+  const data = stage ? { stage } : undefined;
+  const ids = [...BUILD_A.towers, BUILD_A.hero];
+  const r = withDetMath(() => runHeadless({
+    stageId, difficulty, seed, maxTime: 9000, data,
+    plan: autoPlan(stageId, ids, { data }),
+    loadout: BUILD_A.towers.map((id) => ({ unitId: id, stats: statsOf(id) })),
+    hero: { unitId: BUILD_A.hero, stats: statsOf(BUILD_A.hero) },
+  }));
+  return { won: r.won, wave: r.wave, text: `${stageId} ${difficulty} seed ${seed}: ${r.won ? 'won' : 'lost'} w${r.wave}/${stage?.waves ?? r.sim?.totalWaves}` };
+}
+const atProfile = (name) => (id) => profileStats(id, { name, ...PROFILES[name] });
+
 describe.skipIf(!hasRealData())('event balance (autoPlan, free units only)', () => {
   test('EB-1 every Halloween operation is won on Normal at its tuneLike roster and level', () => {
     const d = defaultData();
@@ -63,5 +90,30 @@ describe.skipIf(!hasRealData())('event balance (autoPlan, free units only)', () 
     for (const seed of SEEDS) expect(run('ev-halloween-boss', 'normal', '4-1', 20, seed).won).toBe(true);
     expect(run('ev-halloween-boss', 'hard', '4-1', 20, 1).won).toBe(false);
     expect(run('ev-halloween-boss', 'hard', '8-1', 50, 1).won).toBe(true);
+  }, 600000);
+
+  test('EB-3 the Golem\'s Nightmare is really hard: mid and level-60 P1 teams lose, the late free-player profile wins', () => {
+    const results = [];
+    for (const seed of SEEDS) {
+      const mid = runBuild('ev-halloween-boss', 'nightmare', (id) => statsAt(id, 40), seed);
+      const p1 = runBuild('ev-halloween-boss', 'nightmare', atProfile('p1'), seed);
+      const late = runBuild('ev-halloween-boss', 'nightmare', atProfile('f2p-late'), seed);
+      results.push(mid.text, p1.text, late.text);
+      expect(mid.won, mid.text).toBe(false);
+      expect(mid.wave, mid.text).toBeLessThanOrEqual(10);
+      expect(p1.won, p1.text).toBe(false);
+      expect(late.won, late.text).toBe(true);
+    }
+    // eslint-disable-next-line no-console
+    if (process.env.BALANCE) console.log(results.join('\n'));
+  }, 600000);
+
+  test('EB-4 Op 4 on Nightmare: a smart level-40 team wins, the chapter\'s free roster at its level loses', () => {
+    for (const seed of SEEDS) {
+      const smart = runBuild('ev-halloween-4', 'nightmare', (id) => statsAt(id, 40), seed);
+      expect(smart.won, smart.text).toBe(true);
+    }
+    const like = defaultData().stages['ev-halloween-4'].tuneLike;
+    expect(run('ev-halloween-4', 'nightmare', like, EXPECTED_LEVEL[defaultData().stages[like].chapter], 1).won).toBe(false);
   }, 600000);
 });

@@ -213,7 +213,8 @@ export function mountBattle(root, params, hooks) {
   function stageFamilies() {
     const fams = new Set();
     try {
-      for (const x of stageEnemies(stage) || []) {
+      // (the stage the Sim runs: an event difficulty with its own waves brings its own enemies)
+      for (const x of stageEnemies(sim?.stage || stage) || []) {
         const def = typeof x === 'string' ? ENEMY_MAP[x] : x;
         if (def) fams.add(def.model?.base || def.family);
       }
@@ -988,7 +989,7 @@ export function mountBattle(root, params, hooks) {
       }
     };
     later(armHero, 700);
-    if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
+    if (req.practice) feed.push(req.practiceNote || 'Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
     if (restored) {
       // a hero saved before the hero rework: back at her level, what she cost back as coins
       const heroBack = (restored.heroRefunds || []).reduce((a, x) => a + x.refunded, 0);
