@@ -36,7 +36,12 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    command, curses, hexes, runners, team damage buffs), UR gear in battle (Pierce, Aura Power, the
 //    Academy Club tricks) and Ascension's gates 6-10; a client on 5 resolves the same loadout to
 //    different battles (or does not know the girl at all).
-export const COOP_PROTOCOL = 6;
+// 7: v0.1.40 (co-op update #4, set once for it): the seven new academy girls (spike strips, pin rings,
+//    sports drinks, lane sentries, the council office, vines and bowling balls: src/sim/{strips,rings,
+//    drinks,sentries,hubs,vines,balls}.js) and the ability core in the sim (castAbility; auto-cast off and
+//    no command casts yet); a client on 6 resolves the same loadout to different battles (or does not
+//    know the girl at all).
+export const COOP_PROTOCOL = 7;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

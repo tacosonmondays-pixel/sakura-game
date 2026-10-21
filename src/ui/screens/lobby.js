@@ -278,7 +278,7 @@ export function render(root) {
   // and celebrated once per session until claimed.
   if (ensureBetaGift(store.profile)) store.commit('mail');
   if (ensurePotentialLetter(store.profile)) store.commit('mail');
-  if (ensureCatchUpJoins(store.profile).length) store.commit('mail'); // Noa / Hana after a reset or an import too
+  if (ensureCatchUpJoins(store.profile).length) store.commit('mail'); // the catch-up girls after a reset or an import too
   // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
   const betaGift = () => {
     if (!el.isConnected) return;

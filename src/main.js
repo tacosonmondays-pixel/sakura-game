@@ -5,8 +5,7 @@ import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
 import { ensureBetaGift, ensurePotentialLetter, ensureEssenceLetter } from './systems/mail.js';
-import { ensureCatchUpJoins } from './systems/catchUpJoins.js';
-import { UNIT_MAP } from './data/units.js';
+import { ensureCatchUpJoins, joinToastText } from './systems/catchUpJoins.js';
 import { createRng, hashString } from './core/rng.js';
 import { settleEvents, markEventLogin } from './systems/events.js';
 import { eventNow } from './ui/events/clock.js';
@@ -72,15 +71,15 @@ try {
   settleEvents(store.profile, eventNow()); // [events] ended events: unclaimed rewards + leftover currency → coins by mail (once)
   markEventLogin(store.profile, eventNow()); // [events] the day's event visit: login mission + the daily gift letter
   ensureEssenceLetter(store.profile); // [ascension] "Duplicates are now Essence!" once, to a save the switch-over ran on
-  caughtUp = ensureCatchUpJoins(store.profile); // Noa / Hana join once (with a letter) when 6-2 / 7-5 was cleared before they existed
+  caughtUp = ensureCatchUpJoins(store.profile); // Azami / Yuzuha / Noa / Wakaba / Hana join once (a letter each) when 2-2 / 4-2 / 6-2 / 6-5 / 7-5 was cleared before they existed
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);
 }
 // the girls who just joined because their stage was already cleared: one toast on the first lobby
+// naming them all ("Azami, Yuzuha and Wakaba joined your academy!"), never one per girl on top of each other
 if (caughtUp.length) {
-  const names = caughtUp.map((id) => UNIT_MAP[id]?.name || id);
-  const text = `${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]} joined your academy! Details in your Mailbox.`;
+  const text = joinToastText(caughtUp);
   const onLobby = () => {
     if (currentRoute().name !== 'lobby') return;
     window.removeEventListener('lobby-stage-ready', onLobby);

@@ -879,8 +879,8 @@ Owner, Oct 14: "can you add freeplay stages too to coop? … once you get past w
   off — e.g. her Finish vote counted alone after the drop — says `done` in her beats: the host offers
   her no rejoin, and a finished guest ignores any offer, so the results screen (already paid) is never
   pulled back into the run.
-- **Compatibility.** `COOP_PROTOCOL` is 6 since v0.1.39 (the returning girls, UR gear and Ascension;
-  5 was Potential v3, 4 battle train C, 3 freeplay: the `start.freeplay` field, the `end` command, the
+- **Compatibility.** `COOP_PROTOCOL` is 7 since v0.1.40 (the seven new academy girls and the sim's
+  ability core; 6 was v0.1.39: the returning girls, UR gear and Ascension; 5 was Potential v3, 4 battle train C, 3 freeplay: the `start.freeplay` field, the `end` command, the
   goal event) and the freeplay table is part of the battle-data hash, so builds on different protocols
   refuse to pair (the version banner).
 

@@ -1,17 +1,23 @@
 // Catch-up joins (owner: systems): free girls who join on a stage win, for a save that already
-// cleared that stage before she existed. Noa joins on a 6-2 win and Hana on a 7-5 win since v0.1.39;
-// a player who cleared those stages earlier would otherwise have to win them again to meet her.
+// cleared that stage before she existed. Since v0.1.39 Noa joins on a 6-2 win and Hana on a 7-5 win;
+// since v0.1.40 Azami joins on a 2-2 win, Yuzuha on a 4-2 win and Wakaba on a 6-5 win (the three new
+// academy girls with a stage unlock, src/data/stages.js; the other four of the seven are Recruit only).
+// A player who cleared those stages earlier would otherwise have to win them again to meet her.
 //
 // At app start (main.js, next to the other one-time letters) and on the lobby (after a reset or an
 // import), each girl listed here who is not owned while her stage has a clear medal (any difficulty)
 // joins through the same grantUnit as a stage win (her 'own:' marks, Potential and Ascension mirrors;
 // achievements read the roster) and a letter says so, as the results sheet's "New student" card does
-// after a win. Once settled (she joined here, or was already owned) the girl's 'join:<id>' mark in
+// after a win. Several girls at once get a letter each, and main.js names them all in one lobby toast.
+// Once settled (she joined here, or was already owned) the girl's 'join:<id>' mark in
 // missions.counters stays at 1: every build keeps counters word for word (numbers only), so a reload,
 // an older v0.1.38 / v0.1.39 tab that loads and saves the save, or a later loss of the girl never
-// brings a second grant or a second letter. A girl never joins twice: an owned girl is never granted
-// (no duplicate, no Essence), and a save that has not cleared her stage keeps no mark, so the stage win
-// grants her as usual. Pure functions on the profile; nothing here touches the sim or is co-op hashed.
+// brings a second grant or a second letter. An older tab that does not know her (v0.1.38 for Noa and
+// Hana, v0.1.39 for the v0.1.40 girls) drops her from units but keeps both marks: her 'own:' marks
+// bring her back on the next load here and her 'join:' mark keeps the catch-up from granting her again.
+// A girl never joins twice: an owned girl is never granted (no duplicate, no Essence), and a save that
+// has not cleared her stage keeps no mark, so the stage win grants her as usual. Pure functions on the
+// profile; nothing here touches the sim or is co-op hashed.
 
 import { UNIT_MAP } from '../data/units.js';
 import { STAGES } from '../data/stages.js';
@@ -20,8 +26,12 @@ import { deliverMail } from './mail.js';
 
 /** missions.counters mark: 'join:<id>' = 1 once that girl's catch-up is settled. */
 export const JOIN_PREFIX = 'join:';
-/** Free girls added after their stage could already be cleared (v0.1.39). */
-export const CATCH_UP_UNITS = Object.freeze(['noa', 'hana']);
+/**
+ * Free girls added after their stage could already be cleared: Noa and Hana (v0.1.39), Azami, Yuzuha
+ * and Wakaba (v0.1.40). In campaign order of their stage (2-2, 4-2, 6-2, 6-5, 7-5), so the letters and
+ * the lobby toast name them in the order a player meets them.
+ */
+export const CATCH_UP_UNITS = Object.freeze(['azami', 'yuzuha', 'noa', 'wakaba', 'hana']);
 
 /** The stage whose win grants her (its `unlocks.units` lists her), or null. */
 export function joinStageOf(unitId) {
@@ -49,6 +59,19 @@ export function joinLetter(unitId) {
 }
 
 /**
+ * The one lobby toast for the girls who just joined: every name in it, in the order given
+ * ("Azami joined …", "Noa and Hana joined …", "Azami, Yuzuha and Wakaba joined …").
+ * @param {string[]} unitIds
+ * @returns {string} '' for an empty list
+ */
+export function joinToastText(unitIds) {
+  const names = (unitIds || []).map((id) => UNIT_MAP[id]?.name || id);
+  if (!names.length) return '';
+  const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+  return `${who} joined your academy! Details in your Mailbox.`;
+}
+
+/**
  * Settle every catch-up girl once (call on app start and on the lobby). Idempotent: a girl whose
  * 'join:' mark is set is never looked at again.
  * @param {object} profile
@@ -70,9 +93,13 @@ export function ensureCatchUpJoins(profile, now = Date.now()) {
     if (!stage || !isStageCleared(profile, stage.id)) continue; // her stage win will grant her
     grantUnit(profile, id, now);
     counters[key] = 1;
+    joined.push(id);
+  }
+  // a letter each; the Mailbox lists the newest first, so the last girl goes in first and the
+  // Mailbox reads top to bottom in campaign order (Azami, Yuzuha, Noa, …)
+  for (const id of [...joined].reverse()) {
     const letter = joinLetter(id);
     if (letter) deliverMail(profile, letter, now);
-    joined.push(id);
   }
   return joined;
 }
