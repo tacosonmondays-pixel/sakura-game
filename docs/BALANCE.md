@@ -45,6 +45,26 @@ their own shot (their strips and sentries do the work), so read their real colum
 - Bot goldens (the free team plus her, seed 1): 5-4 Hard 37 → 38 lives, 8-4 Hard 36 → 40. Easy gate
   unchanged (she is gacha, never in the free pool).
 
+### v0.1.41 ship pass (lob for flyers only, one Heavy Ball tune)
+
+- **The lob is flyers only.** With no walker on her lane, `rollBall`'s lob gathered every target the
+  lob spec could reach, so she lobbed at ground walkers on other lanes too. It now picks flyers only
+  (Hook Spin stays her way onto other lanes; test: one walker on a far lane, no Hook Spin, no flyer: no
+  lob). On this bench Lane Master (2-x-0, no Hook Spin) now reads **0**: her best-covered 4-5 spot sits
+  between the two arms before they join, her own lane is path 1's arm and the bench stream walks path 0
+  only. The 4.3k · 12k · 70k above were those lobs. Beside the shared stretch after the join (Lane
+  2-3-0 at (8, 7.3), same strong stats): path-0 walkers 4.6k, path-1 walkers 5.0k (main before the
+  rework: 2.2k and **0**), so the shared-road fix itself holds.
+- **Heavy Ball tune** (one pass): Concussion loses its +20 damage and makes the others in a blast take
+  15 % (`ball.share` −0.35); Wrecking Ball +60 → +80; Bowling Thunder brings the share back to half
+  (+0.35). Her 5/2 damage is unchanged (610 base), so the 5/2 panel and crowd are too.
+
+| Heavy (coins) | panel DPS before → after | crowd DPS before → after | Akane crowd (coins) | boss DPS before → after |
+|---|---|---|---|---|
+| 3-0-2 (2,440) | 398 → 239 | 55.4k → 10.2k (1.7× Akane) | 5.9k (2,300) | 53 → 32 |
+| 4-0-2 (5,840) | 875 → 875 | 129.2k → 41.2k (1.7× Akane) | 24.1k (5,500) | 118 → 118 |
+| 5-0-2 (25,040) | 4,853 → 4,853 | 259.6k → 259.6k | 324.0k (35,500) | 809 → 809 |
+
 ## Kaede's AoE rework (2026-10-21, `feature/kaede-rework`)
 
 Owner (Oct 15): "make kaede's attacks aoe! at least some of them, make her feel like an ssr!". Live Kaede was a

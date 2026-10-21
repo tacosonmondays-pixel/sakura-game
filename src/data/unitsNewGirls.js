@@ -441,9 +441,9 @@ const MARUMI = {
     path('heavy', 'Heavy Ball', 'Big blasts and stun', [
       tier('Heavier Core', 140, '+10 damage.', { damage: 10 }),
       tier('Big Blast', 320, '+0.3 blast radius; knockback +0.2.', { splash: 0.3, knockback: 0.2 }),
-      tier('Concussion', 1100, '+20 damage; blasts stun for 0.5s (bosses for a quarter).', { damage: 20, status: [S.stun(0.5)] }),
-      tier('Wrecking Ball', 3400, '+60 damage; the ball bowls through the first 3 walkers before it explodes; ×1.5 against barriers.', { damage: 60, ball: { through: 3 }, barrierMul: 1.5 }),
-      tier('Bowling Thunder', 19200, '+500 damage; blasts stun for 1s; knockback 0.8, and minibosses take the whole push.', { damage: 500, status: [S.stun(1)], knockback: 0.3, ball: { pushBig: true } }),
+      tier('Concussion', 1100, 'Blasts stun for 0.5s (bosses for a quarter); the blast hits the walker it meets hardest (the others in it take 15%).', { status: [S.stun(0.5)], ball: { share: -0.35 } }),
+      tier('Wrecking Ball', 3400, '+80 damage; the ball bowls through the first 3 walkers before it explodes; ×1.5 against barriers.', { damage: 80, ball: { through: 3 }, barrierMul: 1.5 }),
+      tier('Bowling Thunder', 19200, '+500 damage; blasts stun for 1s; the others in a blast take half again; knockback 0.8, and minibosses take the whole push.', { damage: 500, status: [S.stun(1)], knockback: 0.3, ball: { pushBig: true, share: 0.35 } }),
     ]),
     path('lane', 'Lane Master', 'Long lanes and pins', [
       tier('Quick Release', 130, '+25% attack speed.', { rateMul: 1.25 }),

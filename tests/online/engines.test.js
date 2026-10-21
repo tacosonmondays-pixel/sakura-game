@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -139,6 +139,23 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
       .toEqual({ ticks: 54615, state: 'won', wallets: '5521/5179', final: 3900917007, hashes: '7ad51e89', iroha: '572/522/885' });
+  }, 240000);
+
+  it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
+    const r = runGlowBowlBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    expect(r.tiers.split(' ').slice(0, 2)).toEqual(['205', '501']); // Glow Bowl (host), Bowling Thunder (guest)
+    const [pops, bounced, finales] = r.bowl.split('/').map(Number);
+    expect(pops).toBeGreaterThan(bounced);
+    expect(bounced).toBeGreaterThan(0);
+    expect(finales).toBeGreaterThan(0);
+    expect(runGlowBowlBattle().final).toBe(r.final);
+    // pinned when the battle was added (v0.1.41: Marumi's rework with the lob for flyers only and the
+    // Heavy Ball share tune). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, bowl: r.bowl })
+      .toEqual({ ticks: 72006, state: 'wave', wave: 26, wallets: '7258/6667', final: 821407225, hashes: '018423c4', bowl: '659/397/7/0' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

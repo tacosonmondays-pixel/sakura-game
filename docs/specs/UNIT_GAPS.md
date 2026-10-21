@@ -183,7 +183,7 @@ Ten of the 11 new girls are unique from the moment they are placed. Tenka is hon
 | A11 | Player-aimed fire line | the player sets the direction or line of fire | MISSING | nothing fires along a player-set line | — | Kohaku path option (§4) | P3 |
 | A12 | **Late-game carry** | very fast fire, very expensive top tiers, a transform | PARTIAL | high-rate T5s exist (Aoi, Kage, Shiro) but no unit is built as the late-game anchor | — | **Tenka** (new; a shooter at base, offering at T3) | P1 |
 | A13 | Anti-air specialist + grounding | hunts flyers first; knocks them down for ground-only girls | PARTIAL | `canHitAir` per girl; ground-only is absolute (`combat.js:24`) | grounding, air priority | Hana, Seiran (planned); B3 ground `status.js:26`, `ROLE_TARGET_MODE` `constants.js:122` | P1 |
-| A14 | Boss-killer burst | one huge hit on the strongest enemy | PARTIAL | Shiro elite/boss multipliers; no tower burst | — | Kanna `strike` ult (B3 `hero.js:212`); Tenka's Critical Mass; Marumi Sticky Ball | P2 |
+| A14 | Boss-killer burst | one huge hit on the strongest enemy | PARTIAL | Shiro elite/boss multipliers; no tower burst | — | Kanna `strike` ult (B3 `hero.js:212`); Tenka's Critical Mass | P2 |
 
 ### 3.B Control
 
@@ -591,7 +591,7 @@ The base discount reuses today's `costCut` key (`towers.js:212-222`), so it does
 | Look | Two-tone retro bowling-club jacket with a pin emblem, worn over a school blouse with the sleeves pushed up; pleated skirt; knee socks; two-tone bowling shoes. Orange bob with a headband. A polished bowling-ball bomb with a cartoon fuse, and a wrist guard |
 | Look enums | bob · messy · headband · hoodie (club jacket) · cannon (*new* `ball`) · flame |
 | Personality | Competitive and loud. She yells "STRIKE!" at every explosion |
-| Answers | A7 bomb with blast physics; C3 path runner; part of A14 (a sticky ball for bosses) |
+| Answers | A7 bomb with blast physics; C3 path runner; crowd ricochets (Spin Shot) |
 | How she differs | Akane lobs firework fireballs, Sango fires siege shells, and Tsubaki drops aimed mortar shells. Marumi **rolls her bombs up the road against the flow** of enemies, so the lane itself is her weapon |
 | Codex inspiration | Seiran's Codex text "sweeps a selected lane segment" (`expansion-roster.js` L268) for the lane sweep |
 | Base | Cost 480. `roll`: every 2 s she rolls a bomb from the road point nearest her. It travels toward the spawn at 4 tiles/s for up to 4 tiles and explodes on the first ground enemy it touches: 10 blast damage, splash 0.9, **knockback 0.3** along the path, with the push lock applied. It cannot hit flyers |
@@ -600,12 +600,14 @@ The base discount reuses today's `costCut` key (`towers.js:212-222`), so it does
 |---|---|---|---|---|---|
 | **Heavy Ball** | Heavier Core 140: +3 damage | Big Blast 320: +0.3 splash; knockback +0.2 | Concussion 1100: blasts stun 0.5 s (bosses at 25%) | Wrecking Ball 3400: +30 damage; the ball rolls through the first 3 enemies before it explodes; ×1.5 against barriers | Bowling Thunder 12000: +120 damage; stun 1 s; knockback 0.8; minibosses are pushed too |
 | **Lane Master** ⚡ | Quick Release 130: +20% rate | Long Lane 300: +0.6 range; balls roll 6 tiles | Split Pins 1000: each blast throws 6 pin fragments along the road in both directions (4 damage each, pierce 2). **⚡ Unlocks Giant Strike** (a giant ball rolls back up her road) | Perfect Game 3200: +20 damage; balls roll 8 tiles; pins +4 damage | Turkey Strike 11500: **⚡+** Giant Strike rolls on every path in her range all the way to the spawn, hits harder and sprays pins |
-| **Spin Shot** | Hook Spin 120: if her lane is empty, the ball hops to the nearest other lane in range | Lob 280: when only flyers are in range, she lobs an arcing bomb that can hit them | Sticky Ball 950: a ball that hits an elite or boss sticks for 2 s, then explodes ×3 | Split Lane 2800: rolls 2 balls per throw, on different lanes | Spare Maker 10000: sticky balls ×6, stacking 3 per target; +60 damage |
+| **Spin Shot** | Hook Spin 120: if her lane is empty, the ball hops to the nearest other lane in range | Bumper Bounce 280: after a blast the ball bounces to the nearest other walker within 2 tiles and blows up again | Spare Chaser 950: up to 3 bounces; it finds walkers within 2.5 tiles | Pinball Party 2800: up to 5 bounces; +10 damage | Glow Bowl 16000: up to 8 bounces; +60 damage; the blast after the 8th bounce is a finale (×3 damage, 1.5× the radius) |
 
 *Reworked Oct 21 (owner: a bowling-ball ricochet; docs/BALANCE.md "Marumi rework"): Spin Shot is now the
 ricochet path (Hook Spin, Bumper Bounce 1 bounce, Spare Chaser 3, Pinball Party 5, Glow Bowl 8 + a ×3
-finale), the lob at flyers is her base kit on every path (half her blast), and her damage sits in the
-regular band; src/data/unitsNewGirls.js holds the live numbers.*
+finale), the lob at flyers is her base kit on every path (half her blast, flyers only), and her damage
+sits in the regular band. Heavy Ball (v0.1.41 tune): Concussion's blast gives the others in it 15% (not
+half) and its damage moved to Wrecking Ball (+80); Bowling Thunder brings the others back to half.
+src/data/unitsNewGirls.js holds the live numbers.*
 
 **New sim**
 - Path-runner object (P-5).

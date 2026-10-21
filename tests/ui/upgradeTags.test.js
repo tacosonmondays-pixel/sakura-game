@@ -20,7 +20,7 @@ import {
 const COMBOS = {
   self: 207, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi)
   'enemies* + self': 35,
-  'enemies + self': 51, // (Marumi's Concussion: +20 damage with its stun, rework Oct 21)
+  'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 28,
   coins: 8,

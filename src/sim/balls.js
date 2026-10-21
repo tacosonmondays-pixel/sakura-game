@@ -4,7 +4,8 @@
 // hit as a blast (splash, knockback along the path with the push lock, her statuses). The walker the
 // ball meets takes the full blast, the others in it ball.share of it. Flyers are never touched by a
 // ball: when only flyers are in her range she lobs an arcing bomb at the lead one for ball.lobMul of
-// her blast (her base kit, every path).
+// her blast (her base kit, every path); a walker on another lane is never lobbed at (Hook Spin reaches
+// other lanes).
 //   - Wrecking Ball: the ball bowls through ball.through walkers (a hit each) before it explodes.
 //   - Split Pins: a blast throws ball.pins pins along the road: each hits a walker on that road within
 //     PIN_REACH tiles of the blast (nearest first, again round the list while pins are left; at most
@@ -13,9 +14,10 @@
 //   - Ricochet (Spin Shot): after a blast the ball bounces ball.bounce times: it flies BOUNCE_SPEED
 //     tiles a second straight at the nearest OTHER walker within ball.reach tiles of the blast (squared
 //     distance, uid tie-break; never a flyer, a walker in a tunnel or a veiled one she cannot see, never
-//     one this ball already hit) and explodes on it. A target that falls or slips out of reach on the
-//     way is swapped for the nearest one from where the ball is; none, or a leg longer than
-//     BOUNCE_MAX_T, and the ball is gone. Glow Bowl: the blast after the last bounce of a full run is a
+//     one this ball already hit) and explodes on it. The ball chases its target wherever it walks; a
+//     target that falls or turns untouchable on the way (a tunnel, a veil) is swapped for the nearest
+//     one within ball.reach of where the ball is; none, or a leg longer than BOUNCE_MAX_T, and the
+//     ball is gone. Glow Bowl: the blast after the last bounce of a full run is a
 //     finale, × ball.finish and FINALE_RADIUS × the radius.
 //
 // State: t.balls [{ uid, pathIndex, dist, left, through, bounce, hit: [uids], fly: { uid, x, y, t } | null }]
@@ -132,11 +134,16 @@ export function rollBall(sim, t) {
     sim._emit('attack', { towerUid: t.uid, targetUid: null, kind: 'roll', n: 1 });
     return true;
   }
-  // the lob (her base kit): only flyers in range, an arcing bomb at the lead one
+  // the lob (her base kit): flyers only, an arcing bomb at the lead one in range (a walker on another
+  // lane is never lobbed at: Hook Spin is her way to reach other lanes)
   if (b.lob && t.lobSpec) {
     const air = gatherTargets(sim, t.x, t.y, t.eff.range, t.lobSpec, NEAR);
     let best = null;
-    for (let i = 0; i < air.length; i++) if (!best || air[i].remaining < best.remaining || (air[i].remaining === best.remaining && air[i].uid < best.uid)) best = air[i];
+    for (let i = 0; i < air.length; i++) {
+      const e = air[i];
+      if (!e.airborne) continue;
+      if (!best || e.remaining < best.remaining || (e.remaining === best.remaining && e.uid < best.uid)) best = e;
+    }
     NEAR.length = 0;
     if (best) {
       t.facing = Math.atan2(best.x - t.x, best.y - t.y);

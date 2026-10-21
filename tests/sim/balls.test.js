@@ -127,6 +127,20 @@ describe('rolling balls', () => {
     expect(hook.t.balls.map((b) => b.pathIndex)).toEqual([1]);
   });
 
+  test('the lob is flyers only: a walker on a far lane (no Hook Spin, no flyer) gets no lob', () => {
+    const { sim, t } = setup({ map: MAP2, x: 6.5, y: 4.3 });
+    const e = park(sim, 'tank', 6, 1); // only on the far lane (row 6), in her range
+    const hp = e.hp;
+    let lobs = 0;
+    for (let i = 0; i < Math.round(2 / STEP); i++) {
+      sim._step(STEP);
+      for (const ev of sim.drainEvents()) if (ev.type === 'attack' && ev.towerUid === t.uid) lobs++;
+    }
+    expect(lobs).toBe(0);
+    expect(t.balls ?? []).toHaveLength(0);
+    expect(e.hp).toBe(hp);
+  });
+
   test('her own lane on a shared stretch: a walker on the other path that shares her road lets her roll (no Hook Spin needed)', () => {
     const forkMap = { ...MAP, id: 'test-fork-own', paths: [[[-1, 4], [16, 4]], [[-1, 4], [12, 4], [12, 9]]] };
     const { sim, t } = setup({ map: forkMap, x: 7.5, y: 6.2 });

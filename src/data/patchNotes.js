@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.41', version: '0.1.41', date: '2026-10-21', title: 'Strikes and Maple Leaves',
+    changed: [
+      'Marumi’s bowling balls now bounce! On her Spin Shot path a ball hops from walker to walker: Bumper Bounce, Spare Chaser, Pinball Party, and Glow Bowl with a big glowing finale.',
+      'Marumi is much stronger on every path, and on every path she lobs a bomb at flyers when only flyers are near.',
+      'Kaede now cuts through groups: every 3rd strike is a wide cleave. Flowing Blade adds wind crescents and a maple storm, Guard Breaker adds a shockwave, and her boss path scatters maple leaves.',
+      'Pierce on Kaede now lets her cleaves, crescents and shockwaves reach more enemies, instead of turning into attack.',
+      'Co-op: both players need this update to play together.',
+    ],
+    fixed: [
+      'Marumi’s Lane Master balls on a road two paths share (like on 4-5) now hit walkers from both paths. Before, walkers from one of them took no damage.',
+    ],
+  },
+  {
     id: 'v0.1.40', version: '0.1.40', date: '2026-10-21', title: 'New Faces at the Academy',
     added: [
       'Seven new academy girls! Azami lays spike strips on the road, Kinu fires a ring of pins in every direction, Wakaba tosses sports drinks that speed up the girl doing the most damage, and Yuzuha sets fold-out sentries along the road.',
