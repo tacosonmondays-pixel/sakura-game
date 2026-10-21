@@ -41,8 +41,10 @@
 .gp-corner.tr { right: 6px; }
 .gp-outfit .ui-sticker { position: absolute; left: 26px; top: -6px; padding: 2px 5px; pointer-events: none; }
 .gp-outfit.trying { box-shadow: 0 0 0 3px var(--pink), 0 2px 6px rgba(14, 25, 48, 0.28); }
-/* 3D: the animation buttons sit in a row above the plate */
+/* 3D: the animation buttons sit in a row above the plate; the model's canvas ends above that row, so the row never
+   covers her legs (the viewer frames her to the canvas) */
 .gp-acts { position: absolute; left: 6px; right: 6px; z-index: 5; display: none; gap: 4px; bottom: calc(var(--gp-plate-h, 96px) + 6px); }
+.gp-band.is-3d .gp-3d { bottom: calc(var(--gp-plate-h, 96px) + 10px + var(--tap-dense)); }
 .gp-band.is-3d .gp-acts { display: flex; }
 .gp-act {
   flex: 1 1 0; min-width: 0; min-height: var(--tap-dense); padding: 0 4px;

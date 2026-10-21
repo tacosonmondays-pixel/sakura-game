@@ -700,8 +700,8 @@ function levelTab(unit, ctx) {
     const need = expForLevel(st.level);
     const curFrac = atCap ? 1 : st.exp / need;
     const pvFrac = pv.toLevel > st.level ? 1 : pv.exp ? (st.exp + pv.exp) / need : null;
-    // past gate 5 her Potential decides which gates can open: "Cap 72 · P4 · max 85"
-    const capText = (st.breakthrough || 0) >= BASE_GATES ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
+    // "Cap 72 · max 85" (her P is on the plate, said once: P7); at the top only "Cap 85"
+    const capText = cap < MAX_LEVEL ? ` · max ${MAX_LEVEL}` : '';
     const capReached = info.full ? 'Max level reached'
       : info.by === 'potential' ? `Level cap reached — gate ${info.nextGate} opens at P${info.nextP}` : 'Level cap reached — break through to continue';
     const hasBooks = ITEM_RARITY_ORDER.some((r) => itemCount(profile, bookId(r)) > 0);

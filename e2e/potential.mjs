@@ -576,7 +576,7 @@ try {
         fits: card.left >= 0 && card.right <= window.innerWidth + 1,
       };
     });
-    check(lv.cap === 'Cap 72 · P4 · max 85', `${tag} levels: Aoi P4 with gate 8 broken "${lv.cap}"`);
+    check(lv.cap === 'Cap 72 · max 85', `${tag} levels: Aoi P4 with gate 8 broken "${lv.cap}"`);
     check(lv.title === 'Gate 9 · Level cap 72 → 78' && lv.lock === 'Opens at P5 · 1 Essence + coins per step', `${tag} levels: the gate 9 card "${lv.title}" waits on P5 ("${lv.lock}")`);
     check(lv.steps.join('|') === '20*|30*|40*|50*|60*|63*|67*|72*|78|85' && lv.fits, `${tag} levels: the card's ten gates ${lv.steps.join(' | ')}`);
     check(lv.price === 'Lv 60 → 61 · 30,000 EXP (1 Akashic Tome) · 12,000 coins', `${tag} levels: the price of a level above 60 "${lv.price}"`);
@@ -602,7 +602,7 @@ try {
     await page.evaluate(() => { const { store } = window.__sakura; Object.assign(store.profile.units.kaede, { level: 85, exp: 0, breakthrough: 10 }); store.commit('test'); });
     await go(page, '#/student/kaede?tab=level', '[data-testid="potential-cap-card"]');
     const kc = await page.evaluate(() => ({ cap: document.querySelector('[data-testid="level-cap"]')?.textContent, line: document.querySelector('[data-testid="potential-cap-line"]')?.textContent, exp: document.querySelector('.mb-lv-exp')?.textContent }));
-    check(kc.cap === 'Cap 85 · P6 · max 85' && kc.line === 'Level cap 85 · Full Potential' && kc.exp === 'Max level reached', `${tag} levels: Kaede P6 at 85 ${JSON.stringify(kc)}`);
+    check(kc.cap === 'Cap 85' && kc.line === 'Level cap 85 · Full Potential' && kc.exp === 'Max level reached', `${tag} levels: Kaede P6 at 85 ${JSON.stringify(kc)}`);
     await shot(page, `level-cap-full-${tag}`);
     await page.evaluate((k) => {
       const { store } = window.__sakura;

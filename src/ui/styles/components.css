@@ -43,7 +43,9 @@
 /* a tag: the chip shape with an icon and one word, no number */
 .ui-chip.tag { font: 700 var(--fs-label)/1 var(--font); }
 /* "+N": opens the rest (more than 3 chips in a row) */
-.ui-chip.more-n { background: #fff; color: var(--blue-text); border-color: #b9d6f5; cursor: pointer; }
+.ui-chip.more-n { position: relative; background: #fff; color: var(--blue-text); border-color: #b9d6f5; cursor: pointer; }
+/* its hit area reaches the dense tap size around the small chip (as the "i" and the P sticker) */
+.ui-chip.more-n::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap-dense)); height: max(100%, var(--tap-dense)); transform: translate(-50%, -50%); }
 .ui-chip.more-n .num { color: inherit; }
 /* on an ink plate */
 .ui-chip.on-plate { background: rgba(255, 255, 255, 0.08); border-color: var(--plate-line); color: var(--on-plate); }
@@ -244,6 +246,7 @@
 .ui-tab.on { background: var(--plate); border-color: var(--plate); color: var(--on-plate); box-shadow: 0 3px 8px rgba(14, 25, 48, 0.3); }
 .ui-tab.on::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -6px; height: 3px; border-radius: 2px; background: var(--yellow); }
 .ui-tab.locked { color: var(--muted); } /* the lock icon carries the meaning; the word stays 4.5:1 */
+.ui-tab.on.locked { color: var(--on-plate-dim); } /* an open locked tab: on the ink plate (9.09:1) */
 /* badges: a red dot only (P7) */
 .ui-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 0 2px #fff; }
 .ui-tab > .ui-dot { position: absolute; top: -3px; right: 6px; }
