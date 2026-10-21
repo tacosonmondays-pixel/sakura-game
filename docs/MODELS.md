@@ -451,7 +451,7 @@ through the chest.
 | clips | exactly `idle`, `move` (loop), `attack`, `appear` (play once); any extra clip is ignored |
 | space | glTF Y up, facing +Z, feet / paws / talons on y = 0 at the origin (the doll: its shoe soles), metres at game scale × `asset.extras.unitScale` (1 for the Blender figures) |
 | extras | `companion`, `owner`, `height` (standing height at game scale, threads and pad excluded), `unitScale`, `clips`, `home`; Blender figures add `faceCells` / `faceGrid` (cell UVs in [0, 1] of one cell, like the girls), the doll `threads = { bone: 'bar', bones }` |
-| manifest | `{ <id>: { file, lod, bytes, lodBytes, vertices, lodVertices, clips, height, owner, home: { offset, follow, note }, source } }` |
+| manifest | `{ <id>: { file, lod, bytes, lodBytes, vertices, lodVertices, clips, height, owner, home: { offset, follow, note }, source, battleScale? } }`; `battleScale` (optional, default 1) sizes the figure in battle only, over its girl's scale, around its origin; the student page keeps the figure's own size. The builder keeps it across rebuilds |
 | home | `offset` = where the companion's origin sits relative to its girl's root in her bind pose (glTF axes at game scale: +X her left, +Y up, +Z her front); `follow` = her bone whose motion it rides (keep the offset from that bone's bind position), `null` = stays on the ground |
 | budget | ≤ 150 KB full, ≤ 80 KB LOD (`tests/models/companions.test.js`) |
 
@@ -476,7 +476,7 @@ runtime draws the threads itself.
 | | full | LOD | height | at battle zoom (Hikari 66 px) |
 |---|---|---|---|---|
 | kon | 117,600 B (2,194 verts) | 59,196 B (695 verts) | 0.174 m (knee height of a 0.9 m girl) | ≈ 9 px |
-| kaze | 105,636 B (1,918 verts) | 52,044 B (557 verts) | 0.197 m | ≈ 11 px |
+| kaze | 105,636 B (1,918 verts) | 52,044 B (557 verts) | 0.197 m (× 1.3 `battleScale` in battle) | ≈ 14 px |
 | doll | 137,940 B (3,018 verts) | 58,344 B (936 verts) | 0.304 m (a third of Yoriko) | ≈ 16 px |
 
 Known: at battle size Kon and Kaze are a few pixels tall, so their faces are big dark eyes and little else (the full files

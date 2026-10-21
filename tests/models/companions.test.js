@@ -94,6 +94,15 @@ describe('companion figures', () => {
     });
   }
 
+  it('battleScale (battle only) stays a modest lift; Kaze is 1.3x so he reads at the default battle zoom', () => {
+    for (const [id, m] of Object.entries(manifest)) {
+      if (m.battleScale == null) continue;
+      expect(m.battleScale, id).toBeGreaterThanOrEqual(1);
+      expect(m.battleScale, id).toBeLessThanOrEqual(1.6);
+    }
+    expect(manifest.kaze.battleScale).toBeCloseTo(1.3, 5);
+  });
+
   it("the doll's threads ride a 'bar' bone the runtime can pin to Yoriko's control bar", () => {
     const { json } = readGlbHeader(path.join(dir, manifest.doll.file));
     expect(json.asset.extras.threads.bone).toBe('bar');

@@ -103,7 +103,10 @@ export class Companions {
         uid, cid: a.cid, unitId: a.unitId, detail: a.detail, visible: !!g?.visible, x: g ? +g.position.x.toFixed(3) : null,
         y: g ? +g.position.y.toFixed(3) : null, z: g ? +g.position.z.toFixed(3) : null, mode: a.kon ? a.kon.s.mode : (a.sortie?.busy ? 'sortie' : 'home'),
         homeX: +a.home.x.toFixed(3), homeY: +a.home.y.toFixed(3), homeZ: +a.home.z.toFixed(3), scale: g ? +g.scale.x.toFixed(3) : null,
+        battleScale: a.battleScale,
         target: a.sortie?.busy ? [+a.sortie.tx.toFixed(3), +a.sortie.ty.toFixed(3), +a.sortie.tz.toFixed(3)] : null, height: a.height ?? null,
+        // what set the sortie off: the enemy her attack hit (uid), null for a point (Dream Detour's centre)
+        targetUid: a.sortie?.busy ? (a.sortie.uid ?? null) : null,
       });
     }
     return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows };
@@ -217,6 +220,8 @@ export class Companions {
     const a = {
       uid: t.uid, unitId: t.unitId, cid, entry, group: null, detail: null, anchor: new HomeAnchor(entry),
       home: new THREE.Vector3(), facing: v.facing, face: 0, faceT: 0, state: 'idle', barRest: null,
+      // manifest battleScale: a battle-only size factor over her scale (the student page keeps the figure's own size)
+      battleScale: entry.battleScale > 0 ? entry.battleScale : 1,
       kon: cid === 'kon' ? { s: konState(), view: { x: 0, z: 0, h: 0.2, away: false } } : null,
       sortie: cid === 'kon' ? null : sortieState(),
     };
@@ -279,7 +284,7 @@ export class Companions {
     a.anchor.local(_home);
     _m.compose(m.position, m.quaternion, m.scale);
     a.home.copy(_home).applyMatrix4(_m);
-    const scale = m.scale.x;
+    const scale = m.scale.x * a.battleScale;
     g.scale.setScalar(scale);
     let state = 'idle';
     let facing = v.facing;

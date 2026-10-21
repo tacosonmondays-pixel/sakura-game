@@ -1,7 +1,8 @@
 // End-to-end check of the companion figures (src/render/companions.js) in a battle at 844×390:
 //   Ruri, Hana and Yoriko (hero) are placed; their three companions exist as 3D figures (Kon, Kaze, the doll);
 //   Kon runs from Ruri to her relay origin and sits there; Kaze leaves Hana's shoulder on one of her attacks and
-//   comes back; the doll dashes on Yoriko's needles; the lowest graphics setting drops the figures (Kon falls back
+//   comes back (and is drawn 1.3x in battle); the doll dashes on Yoriko's needles (an enemy parked by her on the
+//   road; Dream Detour is only a fallback after that check); the lowest graphics setting drops the figures (Kon falls back
 //   to the procedural holo fox); the student page shows the companion beside the girl; no console errors.
 // Frame strips of each behaviour (the battle paused, the renderer stepped by hand) and overview shots go to
 // --shots <dir> (jpg). Compose the strips with tools of your choice; the frames are named <behaviour>-<n>.jpg.
@@ -145,7 +146,7 @@ async function studentPages() {
     const tab = page.locator('[data-testid="view-3d"]').first();
     if (await tab.count()) await tab.click({ force: true });
     await settle(3500);
-    const shown = await page.evaluate(() => ({ hash: location.hash, name: document.querySelector('.mb-show-name')?.textContent || '', d3: !!document.querySelector('.mb-show-3d canvas') }));
+    const shown = await page.evaluate(() => ({ hash: location.hash, name: document.querySelector('.mb-show-name')?.textContent || '', d3: !!document.querySelector('.gp-3d canvas, .mb-show-3d canvas') }));
     check(/student/.test(shown.hash) && shown.name.toLowerCase().includes(id) && shown.d3, `${id}: her page shows the 3D figure (${shown.name}, ${shown.hash})`);
     await shot(`student-${id}`);
   }
@@ -240,37 +241,61 @@ try {
     await step(0.05);
     const k2 = await actor('kaze');
     check(k2?.mode === 'home' && Math.hypot(k2.x - k2.homeX, k2.y - k2.homeY, k2.z - k2.homeZ) < 0.02, `Kaze is back on her shoulder (${k2?.mode})`);
+    // battle only: Kaze is drawn 1.3x over Hana's scale (Kon rides Ruri's tower scale, the same as Hana's)
+    const kon2 = await actor('kon');
+    const ratio = k2?.scale && kon2?.scale ? k2.scale / kon2.scale : 0;
+    check(k2?.battleScale === 1.3 && Math.abs(ratio - 1.3) < 0.03, `Kaze is drawn 1.3x in battle (battleScale ${k2?.battleScale}, ${ratio.toFixed(3)}x Kon's scale)`);
     await page.evaluate(() => window.__battle.renderer.resetCamera());
     await step(0.05);
   }
 
   log('\n--- the doll dashes on Yoriko\'s needles ---');
+  // park a sturdy slime on the road just upstream of her (as tests/sim/hero.test.js parks enemies), so her
+  // needles fire at it; the sortie names the enemy it chases (targetUid), Dream Detour has none
+  await pause(true);
+  const parked = await page.evaluate((u) => {
+    const { sim } = window.__battle;
+    const t = sim.getTower(u);
+    let best = null;
+    sim.pathData.forEach((p, pi) => p.points.forEach((pt, i) => {
+      const d = Math.hypot(pt[0] - t.x, pt[1] - t.y);
+      if (!best || d < best.d) best = { d, pi, dist: p.cum[i] };
+    }));
+    if (!best) return null;
+    const out = [];
+    for (const back of [0.8, 0.3]) {
+      const e = sim.spawnEnemy('slime_green', { pathIndex: best.pi, dist: Math.max(0, best.dist - back), hpMul: 60 });
+      if (e) out.push(e.uid);
+    }
+    return { uids: out, road: +best.d.toFixed(2), range: +(t.eff?.range ?? t.range ?? 0).toFixed(2) };
+  }, yoriko);
+  check(parked?.uids?.length > 0, `enemies parked on the road by Yoriko (${JSON.stringify(parked)})`);
   await pause(false);
-  // her needles (a new wave when the last one is cleared), else Dream Detour after 20 s
-  let dash = false;
-  let how = 'needles';
-  const t1 = Date.now();
-  while (!dash && Date.now() - t1 < 150000) {
-    dash = await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.find((a) => a.cid === 'doll')?.mode === 'sortie', null, { timeout: 4000, polling: 'raf' }).then(() => true, () => false);
-    if (dash) break;
-    const fired = await page.evaluate((late) => {
-      const { sim, ui } = window.__battle;
-      const alive = sim.enemies.some((e) => !e.dead && !e.hidden);
-      if (!alive) ui.startWave();
-      else if (late) {
-        const h = sim.hero;
-        sim.cash = 1e7;
-        while (h.level < 3) if (!sim.buyHeroLevel({ level: h.level + 1, maxPrice: 1e9 })?.ok) break;
-        h.ultUnlocked = true;
-        h.ultCooldown = 0;
-        return !!sim.activateUlt();
-      }
-      return false;
-    }, Date.now() - t1 > 20000);
-    if (fired) how = 'Dream Detour';
+  const sortieRow = () => page.waitForFunction(() => {
+    const a = window.__battle.renderer.companionsProbe().actors.find((x) => x.cid === 'doll');
+    return a?.mode === 'sortie' ? a : null;
+  }, null, { timeout: 30000, polling: 'raf' }).then((h) => h.jsonValue(), () => null);
+  let row = await sortieRow();
+  let dash = !!row;
+  let how = row ? (row.targetUid != null ? 'needles' : 'Dream Detour') : 'none';
+  check(dash && how === 'needles', `Yoriko attacks: the doll dashes on her needles (${how}${row?.targetUid != null ? `, enemy ${row.targetUid}` : ''})`);
+  if (!dash) {
+    // only after the needles check: Dream Detour, so the dash frames below still run
+    await page.evaluate(() => {
+      const { sim } = window.__battle;
+      const h = sim.hero;
+      sim.cash = 1e7;
+      while (h.level < 3) if (!sim.buyHeroLevel({ level: h.level + 1, maxPrice: 1e9 })?.ok) break;
+      h.ultUnlocked = true;
+      h.ultCooldown = 0;
+      return !!sim.activateUlt();
+    });
+    row = await sortieRow();
+    dash = !!row;
+    how = row ? 'Dream Detour' : 'none';
+    log(`    fallback: ${how}`);
   }
   await pause(true);
-  check(dash, `Yoriko attacks: the doll dashes (${how})`);
   const d0 = await actor('doll');
   if (d0?.target) {
     const yb = await page.evaluate((u) => { const t = window.__battle.sim.getTower(u); return [t.x, t.y]; }, yoriko);

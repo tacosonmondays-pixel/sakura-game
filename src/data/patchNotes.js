@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.42', version: '0.1.42', date: '2026-10-21', title: 'A Tidier Girl Page',
+    added: [
+      'Kon, Kaze and Yoriko’s doll are now their own little figures. Kon runs out to Ruri’s spot on the lane and her shots come from him, Kaze rides on Hana’s shoulder and swoops at enemies, and Yoriko’s doll dashes out on its threads.',
+      'They also stand beside their girl on her page.',
+    ],
+    changed: [
+      'The girl page is cleaner: her key stats sit on one strip, and more is one tap away.',
+      'Her upgrades are a tidy grid with no sideways scrolling, Gear, Level Up and Awakening are simpler, and the text is bigger on phones.',
+      'Hold a girl’s card to open a quick summary sheet.',
+      'Co-op still works with players on v0.1.41. Battles play the same.',
+    ],
+  },
+  {
     id: 'v0.1.41', version: '0.1.41', date: '2026-10-21', title: 'Strikes and Maple Leaves',
     changed: [
       'Marumi’s bowling balls now bounce! On her Spin Shot path a ball hops from walker to walker: Bumper Bounce, Spare Chaser, Pinball Party, and Glow Bowl with a big glowing finale.',
