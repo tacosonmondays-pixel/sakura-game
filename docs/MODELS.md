@@ -399,9 +399,9 @@ budget) and that every EnemyDef resolves to a built family with its variant and 
 The three companions are separate figures now, built by our own cage pipeline (no generator, no outside art):
 Kon (Ruri's little holographic white fox, projected by her tablet to the lane edge), Kaze (the white falcon drone
 Hana built in the robotics lab) and Yoriko's drone marionette (a tiny doll in a school uniform on three glowing
-threads). They ship in `public/models/companions/` and are not wired into the game yet: Ruri's and Hana's Meshy
-figures still carry their baked Kon and Kaze, Yoriko's Blender figure still carries her doll, and `src/render/rosterFx.js`
-still draws the procedural relay Kon. Swapping those for these figures is the display-actor job that comes next.
+threads). They ship in `public/models/companions/`; the girls' own figures no longer carry them
+(`tools/meshy/split_companion.py`, see above) and the battle draws them as display actors beside their girls (see
+"Runtime" below).
 
 ```
 python3 tools/blender/companions/build_companions.py              # all three, full + LOD, manifest updated
@@ -479,6 +479,45 @@ runtime draws the threads itself.
 | kaze | 105,636 B (1,918 verts) | 52,044 B (557 verts) | 0.197 m | ≈ 11 px |
 | doll | 137,940 B (3,018 verts) | 58,344 B (936 verts) | 0.304 m (a third of Yoriko) | ≈ 16 px |
 
-Known: at battle size Kon and Kaze are a few pixels tall, so their faces are big dark eyes and little else; the doll and
-Yoriko's own baked doll overlap at the home offset until her figure is rebuilt without it; Kaze on Hana's left shoulder
+Known: at battle size Kon and Kaze are a few pixels tall, so their faces are big dark eyes and little else (the full files
+take over from the LOD ones when the battle is zoomed in to 2× or more on quality high); Kaze on Hana's left shoulder
 sits under her chibi head, between braid and bow, so part of him hides from some angles.
+
+## Runtime (display only)
+
+Nothing below reads anything but the sim's towers and its drained events, and nothing writes the sim, the save or a
+co-op command: the sim id does not change.
+
+* `src/models/companions.js`: the manifest (`loadCompanionManifest`, `companionOf(unitId)` by `owner`), loading through
+  glbChibi's cache under the key `../companions/<id>` (`loadCompanion` / `getCompanion`), `buildCompanion(asset)` =
+  `instantiateCharacter` (the girls' toon ramp, inverted-hull outline, mixer and face cells; the animator plays `move` as
+  a loop and `appear` once through `userData.playClip`). Kon's `extras.holo` gets body + face at that opacity with a
+  pale-blue emissive lift after a depth-only pre-pass (`renderOrder` 1 / 2), as in the preview. `HomeAnchor` puts the
+  figure at `home.offset` in the girl's group space and keeps the offset from her `follow` bone's idle (t = 0) position
+  (`boneAtIdle`, measured once per girl asset and cached), so Kaze rides her shoulder and the doll her raised hand;
+  without that bone (procedural placeholder) the offset is used as is. Because the offset is in her group space, her
+  battle scale (towers 1.22, heroes 1.36, × her pop-in) and her height (a Meshy girl is 1.224 m against a Blender girl's
+  0.9–0.98 m) carry over.
+* `src/render/companions.js` (`Companions`, made by `BattleRenderer`): one actor per sim tower whose unit has a companion
+  (co-op partners' girls too), made once her view and the file are there, `appear` on creation, gone when she leaves the
+  sim (sold, a new battle); restore and replays just recreate them. `handle(ev)` observes `attack` and `ult` before the
+  attack FX consume them; `update(dt, zoom)` runs after `actors.sync`. Off at quality low (rosterFx's procedural fox is
+  the fallback, as it is while Kon's file loads; an error in the layer switches it off for that battle with one
+  `[companions] disabled` warning). LOD files by default, full ones on quality high at zoom ≥ 2 (back at
+  ≤ 1.7). Probe: `renderer.companionsProbe()`.
+* Rules (`src/render/companionLogic.js`, unit-tested in `tests/render/companions.test.js`): **Kon** sits by Ruri while
+  her relay origin is her own spot (within 0.3 tiles), else runs along the ground (2.4 tiles/s, after his 0.5 s appear)
+  to `t.ox / t.oy` and sits there, runs to a new spot when it moves (a `relay` event) and back when it goes away; Ruri's
+  bolts play his attack only while he sits at the spot, and leave his head where he is drawn (`attackFx/styles/ruri.js`);
+  rosterFx hides its fox and runs the tether to him. **Kaze** perches on `shoulder_L`; on Hana's attacks he swoops to the
+  target and back (0.95 s, an arc 0.45 tiles high, following the enemy), one swoop at a time, attacks while he is out are
+  skipped; Hana's hawk sprite dive is only drawn without him. **The doll** hangs in front of Yoriko's raised hand; on her
+  needles and on Dream Detour (the `ult` centre) it dashes at the target and back (0.67 s, at most 1.3 tiles, stopping
+  0.35 short), its `bar` bone held where the thread tops sit at home so the glowing threads stay tied to her control bar.
+* Figure viewers: `buildChibi(unit, { companion: true })` adds her companion in its home pose (idle, riding her bone)
+  beside the GLB figure; the student page's 3D view uses it. (The lobby is a painted scene with no 3D figure.)
+* Cost: three skinned figures at most per player (≤ 936 vertices each at LOD, + outlines), no per-frame allocations
+  besides Map iterators; Kon's holo adds one depth-only draw per mesh.
+* e2e: `node e2e/companions.mjs [--shots dir]` (844×390: the three figures, Kon's run, Kaze's swoop and return, the
+  doll's dash, removal on sell, quality low, the student pages; frame strips with the battle paused and the renderer
+  stepped by hand).

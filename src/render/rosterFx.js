@@ -148,6 +148,8 @@ export class RosterFx {
     /** last head position per runner uid (for the exit sparkle) */
     this._heads = new Map();
     this._curseThisFrame = 0;
+    /** companion figures (src/render/companions.js, set by the renderer): Kon's 3D figure replaces the holo fox */
+    this.companions = null;
   }
 
   setQuality(q) {
@@ -182,7 +184,8 @@ export class RosterFx {
       case 'relay': {
         const p = this.props.get(ev.towerUid);
         if (p && Math.hypot(p.x - ev.x, p.y - ev.y) > 0.5) {
-          this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
+          // the 3D Kon runs there himself: no puff where he left
+          if (!(p.kind === 'familiar' && this.companions?.konAt(ev.towerUid))) this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
           this.fx.ring(ev.x, ev.y, 0.1, 0.55, 0.35, ev.kind === 'mirror' ? COL.mirror : COL.familiar);
         }
         return true;
@@ -409,6 +412,14 @@ export class RosterFx {
     }
     const c = p.kind === 'mirror' ? RGB.mirror : RGB.familiar;
     const m = p.mesh;
+    // Kon's own figure is drawn (src/render/companions.js): the procedural fox is only the fallback (files
+    // not loaded, lowest graphics setting); the tether then runs from Ruri to wherever Kon is
+    const kon = p.kind === 'familiar' ? this.companions?.konAt(t.uid) : null;
+    m.visible = !kon;
+    if (kon) {
+      if (kon.away) this._tether(t.x, t.y, kon.x, kon.z, c, 0.7);
+      return;
+    }
     if (p.kind === 'familiar') {
       const bob = 0.12 + 0.04 * Math.sin(this.time * 3 + t.uid);
       m.position.set(x, bob, y);

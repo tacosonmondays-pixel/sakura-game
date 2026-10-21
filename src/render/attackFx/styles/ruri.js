@@ -1,5 +1,6 @@
 // Ruri (projectile from her relay familiar). Signature "Kon's holo bolts": every bolt leaps out of
-// Kon, the holographic white fox standing at her relay origin (drawn by src/render/rosterFx.js):
+// Kon, the holographic white fox at her relay origin (his figure: src/render/companions.js, where he is
+// drawn right now, even while he runs there; fallback: rosterFx.js's procedural fox at the origin):
 // a blue flash at the fox, a blue holo bolt with a short trail, a small ring on a real hit.
 //   P0 (hound) T3+: a white bite slash on the hit
 //   P1 (falcon) T3+: a feather flick on the hit
@@ -17,14 +18,21 @@ export const ruri = {
 
   onAttack(ev, tw, t, ctx) {
     if (!ctx.cap('muzzle')) return;
-    const x = t.ox ?? t.x;
-    const y = t.oy ?? t.y;
-    flash(ctx, x, FOX_H, y, 0.5, ctx.col(BLUE), 0.12);
+    const kon = ctx.actors?.companions?.konAt(t.uid);
+    if (kon) flash(ctx, kon.x, kon.h, kon.z, 0.4, ctx.col(BLUE), 0.12);
+    else flash(ctx, t.ox ?? t.x, FOX_H, t.oy ?? t.y, 0.5, ctx.col(BLUE), 0.12);
   },
 
-  // the sim fires from the origin (t.ox, t.oy): only lift the muzzle to the fox's head
-  origin(p, t, idx, n, rec) {
-    rec.mz = FOX_H;
+  // the sim fires from the origin (t.ox, t.oy): the bolt leaves Kon's head where he is drawn
+  origin(p, t, idx, n, rec, ctx) {
+    const kon = ctx?.actors?.companions?.konAt(t.uid);
+    if (kon) {
+      rec.mx = kon.x;
+      rec.my = kon.z;
+      rec.mz = kon.h;
+    } else {
+      rec.mz = FOX_H;
+    }
     return true;
   },
 
