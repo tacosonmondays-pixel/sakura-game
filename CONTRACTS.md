@@ -1038,10 +1038,11 @@ fresh ability starts with 1/3 of its cooldown left, econ empty; casting only in 
 the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `moving`, `active`, `cooldown`, `cap`
 (econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
 (`sim.abilGroups`, key "owner|id"). A strike with `effect.splash` (any pick but `poisoned`, which detonates
-instead) is a blast: every eligible enemy within `splash` of the struck one takes the same hit × `splashShare`
-(default 1) and an `explode` event marks it; `effect.after: { mods, duration }` is a boost tail (Tenka's Zero
-Point): that ModSet rides on her (`abilMods`) for `duration` s after each cast (`active` counts it down; the
-wave clear and a sale end it). Ability hits never crit and their statuses are certain (no rng draw); a
+instead) is a blast: every eligible enemy within `splash` of where the struck one stood (also when the hit
+kills it) takes the same hit × `splashShare` (default 1) and an `explode` event marks it; `effect.after: { mods,
+duration }` is a boost tail (Tenka's Zero Point): that ModSet rides on her (`abilMods`) for `duration` s after
+each cast (`active` counts it down; the wave clear and a sale end it). A telegraphed strike's tail (`delay`)
+starts with the cast, not when its shots land. Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies

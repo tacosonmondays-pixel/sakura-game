@@ -43,6 +43,8 @@ function blaster(id, effect) {
 const SLOW = [{ type: 'slow', amount: 0.5, duration: 2 }];
 XU.blaster = blaster('blaster', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, splash: 2, armorPen: 99, status: SLOW });
 XU.lobber = blaster('lobber', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, splash: 2, armorPen: 99, status: SLOW, delay: 0.5 });
+// a telegraphed strike with a 2 s boost tail (no live girl has both: this pins when such a tail starts)
+XU.tailer = blaster('tailer', { pick: 'strong', count: 1, reachMul: 1, dmgMul: 10, armorPen: 99, delay: 0.5, after: { mods: { rateMul: 2 }, duration: 2 } });
 const QUIET = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
 // the test map's road runs along y = 4.5 from x = -1: an enemy at path distance d stands at x = d - 1
 const AT = [8.5, 3.4];
@@ -169,6 +171,33 @@ describe('Critical Mass (Rail Arms tier 3)', () => {
     expect(t.abilMods).toBe(null);
   });
 
+  test('a hit that kills the struck enemy still blasts everything within 2 tiles of where it stood (the usual case in play)', () => {
+    const sim = mk();
+    const t = tenkaAt(sim, [0, 3, 0]);
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 }); // the strongest (most max HP) ...
+    strong.hp = 100; // ... and the 320 hit kills it
+    const x = strong.x;
+    const near = park(sim, 'tank', 9.7); // 1.2 tiles from it
+    const out = park(sim, 'tank', 11.2); // in her range, 2.7 tiles from it
+    t.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    const struck = [];
+    const hit = sim._hit;
+    sim._hit = function spy(e, tower, spec, scale) {
+      if (tower === t) struck.push(e.uid);
+      return hit.call(this, e, tower, spec, scale);
+    };
+    const hp = [near.hp, out.hp];
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    sim._hit = hit;
+    expect(strong.dead).toBe(true);
+    expect(struck).toEqual([strong.uid, near.uid]);
+    expect(hp[0] - near.hp).toBe(40 * t.eff.damage);
+    expect(out.hp).toBe(hp[1]);
+    expect(sim.drainEvents().filter((ev) => ev.type === 'explode')).toMatchObject([{ x, radius: 2 }]);
+  });
+
   test('the blast hits only what her spec can reach: an enemy in a tunnel beside the struck one keeps its HP; a veiled one is hit (Veil Sight)', () => {
     const sim = mk();
     const t = tenkaAt(sim, [0, 3, 0]);
@@ -251,6 +280,37 @@ describe('Critical Mass (Rail Arms tier 3)', () => {
     expect(ev.some((x) => x.type === 'explode' && x.radius === 2 && x.x === strong.x)).toBe(true);
     expect([tunnel.hidden, tunnel.hp]).toEqual([true, tunnel.maxHp]);
     expect([strong, near, tunnel, out].map((e) => (e.statuses.slow ? 1 : 0))).toEqual([1, 1, 0, 0]);
+  });
+
+  test('a telegraphed blast that kills the struck enemy when it lands still blasts its neighbour', () => {
+    const sim = mk({ more: ['lobber'] });
+    const g = sim.placeTower('lobber', ...AT);
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 });
+    const dmg = 10 * g.eff.damage;
+    strong.hp = dmg; // her own shots chip at it until the blast lands; the blast kills it
+    const x = strong.x;
+    const near = park(sim, 'tank', 9.7); // 1.2 tiles from it
+    g.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    const blasted = [];
+    const hit = sim._hit;
+    sim._hit = function spy(e, tower, spec, scale) {
+      if (tower === g && spec.damage === dmg) blasted.push(e.uid);
+      return hit.call(this, e, tower, spec, scale);
+    };
+    const hp = near.hp;
+    expect(sim.castAbility(g.uid).ok).toBe(true);
+    sim.drainEvents();
+    steps(sim, 45);
+    sim._hit = hit;
+    const ev = sim.drainEvents();
+    expect(ev.some((e) => e.type === 'abilityFizzle')).toBe(false);
+    expect(strong.dead).toBe(true);
+    expect(blasted).toEqual([strong.uid, near.uid]);
+    expect(hp - near.hp).toBeGreaterThanOrEqual(dmg); // the blast (plus whatever her own shots did)
+    expect(near.statuses.slow?.amount).toBe(0.5);
+    expect(ev.filter((e) => e.type === 'explode')).toMatchObject([{ x, radius: 2 }]);
   });
 
   test('nothing in her range: refused noTarget and nothing spent', () => {
@@ -341,6 +401,44 @@ describe('Zero Point (Rail Arms tier 5): the boost tail', () => {
     expect([t.abil.active, t.abilMods, sim._abilOn]).toEqual([0, null, 0]);
     steps(sim, 400);
   });
+
+  test("a telegraphed strike's tail starts with the cast, not when its shot lands, and runs out with `active` (a fixture)", () => {
+    const sim = mk({ more: ['tailer'] });
+    const g = sim.placeTower('tailer', ...AT);
+    expect(g.abil).toMatchObject({ id: 'tailer.blast' });
+    wave(sim);
+    const strong = park(sim, 'tank', 8.5, { hpMul: 3 });
+    g.abil.cd = 0;
+    sim.grid.rebuild(sim.enemies);
+    const rate = g.eff.rate;
+    const dmg = 10 * g.eff.damage;
+    const landed = [];
+    const hit = sim._hit;
+    sim._hit = function spy(e, tower, spec, scale) {
+      if (tower === g && spec.damage === dmg) landed.push(e.uid);
+      return hit.call(this, e, tower, spec, scale);
+    };
+    expect(sim.castAbility(g.uid).ok).toBe(true);
+    // the shot is only queued, and the tail already rides on her (the cast's 2 s, as `active` counts them)
+    expect(sim.drainEvents().some((x) => x.type === 'abilityWarn' && x.towerUid === g.uid)).toBe(true);
+    expect(landed).toEqual([]);
+    expect(g.abilMods).toEqual({ rateMul: 2 });
+    expect(g.eff.rate).toBeCloseTo(rate * 2, 9);
+    expect(g.abil.active).toBe(120);
+    expect(sim.abilityStatus(g.uid)).toMatchObject({ duration: 2, activeLeft: 2 });
+    expect(rederiveStats(sim)).toBe(0);
+    steps(sim, 45);
+    expect(landed).toEqual([strong.uid]);
+    expect(g.eff.rate).toBeCloseTo(rate * 2, 9); // landing does not restart it
+    steps(sim, 74);
+    expect(g.abilMods).toEqual({ rateMul: 2 });
+    sim.drainEvents();
+    steps(sim, 1); // 120 steps after the cast
+    sim._hit = hit;
+    expect([g.abil.active, g.abilMods]).toEqual([0, null]);
+    expect(g.eff.rate).toBeCloseTo(rate, 9);
+    expect(sim.drainEvents().some((x) => x.type === 'abilityEnd' && x.towerUid === g.uid)).toBe(true);
+  });
 });
 
 describe('Joint Research, Gravity Well and Last Line: on her stats, no behaviour yet (T0)', () => {
@@ -370,15 +468,18 @@ describe('Joint Research, Gravity Well and Last Line: on her stats, no behaviour
     expect('lastLine' in at([0, 2, 4])).toBe(false);
     expect(at([0, 2, 5]).well).toEqual(at([0, 2, 4]).well);
     expect(at([0, 2, 5]).lastLine).toEqual({ radius: 1.5, max: 30, time: 8, cooldown: 120 });
-    // the rule itself, on ModSets in a falling order (none of her tiers does that today): max per field, not last-wins
+    // the rule itself, on ModSets in a falling order (none of her tiers does that today): lab and well keep
+    // the max per field, not last-wins; lastLine is replaced whole (one Last Line: the later tier's, even
+    // where its numbers are smaller; neither the max nor the min per field)
     const acc = { damageAdd: 0, damageMul: 1 };
     const s = normalizeBase({ lab: { rounds: 1 }, well: { every: 8, time: 6, radius: 2 } });
     expect(s.lab).toEqual({ rounds: 1, power: 1 });
     expect(s.well).toEqual({ every: 8, time: 6, radius: 2, pull: 0, slow: 0, vuln: 0 });
-    applyModSet(s, { lab: { rounds: 2, power: 3 }, well: { time: 8, pull: 1, vuln: 0.3 } }, acc);
-    applyModSet(s, { lab: { power: 1.5 }, well: { every: 4, time: 4, radius: 1, vuln: 0.1 } }, acc);
+    applyModSet(s, { lab: { rounds: 2, power: 3 }, well: { time: 8, pull: 1, vuln: 0.3 }, lastLine: { radius: 1.5, max: 30, time: 8, cooldown: 120 } }, acc);
+    applyModSet(s, { lab: { power: 1.5 }, well: { every: 4, time: 4, radius: 1, vuln: 0.1 }, lastLine: { radius: 2, max: 20, time: 10, cooldown: 90 } }, acc);
     expect(s.lab).toEqual({ rounds: 2, power: 3 });
     expect(s.well).toEqual({ every: 8, time: 8, radius: 2, pull: 1, slow: 0, vuln: 0.3 });
+    expect(s.lastLine).toEqual({ radius: 2, max: 20, time: 10, cooldown: 90 });
   });
 
   test('Singularity carries its well and Last Line numbers and opens nothing: the run is the same as without them', () => {
