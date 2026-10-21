@@ -65,8 +65,10 @@ function build(redraw) {
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
     row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); redraw(); }, 'reduceMotion')),
-    row('Hit effects', s.reduceMotion ? 'Off while Reduce motion is on.' : 'A split-second freeze on heavy hits and ink impact frames on ultimates and boss kills.',
-      toggle(s.hitEffects !== false, (v) => { s.hitEffects = v; save(); }, 'hitEffects', !!s.reduceMotion)),
+    row('Flashes & shake', s.reduceMotion
+      ? 'Reduce motion already stops the shake and freezes; switch this off to stop screen flashes too.'
+      : 'Screen flashes, screen shake, impact frames and the split-second freeze on big hits in battle.',
+    toggle(s.hitEffects !== false, (v) => { s.hitEffects = v; save(); }, 'hitEffects')),
     loadingLookRow(s, redraw),
   ));
 

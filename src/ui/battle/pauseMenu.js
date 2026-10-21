@@ -105,7 +105,7 @@ export function createPauseMenu(ctx) {
         render();
       }, 'set-auto'),
       toggle('Reduce motion', 'Less shake and flashing (next battle)', !!s.reduceMotion, (v) => save({ reduceMotion: v }), 'set-motion'),
-      toggle('Hit effects', 'Hit-stop and impact frames on big moments', s.hitEffects !== false, (v) => save({ hitEffects: v }), 'set-hitfx'),
+      toggle('Flashes & shake', 'Screen flashes, shake and the freeze on big hits', s.hitEffects !== false, (v) => save({ hitEffects: v }), 'set-hitfx'),
       h('div.bt-sheet-section', 'Controls'),
       h(
         'ul.bt-help',

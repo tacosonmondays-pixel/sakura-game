@@ -1,11 +1,14 @@
 // VFX M1 rules (docs/VFX.md §M1): flash safety (≤ 3 flashes a second, never a full-white frame,
-// soft with Reduce Motion), hit-stop rate limits (no constant stutter in busy waves, ≤ 60 ms, none
-// with Reduce Motion or Hit effects off), impact frames that put everything back, the camera shake
-// sized in screen pixels and the zoom punch, halos inside the sprite limits, the per-theme grade
-// keeping the board readable, and the over-white boost being exactly off without bloom.
+// no large saturated red, soft with Reduce Motion), hit-stop rate limits (no constant stutter in
+// busy waves, ≤ 60 ms, none with Reduce Motion or Flashes & shake off) and the battle never waiting
+// for one, impact frames that put everything back, the camera shake sized in screen pixels and the
+// zoom punch, the graphics tiers (high full, medium light, low almost nothing), halos inside the
+// sprite limits, the per-theme grade keeping the board readable, and the over-white boost being
+// exactly off without bloom.
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { FlashGuard, MAX_FLASHES, FLASH_WINDOW, MAX_FLASH, SOFT_FLASH, FAINT, IMPACT_COST, IMPACT_GAP } from '../../src/render/vfx/flashGuard.js';
+import { readFileSync, readdirSync } from 'node:fs';
+import { FlashGuard, MAX_FLASHES, FLASH_WINDOW, MAX_FLASH, SOFT_FLASH, FAINT, IMPACT_COST, IMPACT_GAP, RED_SHARE, RED_FLASH, VIGNETTE_RISE, VIGNETTE_PEAK, flashColor, redShare, vignetteStep } from '../../src/render/vfx/flashGuard.js';
 import { HitStopDirector, HIT_STOP, BUSY_HITS, LOW_BUDGET, LOW_WINDOW, hitKind } from '../../src/render/vfx/hitStop.js';
 import { VisualClock, MAX_FREEZE } from '../../src/render/vfx/clock.js';
 import { ImpactFrames, IMPACT_FRAMES, SHADE_MAX } from '../../src/render/vfx/impact.js';
@@ -18,7 +21,9 @@ import { createContext } from '../../src/render/attackFx/context.js';
 import { THEMES, resolveLook } from '../../src/render/themes.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { impactMaterial } from '../../src/models/toon.js';
-import { createHitFeel } from '../../src/render/vfx/feel.js';
+import { createHitFeel, FEEL } from '../../src/render/vfx/feel.js';
+import { Sim } from '../../src/sim/Sim.js';
+import { autoPlan } from '../../src/sim/headless.js';
 
 const F = 1 / 60;
 
@@ -357,8 +362,8 @@ describe('fake glow (halos) without bloom', () => {
   camera.lookAt(0, 0, 0);
   camera.updateMatrixWorld();
 
-  for (const tier of ['medium', 'low']) {
-    it(`${tier}: bright particles get halos in the same batch, inside the particle limit`, () => {
+  for (const tier of ['medium', 'high']) {
+    it(`${tier} without bloom: bright particles get halos in the same batch, inside the particle limit`, () => {
       const atlas = atlasStub();
       const b = batchSet(atlas);
       const fx = new FxSystem({ atlas, batches: b, camera, rand: createVisualRandom(3) });
@@ -379,8 +384,8 @@ describe('fake glow (halos) without bloom', () => {
     const atlas = atlasStub();
     const b = batchSet(atlas);
     const fx = new FxSystem({ atlas, batches: b, camera, rand: createVisualRandom(3) });
-    fx.setQuality('low');
-    fx.setGlow('low', false);
+    fx.setQuality('medium');
+    fx.setGlow('medium', false);
     for (let i = 0; i < 2000; i++) fx.spawn({ batch: 'bbA', uv: atlas.regions.glow, x: 0, y: 0.4, z: 0, s0: 0.5, life: 1 });
     for (const k in b) b[k].begin();
     fx.update(F);
@@ -388,11 +393,29 @@ describe('fake glow (halos) without bloom', () => {
     expect(fx.halos).toBe(0);
   });
 
+  it('low gets none (phones first), medium a lighter set than high without bloom', () => {
+    const atlas = atlasStub();
+    const b = batchSet(atlas);
+    const fx = new FxSystem({ atlas, batches: b, camera, rand: createVisualRandom(3) });
+    fx.setQuality('low');
+    fx.setGlow('low', false);
+    for (let i = 0; i < 100; i++) fx.spawn({ batch: 'bbA', uv: atlas.regions.spark, x: i % 20, y: 0.4, z: 0, s0: 0.4, life: 1 });
+    for (const k in b) b[k].begin();
+    fx.update(F);
+    expect(fx.halos).toBe(0);
+    expect(b.bbA.count).toBe(fx.parts.length);
+    expect(HALO.low).toBe(null);
+    expect(HALO.medium.max).toBeLessThan(HALO.high.max);
+    expect(HALO.medium.alpha).toBeLessThanOrEqual(HALO.high.alpha);
+  });
+
   it('bloom on: no halos; rings, smoke and faint or tiny sprites never get one', () => {
     const atlas = atlasStub();
     const rules = createHaloRules(atlas.regions);
     const out = {};
     rules.set('high', true);
+    expect(rules.of(atlas.regions.glow, 1, 1, 1, out)).toBe(false);
+    rules.set('low', false);
     expect(rules.of(atlas.regions.glow, 1, 1, 1, out)).toBe(false);
     rules.set('medium', false);
     expect(rules.of(atlas.regions.glow, 1, 1, 1, out)).toBe(true);
@@ -407,7 +430,7 @@ describe('fake glow (halos) without bloom', () => {
   });
 
   it('attack FX: halos are decoration counted in the 500 / 250 quad budgets and shed first', () => {
-    for (const tier of ['medium', 'low']) {
+    for (const tier of ['medium', 'high']) {
       const atlas = atlasStub();
       const b = batchSet(atlas);
       const ctx = createContext({ sim: {}, actors: {}, fx: {}, batches: b, atlas, camera, rig: null, quality: tier });
@@ -427,6 +450,11 @@ describe('fake glow (halos) without bloom', () => {
       ctx.beginFrame();
       ctx.quadRGB(b.bbA, ctx.CORE, 0, 0.4, 0, 0.5, 0.5, atlas.regions.glow, 1, 1, 1, 1);
       expect(ctx.halos).toBe(0);
+      // low: none
+      ctx.setGlow('low', false);
+      ctx.beginFrame();
+      ctx.quadRGB(b.bbA, ctx.CORE, 0, 0.4, 0, 0.5, 0.5, atlas.regions.glow, 1, 1, 1, 1);
+      expect(ctx.halos).toBe(0);
     }
   });
 });
@@ -440,6 +468,12 @@ describe('over-white cores (bloom)', () => {
     b.setHdr(-3);
     expect(b.hdr).toBe(0);
     expect(b.material.fragmentShader).toMatch(/1\.0 \+ hdr \* hot/);
+    // compiled in only while on: medium / low run the plain shader
+    expect(b.material.defines.HDR).toBe(0);
+    b.setHdr(1.7);
+    expect(b.material.defines.HDR).toBe(1);
+    b.setHdr(0);
+    expect(b.material.defines.HDR).toBe(0);
   });
 });
 
@@ -503,8 +537,8 @@ describe('tone curve and per-theme grade (high)', () => {
   });
 });
 
-describe('hit feel: Reduce Motion, Hit effects off and placing', () => {
-  const make = ({ reduceMotion = false, hitEffects = true, placing = false } = {}) => {
+describe('hit feel: graphics tiers, Reduce Motion, Flashes & shake off and placing', () => {
+  const make = ({ reduceMotion = false, hitEffects = true, placing = false, tier = 'high' } = {}) => {
     const clock = new VisualClock({ reduceMotion });
     const guard = new FlashGuard({ reduceMotion });
     let on = hitEffects;
@@ -512,7 +546,7 @@ describe('hit feel: Reduce Motion, Hit effects off and placing', () => {
     const log = { kicks: [], punches: [], tints: [], impacts: 0 };
     const impact = { active: false, start: () => { log.impacts++; } };
     const feel = createHitFeel({
-      reduceMotion, hitEffects: () => on, placing: () => placing, now: () => clock.realT, guard, director, impact,
+      reduceMotion, hitEffects: () => on, placing: () => placing, now: () => clock.realT, guard, director, impact, tier: () => tier,
       rig: { kick: (t) => log.kicks.push(t), punch: (a, d) => log.punches.push([a, d]) },
       tint: (c, a, d) => log.tints.push([c, a, d]),
     });
@@ -552,15 +586,49 @@ describe('hit feel: Reduce Motion, Hit effects off and placing', () => {
     }
   });
 
-  it('Hit effects off: no hit-stop or impact frames (soft tint instead), the shake stays; on again works at once', () => {
+  it('Flashes & shake off: no screen flash of any kind, no impact frames, shake, punch or hit-stop; on again works at once', () => {
     const t = make({ hitEffects: false });
     expect(t.feel.impact('#8fe8ff')).toBe(false);
-    expect(t.feel.hitStop('boss')).toBe(0);
-    expect(t.feel.shake(0.5)).toBe(true);
-    expect(t.log.impacts).toBe(0);
-    expect(t.log.tints.length).toBe(1);
+    for (const k of Object.keys(HIT_STOP)) expect(t.feel.hitStop(k)).toBe(0);
+    expect(t.feel.shake(1)).toBe(false);
+    expect(t.feel.punch([0.07, 0.38])).toBe(false);
+    for (const c of ['#fff3b0', '#ff4d6d', '#5a5f78']) expect(t.feel.flash(c, 1, 2)).toBe(0);
+    expect(t.log.impacts + t.log.kicks.length + t.log.punches.length + t.log.tints.length).toBe(0);
+    expect(t.clock.freezeLeft).toBe(0);
     t.set(true);
     expect(t.feel.hitStop('boss')).toBeGreaterThan(0);
+    expect(t.feel.shake(0.5)).toBe(true);
+    expect(t.feel.flash('#fff3b0', 0.4, 2)).toBeGreaterThan(0);
+  });
+
+  it('graphics tiers: high gets everything, medium a lighter shake and no impact frames, low almost nothing', () => {
+    const kick = {};
+    for (const tier of ['high', 'medium', 'low']) {
+      const t = make({ tier });
+      t.feel.shake(0.6);
+      kick[tier] = t.log.kicks[0];
+      const impact = t.feel.impact('#c9a8ff');
+      expect(impact).toBe(tier === 'high');
+      expect(t.log.impacts).toBe(tier === 'high' ? 1 : 0);
+      if (tier !== 'high') expect(t.log.tints.length).toBe(1); // a soft tint stands in
+      expect(t.feel.punch([0.07, 0.38])).toBe(tier !== 'low');
+      expect(t.feel.squash()).toBe(FEEL[tier].squash);
+    }
+    expect(kick.high).toBeCloseTo(0.6, 9);
+    // the shake size grows with trauma²: medium about two thirds of high, low about a third
+    expect((kick.medium / kick.high) ** 2).toBeGreaterThan(0.5);
+    expect((kick.medium / kick.high) ** 2).toBeLessThan(0.75);
+    expect((kick.low / kick.high) ** 2).toBeLessThan(0.4);
+    // freezes: high all kinds, medium only big hits and boss kills, low none
+    const kinds = (tier) => Object.keys(HIT_STOP).filter((k) => {
+      const t = make({ tier });
+      return t.feel.hitStop(k) > 0;
+    });
+    expect(kinds('high').sort()).toEqual(Object.keys(HIT_STOP).sort());
+    expect(kinds('medium').sort()).toEqual(['big', 'boss']);
+    expect(kinds('low')).toEqual([]);
+    expect(make({ tier: 'low' }).feel.squash()).toBe(0);
+    expect(make({ tier: 'medium', reduceMotion: true }).feel.squash()).toBe(0.5);
   });
 
   it('placing a girl: the camera holds still (no shake, no punch)', () => {
@@ -580,5 +648,113 @@ describe('hit feel: Reduce Motion, Hit effects off and placing', () => {
     expect(impacts).toBe(1);
     const bright = log.tints.filter(([, a]) => a > FAINT).length;
     expect(bright + IMPACT_COST).toBeLessThanOrEqual(MAX_FLASHES);
+  });
+});
+
+describe('no large saturated red flashes', () => {
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const rgbOf = (hex) => [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+
+  it('reddish colours are softened to a dusty rose; other colours pass unchanged', () => {
+    for (const c of ['#ff0000', '#ff4d6d', '#ff6b8b', '#e0313f', '#c8203a', '#f00']) {
+      const out = flashColor(c);
+      expect(out.red).toBe(true);
+      expect(redShare(rgbOf(out.color))).toBeLessThan(RED_SHARE);
+      expect(redShare(rgbOf(out.color))).toBeLessThan(0.8); // WCAG's saturated red
+    }
+    for (const c of ['#ffffff', '#fff3b0', '#ffd84d', '#8fe8ff', '#c9a8ff', '#5a5f78']) expect(flashColor(c)).toEqual({ color: c, red: false });
+  });
+
+  it('a reddish flash peaks at RED_FLASH, whatever was asked for; the leak and boss-phase flashes come out soft', () => {
+    const g = new FlashGuard();
+    expect(g.flash(1, 0, true)).toBeLessThanOrEqual(RED_FLASH);
+    expect(RED_FLASH).toBeLessThan(MAX_FLASH);
+    const tints = [];
+    const clock = new VisualClock();
+    const feel = createHitFeel({
+      reduceMotion: false, hitEffects: () => true, placing: () => false, now: () => clock.realT, tier: () => 'high',
+      guard: new FlashGuard(), director: new HitStopDirector(clock), impact: { active: false, start() {} },
+      rig: { kick() {}, punch() {} }, tint: (c, a) => tints.push([c, a]),
+    });
+    feel.flash('#ff4d6d', 0.35, 3); // a big leak
+    clock.tick(0.5);
+    feel.flash('#ff6b8b', 0.4, 2.2); // a boss phase
+    for (const [c, a] of tints) {
+      expect(a).toBeLessThanOrEqual(RED_FLASH);
+      expect(redShare(rgbOf(c))).toBeLessThan(RED_SHARE);
+    }
+  });
+
+  it('a red ult\'s impact frame and its afterglow use the softened colour, dimmer', () => {
+    let started = null;
+    const clock = new VisualClock();
+    clock.tick(F);
+    const feel = createHitFeel({
+      reduceMotion: false, hitEffects: () => true, placing: () => false, now: () => clock.realT, tier: () => 'high',
+      guard: new FlashGuard(), director: new HitStopDirector(clock), impact: { active: false, start: (c) => { started = c; } },
+      rig: { kick() {}, punch() {} }, tint() {},
+    });
+    expect(feel.impact('#ff2030')).toBe(true);
+    expect(redShare(rgbOf(started))).toBeLessThan(RED_SHARE);
+    expect(feel.takeAfterglow().a).toBeLessThanOrEqual(RED_FLASH);
+  });
+
+  it('the boss vignette (a red edge) swells in and never past its peak: a spike is never a red flash', () => {
+    let a = 0.2;
+    const seen = [a];
+    for (let i = 0; i < 120; i++) seen.push((a = vignetteStep(a, i < 60 ? 1.4 : 0.2, 1 / 60)));
+    for (let i = 1; i < seen.length; i++) expect(seen[i] - seen[i - 1]).toBeLessThanOrEqual(VIGNETTE_RISE / 60 + 1e-9);
+    expect(Math.max(...seen)).toBeCloseTo(VIGNETTE_PEAK, 6);
+    // from its slow pulse to the peak takes over a quarter of a second
+    expect(seen.findIndex((v) => v >= VIGNETTE_PEAK - 1e-9)).toBeGreaterThanOrEqual(15);
+    expect(vignetteStep(0.5, 0, 0.1)).toBeCloseTo(0.42, 6); // it fades at 0.8 a second
+    expect(vignetteStep(0.3, NaN, NaN)).toBe(0.3);
+  });
+});
+
+describe('hit-stop is display only: the battle never slows, pauses or skips', () => {
+  it('no hit-feel file reads the sim or its clock', () => {
+    const dir = 'src/render/vfx';
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.js')) continue;
+      const src = readFileSync(`${dir}/${f}`, 'utf8');
+      expect(src, f).not.toMatch(/from\s+['"][^'"]*\/sim\//);
+      expect(src, f).not.toMatch(/sim\.(update|time|step|options)/);
+    }
+  });
+
+  it('a battle with a freeze on every hit it can get plays exactly like one without', () => {
+    const plan = autoPlan('1-1', ['aoi']).filter((a) => a.action === 'place').slice(0, 3);
+    const battle = (freeze) => {
+      const sim = new Sim({ stageId: '1-1', seed: 11, loadout: [{ unitId: 'aoi' }], options: { autoStart: true } });
+      for (const a of plan) sim.placeTower(a.unitId, a.x, a.y);
+      sim.startNextWave();
+      const clock = new VisualClock();
+      const director = new HitStopDirector(clock);
+      const feel = createHitFeel({
+        reduceMotion: false, hitEffects: () => true, placing: () => false, now: () => clock.realT, tier: () => 'high',
+        guard: new FlashGuard(), director, impact: { active: false, start() {} }, rig: { kick() {}, punch() {} }, tint() {},
+      });
+      let hits = 0;
+      let frozen = 0;
+      for (let i = 0; i < 60 * 25; i++) {
+        sim.update(F);
+        for (const ev of sim.drainEvents()) {
+          if (ev.type !== 'hit') continue;
+          hits++;
+          if (freeze && (feel.hitStop('boss') > 0 || feel.hitStop('big') > 0)) frozen++;
+        }
+        clock.tick(F);
+      }
+      const state = JSON.stringify([sim.time, sim.wave, sim.lives, sim.cash, sim.enemies.map((e) => [e.uid, e.hp, e.x, e.y]), sim.towers.map((t) => [t.uid, t.x, t.y])]);
+      return { sim, clock, hits, frozen, state };
+    };
+    const plain = battle(false);
+    const frozen = battle(true);
+    expect(frozen.hits).toBeGreaterThan(20);
+    expect(frozen.frozen).toBeGreaterThan(5);
+    expect(frozen.clock.t).toBeLessThan(plain.clock.t - 0.2); // the visuals did hold…
+    expect(frozen.sim.time).toBe(plain.sim.time); // …the battle never did
+    expect(frozen.state).toBe(plain.state);
   });
 });

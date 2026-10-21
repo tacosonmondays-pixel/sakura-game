@@ -43,7 +43,8 @@ void main() {
 // hdr (additive batches, high quality with bloom only; 0 elsewhere = exactly the plain colour):
 // the bright core of a sprite is pushed above white so the bloom filter catches it. The boost
 // follows the sprite's coverage squared (texture alpha × its own fade), so soft edges and fading
-// sprites stay below the bloom threshold and only the hot middle glows.
+// sprites stay below the bloom threshold and only the hot middle glows. Compiled in only while the
+// boost is on (the HDR define): medium and low run exactly the old shader.
 const FRAG = /* glsl */`
 uniform sampler2D map;
 uniform float premul;
@@ -54,8 +55,12 @@ void main() {
   vec4 t = texture2D(map, vUv);
   vec4 c = t * vCol;
   if (c.a < 0.004) discard;
+#if HDR
   float hot = c.a * c.a;
   gl_FragColor = vec4(c.rgb * mix(1.0, c.a, premul) * (1.0 + hdr * hot), c.a);
+#else
+  gl_FragColor = vec4(c.rgb * mix(1.0, c.a, premul), c.a);
+#endif
   #include <colorspace_fragment>
 }`;
 
@@ -89,6 +94,7 @@ export class QuadBatch {
     const additive = blending === 'additive';
     this.material = new THREE.ShaderMaterial({
       uniforms: { map: { value: texture }, premul: { value: additive ? 1 : 0 }, hdr: { value: 0 } },
+      defines: { HDR: 0 },
       vertexShader: mode === 'ground' ? VERT_GROUND : VERT_BILLBOARD,
       fragmentShader: FRAG,
       transparent: true,
@@ -115,7 +121,13 @@ export class QuadBatch {
    * the colour exactly as pushed). @param {number} k extra brightness at full coverage
    */
   setHdr(k) {
-    this.material.uniforms.hdr.value = Math.max(0, Number(k) || 0);
+    const v = Math.max(0, Number(k) || 0);
+    this.material.uniforms.hdr.value = v;
+    const on = v > 0 ? 1 : 0;
+    if (this.material.defines.HDR !== on) {
+      this.material.defines.HDR = on;
+      this.material.needsUpdate = true; // recompiled only when the boost switches (quality / bloom change)
+    }
   }
 
   get hdr() {

@@ -14,13 +14,15 @@
 // numbers from seeded render-only streams (src/render/vfx/random.js), never from Math.random or
 // the sim's rng — the same battle on the same frames gives the same picture.
 //
-// Hits that land (docs/VFX.md §M1): effect cores burn above white so the bloom catches them, a
-// tone curve + per-theme grade end the high chain (no extra pass), medium / low get halo sprites
-// instead of bloom, hit-stop on heavy hits and boss kills (the visual clock, never the battle),
-// impact frames on hero ults and boss kills, struck monsters squash and flash, a camera shake sized
-// in screen pixels and a zoom punch. Reduce Motion: no shake, punch, hit-stop or impact frames, and
-// softer flashes; Settings → Graphics → Hit effects off: no hit-stop or impact frames. The flash
-// guard (src/render/vfx/flashGuard.js) keeps every full-screen flash to ≤ 3 a second, never white.
+// Hits that land (docs/VFX.md §M1), scaled by the graphics tier (src/render/vfx/feel.js FEEL):
+// effect cores burn above white so the bloom catches them, a tone curve + per-theme grade end the
+// high chain (no extra pass), medium gets light halo sprites instead of bloom (low none), hit-stop on
+// heavy hits and boss kills (the visual clock, never the battle), impact frames on hero ults and
+// boss kills (high), struck monsters squash and flash, a camera shake sized in screen pixels and a
+// zoom punch. Reduce Motion: no shake, punch, hit-stop or impact frames, and softer flashes;
+// Settings → Graphics → Flashes & shake off: no screen flash, impact frames, shake, punch or
+// hit-stop. The flash guard (src/render/vfx/flashGuard.js) keeps every full-screen flash to ≤ 3 a
+// second, never white, and softens reddish ones.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -44,7 +46,7 @@ import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { VisualClock } from './vfx/clock.js';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
-import { FlashGuard } from './vfx/flashGuard.js';
+import { FlashGuard, vignetteStep } from './vfx/flashGuard.js';
 import { HitStopDirector, hitKind } from './vfx/hitStop.js';
 import { ImpactFrames } from './vfx/impact.js';
 import { GradePass, gradeFor } from './vfx/grade.js';
@@ -85,6 +87,8 @@ const TRAUMA = {
   explodeMin: 1.6, // explosions smaller than this radius do not shake
   explode: 0.26, bigHit: 0.3, eliteKill: 0.28, minibossKill: 0.55, bossKill: 0.9,
   bossSpawn: 0.6, minibossSpawn: 0.42, bossPhase: 0.5, leak: 0.45, ult: 0.72, localUlt: 0.5, tier5: 0.32,
+  // big moments the attack-FX layer draws: Kaede's maple storm / shockwave, Marumi's Glow Bowl finale
+  bladeArt: 0.3, finale: 0.34, artGap: 0.8, // artGap: frame seconds between two of these jolts
 };
 /** Zoom punch (share of the view, seconds). */
 const PUNCH = { ult: [0.07, 0.38], bossKill: [0.05, 0.32] };
@@ -110,7 +114,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // the one visual clock (hit-stop holds it, never the sim) and the seeded visual randomness
   const clock = new VisualClock({ reduceMotion });
   const vrand = createVisualRandom(opts.visualSeed ?? visualSeed('battle', sim.map?.id, sim.stage?.id));
-  // hits that land: Settings → Graphics → Hit effects (hit-stop + impact frames; read live)
+  // hits that land: Settings → Graphics → Flashes & shake (settings.hitEffects, read live; also in
+  // the pause menu): off = no screen flash, impact frames, shake, zoom punch or hit-stop
   const hitEffectsOn = () => settings.hitEffects !== false;
   const flashGuard = new FlashGuard({ reduceMotion });
   const director = new HitStopDirector(clock, { enabled: hitEffectsOn });
@@ -273,7 +278,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const impact = new ImpactFrames({ scene, figures: () => [actors.root], keep: () => [batches.bbA.mesh, batches.groundA.mesh] });
   // shake / punch / hit-stop / impact / flash decisions (Reduce Motion, Hit effects, placing, budget)
   const feel = createHitFeel({
-    reduceMotion, hitEffects: hitEffectsOn, placing: () => placingNow(), now: () => clock.realT,
+    reduceMotion, hitEffects: hitEffectsOn, placing: () => placingNow(), now: () => clock.realT, tier: () => quality,
     guard: flashGuard, director, rig, impact, tint: (c, a, d) => tint(c, a, d),
   });
 
@@ -319,7 +324,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   let selectedAtMs = 0;
   let panelCover = { right: 0, bottom: 0 };
   let flash = { a: 0, decay: 3 };
-  let bossVignette = 0;
+  let lastArtShake = -Infinity;
+  let bossVignette = 0; // spike level (boss spawn / phase), decays
+  let vignetteA = 0; // drawn opacity (flashGuard.js vignetteStep)
   let disposed = false;
   const tapCbs = [];
   const longCbs = [];
@@ -417,7 +424,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     let hits = 0;
     for (let i = 0; i < events.length; i++) if (events[i].type === 'hit') hits++;
     director.noteHits(hits); // busy fights: fewer freezes
-    const squashK = reduceMotion ? 0.5 : 1;
+    const squashK = feel.squash(); // by tier (none on low), half with Reduce Motion
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
       // companions observe only (before the FX layers that consume events)
@@ -427,6 +434,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
         } catch (err) {
           compFail(err);
         }
+      }
+      // big moments the attack-FX layer draws (Kaede's storm / shockwave, Marumi's Glow Bowl finale): a jolt
+      if ((ev.type === 'bladeArt' && (ev.storm > 0 || ev.wave > 0)) || (ev.type === 'ballPop' && ev.fin)) {
+        if (clock.frameT - lastArtShake >= TRAUMA.artGap && shake(ev.type === 'ballPop' ? TRAUMA.finale : TRAUMA.bladeArt)) lastArtShake = clock.frameT;
       }
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
@@ -770,8 +781,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
     if (!impact.active) flash.a = Math.max(0, flash.a - d * flash.decay);
     flashEl.style.opacity = impact.active ? '0' : flash.a.toFixed(3);
     const bossAlive = sim.enemies.some((e) => e.tier === 'boss' || e.tier === 'miniboss');
-    bossVignette = Math.max(bossAlive ? 0.2 + 0.08 * Math.sin(time * 2.4) : 0, bossVignette - d * 0.8);
-    vignetteEl.style.opacity = (reduceMotion ? bossVignette * 0.5 : bossVignette).toFixed(3);
+    // the red edge: a boss spawn / phase spike swells in (never a red flash; none with Flashes &
+    // shake off), then the slow pulse while a boss is on the board
+    bossVignette = Math.max(0, bossVignette - d * 0.8);
+    const pulse = bossAlive ? 0.2 + 0.08 * Math.sin(time * 2.4) : 0;
+    vignetteA = vignetteStep(vignetteA, Math.max(pulse, hitEffectsOn() ? bossVignette : 0), d);
+    vignetteEl.style.opacity = (reduceMotion ? vignetteA * 0.5 : vignetteA).toFixed(3);
 
     renderer.info.reset();
     impact.begin();
@@ -1046,11 +1061,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
      */
     get vfx() {
       return {
-        hitEffects: hitEffectsOn(), reduceMotion, glow: composer ? 'bloom' : 'halo',
+        tier: quality, hitEffects: hitEffectsOn(), reduceMotion, glow: composer ? 'bloom' : fx.halo.cfg ? 'halo' : 'none',
         hitStops: director.granted, hitStopsRefused: director.refused, busy: director.busy,
         impacts: feel.stats.impacts, impactsRefused: feel.stats.impactsRefused, impactActive: impact.active, softTints: feel.stats.softTints,
         shakes: feel.stats.shakes, punches: feel.stats.punches,
-        flashesRefused: flashGuard.refused, flashOpacity: Math.round(flash.a * 1000) / 1000,
+        flashesRefused: flashGuard.refused, flashesOff: feel.stats.flashesOff, flashOpacity: Math.round(flash.a * 1000) / 1000,
         halos: fx.halos + (attackFx?.stats().halos || 0),
         shakePx: Math.round(Math.hypot(rig.shakePx.x, rig.shakePx.y) * 100) / 100, trauma: Math.round(rig.trauma * 1000) / 1000, punchZoom: Math.round(rig.punchZoom * 10000) / 10000,
         bloom: bloomPass ? { strength: bloomPass.strength, radius: bloomPass.radius, threshold: bloomPass.threshold, knee: bloomPass.highPassUniforms.smoothWidth.value, hdr: batches.bbA.hdr } : null,

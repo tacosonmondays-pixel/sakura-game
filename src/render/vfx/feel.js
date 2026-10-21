@@ -1,16 +1,34 @@
 // Hit feel (docs/VFX.md §M1): the one place that decides, for the battle renderer, whether a big
 // moment gets a camera shake, a zoom punch, a hit-stop, impact frames or a screen flash — and how
-// soft — from Reduce Motion, the Hit effects setting, a girl being placed and the flash budget.
-// Kept free of WebGL so the rules are tested in node (tests/render/vfx-m1.test.js).
+// soft — from the graphics tier, Reduce Motion, the Flashes & shake setting, a girl being placed
+// and the flash budget. Kept free of WebGL so the rules are tested in node
+// (tests/render/vfx-m1.test.js).
 //
+//   graphics tier      FEEL[tier]: high everything; medium a lighter shake, freezes only on big hits
+//                      and boss kills, a soft tint instead of impact frames; low a small shake, no
+//                      freeze, no zoom punch, no impact frames, no squash
 //   Reduce Motion      no shake, no zoom punch, no hit-stop, no impact frames; flashes ≤ 0.2 opacity
 //                      and slower (an impact becomes a soft tint)
-//   Hit effects off    no hit-stop, no impact frames (an impact becomes a soft tint); shake stays
+//   Flashes & shake    (settings.hitEffects) off: no screen flash of any kind, no impact frames, no
+//                      shake, no zoom punch, no hit-stop (read live: the battle's pause menu has it)
 //   placing a girl     the camera holds still: no shake, no punch
+import { flashColor } from './flashGuard.js';
+
+/**
+ * What each graphics tier gets. shake: trauma multiplier (the shake grows with trauma², so 0.8 ≈
+ * two thirds of the size, 0.6 ≈ a third); hitStop: the freeze kinds allowed (src/render/vfx/hitStop.js);
+ * impact: impact frames (else a soft tint); squash: how much a struck monster squashes.
+ */
+export const FEEL = {
+  high: { shake: 1, punch: true, hitStop: new Set(['crit', 'big', 'boss', 'impact']), impact: true, squash: 1 },
+  medium: { shake: 0.8, punch: true, hitStop: new Set(['big', 'boss']), impact: false, squash: 1 },
+  low: { shake: 0.6, punch: false, hitStop: new Set(), impact: false, squash: 0 },
+};
 
 /**
  * @param {{
  *   reduceMotion: boolean, hitEffects: () => boolean, placing: () => boolean, now: () => number,
+ *   tier?: () => 'high'|'medium'|'low',
  *   guard: import('./flashGuard.js').FlashGuard, director: import('./hitStop.js').HitStopDirector,
  *   rig: { kick(t: number): void, punch(a: number, s: number): void },
  *   impact: { active: boolean, start(color: string): void },
@@ -18,56 +36,78 @@
  * }} o
  */
 export function createHitFeel(o) {
-  const stats = { impacts: 0, impactsRefused: 0, softTints: 0, shakes: 0, punches: 0 };
+  const stats = { impacts: 0, impactsRefused: 0, softTints: 0, shakes: 0, punches: 0, flashesOff: 0 };
   let afterglow = null;
+  const cfg = () => FEEL[o.tier?.()] || FEEL.medium;
+  const on = () => o.hitEffects() !== false;
 
   const feel = {
     stats,
 
-    /** Camera shake, trauma 0..1. */
+    /** This tier's settings (FEEL). */
+    get tier() {
+      return cfg();
+    },
+
+    /** Camera shake, trauma 0..1 (scaled by the tier). */
     shake(trauma) {
-      if (o.reduceMotion || o.placing() || !(trauma > 0)) return false;
-      o.rig.kick(trauma);
+      if (o.reduceMotion || !on() || o.placing() || !(trauma > 0)) return false;
+      o.rig.kick(Math.min(1, trauma * cfg().shake));
       stats.shakes++;
       return true;
     },
 
     /** Zoom punch [amount, seconds]. */
     punch([amount, seconds]) {
-      if (o.reduceMotion || o.placing() || !(amount > 0)) return false;
+      if (o.reduceMotion || !on() || !cfg().punch || o.placing() || !(amount > 0)) return false;
       o.rig.punch(amount, seconds);
       stats.punches++;
       return true;
     },
 
-    /** A full-screen flash through the flash guard. @returns {number} the opacity drawn */
+    /**
+     * A full-screen flash through the flash guard (reddish colours are softened and capped lower).
+     * @returns {number} the opacity drawn (0 with Flashes & shake off)
+     */
     flash(color, strength = 0.75, decay = 2.5) {
+      if (!on()) {
+        stats.flashesOff++;
+        return 0;
+      }
+      const fc = flashColor(color);
       let s = strength;
       let d = decay;
       if (o.reduceMotion) {
         s *= 0.35;
         d = Math.min(d, 1.6); // and slower: no sudden change
       }
-      const a = o.guard.flash(s, o.now());
-      if (a > 0) o.tint(color, a, d);
+      const a = o.guard.flash(s, o.now(), fc.red);
+      if (a > 0) o.tint(fc.color, a, d);
       return a;
     },
 
-    /** Hit-stop of a kind (src/render/vfx/hitStop.js); the director reads the setting itself. */
+    /** Hit-stop of a kind (src/render/vfx/hitStop.js) when this tier allows it; the director reads the setting itself. */
     hitStop(kind) {
+      if (!cfg().hitStop.has(kind)) return 0;
       return o.director.request(kind);
     },
 
+    /** How much a struck monster squashes on this tier (half with Reduce Motion). */
+    squash() {
+      return cfg().squash * (o.reduceMotion ? 0.5 : 1);
+    },
+
     /**
-     * A hero ult or a boss kill: impact frames + a hit-stop when allowed, else a soft tint.
+     * A hero ult or a boss kill: impact frames + a hit-stop when allowed (high only), else a soft tint.
      * @returns {boolean} the impact frames run
      */
     impact(color) {
-      if (!o.reduceMotion && o.hitEffects() && !o.impact.active && o.guard.impact(o.now())) {
-        o.impact.start(color);
+      const fc = flashColor(color);
+      if (!o.reduceMotion && on() && cfg().impact && !o.impact.active && o.guard.impact(o.now())) {
+        o.impact.start(fc.color);
         o.director.request('impact');
         // the board comes back under a short tint of the moment's colour (part of the same impact)
-        afterglow = { color, a: Math.min(0.4, o.guard.cap), decay: 1.9 };
+        afterglow = { color: fc.color, a: Math.min(fc.red ? 0.2 : 0.4, o.guard.cap), decay: 1.9 };
         stats.impacts++;
         return true;
       }

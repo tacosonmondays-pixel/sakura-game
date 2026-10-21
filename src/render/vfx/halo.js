@@ -2,6 +2,7 @@
 // Bloom switched off) draw no full-screen filter, so bright additive effects get a soft halo
 // sprite under them instead — one more quad in the same additive batch (no new draw call), and
 // counted inside the tier's sprite limits: halos are the first thing dropped when a tier is busy.
+// Low quality gets none (phones first: almost nothing new on low), medium a light set.
 //
 //   HALO[tier]  max: halos per frame for each layer (particles, attack FX)
 //               scale: halo size vs the sprite; alpha: halo strength vs the sprite
@@ -12,8 +13,8 @@
 
 export const HALO = {
   high: { max: 160, scale: 2.3, alpha: 0.3, minSize: 0.1, minA: 0.3 }, // only when Bloom is off
-  medium: { max: 160, scale: 2.3, alpha: 0.3, minSize: 0.1, minA: 0.3 },
-  low: { max: 70, scale: 2.1, alpha: 0.26, minSize: 0.14, minA: 0.4 },
+  medium: { max: 24, scale: 1.6, alpha: 0.24, minSize: 0.2, minA: 0.6 }, // only the hottest, larger sprites: light on fill rate
+  low: null, // no halos on low
 };
 
 /**
@@ -28,7 +29,7 @@ export function createHaloRules(R) {
     cfg: null,
     /** Halo settings for a tier, or null (bloom does the glow). */
     set(tier, bloom) {
-      this.cfg = bloom ? null : HALO[tier] || HALO.medium;
+      this.cfg = bloom ? null : tier in HALO ? HALO[tier] : HALO.medium;
     },
     /**
      * Writes the halo of a w × h sprite with region `uv` and opacity `a` into `out`

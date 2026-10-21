@@ -1473,11 +1473,12 @@ r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance
 ```
 
 Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
-`shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no hit-stop and
-no impact frames; Settings → Graphics → Hit effects and the pause menu), `camera`, `buffIcons`,
+`shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no screen flash,
+no impact frames, no shake or zoom punch, no hit-stop; Settings → Graphics → Flashes & shake and the
+pause menu), `camera`, `buffIcons`,
 `attackFx`. Hit feel (docs/VFX.md §M1): hit-stop, impact frames, hit squash, camera shake in screen
 pixels and the zoom punch all change only what is drawn; the flash guard keeps full-screen flashes to
-≤ 3 a second and never white.
+≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the graphics tier.
 
 Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
 visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times

@@ -20,6 +20,18 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.44', version: '0.1.44', date: '2026-10-21', title: 'Brighter Battles',
+    added: [
+      'Battles have more punch: hits glow, big hits freeze for a split second, ultimates and boss kills land with an impact flash, and the screen gives a little shake.',
+      'On High, every map also gets a softer colour grade.',
+      'It all scales to your Graphics setting: Low stays light for phones, Medium gets a light version, High gets the full show.',
+      'A new Flashes & shake switch in Settings (and in the pause menu) turns screen flashes and shake off. Reduce motion also turns off the shake and the freezes.',
+    ],
+    changed: [
+      'Co-op still works with players on v0.1.41 to v0.1.43. Battles play the same.',
+    ],
+  },
+  {
     id: 'v0.1.43', version: '0.1.43', date: '2026-10-21', title: 'A Bigger Kon',
     changed: [
       'Kon is much bigger (about 2.4 times), in battle and next to Ruri on her page, so you can actually see him run to his spot.',

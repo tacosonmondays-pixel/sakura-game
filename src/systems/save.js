@@ -60,7 +60,7 @@ export const DEFAULT_SETTINGS = {
   defaultSpeed: 1,
   lighting: { exposure: 1, warmth: 0 },
   reduceMotion: false,
-  /** Battle hit effects: hit-stop on heavy hits and impact frames on ults / boss kills (docs/VFX.md). */
+  /** Battle flashes & shake: screen flashes, impact frames, camera shake / zoom punch and hit-stop (docs/VFX.md). */
   hitEffects: true,
   /** Battle camera: 'locked' holds the fitted map view; 'free' = drag to pan, pinch / wheel to zoom. */
   camera: 'locked',
@@ -305,7 +305,7 @@ function cleanSettings(raw) {
     defaultSpeed: [1, 2, 3].includes(s.defaultSpeed) ? s.defaultSpeed : d.defaultSpeed,
     lighting: { exposure: num(lighting.exposure, d.lighting.exposure, 0.3, 2.5), warmth: num(lighting.warmth, d.lighting.warmth, -1, 1) },
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
-    // older saves have no hit-effects setting: they get them (Reduce Motion still turns them off)
+    // older saves have no flashes & shake setting: on (Reduce Motion still stops the shake and freezes)
     hitEffects: bool(s.hitEffects, d.hitEffects),
     // older saves have no camera setting: they get the locked camera too
     camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
