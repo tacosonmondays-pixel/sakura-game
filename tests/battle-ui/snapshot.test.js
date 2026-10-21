@@ -1244,6 +1244,16 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !mb.balls?.length; i++) mr.update(STEP);
     expect(mb.balls?.length > 0).toBe(true);
     for (const t of mr.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Azami in Spread mode: her road cursor)
+    const az = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['azami', 'aoi'], hero: null, stats: {}, seed: 14 });
+    az.cash = 1e6;
+    for (const a of autoPlan('1-1', ['azami', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') az.placeTower(a.unitId, a.x, a.y);
+    const azg = az.towers.find((t) => t.unitId === 'azami');
+    az.setTargetMode(azg.uid, 'last');
+    az.startNextWave();
+    for (let i = 0; i < 60 * 60 && !azg.stripCursor; i++) az.update(STEP);
+    expect(azg.stripCursor > 0).toBe(true);
+    for (const t of az.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and an Archery trap girl: Follow-Through's trap count)
