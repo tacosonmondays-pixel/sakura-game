@@ -241,9 +241,9 @@ try {
       const s = document.querySelector('[data-testid="potential-section"]');
       const r = s.getBoundingClientRect();
       const nodes = [1, 2, 3, 4, 5, 6].map((n) => document.querySelector(`[data-testid="potential-node-${n}"]`));
-      const dmgRow = [...document.querySelectorAll('.mb-stats tr')].find((tr) => tr.firstChild?.textContent === 'Damage per hit');
       return {
-        tab: document.querySelector('.mb-tab.active')?.dataset.testid,
+        tab: document.querySelector('[data-testid^="tab-"].on')?.dataset.testid,
+        sheet: !!s.closest('[data-testid="potential-sheet"]'),
         hash: location.hash,
         inView: r.top < window.innerHeight && r.bottom > 0,
         on: nodes.map((n) => n?.classList.contains('on')),
@@ -260,11 +260,10 @@ try {
         nextTags: [...document.querySelectorAll('[data-testid="potential-next"]')].map((e) => ({ text: e.textContent, step: e.closest('[data-testid^="potential-step-"]')?.dataset.testid })),
         oldSig: !!document.querySelector('[data-testid="potential-signature"]'),
         footer: document.querySelector('[data-testid="potential-footer"]')?.textContent,
-        yours: dmgRow ? [...dmgRow.children].map((c) => c.textContent) : null,
         raise: (() => { const r = document.querySelector('[data-testid="potential-raise"]'); const b = r?.querySelector('[data-testid="potential-raise-btn"]'); return r ? { have: r.querySelector('.pot-raise-have')?.textContent, btn: b?.textContent, disabled: !!b?.disabled, hint: r.querySelector('.pot-raise-hint')?.textContent || null } : null; })(),
       };
     });
-    check(sec.tab === 'tab-info' && sec.hash.includes('focus=potential') && sec.inView, `${tag} Aoi's page: the pill opens the Info tab with the Potential section in view (${sec.tab}, ${sec.hash})`);
+    check(sec.tab === 'tab-info' && sec.hash.includes('focus=potential') && sec.inView && sec.sheet, `${tag} Aoi's page: the plate's P sticker opens the Info tab with her Potential sheet in view (${sec.tab}, ${sec.hash})`);
     check(sec.on.join() === 'true,true,true,true,false,false' && sec.next[4] === true, `${tag} Aoi's page: nodes P1–P4 on, P5 next (${sec.on.join()})`);
     // Potential v3 (docs/specs/POTENTIAL.md v3 §5.2): her node labels and capstone
     check(sec.labels.join('|') === 'Base|+4% DMG|PEN+CRIT|CRIT+6%|TWIN 1/12|HAWK', `${tag} Aoi's page: node labels ${sec.labels.join(' | ')}`);
@@ -286,11 +285,18 @@ try {
     check(!sec.oldSig, `${tag} Aoi's page: the step list replaces v1's signature box`);
     check(sec.footer === 'Duplicates so far: 3 · Next: P5 ✦ Twin Fletch with 1 Essence', `${tag} Aoi's page: footer "${sec.footer}"`);
     check(sec.raise && /^Essence ×0/.test(sec.raise.have || '') && sec.raise.disabled && /^Raise to P5 · 1 Essence \+ [\d,]+ coins$/.test(sec.raise.btn || '') && sec.raise.hint === 'A duplicate gives 1 Essence', `${tag} Aoi's page: the Raise Potential row waits for her next Essence ${JSON.stringify(sec.raise)}`);
-    check(sec.yours?.[1] === '4' && sec.yours?.[2] === '4.33', `${tag} Aoi's page: "Yours" damage per hit = 4 × 1.04 × 1.04 (${sec.yours?.join(' / ')})`);
+    // "Yours" sits in the Base stats Details sheet (the ink strip's MORE)
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="potential-sheet"]', { state: 'detached', timeout: T }).catch(() => {});
+    await page.click('[data-testid="info-more"]');
+    await page.waitForSelector('[data-testid="stats-sheet"] .mb-stats', { timeout: T });
+    const yours = await page.evaluate(() => { const tr = [...document.querySelectorAll('[data-testid="stats-sheet"] .mb-stats tr')].find((r) => r.firstChild?.textContent === 'Damage per hit'); return tr ? [...tr.children].map((c) => c.textContent) : null; });
+    check(yours?.[1] === '4' && yours?.[2] === '4.33', `${tag} Aoi's page: "Yours" damage per hit = 4 × 1.04 × 1.04 (${yours?.join(' / ')})`);
+    await page.keyboard.press('Escape');
     check(await noSideScroll(page), `${tag} Aoi's page: no sideways scroll`);
     await shot(page, `student-aoi-potential-${tag}`);
     // an unowned girl still shows her six steps (all locked)
-    await go(page, '#/student/raika', '[data-testid="potential-section"]');
+    await go(page, '#/student/raika?tab=info&focus=potential', '[data-testid="potential-section"]');
     const unowned = await page.evaluate(() => ({ on: document.querySelectorAll('.pot-node.on').length, footer: document.querySelector('[data-testid="potential-footer"]')?.textContent, pill: !!document.querySelector('[data-testid="show-potential"]') }));
     check(unowned.on === 0 && unowned.footer === 'Recruit her to start at P1.' && !unowned.pill, `${tag} Raika (not owned): the section previews her steps, all locked`);
     await go(page, '#/student/kaede?tab=info&focus=potential', '[data-testid="potential-section"]');
@@ -566,21 +572,24 @@ try {
         title: document.querySelector('[data-testid="gate-card"] .mb-card-title')?.textContent,
         lock: document.querySelector('[data-testid="gate-lock"]')?.textContent || null,
         price: document.querySelector('[data-testid="level-tome-price"]')?.textContent,
-        steps: [...document.querySelectorAll('[data-testid="gate-card"] .mb-bt-gates .mb-gate')].map((e) => `${e.textContent}${e.classList.contains('on') ? '*' : ''}`),
+        steps: [...document.querySelectorAll('[data-testid="gate-card"] .mb-bt-gates .mb-gate')].map((e) => `${e.dataset.cap}${e.classList.contains('on') ? '*' : ''}`),
         fits: card.left >= 0 && card.right <= window.innerWidth + 1,
       };
     });
-    check(lv.cap === 'Cap 72 · P4 · max 85', `${tag} levels: Aoi P4 with gate 8 broken "${lv.cap}"`);
-    check(lv.title === 'Gate 9 · Level cap 72 → 78' && lv.lock === 'Opens at P5 (Info tab: 1 Essence + coins per step).', `${tag} levels: the gate 9 card "${lv.title}" waits on P5 ("${lv.lock}")`);
+    check(lv.cap === 'Cap 72 · max 85', `${tag} levels: Aoi P4 with gate 8 broken "${lv.cap}"`);
+    check(lv.title === 'Gate 9 · Level cap 72 → 78' && lv.lock === 'Opens at P5 · 1 Essence + coins per step', `${tag} levels: the gate 9 card "${lv.title}" waits on P5 ("${lv.lock}")`);
     check(lv.steps.join('|') === '20*|30*|40*|50*|60*|63*|67*|72*|78|85' && lv.fits, `${tag} levels: the card's ten gates ${lv.steps.join(' | ')}`);
     check(lv.price === 'Lv 60 → 61 · 30,000 EXP (1 Akashic Tome) · 12,000 coins', `${tag} levels: the price of a level above 60 "${lv.price}"`);
+    // the per-book steppers sit behind Manual (UI_DIRECTION.md §6.2)
+    if (await page.locator('[data-testid="level-manual"][aria-expanded="false"]').count()) await page.click('[data-testid="level-manual"]');
+    await page.waitForSelector('[data-testid="level-books"]');
     await page.evaluate(() => {
       const row = [...document.querySelectorAll('.mb-book')].find((r) => r.querySelector('.mb-book-name')?.textContent === 'Akashic Tome');
       row.querySelectorAll('.mb-step')[1].click();
     });
     await page.waitForTimeout(150);
-    const pv = await page.evaluate(() => [...document.querySelectorAll('.mb-pv-line b')].map((b) => b.textContent));
-    check(pv[1] === '60 → 61' && pv[2] === '12,000', `${tag} levels: one Tome previews "${pv.join(' / ')}"`);
+    const pv = await page.evaluate(() => [document.querySelector('[data-testid="level-preview"]')?.textContent || '', document.querySelector('[data-testid="level-up"]')?.textContent || '']);
+    check(/LV 60 → 61/.test(pv[0]) && /Level up · 12,000/.test(pv[1]), `${tag} levels: one Tome previews "${pv.join(' / ')}"`);
     await page.click('[data-testid="level-up"]');
     await page.waitForTimeout(400);
     const lvUp = await page.evaluate(() => {
@@ -593,7 +602,7 @@ try {
     await page.evaluate(() => { const { store } = window.__sakura; Object.assign(store.profile.units.kaede, { level: 85, exp: 0, breakthrough: 10 }); store.commit('test'); });
     await go(page, '#/student/kaede?tab=level', '[data-testid="potential-cap-card"]');
     const kc = await page.evaluate(() => ({ cap: document.querySelector('[data-testid="level-cap"]')?.textContent, line: document.querySelector('[data-testid="potential-cap-line"]')?.textContent, exp: document.querySelector('.mb-lv-exp')?.textContent }));
-    check(kc.cap === 'Cap 85 · P6 · max 85' && kc.line === 'Level cap 85 · Full Potential' && kc.exp === 'Max level reached', `${tag} levels: Kaede P6 at 85 ${JSON.stringify(kc)}`);
+    check(kc.cap === 'Cap 85' && kc.line === 'Level cap 85 · Full Potential' && kc.exp === 'Max level reached', `${tag} levels: Kaede P6 at 85 ${JSON.stringify(kc)}`);
     await shot(page, `level-cap-full-${tag}`);
     await page.evaluate((k) => {
       const { store } = window.__sakura;
@@ -675,7 +684,7 @@ try {
     await shot(page2, `letter-${tag}`);
     await page2.click('[data-testid="mail-close"]', { force: true }).catch(() => {});
     // her Info tab clears her NEW badge (the others keep theirs)
-    await go(page2, '#/student/aoi?tab=info', '[data-testid="potential-section"]');
+    await go(page2, '#/student/aoi?tab=info', '[data-testid="potential-row"]');
     await go(page2, '#/students', '.unit-card[data-unit="aoi"]');
     const badges2 = await page2.evaluate(() => Object.fromEntries(['aoi', 'rei'].map((id) => [id, !!document.querySelector(`.unit-card[data-unit="${id}"] [data-testid="card-potnew"]`)])));
     check(!badges2.aoi && badges2.rei, `${tag} old save: opening Aoi's Info tab clears her NEW, Rei keeps hers ${JSON.stringify(badges2)}`);

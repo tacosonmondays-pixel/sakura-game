@@ -1,22 +1,25 @@
-// Student detail (owner: meta-b). Route: #/student/<id>?tab=info|level|awaken|gear|tree[&skin=<skinId>]
+// Student detail (owner: meta-b). Route: #/student/<id>?tab=info|level|awaken|gear|tree[&skin=<skinId>][&focus=potential]
 //
-// Left: a stable showcase (Card Art ⇄ 3D Chibi toggle, name, rarity, stars, level, Outfit pill)
-// that never re-renders when tabs change. Right: tabs Info / Level Up / Awakening / Equipment / Tree.
-// Outfits (skins) dress only the 3D chibi: the Outfit sheet lists them with Wear / Try on, and
-// `?skin=` deep-links a try-on.
+// The condensed girl page (docs/specs/UI_DIRECTION.md §6.2, M1a): the art band on the left (her card art or the 3D
+// chibi, prev / next on its edges, the 3D toggle and Outfit as icon buttons, the ink plate with her name, level,
+// stars, Potential and power) stays mounted while tabs change; the right column is the tab rail
+// INFO · LEVEL · AWAKEN · GEAR · TREE and one content window. Every tab is a Glance view with its Details one tap
+// away (bottom sheets, src/ui/sheet.js): Info and Tree (M1a); Level Up with its Manual book steppers and the next
+// gate, Awakening's next star, and Equipment (src/ui/girlGear.js: slot cards, the slot sheet with its picker) (M1b).
+// Outfits (skins) dress only the 3D chibi: the Outfit sheet lists them with Wear / Try on, and `?skin=` deep-links a
+// try-on.
 import '../styles/meta-b.css';
 import '../styles/journal.css'; // [story] feature locks
-import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
+import { h, clear, screen, svgEl, button, modal, toast, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT,
-  STATUSES, GEAR_SLOTS, ITEM_RARITIES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
+  STATUSES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
-import { ITEMS, bookId, getItem, materialId } from '../../data/items.js';
-import { unitSubclassLabel, ROLE_SUBCLASS } from '../../data/wiki.js';
+import { ITEMS, bookId, materialId } from '../../data/items.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
   awakenCost, canAwaken, awaken, unitBattleStats, unitPower, MAX_LEVEL, MAX_BREAKTHROUGH, MAX_AWAKEN,
@@ -24,42 +27,49 @@ import {
 } from '../../systems/progression.js';
 import { TITANS } from '../../data/titans.js';
 import { setTargetFamily } from '../../systems/titans.js';
-import {
-  gearList, equipGear, unequipGear, salvageGear, salvageRewards, describeStat, gearLines, isUrGear, awakenReady,
-} from '../../systems/gear.js';
-import { gearActions, gearTotals, fillMeter, clubStrip } from '../gearUr.js';
+import { awakenReady } from '../../systems/gear.js';
 import { itemCount } from '../../systems/inventory.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
+import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { SKIN_MAP, resolveSkin } from '../../data/skins.js';
 import { legacyKit } from '../../data/legacy.js';
 import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
 import { artUrl } from '../../art/portraits.js';
-import { gearCard, requirementList, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
-import { tagChips, tagLegend, pathSummaryChips } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
-import { tierTags, tierNote } from '../upgradeTags.js';
-import { applyGearFilter } from '../../systems/gearFilter.js';
-import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
+import { howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { TAG_GLYPHS } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
 import { resolveText } from '../../data/story/tokens.js';
 import { resolveStats } from '../../sim/mods.js';
 import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../systems/potential.js';
-import { potPill, potentialSection, nextLine } from '../potential.js';
-import { shownTips } from '../../data/unitTips.js';
+import { potentialSection, crown } from '../potential.js';
+import { potentialNext, MAX_POTENTIAL } from '../../systems/potential.js';
+import { essenceBalance, canRaisePotential } from '../../systems/essence.js';
+import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG } from '../kit.js';
+import { fmtNum } from '../format.js';
+import { gearTab, reqChips, coinsOf } from '../girlGear.js';
+import { openSheet, closeSheets } from '../sheet.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchupList, matchArrows } from '../girlView.js';
+import { namePlate, potPips } from '../girlFrame.js';
+import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
+import { buildTreeModel } from '../treeModel.js';
+import { heroTrackBand, fullTrackList } from '../heroTrack.js';
+import { UPGRADE_TAGS, TAG_ORDER } from '../upgradeTags.js';
 
+// one word per tab (§5.3); the ids and their tab-<id> testids never change
 const TABS = [
-  { id: 'info', label: 'Info' },
-  { id: 'level', label: 'Level Up' },
-  { id: 'awaken', label: 'Awakening' },
-  { id: 'gear', label: 'Equipment' },
-  { id: 'tree', label: 'Tree' },
+  { id: 'info', label: 'Info', icon: 'info' },
+  { id: 'level', label: 'Level', icon: 'upgrade' },
+  { id: 'awaken', label: 'Awaken', icon: 'star' },
+  { id: 'gear', label: 'Gear', icon: 'shield' },
+  { id: 'tree', label: 'Tree', icon: 'sparkle' },
 ];
 const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
-const view = { mode: 'card', gearSlot: 'charm', skin: null };
+// manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
+const view = { mode: 'card', skin: null, manual: false };
 /** seenIntro key: the Outfit pill shows a NEW dot until the outfit sheet was opened once. */
 const OUTFIT_INTRO = 'outfits';
 
@@ -171,12 +181,6 @@ function section(title, ...children) {
   return h('section.mb-card', title ? h('h3.mb-card-title', title) : null, ...children);
 }
 
-function expBar(frac, previewFrac = null) {
-  return h('div.mb-exp',
-    previewFrac != null ? h('div.mb-exp-preview', { style: { width: `${Math.min(100, previewFrac * 100)}%` } }) : null,
-    h('div.mb-exp-fill', { style: { width: `${Math.min(100, frac * 100)}%` } }));
-}
-
 function multCell(mult) {
   const cls = mult >= 1.5 ? 'super' : mult > 1 ? 'good' : mult === 1 ? 'normal' : mult > 0.5 ? 'resist' : 'weak';
   return cls;
@@ -189,7 +193,8 @@ export function effectivenessRow(attackType) {
     return h(`div.mb-eff.${multCell(m)}`, { title: `${c.name}: ${effectivenessLabel(m)}` },
       svgEl(armorClassIcon(c.id), 'mb-eff-icon'),
       h('div.mb-eff-name', c.name),
-      h('div.mb-eff-mult', `×${m}`));
+      // the arrow carries the meaning, not only the colour (as the Info tab's matchup row)
+      h('div.mb-eff-mult', matchArrows(m) ? `${matchArrows(m)} ×${m}` : `×${m}`));
   }));
 }
 
@@ -248,21 +253,27 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Showcase (left column) — stays mounted while tabs change
+// The art band (left, --art-band-w) — stays mounted while tabs change (UI_DIRECTION.md §6.2)
 // ---------------------------------------------------------------------------
 
-/** The outfit the showcase shows: a try-on preview, else her equipped one. */
+/** The outfit the band shows: a try-on preview, else her equipped one. */
 const shownSkinId = (unit) => (view.skin && SKIN_MAP[view.skin]?.unitId === unit.id ? view.skin : equippedSkinId(store.profile, unit.id));
 
-function buildShowcase(unit, onCycle, onPotential) {
+/**
+ * Her card art (or the 3D chibi) filling the band: prev / next on the art's edges, the 3D toggle and the Outfit
+ * button as icon buttons in its top corners, and the ink plate over the bottom (name, class, rarity, LV, stars,
+ * P, power: the only place they appear).
+ */
+function buildBand(unit, onCycle, onPotential) {
   let viewer = null;
   let model = null;
   let disposed = false;
   let stageSkin = null; // outfit of the 3D model on stage
-  const stageEl = h('div.mb-show-stage');
-  const toggle = h('div.mb-seg', { role: 'tablist' });
-  const actRow = h('div.mb-show-acts');
-  const info = h('div.mb-show-info');
+  const stageEl = h('div.mb-show-stage.gp-stage');
+  const acts = h('div.gp-acts', { role: 'group', 'aria-label': 'Animations' });
+  const plateHost = h('div.gp-plate-host');
+  const outfitHost = h('div.gp-corner.tl');
+  const toggleHost = h('div.gp-corner.tr');
 
   const destroy3D = () => {
     if (viewer) viewer.dispose();
@@ -274,18 +285,18 @@ function buildShowcase(unit, onCycle, onPotential) {
   const renderStage = () => {
     destroy3D();
     clear(stageEl);
-    clear(actRow);
+    clear(acts);
     stageEl.classList.toggle('is-3d', view.mode === '3d');
     stageEl.classList.remove('is-ur');
+    el.classList.toggle('is-3d', view.mode === '3d');
     const st = store.profile.units[unit.id];
     stageSkin = shownSkinId(unit);
     const skin = stageSkin;
     if (view.mode === 'card') {
-      stageEl.appendChild(svgEl(portraitHTML(unit, 'full', { eager: true, awaken: st?.awaken || 0 }), 'mb-show-card'));
+      stageEl.appendChild(svgEl(portraitHTML(unit, 'full', { eager: true, awaken: st?.awaken || 0 }), 'gp-art'));
     } else {
-      const holder = h('div.mb-show-3d');
-      // The animation pills live inside the stage so the showcase keeps one height in both modes.
-      put(stageEl, holder, h('div.mb-show-hint', svgEl(uiIcon('refresh')), 'Drag to rotate · tap to act'), actRow);
+      const holder = h('div.gp-3d');
+      stageEl.appendChild(holder);
       // She faces the player (no auto-spin): the close-up is a portrait, dragging turns her.
       viewer = createModelViewer(holder, { background: null, autoRotate: false });
       // close-up viewer: full-detail GLB regardless of the quality setting (chibis-v2)
@@ -295,61 +306,48 @@ function buildShowcase(unit, onCycle, onPotential) {
         viewer.setObject(model);
       });
       for (const [state, label] of [['idle', 'Idle'], ['attack', 'Attack'], ['cheer', 'Cheer'], ['victory', 'Victory']]) {
-        actRow.appendChild(h(`button.mb-act${state === 'idle' ? '.on' : ''}`, {
+        acts.appendChild(h(`button.gp-act${state === 'idle' ? '.on' : ''}`, {
+          type: 'button',
           onclick: (e) => {
             viewer?.setState(state);
             if (state === 'attack') model?.userData.playAttack?.();
-            actRow.querySelectorAll('.mb-act').forEach((b) => b.classList.toggle('on', b === e.currentTarget));
+            acts.querySelectorAll('.gp-act').forEach((b) => b.classList.toggle('on', b === e.currentTarget));
           },
         }, label));
       }
     }
     applyUrFrame(stageEl, unit, store.profile); // UR: the rainbow frame around her art (card and 3D view)
-    clear(toggle);
-    for (const [id, label] of [['card', 'Card Art'], ['3d', '3D Chibi']]) {
-      toggle.appendChild(h(`button.mb-seg-btn${view.mode === id ? '.on' : ''}`, { role: 'tab', 'data-testid': `view-${id}`, onclick: () => { if (view.mode !== id) { view.mode = id; renderStage(); } } }, label));
-    }
+    // one icon button swaps the views; its testid names the view it opens
+    const to3d = view.mode === 'card';
+    toggleHost.replaceChildren(iconBtn(to3d ? KIT_SVG.cube : KIT_SVG.card, {
+      label: to3d ? '3D chibi' : 'Card art', testid: to3d ? 'view-3d' : 'view-card', cls: 'glass',
+      onClick: () => { view.mode = to3d ? '3d' : 'card'; renderStage(); },
+    }));
   };
 
   const renderInfo = () => {
-    clear(info);
-    const st = store.profile.units[unit.id];
     const skin = resolveSkin(unit.id, shownSkinId(unit));
     const trying = skin.id !== equippedSkinId(store.profile, unit.id);
     const isNew = choicesCount(unit) > 1 && !store.profile.seenIntro?.includes(OUTFIT_INTRO);
-    const shown = displayRarity(unit, store.profile);
-    const r = rarityInfo(shown);
-    put(info,
-      h('div.mb-show-name-row',
-        shown === 'UR'
-          ? h('span.mb-rarity-tag.is-ur', { 'data-testid': 'rarity-tag', title: 'UR — every awaken star' }, h('span.ur-text', 'UR'), urRing())
-          : h('span.mb-rarity-tag', { 'data-testid': 'rarity-tag', style: cssVars({ '--rarity': r.color }) }, r.name),
-        h('div.mb-show-names', h('div.mb-show-name', unit.name), h('div.mb-show-title', unit.title)),
-        h(`button.mb-outfit-pill${trying ? '.trying' : ''}`, {
-          'data-testid': 'outfit-open', title: trying ? `Trying on: ${skin.name}` : `Outfit: ${skin.name}`, onclick: () => openOutfits(unit, api),
-        }, svgEl(uiIcon('hanger')), h('span.mb-outfit-pill-name', skin.name),
-        // corner tag: a try-on (not saved) wins over the one-time NEW
-        trying ? h('span.mb-outfit-new.try', 'TRY-ON') : isNew ? h('span.mb-outfit-new', 'NEW') : null)),
-      h('div.mb-show-meta',
-        st ? h('div.mb-show-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.muted', ` / ${levelCap(st)}`)) : h('div.mb-show-level.locked', svgEl(uiIcon('lock')), howToGet(unit).short),
-        stars(st?.awaken || 0, MAX_AWAKEN),
-        st ? potPill(potentialLevel(st), { tag: 'button', min: 1, testid: 'show-potential', title: `${potentialPillTitle(unit, potentialLevel(st))}. ${nextLine(unit, st)} — see her Info tab`, onClick: onPotential }) : null,
-        st ? h('div.mb-show-power', svgEl(uiIcon('sword')), formatNumber(unitPower(store.profile, unit.id))) : null),
-    );
+    outfitHost.replaceChildren(h(`button.ui-ibtn.glass.gp-outfit${trying ? '.trying' : ''}`, {
+      type: 'button', 'data-testid': 'outfit-open', title: trying ? `Trying on: ${skin.name}` : `Outfit: ${skin.name}`,
+      onclick: () => openOutfits(unit, api),
+    }, ico('hanger'), h('span.ui-sr', trying ? `Trying on: ${skin.name}` : `Outfit: ${skin.name}`),
+    // corner tag: a try-on (not saved) wins over the one-time NEW
+    trying ? sticker('Try-on', 'p', { 'aria-hidden': 'true' }) : isNew ? sticker('New', 'y', { 'aria-hidden': 'true' }) : null));
+    plateHost.replaceChildren(namePlate(unit, store.profile, { onPotential }));
   };
 
-  const el = h('aside.mb-showcase', { style: cssVars({ '--accent': unit.palette?.accent || '#ff7aa8', '--hair': unit.palette?.hair || '#9fd0ff' }) },
-    h('div.mb-show-top',
-      h('button.mb-cycle', { title: 'Previous', onclick: () => onCycle(-1) }, '‹'),
-      toggle,
-      h('button.mb-cycle', { title: 'Next', onclick: () => onCycle(1) }, '›')),
+  const el = h('aside.gp-band', { 'data-hold-info': 'off', style: cssVars({ '--accent': unit.palette?.accent || '#ff7aa8' }) },
     stageEl,
-    info);
+    iconBtn(KIT_SVG.chevL, { label: 'Previous girl', testid: 'girl-prev', cls: 'glass.gp-nav.l', onClick: () => onCycle(-1) }),
+    iconBtn(KIT_SVG.chevR, { label: 'Next girl', testid: 'girl-next', cls: 'glass.gp-nav.r', onClick: () => onCycle(1) }),
+    outfitHost, toggleHost, acts, plateHost);
   renderStage();
   renderInfo();
   const api = {
     el,
-    /** Re-render the info row, and the stage when it shows card art or a different outfit. */
+    /** Re-render the plate, and the stage when it shows card art or a different outfit. */
     refresh() { renderInfo(); if (view.mode === 'card' || stageSkin !== shownSkinId(unit)) renderStage(); },
     /** Switch to the 3D chibi (outfit try-on / wear). */
     show3D() { if (view.mode !== '3d') { view.mode = '3d'; renderStage(); } else api.refresh(); renderInfo(); },
@@ -455,58 +453,187 @@ function storyLockedTab(feature) {
 }
 
 /**
- * The Info tab (also the Unit Sheet's). `profile`: whose girl it is (default the save; a Sensei Profile
- * snapshot's mini profile shows someone else's numbers, `label` 'theirs').
+ * The Info tab (UI_DIRECTION.md §6.2, Glance): her role with its sticker, up to 3 trait chips + "+N", one sentence,
+ * the ink strip with her role's 3 headline stats + MORE (the Base stats Details sheet), the matchup row ("i": the
+ * type table), her Potential row (6 pips and the next unlock; tap: the Potential sheet with Raise) and a Profile row
+ * (her quote; Open: the bio, tips and how to get her). `profile`: whose girl (the save, or a snapshot's mini
+ * profile, `label` 'theirs').
  */
-export function infoTab(unit, { profile = store.profile, label = 'yours' } = {}) {
+export function infoTab(unit, { profile = store.profile, label = 'yours', onChange = null } = {}) {
   const role = ROLES[unit.role];
   const cat = ROLE_CATEGORIES[role?.category];
+  const st = profile.units[unit.id];
+  const mine = label === 'yours' && profile === store.profile;
+  const traits = traitList(unit);
+  // the chip row: attack type, element and placement first, then her capabilities. At 1280x720 the capabilities
+  // have their own icon strip (below), so the row's capability chips and "+N" hide there (facts once, P7).
+  const caps = traits.filter((t) => t.kind === 'cap');
+  const ordered = [...traits.filter((t) => t.kind !== 'cap'), ...caps];
+  const shown = ordered.slice(0, 3);
+  const rest = ordered.length - shown.length;
+  const traitIcon = (t) => (t.kind === 'attack' ? attackTypeIcon(t.key) : t.kind === 'element' ? elementIcon(t.key) : t.kind === 'place' ? uiIcon('water') : capabilityIcon(t.key));
+  const roleCard = infoPanel({ cls: 'gp-role-card', testid: 'info-role' },
+    h('div.gp-role',
+      svgEl(roleIcon(unit.role), 'gp-role-ico'),
+      h('div.gp-role-id', h('span.gp-role-name', role?.name || unit.role), cat ? sticker(cat.name, 'ink', { title: `${cat.name} role` }) : null),
+      h('div.gp-traits', { 'data-testid': 'info-traits' },
+        shown.map((t) => kitChip({ icon: traitIcon(t), text: t.name, title: `${t.name}${t.desc ? `: ${t.desc}` : ''}`, cls: [t.kind === 'cap' ? 'cap' : '', t.later ? 'later' : ''].filter(Boolean).join('.') })),
+        rest > 0 ? moreChip(rest, { onClick: () => openTraits(unit), title: `${rest} more traits`, testid: 'info-traits-more' }) : null)),
+    h('p.gp-one', roleSentence(unit)),
+    statStrip(headlineStats(unit, profile), { onMore: () => openBaseStats(unit, { profile, label }), testid: 'info-strip', moreTestid: 'info-more' }));
+
+  const mu = matchupList(unit.attackType).slice(0, 4);
+  const matchCard = infoPanel({ cls: 'gp-match-card', testid: 'info-matchup', kicker: 'Matchup', head: iconBtn('info', { label: 'Type effectiveness', testid: 'info-matchup-i', cls: 'small', onClick: () => openMatchup(unit) }) },
+    mu.length
+      ? h('div.gp-mu-grid', mu.map((m) => h(`span.gp-mu.${m.up ? 'up' : 'dn'}`, { title: `${m.name}: ×${m.mult}` }, svgEl(armorClassIcon(m.armor), 'gp-mu-ico'), h('b', { 'aria-label': m.up ? 'strong against' : 'weak against' }, m.arrows), m.name)))
+      : h('p.gp-line', 'Even against every armor.'));
+
+  // capabilities (1280x720): one icon strip; tap: one line each (the Traits sheet)
+  const capsCard = caps.length ? infoPanel({ cls: 'gp-caps-card', kicker: 'Capabilities' },
+    h('button.gp-caps', { type: 'button', 'data-testid': 'info-caps', 'aria-label': 'Capabilities: one line each', onclick: () => openTraits(unit) },
+      caps.map((t) => h(`span.gp-cap${t.later ? '.later' : ''}`, { title: t.later ? `${t.name}: through an upgrade` : t.desc }, svgEl(capabilityIcon(t.key), 'gp-cap-ico'), h('span', t.name), t.later ? ico('lock') : null)))) : null;
+
+  const potCard = potentialRow(unit, st, { profile: mine ? profile : null, onChange });
+
+  const quote = unit.quote ? infoPanel({ cls: 'gp-profile-card', kicker: 'Profile', head: ghostBtn('Open ▸', { testid: 'info-profile', onClick: () => openProfile(unit, { owned: !!profile.units[unit.id] }) }) },
+    h('div.gp-quote', svgEl(portraitHTML(unit, 'thumb', { alt: '' }), 'gp-qface'), h('div.gp-bubble', `“${unit.quote}”`))) : null;
+
+  return h('div.mb-tab-body.gp-info', roleCard, matchCard, potCard, capsCard, quote);
+}
+
+/** A glass panel (§5.4): white glass, one chamfer, a caps kicker with an optional head control. */
+function infoPanel({ cls = '', testid = null, kicker = null, head = null } = {}, ...children) {
+  return h(`section.ui-panel${cls ? `.${cls}` : ''}`, { 'data-testid': testid },
+    h('div.ui-panel-in',
+      kicker ? h('div.ui-panel-head', h('span.ui-kicker', kicker), head) : null,
+      ...children));
+}
+
+/**
+ * Her Potential row (Glance): six blossoms and one line naming the next unlock ("Next P5 · ✦ Twin Fletch"); a
+ * red dot when she can rise now. Tap: the Potential sheet (every step, the level caps, Raise).
+ */
+function potentialRow(unit, st, { profile = null, onChange = null } = {}) {
+  const p = st ? potentialLevel(st) : 0;
+  const next = potentialNext(unit, st);
+  const ready = !!profile && !!st && p < MAX_POTENTIAL && canRaisePotential(profile, unit.id, essenceBalance(profile, unit.id) > 0 ? 'own' : null).ok;
+  const line = !st ? 'Recruit her to start at P1.'
+    : !next ? h('span', crown('gp-line-crown'), 'Full Potential')
+      : h('span', lbl('Next'), ` P${next.step} · ${next.brief}`);
+  return h('button.ui-panel.gp-pot-card', {
+    type: 'button', 'data-testid': 'potential-row', 'aria-label': `Potential ${p} of ${MAX_POTENTIAL}. Open her Potential`,
+    onclick: () => openPotential(unit, { profile, onChange }),
+  }, h('div.ui-panel-in',
+    h('div.ui-panel-head', h('span.ui-kicker', 'Potential'), ready ? h('i.ui-dot', { title: 'She can rise now' }) : null, ico(KIT_SVG.chevR, 'ui-ico.gp-chev')),
+    potPips(p),
+    h('p.gp-line.gp-pot-line', line)));
+}
+
+/** The Potential sheet (Details): her six steps, level caps and Raise Potential (docs/specs/ASCENSION.md §D.2). */
+export function openPotential(unit, { profile = null, onChange = null } = {}) {
+  let sheet = null;
+  const draw = () => {
+    const st = (profile || store.profile).units[unit.id] || null;
+    return potentialSection(unit, st, {
+      profile,
+      onChange: () => {
+        sheet?.body.replaceChildren(draw());
+        onChange?.();
+      },
+    });
+  };
+  sheet = openSheet({ title: `${unit.name} · Potential`, body: draw(), full: true, testid: 'potential-sheet', cls: 'gp-details' });
+  return sheet;
+}
+
+/** Every trait: the attack type, the element, each capability with its line, and what her upgrades add. */
+function openTraits(unit) {
+  const traits = traitList(unit);
+  const icon = (t) => (t.kind === 'attack' ? attackTypeIcon(t.key) : t.kind === 'element' ? elementIcon(t.key) : t.kind === 'place' ? uiIcon('water') : capabilityIcon(t.key));
+  const row = (t) => h(`li.gp-trait${t.later ? '.later' : ''}`, svgEl(icon(t), 'gp-trait-ico'), h('div', h('b', t.name), t.desc ? h('div.gp-sub', t.desc) : null));
+  const now = traits.filter((t) => !t.later);
+  const later = traits.filter((t) => t.later);
+  return openSheet({
+    title: `${unit.name} · Traits`, testid: 'traits-sheet', cls: 'gp-details',
+    body: h('div.gp-sheet-body',
+      h('ul.gp-trait-list', now.map(row)),
+      later.length ? h('div.ui-kicker.gp-kick', 'Unlocked through upgrades') : null,
+      later.length ? h('ul.gp-trait-list', later.map(row)) : null,
+      h('p.gp-sub', `${MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily} materials raise her level gates.`)),
+  });
+}
+
+/** The matchup "i": her attack type in one line and its table against every armor (×1.25, ×0.75). */
+function openMatchup(unit) {
+  const at = ATTACK_TYPES[unit.attackType];
+  return openSheet({
+    title: `${unit.name} · Matchup`, testid: 'matchup-sheet', cls: 'gp-details',
+    body: h('div.gp-sheet-body', h('p', h('b', at?.name || unit.attackType), at?.desc ? ` — ${at.desc}` : ''), effectivenessRow(unit.attackType),
+      h('p.gp-sub', '▲ deals more to that armor, ▼ less. Bosses and elites keep their armor type.')),
+  });
+}
+
+/** The Profile sheet: her quote, bio, personality, Codex kit, tips and how to get her. */
+function openProfile(unit, { owned = true } = {}) {
+  const how = howToGet(unit);
+  const tips = profileTips(unit); // no ⚡ ability tips while abilities are dormant
+  return openSheet({
+    title: `${unit.name} · Profile`, testid: 'profile-sheet', cls: 'gp-details', full: true,
+    body: h('div.gp-sheet-body',
+      h('blockquote.mb-quote', `“${unit.quote}”`),
+      h('p', unit.bio),
+      unit.personality ? h('p.gp-sub', unit.personality) : null,
+      codexLine(unit),
+      tips.length ? h('div.ui-kicker.gp-kick', 'Tips') : null,
+      tips.length ? h('ul.mb-tips', { 'data-testid': 'profile-tips' }, tips.map((t) => h('li', t))) : null,
+      owned ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
+  });
+}
+
+/** Base stats › Role: her subclass, both role lines, good against and limitation (the old Info tab's role text). */
+function roleSection(unit, role) {
+  const r = roleDetails(unit);
+  return h('section.mb-card.gp-role-sec', { 'data-testid': 'stats-role' },
+    h('h3.mb-card-title', 'Role'),
+    h('div.gp-role-full', svgEl(roleIcon(unit.role), 'gp-trait-ico'),
+      h('div', h('b', { 'data-testid': 'stats-subclass' }, r.label), role?.name && role.name !== r.label ? h('span.gp-sub', ` · ${role.name}`) : null)),
+    r.lines.map((t) => h('p.gp-role-line', t)),
+    h('div.mb-good-bad',
+      h('div.mb-good', h('b', 'Good against'), h('span', role?.goodAgainst || '')),
+      h('div.mb-bad', h('b', 'Limitation'), h('span', role?.limitation || ''))));
+}
+
+/**
+ * Details (MORE): every base stat next to hers, her role in full (subclass, both role lines, good against and
+ * limitation), the type table, capabilities, the hero's ultimate and her awakening passive. Opened from her page
+ * and from the menu hold sheet.
+ */
+export function openBaseStats(unit, { profile = store.profile, label = 'yours' } = {}) {
+  const role = ROLES[unit.role];
   const battle = unitBattleStats(profile, unit.id);
   const st = profile.units[unit.id];
   const passiveOn = (st?.awaken || 0) >= 3;
-  const how = howToGet(unit);
   const pathCaps = unit.pathCapabilities.filter((c) => !unit.capabilities.includes(c));
-  return h('div.mb-tab-body',
-    section(null,
-      h('div.mb-role',
-        svgEl(roleIcon(unit.role), 'mb-role-icon'),
-        h('div',
-          h('div.mb-role-name', role?.name || unit.role, cat ? h('span.mb-cat', { style: { background: cat.color } }, cat.name) : null),
-          h('div.mb-subclass', unitSubclassLabel(unit, { maxCaps: 3 })))),
-      h('p.mb-role-desc', ROLE_SUBCLASS[unit.role]?.desc || role?.desc || ''),
-      codexLine(unit),
-      h('div.mb-good-bad',
-        h('div.mb-good', h('b', 'Good against'), h('span', role?.goodAgainst || '')),
-        h('div.mb-bad', h('b', 'Limitation'), h('span', role?.limitation || ''))),
-      h('div.mb-chip-row',
-        chip(attackTypeIcon(unit.attackType), ATTACK_TYPES[unit.attackType]?.name, '.mb-type-chip'),
-        unit.element ? chip(elementIcon(unit.element), ELEMENTS[unit.element]?.name) : null,
-        chip(unit.placement === 'land' ? null : uiIcon('water'), `${PLACEMENT[unit.placement]?.name} placement`, unit.placement !== 'land' ? '.mb-water-chip' : ''),
-        chip(itemIcon(materialId(unit.materialFamily, 'rare')), `${MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily} materials`))),
-    section('Type effectiveness',
-      h('p.muted', `${ATTACK_TYPES[unit.attackType]?.name} — ${ATTACK_TYPES[unit.attackType]?.desc}`),
-      effectivenessRow(unit.attackType)),
-    section('Capabilities',
-      unit.capabilities.length
-        ? h('div.mb-cap-list', unit.capabilities.map((c) => h('div.mb-cap', svgEl(capabilityIcon(c), 'mb-cap-icon'), h('div', h('b', CAPABILITIES[c]?.name || c), h('div.muted', CAPABILITIES[c]?.desc || '')))))
-        : h('p.muted', 'No special capabilities at tier 0 — her upgrades add them.'),
-      pathCaps.length ? h('div.mb-sub-title', 'Unlocked through upgrades') : null,
-      pathCaps.length ? h('div.mb-chip-row', pathCaps.map((c) => chip(capabilityIcon(c), CAPABILITIES[c]?.name || c, '.mb-chip-dim'))) : null),
-    unit.hero ? heroSection(unit) : null,
-    section('Profile',
-      h('blockquote.mb-quote', `“${unit.quote}”`),
-      h('p', unit.bio),
-      h('p.muted', unit.personality),
-      st ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
-    section('Tips', h('ul.mb-tips', shownTips(unit).map((t) => h('li', t)))), // (no ⚡ tips until the ability bar ships)
-    section('Base stats', statsTable(unit, battle, { owned: !!st, label })),
-    section('Awakening passive',
-      h(`div.mb-passive${passiveOn ? '.on' : ''}`,
-        h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
-        h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3')))),
-    // her own page: the Raise Potential row (docs/specs/ASCENSION.md §D.2); a friend's card: view only
-    potentialSection(unit, st, { profile: label === 'yours' ? profile : null }),
-  );
+  return openSheet({
+    title: `${unit.name} · Base stats`, testid: 'stats-sheet', cls: 'gp-details', full: true,
+    body: h('div.mb-tab-body.gp-sheet-body',
+      section('Base stats', statsTable(unit, battle, { owned: !!st, label })),
+      roleSection(unit, role),
+      section('Type effectiveness',
+        h('p.muted', `${ATTACK_TYPES[unit.attackType]?.name} — ${ATTACK_TYPES[unit.attackType]?.desc}`),
+        effectivenessRow(unit.attackType)),
+      section('Capabilities',
+        unit.capabilities.length
+          ? h('div.mb-cap-list', unit.capabilities.map((c) => h('div.mb-cap', svgEl(capabilityIcon(c), 'mb-cap-icon'), h('div', h('b', CAPABILITIES[c]?.name || c), h('div.muted', CAPABILITIES[c]?.desc || '')))))
+          : h('p.muted', 'No special capabilities at tier 0 — her upgrades add them.'),
+        pathCaps.length ? h('div.mb-sub-title', 'Unlocked through upgrades') : null,
+        pathCaps.length ? h('div.mb-chip-row', pathCaps.map((c) => chip(capabilityIcon(c), CAPABILITIES[c]?.name || c, '.mb-chip-dim'))) : null),
+      unit.hero ? heroUltSection(unit) : null,
+      section('Awakening passive',
+        h(`div.mb-passive${passiveOn ? '.on' : ''}`,
+          h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
+          h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3'))))),
+  });
 }
 
 /** The girl's old Codex kit (ROSTER_SPEC §4.4b): her trait line and the three upgrade names her paths carry. */
@@ -519,18 +646,16 @@ function codexLine(unit) {
     k.upgrades.length ? h('span.mb-codex-ups', k.upgrades.join(' · ')) : null);
 }
 
-function heroSection(unit) {
+/** The hero's ultimate for Details: its name, what it does, when it unlocks and its ranks. */
+function heroUltSection(unit) {
   const hero = unit.hero;
   const ranks = (hero.ult.ranks || []).map((r, i) => `Rank ${i + 2} at Lv ${r.level}`).join(' · ');
-  return section('Hero',
+  return section('Hero ultimate',
     h('div.mb-ult',
       h('div.mb-ult-badge', 'ULT'),
       h('div', h('b', hero.ult.name), h('div', hero.ult.desc),
         h('div.muted', `Unlocks at hero level ${hero.ult.unlockLevel} · cooldown ${hero.ult.cooldown}s${ranks ? ` · ${ranks}` : ''}`),
         (hero.ult.ranks || []).map((r) => h('div.muted', r.desc)))),
-    h('div.mb-sub-title', 'Battle levels (1–25)'),
-    h('ol.mb-hero-levels', { 'data-testid': 'hero-track-list' }, hero.levels.map((l) => h('li', h('span.mb-hl-num', String(l.level)),
-      h('span', l.desc, l.from && l.from !== 'base' ? h('small.mb-hl-from', ` ${heroSourceText(unit, l.from)}`) : null)))),
     h('p.muted', 'Heroes deploy for free and level up inside each battle — from time in the wave, waves cleared and the damage they deal. Buy the next level with battle coins any time. One hero per player.'));
 }
 
@@ -548,18 +673,22 @@ const HERO_PATH_NAMES = {
   nami: { frostbrand: 'Frostbrand', undertow: 'Undertow', harbor: 'Harbor Watch' },
 };
 
+/**
+ * Level Up (UI_DIRECTION.md §6.2, M1b): her LV with the cap, the EXP bar with the preview of the books picked, Auto
+ * select and Level up (the primary, with its price); the per-book steppers sit behind the Manual toggle. Under it the
+ * next gate (Breakthrough, then Ascension's gates 6–10 up to 85): its pips, every requirement as a chip (icon,
+ * owned/required, where to get it), the Potential it waits on (Raise opens her Potential sheet) and Break through.
+ */
 function levelTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'levelling');
   const sel = ctx.books;
-  const wrap = h('div.mb-tab-body');
-
-  const head = section(null);
-  const bookBox = section('Books');
-  const preview = h('div.mb-lv-preview');
-  const btWrap = h('div');
-  put(wrap, head, bookBox, btWrap);
+  const wrap = h('div.mb-tab-body.gk-level');
+  const lvIn = h('div.ui-panel-in');
+  const lvPanel = h('section.ui-panel.gk-lv', { 'data-testid': 'level-panel' }, lvIn);
+  const btWrap = h('div.gk-bt-host');
+  put(wrap, lvPanel, btWrap);
 
   const update = () => {
     // read the cap every time: a breakthrough below raises it without rebuilding this tab
@@ -568,83 +697,90 @@ function levelTab(unit, ctx) {
     const pv = previewLevelUp(profile, unit.id, sel);
     const coins = itemCount(profile, 'coins');
     const atCap = st.level >= cap;
-    clear(head);
     const need = expForLevel(st.level);
     const curFrac = atCap ? 1 : st.exp / need;
     const pvFrac = pv.toLevel > st.level ? 1 : pv.exp ? (st.exp + pv.exp) / need : null;
-    // past gate 5 her Potential decides which gates can open: "Cap 72 · P4 · max 85"
-    const capText = (st.breakthrough || 0) >= BASE_GATES ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
+    // "Cap 72 · max 85" (her P is on the plate, said once: P7); at the top only "Cap 85"
+    const capText = cap < MAX_LEVEL ? ` · max ${MAX_LEVEL}` : '';
     const capReached = info.full ? 'Max level reached'
       : info.by === 'potential' ? `Level cap reached — gate ${info.nextGate} opens at P${info.nextP}` : 'Level cap reached — break through to continue';
-    put(head,
-      h('div.mb-lv-head',
-        h('div.mb-lv-big', h('span', 'Lv.'), h('b', String(st.level)), pv.toLevel > st.level ? h('span.mb-lv-arrow', `→ ${pv.toLevel}`) : null),
-        h('div.mb-lv-cap', { 'data-testid': 'level-cap' }, `Cap ${cap}`, h('span.muted', capText))),
-      expBar(curFrac, pvFrac),
-      h('div.mb-lv-exp.muted', atCap ? capReached : `${formatNumber(st.exp)} / ${formatNumber(need)} EXP to Lv.${st.level + 1}`),
-      // a level above 60 is priced in Akashic Tomes: "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"
-      !atCap && st.level >= BREAKTHROUGH_LEVEL_CAP ? h('div.mb-lv-tome', { 'data-testid': 'level-tome-price' },
-        `Lv ${st.level} → ${st.level + 1} · ${formatNumber(LEVEL_PAST_GATES.exp)} EXP (1 ${ITEMS[LEVEL_PAST_GATES.book].name}) · ${formatNumber(LEVEL_PAST_GATES.coins)} coins`) : null,
-    );
+    const hasBooks = ITEM_RARITY_ORDER.some((r) => itemCount(profile, bookId(r)) > 0);
+    const picked = Object.keys(sel).length > 0;
+    const short = pv.coinCost > coins;
+    const clearSel = () => { for (const k of Object.keys(sel)) delete sel[k]; };
 
-    clear(bookBox);
-    if (atCap) {
-      put(bookBox, h('p.muted', info.full ? `${unit.name} has reached the maximum level.`
-        : info.by === 'gate' ? 'Books are paused at the level cap. Break through below to raise it.'
-          : `Books are paused at her level cap. Raise her to P${info.nextP} (Info tab) to open gate ${info.nextGate}; each level above ${BREAKTHROUGH_LEVEL_CAP} is one ${ITEMS[LEVEL_PAST_GATES.book].name}.`));
-    } else {
-      const rows = ITEM_RARITY_ORDER.map((r) => {
-        const id = bookId(r);
-        const have = itemCount(profile, id);
-        const n = sel[id] || 0;
-        const set = (v) => { sel[id] = Math.max(0, Math.min(have, v)); if (!sel[id]) delete sel[id]; update(); };
-        return h(`div.mb-book${n ? '.on' : ''}${have ? '' : '.none'}`,
-          rarityTile(id, have, { size: 52, onClick: () => (have ? set(n + 1) : null) }),
-          h('div.mb-book-text', h('div.mb-book-name', ITEMS[id].name), h('div.muted', `${formatNumber(ITEMS[id].xp)} EXP`)),
-          h('div.mb-stepper',
-            h('button.mb-step', { disabled: !n, onclick: () => set(n - 1), 'aria-label': 'Less' }, '−'),
-            h('span.mb-step-val', String(n)),
-            h('button.mb-step', { disabled: n >= have, onclick: () => set(n + 1), 'aria-label': 'More' }, '+')));
-      });
-      clear(preview);
-      const short = pv.coinCost > coins;
-      put(preview,
-        h('div.mb-pv-line', h('span', 'EXP'), h('b', `+${formatNumber(pv.exp)}`)),
-        h('div.mb-pv-line', h('span', 'Level'), h('b', pv.exp ? `${pv.fromLevel} → ${pv.toLevel}` : '—')),
-        h(`div.mb-pv-line${short ? '.bad' : ''}`, h('span', 'Cost'), h('b', svgEl(uiIcon('coin'), 'mb-inline-icon'), formatNumber(pv.coinCost))),
-        pv.wasted > 0 ? h('div.mb-pv-warn', `${formatNumber(pv.wasted)} EXP over the cap will be wasted (not charged).`) : null,
-      );
-      const hasBooks = ITEM_RARITY_ORDER.some((r) => itemCount(profile, bookId(r)) > 0);
-      put(bookBox,
-        hasBooks ? h('div.mb-books', rows) : h('div.mb-inline-empty', h('p.muted', 'No books in your backpack.'), button('Find books', { kind: 'yellow', small: true, icon: 'teleport', onClick: () => showItemInfo(bookId('rare')) })),
-        preview,
-        h('div.mb-actions',
-          button('Clear', { kind: 'ghost', small: true, disabled: !Object.keys(sel).length, onClick: () => { for (const k of Object.keys(sel)) delete sel[k]; update(); } }),
-          button('Auto Select', { kind: 'ghost', icon: 'sparkle', testid: 'auto-select', disabled: !hasBooks, onClick: () => { const auto = autoSelectBooks(profile, unit.id); for (const k of Object.keys(sel)) delete sel[k]; Object.assign(sel, auto); update(); } }),
-          button('Level Up', {
-            kind: 'yellow', icon: 'upgrade', testid: 'level-up', disabled: !pv.exp || short,
-            onClick: () => {
-              const res = levelUp(profile, unit.id, { ...sel });
-              if (!res.ok) { toast(res.error === 'missing' ? 'Not enough coins or books.' : 'Cannot level up right now.', 'bad'); return; }
-              for (const k of Object.keys(sel)) delete sel[k];
-              store.commit('level-up');
-              toast(res.toLevel > res.fromLevel ? `${unit.name} reached Lv.${res.toLevel}!` : `${unit.name} gained EXP.`, 'good');
-              ctx.refreshShowcase();
-              update();
-              head.classList.add('mb-pulse');
-              setTimeout(() => head.classList.remove('mb-pulse'), 500);
-            },
-          })),
-      );
+    const head = h('div.mb-lv-head.gk-lv-head',
+      h('div.mb-lv-big', lbl('LV'), h('b.num', String(st.level)), pv.toLevel > st.level ? h('span.mb-lv-arrow.num', { title: `Level ${pv.toLevel} after these books` }, `▸ ${pv.toLevel}`) : null),
+      h('div.mb-lv-cap', { 'data-testid': 'level-cap' }, `Cap ${cap}${capText}`));
+    const bar = h('div.gk-bar.gk-exp', { role: 'img', 'aria-label': atCap ? capReached : `EXP ${formatNumber(st.exp)} of ${formatNumber(need)}` },
+      pvFrac != null ? h('i.pv', { style: { width: `${Math.min(100, pvFrac * 100)}%` } }) : null,
+      h('i', { style: { width: `${Math.min(100, curFrac * 100)}%` } }));
+    const expLine = h('div.mb-lv-exp.gk-sub-line', atCap ? capReached : `${formatNumber(st.exp)} / ${formatNumber(need)} EXP to LV ${st.level + 1}`);
+    // a level above 60 is priced in Akashic Tomes: "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"
+    const tome = !atCap && st.level >= BREAKTHROUGH_LEVEL_CAP ? h('div.mb-lv-tome.gk-sub-line', { 'data-testid': 'level-tome-price' },
+      `Lv ${st.level} → ${st.level + 1} · ${formatNumber(LEVEL_PAST_GATES.exp)} EXP (1 ${ITEMS[LEVEL_PAST_GATES.book].name}) · ${formatNumber(LEVEL_PAST_GATES.coins)} coins`) : null;
+
+    let acts = null;
+    let books = null;
+    let pvLine = null;
+    if (!atCap && !hasBooks) {
+      acts = h('div.gk-acts-main', h('span.gp-line', 'No books in your backpack.'),
+        button('Find books', { kind: 'ghost', small: true, icon: 'teleport', onClick: () => showItemInfo(bookId('rare')) }));
+    } else if (!atCap) {
+      acts = h('div.gk-acts-main',
+        h(`button.ui-chip.gk-toggle${view.manual ? '.on' : ''}`, {
+          type: 'button', 'data-testid': 'level-manual', 'aria-expanded': view.manual ? 'true' : 'false',
+          onclick: () => { view.manual = !view.manual; update(); },
+        }, ico(view.manual ? 'minus' : 'plus'), h('span', 'Manual')),
+        button('Auto select', { kind: 'ghost', small: true, icon: 'sparkle', testid: 'auto-select', onClick: () => { const auto = autoSelectBooks(profile, unit.id); clearSel(); Object.assign(sel, auto); update(); } }),
+        picked ? button('Clear', { kind: 'ghost', small: true, testid: 'level-clear', onClick: () => { clearSel(); update(); } }) : null,
+        button(pv.exp ? `Level up · ${fmtNum(pv.coinCost, 'money', { round: 'up' })}` : 'Level up', {
+          kind: 'yellow', icon: 'upgrade', testid: 'level-up', disabled: !pv.exp || short, title: short ? 'Not enough coins' : !pv.exp ? 'Pick books first: Auto select or Manual' : null,
+          onClick: () => {
+            const res = levelUp(profile, unit.id, { ...sel });
+            if (!res.ok) { toast(res.error === 'missing' ? 'Not enough coins or books.' : 'Cannot level up right now.', 'bad'); return; }
+            clearSel();
+            store.commit('level-up');
+            toast(res.toLevel > res.fromLevel ? `${unit.name} reached Lv.${res.toLevel}!` : `${unit.name} gained EXP.`, 'good');
+            ctx.refreshShowcase();
+            update();
+            lvPanel.classList.add('mb-pulse');
+            setTimeout(() => lvPanel.classList.remove('mb-pulse'), 500);
+          },
+        }));
+      if (picked) {
+        pvLine = h(`p.gk-pv${short ? '.bad' : ''}`, { 'data-testid': 'level-preview' },
+          h('b.num', `+${formatNumber(pv.exp)} EXP`), pv.toLevel > pv.fromLevel ? ` · LV ${pv.fromLevel} → ${pv.toLevel}` : '',
+          short ? ' · not enough coins' : '',
+          pv.wasted > 0 ? h('span.gk-warn', ` · ${formatNumber(pv.wasted)} EXP over the cap is not used (and not charged)`) : null);
+      }
+      if (view.manual) {
+        books = h('div.mb-books.gk-books', { 'data-testid': 'level-books' }, ITEM_RARITY_ORDER.map((r) => {
+          const id = bookId(r);
+          const have = itemCount(profile, id);
+          const n = sel[id] || 0;
+          const set = (v) => { sel[id] = Math.max(0, Math.min(have, v)); if (!sel[id]) delete sel[id]; update(); };
+          return h(`div.mb-book${n ? '.on' : ''}${have ? '' : '.none'}`,
+            rarityTile(id, have, { size: 44, onClick: () => (have ? set(n + 1) : showItemInfo(id)) }),
+            h('div.mb-book-text', h('div.mb-book-name', ITEMS[id].name), h('div.gp-sub', `${formatNumber(ITEMS[id].xp)} EXP`)),
+            h('div.mb-stepper',
+              h('button.mb-step', { type: 'button', disabled: !n, onclick: () => set(n - 1), 'aria-label': `One less ${ITEMS[id].name}` }, '−'),
+              h('span.mb-step-val.num', String(n)),
+              h('button.mb-step', { type: 'button', disabled: n >= have, onclick: () => set(n + 1), 'aria-label': `One more ${ITEMS[id].name}` }, '+')));
+        }));
+      }
     }
-
-    clear(btWrap);
-    btWrap.appendChild(breakthroughPanel(unit, ctx, update));
+    fillIn(lvIn, head, bar, expLine, tome, acts, pvLine, books);
+    btWrap.replaceChildren(breakthroughPanel(unit, ctx, update));
   };
   update();
   return wrap;
 }
 
+/**
+ * The next gate, condensed: "Gate 9 · Level cap 72 → 78", the ten gate pips (caps in their names), a requirement chip
+ * per material, the Potential it waits on with Raise, where to get the materials, and Break through · price.
+ */
 function breakthroughPanel(unit, ctx, rerender) {
   const profile = store.profile;
   const st = profile.units[unit.id];
@@ -654,26 +790,30 @@ function breakthroughPanel(unit, ctx, rerender) {
   const cost = check.cost || breakthroughCost(unit.id, gate);
   const atCap = st.level >= levelCap(st);
   const ascension = gate > BASE_GATES;
-  // gates 6–10 (ASCENSION.md §D.2): "Gate 9 · Level cap 72 → 78", locked until her Potential allows it
+  // gates 6–10 (ASCENSION.md §D.2) wait on her Potential
   const potLock = check.reason === 'potential';
   const missingIds = new Set((check.missing || []).map((m) => m.id));
   const titan = TITANS.find((t) => t.families[0] === unit.materialFamily) || TITANS.find((t) => t.families.includes(unit.materialFamily));
-  const where = ascension && missingIds.size && !potLock ? h('div.mb-actions.mb-where', { 'data-testid': 'gate-where' },
-    h('span.muted', 'Where to get:'),
-    titan ? button(titan.name, { kind: 'ghost', small: true, icon: 'assault', testid: 'gate-where-titan', onClick: () => { setTargetFamily(profile, titan.id, unit.materialFamily); store.commit('titan-target'); navigate('titans', { id: titan.id }); } }) : null,
-    button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
-    button('Craft Room', { kind: 'ghost', small: true, icon: 'upgrade', onClick: () => navigate('backpack', { tab: 'enhancement' }) })) : null;
-  return h(`section.mb-card.mb-bt${atCap && !potLock ? '.ready' : ''}`, { 'data-testid': 'gate-card' },
-    h('h3.mb-card-title', ascension ? `Gate ${gate} · Level cap ${levelCap(st)} → ${GATE_CAPS[gate]}` : 'Breakthrough'),
+  const coins = coinsOf(cost);
+  const where = ascension && missingIds.size && !potLock ? h('div.gk-where', { 'data-testid': 'gate-where' },
+    lbl('Where to get'),
+    titan ? ghostBtn(titan.name, { icon: 'assault', testid: 'gate-where-titan', onClick: () => { setTargetFamily(profile, titan.id, unit.materialFamily); store.commit('titan-target'); navigate('titans', { id: titan.id }); } }) : null,
+    ghostBtn('Titan shelf', { icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
+    ghostBtn('Craft Room', { icon: 'upgrade', onClick: () => navigate('backpack', { tab: 'enhancement' }) })) : null;
+  const ready = atCap && !potLock;
+  return h(`section.ui-panel.gk-gate.mb-bt${ready ? '.ready' : ''}`, { 'data-testid': 'gate-card' }, h('div.ui-panel-in',
+    h('div.ui-panel-head', h('span.ui-kicker', ascension ? 'Ascension' : 'Breakthrough'), h('span.gp-sub', MATERIAL_FAMILIES[unit.materialFamily]?.name || '')),
+    h('h3.mb-card-title.gk-gate-title', `Gate ${gate} · Level cap ${levelCap(st)} → ${GATE_CAPS[gate]}`),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    ascension ? null : h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(GATE_CAPS[gate])), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
-    potLock ? h('div.mb-note', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} (Info tab: 1 Essence + coins per step).`)
-      : atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
-    requirementList(cost),
+    potLock ? h('div.gk-note', h('span', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} · 1 Essence + coins per step`),
+      ghostBtn('Raise ▸', { testid: 'gate-raise', onClick: () => openPotential(unit, { profile, onChange: () => { ctx.refreshShowcase(); rerender(); } }) }))
+      : atCap ? null : h('p.gk-note', `Reach LV ${levelCap(st)} first — you can gather materials now.`),
+    reqChips(cost, { onWhere: showItemInfo }),
     where,
-    h('div.mb-actions',
-      button('Break Through', {
-        kind: 'yellow', icon: 'upgrade', testid: 'breakthrough', disabled: !check.ok,
+    h('div.gk-acts-main',
+      button(`Break through${coins ? ` · ${fmtNum(coins, 'money', { round: 'up' })}` : ''}`, {
+        kind: ready ? 'yellow' : 'ghost', icon: 'upgrade', testid: 'breakthrough', disabled: !check.ok,
+        title: check.ok ? null : potLock ? `Opens at P${check.needP}` : !atCap ? `Reach LV ${levelCap(st)} first` : 'Missing materials or coins',
         onClick: () => {
           const res = breakthrough(profile, unit.id);
           if (!res.ok) { toast('Missing materials.', 'bad'); return; }
@@ -682,23 +822,35 @@ function breakthroughPanel(unit, ctx, rerender) {
           ctx.refreshShowcase();
           rerender();
         },
-      })));
+      }))));
 }
 
 /** Gate 10 broken: "Level cap 85 · Full Potential". */
 function potentialCapCard(st) {
   const info = levelCapInfo(st);
-  return h('section.mb-card.mb-bt.mb-potcap', { 'data-testid': 'potential-cap-card' },
-    h('h3.mb-card-title', 'Level cap'),
+  return h('section.ui-panel.gk-gate.mb-bt.mb-potcap', { 'data-testid': 'potential-cap-card' }, h('div.ui-panel-in',
+    h('div.ui-panel-head', h('span.ui-kicker', 'Level cap')),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    h('p.mb-potcap-line', { 'data-testid': 'potential-cap-line' }, ['Level cap ', h('b', String(info.cap)), ' · Full Potential']),
-    h('p.muted', `All ${MAX_BREAKTHROUGH} gates broken. Every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${ITEMS[LEVEL_PAST_GATES.book].name} (${formatNumber(LEVEL_PAST_GATES.exp)} EXP) and ${formatNumber(LEVEL_PAST_GATES.coins)} coins.`));
+    h('p.mb-potcap-line.gp-line', { 'data-testid': 'potential-cap-line' }, ['Level cap ', h('b', String(info.cap)), ' · Full Potential']),
+    h('p.gp-sub', `All ${MAX_BREAKTHROUGH} gates broken. Every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${ITEMS[LEVEL_PAST_GATES.book].name} and coins.`)));
 }
 
+/** Ten gate pips, no digits: lit when broken, the next one ringed; each one's cap is in its name. */
 function gatePips(passed) {
-  return GATE_CAPS.slice(1).map((cap, i) => h(`span.mb-gate${i + 1 <= passed ? '.on' : ''}${i + 1 > BASE_GATES ? '.asc' : ''}`, { title: `Gate ${i + 1}` }, String(cap)));
+  return GATE_CAPS.slice(1).map((cap, i) => h(`span.mb-gate${i + 1 <= passed ? '.on' : ''}${i + 1 === passed + 1 ? '.next' : ''}${i + 1 > BASE_GATES ? '.asc' : ''}`, {
+    title: `Gate ${i + 1}: level cap ${cap}`, 'aria-label': `Gate ${i + 1}: level cap ${cap}${i + 1 <= passed ? ', broken' : ''}`, 'data-cap': String(cap),
+  }));
 }
 
+// ----- Awakening -------------------------------------------------------------
+
+/** What one awaken star gives (the 3rd unlocks her passive). */
+const starBonus = (unit, s) => (s === 3 ? `Unlocks ${unit.awakenPassive.name}` : '+5% DMG');
+
+/**
+ * Awakening (UI_DIRECTION.md §6.2, M1b): the star row, the next star's single bonus, her passive in one line, the cost
+ * (a chip per crown and the fragments) and Awaken · price. The per-star track and the full passive go behind MORE.
+ */
 function awakenTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
@@ -706,48 +858,70 @@ function awakenTab(unit, ctx) {
   if (!featureOpen(profile, 'awaken')) return storyLockedTab('awaken');
   const star = st.awaken;
   const check = canAwaken(profile, unit.id);
+  const passiveOn = star >= 3;
+  const ur = isUR(unit, profile);
+  const next = star < MAX_AWAKEN ? star + 1 : null;
+  const cost = next ? check.cost || awakenCost(unit.id, next) : [];
+  const coins = coinsOf(cost);
+  const top = h('section.ui-panel.gk-aw', { 'data-testid': 'awaken-panel' }, h('div.ui-panel-in',
+    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? urBadge() : null,
+      h('span.gk-aw-more', moreSticker(() => openAwakenDetails(unit), { testid: 'awaken-more', label: 'Every star and her passive' }))),
+    next
+      ? h('div.gk-aw-next', { 'data-testid': 'awaken-next' }, lbl('Next'), h('b.num', `★${next}`), h('span.gk-aw-bonus', starBonus(unit, next)))
+      : null,
+    h(`div.gk-passive${passiveOn ? '.on' : ''}`, { 'data-testid': 'awaken-passive' },
+      ico(passiveOn ? 'sparkle' : 'lock', 'ui-ico.gk-passive-ic'),
+      h('div', h('b', unit.awakenPassive.name), h('span.gp-sub', ` ${unit.awakenPassive.desc}`)),
+      sticker(passiveOn ? 'Active' : 'At ★3', passiveOn ? 'y' : ''))));
+  if (!next) {
+    return h('div.mb-tab-body.gk-awaken', top,
+      ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing())))
+        : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`))));
+  }
+  return h('div.mb-tab-body.gk-awaken', top,
+    h('section.ui-panel.gk-aw-cost', h('div.ui-panel-in',
+      h('div.ui-panel-head', h('span.ui-kicker', `Awaken to ★${next}`)),
+      reqChips(cost, { onWhere: showItemInfo }),
+      h('div.gk-acts-main',
+        button(`Awaken${coins ? ` · ${fmtNum(coins, 'money', { round: 'up' })}` : ''}`, {
+          kind: 'yellow', icon: 'star', testid: 'awaken', disabled: !check.ok, title: check.ok ? null : 'Missing crowns, fragments or coins',
+          onClick: () => {
+            const wasUR = isUR(unit, profile);
+            const res = awaken(profile, unit.id);
+            if (!res.ok) { toast('Missing crowns, fragments or coins.', 'bad'); return; }
+            store.commit('awaken');
+            ctx.refreshShowcase();
+            ctx.rerenderTab();
+            // the 5th star of an SSR: she ascends to UR (display only) — a one-time moment
+            if (!wasUR && isUR(unit, profile)) showAscension(unit);
+            else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
+          },
+        })))));
+}
+
+/** Awakening's Details: every star (crowns and bonus), the total, her passive in full, where crowns come from. */
+function openAwakenDetails(unit) {
+  const st = store.profile.units[unit.id];
+  const star = st?.awaken || 0;
+  const passiveOn = star >= 3;
   const track = h('div.mb-aw-track', [1, 2, 3, 4, 5].map((s) => {
-    const cost = awakenCost(unit.id, s);
-    const crowns = cost.filter((c) => ITEMS[c.id]?.category === 'crown');
+    const crowns = awakenCost(unit.id, s).filter((c) => ITEMS[c.id]?.category === 'crown');
     return h(`div.mb-aw-node${s <= star ? '.on' : ''}${s === star + 1 ? '.next' : ''}`,
-      h('div.mb-aw-star', '★'),
-      h('div.mb-aw-label', `★${s}`),
+      h('div.mb-aw-label.num', `★${s}`),
       h('div.mb-aw-crowns', crowns.map((c) => svgEl(itemIcon(c.id), 'mb-aw-crown'))),
       h('div.mb-aw-bonus', s === 3 ? 'Passive' : '+5% DMG'));
   }));
-  const passiveOn = star >= 3;
-  const ur = isUR(unit, profile);
-  return h('div.mb-tab-body',
-    section(null,
-      h('div.mb-aw-head', h('div.mb-aw-big', stars(star, MAX_AWAKEN), ur ? urBadge() : null), h('div.muted', `Awakening ${star} / ${MAX_AWAKEN} · +${star * 5}% damage`)),
-      track),
-    section('Awakening passive',
-      h(`div.mb-passive${passiveOn ? '.on' : ''}`,
-        h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
-        h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active in every battle' : `Unlocks at ★3 (${Math.max(0, 3 - star)} more)`)))),
-    star >= MAX_AWAKEN
-      ? (ur
-        ? section('Fully awakened', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing()))
-        : section('Fully awakened', h('p', `${unit.name} shines with all five stars.`)))
-      : section(`Next: ★${star + 1}`,
-        h('p.muted', 'Crowns drop from minibosses and Total Assault bosses. Star Fragments come from duplicate recruits and the exchanges.'),
-        requirementList(check.cost || awakenCost(unit.id, star + 1)),
-        h('div.mb-actions',
-          button('Awaken', {
-            kind: 'yellow', icon: 'star', testid: 'awaken', disabled: !check.ok,
-            onClick: () => {
-              const wasUR = isUR(unit, profile);
-              const res = awaken(profile, unit.id);
-              if (!res.ok) { toast('Missing crowns, fragments or coins.', 'bad'); return; }
-              store.commit('awaken');
-              ctx.refreshShowcase();
-              ctx.rerenderTab();
-              // the 5th star of an SSR: she ascends to UR (display only) — a one-time moment
-              if (!wasUR && isUR(unit, profile)) showAscension(unit);
-              else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
-            },
-          }))),
-  );
+  return openSheet({
+    title: `${unit.name} · Awakening`, testid: 'awaken-sheet', cls: 'gp-details', full: true,
+    body: h('div.gp-sheet-body',
+      h('p.gp-line', `Awakening ${star} / ${MAX_AWAKEN} · +${star * 5}% damage`),
+      track,
+      section('Awakening passive',
+        h(`div.mb-passive${passiveOn ? '.on' : ''}`,
+          h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
+          h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.gp-sub', passiveOn ? 'Active in every battle' : `Unlocks at ★3 (${Math.max(0, 3 - star)} more)`)))),
+      h('p.gp-sub', 'Crowns drop from minibosses and Total Assault bosses. Star Fragments come from duplicate recruits and the exchanges.')),
+  });
 }
 
 /**
@@ -772,77 +946,6 @@ function showAscension(unit) {
   });
 }
 
-// ----- Equipment -----------------------------------------------------------
-
-function gearTab(unit, ctx) {
-  const profile = store.profile;
-  const st = profile.units[unit.id];
-  if (!st) return lockedTab(unit, 'equipment');
-  if (!featureOpen(profile, 'gear')) return storyLockedTab('gear');
-  const slot = view.gearSlot;
-  const wrap = h('div.mb-tab-body');
-  const rerender = () => ctx.rerenderTab();
-
-  const slots = h('div.mb-slots', Object.entries(GEAR_SLOTS).map(([id, s]) => {
-    const g = st.gear[id] && profile.gear[st.gear[id]];
-    const ur = isUrGear(g);
-    const L = g ? gearLines(g) : null;
-    return h(`button.mb-slot${id === slot ? '.on' : ''}${g ? '.filled' : ''}${ur ? '.is-ur' : ''}`, { 'data-testid': `slot-${id}`, onclick: () => { view.gearSlot = id; rerender(); }, style: g ? cssVars({ '--rarity': ITEM_RARITIES[g.rarity]?.color || '#999' }) : null },
-      svgEl(gearIcon(id, g?.rarity || 'common', { ur }), `mb-slot-icon${g ? '' : '.empty'}`),
-      h('div.mb-slot-name', s.name, ur ? urBadge('gu-slot-ur') : null, awakenReady(g) ? h('span.gu-slot-dot', { title: 'Can awaken' }, '✦') : null),
-      h('div.mb-slot-sub', g ? `${describeStat(L.main.stat, L.main.value)} · +${g.level}` : 'Empty'));
-  }));
-  put(wrap, section(null, slots, h('div.mb-sub-title', 'Total gear bonuses'), gearTotals(unit.id), fillMeter(unit.id), clubStrip(unit.id)));
-
-  const equipped = st.gear[slot] && profile.gear[st.gear[slot]];
-  if (equipped) {
-    const onChange = () => { ctx.refreshShowcase(); rerender(); };
-    put(wrap, section(`Equipped ${GEAR_SLOTS[slot].name}`,
-      gearCard(equipped, { forUnit: unit.id }),
-      gearActions(equipped, {
-        unitId: unit.id, onChange,
-        extra: [button('Unequip', { kind: 'ghost', small: true, onClick: () => { unequipGear(profile, unit.id, slot); store.commit('gear-unequip'); onChange(); } })],
-      })));
-  }
-
-  const allOthers = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
-  const others = applyGearFilter(allOthers, gearFilterFor('student', slot));
-  put(wrap, section(`Your ${GEAR_SLOTS[slot].name.toLowerCase()} gear (${allOthers.length})`,
-    allOthers.length ? gearFilterBar({ place: 'student', slot, shown: others.length, total: allOthers.length, onChange: rerender }) : null,
-    allOthers.length && !others.length ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.') : null,
-    others.length
-      ? h('div.mb-gear-grid', others.map((g) => gearCard(g, {
-        forUnit: unit.id,
-        actions: h('div.mb-gear-card-acts',
-          button(g.equippedBy ? `Take from ${UNIT_MAP[g.equippedBy]?.name}` : 'Equip', {
-            kind: 'primary', small: true,
-            onClick: async () => {
-              if (g.equippedBy && !(await confirmDialog(`${UNIT_MAP[g.equippedBy]?.name} is wearing ${g.name}. Move it to ${unit.name}?`, { title: 'Move gear', ok: 'Move' }))) return;
-              equipGear(profile, unit.id, g.uid);
-              store.commit('gear-equip');
-              toast(`${g.name} equipped.`, 'good');
-              ctx.refreshShowcase();
-              rerender();
-            },
-          }),
-          g.equippedBy ? null : button('Salvage', {
-            kind: 'ghost', small: true, disabled: g.locked,
-            onClick: async () => {
-              const rewards = salvageRewards(g, profile).map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ');
-              if (!(await confirmDialog(`Salvage ${g.name} for ${rewards}?`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
-              const res = salvageGear(profile, g.uid);
-              if (!res.ok) { toast('Cannot salvage this gear.', 'bad'); return; }
-              store.commit('gear-salvage');
-              toast('Salvaged.', 'good');
-              rerender();
-            },
-          })),
-      })))
-      : allOthers.length ? null : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
-        h('div.row', button('Backpack', { kind: 'ghost', icon: 'backpack', onClick: () => navigate('backpack', { tab: 'equipment' }) }), button('Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') })))));
-  return wrap;
-}
-
 /** One of her pieces is a gold +10 and a Seed is in the backpack. */
 function gearCanAwakenNow(unitId) {
   const p = store.profile;
@@ -853,43 +956,60 @@ function gearCanAwakenNow(unitId) {
 
 // ----- Tree ----------------------------------------------------------------
 
+/**
+ * The Tree tab (UI_DIRECTION.md §6.2): one rule line with "i", the shared 3 × 5 grid without prices, and the tier
+ * panel beside it (tap a cell: tier name, "Tier 3 · path", 3 effect chips, the base price, MORE for the full text).
+ * A hero has no paths: her tab is the hero track band (src/ui/heroTrack.js).
+ */
 export function treeTab(unit) {
-  // heroes have no upgrade paths: their tree is the 25-level battle track
-  if (unit.kind === 'hero') {
-    return h('div.mb-tab-body',
-      section('One track, 25 levels', h('p.muted', 'Every old upgrade tier and level milestone is one battle level now. She earns them during the battle, or you buy the next level with battle coins. At Lv 25 she has all three capstones at once.')),
-      heroSection(unit));
-  }
-  const cols = unit.paths.map((p, pi) => h(`div.mb-path.p${pi}`,
-    h('div.mb-path-head', h('div.mb-path-name', p.name), h('div.mb-path-focus', p.focus), pathSummaryChips(unit, pi, { size: 'sm' })),
-    p.tiers.map((t, ti) => {
-      const words = describeMods(t.mods);
-      return h(`div.mb-tier.t${ti + 1}`,
-        h('div.mb-tier-top', h('span.mb-tier-num', `T${ti + 1}`), h('span.mb-tier-name', t.name), h('span.mb-tier-cost', svgEl(uiIcon('coin'), 'mb-inline-icon'), formatNumber(t.cost))),
-        tagChips(tierTags(unit, pi, ti + 1), { size: 'sm' }),
-        h('div.mb-tier-desc', t.desc),
-        words.length ? h('ul.mb-tier-mods', words.map((w) => h('li', w))) : null,
-        tierNote(unit, pi, ti + 1) ? h('div.mb-tier-note', tierNote(unit, pi, ti + 1)) : null);
-    })));
-  const tree = h('div.mb-tree', cols);
-  // Phones show one path at a time (swipe); the switcher mirrors and drives the scroll position.
-  const switcher = h('div.mb-path-switch', unit.paths.map((p, pi) => h(`button.mb-path-pick.p${pi}${pi === 0 ? '.on' : ''}`, {
-    onclick: () => tree.scrollTo({ left: cols[pi].offsetLeft - tree.offsetLeft - (tree.clientWidth - cols[pi].offsetWidth) / 2, behavior: 'smooth' }),
-  }, h('span.mb-path-pick-num', String(pi + 1)), h('span', p.name))));
-  tree.addEventListener('scroll', () => {
-    const mid = tree.scrollLeft + tree.clientWidth / 2;
-    let best = 0;
-    cols.forEach((c, i) => { if (Math.abs(c.offsetLeft - tree.offsetLeft + c.offsetWidth / 2 - mid) < Math.abs(cols[best].offsetLeft - tree.offsetLeft + cols[best].offsetWidth / 2 - mid)) best = i; });
-    switcher.querySelectorAll('.mb-path-pick').forEach((b, i) => b.classList.toggle('on', i === best));
-  }, { passive: true });
-  return h('div.mb-tab-body',
-    section('How upgrades combine',
-      h('p.muted', 'Upgrades are bought with battle coins during a stage. Tier 3 usually changes her job; tier 5 is a capstone, and only one copy of her can hold each path\'s tier 5.'),
-      tagLegend({ size: 'sm' }),
-      crosspathDiagram({ labels: unit.paths.map((p) => p.name) })),
-    switcher,
-    tree,
-    unit.hero ? heroSection(unit) : null);
+  if (unit.kind === 'hero') return h('div.mb-tab-body.gp-tree.hero', heroTrackBand(unit, { onFull: () => openFullTrack(unit) }));
+  const model = buildTreeModel({ def: unit, mode: 'static' });
+  const hint = h('p.gp-tier-hint', { 'data-testid': 'tier-hint' }, ico('info'), 'Tap a tier to see what it does.');
+  const side = h('aside.ui-panel.gp-tier', { 'aria-live': 'polite' }, h('div.ui-panel-in', hint));
+  const sideIn = side.firstChild;
+  const grid = treeGrid(model, {
+    onPick: (cell) => {
+      sideIn.replaceChildren(tierPanel(cell, model, {
+        describe: describeMods,
+        onMore: (v) => openTierMore(unit, cell, v),
+      }));
+    },
+  });
+  const rule = h('div.gp-rule', h('span', RULE_LINE), iconBtn('info', { label: 'How paths combine', testid: 'tree-rule-i', cls: 'small', onClick: () => openTreeRule(unit) }));
+  return h('div.mb-tab-body.gp-tree', h('section.ui-panel.gp-tree-card', h('div.ui-panel-in', rule, grid)), side);
+}
+
+/** The rule's "i": the whole path rule, valid and not-allowed examples, and what the four tags mean. */
+function openTreeRule(unit) {
+  const ex = (codes, ok) => h(`div.gp-ex.${ok ? 'ok' : 'no'}`, lbl(ok ? 'Valid' : 'Not allowed'), codes.map((c) => h('span.ui-chip', num(c))));
+  return openSheet({
+    title: 'How paths combine', testid: 'tree-rule-sheet', cls: 'gp-details',
+    body: h('div.gp-sheet-body',
+      RULE_FULL.map((t) => h('p', t)),
+      h('div.gp-exs', ex(RULE_EXAMPLES.valid, true), ex(RULE_EXAMPLES.invalid, false)),
+      h('div.ui-kicker.gp-kick', 'Who a tier helps'),
+      h('ul.gp-legend', TAG_ORDER.map((id) => h('li', kitChip({ icon: TAG_GLYPHS[id], text: UPGRADE_TAGS[id].label, cls: `t-${id}` }), h('span', UPGRADE_TAGS[id].long)))),
+      h('p.gp-sub', `Prices on her page are the Normal base; the difficulty changes them in battle. ${unit.name}'s paths: ${unit.paths.map((p) => p.name).join(', ')}.`)),
+  });
+}
+
+/** A tier's MORE: its own words, every effect, the note. */
+function openTierMore(unit, cell, v) {
+  return openSheet({
+    title: `${v.name} · ${v.kicker}`, testid: 'tier-sheet', cls: 'gp-details',
+    body: h('div.gp-sheet-body',
+      h('p', v.more.desc),
+      v.more.effects?.length ? h('ul.gp-effects', v.more.effects.map((e) => h('li', e))) : null,
+      v.more.note ? h('p.gp-sub', h('b', 'Note: '), v.more.note) : null),
+  });
+}
+
+/** The hero's full 25-level track (behind "Full track"). */
+function openFullTrack(unit) {
+  return openSheet({
+    title: `${unit.name} · Battle levels`, testid: 'hero-track-sheet', cls: 'gp-details', full: true,
+    body: h('div.gp-sheet-body', fullTrackList(unit, { sourceText: (from) => (from && from !== 'base' ? heroSourceText(unit, from) : '') }), heroUltSection(unit)),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -902,8 +1022,9 @@ export function render(root, params = {}) {
   // a try-on never outlives the page; ?skin=<id> deep-links one (3D view)
   view.skin = params.skin && SKIN_MAP[params.skin]?.unitId === unit.id ? params.skin : null;
   if (view.skin) view.mode = '3d';
-  const { el, body } = screen(unit.name);
-  el.classList.add('mb-screen', 'mb-student-screen');
+  // the top bar says where she lives; her name is on the plate (P7: one place)
+  const { el, body } = screen('Students');
+  el.classList.add('mb-screen', 'mb-student-screen', 'gp-screen');
   root.appendChild(el);
 
   const order = [...UNITS].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
@@ -913,47 +1034,48 @@ export function render(root, params = {}) {
     navigate('student', { id: next.id, tab }, { replace: true });
   };
 
-  // the showcase's P pill: the Info tab (never locked), scrolled to the Potential section
-  const focusPotential = () => requestAnimationFrame(() => tabHost.querySelector('#potential')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
+  // the plate's P sticker: the Info tab (never locked) with her Potential sheet open
   const goPotential = () => {
     history.replaceState(history.state, '', `#/student/${unit.id}?tab=info&focus=potential`);
     if (tab !== 'info') {
       tab = 'info';
-      renderTabs();
+      tabBar.setActive(tab);
       renderTab(true);
     }
-    focusPotential();
+    openPotential(unit, { profile: store.profile, onChange: refreshAll });
   };
-  const showcase = buildShowcase(unit, cycle, goPotential);
-  const tabBar = h('nav.mb-tabs.mb-detail-tabs');
-  const tabHost = h('div.mb-tab-host');
+  const band = buildBand(unit, cycle, goPotential);
+  const tabHost = h('div.mb-tab-host.gp-host');
   const ctx = {
     books: {},
-    refreshShowcase: () => showcase.refresh(),
+    refreshShowcase: () => band.refresh(),
     rerenderTab: () => renderTab(false),
   };
-
-  function renderTabs() {
-    clear(tabBar);
-    for (const t of TABS) {
-      const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
-        || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
-      tabBar.appendChild(h(`button.mb-tab${t.id === tab ? '.active' : ''}${locked ? '.locked' : ''}`, {
-        'data-testid': `tab-${t.id}`,
-        onclick: () => {
-          if (tab === t.id) return;
-          tab = t.id;
-          history.replaceState(history.state, '', `#/student/${unit.id}?tab=${tab}`);
-          renderTabs();
-          renderTab(true);
-        },
-      }, locked ? svgEl(uiIcon('lock'), 'mb-tab-lock') : null, t.label,
-      // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
-      t.id === 'gear' && !locked && gearCanAwakenNow(unit.id) ? h('span.ur-dot', { title: 'A piece can awaken', 'aria-label': 'A piece can awaken' }) : null));
-    }
-    const active = tabBar.querySelector('.mb-tab.active');
-    requestAnimationFrame(() => active?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' }));
+  function refreshAll() {
+    band.refresh();
+    renderTab(false);
   }
+
+  const tabDefs = () => TABS.map((t) => {
+    const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
+      || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
+    // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
+    const dot = t.id === 'gear' && !locked && gearCanAwakenNow(unit.id);
+    return { ...t, locked, dot, dotCls: dot ? 'ur-dot' : null, dotTitle: dot ? 'A piece can awaken' : null };
+  });
+  let tabBar = null;
+  const buildRail = () => {
+    const next = rail(tabDefs(), tab, (id) => {
+      if (tab === id) return;
+      tab = id;
+      history.replaceState(history.state, '', `#/student/${unit.id}?tab=${tab}`);
+      tabBar.setActive(tab);
+      renderTab(true);
+    }, { label: `${unit.name}'s page`, cls: 'gp-rail' });
+    if (tabBar) tabBar.replaceWith(next);
+    tabBar = next;
+  };
+  buildRail();
 
   function renderTab(animate) {
     const scroll = tabHost.scrollTop;
@@ -962,10 +1084,14 @@ export function render(root, params = {}) {
     switch (tab) {
       case 'level': content = levelTab(unit, ctx); break;
       case 'awaken': content = awakenTab(unit, ctx); break;
-      case 'gear': content = gearTab(unit, ctx); break;
+      case 'gear':
+        content = !store.profile.units[unit.id] ? lockedTab(unit, 'equipment')
+          : !featureOpen(store.profile, 'gear') ? storyLockedTab('gear') // [story] new-save gate
+            : gearTab(unit, { onChange: () => { band.refresh(); renderTab(false); } });
+        break;
       case 'tree': content = treeTab(unit); break;
       default:
-        content = infoTab(unit);
+        content = infoTab(unit, { onChange: refreshAll });
         // her Potential steps are on screen now: the one-time NEW badge on her card goes
         if (clearPotentialNew(store.profile, unit.id)) store.commit('potential-seen', { quiet: true });
     }
@@ -973,16 +1099,21 @@ export function render(root, params = {}) {
     if (animate) {
       content.classList.add('mb-fade');
       tabHost.scrollTop = 0;
-      body.scrollTop = Math.min(body.scrollTop, showcase.el.offsetHeight);
     } else tabHost.scrollTop = scroll;
   }
 
-  body.appendChild(h('div.mb-detail', showcase.el, h('div.mb-detail-right', tabBar, tabHost)));
-  renderTabs();
+  body.appendChild(h('div.gp', band.el, h('div.gp-right', tabBar, tabHost)));
+  // the rail is rebuilt in place when a dot or a lock changes (a Seed bought, a feature opened)
+  const railHost = tabBar.parentElement;
   renderTab(true);
-  if (params.focus === 'potential' && tab === 'info') focusPotential();
+  let railSig = JSON.stringify(tabDefs().map((t) => [t.locked, t.dot]));
+  if (params.focus === 'potential' && tab === 'info') requestAnimationFrame(() => openPotential(unit, { profile: store.profile, onChange: refreshAll }));
   const off = store.on('change', (e) => {
-    if (e?.reason === 'replace') { showcase.refresh(); renderTab(false); } else if (e?.reason === 'skin') showcase.refresh();
+    if (e?.reason === 'replace') { band.refresh(); renderTab(false); } else if (e?.reason === 'skin') band.refresh();
+    if (railHost.isConnected) {
+      const sig = JSON.stringify(tabDefs().map((t) => [t.locked, t.dot]));
+      if (sig !== railSig) { railSig = sig; buildRail(); tabBar.setActive(tab); }
+    }
   });
-  return () => { off(); showcase.dispose(); };
+  return () => { off(); band.dispose(); closeSheets(); };
 }
