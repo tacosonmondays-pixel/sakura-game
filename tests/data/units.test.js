@@ -83,7 +83,9 @@ const BASE_REQUIRED = [
 // roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
 const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
-  'strip', 'ring', 'drink', 'sentry', 'hub', 'vine', 'ball'];
+  'strip', 'ring', 'drink', 'sentry', 'hub', 'vine', 'ball',
+  // Kaede's blade arts (src/sim/towers.js bladeArts)
+  'blade'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -196,6 +198,7 @@ function modSetErrors(mods, where) {
     hub: (k, v, w) => hubErrors(v, w),
     vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
     ball: (k, v, w) => ballErrors(v, w),
+    blade: (k, v, w) => objErrors(v, BLADE_NUMS, w, numCheck),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -240,6 +243,8 @@ function ballErrors(v, w) {
 }
 
 // The nature caster (src/sim/mods.js normVine): numbers add.
+// Kaede's blade arts (src/sim/mods.js normBlade): numbers add, shareMul multiplies
+const BLADE_NUMS = ['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul'];
 const VINE_NUMS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
 
 // The campus hub (src/sim/mods.js normHub).

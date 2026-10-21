@@ -56,7 +56,7 @@ export const ROLE_SUBCLASS = {
   marksman: { label: 'Generalist', desc: 'Cheap, reliable shots; good vs crystal shells.' },
   sniper: { label: 'Precision', desc: 'Removes priority targets: casters, siphoners, elites, bosses.' },
   cleaver: { label: 'Crowd Melee', desc: 'Sweeps everything at a corner.' },
-  duelist: { label: 'Single-Target Melee', desc: 'Damage ramps up on the same target.' },
+  duelist: { label: 'Melee Duelist', desc: 'Damage ramps up on the same target; every 3rd strike cleaves the crowd around it.' },
   skirmisher: { label: 'Rapid Multi-Target', desc: 'Many quick hits; innate detection.' },
   controller: { label: 'Crowd Control', desc: 'Slows and freezes.' },
   bombardment: { label: 'Area Damage', desc: 'Burns dense swarms.' },
