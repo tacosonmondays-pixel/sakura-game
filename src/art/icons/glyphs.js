@@ -50,6 +50,7 @@ export const GLYPHS = {
   back: '<path d="M15 4.5L7.5 12l7.5 7.5"/>',
   home: '<path d="M3.5 11.5L12 4l8.5 7.5"/><path d="M6 10v10h4.5v-5.5h3V20H18V10"/>',
   settings: gear,
+  key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/>', // [ascension] Trial Keys
   lock: '<rect x="4.8" y="10.5" width="14.4" height="10" rx="2.4"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/>',
   star,
   heart,

@@ -25,8 +25,7 @@ The battle chibis made here are temporary Blender stand-ins; drawn portraits and
   `$SCR/merge/fmt/*.js` and `$SCR/merge/pretty/*.js`; pair portraits `$SCR/merge/portraits/*.webp`.
   Never use `$SCR/oldgame/assets/models/*` (no Codex GLBs in this job, and never the swimwear/beach ones),
   never `assets/roster.webp`, never `assets/summer/*`.
-- Commit format (every commit):
-  `git commit -m "<msg>" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -m "Claude-Session: https://claude.ai/code/session_01V3cmFg3aKCuDQGLA9Topgo"`
+- Commit format (every commit): end every commit with the session's two trailer lines.
 
 ### 0.2 Shared machine
 
@@ -41,8 +40,8 @@ server running (`e2e/shot.mjs` and `e2e/smoke.mjs` start and stop their own Vite
   high necklines, no swimsuits/bikinis/lingerie, no bare midriffs or thighs, never body-focused framing.
 - Heroes are adult guardians (`adult: true`, enforced by `tests/data/units.test.js` "only heroes are
   adults"). They may be elegant and glamorous, never framed around their bodies.
-- No recognisable third-party characters, names or symbols (no Naruto/Konoha leaf plates, no Rimuru,
-  no Blue Archive assets). Kage's headband is a plain cloth band (her portrait plate shows only a
+- No recognisable third-party characters, names or symbols (no borrowed emblems or insignia, no
+  borrowed mascots, no art taken from anyone else's work). Kage's headband is a plain cloth band (her portrait plate shows only a
   crescent moon — checked, OK).
 - Marina and Amane do not appear anywhere in this job (D4).
 

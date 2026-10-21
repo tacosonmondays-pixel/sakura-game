@@ -9,7 +9,6 @@ import '../styles/journal.css'; // [story] feature locks
 import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
-import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT,
@@ -21,13 +20,15 @@ import { unitSubclassLabel, ROLE_SUBCLASS } from '../../data/wiki.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
   awakenCost, canAwaken, awaken, unitBattleStats, unitPower, MAX_LEVEL, MAX_BREAKTHROUGH, MAX_AWAKEN,
-  levelCapInfo, POTENTIAL_LEVEL_CAPS, BREAKTHROUGH_LEVEL_CAP, LEVEL_PAST_GATES,
+  levelCapInfo, BREAKTHROUGH_LEVEL_CAP, LEVEL_PAST_GATES, GATE_CAPS, BASE_GATES,
 } from '../../systems/progression.js';
+import { TITANS } from '../../data/titans.js';
+import { setTargetFamily } from '../../systems/titans.js';
 import {
-  gearList, equipGear, unequipGear, enhanceCost, enhanceGear, rerollCost, rerollSubstats, mainRerollCost, rerollMainStat,
-  salvageGear, salvageRewards, setGearLocked, gearStatTotals, describeStat, MAX_GEAR_LEVEL,
+  gearList, equipGear, unequipGear, salvageGear, salvageRewards, describeStat, gearLines, isUrGear, awakenReady,
 } from '../../systems/gear.js';
-import { itemCount, hasItems } from '../../systems/inventory.js';
+import { gearActions, gearTotals, fillMeter, clubStrip } from '../gearUr.js';
+import { itemCount } from '../../systems/inventory.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
@@ -35,7 +36,7 @@ import { SKIN_MAP, resolveSkin } from '../../data/skins.js';
 import { legacyKit } from '../../data/legacy.js';
 import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
 import { artUrl } from '../../art/portraits.js';
-import { gearCard, requirementList, costChips, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { gearCard, requirementList, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { tagChips, tagLegend, pathSummaryChips } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
 import { tierTags, tierNote } from '../upgradeTags.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
@@ -502,7 +503,8 @@ export function infoTab(unit, { profile = store.profile, label = 'yours' } = {})
       h(`div.mb-passive${passiveOn ? '.on' : ''}`,
         h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
         h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active' : 'Unlocks at awaken ★3')))),
-    potentialSection(unit, st),
+    // her own page: the Raise Potential row (docs/specs/ASCENSION.md §D.2); a friend's card: view only
+    potentialSection(unit, st, { profile: label === 'yours' ? profile : null }),
   );
 }
 
@@ -569,10 +571,10 @@ function levelTab(unit, ctx) {
     const need = expForLevel(st.level);
     const curFrac = atCap ? 1 : st.exp / need;
     const pvFrac = pv.toLevel > st.level ? 1 : pv.exp ? (st.exp + pv.exp) / need : null;
-    // with every gate open her Potential sets the cap: "Cap 72 · P4 · max 85"
-    const capText = info.by === 'potential' ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
-    const capReached = info.by === 'gate' ? 'Level cap reached — break through to continue'
-      : info.full ? 'Max level reached' : `Level cap reached — P${info.nextP} raises it to ${info.next} (1 more duplicate)`;
+    // past gate 5 her Potential decides which gates can open: "Cap 72 · P4 · max 85"
+    const capText = (st.breakthrough || 0) >= BASE_GATES ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
+    const capReached = info.full ? 'Max level reached'
+      : info.by === 'potential' ? `Level cap reached — gate ${info.nextGate} opens at P${info.nextP}` : 'Level cap reached — break through to continue';
     put(head,
       h('div.mb-lv-head',
         h('div.mb-lv-big', h('span', 'Lv.'), h('b', String(st.level)), pv.toLevel > st.level ? h('span.mb-lv-arrow', `→ ${pv.toLevel}`) : null),
@@ -586,9 +588,9 @@ function levelTab(unit, ctx) {
 
     clear(bookBox);
     if (atCap) {
-      put(bookBox, h('p.muted', info.by === 'gate' ? 'Books are paused at the level cap. Break through below to raise it.'
-        : info.full ? `${unit.name} has reached the maximum level.`
-          : `Books are paused at her level cap. Her next duplicate (P${info.nextP}) raises it to ${info.next}; each level above ${BREAKTHROUGH_LEVEL_CAP} is one ${ITEMS[LEVEL_PAST_GATES.book].name}.`));
+      put(bookBox, h('p.muted', info.full ? `${unit.name} has reached the maximum level.`
+        : info.by === 'gate' ? 'Books are paused at the level cap. Break through below to raise it.'
+          : `Books are paused at her level cap. Raise her to P${info.nextP} (Info tab) to open gate ${info.nextGate}; each level above ${BREAKTHROUGH_LEVEL_CAP} is one ${ITEMS[LEVEL_PAST_GATES.book].name}.`));
     } else {
       const rows = ITEM_RARITY_ORDER.map((r) => {
         const id = bookId(r);
@@ -650,13 +652,24 @@ function breakthroughPanel(unit, ctx, rerender) {
   const gate = st.breakthrough + 1;
   const cost = check.cost || breakthroughCost(unit.id, gate);
   const atCap = st.level >= levelCap(st);
-  return h(`section.mb-card.mb-bt${atCap ? '.ready' : ''}`,
-    h('h3.mb-card-title', 'Breakthrough'),
+  const ascension = gate > BASE_GATES;
+  // gates 6–10 (ASCENSION.md §D.2): "Gate 9 · Level cap 72 → 78", locked until her Potential allows it
+  const potLock = check.reason === 'potential';
+  const missingIds = new Set((check.missing || []).map((m) => m.id));
+  const titan = TITANS.find((t) => t.families[0] === unit.materialFamily) || TITANS.find((t) => t.families.includes(unit.materialFamily));
+  const where = ascension && missingIds.size && !potLock ? h('div.mb-actions.mb-where', { 'data-testid': 'gate-where' },
+    h('span.muted', 'Where to get:'),
+    titan ? button(titan.name, { kind: 'ghost', small: true, icon: 'assault', testid: 'gate-where-titan', onClick: () => { setTargetFamily(profile, titan.id, unit.materialFamily); store.commit('titan-target'); navigate('titans', { id: titan.id }); } }) : null,
+    button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
+    button('Craft Room', { kind: 'ghost', small: true, icon: 'upgrade', onClick: () => navigate('backpack', { tab: 'enhancement' }) })) : null;
+  return h(`section.mb-card.mb-bt${atCap && !potLock ? '.ready' : ''}`, { 'data-testid': 'gate-card' },
+    h('h3.mb-card-title', ascension ? `Gate ${gate} · Level cap ${levelCap(st)} → ${GATE_CAPS[gate]}` : 'Breakthrough'),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    // gate 5 opens her Potential's cap (60 at P1, up to 85 at P6)
-    h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(levelCap({ ...st, breakthrough: gate }))), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
-    atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
+    ascension ? null : h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(GATE_CAPS[gate])), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
+    potLock ? h('div.mb-note', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} (Info tab: 1 Essence + coins per step).`)
+      : atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
     requirementList(cost),
+    where,
     h('div.mb-actions',
       button('Break Through', {
         kind: 'yellow', icon: 'upgrade', testid: 'breakthrough', disabled: !check.ok,
@@ -664,32 +677,25 @@ function breakthroughPanel(unit, ctx, rerender) {
           const res = breakthrough(profile, unit.id);
           if (!res.ok) { toast('Missing materials.', 'bad'); return; }
           store.commit('breakthrough');
-          toast(`Gate ${res.gate} passed! Level cap is now ${res.cap}.`, 'good');
+          toast(res.gate >= MAX_BREAKTHROUGH ? `Level cap ${res.cap} · Full Potential!` : `Gate ${res.gate} passed! Level cap is now ${res.cap}.`, 'good', res.gate >= MAX_BREAKTHROUGH ? 4200 : 2200);
           ctx.refreshShowcase();
           rerender();
         },
       })));
 }
 
-/**
- * At gate 5 the breakthrough card becomes the Potential cap card: "Level cap 72 · Next: 78 at P5
- * (1 more duplicate)", or "Level cap 85 · Full Potential", with the six caps P1…P6.
- */
+/** Gate 10 broken: "Level cap 85 · Full Potential". */
 function potentialCapCard(st) {
   const info = levelCapInfo(st);
-  const tome = ITEMS[LEVEL_PAST_GATES.book].name;
   return h('section.mb-card.mb-bt.mb-potcap', { 'data-testid': 'potential-cap-card' },
     h('h3.mb-card-title', 'Level cap'),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    h('p.mb-potcap-line', { 'data-testid': 'potential-cap-line' }, info.full
-      ? ['Level cap ', h('b', String(info.cap)), ' · Full Potential']
-      : ['Level cap ', h('b', String(info.cap)), ' · Next: ', h('b', String(info.next)), ` at P${info.nextP} (1 more duplicate)`]),
-    h('div.mb-bt-gates.mb-potcap-steps', POTENTIAL_LEVEL_CAPS.map((c, i) => h(`span.mb-gate${i < info.p ? '.on' : ''}`, { title: `P${i + 1}: level cap ${c}` }, `P${i + 1} · ${c}`))),
-    h('p.muted', `All five gates passed. Each Potential step raises her level cap, up to ${MAX_LEVEL} at P${POTENTIAL_LEVEL_CAPS.length}; every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${tome} (${formatNumber(LEVEL_PAST_GATES.exp)} EXP) and ${formatNumber(LEVEL_PAST_GATES.coins)} coins.`));
+    h('p.mb-potcap-line', { 'data-testid': 'potential-cap-line' }, ['Level cap ', h('b', String(info.cap)), ' · Full Potential']),
+    h('p.muted', `All ${MAX_BREAKTHROUGH} gates broken. Every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${ITEMS[LEVEL_PAST_GATES.book].name} (${formatNumber(LEVEL_PAST_GATES.exp)} EXP) and ${formatNumber(LEVEL_PAST_GATES.coins)} coins.`));
 }
 
 function gatePips(passed) {
-  return [1, 2, 3, 4, 5].map((g) => h(`span.mb-gate${g <= passed ? '.on' : ''}`, { title: `Gate ${g}` }, String(10 + 10 * g)));
+  return GATE_CAPS.slice(1).map((cap, i) => h(`span.mb-gate${i + 1 <= passed ? '.on' : ''}${i + 1 > BASE_GATES ? '.asc' : ''}`, { title: `Gate ${i + 1}` }, String(cap)));
 }
 
 function awakenTab(unit, ctx) {
@@ -767,65 +773,6 @@ function showAscension(unit) {
 
 // ----- Equipment -----------------------------------------------------------
 
-function gearTotalsLine(unitId) {
-  const t = gearStatTotals(store.profile, unitId);
-  const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => describeStat(k, v));
-  return parts.length ? h('div.mb-chip-row', parts.map((p) => h('span.chip', p))) : h('p.muted', 'No gear bonuses yet.');
-}
-
-function changedSubs(before, after) {
-  return after.subs.map((s, i) => (before.subs[i]?.stat !== s.stat || before.subs[i]?.value !== s.value ? i : -1)).filter((i) => i >= 0);
-}
-
-function rerollModal(gear, kind, onDone) {
-  const profile = store.profile;
-  let lockIndex = null;
-  let result = null;
-  const bodyEl = h('div.mb-reroll');
-  const rng = createRng(Date.now() ^ Math.floor(performance.now() * 1000));
-  const draw = () => {
-    clear(bodyEl);
-    const g = profile.gear[gear.uid];
-    const cost = kind === 'main' ? mainRerollCost(g) : rerollCost(g, { lockIndex });
-    const affordable = hasItems(profile, cost);
-    put(bodyEl,
-      h('p.muted.mb-reroll-desc', kind === 'main'
-        ? 'Changes the main stat to another option for this slot. Substats stay (a clashing substat is rerolled).'
-        : 'Rerolls every substat. Enhancement upgrades are kept and spread over the new substats. Lock one substat with a Lock Pin to keep it.'),
-      kind === 'subs' && g.subs.length >= 2
-        ? h('div.mb-lock-pick',
-          h('div.mb-sub-title', 'Lock a substat (optional · costs a Lock Pin)'),
-          h('div.mb-chips', [
-            h(`button.mb-chip${lockIndex == null ? '.on' : ''}`, { onclick: () => { lockIndex = null; draw(); } }, 'No lock'),
-            ...g.subs.map((s, i) => h(`button.mb-chip${lockIndex === i ? '.on' : ''}`, { 'data-testid': `lock-${i}`, onclick: () => { lockIndex = i; draw(); } }, svgEl(uiIcon('lock'), 'mb-chip-icon'), describeStat(s.stat, s.value))),
-          ]))
-        : null,
-      result
-        ? h('div.mb-compare.mb-fade',
-          h('div', h('div.mb-sub-title', 'Before'), gearCard(result.before, { compact: true })),
-          h('div.mb-compare-arrow', '→'),
-          h('div', h('div.mb-sub-title', 'After'), gearCard(result.after, { compact: true, highlightSubs: changedSubs(result.before, result.after) })))
-        : gearCard(g, { highlightSubs: lockIndex != null ? [lockIndex] : [] }),
-      h('div.mb-reroll-foot',
-        h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost per reroll'), costChips(cost)),
-        button(result ? 'Reroll again' : 'Reroll', {
-          kind: 'yellow', icon: 'dice', testid: 'do-reroll', disabled: !affordable,
-          onClick: () => {
-            const res = kind === 'main' ? rerollMainStat(profile, g.uid, rng) : rerollSubstats(profile, g.uid, rng, { lockIndex });
-            if (!res.ok) { toast(res.error === 'missing' ? 'Not enough dice or coins.' : 'Cannot reroll this gear.', 'bad'); return; }
-            store.commit('gear-reroll');
-            result = res;
-            draw();
-            bodyEl.closest('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
-            onDone();
-          },
-        })),
-    );
-  };
-  draw();
-  modal({ title: kind === 'main' ? 'Reroll main stat' : 'Reroll substats', body: bodyEl, wide: true, actions: [{ label: 'Done', kind: 'ghost' }] });
-}
-
 function gearTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
@@ -837,37 +784,24 @@ function gearTab(unit, ctx) {
 
   const slots = h('div.mb-slots', Object.entries(GEAR_SLOTS).map(([id, s]) => {
     const g = st.gear[id] && profile.gear[st.gear[id]];
-    return h(`button.mb-slot${id === slot ? '.on' : ''}${g ? '.filled' : ''}`, { 'data-testid': `slot-${id}`, onclick: () => { view.gearSlot = id; rerender(); }, style: g ? cssVars({ '--rarity': ITEM_RARITIES[g.rarity]?.color || '#999' }) : null },
-      svgEl(gearIcon(id, g?.rarity || 'common'), `mb-slot-icon${g ? '' : '.empty'}`),
-      h('div.mb-slot-name', s.name),
-      h('div.mb-slot-sub', g ? `${describeStat(g.main.stat, g.main.value)} · +${g.level}` : 'Empty'));
+    const ur = isUrGear(g);
+    const L = g ? gearLines(g) : null;
+    return h(`button.mb-slot${id === slot ? '.on' : ''}${g ? '.filled' : ''}${ur ? '.is-ur' : ''}`, { 'data-testid': `slot-${id}`, onclick: () => { view.gearSlot = id; rerender(); }, style: g ? cssVars({ '--rarity': ITEM_RARITIES[g.rarity]?.color || '#999' }) : null },
+      svgEl(gearIcon(id, g?.rarity || 'common', { ur }), `mb-slot-icon${g ? '' : '.empty'}`),
+      h('div.mb-slot-name', s.name, ur ? urBadge('gu-slot-ur') : null, awakenReady(g) ? h('span.gu-slot-dot', { title: 'Can awaken' }, '✦') : null),
+      h('div.mb-slot-sub', g ? `${describeStat(L.main.stat, L.main.value)} · +${g.level}` : 'Empty'));
   }));
-  put(wrap, section(null, slots, h('div.mb-sub-title', 'Total gear bonuses'), gearTotalsLine(unit.id)));
+  put(wrap, section(null, slots, h('div.mb-sub-title', 'Total gear bonuses'), gearTotals(unit.id), fillMeter(unit.id), clubStrip(unit.id)));
 
   const equipped = st.gear[slot] && profile.gear[st.gear[slot]];
   if (equipped) {
-    const cost = enhanceCost(equipped);
-    const coins = itemCount(profile, 'coins');
-    const nextSub = equipped.level < MAX_GEAR_LEVEL ? 3 - (equipped.level % 3) : null;
+    const onChange = () => { ctx.refreshShowcase(); rerender(); };
     put(wrap, section(`Equipped ${GEAR_SLOTS[slot].name}`,
-      gearCard(equipped),
-      h('div.mb-gear-actions',
-        button(cost == null ? 'Max +10' : `Enhance +1 · ${formatNumber(cost)}`, {
-          kind: 'yellow', icon: 'upgrade', small: true, testid: 'enhance', disabled: cost == null || coins < cost,
-          onClick: () => {
-            const res = enhanceGear(profile, equipped.uid);
-            if (!res.ok) { toast('Not enough coins.', 'bad'); return; }
-            store.commit('gear-enhance');
-            toast(res.grewSub != null ? `+${res.level}! A substat grew.` : `+${res.level}`, 'good');
-            ctx.refreshShowcase();
-            rerender();
-          },
-        }),
-        button('Reroll subs', { kind: 'primary', icon: 'dice', small: true, testid: 'reroll-subs', disabled: !equipped.subs.length, onClick: () => rerollModal(equipped, 'subs', () => { ctx.refreshShowcase(); rerender(); }) }),
-        button('Reroll main', { kind: 'pink', icon: 'dice', small: true, onClick: () => rerollModal(equipped, 'main', () => { ctx.refreshShowcase(); rerender(); }) }),
-        button(equipped.locked ? 'Unlock' : 'Lock', { kind: 'ghost', icon: 'lock', small: true, onClick: () => { setGearLocked(profile, equipped.uid, !equipped.locked); store.commit('gear-lock'); rerender(); } }),
-        button('Unequip', { kind: 'ghost', small: true, onClick: () => { unequipGear(profile, unit.id, slot); store.commit('gear-unequip'); ctx.refreshShowcase(); rerender(); } })),
-      nextSub ? h('p.muted', `Main stat grows every level. Next substat growth in ${nextSub} level${nextSub > 1 ? 's' : ''}.`) : null));
+      gearCard(equipped, { forUnit: unit.id }),
+      gearActions(equipped, {
+        unitId: unit.id, onChange,
+        extra: [button('Unequip', { kind: 'ghost', small: true, onClick: () => { unequipGear(profile, unit.id, slot); store.commit('gear-unequip'); onChange(); } })],
+      })));
   }
 
   const allOthers = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
@@ -877,6 +811,7 @@ function gearTab(unit, ctx) {
     allOthers.length && !others.length ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.') : null,
     others.length
       ? h('div.mb-gear-grid', others.map((g) => gearCard(g, {
+        forUnit: unit.id,
         actions: h('div.mb-gear-card-acts',
           button(g.equippedBy ? `Take from ${UNIT_MAP[g.equippedBy]?.name}` : 'Equip', {
             kind: 'primary', small: true,
@@ -892,7 +827,7 @@ function gearTab(unit, ctx) {
           g.equippedBy ? null : button('Salvage', {
             kind: 'ghost', small: true, disabled: g.locked,
             onClick: async () => {
-              const rewards = salvageRewards(g).map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ');
+              const rewards = salvageRewards(g, profile).map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ');
               if (!(await confirmDialog(`Salvage ${g.name} for ${rewards}?`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
               const res = salvageGear(profile, g.uid);
               if (!res.ok) { toast('Cannot salvage this gear.', 'bad'); return; }
@@ -905,6 +840,14 @@ function gearTab(unit, ctx) {
       : allOthers.length ? null : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
         h('div.row', button('Backpack', { kind: 'ghost', icon: 'backpack', onClick: () => navigate('backpack', { tab: 'equipment' }) }), button('Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') })))));
   return wrap;
+}
+
+/** One of her pieces is a gold +10 and a Seed is in the backpack. */
+function gearCanAwakenNow(unitId) {
+  const p = store.profile;
+  const st = p.units[unitId];
+  if (!st || !itemCount(p, 'seed_rainbow')) return false;
+  return Object.values(st.gear || {}).some((uid) => uid && awakenReady(p.gear[uid]));
 }
 
 // ----- Tree ----------------------------------------------------------------
@@ -1003,7 +946,9 @@ export function render(root, params = {}) {
           renderTabs();
           renderTab(true);
         },
-      }, locked ? svgEl(uiIcon('lock'), 'mb-tab-lock') : null, t.label));
+      }, locked ? svgEl(uiIcon('lock'), 'mb-tab-lock') : null, t.label,
+      // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
+      t.id === 'gear' && !locked && gearCanAwakenNow(unit.id) ? h('span.ur-dot', { title: 'A piece can awaken', 'aria-label': 'A piece can awaken' }) : null));
     }
     const active = tabBar.querySelector('.mb-tab.active');
     requestAnimationFrame(() => active?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' }));

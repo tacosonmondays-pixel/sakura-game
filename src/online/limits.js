@@ -59,6 +59,8 @@ export const RULES = Object.freeze({
   clan_invite: { gapMs: 2 * SEC, max: 20, windowMs: HOUR, label: 'clan invite' },
   // the clan recruiting post (the real cap: once per clan per game day, on the server)
   recruit: { gapMs: 0, max: 5, windowMs: DAY, label: 'recruiting post' },
+  // [ascension] the clan titan board (supabase/migrations/20261021000000_titan_board.sql submit_titan_best)
+  titan_best: { gapMs: 2 * SEC, max: 30, windowMs: HOUR, label: 'titan board score' },
 });
 
 /** Limits that are a rolling window, not the 7 PM Central game day ("try again in 3 h", never "resets at 7 PM"). */

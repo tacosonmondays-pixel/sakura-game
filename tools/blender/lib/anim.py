@@ -16,15 +16,16 @@ D = math.radians
 
 
 class Poser:
-    def __init__(self, arm_obj, loc_scale=1.0, head_pitch=0.0):
+    def __init__(self, arm_obj, loc_scale=1.0):
         self.arm = arm_obj
         self.loc_scale = loc_scale
-        # degrees added to the head's pitch in every key (negative = chin up, so the face reads at the
-        # 48 degree battle camera); 0 keeps the old clips exactly
-        self.head_pitch = head_pitch
         self.names = [b.name for b in arm_obj.data.bones]
         self.ad = arm_obj.animation_data or arm_obj.animation_data_create()
         self.action = None
+        self.chin = 0.0  # per-girl chin-up (deg) added to neck + head in every key (look.chinUp, default 0)
+        self.chin_split = (0.45, 0.55)  # neck / head share of the chin-up (look.chinSplit)
+        self.pin = {}  # bones held in a fixed pose in every clip (look.pin, default none)
+        self.pin_follow = 0.25  # share of each clip's own rotation kept on a pinned bone (look.pinFollow)
 
     def begin(self, name, loop=True):
         self.action = bpy.data.actions.new(name)
@@ -38,15 +39,27 @@ class Poser:
         """pose: {bone: (rx, ry, rz) degrees about world X (pitch: + = nod forward),
         Y (roll), Z (yaw)} applied in Z, X, Y order. loc: {bone: (x, y, z)} offsets in
         armature space (root/hips/halo). scale: {bone: s}."""
+        if self.chin:
+            # tilt the face towards the 48 deg battle camera (Hikari's clips carry the same small chin-up):
+            # the chin-up is shared between neck and head (look.chinSplit, default 45 / 55 %)
+            pose = dict(pose)
+            for b, share in zip(('neck', 'head'), self.chin_split):
+                rx, ry, rz = pose.get(b, (0, 0, 0))
+                pose[b] = (rx - self.chin * share, ry, rz)
+        if self.pin:
+            # a held prop arm (Yoriko's raised control bar): the pinned pose plus a small share of the clip's own
+            # rotation, so the arm still breathes and puppeteers but the prop never swings into the body
+            pose = dict(pose)
+            k = self.pin_follow
+            for b, (px, py, pz) in self.pin.items():
+                rx, ry, rz = pose.get(b, (0, 0, 0))
+                pose[b] = (px + rx * k, py + ry * k, pz + rz * k)
         used = set(pose.keys()) | set((loc or {}).keys()) | set((scale or {}).keys())
         for name in self.names:
             pb = self.arm.pose.bones.get(name)
             if pb is None:
                 continue
             r = pose.get(name)
-            if self.head_pitch and name == 'head':
-                a = r if r is not None else (0, 0, 0)
-                r = (a[0] + self.head_pitch, a[1], a[2])
             if r is not None or name in self.touched:
                 rx, ry, rz = r if r is not None else (0, 0, 0)
                 q = Euler((D(rx), D(ry), D(rz)), 'ZXY').to_quaternion()
@@ -116,10 +129,21 @@ def merge(*poses):
 
 
 def build_all(arm_obj, ctx, loc_scale=1.0):
-    poser = Poser(arm_obj, loc_scale=loc_scale, head_pitch=ctx.get('head_pitch', 0.0))
+    poser = Poser(arm_obj, loc_scale=loc_scale)
+    # opt-in chin-up (degrees) for every clip, so the face reads under the 48 degree battle camera (the approved
+    # Hikari carries neck -7 / spine -3); 0 or absent keeps the clips unchanged
+    poser.chin = float(ctx['look'].get('chinUp', 0) or 0)
+    if ctx['look'].get('chinSplit'):
+        poser.chin_split = tuple(float(x) for x in ctx['look']['chinSplit'])
+    poser.pin = dict(ctx['look'].get('pin') or {})
+    poser.pin_follow = float(ctx['look'].get('pinFollow', 0.25))
     kind = ctx['weapon_kind']
     expr = ctx['look'].get('expression', 'smile')
     hold = rest_hold(poser, kind)
+    # opt-in resting prop pose (look.holdPose = {bone: (rx, ry, rz)} degrees), merged into the weapon hold that idle
+    # uses, e.g. a fan of cards held up instead of hanging at the hip. Absent: the clips are unchanged.
+    if ctx['look'].get('holdPose'):
+        hold = merge(hold, {b: tuple(r) for b, r in ctx['look']['holdPose'].items()})
     has_tails = {b.name for b in arm_obj.data.bones}
     tails = [b for b in ('tail_L', 'tail_R', 'hair_back') if b in has_tails]
     idle(poser, hold, expr, tails)

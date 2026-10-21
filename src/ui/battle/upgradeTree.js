@@ -16,6 +16,7 @@ import { roundCost } from '../../sim/Sim.js';
 import { finalHolderLine, whereOnMap } from './rules.js';
 import { buildTreeModel, treeSignature, RULE_TEXT } from '../treeModel.js';
 import { upgradeGrid, tierDetail } from '../upgradeGrid.js';
+import { fmtNum } from '../format.js';
 import { tagChips, tagLegend } from '../tagChips.js';
 import {
   createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, openSheetFor,
@@ -25,7 +26,7 @@ import {
 const POLL_MS = 250;
 const FLASH_MS = 1200;
 const TIP_KEY = 'sakura.tip.tree.v1';
-const fmt = (n) => Math.round(n || 0).toLocaleString('en-US');
+const fmt = (n) => fmtNum(n || 0, 'money', { round: 'up' });
 
 /** Upgrade price of any tier for a placed girl (same formula and order as Sim._upgradeCost). */
 export function liveCostOf(sim, t) {

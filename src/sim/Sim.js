@@ -27,8 +27,9 @@ import {
 } from './enemies.js';
 import {
   createTower, refreshTowerStats, recomputeBuffs, costCutAt, updateTower,
-  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones,
+  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop,
 } from './towers.js';
+import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
 import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
 import { updateRunners } from './runners.js';
 import {
@@ -193,6 +194,8 @@ export class Sim {
     this._abilOn = 0;
     /** Seconds until every girl's recentDps is re-measured (src/sim/buffs.js). */
     this._dpsTimer = DPS_WINDOW;
+    /** Finale Pop's budget for the whole battle, in half-pops (src/sim/gearRules.js). */
+    this.popBudget = POP_BUDGET_MAX;
     this._scratch = [];
     this._scratch2 = [];
     this._hitOut = {};
@@ -267,6 +270,7 @@ export class Sim {
 
   _step1(dt) {
     this.time += dt;
+    if (this.popBudget < POP_BUDGET_MAX) this.popBudget += 1;
     if (this.state === 'wave') this._spawnTick(dt);
     this.grid.rebuild(this.enemies);
     if (this.rule) ruleStep(this, dt);
@@ -653,6 +657,8 @@ export class Sim {
       }
     }
     this._emit('death', { uid: e.uid, id: e.id, x: e.x, y: e.y, bounty });
+    // Pyrotechnics' Finale Pop (gear-stats §C.3)
+    if (tower && this.popBudget >= POP_COST) finalePop(this, tower, e);
     // Potential N9 (Akane's Ember Leap): her burn leaps on to the nearest enemy
     if (e.statuses.burn || e.statuses.poison) spreadDot(this, e);
     onEnemyDeath(this, e);

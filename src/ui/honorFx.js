@@ -78,13 +78,14 @@ const PLATE_GLYPH = { standard: '✦', gold: '★', prism: '✦' };
  * A title on its plate: Standard (violet → pink), Gold (foil) or Prism (rainbow ring; only the equipped plate under
  * the name moves, so plates are still unless `live`).
  * @param {string} id title id (an achievement id or fp_ashwing / fp_crimson)
- * @param {{ live?: boolean, small?: boolean, locked?: boolean, text?: string }} [opts] text: shown instead of the
- *   title's name (e.g. "—" for an id this build doesn't know)
+ * @param {{ live?: boolean, small?: boolean, locked?: boolean, text?: string, plate?: string }} [opts] text: shown
+ *   instead of the title's name (e.g. "—" for an id this build doesn't know); plate: 'standard' | 'gold' | 'prism'
+ *   for a title this table doesn't hold (the Sensei Profile's event titles, src/data/profileArt.js TITLES)
  * @returns {HTMLElement}
  */
-export function titlePlate(id, { live = false, small = false, locked = false, text = null } = {}) {
+export function titlePlate(id, { live = false, small = false, locked = false, text = null, plate: plateOf = null } = {}) {
   const t = TITLE_MAP[id];
-  const plate = t?.plate || 'standard';
+  const plate = plateOf || t?.plate || 'standard';
   const el = document.createElement('span');
   el.className = `tp tp-${plate}${live && !reducedMotion() ? ' live' : ''}${small ? ' sm' : ''}${locked ? ' locked' : ''}`;
   el.dataset.title = id;

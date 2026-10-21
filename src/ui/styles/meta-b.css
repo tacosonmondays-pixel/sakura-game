@@ -759,6 +759,21 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-tabs { scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); }
 .mb-tab { scroll-snap-align: start; }
 
+/* [ascension] gates 6–10 pips and "Where to get" (docs/specs/ASCENSION.md §D.2) */
+.mb-gate.asc { outline: 1px dashed var(--muted); outline-offset: -2px; }
+.mb-gate.asc.on { outline: none; background: linear-gradient(135deg, #ffe08a, #ff7ab6); color: #3b1d4a; }
+.mb-where { flex-wrap: wrap; align-items: center; gap: 6px; }
+/* the Craft Room sheet */
+.craft-room { display: flex; flex-direction: column; gap: 8px; }
+.craft-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius); background: var(--blue-soft); }
+.craft-flow { display: flex; align-items: center; gap: 4px; }
+.craft-meta { display: flex; flex-direction: column; font-size: 0.78rem; }
+.craft-why { color: var(--bad); font-size: 0.72rem; font-weight: 800; }
+.craft-qty { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+.craft-fams { display: flex; flex-wrap: wrap; gap: 4px; }
+.craft-fams .chip.on { background: var(--blue); border-color: var(--blue); }
+.craft-fam-ico { width: 22px; height: 22px; }
+
 /* ---------- Outfits (skins): Outfit pill, outfit sheet, hanger badges ---------- */
 .mb-outfit-pill { margin-left: auto; flex: 0 1 auto; min-width: 0; max-width: 58%; display: flex; align-items: center; gap: 5px; position: relative; min-height: 32px; padding: 3px 10px 3px 7px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--blue-deep); font-weight: 800; font-size: 0.74rem; box-shadow: 0 2px 6px rgba(29, 78, 137, 0.14); transform: skewX(var(--skew)); }
 .mb-show-name-row .mb-show-names { flex: 1 1 0; min-width: min-content; } /* never splits a word; the pill shrinks instead */

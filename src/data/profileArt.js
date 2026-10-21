@@ -4,9 +4,18 @@
 import { CHAPTERS } from './stages.js';
 import { TINTS } from './lobbyArt.js';
 import { TITLE_TABLE } from '../systems/profileHonors.js';
+import { ALL_EVENTS } from './events/index.js';
+
+/** Titles and frames sold in limited-event exchanges (EVENT_SPEC §3.8): owned forever once bought. */
+const EVENT_COSMETICS = ALL_EVENTS.flatMap((ev) => (ev.shop || []).filter((o) => o.cosmetic)
+  .map((o) => ({ ...o.cosmetic, how: `${ev.name} event exchange (${ev.window.opens.slice(0, 4)}).` })));
 
 /** id → { text, tier: 'std'|'gold'|'prism', how } (freeplay titles + achievements that declare one). */
-export const TITLES = TITLE_TABLE;
+export const TITLES = Object.freeze({
+  ...TITLE_TABLE,
+  // event titles: listed and counted only for their owners (like the tag titles)
+  ...Object.fromEntries(EVENT_COSMETICS.filter((c) => c.kind === 'title').map((c) => [c.id, Object.freeze({ text: c.name, tier: 'gold', how: c.how, event: true })])),
+});
 
 /** Title ids from freeplay: the milestone mark ('fpm:<tier>:matriarch') and the legacy title string. */
 export const FREEPLAY_TITLES = Object.freeze({
@@ -24,6 +33,7 @@ export const FRAMES = Object.freeze({
   sakura: { name: 'Sakura', how: 'Earn Sakura medals on 10 campaign stages.', ships: false },
   laurel: { name: 'Laurel', how: 'Earn Gold medals on all 40 campaign stages.', ships: false },
   rosette: { name: 'Rosette', how: 'Earn all 20 ribbons on one stage.', ships: false },
+  ...Object.fromEntries(EVENT_COSMETICS.filter((c) => c.kind === 'frame').map((c) => [c.id, { name: c.name, how: c.how, ships: true, event: true }])),
 });
 export const FRAME_IDS = Object.freeze(Object.keys(FRAMES).filter((id) => FRAMES[id].ships));
 

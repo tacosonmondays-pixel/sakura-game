@@ -9,7 +9,9 @@
 // girls alone still give the old digests: docs/merge/ROSTER_WAVE_NOTES.md §5).
 // New girls (UNIT_GAPS §5): from 2-3 on the free team has Azami (free after 2-2), Yuzuha (4-2) and
 // Wakaba (6-5), so those rows are re-pinned; BASE_GOLDEN keeps the merged base's digests with the new
-// girls left out (bit-identical).
+// girls left out (bit-identical). v0.1.40 merge: the bot places a strip layer (Azami) after the damage
+// dealers and buys her tiers after the carry's focus push, so the rows with her in the free team (and
+// the gacha rows) were re-pinned (none loses that won before; 3-3 Hard now wins).
 import { describe, it, expect } from 'vitest';
 import { hasRealData, defaultData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
@@ -22,18 +24,18 @@ export const GOLDEN_STAGES = ['1-1', '2-3', '3-3', '4-2', '5-4', '6-1', '6-3', '
 const GOLDEN = {
   '1-1:easy': 'W12/150/22173/685/507e1bb3',
   '1-1:hard': 'W12/50/21986/990/823b741',
-  '2-3:easy': 'W20/150/52979/3540/da557f03',
-  '2-3:hard': 'L14/0/34362/48/b7a46d53',
-  '3-3:easy': 'W24/150/109786/396/1db736a1',
-  '3-3:hard': 'L22/0/109099/1087/3cbe8538',
-  '4-2:easy': 'W25/144/70352/462/eb7b14b',
-  '4-2:hard': 'W25/4/86836/405/1c214cc4',
-  '5-4:easy': 'W27/140/76162/2953/7f5928f4',
-  '5-4:hard': 'W27/21/95428/474/7a74fadb',
-  '6-1:easy': 'W26/150/60925/4197/9df80a04',
-  '6-1:hard': 'W26/44/69052/1567/37bbe597',
-  '6-3:easy': 'W27/145/35925/857/b5861b64',
-  '6-3:hard': 'W27/14/53756/645/8fb24af9',
+  '2-3:easy': 'W20/150/52556/445/6554b5ba',
+  '2-3:hard': 'L15/0/36561/261/e8d0ee58',
+  '3-3:easy': 'W24/150/99512/396/2756335a',
+  '3-3:hard': 'W24/8/119530/318/90ca4978',
+  '4-2:easy': 'W25/143/69632/464/3c2df04',
+  '4-2:hard': 'W25/13/85160/643/1b23e508',
+  '5-4:easy': 'W27/139/71072/2536/59e896f8',
+  '5-4:hard': 'W27/38/89849/1245/509cb7c2',
+  '6-1:easy': 'W26/150/61889/3972/d3799d2e',
+  '6-1:hard': 'W26/44/69321/1382/e727f835',
+  '6-3:easy': 'W27/145/35703/702/886a8506',
+  '6-3:hard': 'W27/15/54200/566/cddb8fc5',
   '7-3:easy': 'W29/138/89954/20132/e24ed9f3',
   '7-3:hard': 'L15/0/52357/342/f5eb7b58',
   '8-4:easy': 'W30/150/44957/14820/ab26977',
@@ -111,13 +113,13 @@ describe.skipIf(!hasRealData())('the base roster plays exactly as before the new
 // each gets her own pinned battles, the free team plus her (seed 1). (4-2 Hard, a 4-life win for the
 // free team, is lost by the bot with any ninth girl it adds, Kinu or Ouka: its plan, not theirs.)
 const GACHA_GOLDEN = {
-  'kinu:5-4:hard': 'W27/13/102928/1013/af3ff40b',
-  'kinu:6-1:hard': 'W26/38/72860/1823/421f635e',
-  'ouka:5-4:hard': 'W27/25/95737/995/39866e8f',
+  'kinu:5-4:hard': 'W27/20/102364/624/bcbf48d4',
+  'kinu:6-1:hard': 'W26/40/68511/1183/8028cf00',
+  'ouka:5-4:hard': 'W27/38/90695/575/208fad97',
   'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
-  'chigusa:5-4:hard': 'W27/29/96690/1261/10d0209a',
+  'chigusa:5-4:hard': 'W27/36/90183/930/cf2018c6',
   'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
-  'marumi:5-4:hard': 'W27/25/100350/1397/b996453d',
+  'marumi:5-4:hard': 'W27/37/92444/878/cf90e6cb',
   'marumi:8-4:hard': 'W30/36/55239/1389/48b82cd6', // (re-pinned when her balls began to touch walkers on shared stretches, P-17)
 };
 

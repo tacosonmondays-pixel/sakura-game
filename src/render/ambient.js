@@ -105,7 +105,8 @@ export class AmbientSystem {
     }
     // fireflies at night (not in hot / industrial places)
     this.flies = [];
-    if (this.look.night && this.life.fireflies !== false && this.look.theme !== 'foundry' && this.look.theme !== 'volcano') {
+    this.flyColor = this.look.fireflyColor ? new THREE.Color(this.look.fireflyColor) : new THREE.Color(0.8, 1, 0.45);
+    if (this.look.night && this.life.fireflies !== false && (this.look.lantern || (this.look.theme !== 'foundry' && this.look.theme !== 'volcano'))) {
       const n = Math.round(26 * this.density);
       for (let i = 0; i < n; i++) {
         this.flies.push({ x: x0 + r() * (x1 - x0), z: z0 + r() * (z1 - z0), y: 0.3 + r() * 1.0, ph: r() * TAU, sp: 0.3 + r() * 0.4 });
@@ -207,12 +208,14 @@ export class AmbientSystem {
         const c = this._c.set(this.look.fogColor || '#e8eef4');
         bbN.push(m.x, m.y, m.z, m.s * 1.6, m.s, R.smoke, c.r, c.g, c.b, a, m.rot);
       }
+      // (lantern nights: warm orange lantern sparks drifting a little higher)
+      const fc = this.flyColor;
       for (const f of this.flies) {
         const x = f.x + Math.sin(t * f.sp + f.ph) * 0.8;
         const z = f.z + Math.cos(t * f.sp * 0.7 + f.ph) * 0.8;
         const y = f.y + Math.sin(t * 1.7 + f.ph) * 0.2;
         const a = Math.max(0, Math.sin(t * 1.3 + f.ph * 3));
-        bbA.push(x, y, z, 0.16, 0.16, R.glow, 0.8, 1, 0.45, a);
+        bbA.push(x, y, z, 0.16, 0.16, R.glow, fc.r, fc.g, fc.b, a);
       }
       // cloud shadows drifting across the board
       for (const c of this.clouds) {

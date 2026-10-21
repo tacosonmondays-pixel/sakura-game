@@ -415,22 +415,28 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       }
     }
   }
-  for (const info of [...dps, ...support, ...econ]) if (!copies(info)) place(info);
+  // a strip layer (Azami) adds road control, not the damage a carry needs: she is placed after the
+  // damage dealers, gets no extra copies, and her tiers wait until the carry's focus push (only the new
+  // girls carry `strip`, so base-roster plans are unchanged)
+  const strips = dps.filter((i) => i.stats.strip);
+  const shooters = strips.length ? dps.filter((i) => !i.stats.strip) : dps;
+  for (const info of [...shooters, ...strips, ...support, ...econ]) if (!copies(info)) place(info);
 
   const dpsRecs = () => placed.filter((p) => p.role === 'dps');
-  for (const rec of dpsRecs()) upgrade(rec, rec.main, 2);
+  const isStrip = (rec) => !!rec.info.stats?.strip;
+  for (const rec of dpsRecs()) if (!isStrip(rec)) upgrade(rec, rec.main, 2);
   // Focus: like a real player, push one carry deep (tier 4) early instead of spreading every
   // coin over tier-2 girls — boss and miniboss stages are unwinnable without a real damage dealer.
   const carryScore = (rec) => pathScore(rec.def, rec.main, needs) * (1 + 0.3 * (rec.def.base?.bossMul || 1)) * (rec.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
-  const carry = focus ? dpsRecs().sort((a, b) => carryScore(b) - carryScore(a))[0] : null;
+  const carry = focus ? dpsRecs().filter((r) => !isStrip(r)).sort((a, b) => carryScore(b) - carryScore(a))[0] || null : null;
   if (carry) upgrade(carry, carry.main, 4);
-  for (const info of dps.slice(0, 2)) if (copies(info) < maxCopies) place(info);
+  for (const info of shooters.slice(0, 2)) if (copies(info) < maxCopies) place(info);
   for (const rec of placed) {
     upgrade(rec, rec.main, 2);
     if (rec.role !== 'econ') upgrade(rec, rec.sub, 2);
   }
   for (const rec of dpsRecs()) upgrade(rec, rec.main, 3);
-  for (const info of dps.slice(0, 2)) {
+  for (const info of shooters.slice(0, 2)) {
     if (copies(info) < maxCopies) {
       const rec = place(info);
       if (rec) upgrade(rec, rec.main, 3);

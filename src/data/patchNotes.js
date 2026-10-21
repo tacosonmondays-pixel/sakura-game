@@ -20,6 +20,45 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.39', version: '0.1.39', date: '2026-10-20', title: 'Welcome Back, Everyone',
+    added: [
+      'Nine girls are back! Kanna, Yoriko and Seiran join as staff heroes, and Iroha, Ena, Fuu, Noa, Hana and Ruri as students, each with a painted portrait and a 3D figure (six figures are temporary and get their finished look later).',
+      'Already cleared 6-2 or 7-5? Clear that stage once more to welcome Noa (6-2) or Hana (7-5).',
+      'UR gear: Legendary gear can awaken into rainbow UR gear. New Pierce and Aura Power stats, Academy Club sets and the Rainbow Gear Box.',
+      'Ascension: duplicates now give Essence, which raises a girl’s Potential, and five new breakthrough gates take her past level 60, up to 85. Levels she already has are kept. Plus Titan Trials: weekly bosses with their own rewards.',
+      'A new loading screen (pick its look in Settings > Graphics) and smoother menu transitions, with a VICTORY / DEFEAT sweep after battle.',
+      'Halloween Nightmare on every event stage, with the toughest one at the very end, plus six new Nightmare missions.',
+    ],
+    changed: [
+      'Candy Exchange prices are higher. Things you bought earlier are kept. If a game tab is still open from before the update, reload it.',
+      'Event sweeps are limited to 10 a day and refill at 7 PM Central. Battles you play are never limited.',
+      'Many girls have new 3D figures and titles that match their portraits. Tap the outfit button (the hanger, next to her name) on a girl’s page: many keep their earlier look as a free outfit.',
+      'Nami, Sango and Umeko can now be placed on land or water.',
+      'Momo’s upgrade paths have new idol names: Fan Club, Merch Table and Encore Toss.',
+      'Co-op: both players need this update to play together.',
+    ],
+    fixed: [
+      'The Pumpkin Patroller title now shows on its gold nameplate.',
+    ],
+  },
+  {
+    id: 'v0.1.38', version: '0.1.38', date: '2026-10-20', title: 'Pumpkin Lantern Night',
+    added: [
+      'Pumpkin Lantern Night, our first limited event, is open now until Nov 1 (7 PM Central). Clear 1-5 to join, then tap the EVENT card in the lobby.',
+      'Read three short episodes with Hikari, clear four night operations for Pumpkin Candy, and calm the Gourdlight Golem on Normal or Hard. The monsters came to the festival in costumes!',
+      'Event missions, plus a festival gift in your Mailbox on each day you visit (nine in all).',
+      'The Candy Exchange is open until Nov 8 (7 PM Central): a title, a profile frame, gear boxes, books, recruit tickets and more. Nothing in it costs real money.',
+      'When the operations end, rewards from finished missions you didn’t claim come by mail. Candy left over when the Exchange closes turns into coins.',
+    ],
+    changed: [
+      'Grey text is darker, so it’s easier to read.',
+      'Big numbers are shortened the same way across the menus (12.5k, 3.2M).',
+    ],
+    fixed: [
+      'A girl’s Build tab now shows the exact price she costs to place.',
+    ],
+  },
+  {
     id: 'v0.1.37', version: '0.1.37', date: '2026-10-20', title: 'Bigger Potential & level 85',
     added: [
       'Potential got much bigger: every duplicate still raises a girl from P1 up to P6, and now every step makes her clearly stronger.',

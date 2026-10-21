@@ -2,7 +2,7 @@
 // Track ids are the design ids; tracks that are not rendered yet resolve to stand-ins via the manifest.
 
 export const MENU_ROUTES = ['students', 'student', 'formation', 'backpack', 'bestiary', 'wiki', 'commissions', 'rewards'];
-export const MAP_ROUTES = ['missions', 'campaign', 'bounty', 'assault', 'challenge', 'coop'];
+export const MAP_ROUTES = ['missions', 'campaign', 'bounty', 'assault', 'challenge', 'coop', 'event'];
 
 /** Map theme (src/data/maps.js) → battle family track. */
 export const THEME_FAMILY = {

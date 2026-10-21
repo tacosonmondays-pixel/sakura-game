@@ -13,9 +13,13 @@ import {
   MAX_POTENTIAL, potentialLevel, potentialView, dupesToMax, potentialNext, potentialPillTitle, moreDupes, potentialStepInfo,
   DUPE_PAST_MAX_TOMES, dupePastMaxPay,
 } from '../systems/potential.js';
-import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH } from '../systems/progression.js';
+import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH, BASE_GATES, gatePotential } from '../systems/progression.js';
 import { UNIT_RARITIES } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
+import { ITEMS } from '../data/items.js';
+import { essenceBalance, essenceCap, canRaisePotential, raisePotential, KINDRED } from '../systems/essence.js';
+import { store } from '../core/store.js';
+import { button, toast, confirmDialog } from './components.js';
 import { portraitHTML } from '../art/portraits.js';
 
 /** Potential of a girl in a profile (unowned → 0). */
@@ -72,14 +76,52 @@ export function nextLine(def, unitState) {
 export function nodeLine(n, { gatesOpen = true } = {}) {
   const stat = n.short === n.stat ? '' : n.stat;
   if (!stat && n.cap == null) return null;
-  const capTitle = n.cap == null ? null : gatesOpen ? `Level cap ${n.cap} at P${n.step}` : `Level cap ${n.cap} at P${n.step}, once all ${MAX_BREAKTHROUGH} breakthrough gates are open`;
+  const capTitle = n.cap == null ? null : gatesOpen ? `Level cap ${n.cap} at P${n.step}` : `Level cap ${n.cap} at P${n.step}, once gate ${n.step + 4} is broken`;
   return h('span.pot-node-line', { 'data-testid': `potential-line-${n.step}`, title: [stat, capTitle].filter(Boolean).join(' · ') },
     stat ? h('span.pot-node-stat', stat) : null,
     n.cap != null ? h(`span.pot-node-cap${gatesOpen ? '' : '.later'}`, { 'data-testid': `potential-cap-${n.step}` }, `Lv ${n.cap}`) : null);
 }
 
-/** Her breakthrough gates (0…5) from her unit state; a girl not owned previews every gate open. */
+/** Her breakthrough gates (0…10) from her unit state; a girl not owned previews every gate open. */
 const gatesOf = (unitState) => (unitState ? Math.max(0, Math.floor(Number(unitState.breakthrough) || 0)) : MAX_BREAKTHROUGH);
+
+/**
+ * Raise Potential (docs/specs/ASCENSION.md §D.2): "Kage's Essence ×1" and the button "Raise to P5 ·
+ * 1 Essence + 25,000 coins" (glows when affordable). With no Essence of her own and a fitting
+ * Kindred: "Use Kindred Essence (SR) (2)". At P6: "Full Potential". `onDone` redraws the page.
+ */
+export function raiseRow(def, profile, onDone) {
+  const st = profile?.units?.[def.id];
+  if (!st) return null;
+  const p = potentialLevel(st);
+  if (p >= MAX_POTENTIAL) return h('div.pot-raise.full', { 'data-testid': 'potential-raise' }, h('b', 'Full Potential'), h('span.muted', ` · spare copies become ${dupePastMaxPay(def)}`));
+  const held = essenceBalance(profile, def.id);
+  const own = canRaisePotential(profile, def.id, held > 0 ? 'own' : null);
+  const kin = held > 0 ? null : own.kindred?.[0] || null;
+  const coins = own.coins || 0;
+  const doRaise = async (use) => {
+    if (use && use !== 'own' && KINDRED[use] === 'SSR' && def.rarity !== 'SSR') {
+      const ok = await confirmDialog(`This is your rarest Essence. Use it on ${def.name}?`, { title: 'Kindred Essence (SSR)', ok: 'Use it', okKind: 'yellow' });
+      if (!ok) return;
+    }
+    const r = raisePotential(profile, def.id, use);
+    if (!r.ok) {
+      toast(r.error === 'coins' ? `Not enough coins (${coins.toLocaleString('en-US')} needed).` : 'She needs 1 Essence first: a duplicate gives one.', 'bad');
+      return;
+    }
+    store.commit('potential-raise');
+    const info = potentialStepInfo(def, r.to);
+    toast(`${def.name} reached P${r.to}!${info?.kit ? ` ${info.brief}` : ''}`, 'good', 3600);
+    onDone?.();
+  };
+  const label = `Raise to P${p + 1} · 1 Essence + ${coins.toLocaleString('en-US')} coins`;
+  return h('div.pot-raise', { 'data-testid': 'potential-raise' },
+    h('span.pot-raise-have', h('b', `Essence ×${held}`), h('span.muted', ` / holds ${essenceCap(st)}`)),
+    kin
+      ? button(`Use ${ITEMS[kin.id].name} (${kin.have})`, { kind: own.ok ? 'yellow' : 'ghost', small: true, testid: 'potential-kindred', disabled: !own.ok, onClick: () => doRaise(kin.id) })
+      : button(label, { kind: own.ok ? 'yellow' : 'ghost', small: true, testid: 'potential-raise-btn', disabled: !own.ok, onClick: () => doRaise('own'), title: own.ok ? '' : held < 1 ? 'A duplicate gives her 1 Essence' : 'Not enough coins' }),
+    !own.ok && held < 1 && !kin ? h('span.muted.pot-raise-hint', 'A duplicate gives 1 Essence') : null);
+}
 
 const TAG_WORD = { allies: 'Allies', enemies: 'Enemies', coins: 'Coins' };
 const tagChips = (tags) => tags.map((t) => h(`span.pot-chip.${t}`, TAG_WORD[t]));
@@ -90,7 +132,7 @@ const tagChips = (tags) => tags.map((t) => h(`span.pot-chip.${t}`, TAG_WORD[t]))
  * five-step list (owned ✓, the next one marked, later ones muted; every step shown for a girl not
  * owned, since this is how a player previews her) and the footer. Never locked.
  */
-export function potentialSection(def, unitState) {
+export function potentialSection(def, unitState, { profile = null, onChange = null } = {}) {
   const owned = !!unitState;
   const p = owned ? potentialLevel(unitState) : 0;
   const nodes = potentialView(def, unitState, { capAt: potentialLevelCap });
@@ -100,21 +142,20 @@ export function potentialSection(def, unitState) {
   const sig = nodes[MAX_POTENTIAL - 1];
   let footer;
   if (!owned) footer = 'Recruit her to start at P1.';
-  else if (p >= MAX_POTENTIAL) {
-    const tomes = DUPE_PAST_MAX_TOMES[def.rarity] || 0;
-    const pay = tomes ? `Star Fragments (+${frag} each) and ${tomes} Akashic Tome${tomes === 1 ? '' : 's'}` : `Star Fragments only (+${frag} each)`;
-    footer = `Potential maxed — duplicates now give ${pay}. Duplicates so far: ${dupes}.`;
-  }
-  else footer = `Duplicates so far: ${dupes} · Next: ${stepPhrase(next)} with ${moreDupes(next.dupes)}`;
+  else if (p >= MAX_POTENTIAL) footer = `Potential maxed — a duplicate now gives ${dupePastMaxPay(def)}. Duplicates so far: ${dupes}.`;
+  else footer = `Duplicates so far: ${dupes} · Next: ${stepPhrase(next)} with 1 Essence`;
   const firstKit = nodes.find((n) => n.kit)?.step ?? 3;
-  // her caps follow Potential only once all five breakthrough gates are open (the level rule)
-  const gatesOpen = gatesOf(unitState) >= MAX_BREAKTHROUGH;
+  // her own page knows her Essence: the next step reads "Essence ready" when she holds one
+  const held = profile && owned ? essenceBalance(profile, def.id) : 0;
+  // a step's cap is hers once the gate it opens is broken (P(k − 4) opens gate k)
+  const gates = gatesOf(unitState);
+  const capHers = (n) => gates >= n.step + 4;
   const track = h('ol.pot-track', nodes.map((n) => h(`li.pot-node${n.active ? '.on' : ''}${n.next ? '.next' : ''}${n.kit ? '.kit' : ''}${n.step === MAX_POTENTIAL ? '.sig' : ''}`,
     { 'data-testid': `potential-node-${n.step}`, title: n.step === 1 ? n.long : `P${n.step} ${n.name || ''}: ${n.long}` },
     h('span.pot-node-p', n.step === MAX_POTENTIAL ? crown('pot-node-crown') : null, `P${n.step}`, n.kit ? h('span.pot-node-kit', '✦') : null),
     h('span.pot-node-label', n.step === 1 ? 'Base' : n.short),
     // (a stat step's label already is her stat: its line only adds the cap, once there is one)
-    nodeLine(n, { gatesOpen }))));
+    nodeLine(n, { gatesOpen: capHers(n) }))));
   const steps = h('ol.pot-steps', { 'data-testid': 'potential-steps' }, nodes.slice(1).map((n) => h(
     `li.pot-step${n.active ? '.on' : ''}${n.next ? '.next' : ''}${!n.active && !n.next ? '.later' : ''}${n.kit ? '.kit' : ''}${n.step === MAX_POTENTIAL ? '.sig' : ''}`,
     { 'data-testid': `potential-step-${n.step}` },
@@ -124,26 +165,44 @@ export function potentialSection(def, unitState) {
       h('span.pot-step-name', n.kit ? h('span.pot-glyph', '✦ ') : null, n.name || ''),
       n.step === MAX_POTENTIAL ? crown('pot-step-crown') : null,
       tagChips(n.tags),
-      n.next ? h('span.pot-step-next', { 'data-testid': 'potential-next' }, `NEXT · ${moreDupes(next?.dupes ?? 1)}`) : null),
+      n.next ? h('span.pot-step-next', { 'data-testid': 'potential-next' }, held > 0 ? 'NEXT · Essence ready' : `NEXT · ${moreDupes(next?.dupes ?? 1)}`) : null),
     h('div.pot-step-long', n.long),
-    n.cap != null ? h(`div.pot-step-cap${gatesOpen ? '' : '.later'}`, gatesOpen ? `Level cap ${n.cap}` : `Level cap ${n.cap} after all ${MAX_BREAKTHROUGH} breakthroughs`) : null)));
+    n.cap != null ? h(`div.pot-step-cap${capHers(n) ? '' : '.later'}`, capHers(n) ? `Level cap ${n.cap}` : `Opens gate ${n.step + 4} (level cap ${n.cap})`) : null)));
   // the student page's card look (section.mb-card + h3.mb-card-title, meta-b.css)
-  return h('section.mb-card.pot-section', { 'data-testid': 'potential-section', id: 'potential' },
+  let sec = null;
+  const redraw = () => {
+    if (onChange) return onChange();
+    const fresh = potentialSection(def, profile?.units?.[def.id] || unitState, { profile, onChange });
+    sec?.replaceWith(fresh);
+  };
+  sec = h('section.mb-card.pot-section', { 'data-testid': 'potential-section', id: 'potential' },
     h('h3.mb-card-title', owned ? `Potential · P${p} / ${MAX_POTENTIAL}` : 'Potential'),
-    h('p.pot-rule', 'Each duplicate recruit raises her Potential by 1 and still gives Star Fragments.'),
-    h('p.pot-rule.muted', `Every step makes her stronger; from P${firstKit} each one (✦) also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone. Once all ${MAX_BREAKTHROUGH} breakthrough gates are open, every step also raises her level cap (up to ${potentialLevelCap(MAX_POTENTIAL)} at P${MAX_POTENTIAL}). At P${MAX_POTENTIAL}, duplicates give ${dupePastMaxPay(def)}.`),
+    profile && owned ? raiseRow(def, profile, redraw) : null,
+    h('p.pot-rule', 'Each duplicate gives her 1 Essence. 1 Essence and coins raise her Potential by 1.'),
+    h('p.pot-rule.muted', `Every step makes her stronger; from P${firstKit} each one (✦) also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone. Each step also opens her next level gate past ${potentialLevelCap(1)} (up to ${potentialLevelCap(MAX_POTENTIAL)} at P${MAX_POTENTIAL}).`),
     track,
     steps,
     h('p.pot-footer.muted', { 'data-testid': 'potential-footer' }, footer),
     owned && p < MAX_POTENTIAL && sig ? h('p.pot-footer.muted.pot-footer-sig', `Capstone: P${MAX_POTENTIAL} ✦ ${sig.name} (${moreDupes(dupesToMax(unitState))})`) : null);
+  return sec;
 }
 
-/** Reveal corner tag (§7.4): "P4 ▲" when it rose, "MAX" at P6, nothing otherwise. */
+/** Reveal corner tag: "+1 Essence" (P4 ready when she can raise now), "Spare" past her hold cap. */
 export function revealTag(r) {
-  if (!r || r.isNew || !(r.potential >= 1)) return null;
-  if (r.potentialUp) return h(`span.ma-gc-pot${r.potential >= MAX_POTENTIAL ? '.p6' : ''}`, { title: `Potential ${r.potential} of ${MAX_POTENTIAL}` }, `P${r.potential} ▲`);
-  if (r.potential >= MAX_POTENTIAL) return h('span.ma-gc-pot.max', { title: `Potential maxed: ${dupePastMaxPay(UNIT_MAP[r.unitId])}` }, 'MAX');
+  if (!r || r.isNew) return null;
+  if (r.spare) return h('span.ma-gc-pot.max', { title: `Spare copy: ${spareText(r.spare)}` }, 'Spare');
+  if (r.essence) return h(`span.ma-gc-pot${r.readyStep ? '.ready' : ''}`, { title: r.readyStep ? `+1 Essence · P${r.readyStep} ready` : '+1 Essence' }, r.readyStep ? `P${r.readyStep} ready` : '+1 Ess.');
   return null;
+}
+
+/** "+6 Mementos · +1 Moonpearl · +1 point" (an R spare: "+2 Mementos · ⅕ point"). */
+export function spareText(spare) {
+  if (!spare) return '';
+  return [
+    spare.mementos ? `+${spare.mementos} Memento${spare.mementos === 1 ? '' : 's'}` : null,
+    spare.moonpearls ? `+${spare.moonpearls} Moonpearl${spare.moonpearls === 1 ? '' : 's'}` : null,
+    spare.points ? `+${spare.points} point${spare.points === 1 ? '' : 's'}` : spare.fifths ? '⅕ point' : null,
+  ].filter(Boolean).join(' · ');
 }
 
 /**

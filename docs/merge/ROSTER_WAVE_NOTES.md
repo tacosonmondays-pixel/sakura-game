@@ -67,13 +67,15 @@ Golden and balance moves from the merge are in §4.
 - UNIT_GAPS §4.1 upgrades that need only B3: Iroha fires from both origins; Ena's burst budget, hex mark and chain counter FX; Hana's paths renamed (Falconry, Hunter's Mark); Seiran's sky dragon and Yoriko's hexing Dream Detour. Not done (need later primitives): Ruri's roaming pet (P-6), Hana's circling falcon (P-6), Iroha's Infinite Reflection split (A6), Yoriko's Puppet Hex skill (ability system).
 - Looks: school uniforms with tech gear; heroes in staff / officer coats; look guard test.
 - Art: placeholder portraits (`tools/art/placeholder_portraits.py`), procedural stand-ins (`src/models/standins.js`). No image or 3D generator was called.
+  - Art wave (v0.1.39): all nine now ship their painted portrait sets (`public/art/portraits/<id>-*.webp`, `PORTRAIT_DATA` lines measured on the shipped crops; Ena's and Ruri's stands fade their bottom edge because their paintings end at the shin). Chibis: Noa, Hana and Ruri have imported Meshy figures; Fuu, Iroha, Ena, Kanna, Yoriko and Seiran have temporary Blender chibis until Meshy replaces them (`docs/MODELS.md`). `STANDIN_UNITS` is empty.
+  - `tools/art/placeholder_portraits.py` now draws coming-soon signboards (her chibi in a hard hat painting her portrait on an easel, ART IN PROGRESS / COMING SOON) for any roster girl without art: no ids = every girl with no portrait files, explicit ids are refused when she already has files unless `--force` (or `--out` elsewhere). Vector shapes with Pillow, no generator, no third-party images. Fonts: Barlow Condensed from `src/ui/styles/fonts` when the branch has it, otherwise DejaVu Sans Bold with a warning.
 
 ## 4. Measurements
 
 - Balance: `docs/BALANCE.md` "Roster wave" (tables per girl, the 8-5 known flip).
 - Goldens: `tests/sim/modesGolden.test.js`: 1-1 … 6-1 keep v0.1.37's digests; 6-3 … 8-5 are re-pinned because the bot's free team there includes Noa and Hana; a second block runs those stages with the 19 live girls only and must give v0.1.37's digests (§5).
 - Engines: `BUN=/root/.bun/bin/bun node e2e/engines.mjs` OK (V8 + JavaScriptCore, with the returning-girls battle).
-- Save: no new save keys beyond the merged outfits (`units[id].skin`, `skins`), no version bump.
+- Save: no new save keys beyond the merged outfits (`units[id].skin`, `skins`), no version bump. In `missions.counters`, each owned girl's `own:<id>` / `own:<id>:<slot>` marks (`src/systems/rosterSave.js`): an older build that does not know a returning girl leaves her out of the save it writes, and the next load brings her back from them.
 
 ## 5. 8-5 Easy (coordinator follow-up)
 
@@ -105,3 +107,30 @@ stage harder. Measured with the Easy gate's bot (free units, expected level, see
    damage** (still under Miko's +10 %; ROSTER.md updated) wins 6 / 9 seeds including seed 1, so the gate is
    strict again: `KNOWN_EASY_FLIPS` is gone and `balance.test.js` is identical to v0.1.37.
 3. Easy gate before / after, all 40 stages, both roster modes: `docs/BALANCE.md` "Roster wave".
+
+## 6. Merging into `train/v0140` (ships as v0.1.39)
+
+`origin/feature/new-girls-art` (this branch plus the nine girls' art) merged onto `train/v0139` (live v0.1.38 +
+UR gear, substats and sets + Ascension and Titan Trials). Merge base `84ebdeb` (v0.1.37). 16 files conflicted;
+every resolution keeps both sides, `train/v0139` first.
+
+| File | Decision |
+|---|---|
+| `src/sim/towers.js` (11 hunks) | Gear and relay origins together. `refreshEffective`: damage × (aura × team damage buff), rate × Second Cup tea. `t.buffed` counts tea and the team damage buff. The gear helpers (`gearSpec`, `blastRadius`, `shotPierce`, `beginGear` / `endGear`) stay; every attack takes `gearSpec(t.eff)` and measures from the attack origin `t.ox, t.oy`. `volleyFrom` (Iroha's two firing points) carries gear Pierce, Follow-Through blasts and the trick spec, so each volley is a full gear attack. Pulse: gear Pierce's extra targets, ranked from the origin. Beam: B3's resonant ramp and gear Pierce on the same line. Chain: gear Pierce extra jumps from the origin. With no relay girl and no team damage buff (`ox = x`, `globalDmgMul = 1`) every number is v0.1.39's. Not changed: `attackMortar` keeps `t.eff` (no girl uses the mortar yet; when one does, decide whether club tricks apply to shells). |
+| `src/systems/save.js` | `newUnitState` = `… dupes: 0, pl: 1, skin: null`; `cleanUnit` keeps `pl` and `skin`; `createProfile` = `… events, skins`; `migrateProfile` runs today's chain (creditPotential → restoreGearMarks → restoreAscension → migrateEssence → settleSpares → fuseShards → settleLevels → story → sensei → social → cleanEvents) and then the outfits (`cleanSkins`, unequip what she does not own). No version bump. |
+| `tests/systems/save.test.js` | Both import sets; the `createProfile` key list ends `'events', 'skins'`; both new describe blocks (the merged migrate chain with UR gear + Ascension, and the outfits). |
+| `src/render/BattleRenderer.js`, `src/render/actors.js` | `Actors` takes both `costumes` (Halloween) and `skins` (outfits). |
+| `src/sim/Sim.js`, `src/main.js`, `src/ui/battle/controller.js`, `src/data/wiki.js`, `src/ui/battle/snapshot.js` | Both import / key sets (gear rules + B3 shells, runners and relay; events + outfits; gear carries + aim / origin keys). |
+| `src/ui/screens/student.js` | The outfit, legacy-kit and portrait imports, with today's backpack import (`costChips` was dropped there with the reroll card). |
+| `src/ui/styles/meta-b.css` | Both blocks: the Ascension gate pips and Craft Room, then the outfit pill and sheet. |
+| `e2e/engines.mjs`, `e2e/engines/scriptedBattle.js` | The engines run carries both the gear battle and the returning-girls battle. |
+| `CONTRACTS.md`, `docs/OWNER_REQUESTS.md` | Both sections, today's first. |
+
+After the merge, two follow-ups the conflicts did not show:
+- `src/data/gearStats.js`: `GEAR_FIT` rows for the nine girls (`gearStats.test.js` requires one per playable
+  girl): the three staff heroes fill Aura Power, like Hikari and Nami; the students fill Skill Haste and Aura Power,
+  like the live towers, except Noa, whose sanctuary has +8 % damage, so only Skill Haste fills for her
+  (`docs/specs/GEAR_STATS.md` §B.2).
+- CSS floor (`tools/cssFloor.mjs`): `meta-b.css` admitted at 57 (was 48). The 9 new declarations under 12 px are
+  all this branch's own, built before UI M0 (UI_DIRECTION §7 rule 2, swept in M5): the Codex-kit tag
+  (`.mb-codex-tag`, B2) and the outfit pill, badge and sheet (`.mb-outfit-*`, B1).

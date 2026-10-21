@@ -54,6 +54,25 @@ describe('wiki data', () => {
     expect(getArticle('type-chart').sections.some((s) => s.blocks.some((b) => b.type === 'typeChart'))).toBe(true);
   });
 
+  it('Potential, Recruit and Level articles follow Ascension: Essence, Raise Potential, gates 6–10 (ASC-2)', () => {
+    const text = (id) => JSON.stringify(getArticle(id));
+    for (const id of ['gacha', 'potential', 'leveling', 'items']) {
+      const t = text(id);
+      // duplicates no longer pay Star Fragments or Tomes; Potential no longer comes from a duplicate by itself
+      expect(t, id).not.toMatch(/Potential and \d+ Star Fragments|Star Fragments from duplicate|from duplicate recruits|Akashic Tomes \(SR|each duplicate raises her level cap|Past gate 5 her Potential raises it|until her first duplicate/);
+    }
+    expect(text('gacha')).toMatch(/\+1 Essence/);
+    const pot = text('potential');
+    for (const s of ['Raise Potential', 'Essence', 'Kindred', 'Mementos', 'Moonpearl', '6 − P']) expect(pot, s).toContain(s);
+    // gates 6–10 with the Potential each needs, and the caps 63 · 67 · 72 · 78 · 85
+    const lv = getArticle('leveling').sections.find((x) => x.heading === 'Breakthrough');
+    const rows = lv.blocks.find((b) => b.type === 'table').rows;
+    expect(rows.length).toBe(10);
+    expect(rows.slice(5).map((r) => r[2])).toEqual(['P2', 'P3', 'P4', 'P5', 'P6']);
+    expect(rows.slice(5).map((r) => r[1].split('cap ')[1])).toEqual(['63', '67', '72', '78', '85']);
+    expect(rows[9][3]).toMatch(/Zenith material ×4.*Rainbow Crown ×1/);
+  });
+
   it('search ranks title hits first and filters non-matches', () => {
     expect(searchWiki('pity')[0].article.id).toBe('gacha');
     expect(searchWiki('crosspath')[0].article.id).toBe('crosspath');

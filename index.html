@@ -23,9 +23,120 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Nunito:ital,wght@0,700;0,900;1,800;1,900&display=swap" rel="stylesheet" />
+    <script>
+      /* The loading screen's look (Settings → Loading screen) on <html> before the first paint: Mochi
+         mint / sakura (data-mochi), the background black / colour (data-loader-bg). Read from the saved
+         settings (src/systems/save.js: SAVE_KEY, settings.loadingMochi / loadingBg) without parsing the
+         save; blocked storage or anything unknown gives the defaults. Later changes: mochi.js applyLoadingLook(). */
+      (function () {
+        var mochi = 'mint', bg = 'black';
+        try {
+          var t = localStorage.getItem('sakura-sentinels-save-v1') || '';
+          var m = /"loadingMochi":"(mint|sakura)"/.exec(t);
+          if (m) mochi = m[1];
+          m = /"loadingBg":"(black|colour)"/.exec(t);
+          if (m) bg = m[1];
+        } catch (e) { /* no storage: the defaults */ }
+        try {
+          document.documentElement.setAttribute('data-mochi', mochi);
+          document.documentElement.setAttribute('data-loader-bg', bg);
+        } catch (e) { /* the CSS defaults: mint on black */ }
+      })();
+    </script>
+    <style>
+      /* The loading screen + Mochi, the loading slime (src/ui/loading/). Inline on purpose: the boot
+         loader below draws from the first byte, before any script or stylesheet, and the game reuses the
+         same element for every later load. Everything animates transform / opacity only (compositor). */
+      :root {
+        /* Mochi's look, "mint" (the default): mint jelly with a sakura petal */
+        --mochi-jelly-1: #ecfff3; --mochi-jelly-2: #b2f3c9; --mochi-jelly-3: #76da9c; --mochi-jelly-4: #4cba78;
+        --mochi-edge: #2f9c62; --mochi-iris: #2f8a8a; --mochi-catch: #93f5d0; --mochi-blush: #ff86ad;
+        --mochi-sprig-1: #fff0f5; --mochi-sprig-2: #ffaccb; --mochi-sprig-3: #ff79a7; --mochi-sprig-edge: #e8578b;
+        --mochi-glow: 123, 227, 164;
+        /* the loading screen's background, "black" (the default) */
+        --ld-bg: #050608;
+      }
+      /* "sakura": sakura-pink jelly with a mint leaf (same shape, same hop, only the colours) */
+      html[data-mochi="sakura"] {
+        --mochi-jelly-1: #fff3f8; --mochi-jelly-2: #ffcadd; --mochi-jelly-3: #ff9cbf; --mochi-jelly-4: #ef6f9d;
+        --mochi-edge: #c94a7d; --mochi-iris: #9a3f72; --mochi-catch: #ffc4dc; --mochi-blush: #e8487f;
+        --mochi-sprig-1: #effff5; --mochi-sprig-2: #a8efc5; --mochi-sprig-3: #5ccd8c; --mochi-sprig-edge: #2f9c62;
+        --mochi-glow: 255, 140, 182;
+      }
+      .mochi-leaf { display: none; }
+      html[data-mochi="sakura"] .mochi-petal { display: none; }
+      html[data-mochi="sakura"] .mochi-leaf { display: inline; }
+      /* "colour": the game's deep night navy (#0b1630) with a very soft sakura glow behind Mochi and a mint one
+         from the top-left corner (the middle stays plain navy: Mochi and "Loading" read as on black) */
+      html[data-loader-bg="colour"] {
+        --ld-bg: radial-gradient(38% 72% at 94% 100%, rgba(255, 122, 168, 0.15), rgba(255, 122, 168, 0) 72%), radial-gradient(52% 62% at 16% 0%, rgba(123, 227, 164, 0.09), rgba(123, 227, 164, 0) 72%), #0b1630;
+      }
+      .ld { position: fixed; inset: 0; z-index: 370; background: var(--ld-bg); color: #f3f6ff; visibility: hidden; pointer-events: none; font-family: Nunito, 'M PLUS Rounded 1c', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+      .ld.bare { background: transparent; }
+      /* shown only once a load passes 150 ms (--ld-delay), on the compositor; the boot's cover is there at once */
+      .ld.on { visibility: visible; animation: ld-in 160ms ease-out var(--ld-delay, 150ms) both; }
+      .ld.on.boot, .ld.on.bare, .ld.on.stay { animation: none; }
+      .ld.on.out { animation: ld-out 140ms ease-in both; }
+      .ld.on.boot.out { animation-duration: 240ms; }
+      .ld.on.wait { pointer-events: auto; }
+      .ld.on > * { animation: ld-in 160ms ease-out var(--ld-delay, 150ms) both; }
+      .ld.on .mochi.pop { animation: mochi-pop 300ms cubic-bezier(0.3, 1.5, 0.5, 1) var(--ld-delay, 150ms) both; }
+      @keyframes ld-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes ld-out { from { opacity: 1; } to { opacity: 0; } }
+      .ld-corner { position: absolute; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: flex-end; gap: 6px; }
+      .ld-label { font: italic 900 15px/1 Nunito, 'M PLUS Rounded 1c', system-ui, sans-serif; letter-spacing: 0.08em; padding: 0 0 9px; white-space: nowrap; display: flex; align-items: baseline; }
+      .ld-dots { display: inline-flex; gap: 3px; margin-left: 4px; }
+      .ld-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; display: block; animation: ld-dot 1.2s linear infinite; }
+      .ld-dots i:nth-child(1) { animation-delay: 0.744s; }
+      .ld-dots i:nth-child(2) { animation-delay: 0.824s; }
+      .ld-dots i:nth-child(3) { animation-delay: 0.904s; }
+      /* Mochi's landing makes the dots jump, one after the other */
+      @keyframes ld-dot { 0% { transform: translateY(0); } 6% { transform: translateY(-6px); animation-timing-function: ease-in; } 13%, 100% { transform: translateY(0); } }
+      .ld-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255, 255, 255, 0.07); visibility: hidden; }
+      .ld-bar.known { visibility: visible; }
+      .ld-bar i { position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(var(--p, 0)); background: linear-gradient(90deg, #7be3a4, #ffb3cb); box-shadow: 0 0 8px rgba(123, 227, 164, 0.6); transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+      @media (min-width: 1000px) and (min-height: 600px) {
+        .ld .mochi { --s: 80px; }
+        .ld-label { font-size: 18px; padding-bottom: 11px; }
+        .ld-corner { right: 26px; bottom: 22px; }
+      }
+      /* Mochi (src/ui/loading/mochi.js); one hop = 1.2 s */
+      .mochi { --s: 64px; position: relative; width: calc(var(--s) * 1.2); height: var(--s); flex: none; }
+      .mochi-shadow, .mochi-hop, .mochi-squash, .mochi-layer { position: absolute; inset: 0; }
+      .mochi svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+      .mochi-shadow { inset: auto 12% -9% 12%; height: 22%; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--mochi-glow), 0.42), rgba(var(--mochi-glow), 0)); animation: mochi-shadow 1.2s linear infinite; }
+      .mochi.on-light .mochi-shadow { background: radial-gradient(closest-side, rgba(29, 78, 137, 0.22), rgba(29, 78, 137, 0)); }
+      .mochi-hop { animation: mochi-hop 1.2s linear infinite; }
+      .mochi-squash { transform-origin: 50% 94%; animation: mochi-squash 1.2s linear infinite; }
+      .mochi-eyes { transform-origin: 50% 62%; animation: mochi-blink 2.4s linear infinite; }
+      .mochi-sprig { transform-origin: 63.3% 25%; animation: mochi-sprig 1.2s linear infinite; }
+      .mochi-mouth-o { opacity: 0; animation: mochi-mouth-o 1.2s linear infinite; }
+      .mochi-mouth-s { animation: mochi-mouth-s 1.2s linear infinite; }
+      .mochi-body { filter: drop-shadow(0 0 calc(var(--s) * 0.14) rgba(var(--mochi-glow), 0.28)); }
+      .mochi.on-light .mochi-body { filter: none; }
+      /* anticipation squash → launch stretch → apex → fall stretch → landing squash → wobble */
+      @keyframes mochi-hop { 0%, 14% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); } 42% { transform: translateY(-26%); animation-timing-function: cubic-bezier(0.55, 0, 0.8, 0.45); } 62%, 100% { transform: translateY(0); } }
+      @keyframes mochi-squash { 0% { transform: scale(1, 1); animation-timing-function: ease-in-out; } 14% { transform: scale(1.14, 0.84); animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); } 24% { transform: scale(0.88, 1.15); animation-timing-function: ease-out; } 42% { transform: scale(0.98, 1.03); animation-timing-function: ease-in; } 57% { transform: scale(0.92, 1.1); animation-timing-function: ease-in; } 62% { transform: scale(1.2, 0.8); animation-timing-function: ease-out; } 71% { transform: scale(0.95, 1.06); animation-timing-function: ease-in-out; } 80% { transform: scale(1.04, 0.97); animation-timing-function: ease-in-out; } 89% { transform: scale(0.99, 1.01); } 100% { transform: scale(1, 1); } }
+      /* the petal / leaf lags the body: flattens on launch, perks up at the apex, flops on landing */
+      @keyframes mochi-sprig { 0% { transform: rotate(18deg); animation-timing-function: ease-in-out; } 14% { transform: rotate(12deg); } 26% { transform: rotate(36deg); animation-timing-function: ease-out; } 44% { transform: rotate(2deg); animation-timing-function: ease-in-out; } 58% { transform: rotate(10deg); } 64% { transform: rotate(42deg); animation-timing-function: ease-out; } 73% { transform: rotate(8deg); animation-timing-function: ease-in-out; } 82% { transform: rotate(26deg); } 91% { transform: rotate(15deg); } 100% { transform: rotate(18deg); } }
+      /* a blink every second hop, while it rests on the ground */
+      @keyframes mochi-blink { 0%, 86%, 93%, 100% { transform: scaleY(1); } 89.5% { transform: scaleY(0.08); } }
+      /* a little "o!" in the air, a smile on the ground */
+      @keyframes mochi-mouth-o { 0%, 21% { opacity: 0; } 25%, 54% { opacity: 1; } 58%, 100% { opacity: 0; } }
+      @keyframes mochi-mouth-s { 0%, 21% { opacity: 1; } 25%, 54% { opacity: 0; } 58%, 100% { opacity: 1; } }
+      @keyframes mochi-shadow { 0% { transform: scaleX(1); opacity: 0.9; } 14% { transform: scaleX(1.12); opacity: 1; } 42% { transform: scaleX(0.56); opacity: 0.35; } 62% { transform: scaleX(1.22); opacity: 1; } 74%, 100% { transform: scaleX(1); opacity: 0.9; } }
+      @keyframes mochi-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: none; opacity: 1; } }
+      /* loops run only while a loader is shown: each show starts from rest, a hidden one costs nothing */
+      .ld:not(.on) .mochi, .ld:not(.on) .mochi *, .ld:not(.on) .ld-dots i { animation: none !important; }
+      /* reduced motion: a still, smiling Mochi and still dots */
+      @media (prefers-reduced-motion: reduce) { .mochi, .mochi *, .ld-dots i { animation: none !important; } }
+      html[data-reduce-motion] .mochi, html[data-reduce-motion] .mochi *, html[data-reduce-motion] .ld-dots i { animation: none !important; }
+    </style>
   </head>
   <body>
-    <div class="boot" style="position:fixed;inset:0;z-index:500;display:grid;place-items:center;background:#cfe8ff url(art/lobby/thumbs/academy.webp) center/cover;font:italic 900 1.6rem Nunito,system-ui,sans-serif;color:#fff;text-shadow:0 2px 8px rgba(20,40,80,.8)"><span>Sakura Sentinels</span></div>
+    <!-- the boot loader: its cover from the first byte, "Loading" + Mochi after 150 ms (src/ui/loading/) -->
+    <svg id="mochi-defs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="mochi-jelly" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--mochi-jelly-1,#ecfff3)"/><stop offset="0.36" style="stop-color:var(--mochi-jelly-2,#b2f3c9)"/><stop offset="0.78" style="stop-color:var(--mochi-jelly-3,#76da9c)"/><stop offset="1" style="stop-color:var(--mochi-jelly-4,#4cba78)"/></linearGradient><radialGradient id="mochi-core" cx="0.4" cy="0.36" r="0.55"><stop offset="0" stop-color="#fff" stop-opacity="0.6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="mochi-iris" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d152b"/><stop offset="0.55" stop-color="#1b2f52"/><stop offset="1" style="stop-color:var(--mochi-iris,#2f8a8a)"/></linearGradient><linearGradient id="mochi-sprig-g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(--mochi-sprig-1,#fff0f5)"/><stop offset="0.55" style="stop-color:var(--mochi-sprig-2,#ffaccb)"/><stop offset="1" style="stop-color:var(--mochi-sprig-3,#ff79a7)"/></linearGradient><symbol id="mochi-eye" viewBox="-10 -12 20 24" overflow="visible"><ellipse rx="8.6" ry="10.6" fill="url(#mochi-iris)" stroke="#121a31" stroke-width="1.6"/><path d="M-5.8 4.6C-3 8 3 8 5.8 4.6" style="stroke:var(--mochi-catch,#93f5d0)" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.8"/><path d="M-8.3 -3C-7.9 -9.6 -4.4 -11.2 0 -11.2C4.4 -11.2 7.9 -9.6 8.3 -3" stroke="#0f1730" stroke-width="2.8" fill="none" stroke-linecap="round"/><circle cx="-2.7" cy="-4.4" r="3.8" fill="#fff"/><circle cx="3.3" cy="3.3" r="1.8" fill="#fff"/></symbol></defs></svg>
+    <div id="ld" class="ld on boot wait" role="status" aria-live="polite" aria-label="Loading"><div class="ld-corner"><div class="ld-label"><span class="ld-text">Loading</span><span class="ld-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="mochi pop" aria-hidden="true"><div class="mochi-shadow"></div><div class="mochi-hop"><div class="mochi-squash"><div class="mochi-layer mochi-body"><svg viewBox="0 0 120 100"><path d="M22 94C10 94 5 86 7 74C10 50 30 22 60 22C90 22 110 50 113 74C115 86 110 94 98 94Z" fill="url(#mochi-jelly)" style="stroke:var(--mochi-edge,#2f9c62)" stroke-width="2.6" stroke-linejoin="round"/><path d="M22 94C10 94 5 86 7 74C10 50 30 22 60 22C90 22 110 50 113 74C115 86 110 94 98 94Z" fill="url(#mochi-core)"/><path d="M13 85C30 91.5 90 91.5 107 85C108.5 90 104.5 94 98 94H22C15.5 94 11.5 90 13 85Z" style="fill:var(--mochi-edge,#2f9c62)" opacity="0.3"/><path d="M24 61C25 47 35 35 49 29.5" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" opacity="0.88"/><circle cx="22.6" cy="70" r="2.8" fill="#fff" opacity="0.85"/><circle cx="90" cy="81" r="4.3" fill="#fff" fill-opacity="0.16" stroke="#fff" stroke-opacity="0.6" stroke-width="1.3"/><circle cx="99" cy="71" r="2.3" fill="#fff" fill-opacity="0.2" stroke="#fff" stroke-opacity="0.55" stroke-width="1"/><ellipse cx="30.5" cy="76" rx="7" ry="3.6" style="fill:var(--mochi-blush,#ff86ad)" opacity="0.75"/><ellipse cx="89.5" cy="76" rx="7" ry="3.6" style="fill:var(--mochi-blush,#ff86ad)" opacity="0.75"/></svg></div><div class="mochi-layer mochi-eyes"><svg viewBox="0 0 120 100"><use href="#mochi-eye" x="34.3" y="48.6" width="22.4" height="26.9"/><use href="#mochi-eye" x="63.3" y="48.6" width="22.4" height="26.9"/></svg></div><div class="mochi-layer mochi-mouth-s"><svg viewBox="0 0 120 100"><path d="M55.8 75.2C58.2 78.8 61.8 78.8 64.2 75.2" fill="none" stroke="#162038" stroke-width="2.4" stroke-linecap="round"/></svg></div><div class="mochi-layer mochi-mouth-o"><svg viewBox="0 0 120 100"><ellipse cx="60" cy="77" rx="3.6" ry="4.2" fill="#6e1f36" stroke="#162038" stroke-width="1.6"/><ellipse cx="60" cy="79.2" rx="2.2" ry="1.4" fill="#ff8fb3"/></svg></div><div class="mochi-layer mochi-sprig"><svg viewBox="0 0 120 100"><g transform="translate(76 25) scale(1.15)"><g class="mochi-petal"><path d="M0 0C-8.5 -5 -11 -16.5 -5.8 -25L0 -20.6L5.8 -25C11 -16.5 8.5 -5 0 0Z" fill="url(#mochi-sprig-g)" style="stroke:var(--mochi-sprig-edge,#e8578b)" stroke-width="1.2" stroke-linejoin="round"/><path d="M0 -3.2V-15" stroke="#fff" stroke-opacity="0.75" stroke-width="1.3" stroke-linecap="round"/></g><g class="mochi-leaf"><path d="M0 0C-9.4 -4.6 -12.2 -15.6 -3.6 -26.6C2.6 -24.6 10.8 -16.4 8.8 -7.8C7.8 -3.4 4.2 -0.6 0 0Z" fill="url(#mochi-sprig-g)" style="stroke:var(--mochi-sprig-edge,#e8578b)" stroke-width="1.2" stroke-linejoin="round"/><path d="M0.3 -2.8C0.9 -10 0.2 -17.4 -2.4 -23" fill="none" stroke="#fff" stroke-opacity="0.8" stroke-width="1.3" stroke-linecap="round"/><path d="M0.6 -9.6L4.6 -12.6M0.1 -15.4L-3.9 -18.2" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="1" stroke-linecap="round"/></g></g></svg></div></div></div></div></div><div class="ld-bar"><i></i></div></div>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

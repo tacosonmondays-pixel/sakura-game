@@ -211,14 +211,14 @@ const FUU = {
   pathCapabilities: ['slow', 'stun', 'grounding', 'reveal'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#79c9b2', hairShade: '#4f9e88', eyes: '#6ecebc', skin: '#ffe8dc',
+    hair: '#7f5240', hairShade: '#4e3128', eyes: '#6ecebc', skin: '#ffe8dc',
     outfit: '#eef6e8', outfitShade: '#8fcfb0', accent: '#4f9e88', halo: '#c8ffe8', weapon: '#e9d8a6',
   },
   look: {
     hairStyle: 'twintails', bangs: 'swept', accessory: 'hairpin', outfit: 'hoodie', weapon: 'fan',
     halo: 'leaf', eyeStyle: 'sparkle', expression: 'cheerful',
   },
-  bio: 'A first-year from the dance club. Mint twin-tails with leaf-and-star pins, a mint track jacket over a white sailor top, a pleated skirt over sport leggings and sneakers, and a big folding fan with a little turbine in every rib. One sweep and a whole column of goblins tumbles back down the path.',
+  bio: 'A first-year from the dance club. Cocoa-brown twin-tails tied with mint ribbons and leaf-and-star pins, a mint track jacket over a white sailor top, a pleated skirt over sport leggings and sneakers, and a big folding fan with a little turbine in every rib. One sweep and a whole column of goblins tumbles back down the path.',
   personality: 'Breezy, carefree and impossible to pin down; hums while she fights and never walks when she can twirl.',
   quote: 'Back you go~ Again! And again!',
   tips: [
@@ -385,7 +385,7 @@ const NOA = {
   pathCapabilities: ['detection', 'silence', 'reveal', 'stun', 'slow'],
   acquisition: free('6-2', 'Joins after 6-2, right before the sappers of Sabotage!: her sanctuary keeps nearby girls from being jammed.'),
   palette: {
-    hair: '#c69462', hairShade: '#9a6c3f', eyes: '#7fcfb4', skin: '#fff0ea',
+    hair: '#c69462', hairShade: '#9a6c3f', eyes: '#c26a78', skin: '#fff0ea',
     outfit: '#d9dde2', outfitShade: '#a9b0b8', accent: '#7fd6b5', halo: '#ffe0ec', weapon: '#f0a6bf',
   },
   look: {

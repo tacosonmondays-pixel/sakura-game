@@ -13,7 +13,7 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 const GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/f5875291/4',
-  '4-5:hard': 'L26/0/72622/2743/f507c845/25',
+  '4-5:hard': 'W26/2/65954/3532/98fba3e0/21',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out)
   '8-5:normal': 'L30/0/37594/8800/f23b76ee/14',

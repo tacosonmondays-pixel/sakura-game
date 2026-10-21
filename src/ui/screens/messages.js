@@ -8,6 +8,7 @@ import '../styles/social.css';
 import { h, screen, button, toast, modal, confirmDialog, svgEl, glyph } from '../components.js';
 import { buildHash } from '../router.js';
 import { ensureOnline, onlinePill, avatar, levelChip, clock, connecting, showError } from '../online/common.js';
+import { inlineLoader } from '../loading/loader.js';
 import { needsUpdateCard } from '../online/needsUpdate.js';
 import { clanInviteRows, myInviteClan, inviteToClan } from '../online/clanInvite.js';
 import { openPlayerCard, NEW_PEER_KEY } from '../online/playerCard.js';
@@ -378,7 +379,7 @@ export function render(root, params = {}) {
     const more = h('button.sc-more', { 'data-testid': 'thread-more', onclick: () => loadOlder() }, 'Load earlier messages');
     const foot = h('div.sc-thread-foot');
     threadPane.replaceChildren(h('div.sc-thread', head, msgs, foot));
-    msgs.append(h('div.ol-chat-empty', 'Loading…'));
+    msgs.append(h('div.ol-chat-empty', inlineLoader('Loading')));
 
     function paintHead() {
       const p = info.peer;

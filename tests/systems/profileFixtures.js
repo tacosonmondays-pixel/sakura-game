@@ -1,6 +1,7 @@
 // Saves for the Sensei Profile tests: a fresh one and a late-game one (every girl maxed in legendary
 // +10 gear, every medal, freeplay marks, claimed achievements).
 import { createProfile } from '../../src/systems/save.js';
+import { potentialState } from '../../src/systems/potential.js';
 import { UNITS } from '../../src/data/units.js';
 import { STAGES } from '../../src/data/stages.js';
 import { ACHIEVEMENTS } from '../../src/data/missions.js';
@@ -15,7 +16,8 @@ export function lateSave() {
   const p = createProfile();
   const rng = createRng('profile-late');
   for (const u of UNITS) {
-    p.units[u.id] = { level: 60, exp: 0, breakthrough: 5, awaken: 5, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: 1, favorite: false, dupes: 5 };
+    // maxed: P6 (bought with her five duplicates' Essence), all ten gates, level 85
+    p.units[u.id] = { level: 85, exp: 0, breakthrough: 10, awaken: 5, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: 1, favorite: false, ...potentialState(6) };
     for (const slot of ['charm', 'ribbon', 'shoes']) {
       const g = rollGear(rng, { slot, rarity: 'legendary', level: 10 });
       const uid = addGear(p, g);

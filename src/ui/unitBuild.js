@@ -5,19 +5,21 @@
 // viewer's client.
 import './styles/unit-build.css';
 import { h, svgEl, stars } from './components.js';
-import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES } from '../data/types.js';
+import { GEAR_SLOTS, ITEM_RARITIES } from '../data/types.js';
+import { GEAR_STAT_DEFS, statName } from '../data/gearStats.js';
 import { levelCap, unitBattleStats, unitPower, MAX_BREAKTHROUGH, MAX_AWAKEN } from '../systems/progression.js';
-import { gearStatTotals } from '../systems/gear.js';
+import { gearStatTotals, gearLines, isUrLook } from '../systems/gear.js';
 import { potentialLevel, MAX_POTENTIAL } from '../systems/potential.js';
 import { gearIcon, uiIcon } from '../art/icons.js';
 import { displayRarity, urBadge } from './rarity.js';
+import { fmtNum } from './format.js';
+import { roundCost } from '../sim/Sim.js';
 
-const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const r1 = (v) => Math.round(v * 10) / 10;
 
 /** '+24.2%' for a fraction stat, '+2' for a flat one. */
 export function statText(stat, value) {
-  return GEAR_STATS[stat]?.pct ? `+${r1(value * 100).toFixed(1)}%` : `+${r1(value)}`;
+  return GEAR_STAT_DEFS[stat]?.pct ? `+${r1(value * 100).toFixed(1)}%` : `+${r1(value)}`;
 }
 
 const pctDelta = (mul) => {
@@ -36,22 +38,25 @@ export function buildModel(unit, prof) {
   const gear = Object.keys(GEAR_SLOTS).map((slot) => {
     const g = st.gear?.[slot] && prof.gear?.[st.gear[slot]];
     if (!g || g.slot !== slot) return { slot, slotName: GEAR_SLOTS[slot].name, empty: true };
+    const L = gearLines(g);
     return {
-      slot, slotName: GEAR_SLOTS[slot].name, rarity: g.rarity, rarityName: ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
-      main: { name: GEAR_STATS[g.main.stat]?.name || g.main.stat, text: statText(g.main.stat, g.main.value) },
-      subs: (g.subs || []).map((s) => ({ name: GEAR_STATS[s.stat]?.name || s.stat, text: statText(s.stat, s.value), ups: Math.max(0, s.upgrades || 0) })),
+      slot, slotName: GEAR_SLOTS[slot].name, rarity: g.rarity, ur: isUrLook(g), club: g.club || null, rarityName: isUrLook(g) ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
+      main: { name: statName(g.main.stat), text: statText(g.main.stat, L.main.value) },
+      subs: L.subs.map((s) => ({ name: statName(s.stat), text: statText(s.stat, s.value), ups: Math.max(0, s.upgrades || 0), tuned: s.tuned || 0 })),
     };
   });
-  const totals = Object.entries(gearStatTotals(prof, unit.id)).filter(([, v]) => v > 0).map(([stat, v]) => ({ name: GEAR_STATS[stat].name, text: statText(stat, v) }));
+  const totals = Object.entries(gearStatTotals(prof, unit.id)).filter(([, v]) => v > 0).map(([stat, v]) => ({ name: statName(stat), text: statText(stat, v) }));
   const s = unitBattleStats(prof, unit.id);
   const b = unit.base;
   const critMul = (b.crit?.mul || 1.5) * s.critMul;
+  // the deploy price the battle charges on Normal (Sim.placeCost rounds to a multiple of 5; a free unit stays 0)
+  const cost = b.cost > 0 ? roundCost(b.cost * s.costMul) : 0;
   const stats = [
-    b.damage ? { label: 'Damage', value: fmt(b.damage * s.damageMul), delta: pctDelta(s.damageMul) } : null,
+    b.damage ? { label: 'Damage', value: fmtNum(b.damage * s.damageMul), delta: pctDelta(s.damageMul) } : null,
     b.rate ? { label: 'Attack speed', value: `${(b.rate * s.rateMul).toFixed(2)}/s`, delta: pctDelta(s.rateMul) } : null,
     { label: 'Range', value: (b.range * s.rangeMul).toFixed(1), delta: pctDelta(s.rangeMul) },
     { label: 'Crit', value: `${Math.round(((b.crit?.chance || 0) + s.critChance) * 100)}%`, delta: `×${critMul.toFixed(2)} dmg` },
-    { label: 'Cost', value: fmt(b.cost * s.costMul), delta: pctDelta(s.costMul) },
+    { label: 'Cost', value: fmtNum(cost, 'money'), delta: pctDelta(s.costMul) },
   ].filter(Boolean);
   return {
     level: st.level || 1,
@@ -80,7 +85,7 @@ function gearCard(g, emptyText) {
   }
   const el = h('div.ub-gc', { 'data-testid': 'build-gear', 'data-slot': g.slot },
     h('div.ub-gc-head',
-      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity))),
+      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity, { ur: g.ur }))),
       h('span.ub-gc-slot', g.slotName, h('span.ub-gc-rar', g.rarityName), h('span.ub-gc-lv', `+${g.level}`))),
     h('div.ub-gc-main', h('span', g.main.name), h('b', g.main.text)),
     g.subs.length ? h('ul.ub-gc-subs', g.subs.map((s) => h('li', h('span', s.name), h('b', s.text), s.ups ? h('em', { title: `Upgraded ${s.ups}×` }, '▲'.repeat(s.ups)) : null))) : null);
@@ -107,7 +112,7 @@ export function buildTab(unit, prof, { snapshotOwner = null, gearText = null } =
         tile('Breakthrough · Level', h('b', String(m.level), h('small', ` / ${m.cap}`)), pips),
         tile(['Awakening', m.ur ? urBadge() : null], stars(m.awaken, MAX_AWAKEN), h('span.ub-sub', m.awaken >= MAX_AWAKEN ? 'Fully awakened' : `★${m.awaken} of ${MAX_AWAKEN}`)),
         tile('Potential', h('b', `P${m.potential}`, h('small', ` / ${MAX_POTENTIAL}`)), track),
-        tile('Power', h('b', { 'data-testid': 'build-power' }, fmt(m.power)), h('span.ub-sub', 'Before in-battle upgrades')))),
+        tile('Power', h('b', { 'data-testid': 'build-power' }, fmtNum(m.power)), h('span.ub-sub', 'Before in-battle upgrades')))),
     h('section.ub-sec',
       h('div.ub-sec-t', 'Equipment', h('small', `${m.equipped} / 3 equipped`)),
       h('div.ub-gear', m.gear.map((g) => gearCard(g, gearText)))),

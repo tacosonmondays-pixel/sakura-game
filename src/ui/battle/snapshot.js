@@ -47,11 +47,13 @@ import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
 import { FLIGHT_MODES } from '../../sim/constants.js';
+import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
+import { eventBattleStage } from '../../data/events/wire.js';
 import { modeId } from '../../data/modes.js';
 
 /**
@@ -116,6 +118,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   _towerByUid: 'snap',
   // path cap (src/sim/buffs.js): the recent-DPS window's timer (which girl a brew / link picks)
   _dpsTimer: 'snap',
+  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle
+  popBudget: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
@@ -181,6 +185,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
+  // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
+  // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
+  pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
   // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
   // origin follows from it and her spot (updateRelayOrigin)
   aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
@@ -262,6 +269,7 @@ export function snapshotSim(sim) {
     // team damage buffs in their own key (a build from before them ignores it, never reads it as haste)
     ...(sim._globalBuffs.some((b) => b.left > 0 && b.kind === 'dmg') ? { db: sim._globalBuffs.filter((b) => b.left > 0 && b.kind === 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]) } : {}),
     dps: sim._dpsTimer,
+    ...(sim.popBudget != null && sim.popBudget !== POP_BUDGET_MAX ? { pb: sim.popBudget } : {}),
     towers,
     kills: { ...sim.kills },
     enc: [...sim.encountered],
@@ -307,6 +315,7 @@ function packTower(sim, t) {
   packPotential(t, o);
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
+  packGear(t, o);
   return o;
 }
 
@@ -361,6 +370,22 @@ function unpackPotential(t, o) {
   if (Array.isArray(o.oc)) t.potOc = { cd: r(o.oc[0]), left: Math.max(0, r(o.oc[1])) };
 }
 
+/** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
+// index-coded in the save (`gr`): append only, never reorder
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN'];
+function packGear(t, o) {
+  const gr = [];
+  GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });
+  if (gr.length) o.gr = gr;
+}
+function unpackGear(t, o) {
+  if (!Array.isArray(o.gr)) return;
+  for (let j = 0; j + 1 < o.gr.length; j += 2) {
+    const k = GEAR_FIELDS[o.gr[j]];
+    if (k) t[k] = Math.max(0, Math.floor(r(o.gr[j + 1])));
+  }
+}
+
 /** A brewer's / linker's own state (src/sim/buffs.js brewTick / linkTick) as a short row. */
 function packLim(l) {
   if (l.kind === 'brew') return ['b', l.cd, l.repick ? 1 : 0, ...l.targets];
@@ -400,6 +425,9 @@ export function restoreSim(rec, profile = null) {
   const stage = STAGE_MAP[rec?.stageId];
   if (!stage) throw new StaleSaveError(`unknown stage ${rec?.stageId}`);
   if (!s || !(rec.v <= RECORD_V) || !(s.v <= SNAP_V)) throw new StaleSaveError('save format from a newer build');
+  // [events] a difficulty with its own waves (the Golem's Nightmare) restores on that stage, as
+  // createBattleSim built it (src/ui/battle/setup.js), so the wave tables match after Continue
+  const evStage = eventBattleStage(rec.stageId, rec.difficulty);
   let sim;
   try {
     sim = new Sim({
@@ -414,6 +442,7 @@ export function restoreSim(rec, profile = null) {
         endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart, mode: modeId(rec.mode),
         ...(profile?.settings?.autoCastAbilities ? { autoAbilities: true } : null),
       },
+      ...(evStage ? { data: { stage: evStage } } : {}),
     });
   } catch (e) {
     throw new StaleSaveError(`stage cannot be built: ${e.message}`);
@@ -471,6 +500,7 @@ export function restoreSim(rec, profile = null) {
     t.facing = r(o.face);
     t.buildTimer = r(o.bt);
     unpackPotential(t, o);
+    unpackGear(t, o);
     if (t.isHero && oldHeroes) {
       // her old level on the new track, bar empty (old XP is on another scale); she deploys free
       // now, so her placement and tiers come back as coins
@@ -567,6 +597,7 @@ export function restoreSim(rec, profile = null) {
     const rate = Math.max(1, Math.floor(r(g[3])) || 100);
     if (cd > 0) sim.abilGroups.set(g[0], { cd, cdMax, rate });
   }
+  sim.popBudget = s.pb != null ? Math.max(0, Math.min(POP_BUDGET_MAX, Math.floor(r(s.pb)))) : POP_BUDGET_MAX;
   recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;

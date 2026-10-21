@@ -32,7 +32,11 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 // 5: Potential v3 (co-op update #2, set once for it): every step P2…P6 is a stat buff plus a kit
 //    buff with new sim mechanics (rhythms, echoes, tempo, overclock, …; src/sim/potential.js), and a
 //    girl's level travels up to 85; a client on 4 resolves the same loadout to different battles.
-export const COOP_PROTOCOL = 5;
+// 6: v0.1.39 (co-op update #3, set once for it): the nine returning girls (their kits, the `aim`
+//    command, curses, hexes, runners, team damage buffs), UR gear in battle (Pierce, Aura Power, the
+//    Academy Club tricks) and Ascension's gates 6-10; a client on 5 resolves the same loadout to
+//    different battles (or does not know the girl at all).
+export const COOP_PROTOCOL = 6;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

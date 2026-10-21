@@ -27,6 +27,7 @@ import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
+import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
@@ -102,7 +103,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
   };
   const scenery = resolveScenery(stage, familyOf);
-  const look = resolveLook(map.theme, scenery);
+  // stage.look (render-only StageDef field, e.g. Halloween event stages):
+  //   night: 'lantern' → warm lantern-lit night; costumes: true → monsters in costumes
+  const stageLook = stage?.look || null;
+  const look = resolveLook(map.theme, scenery, stageLook);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(look.fog ? mixHex(look.bg, look.fogColor, 0.4) : look.bg);
 
@@ -165,7 +169,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const fx = new FxSystem({ atlas, batches, camera });
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
-  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, skins: opts.skins });
+  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
   const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion });
@@ -972,7 +976,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
       canvas.remove();
       fxLayer.remove();
       liveRenderers = Math.max(0, liveRenderers - 1);
-      if (liveRenderers === 0) clearPropCache();
+      if (liveRenderers === 0) {
+        clearPropCache();
+        clearCostumeCache();
+      }
     },
   };
 }

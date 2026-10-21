@@ -971,7 +971,7 @@ const POTENTIAL_BOSS_UPGRADES = Object.freeze([
  * by Hotaru / Kaede at P6).
  * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14 } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -1018,6 +1018,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
       return hit0.call(this, e, tower, spec, ...rest);
     },
   });
+  // (an optional observer of the host's copy, installed the same way: it never changes the battle)
+  probe?.(A.sim);
   while (frame < maxFrames && !(A.finished && B.finished)) {
     if (frame === 20) A.queue('wave');
     if (frame === 30) A.queue('auto', [true]);
@@ -1205,6 +1207,127 @@ export function runModeBattles() {
   return { battles, digest: bitsHash(battles.flatMap((b) => [Number.parseInt(b.final, 16) || 0, b.hashes.length ? Number.parseInt(String(b.hashes).slice(0, 8), 16) || 0 : 0, b.steps])), ms: Date.now() - t0 };
 }
 
+// ---------------------------------------------------------------------------
+// Gear (docs/specs/GEAR_STATS.md §F.4): GEAR_START, the clubs lineup with Pierce and Aura Power
+// ---------------------------------------------------------------------------
+
+const G = (more = {}) => ({ costMul: 0.4, damageMul: 3, rateMul: 1.2, ...more });
+/**
+ * Every gear rule in one co-op battle (4-5, crowds and a Matriarch-free wave table): Pierce on shots
+ * (Archery Aoi with Follow-Through), a sweep (Fencing Rei: Finishing Thrust), blasts (Pyrotechnics
+ * Akane: Finale Pop and the pop budget, her burn × dotMul), traps (Taiko Suzu: Big Beat on traps),
+ * drones (Taiko Chika: drone Pierce and Big Beat on drone shots), a half-rate sniper (Shiro), an aura
+ * with Aura Power and the fill-in radius (Tea Miko: Second Cup), and a duel with a club (Kaede).
+ */
+export const GEAR_START = Object.freeze({
+  seed: 818181,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [
+      { unitId: 'aoi', stats: G({ pierceK: 76, club: 'archery', clubN: 3 }) },
+      { unitId: 'akane', stats: G({ pierceK: 46, dotMul: 1.25, club: 'pyro', clubN: 3 }) },
+      { unitId: 'miko', stats: G({ auraPct: 0.2, auraRangeMul: 1.05, club: 'tea', clubN: 3 }) },
+      { unitId: 'suzu', stats: G({ pierceK: 30, club: 'taiko', clubN: 3 }) },
+    ], hero: { unitId: 'hikari', stats: G({ pierceK: 46 }) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [
+      { unitId: 'rei', stats: G({ pierceK: 46, club: 'fencing', clubN: 3 }) },
+      { unitId: 'chika', stats: G({ pierceK: 100, club: 'taiko', clubN: 3 }) },
+      { unitId: 'shiro', stats: G({ pierceK: 150, club: 'fencing', clubN: 2 }) },
+      { unitId: 'kaede', stats: G({ club: 'fencing', clubN: 3 }) },
+    ], hero: null },
+  ],
+});
+const GEAR_UPGRADES = Object.freeze([[0, 'aoi', 0], [0, 'akane', 0], [1, 'chika', 0], [1, 'rei', 0], [0, 'suzu', 0], [1, 'shiro', 0]]);
+
+/** GEAR_START to the end (or 14 minutes): the same fields as runPotentialBattle. */
+export function runGearBattle({ maxFrames = 60 * 60 * 14 } = {}) {
+  const t0 = Date.now();
+  const r = runPotentialBattle({ start: GEAR_START, upgrades: GEAR_UPGRADES, spotsFirst: ['aoi', 'rei', 'akane', 'chika', 'suzu', 'miko', 'shiro', 'kaede'], maxFrames });
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+// ---------------------------------------------------------------------------
+// The returning girls in gear: GEAR_GIRLS_START (towers.js paths merged from the roster wave)
+// ---------------------------------------------------------------------------
+
+/**
+ * The nine returning girls wearing gear in one co-op battle (4-5 Normal, as GEAR_START): Iroha's two
+ * firing points (her mirror and where she stands), each volley taking gear Pierce and Archery's
+ * Follow-Through; Ena and Ruri's shots with Pierce; Noa's sanctuary with Aura Power (her base aura
+ * gives +8 % damage, so it is real); Fuu, Hana and the three staff heroes with their clubs' tricks;
+ * pulse / beam / chain Pierce measured from the relay origin (t.ox / t.oy). Aoi joins as the live
+ * girl beside them. Kanna is the host's hero, Seiran the guest's.
+ */
+export const GEAR_GIRLS_START = Object.freeze({
+  seed: 424242,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [
+      { unitId: 'iroha', stats: G({ pierceK: 76, club: 'archery', clubN: 3 }) },
+      { unitId: 'ena', stats: G({ pierceK: 46, club: 'fencing', clubN: 3 }) },
+      { unitId: 'noa', stats: G({ auraPct: 0.2, auraRangeMul: 1.05, club: 'tea', clubN: 3 }) },
+      { unitId: 'fuu', stats: G({ pierceK: 30, club: 'taiko', clubN: 3 }) },
+    ], hero: { unitId: 'kanna', stats: G({ pierceK: 46, club: 'taiko', clubN: 3 }) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [
+      { unitId: 'hana', stats: G({ pierceK: 100, club: 'pyro', clubN: 3 }) },
+      { unitId: 'ruri', stats: G({ pierceK: 150, club: 'archery', clubN: 3 }) },
+      { unitId: 'aoi', stats: G({ pierceK: 76, club: 'archery', clubN: 3 }) },
+    ], hero: { unitId: 'seiran', stats: G({ pierceK: 46, club: 'fencing', clubN: 3 }) } },
+  ],
+});
+const GEAR_GIRLS_UPGRADES = Object.freeze([[0, 'iroha', 0], [0, 'ena', 0], [1, 'hana', 0], [1, 'ruri', 0], [0, 'noa', 0], [0, 'iroha', 1]]);
+
+/**
+ * GEAR_GIRLS_START to the end (or 10 minutes): the runPotentialBattle fields plus `iroha` (her shots
+ * from the mirror / from where she stands / with gear Pierce, counted on the host's copy as they are
+ * fired) and `tricks` (club tricks by girl and kind).
+ */
+export function runGearGirlsBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const iroha = { mirror: 0, own: 0, pierced: 0 };
+  const tricks = {};
+  const probe = (sim) => {
+    const shots = sim.projectiles;
+    const push0 = shots.push;
+    Object.defineProperty(shots, 'push', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function push(...ps) {
+        for (const p of ps) {
+          const t = p?.owner;
+          if (t?.def?.id !== 'iroha') continue;
+          if (p.x === t.ox && p.y === t.oy && (t.ox !== t.x || t.oy !== t.y)) iroha.mirror++;
+          else if (p.x === t.x && p.y === t.y) iroha.own++;
+          if (p.pierce > p.spec.pierce) iroha.pierced++;
+        }
+        return push0.apply(this, ps);
+      },
+    });
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'clubTrick') {
+          const id = sim.towers.find((t) => t.uid === ev?.towerUid)?.def.id || '?';
+          tricks[`${id}:${ev.kind}`] = (tricks[`${id}:${ev.kind}`] || 0) + 1;
+        }
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  const r = runPotentialBattle({ start: GEAR_GIRLS_START, upgrades: GEAR_GIRLS_UPGRADES, spotsFirst: ['iroha', 'ena', 'noa', 'fuu', 'hana', 'ruri', 'aoi'], maxFrames, probe });
+  r.iroha = `${iroha.mirror}/${iroha.own}/${iroha.pierced}`;
+  r.tricks = Object.keys(tricks).sort().map((k) => `${k}=${tricks[k]}`).join(' ');
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 /** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), freeplay (scripted and deep), two heroes, drones and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
@@ -1219,5 +1342,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), modes };
 }

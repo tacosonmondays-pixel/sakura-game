@@ -7,8 +7,10 @@ import { buildChibi, disposeObject, STANDIN_UNITS, isStandIn } from '../../src/m
 import { UNITS, getUnit } from '../../src/data/units.js';
 import { SKINS } from '../../src/data/skins.js';
 
-const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
-const STANDINS = RETURNING;
+// the returning girls still drawn procedurally: none any more (noa, hana and ruri have their Meshy GLB since the art
+// wave; the girls with a temporary Blender chibi have theirs from tools/blender, docs/MODELS.md). The stand-in path
+// stays for a future girl who lands before her model.
+const RETURNING = [];
 
 function vertexCount(group) {
   let n = 0;
@@ -26,9 +28,9 @@ function build(unit, look = {}) {
 }
 
 describe('stand-in list', () => {
-  it('is exactly the nine returning girls, all roster units', () => {
-    expect([...STANDIN_UNITS]).toEqual(STANDINS);
-    for (const id of STANDINS) {
+  it('is exactly the returning girls without art yet, all roster units', () => {
+    expect([...STANDIN_UNITS]).toEqual(RETURNING);
+    for (const id of RETURNING) {
       expect(getUnit(id).id).toBe(id);
       expect(isStandIn(id)).toBe(true);
     }
@@ -36,15 +38,17 @@ describe('stand-in list', () => {
   });
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
-    const others = UNITS.filter((u) => !STANDINS.includes(u.id));
-    expect(others).toHaveLength(26);
+    const others = UNITS.filter((u) => !RETURNING.includes(u.id));
+    expect(others).toHaveLength(35);
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });
 });
 
 describe('stand-in chibis (procedural)', () => {
-  for (const id of STANDINS) {
+  // the suite needs a test while the list is empty (every returning girl has her GLB)
+  if (!RETURNING.length) it('none left: every returning girl ships her own GLB', () => expect(STANDIN_UNITS).toHaveLength(0));
+  for (const id of RETURNING) {
     it(`${id}: procedural chibi in her palette/look at every quality`, () => {
       const u = getUnit(id);
       for (const quality of ['high', 'medium', 'low']) {

@@ -1,0 +1,252 @@
+{
+ "aoi": [
+  {
+   "name": "Piercing Arrows",
+   "focus": "Pierce and armor",
+   "tiers": [
+    {
+     "name": "Sharpened Tips",
+     "cost": 100,
+     "desc": "+1 damage; arrows pierce 1 more enemy.",
+     "icon": "tier-aoi-0-0",
+     "set": "attack"
+    },
+    {
+     "name": "Fletcher's Focus",
+     "cost": 220,
+     "desc": "+1 pierce, +0.3 range.",
+     "icon": "tier-aoi-0-1",
+     "set": "attack"
+    },
+    {
+     "name": "Steel Broadheads",
+     "cost": 650,
+     "desc": "Ignores 2 armor, +2 damage.",
+     "icon": "tier-aoi-0-2",
+     "set": "cap"
+    },
+    {
+     "name": "Comet Arrow",
+     "cost": 2200,
+     "desc": "+6 damage, +4 pierce, faster arrows, +30% against elites, ignores 2 more armor; +25% damage.",
+     "icon": "tier-aoi-0-3",
+     "set": "attack"
+    },
+    {
+     "name": "Skyline Breaker",
+     "cost": 17000,
+     "desc": "Arrows punch through whole columns: +18 damage, +10 pierce, ignores 8 more armor, +1 range, 10% crits ×2.5; +50% damage.",
+     "icon": "tier-aoi-0-4",
+     "set": "ui"
+    }
+   ]
+  },
+  {
+   "name": "Rapid Volley",
+   "focus": "Speed and multi-shot",
+   "tiers": [
+    {
+     "name": "Quick Draw",
+     "cost": 90,
+     "desc": "+20% attack speed.",
+     "icon": "tier-aoi-1-0",
+     "set": "ui"
+    },
+    {
+     "name": "Twin Nock",
+     "cost": 250,
+     "desc": "Shoots 2 targets at once.",
+     "icon": "tier-aoi-1-1",
+     "set": "ui"
+    },
+    {
+     "name": "Hawk Eye",
+     "cost": 600,
+     "desc": "Veil Sight; +0.4 range and +15% attack speed.",
+     "icon": "tier-aoi-1-2",
+     "set": "cap"
+    },
+    {
+     "name": "Arrow Storm",
+     "cost": 2400,
+     "desc": "4 targets per volley, +50% attack speed, ignores 3 armor; +20% damage.",
+     "icon": "tier-aoi-1-3",
+     "set": "ui"
+    },
+    {
+     "name": "Thousand Feathers",
+     "cost": 19000,
+     "desc": "6 targets per volley, double attack speed, +3 damage, ignores 4 more armor; +55% damage.",
+     "icon": "tier-aoi-1-4",
+     "set": "ui"
+    }
+   ]
+  },
+  {
+   "name": "Sky Hunter",
+   "focus": "Elites, bosses and marking",
+   "tiers": [
+    {
+     "name": "Long Bow",
+     "cost": 80,
+     "desc": "+0.5 range.",
+     "icon": "tier-aoi-2-0",
+     "set": "ui"
+    },
+    {
+     "name": "Wind Reading",
+     "cost": 200,
+     "desc": "+0.3 range, +5% crit chance.",
+     "icon": "tier-aoi-2-1",
+     "set": "ui"
+    },
+    {
+     "name": "Falcon Mark",
+     "cost": 700,
+     "desc": "Marked targets take +12% damage from everyone for 3s; +25% against elites.",
+     "icon": "tier-aoi-2-2",
+     "set": "status"
+    },
+    {
+     "name": "Pinning Gale",
+     "cost": 2000,
+     "desc": "+5 damage and +50% damage; 15% chance to pin (0.3s stun) with a slight push-back.",
+     "icon": "tier-aoi-2-3",
+     "set": "status"
+    },
+    {
+     "name": "Apex Huntress",
+     "cost": 19000,
+     "desc": "+22 damage, +30% attack speed, ×1.5 vs elites and bosses (×1.8 more vs bosses), 15% crits ×3; +7% damage.",
+     "icon": "tier-aoi-2-4",
+     "set": "ui"
+    }
+   ]
+  }
+ ],
+ "kage": [
+  {
+   "name": "Storm of Steel",
+   "focus": "Rapid multi-target",
+   "tiers": [
+    {
+     "name": "Quick Hands",
+     "cost": 140,
+     "desc": "+20% attack speed.",
+     "icon": "tier-kage-0-0",
+     "set": "ui"
+    },
+    {
+     "name": "Triple Star",
+     "cost": 320,
+     "desc": "Throws at 3 targets.",
+     "icon": "tier-kage-0-1",
+     "set": "ui"
+    },
+    {
+     "name": "Shuriken Cyclone",
+     "cost": 1000,
+     "desc": "5 targets, +1 pierce, +15% attack speed.",
+     "icon": "tier-kage-0-2",
+     "set": "attack"
+    },
+    {
+     "name": "Blade Rain",
+     "cost": 3000,
+     "desc": "7 targets, +50% attack speed, +4 damage, ignores 5 armor; +20% damage.",
+     "icon": "tier-kage-0-3",
+     "set": "ui"
+    },
+    {
+     "name": "Thousand Shadows",
+     "cost": 26000,
+     "desc": "Shadow clones join in: 13 targets, +60% speed, +3 damage, +2 pierce, ignores 4 more armor, ×1.3 vs bosses; +65% damage.",
+     "icon": "tier-kage-0-4",
+     "set": "attack"
+    }
+   ]
+  },
+  {
+   "name": "Shadow Mark",
+   "focus": "Reveal and mark",
+   "tiers": [
+    {
+     "name": "Keen Senses",
+     "cost": 120,
+     "desc": "+0.4 range.",
+     "icon": "tier-kage-1-0",
+     "set": "ui"
+    },
+    {
+     "name": "Shadow Step",
+     "cost": 300,
+     "desc": "+1 damage.",
+     "icon": "tier-kage-1-1",
+     "set": "ui"
+    },
+    {
+     "name": "Unmasking Kunai",
+     "cost": 900,
+     "desc": "Hits reveal veiled foes for everyone (3s) and mark them (+10% damage taken).",
+     "icon": "tier-kage-1-2",
+     "set": "status"
+    },
+    {
+     "name": "Assassin's Mark",
+     "cost": 2700,
+     "desc": "Mark +20% for 4s, ×1.4 vs elites, +4 damage, ignores 2 armor; +25% damage.",
+     "icon": "tier-kage-1-3",
+     "set": "status"
+    },
+    {
+     "name": "Night Sovereign",
+     "cost": 18000,
+     "desc": "Mark +35% for 5s, reveal lasts 3s longer, +10 damage, 15% crits ×2.5, ignores 3 more armor; +50% damage.",
+     "icon": "tier-kage-1-4",
+     "set": "status"
+    }
+   ]
+  },
+  {
+   "name": "Kunai Craft",
+   "focus": "Armor-piercing steel",
+   "tiers": [
+    {
+     "name": "Tempered Steel",
+     "cost": 130,
+     "desc": "+1 damage.",
+     "icon": "tier-kage-2-0",
+     "set": "ui"
+    },
+    {
+     "name": "Weighted Kunai",
+     "cost": 280,
+     "desc": "Ignores 1 armor.",
+     "icon": "tier-kage-2-1",
+     "set": "cap"
+    },
+    {
+     "name": "Paralytic Kunai",
+     "cost": 850,
+     "desc": "15% chance to stun for 0.2s; ignores 1 more armor; +2 damage.",
+     "icon": "tier-kage-2-2",
+     "set": "status"
+    },
+    {
+     "name": "Kusarigama",
+     "cost": 2600,
+     "desc": "Chained blades: +4 pierce, +5 damage, ignores 5 more armor; +25% damage.",
+     "icon": "tier-kage-2-3",
+     "set": "attack"
+    },
+    {
+     "name": "Black Lotus",
+     "cost": 19000,
+     "desc": "+16 damage, 25% stun for 0.5s, ignores 7 more armor, +30% speed; +60% damage.",
+     "icon": "tier-kage-2-4",
+     "set": "status"
+    }
+   ]
+  }
+ ]
+}

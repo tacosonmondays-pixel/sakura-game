@@ -16,8 +16,11 @@ Moves from the spec's first numbers: Azami strip damage 2 → 3 (Shredder +4, De
 sentries ×4 (base 12 dmg at 1.5/s, darts 4; tier 4-5 damage and bursts raised) — the spec's sentries
 sat at a fifth of the SR band. Tier 5s are in the live 12,000-36,000 window (spec × ~1.6).
 
-Bot (`src/sim/headless.js`, keys only the new girls carry, so base-roster plans are unchanged): a buff
-thrower is a support placed where her drinks reach the planned carry; `pathScore` reads sentry and strip
+Bot (`src/sim/headless.js`, keys only the new girls carry, so base-roster plans are unchanged): a strip
+layer is placed after the damage dealers, gets no extra copies, and her tiers wait for the carry's focus
+push (v0.1.40 merge: main's Gourdlight Golem gate EB-2 lost Normal seed 1 by a one-second boss leak
+when Azami's early spending delayed Shiro and Sango; the base team kills the Golem 20 s before it
+leaks); a buff thrower is a support placed where her drinks reach the planned carry; `pathScore` reads sentry and strip
 tiers like turret tiers.
 
 **Easy gate: 40 / 40** with the full roster; with the four new girls left out every row is bit-identical
