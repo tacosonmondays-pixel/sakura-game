@@ -10,6 +10,7 @@ import { getBackend } from '../../online/backend.js';
 import { errorText } from '../../online/errors.js';
 import { presenceText, formatFriendCode, PRIVACY_LABELS, DM_PRIVACY_DEFAULT } from '../../online/socialRules.js';
 import { avatar, levelChip, ensureOnline } from './common.js';
+import { miniMochi } from '../loading/loader.js';
 import { tagChips } from './tagChip.js';
 import { startSocialHub } from './socialHub.js';
 import { makeRoomCode } from '../../online/coop/session.js';
@@ -28,7 +29,7 @@ export function openPlayerCard(userId, hint = {}, ctx = {}) {
   const lv = h('span', levelChip(hint.level || 1));
   const clanLine = h('div.sc-card-clan');
   const presence = h('small.sc-card-presence');
-  const acts = h('div.sc-card-acts', { 'data-testid': 'card-actions' }, h('div.ol-connecting.sc-card-wait', h('i.ol-spinner')));
+  const acts = h('div.sc-card-acts', { 'data-testid': 'card-actions' }, h('div.ol-connecting.sc-card-wait', miniMochi({ size: 34 })));
   // [profile] tapping the picture opens their Sensei Profile too (not while I block them, and only once the
   // server has the profile update: before it, every visit would end on "Profiles need the latest server update")
   let profilesReady = false;

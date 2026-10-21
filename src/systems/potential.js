@@ -19,7 +19,6 @@
 import { UNIT_MAP } from '../data/units.js';
 import { MAX_POTENTIAL, potentialSteps, potentialFold, potentialClamp, potentialTrack } from '../data/potential.js';
 import { potentialTextRow } from '../data/potentialText.js';
-import { UNIT_RARITIES } from '../data/types.js';
 
 export { MAX_POTENTIAL, potentialSteps, potentialFold };
 
@@ -74,10 +73,12 @@ const whole = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Mat
 
 /**
  * @param {object|null|undefined} unitState profile.units[id]
- * @returns {number} 1..6 (no state or no dupes → 1)
+ * @returns {number} 1..6 (no state or no bought Potential → 1)
  */
 export function potentialLevel(unitState) {
-  return Math.min(MAX_POTENTIAL, 1 + whole(unitState?.dupes));
+  // Ascension (docs/specs/ASCENSION.md §A.1): Potential is bought with Essence (src/systems/essence.js)
+  // and stored as `pl`; no `pl` = P1 (never read from `dupes`, which also counts spare copies)
+  return Math.min(MAX_POTENTIAL, Math.max(1, whole(unitState?.pl) || 1));
 }
 
 /**
@@ -86,35 +87,34 @@ export function potentialLevel(unitState) {
  * state from this, so a later Potential source (ascension's Essence) changes both directions here.
  * Her level cap needs no state at all: src/systems/progression.js levelCapAt(gates, p).
  * @param {number} p 1…6 (anything else counts as P1)
- * @returns {{ dupes: number }}
+ * @returns {{ dupes: number, pl: number }} (`pl`: bought Potential, ASCENSION.md §A.1)
  */
 export function potentialState(p) {
-  return { dupes: Math.max(1, Math.min(MAX_POTENTIAL, Math.floor(Number(p) || 1))) - 1 };
+  const pl = Math.max(1, Math.min(MAX_POTENTIAL, Math.floor(Number(p) || 1)));
+  return { dupes: pl - 1, pl };
 }
 
 /**
- * A duplicate past P6 (she was already at MAX_POTENTIAL): Akashic Tomes besides her Star Fragments,
- * by her rarity (Potential v3 §4.4: SR 1, SSR 5; R overflow is constant, so none). It sits next to
- * potentialLevel so a later duplicate source (ascension's Essence) changes the duplicate payout in
- * this one place, without touching the ladders.
+ * Potential v3 paid Akashic Tomes for duplicates past P6. Ascension replaced that: a copy past her
+ * Essence hold cap is a spare (Mementos, Moonpearls, recruit points; src/systems/essence.js). Kept
+ * exported (always 0 now) for older callers.
  */
-export const DUPE_PAST_MAX_TOMES = Object.freeze({ R: 0, SR: 1, SSR: 5 });
-/** The book those duplicates pay (one level above 60 each, src/systems/progression.js LEVEL_PAST_GATES). */
+export const DUPE_PAST_MAX_TOMES = Object.freeze({ R: 0, SR: 0, SSR: 0 });
+/** The book the levels above 60 are priced in (src/systems/progression.js LEVEL_PAST_GATES). */
 export const DUPE_PAST_MAX_ITEM = 'book_legendary';
 
-/**
- * @param {object} def UnitDef
- * @param {number} potentialBefore her Potential before this duplicate
- * @returns {number} Akashic Tomes this duplicate pays (0 below P6)
- */
-export function dupePastMaxTomes(def, potentialBefore) {
-  return potentialBefore >= MAX_POTENTIAL ? DUPE_PAST_MAX_TOMES[def?.rarity] || 0 : 0;
+/** @returns {number} always 0: duplicates no longer pay Tomes (Ascension) */
+export function dupePastMaxTomes() {
+  return 0;
 }
 
-/** What her duplicates pay past P6: "Star Fragments and 5 Akashic Tomes" (an R girl: "Star Fragments only"). */
+/** What a spare copy of her converts into: "6 Mementos, 1 Moonpearl and 1 recruit point". */
 export function dupePastMaxPay(def) {
-  const t = DUPE_PAST_MAX_TOMES[def?.rarity] || 0;
-  return t ? `Star Fragments and ${t} Akashic Tome${t === 1 ? '' : 's'}` : 'Star Fragments only';
+  switch (def?.rarity) {
+    case 'SSR': return '10 Moonpearls and 5 recruit points';
+    case 'SR': return '6 Mementos, 1 Moonpearl and 1 recruit point';
+    default: return '2 Mementos and ⅕ of a recruit point';
+  }
 }
 
 /**
@@ -336,16 +336,14 @@ export function potentialNext(def, unitState) {
 
 /**
  * The duplicates rule in one sentence (the recruit rates, the wiki): where Potential comes from and
- * what a step gives. One place, so a later source (ascension's Essence) rewrites it here.
+ * what a step gives (docs/specs/ASCENSION.md §A).
  */
 export function potentialDupesRule() {
-  const f = (r) => UNIT_RARITIES[r].fragmentsOnDupe;
-  const t = (r) => DUPE_PAST_MAX_TOMES[r];
-  return `+1 Potential (P1 → P${MAX_POTENTIAL}: every step makes her stronger (and, once all five breakthrough gates are open, raises her level cap), and from P3 (from P2 for SSR girls and heroes) each one also teaches her a new trick, up to her P${MAX_POTENTIAL} capstone) and Star Fragments for awakening (R ×${f('R')}, SR ×${f('SR')}, SSR ×${f('SSR')}). At P${MAX_POTENTIAL}, duplicates give Star Fragments plus Akashic Tomes for her levels above 60 (SR ×${t('SR')}, SSR ×${t('SSR')}).`;
+  return `+1 Essence of her. Raise her Potential (P1 → P${MAX_POTENTIAL}) with 1 Essence and coins on her page: every step makes her stronger, opens her next level gate past 60, and from P3 (from P2 for SSR girls and heroes) teaches her a new trick, up to her P${MAX_POTENTIAL} capstone. She holds at most 6 − P Essence; a copy past that becomes Mementos and Moonpearls (for the Memento Exchange) and recruit points.`;
 }
 
-/** "1 more duplicate" / "2 more duplicates". */
-export const moreDupes = (n) => `${n} more duplicate${n === 1 ? '' : 's'}`;
+/** "1 more Essence" / "2 more Essence" (a duplicate gives 1). */
+export const moreDupes = (n) => `${n} more Essence`;
 
 /** The pill's tooltip: "Potential 5 of 6 — Moonpiercer" (her newest step), "Potential 1 of 6" at P1. */
 export function potentialPillTitle(def, p) {

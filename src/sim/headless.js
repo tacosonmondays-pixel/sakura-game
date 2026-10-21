@@ -183,6 +183,9 @@ function detectionRoute(def) {
 function unitRole(stats) {
   if (stats.income && (stats.behavior === 'none' || stats.damage <= 0)) return 'econ';
   if (stats.behavior === 'none') return stats.aura ? 'support' : 'econ';
+  // an aura girl whose own attack is a token chime (Noa: 1 damage every 2 s) is placed for her aura,
+  // never copied as a damage dealer (roster wave)
+  if (stats.aura && stats.damage * stats.rate <= 0.5) return 'support';
   return 'dps';
 }
 
@@ -286,12 +289,16 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     return true;
   };
 
-  const bestSpot = (info) => {
+  // an amphibious girl takes the best water spot whenever one is free and only falls back to land
+  // without one: the girls who were water-only on live (Nami, Sango, Umeko) are placed exactly as
+  // before, and the land spots stay free for the girls who need them (roster wave)
+  const bestSpot = (info) => (placement(info.def) === 'amphibious' ? bestIn(info, true) ?? bestIn(info, false) : bestIn(info, false));
+  const bestIn = (info, waterOnly) => {
     const r = footprintRadius(info.def);
     let best = null;
     let bestS = -Infinity;
     for (const c of cands) {
-      if (!fits(info.def, c) || !free(c, r)) continue;
+      if (!(waterOnly ? c.water : fits(info.def, c)) || !free(c, r)) continue;
       let s;
       if (info.role === 'econ') s = -coverage(c, 2.5);
       else if (info.role === 'support') {

@@ -36,6 +36,7 @@ const CAP_TESTS = {
     || !!s.brew || !!s.link,
   income: (s) => !!s.income,
   summon: (s) => (s.turret?.max || 0) > 0,
+  grounding: (s, st) => st.has('ground') && attacks(s),
 };
 
 /** Capability keys a resolved stat block provides (CAP_TESTS). */

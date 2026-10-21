@@ -4,9 +4,10 @@
 // the time the run was resumed.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../../src/systems/events.js'; // wires the event stages into STAGE_MAP
-import { parseBattleParams, createBattleSim } from '../../src/ui/battle/setup.js';
+import { parseBattleParams, createBattleSim, resumeBattleSim } from '../../src/ui/battle/setup.js';
 import { createBattleSaver } from '../../src/ui/battle/battleSaver.js';
-import { getBattleSave, slotKey, cleanBattleSaves, runStartedAt } from '../../src/systems/battleSave.js';
+import { getBattleSave, slotKey, cleanBattleSaves, runStartedAt, saveSummary, RECORD_V, RECORD_V_BASE } from '../../src/systems/battleSave.js';
+import { eventBattleStage } from '../../src/data/events/wire.js';
 import { applyBattleResult } from '../../src/systems/rewards.js';
 import { readEpisode, eventRunGate } from '../../src/systems/events.js';
 import { createProfile } from '../../src/systems/save.js';
@@ -75,5 +76,82 @@ describe('HW-4 a saved event battle keeps its start time', () => {
     const late = applyBattleResult(joined(), result, createRng(1), { now: new Date(AFTER), startedAt: AFTER });
     expect(late.practice).toBe(true);
     expect(late.note).toMatch(/closed before this battle started/);
+  });
+});
+
+/** Ops 1-4 and the Golem on Normal and Hard: the Golem's Nightmare is open. */
+function nightmareOpen() {
+  const p = joined();
+  const win = (stageId, difficulty) => applyBattleResult(p, { stageId, difficulty, won: true, wave: 15, wavesCleared: 15, livesLeft: 50, encountered: [], kills: {}, stats: {} }, createRng(1), { now: new Date(BEFORE), startedAt: BEFORE });
+  win('ev-halloween-1', 'normal');
+  win('ev-halloween-2', 'normal');
+  readEpisode(p, 'halloween-2026', 'ev.halloween.02', BEFORE);
+  win('ev-halloween-3', 'normal');
+  win('ev-halloween-4', 'normal');
+  win('ev-halloween-boss', 'normal');
+  win('ev-halloween-boss', 'hard');
+  store.replace(p);
+  return store.profile;
+}
+
+describe('NM-7 the Golem\'s Nightmare runs, saves and continues on its own stage (src/data/events/wire.js eventBattleStage)', () => {
+  beforeEach(() => vi.stubGlobal('localStorage', fakeStorage()));
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('createBattleSim passes the variant as data.stage (20 waves, HP ×12, chapter-8 coins); Normal / Hard run the base stage', () => {
+    nightmareOpen();
+    const nm = createBattleSim(store.profile, { ...parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, store.profile), seed: 77 }).sim;
+    expect(nm.stage).toBe(eventBattleStage('ev-halloween-boss', 'nightmare'));
+    expect(nm.totalWaves).toBe(20);
+    expect(nm.cash).toBe(900);
+    expect(nm.waveInfo(20).find((e) => e.enemyId === 'construct_gourdlight')?.count).toBe(2);
+    const hard = createBattleSim(store.profile, { stageId: 'ev-halloween-boss', difficulty: 'hard', seed: 77 }).sim;
+    expect(hard.stage).toBe(STAGE_MAP['ev-halloween-boss']);
+    expect(hard.totalWaves).toBe(15);
+    // an operation's Nightmare is plain Nightmare on its own waves
+    const op = createBattleSim(store.profile, { stageId: 'ev-halloween-4', difficulty: 'nightmare', seed: 77 }).sim;
+    expect(op.stage).toBe(STAGE_MAP['ev-halloween-4']);
+    expect(op.maxLives).toBe(1);
+  });
+
+  it('its save is record format 2 (an older build drops it), kept past the base stage\'s 15 waves; Continue restores the same waves', () => {
+    nightmareOpen();
+    expect(RECORD_V).toBe(2);
+    const req = parseBattleParams({ stage: 'ev-halloween-boss', difficulty: 'nightmare' }, store.profile);
+    expect(req.practice).toBe(false);
+    const { sim, cfg } = createBattleSim(store.profile, { ...req, seed: 9191 });
+    const saver = createBattleSaver({ sim, req, cfg, mountedAt: Date.now(), startedAt: BEFORE }).install();
+    sim.startNextWave();
+    saver.persistPending();
+    const rec = getBattleSave(store.profile, slotKey('ev-halloween-boss'));
+    expect(rec.v).toBe(2);
+    expect(rec.difficulty).toBe('nightmare');
+    expect(saveSummary(rec)).toMatchObject({ next: 1, of: 20 });
+    // a run at wave 17 of 20: this build keeps it (the base stage has 15 waves); v0.1.38 (RECORD_V 1) would not
+    const late = JSON.parse(JSON.stringify({ ...rec, snap: { ...rec.snap, wave: 16, state: 'between' } }));
+    expect(cleanBattleSaves({ [rec.slot]: late })[rec.slot]).toBeTruthy();
+    expect(late.v > RECORD_V_BASE).toBe(true);
+    expect(cleanBattleSaves({ [rec.slot]: { ...late, snap: { ...late.snap, wave: 20 } } })[rec.slot]).toBeUndefined();
+    // Continue: the same stage object, the same wave tables
+    const back = resumeBattleSim(store.profile, rec).sim;
+    expect(back.stage).toBe(sim.stage);
+    expect(back.totalWaves).toBe(20);
+    for (const n of [1, 8, 12, 16, 20]) expect(back.waveInfo(n)).toEqual(sim.waveInfo(n));
+  });
+
+  it('every other run keeps record format 1, so an older build still continues it', () => {
+    nightmareOpen();
+    for (const [stage, difficulty] of [['ev-halloween-2', 'nightmare'], ['ev-halloween-boss', 'hard'], ['ev-halloween-1', 'normal']]) {
+      store.profile.battleSaves = {};
+      const req = parseBattleParams({ stage, difficulty }, store.profile);
+      const { sim, cfg } = createBattleSim(store.profile, { ...req, seed: 5 });
+      const saver = createBattleSaver({ sim, req, cfg, mountedAt: Date.now(), startedAt: BEFORE }).install();
+      sim.startNextWave();
+      saver.persistPending();
+      expect(getBattleSave(store.profile, slotKey(stage)).v, `${stage} ${difficulty}`).toBe(RECORD_V_BASE);
+    }
   });
 });

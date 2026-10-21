@@ -25,10 +25,45 @@ export const EVENT_COSMETIC_KINDS = ['title', 'frame', 'avatar'];
 
 const growthFor = (start, final, waves) => Math.round((final / start) ** (1 / Math.max(1, waves - 1)) * 10000) / 10000;
 
+/** The difficulty ladder (a copy of DIFFICULTY_ORDER in src/data/types.js, which this file must not import). */
+const LADDER = ['easy', 'normal', 'hard', 'nightmare'];
+
+/**
+ * The waves of one difficulty of an event stage, replacing the stage's own for that difficulty only
+ * (`variants: { nightmare: eventVariant({...}) }`): its own waves, pool, scripted spawns and economy
+ * (hpScale, cashScale and startCash from its `tuneLike` unless set). The battle runs it through
+ * src/data/events/wire.js eventBattleStage (passed to the Sim as data.stage, like solo freeplay);
+ * rewards, medals and drops stay the stage's own. Existing enemies, traits and difficulty rules only.
+ * @param {object} o
+ */
+export function eventVariant(o) {
+  return {
+    name: o.name,
+    desc: o.desc,
+    sub: o.sub || null,
+    tuneLike: o.tuneLike,
+    ...(o.hpScale != null ? { hpScale: o.hpScale } : {}),
+    ...(o.cashScale != null ? { cashScale: o.cashScale } : {}),
+    ...(o.startCash != null ? { startCash: o.startCash } : {}),
+    ...(o.tier ? { tier: o.tier } : {}),
+    waves: o.waves,
+    waveGen: {
+      pool: o.pool,
+      budget: { start: o.budget[0], growth: growthFor(o.budget[0], o.budget[1], o.waves) },
+      spacing: o.spacing ?? 0.8,
+      groups: o.groups ?? 3,
+      fixed: o.fixed || [],
+    },
+  };
+}
+
 /**
  * An event operation or boss as a StageDef (the shape campaign()/bossStage() return), plus the
  * event fields. hpScale, cashScale and startCash are copied from `tuneLike` when the stage is
  * registered (src/data/events/wire.js resolveEventStage), unless set here.
+ * `difficulties`: the ones it offers (and pays on). `unlockAfter`: the medal a difficulty waits for,
+ * e.g. { nightmare: 'hard' } (src/systems/events.js eventDifficultyStatus). `variants`: a difficulty's
+ * own waves (eventVariant).
  * @param {{ id: string, key: string }} ev the event (id + key)
  * @param {object} o
  */
@@ -64,6 +99,8 @@ export function eventStage(ev, o) {
     tier: o.tier || 'intermediate',
     rule: null,
     difficulties: o.difficulties || ['normal'],
+    ...(o.unlockAfter ? { unlockAfter: { ...o.unlockAfter } } : {}),
+    ...(o.variants ? { variants: { ...o.variants } } : {}),
     tuneLike: o.tuneLike,
     boss: !!o.boss,
     gate: o.gate || null,
@@ -157,6 +194,16 @@ export function validateEvent(ev) {
     stageIds.add(s.id);
     if (s.event !== ev.id) err(`${s.id} event field`);
     if (!s.tuneLike) err(`${s.id} needs tuneLike`);
+    const diffs = Array.isArray(s.difficulties) ? s.difficulties : [];
+    if (!diffs.length || diffs.some((d) => !LADDER.includes(d))) err(`${s.id} difficulties`);
+    for (const [d, after] of Object.entries(s.unlockAfter || {})) {
+      // a difficulty opens after an easier one's medal on the same stage
+      if (!diffs.includes(d) || !diffs.includes(after) || LADDER.indexOf(after) >= LADDER.indexOf(d)) err(`${s.id} unlockAfter ${d}: ${after}`);
+    }
+    for (const [d, v] of Object.entries(s.variants || {})) {
+      if (!diffs.includes(d)) err(`${s.id} variant ${d} is not one of its difficulties`);
+      if (!(v?.waves > 0) || !v.waveGen?.pool?.length || !v.name) err(`${s.id} variant ${d}`);
+    }
   }
   const epIds = new Set((ev.episodes || []).map((e) => e.id));
   for (const e of ev.episodes || []) {
@@ -174,6 +221,9 @@ export function validateEvent(ev) {
     if (!EVENT_MISSION_ON.includes(m.on)) err(`${m.id} on ${m.on}`);
     if (!(m.goal > 0)) err(`${m.id} goal`);
     if (m.on === 'eventStage' && !stageIds.has(m.stage)) err(`${m.id} stage ${m.stage}`);
+    if (m.difficulty && !LADDER.includes(m.difficulty)) err(`${m.id} difficulty ${m.difficulty}`);
+    // a one-time mission on a stage's difficulty: the stage must offer it
+    if (m.on === 'eventStage' && m.difficulty && !(ev.stages || []).find((s) => s.id === m.stage)?.difficulties?.includes(m.difficulty)) err(`${m.id} ${m.stage} has no ${m.difficulty}`);
   }
   for (const m of ev.missions?.daily || []) if (m.kind !== 'daily') err(`${m.id} kind`);
   for (const m of ev.missions?.total || []) if (m.kind !== 'total') err(`${m.id} kind`);

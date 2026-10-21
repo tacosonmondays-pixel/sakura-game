@@ -1,5 +1,6 @@
 // Screenshot helper for visual checks.
-//   node e2e/shot.mjs <path> <out.png> [--viewport 1280x720] [--wait <css selector>] [--delay ms] [--eval "<js>"]
+//   node e2e/shot.mjs <path> <out.png> [--viewport 1280x720] [--wait <css selector>] [--delay ms] [--eval "<js>"] [--transparent]
+//   (--transparent keeps the alpha of a page with a transparent background, e.g. previews/models-v2.html?bg=none)
 // Starts its own Vite dev server on a free port, so several people can use it at once.
 // Playwright and the browser are found by e2e/browser.mjs (PLAYWRIGHT_MODULE, CHROME_PATH, ...).
 // Examples:
@@ -20,6 +21,7 @@ const [vw, vh] = opt('viewport', '1280x720').split('x').map(Number);
 const wait = opt('wait', null);
 const delay = Number(opt('delay', '800'));
 const evalJs = opt('eval', null);
+const transparent = args.includes('--transparent');
 
 /**
  * Game pages get `?onboarding=0` (before the hash): a fresh save would otherwise be sent from the lobby to
@@ -49,7 +51,7 @@ try {
   // refresh) can still be pending at its first frame when the screenshot frame is drawn. Force
   // two animation frames first, like a real browser's continuous frame loop would.
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300)))));
-  await page.screenshot({ path: out });
+  await page.screenshot({ path: out, omitBackground: transparent });
   console.log(`saved ${out}`);
 } catch (e) {
   console.log(`FAILED: ${e.message}`);

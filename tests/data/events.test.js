@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { ALL_EVENTS, EVENT_STAGES, EVENT_ENEMIES, EVENT_CURRENCIES, eventOfStage, eventOfItem } from '../../src/data/events/index.js';
 import { validateEvent, EVENT_MISSION_ON } from '../../src/data/events/build.js';
-import { resolveEventStage } from '../../src/data/events/wire.js';
+import { resolveEventStage, eventBattleStage } from '../../src/data/events/wire.js';
+import { Sim } from '../../src/sim/Sim.js';
 import { STAGES, STAGE_MAP, CAMPAIGN_IDS, stageEnemies } from '../../src/data/stages.js';
 import { ENEMIES, ENEMY_MAP } from '../../src/data/enemies.js';
 import { MAPS } from '../../src/data/maps.js';
@@ -40,6 +41,26 @@ describe('event data (EV-1…EV-7)', () => {
       for (const d of s.difficulties) expect(DIFFICULTY_ORDER).toContain(d);
       for (const k of s.scenery.props) expect(SCENERY[k], `${s.id} scenery ${k}`).toBeTruthy();
       expect(s.look).toEqual({ night: 'lantern', costumes: true });
+    }
+  });
+
+  it('EV-2b a difficulty\'s own waves (variants) use real enemies and a campaign tuneLike; unlockAfter names an easier medal', () => {
+    for (const s of EVENT_STAGES) {
+      for (const [d, after] of Object.entries(s.unlockAfter || {})) {
+        expect(s.difficulties, s.id).toContain(d);
+        expect(DIFFICULTY_ORDER.indexOf(after), `${s.id} ${d}`).toBeLessThan(DIFFICULTY_ORDER.indexOf(d));
+      }
+      for (const [d, v] of Object.entries(s.variants || {})) {
+        expect(s.difficulties, `${s.id} ${d}`).toContain(d);
+        expect(CAMPAIGN_IDS).toContain(v.tuneLike);
+        for (const p of [...v.waveGen.pool, ...v.waveGen.fixed]) expect(ENEMY_MAP[p.enemy], `${s.id} ${d} ${p.enemy}`).toBeTruthy();
+        const stage = eventBattleStage(s.id, d);
+        expect(stageEnemies(stage).every((id) => ENEMY_MAP[id])).toBe(true);
+        // the Sim builds it and plays its own wave count
+        const sim = new Sim({ stageId: s.id, difficulty: d, seed: 3, data: { stage } });
+        expect(sim.totalWaves).toBe(v.waves);
+        expect(sim.waveInfo(v.waves).length).toBeGreaterThan(0);
+      }
     }
   });
 

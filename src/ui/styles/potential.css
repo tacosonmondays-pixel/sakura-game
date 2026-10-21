@@ -217,3 +217,8 @@ button.ma-sum-pot { border: 0; font: inherit; color: inherit; cursor: pointer; }
 .sst-joined-step b { color: var(--pot-plum); }
 /* the ~40 px stage-prep slots have no room for it (the Students grid shows it) */
 .ma-fslot .unit-card-potnew { display: none; }
+
+/* [ascension] Raise Potential row on her Info tab (docs/specs/ASCENSION.md §D.2) */
+.pot-raise { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 0.82rem; }
+.pot-raise.full b { color: var(--navy); }
+.pot-raise-hint { font-size: 0.72rem; }

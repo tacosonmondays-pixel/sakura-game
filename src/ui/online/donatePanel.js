@@ -19,6 +19,7 @@ import { itemCount } from '../../systems/inventory.js';
 import { canBreakthrough } from '../../systems/progression.js';
 import { formatCountdown, localResetHint, RESET } from '../../core/reset.js';
 import { avatar } from './common.js';
+import { inlineLoader } from '../loading/loader.js';
 import { tagChips } from './tagChip.js';
 import { needsUpdateCard } from './needsUpdate.js';
 import { refreshSoon } from './socialHub.js';
@@ -149,7 +150,7 @@ function whoNeeds(itemId) {
  * @returns {{ el: HTMLElement, refresh: () => void, destroy: () => void }}
  */
 export function createDonatePanel({ backend = getBackend(), onBadge = null } = {}) {
-  const el = h('div.sc-don', { 'data-testid': 'donate-panel' }, h('div.ol-connecting', h('i.ol-spinner'), h('p.muted', 'Loading requests…')));
+  const el = h('div.sc-don', { 'data-testid': 'donate-panel' }, h('div.ol-connecting', inlineLoader('Loading requests')));
   let alive = true;
   let s = null;
   let offset = 0; // server clock − device clock

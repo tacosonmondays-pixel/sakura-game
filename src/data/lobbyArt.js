@@ -84,6 +84,16 @@ const BOND_PAIRS = {
   hotaru: ['festival', 'stargazing'],
   kaede: ['sunset', 'cafe'],
   chika: ['study', 'festival'],
+  // the returning girls (roster wave): stands over the academy like everyone else, no new scenes
+  kanna: ['festival', 'sunset'],
+  yoriko: ['cafe', 'stargazing'],
+  seiran: ['stargazing', 'sunset'],
+  fuu: ['picnic', 'festival'],
+  hana: ['picnic', 'sunset'],
+  ruri: ['study', 'stargazing'],
+  noa: ['cafe', 'picnic'],
+  iroha: ['aquarium', 'study'],
+  ena: ['stargazing', 'cafe'],
 };
 export const BOND_LEVELS = [5, 10];
 

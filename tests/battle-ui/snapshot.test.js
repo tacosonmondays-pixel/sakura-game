@@ -43,8 +43,8 @@ const SCEN = {
 
 /** The frozen team of a scenario, as createBattleSim builds it (full unitBattleStats + boosts). */
 const team = (c) => ({
-  loadout: c.towers.map((unitId) => ({ unitId, stats: { ...unitBattleStats(null, unitId), ...c.stats } })),
-  hero: c.hero ? { unitId: c.hero, stats: { ...unitBattleStats(null, c.hero), ...c.stats } } : null,
+  loadout: c.towers.map((unitId) => ({ unitId, stats: { ...unitBattleStats(null, unitId), ...c.stats, ...c.per?.[unitId] } })),
+  hero: c.hero ? { unitId: c.hero, stats: { ...unitBattleStats(null, c.hero), ...c.stats, ...c.per?.[c.hero] } } : null,
 });
 const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false, mode: c.mode } });
 const recordOf = (c, snap) => ({
@@ -802,6 +802,105 @@ function potWaves(sim, n, onCalm) {
     onCalm(sim);
   }
 }
+/** Gear test team (docs/specs/GEAR_STATS.md §F.4): Pierce on shots, sweeps, drones; every club trick. */
+const GEAR = {
+  stageId: '4-5', difficulty: 'hard', towers: ['aoi', 'rei', 'suzu', 'chika', 'akane', 'miko', 'kaede'], hero: 'luna', seed: 4646,
+  stats: { damageMul: 1.5, rateMul: 1.2 },
+  per: {
+    aoi: { pierceK: 76, club: 'archery', clubN: 3 },
+    rei: { pierceK: 46, club: 'fencing', clubN: 3 },
+    suzu: { pierceK: 30, club: 'taiko', clubN: 3 },
+    chika: { pierceK: 60, club: 'taiko', clubN: 3 },
+    akane: { pierceK: 46, dotMul: 1.2, club: 'pyro', clubN: 3 },
+    miko: { auraPct: 0.2, auraRangeMul: 1.05, club: 'tea', clubN: 3 },
+    kaede: { club: 'fencing', clubN: 3 },
+    luna: { pierceK: 46, club: 'archery', clubN: 2 },
+  },
+};
+function gearBuild() {
+  const sim = makeSim(GEAR);
+  sim.cash = 5e6;
+  const placed = {};
+  for (const [u, [x, y]] of Object.entries(nearPath(sim, [...GEAR.towers, GEAR.hero]))) placed[u] = sim.placeTower(u, x, y);
+  for (const id of GEAR.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
+  sim.cash = 4000;
+  wrapWaves(sim, GEAR.seed);
+  return { sim, placed };
+}
+let gearPlayed = null;
+const gearRun = () => (gearPlayed ??= (() => {
+  const { sim } = gearBuild();
+  potWaves(sim, 4, () => {});
+  return sim;
+})());
+/** An Archery trap girl (Follow-Through on her traps: trapFtN) beside Aoi. */
+const FT_TRAP = { ...GEAR, towers: ['suzu', 'aoi'], hero: null, per: { suzu: { pierceK: 30, club: 'archery', clubN: 3 }, aoi: GEAR.per.aoi } };
+function ftTrapBuild() {
+  const sim = makeSim(FT_TRAP);
+  sim.cash = 5e6;
+  const at = nearPath(sim, FT_TRAP.towers);
+  const placed = {};
+  for (const u of FT_TRAP.towers) placed[u] = sim.placeTower(u, at[u][0], at[u][1]);
+  for (const id of FT_TRAP.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
+  sim.cash = 4000;
+  wrapWaves(sim, FT_TRAP.seed);
+  return sim;
+}
+let ftTrapPlayed = null;
+const ftTrapRun = () => (ftTrapPlayed ??= (() => {
+  const sim = ftTrapBuild();
+  potWaves(sim, 3, () => {});
+  return sim;
+})());
+
+describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)', SLOW, () => {
+  it('every gear counter comes back exactly, and a split run plays on like the straight one', () => {
+    const { sim } = gearBuild();
+    const seen = { gr: 0, tricks: 0 };
+    potWaves(sim, 6, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      seen.gr += snap.towers.filter((t) => Array.isArray(t.gr)).length;
+      const { sim: back, dropped } = restoreSim(recordOf(GEAR, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      for (const t of sim.towers) {
+        const b = back.towers.find((x) => x.uid === t.uid);
+        for (const k of ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN']) expect(b[k], `${t.unitId}.${k}`).toBe(t[k]);
+      }
+      expect(back.popBudget).toBe(sim.popBudget);
+    });
+    for (const e of sim.drainEvents()) if (e.type === 'clubTrick') seen.tricks++;
+    expect(seen.gr).toBeGreaterThan(0);
+    // split vs straight: from a mid-run snapshot both copies play two more waves the same
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(GEAR, snap), { settings: { autoStart: false } });
+    wrapWaves(back, GEAR.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+
+  it('an Archery trap girl\'s Follow-Through count (trapFtN) comes back, and the split run plays on the same', () => {
+    const c = FT_TRAP;
+    const sim = ftTrapBuild();
+    let seen = 0;
+    potWaves(sim, 3, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      const t = sim.towers.find((x) => x.unitId === 'suzu');
+      if (t.trapFtN != null) seen++;
+      expect(back.towers.find((x) => x.uid === t.uid).trapFtN).toBe(t.trapFtN);
+    });
+    expect(seen).toBeGreaterThan(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+    wrapWaves(back, c.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+});
+
 let potPlayed = null;
 /** The Potential team after a few waves (for the field guard below). */
 const potRun = () => (potPlayed ??= (() => {
@@ -914,6 +1013,10 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const name of Object.keys(SCEN)) for (const t of fullRun(name).sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the Potential team: Suzu's trap rhythm, Kage's tempo and carry, Kaede's kept focus …)
     for (const t of potRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
+    for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and an Archery trap girl: Follow-Through's trap count)
+    for (const t of ftTrapRun().towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

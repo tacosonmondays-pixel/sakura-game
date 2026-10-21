@@ -36,11 +36,11 @@ in `docs/INTEGRATION_NOTES.md` (append-only, one bullet per note, prefix with yo
 |---|---|
 | lead | `src/core/**`, `src/data/types.js`, `src/ui/{router,dom,components}.js`, `src/ui/styles/base.css`, `src/main.js`, `index.html`, `CONTRACTS.md` |
 | sim | `src/sim/**`, `tests/sim/**` |
-| units | `src/data/units.js`, `docs/ROSTER.md`, `tests/data/units.test.js` |
+| units | `src/data/units.js`, `src/data/skins.js`, `src/data/future.js`, `docs/ROSTER.md`, `tests/data/units.test.js`, `tests/data/skins.test.js` |
 | world | `src/data/enemies.js`, `src/data/maps.js`, `src/data/stages.js`, `docs/BESTIARY.md`, `docs/CAMPAIGN.md`, `tests/data/world.test.js` |
 | systems | `src/data/items.js`, `src/data/shop.js`, `src/data/missions.js`, `src/systems/**`, `docs/ECONOMY.md`, `tests/systems/**` |
 | models | `src/models/**`, `public/models/**` |
-| art | `src/art/**` |
+| art | `src/art/**`, `public/art/skins/**`, `public/art/future/**` (3D renders of the outfit / Coming Soon models) |
 | renderer | `src/render/**` |
 | battle-ui | `src/ui/battle/**`, `src/ui/screens/battle.js`, `src/ui/styles/battle.css` |
 | meta-a | `src/ui/screens/{lobby,campaign,stage,recruit,mall,commissions,rewards,bounty,assault,challenge,settings,missions,title}.js`, `src/ui/lobby/**`, `src/ui/{hubArt,selectTicket}.js`, `src/data/lobbyArt.js`, `src/ui/styles/{meta-a,title}.css`, `public/art/{lobby,ui}/**` |
@@ -75,15 +75,15 @@ Roster (ids fixed — other areas rely on them):
 |---|---|---|---|---|---|---|---|---|
 | hikari | hero | SSR | vanguard | holy | – | land | charm | starter |
 | luna | hero | SSR | mystic | mystic | – | land | rune | gacha |
-| nami | hero | SR | tideguard | mystic | frost | water | rime | free after 1-5 |
+| nami | hero | SR | tideguard | mystic | frost | amphibious | rime | free after 1-5 |
 | aoi | tower | R | marksman | pierce | – | land | feather | starter |
 | rei | tower | R | cleaver | slash | – | land | blade | starter |
 | yuki | tower | R | controller | mystic | frost | land | rime | free after 1-2 |
 | momo | tower | R | economy | pierce | – | land | cog | gacha |
 | akane | tower | SR | bombardment | blast | fire | land | ember | gacha |
-| sango | tower | SR | artillery | blast | water | water | ember | free after 1-5 |
+| sango | tower | SR | artillery | blast | water | amphibious | ember | free after 1-5 |
 | kage | tower | SR | skirmisher | pierce | – | land | feather | free after 2-5 |
-| umeko | tower | SR | support | mystic | water | water | charm | free after 3-2 |
+| umeko | tower | SR | support | mystic | water | amphibious | charm | free after 3-2 |
 | shiro | tower | SR | sniper | pierce | – | land | feather | free after 3-5 |
 | midori | tower | SR | alchemist | mystic | poison | land | rune | free after 4-5 |
 | suzu | tower | SR | trapper | blast | – | land | cog | free after 5-5 |
@@ -97,7 +97,7 @@ Every unit (free ones too) is also in the gacha pool of its rarity (duplicates �
 
 ```js
 UnitDef = {
-  id, name, title,              // 'Aoi', 'Sky Archer'
+  id, name, title,              // 'Aoi', 'Wind Ranger'
   kind: 'tower'|'hero', rarity: 'R'|'SR'|'SSR', adult: boolean (true only for heroes),
   role, attackType, element: null|ElementKey, placement, materialFamily,
   capabilities: CapabilityKey[],   // base capabilities BEFORE upgrades (for UI/recommendations)
@@ -107,9 +107,10 @@ UnitDef = {
   look: {
     hairStyle: 'twintails'|'ponytail'|'long'|'bob'|'braid'|'buns'|'short'|'side'|'hime'|'wavy',
     bangs: 'straight'|'swept'|'split'|'hime'|'messy',
-    accessory: 'ribbon'|'bunnyEars'|'catEars'|'foxEars'|'hairpin'|'beret'|'witchHat'|'horns'|'flower'|'goggles'|'hood'|'headband'|'crown'|'none',
+    accessory: 'ribbon'|'bunnyEars'|'catEars'|'foxEars'|'hairpin'|'beret'|'witchHat'|'horns'|'flower'|'goggles'|'hood'|'headband'|'crown'|'cap'|'none',
     outfit: 'sailor'|'blazer'|'miko'|'kimono'|'hoodie'|'dress'|'armor'|'coat'|'apron'|'jumpsuit'|'robe',
-    weapon: 'bow'|'katana'|'staff'|'cannon'|'rifle'|'shuriken'|'tome'|'bell'|'wrench'|'lantern'|'flask'|'parasol'|'trident'|'fan'|'rapier'|'gohei'|'coinPurse'|'sword',
+    weapon: 'bow'|'katana'|'staff'|'cannon'|'rifle'|'shuriken'|'tome'|'bell'|'wrench'|'lantern'|'flask'|'parasol'|'trident'|'fan'|'rapier'|'gohei'|'coinPurse'|'sword'
+          |'mic'|'shield'|'mirror'|'spear'|'mallet'|'puppet'|'cards',   // roster merge (ROSTER_SPEC §4.2)
     halo: 'ring'|'star'|'petal'|'gear'|'moon'|'flame'|'wave'|'crown'|'snow'|'bolt'|'leaf'|'eye',
     eyeStyle: 'round'|'sharp'|'sleepy'|'sparkle'|'closed',
     expression: 'smile'|'smug'|'calm'|'determined'|'shy'|'cheerful',
@@ -272,6 +273,83 @@ shred ≤ 2; DoT ≤ 0.15 % max HP/s; repeats ≤ 1/4 of her attacks; projScale 
 projectile / beam / chain / pulse (a duel only at a share < 1, never traps); every step changes her stats and
 every kit part a field her behaviour reads on every reference build. Player text, node labels, Power and FX
 cues: `src/data/potentialText.js` (UI only, not hashed). A new girl (roster) adds both rows in the same PR.
+
+### 3a. Outfits (skins) and future units — `src/data/skins.js`, `src/data/future.js` (owner: units)
+
+A skin changes **only the 3D chibi** (battle, student showcase). Every drawn portrait keeps the girl's main
+design. Spec: `docs/merge/ROSTER_SPEC.md` §3.
+
+```js
+SkinDef = {
+  id,                 // stable forever (saved): '<unitId>_default' | '<unitId>_sentinel' | later shop/event ids
+  unitId, name, desc,
+  kind: 'default'|'sentinel' /*later 'shop'|'event'*/,
+  asset,              // key in public/models/characters/manifest.json: '<unitId>' (default) | 'sentinel-<unitId>'
+  palette?, look?,    // non-default rows only: frozen look for the procedural placeholder (before the GLB arrives / node)
+  thumb,              // under public/art/ ('skins/<id>.webp', 320×400 3D render); null on default rows (UI shows her portrait)
+  acquisition: { type: 'default'|'withUnit'|'shop'|'event', price?, note? },
+  order,              // 0 default, 10 sentinel
+}
+export const SKINS, SKIN_MAP, SKIN_ACQUISITION
+export function defaultSkinId(unitId)        // '<unitId>_default'
+export function skinsForUnit(unitId)         // default first, then by order (a copy; [] for unknown units)
+export function getSkin(id)                  // throws on unknown
+export function resolveSkin(unitId, skin)    // SkinDef|id|null -> SkinDef; unknown / another girl's -> her default row;
+                                             // unknown unitId -> synthetic default { asset: unitId }
+```
+
+Default rows are generated from `UNITS` (a new unit gets one automatically). **Sentinel Style** (15 rows:
+hikari aoi yuki momo akane sango kage umeko shiro midori suzu raika miko hotaru chika) keeps the V2 designs
+the girls wore before the roster merge: `public/models/characters/sentinel-<id>.glb` (+ `.lod.glb`) are byte
+copies of the V2 files (GLB `extras.unit` stays the unit id), palette/look frozen from commit `05adb2a`.
+They are free with the girl (`withUnit`, decision D1): owning her owns the outfit, nothing is saved for it.
+
+```js
+FutureUnitDef = { id, name, title, kind: 'tower'|'hero', adult /*=== kind==='hero'*/, plannedRole /*ROLES key*/,
+                  from /*V2 source unit id*/, asset /*'future-<id>'*/, palette, look /*frozen*/, bio, teaser }
+export const FUTURE_UNITS, FUTURE_MAP; export function futureThumb(id) // 'future/<id>.webp' under public/art/
+```
+
+Future units (tomoe ← V2 rei, mizuha ← V2 nami, sayo ← V2 luna, hiiro ← V2 kaede) are **not UnitDefs**: never
+in `UNITS`, saves, gacha, the sim or balance. Only the wiki's Coming Soon article shows them.
+
+### 3b. Codex (legacy) kits — `src/data/legacy.js` (owner: units)
+
+The 19 shared girls carry their old Codex identity (ROSTER_SPEC §4.2-4.4b): old titles (Hikari keeps "Dawnblade
+Captain") and old looks. Their upgrade paths keep today's (School) names; the owner (2026-10-13) moved the old
+Codex upgrade names to a later Fantasy kit (a Fantasy ⇄ School toggle built after the balance merge), so they live
+only here. Momo's three paths carry idol names (Fan Club, Merch Table, Encore Toss; ROSTER_SPEC §4.4). Nami, Sango
+and Umeko are `amphibious` again, as in the Codex. The kit data lives outside the UnitDef so the unit schema is
+unchanged:
+
+```js
+LegacyKit = { title, trait /* the old one-line kit, e.g. 'Fast single-target attacks' */,
+              upgrades: string[] /* the 3 old upgrade names for towers, [] for heroes */ }
+export const LEGACY /* unitId -> LegacyKit, the 19 shared ids */, LEGACY_IDS; export function legacyKit(unitId) // or null
+```
+
+The student Info tab shows the trait and the old upgrade names as a "Codex kit" line; the wiki has a "Codex Kits"
+article. `tests/data/legacy.test.js` checks all 19 have one and that no current path was renamed to a Codex name.
+
+### 3c. The returning girls — `src/data/unitsExpansion.js`, `src/data/unitKit.js`, `src/data/heroTracksReturning.js` (owner: units; track 5)
+
+```js
+export const EXPANSION_UNITS  // [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, IROHA, ENA]; units.js appends them to UNITS
+export const EXPANSION_IDS    // their ids (the 19 originals are everything else)
+export const RETURNING_ABILITIES // { [id]: AbilityData[] } towers, { [id]: { skill } } heroes — ABILITIES.md §6.1 shape, data only
+unitKit.js: S (+ ground, curse, mark, hex), stats, tier, path, free, STARTER, GACHA_ONLY   // copies of units.js's builders
+heroTracksReturning.js: RETURNING_HERO_TRACKS { kanna, yoriko, seiran }                     // HERO_TRACKS spreads them in
+```
+New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gather` (0; add), `relay`
+(`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
+Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
+Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
+`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
+`dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
+hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
+`isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
+`tools/art/placeholder_portraits.py <id>` (skips / refuses girls who already have portrait files). Every returning student wears a
+school uniform with tech gear (look guard in `tests/data/units.test.js`).
 
 ## 4. World — enemies, maps, stages (owner: world)
 
@@ -514,12 +592,13 @@ Profile = {
   currencies: { coins, gems },
   items: { [itemId]: count },
   units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
+            // skin: equipped SkinDef id, null = her default (roster merge; additive, no version bump)
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js), 'own:<unitId>' / 'own:<unitId>:<slot>' = her ownership marks (src/systems/rosterSave.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -534,8 +613,18 @@ Profile = {
   battleSaves: { [slot]: BattleSaveRecord },  // Save & quit (src/systems/battleSave.js, docs/BATTLE_SAVE.md); additive, no version bump
   patchGifts: { [noteId]: true },          // claimed patch-note gifts (src/systems/patchGifts.js); also marked 'pg:<noteId>' in missions.counters
   story: StoryBlock,                       // src/systems/story.js (newStory / legacyStory / restoreStory): no block and no 'story:new' mark = legacy save
+  skins: string[],                         // shop/event outfits owned (default + withUnit outfits are never stored); additive
+                                           // seenIntro also holds 'outfits' (the Outfit pill's NEW tag)
 }
-GearInstance = { uid, slot, rarity, level /*0-10*/, main: { stat, value }, subs: [{ stat, value }], locked: boolean, equippedBy: unitId|null, name }
+GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, value, base }, subs: [{ stat, value, base, upgrades, tuned? /*✦ bits: 1 gold, 2 rainbow*/ }],
+                 locked: boolean, equippedBy: unitId|null, name, ur? /*1 = rainbow UR (rarity stays 'legendary')*/, club? /*'archery'|'fencing'|'taiko'|'pyro'|'tea'|'bell'*/ }
+  // Values are STORED in Legendary form; a UR piece reads ×urMul(stat) (×8/7, Armor Pierce ×1.105) through
+  // gearLines / effectiveValue only. Pierce ('piercePct', ribbons) and Aura Power ('auraPct', shoes) are substats
+  // of club pieces only, never mains. Old-build mirrors live in missions.counters (gur:, gbx:, gtn:, gcl:, gnx:, gnf:,
+  // inv:seed_rainbow|needle_star|club_band, ga:gift, gc:gift, fpu:, pity:cel), restored by src/systems/gearMarks.js.
+  // Box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): openRainbowBox(profile, slot, rng) makes a Legendary
+  // piece with ur: 1 at +0 (four substats, locked, joins a club); gbx:<uid> = slot index × 100 + main-stat index + 1
+  // brings `ur` back at any level (gur: keeps its +10 rule); salvage pays the Seed and writes gbx: 0.
 ```
 
 ### `src/systems/battleSave.js` (battle saves)
@@ -600,6 +689,77 @@ letter take their text from `describePotentialStep` / `potentialStepInfo`. UI: `
 throw, drone overclock): `src/ui/battle/potentialRows.js` (pure) drawn by `towerPanel.js`. Her level cap per P is
 asked of `progression.potentialLevelCap(p)` (= `levelCapAt(5, p)`, every gate open), never stored here.
 
+### `src/systems/essence.js` (Ascension: Essence; spec `docs/specs/ASCENSION.md` §A)
+
+- A duplicate (`grantUnit`) adds 1 to `dupes` and calls `receiveDuplicate`: 1 Essence, or a spare past her hold cap
+  (6 − P) paid at once (`SPARE_PAY`: Mementos, Moonpearls, recruit points; R ⅕ point in `spk:r`). `grantUnit` returns
+  `{ isNew, essence, spare, potential, essenceHeld, readyStep, potentialUp: false }` (no `fragments` / `tomes`).
+- Potential is the bought field `units[id].pl` (1–6; `potentialLevel` reads it, 1 when absent; mirrored in `pl:<id>`).
+  `raisePotential(profile, id, use?)`: 1 Essence (own, or a Kindred item when she has none) + `POTENTIAL_STEP_COINS`.
+- Balance (derived, monotone): `dupes + essB − (pl − 1 − essU) − essX` (counters `essB:`, `essU:`, `essX:`).
+- `migrateEssence` (once, `ess:mig`; `createProfile` marks new saves): `pl = min(6, 1 + dupes)`, gates past 5 up to her
+  level counted as broken, welcome pouch (60–300 Mementos, 15–60 Moonpearls) into the items. `settleSpares` at load
+  raises `essX` only (pays nothing). `fuseShards`: 10 → 1 for Kindred SSR and the Rainbow Crown.
+
+### `src/systems/ascensionSave.js` (mirrors)
+
+`pl:<id>`, `bt:<id>` (gates > 5) and `inv:<id>` (the 16 Ascension items, written by `inventory.js setCount`) in
+`missions.counters`; `restoreAscension` brings back what an older build dropped (by max; a spent item mirrors 0).
+
+### `src/systems/rosterSave.js` (a girl an older build does not know)
+
+An older build keeps only the unit ids it knows: it leaves a newer girl out of the save it writes (load 'lossy'),
+unequips her gear and drops her bond entry. Her copy in `missions.counters`: `own:<id>` = level × 1000 + gates × 10 +
+stars (≥ 1000 when owned) and `own:<id>:<slot>` = n of the piece `g<n>` she wears there (absent when empty).
+`writeRosterMark(profile, id)` runs at every grant, level-up, gate, star and equip; `writeRosterMarks(profile)` for
+every owned girl at every load (`migrateProfile`, `createProfile`) and every write (`store.js saveText`).
+`migrateProfile` recreates a known girl who has a mark but is missing from the save (`rosterMark(counters, id)` →
+`cleanUnit`, before gear consistency and `creditPotential`): `pot:`, `pl:`, `bt:`, `lv:` / `lvA:` then restore her
+duplicates (Essence), bought Potential, gates and level; her pieces go back on when still free. Lost: the EXP inside
+her level, her formation / secretary place. A girl in the save is never changed by her mark.
+
+### Titan Trials — `src/data/titans.js`, `src/systems/titans.js`, `src/systems/titanRewards.js` (spec §C)
+
+- `titanBattle(titanId, tier, rank)` → `{ stage, enemies, poolHp, … }`: the Sim gets them through `data: { stage,
+  enemies }` (no new stage or enemy; no co-op-hashed file). `titans.js` imports only enemies, types and
+  `src/sim/waves.js`. `createTitanTracker(battle)` reads the titan's damage from the event stream (spawn / death / leak).
+- `applyTitanResult(profile, { titanId, tier, rank, seed, read, kills, encountered, practice?, coop? })`: notch →
+  the damage table share, a Victory → the Victory Chest, the first clear (solo), the best tier; a key only at Bronze+.
+  `sweepTitan`, `refreshKeys` (12 a week + 6 carried, game week), `tierOpen`, `titanOfWeek`, `setTargetFamily`,
+  `payTogetherChest`, `coopTierAllowed`. Counters: `tk:left`, `tk:week`, `tbest:`, `tfc:`, `ttgt:`, `tkill:`, `tatt`,
+  `pity:rain`. Drops roll from `titanDropSeed` (outside the sim). `grantGearBox(profile, rarity, rng)` is the one gear-box
+  seam: ordinary boxes open at once (a Mythic+ piece joins a random club), the Rainbow box goes to the Backpack, whose
+  slot picker opens it with UR gear's `openRainbowBox` (`src/systems/gear.js`) into a rainbow UR piece at +0.
+- Battle: `#/battle?titan=<id>&tier=<tier>[&rank=n][&practice=1]` (`setup.js parseTitanParams`); never battle-saved.
+- Hub: `#/titans[?id=]` (`src/ui/screens/titans.js`).
+
+### `src/systems/craft.js` (Craft Room, spec §B.6)
+
+`craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
+coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
+
+### `src/systems/skins.js` (roster merge)
+
+Outfits (roster merge): `units[id].skin` + `skins` are **additive v2 fields** (no version bump; an older build
+drops them, which only loses a cosmetic choice). A save from before them loads with every skin `null` and `skins: []`
+(nothing lost, no backup). `cleanUnit` keeps `skin` only when it names one of *that* girl's non-default outfits
+(her default is stored as `null`); `migrateProfile` keeps only known shop/event ids in `skins` and un-equips
+outfits the player does not own. Unknown skin ids make `migrationDropsData` true (backup 'lossy').
+
+Pure functions over the profile; the UI calls `setSkin`, then `store.commit('skin')`.
+
+```js
+export function ownsSkin(profile, skinId)        // default/withUnit: the girl is owned; shop/event: profile.skins has it
+export function equippedSkinId(profile, unitId)  // her stored choice when valid and owned, else '<unitId>_default'
+export function equippedSkin(profile, unitId)    // SkinDef
+export function setSkin(profile, unitId, skinId) // -> { ok, error?: 'unknown'|'wrongUnit'|'notOwned'|'unitNotOwned' }; null/default stored as null
+export function grantSkin(profile, skinId)       // -> { ok, isNew, error?: 'unknown' } (shop/event; default/withUnit: ok, isNew false)
+export function skinChoices(profile, unitId)     // -> [{ skin, owned, equipped, how: { short, long } }] for the Outfit sheet
+export function formationSkins(profile, unitIds) // -> { [unitId]: skinId } for preloadModels / createBattleRenderer
+export function hasOutfitOn(profile, unitId)     // not her default (hanger badge on student / formation cards)
+export function isStoredSkin(skinOrId), skinHow(skin)
+```
+
 ### `src/systems/mail.js` (first impressions)
 
 ```js
@@ -650,8 +810,14 @@ export function awakenCost(unitId, star)         // star 1..5 -> [{id,count}] cr
 export function canAwaken(profile, unitId)
 export function awaken(profile, unitId)
 export function unitBattleStats(profile, unitId) // multipliers fed into the sim:
-  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, awakenPassive: bool, level, awaken, breakthrough,
+  // -> { damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, pierceK, auraPct, auraRangeMul, dotMul, club, clubN,
+  //      rainbow, awakenPassive: bool, level, awaken, breakthrough,
   //      potential /*1..6; the sim adds her Potential steps; travels in the co-op loadout, so an ally's girl fights at HER owner's P*/ }
+  // The ONE place gear reaches a tower's battle stats. Gear totals are capped here (BATTLE_CAPS: crit 75%, cost cut 25%,
+  // Skill Haste 50%, Crit DMG +200%, Range +50%, Pierce +150%, Aura Power +15%); Every Line Counts (gearFillIn) adds its fill
+  // to the gear ATK part (Umeko / Miko: auraPct + auraRangeMul). pierceK = Pierce in whole hundredths; dotMul = min(1.25,
+  // 1 + ½ gear ATK) on burns / poisons; club / clubN = her club set (3 = its trick, src/sim/gearRules.js); rainbow = UR pieces
+  // worn (renderer only).
 export function unitPower(profile, unitId)       // single number for sorting/UI; × potentialPowerFactor + 20 per Potential step
 ```
 
@@ -662,19 +828,31 @@ damage and ×1.34 rate (its curve simply continues). Sandbox girls fight at thei
 ### `src/systems/gear.js`
 
 ```js
-export function rollGear(rng, { slot, rarity, level = 0 })      // -> GearInstance (not yet in profile)
-export function addGear(profile, gear)                          // assigns uid if missing, returns uid
+export function rollGear(rng, { slot, rarity, level = 0, club })// -> GearInstance (not yet in profile); club: roll from its pool + favourites
+export function addGear(profile, gear, { club })                // assigns uid if missing, returns uid; club 'random' | id: a fresh Mythic+
+                                                                //   drop joins it (its own rng) — stage drops, boxes, Titan Trials' Club Focus
 export function equipGear(profile, unitId, uid)                 // swaps out previous, handles owner change
 export function unequipGear(profile, unitId, slot)
 export function rerollCost(gear, { lockIndex })                 // -> [{id,count}]
 export function rerollSubstats(profile, uid, rng, { lockIndex = null } = {}) // -> { ok, before, after, error? }
-export function rerollMainStat(profile, uid, rng)
-export function enhanceCost(gear)                               // coins for next level
-export function enhanceGear(profile, uid)                       // +1 level (max 10), main stat grows, every 3 levels a sub grows
-export function salvageGear(profile, uid)                       // -> rewards (dice/coins)
-export function gearStatTotals(profile, unitId)                 // -> { atkPct, ratePct, ... } summed
-export function describeStat(stat, value)                       // '+5.2% ATK'
+export function rerollMainStat(profile, uid, rng, { stat })     // the Prism Dice: `stat` = the player's choice (else random)
+export function enhanceCost(gear)                               // coins for next level (UR +11/+12 at tier-6 prices)
+export function enhanceGear(profile, uid)                       // +1 level (max 10, UR 12), every 3 levels the least-upgraded sub grows;
+                                                                //   the first Legendary +10 pays the first-bloom Seed (`gift`)
+export function salvageGear(profile, uid)                       // -> rewards (dice/coins; + the Seed of a UR piece, + a Needle per ✦)
+export function gearStatTotals(profile, unitId)                 // -> { atkPct, …, piercePct, auraPct } effective sums + club 2-piece + Resonance
+export function gearLines(g) / effectiveValue(g, line)          // the only effective (UR-scaled) reads of stored values
+export function canAwakenGear / awakenGear(profile, uid)        // Rainbow Bloom: Legendary +10, 1 seed_rainbow + 80,000 coins
+export function stitchSlots(g) / canStitch / stitchSub(profile, uid, subIndex) / takeBackStitch(profile, uid, subIndex)
+export function canTieArmband / tieArmband(profile, uid, club)  // Club Armband: 1 club_band + 2,000 × (tier + 1) coins
+export function gearSetInfo(profile, unitId)                    // -> { club, clubN, clubs, ur, resonance }
+export function gearFillIn(profile, unitId)                     // Every Line Counts -> { target, total, cap, lines, over }
+export function describeStat(stat, value)                       // '+5.2% ATK', '+19% Skill Haste' (statName, src/data/gearStats.js)
 ```
+Gear definitions for menus: `src/data/gearStats.js` (GEAR_STAT_DEFS, statName, GEAR_FIT, BATTLE_CAPS), `src/data/clubs.js`,
+`src/data/gearAwaken.js` (none of them in the co-op hash). The sim side is `src/sim/gearRules.js` (hashed): Pierce per kit, the club
+tricks, and the tower abilities' Skill Haste read `abilityHaste(unitStats, kind)` / `abilityChargePerTick(unitStats, kind)` (half of her
+capped Skill Haste; 0 for kinds 'rally' and 'debuff') and `firstBellCharge`.
 
 ### `src/systems/inventory.js`
 
@@ -747,6 +925,13 @@ export function stageShowcase(profile, stageId)  // the medal and ribbon showcas
   // (earned with the Nightmare medal). Read-only; never writes the profile.
 export function campaignShowcase(profile)        // -> { stages: stageShowcase[] in campaign order, medals: { have, total: 160 }, ribbons: { have, total: 800 } }
 ```
+
+### Shop rows of Ascension (`src/data/shop.js`, `src/systems/shop.js`)
+
+Offers may carry their own `currency` (the Memento Exchange: `memento` / `moonpearl`), `section: 'titan'`, `group` +
+`family` (choose-family rows sharing one stock, counted under `group:<id>`), `needs` (hidden with nobody to use it),
+`everyOtherWeek`, `chosenEssence` (`buyOffer(…, { unitId })`). `clock: 'game'` rows reset on the game week through
+`missions.counters['shopwk:asc']`, never by `shop.week`.
 
 ### `src/systems/missions.js` & `src/data/missions.js` & `src/data/shop.js`
 
@@ -1029,11 +1214,32 @@ a between-waves snapshot needs only `routeReversed`; the generic checkpoint rebu
 come from `sim._pathsFwd`. Past the goal (`wave > stage.waves`) a rule keeps its combat effects and stops its € ones.
 Standard with `options.rule = null` is bit-identical to the pre-modes sim (`tests/sim/modesGolden.test.js`).
 
+### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
+
+```js
+sim.setAim(uid, x, y) / sim.clearAim(uid)   // -> boolean; 1/1024 grid, clamped to the map (a mirror to her reach); 'aim' event
+aimMode(t)                                   // towers.js: 'mortar' | 'mirror' | 'ult' (nova center 'aim' or a runner ult) | null
+relayOrigin(samples, x, y, relay, aim?), updateRelayOrigin(sim, t)  // t.origin, t.ox, t.oy; 'relay' event; samples from _pathsFwd
+sim.shells                                   // mortar shells: 'mortarWarn' / 'shellLand'; end at the wave clear
+sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
+sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
+sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
+PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
+                                                     // unlocked, as on live; a hero's own push keeps HERO_PUSH_LOCK (0.5 s, separate)
+HEX_TIER_MUL, HEX_BOSS_CAP                   // hex: pct × maxHp × tier factor per second, ≤ 10% per application on minibosses / bosses, no regen
+```
+Battle UI: `src/ui/battle/aimControl.js` (Set aim / Auto in the panel, one board tap); `ctx.act.aim(uid, x, y)`
+(x null clears). Renderer: `src/render/rosterFx.js`. Co-op: `aim[uid, qx, qy]` / `aim[uid, null]` (owner only).
+
 ## 7. Models — `src/models/**` (owner: models)
 
 ```js
-export async function preloadModels()  // loads public/models/chibi_base.glb once; safe to call many times
-export function buildChibi(unitDef, { quality = 'high', pose = 'idle' } = {}) // -> THREE.Group (≈0.9 tall, feet at y=0, faces +z)
+export async function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) // character GLBs (manifest keys
+   // resolved through the outfits: { unitId: skinId }); no ids = every roster unit's DEFAULT model (never the
+   // sentinel-*/future-* files); resolves false in node / offline (procedural fallback)
+export function buildChibi(unitDef, { quality = 'high', pose = 'idle', detail, skin = null } = {}) // -> THREE.Group (≈0.9 tall, feet at y=0, faces +z)
+   // skin: SkinDef or id (resolveSkin); the GLB key is skin.asset, userData.unitId stays the unit id and
+   // userData.skinId = the resolved skin id (also on the procedural placeholder, which uses the skin's palette/look)
    // group.userData.animate(time, dt, state) state: 'idle'|'attack'|'cheer'|'disabled'
    // group.userData.playAttack()  short attack animation
    // group.userData.setHighlight(bool)  selected look: her own colours a little brighter + a soft light rim (models/highlight.js)
@@ -1085,7 +1291,7 @@ export function medalIcon(difficulty, { earned = true } = {})
 export function uiIcon(name)  // back, home, settings, lock, star, heart, coin, play, pause, ff, ff2, ff3, sell, target,
                               // teleport, upgrade, info, close, check, plus, minus, refresh, dice, backpack, wiki,
                               // bestiary, gacha, formation, students, mission, bounty, assault, challenge, mall,
-                              // gift, calendar, trophy, map, sword, shield, eye, water, sparkle, filter, sort
+                              // gift, calendar, trophy, map, sword, shield, eye, water, sparkle, filter, sort, hanger
 // src/art/portraits.js (first impressions) — DRAWN art, preferred everywhere a girl's picture shows
 export function portraitUrl(unitOrId, kind = 'bust' /*'full' 768×1024 | 'card' 300×500 | 'bust' 512² | 'thumb' 160² | 'cut' transparent stand | 'cutS' small stand*/) // base-path safe URL in public/art/portraits/, or null
 export function portraitHTML(unitDef, kind, { eager, awaken, cls, alt }) // lazy async <img class="pt-img pt-<kind>">, or cardArtSVG when she has no drawing
@@ -1111,11 +1317,12 @@ folds, weapon, frame with rarity colour. Each girl must be recognisable by palet
 
 ```js
 import { createBattleRenderer } from './render/BattleRenderer.js';
-const r = createBattleRenderer(containerEl, sim, { quality, settings });
+const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, skins /*{ unitId: skinId } from formationSkins*/ });
 r.update(dt)                     // call every frame AFTER sim.update; consumes sim.drainEvents() and returns them
 r.resize()
 r.dispose()
 r.canvas                         // the WebGL canvas
+r.towerSkin(uid)                 // the outfit (skin id) a placed girl's model wears, null before it is drawn (e2e / debug)
 r.pick(clientX, clientY)         // -> { x, y /*continuous world point, free placement*/, tx, ty /*tile under it*/, towerUid|null, inBounds }
 r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + small footprint
                                  //    circle: white = valid, red = invalid; neutral white range circle). Two integers = a tile centre (legacy).
@@ -1259,7 +1466,9 @@ reveal animation, spark), mall, commissions (daily/weekly/login/achievements/cod
 (quality, lighting, audio, export/import save, reset).
 
 meta-b: students (Arknights-style tall portrait cards; filter by role/type/rarity/owned; sort by
-level/rarity/power), student detail (left: card art ⇄ 3D chibi viewer toggle; right tabs:
+level/rarity/power; hanger badge when she wears an outfit), student detail (left: card art ⇄ 3D chibi
+viewer toggle + **Outfit** pill → Outfit sheet with Wear (`setSkin` + `store.commit('skin')`) and Try on (3D preview,
+not saved; `#/student/<id>?skin=<skinId>` deep-links one; a NEW tag until `seenIntro` has 'outfits'); right tabs:
 Info (role, type chart chips, capabilities, bio, tips), Level Up (books, breakthrough mats with
 where-to-get + teleport), Awakening (crowns, stars, passive), Equipment (3 slots, gear list,
 equip, enhance, reroll with lock), Tree (3×5 upgrade tree with crosspath explanation)),
@@ -1404,6 +1613,44 @@ in-game result, relevant tests, and evidence against the original request."
   locked / insufficient-materials states (never a plain alert). Character detail keeps the character
   presentation stable while tabs change. Gacha reveal: anticipation → reveal → readable results;
   skippable; results never lost or double-charged.
+* **Transitions + loading screens (owner, Oct 20: "cleaner and animated menu transitions, loading
+  screens, like black with a cute something like slime in the corner and loading").** Every screen
+  change goes through `src/ui/transitions` (the router calls `beginScreenChange(transitionFor(…))`),
+  and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
+  a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
+  cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu, out then in and all in
+  place (the old body fades out where it is in 90 ms, then the new one slides in over 220 ms; nothing is
+  copied or moved in the DOM; the top bar stays and only its title crossfades) and **slide-back** for
+  the arrow, the back gesture, Home and parents, a **crossfade** for the same screen with new params
+  (70 + 150 ms), and the **boot** hold on the first screen. A screen's own entrance animations (panels,
+  staggered cards) jump to their end when a slide brings it in. Loaders (owner: "just black or
+  colored ... it saying loading is enough"): the full loader (`#ld`, in index.html from the first
+  byte: "Loading" with its jumping dots + Mochi bottom-right and no other text: no tips, no
+  destination line; a 2 px progress line only while a load really counts something: the battle's
+  models, the title's preload), the corner chip (a menu screen's code still downloading) and the
+  inline Mochi inside fetching panels. One rule for all of them (`src/ui/loading/gate.js`): shown
+  only when a load passes 150 ms, then at least 450 ms. Everything animates transform / opacity
+  only; reduced motion (system or setting) turns slides into a fade through (opacity only, 60 ms
+  out, 120 ms in) and the cut into a fade through black, and stills Mochi. The outgoing screen is inert from the tap that starts
+  the change, and its `cleanup.stop()` (timers, listeners) runs then; its cleanup itself runs once it
+  is off screen; the new one takes taps from its first frame; the cut panel never catches taps and the
+  loader only while its load is still running. A screen holds the cut / boot loader with
+  `holdLoader(promise, { progress })` (the battle until its first frame, the title until its
+  preload) or by firing its ready event (`READY_SIGNALS`: lobby, scene). **Mochi**, the loading
+  slime (`src/ui/loading/mochi.js`; the name is for code and docs only, the game never shows it), is
+  our own design: a jelly mochi from the slime family with big highlighted eyes and blush, never a
+  blue teardrop with dot eyes. Two looks for the owner to compare (owner: "try both!! We'll pick the
+  loading screen after"), same shape and hop, only the colours: `mint` (mint jelly + sakura petal,
+  the default) and `sakura` (sakura-pink jelly + mint leaf), everywhere Mochi appears (boot loader,
+  battle loader, corner chip, panels). Two backgrounds: `black` (the default) and `colour` (the
+  game's night navy `#0b1630` with a very soft sakura glow behind Mochi and a mint one top-left; the
+  cut panel and the chip follow it). Picked in Settings → Graphics → "Loading screen" (slime Mint /
+  Pink, background Black / Colour), kept in `profile.settings.loadingMochi` / `loadingBg`
+  (additive: no save version bump, not in the co-op sim id), put on `<html>` as `data-mochi` /
+  `data-loader-bg` (the CSS keys off them; `applyLoadingLook()`), and read by a tiny inline script
+  in index.html before any module script (storage wrapped in try/catch; anything unknown or blocked
+  gives mint on black). Covers stack above every toast: the cut 360, the chip 365, the loader 370;
+  the journal toast 350 (it was 9000), toasts 200, social pop-ups 210, the update pill 190.
 * **Chibis v2 (models):** Hikari is the approval character — get her excellent first (front, side, 3/4,
   in-game distance), then apply the method to everyone. Judge by construction: head depth & cheeks,
   coherent neck/shoulder/torso, shaped hands/feet, clean face placement, broad deliberately curved hair
@@ -1531,7 +1778,8 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `createCoopSim` / `Lockstep` directly pass their own stats.
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]
-  fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid]` (`fly`: a drone wing's flight mode, owner only like
+  fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid] aim[uid,qx,qy]|aim[uid,null]` (`aim`: a mortar /
+  mirror girl's or an aimed hero ult's aim point, owner only, whole 1/1024 tiles, null clears; roster B3) (`fly`: a drone wing's flight mode, owner only like
   `tgt`, up to 6 arguments; `flyArgs()` builds it), positions quantized to 1/1024 tile,
   `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
   with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never
@@ -1542,9 +1790,11 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 4 (`version.js`; 3 was freeplay; battle train C — the hero rework's commands, Chika's
-  `fly`, the path cap's `pick` and battle modes share the one bump), and the freeplay table, Potential's tables
-  and `BATTLE_MODES` are in the battle-data hash.
+  `COOP_PROTOCOL` 6 (`version.js`; 6 is v0.1.39: the nine returning girls with the `aim` command, UR gear in
+  battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
+  `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
+  Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in
+  `hello` / `start` with the version banner (`sameVersion`).
   Heroes (hero rework): every start player carries her own `hero` (a player without one brings a sixth girl,
   `loadout.js`); the Sim holds both (`heroes`, by player index) and `hero` follows the commanding player, so
   `ult` fires the commander's own hero. `hlv[level, maxPrice]` buys her next level (refused `stale` when she

@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath } from '../../src/online/coop/detMath.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { potentialState } from '../../src/systems/potential.js';
 import { ultEffect } from '../../src/sim/hero.js';
 import { bountyMulAt } from '../../src/sim/potential.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
@@ -70,8 +71,8 @@ describe('co-op: the same girl at two Potentials', () => {
   it('two levels and two Potentials per owner; Miko\'s aura and Luna\'s Moonfall help the partner; Momo\'s harvest and bounty coins are pooled; hashes agree', () => {
     // the host's Kage at level 60 P6 and the guest's at level 20 P2; Miko P6 and Luna P6 are the
     // host's, Momo P6 the guest's (profiles as the lobby reads them: unitBattleStats)
-    const host = { units: { kage: { level: 60, breakthrough: 5, dupes: 5 }, miko: { level: 40, breakthrough: 3, dupes: 5 }, luna: { level: 40, breakthrough: 3, dupes: 5 } }, gear: {} };
-    const guest = { units: { kage: { level: 20, breakthrough: 1, dupes: 1 }, momo: { level: 30, breakthrough: 2, dupes: 5 } }, gear: {} };
+    const host = { units: { kage: { level: 60, breakthrough: 5, ...potentialState(6) }, miko: { level: 40, breakthrough: 3, ...potentialState(6) }, luna: { level: 40, breakthrough: 3, ...potentialState(6) } }, gear: {} };
+    const guest = { units: { kage: { level: 20, breakthrough: 1, ...potentialState(2) }, momo: { level: 30, breakthrough: 2, ...potentialState(6) } }, gear: {} };
     const lo = (prof, ids) => ids.map((unitId) => ({ unitId, stats: { ...unitBattleStats(prof, unitId), damageMul: unitBattleStats(prof, unitId).damageMul * 3, costMul: 0.25 } }));
     const start2 = {
       seed: 4040,

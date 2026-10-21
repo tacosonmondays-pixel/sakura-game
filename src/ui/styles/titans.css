@@ -1,0 +1,80 @@
+/* Titan Trials hub and its result sheet (docs/specs/ASCENSION.md §D.3). Existing tokens only
+   (base.css); the UI condense pass restyles it with the rest. Phone landscape first (844×390). */
+
+.tt-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 1200px; margin: 0 auto; padding-bottom: 10px; }
+.tt-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tt-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--panel); box-shadow: var(--shadow); font-size: 0.8rem; color: var(--navy); }
+.tt-chip b { font-weight: 900; }
+.tt-chip-ico { width: 18px; height: 18px; flex: none; }
+.tt-top .btn { margin-left: auto; }
+
+.tt-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.tt-card { position: relative; height: 58px; border: 0; padding: 0; border-radius: var(--radius); overflow: hidden; cursor: pointer; text-align: left; background: var(--navy); box-shadow: var(--shadow); transform: skewX(var(--skew)); transition: transform var(--t-press) var(--ease); }
+.tt-card > * { transform: skewX(calc(var(--skew) * -1)); }
+.tt-card-art { position: absolute; inset: 0; opacity: 0.55; }
+.tt-card-art > svg { width: 120%; height: 120%; margin-left: -10%; }
+.tt-card-token { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
+.tt-card-text { position: absolute; inset: 4px 46px 4px 12px; display: flex; flex-direction: column; justify-content: center; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); min-width: 0; }
+.tt-card-name { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-card-sub { font-size: 0.66rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.92; }
+.tt-week { font-size: 0.58rem; font-weight: 900; color: var(--yellow); letter-spacing: 0.02em; }
+.tt-card.active { outline: 3px solid var(--yellow); outline-offset: -3px; }
+.tt-card.week { box-shadow: 0 0 0 2px var(--yellow-deep), var(--shadow); }
+.tt-card:active { transform: skewX(var(--skew)) scale(0.97); }
+
+.tt-detail { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 8px; }
+.tt-main, .tt-side { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 10px; min-width: 0; }
+.tt-main { display: flex; flex-direction: column; gap: 6px; }
+.tt-show { position: relative; height: 128px; border-radius: 10px; overflow: hidden; background: var(--navy); }
+.tt-show-bg { position: absolute; inset: 0; opacity: 0.85; }
+.tt-show-bg > svg { width: 100%; height: 100%; }
+.tt-show-token { position: absolute; left: 50%; top: 46%; translate: -50% -50%; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45)); }
+.tt-show-plate { position: absolute; left: 8px; bottom: 6px; display: flex; flex-direction: column; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.tt-show-plate b { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 1.05rem; }
+.tt-show-plate span { font-size: 0.68rem; opacity: 0.9; }
+.tt-facts { display: flex; flex-direction: column; gap: 2px; }
+.tt-line { margin: 0; font-size: 0.76rem; line-height: 1.3; color: var(--ink); }
+.tt-line.muted { color: var(--muted); }
+.tt-lock { color: var(--bad); font-weight: 800; }
+
+.tt-side { display: flex; flex-direction: column; gap: 5px; }
+.tt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.tt-label { font-size: 0.7rem; font-weight: 900; color: var(--muted); text-transform: uppercase; }
+.tt-fam, .tt-tier { display: inline-flex; align-items: center; gap: 3px; font-size: 0.74rem; padding: 3px 9px; }
+.tt-fam.on, .tt-tier.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+.tt-tier.locked { opacity: 0.6; }
+.tt-rank { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; }
+.tt-need { margin: 0; font-size: 0.72rem; color: var(--blue-deep); font-weight: 800; }
+.tt-meter { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--navy); }
+.tt-meter-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tt-meter-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #ff7ab6, #ffd166, #8be78b, #7ee8fa, #a78bfa); }
+.tt-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 2px; }
+.tt-locked { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; text-align: center; }
+
+/* result sheet */
+.tt-hpbar { position: relative; height: 16px; margin: 6px 4px 4px; border-radius: 999px; background: var(--line); overflow: visible; }
+.tt-hpfill { position: absolute; inset: 0 auto 0 0; width: var(--fill, 0%); border-radius: 999px; background: linear-gradient(90deg, var(--pink), var(--bad)); }
+.tt-notch { position: absolute; top: -3px; width: 4px; height: 22px; margin-left: -2px; border-radius: 2px; background: var(--navy); opacity: 0.45; }
+.tt-notch.hit { background: var(--yellow-deep); opacity: 1; box-shadow: 0 0 6px var(--yellow); }
+.tt-hppct { position: absolute; right: 8px; top: 50%; translate: 0 -50%; font-size: 0.7rem; color: var(--navy); }
+.tt-result-line { margin: 2px 0 4px; text-align: center; font-weight: 800; color: var(--navy); font-size: 0.86rem; }
+.tt-rainbow { margin: 0 0 4px; font-weight: 900; background: linear-gradient(90deg, #ff7ab6, #ffb703, #2bb673, #2b7fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tt-unlocked { margin: 0 auto 6px; width: fit-content; padding: 3px 14px; border-radius: 6px; font-weight: 900; font-style: italic; color: #fff; background: linear-gradient(90deg, var(--pink), var(--bad)); transform: skewX(var(--skew)); }
+.tt-keys { margin: 4px 0; text-align: center; font-size: 0.74rem; }
+
+@media (max-height: 480px) {
+  .tt-wrap { gap: 6px; }
+  .tt-card { height: 48px; }
+  .tt-show { height: 96px; }
+  .tt-show-token .enemy-token, .tt-show-token svg { max-height: 80px; }
+}
+@media (max-width: 700px) {
+  .tt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tt-detail { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  .tt-card { height: 76px; }
+  .tt-card-name { font-size: 1.1rem; }
+  .tt-show { height: 180px; }
+  .tt-line { font-size: 0.86rem; }
+}
