@@ -154,6 +154,25 @@ try {
     }, ids.charm);
     check(ur.tile && ur.tag && ur.slot, `${tag} the tile is rainbow (step 5) with the UR tag, and so is her charm slot (${JSON.stringify(ur)})`);
     check(ur.saved && ur.seeds === 1, `${tag} saved as UR, locked, one Seed spent`);
+    // the UR tag's rainbow ring sits on the tag itself (not around the whole sheet), in the slot sheet and in Details
+    const ringOnTag = (scope) => page.evaluate((sel) => {
+      const t = document.querySelector(`${sel} .ui-rtag.is-ur`);
+      const r = t?.querySelector(':scope > .ur-ring');
+      if (!t || !r) return { ok: false, why: 'no tag or ring' };
+      const a = t.getBoundingClientRect();
+      const b = r.getBoundingClientRect();
+      const d = Math.max(Math.abs(a.left - b.left), Math.abs(a.top - b.top), Math.abs(a.right - b.right), Math.abs(a.bottom - b.bottom));
+      return { ok: d <= 1.5, tag: [Math.round(a.width), Math.round(a.height)], ring: [Math.round(b.width), Math.round(b.height)] };
+    }, scope);
+    const rs = await ringOnTag(`[data-testid="gear-item"][data-gear="${ids.charm}"]`);
+    check(rs.ok, `${tag} slot sheet: the UR ring wraps the tag only (${JSON.stringify(rs)})`);
+    await tap(page, '[data-testid="gear-item-more"]');
+    await page.waitForSelector('[data-testid="gear-details"]');
+    await page.waitForTimeout(300);
+    const rd = await ringOnTag('[data-testid="gear-details"]');
+    check(rd.ok, `${tag} Details: the UR ring wraps the tag only (${JSON.stringify(rd)})`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="gear-details"]', { state: 'detached' });
 
     // ---- Starlight Needle: gold then rainbow on the same line, then take one back
     const needles0 = await count(page, 'needle_star');

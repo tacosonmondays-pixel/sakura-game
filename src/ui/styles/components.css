@@ -143,6 +143,10 @@
 /* gradient letters need an inner span: <span class="ui-rtag ur"><span>UR</span></span> (plain text keeps the flat colour) */
 .ui-rtag.ur > span, .ui-rtag.lr > span { -webkit-background-clip: text; background-clip: text; color: transparent; }
 .ui-rtag.ur > span { background-image: linear-gradient(90deg, #ff9bc8, #ffe066, #8ef0b0, #7fd3ff, #c9a8ff); }
+/* UR's rainbow ring (a urRing() child) stays on the pill wherever the tag sits: the plate, a slot sheet, Details */
+.ui-rtag.is-ur { position: relative; overflow: hidden; }
+.ui-rtag.is-ur > span.ur-ring { --ur-w: 2px; border-radius: 5px; } /* (span: beats a frame's ".x.is-ur .ur-ring" around it) */
+.ui-rtag .ur-text { font-style: normal; filter: none; }
 .ui-rtag.common { color: var(--gear-common); }
 .ui-rtag.rare { color: var(--gear-rare); }
 .ui-rtag.superRare, .ui-rtag.super { color: var(--gear-super); }

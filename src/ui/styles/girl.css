@@ -77,10 +77,6 @@
 .gp-p::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap-dense)); height: max(100%, var(--tap-dense)); transform: translate(-50%, -50%); }
 .gp-p-crown { width: 14px; height: 14px; display: inline-grid; color: var(--plate); }
 .gp-p-crown svg { width: 100%; height: 100%; }
-/* UR: the rainbow letters on the plate pill, its edge the rainbow ring */
-.gp-plate .ui-rtag.is-ur { position: relative; overflow: hidden; }
-.gp-plate .ui-rtag.is-ur .ur-ring { --ur-w: 2px; border-radius: 5px; }
-.gp-plate .ui-rtag .ur-text { font-style: normal; filter: none; }
 
 /* ---------- The right column: tab rail + one content window ---------- */
 .gp-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
