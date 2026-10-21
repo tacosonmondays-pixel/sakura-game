@@ -108,7 +108,7 @@ stage harder. Measured with the Easy gate's bot (free units, expected level, see
    strict again: `KNOWN_EASY_FLIPS` is gone and `balance.test.js` is identical to v0.1.37.
 3. Easy gate before / after, all 40 stages, both roster modes: `docs/BALANCE.md` "Roster wave".
 
-## 6. Merging into `train/v0140` (v0.1.40)
+## 6. Merging into `train/v0140` (ships as v0.1.39)
 
 `origin/feature/new-girls-art` (this branch plus the nine girls' art) merged onto `train/v0139` (live v0.1.38 +
 UR gear, substats and sets + Ascension and Titan Trials). Merge base `84ebdeb` (v0.1.37). 16 files conflicted;

@@ -20,6 +20,30 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.39', version: '0.1.39', date: '2026-10-20', title: 'Welcome Back, Everyone',
+    added: [
+      'Nine girls are back! Kanna, Yoriko and Seiran join as staff heroes, and Iroha, Ena, Fuu, Noa, Hana and Ruri as students.',
+      'Each of them has a painted portrait and a 3D figure. Six of the figures are temporary and get their finished look later.',
+      'Already cleared 6-2 or 7-5? Clear that stage once more to welcome Noa (6-2) or Hana (7-5).',
+      'UR gear: Legendary gear can awaken into rainbow UR gear. New Pierce and Aura Power stats, Academy Club sets and the Rainbow Gear Box.',
+      'Ascension: Essence raises a girl’s Potential, and new level gates lift the level cap from 60 to 85.',
+      'Titan Trials: weekly bosses with their own rewards.',
+      'A new loading screen (pick its look in Settings > Graphics) and smoother menu transitions, with a VICTORY / DEFEAT sweep after battle.',
+      'Halloween Nightmare on every event stage, with the toughest one at the very end, plus six new Nightmare missions.',
+    ],
+    changed: [
+      'Candy Exchange prices are higher. Things you bought earlier are kept. If a game tab is still open from before the update, reload it.',
+      'Event sweeps are limited to 10 a day and refill at 7 PM Central. Battles you play are never limited.',
+      'Many girls have new 3D figures and titles that match their portraits. Tap Outfit on a girl’s page: many keep their earlier look as a free outfit.',
+      'Nami, Sango and Umeko can now be placed on land or water.',
+      'Momo’s upgrade paths have new idol names: Fan Club, Merch Table and Encore Toss.',
+      'Co-op: both players need this update to play together.',
+    ],
+    fixed: [
+      'The Pumpkin Patroller title now shows on its gold nameplate.',
+    ],
+  },
+  {
     id: 'v0.1.38', version: '0.1.38', date: '2026-10-20', title: 'Pumpkin Lantern Night',
     added: [
       'Pumpkin Lantern Night, our first limited event, is open now until Nov 1 (7 PM Central). Clear 1-5 to join, then tap the EVENT card in the lobby.',

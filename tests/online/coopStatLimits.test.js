@@ -103,7 +103,7 @@ describe('a hostile loadout', () => {
 
   it('both clients clamp the same start message the same way and agree on every hash', () => {
     const raw = {
-      v: { proto: 5 }, seed: 5150, stageId: '1-3', difficulty: 'normal',
+      v: { proto: 6 }, seed: 5150, stageId: '1-3', difficulty: 'normal',
       players: [
         { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: unitBattleStats(createProfile(), 'aoi') }], hero: null, color: 1 },
         { slot: 1, uid: 'cheat', name: 'Cheat', loadout: [{ unitId: 'rei', stats: hostile }], hero: null, color: 2 },

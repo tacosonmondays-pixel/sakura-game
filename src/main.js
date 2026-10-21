@@ -177,7 +177,7 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 const idle = (fn, timeout) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, Math.min(timeout, 1200)));
 whenSettled().then(() => {
   idle(warmModels, 2500);
-  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit']), 4000);
+  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit', 'titans']), 4000);
 });
 
 // [social] badges, live DMs and invite pop-ups for players who already went online (a stored

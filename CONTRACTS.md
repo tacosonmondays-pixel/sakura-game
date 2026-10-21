@@ -1790,9 +1790,11 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 4 (`version.js`; 3 was freeplay; battle train C — the hero rework's commands, Chika's
-  `fly`, the path cap's `pick` and battle modes share the one bump), and the freeplay table, Potential's tables
-  and `BATTLE_MODES` are in the battle-data hash.
+  `COOP_PROTOCOL` 6 (`version.js`; 6 is v0.1.39: the nine returning girls with the `aim` command, UR gear in
+  battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
+  `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
+  Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in
+  `hello` / `start` with the version banner (`sameVersion`).
   Heroes (hero rework): every start player carries her own `hero` (a player without one brings a sixth girl,
   `loadout.js`); the Sim holds both (`heroes`, by player index) and `hero` follows the commanding player, so
   `ult` fires the commander's own hero. `hlv[level, maxPrice]` buys her next level (refused `stale` when she

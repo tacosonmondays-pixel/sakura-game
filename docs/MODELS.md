@@ -123,7 +123,7 @@ get Meshy figures now). No generator was used for them: everything is built loca
   library option defaults to the old behaviour (the other girls rebuild byte-identical).
 * **Display only.** The GLB carries the look; the sim, saves and co-op never read it. Anything that reads
   `palette.*` from the unit data still shows the placeholder colours: the procedural chibi drawn while her GLB loads,
-  the 2D card doll fallback and the wiki text. Since v0.1.40 the unit data matches the paintings where it showed most:
+  the 2D card doll fallback and the wiki text. Since v0.1.39 the unit data matches the paintings where it showed most:
   Fuu's hair and bio are cocoa-brown and Noa's eyes rose-pink; the other placeholder colours are still the data's.
 * **Face at 48°.** From the battle camera the curved head bends level brows and lash lines into a V, so with the
   shared face every girl read stern. All six share `BATTLE_FACE` in `build_characters.py`, opt-in face options in
