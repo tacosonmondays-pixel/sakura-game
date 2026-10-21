@@ -51,12 +51,13 @@ import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, ico
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
-import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchupList, matchArrows } from '../girlView.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
 import { buildTreeModel } from '../treeModel.js';
 import { heroTrackBand, fullTrackList } from '../heroTrack.js';
 import { UPGRADE_TAGS, TAG_ORDER } from '../upgradeTags.js';
+import { girlPageMode, infoView, awakenStars, starBonus, manualOpen, pathTiers } from '../girlDetail.js';
 
 // one word per tab (§5.3); the ids and their tab-<id> testids never change
 const TABS = [
@@ -69,7 +70,7 @@ const TABS = [
 const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
 // manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
-const view = { mode: 'card', skin: null, manual: false };
+const view = { mode: 'card', skin: null, manual: false, manualFor: null };
 /** seenIntro key: the Outfit pill shows a NEW dot until the outfit sheet was opened once. */
 const OUTFIT_INTRO = 'outfits';
 
@@ -459,8 +460,9 @@ function storyLockedTab(feature) {
  * (her quote; Open: the bio, tips and how to get her). `profile`: whose girl (the save, or a snapshot's mini
  * profile, `label` 'theirs').
  */
-export function infoTab(unit, { profile = store.profile, label = 'yours', onChange = null } = {}) {
+export function infoTab(unit, { profile = store.profile, label = 'yours', onChange = null, mode = girlPageMode(store.profile) } = {}) {
   const role = ROLES[unit.role];
+  const iv = infoView(unit, mode);
   const cat = ROLE_CATEGORIES[role?.category];
   const st = profile.units[unit.id];
   const mine = label === 'yours' && profile === store.profile;
@@ -480,25 +482,32 @@ export function infoTab(unit, { profile = store.profile, label = 'yours', onChan
         shown.map((t) => kitChip({ icon: traitIcon(t), text: t.name, title: `${t.name}${t.desc ? `: ${t.desc}` : ''}`, cls: [t.kind === 'cap' ? 'cap' : '', t.later ? 'later' : ''].filter(Boolean).join('.') })),
         rest > 0 ? moreChip(rest, { onClick: () => openTraits(unit), title: `${rest} more traits`, testid: 'info-traits-more' }) : null)),
     h('p.gp-one', roleSentence(unit)),
-    statStrip(headlineStats(unit, profile), { onMore: () => openBaseStats(unit, { profile, label }), testid: 'info-strip', moreTestid: 'info-more' }));
+    statStrip(headlineStats(unit, profile), { onMore: () => openBaseStats(unit, { profile, label }), testid: 'info-strip', moreTestid: 'info-more' }),
+    // Detailed (Settings → Girl page): every stat with base and hers, as the MORE sheet shows it, on the page
+    iv.stats ? h('div.gp-stats-inline', { 'data-testid': 'info-stats' }, statsTable(unit, unitBattleStats(profile, unit.id), { owned: !!st, label })) : null);
 
-  const mu = matchupList(unit.attackType).slice(0, 4);
-  const matchCard = infoPanel({ cls: 'gp-match-card', testid: 'info-matchup', kicker: 'Matchup', head: iconBtn('info', { label: 'Type effectiveness', testid: 'info-matchup-i', cls: 'small', onClick: () => openMatchup(unit) }) },
+  const mu = iv.matchup;
+  const matchCard = infoPanel({ cls: `gp-match-card${iv.stats ? '.full' : ''}`, testid: 'info-matchup', kicker: 'Matchup', head: iconBtn('info', { label: 'Type effectiveness', testid: 'info-matchup-i', cls: 'small', onClick: () => openMatchup(unit) }) },
     mu.length
-      ? h('div.gp-mu-grid', mu.map((m) => h(`span.gp-mu.${m.up ? 'up' : 'dn'}`, { title: `${m.name}: ×${m.mult}` }, svgEl(armorClassIcon(m.armor), 'gp-mu-ico'), h('b', { 'aria-label': m.up ? 'strong against' : 'weak against' }, m.arrows), m.name)))
+      ? h('div.gp-mu-grid', mu.map((m) => h(`span.gp-mu.${m.up ? 'up' : 'dn'}`, { title: `${m.name}: ×${m.mult}` }, svgEl(armorClassIcon(m.armor), 'gp-mu-ico'), h('b', { 'aria-label': m.up ? 'strong against' : 'weak against' }, m.arrows), m.name,
+        m.multText ? h('span.gp-mu-x.num', { 'data-testid': 'info-matchup-mult' }, m.multText) : null)))
       : h('p.gp-line', 'Even against every armor.'));
 
-  // capabilities (1280x720): one icon strip; tap: one line each (the Traits sheet)
-  const capsCard = caps.length ? infoPanel({ cls: 'gp-caps-card', kicker: 'Capabilities' },
-    h('button.gp-caps', { type: 'button', 'data-testid': 'info-caps', 'aria-label': 'Capabilities: one line each', onclick: () => openTraits(unit) },
-      caps.map((t) => h(`span.gp-cap${t.later ? '.later' : ''}`, { title: t.later ? `${t.name}: through an upgrade` : t.desc }, svgEl(capabilityIcon(t.key), 'gp-cap-ico'), h('span', t.name), t.later ? ico('lock') : null)))) : null;
+  // capabilities (1280x720): one icon strip; tap: one line each (the Traits sheet). Detailed: one line each, here.
+  const capRow = (t) => h(`li.gp-trait${t.later ? '.later' : ''}`, svgEl(capabilityIcon(t.key), 'gp-trait-ico'),
+    h('div', h('b', t.name), t.later ? h('span.gp-sub', ' · through an upgrade') : null, t.desc ? h('div.gp-sub', t.desc) : null));
+  const capsCard = !caps.length ? null : iv.capsListed
+    ? infoPanel({ cls: 'gp-caps-card.listed', testid: 'info-caps-list', kicker: 'Capabilities' }, h('ul.gp-trait-list', caps.map(capRow)))
+    : infoPanel({ cls: 'gp-caps-card', kicker: 'Capabilities' },
+      h('button.gp-caps', { type: 'button', 'data-testid': 'info-caps', 'aria-label': 'Capabilities: one line each', onclick: () => openTraits(unit) },
+        caps.map((t) => h(`span.gp-cap${t.later ? '.later' : ''}`, { title: t.later ? `${t.name}: through an upgrade` : t.desc }, svgEl(capabilityIcon(t.key), 'gp-cap-ico'), h('span', t.name), t.later ? ico('lock') : null))));
 
   const potCard = potentialRow(unit, st, { profile: mine ? profile : null, onChange });
 
   const quote = unit.quote ? infoPanel({ cls: 'gp-profile-card', kicker: 'Profile', head: ghostBtn('Open ▸', { testid: 'info-profile', onClick: () => openProfile(unit, { owned: !!profile.units[unit.id] }) }) },
     h('div.gp-quote', svgEl(portraitHTML(unit, 'thumb', { alt: '' }), 'gp-qface'), h('div.gp-bubble', `“${unit.quote}”`))) : null;
 
-  return h('div.mb-tab-body.gp-info', roleCard, matchCard, potCard, capsCard, quote);
+  return h(`div.mb-tab-body.gp-info${iv.stats ? '.detailed' : ''}`, roleCard, matchCard, potCard, capsCard, quote);
 }
 
 /** A glass panel (§5.4): white glass, one chamfer, a caps kicker with an optional head control. */
@@ -675,7 +684,8 @@ const HERO_PATH_NAMES = {
 
 /**
  * Level Up (UI_DIRECTION.md §6.2, M1b): her LV with the cap, the EXP bar with the preview of the books picked, Auto
- * select and Level up (the primary, with its price); the per-book steppers sit behind the Manual toggle. Under it the
+ * select and Level up (the primary, with its price); the per-book steppers sit behind the Manual toggle (open from the
+ * start in the Detailed look, Settings → Girl page). Under it the
  * next gate (Breakthrough, then Ascension's gates 6–10 up to 85): its pips, every requirement as a chip (icon,
  * owned/required, where to get it), the Potential it waits on (Raise opens her Potential sheet) and Break through.
  */
@@ -844,9 +854,6 @@ function gatePips(passed) {
 
 // ----- Awakening -------------------------------------------------------------
 
-/** What one awaken star gives (the 3rd unlocks her passive). */
-const starBonus = (unit, s) => (s === 3 ? `Unlocks ${unit.awakenPassive.name}` : '+5% DMG');
-
 /**
  * Awakening (UI_DIRECTION.md §6.2, M1b): the star row, the next star's single bonus, her passive in one line, the cost
  * (a chip per crown and the fragments) and Awaken · price. The per-star track and the full passive go behind MORE.
@@ -863,12 +870,18 @@ function awakenTab(unit, ctx) {
   const next = star < MAX_AWAKEN ? star + 1 : null;
   const cost = next ? check.cost || awakenCost(unit.id, next) : [];
   const coins = coinsOf(cost);
+  // Detailed (Settings → Girl page): every star's bonus, the next one highlighted
+  const stars = ctx.mode === 'detailed' ? awakenStars(unit, star, 'detailed') : null;
   const top = h('section.ui-panel.gk-aw', { 'data-testid': 'awaken-panel' }, h('div.ui-panel-in',
     h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? urBadge() : null,
       h('span.gk-aw-more', moreSticker(() => openAwakenDetails(unit), { testid: 'awaken-more', label: 'Every star and her passive' }))),
-    next
-      ? h('div.gk-aw-next', { 'data-testid': 'awaken-next' }, lbl('Next'), h('b.num', `★${next}`), h('span.gk-aw-bonus', starBonus(unit, next)))
-      : null,
+    stars
+      ? h('ol.gk-aw-list', { 'data-testid': 'awaken-stars' }, stars.map((s) => h(`li.gk-aw-star.${s.state}`, { 'data-testid': s.state === 'next' ? 'awaken-next' : null },
+        h('b.num', `★${s.star}`), h('span.gk-aw-bonus', s.bonus),
+        s.state === 'on' ? ico('check', 'ui-ico.gk-aw-ok') : s.state === 'next' ? lbl('Next') : null)))
+      : next
+        ? h('div.gk-aw-next', { 'data-testid': 'awaken-next' }, lbl('Next'), h('b.num', `★${next}`), h('span.gk-aw-bonus', starBonus(unit, next)))
+        : null,
     h(`div.gk-passive${passiveOn ? '.on' : ''}`, { 'data-testid': 'awaken-passive' },
       ico(passiveOn ? 'sparkle' : 'lock', 'ui-ico.gk-passive-ic'),
       h('div', h('b', unit.awakenPassive.name), h('span.gp-sub', ` ${unit.awakenPassive.desc}`)),
@@ -961,22 +974,35 @@ function gearCanAwakenNow(unitId) {
  * panel beside it (tap a cell: tier name, "Tier 3 · path", 3 effect chips, the base price, MORE for the full text).
  * A hero has no paths: her tab is the hero track band (src/ui/heroTrack.js).
  */
-export function treeTab(unit) {
+export function treeTab(unit, { mode = girlPageMode(store.profile) } = {}) {
   if (unit.kind === 'hero') return h('div.mb-tab-body.gp-tree.hero', heroTrackBand(unit, { onFull: () => openFullTrack(unit) }));
   const model = buildTreeModel({ def: unit, mode: 'static' });
   const hint = h('p.gp-tier-hint', { 'data-testid': 'tier-hint' }, ico('info'), 'Tap a tier to see what it does.');
   const side = h('aside.ui-panel.gp-tier', { 'aria-live': 'polite' }, h('div.ui-panel-in', hint));
   const sideIn = side.firstChild;
+  // Detailed (Settings → Girl page): the picked path's five tiers with their effects under the grid (first path at first)
+  const list = mode === 'detailed' ? h('section.ui-panel.gp-path-list', { 'data-testid': 'tree-path-list' }) : null;
+  const drawList = (path) => {
+    const v = pathTiers(model, path);
+    if (!list || !v) return;
+    list.replaceChildren(h('div.ui-panel-in',
+      h('div.ui-panel-head', h('span.ui-kicker', `${v.name} · tiers 1–5`)),
+      h('ol.gp-tiers', v.tiers.map((t) => h(`li.gp-tl${t.capstone ? '.capstone' : ''}`, { 'data-testid': `tree-tier-${v.path}-${t.tier}` },
+        h('span.gp-tl-n.num', String(t.tier)), h('b.gp-tl-name', t.name),
+        h('span.gp-tl-fx', t.effects.length ? t.effects.map((e) => kitChip({ text: e, cls: 'gp-tl-chip' })) : h('span.gp-sub', t.line || '')))))));
+  };
+  drawList(0);
   const grid = treeGrid(model, {
     onPick: (cell) => {
       sideIn.replaceChildren(tierPanel(cell, model, {
         describe: describeMods,
         onMore: (v) => openTierMore(unit, cell, v),
       }));
+      drawList(cell.path);
     },
   });
   const rule = h('div.gp-rule', h('span', RULE_LINE), iconBtn('info', { label: 'How paths combine', testid: 'tree-rule-i', cls: 'small', onClick: () => openTreeRule(unit) }));
-  return h('div.mb-tab-body.gp-tree', h('section.ui-panel.gp-tree-card', h('div.ui-panel-in', rule, grid)), side);
+  return h(`div.mb-tab-body.gp-tree${list ? '.detailed' : ''}`, h('section.ui-panel.gp-tree-card', h('div.ui-panel-in', rule, grid)), side, list);
 }
 
 /** The rule's "i": the whole path rule, valid and not-allowed examples, and what the four tags mean. */
@@ -1046,7 +1072,12 @@ export function render(root, params = {}) {
   };
   const band = buildBand(unit, cycle, goPotential);
   const tabHost = h('div.mb-tab-host.gp-host');
+  // the girl page's look (Settings → Display → Girl page): Detailed opens Level Up's steppers too
+  let mode = girlPageMode(store.profile);
+  // (a Manual toggle keeps while she cycles through the girls in one look)
+  if (view.manualFor !== mode) { view.manual = manualOpen(mode); view.manualFor = mode; }
   const ctx = {
+    get mode() { return mode; },
     books: {},
     refreshShowcase: () => band.refresh(),
     rerenderTab: () => renderTab(false),
@@ -1087,11 +1118,11 @@ export function render(root, params = {}) {
       case 'gear':
         content = !store.profile.units[unit.id] ? lockedTab(unit, 'equipment')
           : !featureOpen(store.profile, 'gear') ? storyLockedTab('gear') // [story] new-save gate
-            : gearTab(unit, { onChange: () => { band.refresh(); renderTab(false); } });
+            : gearTab(unit, { mode, onChange: () => { band.refresh(); renderTab(false); } });
         break;
-      case 'tree': content = treeTab(unit); break;
+      case 'tree': content = treeTab(unit, { mode }); break;
       default:
-        content = infoTab(unit, { onChange: refreshAll });
+        content = infoTab(unit, { onChange: refreshAll, mode });
         // her Potential steps are on screen now: the one-time NEW badge on her card goes
         if (clearPotentialNew(store.profile, unit.id)) store.commit('potential-seen', { quiet: true });
     }
@@ -1110,6 +1141,14 @@ export function render(root, params = {}) {
   if (params.focus === 'potential' && tab === 'info') requestAnimationFrame(() => openPotential(unit, { profile: store.profile, onChange: refreshAll }));
   const off = store.on('change', (e) => {
     if (e?.reason === 'replace') { band.refresh(); renderTab(false); } else if (e?.reason === 'skin') band.refresh();
+    // the look changed (Settings, another tab): this page follows at once
+    const nextMode = girlPageMode(store.profile);
+    if (nextMode !== mode) {
+      mode = nextMode;
+      view.manual = manualOpen(mode);
+      view.manualFor = mode;
+      if (e?.reason !== 'replace') renderTab(false);
+    }
     if (railHost.isConnected) {
       const sig = JSON.stringify(tabDefs().map((t) => [t.locked, t.dot]));
       if (sig !== railSig) { railSig = sig; buildRail(); tabBar.setActive(tab); }
