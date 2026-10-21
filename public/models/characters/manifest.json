@@ -188,7 +188,7 @@
  },
  "hana": {
   "file": "hana.glb",
-  "size": 1236888,
+  "size": 1206276,
   "animations": [
    "attack_bow",
    "cheer",
@@ -196,13 +196,13 @@
    "idle",
    "walk"
   ],
-  "vertices": 18876,
-  "triangles": 20467,
+  "vertices": 17794,
+  "triangles": 19693,
   "source": "meshy",
   "lod": "hana.lod.glb",
-  "lodSize": 568100,
-  "lodVertices": 9505,
-  "lodTriangles": 9467
+  "lodSize": 556844,
+  "lodVertices": 9083,
+  "lodTriangles": 9279
  },
  "hikari": {
   "file": "hikari.glb",
@@ -497,7 +497,7 @@
  },
  "ruri": {
   "file": "ruri.glb",
-  "size": 1345620,
+  "size": 1327140,
   "animations": [
    "attack_book",
    "cheer",
@@ -505,13 +505,13 @@
    "idle",
    "walk"
   ],
-  "vertices": 18209,
-  "triangles": 19997,
+  "vertices": 17565,
+  "triangles": 19493,
   "source": "meshy",
   "lod": "ruri.lod.glb",
-  "lodSize": 615660,
-  "lodVertices": 9087,
-  "lodTriangles": 8997
+  "lodSize": 608796,
+  "lodVertices": 8824,
+  "lodTriangles": 8905
  },
  "sango": {
   "file": "sango.glb",
@@ -872,7 +872,7 @@
  },
  "yoriko": {
   "file": "yoriko.glb",
-  "size": 445584,
+  "size": 417072,
   "animations": [
    "attack_cast",
    "cheer",
@@ -882,10 +882,10 @@
    "victory",
    "walk"
   ],
-  "vertices": 8992,
+  "vertices": 8186,
   "lod": "yoriko.lod.glb",
-  "lodSize": 232684,
-  "lodVertices": 3061
+  "lodSize": 221764,
+  "lodVertices": 2745
  },
  "yuki": {
   "file": "yuki.glb",

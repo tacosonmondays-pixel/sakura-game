@@ -168,13 +168,13 @@ async function runViewport(vp) {
     else await page.mouse.up();
     const open = await sheetOpen();
     check(open, 'formation: holding a squad slot opens her info sheet');
-    const name = await page.evaluate(() => document.querySelector('[data-testid="unit-sheet"] .us-name')?.textContent || '');
+    const name = await page.evaluate(() => document.querySelector('[data-testid="unit-sheet"] .gp-name')?.textContent || '');
     const unitName = await page.evaluate((id) => document.querySelector(`[data-unit="${id}"]`)?.closest('[title]')?.title || '', slotId);
     check(open && unitName.includes(name) && !!name, `formation: the sheet is hers (${name})`);
     await page.waitForTimeout(900); // a click arriving late must still be swallowed
     check((await formation()) === f0, 'formation: holding did NOT remove her from the squad');
-    check(await page.isVisible('[data-testid="unit-sheet-open-page"]'), 'formation: the sheet offers "Open full page"');
-    await page.waitForSelector('[data-testid="unit-sheet"] .mb-eff-row', { timeout: 8000 }).catch(() => null);
+    check(await page.isVisible('[data-testid="unit-sheet-open-page"]'), 'formation: the sheet offers "Full page"');
+    await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="unit-sheet-strip"]', { timeout: 8000 }).catch(() => null);
     await shot('sheet-formation');
     check(await closeSheet(), 'formation: ✕ closes the sheet');
     await tapAt(await center(slotSel));
@@ -225,66 +225,97 @@ async function runViewport(vp) {
   }
   noErrors('formation picker');
 
-  // ---- 3. sheet content: Info (screenshot 12) + Upgrades grid + full page --------------------
+  // ---- 3. sheet content: the Glance sheet (UI_DIRECTION.md §6.2) + the Tree tab + full page ----
   const heroSel = '.mb-hero-slot [data-unit="hikari"]';
   if (check(await page.isVisible(heroSel).catch(() => false), 'formation: Hikari in the hero slot')) {
     await holdAt(await center(heroSel));
     if (check(await sheetOpen(), 'hero slot: holding opens Hikari\'s sheet')) {
-      const info = await page.waitForSelector('[data-testid="unit-sheet"] .mb-eff-row', { timeout: 10000 }).then(() => true).catch(() => false);
-      check(info && await page.isVisible('[data-testid="unit-sheet"] .mb-role'), 'sheet Info tab: role card + type effectiveness (the student Info content)');
-      check(/Lv\.\s*60/.test(await page.innerText('[data-testid="unit-sheet"] .us-head')), 'sheet header: her level (Lv.60)');
-      check(await page.evaluate(() => !!document.querySelector('[data-testid="unit-sheet"] .us-head .ur-badge') && !!document.querySelector('[data-testid="unit-sheet"] .us-art.is-ur .ur-ring')), 'sheet: Hikari at ★5 shows as UR (rainbow badge and frame)');
-      await shot('sheet-hikari-info');
-      // a hero has no upgrade paths since the hero rework: her Upgrades tab is her 25-level battle track
-      await page.click('[data-testid="unit-sheet-tab-upgrades"]');
-      await page.waitForSelector('[data-testid="unit-sheet"] .us-levels li', { timeout: 5000 }).catch(() => null);
-      const track = await page.evaluate(() => {
+      const glance = await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="unit-sheet-strip"]', { timeout: 10000 }).then(() => true).catch(() => false);
+      const g = await page.evaluate(() => {
         const s = document.querySelector('[data-testid="unit-sheet"]');
         return {
-          rule: s.querySelector('.us-rule')?.textContent || '',
-          levels: s.querySelectorAll('.us-levels li').length,
-          chipped: [...s.querySelectorAll('.us-levels li')].filter((li) => li.querySelector('.tag-chip')).length,
-          ult: !!s.querySelector('.us-ult'),
-          cells: s.querySelectorAll('[data-testid^="ut-cell-"]').length,
+          cells: [...s.querySelectorAll('[data-testid="unit-sheet-strip"] .ui-cell .lbl')].map((e) => e.textContent),
+          more: !!s.querySelector('[data-testid="unit-sheet-more"]'),
+          slots: s.querySelectorAll('[data-testid^="unit-sheet-slot-"]').length,
+          ult: s.querySelector('.gs-ult')?.textContent || '',
+          plate: s.querySelector('[data-testid="girl-plate"]')?.innerText || '',
+          oldInfo: !!s.querySelector('.mb-eff-row, .mb-role'),
         };
       });
-      check(/One track, 25 levels/.test(track.rule) && track.levels === 25 && track.ult && track.cells === 0, `sheet Upgrades (hero): her 25-level track and ult, no tier grid (${JSON.stringify(track)})`);
-      check(track.chipped >= 5, `sheet Upgrades (hero): track levels carry Self/Allies/Enemies chips (${track.chipped} of 25)`);
-      check(await page.locator('[data-testid="unit-sheet"] [data-testid="tag-legend"] .tag-chip').count() >= 4, 'sheet Upgrades: the tag legend is shown');
+      check(glance && g.cells.join('|') === 'DMG|RATE|ULT' && g.more, `sheet Info (Glance): her hero headline stats DMG · RATE · ULT + MORE (${g.cells.join('|')})`);
+      check(g.slots === 3 && /Celestial Bloom/.test(g.ult) && !/\d/.test(g.ult) && !g.oldInfo, `sheet Info (Glance): 3 gear slots and her ult line, not the whole Info tab (${JSON.stringify({ slots: g.slots, ult: g.ult, oldInfo: g.oldInfo })})`);
+      check(/LV\s*60\/60/.test(g.plate), `sheet plate: her level (LV 60/60) on the plate, not in a header (${g.plate.replace(/\n/g, ' ')})`);
+      check(await page.evaluate(() => !!document.querySelector('[data-testid="unit-sheet"] [data-testid="rarity-tag"].is-ur .ur-ring') && !!document.querySelector('[data-testid="unit-sheet"] .us-art.is-ur .ur-ring')), 'sheet: Hikari at ★5 shows as UR (rainbow tag and frame)');
+      await shot('sheet-hikari-info');
+      // MORE: the Base stats Details sheet opens over it (the second layer), Escape closes only it
+      await page.click('[data-testid="unit-sheet-more"]');
+      const details = await page.waitForSelector('[data-testid="stats-sheet"] .mb-stats', { timeout: 8000 }).then(() => true).catch(() => false);
+      check(details && await page.isVisible('[data-testid="stats-sheet"] .mb-eff-row'), 'sheet MORE: the Base stats sheet (stat table, type table)');
+      await shot('sheet-hikari-more');
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-testid="stats-sheet"]', { state: 'detached', timeout: 4000 }).catch(() => null);
+      check(!(await page.$('[data-testid="stats-sheet"]')) && !!(await page.$('[data-testid="unit-sheet"]')), 'sheet MORE: Escape closes the Details sheet only');
+      // a hero has no upgrade paths since the hero rework: her Tree tab is the track band (LV 1 ±2) and the ult
+      await page.click('[data-testid="unit-sheet-tab-upgrades"]');
+      await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="hero-track-band"]', { timeout: 5000 }).catch(() => null);
+      const track = await page.evaluate(() => {
+        const s = document.querySelector('[data-testid="unit-sheet"]');
+        return { rows: s.querySelectorAll('[data-testid="hero-track-band"] .gp-hl').length, ult: !!s.querySelector('[data-testid="hero-ult"]'), cells: s.querySelectorAll('[data-testid^="ut-cell-"]').length };
+      });
+      check(track.rows === 3 && track.ult && track.cells === 0, `sheet Tree (hero): the band LV 1–3 and her ult, no tier grid (${JSON.stringify(track)})`);
+      await page.click('[data-testid="unit-sheet"] [data-testid="hero-track-full"]');
+      const full = await page.waitForSelector('[data-testid="hero-track-sheet"] [data-testid="hero-track-list"] li', { timeout: 5000 }).then(() => page.locator('[data-testid="hero-track-sheet"] [data-testid="hero-track-list"] li').count()).catch(() => 0);
+      check(full === 25, `sheet Tree (hero): "Full track" lists all 25 battle levels (${full})`);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-testid="hero-track-sheet"]', { state: 'detached', timeout: 4000 }).catch(() => null);
       await shot('sheet-hikari-upgrades');
       await page.click('[data-testid="unit-sheet-open-page"]');
       await page.waitForTimeout(1200);
-      check(await page.evaluate(() => location.hash) === '#/student/hikari?tab=tree', `sheet: "Open full page" opens her student page on the Tree tab (${await page.evaluate(() => location.hash)})`);
+      check(await page.evaluate(() => location.hash) === '#/student/hikari?tab=tree', `sheet: "Full page" opens her student page on the Tree tab (${await page.evaluate(() => location.hash)})`);
       check(await sheetGone(), 'sheet: closes when the full page opens');
+      await page.waitForSelector('[data-testid="hero-track-full"]', { timeout: 6000 }).catch(() => null);
+      await page.click('[data-testid="hero-track-full"]').catch(() => {});
       await page.waitForSelector('[data-testid="hero-track-list"] li', { timeout: 6000 }).catch(() => null);
       const heroLevels = await page.locator('[data-testid="hero-track-list"] li').count();
-      check(heroLevels === 25, `student Tree tab (hero): her battle levels 1–25 (${heroLevels})`);
+      check(heroLevels === 25, `student Tree tab (hero): "Full track" shows her battle levels 1–25 (${heroLevels})`);
       await shot('student-tree-hero');
+      await page.keyboard.press('Escape');
     }
   }
   noErrors('sheet');
 
-  // ---- 3b. a girl with paths (Miko): Upgrades grid with chips, an aura tier's detail, full page --
+  // ---- 3b. a girl with paths (Miko): the shared grid, one tag per path, a tier's panel, full page --
   await page.evaluate(async () => (await import('/src/ui/unitSheet.js')).openUnitSheet('miko'));
   if (check(await sheetOpen(), 'sheet: Miko\'s sheet opens')) {
     await page.click('[data-testid="unit-sheet-tab-upgrades"]');
     await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-cell-0-1"]', { timeout: 5000 }).catch(() => null);
-    const cells = await page.evaluate(() => [...document.querySelectorAll('[data-testid="unit-sheet"] [data-testid^="ut-cell-"]')].map((c) => c.querySelectorAll('.tag-chip').length));
-    check(cells.length === 15 && cells.every((n) => n >= 1), `sheet Upgrades: 15 tier cells, each with a Self/Allies/Enemies/Coins chip (${cells.join(',')})`);
+    const grid = await page.evaluate(() => {
+      const s = document.querySelector('[data-testid="unit-sheet"]');
+      return { cells: s.querySelectorAll('[data-testid^="ut-cell-"]').length, tags: [...s.querySelectorAll('.ug-head .ug-tag')].map((t) => t.textContent.trim()), cellChips: s.querySelectorAll('.ug-cell .tag-chip, .ug-cell .ui-chip').length, prices: s.querySelectorAll('.ug-price:not([hidden])').length };
+    });
+    check(grid.cells === 15 && grid.tags.length === 3 && grid.cellChips === 0 && grid.prices === 0, `sheet Tree: 15 tier icons, one tag per path (${grid.tags.join(', ')}), no per-cell chips, no prices (${JSON.stringify(grid)})`);
     await page.click('[data-testid="unit-sheet"] [data-testid="ut-cell-0-1"]');
     const detail = await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-detail"]', { timeout: 4000 }).then((e) => e.innerText()).catch(() => '');
-    check(/Allies/.test(detail) && /tiles/.test(detail), `sheet Upgrades: tapping Blessing T1 shows "Allies · … tiles" in the detail`);
+    check(/Prayer Beads/.test(detail) && /Allies \+5% dmg/.test(detail) && /Tier 1/i.test(detail), `sheet Tree: tapping Blessing T1 shows its name, "Tier 1 · Blessing" and its effect chip (${detail.replace(/\n/g, ' ')})`);
     await page.waitForTimeout(500);
     await shot('sheet-miko-upgrades');
     await page.click('[data-testid="unit-sheet-open-page"]');
     await page.waitForTimeout(1200);
-    check(await page.evaluate(() => location.hash) === '#/student/miko?tab=tree', `sheet: "Open full page" opens her student page on the Tree tab (${await page.evaluate(() => location.hash)})`);
+    check(await page.evaluate(() => location.hash) === '#/student/miko?tab=tree', `sheet: "Full page" opens her student page on the Tree tab (${await page.evaluate(() => location.hash)})`);
     check(await sheetGone(), 'sheet: closes when the full page opens (Miko)');
-    // student page Tree tab carries the chips too
-    await page.waitForSelector('.mb-tier .tag-chip', { timeout: 6000 }).catch(() => null);
-    const tierChips = await page.evaluate(() => [...document.querySelectorAll('.mb-tier')].filter((t) => t.querySelector('.tag-chip')).length);
-    check(tierChips === 15, `student Tree tab: all 15 tiers carry chips (${tierChips})`);
-    check(await page.locator('.mb-path-head .tag-summary .tag-chip').count() >= 3, 'student Tree tab: path summaries ("Allies ×5 · 4.2 tiles")');
+    // the student page Tree tab: the same grid, without prices, nothing sideways
+    await page.waitForSelector('.gp-tree [data-testid="ut-cell-0-1"]', { timeout: 6000 }).catch(() => null);
+    const tree = await page.evaluate(() => {
+      const t = document.querySelector('.gp-tree');
+      const host = document.querySelector('.gp-host');
+      return { cells: t?.querySelectorAll('.ug-cell').length || 0, tags: t?.querySelectorAll('.ug-head .ug-tag').length || 0, cellChips: t?.querySelectorAll('.ug-cell .tag-chip').length || 0, rule: t?.querySelector('.gp-rule')?.textContent || '', sideways: host ? host.scrollWidth > host.clientWidth + 1 : true };
+    });
+    check(tree.cells === 15 && tree.tags === 3 && tree.cellChips === 0 && !tree.sideways, `student Tree tab: 15 tier icons, 3 path tags, no per-cell chips, no sideways scroll (${JSON.stringify(tree)})`);
+    check(/One path to tier 5, a second to tier 2/.test(tree.rule), `student Tree tab: the one rule line (${tree.rule})`);
+    await page.click('[data-testid="tree-rule-i"]');
+    const legend = await page.waitForSelector('[data-testid="tree-rule-sheet"] .gp-legend li', { timeout: 4000 }).then(() => page.locator('[data-testid="tree-rule-sheet"] .gp-legend li').count()).catch(() => 0);
+    check(legend === 4, `student Tree tab: "i" opens the full rule and the Self / Allies / Enemies / Coins legend (${legend})`);
+    await page.keyboard.press('Escape');
     await shot('student-tree-chips');
   }
   noErrors('sheet (Miko)');
@@ -803,11 +834,11 @@ async function runPortrait() {
       check(await page.evaluate(() => JSON.stringify(window.__sakura.store.profile.formation)) === f0, 'portrait formation: holding did not remove her');
       const fit = await noOverflow('.us-sheet');
       check(fit?.fits === true, `portrait sheet: fits the screen width (${JSON.stringify(fit)})`);
-      await page.waitForSelector('[data-testid="unit-sheet"] .mb-eff-row', { timeout: 8000 }).catch(() => null);
+      await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="unit-sheet-strip"]', { timeout: 8000 }).catch(() => null);
       await shot('sheet-formation');
       await page.click('[data-testid="unit-sheet-tab-upgrades"]').catch(() => {});
       await page.waitForSelector('[data-testid="unit-sheet"] [data-testid="ut-cell-0-1"]', { timeout: 5000 }).catch(() => null);
-      const g = await noOverflow('[data-testid="unit-sheet"] .ut-grid');
+      const g = await noOverflow('[data-testid="unit-sheet"] .ug');
       check(g?.fits === true, `portrait sheet Upgrades: the 3 × 5 grid fits the width (${JSON.stringify(g)})`);
       await shot('sheet-upgrades');
       await page.click('[data-testid="unit-sheet-close"]').catch(() => {});

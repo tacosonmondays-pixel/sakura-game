@@ -267,7 +267,7 @@ async function runViewport(vp) {
   }));
   check(sheet.unit === 'luna' && sheet.tab === 'unit-sheet-tab-build', `the sheet opens on the Build tab (${sheet.unit}, ${sheet.tab})`);
   check(sheet.gear === 3, `the Build tab shows 3 gear cards (${sheet.gear})`);
-  check(sheet.tabs.join('|') === 'Build|Info|Upgrades' && sheet.hash === '#/profile', `tabs Build | Info | Upgrades, still on the profile (${sheet.tabs.join('|')})`);
+  check(sheet.tabs.join('|') === 'Build|Info|Tree' && sheet.hash === '#/profile', `tabs Build | Info | Tree, still on the profile (${sheet.tabs.join('|')})`);
   await noOverflow('build sheet');
   await shot('build');
   await closeSheet();
@@ -714,7 +714,7 @@ async function runVisit(vp) {
   const sheet = await has(B, '[data-testid="unit-sheet"]', 8000);
   const us = await B.evaluate(() => ({
     owner: document.querySelector('[data-testid="unit-sheet-owner"]')?.textContent || '',
-    lv: document.querySelector('[data-testid="unit-sheet"] .us-level b')?.textContent || '',
+    lv: (document.querySelector('[data-testid="unit-sheet"] .us-level b')?.textContent || '').split('/')[0],
     full: !!document.querySelector('[data-testid="unit-sheet-open-page"]'),
   }));
   check(sheet && /Aiko/.test(us.owner) && us.lv === String(lvA.lv) && !us.full, `visitor: hold girl 1 → A's build (owner ${us.owner}, Lv ${us.lv} vs ${lvA.lv}, no full page)`);

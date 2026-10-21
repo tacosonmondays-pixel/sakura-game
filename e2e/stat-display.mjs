@@ -112,7 +112,10 @@ try {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/chika-520-${W}x${H}.png` });
     // the girl page says upgrades are cheaper too
     await page.evaluate(() => { location.hash = '#/student/chika?tab=info'; });
-    await page.waitForFunction(() => /Base stats/i.test(document.body.innerText), null, { timeout: 30000 }).catch(() => {});
+    // the base stats sit behind the ink strip's MORE (UI_DIRECTION.md §6.2)
+    await page.waitForSelector('[data-testid="info-more"]', { timeout: 30000 }).catch(() => {});
+    await page.click('[data-testid="info-more"]').catch(() => {});
+    await page.waitForFunction(() => /Base stats/i.test(document.querySelector('[data-testid="stats-sheet"]')?.innerText || ''), null, { timeout: 30000 }).catch(() => {});
     const student = await page.evaluate(() => document.body.innerText);
     check(/Upgrade costs\s*(Full price\s*)?20% cheaper/i.test(student), `${W}x${H} girl page: "Upgrade costs … 20% cheaper"`);
     check(errs.length === 0, `${W}x${H} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);

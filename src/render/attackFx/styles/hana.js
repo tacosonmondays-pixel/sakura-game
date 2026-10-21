@@ -1,6 +1,7 @@
 // Hana (projectile `arrow`, air bonus, grounding). Signature "Falconer's arrow": every arrow trails a
 // warm gold streak; when she shoots a flyer her falcon drone Kaze dives from above onto that same
-// enemy (a hawk silhouette + a white dive streak) and a dust ring marks the grounding.
+// enemy (a hawk silhouette + a white dive streak; only when his 3D figure is not drawn, which swoops on
+// her attacks itself: src/render/companions.js) and a dust ring marks the grounding.
 //   P0 (falconry) T3+: Kaze dives on every shot, flyer or not
 //   P2 (volleys) T3+: longer streaks
 import { lookAt } from '../flair.js';
@@ -22,6 +23,8 @@ export const hana = {
     const air = e.y > 0.2;
     if (!air && lookAt(tw.look, 0) < 3) return;
     if (!ctx.cap('tracer')) return;
+    // Kaze's own figure swoops (src/render/companions.js): the hawk sprite is only the fallback
+    if (ctx.actors?.companions?.has(t.uid)) return;
     // Kaze dives from above-behind onto the enemy she shot (T1: the sim's target)
     const h = ctx.enemyH(e);
     const sx = e.x - 0.5;
