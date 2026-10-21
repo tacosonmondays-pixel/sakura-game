@@ -173,6 +173,30 @@ export function clubStrip(unitId) {
 // One action row for a piece (Equipment tab and Backpack)
 // ---------------------------------------------------------------------------
 
+/** Enhance a piece by one level (the Backpack's action row and the girl page's item sheet). */
+export function enhanceOnce(uid, onChange = () => {}) {
+  const profile = store.profile;
+  const res = enhanceGear(profile, uid);
+  if (!res.ok) { toast(res.error === 'max' ? 'This piece is at its highest level.' : 'Not enough coins.', 'bad'); return res; }
+  store.commit('gear-enhance');
+  if (res.gift) toast('A gold piece reached +10! Here is a Rainbow Seed: it can awaken now ✦', 'good', 4200);
+  else if (awakenReady(profile.gear[uid])) toast('+10! It can awaken now ✦', 'good');
+  else toast(res.grewSub != null ? `+${res.level}! A substat grew.` : `+${res.level}`, 'good');
+  onChange();
+  return res;
+}
+
+/** Lock or unlock a piece (unlocking rainbow gear asks first: it can then be salvaged). */
+export async function toggleGearLock(uid, onChange = () => {}) {
+  const profile = store.profile;
+  const gear = profile.gear[uid];
+  if (!gear) return;
+  if (gear.locked && isUrGear(gear) && !(await confirmDialog('This is UR gear! Unlocked, it can be salvaged (you get its Seed and Needles back). Unlock it?', { title: 'Unlock rainbow gear', ok: 'Unlock' }))) return;
+  setGearLocked(profile, uid, !gear.locked);
+  store.commit('gear-lock');
+  onChange();
+}
+
 /**
  * @param {object} gear
  * @param {{ onChange: Function, unitId?: string, extra?: Node[] }} opts
@@ -188,15 +212,7 @@ export function gearActions(gear, { onChange, unitId = null, extra = [] }) {
   } else {
     btns.push(button(cost == null ? `Max +${maxGearLevel(gear)}` : `Enhance +1 · ${formatNumber(cost)}`, {
       kind: 'yellow', icon: 'upgrade', small: true, testid: 'enhance', disabled: cost == null || coins < cost,
-      onClick: () => {
-        const res = enhanceGear(profile, gear.uid);
-        if (!res.ok) { toast('Not enough coins.', 'bad'); return; }
-        store.commit('gear-enhance');
-        if (res.gift) toast('A gold piece reached +10! Here is a Rainbow Seed: it can awaken now ✦', 'good', 4200);
-        else if (awakenReady(profile.gear[gear.uid])) toast('+10! It can awaken now ✦', 'good');
-        else toast(res.grewSub != null ? `+${res.level}! A substat grew.` : `+${res.level}`, 'good');
-        onChange();
-      },
+      onClick: () => enhanceOnce(gear.uid, onChange),
     }));
   }
   if (slots.gold.open) btns.push(button(slots.free ? 'Stitch ✦' : 'Stitches', { kind: 'primary', small: true, testid: 'gear-stitch', onClick: () => stitchModal(gear.uid, { unitId, onDone: onChange }) }));
@@ -205,12 +221,7 @@ export function gearActions(gear, { onChange, unitId = null, extra = [] }) {
   if (CLUB_RARITIES.includes(gear.rarity)) btns.push(button(gear.club ? 'Club' : 'Join a club', { kind: 'ghost', small: true, testid: 'gear-club', onClick: () => armbandModal(gear.uid, { onDone: onChange }) }));
   btns.push(button(gear.locked ? 'Unlock' : 'Lock', {
     kind: 'ghost', icon: 'lock', small: true,
-    onClick: async () => {
-      if (gear.locked && isUrGear(gear) && !(await confirmDialog('This is UR gear! Unlocked, it can be salvaged (you get its Seed and Needles back). Unlock it?', { title: 'Unlock rainbow gear', ok: 'Unlock' }))) return;
-      setGearLocked(profile, gear.uid, !gear.locked);
-      store.commit('gear-lock');
-      onChange();
-    },
+    onClick: () => toggleGearLock(gear.uid, onChange),
   }));
   const next = nextGrowthIndex(gear);
   const toNext = gear.level < maxGearLevel(gear) ? SUB_GROWTH_EVERY - (gear.level % SUB_GROWTH_EVERY) : null;

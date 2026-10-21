@@ -14,6 +14,7 @@ import {
   canLoadCharacters, detailFor,
 } from './glbChibi.js';
 import { isStandIn } from './standins.js';
+import { attachCompanionFigure } from './companions.js';
 import { resolveSkin } from '../data/skins.js';
 import { UNIT_IDS } from '../data/units.js';
 
@@ -68,6 +69,8 @@ export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) 
  * @returns {THREE.Group} feet at y=0, facing +z; userData: animate(time, dt, state), playAttack(),
  *   setHighlight(bool), setExpression(name|null), height, unitId, skinId, glb (true when the V2 GLB is shown),
  *   standIn (true for a procedural stand-in, standins.js)
+ *   `companion: true` (figure viewers): her companion (Kon, Kaze, the doll; models/companions.js) stands
+ *   beside the GLB figure in its home pose. The battle draws companions itself (src/render/companions.js).
  */
 export function buildChibi(unitDef, opts = {}) {
   const quality = opts.quality || 'high';
@@ -82,12 +85,12 @@ export function buildChibi(unitDef, opts = {}) {
   }
   if (skeletonUtilsReady()) {
     const exact = getCharacter(key, detail);
-    if (exact) return tagSkin(instantiateCharacter(exact, unitDef, opts), skin);
+    if (exact) return withCompanion(tagSkin(instantiateCharacter(exact, unitDef, opts), skin), unitDef, opts);
     // the other detail level is already here: use it now, fetch the preferred one for later
     const other = getCharacter(key, detail === 'full' ? 'lod' : 'full');
     if (other) {
       if (canLoadCharacters()) loadCharacter(key, detail).catch(() => {});
-      return tagSkin(instantiateCharacter(other, unitDef, opts), skin);
+      return withCompanion(tagSkin(instantiateCharacter(other, unitDef, opts), skin), unitDef, opts);
     }
   }
   // placeholder in the outfit's colours (its frozen palette/look) until the GLB arrives
@@ -96,9 +99,16 @@ export function buildChibi(unitDef, opts = {}) {
     Promise.all([ensureSkeletonUtils(), loadCharacter(key, detail)]).then(([, a]) => {
       if (!a || group.userData.disposed || !group.parent) return;
       upgradeInPlace(group, a, unitDef, opts);
+      withCompanion(group, unitDef, opts);
     }).catch(() => {});
   }
   return markDisposed(group);
+}
+
+/** Figure viewers (`opts.companion`): her companion beside the GLB figure. */
+function withCompanion(group, unitDef, opts) {
+  if (opts.companion) attachCompanionFigure(group, unitDef.id, { quality: opts.quality || 'high', detail: opts.detail || 'full' });
+  return group;
 }
 
 /** Procedural chibis report userData.disposed once disposed (the GLB upgrade checks it). */
