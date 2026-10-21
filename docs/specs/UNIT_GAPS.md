@@ -602,6 +602,11 @@ The base discount reuses today's `costCut` key (`towers.js:212-222`), so it does
 | **Lane Master** ⚡ | Quick Release 130: +20% rate | Long Lane 300: +0.6 range; balls roll 6 tiles | Split Pins 1000: each blast throws 6 pin fragments along the road in both directions (4 damage each, pierce 2). **⚡ Unlocks Giant Strike** (a giant ball rolls back up her road) | Perfect Game 3200: +20 damage; balls roll 8 tiles; pins +4 damage | Turkey Strike 11500: **⚡+** Giant Strike rolls on every path in her range all the way to the spawn, hits harder and sprays pins |
 | **Spin Shot** | Hook Spin 120: if her lane is empty, the ball hops to the nearest other lane in range | Lob 280: when only flyers are in range, she lobs an arcing bomb that can hit them | Sticky Ball 950: a ball that hits an elite or boss sticks for 2 s, then explodes ×3 | Split Lane 2800: rolls 2 balls per throw, on different lanes | Spare Maker 10000: sticky balls ×6, stacking 3 per target; +60 damage |
 
+*Reworked Oct 21 (owner: a bowling-ball ricochet; docs/BALANCE.md "Marumi rework"): Spin Shot is now the
+ricochet path (Hook Spin, Bumper Bounce 1 bounce, Spare Chaser 3, Pinball Party 5, Glow Bowl 8 + a ×3
+finale), the lob at flyers is her base kit on every path (half her blast), and her damage sits in the
+regular band; src/data/unitsNewGirls.js holds the live numbers.*
+
 **New sim**
 - Path-runner object (P-5).
 - The blast reuses `explode` (`towers.js:305`), and knockback reuses the per-hit spec (`Sim.js:342-348`) with B3's push lock.

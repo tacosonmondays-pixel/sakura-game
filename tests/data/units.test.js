@@ -233,7 +233,7 @@ function sentryErrors(v, w) {
 }
 
 // The bowler (src/sim/mods.js normBall): numbers add, flags are `true`.
-const BALL_NUMS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
+const BALL_NUMS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
 function ballErrors(v, w) {
   return objErrors(v, [...BALL_NUMS, ...BALL_FLAGS], w, (kk, vv, ww) => (BALL_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
@@ -349,7 +349,7 @@ function derivedCaps(m, acc = new Set()) {
   if (m.hub?.detection) acc.add('detection');
   if (m.hub?.cleanse) acc.add('cleanse');
   if ((m.hub?.killBounty ?? 0) > 0) acc.add('income');
-  // Lob (Spin Shot tier 2) throws her blast at flyers
+  // a bowler's lob throws her blast at flyers (Marumi: her base kit)
   if (m.ball?.lob) acc.add('antiAir');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
