@@ -90,6 +90,8 @@ function kitFields(s) {
     projScale: s.projScale, tempo: s.tempo, classMul: s.classMul,
     // the new girls' own blocks (UNIT_GAPS §5)
     strip: s.strip, ring: s.ring, drink: s.drink, sentry: s.sentry, hub: s.hub, vine: s.vine, ball: s.ball,
+    // Kaede's blade arts (her AoE rework)
+    blade: s.blade,
   };
   return JSON.stringify(f);
 }

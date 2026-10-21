@@ -913,6 +913,49 @@ const potRun = () => (potPlayed ??= (() => {
   return sim;
 })());
 
+/** Kaede's blade arts (her AoE rework): Flowing Blade 3 and Guard Breaker 4, gear Pierce on her cuts. */
+const KAEDE = {
+  stageId: '4-5', difficulty: 'hard', towers: ['kaede', 'aoi', 'rei'], hero: 'luna', seed: 4747,
+  stats: { damageMul: 1.5, rateMul: 1.2 },
+  per: { kaede: { pierceK: 60, club: 'fencing', clubN: 3 } },
+};
+describe('battle save and Kaede\'s blade arts (her strike count toward the next Maple Cleave)', SLOW, () => {
+  it('her count (kb) and Pierce carry come back exactly, and a split run plays on like the straight one', () => {
+    const sim = makeSim(KAEDE);
+    sim.cash = 5e6;
+    const spots = nearPath(sim, [...KAEDE.towers, KAEDE.hero]);
+    const placed = {};
+    for (const [u, [x, y]] of Object.entries(spots)) placed[u] = sim.placeTower(u, x, y);
+    const k = placed.kaede;
+    for (let i = 0; i < 3; i++) sim.upgradeTower(k.uid, 1);
+    sim.upgradeTower(k.uid, 0);
+    sim.cash = 4000;
+    wrapWaves(sim, KAEDE.seed);
+    const seen = new Set();
+    potWaves(sim, 5, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const row = snap.towers.find((t) => t.uid === k.uid);
+      if (row.kb != null) seen.add(row.kb);
+      const { sim: back, dropped } = restoreSim(recordOf(KAEDE, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      const b = back.towers.find((x) => x.uid === k.uid);
+      expect(b.bladeN).toBe(k.bladeN);
+      expect(b.pierceCarry).toBe(k.pierceCarry);
+      expect(b.eff.blade).toEqual(k.eff.blade);
+    });
+    expect(k.bladeN).not.toBeUndefined();
+    expect(seen.size).toBeGreaterThan(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(KAEDE, snap), { settings: { autoStart: false } });
+    wrapWaves(back, KAEDE.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+    expect(back.towers.find((x) => x.uid === k.uid).bladeN).toBe(k.bladeN);
+    expect(back.towers.find((x) => x.uid === k.uid).damageDealt).toBe(k.damageDealt);
+  });
+});
+
 describe('battle save and Potential v3 (format 3: rhythms, tempo, shuriken carry, kept focus, overclock)', SLOW, () => {
   const c = POT;
   const build = potBuild;

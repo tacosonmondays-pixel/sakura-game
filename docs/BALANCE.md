@@ -45,6 +45,76 @@ their own shot (their strips and sentries do the work), so read their real colum
 - Bot goldens (the free team plus her, seed 1): 5-4 Hard 37 → 38 lives, 8-4 Hard 36 → 40. Easy gate
   unchanged (she is gacha, never in the free pool).
 
+## Kaede's AoE rework (2026-10-21, `feature/kaede-rework`)
+
+Owner (Oct 15): "make kaede's attacks aoe! at least some of them, make her feel like an ssr!". Live Kaede was a
+single-target duelist. She now cuts crowds on every path, with one AoE path, one boss path and one armor path.
+Sim: `src/sim/towers.js` `bladeArts` (her `blade` block, `src/sim/mods.js` `normBlade`); FX:
+`src/render/attackFx/styles/kaede.js` (`bladeArt` event); bench: `tools/kaedeBench.mjs`.
+
+**Base (600):** every 3rd strike is a **Maple Cleave**: up to 4 enemies within 0.9 tiles of her target take 50 % of
+her plain (unfocused) hit. Every shape below hits at a share of her plain hit, except the maple splash (a share of
+her focused strike); victims are eligible enemies only (no flyer unless her kit reaches flyers, nothing in a
+tunnel, never her target), nearest first, capped per shape.
+
+| Path | Tier | Price | Effect |
+|---|---|---:|---|
+| Unbroken Rhythm (boss duel) | Steady Footwork | 150 | Ramp +2 % per hit, +20 % cap |
+| | Second Wind | 360 | +15 % attack speed |
+| | Maple Cascade | 1,200 | Ramp +4 %/hit, +50 % cap; ignores 3 armor. **At full focus** (her cap before Potential) every strike scatters maple leaves: up to 3 enemies within 0.9 tiles of her target take 30 % of it |
+| | Autumn Requiem | 3,800 | Ramp +4 %/hit, +50 % cap; +30 % speed, +8 damage; ×1.3 damage |
+| | Crimson Eternity | 28,000 | +24 damage, ramp +5 %/hit, +100 % cap, **×1.6 vs bosses** (was ×1.5), +30 % speed, ×1.3 damage; maple leaves 1.3 tiles, 5 enemies, 50 % |
+| Flowing Blade (crowd) | Light Step | 130 | +0.3 range |
+| | Flash Step | 340 | +4 damage; the cleave reaches 1.1 tiles and cuts 6 |
+| | Wind Severing | 1,100 | Reaches flyers; +0.6 range. Every cleave also sends a **wind crescent** through her target: up to 4 enemies on a 3.5-tile line (half-width 0.3) take 55 % |
+| | Iaijutsu Master | 3,500 | +20 % crit at ×2.5, +10 damage, ×1.3 damage. **Three crescents in a fan** (±0.32 rad), 4 tiles, half-width 0.4, 5 enemies each |
+| | Thousand Leaves Draw | 25,000 | +60 % speed, +16 damage, +15 % crit at ×3, +0.5 range, ×1.4 damage. **Maple Storm**: every cleave also cuts up to 8 enemies within 2.5 tiles of her for 55 % |
+| Guard Breaker (armor) | Heavy Hilt | 140 | +3 damage |
+| | Pommel Strike | 320 | 15 % stun 0.2 s |
+| | Armor Cleaver | 1,150 | Shred −2 (×3), ignores 4 armor |
+| | Guard Breaker | 3,600 | Brittle +20 %, 25 % stun 0.5 s, shred −3 (×3), +6 damage, ×1.3. Every cleave sends a **shockwave**: up to 6 enemies on a 2.5-tile line (half-width 0.35) take 60 % and get her armor shred |
+| | Heaven-Splitting Strike | 27,000 | +60 damage, shred −6 (×3), ×1.4 elites, ×1.3 bosses, ignores 2 armor, ×1.45. Shockwave 4 tiles, half-width 0.5, 10 enemies, 100 % |
+
+- **Gear.** ATK, speed, crit, armor pierce, UR gear and the club tricks reach every blade-art hit (they hit with her
+  own spec through `sim._hit`; a Finishing Thrust or a Big Beat multiplies the whole attack). **Pierce is now real
+  for her:** +2 targets per 100 % on every shape of the attack (the sweep rule, carried, at most +4); it no longer
+  fills in as ATK (`src/data/gearStats.js`). Crowd bench with +100 % Pierce: Kaede 2-5-0 3,280 → 4,182; Chika 2-0-5
+  3,551 → 3,995, 5-0-2 2,697 → 5,341 (every drone pierces).
+- **Potential.** P5 Maple Gale is re-sized on her blade arts: +8 % speed and her blade arts cut ×1.1 (was a 0.1-tile
+  cut every 4th strike). P6 One Blade, One Foe keeps ×1.2 vs bosses and every 3rd strike ×1.5 (its proc is named
+  One Blade). Power 1.13 · 1.09 · 1.17 · 1.12 · 1.31 = 2.11. Her maple splash keys on her focus cap **before**
+  Potential (`blade.capMax`), so Scarlet Focus (+30 cap) never delays it.
+- **Flash Lunge** (dormant ⚡, Flowing Blade 3): on her crowd path it now flashes through the 3 enemies her target
+  mode picks, 2 full-ramp strikes each (tier 5: 5 enemies, 3 each, 20 s), her focus kept on the first.
+
+**Bench** (`tools/kaedeBench.mjs`: the potentialBench harness, 4-5, the same strong stats for both girls, seeds 9
+and 21, 15 s warm-up + 40 s; crowd = an immortal Orc Grunt every 0.1 s, held = one Royal Guard Slime, boss = one
+Iron Colossus). DPS, before → after; Chika is unchanged (5-0-2 38,920 coins: crowd 2,697 / 5,083, held 4,486 /
+8,525, boss 3,163 / 6,332; 2-0-5 30,920 coins: crowd 3,551 / 5,126):
+
+| Kaede (coins) | target | P1 | P6 | ÷ Chika's best, P1 / P6 |
+|---|---|---:|---:|---:|
+| 5-2-0 Rhythm (34,580) | boss | 2,816 → 3,007 | 6,179 → 6,667 | 0.95 / 1.05 |
+| 5-2-0 Rhythm | held elite | 4,702 → 4,704 | 8,591 → 8,689 | 1.05 / 1.02 |
+| 5-0-2 Rhythm (34,570) | boss | 2,645 → 2,876 | 5,997 → 6,522 | 0.91 / 1.03 |
+| 2-5-0 Flowing (31,180) | crowd | 750 → 3,280 | 1,875 → 5,486 | 0.92 / 1.07 |
+| 2-5-0 Flowing | held elite | 4,489 → 4,469 | 8,951 → 9,050 | 1.00 / 1.06 |
+| 0-5-2 Flowing (31,130) | crowd | 734 → 3,161 | 1,770 → 5,112 | 0.89 / 1.00 |
+| 2-0-5 Breaker (33,320) | crowd | 414 → 1,740 | 1,224 → 2,872 | 0.49 / 0.56 |
+| 2-0-5 Breaker | held elite | 4,582 → 4,900 | 8,738 → 8,911 | 1.09 / 1.05 |
+
+**Gate B7** (Kaede / Chika within ±10 % at P1 and P6): boss path 0.95 / 1.05 (boss), 1.05 / 1.02 (held); crowd
+path 0.92 / 1.07 (crowd vs Chika's best crowd build, Tesla 2-0-5 at equal coins); E = √(crowd × held) of 2-5-0 vs
+Chika 5-0-2 (her best E) 1.10 / 1.07. The held numbers move by ±2 % from shared crit rolls when a second enemy
+shows up in that bench; Breaker is the armor path, not a rival for either bar.
+
+**Re-pinned goldens:** `tests/sim/mods.test.js` P1 resolve hash `456:055ce472` → `456:bd28cc90` (Kaede's `blade` block
+and tiers; every other girl bit-identical, checked with Kaede left out at P1 and P6); `tests/online/engines.test.js`
+POTENTIAL_START `23752 / 4242036526 / 57997ea1` → `23827 / 1924477857 / dec1d574` and POTENTIAL_BOSS_START
+`35101 / 6568/4679 / 3492961063 / b2b2f34d` → `35035 / 6700/4594 / 2141169952 / 20c45d69` (Kaede fights in both).
+Campaign, modes, abilities and battle-save goldens did not move. **Easy gate 40 / 40**: she is gacha, so the free
+roster never fields her and every row is unchanged (full and base roster).
+
 ## New girls, wave 1 (2026-10-20, `feature/new-girls-w1`; UNIT_GAPS §5)
 
 Azami (R, free after 2-2), Kinu (R, gacha), Wakaba (R, free after 6-5), Yuzuha (SR, free after 4-2).

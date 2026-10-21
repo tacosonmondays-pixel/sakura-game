@@ -67,6 +67,8 @@ export const MOD_TAGS = {
   ball: 'self',
   // Yuzuha's lane sentries are her summons
   sentry: 'drones',
+  // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
+  blade: 'self',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -91,6 +93,7 @@ const SUB_KEYS = {
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 
 /** Status types that make enemies easier for EVERY girl to hit or hurt. */

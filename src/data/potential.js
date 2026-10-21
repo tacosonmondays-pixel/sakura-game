@@ -43,6 +43,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'ball.travel', 'ball.pinDmg', 'ball.speed',
   // Yuzuha's sentries
   'sentry.max', 'sentry.damage', 'sentry.ttl',
+  // Kaede's blade arts (her AoE rework): Maple Gale sharpens every shape
+  'blade.shareMul',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
 export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
@@ -226,14 +228,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Hundred Lanterns', 'kit', { rateMul: 1.08 }, { proc: { name: 'Hundred Lanterns', every: 4, range: 1, damageMul: 1.4, silence: 1 } }),
     p6: step('Midnight Lanterns', 'cap', { damageMul: 1.09 }, { aura: { dmgMul: 1.06 }, proc: { every: 3, damageMul: 1.8, status: [S.vulnerable(0.08, 3)] } }),
   },
-  // §5.16 Kaede, SSR duelist (the AoE rework PR owns her P5 row; until then Maple Gale cuts only the
-  // enemies right beside her target, at her plain hit: towers.js attackDuel)
+  // §5.16 Kaede, SSR duelist. Her AoE rework owns P5: Maple Gale sharpens her blade arts (towers.js
+  // bladeArts), sized so that Kaede / Chika stays within ±10 % at P1 and P6 (gate B7, docs/BALANCE.md)
   kaede: {
     p2: step('Leaf Memory', 'kit', { damageMul: 1.05 }, { keepRamp: 0.5 }),
     p3: step('Breeze Step', 'kit', { rateMul: 1.07 }, { ramp: { per: 0.02 } }),
     p4: step('Scarlet Focus', 'kit', { damageMul: 1.07 }, { ramp: { max: 0.3 }, crit: { chance: 0.05 } }),
-    p5: step('Maple Gale', 'kit', { rateMul: 1.08 }, { proc: { name: 'Maple Gale', every: 4, splash: 0.1 } }),
-    p6: step('One Blade, One Foe', 'cap', { damageMul: 1.09 }, { bossMul: 1.2, proc: { every: 3, damageMul: 1.5 } }),
+    p5: step('Maple Gale', 'kit', { rateMul: 1.08 }, { blade: { shareMul: 1.1 } }),
+    p6: step('One Blade, One Foe', 'cap', { damageMul: 1.09 }, { bossMul: 1.2, proc: { name: 'One Blade', every: 3, damageMul: 1.5 } }),
   },
   // §5.17 Chika, SSR engineer (turret.overclock merges in step order: P6 keeps P4's 6 s)
   chika: {

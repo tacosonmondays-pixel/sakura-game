@@ -188,6 +188,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
+  // Kaede's blade arts: her strike count toward the next Maple Cleave ('kb')
+  bladeN: 'snap',
   // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
   // origin follows from it and her spot (updateRelayOrigin)
   aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
@@ -316,6 +318,8 @@ function packTower(sim, t) {
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
   packGear(t, o);
+  // Kaede's blade-art count (src/sim/towers.js bladeArts): her next Maple Cleave lands on the same strike
+  if (t.bladeN != null) o.kb = t.bladeN;
   return o;
 }
 
@@ -501,6 +505,7 @@ export function restoreSim(rec, profile = null) {
     t.buildTimer = r(o.bt);
     unpackPotential(t, o);
     unpackGear(t, o);
+    if (o.kb != null) t.bladeN = Math.max(0, Math.floor(r(o.kb)));
     if (t.isHero && oldHeroes) {
       // her old level on the new track, bar empty (old XP is on another scale); she deploys free
       // now, so her placement and tiers come back as coins

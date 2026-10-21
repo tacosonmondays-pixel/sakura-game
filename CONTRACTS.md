@@ -1297,7 +1297,11 @@ new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, c
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
 cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
 bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
-lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
+lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR), `blade` (Kaede's
+blade arts, src/sim/towers.js bladeArts: every, radius, share, targets; crescents, cLen, cWidth, cShare, cTargets;
+storm, sShare, sTargets; wave, wWidth, wShare, wTargets; maple, mShare, mTargets add, shareMul ×; `capMax`, her
+focus cap before Potential, is set by resolveStats; the sim emits `bladeArt { towerUid, kind: 'cleave'|'maple', x, y,
+dx?, dy?, radius, crescents?, cLen?, storm?, wave?, hits }`; her strike count `bladeN` is saved as `kb`). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
 uses `none`). Roles spiker, ring, manager, builder, council, botanist, bowler. Weapons `strip`, `needle`, `tablet`,
 `banner`, `wateringCan`, `ball`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
 immune; `isHeld`).

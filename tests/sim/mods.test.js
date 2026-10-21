@@ -226,8 +226,10 @@ describe('Potential in resolveStats', () => {
     // Chika rework and path cap; same script, same 456 resolutions; landing plan §10 #9). Was
     // '456:9c7c19b9' on the commit before Potential M1, before those three changed the data.
     // '456:30217027' before gear's reach (docs/specs/GEAR_STATS.md §B.3): gear Range (rangeMul 1.05 here)
-    // now also widens an aura's radius; nothing else in these resolutions moved
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:055ce472');
+    // now also widens an aura's radius; nothing else in these resolutions moved.
+    // '456:055ce472' before Kaede's AoE rework (her `blade` block and new tiers, Crimson Eternity ×1.6 vs
+    // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:bd28cc90');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
@@ -257,10 +259,17 @@ describe('Potential in resolveStats', () => {
     expect(p6.proc).toEqual({ name: 'Silver Line', every: 4, of: 'attack', status: [], pierce: 2, damageMul: 1.5 });
   });
 
-  test('Kaede P6: Maple Gale every 3rd strike ×1.5, its cut 0.1 tiles around her target', () => {
+  test('Kaede P5: Maple Gale sharpens her blade arts ×1.1; P6: every 3rd strike ×1.5 (One Blade), ×1.2 vs bosses', () => {
+    const p1 = resolveStats(REAL.kaede, { unitStats: { potential: 1 } });
+    const p5 = resolveStats(REAL.kaede, { unitStats: { potential: 5 } });
     const p6 = resolveStats(REAL.kaede, { unitStats: { potential: 6 } });
-    expect(p6.proc).toEqual({ name: 'Maple Gale', every: 3, of: 'attack', status: [], splash: 0.1, damageMul: 1.5 });
+    expect([p1.blade.shareMul, p5.blade.shareMul]).toEqual([1, 1.1]);
+    expect('proc' in p5).toBe(false);
+    expect(p6.proc).toEqual({ name: 'One Blade', every: 3, of: 'attack', status: [], damageMul: 1.5 });
     expect(p6.bossMul).toBeCloseTo(resolveStats(REAL.kaede).bossMul * 1.2, 12);
+    // her maple splash keys on her focus cap before Potential (Scarlet Focus raises the cap, not the key)
+    expect(p6.ramp.max).toBeCloseTo(p1.ramp.max + 0.3, 12);
+    expect(p6.blade.capMax).toBe(p1.blade.capMax);
   });
 
   test('Aoi P6: damage ×1.04×1.04×1.05, rate ×1.04², +1 armor ignored, crit +3 % +6 %, Twin Fletch every 10th with the hawk', () => {
