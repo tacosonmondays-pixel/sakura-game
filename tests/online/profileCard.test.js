@@ -4,7 +4,9 @@ import { buildCard, cleanViewedCard, snapshotToMiniProfile, loadoutToMiniProfile
 import { CARD_JSON_BUDGET } from '../../src/online/profileRules.js';
 import { setSensei } from '../../src/systems/senseiSave.js';
 import { unitBattleStats, unitPower } from '../../src/systems/progression.js';
-import { gearStatTotals } from '../../src/systems/gear.js';
+import { gearStatTotals, addGear, rollGear, stitchSub, awakenGear, equipGear, gearLines, substatMax } from '../../src/systems/gear.js';
+import { createProfile } from '../../src/systems/save.js';
+import { createRng } from '../../src/core/rng.js';
 import { freshSave, lateSave } from '../systems/profileFixtures.js';
 
 describe('buildCard', () => {
@@ -82,6 +84,41 @@ describe('cleanViewedCard', () => {
     expect(shoes.x.map((x) => x[0])).toEqual(['atkPct', 'critDmg', 'rangePct', 'costCut']);
   });
 
+  it('a ✦ line published without its marks shows the owner\'s value, not a value clamped below it (F4)', () => {
+    const p = createProfile();
+    p.currencies.coins = 5e7;
+    Object.assign(p.items, { seed_rainbow: 5, needle_star: 10 });
+    // a UR +10 charm with ✦✦ on one line, and a Legendary +10 shoe with a gold ✦
+    const ur = addGear(p, rollGear(createRng(3), { slot: 'charm', rarity: 'legendary', level: 10 }));
+    expect(stitchSub(p, ur, 0).ok).toBe(true);
+    expect(awakenGear(p, ur).ok).toBe(true);
+    expect(stitchSub(p, ur, 0).ok).toBe(true);
+    expect(p.gear[ur].subs[0].tuned).toBe(3);
+    const gold = addGear(p, rollGear(createRng(9), { slot: 'shoes', rarity: 'legendary', level: 10 }));
+    expect(stitchSub(p, gold, 2).ok).toBe(true);
+    const id = Object.keys(p.units)[0];
+    equipGear(p, id, ur);
+    equipGear(p, id, gold);
+    setSensei(p, { showcase: [id] });
+    const card = buildCard(p);
+    // CARD_GEAR_MARKS is on (the SQL was pasted): each stitched line publishes its ✦ marks as a 4th element
+    const pub = (slot) => card.units[0].g.find((g) => g.s === slot);
+    expect(pub(p.gear[ur].slot).x[0][3]).toBe(3);
+    expect(pub('shoes').x[2][3]).toBe(p.gear[gold].subs[2].tuned & 3);
+    expect(pub('shoes').x.filter((x) => x.length === 4)).toHaveLength(1);
+    const v = cleanViewedCard(card).units[0];
+    for (const uid of [ur, gold]) {
+      const g = p.gear[uid];
+      const own = gearLines(g).subs;
+      const seen = v.g.find((x) => x.s === g.slot).x;
+      own.forEach((s, i) => expect(seen[i][1], `${g.slot} ${s.stat}`).toBeCloseTo(s.value, 3));
+    }
+    // a forged card cannot give two unmarked lines a gold step each: a Legendary +10 has one
+    const forged = cleanViewedCard({ units: [{ id, lv: 1, bt: 0, aw: 0, g: [{ s: 'shoes', r: 'legendary', l: 10, m: ['ratePct', 0.1], x: [['critDmg', 9, 0], ['atkPct', 9, 0]] }] }] }).units[0].g[0].x;
+    expect(forged[0][1]).toBeCloseTo(substatMax('critDmg', 'legendary', 1), 6);
+    expect(forged[1][1]).toBeCloseTo(substatMax('atkPct', 'legendary', 0), 6);
+  });
+
   it('reads field by field: an unknown key never blanks the card; st.h is clamped', () => {
     const v = cleanViewedCard({ v: 1, fav: 'luna', st: { u: 999, s: 70, b: 101, k: 5, h: 5000 }, newKey: { x: 1 }, med: { a: [99, 1, 2, 3], pins: ['8-5:nightmare', 'ach:a_from_the_future', 'nowhere:hard', 'ach:Bad Text'] } });
     expect(v.fav).toBe('luna');
@@ -118,10 +155,18 @@ describe('snapshots', () => {
   it('levels above 60 follow her Potential: the viewer and the co-op ally clamp to levelCapAt(bt, p)', () => {
     const v = cleanViewedCard({ v: 1, units: [{ id: 'aoi', lv: 72, bt: 5, aw: 5, p: 4 }, { id: 'rei', lv: 72, bt: 5, aw: 5, p: 1 }, { id: 'kage', lv: 99, bt: 5, aw: 5, p: 6 }, { id: 'yuki', lv: 85, bt: 3, aw: 0, p: 6 }] });
     expect(v.units.map((u) => [u.id, u.lv])).toEqual([['aoi', 72], ['rei', 60], ['kage', 85], ['yuki', 40]]);
-    expect(snapshotToMiniProfile(v.units[0]).units.aoi).toMatchObject({ level: 72, dupes: 3 });
-    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5, potential: 6 }).units.aoi.level).toBe(85);
-    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5, potential: 2 }).units.aoi.level).toBe(63);
-    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5 }).units.aoi.level).toBe(60);
+    // a card says at most 5 gates: the snapshot rebuilds the fewest gates that allow her level at her P (P4, L72 → gate 8)
+    expect(snapshotToMiniProfile(v.units[0]).units.aoi).toMatchObject({ level: 72, dupes: 3, pl: 4, breakthrough: 8 });
+    expect(snapshotToMiniProfile(v.units[2]).units.kage).toMatchObject({ level: 85, pl: 6, breakthrough: 10 });
+    expect(snapshotToMiniProfile({ id: 'aoi', lv: 60, bt: 5, aw: 0, p: 6 }).units.aoi.breakthrough).toBe(5);
+    expect(snapshotToMiniProfile({ id: 'aoi', lv: 40, bt: 4, aw: 0, p: 6 }).units.aoi.breakthrough).toBe(4);
+    // a co-op loadout carries her real gates (0–10)
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 10, awaken: 5, potential: 6 }).units.aoi).toMatchObject({ level: 85, breakthrough: 10, pl: 6 });
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 10, awaken: 5, potential: 2 }).units.aoi.level).toBe(63);
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 10, awaken: 5 }).units.aoi.level).toBe(60);
+    // gate 5 is 60 whatever her Potential; gates past 10 count as 10
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 5, awaken: 5, potential: 6 }).units.aoi.level).toBe(60);
+    expect(loadoutToMiniProfile('aoi', { level: 85, breakthrough: 99, awaken: 5, potential: 6 }).units.aoi).toMatchObject({ level: 85, breakthrough: 10 });
   });
 });
 

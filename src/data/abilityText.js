@@ -93,6 +93,36 @@ export const ABILITY_TEXT = Object.freeze({
     '{count} extra drones launch for {dur}s, beyond her limit. They follow her flight mode, then dock and vanish.',
     'a surge of extra drones',
     'Drone Surge launches {count} drones for {dur}s and recharges in {cd}s.'),
+
+  // the new girls (UNIT_GAPS §5)
+  'azami.spikeRain': t('Spike Rain', 'trap',
+    '{count} extra spike strips land evenly along the road within {reach} tiles, beyond her strip limit: {hits} hits each, armed after {arm}s. They fold up after {dur}s.',
+    'a burst of extra strips along her whole road',
+    'Spike Rain lays {count} strips within {reach} tiles that last {dur}s, and recharges in {cd}s.'),
+  'kinu.bladeSpiral': t('Blade Spiral', 'spiral',
+    'For {dur}s she also throws two blades every 0.1s along a turning spiral, out to twice her range: each hits like a pin and pierces {spiralPierce} enemies.',
+    'a turning spiral of blades on top of her rings',
+    'Blade Spiral becomes {spiral} spirals turning opposite ways for {dur}s, blades piercing {spiralPierce}, and recharges in {cd}s.'),
+  'wakaba.timeOut': t('Time Out!', 'buff',
+    'One girl gets {rateMul}× attack speed and +{rangeMulPct}% range for {dur}s: the one you aim at, or the girl in her range who has dealt the most damage. A partner\'s girl may be chosen.',
+    'a big, short power-up on one girl you pick',
+    'Time Out! also gives +{dmgMulPct}% damage, lasts {dur}s and recharges in {cd}s.'),
+  'yuzuha.emergencyDeploy': t('Emergency Deploy', 'summon',
+    '{count} extra sentries drop at the road\'s edge where you aim, or around the lead enemy in her range, with her current sentry stats. They last {dur}s, beyond her sentry limit.',
+    'extra sentries at once, where you need them',
+    'Emergency Deploy drops {count} sentries for {dur}s and recharges in {cd}s.'),
+  'ouka.assemblyBell': t('Assembly Bell', 'buff',
+    'Every girl on the map, your ally\'s too, attacks +{rateMulPct}% faster and pierces {pierceAdd} more enemy for {dur}s, on top of auras.',
+    'a short map-wide team rally',
+    'Festival of Clubs: Assembly Bell gives +{rateMulPct}% speed and {pierceAdd} more pierce for {dur}s, and recharges in {cd}s.'),
+  'marumi.giantStrike': t('Giant Strike', 'bowler',
+    'A giant ball rolls {length} tiles back up her nearest lane from the road point nearest the exit in her range, hitting every walker once for {dmgMul}× her hit and pushing it back (bosses do not budge).',
+    'a giant ball that rolls back up her road',
+    'Turkey Strike: Giant Strike rolls on every lane in her range all the way to the spawn, hits for {dmgMul}×, and recharges in {cd}s.'),
+  'chigusa.overgrowth': t('Overgrowth', 'botanist',
+    'Vines hold up to {count} walkers in her range for {hold}s (minibosses for less; bosses and flyers shrug them off) and squeeze each for {dmgMul}× her hit.',
+    'vines that hold a whole group of walkers',
+    'Forest Corridor: Overgrowth holds up to {count} walkers within {reachMul}× her range for {hold}s, squeezes for {dmgMul}×, and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */
@@ -149,6 +179,7 @@ export function abilityValues(def, stats = null) {
   const e = def.effect || {};
   flat(e);
   flat(e.mods);
+  flat(e.mods?.ring); // (Kinu's Blade Spiral: spiral, spiralPierce)
   flat(e.rally);
   // a strike's boost tail (Zero Point): its ModSet's numbers and how long it lasts
   flat(e.after?.mods);

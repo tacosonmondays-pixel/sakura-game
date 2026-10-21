@@ -88,6 +88,8 @@ function kitFields(s) {
     turret: s.turret && [s.turret.max, s.turret.range, s.turret.status, s.turret.overclock], aura: s.aura, brew: s.brew?.targets, link: s.link?.targets,
     proc: s.proc, ult: s.ult, bountyAura: s.bountyAura, harvest: s.harvest, dotSpread: s.dotSpread, keepRamp: s.keepRamp,
     projScale: s.projScale, tempo: s.tempo, classMul: s.classMul,
+    // the new girls' own blocks (UNIT_GAPS §5)
+    strip: s.strip, ring: s.ring, drink: s.drink, sentry: s.sentry, hub: s.hub, vine: s.vine, ball: s.ball,
   };
   return JSON.stringify(f);
 }
@@ -351,7 +353,8 @@ describe('Potential v3 data: every step works on every reference build', () => {
           const where = `${u.id} ${b.label} P${p}`;
           const step = potentialSteps(u)[p - 2];
           const statMoved = cur.damage !== prev.damage || cur.rate !== prev.rate || cur.income?.perWave !== prev.income?.perWave
-            || JSON.stringify(cur.aura) !== JSON.stringify(prev.aura) || cur.trap?.damage !== prev.trap?.damage;
+            || JSON.stringify(cur.aura) !== JSON.stringify(prev.aura) || cur.trap?.damage !== prev.trap?.damage
+            || cur.hub?.costCut !== prev.hub?.costCut; // (Ouka's coins track deepens her discount)
           expect(statMoved, `${where}: no stat change`).toBe(true);
           if (step.kind !== 'stat') expect(kitFields(cur), `${where}: the kit part changes nothing`).not.toBe(kitFields(prev));
           prev = cur;

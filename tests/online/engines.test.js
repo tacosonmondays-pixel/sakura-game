@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runPotentialBattle, runPotentialBossBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -136,6 +136,27 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
       .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+  }, 240000);
+
+  it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
+    const r = runGearGirlsBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(['won', 'lost']).toContain(r.state);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    // all nine returning girls and Aoi stood and fought
+    for (const id of ['kanna', 'seiran', 'iroha', 'ena', 'noa', 'fuu', 'hana', 'ruri', 'aoi']) expect(r.dealt, id).toMatch(new RegExp(`${id}:[1-9]`));
+    // Iroha shot from her mirror and from where she stands, and her shots took gear Pierce
+    const [mirror, own, pierced] = r.iroha.split('/').map(Number);
+    expect(mirror).toBeGreaterThan(0);
+    expect(own).toBeGreaterThan(0);
+    expect(pierced).toBeGreaterThan(0);
+    for (const k of ['iroha:followThrough', 'ena:thrust', 'fuu:bigBeat', 'hana:finalePop', 'ruri:followThrough', 'kanna:bigBeat', 'seiran:thrust']) expect(r.tricks, k).toContain(k);
+    expect(runGearGirlsBattle().final).toBe(r.final);
+    // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
+    // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
+      .toEqual({ ticks: 54615, state: 'won', wallets: '5521/5179', final: 3900917007, hashes: '7ad51e89', iroha: '572/522/885' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

@@ -18,15 +18,15 @@ import {
 const ROSTER = [
   ['hikari', 'hero', 'SSR', 'vanguard', 'holy', null, 'land', 'charm', 'starter'],
   ['luna', 'hero', 'SSR', 'mystic', 'mystic', null, 'land', 'rune', 'gacha'],
-  ['nami', 'hero', 'SR', 'tideguard', 'mystic', 'frost', 'water', 'rime', '1-5'],
+  ['nami', 'hero', 'SR', 'tideguard', 'mystic', 'frost', 'amphibious', 'rime', '1-5'],
   ['aoi', 'tower', 'R', 'marksman', 'pierce', null, 'land', 'feather', 'starter'],
   ['rei', 'tower', 'R', 'cleaver', 'slash', null, 'land', 'blade', 'starter'],
   ['yuki', 'tower', 'R', 'controller', 'mystic', 'frost', 'land', 'rime', '1-2'],
   ['momo', 'tower', 'R', 'economy', 'pierce', null, 'land', 'cog', 'gacha'],
   ['akane', 'tower', 'SR', 'bombardment', 'blast', 'fire', 'land', 'ember', 'gacha'],
-  ['sango', 'tower', 'SR', 'artillery', 'blast', 'water', 'water', 'ember', '1-5'],
+  ['sango', 'tower', 'SR', 'artillery', 'blast', 'water', 'amphibious', 'ember', '1-5'],
   ['kage', 'tower', 'SR', 'skirmisher', 'pierce', null, 'land', 'feather', '2-5'],
-  ['umeko', 'tower', 'SR', 'support', 'mystic', 'water', 'water', 'charm', '3-2'],
+  ['umeko', 'tower', 'SR', 'support', 'mystic', 'water', 'amphibious', 'charm', '3-2'],
   ['shiro', 'tower', 'SR', 'sniper', 'pierce', null, 'land', 'feather', '3-5'],
   ['midori', 'tower', 'SR', 'alchemist', 'mystic', 'poison', 'land', 'rune', '4-5'],
   ['suzu', 'tower', 'SR', 'trapper', 'blast', null, 'land', 'cog', '5-5'],
@@ -37,7 +37,26 @@ const ROSTER = [
   ['chika', 'tower', 'SSR', 'engineer', 'pierce', 'lightning', 'land', 'cog', 'gacha'],
   // the new girls (BUILD_PLAN 6.1: Tenka first)
   ['tenka', 'tower', 'SSR', 'powerhouse', 'mystic', null, 'land', 'cog', 'gacha'],
+  // the returning girls (roster wave, src/data/unitsExpansion.js)
+  ['kanna', 'hero', 'SSR', 'champion', 'slash', null, 'land', 'blade', 'gacha'],
+  ['yoriko', 'hero', 'SSR', 'puppeteer', 'mystic', null, 'land', 'rune', 'gacha'],
+  ['seiran', 'hero', 'SSR', 'stormrider', 'mystic', 'lightning', 'amphibious', 'feather', 'gacha'],
+  ['fuu', 'tower', 'R', 'displacement', 'mystic', null, 'land', 'rime', 'gacha'],
+  ['hana', 'tower', 'R', 'falconer', 'pierce', null, 'land', 'feather', '7-5'],
+  ['ruri', 'tower', 'SR', 'summoner', 'mystic', null, 'land', 'rune', 'gacha'],
+  ['noa', 'tower', 'SR', 'purifier', 'holy', null, 'land', 'charm', '6-2'],
+  ['iroha', 'tower', 'SSR', 'mirror', 'mystic', null, 'land', 'rune', 'gacha'],
+  ['ena', 'tower', 'SSR', 'hexer', 'mystic', null, 'land', 'rune', 'gacha'],
+  // the new girls (UNIT_GAPS §5, src/data/unitsNewGirls.js)
+  ['azami', 'tower', 'R', 'spiker', 'pierce', null, 'land', 'cog', '2-2'],
+  ['kinu', 'tower', 'R', 'ring', 'pierce', null, 'land', 'feather', 'gacha'],
+  ['wakaba', 'tower', 'R', 'manager', 'pierce', null, 'land', 'charm', '6-5'],
+  ['yuzuha', 'tower', 'SR', 'builder', 'pierce', 'lightning', 'land', 'cog', '4-2'],
+  ['ouka', 'tower', 'SR', 'council', 'holy', null, 'land', 'charm', 'gacha'],
+  ['chigusa', 'tower', 'SR', 'botanist', 'pierce', null, 'land', 'feather', 'gacha'],
+  ['marumi', 'tower', 'SR', 'bowler', 'blast', null, 'land', 'cog', 'gacha'],
 ];
+const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
 const UNIT_KEYS = [
   'id', 'name', 'title', 'kind', 'rarity', 'adult', 'role', 'attackType', 'element', 'placement',
@@ -48,19 +67,25 @@ const PALETTE_KEYS = ['hair', 'hairShade', 'eyes', 'skin', 'outfit', 'outfitShad
 const LOOK_ENUMS = {
   hairStyle: ['twintails', 'ponytail', 'long', 'bob', 'braid', 'buns', 'short', 'side', 'hime', 'wavy'],
   bangs: ['straight', 'swept', 'split', 'hime', 'messy'],
-  accessory: ['ribbon', 'bunnyEars', 'catEars', 'foxEars', 'hairpin', 'beret', 'witchHat', 'horns', 'flower', 'goggles', 'hood', 'headband', 'crown', 'none'],
+  accessory: ['ribbon', 'bunnyEars', 'catEars', 'foxEars', 'hairpin', 'beret', 'witchHat', 'horns', 'flower', 'goggles', 'hood', 'headband', 'crown', 'cap', 'none'],
   outfit: ['sailor', 'blazer', 'miko', 'kimono', 'hoodie', 'dress', 'armor', 'coat', 'apron', 'jumpsuit', 'robe'],
-  weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword'],
+  weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
+    'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
+    // the new girls' props (UNIT_GAPS §5)
+    'strip', 'needle', 'tablet', 'banner', 'wateringCan', 'ball'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'none'];
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
 ];
-const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback'];
+// roster B3: airMul (×damage vs flyers), gather (pull the enemies ahead back), relay (familiar / mirror origin)
+const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'silence', 'reveal', 'knockback', 'airMul', 'gather', 'relay',
+  // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
+  'strip', 'ring', 'drink', 'sentry', 'hub', 'vine', 'ball'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -100,6 +125,10 @@ const STATUS_FIELDS = {
   shred: ['amount', 'duration'],
   mark: ['bonus', 'duration'],
   vulnerable: ['bonus', 'duration'],
+  // roster B3
+  ground: ['duration'],
+  curse: ['burstMul', 'radius', 'duration'],
+  hex: ['pct', 'duration'],
 };
 
 /** Returns a list of problems with a StatusSpec array. */
@@ -157,7 +186,7 @@ function modSetErrors(mods, where) {
     crit: (k, v, w) => objErrors(v, ['chance', 'mul'], w, numCheck),
     aura: (k, v, w) => objErrors(v, AURA_KEYS, w, (kk, vv, ww) => (['detection', 'cleanse'].includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww))),
     income: (k, v, w) => objErrors(v, ['perWave', 'interest'], w, numCheck),
-    trap: (k, v, w) => objErrors(v, ['max', 'damage', 'splash', 'status'], w, (kk, vv, ww) => (kk === 'status' ? statusErrors(vv, ww) : numCheck(kk, vv, ww))),
+    trap: (k, v, w) => objErrors(v, ['max', 'damage', 'splash', 'triggerRadius', 'status'], w, (kk, vv, ww) => (kk === 'status' ? statusErrors(vv, ww) : numCheck(kk, vv, ww))),
     turret: (k, v, w) => objErrors(v, ['max', 'damage', 'range', 'rate', 'leash', 'speed'], w, numCheck),
     ramp: (k, v, w) => objErrors(v, ['per', 'max'], w, numCheck),
     mark: (k, v, w) => objErrors(v, ['bonus', 'duration'], w, numCheck),
@@ -180,12 +209,69 @@ function modSetErrors(mods, where) {
       }),
       ...['radius', 'max', 'time', 'cooldown'].filter((f) => !(f in (v || {}))).map((f) => `${w} needs ${f}`),
     ],
+    // roster B3
+    airMul: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),
+    gather: numCheck,
+    relay: (k, v, w) => objErrors(v, ['reach'], w, numCheck),
+    // the new girls (UNIT_GAPS §5)
+    strip: (k, v, w) => stripErrors(v, w),
+    ring: (k, v, w) => ringErrors(v, w),
+    drink: (k, v, w) => drinkErrors(v, w),
+    sentry: (k, v, w) => sentryErrors(v, w),
+    hub: (k, v, w) => hubErrors(v, w),
+    vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
+    ball: (k, v, w) => ballErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
     else errs.push(...M[k](k, v, `${where}.${k}`));
   }
   return errs;
+}
+
+// Spike strips (src/sim/mods.js normStrip): numbers add, flags are `true`.
+const STRIP_NUMS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening', 'rain', 'rainCount'];
+const STRIP_FLAGS = ['forever', 'carry', 'aim', 'lanes', 'pair'];
+function stripErrors(v, w) {
+  return objErrors(v, [...STRIP_NUMS, ...STRIP_FLAGS], w, (kk, vv, ww) => (STRIP_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// The 360° ring (src/sim/mods.js normRing).
+const RING_NUMS = ['travel', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce'];
+const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
+function ringErrors(v, w) {
+  return objErrors(v, [...RING_NUMS, ...RING_FLAGS], w, (kk, vv, ww) => (RING_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// The buff thrower's drink (src/sim/mods.js normDrink).
+const DRINK_NUMS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
+const DRINK_FLAGS = ['detection', 'cleanse', 'permanent', 'towel', 'life'];
+function drinkErrors(v, w) {
+  return objErrors(v, [...DRINK_NUMS, ...DRINK_FLAGS], w, (kk, vv, ww) => (DRINK_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// The sentry builder (src/sim/mods.js normSentry).
+const SENTRY_NUMS = ['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'nets', 'netBudget'];
+const SENTRY_FLAGS = ['kits', 'netElite', 'netBoss'];
+function sentryErrors(v, w) {
+  return objErrors(v, [...SENTRY_NUMS, ...SENTRY_FLAGS], w, (kk, vv, ww) => (SENTRY_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// The bowler (src/sim/mods.js normBall): numbers add, flags are `true`.
+const BALL_NUMS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
+const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
+function ballErrors(v, w) {
+  return objErrors(v, [...BALL_NUMS, ...BALL_FLAGS], w, (kk, vv, ww) => (BALL_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// The nature caster (src/sim/mods.js normVine): numbers add.
+const VINE_NUMS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+
+// The campus hub (src/sim/mods.js normHub).
+const HUB_NUMS = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd'];
+const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
+function hubErrors(v, w) {
+  return objErrors(v, [...HUB_NUMS, ...HUB_FLAGS], w, (kk, vv, ww) => (HUB_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
 function baseErrors(b, where) {
@@ -207,6 +293,29 @@ function baseErrors(b, where) {
     if (!isPos(b.aura.range)) errs.push(`${where}: aura needs a range`);
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
+  if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
+  if (b.vine) errs.push(...objErrors(b.vine, VINE_NUMS, `${where}.vine`, numCheck));
+  if (b.ball) {
+    errs.push(...ballErrors(b.ball, `${where}.ball`));
+    if (b.behavior !== 'roll') errs.push(`${where}: ball needs the roll behavior`);
+  }
+  if (b.hub) {
+    errs.push(...hubErrors(b.hub, `${where}.hub`));
+    if (b.behavior !== 'none') errs.push(`${where}: a hub never attacks (behavior none)`);
+  }
+  if (b.drink) {
+    errs.push(...drinkErrors(b.drink, `${where}.drink`));
+    if (b.behavior !== 'drink') errs.push(`${where}: drink needs the drink behavior`);
+  }
+  if (b.ring) {
+    errs.push(...ringErrors(b.ring, `${where}.ring`));
+    if (b.behavior !== 'ring') errs.push(`${where}: ring needs the ring behavior`);
+  }
+  if (b.strip) {
+    errs.push(...stripErrors(b.strip, `${where}.strip`));
+    if (!b.trap) errs.push(`${where}: a strip girl lays traps (trap)`);
+    if (b.behavior !== 'strip') errs.push(`${where}: strip needs the strip behavior`);
+  }
   if (b.trap) {
     errs.push(...objErrors(b.trap, ['max', 'damage', 'triggerRadius', 'armTime', 'splash', 'status'], `${where}.trap`, (k, v, w) => (k === 'status' ? statusErrors(v, w) : numCheck(k, v, w))));
     for (const k of ['max', 'damage', 'triggerRadius', 'armTime', 'splash', 'status']) if (!(k in b.trap)) errs.push(`${where}: trap missing ${k}`);
@@ -221,6 +330,15 @@ function baseErrors(b, where) {
   }
   if (b.ramp) errs.push(...objErrors(b.ramp, ['per', 'max'], `${where}.ramp`, numCheck));
   if (b.mark) errs.push(...objErrors(b.mark, ['bonus', 'duration'], `${where}.mark`, numCheck));
+  if ('airMul' in b && !isPos(b.airMul)) errs.push(`${where}: airMul must be > 0`);
+  if ('gather' in b && !(isNum(b.gather) && b.gather >= 0)) errs.push(`${where}: gather must be >= 0`);
+  if (b.relay) {
+    errs.push(...objErrors(b.relay, ['kind', 'reach', 'both'], `${where}.relay`, (k, v, w) => {
+      if (k === 'kind') return ['familiar', 'mirror'].includes(v) ? [] : [`${w} must be familiar or mirror`];
+      if (k === 'both') return v === true ? [] : [`${w} must be true`];
+      return isPos(v) ? [] : [`${w} must be > 0`];
+    }));
+  }
   return errs;
 }
 
@@ -240,6 +358,24 @@ function derivedCaps(m, acc = new Set()) {
   if (m.income) acc.add('income');
   if (m.turret) acc.add('summon');
   if (m.trap) acc.add('trap');
+  // spike strips: Charged Strips' blast stun, Tall Barbs' flyer share
+  if ((m.strip?.boomStun ?? 0) > 0) acc.add('stun');
+  if ((m.strip?.air ?? 0) > 0) acc.add('antiAir');
+  // a sports drink buffs girls; Coach's Eye, Ice Pack and Towel Snap
+  if (m.drink && 'splash' in m.drink) acc.add('buff');
+  if (m.drink?.detection) acc.add('detection');
+  if (m.drink?.cleanse) acc.add('cleanse');
+  if (m.drink?.towel) acc.add('slow');
+  // lane sentries are summons; Specialist Kits' flash sentries reveal
+  if ((m.sentry?.max ?? 0) > 0) acc.add('summon');
+  if (m.sentry?.kits) acc.add('reveal');
+  // the campus hub: her rules are a buff for the girls in her radius; Hall Monitors, Emergency Protocol, Sponsorship
+  if (m.hub && 'radius' in m.hub) acc.add('buff');
+  if (m.hub?.detection) acc.add('detection');
+  if (m.hub?.cleanse) acc.add('cleanse');
+  if ((m.hub?.killBounty ?? 0) > 0) acc.add('income');
+  // Lob (Spin Shot tier 2) throws her blast at flyers
+  if (m.ball?.lob) acc.add('antiAir');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
     if (s.type === 'slow') acc.add('slow');
@@ -249,6 +385,7 @@ function derivedCaps(m, acc = new Set()) {
     if (s.type === 'poison') acc.add('antiHeal');
     if (s.type === 'silence') acc.add('silence');
     if (s.type === 'reveal') acc.add('reveal');
+    if (s.type === 'ground') acc.add('grounding');
   }
   return acc;
 }
@@ -261,7 +398,7 @@ const allTiers = (u) => u.paths.flatMap((p, pi) => p.tiers.map((t, ti) => ({ ...
 // ---------------------------------------------------------------------------
 
 describe('roster matches the contract table', () => {
-  it('has exactly the contract ids in order', () => {
+  it('has exactly the contract ids in order (19, Tenka, the nine returning girls, the new girls)', () => {
     expect(UNITS.map((u) => u.id)).toEqual(ROSTER.map((r) => r[0]));
     expect(UNIT_IDS).toEqual(ROSTER.map((r) => r[0]));
     expect(new Set(UNIT_IDS).size).toBe(ROSTER.length);
@@ -437,7 +574,9 @@ describe('upgrade paths', () => {
           if (t.mods.mark && !hasMark) { expect(isPos(t.mods.mark.bonus) && isPos(t.mods.mark.duration), `${where} mark`).toBe(true); hasMark = true; }
           if (t.mods.trap) expect(!!u.base.trap, `${where} trap mods need a trap unit`).toBe(true);
           if (t.mods.turret) expect(!!u.base.turret, `${where} turret mods need a turret unit`).toBe(true);
-          if (t.mods.income) expect(!!u.base.income, `${where} income mods need an income unit`).toBe(true);
+          // (Chigusa's Harvest brings her coins with a tier: applyModSet creates the income block)
+          if (t.mods.income) expect(!!u.base.income || !!u.base.vine, `${where} income mods need an income unit`).toBe(true);
+          if (t.mods.relay) expect(!!u.base.relay, `${where} relay mods need a familiar / mirror unit`).toBe(true);
         }
         // Tenka's keys: a well arrives with its cadence, size and duration; Last Line whole (the validator)
         let hasWell = false;
@@ -512,7 +651,7 @@ describe('design requirements', () => {
 
   it('melee girls cannot hit air at base', () => {
     for (const u of UNITS) {
-      const melee = ['pulse', 'duel'].includes(u.base.behavior) && ['cleaver', 'duelist', 'vanguard'].includes(u.role);
+      const melee = ['pulse', 'duel'].includes(u.base.behavior) && ['cleaver', 'duelist', 'vanguard', 'champion'].includes(u.role);
       if (melee) expect(u.base.canHitAir, u.id).toBe(false);
     }
     for (const id of ['rei', 'kaede', 'hikari']) {
@@ -529,7 +668,7 @@ describe('design requirements', () => {
     expect(getUnit('miko').base.aura.dmgMul).toBeGreaterThan(1);
     const umeko = getUnit('umeko');
     expect(umeko.base.aura.detection).toBe(true);
-    expect(umeko.placement).toBe('water');
+    expect(umeko.placement).toBe('amphibious');
     const chika = getUnit('chika');
     // her own weak wrench bolt, plus a wing of roaming drones that fly past her range ring
     expect(chika.base.behavior).toBe('projectile');
@@ -567,9 +706,24 @@ describe('design requirements', () => {
     expect(first.level).toBeLessThanOrEqual(10);
   });
 
-  it('water units exist: two towers and a hero', () => {
-    const water = UNITS.filter((u) => u.placement === 'water');
-    expect(water.map((u) => u.id).sort()).toEqual(['nami', 'sango', 'umeko']);
+  it('water units exist: two towers and two heroes (amphibious again, as in the Codex)', () => {
+    const water = UNITS.filter((u) => u.placement === 'water' || u.placement === 'amphibious');
+    expect(water.map((u) => u.id).sort()).toEqual(['nami', 'sango', 'seiran', 'umeko']);
+  });
+
+  // Owner, Oct 14 / Oct 20: new girls wear academy school uniforms with modern tech gear, never fantasy
+  // or traditional outfits; adult staff wear staff / officer coats. Live girls and skins keep theirs.
+  it('look guard: the returning girls use no fantasy or traditional looks', () => {
+    const BANNED = { outfit: ['miko', 'kimono', 'robe', 'armor', 'dress'], accessory: ['witchHat'] };
+    const SCHOOL = ['sailor', 'blazer', 'hoodie', 'coat', 'jumpsuit'];
+    for (const id of RETURNING) {
+      const u = getUnit(id);
+      for (const [k, banned] of Object.entries(BANNED)) expect(banned, `${id}.look.${k}`).not.toContain(u.look[k]);
+      expect(SCHOOL, `${id} wears a school / staff uniform`).toContain(u.look.outfit);
+      expect(u.bio, `${id} bio names her uniform`).toMatch(/uniform|blazer|jacket|coat|cardigan/i);
+      expect(u.bio, `${id} bio has no fantasy outfit words`).not.toMatch(/kimono|hanfu|robe|armou?red|witch|habit|miko/i);
+    }
+    for (const id of ['kanna', 'yoriko', 'seiran']) expect(getUnit(id).bio, `${id} is staff`).toMatch(/adult/);
   });
 
   it('respects the balance anchors', () => {
@@ -603,12 +757,15 @@ describe('design requirements', () => {
 });
 
 describe('hero definitions', () => {
-  const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide' };
+  const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide', kanna: 'strike', yoriko: 'tide', seiran: 'runner' };
   // Every old upgrade tier and level milestone, frozen: the 25-level track must carry each exactly once.
   const OLD_REFS = {
     hikari: ['radiant', 'sanctuary', 'lightbringer'],
     luna: ['lances', 'gravity', 'court'],
     nami: ['frostbrand', 'undertow', 'harbor'],
+    kanna: ['rhythm', 'oni', 'dance'],
+    yoriko: ['threads', 'theatre', 'nightmare'],
+    seiran: ['tempest', 'skyguard', 'rain'],
   };
   // Live (pre-rework) price of the cheapest path source of each capability (tiers 1..n summed);
   // 'T5' = only a tier 5 granted it (exempt from rule 5, it stays on its tier-5 level).
@@ -616,6 +773,10 @@ describe('hero definitions', () => {
     hikari: { armorPen: 1420, reveal: 4740, silence: 1540, buff: 140, cleanse: 4740, antiAir: 1400, stun: 'T5' },
     luna: { armorPen: 1600, slow: 140, stun: 4840, buff: 150, detection: 1670 },
     nami: { armorPen: 1380, stun: 460, buff: 120 },
+    // the returning heroes: their roster-spec paths (ROSTER_SPEC §5.2), never live as paths
+    kanna: { stun: 1470, armorPen: 140, barrierBreak: 1540, antiAir: 1400, reveal: 4300, slow: 'T5' },
+    yoriko: { stun: 1380, buff: 140, silence: 1440, armorPen: 1400 },
+    seiran: { stun: 1570, grounding: 1440, armorPen: 'T5', buff: 420, slow: 1420 },
   };
   const priceTo = (level) => HERO_LEVEL_PRICES.slice(0, level - 1).reduce((a, b) => a + b, 0);
 
@@ -637,7 +798,8 @@ describe('hero definitions', () => {
     expect(u.base.cost).toBe(0);
     expect(u.paths).toEqual([]);
     // `skill`: the Lv 7 skill, attached from src/data/abilities.js (tests/data/abilities.test.js)
-    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', 'skill', 'ult']);
+    // (a returning hero gets hers when the ability track attaches RETURNING_ABILITIES)
+    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', ...(h.skill ? ['skill'] : []), 'ult']);
     expect(h.levels).toBe(HERO_TRACKS[id].levels);
     expect(h.pathKeys).toEqual(OLD_REFS[id]);
     expect(h.levels.map((l) => l.level)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
@@ -676,6 +838,12 @@ describe('hero definitions', () => {
         expect(isPos(e.damage) && isNum(e.radius) && e.radius >= 0 && !!ATTACK_TYPES[e.attackType]).toBe(true);
       } else if (e.type === 'timeWarp') {
         expect(e.slow > 0 && e.slow < 1 && isPos(e.duration) && e.rateBuff > 1 && isPos(e.buffDuration)).toBe(true);
+      } else if (e.type === 'strike') {
+        expect(isPos(e.damage) && ['strongest', 'first'].includes(e.target) && (e.splash ?? 0) >= 0).toBe(true);
+        if (e.splash) expect(e.splashMul > 0 && e.splashMul <= 1).toBe(true);
+      } else if (e.type === 'runner') {
+        expect(isPos(e.damage) && isPos(e.length) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
+        expect(e.center === undefined || e.center === 'aim').toBe(true);
       } else {
         expect(isPos(e.damage) && isPos(e.pushback) && e.slow > 0 && e.slow < 1 && isPos(e.duration)).toBe(true);
       }
@@ -746,8 +914,8 @@ describe('helpers', () => {
 
   it('freeUnlocksByStage maps stages to free recruits', () => {
     expect(freeUnlocksByStage()).toEqual({
-      '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-5': ['kage'], '3-2': ['umeko'],
-      '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'],
+      '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-2': ['azami'], '2-5': ['kage'], '3-2': ['umeko'], '4-2': ['yuzuha'],
+      '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'], '6-2': ['noa'], '6-5': ['wakaba'], '7-5': ['hana'],
     });
   });
 
@@ -760,7 +928,7 @@ describe('helpers', () => {
     // base owners first
     const firstPathOnly = det.findIndex((id) => !getUnit(id).capabilities.includes('detection'));
     expect(det.slice(firstPathOnly).every((id) => !getUnit(id).capabilities.includes('detection'))).toBe(true);
-    expect(unitsWithCapability('antiHeal', { kind: 'tower' }).map((u) => u.id)).toEqual(['midori']);
+    expect(unitsWithCapability('antiHeal', { kind: 'tower' }).map((u) => u.id)).toEqual(['midori', 'ena', 'chigusa']);
   });
 
   it('tier cost helpers add up', () => {

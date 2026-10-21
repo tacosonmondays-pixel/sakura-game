@@ -1,6 +1,9 @@
 // Drawn portraits (first impressions): every roster girl has a painted illustration, so menus
 // show real art instead of the procedural SVG doll (cardArtSVG stays only as a fallback for a
-// girl with no files, e.g. a future unit added before her art).
+// girl with no files, e.g. a future unit added before her art). A new girl whose painting is not
+// ready yet can ship with a coming-soon signboard set instead: tools/art/placeholder_portraits.py
+// <id> draws the six files (her chibi in a hard hat painting her portrait on an easel, ART IN
+// PROGRESS) and prints her PORTRAIT_DATA line; it never overwrites a girl who already has files.
 //
 // Files live in public/art/portraits/ (copied from the art producer's set, all .webp):
 //   <id>-full.webp   768×1024  3:4 illustration (student detail, SSR splash, join splash)
@@ -40,7 +43,8 @@ export function artUrl(path) {
  * the seven girls whose illustration is half-body (hikari, kaede, suzu, chika, umeko, sango,
  * nami) got a full-figure redraw of the same design for their stand (round 2), so no stand is
  * cut by a picture frame. edges (optional, 'l' 'r' 'b') still marks a stand that IS cut by its
- * frame — portraitHTML fades those sides — for any future half-body art.
+ * frame — portraitHTML fades those sides — for half-body art or a painting that runs off its
+ * bottom edge (Ena's standing foot).
  */
 export const PORTRAIT_DATA = {
   hikari: { face: [48, 20], cut: 0.564 },
@@ -62,6 +66,26 @@ export const PORTRAIT_DATA = {
   miko: { face: [46, 21], cut: 0.538 },
   midori: { face: [46, 21], cut: 0.552 },
   momo: { face: [46, 22], cut: 0.579 },
+  // the returning girls' painted art (art wave, Oct 2026); face / cut measured on the shipped crops.
+  // Ena's and Ruri's paintings end at the shin, so their stands fade the bottom edge.
+  ena: { face: [48, 18], cut: 0.681, edges: 'b' },
+  fuu: { face: [48, 19], cut: 0.658 },
+  hana: { face: [49, 19], cut: 0.596 },
+  iroha: { face: [51, 20], cut: 0.541 },
+  kanna: { face: [45, 19], cut: 0.723 },
+  noa: { face: [50, 17], cut: 0.482 },
+  ruri: { face: [53, 19], cut: 0.732, edges: 'b' },
+  seiran: { face: [50, 19], cut: 0.732 },
+  yoriko: { face: [51, 22], cut: 0.639 },
+  // the new girls (UNIT_GAPS §5): construction-sign placeholders (tools/art/placeholder_portraits.py) until
+  // their art is drawn
+  azami: { face: [49, 31], cut: 0.621 },
+  kinu: { face: [49, 31], cut: 0.621 },
+  wakaba: { face: [49, 31], cut: 0.621 },
+  yuzuha: { face: [49, 31], cut: 0.621 },
+  ouka: { face: [49, 31], cut: 0.621 },
+  chigusa: { face: [49, 31], cut: 0.621 },
+  marumi: { face: [49, 31], cut: 0.621 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

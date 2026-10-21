@@ -35,17 +35,19 @@ import { withDetMath } from './detMath.js';
  * takes point 1, Patrol points 1 and 2, in 1/1024 tiles; docs/specs/CHIKA_REWORK.md §16).
  * upg is refused 'onePerPath' when another of that player's girls of the same kind holds the path's
  * final tier (one final tier per path per girl type and player; src/sim/finalTier.js).
- * pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
+ * aim[uid, qx, qy] / aim[uid, null]: a girl's standing aim point (a mortar's centre, a mirror's spot), see
+ * the 'aim' case. pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
  * target may be an ally's girl (Sim.setBuffPick).
  * abil[uid, group, qx, qy]: fire her own girl's (or hero's) ⚡ ability (ABILITIES_SPEC §7.2): group 0|1
  * (1: her player's best ready copy of that girl), an aim point in 1/1024 tiles or -1, -1 for none (an
- * ability on one girl takes the girl nearest it, within 0.6 tiles). Refused 'notYours' / 'invalid', or
+ * ability on one girl takes the girl nearest it, within 0.6 tiles; Yuzuha's Emergency Deploy lands at the
+ * edge spots nearest it). Refused 'notYours' / 'invalid', or
  * with the sim's reason at the command's tick (a tap behind an auto-cast: 'cooldown'; after the clear:
  * 'notWave'); a refusal spends nothing. `abilArgs()` builds it.
  * acast[uid, on]: her Auto switch, on 0|1; uid 0 = every girl she owns now and her default for the
  * ones that unlock later (sim.abilityAutoDefault; the start message's players[i].autoAbil sets it first).
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'abil', 'acast'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -312,6 +314,20 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
           else if (!Number.isInteger(a[1])) res = { ok: false, reason: 'invalid' };
           else res = sim.setBuffPick(a[0], a[1]);
           break;
+        // ---- aim[uid, qx, qy] / aim[uid, null] (roster B3, track 5; GAPS P-2) ----------------
+        // An aim point for a girl of this player that has one (a mortar's centre, a mirror's spot,
+        // an aimed hero ult): whole 1/1024 tiles, like `place`; [uid, null] clears it (automatic
+        // aim). The Sim quantises, clamps into the map (a mirror into her reach) and refuses girls
+        // without an aim mode. Owner only, like tgt.
+        case 'aim': {
+          const [uid, qx, qy] = a;
+          if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else if (qx === null && a.length <= 2) res = { ok: sim.clearAim(uid) };
+          else if (!Number.isInteger(qx) || !Number.isInteger(qy)) res = { ok: false, reason: 'invalid' };
+          else res = { ok: sim.setAim(uid, qx / Q, qy / Q) };
+          break;
+        }
+        // ---- end aim ------------------------------------------------------------------------
         case 'abil': {
           // her own girl or hero (heroes are placed by `place`, so they are in owners); never sim.hero
           const [uid, group, qx, qy] = a;

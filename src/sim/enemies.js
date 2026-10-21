@@ -14,7 +14,7 @@ import {
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
 import { ruleMoveMul, ruleRift } from './rules.js';
 import {
-  tickStatusDurations, isImmobile, slowAmount, abilitiesBlocked, hasAnyStatus,
+  tickStatusDurations, isImmobile, isHeld, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
 
 const TRAIT_ORDER = [
@@ -89,6 +89,8 @@ export function createEnemy(def, o) {
     revealed: false,
     phasing: false,
     silenced: false,
+    grounded: false, // airborne but knocked down by a 'ground' status (ground-only attacks can hit)
+    pushLock: 0, // seconds until knockback / gather may move it again (PUSH_LOCK)
     facing: 0,
     flash: 0,
     traits,
@@ -141,7 +143,7 @@ export function initTraitState(e) {
   const t = e.traits;
   e.veiled = !!t.veiled;
   e.airborne = !!t.airborne;
-  e.alt = e.airborne ? AIR_ALT : 0;
+  e.alt = e.airborne && !e.grounded ? AIR_ALT : 0;
   e.ward = t.ward || null;
   if (t.crystal !== e._crystalDef) {
     e._crystalDef = t.crystal || null;
@@ -475,6 +477,8 @@ export function endPhasing(sim, e) {
 export function syncStatusFlags(e) {
   e.revealed = !!e.statuses.reveal;
   e.silenced = !!e.statuses.silence;
+  e.grounded = !!e.statuses.ground;
+  if (e.airborne) e.alt = e.grounded ? 0 : AIR_ALT;
 }
 
 /**
@@ -485,12 +489,14 @@ export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
   if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
   if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
+  if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
   if (e.dead) return;
   tickStatusDurations(e, dt);
   syncStatusFlags(e);
+  if (e.pushLock > 0) e.pushLock -= dt;
 
   const t = e.traits;
-  if (!st.poison && e.hp < e.maxHp) {
+  if (!st.poison && !st.hex && e.hp < e.maxHp) {
     let heal = 0;
     if (t.regen && sim.time - e.lastDamageAt >= (t.regen.delay ?? 2)) heal += e.maxHp * (t.regen.pct ?? 0.02) * dt;
     if (e.fieldRegen > 0) heal += e.maxHp * e.fieldRegen * dt;
@@ -506,7 +512,7 @@ export function updateEnemy(sim, e, dt) {
   if (e.dead) return;
 
   let mul;
-  if (isImmobile(e)) mul = 0;
+  if (isImmobile(e) || isHeld(e)) mul = 0;
   else {
     mul = 1 - slowAmount(e);
     if (e.fieldHaste > 0) mul *= 1 + e.fieldHaste;

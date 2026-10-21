@@ -1,41 +1,88 @@
 // Stand-in chibis (src/models/standins.js): girls whose art the owner has not approved yet (Tenka,
-// BUILD_PLAN 6.8). No GLB is ever requested for them and buildChibi gives the procedural chibi in her
-// own palette / look; tests/models/glb.test.js checks they ship no GLB or manifest entry.
+// BUILD_PLAN 6.8; the returning girls were stand-ins until the art wave, docs/MODELS.md "Stand-ins for
+// the returning girls"). No GLB is ever requested for them and buildChibi gives the procedural chibi in
+// her own palette / look, with a real piece for each of her look values; tests/models/glb.test.js checks
+// they ship no GLB or manifest entry.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as THREE from 'three';
-import { buildChibi, disposeObject } from '../../src/models/index.js';
-import { STANDIN_UNITS, isStandIn } from '../../src/models/standins.js';
+import { buildChibi, disposeObject, STANDIN_UNITS, isStandIn } from '../../src/models/index.js';
 import { UNITS, getUnit } from '../../src/data/units.js';
+import { SKINS } from '../../src/data/skins.js';
+
+// the girls still drawn procedurally: Tenka (her art waits for the owner's approval). The returning girls have
+// their GLBs since the art wave (Meshy noa / hana / ruri, temporary Blender chibis for the rest, docs/MODELS.md).
+const ART_PENDING = ['tenka'];
 
 afterEach(() => vi.restoreAllMocks());
 
+function vertexCount(group) {
+  let n = 0;
+  group.traverse((o) => {
+    if (o.isMesh && !o.userData.isOutline) n += o.geometry.attributes.position.count;
+  });
+  return n;
+}
+
+function build(unit, look = {}) {
+  const g = buildChibi({ ...unit, look: { ...unit.look, ...look } }, { quality: 'low' });
+  const n = vertexCount(g);
+  disposeObject(g);
+  return n;
+}
+
 describe('stand-in list', () => {
-  it('is Tenka today: roster units only, frozen', () => {
-    expect([...STANDIN_UNITS]).toEqual(['tenka']);
-    for (const id of STANDIN_UNITS) {
+  it('is exactly the girls whose art is pending (Tenka today), all roster units', () => {
+    expect([...STANDIN_UNITS]).toEqual(ART_PENDING);
+    for (const id of ART_PENDING) {
       expect(getUnit(id).id).toBe(id);
       expect(isStandIn(id)).toBe(true);
     }
     expect(Object.isFrozen(STANDIN_UNITS)).toBe(true);
-    expect(isStandIn('chika')).toBe(false);
-    expect(UNITS.filter((u) => !isStandIn(u.id)).length).toBe(UNITS.length - STANDIN_UNITS.length);
+  });
+
+  it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
+    const others = UNITS.filter((u) => !ART_PENDING.includes(u.id));
+    expect(others).toHaveLength(35); // 36 units minus Tenka
+    for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
+    for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });
 });
 
-describe('a stand-in is procedural on purpose', () => {
-  it('buildChibi gives her procedural chibi in her own palette / look (and an attack clip)', () => {
-    const g = buildChibi(getUnit('tenka'), { quality: 'medium' });
-    expect(g).toBeInstanceOf(THREE.Group);
-    expect(g.userData.unitId).toBe('tenka');
-    expect(g.userData.glb).toBeFalsy();
-    expect(g.userData.height).toBeGreaterThan(0.8);
-    let meshes = 0;
-    g.traverse((o) => { if (o.isMesh) meshes++; });
-    expect(meshes).toBeGreaterThan(0); // (the procedural chibi merges her parts into a few meshes)
-    g.userData.animate(0.5, 0.016, 'idle');
-    g.userData.playAttack();
-    disposeObject(g);
-  });
+describe('stand-in chibis (procedural)', () => {
+  // the suite needs a test while the list is empty (every girl has her GLB)
+  if (!ART_PENDING.length) it('none left: every girl ships her own GLB', () => expect(STANDIN_UNITS).toHaveLength(0));
+  for (const id of ART_PENDING) {
+    it(`${id}: procedural chibi in her palette/look at every quality`, () => {
+      const u = getUnit(id);
+      for (const quality of ['high', 'medium', 'low']) {
+        const g = buildChibi(u, { quality });
+        expect(g).toBeInstanceOf(THREE.Group);
+        expect(g.userData.kind).toBe('chibi');
+        expect(g.userData.unitId).toBe(id);
+        expect(g.userData.skinId).toBe(`${id}_default`);
+        expect(g.userData.standIn).toBe(true);
+        expect(g.userData.glb).toBeFalsy();
+        expect(g.userData.height).toBeGreaterThan(0.8);
+        expect(vertexCount(g)).toBeGreaterThan(1000);
+        for (const state of ['idle', 'walk', 'attack', 'cheer', 'victory', 'hurt']) g.userData.animate(0.5, 0.016, state);
+        g.userData.playAttack();
+        g.userData.animate(0.7, 0.016, 'attack');
+        g.userData.setHighlight(true);
+        g.userData.setHighlight(false);
+        disposeObject(g);
+        expect(g.userData.disposed).toBe(true);
+      }
+    });
+
+    it(`${id}: her accessory and weapon are real pieces (not the generic stick / nothing)`, () => {
+      const u = getUnit(id);
+      const own = build(u);
+      // an unknown weapon falls back to a plain stick: hers must be a dedicated model
+      expect(build(u, { weapon: '__stick__' }), `${id} weapon ${u.look.weapon}`).not.toBe(own);
+      if (u.look.accessory === 'none') expect(build(u, { accessory: 'ribbon' })).toBeGreaterThan(own);
+      else expect(build(u, { accessory: 'none' }), `${id} accessory ${u.look.accessory}`).toBeLessThan(own);
+    });
+  }
 });
 
 // In node canLoadCharacters() is false, so loadCharacter resolves null without the stand-in guard

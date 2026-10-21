@@ -147,7 +147,8 @@ export const LESSONS = [
     ],
     action: { label: 'Show me', route: 'student', params: { id: '@secretary', tab: 'awaken' } },
     gate: 'awaken',
-    rewards: [{ id: 'star_fragment', count: 10 }],
+    // Ascension's fragment bridge (docs/specs/ASCENSION.md §A.8): duplicates no longer pay fragments
+    rewards: [{ id: 'star_fragment', count: 50 }],
   },
   {
     id: 'assault', oldId: 'boss', title: 'Something big is coming!', icon: 'assault',

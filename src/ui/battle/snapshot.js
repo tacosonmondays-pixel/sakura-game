@@ -47,11 +47,13 @@ import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
 import { FLIGHT_MODES } from '../../sim/constants.js';
+import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
+import { eventBattleStage } from '../../data/events/wire.js';
 import { modeId } from '../../data/modes.js';
 
 /**
@@ -116,6 +118,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   _towerByUid: 'snap',
   // path cap (src/sim/buffs.js): the recent-DPS window's timer (which girl a brew / link picks)
   _dpsTimer: 'snap',
+  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle
+  popBudget: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
@@ -145,6 +149,11 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // Auto-cast setting comes from the profile; the count of girls with an ability follows the tier replay
   abilGroups: 'snap', abilUses: 'calm', _rallies: 'calm', _abilQueue: 'calm', ownerCash: 'calm',
   abilityAutoDefault: 'config', _abilOn: 'derived',
+  // roster B3 (aim, mortar, relay, curse, team damage buff): shells end at the wave clear, the curse
+  // queue is flushed inside the step, the relay samples are a cache of the forward paths, and the
+  // team damage multiplier follows the saved buffs ('db')
+  shells: 'calm', _curseQueue: 'calm', _flushingCurses: 'calm', _curseCtx: 'scratch', _scratch3: 'scratch',
+  _relaySamples: 'scratch', globalDmgMul: 'derived', runners: 'calm', _curseBudget: 'calm', _leadPt: 'scratch',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -176,6 +185,29 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
+  // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
+  // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
+  pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
+  // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
+  // origin follows from it and her spot (updateRelayOrigin)
+  aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
+  // the new girls (UNIT_GAPS §5): Azami's Spread cursor stays ('sc'); her flyer and blast specs follow
+  // her stats (refreshEffective). Her carried strips ride in 'tr'.
+  stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
+  // Kinu: her ring's turn stays ('rg'); heat rings end at the wave clear; the scissors' spec follows her stats
+  ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
+  // Wakaba: a girl's drink ends at the wave clear; the towel's spec follows her stats
+  hydrated: 'calm', towelSpec: 'derived',
+  // Yuzuha: sentries end at the wave clear; her nets stay ('nt'); the sentry, burst and net specs follow her stats
+  sentries: 'calm', nets: 'snap', sentrySpecs: 'derived', sentryBurstSpec: 'derived', netSpec: 'derived',
+  // Ouka: her banners stay ('bn', planted again in order through setAim); a covered girl's rules follow
+  // the hubs around her (recomputeBuffs)
+  banners: 'snap', rules: 'derived',
+  // Chigusa: her vine timer starts over, her held enemy, thorn beds and Bloom Rush end at the wave clear;
+  // the vine and bed specs follow her stats
+  vineCd: 'calm', vineHold: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
+  balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
 });
 
 /**
@@ -233,8 +265,11 @@ export function snapshotSim(sim) {
     carry: sim._cashCarry,
     lives: sim.lives,
     uid: sim._uid,
-    buffs: sim._globalBuffs.filter((b) => b.left > 0).map((b) => [b.mul, b.left, b.src ?? -1]),
+    buffs: sim._globalBuffs.filter((b) => b.left > 0 && b.kind !== 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]),
+    // team damage buffs in their own key (a build from before them ignores it, never reads it as haste)
+    ...(sim._globalBuffs.some((b) => b.left > 0 && b.kind === 'dmg') ? { db: sim._globalBuffs.filter((b) => b.left > 0 && b.kind === 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]) } : {}),
     dps: sim._dpsTimer,
+    ...(sim.popBudget != null && sim.popBudget !== POP_BUDGET_MAX ? { pb: sim.popBudget } : {}),
     towers,
     kills: { ...sim.kills },
     enc: [...sim.encountered],
@@ -265,15 +300,22 @@ function packTower(sim, t) {
     o.fl = [f.mode, f.ax, f.ay, f.bx, f.by, f.cx, f.cy, f.leg];
   }
   const traps = sim.traps.filter((tr) => tr.ownerUid === t.uid);
-  if (traps.length) o.tr = traps.map((tr) => [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]);
+  // (a spike strip adds its hits and lifetime left; only Sticky Tar strips are on the road at a calm point)
+  if (traps.length) o.tr = traps.map((tr) => (tr.strip ? [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft, tr.hits, tr.ttl] : [tr.uid, tr.x, tr.y, tr.armed ? 1 : 0, tr.armLeft]));
+  if (t.stripCursor) o.sc = t.stripCursor;
+  if (t.ringTurn) o.rg = t.ringTurn;
+  if (t.nets?.length) o.nt = t.nets.map((n) => [n.x, n.y, n.left, n.wave]);
   // limited buffs (path cap): her pick, her brew / link timers and targets, what she holds
   if (t.buffPick >= 0) o.pk = t.buffPick;
   if (t.lim) o.lm = packLim(t.lim);
   if (t.limIn) o.li = [t.limIn.brew, t.limIn.brewLeft, t.limIn.link, t.limIn.oc ? 1 : 0];
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
+  if (t.banners?.length) o.bn = t.banners.map((b) => [b.x, b.y]);
+  else if (t.aim) o.am = [t.aim.x, t.aim.y];
   packPotential(t, o);
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
+  packGear(t, o);
   return o;
 }
 
@@ -328,6 +370,22 @@ function unpackPotential(t, o) {
   if (Array.isArray(o.oc)) t.potOc = { cd: r(o.oc[0]), left: Math.max(0, r(o.oc[1])) };
 }
 
+/** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
+// index-coded in the save (`gr`): append only, never reorder
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN'];
+function packGear(t, o) {
+  const gr = [];
+  GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });
+  if (gr.length) o.gr = gr;
+}
+function unpackGear(t, o) {
+  if (!Array.isArray(o.gr)) return;
+  for (let j = 0; j + 1 < o.gr.length; j += 2) {
+    const k = GEAR_FIELDS[o.gr[j]];
+    if (k) t[k] = Math.max(0, Math.floor(r(o.gr[j + 1])));
+  }
+}
+
 /** A brewer's / linker's own state (src/sim/buffs.js brewTick / linkTick) as a short row. */
 function packLim(l) {
   if (l.kind === 'brew') return ['b', l.cd, l.repick ? 1 : 0, ...l.targets];
@@ -367,6 +425,9 @@ export function restoreSim(rec, profile = null) {
   const stage = STAGE_MAP[rec?.stageId];
   if (!stage) throw new StaleSaveError(`unknown stage ${rec?.stageId}`);
   if (!s || !(rec.v <= RECORD_V) || !(s.v <= SNAP_V)) throw new StaleSaveError('save format from a newer build');
+  // [events] a difficulty with its own waves (the Golem's Nightmare) restores on that stage, as
+  // createBattleSim built it (src/ui/battle/setup.js), so the wave tables match after Continue
+  const evStage = eventBattleStage(rec.stageId, rec.difficulty);
   let sim;
   try {
     sim = new Sim({
@@ -381,6 +442,7 @@ export function restoreSim(rec, profile = null) {
         endless: !!rec.endless, autoStart: !!profile?.settings?.autoStart, mode: modeId(rec.mode),
         ...(profile?.settings?.autoCastAbilities ? { autoAbilities: true } : null),
       },
+      ...(evStage ? { data: { stage: evStage } } : {}),
     });
   } catch (e) {
     throw new StaleSaveError(`stage cannot be built: ${e.message}`);
@@ -394,6 +456,7 @@ export function restoreSim(rec, profile = null) {
   sim.cash = Number.MAX_SAFE_INTEGER; // costs do not matter while rebuilding: `spent` comes back below
   // (who cast it: an older save has no caster, as the restore had none placed yet)
   for (const b of s.buffs || []) if (b?.[1] > 0) sim.addGlobalRateBuff(b[0], b[1], Number.isInteger(b[2]) ? b[2] : -1);
+  for (const b of Array.isArray(s.db) ? s.db : []) if (b?.[1] > 0) sim.addGlobalDamageBuff(r(b[0]), r(b[1]), Number.isInteger(b[2]) ? b[2] : -1);
   const drop = (o) => {
     dropped.push(o.u);
     // (a hero's levels bought with coins come back too: her placement was free)
@@ -426,6 +489,9 @@ export function restoreSim(rec, profile = null) {
       }
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
+    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
+    // Ouka's banners, oldest first (setAim keeps at most her count)
+    if (Array.isArray(o.bn)) for (const b of o.bn.slice(0, 4)) if (Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1])) sim.setAim(t.uid, b[0], b[1]);
     t.spent = r(o.spent);
     t.kills = r(o.kills);
     t.damageDealt = r(o.dmg);
@@ -434,6 +500,7 @@ export function restoreSim(rec, profile = null) {
     t.facing = r(o.face);
     t.buildTimer = r(o.bt);
     unpackPotential(t, o);
+    unpackGear(t, o);
     if (t.isHero && oldHeroes) {
       // her old level on the new track, bar empty (old XP is on another scale); she deploys free
       // now, so her placement and tiers come back as coins
@@ -493,8 +560,19 @@ export function restoreSim(rec, profile = null) {
     }
     const maxTr = t.stats.trap?.max ?? 0;
     for (const tr of (o.tr || []).slice(0, maxTr)) {
-      sim.traps.push({ uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, armed: !!tr[3], armLeft: tr[4], owner: t });
+      if (t.stats.strip) {
+        // a carried spike strip (src/sim/strips.js): its hits and lifetime left; it forgot who it hit
+        sim.traps.push({
+          uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, owner: t, strip: true, extra: false,
+          armed: !!tr[3], armLeft: r(tr[4]), hits: Math.max(0, Math.floor(r(tr[5]))), ttl: r(tr[6]), hitUids: [],
+        });
+      } else sim.traps.push({ uid: tr[0], x: tr[1], y: tr[2], ownerUid: t.uid, armed: !!tr[3], armLeft: tr[4], owner: t });
       t.trapCount++;
+    }
+    if (Number.isInteger(o.sc) && o.sc > 0) t.stripCursor = o.sc;
+    if (Number.isInteger(o.rg) && o.rg > 0 && o.rg < 16) t.ringTurn = o.rg;
+    if (Array.isArray(o.nt) && t.nets) {
+      for (const n of o.nt.slice(0, t.stats.sentry?.nets ?? 0)) t.nets.push({ x: r(n[0]), y: r(n[1]), left: r(n[2]), wave: Math.floor(r(n[3])) });
     }
   }
   sim.traps.sort((a, b) => a.uid - b.uid); // the order they were laid in (uids only grow)
@@ -519,6 +597,7 @@ export function restoreSim(rec, profile = null) {
     const rate = Math.max(1, Math.floor(r(g[3])) || 100);
     if (cd > 0) sim.abilGroups.set(g[0], { cd, cdMax, rate });
   }
+  sim.popBudget = s.pb != null ? Math.max(0, Math.min(POP_BUDGET_MAX, Math.floor(r(s.pb)))) : POP_BUDGET_MAX;
   recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;

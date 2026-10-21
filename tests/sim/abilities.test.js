@@ -7,9 +7,10 @@ import { Sim } from '../../src/sim/Sim.js';
 import { UNITS, ENEMIES, STAGE, testData, run } from './fixtures.js';
 import { STEP, KNOCKBACK_RESIST, CC_RESIST, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from '../../src/sim/constants.js';
 import { ABILITY_RULES } from '../../src/data/abilities.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { typeMultiplier } from '../../src/data/types.js';
 import { refreshEffective, towerResolvedStats } from '../../src/sim/towers.js';
-import { abilityDef, abilityPathOf, chargeRate, densestPoint, abilitySpec, autoWants, ABILITY_KINDS_LIVE } from '../../src/sim/abilities.js';
+import { abilityDef, abilityPathOf, abilitySource, chargeRate, densestPoint, abilitySpec, autoWants, ABILITY_KINDS_LIVE } from '../../src/sim/abilities.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { samplePath } from '../../src/sim/path.js';
 import { defaultData } from '../../src/sim/data.js';
@@ -886,7 +887,7 @@ describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
     expect([rate(b), rate(c), rate(f), rate(coach)]).toEqual([1.8, 1, 1, 1]);
     expect(b.buffBy.rally).toBe(coach.uid);
     expect(sim._rallies).toHaveLength(1);
-    expect(sim._rallies[0]).toMatchObject({ src: coach.uid, on: b.uid, r2: 0 });
+    expect(sim._rallies[0]).toMatchObject({ src: coach.uid, to: b.uid, r2: 0 });
     expect(events(sim, 'ability')).toEqual([expect.objectContaining({ towerUid: coach.uid, kind: 'rally', x: b.x, y: b.y, radius: 0, targets: [b.uid] })]);
     run(sim, 12 - STEP);
     expect(rate(b)).toBe(1.8);
@@ -911,13 +912,13 @@ describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
     h.disabled = 3;
     // exactly 0.5 from both: the lower uid
     expect(sim.castAbility(coach.uid, { aim: [11, 3.4] }).ok).toBe(true);
-    expect(sim._rallies[0].on).toBe(g.uid);
+    expect(sim._rallies[0].to).toBe(g.uid);
     expect(h.disabled).toBe(3);
     run(sim, 13);
     run(sim, 45);
     // 0.49 from h, 0.51 from g: the nearer one (and her sabotage is cleared)
     expect(sim.castAbility(coach.uid, { aim: [11.01, 3.4] }).ok).toBe(true);
-    expect(sim._rallies[0].on).toBe(h.uid);
+    expect(sim._rallies[0].to).toBe(h.uid);
     expect(h.disabled).toBe(0);
     run(sim, 13);
     run(sim, 45);
@@ -925,7 +926,7 @@ describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
     g.damageDealt = 10;
     h.damageDealt = 20;
     expect(sim.castAbility(coach.uid, { aim: [coach.x, coach.y] }).ok).toBe(true);
-    expect(sim._rallies[0].on).toBe(h.uid);
+    expect(sim._rallies[0].to).toBe(h.uid);
   });
 
   test('no aim, or no girl within 0.6: the girl in her range who dealt the most damage (ties: the lower uid); nobody is noTarget', () => {
@@ -934,17 +935,17 @@ describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
     c.damageDealt = 80;
     f.damageDealt = 80;
     expect(sim.castAbility(coach.uid).ok).toBe(true);
-    expect(sim._rallies[0].on).toBe(c.uid); // c and f tie at 80: c has the lower uid
+    expect(sim._rallies[0].to).toBe(c.uid); // c and f tie at 80: c has the lower uid
     run(sim, 13);
     run(sim, 45);
     c.damageDealt = 10;
     expect(sim.castAbility(coach.uid, { aim: [AT.far[0] + 2, AT.far[1]] }).ok).toBe(true); // nobody within 0.6
-    expect(sim._rallies[0].on).toBe(f.uid);
+    expect(sim._rallies[0].to).toBe(f.uid);
     // a malformed aim counts as none
     run(sim, 13);
     run(sim, 45);
     expect(sim.castAbility(coach.uid, { aim: [Number.NaN, 3] }).ok).toBe(true);
-    expect(sim._rallies[0].on).toBe(f.uid);
+    expect(sim._rallies[0].to).toBe(f.uid);
     // a girl out of her range is never the pick; alone, she is refused and keeps her charge
     const solo = mk();
     const lone = unlocked(solo, 'coach', 'a');
@@ -956,7 +957,7 @@ describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
     expect(lone.abil.cd).toBe(0);
     // ... but an aim right on her still reaches her (the aim rule has no range)
     expect(solo.castAbility(lone.uid, { aim: [away.x, away.y] }).ok).toBe(true);
-    expect(solo._rallies[0].on).toBe(away.uid);
+    expect(solo._rallies[0].to).toBe(away.uid);
   });
 
   test('her target sold mid-rally: nobody else picks it up', () => {
@@ -1500,7 +1501,9 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
   test('every girl but the three deploy ones (A4) learns hers at tier 3 of her ⚡ path; every hero at Lv 7', () => {
     const live = [];
     const later = [];
-    for (const u of Object.values(defaultData().units)) {
+    // (the girls with an ability row; the returning girls' rows wait in RETURNING_ABILITIES)
+    const withRow = Object.values(defaultData().units).filter((d) => abilitySource({ def: d, isHero: d.kind === 'hero', tiers: [0, 0, 0], level: 0 }));
+    for (const u of withRow) {
       const sim = new Sim({ stageId: '1-1', loadout: u.kind === 'hero' ? [] : [{ unitId: u.id }], hero: u.kind === 'hero' ? { unitId: u.id } : null, seed: 1 });
       sim.cash = 1e9;
       const spot = autoPlan('1-1', [u.id]).find((a) => a.action === 'place');
@@ -1511,9 +1514,10 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
       if (!t.abil) expect(sim.abilityStatus(t.uid)).toMatchObject({ unlocked: false, later: true });
     }
     expect(later.sort()).toEqual(['chika', 'kage', 'suzu']);
-    // every other girl of the roster, the new ones too (Tenka's Critical Mass is a strike)
-    expect(live.length).toBe(Object.keys(defaultData().units).length - later.length);
-    expect(live).toContain('tenka');
+    // every other girl with an ability row, the new ones too (Tenka's Critical Mass is a strike; Azami's
+    // deploy is strips, Yuzuha's sentries, Marumi's a runner)
+    expect(live.length).toBe(withRow.length - later.length);
+    for (const id of ['tenka', ...NEW_GIRL_IDS]) expect(live).toContain(id);
   });
 
   test('Aoi, Skyfall Volley: 6 arrows, 6× her hit, a certain 0.5 s pin', () => {

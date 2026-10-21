@@ -10,6 +10,28 @@ import { restoreSim } from './snapshot.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
 import { isSandboxUnlocked, sandboxFormation, sandboxUnitStats, parseTeam, SANDBOX_COINS, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
+import { TITAN_MAP, tierIndex, titanBattle, MAX_RANK } from '../../data/titans.js';
+import { tierOpen, refreshKeys } from '../../systems/titans.js';
+import { eventBattleStage } from '../../data/events/wire.js';
+import { eventDifficultyStatus } from '../../systems/events.js';
+
+/**
+ * A Titan Trials battle (`titan=<id>&tier=<tier>[&rank=n][&practice=1]`, docs/specs/ASCENSION.md §C):
+ * its stage and enemy overrides come from src/data/titans.js titanBattle and reach the Sim through
+ * its data hook. A tier that is not open, no Trial Key left, or `practice=1` plays as practice (no
+ * key, no rewards). Never saved, never freeplay, never a battle mode.
+ */
+export function parseTitanParams(params = {}, profile = null) {
+  const titanId = String(params.titan || '');
+  const tier = tierIndex(params.tier) >= 0 ? params.tier : 'normal';
+  const rank = tier === 'mayhem' ? Math.max(0, Math.min(MAX_RANK, Math.floor(Number(params.rank) || 0))) : 0;
+  const base = { difficulty: 'normal', mode: 'standard', endless: false, freeplay: null, keepGoing: false, sandbox: false, resume: null };
+  if (!TITAN_MAP[titanId]) return { ...base, stageId: null, practice: false, error: 'Unknown titan.' };
+  const battle = titanBattle(titanId, tier, rank);
+  const wantsPractice = String(params.practice ?? '') === '1';
+  const practice = wantsPractice || (profile ? !tierOpen(profile, titanId, tier, rank) || refreshKeys(profile) < 1 : false);
+  return { ...base, stageId: battle.stage.id, stageDef: battle.stage, titan: { id: titanId, tier, rank, battle }, practice, error: null };
+}
 
 /**
  * Resolves the battle loadout from the profile formation. Falls back to every owned tower
@@ -51,15 +73,19 @@ export function resolveFormation(profile) {
  * Nightmare × Last Petal is the same battle as Nightmare Standard. Anything else plays Standard. A
  * mode run is never offered "Keep going" (freeplay runs in Standard in v1).
  * @returns {{ stageId: string|null, difficulty: string, mode: string, endless: boolean, freeplay: string|null,
- *   keepGoing: boolean, practice: boolean, sandbox: boolean, team?: string[], hero?: string|null,
+ *   keepGoing: boolean, practice: boolean, practiceNote?: string, sandbox: boolean, team?: string[], hero?: string|null,
  *   error: string|null, resume: string|null }}
+ *   practiceNote: the HUD line when the run is practice because an event difficulty is still locked
  *   keepGoing: a normal run that may continue into freeplay from its victory sheet ("Keep going")
  */
 export function parseBattleParams(params = {}, profile = null) {
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
   if (!stage) return { stageId, difficulty: 'normal', mode: 'standard', endless: false, freeplay: null, keepGoing: false, practice: false, sandbox: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
-  const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  let difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
+  // [events] an event stage plays only its own difficulties (stage prep offers no others; a link
+  // with another one plays the stage's first, and applyBattleResult would pay nothing for it anyway)
+  if (stage.kind === 'event' && Array.isArray(stage.difficulties) && stage.difficulties.length && !stage.difficulties.includes(difficulty)) difficulty = stage.difficulties[0];
   if (params.sandbox === '1' || params.sandbox === 1 || params.sandbox === 'true') {
     if (profile && !isSandboxUnlocked(profile)) return { stageId, difficulty, mode: 'standard', endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.`, resume: null };
     const { towers, hero } = sandboxFormation(parseTeam(params.team), params.hero || null);
@@ -69,7 +95,12 @@ export function parseBattleParams(params = {}, profile = null) {
   const allowed = !profile || canPlayEndless(profile, stageId);
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
   // (marked in the HUD, and applyBattleResult saves nothing for it) so deep links keep working.
-  const practice = !!profile && isPracticeRun(profile, stageId);
+  // [events] so does a difficulty still locked on an event stage (Nightmare before its medal gate); the HUD
+  // then says why (`practiceNote`: the stage itself is open)
+  const stageLocked = !!profile && isPracticeRun(profile, stageId);
+  const evGate = profile && !stageLocked ? eventDifficultyStatus(profile, stageId, difficulty) : null;
+  const practice = stageLocked || (!!evGate && !evGate.ok);
+  const practiceNote = evGate && !evGate.ok ? eventPracticeNote(evGate, difficulty) : null;
   const resume = typeof params.resume === 'string' && params.resume ? params.resume : null;
   const tutorial = String(params.tutorial ?? '') === '1';
   const fpStage = hasSoloFreeplay(stageId) && !practice && !tutorial;
@@ -79,7 +110,14 @@ export function parseBattleParams(params = {}, profile = null) {
   let mode = modeId(params.mode);
   if (stage.kind !== 'campaign' || endless || freeplay || practice || tutorial || (profile && !modesUnlocked(profile, stageId))) mode = 'standard';
   if (mode === 'laststand' && difficulty === 'nightmare') mode = 'standard';
-  return { stageId, difficulty, mode, endless, freeplay, keepGoing: fpStage && !freeplay && !endless && mode === 'standard', practice, sandbox: false, error: null, resume };
+  return { stageId, difficulty, mode, endless, freeplay, keepGoing: fpStage && !freeplay && !endless && mode === 'standard', practice, ...(practiceNote ? { practiceNote } : {}), sandbox: false, error: null, resume };
+}
+
+/** The HUD line of a practice run on an open event stage whose difficulty is still locked (eventDifficultyStatus). */
+function eventPracticeNote(gate, difficulty) {
+  const name = DIFFICULTIES[difficulty]?.name || difficulty;
+  const why = gate.reason === 'medal' && gate.needs ? `${name} opens after a ${DIFFICULTIES[gate.needs]?.name || gate.needs} clear` : `${name} isn't offered on this event stage`;
+  return `Practice run: ${why}, so nothing from this battle is saved.`;
 }
 
 /**
@@ -94,8 +132,16 @@ export function createBattleSim(profile, req) {
   const { towers, hero } = resolveFormation(profile);
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
-  // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js)
+  if (req.titan) {
+    // Titan Trials: the titan's stage and enemy overrides through the Sim's data hook (no hashed file)
+    const { stage, enemies } = req.titan.battle;
+    const sim = new Sim({ stageId: stage.id, difficulty: 'normal', loadout, hero: heroEntry, seed, options: { autoStart: !!profile.settings?.autoStart }, data: { stage, enemies } });
+    return { sim, towers, hero, seed, cfg: null };
+  }
+  // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js); [events] a
+  // difficulty with its own waves (the Golem's Nightmare): that stage (src/data/events/wire.js)
   const fpStage = req.freeplay ? soloFreeplayStage(req.stageId, req.freeplay) : null;
+  const evStage = fpStage ? null : eventBattleStage(req.stageId, req.difficulty);
   const sim = new Sim({
     stageId: req.stageId,
     difficulty: req.difficulty,
@@ -103,7 +149,7 @@ export function createBattleSim(profile, req) {
     hero: heroEntry,
     seed,
     options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}) },
-    ...(fpStage ? { data: { stage: fpStage } } : {}),
+    ...(fpStage || evStage ? { data: { stage: fpStage || evStage } } : {}),
   });
   return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };
 }

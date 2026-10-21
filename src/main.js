@@ -1,9 +1,16 @@
 import './ui/styles/base.css';
-import { registerRoute, startRouter, currentRoute } from './ui/router.js';
+import './ui/styles/components.css'; // UI condense shared components (docs/specs/UI_DIRECTION.md §5)
+import { registerRoute, startRouter, currentRoute, prefetchRoutes } from './ui/router.js';
+import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
 import { onAppStart } from './systems/missions.js';
-import { ensureBetaGift, ensurePotentialLetter } from './systems/mail.js';
+import { ensureBetaGift, ensurePotentialLetter, ensureEssenceLetter } from './systems/mail.js';
+import { ensureCatchUpJoins, joinToastText } from './systems/catchUpJoins.js';
 import { createRng, hashString } from './core/rng.js';
+import { settleEvents, markEventLogin } from './systems/events.js';
+import { eventNow } from './ui/events/clock.js';
+import { formationSkins } from './systems/skins.js';
+import { applyLoadingLook } from './ui/loading/mochi.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -20,11 +27,13 @@ registerRoute('recruit', () => import('./ui/screens/recruit.js'));
 registerRoute('backpack', () => import('./ui/screens/backpack.js'));
 registerRoute('bounty', () => import('./ui/screens/bounty.js'));
 registerRoute('assault', () => import('./ui/screens/assault.js'));
+registerRoute('titans', () => import('./ui/screens/titans.js')); // [ascension] Titan Trials, the weekly bosses
 registerRoute('challenge', () => import('./ui/screens/challenge.js'));
 registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));
 registerRoute('commissions', () => import('./ui/screens/commissions.js'));
 registerRoute('rewards', () => import('./ui/screens/rewards.js'));
+registerRoute('event', () => import('./ui/screens/event.js')); // [events] limited event page: #/event/<id>?tab=…
 registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
 registerRoute('settings', () => import('./ui/screens/settings.js'));
@@ -42,15 +51,41 @@ registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Capt
 registerRoute('profile', () => import('./ui/screens/profile.js')); // [profile] Sensei Profile: #/profile (yours)
 
 store.load();
+// the in-game "Reduce motion" setting, before the first screen moves (CSS + src/ui/transitions read it)
+try {
+  document.documentElement.toggleAttribute('data-reduce-motion', !!store.profile.settings?.reduceMotion);
+} catch {
+  /* no DOM */
+}
+// the loading screen's look (Settings → Loading screen): index.html's inline script already put the
+// saved one on <html>; this keeps it right after a migration, an import, a reset or another tab's save
+applyLoadingLook(store.profile.settings);
+store.on('change', () => applyLoadingLook(store.profile.settings));
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
-window.__sakura = { store };
+window.__sakura = { store, transitions: { log: txLog, busy: transitionBusy } };
+let caughtUp = [];
 try {
   onAppStart(store.profile); // daily/weekly resets, login bonus bookkeeping
   ensureBetaGift(store.profile); // Beta Tester Thank-You mail (accounts up to 2026-11-07 CST), once
   ensurePotentialLetter(store.profile); // "Potential grew!" once, to a save from an older build with a girl at P2+ (Potential v3)
+  settleEvents(store.profile, eventNow()); // [events] ended events: unclaimed rewards + leftover currency → coins by mail (once)
+  markEventLogin(store.profile, eventNow()); // [events] the day's event visit: login mission + the daily gift letter
+  ensureEssenceLetter(store.profile); // [ascension] "Duplicates are now Essence!" once, to a save the switch-over ran on
+  caughtUp = ensureCatchUpJoins(store.profile); // Azami / Yuzuha / Noa / Wakaba / Hana join once (a letter each) when 2-2 / 4-2 / 6-2 / 6-5 / 7-5 was cleared before they existed
   store.commit('app-start');
 } catch (e) {
   console.error('[main] onAppStart failed', e);
+}
+// the girls who just joined because their stage was already cleared: one toast on the first lobby
+// naming them all ("Azami, Yuzuha and Wakaba joined your academy!"), never one per girl on top of each other
+if (caughtUp.length) {
+  const text = joinToastText(caughtUp);
+  const onLobby = () => {
+    if (currentRoute().name !== 'lobby') return;
+    window.removeEventListener('lobby-stage-ready', onLobby);
+    import('./ui/components.js').then(({ toast }) => toast(text, 'good', 6000)).catch(() => {});
+  };
+  window.addEventListener('lobby-stage-ready', onLobby);
 }
 // [achievements] Honor Ribbon masks, the unlock toasts (the first check is the baseline: nothing toasts on app start)
 // and the one-time update-day notice on the lobby
@@ -101,22 +136,8 @@ try {
 }
 if (!location.hash.replace(/^#\/?/, '') && !titleSeen) history.replaceState(null, '', '#/title');
 
-// The painted boot splash stays until the first screen has drawn, then fades (no blank frame).
-const boot = document.querySelector('.boot');
-if (boot) {
-  const dropBoot = () => {
-    boot.classList.add('boot-out');
-    setTimeout(() => boot.remove(), 320);
-  };
-  // the lobby fades the splash once her art has decoded (lobby-stage-ready), other screens at once
-  window.addEventListener('screenchange', (e) => {
-    if (e.detail?.name === 'lobby') {
-      window.addEventListener('lobby-stage-ready', () => requestAnimationFrame(dropBoot), { once: true });
-      setTimeout(dropBoot, 2500);
-    } else requestAnimationFrame(dropBoot);
-  }, { once: true });
-  setTimeout(dropBoot, 8000);
-}
+// The boot loader (index.html: black or colour, Mochi bottom-right) stays until the first screen is really
+// drawn: the router's first change holds it (src/ui/transitions), the lobby until its art has decoded.
 try {
   startRouter(document.getElementById('app'));
 } catch (e) {
@@ -154,20 +175,24 @@ store.on('stale', ({ reason } = {}) => {
 // cold load into battle still words the dismiss button for battle.
 import('./ui/orientation.js').then((o) => { o.initOrientation({ route: currentRoute().name }); window.__sakura.orientation = o; }).catch((e) => console.warn('[main] orientation helper failed', e));
 
-// Warm up the character GLBs in the background once the first screen is up: the secretary at
-// full detail (lobby close-up), then the formation at the detail the quality setting needs
-// (chibis-v2: no-arg preloadModels() would fetch all 19 full models ≈ 7.7 MB).
+// Once the first screen is uncovered: warm up the character GLBs (the secretary at full detail for the
+// lobby close-up, then the formation at the detail the quality setting needs; chibis-v2: no-arg
+// preloadModels() would fetch all 19 full models ≈ 7.7 MB), and download the common menu screens'
+// code in idle time, so their first visit opens as fast as the second (no loading chip).
 const warmModels = () => import('./models/index.js').then(async (m) => {
   const p = store.profile || {};
   const f = p.formation || {};
   const detail = m.detailFor(p.settings?.quality || 'high');
-  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full' });
+  if (p.secretary) await m.preloadModels([p.secretary], { detail: 'full', skins: formationSkins(p, [p.secretary]) });
   const ids = [f.hero, ...(f.towers || [])].filter(Boolean);
-  if (ids.length) await m.preloadModels(ids, { detail });
+  if (ids.length) await m.preloadModels(ids, { detail, skins: formationSkins(p, ids) });
   else await m.preloadModels([], { detail });
 }).catch((e) => console.warn('[main] model preload failed', e));
-if ('requestIdleCallback' in window) requestIdleCallback(warmModels, { timeout: 2500 });
-else setTimeout(warmModels, 1200);
+const idle = (fn, timeout) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, Math.min(timeout, 1200)));
+whenSettled().then(() => {
+  idle(warmModels, 2500);
+  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit', 'titans']), 4000);
+});
 
 // [social] badges, live DMs and invite pop-ups for players who already went online (a stored
 // online name, or a kept sign-in after "Not now"; the hub never creates an account). It also publishes

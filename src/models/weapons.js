@@ -81,6 +81,9 @@ const WEAPON_STYLE = {
   bow: 'bow', katana: 'slash', sword: 'slash', wrench: 'slash', rapier: 'thrust', fan: 'sweep', gohei: 'sweep',
   trident: 'spear', parasol: 'cast', rifle: 'gun', cannon: 'cannon', shuriken: 'throw', flask: 'throw',
   coinPurse: 'toss', staff: 'cast', lantern: 'cast', tome: 'book', bell: 'shake',
+  mic: 'cast', shield: 'slash', mirror: 'cast', spear: 'spear', mallet: 'slash', puppet: 'cast', cards: 'throw',
+  // the new girls (UNIT_GAPS §5)
+  strip: 'toss', needle: 'cast', tablet: 'cast',
 };
 
 /** Attack style descriptor for a weapon key. */
@@ -335,6 +338,138 @@ function weaponParts(ctx, kind) {
       P.push(part(torus(0.08, 0.025, 4, 10), { pos: [0, 0.22, 0], rot: [Math.PI / 2, 0, 0], color: acc }));
       P.push(part(cyl(0.12, 0.12, 0.03, 12), { pos: [0.14, 0.32, 0.12], rot: [Math.PI / 2, 0, 0.4], color: col('#ffd23f') }));
       P.push(part(extrude(star(5, 0.08, 0.035), 0.03), { pos: [0, 0, 0.2], color: col('#ffd23f') }));
+      break;
+    }
+    // Simple placeholders for the roster-merge weapons (the GLB stand-ins carry the detailed ones).
+    case 'mic': {
+      rot = [0.2, 0, 0.2];
+      P.push(part(cyl(0.05, 0.07, 0.55, 8), { pos: [0, 0.2, 0], color: dark }));
+      P.push(part(sphere(0.15, s, 8), { pos: [0, 0.6, 0], color: w }));
+      P.push(part(torus(0.11, 0.03, 6, 12), { pos: [0, 0.48, 0], rot: [Math.PI / 2, 0, 0], color: acc }));
+      P.push(part(extrude(star(5, 0.12, 0.05), 0.03), { pos: [0, 0.25, 0.08], color: gold }));
+      break;
+    }
+    case 'shield': {
+      hand = 'L';
+      rot = [0, 0.6, 0];
+      offset = [0, 0.1, 0.12];
+      P.push(part(cyl(0.45, 0.45, 0.06, s), { rot: [Math.PI / 2, 0, 0], color: w }));
+      P.push(part(torus(0.45, 0.05, 6, s), { color: w.clone().lerp(col('#ffffff'), 0.35) }));
+      for (let i = 0; i < 5; i++) {
+        const a = Math.PI / 2 + (i / 5) * Math.PI * 2;
+        P.push(part(ellipsoid(0.1, 0.1, 0.03, 8, 6), { pos: [Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0.05], color: acc }));
+      }
+      P.push(part(sphere(0.06, 8, 6), { pos: [0, 0, 0.07], color: gold }));
+      break;
+    }
+    case 'mirror': {
+      rot = [0.2, 0, 0.25];
+      P.push(part(cyl(0.05, 0.06, 0.45, 8), { pos: [0, 0.15, 0], color: w.clone().multiplyScalar(0.7) }));
+      P.push(part(torus(0.28, 0.05, 6, s), { pos: [0, 0.65, 0], color: w }));
+      P.push(part(ellipsoid(0.25, 0.3, 0.03, s, 6), { pos: [0, 0.65, 0], color: col('#dde6ff') }));
+      break;
+    }
+    case 'spear': {
+      rot = [0.12, 0, 0.45];
+      offset = [0.12, 0.15, 0.05];
+      P.push(part(cyl(0.04, 0.04, 2.9, 8), { pos: [0, 0.45, 0], color: w.clone().lerp(col('#1d2440'), 0.45) }));
+      P.push(part(cyl(0.07, 0.07, 0.1, 8), { pos: [0, 1.92, 0], color: acc }));
+      P.push(part(ellipsoid(0.12, 0.35, 0.03, 8, 6), { pos: [0, 2.25, 0], color: w }));
+      break;
+    }
+    case 'mallet': {
+      rot = [0.5, 0, 0.2];
+      P.push(part(cyl(0.06, 0.08, 0.9, 8), { pos: [0, 0.3, 0], color: w }));
+      P.push(part(sphere(0.1, 8, 6), { pos: [0, 0.78, 0], color: w.clone().lerp(col('#ffffff'), 0.15) }));
+      P.push(part(cyl(0.08, 0.08, 0.1, 8), { pos: [0, -0.1, 0], color: acc }));
+      break;
+    }
+    case 'puppet': {
+      rot = [0, 0, 0];
+      offset = [0, 0.2, 0.1];
+      P.push(part(box(0.6, 0.06, 0.06), { pos: [0, 0.2, 0], color: col('#b98a5a') }));
+      P.push(part(box(0.06, 0.06, 0.45), { pos: [0, 0.2, 0], color: col('#b98a5a') }));
+      for (const x of [-0.25, 0, 0.25]) P.push(part(cyl(0.008, 0.008, 0.6, 3), { pos: [x * 0.4, -0.1, 0.15], color: col('#f4f0e8') }));
+      P.push(part(sphere(0.09, 8, 6), { pos: [0, -0.42, 0.15], color: col('#ffe6dc') }));
+      P.push(part(cone(0.13, 0.25, 8), { pos: [0, -0.6, 0.15], color: acc }));
+      break;
+    }
+    case 'cards': {
+      rot = [0.3, 0, 0];
+      offset = [0, 0.1, 0.12];
+      for (let i = 0; i < 4; i++) {
+        const a = -0.55 + i * 0.37;
+        P.push(part(box(0.26, 0.38, 0.02), { pos: [Math.sin(a) * 0.18, 0.2 + Math.cos(a) * 0.05, i * 0.02], rot: [0, 0, -a], color: i % 2 ? col('#2b1c2a') : acc }));
+      }
+      break;
+    }
+    case 'strip': {
+      // a reel of folding spike strips: the drum, a short length unrolled with its barbs, a hand grip
+      rot = [0.2, 0, 0.1];
+      offset = [0, 0.05, 0.1];
+      const reel = cyl(0.24, 0.24, 0.16, s);
+      reel.rotateZ(Math.PI / 2);
+      P.push(part(reel, { pos: [0, 0.22, 0], color: acc }));
+      const hub = cyl(0.08, 0.08, 0.2, 8);
+      hub.rotateZ(Math.PI / 2);
+      P.push(part(hub, { pos: [0, 0.22, 0], color: dark }));
+      P.push(part(box(0.14, 0.04, 0.5), { pos: [0, -0.02, 0.22], color: w }));
+      for (let i = 0; i < 4; i++) P.push(part(cone(0.03, 0.09, 4), { pos: [0, 0.04, 0.04 + i * 0.12], color: col('#e8ecf2') }));
+      P.push(part(cyl(0.035, 0.035, 0.28, 6), { pos: [0, 0.05, -0.05], color: dark }));
+      break;
+    }
+    case 'tablet': {
+      // a rugged tablet controller with an orange bumper and a little antenna
+      rot = [0.9, 0, 0.1];
+      offset = [0, 0.1, 0.12];
+      P.push(part(box(0.5, 0.36, 0.05), { pos: [0, 0.2, 0], color: col('#f28a2e') }));
+      P.push(part(box(0.42, 0.28, 0.02), { pos: [0, 0.2, 0.03], color: col('#2e3a52') }));
+      P.push(part(box(0.3, 0.04, 0.01), { pos: [0, 0.26, 0.045], color: col('#7fe0ff') }));
+      P.push(part(box(0.18, 0.04, 0.01), { pos: [-0.06, 0.18, 0.045], color: col('#7fe0ff') }));
+      P.push(part(cyl(0.012, 0.012, 0.18, 5), { pos: [0.2, 0.46, 0], color: dark }));
+      P.push(part(sphere(0.03, 6, 4), { pos: [0.2, 0.56, 0], color: col('#ff5d5d') }));
+      break;
+    }
+    case 'ball': {
+      // a polished bowling-ball bomb with three finger holes and a cartoon fuse
+      rot = [0, 0, 0];
+      offset = [0, -0.05, 0.08];
+      P.push(part(sphere(0.2, 12, 10), { pos: [0, 0.12, 0], color: w }));
+      for (const [hx, hy] of [[-0.06, 0.22], [0.04, 0.24], [-0.01, 0.16]]) P.push(part(sphere(0.03, 6, 4), { pos: [hx, hy, 0.17], color: dark }));
+      P.push(part(cyl(0.02, 0.02, 0.12, 5), { pos: [0.1, 0.33, 0], rot: [0, 0, -0.5], color: col('#f6efe0') }));
+      P.push(part(sphere(0.035, 6, 4), { pos: [0.14, 0.39, 0], color: col('#ffc46b') }));
+      break;
+    }
+    case 'wateringCan': {
+      // a watering can with a long spout and a rose on the end
+      rot = [0.2, 0, 0.3];
+      offset = [0, 0.05, 0.05];
+      P.push(part(cyl(0.16, 0.18, 0.26, 10), { pos: [0, 0.18, 0], color: w }));
+      P.push(part(torus(0.1, 0.02, 5, 10), { pos: [0, 0.36, 0], rot: [0, 0, Math.PI / 2], color: dark }));
+      P.push(part(cyl(0.025, 0.035, 0.42, 6), { pos: [0.24, 0.3, 0], rot: [0, 0, -0.9], color: w }));
+      P.push(part(cyl(0.06, 0.03, 0.05, 8), { pos: [0.42, 0.43, 0], rot: [0, 0, -0.9], color: col('#d9e6f2') }));
+      break;
+    }
+    case 'banner': {
+      // a folding "COUNCIL HQ" banner stand: a pole with a gold finial and a white flag with a pink crest
+      rot = [0.12, 0, 0.1];
+      offset = [0, 0.05, 0];
+      P.push(part(cyl(0.03, 0.03, 1.4, 6), { pos: [0, 0.35, 0], color: dark }));
+      P.push(part(sphere(0.06, 8, 6), { pos: [0, 1.08, 0], color: col('#d9a93c') }));
+      P.push(part(box(0.5, 0.36, 0.02), { pos: [0.27, 0.8, 0], color: col('#f6f3ec') }));
+      P.push(part(box(0.5, 0.05, 0.025), { pos: [0.27, 0.99, 0], color: w }));
+      P.push(part(sphere(0.07, 8, 6), { pos: [0.27, 0.78, 0.02], color: col('#f29bb8') }));
+      break;
+    }
+    case 'needle': {
+      // an oversized sewing needle twirled like a baton, with a loop of red thread through the eye
+      rot = [0.35, 0, 0.15];
+      offset = [0, 0.05, 0];
+      P.push(part(cyl(0.035, 0.012, 1.25, 8), { pos: [0, 0.3, 0], color: w }));
+      P.push(part(cone(0.035, 0.12, 8), { pos: [0, -0.37, 0], rot: [Math.PI, 0, 0], color: w }));
+      P.push(part(torus(0.06, 0.016, 5, 10), { pos: [0, 0.86, 0], rot: [0, Math.PI / 2, 0], color: w }));
+      const pts = smoothPath([[0, 0.86, 0], [0.12, 0.7, 0.05], [0.18, 0.4, 0.1], [0.08, 0.1, 0.12]], 8);
+      P.push(part(strand(pts, () => [0.016, 0.016], { radial: 4, up: () => V(0, 0, 1) }), { color: acc }));
       break;
     }
     default:

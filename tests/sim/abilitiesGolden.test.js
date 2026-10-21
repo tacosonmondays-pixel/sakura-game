@@ -8,14 +8,32 @@ import { describe, it, expect } from 'vitest';
 import { hasRealData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
+import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 // Re-pinned in A2 (hashSim only; was f5875291 / 1c3a6fcc / e5394bdb): the co-op hash now folds each girl's
 // ability state once she cast or is on Auto, the map-scope groups, rallies and queued shots, and the Auto
 // default (src/online/coop/simHash.js). The battles themselves are unchanged: same waves, lives, steps,
-// coins and casts.
+// coins and casts. Re-pinned again at the v0.1.40 sync (feature/abilities 93e902c + main 1b9ba02), hashSim
+// only, for the same reason: main's three tables were taken on its hashSim without A2's fold (every wave,
+// life, step, coin and cast below is main's; the A1 and base hashes are the ones feature/abilities had).
 const GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/ab76d249/4',
+  '4-5:hard': 'W26/2/65954/3532/27257eef/21',
+  // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
+  // stays below, with the returning girls left out)
+  '8-5:normal': 'L30/0/37594/8800/38dbc785/14',
+};
+// With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
+const BASE_GOLDEN = {
+  '1-3:normal': 'W15/100/20746/864/ab76d249/4',
   '4-5:hard': 'L26/0/67651/3566/3decde6a/20',
+  // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
+  // stays below, with the returning girls left out)
+  '8-5:normal': 'L30/0/39114/7321/a30aaa7b/18',
+};
+// The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
+const LIVE_GOLDEN = {
   '8-5:normal': 'L30/0/40233/8036/a5d9340a/30',
 };
 
@@ -29,4 +47,18 @@ describe.skipIf(!hasRealData())('battles with abilities on Auto', () => {
     expect(r.result.stats.abilitiesUsed).toBeGreaterThan(0);
     expect(got).toBe(GOLDEN[`${stageId}:${difficulty}`]);
   }, 180000); // a whole bot battle each: past vitest's 5 s default on a loaded machine
+});
+
+describe.skipIf(!hasRealData())('battles with abilities on Auto, the 19 girls of A1', () => {
+  it.each(Object.keys(LIVE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
+    const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: [...EXPANSION_IDS, ...NEW_GIRL_IDS] });
+    expect(digest(r)).toBe(LIVE_GOLDEN[`${stageId}:${difficulty}`]);
+  }, 180000);
+});
+
+describe.skipIf(!hasRealData())('battles with abilities on Auto, the base roster (before the new girls)', () => {
+  it.each(Object.keys(BASE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
+    const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: NEW_GIRL_IDS });
+    expect(digest(r)).toBe(BASE_GOLDEN[`${stageId}:${difficulty}`]);
+  }, 180000);
 });

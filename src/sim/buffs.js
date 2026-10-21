@@ -297,14 +297,15 @@ export function ralliesOn(sim, t) {
 }
 
 /**
- * Does rally `r` reach girl `t`? Never its caster; a girl-target rally (`on`) only its one girl; else within
- * its radius of her (squared), or anywhere for a map rally.
+ * Does rally `r` reach girl `t`? Never its caster, and nobody once its caster is gone; a girl-target rally
+ * (`to`: Wakaba's Time Out!) only its one girl; else within its radius of her (squared), or anywhere for a
+ * map rally.
  */
 function rallyReaches(sim, r, t) {
   if (r.src === t.uid) return false;
   const c = sim.getTower(r.src);
   if (!c || c.removed) return false;
-  if (r.on != null) return r.on === t.uid;
+  if (r.to != null) return r.to === t.uid;
   if (r.map) return true;
   const dx = c.x - t.x;
   const dy = c.y - t.y;
@@ -325,9 +326,11 @@ export function applyRallies(sim, t, nb, by) {
   let rangeMul = 1;
   let detection = false;
   let ward = false;
+  let pierceAdd = 0;
   for (let i = 0; i < list.length; i++) {
     const r = list[i];
     if (!rallyReaches(sim, r, t)) continue;
+    if (r.pierceAdd > pierceAdd) pierceAdd = r.pierceAdd;
     if (src < 0) src = r.src;
     if (r.dmgMul > dmgMul) dmgMul = r.dmgMul;
     if (r.rateMul > rateMul) rateMul = r.rateMul;
@@ -341,6 +344,7 @@ export function applyRallies(sim, t, nb, by) {
   nb.rangeMul *= rangeMul;
   if (detection) nb.detection = true;
   if (ward) nb.cleanse = true;
+  if (pierceAdd > 0) nb.pierceAdd = pierceAdd; // (Ouka's Assembly Bell; absent otherwise)
   if (by) by.rally = src;
 }
 
@@ -386,7 +390,8 @@ export function buffSources(sim, uid) {
     const src = sim.getTower(uidSrc);
     if (src) rows.push({ key, value, kind: 'aura', src: uidSrc, unitId: src.unitId, left: null });
   };
-  const au = (u) => sim.getTower(u)?.stats?.aura;
+  // (an aura, or Ouka's office: her hub carries the same key names)
+  const au = (u) => { const s = sim.getTower(u)?.stats; return s?.aura || s?.hub; };
   if (by.dmg >= 0) aura('dmg', by.dmg, (au(by.dmg)?.dmgMul ?? 1) - 1);
   if (by.rate >= 0) aura('rate', by.rate, (au(by.rate)?.rateMul ?? 1) - 1);
   if (by.pen >= 0) aura('pen', by.pen, au(by.pen)?.armorPen ?? 0);
@@ -395,11 +400,13 @@ export function buffSources(sim, uid) {
   if (by.det >= 0) aura('det', by.det, true);
   if (by.cost >= 0) aura('cost', by.cost, au(by.cost)?.costCut ?? 0);
   if (by.cleanse >= 0) aura('cleanse', by.cleanse, true);
-  if (sim.globalRateMul > 1) {
+  // the hero ultimates' team buffs: haste ('rate') and the roster's team damage buff ('dmg')
+  for (const [key, mul] of [['rate', sim.globalRateMul], ['dmg', sim.globalDmgMul ?? 1]]) {
+    if (!(mul > 1)) continue;
     let best = null;
-    for (const g of sim._globalBuffs) if (g.left > 0 && (!best || g.mul > best.mul)) best = g;
+    for (const g of sim._globalBuffs) if (g.left > 0 && (g.kind ?? 'rate') === key && (!best || g.mul > best.mul)) best = g;
     const src = best && best.src >= 0 ? sim.getTower(best.src) : null;
-    rows.push({ key: 'rate', value: sim.globalRateMul - 1, kind: 'ult', src: best?.src ?? -1, unitId: src?.unitId ?? null, left: best?.left ?? null });
+    rows.push({ key, value: mul - 1, kind: 'ult', src: best?.src ?? -1, unitId: src?.unitId ?? null, left: best?.left ?? null });
   }
   if (t.envRangeMul > 1) rows.push({ key: 'range', value: t.envRangeMul - 1, kind: 'map', src: -1, unitId: null, left: null });
   // ability rallies (src/sim/abilities.js), seconds left from their tick countdowns

@@ -19,3 +19,4 @@ tools/audio/.venv/
 *.sf3
 *.dls
 __pycache__/
+public/models/characters/_lookdev/

@@ -1,27 +1,43 @@
-// Tower runtime: creation, stat resolution + aura buffs, targeting, the eight attack
-// behaviors, projectiles (travel, pierce, splash, swept collision), traps and turrets.
+// Tower runtime: creation, stat resolution + aura buffs, targeting, the attack behaviors
+// (projectile, pulse, duel, beam, chain, trap, turret, mortar), projectiles (travel, pierce,
+// splash, swept collision), traps, turrets, mortar shells, aim points and relay origins
+// (familiars / mirrors attack from a point near the lane: t.ox, t.oy).
 //
-// Uses these Sim members: time, state, rng, grid, enemies, towers, projectiles, traps,
-// pathData, globalRateMul, _scratch, _scratch2, _nextUid(), _emit(), _hit(e, tower, spec, scale)
+// Uses these Sim members: time, state, rng, grid, enemies, towers, projectiles, traps, shells,
+// pathData, map, globalRateMul, globalDmgMul, _scratch, _scratch2, _relaySamples, _nextUid(), _emit(),
+// _hit(e, tower, spec, scale)
 
 import { ATTACK_TYPES, ELEMENTS } from '../data/types.js';
 import {
   TIER_RANK, CHAIN_JUMP_RANGE, BEAM_HALF_WIDTH, LINE_HALF_WIDTH, TURRET_PROJECTILE_SPEED, TURRET_RING,
   PROJECTILE_Z, STEP, DRONE_SLOTS, DRONE_STANDOFF, DRONE_RETHINK_STEPS, DRONE_IDLE_STEPS, DRONE_OPP_STEPS,
   DRONE_POOL_STEPS, FLIGHT_MODES, FLIGHT_SIGNAL_MUL, FLIGHT_POINT_ROAM_MUL, FLIGHT_PATROL_SPEED_MUL, FLIGHT_PURSUIT_RATE_MUL,
+  MORTAR_DELAY, MORTAR_AIM_SLACK, MORTAR_SCATTER, FAMILIAR_STANDOFF, RELAY_SAMPLE_STEP,
+  ROLE_TARGET_MODE,
 } from './constants.js';
 import { resolveStats, normalizeBase } from './mods.js';
 import { isEligible } from './combat.js';
 import { isCaster } from './enemies.js';
-import { segDistSq, projectOnSegment, samplePath } from './path.js';
+import { segDistSq, projectOnSegment, samplePath, pointAt } from './path.js';
 import { applyBuffExtras, applyLimited, applyRallies, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
+import { layStrip, stripStep, stripTick } from './strips.js';
+import { attackRing, ringTick } from './rings.js';
+import { throwDrink, drinkTick, useDrink } from './drinks.js';
+import { sentryTick } from './sentries.js';
+import { hubsOn, applyHubs } from './hubs.js';
+import { vineTick } from './vines.js';
+import { rollBall, ballTick } from './balls.js';
+import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
   staff: 'orb', tome: 'orb', lantern: 'spark', bell: 'spark', gohei: 'spark', fan: 'needle', parasol: 'needle',
   trident: 'orb', rapier: 'needle', katana: 'shuriken', sword: 'shuriken', coinPurse: 'bullet',
+  mic: 'spark', shield: 'spark', mirror: 'orb', spear: 'bolt', mallet: 'shuriken', puppet: 'needle', cards: 'shuriken',
+  // the new girls (UNIT_GAPS §5)
+  strip: 'arrow', needle: 'needle', tablet: 'bolt',
 };
 const TYPE_KIND = { blast: 'shell', pierce: 'arrow', slash: 'shuriken', mystic: 'orb', holy: 'spark' };
 const ARC_KINDS = { shell: true, fireball: true, flask: true };
@@ -29,7 +45,7 @@ const ARC_KINDS = { shell: true, fireball: true, flask: true };
 /** Visual projectile kind for a unit (from its weapon, element and attack type). */
 export function projectileKind(def, stats) {
   let kind = WEAPON_KIND[def.look?.weapon] || TYPE_KIND[stats.attackType] || 'arrow';
-  if (kind === 'shell' && stats.element === 'fire') kind = 'fireball';
+  if ((kind === 'shell' || stats.attackType === 'blast') && stats.element === 'fire') kind = 'fireball';
   if (stats.element === 'lightning' && (kind === 'orb' || kind === 'bullet')) kind = 'bolt';
   return kind;
 }
@@ -40,7 +56,7 @@ export function hitRadius(e) {
 }
 
 function emptyBuff() {
-  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0 };
+  return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0, tea: 1 };
 }
 
 /**
@@ -73,7 +89,7 @@ export function createTower(def, o) {
     recentDps: 0,
     _dmgMark: 0,
     tiers: [0, 0, 0],
-    targetMode: def.role === 'sniper' ? 'elite' : 'first',
+    targetMode: ROLE_TARGET_MODE[def.role] || 'first',
     targetUid: null,
     facing: 0,
     cooldown: 0,
@@ -114,6 +130,11 @@ export function createTower(def, o) {
     ultUnlocked: false,
     ultCooldown: 0,
     removed: false,
+    // aim point (mortar / mirror / aimed hero ult) and relay origin (familiar / mirror)
+    aim: null,
+    origin: null,
+    ox: x,
+    oy: y,
   };
   return t;
 }
@@ -130,10 +151,10 @@ export function towerResolvedStats(t) {
 }
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
-export function refreshTowerStats(t, globalRateMul = 1) {
+export function refreshTowerStats(t, globalRateMul = 1, globalDmgMul = 1) {
   t.stats = towerResolvedStats(t);
   t.projKind = projectileKind(t.def, t.stats);
-  refreshEffective(t, globalRateMul);
+  refreshEffective(t, globalRateMul, globalDmgMul);
 }
 
 function hitSpecFrom(s, extra) {
@@ -156,12 +177,17 @@ function hitSpecFrom(s, extra) {
     knockback: s.knockback,
     // Potential N16 (Hotaru): × vs one armour class; only on a girl whose step sets it
     ...(s.classMul ? { classMul: s.classMul } : null),
+    airMul: s.airMul,
+    gather: s.gather,
     ...extra,
   };
 }
 
-/** Builds tower.eff (stats × buffs) plus the trap and turret hit specs. */
-export function refreshEffective(t, globalRateMul = 1) {
+/**
+ * Builds tower.eff (stats × buffs × the global ult buffs) plus the trap and turret hit specs.
+ * eff objects are never mutated after this: holding one is a snapshot (mortar shells do).
+ */
+export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   const s = t.stats;
   const b = t.buff;
   const detection = s.detection || b.detection;
@@ -169,31 +195,60 @@ export function refreshEffective(t, globalRateMul = 1) {
   const envMul = t.envRangeMul ?? 1;
   const envAdd = t.envRangeAdd ?? 0;
   const env = envMul !== 1 || envAdd !== 0;
+  const dmgMul = b.dmgMul * globalDmgMul;
   t.eff = {
     ...s,
-    damage: s.damage * b.dmgMul,
-    rate: s.rate * b.rateMul * globalRateMul,
+    damage: s.damage * dmgMul,
+    rate: s.rate * b.rateMul * (b.tea || 1) * globalRateMul,
     range: env ? Math.max(1, (s.range + envAdd) * envMul) * b.rangeMul : s.range * b.rangeMul,
     detection,
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // a rally's extra pierce (Ouka's Assembly Bell; absent otherwise)
+  if (b.pierceAdd > 0) t.eff.pierce += b.pierceAdd;
+  // Ouka's rules (src/sim/hubs.js): anti-air and a type-chart floor for the girls she covers
+  const ru = t.rules;
+  if (ru) {
+    if (ru.airGrant) t.eff.canHitAir = true;
+    if (ru.typeFloor > 0) t.eff.typeFloor = ru.typeFloor;
+  }
+  // Wakaba's drink (src/sim/drinks.js): on top of auras and rallies, while it lasts
+  const hy = t.hydrated;
+  if (hy) {
+    t.eff.damage *= hy.dmgMul;
+    t.eff.rate *= hy.rateMul;
+    t.eff.range *= hy.rangeMul;
+    t.eff.pierce += hy.pierce;
+    if (hy.detection) t.eff.detection = true;
+  }
   const trapStatus = s.trap ? mergeLists(s.trap.status, s.status) : null;
   t.trapSpec = s.trap ? hitSpecFrom(s, {
-    damage: s.trap.damage * b.dmgMul,
+    damage: s.trap.damage * dmgMul,
     // spirit-revealing seals can trigger on veiled enemies
     detection: detection || s.reveal > 0 || trapStatus.some((x) => x.type === 'reveal'),
     canHitAir: false,
     critChance: 0,
     knockback: 0,
+    gather: 0,
     status: trapStatus,
     triggerRadius: s.trap.triggerRadius,
     splash: s.trap.splash,
     armTime: s.trap.armTime,
   }) : null;
+  if (s.strip) {
+    // spike strips (src/sim/strips.js): Tall Barbs' flyer spec (the share is the hit's scale) and the
+    // Charged Strips blast (its stun on top of the strip statuses)
+    t.stripAirSpec = s.strip.air > 0 ? { ...t.trapSpec, canHitAir: true } : null;
+    t.stripBoomSpec = s.strip.boom > 0 ? {
+      ...t.trapSpec,
+      damage: s.strip.boom * dmgMul,
+      status: s.strip.boomStun > 0 ? mergeLists([{ type: 'stun', duration: s.strip.boomStun }], trapStatus) : trapStatus,
+    } : null;
+  }
   t.turretSpec = s.turret ? hitSpecFrom(s, {
-    damage: s.turret.damage * b.dmgMul,
-    rate: s.turret.rate * b.rateMul * globalRateMul,
+    damage: s.turret.damage * dmgMul,
+    rate: s.turret.rate * b.rateMul * (b.tea || 1) * globalRateMul,
     // map rules (landing plan S4): a roaming wing (leash > 0) takes the rule's additive range once, on
     // its roam radius, and its guns only the multiplier; anchored turrets use the girl's range formula
     range: s.turret.leash > 0
@@ -208,10 +263,54 @@ export function refreshEffective(t, globalRateMul = 1) {
     detection,
     canHitAir: true,
     knockback: 0,
+    gather: 0,
     status: mergeLists(s.turret.status, s.status),
     pierce: 1,
     splash: 0,
   }) : null;
+  // Marumi's balls (src/sim/balls.js): they touch walkers only; the blast pushes with the push lock; pins
+  // are plain light hits; Lob throws her blast at flyers
+  if (s.ball) {
+    t.ballSpec = { ...t.eff, canHitAir: false };
+    t.blastSpec = { ...t.eff, canHitAir: false, splash: 0, pierce: 1, pushLock: true, ...(s.ball.pushBig ? { pushBig: true } : null) };
+    t.pinSpec = { ...t.eff, damage: s.ball.pinDmg * dmgMul, canHitAir: false, splash: 0, pierce: 1, knockback: 0, status: [], critChance: 0, mark: null };
+    t.lobSpec = s.ball.lob ? { ...t.eff, canHitAir: true, pierce: 1, knockback: 0 } : null;
+  }
+  // Chigusa's vine and thorn beds (src/sim/vines.js): ground-only hits from her stats, no crits or statuses
+  if (s.vine) {
+    const plain = { critChance: 0, canHitAir: false, status: [], splash: 0, knockback: 0, gather: 0, pierce: 1, mark: null, silence: 0, reveal: 0 };
+    t.vineSpec = { ...t.eff, ...plain, damage: s.vine.dps * dmgMul };
+    t.bedSpec = { ...t.eff, ...plain, damage: s.vine.bedDmg * dmgMul };
+  }
+  // Towel Snap (src/sim/drinks.js): a light flick that slows (her own hit is no drink at all)
+  if (s.drink) t.towelSpec = s.drink.towel ? { ...t.eff, damage: s.drink.towelDmg * dmgMul, critChance: 0, status: [{ type: 'slow', amount: 0.3, duration: 1.5 }] } : null;
+  // Yuzuha's sentries (src/sim/sentries.js): their guns follow her buffs; one spec per Specialist Kit
+  if (s.sentry) {
+    if (!t.sentries) {
+      t.sentries = [];
+      t.nets = [];
+    }
+    const se = s.sentry;
+    const plain = {
+      ...t.eff, damage: se.damage * dmgMul, rate: se.rate * b.rateMul * globalRateMul, range: se.range * b.rangeMul,
+      pierce: 1, splash: 0, chain: 0, canHitAir: false, critChance: 0, knockback: 0, gather: 0, status: [], mark: null,
+    };
+    t.sentrySpecs = {
+      plain,
+      net: { ...plain, status: [{ type: 'slow', amount: 0.35, duration: 1 }] },
+      flash: { ...plain, detection: true, reveal: 2, silence: 0.5 },
+      heavy: { ...plain, damage: plain.damage * 3, rate: plain.rate * 0.5, eliteMul: plain.eliteMul * 1.3 },
+      flak: { ...plain, canHitAir: true },
+    };
+    t.sentryBurstSpec = se.burst > 0 ? { ...plain, damage: se.burst * dmgMul } : null;
+    t.netSpec = se.nets > 0 ? { ...t.eff, canHitAir: false, detection: false } : null;
+  }
+  // Orbit Scissors (src/sim/rings.js): their cuts follow her buffs like her pins
+  if (s.ring && !t.rings) {
+    t.rings = []; // her heat rings in flight (src/sim/rings.js)
+    t.ringTurn = 0; // Twin Spools: sixteenths turned
+  }
+  if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -232,8 +331,17 @@ function mergeLists(a, b) {
 export function recomputeBuffs(sim) {
   const towers = sim.towers;
   let changed = false;
+  // Ouka's campus hubs (src/sim/hubs.js): none in a battle without her, so nothing below changes then
+  const hubs = hubsOn(sim);
+  // (a flag for Sim._killEnemy; set only while a hub pays coins per kill)
+  let bounty = false;
+  for (let i = 0; i < hubs.length; i++) if (hubs[i].stats.hub.killBounty > 0) bounty = true;
+  if (bounty) sim._hubBounty = true;
+  else if (sim._hubBounty) delete sim._hubBounty;
+  const tea = secondCupTargets(towers);
   for (const t of towers) {
     const nb = emptyBuff();
+    if (tea && tea.has(t)) nb.tea = TRICK.secondCup.rateMul;
     // who won each key (the buff icons): a strictly stronger aura replaces the winner, so ties go to the
     // girl placed first
     const by = t.buffBy || (t.buffBy = emptyBuffBy());
@@ -254,6 +362,7 @@ export function recomputeBuffs(sim) {
       if (au.armorPen > nb.armorPen) { nb.armorPen = au.armorPen; by.pen = a.uid; }
       if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
+    const rulesChanged = hubs.length || t.rules ? applyHubs(t, nb, by, hubs) : false;
     // limited buffs (Midori's brew, Chika's link) multiply on top of the auras, then ability rallies
     // (strongest per key; both players' girls), so a rally's ward clears sabotage below
     applyLimited(sim, t, nb);
@@ -262,7 +371,7 @@ export function recomputeBuffs(sim) {
     const ob = t.buff;
     let differs = ob.dmgMul !== nb.dmgMul || ob.rateMul !== nb.rateMul || ob.rangeMul !== nb.rangeMul
       || ob.detection !== nb.detection || ob.costCut !== nb.costCut || ob.cleanse !== nb.cleanse
-      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance;
+      || ob.armorPen !== nb.armorPen || ob.critChance !== nb.critChance || (ob.tea || 1) !== nb.tea || rulesChanged || ob.pierceAdd !== nb.pierceAdd;
     if (sim.rule) {
       // map rule range inputs (src/sim/rules.js): only ruled battles ever carry these fields
       const env = ruleRangeFor(sim, t);
@@ -274,16 +383,43 @@ export function recomputeBuffs(sim) {
         differs = true;
       }
     }
-    if (differs || t._globalRate !== sim.globalRateMul) {
+    const gDmg = sim.globalDmgMul ?? 1;
+    if (differs || t._globalRate !== sim.globalRateMul || t._globalDmg !== gDmg) {
       t.buff = nb;
       t._globalRate = sim.globalRateMul;
-      refreshEffective(t, sim.globalRateMul);
+      t._globalDmg = gDmg;
+      refreshEffective(t, sim.globalRateMul, gDmg);
       changed = true;
     }
     t.buffed = nb.dmgMul > 1 || nb.rateMul > 1 || nb.rangeMul > 1 || nb.detection || nb.costCut > 0 || nb.cleanse
-      || nb.armorPen > 0 || nb.critChance > 0 || sim.globalRateMul > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0));
+      || nb.armorPen > 0 || nb.critChance > 0 || nb.tea > 1 || sim.globalRateMul > 1 || gDmg > 1 || (t.limIn != null && (t.limIn.brew >= 0 || t.limIn.link >= 0))
+      || !!t.hydrated || !!t.rules || nb.pierceAdd > 0;
   }
   return changed;
+}
+
+/**
+ * Tea Club's Second Cup (gear-stats §C.3): girls in a Tea girl's aura attack 2 % faster (every Tea girl
+ * gives the same, so it never stacks); a Tea girl with no aura serves the 2 nearest girls within 2 tiles
+ * (ties: the lower uid). @returns {Set<object>|null} the girls served
+ */
+function secondCupTargets(towers) {
+  let out = null;
+  for (const a of towers) {
+    if (a.disabled > 0 || trickClub(a.unitStats) !== TRICK.secondCup.club) continue;
+    out ||= new Set();
+    const au = a.stats?.aura;
+    if (au && au.range > 0) {
+      const r2 = au.range * au.range;
+      for (const t of towers) if (t !== a && (t.x - a.x) ** 2 + (t.y - a.y) ** 2 <= r2) out.add(t);
+      continue;
+    }
+    const near = TRICK.secondCup.near * TRICK.secondCup.near;
+    const cands = towers.filter((t) => t !== a && (t.x - a.x) ** 2 + (t.y - a.y) ** 2 <= near);
+    cands.sort((p, q) => ((p.x - a.x) ** 2 + (p.y - a.y) ** 2) - ((q.x - a.x) ** 2 + (q.y - a.y) ** 2) || p.uid - q.uid);
+    for (const t of cands.slice(0, TRICK.secondCup.nearest)) out.add(t);
+  }
+  return out;
 }
 
 /** Strongest cost cut from auras covering tile centre (x, y). */
@@ -322,6 +458,8 @@ export function targetScore(mode, x, y, e) {
     }
     case 'elite':
       return priorityClass(e) * 1e6 - e.remaining;
+    case 'air': // flyers still in the sky first, then the leader
+      return (e.airborne && !e.grounded ? 1e6 : 0) - e.remaining;
     default:
       return -e.remaining;
   }
@@ -404,9 +542,70 @@ let echoing = false;
 // The girl's own effective spec while one of her rhythm attacks runs with t.effProc (null otherwise):
 // a duel's splash victims take her plain hit, not the rhythm's harder one (attackDuel).
 let procBase = null;
+// Gear on the attack running now (set by updateTower around one counted attack, gear-stats §A.3 / §C.3):
+// her Pierce in hundredths for this attack (Follow-Through included) and the trick spec it hits with.
+// Module state like `echoing`: set and cleared inside one synchronous attack. An echo takes neither.
+let gearK = 0;
+let gearTrick = null;
+// Whether this attack is a Follow-Through (Archery's 5th): a blast takes the trick's +100 % Pierce as a
+// wider radius (blastRadius), the way her shots take it as gearK.
+let gearFt = false;
 /** Fan offset (rad) of an echo's projectiles, alternating sides. */
 const ECHO_FAN = 0.18;
 
+/** The spec her hits use this attack: a Finishing Thrust or a Big Beat makes a harder copy. */
+function gearSpec(spec) {
+  if (!gearTrick || echoing) return spec;
+  return { ...spec, damage: spec.damage * gearTrick.mul, ...(gearTrick.pen ? { armorPen: (spec.armorPen || 0) + gearTrick.pen } : null) };
+}
+
+/** Her blast radius this attack: a Follow-Through widens it (none on an echo), else her usual splash. */
+function blastRadius(t, splash) {
+  return gearFt && !echoing ? splash * followThroughBlast(t.unitStats) : splash;
+}
+
+/** Extra targets from gear Pierce for one shot / beam / chain of this attack (none on an echo). */
+function shotPierce(t) {
+  return gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', gearK, pierceMax(t)) : 0;
+}
+
+/**
+ * Before one of her counted attacks: which trick fires on it (her 3-piece club; the Nth attack) and her
+ * Pierce for it. @returns {number} the attack's number in her trick count (0 = no trick club)
+ */
+function beginGear(t) {
+  gearTrick = null;
+  gearK = 0;
+  gearFt = false;
+  // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce
+  if (t.eff.behavior === 'trap') return 0;
+  const club = trickClub(t.unitStats);
+  let n = 0;
+  let ft = false;
+  if (club === TRICK.followThrough.club || club === TRICK.thrust.club || club === TRICK.bigBeat.club) {
+    n = (t.trickN || 0) + 1;
+    if (club === TRICK.followThrough.club) ft = n % TRICK.followThrough.every === 0;
+    else if (club === TRICK.thrust.club && n % TRICK.thrust.every === 0) gearTrick = { mul: TRICK.thrust.mul, pen: THRUST_PEN, kind: 'thrust' };
+    else if (club === TRICK.bigBeat.club && n % TRICK.bigBeat.every === 0) gearTrick = { mul: TRICK.bigBeat.mul, pen: 0, kind: 'bigBeat' };
+  }
+  gearK = t.eff.behavior === 'duel' ? 0 : pierceK(t, ft);
+  gearFt = ft && t.eff.behavior !== 'duel';
+  return n;
+}
+
+/** After the attack: a counted one (it found a target) advances her trick count. */
+function endGear(sim, t, n, ok) {
+  if (ok && n > 0) {
+    const every = { archery: TRICK.followThrough.every, fencing: TRICK.thrust.every, taiko: TRICK.bigBeat.every }[t.unitStats.club];
+    t.trickN = n % every;
+    if (gearTrick || (t.unitStats.club === 'archery' && n % every === 0)) sim._emit('clubTrick', { towerUid: t.uid, kind: gearTrick ? gearTrick.kind : 'followThrough' });
+  }
+  gearK = 0;
+  gearTrick = null;
+  gearFt = false;
+}
+
+/** The girl turns toward her target (from where she stands, even when a familiar/mirror attacks). */
 function face(t, e) {
   t.facing = Math.atan2(e.x - t.x, e.y - t.y);
   t.targetUid = e.uid;
@@ -428,7 +627,7 @@ export function explode(sim, tower, spec, x, y, radius) {
   sim._emit('explode', { x, y, radius, element: spec.element || null, attackType: spec.attackType });
 }
 
-function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
+export function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
   const speed = opts.speed ?? spec.projectileSpeed;
   let dx = target.x - fromX;
   let dy = target.y - fromY;
@@ -480,19 +679,21 @@ function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
 }
 
 function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
-  const dx = target.x - t.x;
-  const dy = target.y - t.y;
+  const sx = t.ox;
+  const sy = t.oy;
+  const dx = target.x - sx;
+  const dy = target.y - sy;
   const d = Math.hypot(dx, dy) || 1e-6;
-  const ex = t.x + (dx / d) * length;
-  const ey = t.y + (dy / d) * length;
-  const near = sim.grid.query((t.x + ex) / 2, (t.y + ey) / 2, length / 2 + 1, []);
+  const ex = sx + (dx / d) * length;
+  const ey = sy + (dy / d) * length;
+  const near = sim.grid.query((sx + ex) / 2, (sy + ey) / 2, length / 2 + 1, []);
   const hits = [];
   for (const e of near) {
     if (!isEligible(e, spec)) continue;
     const hr = halfWidth + hitRadius(e);
-    if (segDistSq(e.x, e.y, t.x, t.y, ex, ey) <= hr * hr) hits.push(e);
+    if (segDistSq(e.x, e.y, sx, sy, ex, ey) <= hr * hr) hits.push(e);
   }
-  hits.sort((a, b) => projectOnSegment(a.x, a.y, t.x, t.y, ex, ey) - projectOnSegment(b.x, b.y, t.x, t.y, ex, ey));
+  hits.sort((a, b) => projectOnSegment(a.x, a.y, sx, sy, ex, ey) - projectOnSegment(b.x, b.y, sx, sy, ex, ey));
   if (!hits.includes(target)) hits.unshift(target);
   if (hits.length > pierce) hits.length = pierce;
   return { hits, ex, ey };
@@ -512,10 +713,21 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
-  const spec = t.eff;
+  const first = volleyFrom(sim, t, t.ox, t.oy);
+  // a mirror girl with two firing points (Iroha, UNIT_GAPS §4.1): she also fires from where she stands
+  const second = t.stats.relay?.both && t.origin && (t.ox !== t.x || t.oy !== t.y) ? volleyFrom(sim, t, t.x, t.y) : null;
+  const lead = first || second;
+  if (!lead) return false;
+  sim._emit('attack', { towerUid: t.uid, targetUid: lead.uid, kind: t.projKind });
+  return true;
+}
+
+/** One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. */
+function volleyFrom(sim, t, sx, sy) {
+  const spec = gearSpec(t.eff);
   let n = spec.projectiles;
-  const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, n);
-  if (!targets.length) return false;
+  const targets = selectTargets(sim, sx, sy, spec.range, spec, t.targetMode, n);
+  if (!targets.length) return null;
   if (spec.projScale > 0) n += projExtra(t, n, spec.projScale);
   face(t, targets[0]);
   for (let i = 0; i < n; i++) {
@@ -523,45 +735,50 @@ function attackProjectile(sim, t) {
     const dup = Math.floor(i / targets.length);
     if (spec.projectileSpeed <= 0) {
       if (tgt.dead) continue;
-      if (spec.splash > 0) explode(sim, t, spec, tgt.x, tgt.y, spec.splash);
-      else if (spec.pierce > 1) {
-        const { hits } = linePierce(sim, t, spec, tgt, spec.range + 1, LINE_HALF_WIDTH, spec.pierce);
+      const pierce = spec.splash > 0 ? spec.pierce : spec.pierce + shotPierce(t);
+      if (spec.splash > 0) explode(sim, t, spec, tgt.x, tgt.y, blastRadius(t, spec.splash));
+      else if (pierce > 1) {
+        const { hits } = linePierce(sim, t, spec, tgt, spec.range + 1, LINE_HALF_WIDTH, pierce);
         for (const e of hits) if (!e.dead) sim._hit(e, t, spec, 1);
       } else sim._hit(tgt, t, spec, 1);
     } else {
       let spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
       if (echoing) spread += i % 2 ? -ECHO_FAN : ECHO_FAN;
-      spawnProjectile(sim, t, spec, tgt, t.x, t.y, { spread });
+      const extra = spec.splash > 0 ? 0 : shotPierce(t);
+      const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
+      const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
+      spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
     }
   }
-  sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: t.projKind });
-  return true;
+  return targets[0];
 }
 
 function attackPulse(sim, t) {
-  const spec = t.eff;
-  const c = gatherTargets(sim, t.x, t.y, spec.range, spec, sim._scratch);
+  const spec = gearSpec(t.eff);
+  const c = gatherTargets(sim, t.ox, t.oy, spec.range, spec, sim._scratch);
   if (!c.length) return false;
   let victims = c.slice();
-  if (victims.length > spec.maxTargets) {
-    victims.sort((a, b) => targetScore(t.targetMode, t.x, t.y, b) - targetScore(t.targetMode, t.x, t.y, a));
-    victims.length = spec.maxTargets;
+  // gear Pierce: 2 more targets per 100 % (a carry on 2k)
+  const maxTargets = spec.maxTargets + (gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', 2 * gearK, PULSE_MAX_EXTRA) : 0);
+  if (victims.length > maxTargets) {
+    victims.sort((a, b) => targetScore(t.targetMode, t.ox, t.oy, b) - targetScore(t.targetMode, t.ox, t.oy, a));
+    victims.length = maxTargets;
   }
   face(t, victims[0]);
   for (const e of victims) if (!e.dead) sim._hit(e, t, spec, 1);
-  sim._emit('pulse', { x: t.x, y: t.y, radius: spec.range, element: spec.element || null, attackType: spec.attackType, towerUid: t.uid });
+  sim._emit('pulse', { x: t.ox, y: t.oy, radius: spec.range, element: spec.element || null, attackType: spec.attackType, towerUid: t.uid });
   sim._emit('attack', { towerUid: t.uid, targetUid: victims[0].uid, kind: 'pulse' });
   return true;
 }
 
 function attackDuel(sim, t) {
-  const spec = t.eff;
+  const spec = gearSpec(t.eff);
   let tgt = t.rampTarget;
-  if (!tgt || tgt.dead || !isEligible(tgt, spec) || Math.hypot(tgt.x - t.x, tgt.y - t.y) > spec.range) {
+  if (!tgt || tgt.dead || !isEligible(tgt, spec) || Math.hypot(tgt.x - t.ox, tgt.y - t.oy) > spec.range) {
     // Potential N10 (Kaede): a target that FELL leaves part of her focus for the next one; one that
     // leaked, walked off or turned ineligible alive clears it (a gap with no enemy in reach keeps it)
     if (tgt && spec.keepRamp > 0) t.rampKeep = tgt.dead && !tgt.leaked ? Math.floor(t.rampStacks * spec.keepRamp) : 0;
-    tgt = bestTarget(sim, t.x, t.y, spec.range, spec, t.targetMode);
+    tgt = bestTarget(sim, t.ox, t.oy, spec.range, spec, t.targetMode);
   }
   if (!tgt) {
     t.rampTarget = null;
@@ -586,7 +803,7 @@ function attackDuel(sim, t) {
   if (spec.splash > 0) {
     // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
     // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
-    const cut = procBase && spec === t.effProc ? procBase : spec;
+    const cut = procBase && t.eff === t.effProc ? procBase : spec;
     const near = sim.grid.query(tx, ty, spec.splash, []);
     for (const e of near) if (e !== tgt && !e.dead && isEligible(e, cut)) sim._hit(e, t, cut, 1);
   }
@@ -610,40 +827,56 @@ function duelEcho(sim, t) {
 }
 
 function attackBeam(sim, t) {
-  const spec = t.eff;
-  const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, spec.projectiles);
-  if (!targets.length) return false;
+  const spec = gearSpec(t.eff);
+  const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, spec.projectiles);
+  if (!targets.length) {
+    t.rampTarget = null;
+    t.rampStacks = 0;
+    return false;
+  }
   face(t, targets[0]);
+  // Resonant focus (ramp): builds while the lead target stays the same, resets on a switch
+  const ramp = spec.ramp;
+  let scale = 1;
+  if (ramp) {
+    if (targets[0] !== t.rampTarget) {
+      t.rampTarget = targets[0];
+      t.rampStacks = 0;
+    }
+    scale = 1 + Math.min(ramp.per * t.rampStacks, ramp.max);
+  }
   const color = attackColor(spec);
   const width = 0.12 + 0.04 * Math.min(6, spec.pierce);
   for (const tgt of targets) {
     if (tgt.dead) continue;
-    const { hits, ex, ey } = linePierce(sim, t, spec, tgt, spec.range, BEAM_HALF_WIDTH, spec.pierce);
-    for (const e of hits) if (!e.dead) sim._hit(e, t, spec, 1);
-    sim._emit('beam', { from: [t.x, t.y], to: [ex, ey], width, color, towerUid: t.uid });
+    const { hits, ex, ey } = linePierce(sim, t, spec, tgt, spec.range, BEAM_HALF_WIDTH, spec.pierce + shotPierce(t));
+    for (const e of hits) if (!e.dead) sim._hit(e, t, spec, scale);
+    sim._emit('beam', { from: [t.ox, t.oy], to: [ex, ey], width, color, towerUid: t.uid, ramp: ramp ? t.rampStacks : 0 });
   }
+  if (ramp) t.rampStacks++;
   sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: 'beam' });
   return true;
 }
 
 function attackChain(sim, t) {
-  const spec = t.eff;
-  const targets = selectTargets(sim, t.x, t.y, spec.range, spec, t.targetMode, spec.projectiles);
+  const spec = gearSpec(t.eff);
+  const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, spec.projectiles);
   if (!targets.length) return false;
   face(t, targets[0]);
   const jump = CHAIN_JUMP_RANGE + spec.splash;
   for (const start of targets) {
     if (start.dead) continue;
-    const points = [[t.x, t.y]];
+    const points = [[t.ox, t.oy]];
     const hitSet = new Set();
     let cur = start;
-    for (let j = 0; j <= spec.chain && cur; j++) {
+    const chain = spec.chain + shotPierce(t);
+    for (let j = 0; j <= chain && cur; j++) {
       hitSet.add(cur.uid);
       points.push([cur.x, cur.y]);
       const cx = cur.x;
       const cy = cur.y;
       sim._hit(cur, t, spec, 1);
-      if (j === spec.chain) break;
+      if (j === chain) break;
       const near = sim.grid.query(cx, cy, jump, sim._scratch2);
       let next = null;
       let bestD = Infinity;
@@ -785,6 +1018,176 @@ function attackTurret(sim, t) {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Mortar: aimed, delayed shells (ROSTER_SPEC §6.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fires a volley of shells. With an aim point she waits until an eligible enemy is near it
+ * (no wasted shells); without one she leads her best target by MORTAR_DELAY seconds of travel.
+ * Shells land MORTAR_DELAY later at centre + MORTAR_SCATTER[i] × splash.
+ */
+function attackMortar(sim, t) {
+  const spec = t.eff;
+  let cx;
+  let cy;
+  let targetUid = null;
+  if (t.aim) {
+    const near = gatherTargets(sim, t.aim.x, t.aim.y, spec.splash + MORTAR_AIM_SLACK, spec, sim._scratch);
+    if (!near.length) return false;
+    cx = t.aim.x;
+    cy = t.aim.y;
+    t.facing = Math.atan2(cx - t.x, cy - t.y);
+  } else {
+    const tgt = bestTarget(sim, t.ox, t.oy, spec.range, spec, t.targetMode);
+    if (!tgt) return false;
+    const path = sim.pathData[tgt.pathIndex];
+    const p = pointAt(path, Math.min(path.length, tgt.dist + tgt.speed * MORTAR_DELAY), sim._leadPt || (sim._leadPt = {}), tgt.seg);
+    cx = p.x;
+    cy = p.y;
+    face(t, tgt);
+    targetUid = tgt.uid;
+  }
+  const snap = { ...spec }; // later upgrades / buffs do not change shells in flight
+  const n = Math.max(1, spec.projectiles);
+  const radius = spec.splash;
+  for (let i = 0; i < n; i++) {
+    const off = MORTAR_SCATTER[i % MORTAR_SCATTER.length];
+    const sh = {
+      uid: sim._nextUid(),
+      x: cx + off[0] * radius,
+      y: cy + off[1] * radius,
+      radius,
+      left: MORTAR_DELAY,
+      delay: MORTAR_DELAY,
+      ownerUid: t.uid,
+      fromX: t.ox,
+      fromY: t.oy,
+      element: spec.element || null,
+      attackType: spec.attackType,
+      // internals
+      owner: t,
+      spec: snap,
+      fresh: true, // skips the countdown of the step it was fired in: lands exactly MORTAR_DELAY later
+      dead: false,
+    };
+    sim.shells.push(sh);
+    sim._emit('mortarWarn', { uid: sh.uid, x: sh.x, y: sh.y, radius, delay: MORTAR_DELAY, towerUid: t.uid });
+  }
+  sim._emit('attack', { towerUid: t.uid, targetUid, kind: 'mortar' });
+  return true;
+}
+
+/** Counts every pending shell down; landed shells explode (eligibility as usual: no flyers for ground-only). */
+export function updateShells(sim, dt) {
+  const list = sim.shells;
+  if (!list.length) return;
+  for (let i = 0; i < list.length; i++) {
+    const sh = list[i];
+    if (sh.dead) continue;
+    if (sh.owner.removed) {
+      sh.dead = true; // sold: the shell never lands
+      continue;
+    }
+    if (sh.fresh) {
+      sh.fresh = false;
+      continue;
+    }
+    sh.left -= dt;
+    if (sh.left > 1e-9) continue;
+    sh.dead = true;
+    explode(sim, sh.owner, sh.spec, sh.x, sh.y, sh.radius);
+    sim._emit('shellLand', { uid: sh.uid, x: sh.x, y: sh.y, towerUid: sh.ownerUid });
+  }
+  let n = 0;
+  for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];
+  list.length = n;
+}
+
+// ---------------------------------------------------------------------------
+// Aim points and relay origins (ROSTER_SPEC §6.3, §6.5)
+// ---------------------------------------------------------------------------
+
+/** What a tower's aim point is for: 'mortar' | 'mirror' | 'ult' (aimed hero ult) | null. */
+export function aimMode(t) {
+  if (!t) return null;
+  if (t.eff?.behavior === 'mortar') return 'mortar';
+  if (t.stats?.relay?.kind === 'mirror') return 'mirror';
+  if (t.stats?.strip?.aim) return 'checkpoint'; // Azami's Checkpoint mode (src/sim/strips.js)
+  if (t.stats?.hub?.banners > 0) return 'banner'; // Ouka's Rally Banner (src/sim/hubs.js)
+  // an aimed hero ult: a nova centred on her aim, or a runner that enters at it
+  const ue = t.isHero ? t.def?.hero?.ult?.effect : null;
+  if (ue && (ue.center === 'aim' || ue.type === 'runner')) return 'ult';
+  return null;
+}
+
+/**
+ * Visible lane samples for relay origins: every RELAY_SAMPLE_STEP tiles of every path, tunnel
+ * samples skipped, in path order then distance order (that order breaks ties).
+ * @param {object[]} pathData
+ * @returns {{ x: number, y: number, d: number, pathIndex: number }[]}
+ */
+export function relaySamples(pathData) {
+  const out = [];
+  for (const path of pathData || []) {
+    for (const s of samplePath(path, RELAY_SAMPLE_STEP)) if (!s.hidden) out.push({ x: s.x, y: s.y, d: s.d, pathIndex: s.pathIndex });
+  }
+  return out;
+}
+
+/**
+ * Where a familiar / mirror stands for a girl at (x, y). Pure (the placement ghost uses it too).
+ * Mirror with an aim → the aim (already clamped). Otherwise the nearest visible lane sample:
+ * within FAMILIAR_STANDOFF of it → the girl herself; else the point min(d − standoff, reach)
+ * tiles from her toward it.
+ * @param {object[]} samples from relaySamples()
+ * @param {number} x @param {number} y girl position
+ * @param {{ kind: string, reach: number }|null} relay
+ * @param {{ x: number, y: number }|null} [aim]
+ * @returns {{ x: number, y: number }|null} null for girls without a relay
+ */
+export function relayOrigin(samples, x, y, relay, aim = null) {
+  if (!relay) return null;
+  if (relay.kind === 'mirror' && aim) return { x: aim.x, y: aim.y };
+  let best = null;
+  let bestD2 = Infinity;
+  for (let i = 0; i < samples.length; i++) {
+    const s = samples[i];
+    const dx = s.x - x;
+    const dy = s.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = s;
+    }
+  }
+  if (!best) return { x, y };
+  const d = Math.sqrt(bestD2);
+  if (d <= FAMILIAR_STANDOFF) return { x, y };
+  const k = Math.max(0, Math.min(d - FAMILIAR_STANDOFF, relay.reach)) / d;
+  return { x: x + (best.x - x) * k, y: y + (best.y - y) * k };
+}
+
+/** Recomputes a tower's relay origin (placement, upgrades, aim); emits 'relay' when it moved. */
+export function updateRelayOrigin(sim, t) {
+  const relay = t.stats?.relay || null;
+  let o = null;
+  if (relay) {
+    // geometry caches come from the forward paths (CODEX_MODES §6.3): a familiar's spot never depends
+    // on which route orientation was live when the first relay girl was placed
+    if (!sim._relaySamples) sim._relaySamples = relaySamples(sim._pathsFwd ?? sim.pathData);
+    o = relayOrigin(sim._relaySamples, t.x, t.y, relay, t.aim);
+  }
+  const ox = o ? o.x : t.x;
+  const oy = o ? o.y : t.y;
+  const moved = (o === null) !== (t.origin === null) || ox !== t.ox || oy !== t.oy;
+  t.origin = o;
+  t.ox = ox;
+  t.oy = oy;
+  if (moved && relay) sim._emit('relay', { towerUid: t.uid, x: ox, y: oy, kind: relay.kind });
+  return moved;
+}
+
 const BEHAVIORS = {
   projectile: attackProjectile,
   pulse: attackPulse,
@@ -793,7 +1196,23 @@ const BEHAVIORS = {
   chain: attackChain,
   trap: placeTrap,
   turret: attackTurret,
+  mortar: attackMortar,
+  strip: layStrip,
+  ring: attackRing,
+  drink: throwDrink,
+  roll: rollBall,
 };
+
+/**
+ * One drone / turret shot's gear (gear-stats §A.3, §C.3): its Pierce (a carry on the owner, drones do not
+ * take Follow-Through) and Taiko's Big Beat on every 10th drone shot. @returns {{ spec, pierce }}
+ */
+function droneShot(t, spec) {
+  const pierce = 1 + pierceCarry(t, 'droneCarry', pierceK(t), pierceMax(t));
+  if (trickClub(t.unitStats) !== TRICK.bigBeat.club) return { spec, pierce };
+  t.droneBeatN = ((t.droneBeatN || 0) + 1) % TRICK.bigBeat.every;
+  return { spec: t.droneBeatN === 0 ? { ...spec, damage: spec.damage * TRICK.bigBeat.mul } : spec, pierce };
+}
 
 function updateTurrets(sim, t, dt) {
   const spec = t.turretSpec;
@@ -813,8 +1232,9 @@ function updateTurrets(sim, t, dt) {
       continue;
     }
     tu.facing = Math.atan2(tgt.x - tu.x, tgt.y - tu.y);
-    spawnProjectile(sim, t, spec, tgt, tu.x, tu.y, {
-      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: 1, splash: 0, range: spec.range, turretUid: tu.uid,
+    const shot = droneShot(t, spec);
+    spawnProjectile(sim, t, shot.spec, tgt, tu.x, tu.y, {
+      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: shot.pierce, splash: 0, range: spec.range, turretUid: tu.uid,
     });
     tu.cooldown += 1 / Math.max(0.05, spec.rate * ocMul);
     sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'bullet', turretUid: tu.uid });
@@ -1126,8 +1546,9 @@ function updateRoamingDrones(sim, t, spec, dt, ocMul = 1) {
       continue;
     }
     d.facing = Math.atan2(shot.x - d.x, shot.y - d.y);
-    spawnProjectile(sim, t, spec, shot, d.x, d.y, {
-      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: 1, splash: 0, range: R + 1, turretUid: d.uid, drone: d, guided: true,
+    const gs = droneShot(t, spec);
+    spawnProjectile(sim, t, gs.spec, shot, d.x, d.y, {
+      kind: 'bullet', speed: TURRET_PROJECTILE_SPEED, pierce: gs.pierce, splash: 0, range: R + 1, turretUid: d.uid, drone: d, guided: true,
     });
     d.shots++;
     t.droneShots++;
@@ -1271,6 +1692,12 @@ export function updateTower(sim, t, dt) {
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
+  if (s.strip) stripTick(sim, t, dt);
+  if (s.ring) ringTick(sim, t, dt);
+  if (s.drink) drinkTick(sim, t);
+  if (s.sentry) sentryTick(sim, t, dt);
+  if (s.vine) vineTick(sim, t, dt);
+  if (s.ball) ballTick(sim, t, dt);
   buildDrones(sim, t, dt);
   updateTurrets(sim, t, dt);
   const fn = BEHAVIORS[t.eff.behavior];
@@ -1280,12 +1707,19 @@ export function updateTower(sim, t, dt) {
   const tempo = s.tempo || null;
   let guard = 0;
   while (t.cooldown <= 0 && guard++ < 4) {
-    if (!(proc ? attackWithProc(sim, t, fn, proc) : fn(sim, t))) {
+    const gn = beginGear(t);
+    const ok = proc ? attackWithProc(sim, t, fn, proc) : fn(sim, t);
+    endGear(sim, t, gn, ok);
+    if (!ok) {
       t.cooldown = 0;
       break;
     }
     if (tempo) tempoStack(sim, t, tempo);
-    t.cooldown += 1 / Math.max(0.05, tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate);
+    if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
+    // Chigusa's Bloom Rush (src/sim/vines.js): faster for every second she keeps attacking
+    const bloom = s.vine?.bloom > 0 ? 1 + Math.min(s.vine.bloom, s.vine.bloomPer * (t.bloomT || 0)) : 1;
+    if (s.vine?.bloom > 0) t.bloomIdle = 0;
+    t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
 }
 
@@ -1318,7 +1752,11 @@ function guidedStep(sim, p, dt) {
   if (segDistSq(tgt.x, tgt.y, ax, ay, p.x, p.y) <= hr * hr) {
     p.dead = true;
     p.hits.push(tgt.uid);
+    const hx = tgt.x;
+    const hy = tgt.y;
     sim._hit(tgt, p.owner, p.spec, 1, p.drone);
+    // gear Pierce on a drone bullet: it goes on through the nearest enemies just behind its target
+    if (p.pierce > 1) guidedPierce(sim, p, hx, hy, tgt);
     return;
   }
   if (p.travel >= p.maxTravel) {
@@ -1327,6 +1765,18 @@ function guidedStep(sim, p, dt) {
   }
   const f = Math.min(1, p.travel / Math.max(0.5, p.est));
   p.z = PROJECTILE_Z + p.targetAlt * f;
+}
+
+/** Radius (tiles) a piercing drone bullet carries on through after its target. */
+const DRONE_PIERCE_REACH = 0.6;
+function guidedPierce(sim, p, x, y, first) {
+  const near = sim.grid.query(x, y, DRONE_PIERCE_REACH, []);
+  const c = near.filter((e) => e !== first && !e.dead && isEligible(e, p.spec));
+  c.sort((a, b) => ((a.x - x) ** 2 + (a.y - y) ** 2) - ((b.x - x) ** 2 + (b.y - y) ** 2) || a.uid - b.uid);
+  for (const e of c.slice(0, p.pierce - 1)) {
+    p.hits.push(e.uid);
+    sim._hit(e, p.owner, p.spec, 1, p.drone);
+  }
 }
 
 function projectileStep(sim, p, dt) {
@@ -1432,6 +1882,14 @@ export function updateTraps(sim, dt) {
   let removedAny = false;
   for (let i = 0; i < list.length; i++) {
     const tr = list[i];
+    if (tr.strip) {
+      if (stripStep(sim, tr, dt)) {
+        tr.dead = true;
+        removedAny = true;
+        if (!tr.extra) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+      }
+      continue;
+    }
     if (!tr.armed) {
       tr.armLeft -= dt;
       if (tr.armLeft <= 0) tr.armed = true;
@@ -1463,13 +1921,53 @@ export function updateTraps(sim, dt) {
         sim._emit('proc', { towerUid: owner.uid, name: p.name || null, of: 'trap', n: owner.potCount, x: tr.x, y: tr.y });
       }
     }
-    explode(sim, owner, boom, tr.x, tr.y, Math.max(boom.splash, boom.triggerRadius));
+    // Taiko's Big Beat on traps: every 10th of her traps that goes off hits 50 % harder
+    if (trickClub(owner.unitStats) === TRICK.bigBeat.club) {
+      owner.trapBeatN = ((owner.trapBeatN || 0) + 1) % TRICK.bigBeat.every;
+      if (owner.trapBeatN === 0) {
+        boom = { ...boom, damage: boom.damage * TRICK.bigBeat.mul };
+        sim._emit('clubTrick', { towerUid: owner.uid, kind: 'bigBeat' });
+      }
+    }
+    // Archery's Follow-Through on traps: every 5th of her traps that goes off blasts as with +100 % Pierce
+    let splash = boom.splash;
+    if (trickClub(owner.unitStats) === TRICK.followThrough.club) {
+      owner.trapFtN = ((owner.trapFtN || 0) + 1) % TRICK.followThrough.every;
+      if (owner.trapFtN === 0) {
+        splash *= followThroughBlast(owner.unitStats);
+        sim._emit('clubTrick', { towerUid: owner.uid, kind: 'followThrough' });
+      }
+    }
+    explode(sim, owner, boom, tr.x, tr.y, Math.max(splash, boom.triggerRadius));
   }
   if (removedAny) {
     let n = 0;
     for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];
     list.length = n;
   }
+}
+
+let popping = false;
+/**
+ * Pyrotechnics' Finale Pop (gear-stats §C.3): an enemy she defeats bursts for 25 % of her hit within
+ * 0.9 tiles. Pops never pop, never crit and carry no status; one budget for the whole battle
+ * (sim.popBudget, half-pops) keeps a crowd of pyro girls inside the frame budget.
+ */
+export function finalePop(sim, tower, e) {
+  if (popping || !tower || tower.removed || trickClub(tower.unitStats) !== TRICK.finalePop.club) return;
+  if (!(sim.popBudget >= POP_COST) || !tower.eff) return;
+  sim.popBudget -= POP_COST;
+  const spec = {
+    ...tower.eff, damage: tower.eff.damage * TRICK.finalePop.share, critChance: 0, status: [], mark: null, silence: 0, reveal: 0,
+    knockback: 0, hpPct: null,
+  };
+  popping = true;
+  try {
+    explode(sim, tower, spec, e.x, e.y, TRICK.finalePop.radius);
+  } finally {
+    popping = false;
+  }
+  sim._emit('clubTrick', { towerUid: tower.uid, kind: 'finalePop' });
 }
 
 /** Base cost of a unit before difficulty/profile multipliers. */

@@ -19,7 +19,8 @@
 // An upgrade (t5, a rank) merges by spread: its scalars replace, its `effect` fields replace the
 // base's one by one (a nested list or object such as `status` or `mods` is replaced whole).
 //
-//   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (A4) · move, zone, runner (later)
+//   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (by type: 'strips' and 'sentries'
+//            run; 'double', 'trap', 'drone' wait for A4) · runner (by type: 'giantBall' runs) · move, zone (later)
 //   scope    local  — one cooldown per girl
 //            map    — one cooldown per player for that ability (copies add nothing)
 //            player — per-player rules (econ: ABILITY_RULES.econCapPerWave casts per wave)
@@ -44,11 +45,15 @@
 //           ward (blocks new sabotage while it lasts); both players' girls, strongest per key wins;
 //           target: 'girl' = a rally on ONE girl (no radius): the girl nearest the cast's aim point
 //           within ABILITY_RULES.girlAimRadius (any player's, never the caster; ties: the lower uid),
-//           else the girl in the caster's range who dealt the most damage (ties: the lower uid)
-//   debuff  pick ('all' | 'veiled' | 'strong'), count, status, casterStatus (casters only),
+//           else the girl in the caster's range who dealt the most damage (ties: the lower uid);
+//           radius: 'map' = every girl (map scope); pierceAdd (whole pierce added while it lasts)
+//   debuff  pick ('all' | 'veiled' | 'strong' | 'ground': walkers that are not bosses, the lead ones first),
+//           count, reachMul, status, casterStatus (casters only), dmgMul (a hit on each, × her hit),
 //           rally (a rally rider for `duration`)
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
-//   deploy  deploy ('double' | 'trap' | 'drone'), count, spacing, dmgMul, arm (s)
+//   deploy  deploy ('strips' Azami, 'sentries' Yuzuha; 'double' | 'trap' | 'drone' with A4), count, spacing,
+//           dmgMul, arm (s), hits, reachMul
+//   runner  runner ('giantBall' Marumi), length, speed (tiles), segments, gap, dmgMul, knockback, allPaths, toSpawn
 //
 // `auto` (the per-girl Auto switch and the Auto-cast setting; both default Off):
 //   { when: AUTO_WHEN, min?, orElite?, orCaster?, orVeiled?, orLeak? (a share of the path), reach? }
@@ -91,6 +96,7 @@ const S = {
   mark: (bonus, duration) => ({ type: 'mark', bonus, duration }),
   silence: (duration) => ({ type: 'silence', duration }),
   reveal: (duration) => ({ type: 'reveal', duration }),
+  hold: (duration) => ({ type: 'hold', duration }),
 };
 
 /**
@@ -238,6 +244,59 @@ export const ABILITIES = deepFreeze({
     effect: { deploy: 'drone', count: 4 },
     auto: { when: 'enemies', min: 5, reach: 'leash' },
     t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
+  }],
+
+  // ----- the new girls (ABILITIES_SPEC §5.3; UNIT_GAPS §5) -----
+  azami: [{
+    // extra strips spread evenly along the road in her reach, beyond her strip cap (src/sim/strips.js)
+    path: 'checkpoint', unlockTier: 3, id: 'azami.spikeRain', kind: 'deploy', scope: 'local', cooldown: 45, duration: 10,
+    effect: { deploy: 'strips', count: 12, hits: 8, arm: 0.3, reachMul: 1 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { count: 24, reachMul: 2 } },
+  }],
+  kinu: [{
+    // two blades every 0.1 s along a turning spiral, out to twice her range (src/sim/rings.js)
+    path: 'bobbin', unlockTier: 3, id: 'kinu.bladeSpiral', kind: 'boost', scope: 'local', cooldown: 25, duration: 4,
+    effect: { mods: { ring: { spiral: 1, spiralPierce: 3 } } },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 20, duration: 6, effect: { mods: { ring: { spiral: 2, spiralPierce: 8 } } } },
+  }],
+  wakaba: [{
+    // a rally on one girl: the one nearest the aim point (0.6 tiles), else her top damage dealer in range
+    path: 'plan', unlockTier: 3, id: 'wakaba.timeOut', kind: 'rally', scope: 'local', cooldown: 45, duration: 12,
+    effect: { target: 'girl', rateMul: 1.8, rangeMul: 1.2 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { dmgMul: 1.4 } },
+  }],
+  yuzuha: [{
+    // extra sentries with her current sentry stats at the edge spots nearest her aim point or the lead
+    // enemy in her range; they live `duration` beyond her cap (src/sim/sentries.js)
+    path: 'ops', unlockTier: 3, id: 'yuzuha.emergencyDeploy', kind: 'deploy', scope: 'local', cooldown: 40, duration: 20,
+    effect: { deploy: 'sentries', count: 3 },
+    auto: { when: 'enemies', min: 5 },
+    t5: { cooldown: 30, duration: 25, effect: { count: 6 } },
+  }],
+  ouka: [{
+    // a map rally: every girl on the map, both players' (never Ouka herself); +pierce rides on t.buff
+    path: 'assembly', unlockTier: 3, id: 'ouka.assemblyBell', kind: 'rally', scope: 'map', cooldown: 45, duration: 10,
+    effect: { radius: 'map', rateMul: 1.3, pierceAdd: 1 },
+    auto: { when: 'enemies', min: 10 },
+    t5: { cooldown: 40, duration: 15, effect: { rateMul: 1.5, pierceAdd: 2 } },
+  }],
+  chigusa: [{
+    // vines hold her lead walkers (never a boss or a flyer) and squeeze each once (src/sim/vines.js `hold`)
+    path: 'greenhouse', unlockTier: 3, id: 'chigusa.overgrowth', kind: 'debuff', scope: 'local', cooldown: 35, duration: 3,
+    effect: { pick: 'ground', count: 8, dmgMul: 5, status: [S.hold(3)] },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, duration: 4, effect: { count: 16, reachMul: 2, dmgMul: 8, status: [S.hold(4)] } },
+  }],
+  marumi: [{
+    // a giant ball rolls back up her nearest lane from the road point nearest the exit in her range,
+    // hitting every walker once (a runner, src/sim/runners.js); Turkey Strike: every lane, to the spawn
+    path: 'lane', unlockTier: 3, id: 'marumi.giantStrike', kind: 'runner', scope: 'local', cooldown: 40, duration: 2,
+    effect: { runner: 'giantBall', length: 12, speed: 6, segments: 3, gap: 0.5, dmgMul: 8, knockback: 0.6 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, effect: { allPaths: true, toSpawn: true, dmgMul: 12 } },
   }],
 });
 

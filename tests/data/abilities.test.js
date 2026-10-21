@@ -13,14 +13,22 @@ import {
 import {
   ABILITY_TEXT, ABILITY_COPY, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
 } from '../../src/data/abilityText.js';
-import { UNITS, UNIT_MAP, towers, heroes } from '../../src/data/units.js';
+import { UNITS as ALL_UNITS, UNIT_MAP, towers as allTowers, heroes as allHeroes } from '../../src/data/units.js';
 import { POTENTIAL_GIRLS } from '../../src/data/potential.js';
 import { ENEMIES } from '../../src/data/enemies.js';
 import { STAGES } from '../../src/data/stages.js';
 import { BATTLE_MODES } from '../../src/data/modes.js';
 import { STATUSES } from '../../src/data/types.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
+import { EXPANSION_IDS, RETURNING_ABILITIES } from '../../src/data/unitsExpansion.js';
 import { GLYPHS } from '../../src/art/icons/glyphs.js';
 import { resolveStats } from '../../src/sim/mods.js';
+
+// The girls this table covers: every girl with a row in ABILITIES. The returning girls (roster wave,
+// src/data/unitsExpansion.js) keep theirs in RETURNING_ABILITIES until the ability track attaches them.
+const UNITS = ALL_UNITS.filter((u) => !!abilityRow(u));
+const towers = () => allTowers().filter((u) => !!abilityRow(u));
+const heroes = () => allHeroes().filter((u) => !!abilityRow(u));
 
 const ROOT = join(import.meta.dirname, '../..');
 
@@ -32,6 +40,8 @@ const LIGHTNING = {
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
   // §5.3 the new girls: Tenka's Rail Arms, T3 Plasma Rails (5,150)
   tenka: ['rails', 5150],
+  // §5.3 the new girls (UNIT_GAPS §5)
+  azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090], chigusa: ['greenhouse', 1970], marumi: ['lane', 1910],
 };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
@@ -43,9 +53,10 @@ const KIND_OF = {
   miko: 'rally',
   momo: 'econ',
   tenka: 'strike', // §5.3
+  azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally', chigusa: 'debuff', marumi: 'runner',
 };
 // the girls of §5.3 (not part of §5.1's live mix)
-const NEW_GIRLS = ['tenka'];
+const NEW_GIRLS = ['tenka', ...NEW_GIRL_IDS];
 const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
 const MULTI_PATH = {};
@@ -170,6 +181,49 @@ const SPEC_TOWERS = {
     auto: { when: 'elite' },
     t5: { cooldown: 30, effect: { dmgMul: 120, splash: 3, after: { mods: { rateMul: 2 }, duration: 6 } } },
   },
+  // §5.3 the new girls
+  azami: {
+    path: 'checkpoint', id: 'azami.spikeRain', kind: 'deploy', scope: 'local', cooldown: 45, duration: 10,
+    effect: { deploy: 'strips', count: 12, hits: 8, arm: 0.3, reachMul: 1 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { count: 24, reachMul: 2 } },
+  },
+  kinu: {
+    path: 'bobbin', id: 'kinu.bladeSpiral', kind: 'boost', scope: 'local', cooldown: 25, duration: 4,
+    effect: { mods: { ring: { spiral: 1, spiralPierce: 3 } } },
+    auto: { when: 'enemies', min: 4 },
+    t5: { cooldown: 20, duration: 6, effect: { mods: { ring: { spiral: 2, spiralPierce: 8 } } } },
+  },
+  wakaba: {
+    path: 'plan', id: 'wakaba.timeOut', kind: 'rally', scope: 'local', cooldown: 45, duration: 12,
+    effect: { target: 'girl', rateMul: 1.8, rangeMul: 1.2 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 35, duration: 15, effect: { dmgMul: 1.4 } },
+  },
+  yuzuha: {
+    path: 'ops', id: 'yuzuha.emergencyDeploy', kind: 'deploy', scope: 'local', cooldown: 40, duration: 20,
+    effect: { deploy: 'sentries', count: 3 },
+    auto: { when: 'enemies', min: 5 },
+    t5: { cooldown: 30, duration: 25, effect: { count: 6 } },
+  },
+  ouka: {
+    path: 'assembly', id: 'ouka.assemblyBell', kind: 'rally', scope: 'map', cooldown: 45, duration: 10,
+    effect: { radius: 'map', rateMul: 1.3, pierceAdd: 1 },
+    auto: { when: 'enemies', min: 10 },
+    t5: { cooldown: 40, duration: 15, effect: { rateMul: 1.5, pierceAdd: 2 } },
+  },
+  chigusa: {
+    path: 'greenhouse', id: 'chigusa.overgrowth', kind: 'debuff', scope: 'local', cooldown: 35, duration: 3,
+    effect: { pick: 'ground', count: 8, dmgMul: 5, status: [{ type: 'hold', duration: 3 }] },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, duration: 4, effect: { count: 16, reachMul: 2, dmgMul: 8, status: [{ type: 'hold', duration: 4 }] } },
+  },
+  marumi: {
+    path: 'lane', id: 'marumi.giantStrike', kind: 'runner', scope: 'local', cooldown: 40, duration: 2,
+    effect: { runner: 'giantBall', length: 12, speed: 6, segments: 3, gap: 0.5, dmgMul: 8, knockback: 0.6 },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 30, effect: { allPaths: true, toSpawn: true, dmgMul: 12 } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -204,15 +258,19 @@ const EFFECT_KEYS = {
   strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', 'after', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
   boost: ['mods'],
-  rally: ['radius', 'inAura', 'target', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward'],
-  debuff: ['pick', 'count', 'casterStatus', 'rally', ...STATUS_LIST],
+  rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target', 'pierceAdd'],
+  debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', ...STATUS_LIST],
   econ: ['coins'],
-  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm'],
+  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul'],
+  // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push)
+  runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn'],
 };
-const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong'] };
+const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong', 'ground'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];
 // the ModSet keys a boost may change (src/sim/mods.js applyModSet; CONTRACTS §3)
-const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit'];
+const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit',
+  // the new girls: Kinu's Blade Spiral rides on her ring (src/sim/rings.js)
+  'ring'];
 // seconds-valued fields: each must be a whole number of ticks
 const TIME_KEYS = ['duration', 'delay', 'every', 'arm', 'spreadPoison'];
 const TICKS = ABILITY_RULES.ticksPerSecond;
@@ -268,7 +326,8 @@ function defErrors(d, where) {
   const e = d.effect;
   if (PICKS[d.kind] && e.pick != null && !PICKS[d.kind].includes(e.pick)) errs.push(`${where}: pick ${e.pick}`);
   for (const k of ['count', 'shells', 'hits']) if (k in e && !(Number.isInteger(e[k]) && e[k] > 0)) errs.push(`${where}: ${k} must be a whole number > 0`);
-  for (const k of ['reachMul', 'radius', 'radiusMul', 'dmgMul', 'poisonMul', 'splash', 'spacing', 'coins']) if (k in e && !(e[k] > 0)) errs.push(`${where}: ${k} must be > 0`);
+  // (a rally's radius may be 'map': every girl on the map, Ouka's Assembly Bell)
+  for (const k of ['reachMul', ...(e.radius === 'map' ? [] : ['radius']), 'radiusMul', 'dmgMul', 'poisonMul', 'splash', 'spacing', 'coins']) if (k in e && !(e[k] > 0)) errs.push(`${where}: ${k} must be > 0`);
   if ('reach' in e && e.reach !== 'map') errs.push(`${where}: reach is 'map' or a reachMul`);
   if (e.status) errs.push(...statusErrors(e.status, `${where}.status`));
   if (e.casterStatus) errs.push(...statusErrors(e.casterStatus, `${where}.casterStatus`));
@@ -278,9 +337,11 @@ function defErrors(d, where) {
     if (!(d.duration > 0)) errs.push(`${where}: a boost lasts > 0 s`);
   }
   if (d.kind === 'rally') {
-    // a rally on one girl (target 'girl': the girl-target rule, spec §7.2) has no radius
-    if ('target' in e && e.target !== 'girl') errs.push(`${where}: target is 'girl'`);
-    if (!(e.radius > 0) && e.inAura !== true && e.target !== 'girl') errs.push(`${where}: a rally needs a radius`);
+    // a rally on one girl (target 'girl': the girl-target rule, spec §7.2) has no radius; a map rally reaches every girl
+    if (!(e.radius > 0) && e.radius !== 'map' && e.inAura !== true && e.target !== 'girl') errs.push(`${where}: a rally needs a radius`);
+    if (e.radius === 'map' && d.scope !== 'map') errs.push(`${where}: a map rally is map scope`);
+    if ('pierceAdd' in e && !(Number.isInteger(e.pierceAdd) && e.pierceAdd > 0)) errs.push(`${where}: pierceAdd must be a whole number > 0`);
+    if (e.target != null && e.target !== 'girl') errs.push(`${where}: rally target ${e.target}`);
     if (!(d.duration > 0)) errs.push(`${where}: a rally lasts > 0 s`);
   }
   if (e.rally) {
@@ -308,7 +369,7 @@ function defErrors(d, where) {
     if (d.duration < (e.delay ?? 0) + (e.shells - 1) * e.every - 1e-9) errs.push(`${where}: duration ${d.duration}s ends before the last shell`);
   }
   if (d.kind === 'econ' && d.scope !== 'player') errs.push(`${where}: econ abilities are per player`);
-  if (d.kind === 'deploy' && !['double', 'trap', 'drone'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
+  if (d.kind === 'deploy' && !['double', 'trap', 'drone', 'strips', 'sentries'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
   // time fields in whole ticks; the cooldown in whole charge points
   for (const k of TIME_KEYS) {
     if (k in d && !isWholeTicks(d[k])) errs.push(`${where}: ${k} ${d[k]} is not a whole number of ticks`);
@@ -351,7 +412,7 @@ describe('ability rules and vocabulary', () => {
     const rally = (effect) => ({ id: 'x.y', kind: 'rally', scope: 'local', cooldown: 45, duration: 12, effect });
     expect(defErrors(rally({ target: 'girl', rateMul: 1.8, rangeMul: 1.2 }), 'one girl')).toEqual([]);
     expect(defErrors(rally({ rateMul: 1.8 }), 'no radius')).toEqual(['no radius: a rally needs a radius']);
-    expect(defErrors(rally({ target: 'lane', rateMul: 1.8 }), 'bad target')).toEqual(["bad target: target is 'girl'", 'bad target: a rally needs a radius']);
+    expect(defErrors(rally({ target: 'lane', rateMul: 1.8 }), 'bad target')).toEqual(['bad target: a rally needs a radius', 'bad target: rally target lane']);
     const rider = { id: 'x.z', kind: 'debuff', scope: 'map', cooldown: 40, duration: 8, effect: { pick: 'all', status: [{ type: 'reveal', duration: 8 }], rally: { target: 'girl', rateMul: 1.2 } } };
     expect(defErrors(rider, 'rider')).toEqual(['rider: rally rider key target']);
   });
@@ -365,7 +426,11 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
   test('rows exist only for real girls (a kit variant is id@kitStyle)', () => {
     for (const id of Object.keys(ABILITIES)) expect(UNIT_MAP[id.split('@')[0]], id).toBeTruthy();
     for (const u of UNITS) expect(abilityRow(u), u.id).toBe(ABILITIES[u.id]);
-    expect(Object.keys(ABILITIES).length).toBe(UNITS.length); // one row per girl
+    // one row per girl; the returning girls' (src/data/unitsExpansion.js) wait in RETURNING_ABILITIES
+    // until the ability track attaches them (their kinds and effect shapes are not this build's)
+    for (const u of ALL_UNITS) expect(!!abilityRow(u) || !!RETURNING_ABILITIES[u.id], u.id).toBe(true);
+    for (const u of ALL_UNITS) expect(!!abilityRow(u), u.id).toBe(!EXPANSION_IDS.includes(u.id));
+    expect(Object.keys(ABILITIES).length).toBe(ALL_UNITS.length - EXPANSION_IDS.length);
   });
 
   test.each(towers().map((u) => [u.id, u]))('%s: exactly one ⚡ path, the one the spec names, unlocking at tier 3', (id, u) => {
@@ -488,9 +553,9 @@ describe('numbers', () => {
     expect(skillAtLevel(ABILITIES[id].skill, 25)).toEqual(specUpgraded(base, base.ranks[0]));
   });
 
-  test('map-scope abilities: Umeko, Shiro, Hotaru (one cooldown per player) and Luna\'s skill', () => {
+  test('map-scope abilities: Umeko, Shiro, Hotaru, Ouka (one cooldown per player) and Luna\'s skill', () => {
     const map = UNITS.flatMap((u) => (u.kind === 'hero' ? [u.hero.skill] : u.paths.filter((p) => p.ability).map((p) => p.ability))).filter((d) => d.scope === 'map').map((d) => d.id.split('.')[0]);
-    expect(map.sort()).toEqual(['hotaru', 'luna', 'shiro', 'umeko']);
+    expect(map.sort()).toEqual(['hotaru', 'luna', 'ouka', 'shiro', 'umeko']);
   });
 
   test('ability hits scale with her hit at the ⚡ tier-3 build (spec §5.1 examples)', () => {

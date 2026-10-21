@@ -283,7 +283,7 @@ describe('the girl-target rule in co-op (an ability on one girl: spec §7.2)', (
     const aim = [r.x + 0.2, r.y - 0.3];
     expect(castWhenReady(cs, 0, coach, abilArgs(coach, { aim }))).toEqual({ ok: true, casterUid: coach });
     for (const c of cs) {
-      expect(c.sim._rallies.map((x) => x.on)).toEqual([rei]);
+      expect(c.sim._rallies.map((x) => x.to)).toEqual([rei]);
       // ×1.8 on top of the coach's own aura; the girl beside her gets the aura only
       expect(tower(c, rei).buffBy.rally).toBe(coach);
       expect(tower(c, aoi).buffBy.rally).toBe(-1);
@@ -300,7 +300,7 @@ describe('the girl-target rule in co-op (an ability on one girl: spec §7.2)', (
       return (o.x - t.x) ** 2 + (o.y - t.y) ** 2 <= t.eff.range ** 2;
     });
     const top = inRange.map((u) => tower(cs[0], u)).sort((p, q) => q.damageDealt - p.damageDealt || p.uid - q.uid)[0];
-    for (const c of cs) expect(c.sim._rallies.map((x) => x.on)).toEqual(top ? [top.uid] : []);
+    for (const c of cs) expect(c.sim._rallies.map((x) => x.to)).toEqual(top ? [top.uid] : []);
     expect(cs[0].hash()).toBe(cs[1].hash());
   });
 });

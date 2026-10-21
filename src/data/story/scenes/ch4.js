@@ -1,5 +1,5 @@
 // Chapter 4: Ironhold Pass — the Pass Beacon (docs/story/BIBLE.md §7, Chapter 4).
-// Join: Midori (4-5). Laugh: the Confiscation Box; Kaede bows to an orc.
+// Join: Yuzuha (4-2), Midori (4-5). Laugh: the Confiscation Box; Kaede bows to an orc.
 // Heart: "We win together", the lesson Hikari is teaching herself too.
 // Clue: the orcs are leaving the mountain ("Big sleeper wakes up"); scale #4.
 
@@ -22,6 +22,23 @@ export default [
     say('hikari', "Leaving? Then what's up there that even orcs walk away from?"),
     say('rei', 'We ask them after. Sensei, your orders.', { fx: 'nod' }),
     say('hikari', 'Sentinels, hold the pass!', { face: 'determined' }),
+  ]),
+
+  scene('ch4.yuzuha', {
+    title: 'Deploying', chapter: 4, kind: 'join', trigger: { after: '4-2' }, bg: 'stage:4-2', music: 'calm',
+  }, [
+    narrate('On the far end of the bridge, a small fold-out turret clicks open all by itself.'),
+    say('yuzuha', 'Deploying. …Oh. Good morning. Sorry, I set that one up at dawn.', { at: 'right', fx: 'slide-in', face: 'sleepy' }),
+    say('hikari', "Sensei, this is {name:yuzuha} from the Security Bureau. She can set a whole sentry line before breakfast.", { at: 'center', face: 'laugh' }),
+    say('kaede', 'Her sentries guarded this bridge all night. Not one wolf crossed.', { at: 'left' }),
+    say('yuzuha', 'They fold up after a while. I set new ones. It is very relaxing.'),
+    choice([
+      { text: 'Will you guard our roads?', lines: [say('yuzuha', 'Mm. Deploying… with you. That sounds nice.')] },
+      { text: 'Do you ever sleep?', lines: [say('yuzuha', 'Between waves. Wake me when the sentries beep.', { face: 'sleepy' })] },
+    ]),
+    say('kaede', 'Then the bridge is ours. Shall we, Captain?'),
+    say('yuzuha', 'I will bring the big case. And a pillow.'),
+    say('hikari', 'Sentinels, the pass is waiting. Onward!', { face: 'determined' }),
   ]),
 
   scene('ch4.mid', {

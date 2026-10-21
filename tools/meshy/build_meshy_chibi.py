@@ -13,6 +13,9 @@ Steps (one bpy session per detail level):
   4. sword on hand_R + idle / walk / attack_slash / cheer / hurt                    (lib/clips_hikari.py)
   5. GLB export, then phone packing: int16/int8 attributes, WebP texture,
      pruned int16 animation, half-scale storage + extras.unitScale                  (lib/pack.py)
+     optional, between the two: --proportions <preset> re-proportions the figure in
+     its bind pose (bigger head, a little more volume) from its skin weights; the
+     skeleton and clips are untouched and unitScale keeps the battle height     (lib/proportions.py)
 Writes public/models/characters/<id>.glb + <id>.lod.glb and their manifest entries
 (source: 'meshy', so tools/blender/build_characters.py leaves them alone).
 
@@ -83,12 +86,20 @@ def build(args, detail):
     if args.raw_dir:  # keep the unpacked export (re-pack with other texture sizes without a rebuild)
         import shutil
         shutil.copy(raw, os.path.join(args.raw_dir, f'{args.id}{"" if full else ".lod"}.raw.glb'))
+    growth = 1.0
+    if args.proportions:  # after every bpy step, before packing: composes with any per-figure fix above
+        from lib import proportions
+        pinfo, eye_info = proportions.apply_file(raw, raw, args.proportions, eye_info, STORE_SCALE)
+        growth = pinfo['growth']  # the head grows: unitScale brings the figure back to GAME_HEIGHT
+        print(f'[meshy] proportions {args.proportions}: x{growth:.4f} tall before unitScale, {pinfo["meshes"]}')
     out = os.path.join(args.out, f'{args.id}{"" if full else ".lod"}.glb')
-    stored_height = src_height * STORE_SCALE
+    stored_height = src_height * growth * STORE_SCALE
     extras = dict(
         unit=args.id, source='meshy', style='textured', height=GAME_HEIGHT,
         unitScale=round(GAME_HEIGHT / stored_height, 5), weaponKind='slash', lod=not full,
         generator='tools/meshy/build_meshy_chibi.py')
+    if args.proportions:
+        extras['proportions'] = args.proportions
     if eye_info:
         extras['eyes'] = eye_info
     stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality,
@@ -123,6 +134,9 @@ def main():
     ap.add_argument('--webp-quality', type=int, default=90)
     ap.add_argument('--no-lod', action='store_true')
     ap.add_argument('--raw-dir', default=None, help='also keep the unpacked Blender exports here')
+    ap.add_argument('--proportions', default=None,
+                    help='optional re-proportion preset from lib/proportions.py PRESETS (e.g. noa-A, noa-B); '
+                         'reproportion.py applies the same step to kept --raw-dir exports without a rebuild')
     ap.add_argument('--blend', default=None, help='also save the full-detail scene as a .blend')
     args = ap.parse_args(argv)
     full = build(args, 'full')

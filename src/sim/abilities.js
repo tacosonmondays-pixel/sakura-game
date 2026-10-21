@@ -35,8 +35,8 @@
 //               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
 //   sim.abilUses    econ casts per player this wave
-//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, on? }]
-//                   (on: the one girl a girl-target rally reaches)
+//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, to?, pierceAdd? }]
+//                   (to: the one girl a girl-target rally reaches; pierceAdd: Ouka's Assembly Bell)
 //   sim._abilQueue  [{ left, src, id, kind: 'hit'|'shell', … }]  delayed hits and shells, FIFO
 //   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
@@ -46,6 +46,10 @@ import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs } from './towers.js';
 import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
+import { spikeRain } from './strips.js';
+import { emergencyDeploy } from './sentries.js';
+import { startRunner } from './runners.js';
+import { samplePath } from './path.js';
 
 const R = ABILITY_RULES;
 
@@ -140,13 +144,14 @@ function groupOf(sim, t) {
 /**
  * Unlocks her ability (an `abilityUnlock` event; 1/3 of the cooldown left, econ empty) or keeps it up to
  * date after an upgrade or a hero level (tier 5 / rank: the cooldown left becomes min(left, new full)).
- * Kinds this build does not run yet (deploy: A4) stay locked. Called on placement and _refreshTower.
+ * Kinds and types this build does not run yet (handlerOf: the deploy types of Kage, Suzu and Chika wait for
+ * A4) stay locked. Called on placement and _refreshTower.
  */
 export function syncAbility(sim, t) {
   const src = abilitySource(t);
   if (!src || !src.unlocked) return;
   const def = t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
-  if (!KINDS[def.kind]) return;
+  if (!handlerOf(def)) return;
   const cdMax = points(def.cooldown);
   const rate = chargeRate(t, def.kind);
   const up = def !== src.entry;
@@ -179,10 +184,23 @@ export function syncAbility(sim, t) {
 // Reach, targets and the hit spec
 // ---------------------------------------------------------------------------
 
-/** Radius of a rally (her aura's reach for `inAura`). */
+/** Radius of a rally (her aura's reach for `inAura`; her range for a rally on one girl she picks). */
 function rallyRadius(t, e) {
   if (!e) return 0;
+  if (e.target === 'girl') return t.eff.range;
+  if (e.radius === 'map') return Infinity; // every girl on the map (Ouka's Assembly Bell)
   return e.inAura ? t.stats?.aura?.range || 0 : e.radius || 0;
+}
+
+/**
+ * The girl a rally on one girl goes to (Wakaba's Time Out!; spec §7.2): the girl at the aim point
+ * (aimedGirl: nearest it within ABILITY_RULES.girlAimRadius, any player's, never the caster; ties: the
+ * lower uid), else her own pick (topDamageGirl: the girl in her range with the highest damageDealt; ties:
+ * the lower uid). A malformed aim counts as none. Null: nobody.
+ * @param {number[]|null} [aim] [x, y] in tiles
+ */
+export function rallyGirl(sim, t, aim = null) {
+  return aimedGirl(sim, aimOf(aim), t.uid) || topDamageGirl(sim, t);
 }
 
 /** A burst's blast radius. */
@@ -198,8 +216,9 @@ export function abilityReach(t, def) {
     case 'strike': return e.reach === 'map' ? Infinity : (e.reachMul ?? 1) * t.eff.range;
     case 'burst': return e.at === 'self' ? burstRadius(t, e) : (e.reachMul ?? 1) * t.eff.range;
     case 'boost': return t.eff.range + (e.mods?.range || 0);
-    case 'rally': return e.target === 'girl' ? t.eff.range : rallyRadius(t, e);
-    case 'debuff': return t.eff.range;
+    case 'rally': return rallyRadius(t, e);
+    case 'debuff': return (e.reachMul ?? 1) * t.eff.range;
+    case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
     default: return t.eff.range;
   }
 }
@@ -322,7 +341,7 @@ function applyStatuses(sim, e, t, list, spec, step) {
   const guarded = big && (e.abilCc ?? -1) > step;
   let landed = false;
   for (const s of list) {
-    const cc = s.type === 'freeze' || s.type === 'stun';
+    const cc = s.type === 'freeze' || s.type === 'stun' || s.type === 'hold';
     if (cc && guarded) continue;
     if (sim._applyStatusEvent(e, s, ctx) && cc) landed = true;
   }
@@ -416,15 +435,18 @@ function catalyst(sim, t, def, spec, targets, step) {
 }
 
 /**
- * A rally record (both players' girls in its radius; strongest per key wins, src/sim/buffs.js). `on`: the
- * uid of the one girl a girl-target rally reaches (radius 0; the record has no `on` otherwise).
+ * A rally record (both players' girls in its radius, or every girl for a map rally; strongest per key wins,
+ * src/sim/buffs.js). `to`: the uid of the one girl a girl-target rally reaches (radius 0; the record has no
+ * `to` otherwise). `pierceAdd` only when the rally adds pierce (Ouka's Assembly Bell).
  */
-function addRally(sim, t, e, radius, left, on = null) {
+function addRally(sim, t, e, radius, left, to = null) {
+  const map = e.radius === 'map';
   sim._rallies.push({
-    src: t.uid, owner: t.owner ?? 0, r2: radius * radius, map: false,
+    src: t.uid, owner: t.owner ?? 0, r2: map ? 0 : radius * radius, map,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
     detection: !!e.detection, ward: !!e.ward, left,
-    ...(on != null ? { on } : null),
+    ...(to != null ? { to } : null),
+    ...(e.pierceAdd > 0 ? { pierceAdd: e.pierceAdd } : null),
   });
 }
 
@@ -504,8 +526,9 @@ function strikeTargets(sim, t, def, spec) {
 /**
  * The kinds A1 runs: cast(sim, t, def, step, aim) does the effect and returns what the `ability` event
  * shows ({ x, y, radius, targets }), or null when there is nothing to act on (refused `noTarget`, no
- * side effect); end(sim, t) undoes a lasting one. `aim` ([x, y] or null) matters only to an ability on
- * one girl today (the girl-target rule); A6 adds aimed points.
+ * side effect); end(sim, t) undoes a lasting one. `aim` ([x, y] or null, malformed aims already dropped)
+ * matters to an ability on one girl (the girl-target rule) and to Yuzuha's sentries (the edge spots nearest
+ * it); A6 adds aimed points. The deploy and runner kinds go through DEPLOYS / RUNNERS (handlerOf).
  */
 const KINDS = {
   strike: {
@@ -600,8 +623,9 @@ const KINDS = {
     cast(sim, t, def, step, aim) {
       const e = def.effect;
       if (e.target === 'girl') {
-        // one girl: the aimed one (spec §7.2), else her own pick; she follows that girl, not a radius
-        const g = aimedGirl(sim, aim, t.uid) || topDamageGirl(sim, t);
+        // one girl (Wakaba's Time Out!): the aimed one (spec §7.2), else her own pick; she follows that girl,
+        // not a radius (the event's radius is 0: no ring, its one target is listed)
+        const g = rallyGirl(sim, t, aim);
         if (!g) return null;
         if (e.cleanse && g.disabled > 0) g.disabled = 0;
         addRally(sim, t, e, 0, ticks(def.duration), g.uid);
@@ -615,7 +639,7 @@ const KINDS = {
       if (e.cleanse) for (const o of allies) if (o.disabled > 0) o.disabled = 0;
       addRally(sim, t, e, r, ticks(def.duration));
       recomputeBuffs(sim);
-      return { x: t.x, y: t.y, radius: r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
+      return { x: t.x, y: t.y, radius: r === Infinity ? 0 : r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
     },
   },
 
@@ -626,12 +650,18 @@ const KINDS = {
       const map = def.scope === 'map';
       let pool = map ? mapPool(sim) : poolIn(sim, t.x, t.y, abilityReach(t, def), null);
       if (e.pick === 'veiled') pool = pool.filter((v) => v.veiled);
+      else if (e.pick === 'ground') {
+        // (Chigusa's Overgrowth: walkers that are not bosses, her lead ones first)
+        pool = pool.filter((v) => !v.airborne && v.tier !== 'boss');
+        if (e.count != null && pool.length > e.count) pool = topOf(pool, 'first', t.x, t.y, e.count);
+      }
       else if (e.pick === 'strong') pool = topOf(pool, 'strong', t.x, t.y, e.count ?? 9999);
       else if (e.count != null && pool.length > e.count) pool = topOf(pool, t.targetMode, t.x, t.y, e.count);
       if (!pool.length) return null;
       for (const v of pool) {
         applyStatuses(sim, v, t, e.status, spec, step);
         if (e.casterStatus && isCaster(v)) applyStatuses(sim, v, t, e.casterStatus, spec, step);
+        if (e.dmgMul > 0 && !v.dead) sim._hit(v, t, spec, 1); // (Overgrowth: the vines squeeze)
       }
       if (e.rally) {
         addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration));
@@ -653,6 +683,89 @@ const KINDS = {
 
 /** The kinds this build runs (the others stay locked: their ⚡ teaser says they come later). */
 export const ABILITY_KINDS_LIVE = Object.freeze(Object.keys(KINDS));
+
+/**
+ * The deploy kind (ABILITIES_SPEC §4, A4) one object type at a time, by `effect.deploy`. A type that
+ * is not here stays locked (Kage's doubles, Suzu's traps and Chika's drones still wait for A4).
+ */
+const DEPLOYS = {
+  // Yuzuha's Emergency Deploy (src/sim/sentries.js): extra sentries at the edge spots nearest her aim
+  // point, or nearest the lead enemy in her range; they live the ability's duration beyond her cap
+  sentries: {
+    cast(sim, t, def, step, aim) {
+      const reach = abilityReach(t, def);
+      const lead = topTargets(sim, t.x, t.y, reach, abilitySpec(t, def), 'first', 1, [], [])[0] || null;
+      if (!lead) return null;
+      const placed = emergencyDeploy(sim, t, { count: def.effect.count, ttl: def.duration }, aim, lead);
+      if (!placed.length) return null;
+      return { x: placed[0].x, y: placed[0].y, radius: reach, targets: [], placed: placed.length };
+    },
+  },
+  // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
+  // living the ability's duration; refused (nothing spent) with no ground enemy in reach
+  strips: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const reach = abilityReach(t, def);
+      if (!gatherTargets(sim, t.x, t.y, reach, abilitySpec(t, def), []).length) return null;
+      const pts = spikeRain(sim, t, { count: e.count, reach, hits: e.hits, ttl: def.duration, arm: e.arm });
+      if (!pts.length) return null;
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: pts.length };
+    },
+  },
+};
+
+/**
+ * The runner kind (ABILITIES_SPEC §4, A6) one runner type at a time, by `effect.runner`; a type that is
+ * not here stays locked. Marumi's Giant Strike: a giant ball rolls from the road point nearest the exit
+ * inside her range back toward the spawn on her nearest lane (Turkey Strike: every lane in her range,
+ * all the way to the spawn), hitting every walker once (src/sim/runners.js).
+ */
+const RUNNERS = {
+  giantBall: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const reach = t.eff.range;
+      const spec = { ...abilitySpec(t, def), canHitAir: false, pushLock: true };
+      if (!gatherTargets(sim, t.x, t.y, reach, spec, []).length) return null;
+      // per lane: the visible road point inside her reach nearest the exit, and the lane's nearest point to her
+      const lanes = [];
+      const r2 = reach * reach;
+      for (const path of sim.pathData) {
+        let entry = null;
+        let near = Infinity;
+        for (const s of samplePath(path, 0.25)) {
+          if (s.hidden) continue;
+          const dx = s.x - t.x;
+          const dy = s.y - t.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < near) near = d2;
+          if (d2 <= r2 && (!entry || s.d > entry.dist)) entry = { pathIndex: path.index, dist: s.d };
+        }
+        if (entry) lanes.push({ entry, near });
+      }
+      if (!lanes.length) return null;
+      lanes.sort((a, b) => a.near - b.near || a.entry.pathIndex - b.entry.pathIndex);
+      const use = e.allPaths ? lanes : lanes.slice(0, 1);
+      for (const l of use) {
+        const length = e.toSpawn ? l.entry.dist : Math.min(e.length, l.entry.dist);
+        startRunner(sim, t, { length, time: Math.max(0.1, length / e.speed), segments: e.segments, gap: e.gap, runner: 'giantBall' }, spec, null, l.entry);
+      }
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: use.length };
+    },
+  },
+};
+
+/** The code that runs an ability (null: this build does not run it yet). */
+function handlerOf(def) {
+  if (!def) return null;
+  if (def.kind === 'deploy') return DEPLOYS[def.effect?.deploy] || null;
+  if (def.kind === 'runner') return RUNNERS[def.effect?.runner] || null;
+  return KINDS[def.kind] || null;
+}
+
+/** Deploy object types this build runs. */
+export const ABILITY_DEPLOYS_LIVE = Object.freeze(Object.keys(DEPLOYS));
 
 // ---------------------------------------------------------------------------
 // Casting
@@ -714,7 +827,8 @@ const no = (reason, casterUid = null) => ({ ok: false, reason, casterUid });
 /**
  * Fires her ability. `group`: the best ready copy of her player's (see pickCaster); `owner`: the
  * commanding player (co-op; a girl of another player is refused `notYours`); `auto`: an auto-cast;
- * `aim`: a point [x, y] (an ability on one girl takes the girl there: aimedGirl). A refusal spends nothing.
+ * `aim`: a point [x, y] (an ability on one girl takes the girl there: rallyGirl; Yuzuha's sentries land
+ * nearest it). A refusal spends nothing.
  * @param {import('./Sim.js').Sim} sim
  * @param {object|null} t0 TowerRT
  * @param {{ group?: boolean, owner?: number|null, auto?: boolean, aim?: number[]|null }} [opts]
@@ -731,7 +845,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
   const step = stepNo(sim);
-  const fx = KINDS[def.kind].cast(sim, t, def, step, aimOf(aim));
+  const fx = handlerOf(def).cast(sim, t, def, step, aimOf(aim));
   if (!fx) return no('noTarget', t.uid);
   const a = t.abil;
   a.cd = a.cdMax;
@@ -749,6 +863,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
     // a map-wide reach is Infinity: the event says 0 (no ring), so JSON and the FX never see Infinity / NaN
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
+    ...(fx.placed != null ? { placed: fx.placed } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
 }
@@ -778,6 +893,17 @@ export function autoWants(sim, t, def) {
   if (!au) return false;
   const when = au.when;
   if (when === 'ready') return true;
+  if (def.effect?.target === 'girl') {
+    // a rally on one girl: enemies she can hit within the reach of the girl it would go to
+    const g = rallyGirl(sim, t);
+    if (!g) return false;
+    AUTO_NEAR.length = 0;
+    const near = sim.grid.query(g.x, g.y, g.eff.range, AUTO_NEAR);
+    let n = 0;
+    for (let i = 0; i < near.length; i++) if (!near[i].dead && isEligible(near[i], g.eff)) n++;
+    AUTO_NEAR.length = 0;
+    return n >= (au.min ?? 1);
+  }
   const reach = abilityReach(t, def);
   let list = sim.enemies;
   let elig = null;
@@ -874,7 +1000,8 @@ export function tickAbilities(sim) {
   for (const t of sim.towers) {
     const a = t.abil;
     if (!a || !(a.cd > 0)) continue;
-    a.cd = Math.max(0, a.cd - a.rate);
+    // Ouka's Club Mentors (src/sim/hubs.js): girls she covers charge faster (115 points a tick at 15%)
+    a.cd = Math.max(0, a.cd - (t.rules?.cdCut > 0 ? Math.round(a.rate * (1 + t.rules.cdCut)) : a.rate));
     if (a.cd === 0 && !((groupOf(sim, t)?.cd || 0) > 0)) sim._emit('abilityReady', { towerUid: t.uid, id: a.id });
   }
   if (sim.abilGroups.size) {
@@ -891,7 +1018,7 @@ export function tickAbilities(sim) {
     if (!a || !(a.active > 0)) continue;
     a.active--;
     if (a.active === 0) {
-      KINDS[a.kind]?.end?.(sim, t);
+      handlerOf(abilityDef(t))?.end?.(sim, t);
       sim._emit('abilityEnd', { towerUid: t.uid, id: a.id });
     }
   }
@@ -953,7 +1080,7 @@ export function endAbilityWave(sim) {
     const a = t.abil;
     if (a && a.active > 0) {
       a.active = 0;
-      KINDS[a.kind]?.end?.(sim, t);
+      handlerOf(abilityDef(t))?.end?.(sim, t);
       sim._emit('abilityEnd', { towerUid: t.uid, id: a.id, wave: true });
       touched = true;
     }
@@ -1022,7 +1149,7 @@ export function abilityStatus(sim, t) {
   if (!a) {
     const def = src.unlocked ? (t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier)) : src.entry;
     return {
-      id: def.id, kind: def.kind, scope: def.scope, unlocked: false, ready: false, reason: 'locked', later: !KINDS[def.kind],
+      id: def.id, kind: def.kind, scope: def.scope, unlocked: false, ready: false, reason: 'locked', later: !handlerOf(def),
       path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,
       cooldown: def.cooldown, cooldownLeft: def.cooldown, duration: def.duration || 0, activeLeft: 0, auto: false, t5: false, uses: 0,
     };

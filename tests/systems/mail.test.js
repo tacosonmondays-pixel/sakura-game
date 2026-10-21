@@ -6,14 +6,22 @@
 import { describe, it, expect } from 'vitest';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile } from '../../src/systems/save.js';
 import { ensurePotentialLetter, potentialLetter, potentialLetterLine, POTENTIAL_LETTER_ID, POTENTIAL_V3_LETTER_ID, mailList } from '../../src/systems/mail.js';
-import { V3_MARKER, NEW_PREFIX, hasPotentialNew, clearPotentialNew, BACKFILL_MARKER } from '../../src/systems/potential.js';
+import { V3_MARKER, NEW_PREFIX, hasPotentialNew, clearPotentialNew, BACKFILL_MARKER, potentialState } from '../../src/systems/potential.js';
+import { MIGRATION_MARK, POUCH_MARK } from '../../src/systems/essence.js';
 import { potentialLevelCap } from '../../src/systems/progression.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 
-/** What an older build saved: no v3 marker. */
+/**
+ * What an older build saved: no v3 marker, and no Essence switch-over marker ('ess:mig'), so the next
+ * load turns its counted duplicates into Potential once (P = min(6, 1 + dupes), ASCENSION.md §A.7).
+ */
 function olderBuild(raw) {
   raw.seenIntro = (raw.seenIntro || []).filter((s) => s !== V3_MARKER && !s.startsWith(NEW_PREFIX));
+  if (raw.missions?.counters) {
+    delete raw.missions.counters[MIGRATION_MARK];
+    delete raw.missions.counters[POUCH_MARK];
+  }
   return raw;
 }
 
@@ -47,6 +55,8 @@ describe('ensurePotentialLetter (Potential v3)', () => {
   it('a v1 save: "Potential grew!" once, each P2+ girl with her newest step, no rewards, then marked', () => {
     const p = v1Profile();
     expect(p.units.kage.dupes).toBe(4);
+    // the switch to Essence gave her the Potential those duplicates had earned
+    expect([p.units.kage.pl, p.units.kaede.pl, p.units.aoi.pl]).toEqual([5, 3, 2]);
     expect(p.seenIntro).not.toContain(V3_MARKER);
     const l = ensurePotentialLetter(p);
     expect(l?.id).toBe(POTENTIAL_V3_LETTER_ID);
@@ -57,7 +67,7 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     expect(l.body).toContain('Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4% damage). ');
     expect(l.body).not.toMatch(/level cap \d/);
     // how her cap rises and what pays for the levels above 60
-    expect(l.body).toContain('Every step also raises her level cap once all five breakthrough gates are open, up to level 85 at P6; each level above 60 uses one Akashic Tome (from Library Courtyard III on Nightmare, Freeplay caches (up to 2 a week), the Bounty Exchange, and duplicates past P6). Nothing got weaker');
+    expect(l.body).toContain('Every step also opens a new level gate past 60, up to level 85 at P6; each level above 60 uses one Akashic Tome (from Library Courtyard III on Nightmare, Freeplay caches (up to 2 a week), the Bounty Exchange and Titan Trials). Nothing got weaker');
     expect(l.body).toContain('Nothing got weaker: P1 is exactly the girl you know.');
     expect(l.body).toContain('Info tab');
     // v1's letter already told this save how its duplicates were counted
@@ -73,6 +83,7 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     const p = backfilledProfile();
     expect(p.seenIntro).toContain(BACKFILL_MARKER);
     expect(p.units.aoi.dupes).toBe(3);
+    expect(p.units.aoi.pl).toBe(4);
     const l = ensurePotentialLetter(p);
     expect(l?.id).toBe(POTENTIAL_V3_LETTER_ID);
     expect(l.body).toContain('Aoi P4 ✦ Keen Fletching');
@@ -93,7 +104,7 @@ describe('ensurePotentialLetter (Potential v3)', () => {
 
   it('an older save where every girl is P1: marked without a letter, and later duplicates bring none', () => {
     const p = v1Profile();
-    for (const u of Object.values(p.units)) u.dupes = 0;
+    for (const u of Object.values(p.units)) Object.assign(u, potentialState(1));
     expect(ensurePotentialLetter(p)).toBeNull();
     expect(p.seenIntro).toContain(V3_MARKER);
     grantUnit(p, 'aoi');
@@ -105,29 +116,35 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     const p = olderBuild(createProfile());
     for (const [i, u] of UNITS.entries()) {
       p.units[u.id] ||= { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: {}, dupes: 0 };
-      p.units[u.id].dupes = i % 5 + 1;
+      Object.assign(p.units[u.id], potentialState(i % 5 + 2));
     }
     const body = potentialLetter(p).body;
     expect(body).toMatch(/right away: \w+ P6 ✦ /);
     expect(body).toContain(`and ${UNITS.length - 12} more`);
   });
 
-  it('a girl\'s line carries her level cap only where it is hers: all five gates open and Potential raising it (the level rule as it is)', () => {
+  it('a girl\'s line carries her level cap only where it is hers: the gates her Potential allows open and Potential raising it (the level rule as it is)', () => {
     for (const p of [2, 3, 4, 5, 6]) {
       const line = potentialLetterLine(UNIT_MAP.kage, p);
       expect(line.startsWith(`Kage P${p}`)).toBe(true);
       expect(line.includes(`level cap ${potentialLevelCap(p)}`)).toBe(potentialLevelCap(p) > potentialLevelCap(1));
-      // her own state: below gate 5 her cap is the gates' (a Lv 1, gate-0 girl is capped at 10), so none is named
-      for (const gates of [0, 3, 4]) expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 1, breakthrough: gates, dupes: p - 1 })).not.toMatch(/level cap/);
-      expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 60, breakthrough: 5, dupes: p - 1 })).toBe(line);
+      // her own state: up to gate 5 her cap is the gates' (10 + 10 × gates, 60 at gate 5), so none is named
+      for (const gates of [0, 3, 4, 5]) expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 1, breakthrough: gates, ...potentialState(p) })).not.toMatch(/level cap/);
+      // with every gate her Potential allows open (gate 4 + P), her cap is her Potential's
+      expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 60, breakthrough: 4 + p, ...potentialState(p) })).toBe(line);
+      expect(potentialLetterLine(UNIT_MAP.kage, p, { level: 60, breakthrough: 10, ...potentialState(p) })).toBe(line);
     }
   });
 
-  it('a girl at gate 5 gets her cap in the letter', () => {
+  it('a girl with her gates open gets her cap in the letter; at gate 5 (cap 60) none', () => {
     const p = v1Profile();
-    p.units.kage.breakthrough = 5;
+    p.units.kage.breakthrough = 9; // P5 opens gates 6–9: cap 78
     p.units.kage.level = 60;
     expect(ensurePotentialLetter(p).body).toContain('Kage P5 ✦ Moonpiercer · level cap 78, Kaede P3 ✦ Breeze Step, Aoi P2 (+4% damage)');
+    const q = v1Profile();
+    q.units.kage.breakthrough = 5;
+    q.units.kage.level = 60;
+    expect(ensurePotentialLetter(q).body).toContain('Kage P5 ✦ Moonpiercer, Kaede P3 ✦ Breeze Step, Aoi P2 (+4% damage)');
   });
 
   it('a backfilled save is marked as having had v1\'s letter, so a build from before v3 never mails the outdated one after ours', () => {
@@ -142,7 +159,7 @@ describe('ensurePotentialLetter (Potential v3)', () => {
     expect(olderBuildSends(deserializeProfile(serializeProfile(p)))).toBe(false);
     // the same with every girl still at P1 (no v3 letter): later duplicates bring no v1 letter either
     const q = backfilledProfile();
-    for (const u of Object.values(q.units)) u.dupes = 0;
+    for (const u of Object.values(q.units)) Object.assign(u, potentialState(1));
     expect(ensurePotentialLetter(q)).toBeNull();
     q.units.aoi.dupes = 2;
     expect(olderBuildSends(q)).toBe(false);

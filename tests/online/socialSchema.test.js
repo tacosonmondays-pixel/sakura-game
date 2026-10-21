@@ -16,6 +16,8 @@ const SOCIAL_TABLES = ['social_settings', 'friend_codes', 'friend_requests', 'fr
 
 // every function a signed-in player may execute (the first migration's entry points + the social ones)
 const ALLOWED = new Set([
+  // [ascension] the clan titan board (20261021000000_titan_board.sql)
+  'titan_board_version', 'titan_board', 'submit_titan_best',
   'create_clan', 'join_clan', 'join_clan_by_code', 'request_join', 'answer_request', 'leave_clan', 'set_role', 'kick', 'touch_active', 'boss_state',
   'start_boss_attempt', 'submit_boss_damage', 'claim_boss_reward', 'create_transfer', 'redeem_transfer', 'open_room', 'join_room', 'leave_room',
   'my_clan', 'my_role', 'clan_level', 'current_week', 'boss_hit_cap', 'valid_display_name', 'valid_message_meta',

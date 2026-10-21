@@ -12,6 +12,7 @@ import { ITEM_RARITIES } from '../../data/types.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
+import { fmtNum } from '../format.js';
 import { mailList, claimMail, claimAllMail, pendingBetaGift, BETA_GIFT_ID } from '../../systems/mail.js';
 import { itemCount } from '../../systems/inventory.js';
 // static (not lazy): right after "Claim gifts" the SSR picker offer must appear at once — a lazy
@@ -20,18 +21,11 @@ import { offerSelectTicket } from '../selectTicket.js';
 
 const SHOWN_KEY = 'sakura-beta-gift-shown';
 
-/** 300000 → "300K" so big counts fit a small tile. */
-export function compactCount(n) {
-  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e4) return `${+(n / 1e3).toFixed(1)}K`;
-  return formatNumber(n);
-}
-
 function tile(id, count, size = 54) {
   const wrap = itemTile(id, count, { size, showName: false });
   wrap.style.setProperty('--rarity', ITEM_RARITIES[getItem(id)?.rarity]?.color || '#9aa5b1');
   const c = wrap.querySelector('.item-count');
-  if (c && count != null) c.textContent = `×${compactCount(count)}`;
+  if (c && count != null) c.textContent = fmtNum(count, 'stack'); // 300000 → "×300k" so big counts fit a small tile
   return wrap;
 }
 

@@ -17,6 +17,7 @@
 import { ACHIEVEMENT_MAP, achievementLive, NO_COSMETIC } from '../data/achievements.js';
 import { HONOR_RIBBONS, TITLES } from '../data/honors.js';
 import { markedTags, isTagTitle } from '../data/playerTags.js';
+import { ALL_EVENTS } from '../data/events/index.js';
 
 export { ribbonArt, titlePlate } from '../ui/honorFx.js';
 
@@ -36,11 +37,24 @@ export const liveTitles = () => TITLES.filter((t) => !t.tag && (!ACHIEVEMENT_MAP
 /** A tag title is owned while the save holds that tag's mark (missions.counters 'tag:<kind>', set from the server). */
 const tagTitleOwned = (p, t) => markedTags(p).includes(t.tag);
 
-/** Where titles come from, for the pickers: the team / tester titles are mentioned only to a player who has one. */
-export const TITLES_FROM = 'Titles come from achievements. Nothing you buy gives a title.';
-export const TITLES_FROM_TAGS = 'Titles come from achievements, and a few from being on the team or testing the game. Nothing you buy gives a title.';
-/** TITLES_FROM_TAGS when this list of title ids holds a tag title, else TITLES_FROM. */
-export const titlesFromText = (ids) => (ids.some((id) => isTagTitle(id)) ? TITLES_FROM_TAGS : TITLES_FROM);
+/**
+ * Where titles come from, for the pickers: the team / tester titles are mentioned only to a player who has one, the
+ * limited-event exchange titles (Pumpkin Patroller, bought with event candy) only to a player who owns one. No title
+ * is ever sold for real money.
+ */
+export const TITLES_FROM = 'Titles come from achievements. Nothing you buy with real money gives a title.';
+export const TITLES_FROM_TAGS = 'Titles come from achievements, and a few from being on the team or testing the game. Nothing you buy with real money gives a title.';
+export const TITLES_FROM_EVENTS = 'Titles come from achievements and limited-event exchanges (event candy, never real money).';
+export const TITLES_FROM_EVENTS_TAGS = 'Titles come from achievements, limited-event exchanges (event candy, never real money), and a few from being on the team or testing the game.';
+/** Title ids sold in a limited-event exchange (src/data/events/*.js shop cosmetics). */
+const EVENT_TITLE_IDS = new Set(ALL_EVENTS.flatMap((ev) => (ev.shop || []).filter((o) => o.cosmetic?.kind === 'title').map((o) => o.cosmetic.id)));
+export const isEventTitle = (id) => EVENT_TITLE_IDS.has(id);
+/** The line for a list of title ids: names the tag titles and the event titles only when the list holds one. */
+export function titlesFromText(ids) {
+  const tags = ids.some((id) => isTagTitle(id));
+  if (ids.some(isEventTitle)) return tags ? TITLES_FROM_EVENTS_TAGS : TITLES_FROM_EVENTS;
+  return tags ? TITLES_FROM_TAGS : TITLES_FROM;
+}
 
 /** Ribbon ids owned (claimed, known and live in this build), in case order. */
 export function ownedRibbons(profile) {

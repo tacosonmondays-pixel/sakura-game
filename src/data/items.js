@@ -4,7 +4,7 @@
 //   materials  mat_<family>_<rarity>   (7 families × 5 rarities)
 //   books      book_<rarity>           (xp 100 / 500 / 2000 / 8000 / 30000)
 //   crowns     crown_slime|iron|cog|oni|dragon (awakening, boss drops)
-//   dice       dice_reroll, dice_prism, lock_pin
+//   dice       dice_reroll, dice_prism, lock_pin, seed_rainbow, needle_star, club_band ("Gear Tool")
 //   gear boxes gearbox_<rarity>        (resolved into real gear when opened / dropped)
 //   misc       star_fragment, ticket_recruit, ticket_recruit10, ticket_ssr_select, token_boss, token_bounty
 //   currency   coins, gems             (pseudo-items so reward lists can carry them)
@@ -13,14 +13,15 @@
 // `tab` (V2: the backpack is organised by category, rarity is only a sort/filter).
 
 import { MATERIAL_FAMILIES, ITEM_RARITIES, ITEM_RARITY_ORDER } from './types.js';
+import { EVENT_CURRENCIES } from './events/index.js';
 
 /** Backpack tabs (CONTRACTS §12 — category, not rarity). */
 export const BACKPACK_TABS = [
   { id: 'enhancement', name: 'Enhancement', desc: 'Books and upgrade materials.', categories: ['book', 'material'] },
-  { id: 'awakening', name: 'Awakening', desc: 'Crowns and Star Fragments.', categories: ['crown', 'fragment'] },
+  { id: 'awakening', name: 'Awakening', desc: 'Crowns, Star Fragments and Essence.', categories: ['crown', 'fragment'] },
   { id: 'equipment', name: 'Equipment', desc: 'Gear, gear boxes, dice and pins.', categories: ['gearbox', 'dice'] },
   { id: 'tickets', name: 'Tickets', desc: 'Recruitment tickets.', categories: ['ticket'] },
-  { id: 'tokens', name: 'Tokens & Currency', desc: 'Exchange tokens, coins and gems.', categories: ['token', 'currency'] },
+  { id: 'tokens', name: 'Tokens & Currency', desc: 'Exchange tokens, coins and gems.', categories: ['token', 'event', 'currency'] },
 ];
 
 /** Item categories with display names and the backpack tab they live in. */
@@ -29,10 +30,11 @@ export const ITEM_CATEGORIES = {
   book: { name: 'Book', tab: 'enhancement', order: 0 },
   crown: { name: 'Crown', tab: 'awakening', order: 2 },
   fragment: { name: 'Fragment', tab: 'awakening', order: 3 },
-  dice: { name: 'Reroll Item', tab: 'equipment', order: 5 },
+  dice: { name: 'Gear Tool', tab: 'equipment', order: 5 },
   gearbox: { name: 'Gear Box', tab: 'equipment', order: 4 },
   ticket: { name: 'Ticket', tab: 'tickets', order: 6 },
   token: { name: 'Token', tab: 'tokens', order: 7 },
+  event: { name: 'Event Currency', tab: 'tokens', order: 7.5 },
   currency: { name: 'Currency', tab: 'tokens', order: 8 },
 };
 
@@ -120,6 +122,28 @@ export function materialId(family, rarity) {
   return `mat_${family}_${rarity}`;
 }
 
+/** Zenith, the seventh tier of every family (ASCENSION.md §B.3). */
+const ZENITH_NAMES = {
+  feather: ['Zenith Plume', 'A feather from the very top of the sky, where the sun stands still.'],
+  blade: ['Zenith Edge', 'Steel folded a thousand times under the noon sun.'],
+  ember: ['Zenith Flame', 'A flame that burns straight up and never flickers.'],
+  rime: ['Zenith Frost', 'Ice from the highest peak; it hums one clear note.'],
+  charm: ['Zenith Omamori', 'Blessed at the shrine on the brightest day of the year.'],
+  rune: ['Zenith Sigil', 'A glyph that can only be read in perfect light.'],
+  cog: ['Zenith Cog', 'A golden gear that turns all by itself.'],
+};
+
+/** @returns {string} Zenith material id, e.g. zenithId('feather') === 'mat_feather_zenith' */
+export function zenithId(family) {
+  return `mat_${family}_zenith`;
+}
+
+/** The 16 item ids Ascension adds (ASCENSION.md §F.3); src/systems/inventory.js mirrors their counts. */
+export const ASCENSION_ITEM_IDS = Object.freeze([
+  'kindred_r', 'kindred_sr', 'kindred_ssr', 'kindred_shard_ssr', 'crown_rainbow', 'crown_rainbow_shard', 'gearbox_rainbow', 'memento', 'moonpearl',
+  ...Object.keys(ZENITH_NAMES).map(zenithId),
+]);
+
 /** @returns {string} book id, e.g. bookId('rare') === 'book_rare' */
 export function bookId(rarity) {
   return `book_${rarity}`;
@@ -160,9 +184,38 @@ function buildItems() {
     });
   });
 
-  CROWNS.forEach(([id, name, rarity, boss, desc], i) => add({ id, name, category: 'crown', rarity, boss, desc: `${desc} Dropped by ${boss}.`, sort: 3000 + i }));
+  // Ascension (docs/specs/ASCENSION.md §B.3): a seventh tier per family, Zenith, for level gates 6–10.
+  // Stored as rarity 'legendary' with `tier: 'zenith'` (never a sixth item rarity: older builds drop
+  // unknown rarities, and books and gear boxes are indexed by ITEM_RARITY_ORDER).
+  FAMILY_ORDER.forEach((family, fi) => {
+    const [name, flavour] = ZENITH_NAMES[family];
+    add({
+      id: zenithId(family),
+      name,
+      category: 'material',
+      rarity: 'legendary',
+      tier: 'zenith',
+      family,
+      desc: `${flavour} Level gate material for ${MATERIAL_FAMILIES[family].name.toLowerCase()} students (gates 7–10). Earned in Titan Trials.`,
+      sort: 2000 + fi * 10 + 5,
+    });
+  });
 
-  add({ id: 'star_fragment', name: 'Star Fragment', category: 'fragment', rarity: 'superRare', desc: 'Crystallised wishes. Earned from duplicate recruits (R ×2, SR ×10, SSR ×40) and used for every awakening.', sort: 3100 });
+  CROWNS.forEach(([id, name, rarity, boss, desc], i) => add({ id, name, category: 'crown', rarity, boss, desc: `${desc} Dropped by ${boss}.`, sort: 3000 + i }));
+  add({ id: 'crown_rainbow', name: 'Rainbow Crown', category: 'crown', rarity: 'legendary', rainbow: true, desc: 'Woven from the light of every titan. It opens level gates 9 and 10.', sort: 3010 });
+  add({ id: 'crown_rainbow_shard', name: 'Rainbow Crown Shard', category: 'crown', rarity: 'mythic', rainbow: true, desc: 'A sliver of a Rainbow Crown. 10 shards fuse into a crown on their own. Earned in Titan Trials.', sort: 3011 });
+
+  add({ id: 'kindred_r', name: 'Kindred Essence (R)', category: 'fragment', rarity: 'rare', kindred: 'R', desc: 'Kindred Essence stands in for her own Essence: raises the Potential of an R girl who has none of her own.', sort: 3110 });
+  add({ id: 'kindred_sr', name: 'Kindred Essence (SR)', category: 'fragment', rarity: 'superRare', kindred: 'SR', desc: 'Kindred Essence stands in for her own Essence: raises the Potential of an SR or R girl who has none of her own.', sort: 3111 });
+  add({ id: 'kindred_ssr', name: 'Kindred Essence (SSR)', category: 'fragment', rarity: 'legendary', kindred: 'SSR', desc: 'The rarest Essence: raises the Potential of any girl who has none of her own.', sort: 3112 });
+  add({ id: 'kindred_shard_ssr', name: 'Kindred Shard (SSR)', category: 'fragment', rarity: 'mythic', desc: '10 shards fuse into a Kindred Essence (SSR) on their own.', sort: 3113 });
+
+  add({ id: 'star_fragment', name: 'Star Fragment', category: 'fragment', rarity: 'superRare', desc: 'Crystallised wishes. Earned in Titan Trials, exchanges and commissions, and used for every awakening.', sort: 3100 });
+
+  // The Rainbow Gear Box (ASCENSION.md §C.8): outside the five-rarity loop. Never opened by the plain
+  // Open / Open all (src/systems/gear.js openGearBox refuses it): it opens through a slot picker into
+  // rainbow (UR) gear, which the UR gear track builds.
+  add({ id: 'gearbox_rainbow', name: 'Rainbow Gear Box', category: 'gearbox', rarity: 'legendary', rainbow: true, pickSlot: true, desc: 'Open it to pick charm, ribbon or shoes: one Legendary piece already awakened to rainbow (UR), +0, four substats. Earned in Titan Trials.', sort: 4010 });
 
   ITEM_RARITY_ORDER.forEach((r, i) => add({
     id: gearBoxId(r),
@@ -175,14 +228,23 @@ function buildItems() {
 
   add({ id: 'dice_reroll', name: 'Fortune Dice', category: 'dice', rarity: 'rare', desc: 'Rerolls every substat on a piece of gear. Pair it with a Lock Pin to keep your favourite one.', sort: 5000 });
   add({ id: 'lock_pin', name: 'Lock Pin', category: 'dice', rarity: 'superRare', desc: 'Locks one substat in place during a Fortune Dice reroll.', sort: 5001 });
-  add({ id: 'dice_prism', name: 'Prism Dice', category: 'dice', rarity: 'mythic', desc: 'Rerolls the main stat of a piece of gear into a different stat for its slot.', sort: 5002 });
+  add({ id: 'dice_prism', name: 'Prism Dice', category: 'dice', rarity: 'mythic', desc: 'Changes the main stat of a piece of gear into another stat for its slot. You choose which one.', sort: 5002 });
+  // rainbow UR gear (docs/specs/GEAR_AWAKEN.md §4) and the Academy Clubs (GEAR_STATS.md §C.4); never sold for gems
+  add({ id: 'seed_rainbow', name: 'Rainbow Seed', category: 'dice', rarity: 'legendary', display: 'ur', usable: 'gearAwaken', desc: 'A seven-colour sakura seed. Plant it in a +10 gold piece and it blooms into rainbow UR gear.', sort: 5003 });
+  add({ id: 'needle_star', name: 'Starlight Needle', category: 'dice', rarity: 'legendary', usable: 'gearStitch', desc: 'Stitch a ✦ onto the substat you choose. Gold gear at +10 takes one; rainbow UR gear takes two, even on the same line.', sort: 5004 });
+  add({ id: 'club_band', name: 'Club Armband', category: 'dice', rarity: 'mythic', usable: 'gearClub', desc: 'Tie it on a Mythic, Legendary or UR piece: it joins the club you pick. Its stats don\'t change.', sort: 5005 });
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });
   add({ id: 'ticket_recruit10', name: '10× Recruit Ticket', category: 'ticket', rarity: 'mythic', desc: 'One free 10× recruitment (SR or better guaranteed). Used before gems.', sort: 6001 });
-  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose ANY SSR student and she joins the academy. If you already have her, she converts into 40 Star Fragments. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
+  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose ANY SSR student and she joins the academy. If you already have her, she gains 1 Essence. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
 
-  add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses and Total Assault bosses. Spend it in the Mall\'s Boss Exchange for crowns and dice.', sort: 7000 });
+  add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses, Total Assault bosses and the Titan Trials titans. Spend it in the Mall\'s Boss Exchange, Titan shelf included.', sort: 7000 });
+  add({ id: 'memento', name: 'Memento', category: 'token', rarity: 'superRare', desc: 'A keepsake from a spare R or SR duplicate. Spend it in the Mall\'s Memento Exchange on simple supplies and a Recruit Ticket.', sort: 7002 });
+  add({ id: 'moonpearl', name: 'Moonpearl', category: 'token', rarity: 'legendary', desc: 'A pearl from a spare SR or SSR duplicate. Spend it in the Mall\'s Memento Exchange on rare items, a 10× Recruit Ticket or a chosen SSR\'s Essence.', sort: 7003 });
   add({ id: 'token_bounty', name: 'Bounty Token', category: 'token', rarity: 'common', desc: 'Earned in Bounty arenas and the Tactical Challenge. Spend it in the Mall\'s Bounty Exchange for gear boxes and dice.', sort: 7001 });
+
+  // limited-event currencies, past events and drafts included (saves keep them; EVENT_SPEC §3.4)
+  EVENT_CURRENCIES.forEach((c, i) => add({ id: c.id, name: c.name, category: 'event', rarity: 'rare', event: c.event, desc: c.desc, sort: 7100 + i }));
 
   add({ id: 'coins', name: 'Coins', category: 'currency', rarity: 'common', desc: 'Academy coins. Pay for level ups, breakthroughs, awakenings and gear enhancement.', sort: 8000 });
   add({ id: 'gems', name: 'Sakura Gems', category: 'currency', rarity: 'legendary', desc: 'Premium currency earned by playing: 120 gems = 1 recruit.', sort: 8001 });

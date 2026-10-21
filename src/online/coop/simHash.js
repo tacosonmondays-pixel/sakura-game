@@ -73,7 +73,7 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
   const queue = sim._abilQueue;
   if (rallies?.length || queue?.length) {
     h.int(rallies.length);
-    for (const r of rallies) h.int(r.src).int(r.left).int(r.on ?? -1);
+    for (const r of rallies) h.int(r.src).int(r.left).int(r.to ?? -1);
     h.int(queue.length);
     for (const it of queue) h.int(it.src).int(it.left);
   }

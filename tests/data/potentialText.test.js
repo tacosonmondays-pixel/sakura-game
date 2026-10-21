@@ -9,7 +9,9 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 /** Keys whose numbers read as "+N %" (a multiplier m → (m − 1) × 100, or "m×"). */
 const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral']);
 /** Keys whose numbers are fractions read as percent or points (× 100). */
-const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp']);
+const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp',
+  // Wakaba's drink bonuses (drink.dmg 0.03 = 3%); Ouka's extra discount (hub.cutAdd 0.02 = 2%)
+  'dmg', 'rate', 'cutAdd']);
 /** Context keys whose value is not player-facing on its own. */
 const SKIP_KEYS = new Set(['name', 'type', 'of', 'kind', 'volley']);
 const WORDS = { 0.5: ['half'], 1: ['one', 'once'], 2: ['twice', 'two'], 3: ['three'] };
@@ -27,7 +29,7 @@ function candidates(key, v, parent, parentKey) {
   const out = new Set();
   const words = [];
   // ramp.max and tempo.max: fraction (focus cap points, tempo %); trap.max / turret.max: a count
-  const fractional = FRACTION_KEYS.has(key) && !(key === 'max' && (parentKey === 'trap' || parentKey === 'turret'));
+  const fractional = FRACTION_KEYS.has(key) && !(key === 'max' && (parentKey === 'trap' || parentKey === 'turret' || parentKey === 'sentry'));
   if (key === 'amount' && parent?.type === 'slow') out.add(fmt(v * 100));
   else if (key === 'amount') out.add(fmt(v));
   else if (key === 'rateMul' && parentKey === 'overclock') out.add(fmt((v - 1) * 100));
@@ -42,6 +44,7 @@ function candidates(key, v, parent, parentKey) {
     for (const w of WORDS[v] || []) words.push(w);
   } else {
     out.add(fmt(v));
+    if (v < 0) out.add(fmt(-v)); // ("comes 0.5 s sooner" for vine.every -0.5)
     for (const w of WORDS[v] || []) words.push(w);
   }
   return { nums: [...out], words };

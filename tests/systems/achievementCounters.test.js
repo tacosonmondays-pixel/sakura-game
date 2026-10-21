@@ -5,7 +5,7 @@ import { createProfile } from '../../src/systems/save.js';
 import { applyBattleResult } from '../../src/systems/rewards.js';
 import { applyCoopClear, applyCoopResult } from '../../src/online/coop/rewards.js';
 import { addGear, rollGear, enhanceGear, salvageGear, openGearBox } from '../../src/systems/gear.js';
-import { claimMission, track, currentEvent } from '../../src/systems/missions.js';
+import { claimMission, track, currentEvent, onAppStart } from '../../src/systems/missions.js';
 import { countCoopWin, studentsFielded, ACH_COUNTERS } from '../../src/systems/achievementCounters.js';
 import { WEEKLY_MISSIONS } from '../../src/data/missions.js';
 import { CAMPAIGN_IDS, STAGES } from '../../src/data/stages.js';
@@ -142,6 +142,28 @@ describe('weeklyDone', () => {
     expect(c(p).weeklyDone).toBe(1);
     track(p, 'battleWin', 1);
     expect(c(p).weeklyDone).toBe(1);
+  });
+
+  it('a row that opens mid-week (Club Day after 2-5) never counts the same week twice (F3)', () => {
+    const p = createProfile();
+    onAppStart(p, new Date(Date.UTC(2026, 9, 20, 12)));
+    p.progress.stages['1-1'] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
+    const open = WEEKLY_MISSIONS.filter((w) => !w.requires);
+    expect(open.length).toBeLessThan(WEEKLY_MISSIONS.length);
+    for (const w of WEEKLY_MISSIONS) p.missions.weekly[w.id] = w.goal;
+    for (const w of open) expect(claimMission(p, 'weekly', w.id).ok).toBe(true);
+    expect(c(p).weeklyDone).toBe(1);
+    // the same week: 2-5 is cleared and Club Day (already 10/10 from the same wins) is claimed
+    p.progress.stages['2-5'] = { easy: true, normal: false, hard: false, nightmare: false, clears: 1 };
+    expect(claimMission(p, 'weekly', 'w_club').ok).toBe(true);
+    expect(c(p).weeklyDone).toBe(1);
+    // the next week counts again
+    onAppStart(p, new Date(Date.UTC(2026, 9, 27, 12)));
+    for (const w of WEEKLY_MISSIONS.filter((x) => x.id !== 'w_rainbow')) {
+      p.missions.weekly[w.id] = w.goal;
+      claimMission(p, 'weekly', w.id);
+    }
+    expect(c(p).weeklyDone).toBe(2);
   });
 
   it('counter keys: event words, marks with ach:, rarities as name:rarity', () => {

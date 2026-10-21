@@ -12,7 +12,7 @@ import { earnedTitles, titleChoices, titleKeepable } from '../../src/systems/pro
 import { TITLE_TABLE } from '../../src/systems/profileHonors.js';
 import { TITLES } from '../../src/data/profileArt.js';
 import { cleanSensei, setSensei, TAG_TITLE_MARK } from '../../src/systems/senseiSave.js';
-import { titlesFromText, TITLES_FROM, TITLES_FROM_TAGS } from '../../src/systems/honors.js';
+import { titlesFromText, TITLES_FROM, TITLES_FROM_TAGS, TITLES_FROM_EVENTS, TITLES_FROM_EVENTS_TAGS } from '../../src/systems/honors.js';
 import { buildCard, cleanViewedCard } from '../../src/online/profileCard.js';
 import { recordTagMarks } from '../../src/online/tags.js';
 import { freshSave, lateSave } from './profileFixtures.js';
@@ -183,8 +183,20 @@ describe('where titles come from (the pickers\' help line)', () => {
     const p = tagged({ tester: 'alpha' });
     expect(titlesFromText(titleChoices(p))).toBe(TITLES_FROM_TAGS);
     expect(titlesFromText(titleGroups(p).flatMap((g) => g.titles.map((t) => t.id)))).toBe(TITLES_FROM_TAGS);
-    expect(TITLES_FROM_TAGS).toMatch(/Nothing you buy gives a title\.$/);
+    expect(TITLES_FROM_TAGS).toMatch(/Nothing you buy with real money gives a title\.$/);
     expect(titlesFromText(['tag_beta'])).toBe(TITLES_FROM_TAGS);
     expect(titlesFromText(['a_gold_40'])).toBe(TITLES_FROM);
+  });
+
+  it('names the event exchange titles only for a player who owns one (event candy, never real money)', () => {
+    expect(titlesFromText(['a_gold_40', 'ev_halloween_2026'])).toBe(TITLES_FROM_EVENTS);
+    expect(titlesFromText(['tag_beta', 'ev_halloween_2026'])).toBe(TITLES_FROM_EVENTS_TAGS);
+    expect(TITLES_FROM_EVENTS).toMatch(/limited-event exchanges \(event candy, never real money\)/);
+    for (const t of [TITLES_FROM, TITLES_FROM_TAGS, TITLES_FROM_EVENTS, TITLES_FROM_EVENTS_TAGS]) expect(t).not.toMatch(/Nothing you buy gives a title/);
+    // the picker lists an event title only for its owner, so only an owner reads the event line
+    const p = createProfile();
+    expect(titlesFromText(titleChoices(p))).toBe(TITLES_FROM);
+    p.missions.counters['evo:title:ev_halloween_2026'] = 1;
+    expect(titlesFromText(titleChoices(p))).toBe(TITLES_FROM_EVENTS);
   });
 });

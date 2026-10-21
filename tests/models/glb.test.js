@@ -33,7 +33,7 @@ const MESHY_BONES = [
 
 // every other unit must have a GLB; the count guards against quietly moving a girl to the stand-ins
 const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id));
-const GLB_UNIT_COUNT = 19;
+const GLB_UNIT_COUNT = 35; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5)
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
@@ -84,17 +84,18 @@ describe('character GLBs', () => {
           expect(json.skins).toHaveLength(1);
           const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
           for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
-          // the sword hangs off the right hand
+          // a hand-held prop (Hikari's sword) hangs off the right hand; girls whose gear is part of
+          // the body mesh (Noa's folded shield on her forearm) ship none
           const hand = json.nodes.findIndex((n) => n.name === 'hand_R');
           const sword = json.nodes.findIndex((n) => n.name === 'sword');
-          expect(json.nodes[hand].children).toContain(sword);
+          if (ex.weaponKind === 'slash') expect(sword, `${u.id} sword`).toBeGreaterThanOrEqual(0);
+          if (sword >= 0) expect(json.nodes[hand].children).toContain(sword);
           const prims = json.meshes.flatMap((m) => m.primitives);
           const textured = prims.filter((p) => json.materials[p.material].pbrMetallicRoughness?.baseColorTexture);
           expect(textured).toHaveLength(1);
           expect(textured[0].attributes.TEXCOORD_0).toBeDefined();
           expect(textured[0].attributes.JOINTS_0).toBeDefined();
-          const swordPrim = json.meshes[json.nodes[sword].mesh].primitives[0];
-          expect(swordPrim.attributes.COLOR_0).toBeDefined();
+          if (sword >= 0) expect(json.meshes[json.nodes[sword].mesh].primitives[0].attributes.COLOR_0).toBeDefined();
           for (const p of prims) {
             const pos = json.accessors[p.attributes.POSITION];
             expect(pos.componentType).toBe(5122);

@@ -156,6 +156,34 @@ for (const { name, r } of results) {
   if (!(p.mech.spectral > 0 && p.mech.boss > 0 && p.mech.echo > 0)) failures.push(`the Potential boss battle: ×spectral, ×boss or the duel echo never fired (${JSON.stringify(p.mech)})`);
 }
 
+// gear (GEAR_START): Pierce on every kit, Aura Power, every club trick, the Finale Pop budget
+log('\nScripted co-op GEAR battle (4-5, GEAR_START: Pierce on shots, sweeps, blasts, traps, drones and a half-rate sniper; every club trick):');
+for (const { name, r } of results) {
+  const g = r.gear;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two gear clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} gear command(s) refused: ${g.refused}`);
+  for (const k of POT_KEYS.filter((x) => x !== 'aoi')) if (g[k] !== ref.gear[k]) failures.push(`${name}: gear ${k} ${g[k]} ≠ ${ref.gear[k]} (${results[0].name})`);
+}
+if (ref.gear.state !== 'won' && ref.gear.state !== 'lost' && !(ref.gear.wave >= 10)) failures.push(`the gear battle stopped early (state ${ref.gear.state}, wave ${ref.gear.wave})`);
+
+// the returning girls in gear (GEAR_GIRLS_START): Iroha's two firing points with Pierce, the club tricks
+log('\nScripted co-op RETURNING GIRLS GEAR battle (4-5, GEAR_GIRLS_START: Iroha mirror + own volleys with Pierce, pulse / beam / chain Pierce from the relay origin, every club trick):');
+for (const { name, r } of results) {
+  const g = r.gearGirls;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · Iroha shots mirror/own/pierced ${g.iroha} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two returning-girls gear clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} returning-girls gear command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'iroha', 'tricks', 'dealt']) if (g[k] !== ref.gearGirls[k]) failures.push(`${name}: returning-girls gear ${k} ${g[k]} ≠ ${ref.gearGirls[k]} (${results[0].name})`);
+}
+{
+  const g = ref.gearGirls;
+  log(`  tricks (host's client): ${g.tricks}`);
+  if (g.state !== 'won' && g.state !== 'lost' && !(g.wave >= 10)) failures.push(`the returning-girls gear battle stopped early (state ${g.state}, wave ${g.wave})`);
+  const [mirror, own, pierced] = g.iroha.split('/').map(Number);
+  if (!(mirror > 0 && own > 0 && pierced > 0)) failures.push(`the returning-girls gear battle: Iroha's two volleys or her Pierce never fired (${g.iroha})`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
@@ -235,6 +263,19 @@ for (const { name, r } of results) {
   if (d.refused) failures.push(`${name}: fly command(s) refused: ${d.refused}`);
   for (const k of DR_KEYS) if (d[k] !== ref.drones[k]) failures.push(`${name}: drones ${k} ${d[k]} ≠ ${ref.drones[k]} (${results[0].name})`);
 }
+// the returning girls (roster B3): the same battle everywhere (ROSTER_START)
+const RO_KEYS = ['ticks', 'state', 'wave', 'towers', 'damage', 'aims', 'ults', 'curseBursts', 'runners', 'relays', 'lives', 'wallets', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op RETURNING GIRLS battle (8-1 Easy: mirror + Seiran aims, sky dragon, curses, gather, hexing tide):');
+for (const { name, r } of results) {
+  const d = r.roster;
+  log(`  ${name.padEnd(46)} ticks ${d.ticks} · ${d.state} · wave ${d.wave} · ${d.towers} girls · dmg ${d.damage} · ${d.aims} aims · ${d.runners} dragons · ${d.curseBursts} curse bursts · ${d.relays} relay moves · ${d.checkpoints} hash checkpoints → ${d.hashes} · checkpoint w${d.ckWave} ${d.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${d.ms} ms`);
+  if (!d.agree) failures.push(`${name}: its own two roster-battle clients disagreed`);
+  if (!d.ckSame) failures.push(`${name}: the roster battle's wave-${d.ckWave} checkpoint did not replay to the run`);
+  for (const k of RO_KEYS) if (d[k] !== ref.roster[k]) failures.push(`${name}: roster ${k} ${d[k]} ≠ ${ref.roster[k]} (${results[0].name})`);
+}
+if (ref.roster.towers < 8) failures.push(`the roster battle placed only ${ref.roster.towers} girls`);
+if (ref.roster.runners < 1) failures.push('the roster battle never flew the sky dragon');
+if (ref.roster.curseBursts < 5) failures.push(`the roster battle burst only ${ref.roster.curseBursts} curses`);
 if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
 if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 // abilities: every live kind, manual taps (some refused), Auto-cast, owner coins, the checkpoint replay
@@ -269,4 +310,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical two-hero battle, the identical drones battle, the identical abilities battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

@@ -226,8 +226,8 @@ async function runViewport(vp) {
   await page.evaluate(() => { location.hash = '#/lobby'; });
   const t = await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 15000 }).catch(() => null);
   check(!!t && (await t.getAttribute('data-id')) === 'a_wins_100', '7: the toast shows on the next screen (Patrol Veteran)');
-  await shot(page, 'toast');
-  if (touch) {
+  // the phone check reads the card first: it is up for 3.2 s, and a screenshot on a loaded machine can take longer
+  if (touch && t) {
     // on a phone the card never takes a tap meant for what is underneath; only Claim › does
     const hit = await page.evaluate(() => {
       const card = document.querySelector('[data-testid="ach-toast"]');
@@ -239,6 +239,7 @@ async function runViewport(vp) {
     });
     check(hit.passes && hit.claim, `9: phone toast: taps pass through the card (${hit.passes}), Claim › still works (${hit.claim})`);
   }
+  await shot(page, 'toast');
   check(!errors.length, `no console errors (${errors.slice(0, 3).join(' | ')})`);
   await context.close();
 

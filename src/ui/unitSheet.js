@@ -18,6 +18,7 @@ import { tagLegend, tagChips, TAG_GLYPHS } from './tagChips.js';
 import { buildTreeModel } from './treeModel.js';
 import { upgradeGrid, tierDetail } from './upgradeGrid.js';
 import { buildTab } from './unitBuild.js';
+import { fmtNum } from './format.js';
 import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../systems/potential.js';
 
 let studentMod = null;
@@ -28,7 +29,6 @@ const loadStudent = () => (studentMod ||= import('./screens/student.js').catch((
 
 let openSheet = null;
 
-const fmt = (n) => Math.round(n).toLocaleString('en-US');
 function howShort(unit) {
   const a = unit.acquisition || {};
   if (a.type === 'starter') return 'Starter';
@@ -81,7 +81,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
       h('span.us-level', h('span', 'Lv.'), h('b', String(st.level)), h('span.us-muted', ` / ${levelCap(st)}`)),
       stars(st.awaken || 0, MAX_AWAKEN),
       pot > 1 ? h(`span.us-pot${pot >= 6 ? '.p6' : ''}`, { title: potentialPillTitle(unit, pot) }, `P${pot}`) : null,
-      h('span.us-power', svgEl(uiIcon('sword'), 'us-power-ico'), fmt(unitPower(prof, unit.id))));
+      h('span.us-power', svgEl(uiIcon('sword'), 'us-power-ico'), fmtNum(unitPower(prof, unit.id))));
   } else if (!owner) {
     meta.append(h('span.us-locked', svgEl(uiIcon('lock'), 'us-lock-ico'), howShort(unit)));
   }

@@ -34,7 +34,11 @@ const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 // Scenery keywords (stage.scenery.props + derived from stage.introduces)
 // ---------------------------------------------------------------------------
 
-/** keyword → placement recipe. slot: pathside | skirt | grass | shore | water | entrance | none */
+/**
+ * keyword → placement recipe. slot: pathside | skirt | grass | shore | water | entrance | nook
+ * (a corner of an in-board tree / rock tile) | none; alt: a second slot filled once the first
+ * runs out; face: turn the prop's +z front toward the camera (with a little jitter).
+ */
 export const SCENERY = {
   sakuraTrees: { prop: 'sakura', slot: 'skirt', n: 7, s: 1.1 },
   benches: { prop: 'bench', slot: 'skirt', n: 2 },
@@ -94,6 +98,9 @@ export const SCENERY = {
   willows: { prop: 'willow', slot: 'skirt', n: 4 },
   drownedWillow: { prop: 'willow', slot: 'shore', n: 3 },
   bogLights: { prop: 'bogLight', slot: 'pathside', n: 6, s: 1 },
+  // Halloween event: carved jack-o'-lanterns tucked beside the board's trees / rocks (blocked
+  // tiles, never the road or a build tile), the rest in the skirt; faces turned to the camera
+  pumpkins: { prop: 'pumpkin', slot: 'nook', alt: 'skirt', n: 10, s: 1.3, face: true },
   seedPods: { prop: 'seedPod', slot: 'skirt', n: 5 },
   mushrooms: { prop: 'mushroom', slot: 'grass', n: 8 },
   thornBrambles: { prop: 'bramble', slot: 'skirt', n: 6 },
@@ -644,23 +651,26 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       ambient.add(rec.ambient);
       continue;
     }
-    const list = slots[rec.slot] || [];
     const r = makeRand(hash(map.id, kw));
-    shuffle(list, r);
     let n = 0;
-    for (const spot of list) {
-      if (n >= rec.n) break;
-      if (spot.used) continue;
-      spot.used = true;
-      for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
-      const s = (rec.s ?? 1) * (spot.s ?? 1);
-      place(rec.prop, spot.x, spot.y ?? 0, spot.z, spot.ry ?? r() * 6.28, s, rec.variant ?? Math.floor(r() * 4));
-      n++;
+    for (const slot of rec.alt ? [rec.slot, rec.alt] : [rec.slot]) {
+      const list = slots[slot] || [];
+      shuffle(list, r);
+      for (const spot of list) {
+        if (n >= rec.n) break;
+        if (spot.used) continue;
+        spot.used = true;
+        for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
+        const s = (rec.s ?? 1) * (spot.s ?? 1);
+        const ry = rec.face ? (r() - 0.5) * 0.7 : spot.ry ?? r() * 6.28;
+        place(rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variant ?? Math.floor(r() * 4));
+        n++;
+      }
     }
   }
 
   function buildSlots() {
-    const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [] };
+    const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [] };
     // pathside: just beside the road, every ~1.6 tiles along the centreline, both sides
     for (const r of plan.roads) {
       let acc = 0;
@@ -707,6 +717,12 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
             else out.water.push({ x: cx, z: cz, y: WATER_Y + 0.02 });
           }
           continue;
+        }
+        // nook: the front corner of an in-board tree / rock tile (blocked for building), only
+        // when the tile in front of it is not road (keeps the prop clear of walkers)
+        if (inMap(x, y) && (rows[y][x] === 'T' || rows[y][x] === 'R') && !decorAt.has(key)) {
+          const sx = hash(x, y, 'n') % 2 ? 0.27 : -0.27;
+          if (!isPath(x, y + 1)) out.nook.push({ x: cx + sx, z: cz + 0.26, s: 0.6 });
         }
         if (occupied.has(key)) continue;
         const d = outsideDist(cx, cz);
