@@ -9,12 +9,15 @@ import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH } from './placem
 import { resolveStats, crosspathBlock } from './mods.js';
 import { finalTierOf } from './finalTier.js';
 import { DEFAULT_UNIT_STATS } from './constants.js';
+import { TRANSIENT_REFUSALS, abilityPathOf } from './abilities.js';
 
 /**
  * A plan action. Positions are continuous world coordinates `x`/`y` (free placement);
  * `tx`/`ty` (tile) are still accepted for old plans and resolve to the tile centre.
- * @typedef {{ at?: number, action: 'place'|'upgrade'|'sell', unitId?: string, x?: number, y?: number,
- *   tx?: number, ty?: number, uid?: number, path?: number }} PlanAction
+ * `ability` fires the girl's ability (by `uid` or her spot; `group`: the best ready copy): it waits
+ * while the refusal is one a later moment can lift (cooldown, no wave, no target …) and fails otherwise.
+ * @typedef {{ at?: number, action: 'place'|'upgrade'|'sell'|'heroLevel'|'ability', unitId?: string, x?: number, y?: number,
+ *   tx?: number, ty?: number, uid?: number, path?: number, group?: boolean }} PlanAction
  */
 
 /** Position of a plan action as (x, y) arguments for the Sim (continuous wins over tile). */
@@ -47,6 +50,13 @@ function executeAction(sim, a) {
     if (!st.reason) return sim.buyHeroLevel({ level: st.level + 1, maxPrice: st.price }).ok ? 'done' : 'fail';
     return st.reason === 'cash' ? 'wait' : 'fail';
   }
+  if (a.action === 'ability') {
+    const t = a.uid != null ? sim.getTower(a.uid) : sim.towerAt(x, y);
+    if (!t) return 'fail';
+    const r = sim.castAbility(t.uid, { group: !!a.group });
+    if (r.ok) return 'done';
+    return TRANSIENT_REFUSALS.includes(r.reason) ? 'wait' : 'fail';
+  }
   return 'fail';
 }
 
@@ -54,15 +64,17 @@ function executeAction(sim, a) {
  * Runs a whole battle without rendering. Plan actions execute in order once their wave is
  * reached (`at` = the wave they should be in place for) and as soon as they are affordable;
  * waves start automatically.
+ * `autoAbilities` (bots and benches): every girl's ability auto-casts (the Auto-cast setting; default Off,
+ * which keeps every existing bot battle exactly as before abilities).
  * @param {{ stageId: string, difficulty?: string, plan?: PlanAction[], seed?: number, maxTime?: number,
- *   loadout?: {unitId, stats?}[], hero?: {unitId, stats?}|null, data?: object, options?: object }} cfg
+ *   loadout?: {unitId, stats?}[], hero?: {unitId, stats?}|null, data?: object, options?: object, autoAbilities?: boolean }} cfg
  * @returns {{ won: boolean, lost: boolean, wave: number, wavesCleared: number, lives: number,
  *   maxLives: number, time: number, cash: number, failed: PlanAction[], pendingLeft: number,
  *   result: object, sim: Sim }}
  */
 export function runHeadless({
   stageId, difficulty = 'normal', plan = [], seed = 1, maxTime = 3600, loadout = null, hero = undefined,
-  data = undefined, options = {},
+  data = undefined, options = {}, autoAbilities = false,
 } = {}) {
   const ds = createDataSource(stageId ?? data?.stage?.id, data || {});
   let lo = loadout;
@@ -76,7 +88,7 @@ export function runHeadless({
       heroCfg = h ? { unitId: h.id, stats: { ...DEFAULT_UNIT_STATS } } : null;
     }
   }
-  const sim = new Sim({ stageId: ds.stage.id, difficulty, loadout: lo, hero: heroCfg, seed, options: { autoStart: false, ...options }, data: { ...(data || {}), stage: ds.stage, map: ds.map } });
+  const sim = new Sim({ stageId: ds.stage.id, difficulty, loadout: lo, hero: heroCfg, seed, options: { autoStart: false, ...options, ...(autoAbilities ? { autoAbilities: true } : null) }, data: { ...(data || {}), stage: ds.stage, map: ds.map } });
   const pending = plan.slice();
   const failed = [];
   const tryActions = () => {
@@ -159,6 +171,20 @@ function pathScore(def, p, needs, tiersToCount = 5) {
     if (m.income) s += (m.income.perWave || 0) / 40 + (m.income.interest || 0) * 20;
     if (m.trap) s += (m.trap.max || 0) * 0.5 + ((m.trap.damage || 0) / Math.max(1, base.trap?.damage || baseDmg)) * 4;
     if (m.turret) s += (m.turret.max || 0) * 1.5 + (m.turret.damage || 0) * 0.3;
+    // the new girls' own blocks, scored like the turret's (only their tiers carry these keys)
+    if (m.sentry) s += (m.sentry.max || 0) * 1.5 + (m.sentry.damage || 0) * 0.3 + (m.sentry.kits ? 4 : 0) + (m.sentry.burst || 0) * 0.02;
+    if (m.strip) s += (m.strip.hits || 0) * 0.3 + (m.strip.boom || 0) * 0.02;
+    // Marumi's balls
+    if (m.ball) s += (m.ball.travel || 0) * 0.5 + (m.ball.through || 0) * 1 + (m.ball.pins || 0) * 0.4 + (m.ball.bounce || 0) * 1.2 + (m.ball.finish || 0) * 1.5;
+    // Chigusa's vine, thorns and Bloom Rush
+    if (m.vine) s += (m.vine.bloom || 0) * 6 + (m.vine.dps || 0) * 0.1 + (m.vine.beds || 0) * 0.3 - (m.vine.every || 0) * 0.8;
+    if (m.hub) {
+      // Ouka's rules: for the girls around her
+      const h = m.hub;
+      s += ((h.rateMul || 1) - 1) * 20 + ((h.dmgMul || 1) - 1) * 20 + (h.freeTiers || 0) * 3 + (h.costCut || 0) * 15 + (h.cdCut || 0) * 4;
+      if (h.detection && needs.veiled) s += 6;
+      if (h.airGrant && needs.airborne) s += 6;
+    }
     if (m.status) s += 1;
     if (m.eliteMul) s += (m.eliteMul - 1) * 3;
     if (m.bossMul) s += (m.bossMul - 1) * 2;
@@ -174,15 +200,22 @@ function detectionRoute(def) {
   (def.paths || []).forEach((p, pi) => {
     (p.tiers || []).forEach((t, ti) => {
       const m = t.mods || {};
-      if ((m.detection || m.aura?.detection) && (!best || ti + 1 < best.tier)) best = { path: pi, tier: ti + 1 };
+      if ((m.detection || m.aura?.detection || m.hub?.detection) && (!best || ti + 1 < best.tier)) best = { path: pi, tier: ti + 1 };
     });
   });
   return best;
 }
 
 function unitRole(stats) {
+  // a buff thrower (Wakaba) is placed for her drinks, never copied as a damage dealer
+  if (stats.behavior === 'drink') return 'support';
+  // a campus hub (Ouka) is placed for her rules around the damage dealers
+  if (stats.hub) return 'support';
   if (stats.income && (stats.behavior === 'none' || stats.damage <= 0)) return 'econ';
   if (stats.behavior === 'none') return stats.aura ? 'support' : 'econ';
+  // an aura girl whose own attack is a token chime (Noa: 1 damage every 2 s) is placed for her aura,
+  // never copied as a damage dealer (roster wave)
+  if (stats.aura && stats.damage * stats.rate <= 0.5) return 'support';
   return 'dps';
 }
 
@@ -204,11 +237,12 @@ function jitter(i, j, salt) {
  * (the crosspath rule respected). Used to sanity-check that stages are beatable.
  * @param {string} stageId
  * @param {string[]} unitIds towers and optionally one hero
- * @param {{ data?: object, maxCopies?: number, focus?: boolean }} opts  focus = push the best
- *   carry to tier 4 right after the tier-2 round (default) instead of spreading upgrades evenly.
+ * @param {{ data?: object, maxCopies?: number, focus?: boolean, ability?: boolean }} opts  focus = push the best
+ *   carry to tier 4 right after the tier-2 round (default) instead of spreading upgrades evenly;
+ *   ability = every girl's main path is her ⚡ path (the one her ability unlocks on), for ability bots and benches.
  * @returns {PlanAction[]} place actions carry continuous `x`/`y` plus the tile `tx`/`ty` under them
  */
-export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, focus = true } = {}) {
+export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, focus = true, ability = false } = {}) {
   const ds = createDataSource(stageId ?? data?.stage?.id, data || {});
   const { stage, map } = ds;
   const paths = buildPaths(map);
@@ -264,7 +298,8 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   const infos = defs.filter((d) => d.kind !== 'hero').map((def) => {
     const stats = resolveStats(def);
     const scores = [0, 1, 2].map((p) => pathScore(def, p, needs));
-    const main = scores.indexOf(Math.max(...scores));
+    const zap = ability ? abilityPathOf(def) : -1;
+    const main = zap >= 0 ? zap : scores.indexOf(Math.max(...scores));
     const subScores = [0, 1, 2].map((p) => (p === main ? -Infinity : pathScore(def, p, needs, 2)));
     const sub = subScores.indexOf(Math.max(...subScores));
     return { def, stats, role: unitRole(stats), main, sub, detect: detectionRoute(def), cost: stats.cost };
@@ -286,17 +321,25 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     return true;
   };
 
-  const bestSpot = (info) => {
+  // an amphibious girl takes the best water spot whenever one is free and only falls back to land
+  // without one: the girls who were water-only on live (Nami, Sango, Umeko) are placed exactly as
+  // before, and the land spots stay free for the girls who need them (roster wave)
+  const bestSpot = (info) => (placement(info.def) === 'amphibious' ? bestIn(info, true) ?? bestIn(info, false) : bestIn(info, false));
+  const bestIn = (info, waterOnly) => {
     const r = footprintRadius(info.def);
     let best = null;
     let bestS = -Infinity;
     for (const c of cands) {
-      if (!fits(info.def, c) || !free(c, r)) continue;
+      if (!(waterOnly ? c.water : fits(info.def, c)) || !free(c, r)) continue;
       let s;
       if (info.role === 'econ') s = -coverage(c, 2.5);
       else if (info.role === 'support') {
-        const ar = info.stats.aura?.range || 2;
+        const ar = info.stats.aura?.range || (info.stats.drink ? info.stats.range : info.stats.hub ? info.stats.hub.radius : 2);
         s = placed.filter((p) => p.role === 'dps' && Math.hypot(p.x - c.x, p.y - c.y) <= ar).length * 100 + coverage(c, info.stats.range);
+        // a buff thrower (Wakaba) stands where her drinks reach the girl this plan will push as its carry;
+        // a campus hub (Ouka) where her office covers that girl (her deep upgrades get the discount)
+        const carry = info.stats.drink || info.stats.hub ? carryNow() : null;
+        if (carry && Math.hypot(carry.x - c.x, carry.y - c.y) <= ar) s += 1000;
       } else {
         // roaming drones (Chika) fight up to roam + gun range from her
         const tu = info.stats.turret;
@@ -305,6 +348,21 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       if (s > bestS) {
         bestS = s;
         best = c;
+      }
+    }
+    return best;
+  };
+
+  // the damage dealer placed so far that the focus step will push deep (carryScore below, same formula)
+  const carryNow = () => {
+    let best = null;
+    let bestS = -Infinity;
+    for (const p of placed) {
+      if (p.role !== 'dps') continue;
+      const sc = pathScore(p.def, p.main, needs) * (1 + 0.3 * (p.def.base?.bossMul || 1)) * (p.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
+      if (sc > bestS) {
+        bestS = sc;
+        best = p;
       }
     }
     return best;
@@ -357,22 +415,28 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       }
     }
   }
-  for (const info of [...dps, ...support, ...econ]) if (!copies(info)) place(info);
+  // a strip layer (Azami) adds road control, not the damage a carry needs: she is placed after the
+  // damage dealers, gets no extra copies, and her tiers wait until the carry's focus push (only the new
+  // girls carry `strip`, so base-roster plans are unchanged)
+  const strips = dps.filter((i) => i.stats.strip);
+  const shooters = strips.length ? dps.filter((i) => !i.stats.strip) : dps;
+  for (const info of [...shooters, ...strips, ...support, ...econ]) if (!copies(info)) place(info);
 
   const dpsRecs = () => placed.filter((p) => p.role === 'dps');
-  for (const rec of dpsRecs()) upgrade(rec, rec.main, 2);
+  const isStrip = (rec) => !!rec.info.stats?.strip;
+  for (const rec of dpsRecs()) if (!isStrip(rec)) upgrade(rec, rec.main, 2);
   // Focus: like a real player, push one carry deep (tier 4) early instead of spreading every
   // coin over tier-2 girls — boss and miniboss stages are unwinnable without a real damage dealer.
   const carryScore = (rec) => pathScore(rec.def, rec.main, needs) * (1 + 0.3 * (rec.def.base?.bossMul || 1)) * (rec.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
-  const carry = focus ? dpsRecs().sort((a, b) => carryScore(b) - carryScore(a))[0] : null;
+  const carry = focus ? dpsRecs().filter((r) => !isStrip(r)).sort((a, b) => carryScore(b) - carryScore(a))[0] || null : null;
   if (carry) upgrade(carry, carry.main, 4);
-  for (const info of dps.slice(0, 2)) if (copies(info) < maxCopies) place(info);
+  for (const info of shooters.slice(0, 2)) if (copies(info) < maxCopies) place(info);
   for (const rec of placed) {
     upgrade(rec, rec.main, 2);
     if (rec.role !== 'econ') upgrade(rec, rec.sub, 2);
   }
   for (const rec of dpsRecs()) upgrade(rec, rec.main, 3);
-  for (const info of dps.slice(0, 2)) {
+  for (const info of shooters.slice(0, 2)) {
     if (copies(info) < maxCopies) {
       const rec = place(info);
       if (rec) upgrade(rec, rec.main, 3);

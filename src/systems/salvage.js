@@ -40,7 +40,7 @@ export function salvagePreview(profile, uids) {
   return {
     uids: ok,
     skipped,
-    rewards: mergeRewards(ok.map((uid) => salvageRewards(profile.gear[uid]))),
+    rewards: mergeRewards(ok.map((uid) => salvageRewards(profile.gear[uid], profile))),
     precious: ok.filter((uid) => isPrecious(profile.gear[uid])),
   };
 }

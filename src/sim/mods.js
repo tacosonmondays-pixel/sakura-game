@@ -12,9 +12,10 @@ import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
 import { BREW_TARGETS_MAX } from './constants.js';
+import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
 
-const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback'];
-const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul'];
+const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
+const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul', 'airMul'];
 const REPLACE_KEYS = ['attackType', 'element', 'behavior'];
 
 function normAura(a = {}) {
@@ -53,6 +54,238 @@ function normTrap(t = {}) {
     status: (t.status || []).map((s) => ({ ...s })),
   };
 }
+
+/**
+ * Spike strips (Azami, UNIT_GAPS §5.3; src/sim/strips.js): a trap girl whose traps are strips with a hit
+ * budget and a lifetime. Only a girl whose base declares `strip` carries this block, so every other
+ * girl resolves exactly as before it existed. Numbers add, flags OR (a ModSet's `strip`).
+ *   hits     hits per strip (an enemy is hit once per strip)     ttl   seconds a strip lives
+ *   forever  strips last until used up                          carry strips carry into the next wave
+ *   boom     damage when a strip runs out or expires (radius boomR, stun boomStun s)
+ *   air      share of the strip's damage on flyers (0 = ground only)
+ *   aim      Checkpoint mode (strips near her aim point)         opening  s of ×4 laying at each wave start
+ *   lanes    Spread mode covers every lane in range              pair  Spread lays 2 at a time
+ *   rain     every `rain` s of wave time a small Spike Rain of rainCount strips lays itself
+ */
+function normStrip(t = {}) {
+  return {
+    hits: t.hits ?? 6,
+    ttl: t.ttl ?? 30,
+    forever: !!t.forever,
+    carry: !!t.carry,
+    boom: t.boom ?? 0,
+    boomR: t.boomR ?? 1,
+    boomStun: t.boomStun ?? 0,
+    air: t.air ?? 0,
+    aim: !!t.aim,
+    opening: t.opening ?? 0,
+    lanes: !!t.lanes,
+    pair: !!t.pair,
+    rain: t.rain ?? 0,
+    rainCount: t.rainCount ?? 0,
+  };
+}
+
+const STRIP_FLAGS = ['forever', 'carry', 'aim', 'lanes', 'pair'];
+
+/**
+ * The 360° ring (Kinu, UNIT_GAPS §5.4; src/sim/rings.js): her pins are her projectiles (count) and her
+ * pierce; this block holds the rest. Only a girl whose base declares `ring` carries it.
+ *   travel   tiles a pin flies          turn     each ring turns 1/16 (Twin Spools)
+ *   heat     an expanding heat ring instead of pins (Iron Ring); double: two per attack
+ *   sparks   enemies her heat ring finishes while burning throw 4 sparks (Molten Hem)
+ *   scissors orbiting scissor pairs; scissorDmg each cut (× scissorMul)
+ *   spiral   Blade Spiral spirals (her ⚡ boost sets it); spiralPierce the blades' pierce
+ */
+function normRing(t = {}) {
+  return {
+    travel: t.travel ?? 1.8,
+    turn: !!t.turn,
+    heat: !!t.heat,
+    double: !!t.double,
+    sparks: !!t.sparks,
+    scissors: t.scissors ?? 0,
+    scissorDmg: t.scissorDmg ?? 8,
+    scissorMul: t.scissorMul ?? 1,
+    spiral: t.spiral ?? 0,
+    spiralPierce: t.spiralPierce ?? 0,
+  };
+}
+const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
+
+/**
+ * The buff thrower (Wakaba, UNIT_GAPS §5.6; src/sim/drinks.js): what her sports drink does. Bonuses
+ * add (dmg 0.2 = +20% damage); only a girl whose base declares `drink` carries it.
+ *   splash  tiles around the target girl     shots  attacks a drink lasts
+ *   dmg / rate / range  Hydrated bonuses      pierce  extra pierce while Hydrated
+ *   detection (Coach's Eye) · cleanse (Ice Pack) · permanent (Secret Formula)
+ *   season  every girl within this many tiles carries it at all times (Championship Season)
+ *   towel / towelDmg  Towel Snap flicks       life  a life back after a clean wave (Recovery Plan)
+ */
+function normDrink(t = {}) {
+  return {
+    splash: t.splash ?? 0.8,
+    shots: t.shots ?? 8,
+    dmg: t.dmg ?? 0,
+    rate: t.rate ?? 0.15,
+    range: t.range ?? 0.1,
+    pierce: t.pierce ?? 0,
+    detection: !!t.detection,
+    cleanse: !!t.cleanse,
+    permanent: !!t.permanent,
+    season: t.season ?? 0,
+    towel: !!t.towel,
+    towelDmg: t.towelDmg ?? 2,
+    life: !!t.life,
+  };
+}
+const DRINK_FLAGS = ['detection', 'cleanse', 'permanent', 'towel', 'life'];
+
+/**
+ * The sentry builder (Yuzuha, UNIT_GAPS §5.2; src/sim/sentries.js): her lane sentries and nets. Only a
+ * girl whose base declares `sentry` carries it. Numbers add (rate multiplies), flags OR.
+ *   max · every (s per sentry) · speed (deploys faster: every / (1 + speed)) · ttl (s)
+ *   damage · rate (shots/s, ×) · range · burst (damage when one runs out) · kits (Specialist Kits)
+ *   nets · netBudget (HP a wave) · netElite · netBoss (what a net may catch)
+ */
+function normSentry(t = {}) {
+  return {
+    max: t.max ?? 2,
+    every: t.every ?? 6,
+    speed: t.speed ?? 0,
+    ttl: t.ttl ?? 20,
+    damage: t.damage ?? 3,
+    rate: t.rate ?? 1.2,
+    range: t.range ?? 2,
+    burst: t.burst ?? 0,
+    kits: !!t.kits,
+    nets: t.nets ?? 0,
+    netBudget: t.netBudget ?? 0,
+    netElite: !!t.netElite,
+    netBoss: !!t.netBoss,
+  };
+}
+const SENTRY_FLAGS = ['kits', 'netElite', 'netBoss'];
+
+/**
+ * The campus hub (Ouka, UNIT_GAPS §5.5; src/sim/hubs.js): the rules inside her office radius and her
+ * banners. Only a girl whose base declares `hub` carries it. A tier states the new value of a rule
+ * (strongest wins: radius 3.2, costCut 0.14, …), flags OR; radiusAdd / cutAdd add on top afterwards
+ * (awaken passive, Potential).
+ *   radius (tiles) · costCut (upgrades in her radius) · sellMul (their sell value) · freeTiers (free
+ *   first tiers per path) · killBounty (coins a kill inside her radius) · cdCut (faster ability charge)
+ *   rateMul / rangeMul / dmgMul · detection · airGrant (they can hit flyers) · cleanse (and no sabotage)
+ *   typeFloor (type chart floor) · banners (how many) · bannerRange · bannerReach (how far she plants one)
+ */
+function normHub(t = {}) {
+  return {
+    radius: t.radius ?? 2.6,
+    costCut: t.costCut ?? 0,
+    sellMul: t.sellMul ?? 0,
+    freeTiers: t.freeTiers ?? 0,
+    killBounty: t.killBounty ?? 0,
+    cdCut: t.cdCut ?? 0,
+    rateMul: t.rateMul ?? 1,
+    rangeMul: t.rangeMul ?? 1,
+    dmgMul: t.dmgMul ?? 1,
+    detection: !!t.detection,
+    airGrant: !!t.airGrant,
+    cleanse: !!t.cleanse,
+    typeFloor: t.typeFloor ?? 0,
+    banners: t.banners ?? 0,
+    bannerRange: t.bannerRange ?? 1.6,
+    bannerReach: t.bannerReach ?? 5,
+    radiusAdd: t.radiusAdd ?? 0,
+    cutAdd: t.cutAdd ?? 0,
+  };
+}
+const HUB_MAX = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'typeFloor', 'banners', 'bannerRange', 'bannerReach'];
+const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
+const HUB_ADDS = ['radiusAdd', 'cutAdd'];
+
+/**
+ * The nature caster (Chigusa, UNIT_GAPS §5.7; src/sim/vines.js): her Creeping Vine, thorn beds, Bloom
+ * Rush and harvest lives. Only a girl whose base declares `vine` carries it. Every number adds.
+ *   every (s per vine) · hold (s) · dps (vine damage a second while it holds)
+ *   beds (hits per thorn bed; 0 = none) · bedDmg · bedTtl (s)
+ *   bloom (Bloom Rush cap, 0.6 = +60% attack speed) · bloomPer (a second of attacking) · bloomIdle (s)
+ *   lives (a wave cleared) · livesCap (a battle)
+ */
+function normVine(t = {}) {
+  return {
+    every: t.every ?? 6,
+    hold: t.hold ?? 1,
+    dps: t.dps ?? 0,
+    beds: t.beds ?? 0,
+    bedDmg: t.bedDmg ?? 2,
+    bedTtl: t.bedTtl ?? 8,
+    bloom: t.bloom ?? 0,
+    bloomPer: t.bloomPer ?? 0.05,
+    bloomIdle: t.bloomIdle ?? 2,
+    lives: t.lives ?? 0,
+    livesCap: t.livesCap ?? 30,
+  };
+}
+/**
+ * The bowler (Marumi, UNIT_GAPS §5.9; src/sim/balls.js): her rolling bomb balls. Only a girl whose base
+ * declares `ball` carries it. Numbers add, flags OR.
+ *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · share (× of a blast on
+ *   the others in it; the walker the ball meets takes it all) · lob (her lob at flyers, base kit) ·
+ *   lobMul (× of her blast a lob carries)
+ *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin)
+ *   pushBig (Bowling Thunder: minibosses take her whole push)
+ *   bounce (ricochets after a blast; 0 = none) · reach (tiles to the next walker) · finish (× of the
+ *   Glow Bowl finale after the last bounce; 0 = none)
+ */
+function normBall(t = {}) {
+  return {
+    travel: t.travel ?? 4,
+    speed: t.speed ?? 4,
+    through: t.through ?? 0,
+    share: t.share ?? 0.5,
+    lobMul: t.lobMul ?? 0.5,
+    pins: t.pins ?? 0,
+    pinDmg: t.pinDmg ?? 4,
+    pinPierce: t.pinPierce ?? 2,
+    hook: !!t.hook,
+    lob: !!t.lob,
+    pushBig: !!t.pushBig,
+    bounce: t.bounce ?? 0,
+    reach: t.reach ?? 2,
+    finish: t.finish ?? 0,
+  };
+}
+const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
+const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
+const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+
+/**
+ * Kaede's blade arts (her AoE rework; src/sim/towers.js bladeArt): only a girl whose base declares
+ * `blade` carries this block, so every other girl resolves exactly as before it existed. Numbers add,
+ * shareMul multiplies. Every share is of her plain (unfocused) hit, except the maple splash's, which is
+ * of her focused strike. Targets are the most enemies each shape cuts (gear Pierce adds to each).
+ *   every            a blade art every Nth strike (her Maple Cleave)
+ *   radius · share · targets            the cleave around her target
+ *   crescents · cLen · cWidth · cShare · cTargets   wind crescents through her target (Flowing Blade)
+ *   storm · sShare · sTargets           the maple blade storm around her (Flowing Blade tier 5)
+ *   wave · wWidth · wShare · wTargets   the ground shockwave through her target (Guard Breaker 4-5)
+ *   maple · mShare · mTargets           the maple splash of a full-focus strike (Unbroken Rhythm)
+ *   shareMul         every share above × this (Potential)
+ *   capMax           her focus cap before Potential (resolveStats sets it; the maple splash keys on it)
+ */
+function normBlade(t = {}) {
+  const o = {};
+  for (const k of BLADE_ADDS) o[k] = t[k] ?? 0;
+  o.shareMul = t.shareMul ?? 1;
+  o.capMax = 0;
+  return o;
+}
+const BLADE_ADDS = ['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets'];
+
+const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];
+const DRINK_ADDS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
+const RING_ADDS = ['travel', 'scissors', 'scissorDmg', 'spiral', 'spiralPierce'];
+const STRIP_ADDS = ['hits', 'ttl', 'boom', 'boomR', 'boomStun', 'air', 'opening', 'rain', 'rainCount'];
 
 function normTurret(t = {}) {
   return {
@@ -136,6 +369,20 @@ export function normalizeBase(base = {}, unitDef = {}) {
     silence: b.silence ?? 0,
     reveal: b.reveal ?? 0,
     knockback: b.knockback ?? 0,
+    // roster merge (ROSTER_SPEC §6.2): flyer damage multiplier, gather pull, relay origin
+    airMul: b.airMul ?? 1,
+    gather: b.gather ?? 0,
+    // both: she also fires from her own spot (Iroha's two firing points)
+    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
+    // new girls (UNIT_GAPS §5): present only on a girl whose base declares the block
+    ...(b.strip ? { strip: normStrip(b.strip) } : null),
+    ...(b.ring ? { ring: normRing(b.ring) } : null),
+    ...(b.drink ? { drink: normDrink(b.drink) } : null),
+    ...(b.sentry ? { sentry: normSentry(b.sentry) } : null),
+    ...(b.hub ? { hub: normHub(b.hub) } : null),
+    ...(b.vine ? { vine: normVine(b.vine) } : null),
+    ...(b.ball ? { ball: normBall(b.ball) } : null),
+    ...(b.blade ? { blade: normBlade(b.blade) } : null),
   };
 }
 
@@ -258,7 +505,50 @@ export function applyModSet(s, mods, acc) {
       s.trap.max += v.max ?? 0;
       s.trap.damage += v.damage ?? 0;
       s.trap.splash += v.splash ?? 0;
+      if (v.triggerRadius != null) s.trap.triggerRadius += v.triggerRadius;
       if (v.status) mergeStatusList(s.trap.status, v.status);
+    } else if (key === 'strip') {
+      // only a strip girl's strips change (src/sim/strips.js)
+      if (!s.strip) continue;
+      for (const k of STRIP_ADDS) if (v[k] != null) s.strip[k] += v[k];
+      for (const k of STRIP_FLAGS) if (v[k]) s.strip[k] = true;
+    } else if (key === 'ring') {
+      // only a ring girl's ring changes (src/sim/rings.js)
+      if (!s.ring) continue;
+      for (const k of RING_ADDS) if (v[k] != null) s.ring[k] += v[k];
+      for (const k of RING_FLAGS) if (v[k]) s.ring[k] = true;
+      if (v.scissorMul != null) s.ring.scissorMul *= v.scissorMul;
+    } else if (key === 'drink') {
+      // only a drink girl's drink changes (src/sim/drinks.js)
+      if (!s.drink) continue;
+      for (const k of DRINK_ADDS) if (v[k] != null) s.drink[k] += v[k];
+      for (const k of DRINK_FLAGS) if (v[k]) s.drink[k] = true;
+    } else if (key === 'sentry') {
+      // only a sentry girl's sentries change (src/sim/sentries.js)
+      if (!s.sentry) continue;
+      for (const k of SENTRY_ADDS) if (v[k] != null) s.sentry[k] += v[k];
+      for (const k of SENTRY_FLAGS) if (v[k]) s.sentry[k] = true;
+      if (v.rate != null) s.sentry.rate *= v.rate;
+    } else if (key === 'ball') {
+      // only a bowler's balls change (src/sim/balls.js)
+      if (!s.ball) continue;
+      for (const k of BALL_ADDS) if (v[k] != null) s.ball[k] += v[k];
+      for (const k of BALL_FLAGS) if (v[k]) s.ball[k] = true;
+    } else if (key === 'vine') {
+      // only a vine girl's vines change (src/sim/vines.js)
+      if (!s.vine) continue;
+      for (const k of VINE_ADDS) if (v[k] != null) s.vine[k] += v[k];
+    } else if (key === 'hub') {
+      // only a hub girl's rules change (src/sim/hubs.js)
+      if (!s.hub) continue;
+      for (const k of HUB_MAX) if (v[k] != null) s.hub[k] = Math.max(s.hub[k], v[k]);
+      for (const k of HUB_ADDS) if (v[k] != null) s.hub[k] += v[k];
+      for (const k of HUB_FLAGS) if (v[k]) s.hub[k] = true;
+    } else if (key === 'blade') {
+      // only Kaede's blade arts change (src/sim/towers.js bladeArt)
+      if (!s.blade) continue;
+      for (const k of BLADE_ADDS) if (v[k] != null) s.blade[k] += v[k];
+      if (v.shareMul != null) s.blade.shareMul *= v.shareMul;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;
@@ -299,6 +589,9 @@ export function applyModSet(s, mods, acc) {
       s.hpPct.pct = Math.max(s.hpPct.pct, v.pct ?? 0);
       s.hpPct.boss = Math.max(s.hpPct.boss, v.boss ?? 0);
       s.hpPct.cap = Math.max(s.hpPct.cap, v.cap ?? 0);
+    } else if (key === 'relay') {
+      // only a girl who already has a familiar / mirror can extend its reach
+      if (s.relay) s.relay.reach += v.reach ?? 0;
     } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }
@@ -351,6 +644,19 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.crit.mul *= u.critMul || 1;
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
+  if (s.ring) s.ring.scissorDmg *= u.damageMul;
+  if (s.drink) s.drink.towelDmg *= u.damageMul;
+  if (s.ball) s.ball.pinDmg *= u.damageMul;
+  if (s.vine) {
+    s.vine.dps *= u.damageMul;
+    s.vine.bedDmg *= u.damageMul;
+  }
+  if (s.sentry) {
+    s.sentry.damage *= u.damageMul;
+    s.sentry.burst *= u.damageMul;
+    s.sentry.rate *= u.rateMul;
+  }
+  applyGearReach(s, u);
   if (s.turret) {
     s.turret.damage *= u.damageMul;
     s.turret.rate *= u.rateMul;
@@ -359,6 +665,38 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
     if (s.turret.build > 0) s.turret.build /= u.rateMul;
   }
   return s;
+}
+
+/**
+ * Gear's reach past hits (docs/specs/GEAR_STATS.md §A.3, §A.4, §B.3): Pierce widens blasts and traps
+ * (×(1 + 0.2 × Pierce)); Aura Power grows her aura's bonus parts (never its cost cut); gear Range and the
+ * aura girls' fill-in widen her aura; half of gear ATK reaches her burns and poisons (dotMul, never the
+ * %-of-max-HP part). Shots, beams, sweeps, chains and drones take Pierce per attack (towers.js).
+ */
+function applyGearReach(s, u) {
+  const pk = Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(u.pierceK || 0)));
+  if (pk > 0) {
+    const blast = 1 + BLAST_PER_PIERCE * (pk / 100);
+    if (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) s.splash *= blast;
+    if (s.trap && s.trap.splash > 0) s.trap = { ...s.trap, splash: s.trap.splash * blast };
+  }
+  if (s.aura) {
+    const a = { ...s.aura };
+    const ap = Math.max(0, u.auraPct || 0);
+    if (ap > 0) {
+      for (const k of ['dmgMul', 'rateMul', 'rangeMul']) if (typeof a[k] === 'number' && a[k] > 1) a[k] = 1 + (a[k] - 1) * (1 + ap);
+      for (const k of ['armorPen', 'critChance']) if (typeof a[k] === 'number' && a[k] > 0) a[k] *= 1 + ap;
+    }
+    if (typeof a.range === 'number') a.range *= (u.rangeMul || 1) * Math.max(1, u.auraRangeMul || 1);
+    s.aura = a;
+  }
+  const dm = Math.max(1, u.dotMul || 1);
+  if (dm > 1) {
+    const grow = (list) => (list || []).map((st) => ((st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number' ? { ...st, dps: st.dps * dm } : st));
+    if (s.status) s.status = grow(s.status);
+    if (s.trap?.status) s.trap = { ...s.trap, status: grow(s.trap.status) };
+    if (s.turret?.status) s.turret = { ...s.turret, status: grow(s.turret.status) };
+  }
 }
 
 /**
@@ -384,28 +722,57 @@ function potentialTail(s, pot, acc) {
 /**
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
- * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object }} opts unitStats.potential
- *   (1…6) adds her Potential steps
+ * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object, heroMastery?: number,
+ *   extra?: object|object[]|null }} opts unitStats.potential (1…6) adds her Potential steps; `extra`
+ *   (a ModSet or a list of them: a running ability boost, src/sim/abilities.js) applies after every
+ *   other set and before the damage is resolved. No `extra`: bit-identical to before it existed.
  */
-export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0 } = {}) {
+export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0, extra = null } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
+  // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)
+  if (s.blade) s.blade.capMax = s.ramp ? s.ramp.max : 0;
   // Potential (src/data/potential.js): its ModSets after the awaken passive (and after a hero's
   // track levels, growth and Mastery), its whole-girl multipliers folded into the unit stats like
   // level and gear. P1 changes nothing.
   const pot = potentialFold(def, us.potential);
   for (const m of pot.sets) applyModSet(s, m, acc);
+  if (extra) for (const m of Array.isArray(extra) ? extra : [extra]) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
   applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
+  if (s.hub && pot.incomeMul !== 1) s.hub.costCut *= pot.incomeMul; // (Ouka's coins track: her discount)
   if (pot.level > 1) potentialTail(s, pot, acc);
   s.projectiles = Math.max(1, Math.round(s.projectiles));
   s.pierce = Math.max(1, Math.round(s.pierce));
   s.chain = Math.max(0, Math.round(s.chain));
   s.maxTargets = Math.max(1, Math.round(s.maxTargets));
   if (s.trap) s.trap.max = Math.max(0, Math.round(s.trap.max));
+  if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
+  if (s.ball) {
+    s.ball.through = Math.max(0, Math.round(s.ball.through));
+    s.ball.pins = Math.max(0, Math.round(s.ball.pins));
+    s.ball.bounce = Math.max(0, Math.round(s.ball.bounce));
+    s.ball.reach = Math.max(0, s.ball.reach);
+    s.ball.share = Math.min(1, Math.max(0, s.ball.share));
+  }
+  if (s.vine) {
+    s.vine.every = Math.max(1, s.vine.every);
+    s.vine.beds = Math.max(0, Math.round(s.vine.beds));
+  }
+  if (s.hub) {
+    // her office: the strongest radius plus its adds; her range is the radius (the ring the board draws)
+    const h = s.hub;
+    h.radius += h.radiusAdd;
+    h.costCut = Math.min(0.5, h.costCut + h.cutAdd);
+    h.radiusAdd = 0;
+    h.cutAdd = 0;
+    h.freeTiers = Math.round(h.freeTiers);
+    h.banners = Math.round(h.banners);
+    s.range = h.radius;
+  }
   if (s.turret) s.turret.max = Math.max(0, Math.round(s.turret.max));
   return s;
 }

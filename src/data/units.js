@@ -14,8 +14,14 @@
 //   slow, and so on — the sim never has to guess.
 // * Heroes have no upgrade paths: they deploy for free and level 1–25 inside each battle along one
 //   track (src/data/heroTracks.js). Their `paths` is empty and `hero.levels` holds all 25 levels.
+// * Abilities live in src/data/abilities.js and are attached at the end of this file: one ⚡ path per
+//   girl gets `ability` (it unlocks at tier 3), every hero gets `hero.skill` (Lv 7). Each girl has one
+//   tip starting with ⚡ that names both.
 
 import { HERO_TRACKS } from './heroTracks.js';
+import { attachAbilities } from './abilities.js';
+import { EXPANSION_UNITS } from './unitsExpansion.js';
+import { NEW_GIRLS } from './unitsNewGirls.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -102,7 +108,7 @@ const HIKARI = {
     hairStyle: 'long', bangs: 'swept', accessory: 'crown', outfit: 'armor', weapon: 'sword',
     halo: 'crown', eyeStyle: 'sharp', expression: 'smile',
   },
-  bio: 'Captain of the Sentinel Guard and the academy\'s senior guardian. Tall and poised, she wears a tailored white-and-gold knight\'s greatcoat over polished half-plate, a slim golden circlet in her long sunlit hair, and carries a longsword that burns with morning light. She walks the front line so her students never have to stand there alone.',
+  bio: 'Captain of the Sentinel Guard and the academy\'s senior guardian. Long sakura-pink hair crowned with a braided circlet of little gold stars, a white-and-gold knight\'s coat over navy, a big teal bow and a jewelled star-guard sword that shines like sunrise. She walks the front line so her students never have to stand there alone.',
   personality: 'Warm, unshakable and quietly teasing — the confident big-sister commander everyone wants to impress.',
   quote: 'Stay behind me, girls. The dawn is never late.',
   tips: [
@@ -138,7 +144,7 @@ const HIKARI = {
 const LUNA = {
   id: 'luna',
   name: 'Luna',
-  title: 'Moonlit Archmage',
+  title: 'Moonfox Oracle',
   kind: 'hero',
   rarity: 'SSR',
   adult: true,
@@ -151,16 +157,16 @@ const LUNA = {
   pathCapabilities: ['armorPen', 'slow', 'stun', 'buff', 'detection'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#cdbbff', hairShade: '#8b74d9', eyes: '#a26bff', skin: '#f8e4e0',
-    outfit: '#2a2350', outfitShade: '#17122e', accent: '#c9a8ff', halo: '#e6dcff', weapon: '#7a5cff',
+    hair: '#c3b4e9', hairShade: '#9483c7', eyes: '#a69aff', skin: '#f8e4e0',
+    outfit: '#343c72', outfitShade: '#23284f', accent: '#b9a6ff', halo: '#e6dcff', weapon: '#e8c56a',
   },
   look: {
-    hairStyle: 'hime', bangs: 'hime', accessory: 'witchHat', outfit: 'robe', weapon: 'tome',
-    halo: 'moon', eyeStyle: 'sleepy', expression: 'smug',
+    hairStyle: 'hime', bangs: 'hime', accessory: 'foxEars', outfit: 'dress', weapon: 'staff',
+    halo: 'moon', eyeStyle: 'sleepy', expression: 'smile',
   },
-  bio: 'The academy\'s Archmage of the Night Courses and its most glamorous teacher. Luna drifts through battle in a flowing midnight gown-robe embroidered with constellations and a wide star-stitched witch hat over lavender hime-cut hair, her grimoire floating open at her side. Three moon-silver beams answer every flick of her fingers.',
-  personality: 'Languid, elegant and fond of dramatic entrances; secretly grades homework with little moon stickers.',
-  quote: 'Hush now. Let the moon do the talking.',
+  bio: 'The academy\'s fox-eared oracle of the night courses and a gentle, mysterious guardian. Long lavender hair, tall fox ears and a huge fluffy tail, a midnight-navy gown with a lavender skirt and violet bow, and a staff crowned with a golden crescent around a glowing moon-orb. Three threads of moonlight answer every flick of her tail.',
+  personality: 'Soft-spoken, playful and a little mischievous; reads fortunes in teacups and is never wrong about the weather.',
+  quote: 'Foxfire, rise. The night is on our side.',
   tips: [
     'Line her beams down a long straight: every beam pierces several enemies.',
     'Mystic is strong against armor and scales but halved by warded fae and oni.',
@@ -193,31 +199,31 @@ const LUNA = {
 const NAMI = {
   id: 'nami',
   name: 'Nami',
-  title: 'Tideguard Commodore',
+  title: 'Tide Admiral',
   kind: 'hero',
   rarity: 'SR',
   adult: true,
   role: 'tideguard',
   attackType: 'mystic',
   element: 'frost',
-  placement: 'water',
+  placement: 'amphibious',
   materialFamily: 'rime',
   capabilities: ['water', 'slow', 'antiAir'],
   pathCapabilities: ['armorPen', 'stun', 'buff'],
   acquisition: free('1-5', 'Joins after defeating the Slime Prince in 1-5 — the Moonlit Lakeshore is all water.'),
   palette: {
-    hair: '#2ec4b6', hairShade: '#16897f', eyes: '#4cc9f0', skin: '#f2d2bd',
-    outfit: '#1d3557', outfitShade: '#122440', accent: '#e9c46a', halo: '#9be7ff', weapon: '#d4af37',
+    hair: '#3d9fb0', hairShade: '#23707f', eyes: '#53d8db', skin: '#f2d2bd',
+    outfit: '#24345e', outfitShade: '#152242', accent: '#f4f6fa', halo: '#9be7ff', weapon: '#d4af37',
   },
   look: {
-    hairStyle: 'wavy', bangs: 'split', accessory: 'flower', outfit: 'coat', weapon: 'trident',
-    halo: 'wave', eyeStyle: 'sharp', expression: 'calm',
+    hairStyle: 'wavy', bangs: 'split', accessory: 'cap', outfit: 'coat', weapon: 'trident',
+    halo: 'wave', eyeStyle: 'sharp', expression: 'cheerful',
   },
-  bio: 'A retired naval commodore who now guards the academy harbor. Calm and weathered by the sea wind, she wears a fitted navy greatcoat with gold epaulettes and a sea-blossom pinned in her long teal waves, and stands knee-deep in the shallows with a gilded trident. Her strikes freeze the tide around her foes.',
-  personality: 'Laid-back and dryly funny until the horn sounds — then every order is crisp, calm and exactly right.',
-  quote: 'Tide\'s turning. Hold the line and let the sea do the rest.',
+  bio: 'A retired admiral who now commands the academy harbour and Hikari\'s oldest friend. Long teal waves under a white captain\'s cap with a gold shell badge, a navy-and-gold admiral\'s coat over a crisp sailor blouse, and a gilded trident. When she raises it, the lake turns to ice around the enemy\'s feet.',
+  personality: 'Composed, dry-witted and fiercely protective of her crew; nobody gets left on the dock, and her orders are short and always right.',
+  quote: 'All hands! Raise the tide!',
   tips: [
-    'Deploys only on water tiles — lakes beside the path are perfect.',
+    'Amphibious: she deploys on land or water — a lake beside the path keeps the good land spots free.',
     'Tidal Wave pushes the whole wave back 5 tiles: a lifesaver right before a leak.',
     'From Lv 9 her hits push enemies back into your kill zone; at Lv 24 her aura makes upgrades 10% cheaper for girls nearby (not hero levels).',
   ],
@@ -252,7 +258,7 @@ const NAMI = {
 const AOI = {
   id: 'aoi',
   name: 'Aoi',
-  title: 'Sky Archer',
+  title: 'Wind Ranger',
   kind: 'tower',
   rarity: 'R',
   adult: false,
@@ -265,20 +271,21 @@ const AOI = {
   pathCapabilities: ['armorPen', 'detection', 'priority', 'stun'],
   acquisition: STARTER,
   palette: {
-    hair: '#6cc4ff', hairShade: '#2f86d6', eyes: '#2563c9', skin: '#ffe5d6',
-    outfit: '#ffffff', outfitShade: '#cfe2f5', accent: '#ff6f91', halo: '#a6e1ff', weapon: '#f4d27a',
+    hair: '#529d67', hairShade: '#367a4c', eyes: '#88df94', skin: '#ffe5d6',
+    outfit: '#568c55', outfitShade: '#3d6a3d', accent: '#88df94', halo: '#c4f5b0', weapon: '#a8794a',
   },
   look: {
-    hairStyle: 'ponytail', bangs: 'swept', accessory: 'hairpin', outfit: 'sailor', weapon: 'bow',
-    halo: 'ring', eyeStyle: 'round', expression: 'cheerful',
+    hairStyle: 'ponytail', bangs: 'swept', accessory: 'hairpin', outfit: 'coat', weapon: 'bow',
+    halo: 'leaf', eyeStyle: 'round', expression: 'cheerful',
   },
-  bio: 'A first-year from the archery club and the academy\'s most dependable shot. Sky-blue ponytail, a white feather hairpin, a crisp sailor uniform with a pink scarf — and a bow she polishes every evening after practising until sunset.',
+  bio: 'A first-year from the archery club and the academy\'s most dependable shot. A long green ponytail with a leaf clip, a green ranger tunic under a hooded cape, leather bracers and a wooden longbow she polishes every evening after practising until sunset.',
   personality: 'Earnest, upbeat and a little competitive; keeps a notebook of every target she has ever missed (it is very short).',
   quote: 'Breathe in, draw, release — next!',
   tips: [
     'Cheap and dependable — a great first placement on any map.',
     'Many small hits crack crystal shells quickly, and she can shoot flyers.',
     'Rapid Volley tier 3 gives her Veil Sight; Piercing Arrows tier 3 lets her ignore armor.',
+    '⚡ Rapid Volley tier 3 teaches Skyfall Volley: an arrow rain that pins the front of a wave.',
   ],
   base: stats({
     cost: 200, behavior: 'projectile', damage: 4, rate: 1.4, range: 3.2, projectileSpeed: 16,
@@ -317,7 +324,7 @@ const AOI = {
 const REI = {
   id: 'rei',
   name: 'Rei',
-  title: 'Crescent Cleaver',
+  title: 'Sakura Samurai',
   kind: 'tower',
   rarity: 'R',
   adult: false,
@@ -330,20 +337,20 @@ const REI = {
   pathCapabilities: ['armorPen', 'stun', 'silence', 'armorShred'],
   acquisition: STARTER,
   palette: {
-    hair: '#2b2f45', hairShade: '#171a29', eyes: '#e63946', skin: '#ffe2d2',
-    outfit: '#3c4a6b', outfitShade: '#26304a', accent: '#e63946', halo: '#ff8fa3', weapon: '#dfe6f0',
+    hair: '#303851', hairShade: '#1b2033', eyes: '#b39eff', skin: '#ffe2d2',
+    outfit: '#4c568a', outfitShade: '#333b63', accent: '#9d86d8', halo: '#ffc2d6', weapon: '#dfe6f0',
   },
   look: {
-    hairStyle: 'short', bangs: 'messy', accessory: 'headband', outfit: 'blazer', weapon: 'katana',
-    halo: 'star', eyeStyle: 'sharp', expression: 'determined',
+    hairStyle: 'bob', bangs: 'straight', accessory: 'ribbon', outfit: 'blazer', weapon: 'katana',
+    halo: 'petal', eyeStyle: 'sharp', expression: 'calm',
   },
-  bio: 'Vice-captain of the kendo club, who swings an oversized steel nodachi as if it weighed nothing. Short ink-navy hair, a red hachimaki headband and a blazer with the sleeves rolled up. She loves corners — the tighter the crowd, the wider her grin.',
-  personality: 'Blunt, loud and fiercely competitive; secretly feeds every stray cat on campus.',
-  quote: 'Line them up. I\'ll take them all at once!',
+  bio: 'The tea-and-garden club\'s calm, quiet swordswoman, who practises her draw every dawn under the cherry trees. A neat navy-black bob with a small dark bow and a gold star pin, an indigo uniform jacket with a lilac ribbon, a pleated skirt and a katana with a pink silk bow on the hilt. She draws once — and everything in reach falls like petals.',
+  personality: 'Calm, polite and unshakeable; tends the club\'s roses between waves and drinks her tea far too hot.',
+  quote: 'One breath. One cut. Next.',
   tips: [
-    'Put her on the inside of a corner so the path wraps around her.',
+    'Melee, so no flyers: put her on the inside of a corner so the path wraps around her.',
     'Slash shreds light armor but bounces off plate — pair her with an armor breaker.',
-    'Melee: she cannot hit flyers.',
+    '⚡ Whirlwind tier 3 teaches Hurricane Draw: a few seconds of blade storm that hits everything in reach.',
     'Duelist Stance (tier 4) turns her into a single-target boss fighter.',
   ],
   base: stats({
@@ -383,7 +390,7 @@ const REI = {
 const YUKI = {
   id: 'yuki',
   name: 'Yuki',
-  title: 'Snowdrift Mage',
+  title: 'Frost Mage',
   kind: 'tower',
   rarity: 'R',
   adult: false,
@@ -396,20 +403,21 @@ const YUKI = {
   pathCapabilities: ['stun', 'armorShred', 'silence', 'armorPen'],
   acquisition: free('1-2', 'Joins after 1-2, right before hasty goblins sprint in.'),
   palette: {
-    hair: '#cdeeff', hairShade: '#8cc8ee', eyes: '#5fc8f5', skin: '#fff0ea',
-    outfit: '#bfe6ff', outfitShade: '#8ec5ea', accent: '#ffffff', halo: '#d6f3ff', weapon: '#9fd8ff',
+    hair: '#e4eff8', hairShade: '#b2c6dc', eyes: '#77d9ef', skin: '#fff0ea',
+    outfit: '#cfe6fa', outfitShade: '#8fb8e0', accent: '#bfe8ff', halo: '#d6f3ff', weapon: '#9fd8ff',
   },
   look: {
-    hairStyle: 'bob', bangs: 'straight', accessory: 'hood', outfit: 'dress', weapon: 'staff',
-    halo: 'snow', eyeStyle: 'sleepy', expression: 'shy',
+    hairStyle: 'bob', bangs: 'straight', accessory: 'hairpin', outfit: 'dress', weapon: 'staff',
+    halo: 'snow', eyeStyle: 'round', expression: 'shy',
   },
-  bio: 'A quiet snow mage from the northern dorm who lives inside a fluffy hooded winter dress. Her pale bob and sleepy eyes hide a precise mind: every snowflake she casts lands exactly where a goblin is about to step.',
+  bio: 'A shy second-year from the library committee who studies frost magic between the shelves. A silver-white bob with a snowflake hairpin, a white fur-trimmed capelet over a pale-blue dress and a staff topped with an ice crystal. Wherever she walks the air turns crisp and enemies slow to a crawl.',
   personality: 'Soft-spoken and shy, hates being rushed, and has never once been late.',
   quote: '...Slow down. Please.',
   tips: [
     'Slowed enemies stay in everyone\'s range longer — place her early along the path.',
     'Frostbite makes enemies Brittle so every girl deals more damage to them.',
     'Bosses shrug off most freeze time: lean on slows, not freezes, against them.',
+    '⚡ Deep Freeze tier 3 teaches Whiteout: it freezes every enemy around her, perfect for a wave about to leak.',
   ],
   base: stats({
     cost: 220, behavior: 'projectile', damage: 2, rate: 1.0, range: 3.0, splash: 0.6,
@@ -448,7 +456,7 @@ const YUKI = {
 const MOMO = {
   id: 'momo',
   name: 'Momo',
-  title: 'Peach Merchant',
+  title: 'Starlight Idol',
   kind: 'tower',
   rarity: 'R',
   adult: false,
@@ -461,42 +469,42 @@ const MOMO = {
   pathCapabilities: ['buff', 'armorPen'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#ffb4a2', hairShade: '#f08a7a', eyes: '#ff7a8a', skin: '#ffe7da',
-    outfit: '#fff3c4', outfitShade: '#f5d98b', accent: '#ff8fab', halo: '#ffd166', weapon: '#e6b422',
+    hair: '#e985ba', hairShade: '#c55e93', eyes: '#9663ca', skin: '#ffe7da',
+    outfit: '#c04a92', outfitShade: '#8f3570', accent: '#d23c8f', halo: '#ffc0e5', weapon: '#c7ccd8',
   },
   look: {
-    hairStyle: 'buns', bangs: 'straight', accessory: 'bunnyEars', outfit: 'apron', weapon: 'coinPurse',
+    hairStyle: 'twintails', bangs: 'straight', accessory: 'ribbon', outfit: 'dress', weapon: 'mic',
     halo: 'star', eyeStyle: 'sparkle', expression: 'cheerful',
   },
-  bio: 'Student manager of the academy store, with peach-pink double buns, a bunny-ear headband and a frilly shop apron stuffed with receipts. She funds the whole defense with clever deals — and throws (fully refundable) coins at monsters.',
-  personality: 'Bubbly, shrewd and always counting; offers a "friend discount" to literally everyone.',
-  quote: 'Every coin counts — especially the ones I throw!',
+  bio: 'The academy\'s rising idol and the pride of the idol club. Pink twin-tails tied with magenta bows, a frilly magenta-and-white idol dress, white gloves and a sparkly hand microphone. Every concert she gives between waves fills the battle treasury.',
+  personality: 'Bubbly, tireless and always on stage; winks at everyone and remembers every fan\'s name.',
+  quote: 'Thank you, everyone! Encore~!',
   tips: [
     'Place her early: her income pays out at the end of every wave.',
-    'Savings Pact tier 3 makes upgrades cheaper for the girls around her (not hero levels).',
-    'Her coin toss is weak — never rely on her to hold a lane alone.',
-    'Nightmare difficulty switches off all wave income, hers included.',
+    'Merch Table tier 3 makes upgrades cheaper for the girls around her (not hero levels).',
+    'Her glow-stick toss is weak — never rely on her to hold a lane alone.',
+    '⚡ Fan Club tier 3 teaches Market Day: coins on demand, twice per wave (Nightmare switches off all income, hers included).',
   ],
   base: stats({
     cost: 300, behavior: 'projectile', damage: 2, rate: 0.8, range: 2.8, projectileSpeed: 12,
     canHitAir: true, income: { perWave: 30, interest: 0 },
   }),
   paths: [
-    path('orchard', 'Peach Orchard', 'Wave income', [
+    path('orchard', 'Fan Club', 'Wave income', [
       tier('Fresh Stock', 150, '+20 coins per wave.', { income: { perWave: 20 } }),
       tier('Market Stall', 350, '+40 coins per wave.', { income: { perWave: 40 } }),
       tier('Peach Emporium', 1100, '+100 coins per wave.', { income: { perWave: 100 } }),
       tier('Sakura Trading Co.', 3500, '+350 coins per wave.', { income: { perWave: 350 } }),
       tier('Golden Peach Bank', 19000, '+1,500 coins per wave and 5% interest on your coins (max 150).', { income: { perWave: 1500, interest: 0.05 } }),
     ]),
-    path('ledger', 'Savings Pact', 'Interest and discounts', [
+    path('ledger', 'Merch Table', 'Interest and discounts', [
       tier('Piggy Bank', 120, 'Earn 2% interest on your coins each wave (max 150).', { income: { interest: 0.02 } }),
       tier('Compound Ledger', 300, '+2% interest and +10 coins per wave.', { income: { perWave: 10, interest: 0.02 } }),
       tier('Coupon Book', 900, 'Girls within 2.5 tiles pay 8% less for upgrades.', { aura: { range: 2.5, costCut: 0.08 } }),
       tier('Wholesale Deals', 2800, 'Discount rises to 15% within 3.2 tiles; +40 coins per wave and +3% interest.', { aura: { range: 3.2, costCut: 0.07 }, income: { perWave: 40, interest: 0.03 } }),
       tier('Golden Ledger', 14500, 'Discount rises to 25%; +400 coins per wave and +5% interest.', { aura: { costCut: 0.1 }, income: { perWave: 400, interest: 0.05 } }),
     ]),
-    path('cointoss', 'Coin Toss', 'Lucky attacks', [
+    path('cointoss', 'Encore Toss', 'Lucky attacks', [
       tier('Heavy Coins', 100, '+2 damage.', { damage: 2 }),
       tier('Double Toss', 260, 'Throws at 2 targets; +20% attack speed.', { projectiles: 1, rateMul: 1.2 }),
       tier('Gold Rush', 800, 'Solid gold coins ignore 2 armor, +3 damage, pierce 2 more.', { armorPen: 2, damage: 3, pierce: 2 }),
@@ -514,7 +522,7 @@ const MOMO = {
 const AKANE = {
   id: 'akane',
   name: 'Akane',
-  title: 'Firework Demolitionist',
+  title: 'Flame Witch',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -527,20 +535,21 @@ const AKANE = {
   pathCapabilities: ['antiAir', 'stun', 'armorPen', 'armorShred', 'barrierBreak'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#ff3b3b', hairShade: '#b51f2a', eyes: '#ffb703', skin: '#ffe3d1',
-    outfit: '#ff8c42', outfitShade: '#d2601a', accent: '#ffd23f', halo: '#ff9f1c', weapon: '#c1121f',
+    hair: '#dc634b', hairShade: '#a8402f', eyes: '#ffbb60', skin: '#ffe3d1',
+    outfit: '#6a2a4c', outfitShade: '#4a1d36', accent: '#d8473f', halo: '#ff9f1c', weapon: '#7a3b2a',
   },
   look: {
-    hairStyle: 'twintails', bangs: 'swept', accessory: 'horns', outfit: 'jumpsuit', weapon: 'fan',
+    hairStyle: 'long', bangs: 'swept', accessory: 'witchHat', outfit: 'dress', weapon: 'staff',
     halo: 'flame', eyeStyle: 'sharp', expression: 'smug',
   },
-  bio: 'President of the pyrotechnics club. Scarlet twintails, little ember-horn hair clips (she insists they are real), soot-smudged orange demolition overalls and a steel war-fan that flings fireballs. She treats every wave as a fireworks show.',
+  bio: 'The pyrotechnics club\'s self-declared flame witch. Long orange-red hair under a huge plum witch\'s hat with a gold star, a red-and-plum dress with a gold bow, and a staff ringed in gold around a burning red crystal. Her fireballs burst like festival fireworks — and she signs every one with a heart.',
   personality: 'Loud, proud and impossible to discourage; signs every explosion with a heart.',
   quote: 'Ooh, they\'re all bunched up. Showtime!',
   tips: [
     'Best against tightly packed swarms, splitters and broods.',
     'Burns ignore flat armor, but fire-warded foes resist them.',
     'Fireballs cannot hit flyers until Phoenix Feather (Wildfire tier 4) or a tier 5.',
+    '⚡ Big Bang tier 3 teaches Starmine Barrage: a firework barrage on the thickest crowd in her range.',
   ],
   base: stats({
     cost: 480, behavior: 'projectile', damage: 6, rate: 0.7, range: 3.1, splash: 1.0,
@@ -579,34 +588,34 @@ const AKANE = {
 const SANGO = {
   id: 'sango',
   name: 'Sango',
-  title: 'Coral Battery',
+  title: 'Coral Corsair',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
   role: 'artillery',
   attackType: 'blast',
   element: 'water',
-  placement: 'water',
+  placement: 'amphibious',
   materialFamily: 'ember',
   capabilities: ['water', 'barrierBreak'],
   pathCapabilities: ['armorPen', 'armorShred', 'antiAir', 'stun'],
   acquisition: free('1-5', 'Joins after 1-5 to teach water placement on the Lakeshore; later her shells crack armor and barriers.'),
   palette: {
-    hair: '#ff7f6e', hairShade: '#d94f45', eyes: '#1d7fa8', skin: '#ffe4d6',
-    outfit: '#ffffff', outfitShade: '#cfe0ee', accent: '#1d4e89', halo: '#7fd6ff', weapon: '#5c6b7a',
+    hair: '#e98288', hairShade: '#c45f68', eyes: '#67caca', skin: '#ffe4d6',
+    outfit: '#eff7ff', outfitShade: '#c8d6e6', accent: '#1d4e89', halo: '#7fd6ff', weapon: '#b8873a',
   },
   look: {
-    hairStyle: 'side', bangs: 'swept', accessory: 'goggles', outfit: 'sailor', weapon: 'cannon',
+    hairStyle: 'side', bangs: 'swept', accessory: 'beret', outfit: 'sailor', weapon: 'cannon',
     halo: 'wave', eyeStyle: 'round', expression: 'determined',
   },
-  bio: 'A marine cadet who mans a shoulder cannon twice her size from a little coral raft. Coral-pink side ponytail, diving goggles pushed up on her forehead and a crisp navy-trimmed sailor uniform. Her shells crack orc plate and shatter barriers so her friends can finish the job.',
+  bio: 'The harbour cadets\' cannoneer. Coral-pink hair in a side braid under a navy beret with a shell badge, a white-and-pink sailor coat with navy trim, and a brass telescope-cannon she maintains like a family heirloom. Her shells crack plate and pop barriers.',
   personality: 'Serious, by-the-book and secretly delighted by loud noises.',
   quote: 'Shell loaded! Armor\'s about to have a very bad day.',
   tips: [
-    'Deploys on water only, and her shells reach far.',
+    'Amphibious: she deploys on land or water, and her shells reach far.',
     'Blast deals +50% to barriers, and Sango adds even more on top.',
     'Armor-Breaker Shells lower armor for every girl that hits the target afterwards.',
-    'Air-Burst Flak (Wide Fragmentation tier 4) lets her shoot down flyers.',
+    '⚡ Wide Fragmentation tier 3 teaches Tidebreaker Shell, a shell that blasts a crowd back; tier 4 (Air-Burst Flak) shoots down flyers.',
   ],
   base: stats({
     cost: 560, behavior: 'projectile', damage: 14, rate: 0.45, range: 4.2, splash: 0.8,
@@ -645,7 +654,7 @@ const SANGO = {
 const KAGE = {
   id: 'kage',
   name: 'Kage',
-  title: 'Shadow Courier',
+  title: 'Shadow Ninja',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -658,20 +667,21 @@ const KAGE = {
   pathCapabilities: ['reveal', 'priority', 'armorPen', 'stun'],
   acquisition: free('2-5', 'Joins after 2-5, just before veiled enemies haunt the Moonveil Shrine.'),
   palette: {
-    hair: '#3d3552', hairShade: '#221d30', eyes: '#b8a1ff', skin: '#f5ddd2',
-    outfit: '#2b2a3d', outfitShade: '#191826', accent: '#8a5cf6', halo: '#c4b5fd', weapon: '#c0c7d6',
+    hair: '#70568a', hairShade: '#4d3a63', eyes: '#d89fe8', skin: '#f5ddd2',
+    outfit: '#574670', outfitShade: '#2e2540', accent: '#3b3150', halo: '#c4b5fd', weapon: '#c0c7d6',
   },
   look: {
-    hairStyle: 'short', bangs: 'messy', accessory: 'catEars', outfit: 'hoodie', weapon: 'shuriken',
+    hairStyle: 'bob', bangs: 'messy', accessory: 'headband', outfit: 'kimono', weapon: 'shuriken',
     halo: 'moon', eyeStyle: 'sharp', expression: 'smug',
   },
-  bio: 'The courier club\'s fastest runner — and, unofficially, a ninja. Charcoal-violet short hair, a black cat-ear hood and an oversized hoodie that hides a bandolier of shuriken. Her senses pick out veiled things that slip past everyone else.',
+  bio: 'The courier club\'s fastest runner and a ninja prodigy. A short purple bob under a dark headband marked with a silver crescent moon, a purple short-kimono jacket with silver embroidery and a lilac bow, a long dark scarf and a handful of silver shuriken. Nothing hides from her — not even veiled spirits.',
   personality: 'Playful, sly and allergic to sitting still; leaves cat-paw doodles on every delivery.',
   quote: 'Saw you. Saw you too.',
   tips: [
     'Innate Veil Sight: she hits veiled enemies from the moment she is placed.',
     'Many fast hits shatter crystal shells and pop illusion decoys.',
     'Shadow Mark tier 3 reveals veiled foes for the whole team.',
+    '⚡ Storm of Steel tier 3 teaches Shadow Doubles: two shadows that throw her volley from the road near the exit.',
   ],
   base: stats({
     cost: 400, behavior: 'projectile', damage: 3, rate: 2.0, range: 3.0, projectiles: 2, pierce: 2,
@@ -710,33 +720,34 @@ const KAGE = {
 const UMEKO = {
   id: 'umeko',
   name: 'Umeko',
-  title: 'Lantern-Float Lookout',
+  title: 'Pearl Warden',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
   role: 'support',
   attackType: 'mystic',
   element: 'water',
-  placement: 'water',
+  placement: 'amphibious',
   materialFamily: 'charm',
   capabilities: ['water', 'detection', 'antiAir'],
   pathCapabilities: ['reveal', 'buff', 'silence', 'slow', 'stun'],
   acquisition: free('3-2', 'Joins after 3-2 as the shrine\'s veils grow thick — her aura shares Veil Sight with nearby girls.'),
   palette: {
-    hair: '#b5598e', hairShade: '#7f3a63', eyes: '#ff9ec7', skin: '#ffe6dc',
-    outfit: '#e8f6ff', outfitShade: '#b6dbef', accent: '#ff7eb6', halo: '#ffc2dd', weapon: '#ff9cc8',
+    hair: '#e2f4ee', hairShade: '#9fd6c6', eyes: '#72bdaf', skin: '#ffe6dc',
+    outfit: '#f4fbf8', outfitShade: '#6ebcb4', accent: '#f0c75e', halo: '#c8fff0', weapon: '#88e0c8',
   },
   look: {
-    hairStyle: 'side', bangs: 'hime', accessory: 'flower', outfit: 'dress', weapon: 'parasol',
-    halo: 'petal', eyeStyle: 'sleepy', expression: 'smile',
+    hairStyle: 'long', bangs: 'hime', accessory: 'flower', outfit: 'robe', weapon: 'staff',
+    halo: 'wave', eyeStyle: 'sleepy', expression: 'smile',
   },
-  bio: 'A gentle lifeguard-in-training who floats on a lotus raft beneath a plum-pink parasol hung with tiny lanterns. Plum side ponytail, plum blossoms behind one ear and a breezy pale-blue summer dress. Her lantern-lit ripples let every girl nearby see through veils.',
+  bio: 'The dreamy lookout of the sea shrine. Long white hair that fades to seafoam at the tips, a gold shell hairpin, a white-and-teal shrine robe and a shell-fan staff studded with pearls. She floats a lantern on the water at dusk, and nothing hidden escapes its light.',
   personality: 'Dreamy and unhurried, hums sea shanties, and notices absolutely everything.',
   quote: 'Nothing hides in my waters~',
   tips: [
-    'Water only. Every girl inside her aura gains Veil Sight.',
+    'Amphibious: land or water. Every girl inside her aura gains Veil Sight.',
     'She barely attacks — place her where many girls stand within reach of her aura.',
     'Lighthouse tier 3 strips veils for everyone, even girls outside her aura.',
+    '⚡ Lighthouse tier 3 also teaches Lantern Flare: every veiled enemy on the map is revealed at once.',
   ],
   base: stats({
     cost: 380, behavior: 'pulse', damage: 1, rate: 0.6, range: 2.4, maxTargets: 6,
@@ -776,7 +787,7 @@ const UMEKO = {
 const SHIRO = {
   id: 'shiro',
   name: 'Shiro',
-  title: 'Silent Overwatch',
+  title: 'Moon Sniper',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -789,20 +800,21 @@ const SHIRO = {
   pathCapabilities: ['detection', 'reveal', 'stun', 'buff'],
   acquisition: free('3-5', 'Joins after 3-5, right before the armored orcs of Ironhold Pass.'),
   palette: {
-    hair: '#f2f2f7', hairShade: '#c2c4d6', eyes: '#4fd1c5', skin: '#fbe8de',
-    outfit: '#33415c', outfitShade: '#1f2a40', accent: '#e2c275', halo: '#b8f2e6', weapon: '#2d3142',
+    hair: '#d2d6de', hairShade: '#a3a9b8', eyes: '#84bdf8', skin: '#fbe8de',
+    outfit: '#414f68', outfitShade: '#2a3446', accent: '#2e3b58', halo: '#b8f2e6', weapon: '#2d3142',
   },
   look: {
-    hairStyle: 'long', bangs: 'straight', accessory: 'beret', outfit: 'blazer', weapon: 'rifle',
+    hairStyle: 'short', bangs: 'straight', accessory: 'beret', outfit: 'blazer', weapon: 'rifle',
     halo: 'eye', eyeStyle: 'sleepy', expression: 'calm',
   },
-  bio: 'The sharpest shot of the rifle team. Long silver-white hair under a navy beret, a gold-buttoned military-cut blazer, a scope-shaped halo, and a long rifle taller than she is. She speaks in single sentences and never misses the target that matters most.',
+  bio: 'A quiet marksman from the rifle club. Short silver-white hair with long side locks, a navy beret, a navy-and-slate uniform with gold buttons and a dark scoped rifle that never leaves her side. From the bell tower she can see the whole map — and hit it.',
   personality: 'Deadpan, patient and quietly kind; keeps a pocket full of candy for her spotters.',
   quote: 'Target confirmed.',
   tips: [
     'Range 10 covers most of the map — place her anywhere safe.',
     'Set her to Priority to delete casters, siphoners and field oni first.',
     'She ignores armor: the free answer to orc plate.',
+    '⚡ Execution tier 3 teaches Verdict Round: armor-piercing shots on the two biggest threats anywhere on the map.',
   ],
   base: stats({
     cost: 450, behavior: 'projectile', damage: 18, rate: 0.4, range: 10, projectileSpeed: 0,
@@ -841,7 +853,7 @@ const SHIRO = {
 const MIDORI = {
   id: 'midori',
   name: 'Midori',
-  title: 'Verdant Apothecary',
+  title: 'Potion Alchemist',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -854,19 +866,19 @@ const MIDORI = {
   pathCapabilities: ['armorShred', 'armorPen', 'barrierBreak', 'antiAir', 'slow', 'stun', 'buff'],
   acquisition: free('4-5', 'Joins after 4-5, before the regenerating, siphoning ghouls of Gloomfen Marsh.'),
   palette: {
-    hair: '#7bd389', hairShade: '#3fa35b', eyes: '#2e8b57', skin: '#ffe6d5',
-    outfit: '#f4f1de', outfitShade: '#d6d1b1', accent: '#9b5de5', halo: '#b9fbc0', weapon: '#80ed99',
+    hair: '#72c7ac', hairShade: '#4a9a80', eyes: '#c3f290', skin: '#ffe6d5',
+    outfit: '#5d8975', outfitShade: '#41664f', accent: '#d9b34a', halo: '#b9fbc0', weapon: '#80ed99',
   },
   look: {
-    hairStyle: 'braid', bangs: 'split', accessory: 'goggles', outfit: 'apron', weapon: 'flask',
-    halo: 'leaf', eyeStyle: 'round', expression: 'smug',
+    hairStyle: 'bob', bangs: 'split', accessory: 'goggles', outfit: 'apron', weapon: 'flask',
+    halo: 'leaf', eyeStyle: 'round', expression: 'cheerful',
   },
-  bio: 'Self-proclaimed genius of the alchemy lab. Mint-green twin braids, brass lab goggles, a canvas apron covered in suspicious stains and a belt of bubbling flasks. Her brews ignore armor and stop monsters from healing.',
+  bio: 'The alchemy club\'s cheerful menace. A mint-green bob with round gold goggles pushed up on her head, a green dress under a cream apron, a satchel of clinking flasks and a round green potion with a star stopper. Her brews melt armor and stop anything from healing.',
   personality: 'Curious, chaotic and proud of it; labels every flask "probably safe".',
   quote: 'Hypothesis: this will melt. Let\'s test it!',
   tips: [
     'Poison ignores armor and stops regeneration and siphon healing.',
-    'Lob flasks where enemies bunch up — poison sticks to everyone in the splash.',
+    '⚡ Toxicology tier 3 teaches Catalyst Burst: lob flasks into a crowd, then detonate every poison at once.',
     'Corrosion shreds armor for the whole team.',
     'Her brews pick the strongest girl in range — tap Pick to choose.',
   ],
@@ -907,7 +919,7 @@ const MIDORI = {
 const SUZU = {
   id: 'suzu',
   name: 'Suzu',
-  title: 'Bell Seal Trapper',
+  title: 'Bell Trapper',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -920,20 +932,21 @@ const SUZU = {
   pathCapabilities: ['barrierBreak', 'slow', 'stun', 'detection', 'reveal', 'silence'],
   acquisition: free('5-5', 'Joins after 5-5, before goblin sappers start sabotaging girls in the Clockwork Foundry.'),
   palette: {
-    hair: '#f4a261', hairShade: '#c9752f', eyes: '#e76f51', skin: '#ffe8da',
-    outfit: '#fff6f0', outfitShade: '#f0d3c4', accent: '#d62828', halo: '#ffd166', weapon: '#e9c46a',
+    hair: '#d6a65b', hairShade: '#ad8139', eyes: '#f2cd7a', skin: '#ffe8da',
+    outfit: '#f6f1e4', outfitShade: '#428d8b', accent: '#3f9a96', halo: '#ffd166', weapon: '#e9c46a',
   },
   look: {
-    hairStyle: 'twintails', bangs: 'straight', accessory: 'foxEars', outfit: 'kimono', weapon: 'bell',
+    hairStyle: 'side', bangs: 'straight', accessory: 'ribbon', outfit: 'kimono', weapon: 'bell',
     halo: 'ring', eyeStyle: 'sparkle', expression: 'cheerful',
   },
-  bio: 'A shrine-trained seal maker with a fox-ear headpiece and golden bells woven into her orange twintails. In a red-and-white kimono she scatters ofuda traps along the path near the exit; every jingle means something just got caught.',
+  bio: 'The bell club\'s mischievous bell-maker. Golden-blonde hair with a big looped side curl and teal ribbons, a white-and-teal kimono with golden bells on the obi, and a little bell rack she rings to set her traps. Enemies who step on her bells hear one last cheerful ring.',
   personality: 'Mischievous and sing-song, loves pranks, and is far more organised than she lets on.',
   quote: 'Ring, ring~ You\'re not going anywhere.',
   tips: [
     'Traps go on path tiles inside her range — place her near the exit to catch leakers.',
     'Traps catch sappers before they can sabotage your girls.',
     'Spirit Seals tier 3 reveals veiled foes; tier 4 turns her seals holy.',
+    '⚡ Explosive Mines tier 3 teaches Bell Carpet: a carpet of extra mines along the road in her range.',
   ],
   base: stats({
     cost: 380, behavior: 'trap', damage: 12, rate: 0.4, range: 2.6, projectileSpeed: 0,
@@ -973,7 +986,7 @@ const SUZU = {
 const RAIKA = {
   id: 'raika',
   name: 'Raika',
-  title: 'Thunderdrum Prodigy',
+  title: 'Storm Caller',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -986,20 +999,21 @@ const RAIKA = {
   pathCapabilities: ['armorPen', 'stun', 'silence', 'armorShred'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#ffd60a', hairShade: '#c9a000', eyes: '#4cc9f0', skin: '#ffe6d8',
-    outfit: '#22223b', outfitShade: '#13132a', accent: '#ffd60a', halo: '#fff3a3', weapon: '#9ad1ff',
+    hair: '#e8c356', hairShade: '#c29a2e', eyes: '#e4b9ff', skin: '#ffe6d8',
+    outfit: '#6671a1', outfitShade: '#454e7a', accent: '#d9a93a', halo: '#fff3a3', weapon: '#f2c14e',
   },
   look: {
-    hairStyle: 'buns', bangs: 'messy', accessory: 'hairpin', outfit: 'hoodie', weapon: 'staff',
+    hairStyle: 'long', bangs: 'messy', accessory: 'horns', outfit: 'dress', weapon: 'staff',
     halo: 'bolt', eyeStyle: 'sparkle', expression: 'cheerful',
   },
-  bio: 'The taiko club\'s star drummer, who turned her rhythm into lightning. Electric-yellow hair in two drum-round buns, a zig-zag bolt hairpin, a dark hoodie with glowing trim and a lightning-rod staff. Her bolts leap from monster to monster in time with the beat.',
+  bio: 'A thunder-mage prodigy from the taiko and weather club who treats every battle like a concert. Long golden hair with two curled ram-horn tufts, a periwinkle-and-indigo dress with a lilac bow, and a staff crowned with a big gold star that throws lightning from enemy to enemy.',
   personality: 'Hyper, loud and endlessly fun; taps out rhythms on every surface within reach.',
   quote: 'Feel the beat? That\'s thunder!',
   tips: [
     'Lightning jumps between enemies — the more spread out the wave, the better.',
     'Soaked enemies take +15% lightning damage: pair her with Sango, Umeko or Nami.',
     'Overcharge tier 4 turns her into a piercing lightning lance.',
+    '⚡ Storm Rhythm tier 3 teaches Drumstorm: a few seconds of faster, wider, shocking lightning.',
   ],
   base: stats({
     cost: 480, behavior: 'chain', damage: 5, rate: 0.9, range: 3.2, chain: 3,
@@ -1038,7 +1052,7 @@ const RAIKA = {
 const MIKO = {
   id: 'miko',
   name: 'Miko',
-  title: 'Shrine Blessing Keeper',
+  title: 'Shrine Keeper',
   kind: 'tower',
   rarity: 'SR',
   adult: false,
@@ -1051,20 +1065,21 @@ const MIKO = {
   pathCapabilities: ['silence', 'reveal', 'detection', 'cleanse', 'armorPen'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#1b1b2f', hairShade: '#0b0b18', eyes: '#c1121f', skin: '#fff0e8',
-    outfit: '#ffffff', outfitShade: '#e6e6ef', accent: '#d90429', halo: '#ffd6e7', weapon: '#f5f0e1',
+    hair: '#373448', hairShade: '#1f1d2a', eyes: '#bc80a3', skin: '#fff0e8',
+    outfit: '#ffffff', outfitShade: '#e6e6ef', accent: '#d0384a', halo: '#ffd6e7', weapon: '#f5f0e1',
   },
   look: {
     hairStyle: 'hime', bangs: 'hime', accessory: 'ribbon', outfit: 'miko', weapon: 'gohei',
     halo: 'petal', eyeStyle: 'closed', expression: 'calm',
   },
-  bio: 'The shrine maiden who blesses the academy gates every morning. Long black hime-cut hair tied with a big red-and-white ribbon, classic white haori and red hakama, and a gohei wand trailing paper streamers. She rarely fights herself — girls near her simply hit harder.',
+  bio: 'Keeper of the academy shrine. Long straight black hair with a big red bow, a white haori over red hakama and a gohei wand with white paper streamers. Her prayers make every girl nearby strike a little harder.',
   personality: 'Serene and formal, with an unexpected competitive streak at festival games.',
   quote: 'May the blossoms guide your aim.',
   tips: [
     'Every girl within her aura deals +10% damage — place her in the middle of your best girls.',
     'Sacred Grounds gives Veil Sight, cleanses sabotage and makes upgrades cheaper for the whole cluster (not hero levels).',
     'Purification turns her talismans into silencing holy strikes.',
+    '⚡ Blessing tier 3 teaches Shrine Chorus: more damage and speed for every girl near her, your ally\'s too.',
   ],
   base: stats({
     cost: 450, behavior: 'projectile', damage: 2, rate: 0.8, range: 2.8, projectileSpeed: 12,
@@ -1103,7 +1118,7 @@ const MIKO = {
 const HOTARU = {
   id: 'hotaru',
   name: 'Hotaru',
-  title: 'Firefly Exorcist',
+  title: 'Lantern Keeper',
   kind: 'tower',
   rarity: 'SSR',
   adult: false,
@@ -1116,20 +1131,21 @@ const HOTARU = {
   pathCapabilities: ['stun', 'slow', 'buff', 'cleanse'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#2d3e75', hairShade: '#1a2550', eyes: '#ffe66d', skin: '#fdeee6',
-    outfit: '#f1ecff', outfitShade: '#cbbff0', accent: '#ffe66d', halo: '#fff59d', weapon: '#ffd93d',
+    hair: '#eab184', hairShade: '#c98a5a', eyes: '#e8ab4d', skin: '#fdeee6',
+    outfit: '#f3ead8', outfitShade: '#438f97', accent: '#2f7f86', halo: '#fff59d', weapon: '#ffd93d',
   },
   look: {
-    hairStyle: 'wavy', bangs: 'split', accessory: 'hood', outfit: 'robe', weapon: 'lantern',
+    hairStyle: 'bob', bangs: 'swept', accessory: 'beret', outfit: 'robe', weapon: 'lantern',
     halo: 'ring', eyeStyle: 'round', expression: 'calm',
   },
-  bio: 'A soft-spoken exorcist who carries a paper lantern full of fireflies. Wavy midnight-blue hair with glowing tips under a sheer ceremonial veil-hood, flowing white robes, and golden eyes that see the spirit world. Her holy light reveals veiled spirits and silences oni fields.',
+  bio: 'A gentle exorcist-in-training who walks the shrine paths at night. A honey-orange bob under a teal beret with a gold star, a teal haori over a cream dress and a hooked staff with a glowing paper lantern. Fireflies follow her everywhere; veils and spirits melt in her light.',
   personality: 'Gentle, a little otherworldly and stubbornly brave; talks to the fireflies by name.',
   quote: 'Be still... the lights will guide you home.',
   tips: [
     'Her pulses reveal veiled foes and silence oni fields, siphons, blinks and phasing.',
     'Holy deals double damage to ghosts and wraiths.',
     'Place her where field casters walk — silenced fields stop buffing the wave.',
+    '⚡ Silent Prayer tier 3 teaches Firefly Hush: every enemy on the map is silenced at once.',
   ],
   base: stats({
     cost: 650, behavior: 'pulse', damage: 6, rate: 0.8, range: 2.6, maxTargets: 8,
@@ -1168,7 +1184,7 @@ const HOTARU = {
 const KAEDE = {
   id: 'kaede',
   name: 'Kaede',
-  title: 'Crimson Maple Duelist',
+  title: 'Crimson Fencer',
   kind: 'tower',
   rarity: 'SSR',
   adult: false,
@@ -1181,46 +1197,49 @@ const KAEDE = {
   pathCapabilities: ['armorPen', 'armorShred', 'stun', 'antiAir'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#7a1f2b', hairShade: '#4a0f18', eyes: '#f4a261', skin: '#fde7da',
-    outfit: '#1f1b24', outfitShade: '#0f0d12', accent: '#e85d04', halo: '#ff9e57', weapon: '#e5e5e5',
+    hair: '#ad5148', hairShade: '#7f3530', eyes: '#edbf76', skin: '#fde7da',
+    outfit: '#a6314a', outfitShade: '#6e1f33', accent: '#e8742c', halo: '#ff9e57', weapon: '#e5e5e5',
   },
   look: {
-    hairStyle: 'ponytail', bangs: 'split', accessory: 'ribbon', outfit: 'coat', weapon: 'rapier',
+    hairStyle: 'side', bangs: 'split', accessory: 'flower', outfit: 'coat', weapon: 'rapier',
     halo: 'leaf', eyeStyle: 'sharp', expression: 'determined',
   },
-  bio: 'Heir to an old fencing school. A high burgundy ponytail tied with a maple-orange ribbon, a long black duelist\'s coat with crimson lining, and a rapier that is never sheathed during a wave. She picks the strongest monster on the field and does not let go until it falls.',
-  personality: 'Proud, honourable and intense — but she bows to every opponent, even slimes.',
-  quote: 'You. Only you. En garde.',
+  bio: 'Captain of the fencing club. Long crimson hair with a maple-leaf ornament, a red-and-gold fencing coat over an ivory blouse, dark boots and a slender rapier with a gold basket guard. Every strike on the same opponent lands harder than the last, and her blade sweeps a maple-red arc through the crowd around it.',
+  personality: 'Elegant, competitive and a little dramatic; salutes every opponent with a flourish.',
+  quote: 'En garde — and do try to keep up.',
   tips: [
-    'Her damage builds with every consecutive hit on the same target.',
-    'Use Strong or Priority targeting so she locks onto the toughest enemy.',
+    'Her damage builds with every consecutive hit on the same target, and every 3rd strike is a Maple Cleave that also cuts the enemies around it.',
+    'Flowing Blade sweeps crowds with wind crescents and a maple storm; Unbroken Rhythm is her boss duel; Guard Breaker cracks armor with a shockwave.',
     'Melee: she cannot hit flyers until Flowing Blade tier 3.',
+    '⚡ Flowing Blade tier 3 teaches Flash Lunge: full-ramp strikes through the enemies she targets.',
   ],
   base: stats({
     cost: 600, behavior: 'duel', damage: 10, rate: 1.1, range: 2.0, projectileSpeed: 0,
     canHitAir: false, eliteMul: 1.1, crit: { chance: 0.1, mul: 1.75 }, ramp: { per: 0.1, max: 0.8 },
+    // her blade arts (src/sim/towers.js bladeArts): every 3rd strike is a Maple Cleave
+    blade: { every: 3, radius: 0.9, share: 0.5, targets: 4 },
   }),
   paths: [
     path('rhythm', 'Unbroken Rhythm', 'Damage ramp', [
       tier('Steady Footwork', 150, 'Ramp builds +2% faster per hit and reaches +20% higher.', { ramp: { per: 0.02, max: 0.2 } }),
       tier('Second Wind', 360, '+15% attack speed.', { rateMul: 1.15 }),
-      tier('Maple Cascade', 1200, 'Ramp +16% per hit up to +150%; ignores 3 armor.', { ramp: { per: 0.04, max: 0.5 }, armorPen: 3 }),
+      tier('Maple Cascade', 1200, 'Ramp +16% per hit up to +150%; ignores 3 armor. At full focus every strike scatters maple leaves: up to 3 enemies within 0.9 tiles of her target take 30% of it.', { ramp: { per: 0.04, max: 0.5 }, armorPen: 3, blade: { maple: 0.9, mShare: 0.3, mTargets: 3 } }),
       tier('Autumn Requiem', 3800, 'Ramp +20% per hit up to +200%; +30% attack speed, +8 damage; +30% damage.', { ramp: { per: 0.04, max: 0.5 }, rateMul: 1.3, damage: 8, damageMul: 1.3 }),
-      tier('Crimson Eternity', 28000, '+24 damage, ramp +25% per hit up to +300%, ×1.5 vs bosses, +30% speed; +30% damage.', { damage: 24, ramp: { per: 0.05, max: 1 }, bossMul: 1.5, rateMul: 1.3, damageMul: 1.3 }),
+      tier('Crimson Eternity', 28000, '+24 damage, ramp +25% per hit up to +300%, ×1.6 vs bosses, +30% speed; +30% damage. Her maple leaves fly 1.3 tiles and hit 5 enemies for 50%.', { damage: 24, ramp: { per: 0.05, max: 1 }, bossMul: 1.6, rateMul: 1.3, damageMul: 1.3, blade: { maple: 0.4, mShare: 0.2, mTargets: 2 } }),
     ]),
-    path('flowing', 'Flowing Blade', 'Reach and precision', [
+    path('flowing', 'Flowing Blade', 'Sweeping crowd cuts', [
       tier('Light Step', 130, '+0.3 range.', { range: 0.3 }),
-      tier('Flash Step', 340, '+4 damage.', { damage: 4 }),
-      tier('Wind Severing', 1100, 'Air-cutting slashes reach flyers; +0.6 range.', { canHitAir: true, range: 0.6 }),
-      tier('Iaijutsu Master', 3500, '+20% crit chance at ×2.5, +10 damage; +30% damage.', { crit: { chance: 0.2, mul: 2.5 }, damage: 10, damageMul: 1.3 }),
-      tier('Thousand Leaves Draw', 25000, '+60% attack speed, +16 damage, +15% crits at ×3, +0.5 range; +40% damage.', { rateMul: 1.6, damage: 16, crit: { chance: 0.15, mul: 3 }, range: 0.5, damageMul: 1.4 }),
+      tier('Flash Step', 340, '+4 damage; her Maple Cleave reaches 0.2 tiles wider and cuts 2 more enemies.', { damage: 4, blade: { radius: 0.2, targets: 2 } }),
+      tier('Wind Severing', 1100, 'Air-cutting slashes reach flyers; +0.6 range. Every Maple Cleave also sends a wind crescent through her target: up to 4 enemies on its 3.5-tile line take 55%.', { canHitAir: true, range: 0.6, blade: { crescents: 1, cLen: 3.5, cWidth: 0.3, cShare: 0.55, cTargets: 4 } }),
+      tier('Iaijutsu Master', 3500, '+20% crit chance at ×2.5, +10 damage; +30% damage. Three wider crescents fly in a fan, 4 tiles, 5 enemies each.', { crit: { chance: 0.2, mul: 2.5 }, damage: 10, damageMul: 1.3, blade: { crescents: 2, cLen: 0.5, cWidth: 0.1, cTargets: 1 } }),
+      tier('Thousand Leaves Draw', 25000, '+60% attack speed, +16 damage, +15% crits at ×3, +0.5 range; +40% damage. Maple Storm: every Maple Cleave also whirls a storm of maple blades around her, cutting up to 8 enemies within 2.5 tiles for 55%.', { rateMul: 1.6, damage: 16, crit: { chance: 0.15, mul: 3 }, range: 0.5, damageMul: 1.4, blade: { storm: 2.5, sShare: 0.55, sTargets: 8 } }),
     ]),
     path('breaker', 'Guard Breaker', 'Armor and stuns', [
       tier('Heavy Hilt', 140, '+3 damage.', { damage: 3 }),
       tier('Pommel Strike', 320, '15% chance to stun for 0.2s.', { status: [S.stun(0.2, 0.15)] }),
       tier('Armor Cleaver', 1150, 'Slices plate open for everyone (-2 armor, stacks ×3); ignores 4 armor.', { status: [S.shred(2, 4)], armorPen: 4 }),
-      tier('Guard Breaker', 3600, 'Brittle +20%, 25% stun for 0.5s, cracks armor (-3, stacks ×3), +6 damage; +30% damage.', { status: [S.vulnerable(0.2, 3), S.stun(0.5, 0.25), S.shred(3, 4)], damage: 6, damageMul: 1.3 }),
-      tier('Heaven-Splitting Strike', 27000, '+60 damage, shred -6 (×3: -18 armor), ×1.4 vs elites, ×1.3 vs bosses, ignores 2 armor; +45% damage.', { damage: 60, status: [S.shred(6, 6)], eliteMul: 1.4, bossMul: 1.3, armorPen: 2, damageMul: 1.45 }),
+      tier('Guard Breaker', 3600, 'Brittle +20%, 25% stun for 0.5s, cracks armor (-3, stacks ×3), +6 damage; +30% damage. Every Maple Cleave also sends a shockwave along the ground: up to 6 enemies on a 2.5-tile line take 60% and have their armor cracked.', { status: [S.vulnerable(0.2, 3), S.stun(0.5, 0.25), S.shred(3, 4)], damage: 6, damageMul: 1.3, blade: { wave: 2.5, wWidth: 0.35, wShare: 0.6, wTargets: 6 } }),
+      tier('Heaven-Splitting Strike', 27000, '+60 damage, shred -6 (×3: -18 armor), ×1.4 vs elites, ×1.3 vs bosses, ignores 2 armor; +45% damage. Her shockwave splits the ground 4 tiles: 10 enemies take 100%.', { damage: 60, status: [S.shred(6, 6)], eliteMul: 1.4, bossMul: 1.3, armorPen: 2, damageMul: 1.45, blade: { wave: 1.5, wWidth: 0.15, wShare: 0.4, wTargets: 4 } }),
     ]),
   ],
   awakenPassive: {
@@ -1233,7 +1252,7 @@ const KAEDE = {
 const CHIKA = {
   id: 'chika',
   name: 'Chika',
-  title: 'Gadget Prodigy',
+  title: 'Clockwork Mechanic',
   kind: 'tower',
   rarity: 'SSR',
   adult: false,
@@ -1246,18 +1265,18 @@ const CHIKA = {
   pathCapabilities: ['buff', 'cleanse', 'detection', 'armorPen', 'stun'],
   acquisition: GACHA_ONLY,
   palette: {
-    hair: '#8d6e63', hairShade: '#5d4037', eyes: '#ffb300', skin: '#ffe5d4',
-    outfit: '#ffb703', outfitShade: '#e09400', accent: '#264653', halo: '#ffd166', weapon: '#adb5bd',
+    hair: '#bd7647', hairShade: '#8f5530', eyes: '#eaba57', skin: '#ffe5d4',
+    outfit: '#38475f', outfitShade: '#26303f', accent: '#2f8f9a', halo: '#ffd166', weapon: '#adb5bd',
   },
   look: {
-    hairStyle: 'bob', bangs: 'messy', accessory: 'goggles', outfit: 'jumpsuit', weapon: 'wrench',
+    hairStyle: 'short', bangs: 'messy', accessory: 'goggles', outfit: 'jumpsuit', weapon: 'wrench',
     halo: 'gear', eyeStyle: 'sparkle', expression: 'smile',
   },
-  bio: 'Robotics club prodigy with a chestnut bob, tinted workshop goggles and a sunflower-yellow jumpsuit with far too many pockets. She builds sentry drones mid-battle, patches up sabotaged friends, and never goes anywhere without her giant wrench.',
+  bio: 'The robotics club\'s youngest genius. Short orange hair under teal goggles, a mustard shirt and navy overalls covered in pockets, a satchel of spare parts and a wrench almost as big as she is. She builds sentries faster than anyone can name them.',
   personality: 'Fast-talking and endlessly inventive; names every drone and grieves each one dramatically.',
   quote: 'Give me ten seconds and a wrench!',
   tips: [
-    'Her drones fly out to hunt up to 4 tiles away — tap one to see its stats.',
+    '⚡ Sentry Works tier 3 teaches Drone Surge: extra drones for a few seconds. Her drones hunt up to 4 tiles out; tap one to see its stats.',
     'Flight modes: Hover near her, Hold a point, Patrol between two points, or Pursuit anywhere on the map.',
     'Repair Bay tier 3 cleanses sabotage for every girl in her aura.',
     'Tesla Tower (tier 4) turns her wrench bolt into a chain-lightning coil; her drones keep flying.',
@@ -1307,10 +1326,18 @@ const CHIKA = {
 export const UNITS = [
   HIKARI, LUNA, NAMI,
   AOI, REI, YUKI, MOMO, AKANE, SANGO, KAGE, UMEKO, SHIRO, MIDORI, SUZU, RAIKA, MIKO, HOTARU, KAEDE, CHIKA,
+  // the returning girls (roster wave): src/data/unitsExpansion.js
+  ...EXPANSION_UNITS,
+  // the new girls (UNIT_GAPS §5): src/data/unitsNewGirls.js
+  ...NEW_GIRLS,
 ];
 
 /** id -> UnitDef */
 export const UNIT_MAP = Object.fromEntries(UNITS.map((u) => [u.id, u]));
+
+// Abilities (src/data/abilities.js): a frozen `ability` on each girl's ⚡ path, `hero.skill` on each
+// hero. The sim does not read them yet (ABILITIES_SPEC milestone A1).
+attachAbilities(UNITS);
 
 /** All unit ids in roster order. */
 export const UNIT_IDS = UNITS.map((u) => u.id);

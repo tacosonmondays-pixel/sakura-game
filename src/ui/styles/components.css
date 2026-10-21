@@ -1,0 +1,397 @@
+/* Sakura Sentinels — shared components for the condensed UI (docs/specs/UI_DIRECTION.md §5).
+   Loaded right after base.css. M0 only adds these classes; screens adopt them milestone by milestone.
+   Everything except .num and .lbl is prefixed "ui-" so nothing here touches a screen's existing
+   .chip / .tab / .btn / .more. Sizes come from the type tokens only (nothing under --fs-label, 12 px). */
+
+/* ---------- Numbers and caps labels (P5: one number style) ---------- */
+.num {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+.num.s { font-size: var(--fs-num-s); }
+.num.l { font-size: var(--fs-num); }
+.lbl {
+  font-family: var(--font-num);
+  font-weight: 600;
+  font-size: var(--fs-label);
+  line-height: var(--lh-tight);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+}
+/* an icon + number pair never wraps apart (P4) */
+.ui-pair { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
+
+/* ---------- Stat chip (§5.1): icon · number · optional caps label, one fact ---------- */
+.ui-chip {
+  height: var(--chip-h);
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: 4px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--sky-1);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.ui-chip > svg, .ui-chip > img, .ui-chip > .ui-ico { width: var(--icon-s); height: var(--icon-s); flex: none; }
+.ui-chip .num { font-size: var(--fs-num-s); }
+.ui-chip .lbl { color: var(--muted); }
+.ui-chip.up { color: var(--good-text); }
+.ui-chip.dn { color: var(--bad-text); }
+/* a tag: the chip shape with an icon and one word, no number */
+.ui-chip.tag { font: 700 var(--fs-label)/1 var(--font); }
+/* "+N": opens the rest (more than 3 chips in a row) */
+.ui-chip.more-n { position: relative; background: #fff; color: var(--blue-text); border-color: #b9d6f5; cursor: pointer; }
+/* its hit area reaches the dense tap size around the small chip (as the "i" and the P sticker) */
+.ui-chip.more-n::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap-dense)); height: max(100%, var(--tap-dense)); transform: translate(-50%, -50%); }
+.ui-chip.more-n .num { color: inherit; }
+/* on an ink plate */
+.ui-chip.on-plate { background: rgba(255, 255, 255, 0.08); border-color: var(--plate-line); color: var(--on-plate); }
+.ui-chip.on-plate .lbl { color: var(--on-plate-dim); }
+.ui-chip.on-plate.up { color: var(--good-on-plate); }
+.ui-chip.on-plate.dn { color: var(--bad-on-plate); }
+
+/* ---------- Ink plate and stat strip (§5.2): exactly 3 headline stats + MORE ---------- */
+.ui-plate { background: var(--plate); color: var(--on-plate); border-radius: var(--radius-plate); }
+.ui-strip {
+  display: flex; align-items: stretch;
+  height: var(--strip-h);
+  background: var(--plate); color: var(--on-plate);
+  border-radius: var(--radius-plate);
+}
+.ui-strip > .ui-cell {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--sp-1);
+  padding: 0 var(--sp-3);
+  border-right: 1px solid var(--plate-line);
+}
+.ui-strip > .ui-cell:last-of-type { border-right: 0; }
+.ui-cell > .lbl { color: var(--on-plate-dim); }
+.ui-cell > .num { font-size: var(--fs-num); color: var(--on-plate); }
+.ui-cell > .num.acc { color: var(--plate-accent); } /* the strip's first number only */
+.ui-cell > .num small { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate-dim); margin-left: 2px; }
+.ui-cell > .ui-delta { font: 700 var(--fs-label)/1 var(--font-num); color: var(--good-on-plate); }
+.ui-cell > .ui-delta.dn { color: var(--bad-on-plate); }
+.ui-strip > .ui-strip-more { display: grid; place-items: center; padding: 0 var(--sp-3) 0 var(--sp-1); }
+
+/* ---------- Stickers and the MORE sticker (§5.2, §4.6) ---------- */
+.ui-sticker {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 7px;
+  border: var(--sticker-line); border-radius: var(--radius-chip); box-shadow: var(--sticker-drop);
+  transform: rotate(var(--sticker-tilt));
+  background: #fff; color: var(--plate);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase;
+  white-space: nowrap;
+}
+.ui-sticker.y { background: var(--yellow); }
+.ui-sticker.p { background: var(--pink); }
+.ui-sticker.ink { background: var(--plate); color: var(--on-plate); border-color: #fff; box-shadow: 0 2px 0 rgba(14, 25, 48, 0.5); }
+/* MORE ▸: always opens Details and looks the same everywhere; an invisible 44 px hit box keeps it tappable */
+.ui-more {
+  position: relative; cursor: pointer;
+  padding: 7px 10px 7px 11px;
+  background: var(--yellow); color: var(--ink);
+}
+.ui-more::before {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: max(100%, var(--tap)); height: max(100%, var(--tap));
+  transform: translate(-50%, -50%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-sticker.slap { animation: ui-slap var(--t-sticker) var(--ease-pop); }
+}
+@keyframes ui-slap { from { transform: rotate(var(--sticker-tilt)) scale(1.12); } to { transform: rotate(var(--sticker-tilt)) scale(1); } }
+
+/* ---------- Cost button (§5.5): ink plate, coin + price in the plate accent ---------- */
+.ui-cost {
+  height: var(--tap); min-width: var(--tap);
+  display: inline-flex; align-items: center; justify-content: center; position: relative;
+  padding: 0 var(--sp-3);
+  border: 0; border-radius: 8px;
+  transform: skewX(var(--skew));
+  background: var(--plate); color: var(--plate-accent);
+  box-shadow: 0 2px 0 rgba(14, 25, 48, 0.35);
+  white-space: nowrap;
+  transition: transform var(--t-press) var(--ease);
+}
+.ui-cost > * { transform: skewX(calc(-1 * var(--skew))); }
+.ui-cost > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.ui-cost svg, .ui-cost img { width: var(--icon-s); height: var(--icon-s); flex: none; }
+.ui-cost .num { font-size: var(--fs-num-s); }
+.ui-cost .ui-cost-lbl { font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--on-plate); }
+.ui-cost.dense { height: var(--tap-dense); min-width: var(--tap-dense); }
+.ui-cost:active:not(:disabled) { transform: skewX(var(--skew)) scale(0.96); }
+/* not affordable: the price dims (never opacity, §5.5) */
+.ui-cost.poor, .ui-cost:disabled { color: var(--on-plate-dim); opacity: 1; }
+
+/* ---------- Rarity tag (§5.6): an ink pill with rarity-coloured letters, 3 letters wide ---------- */
+.ui-rtag {
+  display: inline-grid; place-items: center;
+  min-width: 3.4em; height: 20px; padding: 0 6px;
+  border-radius: 5px;
+  background: var(--plate);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--on-plate);
+  white-space: nowrap;
+}
+.ui-rtag.r { color: var(--rar-r); }
+.ui-rtag.sr { color: var(--rar-sr); }
+.ui-rtag.ssr { color: var(--rar-ssr); }
+.ui-rtag.ur { color: var(--rar-ur); }
+/* gradient letters need an inner span: <span class="ui-rtag ur"><span>UR</span></span> (plain text keeps the flat colour) */
+.ui-rtag.ur > span, .ui-rtag.lr > span { -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ui-rtag.ur > span { background-image: linear-gradient(90deg, #ff9bc8, #ffe066, #8ef0b0, #7fd3ff, #c9a8ff); }
+/* UR's rainbow ring (a urRing() child) stays on the pill wherever the tag sits: the plate, a slot sheet, Details */
+.ui-rtag.is-ur { position: relative; overflow: hidden; }
+.ui-rtag.is-ur > span.ur-ring { --ur-w: 2px; border-radius: 5px; } /* (span: beats a frame's ".x.is-ur .ur-ring" around it) */
+.ui-rtag .ur-text { font-style: normal; filter: none; }
+.ui-rtag.common { color: var(--gear-common); }
+.ui-rtag.rare { color: var(--gear-rare); }
+.ui-rtag.superRare, .ui-rtag.super { color: var(--gear-super); }
+.ui-rtag.mythic { color: var(--gear-mythic); }
+.ui-rtag.legendary { color: var(--gear-legendary); }
+/* LR: white-to-gold letters on a navy sticker tilted -4deg with a 2 px white outline */
+.ui-rtag.lr {
+  color: var(--rar-lr);
+  border: 2px solid #fff; box-shadow: var(--sticker-drop);
+  transform: rotate(var(--sticker-tilt));
+  background: var(--lr-edge);
+}
+.ui-rtag.lr > span { background-image: linear-gradient(180deg, #fff 15%, var(--lr-gold) 85%); }
+
+/* ---------- Rarity frames (§5.6): one ladder for girls and gear ---------- */
+.ui-fr { position: relative; border-radius: 10px; background: #fff; }
+.ui-fr.r { border: var(--frame-w) solid var(--rar-r); }
+.ui-fr.common { border: var(--frame-w) solid var(--gear-common); }
+.ui-fr.rare { border: var(--frame-w) solid var(--gear-rare); }
+.ui-fr.sr { border: var(--frame-w-strong) solid var(--rar-sr); background: color-mix(in srgb, var(--rar-sr) 12%, #fff); }
+.ui-fr.superRare, .ui-fr.super { border: var(--frame-w-strong) solid var(--gear-super); background: color-mix(in srgb, var(--gear-super) 12%, #fff); }
+.ui-fr.ssr {
+  border: var(--frame-w-strong) solid var(--rar-ssr); background: color-mix(in srgb, var(--rar-ssr) 12%, #fff);
+  box-shadow: inset 0 0 0 1px #fff, 0 0 8px color-mix(in srgb, var(--rar-ssr) 50%, transparent);
+}
+.ui-fr.mythic {
+  border: var(--frame-w-strong) solid var(--gear-mythic); background: color-mix(in srgb, var(--gear-mythic) 12%, #fff);
+  box-shadow: inset 0 0 0 1px #fff, 0 0 8px color-mix(in srgb, var(--gear-mythic) 50%, transparent);
+}
+.ui-fr.legendary {
+  border: var(--frame-w-strong) solid transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--gear-legendary) 14%, #fff), color-mix(in srgb, var(--gear-legendary) 14%, #fff)) padding-box,
+    linear-gradient(135deg, #fff6d0 0%, var(--gear-legendary) 40%, var(--yellow-deep) 70%, #fff1b8 100%) border-box;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--gear-legendary) 45%, transparent);
+}
+/* UR keeps ur.css's rainbow ring (urRing()); this is the flat fallback for small chips */
+.ui-fr.ur { border: var(--frame-w-strong) solid var(--rar-ur); }
+
+/* LR Nightglass: a navy edge, a 1 px white-gold line inside it, a twin-star crest at the top centre, and (big frames
+   only) one comet lap per --lr-comet. Exclusive to LR units and the Nightglass avatar frame. */
+@property --ui-lr-a { syntax: '<angle>'; inherits: false; initial-value: 45deg; }
+.ui-fr.lr { border: var(--frame-w-strong) solid var(--lr-edge); background: #fff; }
+.ui-fr.lr::after {
+  content: ''; position: absolute; inset: 0; border-radius: 7px; pointer-events: none;
+  padding: 1px;
+  background: linear-gradient(135deg, #fff 0%, var(--lr-gold) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.ui-fr.lr.big::before {
+  content: ''; position: absolute; inset: calc(-1 * var(--frame-w-strong)); border-radius: inherit; pointer-events: none;
+  padding: var(--frame-w-strong);
+  background: conic-gradient(from var(--ui-lr-a), transparent 0deg 320deg, var(--lr-gold) 350deg, #fff 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-fr.lr.big::before { animation: ui-lr-comet var(--lr-comet) linear infinite; }
+}
+@keyframes ui-lr-comet { from { --ui-lr-a: 45deg; } to { --ui-lr-a: 405deg; } }
+/* the crest: two overlapping four-point stars (gold, then white), overhanging the top edge by 8 px */
+.ui-lr-crest {
+  position: absolute; left: 50%; top: -8px; z-index: 1;
+  width: 17px; height: 17px; transform: translateX(-50%); pointer-events: none;
+}
+.ui-lr-crest::before, .ui-lr-crest::after {
+  content: ''; position: absolute; inset: 0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 1px var(--lr-edge));
+}
+.ui-lr-crest::before { background: var(--lr-gold); transform: translateX(-22%); }
+.ui-lr-crest::after { background: #fff; transform: translateX(22%) scale(0.8); }
+@media (max-height: 480px) { .ui-lr-crest { width: 12px; height: 12px; } }
+
+/* ---------- Tab rail (§5.3): slanted, one word, active = ink plate + yellow bar ---------- */
+.ui-rail { display: flex; gap: 6px; height: var(--tab-h); flex: none; }
+.ui-tab {
+  flex: 1 1 0; min-width: 44px; height: var(--tab-h); position: relative;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 var(--sp-3);
+  transform: skewX(var(--skew)); border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 3px rgba(29, 78, 137, 0.1);
+  color: var(--ink);
+  transition: background var(--t-panel) var(--ease);
+}
+.ui-tab > span {
+  transform: skewX(calc(-1 * var(--skew)));
+  display: flex; align-items: center; gap: 6px;
+  font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase;
+  white-space: nowrap;
+}
+.ui-tab svg { width: var(--icon-s); height: var(--icon-s); }
+.ui-tab.on { background: var(--plate); border-color: var(--plate); color: var(--on-plate); box-shadow: 0 3px 8px rgba(14, 25, 48, 0.3); }
+.ui-tab.on::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -6px; height: 3px; border-radius: 2px; background: var(--yellow); }
+.ui-tab.locked { color: var(--muted); } /* the lock icon carries the meaning; the word stays 4.5:1 */
+.ui-tab.on.locked { color: var(--on-plate-dim); } /* an open locked tab: on the ink plate (9.09:1) */
+/* badges: a red dot only (P7) */
+.ui-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 0 2px #fff; }
+.ui-tab > .ui-dot { position: absolute; top: -3px; right: 6px; }
+
+/* ---------- Scrim, bottom sheet and side drawer shells (§5.4) ---------- */
+.ui-scrim { position: fixed; inset: 0; background: var(--scrim); }
+.ui-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+  min-height: var(--tap); padding: 0 var(--sp-1) 0 var(--sp-3);
+  background: var(--plate); color: var(--on-plate);
+}
+.ui-head > .ui-title { flex: 1; min-width: 0; font: italic 900 var(--fs-name)/var(--lh-tight) var(--font-head); color: var(--on-plate); }
+.ui-close {
+  width: var(--tap); height: var(--tap); flex: none;
+  display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--on-plate);
+}
+.ui-close svg { width: var(--icon-s); height: var(--icon-s); }
+.ui-body { padding: var(--sp-3); overflow-y: auto; overscroll-behavior: contain; }
+@media (min-height: 481px) { .ui-body { padding: var(--sp-4); } }
+/* bottom sheet: at most --sheet-max-h, ink header with a 44 px close */
+.ui-sheet {
+  position: fixed; left: 50%; bottom: 0; z-index: 60;
+  width: min(100%, 720px); max-height: var(--sheet-max-h);
+  display: flex; flex-direction: column;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.96); border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow-strong); overflow: hidden;
+  padding-bottom: var(--safe-bottom);
+}
+.ui-sheet > .ui-body { flex: 1; min-height: 0; }
+.ui-sheet.full { max-height: 100dvh; height: 100dvh; border-radius: 0; } /* the Details sheet */
+/* side drawer (battle): --drawer-w wide, full height under the top strip, clear of the ability bar */
+.ui-drawer {
+  position: absolute; right: var(--safe-right); top: var(--hud-top-h); bottom: var(--hud-ability-h); z-index: 30;
+  width: var(--drawer-w); max-width: 100%;
+  display: flex; flex-direction: column;
+  background: rgba(255, 255, 255, 0.92); border-radius: var(--radius) 0 0 var(--radius);
+  box-shadow: var(--shadow-strong); overflow: hidden;
+}
+.ui-drawer > .ui-body { flex: 1; min-height: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-sheet.enter { animation: ui-sheet-in var(--t-panel) var(--ease); }
+  .ui-drawer.enter { animation: ui-drawer-in var(--t-panel) var(--ease); }
+}
+@keyframes ui-sheet-in { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes ui-drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- Icons, icon buttons and ghost buttons (§5.5; added with M1a) ---------- */
+.ui-ico { display: inline-grid; place-items: center; flex: none; width: var(--icon-s); height: var(--icon-s); }
+.ui-ico > svg { width: 100%; height: 100%; display: block; }
+/* Icon: 44 × 44, icon only, an accessible name. .glass sits on art (a white glass disc). */
+.ui-ibtn {
+  width: var(--tap); height: var(--tap); flex: none; position: relative;
+  display: inline-grid; place-items: center;
+  border: 0; border-radius: 50%; padding: 0;
+  background: var(--sky-1); color: var(--ink);
+  transition: transform var(--t-press) var(--ease);
+}
+.ui-ibtn > .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+.ui-ibtn:active { transform: scale(0.96); }
+.ui-ibtn.glass { background: rgba(255, 255, 255, 0.9); color: var(--plate); box-shadow: 0 2px 6px rgba(14, 25, 48, 0.28); }
+.ui-ibtn.plate { background: var(--plate-glass); color: var(--on-plate); }
+.ui-ibtn.small { width: 32px; height: 32px; }
+.ui-ibtn.small::before { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); }
+/* Ghost: text only, the text-safe blue (Where to get, Full page) */
+.ui-ghost {
+  min-height: var(--tap); padding: 0 var(--sp-2);
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  border: 0; background: transparent; color: var(--blue-text);
+  font: 700 var(--fs-body)/1 var(--font); white-space: nowrap;
+}
+.ui-ghost > .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+/* star glyphs (awakening): lit gold, unlit a soft outline that still reads on ink and white */
+.ui-stars { display: inline-flex; gap: 1px; }
+.ui-star { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.3); }
+.ui-star.on { color: #ffd23f; }
+@media (min-height: 481px) { .ui-star { width: 18px; height: 18px; } }
+
+/* ---------- Glass panel (§5.4; added with M1a): white glass, one --cut chamfer at the top-right ---------- */
+/* the chamfer clips the inner box; the shadow sits on the outer one so it follows the cut */
+.ui-panel { display: block; min-width: 0; filter: drop-shadow(0 4px 10px rgba(29, 78, 137, 0.14)); border: 0; padding: 0; background: none; color: inherit; text-align: left; font: inherit; }
+.ui-panel-in {
+  height: 100%; padding: var(--sp-3);
+  background: rgba(255, 255, 255, 0.92); border-radius: var(--radius);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+@media (min-height: 481px) { .ui-panel-in { padding: var(--sp-4); } }
+.ui-panel-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; margin-bottom: var(--sp-2); }
+.ui-panel-head > :last-child:not(:first-child) { margin-left: auto; }
+/* a section kicker: caps label with a short slanted ink bar */
+.ui-kicker { font: 600 var(--fs-label)/var(--lh-tight) var(--font-num); text-transform: uppercase; letter-spacing: var(--track-label); color: var(--muted); display: inline-flex; align-items: center; }
+.ui-kicker::before { content: ''; display: inline-block; width: 3px; height: 10px; margin-right: 6px; border-radius: 1px; background: var(--plate); transform: skewX(var(--skew)); }
+/* visually hidden, still read out */
+.ui-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* a sheet layer (src/ui/sheet.js): the scrim and its sheet */
+.ui-layer { position: fixed; inset: 0; }
+.ui-layer.closing { opacity: 0; transition: opacity 140ms var(--ease); pointer-events: none; }
+
+/* ---------- Gear tile (§5.6, §5.7, §6.4; added with M1b): one piece in its rarity frame ----------
+   The girl page's slot cards and gear picker, and the Backpack grid (M3). Size with --gt. Fixed corners: status or the
+   club emblem top-left, the main stat icon top-right, +level bottom-right, the wearer's face bottom-left. */
+.ui-gtile {
+  --gt: 64px;
+  position: relative; flex: none; width: var(--gt); height: var(--gt);
+  display: grid; place-items: center; padding: 0; margin: 0;
+  border-radius: 10px; color: var(--ink); font: inherit;
+}
+button.ui-gtile { cursor: pointer; transition: transform var(--t-press) var(--ease); -webkit-tap-highlight-color: transparent; }
+button.ui-gtile:active { transform: scale(0.96); }
+.ui-gtile-ic { width: 78%; height: 78%; display: grid; place-items: center; pointer-events: none; }
+.ui-gtile-ic > svg { width: 100%; height: 100%; display: block; }
+.ui-gtile.empty { border: 2px dashed #b9c6d8; background: rgba(255, 255, 255, 0.7); color: var(--muted-line); }
+.ui-gtile .ui-gtile-plus { width: 36%; height: 36%; }
+.ui-gtile.selected { box-shadow: 0 0 0 3px var(--yellow), 0 0 0 5px var(--plate); }
+.ui-gtile-tl, .ui-gtile-tr, .ui-gtile-bl { position: absolute; z-index: 4; display: grid; place-items: center; pointer-events: none; }
+.ui-gtile-tl { left: -5px; top: -5px; }
+.ui-gtile-tr { right: -5px; top: -5px; }
+.ui-gtile-bl { left: -5px; bottom: -5px; }
+/* +level: an ink pill (a tile badge, --fs-num-s) */
+.ui-gtile-lv {
+  position: absolute; right: -6px; bottom: -6px; z-index: 4;
+  min-width: 28px; height: 22px; padding: 0 6px; display: grid; place-items: center;
+  border-radius: 11px; background: var(--plate); color: var(--on-plate); font-size: var(--fs-num-s); box-shadow: 0 0 0 2px #fff;
+}
+.ui-gtile .k-main { height: 24px; min-width: 24px; display: flex; align-items: center; justify-content: center; gap: 3px; border-radius: 12px; background: var(--plate); color: var(--on-plate); box-shadow: 0 0 0 2px #fff; }
+.ui-gtile .k-main:has(.num) { padding: 0 7px 0 5px; }
+.ui-gtile .k-main .ui-ico { width: 15px; height: 15px; }
+.ui-gtile .k-main .num { font-size: var(--fs-num-s); }
+.ui-gtile .k-lock { width: 22px; height: 22px; border-radius: 50%; background: #fff; color: var(--ink); box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(14, 25, 48, 0.2); }
+.ui-gtile .k-lock .ui-ico { width: 13px; height: 13px; }
+/* the club emblem: a set icon, never text (§7 M3) */
+.ui-gtile .k-club { width: 16px; height: 16px; border-radius: 50%; background: var(--club, #999); box-shadow: 0 0 0 2px #fff, 0 1px 2px rgba(14, 25, 48, 0.35); }
+/* ✦ this gold piece can awaken: a rainbow disc */
+.ui-gtile .k-ready { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(var(--ur-rainbow)); color: #fff; font: 900 var(--fs-label)/1 var(--font); text-shadow: 0 1px 2px rgba(20, 16, 50, 0.7); box-shadow: 0 0 0 2px #fff; }
+.ui-gtile .ui-sticker.k-new { padding: 2px 5px; }
+.ui-gtile .k-face { width: 26px; height: 26px; border-radius: 50%; overflow: hidden; background: #fff; box-shadow: 0 0 0 2px #fff, 0 1px 3px rgba(14, 25, 48, 0.3); }
+.ui-gtile .k-face > *, .ui-gtile .k-face img, .ui-gtile .k-face svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* UR gear: rarity step 5, the rainbow ring (ur.css) drawn over the frame's edge */
+.ui-gtile.is-ur { border-color: transparent; background: linear-gradient(135deg, #fff5fa, #f1efff); box-shadow: var(--ur-glow); }
+.ui-gtile.is-ur > .ur-ring { inset: calc(-1 * var(--frame-w-strong)); --ur-w: var(--frame-w-strong); border-radius: 12px; }
+@media (min-height: 481px) { .ui-gtile-lv { height: 24px; min-width: 32px; border-radius: 12px; } }
+
+/* ---------- Danger button (§5.5; added with M1b): white, a red edge, red words (Sell, Salvage) ---------- */
+.btn.ui-danger { background: #fff; color: var(--bad-text); border: 2px solid var(--bad); box-shadow: none; }
+
+/* ---------- Layers (P1): a dialog opened from a sheet sits above that sheet ---------- */
+.ui-layer ~ .modal-overlay { z-index: 190; }

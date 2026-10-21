@@ -33,6 +33,18 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'statusAdd', 'proc', 'ult', 'bountyAura', 'harvest', 'dotSpread', 'keepRamp',
   // v3
   'projScale', 'tempo', 'classMul', 'bossMul', 'ramp.per', 'turret.range',
+  // the new girls (UNIT_GAPS §5): Wakaba's drink
+  'drink.shots', 'drink.splash', 'drink.dmg', 'drink.rate',
+  // Ouka's office (radius and discount on top of her tiers)
+  'hub.radiusAdd', 'hub.cutAdd',
+  // Chigusa's vine and thorns
+  'vine.hold', 'vine.bedDmg', 'vine.every',
+  // Marumi's balls
+  'ball.travel', 'ball.pinDmg', 'ball.speed',
+  // Yuzuha's sentries
+  'sentry.max', 'sentry.damage', 'sentry.ttl',
+  // Kaede's blade arts (her AoE rework): Maple Gale sharpens every shape
+  'blade.shareMul',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
 export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
@@ -61,7 +73,7 @@ export const POTENTIAL_LADDERS = deepFreeze({
 });
 
 /** The stat track a girl spends (default: her rarity's): Nami's own, the two supports' aura track, Momo's coins. */
-export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins' });
+export const POTENTIAL_TRACK_OF = deepFreeze({ nami: 'nami', umeko: 'aura', miko: 'aura', momo: 'coins', noa: 'aura', ouka: 'coins' });
 
 /** Rows for defs without one (fixtures, dev units only; a test requires every shipped girl's own row). */
 const fixtureRow = (track, kinds) => ({
@@ -216,14 +228,14 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Hundred Lanterns', 'kit', { rateMul: 1.08 }, { proc: { name: 'Hundred Lanterns', every: 4, range: 1, damageMul: 1.4, silence: 1 } }),
     p6: step('Midnight Lanterns', 'cap', { damageMul: 1.09 }, { aura: { dmgMul: 1.06 }, proc: { every: 3, damageMul: 1.8, status: [S.vulnerable(0.08, 3)] } }),
   },
-  // §5.16 Kaede, SSR duelist (the AoE rework PR owns her P5 row; until then Maple Gale cuts only the
-  // enemies right beside her target, at her plain hit: towers.js attackDuel)
+  // §5.16 Kaede, SSR duelist. Her AoE rework owns P5: Maple Gale sharpens her blade arts (towers.js
+  // bladeArts), sized so that Kaede / Chika stays within ±10 % at P1 and P6 (gate B7, docs/BALANCE.md)
   kaede: {
     p2: step('Leaf Memory', 'kit', { damageMul: 1.05 }, { keepRamp: 0.5 }),
     p3: step('Breeze Step', 'kit', { rateMul: 1.07 }, { ramp: { per: 0.02 } }),
     p4: step('Scarlet Focus', 'kit', { damageMul: 1.07 }, { ramp: { max: 0.3 }, crit: { chance: 0.05 } }),
-    p5: step('Maple Gale', 'kit', { rateMul: 1.08 }, { proc: { name: 'Maple Gale', every: 4, splash: 0.1 } }),
-    p6: step('One Blade, One Foe', 'cap', { damageMul: 1.09 }, { bossMul: 1.2, proc: { every: 3, damageMul: 1.5 } }),
+    p5: step('Maple Gale', 'kit', { rateMul: 1.08 }, { blade: { shareMul: 1.1 } }),
+    p6: step('One Blade, One Foe', 'cap', { damageMul: 1.09 }, { bossMul: 1.2, proc: { name: 'One Blade', every: 3, damageMul: 1.5 } }),
   },
   // §5.17 Chika, SSR engineer (turret.overclock merges in step order: P6 keeps P4's 6 s)
   chika: {
@@ -248,6 +260,140 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Starlit Pace', 'kit', { rateMul: 1.07 }, { ult: { buffDuration: 3, rateBuff: 0.05 } }),
     p5: step('Tidelocked Moon', 'kit', { damageMul: 1.08 }, { ult: { haste: 0.1, duration: 2, status: [S.vulnerable(0.15, 8)] } }),
     p6: step('Eclipse Crown', 'cap', { rateMul: 1.09 }, { ult: { rateBuff: 0.05 }, aura: { range: 3, dmgMul: 1.08, rateMul: 1.08 } }),
+  },
+  // Roster wave (track 5): the nine returning girls. First-pass rows on safe kit keys (pierce, armor
+  // pen, crit, a named rhythm, statusAdd onto a status she has, her ultimate), inside the §3.4 ceilings;
+  // re-measured in the owner's balance pass with the B1 bench.
+  // Fuu, R displacement
+  fuu: {
+    p2: step('Warm-up Spin', 'stat', { damageMul: 1.04 }),
+    p3: step('Through Gust', 'kit', { rateMul: 1.04 }, { pierce: 1 }),
+    p4: step('Turbine Kick', 'kit', { damageMul: 1.04 }, { proc: { name: 'Turbine Kick', every: 6, damageMul: 1.3, splash: 0.3 } }),
+    p5: step('Clean Lines', 'kit', { rateMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p6: step('Gale Finale', 'cap', { damageMul: 1.05 }, { proc: { every: 4, damageMul: 1.5, status: [S.stun(0.3)] } }),
+  },
+  // Hana, R falconer
+  hana: {
+    p2: step('Field Practice', 'stat', { damageMul: 1.04 }),
+    p3: step('Sight Tune', 'kit', { rateMul: 1.04 }, { armorPen: 1, crit: { chance: 0.03 } }),
+    p4: step('Kaze Patrol', 'kit', { damageMul: 1.04 }, { proc: { name: 'Kaze Dive', every: 8, damageMul: 2 } }),
+    p5: step('Steady Glove', 'kit', { rateMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p6: step('Falcon Sky', 'cap', { damageMul: 1.05 }, { proc: { every: 6, damageMul: 2.5 } }),
+  },
+  // Ruri, SR summoner (her bolts leave Kon, the holo familiar)
+  ruri: {
+    p2: step('Bookmark Charm', 'stat', { damageMul: 1.04 }),
+    p3: step('Page Turn', 'kit', { rateMul: 1.05 }, { pierce: 1 }),
+    p4: step('Kon\'s Pounce', 'kit', { damageMul: 1.05 }, { proc: { name: 'Kon Pounce', every: 6, damageMul: 1.6, splash: 0.3 } }),
+    p5: step('Holo Sigil', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
+    p6: step('Spirit Library', 'cap', { damageMul: 1.07 }, { proc: { every: 4, damageMul: 2 } }),
+  },
+  // Noa, SR purifier (the aura track, like Umeko)
+  noa: {
+    p2: step('Spring Check', 'stat', null, { aura: { rateMul: 1.03 } }),
+    p3: step('Wide Field', 'kit', null, { aura: { rateMul: 1.03, rangeAdd: 0.4 } }),
+    p4: step('Steady Hands', 'kit', null, { aura: { rateMul: 1.03, critChance: 0.04 } }),
+    p5: step('Clear Mind', 'kit', null, { aura: { rateMul: 1.03, armorPen: 1 } }),
+    p6: step('Sakura Shield', 'cap', null, { aura: { rateMul: 1.03 }, proc: { name: 'Sakura Pulse', every: 3, auraBoost: { time: 3, rateMul: 1.1 } } }),
+  },
+  // Iroha, SSR mirror (two firing points)
+  iroha: {
+    p2: step('Polished Pane', 'kit', { damageMul: 1.05 }, { pierce: 1 }),
+    p3: step('Drone Easel', 'kit', { rateMul: 1.07 }, { armorPen: 1 }),
+    p4: step('Twin Gleam', 'kit', { damageMul: 1.07 }, { proc: { name: 'Twin Gleam', every: 6, damageMul: 1.5 } }),
+    p5: step('Silver Focus', 'kit', { rateMul: 1.08 }, { crit: { chance: 0.06 } }),
+    p6: step('Hall of Light', 'cap', { damageMul: 1.09 }, { proc: { every: 4, damageMul: 2 } }),
+  },
+  // Ena, SSR hexer
+  ena: {
+    p2: step('Marked Deck', 'kit', { damageMul: 1.05 }, { statusAdd: [{ type: 'curse', duration: 1 }] }),
+    p3: step('Quick Shuffle', 'kit', { rateMul: 1.07 }, { crit: { chance: 0.05 } }),
+    p4: step('Bad Omen', 'kit', { damageMul: 1.07 }, { proc: { name: 'Bad Omen', every: 5, damageMul: 1.6 } }),
+    p5: step('Thread Weave', 'kit', { rateMul: 1.08 }, { armorPen: 1 }),
+    p6: step('Full House', 'cap', { damageMul: 1.09 }, { proc: { every: 4, damageMul: 2, status: [S.vulnerable(0.1, 3)] } }),
+  },
+  // Kanna, SSR hero (P3 and P5 live in her ultimate)
+  kanna: {
+    p2: step('Drum Warm-up', 'kit', { damageMul: 1.05 }, { proc: { name: 'Big Beat', every: 6, damageMul: 1.5 } }),
+    p3: step('Festival Tempo', 'kit', { damageMul: 1.07 }, { ult: { haste: 0.1 } }),
+    p4: step('Crowd Roar', 'kit', { rateMul: 1.07 }, { proc: { every: 5, damageMul: 1.75 } }),
+    p5: step('Encore Drumfall', 'kit', { damageMul: 1.08 }, { ult: { damageMul: 1.5, statusAdd: [S.vulnerable(0.12, 6)] } }),
+    p6: step('Grand Matsuri', 'cap', { rateMul: 1.09 }, { ult: { haste: 0.1 }, proc: { every: 4, damageMul: 2, status: [S.stun(0.3)] } }),
+  },
+  // Yoriko, SSR hero
+  yoriko: {
+    p2: step('Fine Strings', 'kit', { damageMul: 1.05 }, { statusAdd: [{ type: 'slow', amount: 0.05 }] }),
+    p3: step('Stage Cue', 'kit', { rateMul: 1.07 }, { ult: { haste: 0.1 } }),
+    p4: step('Dream Hex', 'kit', { damageMul: 1.07 }, { ult: { statusAdd: [{ type: 'hex', pct: 0.005 }] } }),
+    p5: step('Curtain Rise', 'kit', { rateMul: 1.08 }, { proc: { name: 'Curtain Rise', every: 5, damageMul: 1.5, status: [S.stun(0.3)] } }),
+    p6: step('Midnight Encore', 'cap', { damageMul: 1.09 }, { ult: { haste: 0.1 }, proc: { every: 4, damageMul: 1.8 } }),
+  },
+  // Seiran, SSR hero
+  seiran: {
+    p2: step('Spark Drill', 'kit', { damageMul: 1.05 }, { chain: 1 }),
+    p3: step('Flight Plan', 'kit', { damageMul: 1.07 }, { ult: { haste: 0.1 } }),
+    p4: step('Thunder Lance', 'kit', { rateMul: 1.07 }, { proc: { name: 'Thunder Lance', every: 6, nova: { radius: 0.8, share: 0.3 } } }),
+    p5: step('Dragon Wake', 'kit', { damageMul: 1.08 }, { ult: { damageMul: 1.5, statusAdd: [{ type: 'mark', bonus: 0.05 }] } }),
+    p6: step('Storm Crown', 'cap', { rateMul: 1.09 }, { chain: 1, ult: { haste: 0.1 } }),
+  },
+  // The new girls (UNIT_GAPS §5). First-pass rows on safe kit keys, inside the §3.4 ceilings.
+  // Azami, R spike layer: more strips on the road, armor cracking and armor pen on every strip
+  azami: {
+    p2: step('Roll Call', 'stat', { damageMul: 1.04 }),
+    p3: step('Spare Reel', 'kit', { damageMul: 1.04 }, { trap: { max: 1 } }),
+    p4: step('Hall Patrol', 'kit', { damageMul: 1.04 }, { statusAdd: [S.shred(1, 2)] }),
+    p5: step('Hardened Barbs', 'kit', { damageMul: 1.04 }, { armorPen: 1 }),
+    p6: step('Zero Tolerance', 'cap', { damageMul: 1.05 }, { trap: { max: 2 }, statusAdd: [S.vulnerable(0.08, 2)] }),
+  },
+  // Kinu, R ring shooter: pierce, crits and armor pen on every pin
+  kinu: {
+    p2: step('Thread Count', 'stat', { damageMul: 1.04 }),
+    p3: step('Sharp Points', 'kit', { rateMul: 1.04 }, { pierce: 1 }),
+    p4: step('Even Hem', 'kit', { damageMul: 1.04 }, { crit: { chance: 0.05 } }),
+    p5: step('Steel Thimble', 'kit', { rateMul: 1.04 }, { armorPen: 1 }),
+    p6: step('Final Fitting', 'cap', { damageMul: 1.05 }, { pierce: 1, statusAdd: [S.vulnerable(0.06, 2)] }),
+  },
+  // Wakaba, R buff thrower (she deals no damage of her own: her stat steps are attack speed, so her
+  // drinks fly sooner; her kit steps make the drink last longer, splash wider and hit harder)
+  wakaba: {
+    p2: step('Warm-up Laps', 'stat', { rateMul: 1.04 }),
+    p3: step('Spare Bottles', 'kit', { rateMul: 1.04 }, { drink: { shots: 2 } }),
+    p4: step('Wide Toss', 'kit', { rateMul: 1.04 }, { drink: { splash: 0.2 } }),
+    p5: step('Honey Lemon', 'kit', { rateMul: 1.04 }, { drink: { dmg: 0.03 } }),
+    p6: step('Team Captain', 'cap', { rateMul: 1.05 }, { drink: { rate: 0.05, shots: 2 } }),
+  },
+  // Yuzuha, SR sentry builder: longer-lived, harder-hitting sentries, armor pen on her darts, one more sentry
+  yuzuha: {
+    p2: step('Morning Checklist', 'stat', { damageMul: 1.04 }),
+    p3: step('Spare Batteries', 'kit', { rateMul: 1.05 }, { sentry: { ttl: 4 } }),
+    p4: step('Calibrated Barrels', 'kit', { damageMul: 1.05 }, { sentry: { damage: 1 } }),
+    p5: step('Armor-Piercing Darts', 'kit', { rateMul: 1.06 }, { armorPen: 1 }),
+    p6: step('Full Deployment', 'cap', { damageMul: 1.07 }, { sentry: { max: 1, damage: 2 } }),
+  },
+  // Marumi, SR bowler: heavier balls, longer lanes, bigger blasts
+  marumi: {
+    p2: step('Lane Warm-up', 'stat', { damageMul: 1.04 }),
+    p3: step('Polished Ball', 'kit', { rateMul: 1.05 }, { ball: { travel: 1 } }),
+    p4: step('Heavy Grip', 'kit', { damageMul: 1.05 }, { ball: { speed: 1 } }),
+    p5: step('Spare Pins', 'kit', { rateMul: 1.06 }, { ball: { pinDmg: 2 } }),
+    p6: step('Perfect Strike', 'cap', { damageMul: 1.07 }, { ball: { travel: 1, pinDmg: 2 } }),
+  },
+  // Chigusa, SR nature caster: her seeds, her vine and her thorns
+  chigusa: {
+    p2: step('Morning Watering', 'stat', { damageMul: 1.04 }),
+    p3: step('Deep Roots', 'kit', { rateMul: 1.05 }, { vine: { hold: 0.2 } }),
+    p4: step('Sharp Thorns', 'kit', { damageMul: 1.05 }, { vine: { bedDmg: 1 } }),
+    p5: step('Quick Sprouts', 'kit', { rateMul: 1.06 }, { vine: { every: -0.5 } }),
+    p6: step('Evergreen', 'cap', { damageMul: 1.07 }, { pierce: 1, vine: { hold: 0.3, every: -0.5 } }),
+  },
+  // Ouka, SR campus hub (the coins track, like Momo: she deals no damage, and her coins are the
+  // discount; incomeMul deepens it. Her kit steps widen her office and add to the discount)
+  ouka: {
+    p2: step('Office Hours', 'stat', { incomeMul: 1.03 }),
+    p3: step('Bulk Orders', 'kit', { incomeMul: 1.03 }, { hub: { cutAdd: 0.02 } }),
+    p4: step('Open Plan', 'kit', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.2 } }),
+    p5: step('Corridor Notices', 'kit', { incomeMul: 1.04 }, { hub: { cutAdd: 0.02 } }),
+    p6: step('Council Seal', 'cap', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.3, cutAdd: 0.03 } }),
   },
 });
 

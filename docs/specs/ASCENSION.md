@@ -677,7 +677,9 @@ free player wins Mayhem +1 … +3 like Whale A (§C.3) and earns close to the sp
   `src/data/items.js:167-174`). **Open → choose charm, ribbon or shoes → one Legendary piece already UR** (`rarity:
   'legendary'`, `ur: 1`, GA R1), **+0, four substats**. It enhances to +12 at GA's tier-6 prices (GA R12: (800 + 400·L)
   × 6, 216,000 coins for +0 → +12, computed) and takes two Needle stitches like any UR piece (GA R7). Salvage: Legendary
-  payout + 1 Rainbow Seed (GA R11's rule, so a box-born UR can be re-bloomed elsewhere).
+  payout + 1 Rainbow Seed (GA R11's rule, so a box-born UR can be re-bloomed elsewhere). Its coins are half of what its
+  levels really cost: each level below +10 it paid at UR prices sets a bit in `gbl:<uid>` and counts at that price; a
+  level an older tab sold (it sees a Legendary) has no bit and counts at the Legendary price.
 - **Where it drops:** Mayhem Victory Chests 4 % (+0.25 % a rank, cap 6 %) and Nightmare Victory Chests 0.5 %. **Never
   from first clears**, never for gems.
 - **Only the slot picker opens it.** `openGearBox` (`src/systems/gear.js:161-171`) opens any `gearbox` item as a plain
@@ -688,8 +690,10 @@ free player wins Mayhem +1 … +3 like Whale A (§C.3) and earns close to the sp
   ("Open it in the latest version"), so a stale tab cannot turn it into an ordinary Legendary piece. Tests in §H.2.
 - **Box-born UR survives older builds:** an older `cleanGear` is an allowlist that drops `ur` (`src/systems/save.js:197-221`),
   and GA's `gur:` mirror restores only pieces at +10 or more (GA §8.3, on purpose). So opening the box writes
-  **`gbx:<uid>`** = slot index × 100 + main-stat index + 1 in `missions.counters`; load restores `ur: 1` when a piece with
-  that uid, slot and main stat is present at any level; salvage writes 0 (§K item 10).
+  **`gbx:<uid>`** = slot index × 100 + main-stat index + 1 in `missions.counters`; load restores `ur: 1` when a Legendary
+  with that uid and slot is present at any level (not the main stat: an older build's Prism Dice changes it on what it
+  sees as a plain Legendary, and the next write moves the mark to the new main stat; uids are never reused); salvage
+  writes 0 (§K item 10).
 - **Overrides GA R20** ("UR never drops; no UR gear box") at the owner's request. **Needs GA's R1 reader on players'
   devices first** (older builds delete unknown gear fields).
 - **If GA's writer (R2) is not live when M1 ships:** the Rainbow share of every roll goes to Celestial, the Meter is
@@ -771,7 +775,8 @@ sets it. S1 covers it.
   it a spender could carry a friend through every first clear (3,600 gems, 4 crowns, 8 Zenith, boxes) and leave them a
   permanent Mayhem +3 sweep; with it, a carry is worth one tier step of loot for the runs played together.
   `tests/online/coopTitan.test.js` asserts all three, and refuses a guest above solo best + 1.
-- **Together Chest** (each player, each co-op Victory, at most 3 a week, `missions.weekly['tk:tog']`): 10 Assault
+- **Together Chest** (each player, each co-op Victory, at most 3 a game week: counters `tk:tog` for the game week in
+  `tk:togwk`, forward only like the Trial Keys; not `missions.weekly`, whose local-week wipe a clock set back repeats): 10 Assault
   Tokens, 5 Star Fragments, 50 % a Rainbow Crown Shard (Hard+).
 - **Clan titan board:** each member's best damage on the Titan of the Week, summed for the clan and ranked inside it.
   New table + RPC `submit_titan_best(week, titan, tier, rank, damage, seconds)` beside `submit_boss_damage`
@@ -945,6 +950,7 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 |---|---|---|---|
 | Bought Potential | `units[id].pl` 1–6 | `pl:<id>` | drops `pl` → restored from the mirror |
 | Gates 6–10 | `units[id].breakthrough` 0–10 | `bt:<id>` (written when > 5) + P3's `lv:<id>` | clamps to 5 and L60 → restored, then re-clamped to `levelCap` |
+| Level above 60 | `units[id].level` | P3's `lv:<id>` + Ascension's own `lvA:<id>` (both written by `shadowLevel` when > 60, at every level-up and every load); `settleLevels` lifts a girl at L60 or above to max(`lv:`, `lvA:`), never above `levelCap` | a pre-P3 build clamps her to L60 and keeps both. A P3 build (v0.1.37, v0.1.38) does not know `pl`: it clamps her to its cap at P = min(6, 1 + dupes) and rewrites `lv:` down to that, but never writes `lvA:` → restored from `lvA:` (a girl whose bought P is above 1 + dupes, from Kindred or Chosen Essence, would otherwise lose the levels above the old cap) |
 | Essence history | `units[id].dupes` (existing, allowlisted `:185`) | `pot:<id>` (existing) | keeps counting duplicates (and pays its old fragments: a small gift) |
 | Steps paid with Kindred | counter `essU:<id>` | itself | kept |
 | Kindred released for a spare payout | counter `kinX:<rarity>` | itself | kept |
@@ -956,18 +962,20 @@ allowlist (`:169-187`) that drops unknown unit fields, clamps `breakthrough` to 
 | Keys | `tk:left`, `tk:week` | itself | kept |
 | Titan progress | `tbest:<titan>` (solo only; tier × 100 + rank), `tfc:<titan>:<tier>` (solo only), `ttgt:<titan>`, `tkill:<titan>`, `tatt` (attempt counter for the drop seed) | itself | kept |
 | Rainbow Meter / owed box | `pity:rain`, `rbx:owed` | itself | kept |
-| Box-born UR flag | gear `ur: 1` | `gbx:<uid>` = slot index × 100 + main-stat index + 1 (0 after salvage) | drops `ur` → restored when that uid, slot and main stat are present, at any level (§C.8) |
+| Box-born UR flag | gear `ur: 1` | `gbx:<uid>` = slot index × 100 + main-stat index + 1 (0 after salvage) | drops `ur` → restored when a Legendary with that uid and slot is present, at any level; an older tab's Prism Dice changes the main stat, so it is not matched (the next write moves the mark) (§C.8) |
+| Box-born UR levels paid at UR prices | counter `gbl:<uid>`: bit L = +L → +L+1 (below +10) cost UR prices; removed at salvage | itself | kept; a level it sells writes no bit (salvage counts it at the Legendary price); its salvage of the piece gets the missing UR half of those levels on the next load, once (§C.8) |
 | New shop offers + `group` stock | `profile.shop.bought` | `shopwk:asc` (game week as a number) | an older tab rolling the week first keeps their counts → M1 clears its own ids and group keys when `shopwk:asc` ≠ this week (§C.10) |
 | Welcome pouch | `profile.items` (`memento`, `moonpearl`), paid during migration | `inv:` | dropped → restored from `inv:`; never sent by mail (§A.7) |
-| Together Chests (M2) | `missions.weekly['tk:tog']` | wiped weekly (`src/systems/missions.js:46-50`) | — |
+| Together Chests (M2) | counters `tk:tog` (opened this game week) + `tk:togwk` (that game week) | itself; reset to 0 only when the game week moves past `tk:togwk` (`payTogetherChest`, as `refreshKeys`), so the cap rolls with the rest of Titan Trials and a clock set back never refills it | kept |
+| Weekly Wonder counted this week | `missions.weekly['wd:done']` (`WEEKLY_DONE_MARK`, `src/systems/missions.js:18`): 1 once this week's `weeklyDone` has counted (`claimMission`, `:136-138`), so a row that opens mid-week (Club Day, Rainbow Hunt) cannot count the week twice | wiped weekly with `missions.weekly` (`onAppStart`, `src/systems/missions.js:46-51`) | kept; an older tab that claims the last weekly writes no mark, so this build may count that week once more (one achievement step) |
 | 16 new item ids (§F.3) | `profile.items` | `inv:<id>` (GA R16's helper in `setCount`, `src/systems/inventory.js:37`) | dropped, load lossy → restored from `inv:` (a spent item mirrors 0) |
 
-Prefixes checked against those in use and planned (RS §7: `pot:`, `fpm:`, `pg:`, `pfs:`, `story:new`, `lv:`, `fpTome:`,
+Prefixes checked against those in use and planned (RS §7: `pot:`, `fpm:`, `pg:`, `pfs:`, `story:new`, `lv:`, `lvA:`, `fpTome:`,
 `gur:`, `gtn:`, `inv:`, `ga:gift`, `fpu:`, `pity:cel`; ACH's `ach:`): no collision.
 
 ### F.2 Load order (`migrateProfile`; idempotent)
 
-`creditPotential` (today) → restore `pl:` / `bt:` / `lv:` by max → restore `inv:` items and `gbx:` flags → migration
+`creditPotential` (today) → restore `pl:` / `bt:` / `lv:` / `lvA:` by max → restore `inv:` items and `gbx:` flags → migration
 A.7 once (`ess:mig`) → re-clamp `level` to `levelCap` (exp 0 if clamped, P3 §4.6) → convert any Essence above `6 − pl`
 to spares (`essX`). **That load-time conversion only raises `essX`; it pays nothing** (no Mementos, Moonpearls or
 points): such Essence comes from a duplicate an older build already handled, and that build paid its fragments and its
@@ -1174,7 +1182,7 @@ K1–K2, S1, C1, e2e.
 8. **§6.3 achievements:** titan achievement rows pay items only (the ACH new-row gem cap is at 6,980 with GA's wave).
 9. **§8.3 `inv:`:** the mirror helper also covers the 16 new ids (§F.3).
 10. **R16 (mirrors):** add `gbx:<uid>` for box-born UR from +0 (slot index × 100 + main-stat index + 1; 0 after salvage).
-    `gur:` keeps its +10 rule; `gbx:` restores `ur: 1` at any level when that uid, slot and main stat are present
+    `gur:` keeps its +10 rule; `gbx:` restores `ur: 1` at any level when a Legendary with that uid and slot is present
     (§C.8, §F.1).
 
 ---------------------------------------------------------------------------------------------------
@@ -1249,3 +1257,60 @@ Zenith names follow on purpose. Avoided: "Inferno" (Akane's `Inferno Queen`, `sr
 commercial game title.
 
 Model: `(design scratch, not in the repo)` → `synth.txt`; `tools/titanhp.mjs` → `titanhp.txt`.
+
+---------------------------------------------------------------------------------------------------
+
+## O. Build notes (track 3, branch `feature/ascension`, built on Potential v3)
+
+**Built.** M0 reader (first commit, shippable alone: items, `pl` / gates ≤ 10 in the sanitizer, `pl:` / `bt:` /
+`inv:` mirrors, the card's `bt ≤ 5`, the Rainbow box listed with Open disabled), all of M1, and the parts of M2
+that need no co-op battle wiring (Together Chest, the guest tier rule, the clan titan board's SQL and client
+rules). Co-op id unchanged by every commit: `37b5428d7657`.
+
+**Deviations from this spec, with reasons.**
+- **Line refs** were written against release/v0.1.30; every one was re-checked on this branch. Real differences:
+  `potentialLevel` lived in `src/systems/potential.js` and already had one seam (`potentialState`), which now also
+  returns `pl`; `levelCapAt(gates, p)` already existed (P3) and now reads `GATE_CAPS[min(gates, 5 + P − 1)]`;
+  Rainbow Hunt, `assaultClear`, `pity:cel`, `ur` gear and `gur:` do not exist on this branch (track 2).
+- **`tbest:<titan>`** stores the ladder step + 1 (0 = none; Normal 1 … Mayhem 4, Mayhem +n 4 + n) instead of
+  "tier × 100 + rank" (that form cannot tell "never won" from "Normal won").
+- **Box-born UR (`gbx:`) and the Rainbow Gear Box's slot picker are not built**: UR gear is track 2's. Titan
+  Trials grant the box through one seam (`src/systems/titanRewards.js grantGearBox`, TODO naming track 2); it waits
+  in the Backpack with Open disabled, and the plain Open refuses it. `rbx:owed` was not needed: the box itself is
+  the owed record.
+- **Rainbow Hunt fold-in**: titan wins and sweeps fire a new `titanWin` mission event; the coordinator adds it to
+  the Rainbow Hunt mission's `events` when track 2 merges (firing `assaultClear` could move track 2's achievements).
+- **Welcome pouch only for saves that existed before Ascension** (a new save is born on Essence, `ess:mig` set by
+  `createProfile`); owner question 4 below.
+- **Co-op titan battles** are not wired: `createCoopSim` (`src/online/coop/commands.js:89`) passes
+  `data: { stage }` only, and the enemy overrides must ride along (`data: { stage, enemies }`), with
+  `{ mode: 'titan', titan, tier, rank }` in `session.js`'s start message and `src/data/coop.js` importing
+  `titans.js`. Those are track 1's files and co-op hashed, so the coordinator joins them with the protocol bump.
+  Everything the co-op run pays is ready: `applyTitanResult(…, { coop: true })` (no first clear, no unlock, no
+  best), `payTogetherChest`, `coopTierAllowed`.
+- **Clan board screen** not built (its server file and client rules are): it belongs beside the co-op titans.
+- **Gem-shop Titan shelf** and **Chosen SSR Essence** built as specified; owner question 2 stays on its default.
+- **Model differences** (`tools/ascensionPace.mjs`, expected values of the built tables, carries first): the free
+  player's four carries reach L85 in **week 22** (gate E1: 21–27 ✓) and eight girls in **week 30** (≤ 34 ✓); in
+  this sequential model the "4 carries at L75" milestone comes with their L85 (week 21), not week 16. The spender's
+  nine girls reach L85 in week 20 (gate E1 asked ≤ 16): in this model the spender is item-bound on the family
+  titans (one target family a week); measure on the integrated tree before tuning.
+
+**Measurements** (this branch).
+- W4 (`tests/data/titans.test.js`): the real Sim spawns every titan and her splitter children at the pool HP of
+  §C.3 within 1 % (16 battles; 12 checked through the split).
+- E4: Star Fragments a week, free 122 (weeks 1–2) → 134 → 143 (Mayhem); spender 206 (78 % of 266) ✓.
+- E5: Rainbow Meter Monte Carlo (200,000 players): mean 20.1 Mayhem chests at 4 %, 18.7 at +2; nobody past 40 ✓.
+- K1 (`tools/capBot.mjs --build A --stage 4-5 --tier blossom --profile f2p-late --gates 5|10`, seeds 7 / 9 / 21):
+  the month-6 free board (L85, best gold) falls on wave **205 / 205 / 205** at gate 5 and **200 / 205 / 207** at gate
+  10 (×1.035): inside P3's 195–209 band, the wave-200 Matriarch beaten in 5 of 6 runs (month 6, as the owner asked),
+  wave 250 far out of reach. The gate bonus does not move the band.
+
+**Save keys added** (all in `missions.counters` unless noted): unit field `pl`; `pl:<id>`, `bt:<id>`, `inv:<id>`;
+`essU:<id>`, `essX:<id>`, `essB:<id>`, `kinX:<rarity>`, `spk:r`, `ess:mig`, `ess:pouch`; `tk:left`, `tk:week`,
+`tbest:<titan>`, `tfc:<titan>:<step>`, `ttgt:<titan>`, `tkill:<titan>`, `tatt`, `pity:rain`; `craft:wk`,
+`craft:<kind>:<tier>`; `shopwk:asc`; `tk:tog` / `tk:togwk`; shop `bought['group:<id>']`. No `SAVE_VERSION`
+bump.
+
+**SQL**: `supabase/migrations/20261021000000_titan_board.sql` (owner-run after the social file; safe to run twice;
+`select public.titan_board_version();` → 1).

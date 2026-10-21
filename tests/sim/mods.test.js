@@ -199,14 +199,21 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
 // Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
 // and each kind of step lands where the spec says (docs/specs/POTENTIAL.md v3 §5, §13.2).
 import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
+import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
+import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 describe('Potential in resolveStats', () => {
   test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
     const TIERS = [[0, 0, 0], [5, 0, 2], [2, 5, 0], [0, 2, 5]];
     const out = [];
-    for (const u of REAL_UNITS) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
+    for (const u of REAL_UNITS.filter((d) => !EXPANSION_IDS.includes(d.id) && !NEW_GIRL_IDS.includes(d.id))) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
       for (const us of [null, { damageMul: 1.3, rateMul: 1.1, rangeMul: 1.05, critChance: 0.1, awakenPassive: true, potential: 1 }]) {
-        out.push(resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us }));
+        const st = resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us });
+        // the roster merge's neutral keys (airMul 1, gather 0, relay null) are not part of the pinned hash
+        delete st.airMul;
+        delete st.gather;
+        delete st.relay;
+        out.push(st);
       }
     }
     let h = 0x811c9dc5;
@@ -218,7 +225,11 @@ describe('Potential in resolveStats', () => {
     // computed on the train head before the Potential merge (train/battle-2 049dd9b: hero rework,
     // Chika rework and path cap; same script, same 456 resolutions; landing plan §10 #9). Was
     // '456:9c7c19b9' on the commit before Potential M1, before those three changed the data.
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:30217027');
+    // '456:30217027' before gear's reach (docs/specs/GEAR_STATS.md §B.3): gear Range (rangeMul 1.05 here)
+    // now also widens an aura's radius; nothing else in these resolutions moved.
+    // '456:055ce472' before Kaede's AoE rework (her `blade` block and new tiers, Crimson Eternity ×1.6 vs
+    // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:bd28cc90');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
@@ -248,10 +259,17 @@ describe('Potential in resolveStats', () => {
     expect(p6.proc).toEqual({ name: 'Silver Line', every: 4, of: 'attack', status: [], pierce: 2, damageMul: 1.5 });
   });
 
-  test('Kaede P6: Maple Gale every 3rd strike ×1.5, its cut 0.1 tiles around her target', () => {
+  test('Kaede P5: Maple Gale sharpens her blade arts ×1.1; P6: every 3rd strike ×1.5 (One Blade), ×1.2 vs bosses', () => {
+    const p1 = resolveStats(REAL.kaede, { unitStats: { potential: 1 } });
+    const p5 = resolveStats(REAL.kaede, { unitStats: { potential: 5 } });
     const p6 = resolveStats(REAL.kaede, { unitStats: { potential: 6 } });
-    expect(p6.proc).toEqual({ name: 'Maple Gale', every: 3, of: 'attack', status: [], splash: 0.1, damageMul: 1.5 });
+    expect([p1.blade.shareMul, p5.blade.shareMul]).toEqual([1, 1.1]);
+    expect('proc' in p5).toBe(false);
+    expect(p6.proc).toEqual({ name: 'One Blade', every: 3, of: 'attack', status: [], damageMul: 1.5 });
     expect(p6.bossMul).toBeCloseTo(resolveStats(REAL.kaede).bossMul * 1.2, 12);
+    // her maple splash keys on her focus cap before Potential (Scarlet Focus raises the cap, not the key)
+    expect(p6.ramp.max).toBeCloseTo(p1.ramp.max + 0.3, 12);
+    expect(p6.blade.capMax).toBe(p1.blade.capMax);
   });
 
   test('Aoi P6: damage ×1.04×1.04×1.05, rate ×1.04², +1 armor ignored, crit +3 % +6 %, Twin Fletch every 10th with the hawk', () => {
@@ -338,5 +356,49 @@ describe('Potential in resolveStats', () => {
   test('a claimed Potential above 6 or a non-number cannot do more than P6 / P1', () => {
     expect(resolveStats(REAL.aoi, { unitStats: { potential: 50 } })).toEqual(resolveStats(REAL.aoi, { unitStats: { potential: 6 } }));
     expect(resolveStats(REAL.aoi, { unitStats: { potential: '6' } })).toEqual(resolveStats(REAL.aoi));
+  });
+});
+
+describe('resolveStats `extra` (a running ability boost, src/sim/abilities.js)', () => {
+  test('no `extra` (or null) resolves bit-identically to before it existed', () => {
+    for (const id of ['aoi', 'rei', 'raika', 'chika']) {
+      const u = REAL[id];
+      const tiers = [3, 0, 2];
+      expect(resolveStats(u, { tiers, extra: null })).toEqual(resolveStats(u, { tiers }));
+      expect(resolveStats(u, { tiers, unitStats: { potential: 6 }, extra: undefined })).toEqual(resolveStats(u, { tiers, unitStats: { potential: 6 } }));
+    }
+  });
+
+  test('applies last: after the tiers, the awaken passive and Potential, before the damage and the unit stats', () => {
+    const u = REAL.rei;
+    const us = { awakenPassive: true, potential: 4, rateMul: 1.2, rangeMul: 1.1, damageMul: 1.5 };
+    const plain = resolveStats(u, { tiers: [3, 0, 0], unitStats: us });
+    const boosted = resolveStats(u, { tiers: [3, 0, 0], unitStats: us, extra: { rateMul: 2.5, range: 0.6, maxTargets: 99, damage: 2 } });
+    expect(boosted.rate).toBeCloseTo(plain.rate * 2.5, 9);
+    expect(boosted.range).toBeCloseTo(plain.range + 0.6 * 1.1, 9); // the add is scaled by her gear range like a tier's
+    expect(boosted.maxTargets).toBe(plain.maxTargets + 99);
+    expect(boosted.damage).toBeGreaterThan(plain.damage);
+    // a list applies in order; a status merges like a tier's (certain: a missing chance wins)
+    const raika = resolveStats(REAL.raika, { tiers: [0, 0, 3], extra: [{ rateMul: 1.6 }, { chain: 2, status: [{ type: 'shock', duration: 0.25 }] }] });
+    const base = resolveStats(REAL.raika, { tiers: [0, 0, 3] });
+    expect(raika.chain).toBe(base.chain + 2);
+    expect(raika.status.find((s) => s.type === 'shock')).toEqual({ type: 'shock', duration: 0.25 });
+  });
+});
+
+// Roster B3 keys (ROSTER_SPEC §6.2): airMul multiplies, gather adds, relay reach adds (only for a relay
+// girl), and the neutral defaults.
+describe('roster B3 mod keys', () => {
+  test('defaults, airMul (mul), gather (add), relay reach (add, relay girls only), both', () => {
+    const s = normalizeBase({});
+    expect([s.airMul, s.gather, s.relay]).toEqual([1, 0, null]);
+    const r = normalizeBase({ airMul: 2, relay: { kind: 'mirror', reach: 3, both: true } });
+    applyModSet(r, { airMul: 1.5, gather: 0.2, relay: { reach: 0.5 } }, { damageAdd: 0, damageMul: 1 });
+    expect(r.airMul).toBe(3);
+    expect(r.gather).toBeCloseTo(0.2, 12);
+    expect(r.relay).toEqual({ kind: 'mirror', reach: 3.5, both: true });
+    const n = normalizeBase({});
+    applyModSet(n, { relay: { reach: 1 } }, { damageAdd: 0, damageMul: 1 });
+    expect(n.relay).toBe(null);
   });
 });

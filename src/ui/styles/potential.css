@@ -52,11 +52,11 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
   min-height: 58px; padding: 5px 2px 4px; border-radius: 9px; background: #fff; border: 1px solid var(--line); color: var(--muted); text-align: center;
 }
 .pot-node-p { display: inline-flex; align-items: center; gap: 1px; font: 900 0.8rem/1 var(--font-head); }
-.pot-node-kit { color: var(--pink); font-size: 0.7rem; }
-.pot-node-label { font-size: 0.62rem; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.pot-node-kit { color: var(--pink); font-size: var(--fs-label); }
+.pot-node-label { font-size: var(--fs-label); font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
 /* the stat line under each node: her stat at that step and her level cap at that P, two spans that
    wrap onto two rows on a narrow node instead of cutting the cap off */
-.pot-node-line { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 3px; font-size: 0.56rem; font-weight: 800; line-height: 1.1; opacity: 0.9; max-width: 100%; }
+.pot-node-line { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 3px; font-size: var(--fs-label); font-weight: 800; line-height: 1.1; opacity: 0.9; max-width: 100%; }
 .pot-node-stat, .pot-node-cap { white-space: nowrap; }
 .pot-node-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pot-node-cap { flex: none; }
@@ -71,7 +71,7 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
 .pot-crown svg, .pot-node-crown svg, .pot-step-crown svg, .pot-pill-crown svg, .pot-up-crown svg { width: 100%; height: 100%; }
 .pot-node-crown { width: 11px; height: 11px; margin-right: 1px; color: var(--pot-sakura-a); }
 .pot-node.on.sig .pot-node-crown { color: var(--pot-plum); }
-.pot-chip { font-size: 0.55rem; font-weight: 900; padding: 0 5px; border-radius: 999px; background: #ebfbee; color: #2b8a3e; border: 1px solid #8ce99a; line-height: 1.4; white-space: nowrap; }
+.pot-chip { font-size: var(--fs-label); font-weight: 900; padding: 0 5px; border-radius: 999px; background: #ebfbee; color: #2b8a3e; border: 1px solid #8ce99a; line-height: 1.4; white-space: nowrap; }
 .pot-chip.enemies { background: #fff5f5; color: #c92a2a; border-color: #ffa8a8; }
 .pot-chip.coins { background: #fff9db; color: #8a4b00; border-color: #fcc419; }
 /* the five steps (replaces v1's signature box) */
@@ -88,17 +88,17 @@ button.pot-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 
 .pot-step-p { font: 900 0.78rem/1 var(--font-head); color: var(--pot-plum); }
 .pot-step-name { font-weight: 900; color: var(--pot-plum); min-width: 0; }
 .pot-step-crown { width: 13px; height: 13px; color: var(--pot-sakura-a); }
-.pot-step-next { margin-left: auto; font-size: 0.6rem; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: var(--pink); color: #fff; white-space: nowrap; }
+.pot-step-next { margin-left: auto; font-size: var(--fs-label); font-weight: 900; padding: 1px 6px; border-radius: 999px; background: var(--pink); color: #fff; white-space: nowrap; }
 .pot-step-long { margin: 2px 0 0 16px; line-height: 1.3; }
-.pot-step-cap { margin: 2px 0 0 16px; font-size: 0.66rem; font-weight: 800; color: var(--pot-plum); }
+.pot-step-cap { margin: 2px 0 0 16px; font-size: var(--fs-label); font-weight: 800; color: var(--pot-plum); }
 .pot-glyph { color: var(--pink); }
-.pot-footer { margin: 6px 0 0; font-size: 0.72rem; }
+.pot-footer { margin: 6px 0 0; font-size: var(--fs-label); }
 .pot-footer-sig { margin-top: 2px; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .pot-node { min-height: 72px; padding: 8px 4px 6px; }
   .pot-node-p { font-size: 0.95rem; }
-  .pot-node-label { font-size: 0.72rem; }
-  .pot-node-line { font-size: 0.64rem; }
+  .pot-node-label { font-size: var(--fs-label); }
+  .pot-node-line { font-size: var(--fs-label); }
   .pot-node-crown { width: 13px; height: 13px; }
   .pot-step { font-size: 0.8rem; }
 }
@@ -217,3 +217,8 @@ button.ma-sum-pot { border: 0; font: inherit; color: inherit; cursor: pointer; }
 .sst-joined-step b { color: var(--pot-plum); }
 /* the ~40 px stage-prep slots have no room for it (the Students grid shows it) */
 .ma-fslot .unit-card-potnew { display: none; }
+
+/* [ascension] Raise Potential row on her Info tab (docs/specs/ASCENSION.md §D.2) */
+.pot-raise { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 0.82rem; }
+.pot-raise.full b { color: var(--navy); }
+.pot-raise-hint { font-size: var(--fs-label); }

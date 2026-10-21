@@ -19,8 +19,9 @@ import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
-import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potentialDupesRule, DUPE_PAST_MAX_TOMES } from '../../systems/potential.js';
-import { revealTag, revealRibbon, showPotentialUp } from '../potential.js';
+import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potentialDupesRule, dupePastMaxPay } from '../../systems/potential.js';
+import { revealTag, revealRibbon, showPotentialUp, spareText } from '../potential.js';
+import { spareFifths } from '../../systems/essence.js';
 
 const FEATURED = ['luna', 'hotaru', 'kaede', 'chika', 'hikari'];
 
@@ -72,7 +73,7 @@ export function render(root) {
       title: 'Spark — pick any SSR',
       wide: true,
       body: h('div',
-        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. If she is already in your academy, she gains +1 Potential (up to P${MAX_POTENTIAL}) and ${UNIT_RARITIES.SSR.fragmentsOnDupe} Star Fragments (at P${MAX_POTENTIAL}: ${DUPE_PAST_MAX_TOMES.SSR} Akashic Tomes as well).`),
+        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. If she is already in your academy, she gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay(UNIT_MAP[POOL.SSR[0]])}).`),
         h('div.ma-spark-points', svgEl(currencyIcon('recruitPoints'), 'ma-inline-icon'), h('b', formatNumber(profile.gacha?.recruitPoints || 0)), ` / ${GACHA.sparkCost} points`),
         grid),
       actions: [{ label: 'Close', kind: 'ghost' }],
@@ -82,7 +83,7 @@ export function render(root) {
       const owned = !!profile.units[id];
       const p = owned ? potentialLevel(profile.units[id]) : 0;
       // (an owned girl below P6: what her next duplicate unlocks)
-      const meta = !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → fragments + Tomes` : `Owned · P${p} → P${p + 1} ${potentialNext(u, profile.units[id])?.brief || ''}`.trim();
+      const meta = !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → Moonpearls` : `Owned · +1 Essence → P${p + 1} ${potentialNext(u, profile.units[id])?.brief || ''}`.trim();
       grid.appendChild(h('div.ma-spark-cell',
         card(id, { variant: 'tall', owned: true }),
         h('div.ma-spark-meta', h('b', u.name), h('span.muted', { 'data-testid': `spark-meta-${id}` }, meta)),
@@ -99,7 +100,7 @@ export function render(root) {
             }
             store.commit('spark');
             m.close();
-            overlay = playReveal([{ unitId: id, rarity: 'SSR', isNew: r.isNew, fragments: r.fragments, tomes: r.tomes, potential: r.potential, potentialUp: r.potentialUp }], {
+            overlay = playReveal([{ unitId: id, rarity: 'SSR', isNew: r.isNew, essence: r.essence, spare: r.spare, readyStep: r.readyStep, potential: r.potential, potentialUp: false }], {
               skipIntro: true,
               onClose: () => { overlay = null; draw(); },
             });
@@ -371,9 +372,12 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     skip.remove();
     const newCount = results.filter((r) => r.isNew).length;
     cue('gacha.results', { best, newCount }); // [audio]
-    const frags = results.reduce((a, r) => a + (r.fragments || 0), 0);
-    // duplicates past P6 also pay Akashic Tomes (SR 1, SSR 5)
-    const tomes = results.reduce((a, r) => a + (r.tomes || 0), 0);
+    // Ascension: a duplicate gives her 1 Essence; past her hold cap it is a spare (Mementos, Moonpearls, points)
+    const essence = results.reduce((a, r) => a + (r.essence || 0), 0);
+    const ready = new Set(results.filter((r) => r.readyStep).map((r) => r.unitId)).size;
+    const spares = results.filter((r) => r.spare);
+    const mementos = spares.reduce((a, r) => a + (r.spare.mementos || 0), 0);
+    const moonpearls = spares.reduce((a, r) => a + (r.spare.moonpearls || 0), 0);
     const ups = results.filter((r) => r.potentialUp).length;
     const rises = potentialRises(results);
     // "Potential up!" cards (one per girl who reached a kit step): after the reveal plays out, not
@@ -388,8 +392,10 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
           ? h('button.ma-sum-pot', { type: 'button', 'data-testid': 'reveal-sum-pot', title: 'See what they learned', onclick: openCards }, h('span.pot-up', '▲'), ` ${ups} Potential`, tricks)
           : h('span.ma-sum-pot', { 'data-testid': 'reveal-sum-pot' }, h('span.pot-up', '▲'), ` ${ups} Potential`, tricks)) : null,
         // on phones the words go (icon + number stay) so the line fits on one row at 844×390
-        frags ? h('span.ma-sum-frag', svgEl(itemIcon('star_fragment'), 'ma-pay-icon'), `+${frags}`, h('span.pot-hide-phone', ' Star Fragments')) : null,
-        tomes ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-tomes' }, svgEl(itemIcon('book_legendary'), 'ma-pay-icon'), `+${tomes}`, h('span.pot-hide-phone', ` Akashic Tome${tomes === 1 ? '' : 's'}`)) : null,
+        essence ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-essence' }, svgEl(itemIcon('kindred_sr'), 'ma-pay-icon'), `+${essence}`, h('span.pot-hide-phone', ` Essence${ready ? ` · ${ready} ready` : ''}`)) : null,
+        mementos ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-mementos' }, svgEl(itemIcon('memento'), 'ma-pay-icon'), `+${mementos}`) : null,
+        moonpearls ? h('span.ma-sum-frag', svgEl(itemIcon('moonpearl'), 'ma-pay-icon'), `+${moonpearls}`) : null,
+        spares.some((r) => r.spare.fifths === 1) ? h('span.ma-sum-pips', { title: 'R spares: 5 make 1 recruit point' }, [0, 1, 2, 3, 4].map((i) => h(`span.ma-pip${i < spareFifths(store.profile) ? '.on' : ''}`))) : null,
         h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`),
       ),
       h('div.ma-gacha-actions',
@@ -433,8 +439,9 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
 function showcaseKicker(r) {
   const parts = ['SSR'];
   if (r.pity) parts.push('pity');
-  if (!r.isNew && r.potentialUp) parts.push(`Potential ${r.potential} ▲`);
-  else if (!r.isNew && r.potential >= MAX_POTENTIAL) parts.push(`P${MAX_POTENTIAL}`, 'MAX');
+  if (!r.isNew && r.readyStep) parts.push(`+1 Essence · P${r.readyStep} ready!`);
+  else if (!r.isNew && r.essence) parts.push('+1 Essence');
+  else if (!r.isNew && r.spare) parts.push(`Spare → ${spareText(r.spare)}`);
   return parts.join(' · ');
 }
 
@@ -442,10 +449,10 @@ function showcaseKicker(r) {
 const POTENTIAL_TIP = 'potential-tip';
 function potentialTip(results) {
   const profile = store.profile;
-  if (!results.some((r) => r.potentialUp) || profile.seenIntro?.includes(POTENTIAL_TIP)) return;
+  if (!results.some((r) => r.essence) || profile.seenIntro?.includes(POTENTIAL_TIP)) return;
   (profile.seenIntro ||= []).push(POTENTIAL_TIP);
   store.commit('potential-tip');
-  setTimeout(() => toast(`Duplicates raise Potential: every step makes her stronger, with new tricks up to P${MAX_POTENTIAL}. See her Info tab.`, 'info', 4200), 260);
+  setTimeout(() => toast(`Duplicates give Essence: raise her Potential with it on her Info tab (new tricks up to P${MAX_POTENTIAL}).`, 'info', 4200), 260);
 }
 
 function revealCard(r, i) {
@@ -459,7 +466,10 @@ function revealCard(r, i) {
         h('div.ma-gc-art', { html: portraitHTML(u, 'card', { eager: true }) }),
         h('span.ma-gc-rarity', r.rarity),
         h('span.ma-gc-name', u.name, revealRibbon(r, u)),
-        r.isNew ? h('span.ma-gc-new', 'NEW') : h('span.ma-gc-frag', svgEl(itemIcon('star_fragment'), 'ma-gc-frag-icon'), `+${r.fragments}`),
+        // "Kage's Essence +1 · P5 ready!" (a spare: its Mementos / Moonpearls)
+        r.isNew ? h('span.ma-gc-new', 'NEW')
+          : r.spare ? h('span.ma-gc-frag', { title: `Spare → ${spareText(r.spare)}` }, svgEl(itemIcon(r.spare.moonpearls ? 'moonpearl' : 'memento'), 'ma-gc-frag-icon'), `+${r.spare.moonpearls || r.spare.mementos}`)
+            : h('span.ma-gc-frag', { title: r.readyStep ? `${u.name}'s Essence +1 · P${r.readyStep} ready!` : `${u.name}'s Essence +1` }, svgEl(itemIcon('kindred_sr'), 'ma-gc-frag-icon'), '+1'),
         revealTag(r),
       ),
     ),

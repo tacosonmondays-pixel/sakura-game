@@ -300,12 +300,32 @@ export const THEMES = {
 };
 
 /**
+ * `stage.look.night === 'lantern'` (Halloween event stages): night re-lit warm — a deep
+ * indigo / violet sky, fog and ambient, a warm orange key light (lanterns, pumpkins) and a
+ * slightly orange-tinted hemisphere. Kept bright enough that the road, the tiles and the
+ * monsters read clearly.
+ */
+export const LANTERN_NIGHT = {
+  light: { sky: '#a98ee8', ground: '#6a3c34', hemi: 0.8, key: '#ffb46a', keyI: 1.3, fill: '#8f72f0', fillI: 0.38 },
+  bg: '#2a1d4a',
+  fogColor: '#4b3670',
+  groundTint: '#5e4c84',
+  shadeTint: '#3a2856',
+  waterDeep: '#22175a',
+  waterShallow: '#5a4a9a',
+  firefly: '#ffad4a',
+  gate: { spawn: '#b56bff', goal: '#ff9a3d' },
+};
+
+/**
  * Resolves the final look for a map + stage scenery: merged theme, night/fog flags,
  * weather and lighting.
  * @param {string} themeId
  * @param {{ night?: boolean, fog?: boolean, weather?: string|null }} scenery
+ * @param {{ night?: string, costumes?: boolean }|null} [stageLook] the stage's render-only
+ *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night)
  */
-export function resolveLook(themeId, scenery = {}) {
+export function resolveLook(themeId, scenery = {}, stageLook = null) {
   const t = THEMES[themeId] || THEMES.sakura;
   const look = {
     ...BASE,
@@ -321,7 +341,9 @@ export function resolveLook(themeId, scenery = {}) {
     theme: THEMES[themeId] ? themeId : 'sakura',
   };
   look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
-  look.night = !!(scenery.night || t.forceNight);
+  const lantern = stageLook?.night === 'lantern';
+  look.lantern = lantern;
+  look.night = !!(scenery.night || t.forceNight || lantern);
   look.fog = !!scenery.fog;
   look.weather = scenery.weather !== undefined ? scenery.weather : look.weather;
   if (look.night) {
@@ -336,8 +358,22 @@ export function resolveLook(themeId, scenery = {}) {
     look.water = { ...look.water, deep: mixBg(look.water.deep, '#16285a', 0.4), shallow: mixBg(look.water.shallow, '#3a5c9a', 0.35), glow: Math.max(look.water.glow, 0.1) };
     look.life = { ...look.life, butterflies: false, birds: false, clouds: false };
   }
+  if (lantern) {
+    // re-light the night warm: violet sky and fog, orange key light and fireflies; the ground
+    // keeps its own colours (only a light violet wash) so the board stays readable
+    const L = LANTERN_NIGHT;
+    look.light = { ...L.light };
+    look.bg = L.bg;
+    look.ground = look.ground.map((g) => mixBg(g, L.groundTint, 0.24));
+    look.groundShade = mixBg(look.groundShade, L.shadeTint, 0.18);
+    look.shore = mixBg(look.shore, L.shadeTint, 0.2);
+    look.water = { ...look.water, deep: mixBg(look.water.deep, L.waterDeep, 0.35), shallow: mixBg(look.water.shallow, L.waterShallow, 0.3) };
+    look.gate = { ...look.gate, ...L.gate };
+    look.fireflyColor = L.firefly;
+    look.life = { ...look.life, fireflies: true };
+  }
   if (look.fog) {
-    look.fogColor = look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
+    look.fogColor = lantern ? LANTERN_NIGHT.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
   }
   return look;
 }

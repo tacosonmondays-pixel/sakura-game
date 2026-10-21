@@ -14,6 +14,7 @@
 // story-skip-confirm, story-choice-<i>, story-hide (+ story-log-close, story-keep-reading, story-speed-<id>).
 import '../styles/story.css';
 import { h } from '../dom.js';
+import { miniMochi } from '../loading/loader.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { ENEMY_MAP, FAMILIES } from '../../data/enemies.js';
 import { CHAPTERS } from '../../data/stages.js';
@@ -43,7 +44,7 @@ export function autoDelay(text) {
 export function titleCardText(scene, episode = 0) {
   const ch = CHAPTERS.find((c) => c.id === scene.chapter);
   if (scene.kind === 'lesson') return { kicker: "Captain's Journal", title: resolveText(scene.title), sub: '' };
-  const kicker = scene.chapter === 0 ? 'Opening' : `Chapter ${scene.chapter}${ch ? ` · ${ch.name}` : ''}`;
+  const kicker = scene.kind === 'event' ? 'Event Story' : scene.chapter === 0 ? 'Opening' : `Chapter ${scene.chapter}${ch ? ` · ${ch.name}` : ''}`;
   return { kicker, title: resolveText(scene.title), sub: episode ? `Episode ${episode}` : '' };
 }
 
@@ -147,7 +148,8 @@ export function playScene(scene, opts = {}) {
       skipNote ? h('p.sp-confirm-note', resolveText(skipNote)) : null,
       h('div.sp-confirm-actions', confirmKeep, confirmSkip)));
 
-  const spinner = h('div.sp-loading', { 'aria-label': 'Loading' }, h('i.sp-load-petal'), h('i.sp-load-petal'), h('i.sp-load-petal'));
+  // Mochi, the loading slime (src/ui/loading), bottom-right, until the first background is up
+  const spinner = h('div.sp-loading', { 'aria-label': 'Loading', role: 'status' }, miniMochi({ dark: true, size: 40 }));
   const ui = h('div.sp-ui', top, choicesEl, box);
   const root = h(`div.sp${overlay ? '.sp-overlay' : '.sp-screen'}${reduce ? '.sp-reduce' : ''}`, {
     'data-testid': 'story-player', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Story: ${card.title}`, tabindex: '-1',

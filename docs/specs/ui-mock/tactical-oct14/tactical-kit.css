@@ -1,0 +1,120 @@
+/* Sentinel Tactical kit (PROPOSAL, research-ui.md). Sits on top of base.css: it reuses
+   --navy, --blue, --yellow, --pink, --skew and the motion tokens, and only adds a dark/light
+   "tactical" surface, two data fonts and a handful of shape helpers.
+   Rules: rounded font for words, condensed caps for labels, mono for numbers.
+   No backdrop-filter (battle panels sit over WebGL). transform/opacity-only motion. */
+
+:root {
+  /* surfaces (navy family, never pure black) */
+  --tx-ink: #0e1930;
+  --tx-ink-2: #15253f;
+  --tx-glass: rgba(14, 25, 48, 0.86);
+  --tx-glass-2: rgba(21, 37, 63, 0.94);
+  --tx-line: rgba(150, 200, 255, 0.22);
+  --tx-line-hi: rgba(150, 200, 255, 0.55);
+  /* text */
+  --tx-text: #eaf3ff;          /* 15.5:1 on --tx-ink */
+  --tx-dim: #8fa6c8;           /*  7.0:1 */
+  /* accents: ONE interactive accent + meaning colours */
+  --tx-accent: #4cd6ff;        /* cyan, 10.2:1 */
+  --tx-accent-ink: #0b7fb0;    /* the same cyan for light surfaces, 4.5:1 on white */
+  --tx-pink: var(--pink, #ff7aa8);  /* sakura: selection, hero, co-op partner (7.1:1) */
+  --tx-warn: #ffd23f;          /* hazard yellow = academy CTA yellow family (12:1) */
+  --tx-danger: #ff4d6d;        /* 5.4:1 */
+  --tx-good: #3ee8a0;
+  /* shape */
+  --tx-cut: 10px;              /* corner chamfer */
+  --tx-cut-s: 6px;
+  --tx-r: 2px;
+  /* type */
+  --tx-font-label: 'Barlow Condensed', 'Nunito', system-ui, sans-serif;
+  --tx-font-data: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --tx-track: 0.14em;
+  /* motion */
+  --tx-snap: cubic-bezier(0.3, 0, 0, 1);
+  --tx-t-snap: 140ms;
+  --tx-t-wipe: 240ms;
+}
+
+/* ---------- surfaces ---------- */
+/* chamfered panel: top-right + bottom-left cut, 1px hairline that follows the cut */
+.tx-panel {
+  --cut: var(--tx-cut);
+  --edge: var(--tx-line-hi);
+  position: relative; color: var(--tx-text);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  background:
+    linear-gradient(45deg, transparent calc(50% - 1.2px), var(--edge) calc(50% - 1.2px) 50%, transparent 50%) top right / var(--cut) var(--cut) no-repeat,
+    linear-gradient(45deg, transparent 50%, var(--edge) 50% calc(50% + 1.2px), transparent calc(50% + 1.2px)) bottom left / var(--cut) var(--cut) no-repeat,
+    var(--tx-glass);
+}
+.tx-panel::before { /* straight edges of the hairline */
+  content: ''; position: absolute; inset: 0; pointer-events: none; padding: 1px; background: var(--edge);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.tx-panel.tx-light { --edge: rgba(29, 78, 137, 0.35); color: var(--ink, #1f2a44); background-color: transparent;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 1.2px), var(--edge) calc(50% - 1.2px) 50%, transparent 50%) top right / var(--cut) var(--cut) no-repeat,
+    linear-gradient(45deg, transparent 50%, var(--edge) 50% calc(50% + 1.2px), transparent calc(50% + 1.2px)) bottom left / var(--cut) var(--cut) no-repeat,
+    rgba(255, 255, 255, 0.94); }
+
+/* header strip: label left, serial right, accent tab */
+.tx-head { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 0; border-bottom: 1px solid var(--tx-line); }
+.tx-head::before { content: ''; width: 4px; align-self: stretch; background: var(--tx-accent); }
+.tx-light .tx-head::before { background: var(--tx-accent-ink); }
+
+/* ---------- type ---------- */
+.tx-label { font: 600 10.5px/1 var(--tx-font-label); letter-spacing: var(--tx-track); text-transform: uppercase; color: var(--tx-dim); }
+.tx-light .tx-label { color: var(--muted, #6b7a99); }
+.tx-num { font: 700 1rem/1 var(--tx-font-data); font-variant-numeric: tabular-nums slashed-zero; letter-spacing: -0.02em; }
+.tx-code { font: 500 9px/1 var(--tx-font-data); letter-spacing: 0.08em; color: var(--tx-dim); opacity: 0.75; text-transform: uppercase; }
+
+/* ---------- lines ---------- */
+.tx-rule { height: 5px; background:
+  linear-gradient(var(--tx-line-hi) 0 0) left bottom / 100% 1px no-repeat,
+  repeating-linear-gradient(90deg, var(--tx-line-hi) 0 1px, transparent 1px 8px) left bottom / 100% 4px no-repeat; }
+/* HUD corner brackets with no extra DOM */
+.tx-brackets { --b: 9px; --w: 2px; --c: var(--tx-accent);
+  background:
+    linear-gradient(var(--c) 0 0) top left / var(--b) var(--w), linear-gradient(var(--c) 0 0) top left / var(--w) var(--b),
+    linear-gradient(var(--c) 0 0) top right / var(--b) var(--w), linear-gradient(var(--c) 0 0) top right / var(--w) var(--b),
+    linear-gradient(var(--c) 0 0) bottom left / var(--b) var(--w), linear-gradient(var(--c) 0 0) bottom left / var(--w) var(--b),
+    linear-gradient(var(--c) 0 0) bottom right / var(--b) var(--w), linear-gradient(var(--c) 0 0) bottom right / var(--w) var(--b);
+  background-repeat: no-repeat; }
+
+/* ---------- data ---------- */
+/* segmented bar: --n segments, --v filled (wave progress, path tiers, cooldowns) */
+.tx-seg { --n: 5; --v: 0; --on: var(--tx-accent); --off: rgba(255, 255, 255, 0.14);
+  display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; height: 7px; }
+.tx-seg > i { display: block; background: var(--off); transform: skewX(var(--skew, -8deg)); }
+.tx-seg > i.on { background: var(--on); box-shadow: 0 0 6px color-mix(in srgb, var(--on) 60%, transparent); }
+.tx-seg > i.next { background: transparent; box-shadow: inset 0 0 0 1.5px var(--tx-warn); }
+.tx-seg > i.cap { background: repeating-linear-gradient(-45deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 4px); }
+.tx-seg > i.lock { background: repeating-linear-gradient(-45deg, rgba(255, 77, 109, 0.55) 0 2px, transparent 2px 4px); }
+
+/* chip: squared, cut corner */
+.tx-chip { --cut: 5px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px 3px 7px;
+  font: 700 11px/1 var(--tx-font-label); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--tx-text); background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px var(--tx-line-hi);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.tx-chip.on { background: var(--tx-accent); color: var(--tx-ink); box-shadow: none; }
+
+/* warnings only: hazard stripes */
+.tx-hazard { background: repeating-linear-gradient(-45deg, var(--tx-warn) 0 7px, var(--tx-ink) 7px 14px); }
+
+/* ---------- motion ---------- */
+.tx-in { animation: tx-in var(--tx-t-snap) var(--tx-snap) both; }
+@keyframes tx-in { from { opacity: 0; transform: translateX(14px); } }
+.tx-sweep { position: relative; overflow: hidden; }
+.tx-sweep::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--tx-accent);
+  box-shadow: 0 0 10px var(--tx-accent); transform: translateX(-4px); animation: tx-sweep var(--tx-t-wipe) var(--tx-snap) 60ms 1 both; pointer-events: none; }
+@keyframes tx-sweep { 0% { transform: translateX(-4px); opacity: 1; } 100% { transform: translateX(var(--sweep-w, 360px)); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tx-in, .tx-sweep::after, .hy-glitch { animation: none !important; } }
+
+/* ---------- HYPE layer (moments only: wave start, boss, ult, results rank) ---------- */
+.hy-halftone { background-image: radial-gradient(circle, rgba(255, 255, 255, 0.32) 1.1px, transparent 1.5px); background-size: 7px 7px; }
+.hy-outline { -webkit-text-stroke: 5px var(--tx-ink); paint-order: stroke fill; }
+.hy-band { clip-path: polygon(0 16%, 100% 0, 100% 84%, 0 100%); }
+.hy-glitch { animation: hy-glitch 260ms steps(2, end) 2; }
+@keyframes hy-glitch { 0% { transform: translate(3px, -1px); } 50% { transform: translate(-3px, 1px); } 100% { transform: none; } }

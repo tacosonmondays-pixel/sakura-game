@@ -5,7 +5,8 @@
 // the camera in either mode (policy: src/render/cameraPolicy.js; pointer input:
 // src/render/boardInput.js).
 //
-//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing });
+//   const r = createBattleRenderer(containerEl, sim, { quality, settings, insets, isPlacing, skins });
+//   (skins: { unitId: skinId } outfits to dress the girls in, from systems/skins.js formationSkins)
 //   r.update(dt)  // every frame AFTER sim.update; consumes and returns sim.drainEvents()
 //
 // Time and randomness (docs/VFX.md): every animation and effect drawn here runs on the one visual
@@ -38,6 +39,7 @@ import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
+import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { VisualClock } from './vfx/clock.js';
@@ -47,16 +49,19 @@ import { HitStopDirector, hitKind } from './vfx/hitStop.js';
 import { ImpactFrames } from './vfx/impact.js';
 import { GradePass, gradeFor } from './vfx/grade.js';
 import { createHitFeel } from './vfx/feel.js';
+import { RosterFx } from './rosterFx.js';
+import { Companions } from './companions.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
   medium: { pixelRatio: 1.5, shadows: false, bloom: false },
   low: { pixelRatio: 1, shadows: false, bloom: false },
 };
-const ULT_COLORS = { nova: '#fff3b0', timeWarp: '#c9a8ff', tide: '#8fe8ff' };
+const ULT_COLORS = { nova: '#fff3b0', timeWarp: '#c9a8ff', tide: '#8fe8ff', strike: '#f589a0', runner: '#9fd8ff' };
 const STATUS_FX = {
   freeze: '#bff0ff', burn: '#ff8a4a', poison: '#7be08a', shock: '#ffe45c', stun: '#ffd84d',
   silence: '#c4a6ff', reveal: '#ffe066', shred: '#d0d6e2', mark: '#ff6b8b', vulnerable: '#9fd8ff', slow: '#8fe3ff', soak: '#4cc9f0',
+  curse: '#b46cff', hex: '#d77bff', ground: '#d8c8a0', hold: '#6fcf5e',
 };
 const MAX_NUMBERS_PER_FRAME = 14;
 const MAX_HIT_FX_PER_FRAME = 40;
@@ -79,7 +84,7 @@ const WHITE_FLASH = new THREE.Color('#ffffff');
 const TRAUMA = {
   explodeMin: 1.6, // explosions smaller than this radius do not shake
   explode: 0.26, bigHit: 0.3, eliteKill: 0.28, minibossKill: 0.55, bossKill: 0.9,
-  bossSpawn: 0.6, minibossSpawn: 0.42, bossPhase: 0.5, leak: 0.45, ult: 0.72, tier5: 0.32,
+  bossSpawn: 0.6, minibossSpawn: 0.42, bossPhase: 0.5, leak: 0.45, ult: 0.72, localUlt: 0.5, tier5: 0.32,
 };
 /** Zoom punch (share of the view, seconds). */
 const PUNCH = { ult: [0.07, 0.38], bossKill: [0.05, 0.32] };
@@ -149,7 +154,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
   };
   const scenery = resolveScenery(stage, familyOf);
-  const look = resolveLook(map.theme, scenery);
+  // stage.look (render-only StageDef field, e.g. Halloween event stages):
+  //   night: 'lantern' → warm lantern-lit night; costumes: true → monsters in costumes
+  const stageLook = stage?.look || null;
+  const look = resolveLook(map.theme, scenery, stageLook);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(look.fog ? mixHex(look.bg, look.fogColor, 0.4) : look.bg);
 
@@ -212,7 +220,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const fx = new FxSystem({ atlas, batches, camera });
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
-  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain });
+  const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
   const attackFx = settings.attackFx === false ? null : createAttackFx({ sim, scene, actors, fx, batches, atlas, camera, rig, quality, reduceMotion, rand: vrand.fork('attackFx') });
@@ -239,6 +247,24 @@ export function createBattleRenderer(container, sim, opts = {}) {
       console.warn('[attack fx] disabled after an error', err);
       return false;
     }
+  }
+  // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
+  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, rand: vrand.fork('roster') });
+  // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
+  const companions = new Companions({ sim, scene, actors, terrain, quality });
+  actors.companions = companions;
+  roster.companions = companions;
+  // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
+  let compBroken = false;
+  function compFail(err) {
+    compBroken = true;
+    try {
+      companions.clear();
+      companions.disposed = true;
+    } catch {
+      /* leave what is drawn */
+    }
+    console.warn('[companions] disabled after an error', err);
   }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
@@ -326,6 +352,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
+    roster.setQuality(q);
+    companions.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
     resize();
@@ -392,7 +420,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const squashK = reduceMotion ? 0.5 : 1;
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
+      // companions observe only (before the FX layers that consume events)
+      if (!compBroken) {
+        try {
+          companions.handle(ev);
+        } catch (err) {
+          compFail(err);
+        }
+      }
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
+      if (roster.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
           // the struck monster flashes (gold on a crit, the attack's colour on a weak spot) and squashes
@@ -634,6 +671,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'ult': {
           const col = ULT_COLORS[ev.effect] || '#ffffff';
+          // one struck enemy / the sky dragon: drawn by rosterFx, no map-wide ring and no impact frames
+          const local = ev.effect === 'strike' || ev.effect === 'runner';
+          if (local) {
+            screenFlash(col, 0.45, 2.4);
+            shake(TRAUMA.localUlt);
+            break;
+          }
           // impact frames (or a soft tint), a jolt and a zoom punch
           impactMoment(col);
           shake(TRAUMA.ult);
@@ -696,9 +740,17 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
     actors.sync(d);
+    if (!compBroken) {
+      try {
+        companions.update(d, rig.zoom);
+      } catch (err) {
+        compFail(err);
+      }
+    }
     terrain.update(time);
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d, fd));
+    roster.update(d);
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -947,6 +999,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       selectedUid = uid ?? null;
       overlays.setSelected(uid ?? null, droneUid ?? null);
       attackFx?.setSelected(uid ?? null);
+      roster.setSelected(uid ?? null);
       buffIcons.setSelected(uid ?? null);
     },
     /** Flight points being picked: { uid, mode, a } (her signal ring and the points so far), or null. */
@@ -1118,6 +1171,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
         rt.dispose();
       }
     },
+
+    /** Extra: companion actors (Kon, Kaze, the doll) for e2e / debug (allocates). */
+    companionsProbe() {
+      return companions.probe();
+    },
+
+    /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
+    towerSkin(uid) {
+      return actors.towers.get(uid)?.model.userData.skinId ?? null;
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
       return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
@@ -1131,6 +1194,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       longCbs.length = 0;
       overlays.dispose();
       attackFx?.dispose();
+      roster.dispose();
+      companions.dispose();
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {
@@ -1149,7 +1214,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
       canvas.remove();
       fxLayer.remove();
       liveRenderers = Math.max(0, liveRenderers - 1);
-      if (liveRenderers === 0) clearPropCache();
+      if (liveRenderers === 0) {
+        clearPropCache();
+        clearCostumeCache();
+      }
     },
   };
 }

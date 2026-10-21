@@ -435,6 +435,10 @@ function humanoid(B, o) {
   B.anchors.handL = [(bodyW * 1.05 * bulk + armR * 0.5) + 0.07, bodyY + bodyH * 0.3 - armLen * 0.9, hunch * 0.25 + 0.03];
   B.anchors.head = [0, headY, hunch * 0.25 + 0.02];
   B.anchors.headR = headR;
+  // chest (the 'back' attachment slot): centre, radius, half height and half depth
+  B.anchors.chest = [0, bodyY, hunch * 0.15];
+  B.anchors.chestR = bodyW * bulk;
+  B.anchors.chestDims = { top: bodyH * 0.6 / (bodyW * bulk), back: 0.85, side: 1 };
 }
 
 function applyHumanoidProps(B, def, { defaultWeapon = null, scale = 1, color } = {}) {
@@ -1192,6 +1196,7 @@ function createAsset(def, quality) {
   return {
     family, nodes, info, slimy: !!B.slimy, ghostly: !!B.ghostly, orbs: B.orbs || 0,
     scale: 0.6 * (def.size || 1) / (info.height || 1),
+    anchors: { ...B.anchors }, headNode: B.nodes.has('head') ? 'head' : B.main,
   };
 }
 
@@ -1330,6 +1335,41 @@ function instantiate(asset, def, quality) {
     const top = order.find((k) => st.statuses[k]);
     st.tint = top ? STATUS_TINT[top] : null;
     st.frozen = !!st.statuses.freeze;
+  };
+  /**
+   * Rides `obj` on a slot ('head' | 'back') in slot units (origin at its centre, 1 = its
+   * radius, +z forward); calls obj.userData.fit(dims). False when there is no such slot.
+   */
+  group.userData.attach = (obj, slot = 'head') => {
+    const a = asset.anchors || {};
+    let at;
+    let R;
+    let nodeName;
+    let dims;
+    if (slot === 'head') {
+      at = a.head || [0, (asset.info.height || 1) * 0.8, 0];
+      R = a.headR || 0.25;
+      nodeName = asset.headNode;
+      dims = { top: 1, front: 1, back: 1, side: 1, blob: asset.headNode !== 'head' };
+    } else if (slot === 'back' && a.chest && nodeObjs.torso) {
+      at = a.chest;
+      R = a.chestR || 0.2;
+      nodeName = 'torso';
+      dims = { top: 1, front: 0.85, back: 0.85, side: 1, ...(a.chestDims || {}) };
+    } else {
+      return false;
+    }
+    const node = nodeObjs[nodeName] || model;
+    const pivot = asset.nodes.find((n) => n.name === nodeName)?.pivot || V(0, 0, 0);
+    const anchor = new THREE.Group();
+    anchor.name = `slot:${slot}`;
+    anchor.position.set(at[0] - pivot.x, at[1] - pivot.y, at[2] - pivot.z);
+    anchor.scale.setScalar(R);
+    anchor.add(obj);
+    node.add(anchor);
+    obj.userData.fit?.(dims);
+    (group.userData.attachments ||= []).push({ obj, slot });
+    return true;
   };
   group.userData.dispose = () => {
     mat.dispose();

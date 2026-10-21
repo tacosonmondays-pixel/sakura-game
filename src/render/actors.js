@@ -7,6 +7,10 @@ import { GeoBuilder, lerpAngle } from './geo.js';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
+import { scissorPos } from '../sim/rings.js';
+import { pointAt } from '../sim/path.js';
+import { STEP } from '../sim/constants.js';
+import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -30,11 +34,16 @@ const STATUS_ICONS = {
   burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
   shock: ['st_shock', '#ffe45c'], stun: ['st_stun', '#ffd84d'], shred: ['st_shred', '#d0d6e2'], mark: ['st_mark', '#ff6b8b'],
   vulnerable: ['st_mark', '#9fd8ff'], silence: ['st_silence', '#c4a6ff'], reveal: ['st_reveal', '#ffe066'], soak: ['st_soak', '#4cc9f0'],
+  // roster B3: Ena's curse (bursts on death), Yoriko's hex, grounded flyers
+  curse: ['st_curse', '#b46cff'], hex: ['st_hex', '#d77bff'], ground: ['st_ground', '#d8c8a0'],
+  // Chigusa's vines
+  hold: ['st_hold', '#6fcf5e'],
 };
-const STATUS_ORDER = ['freeze', 'stun', 'shock', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
+const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
 const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
 const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
 const WHITE = new THREE.Color('#ffffff');
+const _box = new THREE.Box3();
 const colorCache = new Map();
 /** Cached THREE.Color for a hex string (hot paths). */
 function cachedColor(hex) {
@@ -94,10 +103,14 @@ const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: t
 
 export class Actors {
   /**
-   * @param {{ sim, scene: THREE.Scene, fx, batches, atlas, quality: string, terrain }} o
+   * @param {{ sim, scene: THREE.Scene, fx, batches, atlas, quality: string, terrain, costumes?: boolean, skins?: Object<string, string> }} o
+   *   costumes: dress ordinary monsters in Halloween costumes (StageDef.look.costumes)
+   *   skins: outfit per unit id (skin ids, src/data/skins.js); missing = her default
    */
-  constructor({ sim, scene, fx, batches, atlas, quality, terrain }) {
+  constructor({ sim, scene, fx, batches, atlas, quality, terrain, costumes = false, skins = {} }) {
     this.sim = sim;
+    this.costumes = !!costumes;
+    this.skins = skins || {};
     this.scene = scene;
     this.fx = fx;
     this.b = batches;
@@ -282,7 +295,7 @@ export class Actors {
   }
 
   _createTower(t) {
-    const model = buildChibi(t.def, { quality: this.quality });
+    const model = buildChibi(t.def, { quality: this.quality, skin: this.skins[t.unitId] });
     model.traverse((o) => {
       if (o.isMesh && !o.userData.isOutline) o.castShadow = this.shadows;
     });
@@ -341,11 +354,38 @@ export class Actors {
       bob: (e.uid * 1.37) % TAU, airborne: !!e.airborne, veiled: null, phasing: null, barrier: -1,
       tier: e.tier || e.def.tier || null, maxHp: e.maxHp || 0, sqA: 0, sqT: 1,
     };
+    v.costume = this._dress(model, e);
+    if (v.costume) {
+      // HP bar / status icons sit above a hat or a pumpkin head, not across it
+      model.updateMatrixWorld(true);
+      const top = _box.setFromObject(v.costume).max.y;
+      if (Number.isFinite(top)) v.height = Math.max(v.height, top * ENEMY_SCALE);
+    }
     model.position.set(e.x, v.y, e.y);
     model.rotation.y = v.facing;
     this.root.add(model);
     this.enemies.set(e.uid, v);
     return v;
+  }
+
+  /**
+   * Render-only dressing: the enemy's own extra (e.g. the Gourdlight Golem's pumpkin head),
+   * else an event costume picked from its uid (never on bosses / minibosses). Returns the
+   * attached object or null. The sim is never read beyond the def / tier / uid.
+   */
+  _dress(model, e) {
+    const attach = model.userData.attach;
+    if (!attach) return null;
+    const extra = enemyExtraFor(e.def);
+    let kind = extra;
+    let variant = 0;
+    if (!kind && this.costumes && e.tier !== 'boss' && e.tier !== 'miniboss') {
+      const c = costumeFor(e.def, e.uid);
+      if (c) ({ kind, variant } = c);
+    }
+    if (!kind) return null;
+    const obj = buildCostume(kind, variant, { quality: this.quality });
+    return attach(obj, COSTUME_SLOT[kind] || 'head') ? obj : null;
   }
 
   _updateEnemy(v, e, dt) {
@@ -397,10 +437,12 @@ export class Actors {
     if (veiled !== v.veiled) {
       v.veiled = veiled;
       ud.setVeiled?.(veiled);
+      if (v.costume) v.costume.visible = !v.veiled && !v.phasing;
     }
     if (!!e.phasing !== v.phasing) {
       v.phasing = !!e.phasing;
       ud.setPhasing?.(v.phasing);
+      if (v.costume) v.costume.visible = !v.veiled && !v.phasing;
     }
     const bar = e.maxBarrier > 0 ? Math.max(0, e.barrier) / e.maxBarrier : 0;
     if (Math.abs(bar - v.barrier) > 0.01) {
@@ -590,11 +632,101 @@ export class Actors {
     // traps
     for (const tr of sim.traps) {
       if (this.fxHook?.trapHidden(tr.uid)) continue;
+      if (tr.strip) {
+        // a spike strip (src/sim/strips.js): a flat steel bar with a dashed edge (Spike Rain's in
+        // lilac), fading as its hits run out
+        const c = this._c.set(tr.extra ? '#c9a7ff' : '#d3dae4');
+        const a = tr.armed ? 0.55 + 0.4 * Math.min(1, tr.hits / 6) : 0.35;
+        gN.push(tr.x, 0.066, tr.y, 0.72, 0.24, R.disc, c.r, c.g, c.b, a, tr.uid * 0.7);
+        gN.push(tr.x, 0.068, tr.y, 0.74, 0.28, R.ringDashed, 0.25, 0.27, 0.32, a, tr.uid * 0.7);
+        continue;
+      }
       const armed = tr.armed;
       const c = this._c.set(armed ? '#ffb347' : '#8a8fa0');
       const s = armed ? 0.62 : 0.45;
       gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid);
       if (armed) gA.push(tr.x, 0.075, tr.y, s * 1.1, s * 1.1, R.glow, c.r, c.g, c.b, 0.35 + 0.2 * Math.sin(t * 5 + tr.uid));
+    }
+    // Kinu's heat rings and orbit scissors (src/sim/rings.js): read from the sim every frame
+    for (const tw of sim.towers) {
+      const rg = tw.stats?.ring;
+      if (!rg) continue;
+      for (const ring of tw.rings || []) {
+        if (ring.r <= 0) continue;
+        const k = ring.r / Math.max(0.01, ring.max);
+        gA.push(ring.x, 0.09, ring.y, ring.r * 2, ring.r * 2, R.ringThick, 1, 0.62, 0.25, 0.85 * (1 - 0.6 * k), 0);
+      }
+      if (rg.scissors > 0) {
+        const step = Math.round(sim.time / STEP);
+        for (let j = 0; j < rg.scissors; j++) {
+          const [sx, sy] = scissorPos(tw, j, rg.scissors, step);
+          gA.push(sx, 0.35, sy, 0.3, 0.3, R.ringSoft, 0.95, 0.95, 1, 0.7, t * 9 + j);
+          gN.push(sx, 0.07, sy, 0.22, 0.22, R.disc, 0.2, 0.2, 0.3, 0.25);
+        }
+      }
+    }
+    // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
+    const SENTRY_COL = { plain: [1, 0.55, 0.16], net: [0.5, 0.85, 1], flash: [1, 1, 0.75], heavy: [1, 0.35, 0.3], flak: [0.75, 0.6, 1] };
+    for (const tw of sim.towers) {
+      if (!tw.sentries) continue;
+      for (const sn of tw.sentries) {
+        const c = SENTRY_COL[sn.type] || SENTRY_COL.plain;
+        gN.push(sn.x, 0.066, sn.y, 0.34, 0.34, R.disc, 0.18, 0.2, 0.28, 0.85);
+        gA.push(sn.x, 0.07, sn.y, 0.42, 0.42, R.ring, c[0], c[1], c[2], 0.55 + 0.35 * Math.min(1, sn.ttl / 3), 0);
+      }
+      for (const n of tw.nets || []) {
+        gN.push(n.x, 0.064, n.y, 1, 1, R.ringDashed, 0.85, 0.9, 1, n.left > 0 ? 0.75 : 0.25, 0);
+      }
+    }
+    // Marumi's bowling balls (src/sim/balls.js): a dark ball rolling up the road, a fuse spark on top. A
+    // bouncing ball (Spin Shot) flies off the road straight at its next walker: drawn a little higher with
+    // a bright rim and two fading ghosts behind it, so the turn toward the new walker reads at a glance.
+    for (const tw of sim.towers) {
+      if (!tw.balls) continue;
+      for (const bl of tw.balls) {
+        const f = bl.fly;
+        if (f) {
+          const e = sim.enemies.find((o) => o.uid === f.uid);
+          const dx = e ? e.x - f.x : 0;
+          const dy = e ? e.y - f.y : 0;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          const ux = d > 1e-6 ? dx / d : 0;
+          const uy = d > 1e-6 ? dy / d : 0;
+          for (let k = 2; k >= 1; k--) gA.push(f.x - ux * 0.22 * k, 0.09, f.y - uy * 0.22 * k, 0.4 - 0.08 * k, 0.4 - 0.08 * k, R.disc, 1, 0.77, 0.42, 0.42 - 0.14 * k, 0);
+          gN.push(f.x, 0.1, f.y, 0.42, 0.42, R.disc, 0.2, 0.22, 0.32, 0.95, 0);
+          gA.push(f.x, 0.104, f.y, 0.52, 0.52, R.ring, 1, 0.85, 0.5, 0.75 + 0.25 * Math.sin(t * 24), 0);
+          continue;
+        }
+        const path = sim.pathData[bl.pathIndex];
+        if (!path) continue;
+        const p = pointAt(path, bl.dist, this._ballPt || (this._ballPt = {}));
+        gN.push(p.x, 0.066, p.y, 0.42, 0.42, R.disc, 0.2, 0.22, 0.32, 0.95, 0);
+        gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, 0.5, 0);
+      }
+    }
+    // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
+    for (const tw of sim.towers) {
+      if (!tw.beds) continue;
+      for (const b of tw.beds) {
+        const a = 0.45 + 0.4 * Math.min(1, b.ttl / 2);
+        gN.push(b.x, 0.063, b.y, 0.8, 0.8, R.disc, 0.25, 0.42, 0.2, a * 0.8, b.uid * 0.9);
+        gN.push(b.x, 0.065, b.y, 0.86, 0.86, R.ringDashed, 0.45, 0.75, 0.32, a, b.uid * 0.9);
+      }
+    }
+    // Ouka's office (a faint gold dashed ring the size of her radius) and her council banners (a white
+    // pennant marker with the reach of their rules dashed around it), from the sim every frame
+    for (const tw of sim.towers) {
+      const hub = tw.stats?.hub;
+      if (!hub || tw.removed) continue;
+      const off = tw.disabled > 0 ? 0.2 : 0.4;
+      gN.push(tw.x, 0.061, tw.y, hub.radius * 2, hub.radius * 2, R.ringDashed, 0.85, 0.66, 0.24, off, t * 0.05);
+      for (const b of tw.banners || []) {
+        const d = hub.bannerRange * 2;
+        gN.push(b.x, 0.062, b.y, d, d, R.ringDashed, 0.95, 0.6, 0.72, off + 0.1, -t * 0.08);
+        gN.push(b.x, 0.066, b.y, 0.36, 0.36, R.disc, 0.96, 0.95, 0.92, 0.9);
+        gA.push(b.x, 0.07, b.y, 0.44, 0.44, R.ring, 0.85, 0.66, 0.24, 0.75, 0);
+        this.b.overlay.push(b.x, 0.62 + Math.sin(t * 2 + b.x) * 0.03, b.y, 0.26, 0.26, R.star, 0.95, 0.6, 0.72, 1);
+      }
     }
     // teleport warnings
     for (const [uid, w] of this.teleports) {

@@ -104,16 +104,25 @@ async function runViewport(vp) {
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
 
   // ---- outside battle: the student page and the formation say Free ----
+  // (the condensed girl page, UI_DIRECTION.md §6.2: the base stats sit behind the ink strip's MORE, the 25
+  // battle levels behind the Tree tab's "Full track")
   await page.evaluate(() => { location.hash = '#/student/hikari?tab=info'; });
-  await page.waitForTimeout(1500);
-  const studentText = await page.evaluate(() => document.querySelector('#app')?.innerText || '');
+  await page.waitForSelector('[data-testid="info-more"]', { timeout: 15000 }).catch(() => null);
+  await page.click('[data-testid="info-more"]').catch(() => {});
+  await page.waitForSelector('[data-testid="stats-sheet"] .mb-stats', { timeout: 10000 }).catch(() => null);
+  const studentText = await page.evaluate(() => document.querySelector('[data-testid="stats-sheet"]')?.innerText || '');
   check(/Deploy cost\s*Free/i.test(studentText), 'student page: Deploy cost Free');
-  check(/Battle levels \(1.25\)/i.test(studentText) && /Dawnblade Ascendant/.test(studentText), 'student page: the Hero section lists the 25 battle levels');
+  check(/Hero ultimate/i.test(studentText) && /Unlocks at hero level/.test(studentText), 'student page: the Base stats sheet carries her ultimate');
   await shot('student-hero');
+  await page.keyboard.press('Escape');
   await page.evaluate(() => { location.hash = '#/student/hikari?tab=tree'; });
-  await page.waitForTimeout(1000);
-  check(/Noon Absolute/.test(await page.evaluate(() => document.querySelector('#app')?.innerText || '')), 'student Tree tab: shows the track');
+  await page.waitForSelector('[data-testid="hero-track-full"]', { timeout: 10000 }).catch(() => null);
+  await page.click('[data-testid="hero-track-full"]').catch(() => {});
+  await page.waitForSelector('[data-testid="hero-track-list"] li', { timeout: 10000 }).catch(() => null);
+  const trackText = await page.evaluate(() => document.querySelector('[data-testid="hero-track-sheet"]')?.innerText || '');
+  check(/Noon Absolute/.test(trackText) && /Dawnblade Ascendant/.test(trackText) && (await page.locator('[data-testid="hero-track-list"] li').count()) === 25, 'student Tree tab: "Full track" lists the 25 battle levels');
   await shot('student-tree');
+  await page.keyboard.press('Escape');
   await page.evaluate(() => { location.hash = '#/formation'; });
   await page.waitForTimeout(1200);
   const formText = await page.evaluate(() => document.querySelector('#app')?.innerText || '');

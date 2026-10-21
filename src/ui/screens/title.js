@@ -3,8 +3,11 @@
 // browser session; returning within the session goes straight to the lobby.
 //   · full-screen painted academy with three girls' full-figure drawn stands and drifting petals
 //     (shown together once the painting has decoded; its small thumb is the placeholder)
-//   · the game logo, a loading bar that really preloads what the lobby needs (its module,
-//     the secretary's background art, fonts), then a pulsing "TAP TO START"
+//   · the game logo and a pulsing "TAP TO START" once what the lobby needs is really preloaded (its
+//     module, the secretary's background art, fonts). The preload runs under the black loading screen
+//     (the boot loader on a cold start), whose progress line follows its four steps; the title's own
+//     bar only shows when no loader holds it. TAP TO START goes through the cut to the lobby (or
+//     Hikari's opening scene), which stays covered until that screen's art is up.
 //   · small buttons: Notice (patch notes), Settings, Account (save data), Code (redeem / reset)
 //   · version text. reduceMotion: no zoom, no pulse, no petals.
 import '../styles/title.css';
@@ -18,6 +21,7 @@ import { redeemCode } from '../../systems/missions.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
 import { onboardingRoute } from '../../systems/story.js';
 import { APP_VERSION as BUILD_VERSION } from '../../core/buildInfo.js';
+import { holdLoader, setLoaderProgress } from '../transitions/index.js';
 
 export const TITLE_SEEN_KEY = 'sakura-title-seen';
 /** The player-facing version, one higher every deploy (vite.config.js: "0.1.17"). */
@@ -124,54 +128,31 @@ export function render(root) {
     img.addEventListener('load', () => resolve(), { once: true });
     img.addEventListener('error', () => resolve(), { once: true });
   }).then(() => (img.decode ? img.decode().catch(() => {}) : null));
-  const showArt = () => el.classList.add('tt-art-in');
-  Promise.race([Promise.all([artImg, ...girls.querySelectorAll('img')].map(arrived)), new Promise((r) => setTimeout(r, 2500))]).then(showArt);
+  const artReady = Promise.race([Promise.all([artImg, ...girls.querySelectorAll('img')].map(arrived)), new Promise((r) => setTimeout(r, 2500))]);
 
   function go() {
     if (!ready || leaving) return;
     leaving = true;
     markTitleSeen();
-    // hand-off: the title lifts out of the screen root as a fixed overlay, the lobby renders
-    // underneath, and the title fades only once the lobby's art has decoded (no empty frame)
-    // Re-inserting a node restarts its CSS animations: freeze the slow art zoom where it is and
-    // (via .tt-handoff) skip the girls'/logo's entrance, or they would blink out during the hand-off.
-    const art = el.querySelector('.tt-art-img');
-    if (art) {
-      const tf = getComputedStyle(art).transform;
-      art.style.animation = 'none';
-      if (tf && tf !== 'none') art.style.transform = tf;
-    }
-    el.classList.add('tt-handoff');
-    document.body.appendChild(el);
-    let gone = false;
-    const fade = () => {
-      if (gone) return;
-      gone = true;
-      window.removeEventListener('lobby-stage-ready', fade);
-      el.classList.add('tt-leave');
-      setTimeout(() => el.remove(), reduce ? 0 : 300);
-    };
-    window.addEventListener('lobby-stage-ready', fade);
-    window.addEventListener('story-stage-ready', fade, { once: true }); // [story] a new player meets Hikari first
-    setTimeout(fade, 1800);
+    // the router's cut takes it from here: the title leaves under the cover, and the next screen is
+    // only uncovered once its art is up (lobby-stage-ready / story-stage-ready)
     const onboarding = onboardingRoute(store.profile);
-    if (onboarding) {
-      el.style.zIndex = '320'; // stay over the scene player (z 300) until its first picture is up
-      navigate(onboarding.name, onboarding.params, { replace: true });
-    } else navigate('lobby', {}, { replace: true });
+    if (onboarding) navigate(onboarding.name, onboarding.params, { replace: true });
+    else navigate('lobby', {}, { replace: true });
   }
 
   // ---- really preload what the lobby needs ------------------------------------------------
   let disposed = false;
-  (async () => {
-    const steps = lobbyPreloadSteps(profile);
-    let done = 0;
-    const paint = (label) => {
-      const p = Math.round((done / steps.length) * 100);
-      bar.style.width = `${p}%`;
-      pct.textContent = `${p}%`;
-      if (label) loadText.textContent = `${label}…`;
-    };
+  const steps = lobbyPreloadSteps(profile);
+  let done = 0;
+  const paint = (label) => {
+    const p = Math.round((done / steps.length) * 100);
+    bar.style.width = `${p}%`;
+    pct.textContent = `${p}%`;
+    if (label) loadText.textContent = `${label}…`;
+    setLoaderProgress(done / steps.length);
+  };
+  const preload = (async () => {
     paint(steps[0][0]);
     for (const [label, fn] of steps) {
       if (disposed) return;
@@ -180,9 +161,24 @@ export function render(root) {
       done++;
       paint(label);
     }
+  })();
+  // under the loading screen (the boot loader, or the cut into the title) it holds until the preload
+  // and the painting are done, and the title's own bar is not needed. The girls, logo and buttons
+  // take their places under the loader as soon as the painting is up (no entrance of their own
+  // there), so the loader lifts off a composed title; only TAP TO START comes alive after it
+  const hold = holdLoader(Promise.all([preload, artReady]), { progress: 0 });
+  if (hold.attached) {
+    el.classList.add('tt-held');
+    artReady.then(() => {
+      if (!disposed) el.classList.add('tt-art-in');
+    });
+  } else artReady.then(() => el.classList.add('tt-art-in'));
+  (async () => {
+    await preload;
+    if (hold.attached) await hold.revealed;
     if (disposed) return;
     ready = true;
-    el.classList.add('tt-ready');
+    el.classList.add('tt-ready', 'tt-art-in');
     loadText.textContent = 'Ready!';
     start.disabled = false;
   })();

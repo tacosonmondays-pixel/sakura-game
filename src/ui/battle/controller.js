@@ -11,9 +11,11 @@ import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
-import { createBattleSim, resumeBattleSim, parseBattleParams, mapRouteFor } from './setup.js';
+import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor } from './setup.js';
+import { createTitanTracker } from '../../data/titans.js';
+import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
-import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
+import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
@@ -43,6 +45,7 @@ import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
+import { createAimControl } from './aimControl.js';
 import { sampleDroneRates } from './chikaPanel.js';
 import { createRateMeter } from './util.js';
 import { createModesBattle } from './modes.js';
@@ -55,6 +58,9 @@ import { soloFreeplayLedger, bankSoloClear, paySoloFreeplay, soloWaveCoins } fro
 import { continueIntoFreeplay, rememberSoloTier } from './soloFreeplay.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
+import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
+import { eventNow } from '../events/clock.js'; // [events]
+import { formationSkins } from '../../systems/skins.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -62,6 +68,15 @@ const MODEL_TIMEOUT_MS = 5000;
 /** Resolves after `promise` or `ms`, whichever comes first (never rejects). */
 function settle(promise, ms) {
   return Promise.race([Promise.resolve(promise).catch(() => false), new Promise((r) => setTimeout(() => r(false), ms))]);
+}
+
+/** Runs `fn` over `items`, at most `limit` at a time (the same concurrency the model loaders use). */
+function pool(items, limit, fn) {
+  const queue = [...items];
+  const worker = async () => {
+    while (queue.length) await fn(queue.shift());
+  };
+  return Promise.all(Array.from({ length: Math.min(limit, queue.length) }, worker));
 }
 
 /**
@@ -85,18 +100,19 @@ export function mountBattle(root, params, hooks) {
     ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null }
     : params.coop
       ? { error: coopRoom ? `This battle is over (or the page was reloaded). Room ${coopRoom.code} is still open: go back in and play again.` : 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
-      : parseBattleParams(params, profile);
+      : params.titan ? parseTitanParams(params, profile) : parseBattleParams(params, profile);
   const shell = h('div.bt-root', { 'data-testid': 'battle' });
   root.append(shell);
 
   if (req.error) {
-    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : () => navigate('campaign');
+    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : params.titan ? () => navigate('titans') : () => navigate('campaign');
     const label = coopRoom ? 'Back to the room' : params.coop ? 'Back to co-op' : 'Back to the map';
     shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { 'data-testid': coopRoom ? 'coop-room-again' : 'battle-unavailable-back', onclick: back }, label))));
     return { destroy: () => shell.remove(), ready: Promise.resolve() };
   }
 
-  const stage = STAGE_MAP[req.stageId];
+  // a Titan Trials battle brings its own stage (src/data/titans.js; not in STAGE_MAP)
+  const stage = req.stageDef || STAGE_MAP[req.stageId];
   // a campaign map opened from Tactical Challenge (endless=1): its prep and its map are Tactical
   // Challenge's (endless=1 on a campaign map is a freeplay run now: it still belongs there)
   const endlessMap = !ls && !params.clanBoss && (params.endless === '1' || params.endless === 1 || params.endless === 'true') && stage.kind !== 'challenge';
@@ -151,8 +167,15 @@ export function mountBattle(root, params, hooks) {
 
   const stageEl = h('div.bt-canvas');
   const layer = h('div.bt-layer');
-  const loading = h('div.bt-loading', h('div.bt-loading-card', h('div.bt-loading-petal'), h('b', restored ? `Resuming wave ${restored.sim.wave + 1}…` : 'Deploying sentinels…'), h('span', stage.name)));
-  shell.append(stageEl, layer, loading);
+  shell.append(stageEl, layer);
+  // the loading screen (src/ui/transitions: "Loading" + Mochi, nothing else): up until this battle's
+  // first frame is drawn (behind the cut from stage prep, the lobby or a co-op room; on its own for a
+  // restart or a co-op rebuild in place), its progress line counting the girls' and enemies' models
+  let markShown = () => {};
+  const shown = new Promise((r) => {
+    markShown = r;
+  });
+  const loader = holdLoader(shown, { progress: 0, immediate: true });
 
   let destroyed = false;
   let raf = 0;
@@ -190,7 +213,8 @@ export function mountBattle(root, params, hooks) {
   function stageFamilies() {
     const fams = new Set();
     try {
-      for (const x of stageEnemies(stage) || []) {
+      // (the stage the Sim runs: an event difficulty with its own waves brings its own enemies)
+      for (const x of stageEnemies(sim?.stage || stage) || []) {
         const def = typeof x === 'string' ? ENEMY_MAP[x] : x;
         if (def) fams.add(def.model?.base || def.family);
       }
@@ -205,6 +229,9 @@ export function mountBattle(root, params, hooks) {
     sim,
     stage,
     req,
+    // [events] a limited-event battle pays by its start time (EVENT_SPEC §3.2): a Continue keeps the
+    // saved run's (src/systems/battleSave.js runStartedAt), never the time it was resumed
+    startedAt: restored ? runStartedAt(saved) : eventNow(),
     profile,
     settings,
     layer,
@@ -239,6 +266,7 @@ export function mountBattle(root, params, hooks) {
       req,
       cfg: made.cfg || null,
       record: restored ? saved : null,
+      startedAt: ctx.startedAt,
       // stage prep's "Saved battles full" sheet: the save the player chose to delete for this one
       evict: !restored && typeof params.evict === 'string' ? params.evict : null,
       isEnded: () => ctx.ended,
@@ -256,14 +284,36 @@ export function mountBattle(root, params, hooks) {
   const ready = (async () => {
     // chibis-v2: only the formation (+ hero) at the detail this quality needs (phones get the
     // LODs); enemies-v2: the stage's enemy families (procedural fallback when a GLB is missing).
+    // One model per call (same concurrency as one batch call) so the loader can count them.
     const ids = [...new Set([...towers, ...(hero ? [hero] : []), ...(heroIds || [])])];
     const detail = detailFor(settings.quality || 'high');
-    await settle(Promise.all([preloadModels(ids, { detail }), preloadEnemies(stageFamilies())]), MODEL_TIMEOUT_MS);
+    // [roster] each girl in her outfit: every preload and the renderer take the same skins
+    ctx.skins = formationSkins(profile, ids);
+    const fams = stageFamilies();
+    const total = ids.length + fams.length + 1; // + building the scene
+    let loaded = 0;
+    const tick = () => {
+      loaded++;
+      if (!destroyed) setLoaderProgress(loaded / total);
+    };
+    await settle((async () => {
+      await preloadModels([], { detail, skins: ctx.skins }); // (the loaders and the manifest, once)
+      await Promise.all([
+        pool(ids, 6, (id) => preloadModels([id], { detail, skins: ctx.skins }).catch(() => false).finally(tick)),
+        pool(fams, 4, (f) => preloadEnemies([f]).catch(() => false).finally(tick)),
+      ]);
+    })(), MODEL_TIMEOUT_MS);
+    if (destroyed) return;
+    setLoaderProgress((total - 1) / total);
+    // let the loader (and its progress line) draw before the long synchronous scene build
+    await frames(2);
     if (destroyed) return;
     build();
-    loading.classList.add('out');
-    later(() => loading.remove(), 400);
   })();
+  // a battle that never draws (no WebGL, an error in the build, left first) lets the loader go
+  ready.catch(() => {}).then(() => {
+    if (!ctx.renderer || destroyed) markShown();
+  });
 
   // [story] the coached first battle (#/battle?…&tutorial=1, STORY_SPEC §2.3): Hikari's tips over this UI
   if (params.tutorial === '1') {
@@ -333,13 +383,14 @@ export function mountBattle(root, params, hooks) {
     try {
       // isPlacing: a bar drag or a tapped card waiting for the board tap holds the camera still
       renderer = createBattleRenderer(stageEl, sim, {
-        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId,
+        quality: settings.quality, settings, insets: insets(), isPlacing: () => !!ctx.placement?.unitId, skins: ctx.skins,
         // how far between two sim steps this frame is (drones are drawn between their positions)
         renderAlpha: () => (ls ? Math.min(1, ls.acc) : Math.min(1, sim._acc / STEP)),
       });
     } catch (e) {
       console.error('[battle] renderer failed', e);
       layer.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Graphics unavailable'), h('p', 'WebGL could not start on this device. Try lowering the quality in Settings.'), h('button.bt-cta', { onclick: () => navigate('settings') }, 'Settings'))));
+      markShown();
       return;
     }
     ctx.renderer = renderer;
@@ -384,6 +435,8 @@ export function mountBattle(root, params, hooks) {
       sell: (uid) => progress(sim.sellTower(uid)),
       target: (uid, mode) => progress(sim.setTargetMode(uid, mode)),
       fly: (uid, mode, a, b) => progress(sim.setFlight(uid, mode, a?.[0], a?.[1], b?.[0], b?.[1])),
+      // an aim point (x, y), or null to go back to automatic aim
+      aim: (uid, x, y) => progress(x == null ? sim.clearAim(uid) : sim.setAim(uid, x, y)),
       pick: (uid, target) => {
         const r = sim.setBuffPick(uid, target);
         if (r?.ok) saver?.markProgress();
@@ -392,6 +445,9 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.flight = createFlightControl(ctx);
     modules.push(ctx.flight);
+    // aim mode (roster B3): a mortar / mirror girl's or Seiran's aim point, one board tap
+    ctx.aim = createAimControl(ctx);
+    modules.push(ctx.aim);
 
     // ---- pick mode: choose who Midori brews / Chika tunes up first (spec §4.4) ------------
     ctx.picking = null;
@@ -590,10 +646,11 @@ export function mountBattle(root, params, hooks) {
     // Leaving saves the battle (destroy() → saver.flush()); a solo freeplay run is never saved and
     // is paid on the way out once past its goal (destroy() → payIfLeavingRun()). A Sandbox run
     // (never saved) goes back to its squad screen.
-    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : navigate('stage', prepRoute));
+    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : req.titan ? navigate('titans', { id: req.titan.id }) : navigate('stage', prepRoute));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       if (req.sandbox) return navigate('sandbox');
+      if (req.titan) return navigate('titans', { id: req.titan.id });
       const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
@@ -613,7 +670,7 @@ export function mountBattle(root, params, hooks) {
         else if (tapped === src) feed.push(PICK_REFUSED.self, 'warn', { key: 'pick-refused', ms: 1400 });
         return;
       }
-      if (ctx.flight.handleTap(p) || placement.handleTap(p)) return;
+      if (ctx.aim.handleTap(p) || ctx.flight.handleTap(p) || placement.handleTap(p)) return;
       ctx.select(tapped, { drone: drone ? p.droneUid : null });
     }));
     const onCanvasMove = (e) => {
@@ -626,6 +683,7 @@ export function mountBattle(root, params, hooks) {
       if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
       if (e.key === 'Escape') {
         if (ctx.picking != null) ctx.cancelPick();
+        else if (ctx.aim.active) ctx.aim.cancel();
         else if (ctx.flight.active) ctx.flight.cancel();
         else if (placement.unitId) placement.cancel();
         else if (ctx.selectedUid != null) ctx.select(null);
@@ -811,6 +869,13 @@ export function mountBattle(root, params, hooks) {
       if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
       else if (endedRun) feed.announce('RUN OVER', `Ended on wave ${sim.wave}`, 'bad', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
+      if (req.titan) {
+        // Titan Trials: the result is the titan's damage notch, read outside the sim
+        titanTracker.consume(sim.drainEvents(), sim);
+        results.apply();
+        later(() => results.showTitan(), RESULT_DELAY_MS);
+        return;
+      }
       results.apply();
       if (params.clanBoss) submitClanBoss();
       later(() => (fpEnd ? results.showFreeplay() : won ? results.showVictory() : results.showDefeat()), RESULT_DELAY_MS);
@@ -851,6 +916,12 @@ export function mountBattle(root, params, hooks) {
 
     // ---- main loop ----------------------------------------------------------------------
     let lastT = performance.now();
+    /** The first frame is drawn: the loading screen may go (its progress line is full). */
+    let firstFrame = () => {
+      firstFrame = null;
+      setLoaderProgress(1);
+      markShown();
+    };
     function frame(now) {
       raf = requestAnimationFrame(frame);
       // a finished Sim whose 'won' / 'lost' event never reached handle() (a render or handler
@@ -874,14 +945,17 @@ export function mountBattle(root, params, hooks) {
       }
       let events = [];
       // while a full-screen sheet (results / pause) covers the map, skip the 3D frame (battery)
-      if (results.open || (pause.open && !ls) || ctx.tree?.pausedByTree) return; // [unit-info] solo tree: frozen frame
+      if (results.open || (pause.open && !ls) || ctx.tree?.pausedByTree) return firstFrame?.(); // [unit-info] solo tree: frozen frame
       try {
         renderer.setTimeScale?.(ctx.speed); // [attackFx] drones keep pace at 2×/3× (co-op: shared speed)
         events = renderer.update(running ? dt : ctx.ended ? dt : 0);
       } catch (e) {
         console.error('[battle] render failed', e);
       }
+      firstFrame?.();
       ctx.audio?.events(events); // [audio]
+      // (before handle(): a 'won' / 'lost' in this batch ends the battle and pays the titan's notch)
+      titanTracker?.consume(events, sim);
       handle(events);
       fpBattle?.update();
       sampleDroneRates(sim, ctx.rates);
@@ -915,7 +989,7 @@ export function mountBattle(root, params, hooks) {
       }
     };
     later(armHero, 700);
-    if (req.practice) feed.push('Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
+    if (req.practice) feed.push(req.practiceNote || 'Practice run: this stage is still locked on your map, so nothing from this battle is saved.', 'info', { ms: 4200 });
     if (restored) {
       // a hero saved before the hero rework: back at her level, what she cost back as coins
       const heroBack = (restored.heroRefunds || []).reduce((a, x) => a + x.refunded, 0);
@@ -960,7 +1034,7 @@ export function mountBattle(root, params, hooks) {
       ? paySoloFreeplay(soloLedger, p, result, rng)
       // a normal run (Keep going not taken yet) pays as results.apply() does without a ledger: a
       // saved run gets the event bonus of the week it started in
-      : applyBattleResult(p, result, rng, { now: new Date(), eventAt: ctx.saver ? new Date(ctx.saver.createdAt) : null }));
+      : applyBattleResult(p, result, rng, { now: new Date(eventNow()), eventAt: ctx.saver ? new Date(ctx.saver.createdAt) : null, startedAt: ctx.startedAt ?? null }));
     // Finish: solo ends the run at once (the pause menu and the clear card's pill)
     ctx.voteFinish = (v) => fpBattle?.vote(v);
     ctx.myFinishVote = () => false;
@@ -1071,6 +1145,21 @@ export function mountBattle(root, params, hooks) {
     ];
     cleanups.push(() => offs.forEach((off) => off()));
   }
+  // ---- Titan Trials (docs/specs/ASCENSION.md §C) -----------------------------------------
+  /** reads the titan's damage from the event stream (the titan and her splitter children) */
+  const titanTracker = req.titan ? createTitanTracker(req.titan.battle) : null;
+  if (req.titan) {
+    ctx.titan = { ...req.titan, tracker: titanTracker, practice: !!req.practice };
+    ctx.applyResult = (p, result) => applyTitanResult(p, {
+      titanId: req.titan.id, tier: req.titan.tier, rank: req.titan.rank, seed: sim.seed, read: titanTracker.read(),
+      kills: result.kills, encountered: result.encountered, practice: !!req.practice,
+    });
+    ctx.extraActions = () => [
+      { label: 'Titan Trials', testid: 'titan-back', cta: true, icon: 'back', onClick: () => navigate('titans', { id: req.titan.id }) },
+      { label: 'Retry', testid: 'retry', icon: 'refresh', onClick: () => ctx.restart() },
+      { label: 'Home', testid: 'home', icon: 'home', onClick: () => navigate('lobby') },
+    ];
+  }
   if (params.clanBoss) {
     ctx.extraActions = () => [
       { label: 'Back to the clan', testid: 'clan-back', cta: true, icon: 'play', onClick: () => navigate('clan', { tab: 'boss' }) },
@@ -1102,6 +1191,9 @@ export function mountBattle(root, params, hooks) {
     }
     navigate('coop', session.isHost ? { id: session.code, host: '1' } : { id: session.code });
   }
+
+  /** The co-op `aim` command's arguments: a world point in 1/1024 tiles, or null (automatic aim). */
+  const aimArgs = (uid, x, y) => (x == null || y == null ? [uid, null] : [uid, Math.round(x * 1024), Math.round(y * 1024)]);
 
   function coopActions() {
     const mine = (uid) => {
@@ -1139,6 +1231,11 @@ export function mountBattle(root, params, hooks) {
       fly(uid, mode, a, b) {
         if (ls.job || !mine(uid)) return false;
         ls.queue('fly', flyArgs(uid, mode, a, b));
+        return true;
+      },
+      aim(uid, x, y) {
+        if (ls.job || !mine(uid)) return false;
+        ls.queue('aim', aimArgs(uid, x, y));
         return true;
       },
       pick(uid, target) {
@@ -1227,6 +1324,7 @@ export function mountBattle(root, params, hooks) {
         }
       }
       destroyed = true;
+      loader.release();
       cancelAnimationFrame(raf);
       for (const id of timers) clearTimeout(id);
       timers.clear();

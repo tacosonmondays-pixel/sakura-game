@@ -1,0 +1,81 @@
+{
+ "doll": {
+  "file": "doll.glb",
+  "bytes": 137940,
+  "vertices": 3018,
+  "clips": [
+   "appear",
+   "attack",
+   "idle",
+   "move"
+  ],
+  "height": 0.304,
+  "owner": "yoriko",
+  "home": {
+   "offset": [
+    0.264,
+    0.192,
+    0.125
+   ],
+   "follow": "hand_L",
+   "note": "hangs in front of Yoriko's raised left hand; the thread tops (bone 'bar') meet her control bar"
+  },
+  "source": "blender",
+  "lod": "doll.lod.glb",
+  "lodBytes": 58344,
+  "lodVertices": 936
+ },
+ "kaze": {
+  "file": "kaze.glb",
+  "bytes": 105636,
+  "vertices": 1918,
+  "clips": [
+   "appear",
+   "attack",
+   "idle",
+   "move"
+  ],
+  "height": 0.1971,
+  "battleScale": 1.3,
+  "owner": "hana",
+  "home": {
+   "offset": [
+    0.235,
+    0.56,
+    0.035
+   ],
+   "follow": "shoulder_L",
+   "note": "perched on Hana's left shoulder (talons on the shoulder top)"
+  },
+  "source": "blender",
+  "lod": "kaze.lod.glb",
+  "lodBytes": 52044,
+  "lodVertices": 557
+ },
+ "kon": {
+  "file": "kon.glb",
+  "bytes": 117600,
+  "vertices": 2194,
+  "clips": [
+   "appear",
+   "attack",
+   "idle",
+   "move"
+  ],
+  "height": 0.174,
+  "owner": "ruri",
+  "home": {
+   "offset": [
+    0.24,
+    0.0,
+    0.18
+   ],
+   "follow": null,
+   "note": "at Ruri's feet, front-left of her, facing the same way"
+  },
+  "source": "blender",
+  "lod": "kon.lod.glb",
+  "lodBytes": 59196,
+  "lodVertices": 695
+ }
+}

@@ -27,6 +27,7 @@ import { MODE_TEXT } from '../text/modes.js';
 import { RULE_TEXT } from '../text/rules.js';
 import { modeIcon } from '../../art/icons.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
+import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
@@ -462,7 +463,8 @@ export function render(root, params = {}) {
       const isHost = params.host === '1';
       const card = profileCard(profile);
       const { loadout, hero } = pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
-      const stageId = isHost && STAGE_MAP[params.stage] ? params.stage : defaultStage(profile);
+      // a room link may name any campaign stage, never an event stage (EVENT_SPEC E11)
+      const stageId = isHost && STAGE_MAP[params.stage] && STAGE_MAP[params.stage].kind !== 'event' ? params.stage : defaultStage(profile);
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
       // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
       const freeplay = isHost ? freeplayTier(params.freeplay) : null;
@@ -611,13 +613,13 @@ export function render(root, params = {}) {
         return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] } },
           session.mismatch
             ? h('div.ol-pcard-wait', h('b', `${session.mismatch.name} is here`), h('p.muted', 'Your game versions differ — see above.'))
-            : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, h('i.ol-spinner'), h('b', title), h('p.muted', sub)));
+            : h('div.ol-pcard-wait', { 'data-testid': 'coop-wait' }, miniMochi(), h('b', title), h('p.muted', sub)));
       }
       if (!me && !session.paired) {
         // I hear my ally, but it does not hear me yet: no Ready / Start until it does (the
         // lobby fixes a one-way link by itself with a fresh connection)
         return h('section.ol-pcard.empty', { style: { '--pc': COOP.colors[slot] }, 'data-testid': 'coop-connecting', 'data-slot': slot },
-          h('div.ol-pcard-wait', h('i.ol-spinner'), h('b', `Connecting to ${p.name || 'your ally'}…`),
+          h('div.ol-pcard-wait', miniMochi(), h('b', `Connecting to ${p.name || 'your ally'}…`),
             h('p.muted', 'Making sure you can both hear each other. This fixes itself in a few seconds.')));
       }
       const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);

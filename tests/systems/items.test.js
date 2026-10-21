@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ITEMS, ITEM_IDS, getItem, itemsByCategory, itemsByTab, materialId, bookId, BACKPACK_TABS } from '../../src/data/items.js';
+import { ITEMS, ITEM_IDS, getItem, itemsByCategory, itemsByTab, materialId, bookId, BACKPACK_TABS, ASCENSION_ITEM_IDS } from '../../src/data/items.js';
 import { MATERIAL_FAMILIES, ITEM_RARITY_ORDER, ITEM_RARITIES } from '../../src/data/types.js';
+import { EVENT_CURRENCIES } from '../../src/data/events/index.js';
 import { createProfile } from '../../src/systems/save.js';
 import { addItems, hasItems, missingItems, consumeItems, itemSources, itemCount, bestStageFor } from '../../src/systems/inventory.js';
 import { STAGES, STAGE_MAP } from '../../src/data/stages.js';
@@ -9,10 +10,13 @@ import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS, REDEEM_CO
 
 describe('items data', () => {
   it('has every contract id with a category, rarity, name and backpack tab', () => {
-    const ids = ['dice_reroll', 'dice_prism', 'lock_pin', 'star_fragment', 'ticket_recruit', 'ticket_recruit10', 'ticket_ssr_select', 'token_boss', 'token_bounty', 'coins', 'gems',
+    const ids = ['dice_reroll', 'dice_prism', 'lock_pin', 'seed_rainbow', 'needle_star', 'club_band', 'star_fragment', 'ticket_recruit', 'ticket_recruit10', 'ticket_ssr_select', 'token_boss', 'token_bounty', 'coins', 'gems',
       'crown_slime', 'crown_iron', 'crown_cog', 'crown_oni', 'crown_dragon'];
     for (const f of Object.keys(MATERIAL_FAMILIES)) for (const r of ITEM_RARITY_ORDER) ids.push(materialId(f, r));
     for (const r of ITEM_RARITY_ORDER) ids.push(bookId(r), `gearbox_${r}`);
+    for (const c of EVENT_CURRENCIES) ids.push(c.id); // limited-event currencies (EVENT_SPEC §3.4)
+    // Ascension (docs/specs/ASCENSION.md §F.3)
+    ids.push(...ASCENSION_ITEM_IDS);
     for (const id of ids) {
       const it = getItem(id);
       expect(it, id).toBeTruthy();
@@ -50,10 +54,12 @@ describe('items data', () => {
   });
 
   it('category/tab helpers', () => {
-    expect(itemsByCategory('material')).toHaveLength(35);
+    // 7 families × 5 rarities + 7 Zenith
+    expect(itemsByCategory('material')).toHaveLength(42);
     expect(itemsByCategory('book')).toHaveLength(5);
-    expect(itemsByCategory('crown')).toHaveLength(5);
-    expect(itemsByTab('enhancement')).toHaveLength(40);
+    // 5 boss crowns + the Rainbow Crown and its shard
+    expect(itemsByCategory('crown')).toHaveLength(7);
+    expect(itemsByTab('enhancement')).toHaveLength(47);
     expect(getItem('nope')).toBeUndefined();
   });
 

@@ -21,7 +21,11 @@ import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / All
 import { tierTags } from '../upgradeTags.js';
 import { HERO_GROWTH } from '../../data/heroTracks.js';
 import { PRICE_TICK, trackLevel, sourceText, rankAt } from './heroLevels.js';
+import { aimMode } from '../../sim/towers.js';
 import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS } from './buffs.js';
+
+/** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
+const CLUB_NAMES = { archery: 'Archery', fencing: 'Fencing', taiko: 'Taiko', pyro: 'Pyrotechnics', tea: 'Tea', bell: 'Bell' };
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
 const MODE_HELP = {
@@ -30,6 +34,7 @@ const MODE_HELP = {
   strong: 'Highest HP',
   close: 'Nearest to her',
   elite: 'Casters, siphoners, elites, bosses first',
+  air: 'Flyers first, then the leader',
 };
 
 function statusLabel(s) {
@@ -86,7 +91,7 @@ export function createTowerPanel(ctx) {
       return `${st.tier}${st.reason || 'ok'}${st.cost}${hold ? `h${hold.uid}:${hold.tiers.join('')}` : ''}`;
     }).join(',');
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? 'A' : ''}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field) */
@@ -162,12 +167,49 @@ export function createTowerPanel(ctx) {
       target = h(
         'div.bt-target',
         h('span.bt-section-label', icon('target', 'bt-ico-sm'), 'Target'),
-        h('div.bt-seg', Object.entries(TARGET_MODES).map(([k, name]) => h(
+        // (Air only for a girl who can hit flyers)
+        h('div.bt-seg', Object.entries(TARGET_MODES).filter(([k]) => k !== 'air' || st.canHitAir).map(([k, name]) => h(
           `button.bt-seg-btn${t.targetMode === k ? '.on' : ''}`,
           { 'data-mode': k, title: MODE_HELP[k], onclick: () => { (ctx.act ? ctx.act.target(t.uid, k) : sim.setTargetMode(t.uid, k)); sig = ''; update(true); } },
           name,
         ))),
       );
+    }
+
+    // ---- spike strips (Azami, src/sim/strips.js): where she lays them. Near exit and Spread are her
+    // target modes First and Last (the co-op `tgt` command); Checkpoint, from Checkpoint tier 3, is
+    // her aim point (the `aim` command). Picking a mode clears a checkpoint.
+    const am = aimMode(t);
+    if (st.behavior === 'strip') {
+      const aiming = ctx.aim?.uid === t.uid;
+      const checkpoint = !!t.aim || aiming;
+      const mode = (k) => () => {
+        if (t.aim || aiming) ctx.aim?.clear(t.uid);
+        (ctx.act ? ctx.act.target(t.uid, k) : sim.setTargetMode(t.uid, k));
+        sig = '';
+        update(true);
+      };
+      target = h(
+        'div.bt-target',
+        h('span.bt-section-label', icon('trap', 'bt-ico-sm'), 'Strips'),
+        h('div.bt-seg',
+          h(`button.bt-seg-btn${!checkpoint && t.targetMode !== 'last' ? '.on' : ''}`, { 'data-mode': 'first', 'data-testid': 'strip-exit', title: 'On the free road spot nearest the exit', onclick: mode('first') }, 'Near exit'),
+          h(`button.bt-seg-btn${!checkpoint && t.targetMode === 'last' ? '.on' : ''}`, { 'data-mode': 'last', 'data-testid': 'strip-spread', title: 'Spread along the road', onclick: mode('last') }, 'Spread'),
+          am === 'checkpoint' ? h(`button.bt-seg-btn${checkpoint ? '.on' : ''}`, { 'data-testid': 'aim-set', title: 'Tap the road: her strips land around that point', onclick: () => { ctx.aim?.start(t.uid); sig = ''; update(true); } }, aiming ? 'Tap map…' : 'Checkpoint') : null),
+      );
+    }
+
+    // ---- aim point (roster B3): a mortar's centre, a mirror panel's spot, an aimed hero ult
+    if (am && am !== 'checkpoint') {
+      const aiming = ctx.aim?.uid === t.uid;
+      const aimRow = h(
+        'div.bt-target.bt-aim',
+        h('span.bt-section-label', icon('target', 'bt-ico-sm'), am === 'mirror' ? 'Mirror' : 'Aim'),
+        h('div.bt-seg',
+          h(`button.bt-seg-btn${!t.aim && !aiming ? '.on' : ''}`, { 'data-testid': 'aim-auto', title: 'She picks the spot herself', onclick: () => { ctx.aim?.clear(t.uid); sig = ''; update(true); } }, 'Auto'),
+          h(`button.bt-seg-btn${t.aim || aiming ? '.on' : ''}`, { 'data-testid': 'aim-set', title: 'Tap the map to aim', onclick: () => { ctx.aim?.start(t.uid); sig = ''; update(true); } }, aiming ? 'Tap map…' : t.aim ? 'Re-aim' : 'Set aim')),
+      );
+      target = target ? h('div', target, aimRow) : aimRow;
     }
 
     // ---- stats
@@ -194,7 +236,9 @@ export function createTowerPanel(ctx) {
     if (st.range > 0) add('Range', fmtNum(st.range, 1));
     if (st.behavior === 'projectile' && st.projectiles > 1) add('Targets', st.projectiles);
     if (st.behavior === 'beam' && st.projectiles > 1) add('Beams', st.projectiles);
-    if (st.pierce > 1) add('Pierce', st.pierce);
+    // gear Pierce (docs/specs/GEAR_STATS.md §A.3): "Pierce 2 (+46%)" — the % is her chance of one more target
+    const gearPierce = Math.round(t.unitStats?.pierceK || 0);
+    if (st.pierce > 1 || gearPierce > 0) add('Pierce', gearPierce > 0 ? `${st.pierce} (+${gearPierce}%)` : st.pierce);
     if (st.behavior === 'pulse' && st.maxTargets < 99) add('Max hits', st.maxTargets);
     if (st.splash > 0) add('Splash', fmtNum(st.splash, 1));
     if (st.chain > 0) add('Jumps', st.chain);
@@ -206,6 +250,8 @@ export function createTowerPanel(ctx) {
     if (t.isHero && (t.unitStats?.costMul ?? 1) < 1) add('Level prices', `−${Math.round((1 - t.unitStats.costMul) * 100)}%`, '.bt-stat-wide2');
     if (st.crit?.chance > 0) add('Crit', `${Math.round(st.crit.chance * 100)}% ×${fmtNum(st.crit.mul, 2)}`, '.bt-stat-wide2');
     if (st.eliteMul > 1) add('vs Elite', `×${fmtNum(st.eliteMul, 2)}`);
+    // her Academy Club set (2 pieces: its stat is in her numbers; 3: the trick runs in battle)
+    if (t.unitStats?.club && t.unitStats.clubN >= 2) add('Club', `${CLUB_NAMES[t.unitStats.club] || t.unitStats.club} ${'●'.repeat(t.unitStats.clubN)}${t.unitStats.clubN >= 3 ? ' · trick on' : ''}`, '.bt-stat-wide2');
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
     if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');
@@ -231,6 +277,34 @@ export function createTowerPanel(ctx) {
       if (a.detection) bits.push('Veil Sight');
       if (a.cleanse) bits.push('Cleanse');
       add('Aura → allies', `${fmtNum(a.range, 1)} tiles${bits.length ? ` · ${bits.join(', ')}` : ''}`, '.bt-stat-wide', 'aura');
+    }
+    if (st.hub) {
+      // Ouka's office rules (src/sim/hubs.js)
+      const hb = st.hub;
+      const bits = [`-${Math.round(hb.costCut * 100)}% upgrades`, `sell ${Math.round(hb.sellMul * 100)}%`];
+      if (hb.freeTiers > 0) bits.push(`${hb.freeTiers === 1 ? '1st tier' : `first ${hb.freeTiers} tiers`} free`);
+      if (hb.killBounty > 0) bits.push(`+${fmtNum(hb.killBounty, 0)} coins/kill`);
+      if (hb.cdCut > 0) bits.push(`abilities +${Math.round(hb.cdCut * 100)}%`);
+      if (hb.rateMul > 1) bits.push(`+${Math.round((hb.rateMul - 1) * 100)}% speed`);
+      if (hb.rangeMul > 1) bits.push(`+${Math.round((hb.rangeMul - 1) * 100)}% range`);
+      if (hb.dmgMul > 1) bits.push(`+${Math.round((hb.dmgMul - 1) * 100)}% dmg`);
+      if (hb.detection) bits.push('Veil Sight');
+      if (hb.airGrant) bits.push('hit flyers');
+      if (hb.cleanse) bits.push('Cleanse');
+      if (hb.typeFloor > 0) bits.push('type floor ×1');
+      add('Office', `${fmtNum(hb.radius, 1)} tiles · ${bits.join(', ')}`, '.bt-stat-wide', 'aura');
+      if (hb.banners > 0) add('Banners', `${t.banners?.length || 0}/${hb.banners} · ${fmtNum(hb.bannerRange, 1)} tiles`, '.bt-stat-wide2');
+    }
+    if (t.rules) {
+      // a girl inside Ouka's office or by her banner: the rules that are not already shown as buffs
+      const ru = t.rules;
+      const bits = [];
+      if (ru.freeTiers > 0) bits.push(`${ru.freeTiers === 1 ? '1st tier' : `first ${ru.freeTiers} tiers`} free`);
+      if (ru.sellMul > 0) bits.push(`sells for ${Math.round(ru.sellMul * 100)}%`);
+      if (ru.cdCut > 0) bits.push(`ability +${Math.round(ru.cdCut * 100)}% charge`);
+      if (ru.airGrant) bits.push('hits flyers');
+      if (ru.typeFloor > 0) bits.push('type floor ×1');
+      if (bits.length) add('Council rules', bits.join(', '), '.bt-stat-wide');
     }
     const chips = [];
     const cap = (key, label) => chips.push(h('span.bt-cap', svgEl(capabilityIcon(key), 'bt-cap-ico'), label));

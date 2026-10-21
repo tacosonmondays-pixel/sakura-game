@@ -68,20 +68,26 @@ for (const [W, H] of [[844, 390], [1280, 720]]) {
   await page.waitForSelector('[data-testid="gear-filter"]', { timeout: 15000 });
   const remembered = await page.locator('[data-testid="gear-filter-main"]').inputValue();
   check(remembered === 'atkPct', `${W}x${H} filter remembered on the next visit (${remembered})`);
-  // girl's equipment tab
+  // girl's equipment tab: the filter lives in a slot's sheet, behind its Filter button (UI_DIRECTION.md §6.2 M1b)
   await page.evaluate(() => { location.hash = '#/student/hikari?tab=gear'; });
-  await page.waitForSelector('.mb-slots', { timeout: 30000 }).catch(async () => { await page.reload(); await page.waitForSelector('.mb-slots', { timeout: 30000 }); });
-  const bar = await page.waitForSelector('.mb-tab-body [data-testid="gear-filter"]', { timeout: 15000 }).then(() => true).catch(() => false);
-  check(bar, `${W}x${H} girl's Equipment tab has the filter bar`);
-  const opts = await page.locator('[data-testid="gear-filter-main"] option').allInnerTexts();
+  await page.waitForSelector('[data-testid="slot-charm"]', { timeout: 30000 }).catch(async () => { await page.reload(); await page.waitForSelector('[data-testid="slot-charm"]', { timeout: 30000 }); });
+  await page.locator('[data-testid="slot-charm"]').click();
+  await page.waitForSelector('[data-testid="gear-sheet"]', { timeout: 15000 });
+  await page.locator('[data-testid="gear-filter-open"]').click();
+  const bar = await page.waitForSelector('[data-testid="gear-sheet"] [data-testid="gear-filter"]', { timeout: 15000 }).then(() => true).catch(() => false);
+  check(bar, `${W}x${H} girl's Equipment: a slot's sheet has the filter bar behind Filter`);
+  const opts = await page.locator('[data-testid="gear-sheet"] [data-testid="gear-filter-main"] option').allInnerTexts();
   check(opts.length >= 2 && opts[0] === 'Any', `${W}x${H} main-stat options for the slot: ${opts.join(' / ')}`);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/student-gear-${W}x${H}.png` });
   // shoes can't have an ATK main stat: the remembered student filter must not empty that list
-  await page.selectOption('.mb-tab-body [data-testid="gear-filter-main"]', 'atkPct');
+  await page.selectOption('[data-testid="gear-sheet"] [data-testid="gear-filter-main"]', 'atkPct');
   await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('[data-testid="gear-sheet"]', { state: 'detached', timeout: 5000 }).catch(() => {});
   await page.locator('[data-testid="slot-shoes"]').click();
+  await page.waitForSelector('[data-testid="gear-sheet"]', { timeout: 15000 });
   await page.waitForTimeout(500);
-  const shoes = await page.locator('.mb-tab-body .mb-gear-grid .mb-gear').count();
+  const shoes = await page.locator('[data-testid="gear-sheet"] [data-testid="gear-picker"] .ui-gtile').count();
   check(shoes > 0, `${W}x${H} switching to Shoes ignores the Charm-only ATK filter (${shoes} shown)`);
   check(errs.length === 0, `${W}x${H} no page errors ${errs.join(' | ')}`);
   await page.close();

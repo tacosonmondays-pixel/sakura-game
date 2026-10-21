@@ -9,6 +9,7 @@ import { DEFAULT_UNIT_STATS } from '../../src/sim/constants.js';
 import { COOP } from '../../src/data/coop.js';
 import { createProfile } from '../../src/systems/save.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { potentialState } from '../../src/systems/potential.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 import { UNITS } from '../../src/data/units.js';
@@ -18,7 +19,7 @@ function maxedProfile() {
   const p = createProfile();
   const rng = createRng(77);
   for (const u of UNITS) {
-    p.units[u.id] = { ...(p.units[u.id] || p.units.aoi), level: 85, exp: 0, breakthrough: 5, awaken: 5, dupes: 5, gear: { charm: null, ribbon: null, shoes: null } };
+    p.units[u.id] = { ...(p.units[u.id] || p.units.aoi), level: 85, exp: 0, breakthrough: 10, awaken: 5, ...potentialState(6), gear: { charm: null, ribbon: null, shoes: null } };
   }
   const piece = (slot, main, subs) => {
     const g = rollGear(rng, { slot, rarity: 'legendary' });
@@ -82,10 +83,10 @@ describe('an honest loadout is the identity', () => {
 });
 
 describe('a hostile loadout', () => {
-  const hostile = { damageMul: 1000, rateMul: -3, rangeMul: Number.NaN, critChance: 5, critMul: 0, armorPen: 1e9, costMul: 0.01, ultHaste: 9, awakenPassive: 'yes', level: 1e9, awaken: 99, breakthrough: -1, potential: 99, rainbow: 3, __proto__x: 1, damage: 5000 };
+  const hostile = { damageMul: 1000, rateMul: -3, rangeMul: Number.NaN, critChance: 5, critMul: 0, armorPen: 1e9, costMul: 0.01, ultHaste: 9, awakenPassive: 'yes', level: 1e9, awaken: 99, breakthrough: -1, potential: 99, rainbow: 3, pierceK: 9999, auraPct: 5, auraRangeMul: 0, dotMul: 'x', club: 'chess', clubN: 7, __proto__x: 1, damage: 5000 };
 
   it('clamps every field to its rule, falls back on non-numbers and drops unknown keys', () => {
-    expect(clampUnitStats(hostile)).toEqual({ damageMul: 10, rateMul: 0, rangeMul: 1, critChance: 0.75, critMul: 1, armorPen: 50, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6 });
+    expect(clampUnitStats(hostile)).toEqual({ damageMul: 10, rateMul: 0, rangeMul: 1, critChance: 0.75, critMul: 1, armorPen: 50, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 200, auraPct: 0.3, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
     expect(clampUnitStats('nope')).toEqual({});
     expect(clampUnitStats([1, 2])).toEqual({});
     expect(clampUnitStats(null)).toBeNull();
@@ -102,7 +103,7 @@ describe('a hostile loadout', () => {
 
   it('both clients clamp the same start message the same way and agree on every hash', () => {
     const raw = {
-      v: { proto: 5 }, seed: 5150, stageId: '1-3', difficulty: 'normal',
+      v: { proto: 7 }, seed: 5150, stageId: '1-3', difficulty: 'normal',
       players: [
         { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: unitBattleStats(createProfile(), 'aoi') }], hero: null, color: 1 },
         { slot: 1, uid: 'cheat', name: 'Cheat', loadout: [{ unitId: 'rei', stats: hostile }], hero: null, color: 2 },

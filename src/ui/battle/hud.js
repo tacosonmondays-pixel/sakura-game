@@ -2,6 +2,7 @@
 // Co-op freeplay past the goal: the wave counter overflows ("16/15") in the tier's colours with a
 // slam on every new wave — the owner's "cool text effect going past like 16/15" (spec §10.3).
 // Solo freeplay shows the same counter.
+import { TITAN_MAP, tierLabel } from '../../data/titans.js';
 import { h, icon, fmtCoins } from './util.js';
 import { createScout } from './scout.js';
 import { svgEl } from '../components.js';
@@ -31,8 +32,11 @@ export function createHud(ctx) {
   const fpChip = h('span.bt-fp-chip', { 'data-testid': 'hud-freeplay' });
   const stageLabel = h(
     'div.bt-stage-label',
-    h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.name),
-    h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),
+    // a Titan Trials battle: the titan's name and her tier (it always plays on Normal rules)
+    h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.titan ? TITAN_MAP[stage.titan.id]?.name || stage.name : stage.name),
+    stage.titan
+      ? h(`span.bt-diff.bt-diff-${stage.titan.tier === 'mayhem' ? 'nightmare' : stage.titan.tier}`, tierLabel(stage.titan.tier, stage.titan.rank))
+      : h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),
     ctx.modes?.chip || null,
     ctx.req.practice ? h('span.bt-practice', 'Practice') : null,
     fpChip,

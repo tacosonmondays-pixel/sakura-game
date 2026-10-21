@@ -197,9 +197,13 @@ export function visiblePieces(asset, def) {
   });
 }
 
-function mergedFor(asset, def) {
+function mergedKey(asset, def) {
   const variant = def.model?.variant || 'basic';
-  const key = `${asset.family}|${variant}|${[...(def.model?.props || [])].sort().join(',')}`;
+  return `${asset.family}|${variant}|${[...(def.model?.props || [])].sort().join(',')}`;
+}
+
+function mergedFor(asset, def) {
+  const key = mergedKey(asset, def);
   let m = mergedCache.get(key);
   if (m) return m;
   const vis = visiblePieces(asset, def);
@@ -213,6 +217,81 @@ function mergedFor(asset, def) {
     out[material] = g;
   }
   mergedCache.set(key, out);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Attachment slots (render-side extras such as event costumes ride on a bone)
+// ---------------------------------------------------------------------------
+
+/** Bones a slot rides on, first match wins ('top' = the blob families' upper body). */
+const SLOT_BONES = { head: ['head', 'top'], back: ['chest'] };
+const slotCache = new Map(); // mergedKey|slot -> { bone, local: Matrix4, dims } | null
+
+function quantile(sorted, q) {
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))];
+}
+
+/**
+ * The frame of a slot in its bone's local space: origin at the centre of the vertices that
+ * bone mostly drives, unit = their radius (head: mean of the half height and half depth, so
+ * wide ears do not blow it up). dims (in that unit): top, front, back, side half extents.
+ */
+function slotFrame(asset, def, slot, bodyMesh, model) {
+  const key = `${mergedKey(asset, def)}|${slot}`;
+  if (slotCache.has(key)) return slotCache.get(key);
+  let out = null;
+  const geo = bodyMesh?.geometry;
+  const skel = bodyMesh?.isSkinnedMesh ? bodyMesh.skeleton : null;
+  const bi = skel ? (SLOT_BONES[slot] || []).map((n) => skel.bones.findIndex((b) => b.name === n)).find((i) => i >= 0) ?? -1 : -1;
+  if (bi >= 0 && geo?.attributes.skinIndex && geo.attributes.skinWeight) {
+    // skinned position in model space = Σ w · bone.matrixWorld · boneInverse · bindMatrix · v,
+    // then out of the model's world (the enemy may already stand somewhere on the board, so
+    // nothing here may rely on the mesh's per-frame bindMatrixInverse)
+    model.updateWorldMatrix(true, true);
+    const invModel = model.matrixWorld.clone().invert();
+    const boneToModel = skel.bones.map((b, j) => invModel.clone().multiply(b.matrixWorld).multiply(skel.boneInverses[j]).multiply(bodyMesh.bindMatrix));
+    const pos = geo.attributes.position;
+    const si = geo.attributes.skinIndex;
+    const sw = geo.attributes.skinWeight;
+    const v = new THREE.Vector3();
+    const t = new THREE.Vector3();
+    const acc = new THREE.Vector3();
+    const xs = [];
+    const ys = [];
+    const zs = [];
+    for (let i = 0; i < pos.count; i++) {
+      let best = 0;
+      let bw = -1;
+      for (let k = 0; k < 4; k++) {
+        const w = sw.getComponent(i, k);
+        if (w > bw) { bw = w; best = si.getComponent(i, k); }
+      }
+      if (best !== bi) continue;
+      v.fromBufferAttribute(pos, i);
+      acc.set(0, 0, 0);
+      for (let k = 0; k < 4; k++) {
+        const w = sw.getComponent(i, k);
+        if (w > 0) acc.addScaledVector(t.copy(v).applyMatrix4(boneToModel[si.getComponent(i, k)]), w);
+      }
+      xs.push(acc.x); ys.push(acc.y); zs.push(acc.z);
+    }
+    if (xs.length >= 8) {
+      for (const a of [xs, ys, zs]) a.sort((p, q) => p - q);
+      const lo = [quantile(xs, 0.05), quantile(ys, 0.05), quantile(zs, 0.05)];
+      const hi = [quantile(xs, 0.95), quantile(ys, 0.95), quantile(zs, 0.95)];
+      const half = hi.map((h, k) => Math.max(1e-4, (h - lo[k]) / 2));
+      const R = slot === 'head' ? (half[1] + half[2]) / 2 : (half[0] + half[1] + half[2]) / 3;
+      const center = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
+      const frame = new THREE.Matrix4().compose(center, new THREE.Quaternion(), new THREE.Vector3(R, R, R));
+      const bone = skel.bones[bi];
+      const boneInModel = invModel.clone().multiply(bone.matrixWorld);
+      const local = boneInModel.invert().multiply(frame);
+      // blob: the slot is a whole-body blob (slime / ghost / plant 'top'), not a separate head
+      out = { bone: bone.name, local, dims: { top: half[1] / R, front: half[2] / R, back: half[2] / R, side: half[0] / R, blob: bone.name === 'top' } };
+    }
+  }
+  slotCache.set(key, out);
   return out;
 }
 
@@ -462,6 +541,25 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   /** Loops the special clip while a field is being projected. */
   group.userData.setCasting = (on) => anim.setCasting(!!on);
   group.userData.setExpression = (name) => anim.setExpression(name);
+  /**
+   * Rides `obj` on a slot ('head' | 'back'), built in slot units (origin at the slot's centre,
+   * 1 = its radius, +y up, +z forward). Calls obj.userData.fit(dims) with the slot's half
+   * extents. Returns false when this body has no such slot. Kept across a placeholder upgrade.
+   */
+  group.userData.attach = (obj, slot = 'head') => {
+    const f = slotFrame(asset, def, slot, bodyMesh, model);
+    const bone = f && bodyMesh.skeleton.bones.find((b) => b.name === f.bone);
+    if (!bone) return false;
+    const anchor = new THREE.Group();
+    anchor.name = `slot:${slot}`;
+    anchor.matrixAutoUpdate = false;
+    anchor.matrix.copy(f.local);
+    anchor.add(obj);
+    bone.add(anchor);
+    obj.userData.fit?.(f.dims);
+    (group.userData.attachments ||= []).push({ obj, slot });
+    return true;
+  };
   group.userData.dispose = () => {
     group.userData.disposed = true;
     anim.dispose();

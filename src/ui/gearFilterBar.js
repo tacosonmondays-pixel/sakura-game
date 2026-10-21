@@ -4,9 +4,10 @@
 // choice is remembered per place (Backpack / girl page) for the next visit.
 import './styles/gearFilter.css';
 import { h } from './components.js';
-import { GEAR_STATS, GEAR_MAIN_STATS, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
+import { GEAR_MAIN_STATS, ITEM_RARITIES } from '../data/types.js';
+import { GEAR_STAT_KEYS, BASE_STAT_KEYS, statName } from '../data/gearStats.js';
 import {
-  DEFAULT_GEAR_FILTER, GEAR_STATUSES, GEAR_SORTS, normalizeGearFilter, activeGearFilters,
+  DEFAULT_GEAR_FILTER, GEAR_STATUSES, GEAR_SORTS, GEAR_DISPLAY_RARITIES, normalizeGearFilter, activeGearFilters,
 } from '../systems/gearFilter.js';
 
 const KEY = 'sakura-gear-filter';
@@ -68,21 +69,21 @@ export function gearFilterBar({ place, slot = null, shown, total, onChange, rari
     saveGearFilter(place, { ...f, ...patch });
     onChange();
   };
-  const mains = slot ? GEAR_MAIN_STATS[slot] || [] : Object.keys(GEAR_STATS);
+  const mains = slot ? GEAR_MAIN_STATS[slot] || [] : BASE_STAT_KEYS;
   const active = activeGearFilters(f) + (external && rarity ? 1 : 0);
   return h('div.gf-bar', { 'data-testid': 'gear-filter' },
     external ? null : h('div.gf-rarities', { role: 'radiogroup', 'aria-label': 'Rarity' },
-      [null, ...ITEM_RARITY_ORDER].map((r) => h(`button.gf-rarity${(f.rarity ?? null) === r ? '.on' : ''}`, {
+      [null, ...GEAR_DISPLAY_RARITIES].map((r) => h(`button.gf-rarity${(f.rarity ?? null) === r ? '.on' : ''}${r === 'UR' ? '.is-ur' : ''}`, {
         type: 'button',
         role: 'radio',
         'aria-checked': (f.rarity ?? null) === r ? 'true' : 'false',
         'data-testid': `gear-filter-rarity-${r || 'all'}`,
-        style: r ? { '--gf': ITEM_RARITIES[r].color } : null,
+        style: r && ITEM_RARITIES[r] ? { '--gf': ITEM_RARITIES[r].color } : null,
         onclick: () => set({ rarity: r }),
-      }, r ? ITEM_RARITIES[r].name : 'All'))),
+      }, r ? ITEM_RARITIES[r]?.name || r : 'All'))),
     h('div.gf-row',
-      select('main', 'Main stat', mains.includes(f.main) ? f.main : null, [[null, 'Any'], ...mains.map((s) => [s, GEAR_STATS[s].name])], (v) => set({ main: v })),
-      select('sub', 'Has substat', f.sub, [[null, 'Any'], ...Object.keys(GEAR_STATS).map((s) => [s, GEAR_STATS[s].name])], (v) => set({ sub: v })),
+      select('main', 'Main stat', mains.includes(f.main) ? f.main : null, [[null, 'Any'], ...mains.map((s) => [s, statName(s)])], (v) => set({ main: v })),
+      select('sub', 'Has substat', f.sub, [[null, 'Any'], ...GEAR_STAT_KEYS.map((s) => [s, statName(s)])], (v) => set({ sub: v })),
       select('status', 'Show', f.status, Object.entries(GEAR_STATUSES), (v) => set({ status: v || 'all' })),
       select('sort', 'Sort', f.sort, Object.entries(GEAR_SORTS), (v) => set({ sort: v || 'best' }))),
     h('div.gf-foot',

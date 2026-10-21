@@ -118,7 +118,7 @@ const cmdKey = (c) => `${c.p}:${c.s}`;
 export function rederiveStats(sim) {
   let n = 0;
   for (const t of sim.towers) {
-    if (JSON.stringify(towerResolvedStats(t)) === JSON.stringify(t.stats) && effMatches(t, sim.globalRateMul)) continue;
+    if (JSON.stringify(towerResolvedStats(t)) === JSON.stringify(t.stats) && effMatches(t, sim.globalRateMul, sim.globalDmgMul ?? 1)) continue;
     sim._refreshTower(t);
     n++;
   }
@@ -126,9 +126,9 @@ export function rederiveStats(sim) {
 }
 
 /** Her stored effective stats are what her stored stats and buffs give (checked on a shallow copy: she is not touched). */
-function effMatches(t, globalRateMul) {
+function effMatches(t, globalRateMul, globalDmgMul = 1) {
   const c = { ...t };
-  refreshEffective(c, globalRateMul);
+  refreshEffective(c, globalRateMul, globalDmgMul);
   return JSON.stringify(c.eff) === JSON.stringify(t.eff) && JSON.stringify(c.turretSpec) === JSON.stringify(t.turretSpec) && JSON.stringify(c.trapSpec) === JSON.stringify(t.trapSpec);
 }
 

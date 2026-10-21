@@ -15,24 +15,28 @@ import {
 // The reviewed tag combinations of every path tier (update on purpose when units.js changes).
 // (path cap: Midori's brews and Chika's tune-up links are Allies, so her 15 tiers and Repair Bay 4-5
 // gained an Allies tag; aura armor pen / crit on tier 4-5 auras; the tier 4 / 5 first pass)
+// (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
+// familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 111,
-  'enemies* + self': 26,
-  'enemies + self': 23,
-  allies: 23,
-  enemies: 14,
-  coins: 7,
-  'allies + self': 6,
+  self: 207, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi)
+  'enemies* + self': 35,
+  'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
+  allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
+  enemies: 28,
+  coins: 8,
+  'coins + enemies': 1,
+  'allies + coins + enemies': 1,
+  'allies + self': 10,
   'allies + enemies + self': 6,
-  'allies + enemies*': 5,
-  'enemies*': 4,
+  'allies + enemies*': 6,
+  'enemies*': 7,
   'allies + enemies* + self': 4,
   'self+X': 3,
   'allies + coins': 2,
   'coins + self': 2,
-  'enemies + self+X': 2,
+  'enemies + self+X': 3,
   'enemies* + self+X': 1,
-  'allies + enemies': 1,
+  'allies + enemies': 2,
 };
 
 const tiersOf = (u) => u.paths.flatMap((p, pi) => p.tiers.map((t, ti) => ({ u, pi, ti, t })));
@@ -55,7 +59,7 @@ describe('every tier of every girl is classified', () => {
   it('covers the whole roster (3 paths × 5 tiers each; heroes: one 25-level track, no paths)', () => {
     expect(UNITS.length).toBeGreaterThanOrEqual(19);
     const heroes = UNITS.filter((u) => u.kind === 'hero');
-    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'luna', 'nami']);
+    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'luna', 'nami', 'seiran', 'yoriko']);
     for (const u of heroes) {
       expect(u.paths, u.id).toEqual([]);
       expect(u.hero.levels.map((l) => l.level), u.id).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));

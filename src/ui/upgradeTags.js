@@ -53,6 +53,22 @@ export const MOD_TAGS = {
   silence: 'enemies', knockback: 'enemies',
   mark: 'team', reveal: 'team',
   income: 'coins',
+  // roster B3: the flyer bonus and a familiar / mirror's reach are hers; a gather pulls enemies
+  airMul: 'self', relay: 'self', gather: 'enemies',
+  // the new girls (UNIT_GAPS §5): Azami's spike strips are her traps; Kinu's ring is her attack
+  strip: 'traps', ring: 'self',
+  // Wakaba's drink makes the girls she picks stronger
+  drink: 'limited',
+  // Ouka's office rules cover the girls around her
+  hub: 'allies',
+  // Chigusa's vine holds enemies; her thorn beds are her traps
+  vine: 'enemies',
+  // Marumi's balls are her attack
+  ball: 'self',
+  // Yuzuha's lane sentries are her summons
+  sentry: 'drones',
+  // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
+  blade: 'self',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -69,12 +85,21 @@ const SUB_KEYS = {
   crit: new Set(['chance', 'mul']),
   ramp: new Set(['per', 'max']),
   mark: new Set(['bonus', 'duration']),
+  relay: new Set(['reach']),
+  sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
+  ball: new Set(['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'bounce', 'reach', 'finish']),
+  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap']),
+  hub: new Set(['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'detection', 'airGrant', 'cleanse', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd']),
+  drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
+  ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
+  strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 
 /** Status types that make enemies easier for EVERY girl to hit or hurt. */
 const TEAM_STATUS = new Set(['vulnerable', 'shred', 'mark', 'reveal']);
 /** Strongest-first order for the tier icon of a status tier. */
-const STATUS_STRENGTH = ['stun', 'freeze', 'vulnerable', 'shred', 'mark', 'slow', 'silence', 'reveal', 'burn', 'poison', 'shock', 'soak'];
+const STATUS_STRENGTH = ['stun', 'freeze', 'curse', 'hex', 'ground', 'vulnerable', 'shred', 'mark', 'slow', 'silence', 'reveal', 'burn', 'poison', 'shock', 'soak'];
 
 /**
  * Tier notes where a tier's authored text and the battle disagree (keyed unit.path.tier, 0-based).
@@ -185,9 +210,10 @@ export function modsTags(mods = {}, { radius = 0, reach = 0 } = {}) {
  * @param {{ current?: number }} [opts]
  */
 export function auraRadius(unit, path, tier, { current = 0 } = {}) {
-  let r = Math.max(unit?.base?.aura?.range ?? 0, current || 0);
+  // (Ouka's office radius counts as her aura: her rules cover the girls inside it)
+  let r = Math.max(unit?.base?.aura?.range ?? 0, unit?.base?.hub?.radius ?? 0, current || 0);
   const tiers = unit?.paths?.[path]?.tiers || [];
-  for (let k = 0; k < Math.min(tier, tiers.length); k++) r = Math.max(r, tiers[k]?.mods?.aura?.range ?? 0);
+  for (let k = 0; k < Math.min(tier, tiers.length); k++) r = Math.max(r, tiers[k]?.mods?.aura?.range ?? 0, tiers[k]?.mods?.hub?.radius ?? 0);
   return r;
 }
 
@@ -252,7 +278,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', none: 'Support' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {
@@ -271,6 +297,9 @@ export function statusShort(s) {
     case 'mark': core = `Mark +${Math.round((s.bonus || 0) * 100)}%`; break;
     case 'silence': core = `Silence ${round1(s.duration || 0)}s`; break;
     case 'reveal': core = `Reveal ${round1(s.duration || 0)}s`; break;
+    case 'ground': core = `Ground ${round1(s.duration || 0)}s`; break;
+    case 'curse': core = `Curse ${Math.round((s.burstMul || 0) * 100)}%`; break;
+    case 'hex': core = `Hex ${round1((s.pct || 0) * 100)}%/s`; break;
     default: core = STATUSES[s.type]?.name || s.type;
   }
   return s.chance != null && s.chance < 1 ? `${core} (${Math.round(s.chance * 100)}%)` : core;
@@ -334,6 +363,9 @@ const SHORT_ORDER = [
   ['reveal', (m) => `Reveal ${round1(m.reveal)}s`],
   ['silence', (m) => `Silence ${round1(m.silence)}s`],
   ['knockback', (m) => `Push back ${round1(m.knockback)}`],
+  ['gather', () => 'Pulls the wave together'],
+  ['airMul', (m) => `×${round1(m.airMul)} vs flyers`],
+  ['relay', (m) => `Reach +${round1(m.relay.reach || 0)}`],
   ['income', (m) => (m.income.perWave ? `+${m.income.perWave} coins/wave` : `+${Math.round((m.income.interest || 0) * 100)}% interest`)],
   ['canHitAir', () => 'Hits flyers'],
   ['detection', () => 'Veil Sight'],
@@ -361,7 +393,8 @@ export const SHORT_KEYS = SHORT_ORDER.map(([k]) => k);
  * varied icons (a sword only when damage is all the tier does).
  */
 const ICON_ORDER = [
-  'behavior', 'attackType', 'element', 'aura', 'brew', 'link', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'income',
+  'behavior', 'attackType', 'element', 'aura', 'brew', 'link', 'turret', 'trap', 'status', 'mark', 'reveal', 'silence', 'knockback', 'gather', 'income',
+  'airMul', 'relay',
   'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'hpPct', 'eliteMul', 'bossMul',
   'barrierMul', 'ramp', 'rateMul', 'range', 'projectileSpeed', 'damageMul', 'damage',
 ];
@@ -390,6 +423,24 @@ export function shortEffect(mods = {}) {
   return parts[0].length <= SHORT_MAX ? parts[0] : `${parts[0].slice(0, SHORT_MAX - 1)}…`;
 }
 
+/**
+ * A tier's effects as short chip phrases, most important first ("+5 dmg", "+25% dmg", "+4 pierce"): the
+ * same words as shortEffect(), whole (never cut), at most `max` of them (the tier panel shows 3, §6.1).
+ * @param {object} mods
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function effectParts(mods = {}, max = 3) {
+  const parts = [];
+  for (const [k, fn] of SHORT_ORDER) {
+    if (parts.length >= max) break;
+    if (!present(mods?.[k])) continue;
+    if ((k === 'damageMul' || k === 'rateMul') && mods[k] === 1) continue;
+    parts.push(fn(mods));
+  }
+  return parts;
+}
+
 /** Icon rule per primary key → { set, key } for the view (ui / cap / status / attack / element). */
 const ICON_RULES = {
   element: (m) => ({ set: 'element', key: m.element }),
@@ -410,6 +461,9 @@ const ICON_RULES = {
   reveal: () => ({ set: 'cap', key: 'reveal' }),
   silence: () => ({ set: 'cap', key: 'silence' }),
   knockback: () => ({ set: 'cap', key: 'stun' }),
+  gather: () => ({ set: 'cap', key: 'slow' }),
+  airMul: () => ({ set: 'cap', key: 'antiAir' }),
+  relay: () => ({ set: 'cap', key: 'summon' }),
   income: () => ({ set: 'cap', key: 'income' }),
   canHitAir: () => ({ set: 'cap', key: 'antiAir' }),
   detection: () => ({ set: 'cap', key: 'detection' }),

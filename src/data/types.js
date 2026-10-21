@@ -72,6 +72,10 @@ export const STATUSES = {
   vulnerable: { name: 'Brittle', desc: 'Takes +bonus damage from every source (frost variant of mark).' },
   silence: { name: 'Silenced', desc: 'Fields, siphons, blinks and phasing are switched off.' },
   reveal: { name: 'Revealed', desc: 'Veiled enemy can be targeted by anyone.' },
+  ground: { name: 'Grounded', desc: 'A flyer knocked out of the sky: ground-only attacks can hit it. Bosses take 25% duration.' },
+  hex: { name: 'Hexed', desc: 'Loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses; one hex takes at most 10% of their HP).' },
+  hold: { name: 'Held', desc: 'Held by vines: cannot move, but can still use abilities. Minibosses take 50% duration; bosses and flyers are immune.' },
+  curse: { name: 'Cursed', desc: 'Bursts when it falls: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
 };
 
 // ---------------------------------------------------------------------------
@@ -94,7 +98,7 @@ export const ROLES = {
   marksman: { name: 'Marksman', category: 'dps', goodAgainst: 'Ordinary enemies, runners, crystal shells', limitation: 'Heavy armor shrugs off small hits', desc: 'Cheap, reliable single-target shooter.' },
   sniper: { name: 'Sniper', category: 'dps', goodAgainst: 'Casters, elites, bosses, armor', limitation: 'Overkills small fry; poor crowd coverage', desc: 'Map-wide heavy shots with priority targeting.' },
   cleaver: { name: 'Cleaver', category: 'dps', goodAgainst: 'Crowds at corners and choke points', limitation: 'Short reach; cannot hit flyers', desc: 'Melee sweeps that hit everything nearby.' },
-  duelist: { name: 'Duelist', category: 'dps', goodAgainst: 'One tough enemy that stays in range', limitation: 'Overwhelmed by swarms', desc: 'Focused melee whose damage builds on the same target.' },
+  duelist: { name: 'Duelist', category: 'dps', goodAgainst: 'One tough enemy that stays in range, and the crowd around it', limitation: 'Melee reach; no flyers before Flowing Blade tier 3', desc: 'Focused melee whose damage builds on the same target; every 3rd strike cleaves the enemies around it.' },
   controller: { name: 'Controller', category: 'control', goodAgainst: 'Fast goblins, blinkers, leaks', limitation: 'Low damage; bosses resist', desc: 'Slows and freezes.' },
   bombardment: { name: 'Bombardment', category: 'frag', goodAgainst: 'Dense swarms and reinforcements', limitation: 'Fire-warded foes, lone targets', desc: 'Explosive fireballs that leave burns.' },
   artillery: { name: 'Artillery', category: 'frag', goodAgainst: 'Armored formations and barriers', limitation: 'Slow; wasted on scattered runners', desc: 'Siege shells that break armor for the whole team.' },
@@ -107,6 +111,25 @@ export const ROLES = {
   support: { name: 'Support', category: 'support', goodAgainst: 'Detection and team buffs', limitation: 'Cannot defend alone', desc: 'Utility aura (detection, range, speed).' },
   trapper: { name: 'Trapper', category: 'control', goodAgainst: 'Leaks near the exit; sappers', limitation: 'Needs time to set traps', desc: 'Stockpiles rune traps along the path.' },
   engineer: { name: 'Engineer', category: 'support', goodAgainst: 'Sabotage and long straight paths', limitation: 'Turrets are fragile in damage', desc: 'Builds sentries and repairs disabled allies.' },
+  displacement: { name: 'Displacer', category: 'control', goodAgainst: 'Rushes and leaks near the exit', limitation: 'Bosses barely move; low damage', desc: 'Wind attacks that push enemies back and gather them.' },
+  falconer: { name: 'Aerial Hunter', category: 'dps', goodAgainst: 'Flyers — and grounding them for everyone', limitation: 'Ordinary damage on the ground', desc: 'Air-priority shots that ground flyers.' },
+  summoner: { name: 'Summoner', category: 'dps', goodAgainst: 'Lanes she cannot stand next to', limitation: "The familiar's own reach is short", desc: 'A familiar attacks from the edge of the lane.' },
+  purifier: { name: 'Purifier', category: 'support', goodAgainst: 'Sabotage, volatile stuns and field oni', limitation: 'Almost no damage', desc: 'Cleansing sanctuary with a small blessing.' },
+  mortar: { name: 'Mortar', category: 'frag', goodAgainst: 'Clumps anywhere on the map', limitation: '1 s delay; fast foes escape; no flyers', desc: 'Aimed shells with a warning ring.' },
+  prism: { name: 'Beam Caster', category: 'dps', goodAgainst: 'Long straights and lined-up crowds', limitation: 'Weak where the path twists', desc: 'Piercing prism beams that build focus.' },
+  mirror: { name: 'Mirror Caster', category: 'dps', goodAgainst: 'A second lane or a far bend', limitation: 'Needs a good mirror spot', desc: 'Bolts fired from a placed mirror.' },
+  hexer: { name: 'Hex Caster', category: 'dps', goodAgainst: 'Dense waves that fall together', limitation: 'Curses need kills to spread', desc: 'Curses that burst and spread on death.' },
+  champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
+  puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
+  // the new girls (UNIT_GAPS §5)
+  bowler: { name: 'Demolition Bowler', category: 'dps', goodAgainst: 'Walking crowds coming straight at her', limitation: 'Flyers only get her lighter lob', desc: 'Rolls bomb balls up the road against the enemies: blasts that push the crowd back and ricochet from walker to walker.' },
+  botanist: { name: 'Botanist', category: 'control', goodAgainst: 'Walking crowds and long games', limitation: 'Vines never hold bosses or flyers', desc: 'Throws thorn seeds; her vines hold walkers in place and her harvest grows coins and lives.' },
+  council: { name: 'Council Hub', category: 'support', goodAgainst: 'Saving coins and building a strong core', limitation: 'No attack of her own', desc: 'Changes the rules in her office radius: cheaper upgrades, free tiers, coins per kill.' },
+  builder: { name: 'Field Builder', category: 'support', goodAgainst: 'Long roads and mixed threats', limitation: 'Sentries need time and road', desc: 'Sets timed sentries at the road\'s edge and nets on the road.' },
+  manager: { name: 'Team Manager', category: 'support', goodAgainst: 'Making the team\'s best girl even better', limitation: 'No attack of her own', desc: 'Throws sports drinks that speed up the girls she picks.' },
+  ring: { name: 'Burst Emitter', category: 'dps', goodAgainst: 'Crowds that wrap around her', limitation: 'Very short reach', desc: 'Fires a ring of pins in every direction at once.' },
+  spiker: { name: 'Spike Layer', category: 'control', goodAgainst: 'Ground crowds and leaks near the exit', limitation: 'Flyers fly over her strips', desc: 'Lays spike strips that hit everything that walks over them.' },
+  stormrider: { name: 'Storm Rider', category: 'hero', goodAgainst: 'Flyers and spread-out waves', limitation: 'Halved by warded oni and fae', desc: 'Amphibious lightning hero with an aimed storm.' },
 };
 
 export const CAPABILITIES = {
@@ -128,6 +151,7 @@ export const CAPABILITIES = {
   water: { name: 'Water Deploy', desc: 'Can be placed on water.' },
   multiHit: { name: 'Rapid Hits', desc: 'Many small hits — good against crystal shells.' },
   priority: { name: 'Priority Targeting', desc: 'Can target casters and elites first.' },
+  grounding: { name: 'Grounding', desc: 'Knocks flyers down so ground-only girls can hit them.' },
 };
 
 // ---------------------------------------------------------------------------
@@ -142,7 +166,7 @@ export const TRAITS = {
   regen: { name: 'Regenerating', desc: 'Heals after a short delay without damage.', counters: ['antiHeal'] },
   hasty: { name: 'Hasty', desc: 'Periodic speed bursts.', counters: ['slow', 'trap'] },
   volatile: { name: 'Volatile', desc: 'Explodes on death, stunning nearby girls.', counters: [] },
-  airborne: { name: 'Airborne', desc: 'Flies over ground-only attacks.', counters: ['antiAir'] },
+  airborne: { name: 'Airborne', desc: 'Flies over ground-only attacks.', counters: ['antiAir', 'grounding'] },
   ward: { name: 'Elemental Ward', desc: 'Immune to one element’s status and takes half damage from it.', counters: [] },
   brood: { name: 'Brood', desc: 'Releases smaller enemies when defeated.', counters: [] },
   siphon: { name: 'Siphon', desc: 'Drains nearby allies to heal itself.', counters: ['antiHeal', 'priority', 'silence'] },
@@ -173,6 +197,7 @@ export const TARGET_MODES = {
   strong: 'Strong',
   close: 'Close',
   elite: 'Priority', // casters / field oni / siphoners / elites first
+  air: 'Air', // flyers first, then first
 };
 
 export const DIFFICULTIES = {

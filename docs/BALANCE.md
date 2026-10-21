@@ -1,5 +1,328 @@
 # Balance notes
 
+## Marumi rework (2026-10-21, `feature/marumi-rework`)
+
+Owner request (Oct 21): a bowling-ball ricochet that bounces from walker to walker. Player feedback: her
+best path showed about 1k DPS on the panel where regular girls show 4-5k, and she could not touch flyers
+without Lob. Measured the way players see it: the battle panel's **DPS** cell (`Sim.towerStats().dps`,
+damage × attacks a second × blasts) with `tools/bench.mjs` (strong preset: L60, 3 awakenings, gear ×1.45,
+25% crit; stage 4-5, seed 9, best-covered spot, an un-upgraded Aoi beside her), next to the bench's real
+damage on the crowd stream (Orc Grunts that never fall) and the walking boss. Builds pNtM: path N to tier
+M with a tier-2 crosspath (Heavy x-0-2, Lane 2-x-0, Spin 2-0-x). Azami's and Yuzuha's panels show only
+their own shot (their strips and sentries do the work), so read their real columns.
+
+| Girl / path | coins 3/2 · 4/2 · 5/2 | panel DPS 3/2 · 4/2 · 5/2 | crowd DPS | boss DPS |
+|---|---|---|---|---|
+| marumi (before) p1 | 2440 · 5840 · 25040 | 32 · 107 · 405 | 4.6k · 16k · 93k | 8 · 28 · 135 |
+| marumi (before) p2 | 2370 · 5570 · 23970 | 39 · 98 · 218 | 0 · 0 · 0 | 0 · 0 · 0 |
+| marumi (before) p3 | 2290 · 5090 · 21090 | 32 · 32 · 181 | 2.7k · 2.7k · 15k | 14 · 14 · 255 |
+| marumi (after) p1 | 2440 · 5840 · 25040 | 398 · 875 · 4.9k | 55k · 129k · 260k | 53 · 118 · 809 |
+| marumi (after) p2 | 2370 · 5570 · 23970 | 388 · 990 · 5.0k | 4.3k · 12k · 70k | 38 · 108 · 603 |
+| marumi (after) p3 | 2290 · 5090 · 21090 | 477 · 955 · 4.4k | 24k · 47k · 241k | 29 · 39 · 99 |
+| kinu p1 | 2070 · 5070 · 22670 | 403 · 2.2k · 5.8k | 1.1k · 5.9k · 30k | 11 · 67 · 349 |
+| kinu p2 | 1940 · 4340 · 19540 | 247 · 516 · 1.2k | 217 · 580 · 1.8k | 8 · 19 · 43 |
+| kinu p3 | 2020 · 4820 · 20820 | 233 · 233 · 686 | 78 · 683 · 1.4k | 8 · 16 · 37 |
+| azami p1 | 1900 · 4500 · 19500 | 6 · 6 · 6 | 175 · 723 · 7.9k | 9 · 10 · 38 |
+| azami p2 | 1790 · 4190 · 18690 | 7 · 7 · 7 | 103 · 112 · 130 | 3 · 3 · 4 |
+| azami p3 | 1950 · 4750 · 20750 | 6 · 6 · 6 | 88 · 88 · 239 | 4 · 4 · 4 |
+| yuzuha p1 | 2350 · 5750 · 24950 | 20 · 20 · 20 | 279 · 1.4k · 6.4k | 235 · 668 · 4.7k |
+| yuzuha p2 | 2250 · 5250 · 22850 | 20 · 20 · 20 | 298 · 730 · 2.2k | 157 · 396 · 1.2k |
+| yuzuha p3 | 2150 · 4950 · 20950 | 20 · 20 · 20 | 280 · 280 · 280 | 173 · 173 · 173 |
+
+- Her panel now counts every blast of a ball (the first, one per bounce, the Glow Bowl finale × 3) and
+  her pins, like a volley's projectiles. Best path at 5/2: Heavy 4.9k, Lane 5.0k, Spin 4.4k (Kinu's best
+  5.8k at 22,670 coins). Damage is back-loaded (base 20 at 0.8/s; T5s +500 / +200 / +60) so tier 3/2
+  sits at Kinu's 3/2 (~400).
+- Real crowd at 5/2 is in the blast band (Akane 324k, Sango 235k on the same bench); the walker a ball
+  meets takes the whole blast and the others in it half (`ball.share` 0.5), which keeps the crowd pile
+  from running away. Heavy 3/2 and 4/2 (55k / 129k) sit above Akane's (6k / 24k) on this pile bench:
+  the Spin 2 crosspath's bounce and her push keep the immortal crowd bunched in her blast.
+- Lane Master read **0** before: on 4-5 her nearest road point lies on a shared stretch of two paths and
+  a walker on the other path never counted as "on her lane" without Hook Spin. Her own lane is now every
+  path whose nearest point is hers (`sameSpot`), and she rolls on the walker's path.
+- Anti-air: the lob is her base kit (every path): when only flyers are in her range she lobs half her
+  blast at the lead one (`ball.lobMul` 0.5). Lob panel at 5/2: Heavy ~1.2k, Lane ~1.2k, Spin ~0.2k.
+- Bot goldens (the free team plus her, seed 1): 5-4 Hard 37 → 38 lives, 8-4 Hard 36 → 40. Easy gate
+  unchanged (she is gacha, never in the free pool).
+
+### v0.1.41 ship pass (lob for flyers only, one Heavy Ball tune)
+
+- **The lob is flyers only.** With no walker on her lane, `rollBall`'s lob gathered every target the
+  lob spec could reach, so she lobbed at ground walkers on other lanes too. It now picks flyers only
+  (Hook Spin stays her way onto other lanes; test: one walker on a far lane, no Hook Spin, no flyer: no
+  lob). On this bench Lane Master (2-x-0, no Hook Spin) now reads **0**: her best-covered 4-5 spot sits
+  between the two arms before they join, her own lane is path 1's arm and the bench stream walks path 0
+  only. The 4.3k · 12k · 70k above were those lobs. Beside the shared stretch after the join (Lane
+  2-3-0 at (8, 7.3), same strong stats): path-0 walkers 4.6k, path-1 walkers 5.0k (main before the
+  rework: 2.2k and **0**), so the shared-road fix itself holds.
+- **Heavy Ball tune** (one pass): Concussion loses its +20 damage and makes the others in a blast take
+  15 % (`ball.share` −0.35); Wrecking Ball +60 → +80; Bowling Thunder brings the share back to half
+  (+0.35). Her 5/2 damage is unchanged (610 base), so the 5/2 panel and crowd are too.
+
+| Heavy (coins) | panel DPS before → after | crowd DPS before → after | Akane crowd (coins) | boss DPS before → after |
+|---|---|---|---|---|
+| 3-0-2 (2,440) | 398 → 239 | 55.4k → 10.2k (1.7× Akane) | 5.9k (2,300) | 53 → 32 |
+| 4-0-2 (5,840) | 875 → 875 | 129.2k → 41.2k (1.7× Akane) | 24.1k (5,500) | 118 → 118 |
+| 5-0-2 (25,040) | 4,853 → 4,853 | 259.6k → 259.6k | 324.0k (35,500) | 809 → 809 |
+
+## Kaede's AoE rework (2026-10-21, `feature/kaede-rework`)
+
+Owner (Oct 15): "make kaede's attacks aoe! at least some of them, make her feel like an ssr!". Live Kaede was a
+single-target duelist. She now cuts crowds on every path, with one AoE path, one boss path and one armor path.
+Sim: `src/sim/towers.js` `bladeArts` (her `blade` block, `src/sim/mods.js` `normBlade`); FX:
+`src/render/attackFx/styles/kaede.js` (`bladeArt` event); bench: `tools/kaedeBench.mjs`.
+
+**Base (600):** every 3rd strike is a **Maple Cleave**: up to 4 enemies within 0.9 tiles of her target take 50 % of
+her plain (unfocused) hit. Every shape below hits at a share of her plain hit, except the maple splash (a share of
+her focused strike); victims are eligible enemies only (no flyer unless her kit reaches flyers, nothing in a
+tunnel, never her target), nearest first, capped per shape.
+
+| Path | Tier | Price | Effect |
+|---|---|---:|---|
+| Unbroken Rhythm (boss duel) | Steady Footwork | 150 | Ramp +2 % per hit, +20 % cap |
+| | Second Wind | 360 | +15 % attack speed |
+| | Maple Cascade | 1,200 | Ramp +4 %/hit, +50 % cap; ignores 3 armor. **At full focus** (her cap before Potential) every strike scatters maple leaves: up to 3 enemies within 0.9 tiles of her target take 30 % of it |
+| | Autumn Requiem | 3,800 | Ramp +4 %/hit, +50 % cap; +30 % speed, +8 damage; ×1.3 damage |
+| | Crimson Eternity | 28,000 | +24 damage, ramp +5 %/hit, +100 % cap, **×1.6 vs bosses** (was ×1.5), +30 % speed, ×1.3 damage; maple leaves 1.3 tiles, 5 enemies, 50 % |
+| Flowing Blade (crowd) | Light Step | 130 | +0.3 range |
+| | Flash Step | 340 | +4 damage; the cleave reaches 1.1 tiles and cuts 6 |
+| | Wind Severing | 1,100 | Reaches flyers; +0.6 range. Every cleave also sends a **wind crescent** through her target: up to 4 enemies on a 3.5-tile line (half-width 0.3) take 55 % |
+| | Iaijutsu Master | 3,500 | +20 % crit at ×2.5, +10 damage, ×1.3 damage. **Three crescents in a fan** (±0.32 rad), 4 tiles, half-width 0.4, 5 enemies each |
+| | Thousand Leaves Draw | 25,000 | +60 % speed, +16 damage, +15 % crit at ×3, +0.5 range, ×1.4 damage. **Maple Storm**: every cleave also cuts up to 8 enemies within 2.5 tiles of her for 55 % |
+| Guard Breaker (armor) | Heavy Hilt | 140 | +3 damage |
+| | Pommel Strike | 320 | 15 % stun 0.2 s |
+| | Armor Cleaver | 1,150 | Shred −2 (×3), ignores 4 armor |
+| | Guard Breaker | 3,600 | Brittle +20 %, 25 % stun 0.5 s, shred −3 (×3), +6 damage, ×1.3. Every cleave sends a **shockwave**: up to 6 enemies on a 2.5-tile line (half-width 0.35) take 60 % and get her armor shred |
+| | Heaven-Splitting Strike | 27,000 | +60 damage, shred −6 (×3), ×1.4 elites, ×1.3 bosses, ignores 2 armor, ×1.45. Shockwave 4 tiles, half-width 0.5, 10 enemies, 100 % |
+
+- **Gear.** ATK, speed, crit, armor pierce, UR gear and the club tricks reach every blade-art hit (they hit with her
+  own spec through `sim._hit`; a Finishing Thrust or a Big Beat multiplies the whole attack). **Pierce is now real
+  for her:** +2 targets per 100 % on every shape of the attack (the sweep rule, carried, at most +4); it no longer
+  fills in as ATK (`src/data/gearStats.js`). Crowd bench with +100 % Pierce: Kaede 2-5-0 3,280 → 4,182; Chika 2-0-5
+  3,551 → 3,995, 5-0-2 2,697 → 5,341 (every drone pierces).
+- **Potential.** P5 Maple Gale is re-sized on her blade arts: +8 % speed and her blade arts cut ×1.1 (was a 0.1-tile
+  cut every 4th strike). P6 One Blade, One Foe keeps ×1.2 vs bosses and every 3rd strike ×1.5 (its proc is named
+  One Blade). Power 1.13 · 1.09 · 1.17 · 1.12 · 1.31 = 2.11. Her maple splash keys on her focus cap **before**
+  Potential (`blade.capMax`), so Scarlet Focus (+30 cap) never delays it.
+- **Flash Lunge** (dormant ⚡, Flowing Blade 3): on her crowd path it now flashes through the 3 enemies her target
+  mode picks, 2 full-ramp strikes each (tier 5: 5 enemies, 3 each, 20 s), her focus kept on the first.
+
+**Bench** (`tools/kaedeBench.mjs`: the potentialBench harness, 4-5, the same strong stats for both girls, seeds 9
+and 21, 15 s warm-up + 40 s; crowd = an immortal Orc Grunt every 0.1 s, held = one Royal Guard Slime, boss = one
+Iron Colossus). DPS, before → after; Chika is unchanged (5-0-2 38,920 coins: crowd 2,697 / 5,083, held 4,486 /
+8,525, boss 3,163 / 6,332; 2-0-5 30,920 coins: crowd 3,551 / 5,126):
+
+| Kaede (coins) | target | P1 | P6 | ÷ Chika's best, P1 / P6 |
+|---|---|---:|---:|---:|
+| 5-2-0 Rhythm (34,580) | boss | 2,816 → 3,007 | 6,179 → 6,667 | 0.95 / 1.05 |
+| 5-2-0 Rhythm | held elite | 4,702 → 4,704 | 8,591 → 8,689 | 1.05 / 1.02 |
+| 5-0-2 Rhythm (34,570) | boss | 2,645 → 2,876 | 5,997 → 6,522 | 0.91 / 1.03 |
+| 2-5-0 Flowing (31,180) | crowd | 750 → 3,280 | 1,875 → 5,486 | 0.92 / 1.07 |
+| 2-5-0 Flowing | held elite | 4,489 → 4,469 | 8,951 → 9,050 | 1.00 / 1.06 |
+| 0-5-2 Flowing (31,130) | crowd | 734 → 3,161 | 1,770 → 5,112 | 0.89 / 1.00 |
+| 2-0-5 Breaker (33,320) | crowd | 414 → 1,740 | 1,224 → 2,872 | 0.49 / 0.56 |
+| 2-0-5 Breaker | held elite | 4,582 → 4,900 | 8,738 → 8,911 | 1.09 / 1.05 |
+
+**Gate B7** (Kaede / Chika within ±10 % at P1 and P6): boss path 0.95 / 1.05 (boss), 1.05 / 1.02 (held); crowd
+path 0.92 / 1.07 (crowd vs Chika's best crowd build, Tesla 2-0-5 at equal coins); E = √(crowd × held) of 2-5-0 vs
+Chika 5-0-2 (her best E) 1.10 / 1.07. The held numbers move by ±2 % from shared crit rolls when a second enemy
+shows up in that bench; Breaker is the armor path, not a rival for either bar.
+
+**Re-pinned goldens:** `tests/sim/mods.test.js` P1 resolve hash `456:055ce472` → `456:bd28cc90` (Kaede's `blade` block
+and tiers; every other girl bit-identical, checked with Kaede left out at P1 and P6); `tests/online/engines.test.js`
+POTENTIAL_START `23752 / 4242036526 / 57997ea1` → `23827 / 1924477857 / dec1d574` and POTENTIAL_BOSS_START
+`35101 / 6568/4679 / 3492961063 / b2b2f34d` → `35035 / 6700/4594 / 2141169952 / 20c45d69` (Kaede fights in both).
+Campaign, modes, abilities and battle-save goldens did not move. **Easy gate 40 / 40**: she is gacha, so the free
+roster never fields her and every row is unchanged (full and base roster).
+
+## New girls, wave 1 (2026-10-20, `feature/new-girls-w1`; UNIT_GAPS §5)
+
+Azami (R, free after 2-2), Kinu (R, gacha), Wakaba (R, free after 6-5), Yuzuha (SR, free after 4-2).
+Bench: a **walking stream** on 4-5 (one 3000-HP slime every 0.5 s along the road, 60 s, the girl on the
+bot's own spot for her, best main/cross split) — the stationary bench cannot judge a strip layer.
+
+| Girl | 3/2 | 4/2 | 5/2 | Band (same bench) |
+|---|---|---|---|---|
+| Azami | 46 | 139 | 998 | R: Aoi 56 / 173 / 1269, Rei 57 / 181 / 1072, Yuki 24 / 159 / 1273 |
+| Kinu | 46 | 244 | 1125 | R (as above) |
+| Yuzuha | 67 | 213 | 1672 | SR: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150, Suzu 107 / 331 / 2805 |
+
+Moves from the spec's first numbers: Azami strip damage 2 → 3 (Shredder +4, Detonation +16); Yuzuha's
+sentries ×4 (base 12 dmg at 1.5/s, darts 4; tier 4-5 damage and bursts raised) — the spec's sentries
+sat at a fifth of the SR band. Tier 5s are in the live 12,000-36,000 window (spec × ~1.6).
+
+Bot (`src/sim/headless.js`, keys only the new girls carry, so base-roster plans are unchanged): a strip
+layer is placed after the damage dealers, gets no extra copies, and her tiers wait for the carry's focus
+push (v0.1.40 merge: main's Gourdlight Golem gate EB-2 lost Normal seed 1 by a one-second boss leak
+when Azami's early spending delayed Shiro and Sango; the base team kills the Golem 20 s before it
+leaks); a buff thrower is a support placed where her drinks reach the planned carry; `pathScore` reads sentry and strip
+tiers like turret tiers.
+
+**Easy gate: 40 / 40** with the full roster; with the four new girls left out every row is bit-identical
+to the merged base (the modes goldens pin the same as a "base roster" block). 8-5 Easy over seeds 1-9:
+full roster 5 / 9 (seed 1 won), base 6 / 9 — the same near coin flip the roster wave measured.
+
+**Ouka** (SR, gacha; Student Council President, campus hub). She never attacks, so the damage bench does
+not apply; her value is coins. Six girls inside her office, each built to 4/2 (Aoi, Rei, Yuki, Kage, Shiro,
+Sango: 27,820 coins of upgrades):
+
+| Ouka | team upgrades | saved | Ouka cost | net |
+|---|---|---|---|---|
+| 0-0-0 (5% off) | 26,440 | 1,380 | 550 | +830 |
+| 2-0-0 (14% off) | 23,925 | 3,895 | 1,050 | +2,845 |
+| 3-0-0 (+ first tier free) | 22,705 | 5,115 | 2,250 | +2,865 |
+| 4-0-0 (+ two free, +2 coins a kill) | 19,735 | 8,085 | 5,850 | +2,235 (before kill coins) |
+| 5-0-0 Golden Charter | 18,360 | 9,460 | 25,050 | a prestige buy (+5 a kill, 90% sell) |
+
+She is gacha, so the Easy gate (free roster) never fields her: the gate rows are unchanged (full roster
+40 / 40, identical to wave 1; base roster bit-identical to the merged base). The balance bot fields her
+poorly (it places her last, after the first upgrade round, where she covers two girls: 4-5 Normal over
+seeds 1-2, 178 → 153 lives left; 6-5 184 → 181; 8-5 lost either way): a player places her first and
+builds around her. Rules are "strongest wins" with the auras, so her discount never stacks with Momo's.
+Bot goldens for the gacha girls (`modesGolden` GACHA_GOLDEN, the free team plus her, seed 1): Ouka 5-4
+Hard 21 → 25 lives, 8-4 Hard 37 → 37; Kinu 5-4 Hard 21 → 13, 6-1 Hard 44 → 38. 4-2 Hard (a 4-life win
+for the free team) is lost with any ninth girl the bot adds, either of them: its plan spends on her
+before the second copies it relies on.
+
+Ouka's Assembly (v0.1.40 ship check): Club Mentors (T3, 1,100) and Festival of Clubs (T5, 19,200) only
+sped up ability charge (`cdCut`), and nothing casts an ability until the ability bar ships, so both
+were dead buys (and T3 gates T4). They now give a live effect at the same prices: Club Mentors, girls
+in her radius attack 15% faster (Morning Bell's 10% raised to 15%; strongest wins with the auras);
+Festival of Clubs, 25% faster and 15% further (Student Body's 10% range raised to 15%). Her ⚡ tier-3
+total stays 2,090. `cdCut` stays in the sim for the bar (`tests/sim/hubs.test.js` runs it on a test
+Ouka); give a tier its charge rule back when the bar ships. Gates: GACHA_GOLDEN Ouka rows unchanged
+(5-4 Hard, 8-4 Hard), Easy gate 40 / 40 (she is gacha, never in the free pool).
+
+**Chigusa** (SR, gacha; Greenhouse Gardener, nature caster). Walking-stream bench (as above): 75 / 278 /
+1422 at 3/2 / 4/2 / 5/2 (SR band: Sango 79 / 236 / 2303, Midori 93 / 276 / 1150). The spec's seeds (2
+damage, Fresh Seeds +1, Full Bloom +4, Season of Plenty +10) benched at 28 / 139 / 550, a third of the
+band: base damage 3, Fresh Seeds +2, Bloom Rush +3, Full Bloom +6, Season of Plenty +30. Forest Corridor
+(her T5, a final tier at 19,200) also raises vine damage to 30/s and thorn beds to 10. Bot goldens (the
+free team plus her): 5-4 Hard 21 → 29 lives, 8-4 Hard 37 → 41. Her Harvest coins use the existing
+`income` (pooled like Momo's wave income); her lives respect healing, income and the 30-a-battle cap.
+
+**Marumi** (SR, gacha; Strike Bowler, rolling bombs). Walking-stream bench: 80 / 335 / 1854 at 3/2 /
+4/2 / 5/2 with the spec's numbers unchanged (Akane 94 / 353 / 3738, Sango 79 / 236 / 2303). Her tier 5s
+are in the final-tier window (spec × 1.6); Turkey Strike also adds +40 damage and 9 pins of 16. Bot
+goldens (the free team plus her): 5-4 Hard 21 → 25 lives, 8-4 Hard 37 → 36. Shared stretches (P-17):
+a ball and its pins also touch walkers of another path where the two roads run the same way (a fork's
+shared entrance, a join's shared exit), never on a crossing or an overpass. Bowling Thunder: minibosses
+take her whole push (`pushBig`; KNOCKBACK_RESIST halves everyone else's miniboss pushes as before). (Reworked
+Oct 21: see "Marumi rework" above.)
+
+
+## Roster wave (2026-10-20, `feature/roster-wave`, track 5)
+
+First pass for the nine returning girls; the owner's balance pass comes later. Method: the hero-rework
+bench (`tools/balance/bench.js`: stage 4-5's map, a column of 10 stationary ground enemies, 20 s,
+default stats, best main/cross split) plus a **stream** bench in `tools/balance/rosterWave.js`
+(finite-HP enemies replaced as they fall, so kills and curse bursts count; and a flyer column).
+Run: `BALANCE=roster BALANCE_OUT=/tmp/t.md npx vitest run tests/integration/rosterWave.balance.test.js`.
+A girl is "in band" when at least one of her stream measures sits inside her rarity's live min × 0.85 …
+max × 1.15. Supports (Noa, like Umeko and Miko) are not banded.
+
+| Girl | Rarity | Crowd 3/2 | Crowd 5/2 | Single 5/2 | Stream 3/2 (400 HP) | Stream 5/2 (4,000 HP) | Flyers 3/2 | vs her rarity median: crowd 5/2 · stream 3/2 · stream 5/2 · flyers | In band? |
+|---|---|---|---|---|---|---|---|---|---|
+| Fuu | R | 54 | 834 | 131 | 54 | 834 | 54 | 0.42× · 0.59× · 0.42× · 0.88× | yes |
+| Hana | R | 49 | 696 | 371 | 49 | 696 | 107 | 0.35× · 0.53× · 0.35× · 1.74×! | yes |
+| Ruri | SR | 84 | 1191 | 157 | 84 | 1191 | 84 | 0.52× · 0.65× · 0.52× · 0.88× | yes |
+| Noa | SR | 10 | 128 | 13 | 10 | 128 | 10 | 0.06×! · 0.07×! · 0.06×! · 0.10×! | support (aura; not banded) |
+| Iroha | SSR | 156 | 1449 | 309 | 156 | 1449 | 156 | 1.56× · 3.12×! · 1.68× · 3.11×! | yes |
+| Ena | SSR | 42 | 383 | 385 | 42 | 383 | 42 | 0.41×! · 0.85× · 0.44×! · 0.84× | yes |
+
+Bands: the live girls of her rarity, damage dealers only (min … max; "!" = outside min × 0.85 … max × 1.15). Akane and Midori are left out of the 1e9-HP crowd band (their % of max HP burns read the bench's 1e9 HP).
+- R: c52 791 · 1999 · 2009 | st32 32 · 91 · 131 | st52 791 · 1989 · 1993 | air32 32 · 62 · 91
+- SR: c52 1287 · 2288 · 6877 | st32 61 · 130 · 210 | st52 854 · 2286 · 7006 | air32 42 · 95 · 210
+- SSR: c52 864 · 929 · 1902 | st32 45 · 50 · 123 | st52 622 · 864 · 1902 | air32 42 · 50 · 123
+
+Live girls (crowd 5/2 / stream 3/2 / stream 5/2 / flyers 3/2): Aoi 1999/91/1993/91 · Rei 2009/131/1989/0 · Yuki 791/32/791/32 · Momo 1515/53/1504/53 · Akane 29800770/162/3397/0 · Sango 2288/140/2286/0 · Kage 6877/210/7006/210 · Umeko 180/14/180/14 · Shiro 3420/61/3357/61 · Midori 24834025/89/854/42 · Suzu 1860/72/1860/0 · Raika 1287/130/1287/130 · Miko 861/4/861/4 · Hotaru 1902/123/1902/123 · Kaede 929/45/622/42 · Chika 864/50/864/50
+
+| Hero | Lv 1 | Lv 5 | Lv 10 | Lv 15 | Lv 20 | Lv 25 crowd | Lv 25 single | Guards |
+|---|---|---|---|---|---|---|---|---|
+| Hikari | 18 | 33 | 74 | 167 | 876 | 3960 | 389 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Luna | 29 | 48 | 91 | 210 | 983 | 4587 | 127 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Nami | 20 | 31 | 74 | 154 | 378 | 1198 | 106 | crowd ≤ 1.4× best · single ≤ best · Lv25 < 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Kanna | 16 | 24 | 59 | 142 | 786 | 6531 | 1847 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+| Yoriko | 11 | 14 | 32 | 54 | 498 | 2775 | 992 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 < ½ 3/2 median |
+| Seiran | 16 | 29 | 52 | 87 | 631 | 4305 | 215 | crowd ≤ 1.4× best · single ≤ best · Lv25 ≥ 5/2 median · Lv20 ≥ 4/2 median · Lv10 ≥ ½ 3/2 median |
+
+Tower references: 3/2 median 92 · 4/2 median 360 · 5/2 median 1902 · best 5/2 crowd 6877 · best 5/2 single 2354.
+
+Tuning done to get here (data only): Iroha 5 → 4 damage and 0.8 → 0.7 rate (her two firing points made
+her 3/2 the SSR top); Ena 5 → 12 damage, 1.0 rate and bigger tier 4-5 damage (her curses could not
+burst when nothing died); Fuu, Hana and Ruri more tier 4-5 damage; Yoriko 4 → 6 and Seiran 4 → 5 base
+damage (hero Lv 10 guard). Yoriko still misses the Lv 10 guard (32 < 46): a control hero, like Nami's
+Lv 25 miss; left for the owner's pass.
+
+**The campaign (Easy gate, `tests/integration/balance.test.js`): 40 / 40, strict.** The first push lost
+8-5 Easy (the Ashwing Matriarch's final flight leaked) and listed it in `KNOWN_EASY_FLIPS`; that list is
+gone and the test is identical to v0.1.37's again. Full analysis in `docs/merge/ROSTER_WAVE_NOTES.md` §5:
+
+- **Old roster (the 19 live girls only).** It lost 8-5 on the head because B3's push lock applied to every
+  girl's knockback (Shiro, Sango, Umeko, …). The lock now applies only to gathers and to `PUSH_LOCK_KITS`
+  (Fuu). The bot also places an amphibious girl on water whenever a water spot is free, as it did when she
+  was water-only. With the returning girls left out, every row below and every modes golden is
+  bit-identical to v0.1.37.
+- **Full pool.** From 7-5 on, Hana and Noa take the last two slots from Yuki and Aoi. 8-5 Easy is a near
+  coin flip for this bot: over seeds 1-9 v0.1.37's team wins 2 / 9 (seed 1 is a win) and Hana + Noa 3 / 9.
+  Hana's numbers barely matter there (Shiro deals ~90 % of the boss damage). **Noa's base aura +5 % → +8 %
+  damage** (Miko's is +10 %) lifts it to 6 / 9, seed 1 included.
+
+Bot fixes kept: a token-damage aura girl is a support (no more three Noas); amphibious girls water-first.
+Modes goldens: 1-1 … 6-1 unchanged; 6-3 … 8-5 re-pinned (Noa and Hana in the bot's free team), plus a
+"19 live girls" block pinned to v0.1.37's digests.
+
+Easy gate, seed 1, lives left. "Before" = head `fdf741d`; "old roster" = free pool without the nine
+returning girls; "full" = everyone free at that point (Noa after 6-2, Hana after 7-5).
+
+| Stage | v0.1.37 (main) | before, old roster | before, full | after, old roster | after, full |
+|---|---|---|---|---|---|
+| 1-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-2 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-3 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-4 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 1-5 | won 121/150 | won 121/150 | won 121/150 | won 121/150 | won 121/150 |
+| 2-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 2-2 | won 148/150 | won 148/150 | won 148/150 | won 148/150 | won 148/150 |
+| 2-3 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 2-4 | won 149/150 | won 149/150 | won 149/150 | won 149/150 | won 149/150 |
+| 2-5 | won 145/150 | won 145/150 | won 145/150 | won 145/150 | won 145/150 |
+| 3-1 | won 102/150 | won 102/150 | won 102/150 | won 102/150 | won 102/150 |
+| 3-2 | won 93/150 | won 128/150 | won 128/150 | won 93/150 | won 93/150 |
+| 3-3 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 3-4 | won 136/150 | won 141/150 | won 141/150 | won 136/150 | won 136/150 |
+| 3-5 | won 111/150 | won 140/150 | won 140/150 | won 111/150 | won 111/150 |
+| 4-1 | won 148/150 | won 131/150 | won 131/150 | won 148/150 | won 148/150 |
+| 4-2 | won 144/150 | won 143/150 | won 143/150 | won 144/150 | won 144/150 |
+| 4-3 | won 148/150 | won 148/150 | won 148/150 | won 148/150 | won 148/150 |
+| 4-4 | won 141/150 | won 141/150 | won 141/150 | won 141/150 | won 141/150 |
+| 4-5 | won 140/150 | won 140/150 | won 140/150 | won 140/150 | won 140/150 |
+| 5-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 5-2 | won 143/150 | won 143/150 | won 143/150 | won 143/150 | won 143/150 |
+| 5-3 | won 116/150 | won 116/150 | won 116/150 | won 116/150 | won 116/150 |
+| 5-4 | won 141/150 | won 143/150 | won 143/150 | won 141/150 | won 141/150 |
+| 5-5 | won 150/150 | won 149/150 | won 149/150 | won 150/150 | won 150/150 |
+| 6-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 6-2 | won 146/150 | won 146/150 | won 146/150 | won 146/150 | won 146/150 |
+| 6-3 | won 147/150 | won 147/150 | won 148/150 | won 147/150 | won 148/150 |
+| 6-4 | won 149/150 | won 150/150 | won 150/150 | won 149/150 | won 150/150 |
+| 6-5 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 7-1 | won 146/150 | won 146/150 | won 145/150 | won 146/150 | won 145/150 |
+| 7-2 | won 147/150 | won 147/150 | won 145/150 | won 147/150 | won 145/150 |
+| 7-3 | won 139/150 | won 137/150 | won 139/150 | won 139/150 | won 143/150 |
+| 7-4 | won 122/150 | won 138/150 | won 135/150 | won 122/150 | won 119/150 |
+| 7-5 | won 117/150 | won 147/150 | won 144/150 | won 117/150 | won 113/150 |
+| 8-1 | won 150/150 | won 150/150 | won 150/150 | won 150/150 | won 150/150 |
+| 8-2 | won 148/150 | won 150/150 | won 150/150 | won 148/150 | won 149/150 |
+| 8-3 | won 149/150 | won 150/150 | won 150/150 | won 149/150 | won 150/150 |
+| 8-4 | won 145/150 | won 145/150 | won 150/150 | won 145/150 | won 150/150 |
+| 8-5 | won 144/150 | **lost** 0/150 | **lost** 0/150 | won 144/150 | won 145/150 |
+| **wins** | 40/40 | 39/40 | 39/40 | 40/40 | 40/40 |
+
+"Before, old roster" also differed from v0.1.37 on 13 more stages (lives only: the girls' push lock),
+all back to v0.1.37's numbers now. Run: a scratch copy of the gate with the free pool filtered
+(`freeUnitsBefore` minus `EXPANSION_IDS`), on both checkouts.
+
 ## Hero rework (2026-10-14, `feature/hero-rework`; spec `docs/specs/HERO_REWORK.md`)
 
 Heroes deploy for free and level 1–25 inside each battle. Measured on this branch against the live

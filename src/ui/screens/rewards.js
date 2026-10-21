@@ -14,6 +14,9 @@ import { ARENA_ART, ARENA_GUEST } from '../lobby/notice.js';
 import { currencyIcon, itemIcon, uiIcon } from '../../art/icons.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { expectedSSRRate } from '../../systems/gacha.js';
+import { listEvents, phaseLabel, windowText } from '../../systems/events.js';
+import { eventNow } from '../events/clock.js';
+import '../styles/events.css';
 
 function msToWeekEnd() {
   const now = new Date();
@@ -33,6 +36,8 @@ export function render(root) {
   const { el, body } = screen('Events', { cls: 'ma-rewards-screen' });
   root.appendChild(el);
   const wrap = h('div.ma-wrap.ma-rewards');
+  const limited = limitedSection();
+  if (limited) wrap.appendChild(limited);
   wrap.appendChild(eventSection());
   wrap.appendChild(incomeSection());
   body.appendChild(wrap);
@@ -47,6 +52,21 @@ function arenaPaint(arenaId, cls = '') {
 function arenaGuest(arenaId) {
   const u = UNIT_MAP[ARENA_GUEST[arenaId]];
   return u ? h('div.ma-event-girl', { 'aria-hidden': 'true', html: portraitHTML(u, 'cutS') }) : null;
+}
+
+/** [events] Limited events: open and upcoming ones first, then the past ones (their pages stay readable). */
+function limitedSection() {
+  const now = eventNow();
+  const rows = listEvents(store.profile, now);
+  if (!rows.length) return null;
+  return h('section.panel.ev-list', { 'data-testid': 'events-limited' },
+    h('h3.panel-title', 'Limited events'),
+    rows.map(({ ev, phase }) => h('div.ev-list-row',
+      h('div', h('b', ev.name), h('div.muted', `${ev.subtitle} · ${windowText(ev).dates}`)),
+      h(`span.ev-phase.ph-${phase}`, phaseLabel(ev, phase, now)),
+      phase === 'upcoming' ? null : button(phase === 'ended' ? 'View' : 'Go', { kind: phase === 'ended' ? 'ghost' : 'yellow', small: true, testid: `events-go-${ev.id}`, onClick: () => navigate('event', { id: ev.id }) }),
+    )),
+  );
 }
 
 function eventSection() {

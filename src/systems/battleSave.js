@@ -11,9 +11,20 @@
 import { STAGE_MAP } from '../data/stages.js';
 import { DIFFICULTIES } from '../data/types.js';
 import { BATTLE_MODES } from '../data/modes.js';
+import { eventBattleStage, battleStageOf } from '../data/events/wire.js';
 
-/** Record format this build writes (and the newest it can read). */
-export const RECORD_V = 1;
+/**
+ * Record format: the newest this build can read. 2: a run on a limited-event difficulty with its own
+ * waves (the Golem's Nightmare, src/data/events/wire.js eventBattleStage). Only such a run is written
+ * as 2 (recordVersion): a build from before it (v0.1.38) drops a format-2 record when it loads, with
+ * its dropped-save notice, rather than replay the stage's base waves. Every other run is still
+ * written as 1 (RECORD_V_BASE), so an older build keeps continuing it.
+ */
+export const RECORD_V = 2;
+/** The format of every run without an event variant. */
+export const RECORD_V_BASE = 1;
+/** The format a new record of this stage + difficulty is written in. */
+export const recordVersion = (stageId, difficulty) => (eventBattleStage(stageId, difficulty) ? 2 : RECORD_V_BASE);
 /**
  * Snapshot format this build writes (and the newest it can read). 2: the hero rework (a hero has
  * no tiers; her bought levels and Move cooldown are kept). 3: Potential v3 (a saved girl at P2+
@@ -56,7 +67,7 @@ export function slotKey(stageId, endless = false) {
  * @param {object} params route params
  * @param {{ practice?: boolean, error?: string|null, freeplay?: string|null, sandbox?: boolean }} req parsed battle request (setup.js)
  */
-export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !params.sandbox && !req.sandbox && !req.practice && !req.error && !req.freeplay;
+export const isSavableRun = (params = {}, req = {}) => !params.coop && !params.clanBoss && !params.tutorial && !params.sandbox && !params.titan && !req.titan && !req.sandbox && !req.practice && !req.error && !req.freeplay;
 
 /** @returns {object} profile.battleSaves (created on demand) */
 function saves(profile) {
@@ -164,12 +175,22 @@ export function agoText(ms, now = Date.now()) {
 }
 
 /**
+ * When a saved run began, for a limited-event stage's reward gate (EVENT_SPEC §3.2): the event-clock
+ * start it was saved with, else (a record from before that field) its createdAt.
+ * @returns {number} epoch ms
+ */
+export function runStartedAt(rec) {
+  return finite(rec?.startedAt) && rec.startedAt > 0 ? rec.startedAt : finite(rec?.createdAt) && rec.createdAt > 0 ? rec.createdAt : Date.now();
+}
+
+/**
  * What prep, the map badges and the lobby show for a save. `next` is always the wave the player
  * fights next; `of` is null for endless runs.
  * @returns {{ next: number, of: number|null, lives: number, difficulty: string, endless: boolean, ago: string }}
  */
 export function saveSummary(rec, now = Date.now()) {
-  const stage = STAGE_MAP[rec?.stageId];
+  // (the waves of the stage the run plays: an event variant's own, e.g. the Golem's Nightmare 20)
+  const stage = battleStageOf(rec?.stageId, rec?.difficulty);
   const endless = !!rec?.endless || stage?.kind === 'challenge' || !Number.isFinite(stage?.waves);
   const wave = finite(rec?.snap?.wave) ? rec.snap.wave : 0;
   return {
@@ -209,9 +230,11 @@ function cleanRecord(slot, r) {
   if (!isObj(s) || !finite(s.v) || s.v > SNAP_V) return null;
   if (s.state !== 'prep' && s.state !== 'between') return null;
   if (![s.cash, s.lives, s.wave, s.time].every(finite)) return null;
-  // a finite stage made shorter by an update: nothing left to continue (dropped with the notice)
-  const endlessRun = !!r.endless || stage.kind === 'challenge' || !Number.isFinite(stage.waves);
-  if (!endlessRun && s.wave >= stage.waves) return null;
+  // a finite stage made shorter by an update: nothing left to continue (dropped with the notice);
+  // an event variant (format 2) is measured by its own waves
+  const played = battleStageOf(r.stageId, r.difficulty) || stage;
+  const endlessRun = !!r.endless || stage.kind === 'challenge' || !Number.isFinite(played.waves);
+  if (!endlessRun && s.wave >= played.waves) return null;
   if (!Array.isArray(s.towers) || !s.towers.every(isObj)) return null;
   const uids = s.towers.map((t) => t.uid);
   if (!uids.every((u) => Number.isInteger(u) && u > 0) || new Set(uids).size !== uids.length) return null;
@@ -219,10 +242,12 @@ function cleanRecord(slot, r) {
   const hero = cleanEntry(r.hero);
   if (!loadout.length && !hero) return null;
   const updatedAt = finite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0;
-  const { mode, ...rest } = r;
+  const { mode, startedAt, ...rest } = r;
   return {
     ...rest,
     ...(mode && mode !== 'standard' ? { mode } : {}),
+    // when the run began on the limited-event clock (a limited-event stage's reward gate reads it)
+    ...(finite(startedAt) && startedAt > 0 ? { startedAt } : {}),
     loadout,
     hero,
     endless: !!r.endless,

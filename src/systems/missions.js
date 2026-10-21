@@ -14,6 +14,8 @@ import { hashString } from '../core/rng.js';
 import { addItems, normalizeList } from './inventory.js';
 
 const MISSION_SETS = { daily: DAILY_MISSIONS, weekly: WEEKLY_MISSIONS };
+/** missions.weekly key (wiped with the weekly commissions): this week's 'weeklyDone' was counted. */
+export const WEEKLY_DONE_MARK = 'wd:done';
 
 /** Make sure profile.missions has every field (cheap; called by every entry point). */
 function ensure(profile) {
@@ -99,11 +101,18 @@ function describeMission(m, mission, kind) {
 }
 
 /** @returns {{ daily: object[], weekly: object[] }} */
+/** A commission row is open once its `requires` stage is cleared (any difficulty). */
+export function missionOpen(profile, mission) {
+  if (!mission.requires) return true;
+  const e = profile?.progress?.stages?.[mission.requires];
+  return !!e && DIFFICULTY_ORDER.some((d) => e[d]);
+}
+
 export function missionList(profile) {
   const m = ensure(profile);
   return {
-    daily: DAILY_MISSIONS.map((x) => describeMission(m, x, 'daily')),
-    weekly: WEEKLY_MISSIONS.map((x) => describeMission(m, x, 'weekly')),
+    daily: DAILY_MISSIONS.filter((x) => missionOpen(profile, x)).map((x) => describeMission(m, x, 'daily')),
+    weekly: WEEKLY_MISSIONS.filter((x) => missionOpen(profile, x)).map((x) => describeMission(m, x, 'weekly')),
   };
 }
 
@@ -116,13 +125,18 @@ export function claimMission(profile, kind, id) {
   const m = ensure(profile);
   const list = MISSION_SETS[kind];
   const mission = list?.find((x) => x.id === id);
-  if (!mission) return { ok: false, error: 'unknown', rewards: [] };
+  if (!mission || !missionOpen(profile, mission)) return { ok: false, error: 'unknown', rewards: [] };
   if (m[`${kind}Claimed`].includes(id)) return { ok: false, error: 'claimed', rewards: [] };
   if ((m[kind][id] || 0) < mission.goal) return { ok: false, error: 'incomplete', rewards: [] };
   m[`${kind}Claimed`].push(id);
   const rewards = addItems(profile, mission.rewards);
   if (kind === 'daily' && DAILY_MISSIONS.every((x) => m.dailyClaimed.includes(x.id))) track(profile, 'dailyDone', 1);
-  if (kind === 'weekly' && WEEKLY_MISSIONS.every((x) => m.weeklyClaimed.includes(x.id))) track(profile, 'weeklyDone', 1);
+  // every weekly that is open now (a row still behind its stage does not hold "all claimed" back); once a
+  // week: a row that opens mid-week (Club Day after 2-5, Rainbow Hunt after 5-5) never counts the week twice
+  if (kind === 'weekly' && !m.weekly[WEEKLY_DONE_MARK] && WEEKLY_MISSIONS.filter((x) => missionOpen(profile, x)).every((x) => m.weeklyClaimed.includes(x.id))) {
+    m.weekly[WEEKLY_DONE_MARK] = 1;
+    track(profile, 'weeklyDone', 1);
+  }
   return { ok: true, rewards };
 }
 
@@ -440,7 +454,8 @@ export function f2pIncomeSummary() {
   const weeklyRewards = WEEKLY_MISSIONS.flatMap((m) => m.rewards);
   const loginRewards = LOGIN_REWARDS.flatMap((d) => d.rewards);
   const loginCycles = DAYS / LOGIN_REWARDS.length;
-  const weeklyTicketOffers = SHOP_OFFERS.filter((o) => o.item === 'ticket_recruit' && o.resets === 'weekly');
+  // (the Memento Exchange ticket is paid with spare duplicates, not everyday income: ASCENSION.md §A.3 counts it apart)
+  const weeklyTicketOffers = SHOP_OFFERS.filter((o) => o.item === 'ticket_recruit' && o.resets === 'weekly' && o.currency !== 'memento');
 
   const rows = [
     row('Daily Commissions', sumId(dailyRewards, 'gems') * DAYS, ticketPulls(dailyRewards) * DAYS, `${sumId(dailyRewards, 'gems')} gems × ${DAYS} days`),

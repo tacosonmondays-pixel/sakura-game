@@ -126,7 +126,8 @@ try {
     }, pickedUids);
     check(after.gone && after.n === before.n - 3, `${W}x${H} the 3 picked pieces are gone (${before.n} → ${after.n})`);
     check(after.coins - before.coins === preview.rewards[0].count, `${W}x${H} paid exactly the preview (+${after.coins - before.coins} coins)`);
-    const doneToast = await page.locator('.toast').last().innerText().catch(() => '');
+    // the seeded Mythic piece can also pop the "Crimson Moon Keepsake" achievement toast on top: read every toast
+    const doneToast = (await page.locator('.toast').allInnerTexts().catch(() => [])).join(' | ');
     check(/Salvaged 3 pieces/.test(doneToast), `${W}x${H} toast "${doneToast}"`);
     check(await cards().count() === 1 && /Nothing picked/.test(await barText()), `${W}x${H} list redrawn: only the worn Common left, still picking`);
     const saved = await page.evaluate(async (uid) => {

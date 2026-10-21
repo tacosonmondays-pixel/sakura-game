@@ -1,12 +1,26 @@
 // Mall: tabs, offers, stock limits and purchases (owner: systems). See CONTRACTS.md §5
 // and src/data/shop.js.
+//
+// Ascension's rows (docs/specs/ASCENSION.md §A.5, §C.10) run on the GAME week (Sunday 7 PM Central,
+// src/core/reset.js) with their own marker 'shopwk:asc' in missions.counters: when this game week is
+// past it, their counts (and their groups') are cleared. An older tab that rolls the local week first
+// therefore never leaves them sold out, and the local-week reset below never touches them. Forward
+// only, like the Titan keys (ENERGY_RESET A10 / R-5): a clock set back never restocks a week twice.
 
-import { SHOP_TABS, SHOP_OFFERS, SHOP_OFFER_MAP } from '../data/shop.js';
+import { SHOP_TABS, SHOP_OFFERS, SHOP_OFFER_MAP, stockKey } from '../data/shop.js';
+import { UNIT_MAP } from '../data/units.js';
 import { dayKey, weekKey } from '../core/util.js';
+import { gameWeekNumber } from '../core/reset.js';
 import { addItems, consumeItems, itemCount } from './inventory.js';
-import { isOwned } from './unlocks.js';
+import { isOwned, ownedUnits } from './unlocks.js';
 import { spark } from './gacha.js';
 import { track } from './missions.js';
+import { kindredUseful, canAddChosenEssence, addChosenEssence, fuseShards, essenceBalance, essenceCap, KINDRED, SHARD_FUSION } from './essence.js';
+
+/** missions.counters key: the game week Ascension's rows were last reset for. */
+export const ASC_SHOP_MARK = 'shopwk:asc';
+
+const isGameClock = (o) => o.clock === 'game';
 
 /** Reset daily/weekly stock counters when the day/week changed. Idempotent. */
 export function refreshShop(profile, now = new Date()) {
@@ -15,24 +29,54 @@ export function refreshShop(profile, now = new Date()) {
   const day = dayKey(now);
   const week = weekKey(now);
   if (shop.day !== day) {
-    for (const o of SHOP_OFFERS) if (o.resets === 'daily') delete shop.bought[o.id];
+    for (const o of SHOP_OFFERS) if (o.resets === 'daily' && !isGameClock(o)) delete shop.bought[o.id];
     shop.day = day;
   }
   if (shop.week !== week) {
-    for (const o of SHOP_OFFERS) if (o.resets === 'weekly') delete shop.bought[o.id];
+    for (const o of SHOP_OFFERS) if (o.resets === 'weekly' && !isGameClock(o)) delete shop.bought[o.id];
     shop.week = week;
+  }
+  const c = ((profile.missions ||= {}).counters ||= {});
+  const gw = gameWeekNumber(+now);
+  const was = c[ASC_SHOP_MARK];
+  if (typeof was !== 'number' || !Number.isFinite(was) || gw > was) {
+    for (const o of SHOP_OFFERS) if (isGameClock(o)) delete shop.bought[stockKey(o)];
+    c[ASC_SHOP_MARK] = gw;
   }
   return shop;
 }
 
-/** Balance of a shop currency ('coins'|'gems'|'recruitPoints'|'token_boss'|'token_bounty'). */
+/** Balance of a shop currency ('coins'|'gems'|'recruitPoints'|'token_boss'|'token_bounty'|'memento'|'moonpearl'). */
 export function currencyBalance(profile, currency) {
   return itemCount(profile, currency);
 }
 
-function describeOffer(profile, offer) {
-  const bought = profile.shop.bought[offer.id] || 0;
+/** Owned SSR girls who can take one more Essence (the Chosen SSR Essence row). */
+export function chosenEssenceTargets(profile, rarity = 'SSR') {
+  return ownedUnits(profile).filter((id) => UNIT_MAP[id]?.rarity === rarity && canAddChosenEssence(profile, id));
+}
+
+/** Does a row show at all? (§A.4 "no dead rows") */
+function rowShows(profile, o) {
+  // a Kindred shard row (Titan shelf, Gem Titan shelf) also needs a girl who can use the Kindred its
+  // shards fuse into, whatever else it needs
+  const whole = SHARD_FUSION[o.item];
+  if (whole && KINDRED[whole] && !kindredUseful(profile, whole)) return false;
+  if (!o.needs) return true;
+  if (o.needs.startsWith('kindred:')) return kindredUseful(profile, o.needs.slice(8));
+  if (o.needs === 'nightmareClear') return Object.entries(profile.missions?.counters || {}).some(([k, v]) => k.startsWith('tbest:') && v >= 3);
+  if (o.needs === 'ownedSSR') return ownedUnits(profile).some((id) => UNIT_MAP[id]?.rarity === 'SSR');
+  return true;
+}
+
+/** Off this week (an every-other-week row on an odd game week). */
+const offWeek = (o, now) => !!o.everyOtherWeek && gameWeekNumber(+now) % 2 === 1;
+
+function describeOffer(profile, offer, now) {
+  const bought = profile.shop.bought[stockKey(offer)] || 0;
   const limited = offer.resets != null && offer.stock != null;
+  const away = offWeek(offer, now);
+  const chosen = offer.chosenEssence ? chosenEssenceTargets(profile, offer.chosenEssence) : null;
   return {
     id: offer.id,
     item: offer.item,
@@ -44,16 +88,24 @@ function describeOffer(profile, offer) {
     bought,
     remaining: limited ? Math.max(0, offer.stock - bought) : null,
     resets: offer.resets,
-    soldOut: limited && bought >= offer.stock,
+    soldOut: (limited && bought >= offer.stock) || away,
+    away,
     affordable: currencyBalance(profile, offer.currency) >= offer.price,
     owned: offer.unitId ? isOwned(profile, offer.unitId) : undefined,
     highlight: !!offer.highlight,
+    section: offer.section || null,
+    group: offer.group || null,
+    family: offer.family || null,
+    chosenEssence: offer.chosenEssence || null,
+    // a Chosen Essence row with nobody below her hold cap is greyed (§A.5)
+    blocked: chosen ? !chosen.length : false,
+    targets: chosen,
   };
 }
 
 /**
  * Mall tabs with live stock.
- * @returns {{ id, name, desc, currency, balance, offers: object[] }[]}
+ * @returns {{ id, name, desc, currency, balance, wallets: { currency: string, balance: number }[], offers: object[] }[]}
  */
 export function shopTabs(profile, now = new Date()) {
   refreshShop(profile, now);
@@ -63,33 +115,49 @@ export function shopTabs(profile, now = new Date()) {
     desc: tab.desc,
     currency: tab.currency,
     balance: currencyBalance(profile, tab.currency),
-    offers: SHOP_OFFERS.filter((o) => o.tab === tab.id).map((o) => describeOffer(profile, o)),
+    wallets: (tab.wallets || [tab.currency]).map((c) => ({ currency: c, balance: currencyBalance(profile, c) })),
+    offers: SHOP_OFFERS.filter((o) => o.tab === tab.id && rowShows(profile, o)).map((o) => describeOffer(profile, o, now)),
   }));
 }
 
 /**
  * Buy an offer `qty` times. Payment and stock are checked before anything changes.
- * Spark offers grant the unit (duplicates → Star Fragments) and ignore qty.
- * @returns {{ ok: boolean, error?: 'unknown'|'qty'|'soldOut'|'funds', rewards: object[], unit?: object }}
+ * Spark offers grant the unit (a duplicate gives her Essence) and ignore qty. A Chosen Essence row
+ * needs `opts.unitId` (an owned girl of its rarity below her hold cap) and ignores qty.
+ * @returns {{ ok: boolean, error?: 'unknown'|'qty'|'soldOut'|'funds'|'hidden'|'pick', rewards: object[], unit?: object, fused?: object[] }}
  */
-export function buyOffer(profile, offerId, qty = 1, now = new Date()) {
+export function buyOffer(profile, offerId, qty = 1, now = new Date(), opts = {}) {
   const offer = SHOP_OFFER_MAP[offerId];
   if (!offer) return { ok: false, error: 'unknown', rewards: [] };
   refreshShop(profile, now);
-  const n = offer.unitId ? 1 : Math.floor(qty);
+  if (!rowShows(profile, offer)) return { ok: false, error: 'hidden', rewards: [] };
+  if (offWeek(offer, now)) return { ok: false, error: 'soldOut', rewards: [] };
+  const single = offer.unitId || offer.chosenEssence;
+  const n = single ? 1 : Math.floor(qty);
   if (!(n >= 1)) return { ok: false, error: 'qty', rewards: [] };
-  const bought = profile.shop.bought[offer.id] || 0;
+  const key = stockKey(offer);
+  const bought = profile.shop.bought[key] || 0;
   if (offer.resets != null && offer.stock != null && bought + n > offer.stock) return { ok: false, error: 'soldOut', rewards: [] };
   if (offer.unitId) {
     const r = spark(profile, offer.unitId);
     if (!r.ok) return { ok: false, error: r.error === 'points' ? 'funds' : 'unknown', rewards: [] };
-    profile.shop.bought[offer.id] = bought + 1;
-    const rewards = [...(r.fragments ? [{ id: 'star_fragment', count: r.fragments }] : []), ...(r.tomes ? [{ id: 'book_legendary', count: r.tomes }] : [])];
-    return { ok: true, rewards, unit: { unitId: r.unitId, isNew: r.isNew, fragments: r.fragments, tomes: r.tomes, potential: r.potential, potentialUp: r.potentialUp } };
+    profile.shop.bought[key] = bought + 1;
+    const rewards = r.spare ? [{ id: 'memento', count: r.spare.mementos }, { id: 'moonpearl', count: r.spare.moonpearls }].filter((x) => x.count > 0) : [];
+    return { ok: true, rewards, unit: { unitId: r.unitId, isNew: r.isNew, essence: r.essence, spare: r.spare, potential: r.potential, essenceHeld: r.essenceHeld, readyStep: r.readyStep } };
+  }
+  if (offer.chosenEssence) {
+    const id = opts.unitId;
+    if (!id || UNIT_MAP[id]?.rarity !== offer.chosenEssence || !canAddChosenEssence(profile, id)) return { ok: false, error: 'pick', rewards: [] };
+    if (!consumeItems(profile, [{ id: offer.currency, count: offer.price }])) return { ok: false, error: 'funds', rewards: [] };
+    addChosenEssence(profile, id);
+    profile.shop.bought[key] = bought + 1;
+    return { ok: true, rewards: [], essence: { unitId: id, held: essenceBalance(profile, id), cap: essenceCap(profile.units[id]) } };
   }
   const price = offer.price * n;
   if (!consumeItems(profile, [{ id: offer.currency, count: price }])) return { ok: false, error: 'funds', rewards: [] };
-  profile.shop.bought[offer.id] = bought + n;
+  profile.shop.bought[key] = bought + n;
   if (offer.currency === 'coins') track(profile, 'spendCoins', price);
-  return { ok: true, rewards: addItems(profile, [{ id: offer.item, count: offer.count * n }]) };
+  const rewards = addItems(profile, [{ id: offer.item, count: offer.count * n }]);
+  const fused = fuseShards(profile);
+  return { ok: true, rewards, fused };
 }

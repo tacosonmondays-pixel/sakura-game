@@ -253,10 +253,10 @@
 .sp-cbtn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 
 /* loading petals */
-.sp-loading { position: absolute; z-index: 14; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; pointer-events: none; animation: sp-spin 1.1s linear infinite; transition: opacity 200ms ease; }
+.sp-loading { position: absolute; z-index: 14; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); pointer-events: none; transition: opacity 200ms ease; animation: sp-load-in 160ms ease-out 150ms both; }
+@keyframes sp-load-in { from { opacity: 0; } to { opacity: 1; } }
 .sp.sp-ready .sp-loading { opacity: 0; animation: none; }
-.sp-load-petal { position: absolute; left: 50%; top: 0; width: 14px; height: 18px; margin-left: -7px; border-radius: 80% 0 80% 0; background: linear-gradient(135deg, #fff, #ff9cc2); transform-origin: 7px 23px; }
-.sp-load-petal:nth-child(2) { transform: rotate(120deg); } .sp-load-petal:nth-child(3) { transform: rotate(240deg); }
+.sp.sp-ready .sp-loading .mochi, .sp.sp-ready .sp-loading .mochi * { animation: none !important; }
 @keyframes sp-spin { to { transform: rotate(360deg); } }
 
 /* phones held sideways: a little tighter */
