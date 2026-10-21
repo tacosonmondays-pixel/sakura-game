@@ -271,64 +271,9 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-ult { display: flex; gap: 10px; align-items: flex-start; background: linear-gradient(135deg, #efe6ff, #fff); border: 1px solid #d9c6ff; border-radius: 10px; padding: 10px; }
 .mb-ult-badge { background: linear-gradient(135deg, #8b5cf6, var(--pink)); color: #fff; font-weight: 900; font-style: italic; padding: 8px 10px; border-radius: 8px; transform: skewX(var(--skew)); flex: none; }
 
-/* Level up */
-.mb-lv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.mb-lv-big { font-style: italic; font-weight: 900; color: var(--navy); display: flex; align-items: baseline; gap: 4px; }
-.mb-lv-big b { font-size: 2.4rem; line-height: 1; }
-.mb-lv-arrow { color: var(--good); font-size: 1.4rem; margin-left: 6px; }
-.mb-lv-cap { font-weight: 900; color: var(--blue-deep); }
-.mb-lv-exp { margin-top: 4px; }
-.mb-lv-tome { margin-top: 2px; font-size: 0.8rem; font-weight: 800; color: var(--blue-deep); }
+/* the bestiary's progress bar */
 .mb-exp { position: relative; height: 12px; border-radius: 999px; background: #e1eaf6; overflow: hidden; margin-top: 8px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1); }
-.mb-exp-fill, .mb-exp-preview { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; transition: width var(--mb-panel) var(--mb-ease); }
-.mb-exp-fill { background: linear-gradient(90deg, var(--blue), #6fd3ff); }
-.mb-exp-preview { background: repeating-linear-gradient(45deg, #ffe066, #ffe066 6px, #ffd23f 6px, #ffd23f 12px); animation: mb-blink 1.2s ease-in-out infinite; }
-@keyframes mb-blink { 50% { opacity: 0.6; } }
-.mb-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
-.mb-book { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
-.mb-book.on { border-color: var(--yellow-deep); background: #fffbe6; box-shadow: 0 0 0 2px rgba(255, 221, 74, 0.45); }
-.mb-book.none { opacity: 0.5; }
-.mb-book-name { font-weight: 800; font-size: 0.88rem; }
-.mb-stepper { display: flex; align-items: center; gap: 4px; }
-.mb-step { width: 40px; height: 40px; border-radius: 8px; border: none; background: linear-gradient(180deg, #4b9bff, var(--blue-deep)); color: #fff; font-weight: 900; font-size: 1.2rem; line-height: 1; box-shadow: 0 2px 6px rgba(29, 78, 137, 0.25); }
-.mb-step-val { min-width: 28px; text-align: center; font-weight: 900; font-size: 1.05rem; }
-.mb-lv-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; background: var(--sky-1); border-radius: 10px; padding: 8px 10px; }
-.mb-pv-line { display: flex; flex-direction: column; font-size: 0.75rem; color: var(--muted); font-weight: 800; }
-.mb-pv-line b { font-size: 1.05rem; color: var(--navy); display: flex; align-items: center; }
-.mb-pv-line.bad b { color: var(--bad); }
-.mb-pv-warn { grid-column: 1 / -1; font-size: 0.8rem; color: #a35a00; font-weight: 700; }
-.mb-bt.ready { box-shadow: 0 0 0 3px rgba(255, 221, 74, 0.7), var(--shadow); }
-.mb-bt-gates { display: flex; gap: 6px; margin-bottom: 8px; }
-.mb-gate { flex: 1; text-align: center; font-weight: 900; font-size: 0.75rem; padding: 4px 0; border-radius: 4px; background: #e1eaf6; color: var(--muted); transform: skewX(var(--skew)); }
-.mb-gate.on { background: linear-gradient(90deg, var(--blue-deep), var(--blue)); color: #fff; }
-/* the Potential cap card (gate 5 passed): her six caps P1…P6 */
-.mb-potcap-line { margin: 0 0 8px; }
-.mb-potcap-steps { flex-wrap: wrap; }
-.mb-potcap-steps .mb-gate { min-width: 52px; white-space: nowrap; }
-
-/* Awakening */
-.mb-aw-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.mb-aw-big .stars { font-size: 2rem; letter-spacing: 2px; }
-.mb-aw-track { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; position: relative; }
-.mb-aw-node { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px; border-radius: 10px; background: #f1f5fb; border: 1px solid var(--line); }
-.mb-aw-node.on { background: linear-gradient(180deg, #fff8d6, #fff); border-color: #ffd166; }
-.mb-aw-node.next { border: 2px solid var(--blue); box-shadow: 0 0 0 3px rgba(43, 127, 255, 0.15); }
-.mb-aw-star { font-size: 1.6rem; color: #c9d4e5; line-height: 1; }
-.mb-aw-node.on .mb-aw-star { color: var(--yellow-deep); text-shadow: 0 0 8px rgba(255, 210, 63, 0.8); }
-.mb-aw-label { font-weight: 900; font-size: 0.8rem; }
-.mb-aw-crowns { display: flex; gap: 1px; }
-.mb-aw-crown { width: 24px; height: 24px; }
-.mb-aw-bonus { font-size: 0.66rem; font-weight: 800; color: var(--muted); text-align: center; }
-
-/* Equipment */
-.mb-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.mb-slot { --rarity: #c9d4e5; border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; min-width: 0; min-height: 40px; }
-.mb-slot.filled { border-color: var(--rarity); background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--rarity) 12%, #fff)); }
-.mb-slot.on { box-shadow: 0 0 0 3px var(--yellow), var(--shadow); transform: translateY(-2px); }
-.mb-slot-icon { width: 46px; height: 46px; }
-.mb-slot-icon.empty { opacity: 0.35; filter: grayscale(1); }
-.mb-slot-name { font-weight: 900; font-style: italic; color: var(--navy); }
-.mb-slot-sub { font-size: 0.72rem; color: var(--muted); font-weight: 700; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.mb-exp-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; transition: width var(--mb-panel) var(--mb-ease); background: linear-gradient(90deg, var(--blue), #6fd3ff); }
 .mb-reroll .mb-lock-pick { margin-bottom: 10px; }
 .mb-reroll-desc { margin: 0 0 8px; font-size: 0.85rem; }
 .mb-reroll-foot { position: sticky; bottom: -14px; margin: 12px -16px -14px; padding: 10px 16px 12px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), #fff 30%); border-top: 1px solid #e3ebf7; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; z-index: 2; }

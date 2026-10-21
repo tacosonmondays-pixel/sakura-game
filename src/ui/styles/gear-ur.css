@@ -124,8 +124,5 @@
 html[data-reduce-motion] .mb-gear.is-ur > .ur-ring::before, html[data-reduce-motion] .gu-seed { animation: none !important; }
 html[data-reduce-motion] .gu-seed { display: none; }
 
-/* a girl's Equipment tab: rainbow slot, the "can awaken" mark, the tab's rainbow dot */
-.mb-slot.is-ur { position: relative; border-color: transparent; box-shadow: var(--ur-glow); }
-.gu-slot-ur.ur-badge { font-size: 0.6rem; padding: 0 4px 1px; margin-left: 4px; }
-.gu-slot-dot { margin-left: 4px; color: #8a4bd6; font-weight: 900; }
+/* the girl page's Gear tab: its rainbow dot (a piece can awaken now) */
 .ur-dot { display: inline-block; width: 8px; height: 8px; margin-left: 5px; border-radius: 50%; background: conic-gradient(var(--ur-rainbow)); vertical-align: 2px; box-shadow: 0 0 0 1.5px #fff; }

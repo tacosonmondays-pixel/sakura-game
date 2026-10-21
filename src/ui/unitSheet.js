@@ -21,7 +21,8 @@ import { clearPotentialNew } from '../systems/potential.js';
 import { rail, statStrip, iconBtn, ghostBtn, ico } from './kit.js';
 import { openSheet } from './sheet.js';
 import { headlineStats, roleSentence } from './girlView.js';
-import { namePlate, gearTile, howShort } from './girlFrame.js';
+import { namePlate, howShort } from './girlFrame.js';
+import { gearTile } from './gearTile.js';
 import { heroTrackBand, fullTrackList } from './heroTrack.js';
 
 let studentMod = null;
@@ -122,7 +123,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
     return h('div.gs-glance', { 'data-testid': 'unit-sheet-glance' },
       statStrip(headlineStats(unit, prof), { onMore: more, testid: 'unit-sheet-strip', moreTestid: 'unit-sheet-more' }),
       st
-        ? h('div.gs-slots', { 'data-testid': 'unit-sheet-slots' }, Object.keys(GEAR_SLOTS).map((slot) => gearTile(st.gear?.[slot] ? prof.gear?.[st.gear[slot]] : null, slot, { testid: `unit-sheet-slot-${slot}` })))
+        ? h('div.gs-slots', { 'data-testid': 'unit-sheet-slots' }, Object.keys(GEAR_SLOTS).map((slot) => gearTile(st.gear?.[slot] ? prof.gear?.[st.gear[slot]] || null : null, { slot, testid: `unit-sheet-slot-${slot}` })))
         : h('p.gs-locked', ico('lock'), owner ? 'Not in their roster.' : `${howShort(unit)} · ${roleSentence(unit)}`),
       // the strip's ULT cell already says when it unlocks (facts once): here only her ult's name
       ult ? h('div.gs-ult', h('span.gp-ult-badge', 'ULT'), h('b', ult.name)) : null);

@@ -1,16 +1,14 @@
 // The girl's plate and small Glance pieces (docs/specs/UI_DIRECTION.md §6.2), shared by her page (src/ui/screens/
 // student.js) and the menu hold sheet (src/ui/unitSheet.js): the ink plate over the bottom of her art (name, class,
-// rarity tag, LV n/cap, stars, the P sticker, ⚔ power — the only place those appear, P7), the Potential pips and
-// the gear slot tile. Styles: src/ui/styles/girl.css.
+// rarity tag, LV n/cap, stars, the P sticker, ⚔ power — the only place those appear, P7) and the Potential pips
+// (the gear tile is src/ui/gearTile.js). Styles: src/ui/styles/girl.css.
 import './styles/girl.css';
 import { h } from './dom.js';
 import { ico, lbl, num, rarityTag, starRow, KIT_SVG } from './kit.js';
 import { fmtNum } from './format.js';
-import { ROLES, GEAR_SLOTS } from '../data/types.js';
+import { ROLES } from '../data/types.js';
 import { levelCap, unitPower, MAX_AWAKEN } from '../systems/progression.js';
 import { potentialLevel, potentialPillTitle, MAX_POTENTIAL } from '../systems/potential.js';
-import { isUrGear } from '../systems/gear.js';
-import { gearIcon } from '../art/icons.js';
 import { displayRarity, rarityInfo, urRing } from './rarity.js';
 import { nextLine, crown } from './potential.js';
 
@@ -61,25 +59,4 @@ export function namePlate(unit, profile, { onPotential = null, potTestid = 'show
 export function potPips(p, { max = MAX_POTENTIAL } = {}) {
   return h('span.gp-pips', { role: 'img', 'aria-label': `Potential ${p} of ${max}` },
     Array.from({ length: max }, (_, i) => ico(KIT_SVG.blossom, `gp-pip${i < p ? '.on' : ''}`)));
-}
-
-const GEAR_FRAME = { common: 'common', rare: 'rare', superRare: 'superRare', mythic: 'mythic', legendary: 'legendary' };
-
-/**
- * A gear slot tile (§5.7): the gear icon in its rarity frame (UR gear: the rainbow ring, step 5), the +level in the
- * bottom-right corner. An empty slot shows "+" and the slot's name. M1b grows it (main stat chip, set icon).
- * @param {object|null} g the gear piece
- * @param {string} slot charm | ribbon | shoes
- */
-export function gearTile(g, slot, { testid = null, onClick = null } = {}) {
-  const name = GEAR_SLOTS[slot]?.name || slot;
-  if (!g) {
-    return h(`${onClick ? 'button' : 'div'}.gp-slot.empty`, { type: onClick ? 'button' : null, 'data-testid': testid, title: `${name}: empty`, onclick: onClick },
-      h('span.gp-slot-ic', ico('plus')), h('span.gp-slot-name', name));
-  }
-  const ur = isUrGear(g);
-  const frame = h(`span.gp-slot-ic.ui-fr.${ur ? 'ur.is-ur' : GEAR_FRAME[g.rarity] || 'common'}`, { html: gearIcon(slot, g.rarity, { ur }) }, ur ? urRing() : null);
-  return h(`${onClick ? 'button' : 'div'}.gp-slot`, { type: onClick ? 'button' : null, 'data-testid': testid, title: `${name} +${g.level || 0}`, onclick: onClick },
-    frame,
-    h('span.gp-slot-lv.num', `+${g.level || 0}`));
 }

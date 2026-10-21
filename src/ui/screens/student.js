@@ -3,22 +3,23 @@
 // The condensed girl page (docs/specs/UI_DIRECTION.md §6.2, M1a): the art band on the left (her card art or the 3D
 // chibi, prev / next on its edges, the 3D toggle and Outfit as icon buttons, the ink plate with her name, level,
 // stars, Potential and power) stays mounted while tabs change; the right column is the tab rail
-// INFO · LEVEL · AWAKEN · GEAR · TREE and one content window. Info and Tree are Glance views with their Details one
-// tap away (bottom sheets, src/ui/sheet.js); Level Up, Awakening and Equipment keep their content until M1b.
+// INFO · LEVEL · AWAKEN · GEAR · TREE and one content window. Every tab is a Glance view with its Details one tap
+// away (bottom sheets, src/ui/sheet.js): Info and Tree (M1a); Level Up with its Manual book steppers and the next
+// gate, Awakening's next star, and Equipment (src/ui/girlGear.js: slot cards, the slot sheet with its picker) (M1b).
 // Outfits (skins) dress only the 3D chibi: the Outfit sheet lists them with Wear / Try on, and `?skin=` deep-links a
 // try-on.
 import '../styles/meta-b.css';
 import '../styles/journal.css'; // [story] feature locks
-import { h, clear, screen, svgEl, button, modal, toast, stars, confirmDialog, showItemInfo } from '../components.js';
+import { h, clear, screen, svgEl, button, modal, toast, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, ROLES, ROLE_CATEGORIES, CAPABILITIES, PLACEMENT,
-  STATUSES, GEAR_SLOTS, ITEM_RARITIES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
+  STATUSES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
-import { ITEMS, bookId, getItem, materialId } from '../../data/items.js';
+import { ITEMS, bookId, materialId } from '../../data/items.js';
 import { unitSubclassLabel, ROLE_SUBCLASS } from '../../data/wiki.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
@@ -27,22 +28,17 @@ import {
 } from '../../systems/progression.js';
 import { TITANS } from '../../data/titans.js';
 import { setTargetFamily } from '../../systems/titans.js';
-import {
-  gearList, equipGear, unequipGear, salvageGear, salvageRewards, describeStat, gearLines, isUrGear, awakenReady,
-} from '../../systems/gear.js';
-import { gearActions, gearTotals, fillMeter, clubStrip } from '../gearUr.js';
+import { awakenReady } from '../../systems/gear.js';
 import { itemCount } from '../../systems/inventory.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, gearIcon, itemIcon } from '../../art/icons.js';
+import { roleIcon, attackTypeIcon, armorClassIcon, capabilityIcon, elementIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { buildChibi, createModelViewer, preloadModels, disposeObject } from '../../models/index.js';
 import { SKIN_MAP, resolveSkin } from '../../data/skins.js';
 import { legacyKit } from '../../data/legacy.js';
 import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
 import { artUrl } from '../../art/portraits.js';
-import { gearCard, requirementList, howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
+import { howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { TAG_GLYPHS } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
-import { applyGearFilter } from '../../systems/gearFilter.js';
-import { gearFilterBar, gearFilterFor } from '../gearFilterBar.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
@@ -52,7 +48,9 @@ import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../sys
 import { potentialSection, crown } from '../potential.js';
 import { potentialNext, MAX_POTENTIAL } from '../../systems/potential.js';
 import { essenceBalance, canRaisePotential } from '../../systems/essence.js';
-import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, KIT_SVG } from '../kit.js';
+import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG } from '../kit.js';
+import { fmtNum } from '../format.js';
+import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
 import { headlineStats, roleSentence, traitList, matchupList } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
@@ -71,7 +69,8 @@ const TABS = [
 ];
 const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
-const view = { mode: 'card', gearSlot: 'charm', skin: null };
+// manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
+const view = { mode: 'card', skin: null, manual: false };
 /** seenIntro key: the Outfit pill shows a NEW dot until the outfit sheet was opened once. */
 const OUTFIT_INTRO = 'outfits';
 
@@ -181,12 +180,6 @@ function chip(icon, text, cls = '') {
 
 function section(title, ...children) {
   return h('section.mb-card', title ? h('h3.mb-card-title', title) : null, ...children);
-}
-
-function expBar(frac, previewFrac = null) {
-  return h('div.mb-exp',
-    previewFrac != null ? h('div.mb-exp-preview', { style: { width: `${Math.min(100, previewFrac * 100)}%` } }) : null,
-    h('div.mb-exp-fill', { style: { width: `${Math.min(100, frac * 100)}%` } }));
 }
 
 function multCell(mult) {
@@ -667,18 +660,22 @@ const HERO_PATH_NAMES = {
   nami: { frostbrand: 'Frostbrand', undertow: 'Undertow', harbor: 'Harbor Watch' },
 };
 
+/**
+ * Level Up (UI_DIRECTION.md §6.2, M1b): her LV with the cap, the EXP bar with the preview of the books picked, Auto
+ * select and Level up (the primary, with its price); the per-book steppers sit behind the Manual toggle. Under it the
+ * next gate (Breakthrough, then Ascension's gates 6–10 up to 85): its pips, every requirement as a chip (icon,
+ * owned/required, where to get it), the Potential it waits on (Raise opens her Potential sheet) and Break through.
+ */
 function levelTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
   if (!st) return lockedTab(unit, 'levelling');
   const sel = ctx.books;
-  const wrap = h('div.mb-tab-body');
-
-  const head = section(null);
-  const bookBox = section('Books');
-  const preview = h('div.mb-lv-preview');
-  const btWrap = h('div');
-  put(wrap, head, bookBox, btWrap);
+  const wrap = h('div.mb-tab-body.gk-level');
+  const lvIn = h('div.ui-panel-in');
+  const lvPanel = h('section.ui-panel.gk-lv', { 'data-testid': 'level-panel' }, lvIn);
+  const btWrap = h('div.gk-bt-host');
+  put(wrap, lvPanel, btWrap);
 
   const update = () => {
     // read the cap every time: a breakthrough below raises it without rebuilding this tab
@@ -687,7 +684,6 @@ function levelTab(unit, ctx) {
     const pv = previewLevelUp(profile, unit.id, sel);
     const coins = itemCount(profile, 'coins');
     const atCap = st.level >= cap;
-    clear(head);
     const need = expForLevel(st.level);
     const curFrac = atCap ? 1 : st.exp / need;
     const pvFrac = pv.toLevel > st.level ? 1 : pv.exp ? (st.exp + pv.exp) / need : null;
@@ -695,75 +691,83 @@ function levelTab(unit, ctx) {
     const capText = (st.breakthrough || 0) >= BASE_GATES ? ` · P${info.p} · max ${MAX_LEVEL}` : ` · max ${MAX_LEVEL}`;
     const capReached = info.full ? 'Max level reached'
       : info.by === 'potential' ? `Level cap reached — gate ${info.nextGate} opens at P${info.nextP}` : 'Level cap reached — break through to continue';
-    put(head,
-      h('div.mb-lv-head',
-        h('div.mb-lv-big', h('span', 'Lv.'), h('b', String(st.level)), pv.toLevel > st.level ? h('span.mb-lv-arrow', `→ ${pv.toLevel}`) : null),
-        h('div.mb-lv-cap', { 'data-testid': 'level-cap' }, `Cap ${cap}`, h('span.muted', capText))),
-      expBar(curFrac, pvFrac),
-      h('div.mb-lv-exp.muted', atCap ? capReached : `${formatNumber(st.exp)} / ${formatNumber(need)} EXP to Lv.${st.level + 1}`),
-      // a level above 60 is priced in Akashic Tomes: "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"
-      !atCap && st.level >= BREAKTHROUGH_LEVEL_CAP ? h('div.mb-lv-tome', { 'data-testid': 'level-tome-price' },
-        `Lv ${st.level} → ${st.level + 1} · ${formatNumber(LEVEL_PAST_GATES.exp)} EXP (1 ${ITEMS[LEVEL_PAST_GATES.book].name}) · ${formatNumber(LEVEL_PAST_GATES.coins)} coins`) : null,
-    );
+    const hasBooks = ITEM_RARITY_ORDER.some((r) => itemCount(profile, bookId(r)) > 0);
+    const picked = Object.keys(sel).length > 0;
+    const short = pv.coinCost > coins;
+    const clearSel = () => { for (const k of Object.keys(sel)) delete sel[k]; };
 
-    clear(bookBox);
-    if (atCap) {
-      put(bookBox, h('p.muted', info.full ? `${unit.name} has reached the maximum level.`
-        : info.by === 'gate' ? 'Books are paused at the level cap. Break through below to raise it.'
-          : `Books are paused at her level cap. Raise her to P${info.nextP} (Info tab) to open gate ${info.nextGate}; each level above ${BREAKTHROUGH_LEVEL_CAP} is one ${ITEMS[LEVEL_PAST_GATES.book].name}.`));
-    } else {
-      const rows = ITEM_RARITY_ORDER.map((r) => {
-        const id = bookId(r);
-        const have = itemCount(profile, id);
-        const n = sel[id] || 0;
-        const set = (v) => { sel[id] = Math.max(0, Math.min(have, v)); if (!sel[id]) delete sel[id]; update(); };
-        return h(`div.mb-book${n ? '.on' : ''}${have ? '' : '.none'}`,
-          rarityTile(id, have, { size: 52, onClick: () => (have ? set(n + 1) : null) }),
-          h('div.mb-book-text', h('div.mb-book-name', ITEMS[id].name), h('div.muted', `${formatNumber(ITEMS[id].xp)} EXP`)),
-          h('div.mb-stepper',
-            h('button.mb-step', { disabled: !n, onclick: () => set(n - 1), 'aria-label': 'Less' }, '−'),
-            h('span.mb-step-val', String(n)),
-            h('button.mb-step', { disabled: n >= have, onclick: () => set(n + 1), 'aria-label': 'More' }, '+')));
-      });
-      clear(preview);
-      const short = pv.coinCost > coins;
-      put(preview,
-        h('div.mb-pv-line', h('span', 'EXP'), h('b', `+${formatNumber(pv.exp)}`)),
-        h('div.mb-pv-line', h('span', 'Level'), h('b', pv.exp ? `${pv.fromLevel} → ${pv.toLevel}` : '—')),
-        h(`div.mb-pv-line${short ? '.bad' : ''}`, h('span', 'Cost'), h('b', svgEl(uiIcon('coin'), 'mb-inline-icon'), formatNumber(pv.coinCost))),
-        pv.wasted > 0 ? h('div.mb-pv-warn', `${formatNumber(pv.wasted)} EXP over the cap will be wasted (not charged).`) : null,
-      );
-      const hasBooks = ITEM_RARITY_ORDER.some((r) => itemCount(profile, bookId(r)) > 0);
-      put(bookBox,
-        hasBooks ? h('div.mb-books', rows) : h('div.mb-inline-empty', h('p.muted', 'No books in your backpack.'), button('Find books', { kind: 'yellow', small: true, icon: 'teleport', onClick: () => showItemInfo(bookId('rare')) })),
-        preview,
-        h('div.mb-actions',
-          button('Clear', { kind: 'ghost', small: true, disabled: !Object.keys(sel).length, onClick: () => { for (const k of Object.keys(sel)) delete sel[k]; update(); } }),
-          button('Auto Select', { kind: 'ghost', icon: 'sparkle', testid: 'auto-select', disabled: !hasBooks, onClick: () => { const auto = autoSelectBooks(profile, unit.id); for (const k of Object.keys(sel)) delete sel[k]; Object.assign(sel, auto); update(); } }),
-          button('Level Up', {
-            kind: 'yellow', icon: 'upgrade', testid: 'level-up', disabled: !pv.exp || short,
-            onClick: () => {
-              const res = levelUp(profile, unit.id, { ...sel });
-              if (!res.ok) { toast(res.error === 'missing' ? 'Not enough coins or books.' : 'Cannot level up right now.', 'bad'); return; }
-              for (const k of Object.keys(sel)) delete sel[k];
-              store.commit('level-up');
-              toast(res.toLevel > res.fromLevel ? `${unit.name} reached Lv.${res.toLevel}!` : `${unit.name} gained EXP.`, 'good');
-              ctx.refreshShowcase();
-              update();
-              head.classList.add('mb-pulse');
-              setTimeout(() => head.classList.remove('mb-pulse'), 500);
-            },
-          })),
-      );
+    const head = h('div.mb-lv-head.gk-lv-head',
+      h('div.mb-lv-big', lbl('LV'), h('b.num', String(st.level)), pv.toLevel > st.level ? h('span.mb-lv-arrow.num', { title: `Level ${pv.toLevel} after these books` }, `▸ ${pv.toLevel}`) : null),
+      h('div.mb-lv-cap', { 'data-testid': 'level-cap' }, `Cap ${cap}${capText}`));
+    const bar = h('div.gk-bar.gk-exp', { role: 'img', 'aria-label': atCap ? capReached : `EXP ${formatNumber(st.exp)} of ${formatNumber(need)}` },
+      pvFrac != null ? h('i.pv', { style: { width: `${Math.min(100, pvFrac * 100)}%` } }) : null,
+      h('i', { style: { width: `${Math.min(100, curFrac * 100)}%` } }));
+    const expLine = h('div.mb-lv-exp.gk-sub-line', atCap ? capReached : `${formatNumber(st.exp)} / ${formatNumber(need)} EXP to LV ${st.level + 1}`);
+    // a level above 60 is priced in Akashic Tomes: "Lv 72 → 73 · 30,000 EXP (1 Akashic Tome) · 12,000 coins"
+    const tome = !atCap && st.level >= BREAKTHROUGH_LEVEL_CAP ? h('div.mb-lv-tome.gk-sub-line', { 'data-testid': 'level-tome-price' },
+      `Lv ${st.level} → ${st.level + 1} · ${formatNumber(LEVEL_PAST_GATES.exp)} EXP (1 ${ITEMS[LEVEL_PAST_GATES.book].name}) · ${formatNumber(LEVEL_PAST_GATES.coins)} coins`) : null;
+
+    let acts = null;
+    let books = null;
+    let pvLine = null;
+    if (!atCap && !hasBooks) {
+      acts = h('div.gk-acts-main', h('span.gp-line', 'No books in your backpack.'),
+        button('Find books', { kind: 'ghost', small: true, icon: 'teleport', onClick: () => showItemInfo(bookId('rare')) }));
+    } else if (!atCap) {
+      acts = h('div.gk-acts-main',
+        h(`button.ui-chip.gk-toggle${view.manual ? '.on' : ''}`, {
+          type: 'button', 'data-testid': 'level-manual', 'aria-expanded': view.manual ? 'true' : 'false',
+          onclick: () => { view.manual = !view.manual; update(); },
+        }, ico(view.manual ? 'minus' : 'plus'), h('span', 'Manual')),
+        button('Auto select', { kind: 'ghost', small: true, icon: 'sparkle', testid: 'auto-select', onClick: () => { const auto = autoSelectBooks(profile, unit.id); clearSel(); Object.assign(sel, auto); update(); } }),
+        picked ? button('Clear', { kind: 'ghost', small: true, testid: 'level-clear', onClick: () => { clearSel(); update(); } }) : null,
+        button(pv.exp ? `Level up · ${fmtNum(pv.coinCost, 'money', { round: 'up' })}` : 'Level up', {
+          kind: 'yellow', icon: 'upgrade', testid: 'level-up', disabled: !pv.exp || short, title: short ? 'Not enough coins' : !pv.exp ? 'Pick books first: Auto select or Manual' : null,
+          onClick: () => {
+            const res = levelUp(profile, unit.id, { ...sel });
+            if (!res.ok) { toast(res.error === 'missing' ? 'Not enough coins or books.' : 'Cannot level up right now.', 'bad'); return; }
+            clearSel();
+            store.commit('level-up');
+            toast(res.toLevel > res.fromLevel ? `${unit.name} reached Lv.${res.toLevel}!` : `${unit.name} gained EXP.`, 'good');
+            ctx.refreshShowcase();
+            update();
+            lvPanel.classList.add('mb-pulse');
+            setTimeout(() => lvPanel.classList.remove('mb-pulse'), 500);
+          },
+        }));
+      if (picked) {
+        pvLine = h(`p.gk-pv${short ? '.bad' : ''}`, { 'data-testid': 'level-preview' },
+          h('b.num', `+${formatNumber(pv.exp)} EXP`), pv.toLevel > pv.fromLevel ? ` · LV ${pv.fromLevel} → ${pv.toLevel}` : '',
+          short ? ' · not enough coins' : '',
+          pv.wasted > 0 ? h('span.gk-warn', ` · ${formatNumber(pv.wasted)} EXP over the cap is not used (and not charged)`) : null);
+      }
+      if (view.manual) {
+        books = h('div.mb-books.gk-books', { 'data-testid': 'level-books' }, ITEM_RARITY_ORDER.map((r) => {
+          const id = bookId(r);
+          const have = itemCount(profile, id);
+          const n = sel[id] || 0;
+          const set = (v) => { sel[id] = Math.max(0, Math.min(have, v)); if (!sel[id]) delete sel[id]; update(); };
+          return h(`div.mb-book${n ? '.on' : ''}${have ? '' : '.none'}`,
+            rarityTile(id, have, { size: 44, onClick: () => (have ? set(n + 1) : showItemInfo(id)) }),
+            h('div.mb-book-text', h('div.mb-book-name', ITEMS[id].name), h('div.gp-sub', `${formatNumber(ITEMS[id].xp)} EXP`)),
+            h('div.mb-stepper',
+              h('button.mb-step', { type: 'button', disabled: !n, onclick: () => set(n - 1), 'aria-label': `One less ${ITEMS[id].name}` }, '−'),
+              h('span.mb-step-val.num', String(n)),
+              h('button.mb-step', { type: 'button', disabled: n >= have, onclick: () => set(n + 1), 'aria-label': `One more ${ITEMS[id].name}` }, '+')));
+        }));
+      }
     }
-
-    clear(btWrap);
-    btWrap.appendChild(breakthroughPanel(unit, ctx, update));
+    fillIn(lvIn, head, bar, expLine, tome, acts, pvLine, books);
+    btWrap.replaceChildren(breakthroughPanel(unit, ctx, update));
   };
   update();
   return wrap;
 }
 
+/**
+ * The next gate, condensed: "Gate 9 · Level cap 72 → 78", the ten gate pips (caps in their names), a requirement chip
+ * per material, the Potential it waits on with Raise, where to get the materials, and Break through · price.
+ */
 function breakthroughPanel(unit, ctx, rerender) {
   const profile = store.profile;
   const st = profile.units[unit.id];
@@ -773,26 +777,30 @@ function breakthroughPanel(unit, ctx, rerender) {
   const cost = check.cost || breakthroughCost(unit.id, gate);
   const atCap = st.level >= levelCap(st);
   const ascension = gate > BASE_GATES;
-  // gates 6–10 (ASCENSION.md §D.2): "Gate 9 · Level cap 72 → 78", locked until her Potential allows it
+  // gates 6–10 (ASCENSION.md §D.2) wait on her Potential
   const potLock = check.reason === 'potential';
   const missingIds = new Set((check.missing || []).map((m) => m.id));
   const titan = TITANS.find((t) => t.families[0] === unit.materialFamily) || TITANS.find((t) => t.families.includes(unit.materialFamily));
-  const where = ascension && missingIds.size && !potLock ? h('div.mb-actions.mb-where', { 'data-testid': 'gate-where' },
-    h('span.muted', 'Where to get:'),
-    titan ? button(titan.name, { kind: 'ghost', small: true, icon: 'assault', testid: 'gate-where-titan', onClick: () => { setTargetFamily(profile, titan.id, unit.materialFamily); store.commit('titan-target'); navigate('titans', { id: titan.id }); } }) : null,
-    button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
-    button('Craft Room', { kind: 'ghost', small: true, icon: 'upgrade', onClick: () => navigate('backpack', { tab: 'enhancement' }) })) : null;
-  return h(`section.mb-card.mb-bt${atCap && !potLock ? '.ready' : ''}`, { 'data-testid': 'gate-card' },
-    h('h3.mb-card-title', ascension ? `Gate ${gate} · Level cap ${levelCap(st)} → ${GATE_CAPS[gate]}` : 'Breakthrough'),
+  const coins = coinsOf(cost);
+  const where = ascension && missingIds.size && !potLock ? h('div.gk-where', { 'data-testid': 'gate-where' },
+    lbl('Where to get'),
+    titan ? ghostBtn(titan.name, { icon: 'assault', testid: 'gate-where-titan', onClick: () => { setTargetFamily(profile, titan.id, unit.materialFamily); store.commit('titan-target'); navigate('titans', { id: titan.id }); } }) : null,
+    ghostBtn('Titan shelf', { icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
+    ghostBtn('Craft Room', { icon: 'upgrade', onClick: () => navigate('backpack', { tab: 'enhancement' }) })) : null;
+  const ready = atCap && !potLock;
+  return h(`section.ui-panel.gk-gate.mb-bt${ready ? '.ready' : ''}`, { 'data-testid': 'gate-card' }, h('div.ui-panel-in',
+    h('div.ui-panel-head', h('span.ui-kicker', ascension ? 'Ascension' : 'Breakthrough'), h('span.gp-sub', MATERIAL_FAMILIES[unit.materialFamily]?.name || '')),
+    h('h3.mb-card-title.gk-gate-title', `Gate ${gate} · Level cap ${levelCap(st)} → ${GATE_CAPS[gate]}`),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    ascension ? null : h('p', `Gate ${gate}: raises the level cap from `, h('b', String(levelCap(st))), ' to ', h('b', String(GATE_CAPS[gate])), '. Uses ', h('b', MATERIAL_FAMILIES[unit.materialFamily]?.name || unit.materialFamily), '.'),
-    potLock ? h('div.mb-note', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} (Info tab: 1 Essence + coins per step).`)
-      : atCap ? null : h('div.mb-note', `Reach Lv.${levelCap(st)} first — you can gather materials now.`),
-    requirementList(cost),
+    potLock ? h('div.gk-note', h('span', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} · 1 Essence + coins per step`),
+      ghostBtn('Raise ▸', { testid: 'gate-raise', onClick: () => openPotential(unit, { profile, onChange: () => { ctx.refreshShowcase(); rerender(); } }) }))
+      : atCap ? null : h('p.gk-note', `Reach LV ${levelCap(st)} first — you can gather materials now.`),
+    reqChips(cost, { onWhere: showItemInfo }),
     where,
-    h('div.mb-actions',
-      button('Break Through', {
-        kind: 'yellow', icon: 'upgrade', testid: 'breakthrough', disabled: !check.ok,
+    h('div.gk-acts-main',
+      button(`Break through${coins ? ` · ${fmtNum(coins, 'money', { round: 'up' })}` : ''}`, {
+        kind: ready ? 'yellow' : 'ghost', icon: 'upgrade', testid: 'breakthrough', disabled: !check.ok,
+        title: check.ok ? null : potLock ? `Opens at P${check.needP}` : !atCap ? `Reach LV ${levelCap(st)} first` : 'Missing materials or coins',
         onClick: () => {
           const res = breakthrough(profile, unit.id);
           if (!res.ok) { toast('Missing materials.', 'bad'); return; }
@@ -801,23 +809,35 @@ function breakthroughPanel(unit, ctx, rerender) {
           ctx.refreshShowcase();
           rerender();
         },
-      })));
+      }))));
 }
 
 /** Gate 10 broken: "Level cap 85 · Full Potential". */
 function potentialCapCard(st) {
   const info = levelCapInfo(st);
-  return h('section.mb-card.mb-bt.mb-potcap', { 'data-testid': 'potential-cap-card' },
-    h('h3.mb-card-title', 'Level cap'),
+  return h('section.ui-panel.gk-gate.mb-bt.mb-potcap', { 'data-testid': 'potential-cap-card' }, h('div.ui-panel-in',
+    h('div.ui-panel-head', h('span.ui-kicker', 'Level cap')),
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
-    h('p.mb-potcap-line', { 'data-testid': 'potential-cap-line' }, ['Level cap ', h('b', String(info.cap)), ' · Full Potential']),
-    h('p.muted', `All ${MAX_BREAKTHROUGH} gates broken. Every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${ITEMS[LEVEL_PAST_GATES.book].name} (${formatNumber(LEVEL_PAST_GATES.exp)} EXP) and ${formatNumber(LEVEL_PAST_GATES.coins)} coins.`));
+    h('p.mb-potcap-line.gp-line', { 'data-testid': 'potential-cap-line' }, ['Level cap ', h('b', String(info.cap)), ' · Full Potential']),
+    h('p.gp-sub', `All ${MAX_BREAKTHROUGH} gates broken. Every level above ${BREAKTHROUGH_LEVEL_CAP} costs one ${ITEMS[LEVEL_PAST_GATES.book].name} and coins.`)));
 }
 
+/** Ten gate pips, no digits: lit when broken, the next one ringed; each one's cap is in its name. */
 function gatePips(passed) {
-  return GATE_CAPS.slice(1).map((cap, i) => h(`span.mb-gate${i + 1 <= passed ? '.on' : ''}${i + 1 > BASE_GATES ? '.asc' : ''}`, { title: `Gate ${i + 1}` }, String(cap)));
+  return GATE_CAPS.slice(1).map((cap, i) => h(`span.mb-gate${i + 1 <= passed ? '.on' : ''}${i + 1 === passed + 1 ? '.next' : ''}${i + 1 > BASE_GATES ? '.asc' : ''}`, {
+    title: `Gate ${i + 1}: level cap ${cap}`, 'aria-label': `Gate ${i + 1}: level cap ${cap}${i + 1 <= passed ? ', broken' : ''}`, 'data-cap': String(cap),
+  }));
 }
 
+// ----- Awakening -------------------------------------------------------------
+
+/** What one awaken star gives (the 3rd unlocks her passive). */
+const starBonus = (unit, s) => (s === 3 ? `Unlocks ${unit.awakenPassive.name}` : '+5% DMG');
+
+/**
+ * Awakening (UI_DIRECTION.md §6.2, M1b): the star row, the next star's single bonus, her passive in one line, the cost
+ * (a chip per crown and the fragments) and Awaken · price. The per-star track and the full passive go behind MORE.
+ */
 function awakenTab(unit, ctx) {
   const profile = store.profile;
   const st = profile.units[unit.id];
@@ -825,48 +845,70 @@ function awakenTab(unit, ctx) {
   if (!featureOpen(profile, 'awaken')) return storyLockedTab('awaken');
   const star = st.awaken;
   const check = canAwaken(profile, unit.id);
+  const passiveOn = star >= 3;
+  const ur = isUR(unit, profile);
+  const next = star < MAX_AWAKEN ? star + 1 : null;
+  const cost = next ? check.cost || awakenCost(unit.id, next) : [];
+  const coins = coinsOf(cost);
+  const top = h('section.ui-panel.gk-aw', { 'data-testid': 'awaken-panel' }, h('div.ui-panel-in',
+    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? urBadge() : null,
+      h('span.gk-aw-more', moreSticker(() => openAwakenDetails(unit), { testid: 'awaken-more', label: 'Every star and her passive' }))),
+    next
+      ? h('div.gk-aw-next', { 'data-testid': 'awaken-next' }, lbl('Next'), h('b.num', `★${next}`), h('span.gk-aw-bonus', starBonus(unit, next)))
+      : null,
+    h(`div.gk-passive${passiveOn ? '.on' : ''}`, { 'data-testid': 'awaken-passive' },
+      ico(passiveOn ? 'sparkle' : 'lock', 'ui-ico.gk-passive-ic'),
+      h('div', h('b', unit.awakenPassive.name), h('span.gp-sub', ` ${unit.awakenPassive.desc}`)),
+      sticker(passiveOn ? 'Active' : 'At ★3', passiveOn ? 'y' : ''))));
+  if (!next) {
+    return h('div.mb-tab-body.gk-awaken', top,
+      ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing())))
+        : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`))));
+  }
+  return h('div.mb-tab-body.gk-awaken', top,
+    h('section.ui-panel.gk-aw-cost', h('div.ui-panel-in',
+      h('div.ui-panel-head', h('span.ui-kicker', `Awaken to ★${next}`)),
+      reqChips(cost, { onWhere: showItemInfo }),
+      h('div.gk-acts-main',
+        button(`Awaken${coins ? ` · ${fmtNum(coins, 'money', { round: 'up' })}` : ''}`, {
+          kind: 'yellow', icon: 'star', testid: 'awaken', disabled: !check.ok, title: check.ok ? null : 'Missing crowns, fragments or coins',
+          onClick: () => {
+            const wasUR = isUR(unit, profile);
+            const res = awaken(profile, unit.id);
+            if (!res.ok) { toast('Missing crowns, fragments or coins.', 'bad'); return; }
+            store.commit('awaken');
+            ctx.refreshShowcase();
+            ctx.rerenderTab();
+            // the 5th star of an SSR: she ascends to UR (display only) — a one-time moment
+            if (!wasUR && isUR(unit, profile)) showAscension(unit);
+            else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
+          },
+        })))));
+}
+
+/** Awakening's Details: every star (crowns and bonus), the total, her passive in full, where crowns come from. */
+function openAwakenDetails(unit) {
+  const st = store.profile.units[unit.id];
+  const star = st?.awaken || 0;
+  const passiveOn = star >= 3;
   const track = h('div.mb-aw-track', [1, 2, 3, 4, 5].map((s) => {
-    const cost = awakenCost(unit.id, s);
-    const crowns = cost.filter((c) => ITEMS[c.id]?.category === 'crown');
+    const crowns = awakenCost(unit.id, s).filter((c) => ITEMS[c.id]?.category === 'crown');
     return h(`div.mb-aw-node${s <= star ? '.on' : ''}${s === star + 1 ? '.next' : ''}`,
-      h('div.mb-aw-star', '★'),
-      h('div.mb-aw-label', `★${s}`),
+      h('div.mb-aw-label.num', `★${s}`),
       h('div.mb-aw-crowns', crowns.map((c) => svgEl(itemIcon(c.id), 'mb-aw-crown'))),
       h('div.mb-aw-bonus', s === 3 ? 'Passive' : '+5% DMG'));
   }));
-  const passiveOn = star >= 3;
-  const ur = isUR(unit, profile);
-  return h('div.mb-tab-body',
-    section(null,
-      h('div.mb-aw-head', h('div.mb-aw-big', stars(star, MAX_AWAKEN), ur ? urBadge() : null), h('div.muted', `Awakening ${star} / ${MAX_AWAKEN} · +${star * 5}% damage`)),
-      track),
-    section('Awakening passive',
-      h(`div.mb-passive${passiveOn ? '.on' : ''}`,
-        h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
-        h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.muted', passiveOn ? 'Active in every battle' : `Unlocks at ★3 (${Math.max(0, 3 - star)} more)`)))),
-    star >= MAX_AWAKEN
-      ? (ur
-        ? section('Fully awakened', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing()))
-        : section('Fully awakened', h('p', `${unit.name} shines with all five stars.`)))
-      : section(`Next: ★${star + 1}`,
-        h('p.muted', 'Crowns drop from minibosses and Total Assault bosses. Star Fragments come from duplicate recruits and the exchanges.'),
-        requirementList(check.cost || awakenCost(unit.id, star + 1)),
-        h('div.mb-actions',
-          button('Awaken', {
-            kind: 'yellow', icon: 'star', testid: 'awaken', disabled: !check.ok,
-            onClick: () => {
-              const wasUR = isUR(unit, profile);
-              const res = awaken(profile, unit.id);
-              if (!res.ok) { toast('Missing crowns, fragments or coins.', 'bad'); return; }
-              store.commit('awaken');
-              ctx.refreshShowcase();
-              ctx.rerenderTab();
-              // the 5th star of an SSR: she ascends to UR (display only) — a one-time moment
-              if (!wasUR && isUR(unit, profile)) showAscension(unit);
-              else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
-            },
-          }))),
-  );
+  return openSheet({
+    title: `${unit.name} · Awakening`, testid: 'awaken-sheet', cls: 'gp-details', full: true,
+    body: h('div.gp-sheet-body',
+      h('p.gp-line', `Awakening ${star} / ${MAX_AWAKEN} · +${star * 5}% damage`),
+      track,
+      section('Awakening passive',
+        h(`div.mb-passive${passiveOn ? '.on' : ''}`,
+          h('div.mb-passive-icon', svgEl(uiIcon(passiveOn ? 'sparkle' : 'lock'))),
+          h('div', h('b', unit.awakenPassive.name), h('div', unit.awakenPassive.desc), h('div.gp-sub', passiveOn ? 'Active in every battle' : `Unlocks at ★3 (${Math.max(0, 3 - star)} more)`)))),
+      h('p.gp-sub', 'Crowns drop from minibosses and Total Assault bosses. Star Fragments come from duplicate recruits and the exchanges.')),
+  });
 }
 
 /**
@@ -889,77 +931,6 @@ function showAscension(unit) {
       h('p.ur-ascend-text', `${unit.name} awakened all five stars. From now on she wears the rainbow frame on every card — students, formation and battle.`)),
     actions: [{ label: 'Wonderful!', kind: 'yellow', testid: 'ur-ascend-ok' }],
   });
-}
-
-// ----- Equipment -----------------------------------------------------------
-
-function gearTab(unit, ctx) {
-  const profile = store.profile;
-  const st = profile.units[unit.id];
-  if (!st) return lockedTab(unit, 'equipment');
-  if (!featureOpen(profile, 'gear')) return storyLockedTab('gear');
-  const slot = view.gearSlot;
-  const wrap = h('div.mb-tab-body');
-  const rerender = () => ctx.rerenderTab();
-
-  const slots = h('div.mb-slots', Object.entries(GEAR_SLOTS).map(([id, s]) => {
-    const g = st.gear[id] && profile.gear[st.gear[id]];
-    const ur = isUrGear(g);
-    const L = g ? gearLines(g) : null;
-    return h(`button.mb-slot${id === slot ? '.on' : ''}${g ? '.filled' : ''}${ur ? '.is-ur' : ''}`, { 'data-testid': `slot-${id}`, onclick: () => { view.gearSlot = id; rerender(); }, style: g ? cssVars({ '--rarity': ITEM_RARITIES[g.rarity]?.color || '#999' }) : null },
-      svgEl(gearIcon(id, g?.rarity || 'common', { ur }), `mb-slot-icon${g ? '' : '.empty'}`),
-      h('div.mb-slot-name', s.name, ur ? urBadge('gu-slot-ur') : null, awakenReady(g) ? h('span.gu-slot-dot', { title: 'Can awaken' }, '✦') : null),
-      h('div.mb-slot-sub', g ? `${describeStat(L.main.stat, L.main.value)} · +${g.level}` : 'Empty'));
-  }));
-  put(wrap, section(null, slots, h('div.mb-sub-title', 'Total gear bonuses'), gearTotals(unit.id), fillMeter(unit.id), clubStrip(unit.id)));
-
-  const equipped = st.gear[slot] && profile.gear[st.gear[slot]];
-  if (equipped) {
-    const onChange = () => { ctx.refreshShowcase(); rerender(); };
-    put(wrap, section(`Equipped ${GEAR_SLOTS[slot].name}`,
-      gearCard(equipped, { forUnit: unit.id }),
-      gearActions(equipped, {
-        unitId: unit.id, onChange,
-        extra: [button('Unequip', { kind: 'ghost', small: true, onClick: () => { unequipGear(profile, unit.id, slot); store.commit('gear-unequip'); onChange(); } })],
-      })));
-  }
-
-  const allOthers = gearList(profile, { slot }).filter((g) => g.uid !== equipped?.uid);
-  const others = applyGearFilter(allOthers, gearFilterFor('student', slot));
-  put(wrap, section(`Your ${GEAR_SLOTS[slot].name.toLowerCase()} gear (${allOthers.length})`,
-    allOthers.length ? gearFilterBar({ place: 'student', slot, shown: others.length, total: allOthers.length, onChange: rerender }) : null,
-    allOthers.length && !others.length ? emptyState('No gear matches these filters', 'Try another rarity or stat, or clear the filters.') : null,
-    others.length
-      ? h('div.mb-gear-grid', others.map((g) => gearCard(g, {
-        forUnit: unit.id,
-        actions: h('div.mb-gear-card-acts',
-          button(g.equippedBy ? `Take from ${UNIT_MAP[g.equippedBy]?.name}` : 'Equip', {
-            kind: 'primary', small: true,
-            onClick: async () => {
-              if (g.equippedBy && !(await confirmDialog(`${UNIT_MAP[g.equippedBy]?.name} is wearing ${g.name}. Move it to ${unit.name}?`, { title: 'Move gear', ok: 'Move' }))) return;
-              equipGear(profile, unit.id, g.uid);
-              store.commit('gear-equip');
-              toast(`${g.name} equipped.`, 'good');
-              ctx.refreshShowcase();
-              rerender();
-            },
-          }),
-          g.equippedBy ? null : button('Salvage', {
-            kind: 'ghost', small: true, disabled: g.locked,
-            onClick: async () => {
-              const rewards = salvageRewards(g, profile).map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ');
-              if (!(await confirmDialog(`Salvage ${g.name} for ${rewards}?`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
-              const res = salvageGear(profile, g.uid);
-              if (!res.ok) { toast('Cannot salvage this gear.', 'bad'); return; }
-              store.commit('gear-salvage');
-              toast('Salvaged.', 'good');
-              rerender();
-            },
-          })),
-      })))
-      : allOthers.length ? null : emptyState(`No spare ${GEAR_SLOTS[slot].name.toLowerCase()} gear`, 'Gear boxes drop in Bounty · Workshop Yard and from bosses. Open boxes in the Backpack.',
-        h('div.row', button('Backpack', { kind: 'ghost', icon: 'backpack', onClick: () => navigate('backpack', { tab: 'equipment' }) }), button('Bounty', { kind: 'yellow', icon: 'bounty', onClick: () => navigate('bounty') })))));
-  return wrap;
 }
 
 /** One of her pieces is a gold +10 and a Seed is in the backpack. */
@@ -1100,7 +1071,11 @@ export function render(root, params = {}) {
     switch (tab) {
       case 'level': content = levelTab(unit, ctx); break;
       case 'awaken': content = awakenTab(unit, ctx); break;
-      case 'gear': content = gearTab(unit, ctx); break;
+      case 'gear':
+        content = !store.profile.units[unit.id] ? lockedTab(unit, 'equipment')
+          : !featureOpen(store.profile, 'gear') ? storyLockedTab('gear') // [story] new-save gate
+            : gearTab(unit, { onChange: () => { band.refresh(); renderTab(false); } });
+        break;
       case 'tree': content = treeTab(unit); break;
       default:
         content = infoTab(unit, { onChange: refreshAll });
