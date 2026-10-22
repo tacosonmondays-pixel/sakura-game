@@ -162,6 +162,18 @@ export const PAIRS = [
   ['#a3b3cf', ['#1a2747'], 'Honor Ribbon Case: a ribbon not earned yet (its name)', 4.5],
   ['--blue-text', ['white'], 'Achievements: "Show N more"', 4.5],
   ['--good-text', ['#f4f8fd'], 'Commissions / Achievements: "Claimed" / "Done" on a done row', 4.5],
+  // the UI M5b review fixes (components.css secondary button and count pill; hubs.css; achievements.css; titans.css)
+  ['--ink', ['--sky-3', 'rgba(255, 255, 255, 0.94)'], 'secondary button word (Sweep) on its white glass (over --sky-3)', 4.5],
+  ['--muted', ['--sky-1'], 'a disabled secondary button word (Sweep) on --sky-1', 4.5],
+  ['--muted', ['--panel-solid', '--panel'], 'the reason beside a disabled Sweep ("Clear on Hard first") on a glass panel', 4.5],
+  ['--on-plate', ['--plate'], 'the count pill inside Claim all', 4.5],
+  ['--ink', ['white'], 'Achievements: the "Ribbons" case button word', 4.5],
+  ['white', ['#1a2747', 'rgba(255, 255, 255, 0.1)'], 'Honor Ribbon Case: the "Titles" button word', 4.5],
+  ['--muted', ['white'], 'Bounty / Total Assault: a gated drop\'s short tier ("NM+") under its tile', 4.5],
+  ['--plate', ['--yellow'], 'Titan Trials: the ★ sticker on the Titan of the Week\'s token', 4.5],
+  ['--ink', ['white'], 'Commissions: a reward count under its tile ("×3,000")', 4.5],
+  ['--on-plate', ['--plate'], 'Commissions: the open tab word on the ink rail plate', 4.5],
+  ['--ink', ['black', 'rgba(24, 58, 112, 0.48)', 'rgba(255, 255, 255, 0.72)'], 'Commissions: an inactive tab word on the rail over the staff-room painting (worst case: a black pixel under the hub shade)', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],

@@ -1,6 +1,6 @@
 /* Titan Trials hub and its result sheet (docs/specs/ASCENSION.md §D.3). Phone landscape first (844×390).
    UI M5b: the type tokens only (nothing under 12 px, tools/cssFloor.mjs); Kaede hosts on the collapse rule (hubs.css
-   places the stand; the bust chip sits under the titan's art here). */
+   places the stand, and the bust chip at the start of the top row). */
 
 .tt-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 1200px; width: 100%; margin: 0 auto; padding-bottom: 10px; }
 .tt-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -17,9 +17,15 @@
 .tt-card-art > svg { width: 120%; height: 120%; margin-left: -10%; }
 .tt-card-token { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
 .tt-card-text { position: absolute; inset: 4px 46px 4px 12px; display: flex; flex-direction: column; justify-content: center; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); min-width: 0; }
-.tt-card-name { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: var(--fs-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tt-card-sub { font-size: var(--fs-label); white-space: nowrap; }
-.tt-week { font-size: var(--fs-label); font-weight: 900; color: var(--yellow); letter-spacing: 0.02em; white-space: nowrap; }
+.tt-card-name { flex: none; font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: var(--fs-body); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-card-sub { flex: none; font-size: var(--fs-label); line-height: 1.2; white-space: nowrap; }
+/* the titan of the week: a yellow ★ sticker on her token; the "Titan of the Week" kicker only on the tall desktop cards */
+.tt-star {
+  position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--yellow); color: var(--plate); box-shadow: 0 0 0 2px var(--plate);
+  font: 900 var(--fs-label)/1 var(--font); text-shadow: none;
+}
+.tt-week { display: none; font-size: var(--fs-label); font-weight: 900; color: var(--yellow); letter-spacing: 0.02em; white-space: nowrap; }
 .tt-card.active { outline: 3px solid var(--yellow); outline-offset: -3px; }
 .tt-card.week { box-shadow: 0 0 0 2px var(--yellow-deep), var(--shadow); }
 .tt-card:active { transform: skewX(var(--skew)) scale(0.97); }
@@ -52,15 +58,19 @@
 .tt-meter { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); color: var(--navy); }
 .tt-meter-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .tt-meter-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #ff7ab6, #ffd166, #8be78b, #7ee8fa, #a78bfa); }
-.tt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 2px; }
+/* the actions: a row under the detail that stays in view (sticky at the bottom of the scroll, as the Bounty footer):
+   Practice, Sweep (+ its reason), then Fight, the one yellow, at the right */
+.tt-actions {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px;
+  padding: 6px 10px; border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow);
+}
 .tt-actions .btn > .ui-kbd { margin-left: 8px; }
 .tt-locked { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; text-align: center; }
 
-/* the bust chip (the collapse rule): under the titan's art, the bubble beside her */
-.tt-host-row { display: flex; align-items: center; min-height: var(--host-chip); }
-.tt-host-row > .ui-host { width: 100%; }
-.tt-host-row > .ui-host > .ui-host-bubble { max-width: none; flex: 1; min-width: 0; }
-.tt-detail.with-chip .tt-show { height: 112px; }
+/* the bust chip (the collapse rule): at the start of the top row (hubs.css draws it), the chips after her */
+.tt-top.has-host { row-gap: 8px; }
+.tt-top.has-host > .ui-host { margin-right: 6px; }
 
 /* Details sheet (MORE) */
 .tt-sheet-body { display: flex; flex-direction: column; gap: 8px; }
@@ -83,12 +93,16 @@
   .tt-show { height: 96px; }
   .tt-show-token .enemy-token, .tt-show-token svg { max-height: 80px; }
 }
-@media (max-width: 700px) {
+/* narrow portrait screens: two cards a row, the detail in one column (small landscape phones keep the 4 + 2 columns:
+   the UI M5b review found the Fight button under the fold at 667x375) */
+@media (max-width: 700px) and (max-aspect-ratio: 1/1) {
   .tt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tt-detail { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 1000px) and (min-height: 600px) {
   .tt-card { height: 76px; }
+  .tt-week { display: block; }
+  .tt-star { display: none; }
   .tt-card-name { font-size: var(--fs-name); }
   .tt-show { height: 200px; }
   .tt-line { font-size: var(--fs-label); }

@@ -9,12 +9,13 @@
 // name plate (small tiles).
 // UI M5b: the secretary is the hub's host girl (docs/specs/UI_DIRECTION.md §5.10 E1): her stand in the left 35%
 // with a speech bubble (the Missions lines of hostLines.js, picked by the state; a tap shows the next), never over
-// the tiles. Quick start is the screen's one primary (data-primary: Space on desktop).
+// the tiles. Under 800 px of width (the collapse rule, host.js) she is a bust chip in a strip over the tiles and the
+// tiles take the whole width. Quick start is the screen's one primary (data-primary: Space on desktop).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
 import { countdownChip, kbdHint } from '../kit.js';
-import { hubHost } from '../hubHost.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
 import { missionsState } from '../hubStates.js';
 import { dot, inProgress, openSticker, openModes, markOpenSeen } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
@@ -53,25 +54,39 @@ export function render(root) {
   el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
+  let drawn = null; // the host mode on screen
   const draw = () => {
     clear(body);
-    body.appendChild(build(draw));
+    drawn = hubMode(viewport());
+    body.appendChild(build(draw, drawn));
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'secretary') draw(); });
-  return () => off();
+  // a resize that flips the collapse rule (a phone turned, a window resized) draws her in her other place
+  const offResize = watchHostMode(el, () => drawn, () => hubMode(viewport()), draw);
+  return () => {
+    off();
+    offResize();
+  };
 }
 
-/** @param {() => void} redraw the hub again (a weekly chip that reaches zero on screen: the new week's tiles) */
-function build(redraw) {
+/**
+ * @param {() => void} redraw the hub again (a weekly chip that reaches zero on screen: the new week's tiles)
+ * @param {'stand'|'chip'} mode the host's place (the collapse rule)
+ */
+function build(redraw, mode = 'stand') {
   const profile = store.profile;
   const { next, nextDef, chapter, prog, complete } = campaignStatus(profile);
   const event = currentEvent();
   const lockFor = (stageId) => (isStageUnlocked(profile, stageId) ? null : requirementText(profile, stageId));
 
   const wrap = h('div.ma-hub');
-  // [ui-m5] the host: whichever secretary the player picked (the one Missions exception to "students only")
-  wrap.appendChild(hubHost('missions', profile, { state: missionsState(profile) }));
+  // [ui-m5] the host: whichever secretary the player picked (the one Missions exception to "students only"); her
+  // stand in the left column, or her chip in a strip over the tiles
+  const host = hubHost('missions', profile, { state: missionsState(profile), mode });
+  const strip = mode === 'chip' ? h('div.ma-hub-hostrow', { 'data-testid': 'hub-hostrow' }) : null;
+  if (strip) wrap.appendChild(strip);
+  placeHost(host, mode, { hb: wrap, slot: strip });
 
   const mission = tile({
     id: 'mission',

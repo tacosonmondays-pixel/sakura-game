@@ -8,12 +8,16 @@
 // ink plate header (E2) that holds the Bounty Token balance (said once), the week's countdown chip and the Bounty
 // Shop; Prepare is the screen's one yellow (data-primary). New rules are scoped under .ma-bounty-screen: stage prep
 // shares the meta-a .ma-loc / .ma-tier / .ma-drop rules.
+// The M5b review: under 800 px of width the guest is a chip in the plate header and the list takes the whole width
+// (the collapse rule, host.js); Sweep is the secondary button (§5.5), its locked state a lock and one reason; a drop
+// that needs a harder tier shows a lock and "NM+" (hubDrops.js).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, screen, svgEl, button, toast, glyph } from '../components.js';
-import { countdownChip, plateHead, kbdHint } from '../kit.js';
+import { countdownChip, plateHead, kbdHint, secondaryBtn } from '../kit.js';
 import { msToLocalWeekEnd } from '../countdown.js';
-import { hubHost } from '../hubHost.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
+import { shortGatedDrops } from '../hubDrops.js';
 import { bountyState } from '../hubStates.js';
 import { navigate, currentRoute } from '../router.js';
 import { store } from '../../core/store.js';
@@ -61,9 +65,10 @@ export function render(root, params = {}) {
   };
   pickTier(arenas.find((a) => a.id === arenaId));
 
-  // [ui-m5] the host: this week's double-drop guest, talking about the week
+  // [ui-m5] the host: this week's double-drop guest, talking about the week (her stand, or her chip in the plate header)
   const weekLeft = msToLocalWeekEnd();
-  const host = hubHost('bounty', profile, { guest: ARENA_GUEST[event.arena], state: bountyState() });
+  let drawn = hubMode(viewport());
+  const host = hubHost('bounty', profile, { guest: ARENA_GUEST[event.arena], state: bountyState(), mode: drawn });
 
   const list = h('div.ma-loc-list');
   const tokens = h('span.num.bn-balance-val', { 'data-testid': 'bounty-tokens' });
@@ -80,7 +85,14 @@ export function render(root, params = {}) {
   // the chosen tier's actions stay in view under the list (Prepare: the one yellow)
   const footer = h('div.bn-footer', { 'data-testid': 'bounty-actions' });
   const panelEl = h('section.panel.ma-loc-panel.bn-panel', head, list, footer);
-  body.append(h('div.hb.bn-hb', host, h('div.hb-main', panelEl)));
+  const hb = h('div.hb.bn-hb', h('div.hb-main', panelEl));
+  body.append(hb);
+  placeHost(host, drawn, { hb, slot: head });
+  // a resize that flips the collapse rule (a phone turned, a window resized) moves her to her other place
+  const offResize = watchHostMode(el, () => drawn, () => hubMode(viewport()), () => {
+    drawn = hubMode(viewport());
+    placeHost(host, drawn, { hb, slot: head });
+  });
 
   const remember = () => rememberParams('bounty', { arena: arenaId, tier: stageId.slice(-1) });
 
@@ -150,11 +162,12 @@ export function render(root, params = {}) {
       prepare.setAttribute('data-primary', '');
       prepare.appendChild(kbdHint('Space'));
     }
-    // (the actions go to the panel's footer, always in view)
+    // (the actions go to the panel's footer, always in view; Sweep is the secondary button beside the one yellow, and
+    // until a Hard clear it shows its lock and the reason, never a faded button)
     footer.replaceChildren(h('div.ma-loc-actions',
       unlocked && canSweep(profile, stageId)
-        ? button(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {
-          kind: 'primary', icon: 'ff2', testid: 'bounty-sweep',
+        ? secondaryBtn(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {
+          icon: 'ff2', testid: 'bounty-sweep',
           onClick: () => {
             const r = sweep(profile, stageId, sweepDiff, MAX_SWEEPS, uiRng());
             if (!r.ok) return toast('Sweep unavailable', 'bad');
@@ -163,13 +176,13 @@ export function render(root, params = {}) {
             drawList();
           },
         })
-        : unlocked ? h('span.ma-sweep-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), 'Clear on Hard to unlock sweep') : null,
+        : unlocked ? secondaryBtn('Sweep', { testid: 'bounty-sweep', disabled: true, reason: 'Clear on Hard first' }) : null,
       prepare || h('span.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, stageId)),
     ));
     return h('div.ma-loc-detail',
       h('div.ma-loc-detail-grid',
         h('div', h('div.ma-sub', 'Tier'), tiers),
-        h('div', h('div.ma-sub', `Drops · ${best ? DIFFICULTIES[best].name : 'Normal'}`), dropGrid(stage, best || 'normal', { dropMul, compact: true })),
+        h('div', h('div.ma-sub', `Drops · ${best ? DIFFICULTIES[best].name : 'Normal'}`), shortGatedDrops(dropGrid(stage, best || 'normal', { dropMul, compact: true }))),
       ),
       h('div.ma-loc-enemies', h('div.ma-sub', 'Enemies & counters'), h('div.ma-enemy-list', enemies),
         stage.recommended?.length ? h('div.ma-rec-chips', stage.recommended.map((c) => h('span.chip', svgEl(capabilityIcon(c)), CAPABILITIES[c]?.name || c))) : null),
@@ -178,5 +191,8 @@ export function render(root, params = {}) {
 
   drawList();
   const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'sweep' || e?.reason === 'secretary' || e?.reason === 'battle-save') drawList(); });
-  return () => off();
+  return () => {
+    off();
+    offResize();
+  };
 }

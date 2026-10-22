@@ -2,8 +2,8 @@
 // unclaimed step, 129 live defs → 78 rows (26 series + 52 single), the section order, and the category counts.
 import { describe, it, expect } from 'vitest';
 import { createProfile } from '../../src/systems/save.js';
-import { achievementList } from '../../src/systems/missions.js';
-import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeText, rowState, groups, rowReward, rowProgress, PROGRESS_FIRST } from '../../src/ui/screens/achievements/model.js';
+import { achievementList, claimAllAchievements, claimAllCount } from '../../src/systems/missions.js';
+import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeText, rowState, groups, rowReward, rowProgress, readyRowCounts, PROGRESS_FIRST } from '../../src/ui/screens/achievements/model.js';
 import { veteran } from '../fixtures/veterans.js';
 
 describe('achievement rows', () => {
@@ -86,8 +86,9 @@ describe('achievement groups and rows (§6.5)', () => {
     expect(rowReward({ id: 'a_y', rewards: [], title: { text: 'T' } })).toEqual({ kind: 'title', id: 'a_y', amount: null, more: 0 });
   });
 
-  it('progress: a ready row\'s bar is full with no "1/1"; nothing before the first step; n/m while under way', () => {
-    expect(rowProgress(r('a', 'ready', { progress: 1, goal: 1 }))).toEqual({ pct: 1, text: null });
+  it('progress: a met row shows no bar and no "1/1" (the mock; the M5b review); nothing before the first step; n/m while under way', () => {
+    expect(rowProgress(r('a', 'ready', { progress: 1, goal: 1 }))).toBe(null);
+    expect(rowProgress(r('a2', 'locked', { progress: 5, goal: 5 }))).toBe(null);
     expect(rowProgress(r('b', 'progress', { progress: 0, goal: 100 }))).toEqual({ pct: 0, text: null });
     expect(rowProgress(r('c', 'progress', { progress: 412, goal: 1000 }))).toEqual({ pct: 0.412, text: '412/1,000' });
     expect(rowProgress(r('d', 'progress', { progress: 12349, goal: 50000 })).text).toBe('12.3k/50k');
@@ -109,5 +110,44 @@ describe('achievement groups and rows (§6.5)', () => {
       const firstNotReady = order.findIndex((s) => s !== 'ready');
       expect(firstNotReady === -1 || order.slice(firstNotReady).every((s) => s !== 'ready')).toBe(true);
     }
+  });
+});
+
+// The UI M5b review: one unit everywhere (rows ready), and Claim all claims the picked category only
+describe('ready counts and the scoped Claim all', () => {
+  it('readyRowCounts: the Ready header of each category, and All is their sum', () => {
+    for (const p of [createProfile(), veteran('mid'), veteran('late')]) {
+      const list = achievementList(p);
+      const ready = readyRowCounts(list);
+      for (const c of visibleCategories(list)) {
+        const inCat = c.id === 'all' ? list : list.filter((a) => a.cat === c.id);
+        expect(ready[c.id] || 0, c.id).toBe(groups(buildRows(inCat)).ready.length);
+      }
+      expect(ready.all).toBe(visibleCategories(list).filter((c) => c.id !== 'all').reduce((n, c) => n + (ready[c.id] || 0), 0));
+    }
+  });
+
+  it('a late save: a series with three tiers ready is one row (the counts the review found apart now agree)', () => {
+    const list = achievementList(veteran('late'));
+    const ready = readyRowCounts(list);
+    expect(ready.all).toBeGreaterThan(0);
+    expect(categoryStats(list).all.ready).toBeGreaterThanOrEqual(ready.all); // tiers ≥ rows
+  });
+
+  it('Claim all in a category claims only that category; null or "all" claims everything', () => {
+    const p = veteran('late');
+    const list = achievementList(p);
+    const cat = visibleCategories(list).find((c) => c.id !== 'all' && list.some((a) => a.cat === c.id && a.claimable)).id;
+    const before = new Set(list.filter((a) => a.claimable && a.cat !== cat).map((a) => a.id));
+    expect(claimAllCount(p, { cat })).toBeGreaterThan(0);
+    const r = claimAllAchievements(p, { cat });
+    expect(r.ok).toBe(true);
+    expect(r.ids.every((id) => list.find((a) => a.id === id)?.cat === cat)).toBe(true);
+    const after = achievementList(p);
+    expect(after.filter((a) => a.cat === cat && a.claimable)).toHaveLength(0);
+    for (const id of before) expect(after.find((a) => a.id === id).claimable, id).toBe(true); // the others wait
+    const all = claimAllAchievements(p, { cat: 'all' });
+    expect(all.ok).toBe(true);
+    expect(achievementList(p).some((a) => a.claimable)).toBe(false);
   });
 });

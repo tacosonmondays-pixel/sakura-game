@@ -113,7 +113,8 @@ async function runViewport(vp) {
   let { page, errors } = await openWith(context, lateSave(), '#/commissions?tab=achievements');
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 30000 });
   await page.waitForTimeout(900);
-  check(await page.evaluate(() => [...document.querySelectorAll('.tab')].some((t) => /Achievements/.test(t.textContent) && t.querySelector('.tab-badge'))), '1: the Achievements tab shows its dot');
+  // (the M5b review: the Commissions tabs are the §5.3 rail, a red dot only)
+  check(await page.evaluate(() => !!document.querySelector('[data-testid="tab-achievements"] .ui-dot')), '1: the Achievements tab shows its dot');
   // UI M5b (UI_DIRECTION §6.5): the categories moved from a rail / chip row into a sheet behind one category chip
   // ("All ▾", test id ach-category); the category buttons keep their ach-cat-<id> test ids inside it
   const pickCat = async (id) => {
@@ -190,8 +191,15 @@ async function runViewport(vp) {
   await pickCat('all');
 
   // ---- 2. Claim all → the fanfare → Skip → the modal's strips ----
+  // (the M5b review: the tab counts rows ready, one unit everywhere: Claim all's pill is the Ready header's number)
   await page.evaluate(() => { document.querySelector('.ach-list').scrollTop = 0; });
-  const before = await page.evaluate(() => ({ n: Number(document.querySelector('[data-testid="ach-claim-all"] .ach-claimall-n')?.textContent || 0), had: Object.keys(window.__sakura.store.profile.missions.achievements).length }));
+  const before = await page.evaluate(() => ({
+    n: Number(document.querySelector('[data-testid="ach-claim-all"] .ach-claimall-n')?.textContent || 0),
+    readyN: Number(document.querySelector('[data-testid="ach-ready-n"]')?.textContent || 0),
+    rows: document.querySelectorAll('.ach-list .ach-row.ready').length,
+    had: Object.keys(window.__sakura.store.profile.missions.achievements).length,
+  }));
+  check(before.n > 0 && before.n === before.readyN && before.n === before.rows, `2: Claim all's pill, the Ready header and the ready rows agree (${before.n}, ${before.readyN}, ${before.rows})`);
   await page.click('[data-testid="ach-claim-all"]');
   const ff = await page.waitForSelector('[data-testid="ach-fanfare"]', { timeout: 10000 }).catch(() => null);
   check(!!ff, '2: Claim all opens the special fanfare first');
@@ -207,7 +215,9 @@ async function runViewport(vp) {
   check(strips.every(Boolean), `2: the modal shows New Honor Ribbons, New Titles and Rewards (${strips})`);
   const claimed = await page.evaluate(() => Object.keys(window.__sakura.store.profile.missions.achievements).length);
   check(claimed > 70, `2: the claims are in the save (${claimed})`);
-  check(before.n === claimed - before.had, `2: the Claim all number is what it claims (${before.n} shown, ${claimed - before.had} claimed)`);
+  // its window counts rows too: every ready row, plus any Achiever row the same tap completed (never fewer)
+  const claimedRows = await page.evaluate(() => Number((/· (\d+) claimed/.exec([...document.querySelectorAll('.modal-overlay:not(.closing) .modal-title')].pop()?.textContent || '') || [])[1] || 0));
+  check(claimedRows >= before.n && claimed - before.had >= claimedRows, `2: the window says the rows it claimed (${claimedRows} rows for ${before.n} on the pill; ${claimed - before.had} tiers)`);
   await page.waitForTimeout(500);
   await shot(page, 'claimall');
 
@@ -229,8 +239,9 @@ async function runViewport(vp) {
   await page.waitForTimeout(400);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 30000 });
-  const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, disabled: document.querySelector('[data-testid="ach-claim-all"]')?.disabled }));
-  check(after.n === claimed && after.disabled === true, `4: after a reload the claims stay (${after.n}) and Claim all is disabled (${after.disabled})`);
+  // (the M5b review: Claim all is gone when nothing is ready, rather than a disabled yellow)
+  const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, button: !!document.querySelector('[data-testid="ach-claim-all"]') }));
+  check(after.n === claimed && after.button === false, `4: after a reload the claims stay (${after.n}) and Claim all is gone (${after.button})`);
 
   // ---- 5. the Case: 34 cells, the detail ----
   await page.click('[data-testid="ach-case"]');

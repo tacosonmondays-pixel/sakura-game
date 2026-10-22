@@ -1,7 +1,7 @@
 // UI M5b: a hub screen's host girl (docs/specs/UI_DIRECTION.md §5.10 E1), put together from the M5a kit: who she is
-// (hosts.js), what she says in this state (hostLines.js) and her stand or bust chip (host.js). A screen that has to
-// place her differently for the stand and the chip runs hostMode() with its real layout, pins the mode and redraws
-// when a resize flips it (watchHostMode).
+// (hosts.js), what she says in this state (hostLines.js) and her stand or bust chip (host.js). Every hub places her
+// for its mode: the stand in her column, the chip in a header row with no column at all (placeHost), runs the
+// collapse rule with its real layout (hubMode), pins the mode and moves her when a resize flips it (watchHostMode).
 import { UNIT_MAP } from '../data/units.js';
 import { hostStand, hostMode } from './host.js';
 import { hostFor } from './hosts.js';
@@ -32,6 +32,26 @@ export const isPhone = () => viewport().vh <= 480;
 export function hubMode({ vw, vh, headerH = 0 }) {
   const topbar = vh <= 480 ? 40 : 48;
   return hostMode({ vw, vh, kind: 'hub', contentH: vh - topbar - headerH }).mode;
+}
+
+/**
+ * Puts a hub's host where her mode says (the collapse rule, host.js). 'stand': the first child of the hub grid `hb`,
+ * her column on. 'chip': the start of `slot`, a header row (the list's plate header, a top row or a strip over a
+ * grid); `hb` drops her column (.no-host), so the list keeps the whole width (the UI M5b review: a chip in a column
+ * squeezed small phones' lists). The slot gets .has-host: a plate header's title then reads for screen readers only
+ * (the tab rail or the top bar already names the list; hubs.css).
+ * @param {HTMLElement} host hubHost()
+ * @param {'stand'|'chip'} mode
+ * @param {{ hb: HTMLElement, slot?: HTMLElement|null }} at
+ */
+export function placeHost(host, mode, { hb, slot = null }) {
+  const chip = mode === 'chip' && !!slot;
+  host.dataset.mode = chip ? 'chip' : 'stand';
+  hb.classList.toggle('no-host', chip);
+  for (const s of hb.querySelectorAll('.has-host')) if (s !== slot) s.classList.remove('has-host');
+  slot?.classList.toggle('has-host', chip);
+  if (chip) slot.prepend(host);
+  else hb.prepend(host);
 }
 
 /**

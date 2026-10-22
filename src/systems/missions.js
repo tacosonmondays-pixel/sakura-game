@@ -277,15 +277,18 @@ export function claimAchievement(profile, id, { v2 = ACH_V2_LIVE } = {}) {
 
 /**
  * Claim every claimable achievement in one tap, in category order then list order, repeating until nothing new is
- * claimable (so Achiever and Hall of Fame count the claims made by the same tap).
+ * claimable (so Achiever and Hall of Fame count the claims made by the same tap). `cat`: only that category (the tab's
+ * Claim all claims what the picked category shows; null or 'all': everything).
  * @returns {{ ok: boolean, ids: string[], rewards: object[], honors: string[], titles: string[], skipped: string[] }}
  *   honors / titles: ids of the rows claimed that grant a ribbon / a title; skipped: met but gate-locked
  */
-export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE } = {}) {
+export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE, cat = null } = {}) {
   const ids = [];
   const all = [];
   const catRank = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((c, i) => [c.id, i]));
-  const order = ACHIEVEMENTS.map((a, i) => [a, i]).sort(([x, i], [y, j]) => (catRank[x.cat] ?? 99) - (catRank[y.cat] ?? 99) || i - j).map(([a]) => a);
+  const only = cat && cat !== 'all' ? cat : null;
+  const order = ACHIEVEMENTS.filter((a) => !only || a.cat === only)
+    .map((a, i) => [a, i]).sort(([x, i], [y, j]) => (catRank[x.cat] ?? 99) - (catRank[y.cat] ?? 99) || i - j).map(([a]) => a);
   for (let pass = 0; pass < 10; pass++) {
     let any = false;
     const list = achievementList(profile, { v2 });
@@ -322,9 +325,9 @@ export function achievementsReady(prevReadyIds, nextReadyIds) {
  * How many achievements Claim all would claim right now: its repeated passes run on a copy of the save, so an
  * Achiever row that the same tap completes is counted too (the button's number = the modal's "N claimed").
  */
-export function claimAllCount(profile, { v2 = ACH_V2_LIVE } = {}) {
-  if (!achievementList(profile, { v2 }).some((x) => x.claimable)) return 0;
-  return claimAllAchievements(JSON.parse(JSON.stringify(profile)), { v2 }).ids.length;
+export function claimAllCount(profile, { v2 = ACH_V2_LIVE, cat = null } = {}) {
+  if (!achievementList(profile, { v2 }).some((x) => x.claimable && (!cat || cat === 'all' || x.cat === cat))) return 0;
+  return claimAllAchievements(JSON.parse(JSON.stringify(profile)), { v2, cat }).ids.length;
 }
 
 /** Ids claimable right now (gate-locked rows excluded). */

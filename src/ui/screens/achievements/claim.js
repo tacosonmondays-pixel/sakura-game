@@ -153,11 +153,22 @@ export async function claimOne(id, { onDone = null } = {}) {
   }
 }
 
-/** Claim all: one commit and one modal per tap (deterministic order; repeats until nothing is left). */
-export async function claimAll({ onDone = null } = {}) {
+/** How many rows of the tab a set of claimed ids covers (a series is one row, as the tab shows it). */
+export function rowsOf(ids) {
+  return new Set(ids.map((id) => {
+    const a = ACHIEVEMENT_MAP[id];
+    return a?.series ? `${a.cat}:${a.series}` : id;
+  })).size;
+}
+
+/**
+ * Claim all: one commit and one modal per tap (deterministic order; repeats until nothing is left). `cat`: the picked
+ * category only (the button claims what the list shows; 'all' or null: everything).
+ */
+export async function claimAll({ onDone = null, cat = null } = {}) {
   if (busy) return;
   const p = store.profile;
-  const r = claimAllAchievements(p);
+  const r = claimAllAchievements(p, { cat });
   if (!r.ok) return;
   busy = true;
   for (const id of r.honors) recentHonors.add(id);
@@ -167,8 +178,9 @@ export async function claimAll({ onDone = null } = {}) {
   try {
     if (specials.length) await showSpecialFanfare(specials);
     const granted = boxesIn(r.rewards);
+    // (counted in the tab's unit: rows, so the title says the number the button's pill said)
     const m = modal({
-      title: `Achievement rewards · ${r.ids.length} claimed`,
+      title: `Achievement rewards · ${rowsOf(r.ids)} claimed`,
       body: h('div.ma-rewards-modal', Object.keys(granted).length ? h('p.muted.ach-note', NOTE) : null, rewardsExtra({ honors: r.honors, titles: r.titles, rewards: r.rewards })),
       actions: claimActions(granted, onDone),
       wide: true,

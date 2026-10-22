@@ -3,9 +3,11 @@
 // key, pays your best solo Victory) or Practice (no key, no rewards). Built from the existing panels,
 // chips and buttons; the numbers stay one short line each.
 // UI M5b (docs/specs/UI_DIRECTION.md §5.10 E1, P1): Kaede hosts on the collapse rule. The screen is dense, so on
-// phones the content under the titan row is under 300 px and she is the 96 px bust chip with her bubble, under the
-// titan's art; on desktop she stands in the left 35%. The week's countdown chip; Fight is the one primary
-// (data-primary). The titan's weaknesses, resistances, your girls, her blurb and the reward rules move behind MORE.
+// phones (the content under the titan row is under 300 px) and under 800 px of width she is a bust chip with her
+// bubble at the start of the top row (the review: no chip under the art, which ran off small phones); on desktop she
+// stands in the left 35%. The week's countdown chip; Fight is the one primary (data-primary), Sweep the secondary
+// (§5.5: a lock and the reason when it can't run). The titan's weaknesses, resistances, your girls, her blurb and the
+// reward rules move behind MORE.
 import '../styles/meta-a.css';
 import '../styles/titans.css';
 import '../styles/hubs.css';
@@ -13,10 +15,10 @@ import { h, clear, screen, svgEl, button, toast } from '../components.js';
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { countdownChip, moreSticker, kbdHint } from '../kit.js';
+import { countdownChip, moreSticker, kbdHint, secondaryBtn } from '../kit.js';
 import { openSheet } from '../sheet.js';
 import { hubBackdrop } from '../hubArt.js';
-import { hubHost, hubMode, viewport, watchHostMode } from '../hubHost.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
 import { titansState } from '../hubStates.js';
 import { UNIT_MAP, UNITS } from '../../data/units.js';
 import { MATERIAL_FAMILIES, ATTACK_TYPES } from '../../data/types.js';
@@ -65,15 +67,19 @@ export function render(root, params = {}) {
     const mode = titanHostMode();
     drawn = mode;
     if (!titansUnlocked(p)) {
-      const host = hubHost('titans', p, { state: titansState(p), mode: 'stand' });
-      body.appendChild(h('div.hb.tt-hb', host, h('div.hb-main', h('div.tt-wrap', h('section.panel.tt-locked', { 'data-testid': 'titans-locked' },
+      // (her stand, or as a chip the row over the lock panel: the same place as on the open screen)
+      const host = hubHost('titans', p, { state: titansState(p), mode });
+      const top = h('div.tt-top.tt-top-locked');
+      const hb = h('div.hb.tt-hb', h('div.hb-main', h('div.tt-wrap', mode === 'chip' ? top : null, h('section.panel.tt-locked', { 'data-testid': 'titans-locked' },
         svgEl(uiIcon('lock'), 'ma-inline-icon'), h('b', `Clear ${TIER_STAGE.normal} to open Titan Trials`),
-        h('p.muted', 'Four giant titans, a new fight every week: their drops open level gates past 60.'))))));
+        h('p.muted', 'Four giant titans, a new fight every week: their drops open level gates past 60.')))));
+      body.appendChild(hb);
+      placeHost(host, mode, { hb, slot: mode === 'chip' ? top : null });
       return;
     }
     const keys = keyState(p);
     const now = Date.now();
-    // [ui-m5] the host: Kaede, on the collapse rule (the stand beside everything, or the chip under the art)
+    // [ui-m5] the host: Kaede, on the collapse rule (the stand beside everything, or the chip at the start of the top row)
     const host = hubHost('titans', p, { state: titansState(p, { now }), mode });
     const top = h('div.tt-top',
       h('span.tt-chip', { 'data-testid': 'titan-keys', title: `Trial Keys: ${keys.weekly} a week, up to 6 unused carry over${keys.saved ? ` (${keys.saved} saved)` : ''}` }, svgEl(uiIcon('key'), 'ma-inline-icon'), h('b.num', `${keys.left}/${keys.weekly}`)),
@@ -83,16 +89,20 @@ export function render(root, params = {}) {
       button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', testid: 'titan-shelf', onClick: () => navigate('mall', { tab: 'boss' }) }),
     );
     const cards = h('div.tt-cards', TITANS.map((t) => titanCard(p, t, now)));
-    const wrap = h('div.tt-wrap', top, cards, detail(p, selected, mode === 'chip' ? host : null));
-    body.appendChild(mode === 'stand' ? h('div.hb.tt-hb', host, h('div.hb-main', wrap)) : h('div.hb.no-host.tt-hb', h('div.hb-main', wrap)));
+    const wrap = h('div.tt-wrap', top, cards, detail(p, selected));
+    const hb = h('div.hb.tt-hb', h('div.hb-main', wrap));
+    body.appendChild(hb);
+    placeHost(host, mode, { hb, slot: top });
   };
 
   function titanCard(p, t, now) {
     const s = titanSummary(p, t.id, now);
     const weak = t.weak[0];
-    return h(`button.tt-card${t.id === selected ? '.active' : ''}${s.ofWeek ? '.week' : ''}`, { 'data-testid': `titan-${t.id}`, onclick: () => { selected = t.id; rememberParams('titans', { id: t.id }); draw(); } },
+    // the titan of the week: a yellow ★ on her token on every card size (the "Titan of the Week" kicker only where the
+    // card has room for three lines: the M5b review found her name squeezed out on phones)
+    return h(`button.tt-card${t.id === selected ? '.active' : ''}${s.ofWeek ? '.week' : ''}`, { 'data-testid': `titan-${t.id}`, title: s.ofWeek ? 'Titan of the Week' : null, onclick: () => { selected = t.id; rememberParams('titans', { id: t.id }); draw(); } },
       h('div.tt-card-art', { html: themeBackdropSVG(themeOf(t)) }),
-      h('div.tt-card-token', enemyToken(t.enemy, { size: 34 })),
+      h('div.tt-card-token', enemyToken(t.enemy, { size: 34 }), s.ofWeek ? h('span.tt-star', { role: 'img', 'aria-label': 'Titan of the Week' }, '★') : null),
       h('div.tt-card-text',
         s.ofWeek ? h('span.tt-week', '★ Titan of the Week') : null,
         h('b.tt-card-name', t.name),
@@ -120,7 +130,7 @@ export function render(root, params = {}) {
     });
   }
 
-  function detail(p, id, chip = null) {
+  function detail(p, id) {
     const t = TITAN_MAP[id];
     const s = titanSummary(p, id);
     const cur = pick[id] || (s.top ? { tier: s.top.tier, rank: s.top.rank } : { tier: 'normal', rank: 0 });
@@ -183,10 +193,13 @@ export function render(root, params = {}) {
     const fight = button(fightLabel, { kind: 'yellow', icon: 'assault', testid: 'titan-fight', onClick: () => go(!open || keys.left < 1) });
     fight.setAttribute('data-primary', '');
     fight.appendChild(kbdHint('Space'));
-    const actions = h('div.tt-actions',
-      fight,
-      button(sweepOk.ok ? `Sweep · ${s.best.label}` : 'Sweep', {
-        kind: 'primary', icon: 'ff2', testid: 'titan-sweep', disabled: !sweepOk.ok, title: sweepOk.ok ? '' : sweepOk.reason,
+    // the actions: a row under the detail that stays in view (sticky at the bottom of the scroll, as Bounty's and Total
+    // Assault's footers; the review found Practice and Sweep under the fold on small phones): Practice, Sweep (the
+    // secondary button, §5.5; when it can't run, its lock and the reason on one line) and Fight, the one yellow
+    const actions = h('div.tt-actions', { 'data-testid': 'titan-actions' },
+      open ? button('Practice', { kind: 'ghost', small: true, testid: 'titan-practice', onClick: () => go(true) }) : null,
+      secondaryBtn(sweepOk.ok ? `Sweep · ${s.best.label}` : 'Sweep', {
+        icon: 'ff2', testid: 'titan-sweep', disabled: !sweepOk.ok, reason: sweepOk.ok ? null : sweepOk.reason,
         onClick: () => {
           const r = sweepTitan(store.profile, id, { seed: Date.now() });
           if (!r.ok) {
@@ -199,7 +212,7 @@ export function render(root, params = {}) {
           draw();
         },
       }),
-      open ? button('Practice', { kind: 'ghost', small: true, testid: 'titan-practice', onClick: () => go(true) }) : null,
+      fight,
     );
     const side = h('div.tt-side',
       chips, needLine, tierRow,
@@ -207,10 +220,9 @@ export function render(root, params = {}) {
       chest ? h('p.tt-line', { 'data-testid': 'titan-chest' }, h('b', 'Victory Chest: '), chest) : null,
       fc && !fcDone ? h('p.tt-line.muted', `First clear: ${[fc.gems ? `${fc.gems} gems` : null, ...fc.items.map(([iid, n]) => fcLine(iid, n))].filter(Boolean).join(', ')}`) : null,
       meter,
-      actions,
     );
     // (her weakness is on her card above: said once, P7; the rest is behind MORE)
-    return h(`div.tt-detail${chip ? '.with-chip' : ''}`, h('div.tt-main', art, chip ? h('div.tt-host-row', chip) : null), side);
+    return [h('div.tt-detail', h('div.tt-main', art), side), actions];
   }
 
   draw();

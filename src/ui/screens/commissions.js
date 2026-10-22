@@ -6,13 +6,17 @@
 // The staff room behind (E6, the academy with a warm tint for now), the list under an ink plate header (E2), one
 // yellow Claim all (data-primary) with an ink Claim per row (P2), the reset as a countdown chip (§5.9), and a
 // "complete!" stamp on the login days already claimed (display only). The five tabs stay on top, where they never move.
+// The M5b review: the tabs are the §5.3 rail (an icon and a CAPS word, the open one an ink plate with a yellow bar;
+// narrow portrait screens show the open tab's word only); under 800 px of width Miko is a chip in the list's plate
+// header and the list takes the whole width (the collapse rule, host.js); a reward's count sits under its tile.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
-import { h, clear, screen, svgEl, toast, button, tabs } from '../components.js';
-import { countdownChip, plateHead, inkBtn, kbdHint, iconBtn } from '../kit.js';
+import { h, clear, screen, svgEl, toast, button } from '../components.js';
+import { countdownChip, plateHead, inkBtn, kbdHint, iconBtn, rail, btnCount } from '../kit.js';
 import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
+import { fmtNum } from '../format.js';
 import { hubBackdrop } from '../hubArt.js';
-import { hubHost } from '../hubHost.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
 import { commissionsState, loginState } from '../hubStates.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -24,9 +28,11 @@ import {
   achievementNotice, redeemCode,
 } from '../../systems/missions.js';
 import { achievementsView } from './achievements/list.js';
-import { rewardTiles, showRewardsModal, ask, rememberParams } from './stage.js';
+import { tile, showRewardsModal, ask, rememberParams } from './stage.js';
 
 const TAB_IDS = ['daily', 'weekly', 'login', 'achievements', 'codes'];
+/** The rail's icons (§5.3: an icon and one word per tab). */
+const TAB_ICON = { daily: 'mission', weekly: 'calendar', login: 'gift', achievements: 'trophy', codes: 'sparkle' };
 
 /** Where to go to make progress on a mission, from its tracked events. */
 const EVENT_ROUTE = {
@@ -81,30 +87,38 @@ export function render(root, params = {}) {
   const drawTabs = () => {
     clear(tabHost);
     const b = badges();
-    const bar = tabs(TAB_IDS.map((id) => ({ id, label: labels[id], badge: b[id] })), active, (id) => {
+    // [ui-m5] the §5.3 rail: an icon and a CAPS word; a red dot only; the tab ids and test ids are the old ones
+    const bar = rail(TAB_IDS.map((id) => ({ id, label: labels[id], icon: TAB_ICON[id], dot: b[id], dotTitle: 'something to claim' })), active, (id) => {
       active = id;
       rememberParams('commissions', { tab: id, cat: null, view: null, highlight: null });
       draw();
-    });
-    bar.classList.add('ma-tabs');
+    }, { label: 'Commissions', cls: 'cm-rail' });
+    // (each word in its own span: a narrow portrait screen shows the open tab's word only; the tab's name stays in
+    // its aria-label)
+    for (const sp of bar.querySelectorAll('.ui-tab > span')) {
+      for (const n of [...sp.childNodes]) if (n.nodeType === 3 && n.nodeValue.trim()) sp.replaceChild(h('span.cm-tab-word', n.nodeValue), n);
+    }
     tabHost.appendChild(bar);
   };
 
-  // [ui-m5] Miko on every tab but Achievements (the long list needs the width)
-  const drawHost = () => {
+  // [ui-m5] Miko on every tab but Achievements (the long list needs the width): her stand in the left column, or (the
+  // collapse rule) her chip at the start of the list's plate header, with no column
+  let drawn = null; // the host mode on screen
+  const drawHost = (panelEl) => {
     hub.querySelector(':scope > .ui-host')?.remove();
-    const withHost = active !== 'achievements';
-    hub.classList.toggle('no-host', !withHost);
-    if (withHost) {
-      const p = store.profile;
-      hub.prepend(active === 'login' ? hubHost('login', p, { state: loginState(p) }) : hubHost('commissions', p, { state: commissionsState(p) }));
+    drawn = hubMode(viewport());
+    if (active === 'achievements') {
+      hub.classList.add('no-host');
+      return;
     }
+    const p = store.profile;
+    const host = active === 'login' ? hubHost('login', p, { state: loginState(p), mode: drawn }) : hubHost('commissions', p, { state: commissionsState(p), mode: drawn });
+    placeHost(host, drawn, { hb: hub, slot: panelEl.querySelector('.ui-plate-head') });
   };
 
   let achView = null;
   const draw = () => {
     drawTabs();
-    drawHost();
     achView?.cleanup?.();
     achView = null;
     clear(content);
@@ -124,24 +138,45 @@ export function render(root, params = {}) {
     else panelEl.appendChild(codesView());
     first = false;
     content.appendChild(panelEl);
+    drawHost(panelEl);
   };
   let first = true;
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
+  // a resize that flips the collapse rule (a phone turned, a window resized) draws Miko in her other place
+  const offResize = watchHostMode(el, () => (active === 'achievements' ? hubMode(viewport()) : drawn), () => hubMode(viewport()), draw);
   return () => {
     off();
+    offResize();
     achView?.cleanup?.();
   };
 }
+
+/**
+ * A row's rewards, each count UNDER its tile (fmtNum 'stack': "×3,000", "×10k"; never "×1", P7), so a long count never
+ * runs into the next tile (the UI M5b review; M3's count pill will move it into the tile's corner).
+ */
+function rewardStack(rewards, size) {
+  return h('div.reward-row.cm-rwds', rewards.map((r) => h('div.cm-rwd',
+    tile(r.id, null, { size }),
+    r.count > 1 ? h('span.num.cm-rwd-n', { title: formatNumber(r.count) }, fmtNum(r.count, 'stack')) : null)));
+}
+
+/** A plate title that shrinks to one word on narrow screens ("Daily commissions" → "Daily"). */
+const plateTitle = (long, short) => [h('span.cm-title-long', long), h('span.cm-title-short', short)];
 
 function progressBar(progress, goal) {
   const pct = goal ? Math.min(100, Math.round((progress / goal) * 100)) : 0;
   return h(`div.ma-progress${progress >= goal ? '.done' : ''}`, h('i', { style: { width: `${pct}%` } }));
 }
 
-/** The one yellow button of a tab (data-primary: Space presses it on desktop), with its key hint. */
-function primary(label, o) {
+/**
+ * The one yellow button of a tab (data-primary: Space presses it on desktop), with its key hint. `count`: how many it
+ * claims, in the one count pill every Claim all wears (kit.js btnCount; Achievements' is the same).
+ */
+function primary(label, o, count = null) {
   const b = button(label, { kind: 'yellow', ...o });
+  if (count != null) b.appendChild(btnCount(count));
   if (!o.disabled) {
     b.setAttribute('data-primary', '');
     b.appendChild(kbdHint('Space'));
@@ -156,11 +191,11 @@ function missionsView(kind, redraw, onReset = null) {
   const wrap = h('div.cm-list');
   // [ui-m5] E2: the list's ink plate header: the title, the reset chip (a recurring cycle, never red; at zero the
   // list rolls over) and the one yellow Claim all
-  wrap.appendChild(plateHead(kind === 'daily' ? 'Daily commissions' : 'Weekly commissions', {
+  wrap.appendChild(plateHead(kind === 'daily' ? plateTitle('Daily commissions', 'Daily') : plateTitle('Weekly commissions', 'Weekly'), {
     testid: `comm-head-${kind}`,
     right: [
       countdownChip(msUntil(kind), { label: 'Resets in', cls: 's', urgent: false, doneText: 'Reset!', onDone: onReset, testid: `comm-reset-${kind}` }),
-      claimable ? primary(`Claim all (${claimable})`, {
+      claimable ? primary('Claim all', {
         icon: 'gift',
         testid: 'claim-all',
         onClick: () => {
@@ -170,7 +205,7 @@ function missionsView(kind, redraw, onReset = null) {
           showRewardsModal({ title: 'Commission rewards', rewards: r.rewards });
           redraw();
         },
-      }) : null,
+      }, claimable) : null,
     ],
   }));
   const sorted = [...list].sort((a, b) => Number(b.claimable) - Number(a.claimable) || Number(a.claimed) - Number(b.claimed));
@@ -186,7 +221,7 @@ function missionsView(kind, redraw, onReset = null) {
         h('div.muted.ma-mission-desc', m.desc),
         h('div.ma-mission-prog', progressBar(m.progress, m.goal), count),
       ),
-      h('div.ma-mission-rewards', rewardTiles(m.rewards, { size: 40 })),
+      h('div.ma-mission-rewards', rewardStack(m.rewards, 40)),
       h('div.ma-mission-act',
         m.claimed
           ? h('span.ma-claimed', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Claimed')
@@ -244,7 +279,7 @@ function loginView(redraw, onReset = null) {
     const isToday = d.today && cal.claimable;
     grid.appendChild(h(`div.ma-cal-day${d.claimed ? '.claimed' : ''}${isToday ? '.today' : ''}${d.day === 7 ? '.big' : ''}`, { 'data-testid': `login-day-${d.day}` },
       h('div.ma-cal-num', `Day ${d.day}`),
-      rewardTiles(d.rewards, { size: d.day === 7 ? 52 : 46 }),
+      rewardStack(d.rewards, d.day === 7 ? 52 : 46),
       // [ui-m5] a claimed day wears the "complete!" stamp (display only)
       d.claimed ? h('div.cm-stamp', { 'data-testid': `login-stamp-${d.day}`, 'aria-label': `Day ${d.day} claimed` }, h('span', 'complete!')) : null,
       isToday ? h('div.ma-cal-today', 'Today') : null,

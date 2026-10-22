@@ -107,15 +107,15 @@ export function rowReward(row) {
 }
 
 /**
- * The progress a row shows: a bar always (a ready row's is full), and the "n/m" text only while it is under way
- * (never "1/1" on a ready row, never "0/m" before the first step: the line already says the goal, P7; a secret hides
- * its progress; a done row needs none).
+ * The progress a row shows: a bar while it is under way, with the "n/m" text once there is some (never "0/m" before
+ * the first step: the line already says the goal, P7). A met row (ready, or met and waiting for a gate) shows no bar:
+ * its Claim (or its gate) says it (the approved mock; the UI M5b review); a secret hides its progress; a done row needs
+ * none.
  * @returns {{ pct: number, text: string|null }|null}
  */
 export function rowProgress(row) {
-  if (row.state === 'secret' || row.state === 'done') return null;
+  if (row.state === 'secret' || row.state === 'done' || row.state === 'ready' || row.state === 'locked') return null;
   const p = row.goal ? Math.min(1, row.progress / row.goal) : 0;
-  if (row.state === 'ready' || row.state === 'locked') return { pct: 1, text: null };
   if (!(row.progress > 0)) return { pct: 0, text: null };
   // (progress rounds down so it never promises more than is true: 12,349 of 50,000 reads "12.3k/50k")
   return { pct: p, text: `${fmtNum(row.progress, 'count', { round: 'down' })}/${fmtNum(row.goal, 'count')}` };
@@ -136,6 +136,24 @@ export function categoryStats(list) {
       if (a.claimed) s.done += 1;
       if (a.claimable) s.ready += 1;
     }
+  }
+  return out;
+}
+
+/**
+ * Rows ready to claim, per category and for 'all': the ONE unit the tab counts in (the Ready header, the category
+ * sheet and Claim all's pill all say the same number; a series row with three tiers ready is one row, as the list
+ * shows it). The UI M5b review found 17, 11, 4 and 3 for the same idea.
+ * @param {object[]} list achievementList(profile)
+ * @returns {Record<string, number>}
+ */
+export function readyRowCounts(list) {
+  const out = { all: 0 };
+  for (const c of ACHIEVEMENT_CATEGORIES) out[c.id] = 0;
+  for (const row of buildRows(list)) {
+    if (row.state !== 'ready') continue;
+    out.all += 1;
+    out[row.cat] = (out[row.cat] || 0) + 1;
   }
   return out;
 }

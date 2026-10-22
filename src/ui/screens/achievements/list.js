@@ -5,24 +5,30 @@
 // progress only), ONE reward + a stack hint, an ink Claim. A tap on a row opens its ladder sheet (every tier, every
 // reward, the title and ribbon it grants). The Honor Ribbon Case lives at ?tab=achievements&view=case (case.js).
 // Route: #/commissions?tab=achievements[&cat=…][&view=case][&highlight=<id>].
+// The UI M5b review: one unit everywhere, ROWS ready (the Ready header, the category sheet and Claim all's pill say the
+// same number: model.js readyRowCounts); Claim all claims the picked category only and hides when it has nothing
+// ready; the case button says "Ribbons"; a ready row shows no bar (the approved mock).
 
 import '../../styles/honors.css';
 import '../../styles/achievements.css';
 import { h, clear } from '../../dom.js';
 import { svgEl, button, glyph } from '../../components.js';
-import { inkBtn, kbdHint, fillIn } from '../../kit.js';
+import { inkBtn, kbdHint, fillIn, ico, btnCount } from '../../kit.js';
 import { countBadge, dot } from '../../badges.js';
 import { openSheet } from '../../sheet.js';
 import { fmtNum } from '../../format.js';
 import { uiIcon } from '../../../art/icons.js';
 import { navigate, rememberParams } from '../../router.js';
 import { store } from '../../../core/store.js';
-import { achievementList, claimAllCount } from '../../../systems/missions.js';
+import { achievementList } from '../../../systems/missions.js';
 import { ownedRibbons, liveRibbons, newHonorCount } from '../../../systems/honors.js';
 import { featureStage } from '../../../systems/story.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
 import { tile } from '../stage.js';
-import { buildRows, groups, categoryStats, visibleCategories, rowReward, rowProgress, rewardRank } from './model.js';
+import { buildRows, groups, readyRowCounts, visibleCategories, rowReward, rowProgress, rewardRank } from './model.js';
+
+/** The ribbon glyph of the case button (the approved mock's: a rosette and its two tails). */
+const RIBBON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L6.5 21l5.5-3 5.5 3-2-7.5"/></svg>';
 import { claimOne, claimAll, ribbonInfo, titleInfo, titlesSheet } from './claim.js';
 import { ribbonCaseView } from './case.js';
 
@@ -165,8 +171,8 @@ function ladderSheet(row, { onClaim }) {
   return sheet;
 }
 
-/** The category sheet: each category with its ready count (a zero says nothing, P7). */
-function categorySheet({ cats, stats, current, onPick }) {
+/** The category sheet: each category with its ready rows (a zero says nothing, P7). */
+function categorySheet({ cats, ready, current, onPick }) {
   let sheet = null;
   const pick = (id) => {
     sheet?.close();
@@ -179,7 +185,7 @@ function categorySheet({ cats, stats, current, onPick }) {
     body: h('div.ach-cats', cats.map((c) => h(`button.ach-cat${current === c.id ? '.on' : ''}`, { type: 'button', 'data-testid': `ach-cat-${c.id}`, 'aria-pressed': current === c.id ? 'true' : 'false', onclick: () => pick(c.id) },
       catTile(c, c.id === 'secret' ? '.secret' : ''),
       h('span.ach-cat-name', c.label),
-      countBadge(stats[c.id]?.ready || 0, { cls: 'ach-cat-n', title: `${stats[c.id]?.ready} ready to claim` })))),
+      countBadge(ready[c.id] || 0, { cls: 'ach-cat-n', title: `${ready[c.id] || 0} ready to claim` })))),
   });
   return sheet;
 }
@@ -247,29 +253,34 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
     }
     root.classList.remove('is-case');
     const cats = visibleCategories(list);
-    const stats = categoryStats(list);
+    const ready = readyRowCounts(list); // the tab's one unit: rows ready to claim
     const cur = cats.find((c) => c.id === state.cat) || cats[0];
-    // what Claim all will claim (its passes include Achiever rows the same tap completes), not just the ready rows
-    const readyAll = list.some((a) => a.claimable) ? claimAllCount(profile) : 0;
+    const readyHere = ready[cur.id] || 0;
     const ribbons = ownedRibbons(profile);
     const nRib = liveRibbons().length;
-    const elsewhere = cats.some((c) => c.id !== 'all' && c.id !== cur.id && stats[c.id]?.ready > 0) && cur.id !== 'all';
+    const elsewhere = cats.some((c) => c.id !== 'all' && c.id !== cur.id && ready[c.id] > 0) && cur.id !== 'all';
 
     // ---- the header row: category chip · ribbon case · Claim all ----
     const catChip = h('button.ach-catchip', {
       type: 'button', 'data-testid': 'ach-category', 'aria-haspopup': 'dialog', 'aria-label': `Category: ${cur.label}. Change`,
-      onclick: () => categorySheet({ cats, stats, current: cur.id, onPick: setCat }),
+      onclick: () => categorySheet({ cats, ready, current: cur.id, onPick: setCat }),
     }, catTile(cur, cur.id === 'secret' ? '.secret' : ''), h('span.ach-catchip-name', cur.label), svgEl(glyph('chevron'), 'ach-catchip-chev'),
     elsewhere ? dot('claim', { cls: 'ach-catchip-dot', title: 'Something to claim in another category' }) : null);
+    // the Honor Ribbon Case: a labelled secondary button (the mock's "Ribbons"), its progress in the label for
+    // screen readers, a red dot for a ribbon not seen yet
     const caseBtn = h('button.ach-casebtn', {
       type: 'button', 'data-testid': 'ach-case', onclick: openCase,
-      'aria-label': `Honor Ribbon Case, ${ribbons.length} of ${nRib}`, title: 'Honor Ribbon Case',
-    }, ribbonArt(ribbons.at(-1) || 'a_chapter_1', 30, { still: true, locked: !ribbons.length }),
+      'aria-label': `Ribbons: the Honor Ribbon Case, ${ribbons.length} of ${nRib}`, title: 'Honor Ribbon Case',
+    }, ico(RIBBON_SVG, 'ui-ico.ach-casebtn-ico'), h('span.ach-casebtn-word', 'Ribbons'),
     newHonorCount(profile) ? dot('claim', { cls: 'ach-casebtn-dot' }) : null);
-    const claimAllBtn = button('Claim all', { kind: 'yellow', testid: 'ach-claim-all', disabled: !readyAll, onClick: () => claimAll({ onDone: claimed }) });
-    if (readyAll) {
-      claimAllBtn.appendChild(h('span.ach-claimall-n', String(readyAll)));
+    // Claim all claims what the picked category shows, so it shows only when that category has something ready (the
+    // chip's dot says when another one does); its pill counts the same rows as the Ready header
+    let claimAllBtn = null;
+    if (readyHere) {
+      claimAllBtn = button('Claim all', { kind: 'yellow', testid: 'ach-claim-all', onClick: () => claimAll({ onDone: claimed, cat: cur.id }) });
+      claimAllBtn.appendChild(btnCount(readyHere, { cls: 'ach-claimall-n' }));
       claimAllBtn.setAttribute('data-primary', '');
+      claimAllBtn.setAttribute('aria-label', `Claim all ${readyHere}${cur.id === 'all' ? '' : ` in ${cur.label}`}`);
       claimAllBtn.appendChild(kbdHint('Space'));
     }
     const head = h('header.ach-head', catChip, caseBtn, h('span.ach-head-gap'), claimAllBtn);

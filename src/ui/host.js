@@ -7,9 +7,12 @@
 // - The bubble: white glass, radius 24, a tail, ONE line in --fs-body 700 over her lower third, never over the list
 //   (at most 34 characters on a hub, 24 on a list: hostLines.js MAX_LINE, measured by e2e/m5-kit.mjs). aria-live
 //   polite. A tap shows the next line. Reduce motion: no bounce.
-// - The collapse rule: when the list or grid column would drop under 420 px, or the content window under 300 px,
-//   she becomes a 96 px bust chip with the same bubble beside it (data-mode="chip"); the screen places the chip in a
-//   spare row (a header or the footer by its primary button), never over the list.
+// - The collapse rule: when the list or grid column would drop under 420 px, the content window under 300 px, or a
+//   hub is under 800 px wide (STAND_MIN_VW: her 35% column could no longer hold a one-line bubble beside a list that
+//   still fits: small landscape phones, 667x375 and 740x360), she becomes a bust chip with the same bubble beside it
+//   (data-mode="chip"). The chip takes no column: the screen drops its host column (the list gets the full width) and
+//   places her in a spare row (a header: the list's plate header, a top row or a strip over a grid), never over the
+//   list. In a header row the chip is the small one (hubs.css: a 40 px bust); --host-chip (96 px) elsewhere.
 import { h } from './dom.js';
 import { portraitHTML } from '../art/portraits.js';
 import { lineOk } from './hostLines.js';
@@ -17,6 +20,8 @@ import { lineOk } from './hostLines.js';
 export const HOST_SHARE = Object.freeze({ hub: 0.35, listPhone: 0.26, listDesk: 0.3 });
 export const MIN_LIST_W = 420;
 export const MIN_CONTENT_H = 300;
+/** A hub narrower than this shows the chip (UI M5b review: 667x375 and 740x360 phones). */
+export const STAND_MIN_VW = 800;
 export const CHIP_PX = 96;
 const PHONE_H = 480; // the phone breakpoint the stylesheets use (max-height: 480px)
 
@@ -31,14 +36,16 @@ export function hostShare(kind, vh) {
  * @param {{ vw: number, vh: number, kind?: 'hub'|'list', railW?: number, gutters?: number, contentH?: number|null }} o
  *   railW: the left rail's width (list screens); gutters: the screen's side gutters and gaps; contentH: the content
  *   window (default: the viewport under the top bar)
- * @returns {{ mode: 'stand'|'chip', hostW: number, listW: number }}
+ * @returns {{ mode: 'stand'|'chip', hostW: number, listW: number }} hostW: the column she takes (0 as a chip: she
+ *   sits in a header row and the list keeps the whole width)
  */
 export function hostMode({ vw, vh, kind = 'hub', railW = 0, gutters = 56, contentH = null }) {
   const hostW = Math.round(vw * hostShare(kind, vh));
   const listW = vw - hostW - railW - gutters;
   const content = contentH ?? vh - (vh <= PHONE_H ? 40 : 48);
-  const mode = listW < MIN_LIST_W || content < MIN_CONTENT_H ? 'chip' : 'stand';
-  return { mode, hostW: mode === 'chip' ? CHIP_PX : hostW, listW: mode === 'chip' ? vw - CHIP_PX - railW - gutters : listW };
+  const narrow = kind === 'hub' && vw < STAND_MIN_VW;
+  const mode = narrow || listW < MIN_LIST_W || content < MIN_CONTENT_H ? 'chip' : 'stand';
+  return { mode, hostW: mode === 'chip' ? 0 : hostW, listW: mode === 'chip' ? vw - railW - gutters : listW };
 }
 
 /**

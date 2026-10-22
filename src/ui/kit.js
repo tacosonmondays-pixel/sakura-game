@@ -2,7 +2,8 @@
 // classes of src/ui/styles/components.css together (stat chip, ink strip + MORE, stickers, rarity tag, tab rail,
 // icon button, gear tile), so every screen that adopts them looks the same. No styles of their own.
 // UI M5 (§5.9, §5.10) adds the hub kit at the end: the countdown chip, the left section rail, the plate header,
-// keyboard hints, the off-season band and the locked "Coming soon" tile (badges: ./badges.js; the host girl: ./host.js).
+// keyboard hints, the off-season band and the locked "Coming soon" tile (badges: ./badges.js; the host girl: ./host.js);
+// the M5b review adds the secondary button and the count inside a button.
 import { h } from './dom.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
 import { countdownState, ticker } from './countdown.js';
@@ -253,6 +254,30 @@ export function offSeasonBand({ text, date = null, art = null, testid = null }) 
 export function inkBtn(label, { onClick = null, testid = null, title = null, cls = '' } = {}) {
   return h(`button.ui-cost.dense.ui-ink${cls ? `.${cls}` : ''}`, { type: 'button', 'data-testid': testid, title, onclick: onClick },
     h('span.ui-cost-lbl', label));
+}
+
+/**
+ * A secondary button (§5.5; the UI M5b review): white glass, a 2 px --line edge, an ink label, slanted like every
+ * button. For the actions beside a screen's one yellow (Sweep, Filter, Open all), so two loud fills never read as two
+ * primaries. Disabled: a --sky-1 fill, --muted words and a lock, never opacity (§5.5); `reason` puts the one line that
+ * says why beside it (and in the title).
+ * @param {string} label a verb of at most two words, plus what it does ("Sweep ×10 · Hard")
+ * @param {{ icon?: string|null, onClick?: Function|null, testid?: string|null, title?: string|null, disabled?: boolean,
+ *   reason?: string|null, cls?: string }} [o]
+ * @returns {HTMLElement} the button; with `disabled` and `reason`, a span holding the button and its reason line
+ */
+export function secondaryBtn(label, { icon = null, onClick = null, testid = null, title = null, disabled = false, reason = null, cls = '' } = {}) {
+  const b = h(`button.btn.ui-sec${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, title: title || (disabled ? reason : null), disabled, onclick: onClick,
+    'aria-label': disabled && reason ? `${label}: ${reason}` : null,
+  }, disabled ? ico('lock', 'ui-ico.ui-sec-ico') : icon ? ico(icon, 'ui-ico.ui-sec-ico') : null, h('span.btn-label', label));
+  if (!disabled || !reason) return b;
+  return h('span.ui-sec-wrap', b, h('span.ui-sec-why', { 'aria-hidden': 'true' }, reason));
+}
+
+/** The count inside a button ("Claim all ⓫"): one ink pill, the same on every screen (the UI M5b review). */
+export function btnCount(n, { cls = '' } = {}) {
+  return h(`span.num.ui-btn-n${cls ? `.${cls}` : ''}`, String(n));
 }
 
 /**
