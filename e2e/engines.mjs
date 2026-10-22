@@ -6,7 +6,9 @@
 // Hotaru's ×spectral, Kaede's ×boss, Rei's duel echo) and ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
 // ended by both players' Finish vote) and ONE deep freeplay battle (8-5 jumped to the Eclipse Wyrm
 // at 250, every enemy's bits) and ONE co-op ABILITIES battle (ABILITIES_START: every live ability kind,
-// manual taps, Auto-cast and owner coins, its wave-8 checkpoint replayed) in every engine it can find and
+// manual taps, Auto-cast and owner coins, its wave-8 checkpoint replayed) and ONE co-op TENKA battle
+// (TENKA_START: her lab team over two absorbs, the second mid-wave after the wave-7 checkpoint, the economy
+// weapon, a partner's girl who stays, wells, Last Line and a mid-wave sale) in every engine it can find and
 // compares the results:
 //   V8              Node (this process) and Chromium (Android, desktop Chrome / Edge)
 //   JavaScriptCore  Bun and WebKit (iPhone / iPad Safari)
@@ -296,6 +298,26 @@ for (const { name, r } of results) {
   if (b.kinds.split(',').length < 6) failures.push(`the abilities battle cast only these kinds: ${b.kinds}`);
   if (b.cleared < 12) failures.push(`the abilities battle cleared only ${b.cleared} waves`);
 }
+// Tenka: her lab team (every class joins over two absorbs, the second mid-wave after the checkpoint), the
+// partner's girl in her range who stays, the economy weapon, wells, Last Line and a mid-wave sale
+const TK_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'absorbed', 'joins', 'joined', 'labFrags', 'labCash', 'wells', 'lastLines', 'swallowed', 'sale', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op TENKA battle (2-5, TENKA_START: Joint Research + Unified Theory mid-wave after the checkpoint, every lab class, wells, Last Line, a sale):');
+for (const { name, r } of results) {
+  const b = r.tenka;
+  log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state} · cleared ${b.cleared} · joined ${b.joins} · lab coins ${b.labCash} · wells ${b.wells} · Last Lines ${b.lastLines} (${b.swallowed} swallowed) · sold ${b.sale} · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · checkpoint w${b.ckWave} ${b.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${b.ms} ms`);
+  if (!b.agree) failures.push(`${name}: its own two Tenka-battle clients disagreed`);
+  if (!b.ckSame) failures.push(`${name}: the Tenka battle's wave-${b.ckWave} checkpoint did not replay to the run`);
+  if (b.refused) failures.push(`${name}: Tenka battle command(s) refused: ${b.refused}`);
+  for (const k of TK_KEYS) if (b[k] !== ref.tenka[k]) failures.push(`${name}: tenka ${k} ${b[k]} ≠ ${ref.tenka[k]} (${results[0].name})`);
+}
+{
+  const b = ref.tenka;
+  log(`  towers: ${b.towers} · absorbed ${b.absorbed}`);
+  if (b.joined < 5 || b.joins.split(' ').length < 2) failures.push(`the Tenka battle's lab team: ${b.joins} (want both absorbs, every class)`);
+  if (!(b.wells > 0 && b.lastLines > 0 && b.swallowed > 0)) failures.push(`the Tenka battle: wells ${b.wells}, Last Lines ${b.lastLines}, swallowed ${b.swallowed}`);
+  if (!(b.labCash > 0)) failures.push('the Tenka battle\'s economy weapon never paid');
+  if (!/mid-wave/.test(b.sale)) failures.push(`the Tenka battle's sale: ${b.sale}`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -310,4 +332,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

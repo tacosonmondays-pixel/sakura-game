@@ -983,6 +983,258 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
 }
 
 // ---------------------------------------------------------------------------
+// Tenka (src/sim/lab.js, zones.js; BUILD_PLAN 6.1 T0–T3): her lab team in co-op, wells and Last Line, a
+// second absorb mid-wave after a checkpoint, the economy weapon (owner decision #146) and a sale
+// ---------------------------------------------------------------------------
+
+// cheap Tenkas (both reach their tier 5 inside the run) and a cheap team, at half damage so the crowds
+// reach her wells and the exit
+const TENKA_STATS = Object.freeze({ costMul: 0.03, damageMul: 0.4 });
+const TENKA_TEAM = Object.freeze({ costMul: 0.2, damageMul: 0.5 });
+const tenkaLoadout = (ids) => ids.map((unitId) => ({ unitId, stats: unitId === 'tenka' ? TENKA_STATS : TENKA_TEAM }));
+/**
+ * The host (P1) brings Tenka for Joint Research and one girl of every lab class; the guest (P2) brings her
+ * own Tenka for Singularity (wells, Last Line) and Rei, who stands in the host's Tenka's range and never joins.
+ */
+export const TENKA_START = Object.freeze({
+  seed: 525252,
+  stageId: '2-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: tenkaLoadout(['tenka', 'aoi', 'akane', 'yuki', 'miko', 'momo']), hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: tenkaLoadout(['tenka', 'rei', 'umeko']), hero: null },
+  ],
+});
+
+/**
+ * Legal spots for `units` around a centre (within `maxD` tiles of it, nearest first), ≥ 1.3 tiles from each
+ * other and from `taken` (quantized; the det math), one each.
+ */
+function spotsAround(start, centre, units, maxD, taken) {
+  return withDetMath(() => {
+    const c = createCoopSim(start);
+    const out = {};
+    const cx = centre[0] / 1024;
+    const cy = centre[1] / 1024;
+    for (const u of units) {
+      const cands = [];
+      for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
+        for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
+          const q = quantize(x, y);
+          const qx = q[0] / 1024;
+          const qy = q[1] / 1024;
+          const d2 = (qx - cx) * (qx - cx) + (qy - cy) * (qy - cy);
+          if (d2 > maxD * maxD || taken.some(([tx, ty]) => (tx - qx) * (tx - qx) + (ty - qy) * (ty - qy) < 1.69)) continue;
+          if (c.sim.placementReason(u, qx, qy)) continue;
+          cands.push([d2, q]);
+        }
+      }
+      cands.sort((a, b) => a[0] - b[0] || a[1][1] - b[1][1] || a[1][0] - b[1][0]);
+      if (!cands.length) throw new Error(`[tenka battle] no spot for ${u} within ${maxD} of ${centre}`);
+      out[u] = cands[0][1];
+      taken.push([cands[0][1][0] / 1024, cands[0][1][1] / 1024]);
+    }
+    return out;
+  });
+}
+
+/**
+ * A whole co-op battle with Tenka (TENKA_START on 2-5 Normal, to `toWave` waves cleared). The host places her
+ * Tenka by the road and Aoi (dps), Akane (frag) and Yuki (control) around her; the guest places Rei in her
+ * range too, and her own Tenka down the road. The host buys Focus Lens, Long Rails and, once her three girls
+ * stand, Joint Research (they join her lab team; Rei stays the guest's), then places Miko (support) and Momo
+ * (economy, with Merch Table's interest) beside her and buys Grand Lab. The guest takes her Tenka through
+ * Singularity to Last Line (wells open) and Rapid Cycle / Twin Rails. After the host's wave-`checkpointAt`
+ * checkpoint, the host buys Unified Theory mid-wave (Miko and Momo join: every class has joined, and the
+ * economy weapon pays her wallet), and `saleAfter` waves later sells her Tenka mid-wave (70% of her own coins;
+ * the lab team does not come back), after which the crowds reach the exit and Last Line swallows them. Two
+ * Lockstep clients over the seeded fake network; every state hash collected (they fold her lab, the zones and
+ * the zone timers); the checkpoint restored into a fresh client and replayed through the second absorb and
+ * the sale.
+ */
+export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, maxFrames = 60 * 60 * 20 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(31);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const odd = [];
+  const absorbed = [];
+  let sale = null;
+  const mk = (slot) => new Lockstep({
+    start: TENKA_START,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: {
+      onApplied: (c, r) => {
+        if (slot !== 0) return;
+        // who joined, in which wave and whether mid-wave (from the host's view, at the command's tick)
+        const at = `w${A.sim.wave}${A.sim.state === 'wave' ? ' mid-wave' : ` ${A.sim.state}`}`;
+        if (c.k === 'upg' && r.ok && r.absorbed) absorbed.push(`${c.p}:${r.absorbed.join(',')} (${at})`);
+        if (c.k === 'sell') sale = r.ok ? `${r.refund} (${at})` : `refused ${r.reason}`;
+        // placements and upgrades a wallet could not pay by their tick are tried again
+        if (!r.ok && c.k !== 'upg' && !(c.k === 'place' && r.reason === 'cash')) odd.push(`${c.k}@${c.t}:${r.reason}`);
+      },
+    },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  // her Tenka on the spot nearest the road with room for her six (inside 3.8 tiles: in her range of 4 from
+  // Long Rails on); the guest's Tenka on the nearest road spot at least 5 tiles from hers
+  const near = spotsFor(TENKA_START, ['tenka'], 40).tenka;
+  let hostTenka = null;
+  let guestTenka = null;
+  let taken = null;
+  let ring = null;
+  for (const q of near) {
+    const far = near.find(([qx, qy]) => (qx - q[0]) * (qx - q[0]) + (qy - q[1]) * (qy - q[1]) >= 25 * 1024 * 1024);
+    if (!far) continue;
+    const tk = [[q[0] / 1024, q[1] / 1024], [far[0] / 1024, far[1] / 1024]];
+    try {
+      ring = spotsAround(TENKA_START, q, ['aoi', 'akane', 'yuki', 'rei', 'miko', 'momo'], 3.8, tk);
+    } catch {
+      continue;
+    }
+    [hostTenka, guestTenka, taken] = [q, far, tk];
+    break;
+  }
+  const umeko = spotsAround(TENKA_START, guestTenka, ['umeko'], 3, taken).umeko;
+  // [slot, unitId, spot, retry frame]; the second wave of the host's girls waits for Joint Research
+  const want = [[0, 'tenka', hostTenka, 0], [1, 'tenka', guestTenka, 0], [1, 'rei', ring.rei, 0], [0, 'aoi', ring.aoi, 0], [0, 'akane', ring.akane, 0], [0, 'yuki', ring.yuki, 0], [1, 'umeko', umeko, 0]];
+  const later = [[0, 'miko', ring.miko, 0], [0, 'momo', ring.momo, 0]];
+  const seen = [new Map(), new Map()];
+  const count = { labJoin: 0, labFrag: 0, zoneOpen: 0, lastLine: 0, swallow: 0, labCash: 0 };
+  const joins = [];
+  let ck = null;
+  let unified = null; // the tick Unified Theory was queued at
+  let utWave = 0; // the wave she bought it in
+  let saleQueued = false;
+  const mine = (c) => c.sim.towers.filter((t) => c.coop.isMine(t.uid));
+  const tenkaOf = (c) => mine(c).find((t) => t.unitId === 'tenka');
+  while (frame < maxFrames && !(A.finished && B.finished) && Math.min(A.sim.wavesCleared, B.sim.wavesCleared) < toWave) {
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 24) A.queue('wave');
+    if (frame % 15 === 0) {
+      for (const list of [want, later]) for (let i = list.length - 1; i >= 0; i--) if (mine(clients[list[i][0]]).some((t) => t.unitId === list[i][1])) list.splice(i, 1);
+      const hostTk = tenkaOf(A);
+      if (hostTk?.lab && later.length) want.push(...later.splice(0));
+      for (const w of want) {
+        const [slot, u, [qx, qy], next] = w;
+        const c = clients[slot];
+        if (frame < next || !c.sim.canPlace(u, qx / 1024, qy / 1024).ok) continue;
+        c.queue('place', [u, qx, qy]);
+        w[3] = frame + 120;
+        break;
+      }
+    }
+    clients.forEach((c, slot) => {
+      if (frame % 60 !== 30 + slot * 7) return;
+      const t = tenkaOf(c);
+      if (!t) return;
+      let path = -1;
+      if (slot === 1) {
+        // the guest: Singularity to Last Line, then Rapid Cycle and Twin Rails; her Umeko's first tier
+        path = t.tiers[2] < 5 ? 2 : t.tiers[1] < 2 ? 1 : -1;
+        const um = mine(c).find((x) => x.unitId === 'umeko');
+        if (path < 0 && um && um.tiers[0] < 1 && !c.sim.upgradeStatus(um.uid, 0).locked) c.queue('upg', [um.uid, 0]);
+      } else {
+        const team = mine(c).filter((x) => x.unitId !== 'tenka').map((x) => x.unitId);
+        const momo = mine(c).find((x) => x.unitId === 'momo');
+        if (t.tiers[0] < 2) path = 0;
+        // Joint Research once Aoi, Akane and Yuki stand; Momo's Merch Table (interest), then Grand Lab
+        else if (t.tiers[0] === 2 && ['aoi', 'akane', 'yuki'].every((u) => team.includes(u))) path = 0;
+        else if (momo && momo.tiers[1] < 2) {
+          if (!c.sim.upgradeStatus(momo.uid, 1).locked) c.queue('upg', [momo.uid, 1]);
+        } else if (t.tiers[0] === 3 && team.includes('miko') && momo) path = 0;
+      }
+      if (path >= 0 && !c.sim.upgradeStatus(t.uid, path).locked) c.queue('upg', [t.uid, path]);
+    });
+    // after the checkpoint, Unified Theory mid-wave (8 s into a wave), tried until it is bought
+    const ht = tenkaOf(A);
+    if (ck && ht && ht.tiers[0] === 4 && A.sim.state === 'wave' && A.sim._waveTime > 8 && (unified == null || A.tick > unified + 120)
+      && !A.sim.upgradeStatus(ht.uid, 0).locked) {
+      A.queue('upg', [ht.uid, 0]);
+      unified = A.tick;
+    }
+    // `saleAfter` waves after Unified Theory, she is sold 10 s into a wave
+    if (ht && ht.tiers[0] === 5 && !utWave) utWave = A.sim.wave;
+    if (ht && utWave && !saleQueued && A.sim.state === 'wave' && A.sim._waveTime > 10 && A.sim.wave >= utWave + saleAfter) {
+      A.queue('sell', [ht.uid]);
+      saleQueued = true;
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) {
+        for (const ev of c.sim.events) {
+          if (ev.type === 'labJoin') {
+            count.labJoin++;
+            joins.push(`r${ev.round}:${ev.uids.length}`);
+          } else if (ev.type === 'zoneOpen') {
+            count.zoneOpen++;
+            if (ev.kind === 'lastLine') count.lastLine++;
+          } else if (ev.type === 'labFrag' || ev.type === 'swallow') count[ev.type]++;
+          else if (ev.type === 'cash' && ev.reason === 'lab') count.labCash += ev.amount;
+        }
+      }
+    });
+    for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const copy = new Lockstep({ start: TENKA_START, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(TENKA_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const finalDigest = snapshotDigest(A.coop.snapshot());
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  const st = A.sim.stats;
+  const lab = A.sim.towers.find((t) => t.lab)?.lab || null;
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    cleared: A.sim.wavesCleared,
+    towers: A.sim.towers.map((t) => `${A.coop.ownerOf(t.uid) ?? '-'}:${t.unitId}:${t.tiers.join('')}`).join(' '),
+    absorbed: absorbed.join(' '),
+    joins: joins.join(' '),
+    joined: st.labJoined || 0,
+    // the record of the lab still standing (none after the sale)
+    lab: lab ? Object.values(lab.members).join('') : 'sold',
+    labFrags: count.labFrag,
+    labCash: count.labCash,
+    wells: st.wells || 0,
+    lastLines: st.lastLines || 0,
+    swallowed: st.swallowed || 0,
+    sale: String(sale),
+    refused: odd.join(' '),
+    wallets: A.coop.wallets.join('/'),
+    lives: A.sim.lives,
+    final: A.coop.hash(),
+    finalB: B.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    agree: ticks.length > 0 && ticks.every((t) => seen[0].get(t) === seen[1].get(t)) && A.coop.hash() === B.coop.hash(),
+    ckWave: ck?.wave ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ms: Date.now() - t0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The returning girls (roster B3, track 5): relay origins, two firing points, grounding + Air,
 // gather and the push lock, curse spread with the burst budget, the sky-dragon runner, the hexing
 // tide and the co-op `aim` command, in one co-op battle on a flyer stage
@@ -1541,7 +1793,7 @@ export function runGearGirlsBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities and the mode battles. */
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, Tenka and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -1555,5 +1807,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), tenka: runTenkaBattle(), modes };
 }

@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runTenkaBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -136,6 +136,38 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
       .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+  }, 240000);
+
+  it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
+    const r = runTenkaBattle();
+    expect(r.agree).toBe(true);
+    expect(r.final).toBe(r.finalB);
+    expect(r.refused).toBe('');
+    expect(r.cleared).toBe(14);
+    // Joint Research takes the host's Aoi, Akane and Yuki in wave 1; Unified Theory, bought mid-wave after the
+    // wave-7 checkpoint, takes Miko and Momo: all five classes joined. The guest's Rei stood in her range and stays.
+    expect(r.absorbed).toMatch(/^0:\d+,\d+,\d+ \(w\d+ mid-wave\) 0:\d+,\d+ \(w\d+ mid-wave\)$/);
+    expect(Number(r.absorbed.match(/\(w(\d+) mid-wave\)$/)[1])).toBeGreaterThan(r.ckWave);
+    expect(r.joins).toBe('r1:3 r2:2');
+    expect(r.joined).toBe(5);
+    expect(r.towers).toContain('1:rei:');
+    // her weapons ran (grenades, the economy weapon's coins: Momo's income and interest, #146), the guest's
+    // wells opened and her Last Line swallowed near the exit after the host sold her Tenka mid-wave
+    expect(r.labFrags).toBeGreaterThan(0);
+    expect(r.labCash).toBeGreaterThan(0);
+    expect(r.wells).toBeGreaterThan(0);
+    expect(r.lastLines).toBeGreaterThan(0);
+    expect(r.swallowed).toBeGreaterThan(0);
+    expect(r.sale).toMatch(/^\d+ \(w\d+ mid-wave\)$/);
+    expect(r.lab).toBe('sold');
+    expect(r.ckWave).toBe(7);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runTenkaBattle().final).toBe(r.final);
+    // pinned when the scenario landed (T3; V8 gave these, the other engines are compared by e2e/engines.mjs):
+    // change only with a deliberate sim / data change, and say why
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, finalDigest: r.finalDigest })
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, finalDigest: '8e111df8' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
