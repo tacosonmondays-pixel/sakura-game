@@ -47,7 +47,7 @@ import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
 import { createAimControl } from './aimControl.js';
 import { sampleDroneRates } from './chikaPanel.js';
-import { createRateMeter } from './util.js';
+import { createRateMeter, buildErrorContext } from './util.js';
 import { createModesBattle } from './modes.js';
 import { COOP } from '../../data/coop.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -310,8 +310,11 @@ export function mountBattle(root, params, hooks) {
     if (destroyed) return;
     build();
   })();
-  // a battle that never draws (no WebGL, an error in the build, left first) lets the loader go
-  ready.catch(() => {}).then(() => {
+  // a battle that never draws (no WebGL, an error in the build, left first) lets the loader go; a build that
+  // threw says so in the console, with which battle it was (it used to vanish here)
+  ready.catch((e) => {
+    console.error('[battle] the battle scene failed to build', buildErrorContext({ req, params, quality: settings.quality, coop: !!ls }), e);
+  }).then(() => {
     if (!ctx.renderer || destroyed) markShown();
   });
 

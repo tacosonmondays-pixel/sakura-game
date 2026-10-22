@@ -102,7 +102,7 @@ export function nextQueued(profile, scenes, hasUnit) {
 
 /**
  * An episode was read to the end or skipped. The first time it counts, it grants the first-read reward
- * (STORY_REWARDS by kind; skipping counts, as in Blue Archive); a replay grants nothing. It leaves the queue.
+ * (STORY_REWARDS by kind; skipping counts, as in most story players); a replay grants nothing. It leaves the queue.
  * The opening also updates story.opening.
  * @param {object} profile
  * @param {object|string} scene scene object, or its id (pass `kind` then)

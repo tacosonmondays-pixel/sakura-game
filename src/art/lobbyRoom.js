@@ -1,6 +1,6 @@
 // Lobby V3 room (owner: art / ui lobby). A bright, detailed club office by the sea, painted
 // in three depth layers so the lobby can parallax them and the secretary can stand between
-// them, like a Blue Archive home screen:
+// them, like a gacha game's home screen:
 //
 //   far  — what you see through the windows: sky, sun, clouds, sea, islands, a lighthouse
 //   mid  — the room: ceiling lights, window wall (transparent panes), shelves full of boxes and

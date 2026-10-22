@@ -1,4 +1,4 @@
-// Students list (owner: meta-b). Arknights-style tall portrait cards with filters
+// Students list (owner: meta-b). Tall portrait cards with filters
 // (role category, attack type, rarity, owned/all, water) and sorting (level, rarity, power, name).
 // Unowned girls are shown locked with how to get them.
 import '../styles/meta-b.css';

@@ -3,8 +3,8 @@
 **Sakura Sentinels** is an original anime chibi tower-defense game with gacha recruiting, gear and a
 bestiary. Cute academy girls, each with a floating halo, defend garden paths, lakeshores, shrines,
 foundries and dragon peaks from slimes, goblins, orcs, ghosts, oni and dragons. The depth is meant to feel
-like Bloons TD6: 3 upgrade paths × 5 tiers with crosspathing, a type chart and enemy traits that each
-need the right counter. The menus take after Blue Archive: sky blue, slanted white panels, navy italic
+like a classic tower-defense game: 3 upgrade paths × 5 tiers with crosspathing, a type chart and enemy traits that each
+need the right counter. The menus have our own academy look: sky blue, slanted white panels, navy italic
 headings and yellow buttons.
 
 It runs in the browser (desktop and phone, landscape first, portrait still works). It is plain JavaScript,
@@ -47,7 +47,7 @@ The battle camera is **Locked** by default: the whole map stays framed and no dr
 it, so placing a girl can never nudge the view. Settings → Battle → Camera (or the pause menu) switches to
 **Free** for the old pan / zoom controls; even then the camera holds still while you place a girl.
 
-Placement is free, like Bloons: every girl has a round footprint and can stand anywhere that is not the
+Placement is free: every girl has a round footprint and can stand anywhere that is not the
 road, an obstacle or another girl. While you hold a card the forbidden zones are shaded red; an invalid
 spot shows a red ghost that shakes and tells you why. Water girls (Sango, Umeko and the hero Nami) can
 only stand on water. The strip at the top shows what the next wave holds and warns you about dangerous
@@ -65,7 +65,7 @@ the home screen as an app.
 - **Title screen:** a painted load-up screen (`#/title`) with three drawn girls, a loading bar that really
   preloads the lobby, then TAP TO START, plus Notice, Settings, Account and Code buttons. Shown once per
   session on a cold start, and it hands off to the lobby without a blink.
-- **Drawn lobby (Blue Archive memorial-lobby style):** your secretary is a full-screen illustration that
+- **Drawn lobby (memorial-lobby style):** your secretary is a full-screen illustration that
   breathes and reacts to taps, not a 3D model in an SVG room.
 - **Lobby backgrounds:** every background belongs to one girl and picking it makes her the secretary:
   her painted scene (Hikari, Aoi, Sango), or her stand over the academy by day, at sunset or by night.
@@ -73,7 +73,7 @@ the home screen as an app.
   are shown locked until the coming City dates and gifts raise her bond to 5 and 10.
 - **Missions hub and events:** the painted academy behind the panels, drawn tiles with name plates and
   your secretary's stand. Events has a painted hero and a host girl.
-- **Mail + beta thank-you:** a Blue Archive-style mailbox. Accounts created on or before 2026-11-07
+- **Mail + beta thank-you:** an academy-style mailbox. Accounts created on or before 2026-11-07
   (America/Chicago), and every save from before the mailbox, get a one-time Beta Tester gift: five 10×
   Recruit Tickets, an SSR Select Ticket (choose any SSR), a bundle of materials and books, 300,000 coins
   and 3,000 gems. One "Gifts received!" dialog then offers the SSR pick right away (or later from the
@@ -102,7 +102,7 @@ the home screen as an app.
   ribbon road with rounded corners, framed boards with props cycled around the edge, animated entrance and
   exit arrows, flowing water with koi and ripples, butterflies, bird flocks, cloud shadows, wind gusts and
   lantern light pools at night.
-- **Landscape UI:** a Blue Archive-style lobby with your secretary's drawn art, a missions hub, slanted panels
+- **Landscape UI:** an academy-style lobby with your secretary's drawn art, a missions hub, slanted panels
   and pill tabs, press/panel/screen motion timings, and every screen laid out for landscape phones
   (844×390) as well as desktop. Portrait still works; the game asks to rotate and offers fullscreen.
 - **PWA install:** a web manifest (fullscreen, landscape) and iOS home-screen metas, so the game can be
@@ -110,7 +110,7 @@ the home screen as an app.
 - **Tower defense:** 40 campaign stages in 8 chapters, 15 Bounty resource stages, 3 Total Assault boss
   arenas and an endless Tactical Challenge. There are 49 maps: loops, figure-8s, spirals, two- and
   three-lane maps, lakes, islands and bridges.
-- **Upgrades:** 3 paths × 5 tiers per girl, with BTD6 crosspathing (two paths at most, and only one above
+- **Upgrades:** 3 paths × 5 tiers per girl, with crosspathing (two paths at most, and only one above
   tier 2). Tier 3 and up changes how she plays.
 - **Type chart:** 5 attack types (blast, pierce, slash, mystic, holy) against 5 armor classes. There are
   also elements and statuses: burn, poison, slow, freeze, shock, shred, mark, soak, silence and reveal.
@@ -322,14 +322,14 @@ CONTRACTS.md                module APIs and data schemas
 ## Credits
 
 - **Chibi base mesh** (`public/models/chibi_base.glb`): made by the owner of this project.
-- Game design, from the owner's long design conversations: the chibi girls with halos, BTD6-style depth,
+- Game design, from the owner's long design conversations: the chibi girls with halos, deep upgrade paths,
   enemy families, gacha rules, gear and rerolls, the bestiary and everything listed in
   `docs/OWNER_REQUESTS.md`.
 - Built with [three.js](https://threejs.org/) and [Vite](https://vitejs.dev/). The models are generated
   with [Blender](https://www.blender.org/) (bpy) and Pillow. Fonts: Nunito and M PLUS Rounded 1c
   (Google Fonts).
-- All characters, art and names are original. The game is inspired by Bloons TD6, Blue Archive and
-  Arknights, but uses none of their assets.
+- All characters, art and names are original. The game takes ideas from classic tower-defense and
+  anime gacha games, but uses none of their assets.
 
 ## Desktop version (Windows .exe)
 

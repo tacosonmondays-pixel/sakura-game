@@ -11,8 +11,8 @@ finally ANSWER the Sakura Bell that the recruit screen keeps asking (B5–E6–C
                                    reverse cymbal into the crash, chip sparkle and the music box answering too
 
 review: originality — built only from the project's BELL motif and generic fanfare gestures (gliss, hit, roll,
-held chord). Checked against gacha / summon fanfares of Genshin, Blue Archive, Fate/GO, Arknights, Granblue,
-Pokémon item-get and Zelda item-get jingles: no shared hook. Composer A, 2026-10-08; gacha_r layers B4, 2026-10-13.
+held chord). Checked against the gacha / summon fanfares and item-get jingles of
+well-known games: no shared hook. Composer A, 2026-10-08; gacha_r layers B4, 2026-10-13.
 """
 from sakura_audio.song import Song
 from motifs import BELL

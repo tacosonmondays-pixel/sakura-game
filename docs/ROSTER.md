@@ -6,8 +6,8 @@ mechanic, and what is still missing.
 
 * **19 characters** — 3 adult **heroes** (one per battle, they level up 1→10 during the fight and
   have an ultimate) and 16 academy **students** who serve as towers.
-* Every girl has a Blue Archive–style halo, a material family for breakthrough, 3 upgrade paths × 5
-  tiers (BTD6 crosspathing: two paths max, only one above tier 2) and an awakening passive (★3+).
+* Every girl has a halo, a material family for breakthrough, 3 upgrade paths × 5
+  tiers (crosspathing: two paths max, only one above tier 2) and an awakening passive (★3+).
 * Heroes are grown-up guardians with glamorous, elegant designs; the students stay cute, cool and
   wholesome (see CONTRACTS.md §0).
 * Every girl, free ones included, is also in the gacha pool of her rarity (a duplicate gives +1 Potential, up to
@@ -182,7 +182,7 @@ Every capability the stage `recommended` list can ask for has at least one free 
    Gloomfen/Lych teams options.
 3. **No amphibious unit** — `amphibious` placement exists but nobody uses it. Idea: a frog-hood
    scout who can stand on land or water.
-4. **No dedicated anti-air specialist** (BTD6 Heli/Ace-style). Chapter 8 relies on generalists;
+4. **No dedicated anti-air specialist** (a dedicated flyer hunter). Chapter 8 relies on generalists;
    a kite-rider or wind archer would give the dragon arc a signature counter.
 5. **Only three heroes, all mystic/holy.** No fire/lightning hero, no support/economy hero, and both
    mystic heroes lose half their damage to warded fae/oni (Chapter 7).

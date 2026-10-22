@@ -2,8 +2,8 @@
 //   Ruri, Hana and Yoriko (hero) are placed; their three companions exist as 3D figures (Kon, Kaze, the doll);
 //   Kon runs from Ruri to her relay origin and sits there; Kaze leaves Hana's shoulder on one of her attacks and
 //   comes back (and is drawn 1.3x in battle, Kon 2.4x); the doll dashes on Yoriko's needles (an enemy parked by her on the
-//   road; Dream Detour is only a fallback after that check); the lowest graphics setting drops the figures (Kon falls back
-//   to the procedural holo fox); the student page shows the companion beside the girl; no console errors.
+//   road; Dream Detour is only a fallback after that check); the lowest graphics setting keeps the figures (LOD files,
+//   since v0.1.45); the student page shows the companion beside the girl; no console errors.
 // Frame strips of each behaviour (the battle paused, the renderer stepped by hand) and overview shots go to
 // --shots <dir> (jpg). Compose the strips with tools of your choice; the frames are named <behaviour>-<n>.jpg.
 //
@@ -325,8 +325,11 @@ try {
   check(!afterSell.actors.some((a) => a.cid === 'kaze'), `Kaze goes when Hana is sold (${afterSell.actors.map((a) => a.cid).join(',')})`);
   await page.evaluate(() => window.__battle.renderer.setQuality('low'));
   await step(0.05);
+  await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.length >= 2, null, { timeout: 30000 }).catch(() => null);
+  await step(0.05);
   const low = await probe();
-  check(!low.enabled && low.actors.length === 0, 'quality low: no companion figures (Kon falls back to the procedural holo fox)');
+  check(low.enabled && low.detail === 'lod' && low.actors.length === 2 && low.actors.every((a) => a.visible),
+    `quality low: Kon and the doll still drawn, from the LOD files (${low.actors.map((a) => `${a.cid}:${a.detail}`).join(',')})`);
   await page.evaluate(() => window.__battle.renderer.setQuality('high'));
   await step(0.05);
   await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.length >= 2, null, { timeout: 30000 }).catch(() => null);

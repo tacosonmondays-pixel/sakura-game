@@ -637,11 +637,11 @@ tall** (4-3).
 - The difficulty subtitles are cut off at 9.9 px.
 - The decision (difficulty, then Start) is split between the top and the bottom.
 - Start is a sticky footer that covers part of the scroller.
-- "Advanced" is 2.05:1, "In formation" 2.61:1, and the Waves / Lives / Start cash labels 3.93:1.
+- The advanced tier sticker ("Storm" since v0.1.45) is 2.05:1, "In formation" 2.61:1, and the Waves / Lives / Start cash labels 3.93:1.
 
 **After: layout, with no scrolling at 844x390**
 - **Left map band** (about 300 px):
-  - the map thumbnail with the stage name plate and the tier sticker ("Advanced": ink letters on the tier colour);
+  - the map thumbnail with the stage name plate and the tier sticker ("Storm": ink letters on the tier colour);
   - under it, the **stage ink strip**: WAVES 25 · ♥ 100 · START 780;
   - one mission sentence (≤ 60 characters) + "i" for the full mission text and the map rule.
 - **Right column**, top to bottom:

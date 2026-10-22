@@ -30,8 +30,8 @@ question, the BR half-speed question (unanswered) and the D answer in G minor; S
 and in the hook's opening gesture (two 16ths, then a fourth up).
 review: originality — hook, calls/replies, bass sequences, acid line and counter-lines are new; checked by ear-memory
 against well-known techno/trance riffs (Sandstorm, Children, Energy Flash, Spastik, Strings of Life, Café del Mar)
-and game factory/cyber stages (Mega Man, Sonic Metropolis/Chemical Plant, Deltarune Cyber World/Queen,
-Undertale CORE): no shared hook, riff or bass line. `studio.py originality` clean. Composer B2, 2026-10-09.
+and well-known factory / cyber stage themes from console and indie games: no shared hook, riff or bass
+line. `studio.py originality` clean. Composer B2, 2026-10-09.
 """
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL

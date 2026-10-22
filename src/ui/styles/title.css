@@ -43,7 +43,7 @@
 .tt-bar { height: 8px; border-radius: 6px; background: rgba(10,25,55,0.45); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6); overflow: hidden; }
 .tt-bar-fill { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #8fd3ff, #fff 60%, #ffd1e4); transition: width 0.35s var(--ease); box-shadow: 0 0 10px rgba(255,255,255,0.8); }
 .tt-load-row { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 800; text-shadow: 0 1px 3px rgba(10,25,55,0.8); }
-/* the main call to action: a solid BA-style pill (navy → sakura pink, white border), fading in
+/* the main call to action: a solid academy-style pill (navy → sakura pink, white border), fading in
    only after the loading row has faded out (no "Ready! 100%" under it) */
 /* the pill itself (::before) pulses; the button box stays still, so taps — and test clicks that
    wait for a stable element — always land */

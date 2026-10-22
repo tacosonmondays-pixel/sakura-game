@@ -1,4 +1,4 @@
-// Dev preview for free (Bloons-style) placement: real renderer + real sim on a real stage.
+// Dev preview for free placement: real renderer + real sim on a real stage.
 //   ?stage=1-1 &quality=high|medium|low &seed=1
 //   &hold=aoi          pick a girl → ghost follows the mouse (white circle = ok, red = no), tap/click places
 //   &ghost=rei,7.3,4.1 put a ghost at a continuous point (red when invalid)

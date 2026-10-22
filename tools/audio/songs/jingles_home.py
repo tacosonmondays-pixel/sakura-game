@@ -20,8 +20,8 @@ new_student 150 bpm, E (round 2) A new girl joins (gacha NEW, battle unlocks): t
                       bounce under the question. Short (3/4, 2 bars), in E like the recruit music.
 
 review: originality — every line is built from the project's BELL motif; the ♭VI–♭VII–I cadence is a generic
-idiom, written here with its own rhythm (no triplet pickups, pushed ♭VII). Checked against Final Fantasy,
-Dragon Quest, Mario, Zelda, Pokémon, EarthBound/Mother, Undertale/Deltarune victory / level-up / game-over
+idiom, written here with its own rhythm (no triplet pickups, pushed ♭VII). Checked against well-known
+console and indie RPG victory / level-up / game-over
 jingles: no shared hook. Composer A, 2026-10-08; levelup / new_student / defeat layers B4, 2026-10-13.
 """
 from sakura_audio.song import Song
