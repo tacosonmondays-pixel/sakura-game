@@ -115,8 +115,6 @@
 .ach-count { font: italic 900 0.78rem/1 var(--font-head); color: var(--navy); white-space: nowrap; }
 
 .ach-rewards { display: flex; align-items: center; gap: 6px; flex: none; }
-.ach-rewards .item-tile { border-radius: 8px; padding: 4px; }
-.ach-rewards .item-count { font-size: 0.66rem; }
 .ach-chip-hr {
   position: relative; display: grid; place-items: center; padding: 0; border-radius: 8px; cursor: pointer; flex: none;
   background: radial-gradient(circle at 50% 35%, #fff, #eaf3ff); border: 2px solid #8fc4f5;

@@ -22,7 +22,9 @@ Outputs (all committed, so CI never needs Blender):
   32 / 22 px without one, then 62 px at DPR 2. The tile is the landscape plate (1.09:1) slanted −8°, a 1 px tier
   border and white inner rim, the tier tint fading to white, our sheen (faint sakura petals and one diagonal
   band), the art centred at 47 % / 46 % filling about 82 % of the height, and the count (heavy italic navy,
-  white outline, 13 px on the 62 px tile) overlapping the lower right. The game draws the real tile in CSS.
+  white outline, 13 px on the 62 px tile) overlapping the lower right. The game draws the real tile in CSS
+  (`itemTile` in `src/ui/components.js`, `base.css` "Items"); `itemIcon` / `gearIcon` / `currencyIcon` read the
+  manifest (`docs/MODELS.md`, "Item icons").
 
 ## Setup
 

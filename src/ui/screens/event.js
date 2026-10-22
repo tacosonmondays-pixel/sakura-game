@@ -61,7 +61,7 @@ export function render(root, params = {}) {
   visit();
 
   const balance = h('span.ev-bal-val', { 'data-testid': 'event-balance' });
-  const pill = h('button.cur-pill.ev-pill', { title: ev.currency.name, onclick: () => setTab('exchange') }, svgEl(itemIcon(ev.currency.id)), balance);
+  const pill = h('button.cur-pill.ev-pill', { title: ev.currency.name, onclick: () => setTab('exchange') }, svgEl(itemIcon(ev.currency.id, { px: 22 })), balance);
   const { el, body } = screen(ev.name, { cls: 'ev-screen', extra: h('div.topbar-group', pill) });
   el.style.setProperty('--ev-color', ev.theme.color);
   el.style.setProperty('--ev-accent', ev.theme.accent);
@@ -226,7 +226,7 @@ function stagesTab(ev, phase) {
             gate.ok ? null : svgEl(uiIcon('lock'), 'ev-diff-lock'));
         }),
         h('span.ev-op-candy', { title: `${ev.currency.name} per win: ${stage.difficulties.map((d, i) => `${DIFFICULTIES[d].name} ${pers[i]}`).join(' · ')}` },
-          svgEl(itemIcon(ev.currency.id), 'ev-mini'), pers.map((n) => `×${formatNumber(n)}`).join(' / '))),
+          svgEl(itemIcon(ev.currency.id, { px: 18 }), 'ev-mini'), pers.map((n) => `×${formatNumber(n)}`).join(' / '))),
       st.ok ? null : h('div.ev-op-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), st.text),
     )));
   }
@@ -288,7 +288,7 @@ function exchangeTab(ev, phase, now, refresh) {
         disabled: o.soldOut || !o.open,
         'data-testid': `event-buy-${o.id}`,
         onclick: () => startBuy(ev, o, name, refresh),
-      }, h('span.ev-price', svgEl(itemIcon(ev.currency.id), 'ev-mini'), formatNumber(o.price)))));
+      }, h('span.ev-price', svgEl(itemIcon(ev.currency.id, { px: 18 }), 'ev-mini'), formatNumber(o.price)))));
   }
   return h('div',
     phase === 'ended' ? panel('Exchange closed', h('p', 'The Exchange has closed; leftover candy became coins by mail.')) : null,

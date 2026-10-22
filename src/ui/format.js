@@ -14,6 +14,7 @@
 //   fmtNum(4.3, 'range')                   "4.3"       ({ detail } → "4.30 tiles")
 //   fmtNum(48, 'level', { cap: 50 })       "LV 48/50"
 //   fmtNum(3, 'progress', { of: 5 })       "3/5"       (down)
+//   fmtItemCount(42350)                    "x42.3K"    the item tile's count badge (down; see below)
 
 export const MINUS = '−';
 
@@ -99,4 +100,18 @@ export function fmtNum(value, kind = 'count', opt = {}) {
     default:
       throw new Error(`fmtNum: unknown kind "${kind}"`);
   }
+}
+
+/**
+ * The count badge on an item tile (the owner's tile pick, Oct 20: "x450K"): a lowercase x, then the stack exact
+ * up to 9,999 with no separator ("x2400"), and from 10,000 one decimal at most with an uppercase K, M or B
+ * ("x42.3K", "x450K", "x1.2M"). Rounded down, like every owned count (a stack never shows more than you have).
+ * This is the tile badge only: other counts keep fmtNum.
+ * @param {number} value
+ * @returns {string} '' for a missing or non-finite value
+ */
+export function fmtItemCount(value) {
+  if (value == null || !Number.isFinite(Number(value))) return '';
+  const n = Math.max(0, ROUND.down(Number(value)));
+  return `x${n < 1e4 ? String(n) : short(n, 1e4, 'down').toUpperCase()}`;
 }

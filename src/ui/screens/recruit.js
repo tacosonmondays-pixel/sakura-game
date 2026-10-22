@@ -178,14 +178,14 @@ function buildPage({ doPull, openSpark }) {
 }
 
 function ticketPill(id, count) {
-  return h(`div.ma-ticket-pill${count ? '' : '.zero'}`, svgEl(itemIcon(id), 'ma-ticket-icon'), h('b', formatNumber(count)));
+  return h(`div.ma-ticket-pill${count ? '' : '.zero'}`, svgEl(itemIcon(id, { px: 24 }), 'ma-ticket-icon'), h('b', formatNumber(count)));
 }
 
 function pullButton(count, doPull) {
   const profile = store.profile;
   const cost = pullCost(profile, count);
   const payment = cost.items.length
-    ? cost.items.map((it) => h('span.ma-pay', svgEl(itemIcon(it.id), 'ma-pay-icon'), `×${it.count}`))
+    ? cost.items.map((it) => h('span.ma-pay', svgEl(itemIcon(it.id, { px: 22 }), 'ma-pay-icon'), `×${it.count}`))
     : [];
   if (cost.gems > 0) payment.push(h(`span.ma-pay${cost.ok ? '' : '.short'}`, svgEl(currencyIcon('gems'), 'ma-pay-icon'), formatNumber(cost.gems)));
   return h(
@@ -392,9 +392,9 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
           ? h('button.ma-sum-pot', { type: 'button', 'data-testid': 'reveal-sum-pot', title: 'See what they learned', onclick: openCards }, h('span.pot-up', '▲'), ` ${ups} Potential`, tricks)
           : h('span.ma-sum-pot', { 'data-testid': 'reveal-sum-pot' }, h('span.pot-up', '▲'), ` ${ups} Potential`, tricks)) : null,
         // on phones the words go (icon + number stay) so the line fits on one row at 844×390
-        essence ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-essence' }, svgEl(itemIcon('kindred_sr'), 'ma-pay-icon'), `+${essence}`, h('span.pot-hide-phone', ` Essence${ready ? ` · ${ready} ready` : ''}`)) : null,
-        mementos ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-mementos' }, svgEl(itemIcon('memento'), 'ma-pay-icon'), `+${mementos}`) : null,
-        moonpearls ? h('span.ma-sum-frag', svgEl(itemIcon('moonpearl'), 'ma-pay-icon'), `+${moonpearls}`) : null,
+        essence ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-essence' }, svgEl(itemIcon('kindred_sr', { px: 22 }), 'ma-pay-icon'), `+${essence}`, h('span.pot-hide-phone', ` Essence${ready ? ` · ${ready} ready` : ''}`)) : null,
+        mementos ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-mementos' }, svgEl(itemIcon('memento', { px: 22 }), 'ma-pay-icon'), `+${mementos}`) : null,
+        moonpearls ? h('span.ma-sum-frag', svgEl(itemIcon('moonpearl', { px: 22 }), 'ma-pay-icon'), `+${moonpearls}`) : null,
         spares.some((r) => r.spare.fifths === 1) ? h('span.ma-sum-pips', { title: 'R spares: 5 make 1 recruit point' }, [0, 1, 2, 3, 4].map((i) => h(`span.ma-pip${i < spareFifths(store.profile) ? '.on' : ''}`))) : null,
         h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`),
       ),
@@ -468,8 +468,8 @@ function revealCard(r, i) {
         h('span.ma-gc-name', u.name, revealRibbon(r, u)),
         // "Kage's Essence +1 · P5 ready!" (a spare: its Mementos / Moonpearls)
         r.isNew ? h('span.ma-gc-new', 'NEW')
-          : r.spare ? h('span.ma-gc-frag', { title: `Spare → ${spareText(r.spare)}` }, svgEl(itemIcon(r.spare.moonpearls ? 'moonpearl' : 'memento'), 'ma-gc-frag-icon'), `+${r.spare.moonpearls || r.spare.mementos}`)
-            : h('span.ma-gc-frag', { title: r.readyStep ? `${u.name}'s Essence +1 · P${r.readyStep} ready!` : `${u.name}'s Essence +1` }, svgEl(itemIcon('kindred_sr'), 'ma-gc-frag-icon'), '+1'),
+          : r.spare ? h('span.ma-gc-frag', { title: `Spare → ${spareText(r.spare)}` }, svgEl(itemIcon(r.spare.moonpearls ? 'moonpearl' : 'memento', { px: 16 }), 'ma-gc-frag-icon'), `+${r.spare.moonpearls || r.spare.mementos}`)
+            : h('span.ma-gc-frag', { title: r.readyStep ? `${u.name}'s Essence +1 · P${r.readyStep} ready!` : `${u.name}'s Essence +1` }, svgEl(itemIcon('kindred_sr', { px: 16 }), 'ma-gc-frag-icon'), '+1'),
         revealTag(r),
       ),
     ),

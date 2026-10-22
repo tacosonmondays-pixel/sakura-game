@@ -247,7 +247,9 @@ keeps a procedural fallback, so the game (and the Node tests) still work with no
 
 The item icons in `public/art/items/` (3D-flat look, 256 / 128 px WebP plus a 96 px small cut) are baked by
 `tools/blender/items/build_items.py` with EEVEE; `tools/blender/items/README.md` has the commands and the data
-table, and `npx vitest run tests/art/itemArt.test.js` checks the files, the manifest and the size budget.
+table, and `npx vitest run tests/art/itemArt.test.js` checks the files, the manifest and the size budget. The game
+shows them on the slanted item tile everywhere items appear, with the old SVG drawing kept as the loading / error
+fallback (`docs/MODELS.md`, "Item icons"; screen check: `node e2e/item-art.mjs --out <dir> --expect-art`).
 
 ## Deploy to GitHub Pages
 

@@ -539,5 +539,20 @@ npx vitest run tests/art/itemArt.test.js     # files, headers, manifest hashes, 
 
 The approved icons (the owner's 3D-flat set, kept outside the repo) are the look targets; `--compare <dir>` draws
 the approved-vs-new grid. `tools/blender/items/README.md` has the setup, the rig and the data table of all keys.
-The SVG drawings in `src/art/icons/items.js` stay as the fallback; switching `itemIcon` / `gearIcon` /
-`currencyIcon` to the baked art (with the slanted tile and count) is a separate UI change.
+
+**In the game.** `itemIcon` / `gearIcon` / `currencyIcon` (`src/art/icons.js`) return the baked image laid over the
+old SVG drawing (`src/art/icons/items.js`) inside `<span class="ia">`, so every caller keeps working unchanged:
+- `{ px }` is the CSS size the icon shows at: 24 or less picks the small cut (currencies default to 22), anything
+  else gets the 128 / 256 `srcset` with `sizes` = px. URLs carry `?v=<hash>` from the manifest.
+- The drawing is the fallback: it shows when the image fails (`.ia.bad`), or while it is still loading after
+  0.4 s; once the image is in (`.ia.ok`) it stays hidden, so cached re-renders never flash the old art. A key with
+  no baked art returns the bare drawing (`hasItemArt`, `itemArtUrl`, `itemArtSVG`, `itemIconSVG`).
+- The item tile (`itemTile` in `src/ui/components.js`, CSS in `base.css` "Items") is the owner's slanted plate: a
+  1.09:1 plate slanted −8°, the tier tint per `data-tier` (`tileTier`: the rainbow plate for rainbow, UR-display and
+  Zenith items), faint sakura petals and one white band, and the count in 13 px navy italics, `x450K`
+  (`fmtItemCount` in `src/ui/format.js`).
+- Checks: `npx vitest run tests/art tests/ui/format.test.js` (every item, gear piece and currency maps to its own
+  image; the small cut; the fallback; the tile tier; the count; the sim id), and `node e2e/item-art.mjs --out <dir>
+  --expect-art` (every screen that shows items at 844×390 and 1280×720: the art loads, tiles and counts are right,
+  and the broken / slow / cached fallback behaves; without `--expect-art` it only takes the screenshots, for a
+  before / after pair on two builds).

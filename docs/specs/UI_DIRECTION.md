@@ -131,7 +131,7 @@ One helper, `fmtNum(value, kind)` in a new `src/ui/format.js`, replaces the loca
 | Time | **0.5s**, **12s**, **1:05** from 60 s; ability cooldowns in whole seconds | same | up (never show "0s" while something still runs) |
 | Range | **4.3** with a RANGE label (no "tiles" word on Glance) | **4.30 tiles** | nearest |
 | Level | **LV 48** (label + number); **48/50** only where the cap matters (the plate, Level Up) | same | – |
-| Item stack | **×42** in the count corner | same | down |
+| Item stack | **×42** in the count corner; on an item tile the tile form **x42.3K** (5.7) | same | down |
 | Progress | **3/5**, no spaces; hidden at 0 on Glance surfaces unless 0 is the call to action | same | down |
 
 - **Short form:** one decimal at most, a trailing ".0" is dropped (**12k**, not 12.0k). Lowercase **k**, uppercase **M** and **B**.
@@ -441,6 +441,13 @@ One ladder of frame treatments for girls and gear. Each step must read as "highe
   - count or level at the **bottom-right** (an ink circle or pill with a white number);
   - a lock in the **centre**, with its 12 px unlock rule under it.
 - At most 2 stickers per tile. Names show under the tile only where the art alone is not enough (items, not girls).
+- **Item tiles (the owner's pick, Oct 20: the slanted plate; this replaces the item-tile frame and count pill drafted
+  for the item-icon redo):** a 1.09:1 plate slanted −8° with rounded corners, a 1 px tier border and a white inner
+  rim, the tier tint fading to white by 80 %, a sheen of three faint sakura petals and one diagonal white band (not
+  facet triangles), and a soft tile shadow. The art is not slanted. The count sits bottom right **without a pill**:
+  heavy navy italics (`#2b4467`) with a crisp white outline, 13 px on the 62 px phone tile, in the tile form
+  `x2400` / `x42.3K` / `x450K` (lowercase x, uppercase K/M/B, rounded down; `fmtItemCount`). Rainbow, UR-display
+  and Zenith items wear a rainbow plate. Built in `itemTile` (`src/ui/components.js`) and `base.css` "Items".
 
 ### 5.8 Toasts and banners
 - One toast at a time, one line, at most `--t-banner`. Others queue.
