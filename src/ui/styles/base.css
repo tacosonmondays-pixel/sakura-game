@@ -479,7 +479,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
   color: #2b4467; font-variant-numeric: tabular-nums;
   text-shadow: 1.5px 0 #fff, -1.5px 0 #fff, 0 1.5px #fff, 0 -1.5px #fff, 1.1px 1.1px #fff, -1.1px 1.1px #fff, 1.1px -1.1px #fff, -1.1px -1.1px #fff;
 }
-.item-count small { font-size: 0.82em; }
+.item-count small { font-size: max(12px, 0.82em); } /* the text floor (UI_DIRECTION): never under 12 px on small tiles */
 .item-tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .item-tile-name { font-size: 0.72rem; text-align: center; max-width: 80px; line-height: 1.15; }
 .reward-row { display: flex; flex-wrap: wrap; gap: 8px; }
