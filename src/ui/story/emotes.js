@@ -1,5 +1,5 @@
 // Code-drawn emote glyphs for the scene player (owner: story; STORY_SPEC §1.2.2). The drawn stands have one
-// face each, so an expression is a little Blue Archive-style emote that pops above her head plus a motion.
+// face each, so an expression is a little manga-style emote that pops above her head plus a motion.
 // Pure strings (no DOM): emoteSVG(glyph) → inline SVG markup, 48×48 viewBox, navy ink on white with a pink or
 // gold accent. Names match FACES[*].glyph in src/data/story/format.js (a test checks every glyph is drawn).
 

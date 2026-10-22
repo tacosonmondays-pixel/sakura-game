@@ -30,9 +30,8 @@ under the melody, keys stay below it, and the Rhodes hits the horns' pushes inst
 review: originality — the head, the bridge tune, the bass solo, the counter-line, the shout writing and the
 re-harmonisation are new; the main theme (§4.3) and the BELL motif are the project's own. Written to the jazz idiom
 (swing ride, walking bass, ii–V–I, tritone subs, shout chorus, bossa bridge) without any standard's head, riff or
-changes: checked by ear-memory against well-known swing/bebop/bossa standards and game/anime jazz (Persona,
-Cowboy Bebop, Animal Crossing K.K., Deltarune/Undertale shops, EarthBound, Pokémon centres/marts, Blue Archive
-lobby themes): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
+changes: checked by ear-memory against well-known swing/bebop/bossa standards and game and anime jazz (shop,
+town and lobby themes): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
 """
 from sakura_audio.song import Song
 from motifs import BELL
@@ -183,7 +182,7 @@ def build() -> Song:
                                + [x for x in BASS_SOLO]
                                + line('F69 | Gm9 C7b9', WALK[3:], WALK_H, low=33, nxt='Fmaj9').split(' | ')))
 
-    # NES triangle an octave over the walking bass (phone speakers hear the line; the EarthBound chip + real doubling)
+    # NES triangle an octave over the walking bass (phone speakers hear the line; the 16-bit RPG chip + real doubling)
     s.part('tri', 'chip_triangle', 'base', octave=1, vel=-30, gain=-3).double('bass', ['H', 'H2', 'S'])
 
     rh = s.part('rhodes', 'rhodes', 'base', vel=-12, gain=4)

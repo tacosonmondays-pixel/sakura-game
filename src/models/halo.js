@@ -1,4 +1,4 @@
-// Floating Blue-Archive-style halos. Flat emissive shapes built from 2D outlines, lying in
+// Floating halos over the girls' heads. Flat emissive shapes built from 2D outlines, lying in
 // the XZ plane around the halo bone pivot. Shapes: ring, star, petal, gear, moon, flame,
 // wave, crown, snow, bolt, leaf, eye.
 import * as THREE from 'three';

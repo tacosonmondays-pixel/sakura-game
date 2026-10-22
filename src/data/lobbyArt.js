@@ -1,6 +1,6 @@
 // Lobby backgrounds (owner: "make it so you can select which backgrounds you want, eventually
-// when you date a girl and gift her stuff in the city like in blue archive you'll get a more
-// intimate background"). Blue Archive "memorial lobby" model: every background belongs to one
+// when you date a girl and gift her stuff in the city like in [a reference game] you'll get a more
+// intimate background"). The "memorial lobby" model: every background belongs to one
 // girl, choosing it makes her the secretary. Kinds:
 //   scene  a full landscape illustration with her in it (public/art/lobby/<id>.webp)
 //   stand  her drawn cut-out (public/art/portraits/<id>-cut.webp) over the painted academy,

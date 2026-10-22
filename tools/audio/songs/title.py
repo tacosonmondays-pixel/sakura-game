@@ -22,7 +22,7 @@ Form: intro |: A B A_ab :|  — 4 + 24 bars at 132 bpm.
 Leitmotifs: BELL (intro music box; A/A_ab bars 1, 3, 5 inside the theme), main theme (complete).
 review: originality — the melody is the project's own main theme (§4.3) and BELL motif; bass lines, counter-
 lines, answers, ostinato and fills are new. Compared by ear-memory against well-known game/anime title themes
-(Undertale, Deltarune, EarthBound/Mother, Zelda, Mario, Final Fantasy, Pokémon, Blue Archive, Kirby): no shared hook
+(console, indie and gacha games): no shared hook
 or contour. Composer A, 2026-10-08. Round 3 densify (holes + answers, stab bed, slap bass, strings ostinato, horn
 counter, brass call-and-response): composer B5, 2026-10-13; `studio.py originality` clean.
 """
@@ -157,7 +157,7 @@ def build() -> Song:
     s.part('timp', 'timpani', 'full').at('intro', 4, 'c2/4@v70 r/4 ' + crescendo('c2', '16', 8, 44, 100)) \
         .at('A_ab', 1, 'ab2/4@v110 r/2.').at('A_ab', 5, 'c3/4@v96 r/2.').at('B', 8, 'r/2 ' + crescendo('c2', '16', 8, 40, 96))
 
-    # ---- the main theme: chip pulse lead + glock an octave up (the EarthBound/Toby chip-plus-real doubling)
+    # ---- the main theme: chip pulse lead + glock an octave up (the 16-bit RPG chip-plus-real doubling)
     s.part('lead', 'chip_pulse25', 'full').notes('A', bars(*THEME_A), motifs={1: BELL, 3: BELL, 5: BELL}) \
         .notes('B', bars(*THEME_B)).notes('A_ab', bars(*THEME_A_AB), motifs={1: BELL, 3: BELL, 5: BELL})
     s.part('glock', 'glock', 'full', octave=1, vel=-20).double('lead', ['A', 'A_ab'])

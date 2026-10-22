@@ -986,7 +986,7 @@ export function claimAllAchievements(profile)          // -> { ok, ids, rewards,
 export function achievementsReady(prevIds, nextIds)    // the unlock-toast diff; achievementNotice(profile) -> { ready, dot } (cached); recordMax(profile, key, v)
 export function redeemCode(profile, code)              // -> { ok, error?, rewards }
 export function currentEvent(now = new Date())         // -> { id, name, desc, stageIds, dropMul }
-export function f2pIncomeSummary()                     // -> rows like the HSR version chart: [{ source, gems, tickets, note }], totals per 28 days
+export function f2pIncomeSummary()                     // -> rows like a version-by-version reward chart: [{ source, gems, tickets, note }], totals per 28 days
 
 // src/systems/shop.js
 export function shopTabs(profile)                      // -> [{ id, name, currency, offers: [{ id, item, count, price, currency, stock, bought, resets }] }]
@@ -1590,7 +1590,7 @@ reveal animation, spark), mall, commissions (daily/weekly/login/achievements/cod
 (F2P income overview table), bounty, assault, challenge (endless, best wave per map), settings
 (quality, lighting, audio, export/import save, reset).
 
-meta-b: students (Arknights-style tall portrait cards; filter by role/type/rarity/owned; sort by
+meta-b: students (tall portrait cards; filter by role/type/rarity/owned; sort by
 level/rarity/power; hanger badge when she wears an outfit), student detail (left: card art ⇄ 3D chibi
 viewer toggle + **Outfit** pill → Outfit sheet with Wear (`setSkin` + `store.commit('skin')`) and Try on (3D preview,
 not saved; `#/student/<id>?skin=<skinId>` deep-links one; a NEW tag until `seenIntro` has 'outfits'); right tabs:
@@ -1647,7 +1647,7 @@ Settings, Account (save export/import), Code (redeem); `APP_VERSION` from packag
 no zoom / pulse / petals.
 
 **Lobby art + bond model — `src/data/lobbyArt.js` (pure) + `src/ui/lobby/artStage.js` + `src/ui/lobby/bgPicker.js`.**
-Blue Archive "memorial lobby": every background belongs to one girl; choosing it makes her the
+The "memorial lobby": every background belongs to one girl; choosing it makes her the
 secretary. Kinds: `scene` (full landscape illustration with her in it, `public/art/lobby/<id>.webp`:
 hikari, aoi, sango), `stand` (her drawn stand over the painted academy, tint `day`/`sunset`/`night`,
 one each per girl), `bond` (two wholesome date memories per girl — café, festival night, sunset walk,
@@ -1733,7 +1733,7 @@ in-game result, relevant tests, and evidence against the original request."
   a sort/filter only. Every item has ONE consistent identity everywhere (same icon + name). Every
   upgrade requirement shows: [icon] Name — owned / required — where to obtain (Teleport). Add a test
   that every item id has a dedicated icon (no fallback) and a category.
-* **UI motion system (meta-a, meta-b, battle-ui):** Blue Archive feel. Press feedback 80–120 ms, small
+* **UI motion system (meta-a, meta-b, battle-ui):** the academy feel. Press feedback 80–120 ms, small
   panel/tab changes 180–260 ms, screen transitions 300–450 ms; consistent easing; designed empty /
   locked / insufficient-materials states (never a plain alert). Character detail keeps the character
   presentation stable while tabs change. Gacha reveal: anticipation → reveal → readable results;

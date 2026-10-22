@@ -338,7 +338,7 @@
 @keyframes ma-from-right { from { opacity: 0; transform: translateX(18px); } }
 @keyframes ma-from-bottom { from { opacity: 0; transform: translateY(18px); } }
 
-/* ------------------------------------------------------------------ lobby (V3, BA home) */
+/* ------------------------------------------------------------------ lobby (V3, academy home) */
 /* Layers (back → front): room (far sky/sea img, mid room img, light shafts) → secretary stage
    (WebGL canvas) → near foreground img → petals/motes → name plate → HUD → hide-UI catcher.
    Everything that moves with the pointer reads --px / --py (-1..1, set by lobby.js). */
@@ -382,7 +382,7 @@
 .lb-fx-spark::before { content: '\2726'; font-size: 24px; color: #ffd34d; text-shadow: 0 2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 -2px 0 #fff; }
 @keyframes lb-fx { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } 25% { opacity: 1; transform: translate(calc(-50% + var(--dx) * 0.4), -90%) scale(1.15); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -260%) scale(0.9); } }
 
-/* speech bubble (BA: white rounded box beside her cheek, tail toward her) */
+/* speech bubble (white rounded box beside her cheek, tail toward her) */
 .lb-bubble {
   position: absolute; left: 60%; top: 16%; z-index: 4; width: max-content; max-width: min(250px, 42vw); padding: 9px 13px; border-radius: 14px;
   background: rgba(255,255,255,0.96); color: var(--ink); font-weight: 700; font-size: 0.8rem; line-height: 1.35; box-shadow: 0 6px 18px rgba(29,54,96,0.22);
@@ -428,7 +428,7 @@
 .lb button { -webkit-tap-highlight-color: transparent; }
 .lb-glyph { display: inline-flex; width: 20px; height: 20px; line-height: 0; }
 .lb-glyph svg { width: 100%; height: 100%; }
-/* navy text with a white outline (BA labels over the scene) */
+/* navy text with a white outline (labels over the scene) */
 .lb-sc-label, .lb-dock-label, .lb-clock-wrap {
   text-shadow: 1.5px 0 0 #fff, -1.5px 0 0 #fff, 0 1.5px 0 #fff, 0 -1.5px 0 #fff, 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0 2px 5px rgba(20,40,80,0.35);
 }
@@ -486,7 +486,7 @@
 .lb-lock .lb-glyph { width: 14px; height: 14px; }
 .lb-sc.locked .lb-sc-ico { filter: grayscale(0.8) brightness(0.92); }
 
-/* ‹ › chevrons: bare white arrows with a soft shadow, like BA */
+/* ‹ › chevrons: bare white arrows with a soft shadow */
 .lb-chev { top: 50%; width: 34px; height: 54px; margin-top: -27px; border: 0; padding: 0; background: transparent; color: #fff; display: grid; place-items: center; filter: drop-shadow(0 2px 3px rgba(20,40,80,0.55)); transition: transform var(--t-press) var(--ease), opacity var(--t-panel); opacity: 0.92; }
 .lb-chev .lb-glyph { width: 34px; height: 34px; }
 .lb-chev .lb-glyph svg path { stroke-width: 2.6; }
@@ -1550,7 +1550,7 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .lb-art-scene, .lb-art-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 30%; user-select: none; }
 .lb-art-layer.scene .lb-art-scene { animation: lb-breathe 4.8s ease-in-out infinite; transform-origin: 60% 100%; }
 .lb-art-bg { filter: saturate(1.05) blur(1.5px) brightness(1.03); transform: scale(1.04); }
-/* her full-figure stand, BA memorial-lobby framing: big, centred in the open middle of the
+/* her full-figure stand, memorial-lobby framing: big, centred in the open middle of the
    screen, the top of her head/hat just under the HUD and the picture running off the bottom edge
    (knees down) — never a frame edge on screen. A 0-wide flex box centres any stand width. */
 .lb-art-girl { position: absolute; left: 55%; top: calc(10% + 8px); height: 150%; width: 0; display: flex; justify-content: center; animation: lb-breathe 4.2s ease-in-out infinite; transform-origin: 50% 40%; }
@@ -1623,7 +1623,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 }
 @media (max-aspect-ratio: 1/1) { .hub-stand { display: none; } }
 
-/* ---- missions hub v3: drawn tiles, BA layout ---- */
+/* ---- missions hub v3: drawn tiles, academy layout ---- */
 .ma-hub { grid-template-columns: 200px minmax(0, 1fr); }
 .ma-hub-char.hub-stand { width: 290px; }
 .ma-hub-grid {

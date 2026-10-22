@@ -17,8 +17,8 @@ Form: intro |: A A2 B B2 BR :|  — 2 + 40 bars.
 
 Leitmotifs: BELL (B bars 1/3/5 inside the main theme, BR music box), main theme (B), SENTINEL CALL (BR, intensity).
 review: originality — hook, bass lines, counter-lines and fills are new; the main theme / BELL / SENTINEL are the
-project's own motifs. Checked by ear-memory against Undertale, Deltarune, EarthBound/Mother, Mario, Zelda,
-Mega Man, Kirby, Pokémon battle themes and well-known anthems: no shared hook or contour. Composer B, 2026-10-08.
+project's own motifs. Checked by ear-memory against well-known console and indie game
+battle themes and anthems: no shared hook or contour. Composer B, 2026-10-08.
 """
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL
@@ -58,7 +58,7 @@ B2_MEL = [
     'd6/4 c6/8 d6/8 f6/4 e6/8 d6/8',                      # 7 B♭maj7
     'e6/4. d6/8 c6/8 bb5/8 g5/8 e5/8',                    # 8 C7      → D
 ]
-COUNTER_A2 = [   # chip_pulse12 a third (or sixth) under the hook: the EarthBound "two pulse channels" sound
+COUNTER_A2 = [   # chip_pulse12 a third (or sixth) under the hook: the 16-bit RPG "two pulse channels" sound
     'd5/8 b5/8~ b5/8 a5/16 g5/16 a5/8 f#5/8 d5/4',
     'c#5/8 d5/8 b4/8 f#4/8~ f#4/4 r/4',
     'e5/8 c#6/8~ c#6/8 b5/16 a5/16 b5/8 g5/8 d5/4',

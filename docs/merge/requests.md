@@ -41,21 +41,21 @@ transcript `/root/.claude/projects/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb7339
 | ID | Time (UTC) | Owner message (verbatim, trimmed) | Status now | Prio |
 |---|---|---|---|---|
 | N-01 | 18:13 | "Give me more update pls" | Answered in chat; recurring ask: send short progress updates with screenshots | process |
-| N-02 | 18:20 | Uploaded `uploads/…/8314b371-blue-archive-wakamo-swimsuit.zip` (BA CH0175 rip: body/face/eyes/mouth/hair/halo textures + source zip): "its supposed to be like this, we're so close but still abit far from the mark.. the character sheet for the chibi look better!" | IN PROGRESS: chibi-v2 Hikari pilot (`scratchpad/chibi-v2/`: `hikari-v2.glb` 0.79 MB, separate `face-atlas.png` + `face-atlas.json`, expressions idle/blink/attack/happy/hurt/surprised/wink/shy). I opened `chibi-v2/shots/portrait3.png`: the swap-able eyes/mouth work but the old eyes baked into the projected body texture still show through (double eyes, smudged cheeks) — the face area of `tex-body-final.png` must be cleaned. | **P0** |
+| N-02 | 18:20 | Uploaded a third-party character zip (a game rip: body/face/eyes/mouth/hair/halo textures + source zip): "its supposed to be like this, we're so close but still abit far from the mark.. the character sheet for the chibi look better!" | IN PROGRESS: chibi-v2 Hikari pilot (`scratchpad/chibi-v2/`: `hikari-v2.glb` 0.79 MB, separate `face-atlas.png` + `face-atlas.json`, expressions idle/blink/attack/happy/hurt/surprised/wink/shy). I opened `chibi-v2/shots/portrait3.png`: the swap-able eyes/mouth work but the old eyes baked into the projected body texture still show through (double eyes, smudged cheeks) — the face area of `tex-body-final.png` must be cleaned. | **P0** |
 | N-03 | 18:20 | (same) "the character sheet for the chibi look better" — the 2D turnaround beats the 3D result | Keep `docs/art/approved/chibi-style-hikari-turnaround.webp` as the reference the 3D must match; judge 3D against it side by side | **P0** |
 | N-04 | 18:21 | "also can you push everything thats been completed so far?" | DONE for the main branch: `claude/sakura-sentinels` = `origin` at `ac57f8e`. NOT pushed: `feature/tracks-v3` (`1706381` + 2 uncommitted files `src/core/track.js`, `src/data/maps.js` in `/home/user/wt-tracks`), untracked Meshy test (`public/_meshy-test/`), this audit and `scratchpad/chibi-v2`. Push again when each lands. | P0 |
-| N-05 | 18:26 | "the big issue is the scaling! compared to everything else its super [small]… If it was larger but like stubbier, look at how the blue archive model looks… I think its at a 6/10 while codex has technically better proportions its at a 3/10 because its ugly" | PARTIAL: battle scale constants `src/render/actors.js` L12-14 (`TOWER_SCALE 1.22`, `HERO_SCALE 1.36`, `ENEMY_SCALE 1.12`) unchanged; chibi-v2 aims at ~2.4 heads (BA SD). | **P0** |
+| N-05 | 18:26 | "the big issue is the scaling! compared to everything else its super [small]… If it was larger but like stubbier, look at how the [reference] model looks… I think its at a 6/10 while codex has technically better proportions its at a 3/10 because its ugly" | PARTIAL: battle scale constants `src/render/actors.js` L12-14 (`TOWER_SCALE 1.22`, `HERO_SCALE 1.36`, `ENEMY_SCALE 1.12`) unchanged; chibi-v2 aims at ~2.4 heads (the reference SD chibis). | **P0** |
 | N-06 | 21:56 | "wait it changed to max I set it to ultra code will it auto change?" | A question about the session's effort setting, not a game request. The lead should answer it in chat; nothing for the game. | — |
 
 **What N-05 changes in this audit (important):** the owner now rates the **Codex chibi 3/10 ("ugly")** and the Meshy
 Hikari 6/10, against the judge's scores in `docs/merge/meshy-chibi-test.md` (Codex 6.5 overall, Meshy-as-delivered
 4.0). Owner's view wins (X-03 "recommendations must fit the owner's view"). So:
 * "Get the characters in" = the old **designs** (names, colours, outfits, illustrations, kits), **not** the old
-  Codex GLBs as the final battle look. Old GLBs are at most a stopgap while BA-style chibis are made (R-02, A-01,
-  decision D-h below now leans to new BA-style chibis).
-* Battle chibis must be **bigger on the board and stubbier** (~2.4-2.7 heads, big head, short limbs), like BA SD
+  Codex GLBs as the final battle look. Old GLBs are at most a stopgap while new stubby chibis are made (R-02, A-01,
+  decision D-h below now leans to new stubby chibis).
+* Battle chibis must be **bigger on the board and stubbier** (~2.4-2.7 heads, big head, short limbs), like the reference SD chibis
   models. Raise `TOWER_SCALE`/`HERO_SCALE` and re-check placement footprints (B-03) and readability at 844×390.
-* The Wakamo reference is a **swimsuit** model: use it only for proportions, face/eye-atlas setup, texture
+* The uploaded character reference is a **swimsuit** model: use it only for proportions, face/eye-atlas setup, texture
   flatness and outline. Never copy the outfit, and never ship its textures (third-party rule, §1).
 
 ---
@@ -72,7 +72,7 @@ Hikari 6/10, against the judge's scores in `docs/merge/meshy-chibi-test.md` (Cod
 3. **Home menu = drawn landscape illustration ("memorial lobby"), breathing + tap reactions, NO 3D girl and NO SVG
    room** (O7 16:34, 17:06, 17:11, 17:16). NEW lobby is exactly what the owner rejected: a 3D secretary over a
    painted SVG office (`src/ui/screens/lobby.js` L3-8, `src/ui/lobby/secretary.js`, `src/art/lobbyRoom.js`; looked at
-   `scratchpad/lobby-v3/wip-6-1280.png`). Keep its BA HUD (top bar, left shortcuts, carousel, Campaign folder, dock).
+   `scratchpad/lobby-v3/wip-6-1280.png`). Keep its academy HUD (top bar, left shortcuts, carousel, Campaign folder, dock).
 4. **Approved chibi look** = Meshy Hikari turnaround, `docs/art/approved/chibi-style-hikari-turnaround.webp`
    (O7 17:43 "THATS LITERALLY PERFECT"; looked at it): ~2.5-3 heads, flat two-tone cel, thin outlines,
    lash-heavy eyes, modest outfits copied from the illustration. Target for every 3D battle chibi and 2D chibi.
@@ -98,7 +98,7 @@ Hikari 6/10, against the judge's scores in `docs/merge/meshy-chibi-test.md` (Cod
 **Biggest owner asks that NEW lacks but OLD already has (P1 — port, don't redesign):** the city hub
 (owner O7 17:07 "What is missing is the city… make it look more interesting"), Hikari's kawaii tutorial +
 Captain's Journal lessons + free 10-pull after 3 clears, multiple tower/hero banners rotating at 7 PM Central,
-Genshin-like wish cinematic (portal + meteor coloured by rarity), hero ult cut-in, sandbox, Bloons-like modes and
+Wish cinematic (portal + meteor coloured by rarity), hero ult cut-in, sandbox, tower-defense-style modes and
 map gimmicks, energy for resource stages, per-unit copy ranks, audio (NEW's audio settings are dead toggles), title
 screen, reset 67 → tutorial. Summer event (10 VN chapters, 5 ops, shop, affection) is P2 because every outfit must
 be redone — unless the owner wants it this season (the old event window is 2026-10-03 → 11-03, i.e. now).
@@ -117,7 +117,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 |---|---|---|
 | Academy girls are students: no fanservice, no swimsuits/bikinis/lingerie, no body-focused framing; heroes may be elegant adults, still no body-focused framing | CONTRACTS.md §0 L21-24; CL 10-05 09:10, 09:26; `scratchpad/art-pilot/BIBLE.md` | in force |
 | No swimwear-like outfits on chibi (child-proportioned) bodies, even for adult-labelled characters | task brief; `$M/integration.md` D4 | in force — affects Marina, Amane, Nami beach skin |
-| Never ship third-party assets (BA/Bloons screenshots, Suzuka/Aqua/Megumin models, jaeysart .blend, YouTube thumbs); keep them in git-ignored `docs/reference/thirdparty/` | CONTRACTS §0 L25-26; commit `0fcb972`; `docs/REFERENCES.md` L13-15 | in force |
+| Never ship third-party assets (reference-game screenshots, third-party character models, a tutorial .blend, YouTube thumbs); keep them in git-ignored `docs/reference/thirdparty/` | CONTRACTS §0 L25-26; commit `0fcb972`; `docs/REFERENCES.md` L13-15 | in force |
 | "A feature is not complete because its button, asset or code exists" — needs in-game result, tests, evidence | RM L206; CONTRACTS §12 L761-762; HO L194-195 | violated today by NEW's audio toggles (U-20) |
 | Don't recreate exactly — make it better | CL 10-05 08:58 | in force |
 | Prove one character / map / loop first, then roll out | REC (share3 L85-99); CONTRACTS §12 L786 | in force |
@@ -140,7 +140,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | R-06 | A gacha "with a new tower and hero" (C4) | DONE (Luna, Hotaru recruitable; `src/ui/screens/recruit.js`) | DONE (`gacha.js` L39-47 "Moonlit Wishes": Luna + Hotaru) | — | |
 | R-07 | Rarities for towers, progression-based (C7) | DONE R/SR/SSR (`src/data/types.js` L199-201) | DONE (`growth.js` RARITIES L23, BASE_RARITY L28) | **P0** recheck | Pick one rarity table for shared ids (they differ, see §0.9). |
 | R-08 | Two units + a hero placeable on water (C19) | DONE: Sango, Umeko, Nami (`placement: 'water'`) | DONE (+ Seiran, Marina, Amane as land+water) | — | Decide amphibious vs water-only for ported water girls. |
-| R-09 | Subclass towers by role like Bloons, "more unique"; keep the type chart (C19) | DONE: 19 roles + `ROLE_CATEGORIES` (`types.js` L81), `unitSubclassLabel` (`src/data/wiki.js`), 5×5 type chart | DONE `SUBCLASSES` (`$M/fmt/data.js` L340-357) | — | |
+| R-09 | Subclass towers by role, "more unique"; keep the type chart (C19) | DONE: 19 roles + `ROLE_CATEGORIES` (`types.js` L81), `unitSubclassLabel` (`src/data/wiki.js`), 5×5 type chart | DONE `SUBCLASSES` (`$M/fmt/data.js` L340-357) | — | |
 | R-10 | Role types: duelist/DPS, control, support, frag … (C19) | DONE | DONE | — | |
 | R-11 | "List all the characters and what they do" (C19) | DONE for 19 (`docs/ROSTER.md`; README L114-138) | Codex reply table (CX@911) | **P0** | Rewrite for the merged roster + skins + future units. |
 | R-12 | Free unlock girl before each required mechanic (ghost only certain types hit, "ninja monkey camo"; water stage gives the water girl) (C19, C20) | DONE: "every counter… from a free girl, one stage before" (README L85-86; stage `unlocks`) | DONE `EXPANSION_GRANTS`, `CHAPTER_UNLOCKS` (`growth.js` L50-51) | **P0** recheck | Re-validate after the roster swap; integration D2 (which new girls are free). |
@@ -156,10 +156,10 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
-| A-01 | Cute 3D chibis in gameplay like Umamusume / Arknights (C2, C3) | DONE: 19 rigged Blender GLBs + LODs (`public/models/characters/`) | DONE: 35 rigged Draco GLBs | **P0** | Old GLBs become the main battle chibis; V2 GLBs become skins. |
+| A-01 | Cute 3D chibis in gameplay like the owner's reference games (C2, C3) | DONE: 19 rigged Blender GLBs + LODs (`public/models/characters/`) | DONE: 35 rigged Draco GLBs | **P0** | Old GLBs become the main battle chibis; V2 GLBs become skins. |
 | A-02 | Chibis like the attachments, not flat; better faces; "proper body types and proportions"; research tutorials (C7, C9, C10, C12, C14, C16, C41; CL 10-05 13:18 "models still look really shitty") | PARTIAL: owner on V2: "the girls look cute" in battle but the 3D lobby girl "looks ugly as shit" (O7 17:06) | PARTIAL: "the designs were cute" (O7 16:52); flaws listed in `$M/characters.md` §0.7 | **P0** | Superseded as a target by A-03. |
 | A-03 | **Approved look: Meshy Hikari turnaround = target for every 3D battle chibi and 2D chibi art** (O7 17:43) | IN PROGRESS: reference committed (`d617b2e`, `docs/art/approved/`); 3D test untracked (`public/_meshy-test/hikari.glb`, `previews/_meshy-test.html`) | It was generated from old `hikari.webp` + an old chibi crop | **P0** | Prompt per girl in `docs/art/approved/chibi-style-hikari-prompt.txt` (9 credits/run). |
-| A-03b | **Bigger and stubbier battle chibis like the BA model ("the big issue is the scaling"); owner scores: Meshy 6/10, Codex 3/10 "ugly"; the 2D chibi sheet looks better than the 3D** (O7 18:20, 18:26; Wakamo ref zip) | IN PROGRESS: `scratchpad/chibi-v2/` Hikari (separate eye/mouth atlas; baked old eyes still visible, `shots/portrait3.png`); scales unchanged (`src/render/actors.js` L12-14) | Codex GLBs ≈2.3 heads but rated ugly | **P0** | See §00. Use the Wakamo rip for proportions only; never ship it. |
+| A-03b | **Bigger and stubbier battle chibis like the reference model ("the big issue is the scaling"); owner scores: Meshy 6/10, Codex 3/10 "ugly"; the 2D chibi sheet looks better than the 3D** (O7 18:20, 18:26; reference zip) | IN PROGRESS: `scratchpad/chibi-v2/` Hikari (separate eye/mouth atlas; baked old eyes still visible, `shots/portrait3.png`); scales unchanged (`src/render/actors.js` L12-14) | Codex GLBs ≈2.3 heads but rated ugly | **P0** | See §00. Use the reference rip for proportions only; never ship it. |
 | A-04 | Use Meshy ("don't forget you have meshy", "people make chibi renders in meshy that look like what I want") (O7 16:39-16:44, 17:28) | IN PROGRESS (API works through the proxy; `scratchpad/meshy-chibi/`, `scratchpad/meshy/`) | — | **P0** | Credit budget: ~1,390 left at last log; 3D image-to-3D + rig + animation cost much more than 2D. |
 | A-05 | Main style video = dino-hoodie chibi (C43; REFERENCES.md L7) | SUPERSEDED by A-03 | not achieved (HO L138-139) | — | |
 | A-06 | Use the owner's base mesh Chibibase (C12) | DONE as V1 fallback (`public/models/chibi_base.glb`) | used by Codex | P2 | Only a fallback after the merge. |
@@ -167,11 +167,11 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | A-08 | Pick up the chibi girls; they wriggle cutely (C6, C16) | PARTIAL: lobby secretary tap reaction `pickup` (`src/ui/lobby/secretary.js` L375) | DONE: city Play mode, held pose with kicking feet (`req-pretty/village.js` L323-489) | P1 | Comes with the city (H-*). |
 | A-09 | Character view: card art and chibi, clearly separated (C19) | DONE: Card Art ⇄ 3D Chibi toggle (`src/ui/screens/student.js` L1-4, L248) | DONE (`data-view="art"/"chibi"`) | **P0** | Card art must become illustrations (A-10). |
 | A-10 | **Drawn art instead of code-drawn**: background art for the girls, portraits "like this" (O7 17:06-17:16; Claude admitted SVG limits CL 10-05 09:26) | MISSING: all portraits are `cardArtSVG` (`src/art/cardArt.js`) | DONE for 20: `assets/{hikari,luna,nami,hotaru,sango,umeko}.webp` + 7 pair portraits (downloaded to `$M/portraits/`); `academy.webp` landscape | **P0** | Missing: aoi, rei, yuki, akane, shiro, kage, raika, miko, midori, momo (+ non-swimwear marina/amane). Put art inside the SVG frame (`$M/integration.md` §4). |
-| A-11 | Azur Lane-style stands: new dynamic pose on a themed diorama, transparent; "the proportions get all weird, ew" → redraw the pose, keep proportions (O7 17:11-17:16) | IN PROGRESS: pilot Hikari/Sango/Aoi with critic (`scratchpad/art-pilot/`, BIBLE.md: 6.5-7.5 heads, legs 45-50 %) | — | P1 (pilot P0) | Critic must measure proportions against the anchor illustration. |
-| A-12 | Bremerton-style info card: big name, class, rarity, stat radar, expression strip (O7 17:11; OWNER_REQUESTS L285) | MISSING (Student Info tab = text/chips) | — | P1 | After illustrations exist. |
+| A-11 | Diorama stands: new dynamic pose on a themed diorama, transparent; "the proportions get all weird, ew" → redraw the pose, keep proportions (O7 17:11-17:16) | IN PROGRESS: pilot Hikari/Sango/Aoi with critic (`scratchpad/art-pilot/`, BIBLE.md: 6.5-7.5 heads, legs 45-50 %) | — | P1 (pilot P0) | Critic must measure proportions against the anchor illustration. |
+| A-12 | Character info card: big name, class, rarity, stat radar, expression strip (O7 17:11; OWNER_REQUESTS L285) | MISSING (Student Info tab = text/chips) | — | P1 | After illustrations exist. |
 | A-13 | Lighting, cute 3D props, bloom, post-processing; "lighting physics post effects engine" (C4, C16) | DONE: UnrealBloom, fog, quality presets (`BattleRenderer.js` L8-10, L24-26, L91-96), props/ambient | DONE (`postfx.js` bloom/AO/grade, `lighting.js`) | — | No physics in either; fine. |
 | A-14 | Icons for everything; proper material icons (C14; RM L10) | DONE: test that every item has a dedicated icon (`tests/integration/consistency.test.js` L70-72); illustrated lobby icons (`src/art/lobbyIcons.js`) | PARTIAL (Lucide glyphs, `ui-icons.js`) | — | Owner: "item icons… a lot does look better" (O7 17:06) — keep NEW. |
-| A-15 | Remake models after the references, don't import them (C8, C9) | DONE (no third-party model shipped) | Codex had integrated 3 guest models with a toggle (CX@619) | — | Never ship Suzuka/Aqua/Megumin. |
+| A-15 | Remake models after the references, don't import them (C8, C9) | DONE (no third-party model shipped) | Codex had integrated 3 guest models with a toggle (CX@619) | — | Never ship the third-party guest models. |
 | A-16 | Bestiary shows enemy models (C20) | DONE (`src/ui/screens/bestiary.js` L2, L17) | DONE (`enemy-viewer.js`) | — | |
 | A-17 | Old illustrations need content fixes: Hikari bust-focused; `roster.webp` fan-service on students; summer art (rule) | n/a | flagged in `$M/characters.md` §7 | **P0** | Crop/repaint Hikari; never ship `roster.webp` for students; content-check `assets/summer/*`. |
 
@@ -179,18 +179,18 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
-| U-01 | "Copy the menu from Bloons TD6" (C1) | SUPERSEDED by Blue Archive (O7 16:38); campaign picker is still BTD6-style (`src/ui/screens/campaign.js` L2-3) | — | — | |
-| U-02 | Blue Archive-style overhaul: menus, transitions, animations; "ui doesn't look clean" (RM L4; CL 10-05 13:18) | PARTIAL/ongoing: BA lobby layout, missions hub, Menu Tab, slanted panels; owner: "way way better, but still needs to improve" (O7 17:06) | PARTIAL (city-first lobby) | **P0** continuous | Critic loop per screen. |
+| U-01 | "Copy the menu from [the reference TD game]" (C1) | SUPERSEDED by the academy look (O7 16:38); campaign picker is still in the tower-defense style (`src/ui/screens/campaign.js` L2-3) | — | — | |
+| U-02 | Academy-style overhaul: menus, transitions, animations; "ui doesn't look clean" (RM L4; CL 10-05 13:18) | PARTIAL/ongoing: academy lobby layout, missions hub, Menu Tab, slanted panels; owner: "way way better, but still needs to improve" (O7 17:06) | PARTIAL (city-first lobby) | **P0** continuous | Critic loop per screen. |
 | U-03 | **Home menu: drawn wide landscape art per girl (memorial lobby), breathing/tap; no 3D girl, no SVG room** (O7 16:34, 17:06, 17:11, 17:16) | MISSING: 3D secretary + SVG office (`lobby.js` L3-8, `secretary.js`, `lobbyRoom.js`) | `academy.webp` title art only | **P0** | Safe zones: `scratchpad/art-pilot/BIBLE.md` "LOBBY". Keep ‹ › secretary swap, hide-UI, notice, carousel. |
 | U-04 | Horizontal first (home menu especially); dynamic compositions (CL 10-05 13:18; O7 17:16) | DONE landscape (`src/ui/orientation.js` L2-4; manifest `orientation: landscape`); dynamic art pending | portrait-friendly | **P0** (art) | |
 | U-05 | "Make the splash menu better" (C16) | MISSING: only a boot splash (`src/ui/styles/base.css` L347), boots into lobby | DONE title screen "MEET HIKARI" over `academy.webp` (`req-pretty/app.js` L1724) | P1 | Cheap once art exists. |
 | U-06 | Transitions on everything; motion 80-120 / 180-260 / 300-450 ms (C16; REC share3 L63) | DONE (`base.css` L38-42 `--t-press/--t-panel/--t-screen`; `src/ui/router.js` L82-84) | PARTIAL (`motion.js`, 32 lines) | — | |
 | U-07 | Cleaner menu, study real gacha layouts (C15) | DONE/ongoing (missions hub, Menu Tab) | DONE ("City, Units, Battle, Summon, Shop + command menu", CX@791) | — | |
-| U-08 | Upgrade tab as its own thing (BA reference) (C16) | DONE (Student tabs Level Up / Awakening / Equipment / Tree) | DONE | — | |
+| U-08 | Upgrade tab as its own thing (a reference game) (C16) | DONE (Student tabs Level Up / Awakening / Equipment / Tree) | DONE | — | |
 | U-09 | Character page with level up, awakening, equipment, tree (C19) | DONE (`student.js` L1-4, TABS L32) | DONE | — | |
 | U-10 | Team builder "like this" (C7) | DONE: one formation, hero + 8 (`src/ui/screens/formation.js`) | DONE + multiple saved teams (`req-pretty/growth.js` `saveTeam` L343, `useTeam` L371) | P2 | Saved team presets. |
 | U-11 | Little icon when a unit is effective on a stage (C7) | DONE ("Glowing girls cover a counter" `formation.js` L187 and one-tap "Add counters" L120; stage prep `stage.js` `countersPanel` L522) | DONE (`matchup`, `growth.js` L385, double-chevron) | — | |
-| U-12 | Map preview before entering; click for details and Bloons-like modes (C7, C13) | PARTIAL: SVG thumbnails + stage prep with 4 difficulties (`stage.js`, `src/art/stageThumb.js`); no 3D explore, no modes | DONE: "EXPLORE IN 3D" rotatable preview (`req-pretty/app.js` L2260, L2298) + 6 modes (B-14) | P1 modes / P2 3D preview | |
+| U-12 | Map preview before entering; click for details and tower-defense-style modes (C7, C13) | PARTIAL: SVG thumbnails + stage prep with 4 difficulties (`stage.js`, `src/art/stageThumb.js`); no 3D explore, no modes | DONE: "EXPLORE IN 3D" rotatable preview (`req-pretty/app.js` L2260, L2298) + 6 modes (B-14) | P1 modes / P2 3D preview | |
 | U-13 | Medal in the stage card corner per difficulty (C20) | DONE (`stage.js` L99 `medalRow`; campaign cards) | DONE (per difficulty × mode) | — | |
 | U-14 | Wiki built into the game (C18) | DONE: 17 searchable articles (`src/data/wiki.js`) | DONE (wiki tabs roster/types/counters) | **P0** recheck | Update for merged roster + new mechanics. |
 | U-15 | Backpack + item icons (C18), organised by category not rarity (RM L10) | DONE (`src/ui/screens/backpack.js` L1; tabs by category, rarity = filter) | PARTIAL | — | Owner preferred NEW. |
@@ -207,7 +207,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
 | G-01 | Gacha animations + 10-pulls, skippable (C6) | DONE (`recruit.js` `playReveal` L281-384, Skip L290; results saved before the animation, header L6) | DONE | — | |
-| G-02 | Reveal "like CRK or Genshin, cool VFX"; Genshin = the gacha reference (anticipation → meteor colour by rarity blue/purple/gold → readable results) (C6; O7 16:38; OWNER_REQUESTS L271) | PARTIAL: CSS halo "envelope", card flips, SSR showcase with SVG card (`recruit.js` L295-334); no rarity colour tell | DONE-ish: 3D portal + meteor coloured by best rarity `#ffdb85/#d5adff/#9cdfff` + 3D chibi reveal (`req-pretty/cinematics.js` L53-60, L121, L537-602); looked at `$M/world-shots/old/o17-wish-cine-b.png` | P1 | Port the idea with illustrations; keep "results never lost or double-charged". |
+| G-02 | Reveal "like [reference gacha games], cool VFX"; the gacha reference (anticipation → meteor colour by rarity blue/purple/gold → readable results) (C6; O7 16:38; OWNER_REQUESTS L271) | PARTIAL: CSS halo "envelope", card flips, SSR showcase with SVG card (`recruit.js` L295-334); no rarity colour tell | DONE-ish: 3D portal + meteor coloured by best rarity `#ffdb85/#d5adff/#9cdfff` + 3D chibi reveal (`req-pretty/cinematics.js` L53-60, L121, L537-602); looked at `$M/world-shots/old/o17-wish-cine-b.png` | P1 | Port the idea with illustrations; keep "results never lost or double-charged". |
 | G-03 | Developer gem code (removed): currency must not drop after a pull (C7) | DONE structurally (single local profile) but no test that 999,999 survives 1× and 10× pulls (`tests/systems/missions.test.js` has only reset 67, L135) | DONE (save-switch bug fixed, CX@619, CX@911) | P1 | Add the regression test. |
 | G-04 | Multiple banners for towers and for heroes (C7) | MISSING: one "Standard Recruitment" (`recruit.js` L126-141; `src/systems/gacha.js` `POOL` L17) | DONE: 11 banners, `category: towers|heroes` (`req-pretty/gacha.js` L60-190) | P1 | 30+ unit pool needs it; event girls stay out of ordinary pools (HO L118). Integration D5. |
 | G-05 | Banners rotate on real time, daily 7 PM CST (C15) | MISSING | DONE `bannerRotation()` America/Chicago 19:00, standard + 5 rotating pairs, countdown, "nothing was spent" guard (`req-pretty/live-ops.js` L38-79) | P1 | |
@@ -220,19 +220,19 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
-| B-01 | Bloons-TD-inspired tower defense (C1) | DONE | DONE | — | |
+| B-01 | Tower defense (C1) | DONE | DONE | — | |
 | B-02 | Free placement, no tiles (CL 10-05 13:18) | DONE (`src/sim/placement.js`; `docs/PLACEMENT.md`) | DONE (free land placement) | — | |
 | B-03 | No red forbidden border; small circle under the girl, red where she can't stand, white where she can (O7 17:21) | DONE (commit `9da14e4`; settings text `settings.js` L91) | — | **P0** verify | Re-check footprints with the old (bigger) models. |
 | B-04 | Drag-and-drop actually places on release (C37) | DONE (README L35; smoke does a real drag) | DONE (`deployment-input.js`) | — | |
 | B-05 | Identify entrances/exits with cute animated arrows (C37) | DONE arrows + glowing discs + gates (`src/render/ambient.js` L331-370); no text labels | DONE "ENTRY / EXIT ♡" labels + chevrons (`oldgame/route-markers.js` L15) | P2 | Labels optional. |
-| B-06 | **Tracks not linear/repetitive: Bloons-like curves, loops, crossings, splits, tunnels** (O7 17:06; C14 "more variety") | IN PROGRESS: tracks-v3 (`/home/user/wt-tracks`: `src/core/track.js`, `src/render/trackMesh.js`, 13 modified files incl. sim/render/data, uncommitted) | 22 maps with loops/crossings/alternating lanes | **P0** finish | |
+| B-06 | **Tracks not linear/repetitive: winding curves, loops, crossings, splits, tunnels** (O7 17:06; C14 "more variety") | IN PROGRESS: tracks-v3 (`/home/user/wt-tracks`: `src/core/track.js`, `src/render/trackMesh.js`, 13 modified files incl. sim/render/data, uncommitted) | 22 maps with loops/crossings/alternating lanes | **P0** finish | |
 | B-07 | More interesting map types with gimmicks, water theme (C6) | PARTIAL: water lakes/islands/bridges and themes; no map gimmicks (no map rule in `src/data/stages.js`, `maps.js`, `src/sim/`) | DONE per-map rules with ACTIVE/resting rhythm, e.g. "Lunar eclipse · ACTIVE" (`$M/combat.md` §3.5) | P1 | One rule per map, previewed. |
 | B-08 | ~15 levels with unique areas → more stages (C6, C29, C39) | DONE: 40 campaign stages / 8 chapters, 49 maps | DONE: 22 campaign + 5 resource + 3 boss + tutorial + 6 event (37 maps) | — | |
-| B-09 | Maps vibrant/alive like BTD6 (CL 10-05 13:18; RM L14; O7 16:38) | DONE V2 terrain; owner: "the maps look so much better" (O7 17:06) | weaker | — | Keep NEW. |
+| B-09 | Maps vibrant/alive like the reference TD game (CL 10-05 13:18; RM L14; O7 16:38) | DONE V2 terrain; owner: "the maps look so much better" (O7 17:06) | weaker | — | Keep NEW. |
 | B-10 | Boss stages (C7); custom maps for resources and bosses (C18) | DONE: 3 Total Assault + 15 Bounty (gates 1-5/3-5/5-5; bosses 5-5/6-5/8-5) | DONE (raids + 5 resource ops) | — | |
 | B-11 | Sandbox mode (C7); tactical lab with damage breakdown (REC) | MISSING (no sandbox in `src/`) | DONE sandbox: 999,999 coins, any girl/map/enemy, spawn controls, no rewards (`req-pretty/app.js` L519-596; lesson at 7 clears) | P1 | Damage breakdown = P2. |
-| B-12 | Bloons-like difficulty modifiers / modes per map (C13) | PARTIAL: 4 difficulties easy/normal/hard/nightmare + medals (`types.js` L178) | DONE 6 modes: Standard, Reverse Route, Goblin Rush, Ironclad, Half Income, Last Petal, medal per difficulty × mode (`$M/pretty/battle-modes.js` L3-51); map tiers L61-65 | P1 | Also covers REC "mission contracts". |
-| B-13 | Harder: Bloons / Battle Cats level, "far too easy" (C18; RM L18) | DONE per bot: free units Easy 40/40, Normal 39/40, Hard 28/40, Nightmare 0/40 (CL 10-05 13:33; `docs/CAMPAIGN.md` L142-146) | DONE (cozy/standard/challenge) | **P0** recheck | Re-tune after roster swap; owner hasn't playtested NEW difficulty. |
+| B-12 | Difficulty modifiers / modes per map (C13) | PARTIAL: 4 difficulties easy/normal/hard/nightmare + medals (`types.js` L178) | DONE 6 modes: Standard, Reverse Route, Goblin Rush, Ironclad, Half Income, Last Petal, medal per difficulty × mode (`$M/pretty/battle-modes.js` L3-51); map tiers L61-65 | P1 | Also covers REC "mission contracts". |
+| B-13 | Harder: the reference TD games' level, "far too easy" (C18; RM L18) | DONE per bot: free units Easy 40/40, Normal 39/40, Hard 28/40, Nightmare 0/40 (CL 10-05 13:33; `docs/CAMPAIGN.md` L142-146) | DONE (cozy/standard/challenge) | **P0** recheck | Re-tune after roster swap; owner hasn't playtested NEW difficulty. |
 | B-14 | Stage reflects new enemies (C20) | DONE (`src/render/terrain.js` L142-169 `INTRO_KEYWORDS`) | DONE | — | |
 | B-15 | Pre-wave warnings; evidence-based defeat debrief (REC, adopted in CONTRACTS §12) | DONE (`src/sim/report.js` L125-176; `src/ui/battle/scout.js`) | PARTIAL (blocking scout modal) | — | |
 | B-16 | Next-wave scouting, teleport warnings, field rings, counter shortcuts (CX@1043) | DONE | DONE | — | |
@@ -245,7 +245,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
 | E-01 | Orcs, slimes, goblins; ghosts/ghouls/oni by map (C4, C5) | DONE: 74 defs / 12 families, 12 family GLBs 2.27 MB | DONE: 80 defs / 12 families (primitive models) | **P0** decision | Keep NEW enemies ("enemies you know idk what else you're gonna keep", O7 17:01); port ~9 old ideas (E-09). |
-| E-02 | Crossovers like a purple goblin with Battle Cats-style weaknesses (C5) | DONE (type chart + traits; slime mimics copy one trait) | DONE | — | |
+| E-02 | Crossovers like a purple goblin with reference-TD-style weaknesses (C5) | DONE (type chart + traits; slime mimics copy one trait) | DONE | — | |
 | E-03 | A ghost only certain heroes can hit (C19) | DONE (veiled/phasing + reveal/Veil Sight) | DONE | — | |
 | E-04 | Slimes of every colour copying traits; goblins fast, orcs tanky, ghouls siphon/teleport, oni fields (C20) | DONE (15 slimes; traits siphon, blink, field, …: `types.js` TRAITS, 20 keys) | DONE | — | |
 | E-05 | Minibosses: slime prince, orc general, goblin machine, oni champion (C20) | DONE (`slime_prince`, `orc_general`, `goblin_machine`, `oni_champion`) | DONE | — | |
@@ -258,7 +258,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 
 | ID | Request (source) | NEW status (evidence) | OLD? | Prio | Notes |
 |---|---|---|---|---|---|
-| P-01 | Items from stages to level, awaken and gear like BA (C7) | DONE (books, breakthrough mats, crowns, gear) | DONE | — | |
+| P-01 | Items from stages to level, awaken and gear like the reference academy game (C7) | DONE (books, breakthrough mats, crowns, gear) | DONE | — | |
 | P-02 | Shop tab with random items on rotation (C7) | PARTIAL: Mall 5 tabs, 52 fixed offers with daily/weekly restock (`src/data/shop.js` L3, L11-32; `src/systems/shop.js` L11-26) | DONE random `shopRotation()` (`req-pretty/growth.js` L515) | P2 | |
 | P-03 | Special stages that cost **energy** for grinding books/money/materials (C15) | MISSING: Bounty stages are free; no energy anywhere in `src/` | DONE `ENERGY_CAP 120`, +1 every 6 min, tiers cost 10/15/20, unlock at 0/12/18 clears (`req-pretty/live-ops.js` L4-5, `FARM_TIERS` L80-105, `FARM_STAGES` L106-162) | P1 | Owner asked; ChatGPT advised generous regen. Confirm with owner (decision D-d). |
 | P-04 | Make upgrading harder (C15) | DONE (CONTRACTS §5 costs) | DONE | **P0** recheck | With the bigger roster. |
@@ -271,7 +271,7 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | P-11 | Scale unlocks of bosses/resources with progress (C39) | DONE (stage `requires`) | DONE feature gates: resources 5, gear+event 6, sandbox 7, bosses 8/14/20, awakening 10 (`feature-progress.js` L2-99; HO L104-108) | — | |
 | P-12 | Start with the first basic tower, unlock more one by one (C29) | PARTIAL: starts with Hikari + Aoi + Rei (`save.js` L21) then free girls by stage | DONE: Hikari + Aoi; tutorial → Yuki; Rei, Miko, Momo early (`growth.js` L49-51) | P1 | With the tutorial. |
 | P-13 | Stop currency cheating ("game guardian") (C29, C35) | MISSING: plain localStorage profile, no checksum | DONE server replay verification of rewards (server not in the mirror; only in the 368 MB package) | P2 | Static Pages can't be cheat-proof; a checksum deters casual edits. Say so honestly. |
-| P-14 | F2P income overview, weekly double-drop event, achievements (NEW extras from BA/HSR refs) | DONE (`src/ui/screens/rewards.js`; `WEEKLY_EVENTS` 5; 30 achievements) | — | — | |
+| P-14 | F2P income overview, weekly double-drop event, achievements (NEW extras from reference games) | DONE (`src/ui/screens/rewards.js`; `WEEKLY_EVENTS` 5; 30 achievements) | — | — | |
 
 ### 2.8 City / hub
 
@@ -343,8 +343,8 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 | X-01 | Merge the two games into a "super game", then clean from there (O7 17:01) | IN PROGRESS (this audit + `$M/characters.md`, `combat.md`, `integration.md`, world/city work) | **P0** | |
 | X-02 | "Remember to look at my requests from codex and here" (O7 17:01) | this file | **P0** | Fold §2 into `docs/OWNER_REQUESTS.md` as the acceptance checklist. |
 | X-03 | Two agents: one builds, one screenshots and compares until it's better; recommendations must fit the owner's view (O7 16:36, 17:14) | PARTIAL (builder/critic workflows for lobby-v3 and art-pilot) | **P0** | Every art batch through the critic before the owner sees it (OWNER_REQUESTS L286). |
-| X-04 | Look up BA gameplay/screenshots and recreate the home menu; "you can generate stuff" (O7 16:34) | PARTIAL (BA refs in `docs/reference/thirdparty/`; Meshy nano-banana-pro image generation) | **P0** | |
-| X-05 | Reference games: BA menus + chibis, Genshin gacha, BTD6 environments (O7 16:38) | recorded (`docs/OWNER_REQUESTS.md` L269-275) | **P0** | |
+| X-04 | Look up reference gameplay/screenshots and recreate the home menu; "you can generate stuff" (O7 16:34) | PARTIAL (refs in `docs/reference/thirdparty/`; Meshy nano-banana-pro image generation) | **P0** | |
+| X-05 | Reference games: academy menus + chibis, a gacha reveal, tower-defense environments (O7 16:38) | recorded (`docs/OWNER_REQUESTS.md` L269-275) | **P0** | |
 | X-06 | "Now also work on the game changes too" — not only art (O7 17:19) | ongoing (placement done, tracks-v3) | **P0** | Keep a gameplay track running beside art. |
 | X-07 | Audit that every earlier request was really implemented (RM L8) | this file | **P0** | |
 | X-08 | Install whatever plugins/tools you need (C12; RM L16; CL 10-05 09:24) | DONE (Blender bpy, Meshy, rembg venv) | — | |
@@ -359,11 +359,11 @@ Draco), `source/scripts/art/` (Codex Blender builders). Worth asking for those f
 
 | Ask | Source | Handling |
 |---|---|---|
-| "Create art in this like sexy style", "tasteful sexy like in blue archive", "sexy designs for a lot of the older characters", "at least do biki", "sexy bikini outfit / hero", "Japanese summer fan service" | CL 10-05 08:33, 08:41, 08:44, 09:09; C40 | DECLINED for academy girls and every chibi body. CL 09:10 offered adult heroes "normal beachwear"; CONTRACTS §0 L21-24 later forbids swimsuits for heroes too, and the merge rule bans swimwear on chibi bodies. Summer = yukata, sundresses, rash guards, sun hats, sailor/lifeguard jackets, floats, popsicles (CL 09:26). |
+| "Create art in this like sexy style", "tasteful sexy like in [a reference game]", "sexy designs for a lot of the older characters", "at least do biki", "sexy bikini outfit / hero", "Japanese summer fan service" | CL 10-05 08:33, 08:41, 08:44, 09:09; C40 | DECLINED for academy girls and every chibi body. CL 09:10 offered adult heroes "normal beachwear"; CONTRACTS §0 L21-24 later forbids swimsuits for heroes too, and the merge rule bans swimwear on chibi bodies. Summer = yukata, sundresses, rash guards, sun hats, sailor/lifeguard jackets, floats, popsicles (CL 09:26). |
 | Old beach content | `oldgame/assets/models/{marina,amane,marina-beach,amane-beach,nami-beach}.glb`, `assets/summer/*` | Do not ship; new non-swimwear outfits before Marina/Amane/event skins return. |
 | Old art with fan-service framing | `assets/roster.webp`, `assets/hikari.webp` | `roster.webp` never for students; Hikari: crop or repaint. |
-| Codex guest models (Suzuka/Aqua/Megumin) | CX@619; uploads | Not shipped (copyright); visual reference only. |
-| "Copy the menu from Bloons TD6" | C1 | Superseded by Blue Archive for menus (O7 16:38); BTD6 kept for maps and the campaign picker. |
+| Codex guest models (three third-party characters) | CX@619; uploads | Not shipped (copyright); visual reference only. |
+| "Copy the menu from [the reference TD game]" | C1 | Superseded by the academy look for menus (O7 16:38); the TD reference kept for maps and the campaign picker. |
 | Dino-hoodie video as chibi target | C43 | Superseded by the approved Meshy turnaround (O7 17:43). |
 | 3D girl / SVG room home menu | V2/V3 lobby | Superseded by drawn memorial-lobby art (O7 17:06). |
 | Red forbidden-zone overlay | V2 placement | Superseded by the small white/red circle (O7 17:21) — done. |
@@ -380,7 +380,7 @@ D-e daily reset at 7 PM Central for everything. D-f run the summer event this se
 D-g banners: port the 11 rotating banners or start with standard + 2 rotating. D-h battle chibis from Meshy (new
 approved look, credit cost ×32) vs ported Codex GLBs restyled (`$M/characters.md` §5.5) as the first pass.
 **Update 23:05:** the owner rated the Codex chibi 3/10 ("ugly") and Meshy 6/10 (N-05), so D-h leans to new
-BA-style stubby chibis (chibi-v2 pipeline), with the Codex GLBs as a temporary stand-in only.
+stubby academy-style chibis (chibi-v2 pipeline), with the Codex GLBs as a temporary stand-in only.
 
 ---
 
@@ -444,7 +444,7 @@ BA-style stubby chibis (chibi-v2 pipeline), with the Codex GLBs as a temporary s
   "fan service"; read before porting).
 * Which Codex reference images belonged to which request (only in the 368 MB package, and even there "cannot be
   certified", HO L28-32).
-* The Oct 7 Azur Lane / Bremerton / dynamic-background reference images the owner attached are described in
+* The Oct 7 diorama-stand, info-card and dynamic-background reference images the owner attached are described in
   `scratchpad/art-pilot/BIBLE.md` but were not found as files in the repo or kit.
 
 ## 7. Evidence I looked at (screenshots/images, all opened with Read)

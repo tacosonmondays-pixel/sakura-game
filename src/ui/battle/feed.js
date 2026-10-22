@@ -104,7 +104,7 @@ export function createFeed(layer) {
   }
 
   /**
-   * Big announcement banner (slanted Blue Archive ribbon).
+   * Big announcement banner (slanted academy ribbon).
    * Freeplay kinds: 'free' (violet → pink → gold; with o.glitch the title splits into pink and cyan
    * copies for a moment — the 16/15 crossing) and 'finale' (dark red → gold with drifting embers).
    * They are not clamped like routine 'wave' banners on short screens, only shortened.

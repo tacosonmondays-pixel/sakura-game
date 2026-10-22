@@ -27,8 +27,8 @@ other (`_horns.comp(against=…, also=…)`): no minor 2nds / 9ths with the head
 review: originality — the head (built on the project's SENTINEL CALL), the replies, the chip answers, the dub bass
 solo, the descant and all grooves are new; BELL is the project's own motif. Ska / 2-tone / rocksteady standards and
 famous ska horn lines (and their basslines) were kept in mind and not used; checked by ear-memory against well-known
-ska, reggae and game overworld marches (Zelda, Mario, Dragon Quest, Pokémon, EarthBound/Mother, Undertale/Deltarune,
-Blue Archive): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
+ska, reggae and game overworld marches from console, indie and gacha games: no shared
+hook or contour. Composer B1, 2026-10-09 (round 3).
 """
 from dataclasses import replace
 

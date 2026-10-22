@@ -19,9 +19,9 @@ Form: intro |: A A2 B C D T :|  — 4 + 44 bars (62.9 s loop; intro + 2 render c
 Leitmotifs: SHADOW (intro, B, T), main theme (A frantic minor, C heroic), BELL (A/A2 inside the theme, B, C
 answered, horn in A2).
 review: originality — the minor/heroic settings, counterpoint, bass lines, runs and arrangement are new; the
-melodic material is the project's own main theme, BELL and SHADOW. No Megalovania-style opening (repeated root +
-octave leap + descending chromatic run) anywhere; checked by ear-memory against Undertale/Deltarune boss themes,
-EarthBound/Mother battle themes, Mega Man/Castlevania/FF boss themes: no shared hook or contour. Composer B, 2026-10-08.
+melodic material is the project's own main theme, BELL and SHADOW. No opening built from a repeated root +
+octave leap + descending chromatic run anywhere; checked by ear-memory against well-known boss and battle themes
+of console and indie RPGs and action games: no shared hook or contour. Composer B, 2026-10-08.
 Round 3 (owner favourite, polish only): no note changes; phone-speaker balance — slap bass +1.5 dB (the D-section
 bass breaks sat ~7 dB under the chip answers on a phone model and tied with the tremolo strings), tremolo −1 dB,
 organ stab bed +1.5 dB.

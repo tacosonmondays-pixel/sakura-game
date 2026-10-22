@@ -1,16 +1,16 @@
 {
  "id": "toby",
- "description": "PRIVATE (friends-only alpha): the soundfonts Toby Fox used - EarthBound (SNES rip) + SGM. Fonts are never committed: put them in tools/audio/private/ or point SAKURA_PRIVATE_SF2 at their folder. Missing fonts fall back to cleared role by role, with a warning.",
+ "description": "PRIVATE (friends-only alpha): a private 16-bit RPG soundfont (eb, an SNES rip) + SGM. Fonts are never committed: put them in tools/audio/private/ or point SAKURA_PRIVATE_SF2 at their folder. Missing fonts fall back to cleared role by role, with a warning.",
  "inherit": "cleared",
  "_howto": [
   "1. Copy the two files into tools/audio/private/ (gitignored) or set SAKURA_PRIVATE_SF2=/path/to/folder.",
   "2. If the file names differ, edit soundfonts.eb.path / soundfonts.sgm.path below.",
-  "3. List the EarthBound presets: python tools/audio/studio.py presets eb --palette toby",
-  "4. Move roles onto EarthBound by editing their entry, e.g. \"music_box\": {\"sf\": \"eb\", \"bank\": 0, \"program\": <n>, ...}. When Kai's Toby palette arrives, paste its role -> preset table here (a converter, tools/audio/kai_import.py, gets written once Kai's file format is known).",
+  "3. List the private font's presets: python tools/audio/studio.py presets eb --palette toby",
+  "4. Move roles onto the private font by editing their entry, e.g. \"music_box\": {\"sf\": \"eb\", \"bank\": 0, \"program\": <n>, ...}. When Kai's Toby palette arrives, paste its role -> preset table here (a converter, tools/audio/kai_import.py, gets written once Kai's file format is known).",
   "5. Re-render with python tools/audio/studio.py render all --palette toby (output stays in tools/audio/build/toby/; nothing ships unless you run ship --palette toby).",
   "6. Round-3 genre roles (tenor_sax ... kick_hard) are mapped to their GM programs in sgm; kick_hard, saw_bass, acid_bass and rhodes repeat cleared's role fx (a child palette replaces whole role entries). The kit roles' kit_map sends fs/sr (GS keys 26/25) to 28/40 because GeneralUser has no samples there; if SGM does, delete those two kit_map entries."
  ],
- "_earthbound_candidates": [
+ "_eb_candidates": [
   "chip_pulse12",
   "chip_pulse25",
   "chip_pulse50",
@@ -30,7 +30,7 @@
  ],
  "soundfonts": {
   "eb": {
-   "path": "${SAKURA_PRIVATE_SF2}/earthbound.sf2",
+   "path": "${SAKURA_PRIVATE_SF2}/eb.sf2",
    "license": "private, friends-only alpha (owner's waiver)"
   },
   "sgm": {
@@ -44,7 +44,7 @@
    "mix": 0.0,
    "hold": 1
   },
-  "_echo_doc": "Songs set their own echo for the shipped palette; toby changes it relative to that: echo_override keys always win (EarthBound's darker echo filter), echo_scale multiplies the song's values (a shorter, slightly wetter echo).",
+  "_echo_doc": "Songs set their own echo for the shipped palette; toby changes it relative to that: echo_override keys always win (the private font's darker echo filter), echo_scale multiplies the song's values (a shorter, slightly wetter echo).",
   "echo_override": {
    "fir": "dark"
   },

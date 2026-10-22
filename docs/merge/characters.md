@@ -364,7 +364,7 @@ Imports to change when porting: old modules import `./vendor/three.module.min.js
   add a small battle-only head look-up (e.g. head pitch −0.10 rad in `animate`) or tilt the avatar 6–8° toward
   the camera.
 - **Fixes to schedule:** calf poke-through (back view) — push socks out or delete hidden skin faces;
-  optional BA halo from `src/models/halo.js` `buildHalo(ctx)` attached to the `head` bone (old designs have none).
+  optional halo from `src/models/halo.js` `buildHalo(ctx)` attached to the `head` bone (old designs have none).
 
 ### 5.6 Offline alternative (precomputed files)
 
@@ -414,7 +414,7 @@ Load lazily per battle formation (like V2 `preloadModels(ids)`) — never all 32
 
 `rate` = seconds between attacks (old convention; new uses attacks/s). Range in old world units (map 28×16;
 ≈ ×0.72 for the new 20×12 tiles). Flags: W water+land, D detect (veil sight), R reveal aura, G ground-only.
-Base towers upgrade with 3 named tiers *and* the BTD branches (3 branches × 3 tiers, max two branches,
+Base towers upgrade with 3 named tiers *and* the crosspath branches (3 branches × 3 tiers, max two branches,
 secondary ≤ tier 1 once primary ≥ 2; cost = `cost × (0.75 + tier × 0.6)`; per level ×1.55 damage, ×0.92
 rate, +0.4 range; `engine.js` L122-148, L203-218). Heroes: level = min(9, kills/40), ×1.1 dmg, ×0.97 rate,
 +0.1 range per level, one ult. Elements: physical, fire, frost, lightning, poison, holy, arcane

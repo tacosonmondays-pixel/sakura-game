@@ -1,7 +1,7 @@
 # Sakura Sentinels — Audio Design
 
 Owner request (2026-10-08, verbatim): *"No music or sound too. Use the music engine we created for Kai game
-use Toby style nes earthbound sound font like you did for that game custom new music forget about copy right
+use Toby style nes [16-bit RPG] sound font like you did for that game custom new music forget about copy right
 for now we're just in alpha 2 anyways and it's only between friends for now"*.
 
 This document is the contract for the **audio** area (branch `feature/audio`). It covers where audio hooks
@@ -15,11 +15,11 @@ private "Toby" palette). It does not cover compositions: we never quote or parap
 | | |
 |---|---|
 | Music | Not a live synth. Songs are written as note data (Python DSL or JSON) → MIDI → FluidSynth with a soundfont **palette** → stems (WAV) → numpy mix (SNES echo, optional crush, loudness) → Opus `.webm` + AAC `.m4a` → `public/audio/music/` + `manifest.json` |
-| Palettes | `cleared` (GeneralUser GS + our CC0 `sakura-chip.sf2`, works now), `strict` (FluidR3 GM, MIT + `sakura-chip`), `toby` (owner's private EarthBound + SGM soundfonts, slot ready) and `chip` (all-NES joke mode). `--palette toby` re-renders every song with only a JSON swap |
+| Palettes | `cleared` (GeneralUser GS + our CC0 `sakura-chip.sf2`, works now), `strict` (FluidR3 GM, MIT + `sakura-chip`), `toby` (owner's private 16-bit RPG + SGM soundfonts, slot ready) and `chip` (all-NES joke mode). `--palette toby` re-renders every song with only a JSON swap |
 | Playback | WebAudio: one AudioContext (32 kHz), master/music/sfx buses, a music director with sample-locked stems, gapless head+loop scheduling, bar-quantised transitions, stingers, ducking, and a pooled SFX sprite player with rate limits for 3× speed |
 | Hooks | Mostly zero-touch: `screenchange`, `store.on('change')`, delegated clicks and a body MutationObserver. Small explicit hooks: 1 line in `main.js`, 3 in `controller.js`, 2 in `placement.js`, 7 in `recruit.js`, about 6 in `settings.js` and 4 in `save.js` |
 | Soundtrack | 12 looping tracks (5 battle families + boss + final boss, each with base + intensity stems) + about 18 jingles and stingers, built around the **Sakura Bell** music-box motif and an original main theme |
-| SFX | 84 offline-rendered SFX ids (P1 core: 60, P2 polish: 24) in one sprite, tuned short and clean, Deltarune-style |
+| SFX | 84 offline-rendered SFX ids (P1 core: 60, P2 polish: 24) in one sprite, tuned short and clean, retro-RPG style |
 | Budget | ≤ 25 MB of music in the repo for both formats together (Opus ≈ 10.5 MB, AAC ≈ 12 MB). A player downloads only one format and only per screen. SFX sprite ≤ 300 KB |
 
 ---
@@ -36,7 +36,7 @@ Milestones A1-A5 of §7 are done, plus the Sound Test of §6.6. **Round 2 (2026-
 |---|---|---|
 | Toolkit setup | `tools/audio/requirements.txt`, `setup_venv.sh`, `fetch_soundfonts.py`, `make_chip_sf2.py` | GeneralUser GS fetched by `git` at the pinned commit, size + SHA-256 checked, licence copied next to it; FluidR3 fallback; `sakura-chip.sf2` (CC0) is generated deterministically |
 | Song → MIDI | `sakura_audio/notation.py`, `theory.py`, `song.py`, `gen.py`, `midi.py`, `songs/motifs.py` | Python DSL or JSON (`Song.from_dict`), bar validator, chord-symbol generators, motif markers, tempo snap |
-| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 116 roles (81 + 35 genre roles in round 3, §2.4). `toby` points at `${SAKURA_PRIVATE_SF2}/earthbound.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
+| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 116 roles (81 + 35 genre roles in round 3, §2.4). `toby` points at `${SAKURA_PRIVATE_SF2}/eb.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
 | Render + mix | `render.py`, `mix.py`, `fx.py`, `encode.py`, `checks.py`, `pipeline.py` | FluidSynth jobs per (stem × font × echo send × part fx), cached by hash; per-part filter / drive / sidechain pump (round 3, §2.4.2); SNES echo, lowpass, optional crush, one loudness gain for all stems, exact head + loop-body file, Opus + AAC, gates |
 | SFX | `sfx/synth.py`, `sfx/recipes.py` (84 ids), `sfx/sampled.py`, `sfx/sprite.py` | one mono sprite + `sprite.json` |
 | Review | `sakura_audio/review.py` | piano roll (motif boxes), waveform with loop points, seam plots (WAV + both decodes), spectrogram, gate report, SFX contact sheet, `index.html` |
@@ -56,7 +56,7 @@ sh tools/audio/setup_venv.sh                              # venv + pinned pip pa
 PY=tools/audio/.venv/bin/python
 $PY tools/audio/studio.py list                            # songs, stems, durations, size estimate
 $PY tools/audio/studio.py roles --palette toby            # where every role comes from (+ fallback warnings)
-$PY tools/audio/studio.py presets eb --palette toby       # presets inside the private EarthBound font
+$PY tools/audio/studio.py presets eb --palette toby       # presets inside the private 16-bit RPG font (eb)
 $PY tools/audio/studio.py midi demo --roll                # GM preview MIDI + piano roll
 $PY tools/audio/studio.py render all                      # every song: stems → mix → loop file → encode → gates
 $PY tools/audio/studio.py render all --palette toby       # same songs through the Toby fonts (build/toby/, not shipped)
@@ -160,7 +160,7 @@ Total: Opus 10,542,063 B, AAC 11,622,388 B (budgets 11 / 13 / 25 MB). SFX sprite
 |---|---|
 | New songs | `final` (Ashwing Matriarch: own E-minor hook, 3+2+2 bridge where SHADOW and the SENTINEL CALL trade bars, main theme in G with the Bell **answered**, rising push), `results_win` (After School), `results_lose` (Petals on the Path: the Bell hangs twice in D minor, answered in F), `awaken`, `new_student` (the Wishing question answered at last), `boss_warning_hold` (4-bar alarm loop, see §3.5). `standins.json` is empty |
 | SNES character | `cleared` now treats the sampled GM voices like S-DSP samples: an 11.5 kHz band limit plus parallel BRR-style 4-bit block grit (mix 0.12; drums 0.10; chip voices untouched) — `mix.voices` in the palette, `mix.py brr_crush / voice_fx`. Kits render in jobs of their own so drums get their own treatment |
-| Palette echo | songs set their echo for the shipped palette; a palette now changes it *relative* to that (`echo_override`, `echo_scale`), so `--palette toby` (shorter, darker EarthBound-style echo) changes every song by editing only `toby.json` |
+| Palette echo | songs set their echo for the shipped palette; a palette now changes it *relative* to that (`echo_override`, `echo_scale`), so `--palette toby` (shorter, darker 16-bit-console echo) changes every song by editing only `toby.json` |
 | Melodies | `homeroom` got its own hook (section H; the main theme now plays once per loop: 2 + 24 bars, 60 s, 1.0 MB instead of 1.38 MB). `battle_matsuri` chorus rewritten (Bell in long notes, then the festival skip climbs) so it no longer opens like Moonlit's. SENTINEL CALL is now +5 +5 +2 −2 (the old +5 +5 −1 shared a famous TV fanfare's gesture). `march` bar 5 is D7sus4 only (no G over F♯ rub) and the third call overshoots to C6 |
 | Balance (solo-part loudness, `partloud.py`) | title koto −38.7 → −24.9 LUFS, chip arp pad −34.5 → −26.3; matsuri lead −24.5 → −21.1 (5 LU under the mix, fue doubles A too; bass/taiko2 −2 dB); lantern koto −21.7 over the upright bass −23.3; blossom counter 2.9 LU under the lead; ironclock counter 3.7 LU under the saw; boss horn 2.8 LU under the lead; mall steel drum 4.8 LU over the e-piano, slap bass +3 dB |
 | Engine | wave / miniboss stings are quantised so their stab (manifest `accent`) lands on the battle loop's next half bar (`loopMath.accentStart`, measured 0.0 ms off the grid in Chromium); `bossTakeover` plays `boss_warning`'s hold loop when the boss track is still decoding and hands over on its bar line; the first track's bytes are prefetched before the unlocking tap (format guessed from the cached probe / `canPlayType`), decoding starts right after the probe, and a track starting from silence plays as soon as its first stem is decoded (the others join sample-locked) — tap → lobby music 5.1 s → 2.5 s on this loaded machine (load average 19) |
@@ -205,7 +205,7 @@ here.
   creation and asks us not to hot-link its downloads. We fetch it from the author's official GitHub repo
   into the gitignored cache, pin the commit, and verify the SHA-256.
 - **Rendered audio is committed** (`public/audio/`). A render made with the `toby` palette contains
-  EarthBound and SGM samples. The owner waived this for the friends-only alpha. The shipped default
+  samples from the private 16-bit RPG font and SGM. The owner waived this for the friends-only alpha. The shipped default
   stays `cleared`, and the `toby` set is only shipped when the owner explicitly runs `ship --palette toby`
   (§2.6). The site is a public GitHub Pages URL, so this choice is made on purpose and never by default.
 - **Compositions are 100 % original** (§4.1 style rules, §6.5 originality check).
@@ -214,7 +214,7 @@ here.
 
 The Kai repository is **not attached to this session**. Nobody here has read Kai's code. This design
 rebuilds the same kind of pipeline from the Kai ledger notes: offline renders, palettes, the stem
-renderer, the self-made chip soundfont and Deltarune-style SFX. To share Kai:
+renderer, the self-made chip soundfont and retro-RPG-style SFX. To share Kai:
 
 1. Connect GitHub at **https://claude.ai/connect-github**, and install the Claude GitHub App on the Kai
    repository (or on its org) from that same page.
@@ -222,7 +222,7 @@ renderer, the self-made chip soundfont and Deltarune-style SFX. To share Kai:
    `tacosonmondays-pixel` account (or install the app on the original account).
 3. Then either attach it to this session (ask Claude to attach `owner/kai`) or start a new Claude Code
    session with both `sakura-game` and the Kai repo selected.
-4. **Do not** put the EarthBound or SGM soundfonts into `sakura-game`. That repo is public through Pages.
+4. **Do not** put the private 16-bit RPG or SGM soundfonts into `sakura-game`. That repo is public through Pages.
    Keep them in the private Kai repo or upload them straight into the session, then set
    `SAKURA_PRIVATE_SF2=/path/to/dir`.
 
@@ -631,7 +631,7 @@ GM programs 0-based:
 | `cleared` | As above. The default and shipped palette |
 | `strict` | Same roles on FluidR3 GM (MIT) + `sakura-chip` (CC0) only, for a fully license-documented build |
 | `chip` | `inherit: cleared`, but every melodic role maps to `sakura-chip` and drums to the NES kit. A full NES mode, cheap to offer later as a Settings "8-bit mode" |
-| `toby` | `inherit: cleared` (any role it does not map falls back, with a warning). Soundfonts point at `${SAKURA_PRIVATE_SF2}/earthbound.sf2` and `${SAKURA_PRIVATE_SF2}/sgm.sf2` (file names confirmed when Kai's ledger or palette arrives). Role entries are filled from Kai's Toby palette. It can also set its own `mix` (EarthBound-style shorter echo, crunchier). Nothing in any song changes: `studio.py render all --palette toby` re-renders everything |
+| `toby` | `inherit: cleared` (any role it does not map falls back, with a warning). Soundfonts point at `${SAKURA_PRIVATE_SF2}/eb.sf2` and `${SAKURA_PRIVATE_SF2}/sgm.sf2` (file names confirmed when Kai's ledger or palette arrives). Role entries are filled from Kai's Toby palette. It can also set its own `mix` (a shorter 16-bit-console echo, crunchier). Nothing in any song changes: `studio.py render all --palette toby` re-renders everything |
 
 #### 2.4.1 Round-3 genre roles (jazz, ska, city pop, techno, hardtek, Celtic, surf, sweet)
 
@@ -1239,7 +1239,7 @@ Failure modes:
 
 ## 4. Soundtrack: style, leitmotifs, main theme, track list
 
-### 4.1 Style guide (what "Toby Fox + EarthBound + NES" means here)
+### 4.1 Style guide (what "8-bit and 16-bit RPG chip + real instruments" means here)
 
 - **Hooks first.** Every track has a 2-bar melodic cell with its own rhythmic signature, repeated with
   altered endings (AA′BA′, call and answer). You should be able to hum it after one loop.
@@ -1256,7 +1256,7 @@ Failure modes:
   - Tight and dry (no echo), "crunchy" kit, shuffle where it fits.
   - Fills every 4 and 8 bars, a crash on section downbeats.
   - Chip-noise hats layered over real hats.
-- **Chip and real instruments together** (the EarthBound/Toby signature):
+- **Chip and real instruments together** (the 16-bit RPG signature):
   - A pulse lead doubled an octave up by glock, music box or trumpet.
   - `chip:arp32` chord arpeggios as pads.
   - Quirky GM colours: slap bass, brass stabs, organ, e-piano, marimba/xylophone, steel drum, music box,
@@ -1268,9 +1268,8 @@ Failure modes:
   driving. Spooky maps are spooky-*cute*, never horror.
 - **Forbidden:**
   - Quoting or paraphrasing any existing melody, riff, chord-and-rhythm signature or arrangement.
-    Explicitly: no Undertale, Deltarune, EarthBound or Mother melodies, Megalovania-style openings
-    (repeated root, then an octave leap and a descending chromatic run), or the Undertale "Once Upon a
-    Time" contour.
+    Explicitly: no melody from an existing game, no opening built from a repeated root, then an octave leap
+    and a descending chromatic run (a famous boss-theme shape), and no famous title-theme contour.
   - Generic idioms (a bVI–bVII–I cadence, a I–vi–IV–V loop, a snare roll) are fine. Recognisable hooks
     are not.
 
@@ -1402,14 +1401,14 @@ P1 = first ship (60 ids), P2 = polish (24 ids). "Delegation" = `domSfx.js`. "Eco
 
 | ID | P | Hook | Recipe | Caps |
 |---|---|---|---|---|
-| `ui.click` | 1 | Delegation fallback (`button`, `a`, `[role=button]`) | Pulse 25 % blip 1.57 kHz, 30 ms, NES decay (Deltarune-style tick) | 3 voices, 25 ms |
+| `ui.click` | 1 | Delegation fallback (`button`, `a`, `[role=button]`) | Pulse 25 % blip 1.57 kHz, 30 ms, NES decay (retro-RPG tick) | 3 voices, 25 ms |
 | `ui.select` | 1 | `.unit-card`, `.item-tile`, `.menu-tab-btn`; wrapped `ctx.select` | Two-step blip up (C6 → G6), 70 ms | 2, 30 ms |
 | `ui.confirm` | 1 | `.btn-yellow`, `.btn-primary`, `.bt-cta`, `.bt-start`, `.bt-buy` | Pulse 25 % C6 → G6 chime + soft echo, 140 ms | 2, 40 ms |
 | `ui.back` | 1 | `.topbar-back`, `[data-testid=back]`, `.menu-tab-x`, reveal close, skip | Two-step down (G5 → C5), 80 ms | 2, 40 ms |
 | `ui.tab` | 1 | `[role=tab]`, `.tab`, `.ma-seg-btn`, `.bt-seg-btn` | Triangle "pip" 880 Hz, 40 ms | 2, 30 ms |
 | `ui.toggle` | 1 | `[role=switch]`, `.ma-toggle`, `[aria-pressed]` (rate 1.12 on, 0.89 off) | Pulse 50 % click + pitch blip | 2, 40 ms |
 | `ui.tick` | 2 | `input[type=range]` (pitch by value); speed button (× speed pips) | Pulse 12.5 % 2 kHz, 12 ms | 1, 60 ms |
-| `ui.deny` | 1 | `button[disabled]` pointerdown, `.toast-bad`, and `bt.deny` reuses it | Low square buzz 110 + 117 Hz, 130 ms (Deltarune "can't") | 1, 150 ms |
+| `ui.deny` | 1 | `button[disabled]` pointerdown, `.toast-bad`, and `bt.deny` reuses it | Low square buzz 110 + 117 Hz, 130 ms (retro-RPG "can't") | 1, 150 ms |
 | `ui.toast` | 2 | `.toast-good` / `.toast-info` | Soft triangle pop, 60 ms | 1, 200 ms |
 | `ui.modalOpen` | 1 | `.modal-overlay` added; pause open (wrap) | Band-passed noise swoosh up + glock tick, 160 ms | 1, 80 ms |
 | `ui.modalClose` | 1 | `.modal-overlay.closing` / removed; pause close (wrap) | Swoosh down, 120 ms | 1, 80 ms |
@@ -1672,7 +1671,7 @@ Run only targeted tests on this shared machine (`npx vitest run tests/audio`, `p
 
 1. Do you want the main theme as the **title** music only, or the title, *and* as the battle-1 B section
    (current plan: both)?
-2. When Kai is shared: which exact EarthBound / SGM files, and should the **shipped** alpha use the
+2. When Kai is shared: which exact private 16-bit RPG / SGM files, and should the **shipped** alpha use the
    `toby` palette (friends-only) or stay `cleared` with `toby` as an opt-in setting?
 3. iPhone silent switch: play music with the ringer off (current plan while Music is on), or respect the
    switch?

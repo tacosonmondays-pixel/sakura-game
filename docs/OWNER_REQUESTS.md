@@ -17,7 +17,7 @@ Let’s create a blooms td inspired tower defense game, we’ll start with 1 her
 Copy the menu from blinds td6!
 
 ### Request 2
-When in gameplay, they’re cute chibi’s like in umamusume or ark knights, can you do that? Like 3D!!
+When in gameplay, they’re cute chibi’s like in [reference games], can you do that? Like 3D!!
 
 ### Request 3
 [image attached]
@@ -45,7 +45,7 @@ You can hide the ui and enter like play mode where you can pick them up or whate
 
 Also make it so the gacha has animations and 10 pulls or whatever and in the settings make a settings with graphics sounds whatever and a code make the code [the developer gem code (removed)] for like 999999 summon currency 
 
-Make a gacha animation like crk or genshin impact!! Cool vfx and shit! 
+Make a gacha animation like [reference gacha games]!! Cool vfx and shit! 
 
 Give the hero unique skills and a cool cutscene animation attack :3333
 
@@ -58,7 +58,7 @@ What else add whatever else you think we need
 [image attached]
 [image attached]
 [image attached]
-give rarities to the towers, and make them progression based! Also when you redeem [the developer gem code (removed)] after one pull your currency goes back down!  make multiple banners for towers, and heroes! Also lets make it so you get items for completeling stages to upgrade units, awaken and equip gear like blue archive.. so we need f2p curency and premium currency. We also need a shop tab where there are ranodm items on rotiation and a team builder like this.. There should also be boss stages, a sandbox mode, also am ap vreview so you know what the level look slike before going into it! also if a uinit is effective on a stage, maybe have a little icon indiocator?... also can you make the chibis look more liek what I am attatching..
+give rarities to the towers, and make them progression based! Also when you redeem [the developer gem code (removed)] after one pull your currency goes back down!  make multiple banners for towers, and heroes! Also lets make it so you get items for completeling stages to upgrade units, awaken and equip gear like [the reference academy game].. so we need f2p curency and premium currency. We also need a shop tab where there are ranodm items on rotiation and a team builder like this.. There should also be boss stages, a sandbox mode, also am ap vreview so you know what the level look slike before going into it! also if a uinit is effective on a stage, maybe have a little icon indiocator?... also can you make the chibis look more liek what I am attatching..
 
 ### Request 8
 [https://github.com/Friedrich-M/UniMate](https://github.com/Friedrich-M/UniMate)
@@ -80,7 +80,7 @@ I mean just look at the models you have created and put them side by side to wha
 ### Request 13
 [image attached]
 [image attached]
-also thjis is what I meant by map preview, you can view it and click on it, and when you do it gives you more information with different difficulties well modes actually since bloons have different difficulty modifiers
+also thjis is what I meant by map preview, you can view it and click on it, and when you do it gives you more information with different difficulties well modes actually since [the reference TD game] has different difficulty modifiers
 
 ### Request 14
 [image attached]
@@ -97,7 +97,7 @@ Also make special stages that take energy for grinding specific resources materi
 [image attached]
 [image attached]
 [image attached]
-please make the splash menu better, add some transitions to like everything, clean up the ui, better the models, especially the faces to match more like the chibi stuff I sent you, which you click to pick up chibi girls make them like wriggle around cutely, make the main city  A LOT larger, use this as reference.. Make the upgrade tab its own thing reference these from blue archive! third image is more how id like the chibis to look! add a lighting physics post effects engine etc... lets do this thing!
+please make the splash menu better, add some transitions to like everything, clean up the ui, better the models, especially the faces to match more like the chibi stuff I sent you, which you click to pick up chibi girls make them like wriggle around cutely, make the main city  A LOT larger, use this as reference.. Make the upgrade tab its own thing reference these from [the reference academy game]! third image is more how id like the chibis to look! add a lighting physics post effects engine etc... lets do this thing!
 
 ### Request 17
 also mobile support pls!
@@ -110,16 +110,16 @@ Can you also increase the difficulty, nerf the heroes a bit too because theyre s
 [image attached]
 [image attached]
 [image attached]
-Also create two units and a hero that can be placed on water, and then subclass towers based off their roles like in bloons! Make it more unique though, there is also still the type chart, when you view a character, show its card art, you can view its chibi, clearly seperate it, so you can view level up, awakening, equipment. Also make it so you can view their tree 
+Also create two units and a hero that can be placed on water, and then subclass towers based off their roles like in [the reference TD game]! Make it more unique though, there is also still the type chart, when you view a character, show its card art, you can view its chibi, clearly seperate it, so you can view level up, awakening, equipment. Also make it so you can view their tree 
 
 List all the charactes and what they do too for me, so I know what type we need, also make more enemies, all fantasy based, maybe a ghost only a certain type of hero can hit, if an enemy requires a certain type of hero, allow them to have a free unlock hero and then later maybe we can put one in the gacha like for instance how like ninja monkey can hit camo, stuff like that! Maybe duel/ dps units, control units, support units, frag units, etc. TYRTY
 
 ### Request 20
-Slimes can be all colors, and can have any effect? I want it to be like battle cats/ Bloons td6 balloons.. they’re weak but they can copy other enemy traits. Like goblins can be fast, orcs are tanky, ghouls can maybe siphon hp from nearby enemies in order to regen their own health, or make them teleport of something. Oni can maybe create different fields like a speed field or shield field depending on their typing? After a certain amount of stages there should also be a mini boss, like a slime prince, orc general, goblin machine, oni champion etc. 
+Slimes can be all colors, and can have any effect? I want it to be like [the reference TD games'] balloons.. they’re weak but they can copy other enemy traits. Like goblins can be fast, orcs are tanky, ghouls can maybe siphon hp from nearby enemies in order to regen their own health, or make them teleport of something. Oni can maybe create different fields like a speed field or shield field depending on their typing? After a certain amount of stages there should also be a mini boss, like a slime prince, orc general, goblin machine, oni champion etc. 
 
 Also you should scale free unit unlocks with the enemies and stages like as you unlock mechanics I guess. A water stage should introduce the free unit that you place on water, a unit that introduces an invisible enemy should give you the unit that can detect them etc. I want enemies to feel more streamlined you know? The bestiary should also show their models and as you unlock them, you can find them there! They’ll be black or locked until you beat a stage with that enemy!! 
 
-I’m thinking for next enemies maybe a dragon boss, lizard men, etc. also when new enemies appear the stage should reflect that!! Also add a medal on the stage screen in like the corner for a stage difficulty you’ve completed like in Bloons td6 or somrthigg 
+I’m thinking for next enemies maybe a dragon boss, lizard men, etc. also when new enemies appear the stage should reflect that!! Also add a medal on the stage screen in like the corner for a stage difficulty you’ve completed like in [the reference TD game] or somrthigg 
 
 Brainstorm anything else we would need and add it and mark that as alpha 1.0!
 
@@ -130,10 +130,10 @@ Precision is good against??
 
 Melee is good against?? 
 
-So on and so forth, look through the Bloons td6 wiki and find all the balloon variants and monkeys and see how they work vs ours plsssss
+So on and so forth, look through the [reference TD game] wiki and find all the balloon variants and monkeys and see how they work vs ours plsssss
 
 ### Request 22
-What do you suggest for enemy types to have something as expansive as Bloons as well as units?
+What do you suggest for enemy types to have something as expansive as [the reference TD game] as well as units?
 
 ### Request 23
 Let's do it
@@ -156,7 +156,7 @@ If we hosted it on a website would it run smoother and have better storage? I co
 ### Request 29
 1. Also make it so people can’t like cheat in currency you using shit like game guardian or whatever 
 
-Also the game should start as a tutorial with the first hero guiding you with like a text box make it kawaii!! You get the first basic tower, and from there you get one until you unlock more!! Should we add more stages to fluff things out? Take tons of stage reference from Bloons td6
+Also the game should start as a tutorial with the first hero guiding you with like a text box make it kawaii!! You get the first basic tower, and from there you get one until you unlock more!! Should we add more stages to fluff things out? Take tons of stage reference from [the reference TD game]
 
 ### Request 30
 Can you make a code called reset 67 that resets my progress and takes me back to main menu and tutorial?
@@ -199,7 +199,7 @@ And like a mini dating sim where you earn gifts for some girls with custom bikin
 And then a special boss stage for the event that gives a ton of good rewards but is super super hard, play test it and make sure it’s possible f2p but you need high level units and whatnot it has to be difficult only a top percent of players can obtain a new sexy biki hero ?? Idk a good reward or something.. just make it fun, but as the stages progress they get harder make the scenery beach themed and what not make it pretty! Maybe a boardwalk map, a beach next to a shore for water units, maybe a nighttime beach etc
 
 ### Request 41
-With remaining usage please look up video tutorials and other tutorials to either replicate blue archive chibis or achieve something closer because ours are still relatively physically flat and ugly, the shapes are too simply faces are ugly, it doesn’t look as clean as archive chibis, hey have proper body types and proportions even boobies you know, the hair aren’t just like shittt jagged poorly modeled strands please do proper research scower the internet for tutorials videos, websites, whatever the fuck
+With remaining usage please look up video tutorials and other tutorials to either replicate [the reference academy game's] chibis or achieve something closer because ours are still relatively physically flat and ugly, the shapes are too simply faces are ugly, it doesn’t look as clean as [its] chibis, hey have proper body types and proportions even boobies you know, the hair aren’t just like shittt jagged poorly modeled strands please do proper research scower the internet for tutorials videos, websites, whatever the fuck
 
 ### Request 42
 Can you also give them proper skeletons that might be another issue because I want more expressive body animation like character acting!! Assuming you haven’t done that yet..
@@ -215,13 +215,13 @@ Save these for later because I’m almost out of usage!! I want the chibi to loo
 
 ## Follow-up roadmap chat (summary of the owner's V2 asks + recommendations they liked)
 
-Owner asked for: Blue Archive–style UI overhaul (menus, transitions, animations); brand-new music
+Owner asked for: an academy-style UI overhaul (menus, transitions, animations); brand-new music
 (orchestral to cute); audit that every earlier request was really implemented; global chat, transfer
 codes, clans, and a dev clan joinable with the developer clan's private code (set by the owner in the database) whose bot grants materials in any quantity;
 proper icons for every material; backpack organised by item category instead of rarity; Chibis v2
 following the reference videos (third link = dinosaur-hoodie chibi modeling time-lapse is the main
-target); Maps v2 as vibrant and alive as Bloons TD6 with better shaders/animation; harder difficulty
-(Battle Cats / Bloons TD6 level — "far too easy"); Enemies v2 that are engaging and reward tactics but
+target); Maps v2 as vibrant and alive as the reference TD game's, with better shaders/animation; harder difficulty
+(the reference TD games' level — "far too easy"); Enemies v2 that are engaging and reward tactics but
 are NOT convoluted.
 
 Recommendations from that chat worth building (owner asked "any other mechanics?"):
@@ -251,7 +251,7 @@ Recommendations from that chat worth building (owner asked "any other mechanics?
 - Anti-tamper save (checksum/signature; honest note: client-only games cannot be fully cheat-proof).
 - PWA install (home-screen app), friends can play without sign-in (GitHub Pages).
 - Events: login rewards, event stages with temporary currency, visual-novel mini stories (beach day, wholesome comedy), event boss, event shop, event outfits (cute summer outfits; no sexualised swimsuits for the academy girls).
-- Hero ult cutscene; "effective unit" indicator on stage cards; Bloons-like game modes / contracts; sandbox.
+- Hero ult cutscene; "effective unit" indicator on stage cards; tower-defense-style game modes / contracts; sandbox.
 - Chibis v2 with real skeletons (SkinnedMesh) for expressive acting; map interactions; Link Arts; commander tools.
 - Online features (global chat, clans, transfer codes) need a backend server — plan separately.
 
@@ -267,9 +267,9 @@ Useful design details from the old build to carry into phase 2 (do not copy code
 - Summer event "The Beach Day That Got Away": 10 story chapters, 5 operations, temporary currency + shop, gifts/affection talks, Seaglass Leviathan 12-wave expert boss (needs 20 clears), event-only characters Marina/Amane (keep event outfits within the content rule).
 
 ## Reference games (owner, 2026-10-07)
-- **Blue Archive** — menus/UI layout and motion, and the chibi/character look.
-- **Genshin Impact** — the gacha: wish flow, anticipation → meteor/star colour reveal by rarity (blue / purple / gold), skippable, readable results.
-- **Bloons TD6** — environmental aesthetics of the battle maps.
+- **The reference academy game** — menus/UI layout and motion, and the chibi/character look.
+- **The reference gacha game** — the gacha: wish flow, anticipation → meteor/star colour reveal by rarity (blue / purple / gold), skippable, readable results.
+- **The reference tower-defense game** — environmental aesthetics of the battle maps.
 - Main chibi model target video: 【Blender】キャラクターモデリングタイムラプス ～恐竜パーカー～ by 夏森轄 (https://youtu.be/SA_wqmZoNps) — anime "mini" proportions (~4–5 heads), flat two-tone cel shading, thin dark outlines, big lash-heavy eyes, blunt bangs with sharp strands, oversized hoodie/sleeves, lots of small costume details.
 - Supporting: Blep35 — "I Made a 3D VTuber model for FREE in 2 weeks" (https://youtu.be/69SUwY7SCJk), "How I Made The CUTEST VTuber Model in 3D Software" (https://youtu.be/zSCHsJ7Bxok).
 - Engine: stay on the web (three.js) build; no Unity needed.
@@ -281,10 +281,10 @@ Verbatim highlights: "get the characters in, keep the current ones as special sk
 - **Current Blender girls:** "I really like some of the girls… the ones that would look like skins be skins but if some others like nami I like that would be a cool unit save it as a future release character. I like rei, nami, your luna, kaede but like yuki, suzu for example could easily be skins."
   - Future-release characters (own units later, new names where the id clashes): current-build **Rei, Nami, Luna, Kaede**.
   - Special skins on the matching old character: the other current designs (e.g. **Yuki, Suzu**).
-- **Home menu:** no 3D girl and no SVG room ("looks ugly"). Use drawn art like Blue Archive: a wide, dynamic, landscape illustration per girl (memorial-lobby style) with breathing/tap reactions. **Done** (drawn lobby approved; see First impressions below).
-- **Character art:** Azur Lane-style stands (the girl in a new dynamic pose on a themed diorama stage, transparent) and Bremerton-style info cards (big name, class, rarity, stat radar, expression strip). Redrawing poses is fine, but proportions must stay right ("the proportions get all weird, ew"). Dynamic compositions like the owner's references (slanted cut-in panels, dramatic angles, motion), without their body-focused framing.
+- **Home menu:** no 3D girl and no SVG room ("looks ugly"). Use drawn art: a wide, dynamic, landscape illustration per girl (memorial-lobby style) with breathing/tap reactions. **Done** (drawn lobby approved; see First impressions below).
+- **Character art:** Diorama stands (the girl in a new dynamic pose on a themed diorama stage, transparent) and character info cards (big name, class, rarity, stat radar, expression strip). Redrawing poses is fine, but proportions must stay right ("the proportions get all weird, ew"). Dynamic compositions like the owner's references (slanted cut-in panels, dramatic angles, motion), without their body-focused framing.
 - **Process:** "I want an agent to go through and screenshot stuff and show it to you with recommendations, as long as it fits my view." Every art batch goes through a critic agent before the owner sees it.
-- **Tracks:** "the tracks are linear and repetitive." Make them Bloons-like: curves, loops, crossings, splits, tunnels.
+- **Tracks:** "the tracks are linear and repetitive." Make them winding: curves, loops, crossings, splits, tunnels.
 - **Placement:** remove the red forbidden-zone border. Use a small circle under the dragged girl: red where she can't stand, white where she can (done 2026-10-07).
 - **City:** "codex gave a small one that's just on a square, make it look more interesting." Port and expand the city hub.
 - **Chibi look APPROVED (2026-10-07):** the Meshy-generated Hikari chibi turnaround in `docs/art/approved/` — owner: "THATS LITERALLY PERFECT". It is the target for every girl's 3D battle chibi and 2D chibi art.
@@ -301,7 +301,7 @@ SVG / 3D look on menus and loves drawn art (the drawn lobby in `src/ui/lobby/art
 | "redoing assets and changing ui elements" | **Done** (3 rounds + critic). Menus use drawn art only (the SVG doll is a fallback). UI sweep: campaign lock chips, folded student filters, recruit fills the screen, wider rewards sheet, drawn sealed-letter recruit reveal with a rarity-tinted seal, softer SSR splash, solid stage-prep Start bar, backpack tabs snap, compact phone rewards, MVP stand beside the victory sheet, deploy name tag in battle. |
 | "missions need to get updated! it's still using old ugly assets, especially the character art in the bottom left" | **Done.** Missions hub and Bounty: painted academy backdrop, painted tiles with name plates in full colour, the secretary as a drawn full-figure stand (bottom left), titles never split mid-word. Events: painted hero + host girl. |
 | "Can you edit the portraits please" | **Done.** All 19 girls have a drawn full illustration, card, bust, thumb and transparent full-figure stand (`public/art/portraits/`). The 7 half-body girls (Hikari, Kaede, Suzu, Chika, Umeko, Sango, Nami) got a full-figure redraw of the same design so no stand is cut by a frame. One card crop rule for everyone. Hikari's bust-focused old illustration is not used. |
-| "make it so you can select which backgrounds you want, eventually when you date a girl and gift her stuff in the city like in blue archive you'll get a more intimate background" | **Done (picker + bond model); bond art is future work.** Lobby Background picker (Menu Tab + picture button): her painted scene (Hikari, Aoi, Sango), her stand over the academy by day / sunset / night, and two bond memories per girl (café date, festival night, sunset walk, study session, picnic, stargazing, aquarium) locked at bond 5 and 10. `profile.bond` exists (0 for everyone); the City dating / gift system only has to raise it and paint the bond scenes. Content rule: wholesome date moments, fully clothed, never suggestive. |
+| "make it so you can select which backgrounds you want, eventually when you date a girl and gift her stuff in the city like in [the reference academy game] you'll get a more intimate background" | **Done (picker + bond model); bond art is future work.** Lobby Background picker (Menu Tab + picture button): her painted scene (Hikari, Aoi, Sango), her stand over the academy by day / sunset / night, and two bond memories per girl (café date, festival night, sunset walk, study session, picnic, stargazing, aquarium) locked at bond 5 and 10. `profile.bond` exists (0 for everyone); the City dating / gift system only has to raise it and paint the bond scenes. Content rule: wholesome date moments, fully clothed, never suggestive. |
 | "we need like a loadup menu where you click play and what not" | **Done.** `#/title`: painted academy + three drawn girls, logo, a loading bar that really preloads the lobby, TAP TO START, Notice / Settings / Account / Code, version. Once per browser session on a cold start; no blink into the lobby. |
 | "push out some rewards for beta players that tried the codex version… all new accounts until november 7th get a few free multis, a select ticket for an SSR, some materials, money and gems, the usual stuff" | **Done.** Mailbox + Beta Tester Thank-You: five 10× Recruit Tickets, one SSR Select Ticket (any SSR), materials of every family + books, 300,000 coins, 3,000 gems. Every save from before the mailbox (Codex-era / beta players) and every account created up to 2026-11-07 23:59 America/Chicago; delivered once, ever. Notice article "Until Nov 7", then only while unclaimed. Note: a browser game cannot see saves from the separate Codex build; players who played it on another site get the gift by starting an account here before the deadline. |
 
@@ -357,7 +357,7 @@ Spec: `docs/STORY_SPEC.md` (build notes §9–§11). Bible: `docs/story/BIBLE.md
 
 | Request (verbatim) | Status |
 |---|---|
-| "the game should start as a tutorial with the first hero guiding you with like a text box make it kawaii!!" | **Done.** A new save goes title → "Meet Hikari" (a Blue Archive-style scene: type-on text, Auto, Log, Skip, one choice) → the real 1-1 on Easy with Hikari's coach: a cute text box with her face that points (a ring and a spotlight) at Aoi's card with a drag hand, Start wave, her own hero card, Aoi's first upgrade, the speed button and her ultimate, then cheers at the win and walks the player to Rewards and Home. Skip tutorial is always one tap away. Checked at 844×390 (touch) and 1280×720 (mouse). |
+| "the game should start as a tutorial with the first hero guiding you with like a text box make it kawaii!!" | **Done.** A new save goes title → "Meet Hikari" (an academy-style scene: type-on text, Auto, Log, Skip, one choice) → the real 1-1 on Easy with Hikari's coach: a cute text box with her face that points (a ring and a spotlight) at Aoi's card with a drag hand, Start wave, her own hero card, Aoi's first upgrade, the speed button and her ultimate, then cheers at the win and walks the player to Rewards and Home. Skip tutorial is always one tap away. Checked at 844×390 (touch) and 1280×720 (mouse). |
 | "reset 67 … takes me back to main menu and tutorial" | **Done.** RESET67 goes back to the title, and the fresh save meets Hikari and the tutorial again. Keeping device settings on reset is still open (meta-a). |
 | "after some stages give tutorials on bestiary, upgrades etc" / "scale when you unlock bosses resources etc" | **Done.** The Captain's Journal (Menu → Captain's Journal, `#/journal`): 12 lessons in Hikari's voice that unlock as stages are cleared (Welcome home, Bestiary, Formation, Recruit, Level Up, upgrade paths, Bounty, Equipment, Commissions, Challenge, Awakening, Total Assault). Each has a small one-time reward, a Show me button and, for three of them, a short "Hikari explains" scene. A toast with Hikari's face announces new lessons; the lobby Menu shows a dot. On new saves Equipment opens at 2-1 and Awakening at 3-2 (earlier if the player already has gear or crowns). |
 | free 10-pull after a few stages (Codex handoff) | **Done.** New accounts no longer get the 10× ticket at creation; Hikari mails it when 1-3 is cleared ("Ten new possibilities, on us ♡"). It is sent once ever per account. |
@@ -369,7 +369,7 @@ creation ticket). Lessons for content it already passed unlock quietly with one 
 Journal is here"), and their small rewards can be claimed once as a thank-you. Tested with saves written by the live
 game. No save-version change.
 
-**New direction (owner, 2026-10-14):** Chapter 1 is the fantasy era; Chapter 2 onward is Blue Archive-style academy
+**New direction (owner, 2026-10-14):** Chapter 1 is the fantasy era; Chapter 2 onward is modern academy
 life. Not built yet; the questions it raises for the next story pass are in `docs/STORY_SPEC.md` §12.
 
 ## Patch notes + gem gifts (owner, 2026-10-14) — branch `feature/patch-notes`
@@ -382,7 +382,7 @@ life. Not built yet; the questions it raises for the next story pass are in `doc
 
 | Request (verbatim) | Status |
 |---|---|
-| "Can you make towers free, give up to level 25 like auto level during a battle, like heroes in bloons, and instead of manmtually pruchasign an upgrade path, combines all the bath passives into one, and spread those buffs throughout all 25 levels, you can purchas elevels with coins during a match, right now they feel moderetely pointless compared to twoers, they should be strong and get stronger as the battle goes on!" | **Built (M0–M5).** Heroes deploy for **free** (the card says FREE and is armed at wave 0) and level **1 → 25 inside each battle** from time in the wave, waves cleared and the damage they deal; a stage pace makes short stages play the same arc as long ones (chapter 1 ends Lv 14–19). Every old path tier and level milestone is **one 25-level track** (counters such as cleanse, anti-air and armor pierce by Lv 8–10), +3 % damage every level, the ultimate gains ranks at Lv 10 and 20, and past Lv 25 Mastery keeps growing (+25 % at most). **Level up** (pill by her portrait, her panel, or L) buys the rest of a level with battle coins. No selling: **Move** instead (free between waves; in a wave she pauses 3 s). Co-op: each player brings her own hero. At Lv 20–25 she matches the best tier-4/tier-5 towers on a crowd (`docs/BALANCE.md`). |
+| "Can you make towers free, give up to level 25 like auto level during a battle, like heroes in [the reference TD game], and instead of manmtually pruchasign an upgrade path, combines all the bath passives into one, and spread those buffs throughout all 25 levels, you can purchas elevels with coins during a match, right now they feel moderetely pointless compared to twoers, they should be strong and get stronger as the battle goes on!" | **Built (M0–M5).** Heroes deploy for **free** (the card says FREE and is armed at wave 0) and level **1 → 25 inside each battle** from time in the wave, waves cleared and the damage they deal; a stage pace makes short stages play the same arc as long ones (chapter 1 ends Lv 14–19). Every old path tier and level milestone is **one 25-level track** (counters such as cleanse, anti-air and armor pierce by Lv 8–10), +3 % damage every level, the ultimate gains ranks at Lv 10 and 20, and past Lv 25 Mastery keeps growing (+25 % at most). **Level up** (pill by her portrait, her panel, or L) buys the rest of a level with battle coins. No selling: **Move** instead (free between waves; in a wave she pauses 3 s). Co-op: each player brings her own hero. At Lv 20–25 she matches the best tier-4/tier-5 towers on a crowd (`docs/BALANCE.md`). |
 | "yes, heroes free please!" (Q1: "towers" means heroes) | **Done** — heroes cost 0 to place; towers keep their prices. |
 | "standard play is super boring and short" (the campaign must not end up twice as easy) | **Done with the stage-HP pass**: the free heroes doubled the free-player bot's Normal headroom (×1.98); per-stage enemy-HP multipliers (`HERO_HP_PASS`, data) bring the campaign back to ≈ ×1.15 of before (target 1.1–1.3). Coins unchanged. Table in `docs/BALANCE.md`. |
 | Q2 — medal gems reachable earlier (economy) | **Approved 2026-10-15 ("Sure ship")**: shipped as measured (+300 Nightmare first-clear gems reachable earlier; Hard 30 → 26 wins for the free-player bot, accepted). One HP-pass re-fit at the train-C combined pass, agreed. Figures in `docs/BALANCE.md`. |

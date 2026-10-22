@@ -96,7 +96,7 @@ function victoryGirl(ctx) {
   }
 }
 
-/** Drawn stand of the MVP beside the victory sheet with a speech bubble (BA results style). */
+/** Drawn stand of the MVP beside the victory sheet with a speech bubble (academy results style). */
 function victoryStand(ctx, seed = 0) {
   const u = victoryGirl(ctx);
   if (!u) return null;
