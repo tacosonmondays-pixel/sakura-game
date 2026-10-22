@@ -21,7 +21,7 @@ import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
 import { createHeroWidget, paintUltButton } from './heroWidget.js';
-import { createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, abilityCommandArgs, coopCastCheck, clearPendingFor, REFUSED_MS } from './abilityBar.js';
+import { createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, lifeText, abilityCommandArgs, coopCastCheck, clearPendingFor, REFUSED_MS } from './abilityBar.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import { abilityText } from '../../data/abilityText.js';
 import { createHeroLevels, heroWarnText } from './heroLevels.js';
@@ -900,6 +900,14 @@ export function mountBattle(root, params, hooks) {
             const t = sim.getTower(ev.towerUid);
             if (!t || ctx.coop.isMine(t.uid) || !abilityNotes.allyChip()) break;
             feed.push(allyChipText(ctx.coop.ownerName(t.uid), t.def.name, abilityText(ev.id)?.name || 'her ability'), 'info', { key: 'ally-abil', ms: 1600 });
+            break;
+          }
+          case 'lifeRestored': {
+            // a life an ability brought back (Noa's First Aid Call; both players see it: lives are shared). The other
+            // lives (Chigusa's harvest, Wakaba's Recovery Plan) keep their quiet heart in the HUD.
+            if (!ev.id) break;
+            const t = sim.getTower(ev.towerUid);
+            feed.push(lifeText(t?.def.name || 'A girl', abilityText(ev.id)?.name || 'her ability', ev.n || 1), 'good', { key: `life-${ev.towerUid}`, merge: true, ms: 1800 });
             break;
           }
           case 'leak': {

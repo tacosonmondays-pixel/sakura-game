@@ -15,14 +15,34 @@ import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine, abilit
  * Her ⚡ ability for the girl page (ABILITIES_SPEC §10): the Info tab's one-line chip ("⚡ Skyfall Volley · Rapid
  * Volley T3") and its Details sheet — the description with her stats on that path at the unlock tier (no gear or
  * level: the base numbers), the cooldown, how it unlocks, the tier-5 / Lv 17 upgrade, and "Comes in a later update"
- * for a kind this build does not run. Null when she has none.
+ * for a kind this build does not run. Null when she has none. A girl with one ability per path (Ruri: one per familiar
+ * path; she learns the one whose path she raises) gets one chip naming them all ("⚡ Moon Pounce · Star Snatch · River
+ * Rush · T3") and `forms`, one entry per path for the Details sheet; everyone has `forms` (one entry for most).
  * @param {object} unit UnitDef
  */
 export function abilityInfoView(unit) {
   const hero = unit?.kind === 'hero';
-  const pi = hero ? -1 : (unit?.paths || []).findIndex((p) => p?.ability);
-  const entry = hero ? unit?.hero?.skill : pi >= 0 ? unit.paths[pi].ability : null;
-  if (!entry) return null;
+  if (hero) return unit?.hero?.skill ? withForms([abilityFormView(unit, -1)]) : null;
+  const idx = (unit?.paths || []).map((p, i) => (p?.ability ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) return null;
+  const forms = idx.map((pi) => abilityFormView(unit, pi));
+  if (forms.length === 1) return withForms(forms);
+  const at = new Set(forms.map((f) => f.at));
+  return {
+    ...forms[0],
+    multi: true,
+    forms,
+    chip: `⚡ ${forms.map((f) => f.name).join(' · ')} · ${at.size === 1 ? `T${forms[0].at}` : 'by path'}`,
+    unlock: `Unlocks at tier ${[...at].join(' / ')} of the path she raises: ${forms.map((f) => `${f.pathName} → ${f.name}`).join(', ')}`,
+  };
+}
+
+const withForms = (forms) => ({ ...forms[0], multi: false, forms });
+
+/** One ⚡ entry's view (a tower's path `pi`, or a hero's skill with pi −1). */
+function abilityFormView(unit, pi) {
+  const hero = pi < 0;
+  const entry = hero ? unit.hero.skill : unit.paths[pi].ability;
   const name = abilityText(entry.id)?.name || entry.id;
   const at = hero ? entry.unlockLevel ?? 7 : entry.unlockTier ?? 3;
   const where = hero ? `LV ${at}` : `${unit.paths[pi].name} T${at}`;
@@ -65,6 +85,8 @@ export function abilityInfoView(unit) {
     name,
     hero,
     path: pi,
+    pathName: hero ? null : unit.paths[pi].name,
+    at,
     where,
     live,
     chip: `⚡ ${name} · ${where}`,

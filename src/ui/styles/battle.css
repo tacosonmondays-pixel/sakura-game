@@ -1382,6 +1382,10 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-abrow-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bt-abrow-name::after { content: ' ▾'; font: 700 12px/1 var(--font-num); font-style: normal; color: var(--on-plate-dim); }
   .bt-abrow.open .bt-abrow-name::after { content: ' ▴'; }
+  /* an ability that comes later (Fuu, Iroha, Ruri's other forms) has no button: its one line says so at once, and
+     there is nothing to open */
+  .bt-abrow.s-later:not(.open) .bt-abrow-line { display: block; }
+  .bt-abrow.s-later .bt-abrow-name::after { content: none; }
   /* the feed docks left of an open panel (it used to sit under it: a "learned" toast nobody saw) */
   .bt-has-panel .bt-feed:not(.bt-feed-l) { left: auto; right: calc(var(--bt-abar-panel-r) + var(--safe-right)); }
 }

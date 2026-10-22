@@ -1040,12 +1040,38 @@ function attackBeam(sim, t) {
   return true;
 }
 
+/** How far her chain lightning jumps from one enemy to the next (her base attack and Seiran's Storm Lance). */
+export function chainJump(spec) {
+  return CHAIN_JUMP_RANGE + spec.splash;
+}
+
+/**
+ * The next link of a chain from (cx, cy): the nearest enemy within `jump` that is eligible for `spec` and not in
+ * `hitSet` (uids), or null. Ties: the first in grid order, or with `uidTies` the lower uid (Storm Lance). Her base
+ * chain attack and the ability share this walk.
+ */
+export function chainNext(sim, cx, cy, jump, spec, hitSet, uidTies = false) {
+  const near = sim.grid.query(cx, cy, jump, sim._scratch2);
+  let next = null;
+  let bestD = Infinity;
+  for (const e of near) {
+    if (hitSet.has(e.uid) || !isEligible(e, spec)) continue;
+    const d = (e.x - cx) ** 2 + (e.y - cy) ** 2;
+    if (d < bestD || (uidTies && d === bestD && e.uid < next.uid)) {
+      bestD = d;
+      next = e;
+    }
+  }
+  sim._scratch2.length = 0;
+  return next;
+}
+
 function attackChain(sim, t) {
   const spec = gearSpec(t.eff);
   const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, spec.projectiles);
   if (!targets.length) return false;
   face(t, targets[0]);
-  const jump = CHAIN_JUMP_RANGE + spec.splash;
+  const jump = chainJump(spec);
   for (const start of targets) {
     if (start.dead) continue;
     const points = [[t.ox, t.oy]];
@@ -1059,19 +1085,7 @@ function attackChain(sim, t) {
       const cy = cur.y;
       sim._hit(cur, t, spec, 1);
       if (j === chain) break;
-      const near = sim.grid.query(cx, cy, jump, sim._scratch2);
-      let next = null;
-      let bestD = Infinity;
-      for (const e of near) {
-        if (hitSet.has(e.uid) || !isEligible(e, spec)) continue;
-        const d = (e.x - cx) ** 2 + (e.y - cy) ** 2;
-        if (d < bestD) {
-          bestD = d;
-          next = e;
-        }
-      }
-      sim._scratch2.length = 0;
-      cur = next;
+      cur = chainNext(sim, cx, cy, jump, spec, hitSet);
     }
     sim._emit('chain', { points, element: spec.element || null, towerUid: t.uid });
   }

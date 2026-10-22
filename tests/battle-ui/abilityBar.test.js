@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import {
   abilityBarView, slotNumbers, slotState, abilityCommandArgs, battleKeyAction, refusalText, REFUSAL_REASONS,
-  createAbilityNotes, unlockText, allyChipText, abilityCardView, wholeSeconds, ALLY_CHIP_MS, abilityResultLine,
+  createAbilityNotes, unlockText, allyChipText, lifeText, abilityCardView, wholeSeconds, ALLY_CHIP_MS, abilityResultLine,
   slotTapPlan, aimCaster, coopCastCheck, clearPendingFor, cardSide,
 } from '../../src/ui/battle/abilityBar.js';
 import { abilityInfoView } from '../../src/ui/girlView.js';
@@ -578,6 +578,12 @@ describe('feed notes', () => {
     expect(n.allyChip()).toBe(false);
     expect(ALLY_CHIP_MS).toBe(3000);
     expect(allyChipText('Rin', 'Miko', 'Shrine Chorus')).toBe('Rin\'s Miko: Shrine Chorus!');
+  });
+
+  it('a life an ability brought back (A3 M3): one short good line, either player sees it', () => {
+    expect(lifeText('Noa', 'First Aid Call')).toBe('Noa\'s First Aid Call: +1 life');
+    expect(lifeText('Noa', 'First Aid Call', 2)).toBe('Noa\'s First Aid Call: +2 lives');
+    expect(lifeText('Noa', 'First Aid Call').length).toBeLessThanOrEqual(60);
   });
 });
 

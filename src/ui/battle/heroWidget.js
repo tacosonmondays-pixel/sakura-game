@@ -19,6 +19,8 @@ import { BOLT_SVG, wholeSeconds, refusalText } from './abilityBar.js';
 export function skillButtonView(st) {
   if (!st) return { hidden: true, state: 'none', p: 1, label: '', title: '', aria: '' };
   const name = abilityText(st.id)?.name || 'Skill';
+  // a skill this build does not run yet (Kanna's Heavy Beat): no button at all, so nothing promises one
+  if (st.later) return { hidden: true, state: 'later', p: 1, label: '', title: `${name} comes in a later update`, aria: '' };
   if (!st.unlocked) {
     const lv = `LV ${st.unlockLevel ?? 7}`;
     return { hidden: false, state: 'locked', p: 1, label: lv, title: `${name} unlocks at hero ${lv}`, aria: `${name}, unlocks at ${lv}` };

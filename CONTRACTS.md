@@ -200,8 +200,14 @@ abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a bo
                                // ABILITY_DEPLOYS_RUN ('strips', 'sentries'), runners ABILITY_RUNNERS_RUN ('giantBall');
                                // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
-AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready
+AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready | flyers | sabotage
+            // flyers: a flyer in the sky (map scope: anywhere) or ≥ min enemies; sabotage: a girl in the rally's radius
+            // is sabotaged, or ≥ min enemies in it (A3 M3: Kaze's Swoop, First Aid Call)
 ABILITY_TEXT = { [abilityId]: { name, icon /* a glyph key */, desc, short, up } }   // abilityValues + fillAbilityText
+// A3 M3 effect fields: strike pick 'air' (+ fallback) / 'chain', reachAdd, fromOrigin (her relay origin t.ox/t.oy),
+// noBossStatus; rally stunImmune, lifeEvery / lifeRadius / lifeMax (lives from kills near her while it runs:
+// abilityKill in Sim._killEnemy, a `lifeRestored` event with the ability id); debuff reachAdd; a status's curse bursts
+// for burstMul × her current hit. Ruri carries one entry per familiar path (only the one she raises past tier 2 unlocks).
 ```
 
 Rules (tests/data/abilities.test.js): one ⚡ path per tower (the spec's), the kind mix of §5.1, Momo has
@@ -381,7 +387,7 @@ article. `tests/data/legacy.test.js` checks all 19 have one and that no current 
 ```js
 export const EXPANSION_UNITS  // [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, IROHA, ENA]; units.js appends them to UNITS
 export const EXPANSION_IDS    // their ids (the 19 originals are everything else)
-export const RETURNING_ABILITIES // { [id]: AbilityData[] } towers, { [id]: { skill } } heroes — ABILITIES.md §6.1 shape, data only
+// (their ⚡ abilities live in src/data/abilities.js ABILITIES like everyone's since A3 M3; RETURNING_ABILITIES is gone)
 unitKit.js: S (+ ground, curse, mark, hex), stats, tier, path, free, STARTER, GACHA_ONLY   // copies of units.js's builders
 heroTracksReturning.js: RETURNING_HERO_TRACKS { kanna, yoriko, seiran }                     // HERO_TRACKS spreads them in
 ```

@@ -36,8 +36,9 @@
 //               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
 //   sim.abilUses    econ casts per player this wave
-//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, to?, pierceAdd? }]
-//                   (to: the one girl a girl-target rally reaches; pierceAdd: Ouka's Assembly Bell)
+//   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, to?, pierceAdd?, life? }]
+//                   (to: the one girl a girl-target rally reaches; pierceAdd: Ouka's Assembly Bell;
+//                   life { every, r2, max, kills, given }: Noa's First Aid Call, counted by abilityKill)
 //   sim._abilQueue  [{ left, src, id, kind: 'hit'|'shell', … }]  delayed hits and shells, FIFO
 //   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
@@ -45,7 +46,7 @@
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
 import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
 import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from './constants.js';
-import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs } from './towers.js';
+import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext } from './towers.js';
 import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
 import { spikeRain } from './strips.js';
@@ -242,15 +243,27 @@ export function abilityReach(t, def) {
   if (def.scope === 'map') return Infinity;
   const e = def.effect || {};
   switch (def.kind) {
-    case 'strike': return e.reach === 'map' ? Infinity : (e.reachMul ?? 1) * t.eff.range;
+    case 'strike': return e.reach === 'map' ? Infinity : (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     case 'burst': return e.at === 'self' ? burstRadius(t, e) : (e.reachMul ?? 1) * t.eff.range;
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
-    case 'debuff': return (e.reachMul ?? 1) * t.eff.range;
+    case 'debuff': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
     default: return t.eff.range;
   }
 }
+
+/**
+ * Where an ability looks and strikes from: her relay origin (t.ox / t.oy) for `fromOrigin` (Ruri's Kon: her range
+ * ring is centred on him), else where she stands. Writes into `out` (no allocation).
+ */
+function castFrom(t, def, out) {
+  const from = !!def.effect?.fromOrigin && t.ox != null;
+  out.x = from ? t.ox : t.x;
+  out.y = from ? t.oy : t.y;
+  return out;
+}
+const FROM = { x: 0, y: 0 };
 
 /**
  * Her ability's hit spec, modelled on the hero ult's: dmgMul × her current hit, no crit, her armor pen
@@ -366,6 +379,10 @@ function applyStatuses(sim, e, t, list, spec, step) {
   ctx.element = spec.element || null;
   ctx.attackType = spec.attackType;
   ctx.sourceUid = t.uid;
+  // a curse bursts for burstMul × her current hit (Ena's Omen Card), as a first-generation curse; no other status
+  // reads these two
+  ctx.hitDamage = t.eff.damage || 0;
+  ctx.curseDepth = 0;
   const big = isBig(e);
   const guarded = big && (e.abilCc ?? -1) > step;
   let landed = false;
@@ -377,6 +394,9 @@ function applyStatuses(sim, e, t, list, spec, step) {
   if (big && landed) e.abilCc = step + R.ccGuardTicks;
   syncStatusFlags(e);
 }
+
+/** A strike's statuses on enemy `v`: none on a boss with `noBossStatus` (Moon Pounce's hold), else the effect's. */
+const statusFor = (e, v) => (e.noBossStatus && v.tier === 'boss' ? null : e.status);
 
 /** `hits` strikes on one enemy (each at `scale`), then the statuses if it still stands. */
 function strikeOne(sim, t, e, spec, hits, scale, status, step) {
@@ -394,12 +414,12 @@ function strikeAt(sim, t, v, spec, hits, scale, e, step) {
   const r = e.pick !== 'poisoned' && e.splash > 0 ? e.splash : 0;
   const x = v.x;
   const y = v.y;
-  strikeOne(sim, t, v, spec, hits, scale, e.status, step);
+  strikeOne(sim, t, v, spec, hits, scale, statusFor(e, v), step);
   if (!(r > 0)) return;
   const share = scale * (e.splashShare ?? 1);
   for (const o of sim.grid.query(x, y, r, [])) {
     if (o === v || o.dead || !isEligible(o, spec)) continue;
-    strikeOne(sim, t, o, spec, hits, share, e.status, step);
+    strikeOne(sim, t, o, spec, hits, share, statusFor(e, o), step);
   }
   sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType });
 }
@@ -473,10 +493,49 @@ function addRally(sim, t, e, radius, left, to = null) {
   sim._rallies.push({
     src: t.uid, owner: t.owner ?? 0, r2: map ? 0 : radius * radius, map,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
-    detection: !!e.detection, ward: !!e.ward, left,
+    // a ward blocks sabotage and the volatile slimes' tower stun (both read the cleanse, Sim._isCleansed);
+    // stunImmune says the stun half of it (Noa's First Aid Call)
+    detection: !!e.detection, ward: !!e.ward || !!e.stunImmune, left,
     ...(to != null ? { to } : null),
     ...(e.pierceAdd > 0 ? { pierceAdd: e.pierceAdd } : null),
+    // lives while it runs (Noa's First Aid Call; abilityKill): her kill counter lives on the record, so it ends with
+    // the rally (a calm point never holds one)
+    ...(e.lifeEvery > 0 ? { life: { every: e.lifeEvery, r2: (e.lifeRadius || 0) * (e.lifeRadius || 0), max: e.lifeMax || 0, kills: 0, given: 0 } } : null),
   });
+}
+
+/** Is any enemy (outside the tunnels) within `r` of her? */
+function enemyNear(sim, t, r) {
+  AUTO_NEAR.length = 0;
+  const near = sim.grid.query(t.x, t.y, r, AUTO_NEAR);
+  let any = false;
+  for (let i = 0; i < near.length && !any; i++) if (!near[i].dead && !near[i].hidden) any = true;
+  AUTO_NEAR.length = 0;
+  return any;
+}
+
+/**
+ * Sim._killEnemy, only while a rally runs (Noa's First Aid Call): a kill inside a life rally's lifeRadius of its
+ * caster counts (either player's, any source); every `every` counted kills a life comes back — at most `max` a
+ * cast, never above the starting lives, never where hearts cannot come back (sim.canHeal()), on a one-life mode or
+ * without income (vines.js endVineWave's guard), only in a wave. Rallies in sim._rallies order; squared distances.
+ */
+export function abilityKill(sim, e) {
+  for (const r of sim._rallies) {
+    const L = r.life;
+    if (!L || L.given >= L.max) continue;
+    const c = sim.getTower(r.src);
+    if (!c || c.removed) continue;
+    const dx = e.x - c.x;
+    const dy = e.y - c.y;
+    if (dx * dx + dy * dy > L.r2) continue;
+    L.kills++;
+    if (L.kills % L.every !== 0) continue;
+    if (sim.state !== 'wave' || !sim.canHeal() || sim.mode?.oneLife || sim.diff.noIncome || sim.lives >= sim.maxLives) continue;
+    sim.lives++;
+    L.given++;
+    sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: c.owner ?? 0 });
+  }
 }
 
 /**
@@ -536,20 +595,71 @@ function alliesIn(sim, t, radius) {
   return out;
 }
 
+/** A flyer still in the sky (not grounded). */
+const inSky = (v) => !!v.airborne && !v.grounded;
+
+/**
+ * Kaze's Swoop (`pick: 'air'`): the flyers still in the sky among the eligible enemies in reach (map scope: the whole
+ * map), in Priority order (casters, bosses, elites, then the lead; ties: grid order), at most `count`; with none up,
+ * the `fallback` pick (`ground`: walkers and grounded flyers only), at most its own count.
+ */
+function airTargets(sim, x, y, reach, spec, e, count) {
+  const pool = gatherTargets(sim, x, y, reach, spec, []);
+  const fly = pool.filter(inSky);
+  if (fly.length) return topOf(fly, 'elite', x, y, count);
+  const fb = e.fallback;
+  if (!fb) return [];
+  const rest = fb.ground ? pool.filter((v) => !inSky(v)) : pool;
+  const mode = fb.pick === 'strong' ? 'strong' : fb.pick === 'priority' ? 'elite' : 'first';
+  return topOf(rest, mode, x, y, fb.count ?? count);
+}
+
+/**
+ * Storm Lance (`pick: 'chain'`): the first enemy by her target mode within reach (ties: the lower uid), then each next
+ * the nearest un-hit eligible enemy within her chain jump of the last one (src/sim/towers.js chainNext, the walk her
+ * chain lightning takes; ties: the lower uid), `count` in all. Nothing is hit while the chain is drawn.
+ */
+function chainTargets(sim, t, x, y, reach, spec, count) {
+  const pool = gatherTargets(sim, x, y, reach, spec, []);
+  let first = null;
+  let best = -Infinity;
+  for (const v of pool) {
+    const s = targetScore(t.targetMode, x, y, v);
+    if (s > best || (s === best && v.uid < first.uid)) {
+      best = s;
+      first = v;
+    }
+  }
+  if (!first) return [];
+  const out = [first];
+  const hit = new Set([first.uid]);
+  const jump = chainJump(t.eff);
+  for (let cur = first; out.length < count;) {
+    cur = chainNext(sim, cur.x, cur.y, jump, spec, hit, true);
+    if (!cur) break;
+    hit.add(cur.uid);
+    out.push(cur);
+  }
+  return out;
+}
+
 function strikeTargets(sim, t, def, spec) {
   const e = def.effect;
   const reach = abilityReach(t, def);
   const count = e.count ?? Infinity;
+  const { x, y } = castFrom(t, def, FROM);
   if (e.pick === 'poisoned') {
-    const all = gatherTargets(sim, t.x, t.y, reach, spec, []);
+    const all = gatherTargets(sim, x, y, reach, spec, []);
     let n = 0;
     for (let i = 0; i < all.length; i++) if (all[i].statuses.poison) all[n++] = all[i];
     all.length = Math.min(n, count);
     return all;
   }
+  if (e.pick === 'air') return airTargets(sim, x, y, reach, spec, e, Number.isFinite(count) ? count : 9999);
+  if (e.pick === 'chain') return chainTargets(sim, t, x, y, reach, spec, Number.isFinite(count) ? count : 9999);
   const mode = e.pick === 'strong' ? 'strong' : e.pick === 'priority' ? 'elite' : t.targetMode;
-  if (reach === Infinity) return topTargets(sim, t.x, t.y, Infinity, spec, mode, Number.isFinite(count) ? count : 9999, [], []);
-  return selectTargets(sim, t.x, t.y, reach, spec, mode, Number.isFinite(count) ? count : 9999);
+  if (reach === Infinity) return topTargets(sim, x, y, Infinity, spec, mode, Number.isFinite(count) ? count : 9999, [], []);
+  return selectTargets(sim, x, y, reach, spec, mode, Number.isFinite(count) ? count : 9999);
 }
 
 /**
@@ -566,7 +676,9 @@ const KINDS = {
       const spec = abilitySpec(t, def);
       const targets = strikeTargets(sim, t, def, spec);
       if (!targets.length) return null;
-      const fx = { x: t.x, y: t.y, radius: abilityReach(t, def), targets: listed(targets) };
+      // (the event's point is where the strike comes from: Kon's spot for Moon Pounce; the targets in strike order)
+      const from = castFrom(t, def, FROM);
+      const fx = { x: from.x, y: from.y, radius: abilityReach(t, def), targets: listed(targets) };
       if (e.pick === 'poisoned') {
         catalyst(sim, t, def, spec, targets, step);
         return boostTail(sim, t, e, fx);
@@ -663,7 +775,8 @@ const KINDS = {
       }
       const r = rallyRadius(t, e);
       const allies = alliesIn(sim, t, r);
-      if (!allies.length) return null;
+      // (a rally that brings lives back is worth casting alone while an enemy is close enough to count)
+      if (!allies.length && !(e.lifeEvery > 0 && enemyNear(sim, t, e.lifeRadius || 0))) return null;
       // a cleanse clears sabotage now; a ward (in the rally) blocks new sabotage while it lasts
       if (e.cleanse) for (const o of allies) if (o.disabled > 0) o.disabled = 0;
       addRally(sim, t, e, r, ticks(def.duration));
@@ -825,7 +938,8 @@ function refusal(sim, t) {
 function enemiesInReach(sim, t, def) {
   const reach = abilityReach(t, def);
   if (reach === Infinity) return mapPool(sim).length;
-  return poolIn(sim, t.x, t.y, reach, def.kind === 'rally' ? null : abilitySpec(t, def)).length;
+  const { x, y } = castFrom(t, def, FROM);
+  return poolIn(sim, x, y, reach, def.kind === 'rally' ? null : abilitySpec(t, def)).length;
 }
 
 /**
@@ -938,11 +1052,14 @@ export function autoWants(sim, t, def) {
     return n >= (au.min ?? 1);
   }
   const reach = abilityReach(t, def);
+  // 'sabotage' (Noa's First Aid Call): a girl inside her radius is sabotaged, whatever the enemies are doing
+  if (when === 'sabotage' && sabotagedIn(sim, t, reach)) return true;
   let list = sim.enemies;
   let elig = null;
   if (reach !== Infinity) {
     AUTO_NEAR.length = 0;
-    list = sim.grid.query(t.x, t.y, reach, AUTO_NEAR);
+    const from = castFrom(t, def, FROM);
+    list = sim.grid.query(from.x, from.y, reach, AUTO_NEAR);
     if (def.kind !== 'rally') {
       // abilitySpec's eligibility fields (a finite reach is never map scope: no free Veil Sight)
       AUTO_ELIG.attackType = t.eff.attackType;
@@ -958,10 +1075,12 @@ export function autoWants(sim, t, def) {
   let caster = false;
   let veiled = false;
   let leak = false;
+  let flyer = false;
   for (let i = 0; i < list.length; i++) {
     const e = list[i];
     if (e.dead || e.hidden || (elig && !isEligible(e, elig))) continue;
     n++;
+    if (!flyer && inSky(e)) flyer = true;
     if (!elite && isEliteUp(e)) elite = true;
     if (!caster && isCaster(e)) caster = true;
     if (!veiled && e.veiled && !e.revealed) veiled = true;
@@ -979,8 +1098,22 @@ export function autoWants(sim, t, def) {
     case 'veiled': return veiled;
     case 'poisoned': return poisoned >= (au.min ?? 1);
     case 'leak': return leak;
+    case 'flyers': return flyer || n >= (au.min ?? Infinity) || (!!au.orElite && elite);
+    case 'sabotage': return n >= (au.min ?? Infinity) || (!!au.orElite && elite);
     default: return false;
   }
+}
+
+/** Is a girl (any player's, not her) within `r` of her sabotaged now? (auto 'sabotage'; no allocation) */
+function sabotagedIn(sim, t, r) {
+  const r2 = r * r;
+  for (const o of sim.towers) {
+    if (o === t || o.removed || !(o.disabled > 0)) continue;
+    const dx = o.x - t.x;
+    const dy = o.y - t.y;
+    if (dx * dx + dy * dy <= r2) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

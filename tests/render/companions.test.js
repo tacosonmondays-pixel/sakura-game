@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import {
   konState, konStep, konSpot, konAttacks, KON_SPEED, KON_SELF, sortieState, startSortie, sortieStep, retarget, reconcile,
-  SWOOP_TIME, DASH_TIME, DASH_REACH, DASH_STOP,
+  SWOOP_TIME, DASH_TIME, DASH_REACH, DASH_STOP, swoopDives, MAX_DIVES, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
 } from '../../src/render/companionLogic.js';
 import { setCompanionManifest, companionOf, companionEntry, HomeAnchor, boneAtIdle } from '../../src/models/companions.js';
 
@@ -109,6 +109,47 @@ describe('Kaze swoop / doll dash', () => {
     let reach = 0;
     for (let t = 0; t < DASH_TIME; t += 1 / 120) reach = Math.max(reach, sortieStep(near, 1 / 120, 0, 0.3, 0, out, { reach: DASH_REACH, stop: DASH_STOP }).x);
     expect(reach).toBeLessThanOrEqual(0.6 - DASH_STOP + 1e-6);
+  });
+});
+
+describe('their girls\' ⚡ abilities (A3 M3): Kaze\'s dives, Kon\'s pounce', () => {
+  it('Kaze\'s Swoop queues one dive per target in strike order, at most MAX_DIVES; Reduce motion: the first only', () => {
+    expect(swoopDives([7, 3, 9])).toEqual([7, 3, 9]);
+    expect(swoopDives(Array.from({ length: 12 }, (_, i) => i + 1))).toHaveLength(MAX_DIVES);
+    expect(MAX_DIVES).toBe(8); // Thousand Wings' 8 flyers fit
+    expect(swoopDives([7, 3, 9], { reduceMotion: true })).toEqual([7]);
+    expect(swoopDives(null)).toEqual([]);
+    expect(swoopDives([null, 4])).toEqual([4]);
+    // quicker than his own swoops, so eight dives stay under five seconds
+    expect(DIVE_TIME).toBeLessThan(SWOOP_TIME);
+    expect(DIVE_TIME * MAX_DIVES).toBeLessThan(5);
+  });
+
+  it('Kon\'s pounce is a leap: out to just short of the target, high in the middle, back to where he stood', () => {
+    const s = sortieState();
+    expect(startSortie(s, 4, 0.2, 0, POUNCE_TIME, 12)).toBe(true);
+    const out = { x: 0, y: 0, z: 0, out: false };
+    let top = 0;
+    let far = 0;
+    for (let t = 0; t < POUNCE_TIME * 0.999; t += 1 / 120) {
+      sortieStep(s, 1 / 120, 0, 0.1, 0, out, { stop: POUNCE_STOP, lift: POUNCE_LIFT });
+      top = Math.max(top, out.y);
+      far = Math.max(far, out.x);
+    }
+    expect(far).toBeGreaterThan(4 - POUNCE_STOP - 0.05);
+    expect(far).toBeLessThanOrEqual(4 - POUNCE_STOP + 1e-9);
+    expect(top).toBeGreaterThan(0.1 + POUNCE_LIFT * 0.9);
+    sortieStep(s, 0.05, 0, 0.1, 0, out, { stop: POUNCE_STOP, lift: POUNCE_LIFT });
+    expect(s.busy).toBe(false);
+    expect([out.x, out.y, out.z]).toEqual([0, 0.1, 0]);
+  });
+
+  it('the figure layer listens for her ⚡ (the sim\'s ability ids, Reduce motion honoured)', () => {
+    const src = readFileSync(new URL('../../src/render/companions.js', import.meta.url), 'utf8');
+    expect(src).toContain("const SWOOP_ID = 'hana.swoop'");
+    expect(src).toContain("const POUNCE_ID = 'ruri.moonPounce'");
+    expect(src).toMatch(/swoopDives\(targets, \{ reduceMotion: this\.reduceMotion \}\)/);
+    expect(src).toMatch(/if \(this\.reduceMotion\) return;/);
   });
 });
 

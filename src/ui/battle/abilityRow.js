@@ -20,7 +20,8 @@ import { wholeSeconds, refusalText, BOLT_SVG } from './abilityBar.js';
 export const LINE_MAX = 60;
 export const LINE_NUMBERS = 3;
 
-const DEPLOY_NOUN = { sentries: 'sentries', strips: 'strips', trap: 'mines', double: 'doubles', drone: 'drones' };
+const DEPLOY_NOUN = { sentries: 'sentries', strips: 'strips', trap: 'mines', double: 'doubles', drone: 'drones', mirror: 'mirrors' };
+const DEPLOY_ONE = { sentries: 'sentry', strips: 'strip', trap: 'mine', double: 'double', drone: 'drone', mirror: 'mirror' };
 const r1 = (x) => Math.round(x * 10) / 10;
 const tiles = (x) => `${fmtNum(x, 'range')} tiles`;
 const secs = (x) => `${r1(x)}s`;
@@ -29,12 +30,25 @@ const secs = (x) => `${r1(x)}s`;
 const FACT = {
   count: (v, def) => {
     if (!(v.count > 0) || !Number.isFinite(v.count)) return null;
-    const noun = def.kind === 'deploy' ? DEPLOY_NOUN[def.effect?.deploy] || 'placed' : v.count === 1 ? 'target' : 'targets';
+    // (a strike on one enemy: "the strongest" is in its name, its bites and hold say more: Moon Pounce, Critical Mass)
+    if (def.kind === 'strike' && v.count === 1) return null;
+    const one = v.count === 1;
+    const noun = def.kind === 'deploy' ? (one ? DEPLOY_ONE : DEPLOY_NOUN)[def.effect?.deploy] || 'placed' : one ? 'target' : 'targets';
     return `${v.count} ${noun}`;
   },
   shells: (v) => (v.shells > 1 ? `${v.shells} shells` : null),
   dmg: (v) => (v.dmg > 0 ? `${fmtNum(v.dmg)} dmg` : null),
-  hits: (v) => (v.hits > 1 ? `${v.hits} hits each` : null),
+  hits: (v) => (v.hits > 1 ? (v.count === 1 ? `${v.hits} hits` : `${v.hits} hits each`) : null),
+  // (A3 M3: Kaze's Swoop and Storm Lance ground flyers; Omen Card's burst; Puppet Hex; Heavy Beat's armor crack;
+  // Backdraft Fan's push and Star Snatch's carry; River Rush's soak; First Aid Call's lives)
+  ground: (v) => (v.ground > 0 ? `ground ${secs(v.ground)}` : null),
+  curseBurst: (v) => (v.curseBurst > 0 ? `bursts ${fmtNum(v.curseBurst)}` : null),
+  hexPct: (v) => (v.hexPct > 0 ? `hex ${r1(v.hexPct)}%/s` : null),
+  shred: (v) => (v.shred > 0 ? `−${v.shred} armor` : null),
+  push: (v) => (v.push > 0 ? `${r1(v.push)} tile${v.push === 1 ? '' : 's'} back` : null),
+  carry: (v) => (v.carry > 0 ? `carry ${r1(v.carry)} tiles` : null),
+  soak: (v) => (v.soak > 0 ? `soak ${secs(v.soak)}` : null),
+  lifeMax: (v) => (v.lifeMax > 0 ? `up to ${v.lifeMax} lives` : null),
   poisonMul: (v) => (v.poisonMul > 0 ? `poison ×${r1(v.poisonMul)}` : null),
   splash: (v) => (v.splash > 0 ? `${r1(v.splash)}-tile blast` : null),
   freeze: (v) => (v.freeze > 0 ? `freeze ${secs(v.freeze)}` : null),
@@ -59,13 +73,14 @@ const FACT = {
   dur: (v) => (v.dur > 0 ? secs(v.dur) : null),
 };
 const ORDER = {
-  strike: ['count', 'dmg', 'hits', 'poisonMul', 'splash', 'stun', 'reach'],
+  strike: ['count', 'dmg', 'hits', 'poisonMul', 'splash', 'stun', 'hold', 'ground', 'reach'],
   burst: ['shells', 'dmg', 'freeze', 'stun', 'slowPct', 'radius', 'reach'],
-  boost: ['rateMul', 'range', 'chain', 'spiralPierce', 'dur'],
-  rally: ['rateMulPct', 'dmgMulPct', 'rangeMulPct', 'pierceAdd', 'radius', 'dur'],
-  debuff: ['count', 'silence', 'hold', 'markPct', 'reveal', 'slowPct', 'dmg', 'rangeMulPct', 'reach', 'dur'],
+  boost: ['rateMul', 'range', 'chain', 'spiralPierce', 'shred', 'dur'],
+  rally: ['rateMulPct', 'dmgMulPct', 'rangeMulPct', 'pierceAdd', 'radius', 'dur', 'lifeMax'],
+  debuff: ['count', 'curseBurst', 'hexPct', 'silence', 'hold', 'markPct', 'reveal', 'slowPct', 'dmg', 'rangeMulPct', 'reach', 'dur'],
   deploy: ['count', 'dur', 'reach'],
-  runner: ['length', 'dmgMul'],
+  runner: ['length', 'dmgMul', 'push', 'soak'],
+  move: ['count', 'push', 'carry', 'ground', 'reach'],
 };
 
 /**

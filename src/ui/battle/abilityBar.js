@@ -305,6 +305,9 @@ export function abilityResultLine(stats, nameOf) {
 /** The ally's cast chip: "Rin's Miko: Shrine Chorus!". */
 export const allyChipText = (owner, girl, ability) => `${owner}'s ${girl}: ${ability}!`;
 
+/** A life an ability brought back (Noa's First Aid Call): "Noa's First Aid Call: +1 life" (≤ 60 characters). */
+export const lifeText = (girl, ability, n = 1) => `${girl}'s ${ability}: +${n} ${n === 1 ? 'life' : 'lives'}`;
+
 /**
  * Feed bookkeeping for one battle: the first-unlock toast once per ability id (seed it with the abilities a
  * Continue already has), and the ally chip at most once per ALLY_CHIP_MS.

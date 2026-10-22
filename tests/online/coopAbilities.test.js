@@ -670,3 +670,59 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
     expect(tower(cs[0], ho).abil.n).toBeGreaterThan(1);
   }, 240000);
 });
+
+describe('the returning girls in co-op (A3 M3)', () => {
+  it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
+    const STRONG = { damageMul: 6, rateMul: 1.3 };
+    const st = start({
+      stageId: '8-1',
+      p0: { loadout: [{ unitId: 'noa' }, { unitId: 'hana', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
+      p1: { loadout: [{ unitId: 'ena', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
+    });
+    const cs = views(st);
+    const noa = upAbil(cs, 0, place(cs, 0, 'noa'));
+    const hana = upAbil(cs, 0, placeNear(cs, 0, 'hana', noa));
+    placeNear(cs, 0, 'aoi', noa);
+    const ena = upAbil(cs, 1, placeNear(cs, 1, 'ena', noa));
+    placeNear(cs, 1, 'aoi', noa); // the partner's girls kill near Noa too: their kills count
+    // lives down so they can come back (the same on both views: the hash folds them)
+    for (const c of cs) c.sim.lives = c.sim.maxLives - 12;
+    expect(cs[0].hash()).toBe(cs[1].hash());
+    all(cs, cmd(0, 'auto', [true]));
+    all(cs, cmd(0, 'wave'));
+    const seen = [[], []];
+    const casts = [{}, {}];
+    let checks = 0;
+    // (until a few lives came back after wave 4, or wave 20: a life needs 10 kills within 3 tiles of Noa in one rally)
+    const done = (s) => (s.wavesCleared >= 4 && seen[0].length >= 2) || s.wavesCleared >= 20 || ['won', 'lost'].includes(s.state);
+    for (let i = 0; i < 200000 && !done(cs[0].sim); i++) {
+      if (i % 10 === 0) {
+        for (const [slot, uid] of [[0, noa], [0, hana], [1, ena]]) if (cs[0].sim.abilityStatus(uid).ready) all(cs, cmd(slot, 'abil', abilArgs(uid)));
+      }
+      step(cs);
+      cs.forEach((c, v) => {
+        for (const ev of c.sim.drainEvents()) {
+          if (ev.type === 'lifeRestored') seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
+          if (ev.type === 'ability') casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+        }
+      });
+      if (i % 120 === 0) {
+        expect(cs[1].hash(), `tick ${i}`).toBe(cs[0].hash());
+        checks++;
+      }
+    }
+    expect(checks).toBeGreaterThan(20);
+    expect(cs[1].hash()).toBe(cs[0].hash());
+    expect(casts[0]['hana.swoop']).toBeGreaterThan(0);
+    expect(casts[0]['noa.firstAid']).toBeGreaterThan(0);
+    expect(casts[0]['ena.omenCard']).toBeGreaterThan(0);
+    expect(casts[1]).toEqual(casts[0]);
+    // the lives: each one restored once, the same on both views, by Noa's First Aid Call
+    expect(seen[0].length).toBeGreaterThan(0);
+    expect(seen[1]).toEqual(seen[0]);
+    for (const s of seen[0]) expect(s).toMatch(new RegExp(`^${noa}:\\d+:noa\\.firstAid$`));
+    const lives = seen[0].map((s) => Number(s.split(':')[1]));
+    for (let k = 1; k < lives.length; k++) expect(lives[k]).not.toBe(lives[k - 1]); // never the same life twice
+    expect(cs[1].sim.lives).toBe(cs[0].sim.lives);
+  }, 240000);
+});

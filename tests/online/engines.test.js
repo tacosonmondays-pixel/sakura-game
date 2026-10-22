@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -160,6 +160,46 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
       .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+  }, 240000);
+
+  it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
+    const r = runReturningAbilBattle();
+    expect(r.agree).toBe(true);
+    expect(r.refused).toBe('');
+    expect(r.cleared).toBe(14);
+    for (const id of RETURNING_ABIL_IDS) expect(r.ids.split(','), id).toContain(id);
+    expect(r.lifeRestored).toBeGreaterThanOrEqual(1); // First Aid Call's kills brought a life back
+    expect(r.curseBursts).toBeGreaterThan(0);
+    expect(r.hexed).toBeGreaterThan(0);
+    // both heroes reached their Lv 17 rank (the merged skill: the * mark)
+    expect(r.towers).toMatch(/0:seiran:Lv(1[7-9]|2\d)\+\d+\*/);
+    expect(r.towers).toMatch(/1:yoriko:Lv(1[7-9]|2\d)\+\d+\*/);
+    expect(r.taps).toMatch(/ cooldown/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runReturningAbilBattle().final).toBe(r.final);
+    // pinned when the scenario landed (A3 M3; V8 and SpiderMonkey gave these, e2e/engines.mjs): change only with a
+    // deliberate sim / data / ability change, and say why
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({
+        ticks: 47017, state: 'between', wallets: '568/782', lives: 100, final: 3293782298, hashes: '6e087590', casts: 72,
+        byId: 'aoi.skyfall 11 · ena.omenCard 9 · hana.swoop 19 · noa.firstAid 2 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 13',
+        ckDigest: 'c653f418', finalDigest: '089da6b4',
+      });
+  }, 240000);
+
+  it('runs the returning girls\' battle (ROSTER_START) bit-identical to before their abilities were attached (none is cast there)', () => {
+    const r = runRosterBattle();
+    expect(r.agree).toBe(true);
+    expect(r.ckSame).toBe(true);
+    expect(r.abilityUnlocks).toBeGreaterThanOrEqual(4);
+    expect(r.abilityCasts).toBe(0);
+    // pinned in A3 M3 from the tree BEFORE the returning girls' rows were attached (fbdf8b3f352b): Ena, Ruri, Hana and
+    // Noa reach their ⚡ tier 3 and Seiran / Yoriko Lv 7 here, so their abilities unlock and charge, but nobody casts
+    // and nobody is on Auto: damage, lives, coins and every hash stay exactly what they were
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
+      .toEqual({ ticks: 12239, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2796/3575', final: 549528609, hashes: 'd04b0d1b', curseBursts: 60, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {

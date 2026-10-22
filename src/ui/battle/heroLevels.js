@@ -10,7 +10,7 @@ import { quantize } from '../../online/coop/commands.js';
 import { BATTLE } from '../../data/types.js';
 import { HERO_LEVEL_PRICES } from '../../data/heroTracks.js';
 import { abilityText, abilityUnlockLine, abilityUpgradeLine, abilityValues } from '../../data/abilityText.js';
-import { skillAtLevel } from '../../data/abilities.js';
+import { skillAtLevel, abilityRuns } from '../../data/abilities.js';
 import { boltText } from '../kit.js';
 
 /** The widget and panel re-read the price at most this often (seconds): passive XP moves it every frame. */
@@ -22,17 +22,22 @@ export function trackLevel(def, level) {
   return def?.hero?.levels?.find((l) => l.level === level) || null;
 }
 
-/** What her Lv 7 skill does at a level (UI only): { kind: 'unlock' | 'rank', skill } or null. */
+/**
+ * What her Lv 7 skill does at a level (UI only): { kind: 'unlock' | 'rank', skill, later } or null. A skill this build
+ * does not run yet (abilityRuns: Kanna's Heavy Beat) only says so at its unlock level; its ranks say nothing.
+ */
 export function skillAt(def, level) {
   const s = def?.hero?.skill;
   if (!s) return null;
-  if (level === (s.unlockLevel ?? 7)) return { kind: 'unlock', skill: s };
-  return (s.ranks || []).some((r) => r.level === level) ? { kind: 'rank', skill: s } : null;
+  const later = !abilityRuns(s);
+  if (level === (s.unlockLevel ?? 7)) return { kind: 'unlock', skill: s, later };
+  return !later && (s.ranks || []).some((r) => r.level === level) ? { kind: 'rank', skill: s, later } : null;
 }
 
 /**
  * A track level's words with her skill added (ABILITIES_SPEC §5.1 heroes; UI only, no ModSet): "Wider Sweep: +1 target
- * per sweep, +0.2 range … and unlocks ⚡ Morning Rally" at Lv 7, "… and ⚡ Morning Rally ranks up" at Lv 17.
+ * per sweep, +0.2 range … and unlocks ⚡ Morning Rally" at Lv 7, "… and ⚡ Morning Rally ranks up" at Lv 17; a skill that
+ * waits: "… (⚡ Heavy Beat comes in a later update)".
  */
 export function trackDesc(def, level) {
   const row = trackLevel(def, level);
@@ -41,6 +46,7 @@ export function trackDesc(def, level) {
   if (!k) return row.desc;
   const name = abilityText(k.skill.id)?.name || k.skill.id;
   const base = row.desc.replace(/[.\s]+$/, '');
+  if (k.later) return `${base} (⚡ ${name} comes in a later update)`;
   return k.kind === 'unlock' ? `${base} … and unlocks ⚡ ${name}` : `${base} … and ⚡ ${name} ranks up`;
 }
 
@@ -48,6 +54,7 @@ export function trackDesc(def, level) {
 export function trackSkillLine(def, level) {
   const k = skillAt(def, level);
   if (!k) return '';
+  if (k.later) return `⚡ ${abilityText(k.skill.id)?.name || k.skill.id} comes in a later update.`;
   if (k.kind === 'unlock') return abilityUnlockLine(k.skill.id);
   try {
     return abilityUpgradeLine(k.skill.id, abilityValues(skillAtLevel(k.skill, level), def.base || null));

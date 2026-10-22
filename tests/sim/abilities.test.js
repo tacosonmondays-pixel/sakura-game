@@ -394,12 +394,17 @@ describe('one live-ability rule (src/data/abilities.js abilityRuns = the sim\'s 
     for (const k of [...ABILITY_KINDS_RUN, 'deploy', 'runner', 'move', 'zone']) expect(ABILITY_KINDS).toContain(k);
   });
 
-  test('who has a button today: every tower row but Kage, Suzu and Chika (deploys, A4); every hero skill', () => {
+  test('who has a button today: every tower row but Kage, Suzu and Chika (deploys, A4), Fuu (move, A5) and Iroha (mirror, A6); Ruri on Moonhound only; every hero skill but Kanna\'s', () => {
     const off = Object.entries(ABILITIES).filter(([, row]) => Array.isArray(row) && !row.some(abilityRuns)).map(([k]) => k).sort();
-    expect(off).toEqual(['chika', 'kage', 'suzu']);
+    expect(off).toEqual(['chika', 'fuu', 'iroha', 'kage', 'suzu']);
+    // Ruri: one entry per familiar path; only Moon Pounce runs (Star Snatch is a move, A5; River Rush a runner, A6)
+    expect(ABILITIES.ruri.map((e) => [e.id, abilityRuns(e)])).toEqual([['ruri.moonPounce', true], ['ruri.starSnatch', false], ['ruri.riverRush', false]]);
+    const heroOff = Object.entries(ABILITIES).filter(([, row]) => !Array.isArray(row) && !abilityRuns(row.skill)).map(([k]) => k);
+    expect(heroOff).toEqual(['kanna']); // Heavy Beat: a boost with a status-only splash rider (A5), no ModSet
     for (const [k, row] of Object.entries(ABILITIES)) {
-      if (!Array.isArray(row)) expect(abilityRuns(row.skill), k).toBe(true);
-      else for (const e of row) expect(abilityRuns(abilityAtTier(e, 5)), `${k} T5`).toBe(abilityRuns(e)); // tier 5 never flips it
+      if (!Array.isArray(row)) {
+        for (const r of row.skill.ranks || []) expect(abilityRuns(skillAtLevel(row.skill, r.level)), `${k} Lv ${r.level}`).toBe(abilityRuns(row.skill));
+      } else for (const e of row) expect(abilityRuns(abilityAtTier(e, 5)), `${k} T5`).toBe(abilityRuns(e)); // tier 5 never flips it
     }
   });
 
@@ -1695,11 +1700,12 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
     return { sim, t, spawn };
   }
 
-  test('every girl but the three deploy ones (A4) learns hers at tier 3 of her ⚡ path; every hero at Lv 7', () => {
+  test('every girl but the three deploy ones (A4), Fuu, Iroha and Kanna learns hers at tier 3 of her ⚡ path; every other hero at Lv 7', () => {
     const live = [];
     const later = [];
-    // (the girls with an ability row; the returning girls' rows wait in RETURNING_ABILITIES)
+    // (every girl has an ability row since the returning girls' were attached, A3 M3)
     const withRow = Object.values(defaultData().units).filter((d) => abilitySource({ def: d, isHero: d.kind === 'hero', tiers: [0, 0, 0], level: 0 }));
+    expect(withRow.length).toBe(Object.values(defaultData().units).length);
     for (const u of withRow) {
       const sim = new Sim({ stageId: '1-1', loadout: u.kind === 'hero' ? [] : [{ unitId: u.id }], hero: u.kind === 'hero' ? { unitId: u.id } : null, seed: 1 });
       sim.cash = 1e9;
@@ -1710,11 +1716,11 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
       (t.abil ? live : later).push(u.id);
       if (!t.abil) expect(sim.abilityStatus(t.uid)).toMatchObject({ unlocked: false, later: true });
     }
-    expect(later.sort()).toEqual(['chika', 'kage', 'suzu']);
+    expect(later.sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
     // every other girl with an ability row, the new ones too (Tenka's Critical Mass is a strike; Azami's
-    // deploy is strips, Yuzuha's sentries, Marumi's a runner)
+    // deploy is strips, Yuzuha's sentries, Marumi's a runner) and the returning ones that run (A3 M3)
     expect(live.length).toBe(withRow.length - later.length);
-    for (const id of ['tenka', ...NEW_GIRL_IDS]) expect(live).toContain(id);
+    for (const id of ['tenka', ...NEW_GIRL_IDS, 'hana', 'ruri', 'noa', 'ena', 'yoriko', 'seiran']) expect(live).toContain(id);
   });
 
   test('Aoi, Skyfall Volley: 6 arrows, 6× her hit, a certain 0.5 s pin', () => {

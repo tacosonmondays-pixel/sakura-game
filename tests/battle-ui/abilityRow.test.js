@@ -66,6 +66,44 @@ describe('abilityLine', () => {
     const m = UNIT_MAP.momo.paths[0].ability;
     expect(abilityLine(m, abilityValues(m, null), { coinMul: 1.5 })).toBe('+150 coins · twice per wave');
   });
+
+  it('the returning girls\' lines at their unlock builds (A3 M3), Ruri\'s other two forms included', () => {
+    const at = (id, path, tier) => {
+      const u = UNIT_MAP[id];
+      const tiers = [0, 0, 0];
+      const p = u.paths.findIndex((q) => q.id === path);
+      tiers[p] = tier;
+      const e = abilityAtTier(u.paths[p].ability, tier);
+      return abilityLine(e, abilityValues(e, resolveStats(u, { tiers })));
+    };
+    const hero = (id, level) => {
+      const u = UNIT_MAP[id];
+      const e = skillAtLevel(u.hero.skill, level);
+      return abilityLine(e, abilityValues(e, resolveStats(u, { heroLevel: level })));
+    };
+    expect(at('hana', 'falconry', 3)).toBe('4 targets · 30 dmg · ground 4s');
+    expect(at('ruri', 'hound', 3)).toBe('64 dmg · 3 hits · hold 1.5s'); // (one enemy: no "1 target")
+    expect(at('ruri', 'falcon', 3)).toBe('1 target · carry 3 tiles');
+    expect(at('ruri', 'otter', 3)).toBe('4 tiles · 1 tile back · soak 4s');
+    expect(at('noa', 'sanctuary', 3)).toBe('4 tiles · 10s · up to 3 lives');
+    expect(at('noa', 'sanctuary', 5)).toBe('4 tiles · 14s · up to 5 lives');
+    expect(at('ena', 'bloom', 3)).toBe('bursts 36 · 4.8 tiles');
+    expect(at('iroha', 'hall', 3)).toBe('1 mirror · 8s');
+    expect(hero('yoriko', 7)).toBe('1 target · hex 1.5%/s · slow 30%');
+    expect(hero('seiran', 17)).toBe('12 targets · 91 dmg · ground 3s');
+  });
+});
+
+describe('the hero skill button (heroWidget skillButtonView): a skill that waits has none', () => {
+  it('Kanna\'s Heavy Beat (A5): hidden at every level; Yoriko\'s Puppet Hex: LV 7, then a ring', async () => {
+    const { skillButtonView } = await import('../../src/ui/battle/heroWidget.js');
+    const sim = battle([], { hero: 'kanna' });
+    const k = place(sim, 'kanna');
+    expect(skillButtonView(sim.abilityStatus(k.uid))).toMatchObject({ hidden: true, state: 'later' });
+    const sim2 = battle([], { hero: 'yoriko' });
+    const y = place(sim2, 'yoriko');
+    expect(skillButtonView(sim2.abilityStatus(y.uid))).toMatchObject({ hidden: false, state: 'locked', label: 'LV 7' });
+  });
 });
 
 describe('abilityRowView', () => {

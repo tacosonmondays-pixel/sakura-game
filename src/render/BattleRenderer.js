@@ -198,7 +198,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
   // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
-  const companions = new Companions({ sim, scene, actors, terrain, quality });
+  const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion });
   actors.companions = companions;
   roster.companions = companions;
   // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
@@ -333,7 +333,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   // generic ability FX (src/render/abilityFx.js): casts, warning rings, shells, fizzles, unlock sparkles
-  const abilityFx = createAbilityFx({ sim, fx, actors, colorOf: (uid) => towerColor(uid), reduceMotion, flash: screenFlash, shake });
+  // (Kaze's Swoop and Moon Pounce are Kaze's and Kon's to draw while their figures are up: companions.js)
+  const abilityFx = createAbilityFx({
+    sim, fx, actors, colorOf: (uid) => towerColor(uid), reduceMotion, flash: screenFlash, shake,
+    companionOn: (uid) => !compBroken && companions.enabled && companions.has(uid),
+  });
 
   function handleEvents(events) {
     let numbers = 0;

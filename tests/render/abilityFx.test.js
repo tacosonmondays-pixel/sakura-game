@@ -20,6 +20,7 @@ function stubFx() {
     text: rec('text'),
     shards: rec('shards'),
     explosion: rec('explosion'),
+    chain: rec('chain'),
   };
 }
 function stubSim() {
@@ -42,6 +43,10 @@ const EVENTS = [
   { type: 'abilityFizzle', towerUid: 1, id: 'akane.starmine', uid: -1 },
   { type: 'abilityUnlock', towerUid: 1, id: 'aoi.skyfall' },
   { type: 'abilityUpgrade', towerUid: 1, id: 'aoi.skyfall' },
+  // A3 M3: a chain strike, a companion's strike, a life brought back
+  { type: 'ability', towerUid: 1, id: 'seiran.stormLance', kind: 'strike', scope: 'local', x: 4, y: 5, radius: 4, targets: [102, 100, 101] },
+  { type: 'ability', towerUid: 1, id: 'hana.swoop', kind: 'strike', scope: 'map', x: 4, y: 5, radius: 0, targets: [100, 101] },
+  { type: 'lifeRestored', towerUid: 2, lives: 18, n: 1, id: 'noa.firstAid' },
 ];
 
 describe('ability FX', () => {
@@ -119,6 +124,66 @@ describe('ability FX', () => {
     expect(shakes).toBe(0);
     // the map-wide flash still goes through the renderer's flash damping (strength is cut there under Reduce motion)
     expect(flashes).toBeLessThanOrEqual(1);
+  });
+
+  it('Storm Lance: a line per link from her through its targets in strike order, crackling lightning on top; Reduce motion: the lines alone', () => {
+    const fx = stubFx();
+    const a = createAbilityFx({ sim: stubSim(), fx });
+    a.frame();
+    a.handle(EVENTS.find((e) => e.id === 'seiran.stormLance'));
+    const chain = fx.calls.filter((c) => c.name === 'chain');
+    expect(chain).toHaveLength(1);
+    // from her (4, 5) to 102 (x 1.6), 100 (x 1), 101 (x 1.3), all at y 3 (stubSim: the sim's spots without views)
+    expect(chain[0].args[0].map(([x, z]) => [Math.round(x * 10) / 10, z])).toEqual([[4, 5], [1.6, 3], [1, 3], [1.3, 3]]);
+    expect(fx.segments.map((s) => [Math.round(s.ax * 10) / 10, Math.round(s.bx * 10) / 10])).toEqual([[4, 1.6], [1.6, 1], [1, 1.3]]);
+    expect(fx.segments[0].life).toBeGreaterThan(0.4); // (it outlasts the 0.2 s crackle)
+    const rm = stubFx();
+    const b = createAbilityFx({ sim: stubSim(), fx: rm, reduceMotion: true });
+    b.frame();
+    b.handle(EVENTS.find((e) => e.id === 'seiran.stormLance'));
+    expect(rm.calls.filter((c) => c.name === 'chain')).toHaveLength(0);
+    expect(rm.segments.map((s) => [Math.round(s.bx * 10) / 10, s.bz])).toEqual([[1.6, 3], [1, 3], [1.3, 3]]);
+    expect(rm.segments[1]).toMatchObject({ ax: 1.6 }); // link by link, not all from her
+  });
+
+  it('Kaze\'s Swoop / Moon Pounce: their companion draws them (marks on the targets only); without him, the generic lines', () => {
+    const swoop = EVENTS.find((e) => e.id === 'hana.swoop');
+    const fx = stubFx();
+    const a = createAbilityFx({ sim: stubSim(), fx, companionOn: (uid) => uid === 1 });
+    a.frame();
+    a.handle(swoop);
+    expect(fx.segments).toHaveLength(0);
+    expect(fx.calls.filter((c) => c.name === 'ring').map((c) => [c.args[0], c.args[1]])).toEqual(expect.arrayContaining([[1, 3], [1.3, 3]]));
+    const fb = stubFx();
+    const b = createAbilityFx({ sim: stubSim(), fx: fb });
+    b.frame();
+    b.handle(swoop);
+    expect(fb.segments).toHaveLength(2);
+    // Moon Pounce's lines start where Kon stood (the event's point), not at Ruri
+    b.handle({ type: 'ability', towerUid: 1, id: 'ruri.moonPounce', kind: 'strike', scope: 'local', x: 3.2, y: 4.1, radius: 4.4, targets: [100] });
+    expect(fb.segments[2]).toMatchObject({ ax: 3.2, az: 4.1 });
+  });
+
+  it('a life brought back: a heart rising over the girl with "+1"; Reduce motion: a still heart that fades, no text', () => {
+    const life = EVENTS.find((e) => e.type === 'lifeRestored');
+    const fx = stubFx();
+    fx.R.heart = 'heart';
+    const a = createAbilityFx({ sim: stubSim(), fx });
+    a.frame();
+    expect(a.handle(life)).toBe(true);
+    const hs = fx.calls.filter((c) => c.name === 'spawn' && c.args[0].uv === 'heart');
+    expect(hs).toHaveLength(1);
+    expect(hs[0].args[0]).toMatchObject({ x: 6, z: 5 }); // over Noa (tower 2)
+    expect(hs[0].args[0].vy).toBeGreaterThan(0);
+    expect(fx.calls.find((c) => c.name === 'text').args[0]).toBe('+1');
+    const rm = stubFx();
+    rm.R.heart = 'heart';
+    const b = createAbilityFx({ sim: stubSim(), fx: rm, reduceMotion: true });
+    b.frame();
+    b.handle(life);
+    const h = rm.calls.find((c) => c.name === 'spawn').args[0];
+    expect([h.uv, h.s0 === h.s1, h.vy || 0, h.a1 < h.a0]).toEqual(['heart', true, 0, true]);
+    expect(rm.calls.some((c) => c.name === 'text')).toBe(false);
   });
 
   it('full motion: bursts shake a little, rings grow', () => {

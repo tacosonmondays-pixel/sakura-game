@@ -36,8 +36,9 @@ describe('abilityRuns: the girl page\'s "runs today" rule equals the sim\'s', ()
     }
   });
 
-  it('the kinds that wait: Kage, Suzu and Chika today', () => {
-    expect(withAbility.filter((u) => !abilityLive(entryOf(u))).map((u) => u.id).sort()).toEqual(['chika', 'kage', 'suzu']);
+  it('the kinds that wait: Kage, Suzu and Chika (A4), Fuu and Kanna (A5), Iroha (A6) — every girl has one since M3', () => {
+    expect(withAbility.filter((u) => !abilityLive(entryOf(u))).map((u) => u.id).sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
+    expect(withAbility.length).toBe(UNITS.length);
   });
 });
 
@@ -66,9 +67,28 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
       const v = abilityInfoView(u);
       expect(v.chip.length, u.id).toBeLessThanOrEqual(60);
       expect(nums(v.chip), `${u.id}: ${v.chip}`).toBe(1);
-      expect(v.desc, u.id).not.toMatch(/[{}]|NaN|undefined|Infinity/);
+      for (const f of v.forms) expect(f.desc, `${u.id} ${f.id}`).not.toMatch(/[{}]|NaN|undefined|Infinity/);
+      expect(v.forms.length, u.id).toBe(u.id === 'ruri' ? 3 : 1);
     }
-    expect(abilityInfoView(UNIT_MAP.fuu)).toBeNull(); // no ⚡ row attached yet (M3)
+    // the returning girls (M3): a live one, one that waits
+    expect(abilityInfoView(UNIT_MAP.hana)).toMatchObject({ chip: '⚡ Kaze\'s Swoop · Falconry T3', live: true, multi: false });
+    expect(abilityInfoView(UNIT_MAP.fuu)).toMatchObject({ chip: '⚡ Backdraft Fan · Returning Gale T3', live: false, later: 'Comes in a later update' });
+    expect(abilityInfoView(UNIT_MAP.seiran)).toMatchObject({ chip: '⚡ Storm Lance · LV 7', live: true, hero: true });
+  });
+
+  it('Ruri: one chip naming her three path abilities; the Details hold one section per familiar path, the two that wait marked', () => {
+    const v = abilityInfoView(UNIT_MAP.ruri);
+    expect(v.multi).toBe(true);
+    expect(v.chip).toBe('⚡ Moon Pounce · Star Snatch · River Rush · T3');
+    expect(v.live).toBe(true); // (her first: Moonhound's Moon Pounce runs; the chip carries no Later sticker)
+    expect(v.forms.map((f) => [f.name, f.pathName, f.where, f.live, f.later])).toEqual([
+      ['Moon Pounce', 'Moonhound', 'Moonhound T3', true, null],
+      ['Star Snatch', 'Star Falcon', 'Star Falcon T3', false, 'Comes in a later update'],
+      ['River Rush', 'Tide Otter', 'Tide Otter T3', false, 'Comes in a later update'],
+    ]);
+    expect(v.unlock).toBe('Unlocks at tier 3 of the path she raises: Moonhound → Moon Pounce, Star Falcon → Star Snatch, Tide Otter → River Rush');
+    expect(v.forms[0].desc).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites/);
+    expect(v.forms[0].up.at).toBe('Moonhound T5');
   });
 });
 
@@ -99,7 +119,14 @@ describe('the hero track\'s skill lines (UI only)', () => {
     expect(trackSkillLine(hikari, 7)).toBe('Unlocks ⚡ Morning Rally: a rally that speeds up and protects the girls around her.');
     expect(trackSkillLine(hikari, 17)).toBe('⚡+ Morning Rally reaches 4 tiles with +30% speed for 8s and recharges in 30s.');
     expect(trackSkillLine(hikari, 9)).toBe('');
-    // a hero without a skill yet (the returning heroes: M3)
-    expect(trackDesc(UNIT_MAP.kanna, 7)).toBe(trackLevel(UNIT_MAP.kanna, 7)?.desc || '');
+    // the returning heroes have theirs since M3 (Kanna's waits: it still says what it will be)
+    expect(trackDesc(UNIT_MAP.seiran, 7)).toMatch(/ … and unlocks ⚡ Storm Lance$/);
+    expect(trackSkillLine(UNIT_MAP.yoriko, 17)).toBe('⚡+ Puppet Hex hexes the 2 strongest enemies for 6s and recharges in 25s.');
+    expect(trackDesc(UNIT_MAP.kanna, 8)).toBe(trackLevel(UNIT_MAP.kanna, 8)?.desc || '');
+    // a skill that waits (Kanna's Heavy Beat, A5) never promises a button: Lv 7 says it comes later, Lv 17 says nothing
+    expect(trackDesc(UNIT_MAP.kanna, 7)).toMatch(/ \(⚡ Heavy Beat comes in a later update\)$/);
+    expect(trackSkillLine(UNIT_MAP.kanna, 7)).toBe('⚡ Heavy Beat comes in a later update.');
+    expect(skillAt(UNIT_MAP.kanna, 17)).toBeNull();
+    expect(trackDesc(UNIT_MAP.kanna, 17)).toBe(trackLevel(UNIT_MAP.kanna, 17)?.desc || '');
   });
 });

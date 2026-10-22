@@ -6,7 +6,9 @@
 // Hotaru's ×spectral, Kaede's ×boss, Rei's duel echo) and ONE scripted co-op FREEPLAY battle (Crimson Moon on 1-3, through the goal into the boss waves,
 // ended by both players' Finish vote) and ONE deep freeplay battle (8-5 jumped to the Eclipse Wyrm
 // at 250, every enemy's bits) and ONE co-op ABILITIES battle (ABILITIES_START: every live ability kind,
-// manual taps, Auto-cast and owner coins, its wave-8 checkpoint replayed) and ONE co-op TENKA battle
+// manual taps, Auto-cast and owner coins, its wave-8 checkpoint replayed) and ONE co-op RETURNING GIRLS' ABILITIES
+// battle (RETURNING_ABIL_START: Kaze's Swoop, Moon Pounce, First Aid Call's lives, Omen Card, Puppet Hex, Storm Lance,
+// both heroes' Lv 17 ranks, its wave-8 checkpoint replayed) and ONE co-op TENKA battle
 // (TENKA_START: her lab team over two absorbs, the second mid-wave after the wave-7 checkpoint, the economy
 // weapon, a partner's girl who stays, wells, Last Line and a mid-wave sale) in every engine it can find and
 // compares the results:
@@ -296,7 +298,7 @@ for (const { name, r } of results) {
   for (const k of DR_KEYS) if (d[k] !== ref.drones[k]) failures.push(`${name}: drones ${k} ${d[k]} ≠ ${ref.drones[k]} (${results[0].name})`);
 }
 // the returning girls (roster B3): the same battle everywhere (ROSTER_START)
-const RO_KEYS = ['ticks', 'state', 'wave', 'towers', 'damage', 'aims', 'ults', 'curseBursts', 'runners', 'relays', 'lives', 'wallets', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+const RO_KEYS = ['ticks', 'state', 'wave', 'towers', 'damage', 'aims', 'ults', 'curseBursts', 'runners', 'relays', 'abilityUnlocks', 'abilityCasts', 'lives', 'wallets', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
 log('\nScripted co-op RETURNING GIRLS battle (8-1 Easy: mirror + Seiran aims, sky dragon, curses, gather, hexing tide):');
 for (const { name, r } of results) {
   const d = r.roster;
@@ -327,6 +329,24 @@ for (const { name, r } of results) {
   if (b.casts < 30) failures.push(`the abilities battle cast only ${b.casts} abilities`);
   if (b.kinds.split(',').length < 6) failures.push(`the abilities battle cast only these kinds: ${b.kinds}`);
   if (b.cleared < 12) failures.push(`the abilities battle cleared only ${b.cleared} waves`);
+}
+// the returning girls' abilities (A3 M3): Kaze's Swoop, Moon Pounce, First Aid Call (a life back), Omen Card, Puppet
+// Hex and Storm Lance (both heroes to their Lv 17 rank), manual taps and Auto-cast, the checkpoint replay
+const RA_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'ids', 'byId', 'lifeRestored', 'curseBursts', 'hexed', 'crowd', 'rallyKills', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op RETURNING GIRLS\' ABILITIES battle (2-5, RETURNING_ABIL_START: Swoop, Moon Pounce, First Aid Call, Omen Card, Puppet Hex, Storm Lance, to wave 14):');
+for (const { name, r } of results) {
+  const b = r.returningAbil;
+  log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state} · cleared ${b.cleared} · ${b.casts} casts (${b.byId}) · lives back ${b.lifeRestored} · ${b.curseBursts} curse bursts · ${b.hexed} hexed · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · checkpoint w${b.ckWave} ${b.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${b.ms} ms`);
+  if (!b.agree) failures.push(`${name}: its own two returning-abilities clients disagreed`);
+  if (!b.ckSame) failures.push(`${name}: the returning-abilities battle's wave-${b.ckWave} checkpoint did not replay to the run`);
+  if (b.refused) failures.push(`${name}: returning-abilities battle command(s) refused for an unknown reason: ${b.refused}`);
+  for (const k of RA_KEYS) if (b[k] !== ref.returningAbil[k]) failures.push(`${name}: returning abilities ${k} ${b[k]} ≠ ${ref.returningAbil[k]} (${results[0].name})`);
+}
+{
+  const b = ref.returningAbil;
+  log(`  towers: ${b.towers}`);
+  for (const id of battle.RETURNING_ABIL_IDS) if (!b.ids.split(',').includes(id)) failures.push(`the returning-abilities battle never cast ${id}`);
+  if (!(b.lifeRestored >= 1)) failures.push('the returning-abilities battle never brought a life back (First Aid Call)');
 }
 // Tenka: her lab team (every class joins over two absorbs, the second mid-wave after the checkpoint), the
 // partner's girl in her range who stays, the economy weapon, wells, Last Line and a mid-wave sale
@@ -360,4 +380,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

@@ -29,6 +29,19 @@ export const ABILITY_TEXT = Object.freeze({
     'A net of frost falls on the densest crowd in her range: everything within {radius} tiles is frozen for {freeze}s and soaked for {soak}s.',
     'a frost net that freezes a whole crowd',
     'Frost Net spreads {radius} tiles, freezes for {freeze}s and recharges in {cd}s.'),
+  // the returning heroes
+  'kanna.heavyBeat': t('Heavy Beat', 'shred',
+    'For {dur}s her strikes crack {shred} armor on every enemy within {radius} tiles of her target and stagger them for {stun}s.',
+    'a drum beat that cracks the armor around her target',
+    'Heavy Beat cracks {shred} armor for {dur}s and recharges in {cd}s.'),
+  'yoriko.puppetHex': t('Puppet Hex', 'puppeteer',
+    'The strongest enemy within {reach} tiles is hexed for {hex}s: it loses {hexPct}% of its max HP a second (minibosses and bosses less, and one hex takes at most a tenth of theirs), cannot regenerate and is slowed {slowPct}%.',
+    'a hex that drains the strongest enemy near her',
+    'Puppet Hex hexes the {count} strongest enemies for {hex}s and recharges in {cd}s.'),
+  'seiran.stormLance': t('Storm Lance', 'chain',
+    'She throws her lance at an enemy in her range and it chains on through {count} enemies, the nearest one each time: {dmg} damage each, and the flyers it hits are grounded for {ground}s.',
+    'a thrown lance that chains through a crowd',
+    'Storm Lance chains through {count} enemies at {dmgMul}× her hit and recharges in {cd}s.'),
 
   // towers (tier 3 of the ⚡ path, upgraded at tier 5)
   'aoi.skyfall': t('Skyfall Volley', 'pierce',
@@ -129,6 +142,40 @@ export const ABILITY_TEXT = Object.freeze({
     'Vines hold up to {count} walkers in her range for {hold}s (minibosses for less; bosses and flyers shrug them off) and squeeze each for {dmgMul}× her hit.',
     'vines that hold a whole group of walkers',
     'Forest Corridor: Overgrowth holds up to {count} walkers within {reachMul}× her range for {hold}s, squeezes for {dmgMul}×, and recharges in {cd}s.'),
+
+  // the returning girls (ABILITIES_SPEC §5.2)
+  'fuu.backdraft': t('Backdraft Fan', 'displacement',
+    'One great sweep: every enemy within {reach} tiles but a boss is blown {push} tiles back up the road (minibosses {pushMiniboss}), and flyers are grounded for {ground}s.',
+    'a great gust that blows a whole crowd back',
+    'Backdraft Fan blows enemies {push} tiles back, grounds flyers for {ground}s and recharges in {cd}s.'),
+  'hana.swoop': t('Kaze\'s Swoop', 'falconer',
+    'Kaze dives on up to {count} flyers still in the sky anywhere on the map (casters, bosses and elites first): {dmg} damage each, and they are grounded for {ground}s. With no flyer up, he takes the {fallbackCount} strongest walkers instead.',
+    'a falcon dive on the flyers anywhere on the map',
+    'Kaze\'s Swoop dives on {count} flyers at {dmgMul}× her hit and recharges in {cd}s.'),
+  'ruri.moonPounce': t('Moon Pounce', 'summoner',
+    'Kon leaps from his spot at the strongest enemy within {reach} tiles of him: {hits} bites of {dmg} damage, then he holds it for {hold}s (flyers and bosses shrug the hold off).',
+    'Kon pounces on the strongest enemy and holds it',
+    'Moon Pounce bites {hits} times, holds for {hold}s and recharges in {cd}s.'),
+  'ruri.starSnatch': t('Star Snatch', 'airborne',
+    'Kon swoops on the leading enemy that is not a boss and carries it {carry} tiles back up the road (minibosses {carryMiniboss}).',
+    'Kon carries the leading enemy back up the road',
+    'Star Snatch carries {count} enemies {carry} tiles back and recharges in {cd}s.'),
+  'ruri.riverRush': t('River Rush', 'water',
+    'A wave rolls {length} tiles back along her lane: it pushes every enemy it meets {push} tile back and soaks it for {soak}s.',
+    'a wave that rolls back along her lane',
+    'River Rush rolls {length} tiles, pushes {push} tiles and recharges in {cd}s.'),
+  'noa.firstAid': t('First Aid Call', 'purifier',
+    'Girls within {radius} tiles of her, your ally\'s too, are cleansed and can\'t be sabotaged or stunned for {dur}s. Meanwhile every {lifeEvery} enemies that fall within {lifeRadius} tiles of her bring back a life (at most {lifeMax}; never where lives can\'t come back).',
+    'a call that protects the girls around her and brings back lives',
+    'First Aid Call lasts {dur}s, brings back up to {lifeMax} lives and recharges in {cd}s.'),
+  'iroha.mirrorShift': t('Mirror Shift', 'mirror',
+    'Her mirror panel jumps to where you aim (or the road spot nearest the leader in her reach) and for {dur}s splits every one of your shots that crosses it in two, once each.',
+    'a mirror that splits the team\'s shots in two',
+    'Infinite Reflection: the panel splits shots for good, Mirror Shift adds a second panel for {dur}s, and it recharges in {cd}s.'),
+  'ena.omenCard': t('Omen Card', 'curse',
+    'Every enemy within {reach} tiles draws a cursed card: when it falls it bursts for {curseBurst} damage ({curseMul}× her hit) within {curseRadius} tiles and passes a weaker curse on, so a dense wave chain-reacts.',
+    'a cursed card for every enemy around her',
+    'Omen Card reaches {reach} tiles, bursts for {curseMul}× her hit and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */
@@ -183,8 +230,15 @@ export function abilityValues(def, stats = null) {
     for (const s of list || []) {
       const k = prefix ? prefix + cap(s.type) : s.type;
       put(k, s.duration);
-      const amount = s.amount ?? s.bonus;
+      // (a hex's share of max HP is its `pct`)
+      const amount = s.amount ?? s.bonus ?? s.pct;
       if (amount != null) put(`${k}Pct`, r2(amount * 100));
+      // a curse: its burst as a multiple of her hit, its radius and (with stats) the burst itself
+      if (s.burstMul != null) {
+        put(`${k}Mul`, s.burstMul);
+        if (s.radius != null) put(`${k}Radius`, s.radius);
+        if (stats) put(`${k}Burst`, Math.round(s.burstMul * stats.damage));
+      }
     }
   };
   const e = def.effect || {};
@@ -192,14 +246,18 @@ export function abilityValues(def, stats = null) {
   flat(e.mods);
   flat(e.mods?.ring); // (Kinu's Blade Spiral: spiral, spiralPierce)
   flat(e.rally);
+  flat(e.splashArmor); // (Kanna's Heavy Beat: radius, shred)
   // a strike's boost tail (Zero Point): its ModSet's numbers and how long it lasts
   flat(e.after?.mods);
   if (e.after?.duration != null) put('afterDur', e.after.duration);
+  // a strike's fallback pick (Kaze's Swoop with no flyer up): fallbackCount, …
+  for (const [k, x] of Object.entries(e.fallback || {})) if (typeof x === 'number') put(`fallback${cap(k)}`, x);
   statuses(e.status);
   statuses(e.mods?.status);
   statuses(e.casterStatus, 'caster');
   if (stats) {
     if (e.reachMul) put('reach', r1(e.reachMul * stats.range));
+    else if (e.reachAdd) put('reach', r1(stats.range + e.reachAdd)); // (her range + N tiles: Moon Pounce, Puppet Hex)
     if (e.radiusMul) put('radius', r1(e.radiusMul * stats.range));
     if (e.dmgMul) put('dmg', Math.round(e.dmgMul * stats.damage * (e.fullRamp ? 1 + (stats.ramp?.max ?? 0) : 1)));
   }

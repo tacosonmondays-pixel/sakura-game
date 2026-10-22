@@ -7,6 +7,11 @@
 //   abilityShell   a shock ring where a shell lands (the blast itself is the sim's `explode` event)
 //   abilityFizzle  a small puff (a queued hit or shell found nothing)
 //   abilityUnlock  a sparkle on the girl (abilityUpgrade: a brighter one at her tier 5)
+//   lifeRestored   a heart pop over the girl who brought the life back (Noa's First Aid Call; Chigusa's harvest and
+//                  Wakaba's Recovery Plan too)
+// Bespoke looks on top of the generic ones (A3 M3): Kaze's Swoop and Moon Pounce belong to the companion who does
+// them (src/render/companions.js: Kaze dives, Kon pounces), so while he is drawn this layer only marks the targets
+// (the generic lines are the fallback); Storm Lance is a chain through its targets in strike order.
 // Per-frame caps keep a busy frame cheap. Reduce motion: opacity fades only — every ring keeps its size, nothing
 // flies, rises or spins, and there is no shake (the owner is motion-sensitive).
 // Colours: the caster's own (the renderer's towerColor), so each girl reads as herself.
@@ -15,17 +20,23 @@ import * as THREE from 'three';
 /** Per-frame budgets (ability events, target lines, rings, puffs / sparkles). */
 export const ABILITY_FX_CAPS = Object.freeze({ events: 10, lines: 16, rings: 24, puffs: 8 });
 /** The event types this layer draws. */
-export const ABILITY_FX_EVENTS = new Set(['ability', 'abilityWarn', 'abilityShell', 'abilityFizzle', 'abilityUnlock', 'abilityUpgrade']);
+export const ABILITY_FX_EVENTS = new Set(['ability', 'abilityWarn', 'abilityShell', 'abilityFizzle', 'abilityUnlock', 'abilityUpgrade', 'lifeRestored']);
+/** Strikes a companion performs (src/render/companions.js): no lines from her while he is drawn. */
+export const COMPANION_STRIKES = new Set(['hana.swoop', 'ruri.moonPounce']);
+/** Strikes drawn as one chain through their targets, in strike order. */
+export const CHAIN_STRIKES = new Set(['seiran.stormLance']);
 const WARN = '#ffb703';
 const GOLD = '#ffd84d';
 const COIN = '#ffd43b';
+const HEART = '#ff6b9a';
 
 /**
  * @param {{ sim: object, fx: object, actors?: object|null, colorOf?: (uid: number) => string, reduceMotion?: boolean,
- *   flash?: ((color: string, strength: number, decay: number) => void)|null, shake?: ((amount: number) => void)|null }} o
+ *   flash?: ((color: string, strength: number, decay: number) => void)|null, shake?: ((amount: number) => void)|null,
+ *   companionOn?: (uid: number) => boolean }} o  companionOn: is this girl's companion figure drawn (Kaze, Kon)?
  * @returns {{ frame(): void, handle(ev: object): boolean, readonly used: object }}
  */
-export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, reduceMotion = false, flash = null, shake = null }) {
+export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, reduceMotion = false, flash = null, shake = null, companionOn = () => false }) {
   const rm = !!reduceMotion;
   const used = { events: 0, lines: 0, rings: 0, puffs: 0 };
   const can = (k, n = 1) => {
@@ -80,6 +91,41 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
     return e && !e.dead ? { x: e.x, y: 0.45, z: e.y } : null;
   }
 
+  /**
+   * A chain from (sx, sz) through the targets in order (Storm Lance): one bright line per link that fades over half a
+   * second, plus in full motion the layer's crackling chain lightning on top (her base attack's look, only 0.2 s).
+   * Reduce motion: the lines alone. One link = one line of budget.
+   */
+  function chainThrough(sx, sz, targets, color) {
+    let ax = sx;
+    let ay = 0.95;
+    let az = sz;
+    const pts = [[sx, sz]];
+    for (const uid of targets) {
+      const p = enemyAt(uid);
+      if (!p) continue;
+      line(ax, ay, az, p.x, p.y, p.z, color, 0.55);
+      pts.push([p.x, p.z]);
+      ax = p.x;
+      ay = p.y;
+      az = p.z;
+    }
+    if (!rm && pts.length > 1 && typeof fx.chain === 'function') fx.chain(pts, color);
+  }
+
+  /** A heart over a girl (a life came back): it rises and grows a little; Reduce motion: still, fading. */
+  function heart(x, z, n) {
+    if (!can('puffs')) return;
+    const uv = R.heart || R.glow;
+    // (over her head: the figures stand about a tile tall)
+    if (rm) {
+      fx.spawn({ batch: 'bbN', uv, x, y: 1.6, z, s0: 0.62, s1: 0.62, life: 1.1, color: HEART, a0: 1, a1: 0 });
+      return;
+    }
+    fx.spawn({ batch: 'bbN', uv, x, y: 1.45, z, vy: 0.55, s0: 0.5, s1: 0.72, life: 1.3, color: HEART, a0: 1, a1: 0, fadeIn: 0.1 });
+    fx.text?.(`+${n || 1}`, x + 0.42, 1.7, z, HEART, 0.28, 1.1, 0.5);
+  }
+
   function cast(ev) {
     const t = girl(ev.towerUid);
     const col = colorOf(ev.towerUid) || GOLD;
@@ -90,13 +136,29 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
     glow(tx, 0.65, tz, col, 0.9, 0.3);
     const targets = Array.isArray(ev.targets) ? ev.targets : [];
     switch (ev.kind) {
-      case 'strike':
-        // (the lines are the look: no reach ring, a dashed texture stretched over a whole reach reads as blotches)
+      case 'strike': {
+        if (CHAIN_STRIKES.has(ev.id)) {
+          chainThrough(ev.x ?? tx, ev.y ?? tz, targets, col);
+          break;
+        }
+        if (COMPANION_STRIKES.has(ev.id) && companionOn(ev.towerUid)) {
+          // Kaze / Kon carries the look: a mark on each target, no line from her
+          for (const uid of targets) {
+            const p = enemyAt(uid);
+            if (p) ring(p.x, p.z, 0.5, 0.55, col);
+          }
+          break;
+        }
+        // (the lines are the look: no reach ring, a dashed texture stretched over a whole reach reads as blotches);
+        // they start where the strike comes from (Moon Pounce without Kon drawn: his spot)
+        const sx = ev.x ?? tx;
+        const sz = ev.y ?? tz;
         for (const uid of targets) {
           const p = enemyAt(uid);
-          if (p) line(tx, 0.95, tz, p.x, p.y, p.z, col);
+          if (p) line(sx, 0.95, sz, p.x, p.y, p.z, col);
         }
         break;
+      }
       case 'burst':
         ring(ev.x, ev.y, Math.max(0.6, ev.radius || 0), 0.55, col);
         if (!rm) shake?.(0.12);
@@ -193,6 +255,11 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
         case 'abilityUpgrade': {
           const t = girl(ev.towerUid);
           if (t) sparkle(t.x, t.y, GOLD, ev.type === 'abilityUpgrade' ? 18 : 14, 1.2);
+          break;
+        }
+        case 'lifeRestored': {
+          const t = girl(ev.towerUid);
+          if (t) heart(t.x, t.y, ev.n);
           break;
         }
         default:

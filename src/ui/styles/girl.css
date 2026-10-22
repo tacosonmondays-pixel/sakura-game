@@ -126,6 +126,9 @@
 .gp-abil .gp-chev { color: var(--on-plate-dim); }
 .gp-abil.later .gp-abil-text { color: var(--on-plate-dim); }
 .gp-abil-later { display: flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
+/* one ability per path (Ruri): each section headed by its name and its path */
+.gp-abil-form { display: flex; align-items: center; gap: 4px; margin: var(--sp-3) 0 var(--sp-1); font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+.gp-abil-form .gp-abil-path { font: 700 var(--fs-body)/1.2 var(--font); font-style: normal; color: var(--muted); }
 /* the kit bolt in the Details sheet's words (white glass): the deeper yellow with a thin ink edge */
 .gp-details .kit-bolt { color: var(--yellow-deep); filter: drop-shadow(0 0 0.6px var(--ink)); }
 /* matchup: ▲▲ / ▲ / ▼ with the armor word; the arrow carries the meaning, not only the colour */

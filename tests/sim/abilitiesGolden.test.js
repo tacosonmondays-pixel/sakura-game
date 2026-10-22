@@ -21,16 +21,18 @@ const GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/ab76d249/4',
   '4-5:hard': 'W26/2/65954/3532/27257eef/21',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
-  // stays below, with the returning girls left out)
-  '8-5:normal': 'L30/0/37594/8800/38dbc785/14',
+  // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
+  // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)
+  '8-5:normal': 'L30/0/37439/8586/c7958807/22',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/ab76d249/4',
   '4-5:hard': 'L26/0/67651/3566/3decde6a/20',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
-  // stays below, with the returning girls left out)
-  '8-5:normal': 'L30/0/39114/7321/a30aaa7b/18',
+  // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/39114/7321/a30aaa7b/18): Hana's
+  // and Noa's abilities cast on Auto now (18 → 23 casts)
+  '8-5:normal': 'L30/0/38801/7168/d359d2ce/23',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 const LIVE_GOLDEN = {

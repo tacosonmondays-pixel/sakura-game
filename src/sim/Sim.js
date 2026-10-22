@@ -44,6 +44,7 @@ import { snapshotSim, restoreSim } from './snapshot.js';
 import {
   syncAbility, tickAbilities, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
   setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
+  abilityKill,
 } from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { syncZones, updateZones, endZoneWave, clearZones, nearExit } from './zones.js';
@@ -655,6 +656,8 @@ export class Sim {
     const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
     if (this._hubBounty) payHubBounty(this, e); // Ouka's Sponsorship (src/sim/hubs.js)
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
+    // a rally that brings lives back counts the kills near its caster (Noa's First Aid Call; only while a rally runs)
+    if (this._rallies.length) abilityKill(this, e);
     if (tower && !tower.removed) {
       tower.kills++;
       if (!drone && tower.stats?.vine) onVineKill(this, tower, e); // Chigusa's thorn beds (src/sim/vines.js)

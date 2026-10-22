@@ -13,8 +13,8 @@
 // tier, one girl per path at a time) inside today's 12,000-36,000 window. First-pass numbers, measured
 // with the balance bench (docs/BALANCE.md "Roster wave"); the owner's balance pass comes later.
 //
-// Each girl's activated ability is plain data in RETURNING_ABILITIES (ABILITIES.md §5.2 / §6.1 shape):
-// the ability system (track 1) reads it when the tracks merge; nothing here casts anything.
+// Each girl's activated ability lives with everyone else's: the numbers in src/data/abilities.js (ABILITIES,
+// attached by units.js like every girl's), the words in src/data/abilityText.js (A3 M3).
 
 import { HERO_TRACKS } from './heroTracks.js';
 import { S, stats, tier, path, free, GACHA_ONLY } from './unitKit.js';
@@ -225,6 +225,7 @@ const FUU = {
     'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.5 seconds.',
     'Gathering Dance pulls the enemies ahead of her target back into a clump for splash girls.',
     'Bosses barely move: pair her with damage, not instead of it.',
+    '⚡ Returning Gale tier 3 teaches Backdraft Fan: one great sweep that blows a whole crowd back up the road.',
   ],
   base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.45, canHitAir: true }),
   paths: [
@@ -283,6 +284,7 @@ const HANA = {
     'Her shots hunt flyers first (Air targeting) and hit them twice as hard.',
     'Grounded flyers can be hit by Rei, Akane, Sango and every other ground-only girl.',
     'She joins after 7-5, just in time for the Ashwing Peaks.',
+    '⚡ Falconry tier 3 teaches Kaze\'s Swoop: Kaze dives on the flyers anywhere on the map and knocks them out of the sky.',
   ],
   base: stats({ cost: 240, damage: 4, rate: 1.1, range: 3.8, projectileSpeed: 18, canHitAir: true, airMul: 2, status: [S.ground(1.2)] }),
   paths: [
@@ -341,6 +343,7 @@ const RURI = {
     'Kon fights from the edge of the nearest lane, so Ruri can stand far back.',
     'Her range ring is centred on Kon, not on Ruri.',
     'Moonhound bites crack armor, Star Falcon hits flyers harder (switch her to Air targeting), Tide Otter reaches further and soaks.',
+    '⚡ Moonhound tier 3 teaches Moon Pounce: Kon leaps on the strongest enemy in reach, bites hard and holds it in place.',
   ],
   base: stats({ cost: 400, damage: 7, rate: 0.9, range: 2.4, projectileSpeed: 14, canHitAir: true, relay: { kind: 'familiar', reach: 3.5 } }),
   paths: [
@@ -399,6 +402,7 @@ const NOA = {
     'Girls inside her sanctuary cannot be sabotaged or stunned by volatile slimes.',
     'Her chimes are weak, but holy: they silence field oni and end phasing.',
     'Blessings from Noa and Miko do not stack: the stronger one wins.',
+    '⚡ Pure Sanctuary tier 3 teaches First Aid Call: nobody near her can be jammed or stunned for a while, and enemies falling close to her bring back lives.',
   ],
   base: stats({
     cost: 360, behavior: 'pulse', damage: 1, rate: 0.5, range: 2.4, maxTargets: 4, projectileSpeed: 0, canHitAir: true,
@@ -460,6 +464,7 @@ const IROHA = {
     'She fires from two places: where she stands and from her mirror panel.',
     'Aim the panel beside a lane she cannot reach; without an aim it goes to the nearest lane edge.',
     'The second range ring is centred on the panel.',
+    '⚡ Mirror Hall tier 3 teaches Mirror Shift: her panel jumps where you aim and splits the team\'s shots in two.',
   ],
   base: stats({
     cost: 600, damage: 4, rate: 0.7, range: 2.3, projectiles: 2, projectileSpeed: 15, canHitAir: true,
@@ -521,6 +526,7 @@ const ENA = {
     'Cursed enemies burst when they fall, hurting their neighbours and passing on a weaker curse.',
     'A curse spreads at most two more times: dense waves chain beautifully.',
     'Withering Script stops regeneration like poison.',
+    '⚡ Cursed Bloom tier 3 teaches Omen Card: a cursed card for every enemy around her, so a dense wave bursts in a chain.',
   ],
   base: stats({ cost: 580, damage: 12, rate: 1.0, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [S.curse(0.8, 1.1, 4)] }),
   paths: [
@@ -553,116 +559,3 @@ const ENA = {
 export const EXPANSION_UNITS = [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, IROHA, ENA];
 /** Their ids (the 19 originals are everything else). */
 export const EXPANSION_IDS = EXPANSION_UNITS.map((u) => u.id);
-
-// ---------------------------------------------------------------------------
-// Activated abilities as plain data (ABILITIES.md §5.2, the §6.1 shape). The ability system is
-// track 1's: it attaches these (paths[k].ability for towers, hero.skill for heroes) when the
-// tracks merge. Nothing in the sim reads them yet. Numbers are the spec's first pass.
-// ---------------------------------------------------------------------------
-
-export const RETURNING_ABILITIES = {
-  fuu: [{
-    path: 'gale', unlockTier: 3,
-    id: 'fuu.backdraft', name: 'Backdraft Fan', icon: 'fan', kind: 'move', scope: 'local',
-    cooldown: 40, duration: 0,
-    effect: { reachMul: 1.5, push: 2, pushMiniboss: 1, bosses: false, status: [S.ground(2)] },
-    auto: { when: 'enemies', min: 5 },
-    desc: 'Every non-boss enemy within {reach} tiles is blown back {push} tiles (minibosses 1) and grounded {dur}s. The push lock applies.',
-    t5: { cooldown: 32, effect: { push: 3, status: [S.ground(3)] }, desc: 'Backdraft Fan: 3 tiles, grounded 3s, recharges in 32s.' },
-  }],
-  hana: [{
-    path: 'falconry', unlockTier: 3,
-    id: 'hana.swoop', name: 'Kaze\'s Swoop', icon: 'falcon', kind: 'strike', scope: 'map',
-    cooldown: 30, duration: 0,
-    effect: { pick: 'air', count: 4, dmgMul: 6, status: [S.ground(4)], fallback: { pick: 'strong', count: 2 } },
-    auto: { when: 'flyers', min: 1 },
-    desc: 'Kaze dives on up to {count} flyers anywhere: {dmg} damage each and grounded {dur}s. With no flyers, he takes the 2 strongest ground enemies instead.',
-    t5: { cooldown: 25, effect: { count: 8, dmgMul: 8 }, desc: 'Kaze\'s Swoop: 8 flyers, 8× hits, recharges in 25s.' },
-  }],
-  ruri: [
-    {
-      path: 'hound', unlockTier: 3,
-      id: 'ruri.moonPounce', name: 'Moon Pounce', icon: 'paw', kind: 'strike', scope: 'local',
-      cooldown: 30, duration: 0,
-      effect: { pick: 'strong', count: 1, reachAdd: 2, bites: 3, dmgMul: 8, hold: 1.5, bosses: false },
-      auto: { when: 'elite', min: 1 },
-      desc: 'Kon leaps at the strongest enemy within {reach} tiles: {bites} bites of {dmg} damage, and holds it {hold}s (bosses immune).',
-      t5: { cooldown: 25, effect: { bites: 5, hold: 2 }, desc: 'Moon Pounce: 5 bites, holds 2s, recharges in 25s.' },
-    },
-    {
-      path: 'falcon', unlockTier: 3,
-      id: 'ruri.starSnatch', name: 'Star Snatch', icon: 'feather', kind: 'move', scope: 'local',
-      cooldown: 35, duration: 0,
-      effect: { pick: 'first', count: 1, carry: 3, carryMiniboss: 1.5, bosses: false },
-      auto: { when: 'nearExit', min: 1 },
-      desc: 'Kon carries the leading non-boss enemy {carry} tiles back up the road (minibosses 1.5).',
-      t5: { cooldown: 30, effect: { count: 2, carry: 5 }, desc: 'Star Snatch: 2 enemies, 5 tiles, recharges in 30s.' },
-    },
-    {
-      path: 'otter', unlockTier: 3,
-      id: 'ruri.riverRush', name: 'River Rush', icon: 'wave', kind: 'runner', scope: 'local',
-      cooldown: 40, duration: 0,
-      effect: { length: 4, push: 1, status: [S.soak(4)] },
-      auto: { when: 'enemies', min: 5 },
-      desc: 'A wave rolls {length} tiles back along her lane: it pushes 1 tile and soaks for 4s.',
-      t5: { cooldown: 32, effect: { length: 8, push: 1.5 }, desc: 'River Rush: 8 tiles, pushes 1.5, recharges in 32s.' },
-    },
-  ],
-  noa: [{
-    path: 'sanctuary', unlockTier: 3,
-    id: 'noa.firstAid', name: 'First Aid Call', icon: 'cross', kind: 'rally', scope: 'local',
-    cooldown: 50, duration: 10,
-    effect: { radius: 4, cleanse: true, ward: true, stunImmune: true, lifeEvery: 10, lifeRadius: 3, lifeMax: 3 },
-    auto: { when: 'sabotage', min: 1 },
-    desc: 'Girls within {radius} tiles are cleansed and immune to sabotage and stuns for {dur}s; every 10 kills within 3 tiles meanwhile restore 1 life (at most 3; never where healing is off or on one life).',
-    t5: { cooldown: 42, duration: 14, effect: { lifeMax: 5 }, desc: 'First Aid Call: 14s, up to 5 lives, recharges in 42s.' },
-  }],
-  iroha: [{
-    path: 'hall', unlockTier: 3,
-    id: 'iroha.mirrorShift', name: 'Mirror Shift', icon: 'mirror', kind: 'deploy', scope: 'local',
-    cooldown: 30, duration: 8,
-    effect: { moveMirror: true, aimed: true, reflect: true },
-    auto: { when: 'enemies', min: 5 },
-    desc: 'Her mirror panel jumps to her aim point (or the road spot nearest the leader within her reach) and for {dur}s splits every ally projectile that crosses it in two, once each.',
-    t5: { cooldown: 25, duration: 10, effect: { permanentReflect: true, extraMirror: true }, desc: 'Infinite Reflection: the reflection is permanent; Mirror Shift adds a second panel for 10s; recharges in 25s.' },
-  }],
-  ena: [{
-    path: 'bloom', unlockTier: 3,
-    id: 'ena.omenCard', name: 'Omen Card', icon: 'cards', kind: 'debuff', scope: 'local',
-    cooldown: 40, duration: 0,
-    effect: { reachMul: 1.5, status: [S.curse(3, 1.6, 6)] },
-    auto: { when: 'enemies', min: 6 },
-    desc: 'Curses every enemy within {reach} tiles with a burst of 3× her hit; a dense wave chain-reacts (at most 32 bursts a step).',
-    t5: { cooldown: 32, effect: { reachMul: 2, status: [S.curse(4, 1.6, 6)] }, desc: 'Omen Card: twice her range, bursts of 4×, recharges in 32s.' },
-  }],
-  kanna: {
-    skill: {
-      unlockLevel: 7,
-      id: 'kanna.heavyBeat', name: 'Heavy Beat', icon: 'drum', kind: 'boost', scope: 'self',
-      cooldown: 30, duration: 6,
-      effect: { splashArmor: { radius: 1.5, shred: 2 }, status: [S.stun(0.3)] },
-      desc: 'For {dur}s her strikes crack 2 armor on everything within 1.5 tiles of her target and stagger it for 0.3s.',
-      ranks: [{ level: 17, effect: { splashArmor: { radius: 1.5, shred: 3 } }, durationAdd: 2, cooldownMul: 25 / 30 }],
-    },
-  },
-  yoriko: {
-    skill: {
-      unlockLevel: 7,
-      id: 'yoriko.puppetHex', name: 'Puppet Hex', icon: 'puppet', kind: 'debuff', scope: 'local',
-      cooldown: 30, duration: 8,
-      effect: { pick: 'strong', count: 1, reachAdd: 1, status: [S.hex(0.03, 8), S.slow(0.3, 8)] },
-      desc: 'The strongest enemy within her range + 1 is hexed for {dur}s: 3% of its max HP a second (minibosses 2%, bosses 1%), no regeneration, slowed 30%; one hex takes at most 10% of a miniboss\'s or boss\'s HP.',
-      ranks: [{ level: 17, effect: { count: 2 }, durationAdd: 2, cooldownMul: 25 / 30 }],
-    },
-  },
-  seiran: {
-    skill: {
-      unlockLevel: 7,
-      id: 'seiran.stormLance', name: 'Storm Lance', icon: 'spear', kind: 'strike', scope: 'local',
-      cooldown: 30, duration: 0,
-      effect: { pick: 'chain', count: 8, dmgMul: 3, status: [S.ground(3)] },
-      desc: 'A thrown lance chains through {count} enemies for {dmg} damage each; flyers it hits are grounded 3s.',
-      ranks: [{ level: 17, effect: { count: 12, dmgMul: 4 }, cooldownMul: 25 / 30 }],
-    },
-  },
-};

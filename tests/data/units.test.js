@@ -825,9 +825,10 @@ describe('hero definitions', () => {
     const h = u.hero;
     expect(u.base.cost).toBe(0);
     expect(u.paths).toEqual([]);
-    // `skill`: the Lv 7 skill, attached from src/data/abilities.js (tests/data/abilities.test.js)
-    // (a returning hero gets hers when the ability track attaches RETURNING_ABILITIES)
-    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', ...(h.skill ? ['skill'] : []), 'ult']);
+    // `skill`: the Lv 7 skill, attached from src/data/abilities.js (tests/data/abilities.test.js); every hero has one
+    // since A3 M3 attached the returning heroes' too
+    expect(h.skill, id).toBeTruthy();
+    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', 'skill', 'ult']);
     expect(h.levels).toBe(HERO_TRACKS[id].levels);
     expect(h.pathKeys).toEqual(OLD_REFS[id]);
     expect(h.levels.map((l) => l.level)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
