@@ -5,8 +5,8 @@
 //   m2-hana-bio      Hana's Profile sheet: the bio says Kaze swoops out at every enemy she shoots, flyers first
 //   m2-gear-haste    Aoi's shoes (Skill Haste main stat, Bell Club): the piece's Details sheet says Skill Haste
 //   m2-club-bell     the Club Armband picker (Academy Clubs) with Bell Club in the list
-//   m2-ouka-office   a battle: Ouka at Club Mentors, her panel's Office line ("abilities +15%")
-//   m2-ouka-covered  the girl she covers: "Council rules … ability +15% charge"
+//   m2-ouka-office   a battle: Ouka at Club Mentors, her panel's Office line ("abilities recharge 15% faster")
+//   m2-ouka-covered  the girl she covers: "Council rules … ability recharges 15% faster"
 //   m2-azami-crit    a battle frame: Azami's strips critting (crit gear), orange "123!" numbers
 import { openApp, seedSave, openBattle, settle, until } from './battleKit.mjs';
 import { uiProbe, formatProbe, BATTLE_BOXES } from './uiProbe.mjs';

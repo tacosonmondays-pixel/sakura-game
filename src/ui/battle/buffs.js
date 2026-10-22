@@ -198,6 +198,47 @@ export const PICK_REFUSED = {
   invalid: 'That is not a girl.',
 };
 
+const pct = (x) => Math.round(x * 100);
+const freeTiersText = (n) => `${n === 1 ? '1st tier' : `first ${n} tiers`} free`;
+
+/**
+ * Ouka's Office cell (the tower panel; src/sim/hubs.js, towerStats().hub): what her office gives the girls it covers,
+ * each fact once — the radius is her RANGE cell. Copy rules: a minus sign (U+2212), the recharge in the tier card's
+ * words, "hits flyers" as on the covered girl's line.
+ */
+export function officeText(hb) {
+  if (!hb) return '';
+  const bits = [`−${pct(hb.costCut || 0)}% upgrades`, `sell ${pct(hb.sellMul || 0)}%`];
+  if (hb.freeTiers > 0) bits.push(freeTiersText(hb.freeTiers));
+  if (hb.killBounty > 0) bits.push(`+${Math.round(hb.killBounty)} coins/kill`);
+  if (hb.cdCut > 0) bits.push(`abilities recharge ${pct(hb.cdCut)}% faster`);
+  if (hb.rateMul > 1) bits.push(`+${pct(hb.rateMul - 1)}% speed`);
+  if (hb.rangeMul > 1) bits.push(`+${pct(hb.rangeMul - 1)}% range`);
+  if (hb.dmgMul > 1) bits.push(`+${pct(hb.dmgMul - 1)}% dmg`);
+  if (hb.detection) bits.push('Veil Sight');
+  if (hb.airGrant) bits.push('hits flyers');
+  if (hb.cleanse) bits.push('Cleanse');
+  if (hb.typeFloor > 0) bits.push('type floor ×1');
+  return bits.join(', ');
+}
+
+/**
+ * A girl inside Ouka's office or by her banner: the rules not already shown as buffs ('' when none). The recharge
+ * shows only on a girl with a running, unlocked ability (t.abil): never promise a button that is not there (owner
+ * default Q3; Kage, Suzu and Chika wait for their deploys, and a girl below her ⚡ tier 3 has none yet).
+ */
+export function councilRulesText(t) {
+  const ru = t?.rules;
+  if (!ru) return '';
+  const bits = [];
+  if (ru.freeTiers > 0) bits.push(freeTiersText(ru.freeTiers));
+  if (ru.sellMul > 0) bits.push(`sells for ${pct(ru.sellMul)}%`);
+  if (ru.cdCut > 0 && t.abil) bits.push(`ability recharges ${pct(ru.cdCut)}% faster`);
+  if (ru.airGrant) bits.push('hits flyers');
+  if (ru.typeFloor > 0) bits.push('type floor ×1');
+  return bits.join(', ');
+}
+
 /** The three settings of the icons (settings.buffIcons). */
 export const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 export const DEFAULT_BUFF_ICONS = 'all';

@@ -6,8 +6,9 @@
 //
 // Rules (spec §3):
 //   - Cooldowns charge only while a wave runs, in integer charge points (ABILITY_RULES.chargePerTick a
-//     tick; Skill Haste speeds every kind but rally and debuff at half rate). A fresh ability starts with
-//     1/3 of its cooldown left; an econ ability starts empty.
+//     tick; Skill Haste speeds every kind but rally and debuff at half rate; Ouka's office, t.rules.cdCut,
+//     multiplies it by 1 + cut, and a map-scope shared entry takes the largest cut among its player's
+//     copies). A fresh ability starts with 1/3 of its cooldown left; an econ ability starts empty.
 //   - Casting works only in a wave. A refusal never spends the cooldown; its reason, in order:
 //     ended, locked, notYours, notWave, disabled, moving, active, cooldown, cap, noIncome, noTarget.
 //   - Local abilities have one cooldown per girl; map-scope ones one per player for that ability too
@@ -141,6 +142,32 @@ const groupKey = (t, id) => `${t.owner ?? 0}|${id}`;
 function groupOf(sim, t) {
   const a = t.abil;
   return a && a.scope === 'map' ? sim.abilGroups.get(groupKey(t, a.id)) || null : null;
+}
+
+/**
+ * Charge points a tick under Ouka's office (src/sim/hubs.js, t.rules.cdCut): round(rate × (1 + cut)) — 115 for an
+ * unhasted girl at Club Mentors' 15 % — or the plain rate without one.
+ */
+const chargedRate = (rate, cut) => (cut > 0 ? Math.round(rate * (1 + cut)) : rate);
+
+/**
+ * The office cut a map-scope shared entry charges with: the largest cdCut among that player's living copies of the
+ * ability (a max, so placement order never matters; t.rules is derived, so saves and checkpoints carry nothing new).
+ */
+function groupCut(sim, owner, id) {
+  let cut = 0;
+  for (const t of sim.towers) {
+    const c = t.rules?.cdCut;
+    if (!(c > cut) || t.removed || !t.abil || t.abil.id !== id || (t.owner ?? 0) !== owner) continue;
+    cut = c;
+  }
+  return cut;
+}
+
+/** A shared entry's charge points a tick: its caster's rate under the best office among the copies. */
+function groupRate(sim, key, g) {
+  const bar = key.indexOf('|');
+  return chargedRate(g.rate, groupCut(sim, Number(key.slice(0, bar)), key.slice(bar + 1)));
 }
 
 /**
@@ -1003,16 +1030,21 @@ const DUE = [];
 export function tickAbilities(sim) {
   if (sim.state !== 'wave') return;
   const step = stepNo(sim);
+  let mapCut = false;
   for (const t of sim.towers) {
     const a = t.abil;
-    if (!a || !(a.cd > 0)) continue;
+    if (!a) continue;
     // Ouka's Club Mentors (src/sim/hubs.js): girls she covers charge faster (115 points a tick at 15%)
-    a.cd = Math.max(0, a.cd - (t.rules?.cdCut > 0 ? Math.round(a.rate * (1 + t.rules.cdCut)) : a.rate));
+    const cut = t.rules?.cdCut > 0 ? t.rules.cdCut : 0;
+    if (cut > 0 && a.scope === 'map') mapCut = true;
+    if (!(a.cd > 0)) continue;
+    a.cd = Math.max(0, a.cd - chargedRate(a.rate, cut));
     if (a.cd === 0 && !((groupOf(sim, t)?.cd || 0) > 0)) sim._emit('abilityReady', { towerUid: t.uid, id: a.id });
   }
   if (sim.abilGroups.size) {
     for (const [k, g] of sim.abilGroups) {
-      g.cd = Math.max(0, g.cd - g.rate);
+      // the shared entry (what blocks a map cast) gets the office too: the best cut among the player's copies
+      g.cd = Math.max(0, g.cd - (mapCut ? groupRate(sim, k, g) : g.rate));
       if (g.cd === 0) {
         sim.abilGroups.delete(k);
         sim._emit('abilityReady', { group: k, id: k.slice(k.indexOf('|') + 1), owner: Number(k.slice(0, k.indexOf('|'))) });
@@ -1190,10 +1222,12 @@ export function abilityStatus(sim, t) {
   const def = abilityDef(t);
   const g = groupOf(sim, t);
   const reason = refusal(sim, t);
+  // real wave seconds: the points a tick the step charges (Ouka's office included; the shared entry's own rate)
+  const rate = chargedRate(a.rate, t.rules?.cdCut > 0 ? t.rules.cdCut : 0);
   return {
     id: a.id, kind: a.kind, scope: a.scope, unlocked: true, ready: !reason, reason, later: false,
     path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,
-    cooldown: secs(a.cdMax, a.rate), cooldownLeft: Math.max(secs(a.cd, a.rate), g ? secs(g.cd, g.rate) : 0),
+    cooldown: secs(a.cdMax, rate), cooldownLeft: Math.max(secs(a.cd, rate), g ? secs(g.cd, groupRate(sim, groupKey(t, a.id), g)) : 0),
     duration: def ? activeTicks(def) / R.ticksPerSecond : 0, activeLeft: a.active / R.ticksPerSecond, auto: a.auto, t5: a.t5, uses: a.n,
     group: a.scope === 'map', charge: a.cdMax > 0 ? 1 - Math.max(a.cd, g?.cd || 0) / a.cdMax : 1,
   };

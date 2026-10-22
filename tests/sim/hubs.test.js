@@ -2,13 +2,16 @@
 // ABILITIES §5.3): the base rules (discount, sell value), free tiers, coins per kill, the stat and
 // grant keys, the type floor, banners by the aim command, a sabotaged hub, the Bell itself and
 // determinism; the faster ability charge rule (cdCut) on her real tiers (Club Mentors 15 %, Festival of
-// Clubs 25 %, back with the ability bar beside the v0.1.40 speed). Without her no girl ever carries `rules`.
+// Clubs 25 %, back with the ability bar beside the v0.1.40 speed), on a map-wide ability's shared recharge too (the
+// largest cut among the player's copies; M2 review) and in the seconds the UI reads. Without her no girl ever carries
+// `rules`.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
 import { BATTLE } from '../../src/data/types.js';
 import { defaultData } from '../../src/sim/data.js';
 import { computeHit } from '../../src/sim/combat.js';
+import { abilityPathOf } from '../../src/sim/abilities.js';
 import { MAP, STAGE, ENEMIES } from './fixtures.js';
 
 const units = defaultData().units;
@@ -178,6 +181,24 @@ describe('the office rules', () => {
     }
   });
 
+  test('the seconds the UI reads (abilityStatus) are real wave seconds inside her office', () => {
+    const { sim, g } = setup({ tiers: [0, 3, 0] });
+    buy(sim, g, [0, 3, 0]);
+    wave(sim);
+    g.abil.cd = g.abil.cdMax; // as a cast leaves it
+    const st = sim.abilityStatus(g.uid);
+    expect(st.cooldown).toBeCloseTo(g.abil.cdMax / (115 * 60), 9); // 35 s / 1.15 = 30.4 s, not 35
+    expect(st.cooldownLeft).toBeCloseTo(st.cooldown, 9);
+    run(sim, 5);
+    expect(sim.abilityStatus(g.uid).cooldownLeft).toBeCloseTo(st.cooldown - 5, 6); // 5 s of wave time takes 5 s off
+    let n = 300;
+    while (!sim.abilityStatus(g.uid).ready && n < 10000) {
+      run(sim, STEP);
+      n++;
+    }
+    expect(Math.abs(n / 60 - st.cooldown)).toBeLessThanOrEqual(1 / 60);
+  });
+
   test('a sabotaged Ouka rules nobody until she recovers', () => {
     const { sim, o, g } = setup({ tiers: [1, 0, 0] });
     o.disabled = 5;
@@ -189,6 +210,127 @@ describe('the office rules', () => {
     sim._buffsDirty = true;
     run(sim, STEP);
     expect(g.rules).toBeTruthy();
+  });
+});
+
+describe('the office recharge on a map-wide ability (M2 review: one shared recharge per player)', () => {
+  function mapSim() {
+    const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'shiro' }, { unitId: 'hotaru' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+    sim.cash = 1e9;
+    return sim;
+  }
+  /** A girl with her ⚡ path to tier 3 at the first legal spot near (x, y). */
+  function girlAt(sim, id, x, y, owner = 0) {
+    for (const [dx, dy] of [[0, 0], [0, 0.6], [0, -0.6], [0.6, 0], [-0.6, 0], [0.6, 0.6], [-0.6, -0.6]]) {
+      const t = sim.placeTower(id, x + dx, y + dy, { owner });
+      if (!t) continue;
+      for (let k = 0; k < 3; k++) expect(sim.upgradeTower(t.uid, abilityPathOf(t.def))).toBe(true);
+      expect(t.abil?.scope, id).toBe('map');
+      return t;
+    }
+    throw new Error(`no spot for ${id} near ${x}, ${y}`);
+  }
+  /** Ouka at Club Mentors (0-3-0) at (8.5, 6.2), radius 3.2. */
+  const office = (sim) => buy(sim, sim.placeTower('ouka', 8.5, 6.2), [0, 3, 0]);
+  /** A real cast (an enemy on the road to aim at, gone right after: nothing walks while the recharge runs). */
+  function cast(sim, t) {
+    const e = sim.spawnEnemy('orc', { pathIndex: 0, dist: 9.5 });
+    e.hp = e.maxHp = 1e7; // (the girls' own shots must not take it before the cast)
+    run(sim, STEP); // (on the targeting grid)
+    t.abil.cd = 0;
+    const r = sim.castAbility(t.uid);
+    expect(r, t.unitId).toMatchObject({ ok: true, casterUid: t.uid });
+    for (const v of sim.enemies) v.dead = true;
+    return sim.abilGroups.get(`${t.owner ?? 0}|${t.abil.id}`);
+  }
+  /** Ticks from a cast until she is ready again. */
+  function ticksToReady(sim, t) {
+    let n = 0;
+    while (!sim.abilityStatus(t.uid).ready && n < 10000) {
+      run(sim, STEP);
+      n++;
+    }
+    return n;
+  }
+
+  test('Shiro (Verdict, map scope) at Club Mentors: the shared entry charges 115 a tick, so the 45 s recharge takes 39.1 s', () => {
+    const rows = [];
+    for (const inOffice of [false, true]) {
+      const sim = mapSim();
+      if (inOffice) office(sim);
+      const s = girlAt(sim, 'shiro', 9.7, 6.2);
+      expect(s.rules?.cdCut || 0).toBe(inOffice ? 0.15 : 0);
+      wave(sim);
+      run(sim, STEP);
+      const g = cast(sim, s);
+      expect(g).toMatchObject({ cd: 270000, cdMax: 270000, rate: 100 }); // 45 s × 60 ticks × 100 points
+      const shown = sim.abilityStatus(s.uid);
+      run(sim, STEP);
+      rows.push({ inOffice, perTick: 270000 - g.cd, shown: shown.cooldown, ticks: 1 + ticksToReady(sim, s) });
+    }
+    expect(rows[0]).toMatchObject({ perTick: 100, ticks: 2700 });
+    expect(rows[1]).toMatchObject({ perTick: 115, ticks: Math.ceil(270000 / 115) }); // 2348 ticks, 15% faster
+    for (const r of rows) expect(Math.abs(r.shown - r.ticks / 60), `${r.inOffice}`).toBeLessThanOrEqual(1 / 60);
+  });
+
+  test('a rally / debuff kind gets it too (Hotaru\'s Hush: no Skill Haste, still the office)', () => {
+    const sim = mapSim();
+    office(sim);
+    const h = girlAt(sim, 'hotaru', 9.7, 6.2);
+    wave(sim);
+    run(sim, STEP);
+    const g = cast(sim, h);
+    const cd = g.cd;
+    run(sim, STEP);
+    expect(cd - g.cd).toBe(115);
+  });
+
+  test('the largest cut among the player\'s copies, whichever copy cast and in any placement order; gone with the copy', () => {
+    for (const nearFirst of [false, true]) {
+      const sim = mapSim();
+      office(sim);
+      let near;
+      let far;
+      if (nearFirst) {
+        near = girlAt(sim, 'shiro', 9.7, 6.2);
+        far = girlAt(sim, 'shiro', 14.5, 6.2);
+      } else {
+        far = girlAt(sim, 'shiro', 14.5, 6.2);
+        near = girlAt(sim, 'shiro', 9.7, 6.2);
+      }
+      expect(near.rules?.cdCut).toBe(0.15);
+      expect('rules' in far).toBe(false);
+      wave(sim);
+      run(sim, STEP);
+      // the copy outside the office casts: her own cooldown 100 a tick, the shared entry 115 (the copy inside)
+      const g = cast(sim, far);
+      const [cd, own] = [g.cd, far.abil.cd];
+      run(sim, STEP);
+      expect([cd - g.cd, own - far.abil.cd], `nearFirst ${nearFirst}`).toEqual([115, 100]);
+      // her shown seconds: the larger of her own and the shared entry's (both at their real rates)
+      const st = sim.abilityStatus(far.uid);
+      expect(st.cooldownLeft).toBeCloseTo(far.abil.cd / (100 * 60), 9);
+      expect(sim.abilityStatus(near.uid).cooldownLeft).toBeCloseTo(g.cd / (115 * 60), 9);
+      // the copy inside is sold: back to 100 a tick
+      expect(sim.sellTower(near.uid)).toBeTruthy();
+      const c2 = g.cd;
+      run(sim, STEP);
+      expect(c2 - g.cd).toBe(100);
+    }
+  });
+
+  test('only her own player\'s copies count: a partner\'s Shiro inside the office leaves this player\'s recharge alone', () => {
+    const sim = mapSim();
+    office(sim);
+    const ally = girlAt(sim, 'shiro', 9.7, 6.2, 1);
+    const mine = girlAt(sim, 'shiro', 14.5, 6.2, 0);
+    expect(ally.rules?.cdCut).toBe(0.15);
+    wave(sim);
+    run(sim, STEP);
+    const g = cast(sim, mine);
+    const cd = g.cd;
+    run(sim, STEP);
+    expect(cd - g.cd).toBe(100);
   });
 });
 

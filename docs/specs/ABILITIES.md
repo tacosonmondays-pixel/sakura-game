@@ -327,7 +327,7 @@ export const ABILITIES = {
 ### 6.4 One tick of `tickAbilities(sim)`
 
 1. **Charge.** If `state === 'wave'`:
-   - subtract `chargePerTick` (×1.15 inside a campus-hub radius, A5) from every positive `t.abil.cd` and every `abilGroups` value, clamping at 0;
+   - subtract `chargePerTick` (×1.15 inside a campus-hub radius, A5) from every positive `t.abil.cd` and every `abilGroups` value, clamping at 0. A girl's own cooldown charges `round(rate × (1 + t.rules.cdCut))`; a shared `abilGroups` entry charges `round(g.rate × (1 + cut))`, where `cut` is the largest `cdCut` among that player's living copies of the ability (a max: placement order never matters; `t.rules` is derived, so saves and checkpoints carry nothing new). The UI's seconds (`abilityStatus` `cooldown` / `cooldownLeft`) divide by the same rates;
    - emit `abilityReady` on the step a cooldown reaches 0.
 2. **Expire.** Count down `active`. At 0, the kind's `end` runs: a boost clears `abilMods` and refreshes; the girl gets an `abilityEnd` event. Count down and drop expired `_rallies` (setting `_buffsDirty`), `deployables`, extra traps and extra drones.
 3. **Queue.** Run `_abilQueue` entries whose `at ≤ tick`, in insertion order: delayed shells and Shiro's verdict hits. If the target died, the entry is skipped.

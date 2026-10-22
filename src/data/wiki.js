@@ -226,7 +226,7 @@ function abilitiesArticle() {
       list([
         'Skill Haste gear speeds up an ability\'s recharge at half strength (never team rallies or debuffs).',
         'Bell Club (3 pieces): when a wave starts, her ability gains 10% of its charge.',
-        'Inside Ouka\'s office, abilities recharge 15% faster with Club Mentors and 25% faster with Festival of Clubs.',
+        'Inside Ouka\'s office, abilities recharge 15% faster with Club Mentors and 25% faster with Festival of Clubs. A map-wide ability\'s shared recharge speeds up while any copy of that girl stands inside.',
       ])),
     sec('Auto',
       p('Settings → Battle → Auto-cast abilities (Off at first) lets every girl fire hers by herself when it is a good moment. You can still tap them, and switch Auto per girl by holding her button. Your own timing is usually better: before a bunched crowd, or a freeze saved for the leak.')),

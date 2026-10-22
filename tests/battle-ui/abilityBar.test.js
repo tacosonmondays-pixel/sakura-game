@@ -15,6 +15,7 @@ import { abilityInfoView } from '../../src/ui/girlView.js';
 import { DEFAULT_SETTINGS, createProfile, migrateProfile } from '../../src/systems/save.js';
 import { autoAbilities } from '../../src/ui/battle/setup.js';
 import { abilityPathOf, TRANSIENT_REFUSALS } from '../../src/sim/abilities.js';
+import { STEP } from '../../src/sim/constants.js';
 import { ABILITY_TEXT, abilityAim } from '../../src/data/abilityText.js';
 import { ABILITIES } from '../../src/data/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
@@ -246,6 +247,36 @@ describe('the hold card', () => {
     expect(v.reach).toBeNull();
     // the sentence lives on in the girl page's Details sheet
     expect(abilityInfoView(UNIT_MAP.momo).desc).toMatch(/never on Nightmare\. It starts uncharged\.$/);
+  });
+
+  it('inside Ouka\'s office (Club Mentors): the recharge and the countdown are real wave seconds (M2 review)', () => {
+    const sim = battle(['ouka', 'aoi']);
+    const o = place(sim, 'ouka');
+    for (let i = 0; i < 3; i++) expect(sim.upgradeTower(o.uid, 1)).toBeTruthy(); // Assembly 3: Club Mentors
+    // Aoi on the legal spot nearest her (inside her 3.2-tile office)
+    let aoi = null;
+    const spots = [];
+    for (let y = 0.6; y < sim.map.height; y += 0.3) for (let x = 0.6; x < sim.map.width; x += 0.3) spots.push([Math.hypot(x - o.x, y - o.y), x, y]);
+    for (const [, x, y] of spots.sort((p, q) => p[0] - q[0])) if (sim.canPlace('aoi', x, y).ok && (aoi = sim.placeTower('aoi', x, y))) break;
+    unlock(sim, aoi);
+    expect(aoi.rules?.cdCut).toBe(0.15);
+    // between waves: the card's total is 35 s / 1.15, not 35 s
+    const slot = () => abilityBarView(sim, 0).find((s) => s.id === 'aoi.skyfall');
+    const card = () => abilityCardView(sim, slot());
+    expect(card().cooldown).toBe(`Recharges in ${wholeSeconds(35 / 1.15)} of wave time`);
+    expect(card().cooldown).not.toBe('Recharges in 35s of wave time');
+    sim.startNextWave();
+    const s0 = slot();
+    expect(s0.state).toBe('charging');
+    expect(s0.secondsLeft).toBeCloseTo(35 / 3 / 1.15, 1); // a fresh ability: a third left, at the office's rate
+    for (let i = 0; i < 300; i++) {
+      sim._step(STEP);
+      sim.drainEvents();
+    }
+    const s1 = slot();
+    expect(s1.state).toBe('charging');
+    expect(s0.secondsLeft - s1.secondsLeft).toBeCloseTo(5, 1); // 5 s of wave time takes 5 s off the label, no skips
+    expect(card().state).toBe(`Recharging · ${wholeSeconds(s1.secondsLeft)}`);
   });
 
   it('an area ability charging: its ring, and the recharge only in the state chip', () => {

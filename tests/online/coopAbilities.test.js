@@ -615,4 +615,58 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
     expect(fresh.hash()).toBe(snapHash);
     expect(fresh.sim.getTower(az).trapSpec.critChance).toBe(0.5);
   }, 240000);
+
+  it('map-wide abilities in Ouka\'s office (M2 review): both players\' shared recharges take the office alike on both views and after a checkpoint', () => {
+    const st = start({
+      p0: { loadout: [{ unitId: 'ouka' }, { unitId: 'shiro' }, { unitId: 'aoi' }], hero: null },
+      p1: { loadout: [{ unitId: 'hotaru' }, { unitId: 'momo' }], hero: null },
+    });
+    const cs = views(st);
+    const ouka = place(cs, 0, 'ouka', 4);
+    for (let i = 0; i < 3; i++) expect(all(cs, cmd(0, 'upg', [ouka, 1])).ok).toBe(true); // Club Mentors
+    const sh = upAbil(cs, 0, placeNear(cs, 0, 'shiro', ouka));
+    const ho = upAbil(cs, 1, placeNear(cs, 1, 'hotaru', ouka)); // the ally's girl in player 0's office
+    upAbil(cs, 0, place(cs, 0, 'aoi', 2));
+    for (const uid of [sh, ho]) expect(tower(cs[0], uid).rules?.cdCut, `uid ${uid}`).toBe(0.15);
+    all(cs, cmd(0, 'auto', [true])); // (waves follow on by themselves)
+    all(cs, cmd(0, 'wave'));
+    const charged = new Map([['0|shiro.verdict', 0], ['1|hotaru.hush', 0]]);
+    /** One tick: each map girl casts when ready (her own player's command); every shared entry still charging lost 115. */
+    const tick = (list, i) => {
+      if (i % 10 === 0) {
+        if (list[0].sim.abilityStatus(sh).ready) all(list, cmd(0, 'abil', abilArgs(sh)));
+        if (list[0].sim.abilityStatus(ho).ready) all(list, cmd(1, 'abil', abilArgs(ho)));
+      }
+      const before = [...list[0].sim.abilGroups].map(([k, g]) => [k, g.cd]);
+      step(list);
+      for (const [k, cd] of before) {
+        const g = list[0].sim.abilGroups.get(k);
+        if (!g || g.cd >= cd) continue;
+        expect(cd - g.cd, k).toBe(115);
+        charged.set(k, charged.get(k) + 1);
+      }
+      if (i % 300 === 0) for (const c of list.slice(1)) expect(c.hash(), `tick ${i}`).toBe(list[0].hash());
+    };
+    // to a wave clear after wave 2 while a shared entry still charges (it rides in the checkpoint)
+    let i = 0;
+    for (; i < 60000; i++) {
+      const s = cs[0].sim;
+      if (s.state === 'between' && s.wavesCleared >= 2 && s.abilGroups.size > 0) break;
+      tick(cs, i);
+    }
+    expect(cs[0].sim.state).toBe('between');
+    const snap = JSON.parse(JSON.stringify(cs[1].snapshot()));
+    const fresh = createCoopSim(st, { mySlot: 1 }).restore(snap);
+    expect(rederiveStats(fresh.sim)).toBe(0);
+    expect(fresh.hash()).toBe(cs[0].hash());
+    expect([...fresh.sim.abilGroups.keys()]).toEqual([...cs[0].sim.abilGroups.keys()]);
+    const trio = [cs[0], cs[1], fresh];
+    for (let k = 0; k < 4000 && !['won', 'lost'].includes(cs[0].sim.state); k++) tick(trio, i + 1 + k);
+    expect(fresh.hash()).toBe(cs[0].hash());
+    expect(cs[1].hash()).toBe(cs[0].hash());
+    expect(fresh.wallets).toEqual(cs[0].wallets);
+    for (const [k, n] of charged) expect(n, `${k}: ticks charged at 115`).toBeGreaterThan(1000);
+    expect(tower(cs[0], sh).abil.n).toBeGreaterThan(1);
+    expect(tower(cs[0], ho).abil.n).toBeGreaterThan(1);
+  }, 240000);
 });

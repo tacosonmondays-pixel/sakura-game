@@ -1431,7 +1431,9 @@ hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner
   (strongest wins with the auras) and its rule keys into t.rules { src, freeTiers, sellMul, cdCut,
   airGrant, typeFloor } (absent on a girl no hub covers); Sim._upgradeCost(t, tier, index) is 0 for a
   free tier; sellValue uses max(sellRefund, rules.sellMul); _killEnemy pays killBounty to the hub's owner
-  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut));
+  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut)), and a map-scope
+  abilGroups entry round(g.rate × (1 + the largest cdCut among that player's living copies)); abilityStatus'
+  cooldown / cooldownLeft are seconds at those same rates;
   refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
 aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
   setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
