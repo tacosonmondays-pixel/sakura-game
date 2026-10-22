@@ -10,8 +10,14 @@ import { STAT_SHORT, STAT_GLYPH, statValue, statFact } from './gearTile.js';
 import { gearStripCells, gearTotalsRows, setView, fillLine } from './gearView.js';
 import { matchupList } from './girlView.js';
 import { effectParts } from './upgradeTags.js';
+import { MINUS } from './format.js';
 
 export const GIRL_PAGE_MODES = Object.freeze(['compact', 'detailed']);
+
+/** Next to the short "COST" label a cost cut reads as a minus ("COST −15.6%"), as on the Compact strip. */
+const cutSign = (stat, text) => (stat === 'costCut' ? text.replace(/^\+/, MINUS) : text);
+/** A stat's value for beside its short label ("+22%", "−8%" for COST). */
+export const shortStatValue = (stat, value, o) => cutSign(stat, statValue(stat, value, o));
 
 /** Which look her page uses: 'detailed' only when the setting says so (older saves and junk: 'compact'). */
 export const girlPageMode = (profile) => (profile?.settings?.girlPage === 'detailed' ? 'detailed' : 'compact');
@@ -36,6 +42,7 @@ export function infoView(unit, mode) {
 /**
  * A slot card's words under its tile. Compact: the main stat's icon and caps label only (P3: one number per gear
  * tile). Detailed: the main stat with its value ("ATK +22%") and every substat as a small line with its value.
+ * `fact` is the full-name line for titles and screen readers ("Cost Reduction +8%").
  * @param {object|null} g the piece she wears (null: an empty slot)
  * @returns {{ main: { stat: string, glyph: string, label: string, value: string|null, fact: string },
  *   subs: { stat: string, label: string, value: string, fact: string }[] }|null}
@@ -43,7 +50,7 @@ export function infoView(unit, mode) {
 export function slotCardView(g, mode) {
   if (!g) return null;
   const L = g.urCard ? { main: g.main, subs: g.subs || [] } : gearLines(g);
-  const line = (l) => ({ stat: l.stat, glyph: STAT_GLYPH[l.stat] || 'sparkle', label: STAT_SHORT[l.stat] || statName(l.stat), value: statValue(l.stat, l.value), fact: statFact(l.stat, l.value) });
+  const line = (l) => ({ stat: l.stat, glyph: STAT_GLYPH[l.stat] || 'sparkle', label: STAT_SHORT[l.stat] || statName(l.stat), value: shortStatValue(l.stat, l.value), fact: statFact(l.stat, l.value) });
   const main = line(L.main);
   if (mode !== 'detailed') return { main: { ...main, value: null }, subs: [] };
   return { main, subs: (L.subs || []).map(line) };
@@ -51,11 +58,12 @@ export function slotCardView(g, mode) {
 
 /**
  * The "From gear" block. Compact: her role's 3 cells + MORE (the totals sheet). Detailed: every total gear gives her
- * (MAX caps marked), the fill-in line and the set bonuses that are on, each with its effect; no MORE.
+ * (MAX caps marked), the fill-in line and the set bonuses that are on, each with its effect; no MORE. Each row keeps
+ * gearTotalsRows()' full `name` / `value` and adds the short `label` and `short` value it is drawn with.
  */
 export function gearFromView(unit, profile, mode) {
   if (mode !== 'detailed') return { mode: 'compact', cells: gearStripCells(unit, profile), more: true };
-  const rows = gearTotalsRows(profile, unit.id).map((r) => ({ ...r, label: STAT_SHORT[r.stat] || r.name }));
+  const rows = gearTotalsRows(profile, unit.id).map((r) => ({ ...r, label: STAT_SHORT[r.stat] || r.name, short: cutSign(r.stat, r.value) }));
   return { mode: 'detailed', rows, more: false, fill: fillLine(profile, unit.id), bonuses: setBonuses(profile, unit.id) };
 }
 

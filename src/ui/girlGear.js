@@ -71,9 +71,9 @@ export function gearTab(unit, { onChange, mode = girlPageMode(store.profile) }) 
 /** Detailed: every gear total on ink (MAX marked), the fill-in line and each set bonus that is on with its effect. */
 function gearTotalsAll(unit, from) {
   const totals = from.rows.length
-    ? h('button.gk-totals', { type: 'button', 'data-testid': 'gear-totals-all', 'aria-label': `Gear totals: ${from.rows.map((r) => `${r.name} ${r.value}${r.max ? ' (MAX)' : ''}`).join(', ')}. Open the details`, onclick: () => openGearTotals(unit) },
+    ? h('button.gk-tot-grid', { type: 'button', 'data-testid': 'gear-totals-all', 'aria-label': `Gear totals: ${from.rows.map((r) => `${r.name} ${r.value}${r.max ? ' (MAX)' : ''}`).join(', ')}. Open the details`, onclick: () => openGearTotals(unit) },
       from.rows.map((r) => h(`span.gk-tot${r.max ? '.max' : ''}`, { title: r.cap ? `${r.name} ${r.value}, cap ${r.cap}` : `${r.name} ${r.value}` },
-        lbl(r.label), h('b.num', r.value), r.max ? h('small.gk-tot-max', 'MAX') : null)))
+        lbl(r.label), h('b.num', r.short), r.max ? h('small.gk-tot-max', 'MAX') : null)))
     : h('p.gp-line', { 'data-testid': 'gear-totals-all' }, 'No gear bonuses yet. Tap a slot to equip a piece.');
   return h('div.gk-from-all', totals,
     from.fill ? h('p.gk-fillline', { 'data-testid': 'gear-fill-line' }, ico('sparkle'), `Fill-in ${from.fill.value} ${from.fill.to}, up to ${from.fill.cap}`) : null,
@@ -87,9 +87,11 @@ function slotCard(unit, slot, onChange, mode = 'compact') {
   const name = GEAR_SLOTS[slot].name;
   const main = g ? gearLines(g).main : null;
   const v = slotCardView(g, mode);
+  // Detailed: the label reads the substats out too (the card's own words are hidden behind it)
+  const subsSaid = v?.subs.length ? `, ${v.subs.map((l) => l.fact).join(', ')}` : '';
   return h(`button.gk-slot${g ? '' : '.empty'}${isUrGear(g) ? '.is-ur' : ''}`, {
     type: 'button', 'data-testid': `slot-${slot}`,
-    'aria-label': g ? `${name}: ${g.name}, +${g.level}, ${statFact(main.stat, main.value)}. Open` : `${name}: empty. Equip`,
+    'aria-label': g ? `${name}: ${g.name}, +${g.level}, ${statFact(main.stat, main.value)}${subsSaid}. Open` : `${name}: empty. Equip`,
     onclick: () => openSlotSheet(unit, slot, { onChange }),
   },
   h('span.ui-kicker', name),
@@ -100,7 +102,8 @@ function slotCard(unit, slot, onChange, mode = 'compact') {
     ? h('span.ui-chip.gk-main', { title: statFact(main.stat, main.value) }, ico(STAT_GLYPH[main.stat] || 'sparkle'), lbl(STAT_SHORT[main.stat] || statName(main.stat)),
       v.main.value ? h('b.num.gk-main-v', { 'data-testid': `slot-${slot}-main` }, v.main.value) : null)
     : h('span.gk-equip', 'Equip'),
-  v?.subs.length ? h('ul.gk-subs', { 'data-testid': `slot-${slot}-subs` }, v.subs.map((l) => h('li.gk-sub', { title: l.fact }, h('span.gk-sub-n', l.label), h('b.num', l.value)))) : null);
+  // (spans, not a list: a button holds phrasing content only)
+  v?.subs.length ? h('span.gk-subs', { 'data-testid': `slot-${slot}-subs` }, v.subs.map((l) => h('span.gk-sub', { title: l.fact }, h('span.gk-sub-n', l.label), h('b.num', l.value)))) : null);
 }
 
 /**

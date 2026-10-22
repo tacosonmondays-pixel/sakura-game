@@ -13,15 +13,17 @@
 //                        Idle / Attack / Cheer / Victory row sits under the model's canvas, not over her legs.
 //   Compact / Detailed   Settings → Display → Girl page (src/ui/girlDetail.js), on Aoi and Umeko (both in full gear):
 //                        Compact keeps today's counts (3 strip cells + MORE, no gear values, ≤ 4 matchup entries, the
-//                        next star only, Manual closed); Detailed shows every stat inline, each slot's main stat value
-//                        and substats, every gear total, the set bonuses that are on, every star, Manual open and the
-//                        picked path's five tiers. Both: no sideways overflow, nothing under 12 px. The switch applies
-//                        to an open page at once and survives a reload.
+//                        next star only, Manual closed, the Gear totals sheet its plain list); Detailed shows every
+//                        stat inline, each slot's main stat value and substats, every gear total, the set bonuses that
+//                        are on, every star, Manual open and the picked path's five tiers; every tab of a hero, a girl
+//                        not recruited yet and a ★5 girl lays out too. Both: no sideways overflow, nothing under 12 px.
+//                        The switch applies to an open page at once and survives a reload. --shots: both looks, every
+//                        tab, both sizes.
 //
 // Usage: node e2e/girl-page.mjs [--viewport 844x390] [--shots dir]
 import { createServer } from 'vite';
-import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
+import { launchChromium } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (n, d = null) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
@@ -31,9 +33,7 @@ const viewports = opt('viewport') ? [opt('viewport')] : ['844x390', '1280x720'];
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
-const require = createRequire('/opt/node22/lib/node_modules/playwright/');
-const { chromium } = require('playwright');
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const { browser } = await launchChromium();
 const fails = [];
 const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) fails.push(m); return c; };
 const T = 60000;
@@ -93,6 +93,8 @@ async function go(page, hash, selector) {
 }
 async function shot(page, name) {
   if (!SHOTS) return;
+  // never a frame of the screen-change cut or the loader
+  await page.waitForFunction(() => !document.querySelector('#ld.on, .tx-cut.on'), null, { timeout: 10000 }).catch(() => {});
   await settle(page, 400);
   await noToasts(page);
   await page.screenshot({ path: `${SHOTS}/${name}.jpg`, type: 'jpeg', quality: 60 }).catch(() => {});
@@ -396,6 +398,12 @@ try {
     };
     const mode = () => page.evaluate(() => window.__sakura.store.profile.settings.girlPage);
     const count = (sel) => page.locator(sel).count();
+    const toEnd = () => page.evaluate(() => { const el = document.querySelector('.gp-host'); el.scrollTop = el.scrollHeight; });
+    /** Her page on tab `t`, waiting for the NEW page's content (the old one is marked first). */
+    const goGirl = async (id, t) => {
+      await page.evaluate(() => document.querySelectorAll('.gp-host').forEach((e) => { e.dataset.old = '1'; }));
+      await go(page, `#/student/${id}?tab=${t}`, '.gp-host:not([data-old]) > *');
+    };
     const SHOT_GIRLS = ['aoi', 'umeko'];
     // Compact (the default): today's counts
     check(await mode() === 'compact', `${tag} the girl page starts Compact (${await mode()})`);
@@ -405,21 +413,31 @@ try {
       check(await count('[data-testid="info-strip"] .ui-cell') === 3 && await count('[data-testid="info-more"]') === 1 && !(await count('[data-testid="info-stats"]')) && mu <= 4 && !(await count('[data-testid="info-matchup-mult"]')),
         `${tag} Compact ${id} Info: 3 headline stats + MORE, no inline stats, ${mu} matchup entries (≤ 4), no multipliers`);
       await layoutOk(`Compact ${id} Info`);
-      if (W === 844) await shot(page, `compact-${id}-info-${tag}`);
+      await shot(page, `compact-${id}-info-${tag}`);
       await go(page, `#/student/${id}?tab=gear`, '[data-testid="slot-charm"]');
       check(await count('[data-testid="gear-strip"] .ui-cell') === 3 && await count('[data-testid="gear-more"]') === 1 && !(await count('[data-testid="gear-totals-all"]')),
         `${tag} Compact ${id} Gear: the totals strip is 3 cells + MORE`);
       check(!(await count('.gk-main-v')) && !(await count('.gk-subs')) && await count('.gk-slot .gk-main') === 3, `${tag} Compact ${id} Gear: 3 slot tiles with the main stat label, no value, no substats`);
+      // MORE: the Gear totals sheet keeps its one-line-per-stat list (the Detailed grid's styles never reach it)
+      await page.click('[data-testid="gear-more"]');
+      await page.waitForSelector('[data-testid="gear-totals-sheet"] .gk-lines');
+      const sheetList = await page.evaluate(() => { const cs = getComputedStyle(document.querySelector('[data-testid="gear-totals-sheet"] .gk-lines')); return `${cs.display} ${cs.flexDirection} ${cs.backgroundColor}`; });
+      check(sheetList === 'flex column rgba(0, 0, 0, 0)', `${tag} Compact ${id} Gear › MORE: the totals sheet is its plain list (${sheetList})`);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-testid="gear-totals-sheet"]', { state: 'detached' });
       await layoutOk(`Compact ${id} Gear`);
-      if (W === 844) await shot(page, `compact-${id}-gear-${tag}`);
+      await shot(page, `compact-${id}-gear-${tag}`);
     }
     await go(page, '#/student/aoi?tab=level', '[data-testid="level-panel"]');
     check(await count('[data-testid="level-manual"][aria-expanded="false"]') === 1 && !(await count('[data-testid="level-books"]')), `${tag} Compact Level Up: Manual is closed`);
+    await shot(page, `compact-aoi-level-${tag}`);
     await go(page, '#/student/aoi?tab=awaken', '[data-testid="tab-awaken"]');
     const awC = { next: await count('[data-testid="awaken-next"]'), list: await count('[data-testid="awaken-stars"]'), lock: await count('[data-testid="story-lock-awaken"]') };
     check(awC.lock || (awC.next === 1 && !awC.list), `${tag} Compact Awakening: the next star only (${JSON.stringify(awC)})`);
+    await shot(page, `compact-aoi-awaken-${tag}`);
     await go(page, '#/student/aoi?tab=tree', '[data-testid="tree-grid"]');
     check(!(await count('[data-testid="tree-path-list"]')), `${tag} Compact Tree: no tier list under the grid`);
+    await shot(page, `compact-aoi-tree-${tag}`);
 
     // the Settings switch: Display → Girl page → Detailed
     await go(page, '#/settings', '[data-testid="set-girlPage"]');
@@ -427,7 +445,7 @@ try {
     await settle(page, 300);
     const seg = await page.evaluate(() => [...document.querySelectorAll('[data-testid="set-girlPage"] .ma-seg-btn')].map((b) => `${b.textContent}:${b.getAttribute('aria-checked')}`).join(' '));
     check(await mode() === 'detailed' && /Detailed:true/.test(seg), `${tag} Settings → Display → Girl page: Detailed is picked and saved (${seg})`);
-    if (W === 844) await shot(page, `settings-girl-page-${tag}`);
+    await shot(page, `settings-girl-page-${tag}`);
 
     for (const id of SHOT_GIRLS) {
       await go(page, `#/student/${id}?tab=info`, '[data-testid="info-stats"]');
@@ -445,22 +463,23 @@ try {
       check(info.rows >= 8 && info.rows === sheetRows && /Base/.test(info.head) && /Yours/.test(info.head), `${tag} Detailed ${id} Info: every stat inline with Base and Yours (${info.rows} rows, the MORE sheet has ${sheetRows})`);
       check(info.mu === info.all && info.mult === info.all && info.caps === info.hasCaps, `${tag} Detailed ${id} Info: the whole matchup with multipliers (${info.mult} of ${info.all}) and ${info.caps} capabilities listed`);
       await layoutOk(`Detailed ${id} Info`);
-      if (W === 844) await shot(page, `detailed-${id}-info-${tag}`);
-      if (W === 844) { await page.evaluate(() => { const el = document.querySelector('.gp-host'); el.scrollTop = el.scrollHeight; }); await shot(page, `detailed-${id}-info-end-${tag}`); }
+      await shot(page, `detailed-${id}-info-${tag}`);
+      await toEnd();
+      await shot(page, `detailed-${id}-info-end-${tag}`);
       await go(page, `#/student/${id}?tab=gear`, '[data-testid="gear-totals-all"]');
       const gearD = await page.evaluate(async (uid) => {
         const { store } = window.__sakura;
         const { gearLines } = await import('/src/systems/gear.js');
         const { gearTotalsRows, setView } = await import('/src/ui/gearView.js');
-        const { statValue } = await import('/src/ui/gearTile.js');
+        const { shortStatValue } = await import('/src/ui/girlDetail.js');
         const p = store.profile;
-        const want = ['charm', 'ribbon', 'shoes'].map((slot) => { const L = gearLines(p.gear[p.units[uid].gear[slot]]); return { slot, main: statValue(L.main.stat, L.main.value), subs: L.subs.map((l) => statValue(l.stat, l.value)) }; });
+        const want = ['charm', 'ribbon', 'shoes'].map((slot) => { const L = gearLines(p.gear[p.units[uid].gear[slot]]); return { slot, main: shortStatValue(L.main.stat, L.main.value), subs: L.subs.map((l) => shortStatValue(l.stat, l.value)) }; });
         const got = want.map((w) => ({
           slot: w.slot,
           main: document.querySelector(`[data-testid="slot-${w.slot}-main"]`)?.textContent || null,
           mainShown: !!document.querySelector(`[data-testid="slot-${w.slot}-main"]`)?.getBoundingClientRect().width,
-          subs: [...document.querySelectorAll(`[data-testid="slot-${w.slot}-subs"] li .num`)].map((e) => e.textContent),
-          subsShown: [...document.querySelectorAll(`[data-testid="slot-${w.slot}-subs"] li`)].every((e) => e.getBoundingClientRect().height > 0),
+          subs: [...document.querySelectorAll(`[data-testid="slot-${w.slot}-subs"] .gk-sub .num`)].map((e) => e.textContent),
+          subsShown: [...document.querySelectorAll(`[data-testid="slot-${w.slot}-subs"] .gk-sub`)].every((e) => e.getBoundingClientRect().height > 0),
         }));
         const set = setView(p, uid);
         return { want, got, totals: document.querySelectorAll('[data-testid="gear-totals-all"] .gk-tot').length, rows: gearTotalsRows(p, uid).length, more: document.querySelectorAll('[data-testid="gear-more"]').length, bonuses: document.querySelectorAll('[data-testid="gear-bonuses"] li').length, setOn: set ? Number(!!set.two?.on) + Number(!!set.trick?.on) + Number(!!set.resonance) : 0 };
@@ -472,17 +491,20 @@ try {
       check(gearD.totals === gearD.rows && gearD.rows > 3 && !gearD.more, `${tag} Detailed ${id} Gear: every total (${gearD.totals} of ${gearD.rows}), no MORE`);
       check(gearD.bonuses === gearD.setOn, `${tag} Detailed ${id} Gear: ${gearD.bonuses} set bonuses listed (${gearD.setOn} on)`);
       await layoutOk(`Detailed ${id} Gear`);
-      if (W === 844) await shot(page, `detailed-${id}-gear-${tag}`);
-      if (W === 844) { await page.evaluate(() => { const el = document.querySelector('.gp-host'); el.scrollTop = el.scrollHeight; }); await shot(page, `detailed-${id}-gear-end-${tag}`); }
+      await shot(page, `detailed-${id}-gear-${tag}`);
+      await toEnd();
+      await shot(page, `detailed-${id}-gear-end-${tag}`);
     }
     await go(page, '#/student/aoi?tab=level', '[data-testid="level-panel"]');
     check(await count('[data-testid="level-manual"][aria-expanded="true"]') === 1 && await count('[data-testid="level-books"] .mb-stepper') >= 3, `${tag} Detailed Level Up: the Manual steppers are open`);
     await layoutOk('Detailed Level Up');
+    await shot(page, `detailed-aoi-level-${tag}`);
     await go(page, '#/student/aoi?tab=awaken', '[data-testid="tab-awaken"]');
     if (!awC.lock) {
       const aw = await page.evaluate(() => ({ n: document.querySelectorAll('[data-testid="awaken-stars"] li').length, on: document.querySelectorAll('[data-testid="awaken-stars"] li.on').length, star: window.__sakura.store.profile.units.aoi.awaken, next: [...document.querySelectorAll('[data-testid="awaken-stars"] li.next')].map((e) => e.textContent) }));
       check(aw.n === 5 && aw.on === aw.star && aw.next.length === 1 && aw.next[0].includes(`★${aw.star + 1}`), `${tag} Detailed Awakening: every star listed, ${aw.on} reached, the next one highlighted (${aw.next.join('')})`);
       await layoutOk('Detailed Awakening');
+      await shot(page, `detailed-aoi-awaken-${tag}`);
     }
     await go(page, '#/student/aoi?tab=tree', '[data-testid="tree-path-list"]');
     const t0 = await count('[data-testid="tree-path-list"] [data-testid^="tree-tier-0-"]');
@@ -492,6 +514,19 @@ try {
     const fx = await page.evaluate(() => [...document.querySelectorAll('[data-testid="tree-path-list"] .gp-tl')].every((li) => li.querySelector('.gp-tl-fx')?.textContent.trim()));
     check(t0 === 5 && t1 === 5 && fx, `${tag} Detailed Tree: the first path's five tiers, then the picked path's five, each with its effects`);
     await layoutOk('Detailed Tree');
+    await shot(page, `detailed-aoi-tree-${tag}`);
+    await toEnd();
+    await shot(page, `detailed-aoi-tree-end-${tag}`);
+    // every tab of a hero (Hikari, ★5), a girl not recruited yet (Kinu) and a ★5 student (Umeko raised below) in Detailed
+    await page.evaluate(() => { const { store } = window.__sakura; store.profile.units.umeko.awaken = 5; store.commit('test'); });
+    for (const id of ['hikari', 'kinu', 'umeko']) {
+      for (const t of ['info', 'level', 'awaken', 'gear', 'tree']) {
+        await goGirl(id, t);
+        await layoutOk(`Detailed ${id} ${t}`);
+      }
+    }
+    await goGirl('umeko', 'awaken');
+    check(await count('[data-testid="awaken-stars"] li.on') === 5 && !(await count('[data-testid="awaken-stars"] li.next')), `${tag} Detailed Awakening at ★5: all five stars reached, none next`);
     // the switch applies to an open page at once, and Detailed survives a reload
     await go(page, '#/student/aoi?tab=gear', '[data-testid="gear-totals-all"]');
     await page.evaluate(() => { const { store } = window.__sakura; store.profile.settings.girlPage = 'compact'; store.commit('settings'); });

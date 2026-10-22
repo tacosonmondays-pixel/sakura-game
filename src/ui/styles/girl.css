@@ -532,11 +532,16 @@
 .gk-sub-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gk-sub > .num { flex: none; font: 700 var(--fs-label)/1.2 var(--font-num); color: var(--ink); }
 .gk-from-all { display: flex; flex-direction: column; gap: 6px; }
-.gk-totals {
+/* (not .gk-totals: that is the Gear totals sheet's list). One ink plate; each cell draws its own right and bottom
+   divider into the 1px gap, so a short last row ends in plate, not in the panel's white */
+.gk-tot-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1px; width: 100%; padding: 0;
-  border: 0; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.14); box-shadow: 0 0 0 1px var(--plate); text-align: left; cursor: pointer;
+  border: 0; border-radius: 10px; overflow: hidden; background: var(--plate); box-shadow: 0 0 0 1px var(--plate); text-align: left; cursor: pointer;
 }
-.gk-tot { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px; min-width: 0; padding: 6px 10px; background: var(--plate); color: var(--on-plate); }
+.gk-tot {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px; min-width: 0; padding: 6px 10px; color: var(--on-plate);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.14), 0 1px 0 rgba(255, 255, 255, 0.14);
+}
 .gk-tot > .lbl { color: var(--on-plate-dim); }
 .gk-tot > .num { margin-left: auto; font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--on-plate); }
 .gk-tot.max > .num { color: var(--good-on-plate); }

@@ -3,7 +3,7 @@
 // bonuses that are on, every awaken star and a path's five tiers on the page. The setting defaults to Compact and
 // survives save / load.
 import { describe, it, expect } from 'vitest';
-import { girlPageMode, isDetailed, infoView, slotCardView, gearFromView, setBonuses, awakenStars, manualOpen, pathTiers, GIRL_PAGE_MODES } from '../../src/ui/girlDetail.js';
+import { girlPageMode, isDetailed, infoView, slotCardView, gearFromView, setBonuses, awakenStars, manualOpen, pathTiers, shortStatValue, GIRL_PAGE_MODES } from '../../src/ui/girlDetail.js';
 import { gearStripCells, gearTotalsRows } from '../../src/ui/gearView.js';
 import { statValue } from '../../src/ui/gearTile.js';
 import { matchupList } from '../../src/ui/girlView.js';
@@ -78,12 +78,23 @@ describe('Gear', () => {
     expect(c.subs).toEqual([]);
     expect(c.main.label).toBeTruthy();
     const d = slotCardView(g, 'detailed');
-    expect(d.main.value).toMatch(/^\+\d/);
-    expect(d.main.value).toBe(statValue(L.main.stat, L.main.value));
+    expect(d.main.value).toMatch(/^[+−]\d/);
+    expect(d.main.value).toBe(shortStatValue(L.main.stat, L.main.value));
     expect(d.subs).toHaveLength(L.subs.length);
     expect(d.subs.length).toBeGreaterThan(0);
-    for (const s of d.subs) expect(s.value).toMatch(/^\+\d/);
+    expect(d.subs.map((s) => s.value)).toEqual(L.subs.map((l) => shortStatValue(l.stat, l.value)));
+    for (const s of d.subs) expect(s.value).toMatch(/^[+−]\d/);
     expect(slotCardView(null, 'detailed')).toBeNull();
+  });
+
+  it('beside the short COST label a cost cut reads as a minus; the full-name fact keeps its plus', () => {
+    expect(shortStatValue('atkPct', 0.22)).toBe(statValue('atkPct', 0.22));
+    expect(shortStatValue('costCut', 0.08)).toBe(statValue('costCut', 0.08).replace('+', '−'));
+    const d = slotCardView({ urCard: true, main: { stat: 'costCut', value: 0.08 }, subs: [{ stat: 'costCut', value: 0.03 }, { stat: 'atkPct', value: 0.1 }] }, 'detailed');
+    expect(d.main.label).toBe('COST');
+    expect(d.main.value).toMatch(/^−\d/);
+    expect(d.main.fact).toMatch(/^Cost Reduction \+\d/);
+    expect(d.subs.map((s) => s.value[0])).toEqual(['−', '+']);
   });
 
   it('From gear: Compact is the 3-cell strip + MORE, Detailed every total (no MORE)', () => {
@@ -99,7 +110,11 @@ describe('Gear', () => {
     const rows = gearTotalsRows(p, 'aoi');
     expect(d.rows.map((r) => r.stat)).toEqual(rows.map((r) => r.stat));
     expect(d.rows.length).toBeGreaterThan(3);
-    for (const r of d.rows) expect(r.label).toBeTruthy();
+    expect(d.rows.map((r) => r.value)).toEqual(rows.map((r) => r.value));
+    for (const r of d.rows) {
+      expect(r.label).toBeTruthy();
+      expect(r.short).toBe(r.stat === 'costCut' ? r.value.replace('+', '−') : r.value);
+    }
   });
 
   it('set bonuses: the 2-piece stat and the 3-piece trick once on, each with its effect', () => {

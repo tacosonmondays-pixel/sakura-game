@@ -983,8 +983,8 @@ export function treeTab(unit, { mode = girlPageMode(store.profile) } = {}) {
   // Detailed (Settings → Girl page): the picked path's five tiers with their effects under the grid (first path at first)
   const list = mode === 'detailed' ? h('section.ui-panel.gp-path-list', { 'data-testid': 'tree-path-list' }) : null;
   const drawList = (path) => {
-    const v = pathTiers(model, path);
-    if (!list || !v) return;
+    const v = list ? pathTiers(model, path) : null;
+    if (!v) return;
     list.replaceChildren(h('div.ui-panel-in',
       h('div.ui-panel-head', h('span.ui-kicker', `${v.name} · tiers 1–5`)),
       h('ol.gp-tiers', v.tiers.map((t) => h(`li.gp-tl${t.capstone ? '.capstone' : ''}`, { 'data-testid': `tree-tier-${v.path}-${t.tier}` },
