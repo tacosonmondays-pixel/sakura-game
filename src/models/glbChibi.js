@@ -98,8 +98,9 @@ export function loadCharacter(id, detail = 'full') {
   if (!canLoadCharacters()) return Promise.resolve(null);
   const p = loader()
     .then((l) => l.loadAsync(characterUrl(id, detail)))
-    .then((gltf) => {
+    .then(async (gltf) => {
       const asset = prepareAsset(id, detail, gltf);
+      await loadFlatMap(asset, gltf);
       assets.set(key, asset);
       if (detail === 'lod') assets.set(`${id}|lod`, asset);
       return asset;
@@ -205,17 +206,48 @@ function prepareAsset(id, detail, gltf) {
 }
 
 /**
+ * The offline-flattened base colour of a painted figure (asset.extras.flat.texture: one more texture in
+ * her GLB, written by the rig-rollout flatten: plaid gone, house colours, face protected). The clean cel
+ * look draws on it; look B keeps the painted map. Its closed-eye lid colours (extras.flat.eyes) are the
+ * flat skin. Loaded once with the GLB; a failure leaves the painted map in use.
+ */
+async function loadFlatMap(asset, gltf) {
+  const flat = asset.extras?.flat;
+  if (!asset.textured || !asset.bodyMaps || !Number.isInteger(flat?.texture)) return;
+  try {
+    const tex = await gltf.parser.getDependency('texture', flat.texture);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    tex.userData.shared = true;
+    asset.bodyMaps.flatMap = tex;
+    if (asset.eyes && flat.eyes) {
+      const over = Object.fromEntries(Object.entries(flat.eyes).filter(([, v]) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)));
+      asset.flatEyes = { ...asset.eyes, ...over };
+    }
+  } catch (e) {
+    console.warn(`[models] ${asset.id}: flat base colour unavailable`, e?.message || e);
+  }
+}
+
+/** True when this figure is drawn in the clean cel look on its flattened base colour. */
+function usesFlat(asset, cel) {
+  return !!(cel && asset.bodyMaps?.flatMap && figureOptions().flat);
+}
+
+/**
  * Body material of a textured asset (shared by its instances, one per eye state): look B
  * (figurine.js), or the 'Clean cel textures' look (celFigure.js) when `cel` is set and her palette
- * could be measured.
+ * could be measured (on the flattened base colour when the GLB has one).
  */
 function texturedMaterial(asset, highlight = false, eyeMode = 0, cel = false) {
   const mode = asset.eyes ? eyeMode : 0;
-  const palette = cel ? figurePalette(asset, asset.bodyGeometry) : null;
-  const key = `${palette ? 'cel|' : ''}${highlight ? 'hl' : 'body'}|${mode}`;
+  const flat = usesFlat(asset, cel);
+  const palette = cel ? figurePalette(asset, asset.bodyGeometry, flat) : null;
+  const key = `${palette ? (flat ? 'celflat|' : 'cel|') : ''}${highlight ? 'hl' : 'body'}|${mode}`;
   if (!asset.materials[key]) {
     asset.materials[key] = palette
-      ? celFigureMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode, palette })
+      ? celFigureMaterial(flat ? { ...asset.bodyMaps, map: asset.bodyMaps.flatMap } : asset.bodyMaps,
+        { highlight, eyes: flat ? asset.flatEyes || asset.eyes : asset.eyes, eyeMode: mode, palette, flat })
       : figurineMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode });
   }
   return asset.materials[key];
@@ -268,7 +300,8 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
       // the painted figure: figurine shading + her bold texture-tinted outline
       o.material = texturedMaterial(asset, false, 0, cel);
       o.name = 'body';
-      lineMat = figurineOutlineMaterial(asset.bodyMaps.map, asset.height / asset.unitScale, asset.outlineTint);
+      // (the clean cel look tints her line from the flattened colours too: no noisy line tint)
+      lineMat = figurineOutlineMaterial(usesFlat(asset, cel) ? asset.bodyMaps.flatMap : asset.bodyMaps.map, asset.height / asset.unitScale, asset.outlineTint);
       bodyMesh = o;
     } else if (asset.textured) {
       // props of a textured figure (the sword): vertex colours, outline in a deep shade of them
@@ -412,13 +445,24 @@ class GlbAnimator {
 
   stateClip(state) {
     // 'move': the companions' travel loop (girls have no such clip: idle)
-    const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move' };
+    // 'happy': a between-wave mood loop (Noa's 415 sway), when a figure has one
+    const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move', happy: 'happy' };
     let name = map[state] || 'idle';
     // lively: the stun plays 'hurt' once over a slowed idle (setState), not a 0.4 s loop
     if (this.livelyOn && (state === 'disabled' || state === 'hurt')) name = 'idle';
     // imported figures ship a smaller clip set: celebrate with the cheer loop
     if (!this.actions[name] && CLIP_FALLBACK[name] && this.actions[CLIP_FALLBACK[name]]) name = CLIP_FALLBACK[name];
+    // 'Lively figures' off: a figure that carries its old clips as `<name>_short` (Noa: the shipped
+    // idle / cheer / hurt next to her new library clips) plays those, exactly as before
+    if (!this.livelyOn && this.actions[`${name}_short`]) name = `${name}_short`;
     return this.actions[name] ? name : (this.actions.idle ? 'idle' : null);
+  }
+
+  /** The lively layer's glances run at clipMarks[clip].glance on a clip that looks around by itself. */
+  markGlances(name) {
+    if (!this.lively) return;
+    const g = this.asset.extras?.clipMarks?.[name]?.glance;
+    this.lively.glanceScale = typeof g === 'number' && g >= 0 && g <= 1 ? g : 1;
   }
 
   setState(state, fade = FADE) {
@@ -452,6 +496,7 @@ class GlbAnimator {
       next.play();
     }
     this.current = name;
+    this.markGlances(name);
   }
 
   playAttack() {
@@ -502,6 +547,7 @@ class GlbAnimator {
         if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.12);
       }
     }
+    if (this.lively) this.lively.dazeHold = this.attackLeft > 0 && this.oneShotCell === 'hurt';
     this.lively?.restore();
     this.mixer.update(dt);
     this.lively?.apply(time, dt, state, drive);

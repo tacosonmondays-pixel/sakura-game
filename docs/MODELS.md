@@ -75,8 +75,10 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
 ### Lively figures and clean cel textures (prototype, branch `proto/rig-motion`, decision #149)
 
 Two display-only switches in Settings → Graphics (`src/models/figureOptions.js`; saved as
-`livelyFigures` (default on) and `celTextures` (default off); dev overrides `?lively=0|1&cel=0|1`).
-Nothing here is in the co-op graph (`tools/simId.mjs` stays `92e2e22527cf`).
+`livelyFigures` (default on) and `celFigures` (default **on** while the owner decides, #145; it replaced
+the first key `celTextures`, whose stored "off" was a default nobody chose); dev overrides
+`?lively=0|1&cel=0|1&flat=0|1`). Nothing here is in the co-op graph (`tools/simId.mjs` stays
+`92e2e22527cf`).
 
 * **Lively figures**, skeleton layer (`livelyRig.js`, after `mixer.update` in `GlbAnimator`): breathing
   (chest / spine / shoulders, head counter-rotates), weight shift (pelvis roll with legs kept
@@ -100,8 +102,45 @@ Nothing here is in the co-op graph (`tools/simId.mjs` stays `92e2e22527cf`).
   once (k-means in OKLab over the texels under her UVs; same-hue clusters that differ only by baked
   light merge); each texel snaps to its nearest palette colour (eyes and far-off details keep their
   paint); one hard shadow from the key light with a per-colour hue-shifted shade (whites → lavender,
-  warm → rose, skin barely); the face never takes a stripe. A comparison with look B, not a replacement.
+  warm → rose, skin barely); the face never takes a stripe. Off = the glossy look B (`figurine.js`).
+  A GLB that carries an **offline-flattened base colour** (`asset.extras.flat`: `texture` index of one more
+  WebP texture on no material, `palette` = its exact flat colours, `eyes` = the flat skin for the closed-eye
+  lids) is drawn on that map instead, with no runtime snap (`figSnapMul` 0; the palette only picks each
+  texel's shade tone) and its outline tinted from it too. Look B keeps the painted map and its PBR maps.
+* **Authored spring bones** (`asset.extras.springBones`): any `hair* / bangs* / tail* / braid* / bun* /
+  coat* / ribbon*` bone a GLB has springs; buns have their own small, quick kind (clamp 10°).
+* **Glances per clip** (`asset.extras.clipMarks[clip].glance`, 0–1): a base clip that looks around by
+  itself runs the layer's glances smaller (Noa's 338 idle: 0.4×). Reduce motion halves glances too. The
+  dazed circle of a stun eases in only after the `hurt` one-shot has played.
+* **`<clip>_short`**: a figure may keep its old clips next to new ones (Noa: `idle_short`, `cheer_short`,
+  `hurt_short`); with Lively figures off the animator plays those, exactly the shipped behaviour.
 * Preview + captures: `previews/lively.html` (`?mode=battle|closeup|perf|metrics`).
+
+#### Noa, rig rollout step 1 (notes/rig-rollout/NOA.md)
+
+`noa.glb` / `noa.lod.glb` are the approved shipped Noa (noa-A head, eye boxes, weights, look B maps
+byte for byte) rebuilt by `art/rig-rollout/noa/build/` (outside the repo; Blender 5.2 + numpy, 0 credits):
+
+| clip | source | notes |
+|---|---|---|
+| `idle` | Meshy library 338 Short_Breathe_and_Look_Around (7.85 s) | `clipMarks.idle.glance` 0.4 |
+| `happy` | 415 Happy_Sway_Standing (10 s) | between-wave mood loop (`clipMarks.happy.mood`); the animator's state `happy` plays it (the battle does not send it yet) |
+| `cheer` | 298 Cheer_with_Both_Hands_Up (1.85 s) | head clearance: arms end out to the sides; victory falls back to it |
+| `hurt` | 178 Hit_Reaction, cut to 1.2 s | hips' horizontal travel stripped, both feet pinned by two-bone IK |
+| `attack_smash`, `walk`, `*_short` | the shipped clips | |
+
+All four were bought once on Noa's Meshy rig R1 and retargeted onto the shipped skeleton by world-space
+rest deltas, then: head ×0.6 / neck ×0.75, mean world head pitch to the shipped −17.3°, a per-frame face
+guard (head world pitch never above −12°, so the face never drops under the bangs at the 48° camera),
+head-clearance abduction, shield wrist locked, hips travel eased back, feet pinned on their planted
+frames, everything resampled to 20 fps. `bun_L` / `bun_R` (children of `head`, pivot where the bun meets
+the head) and `ribbon` (child of `chest`, the bow's tails) carry smooth 0 → 1 weights. The flat base
+colour comes from the offline flatten (PLAN §5.2 TX2): regions by body part + mesh adjacency, plaid →
+soft grey `#C4C3CB` with one mint hem line along the real pleated hem, colours snapped to house values
+(caramel `#D7A174`, blazer `#928CA5`, mint `#ADDDC2`, skin `#FCE6D3`, …), eyes / blush / mouth kept,
+brightness 0.58 → 0.71. `tests/models/glb.test.js` caps (PLAN §6.5): idle 8 s, cheer / victory 4,
+hurt 1.2, attack 1.2 (with a contact mark when over 0.6), dizzy 6, deploy 2, fidgets 5, mood loops 10;
+`*_short` keep the old caps.
 
 ## Roster merge stand-ins (2026-10-13)
 
