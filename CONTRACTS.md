@@ -1300,15 +1300,28 @@ aura `{ range 3, dmgMul 1 + 0.15k }` (≤ +60 %) — both resolve in `towerResol
 boost), so a checkpoint's `rederiveStats` agrees; frag a blast grenade every `LAB_FRAG_TICKS` (her bolt damage ×
 `LAB_FRAG_MUL` × k, radius `LAB_FRAG_SPLASH`) at her best target; control a slow field (`0.2k` ≤ `LAB_SLOW_MAX`)
 within `LAB_FIELD_RANGE` of her, refreshed every `LAB_FIELD_TICKS` — both on `t.labAtk`, only during waves and not
-while sabotaged; economy at each wave clear `LAB_ECON_SHARE` × the economy girls' income × power × the coin
-scales through `_gainCashFor(t.owner)` (none on a `noIncome` difficulty or while she is sabotaged).
+while sabotaged. Economy (owner decision #146): EVERY girl who joins feeds it with her wave income, whatever her
+class (a Harvest Chigusa lends the slow field and her income), Momo's interest included: at each wave clear,
+after the girls' own income, `LAB_ECON_SHARE` × power × (Σ joiners' `perWave` × `diff.cashMul` + Σ per joiner
+with interest `min(INCOME_INTEREST_MAX, rate × sim.cash)`) × `incomeMul`, through `_gainCashFor(t.owner)` (none
+on a `noIncome` difficulty or while she is sabotaged). The interest reads the coins as a girl's own interest
+does at that clear (solo: the wallet; co-op: the step's pooled coins). Potential's Golden Harvest is not carried.
 ```js
-t.lab      // { rounds, members: { dps, frag, control, support, economy }, coins: {…same}, income, uids } (in the generic snapshot)
+t.lab      // { rounds, members: { dps, frag, control, support, economy }, coins: {…same}, income, interest: [rate…], uids }
+           //   (in the generic snapshot; the battle save's `lb` row)
 t.labAtk   // { frag /*k*/, slow, fragCd, fieldCd /*ticks; 0 at every wave clear*/ } (derived by syncLab)
 sim._labOn // girls with a lab (absent until the first absorb: the step skips the lab)
 // who joined in an upgradeTower: the new tail of her t.lab.uids (length before vs after; also labJoin.uids).
-// No Sim field holds them: a battle save's restore never absorbs, so nothing may outlive the command
-// (T3: the co-op `upg` handler forgets them as owners; the battle save carries t.lab)
+// No Sim field holds them: a battle save's restore never absorbs, so nothing may outlive the command.
+// Co-op (T3, §13): the `upg` handler reports them (`absorbed`) and forgets them as owners, like a sale; only
+// her own player's girls ever join (t.owner), whoever is gone. Her lab coins go to her owner's wallet
+// (ownerCash), also while her owner is gone (kept for the rejoin).
+// Hash (simHash.js): her lab (rounds, member count and uids, members / coins per class, income, interest,
+// labAtk timers) only on a girl with one; her wellCd / lastLineCd only on a girl with one; sim.zones only
+// while non-empty. Battles without Tenka keep their digests.
+// Battle save (src/ui/battle/snapshot.js): `lb` = [rounds, members[5], coins[5], income, uids, interest]
+// (LAB_CLASSES order), restored only on a girl whose restored tiers give her a lab (rounds held to them);
+// `zc` = [wellCd, lastLineCd] (-1: none); zones 'calm', _nearExitOn / _labOn / labAtk 'derived'.
 // events: labJoin { towerUid, owner, round, uids, members }, labFrag { towerUid, x, y, radius } (then the explode),
 //   cash { amount, reason: 'lab', towerUid }
 sim.result().stats // + labJoined — created by the first absorb

@@ -150,7 +150,7 @@ export const LAST_LINE_EVERY = 16;
  * LAB_BOLTS_MAX more); support: a +LAB_AURA_DMG damage aura of LAB_AURA_RANGE (at most +LAB_AURA_MAX); frag:
  * a grenade every LAB_FRAG_TICKS of her bolt damage × LAB_FRAG_MUL, radius LAB_FRAG_SPLASH; control: a
  * LAB_SLOW slow (at most LAB_SLOW_MAX) within LAB_FIELD_RANGE, refreshed every LAB_FIELD_TICKS; economy:
- * LAB_ECON_SHARE of the economy girls' wave income.
+ * LAB_ECON_SHARE of every joiner's wave income and interest, whatever her class (owner decision #146).
  */
 export const LAB_REF_COINS = 2000;
 export const LAB_BOLTS = 2;
@@ -166,6 +166,8 @@ export const LAB_FIELD_TICKS = 15;
 export const LAB_SLOW = 0.2;
 export const LAB_SLOW_MAX = 0.5;
 export const LAB_ECON_SHARE = 0.3;
+/** A girl's interest at a wave clear (stats.income.interest × coins) pays at most this many coins (Momo). */
+export const INCOME_INTEREST_MAX = 150;
 
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;

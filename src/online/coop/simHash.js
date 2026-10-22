@@ -1,5 +1,6 @@
 // FNV-1a hash over the quantized, gameplay-relevant state of a co-op battle. Both clients
 // compare it every COOP.hashEvery ticks to detect a desync.
+import { LAB_CLASSES } from '../../sim/lab.js';
 
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
@@ -63,6 +64,29 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     // that never casts keeps its digest (modesGolden pins bot battles with tier-3 girls)
     const a = t.abil;
     if (a && (a.n > 0 || a.auto)) h.int(a.cd).int(a.active).int(a.auto ? 1 : 0).int(a.n);
+    // Tenka's lab team (src/sim/lab.js) only on a girl who has one (battles without a lab keep their digest):
+    // rounds, the member count and who joined, members and coins per class, the economy weapon's income and
+    // interest rates (in 1/10000), and her grenade / field timers (ticks)
+    const lab = t.lab;
+    if (lab) {
+      h.int(lab.rounds).int(lab.uids.length);
+      for (const u of lab.uids) h.int(u);
+      for (const k of LAB_CLASSES) h.int(lab.members[k]).int(lab.coins[k]);
+      h.int(lab.income);
+      const ir = lab.interest;
+      h.int(ir ? ir.length : 0);
+      if (ir) for (const v of ir) h.int(v * 10000);
+      const la = t.labAtk;
+      if (la) h.int(la.fragCd).int(la.fieldCd);
+    }
+    // Tenka's well and Last Line timers (src/sim/zones.js), only on a girl who has one of them (ticks)
+    if (t.wellCd != null || t.lastLineCd != null) h.int(t.wellCd ?? -1).int(t.lastLineCd ?? -1);
+  }
+  // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
+  const zs = sim.zones;
+  if (zs && zs.length) {
+    h.int(zs.length);
+    for (const z of zs) h.int(z.uid).int(z.src).str(z.kind).int(z.x * 256).int(z.y * 256).int(z.left).int(z.eaten).int(z.next);
   }
   // the rest of the ability state, each part only while it holds something (src/sim/abilities.js)
   if (sim.abilGroups?.size) {

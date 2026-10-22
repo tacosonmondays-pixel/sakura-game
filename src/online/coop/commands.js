@@ -34,7 +34,9 @@ import { withDetMath } from './detMath.js';
  * fly[uid, mode, qx1?, qy1?, qx2?, qy2?] (a drone wing's flight mode, owner only like tgt: Hold
  * takes point 1, Patrol points 1 and 2, in 1/1024 tiles; docs/specs/CHIKA_REWORK.md §16).
  * upg is refused 'onePerPath' when another of that player's girls of the same kind holds the path's
- * final tier (one final tier per path per girl type and player; src/sim/finalTier.js).
+ * final tier (one final tier per path per girl type and player; src/sim/finalTier.js). A Tenka tier that
+ * absorbs (Joint Research, Unified Theory) reports `absorbed: [uid…]`: her player's girls who joined her lab
+ * team, now off the field and nobody's.
  * aim[uid, qx, qy] / aim[uid, null]: a girl's standing aim point (a mortar's centre, a mirror's spot), see
  * the 'aim' case. pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
  * target may be an ally's girl (Sim.setBuffPick).
@@ -242,7 +244,19 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
           else {
             // that player's view (cash, owner), the same on every client; never options from the network
             const st = sim.upgradeStatus(a[0], a[1]);
+            // Tenka's Joint Research / Unified Theory absorb inside this command (src/sim/lab.js): only girls
+            // whose t.owner is hers (this slot), so never the partner's, gone or not; who joined is the new
+            // tail of her lab record (no Sim field outlives the command)
+            const tw = st.locked ? null : sim.getTower(a[0]);
+            const had = tw?.lab ? tw.lab.uids.length : 0;
             res = st.locked ? { ok: false, reason: st.reason, holder: st.holder ?? null } : { ok: sim.upgradeTower(a[0], a[1]) };
+            // the girls who joined left the field, like a sale: nobody's now (a later command on one is
+            // 'notYours'; GAPS 5.10 co-op)
+            const joined = res.ok && tw?.lab ? tw.lab.uids.slice(had) : null;
+            if (joined && joined.length) {
+              for (const uid of joined) owners.delete(uid);
+              res.absorbed = joined;
+            }
           }
           break;
         case 'sell':

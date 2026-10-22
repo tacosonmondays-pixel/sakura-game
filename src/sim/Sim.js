@@ -6,6 +6,7 @@ import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
   BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
+  INCOME_INTEREST_MAX,
 } from './constants.js';
 import {
   AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
@@ -797,7 +798,7 @@ export class Sim {
       for (const t of this.towers) {
         const inc = t.stats.income;
         if (!inc || t.disabled > 0) continue;
-        const interest = Math.min(150, (inc.interest || 0) * this.cash);
+        const interest = Math.min(INCOME_INTEREST_MAX, (inc.interest || 0) * this.cash);
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
         // Potential N8 (Momo's Golden Harvest): every Nth wave clear her wave income once more (no interest)
@@ -807,7 +808,8 @@ export class Sim {
           if (extra > 0) this._emit('cash', { amount: extra, reason: 'harvest', towerUid: t.uid });
         }
       }
-      // Tenka's economy weapon (src/sim/lab.js): owner-credited, never on a noIncome difficulty
+      // Tenka's economy weapon (src/sim/lab.js): every joiner's income and interest (owner decision #146),
+      // owner-credited, never on a noIncome difficulty
       if (this._labOn) labIncome(this, cashMul);
     }
     // every placed hero (both players' in co-op), never the view-dependent sim.hero

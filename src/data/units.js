@@ -1365,7 +1365,7 @@ const TENKA = {
     path('lab', 'Joint Research', 'Her lab team lends her their skills', [
       tier('Focus Lens', 300, 'Every bolt passes through 1 more enemy.', { pierce: 1 }),
       tier('Long Rails', 700, '+0.6 range.', { range: 0.6 }),
-      tier('Joint Research', 3000, 'On purchase, your own girls in her range (not heroes) join her lab team for this battle: each one\'s class lends her a new weapon, stronger the more coins went into her. They are back after the battle.', { lab: { rounds: 1 } }),
+      tier('Joint Research', 3000, 'On purchase, your own girls in her range (not heroes) join her lab team for this battle: each one\'s class lends her a new weapon, stronger the more coins went into her, and 30% of her wave income still comes to you. They are back after the battle.', { lab: { rounds: 1 } }),
       tier('Grand Lab', 9000, 'Lab weapons ×1.5; bolts +30 damage.', { lab: { power: 1.5 }, damage: 30 }),
       tier('Unified Theory', 30000, 'On purchase, your girls in her range join her lab team once more; lab weapons ×3.', { lab: { rounds: 2, power: 3 } }),
     ]),

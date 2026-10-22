@@ -10,13 +10,16 @@
 // the final-tier slot go with her; projectiles in flight fizzle (owner.removed); her brews / links and
 // pins fall away on the next step.
 //
-// The lab record (t.lab, plain data; the generic snapshot stores it as is; the battle save, T3, carries it):
-//   { rounds, members: { dps, frag, control, support, economy }, coins: { …the same keys }, income, uids }
+// The lab record (t.lab, plain data; the generic snapshot stores it as is; the battle save carries it as `lb`):
+//   { rounds, members: { dps, frag, control, support, economy }, coins: { …the same keys }, income, interest, uids }
 //   rounds    absorbs done (1 after Joint Research, 2 after Unified Theory)
 //   members   how many girls of each class joined (class: ROLES[role].category; a tower whose role has no
 //             lab class, e.g. a 'hero' category on a fixture tower, counts as dps)
 //   coins     what was spent on them, per class (their `spent`: placement + tiers)
-//   income    the wave income (perWave) of the economy girls who joined, as their stats gave it
+//   income    the wave income (perWave) of EVERY girl who joined, whatever her class (owner decision #146),
+//             as her stats gave it (Potential's income steps included)
+//   interest  the interest rate of each girl who joined with one (Momo's Merch Table / Golden Peach Bank), in
+//             join order: each pays min(INCOME_INTEREST_MAX, rate × coins) at the clear, like her own did
 //   uids      who joined, in order (the UI's "lab team" list later)
 //
 // The weapons, one per class that has a member; each one's strength k = power × √(coins / LAB_REF_COINS)
@@ -28,9 +31,11 @@
 //            LAB_FRAG_SPLASH, at her best target                                  t.labAtk, updateLab
 //   control  a slow field around her, radius LAB_FIELD_RANGE: 20% × k (at most LAB_SLOW_MAX), refreshed
 //            every LAB_FIELD_TICKS for ZONE_STATUS_TIME s                         t.labAtk, updateLab
-//   economy  at every wave clear (not on a noIncome difficulty, not while she is sabotaged):
-//            LAB_ECON_SHARE of the economy girls' income × power × the difficulty and mode coin scales,
-//            owner-credited (Sim._gainCashFor(t.owner), GAPS P-16)              labIncome
+//   economy  at every wave clear (not on a noIncome difficulty, not while she is sabotaged): LAB_ECON_SHARE
+//            × power × (the joiners' wave income × the difficulty coin scale + their interest on the coins
+//            at the clear) × the mode's income scale, owner-credited (Sim._gainCashFor(t.owner), GAPS P-16).
+//            Every joiner feeds it, whatever her class (owner decision #146): a girl with income lends her
+//            class's weapon AND her income, so a lab with no economy girl can still pay.   labIncome
 // dps and support resolve inside towerResolvedStats (labMods), so a co-op checkpoint's rederiveStats
 // agrees; the frag and control weapons run on t.labAtk { frag: k, slow, fragCd, fieldCd } (ticks), which
 // syncLab rebuilds from t.lab and her stats (timers kept; both 0 at every wave clear, so a calm point's
@@ -47,6 +52,7 @@ import { ROLES } from '../data/types.js';
 import {
   LAB_REF_COINS, LAB_BOLTS, LAB_BOLTS_MAX, LAB_AURA_RANGE, LAB_AURA_DMG, LAB_AURA_MAX, LAB_FRAG_TICKS, LAB_FRAG_MUL,
   LAB_FRAG_SPLASH, LAB_FIELD_RANGE, LAB_FIELD_TICKS, LAB_SLOW, LAB_SLOW_MAX, LAB_ECON_SHARE, ZONE_STATUS_TIME,
+  INCOME_INTEREST_MAX,
 } from './constants.js';
 import { bestTarget, explode } from './towers.js';
 
@@ -66,6 +72,7 @@ export function emptyLab() {
     members: { dps: 0, frag: 0, control: 0, support: 0, economy: 0 },
     coins: { dps: 0, frag: 0, control: 0, support: 0, economy: 0 },
     income: 0,
+    interest: [],
     uids: [],
   };
 }
@@ -138,7 +145,12 @@ export function absorbInto(sim, t) {
     const cls = labClassOf(o.def);
     lab.members[cls]++;
     lab.coins[cls] += o.spent > 0 ? o.spent : 0;
-    if (cls === 'economy') lab.income += o.stats?.income?.perWave > 0 ? o.stats.income.perWave : 0;
+    // every joiner's income feeds the economy weapon, whatever her class (owner decision #146)
+    const inc = o.stats?.income;
+    if (inc) {
+      if (inc.perWave > 0) lab.income += inc.perWave;
+      if (inc.interest > 0) lab.interest.push(inc.interest);
+    }
     lab.uids.push(o.uid);
     uids.push(o.uid);
     sim._removeTower(o); // like a sale, without the coins
@@ -218,15 +230,24 @@ export function updateLab(sim) {
 }
 
 /**
- * The economy weapon at the wave clear (Sim._checkWaveEnd, inside its income block: never on a noIncome
- * difficulty): LAB_ECON_SHARE of the economy girls' income × power × the coin scales, to her owner.
+ * The economy weapon at the wave clear (Sim._checkWaveEnd, inside its income block, after the girls' own
+ * income: never on a noIncome difficulty): LAB_ECON_SHARE × power × (the joiners' wave income × cashMul + each
+ * joiner's interest, min(INCOME_INTEREST_MAX, rate × sim.cash)) × the mode's income scale, to her owner. The
+ * interest reads the coins exactly as a girl's own interest does at that clear (solo: the wallet; co-op: the
+ * step's pooled coins, the same number on every client; the clear only ever runs inside the step).
  */
 export function labIncome(sim, cashMul) {
   for (const t of sim.towers) {
     const lab = t.lab;
-    if (!lab || !(lab.income > 0) || t.disabled > 0) continue;
+    if (!lab || t.disabled > 0) continue;
+    const rates = lab.interest;
+    const n = rates ? rates.length : 0;
+    if (!(lab.income > 0) && n === 0) continue;
+    let interest = 0;
+    for (let i = 0; i < n; i++) interest += Math.min(INCOME_INTEREST_MAX, rates[i] * sim.cash);
     const power = t.stats?.lab?.power ?? 1;
-    const amount = sim._gainCashFor(t.owner ?? 0, LAB_ECON_SHARE * lab.income * power * cashMul * sim.incomeMul);
+    const perWave = lab.income > 0 ? lab.income : 0;
+    const amount = sim._gainCashFor(t.owner ?? 0, LAB_ECON_SHARE * power * (perWave * cashMul + interest) * sim.incomeMul);
     if (amount > 0) sim._emit('cash', { amount, reason: 'lab', towerUid: t.uid });
   }
 }

@@ -96,6 +96,7 @@ describe('who joins her lab team', () => {
       members: { dps: 1, frag: 1, control: 0, support: 0, economy: 0 },
       coins: { dps: a.spent, frag: b.spent, control: 0, support: 0, economy: 0 },
       income: 0,
+      interest: [],
       uids: [b.uid, a.uid],
     });
     const evs = sim.drainEvents();
@@ -382,7 +383,7 @@ describe('the lab weapons', () => {
     expect(LAB_FIELD_RANGE).toBe(2);
   });
 
-  test('economy: 30% of the economy girls\' income × power at every wave clear, to her owner; nothing on a noIncome difficulty', () => {
+  test('economy: 30% of the joiners\' income × power at every wave clear, to her owner; nothing on a noIncome difficulty', () => {
     const run = (difficulty, owner) => {
       const sim = mk({ difficulty });
       if (owner) sim.ownerCash = [0, 0];
@@ -416,10 +417,22 @@ describe('the lab weapons', () => {
     expect(nm.gained).toBe(0);
   });
 
-  // T2 review spec-1, pinned as built: the economy weapon counts the ECONOMY girls' income (CONTRACTS §6),
-  // so a non-economy girl with wave income lends her class's weapon and her income stops. Whether her income
-  // should count too is the owner's call (notes/T2.md, call #1); change this test with that decision.
-  test('economy counts the economy girls\' income only: a Harvest Chigusa (control) lends the slow field, and her wave income stops', () => {
+  // Owner decision #146 (T3; it replaces T2's pin, review spec-1): every girl who joins feeds the economy
+  // weapon with her wave income, whatever her class, Momo's interest included, at the same LAB_ECON_SHARE ×
+  // lab power. Her class still lends its own weapon (a Harvest Chigusa: the slow field AND her income).
+  /** One empty wave cleared at `cash` coins: the clear's cash events (wave bonus apart) and the coins before the lab paid. */
+  function clearAt(sim, cash = sim.cash) {
+    sim.cash = cash;
+    wave(sim);
+    sim.drainEvents();
+    steps(sim, 1); // the field is empty: the wave clears
+    expect(sim.state).toBe('between');
+    const evs = ofType(sim.drainEvents(), 'cash');
+    const bonus = evs.filter((x) => x.reason === 'waveBonus').reduce((s, x) => s + x.amount, 0);
+    return { paid: evs.filter((x) => x.reason !== 'waveBonus').map((x) => [x.reason, x.towerUid, x.amount]), before: cash + bonus };
+  }
+
+  test('#146: a Harvest Chigusa (control) lends the slow field, and her wave income now feeds the economy weapon', () => {
     const sim = new Sim({ ...simArgs(), loadout: [...TEAM, 'chigusa'].map((unitId) => ({ unitId })) });
     sim.cash = 1e9;
     const t = tenkaAt(sim, [2, 0, 0]);
@@ -427,18 +440,45 @@ describe('the lab weapons', () => {
     up(sim, g, 2, 2); // Harvest: Compost, Vegetable Patch (+25 coins a wave)
     expect(labClassOf(g.def)).toBe('control');
     expect(g.stats.income.perWave).toBe(25);
-    const clear = () => {
-      wave(sim);
-      sim.drainEvents();
-      steps(sim, 1); // the field is empty: the wave clears
-      expect(sim.state).toBe('between');
-      return ofType(sim.drainEvents(), 'cash').filter((x) => x.reason !== 'waveBonus').map((x) => [x.reason, x.towerUid]);
-    };
-    expect(clear()).toEqual([['income', g.uid]]);
+    expect(clearAt(sim).paid).toEqual([['income', g.uid, Math.floor(25 * (sim.diff.cashMul ?? 1) * sim.incomeMul + 1e-9)]]);
     up(sim, t, LAB);
-    expect(t.lab).toMatchObject({ members: { control: 1, economy: 0 }, income: 0, uids: [g.uid] });
+    expect(t.lab).toMatchObject({ members: { control: 1, economy: 0 }, income: 25, interest: [], uids: [g.uid] });
     expect(t.labAtk.slow).toBeGreaterThan(0);
-    expect(clear()).toEqual([]);
+    // her own income is gone with her; the lab pays 30% of it × power (no economy girl joined)
+    const want = Math.floor(LAB_ECON_SHARE * 1 * (25 * (sim.diff.cashMul ?? 1)) * sim.incomeMul + 1e-9);
+    expect(want).toBeGreaterThan(0);
+    expect(clearAt(sim).paid).toEqual([['lab', t.uid, want]]);
+  });
+
+  test('#146: Momo\'s interest feeds it too: min(150, her rate × the coins) per girl with interest, beside every joiner\'s wave income', () => {
+    const sim = new Sim({ ...simArgs(), loadout: [...TEAM, 'chigusa', 'momo'].map((unitId) => ({ unitId })) });
+    sim.cash = 1e9;
+    const t = tenkaAt(sim, [2, 0, 0]);
+    const g = place(sim, 'chigusa', 9.5, 3.4);
+    up(sim, g, 2, 2); // +25 a wave
+    const m = place(sim, 'momo', 7.5, 3.4);
+    up(sim, m, 1, 2); // Merch Table: Piggy Bank, Compound Ledger (+10 a wave, 2% + 2% interest)
+    const rate = m.stats.income.interest;
+    expect(rate).toBeCloseTo(0.04, 12);
+    expect(m.stats.income.perWave).toBe(40);
+    expect(labClassOf(m.def)).toBe('economy');
+    up(sim, t, LAB);
+    expect(t.lab).toMatchObject({ members: { control: 1, economy: 1 }, income: 65, interest: [rate] });
+    const cashMul = sim.diff.cashMul ?? 1;
+    const pay = (before) => Math.floor(LAB_ECON_SHARE * 1 * (65 * cashMul + Math.min(150, rate * before)) * sim.incomeMul + 1e-9);
+    // plenty of coins: her interest is capped at 150, as it would be on the field
+    let r = clearAt(sim, 1e9);
+    expect(r.paid).toEqual([['lab', t.uid, pay(r.before)]]);
+    expect(pay(r.before)).toBe(Math.floor(LAB_ECON_SHARE * (65 * cashMul + 150) * sim.incomeMul + 1e-9));
+    // 2,000 coins: 4% of what she holds at the clear (the wave bonus included, as Momo's own interest reads it)
+    r = clearAt(sim, 2000);
+    expect(rate * r.before).toBeLessThan(150);
+    expect(r.paid).toEqual([['lab', t.uid, pay(r.before)]]);
+    // Grand Lab: × 1.5
+    sim.cash = 1e9;
+    up(sim, t, LAB);
+    r = clearAt(sim, 2000);
+    expect(r.paid).toEqual([['lab', t.uid, Math.floor(LAB_ECON_SHARE * 1.5 * (65 * cashMul + Math.min(150, rate * r.before)) * sim.incomeMul + 1e-9)]]);
   });
 
   test('a sabotaged Tenka\'s frag and field rest, like her bolts', () => {
