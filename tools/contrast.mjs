@@ -124,6 +124,23 @@ export const PAIRS = [
   ['--gear-super', ['--plate'], 'Super Rare tag', 4.5],
   ['--gear-mythic', ['--plate'], 'Mythic tag', 4.5],
   ['--gear-legendary', ['--plate'], 'Legendary tag', 4.5],
+  // UI M5 hub kit (§5.9, §5.10; components.css "M5"): the host bubble, the left rail, the countdown chip, the badge
+  // vocabulary, plate headers and keyboard hints
+  ['--ink', ['--sky-3', 'rgba(255, 255, 255, 0.94)'], 'host speech bubble line on white glass (over the darkest sky)', 4.5],
+  ['--ink', ['--sky-3', 'rgba(255, 255, 255, 0.82)'], 'left rail inactive word on white glass (over --sky-3)', 4.5],
+  ['--yellow', ['--plate'], 'left rail active word (yellow italic on the ink slab)', 4.5],
+  ['--on-plate', ['--plate'], 'countdown chip time', 4.5],
+  ['--bad-on-plate', ['--plate'], 'countdown chip time under 24 h', 4.5],
+  ['--on-plate-dim', ['--plate'], 'countdown chip label ("Ends in")', 4.5],
+  ['white', ['#d4183b'], 'red count badge number', 4.5],
+  ['--on-plate', ['--plate'], 'n/m progress badge', 4.5],
+  ['--plate', ['--pink'], '"In Progress" ribbon letters', 4.5],
+  ['--plate', ['--yellow'], 'NEW / Open! sticker letters', 4.5],
+  ['--on-plate', ['--navy'], 'navy "New" tab letters', 4.5],
+  ['--on-plate', ['--plate'], 'plate header title (E2)', 4.5],
+  ['--on-plate', ['--plate-glass', '--plate-glass'], 'off-season band sentence on its glass plate over art (worst case: a dark painting)', 4.5],
+  ['--on-plate', ['--sky-3', '--plate-glass'], 'off-season band sentence over a light painting', 4.5],
+  ['--on-plate', ['--plate'], 'keyboard hint chip ("Space", "Esc")', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],
