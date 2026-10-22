@@ -118,6 +118,17 @@
    "a_not_fooled": [{"id":"gearbox_superRare", "count": 1}],
    "a_mirror_mirror": [{"id":"gearbox_superRare", "count": 1}, {"id":"dice_prism", "count": 1}],
   "a_donate_1": [{"id":"gearbox_superRare", "count": 1}],
-  "a_donate_10": [{"id":"gearbox_superRare", "count": 2}]
+  "a_donate_10": [{"id":"gearbox_superRare", "count": 2}],
+  "a_mr_1": [{"id":"gems", "count": 20}, {"id":"dice_reroll", "count": 1}],
+  "a_mr_100": [{"id":"gems", "count": 100}, {"id":"gearbox_mythic", "count": 1}],
+  "a_mr_400": [{"id":"gems", "count": 200}, {"id":"gearbox_mythic", "count": 1}, {"id":"gearbox_superRare", "count": 2}],
+  "a_mr_800": [{"id":"gems", "count": 300}, {"id":"gearbox_legendary", "count": 1}, {"id":"ticket_recruit", "count": 1}],
+  "a_perfect_1": [{"id":"gems", "count": 50}, {"id":"gearbox_superRare", "count": 2}],
+  "a_rev_80": [{"id":"gearbox_superRare", "count": 2}],
+  "a_rush_80": [{"id":"gearbox_superRare", "count": 2}],
+  "a_iron_80": [{"id":"gearbox_superRare", "count": 2}],
+  "a_frugal_80": [{"id":"gearbox_superRare", "count": 2}],
+  "a_petal_80": [{"id":"gearbox_superRare", "count": 2}],
+  "a_rules_15": [{"id":"gearbox_superRare", "count": 2}]
  }
 }

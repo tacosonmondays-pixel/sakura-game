@@ -136,7 +136,7 @@ Entry points (all `S:`):
 - friends list: `src/ui/screens/messages.js:259` (context 'profile')
 - co-op ally avatar: `src/ui/screens/coop.js:513` (context 'coop')
 
-The live lobby's top-left account badge is hard-coded to the name "Sensei" and opens Achievements (`L:src/ui/screens/lobby.js:328`; `levelBadge` `L:src/ui/components.js:141-163`). It is the natural "my profile" entry point (Blue Archive style).
+The live lobby's top-left account badge is hard-coded to the name "Sensei" and opens Achievements (`L:src/ui/screens/lobby.js:328`; `levelBadge` `L:src/ui/components.js:141-163`). It is the natural "my profile" entry point (as in many gacha games).
 
 No `profile` route exists. Routes are registered in `T:src/main.js:11-38`; social adds `messages`.
 
@@ -293,7 +293,7 @@ Suggested cap: `pg_column_size(snapshot) <= 6 KB`, with a strict JSON shape chec
 | `bust` | 512×512 | big avatar / profile picture |
 | `card` | 300×500 | showcase tiles; `unitCard` default |
 | `full` | 768×1024 (3:4) | face-cropped illustration, `PORTRAIT_DATA.face` |
-| `cut` | transparent full-figure stand, 1000 px tall (aspect 0.41–0.75, e.g. hikari 564×1000) | **the favorite girl standing on the left** (Blue Archive / Genshin style). Already used by the lobby, title and missions hub. |
+| `cut` | transparent full-figure stand, 1000 px tall (aspect 0.41–0.75, e.g. hikari 564×1000) | **the favorite girl standing on the left** (a common gacha layout). Already used by the lobby, title and missions hub. |
 | `cutS` | the same stand, 360 px tall (e.g. 203×360) | small stand |
 
 `portraitHTML(unit, kind, {awaken})` (`:121-136`) falls back to `cardArtSVG` for girls with no files, for example future roster girls.
@@ -362,7 +362,7 @@ Suggested cap: `pg_column_size(snapshot) <= 6 KB`, with a strict JSON shape chec
 
 1. **Where profile content lives on the server.** Keep it out of `profiles` columns (readable by all, ignores blocks). Use a new `profile_cards` table (no grants), written by `set_profile_card(jsonb)` with validation and a rate limit, and read through `player_card()` (extended) or `profile_view(uuid)`. Fold it into the unrun social SQL, or write a third migration with `profile_version()`?
 2. **Bio rules.**
-   - Length (BA uses about 40–60 characters; 1–80 suggested)
+   - Length (reference games use about 40–60 characters; 1–80 suggested)
    - `valid_dm_body` + **new** no links / domains / emails / `@handles` / ≥5-digit runs (phone numbers), in SQL and client together
    - Refuse edits while muted
    - Rename-style rate limit

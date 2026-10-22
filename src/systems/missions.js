@@ -434,7 +434,7 @@ export function currentEvent(now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
-// F2P income overview (Honkai Star Rail style version chart)
+// F2P income overview (a version-by-version reward chart)
 // ---------------------------------------------------------------------------
 
 const sumId = (rewards, id) => rewards.reduce((a, r) => a + (r.id === id ? r.count : 0), 0);

@@ -186,7 +186,7 @@ Text ≤ 120 characters per line (3 lines at 844×390). An episode has 8–18 sp
 choice and at most 4 distinct portraits. `heart` appears at most once per episode. Mechanic explanations run at
 most 2 consecutive lines.
 
-### 1.3 Scene player UI (Blue Archive style)
+### 1.3 Scene player UI (academy style)
 
 Layout (same structure at 844×390 and 1280×720; sizes in `story.css` use `vh` with clamps):
 
@@ -215,7 +215,7 @@ Layout (same structure at 844×390 and 1280×720; sizes in `story.css` use `vh` 
 * **Auto.** After a full line, waits 900 ms + 30 ms per character (cap 4 s), then advances. The button glows while on.
   Auto pauses on a choice. The speed and Auto setting persist in `story.prefs`.
 * **Skip.** A confirm dialog: "Skip this episode? You can read it again from the Story archive." with [Skip] and
-  [Keep reading]. Skipping counts as seen, so first-read rewards are still granted (BA convention). On an
+  [Keep reading]. Skipping counts as seen, so first-read rewards are still granted (a common story-player convention). On an
   unread *opening* the dialog adds: "Hikari will still show you the ropes in your first battle."
 * **Log.** A sheet with every shown line (plate + text), the chosen option marked ▶. It scrolls and closes with ✕ or Esc.
 * **Hide UI.** An eye button (or a long press on the background) hides the box and buttons; a tap brings them back.
@@ -253,7 +253,7 @@ marked seen (done or skipped). Closing the app mid-scene replays it next session
 Reachable from the **missions hub "Story" tile** (replacing today's "Soon" toast; NEW dot when an unlocked
 episode is unseen), the **lobby Menu Tab** ("Story") and the journal.
 
-* BA layout: the painted academy (`academy-soft`) and Hikari's stand at the bottom-left (as on the missions hub).
+* Layout: the painted academy (`academy-soft`) and Hikari's stand at the bottom-left (as on the missions hub).
   On the left are chapter tabs: Opening, then Ch 1 … Ch 8 with names from `CHAPTERS`. On the right are episode cards.
 * Episode card: thumbnail (its background thumb, or the main speaker's bust over the academy thumb), "Episode n",
   title and cast heads. States: **NEW** (unlocked, unseen; chip "First read: 20 gems"), **read** (✓), and
@@ -493,7 +493,7 @@ The Menu Tab "Equipment" entry and Backpack stay open; with no gear they show th
 
 ### 3.6 Journal screen — route `#/journal`
 
-* BA two-pane layout over `academy-soft`. **Left:** a scrollable list of 12 lesson cards, each with an icon (the
+* Two-pane layout over `academy-soft`. **Left:** a scrollable list of 12 lesson cards, each with an icon (the
   existing `lobbyIcon`/`uiIcon` names), title, "Clear {stage:x}" or ✓, a **NEW** chip when unread, and a gift
   chip when claimable. Locked cards are greyed with the requirement; their titles show as "???" until
   unlocked, to keep the surprise.
@@ -946,7 +946,7 @@ Differences from §3 worth knowing:
 
 ## 12. Open questions for the owner and Builder 3
 
-**New direction (owner, 2026-10-14): Chapter 1 is the fantasy era; Chapter 2 onward is Blue Archive-style academy
+**New direction (owner, 2026-10-14): Chapter 1 is the fantasy era; Chapter 2 onward is modern academy
 life.** This reverses the Oct 13 note in §10 (academy first, fantasy from Chapter 2). Nothing built so far depends on
 it, but the next story pass needs answers to:
 1. **Framing.** Is Chapter 1 a prologue in the past (a "fantasy era" before the academy existed, told as a legend or

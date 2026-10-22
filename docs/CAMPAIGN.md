@@ -140,7 +140,7 @@ and the stage thumbnails trace — what you see is exactly where enemies walk.
   13 have two or more entrances (8-5 has three), 5 have two exits (2-4, 5-2, 5-3, Market,
   Rune Garden), 2 split a lane (2-2, Market) and 10 merge lanes. Water maps hug shores and cross
   on continuous plank / stone decks (2-1 coastline, 1-4 creek-hugger, 7-3 river weave).
-* **Beginner maps stay single-lane** with no tunnels, so the first stages teach coverage
+* **Sprout (beginner) maps stay single-lane** with no tunnels, so the first stages teach coverage
   without hidden stretches; 1-5 (intermediate) introduces the first tunnel.
 
 Bounty, boss and challenge arenas: Library Courtyard = three aisles (two entrances merge at the
@@ -181,7 +181,7 @@ Gear boxes use item ids `gearbox_<rarity>` (resolved to rolled gear by `rollStag
 
 ## Total Assault (boss arenas)
 
-15 waves of escorts with the boss scripted on wave 15. Expert tier, hpScale 5 / 6 / 7.
+15 waves of escorts with the boss scripted on wave 15. Oni (expert) tier, hpScale 5 / 6 / 7.
 
 | Stage | Boss | Unlock | Signature drops |
 |---|---|---|---|

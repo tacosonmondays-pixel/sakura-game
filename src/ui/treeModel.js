@@ -4,7 +4,7 @@
 // Path cap: a path's tier 5 that another copy of hers holds (same player) is a blocked cell that
 // names the holder (`finals`).
 import { pathCap, onePerPathReason, ONE_PER_PATH_RULE } from './battle/rules.js';
-import { tierTags, shortEffect, tierIcon, pathSummary, tierNote, modsTags, ultTags, passiveTags } from './upgradeTags.js';
+import { tierTags, shortEffect, tierIcon, pathSummary, tierNote, tierDesc, modsTags, ultTags, passiveTags } from './upgradeTags.js';
 
 export const RULE_TEXT = `Pick one path up to T5 and one other up to T2 — the third path locks. ${ONE_PER_PATH_RULE}`;
 
@@ -60,7 +60,7 @@ export function buildTreeModel({
         path: pi,
         tier: k + 1,
         name: td.name,
-        desc: td.desc,
+        desc: tierDesc(def, pi, k + 1),
         mods: td.mods,
         capstone: k === 4,
         state,

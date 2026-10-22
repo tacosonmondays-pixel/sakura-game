@@ -1,4 +1,4 @@
-// The scene player (owner: story; STORY_SPEC §1.3). One Blue Archive-style visual-novel player for every story
+// The scene player (owner: story; STORY_SPEC §1.3). One academy-style visual-novel player for every story
 // episode: forced flows and replays mount it as a screen (#/scene/<id>), queued scenes as an overlay over the
 // current screen. It reads only the normalised lines from src/data/story/format.js and takes the scene object,
 // so it never imports the scene chunk itself.

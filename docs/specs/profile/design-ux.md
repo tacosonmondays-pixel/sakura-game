@@ -1,6 +1,6 @@
 # Sensei Profile: Design A, the player experience (Oct 15, 2026)
 
-**Owner's request (Oct 15):** "In your profile, it'll be your username, bio, maybe you can set favorite units, and then it can be like Genshin or Honkai where you can display your top 8 units… if you press and hold it'll bring up their info so you can see others builds. Whoever you set as your favorite girl, she'll be on the left side as her portrait. What else? Profile picture and a banner? Ribbon and medal showcase!"
+**Owner's request (Oct 15):** "In your profile, it'll be your username, bio, maybe you can set favorite units, and then it can be like [reference games] where you can display your top 8 units… if you press and hold it'll bring up their info so you can see others builds. Whoever you set as your favorite girl, she'll be on the left side as her portrait. What else? Profile picture and a banner? Ribbon and medal showcase!"
 
 This design gives him all of it on one screen, `#/profile`:
 - the favorite girl's full stand on the left;
@@ -45,7 +45,7 @@ Reference shots of the real train-a build, used to match the look, are in `docs/
 
 ## 2. Layout
 
-The layout is the same at both sizes, and the second size only compacts it. The Blue Archive look is kept throughout: white translucent panels, blue→white headers with a yellow underline, slanted pills, and italic navy Nunito headings. The numbers below were measured in the mock.
+The layout is the same at both sizes, and the second size only compacts it. The academy look is kept throughout: white translucent panels, blue→white headers with a yellow underline, slanted pills, and italic navy Nunito headings. The numbers below were measured in the mock.
 
 ```
 ┌─ top bar ── ‹ Sensei Profile ─────────────────────────────── [Preview] [Edit profile] ┐
@@ -73,7 +73,7 @@ The layout is the same at both sizes, and the second size only compacts it. The 
 | Bottom row | Medals & Ribbons (517 px) next to Freeplay (the rest) | Stacked, scrolling |
 | Fits without scrolling | Everything (the main column scrolls 2 px) | The banner, identity, bio and the full showcase. Trophies, Freeplay and Records are one scroll down. |
 
-- **Only the right column scrolls.** The favorite girl stays put, like Genshin's character pane.
+- **Only the right column scrolls.** The favorite girl stays put, like a gacha game's character pane.
 - On the phone, nothing needed for the owner's ask sits below the fold except the trophy shelf.
 
 ## 3. The favorite girl (left)

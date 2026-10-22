@@ -7,12 +7,13 @@
 
 import { STAGE_MAP } from '../data/stages.js';
 import { UNIT_MAP } from '../data/units.js';
-import { track } from './missions.js';
+import { track, recordMax } from './missions.js';
 
 /** missions.counters keys (event words; marks use 'ach:'; rarities use '<name>:<rarity>'). */
 export const ACH_COUNTERS = Object.freeze({
   coopWin: 'coopWin', ults: 'ults', flawless: 'ach:flawless', closeCall: 'ach:closeCall', squad3: 'ach:squad3',
   eventWin: 'eventWin', weeklyDone: 'weeklyDone', salvage: 'salvage', clanBossHit: 'clanBossHit', donate: 'donate',
+  heroMax: 'heroMax',
   gear: (rarity) => `gear:${rarity}`, gear10: (rarity) => `gear10:${rarity}`,
 });
 
@@ -31,6 +32,9 @@ export function studentsFielded(towerUnits) {
 export function countSoloBattle(profile, result, { won, difficulty, eventBonus }) {
   const ults = Math.max(0, Math.floor(Number(result?.stats?.ultsUsed) || 0));
   if (ults) track(profile, ACH_COUNTERS.ults, ults);
+  // the highest level her hero reached in a battle, won or lost (a max, not a count; ACHIEVEMENTS.md §1.7)
+  const heroLevel = Math.floor(Number(result?.stats?.heroLevel) || 0);
+  if (heroLevel > 0) recordMax(profile, ACH_COUNTERS.heroMax, heroLevel);
   if (!won) return;
   const lives = Number(result.livesLeft);
   const max = Number(result.maxLives);

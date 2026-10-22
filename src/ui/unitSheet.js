@@ -56,7 +56,8 @@ function revealIn(scroller, el) {
  * @param {{ tab?: 'build'|'info'|'upgrades', allowFullPage?: boolean, origin?: HTMLElement|null,
  *   profile?: object|null, owner?: { name: string, avatar?: string }|null, gearText?: string|null }} [o]
  *   profile: the mini profile ({ units, gear }) to show instead of the save; owner: whose build it is
- *   ("<name>'s build" chip, no full page, never "Recruit"); gearText: replaces "No charm equipped"
+ *   ("<name>'s build" chip, no full page, never "Recruit"); gearText: their gear isn't known (a co-op ally),
+ *   one line in place of the gear cards (unitBuild.js buildCopy)
  * @returns {{ close(): void, el: HTMLElement }}
  */
 export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, origin = null, profile = null, owner = null, gearText = null } = {}) {

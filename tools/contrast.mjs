@@ -5,6 +5,7 @@
 //   node tools/contrast.mjs            # markdown table; exit 1 when a pair fails
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { MAP_TIER_VIEW } from '../src/data/mapTierNames.js';
 
 const BASE_CSS = new URL('../src/ui/styles/base.css', import.meta.url);
 
@@ -123,6 +124,12 @@ export const PAIRS = [
   ['--gear-super', ['--plate'], 'Super Rare tag', 4.5],
   ['--gear-mythic', ['--plate'], 'Mythic tag', 4.5],
   ['--gear-legendary', ['--plate'], 'Legendary tag', 4.5],
+  // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
+  ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
+    [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],
+    [t.text, ['--sky-2'], `${t.name} tier label on the campaign sky (--sky-2, the darkest it sits on)`, 4.5],
+    ['--plate', [t.color], `${t.name} tier badge / chapter number on its fill`, 4.5],
+  ]),
 ];
 
 /** The table rows: { text, bg, where, ratio, min, ok }. */

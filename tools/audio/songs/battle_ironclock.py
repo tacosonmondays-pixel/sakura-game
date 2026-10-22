@@ -16,9 +16,8 @@ Form: intro |: A A2 B C D :|  — 2 + 40 bars.
 Leitmotifs: BELL (B, syncopated riff, minor), SENTINEL CALL (C, guitar, intensity).
 review: originality — hook, riffs, bass lines and counter-lines are new (a first draft of the hook, G G G B♭ C … B♭ G,
 was rewritten because its contour echoed a famous rock riff); BELL and SENTINEL are the project's own
-motifs. Checked by ear-memory against well-known factory/robot/clock stage themes (Mega Man, Metal Man, Sonic
-Metropolis, Mario airship, Undertale CORE/Hotland, Deltarune Cyber World, EarthBound/Mother): no shared hook,
-riff or contour. Composer B, 2026-10-08.
+motifs. Checked by ear-memory against well-known factory / robot / clock stage themes from console
+and indie games: no shared hook, riff or contour. Composer B, 2026-10-08.
 Round 3 (owner favourite, polish only): no note changes; phone-speaker balance (4th-order HP 380 Hz model) —
 sq_bass +1.5 dB (the bass double that carries the riff on phones), anvil_reply +1 dB and the organ stab bed +1 dB
 (the "melody BAM" answers and pushes read in the build phase).

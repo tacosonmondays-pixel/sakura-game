@@ -2,7 +2,7 @@
  "_doc": "Interval fingerprints (semitones, transposition-free) of famous hooks our melodies must not resemble (docs/AUDIO.md §6.5). `min` = how many consecutive matching intervals count as a FAIL (default 6); `anchor` = the match must start at the hook's first interval (its signature opening). Reviewers add entries; keep them short, from memory of the published melody. Used by `studio.py originality`.",
  "hooks": [
   {
-   "name": "Megalovania opening (Toby Fox): repeated root, octave leap, down a fourth",
+   "name": "famous indie-RPG boss opening: repeated root, octave leap, down a fourth",
    "intervals": [
     0,
     12,
@@ -18,7 +18,7 @@
    "anchor": true
   },
   {
-   "name": "Megalovania descending run (Toby Fox)",
+   "name": "famous indie-RPG boss descending run",
    "intervals": [
     -5,
     -1,
@@ -40,7 +40,7 @@
    "min": 3
   },
   {
-   "name": "Super Mario Bros. overworld opening (K. Kondo)",
+   "name": "famous platformer overworld opening (K. Kondo)",
    "intervals": [
     0,
     0,
@@ -52,7 +52,7 @@
    "min": 5
   },
   {
-   "name": "Legend of Zelda overworld opening (K. Kondo)",
+   "name": "famous adventure-game overworld opening (K. Kondo)",
    "intervals": [
     -5,
     5,
@@ -65,7 +65,7 @@
    "min": 6
   },
   {
-   "name": "Korobeiniki / Tetris A",
+   "name": "Korobeiniki (folk song)",
    "intervals": [
     -5,
     1,
@@ -83,7 +83,7 @@
    "min": 6
   },
   {
-   "name": "Final Fantasy victory fanfare (N. Uematsu)",
+   "name": "famous RPG victory fanfare (N. Uematsu)",
    "intervals": [
     0,
     0,

@@ -135,7 +135,7 @@ function buildPage({ doPull, openSpark }) {
   const banner = h('section.ma-banner',
     h('div.ma-banner-bg', h('img.ma-banner-paint', { src: lobbyArtUrl('academy.webp'), alt: '', loading: 'eager', decoding: 'async', draggable: false })),
     h('div.ma-banner-rays'),
-    // drawn key art: three featured girls' stands, the centre one in front (Genshin-style banner)
+    // drawn key art: three featured girls' stands, the centre one in front (a three-girl banner)
     h('div.ma-banner-stands', featured.slice(0, 3).map((u, i) => h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) }))),
     h('div.ma-banner-text',
       h('div.ma-banner-kicker', 'Standard Recruitment'),

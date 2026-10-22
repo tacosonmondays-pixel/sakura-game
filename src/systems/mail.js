@@ -1,4 +1,4 @@
-// Mailbox (Blue Archive style): letters with attached rewards, "Claim all", optional expiry
+// Mailbox (academy style): letters with attached rewards, "Claim all", optional expiry
 // (owner: systems). The first letter is the Beta Tester Thank-You gift (owner: "push out some
 // rewards for beta players that tried the codex version… all new accounts until november 7th
 // get a few free multis, a select ticket for an SSR, some materials, money and gems").

@@ -1,4 +1,4 @@
-// Mailbox (Blue Archive style) and the Beta Tester Thank-You celebration.
+// Mailbox (academy style) and the Beta Tester Thank-You celebration.
 //   openMailbox()        letters newest first: sender, title, message, reward tiles, expiry,
 //                        Claim / Claim all (src/systems/mail.js)
 //   maybeShowBetaGift()  once per session in the lobby while the beta gift is unclaimed: a

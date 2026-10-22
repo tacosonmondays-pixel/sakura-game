@@ -501,8 +501,8 @@ co-op command: the sim id does not change.
 * `src/render/companions.js` (`Companions`, made by `BattleRenderer`): one actor per sim tower whose unit has a companion
   (co-op partners' girls too), made once her view and the file are there, `appear` on creation, gone when she leaves the
   sim (sold, a new battle); restore and replays just recreate them. `handle(ev)` observes `attack` and `ult` before the
-  attack FX consume them; `update(dt, zoom)` runs after `actors.sync`. Off at quality low (rosterFx's procedural fox is
-  the fallback, as it is while Kon's file loads; an error in the layer switches it off for that battle with one
+  attack FX consume them; `update(dt, zoom)` runs after `actors.sync`. On at every quality since v0.1.45 (LOD files
+  below high, no outlines at low; rosterFx's procedural fox is the fallback while Kon's file loads; an error in the layer switches it off for that battle with one
   `[companions] disabled` warning). LOD files by default, full ones on quality high at zoom ≥ 2 (back at
   ≤ 1.7). Probe: `renderer.companionsProbe()`.
 * Rules (`src/render/companionLogic.js`, unit-tested in `tests/render/companions.test.js`): **Kon** sits by Ruri while

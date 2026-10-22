@@ -1,5 +1,5 @@
 // Story archive (owner: story; STORY_SPEC §1.5). Route: #/story?ch=<n>
-// Blue Archive menu layout: the painted academy (soft), Hikari's drawn stand bottom-left, a strip of chapter
+// Academy menu layout: the painted academy (soft), Hikari's drawn stand bottom-left, a strip of chapter
 // tabs (Opening, Ch 1 … Ch 8 with names from CHAPTERS) and the chapter's episode cards on the right. A card shows
 // its background thumb with the cast's heads, "Episode n", the title and its state: NEW (unlocked, unread, with
 // the first-read gems), read (✓), or locked with the requirement ("Clear 2-5"). Tapping a card plays it in the

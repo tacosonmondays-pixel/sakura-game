@@ -1,5 +1,5 @@
 // Shared UI building blocks. Screens should use these so the whole game keeps one
-// look (Blue Archive–style slanted white panels on a sky-blue backdrop).
+// look (academy-style slanted white panels on a sky-blue backdrop).
 import { h, fromHTML, clear } from './dom.js';
 import { store } from '../core/store.js';
 import { navigate, back } from './router.js';
@@ -338,7 +338,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
 }
 
 /**
- * Blue Archive "Menu Tab" popup: a white header with a centred title, yellow underline and an
+ * The "Menu Tab" popup: a white header with a centred title, yellow underline and an
  * X, then a 2-column grid of light buttons with illustrated icons — Options, Account,
  * Equipment, Items, Bestiary, Wiki, Fullscreen, plus any `extra` entries a screen adds
  * (the lobby adds Secretary and Notice).
@@ -484,7 +484,7 @@ export function showItemInfo(itemId) {
 }
 
 /**
- * Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'.
+ * Character card thumbnail. variant: 'tall' (tall portrait) | 'square'.
  * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
  */
 export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false, profile = store.profile, potential } = {}) {

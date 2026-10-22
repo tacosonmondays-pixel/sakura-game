@@ -25,8 +25,8 @@ bars with a brass BAM the keys hit 4& with the horns instead of anticipating the
 review: originality — the hook, the bridge tune, the bass lines, the brass writing and the counter-line are new;
 BELL is the project's own motif. The IV–V/IV–iii–VI progression is a generic J-pop/city-pop idiom (not a song);
 famous city-pop / funk / disco hooks and basslines were kept in mind and not used; checked by ear-memory against
-well-known city pop, J-funk, disco and shop/mall game themes (Animal Crossing, Wii Shop, Pokémon Mart, Undertale /
-Deltarune shops, EarthBound, Persona): no shared hook or contour. Composer B1, 2026-10-09 (round 3).
+well-known city pop, J-funk, disco and shop / mall themes from console and indie
+games: no shared hook or contour. Composer B1, 2026-10-09 (round 3).
 """
 from sakura_audio.song import Song
 from motifs import BELL

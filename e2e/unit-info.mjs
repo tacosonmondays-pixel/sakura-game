@@ -674,9 +674,14 @@ async function runViewport(vp) {
         const n = c.querySelector('.ut-name').getBoundingClientRect();
         return n.right > cr.right + 1 || n.left < cr.left - 1;
       }).length;
-      return { sw: ov.scrollWidth, iw: innerWidth, vis, total: cells.length, scrollable: wrap.scrollHeight > wrap.clientHeight + 1, overflow, nameOut, cellH: Math.round(cells[0].getBoundingClientRect().height), cellW: Math.round(cells[0].getBoundingClientRect().width) };
+      // a tier name or effect line cut short ("+2 dmg · Ignores 2 ar…" under Steel Broadheads at 844x390, v0.1.45 fix)
+      const cutText = [...ov.querySelectorAll('.ut-cell .ut-name, .ut-cell .ut-eff')]
+        .filter((e) => getComputedStyle(e).display !== 'none' && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1))
+        .map((e) => e.textContent);
+      return { sw: ov.scrollWidth, iw: innerWidth, ih: innerHeight, vis, total: cells.length, scrollable: wrap.scrollHeight > wrap.clientHeight + 1, overflow, nameOut, cutText, cellH: Math.round(cells[0].getBoundingClientRect().height), cellW: Math.round(cells[0].getBoundingClientRect().width) };
     });
     check(lay.sw <= lay.iw, `tree layout: no horizontal overflow (${lay.sw} ≤ ${lay.iw})`);
+    if (lay.iw >= 800 && lay.ih <= 500) check(!lay.cutText.length, `tree layout: no tier name or effect line cut short at phone landscape (${lay.cutText.join(' | ') || 'none'})`);
     check(lay.vis === 15 || lay.scrollable, `tree layout: all 15 tiers on screen or in a scrollable grid (${lay.vis}/15 visible, scrollable ${lay.scrollable}, cell ${lay.cellW}×${lay.cellH})`);
     check(!lay.overflow.length && !lay.nameOut, `tree layout: no text spills out of a cell (${lay.overflow.join(',') || 'none'})`);
     await shot('tree');

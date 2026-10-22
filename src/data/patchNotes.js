@@ -20,6 +20,23 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.45', version: '0.1.45', date: '2026-10-22', title: 'Sprouts, Storms and Shiny Ribbons',
+    added: [
+      'The seven academy girls have their painted cards! Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi show their own art on their pages, in Students, Formation, Recruit, battle, Story and the lobby. Chat, clan and co-op avatars now show each girl’s drawn picture instead of a little doll.',
+      'Girl page: pick Compact or Detailed in Settings > Display. Detailed shows every stat, her gear and her upgrade tiers right on the page.',
+      'Eleven new Codex achievements for battle-mode ribbons and map-rule Gold medals, with seven new titles and the Holo Codex Ribbon for collecting all 800 mode ribbons. Ribbons and medals you already have count right away.',
+      'Tenka is coming with her own banner. Save your gems.',
+    ],
+    changed: [
+      'Map tiers have new names: Sprout, Bud, Storm and Oni.',
+      'Easier to read: the battle panel shortens big damage numbers (136.2k, 1.2M), upgrade effects are no longer cut off on phones held sideways, and Umeko’s Plum Rain and Lighthouse upgrades show her aura’s total (each tier multiplies the ones before it).',
+      'Kon, Kaze and Yoriko’s doll now also appear on the Low graphics setting.',
+    ],
+    fixed: [
+      'In a co-op room, holding your partner’s girl now shows their girl (her level, stars and Potential), not yours. Co-op still works with players on v0.1.41 to v0.1.44, and battles play the same.',
+    ],
+  },
+  {
     id: 'v0.1.44', version: '0.1.44', date: '2026-10-21', title: 'A Rainbow Without Scrollbars',
     fixed: [
       'The "Awakened to UR!" moment shows its dark rainbow look again, without stray scrollbars around the gem.',

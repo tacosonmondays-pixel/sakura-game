@@ -8,7 +8,8 @@ import '../styles/sandbox.css';
 import { h, clear, screen, svgEl, button, unitCard, toast } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
-import { BATTLE, DIFFICULTIES, DIFFICULTY_ORDER, MAP_TIERS } from '../../data/types.js';
+import { BATTLE, DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
+import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { uiIcon } from '../../art/icons.js';
@@ -106,7 +107,7 @@ function mapStep(choice, redraw) {
     h('div.sbx-head-actions', diffRow, next));
   const grid = h('div.ma-endless-grid.sbx-map-grid', { 'data-testid': 'sandbox-maps' }, maps.map(({ map, stage }) => {
     const on = map.id === choice.mapId;
-    const tier = MAP_TIERS[stage.tier];
+    const tier = MAP_TIER_VIEW[stage.tier];
     return h(`button.ma-endless-card.sbx-map${on ? '.on' : ''}`, {
       'data-testid': `sandbox-map-${map.id}`,
       'aria-pressed': on ? 'true' : 'false',

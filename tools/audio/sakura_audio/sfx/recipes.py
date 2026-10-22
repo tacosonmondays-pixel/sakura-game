@@ -1,4 +1,4 @@
-"""One recipe per SFX id (docs/AUDIO.md §5). Deltarune / EarthBound / NES flavoured: short, clean, cute, never
+"""One recipe per SFX id (docs/AUDIO.md §5). Retro RPG / NES flavoured: short, clean, cute, never
 harsh. Deterministic (every recipe gets its own seeded RNG through `r`).
 
     @sfx('ui.confirm', level=-29, voices=2, gap_ms=40, priority=2)

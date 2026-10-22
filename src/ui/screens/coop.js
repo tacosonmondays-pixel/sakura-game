@@ -33,6 +33,8 @@ import { getSession, makeRoomCode, normalizeCode } from '../../online/coop/sessi
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
+import { setHoldSheet } from '../hold.js';
+import { allySheet } from '../allySheet.js';
 import { resolveFormation } from '../battle/setup.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { formatRetry } from '../../online/limits.js';
@@ -143,10 +145,17 @@ function thumb(stageId, cls = 'ol-stage-thumb') {
   return h(`div.${cls}`, { html: map ? stageThumbSVG(map, { width: 320, height: 200 }) : '' });
 }
 
-function unitChip(unitId, { hero = false } = {}) {
+/**
+ * One girl in a player's card. An ally's girl (`ally`: the player, `stats`: her loadout stats from the ally's game)
+ * opens her own sheet when held: the ally's level, stars, gates and Potential, not your copy of her (PROFILE.md §7.4).
+ */
+function unitChip(unitId, { hero = false, ally = null, stats = null } = {}) {
   const u = UNIT_MAP[unitId];
   if (!u) return null;
-  return h(`span.ol-unit${hero ? '.hero' : ''}`, { title: `${u.name} — hold for her info`, 'data-unit': unitId }, avatar(unitId, 30), h('small', u.name));
+  const who = ally ? ally.name || 'Your ally' : null;
+  const el = h(`span.ol-unit${hero ? '.hero' : ''}`, { title: `${u.name} — hold for ${who ? `${who}'s build` : 'her info'}`, 'data-unit': unitId }, avatar(unitId, 30), h('small', u.name));
+  if (ally) setHoldSheet(el, allySheet(unitId, ally, stats));
+  return el;
 }
 
 /** Stage + difficulty + freeplay + mode picker modal. Resolves { stageId, difficulty, freeplay, mode } or null. */
@@ -622,7 +631,9 @@ export function render(root, params = {}) {
           h('div.ol-pcard-wait', miniMochi(), h('b', `Connecting to ${p.name || 'your ally'}…`),
             h('p.muted', 'Making sure you can both hear each other. This fixes itself in a few seconds.')));
       }
-      const units = [p.hero ? unitChip(p.hero.unitId, { hero: true }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId))].filter(Boolean);
+      // an ally's chips open the ally's girl, never your own copy of her
+      const ally = me ? null : p;
+      const units = [p.hero ? unitChip(p.hero.unitId, { hero: true, ally, stats: p.hero.stats }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId, { ally, stats: e.stats }))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
       // [social] the ally's avatar opens their player card ("Add friend after a good game")
       const face = me || !p.uid ? avatar(p.avatar, 52) : h('button.ol-msg-av', { type: 'button', 'data-testid': 'coop-ally-card', 'aria-label': `${p.name || 'Ally'}: player card`, onclick: () => openPlayerCard(p.uid, p, { context: 'coop' }) }, avatar(p.avatar, 52));

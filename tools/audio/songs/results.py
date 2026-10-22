@@ -27,8 +27,8 @@ a counter-line in all 8 bars; fills in bars 4 and 8, a cymbal on bars 1 and 5; a
 
 review: originality — new melodies on the project's BELL motif; harmony and arrangement are new. The bossa comping,
 clave and bass two-feel and the lullaby triplet arpeggio are generic idioms; no bossa-nova standard's head, riff or
-changes are used. Checked against results / game-over / save-room music of Undertale/Deltarune, EarthBound/Mother,
-Animal Crossing, Pokémon, Kirby, Final Fantasy and Blue Archive, and against lullaby classics: no shared hook or
+changes are used. Checked against results / game-over / save-room music of well-known console, indie
+and gacha games, and against lullaby classics: no shared hook or
 contour. `studio.py originality`: no blocklist match. Composer C (round 2) 2026-10-08; Composer B4 (round 3,
 densified and re-laned) 2026-10-13.
 """

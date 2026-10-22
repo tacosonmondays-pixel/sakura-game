@@ -279,7 +279,7 @@ Labels use the girl's name, so a future drone owner needs no new copy. The tab r
 
 | Cell | Value |
 |---|---|
-| **DPS** (main) | `own.dps + each × max` — her bolt plus the **full wing** (the owner-approved v0.1.24 basis). When `active < max`: "(full wing of 9)" after it. |
+| **DPS** (main) | `own.dps + each × max` — her bolt plus the **full wing** (the owner-approved v0.1.24 basis). When `active < max` the label reads "DPS (full wing)"; the cell holds only the number (v0.1.45: "(full wing of 9)" after it ran into an ellipsis; the Drones cell already says 5/9). |
 | **Dealing** (new) | damage per second over the last 5 s of game time (live); "—" for the first second |
 | **Range** · **Drones fly** (new) | `3.0` · `4.25 tiles (+1.0 gun)` |
 | **Drones** | today's line, unchanged: `5/9 · 3 dmg × 4.33/s each` |
@@ -302,7 +302,7 @@ Labels use the girl's name, so a future drone owner needs no new copy. The tab r
 
 | Cell | Value |
 |---|---|
-| **Wing DPS** (main) | `each × max`, "(full wing of N)" when `active < max` — the same basis as Overall, so **Overall DPS = Chika DPS + Wing DPS** exactly; and Overall "Dealing" = Chika "Dealing" + the wing's |
+| **Wing DPS** (main) | `each × max`, labelled "Full wing DPS" when `active < max` (the Flying cell says 5/9) — the same basis as Overall, so **Overall DPS = Chika DPS + Wing DPS** exactly; and Overall "Dealing" = Chika "Dealing" + the wing's |
 | **Flying** | `5/9 · next in 2.1 s` / `9/9` / `5/9 · builds during waves` |
 | **Damage each** · **Fire rate** | `turretSpec.damage`, `turretSpec.rate /s` |
 | **Gun** · **Fly up to** · **Speed** | `1.0` · `4.25 tiles` · `3.5 tiles/s` |
