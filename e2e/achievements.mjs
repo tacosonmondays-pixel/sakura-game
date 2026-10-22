@@ -1,6 +1,6 @@
 // Achievements expansion e2e (docs/specs/ACHIEVEMENTS.md §7.3): the tab on a seeded late save, Claim all through the
 // special fanfare into the rewards modal, Open N gear boxes → the summary, a reload keeps the claims, the Honor
-// Ribbon Case (32 cells at launch, 33 with social) and its detail, a new save's locked and secret rows, the unlock toast AFTER a
+// Ribbon Case (32 cells at launch, 33 with social, 34 with Codex) and its detail, a new save's locked and secret rows, the unlock toast AFTER a
 // battle's results (never during it) or over the recruit results / a modal, and the effect budgets (≤ 3 live specials and ≤ 6 running infinite animations
 // on the list, 0 under Reduce Motion, no horizontal overflow). Screenshots: e2e/out/achievements/.
 //
@@ -115,7 +115,7 @@ async function runViewport(vp) {
   await page.waitForTimeout(900);
   check(await page.evaluate(() => [...document.querySelectorAll('.tab')].some((t) => /Achievements/.test(t.textContent) && t.querySelector('.tab-badge'))), '1: the Achievements tab shows its dot');
   const cats = await page.$$eval('[data-testid^="ach-cat-"]', (els) => els.map((e) => e.dataset.testid));
-  check(cats.length === 11 && cats.includes('ach-cat-secret') && !cats.includes('ach-cat-codex'), `1: 11 categories (All + 10; no Codex yet): ${cats.length}`);
+  check(cats.length === 12 && cats.includes('ach-cat-secret') && cats.includes('ach-cat-codex'), `1: 12 categories (All + 11, Codex since v0.1.45): ${cats.length}`);
   check(await page.$('[data-testid="ach-claim-a_ur_1"]') != null, '1: Rainbow Bright is ready to claim');
   const b1 = await budget(page);
   check(b1.live <= 3 && b1.live >= 1, `8: list live specials ≤ 3 (${b1.live})`);
@@ -174,12 +174,12 @@ async function runViewport(vp) {
   const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, disabled: document.querySelector('[data-testid="ach-claim-all"]')?.disabled }));
   check(after.n === claimed && after.disabled === true, `4: after a reload the claims stay (${after.n}) and Claim all is disabled (${after.disabled})`);
 
-  // ---- 5. the Case: 33 cells, the detail ----
+  // ---- 5. the Case: 34 cells, the detail ----
   await page.click('[data-testid="ach-case"]');
   await page.waitForSelector('[data-testid="ach-case-view"]', { timeout: 10000 });
   await page.waitForTimeout(800);
   const cells = await page.$$eval('[data-testid^="ach-cell-"]', (els) => els.length);
-  check(cells === 33, `5: the Case has 33 cells (32 at launch + Kind Heart with social) (${cells})`);
+  check(cells === 34, `5: the Case has 34 cells (32 at launch + Kind Heart with social + the Holo Codex Ribbon) (${cells})`);
   await page.click('[data-testid="ach-cell-a_ur_1"]');
   await page.waitForTimeout(700);
   const det = await page.evaluate(() => !!document.querySelector('.ach-detail-body .ach-detail-name'));

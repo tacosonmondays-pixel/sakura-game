@@ -199,9 +199,13 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
 
   it('rows whose feature has not shipped are hidden and refuse claims with notLive; M0 mode lists only the shipped 30', () => {
     const p = veteran();
-    expect(achievementList(p).some((x) => x.id === 'a_mr_800')).toBe(false);
-    expect(achievementList(p, { includeHidden: true }).find((x) => x.id === 'a_mr_800')).toMatchObject({ live: false, claimable: false });
-    expect(claimAchievement(p, 'a_rules_15').error).toBe('notLive');
+    expect(achievementList(p).some((x) => x.id === 'a_hero_25')).toBe(false);
+    expect(achievementList(p, { includeHidden: true }).find((x) => x.id === 'a_hero_25')).toMatchObject({ live: false, claimable: false });
+    p.missions.counters.heroMax = 25;
+    expect(claimAchievement(p, 'a_hero_25').error).toBe('notLive');
+    // the Codex rows shipped with v0.1.45: listed, and refused only while unmet
+    expect(achievementList(p).find((x) => x.id === 'a_mr_800')).toMatchObject({ live: true, claimable: false });
+    expect(claimAchievement(p, 'a_rules_15').error).toBe('incomplete');
     expect(achievementList(p, { v2: false })).toHaveLength(30);
     p.missions.counters.login = 7;
     expect(claimAchievement(p, 'a_login_7', { v2: false }).error).toBe('notLive');
@@ -300,16 +304,16 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(p.missions.counters.heroMax).toBe(12);
   });
 
-  it('the F2P one-time Achievements row equals the sum of the live defs (118 with social)', () => {
+  it('the F2P one-time Achievements row equals the sum of the live defs (129 with social and Codex)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
-    expect(live).toHaveLength(118);
+    expect(live).toHaveLength(129);
     expect(row.gems).toBe(sum('gems'));
-    expect(row.gems).toBe(13000);
+    expect(row.gems).toBe(13670); // + 670 from the Codex rows
     expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
-    expect(row.tickets).toBe(23);
-    expect(row.note).toBe('118 achievements');
+    expect(row.tickets).toBe(24); // + Every Ribbon, Every Stage's ticket
+    expect(row.note).toBe('129 achievements');
   });
 });
 

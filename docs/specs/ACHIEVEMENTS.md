@@ -438,7 +438,7 @@ All metrics are pure reads of the save. They are computed once per list call thr
 | `storyChapters` (TA) | chapters 1–8 whose every scene id in `CHAPTER_SCENE_IDS[c]` has `counters['ss:'+id]` (read or skipped). The table lists only archive episodes **without** a scene-level `ifUnit`, and never changes when a girl joins, so progress can't go backwards | `TA:src/systems/story.js:50`, `:188-190`; new ids-only `src/data/story/sceneIndex.js` (R24) |
 | `achievementsClaimed` | **known** ids with `missions.achievements[id] === true` | `src/systems/save.js:237` |
 | `counter(key)` | `missions.counters[key]` | `src/systems/missions.js:67-71` |
-| `ribbonsTotal`, `modeRibbons(m)`, `perfectStages`, `ruleGold` (CX) | `campaignShowcase(p).ribbons.have`, per-mode counts, stages with `ribbonCount.have === 20`, rules × Gold | `CX:src/systems/unlocks.js:72-141`, `CX:src/data/rules.js` |
+| `ribbonsTotal`, `modeRibbons(m)`, `perfectStages`, `ruleGold` (CX) | `campaignShowcase(p).ribbons.have`, per-mode counts, stages with `ribbonCount.have === 20`, rules × Gold. Live since v0.1.45 (`ribbonStats`, `ruleGold` in `src/systems/achievementMetrics.js`) | `CX:src/systems/unlocks.js:72-141`, `CX:src/data/rules.js` |
 | `bondMax` (Later) | max `bond[id]` | `src/systems/save.js:251-256` (0 until the City, `src/data/lobbyArt.js`) |
 
 - An **unknown metric** must not silently return 0, which is what happens today (`src/systems/missions.js:232`).
@@ -465,7 +465,7 @@ All are numbers in `missions.counters`, which every build keeps word for word (`
 | `gear10:<rarity>` | a piece reaches +10 | `enhanceGear` (`src/systems/gear.js:298-318`, `level += 1` at `:304`) | — |
 | `clanBossHit` | a clan boss attempt resolves | after `submitBossDamage` (`src/ui/battle/controller.js:819-822`) | online |
 | `donate` (Social) | a donation is finalized | `finalizeDonation` after `donated.push` (`SO:src/online/donateLedger.js:84`), idempotent per key | online |
-| `heroMax` (Later) | `recordMax(p, 'heroMax', result.stats.heroLevel)`: the highest in-battle hero level (a max, not +1) | `applyBattleResult`, won or lost; `stats.heroLevel` is already in the result (`src/sim/Sim.js:891`). The row ships with the hero rework, when heroes level 1–25 in battle | solo |
+| `heroMax` (Later) | `recordMax(p, 'heroMax', result.stats.heroLevel)`: the highest in-battle hero level (a max, not +1) | `countSoloBattle` from `applyBattleResult`, won or lost; `stats.heroLevel` is already in the result (`src/sim/Sim.js:891`). Recorded since v0.1.45; the row `a_hero_25` still waits for the owner's go (wave `later`) | solo |
 | `ach:seenHR`, `ach:seenTT` | high-water counts of Honor Ribbons and titles already seen | opening the Ribbon Case / Edit Profile → Title (§5.4, §6) | — |
 
 Save growth is about 15 keys, under 400 B. Claims add about 102 × 20 B ≈ 2 KB. The transfer limit is 300 KB (RS Risk 11).
