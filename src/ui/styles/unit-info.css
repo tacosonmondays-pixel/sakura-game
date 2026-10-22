@@ -287,7 +287,8 @@
   .ut-overlay .ut-tier-num { font-size: 8.5px; left: 3px; top: 3px; }
   .ut-overlay .ut-badge { width: 13px; height: 13px; font-size: 8.5px; right: -4px; top: -2px; }
   .ut-overlay .ut-name { font-size: 10px; -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block; }
-  .ut-overlay .ut-eff { font-size: 9.5px; -webkit-line-clamp: 1; white-space: nowrap; display: block; }
+  /* the effect line wraps onto a second line instead of ending in "…" ("Steel Broadheads": "+2 dmg · Ignores 2 armor") */
+  .ut-overlay .ut-eff { font-size: 9.5px; line-height: 1.15; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; text-overflow: clip; overflow-wrap: break-word; }
   .ut-overlay .ut-cost { font-size: 9.5px; }
   .ut-overlay .ut-foot { flex-direction: row; justify-content: center; gap: 3px; }
   .ut-overlay .ut-foot > .tag-chips { flex-wrap: nowrap; }
@@ -325,6 +326,9 @@
   .ut-levels li > .tag-chips { grid-column: 2; justify-content: flex-start; }
   /* the capstone's gold double ring is drawn outside the circle: keep it off the name below */
   .ut-overlay .ut-circle { margin-bottom: 3px; }
+  /* room for a two-line effect line: a smaller tier icon and slimmer cell padding keep the 15 cells on screen */
+  .ut-overlay .ut-grid { --circle: 26px; }
+  .ut-overlay .ut-cell { padding-top: 2px; padding-bottom: 2px; }
   .ut-overlay .ut-cell.capstone .ut-circle { box-shadow: 0 0 0 1.5px #ffc300, 0 0 0 3px #fff, 0 0 0 4px #8a5a00, 0 2px 6px rgba(138, 90, 0, 0.3); }
   /* the 196 px card panel: a smaller card, and "Her info" above the legend and the rule text so
      it is on screen without scrolling */
