@@ -1306,8 +1306,9 @@ scales through `_gainCashFor(t.owner)` (none on a `noIncome` difficulty or while
 t.lab      // { rounds, members: { dps, frag, control, support, economy }, coins: {…same}, income, uids } (in the generic snapshot)
 t.labAtk   // { frag /*k*/, slow, fragCd, fieldCd /*ticks; 0 at every wave clear*/ } (derived by syncLab)
 sim._labOn // girls with a lab (absent until the first absorb: the step skips the lab)
-sim.lastAbsorbed // uids that joined in the last upgradeTower (null after a later upgrade), for the caller
-                 // (T3: the co-op `upg` handler forgets them as owners; the battle save carries t.lab)
+// who joined in an upgradeTower: the new tail of her t.lab.uids (length before vs after; also labJoin.uids).
+// No Sim field holds them: a battle save's restore never absorbs, so nothing may outlive the command
+// (T3: the co-op `upg` handler forgets them as owners; the battle save carries t.lab)
 // events: labJoin { towerUid, owner, round, uids, members }, labFrag { towerUid, x, y, radius } (then the explode),
 //   cash { amount, reason: 'lab', towerUid }
 sim.result().stats // + labJoined — created by the first absorb

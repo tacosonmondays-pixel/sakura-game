@@ -1154,13 +1154,12 @@ export class Sim {
   /**
    * Buys the next tier of `path`. `opts.restoring`: see upgradeStatus (battle-save restore only).
    * A tier that raises Tenka's lab rounds (Joint Research, Unified Theory; src/sim/lab.js) has her owner's
-   * girls in range join her lab team, never under `restoring`; `sim.lastAbsorbed` then lists their uids
-   * for the caller (reset to null by the next upgrade once it exists; T3: the co-op layer forgets them).
+   * girls in range join her lab team, never under `restoring`; who joined is the new tail of her
+   * `t.lab.uids` (and the labJoin event), for the caller (T3: the co-op layer forgets them as owners).
    * @returns {boolean}
    */
   upgradeTower(uid, path, opts = {}) {
     if (this.state === 'won' || this.state === 'lost') return false;
-    if (this.lastAbsorbed) this.lastAbsorbed = null;
     const st = this.upgradeStatus(uid, path, opts);
     if (st.locked) return false;
     const t = this.getTower(uid);

@@ -112,8 +112,10 @@ export function syncLab(sim, t) {
 
 /**
  * Joint Research / Unified Theory (Sim.upgradeTower, after the tier that raised her lab rounds; never under
- * a restore): her owner's girls in her range join her lab team. Emits labJoin and sets sim.lastAbsorbed
- * (the uids, for the co-op layer's owner list). @returns {number[]} the uids that joined
+ * a restore): her owner's girls in her range join her lab team. Emits labJoin. The uids that joined are the
+ * new tail of t.lab.uids (and labJoin's uids), which is where a caller reads them (T3: the co-op `upg`
+ * handler's owner list): nothing on the Sim outlives the command, so a battle save's restore, which never
+ * absorbs, rebuilds every Sim field. @returns {number[]} the uids that joined
  */
 export function absorbInto(sim, t) {
   const owner = t.owner ?? 0;
@@ -142,7 +144,6 @@ export function absorbInto(sim, t) {
     sim._removeTower(o); // like a sale, without the coins
   }
   sim.stats.labJoined = (sim.stats.labJoined || 0) + uids.length;
-  sim.lastAbsorbed = uids;
   sim._refreshTower(t); // her dps / support weapons (labMods) and frag / control (syncLab)
   sim._buffsDirty = true;
   sim._emit('labJoin', {
@@ -171,18 +172,25 @@ function fragSpec(t, k) {
   };
 }
 
+// Her grenade's aim: the only fields of a spec that targeting reads (bestTarget → gatherTargets → combat.js
+// isEligible: canHitAir, detection, attackType), as fragSpec would give them. Module scratch refreshed in
+// place, so a ready grenade with nobody in range (every tick until someone walks in) allocates nothing; the
+// full spec is built only for a throw. (If isEligible ever reads another spec field, copy it here too.)
+const AIM = { canHitAir: true, detection: false, attackType: 'blast' };
+
 function labTick(sim, t) {
   const a = t.labAtk;
   if (!a || t.disabled > 0) return;
   if (a.frag > 0) {
     if (a.fragCd > 0) a.fragCd--;
     if (a.fragCd <= 0) {
-      const spec = fragSpec(t, a.frag);
-      const e = bestTarget(sim, t.ox, t.oy, t.eff.range, spec, t.targetMode);
+      AIM.canHitAir = t.eff.canHitAir;
+      AIM.detection = t.eff.detection;
+      const e = bestTarget(sim, t.ox, t.oy, t.eff.range, AIM, t.targetMode);
       if (e) {
         a.fragCd = LAB_FRAG_TICKS;
         sim._emit('labFrag', { towerUid: t.uid, x: e.x, y: e.y, radius: LAB_FRAG_SPLASH });
-        explode(sim, t, spec, e.x, e.y, LAB_FRAG_SPLASH);
+        explode(sim, t, fragSpec(t, a.frag), e.x, e.y, LAB_FRAG_SPLASH);
       }
     }
   }

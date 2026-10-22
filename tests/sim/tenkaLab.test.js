@@ -24,7 +24,7 @@ const SING = 2;
 // a fixture brewer (Midori's limited buff on the fixture archer): one girl in her range at ×1.5
 const brewer = { ...FX.archer, id: 'brewer', name: 'brewer', role: 'alchemist', base: { ...FX.archer.base, brew: { targets: 1, dmgMul: 1.5 } } };
 const XU = {
-  ...FX, tenka: UNIT_MAP.tenka, brewer, azami: UNIT_MAP.azami, yuzuha: UNIT_MAP.yuzuha, marumi: UNIT_MAP.marumi,
+  ...FX, tenka: UNIT_MAP.tenka, brewer, azami: UNIT_MAP.azami, yuzuha: UNIT_MAP.yuzuha, marumi: UNIT_MAP.marumi, chigusa: UNIT_MAP.chigusa,
 };
 const QUIET = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
 const TEAM = ['tenka', 'archer', 'bomber', 'trapper', 'chime', 'banker', 'brewer', 'azami', 'yuzuha', 'marumi'];
@@ -85,7 +85,6 @@ describe('who joins her lab team', () => {
     up(sim, t, LAB);
     // no refund: only the tier's price left her wallet
     expect(sim.cash).toBe(cash - cost);
-    expect(sim.lastAbsorbed).toEqual([b.uid, a.uid].sort((x, y) => x - y));
     for (const g of [a, b]) {
       expect(sim.towers.includes(g)).toBe(false);
       expect(sim.getTower(g.uid)).toBe(null);
@@ -106,10 +105,11 @@ describe('who joins her lab team', () => {
       type: 'labJoin', towerUid: t.uid, owner: 0, round: 1, uids: [b.uid, a.uid], members: { dps: 1, frag: 1, control: 0, support: 0, economy: 0 },
     }]);
     expect(sim.stats.labJoined).toBe(2);
-    // Grand Lab adds no round: nobody else joins, and the next upgrade clears lastAbsorbed
+    // Grand Lab adds no round: nobody else joins (no labJoin; her record keeps the same team)
     const late = place(sim, 'archer', 9.5, 5.6);
     up(sim, t, LAB);
-    expect(sim.lastAbsorbed).toBe(null);
+    expect(ofType(sim.drainEvents(), 'labJoin')).toEqual([]);
+    expect(t.lab.uids).toEqual([b.uid, a.uid]);
     expect(sim.towers.includes(late)).toBe(true);
     // the other Tenka never absorbs her (or anyone) without a lab tier of her own
     expect(other.lab).toBeUndefined();
@@ -122,7 +122,6 @@ describe('who joins her lab team', () => {
     const theirs = place(sim, 'archer', 7.5, 3.4, { owner: 0 });
     const theirsB = place(sim, 'bomber', 8.5, 2.4, { owner: 0 });
     up(sim, t, LAB);
-    expect(sim.lastAbsorbed).toEqual([mine.uid]);
     expect(sim.towers.includes(theirs) && sim.towers.includes(theirsB)).toBe(true);
     expect(t.lab.uids).toEqual([mine.uid]);
   });
@@ -130,7 +129,7 @@ describe('who joins her lab team', () => {
   test('nobody in range: the round is still spent, the record is empty and she fights as before', () => {
     const sim = mk();
     const t = tenkaAt(sim, [3, 0, 0]);
-    expect(sim.lastAbsorbed).toEqual([]);
+    expect(ofType(sim.drainEvents(), 'labJoin').map((x) => x.uids)).toEqual([[]]);
     expect(t.lab).toEqual({ ...emptyLab(), rounds: 1 });
     expect(JSON.stringify(t.stats)).toBe(JSON.stringify(towerResolvedStats({ ...t, lab: undefined })));
   });
@@ -144,8 +143,9 @@ describe('who joins her lab team', () => {
     up(sim, t, LAB); // Grand Lab
     expect(sim.towers.includes(c)).toBe(true);
     expect(t.lab.rounds).toBe(1);
+    sim.drainEvents();
     up(sim, t, LAB); // Unified Theory
-    expect(sim.lastAbsorbed).toEqual([c.uid]);
+    expect(ofType(sim.drainEvents(), 'labJoin')).toMatchObject([{ round: 2, uids: [c.uid] }]);
     expect(sim.towers.includes(c)).toBe(false);
     expect(t.lab.rounds).toBe(2);
     expect(t.lab.uids).toEqual([a.uid, c.uid]);
@@ -228,7 +228,7 @@ describe('a girl who joins leaves the field like a sale', () => {
     expect([sim.traps.some((x) => x.ownerUid === tr.uid), sim.traps.some((x) => x.ownerUid === az.uid), yz.sentries?.length > 0, mb.balls?.length > 0]).toEqual([true, true, true, true]);
     up(sim, t, LAB);
     const gone = [tr, az, yz, mb];
-    expect(sim.lastAbsorbed).toEqual(gone.map((g) => g.uid).sort((x, y) => x - y));
+    expect(t.lab.uids).toEqual(gone.map((g) => g.uid).sort((x, y) => x - y));
     expect(sim.traps.some((x) => gone.some((g) => g.uid === x.ownerUid))).toBe(false);
     expect(t.lab.members).toMatchObject({ control: 2, support: 1 });
     sim.drainEvents();
@@ -416,6 +416,31 @@ describe('the lab weapons', () => {
     expect(nm.gained).toBe(0);
   });
 
+  // T2 review spec-1, pinned as built: the economy weapon counts the ECONOMY girls' income (CONTRACTS §6),
+  // so a non-economy girl with wave income lends her class's weapon and her income stops. Whether her income
+  // should count too is the owner's call (notes/T2.md, call #1); change this test with that decision.
+  test('economy counts the economy girls\' income only: a Harvest Chigusa (control) lends the slow field, and her wave income stops', () => {
+    const sim = new Sim({ ...simArgs(), loadout: [...TEAM, 'chigusa'].map((unitId) => ({ unitId })) });
+    sim.cash = 1e9;
+    const t = tenkaAt(sim, [2, 0, 0]);
+    const g = place(sim, 'chigusa', 9.5, 3.4);
+    up(sim, g, 2, 2); // Harvest: Compost, Vegetable Patch (+25 coins a wave)
+    expect(labClassOf(g.def)).toBe('control');
+    expect(g.stats.income.perWave).toBe(25);
+    const clear = () => {
+      wave(sim);
+      sim.drainEvents();
+      steps(sim, 1); // the field is empty: the wave clears
+      expect(sim.state).toBe('between');
+      return ofType(sim.drainEvents(), 'cash').filter((x) => x.reason !== 'waveBonus').map((x) => [x.reason, x.towerUid]);
+    };
+    expect(clear()).toEqual([['income', g.uid]]);
+    up(sim, t, LAB);
+    expect(t.lab).toMatchObject({ members: { control: 1, economy: 0 }, income: 0, uids: [g.uid] });
+    expect(t.labAtk.slow).toBeGreaterThan(0);
+    expect(clear()).toEqual([]);
+  });
+
   test('a sabotaged Tenka\'s frag and field rest, like her bolts', () => {
     const sim = mk();
     const t = tenkaAt(sim, [2, 0, 0]);
@@ -457,14 +482,38 @@ describe('selling her, restores and determinism', () => {
     expect(sim.upgradeTower(t.uid, LAB, { restoring: true })).toBe(true);
     expect(sim.towers.includes(a)).toBe(true);
     expect(t.lab).toBeUndefined();
-    expect(sim.lastAbsorbed).toBeUndefined();
     up(sim, t, LAB);
     expect(sim.upgradeTower(t.uid, LAB, { restoring: true })).toBe(true); // Unified Theory under a restore
     expect(sim.towers.includes(a)).toBe(true);
     expect(t.lab).toBeUndefined();
   });
 
-  test('a co-op checkpoint with every weapon re-derives her stats (rederiveStats 0), never re-absorbs, and both copies play on identically', () => {
+  // T2 review saves-3: a battle save's restore replays her tiers with { restoring: true }, which never
+  // absorbs, so any Sim field the absorb itself leaves behind could never come back (the save's round-trip
+  // digest compares every own Sim field). Only _labOn may appear, and syncLab rebuilds it from her record.
+  test('Joint Research leaves no Sim field behind but _labOn: who joined is on her record, not on the Sim', () => {
+    const run = (restoring) => {
+      const sim = mk();
+      const t = tenkaAt(sim, [2, 0, 0]);
+      for (const [id, x, y] of [['archer', 9.5, 3.4], ['banker', 8.5, 5.6]]) place(sim, id, x, y);
+      expect(sim.upgradeTower(t.uid, LAB, restoring ? { restoring: true } : undefined)).toBe(true);
+      up(sim, t, RAILS); // a later upgrade
+      sim.startNextWave();
+      steps(sim, 120);
+      sim.drainEvents();
+      return { sim, t };
+    };
+    const lab = run(false);
+    const replay = run(true);
+    expect(lab.t.lab.uids.length).toBe(2);
+    expect(replay.t.lab).toBeUndefined();
+    const k1 = Object.keys(lab.sim);
+    const k2 = Object.keys(replay.sim);
+    expect(k1.filter((k) => !k2.includes(k))).toEqual(['_labOn']);
+    expect(k2.filter((k) => !k1.includes(k))).toEqual([]);
+  });
+
+  test('a co-op checkpoint with every weapon re-derives her stats (rederiveStats 0), never re-absorbs, and both copies play on identically through a second absorb and a sale', () => {
     const sim = mk();
     const t = tenkaAt(sim, [2, 0, 0]);
     for (const [id, x, y] of [['archer', 9.5, 3.4], ['bomber', 7.5, 3.4], ['trapper', 9.5, 2.4], ['chime', 8.5, 2.4], ['banker', 8.5, 5.6]]) place(sim, id, x, y);
@@ -485,11 +534,48 @@ describe('selling her, restores and determinism', () => {
     expect(rederiveStats(copy)).toBe(0);
     expect(hashSim(copy)).toBe(hashSim(sim));
     expect(copy.getTower(keep.uid)).toBeTruthy();
-    for (let i = 0; i < 400; i++) {
-      sim.update(1 / 60);
-      copy.update(1 / 60);
-    }
+    const both = (n) => {
+      for (let i = 0; i < n; i++) {
+        sim.update(1 / 60);
+        copy.update(1 / 60);
+      }
+    };
+    both(400);
     expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(sim.snapshot()));
+    expect(rederiveStats(copy)).toBe(0);
+    // then both play on through a second absorb (Unified Theory, bought mid-wave) and a mid-wave sale of
+    // Tenka (UNIT_GAPS §8: her own determinism tests; T2 review determinism-2)
+    for (const s of [sim, copy]) {
+      wave(s);
+      for (const x of [7, 10, 11.2]) {
+        const e = park(s, 'tank', x);
+        e.maxHp = 1e7; // the wave outlasts the sale
+        e.hp = 1e7;
+      }
+      place(s, 'bomber', 9.5, 3.4); // placed after Grand Lab, in her range
+      s.drainEvents();
+    }
+    both(30);
+    const joins = [sim, copy].map((s) => {
+      up(s, s.getTower(t.uid), LAB); // Unified Theory
+      return ofType(s.drainEvents(), 'labJoin');
+    });
+    expect(joins[0]).toMatchObject([{ round: 2 }]);
+    expect(joins[0][0].uids).toContain(keep.uid);
+    expect(joins[1]).toEqual(joins[0]);
+    expect(copy.getTower(t.uid).lab).toEqual(t.lab);
+    expect(copy.getTower(t.uid).labAtk).toEqual(t.labAtk);
+    expect(hashSim(copy)).toBe(hashSim(sim));
+    both(200);
+    expect(sim.state).toBe('wave');
+    expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(sim.snapshot()));
+    const refund = sim.sellTower(t.uid);
+    expect(refund).toBeGreaterThan(0);
+    expect(copy.sellTower(t.uid)).toBe(refund);
+    expect([sim._labOn, copy._labOn]).toEqual([0, 0]);
+    both(200);
+    expect(JSON.stringify(copy.snapshot())).toBe(JSON.stringify(sim.snapshot()));
+    expect(hashSim(copy)).toBe(hashSim(sim));
     expect(rederiveStats(copy)).toBe(0);
   });
 
