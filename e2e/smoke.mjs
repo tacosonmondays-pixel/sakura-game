@@ -393,6 +393,24 @@ async function runViewport(vp) {
     }
     return true;
   }, null, { timeout: 15000 }).catch(() => null);
+  // ... and once the battle camera has stopped easing: the board point under the canvas centre stays put
+  // for 12 frames in a row (with slow software-GL frames the camera can still be settling here, and the
+  // drop would then land a fraction of a tile away from the spot that was aimed at)
+  await page.evaluate(() => new Promise((done) => {
+    const { renderer } = window.__battle;
+    const r = renderer.canvas.getBoundingClientRect();
+    let prev = null;
+    let calm = 0;
+    let n = 0;
+    const tick = () => {
+      const p = renderer.pick(r.left + r.width / 2, r.top + r.height / 2);
+      calm = prev && Math.hypot(p.x - prev.x, p.y - prev.y) <= 0.005 ? calm + 1 : 0;
+      prev = p;
+      if (calm >= 12 || ++n > 600) done();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
   const drag = await page.evaluate((liftPx) => {
     const { sim, renderer, ui } = window.__battle;
     const unitId = [...sim.loadout.keys()].find((id) => sim.data.unit(id)?.placement === 'land' && sim.cash >= sim.placeCost(id));
