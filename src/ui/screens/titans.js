@@ -55,7 +55,7 @@ export function render(root, params = {}) {
     const top = h('div.tt-top',
       h('span.tt-chip', { 'data-testid': 'titan-keys', title: 'Trial Keys: 12 a week, up to 6 unused carry over' }, svgEl(uiIcon('key'), 'ma-inline-icon'), h('b', `${keys.left}`), `/${keys.weekly}${keys.saved ? ` (+${keys.saved} saved)` : ''}`),
       h('span.tt-chip.muted', `Resets in ${formatCountdown(keys.resetsAt - now)}`),
-      h('span.tt-chip', svgEl(itemIcon('token_boss'), 'tt-chip-ico'), h('b', formatNumber(itemCount(p, 'token_boss')))),
+      h('span.tt-chip', svgEl(itemIcon('token_boss', { px: 18 }), 'tt-chip-ico'), h('b', formatNumber(itemCount(p, 'token_boss')))),
       button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', testid: 'titan-shelf', onClick: () => navigate('mall', { tab: 'boss' }) }),
     );
     const cards = h('div.tt-cards', TITANS.map((t) => titanCard(p, t, now)));

@@ -7,7 +7,7 @@ import '../../styles/honors.css';
 import '../../styles/achievements.css';
 import { h, clear } from '../../dom.js';
 import { svgEl, button } from '../../components.js';
-import { uiIcon } from '../../../art/icons.js';
+import { uiIcon, itemIcon } from '../../../art/icons.js';
 import { navigate, rememberParams } from '../../router.js';
 import { store } from '../../../core/store.js';
 import { formatNumber } from '../../../core/util.js';
@@ -114,13 +114,12 @@ function ladder(row) {
   return el;
 }
 
+// The ladder's 14 px reward icons: the item icon markup itself (the baked image in its .ia box, the small cut where
+// the key has one), never a drawing pulled out of a tile.
 let ICON_CACHE = null;
 function tileIcon(id) {
   ICON_CACHE ||= new Map();
-  if (!ICON_CACHE.has(id)) {
-    const t = tile(id, null, { size: 20 });
-    ICON_CACHE.set(id, t.querySelector('svg')?.outerHTML || '');
-  }
+  if (!ICON_CACHE.has(id)) ICON_CACHE.set(id, itemIcon(id, { px: 14 }));
   return ICON_CACHE.get(id);
 }
 

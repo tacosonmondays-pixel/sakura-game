@@ -1,7 +1,7 @@
 // fmtNum, the one number style (docs/specs/UI_DIRECTION.md §2): the short form, money kept exact longer, the
 // rounding direction per kind (balances down, prices up, stats nearest), signs and units.
 import { describe, it, expect } from 'vitest';
-import { fmtNum, MINUS } from '../../src/ui/format.js';
+import { fmtNum, fmtItemCount, MINUS } from '../../src/ui/format.js';
 
 describe('fmtNum: counts, rewards, damage, HP', () => {
   it('exact with separators below 10,000', () => {
@@ -129,5 +129,39 @@ describe('fmtNum: time, level, progress', () => {
   });
   it('an unknown kind throws', () => {
     expect(() => fmtNum(1, 'nope')).toThrow(/unknown kind/);
+  });
+});
+
+describe('fmtItemCount: the item tile count badge (x450K)', () => {
+  it('a lowercase x, exact with no separator up to 9,999', () => {
+    expect(fmtItemCount(0)).toBe('x0');
+    expect(fmtItemCount(1)).toBe('x1');
+    expect(fmtItemCount(15)).toBe('x15');
+    expect(fmtItemCount(2400)).toBe('x2400');
+    expect(fmtItemCount(9999)).toBe('x9999');
+  });
+  it('from 10,000: one decimal at most, no trailing .0, uppercase K, M and B', () => {
+    expect(fmtItemCount(10000)).toBe('x10K');
+    expect(fmtItemCount(42350)).toBe('x42.3K');
+    expect(fmtItemCount(450000)).toBe('x450K');
+    expect(fmtItemCount(300000)).toBe('x300K');
+    expect(fmtItemCount(1250000)).toBe('x1.2M');
+    expect(fmtItemCount(3.4e9)).toBe('x3.4B');
+  });
+  it('rounds down: a stack never shows more than you own', () => {
+    expect(fmtItemCount(42399)).toBe('x42.3K');
+    expect(fmtItemCount(999999)).toBe('x999.9K');
+    expect(fmtItemCount(1999999)).toBe('x1.9M');
+    expect(fmtItemCount(9999.9)).toBe('x9999');
+    expect(fmtItemCount(2.7)).toBe('x2');
+  });
+  it('fits the phone tile: never longer than "x999.9K" (7 characters) below a trillion', () => {
+    for (const n of [7, 2400, 9999, 10000, 42350, 450000, 999999, 1250000, 999999999, 2.5e11]) expect(fmtItemCount(n).length).toBeLessThanOrEqual(7);
+  });
+  it('nothing for a missing value, x0 for a negative one', () => {
+    expect(fmtItemCount(null)).toBe('');
+    expect(fmtItemCount(undefined)).toBe('');
+    expect(fmtItemCount(NaN)).toBe('');
+    expect(fmtItemCount(-3)).toBe('x0');
   });
 });

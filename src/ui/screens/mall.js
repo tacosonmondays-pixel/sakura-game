@@ -46,7 +46,7 @@ const CURRENCY_ROUTE = {
 const famPick = {};
 
 function curIcon(currency, cls = 'ma-cur-icon') {
-  return svgEl(currency === 'memento' || currency === 'moonpearl' ? itemIcon(currency) : currencyIcon(currency), cls);
+  return svgEl(currency === 'memento' || currency === 'moonpearl' ? itemIcon(currency, { px: 22 }) : currencyIcon(currency), cls);
 }
 
 export function render(root, params = {}) {

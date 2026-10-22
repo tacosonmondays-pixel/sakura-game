@@ -448,7 +448,6 @@
 .mb-book.on { border-color: var(--yellow-deep); background: #fffbe6; box-shadow: 0 0 0 2px rgba(255, 221, 74, 0.45); }
 .mb-book.none .mb-book-name { color: var(--muted); }
 .mb-book-name { font: 800 var(--fs-body)/1.15 var(--font); color: var(--ink); }
-.mb-book .item-count { font-size: var(--fs-label); }
 .mb-stepper { display: flex; align-items: center; gap: 4px; }
 .mb-step { width: var(--tap-dense); height: var(--tap-dense); border: 0; border-radius: 8px; background: var(--plate); color: var(--on-plate); font: 900 var(--fs-name)/1 var(--font); }
 .mb-step:disabled { opacity: 1; background: var(--sky-1); color: var(--muted); }

@@ -4,6 +4,8 @@
 #   tools/blender/.venv/Scripts/pip install -r tools/blender/requirements.txt   (Linux/macOS: .venv/bin/pip)
 #   tools/blender/.venv/Scripts/python tools/blender/build_characters.py
 # The generators also run `node` (dump_units.mjs, enemies/dump_enemies.mjs), so Node must be on PATH.
+# items/build_items.py (the 3D-flat item icons, EEVEE) runs in this environment too, or headless in Blender 5.x
+# with Pillow on its path: see tools/blender/items/README.md.
 bpy==4.2.0
 # Blender 4.2 itself ships NumPy 1.26; stay on 1.x for its bundled glTF exporter.
 numpy<2
