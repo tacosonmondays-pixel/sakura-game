@@ -3,7 +3,9 @@
 // girl with no files, e.g. a future unit added before her art). A new girl whose painting is not
 // ready yet can ship with a coming-soon signboard set instead: tools/art/placeholder_portraits.py
 // <id> draws the six files (her chibi in a hard hat painting her portrait on an easel, ART IN
-// PROGRESS) and prints her PORTRAIT_DATA line; it never overwrites a girl who already has files.
+// PROGRESS) and prints her PORTRAIT_DATA line (with `placeholder: true`, see isPlaceholderPortrait);
+// it never overwrites a girl who already has files. When her art lands, copy her six files over the
+// sign's and replace her line with the measured face / cut (no `placeholder`).
 //
 // Files live in public/art/portraits/ (copied from the art producer's set, all .webp):
 //   <id>-full.webp   768×1024  3:4 illustration (student detail, SSR splash, join splash)
@@ -44,7 +46,7 @@ export function artUrl(path) {
  * nami) got a full-figure redraw of the same design for their stand (round 2), so no stand is
  * cut by a picture frame. edges (optional, 'l' 'r' 'b') still marks a stand that IS cut by its
  * frame — portraitHTML fades those sides — for half-body art or a painting that runs off its
- * bottom edge (Ena's standing foot).
+ * bottom edge (Ena's standing foot). placeholder (optional, true) marks a coming-soon signboard set.
  */
 export const PORTRAIT_DATA = {
   hikari: { face: [48, 20], cut: 0.564 },
@@ -77,15 +79,16 @@ export const PORTRAIT_DATA = {
   ruri: { face: [53, 19], cut: 0.732, edges: 'b' },
   seiran: { face: [50, 19], cut: 0.732 },
   yoriko: { face: [51, 22], cut: 0.639 },
-  // the new girls (UNIT_GAPS §5): construction-sign placeholders (tools/art/placeholder_portraits.py) until
-  // their art is drawn
-  azami: { face: [49, 31], cut: 0.621 },
-  kinu: { face: [49, 31], cut: 0.621 },
-  wakaba: { face: [49, 31], cut: 0.621 },
-  yuzuha: { face: [49, 31], cut: 0.621 },
-  ouka: { face: [49, 31], cut: 0.621 },
-  chigusa: { face: [49, 31], cut: 0.621 },
-  marumi: { face: [49, 31], cut: 0.621 },
+  // the seven academy girls (UNIT_GAPS §5): Clean Cel cards (Oct 2026) in place of their construction-sign
+  // placeholders; face / cut measured on the shipped crops (one 1024² card each, the bust and thumb from a
+  // crisp redraw of its bust)
+  azami: { face: [48, 19], cut: 0.423 },
+  kinu: { face: [44, 18], cut: 0.469 },
+  wakaba: { face: [53, 18], cut: 0.449 },
+  yuzuha: { face: [51, 19], cut: 0.294 },
+  ouka: { face: [48, 17], cut: 0.356 },
+  chigusa: { face: [46, 19], cut: 0.363 },
+  marumi: { face: [51, 18], cut: 0.432 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */
@@ -103,6 +106,15 @@ const idOf = (u) => (typeof u === 'string' ? u : u?.id);
 /** @returns {boolean} the girl has drawn art */
 export function hasPortrait(unitOrId) {
   return Object.prototype.hasOwnProperty.call(PORTRAIT_DATA, idOf(unitOrId) || '');
+}
+
+/**
+ * @returns {boolean} her six files are the coming-soon signboard (tools/art/placeholder_portraits.py prints
+ * her line with `placeholder: true`), not her drawn art. No roster girl shows one today; the flag stays for
+ * a future girl who ships before her art.
+ */
+export function isPlaceholderPortrait(unitOrId) {
+  return !!PORTRAIT_DATA[idOf(unitOrId)]?.placeholder;
 }
 
 /**

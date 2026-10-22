@@ -378,7 +378,9 @@ Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, statu
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
-`tools/art/placeholder_portraits.py <id>` (skips / refuses girls who already have portrait files). Every returning student wears a
+`tools/art/placeholder_portraits.py <id>` (skips / refuses girls who already have portrait files; her line carries
+`placeholder: true`, read by `isPlaceholderPortrait`). No roster girl shows a sign since the seven academy girls' cards
+landed. Every returning student wears a
 school uniform with tech gear (look guard in `tests/data/units.test.js`).
 
 ## 4. World — enemies, maps, stages (owner: world)
