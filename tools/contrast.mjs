@@ -145,6 +145,23 @@ export const PAIRS = [
   ['--on-plate', ['--plate'], '"Coming soon" sticker (ink, with a lock)', 4.5],
   ['--navy', ['--sky-3', 'rgba(255, 255, 255, 0.86)'], 'locked tile title on its glass (over --sky-3)', 4.5],
   ['--ink', ['--sky-3', 'rgba(255, 255, 255, 0.86)'], 'locked tile line on its glass (over --sky-3)', 4.5],
+  // UI M5b hubs (hubs.css, achievements.css, titans.css)
+  ['--plate-accent', ['--plate'], 'ink row button word ("Claim" on a commission or achievement row)', 4.5],
+  ['--on-plate-dim', ['--plate'], 'ink row button word when it is disabled', 4.5],
+  ['--pink-text', ['white'], 'the login calendar\'s "complete!" stamp', 4.5],
+  ['--on-plate', ['--sky-3', '--plate-glass'], 'Titan Trials: the titan\'s name on its glass plate over the art', 4.5],
+  ['--on-plate-dim', ['--sky-3', '--plate-glass'], 'Titan Trials: the arena under the name', 4.5],
+  ['--plate', ['--pink'], 'Titan Trials: the selected target / tier chip (sakura pink)', 4.5],
+  ['--muted', ['--sky-1'], 'Titan Trials: a locked tier chip', 4.5],
+  ['--bad-text', ['white'], 'Titan Trials: why a tier is closed', 4.5],
+  ['white', ['--bad-text'], 'Campaign: the BOSS tag on a stage card', 4.5],
+  ['--plate', ['#8fc9f7'], 'Honor Ribbon class pill (plain)', 4.5],
+  ['--plate', ['#ffd34d'], 'Honor Ribbon class pill (shiny)', 4.5],
+  ['#5b3fb0', ['#f4efff'], 'Achievements: a secret row\'s hint', 4.5],
+  ['#45556f', ['#eef2f8'], 'Achievements: "Claim after stage 2-1" on a locked row', 4.5],
+  ['#a3b3cf', ['#1a2747'], 'Honor Ribbon Case: a ribbon not earned yet (its name)', 4.5],
+  ['--blue-text', ['white'], 'Achievements: "Show N more"', 4.5],
+  ['--good-text', ['#f4f8fd'], 'Commissions / Achievements: "Claimed" / "Done" on a done row', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],

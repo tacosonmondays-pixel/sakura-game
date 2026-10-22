@@ -1,10 +1,12 @@
-/* Titan Trials hub and its result sheet (docs/specs/ASCENSION.md §D.3). Existing tokens only
-   (base.css); the UI condense pass restyles it with the rest. Phone landscape first (844×390). */
+/* Titan Trials hub and its result sheet (docs/specs/ASCENSION.md §D.3). Phone landscape first (844×390).
+   UI M5b: the type tokens only (nothing under 12 px, tools/cssFloor.mjs); Kaede hosts on the collapse rule (hubs.css
+   places the stand; the bust chip sits under the titan's art here). */
 
-.tt-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 1200px; margin: 0 auto; padding-bottom: 10px; }
+.tt-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 1200px; width: 100%; margin: 0 auto; padding-bottom: 10px; }
 .tt-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tt-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--panel); box-shadow: var(--shadow); font-size: 0.8rem; color: var(--navy); }
+.tt-chip { display: inline-flex; align-items: center; gap: 4px; min-height: var(--chip-h); padding: 3px 10px; border-radius: 999px; background: var(--panel); box-shadow: var(--shadow); font-size: var(--fs-body); color: var(--navy); }
 .tt-chip b { font-weight: 900; }
+.tt-chip b.num { font-size: var(--fs-num-s); }
 .tt-chip-ico { width: 18px; height: 18px; flex: none; }
 .tt-top .btn { margin-left: auto; }
 
@@ -15,9 +17,9 @@
 .tt-card-art > svg { width: 120%; height: 120%; margin-left: -10%; }
 .tt-card-token { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
 .tt-card-text { position: absolute; inset: 4px 46px 4px 12px; display: flex; flex-direction: column; justify-content: center; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); min-width: 0; }
-.tt-card-name { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tt-card-sub { font-size: 0.66rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.92; }
-.tt-week { font-size: 0.58rem; font-weight: 900; color: var(--yellow); letter-spacing: 0.02em; }
+.tt-card-name { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: var(--fs-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-card-sub { font-size: var(--fs-label); white-space: nowrap; }
+.tt-week { font-size: var(--fs-label); font-weight: 900; color: var(--yellow); letter-spacing: 0.02em; white-space: nowrap; }
 .tt-card.active { outline: 3px solid var(--yellow); outline-offset: -3px; }
 .tt-card.week { box-shadow: 0 0 0 2px var(--yellow-deep), var(--shadow); }
 .tt-card:active { transform: skewX(var(--skew)) scale(0.97); }
@@ -29,38 +31,51 @@
 .tt-show-bg { position: absolute; inset: 0; opacity: 0.85; }
 .tt-show-bg > svg { width: 100%; height: 100%; }
 .tt-show-token { position: absolute; left: 50%; top: 46%; translate: -50% -50%; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45)); }
-.tt-show-plate { position: absolute; left: 8px; bottom: 6px; display: flex; flex-direction: column; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
-.tt-show-plate b { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 1.05rem; }
-.tt-show-plate span { font-size: 0.68rem; opacity: 0.9; }
-.tt-facts { display: flex; flex-direction: column; gap: 2px; }
-.tt-line { margin: 0; font-size: 0.76rem; line-height: 1.3; color: var(--ink); }
+/* the name on an ink plate (text never sits on the art without one, P6) */
+.tt-show-plate { position: absolute; left: 0; bottom: 8px; display: flex; flex-direction: column; padding: 3px 14px 4px 10px; border-radius: 0 var(--radius-plate) var(--radius-plate) 0; background: var(--plate-glass); color: var(--on-plate); }
+.tt-show-plate b { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: var(--fs-name); line-height: 1.1; }
+.tt-show-plate span { font-size: var(--fs-label); color: var(--on-plate-dim); }
+.tt-show-more { position: absolute; right: 10px; bottom: 10px; }
+.tt-line { margin: 0; font-size: var(--fs-label); line-height: 1.3; color: var(--ink); }
 .tt-line.muted { color: var(--muted); }
-.tt-lock { color: var(--bad); font-weight: 800; }
+.tt-lock { color: var(--bad-text); font-weight: 800; }
 
-.tt-side { display: flex; flex-direction: column; gap: 5px; }
+.tt-side { display: flex; flex-direction: column; gap: 6px; }
 .tt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.tt-label { font-size: 0.7rem; font-weight: 900; color: var(--muted); text-transform: uppercase; }
-.tt-fam, .tt-tier { display: inline-flex; align-items: center; gap: 3px; font-size: 0.74rem; padding: 3px 9px; }
-.tt-fam.on, .tt-tier.on { background: var(--blue); color: #fff; border-color: var(--blue); }
-.tt-tier.locked { opacity: 0.6; }
-.tt-rank { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; }
-.tt-need { margin: 0; font-size: 0.72rem; color: var(--blue-deep); font-weight: 800; }
-.tt-meter { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--navy); }
+.tt-label { font-family: var(--font-num); font-size: var(--fs-label); font-weight: 600; letter-spacing: var(--track-label); color: var(--muted); text-transform: uppercase; }
+.tt-fam, .tt-tier { display: inline-flex; align-items: center; gap: 3px; min-height: var(--tap-dense); font-size: var(--fs-label); padding: 3px 10px; }
+/* the selected chip is sakura pink with ink letters (selection, §4) */
+.tt-fam.on, .tt-tier.on { background: var(--pink); color: var(--plate); border-color: var(--pink); }
+.tt-tier.locked { opacity: 1; background: var(--sky-1); color: var(--muted); }
+.tt-rank { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-body); }
+.tt-need { margin: 0; font-size: var(--fs-label); color: var(--blue-deep); font-weight: 800; }
+.tt-meter { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); color: var(--navy); }
 .tt-meter-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .tt-meter-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #ff7ab6, #ffd166, #8be78b, #7ee8fa, #a78bfa); }
-.tt-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 2px; }
+.tt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 2px; }
+.tt-actions .btn > .ui-kbd { margin-left: 8px; }
 .tt-locked { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; text-align: center; }
+
+/* the bust chip (the collapse rule): under the titan's art, the bubble beside her */
+.tt-host-row { display: flex; align-items: center; min-height: var(--host-chip); }
+.tt-host-row > .ui-host { width: 100%; }
+.tt-host-row > .ui-host > .ui-host-bubble { max-width: none; flex: 1; min-width: 0; }
+.tt-detail.with-chip .tt-show { height: 112px; }
+
+/* Details sheet (MORE) */
+.tt-sheet-body { display: flex; flex-direction: column; gap: 8px; }
+.tt-sheet-body .tt-line { font-size: var(--fs-body); }
 
 /* result sheet */
 .tt-hpbar { position: relative; height: 16px; margin: 6px 4px 4px; border-radius: 999px; background: var(--line); overflow: visible; }
 .tt-hpfill { position: absolute; inset: 0 auto 0 0; width: var(--fill, 0%); border-radius: 999px; background: linear-gradient(90deg, var(--pink), var(--bad)); }
 .tt-notch { position: absolute; top: -3px; width: 4px; height: 22px; margin-left: -2px; border-radius: 2px; background: var(--navy); opacity: 0.45; }
 .tt-notch.hit { background: var(--yellow-deep); opacity: 1; box-shadow: 0 0 6px var(--yellow); }
-.tt-hppct { position: absolute; right: 8px; top: 50%; translate: 0 -50%; font-size: 0.7rem; color: var(--navy); }
+.tt-hppct { position: absolute; right: 8px; top: 50%; translate: 0 -50%; font-size: var(--fs-label); color: var(--navy); }
 .tt-result-line { margin: 2px 0 4px; text-align: center; font-weight: 800; color: var(--navy); font-size: 0.86rem; }
 .tt-rainbow { margin: 0 0 4px; font-weight: 900; background: linear-gradient(90deg, #ff7ab6, #ffb703, #2bb673, #2b7fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .tt-unlocked { margin: 0 auto 6px; width: fit-content; padding: 3px 14px; border-radius: 6px; font-weight: 900; font-style: italic; color: #fff; background: linear-gradient(90deg, var(--pink), var(--bad)); transform: skewX(var(--skew)); }
-.tt-keys { margin: 4px 0; text-align: center; font-size: 0.74rem; }
+.tt-keys { margin: 4px 0; text-align: center; font-size: var(--fs-label); }
 
 @media (max-height: 480px) {
   .tt-wrap { gap: 6px; }
@@ -74,7 +89,7 @@
 }
 @media (min-width: 1000px) and (min-height: 600px) {
   .tt-card { height: 76px; }
-  .tt-card-name { font-size: 1.1rem; }
-  .tt-show { height: 180px; }
-  .tt-line { font-size: 0.86rem; }
+  .tt-card-name { font-size: var(--fs-name); }
+  .tt-show { height: 200px; }
+  .tt-line { font-size: var(--fs-label); }
 }

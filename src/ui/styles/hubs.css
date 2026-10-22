@@ -38,3 +38,196 @@
 
 /* ---------- The event page: the phase chip in the header row (the old pill's height) ---------- */
 .ev-head-row > .ui-cd { margin: -1px 0; }
+
+/* ==========================================================================================================
+   M5b: hubs with host girls (§5.10 E1, E2, E6, E8). The host stands in the left 35% (--host-hub-w), bleeding to
+   the screen's left edge and down to its bottom; her bubble sits over her lower third, inside her column, so it
+   never covers the tiles or the list beside her. Each screen's rules are scoped under its own class.
+   ========================================================================================================== */
+
+/* ---------- Shared: a hub body with the host column ---------- */
+.hb-screen .screen-body { position: relative; z-index: 1; display: flex; flex-direction: column; padding-top: 8px; padding-bottom: 0; overflow: hidden; }
+.hb-screen .topbar { position: relative; z-index: 5; }
+.hb { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: calc(var(--host-hub-w) - var(--gutter) - var(--safe-left)) minmax(0, 1fr); gap: 0 12px; }
+.hb.no-host { grid-template-columns: minmax(0, 1fr); }
+.hb > .ui-host[data-mode="stand"] { position: absolute; left: calc(-1 * (var(--gutter) + var(--safe-left))); top: -8px; bottom: 0; height: auto; z-index: 0; }
+.hb-main { grid-column: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding-bottom: 8px; }
+.hb.no-host > .hb-main { grid-column: 1; }
+/* the location tint covers the whole screen (E6) */
+.hb-screen > .hub-bg { z-index: 0; }
+
+/* ---------- Missions: the secretary hosts; the tiles keep the right ---------- */
+.ma-hub-screen .ma-hub { grid-template-columns: calc(var(--host-hub-w) - var(--gutter) - var(--safe-left)) minmax(0, 1fr); }
+.ma-hub-screen .ma-hub > .ui-host { position: absolute; left: calc(-1 * (var(--gutter) + var(--safe-left))); top: -8px; bottom: 0; height: auto; z-index: 0; }
+/* Quick start: the screen's one primary (a 40 px tap at least); its desktop key hint rides inside it */
+.ma-hub-screen .ma-hub-go { min-height: var(--tap-dense); }
+.ma-hub-go > .ui-kbd { margin-left: 8px; }
+/* the small tiles' name plates: the subtitle (12 px) wraps rather than ending in "…" (P6) */
+.ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
+.ma-hub-screen .ma-hub-lockline > span { overflow: visible; text-overflow: clip; white-space: normal; }
+.ma-hub-screen .ma-hub-lock > span { overflow: visible; text-overflow: clip; }
+@media (max-height: 480px) {
+  .ma-hub-screen .ma-hub-tile { margin: 0 4px; }
+  .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-text { left: 5px; max-width: calc(100% - 10px); padding: 3px 6px 4px; }
+  .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-title { font-size: var(--fs-body); }
+}
+@media (max-aspect-ratio: 1/1) {
+  .ma-hub-screen .ma-hub { grid-template-columns: minmax(0, 1fr); }
+  .ma-hub-screen .ma-hub > .ui-host { display: none; }
+  .ma-hub-screen .ma-hub-grid { grid-column: 1; }
+}
+
+/* ---------- Item tiles on the M5b hubs: the count reads at the 12 px floor (the tile itself is M3's) ---------- */
+.hb-screen .item-count { font-size: var(--fs-label); }
+/* stage prep's drop and enemy pieces (M4's rules in meta-a), as they read on these hubs: 12 px at least */
+.hb-screen .ma-drop-chance, .hb-screen .ma-drop.gated .ma-drop-chance, .hb-screen .ma-drop-range, .hb-screen .ma-drop-bonus { font-size: var(--fs-label); }
+.hb-screen .ma-enemy-tier { font-size: var(--fs-label); }
+.hb-screen .ma-sub { font-size: var(--fs-label); }
+
+/* ---------- Campaign select: the tier names on plates; a stage card keeps its id, name, medals, tier, unlock ---------- */
+.ma-campaign-screen .ma-tier-label { padding-left: 2px; text-shadow: none; letter-spacing: 0; text-transform: none; }
+.ma-campaign-screen .ma-tier-badge { font-size: var(--fs-label); padding: 2px 10px; }
+.ma-campaign-screen .ma-tier-plate { box-shadow: 0 1px 0 rgba(14, 25, 48, 0.25); }
+.ma-campaign-screen .ma-sc-meta { flex-wrap: wrap; gap: 6px; }
+.ma-campaign-screen .ma-sc-meta .ma-tier-badge { box-shadow: none; }
+.ma-campaign-screen .ma-saved-badge { font-size: var(--fs-label); }
+.ma-campaign-screen .ma-chapter-ribbons { font-size: var(--fs-label); }
+.ma-campaign-screen .ma-cs-medal, .ma-campaign-screen .ma-cb-medal { font-size: var(--fs-body); }
+
+/* ---------- Commissions: the tabs on top (they never move), Miko under them on the left, the list on the right ---------- */
+.ma-commissions-screen.hb-screen .screen-body { padding-bottom: 0; }
+.cm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 1400px; margin: 0 auto; }
+.cm-tabs { position: relative; z-index: 1; flex: none; }
+.cm-tabs .tabs { padding-bottom: 0; }
+.cm-hb > .ui-host[data-mode="stand"] { top: -4px; }
+.cm-panel {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 0 12px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.9); box-shadow: var(--shadow);
+}
+.cm-panel > .ma-comm-panel { min-height: 100%; }
+/* the plate header stays in view while the list scrolls under it */
+.cm-panel .ui-plate-head { position: sticky; top: 0; z-index: 2; min-height: 48px; padding-right: var(--sp-3); }
+.cm-panel .ui-plate-head .btn { min-height: var(--tap-dense); }
+.cm-panel .ui-plate-head .btn > .ui-kbd { margin-left: 8px; }
+.cm-panel .ui-plate-head .ui-cd { box-shadow: 0 0 0 1px var(--plate-line); }
+.cm-panel .ui-plate-head .cm-info { background: rgba(255, 255, 255, 0.12); color: var(--on-plate); }
+/* the rows: one ink Claim each (the plate's Claim all is the one yellow) */
+.cm-list .ma-mission-list { padding: var(--sp-2) var(--sp-3) 0; gap: 6px; }
+.cm-list .ma-mission { gap: 10px; padding: 8px 10px; }
+.cm-list .ma-mission-name { font-size: var(--fs-body); }
+.cm-list .ma-mission-act { min-width: 84px; }
+.cm-list .ma-mission-act .btn { min-height: var(--tap-dense); }
+.cm-list .ma-mission.claimed { opacity: 1; background: #f4f8fd; }
+.cm-list .ma-mission.claimed .ma-mission-rewards { opacity: 0.45; }
+.cm-list .ma-claimed { font-size: var(--fs-label); color: var(--good-text); }
+/* the login calendar: four days a row, day 7 the wide one */
+.cm-login .cm-calendar { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: var(--sp-3); }
+.cm-login .cm-calendar .ma-cal-day.big { grid-column: span 2; }
+.cm-login .cm-calendar .ma-cal-day { gap: 6px; padding: 8px 6px 10px; min-height: 96px; }
+.cm-login .cm-calendar .ma-cal-num { background: var(--plate); color: var(--on-plate); }
+.cm-login .cm-calendar .ma-cal-day.big .ma-cal-num { background: var(--pink); color: var(--plate); }
+.cm-login .cm-calendar .ma-cal-day.claimed > .reward-row { opacity: 0.35; filter: grayscale(0.6); }
+.cm-login .cm-calendar .ma-cal-day .item-tile { width: 46px !important; }
+.cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 52px !important; }
+.cm-login .cm-calendar .ma-cal-day .reward-row { gap: 10px; }
+@media (min-width: 1000px) and (min-height: 600px) {
+  .cm-login .cm-calendar { gap: 12px; padding: var(--sp-4); }
+  .cm-login .cm-calendar .ma-cal-day { min-height: 150px; justify-content: center; gap: 10px; }
+  .cm-login .cm-calendar .ma-cal-day .item-tile { width: 60px !important; }
+  .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 68px !important; }
+  .cm-login .cm-calendar .ma-cal-day .reward-row { gap: 16px; }
+}
+/* (an item's count may reach past its tile's edge: "×10,000"; the gap keeps two counts apart) */
+.cm-list .ma-mission-rewards .reward-row { gap: 10px; }
+/* the "complete!" stamp on a claimed day: a cute ink-pink rubber stamp, tilted, over the dimmed gifts */
+.cm-stamp {
+  position: absolute; left: 50%; top: 58%; z-index: 2; pointer-events: none;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  padding: 3px 10px; border: 2px solid var(--pink-text); border-radius: 8px; outline: 1px solid var(--pink-text); outline-offset: 2px;
+  background: rgba(255, 255, 255, 0.9); color: var(--pink-text);
+  font: italic 900 var(--fs-label)/1.1 var(--font-head); letter-spacing: 0.02em; white-space: nowrap;
+}
+.cm-codes-line { margin: var(--sp-3) var(--sp-3) var(--sp-2); font-size: var(--fs-label); }
+.cm-panel .ma-codes { max-width: none; }
+.cm-panel .ma-codes > .ma-code-row, .cm-panel .ma-codes > .ma-code-status, .cm-panel .ma-codes .ma-redeemed { margin-left: var(--sp-3); margin-right: var(--sp-3); }
+.cm-panel .ma-code-row .btn > .ui-kbd { margin-left: 8px; }
+@media (max-aspect-ratio: 1/1) {
+  .cm-hb { grid-template-columns: minmax(0, 1fr); }
+  .cm-hb > .ui-host { display: none; }
+  .cm-hb > .hb-main { grid-column: 1; }
+}
+
+/* ---------- Bounty: the week's guest hosts; the arena list under its plate (balance once, the week, the shop) ---------- */
+.ma-bounty-screen .bn-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; padding: 0 0 8px; overflow: hidden; }
+.ma-bounty-screen .bn-panel > .ui-plate-head { flex: none; min-height: 48px; padding-right: var(--sp-3); }
+.ma-bounty-screen .bn-panel .ma-loc-list { padding: var(--sp-2) var(--sp-2) 4px; }
+.ma-bounty-screen .bn-balance { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--on-plate); }
+.ma-bounty-screen .bn-balance-icon { display: inline-flex; width: 22px; height: 22px; }
+.ma-bounty-screen .bn-balance-val { font-size: var(--fs-num-s); }
+.ma-bounty-screen .ui-plate-head .ui-cd { box-shadow: 0 0 0 1px var(--plate-line); }
+.ma-bounty-screen .ui-plate-head .btn-ghost { min-height: var(--tap-dense); padding: 4px 12px; font-size: var(--fs-body); }
+.ma-bounty-screen .ma-loc-actions .btn > .ui-kbd { margin-left: 8px; }
+/* the chosen tier's actions: a footer under the list, always in view */
+.ma-bounty-screen .bn-footer { flex: none; padding: var(--sp-2) var(--sp-3) 0; border-top: 1px solid var(--line); }
+.ma-bounty-screen .bn-footer:empty { display: none; }
+.ma-bounty-screen .bn-footer .btn { min-height: var(--tap-dense); }
+/* the arena rows: one line of description on phones (the expanded arena says the rest) */
+.ma-bounty-screen .ma-loc-meta { gap: 4px 8px; }
+.ma-bounty-screen .ma-loc-meta .muted, .ma-bounty-screen .ma-tier-meta .muted { font-size: var(--fs-label); }
+.ma-bounty-screen .ma-rec-chips .chip, .ma-bounty-screen .ma-sweep-lock, .ma-bounty-screen .ma-locked-note { font-size: var(--fs-label); }
+.ma-bounty-screen .ma-loc-enemies .ma-enemy { min-height: var(--tap-dense); }
+.ma-bounty-screen .ma-tier-meta .muted { font-size: var(--fs-label); white-space: nowrap; }
+/* ---------- Total Assault: Rei hosts; the boss list under its plate, the chosen boss, her stats + MORE ---------- */
+.ma-assault-screen .as-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; padding: 0 0 var(--sp-2); overflow: hidden; }
+.ma-assault-screen .as-panel > .ui-plate-head { flex: none; min-height: 48px; padding-right: var(--sp-3); }
+.ma-assault-screen .ui-plate-head .btn-ghost { min-height: var(--tap-dense); padding: 4px 12px; font-size: var(--fs-body); }
+.ma-assault-screen .ma-boss-cards { flex: none; margin: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+.ma-assault-screen .ma-boss-card { min-height: 64px; }
+.ma-assault-screen .ma-boss-card-text { justify-content: center; }
+.ma-assault-screen .ma-boss-detail { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--sp-3); }
+.ma-assault-screen .as-layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--sp-3); align-items: stretch; min-height: 100%; }
+.ma-assault-screen .ma-boss-show { position: relative; top: auto; height: auto; min-height: 200px; }
+.ma-assault-screen .ma-boss-plate { bottom: 10px; }
+.ma-assault-screen .ma-boss-name { font-size: var(--fs-name); }
+.ma-assault-screen .ma-boss-family { font-size: var(--fs-label); }
+.ma-assault-screen .ma-rec-chips .chip, .ma-assault-screen .ma-locked-note { font-size: var(--fs-label); }
+.ma-assault-screen .as-info { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ma-assault-screen .as-info .ma-rec-chips { margin-top: 0; }
+.ma-assault-screen .as-drops .ma-sub { margin-bottom: 4px; }
+.ma-assault-screen .as-actions { flex: none; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 0; border-top: 1px solid var(--line); }
+.ma-assault-screen .as-actions .btn { min-height: var(--tap-dense); }
+.ma-assault-screen .as-actions .btn > .ui-kbd { margin-left: 8px; }
+.as-intel-body { display: flex; flex-direction: column; gap: var(--sp-2); }
+.as-intel-body .ma-boss-lore { margin: 0; font-size: var(--fs-body); }
+.as-intel-line { display: flex; align-items: center; gap: var(--sp-1); margin: 0; font-size: var(--fs-body); font-weight: 700; }
+@media (max-height: 480px) {
+  .ma-assault-screen .ma-boss-show { min-height: 160px; }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  .ma-assault-screen .ma-boss-card { min-height: 84px; }
+  .ma-assault-screen .ma-boss-show { min-height: 360px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .ma-assault-screen .as-hb { grid-template-columns: minmax(0, 1fr); }
+  .ma-assault-screen .as-hb > .ui-host { display: none; }
+  .ma-assault-screen .as-hb > .hb-main { grid-column: 1; }
+  .ma-assault-screen .as-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Titan Trials: Kaede on the collapse rule (the stand on desktop; the bust chip under the art on phones) ---------- */
+.tt-screen .tt-hb > .hb-main { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.tt-screen .tt-top .btn, .tt-screen .tt-actions .btn { min-height: var(--tap-dense); }
+.tt-screen .tt-host-row > .ui-host { width: auto; max-width: 100%; }
+.tt-screen .tt-wrap { padding-bottom: 8px; }
+.tt-screen .tt-top .ui-cd { box-shadow: var(--shadow); }
+@media (max-aspect-ratio: 1/1) {
+  .tt-screen .tt-hb { grid-template-columns: minmax(0, 1fr); }
+  .tt-screen .tt-hb > .ui-host { display: none; }
+  .tt-screen .tt-hb > .hb-main { grid-column: 1; }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .ma-bounty-screen .bn-hb { grid-template-columns: minmax(0, 1fr); }
+  .ma-bounty-screen .bn-hb > .ui-host { display: none; }
+  .ma-bounty-screen .bn-hb > .hb-main { grid-column: 1; }
+}

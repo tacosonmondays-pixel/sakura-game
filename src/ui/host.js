@@ -45,10 +45,13 @@ export function hostMode({ vw, vh, kind = 'hub', railW = 0, gutters = 56, conten
  * Her stand (or bust chip) and bubble.
  * @param {object} unit a UnitDef (hosts.js hostFor → UNIT_MAP)
  * @param {{ lines?: string[], kind?: 'hub'|'list', railW?: number, gutters?: number, contentH?: number|null,
- *   forceChip?: boolean, onLine?: ((i: number, line: string) => void)|null, testid?: string }} [o]
+ *   forceChip?: boolean, mode?: 'stand'|'chip'|null, onLine?: ((i: number, line: string) => void)|null, testid?: string }} [o]
+ *   mode: pins the stand or the chip (a screen that ran hostMode() with its real layout and placed her for it; it
+ *   redraws itself when a resize flips the rule)
  * @returns {HTMLElement & { setLines(lines: string[]): void, line(): string, mode(): string }}
  */
-export function hostStand(unit, { lines = [], kind = 'hub', railW = 0, gutters = 56, contentH = null, forceChip = false, onLine = null, testid = 'host' } = {}) {
+export function hostStand(unit, { lines = [], kind = 'hub', railW = 0, gutters = 56, contentH = null, forceChip = false, mode: pinned = null, onLine = null, testid = 'host' } = {}) {
+  if (pinned === 'chip') forceChip = true;
   const fits = (l) => lineOk(l, kind === 'list' ? 'list' : 'hub');
   let list = (lines || []).filter(fits);
   let i = 0;
@@ -80,10 +83,10 @@ export function hostStand(unit, { lines = [], kind = 'hub', railW = 0, gutters =
   const layout = () => {
     const vw = globalThis.innerWidth || 1280;
     const vh = globalThis.innerHeight || 720;
-    el.dataset.mode = forceChip ? 'chip' : hostMode({ vw, vh, kind, railW, gutters, contentH }).mode;
+    el.dataset.mode = forceChip ? 'chip' : pinned === 'stand' ? 'stand' : hostMode({ vw, vh, kind, railW, gutters, contentH }).mode;
   };
   layout();
-  if (!forceChip && globalThis.addEventListener) {
+  if (!forceChip && !pinned && globalThis.addEventListener) {
     // (built and attached in the same task: a resize that finds her off the page means her screen is gone)
     const onResize = () => {
       if (!el.isConnected) {

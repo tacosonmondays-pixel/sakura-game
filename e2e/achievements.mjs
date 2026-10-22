@@ -114,8 +114,21 @@ async function runViewport(vp) {
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 30000 });
   await page.waitForTimeout(900);
   check(await page.evaluate(() => [...document.querySelectorAll('.tab')].some((t) => /Achievements/.test(t.textContent) && t.querySelector('.tab-badge'))), '1: the Achievements tab shows its dot');
-  const cats = await page.$$eval('[data-testid^="ach-cat-"]', (els) => els.map((e) => e.dataset.testid));
+  // UI M5b (UI_DIRECTION §6.5): the categories moved from a rail / chip row into a sheet behind one category chip
+  // ("All ▾", test id ach-category); the category buttons keep their ach-cat-<id> test ids inside it
+  const pickCat = async (id) => {
+    await page.click('[data-testid="ach-category"]');
+    await page.waitForSelector(`[data-testid="ach-cat-sheet"] [data-testid="ach-cat-${id}"]`, { timeout: 10000 });
+    await page.click(`[data-testid="ach-cat-sheet"] [data-testid="ach-cat-${id}"]`);
+    await page.waitForSelector('[data-testid="ach-cat-sheet"]', { state: 'detached', timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(250);
+  };
+  await page.click('[data-testid="ach-category"]');
+  await page.waitForSelector('[data-testid="ach-cat-sheet"]', { timeout: 10000 });
+  const cats = await page.$$eval('[data-testid="ach-cat-sheet"] [data-testid^="ach-cat-"]', (els) => els.map((e) => e.dataset.testid).filter((t) => t !== 'ach-cat-sheet-close'));
   check(cats.length === 12 && cats.includes('ach-cat-secret') && cats.includes('ach-cat-codex'), `1: 12 categories (All + 11, Codex since v0.1.45): ${cats.length}`);
+  await page.click('[data-testid="ach-cat-sheet"] [data-testid="ach-cat-all"]');
+  await page.waitForSelector('[data-testid="ach-cat-sheet"]', { state: 'detached', timeout: 10000 }).catch(() => {});
   // the PC rail: 12 rows and the Honor Ribbon Case card fit (at 1280x720 the 12th row once pushed the card's count and
   // Open › under the fold, behind a hidden scrollbar)
   const rail = await page.evaluate(() => {
@@ -129,7 +142,7 @@ async function runViewport(vp) {
   if (rail) {
     check(rail.card && rail.count && rail.open, `1: the Honor Ribbon Case card, its count and Open › sit inside the rail (${JSON.stringify(rail)})`);
     check(rail.scroll <= rail.client + 1, `1: the 12 categories and the case card fit the rail without scrolling (${rail.scroll} ≤ ${rail.client})`);
-  } else log('  (phone: category chips, no rail)');
+  } else log('  (no rail: one category chip and its sheet at every size, UI_DIRECTION §6.5)');
   check(await page.$('[data-testid="ach-claim-a_ur_1"]') != null, '1: Rainbow Bright is ready to claim');
   const b1 = await budget(page);
   check(b1.live <= 3 && b1.live >= 1, `8: list live specials ≤ 3 (${b1.live})`);
@@ -145,25 +158,36 @@ async function runViewport(vp) {
   check(rm.live === 0 && rm.infinite === 0, `8: Reduce Motion: 0 live, 0 infinite animations (${rm.live}, ${rm.infinite})`);
   await page.evaluate(() => document.documentElement.removeAttribute('data-reduce-motion'));
 
-  // the Codex rows: every title chip reads whole (it wraps on a phone rather than ending in "…")
-  const catBefore = await page.evaluate(() => document.querySelector('[data-testid^="ach-cat-"].on')?.dataset.testid || null);
-  await page.click('[data-testid="ach-cat-codex"]');
+  // the Codex rows: every title chip reads whole (it wraps on a phone rather than ending in "…"). UI M5b: a row shows
+  // one reward, and its titles live in the row's ladder sheet (every tier), so the chips are read sheet by sheet
+  await pickCat('codex');
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 10000 });
   await page.waitForTimeout(300);
-  // (a series row shows only its current step's rewards, so 5 of the 7 Codex titles are on screen)
-  const codexChips = await page.evaluate(() => [...document.querySelectorAll('.ach-chip-title')].map((chip) => {
-    const t = chip.querySelector('.tp-text');
-    const c = chip.getBoundingClientRect();
-    const p = chip.querySelector('.tp').getBoundingClientRect();
-    return { text: t.textContent, cut: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1 || p.bottom > c.bottom + 0.5 || p.top < c.top - 0.5 };
-  }));
-  check(codexChips.length >= 5 && codexChips.some((c) => /Wrong-Way Warden/.test(c.text)) && codexChips.every((c) => !c.cut),
-    `1: Codex: ${codexChips.length} title chips (Wrong-Way Warden among them), none cut short (${codexChips.filter((c) => c.cut).map((c) => c.text).join(' | ') || 'none'})`);
-  await page.evaluate(() => [...document.querySelectorAll('.ach-chip-title')].find((c) => /Wrong-Way/.test(c.textContent))?.scrollIntoView({ block: 'center' }));
-  await page.waitForTimeout(300);
-  await shot(page, 'codex');
-  if (catBefore) await page.click(`[data-testid="${catBefore}"]`);
-  await page.waitForTimeout(300);
+  const codexRows = await page.$$eval('[data-testid="ach-tab"] .ach-row', (els) => els.map((e) => e.dataset.testid));
+  const codexChips = [];
+  for (const row of codexRows) {
+    await page.click(`[data-testid="${row}"] .ach-title`);
+    const sheet = await page.waitForSelector('[data-testid="ach-ladder-sheet"]', { timeout: 10000 }).catch(() => null);
+    if (!sheet) continue;
+    await page.waitForTimeout(250);
+    codexChips.push(...await page.evaluate(() => [...document.querySelectorAll('[data-testid="ach-ladder-sheet"] .ach-chip-title')].map((chip) => {
+      const t = chip.querySelector('.tp-text');
+      const c = chip.getBoundingClientRect();
+      const p = chip.querySelector('.tp').getBoundingClientRect();
+      return { text: t.textContent, cut: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1 || p.bottom > c.bottom + 0.5 || p.top < c.top - 0.5 };
+    })));
+    if (codexChips.some((c) => /Wrong-Way/.test(c.text)) && !(await page.$('.ach-codex-shot'))) {
+      await page.evaluate(() => document.body.classList.add('ach-codex-shot'));
+      await shot(page, 'codex');
+    }
+    await page.click('[data-testid="ach-ladder-sheet-close"]');
+    await page.waitForSelector('[data-testid="ach-ladder-sheet"]', { state: 'detached', timeout: 10000 }).catch(() => {});
+  }
+  await page.evaluate(() => document.body.classList.remove('ach-codex-shot'));
+  const titles = [...new Set(codexChips.map((c) => c.text))];
+  check(titles.length >= 5 && titles.some((t) => /Wrong-Way Warden/.test(t)) && codexChips.every((c) => !c.cut),
+    `1: Codex: ${titles.length} titles in the ladder sheets (Wrong-Way Warden among them), none cut short (${codexChips.filter((c) => c.cut).map((c) => c.text).join(' | ') || 'none'})`);
+  await pickCat('all');
 
   // ---- 2. Claim all → the fanfare → Skip → the modal's strips ----
   await page.evaluate(() => { document.querySelector('.ach-list').scrollTop = 0; });
@@ -236,8 +260,7 @@ async function runViewport(vp) {
   const lockedState = await page.evaluate(() => ({ claim: !!document.querySelector('[data-testid="ach-claim-a_slime_1000"]'), all: document.querySelector('[data-testid="ach-claim-all"]')?.textContent || '' }));
   check(!lockedState.claim, '6: the locked row has no Claim button (Claim all skips it)');
   await shot(page, 'new-save');
-  await page.click('[data-testid="ach-cat-secret"]');
-  await page.waitForTimeout(300);
+  await pickCat('secret');
   const hint = await page.textContent('[data-testid="ach-row-a_close_call"]').catch(() => '');
   check(/Secret achievement/.test(hint) && /Hint/.test(hint), '6: a secret row shows its hint');
   await shot(page, 'secrets');

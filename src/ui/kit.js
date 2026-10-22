@@ -245,6 +245,17 @@ export function offSeasonBand({ text, date = null, art = null, testid = null }) 
 }
 
 /**
+ * The ink row button (§5.5 cost shape, UI M5b): an ink plate with a yellow italic verb ("Claim") for the action of
+ * one row in a list, so the screen keeps its one yellow primary (P2). 44 px tall (40 in a dense row on phones).
+ * @param {string} label a verb of at most two words
+ * @param {{ onClick?: Function|null, testid?: string|null, title?: string|null, cls?: string }} [o]
+ */
+export function inkBtn(label, { onClick = null, testid = null, title = null, cls = '' } = {}) {
+  return h(`button.ui-cost.dense.ui-ink${cls ? `.${cls}` : ''}`, { type: 'button', 'data-testid': testid, title, onclick: onClick },
+    h('span.ui-cost-lbl', label));
+}
+
+/**
  * A mode that is not out yet, as a hub tile (§5.4: a designed locked state, never a faded one; owner #108: the
  * Multiplayer hub's PvP "Coming soon" with Rival Run inside, Titan Co-op "Soon"). Glass (or the mode's art under a
  * glass veil), the ink "Coming soon" sticker at the top-left, a lock in an ink circle at the top-right, the title and

@@ -7,10 +7,15 @@
 // Commissions live on the lobby (Tasks / dock), sweeps on stage prep, Bounty and Total Assault.
 // Locked tiles keep their colour and wear a small lock chip (big tiles) or a lock line in their
 // name plate (small tiles).
+// UI M5b: the secretary is the hub's host girl (docs/specs/UI_DIRECTION.md §5.10 E1): her stand in the left 35%
+// with a speech bubble (the Missions lines of hostLines.js, picked by the state; a tap shows the next), never over
+// the tiles. Quick start is the screen's one primary (data-primary: Space on desktop).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
-import { countdownChip } from '../kit.js';
+import { countdownChip, kbdHint } from '../kit.js';
+import { hubHost } from '../hubHost.js';
+import { missionsState } from '../hubStates.js';
 import { dot, inProgress, openSticker, openModes, markOpenSeen } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
 import { msToLocalWeekEnd } from '../countdown.js';
@@ -22,7 +27,7 @@ import { STAGE_MAP } from '../../data/stages.js';
 import { MAP_MAP } from '../../data/maps.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
-import { hubBackdrop, hubStand, hubSecretary } from '../hubArt.js';
+import { hubBackdrop } from '../hubArt.js';
 import { uiIcon } from '../../art/icons.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
 import { currentEvent } from '../../systems/missions.js';
@@ -65,7 +70,8 @@ function build(redraw) {
   const lockFor = (stageId) => (isStageUnlocked(profile, stageId) ? null : requirementText(profile, stageId));
 
   const wrap = h('div.ma-hub');
-  wrap.appendChild(hubStand(hubSecretary(profile), { cls: 'ma-hub-char' }));
+  // [ui-m5] the host: whichever secretary the player picked (the one Missions exception to "students only")
+  wrap.appendChild(hubHost('missions', profile, { state: missionsState(profile) }));
 
   const mission = tile({
     id: 'mission',
@@ -77,7 +83,7 @@ function build(redraw) {
     onClick: () => navigate('campaign', nextDef ? { chapter: nextDef.chapter } : {}),
   });
   if (next) {
-    mission.appendChild(h('span.ma-hub-go', { role: 'button', tabindex: 0, 'data-testid': 'hub-quick-start', onclick: (e) => { e.stopPropagation(); navigate('stage', { id: next }); } }, svgEl(uiIcon('play'), 'ma-inline-icon'), 'Quick start'));
+    mission.appendChild(h('span.ma-hub-go', { role: 'button', tabindex: 0, 'data-testid': 'hub-quick-start', 'data-primary': '', onclick: (e) => { e.stopPropagation(); navigate('stage', { id: next }); } }, svgEl(uiIcon('play'), 'ma-inline-icon'), 'Quick start', kbdHint('Space')));
   }
   // [ui-m5] the badge vocabulary: the campaign in progress, "Open!" on a mode that opened since the last look
   if (!complete) mission.appendChild(inProgress({ cls: 'ma-hub-inprog', testid: 'hub-mission-inprog' }));

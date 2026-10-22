@@ -23,6 +23,9 @@ export const HUB_LOCATIONS = Object.freeze({
   happening: { art: 'academy.webp', tint: 'rgba(255, 170, 150, 0.2)' },
   multiplayer: { art: 'academy.webp', tint: 'rgba(176, 160, 255, 0.22)' },
   workbench: { art: 'academy.webp', tint: 'rgba(140, 230, 200, 0.2)' }, // the club lab
+  // UI M5b
+  assault: { art: 'academy.webp', tint: 'rgba(255, 128, 96, 0.22)' }, // the arena at dusk
+  titans: { art: 'academy.webp', tint: 'rgba(96, 92, 200, 0.26)' }, // the titans' night
 });
 
 /** Full-screen painted location behind the panels (`location`: a HUB_LOCATIONS key; the academy by default). */

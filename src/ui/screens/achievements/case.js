@@ -26,10 +26,11 @@ const SHELVES = [
 export const recentHonors = new Set();
 
 /**
- * @param {{ onBack: () => void, onAchievement: (id: string) => void }} opts
+ * @param {{ onBack: () => void, onAchievement: (id: string) => void, onTitles?: (() => void)|null }} opts
+ *   onTitles: opens the Titles sheet (UI M5b: the Achievements header keeps one row, so Titles live by the Case)
  * @returns {HTMLElement}
  */
-export function ribbonCaseView({ onBack, onAchievement }) {
+export function ribbonCaseView({ onBack, onAchievement, onTitles = null }) {
   const profile = store.profile;
   const small = phone();
   const owned = ownedRibbons(profile);
@@ -72,14 +73,15 @@ export function ribbonCaseView({ onBack, onAchievement }) {
     const shown = live.filter((hr) => (filter === 'all' ? true : filter === 'earned' ? ownedSet.has(hr.id) : !ownedSet.has(hr.id)));
     const head = h('div.ach-case-head',
       h('button.ach-case-back', { 'data-testid': 'ach-case-back', 'aria-label': 'Back to achievements', onclick: onBack }, svgEl(uiIcon('back'), 'ach-case-back-ico')),
-      h('div.ach-case-title', h('h3', 'Honor Ribbon Case'), h('div.ach-case-sub', `${owned.length} / ${live.length} earned${fresh.size ? ` · ${fresh.size} new` : ''}`)),
+      h('div.ach-case-title', h('h3', 'Honor Ribbon Case'), h('div.ach-case-sub', `${owned.length}/${live.length} earned${fresh.size ? ` · ${fresh.size} new` : ''}`)),
+      onTitles ? h('button.ach-case-titles', { type: 'button', 'data-testid': 'ach-titles', onclick: onTitles }, titlePlate('a_gold_40', { small: true, text: 'Titles' })) : null,
       h('div.ach-filters', ['all', 'earned', 'not'].map((f) => h(`button.ach-filter${filter === f ? '.on' : ''}`, { onclick: () => { filter = f; drawPanel(); } }, { all: 'All', earned: 'Earned', not: 'Not yet' }[f]))));
     const shelves = SHELVES.map((s) => {
       const all = live.filter((hr) => hr.class === s.cls);
       const list = shown.filter((hr) => hr.class === s.cls);
       if (!list.length) return null;
       return h(`div.ach-shelf.${s.cls}`, { 'data-testid': `ach-shelf-${s.cls}` },
-        h('div.ach-shelf-k', h('span.ach-shelf-label', s.label), s.sub ? h('span.ach-shelf-sub', ` · ${s.sub}`) : null, h('b', ` ${all.filter((x) => ownedSet.has(x.id)).length} / ${all.length}`)),
+        h('div.ach-shelf-k', h('span.ach-shelf-label', s.label), s.sub ? h('span.ach-shelf-sub', ` · ${s.sub}`) : null, h('b', ` ${all.filter((x) => ownedSet.has(x.id)).length}/${all.length}`)),
         h('div.ach-shelf-row', list.map((hr) => cell(hr, s.size[small ? 1 : 0]))),
         h('i.ach-ledge'));
     });

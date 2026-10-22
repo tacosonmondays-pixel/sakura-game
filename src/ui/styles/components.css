@@ -569,3 +569,8 @@ button.ui-gtile:active { transform: scale(0.96); }
 
 /* ---------- A hub's location tint (E6; hubArt.js HUB_LOCATIONS) ---------- */
 .hub-bg-tint { position: absolute; inset: 0; pointer-events: none; }
+
+/* ---------- M5b: the ink row button (kit.js inkBtn): a row's action, so yellow stays the screen's one primary ---------- */
+.ui-cost.ui-ink { min-width: 84px; padding: 0 var(--sp-4); }
+.ui-cost.ui-ink > .ui-cost-lbl { color: var(--plate-accent); }
+.ui-cost.ui-ink:disabled > .ui-cost-lbl { color: var(--on-plate-dim); }
