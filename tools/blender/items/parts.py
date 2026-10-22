@@ -409,6 +409,124 @@ def cut(o, co, no):
     return o
 
 
+def face_plate(o, no, lift=0.004, depth=0.0, tol=0.985, name='face'):
+    """A copy of the faces of part `o` that face `no` (a flat cut, such as a snapped spike's break face), lifted
+    `lift` along `no`, as its own part for its own paint (a lighter break face). depth > 0 extrudes it into a thin
+    plate along `no`, so its ink hull draws a fine line round the face. Returns None when no face matches."""
+    n = Vector(no).normalized()
+    src = bmesh.new()
+    src.from_mesh(o.data)
+    src.normal_update()
+    faces = [f for f in src.faces if f.normal.dot(n) > tol]
+    if not faces:
+        src.free()
+        return None
+    bm = bmesh.new()
+    vmap = {}
+    for f in faces:
+        vs = []
+        for v in f.verts:
+            if v.index not in vmap:
+                vmap[v.index] = bm.verts.new(v.co + n * lift)
+            vs.append(vmap[v.index])
+        bm.faces.new(vs)
+    src.free()
+    if depth > 0:
+        ret = bmesh.ops.extrude_face_region(bm, geom=list(bm.faces))
+        for g in ret['geom']:
+            if isinstance(g, bmesh.types.BMVert):
+                g.co += n * depth
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _obj(bm, name, smooth=False)
+
+
+def arc_band(R, profile, a0, a1, n=72, name='arcband'):
+    """A curved slice of a ring (a piece broken out of a crown band). `profile` is the band's own closed
+    cross-section [(u, v)] (u = radial offset from R, v = height), so rims are part of the band and never loose
+    rods. It is swept round Z from angle a0 to a1 (degrees; 0 = the front, -Y, negative = left: a crown prong's
+    angles); the sides are smooth and the two ends are closed with flat fans (`cut` then makes the breaks)."""
+    def at(u, v, th):
+        t = math.radians(th)
+        r = R + u
+        return Vector((r * math.sin(t), -r * math.cos(t), v))
+
+    bm = bmesh.new()
+    m = len(profile)
+    grid = [[bm.verts.new(at(u, v, a0 + (a1 - a0) * i / n)) for i in range(n + 1)] for u, v in profile]
+    side = []
+    for k in range(m):
+        k2 = (k + 1) % m
+        for i in range(n):
+            side.append(bm.faces.new((grid[k][i], grid[k][i + 1], grid[k2][i + 1], grid[k2][i])))
+    for i in (0, n):
+        loop = [grid[k][i] for k in range(m)]
+        c = bm.verts.new(sum((v.co for v in loop), Vector()) / m)
+        for a, b in zip(loop, loop[1:] + loop[:1]):
+            bm.faces.new((c, a, b))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        f.smooth = False
+    for f in side:
+        f.smooth = True
+    return _obj(bm, name)
+
+
+def lens2(path, width, n=25, power=0.85, peak=0.5):
+    """A tapered stroke along a 2D polyline (a fissure): sharp at both ends, widest near `peak` of its length.
+    Returns (left, right) point lists of n + 1 points each (the ends are single points)."""
+    segs = list(zip(path, path[1:]))
+    lens_ = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in segs]
+    total = sum(lens_)
+    left, right = [], []
+    for i in range(n + 1):
+        t = total * i / n
+        for (a, b), l in zip(segs, lens_):
+            if t <= l + 1e-9 or (a, b) == segs[-1]:
+                u = min(1.0, t / l) if l > 0 else 0.0
+                x, z = a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u
+                nx, nz = -(b[1] - a[1]) / l, (b[0] - a[0]) / l
+                break
+            t -= l
+        s = i / n
+        k = s / peak if s < peak else (1 - s) / (1 - peak)
+        w = width / 2 * math.sin(math.pi / 2 * max(0.0, min(1.0, k))) ** power
+        left.append((x + nx * w, z + nz * w))
+        right.append((x - nx * w, z - nz * w))
+    return left, right
+
+
+def strip(tree, left, right, lift=0.01, direction=(0.0, 1.0, 0.0), far=10.0, name='strip'):
+    """A decal laid on a part: the quad strip between two 2D polylines (x, z), each point projected onto the part
+    along `direction` (from the viewer) and lifted `lift` along its normal. Points where the two lines meet (a
+    tapered end) become one vertex. Raises ValueError when a point misses the part."""
+    d = Vector(direction).normalized()
+    bm = bmesh.new()
+
+    def put(p):
+        loc, nrm = hit(tree, Vector((p[0], -far * d.y, p[1])), d)
+        if loc is None:
+            raise ValueError('%s runs off the part at %s' % (name, p))
+        return bm.verts.new(loc + nrm * lift)
+    L, Rr = [], []
+    for a, b in zip(left, right):
+        va = put(a)
+        vb = va if math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-7 else put(b)
+        L.append(va)
+        Rr.append(vb)
+    for i in range(len(L) - 1):
+        q = []
+        for v in (L[i], L[i + 1], Rr[i + 1], Rr[i]):
+            if v not in q:
+                q.append(v)
+        if len(q) >= 3:
+            bm.faces.new(q)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.dot(d) > 0:                     # face the viewer
+            f.normal_flip()
+    return _obj(bm, name, smooth=False)
+
+
 def rbox(sx, sy, sz, r=0.0, seg=3, name='box'):
     """Box (centred) with rounded edges; flat faces, smooth bevels."""
     bm = bmesh.new()

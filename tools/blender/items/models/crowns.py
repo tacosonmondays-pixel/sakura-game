@@ -4,7 +4,8 @@ shows. Prongs are real volumes (round cones, or thick rounded wedges for the dra
 plates."""
 import math
 
-from mathutils import Matrix
+import bpy
+from mathutils import Matrix, Vector
 
 import parts as P
 import palette as C
@@ -216,33 +217,97 @@ SHARD_BAND = C.anchored(dict(C.IRI, base='#dccbfb', light='#f6f0ff', iri=0.9), s
                         ink='#3a1f66', anchor=0.85, base_anchor=0.2)
 SHARD_PRONG = C.anchored(dict(C.IRI, base='#c4aaf6', light='#ece4ff', iri=0.45), shadow='#8a5cd6', deep='#7044c4',
                          ink='#3a1f66', anchor=0.9, base_anchor=0.45)
-SHARD_BREAK = C.paint('#f3eaff', light='#ffffff', shadow='#c9b2f2', ink='#3a1f66', rim=0.0)
+# break faces: one tone lighter than the band and the prong round them, lit or not (a fresh break)
+SHARD_BREAK = C.paint('#f1e9ff', light='#fbf8ff', shadow='#e0d3fb', ink='#3a1f66', rim=0.0, drift=0.0)
+SHARD_BH, SHARD_T = 0.72, 0.22          # the Rainbow Crown's band height and thickness
+
+
+def _band_profile(t=SHARD_T, h=SHARD_BH):
+    """The Rainbow Crown band's own cross-section (u radial out from RB, v up): the band with its bottom rim
+    (r 0.1) and top rim (r 0.09) bulging out of it, as one outline."""
+    pts = [(-t / 2, 0.08), (-t / 2 + 0.03, 0.0)]
+    cb, rb = (0.04, 0.05), 0.1
+    for i in range(10):                                   # the bottom rim, from under the band round to its face
+        a = math.radians(236 + (406 - 236) * i / 9)
+        pts.append((cb[0] + rb * math.cos(a), cb[1] + rb * math.sin(a)))
+    ct, rt = (0.04, h - 0.02), 0.09
+    a0 = -math.degrees(math.acos((t / 2 - ct[0]) / rt))
+    for i in range(10):                                   # the top rim, from the face over the top
+        a = math.radians(a0 + (140 - a0) * i / 9)
+        pts.append((ct[0] + rt * math.cos(a), ct[1] + rt * math.sin(a)))
+    pts += [(-t / 2 + 0.03, h + 0.01), (-t / 2, h - 0.04)]
+    return P.poly_round(pts, 0.012, 2)
+
+
+# the slice is a little flatter than the crown's ring (radius 1.6, not 1.0): on the crown's own curve the ends of a
+# two-prong piece run straight away from the viewer, and no break face there could face the camera
+SHARD_R = 1.6
+SHARD_PRONG_AT = 20.0   # the two prongs, about the crown's spacing along the band
+
+
+def _prong_on(R, theta, w, hgt, paint, bh, line=2.4):
+    """A Rainbow Crown prong (round cone, flattened radially, leaning out a little, its base sunk into the band)
+    on a band of radius R at angle theta."""
+    o = P.cone(w / 2, hgt + 0.16, concave=1.05, tip=0.1, n=40, name='prong')
+    P.xf(o, scale=(1.0, 0.38, 1.0), rot=(6, 0, 0), loc=(0, -R, bh - 0.16))
+    P.matx(o, Matrix.Rotation(math.radians(theta), 4, 'Z'))
+    return P.paint(o, paint, line=line)
+
+
+def _shatter(o, planes, line=1.2):
+    """Cuts part `o` with every break plane (co, no) that reaches it, then lays a lighter break face, with its own
+    fine line, on each cut (after all the cuts, so no face outlasts a later one)."""
+    hits = [(co, no) for co, no in planes if max((v.co - co).dot(no) for v in o.data.vertices) > 0.0]
+    for co, no in hits:
+        P.cut(o, co, no)
+    for co, no in hits:
+        face = P.face_plate(o, no, lift=0.002, depth=0.014, tol=0.995, name='breakface')
+        if face and sum(p.area for p in face.data.polygons) > 0.004:
+            P.paint(face, SHARD_BREAK, line=line)
+        elif face:
+            bpy.data.objects.remove(face, do_unlink=True)         # a sliver too small to read
+
+
+def _end_planes(R, theta, sgn, ridge_z, facets):
+    """The break at one end of the band slice: two flat facets meeting in a ridge at `ridge_z` (a jagged break),
+    each tilted toward the viewer so it shows. facets: [(a, b, c)]: the facet normal as amounts of the direction
+    out past the end, the radial direction out of the ring and up. Returns the planes [(co, no)]."""
+    th = math.radians(theta)
+    out = Vector((math.cos(th), math.sin(th), 0.0)) * sgn
+    rad = Vector((math.sin(th), -math.cos(th), 0.0))
+    co = rad * (R + SHARD_T / 2) + Vector((0.0, 0.0, ridge_z))
+    return [(co, (out * a + rad * b + Vector((0.0, 0.0, c))).normalized()) for a, b, c in facets]
 
 
 def rainbow_shard():
-    """A piece broken out of the Rainbow Crown: a jagged chunk of the iridescent band with its rims, one whole
-    round cone prong and one snapped off at an angle (no ball tips), a pink gem on the band between them."""
-    chunk = [(-0.86, -0.4), (-0.7, -0.46), (-0.38, -0.44), (0.1, -0.46), (0.52, -0.42), (0.62, -0.3), (0.5, -0.2),
-             (0.68, -0.08), (0.56, 0.02), (0.6, 0.12), (-0.66, 0.12), (-0.78, 0.0), (-0.64, -0.12), (-0.84, -0.22)]
-    b = P.slab(P.poly_round(chunk, 0.03, 2), 0.28, 0.09, 3, 'bandchunk')
-    P.xf(b, loc=(0.0, 0.02, 0.0))
-    P.paint(b, SHARD_BAND, line=2.5)
-    for z, rr in ((0.1, 0.06), (-0.4, 0.07)):          # the band's rims, broken off with it
-        rim_ = P.tube([(-0.62 if z > 0 else -0.7, -0.13, z), (0.5 if z > 0 else 0.46, -0.13, z)], rr, 12, name='rim')
-        P.paint(rim_, SHARD_BAND, line=1.8)
-    whole = P.cone(0.36, 1.22, concave=1.2, tip=0.12, n=40, name='prong')
-    P.xf(whole, scale=(1.0, 0.6, 1.0), rot=(0, -6, 0), loc=(-0.34, 0.0, 0.0))
-    P.paint(whole, SHARD_PRONG, line=2.5)
-    snapped = P.cone(0.34, 1.1, concave=1.2, tip=0.12, n=40, name='prong')
-    P.xf(snapped, scale=(1.0, 0.6, 1.0), rot=(0, 8, 0), loc=(0.3, 0.0, 0.0))
-    P.cut(snapped, (0.36, 0.0, 0.6), (-0.45, -0.25, 0.86))           # an angled break, its face toward the light
-    P.paint(snapped, SHARD_PRONG, line=2.5)
-    g = P.gem(0.15, sides=6, crown=0.3, table=0.6, pavilion=0.5)
-    P.xf(g, scale=(1, 1, 0.6), rot=(90, 0, 0), loc=(-0.02, -0.17, -0.16))
-    P.paint(g, C.paint('#ffb3d1', light='#ffe6f0', shadow='#f07aa5', ink='#781948', deep='#e05a92'), steps=(0.4, 0.86, 0.02),
-            deep_at=-0.2, line=1.3, smooth=False)
-    P.glint((-0.5, -0.2, 0.75), 10, edge=True)
-    return dict(kind='flat', roll=-12.0, turn=18.0, tip=14.0)
+    """A piece broken out of the Rainbow Crown: a curved slice of its ring (the band with its rims in its own
+    profile, the crown's band height, thickness and paint, a little flatter), one whole round cone prong and one
+    snapped off low to a stump with a lighter flat break face, the pink gem on the band between them (as on the
+    crown), and a jagged break at each end of the band: two lighter facets tilted toward the viewer. No ball
+    tips."""
+    bh = SHARD_BH
+    R = SHARD_R
+    pa = SHARD_PRONG_AT
+    # the radial ends face away from the viewer: the slanted breaks below (each two facets meeting in a ridge, so
+    # the break is jagged) cut the band short of them and are the ends you see
+    band = P.arc_band(R, _band_profile(), -68.0, 68.0, n=96)
+    P.paint(band, SHARD_BAND, line=2.6)
+    whole = _prong_on(R, -pa, 1.22, 1.08, SHARD_PRONG, bh)
+    stump = _prong_on(R, pa, 1.22, 1.08, SHARD_PRONG, bh)
+    ends = _end_planes(R, -37.0, -1.0, 0.26, [(0.5, 0.75, 0.16), (0.5, 0.85, -0.1)]) + \
+        _end_planes(R, 36.0, 1.0, 0.46, [(0.52, 0.72, 0.2), (0.48, 0.86, -0.06)])
+    # snapped low: the stump keeps about 40 % of the whole prong's height; the break faces up, left and toward the
+    # viewer, so it shows as a flat lighter face (never a second point)
+    rot = Matrix.Rotation(math.radians(pa), 4, 'Z')
+    snap = (rot @ Vector((0.0, -R - 0.03, bh + 0.44)), rot.to_3x3() @ Vector((-0.32, -0.34, 0.88)).normalized())
+    for o, planes in ((band, ends), (whole, ends), (stump, ends + [snap])):
+        _shatter(o, planes)
+    g = P.gem(0.19, sides=6, crown=0.3, table=0.6, pavilion=0.5, name='bandgem')
+    P.xf(g, scale=(1, 1, 0.6), rot=(90, 0, 0), loc=(0, -(R + 0.15), bh * 0.46))
+    P.paint(g, C.paint('#ffb3d1', light='#ffe6f0', shadow='#f07aa5', ink='#781948', deep='#e05a92'), steps=(0.1, 0.84, 0.03),
+            deep_at=-0.35, line=1.4, smooth=False)
+    P.glint((-0.95, -1.3, bh + 0.42), 10, edge=True)
+    return dict(kind='standing', yaw=8, elev=16, roll=-8.0)
 
 
 def build(row):

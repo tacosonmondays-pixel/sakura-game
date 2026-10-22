@@ -191,10 +191,10 @@ def feather(r, row):
         P.paint(cap, t, line=1.6)
         if r in ('superRare', 'legendary', 'zenith'):
             _gem_front(0.046, (0, -0.11, -0.2), gem(r), line=1.0)
+    # the vane is matte (like cloth): no sparkle on it. Legendary and zenith get their one star glint on the metal
+    # quill cap, on its lit edge
     if r in ('legendary', 'zenith'):
-        P.glint((-0.12 + _curve_x(1.2), -0.1, 1.2), 12)
-    elif r != 'common':
-        P.glint((-0.2 + _curve_x(0.85), -0.1, 0.85), 9)
+        P.glint((-0.05, -0.1, -0.24), 7, edge=True)
     return dict(kind='flat', roll=36.0, turn=14.0, tip=12.0)
 
 
@@ -304,24 +304,29 @@ COAL = dict(
     superRare=C.paint('#a48a86', light='#cdb5aa', shadow='#76585e', ink='#38222a', rim=0.4),
     mythic=C.paint('#a48a86', light='#cdb5aa', shadow='#76585e', ink='#38222a', rim=0.4),
     legendary=C.paint('#a48a86', light='#cdb5aa', shadow='#76585e', ink='#38222a', rim=0.4),
-    # zenith: lilac pearl with a deeper lilac shadow plane (not a pale onion)
-    zenith=C.paint('#cbb5f6', light='#f6efff', shadow='#8a66da', ink='#3f2470', deep='#7050c6', iri=0.4, anchor=0.9,
-                   base_anchor=0.6),
+    # zenith: a lilac mid-tone rock (never a pale bulb): near-white only on the lit top-left facet, the planes turned
+    # away a saturated violet one clear step darker
+    zenith=C.paint('#b49af0', light='#ece2ff', shadow='#7650d4', ink='#35195f', deep='#6340c0', iri=0.22, anchor=0.95,
+                   base_anchor=0.75),
 )
-# a crack is a fissure that glows from inside: an orange edge with a bright yellow core (and a little emission)
+# the coal's cel steps: (shadow, light, feather) on N.L; zenith keeps the light tone for the top-left facet only and
+# turns the side planes to its violet shadow
+COAL_STEPS = dict(zenith=(0.4, 0.835, 0.012))
+# a crack is a fissure cut into the rock that glows from inside: an orange edge round a bright yellow core (a little
+# emission), on every tier, and a one-step-darker rock lip on its lower right side, so it reads as cut in
 CRACK_EDGE = dict(flat('#ff8a2a'), glow=0.15)
-CRACK_CORE = dict(flat('#ffe066'), glow=0.4)
-CRACK_ZEN = (dict(flat('#ff5f9e'), glow=0.15), dict(flat('#ffc46a'), glow=0.4))
-# one crack pattern per tier, on the coal's front facets (x, z): (anchor polyline, width, jitter seed). Each
-# crack is a jagged, tapered fissure (thin at both ends), never a stroke of even width, so no crack reads as a
-# letter; all stay inside the silhouette
+CRACK_CORE = dict(flat('#ffe45c'), glow=0.45)
+# one crack per tier, on the coal's front facets (x, z): (centre line, width at the middle). Each one is a tapered
+# fissure, widest in the middle and sharp at both ends, along a straight line that only bends where it runs over a
+# facet edge (no zigzag, no wave, no fork), so nothing reads as a letter; each tier places it differently, inside the
+# silhouette and clear of the gems, claws and flame
 CRACKS = dict(
-    common=[([(-0.44, 0.06), (-0.06, -0.05), (0.36, -0.2)], 1.0, 3), ([(-0.08, -0.06), (0.04, -0.27)], 0.65, 7)],
-    rare=[([(-0.36, 0.24), (-0.22, 0.02), (-0.06, -0.26)], 1.0, 11), ([(0.1, 0.1), (0.36, -0.1)], 0.7, 5)],
-    superRare=[([(-0.46, -0.02), (-0.18, 0.05), (0.1, -0.1)], 1.0, 13), ([(-0.3, 0.26), (-0.1, 0.16)], 0.6, 2)],
-    mythic=[([(-0.4, 0.1), (-0.04, 0.2), (0.34, 0.08)], 1.0, 17)],
-    legendary=[([(-0.12, -0.1), (0.14, -0.02), (0.4, -0.16)], 1.0, 19), ([(-0.4, 0.04), (-0.26, 0.28)], 0.65, 23)],
-    zenith=[([(-0.1, -0.14), (0.16, -0.2), (0.38, 0.0)], 1.0, 29), ([(-0.38, 0.22), (-0.14, 0.3)], 0.65, 31)],
+    common=[([(-0.5, 0.1), (0.4, -0.22)], 0.1)],
+    rare=[([(-0.42, 0.24), (0.1, -0.26)], 0.095)],
+    superRare=[([(-0.52, 0.12), (0.04, -0.24)], 0.095)],
+    mythic=[([(-0.32, 0.17), (0.3, -0.03)], 0.085)],
+    legendary=[([(-0.08, 0.04), (0.44, -0.22)], 0.09)],
+    zenith=[([(-0.1, 0.04), (0.44, -0.16)], 0.09)],
 )
 FLAME_O = C.paint('#ff8a3d', light='#ffb36e', shadow='#e85d2a', ink='#6e1a10', glow=0.3)
 FLAME_Y = C.paint('#ffd75a', light='#fff3b0', shadow='#ffb02e', ink='#6e3b08', glow=0.5)
@@ -345,63 +350,39 @@ def _flame(w, h, at, outer, inner=None, line=2.4, depth=0.16):
     return o
 
 
-def _dense(pts, k=4):
-    out = []
-    for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
-        for i in range(k):
-            out.append((x0 + (x1 - x0) * i / k, z0 + (z1 - z0) * i / k))
-    out.append(pts[-1])
-    return out
+def _darker(hx, dl):
+    h, l, s = C._hls(hx)
+    return C._hex(h, l - dl, min(1.0, s + 0.04))
 
 
-def _jagged(anchors, seed, n=11, amp=0.028):
-    """A deterministic jagged line through the anchors: n points, each nudged sideways by an uneven amount."""
-    import random
-    rnd = random.Random(seed)
-    segs = list(zip(anchors, anchors[1:]))
-    total = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in segs)
-    out = []
-    for i in range(n + 1):
-        t = total * i / n
-        for a, b in segs:
-            l = math.hypot(b[0] - a[0], b[1] - a[1])
-            if t <= l or (a, b) == segs[-1]:
-                u = min(1.0, t / l) if l > 0 else 0.0
-                x, z = a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u
-                nx, nz = -(b[1] - a[1]) / l, (b[0] - a[0]) / l
-                break
-            t -= l
-        k = 0.0 if i in (0, n) else rnd.uniform(-1.0, 1.0) * amp * (1.6 if i % 2 else 0.6)
-        out.append((x + nx * k, z + nz * k))
-    return out
-
-
-def _crack(tree, anchors, rad, seed, edge_p, core_p):
-    """A glowing fissure laid on the coal's facets: an orange edge round a bright yellow core (lifted along
-    the facet normal so the core always shows), jagged and tapered to a point at both ends."""
-    pts = _jagged(anchors, seed)
-    dense = _dense(pts, 3)
-    taper = [0.3 + 0.7 * math.sin(math.pi * i / (len(dense) - 1)) ** 0.5 for i in range(len(dense))]
-    path = P.on_surface(tree, dense, offset=rad * 0.35)
-    core = P.on_surface(tree, dense, offset=rad * 0.9)
-    if len(path) != len(dense) or len(core) != len(dense):
-        raise ValueError('a crack runs off the coal: %s' % (anchors,))
-    o = P.sweep(path, P.circle2(rad, 6), scales=taper, name='crack')
-    P.paint(o, edge_p, line=0.0)
-    o = P.sweep(core, P.circle2(rad * 0.46, 6), scales=[max(0.0, t - 0.25) / 0.75 for t in taper], name='crack_core')
-    P.paint(o, core_p, line=0.0)
+def _fissure(tree, path, width, coal, steps):
+    """A glowing fissure cut into the coal, laid flat on its facets (decals projected from the viewer):
+    - the lip: the same lens shifted down and right, in rock one cel step darker than the facet under it (its own
+      toon steps match the coal's, so it is the shadow tone on a base facet and a deeper tone on a shadow facet);
+    - the edge: an orange lens, widest in the middle and sharp at both ends;
+    - the core: a bright yellow lens inside it, tapering sooner."""
+    lip = dict(base=coal['shadow'], light=coal['base'], shadow=_darker(coal['shadow'], 0.1),
+               deep=_darker(coal['shadow'], 0.16), ink=coal['ink'], rim=0.0, drift=0.0)
+    left, right = P.lens2(path, width * 1.3, n=40)
+    sh = (0.02, -0.036)
+    o = P.strip(tree, [(x + sh[0], z + sh[1]) for x, z in left], [(x + sh[0], z + sh[1]) for x, z in right], lift=0.006,
+                name='crack_lip')
+    P.paint(o, lip, steps=steps, deep_at=-0.6, line=0.0)
+    left, right = P.lens2(path, width, n=40)
+    P.paint(P.strip(tree, left, right, lift=0.016, name='crack'), CRACK_EDGE, line=0.0)
+    left, right = P.lens2(path, width * 0.46, n=40, power=1.4)
+    P.paint(P.strip(tree, left, right, lift=0.026, name='crack_core'), CRACK_CORE, line=0.0)
 
 
 def _coal(r):
     """The coal and its glowing cracks (projected onto its facets, one pattern per tier). Returns the coal's
     BVH for placing parts."""
     c = P.hull(COAL_PTS, bevel=0.06, seg=3, name='coal')
-    P.paint(c, COAL[r], steps=(0.12, 0.64, 0.04), deep_at=-0.6, line=2.6)
+    steps = COAL_STEPS.get(r, (0.12, 0.64, 0.04))
+    P.paint(c, COAL[r], steps=steps, deep_at=-0.6, line=2.6)
     tree = P.bvh(c)
-    rad = 0.05 if r == 'common' else 0.056
-    edge_p, core_p = CRACK_ZEN if r == 'zenith' else (CRACK_EDGE, CRACK_CORE)
-    for anchors, width, seed in CRACKS[r]:
-        _crack(tree, anchors, rad * width, seed, edge_p, core_p)
+    for path, width in CRACKS[r]:
+        _fissure(tree, path, width, COAL[r], steps)
     return tree
 
 
@@ -457,18 +438,16 @@ def ember(r, row):
         outer = C.paint('#ff86b0', light='#ffb3cc', shadow='#e8508e', ink='#5c1f4a', glow=0.2)
         inner = C.paint('#ff9a2e', light='#ffc05a', shadow='#ff7a2a', ink='#5c1f4a', glow=0.25)
     _flame(fw, fh, (0.02, 0.04, 0.3 + 0.35 * fh), outer, inner, depth=0.15)
+    # glints: the rock is matte (ITEM_STYLE 2.5), so common to mythic have none; legendary and zenith get one star
+    # glint on the metal sun ring
     if r == 'superRare':
         loc, nrm = _on_front(tree, 0.24, -0.14)
         g = K.cut_gem(0.12, (0, 0, 0), dict(C.TIER_GEM['superRare'], steps=(0.5, 0.9, 0.02), deep_at=0.2), line=1.2)
         P.face_to(g, nrm, loc + nrm * 0.03)
-        P.glint((-0.34, -0.5, 0.25), 9)
     if r == 'mythic':                            # a rose-gold setting: a band round the waist, four claws over the top
         _collar(tree, -0.14, C.ROSE_GOLD)
         for az in (-140, -40, 40, 140):
             _claw(tree, az, C.ROSE_GOLD, r=0.05)
-        P.glint((-0.34, -0.5, 0.25), 10)
-    if r == 'rare':
-        P.glint((-0.34, -0.5, 0.25), 9)
     if r in ('legendary', 'zenith'):             # gold (or iridescent) sun frame behind the coal
         t = trim(r)
         cz = 0.24
@@ -484,8 +463,8 @@ def ember(r, row):
         loc, nrm = _on_front(tree, -0.24, -0.16)
         g = K.cut_gem(0.11, (0, 0, 0), dict(gem(r), steps=(0.5, 0.9, 0.02), deep_at=0.2), line=1.2)
         P.face_to(g, nrm, loc + nrm * 0.03)
-        P.glint((0.02, -0.4, 1.0), 13)
-        P.glint((-0.64, 0.0, 0.66), 8)
+        a = math.radians(157.0)                  # on the ring's upper left, between two rays
+        P.glint((0.78 * math.cos(a), 0.44, cz + 0.78 * math.sin(a)), 11)
     return dict(kind='standing', yaw=20, elev=18)
 
 
@@ -523,7 +502,14 @@ HEART_ARMS = ((90, 0.58), (30, 0.61), (330, 0.53), (270, 0.53), (210, 0.53), (15
 FINGER = 0.27
 
 
-def _heart_frame(t, heart_p, glints=True):
+# the snowflake arms: a light face (L about 74 like the approved arms), a lighter lit bevel and a darker lower edge;
+# zenith keeps a deeper lilac face and a saturated violet lower edge, so the arms hold on the lilac tile at 32 px
+ARM_GOLD = C.over(C.GOLD_TRIM, base='#fde07c', light='#fff3c4', shadow='#d99028', rim=0.2)
+ARM_ZEN = C.over(ZEN_TRIM, base='#dccafb', light='#f8f4ff', shadow='#8462d8', deep='#6e4cc8', anchor=0.92,
+                 base_anchor=0.35, rim=0.2)
+
+
+def _heart_frame(t, heart_p, glints=True, arm_p=None):
     heart = P.resample(P.heart2(1.2, 1.12, 160), 26)
     g = P.fan_gem(heart, 0.2, 0.26, name='heart')
     P.paint(g, heart_p, steps=(0.62, 0.9, 0.02), deep_at=0.35, glow=0.12, line=1.6)
@@ -544,7 +530,7 @@ def _heart_frame(t, heart_p, glints=True):
         out = P.poly_round(_snow_arm(L, 0.052, b, FINGER, 0.047, 50.0), 0.016, 2)
         arm = P.slab([(x * ca - z * sa, x * sa + z * ca) for x, z in out], 0.07, 0.026, 2, 'arm')
         P.xf(arm, loc=(0, 0.1, 0))
-        P.paint(arm, t, line=2.3)
+        P.paint(arm, arm_p or t, line=2.3, shadow_rel=0.2)
     if glints:
         P.glint((-0.2, -0.3, 0.08), 18)
 
@@ -595,10 +581,11 @@ def rime(r, row):
         return dict(kind='standing', yaw=18, elev=18)
     # legendary / zenith: the heart leans clockwise like the approved file
     if r == 'legendary':
-        _heart_frame(C.GOLD_TRIM, C.paint('#c8ebfc', light='#eef9ff', shadow='#8cc4f0', ink='#1b4574', deep='#68a3e0', spec=0.0))
+        _heart_frame(C.GOLD_TRIM, C.paint('#c8ebfc', light='#eef9ff', shadow='#8cc4f0', ink='#1b4574', deep='#68a3e0', spec=0.0),
+                     arm_p=ARM_GOLD)
         return dict(kind='flat', roll=14.0, turn=10.0, tip=12.0)
     _heart_frame(ZEN_TRIM, C.paint('#d6c6fa', light='#ffffff', shadow='#a98cea', ink='#3f2470', deep='#8a6cdc', iri=0.45,
-                                   anchor=0.75, base_anchor=0.5))
+                                   anchor=0.75, base_anchor=0.5), arm_p=ARM_ZEN)
     return dict(kind='flat', roll=14.0, turn=10.0, tip=12.0)
 
 
@@ -763,10 +750,26 @@ def _stone(paint, line=2.6):
     return -RUNE_D / 2
 
 
-def _stone_rim(paint, front, r=0.05):
-    fr = P.ring_along(P.offset_outline(_stone_outline(), -0.03), r, 10, 'rim', scale_depth=0.8)
-    P.xf(fr, loc=(0, front + 0.035, 0))
-    P.paint(fr, paint, line=2.0)
+RUNE_INSET = 0.11                                # the inlay sits on the flat face, just inside the stone's bevel
+
+
+def _inlay(paint, front, width):
+    """The tier trim as a thin metal inlay set into the stone's face: a flat band `width` wide that follows the
+    stone's chipped outline a little inside its edge, barely raised (never a thick picture frame). Returns its
+    outline (for a glint)."""
+    out = P.offset_outline(_stone_outline(), -RUNE_INSET)
+    inn = P.offset_outline(_stone_outline(), -RUNE_INSET - width)
+    d = 0.024
+    o = P.ring_slab(out, inn, d, bevel=d * 0.3, seg=1, name='inlay')
+    P.xf(o, loc=(0, front + d / 2 - 0.01, 0))
+    P.paint(o, paint, line=1.2)
+    return out
+
+
+def _inlay_glint(outline, front, size):
+    """One star glint on the inlay's upper-left corner (the metal, never the matte stone)."""
+    x, z = max(outline, key=lambda p: -p[0] * 0.8 + p[1])
+    P.glint((x, front - 0.02, z), size)
 
 
 def _groove(stone):
@@ -776,7 +779,13 @@ def _groove(stone):
 RUNE_POSE = dict(kind='flat', roll=-8.0, turn=22.0, tip=16.0)
 
 
+GLOW_ROSE = C.paint('#f6b4a6', light='#ffe1d8', shadow='#dc8676', ink='#6a2a2a', glow=0.5, spec=0.5, spec_at=0.985)
+
+
 def rune(r, row):
+    """Stone is matte (ITEM_STYLE 2.5): no sheen and no specular on any stone, only the lit-edge line. The trim is a
+    thin inlay that follows the outline (silver, rose gold, gold, iridescent); legendary and zenith get one star
+    glint, on the inlay."""
     if r == 'common':
         stone = C.paint('#b6bfd2', light='#d9deea', shadow='#8890aa', ink='#353c55', deep='#767e9a', rim=0.3)
         fy = _stone(stone)
@@ -785,46 +794,35 @@ def rune(r, row):
     if r == 'rare':
         stone = C.paint('#efe4cc', light='#fffaf0', shadow='#cdb88e', ink='#5a4426', deep='#b9a276', rim=0.0, drift=0.05)
         fy = _stone(stone)
-        _stone_rim(C.SILVER, fy, r=0.045)
+        _inlay(C.SILVER, fy, 0.03)
         _sigil(fy, C.paint('#4a8ae6', light='#8ab8f4', shadow='#2a5cae', ink='#14306a', glow=0.3, rim=0.0), _groove(stone))
-        P.glint((-0.44, -0.2, 0.38), 9, edge=True)
         return dict(RUNE_POSE)
     if r == 'superRare':
         stone = C.paint('#ad97f6', light='#ccbdfb', shadow='#7d62e0', ink='#2c1a6e', deep='#6a4ed0', rim=0.4)
         fy = _stone(stone)
         _sigil(fy, C.paint('#e6f3ff', light='#ffffff', shadow='#b4cdfb', ink='#2c1a6e', glow=0.6), _groove(stone),
                gem_p=C.TIER_GEM['superRare'])
-        P.glint((-0.44, -0.25, 0.38), 9, edge=True)
         return dict(RUNE_POSE)
     if r == 'mythic':
-        stone = C.paint('#8f80f5', light='#b2a7f8', shadow='#6555dc', ink='#1d1660', deep='#5444c8', sheen=0.2)
+        # the same carved compass star as every tier, raised and glowing in rose gold round a pink gem
+        stone = C.paint('#8f80f5', light='#b2a7f8', shadow='#6555dc', ink='#1d1660', deep='#5444c8')
         fy = _stone(stone)
-        _stone_rim(C.ROSE_GOLD, fy, r=0.055)
-        # a closed kite of four stars with one star off its tail: a constellation, never a letter
-        stars = [(-0.04, 0.4), (0.26, 0.1), (0.0, -0.22), (-0.26, 0.06), (0.16, -0.42)]
-        glowp = C.paint('#fff1b8', light='#ffffff', shadow='#ffd76a', ink='#6e3b08', glow=0.7, rim=0.0)
-        for i, j in ((0, 1), (1, 2), (2, 3), (3, 0), (2, 4)):
-            a, b = stars[i], stars[j]
-            l = P.tube([(a[0], fy - 0.01, a[1]), (b[0], fy - 0.01, b[1])], 0.014, 6, name='cline')
-            P.paint(l, C.over(glowp, base='#d8d2ff', light='#efeaff'), line=0.0)
-        for x, z in stars:
-            s = P.slab(P.poly_round(P.star2(4, 0.085, 0.032), 0.008, 2), 0.03, 0.01, 1, 'cstar')
-            P.xf(s, loc=(x, fy - 0.02, z))
-            P.paint(s, glowp, line=1.0)
+        _inlay(C.ROSE_GOLD, fy, 0.036)
+        _sigil(fy, GLOW_ROSE, _groove(stone), s=1.05, line=1.2, gem_p=C.TIER_GEM['mythic'])
         return dict(RUNE_POSE)
-    # legendary / zenith: the runestone in a thick gold (iridescent) rim with a glowing sigil and a gem
+    # legendary / zenith: the runestone with a gold (iridescent) inlay, a glowing sigil and a gem
     zen = r == 'zenith'
     if zen:     # pale pearl face, a saturated lilac side plane and a deep violet sigil (one strong value step)
         stone = C.paint('#c8b2f6', light='#f6f0ff', shadow='#7f5ad8', ink='#3a1f66', deep='#6a44c8', iri=0.45,
-                        anchor=0.95, base_anchor=0.6, spec=0.4, spec_at=0.99)
+                        anchor=0.95, base_anchor=0.6)
         sig = C.paint('#7a4ee0', light='#a07af0', shadow='#5a30c0', ink='#2a1060', glow=0.15, rim=0.0)
     else:
-        stone = C.paint('#8a6cf0', light='#ad97f8', shadow='#6447d6', ink='#1f135e', deep='#5236c4', sheen=0.15)
+        stone = C.paint('#8a6cf0', light='#ad97f8', shadow='#6447d6', ink='#1f135e', deep='#5236c4')
         sig = GLOW_GOLD
     fy = _stone(stone)
-    _stone_rim(trim(r), fy, r=0.075)
+    out = _inlay(trim(r), fy, 0.044)
     _sigil(fy, sig, _groove(stone), s=1.05, line=1.2, gem_p=gem(r))
-    P.glint((-0.46, -0.22, 0.36), 12, edge=True)
+    _inlay_glint(out, fy, 11)
     return dict(RUNE_POSE)
 
 
@@ -860,24 +858,56 @@ def _gear(R, teeth, paint, depth=0.22, hole=0.18, at=(0, 0, 0), bent=False, line
 BLUE_STEEL = C.paint('#9cb9e4', light='#d8e7fa', shadow='#6688c4', ink='#1f3a6a', spec=1.0, rim=0.6, spec_at=0.98)
 
 
-def _arc_strip(R, a0, a1, y, rad, paint, n=20):
-    """A thin flat strip along an arc on a gear's front face (a hard glint on the lit edge)."""
-    pts = [(R * math.cos(math.radians(a0 + (a1 - a0) * i / (n - 1))), y, R * math.sin(math.radians(a0 + (a1 - a0) * i / (n - 1))))
-           for i in range(n)]
-    o = P.tube(pts, rad, 6, name='glintstrip')
-    return P.paint(o, paint, line=0.0)
-
-
 VIOLET_CAP = C.paint('#b79cff', light='#ded0ff', shadow='#8462ea', ink='#2c1a6e', deep='#6a45d8', spec=0.8, spec_at=0.99,
                      rim=0.5)
 
 
+# brass (ITEM_STYLE 2.7, metal: four hard stops): the glint, a warm saturated brass base, a dark reflection band,
+# the ink
+COG_BRASS = dict(base='#dba347', light='#f6d68e', shadow='#b07726', ink='#4e2c0a', spec=0.7, rim=0.5, spec_at=0.985)
+COG_BAND = '#94601c'
+COG_GLINT = '#fffaea'
+
+
+def _edge_band(outline, a0, a1, inset0, inset1=None, arc=None, taper=0.5):
+    """Two 2D polylines along part of a gear's outline (angles a0..a1, degrees) for a decal strip: the outer line
+    `inset0` inside the outline; the inner one `inset1` inside it, or on a circle of radius `arc` (a band across the
+    teeth and the rim); the inner line meets the outer one at both ends."""
+    o0 = P.offset_outline(outline, -inset0)
+    o1 = P.offset_outline(outline, -inset1) if inset1 else None
+
+    def clear(p, d):              # an offset point that folded back over a concave corner (a tooth root) is dropped
+        return min((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 for q in outline) >= (0.9 * d) ** 2
+    idx = [i for i, p in enumerate(outline) if a0 <= (math.degrees(math.atan2(p[1], p[0])) % 360.0) <= a1
+           and clear(o0[i], inset0) and (o1 is None or clear(o1[i], inset1))]
+    outer = [o0[i] for i in idx]
+    inner = [o1[i] for i in idx] if inset1 else None
+    n = len(outer)
+    left, right = [], []
+    for i, (x, z) in enumerate(outer):
+        k = max(0.0, math.sin(math.pi * i / (n - 1))) ** taper
+        if inner:
+            ix, iz = inner[i]
+        else:
+            r = math.hypot(x, z)
+            ix, iz = x * arc / r, z * arc / r
+        left.append((x, z))
+        right.append((x + (ix - x) * k, z + (iz - z) * k))
+    return left, right
+
+
 def cog(r, row):
     if r == 'common':
-        brass = dict(C.BRASS, base='#dcb183')
-        _gear(1.0, 8, brass, bent=True, hole=0.0, axle=0.25)
-        # a hard glint strip on the lit (upper-left) edge, inside the tooth roots
-        _arc_strip(0.68, 105, 165, -0.12, 0.026, flat('#fff3d2'))
+        g = _gear(1.0, 8, COG_BRASS, bent=True, hole=0.0, axle=0.25)
+        tree = P.bvh(g)
+        outline = P.gear2(1.0, 8, 0.2, n_per=10)
+        dense = P.resample(outline, 320)
+        # the dark reflection band across the lower-right teeth and rim, the hard glint along the upper-left edge of
+        # the teeth and the rim (a thin strip on the lit bevel)
+        left, right = _edge_band(dense, 272.0, 352.0, 0.085, arc=0.68, taper=0.3)
+        P.paint(P.strip(tree, left, right, lift=0.012, name='band'), flat(COG_BAND), line=0.0)
+        left, right = _edge_band(dense, 98.0, 192.0, 0.02, inset1=0.078, taper=0.4)
+        P.paint(P.strip(tree, left, right, lift=0.008, name='glintstrip'), flat(COG_GLINT), line=0.0)
         return dict(kind='flat', roll=-8.0, turn=24.0, tip=24.0)
     if r == 'rare':
         _gear(1.0, 10, dict(BLUE_STEEL, sheen=0.2), hole=0.0)
