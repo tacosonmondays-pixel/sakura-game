@@ -20,8 +20,13 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
 
 ## 2. Starting a new session
 
+- On a new account, connect GitHub first (https://claude.ai/connect-github, the same GitHub account that owns the repo) and allow the Claude GitHub App on `sakura-game`.
 - Pick the `sakura-game` repo and the **`claude/sakura-sentinels`** branch (it equals `main` plus docs like this one until the next ship).
 - Secrets do not carry over between accounts or environments: the Meshy key is an environment **network secret** (Bearer, injected for `api.meshy.ai`) and must be re-added in the new environment's settings. Never ask the owner to paste a key into chat.
+- The environment's network access must reach GitHub, the npm registry, PyPI, `api.meshy.ai`, the Supabase project and `tacosonmondays-pixel.github.io` (to read `version.json` after a deploy).
+- Tools a fresh container needs: `npm ci` (Node 22, as in CI); Chromium for the `e2e/` scripts (cloud containers have it; `e2e/browser.mjs` finds it); Python 3.11 with Pillow for image work; Blender as a Python module (`pip install bpy==4.2.0`) for everything in `tools/blender/` (girls, enemies, companions, item icons).
+- Generator credits: Meshy was at 4 credits (refills around Nov 7); the image tool account was nearly empty. Check balances before planning art.
+- If the owner uploads `sakura-handoff-pack.zip` and the vault zip (`Sakura-Sentinels-Vault-*.zip`, style references), unzip them in the scratchpad, never in the repo. This file in the repo is the newest version of the handoff; the copies inside the zips may be older.
 - The published pages (§9) belong to the account that made them. To update one from another account, the owner shares it with edit access from the page's Share menu.
 - Connectors (image/3D generators) must be connected again on a new account.
 
@@ -44,7 +49,19 @@ Not started on any branch:
 
 **What the owner told players is coming in the next big update (after the usage reset):** a couple more girls and new rarities; about 6 reworks (girls with companions, Kaede, Iroha's animations only); tower abilities/ultimates (Tenka is the ultimate tower); new UI/GUI; double the maps plus new chapters/story with new enemy types; the new VFX; banner changes; quality-of-life fixes. Kaede's AoE rework already shipped in v0.1.41: ask the owner what her next rework means (likely visuals/animation).
 
-Then, roughly in order:
+**Suggested order for that update** (the owner's rule is "closest to done first", and every step ships on its own when it's ready, so players get something even if the week runs short):
+1. **Small display fixes** (no sim change): the compact DPS readout (§10), the girl page Compact/Detailed switch (`feature/girl-page-detailed`).
+2. **Finish VFX M1** (`feature/vfx`, display only) and ship it.
+3. **Tower abilities + Tenka** (`feature/abilities`): T2 → T3 → sync with main, then the ability bar (A3) with battle UI M2. This changes the sim: bump `COOP_PROTOCOL`.
+4. **Visual reworks:** the companion girls (Ruri + Kon, Hana + Kaze, Yoriko's marionette per §3), the academy girls' attacks and placed objects, Kaede's look (once the owner says what they want), Iroha's animations.
+5. **Banner changes** (owner page "Banners and Legends").
+6. **New girls and rarities, more maps, new chapters and enemies:** the biggest pieces; the gate arc story design is in the private pack. Plan them with the owner before building.
+7. **Balance and the gear update** last, in one pass (below).
+
+**Kickoff message the owner can paste into a new session:**
+> Read docs/HANDOFF.md first. Unzip the packs I upload into your scratchpad (never into the repo). Then tell me in a few lines what's live, what's unfinished and the suggested order in HANDOFF §4, and start on step 1. Ask me before anything that spends generator credits, and ship each step as its own update when it's ready.
+
+After the big update, roughly in order:
 1. **Balance pass.** Tune damage girls relative to Kage (Kage is the reference number). Inputs: §10 findings and the tier list.
 2. **Gear update** (owner decisions, Oct 21):
    - 5 equipment pieces: Charm, Ribbon, Shoes stay as they are; 2 new pieces come in role sets you farm (support, control, money, precision, abilities, …), each set from its own source (e.g. one Titan Trials boss per set). Wearing both pieces unlocks the set's passive.
