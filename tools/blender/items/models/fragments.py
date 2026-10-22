@@ -2,6 +2,8 @@
 tier; colour and the tile carry the tier, so the old R / SR / SSR text labels are gone)."""
 import math
 
+from mathutils import Vector
+
 import parts as P
 import palette as C
 from models import common as K
@@ -29,7 +31,7 @@ def star_fragment():
     spl = P.fan_gem([(-0.12, -0.2), (0.14, -0.16), (0.18, 0.2), (0.0, 0.3), (-0.16, 0.12)], 0.12, 0.12, name='splinter')
     P.xf(spl, rot=(0, -30, 0), loc=(0.88, 0.1, -0.72))
     P.paint(spl, dict(pastel, **FACETS), line=2.0)
-    P.glint((-0.25, -0.5, 0.55), 12)
+    P.glint((0.08, -0.3, 1.02), 11, edge=True)             # the approved sparkle, on the tip of the top arm
     return dict(kind='flat', roll=-6.0, turn=18.0, tip=18.0)
 
 
@@ -73,18 +75,45 @@ def teardrop(body, cap_p, gem_p=None, star=False, blossom_p=None):
 
 
 def kindred_shard():
-    """A warm-gold crystal shard (a hexagonal prism with a cut tip and a broken base) and a chip: clear
-    facet planes with a bright facet edge, a blossom glowing inside, so it reads as crystal, not a blade."""
+    """Kindred Shard (mythic in the game data): a warm-gold crystal shard (a hexagonal prism with a cut tip,
+    the Kindred SSR gold) held in a rose-gold collar (the mythic accent), a chip beside it, and an embossed
+    pink sakura framed by a raised gold rim on its front facet (no flat white cut-out)."""
     gold = C.paint('#ffc93c', light='#fff0a8', shadow='#f09a1e', ink='#6a3404', deep='#d97a10', spec=0.6, spec_at=0.99)
     crys = P.crystal(0.44, 0.92, 0.42, sides=6, a0=0.3, taper=0.86, base=0.22)
     P.xf(crys, rot=(0, 18, 0), loc=(-0.05, 0.0, -0.62))
     P.paint(crys, dict(gold, steps=(0.12, 0.66, 0.02), deep_at=-0.4), line=2.6, smooth=False)
-    K.blossom(0.15, 0.03, (-0.02, -0.36, -0.02), C.paint('#fff6d8', light='#ffffff', shadow='#ffe08a', ink='#6a3404', glow=0.5),
-              rot=18, line=1.0)
+    tree = P.bvh(crys)
+    # the rose-gold collar round the shard's foot (rays cast in from outside at its height)
+    path = []
+    for i in range(48):
+        a = 2 * math.pi * i / 48
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        loc, _ = P.hit(tree, d * 3.0 + Vector((-0.05, 0.0, -0.5)), -d)
+        if loc is not None:
+            path.append(Vector((loc.x, loc.y, -0.5)) + d * 0.035)
+    if len(path) > 8:
+        col = P.sweep(path, P.rrect2(0.06, 0.16, 0.025, 3), closed=True, up=(0, 0, 1), name='collar')
+        P.paint(col, C.ROSE_GOLD, line=1.8)
+    # the sakura on the facet that faces the viewer: a raised gold rim, a pink blossom embossed in it, a pearl
+    import rig
+    pose = rig.pose_matrix('standing', yaw=18, elev=14, roll=-14)
+    view = (pose.to_3x3().transposed() @ rig.VIEW.copy()).normalized()
+    best = max((p for p in crys.data.polygons if abs(p.normal.z) < 0.5), key=lambda p: p.normal.dot(view) * p.area)
+    nrm = best.normal.copy()
+    loc = best.center.copy() + Vector((0.0, 0.0, 0.06))
+    rim_ = P.slab(P.blossom2(0.2, inner=0.42, notch=0.17), 0.03, 0.012, 2, 'bloomrim')
+    P.face_to(rim_, nrm, loc + nrm * 0.012)
+    P.paint(rim_, C.GOLD_TRIM, line=1.2, lift=0.02)
+    bl = P.slab(P.blossom2(0.155, inner=0.42, notch=0.17), 0.03, 0.012, 2, 'bloom')
+    P.face_to(bl, nrm, loc + nrm * 0.03)
+    P.paint(bl, C.paint('#ffb8d2', light='#ffe0ec', shadow='#f287b2', ink='#781948', glow=0.25), line=1.0, lift=0.02)
+    pearl = P.sphere(0.04, 16, 8, 'pearl', scale=(1, 0.6, 1))
+    P.face_to(pearl, nrm, loc + nrm * 0.05)
+    P.paint(pearl, C.paint('#fff1c7', light='#ffffff', shadow='#f4cf7a', ink='#7d4705'), line=0.0)
     chip = P.crystal(0.15, 0.3, 0.16, sides=5, a0=0.2, taper=0.8)
     P.xf(chip, rot=(0, -34, 0), loc=(0.6, 0.05, -0.62))
     P.paint(chip, dict(gold, steps=(0.12, 0.66, 0.02), deep_at=-0.4), line=2.0, smooth=False)
-    P.glint((-0.2, -0.45, 0.55), 11)
+    P.glint((-0.36, -0.4, 0.5), 11, edge=True)               # on the lit edge of the shard
     return dict(kind='standing', yaw=18, elev=14, roll=-14)
 
 

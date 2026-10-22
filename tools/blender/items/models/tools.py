@@ -104,40 +104,51 @@ def lock_pin():
     return dict(kind='flat', roll=0.0, turn=18.0, tip=14.0)
 
 
+def _dodeca(r=1.0):
+    """The 20 corners of a regular dodecahedron (circumradius r)."""
+    phi = (1 + 5 ** 0.5) / 2
+    pts = [(sx, sy, sz) for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
+    for a in (-1, 1):
+        for b in (-1, 1):
+            pts += [(0, a / phi, b * phi), (a / phi, b * phi, 0), (a * phi, 0, b / phi)]
+    k = r / 3 ** 0.5
+    return [(x * k, y * k, z * k) for x, y, z in pts]
+
+
 def dice_prism():
-    """Chunky rounded d8 die in pastel iridescence, tilted like Fortune Dice, embossed rose-gold pips on
-    its faces (one to three, like a die: never a number) and an inner glow."""
+    """Prism Dice: a chunky rounded d12 (a die, not the diamond of the UR charm) in pastel iridescence, tilted
+    about 25 degrees like Fortune Dice, a saturated violet shadow plane over about a third of it, and big
+    embossed rose-gold pips on its three front faces (one to three, like a die: never a number)."""
     import rig
-    pr = C.anchored(C.paint('#f2d6ff', light='#fff4ff', ink='#3f2470', iri=0.5, glow=0.25, sheen=0.15),
-                    shadow='#b48fec', deep='#9670e0', anchor=0.75)
-    pts = [(0, 0, 1.0), (0, 0, -1.0), (0.78, 0, 0), (-0.78, 0, 0), (0, 0.78, 0), (0, -0.78, 0)]
-    pts = [(x * 0.7071 - y * 0.7071, x * 0.7071 + y * 0.7071, z) for x, y, z in pts]     # an edge faces the viewer
-    d = P.hull(pts, bevel=0.07, seg=3, name='d8')
-    P.paint(d, dict(pr, steps=(0.2, 0.82, 0.03), deep_at=-0.4), line=2.6)
-    pose = rig.pose_matrix('standing', yaw=26, elev=24, roll=-10)
+    from mathutils import Matrix
+    pr = C.anchored(C.paint('#efd2ff', light='#fff4ff', ink='#3f2470', iri=0.5, glow=0.12, sheen=0.15),
+                    shadow='#8f5fe6', deep='#7444d6', anchor=0.9, base_anchor=0.35)
+    d = P.hull(_dodeca(1.0), bevel=0.07, seg=3, name='d12')
+    P.matx(d, Matrix.Rotation(math.radians(25), 4, 'Y') @ Matrix.Rotation(math.radians(18), 4, 'Z'))   # tilted
+    P.paint(d, dict(pr, steps=(0.34, 0.82, 0.03), deep_at=-0.3), line=2.6)
+    pose = rig.pose_matrix('standing', yaw=26, elev=24, roll=-8)
     view = (pose.to_3x3().transposed() @ rig.VIEW.copy()).normalized()      # toward the camera, in model space
     faces = []
     for p in d.data.polygons:
         n = p.normal.copy()
-        if p.area > 0.2 and n.dot(view) > 0.3:
+        if p.area > 0.2 and n.dot(view) > 0.45:
             faces.append((n.dot(view), p.center.copy(), n))
     faces.sort(key=lambda f: -f[0])
-    rose = C.over(C.ROSE_GOLD, base='#eba08f', light='#ffd0c2', shadow='#c97666', spec=0.6)
+    rose = C.over(C.ROSE_GOLD, base='#eba08f', light='#ffd8cc', shadow='#c26c5c', spec=0.6)
     z_up = Vector((0.0, 0.0, 1.0))
     for k, (_, c, n) in enumerate(faces[:3]):
-        count = (1, 2, 3)[k]
-        # pips laid out in the face plane, "up" toward its apex
+        count = (3, 2, 1)[k]                          # three on the face toward the viewer
         up = (z_up - n * z_up.dot(n)).normalized()
         side = n.cross(up).normalized()
-        offs = {1: [(0, 0)], 2: [(-0.16, -0.1), (0.16, 0.1)], 3: [(-0.2, -0.14), (0, 0), (0.2, 0.14)]}[count]
+        offs = {1: [(0, 0)], 2: [(-0.15, -0.12), (0.15, 0.12)], 3: [(-0.2, -0.17), (0, 0), (0.2, 0.17)]}[count]
         for sx, sz in offs:
-            pip = P.cabochon(0.075, 0.035, n=20)
+            pip = P.cabochon(0.11 if count == 1 else 0.095, 0.045, n=24)
             P.xf(pip, rot=(90, 0, 0))                      # cabochon dome toward -Y
-            at = c + side * sx + up * (sz - 0.05) + n * 0.005
+            at = c + side * sx + up * sz + n * 0.006
             P.face_to(pip, n, at)
-            P.paint(pip, rose, line=1.0)
-    P.glint((-0.3, -0.6, 0.45), 11)
-    return dict(kind='standing', yaw=26, elev=24, roll=-10)
+            P.paint(pip, rose, line=1.1)
+    P.glint((-0.5, -0.6, 0.55), 11, edge=True)
+    return dict(kind='standing', yaw=26, elev=24, roll=-8)
 
 
 def seed_rainbow():

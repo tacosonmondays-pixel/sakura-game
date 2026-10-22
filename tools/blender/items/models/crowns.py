@@ -211,28 +211,38 @@ def dragon():
     return dict(kind='standing', yaw=8, elev=12)
 
 
+# the shard keeps a deeper lilac-pink shadow plane, so it holds its value range on the white tile
+SHARD_BAND = C.anchored(dict(C.IRI, base='#dccbfb', light='#f6f0ff', iri=0.9), shadow='#a46ad0', deep='#8a50c0',
+                        ink='#3a1f66', anchor=0.85, base_anchor=0.2)
+SHARD_PRONG = C.anchored(dict(C.IRI, base='#c4aaf6', light='#ece4ff', iri=0.45), shadow='#8a5cd6', deep='#7044c4',
+                         ink='#3a1f66', anchor=0.9, base_anchor=0.45)
+SHARD_BREAK = C.paint('#f3eaff', light='#ffffff', shadow='#c9b2f2', ink='#3a1f66', rim=0.0)
+
+
 def rainbow_shard():
-    """One iridescent crown prong (a round cone) with a pearl finial on a jagged chunk of the band."""
-    o = P.cone(0.5, 1.5, concave=1.3, tip=0.1, n=40, name='shard')
-    P.xf(o, scale=(1.0, 0.55, 1.0))
-    P.paint(o, PRONG_IRI, line=2.6)
-    chunk = [(-0.78, -0.42), (0.42, -0.42), (0.56, -0.3), (0.44, -0.2), (0.6, -0.08), (0.48, 0.04), (-0.78, 0.04)]
-    b = P.slab(P.poly_round(chunk, 0.04, 2), 0.26, 0.09, 3, 'bandchunk')
-    P.xf(b, loc=(0.0, 0.02, -0.06))
-    P.paint(b, IRI_CROWN, line=2.4)
-    bg = P.gem(0.11, sides=6, crown=0.3, table=0.6, pavilion=0.5)
-    P.xf(bg, scale=(1, 1, 0.6), rot=(90, 0, 0), loc=(-0.38, -0.12, -0.19))
-    P.paint(bg, C.paint('#a8f0d8', light='#e6fff5', shadow='#5fcfae', ink='#1d5a4a'), steps=(0.4, 0.86, 0.02), deep_at=-0.2,
-            line=1.2, smooth=False)
-    f = P.sphere(0.17, 24, 12, 'finial')
-    P.xf(f, loc=(0.0, 0.0, 1.5))
-    P.paint(f, C.PEARL, line=2.0)
-    g = P.gem(0.11, sides=6, crown=0.3, table=0.6, pavilion=0.5)
-    P.xf(g, scale=(1, 1, 0.6), rot=(90, 0, 0), loc=(0, -0.3, 0.42))
-    P.paint(g, C.paint('#ffb3d1', light='#ffe6f0', shadow='#f07aa5', ink='#781948'), steps=(0.4, 0.86, 0.02), deep_at=-0.2, line=1.3,
-            smooth=False)
-    P.glint((-0.2, -0.3, 1.1), 10)
-    return dict(kind='flat', roll=-16.0, turn=18.0, tip=14.0)
+    """A piece broken out of the Rainbow Crown: a jagged chunk of the iridescent band with its rims, one whole
+    round cone prong and one snapped off at an angle (no ball tips), a pink gem on the band between them."""
+    chunk = [(-0.86, -0.4), (-0.7, -0.46), (-0.38, -0.44), (0.1, -0.46), (0.52, -0.42), (0.62, -0.3), (0.5, -0.2),
+             (0.68, -0.08), (0.56, 0.02), (0.6, 0.12), (-0.66, 0.12), (-0.78, 0.0), (-0.64, -0.12), (-0.84, -0.22)]
+    b = P.slab(P.poly_round(chunk, 0.03, 2), 0.28, 0.09, 3, 'bandchunk')
+    P.xf(b, loc=(0.0, 0.02, 0.0))
+    P.paint(b, SHARD_BAND, line=2.5)
+    for z, rr in ((0.1, 0.06), (-0.4, 0.07)):          # the band's rims, broken off with it
+        rim_ = P.tube([(-0.62 if z > 0 else -0.7, -0.13, z), (0.5 if z > 0 else 0.46, -0.13, z)], rr, 12, name='rim')
+        P.paint(rim_, SHARD_BAND, line=1.8)
+    whole = P.cone(0.36, 1.22, concave=1.2, tip=0.12, n=40, name='prong')
+    P.xf(whole, scale=(1.0, 0.6, 1.0), rot=(0, -6, 0), loc=(-0.34, 0.0, 0.0))
+    P.paint(whole, SHARD_PRONG, line=2.5)
+    snapped = P.cone(0.34, 1.1, concave=1.2, tip=0.12, n=40, name='prong')
+    P.xf(snapped, scale=(1.0, 0.6, 1.0), rot=(0, 8, 0), loc=(0.3, 0.0, 0.0))
+    P.cut(snapped, (0.36, 0.0, 0.6), (-0.45, -0.25, 0.86))           # an angled break, its face toward the light
+    P.paint(snapped, SHARD_PRONG, line=2.5)
+    g = P.gem(0.15, sides=6, crown=0.3, table=0.6, pavilion=0.5)
+    P.xf(g, scale=(1, 1, 0.6), rot=(90, 0, 0), loc=(-0.02, -0.17, -0.16))
+    P.paint(g, C.paint('#ffb3d1', light='#ffe6f0', shadow='#f07aa5', ink='#781948', deep='#e05a92'), steps=(0.4, 0.86, 0.02),
+            deep_at=-0.2, line=1.3, smooth=False)
+    P.glint((-0.5, -0.2, 0.75), 10, edge=True)
+    return dict(kind='flat', roll=-12.0, turn=18.0, tip=14.0)
 
 
 def build(row):

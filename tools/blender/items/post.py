@@ -35,26 +35,76 @@ def _star(draw, cx, cy, r, col, k=4, sx=1.0):
     draw.polygon(pts, fill=col)
 
 
+EDGE_GLINT_RIM = (0xc9, 0xcf, 0xdb)    # the approved sparkle's thin cool-grey rim (needle star tip, gear box lid)
+
+
 def add_glints(im, glints):
-    """glints: [(x_px, y_px, radius_px, (r, g, b))] in 256 px space."""
+    """glints: [(x_px, y_px, radius_px, (r, g, b)[, rimmed])] in 256 px space. A rimmed glint (a sparkle on a lit
+    edge, half over the background) gets the approved thin cool-grey rim so it still reads on a white tile."""
     if not glints:
         return im
     ss = 4
     W = im.width * ss
     layer = Image.new('RGBA', (W, W), (0, 0, 0, 0))
     glow = Image.new('L', (W, W), 0)
+    rims = Image.new('L', (W, W), 0)
     d = ImageDraw.Draw(layer)
     g = ImageDraw.Draw(glow)
-    for x, y, r, col in glints:
+    m = ImageDraw.Draw(rims)
+    for gl_ in glints:
+        x, y, r, col = gl_[:4]
         X, Y, R = x * ss, y * ss, r * ss
         g.ellipse((X - R * 0.42, Y - R * 0.42, X + R * 0.42, Y + R * 0.42), fill=150)
-        _star(d, X, Y, R, col + (255,), sx=0.82)
+        if len(gl_) > 4 and gl_[4]:
+            _star(m, X, Y, R, 255, sx=0.82)
+    if any(len(gl_) > 4 and gl_[4] for gl_ in glints):
+        ring = Image.new('RGBA', (W, W), EDGE_GLINT_RIM + (0,))
+        ring.putalpha(rims.filter(ImageFilter.MaxFilter(2 * ss + 1)).point(lambda v: int(v * 0.85)))
+        layer = Image.alpha_composite(layer, ring)
+        d = ImageDraw.Draw(layer)
+    for gl_ in glints:
+        x, y, r, col = gl_[:4]
+        _star(d, x * ss, y * ss, r * ss, col + (255,), sx=0.82)
     glow = glow.filter(ImageFilter.GaussianBlur(R * 0.18 if glints else 4)).resize(im.size, Image.LANCZOS)
     layer = layer.resize(im.size, Image.LANCZOS)
     gl = Image.new('RGBA', im.size, (255, 255, 255, 0))
     gl.putalpha(glow.point(lambda v: int(v * 0.55)))
     out = Image.alpha_composite(im, gl)
     return Image.alpha_composite(out, layer)
+
+
+def snap_edge(raw, glints, edge, inset=3.0):
+    """Moves the flagged glints onto the silhouette of the raw render: from the glint toward the object's
+    centre (or out from it, when the glint already sits inside) to the outer edge, then `inset` px in, so
+    the sparkle sits on the lit edge (approved: the needle star's tip, the gear box lid) and never floats."""
+    a = np.asarray(Image.open(raw).convert('RGBA').getchannel('A')).astype(np.float32)
+    ys, xs = np.nonzero(a >= 200)
+    if len(xs) == 0:
+        return glints
+    cx, cy = float(xs.mean()), float(ys.mean())
+
+    def solid(x, y):
+        xi, yi = int(round(x)), int(round(y))
+        return 0 <= xi < a.shape[1] and 0 <= yi < a.shape[0] and a[yi, xi] >= 200
+    out = []
+    for (x, y, r, col), on in zip(glints, edge):
+        if on:
+            dx, dy = cx - x, cy - y
+            d = math.hypot(dx, dy) or 1.0
+            dx, dy = dx / d, dy / d
+            if solid(x, y):                     # inside: walk out to the edge
+                while solid(x - dx, y - dy):
+                    x, y = x - dx, y - dy
+            else:                               # outside: walk in to the edge
+                for _ in range(400):
+                    if solid(x, y):
+                        break
+                    x, y = x + dx * 0.5, y + dy * 0.5
+            x, y = x + dx * inset, y + dy * inset
+            out.append((x, y, r, col, True))
+        else:
+            out.append((x, y, r, col))
+    return out
 
 
 def add_shadow(im, strength=1.0):

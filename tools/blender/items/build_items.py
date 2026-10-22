@@ -150,12 +150,15 @@ def main():
         rig.apply_pose(objs, pose)
         rig.pose_steps(objs, kind, pose)
         ppu = rig.fit_camera(cam, objs, scale=spec.get('fit', 1.0))
-        glints = []
-        for p, size in parts.ITEM['glints']:
+        glints, edge = [], []
+        for p, size, on_edge in parts.ITEM['glints']:
             x, y = rig.to_px(cam, pose @ p)
             glints.append((x, y, size, (253, 254, 254)))
+            edge.append(on_edge)
         hulls = rig.add_hulls(objs, ppu)
         raw = rig.render(os.path.join(raw_dir, f'{key}.png'))
+        if any(edge):                  # sparkles on a lit edge: snapped onto the rendered silhouette
+            glints = post.snap_edge(raw, glints, edge)
         small_raw = None
         if key in models.SMALL_CUT:
             for h in hulls:
@@ -164,7 +167,7 @@ def main():
             small_raw = rig.render(os.path.join(raw_dir, f'{key}-small.png'))
         out_dir = os.path.join(a.scratch, 'calibration') if row.get('kind') == 'calibration' else a.out
         rep = post.finish(raw, glints, key, out_dir, png_dir, small_raw=small_raw,
-                          small_glints=[(x, y, s * 1.15, c) for x, y, s, c in glints])
+                          small_glints=[(g[0], g[1], g[2] * 1.15) + tuple(g[3:]) for g in glints])
         rep['family'] = models.family(key)
         rep['seconds'] = round(time.time() - t1, 2)
         reports.append(rep)

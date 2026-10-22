@@ -21,9 +21,11 @@ def reset():
     ITEM['glints'] = []
 
 
-def glint(p, size=14.0):
-    """A crisp white 4-point star drawn in post at model point p (size = radius in px at 256)."""
-    ITEM['glints'].append((Vector(p), float(size)))
+def glint(p, size=14.0, edge=False):
+    """A crisp white 4-point star drawn in post at model point p (size = radius in px at 256).
+    edge=True snaps it onto the rendered silhouette (post.snap_edge): it sits on the lit edge nearest p,
+    never floating in the air beside the object."""
+    ITEM['glints'].append((Vector(p), float(size), bool(edge)))
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +336,77 @@ def slab(outline, depth, bevel=0.0, seg=3, name='slab', back_bevel=None, profile
         for fc in res['faces']:
             fc.smooth = True
     return _obj(bm, name)
+
+
+def ring_slab(outer, inner, depth, bevel=0.0, seg=3, inner_bevel=0.0, name='ringslab'):
+    """A slab with a real hole: outer and inner are XZ outlines with the same point count, point i of one
+    facing point i of the other (gear2 and circle2 at the same n do). Flat caps, smooth rounded rims, and a
+    flat inner wall round the hole (an axle hole you can see into)."""
+    assert len(outer) == len(inner)
+    bm = bmesh.new()
+    n = len(outer)
+    fo = [bm.verts.new((x, -depth / 2, z)) for x, z in outer]
+    fi = [bm.verts.new((x, -depth / 2, z)) for x, z in inner]
+    bo = [bm.verts.new((x, depth / 2, z)) for x, z in outer]
+    bi = [bm.verts.new((x, depth / 2, z)) for x, z in inner]
+    caps, walls_o, walls_i = [], [], []
+    for i in range(n):
+        j = (i + 1) % n
+        caps.append(bm.faces.new((fo[i], fo[j], fi[j], fi[i])))
+        caps.append(bm.faces.new((bo[i], bi[i], bi[j], bo[j])))
+        walls_o.append(bm.faces.new((fo[i], bo[i], bo[j], fo[j])))
+        walls_i.append(bm.faces.new((fi[i], fi[j], bi[j], bi[i])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for fc in caps + walls_i:
+        fc.smooth = False
+    for fc in walls_o:
+        fc.smooth = True
+    capset = set(caps)
+    for amount, walls in ((bevel, set(walls_o)), (inner_bevel, set(walls_i))):
+        if amount <= 0:
+            continue
+        edges = [e for e in bm.edges if len(e.link_faces) == 2 and
+                 any(f in capset for f in e.link_faces) and any(f in walls for f in e.link_faces)]
+        res = bmesh.ops.bevel(bm, geom=edges, offset=amount, offset_type='OFFSET', segments=seg, profile=0.5,
+                              affect='EDGES', clamp_overlap=True)
+        for fc in res['faces']:
+            fc.smooth = True
+    return _obj(bm, name)
+
+
+def hollow_top(o, wall, depth):
+    """Opens the top (+Z) cap of a box part into a cavity: the cap is inset by `wall` (the rim you see) and
+    the inner face sunk by `depth`, so flat inner walls rise from the cavity floor to the rim."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    top = max(bm.faces, key=lambda f: (f.normal.z > 0.99, f.calc_center_median().z))
+    r1 = bmesh.ops.inset_region(bm, faces=[top], thickness=wall, depth=0.0, use_even_offset=True)
+    r2 = bmesh.ops.inset_region(bm, faces=[top], thickness=0.0, depth=-depth, use_even_offset=True)
+    for fc in list(r1['faces']) + list(r2['faces']) + [top]:
+        fc.smooth = False
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.update()
+    return o
+
+
+def cut(o, co, no):
+    """Cuts a part with the plane through `co` (normal `no` points at the part removed) and caps the cut
+    with one flat face: a clean angled break (a snapped crown spike)."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=Vector(co), plane_no=Vector(no), clear_outer=True)
+    edges = [e for e in bm.edges if e.is_boundary]
+    res = bmesh.ops.holes_fill(bm, edges=edges, sides=0)
+    for fc in res['faces']:
+        fc.smooth = False
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.update()
+    return o
 
 
 def rbox(sx, sy, sz, r=0.0, seg=3, name='box'):

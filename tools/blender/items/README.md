@@ -70,12 +70,15 @@ python3 tools/blender/items/build_items.py --list       # keys and families
   flat item's light step and specular threshold sit just above its face's own N·L / N·H, so the face reads as the
   base tone and only bevels and rims catch the light.
 - Auto-fit: the silhouette lands centred at (119, 117.5) px inside about 228 x 226 px (the approved framing).
-- `post.py`: 4-point glints (drawn at model anchors), the contact shadow (silhouette offset (+1, +5) px,
+- `post.py`: 4-point glints (drawn at model anchors; `glint(..., edge=True)` snaps the sparkle onto the rendered
+  silhouette, 3 px inside the lit edge, and gives it the approved thin cool-grey rim, so it never floats beside
+  the object), the contact shadow (silhouette offset (+1, +5) px,
   blurred, navy `#263a5c` at 32% core), framing check, Lanczos downscale (premultiplied), WebP q88 / alpha 100,
   size caps (20 KB / 9 KB / 5 KB, 2.2 MB in all; `tests/art/itemArt.test.js` enforces them), sheets, manifest.
 - `parts.py`: outlines (rounded rect, sakura, star, heart, gear, crescent, flame, leaf), solids (bevelled slab,
   rounded box, lathe with hard edges, sweep, torus, faceted fan gem with ridges or a spine, cut gem, cabochon,
-  crystal prism, round cone, convex hull with rounded edges for cut stones and dice), and `on_surface` / `hit`
+  crystal prism, round cone, convex hull with rounded edges for cut stones and dice, `ring_slab` for a slab with a
+  real hole, `hollow_top` for a box with an opening, `cut` for an angled break), and `on_surface` / `hit`
   (ray casts that lay cracks, gems and claws onto a part). `palette.py`: the tone rule (light +L toward yellow,
   shadow -L toward magenta, ink L 25%), the trim ladder (silver, rose gold, gold, iridescent), shared materials
   and `anchored()` for UR and zenith parts.
@@ -86,8 +89,9 @@ python3 tools/blender/items/build_items.py --list       # keys and families
   from it the same way as every other key. The source is `--approved <dir>/<key>_256.webp` (or `ITEMS_APPROVED`).
   Without it, a run keeps the committed `-256.webp` and only re-cuts the 128, so a full re-bake never puts the
   model back. `--no-ship` bakes the model (keep that for trials with `--out`).
-- Family rules: each family keeps one silhouette through every tier (charm = an omamori, rune = a tablet, ember =
-  one coal, cog = a gear, feather, blade, rime crystals, crowns with round cone points). The round disc is for
+- Family rules: each family keeps one silhouette through every tier (charm = an omamori, rune = an arched,
+  chipped runestone with a thick side plane, never a book-like rectangle, ember = one coal, cog = a gear, feather,
+  blade, rime crystals, crowns with round cone points). The round disc is for
   currencies and tokens only. Accents follow the tier palette: rare blue or silver, super rare a violet gem,
   mythic rose gold, legendary gold, UR / zenith iridescent with a saturated shadow plane. Surfaces stay clean
   cel bands (big flat facets or smooth forms, never noise or bumps), and no emblem may read as a letter.
@@ -115,42 +119,42 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `mat_feather_common` | Sparrow Feather | materials | common | 256, 128 | curved brown sparrow feather: two vane halves (the far one in shadow), split barbs, cream quill |
 | `mat_feather_rare` | Swallow Plume | materials | rare | 256, 128 | sleek sky-blue plume, split barbs, silver quill cap |
 | `mat_feather_superRare` | Hawk Quill | materials | superRare | 256, 128 | violet barred quill, split barbs, silver cap with a violet gem |
-| `mat_feather_mythic` | Phoenix Plume | materials | mythic | 256, 128 | red-orange plume with flame tips, rose-gold band, glowing shaft |
+| `mat_feather_mythic` | Phoenix Plume | materials | mythic | 256, 128 | red-orange plume with a cel-banded flame edge (yellow, orange) along its tip, rose-gold band, glowing shaft |
 | `mat_feather_legendary` | Celestial Pinion | materials | legendary | 256, 128 | pearl plume with a deep-gold edge, gold cap, star |
 | `mat_feather_zenith` | Zenith Plume | materials | zenith | 256, 128 | lilac-pearl plume (saturated shadow half), iridescent edge and cap |
-| `mat_blade_common` | Chipped Edge Shard | materials | common | 256, 128 | steel shard with a notch: bevelled ridge (lit and shadow planes), white glint on the lit edge |
+| `mat_blade_common` | Chipped Edge Shard | materials | common | 256, 128 | steel shard with a notch: central ridge (lit left plane, shadow right plane), white glint strip on the lit plane, dark band on the shadow plane |
 | `mat_blade_rare` | Tempered Shard | materials | rare | 256, 128 | blue-steel shard, ridge, glint and dark band, silver collar and grip |
 | `mat_blade_superRare` | Moonsteel Fragment | materials | superRare | 256, 128 | violet moonsteel shard with a crescent gem, silver collar |
-| `mat_blade_mythic` | Crimson Katana Shard | materials | mythic | 256, 128 | rose-steel shard with a glowing crimson tip, rose-gold collar |
+| `mat_blade_mythic` | Crimson Katana Shard | materials | mythic | 256, 128 | rose-steel shard (one colour on both planes), rose-gold collar |
 | `mat_blade_legendary` | Starforged Edge | materials | legendary | 256, 128 | gold-steel blade, gold guard, gem, star |
 | `mat_blade_zenith` | Zenith Edge | materials | zenith | 256, 128 | lilac-pearl blade (saturated shadow plane), iridescent guard |
-| `mat_ember_common` | Warm Cinder | materials | common | 256, 128 | chunky warm-grey coal (clean facets) with glowing orange cracks |
-| `mat_ember_rare` | Glowing Ember | materials | rare | 256, 128 | the coal with brighter cracks and a small flame lick (blue core) |
+| `mat_ember_common` | Warm Cinder | materials | common | 256, 128 | chunky warm-grey coal (clean facets) with glowing cracks (orange edge, yellow core, tapered), one pattern per tier |
+| `mat_ember_rare` | Glowing Ember | materials | rare | 256, 128 | the coal with its cracks and a small flame lick (blue core) |
 | `mat_ember_superRare` | Blazing Coal | materials | superRare | 256, 128 | the coal with a flame crown and an inset violet gem |
 | `mat_ember_mythic` | Phoenix Ember | materials | mythic | 256, 128 | the coal in a rose-gold setting (waist band, four claws), rose flame |
 | `mat_ember_legendary` | Sunheart Core | materials | legendary | 256, 128 | the coal and flame before a gold sun frame (ring and rays), inset gem, star |
-| `mat_ember_zenith` | Zenith Flame | materials | zenith | 256, 128 | lilac-pearl coal, pink flame, iridescent sun frame |
+| `mat_ember_zenith` | Zenith Flame | materials | zenith | 256, 128 | lilac-pearl coal with a deeper lilac shadow plane, pink flame round a saturated orange core, iridescent sun frame |
 | `mat_rime_common` | Frost Pebble | materials | common | 256, 128 | three ice prisms on a snow-capped stone (appr.) |
 | `mat_rime_rare` | Rime Shard | materials | rare | 256, 128 | feathery ice-blue crystal spray on a snow puff, silver frost ring |
 | `mat_rime_superRare` | Glacier Prism | materials | superRare | 256, 128 | lavender crystal cluster on a snow puddle (appr.) |
 | `mat_rime_mythic` | Aurora Crystal | materials | mythic | 256, 128 | mint-to-violet crystal cluster on a rose-gold ring, inner glow |
-| `mat_rime_legendary` | Eternal Winter Heart | materials | legendary | 256, 128 | faceted ice heart in a thick gold frame with fat round-ended snowflake arms, star (appr.) |
-| `mat_rime_zenith` | Zenith Frost | materials | zenith | 256, 128 | lilac heart in an iridescent snowflake frame |
+| `mat_rime_legendary` | Eternal Winter Heart | materials | legendary | 256, 128 | big faceted ice heart in a slim gold band over a six-armed snowflake (broad flat arms, a V of two branches each, soft points), star (appr.) |
+| `mat_rime_zenith` | Zenith Frost | materials | zenith | 256, 128 | lilac heart in a slim iridescent band over the iridescent snowflake |
 | `mat_charm_common` | Paper Omamori | materials | common | 256, 128 | paper omamori pouch, red cord knot, red stamped sakura |
 | `mat_charm_rare` | Silk Omamori | materials | rare | 256, 128 | blue silk omamori, embroidered white sakura, silver cord ring |
 | `mat_charm_superRare` | Blessed Bell Charm | materials | superRare | 256, 128 | violet omamori with a silver hand bell (dome, lip, clapper) and a gem knot |
 | `mat_charm_mythic` | Shrine Guardian Talisman | materials | mythic | 256, 128 | rose-red lacquered tag, rose-gold cap, glowing sakura inlay |
 | `mat_charm_legendary` | Sakura Divine Seal | materials | legendary | 256, 128 | cream silk omamori with gold trim, band and cord, pink sakura with an inset gem, star |
 | `mat_charm_zenith` | Zenith Omamori | materials | zenith | 256, 128 | iridescent silk omamori with iridescent trim, sakura with an inset gem |
-| `mat_rune_common` | Chalk Rune | materials | common | 256, 128 | slate tablet with a chalk sigil (a ring and a four-point star) |
-| `mat_rune_rare` | Inked Rune | materials | rare | 256, 128 | cream stone tablet in a silver frame, blue ink sigil |
-| `mat_rune_superRare` | Carved Runestone | materials | superRare | 256, 128 | lavender runestone tablet (chamfered cut), glowing sigil round an inset violet gem |
-| `mat_rune_mythic` | Astral Glyph | materials | mythic | 256, 128 | violet tablet with a star-dot constellation (a closed kite and a tail star), rose-gold rim |
-| `mat_rune_legendary` | Primordial Sigil | materials | legendary | 256, 128 | violet tablet in a thick gold frame, glowing gold sigil with a gem, star |
-| `mat_rune_zenith` | Zenith Sigil | materials | zenith | 256, 128 | lilac-pearl tablet in an iridescent frame, iridescent sigil |
-| `mat_cog_common` | Brass Cog | materials | common | 256, 128 | brass cog with one bent tooth |
+| `mat_rune_common` | Chalk Rune | materials | common | 256, 128 | slate runestone (arched, chipped outline, thick side plane) with a chalk compass star in a carved groove |
+| `mat_rune_rare` | Inked Rune | materials | rare | 256, 128 | cream runestone in a silver rim, glowing blue compass star in a carved groove |
+| `mat_rune_superRare` | Carved Runestone | materials | superRare | 256, 128 | lavender runestone, glowing compass star round an inset violet gem |
+| `mat_rune_mythic` | Astral Glyph | materials | mythic | 256, 128 | violet runestone with a star-dot constellation (a closed kite and a tail star), rose-gold rim |
+| `mat_rune_legendary` | Primordial Sigil | materials | legendary | 256, 128 | violet runestone in a thick gold rim, glowing gold compass star with a gem, star |
+| `mat_rune_zenith` | Zenith Sigil | materials | zenith | 256, 128 | lilac-pearl runestone (saturated lilac side plane) in an iridescent rim, deep violet compass star with a gem |
+| `mat_cog_common` | Brass Cog | materials | common | 256, 128 | brass cog with one bent tooth, a real axle hole (inner wall), a glint strip on the lit edge |
 | `mat_cog_rare` | Steel Gear | materials | rare | 256, 128 | blue-steel gear with a silver axle hub |
-| `mat_cog_superRare` | Clockwork Spring | materials | superRare | 256, 128 | steel coil spring between two caps, violet gem |
+| `mat_cog_superRare` | Clockwork Spring | materials | superRare | 256, 128 | steel coil spring on a steel gear base, violet end caps |
 | `mat_cog_mythic` | Aether Mainspring | materials | mythic | 256, 128 | glowing aqua mainspring in a rose-gold gear housing |
 | `mat_cog_legendary` | Perpetual Engine Core | materials | legendary | 256, 128 | gold gear around a glowing cut-gem core, star |
 | `mat_cog_zenith` | Zenith Cog | materials | zenith | 256, 128 | lilac-pearl gear, iridescent core |
@@ -160,21 +164,21 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `crown_oni` | Horned Festival Crown | crowns | mythic | 256, 128 | red lacquer crown, round cone points, two ivory horns, rose-gold rims, glowing front gem |
 | `crown_dragon` | Ashwing Crown | crowns | legendary | 256, 128 | ember-orange crown with thick wing-shaped points, gold rims, red gem with a star |
 | `crown_rainbow` | Rainbow Crown | crowns | legendary (rainbow) | 256, 128 | iridescent crown: thick rainbow band with rims, five round cone points with pearl finials, three big gems (appr.; ships the approved file, PLAN C11; this model only with --no-ship) |
-| `crown_rainbow_shard` | Rainbow Crown Shard | crowns | mythic (rainbow) | 256, 128 | one iridescent cone point with a pearl finial on a jagged chunk of band |
-| `star_fragment` | Star Fragment | fragments | superRare | 256, 128 | chunky five-point star crystal and a splinter, pastel pink to violet facets |
+| `crown_rainbow_shard` | Rainbow Crown Shard | crowns | mythic (rainbow) | 256, 128 | jagged chunk of the iridescent band with its rims, one whole cone point and one snapped off at an angle (no ball tips), pink gem, deeper lilac shadow plane |
+| `star_fragment` | Star Fragment | fragments | superRare | 256, 128 | chunky five-point star crystal and a splinter, pastel pink to violet facets, sparkle on the top tip |
 | `kindred_r` | Kindred Essence (R) | fragments | rare | 256, 128 | smooth glass drop (sky blue): darker top rim, light pooled low, crescent highlight, blossom inside, silver cap |
 | `kindred_sr` | Kindred Essence (SR) | fragments | superRare | 256, 128, small | smooth glass drop (violet), blossom inside, silver cap with an inset gem |
 | `kindred_ssr` | Kindred Essence (SSR) | fragments | legendary | 256, 128 | smooth glass drop (clear warm gold), blossom inside, gold cap, star |
-| `kindred_shard_ssr` | Kindred Shard (SSR) | fragments | mythic | 256, 128 | warm-gold hexagonal crystal shard with a glowing blossom inside, and a chip |
+| `kindred_shard_ssr` | Kindred Shard (SSR) | fragments | mythic | 256, 128 | warm-gold hexagonal crystal shard in a rose-gold collar (mythic), embossed pink sakura in a raised gold rim on its front facet, a chip, sparkle on the lit edge |
 | `gearbox_common` | Plain Gear Box | boxes | common | 256, 128 | plain warm-grey chest, wood straps, lid closed, gear emblem |
-| `gearbox_rare` | Sturdy Gear Box | boxes | rare | 256, 128 | blue chest, silver straps, lid propped open over a cream lining, gear emblem with a blue gem |
-| `gearbox_superRare` | Ornate Gear Box | boxes | superRare | 256, 128 | violet chest, silver straps, lid open, gear emblem with a violet gem, violet gem in the clasp |
-| `gearbox_mythic` | Radiant Gear Box | boxes | mythic | 256, 128 | pink chest, rose-gold straps and latch, lid open over a cream lining, gear emblem with a pink gem (appr.) |
-| `gearbox_legendary` | Celestial Gear Box | boxes | legendary | 256, 128 | teal chest, gold straps, lid open, white-blue gem, star glint |
-| `gearbox_rainbow` | Rainbow Gear Box | boxes | legendary (rainbow) | 256, 128 | lilac-pearl iridescent chest, iridescent straps, lid open, prism glints |
+| `gearbox_rare` | Sturdy Gear Box | boxes | rare | 256, 128 | blue chest, silver straps, lid open 15 degrees on its hinge, cream lining sunk below the rim, gear emblem with a blue gem |
+| `gearbox_superRare` | Ornate Gear Box | boxes | superRare | 256, 128 | violet chest, silver straps, lid open 15 degrees, sunk lining, gear emblem with a violet gem, violet gem in the clasp |
+| `gearbox_mythic` | Radiant Gear Box | boxes | mythic | 256, 128 | pink chest, rose-gold straps and latch, lid open 15 degrees on its hinge, cream lining sunk below the rim, gear emblem with a pink gem (appr.) |
+| `gearbox_legendary` | Celestial Gear Box | boxes | legendary | 256, 128 | teal chest, gold straps, lid open 15 degrees, sunk lining, white-blue gem, star glint |
+| `gearbox_rainbow` | Rainbow Gear Box | boxes | legendary (rainbow) | 256, 128 | lilac-pearl iridescent chest, iridescent straps, lid open 15 degrees, sunk lining, prism glints |
 | `dice_reroll` | Fortune Dice | tools | rare | 256, 128 | rounded light-blue die, white pips, a sakura on the top face |
 | `lock_pin` | Lock Pin | tools | superRare | 256, 128 | silver padlock with a violet-gem keyhole, pink-headed pin through it |
-| `dice_prism` | Prism Dice | tools | mythic | 256, 128 | chunky rounded d8 die in pastel iridescence, embossed rose-gold pips (1-3) on its faces, inner glow |
+| `dice_prism` | Prism Dice | tools | mythic | 256, 128 | chunky rounded d12 die in pastel iridescence, tilted, saturated violet shadow plane, big embossed rose-gold pips (1-3) on its front faces |
 | `seed_rainbow` | Rainbow Seed | tools | ur | 256, 128 | iridescent seed with a green two-leaf sprout, prism glints |
 | `needle_star` | Starlight Needle | tools | legendary | 256, 128 | bevelled gold four-point star (a ridge on each arm), steel needle behind it, pink thread through the eye (appr.) |
 | `club_band` | Club Armband | tools | mythic | 256, 128 | pink cloth armband loop with stitching and a rose-gold star badge |

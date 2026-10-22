@@ -1,5 +1,7 @@
-"""Gear boxes (gearbox_*): one rounded chest, lid propped open over a cream lining inside, two straps,
-a gear emblem on the front. Standing pose: lid top lightest, front mid, right side darkest.
+"""Gear boxes (gearbox_*): one rounded chest, two straps, a gear emblem on the front. Opened tiers: the lid
+stands open about 15 degrees on its hinge (its back edge resting on the back rim), and the top is a real
+opening, a rim round a cavity, with a cream lining sunk below the rim so a thin inner wall shows above it.
+Standing pose: lid top lightest, front mid, right side darkest.
 Tier steps: common closed and plain; rare silver straps and a blue gem; super rare adds a violet gem in
 the clasp; mythic rose gold; legendary gold; rainbow iridescent."""
 import math
@@ -27,6 +29,9 @@ CLOTH = C.paint('#f9eedb', light='#fff9ee', shadow='#e6d0ac', ink='#7a5a3a', rim
 
 BW, BD, BH = 1.2, 1.04, 0.74
 LW, LD, LH = 1.26, 1.1, 0.3
+WALL = 0.05            # the rim you see round the opening, inside the rounded edge
+LID_ANGLE = 15.0       # the lid stands open about 15 degrees, its back edge resting on the back rim
+SINK = 0.07            # the lining sits this far below the rim, so a thin inner wall shows above it
 
 
 def build(row):
@@ -34,6 +39,8 @@ def build(row):
     body_p, strap_p, gem_p = BODY[tier], STRAP[tier], GEM[tier]
     opened = tier != 'common'
     body = P.rbox(BW, BD, BH, r=0.1, seg=4, name='body')
+    if opened:         # a real opening: the top is a rim round a cavity with flat inner walls
+        P.hollow_top(body, WALL, 0.34)
     P.xf(body, loc=(0, 0, BH / 2))
     P.paint(body, body_p, line=2.6)
     lid = P.rbox(LW, LD, LH, r=0.11, seg=4, name='lid')
@@ -55,15 +62,21 @@ def build(row):
         cg = P.cabochon(0.085, 0.05)
         P.xf(cg, rot=(90, 0, 0), loc=(0, -LD - 0.035, 0.04))
         lid_parts.append(P.paint(cg, gem_p, line=1.1))
-    # propped open (approved): the lid tilts up about 22 degrees, so the cream lining reads as the inside
-    ang = -22 if opened else 0
+    # propped open (approved): the lid tilts up about 15 degrees on its hinge at the back rim
+    ang = -LID_ANGLE if opened else 0
+    hz = BH - 0.01 - (0.03 if opened else 0.0)      # opened: the lid's back edge sinks a hair into the back rim
     for o in lid_parts:
-        P.xf(o, rot=(ang, 0, 0), loc=(0, BD / 2 - 0.02, BH - 0.01))
+        P.xf(o, rot=(ang, 0, 0), loc=(0, BD / 2 - 0.02, hz))
     if opened:
-        # the lining fills the box and puffs a little above its rim, inside the walls (no cloth outside)
-        cloth = P.rbox(BW - 0.16, BD - 0.16, 0.26, r=0.11, seg=4, name='cloth')
-        P.xf(cloth, loc=(0, 0.0, BH - 0.06))
-        P.paint(cloth, CLOTH, line=1.6)
+        # hinge knuckles where the lid meets the back rim, in the strap metal
+        for sx in (-0.34, 0.34):
+            k = P.tube([(sx - 0.1, BD / 2 + 0.01, BH + 0.01), (sx + 0.1, BD / 2 + 0.01, BH + 0.01)], 0.055, 14, name='hinge')
+            P.paint(k, strap_p, line=1.6)
+        # the lining: a soft cushion inside the walls, its top sunk below the rim
+        iw, idp = BW - 0.2 - 2 * WALL, BD - 0.2 - 2 * WALL
+        cloth = P.rbox(iw - 0.02, idp - 0.02, 0.3, r=0.1, seg=4, name='cloth')
+        P.xf(cloth, loc=(0, 0.0, BH - SINK - 0.15))
+        P.paint(cloth, CLOTH, line=1.4)
     # gear emblem on the front
     ez = BH * 0.42
     g = P.slab(P.gear2(0.22, 8, 0.22), 0.045, 0.016, 2, 'emblem')
@@ -81,5 +94,5 @@ def build(row):
         # on the lit edge: the lid's top front corner at the upper left
         a = math.radians(ang)
         y, z = -LD + 0.1, LH + 0.01
-        P.glint((-LW / 2 + 0.16, y * math.cos(a) - z * math.sin(a) + BD / 2 - 0.02, y * math.sin(a) + z * math.cos(a) + BH - 0.01), 12)
+        P.glint((-LW / 2 + 0.16, y * math.cos(a) - z * math.sin(a) + BD / 2 - 0.02, y * math.sin(a) + z * math.cos(a) + hz), 12)
     return dict(kind='standing', yaw=32.0, elev=22.0)
