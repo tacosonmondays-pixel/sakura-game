@@ -11,8 +11,11 @@ export const BUFF_ICON = {
   dmg: 'bf_dmg', rate: 'bf_rate', pen: 'bf_pen', crit: 'bf_crit', range: 'bf_range', det: 'bf_det', cost: 'bf_cost', cleanse: 'bf_cleanse',
 };
 
-/** Badge sprite of a limited / special source kind (top-right of the icon). */
-export const BUFF_BADGE = { brew: 'bfb_brew', link: 'bfb_link', overclock: 'bfb_oc', ult: 'bfb_ult', map: 'bfb_map' };
+/** Badge sprite of a limited / special source kind (top-right of the icon). An ability's rally (a timed team buff, like
+ * the hero ult's) wears the ult's crown. */
+export const BUFF_BADGE = { brew: 'bfb_brew', link: 'bfb_link', overclock: 'bfb_oc', ult: 'bfb_ult', map: 'bfb_map', rally: 'bfb_ult' };
+/** Timed or map-wide sources that are neither an aura nor a limited buff (src/sim/buffs.js buffSources kinds). */
+const SPECIAL_KINDS = new Set(['ult', 'map', 'rally']);
 
 /** What each key means, for the panel ("+43 % damage"). */
 export const BUFF_LABEL = {
@@ -84,8 +87,9 @@ export function iconRow(rows, defOf = () => null) {
     if (!mine.length) continue;
     const lim = mine.find((r) => LIMITED_KINDS.has(r.kind));
     const aura = mine.find((r) => r.kind === 'aura');
-    const special = mine.find((r) => r.kind === 'ult' || r.kind === 'map');
-    const main = lim || aura || special;
+    const special = mine.find((r) => SPECIAL_KINDS.has(r.kind));
+    // (any other kind a later sim adds still draws, in its source girl's tint)
+    const main = lim || aura || special || mine[0];
     const tintFor = (r) => (r.kind === 'map' ? MAP_TINT : tintOf(r.unitId, r.unitId ? defOf(r.unitId) : null));
     const other = lim ? aura || special : aura && special ? special : null;
     out.push({
@@ -134,6 +138,7 @@ export function kindLabel(kind, left = null) {
     case 'link': return 'tune-up link';
     case 'overclock': return `overclock${s}`;
     case 'ult': return `ultimate${s}`;
+    case 'rally': return `ability${s}`;
     case 'map': return 'map rule';
     default: return 'aura';
   }
@@ -153,7 +158,7 @@ export function buffedByRows(rows) {
     g.keys.push(r.key);
     g.texts.push(buffText(r.key, r.value));
   }
-  const rank = (g) => (g.limited ? 0 : g.kind === 'aura' ? 1 : g.kind === 'ult' ? 2 : 3);
+  const rank = (g) => (g.limited ? 0 : g.kind === 'aura' ? 1 : g.kind === 'ult' || g.kind === 'rally' ? 2 : 3);
   return [...by.values()].sort((a, b) => rank(a) - rank(b));
 }
 

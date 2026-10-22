@@ -1,0 +1,112 @@
+// The UI condense DOM probe (docs/specs/UI_DIRECTION.md §8, gate 3), shared by the battle milestones' e2e and
+// e2e/ui-shots.mjs: per screen, the visible numbers, the smallest visible text, truncated text, sideways overflow and
+// the overlaps between named fixed boxes (the ability bar, the hero widget, the wave control, the feed, the panel,
+// the tower bar…).
+//
+//   import { uiProbe, formatProbe } from './lib/uiProbe.mjs';
+//   const p = await uiProbe(page, { boxes: { bar: '[data-testid="ability-bar"]', hero: '[data-testid="hero-widget"]' } });
+//   p.numbers            visible text elements holding a digit (each counted once; canvas text is not in the DOM)
+//   p.numberTexts        their texts (for the notes)
+//   p.smallest           { px, text } the smallest computed font size of any visible text
+//   p.truncated          [{ text, sel }] elements whose text is cut by an ellipsis
+//   p.overflowX          the page scrolls sideways
+//   p.overlaps           [{ a, b, area }] named boxes that overlap by more than 4 px²
+//   p.boxes              { name: [{ x, y, w, h }] } the visible rects of each named box
+/**
+ * @param {import('playwright').Page} page
+ * @param {{ root?: string, boxes?: Record<string, string>, skip?: string }} [o]
+ *   root: where to count numbers and text (default the whole document); skip: a selector whose subtree is ignored
+ */
+export async function uiProbe(page, { root = 'body', boxes = {}, skip = null } = {}) {
+  return page.evaluate(({ root, boxes, skip }) => {
+    const vw = innerWidth;
+    const vh = innerHeight;
+    const visible = (el) => {
+      if (!el || !(el instanceof Element)) return false;
+      if (skip && el.closest(skip)) return false;
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || r.right <= 0 || r.bottom <= 0 || r.left >= vw || r.top >= vh) return false;
+      for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05) return false;
+        if (e.hidden) return false;
+      }
+      return true;
+    };
+    const sel = (el) => {
+      const id = el.getAttribute('data-testid');
+      if (id) return `[data-testid="${id}"]`;
+      return `${el.tagName.toLowerCase()}${[...el.classList].slice(0, 2).map((c) => `.${c}`).join('')}`;
+    };
+    const base = document.querySelector(root) || document.body;
+    const walker = document.createTreeWalker(base, NodeFilter.SHOW_TEXT);
+    const numEls = new Set();
+    const numberTexts = [];
+    let smallest = { px: Infinity, text: '' };
+    const truncated = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const text = n.nodeValue.trim();
+      if (!text) continue;
+      const el = n.parentElement;
+      if (!visible(el)) continue;
+      const px = parseFloat(getComputedStyle(el).fontSize) || 0;
+      if (px > 0 && px < smallest.px) smallest = { px, text: text.slice(0, 40), sel: sel(el) };
+      if (/\d/.test(text) && !numEls.has(el)) {
+        numEls.add(el);
+        numberTexts.push(text.slice(0, 32));
+      }
+    }
+    for (const el of base.querySelectorAll('*')) {
+      if (!visible(el)) continue;
+      const cs = getComputedStyle(el);
+      if (cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) truncated.push({ text: el.textContent.trim().slice(0, 40), sel: sel(el) });
+    }
+    const rects = {};
+    for (const [name, s] of Object.entries(boxes)) {
+      rects[name] = [...document.querySelectorAll(s)].filter(visible).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+      });
+    }
+    const overlaps = [];
+    const names = Object.keys(rects);
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) {
+        for (const a of rects[names[i]]) {
+          for (const b of rects[names[j]]) {
+            const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+            const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+            if (w > 0 && h > 0 && w * h > 4) overlaps.push({ a: names[i], b: names[j], area: w * h });
+          }
+        }
+      }
+    }
+    const se = document.scrollingElement || document.documentElement;
+    return {
+      numbers: numEls.size,
+      numberTexts,
+      smallest: smallest.px === Infinity ? null : smallest,
+      truncated,
+      overflowX: se.scrollWidth > vw + 1,
+      overlaps,
+      boxes: rects,
+    };
+  }, { root, boxes, skip });
+}
+
+/** One line for a log: "numbers 9 · smallest 12px · 0 truncated · no sideways scroll · overlaps none". */
+export function formatProbe(p) {
+  const ov = p.overlaps.length ? p.overlaps.map((o) => `${o.a}×${o.b} ${o.area}px²`).join(', ') : 'none';
+  const tr = p.truncated.length ? ` (${p.truncated.slice(0, 3).map((t) => `${t.sel} "${t.text}"`).join('; ')})` : '';
+  return `numbers ${p.numbers} · smallest ${p.smallest ? `${p.smallest.px}px (${p.smallest.text} ${p.smallest.sel || ''})` : '–'} · ${p.truncated.length} truncated${tr} · ${p.overflowX ? 'SIDEWAYS SCROLL' : 'no sideways scroll'} · overlaps ${ov}`;
+}
+
+/** The battle HUD's fixed boxes (the overlap check of the ability bar milestone). */
+export const BATTLE_BOXES = Object.freeze({
+  bar: '[data-testid="ability-bar"]',
+  hero: '[data-testid="hero-widget"]',
+  wave: '.bt-wavectl',
+  feed: '[data-testid="battle-feed"] .bt-toast',
+  panel: '[data-testid="tower-panel"]',
+  towerbar: '[data-testid="tower-bar"]',
+});

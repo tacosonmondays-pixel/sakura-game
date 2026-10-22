@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { BATTLE } from '../../data/types.js';
+import { ABILITY_COPY } from '../../data/abilityText.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../systems/save.js';
 import { ask } from './stage.js';
@@ -108,6 +109,7 @@ function build(redraw) {
     segmented(['locked', 'free'], s.camera === 'free' ? 'free' : 'locked', (v) => { s.camera = v; save(); redraw(); }, { locked: 'Locked', free: 'Free' }, 'camera')),
     row('Buff icons', 'Small icons over buffed girls; their rim colour shows who gives the buff.',
       segmented(['all', 'selected', 'off'], ['selected', 'off'].includes(s.buffIcons) ? s.buffIcons : 'all', (v) => { s.buffIcons = v; save(); redraw(); }, { all: 'All', selected: 'Selected', off: 'Off' }, 'buffIcons')),
+    row(ABILITY_COPY.autoSetting, ABILITY_COPY.autoHelp, toggle(!!s.autoCastAbilities, (v) => { s.autoCastAbilities = v; save(); }, 'autoCastAbilities')),
   ));
 
   wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes

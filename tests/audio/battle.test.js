@@ -158,3 +158,31 @@ describe('attachBattleAudio (Node, no engine)', () => {
     expect(calls).toEqual(['open']);
   });
 });
+
+describe('ability cues (ABILITIES_SPEC §8.5)', () => {
+  test('a cast maps by kind to an existing sprite; at most two a frame', async () => {
+    const { ABILITY_SFX } = await import('../../src/audio/battle.js');
+    for (const [kind, s] of Object.entries(ABILITY_SFX)) expect(sprite.sounds[s.id], `${kind} → ${s.id}`).toBeTruthy();
+    const evs = ['strike', 'burst', 'rally', 'econ'].map((kind, i) => ({ type: 'ability', kind, towerUid: i, x: 3 }));
+    const out = battleSfx(evs, { mapWidth: 20 });
+    expect(out.length).toBe(2);
+    for (const o of out) expect(Object.values(ABILITY_SFX).map((s) => s.id)).toContain(o.id);
+    expect(battleSfx([{ type: 'ability', kind: 'move' }], {})).toEqual([]);
+  });
+
+  test('the ready chime: your own only, at most one per 1.5 s', async () => {
+    const { ABILITY_READY_MS, resetAbilityReadyThrottle } = await import('../../src/audio/battle.js');
+    resetAbilityReadyThrottle();
+    let t = 1000;
+    const info = { now: () => t, isMine: (ev) => ev.towerUid !== 9 };
+    const ready = (towerUid) => battleSfx([{ type: 'abilityReady', towerUid, id: 'x' }], info);
+    expect(ready(9)).toEqual([]); // the ally's
+    const first = ready(1);
+    expect(first.length).toBe(1);
+    expect(sprite.sounds[first[0].id]).toBeTruthy();
+    t += ABILITY_READY_MS - 1;
+    expect(ready(2)).toEqual([]);
+    t += 1;
+    expect(ready(2).length).toBe(1);
+  });
+});

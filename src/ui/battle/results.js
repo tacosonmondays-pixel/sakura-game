@@ -19,6 +19,7 @@ import { getUnit } from '../../data/units.js';
 import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/types.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
+import { abilityResultLine } from './abilityBar.js';
 import { fellTo } from './freeplay.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { FREEPLAY_REWARDS, freeplayTomeLine } from '../../online/coop/rewards.js';
@@ -248,7 +249,10 @@ export function createResults(ctx) {
     const mine = sim.hero;
     const hr = mine ? r.heroes?.[mine.heroIndex] : null;
     const heroLine = hr ? h('p.bt-sum-hero', { 'data-testid': 'result-hero' }, `${mine.def.name} reached Lv ${hr.level}${hr.levelsBought ? ` (${hr.levelsBought} level${hr.levelsBought === 1 ? '' : 's'} bought)` : ''}`) : null;
-    return h('div.bt-summary-wrap', h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v)))), heroLine);
+    // abilities (hidden when none was used: P7): the total and the girls who cast the most
+    const ab = abilityResultLine(r.stats, (uid) => sim.data.unit(sim.stats.towerUnits?.[uid])?.name);
+    const abLine = ab ? h('p.bt-sum-abil', { 'data-testid': 'result-abilities' }, ab) : null;
+    return h('div.bt-summary-wrap', h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v)))), heroLine, abLine);
   }
 
   function mvp() {
@@ -267,7 +271,8 @@ export function createResults(ctx) {
       } catch {
         art = h('span.bt-mvp-art');
       }
-      return h(`div.bt-mvp-row${i === 0 ? '.top' : ''}`, art, h('div.bt-mvp-info', h('b', `${i === 0 ? 'MVP · ' : ''}${row.name}`), h('span.bt-mvp-bar', h('span', { style: { width: `${Math.round(row.share * 100)}%` } })), h('small', `${fmtCoins(row.damage)} dmg · ${Math.round(row.share * 100)}%`)));
+      const casts = sim.stats?.abilityByTower?.[row.uid] || 0;
+      return h(`div.bt-mvp-row${i === 0 ? '.top' : ''}`, art, h('div.bt-mvp-info', h('b', `${i === 0 ? 'MVP · ' : ''}${row.name}`), h('span.bt-mvp-bar', h('span', { style: { width: `${Math.round(row.share * 100)}%` } })), h('small', `${fmtCoins(row.damage)} dmg · ${Math.round(row.share * 100)}%${casts ? ` · ⚡ ${casts}` : ''}`)));
     }));
   }
 

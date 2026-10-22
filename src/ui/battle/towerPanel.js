@@ -20,9 +20,11 @@ import { roundCost } from '../../sim/Sim.js';
 import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies chips + tree button
 import { tierTags } from '../upgradeTags.js';
 import { HERO_GROWTH } from '../../data/heroTracks.js';
-import { PRICE_TICK, trackLevel, sourceText, rankAt } from './heroLevels.js';
+import { PRICE_TICK, trackLevel, trackDesc, trackSkillLine, sourceText, rankAt } from './heroLevels.js';
 import { aimMode } from '../../sim/towers.js';
 import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS } from './buffs.js';
+import { createAbilityRow, pathAbilityTeaser } from './abilityRow.js';
+import { abilityText } from '../../data/abilityText.js';
 
 /** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
 const CLUB_NAMES = { archery: 'Archery', fencing: 'Fencing', taiko: 'Taiko', pyro: 'Pyrotechnics', tea: 'Tea', bell: 'Bell' };
@@ -62,6 +64,8 @@ export function createTowerPanel(ctx) {
   let trackOpen = false;
   let heroShown = null; // the level status the Level up button shows (a tap buys exactly this)
   const drones = createDronePanel(ctx, { rerender: () => { sig = ''; update(true); } });
+  // her ⚡ ability row (abilityRow.js): built once, re-dressed on a render, its seconds painted every frame
+  const abRow = createAbilityRow(ctx);
 
   /** Hero part of the signature: level, the price bucket (≤ 2 repaints/s), the reason, the move state. */
   function heroSig(t) {
@@ -91,7 +95,9 @@ export function createTowerPanel(ctx) {
       return `${st.tier}${st.reason || 'ok'}${st.cost}${hold ? `h${hold.uid}:${hold.tiers.join('')}` : ''}`;
     }).join(',');
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? 'A' : ''}`;
+    // (the ability row's state, Auto and live line; its seconds tick in place, so a tap on Buy is never lost to a
+    // re-render once a second)
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${t.ultUnlocked ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? 'A' : ''}|${abRow.sig(t)}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field) */
@@ -157,6 +163,9 @@ export function createTowerPanel(ctx) {
       ctx.tree ? h('button.bt-x.bt-panel-tree', { 'data-testid': 'panel-tree', title: 'Upgrade tree (T)', 'aria-label': 'Upgrade tree', onclick: () => ctx.tree.open({ uid: t.uid }) }, svgEl(TREE_GLYPH, 'bt-ico')) : null,
       h('button.bt-x.bt-panel-close', { 'data-testid': 'panel-close', title: 'Close', onclick: () => ctx.select(null) }, icon('close')),
     );
+
+    // ---- ⚡ ability row (under the header, before Target; a hero's sits in her hero block)
+    const abilityBlock = t.isHero ? null : abRow.update(t);
 
     // ---- hero block
     const heroBlock = t.isHero ? heroSection(t, st) : null;
@@ -363,12 +372,13 @@ export function createTowerPanel(ctx) {
       const affordable = [0, 1, 2].some((p) => !sim.upgradeStatus(t.uid, p).locked);
       const buffs = () => [buffedBy(t), buffing(t, ally)];
       const dv = drones.sections(t, st, { paths, rest, caps, pot: potBlock, aura: keyed.aura?.cloneNode(true) || null, ownCaps: own.length ? h('div.bt-caps', own) : null, buffs }, { mine: !ally, affordable });
-      scroll = h('div.bt-panel-scroll', head, dv.split, allyNote, heroBlock, target, dv.flight, dv.tabs, dv.content);
+      scroll = h('div.bt-panel-scroll', head, dv.split, allyNote, abilityBlock, heroBlock, target, dv.flight, dv.tabs, dv.content);
       toTop = dv.toTop;
     } else {
       scroll = h(
         'div.bt-panel-scroll',
         head,
+        abilityBlock,
         potBlock,
         allyNote,
         heroBlock,
@@ -544,14 +554,17 @@ export function createTowerPanel(ctx) {
     for (let l = t.level + 1; l <= Math.min(max, t.level + 3); l++) {
       const row = trackLevel(def, l);
       if (!row) continue;
-      next.push(h(`div.bt-track-next${l === t.level + 1 ? '.first' : ''}`, h('b', `${l === t.level + 1 ? 'Next' : 'Then'}: Lv ${l}`), ` · ${row.desc}`));
+      next.push(h(`div.bt-track-next${l === t.level + 1 ? '.first' : ''}`, h('b', `${l === t.level + 1 ? 'Next' : 'Then'}: Lv ${l}`), ` · ${trackDesc(def, l)}`));
     }
-    const rows = (def.hero?.levels || []).map((row) => h(
-      `div.bt-track-row${row.level <= t.level ? '.on' : ''}${row.level === t.level + 1 ? '.next' : ''}${rankAt(def, row.level) ? '.rank' : ''}`,
-      { 'data-level': row.level },
-      h('span.bt-track-lv', row.level <= t.level ? `✓ ${row.level}` : String(row.level)),
-      h('span.bt-track-desc', row.desc, h('small', sourceText(def, row.from))),
-    ));
+    const rows = (def.hero?.levels || []).map((row) => {
+      const skill = trackSkillLine(def, row.level);
+      return h(
+        `div.bt-track-row${row.level <= t.level ? '.on' : ''}${row.level === t.level + 1 ? '.next' : ''}${rankAt(def, row.level) ? '.rank' : ''}`,
+        { 'data-level': row.level },
+        h('span.bt-track-lv', row.level <= t.level ? `✓ ${row.level}` : String(row.level)),
+        h('span.bt-track-desc', row.desc, skill ? h('b.bt-track-skill', ` ${skill}`) : null, h('small', sourceText(def, row.from))),
+      );
+    });
     const track = trackOpen ? h('div.bt-track', { 'data-testid': 'hero-track' }, rows) : null;
     const toggle = h('button.bt-track-toggle', { 'data-testid': 'hero-track-toggle', onclick: () => { trackOpen = !trackOpen; sig = ''; update(true); } }, trackOpen ? 'Full track ▴' : 'Full track ▾');
     const ult = def.hero?.ult;
@@ -565,6 +578,8 @@ export function createTowerPanel(ctx) {
       toggle,
       track,
       ult ? h('div.bt-ult-row', h('div.bt-ult-info', h('b', `${ult.name} · Rank ${rank}`), h('div.bt-ult-desc', ult.desc, nextRank ? h('small', ` (rank ${(ult.ranks.indexOf(nextRank)) + 2} at Lv ${nextRank.level})`) : null)), ultBtn) : null,
+      // her Lv 7 skill (the ability row: locked "LV 7", then FIRE / seconds / WAVE and Auto)
+      def.hero?.skill ? abRow.update(t) : null,
     );
   }
 
@@ -603,11 +618,17 @@ export function createTowerPanel(ctx) {
       { title: k === held ? heldPipTitle(tier.name, t.def.name) : `T${k + 1} ${tier.name}` },
     )));
     let body;
+    // the ⚡ path: a bolt chip on its header; its tier-3 row teaches the ability, its tier-5 row the upgrade
+    const abil = p.ability ? abilityText(p.ability.id) : null;
+    const later = abil ? !!sim.abilityStatus(t.uid)?.later : false;
+    const teaser = abil && cur < p.tiers.length ? pathAbilityTeaser(t.def, i, cur + 1, { later }) : null;
     if (st.reason === 'max' || !st.next) {
       body = h('div.bt-path-max', h('b', 'MAX'), ` ${p.tiers[cur - 1]?.name || ''}`);
     } else {
       const next = st.next;
-      const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })), h('div.bt-path-desc', next.desc));
+      const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })),
+        teaser ? h('div.bt-path-abil', { 'data-testid': `path-abil-${i}` }, teaser) : null,
+        h('div.bt-path-desc', next.desc));
       let action;
       if (st.reason === 'crosspath') {
         action = h('div.bt-lock', icon('lock', 'bt-ico-sm'), crosspathReason(t.tiers, i, names));
@@ -647,7 +668,9 @@ export function createTowerPanel(ctx) {
     const row = h(
       `div.bt-path${st.reason === 'crosspath' || st.reason === 'onePerPath' ? '.locked' : ''}${cur >= 3 ? '.main' : ''}`,
       { 'data-path': i },
-      h('div.bt-path-head', h('span.bt-path-name', p.name), h('span.bt-path-focus', p.focus || ''), pips),
+      h('div.bt-path-head', h('span.bt-path-name', p.name),
+        abil ? h('span.bt-path-bolt', { 'data-testid': `path-bolt-${i}`, title: later ? `⚡ ${abil.name} — comes in a later update` : `⚡ ${abil.name} at tier ${p.ability.unlockTier ?? 3}`, 'aria-label': `Ability path: ${abil.name}` }, '⚡') : null,
+        h('span.bt-path-focus', p.focus || ''), pips),
       body,
     );
     ctx.tree?.decoratePathRow?.(row, t.uid, i); // [unit-info] "Upgrade in panel ›" flash
@@ -676,6 +699,7 @@ export function createTowerPanel(ctx) {
 
   function updateLive(t, st = null) {
     if (!live) return;
+    abRow.update(t); // the button's seconds / ACTIVE countdown, in place
     live.kills.textContent = fmtCoins(t.kills || 0);
     live.dmg.textContent = fmtCoins(t.damageDealt || 0);
     drones.updateLive();

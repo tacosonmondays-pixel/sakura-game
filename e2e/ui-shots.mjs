@@ -5,12 +5,15 @@
 //
 //   node e2e/ui-shots.mjs --out /tmp/ui-before            # PNGs named <screen>-<W>x<H>.png
 //   node e2e/ui-shots.mjs --out /tmp/ui-after --viewport 844x390
+//   node e2e/ui-shots.mjs --out <dir> --scenes m1-bar-idle,m1-cast-fx   # only these scenes (the battle milestones'
+//                                                                        # staged scenes: e2e/lib/abilityScenes.mjs)
 //
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a shot fails.
 import { createServer } from 'vite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
+import { runM1Scenes, M1_SCENES } from './lib/abilityScenes.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -20,6 +23,11 @@ const opt = (name, def) => {
 const out = opt('out', 'ui-shots');
 const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
 mkdirSync(out, { recursive: true });
+/** --scenes a,b: only these (the screens below by name, or the m1-… battle scenes); none = the screens below. */
+const SCENES = opt('scenes', null) ? opt('scenes').split(',').map((s) => s.trim()).filter(Boolean) : null;
+const wantScreen = (name) => !SCENES || SCENES.includes(name);
+const m1Wanted = SCENES ? SCENES.filter((s) => M1_SCENES.includes(s)) : [];
+const probeLog = {};
 
 const GIRLS = ['hikari', 'aoi', 'rei', 'luna', 'nami', 'yuki', 'momo', 'akane', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'raika', 'miko', 'hotaru', 'kaede', 'chika'];
 const SQUAD = ['aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'kage', 'chika'];
@@ -77,6 +85,19 @@ for (const vp of viewports) {
   const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce', deviceScaleFactor: 1 });
   page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`));
   console.log(`viewport ${vp}`);
+  if (m1Wanted.length) {
+    try {
+      probeLog[vp] = await runM1Scenes(page, { base, vp, want: m1Wanted, shot: (name) => shot(page, name, vp) });
+    } catch (e) {
+      failed++;
+      console.log(`  FAILED (m1 scenes): ${e.stack || e.message}`);
+    }
+  }
+  const screens = ['lobby', 'girl-info', 'backpack-equipment', 'stage-prep', 'achievements', 'battle-drawer'];
+  if (!screens.some(wantScreen)) {
+    await page.close();
+    continue;
+  }
   try {
     await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
     await page.evaluate(() => localStorage.clear());
@@ -87,16 +108,27 @@ for (const vp of viewports) {
     await seed(page);
     const screen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 
-    await go(page, '#/lobby', screen('lobby'));
-    await shot(page, 'lobby', vp);
-    await go(page, '#/student/aoi?tab=info', screen('student'));
-    await shot(page, 'girl-info', vp);
-    await go(page, '#/backpack?tab=equipment', screen('backpack'));
-    await shot(page, 'backpack-equipment', vp);
-    await go(page, '#/stage/2-3', screen('stage'));
-    await shot(page, 'stage-prep', vp);
-    await go(page, '#/commissions?tab=achievements', screen('commissions'));
-    await shot(page, 'achievements', vp);
+    if (wantScreen('lobby')) {
+      await go(page, '#/lobby', screen('lobby'));
+      await shot(page, 'lobby', vp);
+    }
+    if (wantScreen('girl-info')) {
+      await go(page, '#/student/aoi?tab=info', screen('student'));
+      await shot(page, 'girl-info', vp);
+    }
+    if (wantScreen('backpack-equipment')) {
+      await go(page, '#/backpack?tab=equipment', screen('backpack'));
+      await shot(page, 'backpack-equipment', vp);
+    }
+    if (wantScreen('stage-prep')) {
+      await go(page, '#/stage/2-3', screen('stage'));
+      await shot(page, 'stage-prep', vp);
+    }
+    if (wantScreen('achievements')) {
+      await go(page, '#/commissions?tab=achievements', screen('commissions'));
+      await shot(page, 'achievements', vp);
+    }
+    if (!wantScreen('battle-drawer')) throw Object.assign(new Error('done'), { done: true });
 
     await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
     await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.select, null, { timeout: 60000 });
@@ -120,12 +152,15 @@ for (const vp of viewports) {
     await settle(page, 1200);
     await shot(page, 'battle-drawer', vp);
   } catch (e) {
-    failed++;
-    console.log(`  FAILED: ${e.message}`);
+    if (!e.done) {
+      failed++;
+      console.log(`  FAILED: ${e.message}`);
+    }
   }
   await page.close();
 }
 
 await browser.close();
 await server.close();
+if (opt('probes')) writeFileSync(opt('probes'), JSON.stringify(probeLog, null, 2));
 process.exit(failed ? 1 : 0);

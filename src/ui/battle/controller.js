@@ -21,6 +21,8 @@ import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
 import { createHeroWidget, paintUltButton } from './heroWidget.js';
+import { createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, abilityCommandArgs, REFUSED_MS } from './abilityBar.js';
+import { abilityText } from '../../data/abilityText.js';
 import { createHeroLevels, heroWarnText } from './heroLevels.js';
 import { createBossBar } from './bossBar.js';
 import { createFeed } from './feed.js';
@@ -345,12 +347,22 @@ export function mountBattle(root, params, hooks) {
     ctx.startHeroMove = () => placement.startMove();
     const heroW = createHeroWidget(ctx);
     layer.append(heroW.el);
+    // the ability bar (bottom right; src/ui/battle/abilityBar.js): co-op casts wait in abilityPending until their
+    // command comes back; a tap refused with nothing in reach dims its slot for a moment (abilityRefused)
+    ctx.abilityPending = new Map();
+    ctx.abilityRefused = new Map();
+    const abilityNotes = createAbilityNotes();
+    // (a Continue already has its unlocked abilities: no "learned" toast for those)
+    abilityNotes.seed(sim.towers.filter((t) => t.abil).map((t) => t.abil.id));
+    const abar = createAbilityBar(ctx);
+    ctx.abilityBar = abar;
     const boss = createBossBar(ctx);
     const wave = createWaveControl(ctx);
     const panel = createTowerPanel(ctx);
+    ctx.panel = panel;
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree, modesUi];
+    const modules = [hud, bar, placement, heroW, abar, boss, wave, panel, pause, results, feed, tree, modesUi];
     ctx.wave = wave;
     let sandbox = null;
     if (req.sandbox) {
@@ -442,6 +454,14 @@ export function mountBattle(root, params, hooks) {
         if (r?.ok) saver?.markProgress();
         return r;
       },
+      // abilities: a cast ({ ok, reason, casterUid }), one girl's Auto switch, the Auto-cast setting for all of mine
+      ability: (uid, { group = false, aim = null } = {}) => {
+        const r = sim.castAbility(uid, { group: !!group, aim: aim || null });
+        if (r?.ok) saver?.markProgress();
+        return r;
+      },
+      abilityAuto: (uid, on) => progress(sim.setAbilityAuto(uid, !!on)?.ok),
+      abilityAutoAll: (on) => progress(sim.setAbilityAutoAll(0, !!on)?.ok),
     };
     ctx.flight = createFlightControl(ctx);
     modules.push(ctx.flight);
@@ -614,6 +634,63 @@ export function mountBattle(root, params, hooks) {
       if (sim.activateUlt()) saver?.markProgress();
     };
     ctx.paintUltButton = (btn, opts) => paintUltButton(btn, sim.heroUltStatus(), opts);
+
+    // ---- abilities (ABILITIES_SPEC §8): cast, refusal toasts, Auto, the hero's Lv 7 skill ----------------
+    const hoverDevice = typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches;
+    /** A refused cast's quiet toast (one per reason at a time); nothing in reach also dims the slot a moment. */
+    ctx.abilityRefusal = (reason, casterUid = null, uid = null) => {
+      const t = sim.getTower(casterUid ?? uid);
+      const st = t ? sim.abilityStatus(t.uid) : null;
+      const name = st ? abilityText(st.id)?.name : null;
+      const unlock = st && !st.unlocked ? (st.unlockLevel ? `hero LV ${st.unlockLevel}` : `tier ${st.unlockTier}`) : null;
+      feed.push(refusalText(reason, { secondsLeft: st?.cooldownLeft, name, unlock }), 'info', { key: `abil-${reason}`, ms: 1400 });
+      if (reason === 'noTarget' && st?.id) ctx.abilityRefused.set(st.id, { reason, until: performance.now() + REFUSED_MS });
+      abar.refresh();
+    };
+    /**
+     * Fires girl `uid`'s ability: { group } = the best ready copy of hers (the bar), { aim } = [x, y] in tiles (an
+     * aimed ability). Solo: at once; co-op: the `abil` command (the slot spins until it comes back). Your own casts
+     * show no toast: the FX speak.
+     */
+    ctx.castAbility = (uid, { group = true, aim = null } = {}) => {
+      if (ctx.ended || !sim.getTower(uid)) return null;
+      const res = ctx.act.ability?.(uid, { group, aim });
+      abar.refresh();
+      if (res === 'queued') return res;
+      if (!res?.ok) {
+        ctx.abilityRefusal(res?.reason, res?.casterUid, uid);
+        return res;
+      }
+      navigator.vibrate?.(10);
+      panel.update();
+      return res;
+    };
+    /** The Auto switch of the girls `uids` (one slot's copies, or one girl's panel row). */
+    ctx.setAbilityAuto = (uids, on) => {
+      for (const uid of uids || []) ctx.act.abilityAuto?.(uid, !!on);
+      abar.refresh();
+      panel.update();
+    };
+    /** Settings → Auto-cast abilities, live (the pause menu): every girl of mine and the ones that unlock later. */
+    ctx.setAutoAbilities = (on) => {
+      store.profile.settings.autoCastAbilities = !!on;
+      store.commit('settings');
+      ctx.act.abilityAutoAll?.(!!on);
+      abar.refresh();
+      panel.update();
+    };
+    /** E / the skill button: the hero's Lv 7 skill. */
+    ctx.fireSkill = () => {
+      const hero = sim.hero;
+      if (!hero || ctx.ended) return;
+      const st = sim.abilityStatus(hero.uid);
+      if (!st) return;
+      if (!st.unlocked) {
+        feed.push(`${abilityText(st.id)?.name || 'Her skill'} unlocks at hero level ${st.unlockLevel ?? 7}.`, 'warn', { key: 'skill-locked', ms: 1600 });
+        return;
+      }
+      ctx.castAbility(hero.uid, { group: false });
+    };
     ctx.bump = () => {
       const c = hud.el.querySelector('.bt-cash');
       if (!c) return;
@@ -680,26 +757,49 @@ export function mountBattle(root, params, hooks) {
     cleanups.push(() => renderer.canvas.removeEventListener('pointermove', onCanvasMove));
     const onKey = (e) => {
       // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
-      if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
-      if (e.key === 'Escape') {
-        if (ctx.picking != null) ctx.cancelPick();
-        else if (ctx.aim.active) ctx.aim.cancel();
-        else if (ctx.flight.active) ctx.flight.cancel();
-        else if (placement.unitId) placement.cancel();
-        else if (ctx.selectedUid != null) ctx.select(null);
-        else if (ctx.paused) ctx.closePause();
-        else ctx.openPause();
-      } else if (e.key === ' ' && !ctx.paused) {
-        e.preventDefault();
-        ctx.startWave();
-      } else if ((e.key === 'f' || e.key === 'F') && !ctx.paused) ctx.cycleSpeed();
-      else if ((e.key === 'q' || e.key === 'Q') && !ctx.paused) ctx.fireUlt();
-      // L buys the level the pill shows (its level and price), so a held key cannot overshoot
-      else if ((e.key === 'l' || e.key === 'L') && !ctx.paused && sim.hero && !e.repeat) ctx.levelUpHero(heroW.shown);
-      else if (/^[1-9]$/.test(e.key) && !ctx.paused) {
-        const ids = [...bar.el.querySelectorAll('.bt-card')].map((c) => c.dataset.unit);
-        const id = ids[Number(e.key) - 1];
-        if (id) ctx.onCardTap(id);
+      const typing = !!e.target?.closest?.('input, select, textarea') || !!document.querySelector('.modal-overlay');
+      const act = battleKeyAction(e, { paused: ctx.paused, typing });
+      if (!act) return;
+      switch (act.do) {
+        case 'escape':
+          if (ctx.picking != null) ctx.cancelPick();
+          else if (ctx.aim.active) ctx.aim.cancel();
+          else if (ctx.flight.active) ctx.flight.cancel();
+          else if (placement.unitId) placement.cancel();
+          else if (ctx.selectedUid != null) ctx.select(null);
+          else if (ctx.paused) ctx.closePause();
+          else ctx.openPause();
+          break;
+        case 'wave':
+          e.preventDefault();
+          ctx.startWave();
+          break;
+        case 'speed':
+          ctx.cycleSpeed();
+          break;
+        case 'ult':
+          ctx.fireUlt();
+          break;
+        case 'level':
+          // L buys the level the pill shows (its level and price), so a held key cannot overshoot
+          if (sim.hero) ctx.levelUpHero(heroW.shown);
+          break;
+        case 'skill':
+          ctx.fireSkill();
+          break;
+        case 'ability':
+          // 1–9: ability slots (a key is deliberate: it fires even while a card is armed)
+          abar.fireSlot(act.slot, { key: true });
+          break;
+        case 'card': {
+          // Shift+1–9: arm tower-bar cards (they used to be 1–9)
+          const ids = [...bar.el.querySelectorAll('.bt-card')].map((c) => c.dataset.unit);
+          const id = ids[act.index];
+          if (id) ctx.onCardTap(id);
+          break;
+        }
+        default:
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
@@ -773,10 +873,29 @@ export function mountBattle(root, params, hooks) {
 
     function handle(events) {
       heroLevels.handle(events);
+      abar.handle(events);
       for (const ev of events) {
         fpBattle?.handle(ev);
         ctx.modes?.handle(ev);
         switch (ev.type) {
+          case 'abilityUnlock': {
+            // the first time each ability unlocks in this battle: say how to fire it (your own girls only)
+            const t = sim.getTower(ev.towerUid);
+            if (!t || (ctx.coop && !ctx.coop.isMine(t.uid)) || !abilityNotes.firstUnlock(ev.id)) break;
+            const name = abilityText(ev.id)?.name || 'a new ability';
+            const slot = t.isHero ? -1 : sim.abilitySlots(ctx.coop ? ctx.coop.mySlot : 0).findIndex((s) => s.id === ev.id);
+            const key = slot >= 0 && slot < 9 ? String(slot + 1) : null;
+            feed.push(unlockText(t.def.name, name, { hover: hoverDevice, key, hero: !!t.isHero }), 'good', { key: `abil-unlock-${ev.id}`, ms: 3800 });
+            break;
+          }
+          case 'ability': {
+            // co-op: the ally's cast is a small chip (at most one per 3 s); your own casts: no toast
+            if (!ctx.coop) break;
+            const t = sim.getTower(ev.towerUid);
+            if (!t || ctx.coop.isMine(t.uid) || !abilityNotes.allyChip()) break;
+            feed.push(allyChipText(ctx.coop.ownerName(t.uid), t.def.name, abilityText(ev.id)?.name || 'her ability'), 'info', { key: 'ally-abil', ms: 1600 });
+            break;
+          }
           case 'leak': {
             const name = enemyDef(ev.id)?.name || ev.id;
             feed.push(`${name} slipped through`, 'bad', { key: `leak-${ev.id}`, merge: true, ms: 2600 });
@@ -965,6 +1084,9 @@ export function mountBattle(root, params, hooks) {
       bar.update();
       panel.update();
       heroW.update();
+      // a card armed or dragged: the ability bar fades and ignores taps (battle.css .bt-placing)
+      shell.classList.toggle('bt-placing', !!placement.unitId);
+      abar.update();
       boss.update(dt);
       wave.update();
       sandbox?.update();
@@ -1244,6 +1366,34 @@ export function mountBattle(root, params, hooks) {
         ls.queue('pick', [uid, target]);
         return 'queued';
       },
+      /**
+       * A cast: the `abil` command (ABILITIES_SPEC §7.2–§7.3). The sim decides at the command's tick (a late one is
+       * refused, never spent twice); this view only skips the round trip when nothing of hers could fire, and never
+       * sends a second `abil` for an ability still waiting for its first.
+       */
+      ability(uid, { group = false, aim = null } = {}) {
+        if (ls.job) return { ok: false, reason: 'busy' };
+        if (ls.coop.ownerOf(uid) !== ls.mySlot) return { ok: false, reason: 'notYours' };
+        const id = sim.getTower(uid)?.abil?.id;
+        if (!id) return { ok: false, reason: 'locked', casterUid: uid };
+        if (ctx.abilityPending.has(id)) return 'queued';
+        const st = sim.abilityStatus(uid);
+        const anyReady = st?.ready || (group && sim.towers.some((o) => o.abil?.id === id && ls.coop.ownerOf(o.uid) === ls.mySlot && sim.abilityStatus(o.uid)?.ready));
+        if (!anyReady) return { ok: false, reason: st?.reason || 'locked', casterUid: uid };
+        ls.queue('abil', abilityCommandArgs(uid, { group, aim }));
+        ctx.abilityPending.set(id, { uid, at: performance.now() });
+        return 'queued';
+      },
+      abilityAuto(uid, on) {
+        if (ls.job || ls.coop.ownerOf(uid) !== ls.mySlot) return false;
+        ls.queue('acast', [uid, on ? 1 : 0]);
+        return true;
+      },
+      abilityAutoAll(on) {
+        if (ls.job) return false;
+        ls.queue('acast', [0, on ? 1 : 0]);
+        return true;
+      },
     };
   }
 
@@ -1273,6 +1423,14 @@ export function mountBattle(root, params, hooks) {
       else if (src && tgt) ctx.feed.push(pickText(src, tgt), 'good', { key: 'pick-ok', ms: 1800 });
     } else if (cmd.k === 'speed' && res.ok && !minePlayer) {
       ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
+    } else if (cmd.k === 'abil' && minePlayer) {
+      // my cast ran on every client: the slot stops waiting; a refusal says why (the same everywhere)
+      for (const [id, p] of ctx.abilityPending || []) if (p.uid === cmd.a[0]) ctx.abilityPending.delete(id);
+      if (!res.ok) ctx.abilityRefusal?.(res.reason, res.casterUid, cmd.a[0]);
+      else navigator.vibrate?.(10);
+      ctx.abilityBar?.refresh();
+    } else if (cmd.k === 'acast' && minePlayer && !res.ok) {
+      ctx.feed.push(refusalText(res.reason), 'info', { key: 'acast-refused', ms: 1400 });
     }
   }
 

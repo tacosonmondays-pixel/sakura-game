@@ -11,7 +11,7 @@ import {
   abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel,
 } from '../../src/data/abilities.js';
 import {
-  ABILITY_TEXT, ABILITY_COPY, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
+  ABILITY_TEXT, ABILITY_COPY, ABILITY_AIMS, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
 } from '../../src/data/abilityText.js';
 import { UNITS as ALL_UNITS, UNIT_MAP, towers as allTowers, heroes as allHeroes } from '../../src/data/units.js';
 import { POTENTIAL_GIRLS } from '../../src/data/potential.js';
@@ -604,7 +604,9 @@ describe('text (src/data/abilityText.js, UI only)', () => {
     expect(Object.keys(ABILITY_TEXT).sort()).toEqual([...ids].sort());
     for (const id of ids) {
       const t = abilityText(id);
-      expect(Object.keys(t).sort(), id).toEqual(['desc', 'icon', 'name', 'short', 'up']);
+      // `aim` (UI only: how a tap aims it) is optional and names a known kind
+      expect(Object.keys(t).filter((k) => k !== 'aim').sort(), id).toEqual(['desc', 'icon', 'name', 'short', 'up']);
+      if ('aim' in t) expect(ABILITY_AIMS, `${id} aim`).toContain(t.aim);
       expect(t.name.length).toBeGreaterThan(3);
       expect(t.short.length).toBeGreaterThan(10);
       expect(/[{}]/.test(t.short), `${id} short is plain text`).toBe(false);

@@ -10,6 +10,7 @@ import { withDetMath } from '../../src/online/coop/detMath.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { abilityPathOf, abilityReach, abilityDef } from '../../src/sim/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
+import { abilityCommandArgs } from '../../src/ui/battle/abilityBar.js';
 
 const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
   seed,
@@ -303,6 +304,36 @@ describe('the girl-target rule in co-op (an ability on one girl: spec §7.2)', (
     for (const c of cs) expect(c.sim._rallies.map((x) => x.to)).toEqual(top ? [top.uid] : []);
     expect(cs[0].hash()).toBe(cs[1].hash());
   });
+});
+
+describe('the ability bar\'s commands (abilityCommandArgs) on two views', () => {
+  it('Aoi\'s Skyfall (a group tap), Wakaba\'s Time Out! aimed at the partner\'s girl, Yuzuha\'s sentries at a point: equal hashes', () => {
+    const st = start({ p0: { loadout: [{ unitId: 'aoi' }, { unitId: 'wakaba' }, { unitId: 'yuzuha' }] }, p1: { loadout: [{ unitId: 'rei' }, { unitId: 'aoi' }] } });
+    const cs = views(st);
+    const aoi = upAbil(cs, 0, place(cs, 0, 'aoi'));
+    const wak = upAbil(cs, 0, placeNear(cs, 0, 'wakaba', aoi));
+    const rei = placeNear(cs, 1, 'rei', wak);
+    const yuz = upAbil(cs, 0, place(cs, 0, 'yuzuha', 4));
+    all(cs, cmd(0, 'auto', [true]));
+    all(cs, cmd(0, 'wave'));
+    expect(castWhenReady(cs, 0, aoi, abilityCommandArgs(aoi, { group: true }))).toEqual({ ok: true, casterUid: aoi });
+    expect(cs[0].hash()).toBe(cs[1].hash());
+    // the UI aims Time Out! by the tapped girl's spot: the partner's Rei gets it on both views
+    const r = tower(cs[0], rei);
+    expect(castWhenReady(cs, 0, wak, abilityCommandArgs(wak, { aim: [r.x, r.y] }))).toEqual({ ok: true, casterUid: wak });
+    for (const c of cs) expect(c.sim._rallies.filter((x) => x.src === wak).map((x) => x.to)).toEqual([rei]);
+    expect(cs[0].hash()).toBe(cs[1].hash());
+    // Emergency Deploy at a tapped point beside her
+    const y = tower(cs[0], yuz);
+    expect(castWhenReady(cs, 0, yuz, abilityCommandArgs(yuz, { aim: [y.x + 0.6, y.y + 0.3] }))).toEqual({ ok: true, casterUid: yuz });
+    expect(cs[0].hash()).toBe(cs[1].hash());
+    for (let i = 0; i < 900; i++) {
+      step(cs);
+      if (i % 90 === 0) expect(cs[0].hash(), `tick +${i}`).toBe(cs[1].hash());
+    }
+    expect(cs[0].hash()).toBe(cs[1].hash());
+    expect(cs[0].wallets).toEqual(cs[1].wallets);
+  }, 120000);
 });
 
 describe('owner-credited coins (spec §7.1, §7.4)', () => {

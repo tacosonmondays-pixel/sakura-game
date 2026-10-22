@@ -9,6 +9,8 @@ import { fmtCoins } from './util.js';
 import { quantize } from '../../online/coop/commands.js';
 import { BATTLE } from '../../data/types.js';
 import { HERO_LEVEL_PRICES } from '../../data/heroTracks.js';
+import { abilityText, abilityUnlockLine, abilityUpgradeLine, abilityValues } from '../../data/abilityText.js';
+import { skillAtLevel } from '../../data/abilities.js';
 
 /** The widget and panel re-read the price at most this often (seconds): passive XP moves it every frame. */
 export const PRICE_TICK = 0.5;
@@ -17,6 +19,40 @@ const ALLY_CHIP_MS = 3000;
 /** Track row for a level: { level, from, desc, mods } or null. */
 export function trackLevel(def, level) {
   return def?.hero?.levels?.find((l) => l.level === level) || null;
+}
+
+/** What her Lv 7 skill does at a level (UI only): { kind: 'unlock' | 'rank', skill } or null. */
+export function skillAt(def, level) {
+  const s = def?.hero?.skill;
+  if (!s) return null;
+  if (level === (s.unlockLevel ?? 7)) return { kind: 'unlock', skill: s };
+  return (s.ranks || []).some((r) => r.level === level) ? { kind: 'rank', skill: s } : null;
+}
+
+/**
+ * A track level's words with her skill added (ABILITIES_SPEC §5.1 heroes; UI only, no ModSet): "Wider Sweep: +1 target
+ * per sweep, +0.2 range … and unlocks ⚡ Morning Rally" at Lv 7, "… and ⚡ Morning Rally ranks up" at Lv 17.
+ */
+export function trackDesc(def, level) {
+  const row = trackLevel(def, level);
+  if (!row) return '';
+  const k = skillAt(def, level);
+  if (!k) return row.desc;
+  const name = abilityText(k.skill.id)?.name || k.skill.id;
+  const base = row.desc.replace(/[.\s]+$/, '');
+  return k.kind === 'unlock' ? `${base} … and unlocks ⚡ ${name}` : `${base} … and ⚡ ${name} ranks up`;
+}
+
+/** The skill's long line for the full track (Details): the unlock sentence, or the rank's numbers. */
+export function trackSkillLine(def, level) {
+  const k = skillAt(def, level);
+  if (!k) return '';
+  if (k.kind === 'unlock') return abilityUnlockLine(k.skill.id);
+  try {
+    return abilityUpgradeLine(k.skill.id, abilityValues(skillAtLevel(k.skill, level), def.base || null));
+  } catch {
+    return '';
+  }
 }
 
 /** "Radiant Edge T3" / "old Lv 5" for a level's `from` (the panel's small source line). */
@@ -191,7 +227,7 @@ export function createHeroLevels(ctx, ls) {
     if (isCapstone(def, level)) ctx.feed.announce(`LV ${level} · ${(row?.desc.split(':')[0] || '').toUpperCase()}`, def.name, 'good', 2000);
     const rank = rankAt(def, level);
     if (rank) ctx.feed.announce(`${ult?.name || 'Ultimate'} rank ${rank}!`, `${def.name} Lv ${level}`, 'good', 1800);
-    const text = row ? `${def.name} Lv ${level} · ${row.desc}` : `${def.name} reached Lv ${level}`;
+    const text = row ? `${def.name} Lv ${level} · ${trackDesc(def, level)}` : `${def.name} reached Lv ${level}`;
     ctx.feed.push(text, 'good', { key: `lvl-${t.uid}-${level}`, ms: 2600 });
   }
 

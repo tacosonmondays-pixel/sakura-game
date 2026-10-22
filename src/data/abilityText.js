@@ -4,10 +4,16 @@
 //   desc   the hold card / student page description; {placeholders} come from abilityValues()
 //   short  one plain phrase for the ⚡ tier-3 row and a hero's Lv 7 line ("unlocks Skyfall Volley: …")
 //   up     the tier-5 row / a hero's Lv 17 line, filled from the upgraded definition
+//   aim    (optional) how a tap aims it in battle (src/ui/battle/aimControl.js 'ability' mode): 'girl' = the
+//          next board tap picks a girl (the sim's girl-target rule), 'point' = a point on the map. Rows without
+//          it cast at once. Only abilities whose cast reads an aim carry it; auto-cast never aims.
 // UI-only: never imported by the sim, so it is outside the co-op graph and the data hash (a wording
 // fix never changes the co-op id), like potentialText.js. The numbers live in src/data/abilities.js.
 
-const t = (name, icon, desc, short, up) => Object.freeze({ name, icon, desc, short, up });
+const t = (name, icon, desc, short, up, aim = null) => Object.freeze(aim ? { name, icon, desc, short, up, aim } : { name, icon, desc, short, up });
+
+/** The aim kinds a text row may name. */
+export const ABILITY_AIMS = Object.freeze(['girl', 'point']);
 
 export const ABILITY_TEXT = Object.freeze({
   // heroes (Lv 7 skill, rank 2 at Lv 17)
@@ -106,11 +112,11 @@ export const ABILITY_TEXT = Object.freeze({
   'wakaba.timeOut': t('Time Out!', 'buff',
     'One girl gets {rateMul}× attack speed and +{rangeMulPct}% range for {dur}s: the one you aim at, or the girl in her range who has dealt the most damage. A partner\'s girl may be chosen.',
     'a big, short power-up on one girl you pick',
-    'Time Out! also gives +{dmgMulPct}% damage, lasts {dur}s and recharges in {cd}s.'),
+    'Time Out! also gives +{dmgMulPct}% damage, lasts {dur}s and recharges in {cd}s.', 'girl'),
   'yuzuha.emergencyDeploy': t('Emergency Deploy', 'summon',
     '{count} extra sentries drop at the road\'s edge where you aim, or around the lead enemy in her range, with her current sentry stats. They last {dur}s, beyond her sentry limit.',
     'extra sentries at once, where you need them',
-    'Emergency Deploy drops {count} sentries for {dur}s and recharges in {cd}s.'),
+    'Emergency Deploy drops {count} sentries for {dur}s and recharges in {cd}s.', 'point'),
   'ouka.assemblyBell': t('Assembly Bell', 'buff',
     'Every girl on the map, your ally\'s too, attacks +{rateMulPct}% faster and pierces {pierceAdd} more enemy for {dur}s, on top of auras.',
     'a short map-wide team rally',
@@ -135,6 +141,11 @@ export const ABILITY_COPY = Object.freeze({
 /** @returns {object|null} the text row of an ability id */
 export function abilityText(id) {
   return ABILITY_TEXT[id] || null;
+}
+
+/** How a tap aims an ability in battle: 'girl', 'point' or null (casts at once). UI only. */
+export function abilityAim(id) {
+  return ABILITY_TEXT[id]?.aim || null;
 }
 
 const r1 = (x) => Math.round(x * 10) / 10;

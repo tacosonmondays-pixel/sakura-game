@@ -187,9 +187,16 @@ function controls() {
         ['Reset camera (Camera: Free)', 'Double-tap empty ground', 'Double-click empty ground'],
         ['Game speed', '1× / 2× / 3× button', '1× / 2× / 3× button'],
         ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button (or Q)'],
+        ['Hero skill (from Lv 7)', 'Skill button next to the ult', 'Skill button (or E)'],
         ['Hero level up', 'Level up pill next to the hero portrait', 'Level up pill (or L)'],
         ['Move hero', 'Move in her panel', 'Move in her panel'],
+        ['Fire an ability', 'Ability bar button (bottom right)', 'Ability bar button (or 1–9)'],
+        ['Ability info / Auto', 'Hold the ability button', 'Right-click the ability button'],
+        ['Arm a card', 'Tap the card', 'Click the card (or Shift+1–9)'],
+        ['Start the next wave', 'Start button', 'Start button (or Space)'],
       ]),
+      p('Keys 1–9 fire the ability bar\'s buttons in order; Shift+1–9 picks the tower-bar cards (the hero card first). F changes the game speed and Esc opens the menu.'),
+      { type: 'links', ids: ['abilities'] },
       p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
       p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first; "Air" shoots flyers first (then the leader).`)),
     sec('Menus',
@@ -198,6 +205,32 @@ function controls() {
         'Tap any item icon anywhere to see what it does and where to get it — with a Teleport button to the best stage.',
         'In the 3D viewers, drag to rotate, pinch or scroll to zoom, and tap the model to make it act.',
       ])),
+  ]);
+}
+
+/** Abilities (ABILITIES_SPEC §10): the ⚡ path, the bar, charging, Auto, copies, heroes, co-op. */
+function abilitiesArticle() {
+  return article('abilities', 'Abilities', 'basics', 'lightning', 'Every girl learns a ⚡ ability with a short recharge: how to fire it, charge it and let it fire by itself.', ['ability', 'abilities', 'skill', 'auto', 'auto-cast', 'cooldown', 'recharge', 'lightning', 'bar', 'keys'], [
+    sec('The ⚡ path',
+      p('At tier 3 of one of her paths, marked ⚡, a girl learns an ability: a button with a short recharge. Tier 5 of that path makes it stronger and recharge faster. Her page shows it on the Info tab and marks the path on the Tree tab.'),
+      p('Some girls\' abilities come in a later update: their ⚡ path says so, and the path\'s tiers work as usual.')),
+    sec('Using it',
+      list([
+        'Tap her button in the ability bar (bottom right), or press 1–9. Her panel has the same button (FIRE).',
+        'Abilities recharge only while a wave is running, and can be used only during a wave. Effects that last end when the wave is cleared.',
+        'Hold the button (right-click on a computer) to read what it does with her current numbers, and to switch Auto on or off.',
+        'Several copies of the same girl share one button; each tap fires the next copy that is ready. Map-wide abilities (globe badge) recharge once per player.',
+        'A few abilities aim: tap the button, then tap a girl (or a spot on the road). Tap the button again to let her pick.',
+      ])),
+    sec('Auto',
+      p('Settings → Battle → Auto-cast abilities (Off at first) lets every girl fire hers by herself when it is a good moment. You can still tap them, and switch Auto per girl by holding her button. Your own timing is usually better: before a bunched crowd, or a freeze saved for the leak.')),
+    sec('Heroes, bosses and co-op',
+      list([
+        'Heroes unlock their ultimate at Lv 3 and a quick skill at Lv 7 (the skill button by her portrait, or E).',
+        'Bosses and minibosses shrug off ability stuns and freezes for 4 seconds after one lands.',
+        'Co-op: you fire your own girls\' abilities; your rallies also help your ally\'s girls.',
+      ]),
+      { type: 'links', ids: ['controls', 'crosspath'] }),
   ]);
 }
 
@@ -757,7 +790,7 @@ function newGirlsArticle() {
 
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), abilitiesArticle(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

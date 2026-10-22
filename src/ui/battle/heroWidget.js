@@ -1,12 +1,33 @@
 // Hero widget (bottom-left once the hero is deployed): portrait with level + XP bar, the
-// ultimate button with a conic cooldown ring, and the Level up pill (buys the rest of her level
-// at the price it shows; the price is re-read at most twice a second).
+// ultimate button with a conic cooldown ring, her Lv 7 skill button (a 40 px ring, no number:
+// UI_DIRECTION §6.6; E fires it) and the Level up pill (buys the rest of her level at the price
+// it shows; the price is re-read at most twice a second).
 import { h, setVar, fmtTime, fmtCoins } from './util.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { applyUrFrame } from '../rarity.js';
 import { currencyIcon } from '../../art/icons.js';
 import { PRICE_TICK } from './heroLevels.js';
+import { abilityText } from '../../data/abilityText.js';
+import { BOLT_SVG, wholeSeconds, refusalText } from './abilityBar.js';
+
+/**
+ * The skill button's look (pure): { hidden, state, p (the dark part of the ring, 0..1), label, title, aria }.
+ * Locked shows "LV 7"; charging is a ring with no number (its seconds are in the title); ready glows.
+ * @param {object|null} st sim.abilityStatus(hero uid) (null: she has no skill)
+ */
+export function skillButtonView(st) {
+  if (!st) return { hidden: true, state: 'none', p: 1, label: '', title: '', aria: '' };
+  const name = abilityText(st.id)?.name || 'Skill';
+  if (!st.unlocked) {
+    const lv = `LV ${st.unlockLevel ?? 7}`;
+    return { hidden: false, state: 'locked', p: 1, label: lv, title: `${name} unlocks at hero ${lv}`, aria: `${name}, unlocks at ${lv}` };
+  }
+  const state = st.ready ? 'ready' : st.reason === 'cooldown' ? 'charging' : st.reason === 'active' ? 'active' : st.reason === 'notWave' ? 'between' : 'blocked';
+  const p = state === 'ready' ? 0 : Math.max(0, Math.min(1, 1 - (st.charge ?? 0)));
+  const why = state === 'ready' ? 'ready! (E)' : state === 'charging' ? `recharging · ${wholeSeconds(st.cooldownLeft)}` : state === 'between' ? 'charges during waves' : refusalText(st.reason, { secondsLeft: st.cooldownLeft, name }).toLowerCase();
+  return { hidden: false, state, p, label: '', title: `${name} — ${why}`, aria: `${name}, ${why}` };
+}
 
 /**
  * Paints an ult button: conic ring progress (--p 0..1), state classes and label.
@@ -46,6 +67,10 @@ export function createHeroWidget(ctx) {
   );
   applyUrFrame(portrait, def, ctx.profile); // your hero, fully awakened SSR → rainbow ring (display only)
   const ult = h('button.bt-ult', { 'data-testid': 'ult', onclick: () => ctx.fireUlt() });
+  const skillLabel = h('span.bt-skill-label');
+  const skill = h('button.bt-skill', { type: 'button', 'data-testid': 'hero-skill', onclick: () => ctx.fireSkill?.() },
+    h('span.bt-skill-ring', svgEl(BOLT_SVG, 'bt-skill-bolt')), skillLabel);
+  skill.hidden = !def.hero?.skill;
   // what the pill shows right now: a tap buys exactly this (level + price), never a dearer one
   let shown = null;
   const lvupPrice = h('b.bt-herow-lvup-price');
@@ -55,7 +80,21 @@ export function createHeroWidget(ctx) {
     h('small', 'LV UP'),
     h('span.bt-herow-lvup-cost', svgEl(currencyIcon('coins'), 'bt-buy-coin'), lvupPrice),
   );
-  el.append(portrait, ult, lvup);
+  el.append(portrait, ult, skill, lvup);
+  let skillKey = '';
+  function paintSkill(hero) {
+    if (!def.hero?.skill) return;
+    const v = skillButtonView(sim.abilityStatus(hero.uid));
+    const key = `${v.state}|${v.label}|${v.title}|${Math.round(v.p * 200)}`;
+    if (key === skillKey) return;
+    skillKey = key;
+    skill.hidden = v.hidden;
+    skill.className = `bt-skill s-${v.state}`;
+    setVar(skill, '--p', v.p.toFixed(3));
+    skillLabel.textContent = v.label;
+    skill.title = v.title;
+    skill.setAttribute('aria-label', v.aria);
+  }
   const offHold = ctx.tree?.bindHold(portrait, () => (sim.hero ? { uid: sim.hero.uid } : null)); // [unit-info] hold → her tree
 
   let lastLv = -1;
@@ -101,6 +140,7 @@ export function createHeroWidget(ctx) {
       xpFill.style.width = `${(frac * 100).toFixed(1)}%`;
     }
     paintUltButton(ult, sim.heroUltStatus());
+    paintSkill(hero);
   }
 
   return {

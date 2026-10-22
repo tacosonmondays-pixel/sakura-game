@@ -51,7 +51,7 @@ import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, ico
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
-import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchupList, matchArrows } from '../girlView.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchupList, matchArrows, abilityInfoView } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
 import { buildTreeModel } from '../treeModel.js';
@@ -480,6 +480,7 @@ export function infoTab(unit, { profile = store.profile, label = 'yours', onChan
         shown.map((t) => kitChip({ icon: traitIcon(t), text: t.name, title: `${t.name}${t.desc ? `: ${t.desc}` : ''}`, cls: [t.kind === 'cap' ? 'cap' : '', t.later ? 'later' : ''].filter(Boolean).join('.') })),
         rest > 0 ? moreChip(rest, { onClick: () => openTraits(unit), title: `${rest} more traits`, testid: 'info-traits-more' }) : null)),
     h('p.gp-one', roleSentence(unit)),
+    abilityChip(unit),
     statStrip(headlineStats(unit, profile), { onMore: () => openBaseStats(unit, { profile, label }), testid: 'info-strip', moreTestid: 'info-more' }));
 
   const mu = matchupList(unit.attackType).slice(0, 4);
@@ -499,6 +500,39 @@ export function infoTab(unit, { profile = store.profile, label = 'yours', onChan
     h('div.gp-quote', svgEl(portraitHTML(unit, 'thumb', { alt: '' }), 'gp-qface'), h('div.gp-bubble', `“${unit.quote}”`))) : null;
 
   return h('div.mb-tab-body.gp-info', roleCard, matchCard, potCard, capsCard, quote);
+}
+
+/**
+ * Her ⚡ ability on the Info tab (ABILITIES_SPEC §10): one line ("⚡ Skyfall Volley · Rapid Volley T3") that opens its
+ * Details sheet. A kind this build does not run yet carries a "Later" sticker. Null when she has none.
+ */
+function abilityChip(unit) {
+  const v = abilityInfoView(unit);
+  if (!v) return null;
+  return h(`button.gp-abil${v.live ? '' : '.later'}`, {
+    type: 'button', 'data-testid': 'info-ability', 'aria-label': `${v.name}: her ability. Open its details`,
+    onclick: () => openAbility(unit),
+  }, h('span.gp-abil-text', v.chip), v.live ? null : sticker('Later', '', { title: v.later }), ico(KIT_SVG.chevR, 'ui-ico.gp-chev'));
+}
+
+/** Her ability's Details: the description at her base numbers, how it unlocks, the cooldown, the upgrade. */
+function openAbility(unit) {
+  const v = abilityInfoView(unit);
+  if (!v) return null;
+  const fact = (k, t) => h('li', lbl(k), ' ', t);
+  return openSheet({
+    title: `${unit.name} · ${v.name}`, testid: 'ability-sheet', cls: 'gp-details',
+    body: h('div.gp-sheet-body',
+      v.later ? h('p.gp-abil-later', { 'data-testid': 'ability-later' }, ico('lock'), ` ${v.later}.`) : null,
+      h('p', v.desc),
+      h('ul.gp-effects',
+        fact('Unlock', v.unlock),
+        fact('Recharge', v.cooldown),
+        v.up ? fact(v.up.at, v.up.line.replace(/^⚡\+\s*/, '')) : null),
+      h('p.gp-sub', v.hero
+        ? 'In battle her skill button sits by her portrait (E on a keyboard). It recharges only while a wave runs.'
+        : 'In battle her ⚡ button sits bottom right (1–9 on a keyboard). It recharges only while a wave runs; copies of her share one button. Hold it to switch on Auto.')),
+  });
 }
 
 /** A glass panel (§5.4): white glass, one chamfer, a caps kicker with an optional head control. */

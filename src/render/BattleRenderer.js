@@ -32,6 +32,7 @@ import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { Companions } from './companions.js';
+import { createAbilityFx } from './abilityFx.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -331,9 +332,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     return String(Math.max(1, Math.round(n)));
   }
 
+  // generic ability FX (src/render/abilityFx.js): casts, warning rings, shells, fizzles, unlock sparkles
+  const abilityFx = createAbilityFx({ sim, fx, actors, colorOf: (uid) => towerColor(uid), reduceMotion, flash: screenFlash, shake });
+
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
+    abilityFx.frame();
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
       // companions observe only (before the FX layers that consume events)
@@ -346,6 +351,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       }
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
+      if (abilityFx.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
           actors.hitFlash(ev.uid);
@@ -912,6 +918,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: a 1.2 s pulse ring on a girl the UI points at (the holder of a locked final tier). */
     pulseTower(uid) {
       overlays.pulseTower(uid);
+    },
+    /** Extra: an ability's reach ring on the map ({ x, y, r } in tiles; null hides it): the hold card, aim mode. */
+    setAbilityReach(o) {
+      overlays.setAbilityReach(o || null);
     },
     /** Legacy no-op: free placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},

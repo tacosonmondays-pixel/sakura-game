@@ -8,6 +8,85 @@ import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
+import { ABILITY_KINDS_LIVE, ABILITY_DEPLOYS_LIVE } from '../sim/abilities.js';
+import { abilityAtTier, skillAtLevel } from '../data/abilities.js';
+import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine } from '../data/abilityText.js';
+
+/**
+ * Does this build run an ability entry (a button in battle), or is it a "Comes in a later update" teaser? A UI
+ * helper over the sim's live lists (kinds, deploy types, and the giant ball runner) until M2 adds the one data rule;
+ * tests/ui/girlView.test.js pins it to sim abilityStatus().later for every girl.
+ */
+export function abilityLive(entry) {
+  if (!entry) return false;
+  if (entry.kind === 'deploy') return ABILITY_DEPLOYS_LIVE.includes(entry.effect?.deploy);
+  if (entry.kind === 'runner') return entry.effect?.runner === 'giantBall';
+  return ABILITY_KINDS_LIVE.includes(entry.kind);
+}
+
+/**
+ * Her ⚡ ability for the girl page (ABILITIES_SPEC §10): the Info tab's one-line chip ("⚡ Skyfall Volley · Rapid
+ * Volley T3") and its Details sheet — the description with her stats on that path at the unlock tier (no gear or
+ * level: the base numbers), the cooldown, how it unlocks, the tier-5 / Lv 17 upgrade, and "Comes in a later update"
+ * for a kind this build does not run. Null when she has none.
+ * @param {object} unit UnitDef
+ */
+export function abilityInfoView(unit) {
+  const hero = unit?.kind === 'hero';
+  const pi = hero ? -1 : (unit?.paths || []).findIndex((p) => p?.ability);
+  const entry = hero ? unit?.hero?.skill : pi >= 0 ? unit.paths[pi].ability : null;
+  if (!entry) return null;
+  const name = abilityText(entry.id)?.name || entry.id;
+  const at = hero ? entry.unlockLevel ?? 7 : entry.unlockTier ?? 3;
+  const where = hero ? `LV ${at}` : `${unit.paths[pi].name} T${at}`;
+  const live = abilityLive(entry);
+  const tiersAt = (n) => [0, 1, 2].map((p) => (p === pi ? n : 0));
+  const statsAt = (n) => {
+    try {
+      return resolveStats(unit, hero ? { heroLevel: n } : { tiers: tiersAt(n) });
+    } catch {
+      return unit.base || null;
+    }
+  };
+  const fill = (template, def, stats) => {
+    try {
+      return fillAbilityText(template, abilityValues(def, stats));
+    } catch {
+      return template.replace(/\{\w+\}/g, '…');
+    }
+  };
+  const text = abilityText(entry.id);
+  const desc = text ? fill(text.desc, entry, statsAt(at)) : '';
+  let up = null;
+  if (hero && entry.ranks?.length) {
+    const lv = entry.ranks[0].level;
+    try {
+      up = { at: `LV ${lv}`, line: abilityUpgradeLine(entry.id, abilityValues(skillAtLevel(entry, lv), statsAt(lv))) };
+    } catch {
+      up = null;
+    }
+  } else if (!hero && entry.t5) {
+    try {
+      up = { at: `${unit.paths[pi].name} T5`, line: abilityUpgradeLine(entry.id, abilityValues(abilityAtTier(entry, 5), statsAt(5))) };
+    } catch {
+      up = null;
+    }
+  }
+  return {
+    id: entry.id,
+    name,
+    hero,
+    path: pi,
+    where,
+    live,
+    chip: `⚡ ${name} · ${where}`,
+    desc,
+    cooldown: `Recharges in ${entry.cooldown}s of wave time`,
+    unlock: hero ? `Unlocks at hero LV ${at}` : `Unlocks at ${unit.paths[pi].name} tier ${at}`,
+    up,
+    later: live ? null : 'Comes in a later update',
+  };
+}
 
 /** One decimal at most, trailing ".0" dropped (11.8, 12, 0.9); large values in the short form. */
 const stat1 = (v) => (Math.abs(v) >= 10000 ? fmtNum(v) : String(Math.round(v * 10) / 10));

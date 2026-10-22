@@ -116,6 +116,16 @@
 .gp-line .lbl { color: var(--pink-text); margin-right: 2px; }
 .gp-line-crown { width: 16px; height: 16px; display: inline-grid; color: #d6336c; vertical-align: -3px; margin-right: 4px; }
 .gp-line-crown svg { width: 100%; height: 100%; }
+/* her ⚡ ability: one line on an ink plate that opens its Details (ABILITIES_SPEC §10) */
+.gp-abil {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 40px; margin: 0 0 var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: 0; border-radius: var(--radius-plate); background: var(--plate); color: var(--on-plate); text-align: left; cursor: pointer;
+}
+.gp-abil-text { min-width: 0; font: italic 900 var(--fs-body)/1.2 var(--font-head); }
+.gp-abil .ui-sticker { flex: none; }
+.gp-abil .gp-chev { color: var(--on-plate-dim); }
+.gp-abil.later .gp-abil-text { color: var(--on-plate-dim); }
+.gp-abil-later { display: flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
 /* matchup: ▲▲ / ▲ / ▼ with the armor word; the arrow carries the meaning, not only the colour */
 .gp-mu-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px var(--sp-2); }
 .gp-mu { display: flex; align-items: center; gap: 6px; min-height: 26px; font: 700 var(--fs-body)/1.1 var(--font); color: var(--ink); }

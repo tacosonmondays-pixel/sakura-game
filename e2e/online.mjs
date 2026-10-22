@@ -763,6 +763,57 @@ try {
   const hh = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(hh.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op heroes: hashes still equal on both (${hh.map((l) => l.length).join(' / ')} checkpoints)`);
 
+  // ---- abilities (ABILITIES_SPEC §7, plan M1): the guest fires her own girl's ability through `abil` -----------
+  // Her ⚡ path is bought to tier 3 through the upgrade command while her wallet allows; then a real cast (the host
+  // shows the ally chip) or, without tier 3, the command is sent anyway and both views refuse it the same way.
+  const guestGirl = await B.evaluate(() => {
+    const { sim, coop } = window.__battle;
+    const t = sim.towers.find((o) => !o.isHero && coop.isMine(o.uid));
+    return t ? { uid: t.uid, unitId: t.unitId, path: t.def.paths.findIndex((p) => p.ability) } : null;
+  });
+  if (check(!!guestGirl && guestGirl.path >= 0, `co-op abilities: the guest has a girl with a ⚡ path (${guestGirl?.unitId})`)) {
+    for (let i = 0; i < 3; i++) {
+      const before = await B.evaluate((g) => window.__battle.sim.getTower(g.uid).tiers[g.path], guestGirl);
+      if (before >= 3) break;
+      const sent = await B.evaluate((g) => {
+        const { sim, ui } = window.__battle;
+        if (sim.upgradeStatus(g.uid, g.path).locked) return false;
+        return ui.act.upgrade(g.uid, g.path);
+      }, guestGirl);
+      if (!sent) break;
+      await B.waitForFunction(([g, n]) => window.__battle.sim.getTower(g.uid).tiers[g.path] > n, [guestGirl, before], { timeout: 60000, polling: 250 }).catch(() => null);
+    }
+    const tier = await B.evaluate((g) => window.__battle.sim.getTower(g.uid).tiers[g.path], guestGirl);
+    await Promise.all([A, B].map((p) => p.evaluate(() => { window.__applied = []; })));
+    let real = false;
+    if (tier >= 3) {
+      // a real cast: wait for her charge (and a wave with enemies), then the bar's group tap
+      const ready = await B.waitForFunction((g) => window.__battle.sim.abilityStatus(g.uid)?.ready, guestGirl, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
+      if (ready) {
+        const r = await B.evaluate((g) => window.__battle.ui.castAbility(g.uid, { group: true }), guestGirl);
+        real = r === 'queued';
+      }
+    }
+    if (!real) {
+      // no tier 3 affordable (or never ready): the command goes out anyway; the sim refuses it on both views
+      await B.evaluate(async (g) => {
+        const { abilityCommandArgs } = await import('/src/ui/battle/abilityBar.js');
+        window.__battle.coop.lockstep.queue('abil', abilityCommandArgs(g.uid, { group: true }));
+      }, guestGirl);
+    }
+    const ran = await Promise.all([A, B].map((p) => p.waitForFunction(() => (window.__applied || []).some((s) => s.startsWith('abil:1@')), null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false)));
+    const seen = await Promise.all([A, B].map((p) => p.evaluate(() => (window.__applied || []).filter((s) => s.startsWith('abil:')))));
+    check(ran.every(Boolean) && seen[0][0] === seen[1][0], `co-op abilities: the guest's abil ran with the same result on both views (${seen.map((l) => l[0]).join(' / ')}; tier ${tier}, ${real ? 'a real cast' : 'refused'})`);
+    if (real && /^abil:1@\d+$/.test(seen[0][0] || '')) {
+      const allyChip = await A.waitForFunction(() => [...document.querySelectorAll('.bt-toast-text')].some((t) => /^Bea's \w+: .+!$/.test(t.textContent)), null, { timeout: 30000, polling: 250 }).then(() => true).catch(() => false);
+      check(allyChip, 'co-op abilities: the host shows the ally chip ("Bea\'s <girl>: <ability>!")');
+      const foreign = await A.evaluate(() => window.__battle.ui.abilityBar.slots.flatMap((s) => s.casters).filter((u) => !window.__battle.coop.isMine(u)));
+      check(foreign.length === 0, `co-op abilities: the host's bar never holds the guest's girl (${JSON.stringify(foreign)})`);
+    }
+    const hx = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
+    check(hx.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op abilities: hashes still equal on both (${hx.map((l) => l.length).join(' / ')} checkpoints)`);
+  }
+
   // a network cut longer than the timeout: both play on alone; when the link is back the host
   // re-admits the guest, whose battle screen rebuilds from the host's log, and the hashes agree
   await B.evaluate(() => {
