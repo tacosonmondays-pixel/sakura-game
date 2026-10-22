@@ -127,6 +127,10 @@ if (store.profile.progress?.freeplayPending) {
     .catch((e) => console.warn('[main] pending freeplay payout failed', e));
 }
 
+// The item art's small cuts (the HUD and currency pills on nearly every screen): fetched now, so a first open
+// draws them straight away instead of the loading placeholder (src/art/icons.js; about 42 KB).
+import('./art/icons.js').then((m) => m.preloadSmallItemArt()).catch((e) => console.warn('[main] item art preload failed', e));
+
 // Cold start (no route in the URL): the title / load-up screen, once per browser session.
 let titleSeen = false;
 try {
