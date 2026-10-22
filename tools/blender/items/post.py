@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import shutil
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -113,6 +114,33 @@ def finish(raw, glints, key, out_dir, scratch_dir, small_raw=None, small_glints=
     over = [k for k, cap in (('bytes256', CAPS['256']), ('bytes128', CAPS['128']), ('bytesSmall', CAPS['small']))
             if rep.get(k, 0) > cap]
     rep['overCap'] = over
+    return rep
+
+
+def ship(key, out_dir, scratch_dir, approved=None, fallback_dirs=()):
+    """PLAN C11: ship an approved icon (our art) as is. <key>-256.webp becomes the approved <key>_256.webp byte for
+    byte (from `approved` when that folder has it, else the copy already in out_dir or one of fallback_dirs); the
+    128 cut is downscaled from it like every other key. Returns a report dict, or None when no source exists."""
+    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(scratch_dir, exist_ok=True)
+    p256 = os.path.join(out_dir, f'{key}-256.webp')
+    srcs = [os.path.join(approved, f'{key}_256.webp')] if approved else []
+    srcs += [p256] + [os.path.join(d, f'{key}-256.webp') for d in fallback_dirs]
+    src = next((p for p in srcs if os.path.exists(p)), None)
+    if not src:
+        return None
+    im = Image.open(src)
+    if im.format != 'WEBP' or im.size != (SIZE, SIZE) or 'A' not in im.getbands():
+        raise SystemExit('%s: the shipped file must be a %d px RGBA WebP (%s)' % (key, SIZE, src))
+    im = im.convert('RGBA')
+    if os.path.abspath(src) != os.path.abspath(p256):
+        shutil.copyfile(src, p256)
+    rep = framing(im)                  # it carries its own glints and contact shadow
+    rep.update(key=key, shipped='kept' if os.path.abspath(src) == os.path.abspath(p256) else os.path.abspath(src))
+    im.save(os.path.join(scratch_dir, f'{key}.png'))
+    rep['bytes256'] = os.path.getsize(p256)
+    rep['bytes128'] = _webp(_down(im, 128), os.path.join(out_dir, f'{key}-128.webp'))
+    rep['overCap'] = [k for k, cap in (('bytes256', CAPS['256']), ('bytes128', CAPS['128'])) if rep[k] > cap]
     return rep
 
 

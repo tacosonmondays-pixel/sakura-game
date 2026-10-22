@@ -1404,7 +1404,8 @@ and portraits, which are an `<img>` with an SVG fallback.
 export function cardArtSVG(unitDef, { variant = 'full' /*'full' 3:5 large | 'portrait' 3:5 card | 'thumb' square bust*/, awaken = 0 } = {})
 // src/art/icons.js — item icons are the baked 3D-flat art (public/art/items, manifest src/art/itemArt.js):
 // <span class="ia"><svg>drawn fallback</svg><img class="item-art"></span>; px = the CSS size it shows at
-// (≤ 24 picks the 96 px small cut). Unknown keys return the drawn SVG alone.
+// (≤ 24 picks the 96 px small cut). The drawing shows only on a failed image (.ia.bad); a slow load shows a neutral
+// placeholder (.ia::before). Unknown keys return the drawn SVG alone. preloadSmallItemArt() warms the small cuts.
 export function itemIcon(itemId, { px = 64 } = {})   // materials per family+rarity, books, crowns, dice, tickets, tokens, coins, gems, gear
 export function gearIcon(slot, rarity, { ur = false, px = 64 } = {})
 export function currencyIcon(kind /*'coins'|'gems'|'recruitPoints'|'token_boss'|'token_bounty'*/, { px = 22 } = {})

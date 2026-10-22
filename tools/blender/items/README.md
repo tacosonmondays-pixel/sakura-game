@@ -43,6 +43,10 @@ Outputs (all committed, so CI never needs Blender):
 ... build_items.py -- --family materials                # a family: books, currency, tickets, materials, mat_rime
                                                         #   (any mat_<family>), boxes, crowns, fragments, tools, gear
 ... build_items.py -- energy --compare <approved dir>   # calibration-only key (approved, not a game item): scratch only
+... build_items.py -- crown_rainbow --approved <dir>    # a shipped key (models.SHIPPED): copies <dir>/<key>_256.webp
+                                                        #   as <key>-256.webp byte for byte, downscales the 128 cut
+                                                        #   (no Blender needed: python3 build_items.py works too)
+... build_items.py -- crown_rainbow --no-ship           # bake a shipped key's model instead (trials, with --out)
 python3 tools/blender/items/build_items.py --table      # rewrite the data table below from catalog.py (no Blender)
 python3 tools/blender/items/build_items.py --list       # keys and families
 ```
@@ -76,6 +80,12 @@ python3 tools/blender/items/build_items.py --list       # keys and families
   shadow -L toward magenta, ink L 25%), the trim ladder (silver, rose gold, gold, iridescent), shared materials
   and `anchored()` for UR and zenith parts.
 - `models/<family>.py`: one module per family, `build(row) -> dict(kind=..., roll=...)`. `catalog.py`: the table below.
+- Shipped keys (`models.SHIPPED`, PLAN C11): an approved icon whose rebuild still missed after two rounds ships the
+  approved file itself (our art). Today that is `crown_rainbow` (the rebuild lost the iridescent band and read as a
+  plain lilac crown). Its `-256.webp` is the approved file byte for byte, and `post.ship` downscales the `-128.webp`
+  from it the same way as every other key. The source is `--approved <dir>/<key>_256.webp` (or `ITEMS_APPROVED`).
+  Without it, a run keeps the committed `-256.webp` and only re-cuts the 128, so a full re-bake never puts the
+  model back. `--no-ship` bakes the model (keep that for trials with `--out`).
 - Family rules: each family keeps one silhouette through every tier (charm = an omamori, rune = a tablet, ember =
   one coal, cog = a gear, feather, blade, rime crystals, crowns with round cone points). The round disc is for
   currencies and tokens only. Accents follow the tier palette: rare blue or silver, super rare a violet gem,
@@ -89,7 +99,8 @@ python3 tools/blender/items/build_items.py --list       # keys and families
    and a line in `catalog.py`.
 3. Run it alone with `--compare` or look at its family sheet; then commit the WebPs and `src/art/itemArt.js`.
 
-Visual targets are our own approved icons only (kept outside the repo); never third-party images.
+Visual targets are our own approved icons only (kept outside the repo, except a shipped key's output in
+`public/art/items`); never third-party images.
 
 ## Data table
 
@@ -148,7 +159,7 @@ Visual targets are our own approved icons only (kept outside the repo); never th
 | `crown_cog` | Clockwork Crown | crowns | superRare | 256, 128 | yellow-brass crown with steel gear teeth round the band, steel cogs on its points, aqua clock-face gem |
 | `crown_oni` | Horned Festival Crown | crowns | mythic | 256, 128 | red lacquer crown, round cone points, two ivory horns, rose-gold rims, glowing front gem |
 | `crown_dragon` | Ashwing Crown | crowns | legendary | 256, 128 | ember-orange crown with thick wing-shaped points, gold rims, red gem with a star |
-| `crown_rainbow` | Rainbow Crown | crowns | legendary (rainbow) | 256, 128 | iridescent crown: thick rainbow band with rims, five round cone points with pearl finials, three big gems (appr.) |
+| `crown_rainbow` | Rainbow Crown | crowns | legendary (rainbow) | 256, 128 | iridescent crown: thick rainbow band with rims, five round cone points with pearl finials, three big gems (appr.; ships the approved file, PLAN C11; this model only with --no-ship) |
 | `crown_rainbow_shard` | Rainbow Crown Shard | crowns | mythic (rainbow) | 256, 128 | one iridescent cone point with a pearl finial on a jagged chunk of band |
 | `star_fragment` | Star Fragment | fragments | superRare | 256, 128 | chunky five-point star crystal and a splinter, pastel pink to violet facets |
 | `kindred_r` | Kindred Essence (R) | fragments | rare | 256, 128 | smooth glass drop (sky blue): darker top rim, light pooled low, crescent highlight, blossom inside, silver cap |

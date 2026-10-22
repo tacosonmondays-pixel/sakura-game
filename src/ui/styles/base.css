@@ -419,14 +419,23 @@ p { margin: 0 0 8px; line-height: 1.45; }
 
 /* ---------- Item art ----------
    itemIcon / gearIcon / currencyIcon (src/art/icons.js) return <span class="ia"> holding the old drawn SVG and the
-   baked image over it. The drawing keeps the box's size (so every wrapper that sized an SVG still fits) but only
-   shows when the image failed (.bad) or is still loading after 0.4 s (a slow first open); once the image is in
-   (.ok) it hides for good. Cached images arrive well inside the 0.4 s, so re-renders never flash the old art. */
+   baked image over it. The drawing keeps the box's size (so every wrapper that sized an SVG still fits) but shows
+   only when the image failed (.bad, a hard error). While the image is still loading after 0.3 s (a slow first
+   open), the box shows a neutral placeholder instead: a soft tinted blob over a navy contact shadow, never the old
+   art. Once the image is in (.ok) the placeholder goes for good; cached images arrive well inside the 0.3 s, so
+   re-renders never flash it. */
 .ia { position: relative; display: block; width: 100%; height: 100%; line-height: 0; }
 .ia > svg { display: block; width: 100%; height: 100%; visibility: hidden; }
-.ia:not(.ok) > svg { animation: ia-late 1ms 400ms forwards; }
-.ia.bad > svg { visibility: visible; animation: none; }
-@keyframes ia-late { to { visibility: visible; } }
+.ia.bad > svg { visibility: visible; }
+.ia::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background:
+    radial-gradient(30% 7% at 50% 86%, rgba(38, 58, 92, 0.2), rgba(38, 58, 92, 0)),
+    radial-gradient(33% 31% at 48% 49%, rgba(96, 116, 160, 0.17) 62%, rgba(96, 116, 160, 0));
+}
+.ia:not(.ok):not(.bad)::before { animation: ia-wait 220ms ease-out 300ms forwards; }
+.ia.ok::before, .ia.bad::before { display: none; }
+@keyframes ia-wait { to { opacity: 1; } }
 .ia > .item-art {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
   pointer-events: none; user-select: none; -webkit-user-drag: none;

@@ -1,18 +1,22 @@
 // The game shows the baked 3D-flat item art (src/art/icons.js over the manifest src/art/itemArt.js): every item id,
-// gear piece and currency the game draws maps to its own baked image, the drawn SVG stays under it as the
-// loading / error fallback, small boxes get the small cut, tiles wear their tier's plate, and the change is display
-// only (the battle sim id does not move).
+// gear piece and currency the game draws maps to its own baked image, the drawn SVG stays under it as the error
+// fallback only (a slow load shows a neutral placeholder), small boxes get the small cut, tiles wear their tier's
+// plate, and the change is display only (the battle sim id does not move).
 import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ITEMS, ITEM_IDS } from '../../src/data/items.js';
 import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import {
-  itemIcon, gearIcon, currencyIcon, itemIconSVG, itemArtSVG, itemArtUrl, hasItemArt, gearArtKey, hasItemIcon,
+  itemIcon, gearIcon, currencyIcon, itemIconSVG, itemArtSVG, itemArtUrl, hasItemArt, gearArtKey, hasItemIcon, preloadSmallItemArt,
 } from '../../src/art/icons.js';
 import { tileTier } from '../../src/ui/components.js';
 import { COOP_PROTOCOL } from '../../src/online/coop/version.js';
 import { simId } from '../../tools/simId.mjs';
 
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GEAR_KEYS = Object.keys(GEAR_SLOTS).flatMap((s) => [...ITEM_RARITY_ORDER.map((r) => `gear_${s}_${r}`), `gear_${s}_ur`]);
 const CURRENCIES = ['coins', 'gems', 'recruitPoints', 'token_boss', 'token_bounty'];
 
@@ -47,7 +51,7 @@ describe('item art at runtime: every item has baked art', () => {
       expect(i.src, id).toMatch(new RegExp(`art/items/${id}-128\\.webp\\?v=${ITEM_ART[id]}$`));
       expect(i.srcset, id).toBe(`${itemArtUrl(id, 128)} 128w, ${itemArtUrl(id, 256)} 256w`);
       expect(i.sizes).toBe('64px');
-      // the drawing stays inside, under the image: the loading / error fallback
+      // the drawing stays inside, under the image: the error fallback
       expect(html.startsWith(`<span class="ia" data-art="${id}">`), id).toBe(true);
       expect(html).toContain(itemIconSVG(id));
       expect(i.onerror).toMatch(/classList\.add\('bad'\);this\.remove\(\)/);
@@ -112,6 +116,54 @@ describe('item art at runtime: every item has baked art', () => {
 
   it('URLs are relative to the deploy base, never absolute to a host', () => {
     expect(itemArtUrl('coins')).toMatch(/^(\.\/|\/)art\/items\/coins-128\.webp\?v=[0-9a-f]{8}$/);
+  });
+});
+
+describe('item art while loading and on error', () => {
+  const css = readFileSync(join(ROOT, 'src/ui/styles/base.css'), 'utf8');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.replace(/\/\*[\s\S]*?\*\//g, '').trim(), body }));
+
+  it('the old drawing shows only on a failed image (.ia.bad), never while the image loads', () => {
+    const showing = rules.filter((r) => /\.ia\b[^,]*>\s*svg/.test(r.sel) && /visibility:\s*visible|animation/.test(r.body));
+    expect(showing.length).toBeGreaterThan(0);
+    for (const r of showing) expect(r.sel, r.sel).toMatch(/^\.ia\.bad\s*>\s*svg$/);
+    expect(css).not.toMatch(/ia-late/);
+  });
+
+  it('a box still loading shows the neutral placeholder after a short delay, gone once the image is in or failed', () => {
+    const wait = rules.find((r) => r.sel === '.ia:not(.ok):not(.bad)::before');
+    expect(wait?.body).toMatch(/animation:\s*ia-wait\b[^;]*\b\d+ms\b[^;]*\b[1-9]\d{2}ms\b[^;]*forwards/);
+    expect(rules.find((r) => r.sel === '.ia::before')?.body).toMatch(/opacity:\s*0\b/);
+    expect(rules.find((r) => r.sel === '.ia.ok::before, .ia.bad::before')?.body).toMatch(/display:\s*none/);
+  });
+
+  it('no screen pulls the drawing out of an item icon (the achievements ladder uses itemIcon itself)', () => {
+    const offenders = [];
+    const walk = (dir) => {
+      for (const f of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, f.name);
+        if (f.isDirectory()) walk(p);
+        else if (f.name.endsWith('.js') && /querySelector\(['"]svg['"]\)\??\.outerHTML/.test(readFileSync(p, 'utf8'))) offenders.push(p);
+      }
+    };
+    walk(join(ROOT, 'src/ui'));
+    expect(offenders).toEqual([]);
+    expect(readFileSync(join(ROOT, 'src/ui/screens/achievements/list.js'), 'utf8')).toMatch(/itemIcon\(id, \{ px: 14 \}\)/);
+  });
+
+  it('preloadSmallItemArt starts each small cut once (the HUD and pills on every screen)', () => {
+    const made = [];
+    const prev = globalThis.Image;
+    globalThis.Image = class { constructor() { made.push(this); } };
+    try {
+      expect(preloadSmallItemArt()).toBe(Object.keys(ITEM_ART_SMALL).length);
+      expect(made.map((im) => im.src).sort()).toEqual(Object.keys(ITEM_ART_SMALL).map((k) => itemArtUrl(k, 'small')).sort());
+      expect(preloadSmallItemArt()).toBe(0);
+      expect(made.length).toBe(Object.keys(ITEM_ART_SMALL).length);
+    } finally {
+      if (prev === undefined) delete globalThis.Image;
+      else globalThis.Image = prev;
+    }
   });
 });
 

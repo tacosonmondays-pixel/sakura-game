@@ -2,8 +2,9 @@
 //
 //  * itemIcon / gearIcon / currencyIcon — the baked 3D-flat item art (public/art/items, manifest itemArt.js from
 //    tools/blender/items) as an <img> laid over the old drawn 64×64 SVG, inside <span class="ia">. The drawing is
-//    the fallback: it shows when the image fails to load, or while it is still loading after 0.4 s (base.css
-//    "Item art"). A key with no baked art returns the bare SVG. itemIconSVG / itemArtSVG give the drawing alone.
+//    the error fallback only: it shows when the image fails to load. While it is still loading (after 0.3 s) the
+//    box shows a neutral placeholder, never the old art (base.css "Item art"). A key with no baked art returns the
+//    bare SVG. itemIconSVG / itemArtSVG give the drawing alone; preloadSmallItemArt warms the small cuts at boot.
 //  * traitIcon / roleIcon / attackTypeIcon / armorClassIcon / capabilityIcon / elementIcon /
 //    statusIcon — coloured badges (64×64) with a white glyph; shape tells the category:
 //    traits = circle, roles = hexagon, attack types = diamond, armour = shield,
@@ -105,6 +106,23 @@ export function itemArtUrl(key, size = 128) {
   const k = String(key);
   const hash = size === 'small' ? ITEM_ART_SMALL[k] : ITEM_ART[k];
   return hash ? artUrl(`items/${k}-${size}.webp?v=${hash}`) : null;
+}
+
+const PRELOADED = [];
+/**
+ * Starts loading the small cuts (coins, gems, tickets, tokens... about 42 KB in all) so the HUD and the currency
+ * pills, which are on nearly every screen, have their art in hand before a first open draws them. Once per page.
+ * @returns {number} how many images it started (0 without a DOM, or on a second call)
+ */
+export function preloadSmallItemArt() {
+  if (PRELOADED.length || typeof Image === 'undefined') return 0;
+  for (const k of Object.keys(ITEM_ART_SMALL)) {
+    const im = new Image();
+    im.decoding = 'async';
+    im.src = itemArtUrl(k, 'small');
+    PRELOADED.push(im); // held, so the requests are not dropped with the objects
+  }
+  return PRELOADED.length;
 }
 
 /** The drawn SVG for any art key (the error fallback the UI swaps in): items, gear keys, recruitPoints. */

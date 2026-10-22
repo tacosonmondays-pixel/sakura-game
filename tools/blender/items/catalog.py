@@ -1,5 +1,6 @@
 """Data table of the item art: one line per key describing its model (README table: build_items.py --table).
-(appr.) marks the 13 keys rebuilt from the owner-approved icons; their approved files are the look targets."""
+(appr.) marks the 13 keys rebuilt from the owner-approved icons; their approved files are the look targets. A key in
+models.SHIPPED ships its approved file instead of the rebuild (PLAN C11)."""
 
 APPROVED = ('book_common', 'book_rare', 'book_superRare', 'book_legendary', 'coins', 'gems', 'crown_rainbow', 'gearbox_mythic',
             'mat_rime_common', 'mat_rime_superRare', 'mat_rime_legendary', 'needle_star', 'ticket_recruit')
@@ -98,7 +99,7 @@ def note(key):
     return NOTES.get(key, '')
 
 
-def table(rows, family, small_cut):
+def table(rows, family, small_cut, shipped=()):
     """Markdown table for the README."""
     out = ['| Key | Name | Family | Tier | Files | Model |', '|---|---|---|---|---|---|']
     for r in rows:
@@ -108,5 +109,7 @@ def table(rows, family, small_cut):
             tier += ' (rainbow)'
         files = '256, 128' + (', small' if k in small_cut else '')
         appr = ' (appr.)' if k in APPROVED else ''
+        if k in shipped:
+            appr = ' (appr.; ships the approved file, PLAN C11; this model only with --no-ship)'
         out.append(f"| `{k}` | {r['name']} | {family(k)} | {tier} | {files} | {note(k)}{appr} |")
     return '\n'.join(out)

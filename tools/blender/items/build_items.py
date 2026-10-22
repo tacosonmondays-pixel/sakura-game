@@ -3,7 +3,8 @@
 
     blender --background --factory-startup --python-use-system-env --python tools/blender/items/build_items.py -- \
         [keys ...] [--family books] [--out public/art/items] [--scratch DIR] [--compare DIR] [--sheet PNG] \
-        [--blend debug.blend] [--items items.json] [--pylibs DIR] [--no-manifest] [--list] [--table]
+        [--approved DIR] [--no-ship] [--blend debug.blend] [--items items.json] [--pylibs DIR] [--no-manifest] \
+        [--list] [--table]
     python3 tools/blender/items/build_items.py [same arguments]     # bpy module (tools/blender/requirements.txt)
     python3 tools/blender/items/build_items.py --table              # rewrite the README data table (no Blender)
 
@@ -12,6 +13,8 @@ recruitPoints. For each key it builds the model (models/<family>.py), poses it, 
 camera so the silhouette lands centred at (119, 117.5) px, adds the ink hulls, renders a 256 px PNG,
 then post.py adds the glints and the contact shadow and writes <key>-256.webp and <key>-128.webp
 (plus <key>-small.webp, a heavier-line cut downscaled to 96 px, for the keys in models.SMALL_CUT).
+The keys in models.SHIPPED (PLAN C11) are not rendered: their 256 file is the approved icon byte for byte and
+the 128 cut is downscaled from it (--no-ship renders their models instead).
 Finally it rewrites src/art/itemArt.js from the files in --out and draws one contact sheet per family
 into --scratch (outside the repo). Keep one Blender process at a time, at below-normal priority.
 """
@@ -41,6 +44,9 @@ def _args():
     ap.add_argument('--scratch', default=os.environ.get('ITEMS_SCRATCH') or os.path.join(tempfile.gettempdir(), 'item-art'),
                     help='renders, PNG copies and sheets (keep it outside the repo)')
     ap.add_argument('--compare', default=None, help='folder of approved <key>_256.webp files for a side-by-side sheet')
+    ap.add_argument('--approved', default=os.environ.get('ITEMS_APPROVED'),
+                    help='folder of approved <key>_256.webp files: the source of the shipped keys (models.SHIPPED)')
+    ap.add_argument('--no-ship', action='store_true', help='bake the shipped keys from their models instead')
     ap.add_argument('--sheet', default=None, help='one contact sheet for everything built (default: one per family)')
     ap.add_argument('--blend', default=None, help='save the last built item as a .blend to inspect')
     ap.add_argument('--items', default=None, help='items.json from dump_items.mjs (default: run node)')
@@ -90,7 +96,7 @@ def main():
     if a.table:
         import catalog  # noqa: E402
         missing = [r['key'] for r in rows if not catalog.note(r['key'])]
-        md = catalog.table(rows, models.family, models.SMALL_CUT)
+        md = catalog.table(rows, models.family, models.SMALL_CUT, models.SHIPPED)
         readme = os.path.join(HERE, 'README.md')
         with open(readme, encoding='utf-8') as f:
             text = f.read()
@@ -103,20 +109,38 @@ def main():
             print('[items] no catalog note: ' + ', '.join(missing))
         return
 
-    import bpy  # noqa: E402
-    import rig  # noqa: E402
-    import parts  # noqa: E402
     import post  # noqa: E402
+    shipped = () if a.no_ship else models.SHIPPED
+    render = any(r['key'] not in shipped for r in rows)  # a run of shipped keys only needs no Blender
+    if render:
+        import bpy  # noqa: E402
+        import rig  # noqa: E402
+        import parts  # noqa: E402
 
     raw_dir = os.path.join(a.scratch, 'raw')
     png_dir = os.path.join(a.scratch, 'png')
     os.makedirs(raw_dir, exist_ok=True)
-    cam = rig.setup_scene(a.samples)
+    cam = rig.setup_scene(a.samples) if render else None
     reports = []
     t0 = time.time()
     for row in rows:
         key = row['key']
         t1 = time.time()
+        if key in shipped:
+            rep = post.ship(key, a.out, png_dir, approved=a.approved, fallback_dirs=[os.path.join(ROOT, 'public', 'art', 'items')])
+            if rep is None:
+                print('[items] %-24s SKIP shipped key without a source: pass --approved <dir of %s_256.webp> or --no-ship'
+                      % (key, key), flush=True)
+                continue
+            rep['family'] = models.family(key)
+            rep['seconds'] = round(time.time() - t1, 2)
+            reports.append(rep)
+            print('[items] %-24s %s %5.1f KB %4.1f KB  shipped (%s)  %.1fs' % (
+                key, 'ok ' if rep['ok'] else 'FIT', rep['bytes256'] / 1024, rep['bytes128'] / 1024, rep['shipped'],
+                rep['seconds']), flush=True)
+            if rep['overCap']:
+                print('[items]   over the size cap: %s' % rep['overCap'], flush=True)
+            continue
         parts.reset()
         rig.clear_item()
         spec = models.build(row)
@@ -149,7 +173,7 @@ def main():
             ('  small %.1f KB' % (rep['bytesSmall'] / 1024)) if 'bytesSmall' in rep else '', rep['seconds']), flush=True)
         if rep['overCap']:
             print('[items]   over the size cap: %s' % rep['overCap'], flush=True)
-    if a.blend:
+    if a.blend and render:
         bpy.ops.wm.save_as_mainfile(filepath=a.blend, copy=True)
     if not a.no_manifest:
         m = post.write_manifest(a.out, a.manifest)

@@ -8,6 +8,11 @@ import importlib
 SMALL_CUT = ('coins', 'gems', 'ticket_recruit', 'recruitPoints', 'token_bounty', 'token_boss', 'memento', 'moonpearl',
              'kindred_sr', 'evt_halloween_candy')
 
+# PLAN C11: approved icons whose rebuild still missed after two rounds ship the approved file itself (our art).
+# build_items.py writes <key>-256.webp as that file byte for byte (from --approved <dir>/<key>_256.webp, or the copy
+# already in --out / public/art/items) and downscales the 128 cut from it; --no-ship bakes the model instead.
+SHIPPED = ('crown_rainbow',)
+
 # Approved icons that are not game items: built only when named, into the scratch folder (never public/).
 CALIBRATION = [dict(key='energy', kind='calibration', name='Energy (calibration only)', category='calibration',
                     rarity='rare', family='', tier='', display='', rainbow=False)]

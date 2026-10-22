@@ -71,6 +71,15 @@ describe('item art', () => {
     }
   });
 
+  it('the shipped keys are the owner-approved files byte for byte (PLAN C11: tools/blender/items models.SHIPPED)', () => {
+    // crown_rainbow_256.webp from the approved set; the 128 cut is downscaled from it by post.ship
+    const SHIPPED = { crown_rainbow: 'af538b922da027ae8e542b0b76711b7e3b6ffef0' };
+    for (const [k, sha1] of Object.entries(SHIPPED)) {
+      expect(createHash('sha1').update(readFileSync(file(k, '256'))).digest('hex'), k).toBe(sha1);
+      expect(ITEM_ART[k], k).toBeTruthy();
+    }
+  });
+
   it('holds the size caps and has no stray files', () => {
     let total = 0;
     const listed = new Set();

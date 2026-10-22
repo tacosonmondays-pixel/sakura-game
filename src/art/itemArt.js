@@ -15,7 +15,7 @@ export const ITEM_ART = Object.freeze({
   crown_dragon: 'febb52ef',
   crown_iron: 'e44965d2',
   crown_oni: 'a51828ac',
-  crown_rainbow: '1db51148',
+  crown_rainbow: 'd758d503',
   crown_rainbow_shard: 'd7cc5349',
   crown_slime: '157b911b',
   dice_prism: '3dd92f7f',
