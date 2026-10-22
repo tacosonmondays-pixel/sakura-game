@@ -2,6 +2,28 @@
 // { GainNode, StereoPannerNode } voices, and the pure limiter for caps, gaps and voice stealing.
 import { createLimiter } from './limiter.js';
 
+/**
+ * One buffer from the main sprite and its part sprites: each part's samples are copied in at its `start`
+ * (sprite samples, converted to the decoded rate). A context that cannot make buffers keeps the main one.
+ * @param {BaseAudioContext} ctx @param {AudioBuffer} main @param {[object, AudioBuffer][]} parts @param {number} rate sprite rate
+ */
+export function stitch(ctx, main, parts, rate) {
+  if (!ctx?.createBuffer) return main;
+  const sr = main.sampleRate;
+  let len = main.length;
+  for (const [p, b] of parts) len = Math.max(len, Math.round((p.start / rate) * sr) + b.length);
+  const out = ctx.createBuffer(main.numberOfChannels, len, sr);
+  for (let c = 0; c < main.numberOfChannels; c++) {
+    const dst = out.getChannelData(c);
+    dst.set(main.getChannelData(c), 0);
+    for (const [p, b] of parts) {
+      const at = Math.round((p.start / rate) * sr);
+      dst.set(b.getChannelData(Math.min(c, b.numberOfChannels - 1)).subarray(0, Math.max(0, len - at)), at);
+    }
+  }
+  return out;
+}
+
 export class SfxPlayer {
   constructor(engine, loader) {
     this.e = engine;
@@ -43,7 +65,19 @@ export class SfxPlayer {
       this.sprite = await res.json();
       const f = this.e.format;
       if (!f) throw new Error('no audio format');
-      this.buffer = await this.loader.decode(`${this.e.base}sfx/${this.sprite.files[f.id]}`);
+      const main = await this.loader.decode(`${this.e.base}sfx/${this.sprite.files[f.id]}`);
+      // part sprites (sprite.json `parts`: a few sounds added after the main file, e.g. 'attacks') are laid
+      // into one buffer at their start, so play() stays one buffer and one offset for every sound
+      const parts = Array.isArray(this.sprite.parts) ? this.sprite.parts : [];
+      const decoded = [];
+      for (const p of parts) {
+        try {
+          decoded.push([p, await this.loader.decode(`${this.e.base}sfx/${p.files[f.id]}`)]);
+        } catch (e) {
+          console.warn(`[audio] SFX part ${p.id} unavailable`, e);
+        }
+      }
+      this.buffer = decoded.length ? stitch(this.ctx, main, decoded, this.sprite.rate) : main;
       this._buildPool();
     })().catch((e) => {
       console.warn('[audio] SFX unavailable', e);

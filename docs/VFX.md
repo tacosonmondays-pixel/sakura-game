@@ -190,6 +190,13 @@ thresholds aim at a few holds a wave rather than half the hits (a headless battl
 a wave, most of them Marumi's: `tests/render/vfx-hits.test.js`). Later FX milestones add each girl's
 motif spark and kill pop to the same presets.
 
+**FX-1 (Marumi, Azami, Yuzuha, Ruri):** their motif spark in her colours (`src/render/attackFx/impacts.js`,
+weak ≤ 6 shapes, crit ≤ 10) and their **kill pop**: the renderer credits a kill (`killerOf`: the hit before
+the `death`, by the rules above — asked of `hitSource` only while a hold is possible, otherwise of its own
+never-framed event scan and the attack-FX shot records — or a `netCatch`), and the killer's style draws
+her pop in place of the shared white puff (a knocked-over pin and petals; steel shards and thistle
+petals; a zap burst; fox-bite fangs and fox-fire wisps). Kon pounces on a kill of Ruri's.
+
 ### Blasts (`src/render/fx.js` `explosion`, `BLAST`)
 
 A blast's body is an alpha-blended **cel puff** in the blast's colour — the atlas `celPuff` sprite,

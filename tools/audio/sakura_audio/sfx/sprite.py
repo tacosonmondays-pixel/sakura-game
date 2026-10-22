@@ -78,10 +78,19 @@ def render_one(sid, palette) -> np.ndarray:
     return x
 
 
+def main_ids():
+    """The recipes of the main sprite (part recipes ship in their own part sprites, see build_part)."""
+    return [i for i in sorted(REGISTRY) if not REGISTRY[i].get('part')]
+
+
+def part_names():
+    return sorted({s['part'] for s in REGISTRY.values() if s.get('part')})
+
+
 def build_sprite(palette, only=None, ship: bool = True, out_dir: Path | None = None) -> dict:
     out_dir = out_dir or (BUILD / 'sfx')
     out_dir.mkdir(parents=True, exist_ok=True)
-    ids = sorted(REGISTRY) if not only else [i for i in sorted(REGISTRY) if i in only]
+    ids = main_ids() if not only else [i for i in main_ids() if i in only]
     chunks, sounds, pos = [np.zeros(GAP)], {}, GAP
     for sid in ids:
         x = render_one(sid, palette)
@@ -111,10 +120,76 @@ def build_sprite(palette, only=None, ship: bool = True, out_dir: Path | None = N
         checks[fmt] = {'worstRelErr': round(worst, 3), 'bytes': p.stat().st_size}
     data = {'version': 1, 'rate': RATE, 'palette': palette.id, 'files': {'opus': 'sfx.webm', 'aac': 'sfx.m4a'},
             'length': len(sprite), 'sounds': sounds}
-    (out_dir / 'sprite.json').write_text(json.dumps(data, indent=1) + '\n')
+    (out_dir / 'sprite.json').write_text(json.dumps(data, indent=1) + '\n', newline='\n')
     if ship and not only:
         PUBLIC_SFX.mkdir(parents=True, exist_ok=True)
         for p in (webm, m4a, out_dir / 'sprite.json'):
             shutil.copyfile(p, PUBLIC_SFX / p.name)
+        # the part sprites hang off the end of the main one: put them back after a full rebuild
+        for name in part_names():
+            build_part(palette, name)
     return {'count': len(sounds), 'seconds': len(sprite) / RATE, 'bytes': {k: v['bytes'] for k, v in checks.items()},
             'checks': checks, 'dir': PUBLIC_SFX if (ship and not only) else out_dir}
+
+
+def build_part(palette, name: str, sprite_json: Path | None = None, ship: bool = True, out_dir: Path | None = None) -> dict:
+    """A part sprite: the recipes registered with part=`name`, rendered and packed like the main sprite into
+    sfx-<name>.webm / .m4a, and merged into the shipped sprite.json without touching the main sprite's files.
+
+    Layout (sprite.json): a part sits after the main sprite in one sample address space. `sounds[id].start` is
+    absolute; `parts` lists each part file's `start` and `length`; `mainLength` is the main file's length and
+    `length` the whole. The player decodes every file and lays it into one buffer at its start (src/audio/sfx.js),
+    so playback is unchanged. Rebuilding a part re-renders only that part."""
+    out_dir = out_dir or (BUILD / 'sfx' / f'part-{name}')
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sprite_json = sprite_json or (PUBLIC_SFX / 'sprite.json')
+    data = json.loads(sprite_json.read_text())
+    main_len = data.get('mainLength', data['length'])
+    # drop this part's old sounds and entry (a rebuild), keep the others
+    parts = [p for p in data.get('parts', []) if p['id'] != name]
+    for sid in [s for s, v in data['sounds'].items() if v.get('part') == name]:
+        del data['sounds'][sid]
+    base = max([main_len] + [p['start'] + p['length'] for p in parts]) + GAP
+    ids = [i for i in sorted(REGISTRY) if REGISTRY[i].get('part') == name]
+    chunks, sounds, pos = [np.zeros(GAP)], {}, GAP
+    for sid in ids:
+        x = render_one(sid, palette)
+        spec = REGISTRY[sid]
+        g = spec['gain_db'] if spec.get('level') is None else round(spec['level'] - event_loudness(x), 1)
+        sounds[sid] = {'start': base + pos, 'length': len(x), 'gain_db': g, 'bus': spec['bus'], 'voices': spec['voices'],
+                       'gap_ms': spec['gap_ms'], 'jitter': spec['jitter'], 'priority': spec['priority'], 'part': name}
+        if spec.get('level') is not None:
+            sounds[sid]['level'] = spec['level']
+        write_wav(out_dir / 'wav' / f'{sid}.wav', x[:, None], RATE)
+        chunks += [x, np.zeros(GAP)]
+        pos += len(x) + GAP
+    pcm = np.concatenate(chunks)
+    wav = write_wav(out_dir / f'sfx-{name}.wav', pcm[:, None], RATE)
+    webm = encode(wav, out_dir / f'sfx-{name}', 'opus', 24, RATE, mono=True)
+    m4a = encode(wav, out_dir / f'sfx-{name}', 'aac', 32, RATE, mono=True)
+    checks = {}
+    for fmt, p in (('opus', webm), ('aac', m4a)):
+        d = decode(p, RATE, 1)[:, 0]
+        worst = 0.0
+        for sid, s in sounds.items():
+            a = pcm[s['start'] - base:s['start'] - base + s['length']]
+            b = d[s['start'] - base:s['start'] - base + s['length']]
+            err = np.sqrt(np.mean((a - b) ** 2)) / (np.sqrt(np.mean(a ** 2)) + 1e-9)
+            worst = max(worst, float(err))
+        checks[fmt] = {'worstRelErr': round(worst, 3), 'bytes': p.stat().st_size}
+    parts.append({'id': name, 'start': base, 'length': len(pcm), 'files': {'opus': webm.name, 'aac': m4a.name}})
+    parts.sort(key=lambda p: p['start'])
+    data['mainLength'] = main_len
+    data['parts'] = parts
+    data['sounds'].update(sounds)
+    data['length'] = max(p['start'] + p['length'] for p in parts)
+    if ship:
+        PUBLIC_SFX.mkdir(parents=True, exist_ok=True)
+        for p in (webm, m4a):
+            shutil.copyfile(p, PUBLIC_SFX / p.name)
+        # LF on every OS (the shipped file is LF; a Windows text-mode write would make it CRLF)
+        sprite_json.write_text(json.dumps(data, indent=1) + '\n', newline='\n')
+    else:
+        (out_dir / 'sprite.json').write_text(json.dumps(data, indent=1) + '\n', newline='\n')
+    return {'count': len(sounds), 'seconds': len(pcm) / RATE, 'checks': checks, 'start': base,
+            'dir': PUBLIC_SFX if ship else out_dir}

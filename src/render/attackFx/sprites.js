@@ -361,4 +361,40 @@ export const ATTACK_SPRITES = [
     ctx.fillStyle = 'rgba(150,110,130,0.7)';
     fillPath(ctx, [w / 2, h * 0.3, w * 0.68, h / 2, w / 2, h * 0.7, w * 0.32, h / 2]);
   }],
+  ['strike', 128, 48, (ctx, w, h) => {
+    // Marumi's "STRIKE!" sticker (coloured: draw untinted): a yellow plate with one cut corner and a
+    // hard navy drop, navy italic caps with a white edge (the quad itself is slanted −8°)
+    const plate = (dx, dy, col) => {
+      ctx.fillStyle = col;
+      fillPath(ctx, [6 + dx, 4 + dy, w - 4 + dx, 4 + dy, w - 4 + dx, h - 14 + dy, w - 14 + dx, h - 4 + dy, 6 + dx, h - 4 + dy]);
+    };
+    plate(2, 2, '#0e1930');
+    plate(0, 0, '#ffdd4a');
+    ctx.font = 'italic 900 27px "Nunito", "Arial Black", "Helvetica Neue", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeText('STRIKE!', w / 2 + 1, h / 2);
+    ctx.fillStyle = '#0e1930';
+    ctx.fillText('STRIKE!', w / 2 + 1, h / 2);
+  }],
+  ['zz', 32, 32, (ctx, w, h) => {
+    // two sleepy Z marks (a nap)
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const z = (x, y, s, lw) => {
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + s, y);
+      ctx.lineTo(x, y + s);
+      ctx.lineTo(x + s, y + s);
+      ctx.stroke();
+    };
+    z(4, 14, 13, 3.2);
+    z(19, 4, 9, 2.4);
+  }],
 ];

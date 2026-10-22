@@ -17,6 +17,8 @@ const FIRE = {
   arrow: 'fire.arrow', needle: 'fire.arrow', bullet: 'fire.bullet', shell: 'fire.shell', fireball: 'fire.shell',
   shuriken: 'fire.shuriken', orb: 'fire.magic', flask: 'fire.magic', spark: 'fire.holy', bolt: 'fire.zap',
   slash: 'atk.slash', pulse: 'atk.pulse', beam: 'atk.beam', chain: 'atk.chain', build: 'turret.build',
+  // FX-1 (the 'attacks' part sprite): Marumi's roll and lob, Azami's strip, Suzu's seal toss
+  roll: 'fire.roll', lob: 'fire.lob', strip: 'fire.strip', trap: 'fire.trap',
 };
 const HIT = { pierce: 'hit.pierce', slash: 'hit.slash', mystic: 'hit.mystic', holy: 'hit.holy' };
 const STATUS = {
@@ -38,7 +40,19 @@ export function battleSfx(events, info = {}) {
   const items = [];
   const push = (it) => items.push(it);
   for (const ev of events || []) {
+    // a sentry set by Yuzuha: its 'deploy' event carries the sentry's type in `type` (the sim's payload field
+    // overwrites the event name), so it is known by its kind
+    if (ev.kind === 'sentry' && ev.uid != null && ev.towerUid != null && ev.x != null) {
+      push({ id: 'sentry.deploy', cat: 'fire', key: 'deploy', score: 1, pan: pan(ev.x) });
+      continue;
+    }
     switch (ev.type) {
+      case 'pins':
+        push({ id: 'pins.clatter', cat: 'fire', key: 'pins', score: 1, pan: pan(ev.x) });
+        break;
+      case 'deployEnd':
+        if (!ev.burst) push({ id: 'sentry.fold', cat: 'fire', key: 'fold', score: 0.5, pan: pan(ev.x) });
+        break;
       case 'attack': {
         const id = FIRE[ev.kind];
         if (!id) break;
@@ -113,7 +127,8 @@ export function battleSfx(events, info = {}) {
         push({ id: 'trap.set', pan: pan(ev.x) });
         break;
       case 'trapTriggered':
-        push({ id: 'trap.trigger', pan: pan(ev.x) });
+        // a spike strip bites with a snap (Suzu's traps keep their own trigger)
+        push({ id: ev.strip ? 'strip.snap' : 'trap.trigger', pan: pan(ev.x) });
         break;
       case 'heroLevel': {
         // 24 levels and bought levels: at most one chime per 400 ms

@@ -10,6 +10,7 @@
     python tools/audio/studio.py render all --palette toby    # same songs, another palette (build/toby/, not shipped)
     python tools/audio/studio.py render demo_battle --stems intensity --no-encode
     python tools/audio/studio.py sfx                          # SFX recipes → sprite (build/sfx/)
+    python tools/audio/studio.py sfx-part attacks             # one part sprite (sfx-attacks.*), merged into sprite.json
     python tools/audio/studio.py review demo|all|sfx          # spectrograms, piano rolls, seam plots, report + index.html
     python tools/audio/studio.py ship [--palette cleared]     # gates, then copy into public/audio/ (+ manifest)
 
@@ -159,6 +160,15 @@ def cmd_sfx(a):
     print(f'{res["count"]} SFX, {res["seconds"]:.1f} s; sprite opus {res["bytes"]["opus"]:,} B, aac {res["bytes"]["aac"]:,} B → {res["dir"]}')
 
 
+def cmd_sfx_part(a):
+    """One part sprite (recipes registered with part=<name>), merged into public/audio/sfx/sprite.json."""
+    from sakura_audio.sfx.sprite import build_part
+    pal = load_palette(a.palette)
+    res = build_part(pal, a.name)
+    print(f'encode check (worst relative error per sound): {res["checks"]}')
+    print(f'part {a.name}: {res["count"]} SFX, {res["seconds"]:.1f} s at sample {res["start"]:,} → {res["dir"]}')
+
+
 def cmd_review(a):
     from sakura_audio import review
     pal = load_palette(a.palette)
@@ -301,6 +311,10 @@ def main(argv=None):
     p.add_argument('ids', nargs='*')
     p.add_argument('--palette', default='cleared')
     p.set_defaults(fn=cmd_sfx)
+    p = sub.add_parser('sfx-part')
+    p.add_argument('name')
+    p.add_argument('--palette', default='cleared')
+    p.set_defaults(fn=cmd_sfx_part)
     p = sub.add_parser('review')
     p.add_argument('songs', nargs='*', default=['all'])
     p.add_argument('--palette', default='cleared')

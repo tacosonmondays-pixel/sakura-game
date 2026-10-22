@@ -6,7 +6,7 @@
   "opus": "sfx.webm",
   "aac": "sfx.m4a"
  },
- "length": 1267427,
+ "length": 1341597,
  "sounds": {
   "atk.beam": {
    "start": 2400,
@@ -931,6 +931,114 @@
    "jitter": 0.0,
    "priority": 1,
    "level": -31
+  },
+  "fire.lob": {
+   "start": 1272227,
+   "length": 5396,
+   "gain_db": -18.0,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 80,
+   "jitter": 0.05,
+   "priority": 0,
+   "part": "attacks",
+   "level": -33
+  },
+  "fire.roll": {
+   "start": 1280023,
+   "length": 10400,
+   "gain_db": -9.0,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 90,
+   "jitter": 0.05,
+   "priority": 0,
+   "part": "attacks",
+   "level": -32
+  },
+  "fire.strip": {
+   "start": 1292823,
+   "length": 5334,
+   "gain_db": -15.1,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 90,
+   "jitter": 0.04,
+   "priority": 0,
+   "part": "attacks",
+   "level": -32
+  },
+  "fire.trap": {
+   "start": 1300557,
+   "length": 3213,
+   "gain_db": -21.8,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 90,
+   "jitter": 0.05,
+   "priority": 0,
+   "part": "attacks",
+   "level": -33
+  },
+  "pins.clatter": {
+   "start": 1306170,
+   "length": 5686,
+   "gain_db": -14.6,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 120,
+   "jitter": 0.04,
+   "priority": 0,
+   "part": "attacks",
+   "level": -32
+  },
+  "sentry.deploy": {
+   "start": 1314256,
+   "length": 9732,
+   "gain_db": -11.7,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 1,
+   "part": "attacks",
+   "level": -31
+  },
+  "sentry.fold": {
+   "start": 1326388,
+   "length": 8477,
+   "gain_db": -14.5,
+   "bus": "battle",
+   "voices": 1,
+   "gap_ms": 200,
+   "jitter": 0.0,
+   "priority": 0,
+   "part": "attacks",
+   "level": -32
+  },
+  "strip.snap": {
+   "start": 1337265,
+   "length": 1932,
+   "gain_db": -16.6,
+   "bus": "battle",
+   "voices": 2,
+   "gap_ms": 70,
+   "jitter": 0.05,
+   "priority": 0,
+   "part": "attacks",
+   "level": -32
   }
- }
+ },
+ "mainLength": 1267427,
+ "parts": [
+  {
+   "id": "attacks",
+   "start": 1269827,
+   "length": 71770,
+   "files": {
+    "opus": "sfx-attacks.webm",
+    "aac": "sfx-attacks.m4a"
+   }
+  }
+ ]
 }

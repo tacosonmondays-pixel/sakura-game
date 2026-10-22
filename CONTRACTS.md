@@ -1143,6 +1143,10 @@ SimEvent = { type, ...payload } with types:
   'blink' {uid,fromX,fromY,x,y} 'teleportWarn' {uid,x,y} 'split' {uid,children} 'phase' {uid,on}
   'barrierBreak' {uid} 'shellBreak' {uid} 'sabotage' {towerUid, enemyUid, turretUid? /*a jammed drone*/} 'trapPlaced' {uid,x,y} 'trapTriggered' {uid,x,y}
   'fizzle' {uid,x,y,turretUid} (a guided drone bullet whose target is gone)
+  'deploy' {uid:-1,towerUid,x,y,kind:'net'} | {uid,towerUid,x,y,kind:'sentry',extra} 'deployEnd' {uid,towerUid,x,y,burst} 'netCatch' {towerUid,uid,x,y,left}
+    (a sentry's payload carries `type` = its sentry type 'plain'|'net'|'flash'|'heavy'|'flak', which overwrites the event
+    name: listeners know a sentry set by `kind === 'sentry'`; src/render/placed and src/audio/battle.js do)
+  'ball' {towerUid,uid,pathIndex,dist} 'ballPop' {towerUid,uid,x,y,n,fin,tx,ty} 'pins' {towerUid,x,y,n} 'ballEnd' {towerUid,uid}
   'place' {towerUid,unitId,x,y,tx,ty} 'upgrade' {towerUid,path,tier} 'sell' {towerUid,refund}
   'heroLevel' {level,towerUid} 'ult' {name,effect,x,y,towerUid,rank} 'waveStart' {wave} 'waveEnd' {wave,bonus}
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}

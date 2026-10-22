@@ -27,10 +27,23 @@ SPAMMY = [i for i in sorted(REGISTRY)
           if (i.split('.')[0] in ('fire', 'atk', 'hit', 'st', 'boom') or i in ('en.death', 'en.deathBig')) and i != 'boom.volatile']
 
 
+# FX-1: the attack sounds of the 'attacks' part sprite (sprite.py build_part)
+PART_IDS = 'fire.roll fire.lob fire.strip fire.trap strip.snap pins.clatter sentry.deploy sentry.fold'.split()
+
+
 class RegistryTest(unittest.TestCase):
     def test_every_design_id_has_a_recipe(self):
         self.assertEqual(sorted(set(DESIGN_IDS) - set(REGISTRY)), [])
         self.assertEqual(len(DESIGN_IDS), 84)
+
+    def test_part_recipes(self):
+        # the 84 main sounds stay in the main sprite; the FX-1 ones ship in the 'attacks' part
+        for sid in DESIGN_IDS:
+            self.assertFalse(REGISTRY[sid].get('part'), sid)
+        for sid in PART_IDS:
+            self.assertEqual(REGISTRY[sid].get('part'), 'attacks', sid)
+            self.assertEqual(REGISTRY[sid]['bus'], 'battle', sid)
+            self.assertLessEqual(REGISTRY[sid]['level'], -30, sid)
 
     def test_runtime_parameters(self):
         for sid, s in REGISTRY.items():
@@ -54,7 +67,7 @@ class RegistryTest(unittest.TestCase):
 
 class SpammyRenderTest(unittest.TestCase):
     def test_short_clean_deterministic(self):
-        for sid in SPAMMY:
+        for sid in sorted(set(SPAMMY) | set(PART_IDS)):
             with self.subTest(sid):
                 x = render_one(sid, None)
                 self.assertTrue(np.isfinite(x).all())

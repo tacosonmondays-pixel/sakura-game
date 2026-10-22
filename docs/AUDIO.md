@@ -953,6 +953,14 @@ def confirm(r):    # r = seeded helpers
   ```
 - Gains, caps and jitter are applied at runtime, so balancing SFX never needs a re-encode. Only the
   recipes do.
+- **Part sprites.** A recipe registered with `part='<name>'` ships in its own small sprite,
+  `sfx-<name>.webm` / `.m4a`, appended after the main one: `studio.py sfx-part <name>` renders only those
+  recipes and merges them into `sprite.json` (`parts: [{ id, start, length, files }]`, `mainLength`, and
+  `length` = the whole; each part sound has an absolute `start` and `part`). Adding a few sounds therefore
+  never re-encodes the other 84 (whose sampled recipes need FluidSynth and the soundfonts). The player
+  decodes every file and lays each part into the one SFX buffer at its start (`src/audio/sfx.js` `stitch`),
+  so `play()` is unchanged; a full `studio.py sfx` rebuild re-attaches the parts. FX-1 adds the `attacks`
+  part (8 sounds, 2.2 s; 7 KB Opus + 18 KB AAC).
 
 ---
 
@@ -1463,6 +1471,20 @@ P1 = first ship (60 ids), P2 = polish (24 ids). "Delegation" = `domSfx.js`. "Eco
 | `trap.set` | 2 | `trapPlaced` | Rune click + soft chime, 120 ms | 2, 100 ms |
 | `trap.trigger` | 1 | `trapTriggered` | Snap + small boom, 250 ms | 2, 80 ms |
 | `turret.build` | 2 | `build` | Wrench clank (metallic FM ×2), 200 ms | 1, 200 ms |
+
+**FX-1 attack sounds** (the `attacks` part sprite, §2.11): the attack kinds that were silent and the new
+placed objects. Synthesised in `recipes.py` like the rest (original, no samples).
+
+| ID | Hook | Recipe | Caps |
+|---|---|---|---|
+| `fire.roll` | `roll` (Marumi) | A soft knock as the ball drops, then a tumbling low rumble, 340 ms | 2, 90 ms |
+| `fire.lob` | `lob` (Marumi) | Hand slap + an upward "fwoop", 170 ms | 2, 80 ms |
+| `fire.strip` | `strip` (Azami) | A skim through the air + a steel clack, 180 ms | 2, 90 ms |
+| `fire.trap` | `trap` (Suzu's seal toss) | Paper flick + a light swish, 110 ms | 2, 90 ms |
+| `strip.snap` | `trapTriggered` with `strip` (replaces `trap.trigger` for strips) | Sharp snap + a short metallic "shk", 80 ms | 2, 70 ms |
+| `pins.clatter` | `pins` | Five wooden knocks, a little clatter, 200 ms | 2, 120 ms |
+| `sentry.deploy` | a sentry set (`kind: 'sentry'`; its `type` field is the sentry's type) | Clunk + a servo whirr up + a lock click, 310 ms | 1, 200 ms |
+| `sentry.fold` | `deployEnd` (not a burst: the blast is its sound) | Servo whirr down + a soft latch, 270 ms | 1, 200 ms |
 
 ### 5.5 Battle: impacts, status, enemies (bus `battle`)
 

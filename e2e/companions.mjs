@@ -1,6 +1,6 @@
 // End-to-end check of the companion figures (src/render/companions.js) in a battle at 844×390:
 //   Ruri, Hana and Yoriko (hero) are placed; their three companions exist as 3D figures (Kon, Kaze, the doll);
-//   Kon runs from Ruri to her relay origin and sits there; Kaze leaves Hana's shoulder on one of her attacks and
+//   Kon runs from Ruri to his post at her relay origin and acts there (FX-1: within 0.6 tiles of it); Kaze leaves Hana's shoulder on one of her attacks and
 //   comes back (and is drawn 1.3x in battle, Kon 2.4x); the doll dashes on Yoriko's needles (an enemy parked by her on the
 //   road; Dream Detour is only a fallback after that check); the lowest graphics setting drops the figures (Kon falls back
 //   to the procedural holo fox); the student page shows the companion beside the girl; no console errors.
@@ -200,7 +200,11 @@ try {
   check(konModes.includes('travel'), `Kon runs (${konModes.join(' ')})`);
   for (let i = 0; i < 20 && (await actor('kon'))?.mode !== 'spot'; i++) await step(0.2);
   const kon1 = await actor('kon');
-  check(kon1?.mode === 'spot' && Math.hypot(kon1.x - t0.ox, kon1.z - t0.oy) < 0.05, `Kon sits at her relay origin (${kon1?.x}, ${kon1?.z} vs ${t0.ox.toFixed(3)}, ${t0.oy.toFixed(3)})`);
+  // FX-1: his post is the relay origin (slid sideways when it sits straight behind her from the camera); there
+  // he acts (guard, hops, patrol, play) but never strays more than 0.6 tiles from the bolt origin in a wave
+  // (between waves he may trot to Ruri for a pat or a nap)
+  const leashOk = kon1 && (Math.hypot(kon1.x - t0.ox, kon1.z - t0.oy) <= 0.6 + 1e-3 || ['play', 'rest', 'trot'].includes(kon1.act));
+  check(kon1?.mode === 'spot' && leashOk, `Kon is at his post by her relay origin (${kon1?.x}, ${kon1?.z} vs ${t0.ox.toFixed(3)}, ${t0.oy.toFixed(3)}; ${kon1?.act})`);
   await page.evaluate(() => window.__battle.renderer.resetCamera());
   await step(0.05);
   await settle(500);

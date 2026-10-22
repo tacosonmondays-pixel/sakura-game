@@ -6,8 +6,9 @@
 //   P1 (falcon) T3+: a feather flick on the hit
 //   P2 (otter) T3+: water ripple on the hit
 import { lookAt } from '../flair.js';
-import { flash, ripple, sparks } from '../patterns/bursts.js';
+import { flash, ripple } from '../patterns/bursts.js';
 import { CORE, DECOR } from '../context.js';
+import { impactFx } from '../impacts.js';
 
 const BLUE = '#5ad1ff';
 const PALE = '#d8f2ff';
@@ -46,7 +47,8 @@ export const ruri = {
   onImpact(rec, x, y, crit, radius, ctx) {
     const lk = rec.tw.look;
     ripple(ctx, x, y, 0.1, Math.max(0.4, radius), 0.3, ctx.col(BLUE), 0, 'ringSoft', true, 0.8);
-    sparks(ctx, x, 0.35, y, 2, ctx.col(PALE), 1.2);
+    // her impact preset (FX-1): a blue star and sparks, brighter on a crit
+    impactFx(ctx, 'ruri', crit ? 'crit' : 'weak', x, 0.35, y);
     if (lookAt(lk, 0) >= 3) {
       const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, x, 0.4, y, 0.5, 0.6, 0.14, ctx.col('#ffffff'), 0.9);
       if (p) p.rot = 0.6;
@@ -59,5 +61,26 @@ export const ruri = {
       }
     }
     if (lookAt(lk, 2) >= 3) ripple(ctx, x, y, 0.2, 0.7, 0.4, ctx.col('#8fe3ff'), 0.05, 'ring', true, 0.7);
+  },
+
+  /** Her kill (FX-1): a fox-bite slash (two curved fangs) and fox-fire wisps rising in her blue. */
+  onKill(ev, tw, t, ctx, x, h, y) {
+    const pale = ctx.col(PALE);
+    for (let i = 0; i < 2; i++) {
+      const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, x + (i - 0.5) * 0.12, h, y, 0.42, 0.5, 0.14, pale, 0.9);
+      if (p) p.rot = i ? 2.4 : 0.7;
+    }
+    const c = ctx.col(BLUE);
+    const k = ctx.n(3);
+    for (let i = 0; i < k; i++) {
+      const a = (i / k) * Math.PI * 2;
+      const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.glow, x + Math.cos(a) * 0.12, h, y + Math.sin(a) * 0.12, 0.18, 0.04, 0.6, c, 0.9);
+      if (!p) break;
+      p.vy = 0.9;
+      p.vx = Math.cos(a) * 0.2;
+      p.vz = Math.sin(a) * 0.2;
+      p.drag = 1.2;
+    }
+    return true;
   },
 };

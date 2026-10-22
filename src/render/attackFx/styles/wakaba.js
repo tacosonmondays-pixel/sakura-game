@@ -14,7 +14,9 @@ export const wakaba = {
     if (ev.kind === 'drink' && ev.x != null) {
       const h = hand(ctx, t);
       const d = Math.hypot(ev.x - h.x, ev.y - h.y);
-      ctx.toss.throw(ctx.R.flask || ctx.R.ofuda, h.x, h.h + 0.15, h.y, ev.x, ev.y, 0.32, 0.7 + 0.15 * d, 0.45, ctx.col(BLUE), 8, t.uid * 31 + Math.floor(ctx.time * 10), 1, ctx.col('#ffffff'));
+      // no trap stands behind a drink: trapUid -1 (a made-up uid could hide a real Suzu / Azami trap
+      // that happens to have that uid while the bottle flies)
+      ctx.toss.throw(ctx.R.flask || ctx.R.ofuda, h.x, h.h + 0.15, h.y, ev.x, ev.y, 0.32, 0.7 + 0.15 * d, 0.45, ctx.col(BLUE), 8, -1, 1, ctx.col('#ffffff'));
       ripple(ctx, ev.x, ev.y, 0.1, t.stats?.drink?.splash || 0.8, 0.45, ctx.col(WATER), 0.45, 'ringSoft', true, 0.8);
       sparks(ctx, ev.x, 0.6, ev.y, 4, ctx.col(WATER), 1.2);
       return;

@@ -33,12 +33,14 @@ from .synth import (RATE, n_of, hz, pulse, tri, saw, sine, noise, env_exp, env_n
 REGISTRY: dict = {}
 
 
-def sfx(sid, bus='ui', level=None, gain_db=-10.0, voices=2, gap_ms=40, jitter=0.0, priority=1, hp=None):
+def sfx(sid, bus='ui', level=None, gain_db=-10.0, voices=2, gap_ms=40, jitter=0.0, priority=1, hp=None, part=None):
     """Register a recipe. `level` (LUFS) sets the runtime gain from a measurement; `gain_db` is only the
-    fallback when no level is given. `hp` overrides the builder's high-pass (Hz)."""
+    fallback when no level is given. `hp` overrides the builder's high-pass (Hz). `part`: the recipe ships in a
+    small part sprite of that name appended to the main one (sprite.py build_part), so adding a few sounds never
+    re-encodes the other 84."""
     def deco(fn):
         REGISTRY[sid] = {'fn': fn, 'bus': bus, 'level': level, 'gain_db': gain_db, 'voices': voices, 'gap_ms': gap_ms,
-                         'jitter': jitter, 'priority': priority, 'hp': hp}
+                         'jitter': jitter, 'priority': priority, 'hp': hp, 'part': part}
         return fn
     return deco
 
@@ -775,3 +777,69 @@ def gacha_results(r):
     ta = seq([(0, blip('c6', 0.08, 0.25, 0.04, 0.4)), (0.09, blip('g6', 0.16, 0.25, 0.08, 0.4))])
     dry = seq([(0, ta), (0.16, chord_bloom(('c6', 'e6', 'g6', 'c7'), 0.5, 0.13, 8.0))])
     return fade(echo(dry, 112, 0.28, 0.2, tail=0.25), fout=0.12)
+
+
+# =========================================================================================== attacks (FX-1)
+# Sounds for attack kinds that were silent (roll, lob, strip, trap) and the new placed objects (pins, strip bites,
+# sentries). They ship in the 'attacks' part sprite (sfx-attacks.webm / .m4a, sprite.py build_part). Spammy and
+# small like every fire.* sound; all of them synthesised here, original.
+
+@sfx('fire.roll', bus='battle', level=-32, voices=2, gap_ms=90, jitter=0.05, priority=0, part='attacks')
+def fire_roll(r):
+    """Marumi's roll: the ball drops on the lane (a soft knock) and rumbles away (a tumbling low rumble)."""
+    d = 0.32
+    rumble = filtered_noise(d, r.rng, 160, 900, 0.55)
+    rumble = tremolo(lowpass(rumble, 900, 2), 23, 0.75) * env_rc(d, 0.02, 0.18)
+    return seq([(0, thump(230, 140, 0.09, 0.7)), (0, tok(520, 0.03, 0.35)), (0.02, rumble)])
+
+
+@sfx('fire.lob', bus='battle', level=-33, voices=2, gap_ms=80, jitter=0.05, priority=0, part='attacks')
+def fire_lob(r):
+    """Her underhand lob: an upward 'fwoop' and a light hand slap."""
+    return seq([(0, tok(700, 0.02, 0.35)), (0.01, swish(0.16, 500, 2200, r, 0.55, 1.6))])
+
+
+@sfx('fire.strip', bus='battle', level=-32, voices=2, gap_ms=90, jitter=0.04, priority=0, part='attacks')
+def fire_strip(r):
+    """Azami lays a strip: a quick skim through the air and a steel clack as it lands."""
+    clack = seq([(0, clink('a5', 0.08, 0.35)), (0.012, tok(1500, 0.02, 0.4)), (0.03, clink('e5', 0.07, 0.22))])
+    return seq([(0, swish(0.08, 1400, 3600, r, 0.3, 1.8)), (0.07, clack)])
+
+
+@sfx('fire.trap', bus='battle', level=-33, voices=2, gap_ms=90, jitter=0.05, priority=0, part='attacks')
+def fire_trap(r):
+    """A paper seal flicked from the hand (Suzu's toss; the rune's own click is trap.set when it lands)."""
+    return seq([(0, paper(r, 0.05, 0.45)), (0.012, swish(0.09, 1800, 4200, r, 0.25, 2.0))])
+
+
+@sfx('strip.snap', bus='battle', level=-32, voices=2, gap_ms=70, jitter=0.05, priority=0, part='attacks')
+def strip_snap(r):
+    """A strip bites: a sharp snap and a short metallic 'shk'."""
+    shk = shape(filtered_noise(0.045, r.rng, 2400, 6000, 0.3), env_exp(0.045, 0.012, 0.001))
+    return seq([(0, tok(2300, 0.018, 0.55)), (0.002, clink('f#6', 0.06, 0.22)), (0.004, shk)])
+
+
+@sfx('pins.clatter', bus='battle', level=-32, voices=2, gap_ms=120, jitter=0.04, priority=0, part='attacks')
+def pins_clatter(r):
+    """Split Pins: a little clatter of wooden pins falling over."""
+    hits = []
+    t = 0.0
+    for i in range(5):
+        f = 900 + 600 * r.rng.uniform(0, 1)
+        hits.append((t, tok(f, 0.03, 0.45 - 0.05 * i)))
+        t += 0.022 + 0.03 * r.rng.uniform(0, 1)
+    return seq(hits)
+
+
+@sfx('sentry.deploy', bus='battle', level=-31, voices=1, gap_ms=200, priority=1, part='attacks')
+def sentry_deploy(r):
+    """Yuzuha's sentry case lands with a clunk and unfolds (a short servo whirr up, a click as it locks)."""
+    whirr = lowpass(saw(glide(260, 620, 0.2, 0.15), 0.2, 0.18) * env_rc(0.2, 0.02, 0.05), 1800, 2)
+    return seq([(0, thump(300, 180, 0.08, 0.6)), (0, tok(800, 0.03, 0.4)), (0.08, whirr), (0.29, tok(1700, 0.015, 0.3))])
+
+
+@sfx('sentry.fold', bus='battle', level=-32, voices=1, gap_ms=200, priority=0, part='attacks')
+def sentry_fold(r):
+    """A sentry folds away: a servo whirr down and a soft latch."""
+    whirr = lowpass(saw(glide(560, 240, 0.18, 0.12), 0.18, 0.15) * env_rc(0.18, 0.02, 0.05), 1600, 2)
+    return seq([(0, whirr), (0.17, tok(900, 0.02, 0.3)), (0.17, puff(0.1, r, 1800, 400, 0.2))])

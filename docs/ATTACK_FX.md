@@ -150,6 +150,73 @@ ripples, drum beats, double rings), `motes` (swarms), `patrol` (aura-edge famili
 clones), `bursts` (impact flourishes). Hit attribution for area girls: `math/victims.js` walks back
 over the `hit` events just before a `pulse` / hitscan `attack` (the sim emits hits → pulse → attack).
 
+## Placed objects, thrown props and Kon (FX-1)
+
+Code-built models in place of the flat discs and dashed rings, for the girls whose look was weakest:
+Marumi, Azami, Yuzuha and Ruri's Kon. Display only like everything here (sim id and co-op unchanged);
+every model is a few merged toon primitives made at boot (no downloads, no textures).
+
+| Module | What |
+|---|---|
+| `src/render/placed/index.js` | `PlacedLayer`, owned by the attack-FX layer (`ctx.placed`): observes every event, draws once a frame in game time; `motion()` is `'full'`, `'static'` (Low: no unfold, wobble or jab) or `'calm'` (Reduce Motion: arrivals and departures are 0.15 s fades in place, no travel). With it, `actors.drawGround` skips the old strip / sentry / net / ball marks (`fxHook.placed`). |
+| `placed/parts.js` | One `InstancedMesh` per part type (the figures' toon material, plus an inverted-hull outline sharing its instance buffers on High / Medium), stable slots, only the written slots uploaded; a type with no instance is hidden (0 draw calls). `NetMesh`: one lattice for every net, opened / lifted / cinched / faded per instance in its vertex shader. |
+| `placed/geometry.js` | The parts: the ball (a bold band on the great circle through its spin axis, a sakura decal, finger holes), the fuse cap, pins, strip plates and spike rows, the rolled strip, the sentry case / hub / legs / head / lens and five barrel modules, the dart, the net lattice. |
+| `placed/flights.js` | The projectile kit's thrown props: a display copy flies from her hand (or the sky) to where the sim put the object, on an arc with spin, a stretch along the flight and a shadow that shrinks with height; the object it stands for stays hidden until it lands (the hand-off). |
+| `placed/fsm.js`, `placed/math.js` | Pure state machines (strip, sentry, net) and maths (arcs, no-slip spin, bounce legs, squash, staggers, springs, scan), unit-tested (`tests/render/placed-logic.test.js`). |
+| `placed/balls.js`, `strips.js`, `sentries.js` | The drivers (below). `placed/ribbons.js`: tapering ground trails (a ball's dust wake), High only, ≤ 6. |
+| `attackFx/poses.js`, `src/render/boneOverlay.js` | Marumi's underhand bowl / lob as a procedural pose over her idle (bones turned about her own axes after the mixer, put back before it), in place of her built overhand throw. |
+| `attackFx/impacts.js` | Impact presets: her hit spark in her colours, weak (≤ 6 shapes) / strong / crit (≤ 10). |
+
+**Marumi.** Every sim ball (`t.balls`) is a ball model: a new one leaves her hand low and hops onto the
+sim ball in 0.2 s (then it is exactly where the sim rolls it); it spins without slipping, wobbles 2°,
+puffs dust and trails a dust wake; a Wrecking Ball walker it bowls through squashes it; the fuse cap
+stays upright with a spark; it swells 1 → 1.25 in the last 0.08 s before it meets its walker. A Spin
+Shot leg (`bl.fly`) gets a 0.5-high parabola from the leg's progress (so a moving target still ends it
+on contact), a stretch and a shrinking shadow. `pins` tumble out red-and-white pins that fall over;
+the Glow Bowl finale stands ten pins in a triangle for 0.3 s, scatters them and shows a STRIKE! sticker
+(≤ 1.1 s). Her lob is her own ball (the sim's shell, drawn spinning with a shadow, on a higher arc).
+Giant Strike's `giantBall` runner is a 2.5× ball with a dust wake. Her pose: the release lands on the
+sim's roll (it starts early from her own `t.cooldown`, and plays faster when her interval is shorter).
+
+**Azami.** Each sim strip (`sim.traps` with `strip`) is five hinged steel plates across the road with
+chunky round spikes and thistle caps (no hazard stripes). She skims the rolled strip from her hand
+(Spike Rain strips drop from high); it lands, unrolls plate by plate, the spikes pop up row by row once
+armed, a glint sweeps it every 2.5 s; a bite jabs the plate under the walker (from the hits before
+its `trapTriggered`); rows sink as its hits run out; a spent strip rolls up and fades. Charged Strips
+shiver and glow in the last 0.25 s of a timed strip; Sticky Tar strips lie on a glossy tar decal.
+
+**Yuzuha.** Each sentry (`t.sentries`) is tossed as a folded case (Emergency Deploy: dropped from the
+sky), lands, unfolds in three beats (legs, head, lens), scans, tracks its target and kicks on every
+shot; its bullets leave the barrel (`placed.muzzleFor`) as short safety-orange tracers; the lens blinks
+amber in its last 3 s; it folds away. Each type has its own head module. Capture Nets arc out folded,
+open in the air and drape; their tint and opacity show the budget left; a catch wraps a bundle round
+the walker that pops into coins. Her own shots are darts (`actors` projectile kind `dart`) in her cyan.
+
+**Kon** (`companions.js`, `companionLogic.js` `konBrainStep`): from his post — the relay origin, or a
+spot in front of Ruri when her origin is her own spot, slid sideways when it would sit straight behind
+her from the camera — he guards (head tracking, side-steps along the lane), hops at the target on every
+bolt (pre-rolled from her countdown so the bolt leaves at the top), pounces on every 4th bolt or a kill,
+patrols and sniffs when nothing is in range, plays between waves (tail chase, roll, scratch, a pounce at
+nothing, a trot to Ruri for a pat) and naps after 20 quiet seconds. During a wave he stays within 0.6
+tiles of the bolt origin, so `konAt` (where her bolts leave) never strays. Reduce Motion: he re-projects
+(a fade out and in) instead of running and only yips in place. His tether shows only while she is selected.
+
+**Kills credit the girl.** The renderer finds who made a kill (`killerOf`: the hit before the death,
+by the hit-source rules; a `netCatch`); a style with `onKill` draws her kill pop (Marumi a knocked-over
+pin and petals, Azami steel shards and thistle petals, Yuzuha a zap burst, Ruri fox-bite fangs and
+fox-fire wisps) in place of the shared white puff.
+
+**Truth notes.** T1/T2 hold: a ball is off the sim ball only during its 0.2 s hop; a sentry's bullet
+blends from its barrel by f′ 0.6; Kon's drawn spot (the bolt origin) stays within 0.6 tiles in a wave.
+Range rings of placed things show only while their girl is selected (a strip's trigger ring, a
+sentry's range ring).
+
+**Budgets.** ≤ 30 placed-object draw calls with everything placed (each part type 1, with its outline
+2; `info.attackFx.placed.calls`); the placed layer's time counts inside the attack-FX ms; flashes go
+through the flash guard; Low: static models, no outlines. Sounds: `fire.roll`, `fire.lob`,
+`fire.strip`, `fire.trap`, `strip.snap`, `pins.clatter`, `sentry.deploy`, `sentry.fold`
+(`docs/AUDIO.md`, the `attacks` part sprite).
+
 ## Roster mechanics on the board (`src/render/rosterFx.js`)
 
 Not attack styles: one small renderer system for the roster B3 sim mechanics, fed every drained

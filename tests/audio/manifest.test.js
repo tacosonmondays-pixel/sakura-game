@@ -92,6 +92,28 @@ describe('sfx sprite', () => {
     for (const f of Object.values(sprite.files)) expect(statSync(new URL(`sfx/${f}`, root)).size).toBeLessThanOrEqual(300_000);
   });
 
+  test('part sprites sit after the main one and hold exactly their sounds (FX-1 attacks)', () => {
+    const parts = sprite.parts || [];
+    expect(parts.map((p) => p.id)).toContain('attacks');
+    const main = sprite.mainLength;
+    expect(main).toBeGreaterThan(0);
+    let end = main;
+    for (const p of [...parts].sort((a, b) => a.start - b.start)) {
+      expect(p.start).toBeGreaterThanOrEqual(end);
+      end = p.start + p.length;
+      for (const f of Object.values(p.files)) expect(statSync(new URL(`sfx/${f}`, root)).size).toBeLessThanOrEqual(300_000);
+      const mine = Object.entries(sprite.sounds).filter(([, s]) => s.part === p.id);
+      expect(mine.length).toBeGreaterThan(0);
+      for (const [, s] of mine) {
+        expect(s.start).toBeGreaterThanOrEqual(p.start);
+        expect(s.start + s.length).toBeLessThanOrEqual(p.start + p.length);
+      }
+    }
+    expect(sprite.length).toBe(end);
+    // every main sound stays inside the main file
+    for (const [, s] of Object.entries(sprite.sounds)) if (!s.part) expect(s.start + s.length).toBeLessThanOrEqual(main);
+  });
+
   test('every SFX id the engine can request exists', () => {
     const ids = new Set();
     for (const [, id] of CLICK_TABLE) ids.add(id);
@@ -103,7 +125,7 @@ describe('sfx sprite', () => {
       'gear-salvage', 'formation', 'secretary', 'missions', 'achievements', 'achievements-special', 'login', 'redeem']) {
       for (const a of economyCues(snap, more, r)) if (a.sfx) ids.add(a.sfx);
     }
-    const kinds = ['arrow', 'needle', 'bullet', 'shell', 'fireball', 'shuriken', 'orb', 'flask', 'spark', 'bolt', 'slash', 'pulse', 'beam', 'chain', 'build'];
+    const kinds = ['arrow', 'needle', 'bullet', 'shell', 'fireball', 'shuriken', 'orb', 'flask', 'spark', 'bolt', 'slash', 'pulse', 'beam', 'chain', 'build', 'roll', 'lob', 'strip', 'trap'];
     const evts = [
       ...kinds.map((kind, i) => ({ type: 'attack', kind, towerUid: i })),
       ...['pierce', 'slash', 'mystic', 'holy'].map((attackType) => ({ type: 'hit', attackType, amount: 5 })),
@@ -115,6 +137,9 @@ describe('sfx sprite', () => {
       { type: 'leak', id: 'a' }, { type: 'leak', id: 'elite' }, { type: 'place', towerUid: 1 }, { type: 'place', towerUid: 99 },
       { type: 'upgrade', tier: 1 }, { type: 'upgrade', tier: 3 }, { type: 'upgrade', tier: 5 }, { type: 'sell' }, { type: 'trapPlaced' },
       { type: 'trapTriggered' }, { type: 'heroLevel' }, { type: 'ult' }, { type: 'waveEnd' }, { type: 'bossPhase' }, { type: 'cash', reason: 'income' },
+      // FX-1: a strip's bite, Split Pins, a sentry set (its type field is the sentry type) and folded away
+      { type: 'trapTriggered', strip: true }, { type: 'pins', x: 1 }, { type: 'plain', kind: 'sentry', uid: 5, towerUid: 2, x: 1, y: 1 },
+      { type: 'deployEnd', uid: 5 },
     ];
     const defs = { a: { tier: 'normal' }, elite: { tier: 'elite' }, boss: { tier: 'boss' } };
     // one event per frame so the per-frame caps do not hide any id

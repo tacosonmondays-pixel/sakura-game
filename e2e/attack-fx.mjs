@@ -12,6 +12,8 @@
 //   3. launch + sell: a new drone starts in LAUNCH at her backpack; selling removes them at once
 //   4. every girl × every build (gallery) at high and low: no console errors, quads within the
 //      budget, no extra draw calls vs FX off, no default pulse rings left for styled pulse girls
+//   4b. FX-1 placed objects (Marumi, Azami, Yuzuha) and Ruri in focus mode at high and low: models drawn,
+//      ≤ 30 placed-object draw calls, quads within the budget
 //   5. stress: 19 girls at max builds + 3 extra Chikas at 3×: attack-FX CPU time
 //   6. screenshots (gallery, Chika focus, Akane / Hotaru on the phone)
 // Exit code 1 on any failure.
@@ -218,6 +220,39 @@ async function runViewport(vp) {
         check(r.calls <= callsOff + 1, `${quality} ${build}: draw calls with FX ${r.calls} ≤ without ${callsOff} + 1 (median of the last 60 frames)`);
       }
       await page.close();
+    }
+  }
+
+  // 4b. FX-1 placed objects (Marumi's balls, Azami's strips, Yuzuha's sentries and nets) and Kon, in focus
+  // mode (the newer girls are not in the gallery): no errors, the models are drawn, each part type is one
+  // instanced mesh (two with its outline) and all of them together stay ≤ 30 draw calls, quads in budget
+  if (matrix) {
+    const FX1 = [['marumi', '2-0-5'], ['marumi', '0-3-2'], ['azami', '4-2-0'], ['azami', '2-5-0'], ['yuzuha', '4-2-0'], ['yuzuha', '0-2-4'], ['ruri', '4-2-0']];
+    for (const quality of quick ? ['high'] : ['high', 'low']) {
+      for (const [unit, build] of quick ? FX1.slice(0, 3) : FX1) {
+        const page = await open(ctxB, `mode=focus&unit=${unit}&build=${build}&quality=${quality}&seed=3&speed=2&preroll=15&tiny=1`, errors);
+        const r = await page.evaluate((n) => {
+          let calls = 0;
+          let inst = 0;
+          let quads = 0;
+          let budget = 0;
+          for (let k = 0; k < n; k++) {
+            window.__advance(1);
+            const a = window.__r.info.attackFx;
+            const p = a.placed || {};
+            calls = Math.max(calls, p.calls || 0);
+            inst = Math.max(inst, p.instances || 0);
+            quads = Math.max(quads, a.quads);
+            budget = a.quadBudget;
+          }
+          return { calls, inst, quads, budget, placed: window.__placed.length };
+        }, quick ? 150 : 360);
+        check(r.placed === 1, `${quality} ${unit} ${build}: placed in focus mode`);
+        if (unit !== 'ruri') check(r.inst > 0, `${quality} ${unit} ${build}: her placed objects are drawn as models (${r.inst} instances)`);
+        check(r.calls <= 30, `${quality} ${unit} ${build}: placed-object draw calls ${r.calls} ≤ 30`);
+        check(r.quads <= r.budget + 150, `${quality} ${unit} ${build}: attack-FX quads ${r.quads} within budget ${r.budget} (+150 core)`);
+        await page.close();
+      }
     }
   }
 

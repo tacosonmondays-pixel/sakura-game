@@ -458,7 +458,11 @@ describe('who dealt a hit (hit source)', () => {
     const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
     expect(src).toMatch(/const holdable = feel\.holdsPossible\(\);\s*if \(holdable\) \{\s*if \(!hitSourceOn\) hitSource\.clear\(\);\s*hitSource\.frame\(sim\.projectiles\);\s*\}/);
     expect(src).toMatch(/if \(holdable\) \{\s*const owner = hitSource\.owner\(events, i\);/);
-    expect(src.match(/hitSource\.(frame|owner)\(/g).length).toBe(2);
+    // the holds (frame + owner) and the kill credit (FX-1), which asks it only while holds are possible
+    // (otherwise its own event scan, killSource, never framed)
+    expect(src.match(/hitSource\.(frame|owner)\(/g).length).toBe(3);
+    expect(src).toMatch(/\(holdable \? hitSource\.owner\(events, j\) : null\)/);
+    expect(src).not.toMatch(/killSource\.frame\(/);
   });
 });
 

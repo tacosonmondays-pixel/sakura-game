@@ -2,8 +2,9 @@
 // Query params:
 //   mode=gallery|focus  unit=chika  build=base|p0|p1|p2|max|5-2-0  level=1..10 (heroes, focus)
 //   quality=high|medium|low  speed=1|2|3  seed=3  fx=on|off  manual=1  extra=3 (gallery: extra
-//   Chikas at 5-2-0)  stream=0 (no enemy stream)  zoom=2.2 (focus)  select=1  clean=1 (no HUD)
+//   Chikas at 5-2-0)  stream=0 (no enemy stream)  zoom=2.2 (focus)  select=1  clean=1 (no HUD)  rm=1 (Reduce Motion)
 //   tiny=1 (96×54 canvas for fast checks)  bloom=0  hp=600 (enemy HP ×)  preroll=40 (s)
+//   add=marumi,azami,yuzuha,ruri (gallery: newer girls placed too, after the 19)
 // manual=1: no rAF loop; drive it with window.__advance(n, dt) and capture with __frame() /
 // __fxProbe() (e2e/attack-fx.mjs, e2e/attack-reel.mjs).
 import { preloadModels } from '../src/models/index.js';
@@ -113,7 +114,9 @@ function snapPlace(sim, id, x, y) {
 
 async function main() {
   await preloadModels();
-  const ids0 = mode === 'focus' ? [unit] : ORDER.slice();
+  // add=marumi,azami,…: the gallery also places these (a full board with the newer girls: frame-time checks)
+  const add = (params.get('add') || '').split(',').filter((id) => UNIT_MAP[id] && !ORDER.includes(id));
+  const ids0 = mode === 'focus' ? [unit] : [...ORDER, ...add];
   // focus: a land booth and a pond booth side by side (water girls stand in the pond)
   const LAND = [15.6, 8.5];
   const POND = [12.6, 8.5];
@@ -127,7 +130,9 @@ async function main() {
   // heroes play as ordinary girls here (all three fit in one sim) unless &level= asks for the real hero
   const heroFocus = mode === 'focus' && UNIT_MAP[unit].kind === 'hero' && params.has('level');
   for (const id of ORDER) if (UNIT_MAP[id].kind === 'hero' && !heroFocus) units[id] = { ...UNIT_MAP[id], kind: 'tower' };
-  const loadout = ORDER.filter((id) => !(heroFocus && id === unit)).map((unitId) => ({ unitId }));
+  // focus on a girl outside the gallery list (the newer girls): she joins the loadout too
+  const pool = mode === 'focus' && !ORDER.includes(unit) ? [...ORDER, unit] : [...ORDER, ...add];
+  const loadout = pool.filter((id) => !(heroFocus && id === unit)).map((unitId) => ({ unitId }));
   const sim = new Sim({
     stageId: 'fx-gallery', difficulty: 'normal', seed, loadout, hero: heroFocus ? { unitId: unit } : null,
     options: { autoStart: true }, data: { stage, map, units },
@@ -196,7 +201,15 @@ async function main() {
   if (params.get('tiny') === '1') el.style.cssText = 'width:96px;height:54px;inset:auto;left:0;top:0';
   const top = phone ? 40 : 44;
   const insets = clean ? { top: 0, right: 0, bottom: 0, left: 0 } : phone ? { top, right: 0, bottom: 56, left: 0 } : { top, right: 300, bottom: 0, left: 0 };
-  const r = createBattleRenderer(el, sim, { quality, settings: { quality, camera: 'free', attackFx: fxOn ? undefined : false, lighting: { exposure: 1, warmth: 0 }, ...(params.get('bloom') === '0' ? { bloom: false } : {}) }, insets });
+  const r = createBattleRenderer(el, sim, {
+    quality,
+    settings: {
+      quality, camera: 'free', attackFx: fxOn ? undefined : false, lighting: { exposure: 1, warmth: 0 }, ...(params.get('bloom') === '0' ? { bloom: false } : {}),
+      // rm=1: Reduce Motion (placed objects fade in place, Kon re-projects, no shake)
+      ...(params.get('rm') === '1' ? { reduceMotion: true } : {}),
+    },
+    insets,
+  });
   window.__sim = sim;
   window.__r = r;
   window.__placed = placed;

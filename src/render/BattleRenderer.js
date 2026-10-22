@@ -138,6 +138,19 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // kept only while a hit can hold its enemy (hitSourceOn)
   const hitSource = new HitSource();
   let hitSourceOn = false;
+  // who made a kill when no hold is possible (Low, Reduce Motion): the event scan alone (no
+  // projectile bookkeeping: it is never framed), then the attack-FX layer's own shot records
+  const killSource = new HitSource();
+  /** The girl who killed enemy `uid` (the 'death' at events[i]), or null. */
+  function killerOf(events, i, uid, holdable) {
+    for (let j = i - 1; j >= 0 && j >= i - 32; j--) {
+      const e = events[j];
+      if (e.type === 'netCatch' && e.uid === uid) return e.towerUid ?? null;
+      if (e.type !== 'hit' || e.uid !== uid) continue;
+      return (holdable ? hitSource.owner(events, j) : null) ?? killSource.owner(events, j) ?? attackFx?.shooterOf?.(uid) ?? null;
+    }
+    return null;
+  }
   // Marumi's balls on a Spin Shot bounce: their next blast draws the smaller cloud (fx.js bounceBlast)
   const bouncing = new Set();
 
@@ -277,7 +290,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, rand: vrand.fork('roster') });
   // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
-  const companions = new Companions({ sim, scene, actors, terrain, quality });
+  // Kon's intent (FX-1) reads the camera (he never guards straight behind Ruri from it), Reduce Motion
+  // (he re-projects instead of running) and the game speed (his hops keep pace with her bolts)
+  const companions = new Companions({ sim, scene, actors, terrain, quality, camera, fx, reduceMotion });
   actors.companions = companions;
   roster.companions = companions;
   // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
@@ -580,9 +595,20 @@ export function createBattleRenderer(container, sim, opts = {}) {
           fx.chain(ev.points || [], fxColor(ev.element || 'lightning', 'mystic'));
           break;
         case 'death': {
-          const p = actors.enemyPos(ev.uid) || { x: ev.x, y: 0, z: ev.y, size: 1, color: '#ffffff' };
+          const p = actors.enemyPos(ev.uid) || { x: ev.x, y: 0, z: ev.y, size: 1, height: 0.5, color: '#ffffff' };
           actors.markDying(ev.uid);
-          fx.death(p.x, p.y, p.z, p.size, p.color);
+          // a kill credits the girl who made it: her own kill pop (her motif in her colours) in place
+          // of the shared white puff, where her style has one (FX-1: Marumi, Azami, Yuzuha, Ruri)
+          const killer = killerOf(events, i, ev.uid, holdable);
+          const popped = killer != null && attackFx ? fxSafe(() => attackFx.killPop(ev, killer, p.x, p.y + (p.height || 0.5) * 0.5, p.z)) : false;
+          if (!popped) fx.death(p.x, p.y, p.z, p.size, p.color);
+          if (killer != null && !compBroken) {
+            try {
+              companions.kill(killer, ev.uid, p.x, p.z); // Kon pounces on a kill of Ruri's
+            } catch (err) {
+              compFail(err);
+            }
+          }
           if (ev.bounty > 0) fx.coin(p.x, p.y, p.z, ev.bounty);
           const tier = actors.enemies.get(ev.uid)?.tier ?? enemyTier(ev.id);
           if (tier === 'boss') {
@@ -1116,6 +1142,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
     setTimeScale(s) {
       attackFx?.setTimeScale(s);
+      if (s >= 0) companions.timeScale = Math.min(8, s);
     },
     /**
      * Extra: hit-stop — holds everything drawn for up to 60 ms of frame time (the battle keeps

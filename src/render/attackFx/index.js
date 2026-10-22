@@ -11,6 +11,10 @@
 //   trapHidden(uid)        → true while a tossed seal is still in the air
 //   update(dt, frameDt)    → once per frame after actors.drawGround (dt: the renderer's visual
 //                            clock, src/render/vfx/clock.js; frameDt: the frame's own time)
+//   placed                 → the placed-object layer (src/render/placed/): with it actors.js skips
+//                            the old marks for strips, sentries, nets and balls
+//   posePre(uid, model) / pose(uid, model, dt) → a girl's procedural pose layer, around her clips
+//   killPop(ev, ownerUid)  → true when the killer's own kill pop replaced the shared white puff
 import { createContext, CORE } from './context.js';
 import { resolveStyle } from './registry.js';
 import { tierLook, intensity, tierKey } from './flair.js';
@@ -20,6 +24,7 @@ import { Segments } from './patterns/segments.js';
 import { Drones } from './patterns/drones.js';
 import { Lunges } from './patterns/lunge.js';
 import { Tosses } from './patterns/toss.js';
+import { PlacedLayer } from '../placed/index.js';
 import { hitRadius } from '../../sim/towers.js';
 import { heroLookTiers } from '../../sim/hero.js';
 import { PROJECTILE_Z } from '../../sim/constants.js';
@@ -38,6 +43,9 @@ export function createAttackFx(o) {
   ctx.drones = new Drones(ctx, actors.root || o.scene);
   ctx.lunge = new Lunges(ctx);
   ctx.toss = new Tosses(ctx);
+  // placed objects and thrown props (balls, strips, sentries, nets): under actors.root, so impact
+  // frames turn them into silhouettes with the figures
+  ctx.placed = new PlacedLayer(ctx, actors.root || o.scene);
   const strict = !!o.strict;
 
   // ---- per-tower state ------------------------------------------------------------------
@@ -96,6 +104,7 @@ export function createAttackFx(o) {
   const stats = {
     drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0, halos: 0,
     quadBudget: 0, shed: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
+    placed: null,
   };
   let frame = 1;
   let msAcc = 0;
@@ -120,8 +129,11 @@ export function createAttackFx(o) {
     if (!drone) {
       tw.volleyIdx = 0;
       tw.volleyN = Math.max(1, t.eff?.projectiles || 1);
-      // body clip throttle (real time): stops the attack clip restarting every few frames
-      if (ctx.rtime - tw.clipT >= 0.45) {
+      // body clip throttle (real time): stops the attack clip restarting every few frames; a girl
+      // whose style poses this attack itself (Marumi's underhand roll) skips her built clip
+      if (tw.style.ownClip?.(ev)) {
+        tw.style.onShotPose?.(ev, tw, view(t), ctx);
+      } else if (ctx.rtime - tw.clipT >= 0.45) {
         ctx.actors.playAttack(ev.towerUid);
         tw.clipT = ctx.rtime;
       }
@@ -157,6 +169,8 @@ export function createAttackFx(o) {
     if (disposed) return false;
     const t0 = now();
     let handled = false;
+    // the placed-object layer observes every event (it never consumes one)
+    ctx.placed.onEvent(ev, i, events);
     switch (ev.type) {
       case 'hit':
         hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
@@ -287,7 +301,8 @@ export function createAttackFx(o) {
         const tw = ensureTw(t);
         rec.tw = tw;
         if (rec.turretUid != null) {
-          rec.blended = ctx.drones.muzzleFor(rec.turretUid, rec);
+          // a drone's bullet leaves its drone; a lane sentry's leaves its barrel
+          rec.blended = ctx.drones.muzzleFor(rec.turretUid, rec) || ctx.placed.muzzleFor(rec.turretUid, rec);
         } else {
           rec.idx = tw.volleyIdx % tw.volleyN;
           rec.n = tw.volleyN;
@@ -396,6 +411,7 @@ export function createAttackFx(o) {
     ctx.drones.update(gdt);
     ctx.lunge.update(gdt);
     ctx.toss.update(gdt);
+    ctx.placed.update(gdt);
 
     // vanished projectiles: flourish only on a matched sim hit / explode (never on expiry)
     let blended = 0;
@@ -431,8 +447,9 @@ export function createAttackFx(o) {
     ctx.pool.update(gdt);
     ctx.segs.update(gdt);
 
-    // stats
+    // stats (the placed layer's own time is inside this frame's: it ran in onEvent and update above)
     msAcc += now() - t0;
+    stats.placed = ctx.placed.stats();
     stats.msFrame = msAcc;
     stats.ms += (msAcc - stats.ms) * 0.1;
     msAcc = 0;
@@ -457,9 +474,44 @@ export function createAttackFx(o) {
 
   ctx.beginFrame();
 
+  /** A girl's procedural pose layer: put her bones back before her clips run (actors._updateTower). */
+  function posePre(uid, model) {
+    const tw = tws.get(uid);
+    if (tw?.style.posePre) tw.style.posePre(tw, model, ctx);
+  }
+
+  /** …and pose them after (dt: the frame's visual seconds). */
+  function pose(uid, model, dt) {
+    const tw = tws.get(uid);
+    if (!tw?.style.pose) return;
+    const t = sim.getTower ? sim.getTower(uid) : null;
+    if (t) tw.style.pose(tw, view(t), model, dt, ctx);
+  }
+
+  /**
+   * A kill (the sim's 'death' event) by girl `ownerUid`: her style's kill pop (her motif in her
+   * colours) instead of the shared white puff. @returns {boolean} drawn (the renderer skips the puff)
+   */
+  function killPop(ev, ownerUid, x, h, y) {
+    if (disposed || ownerUid == null) return false;
+    const tw = tws.get(ownerUid);
+    if (!tw?.style.onKill) return false;
+    const t = sim.getTower ? sim.getTower(ownerUid) : null;
+    if (!t) return false;
+    return !!tw.style.onKill(ev, tw, view(t), ctx, x, h, y);
+  }
+
+  /** The girl whose shot is flying at enemy `uid` (her projectile aimed at it), or null. */
+  function shooterOf(uid) {
+    for (let i = 0; i < recList.length; i++) if (recList[i].targetUid === uid) return recList[i].ownerUid ?? null;
+    return null;
+  }
+
   return {
     /** actors skips its own drone mesh + shadows when this is truthy */
     drones: true,
+    /** actors skips the old marks of strips, sentries, nets and balls (src/render/placed/ draws them) */
+    placed: true,
     ctx,
     onEvent,
     projectile,
@@ -469,9 +521,14 @@ export function createAttackFx(o) {
     trapHidden(uid) {
       return ctx.toss.hidden(uid);
     },
+    posePre,
+    pose,
+    killPop,
+    shooterOf,
     update,
     setQuality(q) {
       ctx.setQuality(q);
+      ctx.placed.setQuality(ctx.quality);
     },
     /** Fake glow: halo quads under bright sprites when the tier has no bloom (src/render/vfx/halo.js). */
     setGlow(tier, bloom) {
@@ -498,6 +555,7 @@ export function createAttackFx(o) {
       if (disposed) return;
       disposed = true;
       ctx.drones.dispose();
+      ctx.placed.dispose();
       ctx.pool.clear();
       ctx.segs.clear();
       ctx.toss.clear();

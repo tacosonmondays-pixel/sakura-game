@@ -11,6 +11,7 @@ import { scissorPos } from '../sim/rings.js';
 import { pointAt } from '../sim/path.js';
 import { STEP } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
+import { dartGeometry } from './placed/geometry.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -94,10 +95,12 @@ function projectileGeometries() {
     .finish();
   g.bolt = b().add(new THREE.OctahedronGeometry(0.08, 0), { sz: 2.8, color: '#ffffff' }).finish();
   g.spark = b().add(new THREE.OctahedronGeometry(0.07, 0), { color: '#ffffff' }).finish();
+  // Yuzuha's taser dart (attack FX remaps her shots to it): a pale body, a sharp tip, three fins
+  g.dart = dartGeometry();
   return g;
 }
 
-const GLOW_KINDS = { orb: 0.42, fireball: 0.6, bolt: 0.45, spark: 0.5, bullet: 0.22, needle: 0.2 };
+const GLOW_KINDS = { orb: 0.42, fireball: 0.6, bolt: 0.45, spark: 0.5, bullet: 0.22, needle: 0.2, dart: 0.2 };
 const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4 };
 const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: true, fireball: true };
 
@@ -337,7 +340,11 @@ export class Actors {
       m.position.x = t.x + o.x;
       m.position.z = t.y + o.z;
     }
+    // a procedural pose layer (attack FX: Marumi's underhand bowl) wraps her clips: her bones are put
+    // back before the mixer runs and posed after it
+    this.fxHook?.posePre?.(t.uid, m);
     m.userData.animate?.(this.time, dt, state);
+    this.fxHook?.pose?.(t.uid, m, dt);
   }
 
   /** Called on 'sell' / removal to restore hidden water decor. */
@@ -693,10 +700,12 @@ export class Actors {
         gA.push(f.x, 0.05, f.y, d * pulse, d * pulse, R.ringSoft, c.r, c.g, c.b, 0.5 * (1 - pulse));
       }
     }
-    // traps
+    // traps (with attack FX on, src/render/placed/ draws the strips, sentries, nets and balls as models)
+    const placed = !!this.fxHook?.placed;
     for (const tr of sim.traps) {
       if (this.fxHook?.trapHidden(tr.uid)) continue;
       if (tr.strip) {
+        if (placed) continue;
         // a spike strip (src/sim/strips.js): a flat steel bar with a dashed edge (Spike Rain's in
         // lilac), fading as its hits run out
         const c = this._c.set(tr.extra ? '#c9a7ff' : '#d3dae4');
@@ -732,7 +741,7 @@ export class Actors {
     // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
     const SENTRY_COL = { plain: [1, 0.55, 0.16], net: [0.5, 0.85, 1], flash: [1, 1, 0.75], heavy: [1, 0.35, 0.3], flak: [0.75, 0.6, 1] };
     for (const tw of sim.towers) {
-      if (!tw.sentries) continue;
+      if (!tw.sentries || placed) continue;
       for (const sn of tw.sentries) {
         const c = SENTRY_COL[sn.type] || SENTRY_COL.plain;
         gN.push(sn.x, 0.066, sn.y, 0.34, 0.34, R.disc, 0.18, 0.2, 0.28, 0.85);
@@ -746,7 +755,7 @@ export class Actors {
     // bouncing ball (Spin Shot) flies off the road straight at its next walker: drawn a little higher with
     // a bright rim and two fading ghosts behind it, so the turn toward the new walker reads at a glance.
     for (const tw of sim.towers) {
-      if (!tw.balls) continue;
+      if (!tw.balls || placed) continue;
       for (const bl of tw.balls) {
         const f = bl.fly;
         if (f) {

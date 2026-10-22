@@ -420,7 +420,8 @@ export class RosterFx {
     const kon = p.kind === 'familiar' ? this.companions?.konAt(t.uid) : null;
     m.visible = !kon;
     if (kon) {
-      if (kon.away) this._tether(t.x, t.y, kon.x, kon.z, c, 0.7);
+      // Kon is the marker (FX-1): the tether to him shows only while Ruri is selected
+      if (kon.away && this.selectedUid === t.uid) this._tether(t.x, t.y, kon.x, kon.z, c, 0.7);
       return;
     }
     if (p.kind === 'familiar') {
