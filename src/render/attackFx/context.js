@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { QuadPool } from './quadPool.js';
 import { createVisualRandom, visualSeed } from '../vfx/random.js';
 import { createHaloRules } from '../vfx/halo.js';
+import { isWorldFlash } from '../vfx/flashGuard.js';
 
 /** Quad shed classes (§6 shed order: decor first, then familiars, then motes; core never). */
 export const CORE = 0;
@@ -71,6 +72,8 @@ export function createContext(o) {
     halo: createHaloRules(o.atlas.regions),
     halosLeft: 0,
     halos: 0,
+    /** flash guard for world flashes (set by the renderer; same as FxSystem.flashGate) */
+    flashGate: null,
     CORE, DECOR, FAMILIAR, MOTE,
 
     setQuality(q) {
@@ -160,11 +163,15 @@ export function createContext(o) {
       return Math.atan2(_lb.y - _la.y, _lb.x - _la.x);
     },
 
-    /** Game-time pooled quad (see QuadPool.spawn). */
+    /** Game-time pooled quad (see QuadPool.spawn). A world flash asks the flash guard first. */
     spr(B, cls, uv, x, h, y, s0, s1, life, c, a0 = 1) {
       if (cls !== CORE && !ctx.allow(cls)) {
         ctx.shed++;
         return null;
+      }
+      if (ctx.flashGate && B === ctx.b.bbA) {
+        const size = s0 > s1 ? s0 : s1;
+        if (isWorldFlash(life, size)) a0 *= ctx.flashGate(size, uv, a0 < 1 ? a0 : 1);
       }
       return ctx.pool.spawn(B, cls, uv, x, h, y, s0, s1, life, c, a0);
     },

@@ -1,20 +1,22 @@
 // VFX M1 rules (docs/VFX.md §M1): flash safety (≤ 3 flashes a second, never a full-white frame,
-// no large saturated red, soft with Reduce Motion), hit-stop rate limits (no constant stutter in
-// busy waves, ≤ 60 ms, none with Reduce Motion or Flashes & shake off) and the battle never waiting
-// for one, impact frames that put everything back, the camera shake sized in screen pixels and the
-// zoom punch, the graphics tiers (high full, medium light, low almost nothing), halos inside the
-// sprite limits, the per-theme grade keeping the board readable, and the over-white boost being
-// exactly off without bloom.
+// no large saturated red, soft with Reduce Motion), the global hit-stop only for boss kills and ult
+// impacts (≤ 60 ms, none with Reduce Motion or Flashes & shake off) and the battle never waiting
+// for one, tinted impact frames that keep the board readable and put everything back, the camera
+// shake sized in screen pixels (a shift, never a roll) and the zoom punch, the graphics tiers (high
+// full, medium light, low almost nothing), halos inside the sprite limits, the per-theme grade
+// keeping the board readable, and the over-white boost being exactly off without bloom. The M0
+// finishing rules (local holds, impact presets, flashing area, blasts) are in vfx-hits.test.js.
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { readFileSync, readdirSync } from 'node:fs';
 import { FlashGuard, MAX_FLASHES, FLASH_WINDOW, MAX_FLASH, SOFT_FLASH, FAINT, IMPACT_COST, IMPACT_GAP, RED_SHARE, RED_FLASH, VIGNETTE_RISE, VIGNETTE_PEAK, flashColor, redShare, vignetteStep } from '../../src/render/vfx/flashGuard.js';
-import { HitStopDirector, HIT_STOP, BUSY_HITS, LOW_BUDGET, LOW_WINDOW, hitKind } from '../../src/render/vfx/hitStop.js';
+import { HitStopDirector, HIT_STOP, BUSY_HITS, hitKind } from '../../src/render/vfx/hitStop.js';
 import { VisualClock, MAX_FREEZE } from '../../src/render/vfx/clock.js';
-import { ImpactFrames, IMPACT_FRAMES, SHADE_MAX } from '../../src/render/vfx/impact.js';
+import { ImpactFrames, IMPACT_FRAMES, NAVY, TINT, SILHOUETTE_VALUE } from '../../src/render/vfx/impact.js';
 import { HALO, createHaloRules } from '../../src/render/vfx/halo.js';
 import { GRADES, gradeFor, gradePixel, KNEE } from '../../src/render/vfx/grade.js';
-import { CameraRig, punchEnvelope, SHAKE_MIN_PX, SHAKE_MAX_PX } from '../../src/render/camera.js';
+import { CameraRig, punchEnvelope, SHAKE_MIN_PX, SHAKE_MAX_PX, SHAKE_ROLL } from '../../src/render/camera.js';
+import { LocalHoldDirector } from '../../src/render/vfx/localHold.js';
 import { QuadBatch } from '../../src/render/batch.js';
 import { FxSystem } from '../../src/render/fx.js';
 import { createContext } from '../../src/render/attackFx/context.js';
@@ -96,62 +98,51 @@ describe('hit-stop director', () => {
     return { clock, d, set: (v) => { on = v; } };
   };
 
-  it('freezes 40 ms for a crit, 50 for a big hit, 60 for a boss kill — never past 60 ms', () => {
-    for (const [kind, s] of [['crit', 0.04], ['big', 0.05], ['boss', 0.06], ['impact', 0.06]]) {
+  it('freezes the board 60 ms for a boss kill or an ult impact, never past 60 ms; heavy hits and crits never freeze it', () => {
+    expect(Object.keys(HIT_STOP).sort()).toEqual(['boss', 'impact']);
+    for (const kind of ['boss', 'impact']) {
       const { clock, d } = setup();
       clock.tick(F);
-      expect(d.request(kind)).toBeCloseTo(s, 9);
+      expect(d.request(kind)).toBeCloseTo(0.06, 9);
       expect(HIT_STOP[kind].seconds).toBeLessThanOrEqual(MAX_FREEZE);
     }
     const { clock, d } = setup();
     clock.tick(F);
-    d.request('crit');
-    d.request('big');
+    expect(d.request('crit')).toBe(0);
+    expect(d.request('big')).toBe(0);
+    expect(clock.freezeLeft).toBe(0);
     d.request('boss');
+    d.request('impact');
     expect(clock.freezeLeft).toBeLessThanOrEqual(MAX_FREEZE + 1e-12);
   });
 
-  it('rate-limits the low kinds: one crit freeze per 1.2 s, none at all in a busy fight', () => {
+  it('counts the hits of the last second: more than BUSY_HITS is a busy fight', () => {
     const { clock, d } = setup();
-    clock.tick(F);
-    expect(d.request('crit')).toBeGreaterThan(0);
-    for (let i = 0; i < 30; i++) clock.tick(F); // 0.5 s later
-    expect(d.request('crit')).toBe(0);
-    for (let i = 0; i < 50; i++) clock.tick(F); // 1.35 s after the first
-    expect(d.request('crit')).toBeGreaterThan(0);
-    // a busy second: more than BUSY_HITS hits
-    for (let i = 0; i < 100; i++) clock.tick(F);
     for (let i = 0; i < 60; i++) {
       clock.tick(F);
       d.noteHits(1);
     }
     expect(d.busy).toBe(true);
-    expect(d.request('crit')).toBe(0);
+    for (let i = 0; i < 70; i++) clock.tick(F);
+    expect(d.busy).toBe(false);
   });
 
-  it('a busy wave never stutters: 2 minutes of heavy hits every frame freeze ≤ 5 % of the time, ≥ 0.6 s apart', () => {
+  it('a busy wave never stutters: 2 minutes of heavy hits every frame never freeze the board; the struck enemies hold a few times a second at most', () => {
     const { clock, d } = setup();
+    const holds = new LocalHoldDirector(clock, { busy: () => d.busy });
     const rand = createVisualRandom(11);
     let frozen = 0;
-    const starts = [];
-    let wasFrozen = false;
+    let held = 0;
     for (let f = 0; f < 120 * 60; f++) {
       clock.tick(F);
       if (clock.dt < F - 1e-9) frozen += F - clock.dt;
-      if (clock.frozen && !wasFrozen) starts.push(clock.frameT);
-      wasFrozen = clock.frozen;
       const hits = 1 + Math.floor(rand() * 4);
       d.noteHits(hits);
-      for (let h = 0; h < hits; h++) {
-        const r = rand();
-        if (r < 0.35) d.request('crit');
-        else if (r < 0.5) d.request('big');
-      }
+      for (let h = 0; h < hits; h++) if (rand() < 0.5 && holds.request(1 + Math.floor(rand() * 40), 3) > 0) held++;
     }
-    const share = frozen / 120;
-    expect(share).toBeLessThanOrEqual(0.05);
-    expect(LOW_BUDGET / LOW_WINDOW).toBeLessThanOrEqual(0.05);
-    for (let i = 1; i < starts.length; i++) expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(HIT_STOP.big.gap - 1e-6);
+    expect(frozen).toBe(0); // the board never holds for a hit
+    expect(held / 120).toBeLessThanOrEqual(4); // a few local holds a second at most
+    expect(held).toBeGreaterThan(60);
   });
 
   it('a boss kill always gets its freeze (outside the clock gap), even in a busy fight', () => {
@@ -208,35 +199,58 @@ describe('impact frames', () => {
     const fxAdd = new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshBasicMaterial());
     const hud = new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshBasicMaterial());
     scene.add(new THREE.HemisphereLight(), terrain, actors, fxAdd, hud);
-    const imp = new ImpactFrames({ scene, figures: () => [actors], keep: () => [fxAdd] });
+    const imp = new ImpactFrames({ scene, figures: () => [actors], hide: () => [hud] });
     return { scene, terrain, actors, body, bodyMat, outline, outlineMat, glow, fxAdd, hud, imp };
   };
+  const card = (scene) => scene.children.find((o) => o.name === 'impactTint') || null;
+  const srgbMax = (c) => {
+    const o = { r: 0, g: 0, b: 0 };
+    c.getRGB(o, THREE.SRGBColorSpace);
+    return Math.max(o.r, o.g, o.b);
+  };
 
-  it('silhouettes the figures over an ink screen for IMPACT_FRAMES frames, then puts everything back', () => {
+  it('1-2 frames: the board (still drawn) tinted navy, pink silhouettes at ~60 % value over it, then everything back', () => {
+    expect(IMPACT_FRAMES).toBeGreaterThanOrEqual(1);
+    expect(IMPACT_FRAMES).toBeLessThanOrEqual(2);
     const w = build();
     const bg = w.scene.background;
     const fog = w.scene.fog;
+    const n0 = w.scene.children.length;
     w.imp.start('#fff3b0');
     for (let f = 0; f < IMPACT_FRAMES; f++) {
       expect(w.imp.active).toBe(true);
       w.imp.begin();
       expect(w.body.material).toBe(impactMaterial());
+      expect(w.body.renderOrder).toBeGreaterThan(card(w.scene).renderOrder); // the figures land over the tint
       expect(w.outline.material).toBe(w.outlineMat); // outlines keep their ink
       expect(w.glow.visible).toBe(false);
-      expect(w.terrain.visible).toBe(false);
+      expect(w.terrain.visible).toBe(true); // the board stays readable under the tint (no ink blackout)
       expect(w.hud.visible).toBe(false);
       expect(w.fxAdd.visible).toBe(true); // the effects' light stays on
-      expect(w.scene.fog).toBe(null);
-      // never a bright frame: the screen layer is ink or a deep shade of the ult colour
-      const c = w.scene.background;
-      expect(Math.max(c.r, c.g, c.b)).toBeLessThanOrEqual(SHADE_MAX + 1e-6);
+      expect(w.scene.background).toBe(bg);
+      expect(w.scene.fog).toBe(fog);
+      // the tint: the board multiplied by a navy-blue, over everything opaque — it can only dim,
+      // never brighten, and never black out (the navy's brightest channel stays well above black)
+      const t = card(w.scene);
+      expect(t).toBeTruthy();
+      expect(t.material.depthTest).toBe(false);
+      expect(t.material.blending).toBe(THREE.CustomBlending);
+      expect(t.material.blendSrc).toBe(THREE.DstColorFactor);
+      expect(t.material.blendDst).toBe(THREE.ZeroFactor);
+      expect(t.material.uniforms.color.value.getHexString()).toBe(new THREE.Color(NAVY).getHexString());
+      expect(srgbMax(new THREE.Color(NAVY))).toBeGreaterThanOrEqual(0.7);
+      expect(t.material.uniforms.opacity.value).toBe(TINT[f]);
+      // silhouettes at about 60 % value (display space): readable on the tint, never white
+      expect(srgbMax(impactMaterial().color)).toBeCloseTo(SILHOUETTE_VALUE, 3);
       w.imp.end();
     }
+    expect(TINT[1]).toBeLessThan(TINT[0]); // it eases back
     expect(w.imp.active).toBe(false);
     expect(w.body.material).toBe(w.bodyMat);
+    expect(w.body.renderOrder).toBe(0);
     expect(w.glow.visible && w.terrain.visible && w.hud.visible).toBe(true);
-    expect(w.scene.background).toBe(bg);
-    expect(w.scene.fog).toBe(fog);
+    expect(card(w.scene)).toBe(null);
+    expect(w.scene.children.length).toBe(n0);
   });
 
   it('a cancelled impact (quality change, dispose) restores at once', () => {
@@ -246,7 +260,8 @@ describe('impact frames', () => {
     w.imp.cancel();
     expect(w.imp.active).toBe(false);
     expect(w.body.material).toBe(w.bodyMat);
-    expect(w.terrain.visible).toBe(true);
+    expect(w.hud.visible).toBe(true);
+    expect(card(w.scene)).toBe(null);
   });
 
   it('the impact material is shared (a model disposed mid-impact never disposes it)', () => {
@@ -325,6 +340,20 @@ describe('camera shake and zoom punch', () => {
     expect(rig.punchZoom).toBe(1);
     expect([rig.camera.left, rig.camera.top]).toEqual(fit);
     expect(rig.zoom).toBe(1); // the locked camera's zoom is never touched
+  });
+
+  it('the shake is a sideways shift, never a rotation', () => {
+    expect(SHAKE_ROLL).toBe(0);
+    const rig = new CameraRig({ width: 22, height: 13 });
+    rig.setViewport(844, 390);
+    rig.apply(0);
+    const up0 = rig.camera.up.clone();
+    rig.kick(1);
+    for (let f = 0; f < 30; f++) {
+      rig.apply(F, F, F);
+      expect(Math.abs(rig.shakePx.roll)).toBe(0);
+      expect(rig.camera.up.angleTo(up0)).toBeLessThan(1e-9);
+    }
   });
 
   it('placing a girl (holdStill) stops a shake and a punch where they are', () => {
@@ -538,20 +567,22 @@ describe('tone curve and per-theme grade (high)', () => {
 });
 
 describe('hit feel: graphics tiers, Reduce Motion, Flashes & shake off and placing', () => {
-  const make = ({ reduceMotion = false, hitEffects = true, placing = false, tier = 'high' } = {}) => {
+  const make = ({ reduceMotion = false, hitEffects = true, impactFrames = true, placing = false, tier = 'high' } = {}) => {
     const clock = new VisualClock({ reduceMotion });
     const guard = new FlashGuard({ reduceMotion });
     let on = hitEffects;
+    let frames = impactFrames;
     const director = new HitStopDirector(clock, { enabled: () => on });
+    const holds = new LocalHoldDirector(clock, { enabled: () => on, busy: () => director.busy });
     const log = { kicks: [], punches: [], tints: [], impacts: 0 };
     const impact = { active: false, start: () => { log.impacts++; } };
     const feel = createHitFeel({
-      reduceMotion, hitEffects: () => on, placing: () => placing, now: () => clock.realT, guard, director, impact, tier: () => tier,
+      reduceMotion, hitEffects: () => on, impactFrames: () => frames, placing: () => placing, now: () => clock.realT, guard, director, holds, impact, tier: () => tier,
       rig: { kick: (t) => log.kicks.push(t), punch: (a, d) => log.punches.push([a, d]) },
       tint: (c, a, d) => log.tints.push([c, a, d]),
     });
     clock.tick(F);
-    return { feel, clock, log, set: (v) => { on = v; } };
+    return { feel, clock, log, set: (v) => { on = v; }, setFrames: (v) => { frames = v; } };
   };
 
   it('default: an ult gets impact frames, a hit-stop, a shake and a punch; the board comes back under a short tint', () => {
@@ -566,11 +597,24 @@ describe('hit feel: graphics tiers, Reduce Motion, Flashes & shake off and placi
     expect(feel.takeAfterglow()).toBe(null);
   });
 
-  it('Reduce Motion: no shake, punch, hit-stop or impact frames; the impact is a soft, slow tint', () => {
+  it('Impact frames off (read live): an ult gets the soft tint instead; on again, the tinted frame is back', () => {
+    const t = make({ impactFrames: false });
+    expect(t.feel.impact('#fff3b0')).toBe(false);
+    expect(t.log.impacts).toBe(0);
+    expect(t.log.tints.length).toBe(1);
+    expect(t.feel.shake(0.72)).toBe(true); // the rest of the moment stays
+    t.setFrames(true);
+    for (let i = 0; i < 90; i++) t.clock.tick(F); // past the flash window
+    expect(t.feel.impact('#fff3b0')).toBe(true);
+    expect(t.log.impacts).toBe(1);
+  });
+
+  it('Reduce Motion: no shake, punch, hit-stop, local hold or impact frames; the impact is a soft, slow tint', () => {
     const { feel, clock, log } = make({ reduceMotion: true });
     expect(feel.impact('#fff3b0')).toBe(false);
     expect(feel.shake(1)).toBe(false);
     expect(feel.punch([0.07, 0.38])).toBe(false);
+    expect(feel.hold(1, 'crit', 4)).toBe(0);
     for (const k of Object.keys(HIT_STOP)) expect(feel.hitStop(k)).toBe(0);
     expect(clock.freezeLeft).toBe(0);
     expect(log.kicks.length + log.punches.length + log.impacts).toBe(0);
@@ -589,6 +633,7 @@ describe('hit feel: graphics tiers, Reduce Motion, Flashes & shake off and placi
   it('Flashes & shake off: no screen flash of any kind, no impact frames, shake, punch or hit-stop; on again works at once', () => {
     const t = make({ hitEffects: false });
     expect(t.feel.impact('#8fe8ff')).toBe(false);
+    expect(t.feel.hold(1, 'crit', 4)).toBe(0);
     for (const k of Object.keys(HIT_STOP)) expect(t.feel.hitStop(k)).toBe(0);
     expect(t.feel.shake(1)).toBe(false);
     expect(t.feel.punch([0.07, 0.38])).toBe(false);
@@ -619,14 +664,19 @@ describe('hit feel: graphics tiers, Reduce Motion, Flashes & shake off and placi
     expect((kick.medium / kick.high) ** 2).toBeGreaterThan(0.5);
     expect((kick.medium / kick.high) ** 2).toBeLessThan(0.75);
     expect((kick.low / kick.high) ** 2).toBeLessThan(0.4);
-    // freezes: high all kinds, medium only big hits and boss kills, low none
+    // global freezes: high boss kills and ult impacts, medium only boss kills, low none
     const kinds = (tier) => Object.keys(HIT_STOP).filter((k) => {
       const t = make({ tier });
       return t.feel.hitStop(k) > 0;
     });
-    expect(kinds('high').sort()).toEqual(Object.keys(HIT_STOP).sort());
-    expect(kinds('medium').sort()).toEqual(['big', 'boss']);
+    expect(kinds('high').sort()).toEqual(['boss', 'impact']);
+    expect(kinds('medium').sort()).toEqual(['boss']);
     expect(kinds('low')).toEqual([]);
+    // local holds of the struck enemy: strong hits and crits on high and medium, none on low, never a weak hit
+    const holdsOn = (tier) => ['weak', 'strong', 'crit'].filter((cls) => make({ tier }).feel.hold(7, cls, 3) > 0);
+    expect(holdsOn('high')).toEqual(['strong', 'crit']);
+    expect(holdsOn('medium')).toEqual(['strong', 'crit']);
+    expect(holdsOn('low')).toEqual([]);
     expect(make({ tier: 'low' }).feel.squash()).toBe(0);
     expect(make({ tier: 'medium', reduceMotion: true }).feel.squash()).toBe(0.5);
   });
@@ -742,7 +792,7 @@ describe('hit-stop is display only: the battle never slows, pauses or skips', ()
         for (const ev of sim.drainEvents()) {
           if (ev.type !== 'hit') continue;
           hits++;
-          if (freeze && (feel.hitStop('boss') > 0 || feel.hitStop('big') > 0)) frozen++;
+          if (freeze && (feel.hitStop('boss') > 0 || feel.hitStop('impact') > 0)) frozen++;
         }
         clock.tick(F);
       }

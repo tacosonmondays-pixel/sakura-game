@@ -1468,17 +1468,20 @@ r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (dron
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
 r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
-r.vfx                            // read-only hit-effect stats { hitStops, impacts, flashesRefused, halos, shakePx, punchZoom, bloom, grade, … }
+r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, … }
 r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 ```
 
 Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
 `shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no screen flash,
-no impact frames, no shake or zoom punch, no hit-stop; Settings → Graphics → Flashes & shake and the
-pause menu), `camera`, `buffIcons`,
-`attackFx`. Hit feel (docs/VFX.md §M1): hit-stop, impact frames, hit squash, camera shake in screen
-pixels and the zoom punch all change only what is drawn; the flash guard keeps full-screen flashes to
-≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the graphics tier.
+no impact frames, no shake or zoom punch, no hit-stop or local hold; Settings → Graphics → Flashes &
+shake and the pause menu), `impactFrames` (read live: `false` = a soft tint instead of the tinted
+impact frame; Settings → Graphics → Impact frames and the pause menu), `camera`, `buffIcons`,
+`attackFx`. Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
+the struck enemy (each girl's weak / strong / crit impact preset), tinted impact frames, hit squash,
+camera shake in screen pixels (a shift, never a roll) and the zoom punch all change only what is
+drawn; the flash guard counts flashing screen area a second (world flashes too), keeps full-screen
+flashes to ≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the graphics tier.
 
 Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
 visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times

@@ -1,7 +1,7 @@
 // Angled orthographic battle camera: frames the map with margins (respecting HUD insets),
 // supports pan / zoom around a screen point / reset, clamps so the board never leaves the
 // screen, auto-rotates 90° in portrait so the long side of the map runs down the screen,
-// and shakes for impacts (trauma: sized in screen pixels, smooth noise, a hint of roll) with a
+// and shakes for impacts (trauma: sized in screen pixels, smooth noise, a shift and never a roll) with a
 // small zoom punch for ultimates (docs/VFX.md §M1). Locked (setLocked, the default camera setting —
 // src/render/cameraPolicy.js) it holds the fitted view: pan / zoom calls do nothing. A focus
 // shift (setFocusShift) slides the framing itself, locked or not, so a selected girl's ring
@@ -16,8 +16,11 @@ export const SHAKE_SHARE = 0.034;
 /** …but at least / at most this many CSS px. */
 export const SHAKE_MIN_PX = 9;
 export const SHAKE_MAX_PX = 24;
-/** Camera roll at full trauma (radians). */
-export const SHAKE_ROLL = THREE.MathUtils.degToRad(0.7);
+/**
+ * Camera roll at full trauma (radians): none. The shake is a sideways shift only, never a rotation
+ * (docs/VFX.md: motion-safe by design).
+ */
+export const SHAKE_ROLL = 0;
 /** Trauma lost per second (1 → 0 in ≈ 0.65 s). */
 export const TRAUMA_DECAY = 1.55;
 /** Largest zoom punch (share of the view) and its longest length (s). */
@@ -203,7 +206,7 @@ export class CameraRig {
     cam.right = hw;
     cam.top = hh;
     cam.bottom = -hh;
-    // shake: trauma² × the view's shake px, smooth noise, a hint of roll
+    // shake: trauma² × the view's shake px, smooth noise (SHAKE_ROLL is 0: a shift, never a roll)
     const sp = this.shakePx;
     sp.x = 0;
     sp.y = 0;

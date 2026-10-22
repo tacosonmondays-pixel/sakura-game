@@ -266,6 +266,7 @@ export class Actors {
   _updateDying(dt) {
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const v = this.dying[i];
+      if (v.holdLeft > 0 && this._hold(v, dt)) continue; // a killing blow that holds: the death clip waits
       v.deathLeft -= dt;
       if (v.deathLeft <= 0) {
         this._disposeView(v);
@@ -390,6 +391,7 @@ export class Actors {
 
   _updateEnemy(v, e, dt) {
     const m = v.model;
+    if (v.holdLeft > 0 && this._hold(v, dt)) return;
     const dx = e.x - v.x;
     const dz = e.y - v.z;
     if (dx * dx + dz * dz > 1.5) {
@@ -462,6 +464,36 @@ export class Actors {
     }
     const immobile = e.statuses.freeze || e.statuses.stun || e.statuses.shock;
     ud.animate?.(this.time, dt, { moving: !immobile, speed: e.speed || 1 });
+  }
+
+  /**
+   * A local hold (docs/VFX.md "Hits that land", src/render/vfx/localHold.js): a struck enemy's look
+   * — pose, place, facing, squash and flash — holds for `seconds` of visual time with a tiny
+   * sideways jitter (`jitter` world units, alternating each frame); then it catches up with the sim
+   * within a frame or two. Only what is drawn holds. A killed enemy's death clip holds the same way.
+   * @returns {boolean} the enemy is held
+   */
+  holdEnemy(uid, seconds, jitter = 0.025) {
+    const v = this.enemies.get(uid);
+    if (!v || !(seconds > 0)) return false;
+    v.holdLeft = Math.max(v.holdLeft || 0, seconds);
+    v.holdAmp = jitter;
+    return true;
+  }
+
+  /** One frame of a hold; false once it is over (the caller then updates the view as usual). */
+  _hold(v, dt) {
+    v.holdLeft -= dt;
+    if (v.holdLeft <= 1e-6) {
+      v.holdLeft = 0;
+      return false;
+    }
+    v.holdN = (v.holdN || 0) + 1;
+    const j = (v.holdN & 1 ? 1 : -1) * (v.holdAmp || 0);
+    const m = v.model;
+    m.position.x = v.x + Math.cos(v.facing) * j;
+    m.position.z = v.z - Math.sin(v.facing) * j;
+    return true;
   }
 
   /** Enemy view position (for effects), or null. */

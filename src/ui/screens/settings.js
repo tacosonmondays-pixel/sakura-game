@@ -1,5 +1,5 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion, hit effects, the loading screen's look), audio, battle defaults (placement range, auto
+// motion, hit effects, impact frames, the loading screen's look), audio, battle defaults (placement range, auto
 // start, default speed, camera locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 import '../styles/meta-a.css';
@@ -68,7 +68,9 @@ function build(redraw) {
     row('Flashes & shake', s.reduceMotion
       ? 'Reduce motion already stops the shake and freezes; switch this off to stop screen flashes too.'
       : 'Screen flashes, screen shake, impact frames and the split-second freeze on big hits in battle.',
-    toggle(s.hitEffects !== false, (v) => { s.hitEffects = v; save(); }, 'hitEffects')),
+    toggle(s.hitEffects !== false, (v) => { s.hitEffects = v; save(); redraw(); }, 'hitEffects')),
+    row('Impact frames', impactFramesDesc(s),
+      toggle(s.impactFrames !== false && !s.reduceMotion && s.hitEffects !== false, (v) => { s.impactFrames = v; save(); }, 'impactFrames', !!s.reduceMotion || s.hitEffects === false)),
     loadingLookRow(s, redraw),
   ));
 
@@ -146,6 +148,14 @@ function loadingLookRow(s, redraw) {
 function named(el, label) {
   el.setAttribute('aria-label', label);
   return el;
+}
+
+/** The Impact frames row's line: what they are, or why they are off. */
+function impactFramesDesc(s) {
+  if (s.reduceMotion) return 'Reduce motion turns these off.';
+  if (s.hitEffects === false) return 'Off while Flashes & shake is off.';
+  const what = 'A split-second navy-and-pink frame when an ultimate or a boss kill lands.';
+  return s.quality === 'high' ? what : `${what} Only on High quality.`;
 }
 
 function row(label, desc, control) {

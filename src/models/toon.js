@@ -80,12 +80,13 @@ let impactFill = null;
 
 /**
  * The impact-frame material (src/render/vfx/impact.js): one flat, unlit colour for every toon
- * figure while an impact frame is on screen (the renderer sets its colour per frame — white
- * silhouettes on the ink screen, ink ones on the ult's colour). Shared: never disposed with a model.
+ * figure while an impact frame is on screen (the renderer sets it per impact — pink silhouettes at
+ * about 60 % value over the navy tint). Drawn in the transparent pass (fully opaque) so the figures
+ * land over the tint laid on the board. Shared: never disposed with a model.
  */
 export function impactMaterial() {
   if (!impactFill) {
-    impactFill = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false, fog: false });
+    impactFill = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false, fog: false, transparent: true, opacity: 1, depthWrite: true });
     impactFill.name = 'impactFill';
     impactFill.userData.shared = true;
   }

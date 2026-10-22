@@ -1,19 +1,25 @@
 // Flash safety for the battle renderer (docs/VFX.md §M1). Every full-screen flash the renderer
-// draws — the DOM screen flash, an impact frame — asks this guard first:
+// draws — the DOM screen flash, an impact frame — asks this guard first, and so does every bright,
+// short flash sprite on the board (world flashes: blast cores, hit sparks, muzzle flashes):
 //
-//   - never more than MAX_FLASHES (3) flashes in any FLASH_WINDOW (1 s) of wall time;
+//   - it counts flashing SCREEN AREA a second, not single flashes, so many small hits add up: a
+//     full-screen flash counts 1 (one screen), a world flash its share of the screen × its strength.
+//     In any FLASH_WINDOW (1 s) of wall time the counted area stays within AREA_BUDGET (3 screens);
+//   - world flashes may use at most WORLD_BUDGET of it (the big moments keep room); past it a world
+//     flash is drawn at WORLD_DIM strength (still there as a shape, too faint to count as a flash);
+//   - never more than MAX_FLASHES (3) full-screen flashes in any second, whatever their size;
 //   - a screen flash never peaks above MAX_FLASH (it is a radial tint over the board, so no frame
-//     is ever full white), and with Reduce Motion never above SOFT_FLASH;
+//     is ever full white), and with Reduce Motion never above SOFT_FLASH (and half the area budget);
 //   - no large saturated red: a reddish flash (its red share of R + G + B, linear light, at or above
 //     RED_SHARE — WCAG's saturated red is 0.8) is softened towards a dusty rose (flashColor) and
 //     peaks at RED_FLASH at most;
 //   - the boss vignette (a red edge) only swells in and out (vignetteStep), never flashes;
-//   - an impact frame (a dark ink frame and back) counts as IMPACT_COST flashes and waits
+//   - an impact frame (a tinted frame and back) counts as IMPACT_COST full-screen flashes and waits
 //     IMPACT_GAP after the last one; with Reduce Motion there are none (the caller draws a soft
 //     tint instead).
 //
-// A request over budget is not dropped silently: it gets a faint tint (≤ FAINT), too weak to count
-// as a flash, so the hit still reads. Wall time comes from the visual clock's real timeline.
+// A screen flash over budget is not dropped silently: it gets a faint tint (≤ FAINT), too weak to
+// count as a flash, so the hit still reads. Wall time comes from the visual clock's real timeline.
 
 /** Most flashes in any FLASH_WINDOW seconds. */
 export const MAX_FLASHES = 3;
@@ -29,6 +35,40 @@ export const FAINT = 0.08;
 export const IMPACT_COST = 2;
 /** Shortest wall time between two impact frames (s). */
 export const IMPACT_GAP = 1.2;
+
+/** Flashing screen area counted in any FLASH_WINDOW (screens: a full-screen flash is 1). */
+export const AREA_BUDGET = 3;
+/** The part of AREA_BUDGET world flashes (bright sprites on the board) may use. */
+export const WORLD_BUDGET = 2;
+/** Strength a world flash is drawn at once the budget is spent (too faint to count). */
+export const WORLD_DIM = 0.3;
+/** With Reduce Motion both area budgets are this much smaller. */
+export const SOFT_AREA = 0.5;
+/** Time bins the area window is kept in (O(1) per flash, however many there are). */
+const AREA_BINS = 20;
+
+/**
+ * Which sprites count as world flashes: additive, short-lived (≤ life s) and at least `size` world
+ * units across — blast cores, hit sparks, muzzle and impact flashes. Lingering glows, motes, trails
+ * and small sparks are not flashes.
+ */
+export const WORLD_FLASH = { life: 0.35, size: 0.3 };
+
+/** Is an additive sprite of this life (s) and largest size (world units) a world flash? */
+export function isWorldFlash(life, size) {
+  return life > 0 && life <= WORLD_FLASH.life && size >= WORLD_FLASH.size;
+}
+
+/**
+ * Share of the screen (0..1) a round flash `diameterPx` CSS px across covers in a view of
+ * `viewW` × `viewH` CSS px; `fill`: how much of its circle is bright enough to flash (a soft glow
+ * sprite only its middle).
+ */
+export function screenShare(diameterPx, viewW, viewH, fill = 0.5) {
+  const d = Math.max(0, num(diameterPx));
+  const a = Math.max(1, num(viewW)) * Math.max(1, num(viewH));
+  return Math.min(1, (Math.max(0, num(fill)) * Math.PI * 0.25 * d * d) / a);
+}
 
 /** A colour whose red share of R + G + B (linear light) reaches this counts as reddish. */
 export const RED_SHARE = 0.6;
@@ -96,13 +136,96 @@ export function vignetteStep(cur, target, dt, fall = 0.8) {
   return t >= c ? Math.min(t, c + VIGNETTE_RISE * d) : Math.max(t, c - fall * d);
 }
 
+/**
+ * Flashing area summed over a sliding window, kept in fixed time bins (one more bin than the window
+ * holds, so the sum always covers at least the last FLASH_WINDOW seconds: never an undercount).
+ */
+export class AreaMeter {
+  constructor(window = FLASH_WINDOW, bins = AREA_BINS) {
+    this.binS = window / bins;
+    this.bins = new Float64Array(bins + 1);
+    this.head = -1; // index (time / binS) of the newest bin
+    this.total = 0;
+  }
+
+  _advance(now) {
+    const idx = Math.floor(num(now) / this.binS);
+    if (idx <= this.head) return;
+    const n = this.bins.length;
+    if (this.head < 0 || idx - this.head >= n) {
+      this.bins.fill(0);
+      this.total = 0;
+    } else {
+      for (let k = this.head + 1; k <= idx; k++) {
+        const i = k % n;
+        this.total -= this.bins[i];
+        this.bins[i] = 0;
+      }
+    }
+    this.head = idx;
+    if (this.total < 1e-9) this.total = 0;
+  }
+
+  /** Area counted in the window ending at `now`. */
+  sum(now) {
+    this._advance(now);
+    return this.total;
+  }
+
+  add(now, area) {
+    this._advance(now);
+    const a = Math.max(0, num(area));
+    this.bins[this.head % this.bins.length] += a;
+    this.total += a;
+  }
+}
+
 export class FlashGuard {
   /** @param {{ reduceMotion?: boolean }} [o] */
   constructor({ reduceMotion = false } = {}) {
     this.reduceMotion = !!reduceMotion;
-    this.times = []; // wall times of the flashes counted in the window
+    this.times = []; // wall times of the full-screen flashes counted in the window
+    this.area = new AreaMeter(); // all flashing area (screens)
+    this.worldArea = new AreaMeter(); // the world flashes' part of it
     this.lastImpact = -Infinity;
     this.refused = 0;
+    this.dimmed = 0; // world flashes drawn faint because the budget was spent
+    this.worldCount = 0; // world flashes counted
+  }
+
+  /** Flashing area allowed in any window (screens). */
+  get areaBudget() {
+    return this.reduceMotion ? AREA_BUDGET * SOFT_AREA : AREA_BUDGET;
+  }
+
+  /** The part of it world flashes may use. */
+  get worldBudget() {
+    return this.reduceMotion ? WORLD_BUDGET * SOFT_AREA : WORLD_BUDGET;
+  }
+
+  /** Flashing area counted in the window ending at `now` (screens). */
+  load(now) {
+    return this.area.sum(num(now));
+  }
+
+  /**
+   * A world flash (a bright, short sprite on the board) covering `area` of the screen (0..1) at
+   * `strength` (0..1). Many small ones add up to the same area as one big one.
+   * @returns {number} the strength factor to draw it at: 1, or WORLD_DIM once the budget is spent
+   *   (a dimmed flash is too faint to count)
+   */
+  world(area, strength, now) {
+    const t = num(now);
+    const load = Math.min(1, Math.max(0, num(area))) * Math.min(1, Math.max(0, num(strength)));
+    if (load <= 0) return 1;
+    if (this.worldArea.sum(t) + load > this.worldBudget + 1e-9 || this.area.sum(t) + load > this.areaBudget + 1e-9) {
+      this.dimmed++;
+      return WORLD_DIM;
+    }
+    this.worldArea.add(t, load);
+    this.area.add(t, load);
+    this.worldCount++;
+    return 1;
   }
 
   _prune(now) {
@@ -125,32 +248,35 @@ export class FlashGuard {
 
   /**
    * A screen flash of `strength` (layer opacity 0..1) at wall time `now`; `red`: its colour is
-   * reddish (flashColor), so it peaks at RED_FLASH at most.
+   * reddish (flashColor), so it peaks at RED_FLASH at most. It covers the whole screen: it needs one
+   * free flash and one screen of free area (world flashes count there too).
    * @returns {number} the opacity to draw: capped; FAINT or less when the window is full
    */
   flash(strength, now, red = false) {
     const t = num(now);
     const s = Math.max(0, Math.min(num(strength), this.cap, red ? RED_FLASH : 1));
     if (s <= FAINT) return s;
-    if (this.room(t) < 1) {
+    if (this.room(t) < 1 || this.area.sum(t) + 1 > this.areaBudget + 1e-9) {
       this.refused++;
       return Math.min(s, FAINT);
     }
     this.times.push(t);
+    this.area.add(t, 1);
     return s;
   }
 
   /**
    * May an impact frame start at `now`? Never with Reduce Motion; it needs IMPACT_COST free
-   * flashes and IMPACT_GAP since the last one. A yes books the flashes.
+   * flashes (and as many screens of free area) and IMPACT_GAP since the last one. A yes books them.
    */
   impact(now) {
     const t = num(now);
-    if (this.reduceMotion || t - this.lastImpact < IMPACT_GAP || this.room(t) < IMPACT_COST) {
+    if (this.reduceMotion || t - this.lastImpact < IMPACT_GAP || this.room(t) < IMPACT_COST || this.area.sum(t) + IMPACT_COST > this.areaBudget + 1e-9) {
       this.refused++;
       return false;
     }
     for (let i = 0; i < IMPACT_COST; i++) this.times.push(t);
+    this.area.add(t, IMPACT_COST);
     this.lastImpact = t;
     return true;
   }

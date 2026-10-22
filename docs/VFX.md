@@ -15,8 +15,10 @@ Ground rules for all VFX work (they hold for every milestone):
   a freeze lasts at most 60 ms.
 - **Phones first.** Medium and low get no new full-screen passes; their glow comes from halo sprites
   inside the existing sprite limits (900 / 500 / 250 quads, `src/render/attackFx/context.js`).
-- **Reduce Motion** (Settings → Reduce motion, `settings.reduceMotion`): no shake, hit-stop, impact
-  frames or big flashes, or soft versions. Never more than 3 flashes a second, never a full-white frame.
+- **Reduce Motion** (Settings → Reduce motion, `settings.reduceMotion`): no shake, hit-stop, local
+  holds, impact frames or big flashes, or soft versions. Flashing screen area is counted a second
+  (many small flashes add up); never more than 3 full-screen flashes a second, never a full-white frame.
+- **Shake only for big hits**, and only as a sideways shift, never a rotation.
 - **Readability.** Enemies, the road and health bars stay readable.
 
 ## The visual clock (`src/render/vfx/clock.js`)
@@ -120,8 +122,9 @@ Phones first: low gets almost nothing new, medium a light version, high the full
 |---|---|---|---|
 | Glow | bloom on hot cores (halos if Bloom is off) | light halos (only the hottest, larger sprites; ≤ 24 a frame per layer) | none |
 | Tone curve + grade | yes | no | no |
-| Hit-stop | crit, big hit, boss kill, impact | big hit, boss kill | none |
-| Impact frames | yes | a soft tint instead | a soft tint instead |
+| Global hit-stop (the whole board) | boss kill, ult impact | boss kill | none |
+| Local hold (only the struck enemy) | strong hits, crits | strong hits, crits | none |
+| Impact frames (tinted) | yes (Impact frames setting) | a soft tint instead | a soft tint instead |
 | Camera shake | full (trauma × 1) | lighter (trauma × 0.8 ≈ ⅔ the size) | small (trauma × 0.6 ≈ ⅓ the size) |
 | Zoom punch | yes | yes | no |
 | Hit flash on the body | yes, with squash | yes, with squash | yes, no squash |
@@ -154,33 +157,80 @@ lit scene a threshold would catch, which is how the threshold was chosen (build 
 
 | What | When | Rules |
 |---|---|---|
-| Hit-stop (`src/render/vfx/hitStop.js`; the kinds each tier allows: above) | a crit on a heavy enemy (elite, miniboss, boss) or worth ≥ 30 % of any enemy's HP: 40 ms; a hit worth ≥ 12 % of a heavy enemy's HP, a miniboss kill: 50 ms; a boss kill, an impact frame: 60 ms | the visual clock holds, the battle never does; ≤ 60 ms per freeze; crits ≥ 1.2 s apart and none in a busy fight (> 25 hits a second), big hits ≥ 0.6 s apart (1.2 s when busy), the low kinds ≤ 0.1 s of freeze per 2 s; ordinary hits on ordinary enemies never freeze |
-| Impact frames (`src/render/vfx/impact.js`; high only) | hero ults over the whole map, boss kills (a one-enemy strike or the sky dragon gets its small flash instead) | 3 rendered frames: the board drops away to an ink screen layer and every girl, monster, drone and shot turns into a flat silhouette (white, then ink on a deep shade of the moment's colour) through one shared toon impact material (`src/models/toon.js` `impactMaterial`); the additive effects keep burning on top; then everything is put back and the board returns under a short tint. Never a bright frame. |
-| Hit flash + squash (`actors.hitFlash(uid, color, strength, squash)`) | every hit | the body flashes white, gold on a crit, the attack's colour where the enemy is weak; it squashes (24 % down, 16 % out) and springs back over 0.32 s of visual time — a hit-stop holds it at its most squashed; big monsters squash less; a new hit restarts it only after 0.09 s; plain numbers on the view, nothing allocated |
-| Camera shake (`CameraRig.kick(trauma)`, scaled by tier) | big explosions (Marumi's blasts included), big hits, heavy kills, boss spawns / phases, big leaks, ults, tier 5, Kaede's maple storm / shockwave and Marumi's Glow Bowl finale (≥ 0.8 s apart) | trauma 0..1, the shake is trauma² × 3.4 % of the short side of the view (9–24 CSS px), two detuned sines per axis and a hint of roll, gone in ≈ 0.65 s; it runs on frame time, so it keeps jolting through a hit-stop |
+| Global hit-stop (`src/render/vfx/hitStop.js`; the kinds each tier allows: above) | a boss kill, an ult's impact frame: 60 ms | the visual clock holds, the battle never does; ≤ 60 ms per freeze. Only these two moments freeze the whole board ("freeze the struck, not the world") |
+| Local hold (`src/render/vfx/localHold.js`, `actors.holdEnemy`) | a strong hit or a crit (the hitting girl's impact preset, below); a miniboss kill holds its death for 4 frames | only the struck enemy's look holds — pose, place, facing, squash and flash — for 2-4 frames (≤ 67 ms) with a ±0.025-tile sideways jitter, then it catches up within a frame or two; the board, the sim and every other enemy carry on. At most 3 new holds a second (1 in a busy fight: > 25 hits a second), ≤ 2 a frame, the same enemy again only 0.6 s later; a few a wave, never a stutter |
+| Impact frames (`src/render/vfx/impact.js`; high only; Settings → Graphics → Impact frames) | hero ults over the whole map, boss kills (a one-enemy strike or the sky dragon gets its small flash instead) | 2 rendered frames: a navy tint (`#1c2552`, 62 % then 42 %) is laid over the board, which stays drawn and readable (no ink blackout), and every girl, monster, companion, drone and shot turns into a flat sakura-pink silhouette at about 60 % value (a touch of the moment's colour mixed in) drawn over the tint, through one shared toon impact material (`src/models/toon.js` `impactMaterial`); outlines keep their ink, the additive effects keep burning on top, the normal-blend effect batches sit the two frames out; then everything is put back and the board returns under a short tint. Never brighter than the board it covers. |
+| Hit flash + squash (`actors.hitFlash(uid, color, strength, squash)`) | every hit | the body flashes white, gold on a crit, the attack's colour where the enemy is weak; it squashes (24 % down, 16 % out; × 0.45 for a weak hit, up to × 1 for a crit) and springs back over 0.32 s of visual time — a hold keeps it at its most squashed; big monsters squash less; a new hit restarts it only after 0.09 s; plain numbers on the view, nothing allocated |
+| Camera shake (`CameraRig.kick(trauma)`, scaled by tier) | big hits only: big explosions (radius ≥ 1.6, none a girl's own ball sets off), big shares of heavy enemies, heavy kills, boss spawns / phases, big leaks, ults, tier 5, and one jolt for the big girl moments (`feel.js` `momentTrauma`, ≥ 0.8 s apart): Kaede's maple storm / shockwave, Marumi's Glow Bowl finale and her Giant Strike as it starts. **Marumi's ordinary blasts never shake** (her radius stays under 1.6, and her balls' explosions are left to her finale) | trauma 0..1, the shake is trauma² × 3.4 % of the short side of the view (9–24 CSS px), two detuned sines per axis, a sideways shift only (`SHAKE_ROLL` is 0: never a rotation), gone in ≈ 0.65 s; it runs on frame time, so it keeps jolting through a hit-stop |
 | Zoom punch (`CameraRig.punch(amount, s)`; not on low) | ults 7 %, boss kills 5 % | a quick swell and an eased return to exactly the framing; the locked camera's zoom is never touched |
+
+### Impact presets (`src/render/vfx/impactPresets.js`)
+
+Every hit is **weak**, **strong** or **crit** for the girl who dealt it, and each girl has a preset
+for the three, set by her weight class. The hit event names only the enemy, so the renderer works out
+who hit (`src/render/vfx/hitSource.js`, read-only): a shot of hers that landed on it since the last
+frame (aimed at it, or piercing through it), else the attack event that follows its hits in the same
+step (pulses, beams, chains, slashes, towel snaps, her own blasts, strip bites, shells), else the shot
+nearest a splash. Unknown hits get the normal preset. Only hits that could land hard are looked up.
+
+| Class | Girls | Strong on an ordinary enemy | Strong on a heavy enemy (elite, miniboss, boss) | Hold: strong / crit |
+|---|---|---|---|---|
+| heavy | Marumi, Sango, Shiro, Akane, Kaede, Kanna, Suzu, Ena | ≥ 35 % of its max HP | ≥ 6 % | 3 / 4 frames |
+| normal | everyone else who deals damage | ≥ 70 % | ≥ 10 % | 2 / 3 frames |
+| light | Kage, Umeko, Chika, Momo, Noa, Azami, Kinu (streams of small hits, rings, auras, strips) | never | ≥ 15 % | 2 / 2 frames |
+| none | Wakaba, Ouka | — | — | — |
+
+A crit is a crit on a heavy enemy, or on an ordinary one when it deals ≥ 30 % of its max HP (a small
+crit is a small hit). Weak hits never hold. Small enemies die in a few hits in a tower defense, so the
+thresholds aim at a few holds a wave rather than half the hits (a headless battle on 2-1 gets about 4
+a wave, most of them Marumi's: `tests/render/vfx-hits.test.js`). Later FX milestones add each girl's
+motif spark and kill pop to the same presets.
+
+### Blasts (`src/render/fx.js` `explosion`, `BLAST`)
+
+A blast's body is an alpha-blended **cel puff** in the blast's colour — the atlas `celPuff` sprite,
+painted in exactly three grey values with hard edges (1.0 lit, 0.75 shadow, 0.45 rim), so the tint
+gives the girl's base, shadow and a tinted outline — that swells 1 → 1.25, holds its shape for 60 % of
+its life and then fades; a lighter cel puff sits on top, the fire puffs are small cel puffs and the
+shock ring is a hard alpha ring on the ground. **Only a small white-hot core is additive**, so the
+colour grade and the bloom cannot wash the blast out (Marumi's blasts read softer than live before
+this). Marumi's ball pops use hard alpha rings too, with a small additive flash.
 
 All of it is decided in one place, `src/render/vfx/feel.js`:
 
-- **Reduce Motion**: no shake, no zoom punch, no hit-stop, no impact frames (they become a soft tint);
-  every flash ≤ 0.2 opacity and slower; half the squash.
+- **Reduce Motion**: no shake, no zoom punch, no hit-stop, no local holds, no impact frames (they
+  become a soft tint); every flash ≤ 0.2 opacity and slower; half the squash; half the flashing-area
+  budget.
 - **Settings → Graphics → Flashes & shake** (`settings.hitEffects`, default on; also in the battle's
   pause menu; read live): off = no screen flash of any kind (ult, leak, boss phase, victory), no
-  impact frames, no shake, no zoom punch, no hit-stop. The struck body's own flash stays (it is not
-  a screen flash). An older tab that does not know the key drops it and the default (on) comes back.
+  impact frames, no shake, no zoom punch, no hit-stop, no local holds. The struck body's own flash
+  stays (it is not a screen flash). An older tab that does not know the key drops it and the default
+  (on) comes back.
+- **Settings → Graphics → Impact frames** (`settings.impactFrames`, default on; also in the pause
+  menu; read live): off = an ult or a boss kill gets the soft tint instead of the tinted frame. Reduce
+  motion and Flashes & shake off turn them off too (the Settings row then shows why).
 - **Placing a girl**: the camera holds still (no shake, no punch), as before.
-- **Flash safety** (`src/render/vfx/flashGuard.js`): at most 3 flashes in any second of wall time, an
-  impact frame counts as 2 and waits 1.2 s after the last one, the screen-flash layer never passes
-  0.55 opacity (it is a radial tint: no frame is ever full white). Past the budget a flash becomes a
-  faint tint (≤ 0.08) that does not count. No large saturated red: a reddish colour (red ≥ 60 % of
-  R + G + B in linear light; WCAG's saturated red is 80 %) is mixed towards its own grey into a dusty
-  rose and peaks at 0.25 opacity — the big-leak and boss-phase flashes, a red ult's impact shade and
-  its afterglow.
+- **Flash safety** (`src/render/vfx/flashGuard.js`): it counts **flashing screen area a second**, not
+  single flashes, so many small hits add up. A full-screen flash counts one screen; every bright,
+  short additive sprite on the board (a world flash: additive, ≤ 0.35 s, ≥ 0.3 tiles across — blast
+  cores, hit sparks, muzzle and impact flashes, from `fx.js` and the attack-FX layer alike) counts its
+  share of the screen × its strength (`screenShare`: its size in CSS px at the current zoom; a soft
+  glow counts only its bright middle). In any second the counted area stays within 3 screens, world
+  flashes within 2 of them (so an ult or a boss kill keeps its room); past that a world flash is drawn
+  at 30 % (still there as a shape, too faint to count) and a screen flash becomes a faint tint
+  (≤ 0.08) that does not count. On top, at most 3 full-screen flashes in any second, an impact frame
+  counts as 2 (and two screens) and waits 1.2 s after the last one, and the screen-flash layer never
+  passes 0.55 opacity (it is a radial tint: no frame is ever full white). The window is kept in 50 ms
+  bins (one more than a second's worth, so it never undercounts; O(1) per flash). No large saturated
+  red: a reddish colour (red ≥ 60 % of R + G + B in linear light; WCAG's saturated red is 80 %) is
+  mixed towards its own grey into a dusty rose and peaks at 0.25 opacity — the big-leak and
+  boss-phase flashes, a red ult's afterglow.
 - **Boss vignette** (the red edge while a boss is on the board): a boss spawn or phase makes it
   swell in (≤ 1.5 opacity a second, peak 0.6; `flashGuard.js` `vignetteStep`), never flash; with
   Flashes & shake off only its slow pulse stays.
 
-`renderer.vfx` reports what the layer did (freezes granted / refused, impacts, flashes the guard
-turned down, halos last frame, shake px, zoom punch, bloom and grade in use); the capture tool
+`renderer.vfx` reports what the layer did (freezes granted / refused, local holds granted / refused,
+impacts, flashes the guard turned down, the flashing area counted this second, world flashes counted /
+dimmed, halos last frame, shake px, zoom punch, bloom and grade in use); the capture tool
 records it with every shot. `node tools/vfx/capture.mjs --events ult@150,bosskill@210` also shoots
 those moments as they land (the frame they land on and 2, 6 and 16 frames later).

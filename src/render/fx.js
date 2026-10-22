@@ -4,15 +4,30 @@
 import * as THREE from 'three';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { createHaloRules } from './vfx/halo.js';
+import { isWorldFlash } from './vfx/flashGuard.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color();
+const _c2 = new THREE.Color();
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
 /** Particle flags */
 const GROUND = 1;
 const SPIN_X = 2; // coin flip: width oscillates
+const LATE_FADE = 4; // alpha holds at a0 for the first 60 % of life, then fades (a cel shape, not a mist)
+
+/**
+ * Blasts (docs/VFX.md "Blasts"): the body is an alpha-blended cel puff in the blast's colour (three
+ * grey values in the atlas, tinted), so the colour grade and the bloom cannot wash it out; only a
+ * small hot core is additive. Sizes are × the blast radius.
+ */
+export const BLAST = {
+  core: { s0: 0.7, s1: 1.0, life: 0.14 }, // additive white-hot centre (the only glowing part)
+  body: { s0: 1.2, s1: 1.5, life: 0.3 }, // cel puff: swells 1 → 1.25, holds, then fades
+  lit: { s0: 0.7, s1: 0.95, life: 0.24 }, // a lighter cel puff on top (the lit side)
+  ring: { s0: 0.5, s1: 2.05, life: 0.3 }, // hard alpha ring on the ground
+};
 
 export class FxSystem {
   /**
@@ -38,6 +53,12 @@ export class FxSystem {
     this.halo = createHaloRules(this.R);
     this.halos = 0; // halos drawn last frame
     this._h = { w: 0, h: 0, uv: null, a: 0 };
+    /**
+     * The flash guard for world flashes (src/render/vfx/flashGuard.js), set by the renderer:
+     * (size in world units, atlas region, strength) → strength factor. Bright, short additive
+     * sprites ask it, so many small flashes add up to the screen area they really cover.
+     */
+    this.flashGate = null;
   }
 
   setQuality(q) {
@@ -76,6 +97,15 @@ export class FxSystem {
     const col = o.color instanceof THREE.Color ? o.color : _c.set(o.color || '#ffffff');
     p.r = col.r; p.gc = col.g; p.bc = col.b;
     p.ox = o.ox || 0;
+    // a world flash asks the flash guard (flashing screen area a second); past the budget it is drawn faint
+    if (this.flashGate && p.batch === 'bbA') {
+      const size = Math.max(p.s0, p.s1) * Math.max(1, p.asp);
+      if (isWorldFlash(p.life, size)) {
+        const k = this.flashGate(size, p.uv, Math.min(1, p.a0));
+        p.a0 *= k;
+        p.a1 *= k;
+      }
+    }
     this.parts.push(p);
     return p;
   }
@@ -103,12 +133,22 @@ export class FxSystem {
     }
   }
 
-  /** Explosion with flash, shock ring, fire puffs, smoke and scorch. */
+  /**
+   * Explosion (BLAST): a small additive hot core, an alpha-blended cel puff body in the blast's
+   * colour that swells and holds, a lighter cel puff on top, a hard shock ring, cel fire puffs,
+   * smoke, scorch and debris. Only the core is additive, so the grade and bloom keep its punch.
+   */
   explosion(x, z, radius, color, { volatile = false } = {}) {
     const R = this.R;
     const r = Math.max(0.5, radius);
-    this.spawn({ batch: 'bbA', uv: R.glow, x, y: 0.35, z, s0: r * 1.6, s1: r * 2.2, life: 0.22, color: volatile ? '#ff5a4a' : '#ffd08a', a0: 1 });
-    this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, flags: GROUND });
+    const cel = R.celPuff || R.smoke;
+    const body = volatile ? '#ff5a4a' : color;
+    const lit = _c2.set(body).lerp(_c.set('#fff4dc'), 0.45).getHex();
+    const B = BLAST;
+    this.spawn({ batch: 'bbA', uv: R.glow, x, y: 0.4, z, s0: r * B.core.s0, s1: r * B.core.s1, life: B.core.life, color: volatile ? '#ffc2b0' : '#fff2c8', a0: 1 });
+    this.spawn({ batch: 'bbN', uv: cel, x, y: 0.38, z, s0: r * B.body.s0, s1: r * B.body.s1, life: B.body.life, color: body, a0: 1, a1: 0, rot: this.rand() * TAU, flags: LATE_FADE });
+    this.spawn({ batch: 'bbN', uv: cel, x, y: 0.52, z, s0: r * B.lit.s0, s1: r * B.lit.s1, life: B.lit.life, color: lit, a0: 1, a1: 0, rot: this.rand() * TAU, flags: LATE_FADE });
+    this.spawn({ batch: 'groundN', uv: R.ringThick || R.ring, x, y: 0.06, z, s0: r * B.ring.s0, s1: r * B.ring.s1, life: B.ring.life, color: body, a0: 0.85, flags: GROUND });
     this.spawn({ batch: 'groundN', uv: R.shadow, x, y: 0.03, z, s0: r * 1.3, s1: r * 1.5, life: 1.6, color: '#2a1a14', a0: 0.35, a1: 0, flags: GROUND });
     const k = this.n(Math.min(14, 5 + r * 4));
     for (let i = 0; i < k; i++) {
@@ -116,9 +156,9 @@ export class FxSystem {
       const d = this.rand() * r * 0.6;
       const sp = 0.6 + this.rand() * 1.4;
       this.spawn({
-        batch: 'bbA', uv: R.soft, x: x + Math.cos(a) * d, y: 0.2 + this.rand() * 0.3, z: z + Math.sin(a) * d,
-        vx: Math.cos(a) * sp, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp, drag: 3, s0: 0.35 * r, s1: 0.1, life: 0.35 + this.rand() * 0.2,
-        color: i % 2 ? color : '#ffe08a',
+        batch: 'bbN', uv: cel, x: x + Math.cos(a) * d, y: 0.2 + this.rand() * 0.3, z: z + Math.sin(a) * d,
+        vx: Math.cos(a) * sp, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp, drag: 3, s0: 0.3 * r, s1: 0.08, life: 0.35 + this.rand() * 0.2,
+        color: i % 2 ? body : lit, a0: 1, a1: 0, rot: this.rand() * TAU, flags: LATE_FADE,
       });
       if (i % 2 === 0) {
         this.spawn({
@@ -315,7 +355,7 @@ export class FxSystem {
       p.rot += p.vrot * dt;
       const k = p.t / p.life;
       const s = p.s0 + (p.s1 - p.s0) * k;
-      let a = p.a0 + (p.a1 - p.a0) * k;
+      let a = p.flags & LATE_FADE ? (k < 0.6 ? p.a0 : p.a0 + (p.a1 - p.a0) * ((k - 0.6) / 0.4)) : p.a0 + (p.a1 - p.a0) * k;
       if (p.fadeIn && p.t < p.fadeIn) a *= p.t / p.fadeIn;
       let w = s * p.asp;
       if (p.flags & SPIN_X) w *= Math.abs(Math.cos(p.t * 9));
