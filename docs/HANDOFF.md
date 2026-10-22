@@ -1,13 +1,13 @@
 # Sakura Sentinels — handoff
 
-Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 22, 2026 (after v0.1.44).
+Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 22, 2026 (v0.1.45 shipped).
 
 The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) with the full decision log and design docs that are not in this public repo. If they upload it to a session, read `OWNER_DECISIONS.md` in it before planning.
 
 ## 1. Where things stand
 
-- **Live:** v0.1.44 "A Rainbow Without Scrollbars" (Oct 21) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` a0b5b75, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
-- **Next deploy is v0.1.45.** The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7).
+- **Live:** v0.1.45 "Sprouts, Storms and Shiny Ribbons" (Oct 22) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is the v0.1.45 merge, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
+- **Next deploy is v0.1.46.** The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7).
 - **Roster:** 35 girls. Heroes (6): hikari, luna, nami, kanna, yoriko, seiran. Students (29): aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede, chika, fuu, hana, ruri, noa, iroha, ena, azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi.
 - **Recent releases:**
   - v0.1.40: 7 academy girls (Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi) and catch-up joins (COOP 7).
@@ -15,6 +15,7 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
   - v0.1.42: tidier girl page (UI M1); Kon, Kaze and Yoriko's doll split into their own Blender figures (`public/models/companions/`).
   - v0.1.43: Kon 2.4× bigger.
   - v0.1.44: the UR awakening popup fix (`modal()` now accepts several classes).
+  - v0.1.45: the seven academy girls' drawn cards (online avatars now show each girl's drawn thumb), the girl page Compact/Detailed setting, eleven new Codex achievements, new map tier names (Sprout, Bud, Storm, Oni), shorter damage numbers and the co-op hold fix. Display only.
   - Halloween 2026 event is open until Nov 1; its exchange until Nov 8.
 - **Usage:** the owner works under a weekly usage limit that resets around Monday 03:00 UTC (Sunday/Monday night in the owner's time). When budget is tight, the owner's rule is "closest to done first", and unfinished work is pushed to its branch so nothing is lost.
 
@@ -34,15 +35,21 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
 
 | Branch | Head | State |
 |---|---|---|
-| `main` | a0b5b75 | Live. Pushing here deploys. |
-| `claude/sakura-sentinels` | main + docs | Coordination branch; ships are merged here, then pushed to `main`. |
-| `release/next` | b3a4e37 | Staging branch merged into `main` at each ship. |
-| `feature/abilities` | 546a68d | Tower abilities A0–A2, Tenka T0 + T1, synced with v0.1.40. Next: T2 → T3 → sync with current main, then the ability bar (A3) with battle UI M2, Tenka's T4 art, turn on the ⚡ tips (`ABILITY_TIPS_SHOWN` in `src/data/unitTips.js`), give Ouka's T3/T5 their ability-recharge back, bump `COOP_PROTOCOL`. Spec: `docs/specs/ABILITIES.md`. |
-| `feature/vfx` | d19c9be | VFX M0 done, M1 work in progress (glow/halo, colour grade, hit-stop, impact frames, flash guard, screen shake). Then: a postprocessing trial (keep only if faster on a phone) and an ULTRA graphics tier. |
-| `feature/girl-page-detailed` | 46bf6f5 | Work in progress: Settings switch "Girl page: Compact / Detailed" (default Compact). Detailed shows full stats, gear values, substats, set bonuses, level steppers and the tier list inline. |
+| `main` | the v0.1.45 merge | Live (v0.1.45). Pushing here deploys. |
+| `claude/sakura-sentinels` | = `main` | Coordination branch; ships are merged here, then pushed to `main`. |
+| `release/next` | 56482a8 | Merged: shipped as v0.1.45 (the v0.1.45 display fixes, the girl page setting and the academy cards). It is the staging branch for the next release: merge finished branches here, then into `claude/sakura-sentinels` at the ship (§7). |
+| `feature/girl-page-detailed` | ebfaeb4 | Shipped in v0.1.45: the Settings switch "Girl page: Compact / Detailed" (default Compact). Detailed shows full stats, gear values, substats, set bonuses, level steppers and the tier list inline. |
+| `feature/academy-cards` | 82e0d12 | Shipped in v0.1.45: the seven academy girls' drawn cards (42 portrait files), and every girl's drawn thumb as her online avatar. |
+| `feature/abilities` | d7abcb4 | In progress. Tower abilities A0–A2 and Tenka T0–T3 (synced with v0.1.44), then A3: M1 (the ability bar, the panel ability row, the hero skill, keys, Auto, ability FX, with review fixes) and M2 (one live-ability rule, the ⚡ tips on, Ouka's recharge back, the Azami scaling and strip/sentry crit fixes, Hana's bio). `COOP_PROTOCOL` is still 8 there and must go to 9 before it ships. Next: battle UI M2, T4 (Tenka's UI and FX), the returning girls' abilities. Spec: `docs/specs/ABILITIES.md`. |
+| `feature/vfx` | 09c057a | In progress. VFX M0 and its review fixes (tinted impact frames, impact holds, cel blasts, a flash guard by area). Next: the rest of M1 (glow/halo, colour grade, screen shake), a postprocessing trial (keep only if faster on a phone) and an ULTRA graphics tier. It needs its own patch note when it ships. |
+| `feature/fx-1` | 90ec45b | In progress, paused at the owner's request: FX-1 on top of `feature/vfx`, unfinished and unreviewed. |
+| `feature/items-3dflat` | 9d45ac0 | In progress. Item art: the baked 3D-flat icons on the slanted tile, in the game, after four art-review rounds. |
+| `feature/ui-m5` | 9af220e | In progress. UI M5a (one countdown chip and one badge vocabulary, with review fixes) and M5b (hubs with host girls, the condensed Achievements, cleaner campaign cards). |
+| `feature/lively-figures` | 79bcec2 | In progress. Livelier 3D figures: library clips for Hikari, Hana and Ruri, an upper-body attack, slimmer GLBs, settings and rebuild tools, with review fixes. |
+| `proto/modern-city` | e02ac31 | The city look test (4 maps). Waiting for the owner's approval; not in `MAPS` or `STAGES`. |
 
 Not started on any branch:
-- **New girls' visuals pass.** The owner and players say most academy girls' attacks and placed things read as plain or dotted circles (Azami's spike strips look ugly, Yuzuha's sentries have no model), and the academy girls still have placeholder portraits.
+- **New girls' visuals pass.** The owner and players say most academy girls' attacks and placed things read as plain or dotted circles (Azami's spike strips look ugly, Yuzuha's sentries have no model). Their portraits shipped in v0.1.45.
 - **Yoriko marionette rework** (owner spec): the strings hang from her control bar, not a projectile trail. Attack sequence Command → Extend (an arc) → Strike → Reel, with a pendulum settle. The doll delivers the hit; the impact flash is separate. Later ideas: Thread Pierce, Marionette Web, Grand Marionette.
 
 ## 4. Next up
@@ -50,7 +57,7 @@ Not started on any branch:
 **What the owner told players is coming in the next big update (after the usage reset):** a couple more girls and new rarities; about 6 reworks (girls with companions, Kaede, Iroha's animations only); tower abilities/ultimates (Tenka is the ultimate tower); new UI/GUI; double the maps plus new chapters/story with new enemy types; the new VFX; banner changes; quality-of-life fixes. Kaede's AoE rework already shipped in v0.1.41: ask the owner what her next rework means (likely visuals/animation).
 
 **Suggested order for that update** (the owner's rule is "closest to done first", and every step ships on its own when it's ready, so players get something even if the week runs short):
-1. **Small display fixes** (no sim change): the compact DPS readout (§10), the girl page Compact/Detailed switch (`feature/girl-page-detailed`).
+1. **Small display fixes** (no sim change): the compact DPS readout (§10), the girl page Compact/Detailed switch (`feature/girl-page-detailed`). Both are in v0.1.45 (§3).
 2. **Finish VFX M1** (`feature/vfx`, display only) and ship it.
 3. **Tower abilities + Tenka** (`feature/abilities`): T2 → T3 → sync with main, then the ability bar (A3) with battle UI M2. This changes the sim: bump `COOP_PROTOCOL`.
 4. **Visual reworks:** the companion girls (Ruri + Kon, Hana + Kaze, Yoriko's marionette per §3), the academy girls' attacks and placed objects, Kaede's look (once the owner says what they want), Iroha's animations.
@@ -147,12 +154,12 @@ Then poll `version.json` until it shows the new version. Patch-note tests: `test
 - **Marumi's rolls are ground-only** and cannot touch the flying phases of the wave-200 Matriarch.
 - **Kill-only effects are weak in teams:** Chigusa's thorn beds, Ena's curse bursts, Yuzuha's nets.
 - **Armour shred** is worth at most 5–8% at level 60.
-- **Umeko's tooltips undersell her:** her tiers multiply, they don't add.
+- **Umeko's tooltips undersell her:** her tiers multiply, they don't add. (v0.1.45: her tier text now gives the running total.)
 - **Abilities are unreachable** on live: no cast button, no auto-cast, no co-op cast command (that's the abilities branch).
 - **Azami:** Charged Strips / Detonation Line blasts don't scale with level, stars or gear ATK (+50% ATK gave +2%). Likely a missing multiplier.
 - **Azami's strips and Yuzuha's sentries can't crit,** and their crit lines aren't converted to ATK either (not in the gear-fit list).
 - **Ult Haste** does nothing for students until abilities ship.
-- **Battle panel DPS readout** prints the raw number (`fmtNum(dps, 1)` in `src/ui/battle/util.js`, e.g. "136234.5"), and the cell clips it to about 5 digits. Use a compact format (136.2k, 1.2M) in the tower and Chika panels.
+- **Battle panel DPS readout** prints the raw number (`fmtNum(dps, 1)` in `src/ui/battle/util.js`, e.g. "136234.5"), and the cell clips it to about 5 digits. Use a compact format (136.2k, 1.2M) in the tower and Chika panels. (Fixed in v0.1.45: `fmtDps`.)
 - **`tools/bench.mjs`:** the walking boss reads `near.dist` but path samples only carry `d`, so the boss always spawns at the start of path 0; the 15 s warm-up is too short on stage 4-5; ults can fire inside the warm-up.
 - Players note crit-damage substats stack hard, and that LR gear will need higher stat caps (planned, §4).
 
