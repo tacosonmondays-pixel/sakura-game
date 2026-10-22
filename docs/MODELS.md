@@ -72,6 +72,37 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
   turned Chika's brown hair and orange suit purple / lavender; `tests/models/highlight.test.js` guards
   the hue.
 
+### Lively figures and clean cel textures (prototype, branch `proto/rig-motion`, decision #149)
+
+Two display-only switches in Settings → Graphics (`src/models/figureOptions.js`; saved as
+`livelyFigures` (default on) and `celTextures` (default off); dev overrides `?lively=0|1&cel=0|1`).
+Nothing here is in the co-op graph (`tools/simId.mjs` stays `92e2e22527cf`).
+
+* **Lively figures**, skeleton layer (`livelyRig.js`, after `mixer.update` in `GlbAnimator`): breathing
+  (chest / spine / shoulders, head counter-rotates), weight shift (pelvis roll with legs kept
+  vertical, spine sway, head tilt), glances every 3–7 s, the head leading a turn (chest 20 % / neck 30 % /
+  head 50 % of the turn still to go), attack wind-up lean and release snap, a dazed head circle while
+  disabled, a happy bob on victory, and damped springs on every hair / tail / braid / bangs / coat bone a
+  GLB already has (Hikari's 58-bone rig included). Every touched bone gets its clip value back before
+  the next mixer update. Loops start at a random point and run at 0.94–1.06×, so copies never move in
+  step; crossfades 0.3 s; disabled plays `hurt` once over a slowed idle instead of a 0.4 s loop.
+* **Runtime skirt bones** (`livelySkirt.js`): once per asset, four bones (front / left / back / right,
+  children of the hips at the hips' bind pose) take a waist-to-hem gradient of the skirt's weight; the
+  skirt is found geometrically (between the knee band and the waist, hips / spine / thigh weights only,
+  outside the measured leg radius). At rest they deform exactly as before. One spring swings them: hem
+  outward ≤ 12°, inward ≤ 3°. Found on Noa, Hana, Ruri and the Blender girls with skirts or dresses.
+* **Whole-figure layer** in battle (`src/render/livelyPose.js`, `actors.js`): placement drops her in
+  (gravity, landing squash) instead of the elastic pop; the sim's cooldown (read only) drives a wind-up
+  squash + lean for girls attacking once per 0.45 s or slower, the attack event a stretch + snap; body
+  turns at 6/s (the head leads); a tiny breathing squash. Reduce motion: half the amplitude, slower,
+  no drop (a 0.15 s scale-in). Quality medium: springs at 30 Hz; low: no springs or breathing.
+* **Clean cel textures** (`celFigure.js`, painted Meshy figures only): the figure's palette is measured
+  once (k-means in OKLab over the texels under her UVs; same-hue clusters that differ only by baked
+  light merge); each texel snaps to its nearest palette colour (eyes and far-off details keep their
+  paint); one hard shadow from the key light with a per-colour hue-shifted shade (whites → lavender,
+  warm → rose, skin barely); the face never takes a stripe. A comparison with look B, not a replacement.
+* Preview + captures: `previews/lively.html` (`?mode=battle|closeup|perf|metrics`).
+
 ## Roster merge stand-ins (2026-10-13)
 
 The 18 shared girls (everyone but Hikari, whose battle model is the owner's Meshy figure) were rebuilt from

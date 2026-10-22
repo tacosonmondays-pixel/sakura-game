@@ -72,6 +72,13 @@ export const DEFAULT_SETTINGS = {
    */
   loadingMochi: 'mint',
   loadingBg: 'black',
+  /**
+   * Prototype proto/rig-motion (src/models/figureOptions.js): 'Lively figures' = procedural
+   * secondary motion on the 3D girls; 'Clean cel textures' = the painted (Meshy) girls drawn as flat
+   * colour + one hard shadow instead of the figurine look. Display only. Additive: no save version bump.
+   */
+  livelyFigures: true,
+  celTextures: false,
 };
 
 const CAMERA_MODES = ['locked', 'free'];
@@ -310,6 +317,8 @@ function cleanSettings(raw) {
     // older saves have no loading screen look: the mint Mochi on black
     loadingMochi: LOADING_MOCHI_LOOKS.includes(s.loadingMochi) ? s.loadingMochi : d.loadingMochi,
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
+    livelyFigures: bool(s.livelyFigures, d.livelyFigures),
+    celTextures: bool(s.celTextures, d.celTextures),
   };
 }
 
