@@ -22,6 +22,8 @@ export const REPEAT = [
   '.ma-cal-day', '.ach-row', '.ma-stage-card', '.ma-sc', '.lb-slide', '.ma-next-row', '[data-probe="tile"]',
   // UI M5b: the Bounty arena rows and tiers, the drop tiles, the boss cards, the campaign's chapter tabs
   '.ma-loc', '.ma-tier-btn', '.ma-drop', '.ma-boss-card', '.ma-chapter-tab',
+  // UI M5c: the Happening Now rows, the Settings rows, the old Events page's income table rows
+  '.hn-row', '.ma-set-row', '.ma-income-table tr',
 ].join(', ');
 
 /** Never counted: the currency bar (P3) and anything a script marks. */

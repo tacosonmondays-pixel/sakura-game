@@ -36,7 +36,9 @@ const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen =
 /**
  * Every shot: how to reach it, when it is ready, and the probe options (kind, list). `seed: 'm5'` shots need a
  * player through chapter 3 (the event, Titan Trials, Bounty, Challenge and Sandbox open).
- * hash: a route; page: a page of the dev server instead of the game; open(): a step after the route (a modal).
+ * hash: a route; page: a page of the dev server instead of the game; open(): a step after the route (a modal);
+ * legacy: the old surface a new screen replaces, shot while its route does not exist yet; devNow: the events' dev
+ * clock for this shot (set, reloaded, cleared after the shot: keep these shots last in a list).
  */
 const SHOTS = {
   // ---- the first six (M0-M4) ----
@@ -61,17 +63,27 @@ const SHOTS = {
   campaign: { hash: '#/campaign?chapter=1', ready: isScreen('campaign'), seed: 'm5' },
   'mall-general': { hash: '#/mall?tab=general', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
   'mall-boss': { hash: '#/mall?tab=boss', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
+  // the Mailroom (M5c, #/mail); before it existed, its "before" is the Mail modal over the lobby
   mail: {
-    hash: '#/lobby', ready: isScreen('lobby'), kind: 'list', list: '.mbx-list', seed: 'm5',
-    open: async (page) => {
-      await page.click('[data-testid="top-mail"]');
-      await page.waitForSelector('.mbx-modal', { timeout: 10000 });
+    hash: '#/mail', ready: isScreen('mail'), kind: 'list', list: '.mbx-list', seed: 'm5',
+    legacy: {
+      route: 'mail', hash: '#/lobby', ready: isScreen('lobby'),
+      open: async (page) => {
+        await page.click('[data-testid="top-mail"]');
+        await page.waitForSelector('.mbx-modal', { timeout: 10000 });
+      },
     },
   },
   happening: { hash: '#/rewards', ready: isScreen('rewards'), kind: 'list', seed: 'm5' },
+  // nothing limited running (E9): the dev clock after the Halloween exchange closed (src/ui/events/clock.js)
+  'happening-empty': { hash: '#/rewards', ready: isScreen('rewards'), kind: 'list', seed: 'm5', devNow: '2026-11-20T18:00:00Z' },
   settings: { hash: '#/settings', ready: isScreen('settings'), kind: 'list', seed: 'm5' },
+  'settings-display': { hash: '#/settings?section=display', ready: isScreen('settings'), kind: 'list', seed: 'm5', open: settingsSection('display', 'Display') },
+  'settings-audio': { hash: '#/settings?section=audio', ready: isScreen('settings'), kind: 'list', seed: 'm5', open: settingsSection('audio', 'Audio') },
   recruit: { hash: '#/recruit', ready: isScreen('recruit'), seed: 'm5' },
   'event-halloween': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash },
+  // the event page after the event and its exchange closed (E9 on the ended phase), on the dev clock
+  'event-halloween-ended': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash, devNow: '2026-11-20T18:00:00Z' },
   // the Multiplayer hub comes in M5d: until its route exists, its "before" is the co-op hub it replaces
   multiplayer: { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5' },
   'multiplayer-pvp': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', open: async (page) => { await page.click('[data-testid="mp-pvp"]'); await page.waitForSelector('.ui-sheet', { timeout: 10000 }); } },
@@ -83,8 +95,27 @@ const SHOTS = {
 };
 const FIRST_SIX = ['lobby', 'girl-info', 'backpack-equipment', 'stage-prep', 'achievements', 'battle-drawer'];
 const M5 = ['lobby', 'missions', 'commissions-daily', 'commissions-login', 'achievements', 'bounty', 'assault', 'titans', 'campaign',
-  'mall-general', 'mall-boss', 'mail', 'happening', 'settings', 'recruit', 'event-halloween', 'multiplayer', 'multiplayer-pvp', 'coop',
-  'profile', 'students', 'formation', 'm5-kit'];
+  'mall-general', 'mall-boss', 'mail', 'happening', 'settings', 'settings-display', 'settings-audio', 'recruit', 'event-halloween',
+  'multiplayer', 'multiplayer-pvp', 'coop', 'profile', 'students', 'formation', 'm5-kit', 'happening-empty', 'event-halloween-ended'];
+
+/**
+ * A Settings section: its rail tab (M5c), or before the rail, the old panel with that title scrolled to the top.
+ * @param {string} id the rail section ('display', 'audio', …)
+ * @param {string} title the old panel's title
+ */
+function settingsSection(id, title) {
+  return async (page) => {
+    const tab = await page.$(`#app [data-testid="tab-${id}"]`);
+    if (tab) {
+      await tab.click();
+      return;
+    }
+    await page.evaluate((t) => {
+      const p = [...document.querySelectorAll('#app .panel-title')].find((x) => x.textContent.trim() === t)?.closest('.panel');
+      p?.scrollIntoView({ block: 'start' });
+    }, title);
+  };
+}
 
 const pick = opt('screens', null);
 const names = !pick ? FIRST_SIX : pick.split(',').flatMap((s) => (s.trim() === 'm5' ? M5 : [s.trim()])).filter(Boolean);
@@ -134,6 +165,21 @@ async function shot(page, name, vp) {
 }
 
 const hasRoute = (page, name) => page.evaluate(async (n) => (await import('/src/ui/router.js')).hasRoute(n), name);
+
+/**
+ * Sets (iso) or clears (null) the events' dev preview clock (localStorage 'sakura-dev-now', dev builds only) and
+ * reloads: the clock reads the key at start-up. The game clock stays the fixed --now.
+ */
+async function devClock(page, iso) {
+  await page.evaluate((t) => {
+    window.__sakura?.store?.saveNow?.();
+    if (t) localStorage.setItem('sakura-dev-now', t);
+    else localStorage.removeItem('sakura-dev-now');
+  }, iso);
+  await page.reload({ waitUntil: 'load', timeout: 90000 });
+  await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 30000 });
+  await closeModals(page);
+}
 
 async function battleDrawer(page) {
   await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
@@ -208,18 +254,22 @@ for (const vp of viewports) {
             console.log(`  skipped ${name}: no "${s.needsRoute}" screen in this build yet`);
             continue;
           }
-          let hash = s.resolve ? (await s.resolve(page)) || s.hash : s.hash;
+          // a screen this build does not have yet shows the old surface it replaces (the Mail modal)
+          const legacy = s.legacy && !(await hasRoute(page, s.legacy.route)) ? s.legacy : null;
+          let hash = legacy ? legacy.hash : s.resolve ? (await s.resolve(page)) || s.hash : s.hash;
           if (s.fallback) {
             const route = hash.replace(/^#\//, '').split(/[/?]/)[0];
             if (!(await hasRoute(page, route))) hash = s.fallback;
           }
+          if (s.devNow) await devClock(page, s.devNow);
           if (s.prepare) {
             await go(page, '#/lobby', isScreen('lobby')); // (a fresh draw of the screen after the state is set)
             await s.prepare(page);
           }
-          await go(page, hash, s.ready);
-          if (s.open) {
-            await s.open(page);
+          await go(page, hash, legacy ? legacy.ready : s.ready);
+          const open = legacy ? legacy.open : s.open;
+          if (open) {
+            await open(page);
             await settle(page, 600);
           }
         }
@@ -230,7 +280,8 @@ for (const vp of viewports) {
         probes[name] = r;
         console.log(`    probe: ${summary(r)}`);
       }
-      if (s.open) await closeModals(page);
+      if (s.open || s.legacy) await closeModals(page);
+      if (s.devNow) await devClock(page, null);
     } catch (e) {
       failed++;
       console.log(`  FAILED ${name}: ${e.message}`);
