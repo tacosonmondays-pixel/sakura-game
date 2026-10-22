@@ -73,20 +73,25 @@ export const DEFAULT_SETTINGS = {
   loadingMochi: 'mint',
   loadingBg: 'black',
   /**
-   * Prototype proto/rig-motion (src/models/figureOptions.js): 'Lively figures' = procedural
-   * secondary motion on the 3D girls; 'Clean cel textures' (`celFigures`) = the painted (Meshy) girls
-   * drawn as flat colour + one hard shadow on their flattened base colour instead of the glossy figurine
-   * look. Display only. Additive: no save version bump. `celFigures` defaults ON while the owner decides;
-   * it replaces the prototype's first key `celTextures` (default off), which saves stored unchosen.
+   * The 3D girls (src/models/figureOptions.js; Settings → Graphics). Display only. Additive: no save
+   * version bump.
+   *  - livelyFigures: procedural secondary motion on top of the baked clips (breathing, weight shift,
+   *    glances, head-first turns, attack wind-up and follow-through, landing, hair / bun / skirt springs)
+   *    plus the painted girls' new library clips. Off: the old clips only.
+   *  - figureLook: the painted (Meshy) girls' material, 'cel' (flat colour + one hard shadow on their
+   *    flattened base colour) or 'glossy' (the figurine look B). 'cel' is the default while the owner
+   *    decides (#145). A branch build saved it as the boolean `celFigures` (false = glossy, a real
+   *    choice: read once); its first key `celTextures` stored an unchosen default and is ignored.
    */
   livelyFigures: true,
-  celFigures: true,
+  figureLook: 'cel',
 };
 
 const CAMERA_MODES = ['locked', 'free'];
 const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 const LOADING_MOCHI_LOOKS = ['mint', 'sakura'];
 const LOADING_BGS = ['black', 'colour'];
+export const FIGURE_LOOKS = ['cel', 'glossy'];
 
 /**
  * Fresh per-unit state. `dupes` = duplicates received since she joined (her Essence history), `pl` =
@@ -320,8 +325,9 @@ function cleanSettings(raw) {
     loadingMochi: LOADING_MOCHI_LOOKS.includes(s.loadingMochi) ? s.loadingMochi : d.loadingMochi,
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
     livelyFigures: bool(s.livelyFigures, d.livelyFigures),
-    // the old prototype key `celTextures` is dropped (its stored 'off' was a default, not a choice)
-    celFigures: bool(s.celFigures, d.celFigures),
+    // a branch build's boolean `celFigures: false` was a choice (glossy); `celTextures` is dropped (its
+    // stored 'off' was a default, not a choice)
+    figureLook: FIGURE_LOOKS.includes(s.figureLook) ? s.figureLook : (s.celFigures === false ? 'glossy' : d.figureLook),
   };
 }
 

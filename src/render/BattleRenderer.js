@@ -65,7 +65,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const settings = opts.settings || {};
   let quality = QUALITY[opts.quality] ? opts.quality : (QUALITY[settings.quality] ? settings.quality : 'medium');
   const reduceMotion = !!settings.reduceMotion;
-  // the figures' display switches (Lively figures, Clean cel textures) follow this battle's settings
+  // the figures' display switches (Lively figures, Figure look) follow this battle's settings
   setFigureOptions({ ...settings, reduceMotion, quality });
 
   // ----- renderer -----------------------------------------------------------------------

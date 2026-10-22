@@ -1,5 +1,5 @@
-// Dev preview for the 'Lively figures' / 'Clean cel textures' prototype (proto/rig-motion,
-// src/models/figureOptions.js). Before / after captures and the frame-cost measurement use it.
+// Dev preview for 'Lively figures' / 'Figure look' (src/models/figureOptions.js). Before / after
+// captures and the frame-cost measurement use it.
 //   ?mode=battle    a real Sim + BattleRenderer: girls dropped in one by one, a monster stream,
 //                   attacks, two girls stunned at 6 s for 2 s, victory at 10 s
 //   ?mode=closeup   three girls up close (Noa, Hikari, Kanna) on a scripted timeline: landing,
@@ -22,6 +22,20 @@ import { VIEWER_LIGHTS } from '../src/models/viewer.js';
 import { UNIT_MAP } from '../src/data/units.js';
 
 const params = new URLSearchParams(location.search);
+// &ship=1: the four painted girls load their pre-rollout GLBs from public/models/characters/_lookdev/ship/
+// (gitignored; e.g. `git show a0b5b75:public/models/characters/noa.glb > .../_lookdev/ship/noa.glb`), so
+// `&ship=1&lively=0&cel=0` is exactly today's live figure for before / after captures
+if (params.get('ship') === '1') {
+  const ids = new Set((params.get('shipIds') || 'noa,hikari,hana,ruri').split(','));
+  const fetch0 = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : input?.url || '';
+    const m = /models\/characters\/([a-z0-9_]+)((?:\.lod)?\.glb)/.exec(url);
+    if (!m || !ids.has(m[1])) return fetch0(input, init);
+    const to = url.replace(m[0], `models/characters/_lookdev/ship/${m[1]}${m[2]}`);
+    return fetch0(typeof input === 'string' ? to : new Request(to, input), init);
+  };
+}
 const mode = params.get('mode') || 'battle';
 const quality = params.get('quality') || 'high';
 const reduce = params.get('reduce') === '1';
@@ -30,7 +44,7 @@ setFigureOptions({ quality, reduceMotion: reduce });
 const opts = figureOptions();
 const tag = document.getElementById('tag');
 const info = document.getElementById('info');
-tag.textContent = `${opts.lively ? 'Lively figures ON' : 'Before (shipped clips)'}${opts.cel ? ' · Clean cel textures' : ''}${reduce ? ' · Reduce motion' : ''}`;
+tag.textContent = `${opts.lively ? 'Lively figures ON' : 'Before (shipped clips)'}${opts.cel ? ' · Clean cel' : ' · Glossy'}${reduce ? ' · Reduce motion' : ''}`;
 if (params.get('notag') === '1') tag.style.display = 'none';
 
 const ENEMY_STREAM = ['slime_green', 'slime_droplet', 'slime_gold', 'slime_rose', 'slime_iron'];

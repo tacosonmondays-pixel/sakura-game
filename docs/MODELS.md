@@ -72,13 +72,14 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
   turned Chika's brown hair and orange suit purple / lavender; `tests/models/highlight.test.js` guards
   the hue.
 
-### Lively figures and clean cel textures (prototype, branch `proto/rig-motion`, decision #149)
+### Lively figures and the figure look (decision #149)
 
-Two display-only switches in Settings → Graphics (`src/models/figureOptions.js`; saved as
-`livelyFigures` (default on) and `celFigures` (default **on** while the owner decides, #145; it replaced
-the first key `celTextures`, whose stored "off" was a default nobody chose); dev overrides
-`?lively=0|1&cel=0|1&flat=0|1`). Nothing here is in the co-op graph (`tools/simId.mjs` stays
-`92e2e22527cf`).
+Two display-only settings in Settings → Graphics (`src/models/figureOptions.js`): **Lively figures**
+(saved `livelyFigures`, default on) and **Figure look: Clean cel / Glossy** (saved `figureLook`, default
+`'cel'` while the owner decides, #145; Glossy is look B). A branch build saved the look as the boolean
+`celFigures`: a stored `false` (a real choice) is read once as Glossy, and its first key `celTextures` (an
+unchosen default) is ignored. Dev overrides `?lively=0|1&cel=0|1&flat=0|1`. Nothing here is in the co-op
+graph (`tools/simId.mjs` stays `92e2e22527cf`; `tests/models/lively.test.js` checks the files stay out).
 
 * **Lively figures**, skeleton layer (`livelyRig.js`, after `mixer.update` in `GlbAnimator`): breathing
   (chest / spine / shoulders, head counter-rotates), weight shift (pelvis roll with legs kept
@@ -88,6 +89,12 @@ the first key `celTextures`, whose stored "off" was a default nobody chose); dev
   GLB already has (Hikari's 58-bone rig included). Every touched bone gets its clip value back before
   the next mixer update. Loops start at a random point and run at 0.94–1.06×, so copies never move in
   step; crossfades 0.3 s; disabled plays `hurt` once over a slowed idle instead of a 0.4 s loop.
+* **Attack by body half** (`GlbAnimator.playLayers`, `ATTACK_LAYER` in `glbChibi.js`): the attack clip is
+  split once per asset (`splitClipByBody`: the first spine bone and everything under it, against root /
+  hips / legs). The upper half plays at weight 4 over the base loop's 1 (80 % attack, the arm pose the old
+  0.25 dip gave), the lower half at 1/3 (25 %: a hint of the step into the strike), so her legs and hips
+  keep the idle's weight shift and the base loop is never dipped. Lively off keeps the old whole-body
+  one-shot over a base at 0.25. The stun's `hurt` stays a whole-body one-shot.
 * **Runtime skirt bones** (`livelySkirt.js`): once per asset, four bones (front / left / back / right,
   children of the hips at the hips' bind pose) take a waist-to-hem gradient of the skirt's weight; the
   skirt is found geometrically (between the knee band and the waist, hips / spine / thigh weights only,
@@ -98,7 +105,7 @@ the first key `celTextures`, whose stored "off" was a default nobody chose); dev
   squash + lean for girls attacking once per 0.45 s or slower, the attack event a stretch + snap; body
   turns at 6/s (the head leads); a tiny breathing squash. Reduce motion: half the amplitude, slower,
   no drop (a 0.15 s scale-in). Quality medium: springs at 30 Hz; low: no springs or breathing.
-* **Clean cel textures** (`celFigure.js`, painted Meshy figures only): the figure's palette is measured
+* **Clean cel look** (`celFigure.js`, painted Meshy figures only): the figure's palette is measured
   once (k-means in OKLab over the texels under her UVs; same-hue clusters that differ only by baked
   light merge); each texel snaps to its nearest palette colour (eyes and far-off details keep their
   paint); one hard shadow from the key light with a per-colour hue-shifted shade (whites → lavender,
@@ -118,11 +125,19 @@ the first key `celTextures`, whose stored "off" was a default nobody chose); dev
 * **`<clip>_short`**: a figure may keep its old clips next to new ones (Noa: `idle_short`, `cheer_short`,
   `hurt_short`); with Lively figures off the animator plays those, exactly the shipped behaviour.
 * Preview + captures: `previews/lively.html` (`?mode=battle|closeup|perf|metrics`).
+* **Rebuild + file sizes**: `tools/blender/lively/` (README there) rebuilds the four painted girls from their
+  pre-rollout GLBs (0 credits; the Meshy clip GLBs stay outside the repo). To pay for the flat texture and
+  the longer clips, `slim.py` trims what each detail level can spare: the full model's look B normal map
+  goes to 512, and the LOD's two base colours go to 512 (the LOD is only drawn at battle distance; close-up
+  viewers load the full model). Sizes: Noa 1.22 MB / 0.59 MB, Hikari 1.34 / 0.65, Hana 1.22 / 0.60, Ruri
+  1.35 / 0.62 (shipped before: 1.23 / 0.57, 1.31 / 0.60, 1.21 / 0.56, 1.33 / 0.61). `glb.test.js` caps
+  them at 1.4 MiB / 0.65 MiB.
 
-#### Noa, rig rollout step 1 (notes/rig-rollout/NOA.md)
+#### Noa, rig rollout step 1
 
-`noa.glb` / `noa.lod.glb` are the approved shipped Noa (noa-A head, eye boxes, weights, look B maps
-byte for byte) rebuilt by `art/rig-rollout/noa/build/` (outside the repo; Blender 5.2 + numpy, 0 credits):
+`noa.glb` / `noa.lod.glb` are the approved shipped Noa (noa-A head, eye boxes, weights, look B maps)
+rebuilt by `tools/blender/lively/` (`build_noa.py`, `spring_weights.py`, `flatten.py`, `pack_noa.py`;
+Blender 5.2 + numpy, 0 credits):
 
 | clip | source | notes |
 |---|---|---|
@@ -145,11 +160,11 @@ brightness 0.58 → 0.71. `tests/models/glb.test.js` caps (PLAN §6.5): idle 8 s
 hurt 1.2, attack 1.2 (with a contact mark when over 0.6), dizzy 6, deploy 2, fidgets 5, mood loops 10;
 `*_short` keep the old caps.
 
-#### Hikari, Hana, Ruri, rig rollout steps 2–3 (notes/rig-rollout/GIRLS.md)
+#### Hikari, Hana, Ruri, rig rollout steps 2–3
 
 `hikari` / `hana` / `ruri` (`.glb` + `.lod.glb`) are their approved shipped figures (meshes, eye boxes,
-weights, look B maps byte for byte) rebuilt by `art/rig-rollout/girls/build/` (outside the repo; Blender
-5.2 + numpy, 0 credits) with the same four library clips as Noa (bought once on her rig R1; retargeted
+weights, look B maps) rebuilt by `tools/blender/lively/` (`build_girl.py`, `flatten_girl.py`,
+`pack_girl.py`; Blender 5.2 + numpy, 0 credits) with the same four library clips as Noa (bought once on her rig R1; retargeted
 onto each shipped skeleton) and the same post-pass (face pitch target and guard from each girl's own
 shipped idle), plus one more step: every new clip is turned about the vertical so its mean face yaw is her
 shipped idle's (the 338 idle stands ~13° turned to her right; at the battle camera a girl facing a monster

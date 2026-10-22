@@ -22,12 +22,14 @@ const REQUIRED_BONES = [
 ];
 const MAX_FULL_BYTES = 480 * 1024;
 const MAX_LOD_BYTES = 240 * 1024;
-// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + sword, phone-packed
-const MAX_MESHY_FULL_BYTES = 2.5 * 1024 * 1024;
-const MAX_MESHY_LOD_BYTES = 1.25 * 1024 * 1024;
+// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + sword, phone-packed. Tightened on
+// purpose with the lively rebuild (tools/blender/lively/slim.py): it added a flat texture and longer clips but
+// trimmed the maps each detail level can spare, so the files stay near their old 1.2-1.33 MB / 0.56-0.61 MB.
+const MAX_MESHY_FULL_BYTES = 1.4 * 1024 * 1024;
+const MAX_MESHY_LOD_BYTES = 0.65 * 1024 * 1024;
 const MESHY_CLIPS = ['idle', 'walk', 'cheer', 'hurt'];
-// Clip-length caps for the imported figures, raised deliberately at rig rollout step 1 (PLAN §6.5,
-// notes/rig-test/VERDICT.md §7): the old caps (idle 1.6 s, cheer 1.2, hurt 0.4, attack 0.6) only fit
+// Clip-length caps for the imported figures, raised deliberately at rig rollout step 1 (the rig test's
+// plan §6.5 and verdict §7): the old caps (idle 1.6 s, cheer 1.2, hurt 0.4, attack 0.6) only fit
 // the short, stiff shipped loops; Noa's library clips are a 7.85 s breathing idle, a 1.85 s cheer, a
 // 1.2 s hurt and a 10 s between-wave mood loop. The new caps still stop a 30 s mocap take or a
 // looping full hit reaction from slipping in. A figure's old clip kept as `<name>_short` (the

@@ -1,16 +1,18 @@
-// Display-only switches for the girls' 3D figures (prototype proto/rig-motion, owner decision #149:
-// "they're super stiff" and "the texture looks obviously generated").
+// Display-only switches for the girls' 3D figures (owner decision #149: "they're super stiff" and
+// "the texture looks obviously generated"; Settings → Graphics).
 //
-//   lively        'Lively figures': procedural secondary motion on top of the baked clips
+//   lively        'Lively figures' (default on): procedural secondary motion on top of the baked clips
 //                 (src/models/livelyRig.js on the skeleton, src/render/livelyPose.js on the whole
 //                 figure in battle): breathing, weight shift, glances, the head leading a turn,
 //                 attack anticipation + follow-through, a landing on placement, hair / tail / coat /
-//                 bun springs, a dazed sway when disabled, loops out of step with each other.
-//   cel           'Clean cel textures': the painted (Meshy) figures drawn as flat colour + one hard
-//                 shadow (src/models/celFigure.js) on their offline-flattened base colour where the GLB
-//                 carries one (asset.extras.flat: plaid gone, house colours, face protected; Noa first),
-//                 else their texture snapped to its own palette. Default ON while the owner decides
-//                 (#145 ask-with-defaults); off = the old glossy figurine look B (figurine.js).
+//                 bun / skirt springs, a dazed sway when disabled, loops out of step with each other,
+//                 the attack layered on the upper body (glbChibi.js ATTACK_LAYER). The painted girls
+//                 also play their new library clips; off = their old short clips, exactly as before.
+//   cel           'Figure look: Clean cel' (default, saved as figureLook 'cel'): the painted (Meshy)
+//                 figures drawn as flat colour + one hard shadow (src/models/celFigure.js) on their
+//                 offline-flattened base colour (asset.extras.flat: plaid gone, house colours, face
+//                 protected), else their texture snapped to its own palette. 'Glossy' (cel off) = the
+//                 figurine look B (figurine.js). Clean cel is the default while the owner decides (#145).
 //   flat          dev only: false draws the cel look on the painted texture even when a flattened one
 //                 exists (for comparisons).
 //   reduceMotion  the game's Reduce motion setting: the lively layer moves half as much and slower.
@@ -43,18 +45,18 @@ export function figureOptions() {
 }
 
 /**
- * Updates the options from the saved settings ({ livelyFigures, celFigures, reduceMotion, quality })
+ * Updates the options from the saved settings ({ livelyFigures, figureLook, reduceMotion, quality })
  * or direct keys ({ lively, cel, flat, reduceMotion, quality }). The URL overrides win. Figures built
- * afterwards use the new values (the cel material is picked when a figure is built). The prototype's
- * first key `celTextures` (default off) is not read any more: saves stored that default without anyone
- * choosing it, and the new default is the clean cel look.
+ * afterwards use the new values (the material is picked when a figure is built). The branch keys
+ * `celFigures` / `celTextures` are not read here: save.js turns a chosen `celFigures: false` into
+ * figureLook 'glossy' once.
  */
 export function setFigureOptions(s = {}) {
   readUrl();
   if (!s || typeof s !== 'object') return opts;
   if (typeof s.livelyFigures === 'boolean') opts.lively = s.livelyFigures;
   if (typeof s.lively === 'boolean') opts.lively = s.lively;
-  if (typeof s.celFigures === 'boolean') opts.cel = s.celFigures;
+  if (s.figureLook === 'cel' || s.figureLook === 'glossy') opts.cel = s.figureLook === 'cel';
   if (typeof s.cel === 'boolean') opts.cel = s.cel;
   if (typeof s.flat === 'boolean') opts.flat = s.flat;
   if (typeof s.reduceMotion === 'boolean') opts.reduceMotion = s.reduceMotion;

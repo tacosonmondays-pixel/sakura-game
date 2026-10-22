@@ -241,6 +241,9 @@ python3 tools/blender/enemies/build_enemies.py orc dragon
 npx vitest run tests/models                            # checks every GLB: clips, rig, materials, atlas, size budgets
 ```
 
+The four painted (Meshy) girls' library clips, spring bones and offline flatten (the Clean cel look) are rebuilt
+with `tools/blender/lively/` (Blender 5 headless + numpy/Pillow, no credits); its README gives the order.
+
 Budgets: ≤ 480 KB per girl (LOD ≤ 240 KB), ≤ 320 KB per monster family and ≤ 2.5 MB for all twelve.
 `docs/MODELS.md` explains the construction method and how to add a character or a family. The runtime
 keeps a procedural fallback, so the game (and the Node tests) still work with no GLB files at all.
@@ -311,7 +314,7 @@ public/models/characters/   19 girls as <id>.glb + <id>.lod.glb + manifest.json 
 public/models/enemies/      12 monster families as <family>.glb + manifest.json (generated)
 public/models/chibi_base.glb  the owner's chibi base mesh (V1 fallback body)
 public/manifest.webmanifest PWA manifest (fullscreen, landscape)
-tools/blender/              Blender (bpy) generators: build_characters.py, lib/, enemies/
+tools/blender/              Blender (bpy) generators: build_characters.py, lib/, enemies/, lively/ (painted girls' clips + flatten)
 tests/                      vitest suites per area + models (GLB checks) + integration (consistency, balance)
 e2e/                        Playwright smoke test and screenshot helper
 previews/                   dev pages for each area

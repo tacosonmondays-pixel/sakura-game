@@ -20,3 +20,5 @@ tools/audio/.venv/
 *.dls
 __pycache__/
 public/models/characters/_lookdev/
+# the painted girls' rebuild work folder (tools/blender/lively/paths.py: shipped GLBs, Meshy clips, outputs)
+.lively-work/

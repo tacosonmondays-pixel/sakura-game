@@ -187,6 +187,8 @@ function prepareAsset(id, detail, gltf) {
     clips[clip.name] = clip;
     if (clip.name.startsWith('attack')) clips.attack = clip;
   }
+  // lively figures: the attack is layered over the base loop by body half (GlbAnimator.playAttack)
+  const attackLayers = clips.attack ? splitClipByBody(clips.attack, upperBodyBones(scene)) : null;
   if (faceTexture) {
     faceTexture.userData.shared = true;
     faceTexture.colorSpace = THREE.SRGBColorSpace;
@@ -198,7 +200,7 @@ function prepareAsset(id, detail, gltf) {
   const haloFill = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.25 + 0.15), Math.min(0.78, hsl.l));
   const haloLine = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.4 + 0.3), Math.max(0.2, hsl.l * 0.5));
   return {
-    id, detail, scene, clips, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
+    id, detail, scene, clips, attackLayers, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
     unitScale: extras.unitScale || 1, cells: extras.faceCells || FACE_CELLS, grid: extras.faceGrid || FACE_GRID,
     textured, bodyMaps, bodyGeometry, outlineTint: extras.outline || undefined, materials: {},
     eyes: textured && extras.eyes?.centers?.length === 2 ? extras.eyes : null,
@@ -236,7 +238,7 @@ function usesFlat(asset, cel) {
 
 /**
  * Body material of a textured asset (shared by its instances, one per eye state): look B
- * (figurine.js), or the 'Clean cel textures' look (celFigure.js) when `cel` is set and her palette
+ * (figurine.js), or the 'Clean cel' figure look (celFigure.js) when `cel` is set and her palette
  * could be measured (on the flattened base colour when the GLB has one).
  */
 function texturedMaterial(asset, highlight = false, eyeMode = 0, cel = false) {
@@ -251,6 +253,73 @@ function texturedMaterial(asset, highlight = false, eyeMode = 0, cel = false) {
       : figurineMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode });
   }
   return asset.materials[key];
+}
+
+// ---------------------------------------------------------------------------
+// Animator helpers (pure; tests/models/lively.test.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * 'Lively figures': how an attack sits on the base loop. The attack clip is split by body half
+ * (splitClipByBody): the upper half plays at UPPER weight over the base loop's 1 (the mixer averages by
+ * weight: 4 : 1 = 80 % attack, the same arm pose the old 0.25 dip gave), the lower half at LOWER (1/3 : 1
+ * = 25 %: a hint of the step into the strike), so her legs and hips keep the base loop's weight shift
+ * and the base loop itself is never dipped. Off: the old whole-body one-shot over a base at 0.25.
+ */
+export const ATTACK_LAYER = Object.freeze({ upper: 4, lower: 1 / 3, fadeIn: 0.12, fadeOut: 0.25 });
+
+/**
+ * Names of the upper-body nodes of a figure: her first spine bone ('spine', else 'spine1' or 'chest')
+ * and everything under it (chest, neck, head, arms, hands, a held prop, hair). Empty when she has none.
+ */
+export function upperBodyBones(scene) {
+  const out = new Set();
+  let top = null;
+  for (const n of ['spine', 'spine1', 'chest']) {
+    scene.traverse((o) => {
+      if (!top && o.isBone && o.name === n) top = o;
+    });
+    if (top) break;
+  }
+  if (top) top.traverse((o) => { if (o.name) out.add(o.name); });
+  return out;
+}
+
+/**
+ * Splits a clip into its upper-body tracks and the rest (root, hips, legs, a skirt): two clips of the
+ * same length that share the original tracks. Null when either half would be empty (nothing to layer).
+ */
+export function splitClipByBody(clip, upper) {
+  if (!clip || !upper?.size) return null;
+  const up = [];
+  const lo = [];
+  for (const tr of clip.tracks) {
+    const node = THREE.PropertyBinding.parseTrackName(tr.name).nodeName;
+    (upper.has(node) ? up : lo).push(tr);
+  }
+  if (!up.length) return null;
+  return {
+    upper: new THREE.AnimationClip(`${clip.name}|upper`, clip.duration, up),
+    lower: lo.length ? new THREE.AnimationClip(`${clip.name}|lower`, clip.duration, lo) : null,
+  };
+}
+
+const STATE_CLIPS = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move', happy: 'happy' };
+
+/**
+ * The base loop for an animator state. `has(name)` says whether the figure carries a clip.
+ *  - 'move': the companions' travel loop (girls have none: idle); 'happy': a between-wave mood loop
+ *  - lively: the stun plays 'hurt' once over a slowed idle (GlbAnimator.setState), so its loop is idle
+ *  - imported figures ship a smaller clip set: victory / pickup fall back to the cheer
+ *  - lively off: a figure that carries its old clip as `<name>_short` (the shipped idle / cheer / hurt
+ *    next to the new library clips) plays that, exactly as before
+ */
+export function pickStateClip(state, has, lively) {
+  let name = STATE_CLIPS[state] || 'idle';
+  if (lively && (state === 'disabled' || state === 'hurt')) name = 'idle';
+  if (!has(name) && CLIP_FALLBACK[name] && has(CLIP_FALLBACK[name])) name = CLIP_FALLBACK[name];
+  if (!lively && has(`${name}_short`)) name = `${name}_short`;
+  return has(name) ? name : (has('idle') ? (!lively && has('idle_short') ? 'idle_short' : 'idle') : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -284,7 +353,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   const meshes = [];
   let bodyMesh = null;
   let headMesh = null;
-  // 'Clean cel textures' is picked when the figure is built (figureOptions.js)
+  // the figure look (Clean cel / Glossy) is picked when the figure is built (figureOptions.js)
   const cel = !!(asset.textured && figureOptions().cel);
   root.traverse((o) => {
     if (o.isMesh) meshes.push(o);
@@ -439,23 +508,24 @@ class GlbAnimator {
         hurt.setLoop(THREE.LoopOnce, 1);
         hurt.clampWhenFinished = false;
       }
+      // the attack by body half (ATTACK_LAYER): arms and torso over the base loop, legs keep its weight shift
+      const L = asset.attackLayers;
+      if (L) {
+        this.attackLayers = [[L.upper, ATTACK_LAYER.upper], [L.lower, ATTACK_LAYER.lower]].filter(([c]) => c).map(([c, w]) => {
+          const a = this.mixer.clipAction(c);
+          a.setLoop(THREE.LoopOnce, 1);
+          a.clampWhenFinished = false;
+          a.layerWeight = w;
+          return a;
+        });
+      }
     }
+    this.oneShots = []; // every action of the one-shot playing (a layered attack has two)
     this.setState('idle', 0);
   }
 
   stateClip(state) {
-    // 'move': the companions' travel loop (girls have no such clip: idle)
-    // 'happy': a between-wave mood loop (Noa's 415 sway), when a figure has one
-    const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move', happy: 'happy' };
-    let name = map[state] || 'idle';
-    // lively: the stun plays 'hurt' once over a slowed idle (setState), not a 0.4 s loop
-    if (this.livelyOn && (state === 'disabled' || state === 'hurt')) name = 'idle';
-    // imported figures ship a smaller clip set: celebrate with the cheer loop
-    if (!this.actions[name] && CLIP_FALLBACK[name] && this.actions[CLIP_FALLBACK[name]]) name = CLIP_FALLBACK[name];
-    // 'Lively figures' off: a figure that carries its old clips as `<name>_short` (Noa: the shipped
-    // idle / cheer / hurt next to her new library clips) plays those, exactly as before
-    if (!this.livelyOn && this.actions[`${name}_short`]) name = `${name}_short`;
-    return this.actions[name] ? name : (this.actions.idle ? 'idle' : null);
+    return pickStateClip(state, (n) => !!this.actions[n], this.livelyOn);
   }
 
   /** The lively layer's glances run at clipMarks[clip].glance on a clip that looks around by itself. */
@@ -500,7 +570,9 @@ class GlbAnimator {
   }
 
   playAttack() {
-    this.playOnce(this.attack, 0.25, 'attack');
+    // lively: layered by body half over an undipped base loop; off: the old whole-body one-shot
+    if (this.attackLayers?.length) this.playLayers(this.attackLayers, 'attack');
+    else this.playOnce(this.attack, 0.25, 'attack');
   }
 
   /** Plays a named clip once over the base loop ('appear': the base pose is hidden while it plays). */
@@ -509,10 +581,16 @@ class GlbAnimator {
     else this.playOnce(this.actions[name] || null, 0, 'happy');
   }
 
+  /** Fades out a different one-shot that is still playing (a new one takes over). */
+  endOneShot(next) {
+    if (this.attackLeft > 0 && this.oneShots.length && this.oneShots[0] !== next) for (const a of this.oneShots) a.fadeOut(0.08);
+  }
+
   playOnce(action, baseWeight, cell) {
     if (!action) return;
-    if (this.oneShot && this.oneShot !== action && this.attackLeft > 0) this.oneShot.fadeOut(0.08);
+    this.endOneShot(action);
     this.oneShot = action;
+    this.oneShots = [action];
     this.oneShotCell = cell;
     action.reset();
     action.setEffectiveWeight(1);
@@ -521,9 +599,29 @@ class GlbAnimator {
     this.attackLeft = action.getClip().duration;
     this.lastAttack = this.time;
     this.baseWeight = baseWeight;
-    // dip the base pose while the attack plays so arms are not averaged with idle
+    // dip the base pose while the one-shot plays so arms are not averaged with idle
     const base = this.current ? this.actions[this.current] : null;
     if (base) base.setEffectiveWeight(baseWeight);
+  }
+
+  /** A one-shot made of weighted layers (the lively attack): the base loop keeps its full weight. */
+  playLayers(layers, cell) {
+    this.endOneShot(layers[0]);
+    this.oneShot = layers[0];
+    this.oneShots = layers;
+    this.oneShotCell = cell;
+    for (const a of layers) {
+      a.reset();
+      a.setEffectiveWeight(a.layerWeight);
+      a.fadeIn(ATTACK_LAYER.fadeIn);
+      a.play();
+    }
+    this.attackLeft = layers[0].getClip().duration;
+    this.lastAttack = this.time;
+    // a hurt that was still playing had dipped the base loop: give it back its weight
+    const base = this.current ? this.actions[this.current] : null;
+    if (base && (this.baseWeight ?? 1) < 1) base.setEffectiveWeight(1);
+    this.baseWeight = 1;
   }
 
   setExpression(name) {
@@ -539,9 +637,14 @@ class GlbAnimator {
       this.attackLeft -= dt;
       const base = this.current ? this.actions[this.current] : null;
       if (this.livelyOn) {
-        // lively: the base loop comes back over the last 0.3 s, the one-shot fades out over 0.25 s
-        if (base && this.attackLeft <= 0.3) base.setEffectiveWeight(Math.min(1, (this.baseWeight ?? 0.25) + (1 - (this.baseWeight ?? 0.25)) * (1 - Math.max(0, this.attackLeft) / 0.3)));
-        if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.25);
+        // lively: a dipped base loop (the hurt) comes back over the last 0.3 s, the one-shot fades out over
+        // 0.25 s (a layered attack never dipped it, so its base is left alone and keeps any crossfade)
+        const bw = this.baseWeight ?? 1;
+        if (base && bw < 1 && this.attackLeft <= 0.3) base.setEffectiveWeight(Math.min(1, bw + (1 - bw) * (1 - Math.max(0, this.attackLeft) / 0.3)));
+        if (this.attackLeft <= 0) {
+          for (const a of this.oneShots) a.fadeOut(ATTACK_LAYER.fadeOut);
+          this.baseWeight = 1;
+        }
       } else {
         if (this.attackLeft <= 0.2 && base) base.setEffectiveWeight(1);
         if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.12);

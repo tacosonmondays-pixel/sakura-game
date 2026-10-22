@@ -1,4 +1,4 @@
-// Lively figures: runtime skirt bones (prototype proto/rig-motion; see figureOptions.js).
+// Lively figures: runtime skirt bones (owner decision #149; see figureOptions.js).
 //
 // No shipped girl has skirt bones (Hikari's coat chains aside), and a Meshy rig never brings any.
 // Once per asset, before any instance is cloned, this finds the skirt geometrically and gives it four

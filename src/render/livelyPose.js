@@ -1,5 +1,5 @@
-// Lively figures, whole-figure layer in battle (prototype proto/rig-motion; switch and the skeleton
-// layer: src/models/figureOptions.js, src/models/livelyRig.js). Works on every girl, procedural
+// Lively figures, whole-figure layer in battle (owner decision #149; switch and the skeleton layer:
+// src/models/figureOptions.js, src/models/livelyRig.js). Works on every girl, procedural
 // stand-ins included, through her view's scale / lean / height in actors.js:
 //  - placement: she drops in from above (gravity), stretches as she falls, lands with a squash
 //    (0.82 → 1.06 → 1) instead of the uniform elastic pop (Reduce motion: a short scale-in only)

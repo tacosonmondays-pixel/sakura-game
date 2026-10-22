@@ -66,8 +66,9 @@ function build(redraw) {
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
     row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); setFigureOptions(s); }, 'reduceMotion')),
-    row('Lively figures', 'Prototype: the 3D girls breathe, shift their weight, glance around, turn head-first, wind up and follow through on attacks, land when placed, and their hair, buns and skirts sway. Noa has her new idle, hurt and cheer. Off: the old clips only.', toggle(s.livelyFigures !== false, (v) => { s.livelyFigures = v; save(); setFigureOptions(s); }, 'livelyFigures')),
-    row('Clean cel textures', 'Prototype, on by default for now: the painted 3D girls (Hikari, Noa, Hana, Ruri) in flat colour with one hard shadow (Noa on her cleaned-up colours: no plaid, softer skin). Off: the old glossy figurine look.', toggle(s.celFigures !== false, (v) => { s.celFigures = v; save(); setFigureOptions(s); }, 'celFigures')),
+    row('Lively figures', 'The 3D girls breathe, glance around, turn head-first, wind up and follow through on attacks, and their hair, buns and skirts sway. Off: the old, simpler animations.', toggle(s.livelyFigures !== false, (v) => { s.livelyFigures = v; save(); setFigureOptions(s); }, 'livelyFigures')),
+    row('Figure look', s.figureLook === 'glossy' ? 'Glossy: Hikari, Noa, Hana and Ruri as shiny painted figurines.' : 'Clean cel: Hikari, Noa, Hana and Ruri in flat colours with one clean shadow, like the drawn art.',
+      segmented(['cel', 'glossy'], s.figureLook === 'glossy' ? 'glossy' : 'cel', (v) => { s.figureLook = v; save(); setFigureOptions(s); redraw(); }, { cel: 'Clean cel', glossy: 'Glossy' }, 'figureLook')),
     loadingLookRow(s, redraw),
   ));
 

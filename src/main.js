@@ -62,7 +62,7 @@ try {
 // saved one on <html>; this keeps it right after a migration, an import, a reset or another tab's save
 applyLoadingLook(store.profile.settings);
 store.on('change', () => applyLoadingLook(store.profile.settings));
-// the 3D girls' display switches (Settings → Lively figures / Clean cel textures; proto/rig-motion)
+// the 3D girls' display switches (Settings → Lively figures / Figure look; src/models/figureOptions.js)
 setFigureOptions(store.profile.settings);
 store.on('change', () => setFigureOptions(store.profile.settings));
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.

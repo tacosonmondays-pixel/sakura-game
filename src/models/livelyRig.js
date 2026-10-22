@@ -1,5 +1,5 @@
-// Lively figures, skeleton layer (prototype proto/rig-motion, owner decision #149: "they're super
-// stiff"; switch: src/models/figureOptions.js).
+// Lively figures, skeleton layer (owner decision #149: "they're super stiff"; switch:
+// src/models/figureOptions.js).
 //
 // Runs after the AnimationMixer every frame and adds small rotations on top of the baked clip, so
 // the clips stay as they are and every GLB girl (Blender-built and Meshy) gets the same life:

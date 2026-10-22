@@ -1,7 +1,8 @@
-// 'Clean cel textures' (prototype proto/rig-motion, owner decision #149: "the texture looks obviously
-// generated"; switch: src/models/figureOptions.js). A comparison look for the painted Meshy figures,
-// next to look B (figurine.js, the owner's pick in the lighting study), following the style brief:
-// "each material is a flat base plus one hard shadow".
+// 'Figure look: Clean cel' (owner decision #149: "the texture looks obviously generated"; switch:
+// src/models/figureOptions.js). The default look of the painted Meshy figures while the owner decides
+// (#145); 'Glossy' is look B (figurine.js, the owner's earlier pick in the lighting study). It follows
+// the style brief: "each material is a flat base plus one hard shadow". With an offline-flattened base
+// colour in the GLB (extras.flat) the palette is its exact colours and nothing is snapped at runtime.
 //
 //  - Palette snap: the figure's own palette is measured once per asset from her base colour (k-means
 //    in OKLab over the texels her UVs use). Every texel is pulled to its nearest palette colour, so
