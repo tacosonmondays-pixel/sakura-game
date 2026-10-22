@@ -234,23 +234,6 @@ def spiral2(r0, r1, turns, n=160):
              (r0 + (r1 - r0) * i / n) * math.sin(2 * math.pi * turns * i / n)) for i in range(n + 1)]
 
 
-def lump(r, seed=1, amp=0.12, segs=24, rings=12, name='lump', scale=None):
-    """A soft rounded rock: a UV sphere with smooth low-frequency bumps (deterministic)."""
-    import random
-    rnd = random.Random(seed)
-    waves = [(Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized(), rnd.uniform(1.5, 3.0),
-              rnd.uniform(0, 6.28)) for _ in range(5)]
-    o = sphere(r, segs, rings, name)
-    for v in o.data.vertices:
-        d = v.co.normalized()
-        k = 1.0 + sum(amp / len(waves) * 2 * math.sin(f * d.dot(w) * 3.0 + ph) for w, f, ph in waves)
-        v.co = d * r * k
-    o.data.update()
-    if scale:
-        xf(o, scale=scale)
-    return o
-
-
 def notch_outline(pts, centers, radius):
     """Pulls outline points inside the given circles onto their rims (ticket notches)."""
     out = []
@@ -617,6 +600,85 @@ def bend(o, axis_from='X', amount=0.0, along='Z'):
     for v in o.data.vertices:
         x = getattr(v.co, axis_from.lower())
         setattr(v.co, along.lower(), getattr(v.co, along.lower()) + amount * x * x)
+    o.data.update()
+    return o
+
+
+def hull(points, bevel=0.0, seg=3, name='hull'):
+    """Convex hull of points with coplanar faces merged; edges rounded by `bevel` (flat faces, smooth bevels):
+    chunky cut stones (the coal) and dice. Big flat facets give clean cel planes, never noise."""
+    bm = bmesh.new()
+    for p in points:
+        bm.verts.new(p)
+    res = bmesh.ops.convex_hull(bm, input=list(bm.verts))
+    junk = [g for g in res.get('geom_interior', []) + res.get('geom_unused', []) if isinstance(g, bmesh.types.BMVert)]
+    if junk:
+        bmesh.ops.delete(bm, geom=junk, context='VERTS')
+    bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(1.0), verts=list(bm.verts), edges=list(bm.edges))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for fc in bm.faces:
+        fc.smooth = False
+    if bevel > 0:
+        r = bmesh.ops.bevel(bm, geom=list(bm.edges), offset=bevel, offset_type='OFFSET', segments=seg, profile=0.5,
+                            affect='EDGES', clamp_overlap=True)
+        for fc in r['faces']:
+            fc.smooth = True
+    return _obj(bm, name)
+
+
+def cone(r, h, concave=1.25, tip=0.12, n=48, rings=10, name='cone'):
+    """Round cone along +Z with slightly concave sides and a rounded tip (crown prongs, horns)."""
+    prof = [(0.0, -0.02)]
+    for i in range(rings + 1):
+        t = i / rings * (1 - tip)
+        prof.append((r * (1 - t) ** concave, h * t))
+    rt = r * tip ** concave
+    for i in range(1, 4):
+        a = math.radians(90 * i / 4)
+        prof.append((rt * math.cos(a), h * (1 - tip) + rt * math.sin(a) * 1.4))
+    prof.append((0.0, h * (1 - tip) + rt * 1.4))
+    return lathe(prof, segs=n, name=name, smooth=True)
+
+
+def bvh(o):
+    from mathutils.bvhtree import BVHTree
+    me = o.data
+    return BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [list(p.vertices) for p in me.polygons])
+
+
+def hit(tree, origin, direction):
+    """First hit of a ray on a part: (location, normal facing back along the ray) or (None, None)."""
+    d = Vector(direction).normalized()
+    loc, nrm, _, _ = tree.ray_cast(Vector(origin), d)
+    if loc is None:
+        return None, None
+    if nrm.dot(d) > 0:
+        nrm = -nrm
+    return loc, nrm
+
+
+def on_surface(tree, pts, direction=(0.0, 1.0, 0.0), offset=0.0, far=10.0):
+    """Projects 2D points onto a part along `direction` (default: from the viewer, +Y). pts are (x, z) for
+    +Y, (x, y) for -Z. Returns 3D points lifted off the surface by `offset` along its normal."""
+    d = Vector(direction).normalized()
+    out = []
+    for a, b in pts:
+        if abs(d.y) > 0.5:
+            o = Vector((a, -far * d.y, b))
+        else:
+            o = Vector((a, b, -far * d.z))
+        loc, nrm = hit(tree, o, d)
+        if loc is not None:
+            out.append(loc + nrm * offset)
+    return out
+
+
+def face_to(o, normal, at):
+    """Turns a part modelled facing -Y so it faces `normal`, then moves it to `at`."""
+    n = Vector(normal).normalized()
+    q = Vector((0.0, -1.0, 0.0)).rotation_difference(n)
+    m = Matrix.Translation(Vector(at)) @ q.to_matrix().to_4x4()
+    o.data.transform(m)
     o.data.update()
     return o
 

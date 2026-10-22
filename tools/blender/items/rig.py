@@ -218,6 +218,7 @@ def toon_material():
     td, soff, sthr = b.sep(b.attr('toon_fx3'))      # deep step, sheen offset, specular threshold
     stamt, stfreq, stsharp = b.sep(b.attr('toon_stripe'))
     sdir = b.attr('toon_sdir')
+    anchor, banchor, _ = b.sep(b.attr('toon_fx4'))  # iridescent parts: how much of their own shadow / base tone they keep
 
     # iridescence: a pastel ramp driven by screen position and the normal
     ramp = tree.nodes.new('ShaderNodeValToRGB')
@@ -236,10 +237,12 @@ def toon_material():
     tree.links.new(it, ramp.inputs['Fac'])
     rc = ramp.outputs['Color']
     white = b.const3((1.0, 1.0, 1.0))
-    base = b.mix(base, rc, iri)
+    base = b.mix(b.mix(base, rc, iri), base, banchor)
     light = b.mix(light, b.mix(rc, white, 0.55), iri)
-    shadow = b.mix(shadow, b.v('MULTIPLY', rc, b.const3((0.62, 0.55, 0.86))), iri)
-    deep = b.mix(deep, b.v('MULTIPLY', rc, b.const3((0.45, 0.38, 0.75))), iri)
+    # the anchor keeps a saturated shadow plane under the pastel ramp (UR and zenith parts), so the
+    # premium tier holds its value range on the white tile; 0 (the default) is the plain ramp
+    shadow = b.mix(b.mix(shadow, b.v('MULTIPLY', rc, b.const3((0.62, 0.55, 0.86))), iri), shadow, anchor)
+    deep = b.mix(b.mix(deep, b.v('MULTIPLY', rc, b.const3((0.45, 0.38, 0.75))), iri), deep, anchor)
 
     s0 = b.smooth(ndl, b.m('SUBTRACT', td, fe), b.m('ADD', td, fe))
     s1 = b.smooth(ndl, b.m('SUBTRACT', ts, fe), b.m('ADD', ts, fe))
@@ -326,9 +329,21 @@ def pose_steps(objs, kind, pose=None):
         face = (pose.to_3x3() @ Vector((0.0, -1.0, 0.0))).normalized()
         steps[1] = min(0.985, face.dot(LIGHT) + 0.035)
         spec_floor = face.dot(HALF) + 0.008          # a flat metal face must not flash white as a whole
+    face_ndl = None
+    if kind == 'flat' and pose is not None:
+        face_ndl = (pose.to_3x3() @ Vector((0.0, -1.0, 0.0))).normalized().dot(LIGHT)
     for o in objs:
         if o.get('steps_auto'):
             o['toon_steps'] = list(steps)
+        if face_ndl is not None and (o.get('shadow_rel') is not None or o.get('light_rel') is not None):
+            # steps relative to the face's own N.L: planes turned that far from the light go to shadow,
+            # and only planes turned further toward it than light_rel pick up the light tone
+            st = list(o['toon_steps'])
+            if o.get('shadow_rel') is not None:
+                st[0] = face_ndl - o['shadow_rel']
+            if o.get('light_rel') is not None:
+                st[1] = min(0.995, face_ndl + o['light_rel'])
+            o['toon_steps'] = st
         fx3 = list(o['toon_fx3'])
         if fx3[2] < spec_floor:
             fx3[2] = min(0.996, spec_floor)
@@ -337,9 +352,12 @@ def pose_steps(objs, kind, pose=None):
 
 def style(obj, base, light, shadow, ink, deep=None, steps=None, spec=0.0, sheen=0.0, rim=0.6,
           glow=0.0, iri=0.0, drift=0.10, deep_at=-2.0, sheen_at=-0.40, spec_at=0.975, stripe=(0.0, 1.0, 0.25),
-          stripe_dir=(0.0, 0.0, 1.0), line=2.5, lift=0.0, ink_on=True, smooth=None):
+          stripe_dir=(0.0, 0.0, 1.0), line=2.5, lift=0.0, ink_on=True, smooth=None, anchor=0.0, base_anchor=0.0,
+          shadow_rel=None, light_rel=None):
     """Assigns the toon material and its per-part inputs. `line` is the ink width in output px
-    (0 = no hull); `lift` moves the hull toward the viewer (outlines around thin raised details)."""
+    (0 = no hull); `lift` moves the hull toward the viewer (outlines around thin raised details).
+    `anchor` keeps that share of the part's own shadow and deep tones under iridescence.
+    `shadow_rel` (flat pose only): the shadow step sits that far below the face's own N.L."""
     obj['toon_base'] = _lin(base)
     obj['toon_light'] = _lin(light)
     obj['toon_shadow'] = _lin(shadow)
@@ -351,6 +369,11 @@ def style(obj, base, light, shadow, ink, deep=None, steps=None, spec=0.0, sheen=
     obj['toon_fx3'] = [deep_at, sheen_at, spec_at]
     obj['toon_stripe'] = list(stripe)
     obj['toon_sdir'] = list(stripe_dir)
+    obj['toon_fx4'] = [float(anchor), float(base_anchor), 0.0]
+    if shadow_rel is not None:
+        obj['shadow_rel'] = float(shadow_rel)
+    if light_rel is not None:
+        obj['light_rel'] = float(light_rel)
     obj['ink_col'] = _lin(ink)
     obj['ink_px'] = float(line if ink_on else 0.0)
     obj['ink_lift'] = float(lift)

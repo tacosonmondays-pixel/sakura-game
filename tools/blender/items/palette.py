@@ -79,6 +79,20 @@ PAGES = dict(base='#f3e2bd', light='#fdf4dc', shadow='#d2b27c', ink='#6f4717', r
 SNOW = dict(base='#eef4fb', light='#ffffff', shadow='#bfcde3', ink='#1b4574', rim=0.3)
 PINK_GEM = dict(base='#fbc7db', light='#fef4f9', shadow='#fb89b7', ink='#781948', deep='#ef6fa3', spec=0.6, spec_at=0.99)   # (appr., gems)
 
+def anchored(p, shadow='#a183e4', deep='#8262d4', anchor=0.8, ink=None, **kw):
+    """UR / zenith parts: keep the pastel iridescence but anchor it with one saturated lilac shadow plane
+    (about a third of the object) so the premium tier holds the same value range as the others."""
+    q = dict(p)
+    q.update(shadow=shadow, deep=deep, anchor=anchor)
+    if ink:
+        q['ink'] = ink
+    q.update(kw)
+    return q
+
+
+IRI_DEEP = anchored(IRI, shadow='#9f80e2', deep='#7e5ed0', ink='#3a1f66')                 # trims, straps, frames
+PEARL_DEEP = anchored(PEARL, shadow='#ad92e8', deep='#8a6ada', ink='#3f2a78', iri=0.35)    # bodies
+
 # ---------------------------------------------------------------------------
 # Tier ladder (one material step per tier, PLAN 3.1)
 # ---------------------------------------------------------------------------

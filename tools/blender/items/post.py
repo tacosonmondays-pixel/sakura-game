@@ -162,13 +162,30 @@ def write_manifest(art_dir, js_path):
 # Sheets (scratch only, never in the repo)
 # ---------------------------------------------------------------------------
 
+# The approved item tile (#108, item-method-compare): a landscape plate (1.09:1) slanted -8 deg, rounded
+# corners, a 1 px tier border and a white inner rim, the tier tint fading to white by about 80 %, our sheen
+# (faint sakura petals and one diagonal white band), a soft tile shadow, the art (not slanted) centred at
+# 47 % / 46 % filling about 82 % of the height, and the count (heavy italic navy with a white outline,
+# 13 px on the 62 px phone tile, shortened like x450K) overlapping the lower right. The game draws it in CSS.
+TILE_ASPECT = 1.09
+TILE_SKEW = 8.0
+TILE_ART_H = 0.82            # object height / tile height
+TILE_ART_C = (0.47, 0.46)    # object centre in the tile box
+COUNT_PX = 13.0 / 62.0       # count font size / tile width
+COUNT_COL = (0x2b, 0x44, 0x67)
 TILE_TOP = dict(common=(0xd6, 0xe0, 0xe8), rare=(0xb2, 0xcd, 0xf8), superRare=(0xda, 0xc2, 0xfd),
                 mythic=(0xec, 0x9f, 0xb8), legendary=(0xfd, 0xda, 0x99), ur=(0xe3, 0xcc, 0xff))
+TILE_MID = dict(common=(0xee, 0xf3, 0xf8), rare=(0xe3, 0xf1, 0xff), superRare=(0xf3, 0xe9, 0xff),
+                mythic=(0xff, 0xe8, 0xee), legendary=(0xff, 0xf2, 0xd6), ur=(0xff, 0xf4, 0xfb))
+TILE_BORDER = dict(common=(0xb9, 0xc6, 0xd3), rare=(0x8f, 0xc1, 0xf3), superRare=(0xc6, 0xa6, 0xf2),
+                   mythic=(0xf3, 0xa5, 0xb9), legendary=(0xef, 0xc3, 0x6a), ur=(0xe7, 0xb9, 0xf0))
 RAINBOW = [(0xff, 0xc4, 0xe6), (0xff, 0xe7, 0xa8), (0xc4, 0xf5, 0xdf), (0xbf, 0xe3, 0xff), (0xe3, 0xcc, 0xff)]
 
 
-def _font(px):
-    for f in ('arialbd.ttf', 'arial.ttf', 'DejaVuSans-Bold.ttf'):
+def _font(px, italic_black=False):
+    names = ('seguibli.ttf', 'ariblk.ttf', 'arialbi.ttf', 'arialbd.ttf') if italic_black else \
+        ('arialbd.ttf', 'arial.ttf', 'DejaVuSans-Bold.ttf')
+    for f in names:
         try:
             return ImageFont.truetype(f, px)
         except OSError:
@@ -176,46 +193,89 @@ def _font(px):
     return ImageFont.load_default()
 
 
-def plate(px, tier, scale=4):
-    """The #108 slanted plate (-8 deg skew, tier gradient to white, one sheen band) for sheets."""
-    W = px * scale
-    im = Image.new('RGBA', (W, W), (0, 0, 0, 0))
-    grad = Image.new('RGBA', (W, W))
+def tile_size(w):
+    return w, int(round(w / TILE_ASPECT))
+
+
+def _petal(cx, cy, L, ang):
+    """A sakura petal outline (rounded, a notch at the tip), base at (cx, cy), pointing at `ang` degrees."""
+    W = L * 0.66
+    side = []
+    for i in range(13):
+        u = i / 12
+        side.append((W / 2 * math.sin(math.pi * (0.06 + 0.8 * u)) ** 0.6, L * u))
+    pts = side + [(0.0, L * 0.84)] + [(-x, y) for x, y in reversed(side)]
+    a = math.radians(ang)
+    ca, sa = math.cos(a), math.sin(a)
+    return [(cx + x * ca - y * sa, cy - (x * sa + y * ca)) for x, y in pts]
+
+
+def _shear(im, s, h):
+    """Slants an image so its top moves right by s px (CSS skewX(-deg) on a box of height h)."""
+    return im.transform(im.size, Image.AFFINE, (1, s / h, -s, 0, 1, 0), resample=Image.BICUBIC)
+
+
+def plate(w, tier, scale=4):
+    """The approved plate at tile width w (DPR 1 px): returns an RGBA image (w, h + 3); the plate box is
+    (0, 0)-(w, h), the rest is its soft shadow."""
+    _, h = tile_size(w)
+    return _plate_hi(w, tier, scale).resize((w, h + 3), Image.LANCZOS)
+
+
+def _plate_hi(w, tier, scale):
+    w, h = tile_size(w)
+    W, H = w * scale, h * scale
+    pad = 3 * scale
+    s = H * math.tan(math.radians(TILE_SKEW))
+    rw = W - s                                     # width of the box before the slant
+    r = H * 0.1
+    mask = Image.new('L', (W, H + pad), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, rw - 1, H - 1), radius=r, fill=255)
+    mask = _shear(mask, s, H)
+    # tier tint at the top, a pale mid tint at about 40 %, white by about 80 %
+    grad = Image.new('RGBA', (W, H + pad))
     gd = ImageDraw.Draw(grad)
-    for y in range(W):
-        t = y / W
+    mid = TILE_MID.get(tier, TILE_MID['common'])
+    for y in range(H + pad):
+        t = y / H
         if tier == 'ur':
-            k = min(len(RAINBOW) - 1.001, (y / W) * 1.2 * (len(RAINBOW) - 1))
+            k = min(len(RAINBOW) - 1.001, (y / H) * 2.2 * (len(RAINBOW) - 1))
             i = int(k)
-            a, b = RAINBOW[i], RAINBOW[min(i + 1, len(RAINBOW) - 1)]
-            top = tuple(int(a[j] + (b[j] - a[j]) * (k - i)) for j in range(3))
+            a_, b_ = RAINBOW[i], RAINBOW[min(i + 1, len(RAINBOW) - 1)]
+            top = tuple(int(a_[j] + (b_[j] - a_[j]) * (k - i)) for j in range(3))
         else:
             top = TILE_TOP.get(tier, TILE_TOP['common'])
-        f = 0.0 if t < 0.05 else min(1.0, (t - 0.05) / 0.75)
-        c = tuple(int(top[j] + (255 - top[j]) * f) for j in range(3))
+        if t < 0.4:
+            c = tuple(int(top[j] + (mid[j] - top[j]) * (t / 0.4)) for j in range(3))
+        else:
+            f = min(1.0, (t - 0.4) / 0.4)
+            c = tuple(int(mid[j] + (255 - mid[j]) * f) for j in range(3))
         gd.line([(0, y), (W, y)], fill=c + (255,))
-    mask = Image.new('L', (W, W), 0)
-    md = ImageDraw.Draw(mask)
-    sk = math.tan(math.radians(8)) * W * 0.9
-    inset = W * 0.06
-    md.rounded_rectangle((inset + sk / 2, inset, W - inset - sk / 2, W - inset), radius=W * 0.1, fill=255)
-    mask = mask.transform((W, W), Image.AFFINE, (1, math.tan(math.radians(8)), -math.tan(math.radians(8)) * W / 2, 0, 1, 0),
-                          resample=Image.BICUBIC)
-    im.paste(grad, (0, 0), mask)
-    band = Image.new('L', (W, W), 0)
-    bd = ImageDraw.Draw(band)
-    bd.polygon([(W * 0.18, W), (W * 0.36, W), (W * 0.86, 0), (W * 0.68, 0)], fill=60)
-    band = Image.composite(band, Image.new('L', (W, W), 0), mask)
-    white = Image.new('RGBA', (W, W), (255, 255, 255, 0))
-    white.putalpha(band)
+    # sheen: three faint petals in the top 60 % and one diagonal white band
+    sheen = Image.new('L', (W, H + pad), 0)
+    sd = ImageDraw.Draw(sheen)
+    for cx, cy, L, ang, al in ((0.24, 0.62, 0.52, 18, 92), (0.6, 0.5, 0.62, -12, 80), (0.86, 0.36, 0.42, -38, 70)):
+        sd.polygon(_petal(cx * W, cy * H, L * H, ang), fill=al)
+    sd.polygon([(W * 0.30, H), (W * 0.42, H), (W * 0.92, 0), (W * 0.80, 0)], fill=58)
+    sheen = Image.composite(sheen, Image.new('L', sheen.size, 0), mask)
+    shadow = Image.new('L', (W, H + pad), 0)
+    shadow.paste(mask.crop((0, 0, W, H + pad - int(1.5 * scale))), (0, int(1.5 * scale)))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(1.25 * scale)).point(lambda v: int(v * 0.28))
+    im = Image.new('RGBA', (W, H + pad), (36, 56, 90, 0))
+    im.putalpha(shadow)
+    body = Image.new('RGBA', (W, H + pad), (0, 0, 0, 0))
+    body.paste(grad, (0, 0), mask)
+    im = Image.alpha_composite(im, body)
+    white = Image.new('RGBA', (W, H + pad), (255, 255, 255, 0))
+    white.putalpha(sheen)
     im = Image.alpha_composite(im, white)
-    edge = Image.new('RGBA', (W, W), (0, 0, 0, 0))
-    ed = ImageDraw.Draw(edge)
-    ed.rounded_rectangle((inset + sk / 2, inset, W - inset - sk / 2, W - inset), radius=W * 0.1, outline=(36, 56, 90, 70), width=max(1, scale))
-    edge = edge.transform((W, W), Image.AFFINE, (1, math.tan(math.radians(8)), -math.tan(math.radians(8)) * W / 2, 0, 1, 0),
-                          resample=Image.BICUBIC)
-    im = Image.alpha_composite(im, edge)
-    return im.resize((px, px), Image.LANCZOS)
+    # rims: a white inner rim at 85 % and the 1 px tier border outside it
+    rim = Image.new('RGBA', (W, H + pad), (0, 0, 0, 0))
+    rd = ImageDraw.Draw(rim)
+    bw = max(1, scale)
+    rd.rounded_rectangle((bw, bw, rw - 1 - bw, H - 1 - bw), radius=r - bw, outline=(255, 255, 255, 217), width=int(1.5 * scale))
+    rd.rounded_rectangle((0, 0, rw - 1, H - 1), radius=r, outline=TILE_BORDER.get(tier, TILE_BORDER['common']) + (255,), width=bw)
+    return Image.alpha_composite(im, _shear(rim, s, H))
 
 
 def _tier_of(row):
@@ -224,29 +284,68 @@ def _tier_of(row):
     return row.get('rarity', 'common')
 
 
-def tile(art, px, tier):
-    pl = plate(px, tier)
-    a = _down(art, int(px * 0.9))
-    pl.alpha_composite(a, (int(px * 0.06), int(px * 0.03)))
-    return pl
+def _count(im, w, h, text, scale):
+    """The count badge: heavy italic navy, a crisp white outline, x at 0.82 em, bottom right (may overlap)."""
+    fpx = COUNT_PX * w * scale
+    big, small = _font(int(round(fpx)), True), _font(int(round(fpx * 0.82)), True)
+    layer = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    stroke = max(1, int(round(0.11 * fpx)))
+    digits = text[1:]
+    wx = d.textlength('x', font=small)
+    wd = d.textlength(digits, font=big)
+    right = w * scale * 0.94
+    base = h * scale * 0.965
+    x0 = right - wd - wx
+    asc = big.getmetrics()[0]
+    asc_s = small.getmetrics()[0]
+    d.text((x0, base - asc_s), 'x', font=small, fill=COUNT_COL + (255,), stroke_width=stroke, stroke_fill=(255, 255, 255, 255))
+    d.text((x0 + wx, base - asc), digits, font=big, fill=COUNT_COL + (255,), stroke_width=stroke,
+           stroke_fill=(255, 255, 255, 255))
+    return Image.alpha_composite(im, layer)
+
+
+def tile(art, w, tier, count='x450K', scale=4):
+    """The approved tile at width w (DPR 1 px) with the art and, when given, the count."""
+    _, h = tile_size(w)
+    big = _plate_hi(w, tier, scale)
+    S = int(round(SIZE * TILE_ART_H * h / 226.0 * scale))          # the 256 render's silhouette is 226 px tall
+    a = art.convert('RGBa').resize((S, S), Image.LANCZOS).convert('RGBA')
+    ox = int(round(TILE_ART_C[0] * w * scale - S * 119.0 / SIZE))
+    oy = int(round(TILE_ART_C[1] * h * scale - S * 117.5 / SIZE))
+    layer = Image.new('RGBA', big.size, (0, 0, 0, 0))
+    layer.paste(a, (ox, oy), a)
+    big = Image.alpha_composite(big, layer)
+    if count:
+        big = _count(big, w, h, count, scale)
+    return big.resize((w, h + 3), Image.LANCZOS)
+
+
+SHEET_TILES = ((80, True), (62, True), (48, True), (32, False), (22, False))
 
 
 def contact_sheet(rows, png_dir, out_path, title='', compare=None):
-    """One row per key: 256 view, 80 / 62 / 48 / 32 / 22 px on the plate (DPR 1), and 62 px at DPR 2.
+    """One row per key: 256 view; the approved tile at 80 / 62 / 48 px with the x450K count and at 32 / 22 px
+    without (chip sizes), all at DPR 1; then 62 px at DPR 2 (drawn at 124 px).
     compare: {key: approved RGBA PNG path} adds the approved icon next to ours."""
     cell_h = 268
     cols_w = [262, 262] if compare else [262]
-    cols_w += [90, 72, 58, 42, 30, 134]
+    cols_w += [w + 12 for w, _ in SHEET_TILES] + [140]
     W = sum(cols_w) + 220
-    H = 40 + cell_h * len(rows)
+    H = 52 + cell_h * len(rows)
     sheet = Image.new('RGBA', (W, H), (240, 243, 248, 255))
     d = ImageDraw.Draw(sheet)
     f = _font(15)
     fs = _font(12)
     d.text((10, 10), title, fill=(30, 44, 70), font=f)
+    hx = 220 + (cols_w[0] if compare else 0) + 262
+    for w, _ in SHEET_TILES:
+        d.text((hx, 30), f'{w} px', fill=(80, 96, 120), font=fs)
+        hx += w + 12
+    d.text((hx, 30), '62 px @2x', fill=(80, 96, 120), font=fs)
     for i, row in enumerate(rows):
         key = row['key']
-        y = 40 + i * cell_h
+        y = 52 + i * cell_h
         x = 10
         d.text((x, y + 4), key, fill=(30, 44, 70), font=f)
         d.text((x, y + 24), row.get('name', ''), fill=(80, 96, 120), font=fs)
@@ -269,17 +368,16 @@ def contact_sheet(rows, png_dir, out_path, title='', compare=None):
             d.text((x + 4, y + 2), 'new', fill=(60, 90, 120), font=fs)
         x += 262
         tier = _tier_of(row)
-        for px in (80, 62, 48, 32, 22):
-            sheet.alpha_composite(tile(art, px, tier), (x, y + 60))
-            x += px + 10
-        big = tile(art, 124, tier)
-        sheet.alpha_composite(big, (x, y + 60))
+        for w, with_count in SHEET_TILES:
+            sheet.alpha_composite(tile(art, w, tier, 'x450K' if with_count else None), (x, y + 60))
+            x += w + 12
+        sheet.alpha_composite(tile(art, 124, tier), (x, y + 60))
     sheet.convert('RGB').save(out_path)
     return out_path
 
 
 def grid_sheet(rows, png_dir, out_path, cols=6, title=''):
-    """Compact overview: every key at 128 on white and at 62 on its plate."""
+    """Compact overview: every key at 128 on white and on the approved tile at 62 px (with the count)."""
     cw, ch = 210, 170
     rws = (len(rows) + cols - 1) // cols
     sheet = Image.new('RGBA', (cols * cw + 20, rws * ch + 40), (240, 243, 248, 255))

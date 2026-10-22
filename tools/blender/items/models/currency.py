@@ -194,21 +194,25 @@ def moonpearl():
 
 
 def candy():
-    """Wrapped round pumpkin candy, violet wrapper twists, a small carved smile, silver foil band."""
-    orange = C.paint('#f28c28', light='#f8b25e', shadow='#d0661a', ink='#6a2a08', spec=0.6, spec_at=0.985)
-    violet = C.paint('#9d4edd', light='#bf86ec', shadow='#7a32bb', ink='#3a1260')
+    """Wrapped round pumpkin candy: a clean bright orange body whose ribs are tone changes only (printed
+    stripes, no bumps), light violet wrapper twists, a small carved smile."""
+    orange = C.paint('#ff9c33', light='#ffc46e', shadow='#ea7420', ink='#6a2a08', spec=0.6, spec_at=0.985)
+    violet = C.paint('#b07ef0', light='#cfaaf7', shadow='#8a58d8', ink='#3a1260')
     prof = []
     for i in range(17):
         a = -math.pi / 2 + math.pi * i / 16
         prof.append((0.62 * math.cos(a) if i not in (0, 16) else 0.0, 0.52 * math.sin(a)))
     body = P.lathe(prof, segs=64, name='pumpkin')
-    for v in body.data.vertices:            # ribs: pull the surface in along 8 vertical grooves
-        ang = math.atan2(v.co.y, v.co.x)
-        k = 1.0 - 0.07 * (0.5 + 0.5 * math.cos(8 * ang + math.pi)) ** 8
-        v.co.x *= k
-        v.co.y *= k
-    body.data.update()
     P.paint(body, orange, line=2.6)
+    rib = dict(base='#f2832a', light='#f7a050', shadow='#e06f1c', ink='#6a2a08', rim=0.0, drift=0.0)
+    for phi in (-58, -22, 22, 58):        # ribs as tone lines along the meridians
+        f = math.radians(phi)
+        pts = []
+        for i in range(15):
+            a = math.radians(-66 + 132 * i / 14)
+            pts.append((0.628 * math.cos(a) * math.sin(f), -0.628 * math.cos(a) * math.cos(f), 0.527 * math.sin(a)))
+        r = P.tube(pts, 0.024, 6, name='rib')
+        P.paint(r, rib, line=0.0)
     for sx in (-1, 1):
         fan = [(0, 0), (sx * 0.5, 0.32), (sx * 0.56, 0.12), (sx * 0.6, -0.04), (sx * 0.54, -0.22), (sx * 0.48, -0.34)]
         fan = P.poly_round(fan, 0.04, 3)

@@ -36,8 +36,9 @@ def needle_star():
     P.xf(eye, scale=(1.0, 2.0, 1.0), rot=(90, 0, 0))
     P.xf(eye, rot=(0, math.degrees(math.atan2(d.x, d.z)) - 90, 0), loc=b + d * 0.02)
     P.paint(eye, C.STEEL, line=1.6)
-    gold = C.paint('#fcd34d', light='#fee99a', shadow='#e8a91e', ink='#7d4705', deep='#d08a10')
-    star4_gem(0.95, 0.33, (0.0, 0.0, 0.0), gold, rot=8, line=2.6, rise=0.28)
+    gold = C.paint('#fcd34d', light='#fee99a', shadow='#eaa520', ink='#7d4705', deep='#d08a10')
+    # four bevelled arms: a central ridge on each, so every arm shows a lit and a shadowed facet (approved)
+    star4_gem(0.98, 0.36, (0.0, 0.0, 0.0), dict(gold, steps=(0.45, 0.86, 0.02), deep_at=-0.5), rot=8, line=2.6, rise=0.34)
     pts = [b + Vector((0.0, -0.05, 0.0)), Vector((1.25, -0.2, 0.9)), Vector((1.0, -0.2, 0.25)), Vector((0.35, -0.2, -0.2)),
            Vector((0.15, -0.25, -0.75)), Vector((0.4, -0.25, -1.1))]
     th = P.tube(P.smooth_path(pts, 40), 0.04, 8, name='thread')
@@ -104,17 +105,39 @@ def lock_pin():
 
 
 def dice_prism():
-    """Rounded many-faced pastel prism die with rose-gold corner caps and an inner glow (no number)."""
-    pr = C.paint('#f6d4ff', light='#fff2ff', shadow='#c69cf2', ink='#4a2a6e', deep='#a77de8', iri=0.55, glow=0.35)
-    o = P.lathe([(0.0, -0.8), (0.62, -0.28), (0.62, 0.28), (0.0, 0.8)], segs=8, name='prism', smooth=False, a0=math.pi / 8)
-    P.xf(o, rot=(0, 0, 0))
-    P.paint(o, pr, steps=(0.25, 0.8, 0.02), deep_at=-0.35, line=2.6)
-    for z in (-0.8, 0.8):
-        cap = P.sphere(0.12, 20, 10, 'cap')
-        P.xf(cap, loc=(0, 0, z))
-        P.paint(cap, C.ROSE_GOLD, line=1.8)
-    P.glint((-0.25, -0.6, 0.35), 11)
-    return dict(kind='standing', yaw=22, elev=18, roll=-12)
+    """Chunky rounded d8 die in pastel iridescence, tilted like Fortune Dice, embossed rose-gold pips on
+    its faces (one to three, like a die: never a number) and an inner glow."""
+    import rig
+    pr = C.anchored(C.paint('#f2d6ff', light='#fff4ff', ink='#3f2470', iri=0.5, glow=0.25, sheen=0.15),
+                    shadow='#b48fec', deep='#9670e0', anchor=0.75)
+    pts = [(0, 0, 1.0), (0, 0, -1.0), (0.78, 0, 0), (-0.78, 0, 0), (0, 0.78, 0), (0, -0.78, 0)]
+    pts = [(x * 0.7071 - y * 0.7071, x * 0.7071 + y * 0.7071, z) for x, y, z in pts]     # an edge faces the viewer
+    d = P.hull(pts, bevel=0.07, seg=3, name='d8')
+    P.paint(d, dict(pr, steps=(0.2, 0.82, 0.03), deep_at=-0.4), line=2.6)
+    pose = rig.pose_matrix('standing', yaw=26, elev=24, roll=-10)
+    view = (pose.to_3x3().transposed() @ rig.VIEW.copy()).normalized()      # toward the camera, in model space
+    faces = []
+    for p in d.data.polygons:
+        n = p.normal.copy()
+        if p.area > 0.2 and n.dot(view) > 0.3:
+            faces.append((n.dot(view), p.center.copy(), n))
+    faces.sort(key=lambda f: -f[0])
+    rose = C.over(C.ROSE_GOLD, base='#eba08f', light='#ffd0c2', shadow='#c97666', spec=0.6)
+    z_up = Vector((0.0, 0.0, 1.0))
+    for k, (_, c, n) in enumerate(faces[:3]):
+        count = (1, 2, 3)[k]
+        # pips laid out in the face plane, "up" toward its apex
+        up = (z_up - n * z_up.dot(n)).normalized()
+        side = n.cross(up).normalized()
+        offs = {1: [(0, 0)], 2: [(-0.16, -0.1), (0.16, 0.1)], 3: [(-0.2, -0.14), (0, 0), (0.2, 0.14)]}[count]
+        for sx, sz in offs:
+            pip = P.cabochon(0.075, 0.035, n=20)
+            P.xf(pip, rot=(90, 0, 0))                      # cabochon dome toward -Y
+            at = c + side * sx + up * (sz - 0.05) + n * 0.005
+            P.face_to(pip, n, at)
+            P.paint(pip, rose, line=1.0)
+    P.glint((-0.3, -0.6, 0.45), 11)
+    return dict(kind='standing', yaw=26, elev=24, roll=-10)
 
 
 def seed_rainbow():
