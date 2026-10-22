@@ -15,7 +15,8 @@
   <style>
     html, body { margin: 0; height: 100%; }
     body { overflow: hidden; background: linear-gradient(180deg, #cee4f8, #9cccfb); font-family: var(--font); color: var(--ink); }
-    .kit { position: fixed; inset: 0; display: flex; flex-direction: column; }
+    .kit { position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; }
+    body > .hub-bg { position: fixed; z-index: 0; }
     .kit-top { position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; height: var(--topbar-h); padding: 0 8px 0 16px; background: rgba(255, 255, 255, 0.86); box-shadow: 0 2px 8px rgba(29, 78, 137, 0.12); }
     .kit-top h1 { flex: 1; margin: 0; font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--navy); }
     .kit-top .kit-close { display: inline-flex; flex-direction: column; align-items: center; }
@@ -38,14 +39,15 @@
   </style>
 </head>
 <body>
-  <div class="kit" id="kit"></div>
+  <div class="kit" id="app" data-screen="m5-kit"></div>
   <script type="module">
     import '/src/ui/styles/base.css';
     import '/src/ui/styles/components.css';
+    import '/src/ui/styles/meta-a.css';
 
     const q = new URLSearchParams(location.search);
     const view = q.get('view') || 'list';
-    const root = document.getElementById('kit');
+    const root = document.getElementById('app');
 
     // (a module path in a variable: a checkout without the kit fails here at run time, not in the dev server)
     const load = (p) => import(/* @vite-ignore */ p);
@@ -63,11 +65,12 @@
       const H = 3600000;
       const D = 24 * H;
       const profile = { units: { hikari: {} }, formation: { hero: 'hikari' } };
-      document.body.append(hubBackdrop('mail'));
+      document.body.prepend(hubBackdrop('mail'));
 
       const top = h('header.kit-top',
         h('h1', 'Mailroom kit'),
-        h('div.kit-close', kit.iconBtn('close', { label: 'Close', testid: 'kit-close', onClick: () => { document.body.dataset.closed = '1'; } }), kit.kbdHint('Esc')));
+        // (test id "back": keys.js Esc presses the screen's back arrow)
+        h('div.kit-close', kit.iconBtn('close', { label: 'Close', testid: 'back', onClick: () => { document.body.dataset.closed = String(Number(document.body.dataset.closed || 0) + 1); } }), kit.kbdHint('Esc')));
 
       // ---- the sections of the left rail ----
       const SECTIONS = [
@@ -81,8 +84,8 @@
         timers: () => [
           row('Pumpkin Lantern Night', kit.countdownChip(6 * D + 3.2 * H, { label: 'Ends in', testid: 'cd-days' })),
           row('Weekly stock', kit.countdownChip(6 * D, { label: 'Restock', testid: 'cd-day' })),
-          row('Daily commissions', kit.countdownChip(26 * H, { label: 'Resets in', testid: 'cd-hours' })),
-          row('Titan week', kit.countdownChip(10.2 * H, { label: 'Resets in', testid: 'cd-urgent' })),
+          row('Daily commissions', kit.countdownChip(11 * H, { label: 'Resets in', testid: 'cd-hours' })),
+          row('Titan week', kit.countdownChip(23.5 * H, { label: 'Resets in', testid: 'cd-urgent' })),
           row('A letter with gifts', kit.countdownChip(12 * 60000 + 5000, { testid: 'cd-minutes' })),
         ],
         badges: () => [
@@ -98,7 +101,7 @@
         plates: () => [
           kit.plateHead('Unclaimed', { right: kit.countdownChip(2 * D + 5 * H, { label: 'Expires' }), testid: 'plate-head' }),
           row('Keyboard hints', kit.kbdHint('Space'), kit.kbdHint('Esc')),
-          h('div.kit-off', { 'data-probe': 'tile' }, kit.offSeasonBand({ text: 'The festival is over. See you next season!', date: 'Back Dec 18', location: 'happening', testid: 'offseason' })),
+          h('div.kit-off', { 'data-probe': 'tile' }, kit.offSeasonBand({ text: 'The festival is over. See you next season!', date: 'Back Dec 18', art: hubBackdrop('happening'), testid: 'offseason' })),
         ],
         hosts: () => [
           row('Mailroom host', h('small', UNIT_MAP[hostFor('mail', profile)]?.name || '')),
@@ -130,8 +133,14 @@
           h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Clan Boss'), kit.countdownChip(3 * D + 2 * H, { label: 'Resets in' })),
           h('div.kit-tile', { 'data-probe': 'tile' }, h('div.kit-primary-wrap', primary, kit.kbdHint('Space'))));
         root.append(top, h('main.kit-main', { 'data-probe': 'content' }, h('div.kit-host-col', host), tiles));
+      } else if (view === 'chip') {
+        // the collapse rule: the 96 px bust chip and its bubble take the footer row, beside the primary
+        const host = hostStand(unit, { kind: 'list', lines, forceChip: true });
+        foot.prepend(host);
+        foot.style.justifyContent = 'space-between';
+        root.append(top, h('main.kit-main', { 'data-probe': 'content', style: { paddingRight: '16px' } }, rail, h('div.kit-list', panel, foot)));
       } else {
-        const host = hostStand(unit, { kind: 'list', lines, forceChip: view === 'chip' });
+        const host = hostStand(unit, { kind: 'list', lines, railW: 140, gutters: 40 });
         root.append(top, h('main.kit-main', { 'data-probe': 'content' }, rail, h('div.kit-list', panel, foot), h('div.kit-host-col', host)));
       }
       paint();

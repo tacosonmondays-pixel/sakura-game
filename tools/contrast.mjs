@@ -132,7 +132,7 @@ export const PAIRS = [
   ['--on-plate', ['--plate'], 'countdown chip time', 4.5],
   ['--bad-on-plate', ['--plate'], 'countdown chip time under 24 h', 4.5],
   ['--on-plate-dim', ['--plate'], 'countdown chip label ("Ends in")', 4.5],
-  ['white', ['#d4183b'], 'red count badge number', 4.5],
+  ['white', ['--badge-red'], 'red count badge number', 4.5],
   ['--on-plate', ['--plate'], 'n/m progress badge', 4.5],
   ['--plate', ['--pink'], '"In Progress" ribbon letters', 4.5],
   ['--plate', ['--yellow'], 'NEW / Open! sticker letters', 4.5],

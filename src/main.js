@@ -216,5 +216,9 @@ import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => cons
 import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
 // [unit-info] hold a girl's card (or right-click it) on a menu screen → her info sheet (request #152)
 import('./ui/hold.js').then((m) => m.installHoldInfo()).catch((e) => console.warn('[main] hold info unavailable', e));
+// [ui-m5] desktop keys (UI_DIRECTION §5.10 E8): Space presses the screen's [data-primary], Esc closes or goes back
+// (hub and list screens that opt in only); and a mode's "Open!" sticker comes off once its screen is visited
+import('./ui/keys.js').then((m) => m.installKeys()).catch((e) => console.warn('[main] keys unavailable', e));
+import('./ui/badges.js').then((m) => m.installOpenSeen()).catch((e) => console.warn('[main] open stickers unavailable', e));
 // two tabs share one save: a tab another tab saved over stops saving and says "reload" (store.js)
 import('./ui/staleBanner.js').then((b) => b.initStaleBanner()).catch((e) => console.warn('[main] stale-save banner unavailable', e));

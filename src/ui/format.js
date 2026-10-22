@@ -11,11 +11,21 @@
 //   fmtNum(1.923, 'rate')                  "1.9/s"     ({ detail } → "1.92/s")
 //   fmtNum(1.5, 'mul')                     "×1.5"      ({ detail } → "×1.25")
 //   fmtNum(65, 'time')                     "1:05"      (up: never "0s" while something still runs)
+//   fmtNum(40000, 'time')                  "12h"       (from 1 h: hours; from 1 day: "6d 4h" or "6d"; all up)
 //   fmtNum(4.3, 'range')                   "4.3"       ({ detail } → "4.30 tiles")
 //   fmtNum(48, 'level', { cap: 50 })       "LV 48/50"
 //   fmtNum(3, 'progress', { of: 5 })       "3/5"       (down)
 
 export const MINUS = '−';
+
+const HOUR_S = 3600;
+const DAY_S = 24 * HOUR_S;
+
+/** A countdown under 24 h (§5.9: its time turns --bad-on-plate). `sec` is the time left in seconds. */
+export function isUrgent(sec) {
+  const s = Number(sec);
+  return Number.isFinite(s) && s > 0 && s < DAY_S;
+}
 
 const ROUND = {
   down: (x) => Math.floor(x + 1e-9),
@@ -88,6 +98,13 @@ export function fmtNum(value, kind = 'count', opt = {}) {
       if (n <= 0) return '0s';
       if (opt.whole || n >= 1) {
         const s = ROUND[rule](n);
+        // the long forms (§5.9 countdown chip): "6d 4h", "6d", "11h"; under an hour "12:05" as before
+        if (s >= DAY_S) {
+          const hrs = ROUND[rule](s / HOUR_S);
+          const d = Math.floor(hrs / 24);
+          return hrs % 24 ? `${d}d ${hrs % 24}h` : `${d}d`;
+        }
+        if (s >= HOUR_S) return `${ROUND[rule](s / HOUR_S)}h`;
         return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
       }
       return `${trim(n, 1, rule)}s`;
