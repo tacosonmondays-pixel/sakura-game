@@ -182,8 +182,10 @@ function seasonArt(ev) {
 function endedBand(ev, now) {
   const next = listEvents(store.profile, now).filter((r) => r.phase === 'upcoming' && r.ev.id !== ev.id)
     .map((r) => ({ name: r.ev.name, at: eventWindow(r.ev).startAt })).sort((a, b) => a.at - b.at)[0] || null;
+  // (no "0 coins from leftover candy" when nothing was left over: the sentence stays one short line)
+  const summary = endedSummary(store.profile, ev).replace(/ · 0 coins from leftover .*$/, '');
   const band = offSeasonBand({
-    text: `Thanks for coming! ${endedSummary(store.profile, ev)}.`,
+    text: `Thanks for coming! ${summary}.`,
     date: next ? `Next: ${next.name}, ${shortDate(next.at)}` : null,
     art: seasonArt(ev),
     testid: 'event-season-ended',

@@ -207,7 +207,8 @@ function offerCard(o, redraw, shopKind = null) {
         : tile(o.item || 'kindred_ssr', o.count > 1 ? o.count : null, { size: 72 }),
     ),
     h('div.ma-offer-name', name),
-    needTag ? h('div.ma-offer-need', { 'data-testid': `need-${o.id}` }, `Needed: ${needTag}`) : null,
+    // (the gate and its number never part on a narrow card: "Gate 1", not "Gate" over "1")
+    needTag ? h('div.ma-offer-need', { 'data-testid': `need-${o.id}` }, `Needed: ${String(needTag).replace(/ (\d+)$/, ' $1')}`) : null,
     h('div.ma-offer-stock', stockText || ''),
     costButton(o, () => (o.chosenEssence ? pickChosen(o, redraw) : startBuy(o, redraw))),
   );
