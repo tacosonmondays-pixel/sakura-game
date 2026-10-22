@@ -116,6 +116,20 @@ async function runViewport(vp) {
   check(await page.evaluate(() => [...document.querySelectorAll('.tab')].some((t) => /Achievements/.test(t.textContent) && t.querySelector('.tab-badge'))), '1: the Achievements tab shows its dot');
   const cats = await page.$$eval('[data-testid^="ach-cat-"]', (els) => els.map((e) => e.dataset.testid));
   check(cats.length === 12 && cats.includes('ach-cat-secret') && cats.includes('ach-cat-codex'), `1: 12 categories (All + 11, Codex since v0.1.45): ${cats.length}`);
+  // the PC rail: 12 rows and the Honor Ribbon Case card fit (at 1280x720 the 12th row once pushed the card's count and
+  // Open › under the fold, behind a hidden scrollbar)
+  const rail = await page.evaluate(() => {
+    const r = document.querySelector('.ach-rail');
+    const c = r?.querySelector('[data-testid="ach-case-card"]');
+    if (!r || !c || !r.offsetParent) return null;
+    const rr = r.getBoundingClientRect();
+    const inside = (el) => { const b = el.getBoundingClientRect(); return b.top >= rr.top - 0.5 && b.bottom <= rr.bottom + 0.5; };
+    return { scroll: r.scrollHeight, client: r.clientHeight, card: inside(c), count: inside(c.querySelector('.ach-casecard-n')), open: inside(c.querySelector('.ach-casecard-open')) };
+  });
+  if (rail) {
+    check(rail.card && rail.count && rail.open, `1: the Honor Ribbon Case card, its count and Open › sit inside the rail (${JSON.stringify(rail)})`);
+    check(rail.scroll <= rail.client + 1, `1: the 12 categories and the case card fit the rail without scrolling (${rail.scroll} ≤ ${rail.client})`);
+  } else log('  (phone: category chips, no rail)');
   check(await page.$('[data-testid="ach-claim-a_ur_1"]') != null, '1: Rainbow Bright is ready to claim');
   const b1 = await budget(page);
   check(b1.live <= 3 && b1.live >= 1, `8: list live specials ≤ 3 (${b1.live})`);
@@ -130,6 +144,26 @@ async function runViewport(vp) {
   const rm = await budget(page);
   check(rm.live === 0 && rm.infinite === 0, `8: Reduce Motion: 0 live, 0 infinite animations (${rm.live}, ${rm.infinite})`);
   await page.evaluate(() => document.documentElement.removeAttribute('data-reduce-motion'));
+
+  // the Codex rows: every title chip reads whole (it wraps on a phone rather than ending in "…")
+  const catBefore = await page.evaluate(() => document.querySelector('[data-testid^="ach-cat-"].on')?.dataset.testid || null);
+  await page.click('[data-testid="ach-cat-codex"]');
+  await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 10000 });
+  await page.waitForTimeout(300);
+  // (a series row shows only its current step's rewards, so 5 of the 7 Codex titles are on screen)
+  const codexChips = await page.evaluate(() => [...document.querySelectorAll('.ach-chip-title')].map((chip) => {
+    const t = chip.querySelector('.tp-text');
+    const c = chip.getBoundingClientRect();
+    const p = chip.querySelector('.tp').getBoundingClientRect();
+    return { text: t.textContent, cut: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1 || p.bottom > c.bottom + 0.5 || p.top < c.top - 0.5 };
+  }));
+  check(codexChips.length >= 5 && codexChips.some((c) => /Wrong-Way Warden/.test(c.text)) && codexChips.every((c) => !c.cut),
+    `1: Codex: ${codexChips.length} title chips (Wrong-Way Warden among them), none cut short (${codexChips.filter((c) => c.cut).map((c) => c.text).join(' | ') || 'none'})`);
+  await page.evaluate(() => [...document.querySelectorAll('.ach-chip-title')].find((c) => /Wrong-Way/.test(c.textContent))?.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  await shot(page, 'codex');
+  if (catBefore) await page.click(`[data-testid="${catBefore}"]`);
+  await page.waitForTimeout(300);
 
   // ---- 2. Claim all → the fanfare → Skip → the modal's strips ----
   await page.evaluate(() => { document.querySelector('.ach-list').scrollTop = 0; });
