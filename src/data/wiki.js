@@ -522,10 +522,10 @@ function mapsArticle() {
   return article('maps', 'Maps & Chapters', 'world', 'map', 'Map tiers, the eight campaign chapters and the special arenas.', ['map', 'tier', 'beginner', 'intermediate', 'advanced', 'expert', 'chapter', 'campaign', 'bounty', 'total assault', 'challenge', 'water', 'scenery'], [
     sec('Map tiers',
       table(['Tier', 'What to expect'], [
-        [{ text: MAP_TIER_VIEW.beginner.name, color: MAP_TIER_VIEW.beginner.color, strong: true }, 'Long paths with plenty of bends.'],
-        [{ text: MAP_TIER_VIEW.intermediate.name, color: MAP_TIER_VIEW.intermediate.color, strong: true }, 'Crossings, water lakes and two-lane maps.'],
-        [{ text: MAP_TIER_VIEW.advanced.name, color: MAP_TIER_VIEW.advanced.color, strong: true }, 'Shorter paths, fewer good tiles, multiple spawns.'],
-        [{ text: MAP_TIER_VIEW.expert.name, color: MAP_TIER_VIEW.expert.color, strong: true }, 'Tight space and very little time per enemy.'],
+        [{ text: MAP_TIER_VIEW.beginner.name, color: MAP_TIER_VIEW.beginner.text, strong: true }, 'Long paths with plenty of bends.'],
+        [{ text: MAP_TIER_VIEW.intermediate.name, color: MAP_TIER_VIEW.intermediate.text, strong: true }, 'Crossings, water lakes and two-lane maps.'],
+        [{ text: MAP_TIER_VIEW.advanced.name, color: MAP_TIER_VIEW.advanced.text, strong: true }, 'Shorter paths, fewer good tiles, multiple spawns.'],
+        [{ text: MAP_TIER_VIEW.expert.name, color: MAP_TIER_VIEW.expert.text, strong: true }, 'Tight space and very little time per enemy.'],
       ])),
     sec('Campaign chapters',
       table(['#', 'Chapter', 'Tier', 'Teaches'], CHAPTERS.map((c) => [String(c.id), { text: c.name, strong: true }, MAP_TIER_VIEW[c.tier]?.name || c.tier, c.mechanic])),

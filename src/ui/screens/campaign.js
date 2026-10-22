@@ -49,7 +49,7 @@ export function render(root, params = {}) {
     for (const tier of TIER_KEYS) {
       const chapters = CHAPTERS.filter((c) => c.tier === tier);
       if (!chapters.length) continue;
-      const group = h('div.ma-tier-group', h('div.ma-tier-label', { style: { color: MAP_TIER_VIEW[tier].color } }, MAP_TIER_VIEW[tier].name));
+      const group = h('div.ma-tier-group', h('div.ma-tier-label', { style: { color: MAP_TIER_VIEW[tier].text } }, MAP_TIER_VIEW[tier].name));
       const list = h('div.ma-tier-tabs');
       for (const c of chapters) {
         const prog = chapterProgress(profile, c.id);
@@ -171,7 +171,7 @@ function stageCard(profile, stageId, { isNext }) {
     h('div.ma-sc-info',
       h('div.ma-sc-name', stage.name),
       h('div.ma-sc-meta',
-        tier ? h('span.ma-sc-tier', { style: { color: tier.color } }, tier.name) : null,
+        tier ? h('span.ma-sc-tier', { style: { color: tier.text } }, tier.name) : null,
         h('span.muted', `${stage.waves} waves`),
         isFinale ? h('span.ma-sc-boss', 'BOSS') : null,
         stageCardRibbons(profile, stage),
