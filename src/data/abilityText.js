@@ -44,7 +44,7 @@ export const ABILITY_TEXT = Object.freeze({
     'a whiteout that freezes every enemy around her',
     'Whiteout reaches {radius} tiles, freezes for {freeze}s, slows {slowPct}% for {slow}s and recharges in {cd}s.'),
   'momo.marketDay': t('Market Day', 'coin',
-    'Earns {coins} coins at once (scaled by the difficulty\'s coin rate), at most twice per wave and never on Nightmare. It starts uncharged.',
+    'Earns {coins} coins at once (scaled by the difficulty\'s coin rate), at most twice per wave and never on Nightmare.',
     'coins on demand, twice per wave',
     'Market Day pays {coins} coins and recharges in {cd}s.'),
   'akane.starmine': t('Starmine Barrage', 'sparkle',
@@ -205,6 +205,16 @@ export function abilityValues(def, stats = null) {
   }
   return v;
 }
+
+/**
+ * Details-only sentences: the student page's ability sheet adds them after the description; the battle's live hold
+ * card leaves them out (its state chip already says Ready / Recharging).
+ */
+export const ABILITY_NOTES = Object.freeze({
+  'momo.marketDay': 'It starts uncharged.',
+});
+/** @param {string} id */
+export const abilityNote = (id) => ABILITY_NOTES[id] || null;
 
 /** Fills {placeholders}; an unknown one is left as is (the data test fails on any left over). */
 export function fillAbilityText(template, values) {

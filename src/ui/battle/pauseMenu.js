@@ -105,8 +105,8 @@ export function createPauseMenu(ctx) {
         ctx.setAutoStart(v);
         render();
       }, 'set-auto'),
-      // applies at once to every girl of yours (and the ones that unlock later); hold a girl's ⚡ to switch one
-      toggle(ABILITY_COPY.autoSetting, 'Girls fire their abilities by themselves. Hold a ⚡ button to switch one girl.', !!s.autoCastAbilities, (v) => {
+      // applies at once to every girl of yours (and the ones that unlock later); hold a girl's button to switch one
+      toggle(ABILITY_COPY.autoSetting, 'Girls fire their abilities by themselves. Hold a girl\'s portrait at the bottom right to switch one.', !!s.autoCastAbilities, (v) => {
         ctx.setAutoAbilities?.(v);
         render();
       }, 'set-autocast'),
@@ -121,7 +121,7 @@ export function createPauseMenu(ctx) {
           ? 'drag to pan, pinch or scroll to zoom, double-tap to reset. It holds still while you place a girl.'
           : 'locked — the whole map stays framed and never moves when you drag. Pick Free above to pan and zoom.'),
         h('li', h('b', 'Scout: '), 'tap the NEXT strip at the top to see the coming wave and its traits.'),
-        h('li', h('b', 'Abilities: '), 'tap a ⚡ button (bottom right) during a wave, or press 1–9. Hold it (or right-click) for what it does and its Auto switch. Shift+1–9 picks a card; E fires the hero\'s skill.'),
+        h('li', h('b', 'Abilities: '), 'tap a girl\'s portrait at the bottom right during a wave, or press 1–9. Hold it (or right-click) for what it does and its Auto switch. Shift+1–9 picks a card; E fires the hero\'s skill.'),
       ),
     ));
   }

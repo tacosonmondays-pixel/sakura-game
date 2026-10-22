@@ -1,14 +1,18 @@
 // The ability bar in a real battle (ABILITIES_SPEC §13 e2e row; milestone A3 / plan M1), at 844x390 (touch) and
 // 1280x720 (mouse), stage 1-2 Normal with coins to spare:
-//   - Aoi to Rapid Volley 3 through her panel's buy buttons → her ⚡ slot appears with the "learned" toast
+//   - Aoi to Rapid Volley 3 through her panel's buy buttons → her slot appears with the one-line unlock toast, which
+//     is really visible (on top, even with the phone's panel open); the path chip is the kit bolt, never the ⚡ emoji
 //   - a tap before the wave → "Abilities work during waves."; Shift+2 / Shift+1 arm cards (PC)
 //   - a wave: the slot charges (whole seconds), a tap fires it (an `ability` event, the cooldown restarts, enemies
 //     pinned), key 1 fires it again (PC), E / the skill button fires Hikari's Lv 7 skill
-//   - hold (touch) / right-click (mouse) Momo's slot → the info card → Auto on → Market Day fires by itself
+//   - hold (touch) / right-click (mouse) Momo's slot → the info card (the recharge once, no reach ring for coins, no
+//     girl under it) → Auto on → Market Day fires by itself
 //   - a card armed: the bar fades to 35% and a tap on it never casts
-//   - Wakaba's Time Out!: her slot enters aim mode, a tap on Aoi gives Aoi the rally
+//   - Wakaba's Time Out!: her slot enters aim mode, a tap on Aoi gives Aoi the rally; arming a card ends the aim and
+//     the next board tap places the girl (no ability fires)
 //   - the DOM probe: no overlap between the bar, the hero widget, the wave control, the feed, the panel and the tower
-//     bar; phone slots ≥ 44 px; the panel's ability row is in view without scrolling
+//     bar; phone slots ≥ 44 px; the panel's ability row is in view without scrolling, one 44 px line on a phone, and
+//     the first affordable Buy button stays fully in view; a tap on its name opens the live line
 //   - the wave clears and the page reloads: Continue keeps the charging cooldown and the Auto switch (battle save)
 //   - no page errors, no console errors
 //
@@ -74,7 +78,9 @@ for (const vp of viewports) {
     await page.evaluate((u) => window.__battle.ui.select(u), aoi);
     await page.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="buy-1"]', { timeout: 15000 });
     const teaser = await page.locator('[data-testid="tower-panel"]').innerText();
-    check(/⚡/.test(teaser), `${vp} her panel marks the ⚡ path before she has it`);
+    const boltChip = await page.locator('[data-testid="path-bolt-1"] svg').count();
+    // (the bolt is the kit's yellow SVG everywhere: the ⚡ character is a colour emoji that differs per phone)
+    check(boltChip === 1 && !/⚡/.test(teaser), `${vp} her panel marks the ability path with the kit bolt before she has it (svg ${boltChip}, no ⚡ emoji)`);
     // (one tap per tier; a tap that lands while the panel redraws after the last buy is simply tapped again)
     for (let i = 0; i < 8; i++) {
       const tier = await page.evaluate((u) => window.__battle.sim.getTower(u).tiers[1], aoi);
@@ -88,10 +94,14 @@ for (const vp of viewports) {
     await page.waitForSelector('[data-testid="ability-slot-0"]', { timeout: 5000 });
     const slot0 = await page.locator('[data-testid="ability-slot-0"]').getAttribute('data-state');
     check(slot0 === 'between', `${vp} her slot appears, grey before the wave (${slot0})`);
-    const toasts1 = await page.evaluate(() => __ab.toasts());
-    const learned = toasts1.find((t) => /Aoi learned Skyfall Volley!/.test(t));
-    check(!!learned, `${vp} unlock toast: "${learned}"`);
-    if (!touch) check(/press 1/.test(learned || ''), `${vp} the PC toast names key 1`);
+    // the first-unlock toast points at what is on screen (her portrait in the bar), on one line, and is SEEN: on a
+    // phone the tier is bought from the open panel, so the feed must not sit under it
+    const seen = await page.evaluate(() => __ab.toastSeen('^Skyfall Volley: '));
+    const learned = seen.text || '';
+    check(seen.found && (touch ? learned === 'Skyfall Volley: tap Aoi, bottom right' : learned === 'Skyfall Volley: press 1 or tap Aoi'), `${vp} unlock toast: "${learned}"`);
+    check(seen.onTop && seen.oneLine, `${vp} the unlock toast is visible over the open panel's screen, on one line (${JSON.stringify(seen)})`);
+    check(!/⚡/.test(learned), `${vp} the toast has no ⚡ emoji (its bolt is the kit icon)`);
+    await shot('e2e-unlock');
     const row = await page.locator('[data-testid="ability-row"]').innerText().catch(() => '');
     check(/Skyfall Volley/.test(row) && /WAVE/.test(row), `${vp} her panel's ability row: "${row.replace(/\s+/g, ' ')}"`);
 
@@ -138,7 +148,7 @@ for (const vp of viewports) {
     check(st1.cd > st1.cdMax * 0.8, `${vp} the cooldown restarted (${st1.cd}/${st1.cdMax})`);
     check((cast?.targets?.length || 0) > 0 && cast.pinned > 0 && cast.pinned + cast.defeated === cast.targets.length,
       `${vp} her targets are pinned (${cast?.pinned} pinned, ${cast?.defeated} defeated of ${cast?.targets?.length})`);
-    check(!(await page.evaluate(() => __ab.toasts())).some((t) => /Skyfall/.test(t) && !/learned/.test(t)), `${vp} no toast for her own cast`);
+    check(!(await page.evaluate(() => __ab.toasts())).some((t) => /Skyfall/.test(t) && !/tap Aoi/.test(t)), `${vp} no toast for her own cast`);
     check((await page.evaluate(() => window.__abilEv.length)) > before, `${vp} the cast reached the renderer's event stream`);
     if (!touch) {
       await page.evaluate((u) => __ab.ready(u), aoi);
@@ -169,11 +179,26 @@ for (const vp of viewports) {
     const momoSlot = await page.evaluate(() => [...document.querySelectorAll('.bt-ab[data-id]')].findIndex((b) => b.dataset.id === 'momo.marketDay'));
     check(momoSlot >= 0, `${vp} Momo's slot (${momoSlot})`);
     const momoSel = `[data-testid="ability-slot-${momoSlot}"]`;
+    // (what the card asks the map to ring: Market Day pays coins, it hits no area, so no ring)
+    await page.evaluate(() => {
+      const r = window.__battle.renderer;
+      const orig = r.setAbilityReach.bind(r);
+      window.__reach = 'unset';
+      r.setAbilityReach = (o) => { window.__reach = o; return orig(o); };
+    });
     if (touch) await touchHold(page, momoSel);
     else await page.locator(momoSel).click({ button: 'right', force: true });
     check(await until(page, () => !!document.querySelector('[data-testid="ability-card"]'), null, 3000), `${vp} ${touch ? 'a hold' : 'a right-click'} opens the info card`);
     const cardText = await page.locator('[data-testid="ability-card"]').innerText().catch(() => '');
-    check(/Market Day/.test(cardText) && /Recharges in/.test(cardText), `${vp} the card: name, live description, recharge`);
+    // the recharge shows once (the state chip while charging, the total otherwise); no Details-only sentence
+    const recharges = (cardText.match(/Recharg/g) || []).length;
+    check(/Market Day/.test(cardText) && recharges === 1 && !/uncharged/.test(cardText), `${vp} the card: name, live description, the recharge once (${recharges}): "${cardText.replace(/\s+/g, ' ').slice(0, 140)}"`);
+    // the card never hides a girl when the other side of the screen is clear (her own spot, the centre of her ring)
+    const under = await page.evaluate(() => __ab.girlsUnder('[data-testid="ability-card"]'));
+    const side = await page.locator('[data-testid="ability-card"]').getAttribute('data-side');
+    check(Array.isArray(under) && under.length === 0, `${vp} the card (${side}) covers no girl (${JSON.stringify(under)})`);
+    const reach = await page.evaluate(() => window.__reach);
+    check(reach === null, `${vp} Market Day's card draws no reach ring on the map (${JSON.stringify(reach)})`);
     await shot('e2e-card');
     await tap('[data-testid="ability-auto"]');
     await settle(page, 150);
@@ -215,7 +240,7 @@ for (const vp of viewports) {
     await tap(`[data-testid="ability-slot-${wakSlot}"]`);
     await settle(page, 150);
     const banner = await page.locator('[data-testid="aim-banner"]').innerText().catch(() => '');
-    check(/should coach/.test(banner), `${vp} her slot enters aim mode: "${banner.split('\n')[0]}"`);
+    check(/should coach/.test(banner) && /tap her portrait again/.test(banner) && !/⚡/.test(banner), `${vp} her slot enters aim mode: "${banner.split('\n')[0]}"`);
     await shot('e2e-aim');
     // (the camera is locked and a girl never moves: her spot on screen holds for the tap; her feet = her footprint)
     const at = await page.evaluate((u) => __ab.screenOf(u, 0), aoi);
@@ -228,6 +253,30 @@ for (const vp of viewports) {
     }), [wak, at]));
     check(rally, `${vp} a tap on Aoi gives her Time Out! ${why}`);
     check(!(await page.locator('[data-testid="aim-banner"]').isVisible()), `${vp} the aim banner leaves`);
+
+    // ---- 7b. one board-tap mode at a time: arming a card ends the ability aim, the next tap places the girl -------
+    // (her Time Out! from step 7 runs 12 s: the slot is "active" until it ends, so the staging ends it)
+    await page.evaluate((u) => __ab.ready(u, { endActive: true }), wak);
+    await until(page, () => document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.state === 'ready', null, 20000);
+    const wakN = await page.evaluate((u) => __ab.abil(u).n, wak);
+    const wakBefore = await page.evaluate((u) => ({ slot: document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.state, testid: document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.testid, st: window.__battle.sim.abilityStatus(u), state: window.__battle.sim.state }), wak);
+    await tap('.bt-ab[data-id="wakaba.timeOut"]');
+    await settle(page, 150);
+    const aiming = await page.evaluate(() => window.__battle.ui.aim.abilityId);
+    if (aiming == null) console.log(`  (before the tap: ${JSON.stringify(wakBefore)}; toasts ${JSON.stringify(await page.evaluate(() => __ab.toasts()))})`);
+    await page.evaluate(() => window.__battle.ui.onCardTap('akane'));
+    await settle(page, 150);
+    const afterArm = await page.evaluate(() => ({ aim: window.__battle.ui.aim.abilityId, banner: !document.querySelector('[data-testid="aim-banner"]').hidden, placing: window.__battle.ui.placement.unitId }));
+    check(aiming === 'wakaba.timeOut' && afterArm.aim == null && !afterArm.banner && afterArm.placing === 'akane',
+      `${vp} arming a card ends the ability aim (was ${aiming}; now ${JSON.stringify(afterArm)})`);
+    const spot = await page.evaluate(() => __ab.spotOnScreen('akane'));
+    const akBefore = await page.evaluate(() => window.__battle.sim.towers.filter((t) => t.unitId === 'akane').length);
+    if (spot) await tapAt(spot.x, spot.y);
+    await settle(page, 200);
+    const akAfter = await page.evaluate(() => window.__battle.sim.towers.filter((t) => t.unitId === 'akane').length);
+    const wakAfter = await page.evaluate((u) => __ab.abil(u).n, wak);
+    check(!!spot && akAfter === akBefore + 1 && wakAfter === wakN, `${vp} the placement tap places Akane and fires nothing (Akane ${akBefore}→${akAfter}, Time Out! ${wakN}→${wakAfter})`);
+    await page.evaluate(() => window.__battle.ui.placement.cancel());
 
     // ---- 8. the DOM probe: overlaps, sizes, the panel row in view ----------------------------------------------
     await page.evaluate(() => window.__battle.ui.select(null));
@@ -245,15 +294,40 @@ for (const vp of viewports) {
     console.log(`  probe (panel): ${formatProbe(probes.panel)}`);
     const panelBar = probes.panel.overlaps.filter((o) => o.a === 'bar' || o.b === 'bar');
     check(panelBar.length === 0, `${vp} with her panel open the bar overlaps nothing (${JSON.stringify(panelBar)})`);
-    const rowInView = await page.evaluate(() => {
+    // (at the top of the panel, as it opens: "without scrolling")
+    const fold = await page.evaluate(() => {
       const p = document.querySelector('[data-testid="tower-panel"] .bt-panel-scroll');
       const r = document.querySelector('[data-testid="tower-panel"] [data-testid="ability-row"]');
-      if (!p || !r) return false;
+      if (!p || !r) return null;
+      p.scrollTop = 0;
       const a = p.getBoundingClientRect();
       const b = r.getBoundingClientRect();
-      return b.top >= a.top - 1 && b.bottom <= a.bottom + 1;
+      const buy = p.querySelector('.bt-buy:not(.poor):not([disabled])');
+      const c = buy?.getBoundingClientRect();
+      return {
+        row: b.top >= a.top - 1 && b.bottom <= a.bottom + 1, rowH: Math.round(b.height),
+        buy: buy ? buy.dataset.testid : null, buyIn: !!c && c.top >= a.top - 1 && c.bottom <= a.bottom + 1, at: c ? [Math.round(c.top), Math.round(c.bottom)] : null, viewport: [Math.round(a.top), Math.round(a.bottom)],
+      };
     });
-    check(rowInView, `${vp} her ability row is in view without scrolling`);
+    check(!!fold?.row, `${vp} her ability row is in view without scrolling`);
+    // ABILITIES_SPEC §8.4: about 44 px on a phone, so the row never pushes the first Buy button below the fold
+    if (touch) check((fold?.rowH || 99) <= 46, `${vp} the phone ability row is one line (${fold?.rowH} px)`);
+    check(!!fold?.buy && fold.buyIn, `${vp} the first affordable Buy button is fully in view with the row present (${JSON.stringify(fold)})`);
+    if (touch) {
+      // her live line and Auto open with a tap on the ability's name (and close again)
+      const lineShown = () => page.evaluate(() => {
+        const l = document.querySelector('[data-testid="tower-panel"] [data-testid="ability-line"]');
+        return l && l.getClientRects().length ? l.textContent : null;
+      });
+      const before = await lineShown();
+      await tap('[data-testid="tower-panel"] [data-testid="ability-row-name"]');
+      await settle(page, 100);
+      const opened = await lineShown();
+      await shot('e2e-row-open');
+      await tap('[data-testid="tower-panel"] [data-testid="ability-row-name"]');
+      await settle(page, 100);
+      check(before == null && !!opened && (await lineShown()) == null, `${vp} a tap on her ability's name opens its live line ("${opened}") and closes it`);
+    }
     await shot('e2e-panel');
     await page.evaluate(() => window.__battle.ui.select(null));
 

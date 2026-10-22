@@ -9,9 +9,12 @@
 //     refusalText(reason, o)                                the quiet toast for every refusal reason
 //     createAbilityNotes({ now })                           first unlock once per id, the ally chip at most every 3 s
 //     abilityCardView(sim, slot)                            the hold card's words
+//     slotTapPlan(slot, o) / aimCaster(slot, sel, isReady)  what a tap does and which copy casts (§3.3)
+//     coopCastCheck(sim, uid, o) / clearPendingFor(…)       the co-op pre-check and the pending slot's release
+//     cardSide(rects, points, casterUid)                    the side of the screen the hold card goes
 //   DOM half: createAbilityBar(ctx) → { el, update(), handle(events), fireSlot(i), … }
 //
-// Slot states: charging (dimmed portrait under a navy sweep, whole seconds), ready (full colour, yellow ring, ×N
+// Slot states: charging (the portrait dimmed but recognisable under a light navy sweep, whole seconds), ready (full colour, yellow ring, ×N
 // when 2+ copies are ready), pending (co-op: sent, waiting for its tick), active (a pink drain bar), between waves
 // (grey, frozen sweep, WAVE), blocked (sabotaged / econ cap / no income / nothing in reach). Badges: A (Auto on),
 // a globe (map-wide: one cooldown per player), the key hint 1–9 (hover devices only, E8).
@@ -81,6 +84,91 @@ export const REFUSAL_REASONS = Object.freeze(['ended', 'locked', 'notYours', 'no
 export function abilityCommandArgs(uid, { group = false, aim = null } = {}) {
   const ok = Array.isArray(aim) && aim.length >= 2 && Number.isFinite(aim[0]) && Number.isFinite(aim[1]);
   return abilArgs(uid, { group: !!group, aim: ok ? aim : null });
+}
+
+/**
+ * The copy an aimed tap hands to aim mode (ABILITIES_SPEC §3.3: "the tapped or selected copy if she is ready;
+ * otherwise the ready copy …"): the selected copy `sel` when she is ready, else the slot's best copy (ready whenever
+ * the slot is). The aimed cast then goes out with group: false, so the girl-target rule never swaps casters under
+ * the aim, and the reach ring / candidates follow the girl who really casts.
+ * @param {{ casterUid: number }} slot
+ * @param {number} sel the tapped or selected copy
+ * @param {(uid: number) => boolean} isReady
+ */
+export function aimCaster(slot, sel, isReady) {
+  return sel !== slot.casterUid && !isReady(sel) ? slot.casterUid : sel;
+}
+
+/**
+ * What a tap on a slot (or its key) does, as data:
+ *   { do: 'none' }                          the battle is over, or a card is armed and it was a tap (a key still fires)
+ *   { do: 'cast', uid, group: true, cancelAim }  the group cast (cancelAim: the same slot again while aiming = her pick)
+ *   { do: 'aim', uid }                      an aimed ability that is ready: aim mode for the copy that will cast
+ * `uid` is the tapped (selected) copy when she is one of the slot's casters, else the slot's best copy.
+ * @param {{ id: string, casters: number[], casterUid: number, aim?: string|null, state: string }} slot
+ * @param {{ selectedUid?: number|null, aimingId?: string|null, placing?: boolean, key?: boolean, ended?: boolean,
+ *   canAim?: boolean, isReady?: (uid: number) => boolean }} [o]
+ */
+export function slotTapPlan(slot, { selectedUid = null, aimingId = null, placing = false, key = false, ended = false, canAim = true, isReady = () => false } = {}) {
+  if (!slot || ended || (placing && !key)) return { do: 'none' };
+  const sel = selectedUid != null && slot.casters.includes(selectedUid) ? selectedUid : slot.casterUid;
+  if (aimingId != null && aimingId === slot.id) return { do: 'cast', uid: sel, group: true, cancelAim: true };
+  if (slot.aim && slot.state === 'ready' && canAim) return { do: 'aim', uid: aimCaster(slot, sel, isReady) };
+  return { do: 'cast', uid: sel, group: true, cancelAim: false };
+}
+
+/**
+ * The co-op cast's local check before an `abil` goes out (ABILITIES_SPEC §7.2–§7.3). The sim still decides at the
+ * command's tick; this only skips the round trip when nothing of hers could fire, and never sends a second `abil`
+ * for an ability still waiting for its first.
+ * @param {import('../../sim/Sim.js').Sim} sim
+ * @param {number} uid
+ * @param {{ group?: boolean, busy?: boolean, mine?: (uid: number) => boolean, pending?: Map<string,*>|Set<string>|null }} [o]
+ * @returns {{ send: true, id: string } | { queued: true, id: string } | { ok: false, reason: string, casterUid?: number }}
+ */
+export function coopCastCheck(sim, uid, { group = false, busy = false, mine = () => true, pending = null } = {}) {
+  if (busy) return { ok: false, reason: 'busy' };
+  if (!mine(uid)) return { ok: false, reason: 'notYours' };
+  const id = sim.getTower(uid)?.abil?.id;
+  if (!id) return { ok: false, reason: 'locked', casterUid: uid };
+  if (pending?.has?.(id)) return { queued: true, id };
+  const st = sim.abilityStatus(uid);
+  const anyReady = st?.ready || (group && sim.towers.some((o) => !o.removed && o.abil?.id === id && mine(o.uid) && sim.abilityStatus(o.uid)?.ready));
+  if (!anyReady) return { ok: false, reason: st?.reason || 'locked', casterUid: uid };
+  return { send: true, id };
+}
+
+/**
+ * A lockstep command just ran: when it is this player's `abil`, the abilities waiting for it stop waiting (the slot
+ * stops spinning). Returns the ids it cleared.
+ * @param {Map<string, { uid: number }>} pending ability id → the uid the cast was sent for
+ * @param {{ k: string, p: number, a: any[] }} cmd
+ * @param {number} mySlot
+ */
+export function clearPendingFor(pending, cmd, mySlot) {
+  const out = [];
+  if (!pending || cmd?.k !== 'abil' || cmd.p !== mySlot) return out;
+  for (const [id, p] of pending) {
+    if (p?.uid === cmd.a?.[0]) {
+      pending.delete(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+/**
+ * Which side of the screen the hold card goes: the one that covers fewer girls (her own spot, the centre of her reach
+ * ring, counts double); the right (by the bar) on a tie.
+ * @param {{ left: DOMRect|object, right: DOMRect|object }} rects the card's rect on each side (left / right / top / bottom)
+ * @param {{ x: number, y: number, uid?: number }[]} points the girls' screen points
+ * @param {number|null} casterUid
+ * @returns {'left'|'right'}
+ */
+export function cardSide(rects, points, casterUid = null) {
+  const inside = (r, p) => !!r && p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
+  const score = (r) => points.reduce((s, p) => s + (inside(r, p) ? (p.uid === casterUid ? 2 : 1) : 0), 0);
+  return score(rects.left) < score(rects.right) ? 'left' : 'right';
 }
 
 /** A slot's state from its best copy's status (sim.abilityStatus) and how many copies are ready. */
@@ -185,11 +273,15 @@ export function battleKeyAction(e, { paused = false, typing = false } = {}) {
   return null;
 }
 
-/** "Aoi learned Skyfall Volley! Tap ⚡ to fire it." (PC: "… Tap ⚡ or press 1 to fire it."; a hero's skill: E). */
+/**
+ * The first-unlock toast, one line that points at what is on screen (ABILITIES_SPEC §8.5): a tower girl's slot is her
+ * portrait in the bar at the bottom right — "Skyfall Volley: tap Aoi, bottom right" (PC: "Skyfall Volley: press 1 or
+ * tap Aoi"); a hero's skill is the bolt button by her portrait — "Morning Rally: tap ⚡ by Hikari" (PC: "… press E or
+ * tap ⚡ by Hikari"). The toast leads with the bolt icon; a ⚡ here is drawn as the kit bolt (kit.js boltText).
+ */
 export function unlockText(girl, ability, { hover = false, key = null, hero = false } = {}) {
-  const k = hero ? 'E' : key;
-  if (hero) return `${girl} learned ${ability}! Tap ⚡ by her portrait${hover ? ' or press E' : ''} to use it.`;
-  return `${girl} learned ${ability}! Tap ⚡${hover && k ? ` or press ${k}` : ''} to fire it.`;
+  if (hero) return `${ability}: ${hover ? 'press E or ' : ''}tap ⚡ by ${girl}`;
+  return hover && key ? `${ability}: press ${key} or tap ${girl}` : `${ability}: tap ${girl}, bottom right`;
 }
 
 /**
@@ -243,7 +335,9 @@ export function createAbilityNotes({ now = () => (typeof performance !== 'undefi
 
 /**
  * The hold card (§8.2 Input), as plain data: the name, a kind word, its live description (her current stats), the
- * cooldown, the girls sharing the button, the Auto switch and the reach ring to draw (null for a map-wide one).
+ * state, the total recharge (only when it is not already counting down in the state), the girls sharing the button,
+ * the Auto switch and the reach ring to draw (null for a map-wide one, and for one that hits no area: coins, a
+ * per-player ability). Details-only sentences (abilityText ABILITY_NOTES) stay on the student page.
  * @param {import('../../sim/Sim.js').Sim} sim
  * @param {{ id: string, casters: number[], casterUid: number, state?: string, secondsLeft?: number }} slot
  */
@@ -263,6 +357,9 @@ export function abilityCardView(sim, slot) {
   const casters = (slot.casters || [t.uid]).map((u) => sim.getTower(u)).filter(Boolean);
   const reach = abilityReach(t, def);
   const map = def.scope === 'map';
+  // a ring says "this hits an area": not for coins or a per-player ability (Market Day), nor a map-wide one
+  const area = !map && def.scope !== 'player' && def.kind !== 'econ';
+  const charging = st?.reason === 'cooldown';
   return {
     id: slot.id,
     name: text.name,
@@ -270,11 +367,12 @@ export function abilityCardView(sim, slot) {
     kind: KIND_WORD[def.kind] || def.kind,
     scope: map ? 'Map-wide · one cooldown per player' : def.scope === 'player' ? 'Per player' : 'Around her',
     desc,
-    cooldown: `Recharges in ${wholeSeconds(st?.cooldown || def.cooldown)} of wave time`,
-    state: st?.ready ? 'Ready' : st?.reason === 'cooldown' ? `Recharging · ${wholeSeconds(st.cooldownLeft)}` : st?.reason === 'notWave' ? 'Charges during waves' : st?.reason === 'active' ? 'Active' : refusalText(st?.reason, { name: text.name }),
+    // the recharge once: the state chip counts it down while charging, the total shows otherwise
+    cooldown: charging ? null : `Recharges in ${wholeSeconds(st?.cooldown || def.cooldown)} of wave time`,
+    state: st?.ready ? 'Ready' : charging ? `Recharging · ${wholeSeconds(st.cooldownLeft)}` : st?.reason === 'notWave' ? 'Charges during waves' : st?.reason === 'active' ? 'Active' : refusalText(st?.reason, { name: text.name }),
     sharing: casters.length > 1 ? `${casters.length} copies of ${t.def.name} share this button` : null,
     auto: casters.length ? casters.every((o) => !!o.abil?.auto) : false,
-    reach: !map && Number.isFinite(reach) && reach > 0 ? { x: t.x, y: t.y, r: reach } : null,
+    reach: area && Number.isFinite(reach) && reach > 0 ? { x: t.x, y: t.y, r: reach } : null,
     help: ABILITY_COPY.autoHelp,
   };
 }
@@ -351,13 +449,42 @@ export function createAbilityBar(ctx) {
         sw,
         h('button.bt-abcard-x', { type: 'button', 'aria-label': 'Close', 'data-testid': 'ability-card-close', onclick: () => closeCard() }, '×')),
       h('p.bt-abcard-desc', h('b.bt-abcard-state', { 'data-testid': 'ability-card-state' }, v.state), ' ', v.desc),
-      h('div.bt-abcard-facts', h('span', v.cooldown), h('span', v.scope), v.sharing ? h('span', v.sharing) : null),
+      h('div.bt-abcard-facts', v.cooldown ? h('span', v.cooldown) : null, h('span', v.scope), v.sharing ? h('span', v.sharing) : null),
       h('small.bt-abcard-help', v.help));
-    el.append(elCard);
+    // (on the layer, not in the bar: it goes on the side of the screen that hides fewer girls, never over the girl
+    // it describes and the centre of her reach ring when the other side is clear)
+    ctx.layer.append(elCard);
+    placeCard(elCard, slot.casterUid);
     card = { id, el: elCard, offEsc: onEscape(() => closeCard()) };
     // (the wave control above the bar steps back while the card is up: one Auto switch on screen, not two)
     ctx.shell?.classList.add('bt-ab-card');
     ctx.renderer?.setAbilityReach?.(v.reach);
+  }
+  /** The girls' spots on screen (CSS px), for the card's side. */
+  function girlPoints() {
+    const r = ctx.renderer;
+    if (!r?.worldToScreen) return [];
+    const out = [];
+    for (const t of sim.towers) {
+      if (t.removed) continue;
+      const p = r.worldToScreen(t.x, t.y, 0.5);
+      if (p && p.visible !== false && Number.isFinite(p.clientX)) out.push({ x: p.clientX, y: p.clientY, uid: t.uid });
+    }
+    return out;
+  }
+  /** Measures the card on both sides and keeps the one that covers fewer girls (cardSide). */
+  function placeCard(elCard, casterUid) {
+    try {
+      elCard.classList.remove('side-l');
+      const right = elCard.getBoundingClientRect();
+      elCard.classList.add('side-l');
+      const left = elCard.getBoundingClientRect();
+      const side = cardSide({ left, right }, girlPoints(), casterUid);
+      elCard.classList.toggle('side-l', side === 'left');
+      elCard.dataset.side = side;
+    } catch {
+      elCard.classList.remove('side-l');
+    }
   }
   /** A tap outside the card closes it (the bar's own buttons decide for themselves). */
   const onDocDown = (e) => {
@@ -551,27 +678,25 @@ export function createAbilityBar(ctx) {
    * is armed never casts (the bar fades and ignores it); a key is deliberate and does.
    */
   function tap(id, { key = false } = {}) {
-    if (ctx.ended || (!key && ctx.placement?.unitId)) return;
     const slot = slots.find((s) => s.id === id);
-    if (!slot) return;
+    // the tapped (selected) copy when she is one of them, else the slot's best copy; an aimed tap goes to the copy
+    // that will really cast (a selected copy still recharging hands it to the ready one: slotTapPlan / aimCaster)
+    const plan = slotTapPlan(slot, {
+      selectedUid: ctx.selectedUid, aimingId: ctx.aim?.abilityId ?? null, placing: !!ctx.placement?.unitId, key, ended: !!ctx.ended,
+      canAim: !!ctx.aim?.startAbility, isReady: (u) => !!sim.abilityStatus(u)?.ready,
+    });
+    if (plan.do === 'none') return;
     if (flyOpen && fly.contains(nodes.get(id)?.btn)) {
       flyOpen = false;
       dirty = true;
     }
-    // the tapped (selected) copy when she is one of them, else the slot's best copy
-    const sel = ctx.selectedUid != null && slot.casters.includes(ctx.selectedUid) ? ctx.selectedUid : slot.casterUid;
+    if (plan.do === 'aim') {
+      ctx.aim.startAbility({ uid: plan.uid, id, kind: slot.aim, name: slot.name, from: 'bar' });
+      return;
+    }
     // aim mode: the same slot again casts with no aim (her own pick)
-    if (ctx.aim?.abilityId === id) {
-      ctx.aim.cancel();
-      ctx.castAbility?.(sel, { group: true, aim: null, id });
-      dirty = true;
-      return;
-    }
-    if (slot.aim && slot.state === 'ready' && ctx.aim?.startAbility) {
-      ctx.aim.startAbility({ uid: sel, id, kind: slot.aim, name: slot.name });
-      return;
-    }
-    ctx.castAbility?.(sel, { group: true, aim: null, id });
+    if (plan.cancelAim) ctx.aim.cancel();
+    ctx.castAbility?.(plan.uid, { group: true, aim: null, id });
     dirty = true;
   }
 

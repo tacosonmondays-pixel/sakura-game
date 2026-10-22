@@ -21,7 +21,8 @@ import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
 import { createHeroWidget, paintUltButton } from './heroWidget.js';
-import { createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, abilityCommandArgs, REFUSED_MS } from './abilityBar.js';
+import { createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, abilityCommandArgs, coopCastCheck, clearPendingFor, REFUSED_MS } from './abilityBar.js';
+import { boltText, ico, KIT_SVG } from '../kit.js';
 import { abilityText } from '../../data/abilityText.js';
 import { createHeroLevels, heroWarnText } from './heroLevels.js';
 import { createBossBar } from './bossBar.js';
@@ -479,6 +480,8 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       if (ctx.flight.active) ctx.flight.cancel();
+      // one board-tap mode at a time: an ability aim (or Set aim) ends, so the pick tap is never an ability's
+      if (ctx.aim?.active) ctx.aim.cancel();
       const r = limitedRange(src);
       const cands = sim.towers.filter((o) => o.uid !== srcUid && !o.removed && (o.x - src.x) ** 2 + (o.y - src.y) ** 2 <= r * r).map((o) => o.uid);
       ctx.picking = srcUid;
@@ -885,7 +888,10 @@ export function mountBattle(root, params, hooks) {
             const name = abilityText(ev.id)?.name || 'a new ability';
             const slot = t.isHero ? -1 : sim.abilitySlots(ctx.coop ? ctx.coop.mySlot : 0).findIndex((s) => s.id === ev.id);
             const key = slot >= 0 && slot < 9 ? String(slot + 1) : null;
-            feed.push(unlockText(t.def.name, name, { hover: hoverDevice, key, hero: !!t.isHero }), 'good', { key: `abil-unlock-${ev.id}`, ms: 3800 });
+            // one line led by the bolt: "Skyfall Volley: tap Aoi, bottom right" (the name in bold; a ⚡ in the words
+            // is the kit bolt, never the colour emoji). On a phone the feed docks left of an open panel (battle.css).
+            const words = unlockText(t.def.name, name, { hover: hoverDevice, key, hero: !!t.isHero });
+            feed.push([h('b', name), ...boltText(words.slice(name.length))], 'good', { key: `abil-unlock-${ev.id}`, ms: 2400, icon: ico(KIT_SVG.bolt, 'bt-toast-ico.bt-toast-bolt') });
             break;
           }
           case 'ability': {
@@ -1372,16 +1378,12 @@ export function mountBattle(root, params, hooks) {
        * sends a second `abil` for an ability still waiting for its first.
        */
       ability(uid, { group = false, aim = null } = {}) {
-        if (ls.job) return { ok: false, reason: 'busy' };
-        if (ls.coop.ownerOf(uid) !== ls.mySlot) return { ok: false, reason: 'notYours' };
-        const id = sim.getTower(uid)?.abil?.id;
-        if (!id) return { ok: false, reason: 'locked', casterUid: uid };
-        if (ctx.abilityPending.has(id)) return 'queued';
-        const st = sim.abilityStatus(uid);
-        const anyReady = st?.ready || (group && sim.towers.some((o) => o.abil?.id === id && ls.coop.ownerOf(o.uid) === ls.mySlot && sim.abilityStatus(o.uid)?.ready));
-        if (!anyReady) return { ok: false, reason: st?.reason || 'locked', casterUid: uid };
+        // (abilityBar.js coopCastCheck: tests/battle-ui/abilityBar.test.js)
+        const c = coopCastCheck(sim, uid, { group, busy: !!ls.job, mine: (u) => ls.coop.ownerOf(u) === ls.mySlot, pending: ctx.abilityPending });
+        if (c.queued) return 'queued';
+        if (!c.send) return c;
         ls.queue('abil', abilityCommandArgs(uid, { group, aim }));
-        ctx.abilityPending.set(id, { uid, at: performance.now() });
+        ctx.abilityPending.set(c.id, { uid, at: performance.now() });
         return 'queued';
       },
       abilityAuto(uid, on) {
@@ -1425,7 +1427,7 @@ export function mountBattle(root, params, hooks) {
       ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
     } else if (cmd.k === 'abil' && minePlayer) {
       // my cast ran on every client: the slot stops waiting; a refusal says why (the same everywhere)
-      for (const [id, p] of ctx.abilityPending || []) if (p.uid === cmd.a[0]) ctx.abilityPending.delete(id);
+      clearPendingFor(ctx.abilityPending, cmd, ls.mySlot);
       if (!res.ok) ctx.abilityRefusal?.(res.reason, res.casterUid, cmd.a[0]);
       else navigator.vibrate?.(10);
       ctx.abilityBar?.refresh();

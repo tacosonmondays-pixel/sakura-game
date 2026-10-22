@@ -27,6 +27,17 @@ const MOVE_EPS = 0.015;
 /** Reasons the red circle alone already explains (no toast). */
 const SILENT_REASONS = new Set(['occupied', 'path', 'blocked', 'outOfBounds']);
 
+/**
+ * A card armed (or Move mode): every other board-tap mode steps aside — an ability aim or Set aim (aimControl.js),
+ * a Midori / Chika pick, a flight point — so the next board tap places her (ABILITIES_SPEC §8.1: a placement tap
+ * never fires an ability; the board tap asks aim, then flight, then placement).
+ */
+export function clearBoardModes(ctx) {
+  if (ctx.aim?.active) ctx.aim.cancel();
+  ctx.cancelPick?.();
+  if (ctx.flight?.active) ctx.flight.cancel();
+}
+
 export function createPlacement(ctx) {
   const { sim } = ctx;
   let unitId = null;
@@ -87,6 +98,7 @@ export function createPlacement(ctx) {
       return false;
     }
     ctx.select(null);
+    clearBoardModes(ctx);
     unitId = id;
     mode = how;
     last = null;
@@ -239,6 +251,7 @@ export function createPlacement(ctx) {
         return false;
       }
       ctx.select(null);
+      clearBoardModes(ctx);
       unitId = hero.unitId;
       moving = true;
       mode = 'tap';

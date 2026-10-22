@@ -11,6 +11,7 @@ import { BATTLE } from '../../data/types.js';
 import { HERO_LEVEL_PRICES } from '../../data/heroTracks.js';
 import { abilityText, abilityUnlockLine, abilityUpgradeLine, abilityValues } from '../../data/abilityText.js';
 import { skillAtLevel } from '../../data/abilities.js';
+import { boltText } from '../kit.js';
 
 /** The widget and panel re-read the price at most this often (seconds): passive XP moves it every frame. */
 export const PRICE_TICK = 0.5;
@@ -228,7 +229,8 @@ export function createHeroLevels(ctx, ls) {
     const rank = rankAt(def, level);
     if (rank) ctx.feed.announce(`${ult?.name || 'Ultimate'} rank ${rank}!`, `${def.name} Lv ${level}`, 'good', 1800);
     const text = row ? `${def.name} Lv ${level} · ${trackDesc(def, level)}` : `${def.name} reached Lv ${level}`;
-    ctx.feed.push(text, 'good', { key: `lvl-${t.uid}-${level}`, ms: 2600 });
+    // (her skill's ⚡ is drawn as the kit bolt, never the colour emoji)
+    ctx.feed.push(boltText(text), 'good', { key: `lvl-${t.uid}-${level}`, ms: 2600 });
   }
 
   return { levelUp, move, moveState, handle, onApplied, mine };

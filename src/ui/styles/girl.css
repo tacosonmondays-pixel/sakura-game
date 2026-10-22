@@ -126,6 +126,8 @@
 .gp-abil .gp-chev { color: var(--on-plate-dim); }
 .gp-abil.later .gp-abil-text { color: var(--on-plate-dim); }
 .gp-abil-later { display: flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
+/* the kit bolt in the Details sheet's words (white glass): the deeper yellow with a thin ink edge */
+.gp-details .kit-bolt { color: var(--yellow-deep); filter: drop-shadow(0 0 0.6px var(--ink)); }
 /* matchup: ▲▲ / ▲ / ▼ with the armor word; the arrow carries the meaning, not only the colour */
 .gp-mu-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px var(--sp-2); }
 .gp-mu { display: flex; align-items: center; gap: 6px; min-height: 26px; font: 700 var(--fs-body)/1.1 var(--font); color: var(--ink); }

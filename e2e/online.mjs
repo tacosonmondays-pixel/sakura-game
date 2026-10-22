@@ -522,6 +522,18 @@ try {
   // battle 2 runs the long checks below: back to Normal
   await pickDifficulty('Normal');
   await B.waitForFunction(() => window.__coop?.difficulty === 'normal', null, { timeout: 15000 }).catch(() => null);
+  // battle 2's abilities block needs the guest's girl at her ability tier (Aoi: 940 coins over three tiers, more than
+  // a whole 1-1 co-op battle pays one player). Both pages give the room's stage the same bigger start purse BEFORE the
+  // battle is built, so both co-op sims start from the same wallets (test-only staging, like __ab's coins in solo; the
+  // pages keep it, so a rebuilt battle replays from the same start)
+  const purse = await Promise.all([A, B].map((p) => p.evaluate(async () => {
+    const { STAGE_MAP } = await import('/src/data/stages.js');
+    const id = window.__coop?.stageId;
+    if (!STAGE_MAP[id]) return null;
+    STAGE_MAP[id].startCash = 5000;
+    return { id, startCash: STAGE_MAP[id].startCash };
+  }).catch((e) => ({ error: e.message }))));
+  check(purse.every((x) => x?.startCash === 5000 && x.id === purse[0].id), `co-op abilities: battle 2 gives both players the same bigger purse (${JSON.stringify(purse)})`);
   await tap(B, '[data-testid="coop-ready"]');
   check(await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 15000 }).then(() => true).catch(() => false),
     'rematch: Start unlocks once the guest is ready again');
@@ -763,15 +775,18 @@ try {
   const hh = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(hh.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op heroes: hashes still equal on both (${hh.map((l) => l.length).join(' / ')} checkpoints)`);
 
-  // ---- abilities (ABILITIES_SPEC §7, plan M1): the guest fires her own girl's ability through `abil` -----------
-  // Her ⚡ path is bought to tier 3 through the upgrade command while her wallet allows; then a real cast (the host
-  // shows the ally chip) or, without tier 3, the command is sent anyway and both views refuse it the same way.
+  // ---- abilities (ABILITIES_SPEC §7, §13; plan M1): the guest fires her own girl's ability from the bar ---------
+  // Her ability path is bought to tier 3 through the upgrade command (battle 2 started with a bigger purse, above);
+  // the waves run by themselves at 3× while she charges; once she is ready with enemies in reach the guest taps her
+  // slot (the bar's real DOM path): one `abil` goes out and the slot waits (pending), a second tap sends nothing; the
+  // cast runs with the same (successful) result on both views; the slot stops waiting (onApplied); the host shows the
+  // ally chip and its bar never holds the guest's girl. No fallback: every step must really happen.
   const guestGirl = await B.evaluate(() => {
     const { sim, coop } = window.__battle;
     const t = sim.towers.find((o) => !o.isHero && coop.isMine(o.uid));
     return t ? { uid: t.uid, unitId: t.unitId, path: t.def.paths.findIndex((p) => p.ability) } : null;
   });
-  if (check(!!guestGirl && guestGirl.path >= 0, `co-op abilities: the guest has a girl with a ⚡ path (${guestGirl?.unitId})`)) {
+  if (check(!!guestGirl && guestGirl.path >= 0, `co-op abilities: the guest has a girl with an ability path (${guestGirl?.unitId})`)) {
     for (let i = 0; i < 3; i++) {
       const before = await B.evaluate((g) => window.__battle.sim.getTower(g.uid).tiers[g.path], guestGirl);
       if (before >= 3) break;
@@ -783,32 +798,91 @@ try {
       if (!sent) break;
       await B.waitForFunction(([g, n]) => window.__battle.sim.getTower(g.uid).tiers[g.path] > n, [guestGirl, before], { timeout: 60000, polling: 250 }).catch(() => null);
     }
-    const tier = await B.evaluate((g) => window.__battle.sim.getTower(g.uid).tiers[g.path], guestGirl);
-    await Promise.all([A, B].map((p) => p.evaluate(() => { window.__applied = []; })));
-    let real = false;
-    if (tier >= 3) {
-      // a real cast: wait for her charge (and a wave with enemies), then the bar's group tap
-      const ready = await B.waitForFunction((g) => window.__battle.sim.abilityStatus(g.uid)?.ready, guestGirl, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
-      if (ready) {
-        const r = await B.evaluate((g) => window.__battle.ui.castAbility(g.uid, { group: true }), guestGirl);
-        real = r === 'queued';
+    const tier = await B.evaluate((g) => ({ tier: window.__battle.sim.getTower(g.uid).tiers[g.path], wallet: window.__battle.sim.cash, id: window.__battle.sim.getTower(g.uid).abil?.id || null }), guestGirl);
+    if (check(tier.tier >= 3 && !!tier.id, `co-op abilities: the guest bought her ability path to tier 3 through the upgrade command (${JSON.stringify(tier)})`)) {
+      const id = tier.id;
+      // the waves keep coming at 3× while she charges (put back after the cast, so the battle outlasts the checks below)
+      await A.evaluate(() => {
+        const ls = window.__battle.coop.lockstep;
+        ls.queue('auto', [true]);
+        ls.queue('speed', [3]);
+      });
+      // ready with enemies in reach, on a settled link: not while this client rebuilds (a frame-starved page is dropped
+      // and re-admitted on this machine; while it rebuilds every order answers "busy", by design)
+      const readyNow = (g) => {
+        const { sim, coop } = window.__battle;
+        const ls = coop?.lockstep;
+        if (!ls || ls.job || !ls.running || ls.livePeers().length !== 1 || window.__coop?.peerGone) return false;
+        const t = sim.getTower(g.uid);
+        if (!t || !sim.abilityStatus(g.uid)?.ready) return false;
+        const r = t.eff.range;
+        return sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length >= 2;
+      };
+      const ready = await B.waitForFunction(readyNow, guestGirl, { timeout: 240000, polling: 50 }).then(() => true).catch(() => false);
+      check(ready, 'co-op abilities: the guest\'s girl is ready with enemies in reach (the link settled)');
+      // the real tap on her slot, then a second one while the first waits (both in one go: no tick runs between). A
+      // tap that met a rebuild ("busy") is tapped again once the link has settled, as a player would.
+      let tapped = null;
+      for (let attempt = 1; attempt <= 6; attempt++) {
+        await Promise.all([A, B].map((p) => p.evaluate(() => { window.__applied = []; })));
+        tapped = await B.evaluate((abil) => {
+          const { ui, coop } = window.__battle;
+          const ls = coop.lockstep;
+          const q = ls.queue.bind(ls);
+          let sent = 0;
+          ls.queue = (k, a) => {
+            if (k === 'abil') sent++;
+            return q(k, a);
+          };
+          try {
+            // (a card still armed fades the bar and it takes no taps, by design: put it back first, as a player would)
+            const armed = ui.placement?.unitId || null;
+            ui.placement?.cancel?.();
+            ui.abilityBar.refresh();
+            ui.abilityBar.update();
+            const btn = document.querySelector(`[data-testid="ability-bar"] .bt-ab[data-id="${abil}"]`);
+            if (!btn) return { slot: false, armed };
+            const before = btn.dataset.state;
+            const job = !!ls.job;
+            btn.click();
+            const pending = ui.abilityPending.has(abil);
+            ui.abilityBar.update();
+            const state = btn.dataset.state;
+            const spin = !btn.querySelector('.bt-ab-spin')?.hidden;
+            btn.click();
+            const toasts = [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast-text')].map((e) => e.textContent).slice(0, 3);
+            return { slot: true, armed, job, before, sent, pending, state, spin, toasts };
+          } finally {
+            ls.queue = q;
+          }
+        }, id);
+        if (tapped.sent > 0 || !tapped.slot) break;
+        log(`    (tap ${attempt} sent nothing: ${JSON.stringify(tapped)} — tapping again once the link has settled)`);
+        await B.waitForFunction(readyNow, guestGirl, { timeout: 120000, polling: 50 }).catch(() => null);
       }
-    }
-    if (!real) {
-      // no tier 3 affordable (or never ready): the command goes out anyway; the sim refuses it on both views
-      await B.evaluate(async (g) => {
-        const { abilityCommandArgs } = await import('/src/ui/battle/abilityBar.js');
-        window.__battle.coop.lockstep.queue('abil', abilityCommandArgs(g.uid, { group: true }));
-      }, guestGirl);
-    }
-    const ran = await Promise.all([A, B].map((p) => p.waitForFunction(() => (window.__applied || []).some((s) => s.startsWith('abil:1@')), null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false)));
-    const seen = await Promise.all([A, B].map((p) => p.evaluate(() => (window.__applied || []).filter((s) => s.startsWith('abil:')))));
-    check(ran.every(Boolean) && seen[0][0] === seen[1][0], `co-op abilities: the guest's abil ran with the same result on both views (${seen.map((l) => l[0]).join(' / ')}; tier ${tier}, ${real ? 'a real cast' : 'refused'})`);
-    if (real && /^abil:1@\d+$/.test(seen[0][0] || '')) {
+      check(tapped.slot && tapped.sent === 1 && tapped.pending && tapped.state === 'pending' && tapped.spin,
+        `co-op abilities: a tap on the guest's slot sends one abil and the slot spins (pending); a second tap sends nothing (${JSON.stringify(tapped)})`);
+      const ran = await Promise.all([A, B].map((p) => p.waitForFunction(() => (window.__applied || []).some((s) => s.startsWith('abil:1@')), null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false)));
+      const seen = await Promise.all([A, B].map((p) => p.evaluate(() => (window.__applied || []).filter((s) => s.startsWith('abil:')))));
+      check(ran.every(Boolean) && seen[0].length === 1 && seen[0][0] === seen[1][0] && /^abil:1@\d+$/.test(seen[0][0] || ''),
+        `co-op abilities: the guest's cast ran once, with the same successful result on both views (${seen.map((l) => l.join(',')).join(' / ')})`);
+      const released = await B.waitForFunction((abil) => {
+        const { ui } = window.__battle;
+        ui.abilityBar.update();
+        const btn = document.querySelector(`[data-testid="ability-bar"] .bt-ab[data-id="${abil}"]`);
+        return !ui.abilityPending.has(abil) && !!btn && btn.dataset.state !== 'pending';
+      }, id, { timeout: 15000, polling: 100 }).then(() => true).catch(() => false);
+      check(released, 'co-op abilities: once it ran, the guest\'s slot stops waiting (onApplied clears it)');
       const allyChip = await A.waitForFunction(() => [...document.querySelectorAll('.bt-toast-text')].some((t) => /^Bea's \w+: .+!$/.test(t.textContent)), null, { timeout: 30000, polling: 250 }).then(() => true).catch(() => false);
       check(allyChip, 'co-op abilities: the host shows the ally chip ("Bea\'s <girl>: <ability>!")');
       const foreign = await A.evaluate(() => window.__battle.ui.abilityBar.slots.flatMap((s) => s.casters).filter((u) => !window.__battle.coop.isMine(u)));
-      check(foreign.length === 0, `co-op abilities: the host's bar never holds the guest's girl (${JSON.stringify(foreign)})`);
+      const hostSlots = await A.evaluate(() => window.__battle.ui.abilityBar.slots.length);
+      check(foreign.length === 0, `co-op abilities: the host's bar never holds the guest's girl (${hostSlots} slots, foreign ${JSON.stringify(foreign)})`);
+      await A.evaluate(() => {
+        const ls = window.__battle.coop.lockstep;
+        ls.queue('auto', [false]);
+        ls.queue('speed', [1]);
+      });
     }
     const hx = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
     check(hx.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op abilities: hashes still equal on both (${hx.map((l) => l.length).join(' / ')} checkpoints)`);

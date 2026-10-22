@@ -58,7 +58,7 @@ export function treeGridView(model, { prices = false, selected = null } = {}) {
         name: row.name,
         tag: pathTag(row),
         // the ⚡ path: a sticker on its head (no number: the tier is in its title)
-        ability: row.ability ? { name: row.ability.name, title: `⚡ ${row.ability.name}: unlocks at tier ${row.ability.unlockTier}${row.ability.live ? '' : ' (comes in a later update)'}` } : null,
+        ability: row.ability ? { name: row.ability.name, title: `Ability ${row.ability.name}: unlocks at tier ${row.ability.unlockTier}${row.ability.live ? '' : ' (comes in a later update)'}` } : null,
         locked,
         lockLine: locked ? 'Locked: two paths in use' : null,
         lockWhy: locked ? row.reason : null,

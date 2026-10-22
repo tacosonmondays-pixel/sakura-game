@@ -70,7 +70,8 @@ describe('the Tree tab ⚡ sticker', () => {
     expect(m.rows.map((r) => r.ability?.name ?? null)).toEqual([null, 'Skyfall Volley', null]);
     expect(m.rows[1].ability).toMatchObject({ unlockTier: 3, live: true });
     const v = treeGridView(m);
-    expect(v.rows[1].ability.title).toBe('⚡ Skyfall Volley: unlocks at tier 3');
+    // (a native tooltip: plain words, never the ⚡ emoji)
+    expect(v.rows[1].ability.title).toBe('Ability Skyfall Volley: unlocks at tier 3');
     expect(v.rows[0].ability).toBeNull();
     const k = treeGridView(buildTreeModel({ def: UNIT_MAP.kage }));
     expect(k.rows.find((r) => r.ability).ability.title).toMatch(/comes in a later update/);

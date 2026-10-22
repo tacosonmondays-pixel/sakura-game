@@ -20,6 +20,7 @@ import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/type
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
 import { abilityResultLine } from './abilityBar.js';
+import { boltText } from '../kit.js';
 import { fellTo } from './freeplay.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { FREEPLAY_REWARDS, freeplayTomeLine } from '../../online/coop/rewards.js';
@@ -272,7 +273,7 @@ export function createResults(ctx) {
         art = h('span.bt-mvp-art');
       }
       const casts = sim.stats?.abilityByTower?.[row.uid] || 0;
-      return h(`div.bt-mvp-row${i === 0 ? '.top' : ''}`, art, h('div.bt-mvp-info', h('b', `${i === 0 ? 'MVP · ' : ''}${row.name}`), h('span.bt-mvp-bar', h('span', { style: { width: `${Math.round(row.share * 100)}%` } })), h('small', `${fmtCoins(row.damage)} dmg · ${Math.round(row.share * 100)}%${casts ? ` · ⚡ ${casts}` : ''}`)));
+      return h(`div.bt-mvp-row${i === 0 ? '.top' : ''}`, art, h('div.bt-mvp-info', h('b', `${i === 0 ? 'MVP · ' : ''}${row.name}`), h('span.bt-mvp-bar', h('span', { style: { width: `${Math.round(row.share * 100)}%` } })), h('small', boltText(`${fmtCoins(row.damage)} dmg · ${Math.round(row.share * 100)}%${casts ? ` · ⚡ ${casts}` : ''}`))));
     }));
   }
 

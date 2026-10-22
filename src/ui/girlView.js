@@ -10,7 +10,7 @@ import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
 import { ABILITY_KINDS_LIVE, ABILITY_DEPLOYS_LIVE } from '../sim/abilities.js';
 import { abilityAtTier, skillAtLevel } from '../data/abilities.js';
-import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine } from '../data/abilityText.js';
+import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine, abilityNote } from '../data/abilityText.js';
 
 /**
  * Does this build run an ability entry (a button in battle), or is it a "Comes in a later update" teaser? A UI
@@ -56,7 +56,8 @@ export function abilityInfoView(unit) {
     }
   };
   const text = abilityText(entry.id);
-  const desc = text ? fill(text.desc, entry, statsAt(at)) : '';
+  const note = abilityNote(entry.id); // (Details only: never on the battle's live hold card)
+  const desc = text ? `${fill(text.desc, entry, statsAt(at))}${note ? ` ${note}` : ''}` : '';
   let up = null;
   if (hero && entry.ranks?.length) {
     const lv = entry.ranks[0].level;

@@ -47,7 +47,7 @@ import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../sys
 import { potentialSection, crown } from '../potential.js';
 import { potentialNext, MAX_POTENTIAL } from '../../systems/potential.js';
 import { essenceBalance, canRaisePotential } from '../../systems/essence.js';
-import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG } from '../kit.js';
+import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG, boltText } from '../kit.js';
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
@@ -512,7 +512,7 @@ function abilityChip(unit) {
   return h(`button.gp-abil${v.live ? '' : '.later'}`, {
     type: 'button', 'data-testid': 'info-ability', 'aria-label': `${v.name}: her ability. Open its details`,
     onclick: () => openAbility(unit),
-  }, h('span.gp-abil-text', v.chip), v.live ? null : sticker('Later', '', { title: v.later }), ico(KIT_SVG.chevR, 'ui-ico.gp-chev'));
+  }, h('span.gp-abil-text', boltText(v.chip)), v.live ? null : sticker('Later', '', { title: v.later }), ico(KIT_SVG.chevR, 'ui-ico.gp-chev'));
 }
 
 /** Her ability's Details: the description at her base numbers, how it unlocks, the cooldown, the upgrade. */
@@ -530,8 +530,8 @@ function openAbility(unit) {
         fact('Recharge', v.cooldown),
         v.up ? fact(v.up.at, v.up.line.replace(/^⚡\+\s*/, '')) : null),
       h('p.gp-sub', v.hero
-        ? 'In battle her skill button sits by her portrait (E on a keyboard). It recharges only while a wave runs.'
-        : 'In battle her ⚡ button sits bottom right (1–9 on a keyboard). It recharges only while a wave runs; copies of her share one button. Hold it to switch on Auto.')),
+        ? ['In battle, tap the ', ico(KIT_SVG.bolt, 'kit-bolt'), ' button by her portrait at the bottom left (E on a keyboard). It recharges only while a wave runs.']
+        : 'In battle, tap her portrait at the bottom right to fire it (1–9 on a keyboard). It recharges only while a wave runs; copies of her share one button. Hold it to switch on Auto.')),
   });
 }
 

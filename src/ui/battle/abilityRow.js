@@ -182,7 +182,18 @@ export function createAbilityRow(ctx) {
   const { sim } = ctx;
   let t = null;
   let view = null;
-  const name = h('b.bt-abrow-name');
+  // phones show the row as one 44 px line; a tap on her ability's name opens the live line and Auto (battle.css)
+  let open = false;
+  let openUid = null;
+  const name = h('button.bt-abrow-name', {
+    type: 'button', 'aria-expanded': 'false', 'data-testid': 'ability-row-name',
+    onclick: () => {
+      open = !open;
+      openUid = t?.uid ?? null;
+      el.classList.toggle('open', open);
+      name.setAttribute('aria-expanded', open ? 'true' : 'false');
+    },
+  });
   const fire = h('button.bt-abrow-fire', { type: 'button', 'data-testid': 'ability-fire', onclick: () => onFire() });
   const chip = h('span.bt-abrow-chip', { 'data-testid': 'ability-state' });
   const line = h('span.bt-abrow-line', { 'data-testid': 'ability-line' });
@@ -210,7 +221,7 @@ export function createAbilityRow(ctx) {
       if (ctx.aim.abilityId === view.id) {
         ctx.aim.cancel();
         ctx.castAbility?.(t.uid, { group: false, aim: null, id: view.id });
-      } else ctx.aim.startAbility({ uid: t.uid, id: view.id, kind: view.aim, name: view.name });
+      } else ctx.aim.startAbility({ uid: t.uid, id: view.id, kind: view.aim, name: view.name, from: 'panel' });
       return;
     }
     ctx.castAbility?.(t.uid, { group: false, aim: null, id: view.id });
@@ -227,9 +238,16 @@ export function createAbilityRow(ctx) {
     t = tower;
     view = tower ? viewOf(tower) : null;
     if (!view) return null;
-    el.className = `bt-abrow s-${view.state}${view.readOnly ? ' ro' : ''}${view.hero ? ' hero' : ''}`;
+    if (openUid !== tower.uid) {
+      open = false;
+      openUid = tower.uid;
+      name.setAttribute('aria-expanded', 'false');
+    }
+    el.className = `bt-abrow s-${view.state}${view.readOnly ? ' ro' : ''}${view.hero ? ' hero' : ''}${open ? ' open' : ''}`;
     el.title = view.title;
     if (name.textContent !== view.name) name.textContent = view.name;
+    const label = `${view.name}: ${view.line}`;
+    if (name.getAttribute('aria-label') !== label) name.setAttribute('aria-label', label);
     fire.hidden = !view.button;
     if (view.button) {
       if (fire.textContent !== view.button.label) fire.textContent = view.button.label;

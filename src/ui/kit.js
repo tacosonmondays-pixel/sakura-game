@@ -25,6 +25,25 @@ export const KIT_SVG = {
     + '</g><circle cx="12" cy="12" r="2.4" fill="#ffd23f"/></svg>',
 };
 
+/**
+ * Words with every ⚡ drawn as the kit bolt (`.kit-bolt`: yellow, the same mark as the ability row, the path chip and
+ * the hero's skill button). The ⚡ character is a colour emoji that ignores `color` and looks different on every
+ * phone, so it is only ever a marker in the game's text data. Returns h() children (strings and icons).
+ * @param {string} text
+ * @param {string} [cls]
+ */
+export function boltText(text, cls = 'kit-bolt') {
+  const out = [];
+  String(text ?? '').split('⚡').forEach((part, i) => {
+    if (i) out.push(ico(KIT_SVG.bolt, cls));
+    if (part) out.push(part);
+  });
+  return out;
+}
+
+/** The same words for a title or an aria-label (no emoji): "⚡ T3 Hawk Eye — …" → "T3 Hawk Eye — …". */
+export const plainBolt = (text) => String(text ?? '').replace(/⚡\+?\s*/g, '').trim();
+
 /** Replaces an element's children, skipping null / false (a plain replaceChildren() would print "null"). */
 export function fillIn(el, ...kids) {
   el.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false && k !== true));

@@ -103,10 +103,11 @@ export async function installHelpers(page, cash = 1e6) {
         return sim.hero?.level || 0;
       },
       /** Her ability charged (and, with `auto`, her Auto switch set). */
-      ready(uid, { cd = 0, auto = null } = {}) {
+      ready(uid, { cd = 0, auto = null, endActive = false } = {}) {
         const t = sim.getTower(uid);
         if (!t?.abil) return false;
         t.abil.cd = cd;
+        if (endActive) t.abil.active = 0; // (staging: a running rally / boost ends its "active" state at once)
         if (auto != null) t.abil.auto = !!auto;
         for (const [k] of sim.abilGroups) if (k.endsWith(`|${t.abil.id}`)) sim.abilGroups.delete(k);
         ui.abilityBar.refresh();
@@ -140,6 +141,61 @@ export async function installHelpers(page, cash = 1e6) {
         return sim.state;
       },
       toasts: () => [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast-text')].map((e) => e.textContent),
+      /**
+       * Is the toast whose words match `re` really seen: on top at its centre (the feed takes no taps, so it is
+       * hit-tested with pointer events on for a moment) and on one line (nothing cut off, one line tall)?
+       */
+      toastSeen(re) {
+        const rx = new RegExp(re);
+        const text = [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast-text')].find((e) => rx.test(e.textContent));
+        if (!text) return { found: false };
+        const toast = text.closest('.bt-toast');
+        const feed = toast.parentElement;
+        const r = toast.getBoundingClientRect();
+        const pe = feed.style.pointerEvents;
+        feed.style.pointerEvents = 'auto';
+        toast.style.pointerEvents = 'auto';
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        feed.style.pointerEvents = pe;
+        toast.style.pointerEvents = '';
+        const fs = parseFloat(getComputedStyle(text).fontSize) || 12;
+        return {
+          found: true, text: text.textContent, onTop: !!hit && toast.contains(hit), hit: hit ? `${hit.tagName}.${hit.className?.baseVal ?? hit.className}` : null,
+          oneLine: text.offsetHeight < fs * 1.9 && text.scrollWidth <= text.clientWidth + 1, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+        };
+      },
+      /** A board spot on screen where `unitId` can stand and a tap there lands on it (CSS px), or null. */
+      spotOnScreen(unitId) {
+        const r = window.__battle.renderer;
+        const barTop = ui.bar.el.getBoundingClientRect().top;
+        const panel = document.querySelector('[data-testid="tower-panel"]:not([hidden])')?.getBoundingClientRect();
+        const ok = (x, y) => [[0, 0], [0.15, 0], [-0.15, 0], [0, 0.15], [0, -0.15]].every(([dx, dy]) => sim.canPlace(unitId, x + dx, y + dy).ok);
+        let best = null;
+        for (let y = 0.4; y < sim.map.height; y += 0.4) {
+          for (let x = 0.4; x < sim.map.width; x += 0.4) {
+            if (!ok(x, y)) continue;
+            const s = r.worldToScreen(x, y, 0);
+            if (!s.visible || s.clientX < 20 || s.clientX > innerWidth - 20 || s.clientY < 70 || s.clientY > barTop - 70) continue;
+            if (panel && s.clientX > panel.left - 10) continue;
+            if (document.elementFromPoint(s.clientX, s.clientY) !== r.canvas) continue;
+            const p = r.pick(s.clientX, s.clientY);
+            if (!p.inBounds || p.towerUid != null || !sim.canPlace(unitId, p.x, p.y).ok) continue;
+            const d = Math.abs(s.clientX - innerWidth / 2) + Math.abs(s.clientY - innerHeight / 2);
+            if (!best || d < best.d) best = { x: s.clientX, y: s.clientY, d };
+          }
+        }
+        return best;
+      },
+      /** The girls' screen points (her middle) that fall inside element `sel`'s rect. */
+      girlsUnder(sel) {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        const r = window.__battle.renderer;
+        return sim.towers.filter((t) => !t.removed).map((t) => ({ t, p: r.worldToScreen(t.x, t.y, 0.5) }))
+          .filter(({ p }) => p.clientX >= b.left && p.clientX <= b.right && p.clientY >= b.top && p.clientY <= b.bottom)
+          .map(({ t, p }) => `${t.unitId}@${Math.round(p.clientX)},${Math.round(p.clientY)}`);
+      },
       /**
        * A girl's spot on screen (CSS px) for a tap on the board: her feet first, else a point of her body the HUD
        * does not cover (the canvas is on top there) that the board's pick resolves to her.

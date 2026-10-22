@@ -9,7 +9,9 @@ import { Sim } from '../../src/sim/Sim.js';
 import {
   abilityBarView, slotNumbers, slotState, abilityCommandArgs, battleKeyAction, refusalText, REFUSAL_REASONS,
   createAbilityNotes, unlockText, allyChipText, abilityCardView, wholeSeconds, ALLY_CHIP_MS, abilityResultLine,
+  slotTapPlan, aimCaster, coopCastCheck, clearPendingFor, cardSide,
 } from '../../src/ui/battle/abilityBar.js';
+import { abilityInfoView } from '../../src/ui/girlView.js';
 import { DEFAULT_SETTINGS, createProfile, migrateProfile } from '../../src/systems/save.js';
 import { autoAbilities } from '../../src/ui/battle/setup.js';
 import { abilityPathOf, TRANSIENT_REFUSALS } from '../../src/sim/abilities.js';
@@ -223,6 +225,191 @@ describe('the hold card', () => {
     unlock(sim, place(sim, 'hotaru'));
     expect(abilityCardView(sim, abilityBarView(sim, 0)[0]).reach).toBeNull();
   });
+
+  it('Market Day (coins, per player): no reach ring, the recharge once, no Details-only sentence on the live card', () => {
+    const sim = battle(['momo']);
+    const momo = unlock(sim, place(sim, 'momo'));
+    sim.startNextWave();
+    // it starts uncharged: the state chip counts down, the total recharge is not repeated
+    let v = abilityCardView(sim, abilityBarView(sim, 0)[0]);
+    expect(v.reach).toBeNull();
+    expect(v.state).toMatch(/^Recharging · \d+s$/);
+    expect(v.cooldown).toBeNull();
+    expect(v.scope).toBe('Per player');
+    expect(v.desc).not.toMatch(/uncharged/);
+    expect([v.state, v.cooldown, v.desc].join(' ').match(/Recharg/g)).toHaveLength(1);
+    // ready: the total shows (once), still no ring
+    momo.abil.cd = 0;
+    v = abilityCardView(sim, abilityBarView(sim, 0)[0]);
+    expect(v.state).toBe('Ready');
+    expect(v.cooldown).toMatch(/^Recharges in \d+s of wave time$/);
+    expect(v.reach).toBeNull();
+    // the sentence lives on in the girl page's Details sheet
+    expect(abilityInfoView(UNIT_MAP.momo).desc).toMatch(/never on Nightmare\. It starts uncharged\.$/);
+  });
+
+  it('an area ability charging: its ring, and the recharge only in the state chip', () => {
+    const sim = battle(['aoi']);
+    unlock(sim, place(sim, 'aoi'));
+    sim.startNextWave();
+    const v = abilityCardView(sim, abilityBarView(sim, 0)[0]);
+    expect(v.state).toMatch(/^Recharging · \d+s$/);
+    expect(v.cooldown).toBeNull();
+    expect(v.reach?.r).toBeGreaterThan(0);
+  });
+});
+
+describe('the hold card\'s side (cardSide)', () => {
+  const R = { left: 504, right: 834, top: 108, bottom: 250 };
+  const L = { left: 12, right: 342, top: 108, bottom: 250 };
+  it('the side that covers fewer girls; the caster counts double; the bar side on a tie', () => {
+    // the M1 review's 844x390 case: four girls under the right-hand card, Aoi (the caster) among them
+    const pts = [{ x: 558, y: 131, uid: 1 }, { x: 542, y: 155, uid: 2 }, { x: 534, y: 174, uid: 3 }, { x: 566, y: 149, uid: 4 }, { x: 200, y: 300, uid: 5 }];
+    expect(cardSide({ left: L, right: R }, pts, 1)).toBe('left');
+    expect(cardSide({ left: L, right: R }, [], 1)).toBe('right');
+    expect(cardSide({ left: L, right: R }, [{ x: 100, y: 120, uid: 9 }, { x: 600, y: 120, uid: 8 }], null)).toBe('right');
+    // her own spot outweighs one other girl
+    expect(cardSide({ left: L, right: R }, [{ x: 100, y: 120, uid: 9 }, { x: 600, y: 120, uid: 1 }], 1)).toBe('left');
+    expect(cardSide({ left: L, right: R }, [{ x: 100, y: 120, uid: 1 }, { x: 600, y: 120, uid: 8 }], 1)).toBe('right');
+  });
+});
+
+describe('a tap on a slot (slotTapPlan, ABILITIES_SPEC §3.3)', () => {
+  /** Two copies of an aimed girl, the first recharging, the second ready, enemies on the road. */
+  function copies(unitId) {
+    const sim = battle([unitId, 'aoi'], { hero: null });
+    const c1 = unlock(sim, place(sim, unitId));
+    const c2 = unlock(sim, place(sim, unitId, { skip: 10 }));
+    const aoi = place(sim, 'aoi', { skip: 20 });
+    sim.startNextWave();
+    for (let i = 0; i < 600; i++) sim.update(1 / 60);
+    c1.abil.cd = c1.abil.cdMax;
+    c2.abil.cd = 0;
+    return { sim, c1, c2, aoi, isReady: (u) => !!sim.abilityStatus(u)?.ready };
+  }
+
+  for (const [unitId, id] of [['wakaba', 'wakaba.timeOut'], ['yuzuha', 'yuzuha.emergencyDeploy']]) {
+    it(`${id}: the selected copy recharging hands the aim to the ready copy, and the aimed cast is not refused`, () => {
+      const { sim, c1, c2, aoi, isReady } = copies(unitId);
+      const slot = abilityBarView(sim, 0).find((s) => s.id === id);
+      expect([slot.state, slot.ready, slot.casters]).toEqual(['ready', 1, [c1.uid, c2.uid]]);
+      // her panel is open on the recharging copy (ctx.selectedUid): aim mode goes to the copy that will cast
+      const plan = slotTapPlan(slot, { selectedUid: c1.uid, isReady });
+      expect(plan).toEqual({ do: 'aim', uid: c2.uid });
+      expect(aimCaster(slot, c1.uid, isReady)).toBe(c2.uid);
+      // the aimed cast goes out group: false (aimControl): it is the ready copy's, never "Recharging"
+      const near = [...sim.enemies].filter((e) => !e.dead).sort((p, q) => ((p.x - c2.x) ** 2 + (p.y - c2.y) ** 2) - ((q.x - c2.x) ** 2 + (q.y - c2.y) ** 2))[0];
+      const r = sim.castAbility(plan.uid, { group: false, aim: unitId === 'wakaba' ? [aoi.x, aoi.y] : [near.x, near.y] });
+      expect(r.reason).not.toBe('cooldown');
+      expect(r.casterUid).toBe(c2.uid);
+      if (unitId === 'wakaba') expect(r).toEqual({ ok: true, reason: null, casterUid: c2.uid });
+    });
+  }
+
+  it('a ready selected copy keeps the cast; no selection or another girl selected: the slot\'s best copy', () => {
+    const { sim, c1, c2, aoi, isReady } = copies('wakaba');
+    let slot = abilityBarView(sim, 0)[0];
+    expect(slotTapPlan(slot, { selectedUid: c2.uid, isReady })).toEqual({ do: 'aim', uid: c2.uid });
+    expect(slotTapPlan(slot, { selectedUid: null, isReady })).toEqual({ do: 'aim', uid: c2.uid });
+    expect(slotTapPlan(slot, { selectedUid: aoi.uid, isReady })).toEqual({ do: 'aim', uid: c2.uid });
+    c1.abil.cd = 0;
+    slot = abilityBarView(sim, 0)[0];
+    expect(slotTapPlan(slot, { selectedUid: c1.uid, isReady })).toEqual({ do: 'aim', uid: c1.uid });
+  });
+
+  it('the same slot while it aims = the group cast with her own pick; a placement tap never fires; a key does; ended: nothing', () => {
+    const { sim, c1, isReady } = copies('wakaba');
+    const slot = abilityBarView(sim, 0)[0];
+    expect(slotTapPlan(slot, { selectedUid: c1.uid, aimingId: slot.id, isReady })).toEqual({ do: 'cast', uid: c1.uid, group: true, cancelAim: true });
+    expect(slotTapPlan(slot, { placing: true, isReady })).toEqual({ do: 'none' });
+    expect(slotTapPlan(slot, { placing: true, key: true, isReady }).do).toBe('aim');
+    expect(slotTapPlan(slot, { ended: true, key: true, isReady })).toEqual({ do: 'none' });
+    expect(slotTapPlan(null)).toEqual({ do: 'none' });
+    // no aim control (or a slot that does not aim): the group cast
+    expect(slotTapPlan(slot, { canAim: false, isReady })).toMatchObject({ do: 'cast', group: true, cancelAim: false });
+    const sim2 = battle(['aoi']);
+    const a = ready(unlock(sim2, place(sim2, 'aoi')));
+    sim2.startNextWave();
+    expect(slotTapPlan(abilityBarView(sim2, 0)[0], { isReady: () => true })).toEqual({ do: 'cast', uid: a.uid, group: true, cancelAim: false });
+  });
+});
+
+describe('the co-op cast path (coopCastCheck, clearPendingFor)', () => {
+  /** A CoopSim: player 0 has two Aois at tier 3, player 1 a Rei at tier 3, a wave running. */
+  function coop() {
+    const st = { seed: 5, stageId: '1-2', difficulty: 'normal', players: [{ slot: 0, uid: 'a', name: 'A', loadout: [{ unitId: 'aoi' }], hero: null }, { slot: 1, uid: 'b', name: 'B', loadout: [{ unitId: 'rei' }], hero: null }] };
+    const c = createCoopSim(st, { mySlot: 0 });
+    const snap = c.snapshot();
+    snap.wallets = [1e6, 1e6];
+    c.restore(snap);
+    let s = 1;
+    const cmd = (p, k, a) => c.apply({ t: c.tick, p, s: s++, k, a });
+    const placed = [];
+    const put = (p, unitId) => {
+      for (let y = 0.6; y < c.sim.map.height; y += 0.45) {
+        for (let x = 0.6; x < c.sim.map.width; x += 0.45) {
+          // (this view is player 0's: her canPlace knows only her own loadout; the partner's order just tries)
+          if ((p === 0 && !c.sim.canPlace(unitId, x, y).ok) || placed.some(([px, py]) => Math.hypot(px - x, py - y) < 1.5)) continue;
+          const r = cmd(p, 'place', [unitId, Math.round(x * 1024), Math.round(y * 1024)]);
+          if (r.ok) {
+            placed.push([x, y]);
+            for (let i = 0; i < 3; i++) expect(cmd(p, 'upg', [r.tower.uid, abilityPathOf(UNIT_MAP[unitId])]).ok).toBe(true);
+            return r.tower;
+          }
+        }
+      }
+      throw new Error(`no spot for ${unitId}`);
+    };
+    const a1 = put(0, 'aoi');
+    const a2 = put(0, 'aoi');
+    const rei = put(1, 'rei');
+    expect(cmd(0, 'wave', []).ok).toBe(true);
+    // until an enemy walks into the second Aoi's reach (her volley needs a target)
+    const near = () => c.sim.enemies.some((e) => !e.dead && !e.hidden && (e.x - a2.x) ** 2 + (e.y - a2.y) ** 2 <= (a2.eff.range * 0.9) ** 2);
+    for (let i = 0; i < 6000 && !near(); i++) c.step();
+    expect(near()).toBe(true);
+    const mine = (u) => c.ownerOf(u) === 0;
+    return { c, a1, a2, rei, mine };
+  }
+
+  it('one abil per ability at a time: a cast waiting for its command blocks a second; its tick releases it', () => {
+    const { c, a1, a2, mine } = coop();
+    const sim = c.sim;
+    a1.abil.cd = a1.abil.cdMax; // the selected copy recharges
+    a2.abil.cd = 0; // the other is ready
+    const pending = new Map();
+    // the bar's group tap on the recharging copy: the ready copy fires, so the command goes out
+    expect(coopCastCheck(sim, a1.uid, { group: true, mine, pending })).toEqual({ send: true, id: 'aoi.skyfall' });
+    // an aimed tap (group: false) on her alone is refused here, with the reason the toast shows
+    expect(coopCastCheck(sim, a1.uid, { group: false, mine, pending })).toMatchObject({ ok: false, reason: 'cooldown', casterUid: a1.uid });
+    // sent: the slot waits, and a second tap sends nothing (no second abil for a pending id)
+    pending.set('aoi.skyfall', { uid: a1.uid, at: 0 });
+    expect(abilityBarView(sim, 0, { pending })[0].state).toBe('pending');
+    expect(coopCastCheck(sim, a1.uid, { group: true, mine, pending })).toEqual({ queued: true, id: 'aoi.skyfall' });
+    expect(coopCastCheck(sim, a2.uid, { group: false, mine, pending })).toEqual({ queued: true, id: 'aoi.skyfall' });
+    // the command runs (on every client): the ready copy cast
+    const cast = { t: c.tick, p: 0, s: 99, k: 'abil', a: abilityCommandArgs(a1.uid, { group: true }) };
+    expect(c.apply(cast)).toEqual({ ok: true, casterUid: a2.uid });
+    // someone else's command or another kind releases nothing; mine does
+    expect(clearPendingFor(pending, { ...cast, p: 1 }, 0)).toEqual([]);
+    expect(clearPendingFor(pending, { ...cast, k: 'acast' }, 0)).toEqual([]);
+    expect(clearPendingFor(pending, { ...cast, a: [a2.uid, 1, -1, -1] }, 0)).toEqual([]);
+    expect(pending.size).toBe(1);
+    expect(clearPendingFor(pending, cast, 0)).toEqual(['aoi.skyfall']);
+    expect(pending.size).toBe(0);
+    expect(abilityBarView(sim, 0, { pending })[0].state).not.toBe('pending');
+    // both copies now recharge: the next tap is refused locally (no round trip)
+    expect(coopCastCheck(sim, a1.uid, { group: true, mine, pending })).toMatchObject({ ok: false, reason: 'cooldown' });
+  });
+
+  it('busy (a rebuild), the partner\'s girl, a girl without an ability', () => {
+    const { c, a1, rei, mine } = coop();
+    a1.abil.cd = 0;
+    expect(coopCastCheck(c.sim, a1.uid, { busy: true, mine })).toEqual({ ok: false, reason: 'busy' });
+    expect(coopCastCheck(c.sim, rei.uid, { group: true, mine })).toEqual({ ok: false, reason: 'notYours' });
+    a1.abil = null;
+    expect(coopCastCheck(c.sim, a1.uid, { group: true, mine })).toEqual({ ok: false, reason: 'locked', casterUid: a1.uid });
+  });
 });
 
 describe('battleKeyAction', () => {
@@ -330,9 +517,20 @@ describe('feed notes', () => {
     expect(n.firstUnlock('aoi.skyfall')).toBe(false); // a second Aoi
     expect(n.firstUnlock('akane.starmine')).toBe(false);
     expect(n.firstUnlock(null)).toBe(false);
-    expect(unlockText('Aoi', 'Skyfall Volley')).toBe('Aoi learned Skyfall Volley! Tap ⚡ to fire it.');
-    expect(unlockText('Aoi', 'Skyfall Volley', { hover: true, key: '1' })).toBe('Aoi learned Skyfall Volley! Tap ⚡ or press 1 to fire it.');
-    expect(unlockText('Hikari', 'Morning Rally', { hover: true, hero: true })).toBe('Hikari learned Morning Rally! Tap ⚡ by her portrait or press E to use it.');
+    // one line that points at what is on screen: her portrait in the bar (a tower girl's slot has no ⚡), the bolt
+    // button by the hero's portrait
+    expect(unlockText('Aoi', 'Skyfall Volley')).toBe('Skyfall Volley: tap Aoi, bottom right');
+    expect(unlockText('Aoi', 'Skyfall Volley', { hover: true, key: '1' })).toBe('Skyfall Volley: press 1 or tap Aoi');
+    expect(unlockText('Aoi', 'Skyfall Volley', { hover: true, key: null })).toBe('Skyfall Volley: tap Aoi, bottom right');
+    expect(unlockText('Hikari', 'Morning Rally', { hero: true })).toBe('Morning Rally: tap ⚡ by Hikari');
+    expect(unlockText('Hikari', 'Morning Rally', { hover: true, hero: true })).toBe('Morning Rally: press E or tap ⚡ by Hikari');
+    // the longest names still fit the one-line toast (the phone feed holds about 44 characters)
+    const names = Object.values(ABILITY_TEXT).map((r) => r.name);
+    const girls = Object.values(UNIT_MAP).map((u) => u.name);
+    const longest = (xs) => xs.reduce((a, b) => (b.length > a.length ? b : a), '');
+    const worst = [unlockText(longest(girls), longest(names)), unlockText(longest(girls), longest(names), { hover: true, key: '9' })];
+    for (const w of worst) expect(w.length, w).toBeLessThanOrEqual(46);
+    for (const w of worst) expect(w).not.toMatch(/⚡/);
   });
 
   it('the ally chip at most once per 3 s', () => {

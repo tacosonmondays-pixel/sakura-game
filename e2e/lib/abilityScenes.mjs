@@ -10,13 +10,14 @@
 //   m1-teaser         Aoi at 0-2-0: the ⚡ teaser on her path rows
 //   m1-teaser-kage    Kage at tier 3: "Comes in a later update"
 //   m1-cast-fx        Skyfall's lines and Starmine's warning rings
-//   m1-girl-info-aoi  the girl page's ⚡ chip
-//   m1-girl-tree-aoi  the ⚡ sticker on her ⚡ path in the Tree tab
+//   m1-girl-info-aoi  the girl page's ability chip (the kit bolt)
+//   m1-girl-details-aoi / -hikari  its Details sheet: how to fire it (her portrait bottom right / the hero's bolt button)
+//   m1-girl-tree-aoi  the bolt sticker on her ability path in the Tree tab
 //   m1-reduce-motion  (844 only) Reduce motion: a still ready ring, FX that only fade
 import { openApp, seedSave, openBattle, settle, until } from './battleKit.mjs';
 import { uiProbe, formatProbe, BATTLE_BOXES } from './uiProbe.mjs';
 
-export const M1_SCENES = ['m1-between', 'm1-bar-idle', 'm1-bar-panel', 'm1-hold-card', 'm1-aim-wakaba', 'm1-teaser', 'm1-teaser-kage', 'm1-cast-fx', 'm1-girl-info-aoi', 'm1-girl-tree-aoi', 'm1-reduce-motion'];
+export const M1_SCENES = ['m1-between', 'm1-bar-idle', 'm1-bar-panel', 'm1-hold-card', 'm1-aim-wakaba', 'm1-teaser', 'm1-teaser-kage', 'm1-cast-fx', 'm1-girl-info-aoi', 'm1-girl-details-aoi', 'm1-girl-details-hikari', 'm1-girl-tree-aoi', 'm1-reduce-motion'];
 const GIRLS = ['hikari', 'aoi', 'akane', 'momo', 'wakaba', 'rei', 'yuki', 'miko', 'kage'];
 const SQUAD = ['aoi', 'akane', 'momo', 'wakaba', 'rei', 'yuki', 'miko', 'kage'];
 
@@ -63,6 +64,22 @@ export async function runM1Scenes(page, { base, vp, want, shot: rawShot, log = c
     probes['m1-girl-info-aoi'] = await uiProbe(page);
     log(`  probe m1-girl-info-aoi: ${formatProbe(probes['m1-girl-info-aoi'])}`);
     await shot('m1-girl-info-aoi');
+  }
+  // the ability's Details sheet (how to fire it in battle: her portrait at the bottom right / the hero's bolt button)
+  for (const id of ['aoi', 'hikari']) {
+    const name = `m1-girl-details-${id}`;
+    if (!has(name)) continue;
+    await page.evaluate((u) => { location.hash = `#/student/${u}?tab=info`; }, id);
+    await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'student' && document.querySelector('[data-testid="info-ability"]'), null, { timeout: 30000 });
+    await settle(page, 6500);
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    await page.locator('[data-testid="info-ability"]').click({ force: true });
+    await page.waitForSelector('[data-testid="ability-sheet"]', { timeout: 10000 });
+    await settle(page, 600);
+    log(`  ${name}: ${(await page.locator('[data-testid="ability-sheet"]').innerText()).replace(/\s+/g, ' ').slice(0, 400)}`);
+    await shot(name);
+    await page.keyboard.press('Escape');
+    await settle(page, 300);
   }
   if (has('m1-girl-tree-aoi')) {
     await page.evaluate(() => { location.hash = '#/student/aoi?tab=tree'; });

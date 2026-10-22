@@ -395,3 +395,7 @@ button.ui-gtile:active { transform: scale(0.96); }
 
 /* ---------- Layers (P1): a dialog opened from a sheet sits above that sheet ---------- */
 .ui-layer ~ .modal-overlay { z-index: 190; }
+
+/* ---------- The ability bolt (kit.js boltText / KIT_SVG.bolt): one yellow mark everywhere, never the ⚡ emoji ---------- */
+.kit-bolt { display: inline-block; width: 1.05em; height: 1.05em; margin: 0 0.08em; vertical-align: -0.17em; line-height: 0; color: var(--yellow); }
+.kit-bolt svg { display: block; width: 100%; height: 100%; }

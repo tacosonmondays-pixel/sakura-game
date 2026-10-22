@@ -25,6 +25,7 @@ import { aimMode } from '../../sim/towers.js';
 import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS } from './buffs.js';
 import { createAbilityRow, pathAbilityTeaser } from './abilityRow.js';
 import { abilityText } from '../../data/abilityText.js';
+import { boltText, ico, KIT_SVG } from '../kit.js';
 
 /** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
 const CLUB_NAMES = { archery: 'Archery', fencing: 'Fencing', taiko: 'Taiko', pyro: 'Pyrotechnics', tea: 'Tea', bell: 'Bell' };
@@ -554,7 +555,7 @@ export function createTowerPanel(ctx) {
     for (let l = t.level + 1; l <= Math.min(max, t.level + 3); l++) {
       const row = trackLevel(def, l);
       if (!row) continue;
-      next.push(h(`div.bt-track-next${l === t.level + 1 ? '.first' : ''}`, h('b', `${l === t.level + 1 ? 'Next' : 'Then'}: Lv ${l}`), ` · ${trackDesc(def, l)}`));
+      next.push(h(`div.bt-track-next${l === t.level + 1 ? '.first' : ''}`, h('b', `${l === t.level + 1 ? 'Next' : 'Then'}: Lv ${l}`), ' · ', boltText(trackDesc(def, l))));
     }
     const rows = (def.hero?.levels || []).map((row) => {
       const skill = trackSkillLine(def, row.level);
@@ -562,7 +563,7 @@ export function createTowerPanel(ctx) {
         `div.bt-track-row${row.level <= t.level ? '.on' : ''}${row.level === t.level + 1 ? '.next' : ''}${rankAt(def, row.level) ? '.rank' : ''}`,
         { 'data-level': row.level },
         h('span.bt-track-lv', row.level <= t.level ? `✓ ${row.level}` : String(row.level)),
-        h('span.bt-track-desc', row.desc, skill ? h('b.bt-track-skill', ` ${skill}`) : null, h('small', sourceText(def, row.from))),
+        h('span.bt-track-desc', row.desc, skill ? h('b.bt-track-skill', ' ', boltText(skill)) : null, h('small', sourceText(def, row.from))),
       );
     });
     const track = trackOpen ? h('div.bt-track', { 'data-testid': 'hero-track' }, rows) : null;
@@ -627,7 +628,7 @@ export function createTowerPanel(ctx) {
     } else {
       const next = st.next;
       const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })),
-        teaser ? h('div.bt-path-abil', { 'data-testid': `path-abil-${i}` }, teaser) : null,
+        teaser ? h('div.bt-path-abil', { 'data-testid': `path-abil-${i}` }, boltText(teaser)) : null,
         h('div.bt-path-desc', next.desc));
       let action;
       if (st.reason === 'crosspath') {
@@ -669,7 +670,7 @@ export function createTowerPanel(ctx) {
       `div.bt-path${st.reason === 'crosspath' || st.reason === 'onePerPath' ? '.locked' : ''}${cur >= 3 ? '.main' : ''}`,
       { 'data-path': i },
       h('div.bt-path-head', h('span.bt-path-name', p.name),
-        abil ? h('span.bt-path-bolt', { 'data-testid': `path-bolt-${i}`, title: later ? `⚡ ${abil.name} — comes in a later update` : `⚡ ${abil.name} at tier ${p.ability.unlockTier ?? 3}`, 'aria-label': `Ability path: ${abil.name}` }, '⚡') : null,
+        abil ? h('span.bt-path-bolt', { 'data-testid': `path-bolt-${i}`, title: later ? `Ability ${abil.name} — comes in a later update` : `Ability ${abil.name} at tier ${p.ability.unlockTier ?? 3}`, 'aria-label': `Ability path: ${abil.name}` }, ico(KIT_SVG.bolt, 'bt-path-bolt-ico')) : null,
         h('span.bt-path-focus', p.focus || ''), pips),
       body,
     );

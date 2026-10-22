@@ -210,13 +210,13 @@ function controls() {
 
 /** Abilities (ABILITIES_SPEC §10): the ⚡ path, the bar, charging, Auto, copies, heroes, co-op. */
 function abilitiesArticle() {
-  return article('abilities', 'Abilities', 'basics', 'lightning', 'Every girl learns a ⚡ ability with a short recharge: how to fire it, charge it and let it fire by itself.', ['ability', 'abilities', 'skill', 'auto', 'auto-cast', 'cooldown', 'recharge', 'lightning', 'bar', 'keys'], [
-    sec('The ⚡ path',
-      p('At tier 3 of one of her paths, marked ⚡, a girl learns an ability: a button with a short recharge. Tier 5 of that path makes it stronger and recharge faster. Her page shows it on the Info tab and marks the path on the Tree tab.'),
-      p('Some girls\' abilities come in a later update: their ⚡ path says so, and the path\'s tiers work as usual.')),
+  return article('abilities', 'Abilities', 'basics', 'lightning', 'Every girl learns an ability with a short recharge: how to fire it, charge it and let it fire by itself.', ['ability', 'abilities', 'skill', 'auto', 'auto-cast', 'cooldown', 'recharge', 'lightning', 'bar', 'keys'], [
+    sec('The ability path',
+      p('At tier 3 of one of her paths, marked with a yellow bolt, a girl learns an ability: a button with a short recharge. Tier 5 of that path makes it stronger and recharge faster. Her page shows it on the Info tab and marks the path on the Tree tab.'),
+      p('Some girls\' abilities come in a later update: their bolt path says so, and the path\'s tiers work as usual.')),
     sec('Using it',
       list([
-        'Tap her button in the ability bar (bottom right), or press 1–9. Her panel has the same button (FIRE).',
+        'Tap her portrait in the ability bar (bottom right, above the cards), or press 1–9. Her panel has the same button (FIRE).',
         'Abilities recharge only while a wave is running, and can be used only during a wave. Effects that last end when the wave is cleared.',
         'Hold the button (right-click on a computer) to read what it does with her current numbers, and to switch Auto on or off.',
         'Several copies of the same girl share one button; each tap fires the next copy that is ready. Map-wide abilities (globe badge) recharge once per player.',
