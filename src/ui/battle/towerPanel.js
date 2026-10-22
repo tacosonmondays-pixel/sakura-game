@@ -18,7 +18,7 @@ import { potentialSummary } from '../../systems/potential.js';
 import { potentialRows, potentialRowText } from './potentialRows.js';
 import { roundCost } from '../../sim/Sim.js';
 import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies chips + tree button
-import { tierTags } from '../upgradeTags.js';
+import { tierTags, tierDesc } from '../upgradeTags.js';
 import { HERO_GROWTH } from '../../data/heroTracks.js';
 import { PRICE_TICK, trackLevel, sourceText, rankAt } from './heroLevels.js';
 import { aimMode } from '../../sim/towers.js';
@@ -607,7 +607,7 @@ export function createTowerPanel(ctx) {
       body = h('div.bt-path-max', h('b', 'MAX'), ` ${p.tiers[cur - 1]?.name || ''}`);
     } else {
       const next = st.next;
-      const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })), h('div.bt-path-desc', next.desc));
+      const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })), h('div.bt-path-desc', tierDesc(t.def, i, cur + 1) || next.desc));
       let action;
       if (st.reason === 'crosspath') {
         action = h('div.bt-lock', icon('lock', 'bt-ico-sm'), crosspathReason(t.tiers, i, names));
