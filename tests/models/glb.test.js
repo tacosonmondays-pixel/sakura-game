@@ -26,6 +26,52 @@ const MAX_LOD_BYTES = 240 * 1024;
 const MAX_MESHY_FULL_BYTES = 2.5 * 1024 * 1024;
 const MAX_MESHY_LOD_BYTES = 1.25 * 1024 * 1024;
 const MESHY_CLIPS = ['idle', 'walk', 'cheer', 'hurt'];
+// Clip-length caps for the imported figures, raised deliberately at rig rollout step 1 (PLAN §6.5,
+// notes/rig-test/VERDICT.md §7): the old caps (idle 1.6 s, cheer 1.2, hurt 0.4, attack 0.6) only fit
+// the short, stiff shipped loops; Noa's library clips are a 7.85 s breathing idle, a 1.85 s cheer, a
+// 1.2 s hurt and a 10 s between-wave mood loop. The new caps still stop a 30 s mocap take or a
+// looping full hit reaction from slipping in. A figure's old clip kept as `<name>_short` (the
+// 'Lively figures: off' fallback) keeps the old cap.
+const MESHY_CLIP_CAPS = { idle: 8, cheer: 4, victory: 4, hurt: 1.2, dizzy: 6, deploy: 2, walk: 1.2 };
+const MESHY_OLD_CAPS = { idle: 1.6, cheer: 1.2, hurt: 0.4, walk: 1.2 };
+const ATTACK_CAP = 1.2; // longer than the old 0.6 s: clipMarks[name].contact is required
+const FIDGET_CAP = 5; // anything else; a loop marked clipMarks[name].mood (between waves): 10 s
+
+/** The BIN chunk of a GLB and a reader for its (packed: int8/uint8/int16/uint16/float) accessors. */
+function readGlbBin(file) {
+  const buf = readFileSync(file);
+  let off = 12;
+  while (off < buf.length) {
+    const len = buf.readUInt32LE(off);
+    const type = buf.readUInt32LE(off + 4);
+    if (type === 0x004e4942) return buf.subarray(off + 8, off + 8 + len);
+    off += 8 + len;
+  }
+  return null;
+}
+function readAccessor(json, bin, idx) {
+  const a = json.accessors[idx];
+  const bv = json.bufferViews[a.bufferView];
+  const n = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type];
+  const size = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5126: 4 }[a.componentType];
+  const stride = bv.byteStride || n * size;
+  const base = (bv.byteOffset || 0) + (a.byteOffset || 0);
+  const read = {
+    5120: (o) => bin.readInt8(o), 5121: (o) => bin.readUInt8(o), 5122: (o) => bin.readInt16LE(o),
+    5123: (o) => bin.readUInt16LE(o), 5126: (o) => bin.readFloatLE(o),
+  }[a.componentType];
+  const max = { 5120: 127, 5121: 255, 5122: 32767, 5123: 65535 }[a.componentType];
+  const out = [];
+  for (let i = 0; i < a.count; i++) {
+    const v = [];
+    for (let k = 0; k < n; k++) {
+      const x = read(base + i * stride + k * size);
+      v.push(a.normalized ? x / max : x);
+    }
+    out.push(v);
+  }
+  return out;
+}
 const MESHY_BONES = [
   'root', 'hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_L', 'forearm_L', 'hand_L', 'upper_arm_R', 'forearm_R', 'hand_R',
   'thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R',
@@ -78,8 +124,20 @@ describe('character GLBs', () => {
           for (const a of json.animations) {
             expect(a.channels.length).toBeGreaterThan(0);
             const dur = Math.max(...a.samplers.map((s) => json.accessors[s.input].max[0]));
-            const cap = { idle: 1.6, cheer: 1.2, hurt: 0.4, walk: 1.2 }[a.name] ?? (a.name.startsWith('attack_') ? 0.6 : 2);
+            let cap;
+            if (a.name.endsWith('_short')) cap = MESHY_OLD_CAPS[a.name.slice(0, -6)] ?? 2;
+            else if (a.name.startsWith('attack_')) cap = ATTACK_CAP;
+            else cap = MESHY_CLIP_CAPS[a.name] ?? (ex.clipMarks?.[a.name]?.mood ? 10 : FIDGET_CAP);
             expect(dur, `${a.name} length`).toBeLessThanOrEqual(cap + 1e-3);
+            if (a.name.startsWith('attack_') && dur > 0.6 + 1e-3) expect(ex.clipMarks?.[a.name]?.contact, `${a.name} contact mark`).toBeGreaterThan(0);
+          }
+          // the lively layer's glance scale per clip (a clip that looks around by itself), within 0..1
+          for (const [name, mk] of Object.entries(ex.clipMarks || {})) {
+            expect(names, `clipMarks ${name}`).toContain(name);
+            if (mk.glance !== undefined) {
+              expect(mk.glance).toBeGreaterThanOrEqual(0);
+              expect(mk.glance).toBeLessThanOrEqual(1);
+            }
           }
           expect(json.skins).toHaveLength(1);
           const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
@@ -107,8 +165,50 @@ describe('character GLBs', () => {
           expect(body.pbrMetallicRoughness.metallicRoughnessTexture).toBeDefined();
           expect(body.pbrMetallicRoughness.metallicFactor).toBe(1);
           expect(!!body.normalTexture).toBe(detail === 'full');
-          expect(json.images).toHaveLength(detail === 'full' ? 3 : 2);
+          // + the offline-flattened base colour for the clean cel look (extras.flat), when she has one
+          expect(json.images).toHaveLength((detail === 'full' ? 3 : 2) + (ex.flat ? 1 : 0));
           for (const im of json.images) expect(im.mimeType).toBe('image/webp');
+          if (ex.flat) {
+            const tex = json.textures[ex.flat.texture];
+            expect(tex, `${u.id} flat texture`).toBeDefined();
+            const src = tex.extensions?.EXT_texture_webp?.source ?? tex.source;
+            expect(json.images[src].name).toBe('flat');
+            // not on a material: look B keeps her painted map, the cel look swaps the flat one in
+            for (const m of json.materials) expect(m.pbrMetallicRoughness?.baseColorTexture?.index).not.toBe(ex.flat.texture);
+            expect(ex.flat.palette.length).toBeGreaterThan(3);
+            expect(ex.flat.palette.length).toBeLessThanOrEqual(16);
+            for (const c of ex.flat.palette) expect(c).toMatch(/^#[0-9a-f]{6}$/);
+            for (const k of ['skin', 'skinLow']) expect(ex.flat.eyes[k]).toMatch(/^#[0-9a-f]{6}$/);
+          }
+          // authored spring bones (PLAN §6.5): the names exist as joints under the right parent, and
+          // their weights sit on that part only (buns: the back of the big head; ribbon: front of the chest)
+          if (ex.springBones) {
+            const bin = readGlbBin(file);
+            const prim = textured[0];
+            const P = readAccessor(json, bin, prim.attributes.POSITION);
+            const J = readAccessor(json, bin, prim.attributes.JOINTS_0);
+            const Wt = readAccessor(json, bin, prim.attributes.WEIGHTS_0);
+            const topY = json.accessors[prim.attributes.POSITION].max[1] / 32767;
+            const parentOf = (name) => json.nodes.find((n) => (n.children || []).some((c) => json.nodes[c].name === name))?.name;
+            for (const b of ex.springBones) {
+              expect(joints, `${u.id} spring bone ${b}`).toContain(b);
+              const ji = joints.indexOf(b);
+              const idx = [];
+              for (let i = 0; i < P.length; i++) for (let k = 0; k < 4; k++) if (J[i][k] === ji && Wt[i][k] > 0.02) idx.push(i);
+              expect(idx.length, `${b} weighted vertices`).toBeGreaterThan(20);
+              if (/^bun/.test(b)) {
+                expect(parentOf(b)).toBe('head');
+                for (const i of idx) expect(P[i][1], `${b} vertex ${i}`).toBeGreaterThan(topY * 0.5);
+              } else if (/^ribbon/.test(b)) {
+                expect(parentOf(b)).toBe('chest');
+                for (const i of idx) {
+                  expect(P[i][1]).toBeGreaterThan(topY * 0.4);
+                  expect(P[i][1]).toBeLessThan(topY * 0.6);
+                  expect(P[i][2]).toBeGreaterThan(0);
+                }
+              }
+            }
+          }
           // her painted eyes, measured at build time so the shader can close them (blink, ^ ^, > <):
           // two mirrored boxes on the front of the head, in the stored position space
           const eyes = ex.eyes;

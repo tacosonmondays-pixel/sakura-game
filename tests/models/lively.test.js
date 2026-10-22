@@ -73,7 +73,7 @@ function skinned(mesh) {
   return out;
 }
 
-afterEach(() => setFigureOptions({ lively: true, cel: false, reduceMotion: false, quality: 'high' }));
+afterEach(() => setFigureOptions({ lively: true, cel: true, flat: true, reduceMotion: false, quality: 'high' }));
 
 describe('lively skeleton layer', () => {
   it('adds offsets after the mixer and takes every one of them back before the next update', () => {
@@ -93,6 +93,38 @@ describe('lively skeleton layer', () => {
     expect(moved).toBeGreaterThan(5 * (Math.PI / 180)); // the head really turns (lead + glances)
     rig.restore();
     names.forEach((n, i) => expect(bones[n].quaternion.angleTo(before[i])).toBeLessThan(1e-9));
+  });
+
+  it('runs the glances smaller on a clip that looks around by itself (glanceScale) and under Reduce motion', () => {
+    const swing = (scale, reduce = false) => {
+      setFigureOptions({ reduceMotion: reduce });
+      const { scene, bones } = figure();
+      const rig = new LivelyRig(scene, { scene }, 11);
+      rig.glanceScale = scale;
+      const rest = bones.head.quaternion.clone();
+      let max = 0;
+      for (let k = 0; k < 30 * 30; k++) {
+        rig.restore();
+        rig.apply(k / 30, 1 / 30, 'idle', null);
+        max = Math.max(max, bones.head.quaternion.angleTo(rest));
+      }
+      return max;
+    };
+    const full = swing(1);
+    expect(swing(0.4)).toBeLessThan(full * 0.75);
+    expect(swing(1, true)).toBeLessThan(full * 0.75);
+  });
+
+  it('gives authored bun bones a small, quick bob (clamped at 10°)', () => {
+    const { scene, bones } = figure();
+    const bun = new THREE.Bone();
+    bun.name = 'bun_L';
+    bun.position.set(0.08, 0, -0.06);
+    bones.head.add(bun);
+    scene.updateMatrixWorld(true);
+    const ch = livelyRigInfo({ scene }).chains.find((c) => c.names[0] === 'bun_L');
+    expect(ch.anchor).toBe('head');
+    expect(ch.kind.max).toBeLessThanOrEqual(10);
   });
 
   it('finds the spring chains a rig already has and skips rigs without a head', () => {
@@ -146,17 +178,29 @@ describe('runtime skirt bones', () => {
 });
 
 describe('figure options and settings', () => {
-  it('reads the saved settings (lively on, cel off by default) and keeps them through a save', () => {
-    setFigureOptions({ livelyFigures: false, celTextures: true, reduceMotion: true, quality: 'low' });
-    expect(figureOptions()).toMatchObject({ lively: false, cel: true, reduceMotion: true, quality: 'low' });
+  it('reads the saved settings (lively on, clean cel on by default) and keeps them through a save', () => {
+    setFigureOptions({ livelyFigures: false, celFigures: false, reduceMotion: true, quality: 'low' });
+    expect(figureOptions()).toMatchObject({ lively: false, cel: false, reduceMotion: true, quality: 'low' });
     const p = createProfile();
     expect(p.settings.livelyFigures).toBe(true);
-    expect(p.settings.celTextures).toBe(false);
+    expect(p.settings.celFigures).toBe(true);
     p.settings.livelyFigures = false;
-    p.settings.celTextures = true;
+    p.settings.celFigures = false;
     const back = deserializeProfile(serializeProfile(p));
     expect(back.settings.livelyFigures).toBe(false);
-    expect(back.settings.celTextures).toBe(true);
+    expect(back.settings.celFigures).toBe(false);
+  });
+
+  it('ignores the prototype\'s first key celTextures (its stored "off" was a default, not a choice)', () => {
+    setFigureOptions({ celTextures: false });
+    expect(figureOptions().cel).toBe(true);
+    const p = createProfile();
+    const raw = JSON.parse(JSON.stringify(p));
+    delete raw.settings.celFigures;
+    raw.settings.celTextures = false;
+    const back = deserializeProfile(JSON.stringify(raw));
+    expect(back.settings.celFigures).toBe(true);
+    expect(back.settings.celTextures).toBeUndefined();
   });
 });
 

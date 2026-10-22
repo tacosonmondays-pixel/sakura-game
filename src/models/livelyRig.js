@@ -37,7 +37,10 @@ const CHAIN_KINDS = [
   [/^bangs/i, { k: 160, zeta: 0.5, max: 5, lin: 0.004, ang: 0.02, breeze: 0.3 }],
   [/^(coat|skirt|cape)/i, { k: 110, zeta: 0.42, max: 12, lin: 0.01, ang: 0.05, breeze: 0.8 }],
   [/^(ribbon|scarf)/i, { k: 80, zeta: 0.35, max: 20, lin: 0.016, ang: 0.07, breeze: 1.4 }],
-  [/./, { k: 60, zeta: 0.3, max: 18, lin: 0.014, ang: 0.06, breeze: 1.2 }], // hair, tails, braids, buns
+  // buns (Noa's authored bun_L / bun_R, pivoting where they meet her head): a compact mass, so a small,
+  // a little stiffer bob that settles quickly, never a jelly wobble
+  [/^bun/i, { k: 75, zeta: 0.38, max: 10, lin: 0.012, ang: 0.05, breeze: 0.5 }],
+  [/./, { k: 60, zeta: 0.3, max: 18, lin: 0.014, ang: 0.06, breeze: 1.2 }], // hair, tails, braids
 ];
 /** The runtime skirt (livelySkirt.js): hem outward at most `max`°, inward at most `inward`°. */
 const SKIRT_KIND = { k: 110, zeta: 0.4, max: 12, inward: 3, lin: 0.012, ang: 0.05, breeze: 0.7 };
@@ -209,6 +212,9 @@ export class LivelyRig {
     this.pt = rand() * TAU;
     for (const ch of this.chains) ch.phase = rand() * TAU;
     this.glance = { yaw: 0, pitch: 0, cy: 0, cp: 0, next: 1 + rand() * 3 };
+    this.glanceScale = 1;
+    this.dazeHold = false;
+    this.dz = 0;
     this.turn = 0;
     this.lean = 0; // attack recoil spring (deg), chest pitch
     this.leanV = 0;
@@ -267,8 +273,12 @@ export class LivelyRig {
       g.pitch = away ? -3 + rand() * 6 : 0;
       g.next = t + 3 + rand() * 4;
     }
-    const gy = engaged || disabled ? 0 : g.yaw;
-    const gp = engaged || disabled ? 0 : g.pitch;
+    // glanceScale: < 1 on a base clip that looks around by itself (GlbAnimator.markGlances, from the
+    // GLB's clipMarks: Noa's 338 idle runs them at 0.4x so the two never stack into a 40° swing);
+    // Reduce motion halves them like everything else
+    const gs = this.glanceScale * A;
+    const gy = engaged || disabled ? 0 : g.yaw * gs;
+    const gp = engaged || disabled ? 0 : g.pitch * gs;
     g.cy += (gy - g.cy) * expK(dt, 6);
     g.cp += (gp - g.cp) * expK(dt, 6);
 
@@ -296,7 +306,10 @@ export class LivelyRig {
 
     // dazed (disabled) and happy (victory) extras
     const w = TAU * 0.8 * slow;
-    const dz = disabled ? 1 : 0;
+    // the dazed circle eases in once the hurt one-shot is over (dazeHold, set by GlbAnimator), so a
+    // new hurt clip and the circle never stack into one busy double motion
+    this.dz += ((disabled && !this.dazeHold ? 1 : 0) - this.dz) * expK(dt, 4);
+    const dz = this.dz;
     const hp = happy ? 1 : 0;
 
     const yawT = this.turn; // rad

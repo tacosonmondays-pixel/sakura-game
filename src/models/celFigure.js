@@ -253,11 +253,46 @@ export function extractPalette(image, geometry = null, k = CEL.k) {
   return out;
 }
 
-/** The palette of an asset's painted body (measured once, cached). */
-export function figurePalette(asset, geometry = null) {
-  if (paletteCache.has(asset)) return paletteCache.get(asset);
-  const p = asset.bodyMaps?.map?.image ? extractPalette(asset.bodyMaps.map.image, geometry) : null;
-  paletteCache.set(asset, p);
+/**
+ * The palette of an exact list of flat colours (sRGB hex): an offline-flattened base colour is already
+ * one flat colour per material in her house values, so nothing is measured, merged or lifted; only the
+ * shade tone of each colour is derived (shadeOf).
+ */
+export function flatPalette(hexes) {
+  const list = (hexes || []).filter((h) => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h)).slice(0, MAX_PAL);
+  if (!list.length) return null;
+  const out = { n: list.length, lab: [], rgb: [], ratio: [], counts: list.map(() => 1) };
+  for (const h of list) {
+    const c = [1, 3, 5].map((i) => s2l(parseInt(h.slice(i, i + 2), 16) / 255));
+    const lab = linearToOklab(...c);
+    const shade = oklabToLinear(...shadeOf(lab));
+    out.lab.push(lab);
+    out.rgb.push(c);
+    out.ratio.push(c.map((x, i) => Math.min(1.15, Math.max(0.35, x > 0.003 ? shade[i] / x : 0.8))));
+  }
+  return out;
+}
+
+/**
+ * The palette of an asset's painted body (measured once, cached), or with `flat` the palette of her
+ * offline-flattened base colour (asset.extras.flat.palette when the GLB lists it, else measured from
+ * that map).
+ */
+export function figurePalette(asset, geometry = null, flat = false) {
+  let entry = paletteCache.get(asset);
+  if (!entry) {
+    entry = {};
+    paletteCache.set(asset, entry);
+  }
+  const k = flat ? 'flat' : 'map';
+  if (k in entry) return entry[k];
+  let p = null;
+  if (flat) p = flatPalette(asset.extras?.flat?.palette);
+  if (!p) {
+    const tex = flat ? asset.bodyMaps?.flatMap : asset.bodyMaps?.map;
+    p = tex?.image ? extractPalette(tex.image, geometry) : null;
+  }
+  entry[k] = p;
   return p;
 }
 
@@ -299,6 +334,7 @@ uniform vec3 figPalRgb[ ${MAX_PAL} ];
 uniform vec3 figPalRatio[ ${MAX_PAL} ];
 uniform int figPalN;
 uniform float figSnap;
+uniform float figSnapMul;
 uniform float figCelEdge;
 uniform float figCelGain;
 uniform float figCelFace;
@@ -326,7 +362,7 @@ void figCelSnap( inout vec3 col, float keep ) {
     float e = dot( d, d );
     if ( e < best ) { best = e; bi = i; }
   }
-  float w = figSnap * ( 1.0 - smoothstep( ${CEL.near.toFixed(3)}, ${CEL.far.toFixed(3)}, sqrt( best ) ) ) * ( 1.0 - keep );
+  float w = figSnap * figSnapMul * ( 1.0 - smoothstep( ${CEL.near.toFixed(3)}, ${CEL.far.toFixed(3)}, sqrt( best ) ) ) * ( 1.0 - keep );
   col = mix( col, figPalRgb[ bi ], w );
   figShadeRatio = figPalRatio[ bi ];
 }
@@ -384,7 +420,7 @@ const materialCache = new WeakMap();
  * @param {{ map: THREE.Texture }} maps her GLB maps (only the base colour is used)
  * @param {{ highlight?: boolean, eyes?: object|null, eyeMode?: number, palette: object }} o
  */
-export function celFigureMaterial(maps, { highlight = false, eyes = null, eyeMode = 0, palette }) {
+export function celFigureMaterial(maps, { highlight = false, eyes = null, eyeMode = 0, palette, flat = false }) {
   const m = new THREE.MeshLambertMaterial({
     map: maps.map,
     emissive: new THREE.Color(highlight ? SELECT_HIGHLIGHT.emissive : '#000000'),
@@ -397,7 +433,9 @@ export function celFigureMaterial(maps, { highlight = false, eyes = null, eyeMod
   }
   const eyeU = eyes ? eyeUniforms(eyes) : null;
   m.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, palU, CEL_UNIFORMS);
+    // a flattened base colour is already one flat colour per material (its face paint curated offline):
+    // no snap there, the palette only picks each texel's shade tone
+    Object.assign(shader.uniforms, palU, CEL_UNIFORMS, { figSnapMul: { value: flat ? 0 : 1 } });
     let fs = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${eyeU ? FIGURINE_EYES_GLSL + FACE_GLSL : ''}${CEL_GLSL}`)
       .replace('#include <lights_pars_begin>', `#include <lights_pars_begin>\n${CEL_LIGHT_GLSL}`);

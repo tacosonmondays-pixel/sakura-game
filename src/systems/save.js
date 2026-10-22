@@ -74,11 +74,13 @@ export const DEFAULT_SETTINGS = {
   loadingBg: 'black',
   /**
    * Prototype proto/rig-motion (src/models/figureOptions.js): 'Lively figures' = procedural
-   * secondary motion on the 3D girls; 'Clean cel textures' = the painted (Meshy) girls drawn as flat
-   * colour + one hard shadow instead of the figurine look. Display only. Additive: no save version bump.
+   * secondary motion on the 3D girls; 'Clean cel textures' (`celFigures`) = the painted (Meshy) girls
+   * drawn as flat colour + one hard shadow on their flattened base colour instead of the glossy figurine
+   * look. Display only. Additive: no save version bump. `celFigures` defaults ON while the owner decides;
+   * it replaces the prototype's first key `celTextures` (default off), which saves stored unchosen.
    */
   livelyFigures: true,
-  celTextures: false,
+  celFigures: true,
 };
 
 const CAMERA_MODES = ['locked', 'free'];
@@ -318,7 +320,8 @@ function cleanSettings(raw) {
     loadingMochi: LOADING_MOCHI_LOOKS.includes(s.loadingMochi) ? s.loadingMochi : d.loadingMochi,
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
     livelyFigures: bool(s.livelyFigures, d.livelyFigures),
-    celTextures: bool(s.celTextures, d.celTextures),
+    // the old prototype key `celTextures` is dropped (its stored 'off' was a default, not a choice)
+    celFigures: bool(s.celFigures, d.celFigures),
   };
 }
 
