@@ -112,6 +112,9 @@ the first key `celTextures`, whose stored "off" was a default nobody chose); dev
 * **Glances per clip** (`asset.extras.clipMarks[clip].glance`, 0–1): a base clip that looks around by
   itself runs the layer's glances smaller (Noa's 338 idle: 0.4×). Reduce motion halves glances too. The
   dazed circle of a stun eases in only after the `hurt` one-shot has played.
+* **Face bone** (`asset.extras.faceBone: 'neck'`): a face skinned across neck + head (Hikari's owner rig,
+  whose head joint sits above her eyes) takes the layer's head share on the neck, so it turns as one piece
+  and never shears.
 * **`<clip>_short`**: a figure may keep its old clips next to new ones (Noa: `idle_short`, `cheer_short`,
   `hurt_short`); with Lively figures off the animator plays those, exactly the shipped behaviour.
 * Preview + captures: `previews/lively.html` (`?mode=battle|closeup|perf|metrics`).
@@ -141,6 +144,26 @@ soft grey `#C4C3CB` with one mint hem line along the real pleated hem, colours s
 brightness 0.58 → 0.71. `tests/models/glb.test.js` caps (PLAN §6.5): idle 8 s, cheer / victory 4,
 hurt 1.2, attack 1.2 (with a contact mark when over 0.6), dizzy 6, deploy 2, fidgets 5, mood loops 10;
 `*_short` keep the old caps.
+
+#### Hikari, Hana, Ruri, rig rollout steps 2–3 (notes/rig-rollout/GIRLS.md)
+
+`hikari` / `hana` / `ruri` (`.glb` + `.lod.glb`) are their approved shipped figures (meshes, eye boxes,
+weights, look B maps byte for byte) rebuilt by `art/rig-rollout/girls/build/` (outside the repo; Blender
+5.2 + numpy, 0 credits) with the same four library clips as Noa (bought once on her rig R1; retargeted
+onto each shipped skeleton) and the same post-pass (face pitch target and guard from each girl's own
+shipped idle), plus one more step: every new clip is turned about the vertical so its mean face yaw is her
+shipped idle's (the 338 idle stands ~13° turned to her right; at the battle camera a girl facing a monster
+at her side then showed only her hair). Per girl:
+
+| girl | clips | held prop / rig notes | flat base colour |
+|---|---|---|---|
+| Hikari | `idle` 338, `happy` 415, `cheer` 298, `hurt` 178 | 58-bone owner rig: Meshy Head drives her **`neck`** (her face is skinned across neck + head; `extras.faceBone: 'neck'` makes the lively layer turn the head's share from the neck too). Sword arm = her shipped guard (idle / happy / hurt) or the shipped cheer's raised salute; the library cheer's arm swung the blade across her face. Grip from the shipped idle. Hair / bangs / coat chains: runtime springs | white pinned `#FAFAF8` (her coat never goes cream), pink `#F7A3BF`, gold trim kept, teal, navy |
+| Hana | the same four | bow (+ falconry glove) in her left hand: her bow arm keeps its shipped pose (bow upright at her side); with the clip's arm the bow crossed her chin from the 48° camera. Kaze stays a separate companion | plaid skirt → solid olive-brown `#625538` + one mustard hem line |
+| Ruri | the same four | her book hangs at her left hip (skinned to the hips): left wrist locked, left arm swing ×0.6 so the hand stays at the book. Kon stays a separate companion | plaid skirt → solid navy `#2B3D6E` + one sky hem line; the book its own block; hair `#3F5DB4` (still passes her `hairGuard`) |
+
+Attacks stay the shipped `attack_*` clips with the layer's wind-up and snap; the Meshy library's archery
+and cast clips were watched (free previews) and rejected for chibis (side-on turns, overhead reaches,
+draw hand at the face, deep lunges), so no credits were spent.
 
 ## Roster merge stand-ins (2026-10-13)
 

@@ -109,7 +109,9 @@ export function livelyRigInfo(asset) {
       pos: new THREE.Vector3().setFromMatrixPosition(b.matrixWorld).applyMatrix4(rootInv),
     };
   };
-  const info = { body: {}, chains: [], height: 1 };
+  // extras.faceBone 'neck': her face is skinned across neck + head (Hikari's owner rig, whose head joint sits
+  // above her eyes), so the head's share of the layer turns the neck instead and the face moves as one piece
+  const info = { body: {}, chains: [], height: 1, faceOnNeck: asset.extras?.faceBone === 'neck' && bones.has('neck') };
   for (const n of BODY) if (bones.has(n)) info.body[n] = rest(bones.get(n));
   // which side each shoulder / thigh is on (+1 = +X, the figure's left; she faces +Z)
   for (const n of ['shoulder_L', 'shoulder_R', 'thigh_L', 'thigh_R']) {
@@ -328,8 +330,9 @@ export class LivelyRig {
         0.8 * s * A * D2R);
     }
     if (B.neck) addRot(B.neck.bone, B.neck.r.axes, 0.3 * g.cp * D2R, yawT * 0.3 + 0.3 * g.cy * D2R, -0.8 * s * A * D2R);
-    if (B.head) {
-      addRot(B.head.bone, B.head.r.axes,
+    const H = this.info.faceOnNeck && B.neck ? B.neck : B.head;
+    if (H) {
+      addRot(H.bone, H.r.axes,
         (0.7 * b * A + 0.7 * g.cp + 2 * wind + 4 * A * dz * Math.cos(w * t)) * D2R,
         yawT * 0.5 + 0.6 * g.cy * D2R,
         (3.5 * s2 * A - 1.0 * s * A + 7 * A * dz * Math.sin(w * t) + 6 * A * hp * Math.sin(TAU * 1.15 * t)) * D2R);

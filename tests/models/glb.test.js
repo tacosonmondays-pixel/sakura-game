@@ -142,6 +142,8 @@ describe('character GLBs', () => {
           expect(json.skins).toHaveLength(1);
           const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
           for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
+          // a face skinned across neck + head (Hikari) names the bone the lively layer turns it from
+          if (ex.faceBone) expect(joints, `${u.id} faceBone`).toContain(ex.faceBone);
           // a hand-held prop (Hikari's sword) hangs off the right hand; girls whose gear is part of
           // the body mesh (Noa's folded shield on her forearm) ship none
           const hand = json.nodes.findIndex((n) => n.name === 'hand_R');

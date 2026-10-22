@@ -115,6 +115,21 @@ describe('lively skeleton layer', () => {
     expect(swing(1, true)).toBeLessThan(full * 0.75);
   });
 
+  it('turns a face skinned across neck + head from the neck (extras.faceBone, Hikari): the head bone never shears it', () => {
+    const { scene, bones } = figure();
+    const rig = new LivelyRig(scene, { scene, extras: { faceBone: 'neck' } }, 5);
+    const rest = bones.head.quaternion.clone();
+    const neckRest = bones.neck.quaternion.clone();
+    let neck = 0;
+    for (let k = 0; k < 300; k++) {
+      rig.restore();
+      rig.apply(k / 30, 1 / 30, k > 150 ? 'disabled' : 'idle', { turn: 0.5, engaged: false, windup: 0, fire: 0 });
+      expect(bones.head.quaternion.angleTo(rest)).toBeLessThan(1e-9);
+      neck = Math.max(neck, bones.neck.quaternion.angleTo(neckRest));
+    }
+    expect(neck).toBeGreaterThan(5 * (Math.PI / 180)); // the head's share (turn lead, daze circle) moved to the neck
+  });
+
   it('gives authored bun bones a small, quick bob (clamped at 10°)', () => {
     const { scene, bones } = figure();
     const bun = new THREE.Bone();
