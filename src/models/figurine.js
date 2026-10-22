@@ -190,6 +190,9 @@ void figCloseEyes( inout vec3 col, vec3 tex ) {
 }
 `;
 
+/** The closed-eye GLSL (uniforms + figCloseEyes), shared with the cel look (celFigure.js). */
+export const FIGURINE_EYES_GLSL = EYES;
+
 /**
  * Her body material (shared per asset). `maps` = { map, mrMap?, normalMap? } from the GLB.
  * Without a metal/roughness map she is a plain satin dielectric. `eyes` (asset extras, see

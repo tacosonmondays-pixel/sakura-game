@@ -32,6 +32,7 @@ import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { Companions } from './companions.js';
+import { setFigureOptions } from '../models/figureOptions.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -64,6 +65,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const settings = opts.settings || {};
   let quality = QUALITY[opts.quality] ? opts.quality : (QUALITY[settings.quality] ? settings.quality : 'medium');
   const reduceMotion = !!settings.reduceMotion;
+  // the figures' display switches (Lively figures, Clean cel textures) follow this battle's settings
+  setFigureOptions({ ...settings, reduceMotion, quality });
 
   // ----- renderer -----------------------------------------------------------------------
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -253,6 +256,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
   function applyQuality(q) {
     quality = q;
+    setFigureOptions({ quality: q });
     const preset = QUALITY[q];
     const dpr = window.devicePixelRatio || 1;
     renderer.setPixelRatio(Math.min(dpr, preset.pixelRatio));
@@ -336,6 +340,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     let hitFx = 0;
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
+      // lively figures observe attacks too (pose snap-through, engaged look), before the FX consume them
+      if (ev.type === 'attack') actors.noteAttack(ev);
       // companions observe only (before the FX layers that consume events)
       if (!compBroken) {
         try {
@@ -988,6 +994,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get info() {
       return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
     },
+    /** 'Lively figures' cost since the last call: { ms, figures } (src/models/livelyRig.js); resets. */
+    takeLivelyStats: () => actors.takeLivelyStats(),
     dispose() {
       if (disposed) return;
       disposed = true;

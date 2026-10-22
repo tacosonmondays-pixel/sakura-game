@@ -17,6 +17,7 @@ import { buildLine } from '../../core/buildInfo.js';
 import { checkForUpdate, reloadFresh, updateCheckFailed } from '../../core/updates.js';
 import { applyLoadingLook, loadingLookOf } from '../loading/mochi.js';
 import { miniMochi } from '../loading/loader.js';
+import { setFigureOptions } from '../../models/figureOptions.js';
 
 function settings() {
   const p = store.profile;
@@ -64,7 +65,9 @@ function build(redraw) {
       segmented(['high', 'medium', 'low'], s.quality, (v) => { s.quality = v; save(); redraw(); }, { high: 'High', medium: 'Medium', low: 'Low' }, 'quality')),
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
-    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); }, 'reduceMotion')),
+    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); setFigureOptions(s); }, 'reduceMotion')),
+    row('Lively figures', 'Prototype: the 3D girls breathe, shift their weight, glance around, turn head-first, wind up and follow through on attacks, land when placed, and their hair sways. Off: the old clips only.', toggle(s.livelyFigures !== false, (v) => { s.livelyFigures = v; save(); setFigureOptions(s); }, 'livelyFigures')),
+    row('Clean cel textures', 'Prototype: the painted 3D girls (Hikari, Noa, Hana, Ruri) in flat colour with one hard shadow, their texture snapped to its own palette. Off: the figurine look.', toggle(!!s.celTextures, (v) => { s.celTextures = v; save(); setFigureOptions(s); }, 'celTextures')),
     loadingLookRow(s, redraw),
   ));
 

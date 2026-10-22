@@ -13,6 +13,10 @@ import { toonMaterial, outlineMaterial, gradientMap } from './toon.js';
 import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION, EYE_MODES } from './figurine.js';
 import { selectToonMaterial, selectTwin } from './highlight.js';
 import { isStandIn } from './standins.js';
+import { figureOptions } from './figureOptions.js';
+import { LivelyRig, livelySeed, livelyRandom } from './livelyRig.js';
+import { addSkirtBones } from './livelySkirt.js';
+import { celFigureMaterial, figurePalette } from './celFigure.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -139,9 +143,16 @@ export async function preloadCharacters(ids = null, detail = 'full') {
 function prepareAsset(id, detail, gltf) {
   const scene = gltf.scene;
   scene.updateMatrixWorld(true);
+  // lively figures: skirt bones of her own (at rest they deform exactly like before; livelySkirt.js)
+  try {
+    addSkirtBones(scene);
+  } catch (e) {
+    console.warn(`[models] ${id}: no skirt bones`, e?.message || e);
+  }
   let faceTexture = null;
   let bodyMaps = null;
   let haloColor = new THREE.Color('#ffffff');
+  let bodyGeometry = null;
   let height = 0.9;
   const extras = gltf.parser.json.asset?.extras || {};
   if (extras.height) height = extras.height;
@@ -156,6 +167,7 @@ function prepareAsset(id, detail, gltf) {
     if (m?.name === 'head' && m.map) faceTexture = m.map;
     else if (textured && m?.map) {
       bodyMaps = { map: m.map, mrMap: m.metalnessMap || m.roughnessMap || null, normalMap: m.normalMap || null, normalScale: m.normalScale?.clone() };
+      bodyGeometry = o.geometry;
       addOutlineNormals(o.geometry);
     }
     if (m?.name === 'halo') haloColor = (m.emissive && m.emissive.getHex() ? m.emissive : m.color).clone();
@@ -187,16 +199,25 @@ function prepareAsset(id, detail, gltf) {
   return {
     id, detail, scene, clips, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
     unitScale: extras.unitScale || 1, cells: extras.faceCells || FACE_CELLS, grid: extras.faceGrid || FACE_GRID,
-    textured, bodyMaps, outlineTint: extras.outline || undefined, materials: {},
+    textured, bodyMaps, bodyGeometry, outlineTint: extras.outline || undefined, materials: {},
     eyes: textured && extras.eyes?.centers?.length === 2 ? extras.eyes : null,
   };
 }
 
-/** Figurine body material of a textured asset (shared by its instances, one per eye state). */
-function texturedMaterial(asset, highlight = false, eyeMode = 0) {
+/**
+ * Body material of a textured asset (shared by its instances, one per eye state): look B
+ * (figurine.js), or the 'Clean cel textures' look (celFigure.js) when `cel` is set and her palette
+ * could be measured.
+ */
+function texturedMaterial(asset, highlight = false, eyeMode = 0, cel = false) {
   const mode = asset.eyes ? eyeMode : 0;
-  const key = `${highlight ? 'hl' : 'body'}|${mode}`;
-  if (!asset.materials[key]) asset.materials[key] = figurineMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode });
+  const palette = cel ? figurePalette(asset, asset.bodyGeometry) : null;
+  const key = `${palette ? 'cel|' : ''}${highlight ? 'hl' : 'body'}|${mode}`;
+  if (!asset.materials[key]) {
+    asset.materials[key] = palette
+      ? celFigureMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode, palette })
+      : figurineMaterial(asset.bodyMaps, { highlight, eyes: asset.eyes, eyeMode: mode });
+  }
   return asset.materials[key];
 }
 
@@ -231,6 +252,8 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   const meshes = [];
   let bodyMesh = null;
   let headMesh = null;
+  // 'Clean cel textures' is picked when the figure is built (figureOptions.js)
+  const cel = !!(asset.textured && figureOptions().cel);
   root.traverse((o) => {
     if (o.isMesh) meshes.push(o);
   });
@@ -243,7 +266,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     let lineWidth = name === 'halo' ? outlineWidth * 0.8 : outlineWidth;
     if (asset.textured && o.material?.map) {
       // the painted figure: figurine shading + her bold texture-tinted outline
-      o.material = texturedMaterial(asset);
+      o.material = texturedMaterial(asset, false, 0, cel);
       o.name = 'body';
       lineMat = figurineOutlineMaterial(asset.bodyMaps.map, asset.height / asset.unitScale, asset.outlineTint);
       bodyMesh = o;
@@ -288,7 +311,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   const onEyes = asset.textured && asset.eyes && bodyMesh ? (mode) => {
     if (mode === look.eyes) return;
     look.eyes = mode;
-    bodyMesh.material = texturedMaterial(asset, look.hl, mode);
+    bodyMesh.material = texturedMaterial(asset, look.hl, mode, cel);
   } : null;
   const anim = new GlbAnimator(root, asset, faceTex, unit, onEyes);
   group.userData.unitId = unit.id;
@@ -297,7 +320,9 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   group.userData.detail = asset.detail;
   group.userData.height = asset.height;
   group.userData.mixer = anim.mixer;
-  group.userData.animate = (time, dt, state = 'idle') => anim.update(time, dt, state);
+  // drive (optional, written by the battle: src/render/livelyPose.js): turn / engaged / windup / fire
+  group.userData.animate = (time, dt, state = 'idle') => anim.update(time, dt, state, group.userData.drive || null);
+  group.userData.lively = !!anim.lively;
   group.userData.playAttack = () => anim.playAttack();
   // any other clip once (companions: 'appear'); girls only ship attack clips, so this is a no-op for them
   group.userData.playClip = (name) => anim.playClip(name);
@@ -312,7 +337,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     if (asset.textured) {
       if (!bodyMesh) return;
       look.hl = on;
-      bodyMesh.material = texturedMaterial(asset, look.hl, look.eyes);
+      bodyMesh.material = texturedMaterial(asset, look.hl, look.eyes, cel);
       return;
     }
     if (bodyMesh) {
@@ -365,6 +390,23 @@ class GlbAnimator {
     this.blinkT = -1;
     this.cell = -1;
     this.expression = null;
+    // 'Lively figures' (figureOptions.js): loops start at a random point and run at 0.94-1.06x so
+    // copies of one girl never bob in unison; softer crossfades; disabled = 'hurt' once, then a
+    // dazed idle; the skeleton layer (livelyRig.js) on top of the mixer
+    this.livelyOn = figureOptions().lively;
+    this.lively = null;
+    if (this.livelyOn) {
+      const seed = livelySeed(unit.id || '');
+      const rig = new LivelyRig(root, asset, seed);
+      if (rig.ok) this.lively = rig;
+      this.rand = livelyRandom(seed ^ 0x5bd1e995);
+      this.loopScale = 0.94 + this.rand() * 0.12;
+      const hurt = this.actions.hurt;
+      if (hurt) {
+        hurt.setLoop(THREE.LoopOnce, 1);
+        hurt.clampWhenFinished = false;
+      }
+    }
     this.setState('idle', 0);
   }
 
@@ -372,6 +414,8 @@ class GlbAnimator {
     // 'move': the companions' travel loop (girls have no such clip: idle)
     const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move' };
     let name = map[state] || 'idle';
+    // lively: the stun plays 'hurt' once over a slowed idle (setState), not a 0.4 s loop
+    if (this.livelyOn && (state === 'disabled' || state === 'hurt')) name = 'idle';
     // imported figures ship a smaller clip set: celebrate with the cheer loop
     if (!this.actions[name] && CLIP_FALLBACK[name] && this.actions[CLIP_FALLBACK[name]]) name = CLIP_FALLBACK[name];
     return this.actions[name] ? name : (this.actions.idle ? 'idle' : null);
@@ -379,13 +423,27 @@ class GlbAnimator {
 
   setState(state, fade = FADE) {
     const name = this.stateClip(state);
+    const prevState = this.state;
     this.state = state;
+    if (this.livelyOn) {
+      if (fade > 0) fade = 0.3;
+      const dazed = state === 'disabled' || state === 'hurt';
+      if (dazed && prevState !== 'disabled' && prevState !== 'hurt') this.playOnce(this.actions.hurt || null, 0.2, 'hurt');
+      if (name && name === this.current) {
+        this.actions[name].setEffectiveTimeScale(this.loopScale * (dazed ? 0.7 : 1));
+        return;
+      }
+    }
     if (!name || name === this.current) return;
     const next = this.actions[name];
     const prev = this.current ? this.actions[this.current] : null;
     next.reset();
     next.setEffectiveWeight(1);
     next.setEffectiveTimeScale(1);
+    if (this.livelyOn && next.loop === THREE.LoopRepeat) {
+      next.time = this.rand() * next.getClip().duration;
+      next.setEffectiveTimeScale(this.loopScale * (state === 'disabled' || state === 'hurt' ? 0.7 : 1));
+    }
     if (prev && fade > 0) {
       next.play();
       prev.crossFadeTo(next, fade, false);
@@ -413,10 +471,11 @@ class GlbAnimator {
     this.oneShotCell = cell;
     action.reset();
     action.setEffectiveWeight(1);
-    action.fadeIn(0.06);
+    action.fadeIn(this.livelyOn ? 0.12 : 0.06);
     action.play();
     this.attackLeft = action.getClip().duration;
     this.lastAttack = this.time;
+    this.baseWeight = baseWeight;
     // dip the base pose while the attack plays so arms are not averaged with idle
     const base = this.current ? this.actions[this.current] : null;
     if (base) base.setEffectiveWeight(baseWeight);
@@ -426,17 +485,26 @@ class GlbAnimator {
     this.expression = name;
   }
 
-  update(time, dt, state) {
+  update(time, dt, state, drive = null) {
     this.time = time;
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
     if (state !== this.state) this.setState(state);
     if (state === 'attack' && this.attackLeft <= 0 && time - this.lastAttack > 1.1) this.playAttack();
     if (this.attackLeft > 0) {
       this.attackLeft -= dt;
-      if (this.attackLeft <= 0.2 && this.current) this.actions[this.current].setEffectiveWeight(1);
-      if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.12);
+      const base = this.current ? this.actions[this.current] : null;
+      if (this.livelyOn) {
+        // lively: the base loop comes back over the last 0.3 s, the one-shot fades out over 0.25 s
+        if (base && this.attackLeft <= 0.3) base.setEffectiveWeight(Math.min(1, (this.baseWeight ?? 0.25) + (1 - (this.baseWeight ?? 0.25)) * (1 - Math.max(0, this.attackLeft) / 0.3)));
+        if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.25);
+      } else {
+        if (this.attackLeft <= 0.2 && base) base.setEffectiveWeight(1);
+        if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.12);
+      }
     }
+    this.lively?.restore();
     this.mixer.update(dt);
+    this.lively?.apply(time, dt, state, drive);
     this.updateFace(time, dt, state);
   }
 

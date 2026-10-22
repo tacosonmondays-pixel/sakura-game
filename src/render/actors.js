@@ -10,6 +10,17 @@ import { scissorPos } from '../sim/rings.js';
 import { pointAt } from '../sim/path.js';
 import { STEP } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
+import { figureOptions } from '../models/figureOptions.js';
+import { LivelyPose } from './livelyPose.js';
+import { livelyStats } from '../models/livelyRig.js';
+
+/** Signed shortest angle a − b in (−π, π]. */
+function angleDiff(a, b) {
+  let d = (a - b) % TAU;
+  if (d > Math.PI) d -= TAU;
+  else if (d <= -Math.PI) d += TAU;
+  return d;
+}
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -290,10 +301,19 @@ export class Actors {
     const v = {
       uid: t.uid, model, facing: t.facing || 0, pop: 0, water, hero: t.isHero, state: 'idle',
       scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: Math.random() * 3,
+      lastAttackT: -10, pose: null, drive: null,
     };
     model.position.set(t.x, water ? WATER_Y + 0.03 : 0.05, t.y);
     model.rotation.y = v.facing;
     model.scale.setScalar(0.01);
+    if (figureOptions().lively) {
+      // 'Lively figures': the drop-in landing replaces the elastic pop; the skeleton layer of a GLB
+      // girl reads v.drive (her turn still to go, engaged, attack wind-up, attack count)
+      v.pose = new LivelyPose(t.uid);
+      v.drive = { turn: 0, engaged: false, windup: 0, fire: 0 };
+      model.userData.drive = v.drive;
+      model.rotation.order = 'YXZ';
+    }
     this.root.add(model);
     this.towers.set(t.uid, v);
     // hide floating set pieces (boats, piers) under water girls
@@ -305,23 +325,78 @@ export class Actors {
 
   _updateTower(v, t, dt) {
     const m = v.model;
-    v.pop = Math.min(1, v.pop + dt * 3.2);
-    const k = v.pop;
-    const elastic = k >= 1 ? 1 : 1 - Math.cos(k * Math.PI * 2.5) * Math.exp(-k * 5) * (1 - k);
-    m.scale.setScalar(v.scale * Math.max(0.01, elastic));
-    v.facing = lerpAngle(v.facing, t.facing || 0, Math.min(1, dt * 12));
-    m.rotation.y = v.facing;
-    if (v.water) m.position.y = WATER_Y + 0.05 + Math.sin(this.time * 2 + v.ripple) * 0.02;
     let state = 'idle';
     if (this.victory) state = 'victory';
     else if (t.disabled > 0) state = 'disabled';
     v.state = state;
+    if (v.pose) {
+      this._livelyTower(v, t, dt, state);
+    } else {
+      v.pop = Math.min(1, v.pop + dt * 3.2);
+      const k = v.pop;
+      const elastic = k >= 1 ? 1 : 1 - Math.cos(k * Math.PI * 2.5) * Math.exp(-k * 5) * (1 - k);
+      m.scale.setScalar(v.scale * Math.max(0.01, elastic));
+      v.facing = lerpAngle(v.facing, t.facing || 0, Math.min(1, dt * 12));
+      m.rotation.y = v.facing;
+      if (v.water) m.position.y = WATER_Y + 0.05 + Math.sin(this.time * 2 + v.ripple) * 0.02;
+    }
     if (this.fxHook) {
       const o = this.fxHook.towerOffset(t.uid);
       m.position.x = t.x + o.x;
       m.position.z = t.y + o.z;
     }
     m.userData.animate?.(this.time, dt, state);
+  }
+
+  /**
+   * 'Lively figures' (src/render/livelyPose.js): the head leads and the body follows a turn (body
+   * at 6/s instead of 12/s, the rest goes to her neck and head), the attack wind-up from the sim's
+   * cooldown (read only), the landing drop, the breathing squash.
+   */
+  _livelyTower(v, t, dt, state) {
+    const m = v.model;
+    const o = figureOptions();
+    const facing = t.facing || 0;
+    v.facing = lerpAngle(v.facing, facing, Math.min(1, dt * 6));
+    const engaged = this.time - v.lastAttackT < 1.5;
+    // anticipation only for girls slow enough to read it (one attack per 0.45 s or slower)
+    const period = 1 / Math.max(0.05, t.eff?.rate || 1);
+    let windup = 0;
+    const cd = t.cooldown;
+    if (engaged && !(t.disabled > 0) && period >= 0.45 && cd > 0 && cd < 0.22) windup = 1 - cd / 0.22;
+    const d = v.drive;
+    d.turn = angleDiff(facing, v.facing);
+    d.engaged = engaged;
+    d.windup = windup;
+    const P = v.pose;
+    P.update(dt, { windup, state, reduceMotion: o.reduceMotion, low: o.quality === 'low' });
+    const s = v.scale * P.grow;
+    m.scale.set(s * P.sxz, s * P.sy, s * P.sxz);
+    m.rotation.y = v.facing;
+    m.rotation.x = P.leanRad;
+    const baseY = v.water ? WATER_Y + 0.05 + Math.sin(this.time * 2 + v.ripple) * 0.02 : 0.05;
+    m.position.y = baseY + P.dy;
+  }
+
+  /**
+   * An attack event of a girl (BattleRenderer, before the attack FX consume it): she is engaged
+   * for 1.5 s (eyes on her target, wind-ups shown) and her pose snaps through. Display only.
+   */
+  noteAttack(ev) {
+    if (ev.turretUid != null && (ev.kind === 'bullet' || ev.kind === 'build')) return;
+    const v = this.towers.get(ev.towerUid);
+    if (!v || !v.pose) return;
+    v.lastAttackT = this.time;
+    v.pose.fire(figureOptions().reduceMotion);
+    v.drive.fire++;
+  }
+
+  /** Frame cost of the lively layers since the last call (ms, figures updated); resets. */
+  takeLivelyStats() {
+    const out = { ms: livelyStats.ms, figures: livelyStats.figures };
+    livelyStats.ms = 0;
+    livelyStats.figures = 0;
+    return out;
   }
 
   /** Called on 'sell' / removal to restore hidden water decor. */

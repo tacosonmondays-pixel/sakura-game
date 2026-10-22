@@ -11,6 +11,7 @@ import { settleEvents, markEventLogin } from './systems/events.js';
 import { eventNow } from './ui/events/clock.js';
 import { formationSkins } from './systems/skins.js';
 import { applyLoadingLook } from './ui/loading/mochi.js';
+import { setFigureOptions } from './models/figureOptions.js';
 
 const TITLE_SEEN_KEY = 'sakura-title-seen'; // same key as src/ui/screens/title.js (kept tiny here)
 
@@ -61,6 +62,9 @@ try {
 // saved one on <html>; this keeps it right after a migration, an import, a reset or another tab's save
 applyLoadingLook(store.profile.settings);
 store.on('change', () => applyLoadingLook(store.profile.settings));
+// the 3D girls' display switches (Settings → Lively figures / Clean cel textures; proto/rig-motion)
+setFigureOptions(store.profile.settings);
+store.on('change', () => setFigureOptions(store.profile.settings));
 // Debug/test hook (used by e2e tests). Not a cheat menu: read-only plus store access.
 window.__sakura = { store, transitions: { log: txLog, busy: transitionBusy } };
 let caughtUp = [];
