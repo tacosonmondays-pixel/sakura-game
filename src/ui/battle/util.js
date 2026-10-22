@@ -60,6 +60,15 @@ export function fmtDps(n) {
 }
 
 /**
+ * A damage total in the selected-girl panels (the header's "Damage", Chika's and her drones' "Dealt"): whole numbers
+ * with commas below 10,000, then the menus' short form ("123.5M"), never fmtCoins' "123456k".
+ */
+export function fmtDealt(n) {
+  const v = Math.floor(Number(n) || 0);
+  return fmtShort(Math.max(0, v));
+}
+
+/**
  * What a battle that failed to build logs beside its error (controller.js `ready`): which battle it was. Plain
  * values only, so the line reads the same in a bug report as in the console.
  * @param {{ req?: object|null, params?: object, quality?: string|null, coop?: boolean }} o

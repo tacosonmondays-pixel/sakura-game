@@ -4,7 +4,7 @@
 // girls whose drones roam (towerStats().turret.leash > 0); everyone else keeps today's panel.
 // The tab, the drone shown and where ‹ returns to live here (not in the DOM), so a re-render
 // (an upgrade, a new drone, the wave state) never snaps the view back.
-import { h, fmtCoins, fmtNum, fmtDps, icon, enemyDef } from './util.js';
+import { h, fmtCoins, fmtNum, fmtDps, fmtDealt, icon, enemyDef } from './util.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
 
@@ -27,6 +27,21 @@ export function wingNumbers(st) {
   const tu = st.turret;
   const each = tu.damage * tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1);
   return { each, wing: each * tu.max, building: tu.active < tu.max };
+}
+
+/**
+ * The Overall and Drones tabs' main DPS cells (CHIKA_REWORK §7.1: her bolt plus the FULL wing). While the wing is still
+ * building, the label says so; the number cell holds only the number, since a "(full wing of 9)" after it ran past the
+ * half-width cell into an ellipsis (VAULT §9: never an ellipsis on a number). How many fly now is the Drones / Flying
+ * cell's job ("3/9"), so the count is said once.
+ * @returns {{ overall: { label: string, value: string }, wing: { label: string, value: string } }}
+ */
+export function wingDpsCells(st) {
+  const { wing, building } = wingNumbers(st);
+  return {
+    overall: { label: building ? 'DPS (full wing)' : 'DPS', value: fmtDps(st.own.dps + wing) },
+    wing: { label: building ? 'Full wing DPS' : 'Wing DPS', value: fmtDps(wing) },
+  };
 }
 
 /**
@@ -166,13 +181,13 @@ export function createDronePanel(ctx, { rerender }) {
   };
 
   function overallTab(t, st, cells) {
-    const { wing, building } = wingNumbers(st);
+    const dps = wingDpsCells(st).overall;
     const tu = st.turret;
     // today's grid (her damage, rate, range, crit, aura, …) between the totals and the drone lines
     const fly = tu.flight === 'pursuit' ? 'Whole map' : `${fmtNum(tu.leash, 2)} tiles (+${fmtNum(tu.range, 1)} gun)`;
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
-      cell('DPS', `${fmtDps(st.own.dps + wing)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
+      cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
       cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
@@ -191,7 +206,7 @@ export function createDronePanel(ctx, { rerender }) {
     if (st.chain > 0) rows.push(cell('Jumps', st.chain));
     if (st.armorPen > 0) rows.push(cell('Armor pen', fmtNum(st.armorPen, 1)));
     rows.push(
-      cell('Dealt', liveB(() => fmtCoins((t.damageDealt || 0) - (t.droneDmg || 0)))),
+      cell('Dealt', liveB(() => fmtDealt((t.damageDealt || 0) - (t.droneDmg || 0)))),
       cell('Kills', liveB(() => fmtCoins((t.kills || 0) - (t.droneKills || 0)))),
       cell('Share', liveB(() => (t.damageDealt >= 1 ? `${Math.round(((t.damageDealt - t.droneDmg) / t.damageDealt) * 100)}%` : '—'))),
       cell('Dealing', liveB(() => {
@@ -208,21 +223,21 @@ export function createDronePanel(ctx, { rerender }) {
 
   function dronesTab(t, st) {
     const tu = st.turret;
-    const { wing, building } = wingNumbers(st);
+    const wingCell = wingDpsCells(st).wing;
     const flying = liveB(() => {
       const s = sim.towerStats(t.uid).turret;
       if (s.active >= s.max) return `${s.active}/${s.max}`;
       return sim.state === 'wave' ? `${s.active}/${s.max} · next in ${fmtNum(s.nextIn, 1)} s` : `${s.active}/${s.max} · builds during waves (every ${fmtNum(s.build, 1)} s)`;
     });
     const grid = h('div.bt-stats-grid',
-      cell('Wing DPS', `${fmtDps(wing)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
+      cell(wingCell.label, wingCell.value, '.bt-stat-main.bt-stat-wide2'),
       cell('Flying', flying, '.bt-stat-wide2'),
       cell('Damage each', fmtDps(tu.damage)),
       cell('Fire rate', `${fmtNum(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1), 2)}/s`),
       cell('Gun', fmtNum(tu.range, 1)),
       cell('Speed', `${fmtNum(tu.speed, 1)} t/s`),
       cell('Fly up to', tu.flight === 'pursuit' ? 'Whole map' : `${fmtNum(tu.leash, 2)} tiles`, '.bt-stat-wide2'),
-      cell('Dealt', liveB(() => fmtCoins(t.droneDmg || 0))),
+      cell('Dealt', liveB(() => fmtDealt(t.droneDmg || 0))),
       cell('Kills', liveB(() => fmtCoins(t.droneKills || 0))),
       cell('Shots', liveB(() => fmtCoins(t.droneShots || 0)), '.bt-stat-wide2'),
     );
@@ -238,7 +253,7 @@ export function createDronePanel(ctx, { rerender }) {
         const cur = all.find((x) => x.uid === d.uid);
         if (!cur) return;
         dot.dataset.state = cur.state;
-        dmg.textContent = fmtCoins(cur.dmg);
+        dmg.textContent = fmtDealt(cur.dmg);
         kills.textContent = `${cur.kills} kills`;
         const best = Math.max(...all.map((x) => x.dmg));
         top.hidden = !(best > 0 && cur.dmg === best);
@@ -295,7 +310,7 @@ export function createDronePanel(ctx, { rerender }) {
       h('div.bt-dr-owner', `${owner} · built wave ${d.born || 1}`),
       stateEl,
       h('div.bt-stats-grid',
-        cell('Damage dealt', one((c) => fmtCoins(c.dmg)), '.bt-stat-wide2'),
+        cell('Damage dealt', one((c) => fmtDealt(c.dmg)), '.bt-stat-wide2'),
         cell('Kills', one((c) => fmtCoins(c.kills))),
         cell('Shots', one((c) => fmtCoins(c.shots))),
         cell('DPS (last 5 s)', share, '.bt-stat-wide'),

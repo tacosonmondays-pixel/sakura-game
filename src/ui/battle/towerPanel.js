@@ -5,7 +5,7 @@
 // (heroes cannot be sold). Landscape: right-side card; portrait: bottom sheet. Girls with roaming
 // drones (Chika) also get a split bar, a Flight row and tabs (chikaPanel.js); her buff sections sit
 // on her own tab.
-import { h, icon, fmtCoins, fmtNum, fmtDps, setVar } from './util.js';
+import { h, icon, fmtCoins, fmtNum, fmtDps, fmtDealt, setVar } from './util.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { crosspathReason, pathCap, onePerPathReason, heldPipTitle, whereOnMap, finalHolderLine, ONE_PER_PATH_COOP } from './rules.js';
 import { svgEl } from '../components.js';
@@ -677,7 +677,7 @@ export function createTowerPanel(ctx) {
   function updateLive(t, st = null) {
     if (!live) return;
     live.kills.textContent = fmtCoins(t.kills || 0);
-    live.dmg.textContent = fmtCoins(t.damageDealt || 0);
+    live.dmg.textContent = fmtDealt(t.damageDealt || 0);
     drones.updateLive();
     if (live.pot) paintPot(t, st);
     if (live.buffKinds?.length) {
