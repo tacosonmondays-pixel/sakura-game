@@ -245,6 +245,10 @@ Budgets: ≤ 480 KB per girl (LOD ≤ 240 KB), ≤ 320 KB per monster family and
 `docs/MODELS.md` explains the construction method and how to add a character or a family. The runtime
 keeps a procedural fallback, so the game (and the Node tests) still work with no GLB files at all.
 
+The item icons in `public/art/items/` (3D-flat look, 256 / 128 px WebP plus a 96 px small cut) are baked by
+`tools/blender/items/build_items.py` with EEVEE; `tools/blender/items/README.md` has the commands and the data
+table, and `npx vitest run tests/art/itemArt.test.js` checks the files, the manifest and the size budget.
+
 ## Deploy to GitHub Pages
 
 The workflow is already in `.github/workflows/deploy.yml`. On every push to `main` (or when you run it
@@ -306,12 +310,12 @@ src/art/                    drawn portrait URLs (portraits.js), SVG fallback car
 src/ui/                     router, DOM helpers, shared components, orientation (rotate / fullscreen), screens/ (incl. title), lobby/ (drawn stage, background picker, mail, notice), battle/, online/, styles/
 src/online/                 online backend (Supabase or local two-tab adapter), rate limits, clan rules, co-op lockstep
 supabase/                   database migrations (tables, RLS, functions, rate limits) + CLI config
-public/art/                 drawn art: portraits/ (6 files per girl), lobby/ (academy, scenes, thumbs), ui/ (mail envelope)
+public/art/                 drawn art: portraits/ (6 files per girl), lobby/ (academy, scenes, thumbs), ui/ (mail envelope), items/ (baked item icons)
 public/models/characters/   19 girls as <id>.glb + <id>.lod.glb + manifest.json (generated)
 public/models/enemies/      12 monster families as <family>.glb + manifest.json (generated)
 public/models/chibi_base.glb  the owner's chibi base mesh (V1 fallback body)
 public/manifest.webmanifest PWA manifest (fullscreen, landscape)
-tools/blender/              Blender (bpy) generators: build_characters.py, lib/, enemies/
+tools/blender/              Blender (bpy) generators: build_characters.py, lib/, enemies/, items/ (item icons)
 tests/                      vitest suites per area + models (GLB checks) + integration (consistency, balance)
 e2e/                        Playwright smoke test and screenshot helper
 previews/                   dev pages for each area

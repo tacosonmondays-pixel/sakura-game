@@ -521,3 +521,23 @@ co-op command: the sim id does not change.
 * e2e: `node e2e/companions.mjs [--shots dir]` (844×390: the three figures, Kon's run, Kaze's swoop and return, the
   doll's dash, removal on sell, quality low, the student pages; frame strips with the battle paused and the renderer
   stepped by hand).
+
+# Item icons — baked 3D-flat art
+
+Every item icon (the 81 item ids, the 18 gear pieces and Recruit Points: 100 keys) is baked by
+`tools/blender/items/build_items.py` into `public/art/items/<key>-256.webp` and `<key>-128.webp`, plus a 96 px
+small cut with a heavier line for the ten keys shown at 24 CSS px or less; `src/art/itemArt.js` is the generated
+manifest (key → content hash). It is the same kind of generator as the figures (cage-free here: bevelled slabs,
+lathes, sweeps and faceted fans from `parts.py`), but it renders instead of exporting: EEVEE at 256 px, one fixed
+orthographic 3/4 camera and key light, one emission-only toon material and one ink material shared by every part,
+an inverted-hull outline in output pixels, and a post step for glints, the navy contact shadow, framing and WebP.
+
+```bash
+blender --background --factory-startup --python-use-system-env --python tools/blender/items/build_items.py -- [keys] [--family books]
+npx vitest run tests/art/itemArt.test.js     # files, headers, manifest hashes, 20 / 9 / 5 KB caps, 2.2 MB total
+```
+
+The approved icons (the owner's 3D-flat set, kept outside the repo) are the look targets; `--compare <dir>` draws
+the approved-vs-new grid. `tools/blender/items/README.md` has the setup, the rig and the data table of all keys.
+The SVG drawings in `src/art/icons/items.js` stay as the fallback; switching `itemIcon` / `gearIcon` /
+`currencyIcon` to the baked art (with the slanted tile and count) is a separate UI change.
