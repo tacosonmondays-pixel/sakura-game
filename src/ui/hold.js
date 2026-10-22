@@ -5,7 +5,8 @@
 // the one-shot click swallower and the Escape stack.
 //
 // Contract (CONTRACTS.md §11): any element with data-unit="<id>" (or data-hold-unit) on a
-// HOLD_ROUTES screen is a hold target; data-hold-info="off" on an ancestor opts out.
+// HOLD_ROUTES screen is a hold target; data-hold-info="off" on an ancestor opts out. A card that shows someone
+// else's girl (a co-op ally's chip) carries her owner's mini profile through setHoldSheet(el, opts).
 import './styles/hold.css';
 import { currentRoute } from './router.js';
 import { UNIT_MAP } from '../data/units.js';
@@ -253,6 +254,23 @@ export function onEscape(fn) {
 // Meta screens: delegated hold → Unit Sheet
 // ---------------------------------------------------------------------------
 
+/**
+ * Someone else's girl (a co-op ally's chip): the sheet options her card opens with instead of your own save, e.g.
+ * `{ profile: <their mini profile>, owner: { name, avatar }, tab: 'build' }` (unitSheet.js openUnitSheet).
+ */
+const SHEET_OPTS = new WeakMap();
+
+/** Marks `el` (a data-unit card) as someone else's girl: holding it opens her sheet with `opts`. @returns el */
+export function setHoldSheet(el, opts) {
+  if (el && opts) SHEET_OPTS.set(el, opts);
+  return el;
+}
+
+/** What a hold on `target` passes to openSheetFor on `route`: your own girl, or the options set on her card. */
+export function holdSheetOptions(target, route) {
+  return { allowFullPage: !NO_FULL_PAGE.has(route), origin: target.anchor, ...(SHEET_OPTS.get(target.el) || {}) };
+}
+
 /** The hold target under `node` on the current screen, or null. */
 export function holdTarget(node, route = currentRoute().name) {
   if (!node || typeof node.closest !== 'function' || !HOLD_ROUTES.has(route)) return null;
@@ -297,7 +315,7 @@ export function installHoldInfo() {
     active = null;
   };
   const open = (target, route) => {
-    openSheetFor(target.unitId, { allowFullPage: !NO_FULL_PAGE.has(route), origin: target.anchor });
+    openSheetFor(target.unitId, holdSheetOptions(target, route));
   };
 
   function onDown(e) {
