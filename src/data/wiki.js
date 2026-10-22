@@ -57,7 +57,7 @@ export const ROLE_SUBCLASS = {
   sniper: { label: 'Precision', desc: 'Removes priority targets: casters, siphoners, elites, bosses.' },
   powerhouse: { label: 'Late Carry', desc: 'Costly coil bolts that grow into the strongest damage on the field.' },
   cleaver: { label: 'Crowd Melee', desc: 'Sweeps everything at a corner.' },
-  duelist: { label: 'Single-Target Melee', desc: 'Damage ramps up on the same target.' },
+  duelist: { label: 'Melee Duelist', desc: 'Damage ramps up on the same target; every 3rd strike cleaves the crowd around it.' },
   skirmisher: { label: 'Rapid Multi-Target', desc: 'Many quick hits; innate detection.' },
   controller: { label: 'Crowd Control', desc: 'Slows and freezes.' },
   bombardment: { label: 'Area Damage', desc: 'Burns dense swarms.' },
@@ -82,7 +82,7 @@ export const ROLE_SUBCLASS = {
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
   // the new girls (UNIT_GAPS §5)
-  bowler: { label: 'Rolling Bombs', desc: 'Bomb balls rolled up the road: blasts, knockback, pins and sticky balls.' },
+  bowler: { label: 'Rolling Bombs', desc: 'Bomb balls rolled up the road: blasts, knockback, pins and ricochets.' },
   botanist: { label: 'Vines and Harvest', desc: 'Vines hold walkers; thorn beds on the road; coins and lives from the harvest.' },
   council: { label: 'Rules Hub', desc: 'Cheaper upgrades, free tiers and better sell value inside her office; banners carry her rules.' },
   builder: { label: 'Sentry Builder', desc: 'Timed sentries at the road\'s edge, typed for the threat.' },
@@ -723,7 +723,7 @@ function returningArticle() {
 function newGirlsArticle() {
   const girls = NEW_GIRL_IDS.map((id) => UNITS.find((u) => u.id === id)).filter(Boolean);
   const free = girls.filter((u) => u.acquisition.type === 'free');
-  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'wakaba', 'drink', 'hydrated', 'yuzuha', 'sentry', 'sentries', 'net', 'ouka', 'council', 'office', 'banner', 'free tier', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'marumi', 'bowling', 'ball', 'sticky'], [
+  return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'wakaba', 'drink', 'hydrated', 'yuzuha', 'sentry', 'sentries', 'net', 'ouka', 'council', 'office', 'banner', 'free tier', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'marumi', 'bowling', 'ball', 'ricochet', 'bounce', 'pinball', 'lob'], [
     sec('Who joined',
       p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
@@ -746,8 +746,9 @@ function newGirlsArticle() {
       p('Chigusa throws a fan of thorn seeds. Every few seconds a vine holds the lead walker in her range: it cannot move until the vine lets go. Minibosses slip free sooner, and bosses and flyers shrug vines off. Thorn Beds leaves thorns where her seeds finish a walker; Bloom Rush makes her faster the longer she keeps attacking.'),
       tip('Harvest grows coins every wave and, from Herb Garden, a life back for each wave cleared (at most 30 a battle, never above your starting lives).', 'info')),
     sec('Rolling bombs (Marumi)',
-      p('Marumi rolls bomb balls up the road from the spot nearest her, against the flow of enemies. A ball blows up on the first walker it meets: a blast that hurts everyone around it and pushes them back up the road. Balls never touch flyers; Lob (Spin Shot tier 2) throws an arcing bomb at them instead.'),
-      tip('Place her where the road runs toward the spawn in front of her. Sticky Ball (Spin Shot tier 3) sticks to elites and bosses and explodes three times as hard.', 'info')),
+      p('Marumi rolls bomb balls up the road from the spot nearest her, against the flow of enemies. A ball blows up on the first walker it meets: that walker takes the whole blast, everyone around it half, and the crowd is pushed back up the road. Balls never touch flyers: when only flyers are in her range she lobs a lighter bomb (half her blast) at the lead one, on every path.'),
+      p('Spin Shot is her pinball path. From Bumper Bounce (tier 2) a ball that blows up bounces off to the nearest other walker within 2 tiles (never a flyer or a walker in a tunnel) and blows up again: 1 bounce, then 3, 5 and 8. Glow Bowl (tier 5) ends a full run of 8 bounces with a glowing finale: triple damage on a wider blast.'),
+      tip('Place her where the road runs toward the spawn in front of her. Heavy Ball makes the biggest single blasts and stuns; Lane Master rolls faster and throws pins along the road; Spin Shot is best where the walkers bunch up.', 'info')),
     sec('The council office (Ouka)',
       p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly makes them attack faster and reach further; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
       tip('Place Ouka first and build around her. Rally Banner (Safety Code tier 3): aim her to plant a banner up to 5 tiles away, and the girls next to it follow her rules too.', 'info')),

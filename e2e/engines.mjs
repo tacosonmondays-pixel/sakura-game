@@ -200,6 +200,22 @@ for (const { name, r } of results) {
   if (!(mirror > 0 && own > 0 && pierced > 0)) failures.push(`the returning-girls gear battle: Iroha's two volleys or her Pierce never fired (${g.iroha})`);
 }
 
+// Marumi's Glow Bowl (GLOW_BOWL_START): ricochets off the road, the finale, the Heavy blast share
+log('\nScripted co-op GLOW BOWL battle (5-4, GLOW_BOWL_START: Marumi Spin Shot to Glow Bowl and Heavy Ball to Bowling Thunder):');
+for (const { name, r } of results) {
+  const g = r.glowBowl;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · pops/bounced/finales/lobs ${g.bowl} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two Glow Bowl clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} Glow Bowl command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'bowl', 'dealt']) if (g[k] !== ref.glowBowl[k]) failures.push(`${name}: Glow Bowl ${k} ${g[k]} ≠ ${ref.glowBowl[k]} (${results[0].name})`);
+}
+{
+  const g = ref.glowBowl;
+  const [, bounced, finales] = g.bowl.split('/').map(Number);
+  if (!(g.wave >= 10)) failures.push(`the Glow Bowl battle stopped early (state ${g.state}, wave ${g.wave})`);
+  if (!(bounced > 0 && finales > 0)) failures.push(`the Glow Bowl battle: no bounce or no finale (${g.bowl})`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
@@ -344,4 +360,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

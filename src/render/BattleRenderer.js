@@ -31,6 +31,7 @@ import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
+import { Companions } from './companions.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -195,6 +196,22 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
+  // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
+  const companions = new Companions({ sim, scene, actors, terrain, quality });
+  actors.companions = companions;
+  roster.companions = companions;
+  // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
+  let compBroken = false;
+  function compFail(err) {
+    compBroken = true;
+    try {
+      companions.clear();
+      companions.disposed = true;
+    } catch {
+      /* leave what is drawn */
+    }
+    console.warn('[companions] disabled after an error', err);
+  }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
 
@@ -261,6 +278,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
+    companions.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
     resize();
@@ -318,6 +336,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
     let hitFx = 0;
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
+      // companions observe only (before the FX layers that consume events)
+      if (!compBroken) {
+        try {
+          companions.handle(ev);
+        } catch (err) {
+          compFail(err);
+        }
+      }
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
       switch (ev.type) {
@@ -596,6 +622,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
     actors.sync(d);
+    if (!compBroken) {
+      try {
+        companions.update(d, rig.zoom);
+      } catch (err) {
+        compFail(err);
+      }
+    }
     terrain.update(time);
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
@@ -942,6 +975,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return attackFx?.probe() ?? null;
     },
 
+    /** Extra: companion actors (Kon, Kaze, the doll) for e2e / debug (allocates). */
+    companionsProbe() {
+      return companions.probe();
+    },
+
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
@@ -960,6 +998,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       overlays.dispose();
       attackFx?.dispose();
       roster.dispose();
+      companions.dispose();
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {

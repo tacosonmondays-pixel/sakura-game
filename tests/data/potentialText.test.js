@@ -7,7 +7,7 @@ import { POTENTIAL_GIRLS, potentialSteps } from '../../src/data/potential.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 
 /** Keys whose numbers read as "+N %" (a multiplier m → (m − 1) × 100, or "m×"). */
-const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral']);
+const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral', 'shareMul']);
 /** Keys whose numbers are fractions read as percent or points (× 100). */
 const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp',
   // Wakaba's drink bonuses (drink.dmg 0.03 = 3%); Ouka's extra discount (hub.cutAdd 0.02 = 2%)

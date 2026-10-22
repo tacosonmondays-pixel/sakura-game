@@ -69,6 +69,8 @@ export const MOD_TAGS = {
   ball: 'self',
   // Yuzuha's lane sentries are her summons
   sentry: 'drones',
+  // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
+  blade: 'self',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -90,12 +92,13 @@ const SUB_KEYS = {
   mark: new Set(['bonus', 'duration']),
   relay: new Set(['reach']),
   sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
-  ball: new Set(['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'sticky', 'stickyStack', 'stickyTime']),
+  ball: new Set(['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'bounce', 'reach', 'finish']),
   vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap']),
   hub: new Set(['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'detection', 'airGrant', 'cleanse', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd']),
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 
 /** Status types that make enemies easier for EVERY girl to hit or hurt. */
@@ -427,6 +430,24 @@ export function shortEffect(mods = {}) {
   const two = parts.join(' · ');
   if (two.length <= SHORT_MAX) return two;
   return parts[0].length <= SHORT_MAX ? parts[0] : `${parts[0].slice(0, SHORT_MAX - 1)}…`;
+}
+
+/**
+ * A tier's effects as short chip phrases, most important first ("+5 dmg", "+25% dmg", "+4 pierce"): the
+ * same words as shortEffect(), whole (never cut), at most `max` of them (the tier panel shows 3, §6.1).
+ * @param {object} mods
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function effectParts(mods = {}, max = 3) {
+  const parts = [];
+  for (const [k, fn] of SHORT_ORDER) {
+    if (parts.length >= max) break;
+    if (!present(mods?.[k])) continue;
+    if ((k === 'damageMul' || k === 'rateMul') && mods[k] === 1) continue;
+    parts.push(fn(mods));
+  }
+  return parts;
 }
 
 /** Icon rule per primary key → { set, key } for the view (ui / cap / status / attack / element). */

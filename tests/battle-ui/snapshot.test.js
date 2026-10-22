@@ -913,6 +913,49 @@ const potRun = () => (potPlayed ??= (() => {
   return sim;
 })());
 
+/** Kaede's blade arts (her AoE rework): Flowing Blade 3 and Guard Breaker 4, gear Pierce on her cuts. */
+const KAEDE = {
+  stageId: '4-5', difficulty: 'hard', towers: ['kaede', 'aoi', 'rei'], hero: 'luna', seed: 4747,
+  stats: { damageMul: 1.5, rateMul: 1.2 },
+  per: { kaede: { pierceK: 60, club: 'fencing', clubN: 3 } },
+};
+describe('battle save and Kaede\'s blade arts (her strike count toward the next Maple Cleave)', SLOW, () => {
+  it('her count (kb) and Pierce carry come back exactly, and a split run plays on like the straight one', () => {
+    const sim = makeSim(KAEDE);
+    sim.cash = 5e6;
+    const spots = nearPath(sim, [...KAEDE.towers, KAEDE.hero]);
+    const placed = {};
+    for (const [u, [x, y]] of Object.entries(spots)) placed[u] = sim.placeTower(u, x, y);
+    const k = placed.kaede;
+    for (let i = 0; i < 3; i++) sim.upgradeTower(k.uid, 1);
+    sim.upgradeTower(k.uid, 0);
+    sim.cash = 4000;
+    wrapWaves(sim, KAEDE.seed);
+    const seen = new Set();
+    potWaves(sim, 5, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const row = snap.towers.find((t) => t.uid === k.uid);
+      if (row.kb != null) seen.add(row.kb);
+      const { sim: back, dropped } = restoreSim(recordOf(KAEDE, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      const b = back.towers.find((x) => x.uid === k.uid);
+      expect(b.bladeN).toBe(k.bladeN);
+      expect(b.pierceCarry).toBe(k.pierceCarry);
+      expect(b.eff.blade).toEqual(k.eff.blade);
+    });
+    expect(k.bladeN).not.toBeUndefined();
+    expect(seen.size).toBeGreaterThan(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(KAEDE, snap), { settings: { autoStart: false } });
+    wrapWaves(back, KAEDE.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+    expect(back.towers.find((x) => x.uid === k.uid).bladeN).toBe(k.bladeN);
+    expect(back.towers.find((x) => x.uid === k.uid).damageDealt).toBe(k.damageDealt);
+  });
+});
+
 describe('battle save and Potential v3 (format 3: rhythms, tempo, shuriken carry, kept focus, overclock)', SLOW, () => {
   const c = POT;
   const build = potBuild;
@@ -1668,5 +1711,40 @@ describe('battle save and co-op freeplay: a solo save never carries freeplay sta
     autoplay(sim);
     expect(['won', 'lost']).toContain(sim.state);
     expect(sim.wave).toBeLessThanOrEqual(sim.totalWaves);
+  });
+});
+
+describe('Marumi\'s ricochet and the battle save', () => {
+  it('a ball mid-bounce ends at the wave clear: the save round-trips with no ball and replays no blast', () => {
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 2110 };
+    const sim = makeSim(c);
+    sim.cash = 1e6;
+    for (const a of autoPlan('1-1', c.towers, { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+    const mb = sim.towers.find((t) => t.unitId === 'marumi');
+    for (const [p, n] of [[2, 5], [0, 2]]) for (let k = 0; k < n; k++) expect(sim.upgradeTower(mb.uid, p)).toBe(true);
+    let flying = false;
+    for (let w = 0; w < 6 && !flying; w++) {
+      sim.startNextWave();
+      for (let i = 0; i < 60 * 240 && sim.state === 'wave' && !flying; i++) {
+        sim.update(STEP);
+        sim.drainEvents();
+        flying = !!mb.balls?.some((b) => b.fly);
+      }
+    }
+    expect(flying, 'a ball off the road, bouncing').toBe(true);
+    for (let i = 0; i < 60 * 600 && sim.state === 'wave'; i++) {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    expect(sim.state).not.toBe('wave');
+    expect(mb.balls).toBeUndefined();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    const mb2 = back.towers.find((t) => t.unitId === 'marumi');
+    expect(mb2.tiers).toEqual(mb.tiers);
+    expect(mb2.balls ?? []).toHaveLength(0);
+    back.update(STEP);
+    expect(back.drainEvents().filter((e) => e.type === 'ballPop' || e.type === 'explode')).toEqual([]);
   });
 });

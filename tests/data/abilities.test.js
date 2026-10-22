@@ -164,9 +164,9 @@ const SPEC_TOWERS = {
   },
   kaede: {
     path: 'flowing', id: 'kaede.flashLunge', kind: 'strike', scope: 'local', cooldown: 25, duration: 0,
-    effect: { pick: 'mode', count: 1, reachMul: 2.5, hits: 5, dmgMul: 1, fullRamp: true, keepRamp: true },
+    effect: { pick: 'mode', count: 3, reachMul: 2.5, hits: 2, dmgMul: 1, fullRamp: true, keepRamp: true },
     auto: { when: 'enemies', min: 3, orElite: true },
-    t5: { cooldown: 20, effect: { hits: 8 } },
+    t5: { cooldown: 20, effect: { count: 5, hits: 3 } },
   },
   chika: {
     path: 'sentry', id: 'chika.droneSurge', kind: 'deploy', scope: 'local', cooldown: 45, duration: 12,

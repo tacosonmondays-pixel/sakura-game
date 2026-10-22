@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companions preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #dfeeff; font-family: system-ui, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  nav { position: fixed; top: 8px; left: 8px; z-index: 2; display: flex; gap: 6px; flex-wrap: wrap; }
+  nav a { background: #fff; color: #1d2b55; font: italic 700 13px system-ui; padding: 6px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 1px 3px #0002; }
+  #label { position: fixed; left: 8px; bottom: 8px; z-index: 2; font: 600 12px system-ui; color: #1d2b55; background: #fffc; padding: 4px 8px; border-radius: 6px; }
+  .tag { position: fixed; z-index: 2; font: 700 12px system-ui; color: #1d2b55; transform: translateX(-50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="?view=turn&id=kon">Kon</a>
+  <a href="?view=turn&id=kaze">Kaze</a>
+  <a href="?view=turn&id=doll">Doll</a>
+  <a href="?view=clip&id=kon&clip=attack">Clip strip</a>
+  <a href="?view=lineup&id=kon">Lineup</a>
+  <a href="?view=measure">Measure</a>
+</nav>
+<div id="app"></div>
+<div id="label"></div>
+<script type="module" src="./companions.js"></script>
+</body>
+</html>

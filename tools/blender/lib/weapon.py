@@ -803,11 +803,12 @@ def _held(ctx, side):
 
 
 def marionette(ctx):
-    """Marionette rig (Yoriko): a dark cross-shaped control bar with four glowing end nodes held up in the left hand,
-    four glowing threads and a little dancing doll in a tiny school uniform (lilac bob, white sailor top with a glowing
-    lilac ribbon, navy pleated skirt, white socks), plus a glowing thread node at the right glove's fingertips. With
-    look.pin holding the left arm up, the bar, threads and doll are modelled in that held pose and stored in rest space,
-    rigid on hand_L. Palette: 'bar' (bar colour), 'dollHair', 'dollSkirt'; the glow is the halo material."""
+    """Marionette control bar (Yoriko): a dark cross-shaped control bar with four glowing end nodes held up in the left
+    hand, plus a glowing thread node at the right glove's fingertips. With look.pin holding the left arm up, the bar is
+    modelled in that held pose and stored in rest space, rigid on hand_L. Palette: 'bar' (bar colour); the glow is the
+    halo material. Her little drone marionette (the doll in a tiny school uniform) and its glowing threads are no
+    longer part of her figure: the doll is its own figure now, and ctx['marionette']['doll'] keeps its waist point
+    under the bar in the held pose (its home)."""
     pal = ctx['pal']
     P = ctx['P']
     to_rest, to_held = _held(ctx, 'L')
@@ -843,59 +844,13 @@ def marionette(ctx):
         ends += [c - ax * half, c + ax * half]
     for i, e in enumerate(ends):
         obj(f'mnode{i}', dot(e, 0.0115), glow, levels=0, halo=True)
-    # the doll, dancing below the bar (doll space: origin at its waist, +z up, -y = its front)
+    # her doll's home: its waist, dancing below the bar (the doll and its threads are a separate figure now)
     D = Vector((c.x + 0.012, c.y + 0.004, c.z - 0.37))
-    Rd = Matrix.Rotation(math.radians(-9), 3, 'Y') @ Matrix.Rotation(math.radians(6), 3, 'Z')
-
-    def dp(x, y, z):
-        return D + Rd @ Vector((x, y, z))
-
-    def doll(name, vf, color, levels=1, halo=False):
-        v, f = vf[0], vf[1]
-        return obj(name, ([tuple(dp(*p)) for p in v], f), color, levels=levels, halo=halo)
-
-    skin, white = '#fde8de', '#f6f2f8'
-    hair = pal.get('dollHair', '#a88ad8')
-    skirt_col = pal.get('dollSkirt', '#2f2a62')
-    doll('doll_head', M.sphere((0, 0, 0.095), (0.036, 0.034, 0.035)), skin)
-    doll('doll_hair', M.sphere((0, 0.006, 0.107), (0.041, 0.039, 0.032)), hair)
-    if not M.LEVEL_DROP[0]:  # the LOD's doll keeps the hair cap + fringe only
-        doll('doll_bob', M.sphere((0, 0.009, 0.088), (0.043, 0.037, 0.03)), hair)
-    doll('doll_fringe', M.box((0, -0.029, 0.117), (0.058, 0.014, 0.022)), hair)
-    for sx in (1, -1):
-        doll('doll_eye', M.sphere((sx * 0.013, -0.034, 0.091), (0.0055, 0.004, 0.0065)), glow, levels=0, halo=True)
-    doll('doll_top', M.box((0, 0, 0.028), (0.046, 0.035, 0.056)), white)
-    doll('doll_ribbon', M.sphere((0, -0.02, 0.04), (0.011, 0.006, 0.008)), glow, levels=0, halo=True)
-    prof = [(0.024, 0.003), (0.03, -0.014), (0.048, -0.05)]
-    v, f, r = M.lathe(prof, segments=10, close_top=True, close_bottom=True, center=(0, 0, 0))
-    v = [(x * (1.07 if (k % 2 and z < -0.01) else 1.0), y * (1.07 if (k % 2 and z < -0.01) else 1.0), z)
-         for k, (x, y, z) in zip([i % 10 for i in range(len(v))], v)]
-    doll('doll_skirt', (v, f), skirt_col)
-    # arms raised by the threads, legs: one straight, one kicked back (a dance step)
-    hands = []
-    for sx in (1, -1):
-        sh, hd = (sx * 0.024, 0, 0.048), (sx * 0.062, -0.006, 0.088)
-        v, f, r = M.tube([Vector(sh), Vector(hd)], 0.0085, sides=6)
-        doll('doll_arm', (v, f), white)
-        doll('doll_hand', dot(Vector(hd), 0.0105), skin, levels=0)
-        hands.append(dp(*hd))
-    for sx, end in ((1, (0.016, 0.026, -0.094)), (-1, (-0.013, -0.004, -0.104))):
-        v, f, r = M.tube([Vector((sx * 0.012, 0, -0.03)), Vector(end)], 0.0092, sides=6)
-        doll('doll_leg', (v, f), white)
-        doll('doll_shoe', M.sphere((end[0], end[1] - 0.004, end[2] - 0.006), (0.0115, 0.015, 0.009)), '#6a4636', levels=0)
-    # four glowing threads: bar ends -> both hands, the head and the back
-    targets = hands + [dp(0, 0.004, 0.13), dp(0, 0.024, 0.05)]
-    free = list(ends)
-    for i, t in enumerate(targets):
-        e = min(free, key=lambda q: (q.x - t.x) ** 2 + (q.y - t.y) ** 2)
-        free.remove(e)
-        v, f, r = M.tube([e, t], 0.0019, sides=3)
-        obj(f'mthread{i}', (v, f), glow, levels=0, halo=True)
     # thread-emitter node at the right glove's fingertips (the casting hand)
     hd, down, fwd, out = hand_frame(ctx, 'R')
     obj('glove_node', dot(hd + down * 0.042 + fwd * 0.012, 0.011), glow, levels=0, halo=True, bone='hand_R', rest=False)
     ctx['marionette'] = dict(hand=hand, bar=c, doll=D)
-    print(f'[marionette] held hand {tuple(round(x, 3) for x in hand)} bar {tuple(round(x, 3) for x in c)} doll waist {tuple(round(x, 3) for x in D)}')
+    print(f'[marionette] held hand {tuple(round(x, 3) for x in hand)} bar {tuple(round(x, 3) for x in c)} doll home (waist) {tuple(round(x, 3) for x in D)}')
     return parts
 
 

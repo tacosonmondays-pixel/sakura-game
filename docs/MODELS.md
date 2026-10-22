@@ -35,7 +35,7 @@ Each unit takes ≈1.5 s. The roster (palette + look) is read straight from `src
 | `outfit.py` | colour plan per `look.outfit` (`spec()`) + extra cages: sailor collar, ribbons/bows, pleated skirts, cuffs, puff/wide sleeves, belts, breastplate + pauldrons + cape (armor), hood, apron, obi, pockets…; the temporary chibis added `trackJacket` (Fuu), `sailorCardigan` (Iroha), `blazerCardigan` (Ena, tartan skirt + open cardigan hem), `staffTrack` (Kanna), `stageCoat` (Yoriko), `flightJacket` (Seiran) and an optional hem `stripe` on the shared `skirt()` |
 | `accessory.py` | ribbon, bunny/cat/fox ears, hairpin, beret, witch hat (raises the halo), horns (default oni horns; `ctx.horn_shape` `curl` = ram horns, `dragon` = long swept-back horns), flower, goggles, hood, headband, crown, **cap** (peaked captain's cap: accent crown, dark band and visor, gold badge; raises the halo), `leafClip` (Fuu), `mirrorOrnament` (Iroha), `rose` (Ena), `catHeadset` (Yoriko), horn shapes `oni` (Kanna) and `crescent` (Seiran, `palette.horn`) — all placed above the hair surface (`HAIR_TOP`) |
 | `weapon.py` | one cage model per `look.weapon`, weighted to `hand_R` (bow/tome/shield to `hand_L`, mallet in both hands); `kind_of()` maps weapons to attack kinds. Roster merge added `mic` (cast), `shield` (smash), `mirror` (cast, glowing glass on the halo material), `spear` (thrust), `mallet` (taiko bachi, smash), `puppet` (control bar + strings + tiny marionette, cast), `cards` (fan of four cards, throw); the temporary chibis added `turbineFan` (sweep), `roseCards` (throw), `bachi` (smash), `marionette` (cast, left hand) and `stormSpear` (thrust) |
-| `extras.py` | per-unit extra parts from the tools-only tables `EXTRA_PARTS` / `HORN_SHAPE` in `build_characters.py` (keyed by unit id, no schema change): `foxTail` (Luna), `falcon` + `quiver` (Hana), `foxFamiliar` (Ruri), `taikoStand` (Kanna's taiko on a stand, weighted to `root`; the old hip `taikoDrum` stays in the library), `tailBows` (Fuu), `cardDealer` (Ena), `flightHeadset` (Seiran), `mortarTube` (Tsubaki), `monocle` (Kohaku). They are ordinary vertex-coloured cages joined into the **body** mesh and weighted to hips/chest/head, so every GLB keeps exactly three primitives |
+| `extras.py` | per-unit extra parts from the tools-only tables `EXTRA_PARTS` / `HORN_SHAPE` in `build_characters.py` (keyed by unit id, no schema change): `foxTail` (Luna), `quiver` (Hana; the `falcon` part stays in the library but is no longer listed: companions are separate figures), `foxFamiliar` (in the library, no longer listed for Ruri), `taikoStand` (Kanna's taiko on a stand, weighted to `root`; the old hip `taikoDrum` stays in the library), `tailBows` (Fuu), `cardDealer` (Ena), `flightHeadset` (Seiran), `mortarTube` (Tsubaki), `monocle` (Kohaku). They are ordinary vertex-coloured cages joined into the **body** mesh and weighted to hips/chest/head, so every GLB keeps exactly three primitives |
 | `halo.py` | ring/star/petal/gear/moon/flame/wave/crown/snow/bolt/leaf/eye/crescent (a quad band between two arcs, so the bite stays open after subdivision; the shared `moon` is one concave n-gon that subdivides into a filled disc with mixed winding), emissive `halo` material, bone `halo` |
 | `rig.py` | armature: `root, hips, spine, chest, neck, head, halo, shoulder/upper_arm/forearm/hand _L/_R, thigh/shin/foot _L/_R` (+ hair bones). No dots in bone names so three.js keeps them verbatim in track names |
 | `anim.py` | actions authored as a few keyframes at 24 fps in armature space (`Poser.key(frame, {bone: (pitch, roll, yaw)})`), bezier → exported as CUBICSPLINE. Clips: `idle` (personality per expression, breathing, halo float), `walk`, `attack_<kind>` with anticipation → strike → recovery (`slash, thrust, bow, rifle, cannon, cast, throw, smash, sweep`), `cheer`, `victory` (weapon-specific pose), `hurt`, `pickup` (wriggle). Opt-in look keys: `chinUp` (degrees added to neck + head in every key, split by `chinSplit`, default 45 / 55 %), `holdPose` (merged into the idle weapon hold), `pin` + `pinFollow` (an arm held in a fixed pose in every clip, keeping a share of the clip's own motion) |
@@ -162,7 +162,7 @@ for id in fuu iroha ena kanna yoriko seiran; do python3 tools/blender/build_char
 | Iroha | 466,292 / 220,520 B (10,094 / 3,258 verts) | 52 px | a plum-black bob with one high bun on her left (`bunSides`; two buns read as bear ears and are not in her painting) and a silver mirror ornament on it, a blunt fringe, a charcoal sailor top and plum scarf under a long open plum cardigan, black tights, loafers, her hand mirror; round lavender eyes; chin-up 20° (neck / head 60 / 40, `chinSplit`) | — |
 | Ena | 489,108 / 242,228 B (10,602 / 3,737 verts) | 50 px | rose-pink layers and one thick braid over her left shoulder tied with a crimson ribbon, a crimson rose, a black blazer piped in crimson over a long black cardigan, a red tartan skirt, black tights, a fan of five pearl cards held up in her right hand (`holdPose`), a wrist card dealer, the crescent halo; chin-up 20° | about 2.4 KiB (full) and 3.4 KiB (LOD) under the budgets, so a new part needs a trim elsewhere; `walk` ignores the hold, so the card fan hangs flat there. Luna and Kage still wear the shared `moon` halo, which shows as a blob (their GLBs are outside this wave) |
 | Kanna | 463,576 / 235,908 B (9,494 / 3,146 verts) | 67 px | high coral twin-tails flaring out with gold cuffs, tall ivory oni horns, a crimson staff track jacket with black panels and gold piping, black slacks, crimson high-tops, carbon bachi with glowing tips, her taiko on a stand at her front-left (weighted to `root`, so it stays put in every clip); round amber eyes; chin-up 20° | `attack_smash` leans her forward and hides her face for a few frames; the sticks strike forward, not on the drum |
-| Yoriko | 445,584 / 232,684 B (8,992 / 3,061 verts) | 64 px | a lilac high ponytail tied on her right, a navy cat-ear headset with glowing ears and a mic, an indigo stage frock coat over a lilac waistcoat with gold edging and long tails, navy gloves, trousers and boots, the marionette bar with a dancing doll held up in her left hand (`pin`), the crescent halo; round violet eyes; chin-up 22° | the bar arm stays up in every clip, cheer and victory included; the bind pose stores the prop pre-rotated (no runtime path shows it) |
+| Yoriko | 417,072 / 221,764 B (8,186 / 2,745 verts) | 64 px | a lilac high ponytail tied on her right, a navy cat-ear headset with glowing ears and a mic, an indigo stage frock coat over a lilac waistcoat with gold edging and long tails, navy gloves, trousers and boots, the marionette control bar held up in her left hand (`pin`; since Oct 21 her drone marionette and its threads are a separate figure, `ctx['marionette']['doll']` keeps its home under the bar), the crescent halo; round violet eyes; chin-up 22° | the bar arm stays up in every clip, cheer and victory included; the bind pose stores the prop pre-rotated (no runtime path shows it) |
 | Seiran | 439,068 / 229,656 B (8,888 / 3,059 verts) | 64 px | pale sky-blue waves, two gold crescent horns, a white flight headset, a light-blue flight jacket with gold shoulder boards and a teal tie, a steel-blue pleated skirt, blue-grey tights, white flight boots, a white storm spear with a glowing ice blade, a laughing grin; chin-up 22° | in the shared `victory` / `cheer` clips the spear passes through her hair |
 
 ## The new girls' figures (UNIT_GAPS §5)
@@ -282,8 +282,9 @@ Same pipeline with her own profile: `hana.glb` 1.24 MB (20.5k tris incl. bow) / 
 a 30-joint skeleton (the renamed humanoid plus `root`, `braid1..3`, `kaze` and `bow_nock`), clips `idle`, `walk`,
 `attack_bow`, `cheer`, `hurt`, Hikari's battle height, `weaponKind 'bow'`. Her folding compound bow (468 tris,
 vertex colours, built locally) is skinned to `hand_L`; the string also rides `bow_nock`, which the attack draws back
-to her right fist, so the string bends into a V and snaps straight on release. Kaze, her drone falcon, is part of the
-body mesh on her right shoulder and bobs on his own `kaze` bone. Every clip carries a 16° chin-up; her
+to her right fist, so the string bends into a V and snaps straight on release. Kaze, her drone falcon, was modelled
+on her right shoulder; since Oct 21 he is taken off her (see "Companions taken off their girls" below) and the `kaze`
+bone stays in the skeleton unweighted. Every clip carries a 16° chin-up; her
 `extras.eyes.hairGuard` keeps her auburn bangs painted during a blink. Not on the chibi: the quiver and archery case
 from her portrait. A separate circling Kaze (the falconer mechanic) would need his own model.
 
@@ -294,16 +295,34 @@ Same pipeline with her own profile (her art-wave model's first full pass; scratc
 (`--webp-quality 88` would bring both under). One 28-joint skeleton: the renamed humanoid plus `root`, `kon`,
 `hair_back` and `hair_tip`. Clips `idle`, `walk`, `attack_book` (taps the grimoire, points, Kon hops), `cheer`,
 `hurt`; Hikari's battle height, `weaponKind 'book'`, 2 draw calls per instance (no separate prop mesh). Kon, her
-holo fox, is part of the body mesh on her left shoulder and rides his own `kon` bone; the grimoire is skinned to the
+holo fox, was modelled on her left shoulder; since Oct 21 he is taken off her (below) and the `kon` bone stays in the
+skeleton unweighted, so the clips are unchanged; the grimoire is skinned to the
 hips (0.7) and her left thigh (0.3), so it stays at her hip. Meshy's rig was repaired: the right wrist and knee
 joints mirror the left ones, the long back hair follows its own `hair_back` → `hair_tip` chain instead of the right
 arm, the blazer follows the spine and the skirt blends hips and thighs. Every clip carries a 14° chin-up. Her eye
 patch normals are refitted to a mirror-symmetric face surface (`fit_eye_normals`, so both closed lids shade alike),
 and her `extras.eyes.hairGuard` (`{ hue: [223, 245], sat 0.85, val 0.06 }`, measured by hand: her navy iris sits
-just below her hair's hue) keeps her navy bangs painted during a blink. Known: the battle still draws the procedural
-relay Kon (`src/render/rosterFx.js`), so two foxes show while her relay is away from her spot (a modelled roaming
-Kon, or hiding the shoulder Kon while the relay is out, is a later display-only job); her left arm stays near rest
-in most clips (it holds the grimoire under Kon); no secondary motion on the blazer or skirt.
+just below her hair's hue) keeps her navy bangs painted during a blink. Known: her left arm stays near rest in most
+clips (it holds the grimoire); no secondary motion on the blazer or skirt.
+
+### Companions taken off their girls (Oct 21)
+
+Kon (Ruri), Kaze (Hana) and Yoriko's doll are separate figures now, never part of their girl:
+
+* **Ruri and Hana** (`tools/meshy/split_companion.py`, bpy 4.2): works on the shipped packed GLB, so everything that is
+  not the companion stays byte for byte (skeleton incl. the now unweighted `kon` / `kaze` bone, clips, textures,
+  materials, `asset.extras`, every other vertex). It removes every face skinned to the companion's bone, his loose
+  fragments and the pale paw / tail-root bits fused into her (standing off her mirrored other side), then closes each
+  hole with a disc (rim = her own vertices, weights and normals, so nothing cracks when she moves; inner points relaxed
+  and eased onto her mirrored other side) textured with one even texel of the cloth or hair round it (Ruri: her
+  armband's navy along its stretch of the arm). `python3 tools/meshy/split_companion.py --glb <file> --bone kon`
+  (`--bone kaze --mesh hana` for Hana); then the manifest sizes. Sizes: `ruri.glb` 1,327,140 B (19.5k tris) / LOD
+  608,796 B, `hana.glb` 1,206,276 B (19.7k tris) / LOD 556,844 B. Close up, Ruri's outer upper arm under the armband
+  is a plain white cap with a small flat navy piece of band (the armband was fused with Kon's paws there), and Hana has a
+  small flat skin-coloured cap between hair and collar where Kaze's body met them; neither shows at battle size. The
+  Meshy versions of the girls are due to be redone anyway.
+* **Yoriko**: `marionette` keeps the control bar (and the glove's thread node); the doll and its four threads are gone.
+* `EXTRA_PARTS` no longer lists `falcon` (Hana) or `foxFamiliar` (Ruri), so a `--force-procedural` rebuild matches.
 
 ## Judging quality
 
@@ -372,3 +391,133 @@ with `&still=1&shadows=0`), `view=lineup&page=1..4` (three families per page at 
 `turn&id=`, `states&id=` (idle / move / hit / death / special / cast), `hooks`, `game`, `viewer`.
 `npx vitest run tests/models` checks every family GLB (clips, rig, materials, atlas, piece names, size
 budget) and that every EnemyDef resolves to a built family with its variant and props.
+
+---
+
+# Companions — Kon, Kaze and the drone marionette
+
+The three companions are separate figures now, built by our own cage pipeline (no generator, no outside art):
+Kon (Ruri's little holographic white fox, projected by her tablet to the lane edge), Kaze (the white falcon drone
+Hana built in the robotics lab) and Yoriko's drone marionette (a tiny doll in a school uniform on three glowing
+threads). They ship in `public/models/companions/`; the girls' own figures no longer carry them
+(`tools/meshy/split_companion.py`, see above) and the battle draws them as display actors beside their girls (see
+"Runtime" below).
+
+```
+python3 tools/blender/companions/build_companions.py              # all three, full + LOD, manifest updated
+python3 tools/blender/companions/build_companions.py kaze          # just one
+python3 tools/blender/companions/build_companions.py doll --blend /tmp/doll.blend --no-lod   # inspect in Blender
+```
+
+Each figure builds in under a second. Like the girls, rebuild one companion per process if you want byte-identical
+files (object names count up within a process). Look at them with `previews/companions.html`: `?view=turn&id=kon`
+(front, 3/4, side, back), `?view=clip&id=kaze&clip=attack&frames=6` (one clip as a frame strip),
+`?view=lineup&id=doll[&cam=battle]` (next to the girl's shipped GLB at true scale, then at the home offset, from the
+front or the 48° battle camera), `?view=measure` (logs the girls' anchor bones as JSON), `&lod=1` for the LOD files.
+The preview draws them with the girls' runtime look (`instantiateCharacter`: toon ramp, inverted-hull outline, unlit glow).
+
+## How they are built (`tools/blender/companions/build_companions.py`)
+
+One file on top of `tools/blender/lib`: cage blobs / tubes / lathes with Catmull-Clark (`mesh.py`), creased tips, a
+painted face atlas on a head with the girls' planar front projection (only polygons that face the front take the face,
+so the eyes never wrap round a hairless head), an armature (`rig.py`), clips keyed with the girls' `Poser` (`anim.py`),
+the girls' materials and GLB post-processing (`export.py`, KHR_mesh_quantization in `optimize.py`). Mirrored parts
+get their bone groups renamed `_L` → `_R` in place (`lib.mesh.mirror_x` keeps the copied mesh's `_L` groups next to the
+new `_R` ones in Blender 4, so a mirrored wing would follow both bones half and half).
+
+| | Kon | Kaze | doll |
+|---|---|---|---|
+| look | white chibi fox, big glossy cyan-blue eyes, pale-blue tint to the tail tip and ear tips, glowing inner ears, collar + tag, paw cuffs, tail tip and a hex projector pad on the ground (all glow) | white shell with grey panels and dark primaries, big teal eyes, gold beak and talons, an olive neck band (Hana's jacket), glowing sensors, chest core and wing stripes | lilac bob with a blunt fringe and a glowing clip, white sailor top with a lilac collar and a glowing bow, navy pleated skirt, white knee socks, brown shoes, glowing wrist joints, three glowing threads |
+| palette from | Ruri (accent `#89c5fc`, tablet glow) | Hana (olive `#798d5b`, gold) + the portrait's mint visor | Yoriko's override palette (`#b49ad0` hair, `#9a72d0` eyes, orchid glow) |
+| face cells | idle, blink, attack, happy (2 × 2 atlas, 128 px cells; LOD 64 px) | same | same, girl-style eyes and mouth |
+| bones | root, base (pad), hips, chest, head, ear, fleg, hleg (L/R), tail1–3 | root, body, head, wing + wingtip (L/R), tail, leg (L/R) | root, hips, chest, head, arm (L/R), leg (L/R), bar (thread tops) |
+| idle | sits, breathes, looks about, ear flick, tail swish (2 s loop) | perches with folded wings, looks round, tail flick, wing ruffle (2 s) | dangles and bobs on the threads, legs swinging (2 s) |
+| move | bounding run (0.5 s loop) | flapping flight (0.5 s loop) | floats forward, legs trailing (1 s loop) |
+| attack | crouch, pounce, land, a small yip, hop back (0.83 s) | rise, tucked dive, talons forward with a flare, climb back (0.83 s) | pulled back, dash with a chop and a kick, swings home; the threads stretch to the bar (0.67 s) |
+| appear | the pad lights, a thin projected beam pops to size, yip (0.5 s) | flies in from above, flares, lands, folds the wings (0.67 s) | drops in on the threads, a little bounce (0.5 s) |
+
+Kaze's wings are modelled spread (rest pose) and every perched key folds them along his sides, trailing edge down.
+He is modelled at 0.146 m and stored 1.35× (0.197 m) so he still reads beside Hana's big chibi head; the builder's
+per-figure `scale` scales mesh, bones and clip offsets together. Kon's hologram feel is colour + glow parts; the GLB also
+carries `asset.extras.holo = { opacity: 0.88 }` as a hint. The preview draws body and face at that opacity after a
+depth-only pre-pass (polygon offset 1 / 2), so only the front surface blends; without the pre-pass the legs show
+through the chest.
+
+## The contract (what a Meshy version must keep)
+
+| | |
+|---|---|
+| files | `public/models/companions/<id>.glb` + `<id>.lod.glb`, ids `kon`, `kaze`, `doll` |
+| clips | exactly `idle`, `move` (loop), `attack`, `appear` (play once); any extra clip is ignored |
+| space | glTF Y up, facing +Z, feet / paws / talons on y = 0 at the origin (the doll: its shoe soles), metres at game scale × `asset.extras.unitScale` (1 for the Blender figures) |
+| extras | `companion`, `owner`, `height` (standing height at game scale, threads and pad excluded), `unitScale`, `clips`, `home`; Blender figures add `faceCells` / `faceGrid` (cell UVs in [0, 1] of one cell, like the girls), the doll `threads = { bone: 'bar', bones }` |
+| manifest | `{ <id>: { file, lod, bytes, lodBytes, vertices, lodVertices, clips, height, owner, home: { offset, follow, note }, source, battleScale?, pageScale? } }`; `battleScale` (optional, default 1) sizes the figure in battle only, over its girl's scale, around its origin; `pageScale` (optional, default 1) does the same in the figure viewer (student page). Kon uses 2.4 for both (owner: he was too tiny). The builder keeps it across rebuilds |
+| home | `offset` = where the companion's origin sits relative to its girl's root in her bind pose (glTF axes at game scale: +X her left, +Y up, +Z her front); `follow` = her bone whose motion it rides (keep the offset from that bone's bind position), `null` = stays on the ground |
+| budget | ≤ 150 KB full, ≤ 80 KB LOD (`tests/models/companions.test.js`) |
+
+| id | owner | home offset | follow | note |
+|---|---|---|---|---|
+| kon | ruri | [0.24, 0, 0.18] | — | at her feet, front-left of her |
+| kaze | hana | [0.235, 0.56, 0.035] | `shoulder_L` | on her left shoulder, just in front of the braid (her bow and braid hang on that side) |
+| doll | yoriko | [0.264, 0.192, 0.125] | `hand_L` | hangs in front of her raised left hand; the thread tops (bone `bar`, 0.50 m above the doll's origin) meet her control bar. The runtime may set `bar`'s world position to her bar every frame so the threads stay attached while the doll dashes |
+
+The offsets were measured on the shipped GLBs with `?view=measure` (Ruri's feet, Hana's shoulder and her baked
+Kaze bone mirrored, Yoriko's `hand_L` in idle, where her pinned bar arm is held up).
+
+**A Meshy version replaces one figure without code changes:** export its two GLBs under the same names with the four
+clips, the origin and facing above, `asset.extras.height` / `unitScale` / `companion` / `owner` / `home` copied from
+the manifest entry (or re-measured), then set its manifest entry's `file`, `lod`, `bytes`, `lodBytes`, `clips`, `height`
+and `source: 'meshy'`. The builder keeps entries marked `meshy` (it skips them), and the test then stops requiring the
+Blender material set (a textured figure brings its own). The doll's `bar` bone is optional for a Meshy doll: without it the
+runtime draws the threads itself.
+
+## Sizes (Oct 21)
+
+| | full | LOD | height | at battle zoom (Hikari 66 px) |
+|---|---|---|---|---|
+| kon | 117,600 B (2,194 verts) | 59,196 B (695 verts) | 0.174 m (knee height of a 0.9 m girl) | ≈ 9 px |
+| kaze | 105,636 B (1,918 verts) | 52,044 B (557 verts) | 0.197 m (× 1.3 `battleScale` in battle) | ≈ 14 px |
+| doll | 137,940 B (3,018 verts) | 58,344 B (936 verts) | 0.304 m (a third of Yoriko) | ≈ 16 px |
+
+Known: at battle size Kon and Kaze are a few pixels tall, so their faces are big dark eyes and little else (the full files
+take over from the LOD ones when the battle is zoomed in to 2× or more on quality high); Kaze on Hana's left shoulder
+sits under her chibi head, between braid and bow, so part of him hides from some angles.
+
+## Runtime (display only)
+
+Nothing below reads anything but the sim's towers and its drained events, and nothing writes the sim, the save or a
+co-op command: the sim id does not change.
+
+* `src/models/companions.js`: the manifest (`loadCompanionManifest`, `companionOf(unitId)` by `owner`), loading through
+  glbChibi's cache under the key `../companions/<id>` (`loadCompanion` / `getCompanion`), `buildCompanion(asset)` =
+  `instantiateCharacter` (the girls' toon ramp, inverted-hull outline, mixer and face cells; the animator plays `move` as
+  a loop and `appear` once through `userData.playClip`). Kon's `extras.holo` gets body + face at that opacity with a
+  pale-blue emissive lift after a depth-only pre-pass (`renderOrder` 1 / 2), as in the preview. `HomeAnchor` puts the
+  figure at `home.offset` in the girl's group space and keeps the offset from her `follow` bone's idle (t = 0) position
+  (`boneAtIdle`, measured once per girl asset and cached), so Kaze rides her shoulder and the doll her raised hand;
+  without that bone (procedural placeholder) the offset is used as is. Because the offset is in her group space, her
+  battle scale (towers 1.22, heroes 1.36, × her pop-in) and her height (a Meshy girl is 1.224 m against a Blender girl's
+  0.9–0.98 m) carry over.
+* `src/render/companions.js` (`Companions`, made by `BattleRenderer`): one actor per sim tower whose unit has a companion
+  (co-op partners' girls too), made once her view and the file are there, `appear` on creation, gone when she leaves the
+  sim (sold, a new battle); restore and replays just recreate them. `handle(ev)` observes `attack` and `ult` before the
+  attack FX consume them; `update(dt, zoom)` runs after `actors.sync`. Off at quality low (rosterFx's procedural fox is
+  the fallback, as it is while Kon's file loads; an error in the layer switches it off for that battle with one
+  `[companions] disabled` warning). LOD files by default, full ones on quality high at zoom ≥ 2 (back at
+  ≤ 1.7). Probe: `renderer.companionsProbe()`.
+* Rules (`src/render/companionLogic.js`, unit-tested in `tests/render/companions.test.js`): **Kon** sits by Ruri while
+  her relay origin is her own spot (within 0.3 tiles), else runs along the ground (2.4 tiles/s, after his 0.5 s appear)
+  to `t.ox / t.oy` and sits there, runs to a new spot when it moves (a `relay` event) and back when it goes away; Ruri's
+  bolts play his attack only while he sits at the spot, and leave his head where he is drawn (`attackFx/styles/ruri.js`);
+  rosterFx hides its fox and runs the tether to him. **Kaze** perches on `shoulder_L`; on Hana's attacks he swoops to the
+  target and back (0.95 s, an arc 0.45 tiles high, following the enemy), one swoop at a time, attacks while he is out are
+  skipped; Hana's hawk sprite dive is only drawn without him. **The doll** hangs in front of Yoriko's raised hand; on her
+  needles and on Dream Detour (the `ult` centre) it dashes at the target and back (0.67 s, at most 1.3 tiles, stopping
+  0.35 short), its `bar` bone held where the thread tops sit at home so the glowing threads stay tied to her control bar.
+* Figure viewers: `buildChibi(unit, { companion: true })` adds her companion in its home pose (idle, riding her bone)
+  beside the GLB figure; the student page's 3D view uses it. (The lobby is a painted scene with no 3D figure.)
+* Cost: three skinned figures at most per player (≤ 936 vertices each at LOD, + outlines), no per-frame allocations
+  besides Map iterators; Kon's holo adds one depth-only draw per mesh.
+* e2e: `node e2e/companions.mjs [--shots dir]` (844×390: the three figures, Kon's run, Kaze's swoop and return, the
+  doll's dash, removal on sell, quality low, the student pages; frame strips with the battle paused and the renderer
+  stepped by hand).

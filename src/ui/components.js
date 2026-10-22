@@ -272,6 +272,11 @@ const modalClosers = new Map(); // overlay → its close()
 export function closeAllModals() {
   for (const close of [...modalClosers.values()].reverse()) close();
 }
+/** `cls` may hold several classes ('a b' or 'a.b'); h() only parses dots, and a space would drop every class. */
+export function modalClassSel(cls) {
+  return String(cls || '').split(/[\s.]+/).filter(Boolean).map((c) => `.${c}`).join('');
+}
+
 /**
  * modal({title, body: Node|string, actions:[{label, kind, onClick(close)}], wide, onClose})
  * @returns {{close: () => void, el: HTMLElement}}
@@ -293,7 +298,7 @@ export function modal({ title = '', body = null, actions = [{ label: 'OK', kind:
     onClose?.();
   };
   const dialog = h(
-    `div.modal${wide ? '.modal-wide' : ''}${cls ? `.${cls}` : ''}`,
+    `div.modal${wide ? '.modal-wide' : ''}${modalClassSel(cls)}`,
     { role: 'dialog', 'aria-modal': 'true' },
     title ? h('div.modal-title', title) : null,
     h('div.modal-body', typeof body === 'string' ? h('p', body) : body),

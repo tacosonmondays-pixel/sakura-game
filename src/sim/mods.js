@@ -229,31 +229,58 @@ function normVine(t = {}) {
 /**
  * The bowler (Marumi, UNIT_GAPS §5.9; src/sim/balls.js): her rolling bomb balls. Only a girl whose base
  * declares `ball` carries it. Numbers add, flags OR.
- *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · lanes (balls a throw)
- *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin) · lob (Lob)
+ *   travel (tiles) · speed (tiles/s) · through (walkers bowled through first) · share (× of a blast on
+ *   the others in it; the walker the ball meets takes it all) · lob (her lob at flyers, base kit) ·
+ *   lobMul (× of her blast a lob carries)
+ *   pins · pinDmg · pinPierce (pins on one walker at most) · hook (Hook Spin)
  *   pushBig (Bowling Thunder: minibosses take her whole push)
- *   sticky (× of a sticky blast; 0 = none) · stickyStack · stickyTime (s)
+ *   bounce (ricochets after a blast; 0 = none) · reach (tiles to the next walker) · finish (× of the
+ *   Glow Bowl finale after the last bounce; 0 = none)
  */
 function normBall(t = {}) {
   return {
     travel: t.travel ?? 4,
     speed: t.speed ?? 4,
     through: t.through ?? 0,
-    lanes: t.lanes ?? 1,
+    share: t.share ?? 0.5,
+    lobMul: t.lobMul ?? 0.5,
     pins: t.pins ?? 0,
     pinDmg: t.pinDmg ?? 4,
     pinPierce: t.pinPierce ?? 2,
     hook: !!t.hook,
     lob: !!t.lob,
     pushBig: !!t.pushBig,
-    sticky: t.sticky ?? 0,
-    stickyStack: t.stickyStack ?? 1,
-    stickyTime: t.stickyTime ?? 2,
+    bounce: t.bounce ?? 0,
+    reach: t.reach ?? 2,
+    finish: t.finish ?? 0,
   };
 }
-const BALL_ADDS = ['travel', 'speed', 'through', 'lanes', 'pins', 'pinDmg', 'pinPierce', 'sticky', 'stickyStack', 'stickyTime'];
+const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
 const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+
+/**
+ * Kaede's blade arts (her AoE rework; src/sim/towers.js bladeArt): only a girl whose base declares
+ * `blade` carries this block, so every other girl resolves exactly as before it existed. Numbers add,
+ * shareMul multiplies. Every share is of her plain (unfocused) hit, except the maple splash's, which is
+ * of her focused strike. Targets are the most enemies each shape cuts (gear Pierce adds to each).
+ *   every            a blade art every Nth strike (her Maple Cleave)
+ *   radius · share · targets            the cleave around her target
+ *   crescents · cLen · cWidth · cShare · cTargets   wind crescents through her target (Flowing Blade)
+ *   storm · sShare · sTargets           the maple blade storm around her (Flowing Blade tier 5)
+ *   wave · wWidth · wShare · wTargets   the ground shockwave through her target (Guard Breaker 4-5)
+ *   maple · mShare · mTargets           the maple splash of a full-focus strike (Unbroken Rhythm)
+ *   shareMul         every share above × this (Potential)
+ *   capMax           her focus cap before Potential (resolveStats sets it; the maple splash keys on it)
+ */
+function normBlade(t = {}) {
+  const o = {};
+  for (const k of BLADE_ADDS) o[k] = t[k] ?? 0;
+  o.shareMul = t.shareMul ?? 1;
+  o.capMax = 0;
+  return o;
+}
+const BLADE_ADDS = ['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets'];
 
 const SENTRY_ADDS = ['max', 'every', 'speed', 'ttl', 'damage', 'range', 'burst', 'nets', 'netBudget'];
 const DRINK_ADDS = ['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'season', 'towelDmg'];
@@ -373,6 +400,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.hub ? { hub: normHub(b.hub) } : null),
     ...(b.vine ? { vine: normVine(b.vine) } : null),
     ...(b.ball ? { ball: normBall(b.ball) } : null),
+    ...(b.blade ? { blade: normBlade(b.blade) } : null),
     // Tenka's keys only when the base has them (no girl does today: no null defaults, see normLab)
     ...(b.lab ? { lab: normLab(b.lab) } : null),
     ...(b.well ? { well: normWell(b.well) } : null),
@@ -538,6 +566,11 @@ export function applyModSet(s, mods, acc) {
       for (const k of HUB_MAX) if (v[k] != null) s.hub[k] = Math.max(s.hub[k], v[k]);
       for (const k of HUB_ADDS) if (v[k] != null) s.hub[k] += v[k];
       for (const k of HUB_FLAGS) if (v[k]) s.hub[k] = true;
+    } else if (key === 'blade') {
+      // only Kaede's blade arts change (src/sim/towers.js bladeArt)
+      if (!s.blade) continue;
+      for (const k of BLADE_ADDS) if (v[k] != null) s.blade[k] += v[k];
+      if (v.shareMul != null) s.blade.shareMul *= v.shareMul;
     } else if (key === 'turret') {
       if (!s.turret) s.turret = normTurret();
       s.turret.max += v.max ?? 0;
@@ -735,6 +768,8 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
+  // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)
+  if (s.blade) s.blade.capMax = s.ramp ? s.ramp.max : 0;
   // Potential (src/data/potential.js): its ModSets after the awaken passive (and after a hero's
   // track levels, growth and Mastery), its whole-girl multipliers folded into the unit stats like
   // level and gear. P1 changes nothing.
@@ -754,9 +789,10 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   if (s.sentry) s.sentry.max = Math.max(0, Math.round(s.sentry.max));
   if (s.ball) {
     s.ball.through = Math.max(0, Math.round(s.ball.through));
-    s.ball.lanes = Math.max(1, Math.round(s.ball.lanes));
     s.ball.pins = Math.max(0, Math.round(s.ball.pins));
-    s.ball.stickyStack = Math.max(1, Math.round(s.ball.stickyStack));
+    s.ball.bounce = Math.max(0, Math.round(s.ball.bounce));
+    s.ball.reach = Math.max(0, s.ball.reach);
+    s.ball.share = Math.min(1, Math.max(0, s.ball.share));
   }
   if (s.vine) {
     s.vine.every = Math.max(1, s.vine.every);

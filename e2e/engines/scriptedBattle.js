@@ -1816,7 +1816,57 @@ export function runGearGirlsBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, Tenka and the mode battles. */
+// ---------------------------------------------------------------------------
+// Marumi's Glow Bowl: GLOW_BOWL_START (her ricochet rework, v0.1.41)
+// ---------------------------------------------------------------------------
+
+/**
+ * Two Marumis in one co-op battle (5-4 Normal, to the end or 10 minutes): the host's on Spin Shot to
+ * Glow Bowl (bounces, the finale, Hook Spin onto the other lane), the guest's on Heavy Ball to Bowling
+ * Thunder (stun, the push, Wrecking Ball, the blast share), with Aoi and Akane beside them.
+ */
+const BOWL_STATS = { costMul: 0.15, damageMul: 4, rateMul: 1.3 };
+export const GLOW_BOWL_START = Object.freeze({
+  seed: 515151,
+  stageId: '5-4',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'marumi', stats: BOWL_STATS }, { unitId: 'aoi', stats: BOWL_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'marumi', stats: BOWL_STATS }, { unitId: 'akane', stats: BOWL_STATS }], hero: null },
+  ],
+});
+const GLOW_BOWL_UPGRADES = Object.freeze([[0, 2], [1, 0], [0, 2], [1, 0], [0, 2], [1, 2], [0, 2], [1, 0], [0, 0], [1, 0], [0, 2], [1, 0], [0, 0]].map(([slot, p]) => [slot, 'marumi', p]));
+
+/**
+ * GLOW_BOWL_START to the end (or 10 minutes): the runPotentialBattle fields plus `bowl` (ball pops /
+ * bounced pops / Glow Bowl finales / lobs, counted on the host's copy as they happen).
+ */
+export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const bowl = { pops: 0, bounced: 0, finales: 0, lobs: 0 };
+  const probe = (sim) => {
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'ballPop') {
+          bowl.pops++;
+          if (ev.n > 1) bowl.bounced++;
+          if (ev.fin) bowl.finales++;
+        } else if (type === 'attack' && ev?.kind === 'lob') bowl.lobs++;
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  const r = runPotentialBattle({ start: GLOW_BOWL_START, upgrades: GLOW_BOWL_UPGRADES, spotsFirst: ['marumi', 'aoi', 'akane'], maxFrames, probe });
+  r.bowl = `${bowl.pops}/${bowl.bounced}/${bowl.finales}/${bowl.lobs}`;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, Tenka and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -1830,5 +1880,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), tenka: runTenkaBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), tenka: runTenkaBattle(), modes };
 }

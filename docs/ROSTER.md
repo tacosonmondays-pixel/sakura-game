@@ -65,7 +65,7 @@ only (`RETURNING_ABILITIES`), for the ability system.
 | Wakaba | Track Team Manager | R · free after 6-5 | Team Manager | No attack: sports drinks for the top damage dealer in range | Time Out! |
 | Yuzuha | Security Bureau Technician | SR · free after 4-2 | Field Builder | Taser darts plus timed lane sentries; Capture Nets | Emergency Deploy |
 | Chigusa | Greenhouse Gardener | SR · gacha | Botanist | A fan of thorn seeds; a vine that holds the lead walker; thorn beds, Bloom Rush, harvest coins and lives | Overgrowth |
-| Marumi | Strike Bowler | SR · gacha | Demolition Bowler | Bomb balls rolled up the road against the enemies: blast, push, pins, sticky balls | Giant Strike |
+| Marumi | Strike Bowler | SR · gacha | Demolition Bowler | Bomb balls rolled up the road against the enemies: blast, push, pins, ricochets from walker to walker, a lob at flyers | Giant Strike |
 | Ouka | Student Council President | SR · gacha | Council Hub | No attack: rules in her office radius (discounts, free tiers, sell value, coins per kill); banners | Assembly Bell |
 
 Art: placeholder portraits (`tools/art/placeholder_portraits.py`) and Blender battle figures

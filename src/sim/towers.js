@@ -276,12 +276,12 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     splash: 0,
   }) : null;
   // Marumi's balls (src/sim/balls.js): they touch walkers only; the blast pushes with the push lock; pins
-  // are plain light hits; Lob throws her blast at flyers
+  // are plain light hits; her lob throws a lighter blast (× ball.lobMul) at flyers
   if (s.ball) {
     t.ballSpec = { ...t.eff, canHitAir: false };
     t.blastSpec = { ...t.eff, canHitAir: false, splash: 0, pierce: 1, pushLock: true, ...(s.ball.pushBig ? { pushBig: true } : null) };
     t.pinSpec = { ...t.eff, damage: s.ball.pinDmg * dmgMul, canHitAir: false, splash: 0, pierce: 1, knockback: 0, status: [], critChance: 0, mark: null };
-    t.lobSpec = s.ball.lob ? { ...t.eff, canHitAir: true, pierce: 1, knockback: 0 } : null;
+    t.lobSpec = s.ball.lob ? { ...t.eff, damage: t.eff.damage * s.ball.lobMul, canHitAir: true, pierce: 1, knockback: 0 } : null;
   }
   // Chigusa's vine and thorn beds (src/sim/vines.js): ground-only hits from her stats, no crits or statuses
   if (s.vine) {
@@ -584,7 +584,7 @@ function beginGear(t) {
   gearTrick = null;
   gearK = 0;
   gearFt = false;
-  // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce
+  // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce on her strike
   if (t.eff.behavior === 'trap') return 0;
   const club = trickClub(t.unitStats);
   let n = 0;
@@ -595,7 +595,8 @@ function beginGear(t) {
     else if (club === TRICK.thrust.club && n % TRICK.thrust.every === 0) gearTrick = { mul: TRICK.thrust.mul, pen: THRUST_PEN, kind: 'thrust' };
     else if (club === TRICK.bigBeat.club && n % TRICK.bigBeat.every === 0) gearTrick = { mul: TRICK.bigBeat.mul, pen: 0, kind: 'bigBeat' };
   }
-  gearK = t.eff.behavior === 'duel' ? 0 : pierceK(t, ft);
+  // (Kaede's blade arts take it: towers.js bladeArts)
+  gearK = t.eff.behavior === 'duel' && !t.eff.blade ? 0 : pierceK(t, ft);
   gearFt = ft && t.eff.behavior !== 'duel';
   return n;
 }
@@ -815,7 +816,153 @@ function attackDuel(sim, t) {
     for (const e of near) if (e !== tgt && !e.dead && isEligible(e, cut)) sim._hit(e, t, cut, 1);
   }
   sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'slash', ramp: t.rampStacks });
+  if (spec.blade) bladeArts(sim, t, spec, tgt, tx, ty, scale);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Kaede's blade arts (her AoE rework, docs/BALANCE.md "Kaede"). Every `blade.every`-th strike is a Maple
+// Cleave around her target, plus her path's shapes: wind crescents through her target (Flowing Blade 3+),
+// the maple blade storm around her (Flowing Blade 5) and the ground shockwave (Guard Breaker 4-5). A
+// strike at full focus (her cap before Potential; Unbroken Rhythm 3+) also bursts maple leaves around
+// her target. Each shape hits at a share of her plain hit (the maple splash: of her focused strike)
+// through sim._hit with her own spec, so her gear (ATK, speed, crit, armor pierce, club tricks) counts
+// as on her strike; gear Pierce adds targets to every shape of the attack (the sweep rule: +2 per
+// 100 %, carried, at most +4). Victims: eligible for her (never in a tunnel, never a flyer unless she
+// reaches flyers), never her target, nearest first (uid on a tie), at most the shape's `targets`.
+// Only the shockwave carries a status (her armor shred); the other shapes are clean cuts.
+// ---------------------------------------------------------------------------
+
+/** Fan step of her wind crescents (0.32 rad), as literals: no trig in the battle. */
+const FAN_COS = 0.9492354180824408;
+const FAN_SIN = 0.31456656061611776;
+const bladeHits = [];
+const bladeD = [];
+
+/** Her hit spec for one shape: `share` of `base`, clean (or with `status`). */
+function bladeSpec(base, share, status) {
+  return { ...base, damage: base.damage * share, splash: 0, status: status || [], procStatus: null, mark: null, silence: 0, reveal: 0, knockback: 0 };
+}
+
+/** Cuts the nearest `cap` of bladeHits (bladeD their sort keys) with `hit` at `scale`. @returns {number} */
+function bladeCut(sim, t, hit, scale, cap) {
+  const n = bladeHits.length;
+  const idx = [];
+  for (let i = 0; i < n; i++) idx.push(i);
+  idx.sort((a, b) => bladeD[a] - bladeD[b] || bladeHits[a].uid - bladeHits[b].uid);
+  let k = 0;
+  for (let j = 0; j < n && k < cap; j++) {
+    const e = bladeHits[idx[j]];
+    if (e.dead) continue;
+    sim._hit(e, t, hit, scale);
+    k++;
+  }
+  bladeHits.length = 0;
+  bladeD.length = 0;
+  return k;
+}
+
+/** Candidates within `r` of (x, y), keyed by squared distance. */
+function bladeRound(sim, x, y, r, hit, tgt) {
+  for (const e of sim.grid.query(x, y, r, [])) {
+    if (e === tgt || e.dead || !isEligible(e, hit)) continue;
+    bladeHits.push(e);
+    bladeD.push((e.x - x) * (e.x - x) + (e.y - y) * (e.y - y));
+  }
+}
+
+/** Candidates on the segment from (sx, sy) along unit (ux, uy) for `len`, half-width `hw`, keyed by how far along. */
+function bladeLine(sim, sx, sy, ux, uy, len, hw, hit, tgt) {
+  const ex = sx + ux * len;
+  const ey = sy + uy * len;
+  for (const e of sim.grid.query((sx + ex) / 2, (sy + ey) / 2, len / 2 + hw + 1, [])) {
+    if (e === tgt || e.dead || !isEligible(e, hit)) continue;
+    const hr = hw + hitRadius(e);
+    if (segDistSq(e.x, e.y, sx, sy, ex, ey) > hr * hr) continue;
+    bladeHits.push(e);
+    bladeD.push((e.x - sx) * ux + (e.y - sy) * uy);
+  }
+}
+
+function bladeArts(sim, t, spec, tgt, tx, ty, scale) {
+  const b = spec.blade;
+  // a rhythm strike's harder spec stays on her target: her shapes cut with her own (attackWithProc)
+  const base = procBase && t.eff === t.effProc ? procBase : spec;
+  const mul = b.shareMul;
+  let extra = -1;
+  const more = () => (extra < 0 ? (extra = gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', 2 * gearK, PULSE_MAX_EXTRA) : 0) : extra);
+  // maple splash: a strike at full focus (her cap before Potential) bursts leaves around her target
+  const ramp = spec.ramp;
+  if (b.maple > 0 && b.mShare > 0 && ramp && ramp.per > 0 && b.capMax > 0 && ramp.per * (t.rampStacks - 1) >= b.capMax - 1e-9) {
+    const hit = bladeSpec(base, b.mShare * mul);
+    bladeRound(sim, tx, ty, b.maple, hit, tgt);
+    const n = bladeCut(sim, t, hit, scale, Math.round(b.mTargets) + more());
+    sim._emit('bladeArt', { towerUid: t.uid, kind: 'maple', x: tx, y: ty, radius: b.maple, hits: n });
+  }
+  // the count of her strikes: every `every`-th is a blade art
+  const every = Math.max(1, Math.round(b.every));
+  const n = (t.bladeN || 0) + 1;
+  t.bladeN = n % every;
+  if (n < every) return;
+  let dx = tx - t.ox;
+  let dy = ty - t.oy;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d > 1e-6) {
+    dx /= d;
+    dy /= d;
+  } else {
+    dx = 0;
+    dy = 1;
+  }
+  let hits = 0;
+  if (b.radius > 0 && b.share > 0) {
+    const hit = bladeSpec(base, b.share * mul);
+    bladeRound(sim, tx, ty, b.radius, hit, tgt);
+    hits += bladeCut(sim, t, hit, 1, Math.round(b.targets) + more());
+  }
+  const nc = Math.round(b.crescents);
+  if (nc > 0 && b.cLen > 0 && b.cShare > 0) {
+    // a fan: straight through her target, then pairs 0.32 rad either side
+    const hit = bladeSpec(base, b.cShare * mul);
+    let lx = dx;
+    let ly = dy;
+    let rx = dx;
+    let ry = dy;
+    for (let i = 0; i < nc; i++) {
+      let ux = dx;
+      let uy = dy;
+      if (i % 2 === 1) {
+        const x = lx * FAN_COS - ly * FAN_SIN;
+        ly = lx * FAN_SIN + ly * FAN_COS;
+        lx = x;
+        ux = lx;
+        uy = ly;
+      } else if (i > 0) {
+        const x = rx * FAN_COS + ry * FAN_SIN;
+        ry = -rx * FAN_SIN + ry * FAN_COS;
+        rx = x;
+        ux = rx;
+        uy = ry;
+      }
+      bladeLine(sim, t.ox, t.oy, ux, uy, b.cLen, b.cWidth, hit, tgt);
+      hits += bladeCut(sim, t, hit, 1, Math.round(b.cTargets) + more());
+    }
+  }
+  if (b.storm > 0 && b.sShare > 0) {
+    const hit = bladeSpec(base, b.sShare * mul);
+    bladeRound(sim, t.ox, t.oy, b.storm, hit, tgt);
+    hits += bladeCut(sim, t, hit, 1, Math.round(b.sTargets) + more());
+  }
+  if (b.wave > 0 && b.wShare > 0) {
+    // the shockwave cracks armor: her shred rides on it
+    const shred = (base.status || []).filter((x) => x.type === 'shred');
+    const hit = bladeSpec(base, b.wShare * mul, shred);
+    bladeLine(sim, t.ox, t.oy, dx, dy, b.wave, b.wWidth, hit, tgt);
+    hits += bladeCut(sim, t, hit, 1, Math.round(b.wTargets) + more());
+  }
+  sim._emit('bladeArt', {
+    towerUid: t.uid, kind: 'cleave', x: tx, y: ty, dx, dy, radius: b.radius, crescents: nc, cLen: b.cLen, storm: b.storm, wave: b.wave, hits,
+  });
 }
 
 /**

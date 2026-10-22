@@ -1324,6 +1324,10 @@ sim._labOn // girls with a lab (absent until the first absorb: the step skips th
 // `zc` = [wellCd, lastLineCd] (-1: none); zones 'calm', _nearExitOn / _labOn / labAtk 'derived'.
 // events: labJoin { towerUid, owner, round, uids, members }, labFrag { towerUid, x, y, radius } (then the explode),
 //   cash { amount, reason: 'lab', towerUid }
+// Display: a joiner gets no `sell` event (no sell puff or coin), but every layer that draws a girl's extras
+// reconciles with sim.towers each frame (src/render/companions.js Kon / Kaze / the doll, rosterFx relay props,
+// actors), so her companion and props go exactly as a sold girl's do (tests/render/companionsLab.test.js).
+// Yoriko is a hero and never joins, so her doll stays.
 sim.result().stats // + labJoined — created by the first absorb
 ```
 
@@ -1394,7 +1398,11 @@ new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, c
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
 cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
 bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
-lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
+lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR), `blade` (Kaede's
+blade arts, src/sim/towers.js bladeArts: every, radius, share, targets; crescents, cLen, cWidth, cShare, cTargets;
+storm, sShare, sTargets; wave, wWidth, wShare, wTargets; maple, mShare, mTargets add, shareMul ×; `capMax`, her
+focus cap before Potential, is set by resolveStats; the sim emits `bladeArt { towerUid, kind: 'cleave'|'maple', x, y,
+dx?, dy?, radius, crescents?, cLen?, storm?, wave?, hits }`; her strike count `bladeN` is saved as `kb`). Behaviours `strip`, `ring`, `drink`, `roll` (Ouka
 uses `none`). Roles spiker, ring, manager, builder, council, botanist, bowler. Weapons `strip`, `needle`, `tablet`,
 `banner`, `wateringCan`, `ball`. Status `hold` (cannot move, keeps abilities; CC-resisted by minibosses; bosses and flyers
 immune; `isHeld`).
@@ -2021,7 +2029,7 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 7 (`version.js`; 7 is v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  `COOP_PROTOCOL` 8 (`version.js`; 8 is v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
   v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in

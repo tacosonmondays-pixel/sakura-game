@@ -224,11 +224,12 @@ export const ABILITIES = deepFreeze({
     t5: { cooldown: 40, duration: 5, effect: { status: [S.silence(5), S.reveal(6), S.slow(0.4, 3)] } },
   }],
   kaede: [{
-    // the dash is drawn only: her sim position never changes
+    // the dash is drawn only: her sim position never changes. On her crowd path (the AoE rework) she
+    // flashes through several enemies; her focus stays on the first
     path: 'flowing', unlockTier: 3, id: 'kaede.flashLunge', kind: 'strike', scope: 'local', cooldown: 25, duration: 0,
-    effect: { pick: 'mode', count: 1, reachMul: 2.5, hits: 5, dmgMul: 1, fullRamp: true, keepRamp: true },
+    effect: { pick: 'mode', count: 3, reachMul: 2.5, hits: 2, dmgMul: 1, fullRamp: true, keepRamp: true },
     auto: { when: 'enemies', min: 3, orElite: true },
-    t5: { cooldown: 20, effect: { hits: 8 } },
+    t5: { cooldown: 20, effect: { count: 5, hits: 3 } },
   }],
   tenka: [{
     // a plasma blast on the strongest enemy in her range (every enemy within `splash` of it takes it too);

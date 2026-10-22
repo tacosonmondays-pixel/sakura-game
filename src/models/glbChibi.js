@@ -29,7 +29,7 @@ const CLIP_FALLBACK = { victory: 'cheer', pickup: 'cheer' };
 // face cells -> eye states of a painted (textured) face; other cells keep the painted open eyes
 const CELL_EYES = { blink: EYE_MODES.blink, wink: EYE_MODES.blink, happy: EYE_MODES.happy, hurt: EYE_MODES.hurt, dizzy: EYE_MODES.hurt };
 
-function baseUrl() {
+export function baseUrl() {
   let base = '/';
   try {
     base = import.meta.env?.BASE_URL ?? '/';
@@ -299,6 +299,9 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   group.userData.mixer = anim.mixer;
   group.userData.animate = (time, dt, state = 'idle') => anim.update(time, dt, state);
   group.userData.playAttack = () => anim.playAttack();
+  // any other clip once (companions: 'appear'); girls only ship attack clips, so this is a no-op for them
+  group.userData.playClip = (name) => anim.playClip(name);
+  group.userData.assetId = asset.id;
   group.userData.setExpression = (name) => anim.setExpression(name);
   // selected: her own colours a little brighter with a soft light rim (highlight.js) on the body
   // (shared toon material) and the painted face (her own twin, made on the first tap)
@@ -343,7 +346,7 @@ class GlbAnimator {
     for (const [name, clip] of Object.entries(asset.clips)) {
       const a = this.mixer.clipAction(clip);
       a.enabled = true;
-      if (name.startsWith('attack')) {
+      if (name.startsWith('attack') || name === 'appear') {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = false;
       }
@@ -352,6 +355,8 @@ class GlbAnimator {
     this.state = null;
     this.current = null;
     this.attack = this.actions.attack || null;
+    this.oneShot = null; // the one-shot clip playing (attack, or a companion's 'appear')
+    this.oneShotCell = 'attack';
     this.attackLeft = 0;
     this.lastAttack = -10;
     this.time = 0;
@@ -364,7 +369,8 @@ class GlbAnimator {
   }
 
   stateClip(state) {
-    const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup' };
+    // 'move': the companions' travel loop (girls have no such clip: idle)
+    const map = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move' };
     let name = map[state] || 'idle';
     // imported figures ship a smaller clip set: celebrate with the cheer loop
     if (!this.actions[name] && CLIP_FALLBACK[name] && this.actions[CLIP_FALLBACK[name]]) name = CLIP_FALLBACK[name];
@@ -391,16 +397,29 @@ class GlbAnimator {
   }
 
   playAttack() {
-    if (!this.attack) return;
-    this.attack.reset();
-    this.attack.setEffectiveWeight(1);
-    this.attack.fadeIn(0.06);
-    this.attack.play();
-    this.attackLeft = this.attack.getClip().duration;
+    this.playOnce(this.attack, 0.25, 'attack');
+  }
+
+  /** Plays a named clip once over the base loop ('appear': the base pose is hidden while it plays). */
+  playClip(name) {
+    if (name.startsWith('attack')) this.playAttack();
+    else this.playOnce(this.actions[name] || null, 0, 'happy');
+  }
+
+  playOnce(action, baseWeight, cell) {
+    if (!action) return;
+    if (this.oneShot && this.oneShot !== action && this.attackLeft > 0) this.oneShot.fadeOut(0.08);
+    this.oneShot = action;
+    this.oneShotCell = cell;
+    action.reset();
+    action.setEffectiveWeight(1);
+    action.fadeIn(0.06);
+    action.play();
+    this.attackLeft = action.getClip().duration;
     this.lastAttack = this.time;
     // dip the base pose while the attack plays so arms are not averaged with idle
     const base = this.current ? this.actions[this.current] : null;
-    if (base) base.setEffectiveWeight(0.25);
+    if (base) base.setEffectiveWeight(baseWeight);
   }
 
   setExpression(name) {
@@ -415,7 +434,7 @@ class GlbAnimator {
     if (this.attackLeft > 0) {
       this.attackLeft -= dt;
       if (this.attackLeft <= 0.2 && this.current) this.actions[this.current].setEffectiveWeight(1);
-      if (this.attackLeft <= 0) this.attack.fadeOut(0.12);
+      if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.12);
     }
     this.mixer.update(dt);
     this.updateFace(time, dt, state);
@@ -428,7 +447,7 @@ class GlbAnimator {
       if (state === 'disabled' || state === 'hurt') cell = 'dizzy';
       else if (state === 'cheer' || state === 'victory') cell = 'happy';
       else if (state === 'pickup') cell = 'surprised';
-      else if (this.attackLeft > 0) cell = 'attack';
+      else if (this.attackLeft > 0) cell = this.oneShotCell;
       else {
         if (time >= this.blinkNext && this.blinkT < 0) this.blinkT = 0;
         if (this.blinkT >= 0) {
