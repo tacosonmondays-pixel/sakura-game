@@ -29,24 +29,30 @@ describe("Umeko's stacking aura text", () => {
 
   it('Plum Rain: every tier from 2 on says the total in all', () => {
     expect(stackedAuraLine(umeko, PLUM, 1)).toBe(null);
-    expect(stackedAuraLine(umeko, PLUM, 2)).toBe('Stacks with earlier tiers: +5% damage, +5% attack speed in all.');
-    expect(stackedAuraLine(umeko, PLUM, 3)).toBe('Stacks with earlier tiers: +10% damage, +16% attack speed in all.');
-    expect(stackedAuraLine(umeko, PLUM, 4)).toBe('Stacks with earlier tiers: +27% damage, +27% attack speed in all.');
-    expect(stackedAuraLine(umeko, PLUM, 5)).toBe('Stacks with earlier tiers: +52% damage, +52% attack speed, +10% range in all.');
+    expect(stackedAuraLine(umeko, PLUM, 2)).toBe('Her tiers multiply: +5% damage, +5% attack speed in all.');
+    expect(stackedAuraLine(umeko, PLUM, 3)).toBe('Her tiers multiply: +10% damage, +16% attack speed in all.');
+    expect(stackedAuraLine(umeko, PLUM, 4)).toBe('Her tiers multiply: +27% damage, +27% attack speed in all.');
+    expect(stackedAuraLine(umeko, PLUM, 5)).toBe('Her tiers multiply: +52% damage, +52% attack speed, +10% range in all.');
     const t5 = auraTotals(umeko, PLUM, 5);
     expect([pct(t5.dmgMul), pct(t5.rateMul)]).toEqual([52, 52]);
   });
 
   it('Lighthouse: only Sea of Lanterns stacks on an earlier multiplier', () => {
     expect([1, 2, 3, 4].map((t) => stackedAuraLine(umeko, LIGHT, t))).toEqual([null, null, null, null]);
-    expect(stackedAuraLine(umeko, LIGHT, 5)).toBe('Stacks with earlier tiers: +21% damage, +27% range in all.');
+    expect(stackedAuraLine(umeko, LIGHT, 5)).toBe('Her tiers multiply: +21% damage, +27% range in all.');
   });
 
   it('the tier text keeps her own words first; the tree and the battle panel use it', () => {
-    expect(tierDesc(umeko, PLUM, 4)).toBe('Aura: +15% damage, +10% attack speed. Stacks with earlier tiers: +27% damage, +27% attack speed in all.');
+    expect(tierDesc(umeko, PLUM, 4)).toBe('Aura: +15% damage, +10% attack speed. Her tiers multiply: +27% damage, +27% attack speed in all.');
     expect(tierDesc(umeko, PLUM, 1)).toBe(umeko.paths[PLUM].tiers[0].desc);
     const cell = buildTreeModel({ def: umeko }).rows[PLUM].cells[3];
     expect(cell.desc).toBe(tierDesc(umeko, PLUM, 4));
+  });
+
+  it('the running-total line never says "stack" (the aura rule line under it says same-kind auras don\'t stack)', () => {
+    for (const path of [LIGHT, PLUM]) {
+      for (let tier = 1; tier <= 5; tier++) expect(stackedAuraLine(umeko, path, tier) || '', `${path}.${tier}`).not.toMatch(/stack/i);
+    }
   });
 
   it('only the girls listed in STACKED_AURA change: every other tier text is exactly as authored', () => {

@@ -605,8 +605,9 @@ export function auraTotals(unit, path, tier) {
 }
 
 /**
- * "Stacks with earlier tiers: +27% damage, +27% attack speed in all." for a tier that adds aura multipliers on top of
- * an earlier tier's (STACKED_AURA girls only); null otherwise.
+ * "Her tiers multiply: +27% damage, +27% attack speed in all." for a tier that adds aura multipliers on top of an
+ * earlier tier's (STACKED_AURA girls only); null otherwise. It never says "stack": the battle card's rule line right
+ * below it says auras of the same kind from different girls don't stack.
  */
 export function stackedAuraLine(unit, path, tier) {
   if (!STACKED_AURA.has(unit?.id)) return null;
@@ -615,7 +616,7 @@ export function stackedAuraLine(unit, path, tier) {
   const t = auraTotals(unit, path, tier);
   if (t.tiers < 2) return null;
   const parts = AURA_MULS.filter(([key]) => pctUp(t[key]) !== 0).map(([key, word]) => `+${pctUp(t[key])}% ${word}`);
-  return parts.length ? `Stacks with earlier tiers: ${parts.join(', ')} in all.` : null;
+  return parts.length ? `Her tiers multiply: ${parts.join(', ')} in all.` : null;
 }
 
 /** A tier's text as the menus and the battle show it: her authored words, plus a stacking aura's running total. */
