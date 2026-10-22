@@ -1,13 +1,13 @@
 # Sakura Sentinels — handoff
 
-Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 22, 2026 (v0.1.45 shipped).
+Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 22, 2026 (v0.1.46 shipped).
 
 The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) with the full decision log and design docs that are not in this public repo. If they upload it to a session, read `OWNER_DECISIONS.md` in it before planning.
 
 ## 1. Where things stand
 
-- **Live:** v0.1.45 "Sprouts, Storms and Shiny Ribbons" (Oct 22) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is the v0.1.45 merge, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
-- **Next deploy is v0.1.46.** The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7).
+- **Live:** v0.1.46 "A Backpack Glow-Up" (Oct 22) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is the v0.1.46 merge, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
+- **Next deploy is v0.1.47.** The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7).
 - **Roster:** 35 girls. Heroes (6): hikari, luna, nami, kanna, yoriko, seiran. Students (29): aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede, chika, fuu, hana, ruri, noa, iroha, ena, azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi.
 - **Recent releases:**
   - v0.1.40: 7 academy girls (Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi) and catch-up joins (COOP 7).
@@ -16,6 +16,7 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
   - v0.1.43: Kon 2.4× bigger.
   - v0.1.44: the UR awakening popup fix (`modal()` now accepts several classes).
   - v0.1.45: the seven academy girls' drawn cards (online avatars now show each girl's drawn thumb), the girl page Compact/Detailed setting, eleven new Codex achievements, new map tier names (Sprout, Bud, Storm, Oni), shorter damage numbers and the co-op hold fix. Display only.
+  - v0.1.46: new art for every item: 100 baked 3D-flat icons (`public/art/items/`, made by `tools/blender/items/`) on slanted rarity tiles, a rainbow tile for the rarest items, and shorter item counts (x450K, x1.2M). Display only.
   - Halloween 2026 event is open until Nov 1; its exchange until Nov 8.
 - **Usage:** the owner works under a weekly usage limit that resets around Monday 03:00 UTC (Sunday/Monday night in the owner's time). When budget is tight, the owner's rule is "closest to done first", and unfinished work is pushed to its branch so nothing is lost.
 
@@ -35,16 +36,17 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
 
 | Branch | Head | State |
 |---|---|---|
-| `main` | the v0.1.45 merge | Live (v0.1.45). Pushing here deploys. |
+| `main` | the v0.1.46 merge | Live (v0.1.46). Pushing here deploys. |
 | `claude/sakura-sentinels` | = `main` | Coordination branch; ships are merged here, then pushed to `main`. |
-| `release/next` | 56482a8 | Merged: shipped as v0.1.45 (the v0.1.45 display fixes, the girl page setting and the academy cards). It is the staging branch for the next release: merge finished branches here, then into `claude/sakura-sentinels` at the ship (§7). |
+| `release/next` | 4eb4e3a | Merged: shipped as v0.1.46 (the item art, the item tile's 12 px text floor for the count's x, and the patch note). It is the staging branch for the next release: merge finished branches here, then into `claude/sakura-sentinels` at the ship (§7). |
 | `feature/girl-page-detailed` | ebfaeb4 | Shipped in v0.1.45: the Settings switch "Girl page: Compact / Detailed" (default Compact). Detailed shows full stats, gear values, substats, set bonuses, level steppers and the tier list inline. |
 | `feature/academy-cards` | 82e0d12 | Shipped in v0.1.45: the seven academy girls' drawn cards (42 portrait files), and every girl's drawn thumb as her online avatar. |
-| `feature/abilities` | d7abcb4 | In progress. Tower abilities A0–A2 and Tenka T0–T3 (synced with v0.1.44), then A3: M1 (the ability bar, the panel ability row, the hero skill, keys, Auto, ability FX, with review fixes) and M2 (one live-ability rule, the ⚡ tips on, Ouka's recharge back, the Azami scaling and strip/sentry crit fixes, Hana's bio). `COOP_PROTOCOL` is still 8 there and must go to 9 before it ships. Next: battle UI M2, T4 (Tenka's UI and FX), the returning girls' abilities. Spec: `docs/specs/ABILITIES.md`. |
+| `feature/abilities` | 0852dbf | In progress. Tower abilities A0–A2 and Tenka T0–T3 (synced with v0.1.44), then A3: M1 (the ability bar, the panel ability row, the hero skill, keys, Auto, ability FX, with review fixes), M2 (one live-ability rule, the ⚡ tips on, Ouka's recharge back, the Azami scaling and strip/sentry crit fixes, Hana's bio, with review fixes) and M3 (the returning girls' abilities: Hana, Ruri's Moon Pounce, Noa, Ena, Yoriko and Seiran are live; Fuu, Ruri's other forms, Iroha and Kanna wait). `COOP_PROTOCOL` is still 8 there and must go to 9 before it ships. Next: battle UI M2, T4 (Tenka's UI and FX), the four abilities that wait. Spec: `docs/specs/ABILITIES.md`. |
 | `feature/vfx` | 09c057a | In progress. VFX M0 and its review fixes (tinted impact frames, impact holds, cel blasts, a flash guard by area). Next: the rest of M1 (glow/halo, colour grade, screen shake), a postprocessing trial (keep only if faster on a phone) and an ULTRA graphics tier. It needs its own patch note when it ships. |
 | `feature/fx-1` | 90ec45b | In progress, paused at the owner's request: FX-1 on top of `feature/vfx`, unfinished and unreviewed. |
-| `feature/items-3dflat` | 9d45ac0 | In progress. Item art: the baked 3D-flat icons on the slanted tile, in the game, after four art-review rounds. |
-| `feature/ui-m5` | 9af220e | In progress. UI M5a (one countdown chip and one badge vocabulary, with review fixes) and M5b (hubs with host girls, the condensed Achievements, cleaner campaign cards). |
+| `feature/items-3dflat` | 429facc | Shipped in v0.1.46: the baked 3D-flat item icons (100 icons, 210 WebP files, five art-review rounds) on the slanted rarity tile, and the short item counts. The pipeline is `tools/blender/items/`. |
+| `feature/ui-m5` | 93f72e4 | In progress. UI M5a (one countdown chip and one badge vocabulary, with review fixes) and M5b (hubs with host girls, the condensed Achievements, cleaner campaign cards, with review fixes). |
+| `feature/energy-m4` | 6aca2bc | Specs only so far: energy v2 with Bounty Passes, and the UI M4 + energy build plan. |
 | `feature/lively-figures` | 79bcec2 | In progress. Livelier 3D figures: library clips for Hikari, Hana and Ruri, an upper-body attack, slimmer GLBs, settings and rebuild tools, with review fixes. |
 | `proto/modern-city` | e02ac31 | The city look test (4 maps). Waiting for the owner's approval; not in `MAPS` or `STAGES`. |
 
