@@ -56,7 +56,7 @@ function build(redraw) {
   const s = settings();
   const wrap = h('div.ma-wrap.ma-settings');
 
-  wrap.appendChild(displaySection());
+  wrap.appendChild(displaySection(s, redraw));
 
   wrap.appendChild(h('section.panel', { 'data-section': 'graphics' },
     h('h3.panel-title', 'Graphics'),
@@ -151,8 +151,8 @@ function row(label, desc, control) {
 /** Removes the fullscreen listener of the Display section currently on screen. */
 let stopFullscreenWatch = null;
 
-/** Display: fullscreen toggle, landscape lock, rotate reminder, home-screen install hint. */
-function displaySection() {
+/** Display: fullscreen toggle, landscape lock, rotate reminder, home-screen install hint, the girl page's look. */
+function displaySection(s, redraw) {
   const fsBtn = button('Fullscreen', { kind: 'primary', small: true, icon: 'fullscreen', testid: 'set-fullscreen' });
   const fsDesc = h('div.ma-set-desc', 'Hides the browser bars and locks landscape where the device allows it.');
   let orientation = null;
@@ -201,6 +201,9 @@ function displaySection() {
     h('div.ma-set-row', h('div.ma-set-text', h('div.ma-set-label', 'Fullscreen'), fsDesc), h('div.ma-set-control', fsBtn)),
     row('Landscape mode', 'Sakura Sentinels is designed for phones held sideways. On phones and tablets a reminder appears in portrait; dismiss it to keep playing in portrait.', rotate),
     row('Install', 'Add the game to your home screen for an app-like, full-screen launch (Android: browser menu → Install app; iPhone: Share → Add to Home Screen).', null),
+    // the girl page's look (src/ui/girlDetail.js); an open girl page re-renders on the change
+    row('Girl page', s.girlPage === 'detailed' ? 'Detailed: every stat, gear value, substat and bonus on her page.' : 'Compact: three headline stats; the rest one tap away under MORE.',
+      segmented(['compact', 'detailed'], s.girlPage === 'detailed' ? 'detailed' : 'compact', (v) => { s.girlPage = v; save(); redraw(); }, { compact: 'Compact', detailed: 'Detailed' }, 'girlPage')),
   );
 }
 

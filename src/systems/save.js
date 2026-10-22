@@ -72,12 +72,19 @@ export const DEFAULT_SETTINGS = {
    */
   loadingMochi: 'mint',
   loadingBg: 'black',
+  /**
+   * The girl page's look (Settings → Display → Girl page; src/ui/girlDetail.js): 'compact' (3 headline stats + MORE
+   * sheets) or 'detailed' (every stat, gear value and bonus on the page). Display only; additive (an older tab drops
+   * the key and shows Compact).
+   */
+  girlPage: 'compact',
 };
 
 const CAMERA_MODES = ['locked', 'free'];
 const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 const LOADING_MOCHI_LOOKS = ['mint', 'sakura'];
 const LOADING_BGS = ['black', 'colour'];
+const GIRL_PAGE_LOOKS = ['compact', 'detailed'];
 
 /**
  * Fresh per-unit state. `dupes` = duplicates received since she joined (her Essence history), `pl` =
@@ -310,6 +317,8 @@ function cleanSettings(raw) {
     // older saves have no loading screen look: the mint Mochi on black
     loadingMochi: LOADING_MOCHI_LOOKS.includes(s.loadingMochi) ? s.loadingMochi : d.loadingMochi,
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
+    // older saves have no girl page look: the compact page
+    girlPage: GIRL_PAGE_LOOKS.includes(s.girlPage) ? s.girlPage : d.girlPage,
   };
 }
 

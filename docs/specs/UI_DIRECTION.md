@@ -618,6 +618,16 @@ and P.
 
 **At 1280x720:** the same structure. The art band is 30% and the Info tab shows the matchup row and capabilities side by side.
 
+**Compact / Detailed** (owner, Oct 21: the condensed page made equipment stats hard to see): Settings → Display → **Girl page**
+(`profile.settings.girlPage`, `'compact'` by default; additive, display only, the co-op sim id is unchanged). Compact is the page
+above. Detailed keeps the same frame and components and puts the Details on the page itself (`src/ui/girlDetail.js`):
+- **Info:** the base-versus-yours stat table under the strip, every matchup entry with its multiplier, each capability with its line.
+- **Equipment:** each slot card adds its main stat value and every substat; every gear total (MAX marked), the fill-in line and the
+  set bonuses that are on replace the 3-cell strip (tap them: the totals sheet).
+- **Level Up:** the Manual steppers start open. **Awakening:** every star with its bonus, the next one highlighted.
+- **Tree:** the picked path's five tiers with their effects under the grid (the first path until a cell is tapped).
+- An open girl page follows the switch at once. `e2e/girl-page.mjs` checks both looks at 844x390 and 1280x720.
+
 ---
 
 ### 6.3 Stage prep (score 5)
