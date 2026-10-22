@@ -31,7 +31,8 @@ from mathutils.kdtree import KDTree
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from paths import NOA, MESHY_CLIPS  # noqa: E402
-import rigtest_lib as L  # noqa: E402  (shared helpers of the rig test, read-only)
+import rigtest_lib as L  # noqa: E402  (shared helpers of the rig test)
+import girllib as GL  # noqa: E402  (the face-yaw turn, shared with build_girl.py)
 
 DETAIL = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'full'
 SRC = NOA + f'src/noa.ship{".lod" if DETAIL == "lod" else ""}.glb'
@@ -457,6 +458,10 @@ for nm in ('idle', 'cheer', 'hurt'):
     old[nm].name = nm + '_short'
 TARGET = OUT['shipped']['idle']['world_pitch_mean_min_max'][0]
 OUT['world_pitch_target'] = TARGET
+# her shipped idle's mean face yaw: every new clip is turned back to it (the 338 idle stands ~13 deg turned to
+# her right; at the battle camera, facing a monster at her side, she then showed mostly hair), as build_girl.py
+YAW_TARGET = float(GL.world_yaw(arm, old['idle'], 'head').mean())
+OUT['face_yaw_target'] = round(YAW_TARGET, 2)
 for a in bpy.data.actions:
     a.use_fake_user = True
 
@@ -479,6 +484,12 @@ for fname, clip, lib_id in CLIPS:
         info['body_damp'] = HURT_BODY
     info['postpass'] = L.post_pass(act, arm, chin_sign=-1.0, target=TARGET, max_chin=22.0, damp=(0.75, 0.6), wrist_straight='hand_L')
     info['face_guard'] = face_guard(arm, act)
+    # mean face yaw back to her shipped idle's: after the damping, before the feet are pinned
+    info['before']['face_yaw_mean'] = round(float(GL.world_yaw(arm, act, 'head').mean()), 2)
+    for _ in range(2):
+        y0 = float(GL.world_yaw(arm, act, 'head').mean())
+        GL.turn_clip(arm, act, 'hips', YAW_TARGET - y0)
+        info['yaw_turn_deg'] = round(info.get('yaw_turn_deg', 0.0) + YAW_TARGET - y0, 2)
     info['head_clearance_deg'] = L.head_clearance(act, arm, radius_factor=0.68)
     if clip == 'hurt':
         info['hips_xz_peak_game_m'] = round(strip_hips_xz(arm, act), 3)
@@ -495,6 +506,8 @@ for fname, clip, lib_id in CLIPS:
     fa = face_angle(arm, act)
     info['after']['face_angle_mean_max'] = [round(float(fa.mean()), 1), round(float(fa.max()), 1)]
     info['after']['face_angle_over50_s'] = round(float((fa > 50).sum()) / FPS_SRC, 3)
+    yw = GL.world_yaw(arm, act, 'head')
+    info['after']['face_yaw_mean_min_max'] = [round(float(yw.mean()), 1), round(float(yw.min()), 1), round(float(yw.max()), 1)]
     OUT['clips'][clip] = info
     log(clip, json.dumps({k: info[k] for k in ('face_guard', 'head_clearance_deg', 'hips_xz_peak_game_m', 'feet')}),
         'after', json.dumps(info['after']))

@@ -269,6 +269,13 @@ function texturedMaterial(asset, highlight = false, eyeMode = 0, cel = false) {
 export const ATTACK_LAYER = Object.freeze({ upper: 4, lower: 1 / 3, fadeIn: 0.12, fadeOut: 0.25 });
 
 /**
+ * 'Lively figures': the stun's whole-body 'hurt' one-shot plays over the base loop dipped to `base` (0.2 : 1 =
+ * 83 % hurt). Under Reduce motion the base loop keeps its full weight (1 : 1), so the flinch moves half as far,
+ * like the rest of the lively motion.
+ */
+export const HURT_LAYER = Object.freeze({ base: 0.2, baseReduced: 1 });
+
+/**
  * Names of the upper-body nodes of a figure: her first spine bone ('spine', else 'spine1' or 'chest')
  * and everything under it (chest, neck, head, arms, hands, a held prop, hair). Empty when she has none.
  */
@@ -542,7 +549,9 @@ class GlbAnimator {
     if (this.livelyOn) {
       if (fade > 0) fade = 0.3;
       const dazed = state === 'disabled' || state === 'hurt';
-      if (dazed && prevState !== 'disabled' && prevState !== 'hurt') this.playOnce(this.actions.hurt || null, 0.2, 'hurt');
+      if (dazed && prevState !== 'disabled' && prevState !== 'hurt') {
+        this.playOnce(this.actions.hurt || null, figureOptions().reduceMotion ? HURT_LAYER.baseReduced : HURT_LAYER.base, 'hurt');
+      }
       if (name && name === this.current) {
         this.actions[name].setEffectiveTimeScale(this.loopScale * (dazed ? 0.7 : 1));
         return;

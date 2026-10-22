@@ -9,7 +9,7 @@ import { LivelyRig, livelyRigInfo, livelyRandom } from '../../src/models/livelyR
 import { addSkirtBones, SKIRT_BONES, SKIRT_DIRS } from '../../src/models/livelySkirt.js';
 import { figureOptions, setFigureOptions } from '../../src/models/figureOptions.js';
 import { linearToOklab, oklabToLinear, shadeOf } from '../../src/models/celFigure.js';
-import { pickStateClip, splitClipByBody, upperBodyBones, ATTACK_LAYER } from '../../src/models/glbChibi.js';
+import { pickStateClip, splitClipByBody, upperBodyBones, ATTACK_LAYER, HURT_LAYER } from '../../src/models/glbChibi.js';
 import { LivelyPose, LIVELY_LAND } from '../../src/render/livelyPose.js';
 import { createProfile, serializeProfile, deserializeProfile } from '../../src/systems/save.js';
 import { simId } from '../../tools/simId.mjs';
@@ -373,6 +373,26 @@ describe('animator', () => {
     expect(pitch('chest')).toBeCloseTo(40 * 0.8, 0); // 80 % attack on top, as the old 0.25 dip gave
     expect(pitch('thigh_L')).toBeCloseTo(10 * 0.75 - 30 * 0.25, 0); // the legs keep 75 % of the base loop
     expect(splitClipByBody(attack, new Set())).toBeNull();
+  });
+
+  it('halves the stun flinch under Reduce motion (the base loop keeps its weight under the hurt one-shot)', () => {
+    const { scene, bones } = figure();
+    const q = (deg) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deg * D2R).toArray();
+    const idle = new THREE.AnimationClip('idle', 4, [new THREE.QuaternionKeyframeTrack('chest.quaternion', [0, 4], [...q(0), ...q(0)])]);
+    const hurt = new THREE.AnimationClip('hurt', 1.2, [new THREE.QuaternionKeyframeTrack('chest.quaternion', [0, 1.2], [...q(30), ...q(30)])]);
+    const flinch = (baseWeight) => {
+      const mixer = new THREE.AnimationMixer(scene);
+      mixer.clipAction(idle).setEffectiveWeight(baseWeight).play();
+      mixer.clipAction(hurt).play();
+      mixer.update(0.5);
+      const deg = (2 * Math.asin(bones.chest.quaternion.x)) / D2R;
+      mixer.stopAllAction();
+      mixer.uncacheRoot(scene);
+      return deg;
+    };
+    const full = flinch(HURT_LAYER.base);
+    expect(full).toBeGreaterThan(24);
+    expect(flinch(HURT_LAYER.baseReduced) / full).toBeLessThan(0.65);
   });
 });
 

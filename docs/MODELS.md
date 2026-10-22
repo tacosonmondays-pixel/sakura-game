@@ -94,7 +94,8 @@ graph (`tools/simId.mjs` stays `92e2e22527cf`; `tests/models/lively.test.js` che
   hips / legs). The upper half plays at weight 4 over the base loop's 1 (80 % attack, the arm pose the old
   0.25 dip gave), the lower half at 1/3 (25 %: a hint of the step into the strike), so her legs and hips
   keep the idle's weight shift and the base loop is never dipped. Lively off keeps the old whole-body
-  one-shot over a base at 0.25. The stun's `hurt` stays a whole-body one-shot.
+  one-shot over a base at 0.25. The stun's `hurt` stays a whole-body one-shot over a base dipped to 0.2
+  (`HURT_LAYER`); under Reduce motion the base keeps its full weight, so the flinch moves half as far.
 * **Runtime skirt bones** (`livelySkirt.js`): once per asset, four bones (front / left / back / right,
   children of the hips at the hips' bind pose) take a waist-to-hem gradient of the skirt's weight; the
   skirt is found geometrically (between the knee band and the waist, hips / spine / thigh weights only,
@@ -150,8 +151,10 @@ Blender 5.2 + numpy, 0 credits):
 All four were bought once on Noa's Meshy rig R1 and retargeted onto the shipped skeleton by world-space
 rest deltas, then: head ×0.6 / neck ×0.75, mean world head pitch to the shipped −17.3°, a per-frame face
 guard (head world pitch never above −12°, so the face never drops under the bangs at the 48° camera),
-head-clearance abduction, shield wrist locked, hips travel eased back, feet pinned on their planted
-frames, everything resampled to 20 fps. `bun_L` / `bun_R` (children of `head`, pivot where the bun meets
+head-clearance abduction, shield wrist locked, each clip's mean face yaw turned back to her shipped
+idle's (as for the three girls below: the 338 idle stood ~13° turned to her right, so at the battle camera
+she showed more hair than face; the idle turns −17.5°), hips travel eased back, feet pinned on their
+planted frames, everything resampled to 20 fps. `bun_L` / `bun_R` (children of `head`, pivot where the bun meets
 the head) and `ribbon` (child of `chest`, the bow's tails) carry smooth 0 → 1 weights. The flat base
 colour comes from the offline flatten (PLAN §5.2 TX2): regions by body part + mesh adjacency, plaid →
 soft grey `#C4C3CB` with one mint hem line along the real pleated hem, colours snapped to house values
