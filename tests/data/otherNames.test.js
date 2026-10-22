@@ -22,6 +22,8 @@ const BANNED = new Set([
   'abffbe4fe8a67dfd', 'f11876c74ace8c5c', '57143466352c3ab3', '073ca93741e8c2ff', 'fd129c14475d47d7', 'e900eabe043a4f03',
   '8cdc99edef7b5d77', 'ffe4df2f28dd2c4a', '157eacb84ec0fc8b', '1645e59ce27f63eb', 'be4b8fc3fcdc660a', '0d53820772a05c89',
   '363ad2cd8099c90e',
+  // misspellings and a short sequel tag that got past the list above (docs/OWNER_REQUESTS.md, v0.1.45 review)
+  'b11ae01fdc1c582b', '35d9ac255af44f8d', '755fa0a257f96776',
 ]);
 /** Known hits that cannot change in a display-only release: a map's design note inside the co-op build id. */
 const ALLOWED = new Set(['src/data/maps.js:fd129c14475d47d7']);

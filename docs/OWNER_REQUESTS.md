@@ -12,9 +12,9 @@ Use this list as the acceptance checklist. Images in the original chat are not r
 ## Verbatim requests from the original Codex build (in order)
 
 ### Request 1
-Let’s create a blooms td inspired tower defense game, we’ll start with 1 hero 10 towers and one ability! The theme will be anime girls XD
+Let’s create a [reference TD game] inspired tower defense game, we’ll start with 1 hero 10 towers and one ability! The theme will be anime girls XD
 
-Copy the menu from blinds td6!
+Copy the menu from [the reference TD game]!
 
 ### Request 2
 When in gameplay, they’re cute chibi’s like in [reference games], can you do that? Like 3D!!
@@ -32,7 +32,7 @@ Models like those!!
 Can enemies be orcs can you add lighting, cute 3 props post effects, bloom, post processing everything a modern game would have! And then a gacha? With a new tower and hero?..
 
 ### Request 5
-I meant to say orcs slime goblins etc depending on map it could be ghosts ghouls oni etc?.. some can cross over maybe like a purple goblin with all specific weaknesses like battle cat typing?..
+I meant to say orcs slime goblins etc depending on map it could be ghosts ghouls oni etc?.. some can cross over maybe like a purple goblin with all specific weaknesses like [a reference game's] typing?..
 
 ### Request 6
 [image attached]
