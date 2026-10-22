@@ -8,7 +8,11 @@
 //     card, Total Assault + the big Campaign folder (bottom-right) and a thin translucent dock
 //     of illustrated icons (Students … Recruit) with the clock at its right end
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, svgEl, modal, toast, levelBadge, menuTabModal, glyph, applyMotionPreference } from '../components.js';
+import { countdownChip } from '../kit.js';
+import { dot, countBadge, progressBadge, inProgress } from '../badges.js';
+import { msToLocalWeekEnd } from '../countdown.js';
 import { chatButton } from '../online/lobbyChat.js';
 import { storedName } from '../online/common.js';
 import { hub } from '../online/socialHub.js';
@@ -37,7 +41,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
+import { showNoticeModal, noticeUnread, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek, TIER_STAGE } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
@@ -371,7 +375,7 @@ function buildTop(host, { openSecretaryPicker }) {
       h('button.lb-tr-btn', { title: 'Settings', 'aria-label': 'Settings', 'data-testid': 'settings', onclick: () => navigate('settings') }, svgEl(glyph('settings'), 'lb-glyph')),
       sep(),
       h('button.lb-tr-btn', { title: 'Mail', 'aria-label': 'Mail', 'data-testid': 'top-mail', onclick: () => openMailbox() },
-        svgEl(glyph('mail'), 'lb-glyph'), mailCount ? h('span.lb-badge', String(mailCount)) : null),
+        svgEl(glyph('mail'), 'lb-glyph'), countBadge(mailCount, { cls: 'lb-badge', title: `${mailCount} letters with gifts` })),
       sep(),
       h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [
         { icon: 'secretary', label: 'Lobby Background', testid: 'menu-background', go: openSecretaryPicker },
@@ -387,7 +391,7 @@ function buildTop(host, { openSecretaryPicker }) {
         // [social] private messages (shown once the server has the social update)
         ...(hub.ready ? [{ icon: 'messages', label: 'Messages', testid: 'menu-messages', badge: hub.count || null, go: () => navigate('messages') }] : []),
       ] }) },
-        svgEl(glyph('menu'), 'lb-glyph'), journalDot(profile) ? h('span.notif-dot', { 'data-testid': 'journal-dot' }) : null),
+        svgEl(glyph('menu'), 'lb-glyph'), journalDot(profile) ? dot('claim', { cls: 'notif-dot', testid: 'journal-dot' }) : null),
     ),
   );
 }
@@ -401,19 +405,20 @@ function buildShortcuts(host) {
   const notice = commissionsNotice(profile);
   const login = loginCalendar(profile);
   const event = currentEvent();
-  const sc = (name, label, { badge = null, badgeKind = 'red', dot = false, onClick, testid, cls = '' }) => h(
+  // [ui-m5] one badge vocabulary (badges.js): n/m progress (hidden at 0), a red dot for something to claim or read
+  const sc = (name, label, { badge = null, dot: hasDot = false, onClick, testid, cls = '' }) => h(
     `button.lb-sc${cls ? `.${cls}` : ''}`,
     { onclick: onClick, 'data-testid': testid, title: label },
     icon(name, 'lb-sc-ico'),
     h('span.lb-sc-label', label),
-    badge != null ? h(`span.lb-sc-badge.${badgeKind}`, String(badge)) : null,
-    dot ? h('span.lb-dot') : null,
+    badge,
+    hasDot ? dot('claim', { cls: 'lb-dot' }) : null,
   );
   host.append(
     sc('notice', 'Notice', { onClick: () => { showNoticeModal(); host.querySelector('[data-testid="shortcut-notice"] .lb-dot')?.remove(); }, testid: 'shortcut-notice', dot: noticeUnread() }),
-    sc('tasks', 'Tasks', { badge: `${notice.dailyDone}/${notice.dailyTotal}`, badgeKind: 'blue', dot: notice.missions || notice.ach, onClick: () => navigate('commissions', notice.ach && !notice.missions ? { tab: 'achievements' } : {}), testid: 'shortcut-tasks' }),
+    sc('tasks', 'Tasks', { badge: progressBadge(notice.dailyDone, notice.dailyTotal, { cls: 'lb-sc-badge' }), dot: notice.missions || notice.ach, onClick: () => navigate('commissions', notice.ach && !notice.missions ? { tab: 'achievements' } : {}), testid: 'shortcut-tasks' }),
     sc('gift', 'Login gift', {
-      badge: login.claimable ? '1' : null,
+      dot: login.claimable,
       cls: login.claimable ? 'ready' : '',
       testid: 'login-claim',
       onClick: () => {
@@ -446,7 +451,6 @@ function buildCarousel(host, { reduceMotion }) {
   const build = () => {
     const profile = store.profile;
     const event = currentEvent();
-    const days = eventDaysLeft();
     let f2p = 0;
     try {
       f2p = Math.round(f2pIncomeSummary().totals.pulls);
@@ -552,7 +556,6 @@ function buildEventCard(host) {
     return;
   }
   const event = currentEvent();
-  const days = eventDaysLeft();
   const guest = UNIT_MAP[ARENA_GUEST[event.arena]] || UNIT_MAP.hikari;
   host.appendChild(h('button.lb-eventcard', { onclick: () => navigate('bounty', { arena: event.arena }), 'data-testid': 'event-strip', title: event.desc },
     h('div.lb-ev-clip',
@@ -561,7 +564,8 @@ function buildEventCard(host) {
       h('div.lb-ev-shade'),
     ),
     h('span.lb-ev-kicker', 'EVENT!'),
-    h('div.lb-ev-text', h('b', event.name), h('small', `${event.dropMul}× drops · ${days}d left`)),
+    // [ui-m5] the time left is the countdown chip (§5.9): the double drops end with the week
+    h('div.lb-ev-text', h('b', event.name), h('div.lb-ev-sub', h('small', `${event.dropMul}× drops`), countdownChip(msToLocalWeekEnd(), { cls: 's', testid: 'event-strip-time' }))),
   ));
 }
 
@@ -581,7 +585,7 @@ function buildRight(host) {
   const campaign = h('button.lb-campaign', { onclick: () => navigate('missions'), 'data-testid': 'tile-mission', title: complete ? 'Campaign' : `Campaign · Ch.${chapter?.id} ${chapter?.name}` },
     nextDef ? h('span.lb-tag.yellow.lb-camp-next', `Next ${nextDef.id}`) : h('span.lb-tag.yellow.lb-camp-next', 'All clear!'),
     h('div.lb-camp-folder', { html: campaignFolderSVG({ uid: `camp-${++iconSeq}`, art: themeBackdropSVG(chapter?.theme || 'sakura') }) }),
-    h('span.lb-tag.pink.lb-camp-prog', complete ? 'Medals' : 'In Progress'),
+    complete ? h('span.lb-tag.pink.lb-camp-prog', 'Medals') : inProgress({ cls: 'lb-camp-prog', testid: 'campaign-inprog' }),
     h('div.lb-camp-label', h('b', 'Campaign'), h('small.lb-camp-sub', complete ? 'Chase Sakura medals' : h('span', h('span.lb-camp-ch', `Ch.${chapter?.id}`), h('span.lb-camp-name', ` ${chapter?.name}`), prog ? ` · ${prog.cleared}/${prog.total}` : ''))),
   );
   host.append(assault, campaign);
@@ -610,7 +614,7 @@ function buildDock(host) {
     host.appendChild(h('button.lb-dock-btn', { onclick: () => navigate(it.id), 'data-testid': `dock-${it.id}`, style: { '--i': i }, title: it.label },
       icon(it.icon, 'lb-dock-ico'),
       h(`span.lb-dock-label${it.short ? '.has-short' : ''}`, h('span.lb-full', it.label), it.short ? h('span.lb-short', it.short) : null),
-      it.dot ? h('span.lb-dot') : null,
+      it.dot ? dot('claim', { cls: 'lb-dot' }) : null,
       it.tag ? h('span.lb-dock-tag', it.tag) : null,
     ));
   });

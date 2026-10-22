@@ -14,23 +14,13 @@ import { ARENA_ART, ARENA_GUEST } from '../lobby/notice.js';
 import { currencyIcon, itemIcon, uiIcon } from '../../art/icons.js';
 import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { expectedSSRRate } from '../../systems/gacha.js';
-import { listEvents, phaseLabel, windowText } from '../../systems/events.js';
+import { listEvents, windowText } from '../../systems/events.js';
 import { eventNow } from '../events/clock.js';
+import { eventPhaseChip } from '../events/lobby.js';
+import { countdownChip } from '../kit.js';
+import { msToLocalWeekEnd } from '../countdown.js';
 import '../styles/events.css';
-
-function msToWeekEnd() {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(24, 0, 0, 0);
-  next.setDate(next.getDate() + (7 - (now.getDay() || 7)));
-  return next - now;
-}
-
-function fmtLeft(ms) {
-  const h1 = Math.floor(ms / 3600000);
-  const d = Math.floor(h1 / 24);
-  return d ? `${d}d ${h1 % 24}h left` : `${h1}h ${Math.floor((ms % 3600000) / 60000)}m left`;
-}
+import '../styles/hubs.css';
 
 export function render(root) {
   const { el, body } = screen('Events', { cls: 'ma-rewards-screen' });
@@ -63,7 +53,7 @@ function limitedSection() {
     h('h3.panel-title', 'Limited events'),
     rows.map(({ ev, phase }) => h('div.ev-list-row',
       h('div', h('b', ev.name), h('div.muted', `${ev.subtitle} · ${windowText(ev).dates}`)),
-      h(`span.ev-phase.ph-${phase}`, phaseLabel(ev, phase, now)),
+      eventPhaseChip(ev, phase, now, { cls: 's', testid: `events-time-${ev.id}` }), // [ui-m5] the countdown chip
       phase === 'upcoming' ? null : button(phase === 'ended' ? 'View' : 'Go', { kind: phase === 'ended' ? 'ghost' : 'yellow', small: true, testid: `events-go-${ev.id}`, onClick: () => navigate('event', { id: ev.id }) }),
     )),
   );
@@ -79,7 +69,7 @@ function eventSection() {
       arenaGuest(ev.arena),
       h('div.ma-event-shade'),
       h('div.ma-event-body',
-        h('div.ma-event-kicker', h('span.ma-event-badge', 'THIS WEEK'), h('span.ma-event-time', svgEl(uiIcon('calendar'), 'ma-inline-icon'), fmtLeft(msToWeekEnd()))),
+        h('div.ma-event-kicker', h('span.ma-event-badge', 'THIS WEEK'), countdownChip(msToLocalWeekEnd(), { label: 'Ends in', cls: 's', testid: 'event-week-time' })),
         h('h2.ma-event-name', ev.name),
         h('p.ma-event-desc', ev.desc),
         h('div.ma-event-mul', h('b', `${ev.dropMul}×`), h('span', `drops in ${ev.arenaName} (all tiers, sweeps included)`)),

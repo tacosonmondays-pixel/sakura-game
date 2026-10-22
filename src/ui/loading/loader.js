@@ -7,7 +7,9 @@
 //     index.html draws it from the first byte (the boot loader); this module adopts that element
 //     and reuses it for every later load.
 //   · the corner chip: a small dark slanted pill with a mini Mochi, while a menu screen's code is
-//     still downloading (the old screen stays on show).
+//     still downloading (the old screen stays on show). It sits in the bottom-LEFT corner (on the
+//     lobby above the EVENT card), so it never covers a primary button or the lobby's bottom-right
+//     Campaign cluster (UI_DIRECTION §5.10 E7; styles/transitions.css; e2e/transitions.mjs).
 //   · the inline Mochi: inside a panel that is fetching (chat, clan, profile, co-op).
 // Showing is done by CSS: arming a loader sets an animation-delay of 150 ms on its opacity, which
 // the compositor runs even while the main thread is busy, so it appears on time during a long

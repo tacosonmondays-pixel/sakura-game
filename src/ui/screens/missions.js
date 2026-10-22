@@ -8,7 +8,12 @@
 // Locked tiles keep their colour and wear a small lock chip (big tiles) or a lock line in their
 // name plate (small tiles).
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
+import { countdownChip } from '../kit.js';
+import { dot, inProgress, openSticker, openModes, markOpenSeen } from '../badges.js';
+import { msToLocalWeekEnd } from '../countdown.js';
+import { nextWeeklyReset } from '../../core/reset.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -72,18 +77,32 @@ function build() {
   if (next) {
     mission.appendChild(h('span.ma-hub-go', { role: 'button', tabindex: 0, 'data-testid': 'hub-quick-start', onclick: (e) => { e.stopPropagation(); navigate('stage', { id: next }); } }, svgEl(uiIcon('play'), 'ma-inline-icon'), 'Quick start'));
   }
+  // [ui-m5] the badge vocabulary: the campaign in progress, "Open!" on a mode that opened since the last look
+  if (!complete) mission.appendChild(inProgress({ cls: 'ma-hub-inprog', testid: 'hub-mission-inprog' }));
+  const locks = {
+    bounty: lockFor('res-books-1'),
+    assault: lockFor('boss-lych'),
+    titans: titansUnlocked(profile) ? null : `Clear ${TITAN_STAGE}`,
+    challenge: lockFor('challenge'),
+    sandbox: isSandboxUnlocked(profile) ? null : `Clear ${SANDBOX_UNLOCK_CLEARS} stages`,
+  };
+  const fresh = new Set(openModes(['titans', 'assault', 'challenge', 'sandbox'].filter((id) => !locks[id])));
+  const go = (id, route = id) => () => {
+    markOpenSeen(id);
+    navigate(route);
+  };
 
   const grid = h('div.ma-hub-grid',
     mission,
-    tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: lockFor('res-books-1'), onClick: () => navigate('bounty') }),
-    tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
+    tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: locks.bounty, timer: msToLocalWeekEnd(), onClick: () => navigate('bounty') }),
+    tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: locks.assault, open: fresh.has('assault'), onClick: go('assault') }),
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
-    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: titansUnlocked(profile) ? null : `Clear ${TITAN_STAGE}`, onClick: () => navigate('titans') }),
-    tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
+    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), open: fresh.has('titans'), onClick: go('titans') }),
+    tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: locks.challenge, open: fresh.has('challenge'), onClick: go('challenge') }),
     // [online] 2-player real-time co-op on any unlocked campaign stage
     tile({ id: 'coop', title: 'Co-op', art: scene('festival'), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
     // solo test range: any map, any girl, spawn controls, no rewards (opens after 7 campaign clears)
-    tile({ id: 'sandbox', title: 'Sandbox', art: scene('snow'), sub: 'No rewards', lockText: isSandboxUnlocked(profile) ? null : `Clear ${SANDBOX_UNLOCK_CLEARS} stages`, lockHint: sandboxLockText(profile), onClick: () => navigate('sandbox') }),
+    tile({ id: 'sandbox', title: 'Sandbox', art: scene('snow'), sub: 'No rewards', lockText: locks.sandbox, lockHint: sandboxLockText(profile), open: fresh.has('sandbox'), onClick: go('sandbox') }),
     tile({ id: 'story', title: 'Story', art: scene('shrine'), sub: 'Episodes', short: 'Episodes', onClick: () => navigate('story') }), // [story]
   );
   storyDot(grid.querySelector('[data-testid="hub-story"]'), profile); // [story] NEW dot for unread episodes
@@ -97,7 +116,7 @@ function storyDot(tileEl, profile) {
   Promise.all([import('../../data/story/index.js'), import('../../systems/storyTriggers.js'), import('../../data/units.js')])
     .then(([idx, trig, units]) => {
       const n = trig.unseenEpisodeCount(profile, idx.SCENE_LIST, (id) => !!units.UNIT_MAP[id]);
-      if (n > 0 && tileEl.isConnected && !tileEl.querySelector('.notif-dot')) tileEl.appendChild(h('span.notif-dot', { 'data-testid': 'hub-story-dot' }));
+      if (n > 0 && tileEl.isConnected && !tileEl.querySelector('.notif-dot')) tileEl.appendChild(dot('claim', { cls: 'notif-dot', testid: 'hub-story-dot' }));
     })
     .catch((e) => console.warn('[missions] story dot failed', e));
 }
@@ -115,7 +134,7 @@ const SMALL_TILES = new Set(['challenge', 'coop', 'sandbox', 'story', 'titans'])
  * Small tiles show a locked state as a lock line in their name plate; big tiles as a chip.
  * lockHint: a longer line for the tap toast (default: lockText).
  */
-function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, lockHint = null, ribbon = null, dot = false, soon = false, onClick }) {
+function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, lockHint = null, ribbon = null, dot: hasDot = false, soon = false, timer = null, open = false, onClick }) {
   const locked = !!lockText;
   const small = SMALL_TILES.has(id);
   let subEl = sub ? h('span.ma-hub-sub', short ? [h('span.ma-sub-long', sub), h('span.ma-sub-short', short)] : sub) : null;
@@ -135,7 +154,10 @@ function tile({ id, title, art, kicker = null, sub = null, short = null, meta = 
     ),
     meta ? h('span.ma-hub-meta', meta) : null,
     ribbon ? h('span.tag-ribbon.ma-hub-ribbon', h('span', ribbon)) : null,
-    dot ? h('span.notif-dot') : null,
+    hasDot ? dot('claim', { cls: 'notif-dot' }) : null,
+    // [ui-m5] a weekly mode's time left (the countdown chip) and the "Open!" sticker, top corners
+    timer != null && !locked ? countdownChip(timer, { cls: 's.ma-hub-timer', testid: `hub-${id}-time` }) : null,
+    open && !locked ? openSticker({ cls: 'ma-hub-open', testid: `hub-${id}-open` }) : null,
     locked && !small ? h('div.ma-hub-lock', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText)) : null,
   );
   return el;

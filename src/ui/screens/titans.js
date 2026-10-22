@@ -4,11 +4,12 @@
 // chips and buttons; the numbers stay one short line each.
 import '../styles/meta-a.css';
 import '../styles/titans.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, button, toast } from '../components.js';
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { formatCountdown } from '../../core/reset.js';
+import { countdownChip } from '../kit.js';
 import { UNIT_MAP, UNITS } from '../../data/units.js';
 import { MATERIAL_FAMILIES, ATTACK_TYPES } from '../../data/types.js';
 import { ITEMS, zenithId } from '../../data/items.js';
@@ -54,7 +55,7 @@ export function render(root, params = {}) {
     const now = Date.now();
     const top = h('div.tt-top',
       h('span.tt-chip', { 'data-testid': 'titan-keys', title: 'Trial Keys: 12 a week, up to 6 unused carry over' }, svgEl(uiIcon('key'), 'ma-inline-icon'), h('b', `${keys.left}`), `/${keys.weekly}${keys.saved ? ` (+${keys.saved} saved)` : ''}`),
-      h('span.tt-chip.muted', `Resets in ${formatCountdown(keys.resetsAt - now)}`),
+      countdownChip(keys.resetsAt - now, { label: 'Resets in', testid: 'titan-reset' }), // [ui-m5] the countdown chip (§5.9)
       h('span.tt-chip', svgEl(itemIcon('token_boss'), 'tt-chip-ico'), h('b', formatNumber(itemCount(p, 'token_boss')))),
       button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', testid: 'titan-shelf', onClick: () => navigate('mall', { tab: 'boss' }) }),
     );

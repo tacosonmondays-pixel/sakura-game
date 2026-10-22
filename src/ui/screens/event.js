@@ -4,12 +4,14 @@
 // tokens (src/ui/styles/events.css only adds the event colours and the card layouts).
 import '../styles/meta-a.css';
 import '../styles/events.css';
+import '../styles/hubs.css';
 import { h, clear } from '../dom.js';
 import { screen, panel, tabs, button, svgEl, toast, modal, itemTile } from '../components.js';
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { formatCountdown } from '../../core/reset.js';
+import { countdownChip } from '../kit.js';
+import { eventPhaseChip } from '../events/lobby.js';
 import { eventById } from '../../data/events/index.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
@@ -23,7 +25,7 @@ import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { stageMedals } from '../../systems/unlocks.js';
 import { itemCount } from '../../systems/inventory.js';
 import {
-  eventPhase, eventWindow, eventUnlocked, phaseLabel, windowText, episodeRows, readEpisode, eventStageStatus, missionRows,
+  eventPhase, eventWindow, eventUnlocked, windowText, episodeRows, readEpisode, eventStageStatus, missionRows,
   claimEventMission, claimAllEventMissions, shopRows, buyEventOffer, loginRows, markEventLogin, settleEvents, endedSummary,
   eventDifficultyStatus,
 } from '../../systems/events.js';
@@ -97,7 +99,7 @@ export function render(root, params = {}) {
         h('div.ev-kicker', `LIMITED EVENT · ${ev.subtitle.toUpperCase()}`),
         h('h2.ev-title', ev.name),
         h('div.ev-head-row',
-          h(`span.ev-phase.ph-${phase}`, { 'data-testid': 'event-phase' }, phaseLabel(ev, phase, now)),
+          eventPhaseChip(ev, phase, now, { testid: 'event-phase', cls: 's' }), // [ui-m5] the countdown chip (§5.9)
           h('span.ev-dates', w.dates),
           devClock ? h('span.ev-dev', { title: 'Dev preview clock (localStorage sakura-dev-now)' }, 'DEV CLOCK') : null,
         ),
@@ -111,7 +113,7 @@ export function render(root, params = {}) {
     const phase = eventPhase(ev, now, store.profile);
     if (phase === 'upcoming') {
       // the intro is story copy ({name:hikari} tokens): resolved here, outside the scene player
-      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens in ${formatCountdown(eventWindow(ev).startAt - now)}.`), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
+      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens soon. `, countdownChip(eventWindow(ev).startAt - now, { label: 'Opens in', cls: 's', now: eventNow })), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
       return;
     }
     if (!eventUnlocked(store.profile, ev) && phase === 'active') {
@@ -261,7 +263,7 @@ function missionsTab(ev, phase, now, refresh) {
         if (r.ok) { store.commit('event'); toast(`Claimed ${r.count}: ${rewardText(r.rewards)}`, 'good', 3000); refresh(); }
       },
     })),
-    panel(`Daily · resets in ${formatCountdown(rows.resetsAt - now)} (7 PM Central)`, rows.daily.map(row)),
+    panel(['Daily ', countdownChip(rows.resetsAt - now, { label: 'Resets in', cls: 's', now: eventNow, testid: 'event-daily-reset' })], rows.daily.map(row)),
     panel('Event missions', rows.total.map(row)),
   );
 }

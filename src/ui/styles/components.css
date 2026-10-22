@@ -424,14 +424,15 @@ button.ui-gtile:active { transform: scale(0.96); }
 
 /* ---------- The badge vocabulary (P7 + §5.10) ---------- */
 .ui-bdg { flex: none; width: max-content; pointer-events: none; z-index: 3; }
+/* (the badge's look wins over a screen's older badge class it keeps for its position: two classes beat one) */
 /* red dot: claim or read (the tab rail's dot is the same red) */
-.ui-bdg.dot, .ui-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--badge-red); box-shadow: 0 0 0 2px #fff; }
+.ui-bdg.dot, .ui-dot { display: inline-block; width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--badge-red); box-shadow: 0 0 0 2px #fff; }
 /* yellow dot: something new inside */
-.ui-bdg.ydot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 2px var(--plate); }
+.ui-bdg.ydot { display: inline-block; width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 2px var(--plate); }
 /* red number: an unread count; n/m: progress (an ink pill) */
 .ui-bdg.count, .ui-bdg.prog {
   display: inline-grid; place-items: center;
-  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  min-width: 20px; height: 20px; padding: 0 6px; border: 0; border-radius: 10px;
   box-shadow: 0 0 0 2px #fff;
   font: 700 var(--fs-label)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap;
 }

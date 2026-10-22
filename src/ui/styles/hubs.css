@@ -1,0 +1,40 @@
+/* Sakura Sentinels — the UI M5 screens (docs/specs/UI_DIRECTION.md §5.9, §5.10; notes/ui-m5/PLAN.md). Loaded after
+   meta-a.css by the screens M5 touches. Where the shared kit (components.css "M5") draws a component, this file only
+   places it on a screen, scoped under that screen's own classes. Sizes come from the type tokens: nothing in this
+   file is under 12 px (tools/cssFloor.mjs). M5a: the countdown chips and badges sit where the old timers and badges
+   sat; no layout moves. */
+
+/* ---------- Lobby: the EVENT card's time left (the countdown chip under the event name) ---------- */
+.lb-ev-text > .lb-ev-sub { display: flex; align-items: center; gap: 6px; margin-top: 3px; min-width: 0; }
+.lb-ev-text > .lb-ev-sub > small { margin-top: 0; }
+.lb-ev-text .ui-cd { box-shadow: 0 0 0 1.5px #fff; }
+/* the Campaign folder's "In Progress" ribbon: the badge pill is 4 px taller than the old tag, the folder stays put */
+.lb-campaign > .lb-camp-prog.ui-bdg { margin-top: -10px; }
+
+/* ---------- Missions: a weekly mode's chip (top right), "Open!" (top left), the campaign in progress ---------- */
+.ma-hub-tile > .ma-hub-timer { position: absolute; top: 8px; right: 10px; z-index: 3; }
+.ma-hub-tile > .ma-hub-open { position: absolute; top: 8px; left: 10px; z-index: 3; transform: skewX(calc(var(--skew) * -1)) rotate(var(--sticker-tilt)); }
+/* a small tile has room for one: "Open!" until the first visit, then the week's chip */
+.ma-hub-titans:has(> .ma-hub-open) > .ma-hub-timer { display: none; }
+.ma-hub-assault > .ma-hub-open { left: auto; right: 12px; }
+.ma-hub-tile > .ma-hub-inprog { position: absolute; left: 16px; bottom: 12px; z-index: 2; }
+
+/* ---------- Commissions: the reset chip after the claim count ---------- */
+.ma-comm-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.ma-comm-sub > .ui-cd { margin: -4px 0; } /* (the chip rides on the text line: the list below does not move) */
+
+/* ---------- Mall: the restocks as chips ---------- */
+.ma-restock { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+
+/* ---------- Mail: the expiry chip in the letter's side column ---------- */
+.mbx-expiry:has(> .ui-cd) { line-height: 0; }
+.mbx-expiry > .ui-cd { margin: -5px 0; } /* (the old line's height: Claim stays where it was) */
+
+/* ---------- Titan Trials: the week chip in the top row, the same height as its neighbours ---------- */
+.tt-top > .ui-cd { box-shadow: var(--shadow); }
+
+/* ---------- Happening Now (#/rewards): the week chip in the THIS WEEK kicker, a limited event's phase ---------- */
+.ma-event-kicker > .ui-cd { margin: -3px 0; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9); }
+
+/* ---------- The event page: the phase chip in the header row (the old pill's height) ---------- */
+.ev-head-row > .ui-cd { margin: -1px 0; }

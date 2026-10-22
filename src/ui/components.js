@@ -1,6 +1,7 @@
 // Shared UI building blocks. Screens should use these so the whole game keeps one
 // look (academy-style slanted white panels on a sky-blue backdrop).
 import { h, fromHTML, clear } from './dom.js';
+import { dot, countBadge } from './badges.js';
 import { store } from '../core/store.js';
 import { navigate, back } from './router.js';
 import { formatNumber } from '../core/util.js';
@@ -252,7 +253,8 @@ export function tabs(items, activeId, onChange) {
           `button.tab${it.id === active ? '.active' : ''}`,
           { role: 'tab', 'aria-selected': it.id === active ? 'true' : 'false', 'data-testid': `tab-${it.id}`, onclick: () => { render(it.id); onChange(it.id); } },
           it.label,
-          it.badge ? h('span.tab-badge') : null,
+          // [ui-m5] tabs carry the red dot only, never a count (P7; badges.js)
+          it.badge ? dot('claim', { cls: 'tab-badge' }) : null,
         ),
       );
     }
@@ -364,8 +366,11 @@ export function menuTabModal({ extra = [] } = {}) {
   const ico = (name, key) => svgEl(lobbyIcon(name, { uid: `menu-${key}`, shadow: false }), 'menu-tab-icon');
   for (const e of entries) {
     const key = e.label.toLowerCase();
-    // badge: a number (pink pill) or true (a dot), e.g. unread messages; `dot` is a plain dot
-    const badge = e.badge ? (e.badge === true ? h('span.notif-dot') : h('span.menu-tab-badge', String(e.badge))) : (e.dot ? h('span.notif-dot') : null);
+    // badge: a number (an unread count: the red number) or true (the red dot), e.g. unread messages; `dot` is a red
+    // dot. [ui-m5] one badge vocabulary (badges.js); the old classes stay for their place and the e2e tests
+    const badge = e.badge
+      ? (e.badge === true ? dot('claim', { cls: 'notif-dot' }) : countBadge(e.badge, { cls: 'menu-tab-badge' }))
+      : (e.dot ? dot('claim', { cls: 'notif-dot' }) : null);
     grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label), badge));
   }
   const fs = h('button.menu-tab-btn', { 'data-testid': 'menu-fullscreen' }, ico('fullscreen', 'fullscreen'), h('span', 'Fullscreen'));

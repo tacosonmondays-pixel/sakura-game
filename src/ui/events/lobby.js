@@ -6,9 +6,23 @@ import { store } from '../../core/store.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { featuredEvent, phaseLabel, markEventLogin, settleEvents } from '../../systems/events.js';
+import { featuredEvent, eventWindow, markEventLogin, settleEvents } from '../../systems/events.js';
+import { countdownChip } from '../kit.js';
 import { eventNow } from './clock.js';
 import { lanternString } from './art.js';
+
+/**
+ * [ui-m5] An event's phase as the countdown chip (UI_DIRECTION §5.9): "Opens in 2d 4h", "Ends in 6d 4h",
+ * "Exchange 3d 2h" (the time left to trade), or a plain "Ended". It counts on the event clock (clock.js).
+ * @param {{ testid?: string|null, cls?: string }} [o]
+ */
+export function eventPhaseChip(ev, phase, now = eventNow(), { testid = null, cls = '' } = {}) {
+  const w = eventWindow(ev);
+  const at = phase === 'upcoming' ? w.startAt : phase === 'active' ? w.endAt : phase === 'exchange' ? w.exchangeEndAt : null;
+  if (at == null) return h(`span.ev-phase.ph-${phase}`, { 'data-testid': testid }, 'Ended');
+  const label = phase === 'upcoming' ? 'Opens in' : phase === 'active' ? 'Ends in' : 'Exchange';
+  return countdownChip(at - now, { label, testid, cls, now: eventNow, doneText: phase === 'upcoming' ? 'Open' : 'Ended' });
+}
 
 /** The day's event visit from the lobby (a player who just cleared the unlock stage gets today's gift). */
 export function lobbyEventVisit() {
@@ -35,7 +49,7 @@ export function eventLobbyCard() {
     h('div.lb-ev-shade'),
   ),
   h('span.lb-ev-kicker', 'EVENT!'),
-  h('div.lb-ev-text', h('b', ev.name), h('small', phaseLabel(ev, phase, eventNow()))));
+  h('div.lb-ev-text', h('b', ev.name), h('div.lb-ev-sub', eventPhaseChip(ev, phase, eventNow(), { cls: 's', testid: 'event-card-time' }))));
 }
 
 /** Lanterns across the top and two pumpkins at the bottom corners, while an event with decor runs. */

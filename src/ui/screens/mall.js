@@ -5,7 +5,11 @@
 // stock and reset period; buying asks for a quantity when more than one fits. "Choose family" rows
 // share one card with family chips (pre-picked for the girl whose next gate needs it).
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, modal, toast, button, tabs } from '../components.js';
+import { countdownChip } from '../kit.js';
+import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
+import { nextWeeklyReset } from '../../core/reset.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -104,9 +108,17 @@ export function render(root, params = {}) {
       content.appendChild(grid);
     }
     if (!tab.offers.length) content.appendChild(h('div.ma-offers', h('div.ma-empty-state', svgEl(uiIcon('mall')), h('p', 'Nothing on the shelves right now.'))));
-    content.appendChild(h('p.muted.ma-hint', tab.offers.some((o) => o.section || o.currency === 'memento' || o.currency === 'moonpearl')
-      ? 'Daily stock restocks at midnight; weekly stock on Monday; the Titan shelf and Memento Exchange on Sunday at 7 PM Central.'
-      : 'Daily stock restocks at midnight; weekly stock on Monday.'));
+    // [ui-m5] restocks as countdown chips (§5.9): daily (midnight), weekly (Monday), and the game-week shelves
+    const onGameWeek = (o) => !!o.section || o.currency === 'memento' || o.currency === 'moonpearl';
+    const daily = tab.offers.some((o) => o.resets === 'daily' && !onGameWeek(o));
+    const weekly = tab.offers.some((o) => o.resets === 'weekly' && !onGameWeek(o));
+    const gameWeek = tab.offers.some(onGameWeek);
+    if (daily || weekly || gameWeek) {
+      content.appendChild(h('p.muted.ma-hint.ma-restock', { 'data-testid': 'mall-restock' },
+        daily ? countdownChip(msToLocalMidnight(), { label: 'Daily', cls: 's', testid: 'mall-restock-daily' }) : null,
+        weekly ? countdownChip(msToLocalWeekEnd(), { label: 'Weekly', cls: 's', testid: 'mall-restock-weekly' }) : null,
+        gameWeek ? countdownChip(nextWeeklyReset() - Date.now(), { label: tab.id === 'memento' ? 'Mementos' : 'Titan shelf', cls: 's', testid: 'mall-restock-shelf' }) : null));
+    }
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });

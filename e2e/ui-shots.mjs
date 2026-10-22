@@ -50,6 +50,11 @@ const SHOTS = {
   'battle-drawer': { battle: true },
   // ---- the M5 list (docs/specs/UI_DIRECTION.md §5.9, §5.10; notes/ui-m5/PLAN.md §5) ----
   missions: { hash: '#/missions', ready: isScreen('missions'), list: '.ma-hub-grid', seed: 'm5' },
+  // the Missions hub the first time after Titan Trials opened: its "Open!" sticker (src/ui/badges.js openModes)
+  'missions-open': {
+    hash: '#/missions', ready: isScreen('missions'), list: '.ma-hub-grid', seed: 'm5',
+    prepare: (page) => page.evaluate(() => localStorage.setItem('ss-open-seen', JSON.stringify({ known: ['challenge', 'sandbox'], pending: [] }))),
+  },
   'commissions-daily': { hash: '#/commissions?tab=daily', ready: isScreen('commissions'), kind: 'list', list: '.ma-mission-list', seed: 'm5' },
   'commissions-login': { hash: '#/commissions?tab=login', ready: isScreen('commissions'), list: '.ma-calendar', seed: 'm5' },
   bounty: { hash: '#/bounty', ready: isScreen('bounty'), seed: 'm5' },
@@ -140,7 +145,9 @@ const closeModals = (page) => page.evaluate(() => document.querySelectorAll('.mo
 
 async function go(page, hash, ready) {
   await page.evaluate((hh) => { location.hash = hh; }, hash);
-  await page.waitForFunction(ready, null, { timeout: 30000 });
+  await page.waitForFunction(ready, null, { timeout: 60000 });
+  // the screen change has finished (no transition, no loading chip): a busy machine never shoots the old screen
+  await page.waitForFunction(() => !document.documentElement.dataset.tx && !document.querySelector('.ld-chip.on'), null, { timeout: 60000 }).catch(() => {});
   await closeModals(page);
   await settle(page);
 }
@@ -191,9 +198,9 @@ for (const vp of viewports) {
   console.log(`viewport ${vp}`);
   const probes = {};
   try {
-    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
+    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load', timeout: 90000 });
     await page.evaluate(() => localStorage.clear());
-    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
+    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 30000 });
     const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 8000 }).catch(() => null);
     if (later) await later.click({ force: true });
@@ -209,13 +216,13 @@ for (const vp of viewports) {
     const s = SHOTS[name];
     try {
       if (s.page) {
-        await page.goto(`${base}${s.page}`, { waitUntil: 'load' });
+        await page.goto(`${base}${s.page}`, { waitUntil: 'load', timeout: 90000 });
         inGame = false;
         await page.waitForFunction(s.ready, null, { timeout: 30000 });
         await settle(page, 400);
       } else {
         if (!inGame) {
-          await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
+          await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load', timeout: 90000 });
           await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 30000 });
           await closeModals(page);
           inGame = true;
@@ -230,6 +237,10 @@ for (const vp of viewports) {
           if (s.fallback) {
             const route = hash.replace(/^#\//, '').split(/[/?]/)[0];
             if (!(await hasRoute(page, route))) hash = s.fallback;
+          }
+          if (s.prepare) {
+            await go(page, '#/lobby', isScreen('lobby')); // (a fresh draw of the screen after the state is set)
+            await s.prepare(page);
           }
           await go(page, hash, s.ready);
           if (s.open) {

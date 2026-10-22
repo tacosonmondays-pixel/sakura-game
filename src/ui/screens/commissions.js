@@ -2,7 +2,10 @@
 // Daily / weekly commissions with progress, claim and "Go" shortcuts, the 7-day login
 // calendar, one-time achievements and redemption codes.
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast, button, tabs } from '../components.js';
+import { countdownChip } from '../kit.js';
+import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber, dayKey } from '../../core/util.js';
@@ -33,24 +36,8 @@ const EVENT_ROUTE = {
 };
 const MISSION_EVENTS = Object.fromEntries([...DAILY_MISSIONS, ...WEEKLY_MISSIONS].map((m) => [m.id, m.events]));
 
-function msUntil(kind) {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(24, 0, 0, 0);
-  if (kind === 'weekly') {
-    const day = now.getDay() || 7; // Monday = 1
-    next.setDate(next.getDate() + (7 - day));
-  }
-  return next - now;
-}
-
-function formatDuration(ms) {
-  const m = Math.max(0, Math.floor(ms / 60000));
-  const d = Math.floor(m / 1440);
-  const hh = Math.floor((m % 1440) / 60);
-  const mm = m % 60;
-  return d ? `${d}d ${hh}h` : `${hh}h ${String(mm).padStart(2, '0')}m`;
-}
+/** Time to the next daily (local midnight) or weekly (Monday) reset. */
+const msUntil = (kind) => (kind === 'weekly' ? msToLocalWeekEnd() : msToLocalMidnight());
 
 export function render(root, params = {}) {
   const { el, body } = screen('Commissions', { cls: 'ma-commissions-screen' });
@@ -128,7 +115,8 @@ function missionsView(kind, redraw) {
   const wrap = h('div');
   wrap.appendChild(h('div.ma-comm-head',
     h('div', h('h3.ma-section-title', kind === 'daily' ? 'Daily commissions' : 'Weekly commissions'),
-      h('div.muted', `${done}/${list.length} claimed · ${gemsTotal} gems in total · resets in ${formatDuration(msUntil(kind))}`)),
+      // [ui-m5] the reset is the countdown chip (§5.9)
+      h('div.muted.ma-comm-sub', `${done}/${list.length} claimed · ${gemsTotal} gems in total`, countdownChip(msUntil(kind), { label: 'Resets in', cls: 's', testid: `comm-reset-${kind}` }))),
     button(claimable ? `Claim all (${claimable})` : 'Claim all', {
       kind: 'yellow',
       icon: 'gift',
@@ -214,7 +202,7 @@ function loginView(redraw) {
     ));
   });
   wrap.appendChild(grid);
-  wrap.appendChild(h('p.muted.ma-hint', `Next reset in ${formatDuration(msUntil('daily'))} (local midnight, ${dayKey()}).`));
+  wrap.appendChild(h('p.muted.ma-hint.ma-comm-sub', countdownChip(msUntil('daily'), { label: 'Next gift', cls: 's', testid: 'login-reset' }), `Local midnight, ${dayKey()}.`));
   return wrap;
 }
 

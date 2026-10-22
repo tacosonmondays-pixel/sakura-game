@@ -3,6 +3,7 @@
 //                        Claim / Claim all (src/systems/mail.js)
 //   maybeShowBetaGift()  once per session in the lobby while the beta gift is unclaimed: a
 //                        celebratory modal with the message and the rewards, Claim / Later
+import '../styles/hubs.css';
 import { h, clear } from '../dom.js';
 import { modal, svgEl, glyph, button, itemTile, toast } from '../components.js';
 import { store } from '../../core/store.js';
@@ -13,6 +14,7 @@ import { UNIT_MAP } from '../../data/units.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { fmtNum } from '../format.js';
+import { countdownChip } from '../kit.js';
 import { mailList, claimMail, claimAllMail, pendingBetaGift, BETA_GIFT_ID } from '../../systems/mail.js';
 import { itemCount } from '../../systems/inventory.js';
 // static (not lazy): right after "Claim gifts" the SSR picker offer must appear at once — a lazy
@@ -72,7 +74,8 @@ export function openMailbox() {
           rewardTiles(l.rewards),
         ),
         h('div.mbx-letter-side',
-          h('span.mbx-expiry', l.expired ? 'Expired' : l.expiresAt ? `Until ${dateText(l.expiresAt)}` : 'No expiry'),
+          // [ui-m5] the time left to claim is the countdown chip (§5.9; red in the last day)
+          h('span.mbx-expiry', l.expired ? 'Expired' : l.expiresAt ? countdownChip(l.expiresAt - Date.now(), { label: 'Expires', cls: 's', doneText: 'Expired', testid: `mail-expiry-${l.id}` }) : 'No expiry'),
           l.claimable
             ? button('Claim', { kind: 'yellow', small: true, testid: `mail-claim-${l.id}`, onClick: () => claimOne(l.id) })
             : h('span.mbx-claimed', l.claimed ? 'Claimed' : ''),
