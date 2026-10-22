@@ -20,6 +20,8 @@
 export const REPEAT = [
   '.item-tile', '.ui-gtile', '.unit-card', '.ma-offer', '.ma-mission', '.mbx-letter', '.ev-list-row', '.tt-card',
   '.ma-cal-day', '.ach-row', '.ma-stage-card', '.ma-sc', '.lb-slide', '.ma-next-row', '[data-probe="tile"]',
+  // UI M5b: the Bounty arena rows and tiers, the drop tiles, the boss cards, the campaign's chapter tabs
+  '.ma-loc', '.ma-tier-btn', '.ma-drop', '.ma-boss-card', '.ma-chapter-tab',
 ].join(', ');
 
 /** Never counted: the currency bar (P3) and anything a script marks. */
@@ -28,12 +30,13 @@ export const SKIP = ['.cur-pills', '.lb-pills', '[data-probe="skip"]', '.ld', '.
 /**
  * @param {import('playwright').Page} page
  * @param {{ kind?: 'hub'|'list'|'detail', list?: string|null, content?: string|null, host?: string, bubble?: string,
- *   repeat?: string, skip?: string, root?: string }} [opts]
- *   list: the list or grid the bubble must stay clear of; content: the content window (default the screen body)
+ *   repeat?: string, skip?: string, root?: string, tapSkip?: string|null }} [opts]
+ *   list: the list or grid the bubble must stay clear of; content: the content window (default the screen body);
+ *   tapSkip: controls left out of the tap check (the game's shared top bar, which no milestone screen owns)
  */
 export async function probe(page, opts = {}) {
   const o = {
-    kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body',
+    kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null,
     ...opts,
   };
   return page.evaluate(probeInPage, o);
@@ -142,7 +145,13 @@ function probeInPage(o) {
   const denseTaps = [];
   for (const el of root.querySelectorAll('button, a[href], [role="button"], [role="tab"], input:not([type="hidden"]), select, summary')) {
     if (skipped(el) || !shown(el) || el.closest('[aria-hidden="true"]')) continue;
+    if (o.tapSkip && el.closest(o.tapSkip)) continue;
     if (getComputedStyle(el).pointerEvents === 'none') continue;
+    // a page tab is at least 44 × 36 (§5.3)
+    if (el.getAttribute('role') === 'tab') {
+      const t = el.getBoundingClientRect();
+      if (t.height >= 36 && t.width >= 44) continue;
+    }
     const r = el.getBoundingClientRect();
     let w = r.width;
     let h = r.height;

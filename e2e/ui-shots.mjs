@@ -17,6 +17,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { probe, summary } from './probe.mjs';
+import { seedUiSave, SHOT_NOW } from './uiSeed.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -26,12 +27,9 @@ const opt = (name, def) => {
 const flag = (name) => args.includes(`--${name}`);
 const out = opt('out', 'ui-shots');
 const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
-const NOW = opt('now', '2026-10-27T17:00:00Z'); // a Tuesday noon in Central: no weekly reset on the day
+const NOW = opt('now', SHOT_NOW); // a Tuesday noon in Central: no weekly reset on the day
 const withProbe = flag('probe');
 mkdirSync(out, { recursive: true });
-
-const GIRLS = ['hikari', 'aoi', 'rei', 'luna', 'nami', 'yuki', 'momo', 'akane', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'raika', 'miko', 'hotaru', 'kaede', 'chika'];
-const SQUAD = ['aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'kage', 'chika'];
 
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 
@@ -114,30 +112,7 @@ console.log(`browser: ${label}; clock: ${NOW}; screens: ${names.join(', ')}`);
 let failed = 0;
 
 /** Every girl, a squad, fixed currencies and six gear pieces rolled from fixed seeds (two on Aoi). m5: chapters 1-3 cleared. */
-async function seed(page, m5) {
-  await page.evaluate(async ([girls, squad, withM5]) => {
-    const { store } = window.__sakura;
-    const unlocks = await import('/src/systems/unlocks.js');
-    const gear = await import('/src/systems/gear.js');
-    const { createRng } = await import('/src/core/rng.js');
-    const p = store.profile;
-    for (const id of girls) if (!p.units[id]) unlocks.grantUnit(p, id, 1760000000000);
-    Object.assign(p.units.aoi, { level: 48, breakthrough: 4, awaken: 3 });
-    Object.assign(p.units.hikari, { level: 30, breakthrough: 3, awaken: 2 });
-    p.formation = { hero: 'hikari', towers: [...squad] };
-    Object.assign(p.currencies, { coins: 284650, gems: 16570 });
-    Object.assign(p.settings, { autoStart: false });
-    const rolls = [['charm', 'legendary'], ['ribbon', 'mythic'], ['shoes', 'super'], ['charm', 'rare'], ['ribbon', 'common'], ['shoes', 'legendary']];
-    const uids = rolls.map(([slot, rarity], i) => gear.addGear(p, gear.rollGear(createRng(100 + i), { slot, rarity, level: 3 * i })));
-    gear.equipGear(p, 'aoi', uids[0]);
-    gear.equipGear(p, 'aoi', uids[1]);
-    if (withM5) {
-      for (let c = 1; c <= 3; c++) for (let s = 1; s <= 5; s++) p.progress.stages[`${c}-${s}`] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
-    }
-    store.commit('e2e');
-    store.saveNow?.();
-  }, [GIRLS, SQUAD, m5]);
-}
+const seed = (page, m5) => seedUiSave(page, m5);
 
 const settle = (page, ms = 900) => page.waitForTimeout(ms)
   .then(() => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300))))));
