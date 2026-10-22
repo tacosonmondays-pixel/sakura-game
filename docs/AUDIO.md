@@ -36,7 +36,7 @@ Milestones A1-A5 of §7 are done, plus the Sound Test of §6.6. **Round 2 (2026-
 |---|---|---|
 | Toolkit setup | `tools/audio/requirements.txt`, `setup_venv.sh`, `fetch_soundfonts.py`, `make_chip_sf2.py` | GeneralUser GS fetched by `git` at the pinned commit, size + SHA-256 checked, licence copied next to it; FluidR3 fallback; `sakura-chip.sf2` (CC0) is generated deterministically |
 | Song → MIDI | `sakura_audio/notation.py`, `theory.py`, `song.py`, `gen.py`, `midi.py`, `songs/motifs.py` | Python DSL or JSON (`Song.from_dict`), bar validator, chord-symbol generators, motif markers, tempo snap |
-| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 116 roles (81 + 35 genre roles in round 3, §2.4). `toby` points at `${SAKURA_PRIVATE_SF2}/eb.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
+| Palettes | `palettes/cleared.json` (shipped), `strict.json`, `chip.json`, `toby.json` + `sakura_audio/palette.py` | 116 roles (81 + 35 genre roles in round 3, §2.4). `toby` points at `${SAKURA_PRIVATE_SF2}/rpg16.sf2` + `sgm.sf2`; without them every role falls back to `cleared` with a warning |
 | Render + mix | `render.py`, `mix.py`, `fx.py`, `encode.py`, `checks.py`, `pipeline.py` | FluidSynth jobs per (stem × font × echo send × part fx), cached by hash; per-part filter / drive / sidechain pump (round 3, §2.4.2); SNES echo, lowpass, optional crush, one loudness gain for all stems, exact head + loop-body file, Opus + AAC, gates |
 | SFX | `sfx/synth.py`, `sfx/recipes.py` (84 ids), `sfx/sampled.py`, `sfx/sprite.py` | one mono sprite + `sprite.json` |
 | Review | `sakura_audio/review.py` | piano roll (motif boxes), waveform with loop points, seam plots (WAV + both decodes), spectrogram, gate report, SFX contact sheet, `index.html` |
@@ -56,7 +56,7 @@ sh tools/audio/setup_venv.sh                              # venv + pinned pip pa
 PY=tools/audio/.venv/bin/python
 $PY tools/audio/studio.py list                            # songs, stems, durations, size estimate
 $PY tools/audio/studio.py roles --palette toby            # where every role comes from (+ fallback warnings)
-$PY tools/audio/studio.py presets eb --palette toby       # presets inside the private 16-bit RPG font (eb)
+$PY tools/audio/studio.py presets rpg16 --palette toby    # presets inside the private 16-bit RPG font (rpg16)
 $PY tools/audio/studio.py midi demo --roll                # GM preview MIDI + piano roll
 $PY tools/audio/studio.py render all                      # every song: stems → mix → loop file → encode → gates
 $PY tools/audio/studio.py render all --palette toby       # same songs through the Toby fonts (build/toby/, not shipped)
@@ -631,7 +631,7 @@ GM programs 0-based:
 | `cleared` | As above. The default and shipped palette |
 | `strict` | Same roles on FluidR3 GM (MIT) + `sakura-chip` (CC0) only, for a fully license-documented build |
 | `chip` | `inherit: cleared`, but every melodic role maps to `sakura-chip` and drums to the NES kit. A full NES mode, cheap to offer later as a Settings "8-bit mode" |
-| `toby` | `inherit: cleared` (any role it does not map falls back, with a warning). Soundfonts point at `${SAKURA_PRIVATE_SF2}/eb.sf2` and `${SAKURA_PRIVATE_SF2}/sgm.sf2` (file names confirmed when Kai's ledger or palette arrives). Role entries are filled from Kai's Toby palette. It can also set its own `mix` (a shorter 16-bit-console echo, crunchier). Nothing in any song changes: `studio.py render all --palette toby` re-renders everything |
+| `toby` | `inherit: cleared` (any role it does not map falls back, with a warning). Soundfonts point at `${SAKURA_PRIVATE_SF2}/rpg16.sf2` and `${SAKURA_PRIVATE_SF2}/sgm.sf2` (file names confirmed when Kai's ledger or palette arrives). Role entries are filled from Kai's Toby palette. It can also set its own `mix` (a shorter 16-bit-console echo, crunchier). Nothing in any song changes: `studio.py render all --palette toby` re-renders everything |
 
 #### 2.4.1 Round-3 genre roles (jazz, ska, city pop, techno, hardtek, Celtic, surf, sweet)
 
