@@ -41,7 +41,8 @@
 //   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
 
-import { ABILITY_RULES, abilityAtTier, skillAtLevel } from '../data/abilities.js';
+import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
+import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
 import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs } from './towers.js';
 import { isEligible } from './combat.js';
@@ -127,11 +128,12 @@ export function abilityDef(t) {
   return t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
 }
 
-/** Charge points a tick: Skill Haste (gear ultHaste) at half rate, never for rallies and debuffs. */
+/**
+ * Charge points a tick: Skill Haste (gear ultHaste) at half rate, never for rallies and debuffs. One rule for the
+ * whole game: src/sim/gearRules.js abilityChargePerTick (round(100 / (1 − 0.5 × min(0.5, h))), 100 without haste).
+ */
 export function chargeRate(t, kind) {
-  if (R.unhastedKinds.includes(kind)) return R.chargePerTick;
-  const h = Math.min(R.hasteCap, Math.max(0, t.unitStats?.ultHaste || 0));
-  return Math.round(R.chargePerTick / (1 - R.hasteShare * h));
+  return abilityChargePerTick(t?.unitStats, kind);
 }
 
 const groupKey = (t, id) => `${t.owner ?? 0}|${id}`;
@@ -756,11 +758,15 @@ const RUNNERS = {
   },
 };
 
-/** The code that runs an ability (null: this build does not run it yet). */
-function handlerOf(def) {
-  if (!def) return null;
-  if (def.kind === 'deploy') return DEPLOYS[def.effect?.deploy] || null;
-  if (def.kind === 'runner') return RUNNERS[def.effect?.runner] || null;
+/**
+ * The code that runs an ability (null: this build does not run it yet). It refuses exactly what the data rule
+ * abilityRuns refuses (src/data/abilities.js; a boost without `mods` too), so the UI, the tips and the gear table
+ * never disagree with the sim (tests/sim/abilities.test.js runs both over every row, tier 5 and rank).
+ */
+export function handlerOf(def) {
+  if (!abilityRuns(def)) return null;
+  if (def.kind === 'deploy') return DEPLOYS[def.effect.deploy] || null;
+  if (def.kind === 'runner') return RUNNERS[def.effect.runner] || null;
   return KINDS[def.kind] || null;
 }
 
@@ -1052,20 +1058,47 @@ export function tickAbilities(sim) {
   }
 }
 
-/** First Bell (Bell Club gear set, track 2): charge points a girl gains when a wave starts. 0 until it lands. */
+/**
+ * First Bell (Bell Club's 3-piece trick, GEAR_STATS §C): the charge points her ability gains when a wave starts,
+ * floor(10% of its full charge) — none for rallies and debuffs (src/sim/gearRules.js firstBellCharge). 0 for a girl
+ * without the 3-piece set or without an unlocked ability.
+ */
 export function waveStartCharge(sim, t) { // eslint-disable-line no-unused-vars
-  return 0;
+  const a = t?.abil;
+  return a ? firstBellCharge(t.unitStats, a.cdMax, a.kind) : 0;
 }
 
-/** Wave start (Sim.startNextWave): every player's econ casts back to 0; the First Bell seam. */
+/**
+ * Wave start (Sim.startNextWave): every player's econ casts back to 0, then First Bell: each girl's own cooldown
+ * gains her bell (towers in placement order); a map-scope ability's shared entry (one per player and ability)
+ * gains the largest bell among that player's copies of it, once (a max: no order dependence). Integers only.
+ */
 export function startAbilityWave(sim) {
   for (let i = 0; i < sim.abilUses.length; i++) sim.abilUses[i] = 0;
   if (!sim._abilOn) return;
   for (const t of sim.towers) {
     const a = t.abil;
-    if (!a || !(a.cd > 0)) continue;
+    if (!a || !(a.cd > 0) || t.removed) continue;
     const pts = waveStartCharge(sim, t);
-    if (pts > 0) a.cd = Math.max(0, a.cd - Math.round(pts));
+    if (!(pts > 0)) continue;
+    a.cd = Math.max(0, a.cd - pts);
+    // (charged by the bell: the ready event the step would have sent; a shared entry still charging sends its own)
+    if (a.cd === 0 && !((groupOf(sim, t)?.cd || 0) > 0)) sim._emit('abilityReady', { towerUid: t.uid, id: a.id });
+  }
+  if (!sim.abilGroups.size) return;
+  for (const [k, g] of sim.abilGroups) {
+    if (!(g.cd > 0)) continue;
+    const bar = k.indexOf('|');
+    const owner = Number(k.slice(0, bar));
+    const id = k.slice(bar + 1);
+    let best = 0;
+    for (const t of sim.towers) {
+      const a = t.abil;
+      if (!a || t.removed || a.id !== id || (t.owner ?? 0) !== owner) continue;
+      const pts = firstBellCharge(t.unitStats, g.cdMax, a.kind);
+      if (pts > best) best = pts;
+    }
+    if (best > 0) g.cd = Math.max(0, g.cd - best);
   }
 }
 

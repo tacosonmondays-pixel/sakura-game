@@ -12,6 +12,7 @@ import { h } from './util.js';
 import { svgEl } from '../components.js';
 import { fmtNum } from '../format.js';
 import { abilityText, abilityAim, abilityValues } from '../../data/abilityText.js';
+import { abilityRuns } from '../../data/abilities.js';
 import { abilityDef } from '../../sim/abilities.js';
 import { wholeSeconds, refusalText, BOLT_SVG } from './abilityBar.js';
 
@@ -96,12 +97,14 @@ export function abilityLine(def, v, { coinMul = 1 } = {}) {
 
 /**
  * The ⚡ teaser on a path row's next tier: tier 3 unlocks the ability, tier 5 upgrades it. `later`: a kind this
- * build does not run yet (sim.abilityStatus(uid).later). Null on other tiers and paths without ⚡.
+ * build does not run yet — by default the one rule (abilityRuns, src/data/abilities.js, which the sim's
+ * abilityStatus().later agrees with). Null on other tiers and paths without ⚡.
  */
-export function pathAbilityTeaser(def, pathIndex, nextTier, { later = false } = {}) {
+export function pathAbilityTeaser(def, pathIndex, nextTier, { later = null } = {}) {
   const path = def?.paths?.[pathIndex];
   const entry = path?.ability;
   if (!entry) return null;
+  if (later == null) later = !abilityRuns(entry);
   const name = abilityText(entry.id)?.name || entry.id;
   const tier = path.tiers?.[nextTier - 1]?.name || '';
   if (nextTier === (entry.unlockTier ?? 3)) return later ? `⚡ T${nextTier} ${tier} — ${name} comes in a later update` : `⚡ T${nextTier} ${tier} — unlocks ${name}`;

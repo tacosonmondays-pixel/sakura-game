@@ -36,7 +36,7 @@ export function gearShare(profile, unitId) {
 /** Which three gear stats her strip shows, by her role's headline set (owner, Oct 20). */
 const STRIP_STATS = Object.freeze({
   shooter: [['atkPct', 'ATK'], ['ratePct', 'RATE'], ['rangePct', 'RANGE']],
-  hero: [['atkPct', 'ATK'], ['ratePct', 'RATE'], ['ultHaste', 'ULT']],
+  hero: [['atkPct', 'ATK'], ['ratePct', 'RATE'], ['ultHaste', 'HASTE']], // (Skill Haste: her ult and her ⚡ skill)
   // a support's buff is her aura; gear cannot add whom it reaches, so its third cell is her cost
   support: [['auraPct', 'BUFF'], ['rangePct', 'RANGE'], ['costCut', 'COST']],
   // gear adds no coins per wave: an income girl's cells are what it does give her

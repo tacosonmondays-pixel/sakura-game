@@ -1493,6 +1493,8 @@ export class Sim {
       ...(e.proc ? { proc: { name: e.proc.name, every: e.proc.every, of: e.proc.of, count: t.potCount || 0 } } : null),
       ...(e.tempo ? { tempo: { stacks: t.tempoStacks || 0, max: Math.round(e.tempo.max / e.tempo.per), per: e.tempo.per } } : null),
       ...(e.projScale > 0 ? { projScale: e.projScale } : null),
+      // Ouka's office (src/sim/hubs.js; only on a hub girl): the panel's Office line reads it
+      ...(e.hub ? { hub: { ...e.hub } } : null),
     };
   }
 

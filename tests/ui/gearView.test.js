@@ -23,10 +23,11 @@ const wear = (p, unitId, slot, o) => {
 const dress = (p, unitId, o = { rarity: 'legendary', level: 8 }) => ['charm', 'ribbon', 'shoes'].map((slot) => wear(p, unitId, slot, o));
 
 describe('gearStripCells', () => {
-  it('her role\'s three stats: heroes ATK RATE ULT, shooters ATK RATE RANGE, supports BUFF RANGE COST, income COST RANGE ATK', () => {
+  it('her role\'s three stats: heroes ATK RATE HASTE (Skill Haste), shooters ATK RATE RANGE, supports BUFF RANGE COST, income COST RANGE ATK', () => {
     const p = profile();
     const labels = (id) => gearStripCells(UNIT_MAP[id], p).map((c) => c.label).join(' ');
-    expect(labels('hikari')).toBe('ATK RATE ULT');
+    expect(labels('hikari')).toBe('ATK RATE HASTE');
+    expect(gearStripCells(UNIT_MAP.hikari, p)[2].title).toMatch(/Skill Haste/);
     expect(labels('aoi')).toBe('ATK RATE RANGE');
     expect(labels('miko')).toBe('BUFF RANGE COST');
     expect(labels('momo')).toBe('COST RANGE ATK');

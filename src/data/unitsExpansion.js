@@ -276,7 +276,7 @@ const HANA = {
     hairStyle: 'braid', bangs: 'swept', accessory: 'none', outfit: 'coat', weapon: 'bow',
     halo: 'star', eyeStyle: 'sharp', expression: 'calm',
   },
-  bio: 'The wildlife club\'s field ranger. Auburn hair in a long braid, an olive hooded field jacket over her sailor uniform, a skirt over tights, trail boots and a falconry glove with a little control screen. She shoots a compound bow with a rangefinder sight, and Kaze, the falcon drone she built in the robotics lab, rides on her shoulder until a flyer shows up.',
+  bio: 'The wildlife club\'s field ranger. Auburn hair in a long braid, an olive hooded field jacket over her sailor uniform, a skirt over tights, trail boots and a falconry glove with a little control screen. She shoots a compound bow with a rangefinder sight, and Kaze, the falcon drone she built in the robotics lab, rides on her shoulder and swoops out at every enemy she shoots, flyers first.',
   personality: 'Quiet, patient and fiercely loyal; talks to Kaze more than to people and knows every bird call on the mountain.',
   quote: 'Kaze, dive! Bring them down to me.',
   tips: [

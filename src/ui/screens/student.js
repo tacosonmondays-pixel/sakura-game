@@ -610,7 +610,7 @@ function openMatchup(unit) {
 /** The Profile sheet: her quote, bio, personality, Codex kit, tips and how to get her. */
 function openProfile(unit, { owned = true } = {}) {
   const how = howToGet(unit);
-  const tips = profileTips(unit); // no ⚡ ability tips while abilities are dormant
+  const tips = profileTips(unit); // a ⚡ tip only when her ability runs (src/data/unitTips.js); its ⚡ drawn as the kit bolt
   return openSheet({
     title: `${unit.name} · Profile`, testid: 'profile-sheet', cls: 'gp-details', full: true,
     body: h('div.gp-sheet-body',
@@ -619,7 +619,7 @@ function openProfile(unit, { owned = true } = {}) {
       unit.personality ? h('p.gp-sub', unit.personality) : null,
       codexLine(unit),
       tips.length ? h('div.ui-kicker.gp-kick', 'Tips') : null,
-      tips.length ? h('ul.mb-tips', { 'data-testid': 'profile-tips' }, tips.map((t) => h('li', t))) : null,
+      tips.length ? h('ul.mb-tips', { 'data-testid': 'profile-tips' }, tips.map((t) => h('li', boltText(t)))) : null,
       owned ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
   });
 }

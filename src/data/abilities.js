@@ -21,6 +21,7 @@
 //
 //   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (by type: 'strips' and 'sentries'
 //            run; 'double', 'trap', 'drone' wait for A4) · runner (by type: 'giantBall' runs) · move, zone (later)
+//            (which entries run: abilityRuns below, the one rule)
 //   scope    local  — one cooldown per girl
 //            map    — one cooldown per player for that ability (copies add nothing)
 //            player — per-player rules (econ: ABILITY_RULES.econCapPerWave casts per wave)
@@ -61,7 +62,10 @@
 //   whole map for map scope, `reach: 'leash'` = her drones' leash). Auto picks a decent moment,
 //   not a perfect one.
 
-/** Global rules (spec §3.2, §3.3; Skill Haste at half rate, GEAR_STATS §B.4, owner 2026-10-15). */
+/**
+ * Global rules (spec §3.2, §3.3). Skill Haste on abilities (half rate, never rallies or debuffs; GEAR_STATS §B.4,
+ * owner 2026-10-15, #34) has ONE rule: src/sim/gearRules.js abilityChargePerTick, which the sim's chargeRate calls.
+ */
 export const ABILITY_RULES = Object.freeze({
   ticksPerSecond: 60, chargePerTick: 100, // a 40 s cooldown = 240,000 charge points
   initialShare: 3, // on unlock: cd = round(cdMax / 3) left to charge; econ starts empty (cd = cdMax)
@@ -69,14 +73,38 @@ export const ABILITY_RULES = Object.freeze({
   autoEvery: 6, // auto-cast checks a girl every 6th step, staggered by uid
   econCapPerWave: 2, // econ casts per player per wave, across every copy
   densestCap: 60, // candidates the densest-crowd scan looks at
-  hasteShare: 0.5, hasteCap: 0.5, // Skill Haste speeds abilities at half rate: 100 / (1 − 0.5 × min(0.5, h))
-  unhastedKinds: Object.freeze(['rally', 'debuff']),
   girlAimRadius: 0.6, // a girl-target ability picks the girl nearest its aim point within 0.6 tiles (spec §7.2)
 });
 
 export const ABILITY_KINDS = Object.freeze(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'deploy', 'move', 'zone', 'runner']);
 export const ABILITY_SCOPES = Object.freeze(['local', 'map', 'player']);
 export const AUTO_WHEN = Object.freeze(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready']);
+
+/** Kinds this build runs (src/sim/abilities.js KINDS; tests/sim/abilities.test.js keeps the two equal). */
+export const ABILITY_KINDS_RUN = Object.freeze(['strike', 'burst', 'boost', 'rally', 'debuff', 'econ']);
+/** Deploy object types this build runs (src/sim/abilities.js DEPLOYS): Azami's strips, Yuzuha's sentries. */
+export const ABILITY_DEPLOYS_RUN = Object.freeze(['sentries', 'strips']);
+/** Runner types this build runs (src/sim/abilities.js RUNNERS): Marumi's giant ball. */
+export const ABILITY_RUNNERS_RUN = Object.freeze(['giantBall']);
+
+/**
+ * THE live-ability rule: does this build run an ability entry (a button in battle), or is it a "Comes in a later
+ * update" teaser? A kind in ABILITY_KINDS_RUN (a boost also needs its `effect.mods`: a boost with nothing to raise
+ * has nothing to run), a deploy of a type in ABILITY_DEPLOYS_RUN or a runner of a type in ABILITY_RUNNERS_RUN. The
+ * sim's handlerOf refuses exactly what this refuses (a test runs both over every row, tier 5 and rank); the ability
+ * bar, the panel row, the girl page, the ⚡ tips (src/data/unitTips.js) and the gear fit table (GEAR_FIT in
+ * src/data/gearStats.js) all read it. Works on a base entry and on a merged one (tier 5, a hero rank).
+ * @param {object|null} entry an ability entry, a hero skill, or a merged definition
+ */
+export function abilityRuns(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  switch (entry.kind) {
+    case 'deploy': return ABILITY_DEPLOYS_RUN.includes(entry.effect?.deploy);
+    case 'runner': return ABILITY_RUNNERS_RUN.includes(entry.effect?.runner);
+    case 'boost': return !!entry.effect?.mods;
+    default: return ABILITY_KINDS_RUN.includes(entry.kind);
+  }
+}
 
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {

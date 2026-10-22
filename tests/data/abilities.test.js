@@ -7,9 +7,10 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES,
-  abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel,
+  ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN,
+  abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel, abilityRuns,
 } from '../../src/data/abilities.js';
+import { ABILITY_CHARGE_BASE, abilityChargePerTick, NOT_HASTED_KINDS } from '../../src/sim/gearRules.js';
 import {
   ABILITY_TEXT, ABILITY_COPY, ABILITY_AIMS, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
 } from '../../src/data/abilityText.js';
@@ -389,17 +390,33 @@ function isDeepFrozen(o) {
 }
 
 describe('ability rules and vocabulary', () => {
-  test('rules (spec §3.2, §6.1; Skill Haste at half rate, GEAR_STATS §B.4)', () => {
+  test('rules (spec §3.2, §6.1; Skill Haste at half rate has one rule, src/sim/gearRules.js, GEAR_STATS §B.4)', () => {
     expect(ABILITY_RULES).toEqual({
       ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6, econCapPerWave: 2,
-      densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'], girlAimRadius: 0.6,
+      densestCap: 60, girlAimRadius: 0.6,
     });
     // a 40 s cooldown is 240,000 charge points; the CC guard is 4 s
     expect(40 * ABILITY_RULES.ticksPerSecond * ABILITY_RULES.chargePerTick).toBe(240000);
     expect(ABILITY_RULES.ccGuardTicks / ABILITY_RULES.ticksPerSecond).toBe(4);
-    // the fastest Skill Haste rate stays an integer ≤ 133 points per tick
-    expect(Math.round(100 / (1 - ABILITY_RULES.hasteShare * ABILITY_RULES.hasteCap))).toBe(133);
-    for (const k of ABILITY_RULES.unhastedKinds) expect(ABILITY_KINDS).toContain(k);
+    // the fastest Skill Haste rate stays an integer ≤ 133 points per tick (the one rule's base is the sim's charge)
+    expect(ABILITY_CHARGE_BASE).toBe(ABILITY_RULES.chargePerTick);
+    expect(abilityChargePerTick({ ultHaste: 1 }, 'strike')).toBe(133);
+    for (const k of NOT_HASTED_KINDS) expect(ABILITY_KINDS).toContain(k);
+  });
+
+  test('abilityRuns: the one live rule (kinds, a boost\'s mods, deploy and runner types)', () => {
+    const runs = ABILITY_KINDS.filter((kind) => abilityRuns({ kind, effect: { mods: {} } }));
+    expect(runs).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ']);
+    expect([...ABILITY_KINDS_RUN].sort()).toEqual([...runs].sort());
+    expect(abilityRuns({ kind: 'boost', effect: {} })).toBe(false);
+    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true]);
+    for (const deploy of ['double', 'trap', 'drone', undefined]) expect(abilityRuns({ kind: 'deploy', effect: { deploy } })).toBe(false);
+    expect(abilityRuns({ kind: 'runner', effect: { runner: 'giantBall' } })).toBe(true);
+    expect(abilityRuns({ kind: 'runner', effect: { runner: 'river' } })).toBe(false);
+    for (const x of [null, undefined, 0, 'strike', {}]) expect(abilityRuns(x)).toBe(false);
+    // the table: every tower row runs but the three deploy girls; every hero skill runs; tier 5 never flips it
+    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(!['kage', 'suzu', 'chika'].includes(u.id));
+    for (const h of heroes()) expect(abilityRuns(abilityRow(h).skill), h.id).toBe(true);
   });
 
   test('kinds, scopes and auto-cast rules', () => {

@@ -6,7 +6,8 @@
 //   node e2e/ui-shots.mjs --out /tmp/ui-before            # PNGs named <screen>-<W>x<H>.png
 //   node e2e/ui-shots.mjs --out /tmp/ui-after --viewport 844x390
 //   node e2e/ui-shots.mjs --out <dir> --scenes m1-bar-idle,m1-cast-fx   # only these scenes (the battle milestones'
-//                                                                        # staged scenes: e2e/lib/abilityScenes.mjs)
+//                                                                        # staged scenes: e2e/lib/abilityScenes.mjs,
+//                                                                        # e2e/lib/m2Scenes.mjs for m2-…)
 //
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a shot fails.
 import { createServer } from 'vite';
@@ -14,6 +15,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { runM1Scenes, M1_SCENES } from './lib/abilityScenes.mjs';
+import { runM2Scenes, M2_SCENES } from './lib/m2Scenes.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -27,6 +29,7 @@ mkdirSync(out, { recursive: true });
 const SCENES = opt('scenes', null) ? opt('scenes').split(',').map((s) => s.trim()).filter(Boolean) : null;
 const wantScreen = (name) => !SCENES || SCENES.includes(name);
 const m1Wanted = SCENES ? SCENES.filter((s) => M1_SCENES.includes(s)) : [];
+const m2Wanted = SCENES ? SCENES.filter((s) => M2_SCENES.includes(s)) : [];
 const probeLog = {};
 
 const GIRLS = ['hikari', 'aoi', 'rei', 'luna', 'nami', 'yuki', 'momo', 'akane', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'raika', 'miko', 'hotaru', 'kaede', 'chika'];
@@ -91,6 +94,14 @@ for (const vp of viewports) {
     } catch (e) {
       failed++;
       console.log(`  FAILED (m1 scenes): ${e.stack || e.message}`);
+    }
+  }
+  if (m2Wanted.length) {
+    try {
+      probeLog[`${vp}-m2`] = await runM2Scenes(page, { base, vp, want: m2Wanted, shot: (name) => shot(page, name, vp) });
+    } catch (e) {
+      failed++;
+      console.log(`  FAILED (m2 scenes): ${e.stack || e.message}`);
     }
   }
   const screens = ['lobby', 'girl-info', 'backpack-equipment', 'stage-prep', 'achievements', 'battle-drawer'];

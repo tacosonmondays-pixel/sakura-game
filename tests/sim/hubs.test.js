@@ -1,8 +1,8 @@
 // Ouka's campus hub (src/sim/hubs.js, UNIT_GAPS §5.5) and her ⚡ Assembly Bell (a map rally,
 // ABILITIES §5.3): the base rules (discount, sell value), free tiers, coins per kill, the stat and
 // grant keys, the type floor, banners by the aim command, a sabotaged hub, the Bell itself and
-// determinism; the faster ability charge rule (cdCut) on a test Ouka, as no tier carries it until the
-// ability bar ships. Without her no girl ever carries `rules`.
+// determinism; the faster ability charge rule (cdCut) on her real tiers (Club Mentors 15 %, Festival of
+// Clubs 25 %, back with the ability bar beside the v0.1.40 speed). Without her no girl ever carries `rules`.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP } from '../../src/sim/constants.js';
@@ -147,37 +147,35 @@ describe('the office rules', () => {
     const t5 = setup({ tiers: [0, 5, 0], girl: 'rei' });
     expect(t5.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.25, 9);
     expect(t5.g.eff.range).toBeCloseTo(plain.eff.range * 1.15, 9);
-    // no Assembly tier waits on the ability bar: none of them carries the ability-charge rule
-    for (const t of units.ouka.paths[1].tiers) expect(t.mods.hub.cdCut, t.name).toBeUndefined();
-    expect(t5.g.rules.cdCut).toBe(0);
+    // the v0.1.40 speed stays and the ability recharge is back (owner default Q1): Club Mentors 15 %, Festival 25 %
+    const cuts = units.ouka.paths[1].tiers.map((t) => t.mods.hub.cdCut ?? 0);
+    expect(cuts).toEqual([0, 0, 0.15, 0, 0.25]);
+    expect(t3.g.rules.cdCut).toBe(0.15);
+    expect(t5.g.rules.cdCut).toBe(0.25);
+    for (const i of [2, 4]) expect(units.ouka.paths[1].tiers[i].desc, units.ouka.paths[1].tiers[i].name).toMatch(/faster.*abilities recharge \d+% faster/);
+    // the panel's Office line reads her office from towerStats (a hub girl only; nobody else carries the key)
+    expect(t3.sim.towerStats(t3.o.uid).hub).toMatchObject({ cdCut: 0.15, rateMul: 1.15 });
+    expect(t5.sim.towerStats(t5.o.uid).hub).toMatchObject({ cdCut: 0.25, rateMul: 1.25, rangeMul: 1.15 });
+    expect('hub' in t3.sim.towerStats(t3.g.uid)).toBe(false);
   });
 
-  test('the ability-charge rule (cdCut, for the ability bar): abilities in her radius charge 15% faster (115 points a tick)', () => {
-    // no tier carries cdCut today; a test Ouka whose Club Mentors does
-    const o = units.ouka;
-    const paths = o.paths.map((p, pi) => (pi !== 1 ? p : {
-      ...p, tiers: p.tiers.map((t, ti) => (ti !== 2 ? t : { ...t, mods: { ...t.mods, hub: { ...t.mods.hub, cdCut: 0.15 } } })),
-    }));
-    const data = { stage: STAGE, map: MAP, units: { ...units, ouka: { ...o, paths } }, enemies: ENEMIES };
-    const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }, { unitId: 'rei' }], seed: 7, data });
-    sim.cash = 1e9;
-    const hub = sim.placeTower('ouka', 8.5, 6.2);
-    buy(sim, hub, [0, 3, 0]);
-    const g = sim.placeTower('aoi', 9.7, 6.2);
-    buy(sim, g, [0, 3, 0]);
-    expect(g.rules.cdCut).toBe(0.15);
-    const plain = makeSim();
-    const p = plain.placeTower('aoi', 9.7, 6.2);
-    buy(plain, p, [0, 3, 0]);
-    expect(g.abil && p.abil).toBeTruthy();
-    wave(sim);
-    wave(plain);
-    const a0 = g.abil.cd;
-    const b0 = p.abil.cd;
-    run(sim, STEP);
-    run(plain, STEP);
-    expect(b0 - p.abil.cd).toBe(100);
-    expect(a0 - g.abil.cd).toBe(115);
+  test('the ability-charge rule (cdCut) on her real tiers: abilities in her radius charge 115 points a tick (Club Mentors), 125 (Festival)', () => {
+    for (const [tiers, want] of [[[0, 3, 0], 115], [[0, 5, 0], 125]]) {
+      const { sim, g } = setup({ tiers });
+      buy(sim, g, [0, 3, 0]);
+      const plain = makeSim();
+      const p = plain.placeTower('aoi', 9.7, 6.2);
+      buy(plain, p, [0, 3, 0]);
+      expect(g.abil && p.abil).toBeTruthy();
+      wave(sim);
+      wave(plain);
+      const a0 = g.abil.cd;
+      const b0 = p.abil.cd;
+      run(sim, STEP);
+      run(plain, STEP);
+      expect(b0 - p.abil.cd).toBe(100);
+      expect(a0 - g.abil.cd, `${tiers}`).toBe(want);
+    }
   });
 
   test('a sabotaged Ouka rules nobody until she recovers', () => {

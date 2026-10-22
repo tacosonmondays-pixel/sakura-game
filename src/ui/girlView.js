@@ -8,21 +8,8 @@ import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
-import { ABILITY_KINDS_LIVE, ABILITY_DEPLOYS_LIVE } from '../sim/abilities.js';
-import { abilityAtTier, skillAtLevel } from '../data/abilities.js';
+import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
 import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine, abilityNote } from '../data/abilityText.js';
-
-/**
- * Does this build run an ability entry (a button in battle), or is it a "Comes in a later update" teaser? A UI
- * helper over the sim's live lists (kinds, deploy types, and the giant ball runner) until M2 adds the one data rule;
- * tests/ui/girlView.test.js pins it to sim abilityStatus().later for every girl.
- */
-export function abilityLive(entry) {
-  if (!entry) return false;
-  if (entry.kind === 'deploy') return ABILITY_DEPLOYS_LIVE.includes(entry.effect?.deploy);
-  if (entry.kind === 'runner') return entry.effect?.runner === 'giantBall';
-  return ABILITY_KINDS_LIVE.includes(entry.kind);
-}
 
 /**
  * Her ⚡ ability for the girl page (ABILITIES_SPEC §10): the Info tab's one-line chip ("⚡ Skyfall Volley · Rapid
@@ -39,7 +26,7 @@ export function abilityInfoView(unit) {
   const name = abilityText(entry.id)?.name || entry.id;
   const at = hero ? entry.unlockLevel ?? 7 : entry.unlockTier ?? 3;
   const where = hero ? `LV ${at}` : `${unit.paths[pi].name} T${at}`;
-  const live = abilityLive(entry);
+  const live = abilityRuns(entry); // the one rule (src/data/abilities.js), the same as the sim's handlerOf
   const tiersAt = (n) => [0, 1, 2].map((p) => (p === pi ? n : 0));
   const statsAt = (n) => {
     try {
@@ -186,9 +173,8 @@ export function roleDetails(unit) {
 }
 
 /**
- * The tips her Profile sheet lists. A ⚡ tip ("<path> tier 3 teaches <ability>: …") is about an ability, and
- * abilities are dormant in this build (nothing in a battle casts one yet), so it stays out until the ability bar
- * ships: never promise a button players cannot use (the same rule as the menus' shownTips in v0.1.40).
+ * The tips her Profile sheet lists. A ⚡ tip ("<path> tier 3 teaches <ability>: …") shows only when her first ⚡
+ * ability runs in this build (abilityRuns): never promise a button players cannot use (the menus' shownTips rule).
  */
 export { isAbilityTip };
 export function profileTips(unit) {

@@ -7,6 +7,7 @@ import { HERO_TRACKS, HERO_XP_STEPS, HERO_LEVEL_PRICES } from '../../src/data/he
 import { BATTLE } from '../../src/data/types.js';
 import { resolveStats } from '../../src/sim/mods.js';
 import { statsCapabilities } from '../../src/sim/report.js';
+import { ROLE_TARGET_MODE } from '../../src/sim/constants.js';
 import {
   ATTACK_TYPES, ELEMENTS, STATUSES, ROLES, CAPABILITIES, PLACEMENT, UNIT_RARITIES, MATERIAL_FAMILIES,
 } from '../../src/data/types.js';
@@ -729,6 +730,28 @@ describe('design requirements', () => {
       expect(u.bio, `${id} bio has no fantasy outfit words`).not.toMatch(/kimono|hanfu|robe|armou?red|witch|habit|miko/i);
     }
     for (const id of ['kanna', 'yoriko', 'seiran']) expect(getUnit(id).bio, `${id} is staff`).toMatch(/adult/);
+    // Hana's bio matches the sim and her companion (M2): Kaze swoops out on every enemy she shoots (src/render/
+    // companions.js: a swoop on each of her attacks), flyers first (her default target mode, Air: ROLE_TARGET_MODE)
+    const hana = getUnit('hana').bio;
+    expect(hana).not.toMatch(/until a flyer shows up/);
+    expect(hana).toMatch(/Kaze[^.]*swoops out at every enemy she shoots, flyers first/);
+    expect(ROLE_TARGET_MODE[getUnit('hana').role]).toBe('air');
+  });
+
+  it('Ouka\'s Club Mentors / Festival of Clubs say both: the speed since v0.1.40 and the ability recharge (owner default Q1)', () => {
+    const tiers = getUnit('ouka').paths.find((p) => p.id === 'assembly').tiers;
+    const mentors = tiers.find((t) => t.name === 'Club Mentors');
+    const festival = tiers.find((t) => t.name === 'Festival of Clubs');
+    expect(mentors.mods.hub).toEqual({ rateMul: 1.15, cdCut: 0.15 });
+    expect(festival.mods.hub).toEqual({ rateMul: 1.25, rangeMul: 1.15, cdCut: 0.25 });
+    expect(mentors.desc).toBe('Girls in her radius attack 15% faster, and their abilities recharge 15% faster.');
+    expect(festival.desc).toBe('Girls in her radius attack 25% faster and reach 15% further; their abilities recharge 25% faster.');
+    // every number the text says is one her mods carry
+    for (const t of [mentors, festival]) {
+      const pcts = [...t.desc.matchAll(/(\d+)%/g)].map((m) => Number(m[1]) / 100);
+      const mods = Object.values(t.mods.hub).map((v) => Math.round((v > 1 ? v - 1 : v) * 100) / 100);
+      for (const x of pcts) expect(mods, `${t.name} ${x}`).toContain(x);
+    }
   });
 
   it('respects the balance anchors', () => {

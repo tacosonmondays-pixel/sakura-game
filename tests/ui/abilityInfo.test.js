@@ -1,8 +1,11 @@
 // The ⚡ ability outside the battle bar (ABILITIES_SPEC §10): the girl page's Info chip and Details sheet
-// (src/ui/girlView.js abilityInfoView), the M1 "runs today" helper pinned to the sim's own teaser rule for every girl,
-// the ⚡ sticker on the Tree tab's path (treeModel / treeGrid), and the hero track's Lv 7 / Lv 17 skill lines.
+// (src/ui/girlView.js abilityInfoView), the one "runs today" rule (abilityRuns, src/data/abilities.js; it replaced M1's
+// UI helper) pinned to the sim's own teaser rule for every girl, the ⚡ sticker on the Tree tab's path (treeModel /
+// treeGrid), and the hero track's Lv 7 / Lv 17 skill lines.
 import { describe, it, expect } from 'vitest';
-import { abilityLive, abilityInfoView } from '../../src/ui/girlView.js';
+import { abilityInfoView } from '../../src/ui/girlView.js';
+import { abilityRuns as abilityLive } from '../../src/data/abilities.js';
+import * as girlView from '../../src/ui/girlView.js';
 import { abilityStatus, abilityPathOf } from '../../src/sim/abilities.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { buildTreeModel } from '../../src/ui/treeModel.js';
@@ -19,7 +22,12 @@ const tower = (u, tier = 0, level = 1) => {
 };
 const nums = (s) => (s.match(/\d+(?:\.\d+)?/g) || []).length;
 
-describe('abilityLive: the girl page\'s "runs today" rule equals the sim\'s', () => {
+describe('abilityRuns: the girl page\'s "runs today" rule equals the sim\'s', () => {
+  it('the M1 UI helper is gone: the page reads the data rule', () => {
+    expect(girlView.abilityLive).toBeUndefined();
+    for (const u of withAbility) expect(abilityInfoView(u).live, u.id).toBe(abilityLive(entryOf(u)));
+  });
+
   it.each(withAbility.map((u) => [u.id, u]))('%s', (id, u) => {
     for (const [tier, level] of [[0, 1], [3, 7], [5, 17]]) {
       const st = abilityStatus(null, tower(u, tier, level));

@@ -25,6 +25,7 @@ import { aimMode } from '../../sim/towers.js';
 import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS } from './buffs.js';
 import { createAbilityRow, pathAbilityTeaser } from './abilityRow.js';
 import { abilityText } from '../../data/abilityText.js';
+import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 
 /** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
@@ -621,7 +622,7 @@ export function createTowerPanel(ctx) {
     let body;
     // the ⚡ path: a bolt chip on its header; its tier-3 row teaches the ability, its tier-5 row the upgrade
     const abil = p.ability ? abilityText(p.ability.id) : null;
-    const later = abil ? !!sim.abilityStatus(t.uid)?.later : false;
+    const later = abil ? !abilityRuns(p.ability) : false; // (this path's ability: the one rule, src/data/abilities.js)
     const teaser = abil && cur < p.tiers.length ? pathAbilityTeaser(t.def, i, cur + 1, { later }) : null;
     if (st.reason === 'max' || !st.next) {
       body = h('div.bt-path-max', h('b', 'MAX'), ` ${p.tiers[cur - 1]?.name || ''}`);

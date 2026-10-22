@@ -10,6 +10,7 @@
 // it, or her drawn stand over the painted academy in a day / sunset / night tint. Every girl has
 // drawn art (src/art/portraits.js); the SVG card stays only as a fallback for unknown ids.
 import { h } from '../dom.js';
+import { boltText } from '../kit.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
@@ -104,7 +105,9 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     const span = bubble.firstElementChild;
     bubble.classList.remove('show');
     void bubble.offsetWidth;
-    span.textContent = text;
+    // (a ⚡ tip: the bolt as the kit's yellow mark, never the colour emoji)
+    if (String(text).includes('⚡')) span.replaceChildren(...boltText(text));
+    else span.textContent = text;
     // bubble to the left of her face (tail pointing at her), kept on screen
     bubble.style.left = 'auto';
     bubble.style.right = `${Math.min(70, 100 - face[0] + 9)}%`;

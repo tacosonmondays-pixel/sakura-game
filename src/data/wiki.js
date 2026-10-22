@@ -222,6 +222,12 @@ function abilitiesArticle() {
         'Several copies of the same girl share one button; each tap fires the next copy that is ready. Map-wide abilities (globe badge) recharge once per player.',
         'A few abilities aim: tap the button, then tap a girl (or a spot on the road). Tap the button again to let her pick.',
       ])),
+    sec('Faster recharge',
+      list([
+        'Skill Haste gear speeds up an ability\'s recharge at half strength (never team rallies or debuffs).',
+        'Bell Club (3 pieces): when a wave starts, her ability gains 10% of its charge.',
+        'Inside Ouka\'s office, abilities recharge 15% faster with Club Mentors and 25% faster with Festival of Clubs.',
+      ])),
     sec('Auto',
       p('Settings → Battle → Auto-cast abilities (Off at first) lets every girl fire hers by herself when it is a good moment. You can still tap them, and switch Auto per girl by holding her button. Your own timing is usually better: before a bunched crowd, or a freeze saved for the leak.')),
     sec('Heroes, bosses and co-op',
@@ -416,7 +422,7 @@ function gearArticle() {
     sec('Substats by rarity',
       table(['Rarity', 'Substats'], ITEM_RARITY_ORDER.map((r) => [{ text: ITEM_RARITIES[r].name, color: ITEM_RARITIES[r].color, strong: true }, String(GEAR_SUBSTATS_BY_RARITY[r])])),
       p(`Possible stats: ${BASE_STAT_KEYS.map((k) => statName(k)).join(', ')}. A substat never repeats the main stat. Club pieces can also roll Pierce (ribbons: hits more enemies) or Aura Power (shoes: a stronger aura).`),
-      p('Every Line Counts: a line her kit can\'t use, or the part of a stat past its MAX, still helps: it turns into ATK (Umeko and Miko: into their aura). Each extra one adds a little less, up to +12%. Skill Haste (it was called Ult Haste) speeds up hero ults, and every girl\'s ⚡ ability at half strength.')),
+      p('Every Line Counts: a line her kit can\'t use, or the part of a stat past its MAX, still helps: it turns into ATK (Umeko and Miko: into their aura). Each extra one adds a little less, up to +12%. Skill Haste (it was called Ult Haste) speeds up hero ults, and every girl\'s ⚡ ability at half strength (not team rallies or debuffs). On a girl whose ability has no button yet, or is a rally or a debuff, it turns into ATK like any other line she can\'t use.')),
     sec('Enhancing',
       list(['Each enhancement (+1, max +10) costs coins and grows the main stat.', 'Every 3rd level (+3, +6, +9) the least-upgraded substat grows too.'])),
     sec('Rerolling',
@@ -783,7 +789,7 @@ function newGirlsArticle() {
       p('Spin Shot is her pinball path. From Bumper Bounce (tier 2) a ball that blows up bounces off to the nearest other walker within 2 tiles (never a flyer or a walker in a tunnel) and blows up again: 1 bounce, then 3, 5 and 8. Glow Bowl (tier 5) ends a full run of 8 bounces with a glowing finale: triple damage on a wider blast.'),
       tip('Place her where the road runs toward the spawn in front of her. Heavy Ball makes the biggest single blasts and stuns; Lane Master rolls faster and throws pins along the road; Spin Shot is best where the walkers bunch up.', 'info')),
     sec('The council office (Ouka)',
-      p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly makes them attack faster and reach further; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
+      p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly makes them attack faster and reach further, and from Club Mentors their abilities recharge faster; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
       tip('Place Ouka first and build around her. Rally Banner (Safety Code tier 3): aim her to plant a banner up to 5 tiles away, and the girls next to it follow her rules too.', 'info')),
   ]);
 }

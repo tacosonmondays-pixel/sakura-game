@@ -319,8 +319,36 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  if (s.strip || s.sentry) deployCrits(t);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
+}
+
+/**
+ * Azami's strips (each strip hit, Tall Barbs' flyer hit, the Charged Strips blast) and Yuzuha's sentries (every
+ * Specialist Kit and the Burst Cells burst) crit like her own hits: her effective crit chance (gear, Potential and
+ * aura crit, after applyBuffExtras) and crit multiplier. Suzu's traps keep never critting (no `strip` block). The
+ * roll is Sim._hit's: one sim.rng draw per hit with a crit chance, in the hit order the strips and sentries already
+ * use, so every engine and every peer draws the same numbers; with no crit chance nothing is drawn (as before).
+ * The specs were built just above in refreshEffective and nobody holds them yet.
+ */
+function deployCrits(t) {
+  const chance = t.eff.critChance || 0;
+  const mul = t.eff.critMul || 1;
+  const set = (spec) => {
+    if (!spec) return;
+    spec.critChance = chance;
+    spec.critMul = mul;
+  };
+  if (t.stats.strip) {
+    set(t.trapSpec);
+    set(t.stripAirSpec);
+    set(t.stripBoomSpec);
+  }
+  if (t.stats.sentry && t.sentrySpecs) {
+    for (const k of Object.keys(t.sentrySpecs)) set(t.sentrySpecs[k]);
+    set(t.sentryBurstSpec);
+  }
 }
 
 function mergeLists(a, b) {

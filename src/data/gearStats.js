@@ -3,6 +3,8 @@
 // GEAR_STATS in src/data/types.js stays frozen (the sim imports types.js); this file spreads it and
 // adds the two club-only substats, Pierce and Aura Power.
 import { GEAR_STATS } from './types.js';
+import { ABILITIES, abilityRuns } from './abilities.js';
+import { NOT_HASTED_KINDS } from '../sim/gearRules.js';
 
 /** Every gear stat: today's eight (same keys, ranges and slots) + Pierce (ribbons) + Aura Power (shoes). */
 export const GEAR_STAT_DEFS = Object.freeze({
@@ -14,16 +16,13 @@ export const GEAR_STAT_KEYS = Object.freeze(Object.keys(GEAR_STAT_DEFS));
 /** Today's eight keys: what a piece without a club rolls from (its odds never change). */
 export const BASE_STAT_KEYS = Object.freeze(Object.keys(GEAR_STATS));
 
-/** Card names: Ult Haste is Skill Haste now (the key stays `ultHaste`). */
-export const STAT_LABELS = Object.freeze({
-  ...Object.fromEntries(GEAR_STAT_KEYS.map((k) => [k, GEAR_STAT_DEFS[k].name])),
-  ultHaste: 'Skill Haste',
-});
+/** Card names (the stat keyed `ultHaste` is named Skill Haste in GEAR_STATS: owner #34). */
+export const STAT_LABELS = Object.freeze(Object.fromEntries(GEAR_STAT_KEYS.map((k) => [k, GEAR_STAT_DEFS[k].name])));
 /** Short tooltips for the stat names a child may not know. */
 export const STAT_HINTS = Object.freeze({
   piercePct: 'Hits more enemies: shots go through one more, blasts and traps grow, sweeps hit more, lightning jumps further.',
   auraPct: 'Makes her aura stronger.',
-  ultHaste: 'Speeds up hero ults (and, at half strength, every girl\'s ⚡ ability).',
+  ultHaste: 'Speeds up hero ults (and, at half strength, every girl\'s ⚡ ability, not team rallies or debuffs).',
 });
 
 /** @returns {string} the card name of a gear stat */
@@ -57,12 +56,30 @@ export const AURA_FILL_M = 0.05;
 export const FILL_WORTH = 0.5;
 
 /**
+ * Skill Haste is real for a tower girl when one of her ⚡ abilities runs in this build (abilityRuns, the one rule)
+ * and is hasted (not a rally or a debuff: gearRules NOT_HASTED_KINDS). Then her `ultHaste` lines stop filling in as
+ * ATK. Read from the ability table, so a kind that starts running (A4–A6, the returning girls' rows) needs no edit
+ * here. Heroes never fill it (their ult reads it).
+ * @param {string} unitId
+ */
+export function skillHasteCounts(unitId) {
+  for (const key of Object.keys(ABILITIES)) {
+    if (key !== unitId && !key.startsWith(`${unitId}@`)) continue;
+    const row = ABILITIES[key];
+    if (!Array.isArray(row)) continue;
+    if (row.some((e) => abilityRuns(e) && !NOT_HASTED_KINDS.includes(e.kind))) return true;
+  }
+  return false;
+}
+
+/**
  * What her kit can't use (§B.2), decided from what a menu can see: her kit, stars and Potential. `fill`
  * lists stats that fill in; `until` makes a stat fill only below a star or Potential (it becomes real
  * there). `fillTo: 'aura'` = Umeko and Miko: their dead lines raise her aura instead of her ATK.
+ * The rows below list `ultHaste` for every tower; GEAR_FIT drops it where skillHasteCounts says it is real.
  */
 const DEAD_TOWER = ['ultHaste', 'auraPct'];
-export const GEAR_FIT = Object.freeze({
+const KIT_FIT = Object.freeze({
   hikari: { fill: ['auraPct'] },
   nami: { fill: ['auraPct'] },
   luna: { fill: ['auraPct'], until: { auraPct: { potential: 6 } } },
@@ -105,10 +122,13 @@ export const GEAR_FIT = Object.freeze({
   ouka: { fill: ['ultHaste', 'auraPct', 'atkPct', 'ratePct', 'critChance', 'critDmg', 'armorPen', 'piercePct', 'rangePct'] },
   chigusa: { fill: DEAD_TOWER },
   marumi: { fill: DEAD_TOWER },
-  // Tenka (BUILD_PLAN 6.1): an attacking student like the live towers (no aura; Skill Haste waits with the
-  // other towers' until the ability bar ships)
+  // Tenka (BUILD_PLAN 6.1): an attacking student like the live towers (no aura; her Critical Mass is hasted)
   tenka: { fill: DEAD_TOWER },
 });
+export const GEAR_FIT = Object.freeze(Object.fromEntries(Object.entries(KIT_FIT).map(([id, row]) => [
+  id,
+  row.fill.includes('ultHaste') && skillHasteCounts(id) ? Object.freeze({ ...row, fill: Object.freeze(row.fill.filter((s) => s !== 'ultHaste')) }) : row,
+])));
 
 /**
  * Stats that fill in for her right now (her stars and Potential decide the `until` rows).

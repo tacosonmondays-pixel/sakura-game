@@ -270,7 +270,7 @@ export const GEAR_STATS = {
   critDmg: { name: 'Crit DMG', pct: true, base: [0.05, 0.12] },
   armorPen: { name: 'Armor Pierce', pct: false, base: [1, 2] },
   costCut: { name: 'Cost Reduction', pct: true, base: [0.01, 0.03] },
-  ultHaste: { name: 'Ult Haste', pct: true, base: [0.03, 0.07] },
+  ultHaste: { name: 'Skill Haste', pct: true, base: [0.03, 0.07] }, // (the key keeps its old name: saves store it)
 };
 export const GEAR_MAIN_STATS = {
   charm: ['atkPct', 'critDmg'],

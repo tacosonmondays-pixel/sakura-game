@@ -541,3 +541,78 @@ describe('the hash and both views', () => {
     expect(fresh.wallets).toEqual(cs[0].wallets);
   }, 120000);
 });
+
+describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s recharge (A3 plan M2)', () => {
+  it('two views (and a checkpoint restored on a fresh client) compute the same battle: the same crit rolls, bells and office charge', () => {
+    const CRIT = { critChance: 0.5, critMul: 1.4, damageMul: 1.3 };
+    const BELL = { club: 'bell', clubN: 3, ultHaste: 0.2 };
+    // (no shooter that would clear the road before it reaches the strips and sentries: Momo's Market Day is the
+    // hasted ability under the bell and the office; the map-scope bell is covered in tests/sim/abilities.test.js)
+    const st = start({
+      p0: { loadout: [{ unitId: 'azami', stats: CRIT }, { unitId: 'ouka' }, { unitId: 'momo', stats: BELL }], hero: null },
+      p1: { loadout: [{ unitId: 'yuzuha', stats: CRIT }, { unitId: 'momo', stats: BELL }], hero: null },
+    });
+    const cs = views(st);
+    const az = place(cs, 0, 'azami');
+    for (let i = 0; i < 4; i++) expect(all(cs, cmd(0, 'upg', [az, 0])).ok).toBe(true); // Charged Strips
+    const yz = place(cs, 1, 'yuzuha', 2);
+    for (let i = 0; i < 4; i++) expect(all(cs, cmd(1, 'upg', [yz, 0])).ok).toBe(true); // Burst Cells
+    const ouka = place(cs, 0, 'ouka', 4);
+    for (let i = 0; i < 3; i++) expect(all(cs, cmd(0, 'upg', [ouka, 1])).ok).toBe(true); // Club Mentors
+    const m0 = upAbil(cs, 0, placeNear(cs, 0, 'momo', ouka));
+    const m1 = upAbil(cs, 1, place(cs, 1, 'momo', 6));
+    expect(tower(cs[0], m0).rules?.cdCut).toBe(0.15);
+    expect(tower(cs[0], az).trapSpec.critChance).toBe(0.5);
+    expect(tower(cs[0], yz).sentrySpecs.plain.critChance).toBe(0.5);
+    // crits from her strips and the sentries, counted on one view (a read-only wrap)
+    const sim0 = cs[0].sim;
+    const hit = sim0._hit.bind(sim0);
+    const emit = sim0._emit.bind(sim0);
+    let deploy = false;
+    let crits = 0;
+    sim0._emit = (type, p) => {
+      if (deploy && type === 'hit' && p.crit) crits++;
+      return emit(type, p);
+    };
+    sim0._hit = (e, t, spec, ...rest) => {
+      const prev = deploy;
+      deploy = (t?.uid === az && (spec === t.trapSpec || spec === t.stripBoomSpec)) || (t?.uid === yz && (Object.values(t.sentrySpecs || {}).includes(spec) || spec === t.sentryBurstSpec));
+      try {
+        return hit(e, t, spec, ...rest);
+      } finally {
+        deploy = prev;
+      }
+    };
+    all(cs, cmd(0, 'acast', [0, 1]));
+    all(cs, cmd(1, 'acast', [0, 1]));
+    all(cs, cmd(0, 'auto', [true]));
+    all(cs, cmd(0, 'wave'));
+    let snap = null;
+    let snapHash = null;
+    for (let i = 0; i < 60000 && cs[0].sim.wavesCleared < 4; i++) {
+      step(cs);
+      if (i % 300 === 0) {
+        expect(cs[1].hash(), `tick ${i}`).toBe(cs[0].hash());
+        expect(cs[1].sim.rng.getState()).toBe(cs[0].sim.rng.getState());
+      }
+      if (!snap && cs[1].sim.state === 'between' && cs[1].sim.wavesCleared >= 2) {
+        // (from the unwrapped view: view 0 carries the counting wraps, which a snapshot cannot store)
+        snap = JSON.parse(JSON.stringify(cs[1].snapshot()));
+        snapHash = cs[1].hash();
+      }
+    }
+    expect(cs[0].sim.wavesCleared).toBeGreaterThanOrEqual(4);
+    expect(tower(cs[0], az).damageDealt).toBeGreaterThan(0);
+    expect(tower(cs[0], yz).damageDealt).toBeGreaterThan(0);
+    expect(crits).toBeGreaterThan(0);
+    expect(tower(cs[0], m0).abil.n + tower(cs[0], m1).abil.n).toBeGreaterThan(0);
+    expect(cs[1].hash()).toBe(cs[0].hash());
+    expect(cs[1].wallets).toEqual(cs[0].wallets);
+    // the checkpoint: a fresh client re-derives nothing (the crit specs are rebuilt the same) and replays the same
+    expect(snap).toBeTruthy();
+    const fresh = createCoopSim(st, { mySlot: 1 }).restore(snap);
+    expect(rederiveStats(fresh.sim)).toBe(0);
+    expect(fresh.hash()).toBe(snapHash);
+    expect(fresh.sim.getTower(az).trapSpec.critChance).toBe(0.5);
+  }, 240000);
+});

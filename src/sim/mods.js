@@ -680,6 +680,9 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.crit.mul *= u.critMul || 1;
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
+  // Azami's Charged Strips / Detonation Line blasts follow her level, stars, gear ATK and Potential's whole-girl
+  // damage step like her strips do (copy-on-write: a strip block is never shared after this)
+  if (s.strip && s.strip.boom > 0) s.strip = { ...s.strip, boom: s.strip.boom * u.damageMul };
   if (s.ring) s.ring.scissorDmg *= u.damageMul;
   if (s.drink) s.drink.towelDmg *= u.damageMul;
   if (s.ball) s.ball.pinDmg *= u.damageMul;
