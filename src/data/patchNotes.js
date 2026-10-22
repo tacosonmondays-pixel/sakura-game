@@ -20,6 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.46', version: '0.1.46', date: '2026-10-22', title: 'A Backpack Glow-Up',
+    changed: [
+      'Every item has new art! Coins, gems, boxes, books, gear and materials are now chunky little 3D-style toys, all drawn the same way.',
+      'Items sit on new slanted tiles in their rarity color, with a rainbow tile for the rarest ones.',
+      'Item counts are shorter and easier to read: x450K instead of x450,000, and x1.2M for the really big piles.',
+    ],
+  },
+  {
     id: 'v0.1.45', version: '0.1.45', date: '2026-10-22', title: 'Sprouts, Storms and Shiny Ribbons',
     added: [
       'The seven academy girls have their painted cards! Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi show their own art on their pages, in Students, Formation, Recruit, battle, Story and the lobby. Chat, clan and co-op avatars now show each girl’s drawn picture instead of a little doll.',
