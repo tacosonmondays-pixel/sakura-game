@@ -24,12 +24,10 @@
 // each girl's motif spark and kill pop to the same presets.
 import { HEAVY, CRIT_SHARE } from './hitStop.js';
 
-/** One rendered frame at 60 fps (local holds are counted in frames). */
-export const FRAME = 1 / 60;
-
 /**
  * Weight classes: strongShare (of an ordinary enemy's max HP) and heavyShare (of a heavy enemy's)
- * that make a hit strong; frames held for strong / crit; the strong squash.
+ * that make a hit strong; rendered frames held for strong / crit (whatever the frame rate); the
+ * strong squash.
  */
 export const WEIGHT = {
   heavy: { strongShare: 0.35, heavyShare: 0.06, strong: 3, crit: 4, squash: 1 },
@@ -126,7 +124,7 @@ export function impactClass(ev, enemy, unitId = null) {
 }
 
 /**
- * The look of one hit: { hold (frames the struck enemy holds), squash (0..1) }.
+ * The look of one hit: { hold (rendered frames the struck enemy holds), squash (0..1) }.
  * @param {string|null} unitId @param {'weak'|'strong'|'crit'} cls @param {boolean} [weakSpot] the enemy is weak to it
  */
 export function impactLook(unitId, cls, weakSpot = false) {

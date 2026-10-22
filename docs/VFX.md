@@ -158,10 +158,10 @@ lit scene a threshold would catch, which is how the threshold was chosen (build 
 | What | When | Rules |
 |---|---|---|
 | Global hit-stop (`src/render/vfx/hitStop.js`; the kinds each tier allows: above) | a boss kill, an ult's impact frame: 60 ms | the visual clock holds, the battle never does; ≤ 60 ms per freeze. Only these two moments freeze the whole board ("freeze the struck, not the world") |
-| Local hold (`src/render/vfx/localHold.js`, `actors.holdEnemy`) | a strong hit or a crit (the hitting girl's impact preset, below); a miniboss kill holds its death for 4 frames | only the struck enemy's look holds — pose, place, facing, squash and flash — for 2-4 frames (≤ 67 ms) with a ±0.025-tile sideways jitter, then it catches up within a frame or two; the board, the sim and every other enemy carry on. At most 3 new holds a second (1 in a busy fight: > 25 hits a second), ≤ 2 a frame, the same enemy again only 0.6 s later; a few a wave, never a stutter |
-| Impact frames (`src/render/vfx/impact.js`; high only; Settings → Graphics → Impact frames) | hero ults over the whole map, boss kills (a one-enemy strike or the sky dragon gets its small flash instead) | 2 rendered frames: a navy tint (`#1c2552`, 62 % then 42 %) is laid over the board, which stays drawn and readable (no ink blackout), and every girl, monster, companion, drone and shot turns into a flat sakura-pink silhouette at about 60 % value (a touch of the moment's colour mixed in) drawn over the tint, through one shared toon impact material (`src/models/toon.js` `impactMaterial`); outlines keep their ink, the additive effects keep burning on top, the normal-blend effect batches sit the two frames out; then everything is put back and the board returns under a short tint. Never brighter than the board it covers. |
+| Local hold (`src/render/vfx/localHold.js`, `actors.holdEnemy`) | a strong hit or a crit (the hitting girl's impact preset, below); a miniboss kill holds its death for 4 frames | only the struck enemy's look holds — pose, place, facing, squash and flash — for 2-4 **rendered** frames (counted in drawn frames, not seconds: a 2-frame hold is 2 frames on a 30 fps phone too; a frame drawn while the visual clock is stopped does not use it up) with a ±0.025-tile sideways jitter that alternates each held frame, then it catches up within a frame or two; the board, the sim and every other enemy carry on. **The first held frame already shows the hit**: the flash at full (the model is animated with dt 0, so it does not fade) and the squash at its deepest; that struck look stays frozen until the hold ends, then the flash fades and the wobble plays (never the look from before the hit). A killed enemy's death clip holds its flash the same way. At most 3 new holds a second (1 in a busy fight: > 25 hits a second), ≤ 2 a frame, the same enemy again only 0.6 s later; a few a wave, never a stutter |
+| Impact frames (`src/render/vfx/impact.js`; high only; Settings → Graphics → Impact frames) | hero ults over the whole map, boss kills (a one-enemy strike or the sky dragon gets its small flash instead) | 2 rendered frames: the board, still drawn and readable (no ink blackout), is multiplied by a navy-blue (`#7f8fd6`, full on the first frame, half on the second), and every girl, monster, companion, drone and shot turns into a flat sakura-pink silhouette at about 60 % value (a touch of the moment's colour mixed in) drawn over the tint, through one shared toon impact material (`src/models/toon.js` `impactMaterial`). A monster body that is see-through only for its look (a slime's jelly, a ghost; opacity ≥ 0.75, marked `userData.body` by the models) is a silhouette too; a fainter (veiled, phasing) body sits the frames out, and an outline hull whose part is hidden goes with it, so no dark disc is ever left. Outlines keep their ink, the additive effects keep burning on top, the normal-blend effect batches sit the two frames out; then everything is put back. **The board comes back to its own brightness**: the afterglow (`feel.js` `AFTERGLOW`) is a faint tint of the moment's colour (peak 0.1, 0.06 for red) that swells in from nothing over 150 ms and then fades, so the dimmed frames are never followed by a jump above the board's normal brightness. Never brighter than the board it covers. |
 | Hit flash + squash (`actors.hitFlash(uid, color, strength, squash)`) | every hit | the body flashes white, gold on a crit, the attack's colour where the enemy is weak; it squashes (24 % down, 16 % out; × 0.45 for a weak hit, up to × 1 for a crit) and springs back over 0.32 s of visual time — a hold keeps it at its most squashed; big monsters squash less; a new hit restarts it only after 0.09 s; plain numbers on the view, nothing allocated |
-| Camera shake (`CameraRig.kick(trauma)`, scaled by tier) | big hits only: big explosions (radius ≥ 1.6, none a girl's own ball sets off), big shares of heavy enemies, heavy kills, boss spawns / phases, big leaks, ults, tier 5, and one jolt for the big girl moments (`feel.js` `momentTrauma`, ≥ 0.8 s apart): Kaede's maple storm / shockwave, Marumi's Glow Bowl finale and her Giant Strike as it starts. **Marumi's ordinary blasts never shake** (her radius stays under 1.6, and her balls' explosions are left to her finale) | trauma 0..1, the shake is trauma² × 3.4 % of the short side of the view (9–24 CSS px), two detuned sines per axis, a sideways shift only (`SHAKE_ROLL` is 0: never a rotation), gone in ≈ 0.65 s; it runs on frame time, so it keeps jolting through a hit-stop |
+| Camera shake (`CameraRig.kick(trauma)`, scaled by tier) | big hits only: a big blast no girl owns (a volatile monster's, radius ≥ 1.6), big shares of heavy enemies, heavy kills, boss spawns / phases, big leaks, ults, tier 5, and one jolt for the big girl moments (≥ 0.8 s apart): Kaede's maple storm / shockwave, Marumi's Glow Bowl finale and her Giant Strike as it starts (`feel.js` `momentTrauma`), and a girl's big ability blast (radius ≥ 1.6, `abilityBlastTrauma`, a tiny 0.24). **A girl's basic splash never shakes**, however big (a basic hit is tier 1): Akane's fireball, Sango's shell, a charged strip, every ball of Marumi's (`feel.js` `explodeSource`: every non-volatile blast the sim emits is a girl's, so this holds on every tier with no bookkeeping). **Marumi's ordinary blasts never shake** (her balls' explosions are left to her finale) | trauma 0..1, the shake is trauma² × 3.4 % of the short side of the view (9–24 CSS px), two detuned sines per axis, a sideways shift only (`SHAKE_ROLL` is 0: never a rotation), gone in ≈ 0.65 s; it runs on frame time, so it keeps jolting through a hit-stop |
 | Zoom punch (`CameraRig.punch(amount, s)`; not on low) | ults 7 %, boss kills 5 % | a quick swell and an eased return to exactly the framing; the locked camera's zoom is never touched |
 
 ### Impact presets (`src/render/vfx/impactPresets.js`)
@@ -171,7 +171,11 @@ for the three, set by her weight class. The hit event names only the enemy, so t
 who hit (`src/render/vfx/hitSource.js`, read-only): a shot of hers that landed on it since the last
 frame (aimed at it, or piercing through it), else the attack event that follows its hits in the same
 step (pulses, beams, chains, slashes, towel snaps, her own blasts, strip bites, shells), else the shot
-nearest a splash. Unknown hits get the normal preset. Only hits that could land hard are looked up.
+nearest a splash. Unknown hits get the normal preset. Only hits that could land hard are looked up,
+and nothing is worked out while no hit can hold its enemy (Low, Reduce Motion, Flashes & shake off:
+the class then only picks the squash, from the normal preset). Its bookkeeping allocates nothing per
+projectile per frame (pooled records stamped with the frame they were last seen, walked with one
+bound callback), and starts afresh when holds become possible again.
 
 | Class | Girls | Strong on an ordinary enemy | Strong on a heavy enemy (elite, miniboss, boss) | Hold: strong / crit |
 |---|---|---|---|---|
@@ -190,11 +194,21 @@ motif spark and kill pop to the same presets.
 
 A blast's body is an alpha-blended **cel puff** in the blast's colour — the atlas `celPuff` sprite,
 painted in exactly three grey values with hard edges (1.0 lit, 0.75 shadow, 0.45 rim), so the tint
-gives the girl's base, shadow and a tinted outline — that swells 1 → 1.25, holds its shape for 60 % of
-its life and then fades; a lighter cel puff sits on top, the fire puffs are small cel puffs and the
-shock ring is a hard alpha ring on the ground. **Only a small white-hot core is additive**, so the
-colour grade and the bloom cannot wash the blast out (Marumi's blasts read softer than live before
+gives the girl's base, shadow and a tinted outline — that swells 1 → 1.25 (0.96 → 1.2 × the radius),
+holds its shape at 0.8 opacity for 35 % of its life and then fades; a lighter cel puff sits on its upper
+part, the fire puffs are small cel puffs (0.85 opacity, at most 10) flung out from round the hit, and
+the shock ring is a hard alpha ring on the ground. **Only a small white-hot core is additive** (sized
+by the radius up to 1.2, gone in 0.1 s), so the colour grade and the bloom cannot wash the blast out (Marumi's blasts read softer than live before
 this). Marumi's ball pops use hard alpha rings too, with a small additive flash.
+
+**A shape around the hit, not over it.** The body and the lit puff are **seated on the ground**: each
+billboard is anchored at the blast's spot just above the road and drawn upward from it (a view-space
+lift of half its height), so no part of it ever dips under the ground (no straight cut along its
+bottom), and its depth is that spot's: the struck walker standing there, and anyone in front, is drawn
+over the cloud — her flash and hold stay visible — while the cloud billows up behind her. It is
+see-through and fades early, so the road and the girls never vanish under a blast. **A Spin Shot
+bounce draws a smaller cloud** (× 0.6, `BOUNCE_BODY`; the ring still shows the real reach), so the
+Glow Bowl finale is the one big cloud of the chain.
 
 All of it is decided in one place, `src/render/vfx/feel.js`:
 

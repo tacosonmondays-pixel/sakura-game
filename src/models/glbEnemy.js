@@ -433,6 +433,8 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   if (bodyMesh) {
     bodyMesh.name = 'body';
     bodyMesh.renderOrder = see ? 1 : 0;
+    // the monster's body (see-through only for a jelly / ghost look): impact frames draw it as a silhouette
+    bodyMesh.userData.body = true;
   }
   const outlines = [];
   if (bodyMesh && outlineMat) {

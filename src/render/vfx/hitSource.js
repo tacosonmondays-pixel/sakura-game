@@ -6,12 +6,17 @@
 //   1. a projectile that landed on the struck enemy since the last frame: one aimed at it that
 //      vanished, or one that went through it (its hit list names it: piercing shots, pins, blades);
 //   2. else the attack event that follows its hits in the same step: instant attacks (pulses,
-//      beams, chains, slashes, towel snaps), a girl's own blasts (Marumi's explode / pins /
-//      ballPop), strip bites (trapTriggered), shells (explode → shellLand), blade arts…;
+//      beams, chains, slashes, towel snaps), a hitscan shot naming the struck enemy (Shiro), a
+//      girl's own blasts (Marumi's explode / pins / ballPop), strip bites (trapTriggered), shells
+//      (explode → shellLand), blade arts…;
 //   3. a projectile's splash (an explode with no girl named): the vanished projectile nearest it.
 //
-// Cost: one pass over the live projectiles a frame (references only, nothing allocated per
-// projectile), and the event scan only for the hits that could land hard (the renderer asks).
+// Cost: one pass over the live projectiles a frame and one over the ones it tracks, with nothing
+// allocated per projectile per frame: each tracked projectile has a small record (pooled, reused
+// when it lands) stamped with the frame it was last seen; the records are walked with a callback
+// bound once (Map.forEach, no iterator or [key, value] pairs). The event scan runs only for the hits
+// that could land hard (the renderer asks), and the renderer skips all of it while no hit can hold
+// its enemy (Low, Reduce Motion, Flashes & shake off).
 
 /** Events that may sit between a hit and the attack that dealt it. */
 const SKIP = new Set(['hit', 'status', 'death', 'barrierBreak', 'shellBreak', 'split', 'cash', 'dotSpread', 'spawn', 'phase', 'curseBurst']);
@@ -24,37 +29,52 @@ const SPLASH_REACH = 1.2;
 
 export class HitSource {
   constructor() {
-    this.prev = new Map(); // uid → projectile (last frame)
-    this.cur = new Map();
-    this.lens = new Map(); // uid → its hit-list length last frame
+    /** uid → { p: the projectile, n: its hit-list length when last seen, seen: frame stamp } */
+    this.live = new Map();
+    this.pool = []; // spare records
+    this.made = 0; // records ever made (tests: they are reused, not made per frame)
+    this.stamp = 0;
     this.gone = []; // projectiles seen last frame and gone now (their hits are this frame's)
     this.pierced = []; // live projectiles whose hit list grew since the last frame
+    this._sweep = (rec, uid) => {
+      if (rec.seen === this.stamp) return;
+      this.gone.push(rec.p);
+      rec.p = null;
+      this.live.delete(uid);
+      this.pool.push(rec);
+    };
   }
 
   /** Once a frame, before the frame's events: which projectiles landed since the last frame. */
   frame(projectiles) {
-    const cur = this.cur;
-    cur.clear();
+    const stamp = ++this.stamp;
+    const live = this.live;
     const pierced = this.pierced;
     pierced.length = 0;
+    this.gone.length = 0;
     if (projectiles) {
       for (let i = 0; i < projectiles.length; i++) {
         const p = projectiles[i];
-        cur.set(p.uid, p);
         const n = Array.isArray(p.hits) ? p.hits.length : 0;
-        if (n > (this.lens.get(p.uid) || 0)) pierced.push(p);
-        this.lens.set(p.uid, n);
+        let rec = live.get(p.uid);
+        if (!rec) {
+          rec = this.pool.pop() || this._make();
+          rec.n = 0;
+          live.set(p.uid, rec);
+        }
+        if (n > rec.n) pierced.push(p);
+        rec.p = p;
+        rec.n = n;
+        rec.seen = stamp;
       }
     }
-    const gone = this.gone;
-    gone.length = 0;
-    for (const [uid, p] of this.prev) {
-      if (cur.has(uid)) continue;
-      gone.push(p);
-      this.lens.delete(uid);
-    }
-    this.cur = this.prev;
-    this.prev = cur;
+    // the ones not seen this frame landed (or left): their hits are this frame's
+    live.forEach(this._sweep);
+  }
+
+  _make() {
+    this.made++;
+    return { p: null, n: 0, seen: 0 };
   }
 
   /**
@@ -83,7 +103,9 @@ export class HitSource {
         return this._nearestGone(e.x, e.y);
       }
       if (OWNER.has(e.type)) return e.towerUid ?? e.ownerUid ?? null;
-      if (e.type === 'attack' && INSTANT.has(e.kind)) return e.towerUid ?? null;
+      // instant attacks follow their hits; so does a hitscan shot (no projectile in flight: Shiro's
+      // rifle), whose attack event names the enemy it struck
+      if (e.type === 'attack' && (INSTANT.has(e.kind) || (e.targetUid != null && e.targetUid === ev.uid))) return e.towerUid ?? null;
       return null;
     }
     return null;
@@ -105,10 +127,13 @@ export class HitSource {
     return best;
   }
 
+  /** Forgets every tracked projectile (a new battle, or holds becoming possible again). */
   clear() {
-    this.prev.clear();
-    this.cur.clear();
-    this.lens.clear();
+    this.live.forEach((rec) => {
+      rec.p = null;
+      this.pool.push(rec);
+    });
+    this.live.clear();
     this.gone.length = 0;
     this.pierced.length = 0;
   }

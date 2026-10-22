@@ -1478,10 +1478,12 @@ no impact frames, no shake or zoom punch, no hit-stop or local hold; Settings �
 shake and the pause menu), `impactFrames` (read live: `false` = a soft tint instead of the tinted
 impact frame; Settings → Graphics → Impact frames and the pause menu), `camera`, `buffIcons`,
 `attackFx`. Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
-the struck enemy (each girl's weak / strong / crit impact preset), tinted impact frames, hit squash,
-camera shake in screen pixels (a shift, never a roll) and the zoom punch all change only what is
-drawn; the flash guard counts flashing screen area a second (world flashes too), keeps full-screen
-flashes to ≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the graphics tier.
+the struck enemy (each girl's weak / strong / crit impact preset; counted in rendered frames, the
+struck look shown from the first held frame), tinted impact frames, hit squash, camera shake in screen
+pixels (a shift, never a roll; a girl's basic splash never shakes) and the zoom punch all change only
+what is drawn; the flash guard counts flashing screen area a second (world flashes too), keeps
+full-screen flashes to ≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the
+graphics tier.
 
 Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
 visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times

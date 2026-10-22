@@ -15,19 +15,75 @@ const _b = new THREE.Vector3();
 /** Particle flags */
 const GROUND = 1;
 const SPIN_X = 2; // coin flip: width oscillates
-const LATE_FADE = 4; // alpha holds at a0 for the first 60 % of life, then fades (a cel shape, not a mist)
+const LATE_FADE = 4; // alpha holds at a0 for the first `hold` share of life (default 60 %), then fades (a cel shape, not a mist)
 
 /**
  * Blasts (docs/VFX.md "Blasts"): the body is an alpha-blended cel puff in the blast's colour (three
  * grey values in the atlas, tinted), so the colour grade and the bloom cannot wash it out; only a
- * small hot core is additive. Sizes are × the blast radius.
+ * small hot core is additive. Sizes are × the blast radius; a: peak opacity; hold: the share of its
+ * life it keeps that opacity before fading.
+ *
+ * The body and the lit puff are SEATED on the ground: the billboard is anchored at the blast's spot
+ * on the road and drawn upward from it (a view-space lift of half its height), so no part of it ever
+ * dips under the ground (no straight cut along its bottom). Its depth is that spot's, a little toward
+ * the camera (SEAT_FRONT): the struck walker standing there has its legs in the smoke while its body
+ * and head (her flash and hold) are drawn over the cloud, which billows up behind her, and so is
+ * anyone in front of it. It is see-through (a < 1) and starts to fade early, so the road and the
+ * girls never vanish under a blast.
  */
 export const BLAST = {
-  core: { s0: 0.7, s1: 1.0, life: 0.14 }, // additive white-hot centre (the only glowing part)
-  body: { s0: 1.2, s1: 1.5, life: 0.3 }, // cel puff: swells 1 → 1.25, holds, then fades
-  lit: { s0: 0.7, s1: 0.95, life: 0.24 }, // a lighter cel puff on top (the lit side)
+  core: { s0: 0.55, s1: 0.8, life: 0.1, max: 1.2 }, // additive white-hot centre (the only glowing part; × min(r, max)): small and quick, so the struck walker's own flash and hold read through it
+  body: { s0: 0.96, s1: 1.2, life: 0.3, a: 0.8, hold: 0.35 }, // cel puff: swells 1 → 1.25, holds, then fades
+  lit: { s0: 0.52, s1: 0.65, life: 0.24, a: 0.8, hold: 0.35, at: 0.42 }, // a lighter cel puff on its upper part (at: its bottom, × the body's height)
+  fire: { s: 0.26, a: 0.85, hold: 0.35, max: 10 }, // cel fire puffs flung out from round the hit (size × r, at most `max`)
   ring: { s0: 0.5, s1: 2.05, life: 0.3 }, // hard alpha ring on the ground
 };
+/** Body size of a Spin Shot bounce blast (× the usual), so the Glow Bowl finale is the one big cloud. */
+export const BOUNCE_BODY = 0.6;
+/** Height of a seated blast's anchor: just above the road (PATH_H 0.05), so its bottom never z-fights it. */
+const SEAT_Y = 0.07;
+/**
+ * How far a seated blast's anchor is moved toward the camera, along the view direction (world
+ * units). The battle camera is orthographic, so this changes only depth, never where it is drawn:
+ * the cloud wraps the lower third of a walker standing on the spot (its legs in the smoke) while its
+ * body and head, flash and hold included, stay in front; and a crowd standing round the blast does
+ * not hide the whole cloud.
+ */
+const SEAT_FRONT = 0.12;
+const _dir = new THREE.Vector3();
+/** How much of a billboard's height is vertical in the world (the battle camera looks down 48°: cos ≈ 0.67). */
+const UP_Y = 0.7;
+
+/**
+ * Is the 'explode' at events[j] one of Marumi's Spin Shot bounces (not her ball's first hit, not the
+ * Glow Bowl finale, not a Wrecking Ball blast)? Her blast is followed, after its pins' hits, by the
+ * ball's 'ballPop'; it is a bounce when that ball's previous pop sent it on to a next walker (the
+ * renderer keeps those ball uids in `bouncing`: noteBallPop). Reads the events only.
+ * @param {object[]} events @param {number} j @param {Set<number>} bouncing
+ */
+export function bounceBlast(events, j, bouncing) {
+  const ev = events[j];
+  if (ev.towerUid == null || !bouncing || !bouncing.size) return false;
+  const end = Math.min(events.length, j + 64);
+  for (let k = j + 1; k < end; k++) {
+    const e = events[k];
+    if (e.type === 'ballPop') return e.towerUid === ev.towerUid && !e.fin && bouncing.has(e.uid);
+    if (e.type === 'explode') return false;
+  }
+  return false;
+}
+
+/**
+ * Keeps `bouncing` (the balls on a Spin Shot bounce) up to date from Marumi's ball events: a pop that
+ * sends the ball on to a next walker (tx set, not the finale) marks it; any other pop, or the ball's
+ * end, clears it. Call for every event, after drawing its blast.
+ */
+export function noteBallPop(ev, bouncing) {
+  if (ev.type === 'ballPop') {
+    if (ev.tx != null && !ev.fin) bouncing.add(ev.uid);
+    else bouncing.delete(ev.uid);
+  } else if (ev.type === 'ballEnd') bouncing.delete(ev.uid);
+}
 
 export class FxSystem {
   /**
@@ -94,6 +150,8 @@ export class FxSystem {
     p.a1 = o.a1 ?? 0;
     p.fadeIn = o.fadeIn || 0;
     p.flags = o.flags || 0;
+    p.hold = o.hold ?? 0.6; // LATE_FADE: the share of life at full opacity
+    p.lift = o.lift || 0; // billboards: drawn this many of their own heights up (view space) from the point (a seated shape)
     const col = o.color instanceof THREE.Color ? o.color : _c.set(o.color || '#ffffff');
     p.r = col.r; p.gc = col.g; p.bc = col.b;
     p.ox = o.ox || 0;
@@ -135,35 +193,54 @@ export class FxSystem {
 
   /**
    * Explosion (BLAST): a small additive hot core, an alpha-blended cel puff body in the blast's
-   * colour that swells and holds, a lighter cel puff on top, a hard shock ring, cel fire puffs,
-   * smoke, scorch and debris. Only the core is additive, so the grade and bloom keep its punch.
+   * colour that swells and holds, a lighter cel puff on its upper part, a hard shock ring, cel fire
+   * puffs, smoke, scorch and debris. Only the core is additive, so the grade and bloom keep its
+   * punch. The body and the lit puff sit on the ground behind the struck walker (BLAST: seated).
+   * @param {{ volatile?: boolean, scale?: number }} [o] scale: the cel puffs' size (a Spin Shot
+   *   bounce draws BOUNCE_BODY; the ring still shows the blast's real reach)
    */
-  explosion(x, z, radius, color, { volatile = false } = {}) {
+  explosion(x, z, radius, color, { volatile = false, scale = 1 } = {}) {
     const R = this.R;
     const r = Math.max(0.5, radius);
+    const rb = r * scale;
     const cel = R.celPuff || R.smoke;
     const body = volatile ? '#ff5a4a' : color;
     const lit = _c2.set(body).lerp(_c.set('#fff4dc'), 0.45).getHex();
     const B = BLAST;
-    this.spawn({ batch: 'bbA', uv: R.glow, x, y: 0.4, z, s0: r * B.core.s0, s1: r * B.core.s1, life: B.core.life, color: volatile ? '#ffc2b0' : '#fff2c8', a0: 1 });
-    this.spawn({ batch: 'bbN', uv: cel, x, y: 0.38, z, s0: r * B.body.s0, s1: r * B.body.s1, life: B.body.life, color: body, a0: 1, a1: 0, rot: this.rand() * TAU, flags: LATE_FADE });
-    this.spawn({ batch: 'bbN', uv: cel, x, y: 0.52, z, s0: r * B.lit.s0, s1: r * B.lit.s1, life: B.lit.life, color: lit, a0: 1, a1: 0, rot: this.rand() * TAU, flags: LATE_FADE });
+    // the core stays small on a big blast (sized by min(r, core.max)) and high enough that the ground never cuts it
+    const cr = Math.min(rb, B.core.max);
+    this.spawn({ batch: 'bbA', uv: R.glow, x, y: Math.max(0.4, SEAT_Y + UP_Y * cr * B.core.s1 * 0.5), z, s0: cr * B.core.s0, s1: cr * B.core.s1, life: B.core.life, color: volatile ? '#ffc2b0' : '#fff2c8', a0: 1 });
+    // seated cel puffs (lift 0.5: the quad's bottom edge on the anchor; a small tilt keeps the lit side up),
+    // anchored on the spot and moved SEAT_FRONT toward the camera (depth only: the same place on screen)
+    this.camera.getWorldDirection(_dir);
+    const ax = x - _dir.x * SEAT_FRONT;
+    const ay = SEAT_Y - _dir.y * SEAT_FRONT;
+    const az = z - _dir.z * SEAT_FRONT;
+    this.spawn({
+      batch: 'bbN', uv: cel, x: ax, y: ay, z: az, s0: rb * B.body.s0, s1: rb * B.body.s1, life: B.body.life, color: body,
+      a0: B.body.a, a1: 0, hold: B.body.hold, rot: (this.rand() - 0.5) * 0.5, lift: 0.5, flags: LATE_FADE,
+    });
+    this.spawn({
+      batch: 'bbN', uv: cel, x: ax, y: ay, z: az, s0: rb * B.lit.s0, s1: rb * B.lit.s1, life: B.lit.life, color: lit,
+      a0: B.lit.a, a1: 0, hold: B.lit.hold, rot: (this.rand() - 0.5) * 0.5, lift: 0.5 + (B.lit.at * B.body.s1) / B.lit.s1, flags: LATE_FADE,
+    });
     this.spawn({ batch: 'groundN', uv: R.ringThick || R.ring, x, y: 0.06, z, s0: r * B.ring.s0, s1: r * B.ring.s1, life: B.ring.life, color: body, a0: 0.85, flags: GROUND });
     this.spawn({ batch: 'groundN', uv: R.shadow, x, y: 0.03, z, s0: r * 1.3, s1: r * 1.5, life: 1.6, color: '#2a1a14', a0: 0.35, a1: 0, flags: GROUND });
-    const k = this.n(Math.min(14, 5 + r * 4));
+    const k = this.n(Math.min(B.fire.max, 4 + rb * 3));
+    const fs = B.fire.s * rb;
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
-      const d = this.rand() * r * 0.6;
+      const d = (0.25 + this.rand() * 0.35) * r; // they burst out round the struck walker, not over it
       const sp = 0.6 + this.rand() * 1.4;
       this.spawn({
-        batch: 'bbN', uv: cel, x: x + Math.cos(a) * d, y: 0.2 + this.rand() * 0.3, z: z + Math.sin(a) * d,
-        vx: Math.cos(a) * sp, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp, drag: 3, s0: 0.3 * r, s1: 0.08, life: 0.35 + this.rand() * 0.2,
-        color: i % 2 ? body : lit, a0: 1, a1: 0, rot: this.rand() * TAU, flags: LATE_FADE,
+        batch: 'bbN', uv: cel, x: x + Math.cos(a) * d, y: Math.max(0.2, fs * 0.5) + this.rand() * 0.3, z: z + Math.sin(a) * d,
+        vx: Math.cos(a) * sp, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp, drag: 3, s0: fs, s1: 0.08, life: 0.35 + this.rand() * 0.2,
+        color: i % 2 ? body : lit, a0: B.fire.a, a1: 0, hold: B.fire.hold, rot: this.rand() * TAU, flags: LATE_FADE,
       });
       if (i % 2 === 0) {
         this.spawn({
           batch: 'bbN', uv: R.smoke, x: x + Math.cos(a) * d, y: 0.25, z: z + Math.sin(a) * d,
-          vx: Math.cos(a) * sp * 0.5, vy: 0.7 + this.rand() * 0.5, vz: Math.sin(a) * sp * 0.5, drag: 2, s0: 0.3 * r, s1: 0.8 * r,
+          vx: Math.cos(a) * sp * 0.5, vy: 0.7 + this.rand() * 0.5, vz: Math.sin(a) * sp * 0.5, drag: 2, s0: 0.3 * rb, s1: 0.8 * rb,
           life: 0.8 + this.rand() * 0.4, color: '#7a6a66', a0: 0.55, fadeIn: 0.1, rot: this.rand() * TAU, vrot: (this.rand() - 0.5) * 2,
         });
       }
@@ -355,7 +432,7 @@ export class FxSystem {
       p.rot += p.vrot * dt;
       const k = p.t / p.life;
       const s = p.s0 + (p.s1 - p.s0) * k;
-      let a = p.flags & LATE_FADE ? (k < 0.6 ? p.a0 : p.a0 + (p.a1 - p.a0) * ((k - 0.6) / 0.4)) : p.a0 + (p.a1 - p.a0) * k;
+      let a = p.flags & LATE_FADE ? (k < p.hold ? p.a0 : p.a0 + (p.a1 - p.a0) * ((k - p.hold) / (1 - p.hold))) : p.a0 + (p.a1 - p.a0) * k;
       if (p.fadeIn && p.t < p.fadeIn) a *= p.t / p.fadeIn;
       let w = s * p.asp;
       if (p.flags & SPIN_X) w *= Math.abs(Math.cos(p.t * 9));
@@ -364,7 +441,7 @@ export class FxSystem {
         haloLeft--;
         this.halos++;
       }
-      B.push(p.x, p.y, p.z, w, s, p.uv, p.r, p.gc, p.bc, a, p.rot);
+      B.push(p.x, p.y, p.z, w, s, p.uv, p.r, p.gc, p.bc, a, p.rot, 0, p.lift * s);
     }
     parts.length = n;
     this._drawSegments(dt, haloLeft);

@@ -29,6 +29,8 @@ const SQUASH_Y = 0.24;
 const SQUASH_XZ = 0.16;
 const SQUASH_LEN = 0.32;
 const SQUASH_RETRIGGER = 0.09;
+/** Animation options of a monster standing still (death clips, held frames). */
+const STILL = Object.freeze({ moving: false, speed: 1 });
 
 const STATUS_ICONS = {
   burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
@@ -280,7 +282,7 @@ export class Actors {
         m.scale.setScalar(ENEMY_SCALE * f);
         m.position.y -= dt * 0.25;
       }
-      m.userData.animate?.(this.time, dt, { moving: false, speed: 1 });
+      m.userData.animate?.(this.time, dt, STILL);
     }
   }
 
@@ -391,7 +393,7 @@ export class Actors {
 
   _updateEnemy(v, e, dt) {
     const m = v.model;
-    if (v.holdLeft > 0 && this._hold(v, dt)) return;
+    if (v.holdLeft > 0 && this._hold(v, dt, true)) return;
     const dx = e.x - v.x;
     const dz = e.y - v.z;
     if (dx * dx + dz * dz > 1.5) {
@@ -463,37 +465,67 @@ export class Actors {
       ud.setCasting?.(casting);
     }
     const immobile = e.statuses.freeze || e.statuses.stun || e.statuses.shock;
-    ud.animate?.(this.time, dt, { moving: !immobile, speed: e.speed || 1 });
+    // one options object per view, kept for a hold's first frame (nothing allocated per frame)
+    const anim = (v.anim ||= { moving: true, speed: 1 });
+    anim.moving = !immobile;
+    anim.speed = e.speed || 1;
+    ud.animate?.(this.time, dt, anim);
   }
 
   /**
    * A local hold (docs/VFX.md "Hits that land", src/render/vfx/localHold.js): a struck enemy's look
-   * — pose, place, facing, squash and flash — holds for `seconds` of visual time with a tiny
-   * sideways jitter (`jitter` world units, alternating each frame); then it catches up with the sim
-   * within a frame or two. Only what is drawn holds. A killed enemy's death clip holds the same way.
+   * — pose, place, facing, squash and flash — holds for `frames` RENDERED frames (whatever the frame
+   * rate: 2 frames are 2 drawn frames on a 30 fps phone too) with a tiny sideways jitter (`jitter`
+   * world units, alternating each held frame); then it catches up with the sim within a frame or
+   * two. The first held frame already shows the hit (the flash at full, the squash at its deepest):
+   * the struck pose is what holds, never the look from before the hit. Only what is drawn holds. A
+   * killed enemy's death clip holds the same way (flash only: its death clip owns its scale).
    * @returns {boolean} the enemy is held
    */
-  holdEnemy(uid, seconds, jitter = 0.025) {
+  holdEnemy(uid, frames, jitter = 0.025) {
     const v = this.enemies.get(uid);
-    if (!v || !(seconds > 0)) return false;
-    v.holdLeft = Math.max(v.holdLeft || 0, seconds);
+    const n = Math.floor(frames);
+    if (!v || !(n > 0)) return false;
+    if (!(v.holdLeft > 0)) v.holdFresh = true;
+    v.holdLeft = Math.max(v.holdLeft || 0, n);
     v.holdAmp = jitter;
     return true;
   }
 
-  /** One frame of a hold; false once it is over (the caller then updates the view as usual). */
-  _hold(v, dt) {
-    v.holdLeft -= dt;
-    if (v.holdLeft <= 1e-6) {
-      v.holdLeft = 0;
-      return false;
+  /**
+   * One rendered frame of a hold (called once per sync, before the frame is drawn); false once it is
+   * over (the caller then updates the view as usual). A frame drawn with the visual clock stopped (a
+   * global hit-stop, a pause) moves nothing anyway, so it does not use up the hold.
+   * @param {boolean} [live] a live enemy (its squash is frozen at its deepest too)
+   */
+  _hold(v, dt, live = false) {
+    if (!(v.holdLeft > 0)) return false;
+    const m = v.model;
+    if (v.holdFresh) {
+      v.holdFresh = false;
+      this._holdLook(v, live);
     }
     v.holdN = (v.holdN || 0) + 1;
     const j = (v.holdN & 1 ? 1 : -1) * (v.holdAmp || 0);
-    const m = v.model;
     m.position.x = v.x + Math.cos(v.facing) * j;
     m.position.z = v.z - Math.sin(v.facing) * j;
+    if (dt > 0) v.holdLeft--;
     return true;
+  }
+
+  /**
+   * The look a hold freezes, shown on its first frame: the hit flash applied at once (the model
+   * animated with dt 0, so the flash is drawn at full and does not fade, and the pose stays), and for
+   * a live enemy the hit squash at its deepest (sqT as the hit left it, 0).
+   */
+  _holdLook(v, live) {
+    const m = v.model;
+    if (live && v.sqA > 0) {
+      const base = (0.4 + 0.6 * v.spawnT) * ENEMY_SCALE;
+      const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
+      m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+    }
+    m.userData.animate?.(this.time, 0, live ? v.anim || STILL : STILL);
   }
 
   /** Enemy view position (for effects), or null. */

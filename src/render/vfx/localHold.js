@@ -4,6 +4,11 @@
 // "freeze the struck, not the world" rule. (The global freeze, src/render/vfx/hitStop.js, is only
 // for ult impacts and boss kills.)
 //
+// A hold is counted in RENDERED frames, not seconds: a 2-frame hold shows on exactly two drawn
+// frames on a 60 fps desktop and on a 30 fps phone alike (src/render/actors.js holdEnemy / _hold).
+// The first held frame already shows the hit's look (the flash at full and the squash at its
+// deepest); it stays frozen until the hold ends, then the flash fades and the wobble plays.
+//
 // Rate limits, so a wave gets a few of these and never a stutter:
 //   - at most LOCAL_HOLD.perSecond new holds in any second of frame time (busyPerSecond when the
 //     fight is busy: > BUSY_HITS hits a second), at most perFrame in one frame;
@@ -24,15 +29,13 @@ export const LOCAL_HOLD = {
 export class LocalHoldDirector {
   /**
    * @param {import('./clock.js').VisualClock} clock
-   * @param {{ enabled?: () => boolean, busy?: () => boolean, frame?: number }} [o]
-   *   enabled: the Flashes & shake setting (read live); busy: the fight is busy (HitStopDirector.busy);
-   *   frame: seconds per held frame (1/60)
+   * @param {{ enabled?: () => boolean, busy?: () => boolean }} [o]
+   *   enabled: the Flashes & shake setting (read live); busy: the fight is busy (HitStopDirector.busy)
    */
-  constructor(clock, { enabled = () => true, busy = () => false, frame = 1 / 60 } = {}) {
+  constructor(clock, { enabled = () => true, busy = () => false } = {}) {
     this.clock = clock;
     this.enabled = enabled;
     this.busy = busy;
-    this.frame = frame;
     this.starts = []; // frame times of the holds started in the last second
     this.byEnemy = new Map(); // uid → frame time its last hold started
     this.frameT = -1;
@@ -52,8 +55,8 @@ export class LocalHoldDirector {
   }
 
   /**
-   * Asks to hold enemy `uid` for `frames` frames (capped at LOCAL_HOLD.maxFrames).
-   * @returns {number} seconds of hold granted (0 = refused)
+   * Asks to hold enemy `uid` for `frames` rendered frames (capped at LOCAL_HOLD.maxFrames).
+   * @returns {number} rendered frames granted (0 = refused)
    */
   request(uid, frames) {
     const n = Math.min(LOCAL_HOLD.maxFrames, Math.max(0, Math.floor(frames || 0)));
@@ -72,7 +75,7 @@ export class LocalHoldDirector {
     this.byEnemy.set(uid, t);
     this.inFrame++;
     this.granted++;
-    return n * this.frame;
+    return n;
   }
 
   _no() {

@@ -102,13 +102,22 @@ export function createHitFeel(o) {
     /**
      * Local hold of one struck enemy (src/render/vfx/localHold.js) for a hit class this tier allows.
      * @param {number} uid @param {'weak'|'strong'|'crit'} cls @param {number} frames
-     * @returns {number} seconds granted (0 = none); the caller holds that enemy's look
+     * @returns {number} rendered frames granted (0 = none); the caller holds that enemy's look
      */
     hold(uid, cls, frames) {
       if (!o.holds || !(frames > 0) || !cfg().hold.has(cls)) return 0;
-      const s = o.holds.request(uid, frames);
-      if (s > 0) stats.holds++;
-      return s;
+      const n = o.holds.request(uid, frames);
+      if (n > 0) stats.holds++;
+      return n;
+    },
+
+    /**
+     * Can a hit hold its enemy at all right now? Not on a tier without holds (Low), with Reduce
+     * Motion or with Flashes & shake off (read live). While it can't, the renderer skips working out
+     * who dealt each hit (src/render/vfx/hitSource.js).
+     */
+    holdsPossible() {
+      return !!o.holds && !o.reduceMotion && on() && cfg().hold.size > 0;
     },
 
     /** How much a struck monster squashes on this tier (half with Reduce Motion). */
@@ -126,8 +135,10 @@ export function createHitFeel(o) {
       if (!o.reduceMotion && on() && framesOn() && cfg().impact && !o.impact.active && o.guard.impact(o.now())) {
         o.impact.start(fc.color);
         o.director.request('impact');
-        // the board comes back under a short, soft tint of the moment's colour (part of the same impact)
-        afterglow = { color: fc.color, a: Math.min(fc.red ? 0.15 : 0.25, o.guard.cap), decay: 1.9 };
+        // after the tinted frames the board comes back to its own brightness: the moment's colour
+        // only swells in from nothing (AFTERGLOW.rise) to a faint peak, so the dimmed frames are
+        // never followed by a jump above the board's normal brightness
+        afterglow = { color: fc.color, a: Math.min(fc.red ? AFTERGLOW.red : AFTERGLOW.peak, o.guard.cap), rise: AFTERGLOW.rise, decay: AFTERGLOW.decay };
         stats.impacts++;
         return true;
       }
@@ -137,7 +148,10 @@ export function createHitFeel(o) {
       return false;
     },
 
-    /** After the last impact frame: the tint the board comes back under (once). */
+    /**
+     * After the last impact frame: the tint the board comes back under (once): { color, a (its
+     * peak), rise (seconds it takes to swell in from 0), decay }.
+     */
     takeAfterglow() {
       const a = afterglow;
       afterglow = null;
@@ -147,8 +161,32 @@ export function createHitFeel(o) {
   return feel;
 }
 
+/**
+ * The faint tint after impact frames: it swells in from 0 over `rise` seconds to `peak` (`red` for a
+ * reddish moment), then fades at `decay` a second. It starts from nothing, so the board never jumps
+ * from the dimmed frame to above its own brightness.
+ */
+export const AFTERGLOW = { peak: 0.1, red: 0.06, rise: 0.15, decay: 1.2 };
+
+/**
+ * One step of the screen tint layer (the renderer's DOM flash), d seconds of visual time: a tint
+ * with `rise` swells in from where it was (`from`) toward its `peak` first, then (like every other
+ * tint) fades at `decay`. Mutates and returns `f` ({ a, decay, from?, peak?, rise?, up? }).
+ */
+export function stepTint(f, d) {
+  if (f.rise > 0) {
+    f.up = (f.up || 0) + d;
+    const from = f.from || 0;
+    f.a = from + (f.peak - from) * Math.min(1, f.up / f.rise);
+    if (f.up >= f.rise) f.rise = 0;
+    return f;
+  }
+  f.a = Math.max(0, f.a - d * f.decay);
+  return f;
+}
+
 /** Camera trauma (0..1) for the big moments the attack-FX layer draws (the renderer's TRAUMA table). */
-export const MOMENT_TRAUMA = { bladeArt: 0.3, finale: 0.34, giantStrike: 0.3 };
+export const MOMENT_TRAUMA = { bladeArt: 0.3, finale: 0.34, giantStrike: 0.3, abilityBlast: 0.24 };
 
 /**
  * Which sim events are big moments that jolt the camera once (≥ the renderer's art gap apart):
@@ -164,7 +202,36 @@ export function momentTrauma(ev) {
   return 0;
 }
 
-/** Does a sim 'explode' shake the camera on its own? Big blasts that no girl's own moment covers. */
-export function explodeShakes(ev, minRadius) {
-  return ev.towerUid == null && ev.radius >= minRadius;
+/**
+ * Who set off a sim 'explode' (events[j]), read from the event and its neighbours:
+ *   'enemy'    a volatile monster's death blast: no girl owns it
+ *   'ability'  a girl's ability blast (the sim emits its 'abilityShell' right before it)
+ *   'girl'     any other blast: her ball (towerUid), her splash shot or shell, her charged strip.
+ * Every non-volatile blast the sim emits is a girl's, so this needs no projectile bookkeeping and
+ * holds on every graphics tier.
+ * @param {object[]} events @param {number} j
+ * @returns {'enemy'|'ability'|'girl'}
+ */
+export function explodeSource(events, j) {
+  const ev = events[j];
+  if (ev.volatile) return 'enemy';
+  if (ev.towerUid != null) return 'girl';
+  const pv = events[j - 1];
+  if (pv && pv.type === 'abilityShell' && pv.x === ev.x && pv.y === ev.y) return 'ability';
+  return 'girl';
+}
+
+/**
+ * Does a sim 'explode' shake the camera on its own? Only a big blast no girl owns (a volatile
+ * monster's): a girl's basic splash never shakes (a basic hit is tier 1: no shake), however big, and
+ * her ability blasts get one jolt through MOMENT_TRAUMA.abilityBlast instead (≥ the art gap apart).
+ * @param {{ radius: number }} ev @param {number} minRadius @param {'enemy'|'ability'|'girl'} source explodeSource
+ */
+export function explodeShakes(ev, minRadius, source) {
+  return source === 'enemy' && ev.radius >= minRadius;
+}
+
+/** A girl's ability blast jolts once when it is big (radius ≥ minRadius): its trauma, else 0. */
+export function abilityBlastTrauma(ev, minRadius, source) {
+  return source === 'ability' && ev.radius >= minRadius ? MOMENT_TRAUMA.abilityBlast : 0;
 }

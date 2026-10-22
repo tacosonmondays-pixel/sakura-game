@@ -148,22 +148,34 @@ export class ImpactFrames {
       this._hidden.push(o);
     }
     scene.add(this.card);
+    const hiddenGeo = new Set(); // geometries of the parts hidden here: their outline hulls go too
+    const outlines = [];
     for (const root of this.figures()) {
       root.traverse((o) => {
         if (!o.isMesh || !o.visible) return;
         const m = o.material;
         // outlines keep their ink (tinted with the board: a dark rim round each silhouette); glows,
         // bubbles, faces painted on top and see-through parts go
-        if (o.userData.isOutline || m?.userData?.outline) return;
-        if (o.userData.fx || o.name === 'haloGlow' || (m && !Array.isArray(m) && (m.transparent || m.blending !== THREE.NormalBlending))) {
+        if (o.userData.isOutline || m?.userData?.outline) {
+          outlines.push(o);
+          return;
+        }
+        if (!solidBody(o, m) && (o.userData.fx || o.name === 'haloGlow' || (m && !Array.isArray(m) && (m.transparent || m.blending !== THREE.NormalBlending)))) {
           o.visible = false;
           this._hidden.push(o);
+          if (o.geometry) hiddenGeo.add(o.geometry);
           return;
         }
         this._swapped.push(o, m, o.renderOrder);
         o.material = this.fill;
         o.renderOrder = FIGURE_ORDER;
       });
+    }
+    // an outline hull whose body is hidden would be drawn whole: a dark disc where the part was
+    for (const o of outlines) {
+      if (!hiddenGeo.has(o.geometry)) continue;
+      o.visible = false;
+      this._hidden.push(o);
     }
   }
 
@@ -190,6 +202,16 @@ export class ImpactFrames {
     this.card.geometry.dispose();
     this.card.material.dispose();
   }
+}
+
+/**
+ * A monster's body that is see-through only for its look (a slime's jelly, a ghost's haze) and
+ * solid enough to keep its outline (opacity ≥ 0.75, the models' own rule): on the impact frames it
+ * is a pink silhouette like every opaque body, never hidden (which would leave its outline hull as a
+ * dark disc). A veiled or phasing body (fainter) stays hidden, and so does its outline.
+ */
+function solidBody(o, m) {
+  return !!o.userData.body && !!m && !Array.isArray(m) && m.blending === THREE.NormalBlending && m.opacity >= 0.75;
 }
 
 function attached(o, scene) {
