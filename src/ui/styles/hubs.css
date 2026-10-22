@@ -23,18 +23,10 @@
 .ma-comm-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
 .ma-comm-sub > .ui-cd { margin: -4px 0; } /* (the chip rides on the text line: the list below does not move) */
 
-/* ---------- Mall: the restocks as chips ---------- */
-.ma-restock { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
-
-/* ---------- Mail: the expiry chip in the letter's side column ---------- */
-.mbx-expiry:has(> .ui-cd) { line-height: 0; }
-.mbx-expiry > .ui-cd { margin: -5px 0; } /* (the old line's height: Claim stays where it was) */
+/* (the Mall's restock, the mail expiry and the old Events page's chips: M5c's list screens, at the end of this file) */
 
 /* ---------- Titan Trials: the week chip in the top row, the same height as its neighbours ---------- */
 .tt-top > .ui-cd { box-shadow: var(--shadow); }
-
-/* ---------- Happening Now (#/rewards): the week chip in the THIS WEEK kicker, a limited event's phase ---------- */
-.ma-event-kicker > .ui-cd { margin: -3px 0; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9); }
 
 /* ---------- The event page: the phase chip in the header row (the old pill's height) ---------- */
 .ev-head-row > .ui-cd { margin: -1px 0; }
@@ -298,3 +290,234 @@
   .ma-bounty-screen .bn-hb > .ui-host { display: none; }
   .ma-bounty-screen .bn-hb > .hb-main { grid-column: 1; }
 }
+
+/* ==========================================================================================================
+   M5c: the list screens (§5.10 E1, E2, E3, E6, E9; listScreen.js): the Mailroom, the Mall, Happening Now and Settings.
+   The section rail on the left (kit.js sideRail, --ls-rail-w), the list in one glass panel under its ink plate header,
+   the host on the right (E1 'list': --host-list-w, 26% on phones and 30% on desktop) bleeding off the right edge, her
+   bubble over her lower third inside her own column. By the collapse rule she is a chip in the plate header and the
+   list takes her column (hubHost.js placeHost: .ls.no-host). Each screen's rules are scoped under its own class.
+   ========================================================================================================== */
+
+/* ---------- The frame ---------- */
+.ls-screen { --ls-rail-w: 168px; }
+@media (max-height: 480px) { .ls-screen { --ls-rail-w: 128px; } }
+.ls-screen .screen-body { position: relative; z-index: 1; display: flex; flex-direction: column; padding-top: 8px; padding-bottom: 0; overflow: hidden; }
+.ls-screen .topbar { position: relative; z-index: 5; }
+.ls-screen > .hub-bg { z-index: 0; }
+.ls {
+  position: relative; flex: 1; min-height: 0; width: 100%; max-width: 1600px; margin: 0 auto;
+  display: grid; grid-template-rows: minmax(0, 1fr); gap: 0 12px;
+  grid-template-columns: var(--ls-rail-w) minmax(0, 1fr) calc(var(--host-list-w) - var(--gutter) - var(--safe-right));
+}
+.ls.no-host { grid-template-columns: var(--ls-rail-w) minmax(0, 1fr); }
+.ls > .ls-rail {
+  grid-column: 1; grid-row: 1; align-self: start; width: 100%; min-width: 0; max-width: none; max-height: 100%;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 8px 8px 4px;
+}
+.ls > .ls-rail::-webkit-scrollbar { display: none; }
+.ls-rail > .ui-stab { flex: none; }
+.ls > .ls-panel {
+  position: relative; z-index: 1; grid-column: 2; grid-row: 1; min-width: 0; min-height: 0; margin-bottom: 8px;
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: var(--radius); background: rgba(255, 255, 255, 0.9); box-shadow: var(--shadow);
+}
+.ls > .ls-panel.bare { margin-bottom: 0; overflow: visible; border-radius: 0; background: none; box-shadow: none; }
+.ls-panel > .ui-plate-head { position: relative; z-index: 2; flex: none; min-height: 48px; padding-right: var(--sp-3); }
+.ls-panel > .ui-plate-head .ui-plate-right { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+.ls-panel > .ui-plate-head .ui-cd { box-shadow: 0 0 0 1px var(--plate-line); }
+.ls-panel > .ui-plate-head .btn { min-height: var(--tap-dense); }
+.ls-panel > .ui-plate-head .btn > .ui-kbd { margin-left: 8px; }
+.ls-panel > .ui-plate-head .ui-ibtn { width: var(--tap-dense); height: var(--tap-dense); background: rgba(255, 255, 255, 0.12); color: var(--on-plate); box-shadow: none; }
+.ls-list { position: relative; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.ls-panel.bare > .ls-list { padding: 0 4px 12px 0; }
+/* her stand: the right column, bleeding off the right edge and down to the bottom */
+.ls > .ui-host[data-mode="stand"] { position: absolute; right: calc(-1 * (var(--gutter) + var(--safe-right))); top: -8px; bottom: 0; height: auto; z-index: 0; }
+/* item counts on these screens read at the floor (the tile is M3's: only its count's size, here) */
+.ls-screen .item-count { font-size: var(--fs-label); }
+@media (max-width: 560px) {
+  /* narrow portrait screens: the rail keeps its icons (each tab's word is in its aria-label) */
+  .ls-screen { --ls-rail-w: 60px; }
+  .ls-rail .ui-stab-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .ls { grid-template-columns: var(--ls-rail-w) minmax(0, 1fr); }
+  .ls > .ui-host { display: none; }
+}
+
+/* ---------- The Mailroom (#/mail): Hotaru, the post-room tint, Unclaimed · History ---------- */
+.mbx-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mbx-screen .mbx-letter {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+  padding: 10px 12px; border: 0; border-radius: 10px; background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line), 0 2px 6px rgba(29, 78, 137, 0.08);
+}
+.mbx-screen .mbx-letter.k-gift { box-shadow: inset 0 0 0 2px #ffd1e4, 0 3px 10px rgba(29, 78, 137, 0.12); }
+.mbx-crest {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden;
+  border-radius: 50%; background: var(--plate); color: var(--pink); box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(14, 25, 48, 0.2);
+}
+.mbx-crest-ico { width: 24px; height: 24px; }
+.mbx-crest.girl { background: #fff; }
+.mbx-crest-art { display: block; width: 100%; height: 100%; line-height: 0; }
+.mbx-crest-art > .pt-img, .mbx-crest-art > img, .mbx-crest-art > svg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+.mbx-letter-main { min-width: 0; }
+/* the title and the first line: one 40 px tap that reads the letter */
+.mbx-read {
+  display: block; width: 100%; min-height: var(--tap-dense); margin: 0 0 6px; padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.mbx-title { display: block; font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--navy); }
+/* the letter's first line; a tap reads it all (no "…": the line fades out instead, P6) */
+.mbx-screen .mbx-letter-body {
+  display: block; margin: 2px 0 0; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: clip;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent);
+}
+.mbx-screen .mbx-letter-body.open { white-space: normal; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+.mbx-from { display: block; margin: 4px 0 0; font: 700 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+.mbx-from[hidden] { display: none; }
+.mbx-screen .mbx-rewards { gap: 8px; }
+.mbx-screen .mbx-rewards .item-tile { width: 48px !important; }
+.mbx-screen .mbx-bundle { min-height: 48px; padding: 4px 12px 4px 6px; }
+.mbx-screen .mbx-bundle b { font-size: var(--fs-label); }
+.mbx-screen .mbx-bundle small { font-size: var(--fs-label); font-weight: 700; color: var(--muted); }
+.mbx-letter-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); min-width: 84px; }
+.mbx-tag { padding-top: 6px; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.mbx-tag.claimed { color: var(--good-text); }
+.mbx-letter.k-claimed .mbx-rewards, .mbx-letter.k-expired .mbx-rewards { filter: saturate(0.35); }
+.mbx-screen .mbx-all { gap: 6px; }
+.mbx-screen .mbx-all > .btn-icon { width: 20px; height: 20px; }
+/* the designed empty state: a crest, one line, the one action that helps */
+.mbx-screen .mbx-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-5) var(--sp-3); text-align: center; color: var(--ink); }
+.mbx-empty-crest { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--pink); box-shadow: 0 0 0 3px #fff, var(--shadow); }
+.mbx-screen .mbx-empty-ico { width: 32px; height: 32px; color: var(--pink); }
+.mbx-empty-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.mbx-empty-line { margin: 0; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
+@media (max-height: 480px) {
+  .mbx-screen .mbx-letter { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 8px 10px; }
+  .mbx-crest { width: 40px; height: 40px; }
+  .mbx-screen .mbx-rewards .item-tile { width: 46px !important; }
+}
+
+/* ---------- The Mall: Midori, the shop-counter tint, six shops in the rail, every buy a cost button ---------- */
+.ma-mall-screen .ma-mall-content { min-width: 0; }
+.ma-mall-screen .ma-offers { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--sp-2); }
+.ma-mall-screen .ma-offer { padding: 10px 8px 8px; gap: 4px; }
+.ma-mall-screen .ma-offer-name { font-size: var(--fs-body); }
+.ma-mall-screen .ma-offer-stock { min-height: 1.2em; font-size: var(--fs-label); font-weight: 700; }
+.ma-mall-screen .ma-offer-need { font-size: var(--fs-label); }
+/* sold out: the card stays readable (never opacity, §5.5); only its art greys */
+.ma-mall-screen .ma-offer.sold { filter: none; opacity: 1; }
+.ma-mall-screen .ma-offer.sold .ma-offer-art { filter: grayscale(0.85); opacity: 0.55; }
+/* the ribbon reads as a sticker: navy letters on sakura pink */
+.ma-mall-screen .ma-offer-ribbon { background: var(--pink); color: var(--plate); font-size: var(--fs-label); }
+/* the cost button (§5.5): the whole card width, the currency and the exact price in the plate accent */
+.ma-mall-screen .ma-cost { width: 100%; margin-top: 2px; }
+.ma-cost .ma-cost-icon { width: var(--icon-s); height: var(--icon-s); display: inline-flex; flex: none; }
+.ma-cost .ma-cost-lock { width: 14px; height: 14px; color: var(--on-plate-dim); }
+.ma-cost.poor .num { color: var(--on-plate-dim); }
+.ma-cost:disabled .ui-cost-lbl { color: var(--on-plate-dim); }
+/* the "choose family" chips: a 40 px tap each (the icon stays small) */
+.ma-mall-screen .ma-fam-chips { gap: 4px; }
+.ma-mall-screen .ma-fam-chip { position: relative; width: 28px; height: 28px; }
+.ma-mall-screen .ma-fam-chip::before { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+.ma-mall-screen .ma-shelf-title { justify-content: flex-start; flex-wrap: wrap; font-size: var(--fs-body); }
+.ma-mall-screen .ma-shelf-title > .ui-cd { margin-left: auto; }
+/* the token wallet, once: one ink chip in the plate header; a tap goes where the tokens are earned */
+.ma-wallet {
+  display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap-dense); padding: 0 12px;
+  border: 1px solid var(--plate-line); border-radius: calc(var(--tap-dense) / 2); background: rgba(255, 255, 255, 0.08); color: var(--on-plate); cursor: pointer;
+}
+.ma-wallet-one { display: inline-flex; align-items: center; gap: 4px; }
+.ma-wallet-icon { width: 22px; height: 22px; display: inline-flex; }
+.ma-wallet-val { font-size: var(--fs-num-s); color: var(--on-plate); }
+.ma-mall-screen .ma-empty-state p { font-size: var(--fs-body); }
+
+/* ---------- Happening Now (#/rewards): Suzu, In Progress · Coming Up · Free pulls ---------- */
+.hn-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hn-row {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 64px; padding: 8px 10px; border-radius: 10px; background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line), 0 2px 6px rgba(29, 78, 137, 0.08);
+}
+.hn-ico {
+  width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; flex: none;
+  border-radius: 8px; background: var(--plate); color: var(--on-plate); box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(14, 25, 48, 0.18);
+}
+.hn-ico.art { background: var(--sky-2); }
+.hn-ico.art > img { width: 100%; height: 100%; object-fit: cover; }
+.hn-ico-glyph { width: 24px; height: 24px; display: inline-flex; }
+.hn-ico-item { width: 36px; height: 36px; display: inline-flex; }
+.hn-text { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hn-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.hn-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.hn-line-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.hn-line { font: 500 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+.hn-lock { display: inline-flex; align-items: center; gap: 4px; font: 700 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+.hn-lock-ico { width: 14px; height: 14px; }
+.hn-row.locked .hn-ico { filter: grayscale(0.7); }
+/* the off-season band (E9) opens In Progress when nothing limited is running */
+.hn-screen .ui-offseason { min-height: 132px; margin-bottom: var(--sp-2); border-radius: 10px; }
+.hn-screen .ui-offseason-band { flex-wrap: wrap; }
+.hn-screen .ui-offseason-text { text-align: center; }
+.hn-screen .ui-offseason-band .btn.ui-sec { min-height: var(--tap-dense); }
+/* Free pulls: three numbers + MORE, then the recurring sources as bars */
+.hn-free { display: flex; flex-direction: column; gap: var(--sp-3); }
+.hn-chart .hn-row { min-height: 56px; }
+.hn-src-name { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+.hn-bar { position: relative; height: 10px; border-radius: 5px; background: var(--sky-1); overflow: hidden; }
+.hn-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--sky-3), var(--blue)); }
+.hn-src-n { min-width: 44px; text-align: right; font-size: var(--fs-num-s); color: var(--navy); }
+.hn-sheet { display: flex; flex-direction: column; gap: var(--sp-2); font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink); }
+.hn-sheet p, .hn-sheet h4 { margin: 0; }
+.hn-sheet h4 { margin-top: var(--sp-2); font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.hn-sheet .ma-table { width: 100%; font-size: var(--fs-body); }
+.hn-sheet .ma-table th { font-size: var(--fs-label); }
+.hn-sheet .ma-table .muted { font-size: var(--fs-label); }
+.hn-you { margin: 0; padding-left: 1.2em; }
+@media (max-height: 480px) {
+  .hn-row { grid-template-columns: 44px minmax(0, 1fr) auto; min-height: 56px; padding: 6px 8px; }
+  .hn-ico { width: 44px; height: 44px; }
+}
+
+/* ---------- Settings: five sections in the rail over one scrolling column (no host); descriptions behind "i" ---------- */
+.st-screen .ls-panel.bare > .ls-list { scroll-padding-top: 0; }
+.st-screen .ma-settings { max-width: 860px; margin: 0; }
+.st-group { display: flex; flex-direction: column; gap: 0; padding-bottom: var(--sp-3); }
+.st-group > .ui-plate-head { min-height: 44px; margin-bottom: var(--sp-2); border-radius: var(--radius-plate); }
+.st-group > .panel { margin-bottom: var(--sp-2); }
+.st-group > .panel > .panel-title.st-same { display: none; }
+.st-group > .ma-version { font-size: var(--fs-label); }
+/* "i": the row's description opens under its label (P1); a reason or a live status line stays in view */
+.st-i { position: relative; width: 28px; height: 28px; min-width: 0; margin: -4px 0 -4px 6px; vertical-align: middle; background: var(--sky-1); color: var(--blue-text); box-shadow: none; }
+.st-i::before { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.st-i > .ui-ico { width: 16px; height: 16px; }
+.st-screen .st-has-i:not(.st-open) .st-desc { display: none; }
+/* a control that turned off later (Fullscreen where the browser has none): its reason shows, the "i" goes */
+.st-screen .st-has-i:has(:disabled) .st-desc { display: block; }
+.st-screen .st-has-i:has(:disabled) .st-i { display: none; }
+.st-screen .ma-set-desc { font-size: var(--fs-label); }
+/* every control a 40 px tap at least (§5.5 dense rows) */
+.st-screen .ma-seg-btn, .st-screen .ol-seg-btn { min-height: var(--tap-dense); }
+.st-screen .btn-small { min-height: var(--tap-dense); }
+.st-screen .ma-toggle::before { content: ''; position: absolute; left: 50%; top: 50%; width: 56px; height: 44px; transform: translate(-50%, -50%); }
+.st-screen .ma-slider { height: 40px; background-size: 100% 8px; background-repeat: no-repeat; background-position: center; background-color: transparent; }
+.st-screen .ma-slider-val { font-size: var(--fs-body); }
+/* (online.css's status pill reads at the floor here) */
+.st-screen .ol-pill { font-size: var(--fs-label); }
+
+/* ---------- Recruit: the admissions-hall tint behind; the pity said once; every rule at the floor ---------- */
+.ma-recruit-screen > .hub-bg { z-index: 0; }
+.ma-recruit-screen .topbar { position: relative; z-index: 5; }
+.ma-recruit-screen .screen-body { position: relative; z-index: 1; }
+.ma-banner-kicker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.ma-banner-kicker-row > .ui-cd { box-shadow: 0 0 0 1.5px #fff; }
+.ma-recruit-screen .ma-banner-kicker { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-banner-desc { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-pity-head .ma-sub, .ma-recruit-screen .ma-pity-head .muted { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-spark-row, .ma-recruit-screen .ma-spark-row .muted { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-recruit .btn-small { min-height: var(--tap-dense); }
+.ma-recruit-screen .ma-pull-note { font-size: var(--fs-label); opacity: 1; }
+.ma-recruit-screen .ma-ticket-pill.zero { opacity: 1; filter: saturate(0.3); }
+.ma-history-total { margin: 0 0 var(--sp-2); font-size: var(--fs-label); }

@@ -2,6 +2,7 @@
 // (hosts.js), what she says in this state (hostLines.js) and her stand or bust chip (host.js). Every hub places her
 // for its mode: the stand in her column, the chip in a header row with no column at all (placeHost), runs the
 // collapse rule with its real layout (hubMode), pins the mode and moves her when a resize flips it (watchHostMode).
+// UI M5c: the list screens' host (listHost, listMode): the same pieces, kind 'list', on the right of the list.
 import { UNIT_MAP } from '../data/units.js';
 import { hostStand, hostMode } from './host.js';
 import { hostFor } from './hosts.js';
@@ -17,6 +18,26 @@ import { linesFor } from './hostLines.js';
 export function hubHost(screen, profile, { state = {}, guest = null, mode = null, testid = 'host' } = {}) {
   const unit = UNIT_MAP[hostFor(screen, profile, { guest })];
   return hostStand(unit, { lines: linesFor(screen, state), kind: 'hub', mode, testid });
+}
+
+/**
+ * UI M5c: a list screen's host (E1 on the E3 list screens: the Mailroom, the Mall, Happening Now). Kind 'list': her
+ * stand on the RIGHT at 26% (phones) / 30% (desktop), so the left rail and the list keep the left thumb.
+ * @param {string} screen 'mail' | 'mall' | 'happening' (hosts.js HOSTS)
+ * @param {object} profile the save
+ * @param {{ state?: object, mode?: 'stand'|'chip'|null, testid?: string }} [o]
+ */
+export function listHost(screen, profile, { state = {}, mode = null, testid = 'host' } = {}) {
+  const unit = UNIT_MAP[hostFor(screen, profile)];
+  return hostStand(unit, { lines: linesFor(screen, state), kind: 'list', mode, testid });
+}
+
+/** The left rail's width on the list screens (hubs.css --ls-rail-w): phones (max-height 480 px) / larger. */
+export const LIST_RAIL_W = Object.freeze({ phone: 128, desk: 168 });
+
+/** Pure: the stand or the chip for a list screen (the collapse rule of host.js, with the rail's width). */
+export function listMode({ vw, vh }) {
+  return hostMode({ vw, vh, kind: 'list', railW: vh <= 480 ? LIST_RAIL_W.phone : LIST_RAIL_W.desk }).mode;
 }
 
 /** The viewport now (the collapse rule's input). */

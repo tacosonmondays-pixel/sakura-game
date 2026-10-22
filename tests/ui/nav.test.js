@@ -54,6 +54,15 @@ describe('parentRoute: the back arrow target', () => {
     expect(parentRoute('stage', { id: 'no-such-stage' }, null).name).toBe('campaign');
   });
 
+  it('the Mailroom (#/mail, UI M5c) has no fixed parent: back to where it was opened, else the lobby', () => {
+    for (const prev of [r('lobby'), r('journal'), r('event', { id: 'halloween-2026', tab: 'gifts' }), r('missions')]) {
+      expect(parentRoute('mail', { tab: 'history' }, prev)).toBe(prev);
+    }
+    expect(parentRoute('mail', {}, null)).toEqual(r('lobby'));
+    expect(parentRoute('mail', {}, r('battle', { stage: '1-1' }))).toEqual(r('lobby'));
+    expect(menuAncestors('mail')).toEqual(['lobby']);
+  });
+
   it('other screens go back to the previous screen, never to a battle', () => {
     expect(parentRoute('settings', {}, r('student', { id: 'aoi' }))).toEqual(r('student', { id: 'aoi' }));
     expect(parentRoute('settings', {}, r('battle', { stage: '1-1' }))).toEqual(r('lobby'));

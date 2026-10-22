@@ -12,7 +12,7 @@ export const HOST_STATE_AXES = Object.freeze({
   assault: { locked: [false, true] },
   titans: { locked: [false, true], keys: [undefined, 0, 1, 12], newWeek: [false, true] },
   mall: { restockSoon: [false, true] },
-  mail: { gifts: [undefined, 0, 1, 2, 140] },
+  mail: { gifts: [undefined, 0, 1, 2, 140], expiring: [undefined, false, true] },
   happening: { running: [undefined, 0, 1, 3, 12], endingSoon: [undefined, 'Halloween', 'Pumpkin Lantern Night', LONG] },
   multiplayer: { invites: [undefined, 0, 1, 4] },
 });

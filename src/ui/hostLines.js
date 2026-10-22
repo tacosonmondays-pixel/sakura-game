@@ -96,6 +96,7 @@ export const LINES = Object.freeze({
   mail: (s) => {
     const gifts = count(s.gifts);
     return [
+      gifts > 0 && s.expiring && 'A gift expires soon!', // (UI M5c: a gift under 24 h)
       gifts > 0 && many(gifts, 'A letter has a gift!', '# letters have gifts!'),
       gifts > 0 && 'Don\'t forget to claim!',
       gifts === 0 && 'All caught up, Sensei!',

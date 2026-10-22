@@ -57,6 +57,7 @@ const CLAIMS = {
     [/^Take your time!$/, always],
   ],
   mail: [
+    [/^A gift expires soon!$/, (s) => n(s.gifts) > 0 && !!s.expiring],
     [/^A letter has a gift!$/, (s) => n(s.gifts) === 1],
     [/^(\d+) letters have gifts!$/, (s, m) => n(s.gifts) === Number(m[1]) && n(s.gifts) > 1],
     [/^Don't forget to claim!$/, (s) => n(s.gifts) > 0],

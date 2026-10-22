@@ -65,7 +65,8 @@ export function escapeStep(doc = document) {
     return true;
   }
   if (doc.querySelector('.ui-layer:not(.closing)')) return false; // a sheet closes through its own onEscape
-  const backBtn = [...doc.querySelectorAll('#app [data-testid="back"]')].find(visible);
+  // (the Mailroom's arrow keeps the old modal's test id, mail-close: UI M5c)
+  const backBtn = [...doc.querySelectorAll('#app [data-testid="back"], #app .topbar-back')].find(visible);
   if (backBtn) {
     backBtn.click();
     return true;

@@ -174,6 +174,18 @@ export const PAIRS = [
   ['--ink', ['white'], 'Commissions: a reward count under its tile ("×3,000")', 4.5],
   ['--on-plate', ['--plate'], 'Commissions: the open tab word on the ink rail plate', 4.5],
   ['--ink', ['black', 'rgba(24, 58, 112, 0.48)', 'rgba(255, 255, 255, 0.72)'], 'Commissions: an inactive tab word on the rail over the staff-room painting (worst case: a black pixel under the hub shade)', 4.5],
+  // UI M5c list screens (hubs.css "M5c": the Mailroom, the Mall, Happening Now, Settings, Recruit; events.css E9)
+  ['--navy', ['--sky-3', 'rgba(255, 255, 255, 0.9)'], 'list screens: a row title or the empty state\'s title on the list panel\'s glass (over --sky-3)', 4.5],
+  ['--ink', ['white'], 'Mailroom: a letter\'s first line; Happening Now: a row\'s one line', 4.5],
+  ['--muted', ['white'], 'Mailroom: "Notice" / "Expired", who sent a letter and when; Happening Now: why a row is locked', 4.5],
+  ['--good-text', ['white'], 'Mailroom: the "Claimed" tag on a History row', 4.5],
+  ['--on-plate', ['--plate', 'rgba(255, 255, 255, 0.08)'], 'Mall: the token wallet\'s balance in its chip on the plate header', 4.5],
+  ['--on-plate-dim', ['--plate'], 'Mall: a price short of the balance (with its lock) / "Sold out" on a cost button', 4.5],
+  ['--plate', ['--pink'], 'Mall: the Hot / SSR ribbon on an offer (navy on sakura pink)', 4.5],
+  ['--blue-text', ['--sky-1'], 'Settings: the "i" beside a row\'s label', 4.5],
+  ['--plate-accent', ['--sky-3', '--plate-glass'], 'off-season band (E9): the next date over a light painting', 4.5],
+  ['--plate-accent', ['--plate-glass', '--plate-glass'], 'off-season band (E9): the next date over a dark painting', 4.5],
+  ['white', ['#b81d3b'], 'event page: the DEV CLOCK badge (dev builds only)', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],

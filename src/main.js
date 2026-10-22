@@ -32,7 +32,8 @@ registerRoute('challenge', () => import('./ui/screens/challenge.js'));
 registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));
 registerRoute('commissions', () => import('./ui/screens/commissions.js'));
-registerRoute('rewards', () => import('./ui/screens/rewards.js'));
+registerRoute('rewards', () => import('./ui/screens/rewards.js')); // [ui-m5] Happening Now (the route name stays)
+registerRoute('mail', () => import('./ui/screens/mail.js')); // [ui-m5] the Mailroom (it replaced the Mail modal): #/mail?tab=…
 registerRoute('event', () => import('./ui/screens/event.js')); // [events] limited event page: #/event/<id>?tab=…
 registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));

@@ -33,6 +33,8 @@ const PARENTS = {
   coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
   // [social] a conversation (#/messages/<threadId> or /new) → the Messages list → the lobby
   messages: (p) => (p.id ? 'messages' : 'lobby'),
+  // [ui-m5] the Mailroom (#/mail) has no fixed parent on purpose: it opens from the lobby, the Menu, the Notice, the
+  // Journal and event pages, and its arrow goes back there (the lobby when nothing is below it)
 };
 
 const fixedParent = (name, params = {}) => {

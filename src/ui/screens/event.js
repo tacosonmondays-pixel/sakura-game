@@ -2,6 +2,9 @@
 // Header card (kicker, title, phase chip, balance), then tabs: Story, Operations, Missions, Exchange,
 // Gifts. Locked / upcoming / exchange-only / ended states. Built from the existing components and
 // tokens (src/ui/styles/events.css only adds the event colours and the card layouts).
+// UI M5c (docs/specs/UI_DIRECTION.md §5.10 E9): between seasons (the upcoming and ended phases only; the live and
+// exchange phases are untouched) the content opens on the off-season band: the event's painting full-bleed, one ink
+// band with one sentence and the next date (upcoming: its "Opens in" chip; ended: the next festival, when one is teased).
 import '../styles/meta-a.css';
 import '../styles/events.css';
 import '../styles/hubs.css';
@@ -10,7 +13,7 @@ import { screen, panel, tabs, button, svgEl, toast, modal, itemTile } from '../c
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { countdownChip } from '../kit.js';
+import { countdownChip, offSeasonBand } from '../kit.js';
 import { eventPhaseChip } from '../events/lobby.js';
 import { eventById } from '../../data/events/index.js';
 import { STAGE_MAP } from '../../data/stages.js';
@@ -27,7 +30,7 @@ import { itemCount } from '../../systems/inventory.js';
 import {
   eventPhase, eventWindow, eventUnlocked, windowText, episodeRows, readEpisode, eventStageStatus, missionRows,
   claimEventMission, claimAllEventMissions, shopRows, buyEventOffer, loginRows, markEventLogin, settleEvents, endedSummary,
-  eventDifficultyStatus,
+  eventDifficultyStatus, listEvents,
 } from '../../systems/events.js';
 import { openMailbox } from '../lobby/mailbox.js';
 import { rewardTiles } from './stage.js';
@@ -112,8 +115,11 @@ export function render(root, params = {}) {
     const now = eventNow();
     const phase = eventPhase(ev, now, store.profile);
     if (phase === 'upcoming') {
-      // the intro is story copy ({name:hikari} tokens): resolved here, outside the scene player
-      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens soon. `, countdownChip(eventWindow(ev).startAt - now, { label: 'Opens in', cls: 's', now: eventNow, urgent: false, doneText: 'Open now', onDone: phaseTurn })), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
+      // [ui-m5] E9: the band says when it opens (the chip); the intro is story copy ({name:hikari} tokens): resolved
+      // here, outside the scene player
+      const band = offSeasonBand({ text: `${ev.name} opens soon.`, art: seasonArt(ev), testid: 'event-upcoming' });
+      band.querySelector('.ui-offseason-band').append(countdownChip(eventWindow(ev).startAt - now, { label: 'Opens in', cls: 's', now: eventNow, urgent: false, doneText: 'Open now', onDone: phaseTurn, testid: 'event-opens' }));
+      content.append(band, panel('Coming soon', h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
       return;
     }
     if (!eventUnlocked(store.profile, ev) && phase === 'active') {
@@ -121,7 +127,7 @@ export function render(root, params = {}) {
         button('Go to Missions', { kind: 'yellow', icon: 'teleport', onClick: () => navigate('missions') })));
       return;
     }
-    if (phase === 'ended') content.appendChild(panel('Thanks for coming!', h('p', { 'data-testid': 'event-ended' }, endedSummary(store.profile, ev))));
+    if (phase === 'ended') content.appendChild(endedBand(ev, now)); // [ui-m5] E9
     const draw = { story: storyTab, stages: stagesTab, missions: missionsTab, exchange: exchangeTab, gifts: giftsTab }[tab];
     content.appendChild(draw(ev, phase, now, refresh));
   }
@@ -153,6 +159,37 @@ export function render(root, params = {}) {
     off();
     clearInterval(timer);
   };
+}
+
+// ---------------------------------------------------------------------------
+// Between seasons (UI M5c, E9)
+// ---------------------------------------------------------------------------
+
+/** "Dec 18" on the player's own clock. */
+const shortDate = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+/** The event's painting, full-bleed behind the off-season band (the hubArt.js backdrop's look). */
+function seasonArt(ev) {
+  return h('div.hub-bg.ev-season-art', { 'aria-hidden': 'true' },
+    h('img.hub-bg-img', { src: lobbyArtUrl(ev.theme?.fallbackArt || 'academy.webp'), alt: '', decoding: 'async', draggable: false }),
+    h('i.hub-bg-shade'));
+}
+
+/**
+ * The ended phase's band: one sentence (thanks, and what the player took home) and the next festival's date when one
+ * is teased. Its sentence keeps the old summary's test id (event-ended).
+ */
+function endedBand(ev, now) {
+  const next = listEvents(store.profile, now).filter((r) => r.phase === 'upcoming' && r.ev.id !== ev.id)
+    .map((r) => ({ name: r.ev.name, at: eventWindow(r.ev).startAt })).sort((a, b) => a.at - b.at)[0] || null;
+  const band = offSeasonBand({
+    text: `Thanks for coming! ${endedSummary(store.profile, ev)}.`,
+    date: next ? `Next: ${next.name}, ${shortDate(next.at)}` : null,
+    art: seasonArt(ev),
+    testid: 'event-season-ended',
+  });
+  band.querySelector('.ui-offseason-text')?.setAttribute('data-testid', 'event-ended');
+  return band;
 }
 
 // ---------------------------------------------------------------------------

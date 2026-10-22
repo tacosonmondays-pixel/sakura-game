@@ -5,8 +5,16 @@
 //
 // Results are written to the profile and saved BEFORE the animation starts, so a reload
 // mid-reveal never loses or double-charges a pull.
+//
+// UI M5c (docs/specs/UI_DIRECTION.md P7, §5.9, §5.10 E6; notes/ui-m5/PLAN.md §5 M5c), kept light (the banner redesign,
+// gacha spec G0-G2, reworks this screen): the pity count shows ONCE (the pity panel: pulls left + its bar; the banner
+// line and the "n/90 since your last SSR" line are gone; the recruits total moved into History), a countdown slot on
+// the banner for dated banners (none are dated yet), the admissions-hall tint behind (E6), and every rule ≥ 12 px.
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, modal, toast, button } from '../components.js';
+import { countdownChip } from '../kit.js';
+import { hubBackdrop } from '../hubArt.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber, formatPct } from '../../core/util.js';
@@ -25,8 +33,21 @@ import { spareFifths } from '../../systems/essence.js';
 
 const FEATURED = ['luna', 'hotaru', 'kaede', 'chika', 'hikari'];
 
+/**
+ * The banner on show. `endsAt` (epoch ms) dates a limited banner: its countdown chip sits in the banner's kicker row
+ * (a deadline: red in its last day). The standard banner never ends; the banner track adds dated ones.
+ */
+export const BANNER = Object.freeze({ id: 'standard', kicker: 'Standard Recruitment', endsAt: null });
+
+/** The banner's countdown chip, or null for an undated banner. */
+export function bannerTimer(banner = BANNER, now = Date.now()) {
+  if (!banner?.endsAt || !(banner.endsAt > now)) return null;
+  return countdownChip(banner.endsAt - now, { label: 'Ends in', cls: 's', testid: 'banner-time' });
+}
+
 export function render(root) {
   const { el, body } = screen('Recruit', { cls: 'ma-recruit-screen' });
+  el.insertBefore(hubBackdrop('recruit'), el.firstChild); // E6: the admissions hall (the academy with its tint, Q5)
   root.appendChild(el);
   let busy = false;
   let overlay = null;
@@ -138,9 +159,10 @@ function buildPage({ doPull, openSpark }) {
     // drawn key art: three featured girls' stands, the centre one in front (a three-girl banner)
     h('div.ma-banner-stands', featured.slice(0, 3).map((u, i) => h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) }))),
     h('div.ma-banner-text',
-      h('div.ma-banner-kicker', 'Standard Recruitment'),
+      h('div.ma-banner-kicker-row', h('div.ma-banner-kicker', BANNER.kicker), bannerTimer()),
       h('h2.ma-banner-title', 'Sakura Academy', h('br'), 'Open Enrollment'),
-      h('p.ma-banner-desc', 'Every student and guardian is in the pool. SSR rate 1.5% — guaranteed within 90 recruits.'),
+      // [ui-m5] the pity is said once, in the pity panel (P7)
+      h('p.ma-banner-desc', 'Every student and guardian is in the pool. SSR rate 1.5%.'),
       h('div.ma-banner-featured', featured.map((u) => h('span.ma-feat-chip', svgEl(roleIcon(u.role), 'ma-trait'), u.name))),
       h('div.ma-banner-links',
         button('Rates', { kind: 'ghost', small: true, icon: 'info', testid: 'rates', onClick: showRates }),
@@ -153,10 +175,11 @@ function buildPage({ doPull, openSpark }) {
   // Side: pity + spark + tickets
   const pityPct = (g.pity || 0) / GACHA.pity;
   const side = h('section.ma-recruit-side',
-    h('div.ma-pity.panel',
+    // [ui-m5] the pity, once: the pulls left and the bar (the "n/90 since your last SSR" line went; the recruits
+    // total is in History)
+    h('div.ma-pity.panel', { 'data-testid': 'pity' },
       h('div.ma-pity-head', h('span.ma-sub', 'SSR pity'), h('b.ma-pity-left', { 'data-testid': 'pity-left' }, `${left}`), h('span.muted', left === 1 ? 'pull to a guaranteed SSR' : 'pulls to a guaranteed SSR')),
-      h('div.ma-progress', h('i', { style: { width: `${Math.round(pityPct * 100)}%` } })),
-      h('div.ma-pity-foot.muted', `${g.pity || 0}/${GACHA.pity} since your last SSR · ${formatNumber(g.totalPulls || 0)} recruits total`),
+      h('div.ma-progress', { role: 'img', 'aria-label': `${g.pity || 0} of ${GACHA.pity} pulls since your last SSR` }, h('i', { style: { width: `${Math.round(pityPct * 100)}%` } })),
     ),
     h('div.ma-spark.panel',
       h('div.ma-pity-head', h('span.ma-sub', 'Recruit points'), h('b.ma-pity-left', formatNumber(g.recruitPoints || 0)), h('span.muted', `/ ${GACHA.sparkCost} to spark an SSR`)),
@@ -263,15 +286,16 @@ function showRates() {
 
 function showHistory() {
   const hist = [...(store.profile.gacha?.history || [])].reverse();
+  const total = store.profile.gacha?.totalPulls || 0;
   modal({
     title: 'Recruit history',
     body: hist.length
-      ? h('ul.ma-history', hist.map((e) => h(`li.r-${e.rarity}`,
+      ? h('div', h('p.muted.ma-history-total', { 'data-testid': 'history-total' }, `${formatNumber(total)} recruit${total === 1 ? '' : 's'} in all`), h('ul.ma-history', hist.map((e) => h(`li.r-${e.rarity}`,
         h('span.ma-r-badge', { style: { background: UNIT_RARITIES[e.rarity]?.color } }, e.rarity),
         h('b', UNIT_MAP[e.unitId]?.name || e.unitId),
         e.spark ? h('span.chip', 'Spark') : null,
         h('span.muted', new Date(e.at).toLocaleString()),
-      )))
+      ))))
       : h('div.ma-empty-state', svgEl(uiIcon('gacha')), h('p', 'No recruits yet — your first student is waiting!')),
     actions: [{ label: 'Close', kind: 'primary' }],
   });
