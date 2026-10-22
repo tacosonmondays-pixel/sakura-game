@@ -549,8 +549,14 @@ function continueChip(profile) {
 function buildEventCard(host) {
   const chip = continueChip(store.profile);
   if (chip) host.appendChild(chip);
+  // [ui-m5] a card's chip that reaches zero on screen redraws the card (the next phase, the next week's arena)
+  const redraw = () => {
+    if (!host.isConnected) return;
+    clear(host);
+    buildEventCard(host);
+  };
   // [events] a running limited event takes the card; the weekly double-drop keeps it otherwise
-  const limited = eventLobbyCard();
+  const limited = eventLobbyCard({ onPhaseEnd: redraw });
   if (limited) {
     host.appendChild(limited);
     return;
@@ -564,8 +570,9 @@ function buildEventCard(host) {
       h('div.lb-ev-shade'),
     ),
     h('span.lb-ev-kicker', 'EVENT!'),
-    // [ui-m5] the time left is the countdown chip (§5.9): the double drops end with the week
-    h('div.lb-ev-text', h('b', event.name), h('div.lb-ev-sub', h('small', `${event.dropMul}× drops`), countdownChip(msToLocalWeekEnd(), { cls: 's', testid: 'event-strip-time' }))),
+    // [ui-m5] the time left is the countdown chip (§5.9): the double drops end with the week, and a new arena takes
+    // over (a recurring cycle: never red)
+    h('div.lb-ev-text', h('b', event.name), h('div.lb-ev-sub', h('small', `${event.dropMul}× drops`), countdownChip(msToLocalWeekEnd(), { cls: 's', urgent: false, doneText: 'New week!', onDone: redraw, testid: 'event-strip-time' }))),
   ));
 }
 

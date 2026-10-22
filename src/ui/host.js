@@ -4,8 +4,9 @@
 // - Width: 'hub' screens up to 35% of the width (295 px at 844, 448 px at 1280); 'list' screens up to 26% on
 //   phones and 30% on desktop, standing on the RIGHT so the left rail and the list keep the left thumb. Detail
 //   screens are not hosts (their art band keeps 28%).
-// - The bubble: white glass, radius 24, a tail, ONE line of at most 60 characters in --fs-body 700 over her lower
-//   third, never over the list. aria-live polite. A tap shows the next line. Reduce motion: no bounce.
+// - The bubble: white glass, radius 24, a tail, ONE line in --fs-body 700 over her lower third, never over the list
+//   (at most 34 characters on a hub, 24 on a list: hostLines.js MAX_LINE, measured by e2e/m5-kit.mjs). aria-live
+//   polite. A tap shows the next line. Reduce motion: no bounce.
 // - The collapse rule: when the list or grid column would drop under 420 px, or the content window under 300 px,
 //   she becomes a 96 px bust chip with the same bubble beside it (data-mode="chip"); the screen places the chip in a
 //   spare row (a header or the footer by its primary button), never over the list.
@@ -48,7 +49,8 @@ export function hostMode({ vw, vh, kind = 'hub', railW = 0, gutters = 56, conten
  * @returns {HTMLElement & { setLines(lines: string[]): void, line(): string, mode(): string }}
  */
 export function hostStand(unit, { lines = [], kind = 'hub', railW = 0, gutters = 56, contentH = null, forceChip = false, onLine = null, testid = 'host' } = {}) {
-  let list = (lines || []).filter(lineOk);
+  const fits = (l) => lineOk(l, kind === 'list' ? 'list' : 'hub');
+  let list = (lines || []).filter(fits);
   let i = 0;
   const text = h('span.ui-host-line');
   const bubble = h('button.ui-host-bubble', { type: 'button', 'aria-live': 'polite', 'data-testid': `${testid}-bubble` }, text);
@@ -94,7 +96,7 @@ export function hostStand(unit, { lines = [], kind = 'hub', railW = 0, gutters =
   }
   show(false);
   el.setLines = (next) => {
-    list = (next || []).filter(lineOk);
+    list = (next || []).filter(fits);
     i = 0;
     show(false);
   };

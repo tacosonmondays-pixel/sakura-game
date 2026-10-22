@@ -13,15 +13,18 @@ import { lanternString } from './art.js';
 
 /**
  * [ui-m5] An event's phase as the countdown chip (UI_DIRECTION §5.9): "Opens in 2d 4h", "Ends in 6d 4h",
- * "Exchange 3d 2h" (the time left to trade), or a plain "Ended". It counts on the event clock (clock.js).
- * @param {{ testid?: string|null, cls?: string }} [o]
+ * "Exchange 3d 2h" (the time left to trade), or a plain "Ended". It counts on the event clock (clock.js). The end and
+ * the exchange are deadlines (red in the last day); an opening loses nothing (never red). At zero it says "Open now",
+ * "Ended" or "Closed" alone, and `onDone` lets the screen draw the next phase.
+ * @param {{ testid?: string|null, cls?: string, onDone?: Function|null }} [o]
  */
-export function eventPhaseChip(ev, phase, now = eventNow(), { testid = null, cls = '' } = {}) {
+export function eventPhaseChip(ev, phase, now = eventNow(), { testid = null, cls = '', onDone = null } = {}) {
   const w = eventWindow(ev);
   const at = phase === 'upcoming' ? w.startAt : phase === 'active' ? w.endAt : phase === 'exchange' ? w.exchangeEndAt : null;
   if (at == null) return h(`span.ev-phase.ph-${phase}`, { 'data-testid': testid }, 'Ended');
   const label = phase === 'upcoming' ? 'Opens in' : phase === 'active' ? 'Ends in' : 'Exchange';
-  return countdownChip(at - now, { label, testid, cls, now: eventNow, doneText: phase === 'upcoming' ? 'Open' : 'Ended' });
+  const doneText = phase === 'upcoming' ? 'Open now' : phase === 'active' ? 'Ended' : 'Closed';
+  return countdownChip(at - now, { label, testid, cls, now: eventNow, urgent: phase !== 'upcoming', doneText, onDone });
 }
 
 /** The day's event visit from the lobby (a player who just cleared the unlock stage gets today's gift). */
@@ -31,8 +34,11 @@ export function lobbyEventVisit() {
   if (a.letters.length || a.settled.length || b.letters.length) store.commit('event');
 }
 
-/** The EVENT card for the featured limited event, or null (the weekly card shows instead). */
-export function eventLobbyCard() {
+/**
+ * The EVENT card for the featured limited event, or null (the weekly card shows instead).
+ * @param {{ onPhaseEnd?: Function|null }} [o] onPhaseEnd: its chip reached zero (the lobby redraws the card)
+ */
+export function eventLobbyCard({ onPhaseEnd = null } = {}) {
   const f = featuredEvent(store.profile, eventNow());
   if (!f) return null;
   const { ev, phase } = f;
@@ -49,7 +55,7 @@ export function eventLobbyCard() {
     h('div.lb-ev-shade'),
   ),
   h('span.lb-ev-kicker', 'EVENT!'),
-  h('div.lb-ev-text', h('b', ev.name), h('div.lb-ev-sub', eventPhaseChip(ev, phase, eventNow(), { cls: 's', testid: 'event-card-time' }))));
+  h('div.lb-ev-text', h('b', ev.name), h('div.lb-ev-sub', eventPhaseChip(ev, phase, eventNow(), { cls: 's', testid: 'event-card-time', onDone: onPhaseEnd }))));
 }
 
 /** Lanterns across the top and two pumpkins at the bottom corners, while an event with decor runs. */

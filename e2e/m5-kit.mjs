@@ -1,11 +1,14 @@
 // UI M5a: the shared hub kit on its own page (e2e/fixtures/m5-kit.html), at 844x390 (touch) and 1280x720 (mouse):
 //   1. the probe (e2e/probe.mjs) passes on every rail section and on the hub and chip views
 //   2. the left rail: sections ≥ 44 px tall, tab-<id> test ids, the active one an ink slab with yellow text, red dots only
-//   3. the countdown chip: "6d 4h", "6d", "11h", "24h", "12:05"; red (--bad-on-plate) under 24 h only
-//   4. the badge vocabulary: red dot, red number, n/m, In Progress, NEW, yellow dot, navy New, Open!
-//   5. the host: her width share (26% / 30% on a list, ≤ 35% on a hub), the bubble ≤ 60 characters and clear of the
-//      list, a tap shows the next line, no bounce under Reduce motion; the collapse rule's 96 px bust chip
+//   3. the countdown chip: "6d 4h", "6d", "11h", "24h", "12:05"; red (--bad-on-plate) under 24 h only on a deadline,
+//      never on a recurring reset (urgent: false); at zero the done word alone ("Ended", no label)
+//   4. the badge vocabulary: red dot, red number, n/m, In Progress, NEW, yellow dot, navy New, Open!, ink Coming soon
+//   5. the host: her width share (26% / 30% on a list, ≤ 35% on a hub), EVERY line of every screen in every state
+//      (tests/fixtures/hostStates.js) on one line in her bubble, the bubble clear of the list, a tap shows the next
+//      line, no bounce under Reduce motion; the collapse rule's 96 px bust chip
 //   6. keyboard hints hidden on touch, shown with a mouse; Space presses the one [data-primary], Esc the back arrow
+//   7. the hub view's locked tiles: PvP "Coming soon" (lock, Rival Run inside, no NEW flag), Titan Co-op "Soon"
 //
 //   node e2e/m5-kit.mjs [--viewport 844x390] [--shots <dir>]
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 on any failure.
@@ -41,6 +44,8 @@ async function open(page, query = '') {
   await page.waitForFunction(() => document.body?.dataset.kitReady === '1', null, { timeout: 30000 });
   const err = await page.evaluate(() => document.body.dataset.kitError || '');
   if (err) throw new Error(`kit page: ${err}`);
+  // (her stand is an image: on a busy machine a shot taken before it decodes shows the bubble alone)
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete), null, { timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(250);
 }
 const rect = (page, sel) => page.evaluate((s) => {
@@ -49,6 +54,29 @@ const rect = (page, sel) => page.evaluate((s) => {
   const r = el.getBoundingClientRect();
   return { x: r.x, y: r.y, w: r.width, h: r.height };
 }, sel);
+
+/**
+ * Every line `kind` screens can say (each screen × every state in tests/fixtures/hostStates.js), shown one by one in
+ * the page's host bubble: the lines that wrap past one line box. Then the page's own lines (`back`) go back in.
+ */
+const wrappedLines = (page, kind, back) => page.evaluate(async ([k, [backScreen, backState]]) => {
+  const { LINES, linesFor, lineKind } = await import('/src/ui/hostLines.js');
+  const { hostStates } = await import('/tests/fixtures/hostStates.js');
+  const host = document.querySelector('.ui-host');
+  const span = host.querySelector('.ui-host-line');
+  const all = new Set();
+  for (const screen of Object.keys(LINES)) if (lineKind(screen) === k) for (const s of hostStates(screen)) for (const l of linesFor(screen, s)) all.add(l);
+  const out = { count: all.size, wrapped: [], widest: 0 };
+  for (const line of all) {
+    host.setLines([line]);
+    const boxes = span.getClientRects().length;
+    out.widest = Math.max(out.widest, Math.round(span.getBoundingClientRect().width));
+    if (boxes !== 1) out.wrapped.push(`${line} (${boxes} lines)`);
+  }
+  host.setLines(linesFor(backScreen, backState));
+  out.bubbleW = Math.round(host.querySelector('.ui-host-bubble').getBoundingClientRect().width);
+  return out;
+}, [kind, back]);
 
 try {
   for (const vp of viewports) {
@@ -89,15 +117,19 @@ try {
         check(railInfo.some((t) => t.dot) && !railInfo.some((t) => t.count), 'rail: red dots only, never a count');
 
         // ---- 3. the countdown chips ----
-        const cds = await page.evaluate(() => Object.fromEntries(['cd-days', 'cd-day', 'cd-hours', 'cd-urgent', 'cd-minutes'].map((id) => {
+        const cds = await page.evaluate(() => Object.fromEntries(['cd-days', 'cd-day', 'cd-hours', 'cd-urgent', 'cd-minutes', 'cd-done'].map((id) => {
           const el = document.querySelector(`[data-testid="${id}"]`);
           const t = el?.querySelector('.ui-cd-time');
-          return [id, { text: t?.textContent, urgent: el?.classList.contains('urgent'), color: t ? getComputedStyle(t).color : null }];
+          const lb = el?.querySelector('.ui-cd-lbl');
+          return [id, { text: t?.textContent, urgent: el?.classList.contains('urgent'), color: t ? getComputedStyle(t).color : null, label: lb ? getComputedStyle(lb).display !== 'none' : false, aria: el?.getAttribute('aria-label'), visible: el ? el.innerText.replace(/\s+/g, ' ').trim() : '' }];
         })));
         check(cds['cd-days'].text === '6d 4h' && cds['cd-day'].text === '6d' && cds['cd-hours'].text === '11h' && cds['cd-urgent'].text === '24h' && cds['cd-minutes'].text === '12:05',
           `countdown: the long forms read ${Object.values(cds).map((c) => c.text).join(' · ')}`);
         check(!cds['cd-days'].urgent && !cds['cd-day'].urgent && cds['cd-days'].color === 'rgb(255, 255, 255)', 'countdown: a day or more stays white');
-        check(cds['cd-hours'].urgent && cds['cd-urgent'].urgent && cds['cd-minutes'].urgent && cds['cd-hours'].color === 'rgb(255, 128, 149)', `countdown: under 24 h the time turns --bad-on-plate (${cds['cd-hours'].color})`);
+        check(cds['cd-urgent'].urgent && cds['cd-minutes'].urgent && cds['cd-urgent'].color === 'rgb(255, 128, 149)', `countdown: a deadline under 24 h turns --bad-on-plate (${cds['cd-urgent'].color})`);
+        check(!cds['cd-hours'].urgent && cds['cd-hours'].color === 'rgb(255, 255, 255)', `countdown: a recurring reset under 24 h stays white (urgent: false; ${cds['cd-hours'].color})`);
+        check(cds['cd-done'].text === 'Ended' && !cds['cd-done'].label && cds['cd-done'].aria === 'Ended' && cds['cd-done'].visible === 'Ended',
+          `countdown: at zero the done word stands alone ("${cds['cd-done'].visible}", aria "${cds['cd-done'].aria}")`);
 
         // ---- 4. the badges ----
         await page.click('[data-testid="tab-badges"]');
@@ -109,6 +141,7 @@ try {
             dot: bg('bdg-dot'), count: q('bdg-count')?.textContent, countBg: bg('bdg-count'), prog: q('bdg-prog')?.textContent,
             inprog: q('bdg-inprog')?.textContent, inprogBg: bg('bdg-inprog'), news: q('bdg-new')?.textContent, ydot: bg('bdg-ydot'),
             newtab: q('bdg-newtab')?.textContent, newtabBg: bg('bdg-newtab'), open: q('bdg-open')?.textContent, openBg: bg('bdg-open'),
+            soon: q('bdg-soon')?.textContent, soonBg: bg('bdg-soon'), soonLock: !!q('bdg-soon')?.querySelector('svg'),
           };
         });
         check(bd.dot === 'rgb(212, 24, 59)' && bd.countBg === 'rgb(212, 24, 59)' && bd.count === '3', `badges: red dot and red number "${bd.count}" share the badge red`);
@@ -117,6 +150,7 @@ try {
         check(bd.news === 'NEW' && bd.open === 'Open!' && bd.openBg === 'rgb(255, 221, 74)', 'badges: the yellow NEW and Open! stickers');
         check(bd.ydot === 'rgb(255, 221, 74)', 'badges: the yellow dot');
         check(bd.newtab === 'New' && bd.newtabBg === 'rgb(34, 56, 92)', 'badges: the navy New tab');
+        check(bd.soon === 'Coming soon' && bd.soonBg === 'rgb(14, 25, 48)' && bd.soonLock, `badges: the ink "Coming soon" sticker with a lock (${bd.soonBg})`);
 
         // ---- 5. the host ----
         const host = await page.evaluate(() => {
@@ -126,13 +160,15 @@ try {
         });
         const want = touch ? 0.26 : 0.3;
         check(host.mode === 'stand' && Math.abs(host.share - want) < 0.01, `host: a list host stands at ${Math.round(want * 100)}% (${(host.share * 100).toFixed(1)}%)`);
-        check(host.line.length > 0 && host.line.length <= 60, `host: one line of ≤ 60 characters ("${host.line}")`);
+        check(host.line.length > 0 && host.line.length <= 24, `host: a list line of ≤ 24 characters ("${host.line}")`);
+        const listWrap = await wrappedLines(page, 'list', ['mail', { gifts: 2 }]);
+        check(listWrap.count > 0 && listWrap.wrapped.length === 0, `host: all ${listWrap.count} list-screen lines fit her ${listWrap.bubbleW} px bubble on one line (widest ${listWrap.widest} px)${listWrap.wrapped.length ? ` → wrapped: ${listWrap.wrapped.join(' | ')}` : ''}`);
         const r = await probe(page, { kind: 'list', list: '[data-probe-list]' });
         check(!r.bubbleOverList, 'host: the bubble stays clear of the list');
         await page.click('.ui-host-bubble');
         await page.waitForTimeout(60);
         const next = await page.evaluate(() => ({ line: document.querySelector('.ui-host-bubble').textContent, anim: getComputedStyle(document.querySelector('.ui-host-bubble')).animationName }));
-        check(next.line !== host.line && next.line.length <= 60, `host: a tap shows the next line ("${next.line}")`);
+        check(next.line !== host.line && next.line.length <= 24, `host: a tap shows the next line ("${next.line}")`);
         check(next.anim === 'none', `host: no bounce under Reduce motion (animation ${next.anim})`);
 
         // ---- 6. keyboard hints and keys ----
@@ -157,6 +193,21 @@ try {
         const hubFails = judge(hub);
         check(hubFails.length === 0 && hub.hostShare <= 0.355, `hub view: ${summary(hub)}${hubFails.length ? ` → ${hubFails.join(' | ')}` : ''}`);
         if (shots) await page.screenshot({ path: join(shots, `m5-kit-hub-${vp}.png`) });
+        // ---- 7. the locked tiles (owner #108) ----
+        const locked = await page.evaluate(() => {
+          const tile = (id) => {
+            const el = document.querySelector(`[data-testid="${id}"]`);
+            if (!el) return null;
+            const soon = el.querySelector('.ui-bdg.soon');
+            return { soon: soon?.textContent, lock: !!el.querySelector('.ui-ltile-lock svg'), line: el.querySelector('.ui-ltile-line')?.textContent || '', newFlag: !!el.querySelector('.ui-bdg.newtab, .ui-bdg.new'), opacity: getComputedStyle(el).opacity };
+          };
+          return { pvp: tile('kit-pvp'), titan: tile('kit-titan-coop'), anyNewFlag: !!document.querySelector('.kit-tiles .ui-bdg.newtab') };
+        });
+        check(locked.pvp?.soon === 'Coming soon' && locked.pvp.lock && locked.pvp.line === 'Rival Run inside' && !locked.pvp.newFlag && locked.pvp.opacity === '1',
+          `hub view: PvP is locked "Coming soon" with Rival Run inside, a lock, no fade (${JSON.stringify(locked.pvp)})`);
+        check(locked.titan?.soon === 'Soon' && locked.titan.lock && !locked.anyNewFlag, 'hub view: Titan Co-op wears "Soon"; no tile wears a NEW flag');
+        const hubWrap = await wrappedLines(page, 'hub', ['multiplayer', { invites: 1 }]);
+        check(hubWrap.count > 0 && hubWrap.wrapped.length === 0, `host: all ${hubWrap.count} hub-screen lines fit her ${hubWrap.bubbleW} px bubble on one line (widest ${hubWrap.widest} px)${hubWrap.wrapped.length ? ` → wrapped: ${hubWrap.wrapped.join(' | ')}` : ''}`);
         await open(page, '?view=chip');
         const chip = await page.evaluate(() => {
           const el = document.querySelector('.ui-host');

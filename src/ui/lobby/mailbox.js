@@ -74,8 +74,9 @@ export function openMailbox() {
           rewardTiles(l.rewards),
         ),
         h('div.mbx-letter-side',
-          // [ui-m5] the time left to claim is the countdown chip (§5.9; red in the last day)
-          h('span.mbx-expiry', l.expired ? 'Expired' : l.expiresAt ? countdownChip(l.expiresAt - Date.now(), { label: 'Expires', cls: 's', doneText: 'Expired', testid: `mail-expiry-${l.id}` }) : 'No expiry'),
+          // [ui-m5] the time left to claim is the countdown chip (§5.9; red in the last day: a deadline). At zero
+          // the list repaints, so an expired letter loses its Claim button at once
+          h('span.mbx-expiry', l.expired ? 'Expired' : l.expiresAt ? countdownChip(l.expiresAt - Date.now(), { label: 'Expires', cls: 's', doneText: 'Expired', onDone: () => { if (list.isConnected) paint(); }, testid: `mail-expiry-${l.id}` }) : 'No expiry'),
           l.claimable
             ? button('Claim', { kind: 'yellow', small: true, testid: `mail-claim-${l.id}`, onClick: () => claimOne(l.id) })
             : h('span.mbx-claimed', l.claimed ? 'Claimed' : ''),

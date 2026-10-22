@@ -12,6 +12,7 @@ import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
 import { countdownChip } from '../kit.js';
 import { dot, inProgress, openSticker, openModes, markOpenSeen } from '../badges.js';
+import { modesOpenNow } from '../modesOpen.js';
 import { msToLocalWeekEnd } from '../countdown.js';
 import { nextWeeklyReset } from '../../core/reset.js';
 import { navigate } from '../router.js';
@@ -49,14 +50,15 @@ export function render(root) {
 
   const draw = () => {
     clear(body);
-    body.appendChild(build());
+    body.appendChild(build(draw));
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'secretary') draw(); });
   return () => off();
 }
 
-function build() {
+/** @param {() => void} redraw the hub again (a weekly chip that reaches zero on screen: the new week's tiles) */
+function build(redraw) {
   const profile = store.profile;
   const { next, nextDef, chapter, prog, complete } = campaignStatus(profile);
   const event = currentEvent();
@@ -86,18 +88,19 @@ function build() {
     challenge: lockFor('challenge'),
     sandbox: isSandboxUnlocked(profile) ? null : `Clear ${SANDBOX_UNLOCK_CLEARS} stages`,
   };
-  const fresh = new Set(openModes(['titans', 'assault', 'challenge', 'sandbox'].filter((id) => !locks[id])));
+  // (modesOpen.js is the one rule for "open": main.js asks it too when a mode is visited by another door)
+  const fresh = new Set(openModes(modesOpenNow(profile)));
   const go = (id, route = id) => () => {
-    markOpenSeen(id);
+    markOpenSeen(id, undefined, { open: true });
     navigate(route);
   };
 
   const grid = h('div.ma-hub-grid',
     mission,
-    tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: locks.bounty, timer: msToLocalWeekEnd(), onClick: () => navigate('bounty') }),
+    tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: locks.bounty, timer: msToLocalWeekEnd(), onTimer: redraw, onClick: () => navigate('bounty') }),
     tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: locks.assault, open: fresh.has('assault'), onClick: go('assault') }),
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
-    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), open: fresh.has('titans'), onClick: go('titans') }),
+    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), onTimer: redraw, open: fresh.has('titans'), onClick: go('titans') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: locks.challenge, open: fresh.has('challenge'), onClick: go('challenge') }),
     // [online] 2-player real-time co-op on any unlocked campaign stage
     tile({ id: 'coop', title: 'Co-op', art: scene('festival'), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
@@ -134,7 +137,7 @@ const SMALL_TILES = new Set(['challenge', 'coop', 'sandbox', 'story', 'titans'])
  * Small tiles show a locked state as a lock line in their name plate; big tiles as a chip.
  * lockHint: a longer line for the tap toast (default: lockText).
  */
-function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, lockHint = null, ribbon = null, dot: hasDot = false, soon = false, timer = null, open = false, onClick }) {
+function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, lockHint = null, ribbon = null, dot: hasDot = false, soon = false, timer = null, onTimer = null, open = false, onClick }) {
   const locked = !!lockText;
   const small = SMALL_TILES.has(id);
   let subEl = sub ? h('span.ma-hub-sub', short ? [h('span.ma-sub-long', sub), h('span.ma-sub-short', short)] : sub) : null;
@@ -155,8 +158,9 @@ function tile({ id, title, art, kicker = null, sub = null, short = null, meta = 
     meta ? h('span.ma-hub-meta', meta) : null,
     ribbon ? h('span.tag-ribbon.ma-hub-ribbon', h('span', ribbon)) : null,
     hasDot ? dot('claim', { cls: 'notif-dot' }) : null,
-    // [ui-m5] a weekly mode's time left (the countdown chip) and the "Open!" sticker, top corners
-    timer != null && !locked ? countdownChip(timer, { cls: 's.ma-hub-timer', testid: `hub-${id}-time` }) : null,
+    // [ui-m5] a weekly mode's time left (the countdown chip: a recurring cycle, never red) and the "Open!" sticker,
+    // top corners; at zero the hub redraws with the new week
+    timer != null && !locked ? countdownChip(timer, { cls: 's.ma-hub-timer', urgent: false, doneText: 'New week!', onDone: onTimer, testid: `hub-${id}-time` }) : null,
     open && !locked ? openSticker({ cls: 'ma-hub-open', testid: `hub-${id}-open` }) : null,
     locked && !small ? h('div.ma-hub-lock', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText)) : null,
   );

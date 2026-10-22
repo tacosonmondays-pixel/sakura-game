@@ -2,10 +2,11 @@
 // classes of src/ui/styles/components.css together (stat chip, ink strip + MORE, stickers, rarity tag, tab rail,
 // icon button, gear tile), so every screen that adopts them looks the same. No styles of their own.
 // UI M5 (§5.9, §5.10) adds the hub kit at the end: the countdown chip, the left section rail, the plate header,
-// keyboard hints and the off-season band (badges: ./badges.js; the host girl: ./host.js).
+// keyboard hints, the off-season band and the locked "Coming soon" tile (badges: ./badges.js; the host girl: ./host.js).
 import { h } from './dom.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
 import { countdownState, ticker } from './countdown.js';
+import { soonSticker } from './badges.js';
 
 /** A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. */
 export function ico(nameOrSvg, cls = 'ui-ico') {
@@ -142,23 +143,32 @@ export function starRow(n, max = 5, { cls = 'ui-stars' } = {}) {
 
 /**
  * The countdown chip (§5.9, E4): an ink pill with a clock, an optional caps label and the time left from
- * fmtNum(…, 'time') ("6d 4h", "11h", "12:05"). Under 24 h the time turns --bad-on-plate (`.urgent`). The one
- * shared ticker (./countdown.js) keeps it current and lets it go once its screen is gone. The only way to write
- * "time left" on a Glance surface.
+ * fmtNum(…, 'time') ("6d 4h", "11h", "12:05"). Under 24 h the time turns --bad-on-plate (`.urgent`), for a deadline
+ * where something is lost at zero (an event's end, the exchange closing, mail expiry, limited stock). A recurring
+ * cycle (a daily or weekly reset, a restock, the next login gift) or an opening passes `urgent: false` and stays
+ * white: a daily reset is always under 24 h, and red on half the timers all day teaches players to ignore it (the
+ * M5a review; flagged to the owner as a §5.9 amendment). The one shared ticker (./countdown.js) keeps it current and
+ * lets it go once its screen is gone. The only way to write "time left" on a Glance surface.
+ *
+ * At zero the label goes and `doneText` stands alone ("Reset!", "Ended", "Expired"), never "Resets in Now"; `onDone`
+ * lets the screen redraw (the new day's list, the next phase). A chip built already at zero never calls onDone, so a
+ * redraw that lands on a stale clock cannot loop.
  * @param {number} msLeft
- * @param {{ label?: string|null, testid?: string|null, now?: () => number, doneText?: string, cls?: string,
- *   onDone?: Function|null }} [o] now: the clock it counts on (an event's preview clock); doneText: what it
- *   says at zero; onDone: called once at zero (a screen that redraws its phase)
+ * @param {{ label?: string|null, testid?: string|null, now?: () => number, doneText?: string|null, cls?: string,
+ *   urgent?: boolean, onDone?: Function|null }} [o] now: the clock it counts on (an event's preview clock);
+ *   urgent: false for a recurring reset or an opening (never red); doneText: what it says at zero (default "Reset!"
+ *   for a recurring chip, else "Ended"); onDone: called once when it reaches zero on screen
  * @returns {HTMLElement}
  */
-export function countdownChip(msLeft, { label = null, testid = null, now = () => Date.now(), doneText = 'Now', cls = '', onDone = null } = {}) {
+export function countdownChip(msLeft, { label = null, testid = null, now = () => Date.now(), doneText = null, cls = '', urgent = true, onDone = null } = {}) {
   const endsAt = now() + (Number(msLeft) || 0);
+  const done = doneText || (urgent ? 'Ended' : 'Reset!');
   const time = h('span.num.ui-cd-time');
-  const el = h(`span.ui-cd${cls ? `.${cls}` : ''}`, { 'data-testid': testid },
+  const el = h(`span.ui-cd${cls ? `.${cls}` : ''}`, { 'data-testid': testid, 'data-urgent': urgent ? null : 'off' },
     ico(KIT_SVG.clock), label ? [h('span.lbl.ui-cd-lbl', label), ' '] : null, time);
   let seen = false;
   let misses = 0;
-  let fired = false;
+  let fired = !(Number(msLeft) > 0); // (born at zero: nothing to announce)
   ticker.add({
     endsAt,
     now,
@@ -167,14 +177,15 @@ export function countdownChip(msLeft, { label = null, testid = null, now = () =>
       return !seen && ++misses < 3; // not on the page yet (built before it is attached)
     },
     update: (s) => {
-      const text = s.done ? doneText : s.text;
+      const text = s.done ? done : s.text;
       if (time.textContent !== text) time.textContent = text;
-      el.classList.toggle('urgent', s.urgent);
+      el.classList.toggle('urgent', urgent && s.urgent);
       el.classList.toggle('done', s.done);
-      el.setAttribute('aria-label', `${label ? `${label} ` : ''}${text}`);
-      if (s.done && !fired && onDone) {
+      el.setAttribute('aria-label', s.done || !label ? text : `${label} ${text}`);
+      if (s.done && !fired) {
         fired = true;
-        onDone();
+        // (only from the page: a chip its screen already replaced stays quiet)
+        if (onDone && el.isConnected) onDone();
       }
     },
   });
@@ -231,4 +242,24 @@ export function offSeasonBand({ text, date = null, art = null, testid = null }) 
   return h('div.ui-offseason', { 'data-testid': testid },
     art,
     h('div.ui-offseason-band', h('p.ui-offseason-text', text), date ? h('span.ui-offseason-date', date) : null));
+}
+
+/**
+ * A mode that is not out yet, as a hub tile (§5.4: a designed locked state, never a faded one; owner #108: the
+ * Multiplayer hub's PvP "Coming soon" with Rival Run inside, Titan Co-op "Soon"). Glass (or the mode's art under a
+ * glass veil), the ink "Coming soon" sticker at the top-left, a lock in an ink circle at the top-right, the title and
+ * one line on what is inside. A tap explains (the screen opens its sheet); it never starts anything.
+ * @param {{ title: string, line?: string|null, soon?: string, art?: HTMLElement|null, onClick?: Function|null,
+ *   testid?: string|null, cls?: string }} o line: "Rival Run inside" (or what opens it); soon: the sticker's words
+ * @returns {HTMLElement}
+ */
+export function lockedTile({ title, line = null, soon = 'Coming soon', art = null, onClick = null, testid = null, cls = '' }) {
+  return h(`button.ui-ltile${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, 'data-locked': 'soon', 'aria-label': `${title}, ${soon}${line ? `. ${line}` : ''}`, onclick: onClick,
+  },
+  art ? h('span.ui-ltile-art', { 'aria-hidden': 'true' }, art) : null,
+  soonSticker({ text: soon, testid: testid ? `${testid}-soon` : null }),
+  h('span.ui-ltile-lock', { 'aria-hidden': 'true' }, ico('lock')),
+  h('b.ui-ltile-title', title),
+  line ? h('span.ui-ltile-line', line) : null);
 }

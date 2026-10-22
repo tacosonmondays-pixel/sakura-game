@@ -99,7 +99,7 @@ export function render(root, params = {}) {
         h('div.ev-kicker', `LIMITED EVENT · ${ev.subtitle.toUpperCase()}`),
         h('h2.ev-title', ev.name),
         h('div.ev-head-row',
-          eventPhaseChip(ev, phase, now, { testid: 'event-phase', cls: 's' }), // [ui-m5] the countdown chip (§5.9)
+          eventPhaseChip(ev, phase, now, { testid: 'event-phase', cls: 's', onDone: phaseTurn }), // [ui-m5] the countdown chip (§5.9)
           h('span.ev-dates', w.dates),
           devClock ? h('span.ev-dev', { title: 'Dev preview clock (localStorage sakura-dev-now)' }, 'DEV CLOCK') : null,
         ),
@@ -113,7 +113,7 @@ export function render(root, params = {}) {
     const phase = eventPhase(ev, now, store.profile);
     if (phase === 'upcoming') {
       // the intro is story copy ({name:hikari} tokens): resolved here, outside the scene player
-      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens soon. `, countdownChip(eventWindow(ev).startAt - now, { label: 'Opens in', cls: 's', now: eventNow })), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
+      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens soon. `, countdownChip(eventWindow(ev).startAt - now, { label: 'Opens in', cls: 's', now: eventNow, urgent: false, doneText: 'Open now', onDone: phaseTurn })), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
       return;
     }
     if (!eventUnlocked(store.profile, ev) && phase === 'active') {
@@ -129,6 +129,13 @@ export function render(root, params = {}) {
   function refresh() {
     drawHeader();
     drawContent();
+  }
+  // [ui-m5] a phase chip that reaches zero on screen draws the next phase at once (the 30 s check below is the backstop)
+  function phaseTurn() {
+    if (!el.isConnected) return;
+    lastPhase = eventPhase(ev, eventNow(), store.profile);
+    visit();
+    refresh();
   }
   refresh();
   const off = store.on('change', (e) => { if (e?.reason !== 'event-ui') drawHeader(); });
@@ -263,7 +270,8 @@ function missionsTab(ev, phase, now, refresh) {
         if (r.ok) { store.commit('event'); toast(`Claimed ${r.count}: ${rewardText(r.rewards)}`, 'good', 3000); refresh(); }
       },
     })),
-    panel(['Daily ', countdownChip(rows.resetsAt - now, { label: 'Resets in', cls: 's', now: eventNow, testid: 'event-daily-reset' })], rows.daily.map(row)),
+    // [ui-m5] the event's daily reset: a recurring cycle (never red); at zero the new day's missions show
+    panel(['Daily ', countdownChip(rows.resetsAt - now, { label: 'Resets in', cls: 's', now: eventNow, urgent: false, doneText: 'Reset!', onDone: refresh, testid: 'event-daily-reset' })], rows.daily.map(row)),
     panel('Event missions', rows.total.map(row)),
   );
 }

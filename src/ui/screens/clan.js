@@ -402,8 +402,9 @@ function bossTab(backend, clan, pane) {
       if (!alive) return;
       const pct = s.maxHp ? s.hp / s.maxHp : 0;
       const left = BOSS_HITS_PER_DAY - s.myHitsToday;
-      // [ui-m5] the week's reset is the countdown chip (UI_DIRECTION §5.9); the shared ticker keeps it current
-      const reset = countdownChip(msToWeekReset(), { label: 'Resets in', cls: 's', testid: 'boss-reset' });
+      // [ui-m5] the week's reset is the countdown chip (UI_DIRECTION §5.9); the shared ticker keeps it current. A
+      // recurring cycle (never red); at zero the new week's boss loads
+      const reset = countdownChip(msToWeekReset(), { label: 'Resets in', cls: 's', urgent: false, doneText: 'Reset!', onDone: () => { if (alive) bossTab(backend, clan, pane); }, testid: 'boss-reset' });
       const fight = button(s.defeated ? 'Defeated!' : left > 0 ? `Fight (${left}/${BOSS_HITS_PER_DAY} left)` : 'Attempts recharge within 24 h', {
         kind: 'yellow', icon: 'sword', testid: 'boss-fight', disabled: s.defeated || left <= 0,
         onClick: async () => {

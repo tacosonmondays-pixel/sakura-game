@@ -49,27 +49,39 @@ function limitedSection() {
   const now = eventNow();
   const rows = listEvents(store.profile, now);
   if (!rows.length) return null;
-  return h('section.panel.ev-list', { 'data-testid': 'events-limited' },
+  // [ui-m5] a phase chip that reaches zero on screen redraws the list (the next phase, its button)
+  const turn = () => {
+    if (!sec.isConnected) return;
+    const next = limitedSection();
+    if (next) sec.replaceWith(next);
+    else sec.remove();
+  };
+  const sec = h('section.panel.ev-list', { 'data-testid': 'events-limited' },
     h('h3.panel-title', 'Limited events'),
     rows.map(({ ev, phase }) => h('div.ev-list-row',
       h('div', h('b', ev.name), h('div.muted', `${ev.subtitle} · ${windowText(ev).dates}`)),
-      eventPhaseChip(ev, phase, now, { cls: 's', testid: `events-time-${ev.id}` }), // [ui-m5] the countdown chip
+      eventPhaseChip(ev, phase, now, { cls: 's', testid: `events-time-${ev.id}`, onDone: turn }), // [ui-m5] the countdown chip
       phase === 'upcoming' ? null : button(phase === 'ended' ? 'View' : 'Go', { kind: phase === 'ended' ? 'ghost' : 'yellow', small: true, testid: `events-go-${ev.id}`, onClick: () => navigate('event', { id: ev.id }) }),
     )),
   );
+  return sec;
 }
 
 function eventSection() {
   const ev = currentEvent();
   const next = currentEvent(new Date(Date.now() + 7 * 86400000));
   const after = currentEvent(new Date(Date.now() + 14 * 86400000));
-  return h('section.ma-event',
+  // [ui-m5] the week's chip is a recurring cycle (never red); at zero the new week's arena takes the card
+  const newWeek = () => {
+    if (sec.isConnected) sec.replaceWith(eventSection());
+  };
+  const sec = h('section.ma-event',
     h('div.ma-event-card',
       h('div.ma-event-art', arenaPaint(ev.arena)),
       arenaGuest(ev.arena),
       h('div.ma-event-shade'),
       h('div.ma-event-body',
-        h('div.ma-event-kicker', h('span.ma-event-badge', 'THIS WEEK'), countdownChip(msToLocalWeekEnd(), { label: 'Ends in', cls: 's', testid: 'event-week-time' })),
+        h('div.ma-event-kicker', h('span.ma-event-badge', 'THIS WEEK'), countdownChip(msToLocalWeekEnd(), { label: 'Ends in', cls: 's', urgent: false, doneText: 'New week!', onDone: newWeek, testid: 'event-week-time' })),
         h('h2.ma-event-name', ev.name),
         h('p.ma-event-desc', ev.desc),
         h('div.ma-event-mul', h('b', `${ev.dropMul}×`), h('span', `drops in ${ev.arenaName} (all tiers, sweeps included)`)),
@@ -85,6 +97,7 @@ function eventSection() {
       h('p.muted.ma-hint', 'Events rotate every Monday. Plan your Bounty farming around the double-drop arena.'),
     ),
   );
+  return sec;
 }
 
 function incomeSection() {

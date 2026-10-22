@@ -2,7 +2,23 @@
 // at 0 unless 0 is the call to action, tabs get a red dot only, and "Open!" shows once: for a mode that opened since
 // the last look, until its first visit (never on the first look ever).
 import { describe, it, expect } from 'vitest';
-import { badgeFor, openStickers, seenOpen, openModes, openSeen, markOpenSeen, OPEN_KEY, OPEN_MODES } from '../../src/ui/badges.js';
+import { badgeFor, openStickers, seenOpen, openModes, openSeen, markOpenSeen, installOpenSeen, OPEN_KEY, OPEN_MODES } from '../../src/ui/badges.js';
+import { modesOpenNow, modeOpen } from '../../src/ui/modesOpen.js';
+import { createProfile } from '../../src/systems/save.js';
+
+const memStore = () => {
+  const map = new Map();
+  return { map, getItem: (k) => map.get(k) ?? null, setItem: (k, v) => map.set(k, String(v)) };
+};
+/** A window that only dispatches 'screenchange' (what the router sends). */
+const fakeWindow = () => {
+  const handlers = new Set();
+  return {
+    addEventListener: (type, fn) => type === 'screenchange' && handlers.add(fn),
+    removeEventListener: (type, fn) => handlers.delete(fn),
+    visit: (name) => handlers.forEach((fn) => fn({ detail: { name } })),
+  };
+};
 
 describe('badgeFor', () => {
   it('one badge per state, most important first', () => {
@@ -67,5 +83,67 @@ describe('"Open!" once', () => {
   });
   it('the modes that can wear it', () => {
     expect([...OPEN_MODES].sort()).toEqual(['assault', 'challenge', 'sandbox', 'titans']);
+  });
+
+  it('a mode visited by another door before the next Missions look never wears it (the M5a review case)', () => {
+    // known: challenge + sandbox; 3-5 is cleared (Titan Trials opens); the player goes to #/titans from the lobby
+    let m = { known: ['challenge', 'sandbox'], pending: [] };
+    m = seenOpen(m, 'titans', { open: true });
+    expect(m.known).toEqual(['challenge', 'sandbox', 'titans']);
+    expect(openStickers(['challenge', 'sandbox', 'titans'], m).show).toEqual([]);
+    // the same through storage and the screenchange listener main.js installs
+    const storage = memStore();
+    storage.setItem(OPEN_KEY, JSON.stringify({ known: ['challenge', 'sandbox'], pending: [] }));
+    const win = fakeWindow();
+    const off = installOpenSeen(win, { isOpen: (id) => id !== 'assault', storage });
+    win.visit('titans');
+    win.visit('lobby'); // (not a mode: nothing happens)
+    expect(JSON.parse(storage.getItem(OPEN_KEY))).toEqual({ known: ['challenge', 'sandbox', 'titans'], pending: [] });
+    expect(openModes(['challenge', 'sandbox', 'titans'], storage)).toEqual([]);
+    off();
+  });
+
+  it('visiting before the first Missions look ever never yields a sticker', () => {
+    const storage = memStore();
+    const win = fakeWindow();
+    installOpenSeen(win, { isOpen: () => true, storage });
+    win.visit('titans');
+    win.visit('sandbox');
+    expect(storage.getItem(OPEN_KEY)).toBe(null); // nothing learned before the first look ...
+    expect(openModes(['challenge', 'sandbox', 'titans'], storage)).toEqual([]); // ... which learns everything open
+  });
+
+  it('a visit to a locked mode\'s screen teaches nothing: it still wears "Open!" once it opens', () => {
+    const storage = memStore();
+    expect(openModes(['challenge'], storage)).toEqual([]);
+    let open = false;
+    const win = fakeWindow();
+    installOpenSeen(win, { isOpen: () => open, storage });
+    win.visit('titans'); // #/titans before 3-5: the locked screen
+    expect(JSON.parse(storage.getItem(OPEN_KEY)).known).toEqual(['challenge']);
+    open = true; // 3-5 cleared
+    expect(openModes(['challenge', 'titans'], storage)).toEqual(['titans']);
+    // a visit while it wears the sticker (by any door) takes it off for good
+    win.visit('titans');
+    expect(openModes(['challenge', 'titans'], storage)).toEqual([]);
+    expect(JSON.parse(storage.getItem(OPEN_KEY)).known).toContain('titans');
+  });
+
+  it('an isOpen that throws (no profile yet) only takes a pending sticker off', () => {
+    const storage = memStore();
+    storage.setItem(OPEN_KEY, JSON.stringify({ known: ['challenge'], pending: ['titans'] }));
+    const win = fakeWindow();
+    installOpenSeen(win, { isOpen: () => { throw new Error('no profile'); }, storage });
+    expect(() => win.visit('titans')).not.toThrow();
+    expect(JSON.parse(storage.getItem(OPEN_KEY))).toEqual({ known: ['challenge'], pending: [] });
+  });
+
+  it('modesOpen: a new save has none of them open; the order is OPEN_MODES', () => {
+    const fresh = createProfile();
+    expect(modesOpenNow(fresh)).toEqual([]);
+    expect(modeOpen(null, 'titans')).toBe(false);
+    expect(modeOpen(fresh, 'nowhere')).toBe(false);
+    const all = OPEN_MODES.filter((id) => modeOpen(fresh, id));
+    expect(modesOpenNow(fresh)).toEqual(all);
   });
 });

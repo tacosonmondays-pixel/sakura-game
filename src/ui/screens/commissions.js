@@ -8,7 +8,7 @@ import { countdownChip } from '../kit.js';
 import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
-import { formatNumber, dayKey } from '../../core/util.js';
+import { formatNumber } from '../../core/util.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS } from '../../data/missions.js';
 import { uiIcon } from '../../art/icons.js';
 import {
@@ -43,8 +43,11 @@ export function render(root, params = {}) {
   const { el, body } = screen('Commissions', { cls: 'ma-commissions-screen' });
   root.appendChild(el);
   // Midnight rollover while the game stayed open (idempotent).
-  const reset = onAppStart(store.profile);
-  if (reset.dailyReset || reset.weeklyReset) store.commit('missions');
+  const rollover = () => {
+    const reset = onAppStart(store.profile);
+    if (reset.dailyReset || reset.weeklyReset) store.commit('missions');
+  };
+  rollover();
 
   let active = TAB_IDS.includes(params.tab) ? params.tab : 'daily';
   const tabHost = h('div');
@@ -85,8 +88,14 @@ export function render(root, params = {}) {
     // the achievements tab fills the screen (its list scrolls inside, beside the category rail)
     el.classList.toggle('ach-mode', active === 'achievements');
     const panelEl = h('div.ma-comm-panel');
-    if (active === 'daily' || active === 'weekly') panelEl.appendChild(missionsView(active, draw));
-    else if (active === 'login') panelEl.appendChild(loginView(draw));
+    // [ui-m5] a reset chip that reaches zero on screen rolls the day (or week) over and redraws
+    const onReset = () => {
+      if (!el.isConnected) return;
+      rollover();
+      draw();
+    };
+    if (active === 'daily' || active === 'weekly') panelEl.appendChild(missionsView(active, draw, onReset));
+    else if (active === 'login') panelEl.appendChild(loginView(draw, onReset));
     else if (active === 'achievements') panelEl.appendChild((achView = achievementsView({ params: first ? params : {}, onChange: drawTabs })));
     else panelEl.appendChild(codesView());
     first = false;
@@ -106,7 +115,7 @@ function progressBar(progress, goal) {
   return h(`div.ma-progress${progress >= goal ? '.done' : ''}`, h('i', { style: { width: `${pct}%` } }));
 }
 
-function missionsView(kind, redraw) {
+function missionsView(kind, redraw, onReset = null) {
   const profile = store.profile;
   const list = missionList(profile)[kind];
   const claimable = list.filter((m) => m.claimable).length;
@@ -115,8 +124,8 @@ function missionsView(kind, redraw) {
   const wrap = h('div');
   wrap.appendChild(h('div.ma-comm-head',
     h('div', h('h3.ma-section-title', kind === 'daily' ? 'Daily commissions' : 'Weekly commissions'),
-      // [ui-m5] the reset is the countdown chip (§5.9)
-      h('div.muted.ma-comm-sub', `${done}/${list.length} claimed · ${gemsTotal} gems in total`, countdownChip(msUntil(kind), { label: 'Resets in', cls: 's', testid: `comm-reset-${kind}` }))),
+      // [ui-m5] the reset is the countdown chip (§5.9): a recurring cycle, never red; at zero the list rolls over
+      h('div.muted.ma-comm-sub', `${done}/${list.length} claimed · ${gemsTotal} gems in total`, countdownChip(msUntil(kind), { label: 'Resets in', cls: 's', urgent: false, doneText: 'Reset!', onDone: onReset, testid: `comm-reset-${kind}` }))),
     button(claimable ? `Claim all (${claimable})` : 'Claim all', {
       kind: 'yellow',
       icon: 'gift',
@@ -171,7 +180,7 @@ function missionsView(kind, redraw) {
   return wrap;
 }
 
-function loginView(redraw) {
+function loginView(redraw, onReset = null) {
   const profile = store.profile;
   const cal = loginCalendar(profile);
   const wrap = h('div');
@@ -202,7 +211,9 @@ function loginView(redraw) {
     ));
   });
   wrap.appendChild(grid);
-  wrap.appendChild(h('p.muted.ma-hint.ma-comm-sub', countdownChip(msUntil('daily'), { label: 'Next gift', cls: 's', testid: 'login-reset' }), `Local midnight, ${dayKey()}.`));
+  // [ui-m5] "Next gift" only once today's gift is claimed (before that, "Claim today" says it all); a recurring
+  // cycle, never red; at midnight the calendar rolls over and the new day's gift is claimable
+  if (!cal.claimable) wrap.appendChild(h('p.muted.ma-hint.ma-comm-sub', countdownChip(msUntil('daily'), { label: 'Next gift', cls: 's', urgent: false, doneText: 'Ready!', onDone: onReset, testid: 'login-reset' })));
   return wrap;
 }
 

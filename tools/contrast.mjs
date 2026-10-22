@@ -141,6 +141,10 @@ export const PAIRS = [
   ['--on-plate', ['--plate-glass', '--plate-glass'], 'off-season band sentence on its glass plate over art (worst case: a dark painting)', 4.5],
   ['--on-plate', ['--sky-3', '--plate-glass'], 'off-season band sentence over a light painting', 4.5],
   ['--on-plate', ['--plate'], 'keyboard hint chip ("Space", "Esc")', 4.5],
+  ['--on-plate-dim', ['--plate'], 'countdown chip at zero, its done word alone ("Reset!", "Ended")', 4.5],
+  ['--on-plate', ['--plate'], '"Coming soon" sticker (ink, with a lock)', 4.5],
+  ['--navy', ['--sky-3', 'rgba(255, 255, 255, 0.86)'], 'locked tile title on its glass (over --sky-3)', 4.5],
+  ['--ink', ['--sky-3', 'rgba(255, 255, 255, 0.86)'], 'locked tile line on its glass (over --sky-3)', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],

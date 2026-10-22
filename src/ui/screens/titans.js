@@ -55,7 +55,8 @@ export function render(root, params = {}) {
     const now = Date.now();
     const top = h('div.tt-top',
       h('span.tt-chip', { 'data-testid': 'titan-keys', title: 'Trial Keys: 12 a week, up to 6 unused carry over' }, svgEl(uiIcon('key'), 'ma-inline-icon'), h('b', `${keys.left}`), `/${keys.weekly}${keys.saved ? ` (+${keys.saved} saved)` : ''}`),
-      countdownChip(keys.resetsAt - now, { label: 'Resets in', testid: 'titan-reset' }), // [ui-m5] the countdown chip (§5.9)
+      // [ui-m5] the countdown chip (§5.9): the weekly key reset is a recurring cycle (never red); at zero, the new week
+      countdownChip(keys.resetsAt - now, { label: 'Resets in', urgent: false, doneText: 'Reset!', onDone: draw, testid: 'titan-reset' }),
       h('span.tt-chip', svgEl(itemIcon('token_boss'), 'tt-chip-ico'), h('b', formatNumber(itemCount(p, 'token_boss')))),
       button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', testid: 'titan-shelf', onClick: () => navigate('mall', { tab: 'boss' }) }),
     );

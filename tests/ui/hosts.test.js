@@ -1,8 +1,10 @@
 // UI M5a: who hosts which screen (src/ui/hosts.js; UI_DIRECTION §5.10 E1, owner #69/#108, notes Q1/Q2/Q4): the
 // default table, never an adult hero, never placeholder art, the secretary fallback, Missions keeps the secretary.
 import { describe, it, expect } from 'vitest';
-import { HOSTS, PLACEHOLDER_ART, canHost, hostFor } from '../../src/ui/hosts.js';
+import { HOSTS, PLACEHOLDER_ART, FALLBACK_HOST, canHost, hostFor } from '../../src/ui/hosts.js';
 import { UNIT_MAP, UNITS } from '../../src/data/units.js';
+import { secretaryOf } from '../../src/ui/lobby/secretaryOf.js';
+import { createProfile } from '../../src/systems/save.js';
 
 describe('screen hosts', () => {
   const profile = { units: { aoi: {}, hikari: {} }, secretary: 'aoi', formation: { hero: 'hikari' } };
@@ -49,5 +51,19 @@ describe('screen hosts', () => {
   });
   it('an unknown screen falls back to the secretary', () => {
     expect(hostFor('nowhere', profile)).toBe('aoi');
+  });
+  it('the fallback is never an adult hero: a hero secretary hands over to a fixed student (the M5a review case)', () => {
+    const fresh = createProfile(); // a new player: the secretary is Hikari, an adult hero
+    expect(UNIT_MAP[secretaryOf(fresh)].kind === 'hero' || UNIT_MAP[secretaryOf(fresh)].adult).toBe(true);
+    expect(canHost(FALLBACK_HOST)).toBe(true);
+    // Luna's double-drop week (lobby/notice.js ARENA_GUEST['res-mats-a']): Luna is an adult hero, and so is the secretary
+    expect(hostFor('bounty', fresh, { guest: 'luna' })).toBe(FALLBACK_HOST);
+    expect(hostFor('bounty', { units: { hikari: {} }, formation: { hero: 'hikari' } }, { guest: 'luna' })).toBe(FALLBACK_HOST);
+    expect(hostFor('nowhere', fresh)).toBe(FALLBACK_HOST);
+    // every screen, any guest, the new player's save: always a student who may host (Missions excepted)
+    for (const screen of Object.keys(HOSTS)) {
+      if (screen === 'missions') continue;
+      for (const guest of [null, ...UNITS.map((u) => u.id)]) expect(canHost(hostFor(screen, fresh, { guest })), `${screen} ${guest}`).toBe(true);
+    }
   });
 });

@@ -7,9 +7,11 @@
 //   yellow dot   something new inside                         dot('new')
 //   navy "New"   a new tab or section                         newTab()
 //   yellow Open! a newly available mode, until its first visit  openSticker() + openModes() / markOpenSeen()
+//   ink lock "Coming soon" / "Soon"  a mode that is not out yet   soonSticker() (kit.js lockedTile wears it)
 // Tabs carry a red dot only, never a count (P7). Styles: components.css "M5" (.ui-bdg). `cls` keeps a screen's
 // own positioning class (and the old class its e2e tests look for).
 import { h } from './dom.js';
+import { glyphSVG } from '../art/icons/glyphs.js';
 
 const props = (testid, title) => ({ 'data-testid': testid || null, title: title || null });
 const kids = (cls) => (cls ? `.${String(cls).split(/[\s.]+/).filter(Boolean).join('.')}` : '');
@@ -52,6 +54,16 @@ export function newTab({ cls = '', testid = null } = {}) {
 /** The yellow "Open!" sticker (a newly available mode, until its first visit). */
 export function openSticker({ cls = '', testid = null } = {}) {
   return h(`span.ui-bdg.open.ui-sticker.y${kids(cls)}`, props(testid), 'Open!');
+}
+
+/**
+ * The ink "Coming soon" sticker with a lock: a mode that is not out yet (§5.4 a designed locked state; owner #108:
+ * PvP "Coming soon", Titan Co-op "Soon"). Ink, not yellow: yellow means new or open (P7, one yellow per screen).
+ */
+export function soonSticker({ text = 'Coming soon', cls = '', testid = null } = {}) {
+  const lock = h('span.ui-ico', { 'aria-hidden': 'true' });
+  lock.innerHTML = glyphSVG('lock');
+  return h(`span.ui-bdg.soon.ui-sticker.ink${kids(cls)}`, props(testid), lock, text);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -121,9 +133,18 @@ export function openStickers(openNow, memory = { known: null, pending: [] }) {
   return { show: pending, memory: { known: [...new Set([...memory.known, ...now])], pending } };
 }
 
-/** Pure: the memory after the player visited `modeId`. */
-export function seenOpen(memory, modeId) {
-  return { known: Array.isArray(memory?.known) ? memory.known : [], pending: (memory?.pending || []).filter((id) => id !== modeId) };
+/**
+ * Pure: the memory after the player visited `modeId`. Its "Open!" comes off, and when the mode is open (`open`) it
+ * is known from now on, so a mode first visited by another door (the lobby's Assault button, a carousel slide, a
+ * link) never wears "Open!" on the next Missions look. A locked mode's screen (#/titans before 3-5) teaches nothing:
+ * it can still wear "Open!" once it opens. Before the first look ever (known: null) nothing is learned either, as
+ * that first look learns everything open without a sticker.
+ */
+export function seenOpen(memory, modeId, { open = false } = {}) {
+  const pending = (memory?.pending || []).filter((id) => id !== modeId);
+  if (!Array.isArray(memory?.known)) return { known: null, pending };
+  const known = open && !memory.known.includes(modeId) ? [...memory.known, modeId] : memory.known;
+  return { known, pending };
 }
 
 function readMemory(storage) {
@@ -161,18 +182,35 @@ export function openSeen(modeId, storage = local()) {
   return !readMemory(storage).pending.includes(modeId);
 }
 
-/** The player visited `modeId`: its "Open!" comes off. */
-export function markOpenSeen(modeId, storage = local()) {
+/**
+ * The player visited `modeId`: its "Open!" comes off, and an open mode is known from now on (seenOpen).
+ * @param {{ open?: boolean }} [o] open: the mode is open now (a visit to its locked screen teaches nothing)
+ */
+export function markOpenSeen(modeId, storage = local(), { open = false } = {}) {
   const m = readMemory(storage);
-  if (m.pending.includes(modeId)) writeMemory(storage, seenOpen(m, modeId));
+  const next = seenOpen(m, modeId, { open });
+  if (next.pending.length !== m.pending.length || next.known !== m.known) writeMemory(storage, next);
 }
 
-/** Visiting a mode's screen by any door takes its "Open!" off (main.js installs this once). */
-export function installOpenSeen(win = globalThis.window) {
+/**
+ * Visiting a mode's screen by any door takes its "Open!" off and, when the mode is open, remembers it, so it never
+ * wears "Open!" afterwards (main.js installs this once).
+ * @param {Window} [win]
+ * @param {{ isOpen?: ((modeId: string) => boolean)|null, storage?: Storage|null }} [o] isOpen: whether a mode is open
+ *   now (src/ui/modesOpen.js); without it a visit only takes a pending sticker off
+ */
+export function installOpenSeen(win = globalThis.window, { isOpen = null, storage = undefined } = {}) {
   if (!win?.addEventListener) return () => {};
   const on = (e) => {
     const name = e?.detail?.name;
-    if (OPEN_MODES.includes(name)) markOpenSeen(name);
+    if (!OPEN_MODES.includes(name)) return;
+    let open = false;
+    try {
+      open = !!isOpen?.(name);
+    } catch {
+      open = false; // (no profile yet: the visit only takes a pending sticker off)
+    }
+    markOpenSeen(name, storage === undefined ? local() : storage, { open });
   };
   win.addEventListener('screenchange', on);
   return () => win.removeEventListener('screenchange', on);

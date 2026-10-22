@@ -219,6 +219,9 @@ import('./ui/hold.js').then((m) => m.installHoldInfo()).catch((e) => console.war
 // [ui-m5] desktop keys (UI_DIRECTION §5.10 E8): Space presses the screen's [data-primary], Esc closes or goes back
 // (hub and list screens that opt in only); and a mode's "Open!" sticker comes off once its screen is visited
 import('./ui/keys.js').then((m) => m.installKeys()).catch((e) => console.warn('[main] keys unavailable', e));
-import('./ui/badges.js').then((m) => m.installOpenSeen()).catch((e) => console.warn('[main] open stickers unavailable', e));
+// (a visit to an open mode is remembered, by any door: it never wears "Open!" on the next Missions look)
+Promise.all([import('./ui/badges.js'), import('./ui/modesOpen.js')])
+  .then(([m, o]) => m.installOpenSeen(window, { isOpen: (id) => o.modeOpen(store.profile, id) }))
+  .catch((e) => console.warn('[main] open stickers unavailable', e));
 // two tabs share one save: a tab another tab saved over stops saving and says "reload" (store.js)
 import('./ui/staleBanner.js').then((b) => b.initStaleBanner()).catch((e) => console.warn('[main] stale-save banner unavailable', e));

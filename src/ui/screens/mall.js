@@ -108,16 +108,18 @@ export function render(root, params = {}) {
       content.appendChild(grid);
     }
     if (!tab.offers.length) content.appendChild(h('div.ma-offers', h('div.ma-empty-state', svgEl(uiIcon('mall')), h('p', 'Nothing on the shelves right now.'))));
-    // [ui-m5] restocks as countdown chips (§5.9): daily (midnight), weekly (Monday), and the game-week shelves
+    // [ui-m5] restocks as countdown chips (§5.9): daily (midnight), weekly (Monday), and the game-week shelves.
+    // Recurring cycles: never red; at zero the shelves restock and the tab redraws.
     const onGameWeek = (o) => !!o.section || o.currency === 'memento' || o.currency === 'moonpearl';
     const daily = tab.offers.some((o) => o.resets === 'daily' && !onGameWeek(o));
     const weekly = tab.offers.some((o) => o.resets === 'weekly' && !onGameWeek(o));
     const gameWeek = tab.offers.some(onGameWeek);
     if (daily || weekly || gameWeek) {
+      const restock = { cls: 's', urgent: false, doneText: 'Restocked!', onDone: () => { if (el.isConnected) draw(); } };
       content.appendChild(h('p.muted.ma-hint.ma-restock', { 'data-testid': 'mall-restock' },
-        daily ? countdownChip(msToLocalMidnight(), { label: 'Daily', cls: 's', testid: 'mall-restock-daily' }) : null,
-        weekly ? countdownChip(msToLocalWeekEnd(), { label: 'Weekly', cls: 's', testid: 'mall-restock-weekly' }) : null,
-        gameWeek ? countdownChip(nextWeeklyReset() - Date.now(), { label: tab.id === 'memento' ? 'Mementos' : 'Titan shelf', cls: 's', testid: 'mall-restock-shelf' }) : null));
+        daily ? countdownChip(msToLocalMidnight(), { ...restock, label: 'Daily', testid: 'mall-restock-daily' }) : null,
+        weekly ? countdownChip(msToLocalWeekEnd(), { ...restock, label: 'Weekly', testid: 'mall-restock-weekly' }) : null,
+        gameWeek ? countdownChip(nextWeeklyReset() - Date.now(), { ...restock, label: tab.id === 'memento' ? 'Mementos' : 'Titan shelf', testid: 'mall-restock-shelf' }) : null));
     }
   };
   draw();

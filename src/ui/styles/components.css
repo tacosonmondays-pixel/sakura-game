@@ -417,6 +417,8 @@ button.ui-gtile:active { transform: scale(0.96); }
 .ui-cd > .ui-cd-time { font-size: var(--fs-num-s); color: var(--on-plate); }
 .ui-cd.urgent > .ui-cd-time, .ui-cd.urgent > .ui-ico { color: var(--bad-on-plate); }
 .ui-cd.done > .ui-cd-time { color: var(--on-plate-dim); }
+/* at zero the done word stands alone ("Reset!", "Ended"): never "Resets in Now" */
+.ui-cd.done > .ui-cd-lbl { display: none; }
 /* compact: inside a small card (the lobby EVENT card, a hub tile, a list row) */
 .ui-cd.s { height: 24px; padding: 0 8px 0 6px; border-radius: 12px; }
 .ui-cd.s > .ui-ico { width: 14px; height: 14px; }
@@ -453,10 +455,34 @@ button.ui-gtile:active { transform: scale(0.96); }
   border-radius: 6px 6px 6px 0; background: var(--navy); color: var(--on-plate); box-shadow: 0 0 0 2px #fff;
   font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; white-space: nowrap;
 }
+/* ink "Coming soon" / "Soon" with a lock: a mode that is not out yet (ink, never yellow) */
+.ui-bdg.soon { gap: 4px; padding: 3px 8px 3px 6px; }
+.ui-bdg.soon > .ui-ico { width: 14px; height: 14px; }
 @media (min-height: 481px) {
   .ui-bdg.dot, .ui-dot, .ui-bdg.ydot { width: 12px; height: 12px; }
   .ui-bdg.count, .ui-bdg.prog, .ui-bdg.inprog, .ui-bdg.newtab { height: 22px; min-width: 22px; }
 }
+
+/* ---------- A locked mode's tile (§5.4 designed locked state; owner #108): glass, lock, "Coming soon", no fade ---------- */
+.ui-ltile {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: var(--sp-1);
+  min-height: 96px; padding: var(--sp-3); overflow: visible;
+  border: 2px solid rgba(255, 255, 255, 0.9); border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.86); color: var(--ink); box-shadow: var(--shadow);
+  text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ui-ltile-art { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.ui-ltile-art::after { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.72); }
+.ui-ltile > .ui-bdg.soon { position: absolute; top: -8px; left: 10px; }
+.ui-ltile-lock {
+  position: absolute; top: var(--sp-2); right: var(--sp-2);
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--plate); color: var(--on-plate); box-shadow: 0 2px 0 rgba(14, 25, 48, 0.3);
+}
+.ui-ltile-lock > .ui-ico { width: 16px; height: 16px; }
+.ui-ltile-title { position: relative; font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.ui-ltile-line { position: relative; font: 700 var(--fs-label)/1.2 var(--font); color: var(--ink); }
+.ui-ltile:active { transform: scale(0.97); }
 
 /* ---------- Left section rail (E3): 2-5 sections; active = ink slab, yellow italic; ≥ 44 px ---------- */
 .ui-srail { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 120px; max-width: 184px; flex: none; }

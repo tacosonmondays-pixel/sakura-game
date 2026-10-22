@@ -7,7 +7,8 @@
   <!-- The UI M5 shared kit in every state, for e2e/m5-kit.mjs and the M5 screenshots. Dev server only
        (http://127.0.0.1:<port>/e2e/fixtures/m5-kit.html): never part of the build (vite builds index.html only).
        ?view=list (default): the left rail, a list with a plate header, the host on the right.
-       ?view=hub: the host stand at hub width beside a tile grid. ?view=chip: the collapsed 96 px bust chip.
+       ?view=hub: the host stand at hub width beside the Multiplayer tile model (PvP locked "Coming soon", Titan Co-op
+       "Soon"). ?view=chip: the collapsed 96 px bust chip.
        ?section=timers|badges|plates|hosts picks the rail section. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,6 +33,7 @@
     .kit-foot .kit-primary-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
     .kit-host-col { flex: none; position: relative; align-self: stretch; }
     .kit-tiles { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; padding-right: 16px; }
+    .kit-tiles.three { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 8px; }
     .kit-tile { position: relative; min-height: 96px; border-radius: 12px; background: rgba(255, 255, 255, 0.92); box-shadow: var(--shadow); padding: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
     .kit-tile b { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
     .kit-err { margin: 24px; padding: 16px; background: #fff; border-radius: 12px; font: 700 15px/1.4 var(--font, sans-serif); }
@@ -81,12 +83,14 @@
       ];
       const row = (title, ...right) => h('div.kit-row', { 'data-probe': 'tile' }, h('b', title), ...right);
       const draw = {
+        // deadlines (something is lost at zero) turn red in the last day; recurring resets (urgent: false) never do
         timers: () => [
           row('Pumpkin Lantern Night', kit.countdownChip(6 * D + 3.2 * H, { label: 'Ends in', testid: 'cd-days' })),
-          row('Weekly stock', kit.countdownChip(6 * D, { label: 'Restock', testid: 'cd-day' })),
-          row('Daily commissions', kit.countdownChip(11 * H, { label: 'Resets in', testid: 'cd-hours' })),
-          row('Titan week', kit.countdownChip(23.5 * H, { label: 'Resets in', testid: 'cd-urgent' })),
-          row('A letter with gifts', kit.countdownChip(12 * 60000 + 5000, { testid: 'cd-minutes' })),
+          row('Weekly stock', kit.countdownChip(6 * D, { label: 'Restock', urgent: false, testid: 'cd-day' })),
+          row('Daily commissions', kit.countdownChip(11 * H, { label: 'Resets in', urgent: false, testid: 'cd-hours' })),
+          row('Candy Exchange', kit.countdownChip(23.5 * H, { label: 'Exchange', testid: 'cd-urgent' })),
+          row('A letter with gifts', kit.countdownChip(12 * 60000 + 5000, { label: 'Expires', testid: 'cd-minutes' })),
+          row('Last month\'s festival', kit.countdownChip(0, { label: 'Ends in', doneText: 'Ended', testid: 'cd-done' })),
         ],
         badges: () => [
           row('Something to claim', bd.dot('claim', { testid: 'bdg-dot' })),
@@ -97,6 +101,7 @@
           row('Something new inside', bd.dot('new', { testid: 'bdg-ydot' })),
           row('A new section', bd.newTab({ testid: 'bdg-newtab' })),
           row('Titan Trials', bd.openSticker({ testid: 'bdg-open' })),
+          row('PvP', bd.soonSticker({ testid: 'bdg-soon' })),
         ],
         plates: () => [
           kit.plateHead('Unclaimed', { right: kit.countdownChip(2 * D + 5 * H, { label: 'Expires' }), testid: 'plate-head' }),
@@ -124,13 +129,17 @@
       const unit = UNIT_MAP[hostFor('mail', profile)];
       const lines = linesFor('mail', { gifts: 2 });
       if (view === 'hub') {
+        // the Multiplayer hub's tile model (owner #79 + #108): Co-op live, PvP LOCKED "Coming soon" with Rival Run
+        // inside, Titan Co-op "Soon", Friends, Clan Boss (its weekly reset never turns red)
         const hubUnit = UNIT_MAP[hostFor('multiplayer', profile)];
         const host = hostStand(hubUnit, { kind: 'hub', lines: linesFor('multiplayer', { invites: 1 }) });
-        const tiles = h('div.kit-tiles', { 'data-probe-list': '' },
+        const probeTile = (el) => { el.dataset.probe = 'tile'; return el; };
+        const tiles = h('div.kit-tiles.three', { 'data-probe-list': '' },
           h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Co-op'), bd.countBadge(1)),
-          h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'PvP'), bd.newTab()),
+          probeTile(kit.lockedTile({ title: 'PvP', line: 'Rival Run inside', testid: 'kit-pvp' })),
+          probeTile(kit.lockedTile({ title: 'Titan Co-op', soon: 'Soon', testid: 'kit-titan-coop' })),
           h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Friends'), bd.dot('claim')),
-          h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Clan Boss'), kit.countdownChip(3 * D + 2 * H, { label: 'Resets in' })),
+          h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Clan Boss'), kit.countdownChip(3 * D + 2 * H, { label: 'Resets in', urgent: false })),
           h('div.kit-tile', { 'data-probe': 'tile' }, h('div.kit-primary-wrap', primary, kit.kbdHint('Space'))));
         root.append(top, h('main.kit-main', { 'data-probe': 'content' }, h('div.kit-host-col', host), tiles));
       } else if (view === 'chip') {
