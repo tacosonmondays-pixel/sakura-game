@@ -46,6 +46,7 @@ import {
 } from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
 import { syncZones, updateZones, endZoneWave, clearZones, nearExit } from './zones.js';
+import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
@@ -289,6 +290,8 @@ export class Sim {
     // rally cast this step applies this step
     if (this._abilOn > 0 || this.abilGroups.size > 0) tickAbilities(this);
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
+    // Tenka's lab weapons (src/sim/lab.js): only once a girl has a lab team
+    if (this._labOn) updateLab(this);
     updateProjectiles(this, dt);
     updateTraps(this, dt);
     // zones (Tenka's wells and Last Line, src/sim/zones.js): only once a girl with one was placed
@@ -804,6 +807,8 @@ export class Sim {
           if (extra > 0) this._emit('cash', { amount: extra, reason: 'harvest', towerUid: t.uid });
         }
       }
+      // Tenka's economy weapon (src/sim/lab.js): owner-credited, never on a noIncome difficulty
+      if (this._labOn) labIncome(this, cashMul);
     }
     // every placed hero (both players' in co-op), never the view-dependent sim.hero
     const k = heroPace(this);
@@ -837,6 +842,7 @@ export class Sim {
     // every lasting ability effect ends with the wave (the calm point holds none)
     endAbilityWave(this);
     if (this.zones) endZoneWave(this);
+    if (this._labOn) endLabWave(this);
     if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
@@ -1022,6 +1028,8 @@ export class Sim {
     syncAbility(this, t);
     // a well or Last Line (Singularity tier 3 / 5): the zone list and the near-exit hook
     syncZones(this, t);
+    // her lab team's frag and control weapons follow her lab power (Grand Lab, Unified Theory)
+    syncLab(this, t);
   }
 
   /**
@@ -1145,13 +1153,18 @@ export class Sim {
 
   /**
    * Buys the next tier of `path`. `opts.restoring`: see upgradeStatus (battle-save restore only).
+   * A tier that raises Tenka's lab rounds (Joint Research, Unified Theory; src/sim/lab.js) has her owner's
+   * girls in range join her lab team, never under `restoring`; `sim.lastAbsorbed` then lists their uids
+   * for the caller (reset to null by the next upgrade once it exists; T3: the co-op layer forgets them).
    * @returns {boolean}
    */
   upgradeTower(uid, path, opts = {}) {
     if (this.state === 'won' || this.state === 'lost') return false;
+    if (this.lastAbsorbed) this.lastAbsorbed = null;
     const st = this.upgradeStatus(uid, path, opts);
     if (st.locked) return false;
     const t = this.getTower(uid);
+    const rounds = t.stats.lab ? t.stats.lab.rounds : 0;
     this._spend(st.cost);
     t.spent += st.cost;
     t.tiers[path]++;
@@ -1159,6 +1172,10 @@ export class Sim {
     recomputeBuffs(this);
     this.stats.upgrades++;
     this._emit('upgrade', { towerUid: uid, path, tier: t.tiers[path] });
+    if (!opts.restoring && t.stats.lab && t.stats.lab.rounds > rounds) {
+      absorbInto(this, t);
+      recomputeBuffs(this);
+    }
     return true;
   }
 
@@ -1187,8 +1204,24 @@ export class Sim {
     const t = this.getTower(uid);
     if (t && t.isHero) return false;
     if (!t || this.state === 'won' || this.state === 'lost') return 0;
+    // (Tenka: 70% of her own spent coins; her lab team does not come back this battle)
     const refund = this.sellValue(uid);
     this.cash += refund;
+    this._removeTower(t);
+    this._emit('sell', { towerUid: uid, refund });
+    return refund;
+  }
+
+  /**
+   * Takes a girl off the field: a sale (sellTower) and a girl who joins Tenka's lab team (src/sim/lab.js
+   * absorbInto) leave exactly the same way. Her rallies, queued shots and drinks end; she is flagged
+   * `removed` (her projectiles and runners in flight fizzle, her drones, sentries, balls and rings go
+   * with her); her traps and strips, zones and pending shells go; the final tier she held is free again
+   * (finalTier.js skips her); brews / links she gave or held and pins on her fall away on the next step;
+   * pads and auras are rebuilt. No coins: the caller pays any refund.
+   */
+  _removeTower(t) {
+    const uid = t.uid;
     clearAbilityEffects(this, t);
     clearDrinksFrom(this, t);
     t.removed = true;
@@ -1198,11 +1231,10 @@ export class Sim {
     if (this.zones) clearZones(this, t);
     this.shells = this.shells.filter((sh) => sh.ownerUid !== uid); // pending shells never land
     t.turrets = [];
+    if (this._labOn) syncLab(this, null); // (a girl with a lab team leaves: the count follows)
     if (this.rule) assignPads(this);
     this._buffsDirty = true;
     recomputeBuffs(this);
-    this._emit('sell', { towerUid: uid, refund });
-    return refund;
   }
 
   /**

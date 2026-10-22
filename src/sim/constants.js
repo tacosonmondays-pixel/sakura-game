@@ -144,6 +144,28 @@ export const ZONE_ANCHOR_STEP = 0.25;
 /** Last Line (GAPS P-14): the near-exit hook fires NEAR_EXIT tiles (path distance) before the exit; one swallow per LAST_LINE_EVERY ticks. */
 export const NEAR_EXIT = 1;
 export const LAST_LINE_EVERY = 16;
+/**
+ * Joint Research (src/sim/lab.js; GAPS 5.10): each lab weapon is the table's at LAB_REF_COINS coins of girls
+ * in its class (power 1), × √(coins / LAB_REF_COINS) × her lab power. dps: +LAB_BOLTS bolts (at most
+ * LAB_BOLTS_MAX more); support: a +LAB_AURA_DMG damage aura of LAB_AURA_RANGE (at most +LAB_AURA_MAX); frag:
+ * a grenade every LAB_FRAG_TICKS of her bolt damage × LAB_FRAG_MUL, radius LAB_FRAG_SPLASH; control: a
+ * LAB_SLOW slow (at most LAB_SLOW_MAX) within LAB_FIELD_RANGE, refreshed every LAB_FIELD_TICKS; economy:
+ * LAB_ECON_SHARE of the economy girls' wave income.
+ */
+export const LAB_REF_COINS = 2000;
+export const LAB_BOLTS = 2;
+export const LAB_BOLTS_MAX = 12;
+export const LAB_AURA_RANGE = 3;
+export const LAB_AURA_DMG = 0.15;
+export const LAB_AURA_MAX = 0.6;
+export const LAB_FRAG_TICKS = 120;
+export const LAB_FRAG_MUL = 6;
+export const LAB_FRAG_SPLASH = 1.2;
+export const LAB_FIELD_RANGE = 2;
+export const LAB_FIELD_TICKS = 15;
+export const LAB_SLOW = 0.2;
+export const LAB_SLOW_MAX = 0.5;
+export const LAB_ECON_SHARE = 0.3;
 
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;

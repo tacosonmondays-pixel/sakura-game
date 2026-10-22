@@ -147,8 +147,8 @@ BaseStats = {
   link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
   hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
   // Tenka (BUILD_PLAN 6.1). On the stats only once a tier sets them (no null default: every other girl
-  // resolves as before). well and lastLine run in src/sim/zones.js (T1, §6 Zones); lab lands in T2, so
-  // until then the sim reads none of it.
+  // resolves as before). well and lastLine run in src/sim/zones.js (T1, §6 Zones); lab in src/sim/lab.js
+  // (T2, §6 Joint Research).
   lab?: { rounds, power },     // Joint Research: absorbs `rounds` times (on purchase), lab weapons × power
   well?: { every, time, radius, pull, slow, vuln },  // Gravity Well: every s a well for `time` s (P-4 zones)
   lastLine?: { radius, max, time, cooldown },        // Last Line: a near-exit well that swallows up to `max` (P-14)
@@ -225,7 +225,7 @@ her ⚡ path and her ability.
 | aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse, armorPen (add), critChance (add)} | strongest of each key wins per girl (never stacks) |
 | brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
 | hpPct: {pct, boss, cap} (max) | % of current HP per hit |
-| lab: {rounds (max), power (max)} | Tenka's Joint Research (behaviour in T2; on the stats from T0) |
+| lab: {rounds (max), power (max)} | Tenka's Joint Research (§6 Joint Research, src/sim/lab.js) |
 | well: {every (min: a period), time, radius, pull, slow, vuln (max each)} | Tenka's Gravity Well (§6 Zones) |
 | lastLine: {radius, max, time, cooldown} (replace) | Tenka's Last Line (§6 Zones) |
 | income: {perWave (add), interest (add)} | |
@@ -1284,6 +1284,33 @@ sim.zones          // [{ uid, src, owner, kind: 'well'|'lastLine', x, y, r, r2, 
 // events: zoneOpen { uid, kind, towerUid, owner, x, y, radius, time }, zoneEnd { uid, kind, towerUid,
 //   reason: 'time'|'full'|'cap'|'wave'|'sold' }, swallow { zoneUid, towerUid, uid, id, x, y } (then the death)
 sim.result().stats // + wells, lastLines, swallowed — created by the first one
+```
+
+**Joint Research** (`src/sim/lab.js`; GAPS 5.10 / P-13 the offering, P-16 owner coins; Tenka T2). A tier that
+raises her `lab.rounds` (Joint Research tier 3; Unified Theory tier 5: a second round) has her owner's girls in her
+range join her lab team: `t.owner` equal to hers, never a hero, never another Tenka (or any girl with a lab), centre
+within her effective range, in uid order. Never under `{ restoring: true }`. No refund. Each one leaves through
+`Sim._removeTower` exactly like a sale (traps / strips, zones, shells, drones, ability effects, drinks; `removed`
+so projectiles and runners fizzle; the final tier is free again; brews / links / pins fall away next step);
+`sellTower` = refund + `_removeTower`. Story: they join her lab team; nothing happens to them; they are back after
+the battle. Selling her refunds 70 % of her own `spent` (never the lab's coins); the team does not come back.
+Weapons by class (`ROLES[role].category`; another category counts as dps), each at strength
+`k = lab.power × √(coins of that class / LAB_REF_COINS)`: dps `projectiles + 2k` (≤ `LAB_BOLTS_MAX`), support an
+aura `{ range 3, dmgMul 1 + 0.15k }` (≤ +60 %) — both resolve in `towerResolvedStats` (`labMods`, before a running
+boost), so a checkpoint's `rederiveStats` agrees; frag a blast grenade every `LAB_FRAG_TICKS` (her bolt damage ×
+`LAB_FRAG_MUL` × k, radius `LAB_FRAG_SPLASH`) at her best target; control a slow field (`0.2k` ≤ `LAB_SLOW_MAX`)
+within `LAB_FIELD_RANGE` of her, refreshed every `LAB_FIELD_TICKS` — both on `t.labAtk`, only during waves and not
+while sabotaged; economy at each wave clear `LAB_ECON_SHARE` × the economy girls' income × power × the coin
+scales through `_gainCashFor(t.owner)` (none on a `noIncome` difficulty or while she is sabotaged).
+```js
+t.lab      // { rounds, members: { dps, frag, control, support, economy }, coins: {…same}, income, uids } (in the generic snapshot)
+t.labAtk   // { frag /*k*/, slow, fragCd, fieldCd /*ticks; 0 at every wave clear*/ } (derived by syncLab)
+sim._labOn // girls with a lab (absent until the first absorb: the step skips the lab)
+sim.lastAbsorbed // uids that joined in the last upgradeTower (null after a later upgrade), for the caller
+                 // (T3: the co-op `upg` handler forgets them as owners; the battle save carries t.lab)
+// events: labJoin { towerUid, owner, round, uids, members }, labFrag { towerUid, x, y, radius } (then the explode),
+//   cash { amount, reason: 'lab', towerUid }
+sim.result().stats // + labJoined — created by the first absorb
 ```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end

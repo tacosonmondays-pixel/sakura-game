@@ -29,6 +29,7 @@ import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
+import { labMods } from './lab.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -145,9 +146,15 @@ export function createTower(def, o) {
  * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  return resolveStats(t.def, {
-    tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null,
-  });
+  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null };
+  const s = resolveStats(t.def, o);
+  // Tenka's lab team (src/sim/lab.js): her dps and support weapons from her lab record and her lab power,
+  // after every tier and before a running boost (a girl without a lab resolves exactly as before)
+  if (!t.lab || !s.lab) return s;
+  const lm = labMods(t.lab, s.lab.power);
+  if (!lm) return s;
+  o.extra = t.abilMods ? [lm, t.abilMods] : lm;
+  return resolveStats(t.def, o);
 }
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */

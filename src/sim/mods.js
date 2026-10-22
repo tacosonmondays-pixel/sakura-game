@@ -276,7 +276,7 @@ function normTurret(t = {}) {
 }
 
 // Tenka's paths (BUILD_PLAN 6.1; GAPS 5.10). Gravity Well and Last Line play in src/sim/zones.js (T1);
-// Joint Research's lab arrives in T2, so until then no sim code reads it. Like the Potential keys they
+// Joint Research's lab team in src/sim/lab.js (T2). Like the Potential keys they
 // appear on the stats ONLY when a tier sets them: every other girl resolves exactly as before.
 /** Joint Research (P-13): how many times she absorbs (on purchase) and the weapons' strength multiplier. */
 function normLab(l = {}) {

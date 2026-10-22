@@ -3,7 +3,7 @@
 // on an elite, the stats a battle-save / checkpoint re-derives, determinism, and the sandbox (T0); the
 // Singularity path's zones (T1, src/sim/zones.js): Gravity Well (the spot, the pull by path distance, the
 // slow and Brittle, the caps, the wave clear and a sale) and Last Line (the gated near-exit hook, swallows
-// in uid order that are her kills). Joint Research resolves onto her stats but does nothing yet (T2).
+// in uid order that are her kills). Joint Research's lab team (T2) has its own file, tests/sim/tenkaLab.test.js.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { UNITS as FX, ENEMIES, STAGE, MAP, testData } from './fixtures.js';
@@ -690,17 +690,18 @@ describe('Zero Point (Rail Arms tier 5): the boost tail', () => {
 });
 
 describe('Joint Research (T2) and the Singularity keys on her stats', () => {
-  test('her lab path still shoots (Focus Lens: one more enemy per bolt) and nobody joins a lab', () => {
+  test('her lab path still shoots (Focus Lens: one more enemy per bolt); the girl in her range joined her lab team at tier 3 (T2: tests/sim/tenkaLab.test.js)', () => {
     const sim = mk();
     const archer = sim.placeTower('archer', 9.5, 3.4);
     expect(archer).toBeTruthy();
     const t = tenkaAt(sim, [5, 0, 2]);
     expect(t.stats.lab).toEqual({ rounds: 2, power: 3 });
     expect([t.eff.pierce, t.eff.damage]).toEqual([2, 33]);
+    expect(sim.towers.includes(archer)).toBe(false);
+    expect(t.lab.uids).toEqual([archer.uid]);
     wave(sim);
     park(sim, 'tank', 8.5);
     steps(sim, 120);
-    expect(sim.towers.includes(archer)).toBe(true);
     expect(t.damageDealt).toBeGreaterThan(0);
   });
 
