@@ -26,7 +26,7 @@ import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
 import { KIT_SVG } from '../kit.js';
 import { abilityText, abilityAim, abilityValues, fillAbilityText, ABILITY_COPY } from '../../data/abilityText.js';
-import { abilityDef, abilityReach } from '../../sim/abilities.js';
+import { abilityDef, abilityReach, abilityOrigin } from '../../sim/abilities.js';
 import { ABILITY_RULES } from '../../data/abilities.js';
 import { abilArgs } from '../../online/coop/commands.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, HOLD_MS } from '../hold.js';
@@ -359,6 +359,8 @@ export function abilityCardView(sim, slot) {
   const st = sim.abilityStatus(t.uid);
   const casters = (slot.casters || [t.uid]).map((u) => sim.getTower(u)).filter(Boolean);
   const reach = abilityReach(t, def);
+  // (the ring sits where the sim looks from: Kon's spot for Moon Pounce, not Ruri's)
+  const from = abilityOrigin(t, def);
   const map = def.scope === 'map';
   // a ring says "this hits an area": not for coins or a per-player ability (Market Day), nor a map-wide one
   const area = !map && def.scope !== 'player' && def.kind !== 'econ';
@@ -375,7 +377,7 @@ export function abilityCardView(sim, slot) {
     state: st?.ready ? 'Ready' : charging ? `Recharging · ${wholeSeconds(st.cooldownLeft)}` : st?.reason === 'notWave' ? 'Charges during waves' : st?.reason === 'active' ? 'Active' : refusalText(st?.reason, { name: text.name }),
     sharing: casters.length > 1 ? `${casters.length} copies of ${t.def.name} share this button` : null,
     auto: casters.length ? casters.every((o) => !!o.abil?.auto) : false,
-    reach: area && Number.isFinite(reach) && reach > 0 ? { x: t.x, y: t.y, r: reach } : null,
+    reach: area && Number.isFinite(reach) && reach > 0 ? { x: from.x, y: from.y, r: reach } : null,
     help: ABILITY_COPY.autoHelp,
   };
 }

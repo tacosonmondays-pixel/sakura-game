@@ -266,6 +266,14 @@ function castFrom(t, def, out) {
 const FROM = { x: 0, y: 0 };
 
 /**
+ * Where her ability looks from, as a fresh { x, y } (castFrom, for the UI): the hold card's and the aim's reach ring
+ * are centred where the sim really picks targets (Kon's spot for Moon Pounce, else where she stands).
+ */
+export function abilityOrigin(t, def) {
+  return castFrom(t, def, { x: 0, y: 0 });
+}
+
+/**
  * Her ability's hit spec, modelled on the hero ult's: dmgMul × her current hit, no crit, her armor pen
  * plus the effect's (99 = ignores armor), her elite / boss / barrier multipliers, Veil Sight for map
  * scope or when she has it. Statuses are applied apart (certain, through the CC guard).

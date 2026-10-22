@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import {
   konState, konStep, konSpot, konAttacks, KON_SPEED, KON_SELF, sortieState, startSortie, sortieStep, retarget, reconcile,
   SWOOP_TIME, DASH_TIME, DASH_REACH, DASH_STOP, swoopDives, MAX_DIVES, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
+  diveReach, DIVE_SLACK,
 } from '../../src/render/companionLogic.js';
 import { setCompanionManifest, companionOf, companionEntry, HomeAnchor, boneAtIdle } from '../../src/models/companions.js';
 
@@ -113,16 +114,38 @@ describe('Kaze swoop / doll dash', () => {
 });
 
 describe('their girls\' ⚡ abilities (A3 M3): Kaze\'s dives, Kon\'s pounce', () => {
-  it('Kaze\'s Swoop queues one dive per target in strike order, at most MAX_DIVES; Reduce motion: the first only', () => {
+  it('Kaze\'s Swoop queues one dive per target within her reach, in strike order, at most MAX_DIVES; Reduce motion: none (M3 review)', () => {
     expect(swoopDives([7, 3, 9])).toEqual([7, 3, 9]);
     expect(swoopDives(Array.from({ length: 12 }, (_, i) => i + 1))).toHaveLength(MAX_DIVES);
     expect(MAX_DIVES).toBe(8); // Thousand Wings' 8 flyers fit
-    expect(swoopDives([7, 3, 9], { reduceMotion: true })).toEqual([7]);
     expect(swoopDives(null)).toEqual([]);
     expect(swoopDives([null, 4])).toEqual([4]);
+    // a map-wide Swoop: the far targets are only marked, he dives on the near ones (strike order kept)
+    const near = new Set([3, 11]);
+    expect(swoopDives([7, 3, 9, 11], { inReach: (u) => near.has(u) })).toEqual([3, 11]);
+    expect(swoopDives([7, 9], { inReach: (u) => near.has(u) })).toEqual([]);
+    // Reduce motion: no dive at all, near or far (he stays on her shoulder; the marks fade in)
+    expect(swoopDives([7, 3, 9], { reduceMotion: true })).toEqual([]);
+    expect(swoopDives([3], { reduceMotion: true, inReach: () => true })).toEqual([]);
     // quicker than his own swoops, so eight dives stay under five seconds
     expect(DIVE_TIME).toBeLessThan(SWOOP_TIME);
     expect(DIVE_TIME * MAX_DIVES).toBeLessThan(5);
+  });
+
+  it('a dive goes no farther than her reach (diveReach), even after a target that walks off', () => {
+    expect(diveReach(3.8)).toBeCloseTo(3.8 + DIVE_SLACK, 9);
+    expect(diveReach(undefined)).toBe(DIVE_SLACK);
+    const reach = diveReach(3.8);
+    const s = sortieState();
+    expect(startSortie(s, 2, 0.4, 0, DIVE_TIME, 5)).toBe(true);
+    retarget(s, 17, 0.4, 0); // the target is now across the map
+    const out = {};
+    let far = 0;
+    for (let t = 0; t < DIVE_TIME; t += 1 / 120) far = Math.max(far, sortieStep(s, 1 / 120, 0, 0.6, 0, out, { reach, lift: 0.45 }).x);
+    expect(far).toBeLessThanOrEqual(reach + 1e-9);
+    expect(far).toBeGreaterThan(reach - 0.05);
+    // an average speed a falcon can show: at most twice her reach in one dive
+    expect((2 * reach) / DIVE_TIME).toBeLessThan(20);
   });
 
   it('Kon\'s pounce is a leap: out to just short of the target, high in the middle, back to where he stood', () => {
@@ -148,7 +171,7 @@ describe('their girls\' ⚡ abilities (A3 M3): Kaze\'s dives, Kon\'s pounce', ()
     const src = readFileSync(new URL('../../src/render/companions.js', import.meta.url), 'utf8');
     expect(src).toContain("const SWOOP_ID = 'hana.swoop'");
     expect(src).toContain("const POUNCE_ID = 'ruri.moonPounce'");
-    expect(src).toMatch(/swoopDives\(targets, \{ reduceMotion: this\.reduceMotion \}\)/);
+    expect(src).toMatch(/swoopDives\(targets, \{\s*reduceMotion: this\.reduceMotion,/);
     expect(src).toMatch(/if \(this\.reduceMotion\) return;/);
   });
 });

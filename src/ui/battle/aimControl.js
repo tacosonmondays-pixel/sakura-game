@@ -14,7 +14,7 @@
 // Chika) or Set aim ends an ability aim, and an ability aim ends them, so a placement tap never fires an ability.
 import { h } from './util.js';
 import { aimMode } from '../../sim/towers.js';
-import { abilityDef, abilityReach } from '../../sim/abilities.js';
+import { abilityDef, abilityReach, abilityOrigin } from '../../sim/abilities.js';
 
 const WHAT = {
   mortar: (n) => `Tap where ${n}'s shells should land`,
@@ -130,7 +130,9 @@ export function createAimControl(ctx) {
     } else {
       const def = abilityDef(t);
       const r = def ? abilityReach(t, def) : 0;
-      ctx.renderer?.setAbilityReach?.(Number.isFinite(r) && r > 0 ? { x: t.x, y: t.y, r } : null);
+      // (centred where the sim looks from: abilityOrigin, e.g. a familiar's spot for a fromOrigin ability)
+      const o = def ? abilityOrigin(t, def) : t;
+      ctx.renderer?.setAbilityReach?.(Number.isFinite(r) && r > 0 ? { x: o.x, y: o.y, r } : null);
       ctx.shell?.classList.add('bt-picking');
     }
     show();

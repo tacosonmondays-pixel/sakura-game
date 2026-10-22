@@ -14,8 +14,10 @@ import {
 import { abilityInfoView } from '../../src/ui/girlView.js';
 import { DEFAULT_SETTINGS, createProfile, migrateProfile } from '../../src/systems/save.js';
 import { autoAbilities } from '../../src/ui/battle/setup.js';
-import { abilityPathOf, TRANSIENT_REFUSALS } from '../../src/sim/abilities.js';
+import { abilityPathOf, abilityDef, abilityOrigin, TRANSIENT_REFUSALS } from '../../src/sim/abilities.js';
 import { STEP } from '../../src/sim/constants.js';
+import { STAGE, testData } from '../sim/fixtures.js';
+import { defaultData } from '../../src/sim/data.js';
 import { ABILITY_TEXT, abilityAim } from '../../src/data/abilityText.js';
 import { ABILITIES } from '../../src/data/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
@@ -51,6 +53,9 @@ const ready = (t) => {
   return t;
 };
 const ids = (view) => view.map((s) => s.id);
+/** The sim tests' fixture map (a straight road along y 4.5), quiet, with the real girls and enemies. */
+const FIXTURE = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
+const FIXTURE_D = defaultData();
 
 describe('abilityBarView: slots', () => {
   it('a slot appears when her ⚡ tier 3 is bought, in tower-bar order, never before', () => {
@@ -277,6 +282,44 @@ describe('the hold card', () => {
     expect(s1.state).toBe('charging');
     expect(s0.secondsLeft - s1.secondsLeft).toBeCloseTo(5, 1); // 5 s of wave time takes 5 s off the label, no skips
     expect(card().state).toBe(`Recharging · ${wholeSeconds(s1.secondsLeft)}`);
+  });
+
+  it('Moon Pounce (fromOrigin): the ring is centred on Kon, where the sim picks targets, not on Ruri (M3 review)', () => {
+    // the fixture map (a straight road along y 4.5): Ruri far back, so Kon runs out 2+ tiles towards the road
+    const sim = new Sim({ stageId: FIXTURE.id, seed: 5, loadout: [{ unitId: 'ruri' }], data: testData({ stage: FIXTURE, units: FIXTURE_D.units, enemies: FIXTURE_D.enemies }) });
+    sim.cash = 1e9;
+    const t = unlock(sim, sim.placeTower('ruri', 8.5, 7.5));
+    expect(abilityDef(t).id).toBe('ruri.moonPounce');
+    expect(Math.hypot(t.ox - t.x, t.oy - t.y)).toBeGreaterThan(1.5);
+    const v = abilityCardView(sim, abilityBarView(sim, 0)[0]);
+    expect([v.reach.x, v.reach.y]).toEqual([t.ox, t.oy]);
+    expect(v.reach.r).toBeCloseTo(t.eff.range + 2, 9);
+    expect(abilityOrigin(t, abilityDef(t))).toEqual({ x: t.ox, y: t.oy });
+    // the sim agrees: an orc inside the drawn ring but beyond Ruri's own range + 2 is the one pounced
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    let xIn = null;
+    for (let x = 0; x < 16 && xIn == null; x += 0.05) {
+      const dk = Math.hypot(x - v.reach.x, 4.5 - v.reach.y);
+      const dr = Math.hypot(x - t.x, 4.5 - t.y);
+      if (dk <= v.reach.r - 0.2 && dr > v.reach.r + 0.2) xIn = x;
+    }
+    expect(xIn, 'a road spot inside the ring that Ruri herself could not reach').not.toBeNull();
+    const e = sim.spawnEnemy('orc_grunt', { dist: xIn + 0.5, hpMul: 50 });
+    e.baseSpeed = 0;
+    e.speed = 0;
+    sim._step(STEP);
+    sim.drainEvents();
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect(sim.drainEvents().find((x) => x.type === 'ability').targets).toEqual([e.uid]);
+  });
+
+  it('an ability that looks from where she stands keeps its ring on her (abilityOrigin)', () => {
+    const sim = battle(['aoi']);
+    const t = unlock(sim, place(sim, 'aoi'));
+    expect(abilityOrigin(t, abilityDef(t))).toEqual({ x: t.x, y: t.y });
   });
 
   it('an area ability charging: its ring, and the recharge only in the state chip', () => {

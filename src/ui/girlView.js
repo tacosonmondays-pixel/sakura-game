@@ -34,10 +34,23 @@ export function abilityInfoView(unit) {
     forms,
     chip: `⚡ ${forms.map((f) => f.name).join(' · ')} · ${at.size === 1 ? `T${forms[0].at}` : 'by path'}`,
     unlock: `Unlocks at tier ${[...at].join(' / ')} of the path she raises: ${forms.map((f) => `${f.pathName} → ${f.name}`).join(', ')}`,
+    howTo: howToFire(forms),
   };
 }
 
-const withForms = (forms) => ({ ...forms[0], multi: false, forms });
+const withForms = (forms) => ({ ...forms[0], multi: false, forms, howTo: howToFire(forms) });
+
+/**
+ * The Details sheet's closing "In battle, tap…" sentence speaks only of what runs today (the "Comes in a later update"
+ * teaser is the only promise): null when no form runs (Fuu, Iroha, Kanna: no button to point at); else `hero` (the
+ * button by her portrait) and `name` — the forms that run, named when some of hers wait (Ruri: "Moon Pounce"), null
+ * when the sentence can say "it".
+ */
+function howToFire(forms) {
+  const live = forms.filter((f) => f.live);
+  if (!live.length) return null;
+  return { hero: !!forms[0].hero, name: live.length < forms.length ? live.map((f) => f.name).join(' or ') : null };
+}
 
 /** One ⚡ entry's view (a tower's path `pi`, or a hero's skill with pi −1). */
 function abilityFormView(unit, pi) {
@@ -80,6 +93,8 @@ function abilityFormView(unit, pi) {
       up = null;
     }
   }
+  const cooldown = `Recharges in ${entry.cooldown}s of wave time`;
+  const unlock = hero ? `Unlocks at hero LV ${at}` : `Unlocks at ${unit.paths[pi].name} tier ${at}`;
   return {
     id: entry.id,
     name,
@@ -91,10 +106,16 @@ function abilityFormView(unit, pi) {
     live,
     chip: `⚡ ${name} · ${where}`,
     desc,
-    cooldown: `Recharges in ${entry.cooldown}s of wave time`,
-    unlock: hero ? `Unlocks at hero LV ${at}` : `Unlocks at ${unit.paths[pi].name} tier ${at}`,
+    cooldown,
+    unlock,
     up,
     later: live ? null : 'Comes in a later update',
+    // the Details sheet's facts: unlock, recharge and the tier-5 / Lv 17 upgrade for one that runs; for one that
+    // waits only where it is planned — no unlock, recharge or upgrade numbers it cannot keep yet (the teaser is the
+    // only promise; the hero track says nothing at Lv 17 for it either)
+    facts: live
+      ? [{ k: 'Unlock', t: unlock }, { k: 'Recharge', t: cooldown }, ...(up ? [{ k: up.at, t: up.line.replace(/^⚡\+\s*/, '') }] : [])]
+      : [{ k: 'Planned', t: hero ? `for hero LV ${at}` : `for ${unit.paths[pi].name} tier ${at}` }],
   };
 }
 

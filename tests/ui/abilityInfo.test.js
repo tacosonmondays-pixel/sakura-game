@@ -3,6 +3,7 @@
 // UI helper) pinned to the sim's own teaser rule for every girl, the ⚡ sticker on the Tree tab's path (treeModel /
 // treeGrid), and the hero track's Lv 7 / Lv 17 skill lines.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { abilityInfoView } from '../../src/ui/girlView.js';
 import { abilityRuns as abilityLive } from '../../src/data/abilities.js';
 import * as girlView from '../../src/ui/girlView.js';
@@ -89,6 +90,54 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
     expect(v.unlock).toBe('Unlocks at tier 3 of the path she raises: Moonhound → Moon Pounce, Star Falcon → Star Snatch, Tide Otter → River Rush');
     expect(v.forms[0].desc).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites/);
     expect(v.forms[0].up.at).toBe('Moonhound T5');
+  });
+
+  it('the Details facts and the closing "In battle, tap…" sentence speak only of what runs today (M3 review)', () => {
+    // one that runs: unlock, recharge, the upgrade; the sentence says "it"
+    const aoi = abilityInfoView(UNIT_MAP.aoi);
+    expect(aoi.facts.map((x) => x.k)).toEqual(['Unlock', 'Recharge', 'Rapid Volley T5']);
+    expect(aoi.facts[0].t).toBe('Unlocks at Rapid Volley tier 3');
+    expect(aoi.facts[1].t).toBe('Recharges in 35s of wave time');
+    expect(aoi.facts[2].t).toMatch(/^Skyfall Volley grows to 12 arrows/);
+    expect(aoi.howTo).toEqual({ hero: false, name: null });
+    expect(abilityInfoView(UNIT_MAP.hikari).howTo).toEqual({ hero: true, name: null });
+    expect(abilityInfoView(UNIT_MAP.hikari).facts.map((x) => x.k)).toEqual(['Unlock', 'Recharge', 'LV 17']);
+    // ones that wait (Fuu, Iroha, Kage, Kanna as a hero): no sentence pointing at a button, only where it is planned
+    for (const [id, planned] of [
+      ['fuu', 'for Returning Gale tier 3'], ['iroha', 'for Mirror Hall tier 3'], ['kanna', 'for hero LV 7'],
+    ]) {
+      const v = abilityInfoView(UNIT_MAP[id]);
+      expect(v.later, id).toBe('Comes in a later update');
+      expect(v.howTo, id).toBeNull();
+      expect(v.facts, id).toEqual([{ k: 'Planned', t: planned }]);
+    }
+    for (const u of withAbility) {
+      const v = abilityInfoView(u);
+      for (const f of v.forms) {
+        if (f.live) continue;
+        // no unlock, recharge or upgrade promise for a form that waits
+        const words = f.facts.map((x) => `${x.k} ${x.t}`).join(' | ');
+        expect(words, `${u.id} ${f.id}`).not.toMatch(/Unlock|Recharg|⚡\+|T5|LV 17/);
+      }
+      if (!v.forms.some((f) => f.live)) expect(v.howTo, u.id).toBeNull();
+      else expect(v.howTo, u.id).toBeTruthy();
+    }
+    // Ruri: Moon Pounce runs, the other two wait — the sentence names Moon Pounce; each waiting form says where it is planned
+    const r = abilityInfoView(UNIT_MAP.ruri);
+    expect(r.howTo).toEqual({ hero: false, name: 'Moon Pounce' });
+    expect(r.forms.map((f) => f.facts.map((x) => x.k))).toEqual([['Unlock', 'Recharge', 'Moonhound T5'], ['Planned'], ['Planned']]);
+    expect(r.forms[1].facts[0].t).toBe('for Star Falcon tier 3');
+    expect(r.forms[2].facts[0].t).toBe('for Tide Otter tier 3');
+  });
+
+  it('the Details sheet renders the facts and the sentence from the view (student.js openAbility)', () => {
+    const src = readFileSync(new URL('../../src/ui/screens/student.js', import.meta.url), 'utf8');
+    const body = src.slice(src.indexOf('function openAbility('), src.indexOf('function infoPanel('));
+    expect(body).toMatch(/f\.facts\.map\(\(x\) => fact\(x\.k, x\.t\)\)/);
+    expect(body).toMatch(/how \? h\('p\.gp-sub'/);
+    expect(body).toMatch(/to fire \$\{how\.name \|\| 'it'\}/);
+    // nothing in it prints an unlock or recharge fact of its own any more
+    expect(body).not.toMatch(/fact\('Unlock'|fact\('Recharge'/);
   });
 });
 

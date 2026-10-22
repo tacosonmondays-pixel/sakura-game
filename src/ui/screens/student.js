@@ -525,19 +525,19 @@ function openAbility(unit) {
     v.multi ? h('h3.gp-abil-form', { 'data-testid': `ability-form-${f.id}` }, ico(KIT_SVG.bolt, 'kit-bolt'), ` ${f.name}`, h('span.gp-abil-path', ` · ${f.pathName}`)) : null,
     f.later ? h('p.gp-abil-later', { 'data-testid': v.multi ? `ability-later-${f.id}` : 'ability-later' }, ico('lock'), ` ${f.later}.`) : null,
     h('p', f.desc),
-    h('ul.gp-effects',
-      fact('Unlock', f.unlock),
-      fact('Recharge', f.cooldown),
-      f.up ? fact(f.up.at, f.up.line.replace(/^⚡\+\s*/, '')) : null),
+    // (one that waits: only where it is planned — abilityInfoView facts)
+    h('ul.gp-effects', ...f.facts.map((x) => fact(x.k, x.t))),
   ];
+  // how to fire it, only for what runs today (none: no sentence; Ruri: names Moon Pounce)
+  const how = v.howTo;
   return openSheet({
     title: v.multi ? `${unit.name} · Abilities` : `${unit.name} · ${v.name}`, testid: 'ability-sheet', cls: 'gp-details',
     body: h('div.gp-sheet-body',
       v.multi ? h('p.gp-sub', 'She learns the ability of the path she raises to tier 3 (only one path can pass tier 2).') : null,
       ...v.forms.flatMap(form),
-      h('p.gp-sub', v.hero
+      how ? h('p.gp-sub', { 'data-testid': 'ability-howto' }, how.hero
         ? ['In battle, tap the ', ico(KIT_SVG.bolt, 'kit-bolt'), ' button by her portrait at the bottom left (E on a keyboard). It recharges only while a wave runs.']
-        : 'In battle, tap her portrait at the bottom right to fire it (1–9 on a keyboard). It recharges only while a wave runs; copies of her share one button. Hold it to switch on Auto.')),
+        : `In battle, tap her portrait at the bottom right to fire ${how.name || 'it'} (1–9 on a keyboard). It recharges only while a wave runs; copies of her share one button. Hold it to switch on Auto.`) : null),
   });
 }
 

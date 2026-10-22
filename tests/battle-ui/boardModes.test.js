@@ -5,7 +5,9 @@
 // of the copy that will really cast.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { abilityPathOf } from '../../src/sim/abilities.js';
+import { abilityPathOf, abilityDef, abilityReach } from '../../src/sim/abilities.js';
+import { STAGE, testData } from '../sim/fixtures.js';
+import { defaultData } from '../../src/sim/data.js';
 import { createAimControl, abilityTapAction, abilityAimText, aimCandidates } from '../../src/ui/battle/aimControl.js';
 import { createPlacement, clearBoardModes } from '../../src/ui/battle/placement.js';
 
@@ -228,6 +230,21 @@ describe('aim mode follows the copy that casts', () => {
     ctx.aim.startAbility({ uid: yuz.uid, id: 'yuzuha.emergencyDeploy', kind: 'point', name: 'Emergency Deploy' });
     expect(log.ring.at(-1)).toMatchObject({ x: yuz.x, y: yuz.y });
     expect(log.ring.at(-1).r).toBeGreaterThan(0);
+  });
+
+  it('point mode for an ability that looks from her familiar (fromOrigin): the ring is centred where the sim looks from (M3 review)', () => {
+    // Ruri far back from the fixture map's road (y 4.5): Kon stands 2+ tiles nearer it, and Moon Pounce looks from him
+    const FIX = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
+    const D = defaultData();
+    const sim = new Sim({ stageId: FIX.id, seed: 5, loadout: [{ unitId: 'ruri' }], data: testData({ stage: FIX, units: D.units, enemies: D.enemies }) });
+    sim.cash = 1e9;
+    const t = sim.placeTower('ruri', 8.5, 7.5);
+    for (let i = 0; i < 3; i++) sim.upgradeTower(t.uid, abilityPathOf(t.def));
+    expect(Math.hypot(t.ox - t.x, t.oy - t.y)).toBeGreaterThan(1.5);
+    const { ctx, log } = context(sim);
+    ctx.aim.startAbility({ uid: t.uid, id: 'ruri.moonPounce', kind: 'point', name: 'Moon Pounce' });
+    expect(log.ring.at(-1)).toEqual({ x: t.ox, y: t.oy, r: abilityReach(t, abilityDef(t)) });
+    expect(log.ring.at(-1).r).toBeCloseTo(t.eff.range + 2, 9);
   });
 
   it('the banner names what to tap again: her portrait (bar) or FIRE (panel), never a ⚡', () => {

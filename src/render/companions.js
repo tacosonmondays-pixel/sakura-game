@@ -4,7 +4,9 @@
 //                 (her ⚡) he leaps at its target and back (Reduce motion: he stays put and plays his attack)
 //   Kaze (Hana)   perches on her left shoulder (rides her shoulder bone); on her attacks he swoops to the
 //                 target and back in a short arc, one swoop at a time; on Kaze's Swoop (her ⚡) he dives on
-//                 each of its targets in turn, quicker (Reduce motion: the first only)
+//                 each of its targets within her reach in turn, quicker, never across the map (the far ones are
+//                 only marked); Reduce motion: no dive — he stays on her shoulder, turns to the first target and
+//                 plays his attack, and the marks fade in on the targets
 //   the doll      (Yoriko) floats in front of her raised hand on glowing threads that stay tied to her
 //                 control bar; dashes at the target and back on her needles and on Dream Detour
 // One actor per placed girl who has a companion (co-op partners' girls too: they are in the shared sim);
@@ -22,7 +24,7 @@ import { disposeObject } from '../models/index.js';
 import { lerpAngle } from './geo.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import {
-  konState, konStep, konSpot, konAttacks, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives,
+  konState, konStep, konSpot, konAttacks, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives, diveReach,
   SWOOP_TIME, SWOOP_LIFT, DASH_TIME, DASH_REACH, DASH_STOP, DASH_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
 } from './companionLogic.js';
 
@@ -140,10 +142,36 @@ export class Companions {
     }
   }
 
-  /** Kaze's Swoop: a dive on each target in turn (after any swoop in flight). */
+  /**
+   * Kaze's Swoop: a dive on each target within her reach in turn (after any swoop in flight), each flight capped at
+   * that reach. Reduce motion, or every target far off: no dive — he turns to the first target on her shoulder and
+   * plays his attack; abilityFx marks the targets.
+   */
   _onSwoop(a, targets) {
-    a.dives = swoopDives(targets, { reduceMotion: this.reduceMotion });
-    if (!a.sortie.busy) this._nextDive(a);
+    const t = this.sim.getTower ? this.sim.getTower(a.uid) : null;
+    const reach = diveReach(t?.eff?.range);
+    // (the dives' flight options: capped at her reach)
+    if (!a.diveOpts) a.diveOpts = { reach, lift: SWOOP_LIFT };
+    a.diveOpts.reach = reach;
+    const hx = a.home.x;
+    const hz = a.home.z;
+    a.dives = swoopDives(targets, {
+      reduceMotion: this.reduceMotion,
+      inReach: (uid) => {
+        const e = this.actors.enemyPos(uid);
+        return !!e && Math.hypot(e.x - hx, e.z - hz) <= reach;
+      },
+    });
+    if (a.dives.length) {
+      if (!a.sortie.busy) this._nextDive(a);
+      return;
+    }
+    a.group.userData.playAttack?.();
+    const first = Array.isArray(targets) && targets.length ? this.actors.enemyPos(targets[0]) : null;
+    if (first) {
+      a.face = Math.atan2(first.x - a.home.x, first.z - a.home.z);
+      a.faceT = 0.8;
+    }
   }
 
   /** Starts the next queued dive whose target is still drawn (a gone one is skipped). */
@@ -381,7 +409,8 @@ export class Companions {
         const e = this.actors.enemyPos(s.uid);
         if (e) retarget(s, e.x, e.y + (e.height || 0.5) * 0.5, e.z);
       }
-      const opts = a.cid === 'kaze' ? SWOOP_OPTS : DASH_OPTS;
+      // (a dive flies no farther than her reach, even after a target that walks away)
+      const opts = a.cid === 'kaze' ? ((a.diving && a.diveOpts) || SWOOP_OPTS) : DASH_OPTS;
       sortieStep(s, dt, a.home.x, a.home.y, a.home.z, _pos, opts);
       g.position.set(_pos.x, _pos.y, _pos.z);
       if (s.busy) {
@@ -389,6 +418,9 @@ export class Companions {
         const dx = s.tx - a.home.x;
         const dz = s.tz - a.home.z;
         if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz) + (_pos.out || a.cid === 'doll' ? 0 : Math.PI);
+      } else if (a.cid === 'kaze' && a.faceT > 0) {
+        // a Swoop called from her shoulder (Reduce motion, or no target near): turned to its first target
+        facing = a.face;
       }
     }
     a.faceT = Math.max(0, a.faceT - dt);
