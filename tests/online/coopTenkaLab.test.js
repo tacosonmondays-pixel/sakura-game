@@ -2,8 +2,8 @@
 // the `upg` command reports who joined (the new tail of her lab record) and the co-op layer forgets them as
 // owners (they are off the field, like a sale), the partner's girls stay theirs, and both views compute the
 // same battle. Her economy weapon (every joiner's income and interest, owner decision #146) pays her owner's
-// wallet only, with either player gone too. The hash folds her lab and open zones; a checkpoint taken while
-// Zero Point's boost tail runs restores it.
+// wallet only, with either player gone too. Either player's Tenka can have a lab, and both can at once. The
+// hash folds her lab and open zones; a checkpoint taken while Zero Point's boost tail runs restores it.
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, quantize, abilArgs } from '../../src/online/coop/commands.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -256,6 +256,153 @@ describe('her economy weapon in co-op (owner decision #146) and the gone player'
     rows = wave(cs);
     expect(sum(rows, 'lab', 0)).toBe(want);
     for (const x of rows) expect(Math.abs(x.d[0] - x.lab[0] - x.d[1])).toBeLessThanOrEqual(1);
+  }, 120000);
+});
+
+// T3 review coop-1 (the review's probe notes/t3-review/coop-lockstep.test.js part A, folded in): every lab
+// above is the host's. Here the GUEST owns one too and both labs stand in one battle: each player's girls stand
+// in the other Tenka's range (and stay that player's), the host is gone at the guest's Joint Research, both
+// Momos' interest feeds the labs (the pooled-coins base), and the host's wave-end checkpoint restored into
+// both slots plays a wave with Grand Lab bought and the guest's Tenka sold mid-wave.
+describe('two labs in one battle: the guest\'s and the host\'s', () => {
+  const cheap = (ids) => ids.map((unitId) => ({ unitId, stats: { costMul: unitId === 'tenka' ? 0.01 : 0.05 } }));
+  const dist = (sim, a, b) => {
+    const p = sim.getTower(a);
+    const q = sim.getTower(b);
+    return Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2);
+  };
+  /**
+   * Steps every view until the wave clears: the hashes agree every step and, with four views, each restored
+   * view's digest equals its live slot's every 60 steps. Per step with lab coins: who got them and the pooled
+   * coins they read (both wallets after the step, less the lab coins, which are owner-credited).
+   */
+  function playWave(cs, label, onStep = null) {
+    const pays = [];
+    for (let i = 0; i < 20000 && cs[0].sim.state === 'wave'; i++) {
+      for (const c of cs) c.step();
+      const h = cs.map((c) => c.hash());
+      expect(h, `${label} ${i}`).toEqual(h.map(() => h[0]));
+      const lab = [0, 0];
+      for (const ev of cs[0].sim.drainEvents()) if (ev.type === 'cash' && ev.reason === 'lab') lab[cs[0].sim.getTower(ev.towerUid).owner] += ev.amount;
+      for (const c of cs.slice(1)) c.sim.drainEvents();
+      if (lab[0] || lab[1]) {
+        const w = cs[0].wallets;
+        pays.push({ lab, base: w[0] + w[1] - lab[0] - lab[1] });
+      }
+      if (cs.length === 4 && i % 60 === 0) {
+        expect(snapshotDigest(JSON.stringify(cs[2].snapshot())), `${label} ${i} slot 0`).toBe(snapshotDigest(JSON.stringify(cs[0].snapshot())));
+        expect(snapshotDigest(JSON.stringify(cs[3].snapshot())), `${label} ${i} slot 1`).toBe(snapshotDigest(JSON.stringify(cs[1].snapshot())));
+      }
+      onStep?.(i);
+    }
+    expect(cs[0].sim.state).toBe('between');
+    return pays;
+  }
+  /** What her lab pays at a clear whose pooled coins are `base` (labIncome's formula). */
+  const labPay = (sim, tk, base) => {
+    const t = sim.getTower(tk);
+    const interest = t.lab.interest.reduce((a, rate) => a + Math.min(INCOME_INTEREST_MAX, rate * base), 0);
+    return Math.floor(LAB_ECON_SHARE * (t.stats.lab.power ?? 1) * (t.lab.income * (sim.diff.cashMul ?? 1) + interest) * sim.incomeMul + 1e-9);
+  };
+
+  it('each lab takes only her own player\'s girls (the host gone or not), pays only her owner, and both labs restore and play on in four views', () => {
+    const st = {
+      seed: 4242,
+      stageId: '2-5',
+      difficulty: 'normal',
+      players: [
+        { slot: 0, uid: 'host', name: 'Host', loadout: cheap(['tenka', 'momo', 'aoi', 'rei']), hero: null },
+        { slot: 1, uid: 'guest', name: 'Guest', loadout: cheap(['tenka', 'momo', 'akane', 'chigusa']), hero: null },
+      ],
+    };
+    const cs = viewsOf(st, 1500);
+    // the guest's Tenka first, the host's beside her, and everyone else around the guest's
+    const gt = place(cs, 1, 'tenka');
+    const ht = place(cs, 0, 'tenka', gt);
+    const hm = place(cs, 0, 'momo', gt);
+    const ha = place(cs, 0, 'aoi', gt);
+    const gm = place(cs, 1, 'momo', gt);
+    const gk = place(cs, 1, 'akane', gt);
+    const gc = place(cs, 1, 'chigusa', gt);
+    for (let i = 0; i < 2; i++) {
+      expect(all(cs, cmd(0, 'upg', [hm, 1])).ok).toBe(true); // Merch Table: interest
+      expect(all(cs, cmd(1, 'upg', [gm, 1])).ok).toBe(true);
+      expect(all(cs, cmd(1, 'upg', [gc, 2])).ok).toBe(true); // Harvest: income
+    }
+    const s0 = cs[0].sim;
+    const perWave = (u) => s0.getTower(u).stats.income?.perWave ?? 0;
+    const rate = (u) => s0.getTower(u).stats.income?.interest ?? 0;
+    // (Momo is the only one of them with interest; every joiner's income counts, owner decision #146)
+    const want = { guest: { income: perWave(gm) + perWave(gk), interest: [rate(gm)] }, host: { income: perWave(hm) + perWave(ha), interest: [rate(hm)] } };
+    for (const u of [gk, ha]) expect(rate(u)).toBe(0);
+    expect(want.guest.interest[0]).toBeGreaterThan(0);
+    expect(want.host.interest[0]).toBeGreaterThan(0);
+    // the host is gone when the guest buys Joint Research
+    all(cs, marker(0, 'gone'));
+    for (let i = 0; i < 2; i++) expect(all(cs, cmd(1, 'upg', [gt, 0])).ok).toBe(true);
+    const gRange = s0.getTower(gt).eff.range;
+    // (the host's Momo and Aoi stand in her range; her own Chigusa does not)
+    for (const u of [hm, ha, gm, gk]) expect(dist(s0, u, gt)).toBeLessThanOrEqual(gRange);
+    expect(dist(s0, gc, gt)).toBeGreaterThan(gRange);
+    const rG = all(cs, cmd(1, 'upg', [gt, 0]));
+    expect(rG).toMatchObject({ ok: true, absorbed: [gm, gk] });
+    all(cs, marker(0, 'join'));
+    // the host's Joint Research: the guest's Tenka and Chigusa stand in her range and stay the guest's
+    for (let i = 0; i < 2; i++) expect(all(cs, cmd(0, 'upg', [ht, 0])).ok).toBe(true);
+    const hRange = s0.getTower(ht).eff.range;
+    for (const u of [gt, gc, hm, ha]) expect(dist(s0, u, ht)).toBeLessThanOrEqual(hRange);
+    const rH = all(cs, cmd(0, 'upg', [ht, 0]));
+    expect(rH).toMatchObject({ ok: true, absorbed: [hm, ha] });
+    const rei = place(cs, 0, 'rei', ht); // after her Joint Research: stays
+    for (const c of cs) {
+      for (const u of [gm, gk, hm, ha]) expect(c.ownerOf(u)).toBeUndefined();
+      expect([c.ownerOf(gt), c.ownerOf(gc), c.ownerOf(ht), c.ownerOf(rei)]).toEqual([1, 1, 0, 0]);
+      expect(c.sim.getTower(gt).lab).toMatchObject({ rounds: 1, members: { frag: 1, economy: 1, dps: 0 }, uids: [gm, gk], ...want.guest });
+      expect(c.sim.getTower(ht).lab).toMatchObject({ rounds: 1, members: { dps: 1, economy: 1, frag: 0 }, uids: [hm, ha], ...want.host });
+      expect(c.sim._labOn).toBe(2);
+    }
+    // wave 1: each lab pays her own owner, on the pooled coins of the clearing step
+    expect(all(cs, cmd(0, 'wave')).ok).toBe(true);
+    const w1 = playWave(cs, 'wave 1');
+    expect(w1).toHaveLength(1);
+    const [p1] = w1;
+    expect(p1.lab).toEqual([labPay(s0, ht, p1.base), labPay(s0, gt, p1.base)]);
+    expect(p1.lab[0]).toBeGreaterThan(0);
+    expect(p1.lab[1]).toBeGreaterThan(0);
+    for (const c of cs) expect(c.sim.ownerCash).toEqual([0, 0]);
+    // the host's wave-end checkpoint, restored into both slots: both labs come back as they were
+    const ck = JSON.parse(JSON.stringify(cs[0].snapshot()));
+    const restored = [0, 1].map((mySlot) => createCoopSim(st, { mySlot }).restore(ck));
+    for (const r of restored) {
+      expect(rederiveStats(r.sim)).toBe(0);
+      for (const tk of [gt, ht]) expect(r.sim.getTower(tk).lab).toEqual(s0.getTower(tk).lab);
+      expect([r.ownerOf(gm), r.ownerOf(hm), r.ownerOf(gt), r.ownerOf(gc)]).toEqual([undefined, undefined, 1, 1]);
+    }
+    const four = [...cs, ...restored];
+    // wave 2: Grand Lab mid-wave; the guest leaves and her Tenka is sold by her order already on its way
+    expect(all(four, cmd(0, 'wave')).ok).toBe(true);
+    let grand = null;
+    let sold = null;
+    const w2 = playWave(four, 'wave 2', (i) => {
+      if (i === 240) grand = all(four, cmd(0, 'upg', [ht, 0]));
+      if (i === 480) all(four, marker(1, 'gone'));
+      if (i === 481) sold = all(four, cmd(1, 'sell', [gt]));
+    });
+    expect(grand.ok).toBe(true);
+    expect(sold.ok).toBe(true);
+    expect(sold.refund).toBeGreaterThan(0);
+    for (const c of four) {
+      expect(c.sim.getTower(gt)).toBe(null);
+      expect(c.sim._labOn).toBe(1); // one of two labs sold: the other still runs
+      expect(c.sim.getTower(ht).stats.lab.power).toBe(1.5);
+    }
+    // only the host's lab is left to pay: at Grand Lab's power, to her alone
+    expect(w2).toHaveLength(1);
+    expect(w2[0].lab).toEqual([labPay(s0, ht, w2[0].base), 0]);
+    expect(w2[0].lab[0]).toBeGreaterThan(p1.lab[0]);
+    for (const c of four) expect(c.hash()).toBe(four[0].hash());
+    expect(snapshotDigest(JSON.stringify(four[2].snapshot()))).toBe(snapshotDigest(JSON.stringify(four[0].snapshot())));
+    expect(snapshotDigest(JSON.stringify(four[3].snapshot()))).toBe(snapshotDigest(JSON.stringify(four[1].snapshot())));
   }, 120000);
 });
 

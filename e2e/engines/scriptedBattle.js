@@ -27,6 +27,7 @@ import { autoPlan } from '../../src/sim/headless.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
+import { LAB_CLASSES } from '../../src/sim/lab.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -1106,6 +1107,7 @@ export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, m
   const seen = [new Map(), new Map()];
   const count = { labJoin: 0, labFrag: 0, zoneOpen: 0, lastLine: 0, swallow: 0, labCash: 0 };
   const joins = [];
+  let members = 'none'; // her lab's girls per class after the last absorb (labJoin), LAB_CLASSES order
   let ck = null;
   let unified = null; // the tick Unified Theory was queued at
   let utWave = 0; // the wave she bought it in
@@ -1178,6 +1180,7 @@ export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, m
           if (ev.type === 'labJoin') {
             count.labJoin++;
             joins.push(`r${ev.round}:${ev.uids.length}`);
+            members = LAB_CLASSES.map((cls) => `${cls}:${ev.members[cls]}`).join(' ');
           } else if (ev.type === 'zoneOpen') {
             count.zoneOpen++;
             if (ev.kind === 'lastLine') count.lastLine++;
@@ -1200,7 +1203,6 @@ export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, m
   const finalDigest = snapshotDigest(A.coop.snapshot());
   const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
   const st = A.sim.stats;
-  const lab = A.sim.towers.find((t) => t.lab)?.lab || null;
   return {
     ticks: A.tick,
     state: A.sim.state,
@@ -1210,8 +1212,8 @@ export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, m
     absorbed: absorbed.join(' '),
     joins: joins.join(' '),
     joined: st.labJoined || 0,
-    // the record of the lab still standing (none after the sale)
-    lab: lab ? Object.values(lab.members).join('') : 'sold',
+    // who her lab team was by class, after the second absorb (her lab is sold before the run ends)
+    members,
     labFrags: count.labFrag,
     labCash: count.labCash,
     wells: st.wells || 0,
@@ -1232,6 +1234,27 @@ export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, m
     finalDigest,
     ms: Date.now() - t0,
   };
+}
+
+/**
+ * What a runTenkaBattle result must have exercised, beyond matching its pins (e2e/engines.mjs and
+ * tests/online/engines.test.js both check it, so a re-pin cannot quietly lose it): both absorbs, a girl of
+ * EVERY lab class in her team (a role moved to another category would leave one empty), her grenades and
+ * the economy weapon's coins, the guest's wells and Last Line, and a mid-wave sale.
+ * @returns {string[]} what is missing (empty: all of it ran)
+ */
+export function tenkaCoverage(b) {
+  const miss = [];
+  if (!(b.joined >= 5) || String(b.joins).split(' ').length < 2) miss.push(`her lab team: ${b.joins}, ${b.joined} joined (want both absorbs)`);
+  const n = {};
+  for (const [, cls, k] of String(b.members).matchAll(/(\w+):(\d+)/g)) n[cls] = Number(k);
+  const none = LAB_CLASSES.filter((cls) => !(n[cls] > 0));
+  if (none.length) miss.push(`her lab team (${b.members}): nobody joined as ${none.join(', ')}`);
+  if (!(b.labFrags > 0)) miss.push('her lab never threw a grenade');
+  if (!(b.labCash > 0)) miss.push('her economy weapon never paid');
+  if (!(b.wells > 0 && b.lastLines > 0 && b.swallowed > 0)) miss.push(`wells ${b.wells}, Last Lines ${b.lastLines}, swallowed ${b.swallowed}`);
+  if (!/mid-wave/.test(b.sale)) miss.push(`her sale: ${b.sale}`);
+  return miss;
 }
 
 // ---------------------------------------------------------------------------

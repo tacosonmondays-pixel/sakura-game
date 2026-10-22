@@ -20,15 +20,17 @@
 //
 //   node e2e/engines.mjs                  # every engine available; at least two must run
 //   node e2e/engines.mjs --require-all    # fail when Bun, Firefox or WebKit is missing
-// Firefox / WebKit: `npx playwright install firefox webkit` (+ `--with-deps` on Linux). Bun: on
-// PATH, or BUN=<path>. Exit code 1 on any mismatch.
+// Browsers (e2e/browser.mjs launchAttempts): Playwright's own Chromium / Firefox / WebKit, else the
+// system Chrome or Edge and the system Firefox (no download). WebKit only comes from
+// `npx playwright install webkit` (+ `--with-deps` on Linux). Bun: on PATH, or BUN=<path>.
+// Exit code 1 on any mismatch.
 import { build } from 'vite';
 import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { loadPlaywright, GL_ARGS } from './browser.mjs';
+import { loadPlaywright, launchAttempts, GL_ARGS } from './browser.mjs';
 
 const requireAll = process.argv.includes('--require-all');
 const log = (...a) => console.log(...a);
@@ -54,10 +56,8 @@ const results = [];
 const skipped = [];
 
 // 2. Node (V8)
-{
-  const { runEngineChecks } = await import(pathToFileURL(bundle).href);
-  results.push({ name: `Node ${process.version} (V8)`, r: runEngineChecks() });
-}
+const battle = await import(pathToFileURL(bundle).href);
+results.push({ name: `Node ${process.version} (V8)`, r: battle.runEngineChecks() });
 
 // 3. Bun (JavaScriptCore)
 {
@@ -87,18 +87,32 @@ const skipped = [];
   for (const [type, engine, args] of [['chromium', 'V8', GL_ARGS], ['firefox', 'SpiderMonkey', []], ['webkit', 'JavaScriptCore', []]]) {
     if (!pw?.[type]) continue;
     let browser = null;
+    let label = type;
+    const tried = [];
+    for (const [how, what] of launchAttempts(type)) {
+      try {
+        browser = await pw[type].launch({ ...how, args: [...args, ...(how.args || [])] });
+        label = what;
+        break;
+      } catch (e) {
+        tried.push(`${what}: ${String(e.message).split('\n')[0].slice(0, 100)}`);
+      }
+    }
+    if (!browser) {
+      skipped.push(`${type} (${tried.join('; ')})`);
+      continue;
+    }
     try {
-      browser = await pw[type].launch({ args });
       const page = await browser.newPage();
       await page.setContent('<!doctype html><title>engines</title>');
       await page.addScriptTag({ type: 'module', content: code });
       await page.waitForFunction(() => window.__result, null, { timeout: 600000, polling: 500 });
       const r = await page.evaluate(() => window.__result);
-      results.push({ name: `${type} ${browser.version()} (${engine})`, r });
+      results.push({ name: `${label} ${browser.version()} (${engine})`, r });
     } catch (e) {
-      skipped.push(`${type} (${String(e.message).split('\n')[0].slice(0, 120)})`);
+      skipped.push(`${label} (${String(e.message).split('\n')[0].slice(0, 120)})`);
     } finally {
-      await browser?.close().catch(() => {});
+      await browser.close().catch(() => {});
     }
   }
 }
@@ -300,7 +314,7 @@ for (const { name, r } of results) {
 }
 // Tenka: her lab team (every class joins over two absorbs, the second mid-wave after the checkpoint), the
 // partner's girl in her range who stays, the economy weapon, wells, Last Line and a mid-wave sale
-const TK_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'absorbed', 'joins', 'joined', 'labFrags', 'labCash', 'wells', 'lastLines', 'swallowed', 'sale', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+const TK_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'absorbed', 'joins', 'joined', 'members', 'labFrags', 'labCash', 'wells', 'lastLines', 'swallowed', 'sale', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
 log('\nScripted co-op TENKA battle (2-5, TENKA_START: Joint Research + Unified Theory mid-wave after the checkpoint, every lab class, wells, Last Line, a sale):');
 for (const { name, r } of results) {
   const b = r.tenka;
@@ -312,11 +326,9 @@ for (const { name, r } of results) {
 }
 {
   const b = ref.tenka;
-  log(`  towers: ${b.towers} · absorbed ${b.absorbed}`);
-  if (b.joined < 5 || b.joins.split(' ').length < 2) failures.push(`the Tenka battle's lab team: ${b.joins} (want both absorbs, every class)`);
-  if (!(b.wells > 0 && b.lastLines > 0 && b.swallowed > 0)) failures.push(`the Tenka battle: wells ${b.wells}, Last Lines ${b.lastLines}, swallowed ${b.swallowed}`);
-  if (!(b.labCash > 0)) failures.push('the Tenka battle\'s economy weapon never paid');
-  if (!/mid-wave/.test(b.sale)) failures.push(`the Tenka battle's sale: ${b.sale}`);
+  log(`  towers: ${b.towers} · absorbed ${b.absorbed} · lab team ${b.members}`);
+  // (the same coverage check as tests/online/engines.test.js: every lab class, both absorbs, each weapon)
+  for (const miss of battle.tenkaCoverage(b)) failures.push(`the Tenka battle: ${miss}`);
 }
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {

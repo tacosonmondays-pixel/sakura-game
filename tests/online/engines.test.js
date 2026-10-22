@@ -2,7 +2,26 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runTenkaBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { launchAttempts } from '../../e2e/browser.mjs';
+
+// T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
+// them SpiderMonkey never ran even with Firefox installed. It now falls back to the installed browsers
+// (no download), the system Firefox kept apart from one the user has open and, on Windows, held by its
+// launcher (without -wait-for-browser Playwright loses it and a stray Firefox window can stay open).
+describe('the cross-engine runner finds the browsers (e2e/browser.mjs launchAttempts)', () => {
+  it('Firefox: Playwright\'s, else the system Firefox (SpiderMonkey) through WebDriver BiDi; Chrome / Edge as launchChromium; WebKit only Playwright\'s', () => {
+    const ff = launchAttempts('firefox', {}, 'win32');
+    expect(ff.map(([, label]) => label)).toEqual(['Playwright Firefox', 'system Firefox']);
+    expect(ff[0][0]).toEqual({});
+    expect(ff[1][0]).toMatchObject({ channel: 'moz-firefox', args: ['-no-remote', '-wait-for-browser'] });
+    expect(launchAttempts('firefox', {}, 'linux')[1][0].args).toEqual(['-no-remote']);
+    expect(launchAttempts('chromium', {}).map(([, label]) => label)).toEqual(['Playwright Chromium', 'system Chrome', 'system Edge']);
+    expect(launchAttempts('chromium', { CHROME_PATH: 'C:/x/chrome.exe' })).toEqual([[{ executablePath: 'C:/x/chrome.exe' }, 'CHROME_PATH=C:/x/chrome.exe']]);
+    expect(launchAttempts('chromium', { PLAYWRIGHT_CHANNEL: 'msedge' })).toEqual([[{ channel: 'msedge' }, 'channel msedge']]);
+    expect(launchAttempts('webkit', {})).toEqual([[{}, 'Playwright WebKit']]);
+  });
+});
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -150,6 +169,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(Number(r.absorbed.match(/\(w(\d+) mid-wave\)$/)[1])).toBeGreaterThan(r.ckWave);
     expect(r.joins).toBe('r1:3 r2:2');
     expect(r.joined).toBe(5);
+    // (T3 review spec-1) one girl of each class, read from her lab record, not only five girls: a role moved
+    // to another category would leave a class empty, and tenkaCoverage (engines.mjs's guard too) says so
+    expect(r.members).toBe('dps:1 frag:1 control:1 support:1 economy:1');
+    expect(tenkaCoverage(r)).toEqual([]);
+    expect(tenkaCoverage({ ...r, members: 'dps:2 frag:1 control:0 support:1 economy:1' })).toEqual([expect.stringMatching(/nobody joined as control$/)]);
     expect(r.towers).toContain('1:rei:');
     // her weapons ran (grenades, the economy weapon's coins: Momo's income and interest, #146), the guest's
     // wells opened and her Last Line swallowed near the exit after the host sold her Tenka mid-wave
@@ -159,15 +183,16 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.lastLines).toBeGreaterThan(0);
     expect(r.swallowed).toBeGreaterThan(0);
     expect(r.sale).toMatch(/^\d+ \(w\d+ mid-wave\)$/);
-    expect(r.lab).toBe('sold');
     expect(r.ckWave).toBe(7);
     expect(r.ckSame).toBe(true);
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runTenkaBattle().final).toBe(r.final);
-    // pinned when the scenario landed (T3; V8 gave these, the other engines are compared by e2e/engines.mjs):
-    // change only with a deliberate sim / data change, and say why
-    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, finalDigest: '8e111df8' });
+    // pinned when the scenario landed (T3; V8 gave these, and SpiderMonkey matched them in the T3 review
+    // fixes; JavaScriptCore not run yet): change only with a deliberate sim / data change, and say why. The
+    // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
+    // sale, so only ckDigest holds a lab record)
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'e864bd71', finalDigest: '8e111df8' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
