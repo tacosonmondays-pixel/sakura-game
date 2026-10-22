@@ -4,7 +4,7 @@
 // girls whose drones roam (towerStats().turret.leash > 0); everyone else keeps today's panel.
 // The tab, the drone shown and where ‹ returns to live here (not in the DOM), so a re-render
 // (an upgrade, a new drone, the wave state) never snaps the view back.
-import { h, fmtCoins, fmtNum, icon, enemyDef } from './util.js';
+import { h, fmtCoins, fmtNum, fmtDps, icon, enemyDef } from './util.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
 
@@ -162,7 +162,7 @@ export function createDronePanel(ctx, { rerender }) {
   };
   const rateText = (key) => {
     const r = ctx.rates?.rate(key);
-    return r == null ? '—' : fmtNum(r, 1);
+    return r == null ? '—' : fmtDps(r);
   };
 
   function overallTab(t, st, cells) {
@@ -172,19 +172,19 @@ export function createDronePanel(ctx, { rerender }) {
     const fly = tu.flight === 'pursuit' ? 'Whole map' : `${fmtNum(tu.leash, 2)} tiles (+${fmtNum(tu.range, 1)} gun)`;
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
-      cell('DPS', `${fmtNum(st.own.dps + wing, 1)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
+      cell('DPS', `${fmtDps(st.own.dps + wing)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
       cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
       cell('Flight', { hover: 'Hover', hold: 'Hold', patrol: 'Patrol', pursuit: 'Pursuit' }[tu.flight] || tu.flight, '.bt-stat-wide2'),
-      cell('Drones', `${tu.active}/${tu.max} · ${fmtNum(tu.damage, 1)} dmg × ${fmtNum(tu.rate, 2)}/s each`, '.bt-stat-wide'),
+      cell('Drones', `${tu.active}/${tu.max} · ${fmtDps(tu.damage)} dmg × ${fmtNum(tu.rate, 2)}/s each`, '.bt-stat-wide'),
     ), cells.caps);
   }
 
   function chikaTab(t, st, cells) {
     const rows = [
-      cell('DPS', fmtNum(st.own.dps, 1), '.bt-stat-main'),
-      cell('Damage', fmtNum(st.damage, 1)),
+      cell('DPS', fmtDps(st.own.dps), '.bt-stat-main'),
+      cell('Damage', fmtDps(st.damage)),
       cell('Attacks/s', fmtNum(st.rate, 2)),
       cell('Range', fmtNum(st.range, 1)),
     ];
@@ -197,7 +197,7 @@ export function createDronePanel(ctx, { rerender }) {
       cell('Dealing', liveB(() => {
         const all = ctx.rates?.rate(`t${t.uid}`);
         const dr = ctx.rates?.rate(`d${t.uid}`);
-        return all == null || dr == null ? '—' : fmtNum(Math.max(0, all - dr), 1);
+        return all == null || dr == null ? '—' : fmtDps(Math.max(0, all - dr));
       })),
     );
     if (cells.aura) rows.push(cells.aura);
@@ -215,9 +215,9 @@ export function createDronePanel(ctx, { rerender }) {
       return sim.state === 'wave' ? `${s.active}/${s.max} · next in ${fmtNum(s.nextIn, 1)} s` : `${s.active}/${s.max} · builds during waves (every ${fmtNum(s.build, 1)} s)`;
     });
     const grid = h('div.bt-stats-grid',
-      cell('Wing DPS', `${fmtNum(wing, 1)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
+      cell('Wing DPS', `${fmtDps(wing)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
       cell('Flying', flying, '.bt-stat-wide2'),
-      cell('Damage each', fmtNum(tu.damage, 1)),
+      cell('Damage each', fmtDps(tu.damage)),
       cell('Fire rate', `${fmtNum(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1), 2)}/s`),
       cell('Gun', fmtNum(tu.range, 1)),
       cell('Speed', `${fmtNum(tu.speed, 1)} t/s`),
@@ -283,7 +283,7 @@ export function createDronePanel(ctx, { rerender }) {
     const share = liveB(() => {
       const r = ctx.rates?.rate(`u${d.uid}`);
       const w = ctx.rates?.rate(`d${t.uid}`);
-      return r == null ? '—' : `${fmtNum(r, 1)}${w ? ` · ${Math.round((r / w) * 100)}% of the wing` : ''}`;
+      return r == null ? '—' : `${fmtDps(r)}${w ? ` · ${Math.round((r / w) * 100)}% of the wing` : ''}`;
     });
     return h('div.bt-dr-card', { 'data-testid': 'drone-card' },
       h('div.bt-dr-card-head',
@@ -299,7 +299,7 @@ export function createDronePanel(ctx, { rerender }) {
         cell('Kills', one((c) => fmtCoins(c.kills))),
         cell('Shots', one((c) => fmtCoins(c.shots))),
         cell('DPS (last 5 s)', share, '.bt-stat-wide'),
-        cell('Damage/shot', fmtNum(tu.damage, 1)),
+        cell('Damage/shot', fmtDps(tu.damage)),
         cell('Fire', `${fmtNum(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1), 2)}/s`),
         cell('Gun', fmtNum(tu.range, 1)),
         cell('Speed', `${fmtNum(tu.speed, 1)} t/s`)),

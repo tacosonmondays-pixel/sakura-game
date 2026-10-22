@@ -4,6 +4,7 @@ import { svgEl } from '../components.js';
 import { uiIcon, traitIcon } from '../../art/icons.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
+import { fmtNum as fmtShort } from '../format.js';
 
 /** Sets a CSS custom property on an existing element (skipped when the value is null). */
 export function setVar(el, name, value) {
@@ -43,6 +44,19 @@ export function fmtNum(n, digits = 2) {
   if (n == null || !Number.isFinite(n)) return '–';
   const f = Number(n.toFixed(digits));
   return String(f);
+}
+
+/**
+ * Damage and DPS in the selected-girl panels, short enough for their cells (HANDOFF §10): one decimal below 1,000
+ * ("45.3"), whole numbers with commas below 10,000 ("4,524"), then the menus' short form ("136.2k", "1.2M").
+ */
+export function fmtDps(n) {
+  if (n == null || !Number.isFinite(n)) return '–';
+  const tenth = Math.round(n * 10) / 10;
+  if (Math.abs(tenth) < 1000) return String(tenth);
+  const whole = Math.round(n);
+  if (Math.abs(whole) < 10000) return whole.toLocaleString('en-US');
+  return fmtShort(n);
 }
 
 export function fmtTime(sec) {

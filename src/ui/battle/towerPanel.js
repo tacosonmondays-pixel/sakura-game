@@ -5,7 +5,7 @@
 // (heroes cannot be sold). Landscape: right-side card; portrait: bottom sheet. Girls with roaming
 // drones (Chika) also get a split bar, a Flight row and tabs (chikaPanel.js); her buff sections sit
 // on her own tab.
-import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
+import { h, icon, fmtCoins, fmtNum, fmtDps, setVar } from './util.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { crosspathReason, pathCap, onePerPathReason, heldPipTitle, whereOnMap, finalHolderLine, ONE_PER_PATH_COOP } from './rules.js';
 import { svgEl } from '../components.js';
@@ -41,7 +41,7 @@ function statusLabel(s) {
   const name = STATUSES[s.type]?.name || s.type;
   const parts = [];
   if (s.amount) parts.push(`${Math.round(s.amount * 100)}%`);
-  if (s.dps) parts.push(`${fmtNum(s.dps, 1)}/s`);
+  if (s.dps) parts.push(`${fmtDps(s.dps)}/s`);
   if (s.pct) parts.push(`+${fmtNum(s.pct * 100, 2)}% max HP/s`);
   if (s.bonus) parts.push(`+${Math.round(s.bonus * 100)}%`);
   if (s.duration) parts.push(`${fmtNum(s.duration, 1)}s`);
@@ -226,11 +226,11 @@ export function createTowerPanel(ctx) {
     // "attack rate" is how fast she builds drones.
     const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
     const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
-    if (dps > 0) add('DPS', fmtNum(dps, 1), '.bt-stat-main', 'dps');
+    if (dps > 0) add('DPS', fmtDps(dps), '.bt-stat-main', 'dps');
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 1)}s`);
     } else {
-      if (st.damage > 0) add('Damage', fmtNum(st.damage, 1));
+      if (st.damage > 0) add('Damage', fmtDps(st.damage));
       if (st.rate > 0 && st.behavior !== 'none') add(st.behavior === 'trap' ? 'Traps/s' : 'Attacks/s', fmtNum(st.rate, 2));
     }
     if (st.range > 0) add('Range', fmtNum(st.range, 1));
@@ -254,8 +254,8 @@ export function createTowerPanel(ctx) {
     if (t.unitStats?.club && t.unitStats.clubN >= 2) add('Club', `${CLUB_NAMES[t.unitStats.club] || t.unitStats.club} ${'●'.repeat(t.unitStats.clubN)}${t.unitStats.clubN >= 3 ? ' · trick on' : ''}`, '.bt-stat-wide2');
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
-    if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');
-    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtNum(st.turret.damage, 0)} dmg × ${fmtNum(anchored?.rate ?? t.turretSpec?.rate ?? 0, 2)}/s each`, '.bt-stat-wide', 'turret');
+    if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtDps(Math.round(st.trap.damage))} dmg`, '.bt-stat-wide2');
+    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtDps(Math.round(st.turret.damage))} dmg ×${fmtNum(anchored?.rate ?? t.turretSpec?.rate ?? 0, 2)}/s each`, '.bt-stat-wide', 'turret');
     // gear Cost Reduction (and cost-cut auras) make her upgrades cheaper: say so, with the total
     const gearCut = 1 - (t.unitStats?.costMul ?? 1);
     const auraCut = Math.min(0.5, t.buff?.costCut || 0);
