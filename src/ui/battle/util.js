@@ -59,6 +59,26 @@ export function fmtDps(n) {
   return fmtShort(n);
 }
 
+/**
+ * What a battle that failed to build logs beside its error (controller.js `ready`): which battle it was. Plain
+ * values only, so the line reads the same in a bug report as in the console.
+ * @param {{ req?: object|null, params?: object, quality?: string|null, coop?: boolean }} o
+ */
+export function buildErrorContext({ req = null, params = {}, quality = null, coop = false } = {}) {
+  return {
+    stage: req?.stageId ?? params?.stage ?? null,
+    difficulty: req?.difficulty ?? params?.difficulty ?? null,
+    mode: params?.mode || 'standard',
+    freeplay: req?.freeplay ?? null,
+    endless: !!req?.endless,
+    resume: !!req?.resume,
+    titan: !!params?.titan,
+    tutorial: params?.tutorial === '1',
+    coop: !!coop,
+    quality: quality || null,
+  };
+}
+
 export function fmtTime(sec) {
   const s = Math.max(0, Math.ceil(sec));
   return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
