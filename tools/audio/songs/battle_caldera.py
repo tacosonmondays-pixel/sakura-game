@@ -29,7 +29,7 @@ Leitmotifs: SHADOW (B acid calls, the F♯ form in B8), BELL (BR unanswered in B
 SENTINEL CALL (synth brass, intensity).
 review: originality — hook, answers, acid lines, bass rolls and counter-lines are new; checked by ear-memory against
 well-known hard dance / hardtek / rave / happy-hardcore riffs (Teknival-style tribe loops, Sandstorm, Children,
-Dragostea-era eurodance, Toby Fox's and Camellia-style game rave tracks) and dragon/volcano stage themes: no shared
+Dragostea-era eurodance, indie-game and rhythm-game rave tracks) and dragon/volcano stage themes: no shared
 hook, riff or bass line. `studio.py originality` clean. Composer B2, 2026-10-09.
 """
 from sakura_audio.song import Song

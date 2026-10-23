@@ -1,5 +1,5 @@
 // Captain's Journal (owner: story; STORY_SPEC §3.6). Route: #/journal?id=<lessonId>
-// Blue Archive two-pane layout over the painted academy: on the left the 12 lesson cards (icon, title or "???"
+// Two-pane layout over the painted academy: on the left the 12 lesson cards (icon, title or "???"
 // while locked, "Clear <stage>" or ✓, NEW and gift chips); on the right the open lesson with Hikari's bust beside
 // a speech panel, its rewards and [Show me] / [Claim] / [Hikari explains]. Opening a lesson marks it read.
 import '../styles/meta-a.css'; // hub backdrop (shared with the missions hub)

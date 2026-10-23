@@ -18,13 +18,17 @@ const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('132 rows: the shipped 30 (first, in their order) + 102 new; 116 live at launch + 2 with social = 118', () => {
+  it('132 rows: the shipped 30 (first, in their order) + 102 new; 116 live at launch + 2 with social + 11 Codex = 129', () => {
     expect(ACHIEVEMENTS).toHaveLength(132);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
     expect(NEW).toHaveLength(102);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(118);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(129);
+    expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex')).toHaveLength(11);
+    expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex').every((a) => achievementLive(a))).toBe(true);
+    // still waiting for their feature (a_hero_25 counts heroMax from v0.1.45 on, but stays hidden)
+    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual(['a_units_30', 'a_hero_25', 'a_bond_10']);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'social').map((a) => a.id)).toEqual(['a_donate_1', 'a_donate_10']);
     // clan donations are materials asked for in Clan Requests (never gear): the texts say so, like the patch note
     for (const a of ACHIEVEMENTS.filter((x) => x.wave === 'social')) {
@@ -33,7 +37,7 @@ describe('ids and names', () => {
     }
     expect(REEXPORTED).toBe(ACHIEVEMENTS);
     expect(ACH_V2_LIVE).toBe(true);
-    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: false, later: false });
+    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, later: false });
   });
 
   it('ids are unique, ^a_[a-z0-9_]+$ and at most 24 characters (valid title ids and ach: pins)', () => {
@@ -120,7 +124,7 @@ describe('rewards', () => {
 });
 
 describe('the frozen ledger (shipped rewards never change)', () => {
-  it('every shipped id (the shipped 30, launch and social) is in the ledger with identical rewards', () => {
+  it('every shipped id (the shipped 30, launch, social and Codex) is in the ledger with identical rewards', () => {
     for (const a of ACHIEVEMENTS.filter((x) => achievementLive(x))) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
   });
 
@@ -176,13 +180,17 @@ describe('cosmetics', () => {
     }
   });
 
-  it('in this build: 33 ribbons and 38 titles (launch 32 / 37 + Kind Heart and Helping Hands with social)', () => {
+  it('in this build: 34 ribbons and 45 titles (launch 32 / 37, + Kind Heart and Helping Hands with social, + the holo ribbon and 7 titles with Codex)', () => {
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
-    expect(live.filter((a) => a.honor)).toHaveLength(33);
+    expect(live.filter((a) => a.honor)).toHaveLength(34);
     expect(live.filter((a) => a.honor && a.wave === 'launch')).toHaveLength(32);
     expect(live.filter((a) => a.honor && a.shipped)).toHaveLength(12);
-    expect(live.filter((a) => a.title).length + 2).toBe(38);
+    expect(live.filter((a) => a.honor && a.wave === 'codex').map((a) => [a.id, a.honor.name, a.honor.fx])).toEqual([['a_mr_800', 'Holo Codex Ribbon', 'holo']]);
+    expect(live.filter((a) => a.title).length + 2).toBe(45);
     expect(live.filter((a) => a.title && a.wave === 'launch').length + 2).toBe(37);
+    expect(live.filter((a) => a.title && a.wave === 'codex').map((a) => a.title.text)).toEqual([
+      'Versatile Strategist', 'All-Round Sensei', 'Wrong-Way Warden', 'Rush Hour Hero', 'Armor Breaker', 'Thrifty Tactician', 'Last Petal Keeper',
+    ]);
     expect(live.filter((a) => a.title && a.shipped)).toHaveLength(9);
   });
 });

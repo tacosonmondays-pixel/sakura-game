@@ -74,7 +74,8 @@ describe('drawn portraits', () => {
       expect(portraitEdges(u.id), u.id).toBe(FRAME_CUT[u.id] || '');
       if (FRAME_CUT[u.id]) expect(portraitHTML(u, 'cut'), u.id).toContain('pt-edge');
       else expect(portraitHTML(u, 'cut'), u.id).not.toContain('pt-edge');
-      expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.3);
+      // (the slimmest stand is Yuzuha's Clean Cel card, arms in at a tablet: 0.294)
+      expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.28);
       expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(0.8);
     }
   });

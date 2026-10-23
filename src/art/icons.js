@@ -1,6 +1,10 @@
-// Icon set (CONTRACTS §8). Every function returns a standalone SVG string, deterministic.
+// Icon set (CONTRACTS §8). Every function returns a markup string (no DOM), deterministic.
 //
-//  * itemIcon / gearIcon / currencyIcon — full-colour item art (64×64) with rarity glows.
+//  * itemIcon / gearIcon / currencyIcon — the baked 3D-flat item art (public/art/items, manifest itemArt.js from
+//    tools/blender/items) as an <img> laid over the old drawn 64×64 SVG, inside <span class="ia">. The drawing is
+//    the error fallback only: it shows when the image fails to load. While it is still loading (after 0.3 s) the
+//    box shows a neutral placeholder, never the old art (base.css "Item art"). A key with no baked art returns the
+//    bare SVG. itemIconSVG / itemArtSVG give the drawing alone; preloadSmallItemArt warms the small cuts at boot.
 //  * traitIcon / roleIcon / attackTypeIcon / armorClassIcon / capabilityIcon / elementIcon /
 //    statusIcon — coloured badges (64×64) with a white glyph; shape tells the category:
 //    traits = circle, roles = hexagon, attack types = diamond, armour = shield,
@@ -16,6 +20,8 @@ import {
 } from './icons/items.js';
 import { eventOfItem } from '../data/events/index.js';
 import { ASCENSION_ICON_BODIES } from './icons/ascension.js';
+import { ITEM_ART, ITEM_ART_SMALL } from './itemArt.js';
+import { artUrl } from './portraits.js';
 import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, GEAR_SLOTS, DIFFICULTIES } from '../data/types.js';
 
 // ---------------------------------------------------------------------------------
@@ -67,26 +73,112 @@ export function hasItemIcon(itemId) {
 
 const FALLBACK_ITEM = '<rect x="12" y="14" width="40" height="38" rx="8" fill="#e8ecf5" stroke="#6b7a99" stroke-width="2.4"/><path d="M26 28a6 6 0 1 1 8 5.6c-1.4.6-2 1.4-2 2.8V38" fill="none" stroke="#6b7a99" stroke-width="3"/><circle cx="32" cy="44" r="2" fill="#6b7a99"/>';
 
-/**
- * Item artwork: materials (family + rarity), books, crowns, dice, pins, star fragments,
- * gear boxes, tickets, tokens, coins, gems (also `gear_<slot>_<rarity>`).
- * @param {string} itemId
- */
-export function itemIcon(itemId) {
+/** The drawn SVG of an item id (the art's fallback; also every id without baked art). */
+export function itemIconSVG(itemId) {
   return icon64(itemBody(itemId) ?? FALLBACK_ITEM);
 }
 
-/** Gear piece icon (charm pendant, ribbon, shoes) tinted + glowing by rarity; `ur` = the rainbow UR art. */
-export function gearIcon(slot, rarity = 'common', { ur = false } = {}) {
-  const s = GEAR_SLOTS[slot] ? slot : 'charm';
-  const r = ITEM_RARITIES[rarity] ? rarity : 'common';
-  return icon64(ur && r === 'legendary' ? gearBodyUR(s) : gearBody(s, r));
+/** The drawn SVG of a gear piece: charm pendant, ribbon or shoes tinted by rarity; `ur` = the rainbow UR art. */
+function gearIconSVG(slot, rarity, ur) {
+  return icon64(ur && rarity === 'legendary' ? gearBodyUR(slot) : gearBody(slot, rarity));
 }
 
-/** Currency icon: 'coins' | 'gems' (sakura crystal) | 'recruitPoints' | 'token_boss' | 'token_bounty'. */
-export function currencyIcon(kind) {
-  const fn = SPECIAL_ITEMS[kind];
-  return icon64(fn ? fn() : coinBody());
+/** Art key of a gear piece: `gear_<slot>_<rarity>`, or `gear_<slot>_ur` for the awakened UR piece. */
+export function gearArtKey(slot, rarity = 'common', { ur = false } = {}) {
+  const s = GEAR_SLOTS[slot] ? slot : 'charm';
+  const r = ITEM_RARITIES[rarity] ? rarity : 'common';
+  return `gear_${s}_${ur && r === 'legendary' ? 'ur' : r}`;
+}
+
+/** Art key of a currency icon (unknown kinds draw the coin). */
+const currencyKey = (kind) => (SPECIAL_ITEMS[kind] ? kind : 'coins');
+
+/** True when `key` (an item id, a gear art key or recruitPoints) has baked 3D-flat art. */
+export function hasItemArt(key) {
+  return Boolean(ITEM_ART[key]);
+}
+
+/**
+ * Base-path-safe URL of a baked item image, cache-busted by its content hash, or null when that file does not
+ * exist. size: 256 (big views), 128 (tiles and chips) or 'small' (96 px with a heavier line, for boxes ≤ 24 px).
+ */
+export function itemArtUrl(key, size = 128) {
+  const k = String(key);
+  const hash = size === 'small' ? ITEM_ART_SMALL[k] : ITEM_ART[k];
+  return hash ? artUrl(`items/${k}-${size}.webp?v=${hash}`) : null;
+}
+
+const PRELOADED = [];
+/**
+ * Starts loading the small cuts (coins, gems, tickets, tokens... about 42 KB in all) so the HUD and the currency
+ * pills, which are on nearly every screen, have their art in hand before a first open draws them. Once per page.
+ * @returns {number} how many images it started (0 without a DOM, or on a second call)
+ */
+export function preloadSmallItemArt() {
+  if (PRELOADED.length || typeof Image === 'undefined') return 0;
+  for (const k of Object.keys(ITEM_ART_SMALL)) {
+    const im = new Image();
+    im.decoding = 'async';
+    im.src = itemArtUrl(k, 'small');
+    PRELOADED.push(im); // held, so the requests are not dropped with the objects
+  }
+  return PRELOADED.length;
+}
+
+/** The drawn SVG for any art key (the error fallback the UI swaps in): items, gear keys, recruitPoints. */
+export function itemArtSVG(key) {
+  const m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(String(key));
+  if (m && GEAR_SLOTS[m[1]]) return m[2] === 'ur' ? gearIconSVG(m[1], 'legendary', true) : gearIconSVG(m[1], ITEM_RARITIES[m[2]] ? m[2] : 'common', false);
+  return itemIconSVG(key);
+}
+
+// The image sits over its drawing: `ok` hides the drawing once the image is in, `bad` (a failed load) removes the
+// image and shows the drawing. Inline handlers fire even while the markup is not attached to the page yet.
+const ART_EVENTS = 'onload="this.parentNode&amp;&amp;this.parentNode.classList.add(\'ok\')" onerror="this.parentNode&amp;&amp;this.parentNode.classList.add(\'bad\');this.remove()"';
+
+/**
+ * Baked art over its drawn fallback, or the bare drawing when the key has no art.
+ * @param {string} key art key
+ * @param {string} svg the drawn fallback
+ * @param {number} px the CSS size the icon shows at: picks the small cut (≤ 24 px) and the srcset `sizes`
+ */
+function withArt(key, svg, px) {
+  if (!ITEM_ART[key]) return svg;
+  const common = `class="item-art" alt="" decoding="async" loading="lazy" draggable="false" data-art="${key}" ${ART_EVENTS}`;
+  let img;
+  if (px <= 24 && ITEM_ART_SMALL[key]) {
+    img = `<img src="${itemArtUrl(key, 'small')}" width="96" height="96" ${common}>`;
+  } else {
+    const a = itemArtUrl(key, 128);
+    img = `<img src="${a}" srcset="${a} 128w, ${itemArtUrl(key, 256)} 256w" sizes="${Math.max(1, Math.round(px))}px" width="128" height="128" ${common}>`;
+  }
+  return `<span class="ia" data-art="${key}">${svg}${img}</span>`;
+}
+
+/**
+ * Item artwork: materials (family + rarity), books, crowns, dice, pins, star fragments, gear boxes, tickets,
+ * tokens, coins, gems (also `gear_<slot>_<rarity>`). The baked image over the drawn SVG (see the header).
+ * @param {string} itemId
+ * @param {{ px?: number }} [opt] px: the CSS size it shows at (default 64; ≤ 24 picks the small cut)
+ */
+export function itemIcon(itemId, { px = 64 } = {}) {
+  return withArt(String(itemId ?? ''), itemIconSVG(itemId), px);
+}
+
+/** Gear piece icon (charm pendant, ribbon, shoes) by rarity; `ur` = the rainbow UR art. px as in itemIcon. */
+export function gearIcon(slot, rarity = 'common', { ur = false, px = 64 } = {}) {
+  const key = gearArtKey(slot, rarity, { ur });
+  const [, s, r] = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(key);
+  return withArt(key, r === 'ur' ? gearIconSVG(s, 'legendary', true) : gearIconSVG(s, r, false), px);
+}
+
+/**
+ * Currency icon: 'coins' | 'gems' (sakura crystal) | 'recruitPoints' | 'token_boss' | 'token_bounty'.
+ * px defaults to 22: currencies mostly show in pills, prices and the HUD, where the small cut reads best.
+ */
+export function currencyIcon(kind, { px = 22 } = {}) {
+  const key = currencyKey(kind);
+  return withArt(key, icon64(SPECIAL_ITEMS[key]()), px);
 }
 
 // ---------------------------------------------------------------------------------

@@ -140,6 +140,16 @@ const panelOverflow = (page) => page.evaluate(() => {
   return null;
 });
 
+/** Stat values cut short inside their cell (an ellipsis on a number, VAULT §9): { main: [...], other: [...] } of "label: text". */
+const cutCells = (page, testid) => page.evaluate((id) => {
+  const out = { main: [], other: [] };
+  for (const c of document.querySelectorAll(`[data-testid="${id}"] .bt-stat-cell`)) {
+    const b = c.querySelector('b');
+    if (b && b.scrollWidth > b.clientWidth + 1) out[c.classList.contains('bt-stat-main') ? 'main' : 'other'].push(`${c.querySelector('span')?.textContent}: ${b.textContent}`);
+  }
+  return out;
+}, testid);
+
 const num = (s) => Number(String(s).replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0] ?? NaN);
 
 for (const vp of viewports) {
@@ -239,6 +249,9 @@ for (const vp of viewports) {
   const overallDps = await page.evaluate(() => document.querySelector('[data-testid="stats-overall"] .bt-stat-main b')?.textContent);
   await shot(page, 'chika-overall', vp);
   check(!(await panelOverflow(page)), `Overall: nothing clipped sideways (${await panelOverflow(page)})`);
+  const cutOverall = await cutCells(page, 'stats-overall');
+  check(!cutOverall.main.length, `Overall: the DPS cell is not cut short (${cutOverall.main.join(' | ') || 'none'})`);
+  if (cutOverall.other.length) log(`  (info) Overall: other cells cut short: ${cutOverall.other.join(' | ')}`);
   await tapTestId(page, phone, 'tab-chika');
   const chikaDps = await page.evaluate(() => document.querySelector('[data-testid="stats-chika"] .bt-stat-main b')?.textContent);
   await shot(page, 'chika-tab', vp);
@@ -246,6 +259,9 @@ for (const vp of viewports) {
   await tapTestId(page, phone, 'tab-drones');
   const wingDps = await page.evaluate(() => document.querySelector('[data-testid="stats-drones"] .bt-stat-main b')?.textContent);
   check(Math.abs(num(overallDps) - (num(chikaDps) + num(wingDps))) < 0.11, `Overall DPS ${overallDps} = Chika ${chikaDps} + Wing ${wingDps}`);
+  const cutDrones = await cutCells(page, 'stats-drones');
+  check(!cutDrones.main.length, `Drones: the Wing DPS cell is not cut short (${cutDrones.main.join(' | ') || 'none'})`);
+  if (cutDrones.other.length) log(`  (info) Drones: other cells cut short: ${cutDrones.other.join(' | ')}`);
 
   // ---- 3. Upgrades → buy stays on Upgrades; Drones rows
   await tapTestId(page, phone, 'tab-upgrades');

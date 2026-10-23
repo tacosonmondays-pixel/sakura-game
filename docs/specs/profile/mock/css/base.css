@@ -1,5 +1,5 @@
 /* Sakura Sentinels — base design tokens and shared component styles (V2).
-   Look: Blue Archive-like. Sky-blue backdrop, white slightly translucent panels with a
+   Look: the academy style. Sky-blue backdrop, white slightly translucent panels with a
    slanted edge and a soft shadow, blue→white gradient headers, italic bold navy headings,
    yellow call-to-action buttons, sakura pink accents. Landscape-first: every scaffold piece
    compacts under 480px of height (phones held sideways). */
@@ -96,7 +96,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 }
 .topbar-icon:active { transform: scale(0.92); }
 .topbar-icon:hover { background: #fff; }
-/* Slanted currency pills (BA style). The inner content is counter-skewed. */
+/* Slanted currency pills (academy style). The inner content is counter-skewed. */
 .cur-pill {
   position: relative; display: flex; align-items: center; gap: 5px; font-weight: 900; font-size: 0.9rem; color: var(--navy);
   background: rgba(255,255,255,0.92); border: 1px solid rgba(29,78,137,0.12); border-radius: 7px; padding: 3px 10px 3px 5px;
@@ -209,7 +209,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
 .modal-wide { width: min(820px, 100%); }
-/* BA "Menu Tab" header: light blue → white, navy italic title, yellow underline. */
+/* "Menu Tab" header: light blue → white, navy italic title, yellow underline. */
 .modal-title {
   position: relative; background: linear-gradient(90deg, var(--blue-soft), #fff 70%); color: var(--navy); font-weight: 900; font-style: italic;
   padding: 11px 18px 12px; font-size: 1.1rem; border-bottom: 1px solid var(--line);
@@ -233,7 +233,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .toast-bad { background: rgba(255,77,109,0.95); }
 .toast.out { opacity: 0; transform: translateY(-8px); }
 
-/* Menu Tab modal (BA ba-menu-tab): white header with a centred bold title, a yellow underline
+/* Menu Tab modal (the menu-tab popup): white header with a centred bold title, a yellow underline
    and an X; light grey-blue body; 2-column white buttons with an illustrated icon + label. */
 .menu-tab { width: min(500px, 100%); border-radius: 10px; background: #e9eff6; }
 .menu-tab .modal-title {

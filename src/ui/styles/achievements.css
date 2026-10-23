@@ -47,6 +47,14 @@
 .ach-casecard-n { grid-area: n; font: italic 900 0.8rem/1 var(--font-head); color: #c9d6ee; align-self: end; }
 .ach-casecard-n b { font-size: 1.1rem; color: #fff; }
 .ach-casecard-open { grid-area: open; font: 900 0.72rem/1 var(--font); color: #fff; align-self: end; }
+/* the card stays whole at the rail's foot even when a short window makes the rail scroll (its scrollbar is hidden) */
+.ach-casecard { position: sticky; bottom: 0; z-index: 1; }
+/* 12 categories (Codex since v0.1.45) + the card: at 1280x720 the card's count and Open › sat 28 px under the fold.
+   Slimmer rows and card up to 800 px tall leave room to spare at 720 and 768 (e2e/achievements.mjs step 1). */
+@media (max-height: 800px) and (min-height: 481px) {
+  .ach-cat { height: 35px; }
+  .ach-casecard { padding: 8px 12px; gap: 3px 6px; }
+}
 
 /* ---------- main: header + list ---------- */
 .ach-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -115,8 +123,6 @@
 .ach-count { font: italic 900 0.78rem/1 var(--font-head); color: var(--navy); white-space: nowrap; }
 
 .ach-rewards { display: flex; align-items: center; gap: 6px; flex: none; }
-.ach-rewards .item-tile { border-radius: 8px; padding: 4px; }
-.ach-rewards .item-count { font-size: 0.66rem; }
 .ach-chip-hr {
   position: relative; display: grid; place-items: center; padding: 0; border-radius: 8px; cursor: pointer; flex: none;
   background: radial-gradient(circle at 50% 35%, #fff, #eaf3ff); border: 2px solid #8fc4f5;
@@ -162,7 +168,7 @@
 .ach-step-name { font: 800 0.64rem/1.15 var(--font); color: #42506e; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ach-step-rew { display: flex; align-items: center; gap: 4px; font: 900 0.62rem/1 var(--font); color: #5e6f8d; min-height: 18px; }
 .ach-step-gems { display: inline-flex; align-items: center; gap: 2px; }
-.ach-step-ico { width: 14px; height: 14px; }
+.ach-step-ico { flex: none; display: block; width: 14px; height: 14px; line-height: 0; }
 .ach-step-plate .tp { font-size: 0.4rem; padding: 2px 6px; min-width: 18px; }
 .ach-step-plate .tp-text { width: 10px; }
 
@@ -378,7 +384,9 @@
   .ach-rewards { gap: 4px; }
   .ach-chip-title { height: 38px; padding: 0 6px; }
   .ach-chip-title .ach-micro { display: none; }
-  .ach-chip-title .tp { max-width: 120px; }
+  /* a long title wraps to two lines in its chip instead of ending in "…" ("Wrong-Way Warden") */
+  .ach-chip-title .tp { max-width: 120px; white-space: normal; line-height: 1.1; }
+  .ach-chip-title .tp > .tp-text { white-space: normal; text-overflow: clip; }
   .ach-act { width: 70px; }
   .ach-act .btn { min-width: 64px; padding: 6px 10px; }
   .ach-lock { font-size: 0.66rem; padding: 5px 6px; white-space: nowrap; }

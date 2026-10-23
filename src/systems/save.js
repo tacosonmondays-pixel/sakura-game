@@ -85,6 +85,12 @@ export const DEFAULT_SETTINGS = {
    */
   livelyFigures: true,
   figureLook: 'cel',
+  /**
+   * The girl page's look (Settings → Display → Girl page; src/ui/girlDetail.js): 'compact' (3 headline stats + MORE
+   * sheets) or 'detailed' (every stat, gear value and bonus on the page). Display only; additive (an older tab drops
+   * the key and shows Compact).
+   */
+  girlPage: 'compact',
 };
 
 const CAMERA_MODES = ['locked', 'free'];
@@ -92,6 +98,7 @@ const BUFF_ICON_MODES = ['all', 'selected', 'off'];
 const LOADING_MOCHI_LOOKS = ['mint', 'sakura'];
 const LOADING_BGS = ['black', 'colour'];
 export const FIGURE_LOOKS = ['cel', 'glossy'];
+const GIRL_PAGE_LOOKS = ['compact', 'detailed'];
 
 /**
  * Fresh per-unit state. `dupes` = duplicates received since she joined (her Essence history), `pl` =
@@ -328,6 +335,8 @@ function cleanSettings(raw) {
     // a branch build's boolean `celFigures: false` was a choice (glossy); `celTextures` is dropped (its
     // stored 'off' was a default, not a choice)
     figureLook: FIGURE_LOOKS.includes(s.figureLook) ? s.figureLook : (s.celFigures === false ? 'glossy' : d.figureLook),
+    // older saves have no girl page look: the compact page
+    girlPage: GIRL_PAGE_LOOKS.includes(s.girlPage) ? s.girlPage : d.girlPage,
   };
 }
 

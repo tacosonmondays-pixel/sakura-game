@@ -1,4 +1,4 @@
-// Drawn lobby stage (Blue Archive "memorial lobby" style): the secretary is a full-screen
+// Drawn lobby stage ("memorial lobby" style): the secretary is a full-screen
 // illustration instead of a 3D chibi (owner: "could it be a drawn background instead like blue
 // archive?"). Same API as the old createSecretaryStage so lobby.js barely changes:
 //   await stage.show(unitDef, { direction, background })   swap art (slide + fade)

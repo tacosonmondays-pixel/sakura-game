@@ -15,6 +15,11 @@ import { MAX_AWAKEN } from '../../src/systems/progression.js';
 import { CHAPTER_SCENE_IDS } from '../../src/data/story/sceneIndex.js';
 import { CAMPAIGN_IDS, STAGES } from '../../src/data/stages.js';
 import { createRng } from '../../src/core/rng.js';
+import { MAP_RULES, STAGE_RULES } from '../../src/data/rules.js';
+import { modeRibbons, ribbonCount } from '../../src/systems/unlocks.js';
+import { ribbonTally } from '../../src/systems/profileTrophies.js';
+import { honorOf, earnedHonors, earnedAchievementTitles } from '../../src/systems/profileHonors.js';
+import { applyBattleResult } from '../../src/systems/rewards.js';
 
 const value = (p, id) => metricValue(p, ACHIEVEMENT_MAP[id]);
 const stage = (p, id, medals = {}) => { p.progress.stages[id] = { easy: false, normal: false, hard: false, nightmare: false, clears: 1, ...medals }; };
@@ -229,9 +234,88 @@ describe('story and journal (train A data)', () => {
 describe('achievementsClaimed', () => {
   it('counts known, live ids only', () => {
     const p = createProfile();
-    p.missions.achievements = { a_first_win: true, a_future_row: true, a_mr_800: true, a_chapter_1: true };
+    p.missions.achievements = { a_first_win: true, a_future_row: true, a_hero_25: true, a_chapter_1: true };
     expect(achievementsClaimedCount(p)).toBe(2);
     expect(achievementList(p).find((a) => a.id === 'a_ach_25').progress).toBe(2);
+  });
+});
+
+describe('Codex modes (mode ribbons and map-rule Gold medals)', () => {
+  const MODES = ['reverse', 'rush', 'ironclad', 'frugal', 'laststand'];
+  const DIFFS = ['easy', 'normal', 'hard', 'nightmare'];
+  const CODEX = ACHIEVEMENTS.filter((a) => a.wave === 'codex').map((a) => a.id);
+
+  it('ribbonsTotal, modeRibbons and perfectStages read the save exactly like the profile tally and the stage showcase', () => {
+    const r = createRng(45);
+    const p = createProfile();
+    for (const id of CAMPAIGN_IDS) {
+      const e = { easy: true, normal: r.next() < 0.7, hard: r.next() < 0.5, nightmare: r.next() < 0.3, clears: 3, modes: {} };
+      for (const d of DIFFS) for (const m of MODES) if (r.next() < 0.45) e.modes[`${d}:${m}`] = true;
+      p.progress.stages[id] = e;
+    }
+    // one stage with every ribbon (a rosette), one whose Nightmare medal alone holds its Last Petal ribbon
+    p.progress.stages['2-3'].modes = Object.fromEntries(DIFFS.flatMap((d) => MODES.map((m) => [`${d}:${m}`, true])));
+    p.progress.stages['3-1'] = { easy: true, normal: true, hard: true, nightmare: true, clears: 4, modes: {} };
+    const tally = ribbonTally(p);
+    const sum = tally.reduce((n, x) => n + x, 0);
+    expect(value(p, 'a_mr_1')).toBe(sum);
+    expect(sum).toBe(CAMPAIGN_IDS.reduce((n, id) => n + ribbonCount(p, id).have, 0));
+    MODES.forEach((m, i) => expect(metricValue(p, { metric: 'modeRibbons', param: m, goal: 1 }), m).toBe(tally[i]));
+    expect(value(p, 'a_rev_80')).toBe(tally[0]);
+    expect(value(p, 'a_petal_80')).toBe(tally[4]);
+    expect(modeRibbons(p, '3-1')['nightmare:laststand']).toBe(true);
+    expect(value(p, 'a_perfect_1')).toBe(CAMPAIGN_IDS.filter((id) => ribbonCount(p, id).have === 20).length);
+    expect(value(p, 'a_perfect_1')).toBeGreaterThanOrEqual(1);
+  });
+
+  it('only campaign stages count, unknown modes throw, and a new save reads 0', () => {
+    const p = createProfile();
+    expect([value(p, 'a_mr_1'), value(p, 'a_perfect_1'), value(p, 'a_rules_15')]).toEqual([0, 0, 0]);
+    p.progress.stages['res-gear-1'] = { easy: true, normal: true, hard: true, nightmare: true, clears: 1, modes: { 'easy:rush': true } };
+    expect(value(p, 'a_mr_1')).toBe(0);
+    expect(value(p, 'a_rules_15')).toBe(0);
+    expect(() => metricValue(p, { metric: 'modeRibbons', param: 'standard', goal: 1 })).toThrow(/not a ribbon mode/);
+  });
+
+  it('ruleGold: map rules with a Gold medal (Hard) on a stage that has the rule; all 15 rules can be earned', () => {
+    const p = createProfile();
+    expect(new Set(Object.values(STAGE_RULES).map((r) => r.id)).size).toBe(Object.keys(MAP_RULES).length);
+    expect(Object.keys(MAP_RULES)).toHaveLength(15);
+    stage(p, '2-1', { hard: true }); // changing tides
+    stage(p, '2-3', { hard: true }); // changing tides again: still one rule
+    stage(p, '1-5', { nightmare: true }); // firefly chorus, but no Gold medal
+    expect(value(p, 'a_rules_15')).toBe(1);
+    stage(p, '1-5', { hard: true });
+    expect(value(p, 'a_rules_15')).toBe(2);
+    for (const id of Object.keys(STAGE_RULES)) stage(p, id, { hard: true });
+    expect(value(p, 'a_rules_15')).toBe(15);
+  });
+
+  it('a mode win banked by applyBattleResult makes Trying Something New claimable', () => {
+    const p = createProfile();
+    p.story.legacy = true; // a veteran: box rewards are open
+    for (const s of STAGES) p.progress.stages[s.id] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
+    expect(achievementList(p).find((a) => a.id === 'a_mr_1')).toMatchObject({ live: true, progress: 0, claimable: false });
+    const out = applyBattleResult(p, { stageId: '1-3', difficulty: 'normal', mode: 'rush', won: true, wave: 10, wavesCleared: 10, livesLeft: 20, maxLives: 20, encountered: [], kills: {}, stats: { ultsUsed: 0, towerUnits: {} } }, createRng(1));
+    expect([out.mode, out.newRibbon]).toEqual(['rush', true]);
+    expect(achievementList(p).find((a) => a.id === 'a_mr_1')).toMatchObject({ progress: 1, claimable: true });
+    expect(claimAchievement(p, 'a_mr_1').ok).toBe(true);
+  });
+
+  it('a save with every ribbon and every Gold medal earns all 11 rows, the holo ribbon and the 7 titles', () => {
+    const p = createProfile();
+    p.story.legacy = true;
+    for (const id of CAMPAIGN_IDS) {
+      p.progress.stages[id] = { easy: true, normal: true, hard: true, nightmare: true, clears: 30, modes: Object.fromEntries(DIFFS.flatMap((d) => MODES.map((m) => [`${d}:${m}`, true]))) };
+    }
+    expect(value(p, 'a_mr_800')).toBe(800);
+    const list = achievementList(p).filter((a) => a.cat === 'codex');
+    expect(list.map((a) => a.id)).toEqual(CODEX);
+    expect(list.every((a) => a.claimable)).toBe(true);
+    for (const id of CODEX) expect(claimAchievement(p, id).ok, id).toBe(true);
+    expect(earnedHonors(p)).toEqual(['a_mr_800']);
+    expect(honorOf('a_mr_800')).toEqual({ name: 'Holo Codex Ribbon', cls: 'special' });
+    expect(earnedAchievementTitles(p).sort()).toEqual(['a_frugal_80', 'a_iron_80', 'a_mr_400', 'a_mr_800', 'a_petal_80', 'a_rev_80', 'a_rush_80']);
   });
 });
 

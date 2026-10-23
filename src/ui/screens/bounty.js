@@ -1,5 +1,5 @@
 // Bounty (owner: ui / meta-a). Route: #/bounty?arena=res-books&tier=2
-// Blue Archive "Location Select": the secretary on the left, the five resource arenas as a
+// A "Location Select" screen: the secretary on the left, the five resource arenas as a
 // list on the right (thumbnail, name, what it drops, Bounty Token yield, 2× event badge).
 // Tapping a location expands it: tier I–III picker with medals, drops, enemies, and the
 // Prepare / Sweep actions. The footer shows the Bounty Token balance and the Bounty Shop.
@@ -10,7 +10,8 @@ import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { bountyArenas, STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
-import { CAPABILITIES, DIFFICULTIES, DIFFICULTY_ORDER, MAP_TIERS } from '../../data/types.js';
+import { CAPABILITIES, DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
+import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { hubBackdrop, hubStand, hubSecretary } from '../hubArt.js';
@@ -117,7 +118,7 @@ export function render(root, params = {}) {
     const tiers = h('div.ma-tier-select', arena.stages.map((id, i) => {
       const s = STAGE_MAP[id];
       const un = isStageUnlocked(profile, id);
-      const tierInfo = MAP_TIERS[s.tier];
+      const tierInfo = MAP_TIER_VIEW[s.tier];
       return h(`button.ma-tier-btn${id === stageId ? '.active' : ''}${un ? '' : '.locked'}`,
         { onclick: (e) => { e.stopPropagation(); stageId = id; remember(); drawList(); }, 'data-testid': `tier-${i + 1}` },
         h('span.ma-tier-num', ['I', 'II', 'III'][i]),

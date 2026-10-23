@@ -1,4 +1,4 @@
-// Drawn backdrop + secretary stand for the Blue Archive "menu with a girl" screens (missions
+// Drawn backdrop + secretary stand for the "menu with a girl" screens (missions
 // hub, Bounty location select). Owner: "missions need to get updated! it's still using old ugly
 // assets, especially the character art in the bottom left" — the painted academy (dimmed,
 // blurred) replaces the procedural room, her drawn cut-out replaces the SVG card.

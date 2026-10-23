@@ -1,6 +1,6 @@
 // Events & rewards (owner: meta-a). The current weekly event (double drops on one Bounty
-// arena) with next week's rotation, and the free-to-play income overview — a Honkai Star
-// Rail–style chart of every recurring and one-time source of gems and recruit tickets.
+// arena) with next week's rotation, and the free-to-play income overview — a version-by-version
+// chart of every recurring and one-time source of gems and recruit tickets.
 import '../styles/meta-a.css';
 import { h, screen, svgEl, button } from '../components.js';
 import { navigate } from '../router.js';
@@ -106,8 +106,8 @@ function incomeSection() {
 
   const headline = h('div.ma-income-head',
     stat(formatNumber(s.totals.pulls), `recruits every ${s.periodDays} days`, 'gacha'),
-    stat(formatNumber(s.totals.gems), 'gems', null, currencyIcon('gems')),
-    stat(formatNumber(s.totals.tickets), 'tickets', null, itemIcon('ticket_recruit')),
+    stat(formatNumber(s.totals.gems), 'gems', null, currencyIcon('gems', { px: 36 })),
+    stat(formatNumber(s.totals.tickets), 'tickets', null, itemIcon('ticket_recruit', { px: 36 })),
     stat(perMonthSSR.toFixed(1), `SSRs expected (${(ssrRate * 100).toFixed(2)}% incl. pity)`, 'sparkle'),
     stat(`${Math.max(1, Math.round((GACHA.sparkCost / Math.max(1, s.totals.pulls)) * s.periodDays))}d`, `to a guaranteed spark (${GACHA.sparkCost} points)`, 'star'),
   );
@@ -149,9 +149,9 @@ function incomeSection() {
     h('div.panel.ma-you',
       h('h3.panel-title', 'Your account'),
       h('div.ma-income-head.small',
-        stat(formatNumber(profile.stats?.gemsEarned || 0), 'gems earned so far', null, currencyIcon('gems')),
+        stat(formatNumber(profile.stats?.gemsEarned || 0), 'gems earned so far', null, currencyIcon('gems', { px: 36 })),
         stat(formatNumber(profile.gacha?.totalPulls || 0), 'recruits made', 'gacha'),
-        stat(formatNumber(profile.gacha?.recruitPoints || 0), `of ${GACHA.sparkCost} spark points`, null, currencyIcon('recruitPoints')),
+        stat(formatNumber(profile.gacha?.recruitPoints || 0), `of ${GACHA.sparkCost} spark points`, null, currencyIcon('recruitPoints', { px: 36 })),
       ),
     ),
   );

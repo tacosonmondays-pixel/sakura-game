@@ -7,6 +7,7 @@ import { createProfile } from '../../src/systems/save.js';
 import { achievementList, claimAllAchievements } from '../../src/systems/missions.js';
 import { ownedRibbons, ownedTitles } from '../../src/systems/honors.js';
 import { veteran, SHIPPED } from '../fixtures/veterans.js';
+import { ACHIEVEMENT_MAP } from '../../src/data/achievements.js';
 
 const sum = (rewards, id) => rewards.filter((r) => r.id === id).reduce((n, r) => n + r.count, 0);
 function updateDay(key) {
@@ -31,20 +32,24 @@ describe('update day: veterans claim everything already earned, in full', () => 
     expect(d.titles).toEqual([1, 0]);
   });
 
-  it('mid (day ~25): 31 rows, 990 gems (≤ 1,500), no Radiant or Celestial before Total Assault', () => {
+  it('mid (day ~25): 32 rows, 1,010 gems (≤ 1,500), no Radiant or Celestial before Total Assault', () => {
     const d = updateDay('mid');
-    expect([d.newMet, d.gems, d.tickets]).toEqual([31, 990, 0]);
+    // + Trying Something New (Codex wave, v0.1.45: their first mode ribbons)
+    expect(d.r.ids.filter((id) => ACHIEVEMENT_MAP[id].wave === 'codex')).toEqual(['a_mr_1']);
+    expect([d.newMet, d.gems, d.tickets]).toEqual([32, 1010, 0]);
     expect(d.gems).toBeLessThanOrEqual(1500);
     expect(d.boxes).toEqual({ sturdy: 7, ornate: 17, radiant: 0, celestial: 0 });
     expect(d.ribbons).toEqual([5, 4]);
     expect(d.titles).toEqual([3, 1]);
   });
 
-  it('late (day ~60): 54 rows, 2,790 gems (≤ 4,000), 56 boxes, 20 ribbons and 19 titles', () => {
+  it('late (day ~60): 56 rows, 2,810 gems (≤ 4,000), 58 boxes, 20 ribbons and 19 titles', () => {
     const d = updateDay('late');
-    expect([d.newMet, d.gems, d.tickets]).toEqual([54, 2790, 0]);
+    // + Trying Something New and Rulebook Scholar (Codex wave, v0.1.45)
+    expect(d.r.ids.filter((id) => ACHIEVEMENT_MAP[id].wave === 'codex')).toEqual(['a_mr_1', 'a_rules_15']);
+    expect([d.newMet, d.gems, d.tickets]).toEqual([56, 2810, 0]);
     expect(d.gems).toBeLessThanOrEqual(4000);
-    expect(d.boxes).toEqual({ sturdy: 7, ornate: 42, radiant: 7, celestial: 0 });
+    expect(d.boxes).toEqual({ sturdy: 7, ornate: 44, radiant: 7, celestial: 0 });
     expect(d.ribbons).toEqual([12, 8]);
     expect(d.titles).toEqual([9, 10]);
     // Achiever counts the claims of the same tap (Claim all repeats until nothing is left)

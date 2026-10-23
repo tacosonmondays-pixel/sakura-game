@@ -5,7 +5,7 @@ This plan comes from the five research reports in this folder and the owner's di
 ## Decisions
 - **Base = the current build.** Keep its UI, maps, inventory, item icons, systems, local save and gacha rules.
 - **Characters = the old Codex designs.** That means their names, colours, outfits, illustrations and kits. Old-only girls are added in waves.
-- **Battle chibis = new Blue Archive-style stubby models** made with the chibi-v2 pipeline (Meshy mesh, a texture projected from the approved 2D sheet, and a separate eye/mouth atlas). The owner rated Meshy 6/10 and Codex 3/10. Ported Codex GLBs are only a temporary stand-in.
+- **Battle chibis = new stubby academy-style models** made with the chibi-v2 pipeline (Meshy mesh, a texture projected from the approved 2D sheet, and a separate eye/mouth atlas). The owner rated Meshy 6/10 and Codex 3/10. Ported Codex GLBs are only a temporary stand-in.
 - **Bigger chibis on the board.** Raise TOWER_SCALE and HERO_SCALE in `src/render/actors.js`, then re-check footprints and readability at 844×390.
 - **Current Blender girls:** Rei, Nami, Luna and Kaede become future-release units. The other 15 become "Sentinel Style" skins.
 - **Enemies:** keep the 12 new Blender families, and add 9 new defs from old ideas (combat.md).
@@ -20,7 +20,7 @@ This plan comes from the five research reports in this folder and the owner's di
    - 11 old-only girls, starting with kits the sim already supports;
    - new sim mechanics (aim/mortar, grounding and air priority, relay, pull, curse spread, new ult shapes);
    - illustrations as card art.
-4. **Drawn home menu:** use the art-pilot landscape illustrations with breathing and tap reactions, and keep the Blue Archive HUD from the lobby v3 WIP.
+4. **Drawn home menu:** use the art-pilot landscape illustrations with breathing and tap reactions, and keep the academy HUD from the lobby v3 WIP.
 5. **City hub:** port Moonpetal City and expand it (harbour, academy hill, canals). Buildings link to screens.
 6. **Old P1 systems:**
    - title screen, "Meet Hikari" tutorial and Captain's Journal unlocks;

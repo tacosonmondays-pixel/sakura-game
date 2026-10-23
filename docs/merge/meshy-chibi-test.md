@@ -21,7 +21,7 @@ I could not write `REPORT.md`: the harness blocks this subagent from writing rep
   - soft: the game's lighter face ramp plus outline;
   - unlit plus outline.
 
-### Scores (1–10, against the target video, Blue Archive SD and the approved turnaround)
+### Scores (1–10, against the target video, the reference SD chibis and the approved turnaround)
 
 | | Game V2 | Old Codex | Meshy as delivered | Meshy unlit + outline + chibify |
 |---|---|---|---|---|

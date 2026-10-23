@@ -1,7 +1,7 @@
 # Free placement (V2) — how girls are deployed
 
 Owner's directive: **no tiles** — units must be freely placeable anywhere on the board, like
-Bloons TD6. This document is the reference for the sim rules, the renderer overlays and the
+in a classic tower-defense game. This document is the reference for the sim rules, the renderer overlays and the
 battle-UI interaction. Code: `src/sim/placement.js` (geometry), `src/sim/Sim.js` (API),
 `src/sim/headless.js` (`autoPlan`), `src/render/overlays.js` + `BattleRenderer.pick/setGhost/
 showTileHints/shakeGhost` (visuals), `src/ui/battle/placement.js` (interaction).
@@ -92,12 +92,12 @@ with it.
   body projects there — she stands up, so her head is on the "tile behind").
 * `r.setGhost(unitId, x, y, valid)`: translucent chibi standing exactly at `(x, y)` with a small
   circle (her footprint) under her — **white** where she can stand, **red** where she can't — and
-  a neutral white range circle (owner request, BTD6 style: no zone shading, no red range blob).
+  a neutral white range circle (owner request: no zone shading, no red range blob).
   `r.setPlacementRange(on)` toggles the range circle (settings.showRanges). `r.shakeGhost()`
   still exists (wobble) but the battle UI no longer uses it.
 * `r.showTileHints(unitId)` — legacy no-op. The old red forbidden-zone overlay was removed at the
   owner's request ("there is a gross red border… just don't let something be placed there like
-  in Bloons").
+  in [the reference TD game]").
 
 ## 3. Interaction (battle UI)
 

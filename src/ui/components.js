@@ -1,9 +1,10 @@
 // Shared UI building blocks. Screens should use these so the whole game keeps one
-// look (Blue Archive–style slanted white panels on a sky-blue backdrop).
+// look (academy-style slanted white panels on a sky-blue backdrop).
 import { h, fromHTML, clear } from './dom.js';
 import { store } from '../core/store.js';
 import { navigate, back } from './router.js';
 import { formatNumber } from '../core/util.js';
+import { fmtItemCount } from './format.js';
 import { itemIcon, uiIcon, currencyIcon, UI_ICON_NAMES } from '../art/icons.js';
 import { cardArtSVG } from '../art/cardArt.js';
 import { portraitHTML } from '../art/portraits.js';
@@ -338,7 +339,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
 }
 
 /**
- * Blue Archive "Menu Tab" popup: a white header with a centred title, yellow underline and an
+ * The "Menu Tab" popup: a white header with a centred title, yellow underline and an
  * X, then a 2-column grid of light buttons with illustrated icons — Options, Account,
  * Equipment, Items, Bestiary, Wiki, Fullscreen, plus any `extra` entries a screen adds
  * (the lobby adds Secretary and Notice).
@@ -411,7 +412,27 @@ export function rarityBadge(rarity) {
   return h('span.rarity-badge', { style: { background: r?.color || '#999' } }, r?.name || rarity);
 }
 
-/** Square item tile with rarity frame, icon and count. Click opens item info by default. */
+/**
+ * Which plate an item tile wears (base.css "Items"): its rarity, or 'ur' (the rainbow plate) for rainbow items,
+ * UR-display items and Zenith materials, whose data rarity is legendary but whose art is iridescent.
+ * @param {object|null} item ItemDef
+ */
+export function tileTier(item) {
+  if (!item) return 'common';
+  if (item.rainbow || item.display === 'ur' || item.tier === 'zenith') return 'ur';
+  return ITEM_RARITIES[item.rarity] ? item.rarity : 'common';
+}
+
+/** The tile count badge: "x" a size smaller, then the short stack ("x450K", fmtItemCount). */
+export function tileCount(count) {
+  const text = fmtItemCount(count);
+  return h('span.item-count', h('small', 'x'), text.slice(1));
+}
+
+/**
+ * Item tile: the slanted rarity plate, the baked item art and the count. Click opens item info by default.
+ * size is the tile width; its height follows the plate's 1.09:1 shape.
+ */
 export function itemTile(itemId, count = null, { onClick, size = 64, showName = false } = {}) {
   const item = getItem(itemId);
   const rarity = item ? ITEM_RARITIES[item.rarity] : null;
@@ -421,10 +442,11 @@ export function itemTile(itemId, count = null, { onClick, size = 64, showName = 
       style: { width: `${size}px`, '--rarity': rarity?.color || '#999' },
       title: item ? item.name : itemId,
       'data-item': itemId,
+      'data-tier': tileTier(item),
       onclick: () => (onClick ? onClick(itemId) : showItemInfo(itemId)),
     },
-    svgEl(itemIcon(itemId), 'item-tile-icon'),
-    count != null ? h('span.item-count', `×${formatNumber(count)}`) : null,
+    svgEl(itemIcon(itemId, { px: size }), 'item-tile-icon'),
+    count != null ? tileCount(count) : null,
   );
   // Belt and braces: custom properties must go through setProperty.
   tile.style.setProperty('--rarity', rarity?.color || '#999');
@@ -484,7 +506,7 @@ export function showItemInfo(itemId) {
 }
 
 /**
- * Character card thumbnail. variant: 'tall' (Arknights-style portrait) | 'square'.
+ * Character card thumbnail. variant: 'tall' (tall portrait) | 'square'.
  * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
  */
 export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false, profile = store.profile, potential } = {}) {

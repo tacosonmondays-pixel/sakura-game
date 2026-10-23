@@ -343,8 +343,8 @@ try {
   await wait(A, '[data-testid="edit-titles"]', { timeout: 15000 });
   const aTitles = await A.evaluate(() => [...document.querySelectorAll('[data-testid="edit-titles"] button[data-title^="tag_"]')].map((b) => b.dataset.title).join(','));
   const aCount = await A.evaluate(() => document.querySelector('.ep-lbl small')?.textContent || '');
-  // 38 titles in this build (37 at launch + Helping Hands) + the Alpha Tester title A owns
-  check(aTitles === 'tag_alpha' && / \/ 39 earned$/.test(aCount), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
+  // 45 titles in this build (37 at launch + Helping Hands + 7 Codex titles) + the Alpha Tester title A owns
+  check(aTitles === 'tag_alpha' && / \/ 46 earned$/.test(aCount), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
   await tap(A, '[data-testid="edit-profile-cancel"]');
   await go(A, '#/clan?tab=chat');
   await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });

@@ -1,0 +1,173 @@
+{
+ "_about": "Git blob ids of the coming-soon signboard portraits (tools/art/placeholder_portraits.py) the seven academy girls shipped with in v0.1.40-v0.1.44, both generations. tests/systems/academyCards.test.js checks that none of their shipped files is one of these.",
+ "blobs": {
+  "azami-full.webp": [
+   "0e07bd4a35a916f46c3777c8d7df3f1ada907dfc",
+   "7fb2aec63ecbc1e14ad5734b5d85a737ddddef05"
+  ],
+  "azami-card.webp": [
+   "60109cf8482507289d1109dc8dc7d37e1bf09840",
+   "7a814e94e0b71e4b123b84e48835105b50e3c723"
+  ],
+  "azami-bust.webp": [
+   "61472f3d2964fa6b81c5b2d594e230e37774cab1",
+   "c01837ac2aeea7ea5ea900bfe48d0db89c44c852"
+  ],
+  "azami-thumb.webp": [
+   "1f8b72dc88d8feacdde77c3a061d2a9726172021",
+   "632c01a52a76e1afeb2db61fc0dfb791e9f377ad"
+  ],
+  "azami-cut.webp": [
+   "55f8fc8e0ef3558e2412c323958e8431094ec14e",
+   "896d9ecf8a713f2d258e6a71d5f72bf4aa163199"
+  ],
+  "azami-cut-s.webp": [
+   "880e49868cfc24e8c44efecf0317651ed389ffca",
+   "af59af3691f79fd6f462a5e380392f70c7255e79"
+  ],
+  "kinu-full.webp": [
+   "272658104ce05410be8509d04baa3e730450313f",
+   "c10ee4d56bf6c3d09a9bb1237471921a7a554be0"
+  ],
+  "kinu-card.webp": [
+   "06a219269ed359c60321112f3e2f5cbc28a716ee",
+   "dbca6a20961bfd44b2309f9d47cb7ac153854810"
+  ],
+  "kinu-bust.webp": [
+   "6e8ccabce9c021cf4499c27d26f1ea68c159255c",
+   "e89bfbcdace1fd1185663a6c49918e4deb15c053"
+  ],
+  "kinu-thumb.webp": [
+   "f767b605e99f4a38c8c5c8292373687bcaa0aff8",
+   "fb242ab6af51efab32184c9ef411a84a2edfd91e"
+  ],
+  "kinu-cut.webp": [
+   "5515e8c60d19963649cbfd35a65319dff5119220",
+   "6de41831ea08e5d4c6b9c44acc8431f50f7dc12c"
+  ],
+  "kinu-cut-s.webp": [
+   "14c86edf75440e8ae71c74909fe43581ade58db4",
+   "c142c6e1a8ac4de328399818258de9dbd1cd4f53"
+  ],
+  "wakaba-full.webp": [
+   "475b4fe66c106de86f5e77a99b4380ae54af53a1",
+   "8304cded2877f475373e243e5db3e768ad02371b"
+  ],
+  "wakaba-card.webp": [
+   "a66634b0112521b6bd1f8f86f1ae0ebf7918315b",
+   "c66b1f3747d0f01888d5693dee2d99a42f58aae3"
+  ],
+  "wakaba-bust.webp": [
+   "0cf33294fa9124d75a89a9e96b31bdff16858469",
+   "587fa284d2d780fcb18061ed2b75ab410e0ca626"
+  ],
+  "wakaba-thumb.webp": [
+   "5d03498102650b1b59ccf6df0fbc1f2ae92d1c2e",
+   "6b2f085f17520d0fb9b2831d07d24d064fb7e97e"
+  ],
+  "wakaba-cut.webp": [
+   "2613d490a4d2457c2e79240dfcac6f5e60b61c63",
+   "c269e1ce78aa188a6d3dff025447409d9e56235d"
+  ],
+  "wakaba-cut-s.webp": [
+   "12e8d50aab55c845d54befa58f2290a73bc22953",
+   "346a88551807d8d0a62640ec9bfea7aa1c060208"
+  ],
+  "yuzuha-full.webp": [
+   "150f6152802480e0473555cbeb86bd0b204857e5",
+   "d9eb1a79f8bf0d7501065f21146b9b59f9fbf743"
+  ],
+  "yuzuha-card.webp": [
+   "6678433bd04f3aadd6451d045cadb6abe62b3834",
+   "6b64e729c42adfc46534836d3066279c922ba4d5"
+  ],
+  "yuzuha-bust.webp": [
+   "3b290943398d702e99a49bb315a9612e9a04b56c",
+   "818185d4c791bec3ac672d2e37570d05211d8af4"
+  ],
+  "yuzuha-thumb.webp": [
+   "11091651ce2fb6512fc0d8d40d36eb57ea2722b0",
+   "f4224d38382b840993a49f5bd603a45afd8a1ba8"
+  ],
+  "yuzuha-cut.webp": [
+   "c04c97b24c313593c5d2d50fd0a0322fb771812e",
+   "d3a5a92a4e9d7c21240b204fc3d98990deb97ae6"
+  ],
+  "yuzuha-cut-s.webp": [
+   "179df2a508c6964fa79e3d41b512c4b567c5aa7a",
+   "da525381b1907e108d2819504f10dba0b0fbe255"
+  ],
+  "ouka-full.webp": [
+   "a3ccb208bdd13e9dc98d1e364a04e8c452a37f41",
+   "b2bf84061ed4f86190f0facdbe45969d224fb5ca"
+  ],
+  "ouka-card.webp": [
+   "3429730af1ab8142b1b0e3772f757a7a0eb9f966",
+   "e2759767572b35dfd0f937887a24b0a131dd0766"
+  ],
+  "ouka-bust.webp": [
+   "764a0b984aad902600c72983e02fa2f78970b540",
+   "b5b5137060ee4b5c7e298eb69a9f895900ff3755"
+  ],
+  "ouka-thumb.webp": [
+   "074a5765201ec937d75c2dd50b9a32cef620e632",
+   "0e03e43acad6950686e5ab0080b49dcbcd286548"
+  ],
+  "ouka-cut.webp": [
+   "2045b00a7aba454c5e611169d7033303272ef975",
+   "6725b9f9c50a7876d78b5dda0860ada2e776e06c"
+  ],
+  "ouka-cut-s.webp": [
+   "81444c831cb8eeb2f48713651cf8ff2effdc75d2",
+   "a7dc38d0ed781860c54ac0d705b70acc694d5c6b"
+  ],
+  "chigusa-full.webp": [
+   "4d060878340d6354a603f9ab555283b641846402",
+   "e061d812f36bfc5d53ff1d368a9b96974d52d493"
+  ],
+  "chigusa-card.webp": [
+   "07be083673a180538faad299e629676298a823d0",
+   "d9b37518ec4f74e514b62e08af70eae787be4d0f"
+  ],
+  "chigusa-bust.webp": [
+   "0754bf6da27567940df6523460b451d14f5c0398",
+   "47454e8a4ef3b75171d9ca5329b1897749308478"
+  ],
+  "chigusa-thumb.webp": [
+   "167e92a59be042d916e283d1af83298944b1bd52",
+   "4aa742811a7289d747920147854756f93a9d5d13"
+  ],
+  "chigusa-cut.webp": [
+   "091eb0d1fe3ea86c69e58af888159f6a16044451",
+   "3104975d49d62a86f1fc0be37fc6766ec08c28d0"
+  ],
+  "chigusa-cut-s.webp": [
+   "719a08966daccedbe7ce09c7c2fde5e727e4df4f",
+   "e2b4e8a981944517dfe63efed4d44486f8a0f4fd"
+  ],
+  "marumi-full.webp": [
+   "6ab60b6a039c0c1d5d46b864cf93e5c9dbde96fe",
+   "7a7578bcbb486c13cf714831aa797416e154d2a2"
+  ],
+  "marumi-card.webp": [
+   "5bd11a805dc8764238c4d8517cb486463d11f2e4",
+   "da9a6145a245d2f530fb3117dae00df16beabff3"
+  ],
+  "marumi-bust.webp": [
+   "720bdcb3aadb86e02a54e6c17f0ff426d749b777",
+   "ae2fb739d405a1807d676c4d2a41b8ead08108c1"
+  ],
+  "marumi-thumb.webp": [
+   "678f0e99696f0b3ab63e59e7cd552481b39fcb1b",
+   "ce3d887d8c08a9b927c5952ad63141fdc2825655"
+  ],
+  "marumi-cut.webp": [
+   "78599bc8a3d7b761ba64db8b45362677c0d1bc64",
+   "c15bc17e17ee8a0139e4050bdcebabf9a1a93c2d"
+  ],
+  "marumi-cut-s.webp": [
+   "392c1abb6877f6aa366b8a01e1da27701fd5982f",
+   "809334f6c2dcfafd6f35083af547bdb29a4ae302"
+  ]
+ }
+}

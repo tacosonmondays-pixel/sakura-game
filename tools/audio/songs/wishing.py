@@ -30,9 +30,8 @@ harp 16ths + shaker 16ths keep something moving on every 16th; music-box counter
 fills in bars 4 and 8, crash/splash on 1 and 5; breakdown + dialogue + lift in C; 1.46 chords a bar.
 
 review: originality — the hook, the chorus line, the counter-line, the dialogue and the bass lines are new; the BELL
-motif is the project's own. Checked against well-known gacha / summon / "wish" themes (Genshin, Blue Archive,
-Fate/GO, Arknights, Granblue), music-box and lullaby classics, kawaii-pop and future-bass hooks, Animal Crossing and
-Kirby tunes, Undertale/Deltarune and EarthBound/Mother: the harp arpeggio bed and ukulele strum are generic idioms,
+motif is the project's own. Checked against well-known gacha / summon / "wish" themes, music-box and
+lullaby classics, kawaii-pop and future-bass hooks and cosy console and indie game tunes: the harp arpeggio bed and ukulele strum are generic idioms,
 the melodies share no hook or contour. `studio.py originality`: no blocklist match. Composer B4, 2026-10-13 (round 3).
 """
 from fractions import Fraction as Fr

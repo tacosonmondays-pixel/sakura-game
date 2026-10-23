@@ -4,7 +4,7 @@ Oct 15, 2026. Lands in the repo as `docs/specs/PROFILE.md`.
 
 Inputs judged: `research.md`, `design-ux.md` (Design A, screens) and `design-data.md` (Design B, data and safety), all in `docs/specs/profile/`. Where A and B disagree, the ruling is in §0.2 and the rest of this spec follows it. Design B's original sketch files are kept in `designB-original/`; the files next to this spec are amended to the v1 card format below and re-proven (§6.6).
 
-**Owner request (Oct 15, verbatim):** "When you add profiles allow them to be displayed on your profile!! In your profile, it'll be your username, bio, maybe you can set favorite units, and then it can be like Genshin or Honkai where you can display your top 8 units that you can add or remove if you press and hold it'll bring up their info so you can see others builds. Whoever you set as your favorite girl, she'll be on the left side as her portrait. What else? Profile picture and a banner? Ribbon and medal showcase!" ("them" = Codex-mode ribbons and difficulty medals.)
+**Owner request (Oct 15, verbatim):** "When you add profiles allow them to be displayed on your profile!! In your profile, it'll be your username, bio, maybe you can set favorite units, and then it can be like [reference games] where you can display your top 8 units that you can add or remove if you press and hold it'll bring up their info so you can see others builds. Whoever you set as your favorite girl, she'll be on the left side as her portrait. What else? Profile picture and a banner? Ribbon and medal showcase!" ("them" = Codex-mode ribbons and difficulty medals.)
 
 ---
 
@@ -76,7 +76,7 @@ Mock-up: `mock/profile.html` (`?state=own|build|visit|vbuild|edit|editp`). Scree
 
 ### 1.2 Layout
 
-The style is Blue Archive: white translucent panels, blue→white headers with a yellow underline, slanted pills, italic navy Nunito headings. New CSS goes in `src/ui/styles/profile.css` with the class prefix `.pf-`. The measurements below come from the mock (`mock/css/profile.css` is the starting point).
+The style is our academy look: white translucent panels, blue→white headers with a yellow underline, slanted pills, italic navy Nunito headings. New CSS goes in `src/ui/styles/profile.css` with the class prefix `.pf-`. The measurements below come from the mock (`mock/css/profile.css` is the starting point).
 
 | Region | PC 1280×720 | Phone 844×390 |
 |---|---|---|

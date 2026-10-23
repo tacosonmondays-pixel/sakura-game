@@ -33,6 +33,20 @@ describe('solo battle counters (applyBattleResult)', () => {
     expect(c(p).ults).toBe(5);
   });
 
+  it('heroMax keeps the highest level her hero reached in a battle, won or lost (a max, never a sum)', () => {
+    const p = openSave();
+    applyBattleResult(p, result({ stats: { ultsUsed: 0, towerUnits: {}, heroLevel: 12 } }), rng());
+    expect(c(p).heroMax).toBe(12);
+    applyBattleResult(p, result({ won: false, livesLeft: 0, stats: { ultsUsed: 0, towerUnits: {}, heroLevel: 25 } }), rng());
+    applyBattleResult(p, result({ stats: { ultsUsed: 0, towerUnits: {}, heroLevel: 9 } }), rng());
+    applyBattleResult(p, result({ stats: { ultsUsed: 0, towerUnits: {}, heroLevel: 0 } }), rng()); // no hero fielded
+    expect(c(p)[ACH_COUNTERS.heroMax]).toBe(25);
+    // a practice run (a locked stage) records nothing
+    const q = createProfile();
+    applyBattleResult(q, result({ stageId: '8-5', stats: { ultsUsed: 0, towerUnits: {}, heroLevel: 25 } }), rng());
+    expect(q.missions.counters.heroMax).toBeUndefined();
+  });
+
   it('ach:flawless only on Normal or Hard with every life left', () => {
     const p = openSave();
     applyBattleResult(p, result(), rng());

@@ -10,7 +10,7 @@ import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { STAGE_MAP, CHAPTERS } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
-import { MAP_TIERS } from '../../data/types.js';
+import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, medalIcon } from '../../art/icons.js';
@@ -97,7 +97,7 @@ function build() {
       const old = endlessBest(profile, s);
       const fp = soloBestLines(profile, id)[0] || null; // the hardest tier with a best
       const best = fp ? fp.wave : old;
-      const tier = MAP_TIERS[s.tier];
+      const tier = MAP_TIER_VIEW[s.tier];
       grid.appendChild(h(`button.ma-endless-card${cleared ? '' : '.locked'}`,
         { onclick: () => cleared && navigate('stage', { id, endless: 1 }), disabled: !cleared, 'data-testid': `endless-${id}` },
         h('div.ma-ec-thumb', { html: map ? stageThumbSVG(map, { width: 240, height: 150 }) : '' }),
