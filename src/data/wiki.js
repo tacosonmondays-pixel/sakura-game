@@ -725,7 +725,7 @@ function newGirlsArticle() {
   const free = girls.filter((u) => u.acquisition.type === 'free');
   return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'wakaba', 'drink', 'hydrated', 'yuzuha', 'sentry', 'sentries', 'net', 'ouka', 'council', 'office', 'banner', 'free tier', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'marumi', 'bowling', 'ball', 'ricochet', 'bounce', 'pinball', 'lob'], [
     sec('Who joined',
-      p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
+      p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Each has her drawn portrait and her 3D figure.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
         { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, shownTips(u)[0],
       ]))),

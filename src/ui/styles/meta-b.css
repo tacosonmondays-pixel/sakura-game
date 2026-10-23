@@ -106,7 +106,6 @@ html[data-reduce-motion] .mb-card, html[data-reduce-motion] .mb-student-grid > *
 .mb-req-list { display: flex; flex-direction: column; gap: 6px; }
 .mb-req { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; }
 .mb-req.short { border-color: #ffc2cd; background: #fff6f8; }
-.mb-req .item-tile { padding: 4px; }
 .mb-req-name { font-weight: 800; font-size: 0.9rem; line-height: 1.2; }
 .mb-req-count { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 2px; }
 .mb-req-count b { color: var(--ink); }

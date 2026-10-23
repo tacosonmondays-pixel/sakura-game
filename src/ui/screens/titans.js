@@ -85,7 +85,7 @@ export function render(root, params = {}) {
       h('span.tt-chip', { 'data-testid': 'titan-keys', title: `Trial Keys: ${keys.weekly} a week, up to 6 unused carry over${keys.saved ? ` (${keys.saved} saved)` : ''}` }, svgEl(uiIcon('key'), 'ma-inline-icon'), h('b.num', `${keys.left}/${keys.weekly}`)),
       // [ui-m5] the countdown chip (§5.9): the weekly key reset is a recurring cycle (never red); at zero, the new week
       countdownChip(keys.resetsAt - now, { label: 'Resets in', urgent: false, doneText: 'Reset!', onDone: draw, testid: 'titan-reset' }),
-      h('span.tt-chip', { title: 'Assault Tokens' }, svgEl(itemIcon('token_boss'), 'tt-chip-ico'), h('b.num', formatNumber(itemCount(p, 'token_boss')))),
+      h('span.tt-chip', { title: 'Assault Tokens' }, svgEl(itemIcon('token_boss', { px: 18 }), 'tt-chip-ico'), h('b.num', formatNumber(itemCount(p, 'token_boss')))),
       button('Titan shelf', { kind: 'ghost', small: true, icon: 'mall', testid: 'titan-shelf', onClick: () => navigate('mall', { tab: 'boss' }) }),
     );
     const cards = h('div.tt-cards', TITANS.map((t) => titanCard(p, t, now)));
@@ -156,7 +156,7 @@ export function render(root, params = {}) {
     const chips = h('div.tt-row', h('span.tt-label', 'Target'), t.families.map((f) => h(`button.chip.tt-fam${f === fam ? '.on' : ''}`, {
       'data-testid': `titan-target-${f}`,
       onclick: () => { setTargetFamily(p, id, f); store.commit('titan-target'); draw(); },
-    }, svgEl(itemIcon(zenithId(f)), 'tt-chip-ico'), MATERIAL_FAMILIES[f]?.name || f)));
+    }, svgEl(itemIcon(zenithId(f), { px: 18 }), 'tt-chip-ico'), MATERIAL_FAMILIES[f]?.name || f)));
     const needLine = need ? h('p.tt-need', { 'data-testid': 'titan-need' }, `${UNIT_MAP[need.unitId].name} · Gate ${need.gate} needs ${need.missing.slice(0, 2).map((m) => `${m.need - m.have} ${ITEMS[m.id]?.name || m.id}`).join(', ')}`) : null;
 
     // tier chips (+ the Mayhem rank stepper)
