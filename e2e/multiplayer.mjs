@@ -18,7 +18,8 @@
 //   7. the probe (e2e/probe.mjs) on the hub, offline, with an invite and busy, and on the lobby with its number, at
 //      844x390 and 1280x720: the floor, ≤ 12 numbers, one yellow, Momo within 35%, no sideways overflow, no text past
 //      its box; on the lobby at 844x390, 740x360 and 667x375, every line of the secretary's bubble clear of the tray and
-//      the sticker row (UI M5d review)
+//      the sticker row (UI M5d review); on the hub, offline and busy, at 844x390, 932x430, 1024x768, 740x360, 667x375
+//      and 1280x720, each locked tile with one lock (its sticker's), the sticker clear of its words (UI M5d review 2)
 //
 //   node e2e/multiplayer.mjs                                # 844x390 (touch), probes at both sizes
 //   node e2e/multiplayer.mjs --viewport 1280x720 --shots <dir>
@@ -196,6 +197,48 @@ async function bubbleClear(page) {
   await page.setViewportSize({ width: W, height: H });
 }
 
+/**
+ * UI M5d review 2: a locked tile's "Coming soon" / "Soon" sticker stays clear of any other lock and of the tile's words
+ * (probe `apart`). The first pair is the review's own (PvP's sticker against a corner lock, which a locked tile no
+ * longer draws: it catches one coming back).
+ */
+const MP_APART = [
+  ['[data-testid="mp-pvp-soon"]', '#app .mp-pvp .ui-ltile-lock'],
+  ['#app .mp-tiles > .ui-ltile > .ui-bdg.soon', '#app .mp-tiles > .ui-ltile > :is(.ui-ltile-lock, .ui-ltile-title, .ui-ltile-line)'],
+];
+/** The sizes where the PvP tile is narrowest (844x390, 932x430, 1024x768), the shortest phones and the desktop. */
+const LOCK_SIZES = [[844, 390], [932, 430], [1024, 768], [740, 360], [667, 375], [1280, 720]];
+
+/**
+ * UI M5d review 2: each locked hub tile (PvP, Titan Co-op) wears one lock, its sticker's; the sticker stays inside the
+ * tile's width and clear of its words (and of any second lock) at every size in LOCK_SIZES.
+ */
+async function lockedTiles(page, name) {
+  await toFront(page);
+  for (const [w, h] of LOCK_SIZES) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.evaluate(() => new Promise((r) => setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(r)), 500)));
+    const r = await probe(page, { apart: MP_APART });
+    const fails = judge(r, { only: ['apart'] });
+    const tiles = await page.evaluate(() => [...document.querySelectorAll('#app .mp-tiles > .ui-ltile')].map((el) => {
+      const tr = el.getBoundingClientRect();
+      const s = el.querySelector(':scope > .ui-bdg.soon');
+      const sr = s?.getBoundingClientRect();
+      // (every glyph the kit draws is a span.ui-ico; the scenery under the veil is not one)
+      const locks = [...el.querySelectorAll('.ui-ico')].filter((x) => !x.closest('.ui-ltile-art'));
+      return {
+        id: el.dataset.testid, w: Math.round(tr.width), locks: locks.length, inSticker: !!s && locks.every((x) => s.contains(x)),
+        inside: !!sr && sr.left >= tr.left - 0.5 && sr.right <= tr.right + 0.5,
+      };
+    }));
+    const ok = !fails.length && tiles.length === 2 && tiles.every((t) => t.locks === 1 && t.inSticker && t.inside);
+    check(ok, `${name} ${w}x${h}: each locked tile wears one lock (its sticker's), the sticker inside the tile and clear of its words (${tiles.map((t) => `${t.id} ${t.w}px ${t.locks} lock${t.locks === 1 ? '' : 's'}${t.inside ? '' : ' sticker past the tile'}`).join(', ')})${fails.length ? ` — ${fails.join('; ')}` : ''}`);
+    if (shotsDir) await page.screenshot({ path: `${shotsDir}/mp-locked-${name}-${w}x${h}.png` }).catch(() => {});
+  }
+  await page.setViewportSize({ width: W, height: H });
+  await page.waitForTimeout(500);
+}
+
 /** UI M5d review: five more friends invite A on the local test server (more invites than the card's rows at any size). */
 async function moreInvites(page) {
   return page.evaluate(async () => {
@@ -232,7 +275,8 @@ async function busyCard(page, want) {
       const ov = (a, c) => Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left)) * Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
       const tiles = [...document.querySelectorAll('#app .mp-tiles > *')].map((t) => {
         const r = t.getBoundingClientRect();
-        const ico = t.querySelector('.mp-tile-ico, .ui-ltile-lock')?.getBoundingClientRect();
+        // (a locked tile's corner mark is its sticker, UI M5d review 2)
+        const ico = t.querySelector('.mp-tile-ico, .ui-ltile > .ui-bdg.soon')?.getBoundingClientRect();
         const words = t.querySelector('.mp-tile-text, .ui-ltile-title')?.getBoundingClientRect();
         return { inView: r.top >= mr.top - 1 && r.bottom <= mr.bottom + 1, clear: !ico || !words || ov(ico, words) < 1, h: Math.round(r.height) };
       });
@@ -313,6 +357,7 @@ try {
   check(!acct.uid && !acct.connected && !acct.tab && !acct.users && !acct.name, `hub offline: no online account was made (${JSON.stringify(acct)})`);
   await shot(A, 'mp-offline');
   await probeBoth(A, 'hub-offline');
+  await lockedTiles(A, 'hub-offline');
 
   // ---- 2. PvP and Titan Co-op ---------------------------------------------------------------------------------
   log('\n--- PvP and Titan Co-op ---');
@@ -435,6 +480,7 @@ try {
   }));
   await busyCard(A, want);
   await probeBoth(A, 'hub-busy');
+  await lockedTiles(A, 'hub-busy');
 
   // ---- 6. Clan Boss ---------------------------------------------------------------------------------------------
   log('\n--- Clan Boss ---');

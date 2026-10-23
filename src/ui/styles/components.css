@@ -463,7 +463,8 @@ button.ui-gtile:active { transform: scale(0.96); }
   .ui-bdg.count, .ui-bdg.prog, .ui-bdg.inprog, .ui-bdg.newtab { height: 22px; min-width: 22px; }
 }
 
-/* ---------- A locked mode's tile (§5.4 designed locked state; owner #108): glass, lock, "Coming soon", no fade ---------- */
+/* ---------- A locked mode's tile (§5.4 designed locked state; owner #108): glass, "Coming soon" with its lock, no fade.
+   One lock, the sticker's: no second one in the corner (UI M5d review 2) ---------- */
 .ui-ltile {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: var(--sp-1);
   min-height: 96px; padding: var(--sp-3); overflow: visible;
@@ -474,12 +475,6 @@ button.ui-gtile:active { transform: scale(0.96); }
 .ui-ltile-art { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
 .ui-ltile-art::after { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.72); }
 .ui-ltile > .ui-bdg.soon { position: absolute; top: -8px; left: 10px; }
-.ui-ltile-lock {
-  position: absolute; top: var(--sp-2); right: var(--sp-2);
-  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
-  background: var(--plate); color: var(--on-plate); box-shadow: 0 2px 0 rgba(14, 25, 48, 0.3);
-}
-.ui-ltile-lock > .ui-ico { width: 16px; height: 16px; }
 .ui-ltile-title { position: relative; font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
 .ui-ltile-line { position: relative; font: 700 var(--fs-label)/1.2 var(--font); color: var(--ink); }
 .ui-ltile:active { transform: scale(0.97); }

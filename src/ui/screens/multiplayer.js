@@ -200,7 +200,7 @@ export function render(root) {
 
   function tileEl(t) {
     if (t.locked) {
-      // a mode that is not out yet: its scenery under a glass veil, "Coming soon" / "Soon", a lock (kit.js lockedTile)
+      // a mode that is not out yet: its scenery under a glass veil, "Coming soon" / "Soon" with its lock (kit.js lockedTile)
       return lockedTile({
         title: t.title, line: t.line, soon: t.locked, testid: `mp-${t.id}`, cls: `mp-ltile.mp-${t.id}`, art: scenery(t.theme),
         onClick: t.sheet === 'rival' ? () => openRivalRun() : () => toast(`${t.title} is on its way. Stay tuned!`, 'info'),

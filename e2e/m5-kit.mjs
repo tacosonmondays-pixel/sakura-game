@@ -199,13 +199,16 @@ try {
             const el = document.querySelector(`[data-testid="${id}"]`);
             if (!el) return null;
             const soon = el.querySelector('.ui-bdg.soon');
-            return { soon: soon?.textContent, lock: !!el.querySelector('.ui-ltile-lock svg'), line: el.querySelector('.ui-ltile-line')?.textContent || '', newFlag: !!el.querySelector('.ui-bdg.newtab, .ui-bdg.new'), opacity: getComputedStyle(el).opacity };
+            // one lock, the sticker's (UI M5d review 2: a second one in the corner ran under a long sticker)
+            const locks = [...el.querySelectorAll('.ui-ico')].filter((x) => !x.closest('.ui-ltile-art'));
+            const lock = locks.length === 1 && !!soon?.contains(locks[0]) && !!locks[0].querySelector('svg');
+            return { soon: soon?.textContent, lock, locks: locks.length, line: el.querySelector('.ui-ltile-line')?.textContent || '', newFlag: !!el.querySelector('.ui-bdg.newtab, .ui-bdg.new'), opacity: getComputedStyle(el).opacity };
           };
           return { pvp: tile('kit-pvp'), titan: tile('kit-titan-coop'), anyNewFlag: !!document.querySelector('.kit-tiles .ui-bdg.newtab') };
         });
         check(locked.pvp?.soon === 'Coming soon' && locked.pvp.lock && locked.pvp.line === 'Rival Run inside' && !locked.pvp.newFlag && locked.pvp.opacity === '1',
-          `hub view: PvP is locked "Coming soon" with Rival Run inside, a lock, no fade (${JSON.stringify(locked.pvp)})`);
-        check(locked.titan?.soon === 'Soon' && locked.titan.lock && !locked.anyNewFlag, 'hub view: Titan Co-op wears "Soon"; no tile wears a NEW flag');
+          `hub view: PvP is locked "Coming soon" with Rival Run inside, one lock (the sticker's), no fade (${JSON.stringify(locked.pvp)})`);
+        check(locked.titan?.soon === 'Soon' && locked.titan.lock && !locked.anyNewFlag, `hub view: Titan Co-op wears "Soon" with one lock (the sticker's); no tile wears a NEW flag (${JSON.stringify(locked.titan)})`);
         const hubWrap = await wrappedLines(page, 'hub', ['multiplayer', { invites: 1 }]);
         check(hubWrap.count > 0 && hubWrap.wrapped.length === 0, `host: all ${hubWrap.count} hub-screen lines fit her ${hubWrap.bubbleW} px bubble on one line (widest ${hubWrap.widest} px)${hubWrap.wrapped.length ? ` → wrapped: ${hubWrap.wrapped.join(' | ')}` : ''}`);
         await open(page, '?view=chip');

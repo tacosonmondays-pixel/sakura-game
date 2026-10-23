@@ -37,6 +37,14 @@ mkdirSync(out, { recursive: true });
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 /** The lobby secretary's speech bubble stays clear of the tray and the sticker row (probe `apart`; UI M5d review). */
 const LOBBY_APART = [['[data-testid="secretary-bubble"]', '.lb-hud > .lb-tray'], ['[data-testid="secretary-bubble"]', '.lb-hud > .lb-stickers']];
+/**
+ * The Multiplayer hub's locked tiles: the "Coming soon" / "Soon" sticker clear of any other lock and of the tile's
+ * words (probe `apart`; UI M5d review 2). The first pair is the review's own (a corner lock no longer drawn).
+ */
+const MP_APART = [
+  ['[data-testid="mp-pvp-soon"]', '#app .mp-pvp .ui-ltile-lock'],
+  ['#app .mp-tiles > .ui-ltile > .ui-bdg.soon', '#app .mp-tiles > .ui-ltile > :is(.ui-ltile-lock, .ui-ltile-title, .ui-ltile-line)'],
+];
 
 /**
  * Every shot: how to reach it, when it is ready, and the probe options (kind, list). `seed: 'm5'` shots need a
@@ -92,16 +100,16 @@ const SHOTS = {
   // the Multiplayer hub comes in M5d: until its route exists, its "before" is the co-op hub it replaces. `multiplayer`
   // is signed in on the local test server with one open invite from a friend (uiSeed.mjs seedOnlineInvite);
   // `multiplayer-empty` is a player who never went online (no account, no invites: goOffline)
-  multiplayer: { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5', prepare: seedOnlineInvite, settleMs: 1800 },
-  'multiplayer-empty': { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5', prepare: goOffline, settleMs: 1800 },
+  multiplayer: { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5', prepare: seedOnlineInvite, settleMs: 1800, apart: MP_APART },
+  'multiplayer-empty': { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5', prepare: goOffline, settleMs: 1800, apart: MP_APART },
   'multiplayer-pvp': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', open: async (page) => { await page.click('[data-testid="mp-pvp"]'); await page.waitForSelector('.ui-sheet', { timeout: 10000 }); } },
   coop: { hash: '#/coop', ready: isScreen('coop'), seed: 'm5', settleMs: 1800 },
   // the lobby with that open invite: the Multiplayer button's red number (M5d; before it, the lobby had no such button)
   'lobby-invite': { hash: '#/lobby', ready: isScreen('lobby'), seed: 'm5', prepare: seedOnlineInvite, prepareAt: ['#/missions', isScreen('missions')], settleMs: 1800, apart: LOBBY_APART },
   // UI M5d review (by name only, not in the m5 list: each signs a fresh account in): online with no invite and a "Your
   // last room"; four friends' invites and a last room (the card's two rows on phones: one invite, then "3 more invites")
-  'multiplayer-online': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', prepare: (page) => seedOnlineHub(page, { last: true }), settleMs: 1800 },
-  'multiplayer-many': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', prepare: (page) => seedOnlineHub(page, { friends: MORE_FRIENDS, last: true }), settleMs: 1800 },
+  'multiplayer-online': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', prepare: (page) => seedOnlineHub(page, { last: true }), settleMs: 1800, apart: MP_APART },
+  'multiplayer-many': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', prepare: (page) => seedOnlineHub(page, { friends: MORE_FRIENDS, last: true }), settleMs: 1800, apart: MP_APART },
   profile: { hash: '#/profile', ready: isScreen('profile'), kind: 'detail', seed: 'm5' },
   students: { hash: '#/students', ready: isScreen('students'), kind: 'list', seed: 'm5' },
   formation: { hash: '#/formation', ready: isScreen('formation'), seed: 'm5' },

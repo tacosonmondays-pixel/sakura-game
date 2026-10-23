@@ -283,8 +283,9 @@ export function btnCount(n, { cls = '' } = {}) {
 /**
  * A mode that is not out yet, as a hub tile (§5.4: a designed locked state, never a faded one; owner #108: the
  * Multiplayer hub's PvP "Coming soon" with Rival Run inside, Titan Co-op "Soon"). Glass (or the mode's art under a
- * glass veil), the ink "Coming soon" sticker at the top-left, a lock in an ink circle at the top-right, the title and
- * one line on what is inside. A tap explains (the screen opens its sheet); it never starts anything.
+ * glass veil), the ink "Coming soon" sticker at the top-left, the title and one line on what is inside. One lock: the
+ * sticker's (a second one in an ink circle at the top-right said it twice, and on a narrow tile a long sticker ran over
+ * it: UI M5d review 2). A tap explains (the screen opens its sheet); it never starts anything.
  * @param {{ title: string, line?: string|null, soon?: string, art?: HTMLElement|null, onClick?: Function|null,
  *   testid?: string|null, cls?: string }} o line: "Rival Run inside" (or what opens it); soon: the sticker's words
  * @returns {HTMLElement}
@@ -295,7 +296,6 @@ export function lockedTile({ title, line = null, soon = 'Coming soon', art = nul
   },
   art ? h('span.ui-ltile-art', { 'aria-hidden': 'true' }, art) : null,
   soonSticker({ text: soon, testid: testid ? `${testid}-soon` : null }),
-  h('span.ui-ltile-lock', { 'aria-hidden': 'true' }, ico('lock')),
   h('b.ui-ltile-title', title),
   line ? h('span.ui-ltile-line', line) : null);
 }
