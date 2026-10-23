@@ -3,7 +3,7 @@
 // GEAR_STATS in src/data/types.js stays frozen (the sim imports types.js); this file spreads it and
 // adds the two club-only substats, Pierce and Aura Power.
 import { GEAR_STATS } from './types.js';
-import { ABILITIES, abilityRuns } from './abilities.js';
+import { ABILITIES, abilityRuns, abilityAtTier, skillAtLevel } from './abilities.js';
 import { NOT_HASTED_KINDS } from '../sim/gearRules.js';
 
 /** Every gear stat: today's eight (same keys, ranges and slots) + Pierce (ribbons) + Aura Power (shoes). */
@@ -70,6 +70,45 @@ export function skillHasteCounts(unitId) {
     if (row.some((e) => abilityRuns(e) && !NOT_HASTED_KINDS.includes(e.kind))) return true;
   }
   return false;
+}
+
+/** Every ability entry of a girl as a menu sees it: each ⚡ path's entry and its tier 5, or a hero's skill and its top rank. */
+function abilityEntries(unitId) {
+  const out = [];
+  for (const key of Object.keys(ABILITIES)) {
+    if (key !== unitId && !key.startsWith(`${unitId}@`)) continue;
+    const row = ABILITIES[key];
+    if (Array.isArray(row)) for (const e of row) out.push(e, abilityAtTier(e, 5));
+    else if (row?.skill) out.push(row.skill, skillAtLevel(row.skill, Infinity));
+  }
+  return out;
+}
+
+/** The club whose trick needs something in her kit (every other trick works on every kit). */
+const NEEDS_HASTED_ABILITY = 'bell';
+
+/**
+ * Why her 3-piece club trick does nothing for her, or null when it works: THE dead-trick rule (owner default Q3:
+ * never promise what is not there), read by the girl page (set chip, the gear totals' set line), the Club Armband
+ * picker and the battle panel's Club cell. Every trick does something on every kit (GEAR_STATS §C.2; Tea's Second Cup
+ * serves the 2 girls nearest her when she has no aura, src/sim/towers.js secondCupTargets) but Bell's First Bell: it
+ * charges her ⚡ ability or her hero skill when a wave starts, so it needs one that runs in this build and that Skill
+ * Haste reaches, not a rally or a debuff (src/sim/abilities.js waveStartCharge → gearRules firstBellCharge). It never
+ * charges a hero's ultimate.
+ * @param {string} clubId
+ * @param {string} unitId
+ * @param {{ kind: string }|null} [abil] in battle, her running ability (t.abil, or null when she has none); left out,
+ *   the menu's view from the ability table (her ⚡ abilities, a hero's skill)
+ * @returns {null|'later'|'kind'|'locked'} 'later' none of her abilities runs in this build ("Comes in a later update":
+ *   Kage, Suzu, Chika, Fuu, Iroha, Kanna); 'kind' hers is a rally or a debuff; 'locked' (battle) she has not unlocked
+ *   hers yet (⚡ tier 3, Lv 7)
+ */
+export function trickIdle(clubId, unitId, abil) {
+  if (clubId !== NEEDS_HASTED_ABILITY) return null;
+  if (abil) return NOT_HASTED_KINDS.includes(abil.kind) ? 'kind' : null;
+  const entries = abilityEntries(unitId).filter((e) => abilityRuns(e));
+  const menu = !entries.length ? 'later' : entries.some((e) => !NOT_HASTED_KINDS.includes(e.kind)) ? null : 'kind';
+  return abil === undefined ? menu : menu || 'locked';
 }
 
 /**

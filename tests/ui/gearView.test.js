@@ -1,8 +1,9 @@
 // The girl page's gear facts (src/ui/gearView.js, docs/specs/UI_DIRECTION.md §5.2, §6.2): the gear-totals strip is
 // her role's three stats, gear share only, read the same way the battle reads them; a piece's strip is its main stat
 // and two best substats; the comparison, her club set and the next growth.
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { gearShare, gearStripCells, gearTotalsRows, pieceSummary, compareDeltas, setView, nextGrowth } from '../../src/ui/gearView.js';
+import { gearShare, gearStripCells, gearTotalsRows, pieceSummary, compareDeltas, setView, nextGrowth, idleTrickText } from '../../src/ui/gearView.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { newUnitState } from '../../src/systems/save.js';
 import { rollGear, addGear, equipGear, gearFillIn } from '../../src/systems/gear.js';
@@ -113,5 +114,67 @@ describe('setView', () => {
     wear(q, 'aoi', 'shoes', { rarity: 'mythic', level: 2, club: 'taiko' });
     s = setView(q, 'aoi');
     expect([s.club.pieces, s.trick.on, s.trick.name]).toEqual([3, true, 'Big Beat']);
+  });
+
+  // M2 review look-1 (owner default Q3): the dead-trick rule, src/data/gearStats.js trickIdle
+  const clubSet = (id, club, n = 3) => {
+    const p = profile();
+    for (const slot of ['charm', 'ribbon', 'shoes'].slice(0, n)) wear(p, id, slot, { rarity: 'mythic', level: 2, club });
+    return setView(p, id);
+  };
+
+  it('a full set whose trick does nothing for her is never "on": First Bell on Kage (her ability comes later) and Miko (a rally)', () => {
+    const kage = clubSet('kage', 'bell');
+    expect([kage.club.pieces, kage.two.on, kage.trick.on, kage.trick.idle]).toEqual([3, true, false, 'later']);
+    expect(kage.trick.idleText).toEqual({ long: 'First Bell: no effect on her yet (her ability comes in a later update)', short: 'First Bell: no effect yet' });
+    const miko = clubSet('miko', 'bell');
+    expect([miko.trick.on, miko.trick.idle]).toEqual([false, 'kind']);
+    expect(miko.trick.idleText).toEqual({ long: 'First Bell: no effect on her (not team rallies or debuffs)', short: 'First Bell: no effect' });
+    // the girls it charges: a strike, an econ, a map strike, a hero's burst and strike
+    for (const id of ['aoi', 'momo', 'shiro', 'nami', 'seiran']) {
+      const s = clubSet(id, 'bell');
+      expect([s.trick.on, s.trick.idle, s.trick.idleText], id).toEqual([true, null, null]);
+    }
+    for (const [id, why] of [['suzu', 'later'], ['chika', 'later'], ['kanna', 'later'], ['hikari', 'kind'], ['luna', 'kind'], ['umeko', 'kind']]) {
+      const s = clubSet(id, 'bell');
+      expect([s.trick.on, s.trick.idle], id).toEqual([false, why]);
+    }
+    // 2 pieces: the trick is not reached, so there is nothing to say about it
+    const two = clubSet('kage', 'bell', 2);
+    expect([two.two.on, two.trick.on, two.trick.idle, two.trick.idleText]).toEqual([true, false, null, null]);
+  });
+
+  it('every other club\'s trick works on every kit: Taiko, Pyrotechnics, Tea on Kage and Miko are on', () => {
+    for (const club of ['archery', 'fencing', 'taiko', 'pyro', 'tea']) {
+      for (const id of ['kage', 'miko', 'hikari']) {
+        const s = clubSet(id, club);
+        expect([s.trick.on, s.trick.idle], `${club} ${id}`).toEqual([true, null]);
+      }
+    }
+  });
+
+  it('the Club Armband picker names the girl wearing the piece', () => {
+    expect(idleTrickText('bell', 'later', 'Kage').long).toBe('First Bell: no effect on Kage yet (her ability comes in a later update)');
+    expect(idleTrickText('bell', 'kind', 'Miko').long).toBe('First Bell: no effect on Miko (not team rallies or debuffs)');
+    expect(idleTrickText('bell', null, 'Aoi')).toBeNull();
+    expect(idleTrickText('nope', 'later')).toBeNull();
+  });
+
+  it('the set chip, the gear totals\' set line, the club strip and the picker all read it (source check: no DOM here)', () => {
+    const src = (f) => readFileSync(new URL(`../../src/ui/${f}`, import.meta.url), 'utf8');
+    const gg = src('girlGear.js');
+    // the chip: grey and its short line instead of the trick's name; the set line: the grey "3" and the long line
+    expect(gg).toMatch(/gk-set\$\{idle \? '\.idle'/);
+    expect(gg).toMatch(/'data-testid': 'gear-set-idle' \}, idle\.short/);
+    expect(gg).toMatch(/'data-testid': 'club-trick-idle'[^\n]*sticker\('3', 'off'\), ` \$\{set\.trick\.idleText\.long\}`/);
+    const ur = src('gearUr.js');
+    expect(ur).toMatch(/idleTrickText\(id, trickIdle\(id, wearer\.id\), wearer\.name\)/);
+    expect(ur).toMatch(/idleTrickText\(id, trickIdle\(id, unitId\)\)/);
+    // flat grey, never opacity (VAULT_BRIEF §2.4)
+    const girlCss = src('styles/girl.css');
+    expect(girlCss).toMatch(/\.gk-set\.idle \{[^}]*background: #d8dbda/);
+    expect(girlCss.match(/\.gk-set\.idle[^{]*\{[^}]*\}/g).join('')).not.toMatch(/opacity/);
+    expect(src('styles/components.css')).toMatch(/\.ui-sticker\.off \{ background: #d8dbda; \}/);
+    expect(src('styles/gear-ur.css')).toMatch(/\.gu-band-note \{ font-size: 0\.75rem;/); // the 12 px floor
   });
 });

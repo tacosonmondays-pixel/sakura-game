@@ -11,7 +11,7 @@ import { formatNumber } from '../core/util.js';
 import { ITEM_RARITIES, GEAR_SLOTS } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
-import { GEAR_STAT_DEFS, BATTLE_CAPS, statName, STAT_HINTS } from '../data/gearStats.js';
+import { GEAR_STAT_DEFS, BATTLE_CAPS, statName, STAT_HINTS, trickIdle } from '../data/gearStats.js';
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS } from '../data/gearAwaken.js';
 import { itemCount, hasItems } from '../systems/inventory.js';
@@ -24,6 +24,7 @@ import {
 import { unitPower } from '../systems/progression.js';
 import { gearIcon, uiIcon, itemIcon } from '../art/icons.js';
 import { urBadge, urRing } from './rarity.js';
+import { idleTrickText } from './gearView.js';
 
 const put = (el, ...kids) => {
   for (const k of kids.flat(Infinity)) if (k != null && k !== false && k !== true) el.append(k);
@@ -155,17 +156,22 @@ export function fillMeter(unitId) {
     h('span.gu-fillbar-label', `Fill-in +${pct1(f.total)} ${to}`), h('span.gu-fillbar-track', h('i', { style: { width: `${Math.round((f.total / f.cap) * 100)}%` } })), h('small', `up to ${pct1(f.cap)}`));
 }
 
-/** Her club strip: emblem, "Taiko Club ●●○", the 2-piece line (lit at 2) and the trick (lit at 3). */
+/**
+ * Her club strip: emblem, "Taiko Club ●●○", the 2-piece line (lit at 2) and the trick (lit at 3; a trick that does
+ * nothing for her kit, src/data/gearStats.js trickIdle, says so in one calm line instead).
+ */
 export function clubStrip(unitId) {
   const set = gearSetInfo(store.profile, unitId);
   const best = Object.entries(set.clubs).sort((a, b) => b[1] - a[1])[0];
   if (!best) return null;
   const [id, n] = best;
   const c = CLUBS[id];
+  const idle = n >= 3 ? idleTrickText(id, trickIdle(id, unitId)) : null;
   return h('div.gu-strip', { 'data-testid': 'club-strip', style: cssVars({ '--club': c.color }) },
     h('div.gu-strip-head', clubChip(id), h('span.gu-strip-pips', [1, 2, 3].map((i) => h(`i${i <= n ? '.on' : ''}`)))),
     h(`div.gu-strip-line${n >= 2 ? '.on' : ''}`, { 'data-testid': n >= 2 ? 'club-bonus-on' : null }, h('b', '2'), ` ${describeStat(c.two.stat, c.two.value)}`),
-    h(`div.gu-strip-line${n >= 3 ? '.on' : ''}`, { 'data-testid': n >= 3 ? 'club-trick-on' : null }, h('b', '3'), ` ${c.trick.name}: ${c.trick.text}`),
+    idle ? h('div.gu-strip-line.idle', { 'data-testid': 'club-trick-idle' }, h('b', '3'), ` ${idle.long}`)
+      : h(`div.gu-strip-line${n >= 3 ? '.on' : ''}`, { 'data-testid': n >= 3 ? 'club-trick-on' : null }, h('b', '3'), ` ${c.trick.name}: ${c.trick.text}`),
     set.ur >= 2 ? h('div.gu-strip-line.on.gu-res', h('b', '🌈'), ` Rainbow Resonance +${Math.round(set.resonance * 100)}% Range`) : null);
 }
 
@@ -449,6 +455,8 @@ export function armbandModal(uid, { onDone = () => {} } = {}) {
   const g = profile.gear[uid];
   if (!g) return;
   let pick = LIVE_CLUBS.find((c) => c !== g.club) || LIVE_CLUBS[0];
+  // the girl wearing it: a trick that would do nothing for her kit says so under its club (trickIdle; owner default Q3)
+  const wearer = g.equippedBy ? UNIT_MAP[g.equippedBy] : null;
   const bodyEl = h('div.gu-band', { 'data-testid': 'armband-modal' });
   const draw = () => {
     clear(bodyEl);
@@ -457,9 +465,11 @@ export function armbandModal(uid, { onDone = () => {} } = {}) {
       h('p.muted', `Tie a Club Armband: this piece joins the club you pick. Its stats don't change. Club pieces roll their club's favourite substats twice as often.${g.club ? ` Now: ${CLUBS[g.club].name}.` : ''}`),
       h('div.gu-band-rows', { role: 'radiogroup' }, LIVE_CLUBS.map((id) => {
         const c = CLUBS[id];
+        const idle = wearer ? idleTrickText(id, trickIdle(id, wearer.id), wearer.name) : null;
         return h(`button.gu-band-row${id === pick ? '.on' : ''}${id === g.club ? '.cur' : ''}`, { role: 'radio', 'aria-checked': id === pick ? 'true' : 'false', 'data-testid': `club-${id}`, style: cssVars({ '--club': c.color }), disabled: id === g.club, onclick: () => { pick = id; draw(); } },
           h('div.gu-band-top', clubChip(id), h('span.muted', c.fav.map((s) => statName(s)).join(' · '))),
-          h('div.gu-band-line', h('b', '2'), ` ${describeStat(c.two.stat, c.two.value)} · `, h('b', '3'), ` ${c.trick.name}: ${c.trick.text}`));
+          h('div.gu-band-line', h('b', '2'), ` ${describeStat(c.two.stat, c.two.value)} · `, h('b', '3'), ` ${c.trick.name}: ${c.trick.text}`),
+          idle ? h('div.gu-band-note', { 'data-testid': `club-${id}-idle` }, idle.long) : null);
       })),
       h('div.mb-reroll-foot',
         h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost'), costLine(cost)),

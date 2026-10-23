@@ -89,6 +89,8 @@
 .ui-sticker.y { background: var(--yellow); }
 .ui-sticker.p { background: var(--pink); }
 .ui-sticker.ink { background: var(--plate); color: var(--on-plate); border-color: #fff; box-shadow: 0 2px 0 rgba(14, 25, 48, 0.5); }
+/* idle / does nothing here: flat grey, never opacity (VAULT_BRIEF §2.4) */
+.ui-sticker.off { background: #d8dbda; }
 /* MORE ▸: always opens Details and looks the same everywhere; an invisible 44 px hit box keeps it tappable */
 .ui-more {
   position: relative; cursor: pointer;

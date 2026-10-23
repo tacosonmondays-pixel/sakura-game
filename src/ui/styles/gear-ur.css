@@ -51,6 +51,9 @@
 .gu-strip-line.on { color: var(--ink); opacity: 1; font-weight: 700; }
 .gu-strip-line b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--club); color: #fff; font-size: 0.65rem; }
 .gu-strip-line.gu-res b { background: none; }
+/* a trick that does nothing for her kit (trickIdle): its one calm line, the "3" in flat grey */
+.gu-strip-line.idle { color: var(--ink); opacity: 1; }
+.gu-strip-line.idle b { background: #d8dbda; color: var(--plate); }
 
 /* totals with MAX, the fill-in meter */
 .gu-totals { gap: 4px; }
@@ -106,6 +109,8 @@
 .gu-band-row.cur { opacity: 0.55; }
 .gu-band-top { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; flex-wrap: wrap; }
 .gu-band-line { font-size: 0.78rem; }
+/* under a club whose trick would do nothing for the girl wearing the piece (trickIdle): one calm line */
+.gu-band-note { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
 .gu-tag { font-size: 0.72rem; font-weight: 900; color: var(--muted); }
 
 /* phone landscape: keep the modals inside 390 px of height */

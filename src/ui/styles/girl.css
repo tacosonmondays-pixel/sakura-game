@@ -346,6 +346,11 @@
 .gk-pips i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--club, var(--muted-line)); }
 .gk-pips i.on { background: var(--club, var(--muted-line)); }
 .gk-set-on { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
+/* a full set whose trick does nothing for her kit (trickIdle): flat grey, never opacity (VAULT_BRIEF §2.4); ink text */
+.gk-set.idle { border-color: #b9bebd; background: #d8dbda; }
+.gk-set.idle .gk-pips i { border-color: #6f7675; }
+.gk-set.idle .gk-pips i.on { background: #6f7675; }
+.gk-set-idle { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
 
 /* ---------- Sheets: the slot sheet, a piece's Details, the gear totals ---------- */
 .ui-sheet.gk-sheet { width: min(100%, 960px); background: #fbfdff; }
@@ -428,6 +433,7 @@
 .gk-set-head { display: flex; align-items: center; gap: var(--sp-2); }
 .gk-setline { margin: 0; display: flex; align-items: center; gap: 6px; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
 .gk-setline.on { color: var(--ink); font-weight: 700; }
+.gk-setline.idle { color: var(--ink); }
 .gk-setline .ui-sticker { flex: none; min-width: 26px; justify-content: center; }
 .gk-fill-row { display: flex; align-items: center; gap: var(--sp-2); font: 700 var(--fs-body)/1.2 var(--font); color: var(--good-text); }
 .gk-fill-row .gk-bar { max-width: 180px; }

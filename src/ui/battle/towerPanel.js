@@ -22,14 +22,11 @@ import { tierTags } from '../upgradeTags.js';
 import { HERO_GROWTH } from '../../data/heroTracks.js';
 import { PRICE_TICK, trackLevel, trackDesc, trackSkillLine, sourceText, rankAt } from './heroLevels.js';
 import { aimMode } from '../../sim/towers.js';
-import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS, officeText, councilRulesText } from './buffs.js';
+import { buffedByRows, kindLabel, weakerAurasText, limitedText, tintOf, LIMITED_KINDS, officeText, councilRulesText, clubCellText } from './buffs.js';
 import { createAbilityRow, pathAbilityTeaser } from './abilityRow.js';
 import { abilityText } from '../../data/abilityText.js';
 import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
-
-/** Club names for the panel (the sim's ids; src/data/clubs.js has the full rows). */
-const CLUB_NAMES = { archery: 'Archery', fencing: 'Fencing', taiko: 'Taiko', pyro: 'Pyrotechnics', tea: 'Tea', bell: 'Bell' };
 
 const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
 const MODE_HELP = {
@@ -261,8 +258,9 @@ export function createTowerPanel(ctx) {
     if (t.isHero && (t.unitStats?.costMul ?? 1) < 1) add('Level prices', `−${Math.round((1 - t.unitStats.costMul) * 100)}%`, '.bt-stat-wide2');
     if (st.crit?.chance > 0) add('Crit', `${Math.round(st.crit.chance * 100)}% ×${fmtNum(st.crit.mul, 2)}`, '.bt-stat-wide2');
     if (st.eliteMul > 1) add('vs Elite', `×${fmtNum(st.eliteMul, 2)}`);
-    // her Academy Club set (2 pieces: its stat is in her numbers; 3: the trick runs in battle)
-    if (t.unitStats?.club && t.unitStats.clubN >= 2) add('Club', `${CLUB_NAMES[t.unitStats.club] || t.unitStats.club} ${'●'.repeat(t.unitStats.clubN)}${t.unitStats.clubN >= 3 ? ' · trick on' : ''}`, '.bt-stat-wide2');
+    // her Academy Club set (2 pieces: its stat is in her numbers; 3: the trick, said only while it does something for her)
+    const club = clubCellText(t);
+    if (club) add('Club', club, '.bt-stat-wide2');
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
     if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');

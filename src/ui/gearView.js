@@ -3,7 +3,7 @@
 // summary strip (its main stat + the 2 best substats), the comparison of two pieces, her Academy Club set and the
 // next substat growth. Pure (no DOM): the Equipment tab and its sheets (src/ui/girlGear.js) read these, and so can
 // the Backpack (M3). tests/ui/gearView.test.js.
-import { GEAR_STAT_DEFS, GEAR_STAT_KEYS, BATTLE_CAPS, statName, midRoll } from '../data/gearStats.js';
+import { GEAR_STAT_DEFS, GEAR_STAT_KEYS, BATTLE_CAPS, statName, midRoll, trickIdle } from '../data/gearStats.js';
 import { CLUBS } from '../data/clubs.js';
 import { UNIT_MAP } from '../data/units.js';
 import { gearStatTotals, gearFillIn, gearSetInfo, gearLines, maxGearLevel, nextGrowthIndex, SUB_GROWTH_EVERY, isUrLook } from '../systems/gear.js';
@@ -131,8 +131,26 @@ export function compareDeltas(cand, cur) {
 }
 
 /**
+ * A club trick that does nothing for her (trickIdle's reason), in one calm line: `long` for a set line ("First Bell: no
+ * effect on her yet (her ability comes in a later update)"), `short` for the set chip ("First Bell: no effect yet").
+ * `who` names her in the Club Armband picker ("no effect on Kage yet"). null when the trick works.
+ * @param {string} clubId @param {null|'later'|'kind'|'locked'} reason @param {string} [who]
+ * @returns {{ long: string, short: string }|null}
+ */
+export function idleTrickText(clubId, reason, who = 'her') {
+  const c = CLUBS[clubId];
+  if (!reason || !c) return null;
+  const name = c.trick.name;
+  if (reason === 'kind') return { long: `${name}: no effect on ${who} (not team rallies or debuffs)`, short: `${name}: no effect` };
+  if (reason === 'locked') return { long: `${name}: no effect until her ability unlocks`, short: `${name}: not yet` };
+  return { long: `${name}: no effect on ${who} yet (her ability comes in a later update)`, short: `${name}: no effect yet` };
+}
+
+/**
  * Her Academy Club set (GEAR_STATS.md §C): the club most of her pieces belong to, its pieces (0–3), the 2-piece stat
  * and the 3-piece trick and whether each is on, and Rainbow Resonance. null when she wears no club piece.
+ * A trick that does nothing for her kit (src/data/gearStats.js trickIdle: First Bell on a girl whose ability waits, or
+ * is a rally or a debuff) is never "on": `trick.idle` holds the reason and `trick.idleText` its calm line.
  */
 export function setView(profile, unitId) {
   const set = gearSetInfo(profile, unitId);
@@ -142,10 +160,11 @@ export function setView(profile, unitId) {
   if (!best) return { club: null, resonance: res };
   const [id, n] = best;
   const c = CLUBS[id];
+  const idle = n >= 3 ? trickIdle(id, unitId) : null;
   return {
     club: { id, name: c.name, short: c.name.replace(' Club', ''), color: c.color, emblem: c.emblem, pieces: n },
     two: { on: n >= 2, stat: c.two.stat, text: statFact(c.two.stat, c.two.value), short: `${STAT_SHORT[c.two.stat] || statName(c.two.stat)} ${statValue(c.two.stat, c.two.value)}` },
-    trick: { on: n >= 3, name: c.trick.name, text: c.trick.text },
+    trick: { on: n >= 3 && !idle, idle, idleText: idleTrickText(id, idle), name: c.trick.name, text: c.trick.text },
     resonance: res,
   };
 }

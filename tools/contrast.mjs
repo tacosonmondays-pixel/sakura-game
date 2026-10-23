@@ -82,6 +82,8 @@ export const PAIRS = [
   ['--muted', ['--sky-3', 'rgba(255, 255, 255, 0.72)'], 'locked tab word on the rail', 4.5],
   ['--muted', ['black', 'rgba(255, 255, 255, 0.92)'], 'drawer body text (worst case: a black map behind it)', 4.5],
   ['--muted', ['#e6ecf4'], '"Medal owned" tag on the results screen (battle.css .bt-medal-tag.old)', 4.5],
+  ['--ink', ['#d8dbda'], 'an idle club trick on the flat-grey set chip (girl.css .gk-set.idle)', 4.5],
+  ['--plate', ['#d8dbda'], 'flat-grey sticker letters (components.css .ui-sticker.off, gear-ur.css .gu-strip-line.idle b)', 4.5],
   ['--blue-text', ['white'], 'links, "+N" chip, ghost button', 4.5],
   ['--blue-text', ['--sky-2'], 'selected text on --sky-2', 4.5],
   ['white', ['--blue-text'], 'white on a --blue-text fill', 4.5],

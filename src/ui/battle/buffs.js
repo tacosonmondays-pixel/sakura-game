@@ -1,7 +1,10 @@
 // Buff visibility (pure, no DOM): what the icon row over a girl shows, the rim tint of every source
-// girl, and the text of the panel's "Buffed by" / "Buffing" sections. Reads the Sim's read-only
-// buff API (sim.buffSources / buffTargets / aurasCovering, src/sim/buffs.js); decides nothing.
+// girl, and the text of the panel's "Buffed by" / "Buffing" sections (and its rule cells: Office,
+// Council rules, Club). Reads the Sim's read-only buff API (sim.buffSources / buffTargets /
+// aurasCovering, src/sim/buffs.js); decides nothing.
 // The renderer (src/render/buffIcons.js) and the tower panel share it.
+import { CLUBS } from '../../data/clubs.js';
+import { trickIdle } from '../../data/gearStats.js';
 
 /** Buff keys in the order their icons are drawn (one icon per key). */
 export const BUFF_KEYS = ['dmg', 'rate', 'pen', 'crit', 'range', 'det', 'cost', 'cleanse'];
@@ -237,6 +240,20 @@ export function councilRulesText(t) {
   if (ru.airGrant) bits.push('hits flyers');
   if (ru.typeFloor > 0) bits.push('type floor ×1');
   return bits.join(', ');
+}
+
+/**
+ * Her Academy Club cell ("Taiko ●●● · trick on"; '' below 2 pieces). "trick on" only while the 3-piece trick does
+ * something for her now: the dead-trick rule (src/data/gearStats.js trickIdle) with her running ability, t.abil, so
+ * First Bell says nothing before her ⚡ tier 3 / Lv 7, on a rally or a debuff, or on an ability that comes later.
+ * @param {{ unitId: string, unitStats?: { club?: string, clubN?: number }, abil?: object|null }} t a Sim tower
+ */
+export function clubCellText(t) {
+  const us = t?.unitStats;
+  if (!us?.club || !(us.clubN >= 2)) return '';
+  const name = CLUBS[us.club]?.name.replace(' Club', '') || us.club;
+  const on = us.clubN >= 3 && !trickIdle(us.club, t.unitId, t.abil || null);
+  return `${name} ${'●'.repeat(us.clubN)}${on ? ' · trick on' : ''}`;
 }
 
 /** The three settings of the icons (settings.buffIcons). */
