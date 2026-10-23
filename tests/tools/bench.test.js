@@ -1,12 +1,12 @@
 // The girl bench's helpers (tools/benchLib.mjs, used by tools/bench.mjs): the walking boss enters her reach on the
 // path nearest her spot, at that path's sample distance `d` (it used to read a missing `near.dist` and always
-// started at the very beginning of path 0), the crowd streams on the path she covers most, abilities stay quiet
-// until measuring starts, and the max-investment stat block stays inside the gear caps.
+// started at the very beginning of path 0), the crowd streams on the path she covers most and warms up for the
+// stage's walk, abilities stay quiet until measuring starts, and the max-investment stat block stays inside the gear caps.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { samplePath } from '../../src/sim/path.js';
 import { BATTLE_CAPS } from '../../src/data/gearStats.js';
-import { bossEntry, streamPath, nearestSample, holdAbilities, releaseAbilities, maxProfile, MAX_INVEST, FINAL_BUILDS, parseBuild } from '../../tools/benchLib.mjs';
+import { bossEntry, streamPath, crowdWarmup, nearestSample, holdAbilities, releaseAbilities, maxProfile, MAX_INVEST, FINAL_BUILDS, parseBuild } from '../../tools/benchLib.mjs';
 
 /** Two straight paths: path 0 along y = 0, path 1 along y = 10, samples every 0.5 tiles over 20 tiles. */
 function twoPaths() {
@@ -63,6 +63,17 @@ describe('bench: the crowd stream', () => {
     expect(s.last).toBe(10.5);
     expect(s.first).toBe(5.5);
     expect(streamPath(twoPaths(), { x: 8, y: 8.5 }, 3).pathIndex).toBe(1);
+  });
+
+  it('warms up for as long as a grunt needs to walk past her reach, plus the ramp (the old flat 15 s ended first on 4-5)', () => {
+    expect(crowdWarmup(10.5, 0.75, 10)).toBeCloseTo(24, 6);
+    expect(crowdWarmup(30, 0.75, 10)).toBeGreaterThan(crowdWarmup(10, 0.75, 10));
+    const sim = new Sim({ stageId: '4-5', seed: 9, loadout: [{ unitId: 'kage' }], hero: null, options: { autoStart: false } });
+    const samples = sim.pathData.flatMap((p) => samplePath(p, 0.5)).filter((s) => !s.hidden);
+    const far = samples.filter((s) => s.pathIndex === 1).reduce((a, s) => (s.d > a.d ? s : a));
+    const st = streamPath(samples, { x: far.x, y: far.y }, 3);
+    const grunt = sim.spawnEnemy('orc_grunt', { pathIndex: st.pathIndex, dist: 0 });
+    expect(crowdWarmup(st.last, grunt.speed, 10)).toBeGreaterThan(15);
   });
 });
 

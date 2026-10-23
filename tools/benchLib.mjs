@@ -72,6 +72,14 @@ export function streamPath(samples, spot, range) {
   return { pathIndex: p, first: near?.d ?? 0, last: near?.d ?? 0, covered: 0 };
 }
 
+/**
+ * The crowd warm-up, from the stage's geometry: the time an unslowed stream enemy needs from the path start to
+ * the end of her reach (`last`, path distance; `speed` in tiles a second), plus `ramp` seconds for focus,
+ * tempo and stacks. Her own slows and holds never lengthen it, so a girl who stalls the stream can't buy a
+ * longer pile-up before measuring.
+ */
+export const crowdWarmup = (last, speed, ramp = 10) => Math.max(0, last) / Math.max(1e-6, speed) + ramp;
+
 // ---------------------------------------------------------------------------
 // Abilities: none before measuring starts
 // ---------------------------------------------------------------------------

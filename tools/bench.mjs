@@ -22,9 +22,10 @@
 //     that path inside her reach (path distance `d` of the samples); once it walks past the stretch it is
 //     replaced at the entry, so boss DPS is her single-target DPS while a boss is in reach. `passSec`: how
 //     long one walk through her reach lasts (range and slows count); `passDmg`: boss DPS × passSec.
-//   - The crowd streams on the path she covers most, from its start. Warm-up scales with the stage: it lasts
-//     until the stream has filled her reach (an enemy passed her last covered sample) plus --ramp seconds
-//     (default 10) for focus, tempo and stacks; the boss warm-up is 15 s. `warm` reports it.
+//   - The crowd streams on the path she covers most, from its start. Warm-up scales with the stage: the time
+//     an unslowed grunt needs from the path start to the end of her reach, plus --ramp seconds (default 10)
+//     for focus, tempo and stacks; the boss warm-up is 15 s. `warm` reports it. (Her slows and holds don't
+//     lengthen it: waiting for the stream to fill a held lane only grows the pile-up.)
 //   - No ability casts or charges before measuring starts; --abilities turns every girl's auto-cast on when
 //     it starts (off by default: the live game has no cast button yet).
 //   - `panelDps`: the panel's DPS right after placement (unbuffed, as before); `panelLive`: the panel at the
@@ -52,7 +53,7 @@ import { defaultData } from '../src/sim/data.js';
 import { samplePath } from '../src/sim/path.js';
 import { withDetMath } from '../src/core/detMath.js';
 import { soloFreeplayStage } from '../src/data/freeplaySolo.js';
-import { bossEntry, streamPath, holdAbilities, releaseAbilities, maxProfile, FINAL_BUILDS, parseBuild } from './benchLib.mjs';
+import { bossEntry, streamPath, crowdWarmup, holdAbilities, releaseAbilities, maxProfile, FINAL_BUILDS, parseBuild } from './benchLib.mjs';
 
 const args = process.argv.slice(2);
 const VALUED = ['--stage', '--seed', '--builds', '--targets', '--preset', '--partner', '--copies', '--compare', '--run', '--partner-build', '--ramp', '--hp',
@@ -98,10 +99,8 @@ const STREAM = { crowd: 'orc_grunt', boss: PRESET === 'strong' || PRESET === 'ma
 const HP = (opt('hp', null) || (PRESET === 'max' ? '2e6,1.2e9' : PRESET === 'strong' ? '5e4,3e7' : '5e4,5e4')).split(',').map(Number);
 const HP_CROWD = HP[0];
 const HP_BOSS = HP[1] ?? HP[0];
-/** The boss warm-up (it spawns inside her reach); the crowd's is the stream's fill time + RAMP. */
+/** The boss warm-up (it spawns inside her reach); the crowd's is the stream's travel time to her reach's end + RAMP. */
 const BOSS_WARM = 15;
-/** The longest a crowd warm-up may take before measuring starts anyway (a girl whose slows stall the stream). */
-const MAX_WARM = 240;
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const lattice = (sim) => {
@@ -225,7 +224,10 @@ function run(unitId, target, copies, stageId, o = {}) {
     for (let step = 0; ; step++) {
       const t = step / 60;
       if (start != null && t >= start + RUN) break;
-      if (target === 'crowd' && step % 6 === 0) spawn(STREAM.crowd, stream.pathIndex, 0);
+      if (target === 'crowd' && step % 6 === 0) {
+        const e = spawn(STREAM.crowd, stream.pathIndex, 0);
+        if (warmEnd == null && e) warmEnd = crowdWarmup(stream.last, e.speed, RAMP);
+      }
       if (target === 'boss') {
         if (bossNow && !bossNow.dead && bossNow.dist > boss.exit + 0.5) {
           passes.push(t - passFrom);
@@ -242,7 +244,6 @@ function run(unitId, target, copies, stageId, o = {}) {
       sim.update(1 / 60);
       sim.drainEvents();
       for (const e of sim.enemies) if (!e.dead) e.hp = e.maxHp;
-      if (warmEnd == null && (sim.enemies.some((e) => !e.dead && e.pathIndex === stream.pathIndex && e.dist >= stream.last) || t >= MAX_WARM)) warmEnd = t + RAMP;
       if (start == null && warmEnd != null && t + 1e-9 >= warmEnd) {
         start = t;
         dmg0 = dealt();
