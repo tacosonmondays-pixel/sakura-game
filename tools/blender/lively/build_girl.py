@@ -13,9 +13,11 @@ kept from the shipped GLB: attack_*, walk, and the old idle / cheer / hurt as id
 hurt_short (the 'Lively figures: off' fallback).
 
 Post-pass per new clip: face bone x0.6 (neck x0.75 when the face has its own head bone); mean world face
-pitch to her shipped idle's; a per-frame face guard (never more than 5.3 deg chin-down of that); head
-clearance (head sphere measured from her mesh); prop wrists locked; root travel eased back and clamped
-(hurt: stripped); feet pinned by two-bone IK; every clip resampled to 20 fps.
+pitch to her shipped idle's; posture (Hana, Ruri: the spine, chest, neck and face bones' mean world pitch to her
+shipped clip's, so the library's adult slouch goes and she stands like her shipped chibi at the 48 deg camera);
+a per-frame face guard (never more than 5.3 deg chin-down of that); head clearance (head sphere measured from
+her mesh); prop wrists locked; root travel eased back and clamped (hurt: stripped); feet pinned by two-bone
+IK; every clip resampled to 20 fps.
 
 Per girl:
   hikari  58-bone owner rig: Meshy Head -> her `neck` (her face is skinned across neck + head: driving the head
@@ -24,7 +26,10 @@ Per girl:
           idle. Hair / bangs / coat chains are left to the runtime springs (livelyRig.js).
   hana    bow + falconry glove on the LEFT hand: hand_L locked. Kaze is a separate companion (bone unweighted).
   ruri    her book hangs at her left hip (skinned to hips) under her left hand: hand_L locked and the left
-          arm's swing damped so the hand stays at the book. Kon is a separate companion (bone unweighted)."""
+          arm's swing damped so the hand stays at the book. Kon is a separate companion (bone unweighted).
+  posture (hana, ruri; review round 1): the 338 idle leans her lower spine ~19 deg forward where her shipped idle
+          leans the chest ~14 deg back, so at the 48 deg camera Ruri's face sank under her bangs and both read
+          squatter. Hikari (face on the neck, faces read fine) and Noa (build_noa.py) are left as they were."""
 import json
 import math
 import os
@@ -87,13 +92,16 @@ PROFILES = {
         # cheer's for the cheer), the right arm and the body take the new clip
         guard=dict(side='L', bones=['shoulder_L', 'upper_arm_L', 'forearm_L', 'hand_L'],
                    src={'idle': 'idle', 'happy': 'idle', 'hurt': 'idle', 'cheer': 'cheer'}),
-        grip=[], arm_damp={}),
+        grip=[], arm_damp={}, posture=True),
     'ruri': dict(
         arm='ruri_rig', body='ruri', root='hips', face='head', hand='hand', neck_joint='head',
         head_bones={'head', 'head_end', 'head_front'}, bmap=BASE_MAP,
         damp={'neck': 0.75, 'head': 0.6}, shares=STD_SHARES, wrists=['hand_L'], body_damp=['hips', 'spine', 'spine1', 'chest'],
-        guard=None, grip=[], arm_damp={'upper_arm_L': 0.6, 'forearm_L': 0.6}),
+        guard=None, grip=[], arm_damp={'upper_arm_L': 0.6, 'forearm_L': 0.6}, posture=True),
 }
+# posture: which shipped clip's stance each new clip takes (the face bone is added per girl)
+POSTURE_BONES = ['spine', 'spine1', 'chest', 'neck']
+POSTURE_SRC = {'idle': 'idle', 'happy': 'idle', 'cheer': 'cheer', 'hurt': 'hurt'}
 PR = PROFILES[GIRL]
 OUT = {'girl': GIRL, 'detail': DETAIL, 'clips': {}, 'started': time.strftime('%Y-%m-%d %H:%M:%S')}
 T0 = time.time()
@@ -140,6 +148,13 @@ for nm in ('idle', 'cheer', 'hurt'):
     fa = G.face_angle(arm, old[nm], FACE)
     OUT['shipped'][nm]['face_pitch_mean_min_max'] = [round(float(p.mean()), 2), round(float(p.min()), 2), round(float(p.max()), 2)]
     OUT['shipped'][nm]['face_angle_mean_max'] = [round(float(fa.mean()), 1), round(float(fa.max()), 1)]
+CHAIN = [b for b in POSTURE_BONES if b != FACE] + [FACE]
+SHIP_CHAIN = {}
+if PR.get('posture'):
+    for nm in ('idle', 'cheer', 'hurt'):
+        SHIP_CHAIN[nm] = G.chain_pitch(arm, old[nm], CHAIN)
+        SHIP_CHAIN[nm]['@root_z'] = G.root_height(arm, old[nm], PR['root'])
+        OUT['shipped'][nm]['chain_pitch'] = {b: round(v, 4 if b == '@root_z' else 2) for b, v in SHIP_CHAIN[nm].items()}
 TARGET = OUT['shipped']['idle']['face_pitch_mean_min_max'][0]
 YAW_TARGET = float(G.world_yaw(arm, old['idle'], FACE).mean())
 OUT['face_yaw_target'] = round(YAW_TARGET, 2)
@@ -204,6 +219,9 @@ for fname, clip, lib_id in CLIPS + PR.get('variants', []):
             G.damp_bones(arm, act, [b], k)
         info['arm_damp'] = PR['arm_damp']
     info['postpass'] = G.post_pass(act, arm, PR['damp'], wrists, FACE, TARGET, 22.0, PR['shares'])
+    if PR.get('posture') and clip in POSTURE_SRC:
+        info['posture'] = G.posture(arm, act, CHAIN, SHIP_CHAIN[POSTURE_SRC[clip]])
+        info['chain_pitch_after_posture'] = {b: round(v, 2) for b, v in G.chain_pitch(arm, act, CHAIN).items()}
     info['face_guard'] = G.face_guard(arm, act, FACE, LIMIT, PR['shares'])
     # mean face yaw back to her shipped idle's (the 338 idle stands ~13 deg turned to her right; once the head
     # is damped the hurt's face follows its body twist): after the damping, before the feet are pinned
@@ -214,12 +232,20 @@ for fname, clip, lib_id in CLIPS + PR.get('variants', []):
     info['head_clearance_deg'] = G.head_clearance(act, arm, FACE, HB_C, HB_R, sides=sides, hand=PR['hand'])
     if clip == 'hurt':
         info['root_xz_peak_game_m'] = round(G.strip_xz(arm, act, PR['root'], TO_GAME), 3)
-        info['feet'] = G.pin_feet(arm, act, TO_GAME, mode='stance', lift=0.35)
     else:
         peak, kept = L.clamp_hips_xz(act, arm, PR['root'], 0.15, TO_GAME)
         info['root_xz_peak_game_m'] = round(peak, 3)
         info['root_xz_kept_game_m'] = round(kept, 3)
-        info['feet'] = G.pin_feet(arm, act, TO_GAME, mode='plants')
+    # posture: off the library's bent knees, up to her shipped clip's stance height (the feet stay down)
+    rise = 0.0
+    if PR.get('posture') and clip in POSTURE_SRC:
+        want = SHIP_CHAIN[POSTURE_SRC[clip]]['@root_z'] - G.root_height(arm, act, PR['root'])
+        rise = G.stance_raise(arm, act, PR['root'], want)
+        info['stance_rise_game_mm'] = [round(want * TO_GAME * 1000, 1), round(rise * TO_GAME * 1000, 1)]
+    if clip == 'hurt':
+        info['feet'] = G.pin_feet(arm, act, TO_GAME, mode='stance', lift=0.35, drop=rise)
+    else:
+        info['feet'] = G.pin_feet(arm, act, TO_GAME, mode='plants', drop=rise)
     info['after'] = G.measure(arm, act, TO_GAME, FACE, HB_C, HB_R, PR['hand'], PR['root'])
     p = G.world_pitch(arm, act, FACE)
     info['after']['face_pitch_mean_min_max'] = [round(float(p.mean()), 2), round(float(p.min()), 2), round(float(p.max()), 2)]

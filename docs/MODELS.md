@@ -89,13 +89,21 @@ graph (`tools/simId.mjs` stays `92e2e22527cf`; `tests/models/lively.test.js` che
   GLB already has (Hikari's 58-bone rig included). Every touched bone gets its clip value back before
   the next mixer update. Loops start at a random point and run at 0.94–1.06×, so copies never move in
   step; crossfades 0.3 s; disabled plays `hurt` once over a slowed idle instead of a 0.4 s loop.
+  **Girls only:** the companions (Kon, Kaze, the doll) load through the same path but keep the plain
+  animator (no layer, no attack split, `asset.companion` from `extras.companion`): their attacks are
+  whole-body and driven by the hips, and the split shrank them to about a third.
+* **Reduce motion** (Lively on): a figure that carries its shipped clips as `<clip>_short` (the four painted
+  girls) plays those instead of the library loops (idle, cheer / victory, and the stun's base loop), the
+  stun's flinch is the 0.4 s `hurt_short` once, the victory bob is off, and the layer's glances run at most
+  at 0.25× (`CALM`) on top of the layer's own half amplitude; switching it mid-battle crossfades. Measured
+  head swing at idle: 9–12° (live 6–9°), against 31–37° with Reduce motion off.
 * **Attack by body half** (`GlbAnimator.playLayers`, `ATTACK_LAYER` in `glbChibi.js`): the attack clip is
   split once per asset (`splitClipByBody`: the first spine bone and everything under it, against root /
   hips / legs). The upper half plays at weight 4 over the base loop's 1 (80 % attack, the arm pose the old
   0.25 dip gave), the lower half at 1/3 (25 %: a hint of the step into the strike), so her legs and hips
   keep the idle's weight shift and the base loop is never dipped. Lively off keeps the old whole-body
   one-shot over a base at 0.25. The stun's `hurt` stays a whole-body one-shot over a base dipped to 0.2
-  (`HURT_LAYER`); under Reduce motion the base keeps its full weight, so the flinch moves half as far.
+  (`HURT_LAYER`); under Reduce motion the base keeps its full weight and the flinch is `hurt_short`.
 * **Runtime skirt bones** (`livelySkirt.js`): once per asset, four bones (front / left / back / right,
   children of the hips at the hips' bind pose) take a waist-to-hem gradient of the skirt's weight; the
   skirt is found geometrically (between the knee band and the waist, hips / spine / thigh weights only,
@@ -105,7 +113,9 @@ graph (`tools/simId.mjs` stays `92e2e22527cf`; `tests/models/lively.test.js` che
   (gravity, landing squash) instead of the elastic pop; the sim's cooldown (read only) drives a wind-up
   squash + lean for girls attacking once per 0.45 s or slower, the attack event a stretch + snap; body
   turns at 6/s (the head leads); a tiny breathing squash. Reduce motion: half the amplitude, slower,
-  no drop (a 0.15 s scale-in). Quality medium: springs at 30 Hz; low: no springs or breathing.
+  no drop (a 0.15 s scale-in). Quality medium: springs at 30 Hz; low: no springs or breathing. Once she
+  stands at full size (`LivelyPose.settled`) the view's `pop` reaches 1, as the elastic pop's end does, so
+  the buff icons measure her head (`buffIcons._headY`) instead of a fixed 1.1.
 * **Clean cel look** (`celFigure.js`, painted Meshy figures only): the figure's palette is measured
   once (k-means in OKLab over the texels under her UVs; same-hue clusters that differ only by baked
   light merge); each texel snaps to its nearest palette colour (eyes and far-off details keep their
@@ -118,13 +128,15 @@ graph (`tools/simId.mjs` stays `92e2e22527cf`; `tests/models/lively.test.js` che
 * **Authored spring bones** (`asset.extras.springBones`): any `hair* / bangs* / tail* / braid* / bun* /
   coat* / ribbon*` bone a GLB has springs; buns have their own small, quick kind (clamp 10°).
 * **Glances per clip** (`asset.extras.clipMarks[clip].glance`, 0–1): a base clip that looks around by
-  itself runs the layer's glances smaller (Noa's 338 idle: 0.4×). Reduce motion halves glances too. The
+  itself runs the layer's glances smaller (Noa's 338 idle: 0.4×). Reduce motion halves glances too (and
+  caps them at 0.25× on the calm clips). The
   dazed circle of a stun eases in only after the `hurt` one-shot has played.
 * **Face bone** (`asset.extras.faceBone: 'neck'`): a face skinned across neck + head (Hikari's owner rig,
   whose head joint sits above her eyes) takes the layer's head share on the neck, so it turns as one piece
   and never shears.
 * **`<clip>_short`**: a figure may keep its old clips next to new ones (Noa: `idle_short`, `cheer_short`,
-  `hurt_short`); with Lively figures off the animator plays those, exactly the shipped behaviour.
+  `hurt_short`); with Lively figures off the animator plays those, exactly the shipped behaviour, and with
+  Lively figures on under Reduce motion it plays them too.
 * Preview + captures: `previews/lively.html` (`?mode=battle|closeup|perf|metrics`).
 * **Rebuild + file sizes**: `tools/blender/lively/` (README there) rebuilds the four painted girls from their
   pre-rollout GLBs (0 credits; the Meshy clip GLBs stay outside the repo). To pay for the flat texture and

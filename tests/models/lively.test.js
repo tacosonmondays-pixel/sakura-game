@@ -9,7 +9,7 @@ import { LivelyRig, livelyRigInfo, livelyRandom } from '../../src/models/livelyR
 import { addSkirtBones, SKIRT_BONES, SKIRT_DIRS } from '../../src/models/livelySkirt.js';
 import { figureOptions, setFigureOptions } from '../../src/models/figureOptions.js';
 import { linearToOklab, oklabToLinear, shadeOf } from '../../src/models/celFigure.js';
-import { pickStateClip, splitClipByBody, upperBodyBones, ATTACK_LAYER, HURT_LAYER } from '../../src/models/glbChibi.js';
+import { pickStateClip, pickHurtClip, splitClipByBody, upperBodyBones, ATTACK_LAYER, HURT_LAYER } from '../../src/models/glbChibi.js';
 import { LivelyPose, LIVELY_LAND } from '../../src/render/livelyPose.js';
 import { createProfile, serializeProfile, deserializeProfile } from '../../src/systems/save.js';
 import { simId } from '../../tools/simId.mjs';
@@ -274,6 +274,45 @@ describe('lively maths', () => {
     expect(ratio).toBeLessThan(0.6);
   });
 
+  it('drops the happy bob under Reduce motion (victory moves exactly like idle there); without it the bob plays', () => {
+    const heads = (state, reduce) => {
+      setFigureOptions({ reduceMotion: reduce, quality: 'high' });
+      const { scene, bones } = figure();
+      const rig = new LivelyRig(scene, { scene }, 33);
+      const out = [];
+      for (let k = 0; k < 30 * 6; k++) {
+        rig.restore();
+        rig.apply(k / 30, 1 / 30, state, { turn: 0, engaged: true, windup: 0, fire: 0 }); // engaged: no glances
+        out.push(bones.head.quaternion.clone());
+      }
+      return out;
+    };
+    const diff = (a, b) => Math.max(...a.map((q, i) => q.angleTo(b[i])));
+    expect(diff(heads('victory', true), heads('idle', true))).toBeLessThan(1e-6); // (angleTo's own float noise)
+    expect(diff(heads('victory', false), heads('idle', false))).toBeGreaterThan(3 * D2R);
+  });
+
+  it('says when a placed girl stands at full size (landed, squash settled), so her head can be measured', () => {
+    const p = new LivelyPose(3);
+    expect(p.settled).toBe(false);
+    let landedAt = -1;
+    let settledAt = -1;
+    for (let k = 0; k < 120; k++) {
+      p.update(1 / 60, {});
+      if (p.landed && landedAt < 0) landedAt = k;
+      if (p.settled && settledAt < 0) settledAt = k;
+    }
+    expect(landedAt).toBeGreaterThan(0);
+    expect(settledAt).toBeGreaterThan(landedAt); // not on the landing frame: the squash first dies down
+    expect(settledAt - landedAt).toBeLessThan(40); // within ~0.6 s
+    expect(p.settled).toBe(true);
+    const r = new LivelyPose(3);
+    for (let k = 0; k < 6; k++) r.update(1 / 60, { reduceMotion: true });
+    expect(r.settled).toBe(false); // still scaling in
+    for (let k = 0; k < 6; k++) r.update(1 / 60, { reduceMotion: true });
+    expect(r.settled).toBe(true); // the 0.15 s scale-in is done
+  });
+
   it('seeds a repeatable, uniform random stream (desync of copies)', () => {
     const a = livelyRandom(42);
     const b = livelyRandom(42);
@@ -345,6 +384,24 @@ describe('animator', () => {
     expect(pickStateClip('disabled', blender, false)).toBe('hurt');
     expect(pickStateClip('pickup', blender, true)).toBe('pickup');
     expect(pickStateClip('idle', set('walk'), true)).toBeNull();
+  });
+
+  it('under Reduce motion (lively on) picks the calm *_short clips and the short hurt twitch', () => {
+    const noa = set('idle', 'idle_short', 'cheer', 'cheer_short', 'hurt', 'hurt_short', 'happy', 'walk', 'attack_smash');
+    expect(pickStateClip('idle', noa, true, true)).toBe('idle_short');
+    expect(pickStateClip('attack', noa, true, true)).toBe('idle_short');
+    expect(pickStateClip('disabled', noa, true, true)).toBe('idle_short'); // the stun's base loop
+    expect(pickStateClip('victory', noa, true, true)).toBe('cheer_short');
+    expect(pickStateClip('cheer', noa, true, true)).toBe('cheer_short');
+    expect(pickStateClip('happy', noa, true, true)).toBe('happy'); // no calm twin
+    expect(pickHurtClip(noa, true)).toBe('hurt_short');
+    expect(pickHurtClip(noa, false)).toBe('hurt');
+    // a figure without old clips (the Blender girls) keeps what it has
+    const blender = set('idle', 'walk', 'attack_cast', 'cheer', 'victory', 'hurt', 'pickup');
+    expect(pickStateClip('idle', blender, true, true)).toBe('idle');
+    expect(pickStateClip('victory', blender, true, true)).toBe('victory');
+    expect(pickHurtClip(blender, true)).toBe('hurt');
+    expect(pickHurtClip(set('idle'), true)).toBeNull();
   });
 
   it('splits an attack by body half: arms and torso on top, legs mostly keep the base loop', () => {

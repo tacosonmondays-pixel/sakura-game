@@ -141,7 +141,8 @@ export async function preloadCharacters(ids = null, detail = 'full') {
   return any;
 }
 
-function prepareAsset(id, detail, gltf) {
+/** A parsed GLTF → the character asset loadCharacter caches (exported for the node tests; no flat map). */
+export function prepareAsset(id, detail, gltf) {
   const scene = gltf.scene;
   scene.updateMatrixWorld(true);
   // lively figures: skirt bones of her own (at rest they deform exactly like before; livelySkirt.js)
@@ -187,8 +188,11 @@ function prepareAsset(id, detail, gltf) {
     clips[clip.name] = clip;
     if (clip.name.startsWith('attack')) clips.attack = clip;
   }
+  // a companion (Kon, Kaze, the doll: models/companions/, extras.companion) loads through this path too, but
+  // keeps its own whole-body clips: no Lively animator (its attacks are driven by the hips)
+  const companion = typeof extras.companion === 'string';
   // lively figures: the attack is layered over the base loop by body half (GlbAnimator.playAttack)
-  const attackLayers = clips.attack ? splitClipByBody(clips.attack, upperBodyBones(scene)) : null;
+  const attackLayers = clips.attack && !companion ? splitClipByBody(clips.attack, upperBodyBones(scene)) : null;
   if (faceTexture) {
     faceTexture.userData.shared = true;
     faceTexture.colorSpace = THREE.SRGBColorSpace;
@@ -200,7 +204,7 @@ function prepareAsset(id, detail, gltf) {
   const haloFill = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.25 + 0.15), Math.min(0.78, hsl.l));
   const haloLine = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.4 + 0.3), Math.max(0.2, hsl.l * 0.5));
   return {
-    id, detail, scene, clips, attackLayers, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
+    id, detail, scene, clips, attackLayers, companion, faceTexture, haloColor: haloFill, haloLine: `#${haloLine.getHexString()}`, height, extras,
     unitScale: extras.unitScale || 1, cells: extras.faceCells || FACE_CELLS, grid: extras.faceGrid || FACE_GRID,
     textured, bodyMaps, bodyGeometry, outlineTint: extras.outline || undefined, materials: {},
     eyes: textured && extras.eyes?.centers?.length === 2 ? extras.eyes : null,
@@ -314,19 +318,34 @@ export function splitClipByBody(clip, upper) {
 const STATE_CLIPS = { idle: 'idle', attack: 'idle', cheer: 'cheer', victory: 'victory', disabled: 'hurt', hurt: 'hurt', walk: 'walk', pickup: 'pickup', move: 'move', happy: 'happy' };
 
 /**
+ * 'Lively figures' under Reduce motion: the library loops (the 7.85 s 338 idle looks around, about 30° of
+ * head swing; the 298 cheer throws both arms up) are replaced by the figure's calm `*_short` clips (her shipped
+ * idle / cheer / hurt, 6–9° of head swing), the stun's flinch is the 0.4 s `hurt_short` twitch, and the layer's
+ * glances on top run at most at `glance` (× the layer's own Reduce motion half).
+ */
+export const CALM = Object.freeze({ glance: 0.25 });
+
+/**
  * The base loop for an animator state. `has(name)` says whether the figure carries a clip.
  *  - 'move': the companions' travel loop (girls have none: idle); 'happy': a between-wave mood loop
  *  - lively: the stun plays 'hurt' once over a slowed idle (GlbAnimator.setState), so its loop is idle
  *  - imported figures ship a smaller clip set: victory / pickup fall back to the cheer
- *  - lively off: a figure that carries its old clip as `<name>_short` (the shipped idle / cheer / hurt
- *    next to the new library clips) plays that, exactly as before
+ *  - lively off, or lively under Reduce motion (`calm`): a figure that carries its old clip as `<name>_short`
+ *    (the shipped idle / cheer / hurt next to the new library clips) plays that; off = exactly as before
  */
-export function pickStateClip(state, has, lively) {
+export function pickStateClip(state, has, lively, calm = false) {
   let name = STATE_CLIPS[state] || 'idle';
   if (lively && (state === 'disabled' || state === 'hurt')) name = 'idle';
   if (!has(name) && CLIP_FALLBACK[name] && has(CLIP_FALLBACK[name])) name = CLIP_FALLBACK[name];
-  if (!lively && has(`${name}_short`)) name = `${name}_short`;
-  return has(name) ? name : (has('idle') ? (!lively && has('idle_short') ? 'idle_short' : 'idle') : null);
+  const short = !lively || calm;
+  if (short && has(`${name}_short`)) name = `${name}_short`;
+  return has(name) ? name : (has('idle') ? (short && has('idle_short') ? 'idle_short' : 'idle') : null);
+}
+
+/** The stun's one-shot flinch of a lively figure: `hurt`, or under Reduce motion (`calm`) her shorter `hurt_short`. */
+export function pickHurtClip(has, calm = false) {
+  if (calm && has('hurt_short')) return 'hurt_short';
+  return has('hurt') ? 'hurt' : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,9 +363,10 @@ export function skeletonUtilsReady() {
 
 /**
  * Builds an instance of a loaded character. Fills `group` in place (the public buildChibi
- * group) so a procedural placeholder can be upgraded when the GLB arrives.
+ * group) so a procedural placeholder can be upgraded when the GLB arrives. `lively`: run the 'Lively
+ * figures' animator (default: the setting, for girls; never for a companion asset).
  */
-export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'idle' } = {}, group = new THREE.Group()) {
+export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'idle', lively = null } = {}, group = new THREE.Group()) {
   const root = skeletonClone(asset.scene);
   root.name = `glb:${unit.id}`;
   root.scale.setScalar(asset.unitScale);
@@ -422,7 +442,8 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     look.eyes = mode;
     bodyMesh.material = texturedMaterial(asset, look.hl, mode, cel);
   } : null;
-  const anim = new GlbAnimator(root, asset, faceTex, unit, onEyes);
+  const livelyOn = typeof lively === 'boolean' ? lively && !asset.companion : !asset.companion && figureOptions().lively;
+  const anim = new GlbAnimator(root, asset, faceTex, unit, onEyes, livelyOn);
   group.userData.unitId = unit.id;
   group.userData.kind = 'chibi';
   group.userData.glb = true;
@@ -471,7 +492,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
 
 /** Drives the mixer: state crossfades, one-shot attacks, blinking and expressions. */
 class GlbAnimator {
-  constructor(root, asset, faceTex, unit, onEyes = null) {
+  constructor(root, asset, faceTex, unit, onEyes = null, livelyOn = false) {
     this.mixer = new THREE.AnimationMixer(root);
     this.asset = asset;
     this.faceTex = faceTex;
@@ -501,17 +522,21 @@ class GlbAnimator {
     this.expression = null;
     // 'Lively figures' (figureOptions.js): loops start at a random point and run at 0.94-1.06x so
     // copies of one girl never bob in unison; softer crossfades; disabled = 'hurt' once, then a
-    // dazed idle; the skeleton layer (livelyRig.js) on top of the mixer
-    this.livelyOn = figureOptions().lively;
+    // dazed idle; the skeleton layer (livelyRig.js) on top of the mixer. Girls only (instantiateCharacter):
+    // a companion keeps the plain animator. Under Reduce motion (`calm`) the painted girls play their calm
+    // *_short clips (CALM)
+    this.livelyOn = !!livelyOn;
     this.lively = null;
+    this.calm = this.livelyOn && !!figureOptions().reduceMotion;
     if (this.livelyOn) {
       const seed = livelySeed(unit.id || '');
       const rig = new LivelyRig(root, asset, seed);
       if (rig.ok) this.lively = rig;
       this.rand = livelyRandom(seed ^ 0x5bd1e995);
       this.loopScale = 0.94 + this.rand() * 0.12;
-      const hurt = this.actions.hurt;
-      if (hurt) {
+      // the stun's flinch plays once (hurt, or hurt_short under Reduce motion); neither is ever a base loop here
+      for (const hurt of [this.actions.hurt, this.actions.hurt_short]) {
+        if (!hurt) continue;
         hurt.setLoop(THREE.LoopOnce, 1);
         hurt.clampWhenFinished = false;
       }
@@ -532,14 +557,18 @@ class GlbAnimator {
   }
 
   stateClip(state) {
-    return pickStateClip(state, (n) => !!this.actions[n], this.livelyOn);
+    return pickStateClip(state, (n) => !!this.actions[n], this.livelyOn, this.calm);
   }
 
-  /** The lively layer's glances run at clipMarks[clip].glance on a clip that looks around by itself. */
+  /**
+   * The lively layer's glances run at clipMarks[clip].glance on a clip that looks around by itself; under
+   * Reduce motion at most at CALM.glance.
+   */
   markGlances(name) {
     if (!this.lively) return;
     const g = this.asset.extras?.clipMarks?.[name]?.glance;
-    this.lively.glanceScale = typeof g === 'number' && g >= 0 && g <= 1 ? g : 1;
+    const s = typeof g === 'number' && g >= 0 && g <= 1 ? g : 1;
+    this.lively.glanceScale = this.calm ? Math.min(s, CALM.glance) : s;
   }
 
   setState(state, fade = FADE) {
@@ -550,7 +579,8 @@ class GlbAnimator {
       if (fade > 0) fade = 0.3;
       const dazed = state === 'disabled' || state === 'hurt';
       if (dazed && prevState !== 'disabled' && prevState !== 'hurt') {
-        this.playOnce(this.actions.hurt || null, figureOptions().reduceMotion ? HURT_LAYER.baseReduced : HURT_LAYER.base, 'hurt');
+        const hurt = pickHurtClip((n) => !!this.actions[n], this.calm);
+        this.playOnce(hurt ? this.actions[hurt] : null, figureOptions().reduceMotion ? HURT_LAYER.baseReduced : HURT_LAYER.base, 'hurt');
       }
       if (name && name === this.current) {
         this.actions[name].setEffectiveTimeScale(this.loopScale * (dazed ? 0.7 : 1));
@@ -640,6 +670,12 @@ class GlbAnimator {
   update(time, dt, state, drive = null) {
     this.time = time;
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
+    if (this.livelyOn && !!figureOptions().reduceMotion !== this.calm) {
+      // Reduce motion switched while she stands here: her calm (or library) loop takes over with a crossfade
+      this.calm = !this.calm;
+      if (this.state != null && state === this.state) this.setState(state);
+      this.markGlances(this.current);
+    }
     if (state !== this.state) this.setState(state);
     if (state === 'attack' && this.attackLeft <= 0 && time - this.lastAttack > 1.1) this.playAttack();
     if (this.attackLeft > 0) {

@@ -915,6 +915,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get buffIconStats() {
       return { ...buffIcons.stats, mode: buffIcons.mode };
     },
+    /** Extra: the head height a placed girl's buff icons sit above (world units; null until measured; e2e / debugging). */
+    towerHeadY(uid) {
+      return actors.towers.get(uid)?.headY ?? null;
+    },
     /** Extra: a 1.2 s pulse ring on a girl the UI points at (the holder of a locked final tier). */
     pulseTower(uid) {
       overlays.pulseTower(uid);

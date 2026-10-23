@@ -370,6 +370,8 @@ export class Actors {
     d.windup = windup;
     const P = v.pose;
     P.update(dt, { windup, state, reduceMotion: o.reduceMotion, low: o.quality === 'low' });
+    // v.pop = 1 once she stands at full size, as the elastic pop's end does (buffIcons.js measures her head then)
+    if (v.pop < 1 && P.settled) v.pop = 1;
     const s = v.scale * P.grow;
     m.scale.set(s * P.sxz, s * P.sy, s * P.sxz);
     m.rotation.y = v.facing;

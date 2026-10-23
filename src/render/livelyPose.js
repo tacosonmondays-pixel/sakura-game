@@ -42,6 +42,14 @@ export class LivelyPose {
     this.leanRad = 0;
   }
 
+  /**
+   * True once she has landed (or scaled in) and the landing squash has died down: her figure is at its full
+   * standing size, so things measured from it (the buff icons' head height, buffIcons.js) can be measured.
+   */
+  get settled() {
+    return this.landed && this.grow >= 1 && Math.abs(this.land) < 0.01 && Math.abs(this.landV) < 0.15;
+  }
+
   /** The attack event: stretch + snap forward (weaker when attacks come fast). */
   fire(reduceMotion = false) {
     const gap = this.t - this.lastFire;

@@ -78,7 +78,8 @@ let prepassMat = null;
  */
 export function buildCompanion(asset, { quality = 'high' } = {}) {
   const id = asset.extras?.companion || String(asset.id).split('/').pop();
-  const g = instantiateCharacter(asset, { id }, { quality });
+  // never the girls' 'Lively figures' animator: the companions' attacks are whole-body, driven by the hips
+  const g = instantiateCharacter(asset, { id }, { quality, lively: false });
   g.name = `companion:${id}`;
   g.userData.kind = 'companion';
   g.userData.companionId = id;

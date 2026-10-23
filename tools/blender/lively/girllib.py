@@ -220,6 +220,38 @@ def post_pass(act, arm, damp, wrists, face_bone, target, max_chin, shares):
     return info
 
 
+def chain_pitch(arm, act, bones):
+    """{bone: mean world pitch in degrees (negative = leaning back / chin up) away from its rest} over a clip."""
+    S, _ = L.sample_world(arm, act, bones)
+    out = {}
+    for b in bones:
+        Rb = rotq(arm.matrix_world @ arm.data.bones[b].matrix_local)
+        out[b] = float(np.mean([math.degrees((rotq(m) @ Rb.inverted()).to_euler('XYZ').x) for m in S[b]]))
+    return out
+
+
+def posture(arm, act, bones, targets, max_deg=30.0):
+    """The library mocap stands with an adult slouch (the 338 idle: her lower spine ~19 deg forward, the chest and
+    neck tipped with it). The face bone's world pitch alone (post_pass) does not see it, but the 48 deg camera does:
+    her torso foreshortens, her head comes forward and down, and a face skinned partly to the neck tips with it.
+    Each bone in `bones` (parent first) gets a constant world-axis pitch that brings its mean world pitch over the
+    clip to targets[bone] (her shipped clip's), at most max_deg: she stands like her shipped chibi while all of the
+    clip's own motion stays. Returns {bone: [mean before, deg added]}."""
+    out = {}
+    for b in bones:
+        if b not in targets:
+            continue
+        m = chain_pitch(arm, act, [b])[b]
+        d = max(-max_deg, min(max_deg, targets[b] - m))
+        if abs(d) < 0.05:
+            continue
+        L.ensure_quat_track(act, arm, b)
+        C = L.chin_quat(arm, b, d)
+        L.remap_quat(act, arm, b, lambda q, C=C: C @ q)
+        out[b] = [round(m, 2), round(d, 2)]
+    return out
+
+
 def world_yaw(arm, act, bone):
     """Per frame: the bone's world yaw (deg) away from its rest, + = toward her right (as seen from the front)."""
     S, _ = L.sample_world(arm, act, [bone])
@@ -376,10 +408,51 @@ def strip_xz(arm, act, bone, to_game):
     return peak
 
 
-def pin_feet(arm, act, to_game, mode='plants', lift=0.35):
+def root_height(arm, act, root):
+    """Mean height (armature units) of the root-motion bone over a clip."""
+    S, _ = L.sample_world(arm, act, [root])
+    return float(np.mean([m.translation.z for m in S[root]]))
+
+
+def stance_raise(arm, act, root, want, reach=0.99):
+    """The library idles stand on bent knees (an adult's relaxed stance; the chibi's shipped clips stand straight):
+    the root-motion bone rises by `want` (armature units, at most what keeps every ankle within `reach` of its
+    leg's length at every frame), and pin_feet(drop=...) then keeps the feet on the ground, which straightens the
+    knees. Returns the rise applied."""
+    if want <= 1e-5:
+        return 0.0
+    names = [f'{b}_{s}' for s in 'LR' for b in ('thigh', 'shin', 'foot')]
+    S, _ = L.sample_world(arm, act, names)
+    lim = want
+    for s in 'LR':
+        for th, sh, ft in zip(S[f'thigh_{s}'], S[f'shin_{s}'], S[f'foot_{s}']):
+            h, k, a = th.translation, sh.translation, ft.translation
+            lr = reach * ((k - h).length + (a - k).length)
+            d = h - a
+            # |d + t z|^2 = lr^2 -> the largest t >= 0
+            b = d.z
+            disc = b * b - (d.length_squared - lr * lr)
+            lim = min(lim, max(0.0, -b + math.sqrt(max(0.0, disc))))
+    cs = L.bone_curves(act, root, 'location')
+    if not cs or lim <= 1e-5:
+        return 0.0
+    R = arm.data.bones[root].matrix_local.to_3x3()
+    R.normalize()
+    dv = R.inverted() @ Vector((0.0, 0.0, lim))
+    for c in range(3):
+        for kp in cs[c].keyframe_points:
+            kp.co[1] += dv[c]
+            kp.handle_left[1] += dv[c]
+            kp.handle_right[1] += dv[c]
+        cs[c].update()
+    return lim
+
+
+def pin_feet(arm, act, to_game, mode='plants', lift=0.35, drop=0.0):
     """Two-bone IK on thigh + shin so the ankles hit their targets; the foot keeps its own orientation.
     'plants': each foot locked to the mean of each planted stretch (low and slow), offsets blended between;
-    'stance': both ankles stay where they stand on the first frame, lifts kept at `lift` x."""
+    'stance': both ankles stay where they stand on the first frame, lifts kept at `lift` x.
+    drop: the targets sit this much lower (armature units: the root rose by it in stance_raise)."""
     sc = bpy.context.scene
     L.assign(arm, act)
     f0, f1 = (int(round(x)) for x in L.frame_range(act))
@@ -429,8 +502,9 @@ def pin_feet(arm, act, to_game, mode='plants', lift=0.35):
                     off[:, c] = np.interp(idx, idx[ok], off[ok, c])
                 T[:, :2] = P[:, :2] + off
             res[f'{s}_segments'] = len(segs)
-        plan[s] = T
         res[f'{s}_max_shift_mm'] = round(float(np.linalg.norm(T - P, axis=1).max()) * to_game * 1000, 1)
+        T[:, 2] -= drop
+        plan[s] = T
     keys = {}
     for b in ('thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R'):
         L.ensure_quat_track(act, arm, b)

@@ -312,7 +312,8 @@ export class LivelyRig {
     // new hurt clip and the circle never stack into one busy double motion
     this.dz += ((disabled && !this.dazeHold ? 1 : 0) - this.dz) * expK(dt, 4);
     const dz = this.dz;
-    const hp = happy ? 1 : 0;
+    // the happy bob: none under Reduce motion (her calm cheer_short is the celebration there)
+    const hp = happy && !o.reduceMotion ? 1 : 0;
 
     const yawT = this.turn; // rad
     const B = this.body;
@@ -325,7 +326,7 @@ export class LivelyRig {
     if (B.spine1) addRot(B.spine1.bone, B.spine1.r.axes, -0.5 * b * A * D2R, 0, 0);
     if (B.chest) {
       addRot(B.chest.bone, B.chest.r.axes,
-        (-1.4 * b * A - 4 * wind + this.lean * 0.6 + 2 * hp * A * Math.sin(TAU * 2.2 * t)) * D2R,
+        (-1.4 * b * A - 4 * wind + this.lean * 0.6 + 2 * hp * A * Math.sin(TAU * 2.2 * slow * t)) * D2R,
         yawT * 0.2 + 0.1 * g.cy * D2R,
         0.8 * s * A * D2R);
     }
@@ -335,7 +336,7 @@ export class LivelyRig {
       addRot(H.bone, H.r.axes,
         (0.7 * b * A + 0.7 * g.cp + 2 * wind + 4 * A * dz * Math.cos(w * t)) * D2R,
         yawT * 0.5 + 0.6 * g.cy * D2R,
-        (3.5 * s2 * A - 1.0 * s * A + 7 * A * dz * Math.sin(w * t) + 6 * A * hp * Math.sin(TAU * 1.15 * t)) * D2R);
+        (3.5 * s2 * A - 1.0 * s * A + 7 * A * dz * Math.sin(w * t) + 6 * A * hp * Math.sin(TAU * 1.15 * slow * t)) * D2R);
     }
     for (const n of ['shoulder_L', 'shoulder_R']) {
       const sh = B[n];
