@@ -18,8 +18,9 @@
 //   - clipped       lines of text cut off by a box on the way up (overflow hidden or clip) without a "…" (the
 //                   ellipsis check) or a deliberate fade (a mask: the Mailroom's one-line preview, P6), and lines that
 //                   run past their own block under an element that is neither around them nor inside them (a title
-//                   under its row's Claim) (0). Opt-in: judged when asked for (judge `only` or `also`). UI M5 merge
-//                   review: the Mailroom and Profile at 390x844, where spill (which skips clipped text) saw nothing
+//                   under its row's Claim, or under a chip with words in it) (0). Opt-in: judged when asked for (judge
+//                   `only` or `also`). UI M5 merge review: the Mailroom and Profile at 390x844, where spill (which
+//                   skips clipped text) saw nothing; the final M5 review: Bounty's plate title under its token chip
 // The item tile's small "x" (`.item-count > small`) is M3's glyph at M3's own 12 px floor (base.css "Items", owner
 // #108): it is left out of the text floor; the count's digits are judged like any text.
 // Nothing here changes the page.
@@ -141,10 +142,17 @@ function probeInPage(o) {
     }
     return null;
   };
-  /** What can hide words or be hidden by them: a control, a picture, or an element with words of its own. */
+  /**
+   * What can hide words or be hidden by them: a control, a picture, or an element with words, its own or inside it (a
+   * chip whose picture is aria-hidden and whose number is a child: Bounty's token balance, which the title's words ran
+   * under at 390x844 while this check, finding only the hidden coin there, saw nothing; the final M5 review).
+   */
   const solid = (e) => e.matches('button, a[href], [role="button"], input, select, textarea, img, svg, canvas')
-    || [...e.childNodes].some((c) => c.nodeType === 3 && /\S/.test(c.nodeValue));
-  /** A line past its own block (the element that lays it out), under or over a solid element neither around it nor in it. */
+    || /\S/.test(e.textContent || '');
+  /**
+   * A line past its own block (the element that lays it out), under or over a solid element neither around it nor in
+   * it. The part past the block is looked at in four places along it (a short run can end before a chip's middle).
+   */
   const coverOf = (el, lines) => {
     let block = el;
     while (block && block !== root && isInline(getComputedStyle(block))) block = block.parentElement;
@@ -153,12 +161,13 @@ function probeInPage(o) {
     for (const l of lines) {
       for (const [x0, x1] of [[b.right, l.right], [l.left, b.left]]) {
         if (x1 - x0 <= 1.5) continue;
-        const x = (x0 + x1) / 2;
         const y = (l.top + l.bottom) / 2;
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        const other = document.elementsFromPoint(x, y).find((e) => e !== el && !el.contains(e) && !e.contains(el)
-          && e !== document.body && e !== document.documentElement && !deco(e) && !skipped(e) && solid(e));
-        if (other) return { over: x1 - x0, other };
+        for (const x of [x0 + (x1 - x0) * 0.2, (x0 + x1) / 2, x0 + (x1 - x0) * 0.8, x1 - 0.75]) {
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const other = document.elementsFromPoint(x, y).find((e) => e !== el && !el.contains(e) && !e.contains(el)
+            && e !== document.body && e !== document.documentElement && !deco(e) && !skipped(e) && solid(e));
+          if (other) return { over: x1 - x0, other };
+        }
       }
     }
     return null;

@@ -549,9 +549,16 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ui-plate-head.has-host > .ui-plate-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .ui-plate-head.has-host > .ui-plate-right { margin-left: auto; }
 @media (max-aspect-ratio: 1/1) {
-  /* portrait: no host on the hubs (the M5b rule); a plate header shows its title again */
+  /* portrait: no host on the hubs (the M5b rule); a plate header shows its title again, whole: the title keeps the
+     width of its words (never flex-shrunk under them) and the right side (Bounty's balance, the week and Shop) wraps
+     under it, to the right, when both do not fit one row: the list screens' rule (the final M5 review: "Location
+     Select" ran under Bounty's token chip at 390x844; Commissions' "Daily" ran under its reset chip at 360 px) */
   .has-host > .ui-host, .ma-hub-hostrow { display: none; }
-  .ui-plate-head.has-host > .ui-plate-title { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: nowrap; }
+  .ui-plate-head.has-host { padding-top: 6px; padding-bottom: 6px; }
+  .ui-plate-head.has-host > .ui-plate-title {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal;
+    flex: 1 0 auto; max-width: 100%;
+  }
 }
 
 /* ---------- Missions: the secretary hosts; the tiles keep the right ---------- */
@@ -736,6 +743,14 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-assault-screen .ma-boss-cards { flex: none; margin: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
 .ma-assault-screen .ma-boss-card { min-height: 64px; }
 .ma-assault-screen .ma-boss-card-text { justify-content: center; }
+/* a locked boss's name keeps clear of the card's lock (meta-a.css: 18 px, 12 px in from the right, 10 px down): its
+   words wrap around the lock's corner, and a word too long to fit beside it starts under it (390x844: "Grave Lych" ran
+   under the lock; found with the final M5 fixes). The corner is the lock's reach into the text: across, 30 px less the
+   text's right padding plus 4 px of air (so a name that fitted beside the lock still does); down, 28 px less the text's
+   top padding (the text's padding is 10 16 / 8 10 / 7 12 px by size) */
+.ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { content: ''; float: right; width: 18px; height: 18px; }
+@media (max-width: 560px) { .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { width: 24px; height: 20px; } }
+@media (max-height: 480px) { .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { width: 22px; height: 21px; } }
 .ma-assault-screen .ma-boss-detail { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--sp-3); }
 .ma-assault-screen .as-layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--sp-3); align-items: stretch; min-height: 100%; }
 .ma-assault-screen .ma-boss-show { position: relative; top: auto; height: auto; min-height: 200px; }
