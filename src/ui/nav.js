@@ -17,7 +17,7 @@ export function isTransient(name) {
 /**
  * Screens with a fixed place in the menus: the arrow goes to this parent, wherever the screen was
  * opened from (a chat link, a battle, the clan …) — except straight from higher up the same menus
- * (a lobby shortcut) or from a list hub (LIST_HUBS): then back there, since the player never saw
+ * (a lobby shortcut) or from a list hub or the Multiplayer hub (RETURN_HUBS): then back there, since the player never saw
  * the screens in between. A route name, or (params) => route name.
  */
 const PARENTS = {
@@ -46,6 +46,13 @@ const PARENTS = {
  * token wallet, the clan boss week …) comes back to it, the list as it was left (its tab), not to its menu parent.
  */
 export const LIST_HUBS = new Set(['rewards', 'mall', 'mail']);
+
+/**
+ * [ui-m5] The screens a fixed-parent screen opened from them arrows back to: the list hubs, and the Multiplayer hub
+ * (#/multiplayer), whose Friends and Clan Boss tiles open Messages › Friends and the clan: screens whose menu parent is
+ * the lobby, so the arrow would skip the hub the player was on (UI M5d review).
+ */
+export const RETURN_HUBS = new Set([...LIST_HUBS, 'multiplayer']);
 
 const fixedParent = (name, params = {}) => {
   const p = PARENTS[name];
@@ -99,8 +106,8 @@ export function parentRoute(name, params = {}, prev = null) {
   const fixed = fixedParent(name, params);
   if (fixed) {
     // opened from its parent, or straight from higher up the menus (the lobby's Tasks / Bounty /
-    // Total Assault shortcuts), or from a list hub's Go: back there, the way the back gesture goes
-    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)) || LIST_HUBS.has(from.name))) return from;
+    // Total Assault shortcuts), or from a list hub's Go or a Multiplayer tile: back there, the way the back gesture goes
+    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)) || RETURN_HUBS.has(from.name))) return from;
     return route(fixed);
   }
   return from || route(FALLBACK[name] || 'lobby');

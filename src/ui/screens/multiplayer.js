@@ -3,7 +3,8 @@
 // Momo hosts it (§5.10 E1: her stand in the left 35%, or by the collapse rule her chip in the Co-op plate header) over
 // the academy with the hub's own tint (E6). The Co-op card under its ink plate header (E2):
 //   - the open invites from friends and clanmates with an ink Join each (read only once the social hub is ready: this
-//     screen never signs in or creates an online account; #/coop keeps its own sign-in), and "Your last room";
+//     screen never signs in or creates an online account; #/coop keeps its own sign-in), and "Your last room": 2 rows
+//     on phones, 4 larger, so the tiles stay in view; the rest behind "n more", in a sheet;
 //   - Create room, the screen's one yellow (Space on desktop), opens a room on the remembered co-op stage
 //     (ss-coop-pref); the stage chip beside it opens #/coop, where the stage, freeplay and mode are picked;
 //   - Quick join: the newest open invite from a friend or a clanmate (strangers are off), else off with its reason;
@@ -15,7 +16,7 @@
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, screen, button, toast } from '../components.js';
-import { plateHead, kbdHint, inkBtn, secondaryBtn, lockedTile, countdownChip, ico, fillIn } from '../kit.js';
+import { plateHead, kbdHint, inkBtn, secondaryBtn, lockedTile, countdownChip, ico, fillIn, KIT_SVG } from '../kit.js';
 import { countBadge, soonSticker } from '../badges.js';
 import { openSheet } from '../sheet.js';
 import { hubBackdrop } from '../hubArt.js';
@@ -37,7 +38,7 @@ import { avatar, PEOPLE_GLYPH } from '../online/common.js';
 import { hub, joinInvite } from '../online/socialHub.js';
 import { inboxButton } from '../online/inboxButton.js';
 import { openInvites, lastInvites } from '../online/openInvites.js';
-import { hubTiles, quickJoin, roomChoice, roomChipText, stageWords, RIVAL_RUN } from '../multiplayerModel.js';
+import { hubTiles, quickJoin, roomChoice, roomChipText, stageWords, RIVAL_RUN, inviteRows, inviteRowBudget } from '../multiplayerModel.js';
 
 /** The co-op hub's memory of the last stage, difficulty, freeplay and mode (src/ui/screens/coop.js writes it). */
 export const PREF_KEY = 'ss-coop-pref';
@@ -100,6 +101,15 @@ export function render(root) {
     drawn = hubMode(viewport());
     placeHost(host, drawn, { hb, slot: head });
   });
+  // a turned phone or a resized window: the card's row budget again
+  let rowBudget = inviteRowBudget(viewport().vh);
+  const onRows = () => {
+    const b = inviteRowBudget(viewport().vh);
+    if (b === rowBudget || !alive) return;
+    rowBudget = b;
+    paintInvites();
+  };
+  globalThis.addEventListener?.('resize', onRows);
 
   function createRoom() {
     const c = currentChoice(store.profile);
@@ -136,30 +146,46 @@ export function render(root) {
       inkBtn('Join', { testid: 'mp-invite-join', title: `Join ${inv.name}'s room`, onClick: () => join(inv) }));
   }
 
-  /** "Your last room" (left within the last two hours): one tap back in, as on #/coop. */
-  function lastRow() {
-    let last = null;
+  /** "Your last room" (left within the last two hours), or null. */
+  function lastRoomNow() {
     try {
-      last = hub.ready ? lastRoom(getBackend().uid) : null;
+      return hub.ready ? lastRoom(getBackend().uid) : null;
     } catch {
-      last = null;
+      return null;
     }
-    if (!last) return null;
+  }
+
+  /** Its row: one tap back in, as on #/coop. */
+  function lastRow(last) {
     return h('div.mp-invite.mp-last', { 'data-testid': 'mp-last-room' },
       h('span.mp-last-ico', { 'aria-hidden': 'true' }, ico('play')),
       h('div.mp-inv-text', h('b.mp-inv-name', 'Your last room'), h('span.mp-inv-line', `${last.host ? 'You host' : 'You joined'}${STAGE_MAP[last.stageId] ? ` · ${stageWords(last.stageId)}` : ''}`)),
       inkBtn('Rejoin', { testid: 'mp-rejoin', onClick: () => navigate('coop', roomRoute(last)) }));
   }
 
+  /** "n more": the rows the card has no room for (UI M5d review), in a sheet with their Join / Rejoin. */
+  function moreRow(rest, last) {
+    const n = rest.filter((x) => x !== last).length;
+    const name = n ? `${n} more invite${n === 1 ? '' : 's'}` : 'Your last room';
+    const line = n && rest.includes(last) ? 'and your last room' : null;
+    const row = (x) => (x === last ? lastRow(x) : inviteRow(x));
+    return h('button.mp-invite.mp-more', {
+      type: 'button', 'data-testid': 'mp-invites-more', 'aria-label': `${name}${line ? ` ${line}` : ''}`,
+      onclick: () => openSheet({ title: n ? 'More invites' : 'Your last room', testid: 'mp-invites-sheet', body: h('div.mp-invites.mp-sheet-rows', rest.map(row)) }),
+    },
+    h('span.mp-last-ico', { 'aria-hidden': 'true' }, ico(PEOPLE_GLYPH)),
+    h('span.mp-inv-text', h('b.mp-inv-name', name), line ? h('span.mp-inv-line', line) : null),
+    h('span.mp-more-go', { 'aria-hidden': 'true' }, ico(KIT_SVG.chevR)));
+  }
+
   function paintInvites() {
-    const rows = state.list.map(inviteRow);
-    const last = lastRow();
-    let note = null;
-    // (offline: no line here, Quick join's reason says it once, P7)
-    if (!hub.ready) note = null;
-    else if (!state.ready) note = h('p.mp-note', 'Looking for invites…');
-    else if (!rows.length) note = h('p.mp-note', { 'data-testid': 'mp-invites-none' }, 'No open invites right now. Make a room and invite a friend!');
-    fillIn(invitesBox, rows, last, note);
+    const last = lastRoomNow();
+    // (the card keeps to its rows, so the four tiles stay in view beside it: 2 on phones, 4 larger)
+    const { shown, more } = inviteRows(state.list, last, inviteRowBudget(viewport().vh));
+    // (offline: no line here, Quick join's reason says it once; online with no invite, Quick join's reason and Momo say
+    // it: no third line, P7. Only while the invites load, a line says so)
+    const note = hub.ready && !state.ready ? h('p.mp-note', 'Looking for invites…') : null;
+    fillIn(invitesBox, shown.map((x) => (x === last ? lastRow(x) : inviteRow(x))), more.length ? moreRow(more, last) : null, note);
     invitesBox.hidden = !invitesBox.childElementCount;
   }
 
@@ -220,6 +246,7 @@ export function render(root) {
   return () => {
     alive = false;
     offResize();
+    globalThis.removeEventListener?.('resize', onRows);
     offStore();
     offs.forEach((off) => off());
   };

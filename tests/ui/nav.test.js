@@ -3,7 +3,7 @@
 // target table; the router tests run against a small fake of the browser's session history
 // (hash entries, history.state, async go/back/forward, popstate + hashchange like Chromium).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { parentRoute, mapRouteFor, isTransient, sameScreen, menuAncestors, LIST_HUBS } from '../../src/ui/nav.js';
+import { parentRoute, mapRouteFor, isTransient, sameScreen, menuAncestors, LIST_HUBS, RETURN_HUBS } from '../../src/ui/nav.js';
 import { mapRouteFor as battleMapRoute } from '../../src/ui/battle/setup.js';
 import { STAGE_MAP, STAGES } from '../../src/data/stages.js';
 
@@ -95,6 +95,23 @@ describe('parentRoute: the back arrow target', () => {
     expect(parentRoute('coop', {}, r('multiplayer'))).toEqual(r('multiplayer'));
     expect(parentRoute('coop', {}, null)).toEqual(r('multiplayer'));
     expect(parentRoute('coop', { id: 'ABCDE', host: '1' }, null)).toEqual(r('coop'));
+  });
+
+  it('… and its Friends and Clan Boss tiles arrow back to it, not to the lobby (UI M5d review)', () => {
+    const mp = r('multiplayer');
+    expect(parentRoute('messages', { tab: 'friends' }, mp)).toBe(mp); // the Friends tile
+    expect(parentRoute('clan', { tab: 'boss' }, mp)).toBe(mp); // Clan Boss, in a clan
+    expect(parentRoute('clan', {}, mp)).toBe(mp); // Clan Boss with no clan: the clan search
+    expect(RETURN_HUBS.has('multiplayer')).toBe(true);
+    expect([...RETURN_HUBS].sort()).toEqual(['mail', 'mall', 'multiplayer', 'rewards']);
+    // opened from anywhere else, those screens keep their fixed parent
+    for (const from of [r('chat'), r('student', { id: 'aoi' }), r('settings'), null]) {
+      expect(parentRoute('messages', { tab: 'friends' }, from)).toEqual(r('lobby'));
+      expect(parentRoute('clan', { tab: 'boss' }, from)).toEqual(r('lobby'));
+    }
+    // a conversation still climbs to the Messages list first
+    expect(parentRoute('messages', { id: 't1' }, mp)).toBe(mp);
+    expect(parentRoute('messages', { id: 't1' }, r('messages', { tab: 'friends' }))).toEqual(r('messages', { tab: 'friends' }));
   });
 
   it('other screens go back to the previous screen, never to a battle', () => {
@@ -199,7 +216,7 @@ describe('router: back arrow and battle history entries', () => {
     vi.resetModules();
     router = await import('../../src/ui/router.js');
     renders = [];
-    const names = ['lobby', 'missions', 'campaign', 'stage', 'battle', 'clan', 'coop', 'multiplayer', 'settings', 'backpack', 'student', 'students'];
+    const names = ['lobby', 'missions', 'campaign', 'stage', 'battle', 'clan', 'coop', 'multiplayer', 'messages', 'settings', 'backpack', 'student', 'students'];
     for (const name of names) {
       router.registerRoute(name, async () => ({ render: (_root, params) => { renders.push(router.buildHash(name, params)); } }));
     }
@@ -563,6 +580,37 @@ describe('router: back arrow and battle history entries', () => {
     await boot('#/coop');
     await arrow();
     expect(screen()).toBe('#/multiplayer');
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+  });
+
+  it('Multiplayer\'s Friends and Clan Boss tiles: the arrow comes back to the hub, then where the hub was opened (UI M5d review)', async () => {
+    await boot('#/lobby');
+    await go('missions');
+    await go('multiplayer'); // Missions' tile
+    await go('messages', { tab: 'friends' }); // the Friends tile
+    await arrow();
+    expect(screen()).toBe('#/multiplayer');
+    expect(browser.i).toBe(2); // stepped back: the back gesture agrees
+    await go('clan', { tab: 'boss' }); // Clan Boss
+    await go('battle', { stage: 'boss-lych', difficulty: 'normal', clanBoss: 'a1' });
+    await go('clan', { tab: 'boss' }); // "Back to the clan"
+    await arrow();
+    expect(screen()).toBe('#/multiplayer');
+    noBattle();
+    await arrow();
+    expect(screen()).toBe('#/missions'); // the hub still goes back where it was opened
+    // from the lobby's Multiplayer button: Clan Boss with no clan (the clan search) → Multiplayer → the lobby
+    await boot('#/lobby');
+    await go('multiplayer');
+    await go('clan');
+    await arrow();
+    expect(screen()).toBe('#/multiplayer');
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+    expect(browser.i).toBe(0);
+    // the clan opened straight from the lobby still arrows to the lobby
+    await go('clan', { tab: 'boss' });
     await arrow();
     expect(screen()).toBe('#/lobby');
   });

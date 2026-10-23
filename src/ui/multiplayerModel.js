@@ -3,8 +3,9 @@
 // in; src/ui/online/openInvites.js reads those from the server, and only once the social hub is ready (the hub never
 // creates an online account). tests/ui/multiplayer.test.js walks it.
 //
-//   Co-op (live): invite rows with Join, Create room (the one yellow), Quick join (friends and clanmates only:
-//     strangers are never offered), a room code + Join.
+//   Co-op (live): invite rows with Join (2 rows on phones, 4 larger, "Your last room" counted; the rest behind
+//     "n more"), Create room (the one yellow), Quick join (friends and clanmates only: strangers are never offered), a
+//     room code + Join.
 //   PvP: LOCKED "Coming soon", Rival Run inside (a sheet that explains it and does nothing else).
 //   Friends → Messages › Friends (a red number for friend requests); Titan Co-op "Soon" (no mode yet, Q3);
 //   Clan Boss → the clan's boss tab, or the clan search for a player with no clan.
@@ -73,6 +74,31 @@ export function openInviteList({ dm = [], clan = [], relOf = () => 'stranger', m
     if (!had || (r.source === 'dm' && had.source !== 'dm') || (r.source === had.source && r.at > had.at)) byRoom.set(r.room, r);
   }
   return [...byRoom.values()].sort((a, b) => b.at - a.at).slice(0, max);
+}
+
+/**
+ * How many rows the Co-op card holds over its actions (the UI M5d review): as many as leave the four tiles in view
+ * beside it. Phones (≤ 480 px tall) 2, larger screens 4. "Your last room" is a row too.
+ * @param {number} vh the viewport's height
+ */
+export function inviteRowBudget(vh) {
+  return Number(vh) > 480 ? 4 : 2;
+}
+
+/**
+ * The Co-op card's rows: the open invites (newest first), then "Your last room", within the budget. When more than that
+ * are waiting, the last place goes to "n more", which opens the rest in a sheet.
+ * @template T
+ * @param {T[]} invites openInviteList()
+ * @param {T|null} last "Your last room" (lastRoom()), or null
+ * @param {number} budget inviteRowBudget()
+ * @returns {{ shown: T[], more: T[] }} more: the rows behind "n more" (none when everything fits)
+ */
+export function inviteRows(invites = [], last = null, budget = 2) {
+  const all = [...(invites || []), ...(last ? [last] : [])];
+  const cap = Math.max(2, Math.floor(Number(budget)) || 2);
+  if (all.length <= cap) return { shown: all, more: [] };
+  return { shown: all.slice(0, cap - 1), more: all.slice(cap - 1) };
 }
 
 /** The red number on the lobby's Multiplayer button: open invites from friends and clanmates. */

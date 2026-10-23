@@ -134,7 +134,10 @@
 .pf-stat-svg, .pf-stat-svg svg { display: block; width: 100%; height: 100%; }
 .pf-stat b { display: block; font: italic 900 1.02rem/1.05 var(--font-head); color: var(--navy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pf-stat b small { font-size: var(--fs-label); color: var(--muted); font-style: normal; }
-.pf-stat > span:last-child > span { display: block; font-size: var(--fs-label); font-weight: 800; color: var(--muted); white-space: nowrap; }
+/* (the label wraps rather than running past its tile: "Stages cleared" at 13 px in the ID card's quarter tiles; the
+   number keeps to one line, UI M5d review) */
+.pf-stat > span:last-child { min-width: 0; }
+.pf-stat > span:last-child > span { display: block; font-size: var(--fs-label); line-height: 1.2; font-weight: 800; color: var(--muted); overflow-wrap: break-word; }
 
 /* Section heads */
 .pf-ph { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -161,7 +164,8 @@
 .pf-slot .nm { position: absolute; left: 7px; right: 5px; bottom: 19px; z-index: 4; color: #fff; font-weight: 900; font-size: 0.86rem; text-align: left; text-shadow: 0 1px 2px rgba(0,0,0,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-slot .ft { position: absolute; left: 7px; right: 6px; bottom: 4px; z-index: 4; display: flex; align-items: baseline; justify-content: space-between; color: #fff; font-size: var(--fs-label); font-weight: 900; }
 .pf-slot .ft .lv b { font: italic 900 0.95rem/1 var(--font-head); }
-.pf-slot .ft .stars { font-size: var(--fs-label); color: var(--yellow); }
+/* (the stars at the 13 px floor, set closer so "Lv.48 ★★★★★" stays inside its card; UI M5d review) */
+.pf-slot .ft .stars { font-size: var(--fs-label); color: var(--yellow); letter-spacing: -3px; margin-right: 3px; }
 .pf-slot .ft .stars .star:not(.on) { color: rgba(255,255,255,0.3); }
 .pf-slot .nm .fav { display: inline-block; width: 0.95em; height: 0.95em; margin-right: 3px; vertical-align: -0.12em; }
 .pf-fav-heart, .pf-fav-heart svg { display: block; width: 100%; height: 100%; }
@@ -581,10 +585,12 @@ html[data-reduce-motion] .pf-slot.is-ur::after { display: none; }
 /* ---------- UI M5d: the page at the floor on every screen (12 px phones, 13 px desktop) and a 40 px tap on its small
    buttons (an invisible hit box: the look is unchanged) ---------- */
 .pf-fav-kicker .tag-ribbon { font-size: var(--fs-label); }
-.pf-fav-swap::before, .pf-banner-edit::before, .pf-ava-edit::before, .pf-pick-name::before, .pf-ph .btn-small::before, .pf-top-acts .btn-small::before, .pf-bio-edit::before {
+.pf-fav-swap::before, .pf-banner-edit::before, .pf-ava-edit::before, .pf-pick-name::before, .pf-ph .btn-small::before, .pf-top-acts .btn-small::before, .pf-bio-edit::before, .pf-chip-all::before {
   content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%);
 }
-.pf-pick-name, .pf-ph .btn-small, .pf-top-acts .btn-small { position: relative; overflow: visible; }
+.pf-pick-name, .pf-ph .btn-small, .pf-top-acts .btn-small, .pf-chip-all { position: relative; overflow: visible; }
+/* "All titles n/m" by the title on the ID card (it left the Freeplay panel; UI M5d review) */
+.pf-tags > .pf-chip-all { cursor: pointer; font-family: inherit; line-height: 1.5; }
 .pf-pick-name { text-overflow: clip; }
 button.pf-bio.empty { min-height: var(--tap-dense); }
 /* (a tally keeps its cell size when only some difficulties have medals: four slots, five for the ribbons) */

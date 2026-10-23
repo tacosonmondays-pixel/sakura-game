@@ -74,6 +74,55 @@ export async function seedOnlineInvite(page) {
 }
 
 /**
+ * UI M5d review: four more friends for the busy hub (four open invites; not Bea, whose invite the earlier shots of a run
+ * already sent on the fixed clock). Their accounts live in the local test server only.
+ */
+export const MORE_FRIENDS = Object.freeze([
+  Object.freeze({ id: 'shot-mio', name: 'Mio', level: 12, avatar: 'momo', room: 'MIO12', stage: '3-5' }),
+  Object.freeze({ id: 'shot-rin', name: 'Rin', level: 33, avatar: 'kage', room: 'RIN33', stage: '1-1' }),
+  Object.freeze({ id: 'shot-tama', name: 'Tama', level: 50, avatar: 'luna', room: 'TAMA5', stage: '2-4' }),
+  Object.freeze({ id: 'shot-nao', name: 'Nao', level: 27, avatar: 'yuki', room: 'NAO27', stage: '2-1' }),
+]);
+
+/**
+ * UI M5d review: a fresh online player on the local test server ("Aiko", a new account: the tab's online keys are
+ * cleared first), invited by `friends` (each once), with a "Your last room" from ten minutes ago when `last`.
+ * @param {import('playwright').Page} page
+ * @param {{ friends?: object[], last?: boolean }} [o]
+ * @returns {Promise<string>} this tab's online id
+ */
+export async function seedOnlineHub(page, { friends = [], last = false } = {}) {
+  await goOffline(page);
+  return page.evaluate(async ([list, withLast]) => {
+    const { getBackend } = await import('/src/online/backend.js');
+    const { writeIdentity } = await import('/src/online/identity.js');
+    const common = await import('/src/ui/online/common.js');
+    const social = await import('/src/ui/online/socialHub.js');
+    const { createLocalDb } = await import('/src/online/adapters/localDb.js');
+    writeIdentity({ name: 'Aiko' }, getBackend().status.mode === 'local');
+    const backend = await common.ensureOnline({ ask: false });
+    await social.startSocialHub({ force: true });
+    const me = backend.uid;
+    const KEY = 'ss-online-db';
+    const db = createLocalDb({ read: () => JSON.parse(localStorage.getItem(KEY) || 'null'), write: (s) => localStorage.setItem(KEY, JSON.stringify(s)) });
+    for (const f of list) {
+      db.signIn(f.id, { name: f.name, level: f.level, avatar: f.avatar });
+      db.addFriend(f.id, me);
+      const req = db.friendRequests(me).incoming.find((r) => r.userId === f.id);
+      if (req) db.answerFriend(me, req.id, true);
+      db.openRoom(f.id, f.room);
+      db.sendCoopInvite(f.id, me, { room: f.room, stage: f.stage, difficulty: 'normal' });
+    }
+    if (withLast) {
+      const all = JSON.parse(localStorage.getItem('ss-coop-last') || '{}');
+      all[me] = { code: 'AIKO7', host: true, stageId: '1-1', difficulty: 'normal', freeplay: null, mode: 'standard', at: Date.now() - 10 * 60e3 };
+      localStorage.setItem('ss-coop-last', JSON.stringify(all));
+    }
+    return me;
+  }, [friends, last]);
+}
+
+/**
  * UI M5d: the tab as a player who never went online (no name, no account, the social hub never started): the online
  * keys of this tab are cleared and the page reloads, so nothing of an earlier sign-in stays in memory.
  * @param {import('playwright').Page} page

@@ -16,14 +16,35 @@ import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobb
 
 /** Where the bubble/head zone sits for stands (her stand is centred at ~55%, head under the HUD). */
 const CUT_FACE = [55, 25];
+/** The room the bubble leaves between itself and the HUD pieces it keeps clear of (px). */
+const BUBBLE_GAP = 8;
+/** Narrower than this, the bubble may step closer to her face instead (px). */
+const BUBBLE_MIN_W = 168;
 
-export function createArtStage(host, { reduceMotion = false, onTap = null } = {}) {
+/** An element's box as laid out (its transforms aside: the HUD's entrance slide, the bubble's pop), in page px. */
+function laidOut(el) {
+  let x = 0;
+  let y = 0;
+  for (let e = el; e; e = e.offsetParent) {
+    x += e.offsetLeft;
+    y += e.offsetTop;
+  }
+  return { left: x, top: y, right: x + el.offsetWidth, bottom: y + el.offsetHeight };
+}
+
+/**
+ * @param {HTMLElement} host
+ * @param {{ reduceMotion?: boolean, onTap?: Function|null, avoid?: (() => Element[])|null }} [o]
+ *   avoid: the HUD pieces at her left her speech bubble keeps clear of (the lobby's tray and sticker row)
+ */
+export function createArtStage(host, { reduceMotion = false, onTap = null, avoid = null } = {}) {
   host.classList.add('lb-art-host');
   const frame = h('div.lb-art', { 'data-testid': 'secretary-art' });
   const hearts = h('div.lb-art-fx');
   const bubble = h('div.lb-bubble', { 'aria-live': 'polite', 'data-testid': 'secretary-bubble' }, h('span.lb-bubble-text'));
   host.append(frame, hearts, bubble);
   let face = CUT_FACE;
+  let bubbleRight = 100 - CUT_FACE[0] + 9;
   let bubbleTimer = 0;
   let disposed = false;
   let current = null;
@@ -107,12 +128,50 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
     span.textContent = text;
     // bubble to the left of her face (tail pointing at her), kept on screen
     bubble.style.left = 'auto';
-    bubble.style.right = `${Math.min(70, 100 - face[0] + 9)}%`;
+    bubbleRight = Math.min(70, 100 - face[0] + 9);
     bubble.style.top = `${Math.max(14, face[1] - 6)}%`;
+    fit();
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);
     if (ms) bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms);
   }
+
+  /**
+   * UI M5d review: the bubble never slides under the HUD at her left (the lobby's tray, the sticker row under it). Its
+   * left edge stops BUBBLE_GAP px right of whatever shares its rows and it narrows into more lines instead (a narrower
+   * bubble grows downward, so the rows are checked again until nothing beside it is left). Narrowed, it takes slimmer
+   * padding, and below BUBBLE_MIN_W it may come closer to her face (to 4% of the width and its tail) rather than turn
+   * into a thin column on the smallest phones.
+   */
+  function fit() {
+    bubble.style.maxWidth = '';
+    bubble.style.right = `${bubbleRight}%`;
+    bubble.classList.remove('tight');
+    const els = (avoid?.() || []).filter((e) => e?.offsetWidth);
+    if (!els.length) return;
+    const hb = laidOut(host);
+    const nearest = hb.left + (host.offsetWidth * (face[0] - 4)) / 100 - 9;
+    for (let pass = 0; pass < 4; pass++) {
+      const b = laidOut(bubble);
+      let left = -Infinity;
+      for (const el of els) {
+        const r = laidOut(el);
+        if (r.bottom + BUBBLE_GAP <= b.top || r.top >= b.bottom + BUBBLE_GAP || r.left >= b.right) continue;
+        left = Math.max(left, r.right + BUBBLE_GAP);
+      }
+      if (left <= b.left) return;
+      let right = b.right;
+      if (right - left < BUBBLE_MIN_W && right < nearest) {
+        right = Math.min(nearest, left + BUBBLE_MIN_W);
+        bubble.style.right = `${Math.round(hb.right - right)}px`;
+      }
+      bubble.classList.add('tight');
+      bubble.style.maxWidth = `${Math.max(0, Math.floor(right - left))}px`;
+    }
+  }
+  // a turned phone or a resized window: fitted again while it shows
+  const onResize = () => { if (bubble.classList.contains('show')) fit(); };
+  globalThis.addEventListener?.('resize', onResize);
 
   function look(nx, ny) {
     if (reduceMotion) return;
@@ -123,6 +182,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null } = {}
   function dispose() {
     disposed = true;
     clearTimeout(bubbleTimer);
+    globalThis.removeEventListener?.('resize', onResize);
     host.classList.remove('lb-art-host');
     host.replaceChildren();
   }

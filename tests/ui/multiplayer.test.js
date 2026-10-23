@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   hubTiles, quickJoin, QUICK_REASON, inviteCount, openInviteList, dmInvite, clanInvite, isTrusted, roomChoice, roomChipText, stageWords,
-  RIVAL_RUN, CLAN_INVITE_MS,
+  RIVAL_RUN, CLAN_INVITE_MS, inviteRows, inviteRowBudget,
 } from '../../src/ui/multiplayerModel.js';
 import { openInvites, lastInvites, _resetOpenInvites } from '../../src/ui/online/openInvites.js';
 import { hostFor } from '../../src/ui/hosts.js';
@@ -123,6 +123,30 @@ describe('the Multiplayer hub: invites, Quick join and the count', () => {
     const expired = clanInvite(clan(5, 'c1', { at: NOW - CLAN_INVITE_MS - 1 }));
     expect(quickJoin([expired], { now: NOW }).invite).toBeNull();
     for (const r of Object.values(QUICK_REASON)) expect(r.length).toBeLessThanOrEqual(60);
+  });
+
+  it('the Co-op card keeps to its rows (2 on phones, 4 larger; "Your last room" counts): the rest wait behind "n more" (UI M5d review)', () => {
+    expect(inviteRowBudget(390)).toBe(2);
+    expect(inviteRowBudget(360)).toBe(2);
+    expect(inviteRowBudget(480)).toBe(2);
+    expect(inviteRowBudget(720)).toBe(4);
+    const inv = [1, 2, 3, 4].map((i) => dmInvite(dm(i, `f${i}`, { at: NOW - i * MIN }), 'friend'));
+    const last = { code: 'MINE7', host: true, stageId: '1-1' };
+    // everything fits: as it is, invites first, the last room after them
+    expect(inviteRows(inv.slice(0, 1), last, 2)).toEqual({ shown: [inv[0], last], more: [] });
+    expect(inviteRows(inv.slice(0, 2), null, 2)).toEqual({ shown: inv.slice(0, 2), more: [] });
+    expect(inviteRows([], last, 2)).toEqual({ shown: [last], more: [] });
+    expect(inviteRows([], null, 2)).toEqual({ shown: [], more: [] });
+    // more than fit: the last place is "n more" (never more rows than the budget)
+    expect(inviteRows(inv.slice(0, 2), last, 2)).toEqual({ shown: [inv[0]], more: [inv[1], last] });
+    expect(inviteRows(inv, last, 2)).toEqual({ shown: [inv[0]], more: [inv[1], inv[2], inv[3], last] });
+    expect(inviteRows(inv, last, 4)).toEqual({ shown: inv.slice(0, 3), more: [inv[3], last] });
+    expect(inviteRows(inv, null, 4)).toEqual({ shown: inv, more: [] });
+    for (const [list, l, b] of [[inv, last, 2], [inv, last, 4], [inv.slice(0, 3), null, 2]]) {
+      const r = inviteRows(list, l, b);
+      expect(r.shown.length + (r.more.length ? 1 : 0)).toBeLessThanOrEqual(b);
+      expect([...r.shown, ...r.more]).toEqual([...list, ...(l ? [l] : [])]);
+    }
   });
 });
 

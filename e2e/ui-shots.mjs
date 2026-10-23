@@ -9,6 +9,7 @@
 //   node e2e/ui-shots.mjs --out /tmp/ui-after --viewport 844x390
 //   node e2e/ui-shots.mjs --out /tmp/m5 --screens lobby,missions,mail --probe   # + probe-<W>x<H>.json (e2e/probe.mjs)
 //   node e2e/ui-shots.mjs --screens m5 --now live                    # the real clock
+//   node e2e/ui-shots.mjs --screens profile --probe --judge spill    # + fail (exit 1) when a probe check named fails
 //
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a shot fails.
 // A shot whose screen does not exist in this build yet is skipped with a note (the M5 list names later screens).
@@ -16,8 +17,8 @@ import { createServer } from 'vite';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
-import { probe, summary } from './probe.mjs';
-import { seedUiSave, seedOnlineInvite, goOffline, SHOT_NOW } from './uiSeed.mjs';
+import { probe, judge, summary } from './probe.mjs';
+import { seedUiSave, seedOnlineInvite, seedOnlineHub, goOffline, SHOT_NOW, MORE_FRIENDS } from './uiSeed.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -28,10 +29,14 @@ const flag = (name) => args.includes(`--${name}`);
 const out = opt('out', 'ui-shots');
 const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
 const NOW = opt('now', SHOT_NOW); // a Tuesday noon in Central: no weekly reset on the day
-const withProbe = flag('probe');
+// --judge spill,apart: those probe checks fail the run (e2e/probe.mjs judge); implies --probe
+const judged = opt('judge', null)?.split(',').map((s) => s.trim()).filter(Boolean) || null;
+const withProbe = flag('probe') || !!judged;
 mkdirSync(out, { recursive: true });
 
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
+/** The lobby secretary's speech bubble stays clear of the tray and the sticker row (probe `apart`; UI M5d review). */
+const LOBBY_APART = [['[data-testid="secretary-bubble"]', '.lb-hud > .lb-tray'], ['[data-testid="secretary-bubble"]', '.lb-hud > .lb-stickers']];
 
 /**
  * Every shot: how to reach it, when it is ready, and the probe options (kind, list). `seed: 'm5'` shots need a
@@ -42,7 +47,7 @@ const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen =
  */
 const SHOTS = {
   // ---- the first six (M0-M4) ----
-  lobby: { hash: '#/lobby', ready: isScreen('lobby') },
+  lobby: { hash: '#/lobby', ready: isScreen('lobby'), apart: LOBBY_APART },
   'girl-info': { hash: '#/student/aoi?tab=info', ready: isScreen('student'), kind: 'detail' },
   'backpack-equipment': { hash: '#/backpack?tab=equipment', ready: isScreen('backpack'), kind: 'list' },
   'stage-prep': { hash: '#/stage/2-3', ready: isScreen('stage'), kind: 'detail' },
@@ -92,7 +97,11 @@ const SHOTS = {
   'multiplayer-pvp': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', open: async (page) => { await page.click('[data-testid="mp-pvp"]'); await page.waitForSelector('.ui-sheet', { timeout: 10000 }); } },
   coop: { hash: '#/coop', ready: isScreen('coop'), seed: 'm5', settleMs: 1800 },
   // the lobby with that open invite: the Multiplayer button's red number (M5d; before it, the lobby had no such button)
-  'lobby-invite': { hash: '#/lobby', ready: isScreen('lobby'), seed: 'm5', prepare: seedOnlineInvite, prepareAt: ['#/missions', isScreen('missions')], settleMs: 1800 },
+  'lobby-invite': { hash: '#/lobby', ready: isScreen('lobby'), seed: 'm5', prepare: seedOnlineInvite, prepareAt: ['#/missions', isScreen('missions')], settleMs: 1800, apart: LOBBY_APART },
+  // UI M5d review (by name only, not in the m5 list: each signs a fresh account in): online with no invite and a "Your
+  // last room"; four friends' invites and a last room (the card's two rows on phones: one invite, then "3 more invites")
+  'multiplayer-online': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', prepare: (page) => seedOnlineHub(page, { last: true }), settleMs: 1800 },
+  'multiplayer-many': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', prepare: (page) => seedOnlineHub(page, { friends: MORE_FRIENDS, last: true }), settleMs: 1800 },
   profile: { hash: '#/profile', ready: isScreen('profile'), kind: 'detail', seed: 'm5' },
   students: { hash: '#/students', ready: isScreen('students'), kind: 'list', seed: 'm5' },
   formation: { hash: '#/formation', ready: isScreen('formation'), seed: 'm5' },
@@ -284,9 +293,14 @@ for (const vp of viewports) {
       }
       await shot(page, name, vp);
       if (withProbe) {
-        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null });
+        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [] });
         probes[name] = r;
         console.log(`    probe: ${summary(r)}`);
+        const fails = judged ? judge(r, { only: judged }) : [];
+        if (fails.length) {
+          failed++;
+          console.log(`  FAILED ${name} probe: ${fails.join(' | ')}`);
+        }
       }
       if (s.open || s.legacy) await closeModals(page);
       if (s.devNow) await devClock(page, null);

@@ -10,11 +10,17 @@
 //   - bubbleOverList  the host's speech bubble overlaps the list or grid (false)
 //   - yellow        visible yellow primary buttons (≤ 1)
 //   - smallTaps     buttons under 40 px (0); denseTaps: 40-43 px (allowed in dense rows only)
+//   - spills        text running past the left or right edge of the box drawn around it (its tile, chip or panel:
+//                   the nearest element with a background or a border), by more than 1.5 px (0). Text an element
+//                   clips or ends in "…" on the way is left to the ellipsis check (UI M5d review)
+//   - overlaps      pairs of elements that must stay apart (opts.apart: [selectorA, selectorB] pairs, both shown)
+//                   and overlap (0): e.g. the lobby secretary's speech bubble and the tray
 // Nothing here changes the page.
 //
 //   import { probe, judge } from './probe.mjs';
 //   const r = await probe(page, { kind: 'hub', list: '.ma-hub-grid' });
 //   const fails = judge(r);   // [] when the screen passes
+//   judge(r, { only: ['spill', 'apart'] })   // just those checks
 
 /** Repeated collections (P3: budgeted per tile or row, not per screen). */
 export const REPEAT = [
@@ -35,13 +41,14 @@ export const SKIP = ['.cur-pills', '.lb-pills', '[data-probe="skip"]', '.ld', '.
 /**
  * @param {import('playwright').Page} page
  * @param {{ kind?: 'hub'|'list'|'detail', list?: string|null, content?: string|null, host?: string, bubble?: string,
- *   repeat?: string, skip?: string, root?: string, tapSkip?: string|null }} [opts]
+ *   repeat?: string, skip?: string, root?: string, tapSkip?: string|null, apart?: [string, string][] }} [opts]
  *   list: the list or grid the bubble must stay clear of; content: the content window (default the screen body);
- *   tapSkip: controls left out of the tap check (the game's shared top bar, which no milestone screen owns)
+ *   tapSkip: controls left out of the tap check (the game's shared top bar, which no milestone screen owns);
+ *   apart: pairs of selectors whose shown elements must not overlap
  */
 export async function probe(page, opts = {}) {
   const o = {
-    kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null,
+    kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null, apart: [],
     ...opts,
   };
   return page.evaluate(probeInPage, o);
@@ -68,13 +75,29 @@ function probeInPage(o) {
   };
   const clip = (s) => s.replace(/\s+/g, ' ').trim().slice(0, 40);
 
-  // ---- text: the smallest size, the numbers, ellipses ------------------------------------------
+  // ---- text: the smallest size, the numbers, ellipses, spills ------------------------------------
   let minText = Infinity;
   const small = [];
   const numEls = new Set();
   const tileNums = new Map();
+  const spills = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
+  const drawsBox = (cs) => (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') || cs.backgroundImage !== 'none'
+    || parseFloat(cs.borderLeftWidth) > 0 || parseFloat(cs.borderRightWidth) > 0;
+  /**
+   * The box drawn around this text (the nearest element with a background or a border), or null when the text ends in
+   * "…" or is clipped on the way there (a box that clips at its own edge still counts: a glyph cut at a card's border).
+   */
+  const boxOf = (el) => {
+    for (let p = el; p && p !== root.parentElement; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (cs.textOverflow === 'ellipsis') return null;
+      if (drawsBox(cs)) return p;
+      if (cs.overflowX !== 'visible') return null;
+    }
+    return null;
+  };
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     if (!/\S/.test(n.nodeValue)) continue;
     const el = n.parentElement;
@@ -89,6 +112,13 @@ function probeInPage(o) {
       const tile = el.closest(o.repeat);
       if (tile) tileNums.set(tile, (tileNums.get(tile) || new Set()).add(el));
       else numEls.add(el);
+    }
+    // past the left or right edge of its box (a label beyond its tile's border; UI M5d review)
+    const box = boxOf(el);
+    if (box && box !== root && box !== document.documentElement) {
+      const b = box.getBoundingClientRect();
+      const over = Math.max(r.right - b.right, b.left - r.left);
+      if (over > 1.5 && b.width > 0) spills.push(`${Math.round(over * 10) / 10}px ${label(el)} "${clip(n.nodeValue)}" past ${label(box)}`);
     }
   }
   const ellipsis = [];
@@ -171,6 +201,21 @@ function probeInPage(o) {
     else if (s < 44) denseTaps.push(`${Math.round(w)}x${Math.round(h)} ${label(el)}`);
   }
 
+  // ---- elements that must stay apart -----------------------------------------------------------------
+  const overlaps = [];
+  for (const [sa, sb] of o.apart || []) {
+    for (const a of document.querySelectorAll(sa)) {
+      if (!shown(a)) continue;
+      const ra = a.getBoundingClientRect();
+      for (const b of document.querySelectorAll(sb)) {
+        if (b === a || !shown(b)) continue;
+        const rb = b.getBoundingClientRect();
+        const area = Math.max(0, Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left)) * Math.max(0, Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top));
+        if (area > 1) overlaps.push(`${label(a)} × ${label(b)} ${Math.round(area)}px²`);
+      }
+    }
+  }
+
   let tileMax = 0;
   for (const set of tileNums.values()) tileMax = Math.max(tileMax, set.size);
   return {
@@ -193,6 +238,9 @@ function probeInPage(o) {
     smallTaps: smallTaps.slice(0, 20),
     smallTapCount: smallTaps.length,
     denseTapCount: denseTaps.length,
+    spills: spills.slice(0, 20),
+    spillCount: spills.length,
+    overlaps,
   };
 }
 /* eslint-enable no-undef */
@@ -203,11 +251,12 @@ export const LIMITS = Object.freeze({ numbers: 12, content: 300, yellow: 1, host
 /**
  * The failed checks of one probe result, as short strings ([] = pass).
  * @param {ReturnType<typeof probeInPage>} r
- * @param {{ skip?: string[] }} [o] skip: checks not judged on this screen ('numbers', 'taps', ...)
+ * @param {{ skip?: string[], only?: string[]|null }} [o] skip: checks not judged on this screen ('numbers', 'taps', ...);
+ *   only: judge just these checks
  */
-export function judge(r, { skip = [] } = {}) {
+export function judge(r, { skip = [], only = null } = {}) {
   const fails = [];
-  const on = (k) => !skip.includes(k);
+  const on = (k) => !skip.includes(k) && (!only || only.includes(k));
   if (on('text') && r.minText != null && r.minText < r.floor) fails.push(`text ${r.minText}px < ${r.floor}px (${r.smallCount}: ${r.small.slice(0, 3).join('; ')})`);
   if (on('numbers') && r.numbers > LIMITS.numbers) fails.push(`numbers ${r.numbers} > ${LIMITS.numbers}`);
   if (on('ellipsis') && r.ellipsis.length) fails.push(`ellipsis on ${r.ellipsis.length}: ${r.ellipsis.slice(0, 3).join('; ')}`);
@@ -217,6 +266,8 @@ export function judge(r, { skip = [] } = {}) {
   if (on('bubble') && r.bubbleOverList) fails.push('bubble over the list');
   if (on('yellow') && r.yellow.length > LIMITS.yellow) fails.push(`${r.yellow.length} yellow primaries (${r.yellow.slice(0, 3).join('; ')})`);
   if (on('taps') && r.smallTapCount) fails.push(`${r.smallTapCount} taps under 40 px (${r.smallTaps.slice(0, 3).join('; ')})`);
+  if (on('spill') && r.spillCount) fails.push(`${r.spillCount} text past its box (${r.spills.slice(0, 3).join('; ')})`);
+  if (on('apart') && r.overlaps?.length) fails.push(`overlap: ${r.overlaps.slice(0, 3).join('; ')}`);
   return fails;
 }
 
@@ -231,5 +282,7 @@ export function summary(r) {
     `host ${r.hostShare != null ? `${Math.round(r.hostShare * 100)}%` : '–'}`,
     `yellow ${r.yellow.length}`,
     `taps<40 ${r.smallTapCount}`,
+    `spills ${r.spillCount ?? '–'}`,
+    ...(r.overlaps?.length ? [`overlaps ${r.overlaps.length}`] : []),
   ].join(' · ');
 }

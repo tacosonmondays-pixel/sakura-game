@@ -410,6 +410,8 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .lb-art-host .lb-bubble { position: absolute; z-index: 4; }
 .lb-art-host .lb-bubble { transform-origin: 100% 50%; }
 .lb-art-host .lb-bubble::before { left: auto; right: -9px; border-right: 0; border-left: 9px solid rgba(255,255,255,0.96); filter: drop-shadow(1px 0 0 rgba(29,78,137,0.12)); }
+/* (narrowed to stay clear of the tray: slimmer padding, more room for the words; src/ui/lobby/artStage.js fit) */
+.lb-art-host .lb-bubble.tight { padding: 8px 10px; }
 /* short screens: an achievement toast sits where her speech bubble is, so the bubble steps aside (fades out) while
    the toast is up and comes back with its line when the toast leaves */
 @media (max-height: 480px) {
@@ -858,6 +860,9 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .mbx-from[hidden] { display: none; }
 .mbx-screen .mbx-rewards { gap: 8px; }
 .mbx-screen .mbx-rewards .item-tile { width: 48px !important; }
+/* (a reward's tile wide enough for its count at the floor, "×3,000", inside its border: the probe's spill check, UI
+   M5d review; the bundle's small icons keep their size) */
+.mbx-screen .mbx-rewards > .item-tile { width: 56px !important; }
 .mbx-screen .mbx-bundle { min-height: 48px; padding: 4px 12px 4px 6px; }
 .mbx-screen .mbx-bundle b { font-size: var(--fs-label); }
 .mbx-screen .mbx-bundle small { font-size: var(--fs-label); font-weight: 700; color: var(--muted); }
@@ -877,6 +882,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   .mbx-screen .mbx-letter { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 8px 10px; }
   .mbx-crest { width: 40px; height: 40px; }
   .mbx-screen .mbx-rewards .item-tile { width: 46px !important; }
+  .mbx-screen .mbx-rewards > .item-tile { width: 52px !important; }
 }
 
 /* ---------- The Mall: Midori, the shop-counter tint, six shops in the rail, every buy a cost button ---------- */
@@ -1105,6 +1111,12 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .mp-last-ico { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--plate-accent); }
 .mp-last-ico .ui-ico { width: 16px; height: 16px; }
 .mp-note { margin: 0; padding: 4px 2px; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
+/* "n more": the rows the card has no room for, in a sheet (an invite row that opens it; UI M5d review) */
+button.mp-more { width: 100%; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.mp-more:active { transform: scale(0.98); }
+.mp-more-go { width: 34px; height: 34px; display: grid; place-items: center; color: var(--navy); }
+.mp-more-go .ui-ico { width: 18px; height: 18px; }
+.mp-sheet-rows { padding: 0; }
 /* Quick join (friends and clanmates only) · a room code + Join */
 .mp-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3) 0; }
 .mp-quick { display: flex; align-items: center; min-width: 0; }
@@ -1113,10 +1125,12 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .mp-screen .mp-code { width: 9.5em; min-height: var(--tap-dense); padding: 4px 12px; font: 700 var(--fs-body)/1 var(--font-num); letter-spacing: 0.18em; text-transform: uppercase; }
 .mp-screen .mp-code::placeholder { letter-spacing: 0.12em; }
 /* the tiles: PvP (locked, Rival Run inside) · Friends · Titan Co-op (soon) · Clan Boss. They take the height the Co-op
-   card leaves (up to a cap), each with its scenery; the words sit on a white plate (never on the art, P6) */
+   card leaves (up to a cap), each with its scenery; the words sit on a white plate (never on the art, P6). The corner
+   icon (or lock) stands in the tile's flow above the plate, so however short the tile, the plate never covers it: a
+   tile is never shorter than its icon and its words (UI M5d review) */
 .mp-tiles { flex: 1 1 auto; max-height: 300px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); padding-top: 10px; }
 .mp-tile {
-  position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end;
+  position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: var(--sp-1);
   min-height: 96px; padding: var(--sp-2); overflow: visible;
   border: 2px solid rgba(255, 255, 255, 0.9); border-radius: var(--radius); background: var(--sky-2); box-shadow: var(--shadow);
   color: var(--ink); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press) var(--ease);
@@ -1125,7 +1139,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .mp-tile-art { position: absolute; inset: 0; overflow: hidden; border-radius: calc(var(--radius) - 2px); }
 .mp-tile-scene { position: absolute; inset: 0; line-height: 0; }
 .mp-tile-scene > svg { width: 100%; height: 100%; display: block; }
-.mp-tile-ico { position: absolute; top: var(--sp-2); right: var(--sp-2); z-index: 1; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--on-plate); box-shadow: 0 0 0 2px #fff, 0 2px 0 rgba(14, 25, 48, 0.3); }
+.mp-tile-ico { position: relative; z-index: 1; flex: none; align-self: flex-end; margin-bottom: auto; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--on-plate); box-shadow: 0 0 0 2px #fff, 0 2px 0 rgba(14, 25, 48, 0.3); }
 .mp-tile-ico .ui-ico { width: 18px; height: 18px; }
 .mp-tile-text { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 5px; border-radius: 8px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 3px 10px rgba(10, 30, 60, 0.25); }
 .mp-tile-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); white-space: nowrap; }
@@ -1133,6 +1147,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .mp-tile > .mp-tile-count { position: absolute; top: -8px; left: 10px; z-index: 2; }
 .mp-tile > .mp-tile-cd { position: absolute; top: var(--sp-2); left: var(--sp-2); z-index: 1; }
 .mp-tiles > .ui-ltile { min-height: 96px; justify-content: flex-end; }
+.mp-tiles > .ui-ltile > .ui-ltile-lock { position: relative; top: auto; right: auto; z-index: 1; flex: none; align-self: flex-end; margin: -4px -4px auto 0; }
 .mp-tiles > .ui-ltile .ui-ltile-art::after { background: rgba(255, 255, 255, 0.78); }
 .mp-ltile .ui-ltile-title { white-space: nowrap; }
 /* the Rival Run sheet: one sentence, the rule chips, the rewards; nothing in it acts */
@@ -1150,6 +1165,14 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   .mp-tiles > .ui-ltile { min-height: 84px; padding: 10px; }
   .mp-tile-text { padding: 3px 8px 4px; }
   .mp-tile-title, .mp-ltile .ui-ltile-title { font-size: var(--fs-body); }
+}
+/* the shortest phones (740x360, 667x375): the card a little tighter, so two rows and the tiles fit (UI M5d review) */
+@media (max-height: 380px) {
+  .mp-coop { padding-bottom: var(--sp-2); }
+  .mp-coop > .ui-plate-head { min-height: 44px; }
+  .mp-invites, .mp-actions { padding-top: 6px; }
+  .mp-invite { min-height: 44px; padding-top: 2px; padding-bottom: 2px; }
+  .mp-tiles { padding-top: 6px; }
 }
 @media (min-width: 1000px) and (min-height: 600px) {
   .mp-tile, .mp-tiles > .ui-ltile { min-height: 140px; }

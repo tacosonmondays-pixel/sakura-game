@@ -40,7 +40,7 @@ import { loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, ribbonTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
-import { profileZero } from '../profile/zero.js';
+import { profileZero, isFreeplayTitle } from '../profile/zero.js';
 
 const PETALS = [[8, 18, 20], [78, 12, -30], [86, 46, 60], [14, 62, -10], [70, 74, 35], [30, 8, 80]];
 
@@ -233,7 +233,11 @@ function profileView(m, ctx) {
     favWrap, plate);
 
   // ---- identity panel
-  const tags = h('div.pf-tags', titlePlate(m.title),
+  // [ui-m5] "All titles n/m" sits by the title (it opens the title picker), not in the Freeplay panel (UI M5d review)
+  const allTitles = own && m.earnedTitles.length
+    ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length}/${m.titleTotal} ›`)
+    : null;
+  const tags = h('div.pf-tags', titlePlate(m.title), allTitles,
     m.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', m.clan.tag), m.clan.name) : null,
     m.since ? h('span.pf-since', { 'data-testid': 'profile-since' }, sinceText(m.since)) : null);
   const hidden = own && m.server?.bioHidden && m.bio;
@@ -317,14 +321,14 @@ function profileView(m, ctx) {
     honors) : null;
 
   // ---- freeplay records
-  const earned = own && (m.earnedTitles.length || m.earnedFrames.length)
-    ? h('div.pf-fp-earned',
-      m.earnedTitles.filter((id) => id.startsWith('fp_')).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
-      m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })),
-      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length}/${m.titleTotal} ›`) : null)
-    : !own && (m.title || m.frame)
-      ? h('div.pf-fp-earned', m.title ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null)
-      : null;
+  // [ui-m5] what the panel lists, and nothing else: the freeplay titles (fp_) and the frames (profile/zero.js); an
+  // achievement or tag title alone brings no panel (UI M5d review)
+  const earned = !z.earned ? null
+    : own
+      ? h('div.pf-fp-earned',
+        m.earnedTitles.filter(isFreeplayTitle).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
+        m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })))
+      : h('div.pf-fp-earned', isFreeplayTitle(m.title) ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null);
   // [ui-m5] only the tiers played ("Not played yet" went); no records and nothing earned: no panel
   const fpPanel = z.freeplay.length || earned ? h('section.panel.pf-fprec', { 'data-testid': 'profile-freeplay' },
     h('div.panel-title.pf-ph', h('span', 'Freeplay Records')),

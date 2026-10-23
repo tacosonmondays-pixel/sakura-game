@@ -144,6 +144,8 @@ export function render(root) {
   const lines = () => secretaryLines(store.profile);
   const stage = createArtStage(stageHost, {
     reduceMotion,
+    // (her speech bubble keeps clear of the tray and the sticker row under it, while the menus show: UI M5d review)
+    avoid: () => (el.classList.contains('ui-hidden') ? [] : [...el.querySelectorAll('.lb-hud > .lb-tray, .lb-hud > .lb-stickers')]),
     onTap: (part, at) => {
       stage.react(part, at);
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);

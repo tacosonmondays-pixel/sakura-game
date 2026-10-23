@@ -11,10 +11,14 @@
 //   4. B opens a room and invites A by DM (Invite a friend): A's lobby button shows a red 1; the hub lists the invite and
 //      its Join opens B's room (the same code, paired)
 //   5. Quick join: B opens a second room and invites A again: Quick join takes A into it; once B has left (the invite
-//      expired), Quick join is off with its reason and no invite row is left
+//      expired), Quick join is off with its reason (said once: no extra note) and no invite row is left
+//   5b. a busy card (UI M5d review): five friends invite A: the Co-op card keeps to 2 rows on phones and 4 larger,
+//      the last one "n more", which opens the rest in a sheet; the four tiles stay in view, icons clear of their words
 //   6. Clan Boss: with no clan it opens the clan search; in a clan, the clan's boss tab
-//   7. the probe (e2e/probe.mjs) on the hub, offline and with an invite, and on the lobby with its number, at 844x390
-//      and 1280x720: the floor, ≤ 12 numbers, one yellow, Momo within 35%, no sideways overflow
+//   7. the probe (e2e/probe.mjs) on the hub, offline, with an invite and busy, and on the lobby with its number, at
+//      844x390 and 1280x720: the floor, ≤ 12 numbers, one yellow, Momo within 35%, no sideways overflow, no text past
+//      its box; on the lobby at 844x390, 740x360 and 667x375, every line of the secretary's bubble clear of the tray and
+//      the sticker row (UI M5d review)
 //
 //   node e2e/multiplayer.mjs                                # 844x390 (touch), probes at both sizes
 //   node e2e/multiplayer.mjs --viewport 1280x720 --shots <dir>
@@ -153,6 +157,110 @@ async function probeBoth(page, name, { kind = 'hub', list = null } = {}) {
   await page.setViewportSize({ width: W, height: H });
 }
 
+/** The lobby secretary's speech bubble stays clear of the tray and the sticker row (probe `apart`). */
+const LOBBY_APART = [['[data-testid="secretary-bubble"]', '.lb-hud > .lb-tray'], ['[data-testid="secretary-bubble"]', '.lb-hud > .lb-stickers']];
+
+/**
+ * UI M5d review: on the lobby, every line the secretary says (a tap on her, not her head, says the next one) keeps her
+ * bubble clear of the tray and the sticker row, on the phones where it once slid under the tray (844x390, 740x360,
+ * 667x375).
+ */
+async function bubbleClear(page) {
+  await toFront(page);
+  for (const [w, h] of [[844, 390], [740, 360], [667, 375]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(500);
+    const said = new Set();
+    const bad = [];
+    for (let i = 0; i < 8; i++) {
+      await page.evaluate(() => {
+        // (an achievement toast fades her bubble on short screens while it is up: hubs.css has-ach)
+        document.querySelector('.toast-host')?.classList.remove('has-ach');
+        const f = document.querySelector('#app [data-testid="secretary-art"]');
+        const r = f.getBoundingClientRect();
+        f.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.85 }));
+      });
+      await page.waitForTimeout(450);
+      const r = await probe(page, { apart: LOBBY_APART });
+      const b = await page.evaluate(() => {
+        const el = document.querySelector('#app [data-testid="secretary-bubble"]');
+        return { text: el?.textContent || '', shown: !!el?.checkVisibility?.({ opacityProperty: true }) };
+      });
+      if (!b.shown) continue;
+      said.add(b.text);
+      bad.push(...judge(r, { only: ['apart'] }).map((f) => `"${b.text.slice(0, 28)}…" ${f}`));
+    }
+    check(said.size >= 3 && !bad.length, `lobby ${w}x${h}: her bubble stays clear of the tray and the stickers on ${said.size} lines${bad.length ? ` — ${bad.slice(0, 3).join('; ')}` : ''}`);
+    if (shotsDir) await page.screenshot({ path: `${shotsDir}/lobby-bubble-${w}x${h}.png` }).catch(() => {});
+  }
+  await page.setViewportSize({ width: W, height: H });
+}
+
+/** UI M5d review: five more friends invite A on the local test server (more invites than the card's rows at any size). */
+async function moreInvites(page) {
+  return page.evaluate(async () => {
+    const { getBackend } = await import('/src/online/backend.js');
+    const { createLocalDb } = await import('/src/online/adapters/localDb.js');
+    const me = getBackend().uid;
+    const KEY = 'ss-online-db';
+    const db = createLocalDb({ read: () => JSON.parse(localStorage.getItem(KEY) || 'null'), write: (s) => localStorage.setItem(KEY, JSON.stringify(s)) });
+    const friends = [['mp-mio', 'Mio', 'momo', 'MIO12', '3-5'], ['mp-rin', 'Rin', 'kage', 'RIN33', '1-1'], ['mp-tama', 'Tama', 'luna', 'TAMA5', '2-4'],
+      ['mp-nao', 'Nao', 'yuki', 'NAO40', '2-1'], ['mp-hana', 'Hana', 'aoi', 'HANA3', '1-4']];
+    for (const [id, name, avatar, room, stage] of friends) {
+      db.signIn(id, { name, level: 20, avatar });
+      db.addFriend(id, me);
+      const req = db.friendRequests(me).incoming.find((r) => r.userId === id);
+      if (req) db.answerFriend(me, req.id, true);
+      db.openRoom(id, room);
+      db.sendCoopInvite(id, me, { room, stage, difficulty: 'normal' });
+    }
+    return friends.length;
+  });
+}
+
+/**
+ * UI M5d review: the Co-op card keeps to its rows (2 on phones, 4 larger) with "n more" for the rest, and the four tiles
+ * stay in view beside it, each with its icon clear of its words; "n more" opens the rest in a sheet.
+ */
+async function busyCard(page, want) {
+  for (const [w, h] of SIZES) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(700);
+    const s = await page.evaluate(() => {
+      const main = document.querySelector('#app .mp-main');
+      const mr = main.getBoundingClientRect();
+      const ov = (a, c) => Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left)) * Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
+      const tiles = [...document.querySelectorAll('#app .mp-tiles > *')].map((t) => {
+        const r = t.getBoundingClientRect();
+        const ico = t.querySelector('.mp-tile-ico, .ui-ltile-lock')?.getBoundingClientRect();
+        const words = t.querySelector('.mp-tile-text, .ui-ltile-title')?.getBoundingClientRect();
+        return { inView: r.top >= mr.top - 1 && r.bottom <= mr.bottom + 1, clear: !ico || !words || ov(ico, words) < 1, h: Math.round(r.height) };
+      });
+      return {
+        rows: document.querySelectorAll('#app .mp-invites > .mp-invite').length,
+        more: document.querySelector('#app [data-testid="mp-invites-more"]')?.textContent || '',
+        scroll: main.scrollHeight - main.clientHeight, tiles,
+      };
+    });
+    const budget = h <= 480 ? 2 : 4;
+    check(s.rows <= budget && /more invite/.test(s.more), `hub ${w}x${h}: ${want} waiting → ${s.rows} rows (≤ ${budget}) with "${s.more}"`);
+    check(s.scroll <= 1 && s.tiles.length === 4 && s.tiles.every((t) => t.inView), `hub ${w}x${h}: the four tiles stay in view (no scroll: ${s.scroll}; ${s.tiles.map((t) => t.h).join(', ')} px)`);
+    check(s.tiles.every((t) => t.clear), `hub ${w}x${h}: every tile's icon stays clear of its words`);
+    if (shotsDir) await page.screenshot({ path: `${shotsDir}/mp-busy-${w}x${h}.png` }).catch(() => {});
+  }
+  await page.setViewportSize({ width: W, height: H });
+  await page.waitForTimeout(500);
+  await tap(page, '#app [data-testid="mp-invites-more"]');
+  if (check(await wait(page, '[data-testid="mp-invites-sheet"]'), '"n more" opens the rest in a sheet')) {
+    const rows = await page.evaluate(() => document.querySelectorAll('[data-testid="mp-invites-sheet"] [data-testid="mp-invite"], [data-testid="mp-invites-sheet"] [data-testid="mp-last-room"]').length);
+    const shown = await page.evaluate(() => document.querySelectorAll('#app .mp-invites > [data-testid="mp-invite"], #app .mp-invites > [data-testid="mp-last-room"]').length);
+    check(rows + shown === want, `the sheet holds the rest: ${shown} on the card + ${rows} in the sheet = ${want}`);
+    await shot(page, 'mp-busy-sheet');
+    await tap(page, '[data-testid="mp-invites-sheet-close"]');
+    await wait(page, '[data-testid="mp-invites-sheet"]', { state: 'detached' });
+  }
+}
+
 /** A player's own online id (the local test server's). */
 const uidOf = (page) => page.evaluate(async () => (await import('/src/online/backend.js')).getBackend().uid);
 
@@ -268,6 +376,7 @@ try {
   check(/1 open invite/.test((await A.locator('#app [data-testid="lobby-multiplayer"]').getAttribute('aria-label')) || ''), 'lobby: its name says "1 open invite"');
   await shot(A, 'lobby-invite');
   await probeBoth(A, 'lobby-invite', { kind: 'hub' });
+  await bubbleClear(A);
   await closeToasts(A);
   await tap(A, '#app [data-testid="lobby-multiplayer"]');
   await onScreen(A, 'multiplayer');
@@ -300,12 +409,32 @@ try {
   await onScreen(B, 'coop', '#/coop');
   await go(A, '#/multiplayer');
   await onScreen(A, 'multiplayer');
-  check(await until(A, () => !!document.querySelector('#app [data-testid="mp-invites-none"]'), null, 20000), 'no invite left: one calm line');
+  check(await until(A, () => !document.querySelector('#app [data-testid="mp-invite"]') && !!document.querySelector('#app [data-testid="mp-quick"]')?.disabled, null, 20000),
+    'no invite left: no invite row, Quick join off');
   const quickNone = await A.evaluate(() => {
     const b = document.querySelector('#app [data-testid="mp-quick"]');
-    return { disabled: !!b?.disabled, why: b?.closest('.ui-sec-wrap')?.querySelector('.ui-sec-why')?.textContent || '' };
+    const card = document.querySelector('#app [data-testid="mp-coop"]')?.innerText || '';
+    return { disabled: !!b?.disabled, why: b?.closest('.ui-sec-wrap')?.querySelector('.ui-sec-why')?.textContent || '', notes: (card.match(/invite/gi) || []).length, none: !!document.querySelector('#app [data-testid="mp-invites-none"]') };
   });
   check(quickNone.disabled && /friend or clanmate/.test(quickNone.why), `Quick join is off with its reason ("${quickNone.why}")`);
+  // (UI M5d review: said once on the card, by Quick join's reason; Momo's bubble is the only other line, P7)
+  check(!quickNone.none && quickNone.notes === 1, `no invite: the card says so once (${quickNone.notes} mention${quickNone.notes === 1 ? '' : 's'} of invites, no extra note)`);
+
+  // ---- 5b. a busy card: more invites than its rows ------------------------------------------------------------------
+  log('\n--- a busy Co-op card ---');
+  await moreInvites(A);
+  await go(A, '#/lobby');
+  await onScreen(A, 'lobby');
+  await go(A, '#/multiplayer');
+  await onScreen(A, 'multiplayer');
+  await closeToasts(A);
+  check(await until(A, () => !!document.querySelector('#app [data-testid="mp-invites-more"]'), null, 20000), 'five invites: "n more" on the card');
+  const want = 5 + (await A.evaluate(async () => {
+    const { getBackend } = await import('/src/online/backend.js');
+    return (await import('/src/online/coop/lastRoom.js')).lastRoom(getBackend().uid) ? 1 : 0;
+  }));
+  await busyCard(A, want);
+  await probeBoth(A, 'hub-busy');
 
   // ---- 6. Clan Boss ---------------------------------------------------------------------------------------------
   log('\n--- Clan Boss ---');

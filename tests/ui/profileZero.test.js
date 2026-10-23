@@ -3,7 +3,7 @@
 // played, and an empty bio that cannot be written yet are not shown; a new player's own profile keeps its Medals panel
 // (its empty line says how to earn them); a visitor's profile drops an empty panel. On real saves too.
 import { describe, it, expect } from 'vitest';
-import { profileZero, visibleStats, medalDiffs, ribbonsWon, freeplayPlayed, STAT_KEYS } from '../../src/ui/profile/zero.js';
+import { profileZero, visibleStats, medalDiffs, ribbonsWon, freeplayPlayed, freeplayEarned, isFreeplayTitle, STAT_KEYS } from '../../src/ui/profile/zero.js';
 import { ownModel } from '../../src/ui/screens/profile.js';
 import { createProfile } from '../../src/systems/save.js';
 import { veteran } from '../fixtures/veterans.js';
@@ -57,6 +57,20 @@ describe('the profile\'s zero states', () => {
     expect(profileZero({ ...empty, medals: [1, 0, 0, 0] }).trophies).toBe(true);
     expect(profileZero({ ...empty, honors: { count: 2 } })).toMatchObject({ trophies: true, honors: true });
     expect(profileZero({ ...empty, title: 'fp_tempest' }).earned).toBe(true);
+  });
+
+  it('the Freeplay panel comes for what it lists: freeplay titles and frames, never an achievement or tag title alone (UI M5d review)', () => {
+    expect(isFreeplayTitle('fp_tempest')).toBe(true);
+    expect(isFreeplayTitle('team_player')).toBe(false);
+    expect(isFreeplayTitle(null)).toBe(false);
+    // your own: one achievement title (or the testers' tag title) and no freeplay run: no panel
+    expect(profileZero({ own: true, earnedTitles: ['team_player'], earnedFrames: [], fp: {} }).earned).toBe(false);
+    expect(freeplayEarned({ own: true, earnedTitles: ['alpha_tester'], earnedFrames: [] })).toBe(false);
+    expect(profileZero({ own: true, earnedTitles: ['team_player', 'fp_tempest'], earnedFrames: [] }).earned).toBe(true);
+    expect(profileZero({ own: true, earnedTitles: [], earnedFrames: ['eclipse'] }).earned).toBe(true);
+    // someone else's card: their title only when it is a freeplay one; their frame
+    expect(profileZero({ own: false, title: 'team_player' }).earned).toBe(false);
+    expect(profileZero({ own: false, title: 'team_player', frame: 'eclipse' }).earned).toBe(true);
   });
 
   it('a late save keeps everything it has won', () => {
