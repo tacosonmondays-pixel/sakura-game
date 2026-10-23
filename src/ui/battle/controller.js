@@ -21,7 +21,10 @@ import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
 import { createHeroWidget, paintUltButton } from './heroWidget.js';
-import { createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, lifeText, abilityCommandArgs, coopCastCheck, clearPendingFor, REFUSED_MS } from './abilityBar.js';
+import {
+  createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, lifeText, clearPendingFor, REFUSED_MS,
+  soloAbilityActs, coopAbilityActs, abilityAutoControls,
+} from './abilityBar.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import { abilityText } from '../../data/abilityText.js';
 import { createHeroLevels, heroWarnText } from './heroLevels.js';
@@ -456,13 +459,8 @@ export function mountBattle(root, params, hooks) {
         return r;
       },
       // abilities: a cast ({ ok, reason, casterUid }), one girl's Auto switch, the Auto-cast setting for all of mine
-      ability: (uid, { group = false, aim = null } = {}) => {
-        const r = sim.castAbility(uid, { group: !!group, aim: aim || null });
-        if (r?.ok) saver?.markProgress();
-        return r;
-      },
-      abilityAuto: (uid, on) => progress(sim.setAbilityAuto(uid, !!on)?.ok),
-      abilityAutoAll: (on) => progress(sim.setAbilityAutoAll(0, !!on)?.ok),
+      // (abilityBar.js soloAbilityActs: tests/battle-ui/abilityAuto.test.js)
+      ...soloAbilityActs(sim, { mark: () => saver?.markProgress() }),
     };
     ctx.flight = createFlightControl(ctx);
     modules.push(ctx.flight);
@@ -668,20 +666,15 @@ export function mountBattle(root, params, hooks) {
       panel.update();
       return res;
     };
-    /** The Auto switch of the girls `uids` (one slot's copies, or one girl's panel row). */
-    ctx.setAbilityAuto = (uids, on) => {
-      for (const uid of uids || []) ctx.act.abilityAuto?.(uid, !!on);
-      abar.refresh();
-      panel.update();
-    };
-    /** Settings → Auto-cast abilities, live (the pause menu): every girl of mine and the ones that unlock later. */
-    ctx.setAutoAbilities = (on) => {
-      store.profile.settings.autoCastAbilities = !!on;
-      store.commit('settings');
-      ctx.act.abilityAutoAll?.(!!on);
-      abar.refresh();
-      panel.update();
-    };
+    // ctx.setAbilityAuto(uids, on): one slot's copies (the hold card) or one girl's panel row; ctx.setAutoAbilities(on):
+    // Settings → Auto-cast abilities, live from the pause menu (every girl of mine and the ones that unlock later)
+    Object.assign(ctx, abilityAutoControls(ctx, {
+      store,
+      refresh: () => {
+        abar.refresh();
+        panel.update();
+      },
+    }));
     /** E / the skill button: the hero's Lv 7 skill. */
     ctx.fireSkill = () => {
       const hero = sim.hero;
@@ -761,7 +754,8 @@ export function mountBattle(root, params, hooks) {
     const onKey = (e) => {
       // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
       const typing = !!e.target?.closest?.('input, select, textarea') || !!document.querySelector('.modal-overlay');
-      const act = battleKeyAction(e, { paused: ctx.paused, typing });
+      // (the upgrade tree open: only Esc; in co-op it does not pause, and nothing may fire blind behind it)
+      const act = battleKeyAction(e, { paused: ctx.paused, typing, blocked: !!ctx.tree?.isOpen });
       if (!act) return;
       switch (act.do) {
         case 'escape':
@@ -1380,30 +1374,9 @@ export function mountBattle(root, params, hooks) {
         ls.queue('pick', [uid, target]);
         return 'queued';
       },
-      /**
-       * A cast: the `abil` command (ABILITIES_SPEC §7.2–§7.3). The sim decides at the command's tick (a late one is
-       * refused, never spent twice); this view only skips the round trip when nothing of hers could fire, and never
-       * sends a second `abil` for an ability still waiting for its first.
-       */
-      ability(uid, { group = false, aim = null } = {}) {
-        // (abilityBar.js coopCastCheck: tests/battle-ui/abilityBar.test.js)
-        const c = coopCastCheck(sim, uid, { group, busy: !!ls.job, mine: (u) => ls.coop.ownerOf(u) === ls.mySlot, pending: ctx.abilityPending });
-        if (c.queued) return 'queued';
-        if (!c.send) return c;
-        ls.queue('abil', abilityCommandArgs(uid, { group, aim }));
-        ctx.abilityPending.set(c.id, { uid, at: performance.now() });
-        return 'queued';
-      },
-      abilityAuto(uid, on) {
-        if (ls.job || ls.coop.ownerOf(uid) !== ls.mySlot) return false;
-        ls.queue('acast', [uid, on ? 1 : 0]);
-        return true;
-      },
-      abilityAutoAll(on) {
-        if (ls.job) return false;
-        ls.queue('acast', [0, on ? 1 : 0]);
-        return true;
-      },
+      // a cast (the `abil` command, ABILITIES_SPEC §7.2–§7.3), one girl's Auto switch and the Auto-cast setting (the
+      // `acast` command): abilityBar.js coopAbilityActs (tests/battle-ui/abilityBar.test.js, abilityAuto.test.js)
+      ...coopAbilityActs(ctx, ls),
     };
   }
 

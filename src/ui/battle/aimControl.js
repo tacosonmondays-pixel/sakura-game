@@ -71,6 +71,13 @@ export function createAimControl(ctx) {
   ctx.layer.append(banner);
 
   function show() {
+    paint();
+    // the feed steps below the banner while it is up (battle.css .bt-feed: --bt-aim-h), so no toast hides under it
+    const tall = banner.hidden ? 0 : banner.offsetHeight || 0;
+    ctx.shell?.style?.setProperty?.('--bt-aim-h', tall ? `${tall + 8}px` : '0px');
+  }
+
+  function paint() {
     banner.hidden = picking == null && !abil;
     banner.classList.toggle('bt-aim-ability', !!abil);
     if (abil) {

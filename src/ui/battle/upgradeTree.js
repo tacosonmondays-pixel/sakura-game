@@ -59,6 +59,28 @@ function holderInfo(sim, holder) {
   return { uid: holder.uid, label: finalHolderLine(holder, whereOnMap(holder.x, holder.y, sim.map?.width, sim.map?.height)).replace(/^Held by /, '') };
 }
 
+/**
+ * What the open tree does with a key, before the battle sees it (pure; the capture-phase guard): 'close' (T), 'swallow'
+ * (a battle key that must not act blind behind the tree — co-op never pauses for it: 1–9 with or without Shift read
+ * from e.code, so every layout and the numpad with NumLock off count; E, Q, L, Space, and F in solo), or null (the
+ * rest: Esc closes the tree through onEscape; co-op F stays the shared speed). The battle's own handler also does
+ * nothing but Esc while the tree is open (abilityBar.js battleKeyAction `blocked`).
+ * @param {{ key?: string, code?: string }} e
+ * @param {{ coop?: boolean, typing?: boolean }} [o]
+ * @returns {'close'|'swallow'|null}
+ */
+export function treeKeyAction(e, { coop = false, typing = false } = {}) {
+  if (!e) return null;
+  const k = e.key || '';
+  const code = e.code || '';
+  if ((k === 't' || k === 'T') && !typing) return 'close';
+  if (/^(?:Digit|Numpad)[1-9]$/.test(code) || /^[1-9]$/.test(k)) return 'swallow';
+  if (k === ' ' || code === 'Space') return 'swallow';
+  if (/^Key[EQL]$/.test(code) || /^[eqlEQL]$/.test(k)) return 'swallow';
+  if (!coop && (code === 'KeyF' || k === 'f' || k === 'F')) return 'swallow';
+  return null;
+}
+
 export function treeArgs(sim, target, { coop = null } = {}) {
   const t = target.uid != null ? sim.getTower(target.uid) : null;
   if (t) {
@@ -443,13 +465,13 @@ export function createUpgradeTree(ctx) {
   const typing = (e) => e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
   function onKeyCapture(e) {
     if (!isOpen || document.querySelector('.us-overlay')) return;
-    const k = e.key;
-    if ((k === 't' || k === 'T') && !typing(e)) {
+    // abilities, cards, the hero's skill / ult / level, wave start and (solo) speed must not fire blind behind the tree
+    const act = treeKeyAction(e, { coop: !!ctx.coop, typing: typing(e) });
+    if (act === 'close') {
       e.preventDefault();
       e.stopImmediatePropagation();
       close();
-    } else if (/^[1-9]$/.test(k) || k === ' ' || ((k === 'f' || k === 'F') && !ctx.coop)) {
-      // placement, wave start and (solo) speed must not fire blind behind the tree
+    } else if (act === 'swallow') {
       e.stopImmediatePropagation();
     }
   }

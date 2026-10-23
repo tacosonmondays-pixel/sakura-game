@@ -1137,6 +1137,10 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-dr-state { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 900; color: var(--navy); }
 .bt-dr-banner { position: absolute; z-index: 9; left: 50%; transform: translateX(-50%); top: calc(var(--bt-hud-h) + var(--safe-top) + 8px); display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); padding: 6px 12px; border-radius: 999px; background: rgba(255, 243, 207, 0.97); box-shadow: 0 0 0 1px #ffb703, var(--shadow-strong); font-weight: 900; font-size: 0.8rem; color: #7a5300; white-space: nowrap; }
 .bt-dr-banner[hidden] { display: none; }
+.bt-dr-banner > .bt-dr-link { flex: none; }
+/* while an aim banner is up, the feed steps below it, so its toasts ("Tap a point on the map.") are never under it
+   (--bt-aim-h: the banner's height + 8 px, set by aimControl.js; 0 without one) */
+.bt-feed { translate: 0 var(--bt-aim-h, 0px); }
 @media (max-height: 500px) and (min-width: 701px) {
   .bt-dr-split { margin-bottom: 4px; font-size: 0.68rem; }
   .bt-dr-flight { margin-bottom: 4px; }
@@ -1148,7 +1152,13 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-dr-flight-seg .bt-seg-btn { flex: 1; }
   .bt-dr-tabs { top: -8px; margin-bottom: 4px; }
   .bt-dr-tab { font-size: 0.72rem; min-height: 28px; }
-  .bt-has-panel .bt-dr-banner { left: calc(50% - 175px); }
+  /* beside an open panel the banner is centred in the map left of it and never wider than that strip: a long line
+     (Time Out! from her panel's FIRE) wraps onto two lines instead of running off the left edge or under the panel */
+  .bt-has-panel .bt-dr-banner {
+    left: calc((100% - var(--bt-abar-panel-r)) / 2); max-width: calc(100% - var(--bt-abar-panel-r) - 24px);
+    white-space: normal; text-wrap: balance; border-radius: 16px; line-height: 1.25;
+  }
+  .bt-has-panel .bt-dr-banner > span { min-width: 0; }
   /* a short screen: the drone owner's header stays on one line and the mode hint shows only while picking */
   .bt-panel-drones .bt-panel-role { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
   .bt-panel-drones .bt-panel-meta { margin-top: 1px; }

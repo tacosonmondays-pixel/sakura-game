@@ -4,13 +4,17 @@
 // globe for map scope, the aim kinds, never an ally's girl or a hero; the keys (Digit / Numpad, Shift, paused,
 // typing); the co-op command arguments; a refusal line for every reason; the first-unlock toast once per id and the
 // ally chip at most every 3 s.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import {
   abilityBarView, slotNumbers, slotState, abilityCommandArgs, battleKeyAction, refusalText, REFUSAL_REASONS,
   createAbilityNotes, unlockText, allyChipText, lifeText, abilityCardView, wholeSeconds, ALLY_CHIP_MS, abilityResultLine,
-  slotTapPlan, aimCaster, coopCastCheck, clearPendingFor, cardSide,
+  slotTapPlan, aimCaster, coopCastCheck, clearPendingFor, cardSide, groupCaster, abilityReachCount, createAbilityBar,
+  soloAbilityActs, coopAbilityActs,
 } from '../../src/ui/battle/abilityBar.js';
+import { treeKeyAction } from '../../src/ui/battle/upgradeTree.js';
+import { segDistSq } from '../../src/sim/path.js';
+import { FakeEl, installFakeDom } from './fakeDom.js';
 import { abilityInfoView } from '../../src/ui/girlView.js';
 import { DEFAULT_SETTINGS, createProfile, migrateProfile } from '../../src/systems/save.js';
 import { autoAbilities } from '../../src/ui/battle/setup.js';
@@ -408,6 +412,159 @@ describe('a tap on a slot (slotTapPlan, ABILITIES_SPEC §3.3)', () => {
   });
 });
 
+// ---- the group pick with none of her copies selected (ABILITIES_SPEC §3.3; M1 review r2) -------------------------
+
+/** Legal spots for `unitId`, nearest first to the first 15 % of road 0 (where the first enemies walk). */
+function spotsByRoadStart(sim, ok) {
+  const pts = sim.paths[0];
+  const n = Math.max(2, Math.ceil(pts.length * 0.15));
+  const d = (x, y) => {
+    let b = Infinity;
+    for (let i = 0; i < n - 1; i++) b = Math.min(b, segDistSq(x, y, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
+    return Math.sqrt(b);
+  };
+  const out = [];
+  for (let y = 0.6; y < sim.map.height; y += 0.5) for (let x = 0.6; x < sim.map.width; x += 0.5) if (ok(x, y)) out.push({ x, y, d: d(x, y) });
+  return out.sort((a, b) => a.d - b.d);
+}
+
+/**
+ * Stage 1-2, Aois at tier 3 (the review's case): `fars` copies placed FIRST at the spots farthest from the road's start
+ * (so the first is the slot's face when all are ready), then one by the start of the road; the wave runs until an
+ * enemy is in the near one's reach and none in the far ones'. Then every copy is ready.
+ */
+function farAndNear({ fars = 1 } = {}) {
+  const sim = battle(['aoi', 'akane'], { hero: null });
+  const legal = (x, y) => sim.canPlace('aoi', x, y).ok;
+  const far = [];
+  for (let i = 0; i < fars; i++) {
+    const s = spotsByRoadStart(sim, legal).at(-1);
+    far.push(unlock(sim, sim.placeTower('aoi', s.x, s.y)));
+  }
+  const s = spotsByRoadStart(sim, legal)[0];
+  const near = unlock(sim, sim.placeTower('aoi', s.x, s.y));
+  sim.startNextWave();
+  const split = () => abilityReachCount(sim, near) > 0 && far.every((t) => abilityReachCount(sim, t) === 0);
+  for (let i = 0; i < 60 * 90 && !split(); i++) sim.update(1 / 60);
+  expect(split()).toBe(true);
+  for (const t of [...far, near]) t.abil.cd = 0;
+  return { sim, far, near };
+}
+
+/** The real ability bar (createAbilityBar) over the fake DOM, with the battle context it reads. */
+function domBar(sim, extra = {}) {
+  const ctx = { sim, layer: new FakeEl('div'), shell: new FakeEl('div'), placement: null, aim: null, selectedUid: null, ended: false, ...extra };
+  const bar = createAbilityBar(ctx);
+  return { ctx, bar };
+}
+
+describe('a tap with none of her copies selected fires the ready copy with the most enemies in reach (§3.3; M1 review r2)', () => {
+  let restoreDom = null;
+  afterEach(() => {
+    restoreDom?.();
+    restoreDom = null;
+  });
+  const isReadyOf = (sim) => (u) => !!sim.abilityStatus(u)?.ready;
+  const countOf = (sim) => (u) => abilityReachCount(sim, sim.getTower(u));
+
+  it('two ready Aois, the first placed out of reach: the plan names the near one; a selected copy keeps her own tap', () => {
+    const { sim, far: [far], near } = farAndNear();
+    const slot = abilityBarView(sim, 0).find((s) => s.id === 'aoi.skyfall');
+    // the slot's face is still the first ready copy (placement order): it is not who the tap fires
+    expect([slot.state, slot.badge, slot.casterUid]).toEqual(['ready', '×2', far.uid]);
+    expect(abilityReachCount(sim, far)).toBe(0);
+    expect(abilityReachCount(sim, near)).toBeGreaterThan(0);
+    const o = { isReady: isReadyOf(sim), reachCount: countOf(sim) };
+    const plan = slotTapPlan(slot, { ...o, selectedUid: null });
+    expect(plan).toEqual({ do: 'cast', uid: near.uid, group: true, cancelAim: false });
+    // another girl's panel open: no pick among the Aois either
+    expect(slotTapPlan(slot, { ...o, selectedUid: 999 }).uid).toBe(near.uid);
+    // her panel open on a copy: that copy is the player's pick, even with nothing in reach (her refusal says why)
+    expect(slotTapPlan(slot, { ...o, selectedUid: far.uid }).uid).toBe(far.uid);
+    // the cast the plan sends goes through (it used to be refused "Nothing in reach yet" with the far copy)
+    expect(sim.castAbility(plan.uid, { group: true })).toEqual({ ok: true, reason: null, casterUid: near.uid });
+  });
+
+  it('groupCaster: ready copies only, the most enemies in reach, the lowest uid on a tie, null with none ready', () => {
+    const ready = new Set([4, 7, 9]);
+    const count = { 4: 1, 7: 3, 9: 3, 2: 8 };
+    expect(groupCaster([2, 4, 7, 9], (u) => ready.has(u), (u) => count[u])).toBe(7);
+    expect(groupCaster([9, 7, 4], (u) => ready.has(u), (u) => count[u])).toBe(7);
+    expect(groupCaster([2, 4], (u) => ready.has(u), (u) => count[u])).toBe(4);
+    expect(groupCaster([2], (u) => ready.has(u), (u) => count[u])).toBeNull();
+    expect(groupCaster([], () => true, () => 1)).toBeNull();
+  });
+
+  it('the bar\'s count and tie rule are the sim\'s own group pick: a selected copy recharging hands the cast to the same girl', () => {
+    let { sim, far, near } = farAndNear({ fars: 2 });
+    const all = () => [...far, near].map((t) => t.uid);
+    far[0].abil.cd = far[0].abil.cdMax;
+    const pick = groupCaster(all(), isReadyOf(sim), countOf(sim));
+    expect(pick).toBe(near.uid);
+    expect(sim.castAbility(far[0].uid, { group: true })).toEqual({ ok: true, reason: null, casterUid: pick });
+    // a tie (nothing in either far copy's reach): the lowest uid for the bar and the sim alike
+    ({ sim, far, near } = farAndNear({ fars: 2 }));
+    near.abil.cd = near.abil.cdMax;
+    const tie = groupCaster(all(), isReadyOf(sim), countOf(sim));
+    expect(tie).toBe(Math.min(far[0].uid, far[1].uid));
+    expect(sim.castAbility(near.uid, { group: true })).toEqual({ ok: false, reason: 'noTarget', casterUid: tie });
+  });
+
+  it('through the bar itself, solo: a tap on the slot (or key 1) casts the in-reach copy', () => {
+    restoreDom = installFakeDom();
+    for (const key of [false, true]) {
+      const { sim, near } = farAndNear();
+      const calls = [];
+      const acts = soloAbilityActs(sim);
+      const { bar } = domBar(sim, { castAbility: (uid, o) => (calls.push({ uid, ...o }), acts.ability(uid, o)) });
+      expect(bar.fireSlot(0, { key })).toBe(true);
+      expect(calls).toEqual([{ uid: near.uid, group: true, aim: null, id: 'aoi.skyfall' }]);
+      expect(near.abil.n).toBe(1);
+      bar.destroy();
+    }
+  });
+
+  it('through the bar in co-op: the `abil` command names the in-reach copy, and it casts on the CoopSim', () => {
+    restoreDom = installFakeDom();
+    const st = { seed: 5, stageId: '1-2', difficulty: 'normal', players: [{ slot: 0, uid: 'a', name: 'A', loadout: [{ unitId: 'aoi' }], hero: null }, { slot: 1, uid: 'b', name: 'B', loadout: [{ unitId: 'rei' }], hero: null }] };
+    const c = createCoopSim(st, { mySlot: 0 });
+    const snap = c.snapshot();
+    snap.wallets = [1e6, 1e6];
+    c.restore(snap);
+    let s = 1;
+    const cmd = (p, k, a) => c.apply({ t: c.tick, p, s: s++, k, a });
+    const put = (spot) => {
+      const r = cmd(0, 'place', ['aoi', Math.round(spot.x * 1024), Math.round(spot.y * 1024)]);
+      expect(r.ok).toBe(true);
+      for (let i = 0; i < 3; i++) expect(cmd(0, 'upg', [r.tower.uid, abilityPathOf(UNIT_MAP.aoi)]).ok).toBe(true);
+      return r.tower;
+    };
+    const legal = (x, y) => c.sim.canPlace('aoi', x, y).ok;
+    const far = put(spotsByRoadStart(c.sim, legal).at(-1));
+    const near = put(spotsByRoadStart(c.sim, legal)[0]);
+    expect(cmd(0, 'wave', []).ok).toBe(true);
+    const split = () => abilityReachCount(c.sim, near) > 0 && abilityReachCount(c.sim, far) === 0;
+    for (let i = 0; i < 6000 && !split(); i++) c.step();
+    expect(split()).toBe(true);
+    far.abil.cd = 0;
+    near.abil.cd = 0;
+    const sent = [];
+    const pending = new Map();
+    const ls = { job: null, mySlot: 0, queue: (k, a) => sent.push([k, a]), coop: { ownerOf: (u) => c.ownerOf(u) } };
+    const acts = coopAbilityActs({ sim: c.sim, abilityPending: pending }, ls);
+    const { bar } = domBar(c.sim, { coop: { mySlot: 0, isMine: (u) => c.ownerOf(u) === 0 }, abilityPending: pending, castAbility: (uid, o) => acts.ability(uid, o) });
+    expect(abilityBarView(c.sim, 0)[0].casterUid).toBe(far.uid);
+    bar.fireSlot(0, { key: false });
+    expect(sent).toEqual([['abil', [near.uid, 1, -1, -1]]]);
+    expect(pending.get('aoi.skyfall')?.uid).toBe(near.uid);
+    const abil = { t: c.tick, p: 0, s: s++, k: sent[0][0], a: sent[0][1] };
+    expect(isValidCmd(abil)).toBe(true);
+    expect(c.apply(abil)).toEqual({ ok: true, casterUid: near.uid });
+    expect(clearPendingFor(pending, abil, 0)).toEqual(['aoi.skyfall']);
+    bar.destroy();
+  });
+});
+
 describe('the co-op cast path (coopCastCheck, clearPendingFor)', () => {
   /** A CoopSim: player 0 has two Aois at tier 3, player 1 a Rei at tier 3, a wave running. */
   function coop() {
@@ -521,6 +678,34 @@ describe('battleKeyAction', () => {
     expect(battleKeyAction(k({ key: '!', code: 'Digit1', shiftKey: true }), { paused: true })).toBeNull();
     expect(battleKeyAction(k({ key: 'Escape' }), { paused: true })).toEqual({ do: 'escape' });
     for (const e of [k({ key: '1', code: 'Digit1' }), k({ key: 'Escape' }), k({ key: ' ' }), k({ key: 'e' })]) expect(battleKeyAction(e, { typing: true })).toBeNull();
+  });
+
+  it('behind the open upgrade tree nothing fires: the tree swallows every battle key by its code, and the battle\'s handler is blocked too (M1 review r2)', () => {
+    // the review's leaks in co-op (the tree does not pause there): Shift+1 / Shift+3 armed cards, E fired the skill,
+    // AZERTY's unshifted 1 ('&') and the numpad's 1 with NumLock off ('End') fired slot 1
+    const leaks = [
+      k({ key: '!', code: 'Digit1', shiftKey: true }), k({ key: '#', code: 'Digit3', shiftKey: true }), k({ key: 'e', code: 'KeyE' }),
+      k({ key: '&', code: 'Digit1' }), k({ key: 'End', code: 'Numpad1' }), k({ key: '1', code: 'Digit1' }), k({ key: '1', code: 'Numpad1' }),
+      k({ key: 'q', code: 'KeyQ' }), k({ key: 'L', code: 'KeyL', shiftKey: true }), k({ key: ' ', code: 'Space' }),
+    ];
+    for (const e of leaks) {
+      const what = `${e.key}/${e.code}`;
+      expect(battleKeyAction(e), what).not.toBeNull(); // a battle key …
+      expect(treeKeyAction(e, { coop: true }), what).toBe('swallow'); // … that never gets past the tree in co-op
+      expect(treeKeyAction(e, { coop: false }), what).toBe('swallow'); // … or in solo
+      expect(battleKeyAction(e, { blocked: true }), what).toBeNull(); // and does nothing even if it did
+    }
+    // Esc is the tree's own (onEscape closes it first); T closes the tree, never while typing
+    expect(battleKeyAction(k({ key: 'Escape', code: 'Escape' }), { blocked: true })).toEqual({ do: 'escape' });
+    expect(treeKeyAction(k({ key: 'Escape', code: 'Escape' }), { coop: true })).toBeNull();
+    expect(treeKeyAction(k({ key: 't', code: 'KeyT' }))).toBe('close');
+    expect(treeKeyAction(k({ key: 'T', code: 'KeyT', shiftKey: true }), { coop: true })).toBe('close');
+    expect(treeKeyAction(k({ key: 't', code: 'KeyT' }), { typing: true })).toBeNull();
+    // F: solo speed waits behind the tree; co-op speed is the shared one and still goes through, as before
+    expect(treeKeyAction(k({ key: 'f', code: 'KeyF' }), { coop: false })).toBe('swallow');
+    expect(treeKeyAction(k({ key: 'f', code: 'KeyF' }), { coop: true })).toBeNull();
+    // keys the battle does not use pass
+    for (const e of [k({ key: 'a', code: 'KeyA' }), k({ key: '0', code: 'Digit0' }), k({ key: 'Tab', code: 'Tab' })]) expect(treeKeyAction(e, { coop: true })).toBeNull();
   });
 });
 

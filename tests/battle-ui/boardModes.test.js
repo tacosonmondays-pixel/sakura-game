@@ -10,79 +10,16 @@ import { STAGE, testData } from '../sim/fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { createAimControl, abilityTapAction, abilityAimText, aimCandidates } from '../../src/ui/battle/aimControl.js';
 import { createPlacement, clearBoardModes } from '../../src/ui/battle/placement.js';
+import { abilityBarView, slotTapPlan, placingNow, PLACE_GUARD_MS } from '../../src/ui/battle/abilityBar.js';
+import { FakeEl, installFakeDom } from './fakeDom.js';
 
-// ---- a fake DOM: enough for dom.js h(), the aim banner and the placement hint ----------------------------------
-class FakeNode {}
-class FakeText extends FakeNode {
-  constructor(t) {
-    super();
-    this.textContent = String(t);
-  }
-}
-class FakeEl extends FakeNode {
-  constructor(tag) {
-    super();
-    this.tagName = String(tag).toUpperCase();
-    this.attrs = {};
-    this.dataset = {};
-    this.style = { setProperty() {} };
-    this.children = [];
-    this.hidden = false;
-    this.listeners = {};
-    this._text = '';
-    const cls = new Set();
-    this.classList = {
-      add: (...c) => c.forEach((x) => cls.add(x)),
-      remove: (...c) => c.forEach((x) => cls.delete(x)),
-      toggle: (c, on) => {
-        const v = on === undefined ? !cls.has(c) : !!on;
-        if (v) cls.add(c);
-        else cls.delete(c);
-        return v;
-      },
-      contains: (c) => cls.has(c),
-    };
-  }
-  set textContent(t) {
-    this._text = String(t);
-    this.children = [];
-  }
-  get textContent() {
-    return this._text + this.children.map((c) => c.textContent || '').join('');
-  }
-  set innerHTML(v) {
-    this._html = v;
-  }
-  setAttribute(k, v) {
-    this.attrs[k] = v;
-  }
-  getAttribute(k) {
-    return this.attrs[k];
-  }
-  addEventListener(type, fn) {
-    (this.listeners[type] ||= []).push(fn);
-  }
-  appendChild(c) {
-    this.children.push(c);
-    return c;
-  }
-  append(...c) {
-    this.children.push(...c);
-  }
-  replaceChildren(...c) {
-    this.children = c;
-  }
-  remove() {}
-}
-
-const saved = {};
+// ---- a fake DOM (tests/battle-ui/fakeDom.js): enough for dom.js h(), the aim banner and the placement hint -------
+let restoreDom = null;
 beforeEach(() => {
-  for (const k of ['document', 'Node']) saved[k] = globalThis[k];
-  globalThis.Node = FakeNode;
-  globalThis.document = { createElement: (t) => new FakeEl(t), createTextNode: (t) => new FakeText(t) };
+  restoreDom = installFakeDom();
 });
 afterEach(() => {
-  for (const [k, v] of Object.entries(saved)) globalThis[k] = v;
+  restoreDom?.();
 });
 
 /** A real battle (1-2 Normal), Wakaba (Time Out!: girl aim) and Yuzuha (Emergency Deploy: point aim) at tier 3. */
@@ -251,5 +188,63 @@ describe('aim mode follows the copy that casts', () => {
     expect(abilityAimText('girl', 'Wakaba', 'Time Out!')).toBe('Tap the girl Wakaba should coach — or tap her portrait again for her pick');
     expect(abilityAimText('point', 'Yuzuha', 'Emergency Deploy', { from: 'panel' })).toBe('Tap the road for the sentries — or tap FIRE again');
     for (const k of ['girl', 'point', 'other']) for (const from of ['bar', 'panel']) expect(abilityAimText(k, 'A', 'B', { from })).not.toMatch(/⚡/);
+  });
+});
+
+describe('the click that follows a placement\'s board tap never fires the bar (placingNow; M1 review r2)', () => {
+  it('placingNow: a card armed, or within PLACE_GUARD_MS of the board tap that ended one; never before it or without one', () => {
+    expect(PLACE_GUARD_MS).toBe(400);
+    expect(placingNow(null, 5)).toBe(false);
+    expect(placingNow({ unitId: 'akane', tapEndedAt: null }, 5)).toBe(true);
+    expect(placingNow({ unitId: null, tapEndedAt: null }, 5)).toBe(false);
+    expect(placingNow({ unitId: null, tapEndedAt: 1000 }, 1000)).toBe(true);
+    expect(placingNow({ unitId: null, tapEndedAt: 1000 }, 1399)).toBe(true);
+    expect(placingNow({ unitId: null, tapEndedAt: 1000 }, 1400)).toBe(false);
+    expect(placingNow({ unitId: null, tapEndedAt: 1000 }, 999)).toBe(false);
+  });
+
+  it('on the real placement controller: a board tap off the field or one that places her keeps a slot tap out for the guard; a key still fires; a cancel by code is no board tap', () => {
+    const { sim, free } = stage();
+    const { ctx, log } = context(sim);
+    const slot = abilityBarView(sim, 0).find((s) => s.id === 'wakaba.timeOut');
+    expect(slot.state).toBe('ready');
+    const plan = (now, o = {}) => slotTapPlan(slot, { placing: placingNow(ctx.placement, now), isReady: (u) => !!sim.abilityStatus(u)?.ready, ...o });
+    expect(ctx.placement.tapEndedAt).toBeNull();
+    expect(plan(performance.now()).do).toBe('aim');
+    // a card armed: the tap is the placement's
+    ctx.placement.start('akane');
+    expect(plan(performance.now())).toEqual({ do: 'none' });
+    // the board tap under the faded bar: off the field, so the placement ends at once (pointerup), and the touch's
+    // click reaches the slot a frame or two later, once the bar takes taps again
+    const t0 = performance.now();
+    expect(ctx.placement.handleTap({ inBounds: false, x: null, y: null, towerUid: null })).toBe(true);
+    expect(ctx.placement.unitId).toBeNull();
+    const at = ctx.placement.tapEndedAt;
+    expect(at).toBeGreaterThanOrEqual(t0);
+    expect(plan(at + 16)).toEqual({ do: 'none' });
+    expect(plan(at + PLACE_GUARD_MS - 1)).toEqual({ do: 'none' });
+    expect(plan(at + 16, { key: true }).do).toBe('aim'); // a key is deliberate
+    expect(plan(at + PLACE_GUARD_MS + 1).do).toBe('aim'); // and the bar is a bar again (+1: `at` is a fraction of a ms)
+    // a board tap that places her ends it the same way
+    ctx.placement.start('akane');
+    expect(ctx.placement.handleTap({ inBounds: true, x: free.x, y: free.y, towerUid: null })).toBe(true);
+    expect(log.placed).toEqual(['akane']);
+    expect(ctx.placement.tapEndedAt).toBeGreaterThanOrEqual(at);
+    expect(plan(ctx.placement.tapEndedAt + 16)).toEqual({ do: 'none' });
+    // a refused spot keeps the card armed (still placing), and records no end
+    const before = ctx.placement.tapEndedAt;
+    ctx.placement.start('akane');
+    expect(ctx.placement.handleTap({ inBounds: true, x: free.x, y: free.y, towerUid: null })).toBe(true);
+    expect([ctx.placement.unitId, ctx.placement.tapEndedAt]).toEqual(['akane', before]);
+    // Esc / the hint's Cancel (code, not a board tap): nothing to guard
+    ctx.placement.cancel();
+    expect(ctx.placement.tapEndedAt).toBe(before);
+    // a drag released over the bar puts her back: that release is a board-side pointerup too
+    ctx.bar = { el: { getBoundingClientRect: () => ({ top: 0 }) } };
+    ctx.placement.beginDrag('akane');
+    const t1 = performance.now();
+    ctx.placement.dragEnd(10, 10, 'touch');
+    expect(ctx.placement.unitId).toBeNull();
+    expect(ctx.placement.tapEndedAt).toBeGreaterThanOrEqual(t1);
   });
 });

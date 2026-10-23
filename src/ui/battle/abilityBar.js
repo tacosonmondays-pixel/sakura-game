@@ -9,8 +9,11 @@
 //     refusalText(reason, o)                                the quiet toast for every refusal reason
 //     createAbilityNotes({ now })                           first unlock once per id, the ally chip at most every 3 s
 //     abilityCardView(sim, slot)                            the hold card's words
-//     slotTapPlan(slot, o) / aimCaster(slot, sel, isReady)  what a tap does and which copy casts (§3.3)
+//     slotTapPlan(slot, o) / aimCaster(…) / groupCaster(…)  what a tap does and which copy casts (§3.3)
+//     abilityReachCount(sim, t)                             the enemies her ability would find now (the group pick's measure)
+//     placingNow(placement, now)                            a card armed, or a board tap ended one a moment ago
 //     coopCastCheck(sim, uid, o) / clearPendingFor(…)       the co-op pre-check and the pending slot's release
+//     soloAbilityActs / coopAbilityActs / abilityAutoControls  casts and the Auto switches, solo and co-op
 //     cardSide(rects, points, casterUid)                    the side of the screen the hold card goes
 //   DOM half: createAbilityBar(ctx) → { el, update(), handle(events), fireSlot(i), … }
 //
@@ -26,7 +29,8 @@ import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
 import { KIT_SVG } from '../kit.js';
 import { abilityText, abilityAim, abilityValues, fillAbilityText, ABILITY_COPY } from '../../data/abilityText.js';
-import { abilityDef, abilityReach, abilityOrigin } from '../../sim/abilities.js';
+import { abilityDef, abilityReach, abilityOrigin, abilitySpec } from '../../sim/abilities.js';
+import { gatherTargets } from '../../sim/towers.js';
 import { ABILITY_RULES } from '../../data/abilities.js';
 import { abilArgs } from '../../online/coop/commands.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, HOLD_MS } from '../hold.js';
@@ -41,6 +45,12 @@ export const REFUSED_MS = 1500;
 export const PENDING_MS = 8000;
 /** At most one ally chip this often (ms). */
 export const ALLY_CHIP_MS = 3000;
+/**
+ * A board tap that ends a placement still owns the bar this long (ms): on a phone the touch's click lands a frame or
+ * two after the tap, when the bar has stopped fading and takes taps again (ABILITIES_SPEC §8.1: a placement tap never
+ * fires an ability).
+ */
+export const PLACE_GUARD_MS = 400;
 /** Events that change which slots exist or what they show (the list is rebuilt the same frame). */
 export const REBUILD_EVENTS = new Set(['abilityUnlock', 'abilityUpgrade', 'abilityReady', 'abilityEnd', 'ability', 'sell', 'place', 'upgrade', 'waveStart', 'waveEnd', 'sabotage', 'won', 'lost']);
 
@@ -87,16 +97,78 @@ export function abilityCommandArgs(uid, { group = false, aim = null } = {}) {
 }
 
 /**
+ * The enemies her ability would find now: the measure of the group pick (ABILITIES_SPEC §3.3 "the ready copy with the
+ * most eligible enemies in her ability reach"), the same count as the sim's (abilities.js enemiesInReach): a map-wide
+ * reach counts every enemy outside the tunnels, a rally every one within its reach, any other ability the enemies it
+ * can hit within its reach, looking from where the sim looks (abilityOrigin). Reads the sim, writes nothing.
+ * @param {import('../../sim/Sim.js').Sim} sim
+ * @param {object|null} t TowerRT
+ */
+export function abilityReachCount(sim, t) {
+  const def = t?.abil && !t.removed ? abilityDef(t) : null;
+  if (!def) return 0;
+  const reach = abilityReach(t, def);
+  let n = 0;
+  if (reach === Infinity) {
+    for (const e of sim.enemies) if (!e.dead && !e.hidden) n++;
+    return n;
+  }
+  const { x, y } = abilityOrigin(t, def);
+  if (def.kind === 'rally') {
+    for (const e of sim.grid.query(x, y, reach, [])) if (!e.dead && !e.hidden) n++;
+    return n;
+  }
+  return gatherTargets(sim, x, y, reach, abilitySpec(t, def), []).length;
+}
+
+/**
+ * The copy a tap fires when the player picked none of them (ABILITIES_SPEC §3.3): the ready copy with the most
+ * eligible enemies in her ability reach; on a tie, the lowest uid. Null when no copy is ready.
+ * @param {number[]} casters the slot's copies
+ * @param {(uid: number) => boolean} isReady
+ * @param {(uid: number) => number} reachCount abilityReachCount of a copy
+ */
+export function groupCaster(casters, isReady, reachCount) {
+  let best = null;
+  let bestN = -1;
+  for (const u of casters || []) {
+    if (!isReady(u)) continue;
+    const n = reachCount(u);
+    if (n > bestN || (n === bestN && u < best)) {
+      best = u;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
+/**
  * The copy an aimed tap hands to aim mode (ABILITIES_SPEC §3.3: "the tapped or selected copy if she is ready;
- * otherwise the ready copy …"): the selected copy `sel` when she is ready, else the slot's best copy (ready whenever
- * the slot is). The aimed cast then goes out with group: false, so the girl-target rule never swaps casters under
- * the aim, and the reach ring / candidates follow the girl who really casts.
- * @param {{ casterUid: number }} slot
+ * otherwise the ready copy with the most eligible enemies in her ability reach"): `sel` when she is ready, else the
+ * group pick (groupCaster), else the slot's best copy. The aimed cast then goes out with group: false, so the
+ * girl-target rule never swaps casters under the aim, and the reach ring / candidates follow the girl who really casts.
+ * @param {{ casters: number[], casterUid: number }} slot
  * @param {number} sel the tapped or selected copy
  * @param {(uid: number) => boolean} isReady
+ * @param {(uid: number) => number} [reachCount]
  */
-export function aimCaster(slot, sel, isReady) {
-  return sel !== slot.casterUid && !isReady(sel) ? slot.casterUid : sel;
+export function aimCaster(slot, sel, isReady, reachCount = () => 0) {
+  if (isReady(sel)) return sel;
+  return groupCaster(slot.casters, isReady, reachCount) ?? slot.casterUid;
+}
+
+/**
+ * Is a board tap the placement's right now? A card is armed (or dragged), or a board tap ended a placement less than
+ * PLACE_GUARD_MS ago: a phone's click comes a frame or two after the touch, when the bar no longer fades, and must not
+ * land on the slot under the finger.
+ * @param {{ unitId?: string|null, tapEndedAt?: number|null }|null} placement
+ * @param {number} now performance.now()
+ */
+export function placingNow(placement, now, guardMs = PLACE_GUARD_MS) {
+  if (!placement) return false;
+  if (placement.unitId) return true;
+  const at = placement.tapEndedAt;
+  return at != null && Number.isFinite(at) && now >= at && now - at < guardMs;
 }
 
 /**
@@ -104,16 +176,19 @@ export function aimCaster(slot, sel, isReady) {
  *   { do: 'none' }                          the battle is over, or a card is armed and it was a tap (a key still fires)
  *   { do: 'cast', uid, group: true, cancelAim }  the group cast (cancelAim: the same slot again while aiming = her pick)
  *   { do: 'aim', uid }                      an aimed ability that is ready: aim mode for the copy that will cast
- * `uid` is the tapped (selected) copy when she is one of the slot's casters, else the slot's best copy.
+ * `uid` is the tapped (selected) copy when she is one of the slot's casters (a group cast falls back from her in the
+ * sim when she is not ready); with none of them selected, the ready copy with the most enemies in her reach
+ * (groupCaster: ABILITIES_SPEC §3.3), else the slot's best copy (her refusal says why).
  * @param {{ id: string, casters: number[], casterUid: number, aim?: string|null, state: string }} slot
  * @param {{ selectedUid?: number|null, aimingId?: string|null, placing?: boolean, key?: boolean, ended?: boolean,
- *   canAim?: boolean, isReady?: (uid: number) => boolean }} [o]
+ *   canAim?: boolean, isReady?: (uid: number) => boolean, reachCount?: (uid: number) => number }} [o]
  */
-export function slotTapPlan(slot, { selectedUid = null, aimingId = null, placing = false, key = false, ended = false, canAim = true, isReady = () => false } = {}) {
+export function slotTapPlan(slot, { selectedUid = null, aimingId = null, placing = false, key = false, ended = false, canAim = true, isReady = () => false, reachCount = () => 0 } = {}) {
   if (!slot || ended || (placing && !key)) return { do: 'none' };
-  const sel = selectedUid != null && slot.casters.includes(selectedUid) ? selectedUid : slot.casterUid;
+  const picked = selectedUid != null && slot.casters.includes(selectedUid) ? selectedUid : null;
+  const sel = picked ?? groupCaster(slot.casters, isReady, reachCount) ?? slot.casterUid;
   if (aimingId != null && aimingId === slot.id) return { do: 'cast', uid: sel, group: true, cancelAim: true };
-  if (slot.aim && slot.state === 'ready' && canAim) return { do: 'aim', uid: aimCaster(slot, sel, isReady) };
+  if (slot.aim && slot.state === 'ready' && canAim) return { do: 'aim', uid: aimCaster(slot, sel, isReady, reachCount) };
   return { do: 'cast', uid: sel, group: true, cancelAim: false };
 }
 
@@ -155,6 +230,83 @@ export function clearPendingFor(pending, cmd, mySlot) {
     }
   }
   return out;
+}
+
+/**
+ * A solo battle's ability actions (ctx.act): a cast ({ ok, reason, casterUid }), one girl's Auto switch, and the
+ * Auto-cast setting for all of player 0's girls and the ones that unlock later. `mark` marks battle-save progress.
+ * @param {import('../../sim/Sim.js').Sim} sim
+ * @param {{ mark?: () => void }} [o]
+ */
+export function soloAbilityActs(sim, { mark = () => {} } = {}) {
+  const done = (ok) => {
+    if (ok) mark();
+    return ok;
+  };
+  return {
+    ability: (uid, { group = false, aim = null } = {}) => {
+      const r = sim.castAbility(uid, { group: !!group, aim: aim || null });
+      done(!!r?.ok);
+      return r;
+    },
+    abilityAuto: (uid, on) => done(!!sim.setAbilityAuto(uid, !!on)?.ok),
+    abilityAutoAll: (on) => done(!!sim.setAbilityAutoAll(0, !!on)?.ok),
+  };
+}
+
+/**
+ * A co-op battle's ability actions (ctx.act): the `abil` command (ABILITIES_SPEC §7.2–§7.3: the sim decides at the
+ * command's tick, a late one is refused, never spent twice; this view only skips the round trip when nothing of hers
+ * could fire, and never sends a second `abil` for an ability still waiting for its first) and the `acast` command:
+ * [uid, 0|1] for one girl's switch, [0, 0|1] for the Auto-cast setting (every girl of mine and later unlocks).
+ * @param {{ sim: object, abilityPending: Map<string, { uid: number, at: number }> }} ctx
+ * @param {{ job?: any, mySlot: number, queue: (k: string, a: any[]) => void, coop: { ownerOf: (uid: number) => number } }} ls
+ */
+export function coopAbilityActs(ctx, ls, { now = () => (typeof performance !== 'undefined' ? performance.now() : 0) } = {}) {
+  const mine = (u) => ls.coop.ownerOf(u) === ls.mySlot;
+  return {
+    ability(uid, { group = false, aim = null } = {}) {
+      const c = coopCastCheck(ctx.sim, uid, { group, busy: !!ls.job, mine, pending: ctx.abilityPending });
+      if (c.queued) return 'queued';
+      if (!c.send) return c;
+      ls.queue('abil', abilityCommandArgs(uid, { group, aim }));
+      ctx.abilityPending.set(c.id, { uid, at: now() });
+      return 'queued';
+    },
+    abilityAuto(uid, on) {
+      if (ls.job || !mine(uid)) return false;
+      ls.queue('acast', [uid, on ? 1 : 0]);
+      return true;
+    },
+    abilityAutoAll(on) {
+      if (ls.job) return false;
+      ls.queue('acast', [0, on ? 1 : 0]);
+      return true;
+    },
+  };
+}
+
+/**
+ * The Auto switches (ABILITIES_SPEC §8.2; owner #53: Auto is off by default) on ctx.act (solo or co-op above):
+ *   setAbilityAuto(uids, on)  one slot's copies (the hold card) or one girl (her panel row's switch)
+ *   setAutoAbilities(on)      Settings → Auto-cast abilities from the pause menu: saved in the profile and applied at
+ *                             once to every girl of mine and the ones that unlock later
+ * @param {{ act: object }} ctx
+ * @param {{ store: { profile: { settings: object }, commit: (what: string) => void }, refresh?: () => void }} o
+ */
+export function abilityAutoControls(ctx, { store, refresh = () => {} }) {
+  return {
+    setAbilityAuto(uids, on) {
+      for (const uid of uids || []) ctx.act?.abilityAuto?.(uid, !!on);
+      refresh();
+    },
+    setAutoAbilities(on) {
+      store.profile.settings.autoCastAbilities = !!on;
+      store.commit('settings');
+      ctx.act?.abilityAutoAll?.(!!on);
+      refresh();
+    },
+  };
 }
 
 /**
@@ -247,15 +399,16 @@ export function slotNumbers(slot) {
 /**
  * What a key does in battle (UI_DIRECTION §5.10 E8, ABILITIES_SPEC §8.3). 1–9 (the digit row or the numpad, read from
  * `e.code`, so every keyboard layout works) fire ability slots 1–9; Shift+1–9 arm tower-bar cards 1–9; E fires the
- * hero skill; Q / L / Space / F / Esc keep their jobs. Nothing while typing; only Esc while paused.
+ * hero skill; Q / L / Space / F / Esc keep their jobs. Nothing while typing; only Esc while paused, or while
+ * `blocked` (the upgrade tree is open: in co-op it does not pause, and nothing may fire blind behind it).
  * @param {{ key?: string, code?: string, shiftKey?: boolean, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, repeat?: boolean }} e
- * @param {{ paused?: boolean, typing?: boolean }} [s]
+ * @param {{ paused?: boolean, typing?: boolean, blocked?: boolean }} [s]
  * @returns {{ do: 'escape'|'wave'|'speed'|'ult'|'level'|'skill'|'ability'|'card', slot?: number, index?: number }|null}
  */
-export function battleKeyAction(e, { paused = false, typing = false } = {}) {
+export function battleKeyAction(e, { paused = false, typing = false, blocked = false } = {}) {
   if (!e || typing) return null;
   if (e.key === 'Escape') return { do: 'escape' };
-  if (paused || e.ctrlKey || e.metaKey || e.altKey) return null;
+  if (paused || blocked || e.ctrlKey || e.metaKey || e.altKey) return null;
   const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
   if (digit) {
     if (e.repeat) return null;
@@ -399,6 +552,7 @@ const canHover = () => typeof matchMedia === 'function' && matchMedia('(hover: h
 export function createAbilityBar(ctx) {
   const { sim } = ctx;
   const owner = () => (ctx.coop ? ctx.coop.mySlot : 0);
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   const list = h('div.bt-abar-list', { role: 'group', 'aria-label': 'Abilities' });
   const moreNum = h('span.num');
   const more = h('button.bt-ab.bt-ab-more', { type: 'button', 'data-testid': 'ability-more', 'aria-label': 'More abilities', hidden: true, onclick: () => toggleFly() }, moreNum);
@@ -528,7 +682,7 @@ export function createAbilityBar(ctx) {
     });
     btn.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (ctx.placement?.unitId) return;
+      if (placingNow(ctx.placement, clock())) return;
       hold.down(e);
     });
     btn.addEventListener('pointermove', (e) => hold.move(e));
@@ -680,15 +834,17 @@ export function createAbilityBar(ctx) {
 
   /**
    * A tap on a slot (or its key): aim first when it aims and is ready, else fire the group cast. A tap while a card
-   * is armed never casts (the bar fades and ignores it); a key is deliberate and does.
+   * is armed, or the click of the board tap that just ended one, never casts (the bar fades and ignores it:
+   * placingNow); a key is deliberate and does.
    */
   function tap(id, { key = false } = {}) {
     const slot = slots.find((s) => s.id === id);
-    // the tapped (selected) copy when she is one of them, else the slot's best copy; an aimed tap goes to the copy
-    // that will really cast (a selected copy still recharging hands it to the ready one: slotTapPlan / aimCaster)
+    // the tapped (selected) copy when she is one of them, else the ready copy with the most enemies in her reach; an
+    // aimed tap goes to the copy that will really cast (slotTapPlan / groupCaster / aimCaster, ABILITIES_SPEC §3.3)
     const plan = slotTapPlan(slot, {
-      selectedUid: ctx.selectedUid, aimingId: ctx.aim?.abilityId ?? null, placing: !!ctx.placement?.unitId, key, ended: !!ctx.ended,
+      selectedUid: ctx.selectedUid, aimingId: ctx.aim?.abilityId ?? null, placing: placingNow(ctx.placement, clock()), key, ended: !!ctx.ended,
       canAim: !!ctx.aim?.startAbility, isReady: (u) => !!sim.abilityStatus(u)?.ready,
+      reachCount: (u) => abilityReachCount(sim, sim.getTower(u)),
     });
     if (plan.do === 'none') return;
     if (flyOpen && fly.contains(nodes.get(id)?.btn)) {
@@ -706,7 +862,7 @@ export function createAbilityBar(ctx) {
   }
 
   function update() {
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const now = clock();
     if (dirty || now - builtAt >= REBUILD_MS) rebuild(now);
     if (!el.hidden) paint();
   }
@@ -725,7 +881,7 @@ export function createAbilityBar(ctx) {
     },
     /** Keys 1–9 (0-based index into the bar's order, the flyout included). */
     fireSlot(i, { key = true } = {}) {
-      if (dirty) rebuild(typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (dirty) rebuild(clock());
       const s = slots[i];
       if (s) tap(s.id, { key });
       return !!s;

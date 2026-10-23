@@ -7,9 +7,11 @@
 //     pinned), key 1 fires it again (PC), E / the skill button fires Hikari's Lv 7 skill
 //   - hold (touch) / right-click (mouse) Momo's slot → the info card (the recharge once, no reach ring for coins, no
 //     girl under it) → Auto on → Market Day fires by itself
-//   - a card armed: the bar fades to 35% and a tap on it never casts
+//   - a card armed: the bar fades to 35% and a tap on it never casts, nor does the click that follows the board tap
+//     that ended the placement once the fade is gone (replayed in that order: no frame timing)
 //   - Wakaba's Time Out!: her slot enters aim mode, a tap on Aoi gives Aoi the rally; arming a card ends the aim and
-//     the next board tap places the girl (no ability fires)
+//     the next board tap places the girl (no ability fires); from her panel's FIRE the aim banner stays on screen left
+//     of the panel and a toast during the aim is not under it
 //   - the DOM probe: no overlap between the bar, the hero widget, the wave control, the feed, the panel and the tower
 //     bar; phone slots ≥ 44 px; the panel's ability row is in view without scrolling, one 44 px line on a phone, and
 //     the first affordable Buy button stays fully in view; a tap on its name opens the live line
@@ -227,23 +229,78 @@ for (const vp of viewports) {
     check((await page.evaluate((u) => __ab.abil(u).n, aoi)) === n0, `${vp} a tap on the faded bar never casts`);
     await page.evaluate(() => window.__battle.ui.placement.cancel());
     await settle(page, 150);
+    // the phone's worst case (M1 review r2), replayed in a fixed order instead of left to frame timing: the board tap
+    // under the bar ends the placement, a frame drops the fade, and only then does the touch's click reach the slot
+    // under the finger. Aoi is ready, and no cast may even be tried (ctx.castAbility is counted).
+    await page.evaluate((u) => __ab.ready(u), aoi);
+    await page.evaluate(() => window.__battle.ui.onCardTap('akane'));
+    await until(page, () => document.querySelector('[data-testid="battle"]').classList.contains('bt-placing'), null, 5000);
+    const late = await page.evaluate(async () => {
+      const ui = window.__battle.ui;
+      const shell = document.querySelector('[data-testid="battle"]');
+      const slot = document.querySelector('[data-testid="ability-slot-0"]');
+      const r = slot.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const cast = ui.castAbility;
+      let tries = 0;
+      ui.castAbility = (...a) => {
+        tries++;
+        return cast(...a);
+      };
+      // (the renderer's tap there: off the field, which ends the placement — what the review's probe logged)
+      const used = ui.placement.handleTap({ inBounds: false, x: null, y: null, towerUid: null });
+      const ended = used && ui.placement.unitId == null;
+      // the frame that runs between the touch's end and its click: what controller.js's frame loop does with the fade
+      // (done here at once, so a slow software-GL frame cannot stretch the replay past a real click's few ms)
+      shell.classList.toggle('bt-placing', !!ui.placement.unitId);
+      const under = document.elementFromPoint(x, y);
+      const onSlot = !!under && slot.contains(under);
+      (onSlot ? under : slot).click();
+      ui.castAbility = cast;
+      // and the real frame loop agrees: the fade stays off
+      await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+      return { ended, fadeGone: !shell.classList.contains('bt-placing'), onSlot, tries };
+    });
+    await settle(page, 150);
+    const nLate = await page.evaluate((u) => __ab.abil(u).n, aoi);
+    check(late.ended && late.fadeGone && late.onSlot && late.tries === 0 && nLate === n0,
+      `${vp} the click that follows the placement's board tap, after the fade is gone, never casts (${JSON.stringify(late)}, n ${n0}→${nLate})`);
+    // (past PLACE_GUARD_MS: the next tap on the bar is a tap again)
+    await settle(page, 450);
 
     // ---- 7. Wakaba's Time Out!: aim at a girl ------------------------------------------------------------------
     const wak = await page.evaluate((u) => __ab.place('wakaba', { near: u, min: 1.6 }), aoi);
     await page.evaluate((u) => __ab.unlock(u), wak);
-    // (a wave that lasts through the aim: the cast is refused between waves)
-    await page.evaluate(() => __ab.keepWave());
-    await until(page, () => window.__battle.sim.state === 'wave' && window.__battle.sim.enemies.filter((e) => !e.dead).length >= 2, null, 30000);
+    // (a wave that lasts through the aim: the cast is refused between waves. On a loaded machine a wave can still clear
+    // just as the slot is tapped — "Abilities work during waves.", nothing spent — so the next one starts and the tap
+    // is made again)
+    const aimFromSlot = async (sel) => {
+      let before = null;
+      for (let i = 0; i < 3; i++) {
+        await page.evaluate(() => __ab.keepWave());
+        await until(page, () => window.__battle.sim.state === 'wave' && window.__battle.sim.enemies.filter((e) => !e.dead).length >= 2
+          && document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.state === 'ready', null, 10000);
+        before = await page.evaluate((u) => ({ slot: document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.state, st: window.__battle.sim.abilityStatus(u), state: window.__battle.sim.state }), wak);
+        await tap(sel);
+        await settle(page, 150);
+        if ((await page.evaluate(() => window.__battle.ui.aim.abilityId)) === 'wakaba.timeOut') return { aiming: 'wakaba.timeOut', tries: i + 1, before };
+      }
+      return { aiming: null, tries: 3, before, toasts: await page.evaluate(() => __ab.toasts()) };
+    };
     await page.evaluate((u) => __ab.ready(u), wak);
     await settle(page, 300);
     const wakSlot = await page.evaluate(() => [...document.querySelectorAll('.bt-ab[data-id]')].findIndex((b) => b.dataset.id === 'wakaba.timeOut'));
-    await tap(`[data-testid="ability-slot-${wakSlot}"]`);
-    await settle(page, 150);
+    const aim7 = await aimFromSlot(`[data-testid="ability-slot-${wakSlot}"]`);
+    if (!aim7.aiming || aim7.tries > 1) console.log(`  (step 7 aim: ${JSON.stringify(aim7)})`);
     const banner = await page.locator('[data-testid="aim-banner"]').innerText().catch(() => '');
     check(/should coach/.test(banner) && /tap her portrait again/.test(banner) && !/⚡/.test(banner), `${vp} her slot enters aim mode: "${banner.split('\n')[0]}"`);
     await shot('e2e-aim');
     // (the camera is locked and a girl never moves: her spot on screen holds for the tap; her feet = her footprint)
     const at = await page.evaluate((u) => __ab.screenOf(u, 0), aoi);
+    // (the aim waits through a wave's end; the cast needs a wave, so one runs when Aoi is tapped)
+    await page.evaluate(() => __ab.keepWave());
+    await until(page, () => window.__battle.sim.state === 'wave', null, 10000);
     await tapAt(at.x, at.y);
     await settle(page, 150);
     // (the cast's event names the girl it went to; the rally itself may already be over if the wave just ended)
@@ -255,15 +312,13 @@ for (const vp of viewports) {
     check(!(await page.locator('[data-testid="aim-banner"]').isVisible()), `${vp} the aim banner leaves`);
 
     // ---- 7b. one board-tap mode at a time: arming a card ends the ability aim, the next tap places the girl -------
-    // (her Time Out! from step 7 runs 12 s: the slot is "active" until it ends, so the staging ends it)
+    // (her Time Out! from step 7 runs 12 s: the slot is "active" until it ends, so the staging ends it; and on a loaded
+    // machine the wave from step 7 can clear meanwhile: the slot is grey between waves, so the next one starts)
     await page.evaluate((u) => __ab.ready(u, { endActive: true }), wak);
-    await until(page, () => document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.state === 'ready', null, 20000);
     const wakN = await page.evaluate((u) => __ab.abil(u).n, wak);
-    const wakBefore = await page.evaluate((u) => ({ slot: document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.state, testid: document.querySelector('.bt-ab[data-id="wakaba.timeOut"]')?.dataset.testid, st: window.__battle.sim.abilityStatus(u), state: window.__battle.sim.state }), wak);
-    await tap('.bt-ab[data-id="wakaba.timeOut"]');
-    await settle(page, 150);
-    const aiming = await page.evaluate(() => window.__battle.ui.aim.abilityId);
-    if (aiming == null) console.log(`  (before the tap: ${JSON.stringify(wakBefore)}; toasts ${JSON.stringify(await page.evaluate(() => __ab.toasts()))})`);
+    const aim7b = await aimFromSlot('.bt-ab[data-id="wakaba.timeOut"]');
+    const aiming = aim7b.aiming;
+    if (!aiming || aim7b.tries > 1) console.log(`  (step 7b aim: ${JSON.stringify(aim7b)})`);
     await page.evaluate(() => window.__battle.ui.onCardTap('akane'));
     await settle(page, 150);
     const afterArm = await page.evaluate(() => ({ aim: window.__battle.ui.aim.abilityId, banner: !document.querySelector('[data-testid="aim-banner"]').hidden, placing: window.__battle.ui.placement.unitId }));
@@ -277,6 +332,43 @@ for (const vp of viewports) {
     const wakAfter = await page.evaluate((u) => __ab.abil(u).n, wak);
     check(!!spot && akAfter === akBefore + 1 && wakAfter === wakN, `${vp} the placement tap places Akane and fires nothing (Akane ${akBefore}→${akAfter}, Time Out! ${wakN}→${wakAfter})`);
     await page.evaluate(() => window.__battle.ui.placement.cancel());
+
+    // ---- 7c. the aim banner from her panel's FIRE: inside the map beside the panel, the feed below it (M1 review r2) --
+    // (the wave may have cleared meanwhile: FIRE reads WAVE between waves, so the next one starts)
+    await page.evaluate((u) => __ab.ready(u), wak);
+    await page.evaluate((u) => window.__battle.ui.select(u), wak);
+    await page.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="ability-fire"]', { timeout: 10000 });
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate(() => __ab.keepWave());
+      if (await until(page, () => window.__battle.sim.state === 'wave' && document.querySelector('[data-testid="tower-panel"] [data-testid="ability-fire"]')?.textContent === 'FIRE', null, 8000)) break;
+    }
+    await settle(page, 300);
+    const fireBefore = await page.evaluate((u) => ({ label: document.querySelector('[data-testid="tower-panel"] [data-testid="ability-fire"]')?.textContent, st: window.__battle.sim.abilityStatus(u), state: window.__battle.sim.state }), wak);
+    await tap('[data-testid="tower-panel"] [data-testid="ability-fire"]');
+    await settle(page, 200);
+    const aimNow = await page.evaluate(() => ({ aim: window.__battle.ui.aim.abilityId, banner: !document.querySelector('[data-testid="aim-banner"]').hidden, toasts: __ab.toasts() }));
+    if (!aimNow.banner) console.log(`  (FIRE before the tap: ${JSON.stringify(fireBefore)}; after: ${JSON.stringify(aimNow)})`);
+    await page.evaluate(() => window.__battle.ui.feed.push('Tap a point on the map.', 'warn', { key: 'e2e-aim-feed', ms: 4000 }));
+    await settle(page, 250);
+    const panelAim = await page.evaluate(() => {
+      const b = document.querySelector('[data-testid="aim-banner"]');
+      if (!b || b.hidden) return null;
+      const r = b.getBoundingClientRect();
+      const p = document.querySelector('[data-testid="tower-panel"]').getBoundingClientRect();
+      const t = [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast')].find((n) => /Tap a point on the map/.test(n.textContent))?.getBoundingClientRect();
+      const meets = (a, c) => !!a && !!c && a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom;
+      return {
+        text: b.textContent, left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), panelLeft: Math.round(p.left),
+        width: innerWidth, toast: t ? [Math.round(t.left), Math.round(t.top), Math.round(t.right), Math.round(t.bottom)] : null, toastUnder: meets(r, t),
+      };
+    });
+    check(!!panelAim && /tap FIRE again/.test(panelAim.text) && panelAim.left >= 0 && panelAim.right <= panelAim.panelLeft,
+      `${vp} the aim banner from her panel's FIRE stays on screen and left of the panel (${JSON.stringify(panelAim)})`);
+    check(!!panelAim?.toast && !panelAim.toastUnder, `${vp} a toast during the aim is not under the banner (${JSON.stringify(panelAim?.toast)})`);
+    await shot('e2e-panel-aim');
+    await page.keyboard.press('Escape');
+    await settle(page, 150);
+    check(!(await page.locator('[data-testid="aim-banner"]').isVisible()), `${vp} Esc ends the panel's aim`);
 
     // ---- 8. the DOM probe: overlaps, sizes, the panel row in view ----------------------------------------------
     await page.evaluate(() => window.__battle.ui.select(null));

@@ -45,6 +45,10 @@ export function createPlacement(ctx) {
   let last = null; // { x, y, ok, reason }
   let moving = false; // Move mode: the ghost is the placed hero, the drop moves her
   let padHint = null;
+  // when a board tap (or a drag's release) last ended the placement: the ability bar keeps ignoring taps a moment
+  // longer, because a phone's click lands a frame or two after the touch (abilityBar.js placingNow)
+  let tapEndedAt = null;
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
@@ -178,6 +182,12 @@ export function createPlacement(ctx) {
   /** Renderer tap while placing. Returns true when the tap was consumed. */
   function handleTap(p) {
     if (!unitId) return false;
+    const used = boardTap(p);
+    if (!unitId) tapEndedAt = clock();
+    return used;
+  }
+
+  function boardTap(p) {
     if (!p.inBounds) {
       cancel();
       return true;
@@ -277,6 +287,7 @@ export function createPlacement(ctx) {
     },
     dragEnd(clientX, clientY, pointerType) {
       if (!unitId || mode !== 'drag') return;
+      tapEndedAt = clock();
       if (overBar(clientY)) {
         cancel();
         return;
@@ -289,6 +300,10 @@ export function createPlacement(ctx) {
       const t = tryPlace(p.x, p.y);
       // released on a red spot: she just goes back to the bar
       if (!t && unitId) cancel();
+    },
+    /** performance.now() of the board tap or drag release that last ended a placement (null: none yet). */
+    get tapEndedAt() {
+      return tapEndedAt;
     },
     handleTap,
     hover,
