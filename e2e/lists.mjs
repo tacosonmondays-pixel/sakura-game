@@ -1,8 +1,8 @@
 // UI M5c: the left-rail list screens (docs/specs/UI_DIRECTION.md §5.5, §5.9, §5.10 E1-E3, E6, E9; notes/ui-m5/PLAN.md
 // §5 M5c) on the ui-shots save (chapters 1-3 cleared) at 844x390 and 1280x720, on a fixed clock (e2e/uiSeed.mjs):
-//   - the rail on the Mailroom, the Mall, Happening Now and Settings: the active tab an ink slab with yellow italic
-//     words, the others white glass with ink words, every tab ≥ 44 px tall, tab-<id> test ids, red dots only, no
-//     counts on tabs
+//   - the rail on the Mailroom, the Mall, Happening Now and Settings: the active tab an ink slab with white caps and the
+//     pink "/" bar (UI v2 Q1; it was yellow italics), the others white with ink caps, every tab ≥ 44 px tall,
+//     tab-<id> test ids, red dots only, no counts on tabs
 //   - the probe (e2e/probe.mjs) on every screen and section: text ≥ 12 / 13 px, ≤ 12 numbers, no "…" on a number, no
 //     sideways scroll, a content window ≥ 300 px, ≤ 1 yellow, taps ≥ 40 px (the shared top bar aside), the host within
 //     her share and her bubble clear of the list; the host is the right girl (Hotaru, Midori, Suzu) on the right
@@ -50,6 +50,8 @@ const NOW = Date.parse(SHOT_NOW);
 const PLATE = 'rgb(14, 25, 48)';
 const YELLOW = 'rgb(255, 221, 74)';
 const INK = 'rgb(31, 42, 68)';
+const ON_INK = 'rgb(234, 243, 255)'; // [ui-ink] --on-ink
+const PINK = 'rgb(255, 122, 168)'; // [ui-ink] --pink, the selection mark
 const BAD_ON_PLATE = 'rgb(255, 128, 149)';
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
@@ -123,7 +125,8 @@ const railInfo = (page) => page.evaluate(() => [...document.querySelectorAll('#a
   const r = b.getBoundingClientRect();
   return {
     id: b.dataset.testid, on: b.classList.contains('on'), selected: b.getAttribute('aria-selected') === 'true', bg: cs.backgroundColor, color: getComputedStyle(word).color,
-    italic: getComputedStyle(word).fontStyle === 'italic', h: Math.round(r.height), w: Math.round(r.width), text: b.textContent.trim(),
+    italic: getComputedStyle(word).fontStyle === 'italic', caps: getComputedStyle(word).textTransform === 'uppercase', bar: getComputedStyle(b, '::before').backgroundColor,
+    h: Math.round(r.height), w: Math.round(r.width), text: b.textContent.trim(),
     dots: b.querySelectorAll('.ui-bdg.dot').length, others: b.querySelectorAll('.ui-bdg:not(.dot), .ui-dot, .tab-badge, .icon-btn-badge').length,
   };
 }));
@@ -134,9 +137,10 @@ async function checkRail(page, name, ids, active) {
   check(rail.map((t) => t.id).join() === ids.map((i) => `tab-${i}`).join(), `${name}: the rail holds ${ids.join(' · ')} (test ids tab-<id>)`);
   const on = rail.find((t) => t.on);
   check(!!on && on.id === `tab-${active}` && on.selected, `${name}: ${active} is the lit tab (aria-selected)`);
-  if (on) check(on.bg === PLATE && on.color === YELLOW && on.italic, `${name}: the lit tab is an ink slab with yellow italic words (${on.bg}, ${on.color})`);
+  // [ui-ink] UI v2 (Q1): the lit tab an ink slab with WHITE caps and the pink "/" bar; the others white with ink caps
+  if (on) check(on.bg === PLATE && on.color === ON_INK && on.caps && !on.italic && on.bar === PINK, `${name}: the lit tab is an ink slab with white caps and the pink "/" bar (${on.bg}, ${on.color}, bar ${on.bar})`);
   const off = rail.filter((t) => !t.on);
-  check(off.every((t) => t.bg.startsWith('rgba(255, 255, 255') && t.color === INK), `${name}: the other tabs are white glass with ink words (${[...new Set(off.map((t) => `${t.bg} / ${t.color}`))].join(', ')})`);
+  check(off.every((t) => (t.bg === 'rgb(255, 255, 255)' || t.bg.startsWith('rgba(255, 255, 255')) && t.color === INK && t.caps), `${name}: the other tabs are white with ink caps (${[...new Set(off.map((t) => `${t.bg} / ${t.color}`))].join(', ')})`);
   check(rail.every((t) => t.h >= 44), `${name}: every tab is at least 44 px tall (${rail.map((t) => t.h).join(', ')})`);
   check(rail.every((t) => !/\d/.test(t.text) && t.others === 0), `${name}: red dots only on the tabs, never a count (${rail.map((t) => `${t.text}${t.dots ? '•' : ''}`).join(', ')})`);
   return rail;

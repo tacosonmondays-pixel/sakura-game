@@ -57,6 +57,7 @@ export const PINK_RGB = Object.freeze([[255, 122, 168], [210, 58, 116], [255, 15
 /** [ui-ink] Where pink may appear (§4.1, §4.3): selected things, heroes, the co-op partner, In Progress. */
 export const PINK_OK = [
   '.on', '.active', '.selected', '.sel', '[aria-selected="true"]', '[aria-pressed="true"]', '[aria-current]', '.ui-chip.pick',
+  '.mb-pick.in',
   '.ui-bdg.inprog', '.tag-ribbon', '.hero', '[data-hero]', '.is-hero', '.partner', '[data-partner]',
 ].join(', ');
 
@@ -290,7 +291,9 @@ function probeInPage(o) {
       return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] == null ? 1 : Number(m[4])] : null;
     };
     const near = (c, t, tol) => !!c && c[3] > 0.5 && Math.abs(c[0] - t[0]) <= tol && Math.abs(c[1] - t[1]) <= tol && Math.abs(c[2] - t[2]) <= tol;
-    const yellowish = (c) => !!c && c[3] > 0.5 && c[0] >= 240 && c[1] >= 190 && c[1] <= 245 && c[2] <= 130;
+    // the action yellow (--yellow #ffdd4a, and the M0 gradient's top #fff07a), not the rarity golds that share its hue
+    // (SR #ffc94d, Legendary #ffb627, LR #ffd27a: frames and tags, allowed by rule 2)
+    const yellowish = (c) => near(c, [255, 221, 74], 14) || near(c, [255, 240, 122], 14);
     const allRgb = (s) => [...String(s || '').matchAll(/rgba?\([^)]*\)/g)].map((m) => rgbOf(m[0]));
     const styles = (el) => [getComputedStyle(el), getComputedStyle(el, '::before'), getComputedStyle(el, '::after')];
     const yellowFills = [];
@@ -304,7 +307,8 @@ function probeInPage(o) {
       const r = el.getBoundingClientRect();
       if (!seen(r) || r.width < 2 || r.height < 2 || !isShown(el)) continue;
       const [cs, before, after] = styles(el);
-      const layers = [cs, ...[before, after].filter((p) => p.content && p.content !== 'none')];
+      // (a pseudo-element counts only when it is drawn: content set and not display: none)
+      const layers = [cs, ...[before, after].filter((p) => p.content && p.content !== 'none' && p.display !== 'none')];
       // yellow: a filled surface (≥ 150 px²), by its computed colour
       if (r.width * r.height >= 150 && layers.some((p) => yellowish(rgbOf(p.backgroundColor)) || allRgb(p.backgroundImage).some(yellowish))) {
         yellowFills.push(`${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"`);

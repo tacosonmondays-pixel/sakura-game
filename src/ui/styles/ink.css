@@ -118,7 +118,7 @@
 :where(.ui-day, .ui-night) :is(.ui-panel, .ui-tabbed, .ui-np, .ui-news, .ui-strip, .ui-hubtile, .ui-ksheet) {
   --c: var(--cut);
   clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
-  background: var(--fill); border: 0; border-radius: 0; box-shadow: none; filter: none;
+  background: var(--fill); border-color: transparent; border-radius: 0; box-shadow: none; filter: none;
 }
 :where(.ui-day, .ui-night) :is(.ui-panel, .ui-tabbed, .ui-np, .ui-news, .ui-strip, .ui-hubtile, .ui-ksheet)::after {
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
@@ -160,13 +160,13 @@
   --s: calc(var(--h) * var(--tan8));
   height: var(--h);
   clip-path: polygon(var(--s) 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%);
-  background: var(--fill); border: 0; border-radius: 0; box-shadow: none;
+  background: var(--fill); border-color: transparent; border-radius: 0; box-shadow: none;
 }
 :where(.ui-day, .ui-night) .ui-bdg.inprog {
   --s: calc(var(--h) * var(--tan8));
   height: var(--h);
   clip-path: polygon(var(--s) 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%);
-  background: var(--fill); border: 0; border-radius: 0; box-shadow: none;
+  background: var(--fill); border-color: transparent; border-radius: 0; box-shadow: none;
 }
 :where(.ui-day, .ui-night) :is(.ui-btn, .ui-opt, .ui-obj)::after {
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
@@ -184,7 +184,7 @@
   --s: calc(var(--h) * var(--tan8));
   height: var(--h); min-height: 0;
   clip-path: polygon(0 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%);
-  background: var(--fill); border: 0; border-radius: 0; box-shadow: none; transform: none;
+  background: var(--fill); border-color: transparent; border-radius: 0; box-shadow: none; transform: none;
 }
 :where(.ui-day, .ui-night) .ui-stab::after {
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
@@ -270,8 +270,10 @@
 
 /* ---------- E2 plate header band ---------- */
 /* inset: straight left, "/" right end, 8 px inside the panel, never touching its edge */
-:where(.ui-day, .ui-night) .ui-plate-head { --h: 40px; --fill: var(--plate); display: flex; align-items: center; gap: 8px; flex: none; margin: 8px 8px 0;
+:where(.ui-day, .ui-night) .ui-plate-head { --h: 40px; --fill: var(--plate); display: flex; align-items: center; gap: 8px; flex: none;
   padding: 0 calc(12px + var(--s)) 0 12px; color: var(--m-text); }
+/* (the inset in a kit panel; an M5 card's own head keeps its place) */
+:where(.ui-day, .ui-night) .ui-panel > .ui-plate-head:not(.bleed) { margin: 8px 8px 0; }
 /* bleed: the top of the panel itself; the panel's clip shapes it; its bottom edge is straight */
 :where(.ui-day, .ui-night) .ui-plate-head.bleed { height: 40px; margin: 0; padding: 0 calc(var(--cut) + 8px) 0 12px; background: var(--plate); clip-path: none; border-radius: 0; }
 :where(.ui-day, .ui-night) .ui-plate-head .name { color: var(--m-text); flex: 1; min-width: 0; }
@@ -471,7 +473,9 @@
 /* E3 left section rail (day): flush with the left screen edge (straight there), a "/" right end. Active = an ink slab
    10 px longer, WHITE caps, a 3 px sakura "/" bar inside its end (Q1). Inactive = white, ink caps. Kit markup and M5's
    (.ui-stab-in, .ui-stab-word, .ui-bdg.dot) both. */
-:where(.ui-day, .ui-night) .ui-srail { display: flex; flex-direction: column; gap: 6px; width: var(--rail-w, 184px); max-width: none; min-width: 0; flex: none; }
+:where(.ui-day, .ui-night) .ui-srail { display: flex; flex-direction: column; gap: 6px; flex: none; }
+/* (the kit rail's width at zero specificity: an M5 list screen keeps its own rail column, so nothing moves) */
+:where(.ui-day, .ui-night) :where(.ui-srail) { width: var(--rail-w, 184px); }
 :where(.ui-day, .ui-night) .ui-stab { --h: var(--tap); --fill: var(--panel-w); --edge: var(--line-ink-soft); display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 0 calc(16px + var(--s)) 0 calc(var(--g) + env(safe-area-inset-left, 0px)); color: var(--ink); cursor: pointer; text-align: left;
   font: 600 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase; white-space: nowrap; --dot-ring: #fff;
@@ -485,7 +489,7 @@
 /* the rail's red dot follows its label (on a narrow rail the corner dot landed on the last letter) */
 :where(.ui-day, .ui-night) .ui-stab :is(.ui-dot, .ui-bdg.dot) { position: static; align-self: center; transform: translateY(-7px); margin-left: -4px; }
 @media (max-height: 480px) {
-  :where(.ui-day, .ui-night) .ui-srail { --rail-w: 168px; }
+  :where(.ui-day, .ui-night) :where(.ui-srail) { --rail-w: 168px; }
   :where(.ui-day, .ui-night) .ui-stab { padding-left: calc(14px + env(safe-area-inset-left, 0px)); gap: 8px; }
 }
 
@@ -617,7 +621,8 @@
 :is(.ui-day, .ui-night) .ui-gtile.selected.is-ur { box-shadow: var(--ur-glow); }
 :is(.ui-day, .ui-night) .ui-gtile.selected > .ui-gtile-tl { display: none; }
 :is(.ui-day, .ui-night) .ui-gtile > .ui-pick { left: -5px; top: -5px; width: 22px; height: 22px; }
-:is(.ui-day, .ui-night) .ui-gtile > .ui-pickbar { left: 6px; right: 6px; }
+/* (z 3: under the +level pill and the corner slots, z 4, so the "+8" stays whole over the bar) */
+:is(.ui-day, .ui-night) .ui-gtile > .ui-pickbar { left: 6px; right: 6px; z-index: 3; }
 /* item tile: the chip at the plate's top-left corner, the bar along the plate's bottom edge (the plate leans -8 deg) */
 :is(.ui-day, .ui-night) .item-tile > .ui-pick { left: 1%; top: -4px; }
 :is(.ui-day, .ui-night) .item-tile > .ui-pickbar { left: calc(6.45% + 7px); right: calc(6.45% + 7px); bottom: 1px; transform: skewX(-8deg); }
@@ -627,7 +632,17 @@
   outline: none; background: linear-gradient(135deg, #fff 60%, color-mix(in srgb, var(--rarity) 14%, #fff));
   box-shadow: inset 0 -3px 0 var(--pink-ink), 0 3px 10px rgba(29, 78, 137, 0.12);
 }
-:is(.ui-day, .ui-night) .mb-gear.selected .mb-pick-check { border: 0; border-radius: 0; padding: 5px; background: var(--pink-ink); color: #fff;
+/* (unpicked: a white circle with a hairline, the affordance; never yellow) */
+:is(.ui-day, .ui-night) .mb-gear .mb-pick-check { top: 9px; right: 9px; width: 26px; height: 26px; padding: 5px; border: 0; border-radius: 50%;
+  background: #fff; color: transparent; box-shadow: inset 0 0 0 1.5px var(--line-ink); }
+:is(.ui-day, .ui-night) .mb-gear.selected .mb-pick-check { border: 0; border-radius: 0; padding: 5px; background: var(--pink-ink); color: #fff; box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+/* the Formation pick's girls in the squad (V3 rebuilds these tiles): the same marks until then, the card's own frame
+   kept; the yellow outline and the yellow tick go */
+:is(.ui-day, .ui-night) .mb-pick.in .unit-card { outline: 0; }
+/* (the bar sits inside the card, right on its 4 px rarity edge) */
+:is(.ui-day, .ui-night) .mb-pick.in .unit-card::before { content: ''; position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; height: 3px; background: var(--pink-ink); pointer-events: none; }
+:is(.ui-day, .ui-night) .mb-pick .mb-pick-check { border-radius: 0; background: var(--pink-ink); color: #fff; box-shadow: none;
   clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
 
 /* ==========================================================================================================
@@ -763,3 +778,262 @@ html[data-reduce-motion] :where(.ui-day, .ui-night) :is(.ui-in, .ui-in-l) { anim
   background: var(--glass-ink-1); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-hi); }
 :where(.ui-day, .ui-night) .ui-orb::before { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); }
 @media (min-height: 481px) { :where(.ui-day, .ui-night) .ui-orb { width: 44px; height: 44px; } }
+
+/* ==========================================================================================================
+   2. ADOPTION: the game's own classes in the kit's look, on every menu at once. No layout moves: sizes and places
+   stay (a few px where a control reaches the kit's tap size); the screens V2 to V6 rebuild come later. The prefix is
+   :is(.ui-day, .ui-night) where a rule must win over a screen's own sheet (they load after this one).
+   ========================================================================================================== */
+
+/* ---------- the day field: paper, the hub's painting far behind (E6); no sky, no petals, no confetti ---------- */
+body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)); }
+:is(.ui-day) .hub-bg { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)); }
+:is(.ui-day) .hub-bg > .hub-bg-img { filter: saturate(0.7) blur(3px); opacity: 0.42; }
+:is(.ui-day) .hub-bg > .hub-bg-shade { background: linear-gradient(180deg, rgba(238, 244, 250, 0.35), rgba(221, 233, 245, 0.6)); }
+:is(.ui-day) .hub-bg > .hub-bg-tint { display: none; }
+:is(.ui-day, .ui-night) :is(.pf-petal, .bg-gift-confetti) { display: none; }
+
+/* ---------- the top bar: one ink band on every day screen (the bridge between the night home and the menus) ---------- */
+:is(.ui-day, .ui-night) .topbar {
+  min-height: var(--topbar-h); gap: 12px; padding-top: var(--safe-top); padding-bottom: 0;
+  background: var(--plate); color: var(--on-ink); box-shadow: inset 0 -1px 0 var(--line-lo);
+}
+:is(.ui-day, .ui-night) .topbar::after { display: none; }
+:is(.ui-day, .ui-night) .topbar-title { font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--on-ink); }
+/* the back arrow: a flat ink circle with a hairline and a white arrow; its tap square hangs from the band's top */
+:is(.ui-day, .ui-night) .topbar-back {
+  position: relative; width: 32px; height: 32px; padding: 7px; border-radius: 50%;
+  background: var(--plate-2); color: #fff; box-shadow: inset 0 0 0 1px var(--line-hi);
+}
+:is(.ui-day, .ui-night) :is(.topbar-back, .topbar-icon)::before { content: ''; position: absolute; left: 50%; top: calc(50% - var(--topbar-h) / 2); width: var(--tap); height: max(var(--tap), var(--topbar-h)); transform: translateX(-50%); }
+/* settings, home and the other icon buttons: line glyphs, no plate (36 visual, 44 hit) */
+:is(.ui-day, .ui-night) .topbar-icon {
+  position: relative; width: 36px; height: 36px; padding: 8px; border-radius: 0; background: none; box-shadow: none; color: var(--on-ink);
+}
+:is(.ui-day, .ui-night) .topbar-icon:hover { background: none; }
+@media (min-height: 481px) {
+  :is(.ui-day, .ui-night) .topbar { gap: 16px; padding-left: calc(16px + var(--safe-left)); padding-right: calc(20px + var(--safe-right)); }
+  :is(.ui-day, .ui-night) .topbar-back { width: 40px; height: 40px; padding: 9px; }
+  :is(.ui-day, .ui-night) .topbar-icon { width: 44px; height: 44px; padding: 10px; }
+}
+/* the wallets (components.js currencyPills, src/ui/wallets.js): a line glyph and the number, split by slanted slashes;
+   "+" a hairline square (Q3: only the currencies the screen spends) */
+:is(.ui-day, .ui-night) .topbar .cur-pills { gap: 12px; }
+:is(.ui-day, .ui-night) .cur-pills > .cur-pill {
+  transform: none; gap: 6px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--on-ink);
+  font: 700 var(--fs-num-s)/1 var(--font-num);
+}
+:is(.ui-day, .ui-night) .cur-pills > .cur-pill > * { transform: none; }
+:is(.ui-day, .ui-night) .cur-pills > .cur-pill .svg-icon { width: var(--icon-s); height: var(--icon-s); color: var(--on-ink-dim); }
+/* a screen's own icon button in the bar (Messages on the online screens): a line glyph on the ink, its red count */
+:is(.ui-day, .ui-night) .topbar .icon-btn { background: none; box-shadow: none; border-radius: 0; color: var(--on-ink); }
+:is(.ui-day, .ui-night) .topbar .icon-btn-badge { background: var(--badge-red); box-shadow: 0 0 0 1.5px var(--plate); font-family: var(--font-num); }
+/* a screen's own pill in the bar (the event's currency: a button) keeps its size, as clear ink glass with a hairline */
+:is(.ui-day, .ui-night) .topbar button.cur-pill { transform: none; border: 0; border-radius: 0; background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi); color: var(--on-ink); }
+:is(.ui-day, .ui-night) .topbar button.cur-pill > * { transform: none; }
+:is(.ui-day, .ui-night) .cur-val { font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; color: var(--on-ink); }
+:is(.ui-day, .ui-night) .cur-plus {
+  position: relative; z-index: 2; width: 20px; height: 20px; padding: 0; margin-left: 2px; display: grid; place-items: center; line-height: 0; border-radius: 0;
+  background: none; color: var(--cyan); box-shadow: inset 0 0 0 1px var(--line-hi);
+}
+:is(.ui-day, .ui-night) .cur-plus::before { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); }
+:is(.ui-day, .ui-night) .cur-plus .svg-icon { width: 14px; height: 14px; }
+@media (min-height: 481px) { :is(.ui-day, .ui-night) .cur-plus { width: 24px; height: 24px; } }
+:is(.ui-day, .ui-night) .topbar .ui-vr { width: 1px; align-self: stretch; margin: 10px 2px; background: var(--line-lo); flex: none; }
+:is(.ui-day, .ui-night) .topbar .cur-pills[hidden], :is(.ui-day, .ui-night) .topbar .cur-pills[hidden] + .ui-vr { display: none; }
+:is(.ui-day, .ui-night) .topbar .ui-slash { width: 1px; height: 16px; background: var(--line-hi); transform: skewX(-18deg); flex: none; }
+/* the phone's narrow portrait bar (max-width 440 in base.css): keep the "+" and the slashes small */
+@media (max-width: 440px) { :is(.ui-day, .ui-night) .topbar .cur-pills { gap: 6px; } :is(.ui-day, .ui-night) .topbar .ui-slash { display: none; } }
+
+/* ---------- panels: opaque white, the chamfer pair, ONE hairline ring; no shadow, no blur, no radius (Q8, Q9) ---------- */
+/* (.mb-card: the Formation's and the girl page sheets' twin of .panel, meta-b.css, restyled from here) */
+:is(.ui-day, .ui-night) :is(.panel, .modal, .ls > .ls-panel:not(.bare), .mb-card) {
+  --c: var(--cut); --rw: 1px; --edge: var(--line-ink);
+  /* (a border keeps its width as space, so nothing inside moves: the ring is the outline now) */
+  border-color: transparent; border-radius: 0; box-shadow: none; backdrop-filter: none; background: var(--panel-w);
+  /* (cut from the padding box: .panel's 1 px border space is clipped away, so the ring below, inside the padding box,
+     is the outermost pixel and a screen's own overflow: hidden can never clip it) */
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))) padding-box;
+}
+:is(.ui-day, .ui-night) :where(.panel, .modal, .ls > .ls-panel:not(.bare), .mb-card)::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142),
+    calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw));
+}
+:is(.ui-day, .ui-night) .modal { position: relative; }
+/* the panel title: no gradient head, no yellow underline (Q8); a soft hairline under the italic title */
+:is(.ui-day, .ui-night) :is(.panel-title, .mb-card-title) { background: none; border-radius: 0; border-bottom: 1px solid var(--line-ink-soft); color: var(--ink); }
+:is(.ui-day, .ui-night) :is(.panel-title, .mb-card-title)::after { display: none; }
+/* the M1a glass panel: the outer element wears the kit panel (part 1); its inner box only pads */
+:is(.ui-day, .ui-night) .ui-panel-in { background: none; border-radius: 0; clip-path: none; }
+/* a dialog: the white panel with a bleed ink head (the day sheet's look) */
+:is(.ui-day, .ui-night) .modal-title { background: var(--plate); color: var(--on-ink); border-bottom: 0; }
+:is(.ui-day, .ui-night) .modal-title::after { display: none; }
+:is(.ui-day, .ui-night) .menu-tab { background: var(--panel-w); }
+:is(.ui-day, .ui-night) .menu-tab .modal-title { background: var(--plate); color: var(--on-ink); border-bottom: 0; }
+:is(.ui-day, .ui-night) .menu-tab-x { color: var(--on-ink); border-radius: 0; }
+:is(.ui-day, .ui-night) .menu-tab-btn { border-radius: 0; border: 1px solid var(--line-ink-soft); background: var(--panel-w); box-shadow: none; color: var(--ink); }
+:is(.ui-day, .ui-night) .menu-tab-btn:active { transform: scale(0.98); box-shadow: none; }
+
+/* ---------- the list screens' plate head (E2): an ink band inset in its panel, a "/" end, the one countdown chip ---------- */
+:is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { --h: 48px; margin: 8px 8px 0; border-radius: 0; padding-right: calc(var(--sp-3) + var(--s)); }
+@media (max-height: 480px) { :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { --h: 40px; } }
+:is(.ui-day, .ui-night) .ls-panel > .ui-plate-head .ui-ibtn { background: none; }
+:is(.ui-day, .ui-night) .ui-plate-head .ui-plate-title { color: var(--on-ink); }
+
+/* ---------- the E3 rail on the list screens: the kit's white tabs and ink slab, at the screen's own column ---------- */
+/* (the M5 column is 128 px on phones and 168 on desktop: the caps run at the body size so no word is cut) */
+:is(.ui-day, .ui-night) .ls-rail > .ui-stab { font-size: var(--fs-body); padding-left: calc(10px + env(safe-area-inset-left, 0px)); gap: 6px; }
+:is(.ui-day, .ui-night) .ls-rail > .ui-stab.on { width: calc(100% + 6px); }
+/* the longer slab runs into the rail's own right padding; the rail never scrolls sideways for it */
+:is(.ui-day, .ui-night) .ls > .ls-rail { overflow-x: hidden; }
+@media (min-height: 481px) { :is(.ui-day, .ui-night) .ls-rail > .ui-stab { font-size: var(--fs-name); padding-left: calc(14px + env(safe-area-inset-left, 0px)); gap: 10px; } }
+
+/* ---------- buttons: flat, -8 degrees, labels upright in Barlow caps; one yellow; never an opacity fade ---------- */
+/* (the slant is the element's own skew, as M0 drew it, now with square corners and no shadow: the same parallelogram
+   as the kit's clip-path, at any height) */
+/* (sizes stay M0's: min-height 42 px, small 32; the label line is 1, so a one-line button keeps its height) */
+/* (a border keeps its width as space; every ring is an inset 1 px box-shadow, which skews with the button) */
+:is(.ui-day, .ui-night) .btn {
+  border-color: transparent; border-radius: 0; box-shadow: none; filter: none; gap: 8px; padding: 0 18px;
+  font: 700 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase;
+}
+:is(.ui-day, .ui-night) .btn:hover:not(:disabled) { filter: none; }
+:is(.ui-day, .ui-night) .btn .btn-icon { width: var(--icon-s); height: var(--icon-s); }
+:is(.ui-day, .ui-night) .btn-small { min-height: 32px; padding: 0 12px; font-size: var(--fs-body); }
+:is(.ui-day, .ui-night) .btn-yellow { background: var(--yellow); color: var(--plate); box-shadow: none; }
+:is(.ui-day, .ui-night) :is(.btn-primary, .btn-pink, .btn.ui-sec) { background: var(--panel-w); color: var(--ink); border-color: transparent; box-shadow: inset 0 0 0 1px var(--cyan-ink); }
+:is(.ui-day, .ui-night) .btn.ui-sec { font: 700 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase; }
+:is(.ui-day, .ui-night) .btn.ui-sec > .ui-sec-ico { color: var(--cyan-ink); }
+:is(.ui-day, .ui-night) :is(.btn-primary, .btn-pink, .btn.ui-sec):active:not(:disabled) { background: var(--cyan-wash); }
+:is(.ui-day, .ui-night) .btn-ghost { background: transparent; color: var(--cyan-text); border-color: transparent; font-size: var(--fs-body); }
+:is(.ui-day, .ui-night) :is(.btn-danger, .btn.ui-danger) { background: var(--panel-w); color: var(--bad-text); border-color: transparent; box-shadow: inset 0 0 0 1px var(--bad); }
+:is(.ui-day, .ui-night) .btn:disabled { opacity: 1; background: var(--sky-1); color: var(--muted); border-color: transparent; box-shadow: inset 0 0 0 1px var(--line-ink-soft); cursor: default; }
+:is(.ui-day, .ui-night) .btn.ui-sec:disabled > .ui-sec-ico { color: var(--muted); }
+/* on ink (a plate header, a night sheet): the secondary turns clear glass with a light hairline */
+:is(.ui-day, .ui-night) :is(.ui-plate-head, .ui-head, .ui-strip) :is(.btn-primary, .btn-pink, .btn.ui-sec, .btn-ghost) { background: transparent; color: var(--on-ink); border-color: transparent; box-shadow: inset 0 0 0 1px var(--line-hi); }
+/* the count in a button and the keyboard hint in it keep the kit's looks */
+:is(.ui-day, .ui-night) .btn .ui-btn-n { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0; }
+
+/* cost buttons (prices: ink, the 3D-flat coin, a WHITE price) and the ink row button (Claim: ink, white caps) */
+:is(.ui-day, .ui-night) .ui-cost { border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink); }
+:is(.ui-day, .ui-night) .ui-cost .num { color: var(--on-ink); }
+:is(.ui-day, .ui-night) :is(.ui-cost.poor, .ui-cost:disabled), :is(.ui-day, .ui-night) :is(.ui-cost.poor, .ui-cost:disabled) .num { color: var(--on-ink-dim); }
+:is(.ui-day, .ui-night) .ui-cost .ui-cost-lbl { font: 700 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase; color: var(--on-ink); }
+:is(.ui-day, .ui-night) .ui-cost.ui-ink > .ui-cost-lbl { color: var(--on-ink); }
+:is(.ui-day, .ui-night) .ui-cost.ui-ink:disabled > .ui-cost-lbl { color: var(--on-ink-dim); }
+/* the ghost link ("Where to get", "Full page") in cyan caps */
+:is(.ui-day, .ui-night) .ui-ghost { color: var(--cyan-text); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+
+/* ---------- stickers: flat chips on menus (moment screens keep theirs); never yellow (rule 3); MORE → "Details ›" ---------- */
+/* (badges that wear the sticker class for their old place, .ui-bdg, keep the badge vocabulary of part 1) */
+:is(.ui-day, .ui-night) .ui-sticker:not(.ui-bdg) {
+  transform: none; border-color: transparent; border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+:is(.ui-day, .ui-night) :is(.ui-sticker.y, .ui-sticker.p):not(.ui-bdg) { background: var(--plate); color: var(--on-ink); }
+/* MORE (Q5): the cyan ghost control "Details ›", same place, same job */
+:is(.ui-day, .ui-night) .ui-sticker.ui-more {
+  clip-path: none; background: transparent; color: var(--m-cy, var(--cyan-text)); padding: 6px 4px 6px 6px;
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase;
+}
+:is(.ui-day, .ui-night) .ui-strip .ui-sticker.ui-more { color: var(--cyan); }
+/* the yellow kicker tag → an ink tag */
+:is(.ui-day, .ui-night) .tag-kicker { background: var(--plate); color: var(--on-ink); }
+
+/* ---------- tabs: the selected tab carries the pink mark (never a yellow or blue bar) ---------- */
+:is(.ui-day, .ui-night) .tab { border-radius: 0; }
+:is(.ui-day, .ui-night) .tab.active { color: var(--ink); box-shadow: inset 0 -3px 0 var(--pink-ink); }
+:is(.ui-day, .ui-night) .tab-badge { background: var(--badge-red); box-shadow: 0 0 0 2px #fff; }
+/* the M0 slanted rail (the girl page's tabs, Commissions): flat white tabs, the open one ink with a pink bar under it
+   (V3 replaces the girl page's with folder tabs) */
+:is(.ui-day, .ui-night) .ui-rail > .ui-tab { border-radius: 0; box-shadow: none; background: var(--panel-w); border: 1px solid var(--line-ink-soft); }
+:is(.ui-day, .ui-night) .ui-rail > .ui-tab.on { background: var(--plate); border-color: var(--plate); box-shadow: none; color: var(--on-ink); }
+:is(.ui-day, .ui-night) .ui-rail > .ui-tab.on::after { left: 6px; right: 6px; bottom: -5px; height: 3px; border-radius: 0; background: var(--pink-ink); }
+:is(.ui-day, .ui-night) .ui-rail > .ui-tab > .ui-dot { background: var(--badge-red); }
+
+/* ---------- the strip, the chips, the tags, the countdown on M5's markup ---------- */
+:is(.ui-day, .ui-night) .ui-strip:has(> .ui-cell) { display: flex; }
+:is(.ui-day, .ui-night) .ui-strip > .ui-cell { flex: 1 1 0; border-right: 0; }
+:is(.ui-day, .ui-night) .ui-cell > .num.acc { color: var(--on-ink); } /* the strip's first number is white like the others */
+:is(.ui-day, .ui-night) .ui-cell > .lbl { color: var(--on-ink-dim); }
+:is(.ui-day, .ui-night) .ui-strip > .ui-strip-more { padding: 0 8px 0 2px; }
+:is(.ui-day, .ui-night) .ui-chip.more-n { --fill: var(--panel-w); color: var(--cyan-text); }
+:is(.ui-day, .ui-night) .ui-chip.on-plate { --fill: transparent; --edge: var(--line-lo); color: var(--on-ink); background: transparent; }
+:is(.ui-day, .ui-night) .ui-rtag { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day, .ui-night) .ui-rtag.lr { transform: none; border-color: transparent; box-shadow: none; }
+:is(.ui-day, .ui-night) .ui-rtag.is-ur > span.ur-ring { border-radius: 0; }
+:is(.ui-day, .ui-night) .ui-cd.s { border-radius: 0; height: 20px; padding: 0 7px 0 5px; }
+:is(.ui-day, .ui-night) .ui-cd.s > .ui-cd-time { font-size: var(--fs-label); }
+:is(.ui-day, .ui-night) .ui-cd > .ui-ico { width: 14px; height: 14px; }
+:is(.ui-day, .ui-night) .ui-cd > .ui-cd-time { font-size: var(--fs-label); }
+:is(.ui-day, .ui-night) .ui-bdg.inprog > span { font: italic 900 var(--fs-label)/1 var(--font-head); }
+:is(.ui-day, .ui-night) .ui-bdg.soon > .ui-ico { width: 14px; height: 14px; }
+/* "Coming soon" on a locked tile keeps its own corner (its sticker sat 8 px above the tile) */
+:is(.ui-day, .ui-night) .ui-ltile { border: 1px solid var(--line-ink); border-radius: 0; background: var(--panel-w); box-shadow: none; }
+:is(.ui-day, .ui-night) .ui-ltile-art { border-radius: 0; }
+:is(.ui-day, .ui-night) .ui-ltile-title { color: var(--ink); }
+:is(.ui-day, .ui-night) .ui-kicker::before { border-radius: 0; }
+/* the Mailroom's letters (V4 rebuilds them): flat white rows with one hairline; a gift's pink ring goes (pink marks a
+   selection only) */
+:is(.ui-day, .ui-night) .mbx-screen .mbx-letter,
+:is(.ui-day, .ui-night) .mbx-screen .mbx-letter.k-gift { border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+/* the login calendar (V4 rebuilds it): flat day cards with a hairline; today an ink frame and an ink "Today" ribbon
+   (the Claim button is the screen's one yellow); the big day a cyan wash with the ink day tag (pink marks a selection) */
+:is(.ui-day, .ui-night) .ma-cal-day { border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day, .ui-night) .ma-cal-day.big { background: var(--cyan-wash); }
+:is(.ui-day, .ui-night) .ma-cal-day.today { border-color: var(--plate); box-shadow: none; animation: none; }
+:is(.ui-day, .ui-night) .ma-cal-today { background: var(--plate); color: var(--on-ink); }
+:is(.ui-day, .ui-night) .ma-cal-num,
+:is(.ui-day, .ui-night) .ma-cal-day.big .ma-cal-num,
+:is(.ui-day, .ui-night) .cm-login .cm-calendar .ma-cal-day.big .ma-cal-num { border-radius: 0; background: var(--plate); color: var(--on-ink); }
+/* the roster's "how to get her" line on a locked card: a flat ink chip (it was a yellow pill) */
+:is(.ui-day, .ui-night) .mb-card-how { border-radius: 0; background: var(--plate); color: var(--on-ink); }
+
+/* ---------- the item tile (the shipped slanted plate stays, C1): its count's small "x" at the desktop floor (13 px; the
+   v0.1.46 tile kept 12 everywhere) ---------- */
+@media (min-height: 481px) { :is(.ui-day, .ui-night) .item-count small { font-size: max(13px, 0.82em); } }
+
+/* ---------- hosts: no drop shadow; the bubble white with a navy hairline and a hairline tail, no shadow ---------- */
+:is(.ui-day, .ui-night) .ui-host-art { filter: none; }
+:is(.ui-day, .ui-night) .ui-host-bubble { background: #fff; box-shadow: inset 0 0 0 1px var(--line-ink); }
+:is(.ui-day, .ui-night) .ui-host-bubble::after {
+  top: -6px; width: 12px; height: 12px; margin-left: -6px; clip-path: none; background: #fff;
+  transform: rotate(45deg); box-shadow: inset 1px 1px 0 0 var(--line-ink);
+}
+:is(.ui-day, .ui-night) .ui-host[data-mode="chip"] > .ui-host-bubble::after {
+  left: auto; right: -6px; top: 50%; width: 12px; height: 12px; margin: -6px 0 0; box-shadow: inset -1px 1px 0 0 var(--line-ink);
+}
+:is(.ui-day, .ui-night) .ui-host[data-mode="chip"] > .ui-host-bust { box-shadow: 0 0 0 1px var(--line-ink); }
+
+/* ---------- sheets: a day sheet floats as a white panel with a bleed ink head; a 2 px blur behind it softens the rows
+   it cuts (low 10). The Details sheet (full height, on three screen edges) has no chamfer (S2). ---------- */
+:is(.ui-day, .ui-night) .ui-layer > .ui-scrim { background: var(--scrim); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+:is(.ui-day, .ui-night) .ui-sheet:not(.full) {
+  --c: var(--cut); --rw: 1px; --edge: var(--line-ink);
+  bottom: calc(8px + var(--safe-bottom)); width: min(calc(100% - 32px), 720px); max-height: calc(var(--sheet-max-h) - 8px);
+  padding-bottom: 0; border-radius: 0; box-shadow: none; background: var(--panel-w);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day, .ui-night) .ui-sheet:not(.full)::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142),
+    calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw));
+}
+:is(.ui-day, .ui-night) .ui-sheet.full { border-radius: 0; box-shadow: inset 1px 0 0 var(--line-ink), inset -1px 0 0 var(--line-ink); background: var(--panel-w); }
+:is(.ui-day, .ui-night) .ui-sheet > .ui-head { padding-right: calc(var(--sp-1) + var(--cut) * 0.5); }
+:is(.ui-day, .ui-night) .ui-close { border-radius: 50%; }

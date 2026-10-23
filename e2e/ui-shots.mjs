@@ -46,7 +46,11 @@ const DSF = Math.max(1, Number(opt('dsf', 1)) || 1);
 const judged = opt('judge', null)?.split(',').map((s) => s.trim()).filter(Boolean) || null;
 const withProbe = flag('probe') || !!judged;
 const withPixels = flag('pixels');
+// --crops: the reviewers' close-ups (best with --dsf 3): every surface's chamfer corners, the open rail tab, the wallets,
+// the first countdown chip, and medium 3's selected tile beside a Mythic one, into <out>/crops/
+const withCrops = flag('crops');
 mkdirSync(out, { recursive: true });
+if (withCrops) mkdirSync(join(out, 'crops'), { recursive: true });
 
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 /** The lobby secretary's speech bubble stays clear of the tray and the sticker row (probe `apart`; UI M5d review). */
@@ -75,6 +79,9 @@ const SHOTS = {
   'stage-prep': { hash: '#/stage/2-3', ready: isScreen('stage'), kind: 'detail' },
   achievements: { hash: '#/commissions?tab=achievements', ready: isScreen('commissions'), kind: 'list' },
   'battle-drawer': { battle: true },
+  // [ui-ink] the same with the 3D scene hidden and every animation held: the battle's own UI alone, the pixel gate that
+  // the UI v2 scope fence leaves the battle untouched (the scene itself never renders twice the same)
+  'battle-drawer-ui': { battle: true, uiOnly: true },
   // ---- the M5 list (docs/specs/UI_DIRECTION.md §5.9, §5.10; notes/ui-m5/PLAN.md §5) ----
   missions: { hash: '#/missions', ready: isScreen('missions'), list: '.ma-hub-grid', seed: 'm5' },
   // the Missions hub the first time after Titan Trials opened: its "Open!" sticker (src/ui/badges.js openModes)
@@ -220,16 +227,27 @@ async function salvagePick(page) {
     const gear = window.__sakura.store.profile.gear;
     const cards = [...document.querySelectorAll('#app .mb-gear-grid.picking .mb-gear[data-gear]')];
     const pickable = (c) => !!c && !c.classList.contains('blocked');
-    const i = cards.findIndex((c) => gear[c.dataset.gear]?.rarity === 'mythic' && pickable(c));
-    const next = [cards[i + 1], cards[i - 1]].find((c) => pickable(c) && gear[c.dataset.gear]?.rarity !== 'mythic') || cards.find((c, k) => k !== i && pickable(c));
-    // both in view: the upper of the two at the top of the list window
-    const upper = [cards[i], next].filter(Boolean).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
-    upper?.scrollIntoView({ block: 'start' });
-    const body = document.querySelector('#app .screen-body');
-    if (body) body.scrollTop = Math.max(0, body.scrollTop - 8);
+    const mythic = (c) => gear[c.dataset.gear]?.rarity === 'mythic';
+    const m = cards.find((c) => mythic(c) && pickable(c));
+    if (!m) return null;
+    const top = (c) => c.getBoundingClientRect().top;
+    // the closest pickable piece that is not Mythic: in the Mythic's own row first, then the rows after it
+    const rest = cards.filter((c) => pickable(c) && !mythic(c));
+    const next = rest.find((c) => Math.abs(top(c) - top(m)) < 4) || rest.find((c) => top(c) > top(m)) || rest[0];
     return next?.dataset.gear || null;
   });
-  if (uid) await page.click(`#app .mb-gear[data-gear="${uid}"]`);
+  if (!uid) return;
+  await page.click(`#app .mb-gear[data-gear="${uid}"]`);
+  // the picked card whole above the salvage bar, the Mythic one beside or above it
+  await page.evaluate((u) => {
+    const card = document.querySelector(`#app .mb-gear[data-gear="${u}"]`);
+    const body = document.querySelector('#app .screen-body');
+    const bar = document.querySelector('#app [data-testid="salvage-bar"]');
+    if (!card || !body) return;
+    const r = card.getBoundingClientRect();
+    const limit = (bar ? bar.getBoundingClientRect().top : innerHeight) - 8;
+    body.scrollTop += r.bottom - limit;
+  }, uid);
 }
 const FIRST_SIX = ['lobby', 'girl-info', 'backpack-equipment', 'stage-prep', 'achievements', 'battle-drawer'];
 const M5 = ['lobby', 'missions', 'commissions-daily', 'commissions-login', 'achievements', 'bounty', 'assault', 'titans', 'campaign',
@@ -243,7 +261,7 @@ const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-reduced', 'h
   'multiplayer-pvp', 'recruit-result', 'ink-kit'];
 /** [ui-ink] The screens v2 reaches only through shared components (battle-drawer must stay pixel-identical). */
 const REGRESS = ['bounty', 'assault', 'titans', 'campaign', 'happening', 'settings', 'profile', 'event-halloween', 'coop', 'backpack-equipment', 'stage-prep',
-  'achievements', 'battle-drawer'];
+  'achievements', 'battle-drawer', 'battle-drawer-ui'];
 const LISTS = { m5: M5, ink: INK_LIST, regress: REGRESS };
 
 /**
@@ -275,7 +293,7 @@ if (unknown.length) {
 const m5Seed = !!pick && names.some((n) => SHOTS[n].seed === 'm5');
 /** [ui-ink] Pixel probes for a shot without its own: rings on the first panels and the folder-tab junctions. */
 const DEFAULT_PIXELS = async (page) => ({
-  panels: await ringContinuity(page, '#app .ui-panel, #app .panel, #app .ls-panel', { shape: 'pair', limit: 3 }),
+  panels: await ringContinuity(page, '#app .ui-panel, #app .panel, #app .mb-card, #app .ls-panel:not(.bare), .ui-sheet:not(.full), .modal', { shape: 'pair', limit: 3 }),
   tabs: await tabJunction(page, '#app .ui-tabbed'),
   titles: await contrastOnPixels(page, '#app .topbar-title, #app .ui-plate-title > span, #app .panel-title', { limit: 6 }),
 });
@@ -316,6 +334,58 @@ async function shot(page, name, vp) {
   const file = join(out, `${name}-${vp}.png`);
   await page.screenshot({ path: file });
   console.log(`  saved ${file}`);
+}
+
+/** [ui-ink] The close-ups of one shot (--crops): boxes in viewport px, clamped; each saved as its own PNG. */
+async function crops(page, name, vp) {
+  const boxes = await page.evaluate(() => {
+    const out = [];
+    const W = innerWidth;
+    const H = innerHeight;
+    const add = (tag, x, y, w, h) => {
+      const x0 = Math.max(0, Math.floor(x));
+      const y0 = Math.max(0, Math.floor(y));
+      const x1 = Math.min(W, Math.ceil(x + w));
+      const y1 = Math.min(H, Math.ceil(y + h));
+      if (x1 - x0 > 8 && y1 - y0 > 8) out.push({ tag, clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } });
+    };
+    const shown = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < H && r.left < W; };
+    const first = (sel) => [...document.querySelectorAll(sel)].find(shown);
+    // chamfered surfaces: the top-right and bottom-left corners
+    for (const [tag, sel] of [['panel', '#app .ls > .ls-panel:not(.bare)'], ['panel', '#app .panel'], ['panel', '#app .ui-panel'], ['sheet', '.ui-sheet'], ['dialog', '.modal']]) {
+      const e = first(sel);
+      if (!e) continue;
+      const r = e.getBoundingClientRect();
+      add(`${tag}-tr`, r.right - 56, r.top - 6, 62, 62);
+      add(`${tag}-bl`, r.left - 6, r.bottom - 56, 62, 62);
+    }
+    for (const [tag, sel, pad] of [['rail-on', '#app .ui-stab.on', 8], ['plate-head', '#app .ui-plate-head', 6], ['wallets', '#app .topbar .cur-pills:not([hidden])', 8], ['back', '#app .topbar-back', 8], ['countdown', '#app .ui-cd', 6]]) {
+      const e = first(sel);
+      if (!e) continue;
+      const r = e.getBoundingClientRect();
+      add(tag, r.left - pad, r.top - pad, r.width + pad * 2, r.height + pad * 2);
+    }
+    // medium 3: the selected tile and the Mythic one nearest to it, together
+    const gear = window.__sakura?.store?.profile?.gear || {};
+    const sel = first('[data-testid="pick-worn"], .mb-gear.selected, .ui-gtile.selected, .item-tile.sel');
+    if (sel) {
+      const pool = [...document.querySelectorAll('.ui-gtile, .mb-gear')].filter((e) => e !== sel && shown(e)
+        && ((e.dataset.gear && gear[e.dataset.gear]?.rarity === 'mythic') || e.classList.contains('mythic')));
+      const a = sel.getBoundingClientRect();
+      const near = pool.sort((p, q) => Math.hypot(p.getBoundingClientRect().left - a.left, p.getBoundingClientRect().top - a.top) - Math.hypot(q.getBoundingClientRect().left - a.left, q.getBoundingClientRect().top - a.top))[0];
+      const b = near ? near.getBoundingClientRect() : a;
+      const x = Math.min(a.left, b.left) - 12;
+      const y = Math.min(a.top, b.top) - 12;
+      add('medium3', x, y, Math.max(a.right, b.right) + 12 - x, Math.max(a.bottom, b.bottom) + 12 - y);
+    }
+    return out;
+  });
+  let i = 0;
+  for (const b of boxes) {
+    const file = join(out, 'crops', `${name}-${vp}-${String(++i).padStart(2, '0')}-${b.tag}.png`);
+    await page.screenshot({ path: file, clip: b.clip });
+  }
+  if (boxes.length) console.log(`    crops: ${boxes.map((b) => b.tag).join(', ')}`);
 }
 
 const hasRoute = (page, name) => page.evaluate(async (n) => (await import('/src/ui/router.js')).hasRoute(n), name);
@@ -407,7 +477,13 @@ for (const vp of viewports) {
           await closeModals(page);
           inGame = true;
         }
-        if (s.battle) await battleDrawer(page);
+        if (s.battle) {
+          await battleDrawer(page);
+          if (s.uiOnly) {
+            await page.addStyleTag({ content: 'canvas { visibility: hidden !important; } *, *::before, *::after { animation-play-state: paused !important; transition: none !important; caret-color: transparent !important; }' });
+            await settle(page, 600);
+          }
+        }
         else {
           if (s.needsRoute && !(await hasRoute(page, s.needsRoute))) {
             console.log(`  skipped ${name}: no "${s.needsRoute}" screen in this build yet`);
@@ -446,6 +522,7 @@ for (const vp of viewports) {
           console.log(`  FAILED ${name} probe: ${fails.join(' | ')}`);
         }
       }
+      if (withCrops && !s.page) await crops(page, name, vp);
       if (withPixels) {
         const px = await (s.pixels || DEFAULT_PIXELS)(page);
         pixelRuns[name] = px;

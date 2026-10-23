@@ -3,7 +3,7 @@
 import { h, fromHTML, clear } from './dom.js';
 import { dot, countBadge } from './badges.js';
 import { store } from '../core/store.js';
-import { navigate, back } from './router.js';
+import { navigate, back, currentRoute } from './router.js';
 import { formatNumber } from '../core/util.js';
 import { fmtItemCount } from './format.js';
 import { itemIcon, uiIcon, currencyIcon, UI_ICON_NAMES } from '../art/icons.js';
@@ -18,6 +18,9 @@ import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
 import { potentialOf, potPill } from './potential.js';
 import { hasPotentialNew } from '../systems/potential.js';
 import { pickMarks } from './pickMarks.js';
+import { inkSurface } from './surfaceMode.js';
+import { lineGlyph, lineFor } from './lineGlyphs.js';
+import { walletsFor, WALLET_DEFS } from './wallets.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -81,8 +84,14 @@ const EXTRA_GLYPHS = {
   more: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/>',
 };
 
-/** SVG markup for a UI glyph: every uiIcon() name plus the extra ones above. */
+/**
+ * SVG markup for a UI glyph: every uiIcon() name plus the extra ones above. [ui-ink] On the menus and the home (a
+ * surface mode on <body>, src/ui/surfaceMode.js) a name with a UI v2 line glyph (src/ui/lineGlyphs.js LINE_ALIASES)
+ * draws that one; the battle keeps the old drawings.
+ */
 export function glyph(name) {
+  const line = inkSurface() ? lineFor(name) : null;
+  if (line) return lineGlyph(line, '', { kitSize: false });
   if (EXTRA_GLYPHS[name]) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${EXTRA_GLYPHS[name]}</g></svg>`;
   }
@@ -195,8 +204,15 @@ function autoCleanup(el, off) {
   queueMicrotask(() => el.parentNode && mo.observe(document.body, { childList: true, subtree: true }));
 }
 
-/** Coins + gems pills (gems carry a "+" that opens the Mall). Auto-updates. */
-export function currencyPills({ plus = true } = {}) {
+/**
+ * Coins + gems pills (gems carry a "+" that opens the Mall). Auto-updates.
+ * [ui-ink] On the menus (a surface mode on <body>): only the currencies this screen spends (src/ui/wallets.js, Q3), each
+ * a line glyph and its number, split by slanted slashes, "+" as a hairline square; `wallets` overrides the table, and
+ * the element's setWallets(ids) redraws them (the Mall, when its shop changes). The test ids stay (coins, gems,
+ * tickets). Empty: the group is hidden.
+ */
+export function currencyPills({ plus = true, wallets = null } = {}) {
+  if (inkSurface()) return inkWallets({ plus, wallets });
   const coins = h('span.cur-val', { 'data-testid': 'coins' });
   const gems = h('span.cur-val', { 'data-testid': 'gems' });
   const refresh = () => {
@@ -214,18 +230,53 @@ export function currencyPills({ plus = true } = {}) {
   return el;
 }
 
+/** [ui-ink] The UI v2 wallets (see currencyPills). */
+function inkWallets({ plus = true, wallets = null } = {}) {
+  const route = currentRoute();
+  let ids = wallets || walletsFor(route.name, route.params || {});
+  const vals = {};
+  const el = h('div.topbar-group.cur-pills');
+  const line = (name) => svgEl(lineGlyph(name, '', { kitSize: false }));
+  const pill = (id) => {
+    const d = WALLET_DEFS[id];
+    vals[id] = h('span.cur-val.num', { 'data-testid': id });
+    const more = plus && d.plus
+      ? h('button.cur-plus', { type: 'button', onclick: () => navigate(d.plus.route, d.plus.params), title: d.plus.label, 'aria-label': d.plus.label }, line('plus'))
+      : null;
+    return h('div.cur-pill.ui-cur', { title: d.label }, line(d.glyph), vals[id], more);
+  };
+  const refresh = () => {
+    for (const id of ids) if (vals[id]) vals[id].textContent = formatNumber(itemCount(store.profile, WALLET_DEFS[id].item));
+  };
+  const draw = (next) => {
+    ids = (next || []).filter((id) => WALLET_DEFS[id]);
+    for (const k of Object.keys(vals)) delete vals[k];
+    el.replaceChildren(...ids.flatMap((id, i) => [i ? h('span.ui-slash', { 'aria-hidden': 'true' }) : null, pill(id)]).filter(Boolean));
+    el.hidden = !ids.length;
+    el.dataset.wallets = ids.join(' ');
+    refresh();
+  };
+  draw(ids);
+  el.setWallets = draw;
+  autoCleanup(el, store.on('change', refresh));
+  return el;
+}
+
 /** Top bar with back/home, title, currencies and settings. Auto-updates on store change. */
 export function topBar({ title = '', showBack = true, showHome = true, extra = null } = {}) {
+  const pills = currencyPills();
   const bar = h(
     'header.topbar',
-    showBack ? h('button.topbar-back', { onclick: () => back(), title: 'Back', 'data-testid': 'back' }, svgEl(uiIcon('back'))) : null,
+    showBack ? h('button.topbar-back', { onclick: () => back(), title: 'Back', 'data-testid': 'back' }, svgEl(glyph('back'))) : null,
     h('div.topbar-title', title),
     h('div.topbar-spacer'),
     extra,
-    currencyPills(),
+    pills,
+    // [ui-ink] a hairline between the wallets and the icon buttons (the kit's .ui-vr), only when there are wallets
+    inkSurface() ? h('span.ui-vr', { 'aria-hidden': 'true' }) : null,
     h('div.topbar-group',
-      h('button.topbar-icon', { onclick: () => navigate('settings'), title: 'Settings', 'data-testid': 'settings' }, svgEl(uiIcon('settings'))),
-      showHome ? h('button.topbar-icon', { onclick: () => navigate('lobby'), title: 'Home', 'data-testid': 'home' }, svgEl(uiIcon('home'))) : null,
+      h('button.topbar-icon', { onclick: () => navigate('settings'), title: 'Settings', 'data-testid': 'settings' }, svgEl(glyph('settings'))),
+      showHome ? h('button.topbar-icon', { onclick: () => navigate('lobby'), title: 'Home', 'data-testid': 'home' }, svgEl(glyph('home'))) : null,
     ),
   );
   return bar;

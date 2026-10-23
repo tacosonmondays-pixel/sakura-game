@@ -116,16 +116,22 @@ export async function tabJunction(page, sel = '.ui-tabbed') {
 /**
  * S3: the one ring of a chamfered surface is present along both chamfers (25 / 50 / 75 %) and on the straight edges
  * next to them: ten points on a chamfer pair, five on a single cut. A point passes when, within 2 device px, a pixel
- * differs clearly from the surface's own fill (sampled inside it).
+ * differs clearly from the surface's own fill (sampled inside it). Surfaces under a sheet or a dialog are skipped.
  * @param {import('playwright').Page} page
  * @param {string} sel
  * @param {{ shape?: 'pair'|'cut', limit?: number }} [o]
  */
 export async function ringContinuity(page, sel, { shape = 'pair', limit = 6 } = {}) {
-  const els = await page.evaluate(([s, lim]) => [...document.querySelectorAll(s)].slice(0, lim).map((e, i) => {
+  // (only surfaces wholly in view and on top at their centre: one under a sheet or a dialog is not judged)
+  const els = await page.evaluate(([s, lim]) => [...document.querySelectorAll(s)].filter((e) => {
+    const r = e.getBoundingClientRect();
+    if (!(r.width > 4 && r.height > 4 && r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1)) return false;
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!top && (top === e || e.contains(top));
+  }).slice(0, lim).map((e, i) => {
     const r = e.getBoundingClientRect();
     return { i, x: r.left, y: r.top, w: r.width, h: r.height, c: parseFloat(getComputedStyle(e).getPropertyValue('--c')) || 0, name: `${e.tagName.toLowerCase()}.${[...e.classList].slice(0, 3).join('.')}` };
-  }).filter((e) => e.w > 4 && e.h > 4 && e.y >= 0 && e.y + e.h <= innerHeight + 1 && e.x >= 0 && e.x + e.w <= innerWidth + 1), [sel, limit]);
+  }), [sel, limit]);
   const checks = [];
   for (const e of els) {
     const res = await withPixels(page, { x: e.x, y: e.y, width: e.w, height: e.h }, (pix, q) => {
@@ -157,7 +163,8 @@ export async function ringContinuity(page, sel, { shape = 'pair', limit = 6 } = 
       }
       return pts.map(([nm, x, y]) => {
         const d = ringAt(x, y);
-        return { ok: d > 40, msg: `S3 ${q.name} #${q.i + 1}: ring at ${nm} (contrast to the fill ${Math.round(d)})` };
+        // (a 1 px hairline at 1x lands on two device rows at partial alpha: 24 still clears the fill's own noise)
+        return { ok: d > 24, msg: `S3 ${q.name} #${q.i + 1}: ring at ${nm} (contrast to the fill ${Math.round(d)})` };
       });
     }, { ...e, shape });
     checks.push(...res);

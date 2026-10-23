@@ -221,7 +221,8 @@ function missionsView(kind, redraw, onReset = null) {
         h('div.muted.ma-mission-desc', m.desc),
         h('div.ma-mission-prog', progressBar(m.progress, m.goal), count),
       ),
-      h('div.ma-mission-rewards', rewardStack(m.rewards, 40)),
+      // (44: the v0.1.46 item plate is 1.09:1, so a 40 px tile was 37 px tall, under the 40 px tap floor; merged in V1)
+      h('div.ma-mission-rewards', rewardStack(m.rewards, 44)),
       h('div.ma-mission-act',
         m.claimed
           ? h('span.ma-claimed', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Claimed')

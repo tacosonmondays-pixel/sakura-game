@@ -8,11 +8,18 @@ import { h } from './dom.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
 import { countdownState, ticker } from './countdown.js';
 import { soonSticker } from './badges.js';
+import { inkSurface } from './surfaceMode.js';
+import { lineGlyph, lineFor } from './lineGlyphs.js';
 
-/** A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. */
+/**
+ * A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. [ui-ink] On the menus and the home (a
+ * surface mode on <body>) a name with a UI v2 line glyph (src/ui/lineGlyphs.js) draws that one first; game-data icons
+ * and the battle keep their drawings.
+ */
 export function ico(nameOrSvg, cls = 'ui-ico') {
   const span = h(`span.${cls}`, { 'aria-hidden': 'true' });
-  span.innerHTML = nameOrSvg.startsWith('<') ? nameOrSvg : glyphSVG(nameOrSvg);
+  const line = !nameOrSvg.startsWith('<') && inkSurface() ? lineFor(nameOrSvg) : null;
+  span.innerHTML = line ? lineGlyph(line, '', { kitSize: false }) : nameOrSvg.startsWith('<') ? nameOrSvg : glyphSVG(nameOrSvg);
   return span;
 }
 
@@ -61,9 +68,12 @@ export function moreChip(n, { onClick, title = null, testid = null } = {}) {
 /** A tilted sticker (MORE, NEW, grades): `kind` '' (white), 'y', 'p' or 'ink'. */
 export const sticker = (text, kind = '', props = {}) => h(`span.ui-sticker${kind ? `.${kind}` : ''}`, props, text);
 
-/** The MORE sticker: opens Details, looks the same everywhere (§5.2). */
+/**
+ * The MORE sticker: opens Details, looks the same everywhere (§5.2). [ui-ink] On the menus it is the cyan ghost
+ * control "Details ›" (UI v2 Q5: one yellow per screen), same place, same job, same test ids.
+ */
 export function moreSticker(onClick, { testid = null, label = 'More details' } = {}) {
-  return h('button.ui-sticker.y.ui-more', { type: 'button', 'data-testid': testid, 'aria-label': label, onclick: onClick }, 'More ▸');
+  return h('button.ui-sticker.y.ui-more', { type: 'button', 'data-testid': testid, 'aria-label': label, onclick: onClick }, inkSurface() ? 'Details ›' : 'More ▸');
 }
 
 /**
@@ -165,8 +175,9 @@ export function countdownChip(msLeft, { label = null, testid = null, now = () =>
   const endsAt = now() + (Number(msLeft) || 0);
   const done = doneText || (urgent ? 'Ended' : 'Reset!');
   const time = h('span.num.ui-cd-time');
+  // [ui-ink] one countdown chip everywhere (low 12): the line clock on the menus
   const el = h(`span.ui-cd${cls ? `.${cls}` : ''}`, { 'data-testid': testid, 'data-urgent': urgent ? null : 'off' },
-    ico(KIT_SVG.clock), label ? [h('span.lbl.ui-cd-lbl', label), ' '] : null, time);
+    ico(inkSurface() ? 'clock' : KIT_SVG.clock), label ? [h('span.lbl.ui-cd-lbl', label), ' '] : null, time);
   let seen = false;
   let misses = 0;
   let fired = !(Number(msLeft) > 0); // (born at zero: nothing to announce)
