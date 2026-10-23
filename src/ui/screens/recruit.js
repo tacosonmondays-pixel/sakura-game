@@ -247,10 +247,10 @@ function showNoGems(need) {
     title: 'Not enough gems',
     body: h('div',
       h('div.ma-spend-line.short', svgEl(currencyIcon('gems'), 'ma-pay-icon'), h('b', formatNumber(have)), ` / ${formatNumber(need)}`),
-      h('p', 'Gems come from daily and weekly commissions, the login calendar, first clears and medals. The Events page shows exactly how much you earn for free.'),
+      h('p', 'Gems come from daily and weekly commissions, the login calendar, first clears and medals. Happening Now › Free pulls shows exactly how much you earn for free.'), // (no break inside a name)
     ),
     actions: [
-      { label: 'Income overview', kind: 'ghost', onClick: (c) => { c(); navigate('rewards'); } },
+      { label: 'Income overview', kind: 'ghost', onClick: (c) => { c(); navigate('rewards', { tab: 'free' }); } },
       { label: 'Commissions', kind: 'yellow', onClick: (c) => { c(); navigate('commissions'); } },
     ],
   });

@@ -486,8 +486,9 @@ function settingsView(params) {
  * Groups the panels of build() under the five sections (each opens on its ink plate header, E2) and puts each row's
  * description behind an "i" (P1: rule text is never printed in full on a Glance surface). A description stays in view
  * where it is the reason a control is off ("Only on High quality.") or a live status line (it has a test id); rows a
- * panel fills later (the social rows, once online) keep theirs. A panel title that only repeats its section's word
- * goes (Display, Audio, Battle, About).
+ * panel fills later (the social rows, once online) keep theirs. A row without a control (Install; "Who can message
+ * me" while offline) keeps its description in view as well: there it is the whole row. A panel title that only
+ * repeats its section's word goes (Display, Audio, Battle, About).
  */
 function wrapSettings(wrapEl) {
   const kids = [...wrapEl.children];
@@ -522,7 +523,10 @@ function infoRow(desc) {
   const label = desc.parentElement?.querySelector(':scope > .ma-set-label');
   const row = desc.closest('.ma-set-row, .ma-save-block');
   if (!label || !row || !desc.textContent.trim()) return;
-  if (desc.dataset.testid || row.querySelector(':disabled')) {
+  // always in view: a live status (a test id), the reason a control is off, or a settings row with no control at all
+  // (its description is the row). A save block's button sits straight in the block, so the last test is rows only.
+  const noControl = row.matches('.ma-set-row') && !row.querySelector(':scope > .ma-set-control > *');
+  if (desc.dataset.testid || row.querySelector(':disabled') || noControl) {
     desc.classList.add('st-why');
     return;
   }

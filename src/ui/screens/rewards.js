@@ -1,10 +1,11 @@
 // Happening Now (owner: meta-a; the old "Events" page). Route: #/rewards?tab=now|soon|free (the route name stays).
 // UI M5c (docs/specs/UI_DIRECTION.md §5.9, §5.10 E1-E3, E6, E9; notes/ui-m5/PLAN.md §5 M5c): a list screen. Suzu hosts
 // on the right; the rail In Progress · Coming Up · Free pulls; every row is an icon tile, a title, one line, a
-// countdown chip, "In Progress" (a limited event you have joined) and an ink Go. The rows (../happening.js): the
-// limited events (their end is a deadline: red under 24 h), this week's double drops, the Titan of the Week, Total
-// Assault and the clan boss week (only when the social hub is ready); Coming Up: teased events and the next two weeks'
-// rotation. With nothing limited running, In Progress opens on the off-season band (E9: one sentence, the next date).
+// countdown chip and an ink Go (no "In Progress" sticker on a row: the tab and the plate header say it once, P7). The
+// doors that promise free pulls (the lobby's "Free pulls" card, the Notice's guide, Recruit's "Not enough gems") open
+// #/rewards?tab=free. The rows (../happening.js): the limited events (their end is a deadline: red under 24 h), this
+// week's double drops, the Titan of the Week, Total Assault and the clan boss week (only when the social hub is ready);
+// a Go's screen arrows back here (../nav.js LIST_HUBS). Coming Up: teased events and the next two weeks' rotation. With nothing limited running, In Progress opens on the off-season band (E9: one sentence, the next date).
 // Free pulls: the free-to-play chart in its own section with a "?" (three headline numbers + MORE for the full
 // tables, and the recurring sources as bars). Nothing sells here.
 import '../styles/meta-a.css';
@@ -20,7 +21,6 @@ import { f2pIncomeSummary } from '../../systems/missions.js';
 import { expectedSSRRate } from '../../systems/gacha.js';
 import { eventNow } from '../events/clock.js';
 import { countdownChip, inkBtn, iconBtn, statStrip, offSeasonBand, secondaryBtn, ico } from '../kit.js';
-import { inProgress } from '../badges.js';
 import { openSheet } from '../sheet.js';
 import { hubBackdrop } from '../hubArt.js';
 import { listScreen } from '../listScreen.js';
@@ -79,7 +79,7 @@ export function render(root, params = {}) {
     return h(`div.hn-row.k-${r.kind}${r.locked ? '.locked' : ''}`, { 'data-testid': `hn-row-${r.id}` },
       rowIcon(r),
       h('div.hn-text',
-        h('div.hn-title-line', h('b.hn-title', r.title), r.inProgress ? inProgress({ cls: 'hn-inprog', testid: `hn-inprog-${r.id}` }) : null),
+        h('div.hn-title-line', h('b.hn-title', r.title)),
         h('div.hn-line-row',
           r.locked ? h('span.hn-lock', ico('lock', 'ui-ico.hn-lock-ico'), r.locked) : h('span.hn-line', r.line),
           r.msLeft != null && !r.locked

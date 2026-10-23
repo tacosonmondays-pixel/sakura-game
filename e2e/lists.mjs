@@ -10,11 +10,14 @@
 //     24 h (and turning red as the clock moves: a clock override); claim one, Claim all (the one yellow, gone once
 //     nothing waits); a tap reads a letter; History; the designed empty state; mail-close goes back
 //   - the Mall: every buy is a cost button (no yellow price pill), each balance once (coins and gems only in the top
-//     bar, a token shop's wallet once), the restock chip in the plate header, a buy still works
-//   - Happening Now: the rows and their Go, Coming Up, Free pulls (the "?" sheet and MORE), nothing sells here; on the
-//     events' dev clock: the off-season band (E9) on Happening Now and on the event page's ended and upcoming phases
+//     bar, a token shop's wallet once), the restock chip in the plate header, a buy still works, "i" opens a bottom
+//     sheet, the wallet chip's Total Assault arrows back to the shop
+//   - Happening Now: the rows and their Go (no "In Progress" sticker on a row; Bounty and Titan Trials arrow back
+//     here), Coming Up, Free pulls (the "?" sheet and MORE), nothing sells here; every door that promises free pulls
+//     (the lobby card, the Notice, Recruit's "Not enough gems") opens Free pulls; on the events' dev clock: the
+//     off-season band (E9) on Happening Now and on the event page's ended and upcoming phases
 //   - Settings: every section reachable from the rail (and the lit tab follows), a deep link, the Menu's Account,
-//     descriptions behind "i"
+//     descriptions behind "i" (in view on a row without a control)
 //   - Recruit: the pity shows once
 //
 //   node e2e/lists.mjs [--viewport 844x390] [--shots <dir>]
@@ -333,6 +336,77 @@ async function mall(page, vp) {
   await checkRail(page, 'mall boss', ['general', 'gems', 'recruit', 'boss', 'bounty', 'memento'], 'boss');
   await probeScreen(page, 'mall boss');
   await shot(page, 'mall-boss', vp);
+  // the shop's sentence behind "i": a bottom sheet (P1), never a toast over the header
+  await page.click('#app [data-testid="mall-info"]');
+  const sheet = await page.waitForSelector('[data-testid="mall-info-sheet"]', { timeout: 5000 }).catch(() => null);
+  const info = sheet ? await page.evaluate(() => ({ title: document.querySelector('[data-testid="mall-info-sheet"] .ui-title')?.textContent, text: document.querySelector('[data-testid="mall-info-sheet"] .ui-body')?.textContent.trim() })) : null;
+  check(!!info && info.title === 'Boss Exchange' && info.text.length > 10, `mall: "i" opens the shop's sentence in a bottom sheet ("${info?.title}": "${info?.text}")`);
+  if (sheet) {
+    const r = await probe(page, { kind: 'detail', root: '[data-testid="mall-info-sheet"]' });
+    check(r.minText >= r.floor, `mall: the "i" sheet passes the text floor (${r.minText} px)`);
+    await page.click('[data-testid="mall-info-sheet-close"]');
+    await settle(page, 300);
+  }
+  // the token wallet goes where the tokens are earned (Total Assault), and the arrow comes back to this shop
+  await page.click('#app [data-testid="mall-wallet"]');
+  await waitScreen(page, 'assault');
+  await page.click('#app .topbar [data-testid="back"]');
+  await waitScreen(page, 'mall');
+  check(await page.evaluate(() => location.hash) === '#/mall?tab=boss', `mall: back from the wallet's Total Assault lands on the Boss Exchange (${await page.evaluate(() => location.hash)})`);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The doors that promise free pulls open Happening Now on Free pulls
+// ---------------------------------------------------------------------------------------------------------------
+async function freeDoors(page, vp) {
+  console.log(`-- Free pulls doors ${vp}`);
+  const landed = () => page.evaluate(() => [location.hash, document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid, !!document.querySelector('#app [data-testid="happening-free"]')]);
+  const isFree = (l) => l[0] === '#/rewards?tab=free' && l[1] === 'tab-free' && l[2];
+  await go(page, '#/lobby', 'lobby');
+  await page.evaluate(() => document.querySelector('#app [data-testid="banner-f2p"]').click()); // (a carousel slide)
+  await waitScreen(page, 'rewards');
+  let l = await landed();
+  check(isFree(l), `doors: the lobby's "Free pulls" card opens Happening Now on Free pulls (${l.join(', ')})`);
+  await shot(page, 'door-lobby-f2p', vp);
+  await go(page, '#/lobby', 'lobby');
+  await page.click('[data-testid="shortcut-notice"]');
+  await page.click('.lb-notice-modal [data-testid="notice-f2p"]');
+  await page.click('.lb-notice-modal:not(.closing) .lb-notice-cta button');
+  await waitScreen(page, 'rewards');
+  l = await landed();
+  check(isFree(l), `doors: the Notice's "See the overview" opens Free pulls (${l.join(', ')})`);
+  await closeModals(page);
+  // Recruit with no gems and no tickets: "Not enough gems" → "Income overview"
+  const keep = await page.evaluate(() => {
+    const p = window.__sakura.store.profile;
+    const k = { gems: p.currencies.gems, t1: p.items?.ticket_recruit || 0, t10: p.items?.ticket_recruit10 || 0 };
+    p.currencies.gems = 0;
+    p.items.ticket_recruit = 0;
+    p.items.ticket_recruit10 = 0;
+    window.__sakura.store.commit('pull');
+    return k;
+  });
+  await go(page, '#/recruit', 'recruit');
+  await page.click('#app [data-testid="pull-1"]');
+  await page.waitForSelector('.modal-overlay:not(.closing)', { timeout: 5000 });
+  const said = await page.evaluate(() => document.querySelector('.modal-overlay:not(.closing) p')?.textContent || '');
+  check(/Happening\sNow › Free\spulls/.test(said) && !/Events page/.test(said), `doors: "Not enough gems" names Happening Now › Free pulls ("${said.slice(-70)}")`);
+  await page.click('.modal-overlay:not(.closing) button:has-text("Income overview")');
+  await waitScreen(page, 'rewards');
+  l = await landed();
+  check(isFree(l), `doors: Recruit's "Income overview" opens Free pulls (${l.join(', ')})`);
+  await closeModals(page);
+  await page.evaluate((k) => {
+    const p = window.__sakura.store.profile;
+    p.currencies.gems = k.gems;
+    p.items.ticket_recruit = k.t1;
+    p.items.ticket_recruit10 = k.t10;
+    window.__sakura.store.commit('pull');
+  }, keep);
+  // a closed event's page points at Happening Now by its name
+  await go(page, '#/event/no-such-event', 'event');
+  const btn = await page.evaluate(() => document.querySelector('#app .empty button')?.textContent.trim());
+  check(btn === 'Happening Now', `doors: a closed event's page has a "Happening Now" button ("${btn}")`);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -349,7 +423,8 @@ async function happening(page, vp) {
     id: r.dataset.testid, title: r.querySelector('.hn-title')?.textContent, chip: !!r.querySelector('.ui-cd'), go: !!r.querySelector('.ui-cost.ui-ink'), locked: r.classList.contains('locked'),
     inprog: !!r.querySelector('.ui-bdg.inprog'), icon: !!r.querySelector('.hn-ico'), line: !!r.querySelector('.hn-line, .hn-lock'),
   })));
-  check(now.length >= 3 && now[0].id === 'hn-row-halloween-2026' && now[0].chip && now[0].go && now[0].inprog, `happening: the running event first, with its chip, "In Progress" and Go (${now.map((r) => r.title).join(' · ')})`);
+  check(now.length >= 3 && now[0].id === 'hn-row-halloween-2026' && now[0].chip && now[0].go, `happening: the running event first, with its chip and Go (${now.map((r) => r.title).join(' · ')})`);
+  check(now.every((r) => !r.inprog), 'happening: no "In Progress" sticker on a row (the tab and the plate header say it once)');
   check(now.every((r) => r.icon && r.line && (r.locked ? !r.go : true)), 'happening: every row has its icon tile, title and one line; a locked row says why and has no Go');
   check(await page.evaluate(() => !document.querySelector('#app .hn-screen .ui-cost:not(.ui-ink), #app [data-testid^="buy-"]')), 'happening: nothing sells here');
   await probeScreen(page, 'happening now');
@@ -365,6 +440,15 @@ async function happening(page, vp) {
   await page.click('#app [data-testid="event-go"]');
   await waitScreen(page, 'bounty');
   check(await page.evaluate((a) => location.hash.includes(`arena=${a}`), arena), `happening: the double drops' Go opens Bounty on ${arena}`);
+  // every Go comes back: Bounty has a fixed parent (Missions), but opened from a list hub its arrow returns there
+  await page.click('#app .topbar [data-testid="back"]');
+  await waitScreen(page, 'rewards');
+  check(await page.evaluate(() => location.hash === '#/rewards' && document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid === 'tab-now'), 'happening: back from the double drops\' Bounty lands on Happening Now (In Progress), not Missions');
+  await page.click('#app [data-testid="hn-go-titans"]');
+  await waitScreen(page, 'titans');
+  await page.click('#app .topbar [data-testid="back"]');
+  await waitScreen(page, 'rewards');
+  check(await screenIs(page, 'rewards'), 'happening: back from Titan Trials lands on Happening Now');
   await go(page, '#/rewards?tab=soon', 'rewards');
   const soon = await page.evaluate(() => [...document.querySelectorAll('#app .hn-row')].map((r) => ({ id: r.dataset.testid, chip: r.querySelector('.ui-cd')?.textContent || '', go: !!r.querySelector('.ui-cost') })));
   check(soon.filter((r) => /^hn-row-week-/.test(r.id)).length === 2 && soon.every((r) => /Starts in|Opens in/i.test(r.chip)), `happening: Coming Up holds the next two weeks with their start chips (${soon.map((r) => r.id).join(', ')})`);
@@ -485,6 +569,13 @@ async function settings(page, vp) {
   await page.evaluate(() => [...document.querySelectorAll('#app .ma-set-row.st-has-i')].find((r) => r.querySelector('[data-testid="set-music"]'))?.querySelector('.st-i')?.scrollIntoView({ block: 'center' }));
   await page.click('#app .ma-set-row.st-has-i:has([data-testid="set-music"]) .st-i');
   check(await page.evaluate(() => document.querySelector('#app .ma-set-row.st-has-i:has([data-testid="set-music"]) .ma-set-desc')?.getClientRects().length > 0), 'settings: "i" shows the description');
+  // a row without a control keeps its description in view, with no "i" (Install; "Who can message me" while offline)
+  const bare = await page.evaluate(() => ['Install', 'Who can message me'].map((name) => {
+    const row = [...document.querySelectorAll('#app .ma-set-row')].find((r) => r.querySelector('.ma-set-label')?.textContent.trim() === name);
+    const d = row?.querySelector('.ma-set-desc');
+    return { name, found: !!row, kids: row?.querySelector('.ma-set-control')?.childElementCount ?? 0, shown: !!d && d.getClientRects().length > 0, i: !!row?.querySelector('.st-i') };
+  }));
+  for (const b of bare) check(b.found && b.kids === 0 && b.shown && !b.i, `settings: "${b.name}" has no control, so its description stays in view with no "i" (${JSON.stringify(b)})`);
   // a deep link, and the Menu's Account
   await go(page, '#/lobby', 'lobby');
   await go(page, '#/settings?section=audio', 'settings');
@@ -528,7 +619,7 @@ async function recruit(page, vp) {
 for (const vp of viewports) {
   console.log(`\n=== ${vp} ===`);
   const { ctx, page, errors, touch } = await open(vp);
-  for (const step of [mailroom, mall, happening, settings, recruit, offSeason]) {
+  for (const step of [mailroom, mall, happening, freeDoors, settings, recruit, offSeason]) {
     try {
       await step(page, vp, touch);
     } catch (e) {

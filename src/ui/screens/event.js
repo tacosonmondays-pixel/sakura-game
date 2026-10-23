@@ -52,7 +52,7 @@ export function render(root, params = {}) {
   const ev = eventById(params.id);
   if (!ev || eventPhase(ev, eventNow(), store.profile) === 'hidden') {
     const { el, body } = screen('Event');
-    body.appendChild(h('div.empty', 'This event is not open. ', button('Events', { kind: 'primary', onClick: () => navigate('rewards') })));
+    body.appendChild(h('div.empty', 'This event is not open. ', button('Happening Now', { kind: 'primary', onClick: () => navigate('rewards') })));
     root.appendChild(el);
     return;
   }

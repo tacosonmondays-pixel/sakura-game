@@ -17,8 +17,8 @@ export function isTransient(name) {
 /**
  * Screens with a fixed place in the menus: the arrow goes to this parent, wherever the screen was
  * opened from (a chat link, a battle, the clan …) — except straight from higher up the same menus
- * (a lobby shortcut): then back there, since the player never saw the screens in between. A route
- * name, or (params) => route name.
+ * (a lobby shortcut) or from a list hub (LIST_HUBS): then back there, since the player never saw
+ * the screens in between. A route name, or (params) => route name.
  */
 const PARENTS = {
   missions: 'lobby',
@@ -36,6 +36,13 @@ const PARENTS = {
   // [ui-m5] the Mailroom (#/mail) has no fixed parent on purpose: it opens from the lobby, the Menu, the Notice, the
   // Journal and event pages, and its arrow goes back there (the lobby when nothing is below it)
 };
+
+/**
+ * [ui-m5] List hubs: Happening Now (#/rewards), the Mall and the Mailroom. Their whole job is "Go" (a row's Go, the
+ * Mall's wallet chip), so a fixed-parent screen opened from one (Bounty on the double drops, Total Assault from the
+ * token wallet, the clan boss week …) comes back to it, the list as it was left (its tab), not to its menu parent.
+ */
+export const LIST_HUBS = new Set(['rewards', 'mall', 'mail']);
 
 const fixedParent = (name, params = {}) => {
   const p = PARENTS[name];
@@ -89,8 +96,8 @@ export function parentRoute(name, params = {}, prev = null) {
   const fixed = fixedParent(name, params);
   if (fixed) {
     // opened from its parent, or straight from higher up the menus (the lobby's Tasks / Bounty /
-    // Total Assault shortcuts, Menu → Co-op): back there, the way the back gesture goes
-    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)))) return from;
+    // Total Assault shortcuts, Menu → Co-op), or from a list hub's Go: back there, the way the back gesture goes
+    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)) || LIST_HUBS.has(from.name))) return from;
     return route(fixed);
   }
   return from || route(FALLBACK[name] || 'lobby');

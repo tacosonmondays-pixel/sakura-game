@@ -7,9 +7,9 @@
 // UI M5c (docs/specs/UI_DIRECTION.md §5.5, §5.10 E1-E3, E6; notes/ui-m5/PLAN.md §5 M5c): a list screen. The six shops
 // in the left rail (Q6: one word each, the tab-<id> test ids kept), Midori hosts on the right (the shop-counter tint
 // behind), the shelves under an ink plate header with the shop's name, its restock countdown chip and, for a token
-// shop, its wallet ONCE (coins and gems live in the top bar: ../mallView.js); the shop's sentence behind "i". Every
-// buy is a cost button (§5.5: an ink plate, the currency and the price in the plate accent; dimmed with a lock when
-// it is short), so the yellow pills are gone. The offer tiles (M3's) and the buy and quantity windows are unchanged.
+// shop, its wallet ONCE (coins and gems live in the top bar: ../mallView.js); the shop's sentence behind "i" (a bottom
+// sheet). Every buy is a cost button (§5.5: an ink plate, the currency and the price in the plate accent; dimmed with
+// a lock when it is short), so the yellow pills are gone. The offer tiles (M3's) and the buy and quantity windows are unchanged.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, svgEl, modal, toast, button } from '../components.js';
@@ -18,6 +18,7 @@ import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
 import { nextWeeklyReset } from '../../core/reset.js';
 import { navigate, rememberParams } from '../router.js';
 import { listScreen } from '../listScreen.js';
+import { openSheet } from '../sheet.js';
 import { railTabs, walletChips, restockKind, RESTOCK_LABEL, mallHostState, stockLine, onGameWeek } from '../mallView.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -80,6 +81,12 @@ function walletChip(tab) {
     h('span.num.ma-wallet-val', { 'data-testid': w === wallets[0] ? 'mall-balance' : `mall-balance-${w.currency}` }, formatNumber(w.balance)))));
 }
 
+/** "i": the shop's sentence in a bottom sheet (P1: the Tap layer is a sheet, as Happening Now's "?"; toasts stay for
+ * feedback), so it never covers the header it explains and stays until it is closed. */
+function shopInfo(tab) {
+  openSheet({ title: tab.name, testid: 'mall-info-sheet', body: h('div.hn-sheet', h('p', tab.desc)) });
+}
+
 export function render(root, params = {}) {
   const all = shopTabs(store.profile);
   let active = all.some((t) => t.id === params.tab) ? params.tab : all[0].id;
@@ -112,7 +119,7 @@ export function render(root, params = {}) {
     ls.setHead(tab.name, [
       kind ? countdownChip(ms, { label: RESTOCK_LABEL[kind], cls: 's', urgent: false, doneText: 'Restocked!', onDone: () => { if (el.isConnected) draw(); }, testid: 'mall-restock' }) : null,
       walletChip(tab),
-      iconBtn('info', { label: `About the ${tab.name}`, cls: 'ma-mall-info', testid: 'mall-info', onClick: () => toast(tab.desc, 'info', 4200) }),
+      iconBtn('info', { label: `About the ${tab.name}`, cls: 'ma-mall-info', testid: 'mall-info', onClick: () => shopInfo(tab) }),
     ]);
     // one card per "choose family" group; a section header before the Titan shelf
     const items = [];

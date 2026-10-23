@@ -3,7 +3,7 @@
 // target table; the router tests run against a small fake of the browser's session history
 // (hash entries, history.state, async go/back/forward, popstate + hashchange like Chromium).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { parentRoute, mapRouteFor, isTransient, sameScreen, menuAncestors } from '../../src/ui/nav.js';
+import { parentRoute, mapRouteFor, isTransient, sameScreen, menuAncestors, LIST_HUBS } from '../../src/ui/nav.js';
 import { mapRouteFor as battleMapRoute } from '../../src/ui/battle/setup.js';
 import { STAGE_MAP, STAGES } from '../../src/data/stages.js';
 
@@ -35,6 +35,26 @@ describe('parentRoute: the back arrow target', () => {
     expect(menuAncestors('coop', { id: 'ABCDE' })).toEqual(['coop', 'missions', 'lobby']);
     expect(menuAncestors('bounty')).toEqual(['missions', 'lobby']);
     expect(menuAncestors('lobby')).toEqual(['lobby']);
+  });
+
+  it('… and from a list hub (Happening Now, the Mall, the Mailroom): back to the list as it was left (UI M5c)', () => {
+    // Happening Now's Go on the double drops (Bounty), Total Assault, the clan boss week; the Mall's token wallet chip
+    const hubs = [r('rewards', { tab: 'now' }), r('rewards', { tab: 'soon' }), r('mall', { tab: 'boss' }), r('mail', { tab: 'history' })];
+    for (const from of hubs) {
+      for (const name of ['bounty', 'assault', 'clan', 'missions', 'commissions', 'campaign', 'challenge', 'coop', 'messages']) {
+        expect(parentRoute(name, { tab: 'boss', arena: 'res-coins' }, from), `${name} from ${from.name}`).toBe(from);
+      }
+      expect(parentRoute('profile', {}, from)).toBe(from);
+    }
+    expect([...LIST_HUBS].sort()).toEqual(['mail', 'mall', 'rewards']);
+    // not a list hub: the fixed parent, as before
+    for (const from of [r('event', { id: 'halloween-2026' }), r('titans'), r('recruit'), r('settings')]) {
+      expect(parentRoute('bounty', {}, from)).toEqual(r('missions'));
+      expect(parentRoute('clan', { tab: 'boss' }, from)).toEqual(r('lobby'));
+    }
+    // a screen with no fixed parent already went back where it was opened from (Titan Trials, the event page)
+    expect(parentRoute('titans', {}, hubs[0])).toBe(hubs[0]);
+    expect(parentRoute('event', { id: 'halloween-2026' }, hubs[0])).toBe(hubs[0]);
   });
 
   it('stage prep goes back where it was opened from, else to its own map', () => {
@@ -505,6 +525,39 @@ describe('router: back arrow and battle history entries', () => {
     await boot('#/bounty');
     await arrow();
     expect(screen()).toBe('#/missions');
+  });
+
+  it('a Go on Happening Now, or the Mall\'s wallet chip, arrows back to that list on the tab it was left on', async () => {
+    await boot('#/lobby');
+    await go('rewards');
+    remember({ tab: 'now' });
+    await go('bounty', { arena: 'res-coins' }); // the double drops' Go
+    await arrow();
+    expect(screen()).toBe('#/rewards?tab=now');
+    expect(browser.i).toBe(1); // stepped back: the phone's back gesture agrees
+    await go('clan', { tab: 'boss' }); // the clan boss week's Go
+    await arrow();
+    expect(screen()).toBe('#/rewards?tab=now');
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+    // the Mall: the Boss Exchange's token wallet → Total Assault → arrow → the Boss Exchange
+    await go('mall', { tab: 'general' });
+    remember({ tab: 'boss' });
+    await go('assault');
+    await arrow();
+    expect(screen()).toBe('#/mall?tab=boss');
+    expect(browser.i).toBe(1);
+    // deeper: Bounty → a stage → its battle → Map: Bounty's arrow still comes back to the list
+    await boot('#/lobby');
+    await go('rewards', { tab: 'now' });
+    await go('bounty', { arena: 'res-coins' });
+    await go('stage', { id: 'res-coins-1' });
+    await go('battle', { stage: 'res-coins-1' });
+    await go('bounty', { arena: 'res-coins' }); // results: Map
+    expect(screen()).toBe('#/bounty?arena=res-coins');
+    await arrow();
+    expect(screen()).toBe('#/rewards?tab=now');
+    noBattle();
   });
 
   it('stage prep keeps the difficulty picked there after a battle (Quit, the back gesture, Retry → Quit)', async () => {

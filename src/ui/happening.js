@@ -44,8 +44,9 @@ export function shortDate(t) {
  *   events' clock (src/ui/events/clock.js: the same in production); social: the social hub is ready
  * @returns {{ now: object[], soon: object[], offSeason: null|{ next: null|{ id: string, name: string, at: number },
  *   past: null|{ id: string, name: string } }, running: number, endingSoon: string|null }}
- *   A row: { id, kind, title, line, msLeft (null: no chip), label, urgent, inProgress, go: { name, params }|null,
- *   locked: string|null (why it is closed), arena?: string, event?: object }
+ *   A row: { id, kind, title, line, msLeft (null: no chip), label, urgent, go: { name, params }|null,
+ *   locked: string|null (why it is closed), arena?: string, event?: object }. No row carries an "In Progress" flag:
+ *   the section says it once (P7); a player who has not joined an event reads "Clear <stage> to join" on its line.
  */
 export function happeningModel(profile, { now = Date.now(), eventNow = now, social = false } = {}) {
   const events = listEvents(profile, eventNow);
@@ -61,19 +62,19 @@ export function happeningModel(profile, { now = Date.now(), eventNow = now, soci
       rowsNow.push({
         id: ev.id, kind: 'event', event: ev, title: ev.name,
         line: joined ? ev.subtitle : `Clear ${ev.unlock?.stage} to join`,
-        msLeft, label: 'Ends in', urgent: true, inProgress: joined, go: { name: 'event', params: { id: ev.id } }, locked: null,
+        msLeft, label: 'Ends in', urgent: true, go: { name: 'event', params: { id: ev.id } }, locked: null,
       });
     } else if (phase === 'exchange') {
       const msLeft = Math.max(0, w.exchangeEndAt - eventNow);
       if (msLeft < DAY && !endingSoon) endingSoon = ev.name;
       rowsNow.push({
         id: ev.id, kind: 'exchange', event: ev, title: ev.name, line: `Exchange open: spend your ${ev.currency?.plural || ev.currency?.name || 'tokens'}`,
-        msLeft, label: 'Closes in', urgent: true, inProgress: false, go: { name: 'event', params: { id: ev.id, tab: 'exchange' } }, locked: null,
+        msLeft, label: 'Closes in', urgent: true, go: { name: 'event', params: { id: ev.id, tab: 'exchange' } }, locked: null,
       });
     } else if (phase === 'upcoming') {
       rowsSoon.push({
         id: ev.id, kind: 'event', event: ev, title: ev.name, line: ev.subtitle,
-        msLeft: Math.max(0, w.startAt - eventNow), label: 'Opens in', urgent: false, inProgress: false, go: { name: 'event', params: { id: ev.id } }, locked: null,
+        msLeft: Math.max(0, w.startAt - eventNow), label: 'Opens in', urgent: false, go: { name: 'event', params: { id: ev.id } }, locked: null,
       });
     }
   }
@@ -83,7 +84,7 @@ export function happeningModel(profile, { now = Date.now(), eventNow = now, soci
   const bountyOpen = isStageUnlocked(profile, BOUNTY_GATE);
   rowsNow.push({
     id: 'week', kind: 'week', title: week.name, line: `${week.dropMul}× drops in ${week.arenaName}`, arena: week.arena,
-    msLeft: msToLocalWeekEnd(now), label: 'Ends in', urgent: false, inProgress: false,
+    msLeft: msToLocalWeekEnd(now), label: 'Ends in', urgent: false,
     go: bountyOpen ? { name: 'bounty', params: { arena: week.arena } } : null, locked: bountyOpen ? null : 'Opens with Bounty',
   });
 
@@ -92,7 +93,7 @@ export function happeningModel(profile, { now = Date.now(), eventNow = now, soci
   const titan = TITAN_MAP[titanOfWeek(now)];
   rowsNow.push({
     id: 'titans', kind: 'titans', title: 'Titan Trials', line: titan ? `${titan.name} stands this week` : 'A new titan every week',
-    msLeft: Math.max(0, nextWeeklyReset(now) - now), label: 'Ends in', urgent: false, inProgress: false,
+    msLeft: Math.max(0, nextWeeklyReset(now) - now), label: 'Ends in', urgent: false,
     go: titansOpen ? { name: 'titans', params: {} } : null, locked: titansOpen ? null : `Clear ${TIER_STAGE.normal} first`,
   });
 
@@ -101,7 +102,7 @@ export function happeningModel(profile, { now = Date.now(), eventNow = now, soci
   const assaultOpen = !!firstBoss && isStageUnlocked(profile, firstBoss.id);
   rowsNow.push({
     id: 'assault', kind: 'assault', title: 'Total Assault', line: 'Bosses drop crowns',
-    msLeft: null, label: null, urgent: false, inProgress: false,
+    msLeft: null, label: null, urgent: false,
     go: assaultOpen ? { name: 'assault', params: {} } : null, locked: assaultOpen ? null : 'Clear more stages first',
   });
 
@@ -109,7 +110,7 @@ export function happeningModel(profile, { now = Date.now(), eventNow = now, soci
   if (social) {
     rowsNow.push({
       id: 'clanboss', kind: 'clanboss', title: 'Clan Boss', line: 'Your clan\'s boss of the week',
-      msLeft: msToWeekReset(now), label: 'Resets in', urgent: false, inProgress: false, go: { name: 'clan', params: { tab: 'boss' } }, locked: null,
+      msLeft: msToWeekReset(now), label: 'Resets in', urgent: false, go: { name: 'clan', params: { tab: 'boss' } }, locked: null,
     });
   }
 
@@ -118,7 +119,7 @@ export function happeningModel(profile, { now = Date.now(), eventNow = now, soci
     const wk = currentEvent(new Date(at));
     rowsSoon.push({
       id: `week-${i + 1}`, kind: 'week', title: wk.name, line: `${wk.dropMul}× drops in ${wk.arenaName}`, arena: wk.arena,
-      msLeft: msToLocalWeekEnd(now) + i * WEEK, label: 'Starts in', urgent: false, inProgress: false, go: null, locked: null,
+      msLeft: msToLocalWeekEnd(now) + i * WEEK, label: 'Starts in', urgent: false, go: null, locked: null,
     });
   }
 

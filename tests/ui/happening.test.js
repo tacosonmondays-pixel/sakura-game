@@ -34,6 +34,8 @@ describe('Happening Now', () => {
     expect(m.offSeason).toBe(null);
     // recurring cycles never turn red
     for (const r of m.now.filter((x) => x.kind !== 'event' && x.kind !== 'exchange')) expect(r.urgent, r.id).toBe(false);
+    // "In Progress" is said once, by the section (P7): no row carries a sticker flag
+    for (const r of [...m.now, ...m.soon]) expect(r, r.id).not.toHaveProperty('inProgress');
   });
 
   it('its last day: "ends soon" for Suzu, and the chip is under 24 h', () => {
@@ -93,7 +95,6 @@ describe('Happening Now', () => {
     expect(m.now.slice(firstLocked).every((r) => r.locked)).toBe(true);
     // Halloween asks to clear its unlock stage first, its Go still opens the page (it says how to join)
     const ev = m.now.find((r) => r.id === 'halloween-2026');
-    expect(ev.inProgress).toBe(false);
     expect(ev.line).toMatch(/^Clear .+ to join$/);
   });
 
