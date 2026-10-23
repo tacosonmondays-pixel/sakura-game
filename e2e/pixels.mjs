@@ -14,20 +14,29 @@
 //
 // Every probe returns { checks: [{ ok, msg }], fails } (fails = the number of failed checks), plus its own details.
 
-/** Screenshot `clip` (CSS px) and run `fn(pix, arg)` in the page with the decoded pixels. */
+/**
+ * Screenshot the viewport and run `fn(pix, arg)` in the page with the pixels of `clip` (viewport CSS px, as
+ * getBoundingClientRect gives them; a whole-viewport shot, so a scrolled page can never shift the crop).
+ */
 async function withPixels(page, clip, fn, arg = null) {
-  const c = { x: Math.max(0, clip.x), y: Math.max(0, clip.y), width: Math.max(1, clip.width), height: Math.max(1, clip.height) };
-  const buf = await page.screenshot({ clip: c, type: 'png' });
+  const c = { x: clip.x, y: clip.y, width: Math.max(1, clip.width), height: Math.max(1, clip.height) };
+  const buf = await page.screenshot({ type: 'png' });
   return page.evaluate(async ({ b64, clip: cc, src, a }) => {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
-    const cv = new OffscreenCanvas(bmp.width, bmp.height);
+    const full = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+    const k = full.width / innerWidth; // the device scale
+    const W0 = Math.max(1, Math.round(cc.width * k));
+    const H0 = Math.max(1, Math.round(cc.height * k));
+    const cv = new OffscreenCanvas(W0, H0);
     const cx = cv.getContext('2d', { willReadFrequently: true });
-    cx.drawImage(bmp, 0, 0);
-    const img = cx.getImageData(0, 0, bmp.width, bmp.height);
-    const dsf = bmp.width / cc.width;
+    cx.fillStyle = '#000';
+    cx.fillRect(0, 0, W0, H0);
+    cx.drawImage(full, -Math.round(cc.x * k), -Math.round(cc.y * k));
+    const img = cx.getImageData(0, 0, W0, H0);
+    const bmp = { width: W0, height: H0 };
+    const dsf = k;
     const at = (x, y) => {
       const X = Math.min(bmp.width - 1, Math.max(0, Math.round(x * dsf)));
       const Y = Math.min(bmp.height - 1, Math.max(0, Math.round(y * dsf)));
@@ -120,7 +129,13 @@ export async function ringContinuity(page, sel, { shape = 'pair', limit = 6 } = 
   const checks = [];
   for (const e of els) {
     const res = await withPixels(page, { x: e.x, y: e.y, width: e.w, height: e.h }, (pix, q) => {
-      const fill = pix.at(Math.min(q.w - 1, Math.max(6, q.c + 6)), q.h / 2);
+      // the surface's own fill: the commonest of four samples just inside its edges (padding, not content)
+      const samples = [[q.w - 5, q.h / 2], [q.w / 2, q.h - 5], [5, q.h / 2], [q.w / 2, q.c + 5]].map(([x, y]) => pix.at(x, y));
+      const key = (c) => c.map((v) => v >> 3).join(',');
+      const tally = new Map();
+      for (const c of samples) tally.set(key(c), (tally.get(key(c)) || 0) + 1);
+      const best = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      const fill = samples.find((c) => key(c) === best);
       const ringAt = (x, y) => {
         let best = 0;
         const X = Math.round(x * pix.dsf);

@@ -17,6 +17,7 @@ import { itemSources, itemCount } from '../systems/inventory.js';
 import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
 import { potentialOf, potPill } from './potential.js';
 import { hasPotentialNew } from '../systems/potential.js';
+import { pickMarks } from './pickMarks.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -437,21 +438,25 @@ export function tileCount(count) {
 /**
  * Item tile: the slanted rarity plate, the baked item art and the count. Click opens item info by default.
  * size is the tile width; its height follows the plate's 1.09:1 shape.
+ * [ui-ink] selected: the plate stays and the tile carries the pink check chip and the 3 px pink bar (pickMarks.js;
+ * UI v2 medium 3), never a pink ring.
  */
-export function itemTile(itemId, count = null, { onClick, size = 64, showName = false } = {}) {
+export function itemTile(itemId, count = null, { onClick, size = 64, showName = false, selected = false } = {}) {
   const item = getItem(itemId);
   const rarity = item ? ITEM_RARITIES[item.rarity] : null;
   const tile = h(
-    'button.item-tile',
+    `button.item-tile${selected ? '.sel' : ''}`,
     {
       style: { width: `${size}px`, '--rarity': rarity?.color || '#999' },
       title: item ? item.name : itemId,
       'data-item': itemId,
       'data-tier': tileTier(item),
+      'aria-pressed': selected ? 'true' : null,
       onclick: () => (onClick ? onClick(itemId) : showItemInfo(itemId)),
     },
     svgEl(itemIcon(itemId, { px: size }), 'item-tile-icon'),
     count != null ? tileCount(count) : null,
+    ...(selected ? pickMarks() : []),
   );
   // Belt and braces: custom properties must go through setProperty.
   tile.style.setProperty('--rarity', rarity?.color || '#999');

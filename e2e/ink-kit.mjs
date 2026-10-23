@@ -49,7 +49,8 @@ try {
     const touch = W < 1000;
     console.log(`\n=== ${vp} ===`);
     for (const dsf of [1, 3]) {
-      const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: dsf, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
+      // (no isMobile: the boards are 876 px wide with the page's padding, and a mobile viewport would zoom the page out)
+      const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: dsf, hasTouch: touch, reducedMotion: 'reduce' });
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
@@ -129,14 +130,16 @@ try {
         report('girl tiles: each tile\'s own face band', await faceBand(page, '.ui-girltile[data-face-top]', { ui: ':scope > .st, :scope > .role, :scope > .cap, :scope > .tr' }));
         // medium 3 on the pixels: the selected tile's bottom inner rows are pink, the Mythic one's are not
         await page.evaluate(() => document.querySelector('[data-testid="kit-gear-selected"]')?.scrollIntoView({ block: 'center' }));
+        // a column a third of the way in, from the frame's inner bottom edge up 8 px: the selected tile shows --pink-ink
+        // there (its bar), the Mythic one never does
         const bars = await page.evaluate(() => ['kit-gear-selected', 'kit-gear-mythic'].map((id) => {
           const t = document.querySelector(`[data-testid="${id}"]`);
           const r = t.getBoundingClientRect();
           const bw = parseFloat(getComputedStyle(t).borderBottomWidth) || 0;
-          return { id, x: r.left + r.width / 2, y: r.bottom - bw - 1.5 };
+          return { id, x: r.left + r.width / 3, y0: r.bottom - bw - 8, y1: r.bottom - bw };
         }));
         const shot = await page.screenshot({ type: 'png' });
-        const px = await page.evaluate(async ({ b64, pts }) => {
+        const px = await page.evaluate(async ({ b64, cols }) => {
           const bin = atob(b64);
           const bytes = new Uint8Array(bin.length);
           for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -145,10 +148,14 @@ try {
           const cx = cv.getContext('2d');
           cx.drawImage(bmp, 0, 0);
           const k = bmp.width / innerWidth;
-          return pts.map((p) => [...cx.getImageData(Math.round(p.x * k), Math.round(p.y * k), 1, 1).data].slice(0, 3));
-        }, { b64: shot.toString('base64'), pts: bars });
-        const isPinkInk = (c) => Math.abs(c[0] - 210) < 14 && Math.abs(c[1] - 58) < 14 && Math.abs(c[2] - 116) < 14;
-        check(isPinkInk(px[0]) && !isPinkInk(px[1]), `medium 3 (pixels): the selected tile's bottom bar is pink (${px[0]}) and the Mythic tile's is not (${px[1]})`);
+          const pink = (c) => Math.abs(c[0] - 210) < 14 && Math.abs(c[1] - 58) < 14 && Math.abs(c[2] - 116) < 14;
+          return cols.map((c) => {
+            let n = 0;
+            for (let Y = Math.round(c.y0 * k); Y <= Math.round(c.y1 * k); Y++) if (pink([...cx.getImageData(Math.round(c.x * k), Y, 1, 1).data])) n++;
+            return n;
+          });
+        }, { b64: shot.toString('base64'), cols: bars });
+        check(px[0] >= 6 && px[1] === 0, `medium 3 (pixels): the selected tile's bottom bar is pink (${px[0]} device px of --pink-ink in its bottom column) and the Mythic tile's is not (${px[1]})`);
         if (out) {
           // the reviewers' 3x crops: every tab position and the medium 3 pair
           for (let i = 0; i < 5; i++) {

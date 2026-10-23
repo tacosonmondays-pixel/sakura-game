@@ -164,14 +164,8 @@ const SHOTS = {
   // medium 3 on the real salvage selection: a picked piece beside an unpicked Mythic one
   'backpack-salvage': { hash: '#/backpack?tab=equipment', ready: isScreen('backpack'), kind: 'list', open: salvagePick },
   // the kit fixture (every kit component on paper and on ink, folder tabs in five states, the selected tiles)
-  'ink-kit': {
-    page: 'e2e/fixtures/ink-kit.html', ready: '() => document.body?.dataset.kitReady === "1"', kind: 'list', list: '[data-probe-list]',
-    pixels: async (page) => ({
-      tabs: await tabJunction(page, '.ui-tabbed.tprobe'),
-      panels: await ringContinuity(page, '.ui-panel.cprobe', { shape: 'pair' }),
-      chips: await ringContinuity(page, '.ui-chip.rprobe', { shape: 'cut' }),
-    }),
-  },
+  // (its pixel probes run in e2e/ink-kit.mjs, on a viewport that never zooms the 876 px page out)
+  'ink-kit': { page: 'e2e/fixtures/ink-kit.html', ready: '() => document.body?.dataset.kitReady === "1"', kind: 'list', list: '[data-probe-list]', pixels: async () => ({}) },
 };
 
 /** [ui-ink] Puts the secretary and settings a shot needs into the save (restoreSave puts them back). */

@@ -23,9 +23,11 @@
   .board.day { background: var(--paper-a); color: var(--ink); }
   .board.night { background: var(--plate); color: var(--on-ink); }
   .board.tall { height: auto; min-height: 390px; padding: 16px; }
-  .board .ui-field, .board .ui-scene, .board .ui-scrim, .board .ui-topbar, .board .ui-host, .board .ui-sheet.side, .board .ui-confetti { position: absolute; }
-  .row-f { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .col-f { display: flex; flex-direction: column; gap: 10px; }
+  /* (!important: ink.css loads after this sheet, and its fixed layers would cover the whole page) */
+  .board :is(.ui-field, .ui-scene, .ui-scrim, .ui-topbar, .ui-host, .ui-sheet.side, .ui-confetti) { position: absolute !important; }
+  /* (two classes: the game's components.css loads after this sheet and sets .ui-panel { display: block }) */
+  .board .row-f, .row-f.row-f { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .board .col-f, .col-f.col-f { display: flex; flex-direction: column; gap: 10px; }
   .kit-err { margin: 24px; padding: 16px; background: #fff; font: 700 15px/1.4 sans-serif; }
 </style>
 </head>
@@ -206,16 +208,16 @@
     <div class="row-f" id="kit-items" data-probe="tile"></div>
     <div class="row-f" id="kit-gear" style="margin-top:14px"></div>
     <div class="row-f" style="margin-top:14px">
-      <span class="ui-girltile" data-face-top="0.08" data-face-bottom="0.42"><img class="card" src="${A.pt}aoi-card.webp" alt=""><span class="st"><span class="ui-chip ink" aria-hidden="true"><i data-g="check"></i></span></span><span class="role"><i data-g="target"></i></span><span class="cap"><span class="nm">Aoi</span><span class="lbl">LV</span><span class="num">48</span></span></span>
-      <span class="ui-girltile sr" data-face-top="0.08" data-face-bottom="0.42"><img class="card" src="${A.pt}ruri-card.webp" alt=""><span class="st"><span class="ui-bdg new">New</span></span><span class="role"><i data-g="paw"></i></span><span class="cap"><span class="nm">Ruri</span><span class="lbl">LV</span><span class="num">24</span></span></span>
-      <span class="ui-girltile ssr sel" data-face-top="0.08" data-face-bottom="0.42"><img class="card" src="${A.pt}miko-card.webp" alt=""><span class="glow" aria-hidden="true"></span><span class="st"><span class="ui-chip pick" aria-hidden="true"><i data-g="check"></i></span></span><span class="role"><i data-g="sparkle"></i></span><span class="cap"><span class="nm">Miko</span><span class="ui-rar ssr">SSR</span></span></span>
+      <span class="ui-girltile" data-face-top="0.3" data-face-bottom="0.62"><img class="card" src="${A.pt}aoi-card.webp" alt=""><span class="st"><span class="ui-chip ink" aria-hidden="true"><i data-g="check"></i></span></span><span class="role"><i data-g="target"></i></span><span class="cap"><span class="nm">Aoi</span><span class="lbl">LV</span><span class="num">48</span></span></span>
+      <span class="ui-girltile sr" data-face-top="0.3" data-face-bottom="0.62"><img class="card" src="${A.pt}ruri-card.webp" alt=""><span class="st"><span class="ui-bdg new">New</span></span><span class="role"><i data-g="paw"></i></span><span class="cap"><span class="nm">Ruri</span><span class="lbl">LV</span><span class="num">24</span></span></span>
+      <span class="ui-girltile ssr sel" data-face-top="0.3" data-face-bottom="0.62"><img class="card" src="${A.pt}miko-card.webp" alt=""><span class="glow" aria-hidden="true"></span><span class="st"><span class="ui-chip pick" aria-hidden="true"><i data-g="check"></i></span></span><span class="role"><i data-g="sparkle"></i></span><span class="cap"><span class="nm">Miko</span><span class="ui-rar ssr">SSR</span></span></span>
       <span class="ui-girltile ur"><img class="card" src="${A.pt}aoi-card.webp" alt=""><span class="cap"><span class="nm">Aoi</span><span class="lbl">LV</span><span class="num">60</span></span></span>
       <span class="ui-girltile sr locked"><img class="card" src="${A.pt}ruri-card.webp" alt=""><span class="role"><i data-g="paw"></i></span><span class="cap"><i data-g="lock"></i><span class="lbl">Clear 4-5</span></span></span>
     </div>
     <div class="row-f" style="margin-top:14px">
       <a class="ui-hubtile" style="width:300px;height:150px"><img src="${A.lobby}academy.webp" alt=""><span class="tr"><span class="ui-cd s"><i data-g="clock"></i><span class="t">5d 13h</span></span></span><span class="cap"><span class="lbl">Weekly guest</span><span class="name">Bounty</span></span></a>
       <a class="ui-hubtile locked" style="width:200px;height:150px"><img src="${A.lobby}academy.webp" alt=""><span class="cap"><span class="ui-bdg soon"><i data-g="lock"></i>Coming soon</span><span class="name">PvP · Rival Run</span></span></a>
-      <div class="ui-sheet kit-demo" style="width:280px;height:150px;position:relative;left:auto;bottom:auto;transform:none"><div class="ui-plate-head bleed"><span class="name">Buy · Study Guide</span><a class="ui-ibtn" aria-label="Close"><i data-g="x" class="s"></i></a></div><div style="padding:12px" class="row-f"><span data-tiles="book_rare:2"></span><button class="ui-btn pri dense"><img src="${A.items}coins-128.webp" alt=""><span class="num">6,000</span></button></div></div>
+      <div class="ui-ksheet" style="width:280px;height:150px"><div class="ui-plate-head bleed"><span class="name">Buy · Study Guide</span><a class="ui-ibtn" aria-label="Close"><i data-g="x" class="s"></i></a></div><div style="padding:12px" class="row-f"><span data-tiles="book_rare:2"></span><button class="ui-btn pri dense"><img src="${A.items}coins-128.webp" alt=""><span class="num">6,000</span></button></div></div>
     </div>
   </div>
 </section>
@@ -257,8 +259,10 @@
     }
     glyphs.hydrateGlyphs(root);
     await document.fonts.ready;
-    // wait for the images, so a screenshot never catches a half-loaded board
-    await Promise.all([...document.images].map((im) => (im.complete ? null : new Promise((r) => { im.onload = r; im.onerror = r; }))));
+    // wait for the images (the item art is lazy: load it now), so a screenshot never catches a half-loaded board
+    for (const im of document.images) im.loading = 'eager';
+    const loaded = Promise.all([...document.images].map((im) => (im.complete ? null : new Promise((r) => { im.addEventListener('load', r); im.addEventListener('error', r); }))));
+    await Promise.race([loaded, new Promise((r) => setTimeout(r, 8000))]);
     document.body.dataset.kitReady = '1';
   } catch (e) {
     console.error(e);
