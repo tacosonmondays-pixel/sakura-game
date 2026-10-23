@@ -9,36 +9,49 @@
 //   abilityUnlock  a sparkle on the girl (abilityUpgrade: a brighter one at her tier 5)
 //   lifeRestored   a heart pop over the girl who brought the life back (Noa's First Aid Call; Chigusa's harvest and
 //                  Wakaba's Recovery Plan too)
-// Bespoke looks on top of the generic ones (A3 M3): Kaze's Swoop and Moon Pounce belong to the companion who does
-// them (src/render/companions.js: Kaze dives, Kon pounces), so while he is drawn this layer only marks the targets
-// (the generic lines are the fallback); Storm Lance is a chain through its targets in strike order.
+// Bespoke looks on top of the generic ones (A3 M3): Moon Pounce belongs to Kon (src/render/companions.js), so while he
+// is drawn this layer only marks its target (the generic line is the fallback); Storm Lance is a chain through its
+// targets in strike order. Kaze's Swoop (M3 review round 2) is Hana's own look in her colours: her call (a gold streak
+// up from her), then every target Kaze's figure does not dive on himself (the ones beyond her reach, all of them on
+// Reduce motion or without his figure) takes a feather strike from the sky — a gold streak dropping onto it with Kaze's
+// silhouette at its head, a gold burst and a spray of his feathers; his own dives get the gold burst only.
 // Per-frame caps keep a busy frame cheap. Reduce motion: opacity fades only — every ring keeps its size, nothing
 // flies, rises or spins, and there is no shake (the owner is motion-sensitive).
-// Colours: the caster's own (the renderer's towerColor), so each girl reads as herself.
+// Colours: the caster's own (the renderer's towerColor), so each girl reads as herself; the Swoop's are Hana's.
 import * as THREE from 'three';
 
-/** Per-frame budgets (ability events, target lines, rings, puffs / sparkles). */
-export const ABILITY_FX_CAPS = Object.freeze({ events: 10, lines: 16, rings: 24, puffs: 8 });
+/** Per-frame budgets (ability events, target lines, rings, puffs / sparkles, Swoop feather strikes). */
+export const ABILITY_FX_CAPS = Object.freeze({ events: 10, lines: 16, rings: 24, puffs: 8, strikes: 8 });
 /** The event types this layer draws. */
 export const ABILITY_FX_EVENTS = new Set(['ability', 'abilityWarn', 'abilityShell', 'abilityFizzle', 'abilityUnlock', 'abilityUpgrade', 'lifeRestored']);
 /** Strikes a companion performs (src/render/companions.js): no lines from her while he is drawn. */
 export const COMPANION_STRIKES = new Set(['hana.swoop', 'ruri.moonPounce']);
 /** Strikes drawn as one chain through their targets, in strike order. */
 export const CHAIN_STRIKES = new Set(['seiran.stormLance']);
+/** Kaze's Swoop: Hana's call and the feather strikes (her own look, whether Kaze's figure is drawn or not). */
+export const SWOOP_ID = 'hana.swoop';
+/** The Swoop's colours: Hana's arrow gold (attackFx styles/hana.js), Kaze's tan, his white dive. */
+export const SWOOP_COLORS = Object.freeze({ gold: '#f2dc96', kaze: '#d9b48a', dive: '#ffffff', glint: '#ffe7a3' });
+/** A feather strike: how high above its target the streak starts (tiles), and the dive's seconds (his own dive out). */
+export const STRIKE_DROP = 2.4;
+export const STRIKE_TIME = 0.26;
 const WARN = '#ffb703';
 const GOLD = '#ffd84d';
 const COIN = '#ffd43b';
 const HEART = '#ff6b9a';
+const TAU = Math.PI * 2;
 
 /**
  * @param {{ sim: object, fx: object, actors?: object|null, colorOf?: (uid: number) => string, reduceMotion?: boolean,
  *   flash?: ((color: string, strength: number, decay: number) => void)|null, shake?: ((amount: number) => void)|null,
- *   companionOn?: (uid: number) => boolean }} o  companionOn: is this girl's companion figure drawn (Kaze, Kon)?
+ *   companionOn?: (uid: number) => boolean, companionDives?: ((uid: number) => number[]|null)|null }} o
+ *   companionOn: is this girl's companion figure drawn (Kaze, Kon)? companionDives: the targets of her Swoop just cast
+ *   that Kaze's figure dives on himself (src/render/companions.js swoopTargets; asked right after he saw the event)
  * @returns {{ frame(): void, handle(ev: object): boolean, readonly used: object }}
  */
-export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, reduceMotion = false, flash = null, shake = null, companionOn = () => false }) {
+export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, reduceMotion = false, flash = null, shake = null, companionOn = () => false, companionDives = null }) {
   const rm = !!reduceMotion;
-  const used = { events: 0, lines: 0, rings: 0, puffs: 0 };
+  const used = { events: 0, lines: 0, rings: 0, puffs: 0, strikes: 0 };
   const can = (k, n = 1) => {
     if (used[k] + n > ABILITY_FX_CAPS[k]) return false;
     used[k] += n;
@@ -113,6 +126,90 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
     if (!rm && pts.length > 1 && typeof fx.chain === 'function') fx.chain(pts, color);
   }
 
+  /** A streak (a fading line, no growth) from a to b with a white core; one line of budget. */
+  function streak(ax, ay, az, bx, by, bz, color, w, life) {
+    if (!can('lines')) return false;
+    if (Array.isArray(fx.segments)) fx.segments.push({ ax, ay, az, bx, by, bz, w, color: new THREE.Color(color), life, t: 0, core: true });
+    return true;
+  }
+
+  /**
+   * Hana's call on a Swoop: a gold streak up from her hand into the sky (where the strikes come from) and a glint on
+   * her. A still line that fades either way (Reduce motion too: nothing moves).
+   */
+  function swoopCall(x, z) {
+    const C = SWOOP_COLORS;
+    streak(x, 0.95, z, x + 0.3, 0.95 + STRIKE_DROP + 0.4, z - 0.4, C.gold, 0.2, rm ? 0.4 : 0.3);
+    glow(x, 1, z, C.glint, 0.8, 0.3);
+  }
+
+  /** The hit landing on a Swoop target: a gold burst that peaks as the dive arrives (Reduce motion: still, fading). */
+  function swoopBurst(p) {
+    const C = SWOOP_COLORS;
+    if (rm) {
+      fx.spawn({ batch: 'bbA', uv: R.glow, x: p.x, y: p.y, z: p.z, s0: 1, s1: 1, life: 0.45, color: C.gold, a0: 0.9, a1: 0 });
+      return;
+    }
+    // (shaped and short: a gold glow with a small white core, never a white-out)
+    fx.spawn({ batch: 'bbA', uv: R.glow, x: p.x, y: p.y, z: p.z, s0: 1.35, s1: 0.5, life: STRIKE_TIME + 0.3, color: C.gold, a0: 0.9, a1: 0, fadeIn: STRIKE_TIME });
+    fx.spawn({ batch: 'bbA', uv: R.glow, x: p.x, y: p.y, z: p.z, s0: 0.45, s1: 0.15, life: STRIKE_TIME + 0.15, color: C.dive, a0: 0.8, a1: 0, fadeIn: STRIKE_TIME });
+  }
+
+  /**
+   * A feather strike on a Swoop target Kaze's figure does not dive on himself: a gold streak dropping from the sky onto
+   * it with his silhouette at its head (STRIKE_TIME), the gold burst, and a spray of his feathers that drift down.
+   * Reduce motion: the streak still and fading, his silhouette still over the target, three still feathers — fades only.
+   * One strike of budget (the streak is a line).
+   */
+  function featherStrike(p) {
+    if (!can('strikes')) return;
+    const C = SWOOP_COLORS;
+    // from above and a little behind (the camera looks down from the south): it reads as a drop from the sky
+    const sx = p.x - 0.45;
+    const sy = p.y + STRIKE_DROP;
+    const sz = p.z - 0.35;
+    streak(sx, sy, sz, p.x, p.y, p.z, C.gold, 0.34, rm ? 0.5 : STRIKE_TIME + 0.2);
+    swoopBurst(p);
+    const hawk = R.hawk || R.glow;
+    const feather = R.feather || R.glow;
+    if (rm) {
+      fx.spawn({ batch: 'bbN', uv: hawk, x: p.x, y: p.y + 0.95, z: p.z, s0: 1, s1: 1, life: 0.55, color: C.kaze, a0: 1, a1: 0, rot: Math.PI });
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * TAU + 0.5;
+        fx.spawn({ batch: 'bbN', uv: feather, x: p.x + Math.cos(a) * 0.4, y: p.y + 0.1, z: p.z + Math.sin(a) * 0.32, s0: 0.32, s1: 0.32, asp: 2, life: 0.6, color: i % 2 ? C.dive : C.kaze, a0: 1, a1: 0, rot: a });
+      }
+      return;
+    }
+    // Kaze's silhouette dives along the streak, head first (about a tile wide: it reads on a phone at 844)
+    const T = STRIKE_TIME;
+    fx.spawn({ batch: 'bbN', uv: hawk, x: sx, y: sy, z: sz, vx: (p.x - sx) / T, vy: (p.y - sy) / T, vz: (p.z - sz) / T, s0: 1.1, s1: 0.9, life: T, color: C.kaze, a0: 1, a1: 1, rot: Math.PI });
+    // his feathers burst off the hit and drift down (they show as the dive lands)
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + 0.4;
+      const sp = 1.3 + (i % 3) * 0.25;
+      fx.spawn({
+        batch: 'bbN', uv: feather, x: p.x, y: p.y, z: p.z, vx: Math.cos(a) * sp, vy: 1.1 + (i % 2) * 0.5, vz: Math.sin(a) * sp,
+        g: -2.6, drag: 2.2, s0: 0.36, s1: 0.26, asp: 2, life: T + 0.8, color: i % 2 ? C.dive : C.kaze, a0: 1, a1: 0, fadeIn: T,
+        rot: a, vrot: i % 2 ? 5 : -5,
+      });
+    }
+  }
+
+  /**
+   * Kaze's Swoop: Hana's call, then each target — the ones Kaze's figure dives on get the gold burst (his dive is the
+   * look), every other one a feather strike (beyond her reach; all of them on Reduce motion or without his figure).
+   */
+  function swoop(ev, tx, tz, targets) {
+    const dives = companionOn(ev.towerUid) ? companionDives?.(ev.towerUid) || [] : [];
+    swoopCall(tx, tz);
+    for (const uid of targets) {
+      const p = enemyAt(uid);
+      if (!p) continue;
+      if (dives.includes(uid)) swoopBurst(p);
+      else featherStrike(p);
+    }
+  }
+
   /** A heart over a girl (a life came back): it rises and grows a little; Reduce motion: still, fading. */
   function heart(x, z, n) {
     if (!can('puffs')) return;
@@ -141,8 +238,12 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
           chainThrough(ev.x ?? tx, ev.y ?? tz, targets, col);
           break;
         }
+        if (ev.id === SWOOP_ID) {
+          swoop(ev, tx, tz, targets);
+          break;
+        }
         if (COMPANION_STRIKES.has(ev.id) && companionOn(ev.towerUid)) {
-          // Kaze / Kon carries the look: a mark on each target, no line from her
+          // Kon carries the look: a mark on the target, no line from her
           for (const uid of targets) {
             const p = enemyAt(uid);
             if (p) ring(p.x, p.z, 0.5, 0.55, col);
@@ -226,6 +327,7 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
       used.lines = 0;
       used.rings = 0;
       used.puffs = 0;
+      used.strikes = 0;
     },
     /** Draws an ability event. @returns {boolean} true when the event is this layer's (drawn or capped). */
     handle(ev) {

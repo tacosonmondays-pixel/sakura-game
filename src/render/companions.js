@@ -4,9 +4,9 @@
 //                 (her ⚡) he leaps at its target and back (Reduce motion: he stays put and plays his attack)
 //   Kaze (Hana)   perches on her left shoulder (rides her shoulder bone); on her attacks he swoops to the
 //                 target and back in a short arc, one swoop at a time; on Kaze's Swoop (her ⚡) he dives on
-//                 each of its targets within her reach in turn, quicker, never across the map (the far ones are
-//                 only marked); Reduce motion: no dive — he stays on her shoulder, turns to the first target and
-//                 plays his attack, and the marks fade in on the targets
+//                 each of its targets within her reach in turn, quicker, never across the map (the far ones take
+//                 abilityFx's feather strike from the sky); Reduce motion: no dive — he stays on her shoulder,
+//                 turns to the first target and plays his attack, and the strikes are still fades on the targets
 //   the doll      (Yoriko) floats in front of her raised hand on glowing threads that stay tied to her
 //                 control bar; dashes at the target and back on her needles and on Dream Detour
 // One actor per placed girl who has a companion (co-op partners' girls too: they are in the shared sim);
@@ -96,6 +96,16 @@ export class Companions {
     return !!this.list.get(uid)?.group;
   }
 
+  /**
+   * The targets of Hana `uid`'s last Kaze's Swoop that Kaze's figure dives on (within her reach, strike order; none on
+   * Reduce motion), or null when no Kaze is drawn for her. abilityFx gives every other target its feather strike.
+   */
+  swoopTargets(uid) {
+    const a = this.list.get(uid);
+    if (!a || a.cid !== 'kaze' || !a.group) return null;
+    return a.swoopTargets || [];
+  }
+
   /** Where Kon is drawn for Ruri `uid` ({ x, z, h: muzzle height, away: not by her side }) or null. */
   konAt(uid) {
     const a = this.list.get(uid);
@@ -145,7 +155,7 @@ export class Companions {
   /**
    * Kaze's Swoop: a dive on each target within her reach in turn (after any swoop in flight), each flight capped at
    * that reach. Reduce motion, or every target far off: no dive — he turns to the first target on her shoulder and
-   * plays his attack; abilityFx marks the targets.
+   * plays his attack; abilityFx strikes the rest from the sky (swoopTargets says which are his).
    */
   _onSwoop(a, targets) {
     const t = this.sim.getTower ? this.sim.getTower(a.uid) : null;
@@ -162,6 +172,8 @@ export class Companions {
         return !!e && Math.hypot(e.x - hx, e.z - hz) <= reach;
       },
     });
+    // (abilityFx asks right after this event which targets his figure takes: swoopTargets)
+    a.swoopTargets = a.dives.slice();
     if (a.dives.length) {
       if (!a.sortie.busy) this._nextDive(a);
       return;

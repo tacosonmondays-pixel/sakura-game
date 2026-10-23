@@ -10,6 +10,7 @@ import { abilityValues } from '../../src/data/abilityText.js';
 import { abilityAtTier, skillAtLevel } from '../../src/data/abilities.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { resolveStats } from '../../src/sim/mods.js';
+import { xpToReach, gainHeroXp } from '../../src/sim/hero.js';
 
 function battle(ids, { hero = null } = {}) {
   const sim = new Sim({ stageId: '1-2', difficulty: 'normal', loadout: ids.map((unitId) => ({ unitId })), hero: hero ? { unitId: hero } : null, seed: 5 });
@@ -103,6 +104,42 @@ describe('the hero skill button (heroWidget skillButtonView): a skill that waits
     const sim2 = battle([], { hero: 'yoriko' });
     const y = place(sim2, 'yoriko');
     expect(skillButtonView(sim2.abilityStatus(y.uid))).toMatchObject({ hidden: false, state: 'locked', label: 'LV 7' });
+  });
+
+  // M3 review round 2: the keyboard path and the panel row promised "LV 7" for a skill that waits
+  it('Kanna at Lv 1, 7 and 17: E says Heavy Beat comes in a later update (never "unlocks at hero level 7"), and her row has no LV 7 chip', async () => {
+    const { skillKeyAction } = await import('../../src/ui/battle/heroWidget.js');
+    for (const lv of [1, 7, 17]) {
+      const sim = battle([], { hero: 'kanna' });
+      const k = place(sim, 'kanna');
+      if (lv > 1) gainHeroXp(sim, k, xpToReach(k.def.hero, lv), 'restore');
+      expect(k.level, `Lv ${lv}`).toBe(lv);
+      sim.startNextWave();
+      const st = sim.abilityStatus(k.uid);
+      expect([st.unlocked, st.later], `Lv ${lv}`).toEqual([false, true]);
+      expect(skillKeyAction(st), `Lv ${lv}`).toEqual({ cast: false, toast: 'Heavy Beat comes in a later update.' });
+      const row = abilityRowView(sim, k);
+      expect(row, `Lv ${lv}`).toMatchObject({ hero: true, state: 'later', chip: null, button: null, line: 'Comes in a later update', title: 'Heavy Beat comes in a later update.' });
+      expect(JSON.stringify(row), `Lv ${lv}`).not.toMatch(/LV 7|unlocks/i);
+    }
+    // E and the skill button go through it (controller.js ctx.fireSkill; the browser run is e2e: notes a3m2 M3 review fixes)
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../../src/ui/battle/controller.js', import.meta.url), 'utf8');
+    const fire = src.slice(src.indexOf('ctx.fireSkill = () => {'), src.indexOf('ctx.bump = () => {'));
+    expect(fire).toContain('skillKeyAction(sim.abilityStatus(hero.uid))');
+    expect(fire).not.toMatch(/unlocks at hero level/);
+  });
+
+  it('a skill that runs: E before Lv 7 says when it unlocks, from Lv 7 it casts (Yoriko\'s Puppet Hex); no skill: nothing', async () => {
+    const { skillKeyAction } = await import('../../src/ui/battle/heroWidget.js');
+    const sim = battle([], { hero: 'yoriko' });
+    const y = place(sim, 'yoriko');
+    sim.startNextWave();
+    expect(skillKeyAction(sim.abilityStatus(y.uid))).toEqual({ cast: false, toast: 'Puppet Hex unlocks at hero level 7.' });
+    expect(abilityRowView(sim, y)).toMatchObject({ state: 'locked', chip: 'LV 7', line: 'Unlocks at LV 7' });
+    gainHeroXp(sim, y, xpToReach(y.def.hero, 7), 'restore');
+    expect(skillKeyAction(sim.abilityStatus(y.uid))).toEqual({ cast: true, toast: null });
+    expect(skillKeyAction(null)).toEqual({ cast: false, toast: null });
   });
 });
 

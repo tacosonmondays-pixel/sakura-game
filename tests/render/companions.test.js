@@ -120,11 +120,11 @@ describe('their girls\' ⚡ abilities (A3 M3): Kaze\'s dives, Kon\'s pounce', ()
     expect(MAX_DIVES).toBe(8); // Thousand Wings' 8 flyers fit
     expect(swoopDives(null)).toEqual([]);
     expect(swoopDives([null, 4])).toEqual([4]);
-    // a map-wide Swoop: the far targets are only marked, he dives on the near ones (strike order kept)
+    // a map-wide Swoop: the far targets take abilityFx's feather strike, he dives on the near ones (strike order kept)
     const near = new Set([3, 11]);
     expect(swoopDives([7, 3, 9, 11], { inReach: (u) => near.has(u) })).toEqual([3, 11]);
     expect(swoopDives([7, 9], { inReach: (u) => near.has(u) })).toEqual([]);
-    // Reduce motion: no dive at all, near or far (he stays on her shoulder; the marks fade in)
+    // Reduce motion: no dive at all, near or far (he stays on her shoulder; the strikes fade in)
     expect(swoopDives([7, 3, 9], { reduceMotion: true })).toEqual([]);
     expect(swoopDives([3], { reduceMotion: true, inReach: () => true })).toEqual([]);
     // quicker than his own swoops, so eight dives stay under five seconds

@@ -432,6 +432,118 @@ describe('Noa, First Aid Call (rally, local): cleanse, ward, no volatile stun, l
     run(sim, STEP);
     expect(autoWants(sim, noa, def)).toBe(true);
   });
+
+  // M3 review round 2: two calls on one spot never count the same kills (spec §3.3: rallies never add up). A kill counts
+  // toward one life rally only — the oldest running one that holds it, even once it has given its 3.
+  test('two copies side by side (one bar slot, two taps): each kill counts for the first call only — 50 kills give 3 lives, not 6', () => {
+    const { sim, noa } = setup();
+    const b = girl(sim, 'noa', 9.7, 6.5);
+    ready(noa);
+    ready(b);
+    expect(sim.abilitySlots(0).find((s) => s.id === 'noa.firstAid').casters).toEqual([noa.uid, b.uid]);
+    sim.lives = sim.maxLives - 10;
+    const lives0 = sim.lives;
+    expect(sim.castAbility(noa.uid, { group: true })).toMatchObject({ ok: true, casterUid: noa.uid });
+    expect(sim.castAbility(noa.uid, { group: true })).toMatchObject({ ok: true, casterUid: b.uid }); // the same slot again
+    expect(sim._rallies.filter((r) => r.life)).toHaveLength(2);
+    sim.drainEvents();
+    const spot = [9.1, 5.6]; // within 3 tiles of both
+    for (let i = 0; i < 10; i++) killAt(sim, ...spot);
+    expect(sim.lives).toBe(lives0 + 1);
+    expect(events(sim, 'lifeRestored').map((e) => e.towerUid)).toEqual([noa.uid]);
+    for (let i = 0; i < 40; i++) killAt(sim, ...spot);
+    expect(sim.lives).toBe(lives0 + 3); // the per-cast cap holds: not 6
+    const [ra, rb] = sim._rallies.filter((r) => r.life);
+    expect([ra.src, ra.life.kills, ra.life.given]).toEqual([noa.uid, 30, 3]);
+    expect([rb.src, rb.life.kills, rb.life.given]).toEqual([b.uid, 0, 0]);
+    // a kill only the second call holds (beyond 3 tiles of the first) is the second's
+    expect(Math.hypot(b.x + 2.4 - noa.x, b.y - noa.y)).toBeGreaterThan(3);
+    for (let i = 0; i < 10; i++) killAt(sim, b.x + 2.4, b.y);
+    expect(rb.life).toMatchObject({ kills: 10, given: 1 });
+    expect(sim.lives).toBe(lives0 + 4);
+  });
+
+  test('both players\' Noas side by side: the first call holds the spot; when it ends (or she is sold) the partner\'s counts', () => {
+    const { sim, noa } = setup();
+    const p1 = girl(sim, 'noa', 9.7, 6.5);
+    p1.owner = 1;
+    sim.lives = sim.maxLives - 10;
+    const lives0 = sim.lives;
+    ready(noa);
+    ready(p1);
+    expect(sim.castAbility(noa.uid, { owner: 0 }).ok).toBe(true);
+    run(sim, 2); // the partner calls 2 s later
+    expect(sim.castAbility(p1.uid, { owner: 1 }).ok).toBe(true);
+    sim.drainEvents();
+    for (let i = 0; i < 10; i++) killAt(sim, 9.1, 5.6);
+    expect(sim.lives).toBe(lives0 + 1);
+    expect(events(sim, 'lifeRestored')).toEqual([expect.objectContaining({ towerUid: noa.uid, owner: 0 })]);
+    // the first call ends; the partner's has 2 s left and now counts the kills there
+    run(sim, 8 + STEP);
+    const left = sim._rallies.filter((r) => r.life);
+    expect(left.map((r) => r.src)).toEqual([p1.uid]);
+    for (let i = 0; i < 10; i++) killAt(sim, 9.1, 5.6);
+    expect(sim.lives).toBe(lives0 + 2);
+    expect(events(sim, 'lifeRestored')).toEqual([expect.objectContaining({ towerUid: p1.uid, owner: 1 })]);
+    // a sold caster's call ends with her (clearAbilityEffects): the partner's call counts the kills there at once
+    const s = setup();
+    const q = girl(s.sim, 'noa', 9.7, 6.5);
+    q.owner = 1;
+    s.sim.lives = s.sim.maxLives - 10;
+    ready(s.noa);
+    ready(q);
+    expect(s.sim.castAbility(s.noa.uid).ok).toBe(true);
+    expect(s.sim.castAbility(q.uid).ok).toBe(true);
+    expect(s.sim.sellTower(s.noa.uid)).toBeTruthy();
+    for (let i = 0; i < 10; i++) killAt(s.sim, 9.1, 5.6);
+    expect(s.sim._rallies.find((r) => r.src === q.uid).life).toMatchObject({ kills: 10, given: 1 });
+  });
+
+  test('auto with copies: one call on a crowd — a copy inside a running call\'s lives circle waits (unless a girl near her is sabotaged); a copy elsewhere casts', () => {
+    const { sim, noa } = setup();
+    const b = girl(sim, 'noa', 9.7, 6.5);
+    const far = girl(sim, 'noa', 14.5, 6.5);
+    expect(Math.hypot(far.x - noa.x, far.y - noa.y)).toBeGreaterThan(3);
+    // a crowd at the feet of the two side by side (≥ 6 within 4 tiles of each), none near the far one
+    for (let k = 0; k < 7; k++) at(sim, 'orc_grunt', 7.6 + 0.3 * k, { hpMul: 1e3 });
+    run(sim, STEP);
+    const def = abilityDef(b);
+    expect([autoWants(sim, noa, def), autoWants(sim, b, def), autoWants(sim, far, def)]).toEqual([true, true, false]);
+    for (const t of [noa, b, far]) {
+      ready(t);
+      expect(sim.setAbilityAuto(t.uid, true).ok).toBe(true);
+    }
+    sim.drainEvents();
+    run(sim, 0.25);
+    const casts = events(sim, 'ability').filter((e) => e.id === 'noa.firstAid');
+    expect(casts).toHaveLength(1);
+    expect(casts[0].auto).toBe(true);
+    const first = casts[0].towerUid;
+    const other = first === noa.uid ? b : noa;
+    expect(sim._rallies.filter((r) => r.life)).toHaveLength(1);
+    expect(autoWants(sim, other, def)).toBe(false);
+    // a sabotaged girl in her radius, outside the running call's, still calls her (her cleanse helps there)
+    const firstT = sim.getTower(first);
+    let aoi2 = null;
+    for (let y = 0.6; y < 8 && !aoi2; y += 0.3) {
+      for (let x = 0.6; x < 15.5 && !aoi2; x += 0.3) {
+        if (Math.hypot(x - other.x, y - other.y) > 3.9 || Math.hypot(x - firstT.x, y - firstT.y) <= 4.1) continue;
+        if (sim.canPlace('aoi', x, y).ok) aoi2 = sim.placeTower('aoi', x, y);
+      }
+    }
+    expect(aoi2).toBeTruthy();
+    aoi2.disabled = 3;
+    expect(autoWants(sim, other, def)).toBe(true);
+    aoi2.disabled = 0;
+    expect(autoWants(sim, other, def)).toBe(false);
+    // the far copy: a crowd of her own, no running call over her spot — she casts
+    for (let k = 0; k < 6; k++) at(sim, 'orc_grunt', 13.2 + 0.3 * k, { hpMul: 1e3 });
+    run(sim, 0.25);
+    expect(events(sim, 'ability').filter((e) => e.id === 'noa.firstAid').map((e) => e.towerUid)).toEqual([far.uid]);
+    // once the first call ends, the copy beside it casts on the crowd again
+    run(sim, 10);
+    expect(events(sim, 'ability').filter((e) => e.id === 'noa.firstAid').map((e) => e.towerUid)).toContain(other.uid);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -284,7 +284,7 @@ const HANA = {
     'Her shots hunt flyers first (Air targeting) and hit them twice as hard.',
     'Grounded flyers can be hit by Rei, Akane, Sango and every other ground-only girl.',
     'She joins after 7-5, just in time for the Ashwing Peaks.',
-    '⚡ Falconry tier 3 teaches Kaze\'s Swoop: Kaze dives on the flyers anywhere on the map and knocks them out of the sky.',
+    '⚡ Falconry tier 3 teaches Kaze\'s Swoop: Kaze strikes the flyers anywhere on the map and knocks them out of the sky.',
   ],
   base: stats({ cost: 240, damage: 4, rate: 1.1, range: 3.8, projectileSpeed: 18, canHitAir: true, airMul: 2, status: [S.ground(1.2)] }),
   paths: [

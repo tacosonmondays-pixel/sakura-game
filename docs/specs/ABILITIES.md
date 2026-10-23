@@ -126,7 +126,7 @@ Sakura Sentinels, core-units workflow, written 2026-10-14. Live checkout `/home/
 | Local abilities (`scope: 'local'`) | **Each copy has its own cooldown.** Three Aois means three volleys. |
 | Map-wide abilities (`scope: 'map'`) | **One cooldown per player for that ability**, stored in `sim.abilGroups` under the key `"<owner>|<abilityId>"`. Extra copies add nothing to the ability. |
 | Boosts | They apply to the caster only. One running boost per girl. |
-| Rallies (team buffs) | For each key the **strongest active rally wins**, counting both players' rallies, the same rule as auras. Rallies **multiply with** auras and with the global rate buff; they do not replace them. |
+| Rallies (team buffs) | For each key the **strongest active rally wins**, counting both players' rallies, the same rule as auras. Rallies **multiply with** auras and with the global rate buff; they do not replace them. Lives from kills (Noa's First Aid Call) never add up either: a kill counts toward **one** call only, the oldest running one whose lives circle holds it (even once it has given its max), and Auto does not cast a copy standing inside a running call's lives circle (a tap still does). |
 | Debuff statuses | They merge through `applyStatus`: the stronger amount and the longer time win (`status.js:45-63`). Frost wards still block frost. |
 | Strikes and bursts | They stack. Two volleys are two volleys. |
 | Ability stun or freeze on a miniboss or boss | `CC_RESIST` applies. After one lands, that enemy ignores **ability** stuns and freezes for `ABILITY_CC_GUARD` = 4 s; normal attacks are unaffected. In freeplay, Resolve still clips every stun and knockback, because abilities go through `applyStatus` and `_onHitEffects` like every other hit. |

@@ -333,10 +333,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   // generic ability FX (src/render/abilityFx.js): casts, warning rings, shells, fizzles, unlock sparkles
-  // (Kaze's Swoop and Moon Pounce are Kaze's and Kon's to draw while their figures are up: companions.js)
+  // (Moon Pounce is Kon's to draw while his figure is up; on Kaze's Swoop, Kaze's figure dives on the targets in her
+  // reach and abilityFx strikes the rest from the sky: companions.js swoopTargets)
   const abilityFx = createAbilityFx({
     sim, fx, actors, colorOf: (uid) => towerColor(uid), reduceMotion, flash: screenFlash, shake,
     companionOn: (uid) => !compBroken && companions.enabled && companions.has(uid),
+    companionDives: (uid) => (compBroken ? null : companions.swoopTargets(uid)),
   });
 
   function handleEvents(events) {

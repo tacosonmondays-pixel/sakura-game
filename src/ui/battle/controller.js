@@ -20,7 +20,7 @@ import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
-import { createHeroWidget, paintUltButton } from './heroWidget.js';
+import { createHeroWidget, paintUltButton, skillKeyAction } from './heroWidget.js';
 import {
   createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, lifeText, clearPendingFor, REFUSED_MS,
   soloAbilityActs, coopAbilityActs, abilityAutoControls,
@@ -675,17 +675,13 @@ export function mountBattle(root, params, hooks) {
         panel.update();
       },
     }));
-    /** E / the skill button: the hero's Lv 7 skill. */
+    /** E / the skill button: the hero's Lv 7 skill (heroWidget skillKeyAction: a skill that waits never promises a level). */
     ctx.fireSkill = () => {
       const hero = sim.hero;
       if (!hero || ctx.ended) return;
-      const st = sim.abilityStatus(hero.uid);
-      if (!st) return;
-      if (!st.unlocked) {
-        feed.push(`${abilityText(st.id)?.name || 'Her skill'} unlocks at hero level ${st.unlockLevel ?? 7}.`, 'warn', { key: 'skill-locked', ms: 1600 });
-        return;
-      }
-      ctx.castAbility(hero.uid, { group: false });
+      const act = skillKeyAction(sim.abilityStatus(hero.uid));
+      if (act.toast) feed.push(act.toast, 'warn', { key: 'skill-locked', ms: 1600 });
+      if (act.cast) ctx.castAbility(hero.uid, { group: false });
     };
     ctx.bump = () => {
       const c = hud.el.querySelector('.bt-cash');

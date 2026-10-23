@@ -523,27 +523,43 @@ function enemyNear(sim, t, r) {
 }
 
 /**
+ * The running life rally a kill (or a spot) at (x, y) belongs to: the first in sim._rallies order (the oldest cast)
+ * whose caster is still on the board and whose lifeRadius holds the spot, either player's; `exceptSrc`: never that
+ * girl's own. Null: none. Squared distances.
+ */
+function lifeRallyAt(sim, x, y, exceptSrc = -1) {
+  for (const r of sim._rallies) {
+    const L = r.life;
+    if (!L || r.src === exceptSrc) continue;
+    const c = sim.getTower(r.src);
+    if (!c || c.removed) continue;
+    const dx = x - c.x;
+    const dy = y - c.y;
+    if (dx * dx + dy * dy <= L.r2) return r;
+  }
+  return null;
+}
+
+/**
  * Sim._killEnemy, only while a rally runs (Noa's First Aid Call): a kill inside a life rally's lifeRadius of its
  * caster counts (either player's, any source); every `every` counted kills a life comes back — at most `max` a
  * cast, never above the starting lives, never where hearts cannot come back (sim.canHeal()), on a one-life mode or
- * without income (vines.js endVineWave's guard), only in a wave. Rallies in sim._rallies order; squared distances.
+ * without income (vines.js endVineWave's guard), only in a wave. A kill counts toward ONE life rally only: the oldest
+ * running one that holds it (lifeRallyAt), even once that one has given its `max` — two calls on one spot (copies, or
+ * both players' Noas) never count the same kills twice (spec §3.3: rallies never add up, the strongest wins).
  */
 export function abilityKill(sim, e) {
-  for (const r of sim._rallies) {
-    const L = r.life;
-    if (!L || L.given >= L.max) continue;
-    const c = sim.getTower(r.src);
-    if (!c || c.removed) continue;
-    const dx = e.x - c.x;
-    const dy = e.y - c.y;
-    if (dx * dx + dy * dy > L.r2) continue;
-    L.kills++;
-    if (L.kills % L.every !== 0) continue;
-    if (sim.state !== 'wave' || !sim.canHeal() || sim.mode?.oneLife || sim.diff.noIncome || sim.lives >= sim.maxLives) continue;
-    sim.lives++;
-    L.given++;
-    sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: c.owner ?? 0 });
-  }
+  const r = lifeRallyAt(sim, e.x, e.y);
+  if (!r) return;
+  const L = r.life;
+  if (L.given >= L.max) return;
+  L.kills++;
+  if (L.kills % L.every !== 0) return;
+  if (sim.state !== 'wave' || !sim.canHeal() || sim.mode?.oneLife || sim.diff.noIncome || sim.lives >= sim.maxLives) return;
+  const c = sim.getTower(r.src);
+  sim.lives++;
+  L.given++;
+  sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: c.owner ?? 0 });
 }
 
 /**
@@ -1062,6 +1078,9 @@ export function autoWants(sim, t, def) {
   const reach = abilityReach(t, def);
   // 'sabotage' (Noa's First Aid Call): a girl inside her radius is sabotaged, whatever the enemies are doing
   if (when === 'sabotage' && sabotagedIn(sim, t, reach)) return true;
+  // a life rally (First Aid Call) standing inside another girl's running one (a copy, or the partner's Noa): the kills
+  // there are that call's (abilityKill), so hers would add nothing — Auto waits for it to end (a tap still casts)
+  if (def.effect?.lifeEvery > 0 && lifeRallyAt(sim, t.x, t.y, t.uid)) return false;
   let list = sim.enemies;
   let elig = null;
   if (reach !== Infinity) {

@@ -32,6 +32,21 @@ export function skillButtonView(st) {
 }
 
 /**
+ * What E / the skill button does (pure): { cast: true } fires her skill; otherwise `toast` (or null: nothing to say)
+ * explains why not. A skill this build does not run yet (Kanna's Heavy Beat) never promises a level: it "comes in a
+ * later update" at every level, as her panel row and the hidden button say.
+ * @param {object|null} st sim.abilityStatus(hero uid) (null: she has no skill)
+ * @returns {{ cast: boolean, toast: string|null }}
+ */
+export function skillKeyAction(st) {
+  if (!st) return { cast: false, toast: null };
+  const name = abilityText(st.id)?.name || 'Her skill';
+  if (st.later) return { cast: false, toast: `${name} comes in a later update.` };
+  if (!st.unlocked) return { cast: false, toast: `${name} unlocks at hero level ${st.unlockLevel ?? 7}.` };
+  return { cast: true, toast: null };
+}
+
+/**
  * Paints an ult button: conic ring progress (--p 0..1), state classes and label.
  * @param {HTMLElement} btn
  * @param {object} status sim.heroUltStatus()

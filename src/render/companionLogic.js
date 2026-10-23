@@ -25,7 +25,7 @@ export const DIVE_TIME = 0.55;
 export const MAX_DIVES = 8;
 /**
  * How far past her own range a dive may go (tiles): Kaze dives only as far as his plain swoops (her reach), never
- * across the map — a target beyond it is only marked (abilityFx). The dive's flight is capped there too.
+ * across the map — a target beyond it takes abilityFx's feather strike from the sky. The dive's flight is capped there.
  */
 export const DIVE_SLACK = 0.5;
 /** Kon's Moon Pounce (Ruri's ⚡): seconds out and back, how short of the target he lands, the leap's height. */
@@ -35,9 +35,10 @@ export const POUNCE_LIFT = 0.55;
 
 /**
  * The dives a Swoop queues: its targets within her reach (`inReach`), in strike order (the sim's `ability` event
- * lists them), at most MAX_DIVES. A Swoop is map-wide, but Kaze never crosses the map for it: the far targets are
- * only marked. Reduce motion: none at all — he stays on her shoulder and calls the strike (his attack clip), the
- * marks fade in on the targets (the owner is motion-sensitive; Kon stays put for Moon Pounce the same way).
+ * lists them), at most MAX_DIVES. A Swoop is map-wide, but Kaze never crosses the map for it: the far targets take
+ * abilityFx's feather strike from the sky. Reduce motion: none at all — he stays on her shoulder and calls the strike
+ * (his attack clip), the strikes are still fades on the targets (the owner is motion-sensitive; Kon stays put for
+ * Moon Pounce the same way).
  * @param {number[]} targets enemy uids
  * @param {{ reduceMotion?: boolean, inReach?: ((uid: number) => boolean)|null }} [o]
  */

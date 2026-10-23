@@ -146,11 +146,13 @@ export function abilityRowView(sim, t, { mine = true, pending = false } = {}) {
   const name = text?.name || st.id;
   const base = { id: st.id, name, hero: !!t.isHero, readOnly: !mine, aim: abilityAim(st.id), auto: false, canAuto: false, button: null, chip: null };
   if (!st.unlocked) {
-    const reached = t.isHero ? (t.level || 0) >= (st.unlockLevel ?? 7) : (t.tiers?.[st.path] || 0) >= (st.unlockTier ?? 3);
+    // a hero's skill that waits (Kanna's Heavy Beat) says so at every level: no "LV 7" for a skill that will not come
+    // then (a teaser that never comes true is a promise); a tower girl's says so once her ⚡ tier is reached
+    const reached = t.isHero || (t.tiers?.[st.path] || 0) >= (st.unlockTier ?? 3);
     if (st.later && reached) return { ...base, state: 'later', line: 'Comes in a later update', title: `${name} comes in a later update.` };
     if (t.isHero) {
       const at = fmtNum(st.unlockLevel ?? 7, 'level');
-      return { ...base, state: 'locked', chip: at, line: st.later ? 'Comes in a later update' : `Unlocks at ${at}`, title: `${name} unlocks at hero ${at}.` };
+      return { ...base, state: 'locked', chip: at, line: `Unlocks at ${at}`, title: `${name} unlocks at hero ${at}.` };
     }
     return null;
   }

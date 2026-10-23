@@ -1,7 +1,8 @@
 // Kaze on Kaze's Swoop (A3 M3 review): the Swoop is map-wide, but Kaze never crosses the map for it. He dives only on
-// the targets within Hana's reach (as far as his plain swoops go), each flight capped there; a far target is only
-// marked (abilityFx). Reduce motion: no dive at all — he stays on her shoulder, turns to the first target and plays his
-// attack (the owner is motion-sensitive; Kon stays put for Moon Pounce the same way).
+// the targets within Hana's reach (as far as his plain swoops go), each flight capped there; a far target takes
+// abilityFx's feather strike from the sky (round 2: swoopTargets tells it which are his). Reduce motion: no dive at
+// all — he stays on her shoulder, turns to the first target and plays his attack (the owner is motion-sensitive; Kon
+// stays put for Moon Pounce the same way).
 //
 // This drives the real Companions class over a real Sim (the fixture map, the real Hana). Only what needs a browser
 // is stubbed, as in companionsLab.test.js: the GLB figure (a plain THREE.Group with a playAttack counter), the girls'
@@ -80,8 +81,8 @@ async function board({ reduceMotion = false } = {}) {
 const at = (hana, d, dz = 0) => ({ x: hana.x + d, y: 1, z: hana.y + dz, height: 0.5 });
 
 describe('Kaze on Kaze\'s Swoop: never across the map', () => {
-  test('full motion: dives on the targets within her reach only, in strike order; the far ones are left to their marks', async () => {
-    const { hana, enemies, kaze, fly, swoop, attacks } = await board();
+  test('full motion: dives on the targets within her reach only, in strike order; the far ones are left to abilityFx\'s strike', async () => {
+    const { hana, c, enemies, kaze, fly, swoop, attacks } = await board();
     const reach = diveReach(hana.eff.range);
     expect(reach).toBeGreaterThan(3);
     enemies.set(1, at(hana, 9.5)); // across the map
@@ -94,6 +95,9 @@ describe('Kaze on Kaze\'s Swoop: never across the map', () => {
     expect(kaze().sortie.uid).toBe(2);
     expect(kaze().dives).toEqual([4]);
     expect(attacks()).toBe(1);
+    // what abilityFx asks right after the event: his targets (the far two get its feather strike from the sky)
+    expect(c.swoopTargets(hana.uid)).toEqual([2, 4]);
+    expect(c.swoopTargets(hana.uid + 99)).toBeNull();
     const { far, step } = fly(2 * DIVE_TIME + 0.4);
     expect(far).toBeLessThan(reach);
     expect(far).toBeGreaterThan(1.5); // he really flew out to the near ones
@@ -107,11 +111,12 @@ describe('Kaze on Kaze\'s Swoop: never across the map', () => {
   });
 
   test('full motion: every target far off (Hana at one end, the flyers at the other) — no dive; he calls it from her shoulder, turned to the first', async () => {
-    const { hana, enemies, kaze, fly, swoop, attacks } = await board();
+    const { hana, c, enemies, kaze, fly, swoop, attacks } = await board();
     for (let i = 0; i < MAX_DIVES; i++) enemies.set(10 + i, at(hana, 8 + i * 0.4, (i % 3) - 1));
     swoop(Array.from({ length: MAX_DIVES }, (_, i) => 10 + i));
     expect(!!kaze().diving).toBe(false);
     expect(kaze().dives).toEqual([]);
+    expect(c.swoopTargets(hana.uid)).toEqual([]); // every one gets abilityFx's strike
     expect(attacks()).toBe(1); // his attack clip, in place
     const a = fly(0.5);
     // turned toward the first target (off to her +x: about +90°) while he calls it
@@ -132,12 +137,13 @@ describe('Kaze on Kaze\'s Swoop: never across the map', () => {
   });
 
   test('Reduce motion: no dive at all, near or far — he stays on her shoulder, turns to the first target and plays his attack', async () => {
-    const { hana, enemies, kaze, fly, swoop, attacks } = await board({ reduceMotion: true });
+    const { hana, c, enemies, kaze, fly, swoop, attacks } = await board({ reduceMotion: true });
     enemies.set(1, at(hana, 1.6)); // by her
     enemies.set(2, at(hana, 9.5)); // across the map
     swoop([1, 2]);
     expect(!!kaze().diving).toBe(false);
     expect(kaze().dives).toEqual([]);
+    expect(c.swoopTargets(hana.uid)).toEqual([]); // both get abilityFx's still strike
     expect(kaze().sortie.busy).toBe(false);
     expect(attacks()).toBe(1);
     const { far } = fly(2);
