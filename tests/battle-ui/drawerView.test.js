@@ -32,7 +32,10 @@ const up = (sim, t, path, n) => {
   return t;
 };
 const labels = (cells) => cells.map((c) => c.label);
-const rowsOf = (sim, t, o = {}) => [0, 1, 2].map((i) => pathRowView(t.def, t.tiers, i, sim.upgradeStatus(t.uid, i), { ...o, armed: o.armedPath === i }));
+const rowsOf = (sim, t, o = {}) => [0, 1, 2].map((i) => {
+  const us = sim.upgradeStatus(t.uid, i);
+  return pathRowView(t.def, t.tiers, i, us, { desc: us.next?.desc || null, ...o, armed: o.armedPath === i });
+});
 
 describe('the stat row: the role\'s three headline stats', () => {
   it('a shooter (Aoi): DMG · RATE · RANGE, the first in the plate accent, short numbers ("1.4" over "/s", "3.2")', () => {
@@ -195,8 +198,8 @@ describe('the two-tap buy', () => {
     // an ally's girl never arms (read only); the battle's end neither
     expect(pathRowView(t.def, t.tiers, 0, sim.upgradeStatus(t.uid, 0), { armed: true, readOnly: true }).armed).toBe(false);
     expect(pathRowView(t.def, t.tiers, 0, sim.upgradeStatus(t.uid, 0), { armed: true, ended: true })).toMatchObject({ state: 'ended', armed: false });
-    // 1280 may carry the tier's full sentence; a phone never
-    expect(pathRowView(t.def, t.tiers, 0, sim.upgradeStatus(t.uid, 0), { armed: true, wide: true, desc: 'x' }).desc).toBe('x');
+    // 1280 carries the tier's full sentence in place of the chips (its numbers in one line); a phone never
+    expect(pathRowView(t.def, t.tiers, 0, sim.upgradeStatus(t.uid, 0), { armed: true, wide: true, desc: 'x' })).toMatchObject({ desc: 'x', chips: [] });
     expect(pathRowView(t.def, t.tiers, 0, sim.upgradeStatus(t.uid, 0), { armed: true, desc: 'x' }).desc).toBeNull();
   });
 
@@ -269,10 +272,12 @@ describe('numbers per section (≤ 4)', () => {
       const st = sim.towerStats(t.uid);
       const stats = drawerStats(t, st, { affects: 4, placeCost: sim.placeCost(id) });
       const target = targetView(t, st);
-      for (let armedPath = -1; armedPath < 3; armedPath++) {
-        const rows = rowsOf(sim, t, { armedPath, wide: true });
-        const secs = drawerSections({ code: t.tiers.join('-'), pot: 'P5', stats, rows, footer: footerView(t.spent, sim.sellValue(t.uid)), target });
-        for (const [name, texts] of Object.entries(secs)) expect(sectionNumbers(texts), `${id} ${t.tiers.join('-')} ${name}: ${texts.join(' | ')}`).toBeLessThanOrEqual(SECTION_NUMBERS);
+      for (const wide of [false, true]) {
+        for (let armedPath = -1; armedPath < 3; armedPath++) {
+          const rows = rowsOf(sim, t, { armedPath, wide });
+          const secs = drawerSections({ code: t.tiers.join('-'), pot: 'P5', stats, rows, footer: footerView(t.spent, sim.sellValue(t.uid)), target });
+          for (const [name, texts] of Object.entries(secs)) expect(sectionNumbers(texts), `${id} ${t.tiers.join('-')} ${wide ? 'PC' : 'phone'} ${name}: ${texts.join(' | ')}`).toBeLessThanOrEqual(SECTION_NUMBERS);
+        }
       }
     }
   });

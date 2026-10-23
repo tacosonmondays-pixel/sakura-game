@@ -203,15 +203,19 @@ export function pathRowView(def, tiers, i, us, { held = false, holder = null, ar
   const state = ended ? 'ended' : poor ? 'poor' : 'buy';
   const view = { ...base, state, tierLine, price, priceText, armed: !!armed && !readOnly && !ended };
   if (view.armed) {
-    // tap 1: the next tier's effects as up to 3 chips; the row's numbers stay ≤ SECTION_NUMBERS (tier, price, chips)
-    let numbers = 2;
-    for (const c of effectParts(mods || us.next.mods || {}, 3)) {
-      const has = /\d/.test(c);
-      if (has && numbers >= SECTION_NUMBERS) continue;
-      if (has) numbers++;
-      view.chips.push(c);
+    if (wide && desc) {
+      // 1280: the tier's full sentence in place of the chips (UI_DIRECTION §6.6; one line holds its numbers)
+      view.desc = desc;
+    } else {
+      // tap 1: the next tier's effects as up to 3 chips; the row's numbers stay ≤ SECTION_NUMBERS (tier, price, chips)
+      let numbers = 2;
+      for (const c of effectParts(mods || us.next.mods || {}, 3)) {
+        const has = /\d/.test(c);
+        if (has && numbers >= SECTION_NUMBERS) continue;
+        if (has) numbers++;
+        view.chips.push(c);
+      }
     }
-    if (wide && desc) view.desc = desc;
     view.buyLabel = poor ? null : 'Buy';
   }
   return view;
@@ -354,7 +358,7 @@ export function drawerSections({ code = '', pot = null, stats = [], rows = [], f
     footer: footer ? [footer.invested, footer.sellValue] : [],
   };
   rows.forEach((r, k) => {
-    out[`path${k}`] = [r.tierLine, r.priceText, ...(r.chips || []), r.lock, r.holder?.line];
+    out[`path${k}`] = [r.tierLine, r.priceText, ...(r.chips || []), r.desc, r.lock, r.holder?.line];
   });
   return out;
 }
