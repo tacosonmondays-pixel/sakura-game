@@ -5,7 +5,8 @@
 // Coordinates: px in the stage host (the lobby screen). The picture fills a frame that may overhang the host
 // (the parallax frame is inset -2%): frame = { x, y, w, h } in host px. Obstacles are the menu boxes
 // { l, t, r, b, bar? } in host px; a bar (bar: true, or wider than 60% of the screen: the top bar, the dock, an
-// event's lantern string) only limits her face and the bubble vertically.
+// event's lantern string) only limits her face and the bubble vertically. An event's lantern string itself gives way
+// to her head (hangString).
 
 /** The crop the designed scenes were checked at (a 16:9 cover crop at 60% / 30%). */
 export const PREFER_POS = [0.6, 0.3];
@@ -134,6 +135,37 @@ export function placeBubble({ face, r, W, H, obstacles = [], measure, minW = 150
   const x = clamp(face.x - m.w / 2, 12, Math.max(12, W - 12 - m.w));
   const y = Math.min(face.y + CORE.down * r + 14, Math.max(top + 6, bottom - 6 - m.h));
   return { side: 'below', x, y, w: m.w, h: m.h, maxW: maxW < nat.w ? maxW : null, tail: clamp(face.x - x, 16, Math.max(16, m.w - 16)) };
+}
+
+/** Her head with her hair and what sits on it (a cap, a hat, a halo) around her face point, in head radii: what decor
+ *  hung over her scene keeps clear of. 2 across: a hat brim or a tilted halo reaches about that far (Chigusa's vine
+ *  halo); 1.8 up: on the 3:4 art the face point is her face centre, about 0.3 radii under her eyes, and halos float
+ *  above the hair. */
+export const DECOR_HEAD = Object.freeze({ half: 2.0, up: 1.8, down: 1.0 });
+
+/**
+ * Where a decor string hung under the top bar (an event's lantern string) may hang over a whole scene: never across
+ * her head, hair or halo (DECOR_HEAD). The cover crop can only move her face down on a screen wider than the scene,
+ * so on most screens the string has to give way instead: it keeps its whole length when it misses her head, else the
+ * longer stretch from one of its own ends up to the side of her head; null (hide it) when neither stretch is minW px.
+ * @param {{l:number,t:number,r:number,b:number}} box the string's own box (host px)
+ * @param {{x:number,y:number}} face her face point from anchorFace (host px)
+ * @param {number} r her head radius (px)
+ * @param {{ minW?: number }} [o]
+ * @returns {{ l: number, r: number, full: boolean }|null} the stretch to draw, in host px
+ */
+export function hangString(box, face, r, { minW = 0 } = {}) {
+  const head = {
+    l: face.x - DECOR_HEAD.half * r - MARGIN,
+    r: face.x + DECOR_HEAD.half * r + MARGIN,
+    t: face.y - DECOR_HEAD.up * r,
+    b: face.y + DECOR_HEAD.down * r,
+  };
+  if (!(box.l < head.r && box.r > head.l && box.t < head.b && box.b > head.t)) return { l: box.l, r: box.r, full: true };
+  const left = { l: box.l, r: Math.min(box.r, head.l) };
+  const right = { l: Math.max(box.l, head.r), r: box.r };
+  const best = left.r - left.l >= right.r - right.l ? left : right;
+  return best.r - best.l >= Math.max(1, minW) ? { ...best, full: false } : null;
 }
 
 /**

@@ -25,11 +25,14 @@ const CUT_FACE = [55, 25];
 
 /**
  * @param {HTMLElement} host
- * @param {{ reduceMotion?: boolean, lowGfx?: boolean, onTap?: Function|null, obstacles?: (() => object[])|null }} [opts]
+ * @param {{ reduceMotion?: boolean, lowGfx?: boolean, onTap?: Function|null, obstacles?: (() => object[])|null,
+ *   onLayout?: ((at: { face: {x:number,y:number}, r: number }|null) => void)|null }} [opts]
  *   lowGfx: the Low graphics setting (a whole scene then holds still: no breathing, no parallax);
- *   obstacles(): the menu boxes { l, t, r, b } in host px, kept clear of her face and the bubble (whole scenes)
+ *   obstacles(): the menu boxes { l, t, r, b } in host px, kept clear of her face and the bubble (whole scenes);
+ *   onLayout(at): after a whole scene is shown or re-cropped, where her face is in host px (null when the picture
+ *   on screen is not a whole scene), so the screen can keep its decor off her head
  */
-export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, obstacles = null } = {}) {
+export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, obstacles = null, onLayout = null } = {}) {
   host.classList.add('lb-art-host');
   const frame = h('div.lb-art', { 'data-testid': 'secretary-art' });
   const hearts = h('div.lb-art-fx');
@@ -49,6 +52,14 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       return (obstacles && obstacles()) || [];
     } catch {
       return [];
+    }
+  };
+  /** onLayout: her face on screen now (whole scene), or null */
+  const notify = () => {
+    try {
+      onLayout?.(whole?.fit ? { face: whole.fit.face, r: whole.fit.r } : null);
+    } catch (e) {
+      console.warn('[lobby] onLayout failed', e);
     }
   };
 
@@ -140,6 +151,7 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       layoutWhole(whole); // the menus may have moved while the art decoded
       if (lowGfx) look0();
     } else delete host.dataset.face;
+    notify();
     requestAnimationFrame(() => next.classList.remove('enter-r', 'enter-l'));
     if (prev) {
       prev.classList.add('leaving');
@@ -247,6 +259,7 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       resizeRaf = 0;
       if (!whole || disposed || (whole.fit && whole.fit.W === host.clientWidth && whole.fit.H === host.clientHeight)) return;
       layoutWhole(whole);
+      notify();
       if (bubble.classList.contains('show')) placeWholeBubble();
     });
   };

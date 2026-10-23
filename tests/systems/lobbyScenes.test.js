@@ -12,7 +12,7 @@ import { LOBBY_SCENES, lobbySceneOf, wholeSceneArt, sceneArtUrl, SCENE_HEAD_R } 
 import {
   LOBBY_BG_MAP, lobbyBackgrounds, lobbyBackgroundFor, defaultBackgroundFor, chooseBackground, stageModeOf, stageArtUrls, bgArtUrl, BACKDROP,
 } from '../../src/data/lobbyArt.js';
-import { coverFit, anchorFace, placeBubble, headHit, splitObstacles, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
+import { coverFit, anchorFace, placeBubble, headHit, splitObstacles, hangString, DECOR_HEAD, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
 import { createProfile, migrateProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 
@@ -263,5 +263,95 @@ describe('lobby scenes: crop, face and bubble at every size', () => {
     expect(fit.fit.oy).toBeGreaterThan(0);
     expect(fit.face.y - 0.6 * fit.r).toBeGreaterThanOrEqual(60);
     expect(fit.clear).toBe(true);
+  });
+});
+
+// The Halloween lantern string (src/ui/events/lobby.js) at each size, measured in the game: 18% insets (22% on a
+// short landscape phone) right under the top bar. 9 lanterns, so a lantern step is a tenth of its width.
+const LANTERN_BOX = {
+  '844x390': [186, 40, 658, 78], '1280x720': [230, 54, 1050, 110], '667x375': [147, 40, 520, 78], '932x430': [205, 40, 727, 78],
+  '1024x768': [184, 54, 840, 110], '1180x820': [212, 54, 968, 110], '390x844': [70, 40, 320, 96],
+};
+const lanternBox = (size) => { const [l, t, r, b] = LANTERN_BOX[size]; return { l, t, r, b }; };
+
+describe('lobby scenes: an event lantern string over her whole scene', () => {
+  // review finding (Oct 23): the scene crop puts faces higher than the old stands, and on a screen with her scene's
+  // aspect the crop cannot move down, so the string hung across Kinu's, Marumi's and Yuzuha's faces on phones
+  for (const size of Object.keys(LANTERN_BOX)) {
+    const [W, H] = size.split('x').map(Number);
+    const portrait = H > W;
+    it(`${size}: the string never hangs over her head, hair or halo; it is cut back to one side of her head, or hidden`, () => {
+      const lb = lanternBox(size);
+      const step = (lb.r - lb.l) / 10;
+      for (const id of ACADEMY) {
+        const art = wholeSceneArt(id, { portrait });
+        const base = { W, H, frame: frameOf(W, H), iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, headR: SCENE_HEAD_R };
+        // (the crop moves her face down for the string only as far as the picture overflows: a few px at most here)
+        const fit = anchorFace({ ...base, obstacles: [...boxes(size), { ...lb, bar: true }] });
+        const span = hangString(lb, fit.face, fit.r, { minW: 2.5 * step });
+        const head = { l: fit.face.x - DECOR_HEAD.half * fit.r, r: fit.face.x + DECOR_HEAD.half * fit.r, t: fit.face.y - DECOR_HEAD.up * fit.r, b: fit.face.y + DECOR_HEAD.down * fit.r };
+        // her eyes and brow (the finding's measure) are well inside that
+        const eyes = { l: fit.face.x - 0.85 * fit.r, r: fit.face.x + 0.85 * fit.r, t: fit.face.y - 0.4 * fit.r, b: fit.face.y + 0.35 * fit.r };
+        expect(eyes.t, `${size} ${id}`).toBeGreaterThan(head.t);
+        if (portrait) continue; // the portrait checks are below
+        expect(span, `${size} ${id}: some of the string stays on a landscape screen`).not.toBeNull();
+        const drawn = { l: span.l, r: span.r, t: lb.t, b: lb.b };
+        expect(hits(drawn, head), `${size} ${id}: string ${Math.round(span.l)}-${Math.round(span.r)} over her head`).toBe(false);
+        expect(hits(drawn, eyes)).toBe(false);
+        expect(span.l).toBeGreaterThanOrEqual(lb.l);
+        expect(span.r).toBeLessThanOrEqual(lb.r);
+        expect(span.r - span.l, `${size} ${id}: room for two lanterns`).toBeGreaterThanOrEqual(2.5 * step);
+        // the open side of her head: the scenes keep their left side open
+        if (!span.full) expect(span.r, `${size} ${id}`).toBeLessThan(fit.face.x);
+      }
+    });
+  }
+
+  it('390x844: on a portrait phone her 3:4 art fills the top, so the string hides wherever it would reach her head', () => {
+    const size = '390x844';
+    const lb = lanternBox(size);
+    const step = (lb.r - lb.l) / 10;
+    for (const id of ACADEMY) {
+      const art = wholeSceneArt(id, { portrait: true });
+      const fit = anchorFace({ W: 390, H: 844, frame: frameOf(390, 844), iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles: [...boxes(size), { ...lb, bar: true }], headR: SCENE_HEAD_R });
+      const span = hangString(lb, fit.face, fit.r, { minW: 2.5 * step });
+      const head = { l: fit.face.x - DECOR_HEAD.half * fit.r, r: fit.face.x + DECOR_HEAD.half * fit.r, t: fit.face.y - DECOR_HEAD.up * fit.r, b: fit.face.y + DECOR_HEAD.down * fit.r };
+      if (span) expect(hits({ l: span.l, r: span.r, t: lb.t, b: lb.b }, head), id).toBe(false);
+      else expect(hits(lb, head), id).toBe(true);
+    }
+    // Marumi's head is right under the top bar there: no string at all
+    const m = wholeSceneArt('marumi', { portrait: true });
+    const mf = anchorFace({ W: 390, H: 844, frame: frameOf(390, 844), iw: m.w, ih: m.h, fx: m.fx, fy: m.fy, obstacles: boxes(size), headR: SCENE_HEAD_R });
+    expect(hangString(lb, mf.face, mf.r, { minW: 2.5 * step })).toBeNull();
+  });
+
+  it('Marumi on an 844x390 phone (the finding): the string ends left of her hair, with room for several lanterns', () => {
+    const lb = lanternBox('844x390');
+    const s = LOBBY_SCENES.marumi;
+    const fit = anchorFace({ W: 844, H: 390, frame: frameOf(844, 390), iw: s.w, ih: s.h, fx: s.faceX, fy: s.faceY, obstacles: [...boxes('844x390'), { ...lb, bar: true }], headR: SCENE_HEAD_R });
+    // her face sits at about (555, 79), r 49: inside the string's band, as the review measured
+    expect(fit.face.y).toBeLessThan(lb.b + 10);
+    const span = hangString(lb, fit.face, fit.r, { minW: 2.5 * (lb.r - lb.l) / 10 });
+    expect(span.full).toBe(false);
+    expect(span.l).toBe(lb.l);
+    expect(span.r).toBeLessThanOrEqual(fit.face.x - DECOR_HEAD.half * fit.r);
+    expect(span.r - span.l).toBeGreaterThan(4 * (lb.r - lb.l) / 10);
+  });
+
+  it('a string clear of her head keeps its whole length; with no room on either side it is hidden', () => {
+    const lb = { l: 200, t: 40, r: 700, b: 80 };
+    // her head well below the string
+    expect(hangString(lb, { x: 450, y: 300 }, 50)).toEqual({ l: 200, r: 700, full: true });
+    // her head beside the string (past its right end)
+    expect(hangString(lb, { x: 900, y: 90 }, 50)).toEqual({ l: 200, r: 700, full: true });
+    // her head under its middle: the longer side wins
+    const cut = hangString(lb, { x: 520, y: 100 }, 50);
+    expect(cut).toEqual({ l: 200, r: 520 - DECOR_HEAD.half * 50 - 8, full: false });
+    const cutR = hangString(lb, { x: 380, y: 100 }, 50);
+    expect(cutR).toEqual({ l: 380 + DECOR_HEAD.half * 50 + 8, r: 700, full: false });
+    // a big head right under it: neither side is long enough
+    expect(hangString(lb, { x: 450, y: 120 }, 150, { minW: 120 })).toBeNull();
+    // a stretch shorter than minW is not drawn
+    expect(hangString(lb, { x: 330, y: 100 }, 50, { minW: 300 })).toBeNull();
   });
 });

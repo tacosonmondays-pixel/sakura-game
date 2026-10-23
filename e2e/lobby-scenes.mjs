@@ -4,6 +4,9 @@
 // clear of every menu; the speech bubble sits beside her face, never over it; a tap on her lower face is a head pat
 // (the old lobby missed Chigusa's and Ouka's); nothing shifts while the art loads; Reduce motion / Low graphics
 // hold the scene still. Girls without a scene keep the backdrop + stand (Rei) or their older scene (Hikari).
+// The event clock is pinned inside the Halloween window (dev builds only, src/ui/events/clock.js), so the lobby has
+// the event's lantern string: it never hangs over her head, hair or halo (cut back to one side of her head, or
+// hidden), and Rei's lobby keeps it whole. One more pass after the event checks the lobby without it.
 // Usage: node e2e/lobby-scenes.mjs [--shots dir] [--sizes 844x390,1280x720]
 // Playwright / the browser are found by e2e/browser.mjs (PLAYWRIGHT_MODULE / NODE_PATH, CHROME_PATH).
 import { createServer } from 'vite';
@@ -17,6 +20,9 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const SIZES = opt('sizes', '844x390,1280x720,667x375,932x430,1024x768,1180x820,390x844').split(',');
 const ACADEMY = ['azami', 'chigusa', 'kinu', 'marumi', 'ouka', 'wakaba', 'yuzuha'];
 const HEAD_PAT = /halo is not a button|one more pat|what are you doing|keep patting/i;
+/** the event dev clock: inside the Halloween window (its lantern string is up), and after the event */
+const DURING_EVENT = '2026-10-24T18:00:00Z';
+const AFTER_EVENT = '2026-12-01T18:00:00Z';
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
@@ -55,7 +61,15 @@ const measure = (page) => page.evaluate(() => {
     .map((s) => document.querySelector(s)).filter((n) => n && n.offsetParent && n.offsetWidth).map(box);
   const [fx, fy, fr] = (host.dataset.face || '').split(',').map(Number);
   const bubble = document.querySelector('.lb-bubble.show');
+  const lan = document.querySelector('.lb-ev-lanterns');
+  const lanSvg = lan?.querySelector('svg');
   return {
+    lanterns: lan ? {
+      shown: getComputedStyle(lan).visibility !== 'hidden',
+      box: box(lan),
+      svg: lanSvg ? box(lanSvg) : null,
+      items: [...lan.querySelectorAll('svg g')].map(box),
+    } : null,
     cls: layer.className,
     variant: layer.dataset.variant || null,
     backdrop: !!layer.querySelector('.lb-art-bg'),
@@ -75,27 +89,36 @@ const measure = (page) => page.evaluate(() => {
 
 const hits = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
 
-try {
-  for (const size of SIZES) {
-    const [W, H] = size.split('x').map(Number);
-    const touch = Math.min(W, H) < 600;
-    const portrait = H > W;
-    const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch });
-    const errs = [];
-    page.on('pageerror', (e) => errs.push(e.message));
-    await page.addInitScript(() => {
-      try { sessionStorage.setItem('sakura-beta-gift-shown', '1'); } catch { /* none */ }
-      // layout shifts while her art swaps in (the box is reserved, so none are expected)
-      try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls = (window.__cls || 0) + e.value; }).observe({ type: 'layout-shift' }); } catch { /* old engine */ }
-    });
-    await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
-    await page.waitForSelector('[data-testid="lobby"]', { timeout: 60000 });
-    await page.waitForTimeout(1600); // the entrance slides settle
+/**
+ * One screen size: the seven whole scenes, then (full pass) the head pats and the unchanged girls.
+ * @param {string} size 'WxH'
+ * @param {{ now: string, full?: boolean }} o now = the event dev clock
+ */
+async function sizePass(size, { now, full = true }) {
+  const [W, H] = size.split('x').map(Number);
+  const touch = Math.min(W, H) < 600;
+  const portrait = H > W;
+  const event = now === DURING_EVENT;
+  const label = event ? size : `${size} after the event`;
+  const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch });
+  const errs = [];
+  page.on('pageerror', (e) => errs.push(e.message));
+  await page.addInitScript((at) => {
+    try { sessionStorage.setItem('sakura-beta-gift-shown', '1'); } catch { /* none */ }
+    try { localStorage.setItem('sakura-dev-now', at); } catch { /* none */ }
+    // layout shifts while her art swaps in (the box is reserved, so none are expected)
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls = (window.__cls || 0) + e.value; }).observe({ type: 'layout-shift' }); } catch { /* old engine */ }
+  }, now);
+  await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
+  await page.waitForSelector('[data-testid="lobby"]', { timeout: 60000 });
+  await page.waitForTimeout(1600); // the entrance slides settle
+  check(event === !!(await page.$('[data-testid="event-decor"]')), `${label}: the event's lantern decor is ${event ? 'up' : 'gone'}`);
 
+  try {
     for (const id of ACADEMY) {
       await secretary(page, id);
       const m = await measure(page);
-      const tag = `${size} ${id}`;
+      const tag = `${label} ${id}`;
       check(m.cls.includes('whole') && !m.backdrop && !m.stand, `${tag}: her whole scene, no backdrop, no stand`);
       check(m.variant === (portrait ? 'full' : 'scene') && (portrait ? /portraits\/\w+-full\.webp/ : /scenes\/\w+-scene\.webp/).test(m.src), `${tag}: ${portrait ? 'her 3:4 full art' : 'the wide scene'} (${m.src.split('/').pop()})`);
       check(!!m.attrs?.[0] && !!m.attrs?.[1] && !!m.pos && m.imgBox.l <= 0 && m.imgBox.t <= 0 && m.imgBox.r >= W && m.imgBox.b >= H, `${tag}: full bleed, size and crop set up front (${m.pos})`);
@@ -112,8 +135,22 @@ try {
         check(b.l >= 0 && b.r <= W && b.t >= 0 && b.b <= H, `${tag}: bubble on screen`);
         if (!portrait) check(m.hud.every((o) => !hits(o, b)), `${tag}: bubble clear of the menus`);
       } else check(false, `${tag}: greeting bubble shown`);
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/lobby-scenes-${size}-${id}.png` });
+      // review finding (Oct 23): the lantern string hung across Kinu's, Marumi's and Yuzuha's faces on phones. Her
+      // head with her hair and halo (a little inside the layout's own 2 radii across, 1.8 up) never has a lantern or
+      // the string over it; a landscape screen keeps some of the string
+      if (event) {
+        const L = m.lanterns;
+        const head = { l: f.x - 1.9 * f.r, r: f.x + 1.9 * f.r, t: f.y - 1.7 * f.r, b: f.y + f.r };
+        if (L?.shown) {
+          const over = [L.svg, ...L.items].filter((o) => o && hits(o, head));
+          check(!over.length, `${tag}: the lantern string clear of her head, hair and halo (string ${L.svg && `${Math.round(L.svg.l)}-${Math.round(L.svg.r)}`}${over.length ? `, over her: ${JSON.stringify(over)}` : ''})`);
+        }
+        if (!portrait) check(!!L?.shown && L.items.length >= 2, `${tag}: some of the lantern string stays up (${L?.shown ? L.items.length : 0} lanterns)`);
+        else check(!!L && (L.shown || hits(L.box, head)), `${tag}: the lantern string hidden only where it would reach her head`);
+      }
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/lobby-scenes-${size}${event ? '' : '-after-event'}-${id}.png` });
     }
+    if (!full) return;
 
     // the open finding: taps on the lower face of Chigusa and Ouka missed the head zone
     for (const id of ['chigusa', 'ouka']) {
@@ -121,24 +158,59 @@ try {
       const { face } = await measure(page);
       const x = face.x;
       const y = Math.round(face.y + 0.7 * face.r);
+      // count the hearts as they are added (each lives 1.2 s, so a busy machine could miss them by polling)
+      await page.evaluate(() => {
+        window.__hearts = 0;
+        window.__heartObs?.disconnect();
+        window.__heartObs = new MutationObserver((list) => {
+          for (const rec of list) for (const n of rec.addedNodes) if (n.classList?.contains('lb-art-heart')) window.__hearts += 1;
+        });
+        window.__heartObs.observe(document.querySelector('.lb-art-fx'), { childList: true });
+      });
       if (touch) await page.touchscreen.tap(x, y);
       else await page.mouse.click(x, y);
       await page.waitForTimeout(250);
       const text = await page.locator('.lb-bubble.show').innerText().catch(() => '');
-      const heartCount = await page.locator('.lb-art-heart').count();
+      const heartCount = await page.evaluate(() => window.__hearts);
       check(HEAD_PAT.test(text) && heartCount >= 3, `${size} ${id}: a tap on her lower face is a head pat ("${text.slice(0, 40)}", ${heartCount} hearts)`);
     }
 
-    // girls without a whole scene: Rei keeps the academy backdrop + her stand, Hikari her older landscape scene
+    // girls without a whole scene: Rei keeps the academy backdrop + her stand, Hikari her older landscape scene;
+    // both have the whole lantern string back
     await secretary(page, 'rei');
     const rei = await measure(page);
     check(rei.cls.includes('stand') && rei.backdrop && rei.stand && !rei.face, `${size} rei: backdrop + stand as before`);
+    const whole = (L) => !!L?.shown && !!L.svg && Math.abs(L.svg.l - L.box.l) < 1 && Math.abs(L.svg.r - L.box.r) < 1 && L.items.length === 9;
+    if (event) check(whole(rei.lanterns), `${size} rei: the whole lantern string (${rei.lanterns?.items.length} lanterns)`);
     await secretary(page, 'hikari');
     const hik = await measure(page);
     check(hik.cls.includes('scene') && !hik.cls.includes('whole') && /art\/lobby\/hikari\.webp/.test(hik.src), `${size} hikari: her older scene as before`);
-    check(!errs.length, `${size}: no page errors${errs.length ? `: ${errs.join(' | ')}` : ''}`);
+    if (event) check(whole(hik.lanterns), `${size} hikari: the whole lantern string`);
+
+    // turning the phone with Marumi up: the string follows her face both ways
+    if (event && size === '844x390') {
+      await secretary(page, 'marumi');
+      for (const [w, h] of [[390, 844], [844, 390]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(1200);
+        const m = await measure(page);
+        const f = m.face;
+        const head = { l: f.x - 1.9 * f.r, r: f.x + 1.9 * f.r, t: f.y - 1.7 * f.r, b: f.y + f.r };
+        const L = m.lanterns;
+        const over = L?.shown ? [L.svg, ...L.items].filter((o) => o && hits(o, head)) : [];
+        check(!over.length && (h > w || (L?.shown && L.items.length >= 2)), `turned to ${w}x${h} marumi: lantern string ${L?.shown ? `${L.items.length} lanterns, clear of her head` : 'hidden'}`);
+      }
+    }
+  } finally {
+    check(!errs.length, `${label}: no page errors${errs.length ? `: ${errs.join(' | ')}` : ''}`);
     await page.close();
   }
+}
+
+try {
+  for (const size of SIZES) await sizePass(size, { now: DURING_EVENT });
+  // the lobby without the event: the same scenes and layout, no lanterns
+  await sizePass('844x390', { now: AFTER_EVENT, full: false });
 
   // Reduce motion and Low graphics: the whole scene holds still (no breathing)
   for (const [name, settings] of [['Reduce motion', { reduceMotion: true }], ['Low graphics', { quality: 'low' }]]) {

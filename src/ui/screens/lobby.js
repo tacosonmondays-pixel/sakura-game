@@ -21,7 +21,7 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyCard, eventLobbyDecor, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyCard, eventLobbyDecor, hangLobbyLanterns, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -117,9 +117,10 @@ export function render(root) {
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
+  let decor = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
-    const decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
+    decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
     if (decor) el.insertBefore(decor, nameplate);
   } catch (e) {
     console.warn('[lobby] event decor failed', e);
@@ -144,6 +145,11 @@ export function render(root) {
       const lanterns = el.querySelector('.lb-ev-lanterns');
       if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
       return list;
+    },
+    // [events] her crop can move her face down only on a screen wider than her scene, so the lantern string gives
+    // way to her head, hair and halo instead (cut back to one side of her head, or hidden)
+    onLayout: (at) => {
+      if (decor) hangLobbyLanterns(decor, at);
     },
     onTap: (part, at) => {
       stage.react(part, at);
