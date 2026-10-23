@@ -1660,12 +1660,16 @@ no zoom / pulse / petals.
 **Lobby art + bond model — `src/data/lobbyArt.js` (pure) + `src/ui/lobby/artStage.js` + `src/ui/lobby/bgPicker.js`.**
 The "memorial lobby": every background belongs to one girl; choosing it makes her the
 secretary. Kinds: `scene` (full landscape illustration with her in it, `public/art/lobby/<id>.webp`:
-hikari, aoi, sango), `stand` (her drawn stand over the painted academy, tint `day`/`sunset`/`night`,
-one each per girl), `bond` (two wholesome date memories per girl — café, festival night, sunset walk,
-study session, picnic, stargazing, aquarium — unlocked at **bond 5 and bond 10**).
+hikari, aoi, sango; `whole: true` marks a whole-scene girl, below), `stand` (her drawn stand over the painted
+academy, tint `day`/`sunset`/`night`, one each per girl without a whole scene), `bond` (two wholesome date
+memories per girl — café, festival night, sunset walk, study session, picnic, stargazing, aquarium — unlocked at
+**bond 5 and bond 10**).
 ```js
 export const BOND_MAX = 10, BOND_LEVELS = [5, 10], BACKDROP, TINTS, BOND_THEMES, LOBBY_BACKGROUNDS, LOBBY_BG_MAP
-export function lobbyBackgrounds(girlId)              // scene, 3 stands, 2 bond memories
+export function lobbyBackgrounds(girlId)              // scene, 3 stands (none for a whole-scene girl), 2 bond memories
+export function stageModeOf(bg)                       // 'whole' | 'scene' | 'stand' | 'bond': how the stage draws it
+export function stageArtUrls(bg, { portrait })        // the pictures the stage loads (the title preloads them)
+export function bgArtUrl(bg, 'file'|'thumb')          // public/art/scenes/ for a whole scene, else public/art/lobby/
 export function bondLevel(profile, girlId)            // profile.bond[id] clamped 0..BOND_MAX (0 until the City exists)
 export function isBackgroundUnlocked(profile, bg)     // owned girl (+ bond level for bond memories)
 export function hasArt(bg), isBackgroundSelectable(profile, bg) // bond memories have no file yet → shown locked
@@ -1673,7 +1677,7 @@ export function unlockText(bg, profile?)              // "Recruit X to unlock" /
 export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId)
 export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
 // src/ui/lobby/artStage.js
-export function createArtStage(host, { reduceMotion, onTap }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
+export function createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
 // src/ui/lobby/bgPicker.js
 export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button
 ```
@@ -1681,6 +1685,40 @@ Profile: `lobbyBg: { [girlId]: bgId }`, `bond: { [girlId]: 0..10 }` (save.js mig
 City dating / gift system only has to raise `profile.bond[id]` and paint the bond files** — add `file`
 /`thumb` to the bond entries and they become selectable; nothing else changes. Content rule: the
 academy girls are students; bond scenes are cosy date moments, fully clothed, never suggestive.
+
+**Whole-scene lobby — `src/data/lobbyScenes.js` (pure) + `src/ui/lobby/sceneLayout.js` (pure).** Owner (Oct 23):
+"instead of the default backgrounds just show the entire art". For the seven academy girls the lobby screen IS her
+whole scene illustration: full bleed, **no academy backdrop and no cut-out stand** (their stands are cut out of
+dynamic scene art, so over the backdrop the frame cut her props with straight edges and halos floated). Files:
+`public/art/scenes/<id>-scene.webp` (the wide scene, about 2.16:1, 1688-1920 px wide, webp q90 like the portraits)
+and `thumbs/<id>-scene.webp` (480 px wide, same aspect: picker tile and the blurred first paint). On a portrait
+screen the stage shows her 3:4 `<id>-full.webp` instead (the scene's middle is that art at 1:1).
+```js
+export const LOBBY_SCENES /* { [id]: { file, thumb, w, h, faceX, faceY, name, desc } } */, SCENE_ART_BASE, SCENE_HEAD_R
+export function lobbySceneOf(id), sceneArtUrl(file)
+export function wholeSceneArt(id, { portrait }) // { variant: 'scene'|'full', src, w, h, fx, fy } | null
+// src/ui/lobby/sceneLayout.js
+export function coverFit(fw, fh, iw, ih), splitObstacles(obstacles, W, H), freeBand(blocks, y0, y1, W)
+export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles, prefer, headR }) // { posX, posY, face, r, clear }
+export function placeBubble({ face, r, W, H, obstacles, measure, minW })               // { side: 'left'|'right'|'below', x, y, w, h, maxW, tail }
+export function headHit(x, y, face, r)
+export const DECOR_HEAD                                 // { half: 2, up: 1.8, down: 1 } head radii: her head, hair, hat, halo
+export function hangString(box, face, r, { minW })      // { l, r, full } | null: where a decor string under the top bar may hang
+// src/ui/events/lobby.js
+export function hangLobbyLanterns(decor, at)            // at = { face, r } | null (the stage's onLayout)
+```
+The stage crops the picture (`object-fit: cover`) at the designed 60 % / 30 % and moves it only as far as needed to
+keep her face clear of the lobby's menus (`obstacles()` from lobby.js: layout boxes of the HUD; bars = top bar,
+dock, an event's lantern string). The bubble goes beside her face (left, else right, narrower if needed; under her
+chin on a portrait phone), never over it. Head pats use her real face (±1.1 head radii across, 1.4 up, 1.0 down).
+The crop can move her face down only on a screen wider than her scene, so an event's lantern string gives way to her
+instead: after every layout the stage calls `onLayout({ face, r })` (null for other pictures) and the string is cut
+back to the open side of her head, hair and halo (`DECOR_HEAD`; same lantern size and spacing, a shallower dip), or
+hidden when neither side has room for two lanterns (a portrait phone, where her head fills the top). Its box stays as
+laid out, so the menu boxes the crop uses never depend on it. Girls without a whole scene keep the whole string.
+The image's size and crop are set before it loads (no layout shift). Reduce motion or Low graphics (`quality:
+'low'`): no breathing and no parallax. A saved stand choice of hers (`<id>-day`…) no longer exists and falls back to
+her scene. Adding a whole-scene girl = her two files + one `LOBBY_SCENES` row (tests check the files and sizes).
 
 **Hub art — `src/ui/hubArt.js`:** `hubBackdrop()` (dimmed painted academy) and `hubSecretary(profile)`
 / `hubStand(u)` (drawn stand) for the missions hub and Bounty; the missions hub tiles are painted

@@ -3,8 +3,8 @@
 // a more intimate background"). Opened from the Menu Tab and the small picture button on the
 // lobby. Left: the girls you own (choosing a background makes her the secretary), then the rest
 // greyed out ("Recruit X" — so players see what they can collect). Right: her
-// backgrounds — her painted scene, her stand over the academy (day / sunset / night) and her
-// Bond memories, which stay locked (soft silhouette + lock + requirement) until the City dating
+// backgrounds — her painted scene, her stand over the academy (day / sunset / night; a whole-scene girl has
+// her scene instead, src/data/lobbyScenes.js) and her Bond memories, which stay locked (soft silhouette + lock + requirement) until the City dating
 // / gift system raises her bond level. The choice is saved in profile.lobbyBg + secretary.
 import { h, clear } from '../dom.js';
 import { modal, svgEl, glyph, toast } from '../components.js';
@@ -14,7 +14,7 @@ import { UNIT_RARITIES } from '../../data/types.js';
 import { applyUrFrame } from '../rarity.js';
 import { portraitHTML } from '../../art/portraits.js';
 import {
-  lobbyBackgrounds, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bondLevel, BOND_MAX,
+  lobbyBackgrounds, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bgArtUrl, bondLevel, BOND_MAX,
 } from '../../data/lobbyArt.js';
 import { ownedUnits } from '../../systems/unlocks.js';
 import { secretaryOf } from './secretaryOf.js';
@@ -86,7 +86,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
       const unlocked = isBackgroundUnlocked(p, bg);
       const ready = unlocked && hasArt(bg);
       const on = isSec && active.id === bg.id;
-      const tile = h(`button.bgp-tile.kind-${bg.kind}${bg.tint ? `.tint-${bg.tint}` : ''}${ready ? '' : '.locked'}${on ? '.on' : ''}`, {
+      const tile = h(`button.bgp-tile.kind-${bg.kind}${bg.whole ? '.whole' : ''}${bg.tint ? `.tint-${bg.tint}` : ''}${ready ? '' : '.locked'}${on ? '.on' : ''}`, {
         'data-testid': `bgp-${bg.id}`, title: ready ? bg.desc : unlockText(bg, p),
         onclick: () => {
           if (!ready) {
@@ -121,7 +121,7 @@ function lockLines(bg, unlocked, owned = true) {
 
 /** Tile picture: the scene, the academy with her stand, or a soft silhouette for bond memories. */
 function thumbFor(bg, u) {
-  if (bg.kind === 'scene') return h('span.bgp-thumb', h('img', { src: lobbyArtUrl(bg.thumb || bg.file), alt: '', loading: 'lazy', decoding: 'async', draggable: false }));
+  if (bg.kind === 'scene') return h('span.bgp-thumb', h('img', { src: bgArtUrl(bg, 'thumb'), alt: '', loading: 'lazy', decoding: 'async', draggable: false }));
   if (bg.kind === 'stand') {
     return h('span.bgp-thumb',
       h('img.bgp-thumb-bg', { src: lobbyArtUrl(bg.thumb || bg.file), alt: '', loading: 'lazy', decoding: 'async', draggable: false }),

@@ -1574,6 +1574,20 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 }
 @media (min-width: 1000px) and (min-height: 600px) { .lb-art-girl { height: 142%; left: 54%; } }
 @media (prefers-reduced-motion: reduce) { .lb-art-layer.scene .lb-art-scene, .lb-art-girl { animation: none; } .lb-art { transition: none; } }
+/* whole-scene secretary (src/data/lobbyScenes.js): her scene art IS the screen: full bleed, no backdrop, no stand.
+   artStage.js crops it on her face (object-position) and breathes it from under her; .still = Reduce motion or
+   Low graphics (no breathing) */
+.lb-art-whole { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 30%; display: block; user-select: none; }
+.lb-art-layer.whole:not(.still) .lb-art-whole { animation: lb-breathe 4.8s ease-in-out infinite; }
+html[data-reduce-motion] .lb-art-layer.whole .lb-art-whole { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lb-art-layer.whole .lb-art-whole { animation: none; } }
+/* her bubble sits beside her face (sceneLayout.placeBubble): the tail points at her from the right edge, the left
+   edge, or up at her chin from under it, at --tail along that edge */
+.lb-art-host .lb-bubble.side-left::before { top: var(--tail, 14px); }
+.lb-art-host .lb-bubble.side-right { transform-origin: 0 50%; }
+.lb-art-host .lb-bubble.side-right::before { left: -9px; right: auto; top: var(--tail, 14px); border: 9px solid transparent; border-left: 0; border-right-color: rgba(255,255,255,0.96); filter: drop-shadow(-1px 0 0 rgba(29,78,137,0.12)); }
+.lb-art-host .lb-bubble.side-below { transform-origin: 50% 0; }
+.lb-art-host .lb-bubble.side-below::before { top: -9px; left: calc(var(--tail, 24px) - 9px); right: auto; border: 9px solid transparent; border-top: 0; border-bottom-color: rgba(255,255,255,0.96); filter: drop-shadow(0 -1px 0 rgba(29,78,137,0.12)); }
 
 /* a modal over the lobby: pause the lobby's ambient motion (breathing art, petals, motes). The
    overlay's backdrop blur would otherwise re-render the whole animated lobby every frame —
@@ -1760,6 +1774,7 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .bgp-tile.on { border-color: var(--yellow-deep); box-shadow: 0 0 0 3px var(--yellow), var(--shadow-strong); }
 .bgp-thumb { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; line-height: 0; }
 .bgp-thumb > img, .bgp-thumb-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
+.bgp-tile.whole .bgp-thumb > img { object-position: 60% 30%; } /* a whole scene: the crop it was designed at */
 .bgp-thumb-tint { position: absolute; inset: 0; }
 .bgp-tile.tint-sunset .bgp-thumb-bg { filter: sepia(0.38) saturate(1.35) hue-rotate(-12deg); }
 .bgp-tile.tint-sunset .bgp-thumb-tint { background: linear-gradient(180deg, rgba(255,110,70,0.62), rgba(255,160,100,0.42) 46%, rgba(120,50,110,0.48)); mix-blend-mode: multiply; }
