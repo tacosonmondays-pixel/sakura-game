@@ -11,6 +11,15 @@
 //   node e2e/ui-shots.mjs --screens m5 --now live                    # the real clock
 //   node e2e/ui-shots.mjs --screens profile --probe --judge spill    # + fail (exit 1) when a probe check named fails
 //
+// [ui-ink] UI v2 "Ink & Paper" (notes/ui-v2/build/PLAN.md, V1 tooling):
+//   --seed ink        the mock-ups' sample save (uiSeed.mjs seedInkSave) on its clock (INK_NOW) with a seeded
+//                     Math.random, so the data matches the mock-ups and a 10-pull is the same every run
+//   --dsf 3           device scale factor (3: the reviewers' zoom crops)
+//   --viewport 390x844  portrait phones: touch, the rotate prompt dismissed through its own session key
+//   --screens ink     every shot v2 touches; --screens regress: the screens it reaches only through shared parts
+//   --probe           also the probe's v2 numbers (e2e/probe.mjs v2: true), judged with --judge v2numbers,pink,...
+//   --pixels          the pixel probes a shot names (e2e/pixels.mjs) into pixels-<W>x<H>.json
+//
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a shot fails.
 // A shot whose screen does not exist in this build yet is skipped with a note (the M5 list names later screens).
 import { createServer } from 'vite';
@@ -18,7 +27,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { probe, judge, summary } from './probe.mjs';
-import { seedUiSave, seedOnlineInvite, seedOnlineHub, goOffline, SHOT_NOW, MORE_FRIENDS } from './uiSeed.mjs';
+import { tabJunction, ringContinuity, contrastOnPixels } from './pixels.mjs';
+import { seedUiSave, seedInkSave, inkRandomInit, seedOnlineInvite, seedOnlineHub, goOffline, SHOT_NOW, INK_NOW, INK_RANDOM_SEED, MORE_FRIENDS } from './uiSeed.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -27,11 +37,15 @@ const opt = (name, def) => {
 };
 const flag = (name) => args.includes(`--${name}`);
 const out = opt('out', 'ui-shots');
-const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
-const NOW = opt('now', SHOT_NOW); // a Tuesday noon in Central: no weekly reset on the day
+const viewports = opt('viewport', null) ? opt('viewport').split(',').map((s) => s.trim()) : ['844x390', '1280x720'];
+const SEED = opt('seed', 'm5'); // 'm5' (the M5 save) or 'ink' (the UI v2 mock-ups' sample save)
+const INK = SEED === 'ink';
+const NOW = opt('now', INK ? INK_NOW : SHOT_NOW); // a Tuesday noon in Central (no weekly reset), or the ink clock
+const DSF = Math.max(1, Number(opt('dsf', 1)) || 1);
 // --judge spill,apart: those probe checks fail the run (e2e/probe.mjs judge); implies --probe
 const judged = opt('judge', null)?.split(',').map((s) => s.trim()).filter(Boolean) || null;
 const withProbe = flag('probe') || !!judged;
+const withPixels = flag('pixels');
 mkdirSync(out, { recursive: true });
 
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
@@ -114,12 +128,129 @@ const SHOTS = {
   students: { hash: '#/students', ready: isScreen('students'), kind: 'list', seed: 'm5' },
   formation: { hash: '#/formation', ready: isScreen('formation'), seed: 'm5' },
   'm5-kit': { page: 'e2e/fixtures/m5-kit.html', ready: '() => document.body?.dataset.kitReady === "1"', kind: 'list', list: '[data-probe-list]' },
+  // ---- [ui-ink] UI v2 "Ink & Paper" (notes/ui-v2/build/PLAN.md section 6 V1); made for --seed ink ----
+  // the home with its menu open (V2 replaces the Menu Tab with the side sheet: this is its before)
+  'home-menu': { hash: '#/lobby', ready: isScreen('lobby'), open: async (page) => { await page.click('[data-testid="top-menu"]'); await page.waitForSelector('.menu-tab', { timeout: 10000 }); } },
+  // Marumi as the secretary (V2's living scene), the same under Reduce motion, and Low graphics
+  'home-marumi': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi' }), after: restoreSave, settleMs: 1500 },
+  'home-marumi-reduced': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi', settings: { reduceMotion: true } }), after: restoreSave, settleMs: 1500 },
+  'home-low': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ settings: { quality: 'low' } }), after: restoreSave, settleMs: 1500 },
+  // the girl page as the mock-ups draw it: Ruri, LV 24/40, P4, her three pieces; a girl with nothing on; the picker
+  'girl-info-ruri': { hash: '#/student/ruri?tab=info', ready: isScreen('student'), kind: 'detail' },
+  'girl-gear': { hash: '#/student/ruri?tab=gear', ready: isScreen('student'), kind: 'detail' },
+  'girl-gear-empty': { hash: '#/student/momo?tab=gear', ready: isScreen('student'), kind: 'detail' },
+  // medium 3 on the real gear picker: her charm slot's sheet, the worn piece (selected) beside the Mythic spare
+  'girl-gear-picker': {
+    hash: '#/student/ruri?tab=gear', ready: isScreen('student'), kind: 'detail',
+    open: async (page) => {
+      await page.click('#app [data-testid="slot-charm"]');
+      await page.waitForSelector('[data-testid="gear-sheet"] [data-testid="gear-picker"]', { timeout: 10000 });
+      await page.evaluate(() => document.querySelector('[data-testid="gear-sheet"] [data-testid="gear-picker"]')?.scrollIntoView({ block: 'center' }));
+    },
+  },
+  'roster-end': { hash: '#/students', ready: isScreen('students'), kind: 'list', open: (page) => page.evaluate(() => { const b = document.querySelector('#app .screen-body'); if (b) b.scrollTop = b.scrollHeight; }) },
+  // the Formation pick (V3 makes the grid the squad): today's picker
+  'roster-pick': { hash: '#/formation', ready: isScreen('formation'), open: (page) => page.evaluate(() => document.querySelector('#app .mb-formation-pick')?.scrollIntoView({ block: 'start' })) },
+  'commissions-codes': { hash: '#/commissions?tab=codes', ready: isScreen('commissions'), kind: 'list' },
+  'mail-history': { hash: '#/mail?tab=history', ready: isScreen('mail'), kind: 'list', list: '.mbx-list' },
+  // FREE PULLS (C9): Recruit will show Happening Now's income guide; this is that guide today
+  'recruit-free': { hash: '#/rewards?tab=free', ready: isScreen('rewards'), kind: 'list' },
+  // a 10-pull on the seeded clock and RNG (it spends the tickets: keep it late in a list), Skip to the result
+  'recruit-result': { hash: '#/recruit', ready: isScreen('recruit'), open: tenPull },
+  'mall-buy': {
+    hash: '#/mall?tab=general', ready: isScreen('mall'), kind: 'list',
+    open: async (page) => { await page.click('#app [data-testid^="buy-gen_"]'); await page.waitForSelector('[data-testid="buy-confirm"]', { timeout: 10000 }); },
+  },
+  // medium 3 on the real salvage selection: a picked piece beside an unpicked Mythic one
+  'backpack-salvage': { hash: '#/backpack?tab=equipment', ready: isScreen('backpack'), kind: 'list', open: salvagePick },
+  // the kit fixture (every kit component on paper and on ink, folder tabs in five states, the selected tiles)
+  'ink-kit': {
+    page: 'e2e/fixtures/ink-kit.html', ready: '() => document.body?.dataset.kitReady === "1"', kind: 'list', list: '[data-probe-list]',
+    pixels: async (page) => ({
+      tabs: await tabJunction(page, '.ui-tabbed.tprobe'),
+      panels: await ringContinuity(page, '.ui-panel.cprobe', { shape: 'pair' }),
+      chips: await ringContinuity(page, '.ui-chip.rprobe', { shape: 'cut' }),
+    }),
+  },
 };
+
+/** [ui-ink] Puts the secretary and settings a shot needs into the save (restoreSave puts them back). */
+function setSave(patch) {
+  return (page) => page.evaluate((pt) => {
+    const { store } = window.__sakura;
+    const p = store.profile;
+    window.__inkSaved ||= { secretary: p.secretary, settings: { reduceMotion: !!p.settings.reduceMotion, quality: p.settings.quality } };
+    if (pt.secretary) p.secretary = pt.secretary;
+    Object.assign(p.settings, pt.settings || {});
+    document.documentElement.toggleAttribute('data-reduce-motion', !!p.settings.reduceMotion);
+    store.commit('e2e');
+  }, patch);
+}
+function restoreSave(page) {
+  return page.evaluate(() => {
+    const s = window.__inkSaved;
+    if (!s) return;
+    const { store } = window.__sakura;
+    store.profile.secretary = s.secretary;
+    Object.assign(store.profile.settings, s.settings);
+    document.documentElement.toggleAttribute('data-reduce-motion', !!s.settings.reduceMotion);
+    window.__inkSaved = null;
+    store.commit('e2e');
+  });
+}
+
+/** [ui-ink] A 10-pull with performance.now held for the draw (the seed is Date.now ^ performance.now), then Skip. */
+async function tenPull(page) {
+  await page.evaluate(() => { window.__inkPerf = performance.now; performance.now = () => 4242; });
+  try {
+    await page.click('#app [data-testid="pull-10"]');
+    const ok = await page.waitForSelector('[data-testid="confirm-pull"]', { timeout: 5000 }).catch(() => null);
+    if (ok) await ok.click();
+    await page.waitForSelector('[data-testid="reveal-skip"], [data-testid="reveal-summary"]', { timeout: 15000 });
+  } finally {
+    await page.evaluate(() => { if (window.__inkPerf) performance.now = window.__inkPerf; });
+  }
+  for (let i = 0; i < 4; i++) {
+    if (await page.$('[data-testid="reveal-summary"]')) break;
+    await page.click('[data-testid="reveal-skip"]', { timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(600);
+  }
+  await page.waitForSelector('[data-testid="reveal-summary"]', { timeout: 15000 });
+}
+
+/** [ui-ink] Multi-salvage on, then pick the piece beside the first Mythic one (which stays unpicked). */
+async function salvagePick(page) {
+  await page.click('#app [data-testid="salvage-mode"]');
+  await page.waitForSelector('#app .mb-gear-grid.picking', { timeout: 10000 });
+  const uid = await page.evaluate(() => {
+    const gear = window.__sakura.store.profile.gear;
+    const cards = [...document.querySelectorAll('#app .mb-gear-grid.picking .mb-gear[data-gear]')];
+    const pickable = (c) => !!c && !c.classList.contains('blocked');
+    const i = cards.findIndex((c) => gear[c.dataset.gear]?.rarity === 'mythic' && pickable(c));
+    const next = [cards[i + 1], cards[i - 1]].find((c) => pickable(c) && gear[c.dataset.gear]?.rarity !== 'mythic') || cards.find((c, k) => k !== i && pickable(c));
+    // both in view: the upper of the two at the top of the list window
+    const upper = [cards[i], next].filter(Boolean).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+    upper?.scrollIntoView({ block: 'start' });
+    const body = document.querySelector('#app .screen-body');
+    if (body) body.scrollTop = Math.max(0, body.scrollTop - 8);
+    return next?.dataset.gear || null;
+  });
+  if (uid) await page.click(`#app .mb-gear[data-gear="${uid}"]`);
+}
 const FIRST_SIX = ['lobby', 'girl-info', 'backpack-equipment', 'stage-prep', 'achievements', 'battle-drawer'];
 const M5 = ['lobby', 'missions', 'commissions-daily', 'commissions-login', 'achievements', 'bounty', 'assault', 'titans', 'campaign',
   'mall-general', 'mall-boss', 'mail', 'happening', 'settings', 'settings-display', 'settings-audio', 'recruit', 'event-halloween',
   'multiplayer-empty', 'multiplayer', 'multiplayer-pvp', 'coop', 'lobby-invite', 'profile', 'students', 'formation', 'm5-kit', 'happening-empty',
   'event-halloween-ended'];
+/** [ui-ink] Every shot UI v2 touches (V1 to V6); the 10-pull spends the tickets, so it comes last before the fixture. */
+const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-reduced', 'home-low', 'girl-info', 'girl-info-ruri', 'girl-gear', 'girl-gear-empty',
+  'girl-gear-picker', 'students', 'roster-end', 'formation', 'roster-pick', 'missions', 'commissions-daily', 'commissions-login', 'commissions-codes',
+  'mail', 'mail-history', 'recruit', 'recruit-free', 'mall-general', 'mall-boss', 'mall-buy', 'backpack-salvage', 'multiplayer-empty', 'multiplayer',
+  'multiplayer-pvp', 'recruit-result', 'ink-kit'];
+/** [ui-ink] The screens v2 reaches only through shared components (battle-drawer must stay pixel-identical). */
+const REGRESS = ['bounty', 'assault', 'titans', 'campaign', 'happening', 'settings', 'profile', 'event-halloween', 'coop', 'backpack-equipment', 'stage-prep',
+  'achievements', 'battle-drawer'];
+const LISTS = { m5: M5, ink: INK_LIST, regress: REGRESS };
 
 /**
  * A Settings section: its rail tab (M5c), or before the rail, the old panel with that title scrolled to the top.
@@ -141,13 +272,19 @@ function settingsSection(id, title) {
 }
 
 const pick = opt('screens', null);
-const names = !pick ? FIRST_SIX : pick.split(',').flatMap((s) => (s.trim() === 'm5' ? M5 : [s.trim()])).filter(Boolean);
+const names = !pick ? FIRST_SIX : [...new Set(pick.split(',').flatMap((s) => LISTS[s.trim()] || [s.trim()]).filter(Boolean))];
 const unknown = names.filter((n) => !SHOTS[n]);
 if (unknown.length) {
   console.error(`unknown screen(s): ${unknown.join(', ')}\nknown: ${Object.keys(SHOTS).join(', ')}`);
   process.exit(2);
 }
 const m5Seed = !!pick && names.some((n) => SHOTS[n].seed === 'm5');
+/** [ui-ink] Pixel probes for a shot without its own: rings on the first panels and the folder-tab junctions. */
+const DEFAULT_PIXELS = async (page) => ({
+  panels: await ringContinuity(page, '#app .ui-panel, #app .panel, #app .ls-panel', { shape: 'pair', limit: 3 }),
+  tabs: await tabJunction(page, '#app .ui-tabbed'),
+  titles: await contrastOnPixels(page, '#app .topbar-title, #app .ui-plate-title > span, #app .panel-title', { limit: 6 }),
+});
 
 /** The Halloween event's route, from the event data (its id is not spelled here). */
 async function eventHash(page) {
@@ -162,11 +299,11 @@ const server = await createServer({ root: process.cwd(), server: { port: 0, host
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 const { browser, label } = await launchChromium();
-console.log(`browser: ${label}; clock: ${NOW}; screens: ${names.join(', ')}`);
+console.log(`browser: ${label}; seed: ${SEED}; clock: ${NOW}; dsf: ${DSF}; screens: ${names.join(', ')}`);
 let failed = 0;
 
 /** Every girl, a squad, fixed currencies and six gear pieces rolled from fixed seeds (two on Aoi). m5: chapters 1-3 cleared. */
-const seed = (page, m5) => seedUiSave(page, m5);
+const seed = (page, m5) => (INK ? seedInkSave(page) : seedUiSave(page, m5));
 
 const settle = (page, ms = 900) => page.waitForTimeout(ms)
   .then(() => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300))))));
@@ -230,7 +367,7 @@ async function battleDrawer(page) {
 for (const vp of viewports) {
   const [W, H] = vp.split('x').map(Number);
   const touch = W < 1000;
-  const context = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce', deviceScaleFactor: 1, timezoneId: 'America/Chicago' });
+  const context = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce', deviceScaleFactor: DSF, timezoneId: 'America/Chicago' });
   const page = await context.newPage();
   if (NOW !== 'live' && page.clock?.setFixedTime) await page.clock.setFixedTime(new Date(NOW));
   // toasts come and go on their own timers (a lesson, an achievement): never in a before/after pair
@@ -238,9 +375,14 @@ for (const vp of viewports) {
     const css = '.toast-host, .jn-toast { display: none !important; }';
     document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), { textContent: css })));
   });
+  // [ui-ink] portrait phones: the rotate prompt dismissed through its own session key (src/ui/orientation.js), as a
+  // player who chose "Continue in portrait"
+  if (H > W) await page.addInitScript(() => { try { sessionStorage.setItem('sakura-ui-rotate-dismissed', '1'); } catch { /* no storage */ } });
+  if (INK) await page.addInitScript(inkRandomInit, INK_RANDOM_SEED);
   page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`));
   console.log(`viewport ${vp}`);
   const probes = {};
+  const pixelRuns = {};
   try {
     await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load', timeout: 90000 });
     await page.evaluate(() => localStorage.clear());
@@ -301,16 +443,23 @@ for (const vp of viewports) {
       }
       await shot(page, name, vp);
       if (withProbe) {
-        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [] });
+        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true });
         probes[name] = r;
         console.log(`    probe: ${summary(r)}`);
-        const fails = judged ? judge(r, { only: judged }) : [];
+        const fails = judged ? judge(r, { only: judged, v2: true }) : [];
         if (fails.length) {
           failed++;
           console.log(`  FAILED ${name} probe: ${fails.join(' | ')}`);
         }
       }
+      if (withPixels) {
+        const px = await (s.pixels || DEFAULT_PIXELS)(page);
+        pixelRuns[name] = px;
+        const parts = Object.entries(px).map(([k, v]) => `${k} ${v.checks.length - v.fails}/${v.checks.length}`);
+        console.log(`    pixels: ${parts.join(' · ')}`);
+      }
       if (s.open || s.legacy) await closeModals(page);
+      if (s.after) await s.after(page);
       if (s.devNow) await devClock(page, null);
     } catch (e) {
       failed++;
@@ -318,6 +467,7 @@ for (const vp of viewports) {
     }
   }
   if (withProbe) writeFileSync(join(out, `probe-${vp}.json`), `${JSON.stringify(probes, null, 2)}\n`);
+  if (withPixels) writeFileSync(join(out, `pixels-${vp}.json`), `${JSON.stringify(pixelRuns, null, 2)}\n`);
   await context.close();
 }
 

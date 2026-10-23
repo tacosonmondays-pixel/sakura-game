@@ -201,6 +201,41 @@ export const PAIRS = [
   ['--on-plate', ['--plate'], 'Multiplayer: a Rival Run rule chip ("Lv 50")', 4.5],
   ['--on-plate', ['white', '--plate-glass'], 'Formation: a squad girl\'s level in its ink pill over her art (worst case: white)', 4.5],
   ['--on-plate-dim', ['white', '--plate-glass'], 'Formation: the "Lv" label in that pill (worst case: white)', 4.5],
+  // [ui-ink] UI v2 "Ink & Paper" (notes/ui-v2/UI_V2_DIRECTION.md section 3; src/ui/styles/ink.css): ink and its words,
+  // the glass over white (the worst light backdrop) and over the home scene capped at 199/255, cyan, the paper field,
+  // the one yellow, the red badge and the pink pick chip
+  ['--on-ink', ['--plate'], 'v2: words on ink (top bar, plates, strips, the active rail slab, chips on ink)', 4.5],
+  ['--on-ink-dim', ['--plate'], 'v2: secondary words and caps labels on ink', 4.5],
+  ['--on-ink', ['--plate-2'], 'v2: the back button\'s arrow and a pressed ink row', 4.5],
+  ['--on-ink-dim', ['--plate-2'], 'v2: a dim label on raised ink', 4.5],
+  ['--on-ink', ['white', '--glass-ink'], 'v2: a night sheet\'s words on ink glass (over white)', 4.5],
+  ['--on-ink-dim', ['white', '--glass-ink'], 'v2: a night sheet\'s dim words on ink glass (over white)', 4.5],
+  ['--on-ink', ['white', '--glass-ink-1'], 'v2: pills, objective and news words on the light ink glass (over white)', 4.5],
+  ['--on-ink-dim', ['white', '--glass-ink-1'], 'v2: dim words on the light ink glass (over white)', 4.5],
+  ['--on-ink', ['rgb(199, 199, 199)', '--glass-ink-1'], 'v2: the same over the home scene capped at 199/255', 4.5],
+  ['--on-ink-dim', ['rgb(199, 199, 199)', '--glass-ink-1'], 'v2: dim words over the capped home scene', 4.5],
+  ['--cyan', ['--plate'], 'v2: cyan on ink (progress words, the focal kicker, NEW and OPEN on ink, "+")', 4.5],
+  ['--cyan', ['white', '--glass-ink-1'], 'v2: cyan on the light ink glass (over white)', 4.5],
+  ['--pink-on-ink', ['--plate'], 'v2: pink words on ink (a hero\'s name tag)', 4.5],
+  ['--pink-on-ink', ['rgb(199, 199, 199)', '--glass-ink-1'], 'v2: pink words on the light glass over the capped scene', 4.5],
+  ['--cyan-text', ['white'], 'v2: cyan words on white (Details ›, Where to get, ghost buttons, links)', 4.5],
+  ['--cyan-text', ['--paper-b'], 'v2: cyan words on the paper field\'s bottom', 4.5],
+  ['--cyan-text', ['--cyan-wash'], 'v2: cyan words on the cyan wash (a pressed Go, the cyan chip)', 4.5],
+  ['--ink', ['--cyan-wash'], 'v2: ink words on the cyan wash', 4.5],
+  ['--ink', ['--paper-a'], 'v2: words on the paper field (top)', 4.5],
+  ['--ink', ['--paper-b'], 'v2: words on the paper field (bottom)', 4.5],
+  ['--muted', ['--paper-b'], 'v2: secondary words on the paper field\'s bottom (the worst light case)', 4.5],
+  ['--ink', ['--panel-w'], 'v2: words on the opaque white panel', 4.5],
+  ['--muted', ['--panel-w'], 'v2: secondary words on the opaque white panel', 4.5],
+  ['--plate', ['--yellow'], 'v2: the one yellow\'s label (ink on --yellow)', 4.5],
+  ['--ink', ['--yellow'], 'v2: the one yellow\'s label (words ink)', 4.5],
+  ['white', ['--badge-red'], 'v2: the red count', 4.5],
+  ['white', ['--pink-ink'], 'v2: the pink pick chip\'s check (a selected tile)', 4.5],
+  ['--pink-text', ['white'], 'v2: pink words on white (heroes, In Progress as text)', 4.5],
+  ['--muted', ['--sky-1'], 'v2: a disabled control\'s words on --sky-1 (never opacity)', 4.5],
+  ['--bad-text', ['white'], 'v2: a danger button\'s words (white, red ring)', 4.5],
+  ['--plate', ['--pink'], 'v2: the In Progress ribbon\'s letters', 4.5],
+  ['--bad-on-plate', ['--plate'], 'v2: a countdown under 24 h on its ink chip', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],
@@ -209,10 +244,15 @@ export const PAIRS = [
   ]),
 ];
 
-/** The table rows: { text, bg, where, ratio, min, ok }. */
+/**
+ * The table rows: { text, bg, where, ratio, min, ok }. A pair naming a token base.css does not define yet is left out
+ * with `missing` (the [ui-ink] pairs before the v2 tokens land); every pair of a token that exists is measured.
+ */
 export function contrastTable(t = tokens()) {
   const col = (c) => (c.startsWith('--') ? t[c] : c);
   return PAIRS.map(([fg, layers, where, min]) => {
+    const missing = [fg, ...layers].filter((c) => c.startsWith('--') && t[c] == null);
+    if (missing.length) return { text: fg, bg: layers.join(' + '), where, ratio: null, min, ok: true, missing };
     const r = ratio(composite([col(fg)]), composite(layers.map(col)));
     return { text: fg, bg: layers.join(' + '), where, ratio: Math.round(r * 100) / 100, min, ok: r >= min };
   });
@@ -222,8 +262,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const rows = contrastTable();
   console.log('| Text | Background (bottom first) | Used for | Ratio | Needs | |');
   console.log('|---|---|---|---|---|---|');
-  for (const r of rows) console.log(`| \`${r.text}\` | ${r.bg.replace(/--[\w-]+/g, (m) => `\`${m}\``)} | ${r.where} | ${r.ratio.toFixed(2)} | ${r.min} | ${r.ok ? 'pass' : '**FAIL**'} |`);
-  const bad = rows.filter((r) => !r.ok);
-  console.log(`\n${rows.length - bad.length}/${rows.length} pairs pass`);
+  for (const r of rows) {
+    const verdict = r.missing ? `not measured (${r.missing.join(', ')} not in base.css yet)` : r.ok ? 'pass' : '**FAIL**';
+    console.log(`| \`${r.text}\` | ${r.bg.replace(/--[\w-]+/g, (m) => `\`${m}\``)} | ${r.where} | ${r.ratio == null ? '–' : r.ratio.toFixed(2)} | ${r.min} | ${verdict} |`);
+  }
+  const measured = rows.filter((r) => !r.missing);
+  const bad = measured.filter((r) => !r.ok);
+  const skipped = rows.length - measured.length;
+  console.log(`\n${measured.length - bad.length}/${measured.length} pairs pass${skipped ? ` (${skipped} not measured: their tokens are not in base.css yet)` : ''}`);
   process.exit(bad.length ? 1 : 0);
 }

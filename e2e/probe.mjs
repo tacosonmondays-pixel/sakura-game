@@ -17,10 +17,23 @@
 //                   and overlap (0): e.g. the lobby secretary's speech bubble and the tray
 // Nothing here changes the page.
 //
+// [ui-ink] v2 mode (UI v2 "Ink & Paper", notes/ui-v2/UI_V2_DIRECTION.md rules 3, 6-8, 10 and S5), with `v2: true`:
+//   - numbersAll    visible numbers counting the top bar (≤ 10; tiles and rows still budgeted on their own)
+//   - yellowFills   visible surfaces filled yellow, found by their computed colour (not by class): ≤ 1
+//   - pink          surfaces painted in the four sakura tokens, each with why it may be pink (selected, a hero, the
+//                   co-op partner, In Progress); pinkStray: the ones with no reason (0)
+//   - radius        boxes with a corner radius that are not circles or stadiums (S5: 0 on the screens v2 rebuilt)
+//   - covered       controls whose centre another element paints over (elementFromPoint at the centre, 0): a host's
+//                   art or a scrim over UI
+//   - taps          the real hit area of every control, measured by scanning elementFromPoint outward from its
+//                   centre in 0.25 px steps; tapMin is the smallest, and the report prints exactly the number it
+//                   judges (low 7: "43.8 printed while asserting 44" cannot happen: both are the same value)
+//
 //   import { probe, judge } from './probe.mjs';
 //   const r = await probe(page, { kind: 'hub', list: '.ma-hub-grid' });
 //   const fails = judge(r);   // [] when the screen passes
 //   judge(r, { only: ['spill', 'apart'] })   // just those checks
+//   judge(await probe(page, { v2: true }), { v2: true })   // the v2 budgets as well
 
 /** Repeated collections (P3: budgeted per tile or row, not per screen). */
 export const REPEAT = [
@@ -37,6 +50,15 @@ export const REPEAT = [
 
 /** Never counted: the currency bar (P3) and anything a script marks. */
 export const SKIP = ['.cur-pills', '.lb-pills', '[data-probe="skip"]', '.ld', '.ld-chip', '.toast-host', '.jn-toast'].join(', ');
+/** [ui-ink] v2 counts the top bar's numbers too (rule 8): only these stay out of every count. */
+export const SKIP_V2 = ['[data-probe="skip"]', '.ld', '.ld-chip', '.toast-host', '.jn-toast'].join(', ');
+/** [ui-ink] The four sakura tokens (--pink, --pink-ink, --pink-on-ink, --pink-text) as rgb. */
+export const PINK_RGB = Object.freeze([[255, 122, 168], [210, 58, 116], [255, 156, 192], [176, 23, 79]]);
+/** [ui-ink] Where pink may appear (§4.1, §4.3): selected things, heroes, the co-op partner, In Progress. */
+export const PINK_OK = [
+  '.on', '.active', '.selected', '.sel', '[aria-selected="true"]', '[aria-pressed="true"]', '[aria-current]', '.ui-chip.pick',
+  '.ui-bdg.inprog', '.tag-ribbon', '.hero', '[data-hero]', '.is-hero', '.partner', '[data-partner]',
+].join(', ');
 
 /**
  * @param {import('playwright').Page} page
@@ -49,6 +71,7 @@ export const SKIP = ['.cur-pills', '.lb-pills', '[data-probe="skip"]', '.ld', '.
 export async function probe(page, opts = {}) {
   const o = {
     kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null, apart: [],
+    v2: false, skipV2: SKIP_V2, pinkRgb: PINK_RGB, pinkOk: PINK_OK, tapScanMax: 160,
     ...opts,
   };
   return page.evaluate(probeInPage, o);
@@ -218,7 +241,9 @@ function probeInPage(o) {
 
   let tileMax = 0;
   for (const set of tileNums.values()) tileMax = Math.max(tileMax, set.size);
+  const v2 = o.v2 ? probeV2(o, { root, W, H, phone, shown, deco, label, clip, inView }) : null;
   return {
+    ...(v2 ? { v2 } : {}),
     vp: `${W}x${H}`,
     kind: o.kind,
     floor,
@@ -242,21 +267,162 @@ function probeInPage(o) {
     spillCount: spills.length,
     overlaps,
   };
+
+  // ---- [ui-ink] the v2 mode (see the header). Nested: page.evaluate() ships only probeInPage's own source ----------
+  function probeV2(opt, ctx) {
+    const { root: rt, W: vw, H: vh, shown: isShown, deco: isDeco, label: nameOf, clip: cut, inView: seen } = ctx;
+    const out2 = (el) => !!el.closest(opt.skipV2);
+    // numbers, the top bar included (repeated tiles and rows still count on their own)
+    const nums = new Set();
+    const tw = document.createTreeWalker(rt, NodeFilter.SHOW_TEXT);
+    const rg = document.createRange();
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!/\d/.test(n.nodeValue)) continue;
+      const el = n.parentElement;
+      if (!el || isDeco(el) || out2(el) || el.closest(opt.repeat)) continue;
+      rg.selectNodeContents(n);
+      if (!seen(rg.getBoundingClientRect()) || !isShown(el)) continue;
+      nums.add(el);
+    }
+    // colours: the element and its two pseudo elements
+    const rgbOf = (s) => {
+      const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/.exec(s || '');
+      return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] == null ? 1 : Number(m[4])] : null;
+    };
+    const near = (c, t, tol) => !!c && c[3] > 0.5 && Math.abs(c[0] - t[0]) <= tol && Math.abs(c[1] - t[1]) <= tol && Math.abs(c[2] - t[2]) <= tol;
+    const yellowish = (c) => !!c && c[3] > 0.5 && c[0] >= 240 && c[1] >= 190 && c[1] <= 245 && c[2] <= 130;
+    const allRgb = (s) => [...String(s || '').matchAll(/rgba?\([^)]*\)/g)].map((m) => rgbOf(m[0]));
+    const styles = (el) => [getComputedStyle(el), getComputedStyle(el, '::before'), getComputedStyle(el, '::after')];
+    const yellowFills = [];
+    const pink = [];
+    const pinkStray = [];
+    const radius = [];
+    let radiusCount = 0;
+    for (const el of rt.querySelectorAll('*')) {
+      if (isDeco(el) || out2(el) || el.closest('svg')) continue;
+      if (el.tagName === 'IMG' || el.tagName === 'CANVAS' || el.tagName === 'VIDEO' || el.closest('.ia, .pt-wrap, .pt-img')) continue;
+      const r = el.getBoundingClientRect();
+      if (!seen(r) || r.width < 2 || r.height < 2 || !isShown(el)) continue;
+      const [cs, before, after] = styles(el);
+      const layers = [cs, ...[before, after].filter((p) => p.content && p.content !== 'none')];
+      // yellow: a filled surface (≥ 150 px²), by its computed colour
+      if (r.width * r.height >= 150 && layers.some((p) => yellowish(rgbOf(p.backgroundColor)) || allRgb(p.backgroundImage).some(yellowish))) {
+        yellowFills.push(`${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"`);
+      }
+      // pink: a fill, a border, a ring (box-shadow) or an outline in one of the four sakura tokens
+      const isPink = (c) => opt.pinkRgb.some((t) => near(c, t, 6));
+      const hit = layers.some((p) => isPink(rgbOf(p.backgroundColor)) || allRgb(p.backgroundImage).some(isPink)
+        || ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(p[`border${s}Width`]) > 0 && isPink(rgbOf(p[`border${s}Color`])))
+        || allRgb(p.boxShadow).some(isPink) || (parseFloat(p.outlineWidth) > 0 && p.outlineStyle !== 'none' && isPink(rgbOf(p.outlineColor))));
+      if (hit) {
+        const why = el.closest(opt.pinkOk);
+        const row = `${nameOf(el)}${why && why !== el ? ` in ${nameOf(why)}` : ''} "${cut(el.textContent || '')}"`;
+        pink.push(row);
+        if (!why) pinkStray.push(row);
+      }
+      // S5: a corner radius only on circles and stadiums
+      const rad = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((k) => parseFloat(cs[`border${k}Radius`]) || 0);
+      if (rad.some((v) => v > 0.5)) {
+        const half = Math.min(r.width, r.height) / 2 - 1;
+        if (!rad.every((v) => v >= half)) {
+          radiusCount++;
+          if (radius.length < 20) radius.push(`${nameOf(el)} ${rad.map((v) => Math.round(v)).join('/')}`);
+        }
+      }
+    }
+    // controls: on top at their centre, and their real hit area
+    const CONTROLS = 'button, a[href], [role="button"], [role="tab"], input:not([type="hidden"]), select, summary';
+    const clippedAt = (el, x, y) => {
+      for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+        const pcs = getComputedStyle(p);
+        if (pcs.overflowX === 'visible' && pcs.overflowY === 'visible') continue;
+        const b = p.getBoundingClientRect();
+        if (x < b.left || x > b.right || y < b.top || y > b.bottom) return true;
+      }
+      return false;
+    };
+    const layered = '.modal-overlay, .ui-layer, .ui-scrim, .ui-scrim-full, .toast-host, .rotate-overlay';
+    const covered = [];
+    const taps = [];
+    const STEP = 0.25;
+    for (const el of rt.querySelectorAll(CONTROLS)) {
+      if (out2(el) || el.closest('[aria-hidden="true"]') || !isShown(el) || el.disabled) continue;
+      if (opt.tapSkip && el.closest(opt.tapSkip)) continue;
+      if (getComputedStyle(el).pointerEvents === 'none') continue;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      if (cx < 0 || cy < 0 || cx > vw || cy > vh || clippedAt(el, cx, cy)) continue;
+      const top = document.elementFromPoint(cx, cy);
+      if (!top) continue;
+      const mine = (t) => !!t && (t === el || el.contains(t));
+      if (!mine(top)) {
+        if (top.closest(layered) && !el.closest(layered)) continue; // a sheet or a dialog is open over the screen
+        covered.push(`${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}" under ${nameOf(top)}`);
+        continue;
+      }
+      // scan outward from the centre: whole px first, then the last px in 0.25 px steps
+      const reach = (dx, dy) => {
+        let d = 0;
+        while (d < opt.tapScanMax && mine(document.elementFromPoint(cx + dx * (d + 1), cy + dy * (d + 1)))) d += 1;
+        while (d < opt.tapScanMax && mine(document.elementFromPoint(cx + dx * (d + STEP), cy + dy * (d + STEP)))) d += STEP;
+        return d;
+      };
+      const w = Math.round((reach(-1, 0) + reach(1, 0)) / STEP) * STEP;
+      const hh = Math.round((reach(0, -1) + reach(0, 1)) / STEP) * STEP;
+      taps.push({ w, h: hh, s: Math.min(w, hh), name: `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"` });
+    }
+    const fmt = (t) => `${t.w.toFixed(2)}x${t.h.toFixed(2)} ${t.name}`;
+    const tapMin = taps.length ? Math.min(...taps.map((t) => t.s)) : null;
+    return {
+      numbersAll: nums.size,
+      numbersAllSample: [...nums].slice(0, 24).map((el) => cut(el.textContent || '')),
+      yellowFills,
+      pink: pink.slice(0, 20),
+      pinkCount: pink.length,
+      pinkStray: pinkStray.slice(0, 20),
+      pinkStrayCount: pinkStray.length,
+      radius,
+      radiusCount,
+      covered: covered.slice(0, 20),
+      coveredCount: covered.length,
+      tapStep: STEP,
+      tapCount: taps.length,
+      tapMin,
+      tapMinText: tapMin == null ? null : tapMin.toFixed(2),
+      tapsUnder44: taps.filter((t) => t.s < 44).sort((a, b) => a.s - b.s).slice(0, 20).map(fmt),
+      tapsUnder44Count: taps.filter((t) => t.s < 44).length,
+      tapsUnder40Count: taps.filter((t) => t.s < 40).length,
+    };
+  }
 }
 /* eslint-enable no-undef */
 
 /** The limits (§1 P3, P6; §5.10 E1). */
 export const LIMITS = Object.freeze({ numbers: 12, content: 300, yellow: 1, host: { hub: 0.35, list: 0.35, detail: 0.28 } });
+/** [ui-ink] The v2 budgets (UI_V2_DIRECTION.md rules 3, 7, 8 and S5): the top bar counts; a tap is 44 px. */
+export const LIMITS_V2 = Object.freeze({ numbers: 10, yellow: 1, tap: 44 });
 
 /**
  * The failed checks of one probe result, as short strings ([] = pass).
  * @param {ReturnType<typeof probeInPage>} r
- * @param {{ skip?: string[], only?: string[]|null }} [o] skip: checks not judged on this screen ('numbers', 'taps', ...);
- *   only: judge just these checks
+ * @param {{ skip?: string[], only?: string[]|null, v2?: boolean }} [o] skip: checks not judged on this screen ('numbers',
+ *   'taps', ...); only: judge just these checks; v2: also the v2 checks ('v2numbers', 'v2yellow', 'pink', 'radius',
+ *   'covered', 'v2taps'; the result needs probe(..., { v2: true }))
  */
-export function judge(r, { skip = [], only = null } = {}) {
+export function judge(r, { skip = [], only = null, v2 = false } = {}) {
   const fails = [];
   const on = (k) => !skip.includes(k) && (!only || only.includes(k));
+  if (v2 && r.v2) {
+    const x = r.v2;
+    if (on('v2numbers') && x.numbersAll > LIMITS_V2.numbers) fails.push(`v2 numbers ${x.numbersAll} > ${LIMITS_V2.numbers} (top bar counted)`);
+    if (on('v2yellow') && x.yellowFills.length > LIMITS_V2.yellow) fails.push(`${x.yellowFills.length} yellow fills (${x.yellowFills.slice(0, 3).join('; ')})`);
+    if (on('pink') && x.pinkStrayCount) fails.push(`${x.pinkStrayCount} pink with no reason (${x.pinkStray.slice(0, 3).join('; ')})`);
+    if (on('radius') && x.radiusCount) fails.push(`${x.radiusCount} rounded corners off a circle (${x.radius.slice(0, 3).join('; ')})`);
+    if (on('covered') && x.coveredCount) fails.push(`${x.coveredCount} controls painted over (${x.covered.slice(0, 3).join('; ')})`);
+    // the number printed is the number judged: both are tapMin, in 0.25 px steps
+    if (on('v2taps') && x.tapMin != null && x.tapMin < LIMITS_V2.tap) fails.push(`tap ${x.tapMinText} px < ${LIMITS_V2.tap} px (${x.tapsUnder44Count}: ${x.tapsUnder44.slice(0, 3).join('; ')})`);
+  }
   if (on('text') && r.minText != null && r.minText < r.floor) fails.push(`text ${r.minText}px < ${r.floor}px (${r.smallCount}: ${r.small.slice(0, 3).join('; ')})`);
   if (on('numbers') && r.numbers > LIMITS.numbers) fails.push(`numbers ${r.numbers} > ${LIMITS.numbers}`);
   if (on('ellipsis') && r.ellipsis.length) fails.push(`ellipsis on ${r.ellipsis.length}: ${r.ellipsis.slice(0, 3).join('; ')}`);
@@ -284,5 +450,11 @@ export function summary(r) {
     `taps<40 ${r.smallTapCount}`,
     `spills ${r.spillCount ?? '–'}`,
     ...(r.overlaps?.length ? [`overlaps ${r.overlaps.length}`] : []),
+    ...(r.v2 ? [summaryV2(r.v2)] : []),
   ].join(' · ');
+}
+
+/** [ui-ink] The v2 half of the line: "v2: numbers 9 · yellow 1 · pink 2 (stray 0) · radius 0 · covered 0 · tap min 44.00 (≥ 44)". */
+export function summaryV2(x) {
+  return `v2: numbers ${x.numbersAll} · yellow ${x.yellowFills.length} · pink ${x.pinkCount} (stray ${x.pinkStrayCount}) · radius ${x.radiusCount} · covered ${x.coveredCount} · tap min ${x.tapMinText ?? '–'} (asserts ≥ ${LIMITS_V2.tap}; ${x.tapsUnder44Count} under)`;
 }
