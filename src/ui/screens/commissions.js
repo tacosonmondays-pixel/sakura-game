@@ -14,7 +14,6 @@ import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast, button } from '../components.js';
 import { countdownChip, plateHead, inkBtn, kbdHint, iconBtn, rail, btnCount } from '../kit.js';
 import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
-import { fmtNum } from '../format.js';
 import { hubBackdrop } from '../hubArt.js';
 import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
 import { commissionsState, loginState } from '../hubStates.js';
@@ -153,13 +152,12 @@ export function render(root, params = {}) {
 }
 
 /**
- * A row's rewards, each count UNDER its tile (fmtNum 'stack': "×3,000", "×10k"; never "×1", P7), so a long count never
- * runs into the next tile (the UI M5b review; M3's count pill will move it into the tile's corner).
+ * A row's rewards on M3's item tile, each count in its tile's corner like every other tile in the game (the tile form
+ * fmtItemCount: "x3000", "x10K"; never "x1", P7; UI_DIRECTION §5.7, owner #108). The tile is M3's, untouched: this
+ * screen only sets its width (hubs.css: 62 px wherever the text floor is 13 px, so the count reads at M3's 13 px).
  */
 function rewardStack(rewards, size) {
-  return h('div.reward-row.cm-rwds', rewards.map((r) => h('div.cm-rwd',
-    tile(r.id, null, { size }),
-    r.count > 1 ? h('span.num.cm-rwd-n', { title: formatNumber(r.count) }, fmtNum(r.count, 'stack')) : null)));
+  return h('div.reward-row.cm-rwds', rewards.map((r) => h('div.cm-rwd', tile(r.id, r.count > 1 ? r.count : null, { size }))));
 }
 
 /** A plate title that shrinks to one word on narrow screens ("Daily commissions" → "Daily"). */
@@ -221,7 +219,7 @@ function missionsView(kind, redraw, onReset = null) {
         h('div.muted.ma-mission-desc', m.desc),
         h('div.ma-mission-prog', progressBar(m.progress, m.goal), count),
       ),
-      h('div.ma-mission-rewards', rewardStack(m.rewards, 40)),
+      h('div.ma-mission-rewards', rewardStack(m.rewards, 46)),
       h('div.ma-mission-act',
         m.claimed
           ? h('span.ma-claimed', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Claimed')
@@ -254,7 +252,7 @@ function loginView(redraw, onReset = null) {
   const wrap = h('div.cm-login');
   // the rule sentence lives behind "i" (P1); after today's claim the plate shows when the next gift comes
   const rule = iconBtn('info', { label: 'How the login calendar works', cls: 'small.cm-info', testid: 'login-info', onClick: () => toast('A 7-day cycle: one gift a day. Missed days never reset your progress.', 'info', 4200) });
-  wrap.appendChild(plateHead('Login calendar', {
+  wrap.appendChild(plateHead(plateTitle('Login calendar', 'Login'), {
     testid: 'login-head',
     right: [
       rule,

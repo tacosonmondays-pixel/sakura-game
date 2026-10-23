@@ -361,8 +361,28 @@ async function runViewport(vp) {
     s.commit('missions');
   });
   const lobbyToast = await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null);
-  // she talks while the toast is up (a tap on her)
-  await page.click('[data-testid="secretary-art"]', { position: { x: 60, y: 200 }, force: true }).catch(() => {});
+  // she talks while the toast is up (a tap on her): on a spot of her art that nothing covers. Since UI M5d the
+  // lobby's sticker row and tray sit over parts of the art (a fixed point at 1280×720 hit the "2× DROPS" sticker and
+  // opened Happening Now), so the spot is found: the centre first, then outward, the first point her art receives
+  const spot = await page.evaluate(() => {
+    const art = document.querySelector('[data-testid="secretary-art"]');
+    if (!art) return null;
+    const r = art.getBoundingClientRect();
+    for (const fy of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+      for (const fx of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+        const x = r.left + r.width * fx;
+        const y = r.top + r.height * fy;
+        if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+        const hit = document.elementFromPoint(x, y);
+        if (hit && art.contains(hit)) return { x: Math.round(x - r.left), y: Math.round(y - r.top) };
+      }
+    }
+    return null;
+  });
+  check(!!spot, `10: a spot on her art that nothing covers, to tap (${JSON.stringify(spot)})`);
+  const hash0 = await page.evaluate(() => location.hash);
+  await page.click('[data-testid="secretary-art"]', { position: spot || { x: 60, y: 200 }, timeout: 5000 }).catch(() => {});
+  check(await page.evaluate((h0) => location.hash === h0, hash0), `10: the tap stays in the lobby (${await page.evaluate(() => location.hash)})`);
   await page.waitForTimeout(700);
   const cover = () => page.evaluate(() => {
     const bub = document.querySelector('[data-testid="secretary-bubble"]');
@@ -376,9 +396,11 @@ async function runViewport(vp) {
     const a = bub.getBoundingClientRect();
     const c = t?.getBoundingClientRect();
     const overlap = !!c && visible && !(a.right <= c.left || c.right <= a.left || a.bottom <= c.top || c.bottom <= a.top);
-    return { shown: true, visible, overlap };
+    const box = (b) => (b ? [b.left, b.top, b.right, b.bottom].map(Math.round) : null);
+    return { shown: true, visible, overlap, bubble: box(a), toast: box(c) };
   });
   const withToast = await cover();
+  await shot(page, 'lobby-toast');
   check(!!lobbyToast && withToast.shown && !withToast.overlap, `10: the toast and her speech bubble never overlap (${JSON.stringify(withToast)})`);
   await page.waitForSelector('.toast-ach', { state: 'detached', timeout: 6000 }).catch(() => null);
   await page.waitForTimeout(500);

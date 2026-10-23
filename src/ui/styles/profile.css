@@ -571,6 +571,27 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .ep-prev { display: none; }
   .es-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+/* A phone held upright (the fallback when the rotate overlay is dismissed; UI M5 merge review): the avatar fits its
+   70 px column (at 104 px it covered the name), the Showcase header keeps Edit in view (the "Auto" chip goes, as on
+   landscape phones), the online-name button wraps rather than running out of itself, and a showcase card's stars take
+   their own line over "Lv." (five stars and "Lv.48" do not fit one line of a 79 px card at the 13 px floor) */
+@media (max-width: 700px) and (min-height: 481px) {
+  .pf-ava { width: 70px; height: 70px; margin-top: -30px; }
+  .pf-ava-img { inset: 6px; }
+  .pf-ava-ur { inset: 2px; }
+  .pf-ava-ur .ur-ring { --ur-w: 4px; }
+  .pf-ava-edit { width: 22px; height: 22px; padding: 4px; bottom: 2px; }
+  .pf-name { font-size: 1.5rem; }
+  .pf-ph .pf-auto { display: none; }
+  /* (the hint takes its own line under the title, whole: in one line with Edit it was cut to "Tap to swap · hold") */
+  .pf-show > .pf-ph { flex-wrap: wrap; row-gap: 4px; }
+  .pf-show > .pf-ph > .pf-hint { order: 1; flex-basis: 100%; margin-left: 0; white-space: normal; }
+  .pf-show > .pf-ph > .btn-small { margin-left: auto; }
+  .pf-pick-name { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; border-radius: 12px; }
+  .pf-slot .nm { bottom: 36px; }
+  .pf-slot .ft { flex-wrap: wrap; row-gap: 1px; }
+  .pf-slot .ft .stars { order: -1; flex-basis: 100%; line-height: 1; letter-spacing: -2px; margin-right: 0; }
+}
 
 /* ---------- Reduce Motion: the UR ring, sweeps, petals and glints stand still ---------- */
 html[data-reduce-motion] .pf .ur-ring::before, html[data-reduce-motion] .pf .ur-sparkles i, html[data-reduce-motion] .pf-petal,

@@ -101,7 +101,8 @@
 }
 @media (min-width: 1000px) and (min-height: 600px) {
   .tt-card { height: 76px; }
-  .tt-week { display: block; }
+  /* (set tight, so "★ Titan of the Week" ends before the titan's token: it touched it at 1280, the clip check) */
+  .tt-week { display: block; letter-spacing: 0; }
   .tt-star { display: none; }
   .tt-card-name { font-size: var(--fs-name); }
   .tt-show { height: 200px; }
