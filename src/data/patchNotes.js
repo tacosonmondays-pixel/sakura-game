@@ -20,6 +20,12 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Center Stage',
+    changed: [
+      'When Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa or Marumi is your secretary, her whole scene art now fills the lobby.',
+    ],
+  },
+  {
     id: 'v0.1.47', version: '0.1.47', date: '2026-10-23', title: 'Picture Day',
     changed: [
       'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi have new portraits, each in her own club scene and her own pose. See them on their pages, in Students, Formation, Recruit, battle, Story and the lobby.',
