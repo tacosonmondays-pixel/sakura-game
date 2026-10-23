@@ -2,7 +2,8 @@
 // ultimate button with a conic cooldown ring, her Lv 7 skill button (a 40 px ring, no number:
 // UI_DIRECTION §6.6; E fires it) and the Level up pill (buys the rest of her level at the price
 // it shows; the price is re-read at most twice a second).
-import { h, setVar, fmtTime, fmtCoins } from './util.js';
+import { h, setVar } from './util.js';
+import { fmtNum } from '../format.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { applyUrFrame } from '../rarity.js';
@@ -54,7 +55,7 @@ export function skillKeyAction(st) {
 export function paintUltButton(btn, status, { compact = true } = {}) {
   const st = status || { unlocked: false, ready: false, cooldownLeft: 0, cooldown: 0 };
   const frac = !st.unlocked ? 0 : st.ready ? 1 : st.cooldown > 0 ? 1 - st.cooldownLeft / st.cooldown : 0;
-  const label = !st.unlocked ? `Lv ${st.unlockLevel ?? 3}` : st.ready ? (compact ? 'ULT' : 'Activate!') : fmtTime(st.cooldownLeft);
+  const label = !st.unlocked ? fmtNum(st.unlockLevel ?? 3, 'level') : st.ready ? (compact ? 'ULT' : 'Activate!') : fmtNum(st.cooldownLeft, 'time', { whole: true });
   const key = `${st.unlocked}|${st.ready}|${label}|${frac.toFixed(2)}`;
   if (btn.dataset.key === key) return;
   btn.dataset.key = key;
@@ -128,9 +129,9 @@ export function createHeroWidget(ctx) {
     const hide = !shown || shown.reason === 'max' || shown.reason === 'ended' || shown.reason === 'noHero' || ctx.ended;
     lvup.hidden = hide;
     if (hide) return;
-    lvupPrice.textContent = fmtCoins(shown.price);
+    lvupPrice.textContent = fmtNum(shown.price, 'money', { round: 'up' });
     lvup.classList.toggle('poor', sim.cash < shown.price);
-    lvup.title = `Buy Lv ${shown.level + 1} for ${fmtCoins(shown.price)} coins (L)`;
+    lvup.title = `Buy Lv ${shown.level + 1} for ${fmtNum(shown.price, 'money', { round: 'up' })} coins (L)`;
   }
 
   function update() {
@@ -138,7 +139,7 @@ export function createHeroWidget(ctx) {
     el.hidden = !hero;
     if (!hero) return;
     paintPill(hero);
-    const badge = hero.level >= (shown?.max ?? 25) ? (hero.mastery > 0 ? `MAX · +${Math.round(hero.mastery * 100)}%` : 'MAX') : `Lv${hero.level}`;
+    const badge = hero.level >= (shown?.max ?? 25) ? (hero.mastery > 0 ? `MAX · ${fmtNum(hero.mastery, 'pct')}` : 'MAX') : fmtNum(hero.level, 'level');
     if (badge !== lastBadge) {
       lastBadge = badge;
       lv.textContent = badge;

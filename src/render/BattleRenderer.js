@@ -33,6 +33,7 @@ import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
+import { fmtNum } from '../ui/format.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -326,10 +327,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
     if (!reduceMotion && !placingNow()) rig.shake(a);
   }
 
+  /** A floating damage number in the one number style (src/ui/format.js: "2,600", "12.3k", "1.2M"; never below 1). */
   function fmt(n) {
-    if (n >= 100000) return `${Math.round(n / 1000)}K`;
-    if (n >= 10000) return `${(n / 1000).toFixed(1).replace('.0', '')}K`;
-    return String(Math.max(1, Math.round(n)));
+    return fmtNum(Math.max(1, n), 'count');
   }
 
   // generic ability FX (src/render/abilityFx.js): casts, warning rings, shells, fizzles, unlock sparkles
@@ -427,7 +427,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (p) {
             fx.flash(p.x, 0.4, p.z, '#ff4d6d', 1.2, 0.35);
             fx.ring(p.x, p.z, 0.2, 1.1, 0.45, '#ff4d6d');
-            if (fx.numbers) fx.text(`-${ev.lives}`, p.x, 0.9, p.z, '#ff4d6d', 0.26, 1, 0.6);
+            if (fx.numbers) fx.text(`-${fmtNum(ev.lives, 'count')}`, p.x, 0.9, p.z, '#ff4d6d', 0.26, 1, 0.6);
           }
           if (ev.lives >= 5) {
             shake(0.06);
@@ -569,7 +569,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (v) {
             const m = v.model.position;
             fx.sparkle(m.x, m.z, '#ffd84d', { count: 16, height: 1.2 });
-            fx.text(`LV${ev.level}`, m.x, 1.2, m.z, '#ffd84d', 0.24, 1.2, 0.5);
+            fx.text(fmtNum(ev.level, 'level'), m.x, 1.2, m.z, '#ffd84d', 0.24, 1.2, 0.5);
           }
           break;
         }

@@ -1,14 +1,15 @@
 // Battle panel numbers the owner reported (Oct 14): "Chika's drones dont properly show dps" and
 // "make it so cost reduction affects upgrades". Chika at 5-2-0 with a 20% Cost Reduction gear
 // piece: her DPS must include the drone wing, the Drones line shows damage × rate each, the
-// upgrade buttons show the full price struck through next to the cheaper one, the panel says
-// how much cheaper, and buying charges exactly the shown price. Phone and PC sizes.
-// Since the Chika rework her panel has tabs (Upgrades · Overall · Chika · Drones): the buy
-// buttons are on Upgrades, the summed DPS and the Drones line on Overall (her first tab).
+// price buttons show the real (cheaper) price, MORE says how much cheaper, and buying charges
+// exactly the shown price. Phone and PC sizes.
+// Since A3 M4 her drawer has the price buttons on its Glance (two taps: arm, then buy) and MORE
+// holds the tabs Overall · Chika · Drones: the summed DPS and the Drones line on Overall.
 // Usage: node e2e/stat-display.mjs [--shots dir]
 import { createServer } from 'vite';
 import { launchChromium } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
+import { fmtNum } from '../src/ui/format.js';
 const args = process.argv.slice(2);
 const SHOTS = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
@@ -70,21 +71,27 @@ try {
       return { uid, costMul: t.unitStats?.costMul, cost: before.cost, full: Math.max(5, Math.round((sim.data.unit('chika').paths[0].tiers[0].cost * (sim.diff.costMul ?? 1)) / 5) * 5) };
     });
     check(placed && placed.costMul === 0.8, `${W}x${H} Chika placed with gear costMul ${placed?.costMul}`);
-    // her panel opens on Overall; the upgrade buttons are on the Upgrades tab
-    await page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden && el.querySelector('[data-testid="stats-overall"]'); }, null, { timeout: 15000 });
-    await page.waitForTimeout(300);
-    const overall0 = await page.locator('[data-testid="tower-panel"]').innerText();
-    check(/Upgrades\s*20% cheaper \(gear 20%\)/i.test(overall0), `${W}x${H} Overall says "Upgrades 20% cheaper (gear 20%)"`);
-    await page.locator('[data-testid="tab-upgrades"]').click({ force: true });
+    // her drawer (A3 M4): the price buttons on the Glance, her stats (and the discount) in MORE's Overall tab
     await page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden && el.querySelector('[data-testid="buy-0"]'); }, null, { timeout: 15000 });
     await page.waitForTimeout(300);
     const btn = await page.locator('[data-testid="buy-0"]').innerText();
-    check(placed.cost < placed.full && btn.includes(String(placed.full)) && btn.includes(String(placed.cost)), `${W}x${H} first upgrade button "${btn.replace(/\s+/g, ' ')}" shows ${placed.full} struck and ${placed.cost}`);
-    const was = await page.locator('[data-testid="buy-0"] s.bt-buy-was').count();
-    check(was === 1, `${W}x${H} the full price is struck through`);
+    // the price shown is the real one: the cheaper price only, no struck-through full price (UI_DIRECTION §6.6)
+    check(placed.cost < placed.full && btn.includes(placed.cost.toLocaleString('en-US')) && !btn.includes(String(placed.full)), `${W}x${H} first price button "${btn.replace(/\s+/g, ' ')}" shows the real price ${placed.cost} (full ${placed.full} not shown)`);
+    const was = await page.locator('[data-testid="buy-0"] s').count();
+    check(was === 0, `${W}x${H} no struck-through price`);
+    await page.locator('[data-testid="panel-more"]').click({ force: true });
+    await page.waitForFunction(() => !!document.querySelector('[data-testid="stats-overall"]'), null, { timeout: 15000 });
+    const overall0 = await page.locator('[data-testid="tower-panel"]').innerText();
+    check(/Upgrades\s*20% cheaper \(gear 20%\)/i.test(overall0), `${W}x${H} MORE's Overall says "Upgrades 20% cheaper (gear 20%)"`);
+    await page.locator('[data-testid="panel-more"]').click({ force: true });
+    await page.waitForFunction(() => !!document.querySelector('[data-testid="tower-panel"] [data-testid="buy-0"]'), null, { timeout: 15000 });
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/chika-base-${W}x${H}.png` });
-    // buying charges the shown (cheaper) price
+    // buying charges the shown (cheaper) price: tap 1 arms ("Buy · …"), tap 2 buys
     const cash0 = await page.evaluate(() => window.__battle.sim.cash);
+    await page.locator('[data-testid="buy-0"]').click({ force: true });
+    await page.waitForTimeout(150);
+    const armed = await page.locator('[data-testid="buy-0"]').innerText();
+    check(/Buy/.test(armed) && (await page.evaluate(() => window.__battle.sim.cash)) === cash0, `${W}x${H} tap 1 arms the price ("${armed.replace(/\s+/g, ' ')}") and spends nothing`);
     await page.locator('[data-testid="buy-0"]').click({ force: true });
     await page.waitForTimeout(250);
     const cash1 = await page.evaluate(() => window.__battle.sim.cash);
@@ -96,16 +103,19 @@ try {
       while (sim.getTower(uid).tiers[1] < 2) sim.upgradeTower(uid, 1);
       ui.select(null);
       ui.select(uid);
-      document.querySelector('[data-testid="tab-overall"]')?.click();
+      document.querySelector('[data-testid="panel-more"]')?.click();
       const t = sim.getTower(uid);
       const st = sim.towerStats(uid);
       return { tiers: t.tiers.join('-'), own: st.dps, droneEach: t.turretSpec.damage * t.turretSpec.rate, max: t.stats.turret.max };
     }, placed.uid);
     await page.waitForTimeout(300);
+    await page.locator('[data-testid="tab-overall"]').click({ force: true }).catch(() => {});
+    await page.waitForTimeout(200);
     const panel = await page.locator('[data-testid="tower-panel"]').innerText();
-    const dpsShown = num((panel.match(/DPS\s*\n?\s*([\d,.]+)/i) || [])[1]);
+    const dpsText = (panel.match(/DPS(?: \(FULL WING\))?\s*\n?\s*([\d,.]+[kMB]?)/i) || [])[1];
     const expected = want.own + want.droneEach * want.max;
-    check(Math.abs(dpsShown - expected) <= 0.15 && dpsShown > 100, `${W}x${H} Chika ${want.tiers} DPS shown ${dpsShown} = own ${want.own.toFixed(2)} + ${want.max} drones × ${want.droneEach.toFixed(1)} (${expected.toFixed(1)})`);
+    // the one number style ('stat': one decimal below 100, whole numbers with commas below 10,000, then "12.3k")
+    check(dpsText === fmtNum(expected, 'stat') && expected > 100, `${W}x${H} Chika ${want.tiers} DPS shown ${dpsText} = own ${want.own.toFixed(2)} + ${want.max} drones × ${want.droneEach.toFixed(1)} (${fmtNum(expected, 'stat')})`);
     check(/Drones\s*\d+\/9 · [\d.]+ dmg × [\d.]+\/s each/i.test(panel), `${W}x${H} Drones line: ${(panel.match(/drones\s*\d+\/9[^\n]*/i) || ['(missing)'])[0]}`);
     check(/Drones fly\s*[\d.]+ tiles/i.test(panel), `${W}x${H} Overall says how far her drones fly: ${(panel.match(/drones fly[^\n]*\n?[^\n]*/i) || ['(missing)'])[0].replace(/\s+/g, ' ')}`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/chika-520-${W}x${H}.png` });

@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { droneName, DRONE_NAMES } from '../../src/data/droneNames.js';
 import { createRateMeter } from '../../src/ui/battle/util.js';
-import { hasDroneTabs, wingNumbers, sampleDroneRates } from '../../src/ui/battle/chikaPanel.js';
+import { hasDroneTabs, wingNumbers, sampleDroneRates, wingDpsCells, DRONE_TABS } from '../../src/ui/battle/chikaPanel.js';
 import { createBattleSim } from '../../src/ui/battle/setup.js';
 import { createProfile } from '../../src/systems/save.js';
 import { FLIGHT_PURSUIT_RATE_MUL, STEP } from '../../src/sim/constants.js';
@@ -74,5 +74,17 @@ describe('the tabs share one DPS basis', () => {
     const p = wingNumbers(sim.towerStats(t.uid));
     expect(p.wing).toBeCloseTo(w.wing * FLIGHT_PURSUIT_RATE_MUL, 9);
     expect(hasDroneTabs(sim.towerStats(sim.towers.find((x) => x !== t)?.uid ?? -1))).toBe(false);
+  });
+});
+
+describe('the drawer (A3 M4): her paths on the Glance, the tabs behind MORE', () => {
+  it('MORE has Overall · Chika · Drones and no Upgrades tab (the path rows are on the drawer)', () => {
+    expect(DRONE_TABS).toEqual(['overall', 'chika', 'drones']);
+  });
+
+  it('her DPS cells read in the one number style ("3.6", never "3.6000001")', () => {
+    const { sim, t } = chikaBattle();
+    const cells = wingDpsCells(sim.towerStats(t.uid));
+    for (const c of [cells.overall, cells.wing]) expect(c.value).toMatch(/^\d[\d,]*(\.\d)?[kMBT]?$/);
   });
 });

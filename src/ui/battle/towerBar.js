@@ -1,6 +1,7 @@
 // Bottom tower bar: hero card + loadout cards (card art thumb, cost, water badge,
 // affordability). Tap a card to start tap-to-place; drag a card onto the map to place.
-import { h, setVar, fmtCoins } from './util.js';
+import { h, setVar } from './util.js';
+import { fmtNum } from '../format.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon, currencyIcon } from '../../art/icons.js';
@@ -118,7 +119,7 @@ export function createTowerBar(ctx) {
       const price = sim.placeCost(unitId);
       if (price !== c.lastCost) {
         // heroes deploy for free: the price slot says FREE (no coin)
-        c.cost.textContent = price > 0 ? fmtCoins(price) : 'FREE';
+        c.cost.textContent = price > 0 ? fmtNum(price, 'money', { round: 'up' }) : 'FREE';
         c.cost.parentElement.classList.toggle('bt-free', !(price > 0));
         c.lastCost = price;
       }

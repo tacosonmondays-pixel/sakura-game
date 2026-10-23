@@ -5,7 +5,8 @@
 // her to the bar (a short toast only explains non-obvious reasons such as water-only girls or
 // missing coins). Move mode (a hero's Move button) reuses the same ghost: tap where she should
 // stand and she walks over (during a wave she pauses for 3 s).
-import { h, icon, fmtCoins } from './util.js';
+import { h, icon } from './util.js';
+import { fmtNum } from '../format.js';
 import { cue } from '../../audio/cue.js'; // [audio]
 
 export const PLACE_REASONS = {
@@ -80,7 +81,7 @@ export function createPlacement(ctx) {
     }
     hint.classList.toggle('bt-place-water', def.placement === 'water');
     hint.replaceChildren(...[
-      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', cost > 0 ? ` · ${fmtCoins(cost)}` : ' · free')),
+      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', cost > 0 ? ` · ${fmtNum(cost, 'money', { round: 'up' })}` : ' · free')),
       padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
       mode === 'drag' ? null : h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
     ].filter(Boolean));
@@ -97,7 +98,7 @@ export function createPlacement(ctx) {
     }
     const cost = sim.placeCost(id);
     if (sim.cash < cost) {
-      ctx.feed.push(`Need ${fmtCoins(cost - sim.cash)} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
+      ctx.feed.push(`Need ${fmtNum(cost - sim.cash, 'money', { round: 'up' })} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
       ctx.bump?.('cash');
       return false;
     }

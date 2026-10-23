@@ -2,10 +2,10 @@
   "floorPx": 12,
   "note": "Per-file counts may only go down (docs/specs/UI_DIRECTION.md §8). Lower with: node tools/cssFloor.mjs --update (a new file is never added; a pre-M0 screen only with --admit <path>)",
   "files": {
-    "src/ui/styles/achievements.css": 51,
-    "src/ui/styles/base.css": 10,
+    "src/ui/styles/achievements.css": 50,
+    "src/ui/styles/base.css": 9,
     "src/ui/styles/battle-modes.css": 3,
-    "src/ui/styles/battle.css": 86,
+    "src/ui/styles/battle.css": 50,
     "src/ui/styles/coach.css": 4,
     "src/ui/styles/coop-modes.css": 2,
     "src/ui/styles/events.css": 13,

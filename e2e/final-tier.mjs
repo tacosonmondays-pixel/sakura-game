@@ -133,6 +133,11 @@ try {
   await page.evaluate((b) => window.__battle.ui.select(b), ids.B);
   await settle(400);
   check(await page.evaluate(() => !!document.querySelector('[data-testid="buy-0"]') && !document.querySelector('[data-testid="final-lock-0"]')), 'B can buy her tier 5 again');
+  // (the drawer's two-tap buy: tap 1 arms the price — "Buy · …" — tap 2 buys)
+  await page.locator('[data-testid="buy-0"]').click({ timeout: 20000 });
+  await settle(200);
+  check(/Buy/.test(await page.locator('[data-testid="buy-0"]').innerText()), 'tap 1 arms the price ("Buy · …")');
+  check(await page.evaluate((b) => window.__battle.sim.getTower(b).tiers.join('-') === '4-0-0', ids.B), 'tap 1 alone buys nothing');
   await page.locator('[data-testid="buy-0"]').click({ timeout: 20000 });
   await settle(300);
   check(await page.evaluate((b) => window.__battle.sim.getTower(b).tiers.join('-') === '5-0-0', ids.B), 'B bought 5-0-0');

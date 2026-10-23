@@ -83,10 +83,13 @@ for (const vp of viewports) {
     const boltChip = await page.locator('[data-testid="path-bolt-1"] svg').count();
     // (the bolt is the kit's yellow SVG everywhere: the ⚡ character is a colour emoji that differs per phone)
     check(boltChip === 1 && !/⚡/.test(teaser), `${vp} her panel marks the ability path with the kit bolt before she has it (svg ${boltChip}, no ⚡ emoji)`);
-    // (one tap per tier; a tap that lands while the panel redraws after the last buy is simply tapped again)
+    // (the drawer's two-tap buy: tap 1 arms the price, tap 2 buys; a tap that lands while the drawer redraws after the
+    // last buy is simply tapped again)
     for (let i = 0; i < 8; i++) {
       const tier = await page.evaluate((u) => window.__battle.sim.getTower(u).tiers[1], aoi);
       if (tier >= 3) break;
+      await tap('[data-testid="tower-panel"] [data-testid="buy-1"]');
+      await settle(page, 60);
       await tap('[data-testid="tower-panel"] [data-testid="buy-1"]');
       await page.waitForFunction(([u, n]) => window.__battle.sim.getTower(u).tiers[1] > n, [aoi, tier], { timeout: 2000 }).catch(() => {});
       await settle(page, 120);

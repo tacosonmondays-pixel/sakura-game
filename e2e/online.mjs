@@ -684,6 +684,32 @@ try {
   check(coopCam2.every((c, i) => sameCam(coopCam0[i], c)), 'co-op: placing the girls never moved either camera');
   const owners = await A.evaluate(() => window.__battle.sim.towers.map((t) => window.__battle.coop.ownerOf(t.uid)).sort());
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
+  // the ally drawer (A3 M4): the host selects the guest's girl: the same ink drawer, read only, with the ally note
+  // (no price buttons, no Sell, the target chips disabled), and its MORE still opens
+  const allyUid = await A.evaluate(() => window.__battle.sim.towers.find((t) => window.__battle.coop.ownerOf(t.uid) === 1)?.uid ?? null);
+  if (allyUid != null) {
+    await A.evaluate((u) => window.__battle.ui.select(u), allyUid);
+    await A.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="ally-note"]', { timeout: 20000 }).catch(() => null);
+    const ally = await A.evaluate(() => {
+      const p = document.querySelector('[data-testid="tower-panel"]');
+      const r = p.getBoundingClientRect();
+      return {
+        note: p.querySelector('[data-testid="ally-note"]')?.textContent || '',
+        buys: p.querySelectorAll('[data-testid^="buy-"]').length,
+        prices: p.querySelectorAll('.bt-dw-price').length,
+        sell: !!p.querySelector('[data-testid="sell"]'),
+        chips: [...p.querySelectorAll('.bt-target .bt-tchip')].map((b) => b.disabled),
+        stats: p.querySelectorAll('[data-testid="drawer-stats"] .bt-dw-stat').length,
+        width: Math.round(r.width),
+      };
+    });
+    check(/'s girl — only .+ can upgrade, retarget or sell her\./.test(ally.note), `ally drawer: the note says whose girl she is ("${ally.note}")`);
+    check(ally.buys === 0 && ally.prices > 0 && !ally.sell, `ally drawer: prices shown read only, no price buttons, no Sell (${JSON.stringify(ally)})`);
+    check(ally.chips.length > 0 && ally.chips.every(Boolean), 'ally drawer: her target chips are read only');
+    check(ally.stats >= 3, `ally drawer: her stat row shows (${ally.stats} cells)`);
+    await shot(A, 'm4-ally-drawer');
+    await A.evaluate(() => window.__battle.ui.select(null));
+  } else check(false, 'ally drawer: the guest\'s girl is on the host\'s board');
   // the host starts the wave: one 'wave' order in its log, and it runs on both clients
   const waveOrder = await A.evaluate(() => {
     const ls = window.__battle.coop.lockstep;

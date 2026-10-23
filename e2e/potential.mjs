@@ -491,8 +491,15 @@ try {
     const aoiSim = await page.evaluate((uid) => { const t = window.__battle.sim.towers.find((x) => x.uid === uid); return { p: t.unitStats.potential, dmg: t.stats.damage, base: t.def.base.damage }; }, placed.aoi);
     check(aoiSim.p === aoiP && Math.abs(aoiSim.dmg - aoiSim.base * (aoiP >= 6 ? 1.04 * 1.04 * 1.05 : aoiP >= 4 ? 1.04 * 1.04 : 1.04)) < 1e-9, `${tag} battle: Aoi fights at P${aoiSim.p} (damage ${aoiSim.dmg})`);
     await shot(page, `battle-aoi-${tag}`);
-    // her rhythm (Twin Fletch) comes at P5: every 12th volley, every 10th from P6; below P5 no row
-    const aoiRow = await page.evaluate(() => { const e = document.querySelector('[data-testid="tower-panel"] [data-testid="pot-rhythm"]'); return e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length } : null; });
+    // her rhythm (Twin Fletch) comes at P5: every 12th volley, every 10th from P6; below P5 no row (A3 M4: the
+    // Potential rows are in her drawer's MORE)
+    const aoiRow = await page.evaluate(() => {
+      document.querySelector('[data-testid="tower-panel"] [data-testid="panel-more"]')?.click();
+      const e = document.querySelector('[data-testid="tower-panel"] [data-testid="pot-rhythm"]');
+      const out = e ? { name: e.querySelector('b')?.textContent, pips: e.querySelectorAll('.bt-pot-pip').length } : null;
+      document.querySelector('[data-testid="tower-panel"] [data-testid="panel-more"]')?.click();
+      return out;
+    });
     check(aoiP >= 5 ? aoiRow?.name === 'Twin Fletch' && aoiRow.pips === (aoiP >= 6 ? 10 : 12) : aoiRow === null, `${tag} battle: Aoi P${aoiP} rhythm row ${JSON.stringify(aoiRow)}`);
     // Kage P6: start the wave and step the battle until she has thrown twice. The battle is paused
     // (the frame loop stops stepping it but keeps painting the panel) and stepped here in game time,
@@ -506,9 +513,10 @@ try {
         if (sim.state !== 'wave') sim.startNextWave();
         sim.update(1 / 60);
       }
-      // open her panel now, as a player would mid-wave
+      // open her panel now, as a player would mid-wave, and its MORE (the Potential rows, A3 M4)
       ui.select(null);
       ui.select(uid);
+      document.querySelector('[data-testid="tower-panel"] [data-testid="panel-more"]')?.click();
       return t.potCount || 0;
     }, placed.kage);
     check(thrown >= 2, `${tag} battle: Kage threw at least twice within three minutes of game time (${thrown})`);
@@ -526,7 +534,7 @@ try {
       const potInView = !!(sr && br && br.height > 0 && br.top >= sr.top - 0.5 && br.bottom <= sr.bottom + 0.5 && sc.scrollTop === 0);
       return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: (t.potCount ?? 0) % 8, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1, potInView, potAt: br && sr ? [Math.round(br.top - sr.top), Math.round(br.bottom - sr.top), Math.round(sr.height)] : null };
     }, placed.kage);
-    check(kp.potInView, `${tag} battle: Kage's Potential rows are in view when her panel opens (top/bottom/visible ${kp.potAt?.join(' / ')})`);
+    check(kp.potInView, `${tag} battle: Kage's Potential rows are in view when her drawer's MORE opens (top/bottom/visible ${kp.potAt?.join(' / ')})`);
     check(kp.rhythm?.name === 'Shuriken Storm' && kp.rhythm.pips === 8 && kp.rhythm.text === 'every 8th' && kp.rhythm.on === kp.count, `${tag} battle: Kage's storm pips ${JSON.stringify(kp.rhythm)} (count ${kp.count})`);
     check(kp.tempo?.name === 'Shadow Tempo' && kp.tempo.pips === 6 && kp.tempo.on === kp.stacks && kp.tempo.text === `+${kp.stacks}%`, `${tag} battle: Kage's tempo pips ${JSON.stringify(kp.tempo)} (stacks ${kp.stacks})`);
     check(kp.shots?.name === 'Shuriken' && kp.shots.text === `${kp.proj} → ${+(kp.proj * 1.08).toFixed(2)} / throw`, `${tag} battle: shuriken per throw "${kp.shots?.text}"`);

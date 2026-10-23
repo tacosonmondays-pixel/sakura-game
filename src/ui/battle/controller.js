@@ -36,7 +36,8 @@ import { createResults } from './results.js';
 import { createUpgradeTree } from './upgradeTree.js'; // [unit-info] hold-to-view upgrade tree
 import { createSandboxPanel } from './sandboxPanel.js';
 import { sandboxOutcome } from '../../systems/sandbox.js';
-import { enemyDef, traitBadge, fmtCoins, icon } from './util.js';
+import { enemyDef, traitBadge, icon } from './util.js';
+import { fmtNum } from '../format.js';
 import { finalRaceText } from './rules.js';
 import { PICK_REFUSED, pickText } from './buffs.js';
 import { limitedRange } from '../../sim/buffs.js';
@@ -933,7 +934,7 @@ export function mountBattle(root, params, hooks) {
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)
             if (req.sandbox && ev.wave === lastWaveEnd) feed.push('Sandbox group cleared', 'good', { key: 'sbx-group', ms: 1600 });
-            else feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            else feed.push(`Wave ${ev.wave} cleared · +${fmtNum(ev.bonus || 0, 'money')} coins`, 'good', { ms: 2200 });
             lastWaveEnd = ev.wave;
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
             break;
@@ -1125,11 +1126,11 @@ export function mountBattle(root, params, hooks) {
       if (restored.dropped.length) {
         const names = [...new Set(restored.dropped.map((id) => UNIT_MAP[id]?.name || id))];
         const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded - heroBack)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
+        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtNum(restored.refunded - heroBack, 'money')} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
       }
       for (const x of restored.heroRefunds || []) {
         const name = UNIT_MAP[x.unitId]?.name || x.unitId;
-        const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtCoins(x.refunded)} coins` : '';
+        const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtNum(x.refunded, 'money')} coins` : '';
         feed.push(`Heroes changed: ${name} keeps Lv ${x.level}${coins}.`, 'info', { key: 'save-hero', ms: 8000, sticky: true });
       }
       if (restored.potentialNew) feed.push('This run continues with Potential\'s new effects.', 'info', { key: 'save-potential', ms: 6000, sticky: true });
@@ -1434,8 +1435,8 @@ export function mountBattle(root, params, hooks) {
         // achievements: one clan boss attempt resolved (the server accepted it)
         track(store.profile, 'clanBossHit', 1);
         store.commit('clan-boss-hit');
-        const text = counted >= dmg || !dmg ? `${fmtCoins(dmg)} damage counted` : `${fmtCoins(counted)} of ${fmtCoins(dmg)} damage counted`;
-        ctx.feed?.push(`Clan boss: ${text} · ${fmtCoins(state.hp)} HP left`, 'good', { ms: 4200 });
+        const text = counted >= dmg || !dmg ? `${fmtNum(dmg)} damage counted` : `${fmtNum(counted)} of ${fmtNum(dmg)} damage counted`;
+        ctx.feed?.push(`Clan boss: ${text} · ${fmtNum(Math.ceil(state.hp))} HP left`, 'good', { ms: 4200 });
       })
       .catch((e) => {
         ctx.clanBossResult = { error: e };

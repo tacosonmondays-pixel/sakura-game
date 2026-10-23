@@ -764,7 +764,9 @@ export function createAbilityBar(ctx) {
     const cs = getComputedStyle(el);
     const size = parseFloat(cs.getPropertyValue('--ab-s')) || 44;
     const gap = parseFloat(cs.getPropertyValue('--ab-gap')) || 6;
-    const right = parseFloat(cs.getPropertyValue(hasPanel ? '--bt-abar-panel-r' : '--ab-right')) || 12;
+    // (beside the open drawer: its --drawer-w plus its margin and the gap, as --bt-abar-panel-r says in battle.css; a
+    // calc() custom property reads back unresolved, so the sum is made here)
+    const right = hasPanel ? (parseFloat(cs.getPropertyValue('--drawer-w')) || 340) + 20 : parseFloat(cs.getPropertyValue('--ab-right')) || 12;
     const hero = document.querySelector('[data-testid="hero-widget"]');
     const hr = hero && !hero.hidden && hero.offsetParent ? hero.getBoundingClientRect() : null;
     const leftLimit = hr && hr.width ? hr.right - L.left + 8 : 12;

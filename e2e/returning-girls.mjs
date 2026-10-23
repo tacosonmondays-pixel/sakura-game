@@ -122,7 +122,7 @@ async function placeNear(unitId, minGap = 1.4) {
   }, [unitId, minGap]);
 }
 
-/** Buys path 0 to tier 3 with the panel's buy button. */
+/** Buys path 0 to tier 3 with the drawer's price button (two taps a tier: tap 1 arms, tap 2 buys). */
 async function buyToTier3(uid) {
   await page.evaluate((u) => window.__battle.ui.select(u), uid);
   await settle(300);
@@ -130,6 +130,8 @@ async function buyToTier3(uid) {
     const btn = page.locator('[data-testid="buy-0"]').first();
     if (!(await btn.count())) break;
     await btn.click({ force: true });
+    await settle(120);
+    await page.locator('[data-testid="buy-0"]').first().click({ force: true });
     await settle(250);
   }
   return page.evaluate((u) => window.__battle.sim.getTower(u)?.tiers.join('-'), uid);

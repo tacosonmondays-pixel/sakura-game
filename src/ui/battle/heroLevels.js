@@ -5,7 +5,7 @@
 //   - the feed for hero events, attributed by towerUid (co-op: your hero gets the toast / banner,
 //     the ally's hero a small chip at most every 3 s);
 //   - the level texts the widget, panel and scout share.
-import { fmtCoins } from './util.js';
+import { fmtNum } from '../format.js';
 import { quantize } from '../../online/coop/commands.js';
 import { BATTLE } from '../../data/types.js';
 import { HERO_LEVEL_PRICES } from '../../data/heroTracks.js';
@@ -125,7 +125,7 @@ export function createHeroLevels(ctx, ls) {
     if (st.reason === 'noHero' || st.reason === 'max' || st.reason === 'ended') return false;
     const cur = sim.heroLevelStatus();
     if (cur.reason === 'cash' || sim.cash < st.price) {
-      ctx.feed.push(`Need ${fmtCoins(Math.max(5, st.price - sim.cash))} more coins.`, 'warn', { key: 'lvl-cash', ms: 1500 });
+      ctx.feed.push(`Need ${fmtNum(Math.max(5, st.price - sim.cash), 'money', { round: 'up' })} more coins.`, 'warn', { key: 'lvl-cash', ms: 1500 });
       ctx.bump?.('cash');
       return false;
     }
@@ -253,6 +253,6 @@ export function heroWarnText(sim, text) {
   const name = hero.def.name;
   return text.replace(new RegExp(`${name} at Lv (\\d+)`), (m, lv) => {
     const price = priceToLevel(sim, hero, Number(lv));
-    return price > 0 ? `${m} · Level up now 🪙 ${fmtCoins(price)}` : m;
+    return price > 0 ? `${m} · Level up now 🪙 ${fmtNum(price, 'money', { round: 'up' })}` : m;
   });
 }
