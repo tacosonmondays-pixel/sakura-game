@@ -30,7 +30,10 @@ const PARENTS = {
   challenge: 'missions',
   sandbox: (p) => (p.id ? 'sandbox' : 'missions'), // the squad step (#/sandbox/team) → the map step → Missions
   commissions: 'lobby', // the lobby's Tasks shortcut / dock button (not on the Missions hub)
-  coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
+  // a room → the co-op screen → the Multiplayer hub (UI M5d); #/multiplayer has no fixed parent on purpose: it opens
+  // from the lobby's Multiplayer button, Missions and the Menu, and its arrow goes back there (the lobby when nothing
+  // is below it)
+  coop: (p) => (p.id ? 'coop' : 'multiplayer'),
   // [social] a conversation (#/messages/<threadId> or /new) → the Messages list → the lobby
   messages: (p) => (p.id ? 'messages' : 'lobby'),
   // [ui-m5] the Mailroom (#/mail) has no fixed parent on purpose: it opens from the lobby, the Menu, the Notice, the
@@ -96,7 +99,7 @@ export function parentRoute(name, params = {}, prev = null) {
   const fixed = fixedParent(name, params);
   if (fixed) {
     // opened from its parent, or straight from higher up the menus (the lobby's Tasks / Bounty /
-    // Total Assault shortcuts, Menu → Co-op), or from a list hub's Go: back there, the way the back gesture goes
+    // Total Assault shortcuts), or from a list hub's Go: back there, the way the back gesture goes
     if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)) || LIST_HUBS.has(from.name))) return from;
     return route(fixed);
   }

@@ -14,7 +14,8 @@ describe('parentRoute: the back arrow target', () => {
     for (const prev of [null, r('chat'), r('battle', { stage: 'boss-lych', clanBoss: 'a1' }), r('student', { id: 'aoi' }), r('clan')]) {
       expect(parentRoute('clan', { tab: 'boss' }, prev)).toEqual(r('lobby'));
       expect(parentRoute('missions', {}, prev)).toEqual(r('lobby'));
-      for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'sandbox', 'coop']) expect(parentRoute(name, {}, prev)).toEqual(r('missions'));
+      for (const name of ['campaign', 'bounty', 'assault', 'challenge', 'sandbox']) expect(parentRoute(name, {}, prev)).toEqual(r('missions'));
+      expect(parentRoute('coop', {}, prev)).toEqual(r('multiplayer')); // UI M5d: the co-op screen → the Multiplayer hub
       expect(parentRoute('commissions', {}, prev)).toEqual(r('lobby')); // a lobby screen (Tasks / dock)
       expect(parentRoute('sandbox', { id: 'team' }, prev)).toEqual(r('sandbox')); // the squad step → the map step
       expect(parentRoute('coop', { id: 'ABCDE', host: '1' }, prev)).toEqual(r('coop'));
@@ -30,9 +31,10 @@ describe('parentRoute: the back arrow target', () => {
     const hub = r('missions', { tab: 'x' });
     expect(parentRoute('challenge', {}, hub)).toBe(hub);
     expect(parentRoute('coop', { id: 'ABCDE' }, r('coop'))).toEqual(r('coop'));
-    expect(parentRoute('coop', { id: 'ABCDE' }, r('missions'))).toEqual(r('missions')); // a room → above the hub
-    expect(parentRoute('coop', { id: 'ABCDE' }, r('coop', { id: 'FGHIJ' }))).toEqual(r('coop')); // another room: the hub
-    expect(menuAncestors('coop', { id: 'ABCDE' })).toEqual(['coop', 'missions', 'lobby']);
+    expect(parentRoute('coop', { id: 'ABCDE' }, r('multiplayer'))).toEqual(r('multiplayer')); // a room from the hub's Create room / Join
+    expect(parentRoute('coop', { id: 'ABCDE' }, r('missions'))).toEqual(r('coop')); // (Missions is no longer above the co-op screen)
+    expect(parentRoute('coop', { id: 'ABCDE' }, r('coop', { id: 'FGHIJ' }))).toEqual(r('coop')); // another room: the co-op screen
+    expect(menuAncestors('coop', { id: 'ABCDE' })).toEqual(['coop', 'multiplayer', 'lobby']);
     expect(menuAncestors('bounty')).toEqual(['missions', 'lobby']);
     expect(menuAncestors('lobby')).toEqual(['lobby']);
   });
@@ -81,6 +83,18 @@ describe('parentRoute: the back arrow target', () => {
     expect(parentRoute('mail', {}, null)).toEqual(r('lobby'));
     expect(parentRoute('mail', {}, r('battle', { stage: '1-1' }))).toEqual(r('lobby'));
     expect(menuAncestors('mail')).toEqual(['lobby']);
+  });
+
+  it('the Multiplayer hub (#/multiplayer, UI M5d) has no fixed parent; the co-op screen and its rooms climb to it', () => {
+    for (const prev of [r('lobby'), r('missions'), r('messages', { tab: 'friends' }), r('clan', { tab: 'boss' })]) {
+      expect(parentRoute('multiplayer', {}, prev)).toBe(prev);
+    }
+    expect(parentRoute('multiplayer', {}, null)).toEqual(r('lobby'));
+    expect(parentRoute('multiplayer', {}, r('battle', { coop: 'ABCDE' }))).toEqual(r('lobby'));
+    expect(menuAncestors('multiplayer')).toEqual(['lobby']);
+    expect(parentRoute('coop', {}, r('multiplayer'))).toEqual(r('multiplayer'));
+    expect(parentRoute('coop', {}, null)).toEqual(r('multiplayer'));
+    expect(parentRoute('coop', { id: 'ABCDE', host: '1' }, null)).toEqual(r('coop'));
   });
 
   it('other screens go back to the previous screen, never to a battle', () => {
@@ -185,7 +199,7 @@ describe('router: back arrow and battle history entries', () => {
     vi.resetModules();
     router = await import('../../src/ui/router.js');
     renders = [];
-    const names = ['lobby', 'missions', 'campaign', 'stage', 'battle', 'clan', 'coop', 'settings', 'backpack', 'student', 'students'];
+    const names = ['lobby', 'missions', 'campaign', 'stage', 'battle', 'clan', 'coop', 'multiplayer', 'settings', 'backpack', 'student', 'students'];
     for (const name of names) {
       router.registerRoute(name, async () => ({ render: (_root, params) => { renders.push(router.buildHash(name, params)); } }));
     }
@@ -525,6 +539,32 @@ describe('router: back arrow and battle history entries', () => {
     await boot('#/bounty');
     await arrow();
     expect(screen()).toBe('#/missions');
+  });
+
+  it('Multiplayer (UI M5d): its rooms and the co-op screen arrow back to it, and it arrows back where it was opened', async () => {
+    await boot('#/lobby');
+    await go('multiplayer'); // the lobby's Multiplayer button / Menu
+    await go('coop', { id: 'ABCDE', host: '1', stage: '1-1', difficulty: 'normal' }); // Create room
+    await arrow();
+    expect(screen()).toBe('#/multiplayer');
+    expect(browser.i).toBe(1); // stepped back: the back gesture agrees
+    await go('coop'); // the stage chip
+    await arrow();
+    expect(screen()).toBe('#/multiplayer');
+    await arrow();
+    expect(screen()).toBe('#/lobby');
+    expect(browser.i).toBe(0);
+    // from Missions' tile: back to Missions
+    await go('missions');
+    await go('multiplayer');
+    await arrow();
+    expect(screen()).toBe('#/missions');
+    // a co-op link (nothing below): the co-op screen → Multiplayer → the lobby
+    await boot('#/coop');
+    await arrow();
+    expect(screen()).toBe('#/multiplayer');
+    await arrow();
+    expect(screen()).toBe('#/lobby');
   });
 
   it('a Go on Happening Now, or the Mall\'s wallet chip, arrows back to that list on the tab it was left on', async () => {

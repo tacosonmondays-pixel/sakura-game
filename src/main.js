@@ -43,6 +43,8 @@ registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] 
 registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
+// [ui-m5] the Multiplayer hub (owner #79, #108): Co-op, PvP (coming soon), Friends, Titan Co-op, Clan Boss; host Momo
+registerRoute('multiplayer', () => import('./ui/screens/multiplayer.js'));
 // [social] private messages, friends, blocks (#/messages[/<threadId>|/new][?tab=…])
 registerRoute('messages', () => import('./ui/screens/messages.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
@@ -192,7 +194,7 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 const idle = (fn, timeout) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, Math.min(timeout, 1200)));
 whenSettled().then(() => {
   idle(warmModels, 2500);
-  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit', 'titans']), 4000);
+  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit', 'titans', 'multiplayer']), 4000);
 });
 
 // [social] badges, live DMs and invite pop-ups for players who already went online (a stored

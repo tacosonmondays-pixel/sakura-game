@@ -24,6 +24,9 @@ export const REPEAT = [
   '.ma-loc', '.ma-tier-btn', '.ma-drop', '.ma-boss-card', '.ma-chapter-tab',
   // UI M5c: the Happening Now rows, the Settings rows, the old Events page's income table rows
   '.hn-row', '.ma-set-row', '.ma-income-table tr',
+  // UI M5d: the Multiplayer invite rows; Formation's squad slots, picker cards and counter rows; the profile's showcase
+  // slots, medal and ribbon cells, plaques, stat tiles and freeplay rows
+  '.mp-invite', '.mb-fslot', '.mb-pick', '.mb-rec', '.pf-slot', '.pf-tc', '.pf-plaque', '.pf-stat', '.pf-fp-row',
 ].join(', ');
 
 /** Never counted: the currency bar (P3) and anything a script marks. */

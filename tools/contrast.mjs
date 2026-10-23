@@ -186,6 +186,21 @@ export const PAIRS = [
   ['--plate-accent', ['--sky-3', '--plate-glass'], 'off-season band (E9): the next date over a light painting', 4.5],
   ['--plate-accent', ['--plate-glass', '--plate-glass'], 'off-season band (E9): the next date over a dark painting', 4.5],
   ['white', ['#b81d3b'], 'event page: the DEV CLOCK badge (dev builds only)', 4.5],
+  // UI M5d (hubs.css "M5d": the lobby's tray, stickers and Multiplayer button; the Multiplayer hub; Students, Formation;
+  // profile.css)
+  ['--ink', ['black', 'rgba(255, 255, 255, 0.86)'], 'lobby: a tray word (Notice, Tasks, Login gift) on the white glass tray over the painting (worst case: black)', 4.5],
+  ['--plate', ['white'], 'lobby: a sticker\'s words ("Titans open!") on its white sticker', 4.5],
+  ['--plate', ['--pink'], 'lobby: the carousel slide\'s kicker ("RECRUIT") on sakura pink', 4.5],
+  ['white', ['#1e3460', 'rgba(22, 38, 72, 0.96)'], 'lobby: "Multiplayer" on its navy plate', 4.5],
+  ['white', ['--badge-red'], 'lobby / hub: the red number (open invites, friend requests)', 4.5],
+  ['--on-plate', ['--plate', 'rgba(255, 255, 255, 0.08)'], 'Multiplayer: the room chip ("1-1 · Normal") on the Co-op plate header', 4.5],
+  ['--navy', ['white'], 'Multiplayer: an inviter\'s name; a tile\'s title on its white plate', 4.5],
+  ['--muted', ['white'], 'Multiplayer: an invite\'s stage line; "Invites show up here once you are online."', 4.5],
+  ['--ink', ['black', 'rgba(255, 255, 255, 0.94)'], 'Multiplayer: a tile\'s line on its white plate over the scenery (worst case: black)', 4.5],
+  ['--navy', ['black', 'rgba(255, 255, 255, 0.78)'], 'Multiplayer: a locked tile\'s title (PvP, Titan Co-op) on the glass veil over its scenery (worst case: black)', 4.5],
+  ['--on-plate', ['--plate'], 'Multiplayer: a Rival Run rule chip ("Lv 50")', 4.5],
+  ['--on-plate', ['white', '--plate-glass'], 'Formation: a squad girl\'s level in its ink pill over her art (worst case: white)', 4.5],
+  ['--on-plate-dim', ['white', '--plate-glass'], 'Formation: the "Lv" label in that pill (worst case: white)', 4.5],
   // map tiers (src/data/mapTierNames.js): words in the tier's text colour; badges keep the fill with navy letters
   ...Object.values(MAP_TIER_VIEW).flatMap((t) => [
     [t.text, ['white'], `${t.name} tier word on a white stage card`, 4.5],

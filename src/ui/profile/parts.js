@@ -168,15 +168,21 @@ export function ribbonTallyRow(r, total) {
     svgEl(modeIcon(m), 'pf-tc-ico'), h('b', String(r[i] || 0), h('small', `/${total}`)))));
 }
 
-/** Medal counts per difficulty, each out of the 59 stages. */
-export function medalTallyRow(a) {
-  return h('div.pf-tally-row', DIFFICULTY_ORDER.map((d, i) => h('div.pf-tc', { 'data-diff': d, title: `${d[0].toUpperCase()}${d.slice(1)} medals` },
-    svgEl(medalIcon(d), 'pf-tc-ico'), h('b', String(a[i] || 0), h('small', `/${STAGE_COUNT}`)))));
+/**
+ * Medal counts per difficulty, each out of the 59 stages.
+ * @param {{ only?: string[]|null }} [o] only: the difficulties to show (UI M5d: profile/zero.js leaves out the zeros)
+ */
+export function medalTallyRow(a, { only = null } = {}) {
+  return h('div.pf-tally-row', DIFFICULTY_ORDER.map((d, i) => (only && !only.includes(d) ? null : h('div.pf-tc', { 'data-diff': d, title: `${d[0].toUpperCase()}${d.slice(1)} medals` },
+    svgEl(medalIcon(d), 'pf-tc-ico'), h('b', String(a[i] || 0), h('small', `/${STAGE_COUNT}`))))));
 }
 
-/** One row per freeplay tier: tier pill, best stage, "Wave N", co-op tag; "—" when never played. */
-export function freeplayRows(fp) {
-  return FREEPLAY_TIERS.map((tier) => {
+/**
+ * One row per freeplay tier: tier pill, best stage, "Wave N", co-op tag; "—" when never played.
+ * @param {{ only?: string[]|null }} [o] only: the tiers to show (UI M5d: the played ones, profile/zero.js)
+ */
+export function freeplayRows(fp, { only = null } = {}) {
+  return FREEPLAY_TIERS.filter((tier) => !only || only.includes(tier)).map((tier) => {
     const r = fp?.[tier];
     const stage = r && STAGE_MAP[r.s];
     return h('div.pf-fp-row', { 'data-tier': tier },
@@ -186,17 +192,20 @@ export function freeplayRows(fp) {
   });
 }
 
-/** The 4 collection stats. */
-export function statTiles(st) {
-  const tile = (icon, color, val, max, label, key) => h('div.pf-stat', { 'data-stat': key },
+/**
+ * The 4 collection stats.
+ * @param {{ keys?: string[]|null }} [o] keys: the stats to show (UI M5d: the ones above zero, profile/zero.js)
+ */
+export function statTiles(st, { keys = null } = {}) {
+  const tile = (icon, color, val, max, label, key) => (keys && !keys.includes(key) ? null : h('div.pf-stat', { 'data-stat': key },
     h('span.ico', { style: { background: color } }, svgEl(uiIcon(icon), 'pf-stat-svg')),
-    h('span', h('b', val, max ? h('small', ` /${max}`) : null), h('span', label)));
+    h('span', h('b', val, max ? h('small', ` /${max}`) : null), h('span', label))));
   return [
     tile('students', '#2b7fff', String(st.u), String(UNIT_COUNT), 'Students', 'u'),
     tile('map', '#2bb673', String(st.s), String(STAGE_COUNT), 'Stages cleared', 's'),
     tile('bestiary', '#ff9f1c', `${st.b}%`, '', 'Bestiary', 'b'),
     tile('sword', '#ff7aa8', fmtNum(st.k, 'count', { round: 'down' }), '', 'Enemies defeated', 'k'),
-  ];
+  ].filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------

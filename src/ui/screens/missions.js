@@ -3,7 +3,8 @@
 // edge) over the painted academy (dimmed, blurred), and a grid of slanted tiles on the right, each
 // filled with a scenic backdrop (no girls on the tiles): Mission (the painted academy · chapter,
 // next stage, quick start), Bounty (this week's double-drop arena), Total Assault, Tactical
-// Challenge, Co-op (online), Sandbox (solo test range) and a small Story tile (episodes, a NEW dot).
+// Challenge, Multiplayer (online: the hub of UI M5d; the tile id stays coop), Sandbox (solo test range) and a small
+// Story tile (episodes, a NEW dot).
 // Commissions live on the lobby (Tasks / dock), sweeps on stage prep, Bounty and Total Assault.
 // Locked tiles keep their colour and wear a small lock chip (big tiles) or a lock line in their
 // name plate (small tiles).
@@ -123,8 +124,10 @@ function build(redraw, mode = 'stand') {
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
     tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), onTimer: redraw, open: fresh.has('titans'), onClick: go('titans') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: locks.challenge, open: fresh.has('challenge'), onClick: go('challenge') }),
-    // [online] 2-player real-time co-op on any unlocked campaign stage
-    tile({ id: 'coop', title: 'Co-op', art: scene('festival'), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),
+    // [online] the Multiplayer hub (UI M5d, owner #79/#108): co-op, friends, the clan boss; PvP coming soon. The tile
+    // keeps its id (hub-coop) and its place
+    // (a soft hyphen: on a narrow tile the word breaks "Multi-player" over two lines instead of being cut)
+    tile({ id: 'coop', title: 'Multi­player', art: scene('festival'), sub: 'Co-op & friends', short: 'Co-op', ribbon: 'Online', onClick: () => navigate('multiplayer') }),
     // solo test range: any map, any girl, spawn controls, no rewards (opens after 7 campaign clears)
     tile({ id: 'sandbox', title: 'Sandbox', art: scene('snow'), sub: 'No rewards', lockText: locks.sandbox, lockHint: sandboxLockText(profile), open: fresh.has('sandbox'), onClick: go('sandbox') }),
     tile({ id: 'story', title: 'Story', art: scene('shrine'), sub: 'Episodes', short: 'Episodes', onClick: () => navigate('story') }), // [story]

@@ -95,6 +95,7 @@ const ROUTES = [
   ['commissions', '#/commissions'],
   ['rewards', '#/rewards'],
   ['mail', '#/mail'], // [ui-m5] the Mailroom
+  ['multiplayer', '#/multiplayer'], // [ui-m5] the Multiplayer hub (never signs in: before the online screens below)
   ['bestiary', '#/bestiary'],
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
