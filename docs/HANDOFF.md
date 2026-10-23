@@ -126,7 +126,7 @@ Then poll `version.json` until it shows the new version. Patch-note tests: `test
 ## 8. Testing and measuring
 
 - `npm test` (vitest, node environment, no DOM: test pure functions), `npm run e2e` (`e2e/smoke.mjs`). Browser scripts use `launchChromium()` from `e2e/browser.mjs`.
-- `tools/simId.mjs`: the sim id. `tools/bench.mjs`: one girl's DPS against test targets. `tools/capBot.mjs` / `tools/freeplayBot.mjs`: real-coin Freeplay runs that respect the path cap. `tools/heroTrack.mjs`: a hero's 25-level track. `tools/killcap.mjs`: board kill capacity.
+- `tools/simId.mjs`: the sim id. `tools/bench.mjs`: one girl's DPS against test targets; `--max` measures every girl at max investment (level 85, ★5, P6, standard UR best-in-slot gear, her best path-cap-legal build) alone, with a support pair, as a support (uplift on a max Kage) and in real Freeplay waves (helpers and the gear recipe: `tools/benchLib.mjs`). `tools/capBot.mjs` / `tools/freeplayBot.mjs`: real-coin Freeplay runs that respect the path cap. `tools/heroTrack.mjs`: a hero's 25-level track. `tools/killcap.mjs`: board kill capacity.
 - Test-target numbers flatter splash and trap girls; settle close calls with real-coin runs.
 
 ## 9. Published pages (owned by the original account)
@@ -162,7 +162,7 @@ Then poll `version.json` until it shows the new version. Patch-note tests: `test
 - **Azami's strips and Yuzuha's sentries can't crit,** and their crit lines aren't converted to ATK either (not in the gear-fit list).
 - **Ult Haste** does nothing for students until abilities ship.
 - **Battle panel DPS readout** prints the raw number (`fmtNum(dps, 1)` in `src/ui/battle/util.js`, e.g. "136234.5"), and the cell clips it to about 5 digits. Use a compact format (136.2k, 1.2M) in the tower and Chika panels. (Fixed in v0.1.45: `fmtDps`.)
-- **`tools/bench.mjs`:** the walking boss reads `near.dist` but path samples only carry `d`, so the boss always spawns at the start of path 0; the 15 s warm-up is too short on stage 4-5; ults can fire inside the warm-up.
+- **`tools/bench.mjs`:** the walking boss read `near.dist` but path samples only carry `d`, so the boss always spawned at the start of path 0; the 15 s warm-up was too short on stage 4-5; ults could fire inside the warm-up. (Fixed on `fix/bench-tools`: the boss enters her reach on the nearest path and is replaced once it walks past; the crowd warm-up lasts until the stream has filled her reach + 10 s; no ability casts or charges before measuring. Boss rows no longer match `tools/baselines/bench-today-s9.jsonl`.)
 - Players note crit-damage substats stack hard, and that LR gear will need higher stat caps (planned, §4).
 
 ## 11. Private notes pack (not in this repo)
