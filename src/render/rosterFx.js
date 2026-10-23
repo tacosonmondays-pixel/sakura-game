@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { GeoBuilder } from './geo.js';
 import { aimMode } from '../sim/towers.js';
 import { runnerSegment } from '../sim/runners.js';
+import { pointAt } from '../sim/path.js';
 
 const TAU = Math.PI * 2;
 
@@ -21,8 +22,15 @@ const MAX_DRAGON_HEADS = 6;
 const MAX_CURSE_PER_FRAME = 10;
 /** A warning ring with no shellLand (wave clear, sold girl) disappears this long after its delay. */
 const WARN_GRACE = 0.25;
-/** A sky dragon the wave clear removed mid-flight finishes its flight to START within this (s). */
+/**
+ * Sky dragons the wave clear removed mid-flight (ghosts) finish their flight to START on the board. All in
+ * real seconds: within GHOST_TIME; with Auto start on, GHOST_LEAD before the next wave starts (its 1 s pause is
+ * sim time, so 0.5 / 0.33 s at 2x / 3x); and a ghost still flying when a wave starts anyway (started early,
+ * or the game sped up) rushes there within GHOST_RUSH.
+ */
 const GHOST_TIME = 1.2;
+const GHOST_LEAD = 0.1;
+const GHOST_RUSH = 0.2;
 
 const COL = {
   warn: '#ff9a3c',
@@ -126,6 +134,7 @@ const _s = new THREE.Vector3();
 const _seg = {};
 const _segN = {};
 const _head = { x: 0, y: 0 };
+const _start = {};
 
 export class RosterFx {
   /** @param {{ sim, scene, fx, batches, atlas, actors, quality? }} o */
@@ -137,6 +146,8 @@ export class RosterFx {
     this.actors = actors;
     this.quality = quality;
     this.time = 0;
+    /** game speed (1-3x; setTimeScale): sim seconds per real second */
+    this.timeScale = 1;
     this.selectedUid = null;
     this.root = new THREE.Group();
     this.root.name = 'rosterFx';
@@ -154,7 +165,8 @@ export class RosterFx {
     this._flying = new Map();
     /**
      * dragons whose runner the wave clear removed mid-flight (Sim._checkWaveEnd: no runnerEnd). Nothing is
-     * left to hit, so they fly on to START here and sparkle there: { pathIndex, dist, speed, segments, gap, end, head }
+     * left to hit, so they fly on to START here and sparkle there:
+     * { pathIndex, dist, speed (sim tiles/s), segments, gap, end, rem (real s left to reach START), head }
      */
     this._ghosts = [];
     this._frame = 0;
@@ -167,6 +179,11 @@ export class RosterFx {
 
   setQuality(q) {
     this.quality = q;
+  }
+
+  /** Game speed (1-3x, co-op: the shared speed): the board's frames are real time, the sim's clock is this much faster. */
+  setTimeScale(s) {
+    this.timeScale = Math.max(0.1, Math.min(8, Number(s) || 1));
   }
 
   setSelected(uid) {
@@ -248,8 +265,9 @@ export class RosterFx {
         this._ghostDragons();
         return false;
       case 'waveStart':
-        // a ghost never flies over the next wave's spawns without hitting them
-        this._ghosts.length = 0;
+        // a ghost still flying (the wave was started early, or the game sped up after the clear) rushes
+        // to START and sparkles there: never dropped mid-road, never long over the next wave's spawns
+        for (const g of this._ghosts) g.rem = Math.min(g.rem, GHOST_RUSH);
         return false;
       default:
         return false;
@@ -324,10 +342,31 @@ export class RosterFx {
       if (!(left > 0.01) || this._ghosts.length >= MAX_DRAGON_HEADS) continue;
       this._ghosts.push({
         pathIndex: f.pathIndex, dist: f.dist, segments: f.segments, gap: f.gap, end: f.end,
-        speed: Math.max(f.speed, left / GHOST_TIME), head: h ? { x: h.x, y: h.y } : null,
+        speed: f.speed > 0 ? f.speed : 0, rem: GHOST_TIME, head: h ? { x: h.x, y: h.y } : null,
+        // the roads as they run now: a wave start may flip the route (reverse rules) while it still flies
+        world: { pathData: this.sim.pathData },
       });
     }
     this._flying.clear();
+  }
+
+  /**
+   * Real seconds a ghost has left to reach START before Auto start begins the next wave (GHOST_LEAD early);
+   * Infinity when no wave is due. Read each frame, so a speed change after the clear is followed too.
+   */
+  _autoStartIn() {
+    const s = this.sim;
+    if (s.state !== 'between' || !(s._autoTimer > 0)) return Infinity;
+    return s._autoTimer / this.timeScale - GHOST_LEAD;
+  }
+
+  /** A ghost reached START: the exit sparkle there (its last head position when the road is unknown). */
+  _ghostExit(g) {
+    const path = (g.world || this.sim).pathData?.[g.pathIndex];
+    if (path) {
+      pointAt(path, 0, _start);
+      this._exitSparkle(_start.x, _start.y);
+    } else if (g.head) this._exitSparkle(g.head.x, g.head.y);
   }
 
   // ---- shared meshes -----------------------------------------------------------------------
@@ -560,20 +599,26 @@ export class RosterFx {
         f.seen = frame;
       }
     }
-    // ghosts (wave clear): on to START at their own pace, then the exit sparkle
+    // ghosts (wave clear): on to START, never slower on screen than the dragon flew at this game speed, and
+    // there before their time runs out (GHOST_TIME, the Auto start, a wave start's rush); then the exit sparkle
     let n = 0;
+    const auto = ghosts.length ? this._autoStartIn() : Infinity;
     for (let i = 0; i < ghosts.length; i++) {
       const g = ghosts[i];
-      g.dist = Math.max(g.end, g.dist - g.speed * dt);
-      const h = this._serpent(D, g);
+      if (dt > 0) {
+        const rem = Math.min(g.rem, auto);
+        const v = Math.max(g.speed * this.timeScale, (g.dist - g.end) / Math.max(dt, rem));
+        g.dist = Math.max(g.end, g.dist - v * dt);
+        g.rem -= dt;
+      }
+      const h = this._serpent(D, g, g.world);
       if (h) {
         if (!g.head) g.head = { x: 0, y: 0 };
         g.head.x = h.x;
         g.head.y = h.y;
       }
-      if (g.dist <= g.end) {
-        if (g.head) this._exitSparkle(g.head.x, g.head.y);
-      } else ghosts[n++] = g;
+      if (g.dist <= g.end) this._ghostExit(g);
+      else ghosts[n++] = g;
     }
     ghosts.length = n;
     D.head.count = this._nh;
@@ -591,22 +636,23 @@ export class RosterFx {
 
   /**
    * One sky dragon: head + body beads along the road from runnerSegment (a sim runner or a ghost:
-   * { pathIndex, dist, segments, gap }). @returns {{ x, y }|null} the head (a shared scratch), null off the road
+   * { pathIndex, dist, segments, gap }; `world` holds the pathData it flies on, the sim's by default).
+   * @returns {{ x, y }|null} the head (a shared scratch), null off the road
    */
-  _serpent(D, r) {
+  _serpent(D, r, world = this.sim) {
     const R = this.R;
     const glow = this.quality !== 'low';
     const [cr, cg, cb] = RGB.sky;
     const segs = Math.min(r.segments || 1, MAX_DRAGON_SEGS);
     let headAt = null;
     for (let k = 0; k < segs; k++) {
-      const p = runnerSegment(this.sim, r, k, _seg);
+      const p = runnerSegment(world, r, k, _seg);
       if (!p) continue;
       const px = p.x;
       const py = p.y;
       // heading: from the next segment back toward this one (head leads, flying back along the road)
       let yaw = 0;
-      const q = runnerSegment(this.sim, r, k + 0.5, _segN);
+      const q = runnerSegment(world, r, k + 0.5, _segN);
       if (q) yaw = Math.atan2(px - q.x, py - q.y);
       else if (p.facing != null) yaw = p.facing + Math.PI;
       const alt = 1.0 + 0.16 * Math.sin(this.time * 4.5 - k * 0.9);
@@ -629,7 +675,7 @@ export class RosterFx {
     }
     // a few gold sparkles shed from the tail
     if (glow && Math.random() < 0.35) {
-      const tp = runnerSegment(this.sim, r, segs - 1, _seg);
+      const tp = runnerSegment(world, r, segs - 1, _seg);
       if (tp) {
         this.fx.spawn({
           batch: 'bbA', uv: R.star, x: tp.x + (Math.random() - 0.5) * 0.2, y: 0.8, z: tp.y + (Math.random() - 0.5) * 0.2,
