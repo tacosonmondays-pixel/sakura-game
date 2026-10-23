@@ -19,8 +19,11 @@
 //   - Settings: every section reachable from the rail (and the lit tab follows), a deep link, the Menu's Account,
 //     descriptions behind "i" (in view on a row without a control)
 //   - Recruit: the pity shows once
+//   - portrait 390x844 (UI M5 merge review): the Mailroom (a long title wraps clear of its row's controls, the bundle's
+//     words inside the letter, the plate title clear of Claim all), a letter read, History, the Mall, Happening Now,
+//     Free pulls and Settings, each probed with the clip check too (text cut off by a box or run under a neighbour)
 //
-//   node e2e/lists.mjs [--viewport 844x390] [--shots <dir>]
+//   node e2e/lists.mjs [--viewport 844x390|1280x720|390x844] [--shots <dir>]
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 on any failure.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -34,7 +37,7 @@ const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 };
-const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
+const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720', '390x844'];
 const shots = opt('shots', null);
 if (shots) mkdirSync(shots, { recursive: true });
 
@@ -620,10 +623,91 @@ async function recruit(page, vp) {
   await shot(page, 'recruit', vp);
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Portrait (390x844): a phone held upright, the fallback when the rotate overlay is dismissed. The UI M5 merge review
+// found the Mailroom's long title running under its row's Claim, the material bundle's words cut by the letter's edge
+// and the plate title touching Claim all, none of which the spill check sees (it skips clipped text): here every list
+// screen is probed with the clip check too (e2e/probe.mjs: text cut off by a box, or run under a neighbour).
+// ---------------------------------------------------------------------------------------------------------------
+/** The probe on a portrait list screen: every limit (no host in portrait: the M5b rule) and the clip check. */
+async function probePortrait(page, name) {
+  const r = await probe(page, { kind: 'list', list: '.ls-panel:not(.bare), .ls-list', tapSkip: '.topbar' });
+  const fails = judge(r, { skip: ['host', 'bubble'], also: ['clip'] });
+  check(fails.length === 0, `${name}: probe ${summary(r)}${fails.length ? ` → ${fails.join(' | ')}` : ''}`);
+  return r;
+}
+
+/** Each letter's title lines clear of its own row's controls; the bundle's words inside the letter; the plate head. */
+const mailLayout = (page) => page.evaluate(() => {
+  const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+  const rows = [...document.querySelectorAll('#app .mbx-list > .mbx-letter')].map((row) => {
+    const title = row.querySelector('.mbx-title');
+    const range = document.createRange();
+    range.selectNodeContents(title);
+    const lines = [...range.getClientRects()];
+    const ctrls = [...row.querySelectorAll('.mbx-letter-side > *')].map((c) => c.getBoundingClientRect());
+    const letter = row.getBoundingClientRect();
+    const words = [...row.querySelectorAll('.mbx-bundle > span *')].flatMap((w) => {
+      const rr = document.createRange();
+      rr.selectNodeContents(w);
+      return [...rr.getClientRects()];
+    });
+    return {
+      id: row.dataset.testid, under: lines.some((l) => ctrls.some((c) => hit(l, c))), wide: title.scrollWidth > title.clientWidth + 1,
+      bundleOut: words.some((w) => w.right > letter.right - 1 || w.left < letter.left + 1),
+    };
+  });
+  const t = document.querySelector('#app .ls-panel > .ui-plate-head .ui-plate-title > span')?.getBoundingClientRect();
+  const right = document.querySelector('#app .ls-panel > .ui-plate-head .ui-plate-right')?.getBoundingClientRect();
+  return { rows, headClear: !t || !right || right.left >= t.right + 4 || right.top >= t.bottom - 0.5 };
+});
+
+async function portrait(page, vp) {
+  console.log(`-- portrait ${vp}`);
+  // the story's welcome letter too, with its long title ("Ten new possibilities, on us ♡"), and the beta gift's bundle
+  await page.evaluate(async (now) => {
+    const { deliverMail } = await import('/src/systems/mail.js');
+    const { WELCOME_MAIL } = await import('/src/data/story/lessons.js');
+    const p = window.__sakura.store.profile;
+    if (!(p.mail?.letters || []).some((l) => l.id === WELCOME_MAIL.id)) {
+      const fill = (s) => s.replace(/\{name:hikari\}/g, 'Hikari');
+      deliverMail(p, { id: WELCOME_MAIL.id, from: fill(WELCOME_MAIL.from), title: fill(WELCOME_MAIL.title), body: fill(WELCOME_MAIL.body), rewards: WELCOME_MAIL.rewards }, now);
+    }
+    window.__sakura.store.commit('mail');
+  }, NOW);
+  await go(page, '#/mail', 'mail');
+  const m = await mailLayout(page);
+  const ids = m.rows.map((r) => r.id);
+  check(ids.includes('mail-story-welcome-10pull') && ids.includes('mail-beta-thanks-2026'), `portrait mail: the long-titled letter and the bundle letter are on the list (${ids.join(', ')})`);
+  const under = m.rows.filter((r) => r.under || r.wide).map((r) => r.id);
+  check(under.length === 0, `portrait mail: every title wraps inside its column, clear of its row's expiry chip and Claim${under.length ? ` (${under.join(', ')})` : ''}`);
+  const out = m.rows.filter((r) => r.bundleOut).map((r) => r.id);
+  check(out.length === 0, `portrait mail: the material bundle's words stay inside the letter${out.length ? ` (${out.join(', ')})` : ''}`);
+  check(m.headClear, 'portrait mail: the plate title and Claim all keep apart (the button wraps under the title)');
+  await probePortrait(page, 'portrait mail unclaimed');
+  await shot(page, 'portrait-mail', vp);
+  // a letter read in full
+  await page.click('#app [data-testid="mail-story-welcome-10pull"] .mbx-read').catch(() => page.click('#app .mbx-letter .mbx-read'));
+  await settle(page, 300);
+  await probePortrait(page, 'portrait mail, a letter read');
+  await shot(page, 'portrait-mail-read', vp);
+  await page.click('#app [data-testid="tab-history"]');
+  await settle(page, 300);
+  await probePortrait(page, 'portrait mail history');
+  // the other list screens
+  for (const [hash, s, name] of [['#/mall?tab=general', 'mall', 'mall general'], ['#/mall?tab=boss', 'mall', 'mall boss'], ['#/rewards?tab=now', 'rewards', 'happening now'],
+    ['#/rewards?tab=free', 'rewards', 'free pulls'], ['#/settings', 'settings', 'settings']]) {
+    await go(page, hash, s);
+    await probePortrait(page, `portrait ${name}`);
+    await shot(page, `portrait-${name.replace(/\s+/g, '-')}`, vp);
+  }
+}
+
 for (const vp of viewports) {
   console.log(`\n=== ${vp} ===`);
   const { ctx, page, errors, touch } = await open(vp);
-  for (const step of [mailroom, mall, happening, freeDoors, settings, recruit, offSeason]) {
+  const [vw, vh] = vp.split('x').map(Number);
+  for (const step of vh > vw ? [portrait] : [mailroom, mall, happening, freeDoors, settings, recruit, offSeason]) {
     try {
       await step(page, vp, touch);
     } catch (e) {

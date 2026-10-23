@@ -925,24 +925,8 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
   clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
 }
 :is(.ui-day, .ui-night) .pf .pf-id .pf-ava { z-index: 4; }
-/* a phone held upright (the fallback when the rotate prompt is dismissed): the avatar in its 70 px column (at 104 px
-   it covered the name), the online-name button wrapping inside itself (whole, now that the panel no longer cuts it),
-   and the Showcase head with Edit inside its panel (it ran 37 px past it, half off the screen; the hint takes its own
-   line, the "Auto" chip goes as on landscape phones). These are M5's own rules (feature/ui-m5 5049d64, profile.css),
-   carried here until V2's merge brings them; remove them then. */
-@media (max-width: 700px) and (min-height: 481px) {
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava { width: 70px; height: 70px; margin-top: -30px; }
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-img { inset: 6px; }
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-ur { inset: 2px; }
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-ur .ur-ring { --ur-w: 4px; }
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-edit { width: 22px; height: 22px; padding: 4px; bottom: 2px; }
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-name { font-size: 1.5rem; }
-  :is(.ui-day, .ui-night) .pf .pf-id .pf-pick-name { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; border-radius: 12px; }
-  :is(.ui-day, .ui-night) .pf .pf-ph .pf-auto { display: none; }
-  :is(.ui-day, .ui-night) .pf .pf-show > .pf-ph { flex-wrap: wrap; row-gap: 4px; }
-  :is(.ui-day, .ui-night) .pf .pf-show > .pf-ph > .pf-hint { order: 1; flex-basis: 100%; margin-left: 0; white-space: normal; }
-  :is(.ui-day, .ui-night) .pf .pf-show > .pf-ph > .btn-small { margin-left: auto; }
-}
+/* (a phone held upright: M5's own profile.css rules (feature/ui-m5 5049d64) place the avatar, the online-name button
+   and the Showcase head; ink.css carried a copy until the V2 merge brought them) */
 /* the panel title: no gradient head, no yellow underline (Q8); a soft hairline under the italic title */
 :is(.ui-day, .ui-night) :is(.panel-title, .mb-card-title) { background: none; border-radius: 0; border-bottom: 1px solid var(--line-ink-soft); color: var(--ink); }
 :is(.ui-day, .ui-night) :is(.panel-title, .mb-card-title)::after { display: none; }

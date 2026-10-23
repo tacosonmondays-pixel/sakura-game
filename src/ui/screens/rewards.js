@@ -102,7 +102,7 @@ export function render(root, params = {}) {
  * drops, else the mode's glyph on ink. */
 function rowIcon(r) {
   if (r.event?.currency?.id) {
-    return h('span.hn-ico.ev', { 'aria-hidden': 'true', style: { background: r.event.theme?.night || '#241a46' } }, svgEl(itemIcon(r.event.currency.id), 'hn-ico-item'));
+    return h('span.hn-ico.ev', { 'aria-hidden': 'true', style: { background: r.event.theme?.night || '#241a46' } }, svgEl(itemIcon(r.event.currency.id, { px: 36 }), 'hn-ico-item'));
   }
   const paint = r.arena ? ARENA_ART[r.arena] : null;
   if (paint) return h('span.hn-ico.art', { 'aria-hidden': 'true' }, h('img', { src: lobbyArtUrl(paint), alt: '', loading: 'lazy', decoding: 'async', draggable: false }));
@@ -133,7 +133,7 @@ function freeSection() {
     ], { onMore: () => freeDetails(s, ssrRate), testid: 'free-strip', moreTestid: 'free-more' }),
     h('div.hn-rows.hn-chart', { role: 'list', 'aria-label': `Recruits every ${s.periodDays} days by source` },
       s.rows.map((r) => h('div.hn-row.hn-src', { role: 'listitem', title: r.note },
-        h('span.hn-ico', { 'aria-hidden': 'true' }, svgEl(r.tickets && !r.gems ? itemIcon('ticket_recruit') : uiIcon('gacha'), 'hn-ico-glyph')),
+        h('span.hn-ico', { 'aria-hidden': 'true' }, svgEl(r.tickets && !r.gems ? itemIcon('ticket_recruit', { px: 24 }) : uiIcon('gacha'), 'hn-ico-glyph')),
         h('div.hn-text', h('b.hn-src-name', r.source), h('div.hn-bar', h('i', { style: { width: `${Math.round((r.pulls / maxPulls) * 100)}%` } }))),
         h('span.num.hn-src-n', formatNumber(r.pulls))))));
 }

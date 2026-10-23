@@ -4,16 +4,19 @@
 // (a common Android), and portrait 390x844 (the M5b review found all three unprobed). On the six hosted screens
 // (Missions; Commissions on Daily, Weekly, Codes and its Login tab; Bounty; Total Assault; Titan Trials):
 //   1. the probe (e2e/probe.mjs) passes: text ≥ 12 / 13 px, ≤ 12 numbers, no "…" on a number, no sideways scroll,
-//      a content window ≥ 300 px, ≤ 1 yellow primary, taps ≥ 40 px (the shared top bar aside, §5.3 tabs 44 × 36)
+//      a content window ≥ 300 px, ≤ 1 yellow primary, taps ≥ 40 px (the shared top bar aside, §5.3 tabs 44 × 36);
+//      in portrait also its clip check (no words cut off or run under a neighbour)
 //   2. the host is the right girl, on the collapse rule (host.js): from 800 px of width her stand within 35%; under it
 //      (or a short content window) her bust chip at the start of a header row with NO host column, the list or grid
-//      taking the whole width; in portrait no host (the M5b rule) and a plate header shows its title again
+//      taking the whole width; in portrait no host (the M5b rule) and a plate header shows its title again, on one
+//      line, its words (their own line boxes, not the title's box) clear of every chip and button on its right
 //   3. her bubble holds one line of ≤ 34 characters and covers no tile, list row or panel content
 //   4. a tap on the bubble shows the next line; under Reduce motion the bubble does not animate (with motion: it pops)
 //   5. one [data-primary] at most, the yellow one, and it is in view (Prepare / Challenge / Fight stay in view)
 //   6. no title, line, label or rule is cut (an ellipsis or a clipping box) on the tiles, headers, footers and cards
 //   7. Sweep is the secondary button (§5.5: white glass), its disabled state --sky-1 with a lock and one reason line,
-//      never opacity; reward counts and gated drop labels never run into a neighbour
+//      never opacity; reward counts and gated drop labels never run into a neighbour, nor a boss card's words under
+//      its lock or medals
 // Achievements (§6.5): no host; Ready first; Done collapsed; ≤ 12 + 2 visible numbers counted the audit's way;
 // no "1/1" or "×1" and no bar on a ready row; ONE count (rows ready) in the Ready header, Claim all's pill and the
 // category sheet, in every category; Claim all claims the picked category only and is gone where nothing is ready; the
@@ -233,6 +236,32 @@ const collisions = (page) => page.evaluate(() => {
   return out.slice(0, 6);
 });
 
+/**
+ * Total Assault's boss cards: the words of a card (its name, its requirement or HP; their line boxes less a quarter of
+ * the font size of air above and below, as the probe's clip check) that run under the card's lock or medal pill.
+ */
+const cardMarks = (page) => page.evaluate(() => {
+  const range = document.createRange();
+  const out = [];
+  for (const c of document.querySelectorAll('#app .ma-boss-card')) {
+    const marks = [...c.querySelectorAll('.ma-boss-card-lock, .ma-boss-card-medals')].filter((x) => x.getClientRects().length).map((x) => [x, x.getBoundingClientRect()]);
+    if (!marks.length) continue;
+    const walker = document.createTreeWalker(c.querySelector('.ma-boss-card-text') || c, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!/\S/.test(n.nodeValue)) continue;
+      const air = 0.25 * (parseFloat(getComputedStyle(n.parentElement).fontSize) || 12);
+      range.selectNodeContents(n);
+      for (const l of range.getClientRects()) {
+        for (const [x, r] of marks) {
+          const a = Math.max(0, Math.min(l.right, r.right) - Math.max(l.left, r.left)) * Math.max(0, Math.min(l.bottom - air, r.bottom) - Math.max(l.top + air, r.top));
+          if (a > 0.5) out.push(`"${n.nodeValue.trim()}" under ${String(x.getAttribute('class')).split(' ')[0]} (${Math.round(a)} px²)`);
+        }
+      }
+    }
+  }
+  return [...new Set(out)];
+});
+
 /** The Sweep buttons: secondary (white glass), and when disabled: --sky-1, opaque, a lock and one reason line. */
 const sweeps = (page) => page.evaluate(() => [...document.querySelectorAll('#app [data-testid$="-sweep"]')].filter((e) => e.getClientRects().length).map((e) => {
   const cs = getComputedStyle(e);
@@ -243,6 +272,39 @@ const sweeps = (page) => page.evaluate(() => [...document.querySelectorAll('#app
   };
 }));
 
+/**
+ * Each shown plate title, measured on its words: `words` the x range of its text, `lines` its line boxes (one per
+ * distinct line), `under` each item of the header's right side (a child of .ui-plate-right: the balance, a chip, a
+ * button) that a line of its words overlaps (with the px² of the overlap), `past` a line reaching past the header.
+ */
+const plateTitles = (page) => page.evaluate(() => {
+  const range = document.createRange();
+  return [...document.querySelectorAll('#app .ui-plate-head .ui-plate-title')].filter((e) => e.getClientRects().length).map((e) => {
+    range.selectNodeContents(e);
+    const rects = [...range.getClientRects()].filter((l) => l.width > 0.5 && l.height > 0.5);
+    const lines = [];
+    for (const l of rects) {
+      // (the span and its text give a rect each per line: one line per distinct row)
+      const row = lines.find((x) => Math.min(x.bottom, l.bottom) - Math.max(x.top, l.top) > Math.min(x.bottom - x.top, l.bottom - l.top) / 2);
+      if (row) Object.assign(row, { left: Math.min(row.left, l.left), right: Math.max(row.right, l.right), top: Math.min(row.top, l.top), bottom: Math.max(row.bottom, l.bottom) });
+      else lines.push({ left: l.left, right: l.right, top: l.top, bottom: l.bottom });
+    }
+    const head = e.parentElement.getBoundingClientRect();
+    const items = [...(e.parentElement.querySelector('.ui-plate-right')?.children || [])].filter((k) => k.getClientRects().length);
+    const under = [];
+    for (const k of items) {
+      const kr = k.getBoundingClientRect();
+      const area = lines.reduce((a, l) => a + Math.max(0, Math.min(l.right, kr.right) - Math.max(l.left, kr.left)) * Math.max(0, Math.min(l.bottom, kr.bottom) - Math.max(l.top, kr.top)), 0);
+      if (area > 0.5) under.push(`${String(k.className).split(' ')[0] || k.tagName.toLowerCase()} ${Math.round(area)} px²`);
+    }
+    return {
+      text: e.innerText.trim(), w: e.getBoundingClientRect().width, lines: lines.length,
+      words: lines.length ? [Math.round(Math.min(...lines.map((l) => l.left))), Math.round(Math.max(...lines.map((l) => l.right)))] : [],
+      under, past: lines.some((l) => l.right > head.right + 0.5 || l.left < head.left - 0.5),
+    };
+  });
+});
+
 async function hostedScreen(page, s, vp, save) {
   await go(page, s.hash, s.screen);
   const [W, H] = vp.split('x').map(Number);
@@ -250,7 +312,8 @@ async function hostedScreen(page, s, vp, save) {
   const r = await probe(page, { kind: 'hub', list: s.list, tapSkip: '.topbar' });
   const h1 = await hostInfo(page, s);
   const chip = h1?.mode === 'chip';
-  const fails = judge(r, { skip: chip || portrait ? ['host', 'bubble'] : ['bubble'] });
+  // (portrait also judges the probe's clip check: words cut off, or run under a neighbour, as on the list screens)
+  const fails = judge(r, { skip: chip || portrait ? ['host', 'bubble'] : ['bubble'], also: portrait ? ['clip'] : [] });
   check(fails.length === 0, `${s.name}: probe ${summary(r)}${fails.length ? ` → ${fails.join(' | ')}` : ''}`);
   if (!check(!!h1, `${s.name}: a host girl is on the screen`)) return;
   const want = await expectedHost(page, s);
@@ -261,6 +324,10 @@ async function hostedScreen(page, s, vp, save) {
   check(cut.length === 0, `${s.name}: no word cut short on its tiles, headers, footers or cards${cut.length ? ` (${cut.slice(0, 4).join(' | ')})` : ''}`);
   const col = await collisions(page);
   check(col.length === 0, `${s.name}: no count or drop label runs into a neighbour${col.length ? ` (${col.join(' | ')})` : ''}`);
+  if (s.name === 'assault') {
+    const marks = await cardMarks(page);
+    check(marks.length === 0, `assault: no boss card's name or line runs under its lock or medals${marks.length ? ` (${marks.slice(0, 4).join(' | ')})` : ''}`);
+  }
   const sw = await sweeps(page);
   for (const x of sw) {
     check(x.secondary && x.opacity === 1, `${s.name}: ${x.id} is the secondary button, never faded (opacity ${x.opacity})`);
@@ -270,15 +337,13 @@ async function hostedScreen(page, s, vp, save) {
   check(pr.length <= 1 && pr.every((p) => p.yellow), `${s.name}: one [data-primary], the yellow one (${pr.map((p) => p.text).join(' | ') || 'none here'})`);
   check(pr.every((p) => p.inView), `${s.name}: the primary is in view without scrolling${pr.some((p) => !p.inView) ? ` (${pr.map((p) => p.text).join(' | ')})` : ''}`);
   if (portrait) {
-    // portrait: no host (the M5b rule); a plate header that would hold her shows its title on one line
-    const pt = await page.evaluate(() => [...document.querySelectorAll('#app .ui-plate-head .ui-plate-title')].filter((e) => e.getClientRects().length).map((e) => {
-      const t = e.getBoundingClientRect();
-      const right = e.parentElement.querySelector('.ui-plate-right')?.getBoundingClientRect();
-      const lh = parseFloat(getComputedStyle(e).lineHeight) || 20;
-      return { text: e.textContent, w: t.width, lines: Math.round(t.height / lh), clear: !right || right.left >= t.right - 0.5 || right.top >= t.bottom - 0.5 };
-    }));
+    // portrait: no host (the M5b rule); a plate header that would hold her shows its title on one line, clear of
+    // everything on its right. Measured on the title's words themselves (Range.getClientRects: the text's line boxes),
+    // never the h3's box: flex can shrink the h3 under its words, which then run on past it, under the balance chip
+    // (Bounty's "Location Sele|ct" at 390x844, the final M5 review)
+    const pt = await plateTitles(page);
     check(!h1.shown, `${s.name}: portrait: no host on the hub (the M5b rule)`);
-    check(pt.every((t) => t.w > 1 && t.lines === 1 && t.clear), `${s.name}: portrait: the plate title shows on one line, clear of its chips (${pt.map((t) => `"${t.text}" ${t.lines} line`).join(', ') || 'no plate'})`);
+    check(pt.every((t) => t.w > 1 && t.lines === 1 && !t.under.length && !t.past), `${s.name}: portrait: the plate title shows on one line, its words clear of every chip and button on its right (${pt.map((t) => `"${t.text}" ${t.lines} line, words ${t.words.join('-')}${t.under.length ? `, under ${t.under.join(', ')}` : ''}${t.past ? ', past the header' : ''}`).join('; ') || 'no plate'})`);
     if (shots) await page.screenshot({ path: join(shots, `${s.name}-${save}-${vp}.png`) });
     return;
   }

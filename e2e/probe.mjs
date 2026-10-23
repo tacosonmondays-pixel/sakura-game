@@ -15,6 +15,14 @@
 //                   clips or ends in "…" on the way is left to the ellipsis check (UI M5d review)
 //   - overlaps      pairs of elements that must stay apart (opts.apart: [selectorA, selectorB] pairs, both shown)
 //                   and overlap (0): e.g. the lobby secretary's speech bubble and the tray
+//   - clipped       lines of text cut off by a box on the way up (overflow hidden or clip) without a "…" (the
+//                   ellipsis check) or a deliberate fade (a mask: the Mailroom's one-line preview, P6), and lines that
+//                   run past their own block under an element that is neither around them nor inside them (a title
+//                   under its row's Claim, or under a chip with words in it) (0). Opt-in: judged when asked for (judge
+//                   `only` or `also`). UI M5 merge review: the Mailroom and Profile at 390x844, where spill (which
+//                   skips clipped text) saw nothing; the final M5 review: Bounty's plate title under its token chip
+// The item tile's small "x" (`.item-count > small`) is M3's glyph at M3's own 12 px floor (base.css "Items", owner
+// #108): it is left out of the text floor; the count's digits are judged like any text.
 // Nothing here changes the page.
 //
 // [ui-ink] v2 mode (UI v2 "Ink & Paper", notes/ui-v2/UI_V2_DIRECTION.md rules 3, 6-8, 10 and S5), with `v2: true`:
@@ -42,6 +50,7 @@
 //   const r = await probe(page, { kind: 'hub', list: '.ma-hub-grid' });
 //   const fails = judge(r);   // [] when the screen passes
 //   judge(r, { only: ['spill', 'apart'] })   // just those checks
+//   judge(r, { also: ['clip'] })   // every default check, and the opt-in clip check
 //   judge(await probe(page, { v2: true }), { v2: true })   // the v2 budgets as well
 
 /** Repeated collections (P3: budgeted per tile or row, not per screen). */
@@ -135,6 +144,71 @@ function probeInPage(o) {
     }
     return null;
   };
+  const clipped = [];
+  const isInline = (cs) => cs.display.startsWith('inline') || cs.display === 'contents';
+  /**
+   * How a box on the way up treats this text: 'cut' (the box that clips a line, a line clipped), 'ok' (ended by "…",
+   * faded by a mask or visually hidden: left alone), or null (nothing clips it). A scroller's own axis is left out.
+   */
+  const clipOf = (el, lines0) => {
+    let lines = lines0;
+    let sx = false;
+    let sy = false;
+    // (a line's box is the font's whole content area, taller than its ink: a tight line-height clips only that air, so
+    // up and down a quarter of the font size is allowed)
+    const airY = 0.25 * (parseFloat(getComputedStyle(el).fontSize) || 12);
+    for (let a = el; a && a !== document.documentElement; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.textOverflow === 'ellipsis' || (cs.webkitLineClamp && cs.webkitLineClamp !== 'none')) return { kind: 'ok' };
+      if ((cs.maskImage && cs.maskImage !== 'none') || (cs.webkitMaskImage && cs.webkitMaskImage !== 'none')) return { kind: 'ok' };
+      const ar = a.getBoundingClientRect();
+      if (ar.width <= 2 || ar.height <= 2 || (cs.clip && cs.clip !== 'auto')) return { kind: 'ok' }; // a visually hidden label
+      const cx = !sx && (cs.overflowX === 'hidden' || cs.overflowX === 'clip');
+      const cy = !sy && (cs.overflowY === 'hidden' || cs.overflowY === 'clip');
+      if (cs.overflowX === 'auto' || cs.overflowX === 'scroll') sx = true;
+      if (cs.overflowY === 'auto' || cs.overflowY === 'scroll') sy = true;
+      if (!cx && !cy) continue;
+      // (a line wholly outside the box is hidden on purpose, not cut: a carousel's next slide, a folded panel; it is
+      // out of the count from here up)
+      lines = lines.filter((l) => Math.min(l.right, ar.right) - Math.max(l.left, ar.left) > 0.5 && Math.min(l.bottom, ar.bottom) - Math.max(l.top, ar.top) > 0.5);
+      if (!lines.length) return { kind: 'ok' };
+      for (const l of lines) {
+        const over = Math.max(cx ? Math.max(l.right - ar.right, ar.left - l.left) : 0, cy ? Math.max(l.bottom - ar.bottom, ar.top - l.top) - airY : 0);
+        if (over > 1.5) return { kind: 'cut', box: a, over };
+      }
+    }
+    return null;
+  };
+  /**
+   * What can hide words or be hidden by them: a control, a picture, or an element with words, its own or inside it (a
+   * chip whose picture is aria-hidden and whose number is a child: Bounty's token balance, which the title's words ran
+   * under at 390x844 while this check, finding only the hidden coin there, saw nothing; the final M5 review).
+   */
+  const solid = (e) => e.matches('button, a[href], [role="button"], input, select, textarea, img, svg, canvas')
+    || /\S/.test(e.textContent || '');
+  /**
+   * A line past its own block (the element that lays it out), under or over a solid element neither around it nor in
+   * it. The part past the block is looked at in four places along it (a short run can end before a chip's middle).
+   */
+  const coverOf = (el, lines) => {
+    let block = el;
+    while (block && block !== root && isInline(getComputedStyle(block))) block = block.parentElement;
+    if (!block) return null;
+    const b = block.getBoundingClientRect();
+    for (const l of lines) {
+      for (const [x0, x1] of [[b.right, l.right], [l.left, b.left]]) {
+        if (x1 - x0 <= 1.5) continue;
+        const y = (l.top + l.bottom) / 2;
+        for (const x of [x0 + (x1 - x0) * 0.2, (x0 + x1) / 2, x0 + (x1 - x0) * 0.8, x1 - 0.75]) {
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const other = document.elementsFromPoint(x, y).find((e) => e !== el && !el.contains(e) && !e.contains(el)
+            && e !== document.body && e !== document.documentElement && !deco(e) && !skipped(e) && solid(e));
+          if (other) return { over: x1 - x0, other };
+        }
+      }
+    }
+    return null;
+  };
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     if (!/\S/.test(n.nodeValue)) continue;
     const el = n.parentElement;
@@ -143,8 +217,19 @@ function probeInPage(o) {
     const r = range.getBoundingClientRect();
     if (!inView(r) || !shown(el)) continue;
     const fs = parseFloat(getComputedStyle(el).fontSize) || 0;
-    if (fs < minText) minText = fs;
-    if (fs < floor) small.push(`${fs}px ${label(el)} "${clip(n.nodeValue)}"`);
+    // (M3's small "x" on an item tile keeps M3's own 12 px floor: see the header)
+    if (!el.matches('.item-count > small')) {
+      if (fs < minText) minText = fs;
+      if (fs < floor) small.push(`${fs}px ${label(el)} "${clip(n.nodeValue)}"`);
+    }
+    // cut off by a box on the way up, or run under a neighbour (the opt-in clip check)
+    const lines = [...range.getClientRects()].filter((l) => l.width > 0.5 && l.height > 0.5);
+    const cut = clipOf(el, lines);
+    if (cut?.kind === 'cut') clipped.push(`${Math.round(cut.over * 10) / 10}px ${label(el)} "${clip(n.nodeValue)}" cut by ${label(cut.box)}`);
+    else if (!cut) {
+      const cov = coverOf(el, lines);
+      if (cov) clipped.push(`${Math.round(cov.over * 10) / 10}px ${label(el)} "${clip(n.nodeValue)}" runs under ${label(cov.other)}`);
+    }
     if (/\d/.test(n.nodeValue)) {
       const tile = el.closest(o.repeat);
       if (tile) tileNums.set(tile, (tileNums.get(tile) || new Set()).add(el));
@@ -280,6 +365,8 @@ function probeInPage(o) {
     spills: spills.slice(0, 20),
     spillCount: spills.length,
     overlaps,
+    clipped: clipped.slice(0, 20),
+    clipCount: clipped.length,
   };
 
   // ---- [ui-ink] the v2 mode (see the header). Nested: page.evaluate() ships only probeInPage's own source ----------
@@ -578,16 +665,20 @@ export const LIMITS = Object.freeze({ numbers: 12, content: 300, yellow: 1, host
 /** [ui-ink] The v2 budgets (UI_V2_DIRECTION.md rules 3, 7, 8 and S5): the top bar counts; a tap is 44 px. */
 export const LIMITS_V2 = Object.freeze({ numbers: 10, yellow: 1, tap: 44 });
 
+/** Checks judged only when asked for by name (`only` or `also`). */
+export const OPT_IN = Object.freeze(['clip']);
+
 /**
  * The failed checks of one probe result, as short strings ([] = pass).
  * @param {ReturnType<typeof probeInPage>} r
- * @param {{ skip?: string[], only?: string[]|null, v2?: boolean }} [o] skip: checks not judged on this screen ('numbers',
- *   'taps', ...); only: judge just these checks; v2: also the v2 checks ('v2numbers', 'v2yellow', 'pink', 'radius',
- *   'covered', 'v2taps', 'heads', 'clipped'; the result needs probe(..., { v2: true }))
+ * @param {{ skip?: string[], only?: string[]|null, also?: string[], v2?: boolean }} [o] skip: checks not judged on this
+ *   screen ('numbers', 'taps', ...); only: judge just these checks; also: opt-in checks judged with the default ones
+ *   ('clip'); v2: also the v2 checks ('v2numbers', 'v2yellow', 'pink', 'radius', 'covered', 'v2taps', 'heads',
+ *   'clipped'; the result needs probe(..., { v2: true }))
  */
-export function judge(r, { skip = [], only = null, v2 = false } = {}) {
+export function judge(r, { skip = [], only = null, also = [], v2 = false } = {}) {
   const fails = [];
-  const on = (k) => !skip.includes(k) && (!only || only.includes(k));
+  const on = (k) => !skip.includes(k) && (only ? only.includes(k) : !OPT_IN.includes(k) || also.includes(k));
   if (v2 && r.v2) {
     const x = r.v2;
     if (on('v2numbers') && x.numbersAll > LIMITS_V2.numbers) fails.push(`v2 numbers ${x.numbersAll} > ${LIMITS_V2.numbers} (top bar counted)`);
@@ -611,6 +702,7 @@ export function judge(r, { skip = [], only = null, v2 = false } = {}) {
   if (on('taps') && r.smallTapCount) fails.push(`${r.smallTapCount} taps under 40 px (${r.smallTaps.slice(0, 3).join('; ')})`);
   if (on('spill') && r.spillCount) fails.push(`${r.spillCount} text past its box (${r.spills.slice(0, 3).join('; ')})`);
   if (on('apart') && r.overlaps?.length) fails.push(`overlap: ${r.overlaps.slice(0, 3).join('; ')}`);
+  if (on('clip') && r.clipCount) fails.push(`${r.clipCount} text cut off or under a neighbour (${r.clipped.slice(0, 3).join('; ')})`);
   return fails;
 }
 
@@ -626,6 +718,7 @@ export function summary(r) {
     `yellow ${r.yellow.length}`,
     `taps<40 ${r.smallTapCount}`,
     `spills ${r.spillCount ?? '–'}`,
+    `clipped ${r.clipCount ?? '–'}`,
     ...(r.overlaps?.length ? [`overlaps ${r.overlaps.length}`] : []),
     ...(r.v2 ? [summaryV2(r.v2)] : []),
   ].join(' · ');

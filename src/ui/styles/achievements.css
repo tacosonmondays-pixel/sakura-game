@@ -89,7 +89,7 @@
 /* one reward: its icon, its amount (above 1 only), ghost cards behind it when there is more (the stack hint) */
 .ach-rwd { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; isolation: isolate; }
 .ach-rimg { position: relative; display: grid; place-items: center; width: 36px; height: 36px; flex: none; }
-.ach-rimg > .item-tile { width: 36px !important; padding: 3px; border-radius: 8px; pointer-events: none; }
+.ach-rimg > .item-tile { width: 36px !important; pointer-events: none; }
 .ach-rimg.title { border-radius: 8px; background: #fbf9ff; box-shadow: inset 0 0 0 2px #e6dcff; color: #6741d9; }
 .ach-rimg-ico { width: 20px; height: 20px; display: inline-flex; }
 .ach-rimg.stacked::before, .ach-rimg.stacked::after { content: ''; position: absolute; width: 30px; height: 30px; border-radius: 7px; background: #fff; border: 1.5px solid #b9c6d8; z-index: -1; }
@@ -248,7 +248,9 @@
 .ach-newrib.more { justify-content: center; font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--muted); }
 .ach-newtitle { display: inline-flex; align-items: center; gap: 6px; }
 .ach-strip-row.rewards .item-tile-name { max-width: 70px; font-size: var(--fs-label); }
-.ach-modal .item-count { font-size: var(--fs-label); }
+/* (M3's item tile, untouched: 62 px wherever the text floor is 13 px, so its count reads at M3's 13 px) */
+.ach-modal .ach-strip-row.rewards .item-tile { width: 62px !important; }
+@media (max-height: 480px) { .ach-modal .ach-strip-row.rewards .item-tile { width: 56px !important; } }
 .ach-gear-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .ach-titleinfo { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .ach-titleinfo .tp { font-size: 1rem; }

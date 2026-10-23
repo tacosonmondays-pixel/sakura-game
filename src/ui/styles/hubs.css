@@ -417,6 +417,9 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 @media (max-height: 480px) {
   body:has(.toast-host.has-ach) .lb-bubble.show { opacity: 0; transform: translateY(6px) scale(0.96); }
 }
+/* any screen: while Hikari's journal pill is up the toasts sit under it (journal.css), low enough to reach her bubble
+   at 1280×720 (the achievements e2e, test 10, once its tap reached her again): the bubble steps aside then too */
+body:has(.jn-toast:not(.out)):has(.toast-host.has-ach) .lb-bubble.show { opacity: 0; transform: translateY(6px) scale(0.96); }
 @media (min-width: 1000px) and (min-height: 600px) { .lb-art-girl { height: 142%; left: 54%; } }
 @media (prefers-reduced-motion: reduce) { .lb-art-layer.scene .lb-art-scene, .lb-art-girl { animation: none; } .lb-art { transition: none; } }
 
@@ -546,9 +549,16 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ui-plate-head.has-host > .ui-plate-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .ui-plate-head.has-host > .ui-plate-right { margin-left: auto; }
 @media (max-aspect-ratio: 1/1) {
-  /* portrait: no host on the hubs (the M5b rule); a plate header shows its title again */
+  /* portrait: no host on the hubs (the M5b rule); a plate header shows its title again, whole: the title keeps the
+     width of its words (never flex-shrunk under them) and the right side (Bounty's balance, the week and Shop) wraps
+     under it, to the right, when both do not fit one row: the list screens' rule (the final M5 review: "Location
+     Select" ran under Bounty's token chip at 390x844; Commissions' "Daily" ran under its reset chip at 360 px) */
   .has-host > .ui-host, .ma-hub-hostrow { display: none; }
-  .ui-plate-head.has-host > .ui-plate-title { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: nowrap; }
+  .ui-plate-head.has-host { padding-top: 6px; padding-bottom: 6px; }
+  .ui-plate-head.has-host > .ui-plate-title {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal;
+    flex: 1 0 auto; max-width: 100%;
+  }
 }
 
 /* ---------- Missions: the secretary hosts; the tiles keep the right ---------- */
@@ -664,21 +674,30 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .cm-login .cm-calendar .ma-cal-num { background: var(--plate); color: var(--on-plate); }
 .cm-login .cm-calendar .ma-cal-day.big .ma-cal-num { background: var(--pink); color: var(--plate); }
 .cm-login .cm-calendar .ma-cal-day.claimed > .reward-row { opacity: 0.35; filter: grayscale(0.6); }
-.cm-login .cm-calendar .ma-cal-day .item-tile { width: 46px !important; }
-.cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 52px !important; }
 .cm-login .cm-calendar .ma-cal-day .reward-row { gap: 10px; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .cm-login .cm-calendar { gap: 12px; padding: var(--sp-4); }
   .cm-login .cm-calendar .ma-cal-day { min-height: 150px; justify-content: center; gap: 10px; }
-  .cm-login .cm-calendar .ma-cal-day .item-tile { width: 60px !important; }
-  .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 68px !important; }
   .cm-login .cm-calendar .ma-cal-day .reward-row { gap: 16px; }
 }
-/* a reward's count sits under its tile ("×3,000", "×10k"): it never reaches into the next tile (the M5b review) */
+/* the rewards on M3's item tile, each count in its tile's corner (fmtItemCount "x3000", like every tile in the game:
+   UI_DIRECTION §5.7, owner #108). Only the tile's width is set here: 62 px wherever the text floor is 13 px (M3's
+   count is 13 px on a 62 px tile and 12 px on smaller ones), the M3 sizes on landscape phones (floor 12). */
 .cm-list .ma-mission-rewards .reward-row { gap: 8px; }
 .cm-rwds { align-items: flex-start; }
-.cm-rwd { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
-.cm-rwd-n { font: 700 var(--fs-label)/1 var(--font-num); color: var(--ink); letter-spacing: 0.01em; }
+.cm-rwd { display: flex; min-width: 0; }
+.cm-list .ma-mission-rewards .item-tile { width: 62px !important; }
+.cm-login .cm-calendar .ma-cal-day .item-tile { width: 62px !important; }
+.cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 68px !important; }
+@media (max-height: 480px) {
+  .cm-list .ma-mission-rewards .item-tile { width: 46px !important; }
+  .cm-login .cm-calendar .ma-cal-day .item-tile { width: 46px !important; }
+  .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 52px !important; }
+}
+/* portrait: two days a row (two 62 px tiles a day), day 7 across */
+@media (max-width: 560px) {
+  .cm-login .cm-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 /* the "complete!" stamp on a claimed day: a cute ink-pink rubber stamp, tilted, over the dimmed gifts */
 .cm-stamp {
   position: absolute; left: 50%; top: 58%; z-index: 2; pointer-events: none;
@@ -724,6 +743,14 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ma-assault-screen .ma-boss-cards { flex: none; margin: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
 .ma-assault-screen .ma-boss-card { min-height: 64px; }
 .ma-assault-screen .ma-boss-card-text { justify-content: center; }
+/* a locked boss's name keeps clear of the card's lock (meta-a.css: 18 px, 12 px in from the right, 10 px down): its
+   words wrap around the lock's corner, and a word too long to fit beside it starts under it (390x844: "Grave Lych" ran
+   under the lock; found with the final M5 fixes). The corner is the lock's reach into the text: across, 30 px less the
+   text's right padding plus 4 px of air (so a name that fitted beside the lock still does); down, 28 px less the text's
+   top padding (the text's padding is 10 16 / 8 10 / 7 12 px by size) */
+.ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { content: ''; float: right; width: 18px; height: 18px; }
+@media (max-width: 560px) { .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { width: 24px; height: 20px; } }
+@media (max-height: 480px) { .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { width: 22px; height: 21px; } }
 .ma-assault-screen .ma-boss-detail { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--sp-3); }
 .ma-assault-screen .as-layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--sp-3); align-items: stretch; min-height: 100%; }
 .ma-assault-screen .ma-boss-show { position: relative; top: auto; height: auto; min-height: 200px; }
@@ -814,12 +841,15 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .ls-panel.bare > .ls-list { padding: 0 4px 12px 0; }
 /* her stand: the right column, bleeding off the right edge and down to the bottom */
 .ls > .ui-host[data-mode="stand"] { position: absolute; right: calc(-1 * (var(--gutter) + var(--safe-right))); top: -8px; bottom: 0; height: auto; z-index: 0; }
-/* item counts on these screens read at the floor (the tile is M3's: only its count's size, here) */
-.ls-screen .item-count { font-size: var(--fs-label); }
 @media (max-width: 560px) {
   /* narrow portrait screens: the rail keeps its icons (each tab's word is in its aria-label) */
   .ls-screen { --ls-rail-w: 60px; }
   .ls-rail .ui-stab-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* the plate header: the title keeps its words; the right side (Claim all, a chip) wraps under it, to the right
+     (the list screens, and the Multiplayer hub's Co-op card) */
+  .ls-panel > .ui-plate-head, .mp-coop > .ui-plate-head { flex-wrap: wrap; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+  .ls-panel > .ui-plate-head > .ui-plate-title, .mp-coop > .ui-plate-head > .ui-plate-title { flex: 1 0 auto; max-width: 100%; }
+  .ls-panel > .ui-plate-head > .ui-plate-right, .mp-coop > .ui-plate-head > .ui-plate-right { margin-left: auto; }
 }
 @media (max-aspect-ratio: 1/1) {
   .ls { grid-template-columns: var(--ls-rail-w) minmax(0, 1fr); }
@@ -860,10 +890,11 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .mbx-from[hidden] { display: none; }
 .mbx-screen .mbx-rewards { gap: 8px; }
 .mbx-screen .mbx-rewards .item-tile { width: 48px !important; }
-/* (a reward's tile wide enough for its count at the floor, "×3,000", inside its border: the probe's spill check, UI
-   M5d review; the bundle's small icons keep their size) */
-.mbx-screen .mbx-rewards > .item-tile { width: 56px !important; }
-.mbx-screen .mbx-bundle { min-height: 48px; padding: 4px 12px 4px 6px; }
+/* (the gifts on M3's item tile, untouched: only its width. 62 px wherever the text floor is 13 px, so its count reads
+   at M3's 13 px; 52 px on landscape phones, floor 12. The bundle's small icons keep their size) */
+.mbx-screen .mbx-rewards > .item-tile { width: 62px !important; }
+.mbx-screen .mbx-bundle { min-height: 48px; max-width: 100%; padding: 4px 12px 4px 6px; }
+.mbx-screen .mbx-bundle > span { min-width: 0; }
 .mbx-screen .mbx-bundle b { font-size: var(--fs-label); }
 .mbx-screen .mbx-bundle small { font-size: var(--fs-label); font-weight: 700; color: var(--muted); }
 .mbx-letter-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); min-width: 84px; }
@@ -883,6 +914,24 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   .mbx-crest { width: 40px; height: 40px; }
   .mbx-screen .mbx-rewards .item-tile { width: 46px !important; }
   .mbx-screen .mbx-rewards > .item-tile { width: 52px !important; }
+}
+/* a narrow phone held upright: the crest and the title on top (the title wraps beside the crest, never under a
+   button), the gifts under the title, then the expiry chip and Claim on their own line, to the right. The bundle's
+   words wrap under its icons */
+@media (max-width: 480px) {
+  .mbx-screen .mbx-letter {
+    grid-template-columns: 40px minmax(0, 1fr); grid-template-areas: 'crest read' '. gifts' 'side side';
+    gap: 6px 8px; padding: 8px 10px;
+  }
+  .mbx-crest { grid-area: crest; width: 40px; height: 40px; }
+  .mbx-screen .mbx-letter-main { display: contents; }
+  .mbx-screen .mbx-read { grid-area: read; min-width: 0; margin: 0; }
+  .mbx-screen .mbx-title { overflow-wrap: break-word; }
+  .mbx-screen .mbx-letter-main > .mbx-rewards { grid-area: gifts; min-width: 0; }
+  .mbx-screen .mbx-bundle { flex-wrap: wrap; row-gap: 4px; }
+  .mbx-screen .mbx-bundle > span { margin-left: 4px; }
+  .mbx-letter-side { grid-area: side; flex-direction: row; align-items: center; justify-content: flex-end; min-width: 0; }
+  .mbx-tag { padding-top: 0; }
 }
 
 /* ---------- The Mall: Midori, the shop-counter tint, six shops in the rail, every buy a cost button ---------- */
@@ -964,6 +1013,10 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 @media (max-height: 480px) {
   .hn-row { grid-template-columns: 44px minmax(0, 1fr) auto; min-height: 56px; padding: 6px 8px; }
   .hn-ico { width: 44px; height: 44px; }
+}
+/* portrait: the strip's cells a little narrower in their padding, so "RECRUITS" stays inside its cell */
+@media (max-width: 480px) {
+  .hn-free .ui-strip > .ui-cell { padding: 0 var(--sp-2); }
 }
 
 /* ---------- Settings: five sections in the rail over one scrolling column (no host); descriptions behind "i" ---------- */
