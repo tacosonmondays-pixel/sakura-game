@@ -1370,7 +1370,9 @@ export function buildChibi(unitDef, { quality = 'high', pose = 'idle', detail, s
    // group.userData.animate(time, dt, state) state: 'idle'|'attack'|'cheer'|'disabled'
    // group.userData.playAttack()  short attack animation
    // group.userData.setHighlight(bool)  selected look: her own colours a little brighter + a soft light rim (models/highlight.js)
-export function buildEnemy(enemyDef, { quality }) // -> THREE.Group, feet at y=0, faces +z, height ≈ 0.6*size
+export function buildEnemy(enemyDef, { quality }) // -> THREE.Group, feet at y=0, faces +z, height ≈ 0.6*size*displayScale(def)
+   // display only (src/models/enemyDisplay.js): drawn bigger per family and tier; userData.height follows,
+   // userData.barHeight = the drawn top of the body (the HP bar goes above it); the sim's size is untouched
    // userData.animate(time, dt, { moving, speed }) ; userData.hitFlash() ; userData.setVeiled(bool)
    // userData.setBarrier(frac|0) ; userData.setPhasing(bool) ; userData.setStatus(statusMap)
 export function makeSilhouette(group) // in-place: all materials → flat black (bestiary locked state)

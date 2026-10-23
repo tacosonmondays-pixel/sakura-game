@@ -32,11 +32,12 @@ def biped_props(height=1.0, head=0.27, bulk=1.0, hunch=0.0, legs=0.2, arms=1.0):
 
 
 def biped(ctx, P_, skin=(1, 1, 1), skin_role='main', cloth=None, cloth_role='accent', hands=True, feet=True, head_shape=P.head_shape,
-          levels=2, head_levels=2, face_box=None, face_window=0.2, shoes=None, torso_shape=None, hand_color=None):
-    """Builds the body parts into ctx and returns the prop anchors."""
+          levels=2, head_levels=2, face_box=None, face_window=0.2, shoes=None, torso_shape=None, hand_color=None, face_tilt=0.0):
+    """Builds the body parts into ctx and returns the prop anchors. face_tilt: degrees the face window
+    turns up toward the 48 deg battle camera (parts.face_uvs)."""
     hc, hr = P_['head_c'], P_['head_r']
     parts = []
-    head = P.head('head', hc, hr, skin, skin_role, 'head', levels=head_levels, shape=head_shape, face_box=face_box, window=face_window, group='head')
+    head = P.head('head', hc, hr, skin, skin_role, 'head', levels=head_levels, shape=head_shape, face_box=face_box, window=face_window, tilt=face_tilt, group='head')
     parts.append(head)
     tc, tr = P_['torso_c'], P_['torso_r']
     torso = P.blob('torso', tc, tr, skin, skin_role, None, levels=levels, shape=torso_shape, group='torso')

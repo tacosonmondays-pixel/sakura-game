@@ -12,6 +12,14 @@ rig, animation and GLB helpers (tools/blender/lib). Output:
                                        vis: base | prop:<name> | var:<variant>
                                        material: body (tinted vertex colours + face atlas) | glow (unlit)
   public/models/enemies/manifest.json  { family: { file, size, vertices, animations, props, variants, height, unitScale } }
+
+It also runs inside Blender 5.x itself (background, no GPU), with Pillow for Blender's own Python on a
+path given by SAKURA_PYLIBS:
+
+    blender -b --factory-startup --python tools/blender/enemies/build_enemies.py -- goblin [--data enemies.json]
+
+The display rules of the monsters (size per family and tier, palette lift, outline, clean cel) are not in
+the files: they live in src/models/enemyDisplay.js and glbEnemy.js, so every family gets them at once.
 """
 import argparse
 import json
@@ -28,6 +36,8 @@ TOOLS = os.path.abspath(os.path.join(HERE, '..'))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 sys.path.insert(0, HERE)
 sys.path.insert(0, TOOLS)
+if os.environ.get('SAKURA_PYLIBS'):
+    sys.path.insert(0, os.environ['SAKURA_PYLIBS'])  # Pillow for blender.exe's own Python
 
 import bpy  # noqa: E402
 from mathutils import Matrix, Vector  # noqa: E402
@@ -92,6 +102,8 @@ def join_parts(ctx):
     hideable = set()
     for v in ctx.get('variants', {}).values():
         hideable |= set(v.get('hide', []))
+    for groups in ctx.get('prop_hide', {}).values():
+        hideable |= set(groups)
     buckets = {}
     for o in ctx['parts']:
         vis, group, mat = o['vis'], o['group'], o['material']
@@ -175,6 +187,10 @@ def _build_family(fam, data, out_dir, tmpdir, animations, keep_blend):
                   faceCorner=[P.CORNER_UV[0], 1.0 - P.CORNER_UV[1]],
                   translucent=ctx.get('translucent', 0.0), variants=variants, props=sorted(ctx['props_used']), clips=ctx['clips'],
                   generator='tools/blender/enemies/build_enemies.py', **ctx.get('extras', {}))
+    # base groups a prop hides (e.g. the goblin's hair crest under a hood or a crown), only for props in use
+    prop_hide = {k: sorted(v) for k, v in ctx.get('prop_hide', {}).items() if k in ctx['props_used']}
+    if prop_hide:
+        extras['propHide'] = prop_hide
     export.replace_image(out, opt_path, extras=extras)
     stats = pack.pack_glb(out)
     info = export.describe(out)
@@ -194,7 +210,9 @@ def main():
     ap.add_argument('--no-anim', action='store_true')
     ap.add_argument('--blend', default=None, help='save the last built family as a .blend for inspection')
     ap.add_argument('--data', default=None, help='bestiary JSON (default: dumped from src/data/enemies.js)')
-    args = ap.parse_args()
+    # inside blender.exe the script's own arguments follow '--'
+    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else None
+    args = ap.parse_args(argv)
     data = load_data(args.data)
     fams = args.families or data['families']
     manifest_path = os.path.join(args.out, 'manifest.json')
@@ -209,7 +227,7 @@ def main():
         info = build_family(fam, data, args.out, animations=not args.no_anim, keep_blend=args.blend)
         manifest[fam] = dict(file=f'{fam}.glb', size=info['size'], vertices=info['vertices'], animations=info['animations'],
                              props=info['props'], variants=info['variants'], height=info['height'], unitScale=info['unitScale'])
-    with open(manifest_path, 'w') as f:
+    with open(manifest_path, 'w', newline='\n') as f:  # LF on Windows too (the repo's line endings)
         json.dump(dict(sorted(manifest.items())), f, indent=1)
     total = sum(v['size'] for v in manifest.values())
     print(f'[build] manifest: {len(manifest)} families, {total // 1024} KB total')

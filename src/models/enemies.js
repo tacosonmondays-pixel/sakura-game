@@ -5,8 +5,10 @@
 // same group is upgraded in place when the family file arrives (node tests / offline keep
 // the procedural model). Call `preloadEnemies()` (or `preloadModels()`) before a battle so
 // the first wave is already V2.
+import * as THREE from 'three';
 import { buildEnemyProcedural } from './enemiesProcedural.js';
 import { getFamily, loadFamily, canLoadEnemies, instantiateEnemy } from './glbEnemy.js';
+import { displayScale } from './enemyDisplay.js';
 import { makeSilhouette } from './util.js';
 
 export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visiblePieces } from './glbEnemy.js';
@@ -15,7 +17,8 @@ export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visi
  * Builds an enemy model.
  * @param {object} def EnemyDef ({ id, family, tier, size, color, accent, model: { base, variant, props }, traits })
  * @param {{quality?: 'high'|'medium'|'low'}} [opts]
- * @returns {THREE.Group} feet at y=0, faces +z, height 0.6 × size. userData: animate(time, dt, {moving, speed}),
+ * @returns {THREE.Group} feet at y=0, faces +z, height 0.6 × size × displayScale(def) (enemyDisplay.js: drawn
+ *   bigger per family and tier, display only). userData: animate(time, dt, {moving, speed}),
  *   hitFlash(), setVeiled(b), setBarrier(frac), setPhasing(b), setStatus(map), playDeath() -> seconds,
  *   playSpecial() -> seconds, setCasting(b), attach(obj, 'head'|'back') -> bool (render-side
  *   extras riding a head / chest slot; kept when the placeholder upgrades), height, enemyId,
@@ -27,6 +30,7 @@ export function buildEnemy(def = {}, opts = {}) {
   if (asset) return instantiateEnemy(asset, def, opts);
   const group = buildEnemyProcedural(def, opts);
   group.userData.glb = false;
+  scalePlaceholder(group, displayScale(def));
   if (canLoadEnemies()) {
     loadFamily(family).then((a) => {
       if (!a || group.userData.disposed || !group.parent) return;
@@ -39,6 +43,23 @@ export function buildEnemy(def = {}, opts = {}) {
     origDispose?.();
   };
   return group;
+}
+
+/**
+ * Draws the procedural placeholder at the same display scale as the GLB model (enemyDisplay.js), so the
+ * monster does not change size when its family file arrives and its HP bar (actors.js reads
+ * userData.height once) sits right for both. Its parts move into one scaled wrapper (their animate
+ * closures keep their own references), so the group's own scale stays free for actors.js.
+ */
+function scalePlaceholder(group, ds) {
+  if (!(ds > 0) || ds === 1) return;
+  const wrap = new THREE.Group();
+  wrap.name = 'displayScale';
+  wrap.scale.setScalar(ds);
+  for (const c of [...group.children]) wrap.add(c);
+  group.add(wrap);
+  group.userData.height = (group.userData.height || 0.6) * ds;
+  group.userData.displayScale = ds;
 }
 
 /** Replaces the procedural placeholder's children with the GLB instance (same group). */

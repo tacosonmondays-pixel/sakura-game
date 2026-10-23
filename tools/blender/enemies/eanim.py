@@ -36,7 +36,7 @@ def build_clips(arm, ctx, loc_scale=1.0):
         track.name = name
         for strip in track.strips:
             strip.name = name
-    idle(poser, ctx)
+    IDLES[spec.get('idle', 'basic')](poser, ctx)
     HITS[spec.get('hit', 'recoil')](poser, ctx)
     DEATHS[spec.get('death', 'topple')](poser, ctx)
     SPECIALS[spec.get('special', 'cast')](poser, ctx)
@@ -228,8 +228,43 @@ def move_sway(poser, ctx):
     poser.end(L)
 
 
+CHIN = -10.0  # head pitch in the v2 loops (deg, - = chin up): the face turns toward the 48 deg battle camera
+
+
+def ears_lag(ctx, roll, pitch=0.0):
+    """Ear bones (ear_L / ear_R, optional) rolled outward by `roll` degrees, mirrored."""
+    if not has(ctx, 'ear_L', 'ear_R'):
+        return {}
+    return {'ear_L': (pitch, roll, 0.0), 'ear_R': (pitch, -roll, 0.0)}
+
+
+def move_run_lag(poser, ctx):
+    """Small biped run with follow-through (goblin v2), 0.5 s: a designed curve keyed every 2 frames instead
+    of 5 sine keys. The phase is warped (a quick push, a longer float), the arms swing 0.5 rad behind the
+    legs, the chest twists, the head counters late with a chin-up, and the big ears flop a quarter-cycle
+    behind the head (ear bones are optional)."""
+    poser.begin('move', loop=True)
+    L = 12
+    h = ctx.get('height', 1.0)
+    for f in range(0, L + 1, 2):
+        p = f / L * math.pi * 2
+        w = p + 0.32 * math.sin(2 * p)  # warped phase: fast push, slow float
+        s = math.sin(w)
+        pose = {
+            'leg_L': (50 * s + 8 * math.sin(2 * w), 0, 0), 'leg_R': (-50 * s + 8 * math.sin(2 * w), 0, 0),
+            'arm_L': (-42 * math.sin(w - 0.5), 0, 10), 'arm_R': (42 * math.sin(w - 0.5), 0, -10),
+            'chest': (9 + 3 * math.cos(2 * w - 0.6), 0, 7 * math.sin(w - 0.3)),
+            'hips': (0, 5 * math.sin(w), -4 * math.sin(w)),
+            'head': (CHIN - 3 * math.cos(2 * w - 1.2), 3 * math.sin(w - 1.0), -5 * math.sin(w - 0.9)),
+        }
+        pose.update(ears_lag(ctx, 10 * math.sin(2 * w - 1.9), -4 * math.cos(2 * w - 1.9)))
+        bob = 0.034 * h * abs(math.cos(w)) ** 1.6
+        poser.key(f, pose, loc={'root': (0, 0, bob)})
+    poser.end(L)
+
+
 MOVES = dict(hop=move_hop, waddle=move_waddle, run=move_run, stomp=move_stomp, shamble=move_shamble, float=move_float,
-             flutter=move_flutter, gallop=move_gallop, fly=move_fly, sway=move_sway)
+             flutter=move_flutter, gallop=move_gallop, fly=move_fly, sway=move_sway, run_lag=move_run_lag)
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +283,37 @@ def idle(poser, ctx):
         pose.update(tail_sway(ctx, 8, ph))
         poser.key(f, pose, loc={'root': (0, 0, 0.012 * s * ctx.get('height', 1.0))}, scale={'body': sq(1 + 0.02 * s, 1 - 0.02 * s)})
     poser.end(L)
+
+
+def idle_glance(poser, ctx):
+    """3 s biped idle with overlap (goblin v2): breathing, a slow look left / right within +-6 deg (the face
+    stays on the camera) with the chin-up, the arms sway behind the chest, and one twitch per ear at
+    different times. Keyed every 6 frames plus each twitch (bezier in between)."""
+    poser.begin('idle', loop=True)
+    L = 72
+    h = ctx.get('height', 1.0)
+    frames = sorted(set(list(range(0, L + 1, 6)) + [21, 23, 25, 47, 49, 51]))
+
+    def twitch(f, at):
+        x = (f - at) / 2.2
+        return math.exp(-x * x)
+
+    for f in frames:
+        p = f / L * math.pi * 2
+        b = math.sin(p)
+        pose = {
+            'chest': (1.6 * b, 0, 1.5 * math.sin(p + 0.4)), 'hips': (0, 1.2 * math.sin(p - 0.3), 0),
+            'head': (CHIN + 2.5 * math.sin(p - 0.7), 2 * math.sin(p - 1.2), 4 * math.sin(p + 0.5) + 2 * math.sin(2 * p)),
+            'arm_L': (2 * math.sin(p - 0.5), 0, 4 + 2 * b), 'arm_R': (2 * math.sin(p - 0.6), 0, -4 - 2 * b),
+        }
+        if has(ctx, 'ear_L', 'ear_R'):
+            pose['ear_L'] = (0, 3 * math.sin(p - 1.4) + 16 * twitch(f, 23), 0)
+            pose['ear_R'] = (0, -3 * math.sin(p - 1.6) - 16 * twitch(f, 49), 0)
+        poser.key(f, pose, loc={'root': (0, 0, 0.008 * b * h)})
+    poser.end(L)
+
+
+IDLES = dict(basic=idle, glance=idle_glance)
 
 
 # ---------------------------------------------------------------------------

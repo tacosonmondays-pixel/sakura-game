@@ -1,5 +1,7 @@
 // Dev preview for the V2 GLB enemies (public src/models API).
-// ?view=sheet|lineup|family|turn|states|hooks|game|viewer  &fam=slime  &id=slime_green  &ids=a,b
+// ?view=sheet|lineup|family|turn|states|hooks|game|viewer|heights  &fam=slime  &id=slime_green  &ids=a,b
+// view=heights: battle-size silhouette heights of every enemy (display scale 1 and its own) and of Hikari
+// and Aoi, as JSON in the page (window.__heights): the fixture of tests/models/enemyDisplay.test.js
 // &t=<seconds> freezes animation time (deterministic screenshots)  &quality=high|medium|low
 // &page=1..4 &per=3 &cols=8 (lineup pages; sheet = every family, cols=10)  &labels=0
 // &proc=1 (force the procedural fallback)
@@ -90,6 +92,10 @@ async function main() {
   if (params.get('proc') !== '1') await preloadEnemies();
   const glb = actorsGlb();
   const ids = params.get('ids') ? params.get('ids').split(',') : null;
+  if (view === 'heights') {
+    await measureHeights();
+    return;
+  }
   if (view === 'viewer') {
     renderer.domElement.style.display = 'none';
     app.style.cssText = 'position:fixed;inset:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;background:#eaf4ff';
@@ -238,6 +244,72 @@ async function main() {
 
 function actorsGlb() {
   return params.get('proc') !== '1';
+}
+
+/**
+ * view=heights: every enemy (and Hikari, Aoi) alone, standing (idle at 0.9 s), turned 0.35 rad, under the
+ * battle's 48 deg orthographic camera at the 1280x720 default zoom on 1-1 (61.8 px per tile): the screen
+ * height of its skinned vertices (outline and fx left out) at display scale 1 (`px1`) and with its own
+ * display scale (`px`). Battle scales: girls 1.22 / 1.36 (hero), enemies 1.12 (src/render/actors.js).
+ */
+async function measureHeights() {
+  const { displayScale } = await import('../src/models/enemyDisplay.js');
+  const { UNITS } = await import('../src/data/units.js');
+  await preloadModels(['hikari', 'aoi']);
+  const S = 61.836;
+  const pitch = THREE.MathUtils.degToRad(48);
+  const cam = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+  cam.position.set(0, 40 * Math.sin(pitch), 40 * Math.cos(pitch));
+  cam.lookAt(0, 0, 0);
+  cam.updateMatrixWorld(true);
+  const v = new THREE.Vector3();
+  const heightPx = (g) => {
+    g.updateMatrixWorld(true);
+    let top = -Infinity;
+    let bot = Infinity;
+    g.traverse((m) => {
+      if (!m.isMesh || m.userData.isOutline || m.userData.fx || m.material?.side === THREE.BackSide) return;
+      for (let p = m; p; p = p.parent) if (!p.visible) return;
+      const pos = m.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        m.getVertexPosition(i, v);
+        v.applyMatrix4(m.matrixWorld).applyMatrix4(cam.matrixWorldInverse);
+        top = Math.max(top, v.y);
+        bot = Math.min(bot, v.y);
+      }
+    });
+    return (top - bot) * S;
+  };
+  const out = { pxPerTile: S, girls: {}, enemies: {} };
+  for (const id of ['hikari', 'aoi']) {
+    const u = UNITS.find((x) => x.id === id);
+    const g = buildChibi(u, { quality });
+    g.scale.setScalar(u.kind === 'hero' ? 1.36 : 1.22);
+    g.rotation.y = 0.35;
+    g.userData.animate?.(0, 0, 'idle');
+    g.userData.mixer?.setTime?.(0.9);
+    out.girls[id] = Math.round(heightPx(g));
+  }
+  for (const def of ENEMIES) {
+    const g = buildEnemy(def, { quality });
+    g.scale.setScalar(1.12);
+    g.rotation.y = 0.35;
+    g.userData.animate(0, 0, { moving: false });
+    g.userData.mixer?.setTime(0.9);
+    g.userData.animate(0.9, 0.0001, { moving: false });
+    const ds = displayScale(def);
+    const px = heightPx(g);
+    out.enemies[def.id] = { px1: Math.round(px / ds), px: Math.round(px) };
+    g.userData.dispose?.();
+  }
+  window.__heights = out;
+  renderer.domElement.style.display = 'none';
+  const pre = document.createElement('pre');
+  pre.style.cssText = 'position:fixed;inset:0;margin:0;padding:12px;overflow:auto;background:#fff;font:11px ui-monospace,monospace';
+  pre.textContent = JSON.stringify(out, null, 1);
+  app.appendChild(pre);
+  label.textContent = 'heights';
+  document.body.dataset.ready = '1';
 }
 
 const clock = new THREE.Timer();

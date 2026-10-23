@@ -335,7 +335,7 @@ stretching (`view=states`).
 
 # Enemy models V2 — one rigged GLB per family
 
-The 74 monsters of the bestiary (`src/data/enemies.js`, 12 families) share the chibi method
+The 78 monsters of the bestiary (`src/data/enemies.js`, 12 families) share the chibi method
 (quad cages → Catmull-Clark subsurf, creased tips, painted faces, toon + inverted-hull outline) but
 ship as **one GLB per family** in `public/models/enemies/` (`tools/blender/enemies/`, same `bpy` 4.2):
 
@@ -343,7 +343,13 @@ ship as **one GLB per family** in `public/models/enemies/` (`tools/blender/enemi
 python3 tools/blender/enemies/build_enemies.py              # all 12 families (~15 s)
 python3 tools/blender/enemies/build_enemies.py orc dragon   # just these
 python3 tools/blender/enemies/build_enemies.py slime --blend /tmp/slime.blend --no-anim
+# or inside Blender 5.x (background only), with Pillow for its Python on SAKURA_PYLIBS:
+blender -b --factory-startup --python tools/blender/enemies/build_enemies.py -- goblin
 ```
+
+Blender 5.x builds the 11 unchanged families byte-identical to a 5.x build of the code before Enemies v2; the
+shipped files of those families are still the bpy 4.2 builds (a 5.x rebuild differs by a few bytes of export
+noise), so rebuild only the family you change.
 
 | file | content | budget |
 |---|---|---|
@@ -366,8 +372,24 @@ python3 tools/blender/enemies/build_enemies.py slime --blend /tmp/slime.blend --
 
 Mesh objects are named `<vis>|<group>|<material>` (`base`, `prop-<name>`, `var-<variant>`; materials `body` / `glow`).
 Whole families are stored at **half scale** (`asset.extras.unitScale` = 2); `extras` also carry `height`,
-`faceCells`, `faceGrid`, `faceCorner`, `translucent` (slimes / ghosts) and the `variants` hide table
-(e.g. `machine` hides `head torso arms legs`).
+`faceCells`, `faceGrid`, `faceCorner`, `translucent` (slimes / ghosts), the `variants` hide table
+(e.g. `machine` hides `head torso arms legs hair`) and, optionally, `propHide`: base groups a prop hides
+(the goblin's `hair` under a `hood` or a `crown`).
+
+**Enemies v2 builder options** (route (c), notes in `notes/enemies-v2`; every option defaults to the old result,
+so a family only changes when its module asks for it):
+
+| where | option |
+|---|---|
+| `parts.face_uvs` / `parts.head` / `bodies.biped` | `tilt` / `face_tilt`: the face window turns front-and-up (the goblin: 18°) so the 48° battle camera sees it less foreshortened |
+| `efaces` spec | `oval`, `one_hl`, `rim`, `lash_outer` (a simpler eye that reads at a few px), `idle_lid` (a sly half-lid, per side), `idle_mouth` (`smirk`), `mouth_dy`, `brow_dy`; a family passes its own spec as `ctx['face_spec']` |
+| `eanim` | move `run_lag` (designed curve keyed every 2 frames: warped phase, arms / head / optional `ear_L` `ear_R` bones lagging, chin-up) and `ctx['clips']['idle'] = 'glance'` (3 s idle with breathing, glances, ear twitches); bezier like every clip |
+| family module | extra bones in `ctx['bones']` (the goblin's ears), `ctx['prop_hide']` |
+
+The goblin (route (c)): a sleeveless tunic (accent) to the chest, a darker accent loincloth, a rope belt, ears on
+their own bones with the pink inside turned to the camera, a hair cap painted over the back of the head (zig-zag
+hem) plus a crest of upright spikes (`hair`), the tilted face with bigger eyes and a slightly sly idle, `run_lag` +
+`glance`. 10 bones, 4,700 body triangles per runner (was 4,192), 296 KB.
 
 ## Runtime (`src/models/glbEnemy.js`, `src/models/enemies.js`)
 
@@ -381,6 +403,27 @@ Whole families are stored at **half scale** (`asset.extras.unitScale` = 2); `ext
   tinted skin. Draw calls per monster: body + outline (+ glow).
 * CONTRACT §7 hooks keep working (`animate`, `hitFlash`, `setVeiled`, `setBarrier`, `setPhasing`,
   `setStatus`) plus `playDeath()` → seconds, `playSpecial()`, `setCasting(bool)`, `setExpression(cell)`.
+* **Display rules (Enemies v2, `src/models/enemyDisplay.js`, no three.js, never read by the sim):**
+  * *Size:* the model is drawn `displayScale(def)` × bigger than `0.6 × size`: the family boost (fae, ghost 1.4,
+    goblin 1.35, plant, construct, ghoul 1.3, orc 1.2, slime, oni 1.15, lizardfolk, dragon, beast 1) for normals,
+    half of it for elites, none for minibosses and bosses (`SCALE_OVERRIDE`: the mimic slime 1.05, so it stays under
+    the Royal Guard). `EnemyDef.size`, which also sets the hit radius, does not change. `userData.height` follows;
+    `userData.barHeight` is the drawn top of the base pieces (ears, horns, hair) and the HP bar sits above it
+    (`actors.js`). The procedural placeholder is drawn at the same scale. `tests/models/enemyDisplay.test.js` checks
+    the order against measured heights (`previews/enemies-v2.html?view=heights`): normals under their family's
+    elites, nothing drawn bigger taller than Hikari (93 px), fodder families under orcs and oni.
+  * *Look:* clean cel (flat base + one hard shadow from the key light, `ENEMY_CEL`; the painted face never shaded)
+    unless the girls' Figure look is `glossy` (`settings.figureLook`, set from `main.js`; dev URL `?cel=0|1`), which
+    keeps the old 3-step toon.
+  * *Outline:* the girls' rule (0.94 % of the model height, at least 1.7 screen px, per draw from the viewport, so
+    the battle, bestiary and boss-portrait cameras need nothing), colour = the tinted surface × a tint that eases from
+    the deep enemy line (under 40 px tall on screen) to the girls' plum `#5b3a55` (over 140 px); the hull never dips
+    under the soles (the ground used to swallow the line there). Normals are averaged over vertices that share a
+    position, so colour borders do not crack the hull or the shadow line.
+  * *Colour:* `def.color` / `def.accent` lifted a little in OKLab (L + 0.04, chroma × 1.08; accents half); the 8
+    darkest elites and bosses get a lighter base of the same hue (`DARK_LIFT`) and keep their old colour as the line.
+  * *Lively layer (`EnemyAnimator`):* every monster enters its loops at its own point, plays them 0.94–1.06× as fast
+    and glances (head yaw ≤ 9°) every 4.5–9 s; Reduce motion halves the speed spread and the glance.
   The battle renderer plays `death` before disposing a killed monster, loops `special` while an oni field
   is projected, and fires `special` on blink wind-ups and boss phase changes.
 

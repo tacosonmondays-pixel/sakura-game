@@ -778,7 +778,9 @@ export class Actors {
       const bh = e.tier === 'normal' ? 0.07 : 0.095;
       const x = v.x;
       const z = v.z;
-      const y = v.y + v.height * (0.4 + 0.6 * v.spawnT) + 0.2;
+      // above the drawn top of the body (a V2 model's ears, horns or hair: userData.barHeight) or its hat
+      const top = Math.max(v.height, (v.model.userData.barHeight || 0) * ENEMY_SCALE);
+      const y = v.y + top * (0.4 + 0.6 * v.spawnT) + 0.2;
       const veiledA = v.veiled ? 0.55 : 1;
       if (hpFrac <= 0.999 || hasBarrier || important) {
         ov.push(x, y, z, bw + 0.04, bh + 0.035, R.white, 0.07, 0.09, 0.18, 0.78 * veiledA);

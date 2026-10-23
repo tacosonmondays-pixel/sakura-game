@@ -176,25 +176,32 @@ def head_shape(p, flat=0.14, cheek=0.06, chin=0.08):
     return q
 
 
-def face_uvs(obj, center, radii, window=0.2, box=None, cols=3, rows=2):
+def face_uvs(obj, center, radii, window=0.2, box=None, cols=3, rows=2, tilt=0.0):
     """Planar front projection of the face: u across the face box, v chin -> top, only on
-    polygons that face the front (normal.y < -window). Every other loop goes to the
+    polygons that face the front (normal · facing > window). Every other loop goes to the
     transparent atlas corner so the painted face never wraps round the head.
-    box = (half_width, z_bottom, z_top) in object space; defaults from the head radii."""
+    box = (half_width, z_bottom, z_top) in object space; defaults from the head radii.
+    tilt (degrees): the projection faces front-and-up by this much, so the 48 deg battle camera sees
+    the face less foreshortened (the girls' chin-up does the same); v runs along the tilted face-plane
+    'up' through the head centre. 0 = the old straight-front window, unchanged."""
     me = obj.data
     uv = me.uv_layers.get('UVMap') or me.uv_layers.new(name='UVMap')
     c = Vector(center)
     hw, z0, z1 = box if box else (radii[0] * 1.0, c.z - radii[2] * 0.95, c.z + radii[2] * 0.95)
+    th = math.radians(tilt)
+    facing = Vector((0.0, -math.cos(th), math.sin(th)))
+    up = Vector((0.0, math.sin(th), math.cos(th)))
     for poly in me.polygons:
         n = poly.normal
-        front = n.y < -window
+        front = (n.y < -window) if not tilt else (n.dot(facing) > window)
         for li in poly.loop_indices:
             v = me.vertices[me.loops[li].vertex_index].co
             if not front:
                 uv.data[li].uv = CORNER_UV
                 continue
             u = 0.5 + (v.x - c.x) / (2 * hw)
-            vv = (v.z - z0) / max(1e-6, (z1 - z0))
+            h = v.z if not tilt else c.z + (v - c).dot(up)
+            vv = (h - z0) / max(1e-6, (z1 - z0))
             uv.data[li].uv = (min(0.999, max(0.001, u)), min(0.999, max(0.001, vv)))
     me.update()
 
@@ -208,11 +215,11 @@ def corner_uvs(obj, cols=3, rows=2):
     me.update()
 
 
-def head(name, center, radii, color='#ffffff', role='main', bone='head', levels=2, shape=head_shape, face=True, face_box=None, window=0.2, **t):
-    """A chibi head blob with the painted-face UV window on its front."""
+def head(name, center, radii, color='#ffffff', role='main', bone='head', levels=2, shape=head_shape, face=True, face_box=None, window=0.2, tilt=0.0, **t):
+    """A chibi head blob with the painted-face UV window on its front (tilted up by `tilt` degrees)."""
     o = blob(name, center, radii, color, role, bone, levels=levels, shape=shape, **t)
     if face:
-        face_uvs(o, center, radii, window=window, box=face_box)
+        face_uvs(o, center, radii, window=window, box=face_box, tilt=tilt)
     return o
 
 

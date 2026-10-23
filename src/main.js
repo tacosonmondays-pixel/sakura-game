@@ -9,6 +9,7 @@ import { ensureCatchUpJoins, joinToastText } from './systems/catchUpJoins.js';
 import { createRng, hashString } from './core/rng.js';
 import { settleEvents, markEventLogin } from './systems/events.js';
 import { eventNow } from './ui/events/clock.js';
+import { setEnemyDisplayOptions } from './models/enemyDisplay.js';
 import { formationSkins } from './systems/skins.js';
 import { applyLoadingLook } from './ui/loading/mochi.js';
 
@@ -57,6 +58,10 @@ try {
 } catch {
   /* no DOM */
 }
+// the monsters follow the girls' Figure look (clean cel unless it is 'glossy') and Reduce motion
+// (src/models/enemyDisplay.js; display only)
+setEnemyDisplayOptions(store.profile.settings);
+store.on('change', () => setEnemyDisplayOptions(store.profile.settings));
 // the loading screen's look (Settings → Loading screen): index.html's inline script already put the
 // saved one on <html>; this keeps it right after a migration, an import, a reset or another tab's save
 applyLoadingLook(store.profile.settings);

@@ -15,6 +15,19 @@ FPS = 24
 D = math.radians
 
 
+def action_fcurves(action):
+    """The F-curves of an action: Action.fcurves in Blender 4.x; Blender 5 removed it (slotted actions keep
+    them in layers[].strips[].channelbags[].fcurves), which lets the pipeline run in blender.exe 5.x too."""
+    if hasattr(action, 'fcurves'):
+        return list(action.fcurves)
+    out = []
+    for layer in getattr(action, 'layers', []):
+        for strip in layer.strips:
+            for cb in getattr(strip, 'channelbags', []):
+                out += list(cb.fcurves)
+    return out
+
+
 class Poser:
     def __init__(self, arm_obj, loc_scale=1.0):
         self.arm = arm_obj
@@ -86,7 +99,7 @@ class Poser:
 
     def end(self, last_frame):
         self.action.frame_range = (0, last_frame)
-        for fc in self.action.fcurves:
+        for fc in action_fcurves(self.action):
             for kp in fc.keyframe_points:
                 kp.interpolation = 'BEZIER'
                 kp.handle_left_type = 'AUTO_CLAMPED'

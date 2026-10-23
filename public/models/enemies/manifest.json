@@ -172,8 +172,8 @@
  },
  "goblin": {
   "file": "goblin.glb",
-  "size": 282688,
-  "vertices": 7177,
+  "size": 303364,
+  "vertices": 7461,
   "animations": [
    "death",
    "hit",

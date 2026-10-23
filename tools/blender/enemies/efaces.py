@@ -17,6 +17,16 @@ SS = 3
 
 # Per-family face spec. eyes: round | sharp | angry | glow | visor | dot.
 # eye_v is the eye line as a fraction of the face box height (0 = chin, 1 = top).
+# Optional keys (Enemies v2; absent = the old drawing, byte for byte):
+#   oval       round eyes as a plain oval with a flatter two-value iris and no lid shadow band (reads at a
+#              few px from the battle camera; the flat-topped lid shape plus a firm rim read as glasses)
+#   one_hl     one highlight instead of two
+#   rim        the dark rim's width as a fraction of the eye width (default 0.09)
+#   lash_outer a short upper lash on the outer half only (mischief without a scowl)
+#   idle_lid   a half-lid on the idle eyes (fraction of the eye height it covers), or (left, right) in
+#              atlas space: sly, not sleepy
+#   idle_mouth the idle cell's mouth (e.g. 'smirk': a lopsided grin with one fang)
+#   mouth_dy   mouth line below the eye line (default 0.2); brow_dy brows above it (default 0.19)
 FACES = {
     'slime': dict(eyes='round', iris='#2f2a4a', sclera='#ffffff', lash='#2f2a4a', mouth='smile', blush=True, eye_w=0.25, eye_h=0.29, eye_dx=0.20, eye_v=0.50),
     'goblin': dict(eyes='sharp', iris='#f8b733', pupil='slit', sclera='#fff8e1', lash='#2b2416', mouth='fangs', blush=False, eye_w=0.22, eye_h=0.24, eye_dx=0.19, eye_v=0.52),
@@ -107,75 +117,120 @@ def _solid(S, hexcol, a=255):
 # Eyes
 # ---------------------------------------------------------------------------
 
-def eye_glossy(img, cx, cy, w, h, side, spec, style='round', angry=False, bright=False, small=False):
-    """Sclera + iris gradient + pupil + highlights + lid stroke (the cute anime eye)."""
+def eye_glossy(img, cx, cy, w, h, side, spec, style='round', angry=False, bright=False, small=False, lid=0.0):
+    """Sclera + iris gradient + pupil + highlights + lid stroke (the cute anime eye).
+    The v2 keys of the spec (oval, one_hl, rim, lash_outer) switch on the simpler battle-camera eye;
+    lid > 0 lowers a half-lid over the top of the eye (that share of its height)."""
     S = img.size[0]
     d = ImageDraw.Draw(img)
     o = side
     lash = spec.get('lash', '#2b2440')
+    v2 = bool(spec.get('oval'))
     sharp = style in ('sharp', 'angry') or angry
     hh = h * (0.86 if sharp else 1.0)
     top = cy - hh * 0.5
     bot = cy + hh * 0.5
     lift = hh * (0.22 if angry else (0.12 if sharp else 0.0))
-    # sclera: rounder bottom, flatter top; outer corner on the +o side
-    outline = (_bez((cx - w * 0.5 * o, top + hh * 0.25), (cx - w * 0.25 * o, top + hh * 0.02), (cx + w * 0.25 * o, top + hh * 0.02 - lift), (cx + w * 0.5 * o, top + hh * 0.16 - lift))
-               + _bez((cx + w * 0.5 * o, top + hh * 0.16 - lift), (cx + w * 0.62 * o, cy + hh * 0.3), (cx + w * 0.3 * o, bot + hh * 0.02), (cx, bot))
-               + _bez((cx, bot), (cx - w * 0.36 * o, bot), (cx - w * 0.6 * o, cy + hh * 0.3), (cx - w * 0.5 * o, top + hh * 0.25)))
+    cute = style == 'round' and not angry
     white = Image.new('L', (S, S), 0)
-    ImageDraw.Draw(white).polygon(outline, fill=255)
+    if v2 and cute:
+        # a plain oval: reads at a few px, and never as glasses up close
+        ImageDraw.Draw(white).ellipse((cx - w * 0.5, cy - hh * 0.5, cx + w * 0.5, cy + hh * 0.5), fill=255)
+    else:
+        # sclera: rounder bottom, flatter top; outer corner on the +o side
+        outline = (_bez((cx - w * 0.5 * o, top + hh * 0.25), (cx - w * 0.25 * o, top + hh * 0.02), (cx + w * 0.25 * o, top + hh * 0.02 - lift), (cx + w * 0.5 * o, top + hh * 0.16 - lift))
+                   + _bez((cx + w * 0.5 * o, top + hh * 0.16 - lift), (cx + w * 0.62 * o, cy + hh * 0.3), (cx + w * 0.3 * o, bot + hh * 0.02), (cx, bot))
+                   + _bez((cx, bot), (cx - w * 0.36 * o, bot), (cx - w * 0.6 * o, cy + hh * 0.3), (cx - w * 0.5 * o, top + hh * 0.25)))
+        ImageDraw.Draw(white).polygon(outline, fill=255)
     # dark rim around the sclera (keeps the eye readable on any skin colour)
-    rim = white.filter(ImageFilter.MaxFilter(int(w * 0.09) * 2 + 1))
+    rim = white.filter(ImageFilter.MaxFilter(int(w * spec.get('rim', 0.09)) * 2 + 1))
     _paste(img, _solid(S, lash), rim)
     _paste(img, _solid(S, spec.get('sclera', '#ffffff')), white)
     iris = spec.get('iris', '#2f2a4a')
-    cute = style == 'round' and not angry
-    ir = w * (0.34 if small else (0.5 if cute else 0.44))
-    irh = hh * (0.4 if small else (0.58 if cute else 0.52))
+    if v2:
+        ir = w * (0.34 if small else (0.4 if cute else 0.44))
+        irh = hh * (0.4 if small else (0.44 if cute else 0.52))
+        icy = cy + hh * (0.08 if not small else 0.05)
+    else:
+        ir = w * (0.34 if small else (0.5 if cute else 0.44))
+        irh = hh * (0.4 if small else (0.58 if cute else 0.52))
+        icy = cy + hh * (0.1 if not small else 0.05)
     icx = cx + w * 0.03 * o
-    icy = cy + hh * (0.1 if not small else 0.05)
     im = _ellipse_mask(S, icx, icy, ir, irh)
     im = Image.fromarray(np.minimum(np.array(im), np.array(white)))
     if bright:
         grad = _vgrad(S, icy - irh, icy + irh, _mix(iris, '#ffffff', 0.1), _mix(iris, '#ffffff', 0.6))
+    elif v2:
+        # a flatter iris (two values, not a long gradient): reads at a few px
+        grad = _vgrad(S, icy - irh, icy + irh, _mix(iris, '#000000', 0.32), _mix(iris, '#ffffff', 0.12))
     else:
         grad = _vgrad(S, icy - irh, icy + irh, _mix(iris, '#000000', 0.5), _mix(iris, '#ffffff', 0.35))
     _paste(img, grad, im)
     # pupil (a glowing core when casting)
     pupil = spec.get('pupil', 'round')
-    if pupil == 'slit':
+    if v2:
+        pm = _ellipse_mask(S, icx, icy - irh * 0.02, ir * 0.44, irh * 0.48)
+        pcol = '#ffffff' if bright else _mix(iris, '#000000', 0.8)
+    elif pupil == 'slit':
         pm = _ellipse_mask(S, icx, icy, ir * (0.3 if bright else 0.17), irh * 0.62)
+        pcol = '#ffffff' if bright else _mix(iris, '#000000', 0.78)
     else:
         pm = _ellipse_mask(S, icx, icy - irh * 0.02, ir * 0.42, irh * 0.46)
+        pcol = '#ffffff' if bright else _mix(iris, '#000000', 0.78)
     pm = Image.fromarray(np.minimum(np.array(pm), np.array(white)))
-    _paste(img, _solid(S, '#ffffff' if bright else _mix(iris, '#000000', 0.78)), pm)
-    # lid shadow band at the top of the sclera
-    sh = Image.new('L', (S, S), 0)
-    shd = ImageDraw.Draw(sh)
-    steps = 30
-    for i in range(steps):
-        a = int(140 * (1 - i / steps) ** 1.6)
-        shd.rectangle((cx - w, top + hh * 0.38 * i / steps, cx + w, top + hh * 0.38 * (i + 1) / steps + 1), fill=a)
-    sh = Image.fromarray(np.minimum(np.array(sh), np.array(white)))
-    _paste(img, _solid(S, '#2a2042'), sh)
+    _paste(img, _solid(S, pcol), pm)
+    if not v2:
+        # lid shadow band at the top of the sclera
+        sh = Image.new('L', (S, S), 0)
+        shd = ImageDraw.Draw(sh)
+        steps = 30
+        for i in range(steps):
+            a = int(140 * (1 - i / steps) ** 1.6)
+            shd.rectangle((cx - w, top + hh * 0.38 * i / steps, cx + w, top + hh * 0.38 * (i + 1) / steps + 1), fill=a)
+        sh = Image.fromarray(np.minimum(np.array(sh), np.array(white)))
+        _paste(img, _solid(S, '#2a2042'), sh)
     # highlights
     hl = _solid(S, '#ffffff')
     if spec.get('sparkle'):
         m = _star_mask(S, icx - ir * 0.3 * o, icy - irh * 0.35, ir * 0.5)
         m2 = _star_mask(S, icx + ir * 0.42 * o, icy + irh * 0.42, ir * 0.24)
+    elif v2:
+        # one highlight, below a half-lid when there is one
+        hy = icy - irh * (0.36 if lid <= 0 else 0.2)
+        m = _ellipse_mask(S, icx - ir * 0.3 * o, hy, ir * 0.36, irh * 0.27)
+        m2 = None if spec.get('one_hl') else _ellipse_mask(S, icx + ir * 0.4 * o, icy + irh * 0.45, ir * 0.14, irh * 0.1)
     else:
         m = _ellipse_mask(S, icx - ir * 0.34 * o, icy - irh * 0.4, ir * 0.3, irh * 0.22)
         m2 = _ellipse_mask(S, icx + ir * 0.4 * o, icy + irh * 0.45, ir * 0.14, irh * 0.1)
-    m = Image.fromarray(np.minimum(np.maximum(np.array(m), np.array(m2)), np.array(white)))
+    mm = np.array(m) if m2 is None else np.maximum(np.array(m), np.array(m2))
+    m = Image.fromarray(np.minimum(mm, np.array(white)))
     _paste(img, hl, m)
-    # upper lash line (thin and soft on cute eyes, thicker and more slanted when angry)
-    lw = w * (0.2 if sharp else (0.12 if cute else 0.17))
-    lid_y = top + hh * 0.05
-    stroke = _bez((cx - w * 0.55 * o, lid_y + hh * 0.2), (cx - w * 0.2 * o, lid_y - hh * 0.04), (cx + w * 0.3 * o, lid_y - hh * 0.05 - lift), (cx + w * 0.6 * o, lid_y + hh * 0.06 - lift))
-    _stroke(d, stroke, lash, lw, taper=True)
-    if not cute:
-        flick = _bez((cx + w * 0.42 * o, lid_y - hh * 0.04 - lift), (cx + w * 0.66 * o, lid_y - hh * 0.1 - lift), (cx + w * 0.76 * o, lid_y - hh * 0.12 - lift), (cx + w * 0.82 * o, lid_y - hh * 0.2 - lift))
-        _stroke(d, flick, lash, lw * 0.55, taper=True)
+    if lid > 0 and not angry:
+        # a sly half-lid: the top of the eye goes back to skin (transparent) under a firm lid line that
+        # dips a touch toward the nose; mischievous, not sleepy and not a scowl
+        y_out = top + hh * lid
+        y_in = top + hh * (lid + 0.03)
+        cut = [(cx - w * 0.8 * o, y_in), (cx + w * 0.8 * o, y_out), (cx + w * 0.8 * o, top - hh * 0.6), (cx - w * 0.8 * o, top - hh * 0.6)]
+        cm = Image.new('L', (S, S), 0)
+        ImageDraw.Draw(cm).polygon(cut, fill=255)
+        img.paste(Image.new('RGBA', (S, S), (0, 0, 0, 0)), (0, 0), cm)
+        lw = w * 0.15
+        stroke = _bez((cx - w * 0.56 * o, y_in + hh * 0.04), (cx - w * 0.15 * o, y_in - hh * 0.04), (cx + w * 0.3 * o, y_out - hh * 0.05), (cx + w * 0.66 * o, y_out - hh * 0.02))
+        _stroke(d, stroke, lash, lw, taper=True)
+        return
+    if v2 and cute and spec.get('lash_outer'):
+        # a short upper lash on the outer half only (mischief without a scowl)
+        stroke = _bez((cx - w * 0.05 * o, top + hh * 0.02), (cx + w * 0.22 * o, top - hh * 0.02), (cx + w * 0.42 * o, top + hh * 0.06), (cx + w * 0.62 * o, top + hh * 0.0))
+        _stroke(d, stroke, lash, w * 0.12, taper=True)
+    else:
+        # upper lash line (thin and soft on cute eyes, thicker and more slanted when angry)
+        lw = w * (0.2 if sharp else (0.12 if cute else 0.17))
+        lid_y = top + hh * 0.05
+        stroke = _bez((cx - w * 0.55 * o, lid_y + hh * 0.2), (cx - w * 0.2 * o, lid_y - hh * 0.04), (cx + w * 0.3 * o, lid_y - hh * 0.05 - lift), (cx + w * 0.6 * o, lid_y + hh * 0.06 - lift))
+        _stroke(d, stroke, lash, lw, taper=True)
+        if not cute and not v2:
+            flick = _bez((cx + w * 0.42 * o, lid_y - hh * 0.04 - lift), (cx + w * 0.66 * o, lid_y - hh * 0.1 - lift), (cx + w * 0.76 * o, lid_y - hh * 0.12 - lift), (cx + w * 0.82 * o, lid_y - hh * 0.2 - lift))
+            _stroke(d, flick, lash, lw * 0.55, taper=True)
     if angry:
         # heavy slanted lid cutting the top of the eye: inner corner low, outer corner high
         cut = [(cx - w * 0.7 * o, top + hh * 0.42), (cx + w * 0.75 * o, top - hh * 0.25), (cx + w * 0.75 * o, top - hh * 0.9), (cx - w * 0.7 * o, top - hh * 0.9)]
@@ -307,6 +362,16 @@ def mouth(d, S, cx_f, cy_f, kind, color, spec):
         for k in (-1, 1):
             x = cx + k * 0.045 * s
             d.polygon([(x - 0.014 * s, cy - 0.004 * s), (x + 0.014 * s, cy - 0.004 * s), (x, cy + 0.035 * s)], fill=(255, 255, 255, 255))
+    elif kind == 'smirk':
+        # a lopsided grin: flat on one side, curling up into a small dark opening with one fang on the other
+        # (shifted to the grin side, so a long nose in front of the mouth still leaves the curl and fang visible)
+        x0 = cx + 0.025 * s
+        top = _bez((x0 - 0.08 * s, cy + 0.006 * s), (x0 - 0.02 * s, cy + 0.015 * s), (x0 + 0.05 * s, cy + 0.004 * s), (x0 + 0.1 * s, cy - 0.04 * s))
+        bot = _bez((x0 + 0.1 * s, cy - 0.04 * s), (x0 + 0.088 * s, cy + 0.052 * s), (x0 + 0.025 * s, cy + 0.068 * s), (x0 - 0.035 * s, cy + 0.02 * s))
+        d.polygon(top + bot, fill=_rgb(spec.get('mouth_color', '#3a1c2b')) + (255,))
+        _stroke(d, top, color, w, taper=False)
+        x = x0 + 0.05 * s
+        d.polygon([(x - 0.017 * s, cy + 0.003 * s), (x + 0.017 * s, cy - 0.003 * s), (x + 0.002 * s, cy + 0.045 * s)], fill=(255, 255, 255, 255))
     elif kind == 'o':
         d.ellipse((cx - 0.028 * s, cy - 0.034 * s, cx + 0.028 * s, cy + 0.034 * s), fill=_rgb(spec.get('mouth_color', '#3a1c2b')) + (255,), outline=rgb, width=max(1, w // 2))
     elif kind == 'flat':
@@ -370,13 +435,18 @@ def draw_cell(px, spec, cell):
         elif style == 'dot':
             eye_dot(img, cx, cy, ew, eh, side, spec, bright=cell == 'cast')
         else:
-            eye_glossy(img, cx, cy, ew, eh, side, spec, style=style, angry=(cell == 'angry' or style == 'angry'), bright=cell == 'cast', small=cell == 'angry' and style != 'angry')
+            lid = spec.get('idle_lid', 0.0) if cell == 'idle' else 0.0
+            if isinstance(lid, (tuple, list)):
+                lid = lid[0] if side < 0 else lid[1]
+            eye_glossy(img, cx, cy, ew, eh, side, spec, style=style, angry=(cell == 'angry' or style == 'angry'), bright=cell == 'cast', small=cell == 'angry' and style != 'angry',
+                       lid=lid)
+    bdy = spec.get('brow_dy', 0.19)
     if spec.get('brows') and cell in ('idle', 'angry', 'cast'):
-        brows(d, S, eye_cy - 0.19, dx, ew, lash, 'angry')
+        brows(d, S, eye_cy - bdy, dx, ew, lash, 'angry')
     elif cell == 'angry' and style not in ('glow', 'visor', 'dot'):
-        brows(d, S, eye_cy - 0.19, dx, ew, lash, 'angry')
+        brows(d, S, eye_cy - bdy, dx, ew, lash, 'angry')
     elif cell == 'hit' and style not in ('glow', 'visor'):
-        brows(d, S, eye_cy - 0.2, dx, ew, lash, 'hurt')
+        brows(d, S, eye_cy - bdy - 0.01, dx, ew, lash, 'hurt')
     mk = spec['mouth']
     if cell == 'hit':
         mk = 'wobble'
@@ -386,7 +456,9 @@ def draw_cell(px, spec, cell):
         mk = 'o' if mk in ('smile', 'flat', 'o') else 'grin'
     elif cell == 'angry':
         mk = 'grin' if mk in ('smile', 'fangs', 'grin') else ('frown' if mk == 'flat' else mk)
-    mouth(d, S, 0.5, eye_cy + 0.2, mk, mcol, spec)
+    elif cell == 'idle' and spec.get('idle_mouth'):
+        mk = spec['idle_mouth']
+    mouth(d, S, 0.5, eye_cy + spec.get('mouth_dy', 0.2), mk, mcol, spec)
     return img.resize((px, px), Image.LANCZOS)
 
 
