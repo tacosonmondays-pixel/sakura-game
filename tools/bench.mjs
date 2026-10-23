@@ -1,12 +1,12 @@
 // Girl bench: one girl (or N copies) on the best-covered spots of a stage, the real Sim, targets that
-// never die (late-Freeplay HP: crowd 50k, boss 30M, healed every step), damage per second after a
+// never die (late-Freeplay HP: crowd 50k, boss 30M, healed every step; ×40 at max investment), damage per second after a
 // warm-up — a crowd stream (Orc Grunts) and a walking boss (the Ashwing Matriarch). Every girl gets a partner (an un-upgraded Aoi; Kage for Aoi herself) standing in
 // her reach, so auras, brews, links, marks and shred show up as the partner's DPS.
 //
 //   node --import ./tools/simLoader.mjs tools/bench.mjs [girls…] [--stage 4-5] [--seed 9]
 //        [--builds p0t3,p0t4,…] [--targets crowd,boss] [--preset strong|L25] [--partner kage]
 //        [--copies '[[0,5,2,2],[0,4,2,2]]'] [--compare tools/baselines/bench-today-s9.jsonl] [--json]
-//        [--partner-build p0t5] [--strip-buffs] [--ramp 10] [--run 40] [--abilities]
+//        [--partner-build p0t5] [--strip-buffs] [--ramp 10] [--run 40] [--abilities] [--hp 5e4,3e7]
 //
 // Builds pNtM: path N to tier M with a tier-2 crosspath (P1 x-0-2, P2 2-x-0, P3 2-0-x); default: every
 // path at tiers 3, 4 and 5. One JSON line per run (--json) or a table; with --compare, the change of
@@ -28,7 +28,9 @@
 //   - No ability casts or charges before measuring starts; --abilities turns every girl's auto-cast on when
 //     it starts (off by default: the live game has no cast button yet).
 //   - `panelDps`: the panel's DPS right after placement (unbuffed, as before); `panelLive`: the panel at the
-//     start of measuring (auras, brews and links on); `peak1s`: the best single second of the window.
+//     start of measuring (auras, brews and links on); `peak1s`: the best single second of the window;
+//     `kills`: targets she killed in the window anyway (one step's damage above their HP, or an execute; a
+//     support's kills are not hers; raise --hp crowd,boss).
 //
 // MAX INVESTMENT (--max): every girl at level 85 (Akashic Tomes; the P6 cap), 10 gates, ★5, Potential P6
 // and the standard best-in-slot gear (tools/benchLib.mjs BIS: three UR +12 pieces read through
@@ -53,7 +55,7 @@ import { soloFreeplayStage } from '../src/data/freeplaySolo.js';
 import { bossEntry, streamPath, holdAbilities, releaseAbilities, maxProfile, FINAL_BUILDS, parseBuild } from './benchLib.mjs';
 
 const args = process.argv.slice(2);
-const VALUED = ['--stage', '--seed', '--builds', '--targets', '--preset', '--partner', '--copies', '--compare', '--run', '--partner-build', '--ramp',
+const VALUED = ['--stage', '--seed', '--builds', '--targets', '--preset', '--partner', '--copies', '--compare', '--run', '--partner-build', '--ramp', '--hp',
   '--supports', '--waves', '--rolls', '--club', '--tier', '--out', '--support-girls'];
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
 const flag = (k) => args.includes(`--${k}`);
@@ -90,8 +92,12 @@ const statsOf = (unitId) => {
   return maxCache.get(unitId);
 };
 const STREAM = { crowd: 'orc_grunt', boss: PRESET === 'strong' || PRESET === 'max' ? 'dragon_ashwing' : 'slime_courtier' };
-const HP_CROWD = 5e4;
-const HP_BOSS = PRESET === 'strong' || PRESET === 'max' ? 3e7 : 5e4;
+// Target HP: late Freeplay for the strong preset; ×40 for max investment (a wave-230 grunt, the same 1 : 600
+// crowd-to-boss ratio), because a maxed, buffed girl deals more than 50k to one grunt inside one step and the
+// heal-every-step trick then fails (`kills` counts her kills in the window: it should stay 0). --hp crowd,boss.
+const HP = (opt('hp', null) || (PRESET === 'max' ? '2e6,1.2e9' : PRESET === 'strong' ? '5e4,3e7' : '5e4,5e4')).split(',').map(Number);
+const HP_CROWD = HP[0];
+const HP_BOSS = HP[1] ?? HP[0];
 /** The boss warm-up (it spawns inside her reach); the crowd's is the stream's fill time + RAMP. */
 const BOSS_WARM = 15;
 /** The longest a crowd warm-up may take before measuring starts anyway (a girl whose slows stall the stream). */
@@ -198,8 +204,8 @@ function run(unitId, target, copies, stageId, o = {}) {
     const stream = streamPath(samples, spot, reach);
     if (o.soldBaseline) for (const t of measured) sim.sellTower(t.uid);
     const live = o.soldBaseline ? [] : measured;
-    // targets with a late-Freeplay HP (crowd ~50k, boss ~30M), healed back every step: %-max-HP damage
-    // (burn / poison pct, execution) meets realistic numbers and nothing ever dies
+    // targets with a late-Freeplay HP (HP_CROWD / HP_BOSS), healed back every step: %-max-HP damage
+    // (burn / poison pct, execution) meets realistic numbers and nothing dies (`kills` checks it)
     const hpOf = (id) => sim.data.enemy(id)?.hp || 1;
     const spawn = (id, pathIndex, dist) => sim.spawnEnemy(id, { pathIndex, dist, hpMul: (id === STREAM.boss ? HP_BOSS : HP_CROWD) / hpOf(id) });
     const dealt = () => live.reduce((a, t) => a + t.damageDealt, 0);
@@ -215,6 +221,7 @@ function run(unitId, target, copies, stageId, o = {}) {
     const secs = [];
     let secMark = 0;
     let secDmg = 0;
+    let kills = 0;
     for (let step = 0; ; step++) {
       const t = step / 60;
       if (start != null && t >= start + RUN) break;
@@ -241,7 +248,8 @@ function run(unitId, target, copies, stageId, o = {}) {
         dmg0 = dealt();
         pd0 = pt ? pt.damageDealt : 0;
         secMark = dmg0;
-        panelLive = live.length ? live.reduce((a, x) => a + (sim.towerStats(x.uid)?.dps || 0), 0) : 0;
+        kills = -live.reduce((a, x) => a + (x.kills || 0), 0);
+        panelLive =live.length ? live.reduce((a, x) => a + (sim.towerStats(x.uid)?.dps || 0), 0) : 0;
         releaseAbilities(sim, ABIL);
       }
       if (start != null && (step + 1) % 60 === 0) {
@@ -265,6 +273,7 @@ function run(unitId, target, copies, stageId, o = {}) {
       warm: r2(start),
       path: target === 'boss' ? boss.pathIndex : stream.pathIndex,
       reach: r2(reach),
+      kills: kills + live.reduce((a, x) => a + (x.kills || 0), 0),
     };
   });
   return out;
@@ -431,8 +440,8 @@ if (!MAX) {
       unitId: id, rarity: d.units[id].rarity, role: d.units[id].role, support: SUPPORT_GIRLS.has(id),
       best: best.build, stage: STAGE, seed: SEED, rolls: ROLLS, abilities: ABIL,
       stats: { damageMul: st.damageMul, rateMul: st.rateMul, rangeMul: st.rangeMul, critChance: st.critChance, critMul: st.critMul, pierceK: st.pierceK, auraPct: st.auraPct, club: st.club },
-      alone: { crowd: best.crowd?.realDps ?? null, boss: best.boss?.realDps ?? null, panel: best.crowd?.panelLive ?? null, peak1s: best.crowd?.peak1s ?? null, passDmg: best.boss?.passDmg ?? null },
-      pair: { with: sup.map((s) => `${s.unitId} ${s.build}`), crowd: withPair.crowd?.realDps ?? null, boss: withPair.boss?.realDps ?? null, panel: withPair.crowd?.panelLive ?? null, peak1s: withPair.crowd?.peak1s ?? null },
+      alone: { crowd: best.crowd?.realDps ?? null, boss: best.boss?.realDps ?? null, panel: best.crowd?.panelLive ?? null, peak1s: best.crowd?.peak1s ?? null, passDmg: best.boss?.passDmg ?? null, warm: best.crowd?.warm ?? null, kills: (best.crowd?.kills ?? 0) + (best.boss?.kills ?? 0) },
+      pair: { with: sup.map((s) => `${s.unitId} ${s.build}`), crowd: withPair.crowd?.realDps ?? null, boss: withPair.boss?.realDps ?? null, panel: withPair.crowd?.panelLive ?? null, peak1s: withPair.crowd?.peak1s ?? null, passDmg: withPair.boss?.passDmg ?? null, warm: withPair.crowd?.warm ?? null, kills: (withPair.crowd?.kills ?? 0) + (withPair.boss?.kills ?? 0) },
       uplift: { carry: `${carry.unitId} ${carry.build}`, ...uplift },
       waves: wavesAlone, wavesPair,
       builds: builds.map((b) => ({ build: b.build, tiers: b.crowd?.tiers ?? null, crowd: b.crowd?.realDps ?? null, boss: b.boss?.realDps ?? null, ...(b.uplift_crowd != null ? { uplift_crowd: b.uplift_crowd, uplift_boss: b.uplift_boss } : {}) })),
