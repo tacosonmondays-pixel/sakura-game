@@ -1,12 +1,13 @@
 // The girl bench's helpers (tools/benchLib.mjs, used by tools/bench.mjs): the walking boss enters her reach on the
 // path nearest her spot, at that path's sample distance `d` (it used to read a missing `near.dist` and always
 // started at the very beginning of path 0), the crowd streams on the path she covers most and warms up for the
-// stage's walk, abilities stay quiet until measuring starts, and the max-investment stat block stays inside the gear caps.
+// stage's walk, abilities stay quiet until measuring starts, the wave runs keep their lives past the wave-200
+// Matriarch, and the max-investment stat block stays inside the gear caps.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { samplePath } from '../../src/sim/path.js';
 import { BATTLE_CAPS } from '../../src/data/gearStats.js';
-import { bossEntry, streamPath, crowdWarmup, nearestSample, holdAbilities, releaseAbilities, maxProfile, MAX_INVEST, FINAL_BUILDS, parseBuild } from '../../tools/benchLib.mjs';
+import { bossEntry, streamPath, crowdWarmup, nearestSample, holdAbilities, releaseAbilities, keepLives, maxProfile, MAX_INVEST, FINAL_BUILDS, parseBuild } from '../../tools/benchLib.mjs';
 
 /** Two straight paths: path 0 along y = 0, path 1 along y = 10, samples every 0.5 tiles over 20 tiles. */
 function twoPaths() {
@@ -94,6 +95,24 @@ describe('bench: abilities wait for the measured window', () => {
     releaseAbilities(sim, true);
     expect(t.abil.auto).toBe(true);
     expect(sim.abilityAutoDefault[0]).toBe(true);
+  });
+});
+
+describe('bench: wave runs keep their lives', () => {
+  it('a boss that takes every life costs a finite count, and the lives are topped up before each wave', () => {
+    const sim = new Sim({ stageId: '4-5', seed: 9, loadout: [{ unitId: 'kage' }], hero: null, options: { autoStart: false } });
+    sim.lives = 1e15;
+    const topUp = keepLives(sim);
+    const boss = sim.spawnEnemy('dragon_ashwing', { pathIndex: 0, dist: 0 });
+    // the Matriarch has no leak count of her own: she takes every life (src/sim/enemies.js leakAmount)
+    expect(boss.leak).toBe(Infinity);
+    sim._leak(boss);
+    expect(boss.leaked).toBe(true);
+    expect(sim.state).not.toBe('lost');
+    expect(sim.lives).toBeGreaterThan(1e14);
+    sim.lives = 3;
+    topUp();
+    expect(sim.lives).toBe(1e15);
   });
 });
 

@@ -111,6 +111,30 @@ export function releaseAbilities(sim, on) {
 }
 
 // ---------------------------------------------------------------------------
+// Wave runs: lives that never run out
+// ---------------------------------------------------------------------------
+
+/**
+ * Keeps a wave run's "infinite" lives infinite. A boss with no leak count of her own (the wave-200 Ashwing
+ * Matriarch, the calamity) takes every life when she walks off (src/sim/enemies.js leakAmount), so even 1e15
+ * lives hit 0: the run turned 'lost', the wave stopped right there, and every later wave stopped at its first
+ * leak. After this such a leak costs `cost` lives; call the returned topUp() before each wave.
+ * @param {object} sim
+ * @param {number} [cost]
+ * @returns {() => void} topUp
+ */
+export function keepLives(sim, cost = 100) {
+  const leak = sim._leak;
+  sim._leak = function (e) {
+    if (!(e.leak < 1e6)) e.leak = cost;
+    return leak.call(this, e);
+  };
+  return () => {
+    sim.lives = 1e15;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Max investment
 // ---------------------------------------------------------------------------
 

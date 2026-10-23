@@ -44,7 +44,8 @@
 //   2. the best build with the standard support pair (max investment too; a girl in the pair is dropped from it);
 //   3. uplift: a max Kage 5-0-2 (Shiro 2-0-5 for Kage) next to her vs the same Kage with her sold before the run;
 //   4. real Freeplay waves (--waves, solo, Normal, --tier) with infinite lives, alone and with the pair: her
-//      damage per wave, the peak wave, total damage over those waves and the best single second.
+//      damage per wave, the peak wave, total damage over those waves and the best single second. (The lives stay
+//      infinite past the wave-200 Matriarch, who takes every life when she leaks: benchLib keepLives.)
 //   Abilities default on in --max (off: --abilities off). One JSON line per girl, then a table.
 //   (--preset max without --max runs the classic build grid with the max-investment stats.)
 import { readFileSync, existsSync, appendFileSync } from 'node:fs';
@@ -53,7 +54,7 @@ import { defaultData } from '../src/sim/data.js';
 import { samplePath } from '../src/sim/path.js';
 import { withDetMath } from '../src/core/detMath.js';
 import { soloFreeplayStage } from '../src/data/freeplaySolo.js';
-import { bossEntry, streamPath, crowdWarmup, holdAbilities, releaseAbilities, maxProfile, FINAL_BUILDS, parseBuild } from './benchLib.mjs';
+import { bossEntry, streamPath, crowdWarmup, holdAbilities, releaseAbilities, keepLives, maxProfile, FINAL_BUILDS, parseBuild } from './benchLib.mjs';
 
 const args = process.argv.slice(2);
 const VALUED = ['--stage', '--seed', '--builds', '--targets', '--preset', '--partner', '--copies', '--compare', '--run', '--partner-build', '--ramp', '--hp',
@@ -294,11 +295,14 @@ function runWaves(unitId, copies, stageId, waves, supports = []) {
   const measured = placed.map((p) => p.t);
   const dealt = () => measured.reduce((a, t) => a + t.damageDealt, 0);
   const rows = [];
+  // (the wave-200 Matriarch took every life: the run ended as she walked off and every later wave stopped at its first leak)
+  const topUp = keepLives(sim);
   withDetMath(() => {
     if (ABIL) releaseAbilities(sim, true);
     for (const w of waves) {
       sim.wave = w - 1;
       sim.wavesCleared = w - 1;
+      topUp();
       sim.state = 'between';
       sim.startNextWave();
       const d0 = dealt();
