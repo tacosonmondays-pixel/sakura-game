@@ -28,6 +28,9 @@
 //   - taps          the real hit area of every control, measured by scanning elementFromPoint outward from its
 //                   centre in 0.25 px steps; tapMin is the smallest, and the report prints exactly the number it
 //                   judges (low 7: "43.8 printed while asserting 44" cannot happen: both are the same value)
+//   - heads         the top bar no wider than its box, each of its controls inside the screen and on top at its
+//                   centre (the tap scan skips a control whose centre is off the screen); a top bar or plate head
+//                   title showing its words whole, not cut by its box or run under its chips (V1 review 1)
 //
 //   import { probe, judge } from './probe.mjs';
 //   const r = await probe(page, { kind: 'hub', list: '.ma-hub-grid' });
@@ -376,6 +379,50 @@ function probeInPage(o) {
       const hh = Math.round((reach(0, -1) + reach(0, 1)) / STEP) * STEP;
       taps.push({ w, h: hh, s: Math.min(w, hh), name: `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"` });
     }
+    // the bars and heads (V1 review 1, findings 1 and 3). The control scan above skips a control whose centre is off
+    // the screen, so a top bar that pushed Settings and Home past the right edge passed it: here every control of a
+    // top bar must be inside the screen and on top at its centre, and the bar no wider than its box. A title (the
+    // bar's, a plate head's) must show its words whole: not cut by its box, not run under the chips beside it.
+    const drawn = (el) => !!el && el.isConnected && (!el.checkVisibility || el.checkVisibility({ opacityProperty: true, visibilityProperty: true }))
+      && el.getBoundingClientRect().width > 0;
+    const heads = [];
+    for (const tb of rt.querySelectorAll('.topbar')) {
+      if (!drawn(tb) || out2(tb)) continue;
+      if (tb.scrollWidth > tb.clientWidth + 1) heads.push(`${nameOf(tb)} is ${tb.scrollWidth} px wide in ${tb.clientWidth} px`);
+      for (const el of tb.querySelectorAll(CONTROLS)) {
+        if (!drawn(el) || el.disabled || el.closest('[aria-hidden="true"]')) continue;
+        const r = el.getBoundingClientRect();
+        const nm = `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || el.title || '')}"`;
+        if (r.left < -0.5 || r.right > vw + 0.5 || r.top < -0.5 || r.bottom > vh + 0.5) {
+          heads.push(`${nm} off the screen (x ${r.left.toFixed(1)} to ${r.right.toFixed(1)} on ${vw})`);
+          continue;
+        }
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        // (a dialog or a sheet open over the whole screen covers its bar by design: the pull result, a modal)
+        if (top && top.closest(`${layered}, [role="dialog"], [aria-modal="true"]`) && !el.closest(`${layered}, [role="dialog"]`)) continue;
+        if (!top || !(top === el || el.contains(top))) heads.push(`${nm} not on top at its centre${top ? ` (${nameOf(top)})` : ''}`);
+      }
+    }
+    for (const t of rt.querySelectorAll('.topbar-title, .ui-plate-head .ui-plate-title')) {
+      if (!drawn(t) || out2(t) || !seen(t.getBoundingClientRect())) continue;
+      const box = t.getBoundingClientRect();
+      // the words as laid out: the text nodes that are drawn (a plate title may carry a long and a short form)
+      let left = Infinity;
+      let right = -Infinity;
+      const tw2 = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
+      for (let n = tw2.nextNode(); n; n = tw2.nextNode()) {
+        if (!/\S/.test(n.nodeValue) || !drawn(n.parentElement)) continue;
+        rg.selectNodeContents(n);
+        const b = rg.getBoundingClientRect();
+        if (!b.width) continue;
+        left = Math.min(left, b.left);
+        right = Math.max(right, b.right);
+      }
+      if (right === -Infinity) continue;
+      const words = cut(t.textContent || '');
+      if (getComputedStyle(t).textOverflow === 'ellipsis' && t.scrollWidth > t.clientWidth + 1) heads.push(`${nameOf(t)} "${words}" ends in an ellipsis (${t.scrollWidth} px in ${t.clientWidth} px)`);
+      else if (right > box.right + 1 || left < box.left - 1) heads.push(`${nameOf(t)} "${words}" is ${(right - left).toFixed(1)} px in a ${box.width.toFixed(1)} px box`);
+    }
     const fmt = (t) => `${t.w.toFixed(2)}x${t.h.toFixed(2)} ${t.name}`;
     const tapMin = taps.length ? Math.min(...taps.map((t) => t.s)) : null;
     return {
@@ -397,6 +444,8 @@ function probeInPage(o) {
       tapsUnder44: taps.filter((t) => t.s < 44).sort((a, b) => a.s - b.s).slice(0, 20).map(fmt),
       tapsUnder44Count: taps.filter((t) => t.s < 44).length,
       tapsUnder40Count: taps.filter((t) => t.s < 40).length,
+      heads: heads.slice(0, 20),
+      headsCount: heads.length,
     };
   }
 }
@@ -412,7 +461,7 @@ export const LIMITS_V2 = Object.freeze({ numbers: 10, yellow: 1, tap: 44 });
  * @param {ReturnType<typeof probeInPage>} r
  * @param {{ skip?: string[], only?: string[]|null, v2?: boolean }} [o] skip: checks not judged on this screen ('numbers',
  *   'taps', ...); only: judge just these checks; v2: also the v2 checks ('v2numbers', 'v2yellow', 'pink', 'radius',
- *   'covered', 'v2taps'; the result needs probe(..., { v2: true }))
+ *   'covered', 'v2taps', 'heads'; the result needs probe(..., { v2: true }))
  */
 export function judge(r, { skip = [], only = null, v2 = false } = {}) {
   const fails = [];
@@ -426,6 +475,7 @@ export function judge(r, { skip = [], only = null, v2 = false } = {}) {
     if (on('covered') && x.coveredCount) fails.push(`${x.coveredCount} controls painted over (${x.covered.slice(0, 3).join('; ')})`);
     // the number printed is the number judged: both are tapMin, in 0.25 px steps
     if (on('v2taps') && x.tapMin != null && x.tapMin < LIMITS_V2.tap) fails.push(`tap ${x.tapMinText} px < ${LIMITS_V2.tap} px (${x.tapsUnder44Count}: ${x.tapsUnder44.slice(0, 3).join('; ')})`);
+    if (on('heads') && x.headsCount) fails.push(`${x.headsCount} bar or head faults (${x.heads.slice(0, 3).join('; ')})`);
   }
   if (on('text') && r.minText != null && r.minText < r.floor) fails.push(`text ${r.minText}px < ${r.floor}px (${r.smallCount}: ${r.small.slice(0, 3).join('; ')})`);
   if (on('numbers') && r.numbers > LIMITS.numbers) fails.push(`numbers ${r.numbers} > ${LIMITS.numbers}`);
@@ -460,5 +510,5 @@ export function summary(r) {
 
 /** [ui-ink] The v2 half of the line: "v2: numbers 9 · yellow 1 · pink 2 (stray 0) · radius 0 · covered 0 · tap min 44.00 (≥ 44)". */
 export function summaryV2(x) {
-  return `v2: numbers ${x.numbersAll} · yellow ${x.yellowFills.length} · pink ${x.pinkCount} (stray ${x.pinkStrayCount}) · radius ${x.radiusCount} · covered ${x.coveredCount} · tap min ${x.tapMinText ?? '–'} (asserts ≥ ${LIMITS_V2.tap}; ${x.tapsUnder44Count} under)`;
+  return `v2: numbers ${x.numbersAll} · yellow ${x.yellowFills.length} · pink ${x.pinkCount} (stray ${x.pinkStrayCount}) · radius ${x.radiusCount} · covered ${x.coveredCount} · tap min ${x.tapMinText ?? '–'} (asserts ≥ ${LIMITS_V2.tap}; ${x.tapsUnder44Count} under) · heads ${x.headsCount ?? '–'}`;
 }

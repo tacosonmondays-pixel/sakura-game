@@ -10,7 +10,7 @@
 //   faceBand(page, '.ui-girltile')         no tile UI between a tile's own face band (data-face-top/-bottom)
 //   tagToFrame(page, tile, tag)            a caption's rarity tag stays ≥ 3 px from the innermost frame line
 //   artClearance(page, host, ui)           a host's opaque pixels stay ≥ 8 px from every UI box (a host-hidden diff)
-//   contrastOnPixels(page, sel)            text against its real composited background (WCAG ratio)
+//   contrastOnPixels(page, sel, { onTop }) text against its real composited background (WCAG ratio)
 //
 // Every probe returns { checks: [{ ok, msg }], fails } (fails = the number of failed checks), plus its own details.
 
@@ -295,20 +295,32 @@ export async function artClearance(page, hostSel, uiSel, { min = 8 } = {}) {
 
 /**
  * Text against its real composited background: for each element with its own text, the background is the most common
- * pixel colour in its box that is not near the text colour; the WCAG ratio of the text colour against it. 4.5:1 (3:1
- * for numbers of 22 px and up).
+ * pixel colour in its box that is not the text colour itself (within 32 of it: the glyphs' solid core); the WCAG ratio
+ * of the text colour against it. 4.5:1 (3:1 for numbers of 22 px and up).
+ * (V1 review 1: the old cut of 90 also threw away a background close to the text, so the faintest pairs, cyan
+ * rgb(10, 111, 156) on navy rgb(29, 50, 95) at 2.25:1, measured against stray pixels. onTop: only elements whose
+ * control or own box is on top at its centre, so a label under a sheet is never measured on the sheet's pixels;
+ * disabled controls are left out, as WCAG leaves them out.)
  * @param {import('playwright').Page} page
  * @param {string} sel
- * @param {{ limit?: number }} [o]
+ * @param {{ limit?: number, onTop?: boolean }} [o]
  */
-export async function contrastOnPixels(page, sel, { limit = 40 } = {}) {
-  const els = await page.evaluate(([s, lim]) => [...document.querySelectorAll(s)].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim())).slice(0, lim).map((e) => {
+export async function contrastOnPixels(page, sel, { limit = 40, onTop = false } = {}) {
+  const els = await page.evaluate(([s, lim, top]) => [...document.querySelectorAll(s)].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim())).filter((e) => {
+    if (!top) return true;
+    const ctl = e.closest('button, a[href], [role="button"]') || e;
+    if (ctl.disabled) return false;
+    const r = e.getBoundingClientRect();
+    if (!(r.width > 1 && r.height > 1)) return false;
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!hit && (hit === ctl || ctl.contains(hit));
+  }).slice(0, lim).map((e) => {
     const r = e.getBoundingClientRect();
     const cs = getComputedStyle(e);
     const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(cs.color);
     const fs = parseFloat(cs.fontSize);
     return { text: e.textContent.trim().slice(0, 24), x: r.left, y: r.top, w: r.width, h: r.height, fg: m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0], min: fs >= 22 && /^[\d\s.,:/+×x%-]+$/.test(e.textContent.trim()) ? 3 : 4.5 };
-  }).filter((e) => e.w > 1 && e.h > 1 && e.x >= 0 && e.y >= 0 && e.x + e.w <= innerWidth && e.y + e.h <= innerHeight), [sel, limit]);
+  }).filter((e) => e.w > 1 && e.h > 1 && e.x >= 0 && e.y >= 0 && e.x + e.w <= innerWidth && e.y + e.h <= innerHeight), [sel, limit, onTop]);
   const checks = [];
   for (const e of els) {
     const r = await withPixels(page, { x: e.x, y: e.y, width: e.w, height: e.h }, (pix, q) => {
@@ -316,7 +328,7 @@ export async function contrastOnPixels(page, sel, { limit = 40 } = {}) {
       for (let Y = 0; Y < pix.H; Y += 1) {
         for (let X = 0; X < pix.W; X += 1) {
           const c = pix.atDev(X, Y);
-          if (pix.dist(c, q.fg) < 90) continue;
+          if (pix.dist(c, q.fg) < 32) continue;
           const k = `${c[0] >> 3},${c[1] >> 3},${c[2] >> 3}`;
           counts.set(k, (counts.get(k) || 0) + 1);
         }

@@ -210,15 +210,32 @@ async function runViewport(vp) {
   for (const [label, hash] of ROUTES) {
     await page.evaluate((h) => { location.hash = h; }, hash);
     await page.waitForTimeout(label.includes('student') || label === 'lobby' || label === 'bestiary' || label === 'assault' ? 1600 : 900);
+    // [ui-ink] (the bar check below reads what is on top: a screen change still running on a busy machine paints its
+    // layers over the bar, so wait for it to end, as e2e/ui-shots.mjs does)
+    await page.waitForFunction(() => !document.documentElement.dataset.tx && !document.querySelector('.ld-chip.on'), null, { timeout: 8000 }).catch(() => {});
     const info = await page.evaluate(() => {
       const app = document.querySelector('#app');
       const text = (app?.innerText || '').trim();
-      return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1 };
+      // [ui-ink] the top bar can be reached (UI v2 V1 review 1: on portrait phones the wallets pushed Settings and Home
+      // past the right edge while the page itself never scrolled sideways): each of its controls inside the screen and
+      // on top at its centre, unless a dialog is open over the screen
+      const bar = [];
+      for (const b of document.querySelectorAll('#app .topbar button')) {
+        const r = b.getBoundingClientRect();
+        if (!r.width || !r.height || (b.checkVisibility && !b.checkVisibility({ visibilityProperty: true }))) continue;
+        const name = b.dataset.testid || b.getAttribute('aria-label') || b.title || b.className;
+        if (r.left < -0.5 || r.right > innerWidth + 0.5) { bar.push(`${name} at x ${Math.round(r.left)}`); continue; }
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (top && top.closest('.modal-overlay, .ui-layer, [role="dialog"], [aria-modal="true"], .rotate-overlay') && !b.closest('[role="dialog"]')) continue;
+        if (!top || !(top === b || b.contains(top))) bar.push(`${name} covered by ${top ? `${top.tagName.toLowerCase()}.${[...top.classList].slice(0, 2).join('.')}` : 'nothing'}`);
+      }
+      return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1, bar };
     });
     const errs = takeErrors();
     check(info.len > 40 && !info.crashed, `${label}: renders content (${info.len} chars, screen=${info.screen})`);
     check(!errs.length, `${label}: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);
     check(!info.overflow, `${label}: no horizontal page overflow`);
+    check(!info.bar.length, `${label}: every top bar control on screen and on top${info.bar.length ? ` (${info.bar.join(', ')})` : ''}`);
     await shot(label);
   }
 

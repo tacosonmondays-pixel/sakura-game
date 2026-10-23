@@ -642,7 +642,12 @@
 :is(.ui-day, .ui-night) .mb-pick.in .unit-card { outline: 0; }
 /* (the bar sits inside the card, right on its 4 px rarity edge) */
 :is(.ui-day, .ui-night) .mb-pick.in .unit-card::before { content: ''; position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; height: 3px; background: var(--pink-ink); pointer-events: none; }
-:is(.ui-day, .ui-night) .mb-pick .mb-pick-check { border-radius: 0; background: var(--pink-ink); color: #fff; box-shadow: none;
+/* (the chip: the kit's clean one-cut chip, no frame (meta-b's 2 px border on .mb-pick-check reset), on the card's
+   bottom-right corner, hanging 4 px off it as the gear tile's chip hangs off its corner: below the name band, the
+   cost and every girl's face, so it can never reach an eye line, and the P4 pill and the level at the top stay
+   whole; V1 review 1, finding 4) */
+:is(.ui-day, .ui-night) .mb-pick .mb-pick-check { top: auto; right: -4px; bottom: -4px; width: 18px; height: 18px; padding: 2px; border: 0; border-radius: 0;
+  background: var(--pink-ink); color: #fff; box-shadow: none;
   clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
 
 /* ==========================================================================================================
@@ -805,16 +810,20 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
   position: relative; width: 32px; height: 32px; padding: 7px; border-radius: 50%;
   background: var(--plate-2); color: #fff; box-shadow: inset 0 0 0 1px var(--line-hi);
 }
-:is(.ui-day, .ui-night) :is(.topbar-back, .topbar-icon)::before { content: ''; position: absolute; left: 50%; top: calc(50% - var(--topbar-h) / 2); width: var(--tap); height: max(var(--tap), var(--topbar-h)); transform: translateX(-50%); }
-/* settings, home and the other icon buttons: line glyphs, no plate (36 visual, 44 hit) */
+/* (every hit square in the bar is the tap size + 2 px, so no sub-pixel layout or 0.25 px probe step reads it under the
+   floor; V1 review 1, finding 5) */
+:is(.ui-day, .ui-night) :is(.topbar-back, .topbar-icon)::before { content: ''; position: absolute; left: 50%; top: calc(50% - var(--topbar-h) / 2); width: calc(var(--tap) + 2px); height: max(calc(var(--tap) + 2px), var(--topbar-h)); transform: translateX(-50%); }
+/* settings, home and the other icon buttons: line glyphs, no plate. The button is as wide as its hit square and the
+   pair sits with no gap, so neither hit square overlaps the other (36 px tall, 46 px wide and hit on phones) */
 :is(.ui-day, .ui-night) .topbar-icon {
-  position: relative; width: 36px; height: 36px; padding: 8px; border-radius: 0; background: none; box-shadow: none; color: var(--on-ink);
+  position: relative; width: calc(var(--tap) + 2px); height: 36px; padding: 8px 13px; border-radius: 0; background: none; box-shadow: none; color: var(--on-ink);
 }
 :is(.ui-day, .ui-night) .topbar-icon:hover { background: none; }
+:is(.ui-day, .ui-night) .topbar > .topbar-group:has(> .topbar-icon) { gap: 0; }
 @media (min-height: 481px) {
   :is(.ui-day, .ui-night) .topbar { gap: 16px; padding-left: calc(16px + var(--safe-left)); padding-right: calc(20px + var(--safe-right)); }
   :is(.ui-day, .ui-night) .topbar-back { width: 40px; height: 40px; padding: 9px; }
-  :is(.ui-day, .ui-night) .topbar-icon { width: 44px; height: 44px; padding: 10px; }
+  :is(.ui-day, .ui-night) .topbar-icon { height: 44px; padding: 10px 13px; }
 }
 /* the wallets (components.js currencyPills, src/ui/wallets.js): a line glyph and the number, split by slanted slashes;
    "+" a hairline square (Q3: only the currencies the screen spends) */
@@ -836,14 +845,31 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
   position: relative; z-index: 2; width: 20px; height: 20px; padding: 0; margin-left: 2px; display: grid; place-items: center; line-height: 0; border-radius: 0;
   background: none; color: var(--cyan); box-shadow: inset 0 0 0 1px var(--line-hi);
 }
-:is(.ui-day, .ui-night) .cur-plus::before { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); }
+/* (its hit square hangs from the band's top edge, like the icons': centred on the "+", it started 2 px above the
+   screen at the top of a 40 px bar and lost them) */
+:is(.ui-day, .ui-night) .cur-plus::before { content: ''; position: absolute; left: 50%; top: calc(50% - var(--topbar-h) / 2); width: calc(var(--tap) + 2px); height: max(calc(var(--tap) + 2px), var(--topbar-h)); transform: translateX(-50%); }
 :is(.ui-day, .ui-night) .cur-plus .svg-icon { width: 14px; height: 14px; }
 @media (min-height: 481px) { :is(.ui-day, .ui-night) .cur-plus { width: 24px; height: 24px; } }
 :is(.ui-day, .ui-night) .topbar .ui-vr { width: 1px; align-self: stretch; margin: 10px 2px; background: var(--line-lo); flex: none; }
 :is(.ui-day, .ui-night) .topbar .cur-pills[hidden], :is(.ui-day, .ui-night) .topbar .cur-pills[hidden] + .ui-vr { display: none; }
 :is(.ui-day, .ui-night) .topbar .ui-slash { width: 1px; height: 16px; background: var(--line-hi); transform: skewX(-18deg); flex: none; }
-/* the phone's narrow portrait bar (max-width 440 in base.css): keep the "+" and the slashes small */
-@media (max-width: 440px) { :is(.ui-day, .ui-night) .topbar .cur-pills { gap: 6px; } :is(.ui-day, .ui-night) .topbar .ui-slash { display: none; } }
+/* the phone's narrow portrait bar (max-width 440, as base.css): portrait phones get the desktop type scale (their
+   height is over 480), so the bar takes the phone sizes here. As in M5, the "+" goes (the Mall is one tap away
+   from the home); the slashes and the hairline go; the title gives way (ellipsis) before anything is pushed off.
+   Back, the title, two wallets, Settings and Home fit 390 px with every control on screen (V1 review 1, finding 1). */
+@media (max-width: 440px) {
+  :is(.ui-day, .ui-night) .topbar { gap: 7px; padding-left: calc(8px + var(--safe-left)); padding-right: calc(4px + var(--safe-right)); }
+  :is(.ui-day, .ui-night) .topbar-back { width: 34px; height: 34px; padding: 7px; }
+  :is(.ui-day, .ui-night) .topbar-title { min-width: 0; flex: 1 1 auto; font-size: 17px; }
+  :is(.ui-day, .ui-night) .topbar .cur-pills { gap: 8px; flex: none; }
+  :is(.ui-day, .ui-night) .cur-pills > .cur-pill { gap: 4px; }
+  :is(.ui-day, .ui-night) .cur-pills > .cur-pill, :is(.ui-day, .ui-night) .topbar .cur-val { font-size: 16px; }
+  :is(.ui-day, .ui-night) .cur-pills > .cur-pill .svg-icon { width: 16px; height: 16px; }
+  :is(.ui-day, .ui-night) .topbar :is(.cur-plus, .ui-slash, .ui-vr) { display: none; }
+  :is(.ui-day, .ui-night) .topbar > .topbar-group:has(> .topbar-icon) { flex: none; }
+  :is(.ui-day, .ui-night) .topbar-icon { width: 46px; padding: 11px 12px; }
+  :is(.ui-day, .ui-night) .topbar-icon::before { width: 46px; }
+}
 
 /* ---------- panels: opaque white, the chamfer pair, ONE hairline ring; no shadow, no blur, no radius (Q8, Q9) ---------- */
 /* (.mb-card: the Formation's and the girl page sheets' twin of .panel, meta-b.css, restyled from here) */
@@ -887,11 +913,19 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 @media (max-height: 480px) { :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { --h: 40px; } }
 :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head .ui-ibtn { background: none; }
 :is(.ui-day, .ui-night) .ui-plate-head .ui-plate-title { color: var(--on-ink); }
+/* portrait phones (the desktop type scale on a 390 px column): a head's buttons take the small caps and drop their
+   decorative glyph, so the title, its chip and the button each keep their whole width (V1 review 1, finding 3) */
+@media (max-width: 440px) {
+  :is(.ui-day, .ui-night) .ui-plate-head .btn { gap: 6px; padding: 0 10px; font-size: var(--fs-body); letter-spacing: 0.04em; }
+  :is(.ui-day, .ui-night) .ui-plate-head .btn > .btn-icon { display: none; }
+}
 
 /* ---------- the E3 rail on the list screens: the kit's white tabs and ink slab, at the screen's own column ---------- */
 /* (the M5 column is 128 px on phones and 168 on desktop: the caps run at the body size so no word is cut) */
 :is(.ui-day, .ui-night) .ls-rail > .ui-stab { font-size: var(--fs-body); padding-left: calc(10px + env(safe-area-inset-left, 0px)); gap: 6px; }
 :is(.ui-day, .ui-night) .ls-rail > .ui-stab.on { width: calc(100% + 6px); }
+/* (phones: 46 px tabs, 2 px over the 44 px floor, on a 4 px gap, so the rail keeps its height; V1 review 1, finding 5) */
+@media (max-height: 480px) { :is(.ui-day, .ui-night) .ls-rail > .ui-stab { --h: 46px; } :is(.ui-day, .ui-night) .ls > .ls-rail.ui-srail { gap: 4px; } }
 /* the longer slab runs into the rail's own right padding; the rail never scrolls sideways for it */
 :is(.ui-day, .ui-night) .ls > .ls-rail { overflow-x: hidden; }
 @media (min-height: 481px) { :is(.ui-day, .ui-night) .ls-rail > .ui-stab { font-size: var(--fs-name); padding-left: calc(14px + env(safe-area-inset-left, 0px)); gap: 10px; } }
@@ -913,7 +947,16 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 :is(.ui-day, .ui-night) .btn.ui-sec { font: 700 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase; }
 :is(.ui-day, .ui-night) .btn.ui-sec > .ui-sec-ico { color: var(--cyan-ink); }
 :is(.ui-day, .ui-night) :is(.btn-primary, .btn-pink, .btn.ui-sec):active:not(:disabled) { background: var(--cyan-wash); }
-:is(.ui-day, .ui-night) .btn-ghost { background: transparent; color: var(--cyan-text); border-color: transparent; font-size: var(--fs-body); }
+/* (--cyan-text is a colour for white only: 5.6:1 there, 4.3:1 on the paper field, 2.3:1 on the night reveal. So a
+   ghost always brings its own white: on a white panel nothing shows, on the field or a tinted card it is the white
+   plate M5 drew (Titan shelf), on a painting it adds a hairline (Rates, History). On ink it is the secondary on ink:
+   on a plate head the clear glass below, on the pull result (a night moment over the day Recruit screen) Close is
+   solid ink with a light hairline and white caps, the size of Recruit again beside it. V1 review 1, finding 2.) */
+:is(.ui-day, .ui-night) .btn-ghost { background: var(--panel-w); color: var(--cyan-text); border-color: transparent; font-size: var(--fs-body); }
+:is(.ui-day, .ui-night) .ma-gacha .btn-ghost { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-hi); font-size: var(--fs-name); }
+:is(.ui-day, .ui-night) .ma-banner-links .btn-ghost { box-shadow: inset 0 0 0 1px var(--line-ink); }
+/* the profile's own bar is the white glass over its banner (profile.css), not the ink band: its title stays ink */
+:is(.ui-day, .ui-night) .pf .topbar.pf-top .topbar-title { color: var(--ink); }
 :is(.ui-day, .ui-night) :is(.btn-danger, .btn.ui-danger) { background: var(--panel-w); color: var(--bad-text); border-color: transparent; box-shadow: inset 0 0 0 1px var(--bad); }
 :is(.ui-day, .ui-night) .btn:disabled { opacity: 1; background: var(--sky-1); color: var(--muted); border-color: transparent; box-shadow: inset 0 0 0 1px var(--line-ink-soft); cursor: default; }
 :is(.ui-day, .ui-night) .btn.ui-sec:disabled > .ui-sec-ico { color: var(--muted); }

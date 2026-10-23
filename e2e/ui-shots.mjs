@@ -296,6 +296,8 @@ const DEFAULT_PIXELS = async (page) => ({
   panels: await ringContinuity(page, '#app .ui-panel, #app .panel, #app .mb-card, #app .ls-panel:not(.bare), .ui-sheet:not(.full), .modal', { shape: 'pair', limit: 3 }),
   tabs: await tabJunction(page, '#app .ui-tabbed'),
   titles: await contrastOnPixels(page, '#app .topbar-title, #app .ui-plate-title > span, #app .panel-title', { limit: 6 }),
+  // the button labels on top, the overlays' included (V1 review 1: the pull result's Close on the night reveal)
+  buttons: await contrastOnPixels(page, '.btn > .btn-label', { limit: 16, onTop: true }),
 });
 
 /** The Halloween event's route, from the event data (its id is not spelled here). */

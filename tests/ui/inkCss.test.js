@@ -85,6 +85,24 @@ describe('ink.css', () => {
     const card = ALL.find((r) => r.sel.includes('.mb-gear.selected') && /outline: none/.test(r.body));
     expect(card?.body).toMatch(/inset 0 -3px 0 var\(--pink-ink\)/);
   });
+  it('V1 review 1: the narrow bar drops the "+", the night Close is on ink, the pick chip has no frame and keeps low', () => {
+    // portrait phones: the "+", the slashes and the hairline go, the title may give way, the icons stay 46 px
+    const narrow = ALL.find((r) => r.sel.includes('.topbar :is(.cur-plus, .ui-slash, .ui-vr)'));
+    expect(narrow?.body).toMatch(/display: none/);
+    expect(ALL.find((r) => r.sel.endsWith('.topbar-title') && /min-width: 0/.test(r.body))).toBeTruthy();
+    // the bar's hit squares: the tap size + 2 px, the icon pair with no gap
+    expect(ALL.find((r) => r.sel.includes('.cur-plus::before'))?.body).toMatch(/calc\(var\(--tap\) \+ 2px\)/);
+    expect(ALL.find((r) => r.sel.includes('.topbar-group:has(> .topbar-icon)'))?.body).toMatch(/gap: 0/);
+    // a ghost off paper wears a surface: the pull result's Close is white caps on ink
+    const close = ALL.find((r) => r.sel.includes('.ma-gacha .btn-ghost'));
+    expect(close?.body).toMatch(/color: var\(--on-ink\)/);
+    expect(close?.body).toMatch(/background: var\(--plate\)/);
+    // the Formation pick's chip: no border (meta-b's frame reset), at the bottom corner, never at the eye line
+    const chip = ALL.find((r) => split(r.sel)[0].endsWith('.mb-pick .mb-pick-check'));
+    expect(chip?.body).toMatch(/border: 0/);
+    expect(chip?.body).toMatch(/top: auto/);
+    expect(chip?.body).toMatch(/bottom: -4px/);
+  });
   it('the E3 rail: white caps on the active ink slab and the pink "/" bar (Q1); no yellow words', () => {
     expect(ALL.find((r) => split(r.sel)[0].endsWith('.ui-stab.on'))?.body).toMatch(/color: var\(--on-ink\)/);
     expect(ALL.find((r) => r.sel.includes('.ui-stab.on::before'))?.body).toMatch(/background: var\(--pink\)/);
