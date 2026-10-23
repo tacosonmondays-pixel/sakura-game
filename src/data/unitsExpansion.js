@@ -161,8 +161,8 @@ const SEIRAN = {
   quote: 'Ride the storm with me!',
   tips: [
     'Deploys on land or water. Her chain lightning prefers flyers.',
-    'Set her aim point: Dragonflight enters there and flies back along the road, grounding flyers and marking everything it hits.',
-    'Without an aim the dragon enters at the exit end of the busiest path.',
+    'Set her aim point: Dragonflight enters there and flies back along the road all the way to its start, grounding flyers and marking everything it hits.',
+    'Without an aim the dragon enters at the exit end of the busiest path and flies the whole road.',
   ],
   base: stats({
     cost: 0, behavior: 'chain', damage: 5, rate: 0.8, range: 3.4, chain: 3, projectileSpeed: 0, canHitAir: true, detection: true,
@@ -179,11 +179,13 @@ const SEIRAN = {
     pathKeys: HERO_TRACKS.seiran.pathKeys,
     ult: {
       name: 'Dragonflight',
-      desc: 'Her sky dragon enters at her aim point (or the busy path\'s exit) and flies back along the road 10 tiles in 3s: each enemy its 6 segments touch takes 140 lightning damage, flyers are grounded for 5s and everything is marked (+18% damage taken) for 5s; bosses take the damage only.',
+      desc: 'Her sky dragon enters at her aim point (or the busy path\'s exit) and flies back along the road all the way to its start, in up to 5s: each enemy its 6 segments touch takes 140 lightning damage, flyers are grounded for 5s and everything is marked (+18% damage taken) for 5s; bosses take the damage only.',
       unlockLevel: 3,
       cooldown: 66,
       effect: {
-        type: 'runner', runner: 'dragon', center: 'aim', damage: 140, length: 10, time: 3, segments: 6, gap: 0.6, attackType: 'mystic',
+        // toStart: the whole road back to START, in at most `time` s and never slower than `minSpeed` tiles/s
+        // (src/sim/runners.js); the slowest pace is the old 10 tiles in 3s
+        type: 'runner', runner: 'dragon', center: 'aim', toStart: true, damage: 140, time: 5, minSpeed: 10 / 3, segments: 6, gap: 0.6, attackType: 'mystic',
         status: [S.ground(5), S.mark(0.18, 5)],
       },
       ranks: HERO_TRACKS.seiran.ultRanks,

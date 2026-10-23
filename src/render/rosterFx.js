@@ -21,6 +21,8 @@ const MAX_DRAGON_HEADS = 6;
 const MAX_CURSE_PER_FRAME = 10;
 /** A warning ring with no shellLand (wave clear, sold girl) disappears this long after its delay. */
 const WARN_GRACE = 0.25;
+/** A sky dragon the wave clear removed mid-flight finishes its flight to START within this (s). */
+const GHOST_TIME = 1.2;
 
 const COL = {
   warn: '#ff9a3c',
@@ -123,6 +125,7 @@ const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _seg = {};
 const _segN = {};
+const _head = { x: 0, y: 0 };
 
 export class RosterFx {
   /** @param {{ sim, scene, fx, batches, atlas, actors, quality? }} o */
@@ -147,6 +150,16 @@ export class RosterFx {
     this._dragon = null;
     /** last head position per runner uid (for the exit sparkle) */
     this._heads = new Map();
+    /** each sky dragon in flight by runner uid, as last drawn: { pathIndex, dist, speed, segments, gap, end, seen } */
+    this._flying = new Map();
+    /**
+     * dragons whose runner the wave clear removed mid-flight (Sim._checkWaveEnd: no runnerEnd). Nothing is
+     * left to hit, so they fly on to START here and sparkle there: { pathIndex, dist, speed, segments, gap, end, head }
+     */
+    this._ghosts = [];
+    this._frame = 0;
+    this._nh = 0; // heads / beads written this frame
+    this._nb = 0;
     this._curseThisFrame = 0;
     /** companion figures (src/render/companions.js, set by the renderer): Kon's 3D figure replaces the holo fox */
     this.companions = null;
@@ -213,15 +226,31 @@ export class RosterFx {
         if (ev.effect === 'strike') this._strike(ev);
         else if (ev.effect === 'runner') this._dragonEnter(ev);
         return false;
+      case 'runner':
+        // (seeded here too, so a dragon the wave clear removes before its first frame still finishes)
+        if (ev.kind === 'dragon' && !this._flying.has(ev.uid)) {
+          const segments = Math.max(1, ev.segments || 1);
+          const gap = ev.gap ?? 0.6;
+          const end = -(segments - 1) * gap;
+          this._flying.set(ev.uid, { pathIndex: ev.pathIndex, dist: ev.dist, speed: (ev.dist - end) / Math.max(0.1, ev.time || 1), segments, gap, end, seen: this._frame });
+        }
+        return false;
       case 'runnerEnd': {
+        this._flying.delete(ev.uid);
         const h = this._heads.get(ev.uid);
         if (h) {
-          this.fx.sparkle(h.x, h.y, COL.sky, { count: 12, height: 1.2, ring: false });
-          this.fx.puff(h.x, 0.8, h.y, '#e8f6ff', 5, 0.4, 0.35);
+          this._exitSparkle(h.x, h.y);
           this._heads.delete(ev.uid);
         }
         return true;
       }
+      case 'waveEnd':
+        this._ghostDragons();
+        return false;
+      case 'waveStart':
+        // a ghost never flies over the next wave's spawns without hitting them
+        this._ghosts.length = 0;
+        return false;
       default:
         return false;
     }
@@ -280,6 +309,27 @@ export class RosterFx {
     this.fx.flash(x, 0.9, z, '#e8f6ff', 1.6, 0.3);
   }
 
+  /** Where a sky dragon leaves the road (its last head position, by START). */
+  _exitSparkle(x, z) {
+    this.fx.sparkle(x, z, COL.sky, { count: 12, height: 1.2, ring: false });
+    this.fx.puff(x, 0.8, z, '#e8f6ff', 5, 0.4, 0.35);
+  }
+
+  /** The wave clear: every dragon still in flight becomes a ghost that finishes the flight (display only). */
+  _ghostDragons() {
+    for (const [uid, f] of this._flying) {
+      const left = f.dist - f.end;
+      const h = this._heads.get(uid);
+      this._heads.delete(uid);
+      if (!(left > 0.01) || this._ghosts.length >= MAX_DRAGON_HEADS) continue;
+      this._ghosts.push({
+        pathIndex: f.pathIndex, dist: f.dist, segments: f.segments, gap: f.gap, end: f.end,
+        speed: Math.max(f.speed, left / GHOST_TIME), head: h ? { x: h.x, y: h.y } : null,
+      });
+    }
+    this._flying.clear();
+  }
+
   // ---- shared meshes -----------------------------------------------------------------------
 
   _ensureGeo() {
@@ -322,7 +372,7 @@ export class RosterFx {
     this._drawWarns();
     this._syncProps(dt);
     this._drawAims();
-    this._drawDragons();
+    this._drawDragons(dt);
   }
 
   _drawWarns() {
@@ -479,68 +529,115 @@ export class RosterFx {
     }
   }
 
-  _drawDragons() {
+  _drawDragons(dt = 0) {
     const runners = this.sim.runners;
     const has = runners && runners.length > 0;
-    if (!has && !this._dragon) return;
+    const ghosts = this._ghosts;
+    if (!has && !ghosts.length && !this._dragon) return;
     const D = this._ensureDragon();
-    let nh = 0;
-    let nb = 0;
-    const R = this.R;
-    const glow = this.quality !== 'low';
-    const [cr, cg, cb] = RGB.sky;
+    const frame = ++this._frame;
+    this._nh = 0;
+    this._nb = 0;
     if (has) {
       for (let i = 0; i < runners.length; i++) {
         const r = runners[i];
         if (r.dead || r.kind !== 'dragon') continue;
-        const segs = Math.min(r.segments || 1, MAX_DRAGON_SEGS);
-        for (let k = 0; k < segs; k++) {
-          const p = runnerSegment(this.sim, r, k, _seg);
-          if (!p) continue;
-          const px = p.x;
-          const py = p.y;
-          // heading: from the next segment back toward this one (head leads, flying back along the road)
-          let yaw = 0;
-          const q = runnerSegment(this.sim, r, k + 0.5, _segN);
-          if (q) yaw = Math.atan2(px - q.x, py - q.y);
-          else if (p.facing != null) yaw = p.facing + Math.PI;
-          const alt = 1.0 + 0.16 * Math.sin(this.time * 4.5 - k * 0.9);
-          const head = k === 0;
-          // beads ≈ the sim gap wide, so the body reads as one serpent; tapering to the tail
-          const sc = head ? 2.3 : Math.max(1.0, 2.0 - 0.12 * k);
-          _e.set(Math.cos(this.time * 4.5 - k * 0.9) * 0.25, yaw, 0, 'YXZ');
-          _q.setFromEuler(_e);
-          _p.set(px, alt, py);
-          _s.set(sc, sc, sc);
-          _m.compose(_p, _q, _s);
-          if (head) {
-            if (nh < MAX_DRAGON_HEADS) D.head.setMatrixAt(nh++, _m);
-            let h = this._heads.get(r.uid);
-            if (!h) this._heads.set(r.uid, (h = { x: 0, y: 0 }));
-            h.x = px;
-            h.y = py;
-          } else if (nb < MAX_DRAGON_SEGS) D.body.setMatrixAt(nb++, _m);
-          if (glow) this.b.bbA.push(px, alt, py, 0.5 * sc, 0.5 * sc, R.glow, cr, cg, cb, 0.3);
-          this.b.groundN.push(px, 0.06, py, 0.3 * sc, 0.3 * sc, R.shadow, 0.05, 0.05, 0.1, 0.22);
+        const h = this._serpent(D, r);
+        if (h) {
+          let last = this._heads.get(r.uid);
+          if (!last) this._heads.set(r.uid, (last = { x: 0, y: 0 }));
+          last.x = h.x;
+          last.y = h.y;
         }
-        // a few gold sparkles shed from the tail
-        if (glow && Math.random() < 0.35) {
-          const tp = runnerSegment(this.sim, r, segs - 1, _seg);
-          if (tp) {
-            this.fx.spawn({
-              batch: 'bbA', uv: R.star, x: tp.x + (Math.random() - 0.5) * 0.2, y: 0.8, z: tp.y + (Math.random() - 0.5) * 0.2,
-              vy: -0.3, s0: 0.14, s1: 0.04, life: 0.5, color: COL.gold, rot: Math.random() * TAU, vrot: 4,
-            });
-          }
-        }
+        let f = this._flying.get(r.uid);
+        if (!f) this._flying.set(r.uid, (f = {}));
+        f.pathIndex = r.pathIndex;
+        f.dist = r.dist;
+        f.speed = r.speed;
+        f.segments = r.segments;
+        f.gap = r.gap;
+        f.end = r.end ?? -(Math.max(1, r.segments) - 1) * r.gap;
+        f.seen = frame;
       }
     }
-    D.head.count = nh;
-    D.body.count = nb;
-    if (nh) D.head.instanceMatrix.needsUpdate = true;
-    if (nb) D.body.instanceMatrix.needsUpdate = true;
-    // runners gone without a runnerEnd (wave clear): forget their heads
+    // ghosts (wave clear): on to START at their own pace, then the exit sparkle
+    let n = 0;
+    for (let i = 0; i < ghosts.length; i++) {
+      const g = ghosts[i];
+      g.dist = Math.max(g.end, g.dist - g.speed * dt);
+      const h = this._serpent(D, g);
+      if (h) {
+        if (!g.head) g.head = { x: 0, y: 0 };
+        g.head.x = h.x;
+        g.head.y = h.y;
+      }
+      if (g.dist <= g.end) {
+        if (g.head) this._exitSparkle(g.head.x, g.head.y);
+      } else ghosts[n++] = g;
+    }
+    ghosts.length = n;
+    D.head.count = this._nh;
+    D.body.count = this._nb;
+    if (this._nh) D.head.instanceMatrix.needsUpdate = true;
+    if (this._nb) D.body.instanceMatrix.needsUpdate = true;
+    // runners gone without a runnerEnd or a wave clear (her girl sold): forget them
+    for (const [uid, f] of this._flying) {
+      if (f.seen === frame) continue;
+      this._flying.delete(uid);
+      this._heads.delete(uid);
+    }
     if (!has && this._heads.size) this._heads.clear();
+  }
+
+  /**
+   * One sky dragon: head + body beads along the road from runnerSegment (a sim runner or a ghost:
+   * { pathIndex, dist, segments, gap }). @returns {{ x, y }|null} the head (a shared scratch), null off the road
+   */
+  _serpent(D, r) {
+    const R = this.R;
+    const glow = this.quality !== 'low';
+    const [cr, cg, cb] = RGB.sky;
+    const segs = Math.min(r.segments || 1, MAX_DRAGON_SEGS);
+    let headAt = null;
+    for (let k = 0; k < segs; k++) {
+      const p = runnerSegment(this.sim, r, k, _seg);
+      if (!p) continue;
+      const px = p.x;
+      const py = p.y;
+      // heading: from the next segment back toward this one (head leads, flying back along the road)
+      let yaw = 0;
+      const q = runnerSegment(this.sim, r, k + 0.5, _segN);
+      if (q) yaw = Math.atan2(px - q.x, py - q.y);
+      else if (p.facing != null) yaw = p.facing + Math.PI;
+      const alt = 1.0 + 0.16 * Math.sin(this.time * 4.5 - k * 0.9);
+      const head = k === 0;
+      // beads ≈ the sim gap wide, so the body reads as one serpent; tapering to the tail
+      const sc = head ? 2.3 : Math.max(1.0, 2.0 - 0.12 * k);
+      _e.set(Math.cos(this.time * 4.5 - k * 0.9) * 0.25, yaw, 0, 'YXZ');
+      _q.setFromEuler(_e);
+      _p.set(px, alt, py);
+      _s.set(sc, sc, sc);
+      _m.compose(_p, _q, _s);
+      if (head) {
+        if (this._nh < MAX_DRAGON_HEADS) D.head.setMatrixAt(this._nh++, _m);
+        _head.x = px;
+        _head.y = py;
+        headAt = _head;
+      } else if (this._nb < MAX_DRAGON_SEGS) D.body.setMatrixAt(this._nb++, _m);
+      if (glow) this.b.bbA.push(px, alt, py, 0.5 * sc, 0.5 * sc, R.glow, cr, cg, cb, 0.3);
+      this.b.groundN.push(px, 0.06, py, 0.3 * sc, 0.3 * sc, R.shadow, 0.05, 0.05, 0.1, 0.22);
+    }
+    // a few gold sparkles shed from the tail
+    if (glow && Math.random() < 0.35) {
+      const tp = runnerSegment(this.sim, r, segs - 1, _seg);
+      if (tp) {
+        this.fx.spawn({
+          batch: 'bbA', uv: R.star, x: tp.x + (Math.random() - 0.5) * 0.2, y: 0.8, z: tp.y + (Math.random() - 0.5) * 0.2,
+          vy: -0.3, s0: 0.14, s1: 0.04, life: 0.5, color: COL.gold, rot: Math.random() * TAU, vrot: 4,
+        });
+      }
+    }
+    return headAt;
   }
 
   dispose() {

@@ -120,8 +120,8 @@ const SEIRAN = {
     L(25, 'L10', 'Eye of the Storm: +15% damage.', { damageMul: 1.15 }),
   ],
   ultRanks: [
-    { level: 10, desc: 'Rank 2: the dragon flies 14 tiles in 3.5s with 8 segments; 200 damage, mark +22%.', effect: { length: 14, time: 3.5, segments: 8, damage: 200, status: [S.ground(5), S.mark(0.22, 5)] }, cooldownMul: 0.85 },
-    { level: 20, desc: 'Rank 3: 18 tiles in 4s with 10 segments; 280 damage, mark +25%.', effect: { length: 18, time: 4, segments: 10, damage: 280, status: [S.ground(5), S.mark(0.25, 5)] }, cooldownMul: 0.85 },
+    { level: 10, desc: 'Rank 2: the dragon flies the whole road in up to 4.5s with 8 segments; 200 damage, mark +22%.', effect: { time: 4.5, minSpeed: 4, segments: 8, damage: 200, status: [S.ground(5), S.mark(0.22, 5)] }, cooldownMul: 0.85 },
+    { level: 20, desc: 'Rank 3: the whole road in up to 4s with 10 segments; 280 damage, mark +25%.', effect: { time: 4, minSpeed: 4.5, segments: 10, damage: 280, status: [S.ground(5), S.mark(0.25, 5)] }, cooldownMul: 0.85 },
   ],
 };
 
