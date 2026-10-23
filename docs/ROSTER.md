@@ -67,9 +67,11 @@ only (`RETURNING_ABILITIES`), for the ability system.
 | Marumi | Strike Bowler | SR · gacha | Demolition Bowler | Bomb balls rolled up the road against the enemies: blast, push, pins, ricochets from walker to walker, a lob at flyers | Giant Strike |
 | Ouka | Student Council President | SR · gacha | Council Hub | No attack: rules in her office radius (discounts, free tiers, sell value, coins per kill); banners | Assembly Bell |
 
-Art: drawn Clean Cel portraits since October 2026 (one 1024² card per girl, cut into the six
-`public/art/portraits/<id>-*.webp` files; `src/art/portraits.js`). They replaced the coming-soon placeholder
-portraits (`tools/art/placeholder_portraits.py`, kept for a future girl who ships before her art). Battle figures: Blender
+Art: v2 scene portraits since Oct 23 2026 (each girl in her club scene with a dynamic camera, one 768×1024
+master each; the bust, card and thumb are crops of it and her stand is cut out of it: the six
+`public/art/portraits/<id>-*.webp` files, `src/art/portraits.js`). They replaced the plain Clean Cel cards of
+October 2026, which had replaced the coming-soon placeholder portraits (`tools/art/placeholder_portraits.py`, kept
+for a future girl who ships before her art). Battle figures: Blender
 (`tools/blender/build_characters.py azami kinu wakaba yuzuha ouka chigusa marumi`; their weapons — the strip
 reel, the needle, the tablet, the council banner, the watering can and the bowling ball — are in `tools/blender/lib/weapon.py`;
 Chigusa's straw sun hat is a tools-only extra part, `lib/extras.py` sunHat).
