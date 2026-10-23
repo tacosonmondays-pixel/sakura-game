@@ -11,6 +11,8 @@ import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies } from '../data
 import { ENEMY_MAP } from '../data/enemies.js';
 import { UNIT_MAP } from '../data/units.js';
 import { DIFFICULTY_ORDER, ITEM_RARITY_ORDER } from '../data/types.js';
+import { RIBBON_MODES } from '../data/modes.js';
+import { STAGE_RULES } from '../data/rules.js';
 import { LESSON_MAP } from '../data/story/lessons.js';
 import { CHAPTER_SCENE_IDS } from '../data/story/sceneIndex.js';
 
@@ -168,6 +170,53 @@ export function lessonsClaimed(p) {
   return Object.keys(LESSON_MAP).filter((id) => num(c[LESSON_MARK + id]) > 0).length;
 }
 
+/**
+ * The mode ribbons of one campaign stage entry: { 'easy:reverse': true, … }, read the way src/systems/unlocks.js
+ * modeRibbons reads them (a Nightmare medal holds that stage's Last Petal ribbon: the same battle). Not imported from
+ * there: unlocks.js reaches missions.js, which imports this file.
+ */
+function stageRibbons(entry) {
+  const got = isObj(entry?.modes) ? entry.modes : {};
+  const out = {};
+  for (const d of DIFFICULTY_ORDER) for (const m of RIBBON_MODES) out[`${d}:${m}`] = !!got[`${d}:${m}`];
+  out['nightmare:laststand'] = !!(entry?.nightmare || got['nightmare:laststand']);
+  return out;
+}
+
+/** Ribbons a campaign stage can hold (4 difficulties × 5 modes). */
+export const RIBBONS_PER_STAGE = DIFFICULTY_ORDER.length * RIBBON_MODES.length;
+
+/**
+ * The Codex modes' ribbons over the 40 campaign stages (800 in all): per mode, the total and the stages with all 20
+ * (a rosette). Ribbons are never taken back, so every count only rises.
+ * @returns {{ total: number, perfect: number, byMode: Object<string, number> }}
+ */
+export function ribbonStats(p) {
+  const byMode = Object.fromEntries(RIBBON_MODES.map((m) => [m, 0]));
+  let total = 0;
+  let perfect = 0;
+  for (const id of CAMPAIGN_IDS) {
+    const r = stageRibbons(p?.progress?.stages?.[id]);
+    let have = 0;
+    for (const [k, on] of Object.entries(r)) {
+      if (!on) continue;
+      have++;
+      byMode[k.split(':')[1]]++;
+    }
+    total += have;
+    if (have === RIBBONS_PER_STAGE) perfect++;
+  }
+  return { total, perfect, byMode };
+}
+
+/** Map rules (src/data/rules.js) with a Gold medal (Hard) on at least one campaign stage that has that rule. */
+export function ruleGold(p) {
+  const st = p?.progress?.stages || {};
+  const rules = new Set();
+  for (const [id, r] of Object.entries(STAGE_RULES)) if (st[id]?.hard) rules.add(r.id);
+  return rules.size;
+}
+
 /** Known, live achievement ids claimed in this save. */
 export function achievementsClaimedCount(p) {
   const claims = p?.missions?.achievements;
@@ -261,8 +310,15 @@ export function metricValue(p, a, ctx = achievementContext(p)) {
     case 'lessons': return lessonsClaimed(p);
     case 'storyChapters': return storyChapters(p);
     case 'achievementsClaimed': return achievementsClaimedCount(p);
-    // ---- Codex modes (the rows ship with that feature; nothing in this build counts them yet)
-    case 'ribbonsTotal': case 'modeRibbons': case 'perfectStages': case 'ruleGold': return 0;
+    // ---- Codex modes (mode ribbons on the campaign stages, Gold medals per map rule)
+    case 'ribbonsTotal': return ctx.once('ribbons', () => ribbonStats(p)).total;
+    case 'modeRibbons': {
+      const n = ctx.once('ribbons', () => ribbonStats(p)).byMode[a.param];
+      if (n == null) throw new Error(`achievement metric modeRibbons: "${a.param}" is not a ribbon mode`);
+      return n;
+    }
+    case 'perfectStages': return ctx.once('ribbons', () => ribbonStats(p)).perfect;
+    case 'ruleGold': return ctx.once('ruleGold', () => ruleGold(p));
     default:
       // an unknown metric must never silently read 0 (§1.6)
       throw new Error(`achievement metric "${a.metric}" is not known (ACHIEVEMENT_METRICS)`);

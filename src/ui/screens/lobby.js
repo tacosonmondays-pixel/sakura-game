@@ -1,6 +1,6 @@
-// Lobby V3 (owner: ui / meta-a). Blue Archive–style home screen, landscape-first:
+// Lobby V3 (owner: ui / meta-a). academy-style home screen, landscape-first:
 //   · a painted club office by the sea in three parallax layers (sky/sea · room · foreground)
-//   · the secretary as the hero: a full-screen drawn illustration (BA memorial-lobby style; was a 3D chibi (~83% of the screen height) with
+//   · the secretary as the hero: a full-screen drawn illustration (memorial-lobby style; was a 3D chibi (~83% of the screen height) with
 //     idle + breathing, pointer follow, tap reactions and a speech bubble; ‹ › swap her
 //   · UI hugging the edges: level badge (top-left), dark slanted currency pills, a dark pill with
 //     Settings / Mail / Menu (top-right), ⤢ hide-UI, a 2×2 column of illustrated shortcuts
@@ -361,7 +361,7 @@ function buildTop(host, { openSecretaryPicker }) {
     // [profile] the badge opens the Sensei Profile (owner, Oct 15); achievements stay in the Missions hub
     h('div.lb-top-left', levelBadge(profile, { name: storedName() || 'Sensei', onClick: () => navigate('profile') })),
     h('div.lb-pills',
-      pill({ iconSvg: itemIcon('ticket_recruit'), value: formatNumber(tickets), testid: 'tickets', title: 'Recruit tickets (pulls)', onPlus: () => navigate('mall', { tab: 'general' }), onClick: () => navigate('recruit') }),
+      pill({ iconSvg: itemIcon('ticket_recruit', { px: 24 }), value: formatNumber(tickets), testid: 'tickets', title: 'Recruit tickets (pulls)', onPlus: () => navigate('mall', { tab: 'general' }), onClick: () => navigate('recruit') }),
       pill({ iconSvg: currencyIcon('coins'), value: formatNumber(profile.currencies.coins), testid: 'coins', title: 'Coins', onPlus: null }),
       pill({ iconSvg: currencyIcon('gems'), value: formatNumber(profile.currencies.gems), testid: 'gems', title: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }) }),
     ),

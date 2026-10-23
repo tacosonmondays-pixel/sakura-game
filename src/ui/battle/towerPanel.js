@@ -5,7 +5,7 @@
 // (heroes cannot be sold). Landscape: right-side card; portrait: bottom sheet. Girls with roaming
 // drones (Chika) also get a split bar, a Flight row and tabs (chikaPanel.js); her buff sections sit
 // on her own tab.
-import { h, icon, fmtCoins, fmtNum, setVar } from './util.js';
+import { h, icon, fmtCoins, fmtNum, fmtDps, fmtDealt, setVar } from './util.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { crosspathReason, pathCap, onePerPathReason, heldPipTitle, whereOnMap, finalHolderLine, ONE_PER_PATH_COOP } from './rules.js';
 import { svgEl } from '../components.js';
@@ -18,7 +18,7 @@ import { potentialSummary } from '../../systems/potential.js';
 import { potentialRows, potentialRowText } from './potentialRows.js';
 import { roundCost } from '../../sim/Sim.js';
 import { tagChips, TREE_GLYPH } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies chips + tree button
-import { tierTags } from '../upgradeTags.js';
+import { tierTags, tierDesc } from '../upgradeTags.js';
 import { HERO_GROWTH } from '../../data/heroTracks.js';
 import { PRICE_TICK, trackLevel, trackDesc, trackSkillLine, sourceText, rankAt } from './heroLevels.js';
 import { aimMode } from '../../sim/towers.js';
@@ -42,7 +42,7 @@ function statusLabel(s) {
   const name = STATUSES[s.type]?.name || s.type;
   const parts = [];
   if (s.amount) parts.push(`${Math.round(s.amount * 100)}%`);
-  if (s.dps) parts.push(`${fmtNum(s.dps, 1)}/s`);
+  if (s.dps) parts.push(`${fmtDps(s.dps)}/s`);
   if (s.pct) parts.push(`+${fmtNum(s.pct * 100, 2)}% max HP/s`);
   if (s.bonus) parts.push(`+${Math.round(s.bonus * 100)}%`);
   if (s.duration) parts.push(`${fmtNum(s.duration, 1)}s`);
@@ -234,11 +234,11 @@ export function createTowerPanel(ctx) {
     // "attack rate" is how fast she builds drones.
     const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
     const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
-    if (dps > 0) add('DPS', fmtNum(dps, 1), '.bt-stat-main', 'dps');
+    if (dps > 0) add('DPS', fmtDps(dps), '.bt-stat-main', 'dps');
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 1)}s`);
     } else {
-      if (st.damage > 0) add('Damage', fmtNum(st.damage, 1));
+      if (st.damage > 0) add('Damage', fmtDps(st.damage));
       if (st.rate > 0 && st.behavior !== 'none') add(st.behavior === 'trap' ? 'Traps/s' : 'Attacks/s', fmtNum(st.rate, 2));
     }
     if (st.range > 0) add('Range', fmtNum(st.range, 1));
@@ -263,8 +263,8 @@ export function createTowerPanel(ctx) {
     if (club) add('Club', club, '.bt-stat-wide2');
     if (st.bossMul > 1) add('vs Boss', `×${fmtNum(st.bossMul, 2)}`);
     if (st.barrierMul > 1) add('vs Barrier', `×${fmtNum(st.barrierMul, 2)}`);
-    if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtNum(st.trap.damage, 0)} dmg`, '.bt-stat-wide2');
-    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtNum(st.turret.damage, 0)} dmg × ${fmtNum(anchored?.rate ?? t.turretSpec?.rate ?? 0, 2)}/s each`, '.bt-stat-wide', 'turret');
+    if (st.trap) add('Traps', `${st.trap.placed ?? 0}/${st.trap.max} · ${fmtDps(Math.round(st.trap.damage))} dmg`, '.bt-stat-wide2');
+    if (st.turret) add('Drones', `${st.turret.active ?? 0}/${st.turret.max} · ${fmtDps(Math.round(st.turret.damage))} dmg ×${fmtNum(anchored?.rate ?? t.turretSpec?.rate ?? 0, 2)}/s each`, '.bt-stat-wide', 'turret');
     // gear Cost Reduction (and cost-cut auras) make her upgrades cheaper: say so, with the total
     const gearCut = 1 - (t.unitStats?.costMul ?? 1);
     const auraCut = Math.min(0.5, t.buff?.costCut || 0);
@@ -609,7 +609,7 @@ export function createTowerPanel(ctx) {
       const next = st.next;
       const desc = h('div.bt-path-next', h('div.bt-path-tname', `T${cur + 1} · ${next.name}`, tagChips(tierTags(t.def, i, cur + 1, { current: auraR }), { size: 'xs' })),
         teaser ? h('div.bt-path-abil', { 'data-testid': `path-abil-${i}` }, boltText(teaser)) : null,
-        h('div.bt-path-desc', next.desc));
+        h('div.bt-path-desc', tierDesc(t.def, i, cur + 1) || next.desc));
       let action;
       if (st.reason === 'crosspath') {
         action = h('div.bt-lock', icon('lock', 'bt-ico-sm'), crosspathReason(t.tiers, i, names));
@@ -682,7 +682,7 @@ export function createTowerPanel(ctx) {
     if (!live) return;
     abRow.update(t); // the button's seconds / ACTIVE countdown, in place
     live.kills.textContent = fmtCoins(t.kills || 0);
-    live.dmg.textContent = fmtCoins(t.damageDealt || 0);
+    live.dmg.textContent = fmtDealt(t.damageDealt || 0);
     drones.updateLive();
     if (live.pot) paintPot(t, st);
     if (live.buffKinds?.length) {

@@ -1,5 +1,5 @@
 /* Sakura Sentinels — meta-b screens: Students, Student detail, Formation, Backpack, Bestiary, Wiki.
-   Blue Archive language on top of base.css (V2): white translucent panels with a blue→white
+   The academy language on top of base.css (V2): white translucent panels with a blue→white
    gradient header and a short yellow underline, slanted navy/blue pills for tabs, yellow CTAs.
    Landscape-first: every two-column layout kicks in at 700px (phones held sideways) and the
    scaffold compacts under 480px of height so showcases, grids and detail panels scroll INSIDE
@@ -43,7 +43,7 @@ html[data-reduce-motion] .mb-card, html[data-reduce-motion] .mb-student-grid > *
 .mb-icon-btn.on { background: linear-gradient(180deg, #4b9bff, var(--blue-deep)); color: #fff; border-color: transparent; }
 .mb-filter-count { position: absolute; top: -5px; right: -5px; background: var(--pink); color: #fff; font-size: 0.65rem; min-width: 17px; height: 17px; border-radius: 999px; display: grid; place-items: center; font-weight: 900; box-shadow: 0 0 0 2px #fff; }
 
-/* Category tabs: slanted Blue Archive pills. */
+/* Category tabs: slanted academy pills. */
 .mb-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--gutter) * -1) 0; padding: 3px var(--gutter) 8px; }
 .mb-tabs::-webkit-scrollbar { display: none; }
 .mb-tab {
@@ -79,7 +79,7 @@ html[data-reduce-motion] .mb-card, html[data-reduce-motion] .mb-student-grid > *
 .mb-seg-btn { border: none; background: transparent; padding: 6px 12px; border-radius: 8px; font-weight: 900; color: var(--muted); font-size: 0.85rem; min-height: 34px; white-space: nowrap; }
 .mb-seg-btn.on { background: #fff; color: var(--blue-deep); box-shadow: 0 2px 6px rgba(29, 78, 137, 0.18); }
 
-/* Cards = BA panels: translucent white, gradient header with a yellow underline. */
+/* Cards = academy panels: translucent white, gradient header with a yellow underline. */
 .mb-card {
   position: relative; background: var(--mb-card); border: 1px solid var(--panel-border); border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 12px; margin-bottom: 12px; backdrop-filter: blur(8px); animation: panel-in var(--mb-panel) var(--mb-ease) both;
@@ -106,7 +106,6 @@ html[data-reduce-motion] .mb-card, html[data-reduce-motion] .mb-student-grid > *
 .mb-req-list { display: flex; flex-direction: column; gap: 6px; }
 .mb-req { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; }
 .mb-req.short { border-color: #ffc2cd; background: #fff6f8; }
-.mb-req .item-tile { padding: 4px; }
 .mb-req-name { font-weight: 800; font-size: 0.9rem; line-height: 1.2; }
 .mb-req-count { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 2px; }
 .mb-req-count b { color: var(--ink); }
@@ -395,7 +394,7 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-pick-glow .unit-card { box-shadow: 0 0 0 2px #7bd389, 0 0 14px rgba(123, 211, 137, 0.8); }
 .mb-pick-cost { position: absolute; right: 4px; bottom: 22px; font-size: 0.66rem; font-weight: 900; color: #ffe066; text-shadow: 0 1px 2px #000; z-index: 2; }
 /* Landscape and up: the squad is one strip across the top (hero + 8), then recommendations
-   beside the picker — like a BA unit formation line-up. */
+   beside the picker — like a unit formation line-up. */
 @media (min-width: 700px) {
   .mb-formation { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); grid-template-areas: 'squad squad' 'rec pick'; align-items: start; }
   .mb-formation-squad { grid-area: squad; }

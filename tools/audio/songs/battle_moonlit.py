@@ -29,7 +29,7 @@ review: originality — jig tune, reel lines, counter-lines and bass lines are n
 motifs are reused. Checked with the project originality check, a scratch blocklist of interval fingerprints (Irish
 Washerwoman, Drowsy Maggie, The Butterfly) and by ear-memory against traditional jigs and reels (Kesh, Morrison's,
 Banish Misfortune, Swallowtail, Out on the Ocean, Cooley's, The Silver Spear, Merry Blacksmith, Rakes of Mallow) and
-film/game Celtic themes (Concerning Hobbits, My Heart Will Go On, Riverdance, Zelda/Xenoblade Celtic tracks): no
+film/game Celtic themes (Concerning Hobbits, My Heart Will Go On, Riverdance, Celtic tracks from console RPGs): no
 shared hook or contour.
 Composer B3, 2026-10-09 / 10-13 (round 2's flute version had the same title; nothing of it is kept). Levels from
 per-part solo loudness: mandolin chops −9 dB, accordion BAM +3, glock answers +5, intensity kit/noise up so the

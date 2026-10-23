@@ -21,10 +21,11 @@
 
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, STATUSES, ROLES, ROLE_CATEGORIES, CAPABILITIES, TRAITS,
-  PLACEMENT, TARGET_MODES, DIFFICULTIES, DIFFICULTY_ORDER, MAP_TIERS, UNIT_RARITIES, ITEM_RARITIES,
+  PLACEMENT, TARGET_MODES, DIFFICULTIES, DIFFICULTY_ORDER, UNIT_RARITIES, ITEM_RARITIES,
   ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SLOTS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY,
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
+import { MAP_TIER_VIEW } from './mapTierNames.js';
 import { UNITS } from './units.js';
 import { statName, BASE_STAT_KEYS } from './gearStats.js';
 import { CLUBS, LIVE_CLUBS } from './clubs.js';
@@ -561,13 +562,13 @@ function mapsArticle() {
   return article('maps', 'Maps & Chapters', 'world', 'map', 'Map tiers, the eight campaign chapters and the special arenas.', ['map', 'tier', 'beginner', 'intermediate', 'advanced', 'expert', 'chapter', 'campaign', 'bounty', 'total assault', 'challenge', 'water', 'scenery'], [
     sec('Map tiers',
       table(['Tier', 'What to expect'], [
-        [{ text: MAP_TIERS.beginner.name, color: MAP_TIERS.beginner.color, strong: true }, 'Long paths with plenty of bends.'],
-        [{ text: MAP_TIERS.intermediate.name, color: MAP_TIERS.intermediate.color, strong: true }, 'Crossings, water lakes and two-lane maps.'],
-        [{ text: MAP_TIERS.advanced.name, color: MAP_TIERS.advanced.color, strong: true }, 'Shorter paths, fewer good tiles, multiple spawns.'],
-        [{ text: MAP_TIERS.expert.name, color: MAP_TIERS.expert.color, strong: true }, 'Tight space and very little time per enemy.'],
+        [{ text: MAP_TIER_VIEW.beginner.name, color: MAP_TIER_VIEW.beginner.text, strong: true }, 'Long paths with plenty of bends.'],
+        [{ text: MAP_TIER_VIEW.intermediate.name, color: MAP_TIER_VIEW.intermediate.text, strong: true }, 'Crossings, water lakes and two-lane maps.'],
+        [{ text: MAP_TIER_VIEW.advanced.name, color: MAP_TIER_VIEW.advanced.text, strong: true }, 'Shorter paths, fewer good tiles, multiple spawns.'],
+        [{ text: MAP_TIER_VIEW.expert.name, color: MAP_TIER_VIEW.expert.text, strong: true }, 'Tight space and very little time per enemy.'],
       ])),
     sec('Campaign chapters',
-      table(['#', 'Chapter', 'Tier', 'Teaches'], CHAPTERS.map((c) => [String(c.id), { text: c.name, strong: true }, MAP_TIERS[c.tier]?.name || c.tier, c.mechanic])),
+      table(['#', 'Chapter', 'Tier', 'Teaches'], CHAPTERS.map((c) => [String(c.id), { text: c.name, strong: true }, MAP_TIER_VIEW[c.tier]?.name || c.tier, c.mechanic])),
       tip('Scenery hints at what is coming: lanterns and fog before veiled ghosts, iron banners before armored orcs, embers on dragon peaks.', 'info')),
     sec('Special modes',
       list([
@@ -764,7 +765,7 @@ function newGirlsArticle() {
   const free = girls.filter((u) => u.acquisition.type === 'free');
   return article('newgirls', 'New Students', 'students', 'wiki', 'New academy students with tricks nobody had before: spike strips on the road, rings of pins and more.', ['new', 'azami', 'strip', 'strips', 'spike', 'checkpoint', 'spread', 'sticky tar', 'kinu', 'ring', 'pins', 'scissors', 'wakaba', 'drink', 'hydrated', 'yuzuha', 'sentry', 'sentries', 'net', 'ouka', 'council', 'office', 'banner', 'free tier', 'chigusa', 'vine', 'hold', 'thorn', 'bloom', 'harvest', 'marumi', 'bowling', 'ball', 'ricochet', 'bounce', 'pinball', 'lob'], [
     sec('Who joined',
-      p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Their art is a placeholder until the real portraits are drawn.`),
+      p(`${girls.map((u) => u.name).join(', ')}: students in academy uniforms with school tech. ${free.map((u) => `${u.name} joins free after ${u.acquisition.afterStage}`).join('; ')}${free.length ? '.' : ''} Each has her drawn portrait and her 3D figure.`),
       table(['Girl', 'Role', 'What she does'], girls.map((u) => [
         { text: u.name, icon: `unit:${u.id}`, strong: true }, ROLE_SUBCLASS[u.role]?.label || ROLES[u.role]?.name || u.role, shownTips(u)[0],
       ]))),

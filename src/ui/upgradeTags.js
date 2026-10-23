@@ -579,3 +579,61 @@ export function tagText(tag, { long = false, compact = false, tight = false } = 
 export function tierNote(unit, path, tier) {
   return TIER_NOTES[`${unit?.id}.${path}.${tier - 1}`] || null;
 }
+
+// ---------------------------------------------------------------------------
+// Stacking auras: the running total in the tier text
+// ---------------------------------------------------------------------------
+
+/**
+ * Girls whose aura tiers each multiply the ones before (HANDOFF §10: Umeko's tooltips undersold her, since
+ * "+15% damage" on Festival of Plums reads as the total while it is ×1.15 on top of the earlier tiers). Their tier
+ * text gets the path's running total. The battle numbers are unchanged; this is text only.
+ */
+export const STACKED_AURA = new Set(['umeko']);
+const AURA_MULS = [['dmgMul', 'damage'], ['rateMul', 'attack speed'], ['rangeMul', 'range']];
+const pctUp = (mul) => Math.round((mul - 1) * 100 + 1e-9);
+
+/**
+ * Her aura multipliers from one path once she owns `tier` tiers of it (src/sim/mods.js multiplies them), and how
+ * many of those tiers carry one.
+ * @returns {{ dmgMul: number, rateMul: number, rangeMul: number, tiers: number }}
+ */
+export function auraTotals(unit, path, tier) {
+  const out = { dmgMul: 1, rateMul: 1, rangeMul: 1, tiers: 0 };
+  const tiers = unit?.paths?.[path]?.tiers || [];
+  for (let k = 0; k < Math.min(tier, tiers.length); k++) {
+    const a = tiers[k]?.mods?.aura;
+    if (!a) continue;
+    let any = false;
+    for (const [key] of AURA_MULS) {
+      if (typeof a[key] === 'number' && a[key] !== 1) {
+        out[key] *= a[key];
+        any = true;
+      }
+    }
+    if (any) out.tiers++;
+  }
+  return out;
+}
+
+/**
+ * "Her tiers multiply: +27% damage, +27% attack speed in all." for a tier that adds aura multipliers on top of an
+ * earlier tier's (STACKED_AURA girls only); null otherwise. It never says "stack": the battle card's rule line right
+ * below it says auras of the same kind from different girls don't stack.
+ */
+export function stackedAuraLine(unit, path, tier) {
+  if (!STACKED_AURA.has(unit?.id)) return null;
+  const own = unit?.paths?.[path]?.tiers?.[tier - 1]?.mods?.aura;
+  if (!own || !AURA_MULS.some(([key]) => typeof own[key] === 'number' && own[key] !== 1)) return null;
+  const t = auraTotals(unit, path, tier);
+  if (t.tiers < 2) return null;
+  const parts = AURA_MULS.filter(([key]) => pctUp(t[key]) !== 0).map(([key, word]) => `+${pctUp(t[key])}% ${word}`);
+  return parts.length ? `Her tiers multiply: ${parts.join(', ')} in all.` : null;
+}
+
+/** A tier's text as the menus and the battle show it: her authored words, plus a stacking aura's running total. */
+export function tierDesc(unit, path, tier) {
+  const desc = unit?.paths?.[path]?.tiers?.[tier - 1]?.desc || '';
+  const line = stackedAuraLine(unit, path, tier);
+  return line ? `${desc} ${line}` : desc;
+}

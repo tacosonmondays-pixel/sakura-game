@@ -183,7 +183,7 @@ FUTURE WORK — V2 REQUESTS
 
 references/Sakura_Sentinels_V2_Roadmap_and_Audit.md is a proposal and partial
 evidence audit; it did not modify the game. Preserve its full acceptance matrix.
-Requested next work includes a Blue Archive-inspired full interface/motion
+Requested next work includes an academy-style full interface/motion
 overhaul, icons for all resources, category-first backpack organization,
 Hikari matching the third video, better map art/shaders/animation, difficulty
 and economy diagnosis, new cute/orchestral music, and improved connected systems.

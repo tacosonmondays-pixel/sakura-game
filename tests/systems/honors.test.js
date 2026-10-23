@@ -54,9 +54,9 @@ describe('the tables (stable interface for the profile)', () => {
     expect(TITLE_MAP.fp_crimson).toMatchObject({ name: 'Crimson Slayer', plate: 'prism' });
   });
 
-  it('this build: 33 ribbons and 38 titles (launch 32 / 37 + the social wave; the tag titles never count for everyone)', () => {
-    expect(liveRibbons()).toHaveLength(33);
-    expect(liveTitles()).toHaveLength(38);
+  it('this build: 34 ribbons and 45 titles (launch 32 / 37 + the social wave + the Codex wave; the tag titles never count for everyone)', () => {
+    expect(liveRibbons()).toHaveLength(34);
+    expect(liveTitles()).toHaveLength(45);
     expect(liveTitles().some((t) => t.tag)).toBe(false);
   });
 
@@ -105,8 +105,18 @@ describe('ownership comes from the claims alone', () => {
     const p = claimed('a_from_the_future', 'a_pulls_300', 'a_units_all', 'a_reroll_10', 'a_mr_800', 'a_rev_80');
     p.missions.achievements.a_chapter_1 = false;
     p.missions.achievements.a_chapter_2 = 1; // only `true` counts
-    expect(ownedRibbons(p)).toEqual([]);
-    expect(ownedTitles(p)).toEqual([]);
+    // every row with a ribbon or a title has shipped since the Codex wave (v0.1.45): hold two of them back as if
+    // their feature had not shipped yet
+    const held = ['a_mr_800', 'a_rev_80'].map((id) => [ACHIEVEMENT_MAP[id], ACHIEVEMENT_MAP[id].wave]);
+    for (const [a] of held) a.wave = 'later';
+    try {
+      expect(ownedRibbons(p)).toEqual([]);
+      expect(ownedTitles(p)).toEqual([]);
+    } finally {
+      for (const [a, w] of held) a.wave = w;
+    }
+    expect(ownedRibbons(p)).toEqual(['a_mr_800']);
+    expect(ownedTitles(p).sort()).toEqual(['a_mr_800', 'a_rev_80']);
   });
 
   it('the freeplay titles come from the fpm: marks or the older strings', () => {
@@ -122,7 +132,7 @@ describe('ownership comes from the claims alone', () => {
 
   it('honorCount is the public card count, clamped to 999', () => {
     const p = claimed(...HONOR_RIBBONS.map((h) => h.id));
-    expect(honorCount(p)).toBe(33); // the Codex ribbon is not in this build yet
+    expect(honorCount(p)).toBe(34); // with the Codex wave's holo ribbon (v0.1.45)
   });
 });
 

@@ -71,9 +71,13 @@ export class Companions {
     });
   }
 
-  /** Off at the lowest graphics setting (Kon falls back to rosterFx's procedural holo fox). */
+  /**
+   * On at every graphics setting once the manifest is here: each companion is one small mesh, drawn from the LOD
+   * file below quality high and without outlines at low (instantiateCharacter), so Low shows Yoriko's doll, Kon and
+   * Kaze too. Kon's procedural holo fox (rosterFx) stays the fallback while a figure loads or after an error.
+   */
   get enabled() {
-    return this.ready && this.quality !== 'low';
+    return this.ready;
   }
 
   setQuality(q) {

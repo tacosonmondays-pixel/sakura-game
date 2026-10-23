@@ -23,8 +23,8 @@ shamisen runs of the taiko break (C 3 and 7) and a chip-square bass double for p
 
 Leitmotifs: BELL in C minor (C, shamisen) and in E♭ major, answered (B, B2); SENTINEL CALL (intensity, C).
 review: originality — hook, chorus, bass lines and patterns are new; BELL is the project's own motif. Checked by
-ear-memory against well-known festival/fire/ninja game themes (Okami, Ganbare Goemon, Kirby, Mario, Mega Man,
-Undertale/Deltarune, EarthBound/Mother): no shared hook or contour. Composer B, 2026-10-08.
+ear-memory against well-known festival / fire / ninja game themes from console and indie games: no shared hook
+or contour. Composer B, 2026-10-08.
 """
 from sakura_audio.song import Song
 from motifs import BELL, SENTINEL

@@ -6,8 +6,8 @@ mechanic, and what is still missing.
 
 * **19 characters** — 3 adult **heroes** (one per battle, they level up 1→10 during the fight and
   have an ultimate) and 16 academy **students** who serve as towers.
-* Every girl has a Blue Archive–style halo, a material family for breakthrough, 3 upgrade paths × 5
-  tiers (BTD6 crosspathing: two paths max, only one above tier 2) and an awakening passive (★3+).
+* Every girl has a halo, a material family for breakthrough, 3 upgrade paths × 5
+  tiers (crosspathing: two paths max, only one above tier 2) and an awakening passive (★3+).
 * Heroes are grown-up guardians with glamorous, elegant designs; the students stay cute, cool and
   wholesome (see CONTRACTS.md §0).
 * Every girl, free ones included, is also in the gacha pool of her rarity (a duplicate gives +1 Potential, up to
@@ -68,7 +68,9 @@ only (`RETURNING_ABILITIES`), for the ability system.
 | Marumi | Strike Bowler | SR · gacha | Demolition Bowler | Bomb balls rolled up the road against the enemies: blast, push, pins, ricochets from walker to walker, a lob at flyers | Giant Strike |
 | Ouka | Student Council President | SR · gacha | Council Hub | No attack: rules in her office radius (discounts, free tiers, sell value, coins per kill); banners | Assembly Bell |
 
-Art: placeholder portraits (`tools/art/placeholder_portraits.py`) and Blender battle figures
+Art: drawn Clean Cel portraits since October 2026 (one 1024² card per girl, cut into the six
+`public/art/portraits/<id>-*.webp` files; `src/art/portraits.js`). They replaced the coming-soon placeholder
+portraits (`tools/art/placeholder_portraits.py`, kept for a future girl who ships before her art). Battle figures: Blender
 (`tools/blender/build_characters.py azami kinu wakaba yuzuha ouka chigusa marumi`; their weapons — the strip
 reel, the needle, the tablet, the council banner, the watering can and the bowling ball — are in `tools/blender/lib/weapon.py`;
 Chigusa's straw sun hat is a tools-only extra part, `lib/extras.py` sunHat).
@@ -185,7 +187,7 @@ Every capability the stage `recommended` list can ask for has at least one free 
    Gloomfen/Lych teams options.
 3. **No amphibious unit** — `amphibious` placement exists but nobody uses it. Idea: a frog-hood
    scout who can stand on land or water.
-4. **No dedicated anti-air specialist** (BTD6 Heli/Ace-style). Chapter 8 relies on generalists;
+4. **No dedicated anti-air specialist** (a dedicated flyer hunter). Chapter 8 relies on generalists;
    a kite-rider or wind archer would give the dragon arc a signature counter.
 5. **Only three heroes, all mystic/holy.** No fire/lightning hero, no support/economy hero, and both
    mystic heroes lose half their damage to warded fae/oni (Chapter 7).

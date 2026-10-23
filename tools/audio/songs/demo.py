@@ -92,7 +92,7 @@ def build(variant: str) -> Song:
     s.part('pad_halo', 'pad_halo', 'base').gen('B', 'pad:sustain', bars=(5, 8), low=55, high=72, vel=56)
     s.part('choir_ooh', 'choir_ooh', 'base').gen('B', 'pad:sustain', low=60, high=76, vel=46)
 
-    # ---- drums: a real kit + chip-noise hats layered on top (the NES/EarthBound signature)
+    # ---- drums: a real kit + chip-noise hats layered on top (the NES / 16-bit RPG signature)
     if battle:
         s.part('kit', 'drums', 'base').gen('A', 'drums:straight')
         s.part('kit_room', 'drums_room', 'base').gen('B', 'drums:four')

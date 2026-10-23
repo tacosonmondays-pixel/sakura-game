@@ -55,7 +55,7 @@ class PaletteTest(unittest.TestCase):
 
     def test_toby_falls_back_without_private_fonts(self):
         old = os.environ.get('SAKURA_PRIVATE_SF2')
-        os.environ['SAKURA_PRIVATE_SF2'] = tempfile.mkdtemp()          # empty: no EarthBound / SGM here
+        os.environ['SAKURA_PRIVATE_SF2'] = tempfile.mkdtemp()          # empty: no private rpg16 / SGM fonts here
         try:
             pal = load_palette('toby')
             cleared = load_palette('cleared')
@@ -81,7 +81,7 @@ class PaletteTest(unittest.TestCase):
         d = Path(tempfile.mkdtemp())
         cleared = load_palette('cleared')
         chip = cleared.soundfont('chip')
-        for name in ('earthbound.sf2', 'sgm.sf2'):
+        for name in ('rpg16.sf2', 'sgm.sf2'):
             (d / name).symlink_to(chip)                                  # any valid font stands in for the test
         old = os.environ.get('SAKURA_PRIVATE_SF2')
         os.environ['SAKURA_PRIVATE_SF2'] = str(d)
@@ -89,7 +89,7 @@ class PaletteTest(unittest.TestCase):
             pal = load_palette('toby')
             roles = json.loads((PALETTES / 'toby.json').read_text())['roles']
             r = next(iter(roles))
-            self.assertEqual(Path(pal.resolve(r)['sf_path']).name, Path(roles[r]['sf'] == 'eb' and 'earthbound.sf2' or 'sgm.sf2').name)
+            self.assertEqual(Path(pal.resolve(r)['sf_path']).name, Path(roles[r]['sf'] == 'rpg16' and 'rpg16.sf2' or 'sgm.sf2').name)
         finally:
             if old is None:
                 os.environ.pop('SAKURA_PRIVATE_SF2', None)

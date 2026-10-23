@@ -30,8 +30,9 @@ import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
 import { UNIT_MAP, unitsWithCapability, hasCapability } from '../../data/units.js';
 import { getItem } from '../../data/items.js';
 import {
-  DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES, TRAITS, MAP_TIERS, BATTLE, ITEM_RARITIES, ARMOR_CLASSES,
+  DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES, TRAITS, BATTLE, ITEM_RARITIES, ARMOR_CLASSES,
 } from '../../data/types.js';
+import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon } from '../../art/icons.js';
 import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
@@ -213,9 +214,10 @@ export function gearTile(gear, { size = 56 } = {}) {
     {
       style: { width: `${size}px` },
       title: `${gear.name} — ${describeStat(gear.main.stat, gear.main.value)}`,
+      'data-tier': rarity ? gear.rarity : 'common',
       onclick: () => showGearInfo(gear),
     },
-    svgEl(gearIcon(gear.slot, gear.rarity), 'item-tile-icon'),
+    svgEl(gearIcon(gear.slot, gear.rarity, { px: size }), 'item-tile-icon'),
   );
   cssVar(tile, '--rarity', rarity?.color || '#999');
   return tile;
@@ -544,7 +546,7 @@ function buildPrep(stage, state, { endless, redraw }) {
 
   // ----- Left: map + info + enemies ------------------------------------------------
   const left = h('div.ma-prep-col.left');
-  const tier = MAP_TIERS[played.tier];
+  const tier = MAP_TIER_VIEW[played.tier];
   const thumb = h('div.ma-prep-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
   // The thumb box is sized by CSS (landscape phones cap its height); the map fills it edge to edge.
   thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');

@@ -1,5 +1,5 @@
 // Lobby Background picker (owner: "make it so you can select which backgrounds you want,
-// eventually when you date a girl and gift her stuff in the city like in blue archive you'll get
+// eventually when you date a girl and gift her stuff in the city like in [a reference game] you'll get
 // a more intimate background"). Opened from the Menu Tab and the small picture button on the
 // lobby. Left: the girls you own (choosing a background makes her the secretary), then the rest
 // greyed out ("Recruit X" — so players see what they can collect). Right: her

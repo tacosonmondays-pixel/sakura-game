@@ -1,4 +1,4 @@
-// Illustrated lobby icons (owner: art / ui lobby v3). Blue Archive–style home-screen icons:
+// Illustrated lobby icons (owner: art / ui lobby v3). academy-style home-screen icons:
 // colourful glossy objects with soft 3D shading, a crisp white outline and a soft navy drop
 // shadow, so they read over a busy painted room without a box behind them. Original art,
 // all built from SVG primitives; deterministic for the same (name, uid).
@@ -445,7 +445,7 @@ export function lobbyIcon(name, { uid = name, shadow = true } = {}) {
 }
 
 /**
- * The big Campaign folder (BA "Campaign" button illustration): a blue document folder with a
+ * The big Campaign folder (the "Campaign" button illustration): a blue document folder with a
  * chapter snapshot sliding out, a sakura stamp and a glossy front flap.
  * @param {{ uid?: string, art?: string }} [opts] art = optional nested SVG markup (chapter scene)
  */

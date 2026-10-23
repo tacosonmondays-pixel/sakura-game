@@ -29,7 +29,7 @@ export function background(p, unit, r) {
   const rnd = seeded(`bg-${unit.id}`);
   const t = themeColor(unit);
   let s = `<rect width="300" height="500" fill="url(#${p}-bg)"/>`;
-  // Blue Archive style slanted glass bands
+  // academy-style slanted glass bands
   s += `<path d="M-20 300L320 150L320 210L-20 360Z" fill="#ffffff" opacity="0.16"/><path d="M-20 380L320 250L320 262L-20 392Z" fill="#ffffff" opacity="0.22"/>`;
   // light rays from the upper left
   let rays = '';

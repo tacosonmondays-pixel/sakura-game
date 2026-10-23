@@ -4,6 +4,7 @@ import { svgEl } from '../components.js';
 import { uiIcon, traitIcon } from '../../art/icons.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
+import { fmtNum as fmtShort } from '../format.js';
 
 /** Sets a CSS custom property on an existing element (skipped when the value is null). */
 export function setVar(el, name, value) {
@@ -43,6 +44,48 @@ export function fmtNum(n, digits = 2) {
   if (n == null || !Number.isFinite(n)) return '–';
   const f = Number(n.toFixed(digits));
   return String(f);
+}
+
+/**
+ * Damage and DPS in the selected-girl panels, short enough for their cells (HANDOFF §10): one decimal below 1,000
+ * ("45.3"), whole numbers with commas below 10,000 ("4,524"), then the menus' short form ("136.2k", "1.2M").
+ */
+export function fmtDps(n) {
+  if (n == null || !Number.isFinite(n)) return '–';
+  const tenth = Math.round(n * 10) / 10;
+  if (Math.abs(tenth) < 1000) return String(tenth);
+  const whole = Math.round(n);
+  if (Math.abs(whole) < 10000) return whole.toLocaleString('en-US');
+  return fmtShort(n);
+}
+
+/**
+ * A damage total in the selected-girl panels (the header's "Damage", Chika's and her drones' "Dealt"): whole numbers
+ * with commas below 10,000, then the menus' short form ("123.5M"), never fmtCoins' "123456k".
+ */
+export function fmtDealt(n) {
+  const v = Math.floor(Number(n) || 0);
+  return fmtShort(Math.max(0, v));
+}
+
+/**
+ * What a battle that failed to build logs beside its error (controller.js `ready`): which battle it was. Plain
+ * values only, so the line reads the same in a bug report as in the console.
+ * @param {{ req?: object|null, params?: object, quality?: string|null, coop?: boolean }} o
+ */
+export function buildErrorContext({ req = null, params = {}, quality = null, coop = false } = {}) {
+  return {
+    stage: req?.stageId ?? params?.stage ?? null,
+    difficulty: req?.difficulty ?? params?.difficulty ?? null,
+    mode: params?.mode || 'standard',
+    freeplay: req?.freeplay ?? null,
+    endless: !!req?.endless,
+    resume: !!req?.resume,
+    titan: !!params?.titan,
+    tutorial: params?.tutorial === '1',
+    coop: !!coop,
+    quality: quality || null,
+  };
 }
 
 export function fmtTime(sec) {

@@ -22,9 +22,9 @@ Form: intro |: A A2 B C D :|  — 4 + 40 bars (54.5 s loop).
 
 Leitmotifs: SHADOW (intro, B, D), SENTINEL CALL (B), main theme + BELL answered (C).
 review: originality — the Ashwing hook, the ostinato, bass lines and arrangement are new; the main theme, BELL,
-SENTINEL and SHADOW are the project's own. No Megalovania-style opening (repeated root + octave leap + chromatic
-run). Checked by ear-memory against final-boss themes of Undertale/Deltarune, EarthBound/Mother, Final Fantasy,
-Zelda, Kirby and Mega Man: no shared hook or contour. `studio.py originality`: no blocklist match.
+SENTINEL and SHADOW are the project's own. No opening built from a repeated root + octave leap + chromatic
+run. Checked by ear-memory against well-known final-boss themes of console and indie RPGs and action games: no
+shared hook or contour. `studio.py originality`: no blocklist match.
 Composer C (round 2), 2026-10-08.
 Round 3 (keep-polish): the slap-bass pump in A, A2, C and D now walks through the chord (3rd on beat 3, 7th on 4,
 then the chromatic approach) instead of root–octave only: 3.9 → ≥ 4.5 pitches a bar. No other note changes.

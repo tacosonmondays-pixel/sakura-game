@@ -31,7 +31,8 @@ import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggl
 import { ico, lbl, statStrip, sticker, rarityTag, ghostBtn, fillIn } from './kit.js';
 import { openSheet } from './sheet.js';
 import { gearTile, STAT_GLYPH, STAT_SHORT, statValue, statFact } from './gearTile.js';
-import { gearStripCells, gearTotalsRows, pieceSummary, compareDeltas, setView, fillLine, nextGrowth, wearerName } from './gearView.js';
+import { gearTotalsRows, pieceSummary, compareDeltas, setView, fillLine, nextGrowth, wearerName } from './gearView.js';
+import { girlPageMode, slotCardView, gearFromView } from './girlDetail.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick } from './hold.js';
 import { fmtNum } from './format.js';
 import { urRing } from './rarity.js';
@@ -48,37 +49,61 @@ const pieceOf = (profile, unitId, slot) => {
 // ---------------------------------------------------------------------------
 
 /**
- * The Equipment tab: three slot cards, the gear-totals strip + MORE, her club set chip.
- * @param {object} unit UnitDef @param {{ onChange: Function }} o onChange: after any gear change (plate, rail dot)
+ * The Equipment tab: three slot cards, the gear-totals strip + MORE, her club set chip. Detailed (Settings → Girl
+ * page, src/ui/girlDetail.js): each card adds its main stat value and substats; every total and the set bonuses that
+ * are on replace the strip (tap them: the totals sheet).
+ * @param {object} unit UnitDef
+ * @param {{ onChange: Function, mode?: 'compact'|'detailed' }} o onChange: after any gear change (plate, rail dot)
  */
-export function gearTab(unit, { onChange }) {
+export function gearTab(unit, { onChange, mode = girlPageMode(store.profile) }) {
   const profile = store.profile;
   const set = setView(profile, unit.id);
-  return h('div.mb-tab-body.gk-gear',
+  const from = gearFromView(unit, profile, mode);
+  return h(`div.mb-tab-body.gk-gear${from.mode === 'detailed' ? '.detailed' : ''}`,
     h('section.ui-panel.gk-panel', h('div.ui-panel-in',
-      h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange))),
+      h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange, mode))),
       h('div.gk-from',
         h('div.ui-panel-head', h('span.ui-kicker', 'From gear'), set ? setChip(set, unit) : null),
-        statStrip(gearStripCells(unit, profile), { onMore: () => openGearTotals(unit), testid: 'gear-strip', moreTestid: 'gear-more' })))));
+        from.mode === 'detailed' ? gearTotalsAll(unit, from)
+          : statStrip(from.cells, { onMore: () => openGearTotals(unit), testid: 'gear-strip', moreTestid: 'gear-more' })))));
+}
+
+/** Detailed: every gear total on ink (MAX marked), the fill-in line and each set bonus that is on with its effect. */
+function gearTotalsAll(unit, from) {
+  const totals = from.rows.length
+    ? h('button.gk-tot-grid', { type: 'button', 'data-testid': 'gear-totals-all', 'aria-label': `Gear totals: ${from.rows.map((r) => `${r.name} ${r.value}${r.max ? ' (MAX)' : ''}`).join(', ')}. Open the details`, onclick: () => openGearTotals(unit) },
+      from.rows.map((r) => h(`span.gk-tot${r.max ? '.max' : ''}`, { title: r.cap ? `${r.name} ${r.value}, cap ${r.cap}` : `${r.name} ${r.value}` },
+        lbl(r.label), h('b.num', r.short), r.max ? h('small.gk-tot-max', 'MAX') : null)))
+    : h('p.gp-line', { 'data-testid': 'gear-totals-all' }, 'No gear bonuses yet. Tap a slot to equip a piece.');
+  return h('div.gk-from-all', totals,
+    from.fill ? h('p.gk-fillline', { 'data-testid': 'gear-fill-line' }, ico('sparkle'), `Fill-in ${from.fill.value} ${from.fill.to}, up to ${from.fill.cap}`) : null,
+    from.bonuses.length ? h('ul.gk-bonuses', { 'data-testid': 'gear-bonuses' }, from.bonuses.map((b) => h(`li.gk-bonus.k-${b.key}`, { style: b.color ? { '--club': b.color } : null },
+      sticker(b.badge, 'y'), h('b', b.name), h('span', b.text)))) : null);
 }
 
 /** One slot card: the card is the action (P2), so an empty slot's "Equip" is a label, not a second button. */
-function slotCard(unit, slot, onChange) {
+function slotCard(unit, slot, onChange, mode = 'compact') {
   const g = pieceOf(store.profile, unit.id, slot);
   const name = GEAR_SLOTS[slot].name;
   const main = g ? gearLines(g).main : null;
+  const v = slotCardView(g, mode);
+  // Detailed: the label reads the substats out too (the card's own words are hidden behind it)
+  const subsSaid = v?.subs.length ? `, ${v.subs.map((l) => l.fact).join(', ')}` : '';
   return h(`button.gk-slot${g ? '' : '.empty'}${isUrGear(g) ? '.is-ur' : ''}`, {
     type: 'button', 'data-testid': `slot-${slot}`,
-    'aria-label': g ? `${name}: ${g.name}, +${g.level}, ${statFact(main.stat, main.value)}. Open` : `${name}: empty. Equip`,
+    'aria-label': g ? `${name}: ${g.name}, +${g.level}, ${statFact(main.stat, main.value)}${subsSaid}. Open` : `${name}: empty. Equip`,
     onclick: () => openSlotSheet(unit, slot, { onChange }),
   },
   h('span.ui-kicker', name),
   gearTile(g, { slot, cls: 'gk-slot-tile' }),
   g
     // the main stat's icon and caps label; its value is one tap away in the slot sheet (P3: one number per gear tile,
-    // the owner's default for gear tiles, Oct 20)
-    ? h('span.ui-chip.gk-main', { title: statFact(main.stat, main.value) }, ico(STAT_GLYPH[main.stat] || 'sparkle'), lbl(STAT_SHORT[main.stat] || statName(main.stat)))
-    : h('span.gk-equip', 'Equip'));
+    // the owner's default for gear tiles, Oct 20). Detailed: its value too ("ATK +22%"), and every substat under it.
+    ? h('span.ui-chip.gk-main', { title: statFact(main.stat, main.value) }, ico(STAT_GLYPH[main.stat] || 'sparkle'), lbl(STAT_SHORT[main.stat] || statName(main.stat)),
+      v.main.value ? h('b.num.gk-main-v', { 'data-testid': `slot-${slot}-main` }, v.main.value) : null)
+    : h('span.gk-equip', 'Equip'),
+  // (spans, not a list: a button holds phrasing content only)
+  v?.subs.length ? h('span.gk-subs', { 'data-testid': `slot-${slot}-subs` }, v.subs.map((l) => h('span.gk-sub', { title: l.fact }, h('span.gk-sub-n', l.label), h('b.num', l.value)))) : null);
 }
 
 /**
