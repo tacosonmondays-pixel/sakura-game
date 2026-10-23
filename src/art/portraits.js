@@ -176,7 +176,7 @@ export function portraitHTML(unitDef, kind = 'bust', { eager = false, awaken = 0
   // half-body stands: fade the sides the original frame cut (no hard line mid-screen)
   const edges = kind === 'cut' || kind === 'cutS' ? portraitEdges(id) : '';
   for (const e of edges) styles.push(EDGE_FADE[e]);
-  // a stand that is not head-to-shoes: its scale for screens that size stands by height (story.css, meta-a.css)
+  // a stand that is not head-to-shoes: its scale for screens that size stands by height (story.css; the lobby: base.css)
   const fig = kind === 'cut' || kind === 'cutS' ? portraitFig(id) : 1;
   if (fig < 1) styles.push(`--fig:${fig}`);
   const style = styles.length ? ` style="${styles.join(';')}"` : '';
