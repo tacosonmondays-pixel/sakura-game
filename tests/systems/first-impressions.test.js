@@ -14,6 +14,7 @@ import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BOND_THEMES, BOND_LEVELS, BOND_MAX, lobbyBackgrounds, isBackgroundUnlocked, isBackgroundSelectable,
   chooseBackground, lobbyBackgroundFor, defaultBackgroundFor, unlockText, bondLevel, hasArt,
 } from '../../src/data/lobbyArt.js';
+import { LOBBY_SCENES } from '../../src/data/lobbyScenes.js';
 import {
   BETA_DEADLINE, BETA_GIFT, BETA_GIFT_ID, ensureBetaGift, isBetaEligible, pendingBetaGift, deliverMail, mailList, claimMail, claimAllMail,
   unclaimedMailCount, MAIL_LIMIT, betaNoticeState,
@@ -116,7 +117,8 @@ describe('lobby backgrounds', () => {
   it('lists backgrounds per girl: default stands (and scenes) + two bond memories', () => {
     for (const u of UNITS) {
       const list = lobbyBackgrounds(u.id);
-      expect(list.filter((b) => b.kind === 'stand')).toHaveLength(3);
+      // a whole-scene girl's lobby is her scene, with no stands (tests/systems/lobbyScenes.test.js)
+      expect(list.filter((b) => b.kind === 'stand'), u.id).toHaveLength(LOBBY_SCENES[u.id] ? 0 : 3);
       const bond = list.filter((b) => b.kind === 'bond');
       expect(bond.map((b) => b.unlock.level)).toEqual(BOND_LEVELS);
       expect(LOBBY_BG_MAP[defaultBackgroundFor(u.id)].girl).toBe(u.id);

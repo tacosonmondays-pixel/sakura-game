@@ -132,6 +132,19 @@ export function render(root) {
   const lines = () => secretaryLines(store.profile);
   const stage = createArtStage(stageHost, {
     reduceMotion,
+    lowGfx: profile0.settings?.quality === 'low',
+    // a whole-scene secretary keeps her face and her speech bubble clear of these menus (layout boxes, so the
+    // entrance slides do not move them; hidden ones are skipped). Bars (the top bar, the dock, an event's lantern
+    // string) only push the bubble up or down.
+    obstacles: () => {
+      const box = (n, bar = false) => ({ l: n.offsetLeft, t: n.offsetTop, r: n.offsetLeft + n.offsetWidth, b: n.offsetTop + n.offsetHeight, bar });
+      const list = [top, shortcuts, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
+        .filter((n) => n.offsetParent === hud && n.offsetWidth && n.offsetHeight)
+        .map((n) => box(n, n === top || n === dock));
+      const lanterns = el.querySelector('.lb-ev-lanterns');
+      if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
+      return list;
+    },
     onTap: (part, at) => {
       stage.react(part, at);
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);

@@ -3,6 +3,8 @@
 // intimate background"). The "memorial lobby" model: every background belongs to one
 // girl, choosing it makes her the secretary. Kinds:
 //   scene  a full landscape illustration with her in it (public/art/lobby/<id>.webp)
+//          whole: true marks a whole-scene girl (src/data/lobbyScenes.js, public/art/scenes/): her scene art IS
+//          the lobby screen, and she has no stands (her cut-out over the backdrop looked pasted on)
 //   stand  her drawn cut-out (public/art/portraits/<id>-cut.webp) over the painted academy,
 //          in a time-of-day tint (day / sunset / night)
 //   bond   a warm, wholesome date memory (café, festival night, sunset walk, study session…)
@@ -16,6 +18,8 @@
 // profile.bond { [girlId]: 0..BOND_MAX } (src/systems/save.js).
 
 import { UNITS, UNIT_MAP } from './units.js';
+import { LOBBY_SCENES, sceneArtUrl, wholeSceneArt } from './lobbyScenes.js';
+import { portraitUrl } from '../art/portraits.js';
 
 function baseUrl() {
   let base = './';
@@ -32,6 +36,39 @@ export const LOBBY_ART_BASE = `${baseUrl()}art/lobby/`;
 /** @returns {string} URL of a file in public/art/lobby/ */
 export function lobbyArtUrl(file) {
   return `${LOBBY_ART_BASE}${file}`;
+}
+
+/**
+ * URL of one of a background's pictures (its folder: public/art/scenes/ for a whole scene, else public/art/lobby/).
+ * @param {object} bg background def
+ * @param {'file'|'thumb'} [key] 'thumb' falls back to the file
+ */
+export function bgArtUrl(bg, key = 'file') {
+  const file = (key === 'thumb' && bg?.thumb) || bg?.file || BACKDROP.file;
+  return bg?.whole ? sceneArtUrl(file) : lobbyArtUrl(file);
+}
+
+/** @returns {'whole'|'scene'|'stand'|'bond'} how the lobby stage draws a background */
+export function stageModeOf(bg) {
+  if (bg?.kind === 'scene') return bg.whole ? 'whole' : 'scene';
+  return bg?.kind === 'bond' ? 'bond' : 'stand';
+}
+
+/**
+ * The pictures the lobby stage loads for a background (the title preloads them): a whole scene's one picture (her
+ * 3:4 full art on a portrait screen), a landscape scene, or the academy backdrop + her stand.
+ * @param {object} bg background def
+ * @param {{ portrait?: boolean }} [opts]
+ * @returns {string[]}
+ */
+export function stageArtUrls(bg, { portrait = false } = {}) {
+  const mode = stageModeOf(bg);
+  if (mode === 'whole') {
+    const art = wholeSceneArt(bg.girl, { portrait });
+    if (art) return [art.src];
+  }
+  if (mode === 'scene') return [lobbyArtUrl(bg.file)];
+  return [lobbyArtUrl(bg?.file || BACKDROP.file), portraitUrl(bg?.girl, 'cut')].filter(Boolean);
 }
 
 /** Highest bond (affection) level. */
@@ -100,10 +137,19 @@ export const BOND_LEVELS = [5, 10];
 function buildBackgrounds() {
   const out = [];
   for (const u of UNITS) {
+    const whole = LOBBY_SCENES[u.id];
     const scene = SCENES[u.id];
-    if (scene) out.push({ ...scene, girl: u.id, kind: 'scene', unlock: { type: 'owned' } });
-    for (const [tint, t] of Object.entries(TINTS)) {
-      out.push({ id: `${u.id}-${tint}`, girl: u.id, kind: 'stand', tint, name: t.name, desc: t.desc, file: BACKDROP.file, thumb: BACKDROP.thumb, unlock: { type: 'owned' } });
+    if (whole) {
+      out.push({
+        id: `${u.id}-scene`, girl: u.id, kind: 'scene', whole: true, name: whole.name, desc: whole.desc, file: whole.file, thumb: whole.thumb,
+        face: [Math.round(whole.faceX * 1000) / 10, Math.round(whole.faceY * 1000) / 10], unlock: { type: 'owned' },
+      });
+    } else {
+      if (scene) out.push({ ...scene, girl: u.id, kind: 'scene', unlock: { type: 'owned' } });
+      // (a whole-scene girl has no stands: her scene is her lobby, with no backdrop and no cut-out)
+      for (const [tint, t] of Object.entries(TINTS)) {
+        out.push({ id: `${u.id}-${tint}`, girl: u.id, kind: 'stand', tint, name: t.name, desc: t.desc, file: BACKDROP.file, thumb: BACKDROP.thumb, unlock: { type: 'owned' } });
+      }
     }
     const pair = BOND_PAIRS[u.id] || ['cafe', 'festival'];
     pair.forEach((theme, i) => {
@@ -163,8 +209,9 @@ export function unlockText(bgOrId, profile = null) {
   return '';
 }
 
-/** Her default background: her landscape scene when she has one, else her stand in the courtyard. */
+/** Her default background: her whole scene or landscape scene when she has one, else her stand in the courtyard. */
 export function defaultBackgroundFor(girlId) {
+  if (LOBBY_SCENES[girlId]) return `${girlId}-scene`;
   return SCENES[girlId]?.id || `${girlId}-day`;
 }
 

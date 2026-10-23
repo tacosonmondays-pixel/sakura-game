@@ -69,6 +69,8 @@ the home screen as an app.
   breathes and reacts to taps, not a 3D model in an SVG room.
 - **Lobby backgrounds:** every background belongs to one girl and picking it makes her the secretary:
   her painted scene (Hikari, Aoi, Sango), or her stand over the academy by day, at sunset or by night.
+  The seven academy girls' lobby is their whole scene illustration, full screen, with her face kept clear
+  of the menus (her 3:4 art on a portrait phone).
   Each girl also has two bond memories (café date, festival night, sunset walk, study session…). They
   are shown locked until the coming City dates and gifts raise her bond to 5 and 10.
 - **Missions hub and events:** the painted academy behind the panels, drawn tiles with name plates and
