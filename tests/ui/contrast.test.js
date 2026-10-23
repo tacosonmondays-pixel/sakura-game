@@ -2,7 +2,7 @@
 // token values in base.css (tools/contrast.mjs prints the table).
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { contrastTable, ratio, composite, PAIRS, tokens } from '../../tools/contrast.mjs';
+import { contrastTable, ratio, composite, disabledOpacity, PAIRS, tokens } from '../../tools/contrast.mjs';
 import { CLUBS } from '../../src/data/clubs.js';
 
 describe('contrast table', () => {
@@ -41,6 +41,22 @@ describe('contrast table', () => {
     expect(hue(tokens()['--yellow'])).toBeGreaterThanOrEqual(40);
     const bell = hue(CLUBS.bell.color);
     expect(bell < 40 || bell > 70, `Bell hue ${bell.toFixed(0)}°`).toBe(true);
+  });
+
+  it('disabled drawer controls keep full opacity: base.css\'s `button:disabled` 0.5 never dims their text (A3 M4 review look-2)', () => {
+    const { checked, bad } = disabledOpacity();
+    expect(bad).toEqual([]);
+    // the ally's target / strip / aim / Flight chips, Move on cooldown, a price or Level up at the battle's end
+    for (const c of ['bt-tchip', 'bt-move', 'bt-buy']) expect(checked).toContain(c);
+    // their pairs are in the table, and pass
+    for (const where of [/disabled target/, /Move on cooldown/, /disabled at the battle's end/]) {
+      const row = contrastTable().find((r) => where.test(r.where));
+      expect(row, String(where)).toBeTruthy();
+      expect(row.ok, `${row.where}: ${row.ratio}`).toBe(true);
+    }
+    // the guard itself: a disabled rule with no reset is reported, a reset in any :disabled rule of that control counts
+    expect(disabledOpacity('.bt-a:disabled { color: red; } .bt-b.on:disabled { color: red; } .bt-b:disabled { opacity: 1; }').bad).toEqual(['bt-a']);
+    expect(disabledOpacity('.bt-c:active:not(:disabled) { transform: none; }').checked).toEqual([]);
   });
 
   it('the "Medal owned" tag (results screen) uses the fill the table checks, at 4.5:1+ (M0-3)', () => {

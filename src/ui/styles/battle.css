@@ -377,6 +377,15 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   scrollbar-width: thin; scrollbar-color: rgba(169, 188, 220, 0.5) transparent;
 }
 .bt-panel .bt-ally-note { margin: 0; padding: 6px 8px; border-radius: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); background: var(--dw-fill); border-left: 3px solid var(--ally, #ff8fab); }
+.bt-panel .bt-ally-note .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--on-plate-dim); }
+/* the scroll cue (phones hide thin scrollbars): a fade at the foot of the body and a ▾, while content sits below */
+.bt-panel-foot { position: relative; }
+.bt-scroll-cue {
+  display: none; position: absolute; left: 0; right: 0; bottom: 100%; height: 22px; pointer-events: none; place-items: end center;
+  background: linear-gradient(rgba(14, 25, 48, 0), rgba(14, 25, 48, 0.94));
+}
+.bt-scroll-cue span { font: 700 var(--fs-name)/1 var(--font-num); color: var(--on-plate); padding-bottom: 1px; }
+.bt-panel.bt-scroll-more .bt-scroll-cue { display: grid; }
 
 /* ---- rows of ink chips: target, strips, aim, flight */
 .bt-dw-row { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; min-height: 32px; }
@@ -390,7 +399,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-tchip::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
 .bt-tchip.on { background: var(--blue-on-plate); color: var(--plate); box-shadow: none; }
 .bt-tchip.picking { background: var(--yellow); color: var(--plate); box-shadow: none; }
-.bt-tchip:disabled { cursor: default; color: var(--on-plate-dim); }
+/* disabled (an ally's girl): the dim ink at full strength, never base.css's opacity 0.5 (UI_DIRECTION §5.5); the ally
+   note's lock and line say why */
+.bt-tchip:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
 .bt-tchip.on:disabled { color: var(--plate); }
 .bt-tchip-more { color: var(--blue-on-plate); font: 700 var(--fs-label)/1 var(--font-num); }
 .bt-tchip:active:not(:disabled) { transform: scale(0.96); }
@@ -433,7 +444,10 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-panel .bt-dw-who { display: inline-flex; align-items: center; padding: 3px 6px; border: 0; border-radius: 2px; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-label); color: var(--blue-on-plate); background: transparent; box-shadow: inset 0 0 0 1px var(--blue-on-plate); }
 .bt-dw-fx { padding: 3px 6px; border-radius: 2px; font: 700 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.02em; color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); }
 .bt-path-desc { font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
-.bt-path-abil { padding: 2px 6px; border-left: 3px solid var(--yellow); background: rgba(255, 221, 74, 0.1); color: var(--on-plate); font: 700 12px/1.3 var(--font); }
+/* the open row (tap 1): under the whole row, the price included */
+.bt-path-open { grid-area: extra; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bt-path-abil { padding: 2px 6px; border-left: 3px solid var(--yellow); background: rgba(255, 221, 74, 0.1); color: var(--on-plate); font: 700 var(--fs-label)/1.3 var(--font); }
+.bt-path-abil.inline { flex: none; display: inline-flex; align-items: center; white-space: nowrap; }
 .bt-path-abil .kit-bolt { color: var(--yellow); }
 .bt-path-bolt { display: inline-flex; align-items: center; height: 18px; padding: 0 4px; border-radius: 2px; color: var(--yellow); box-shadow: inset 0 0 0 1px rgba(255, 221, 74, 0.55); flex: none; }
 .bt-path-bolt-ico { width: 12px; height: 12px; line-height: 0; }
@@ -452,7 +466,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-buy.poor, .bt-buy:disabled, .bt-dw-price {
   background: var(--dw-fill); color: var(--on-plate-dim); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
 }
-.bt-buy:disabled { cursor: default; }
+.bt-buy:disabled { cursor: default; opacity: 1; }
 .bt-dw-price { grid-area: act; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: var(--radius-plate); font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; }
 .bt-buy-coin { width: 16px; height: 16px; display: inline-flex; line-height: 0; flex: none; }
 .bt-buy-coin svg, .bt-buy-coin img { width: 100%; height: 100%; }
@@ -485,6 +499,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 }
 .bt-final-show b { color: var(--blue-on-plate); white-space: nowrap; }
 .bt-final-show:active { transform: scale(0.98); }
+/* (a phone's one-line holder: the lock on her line, the rule behind the "i") */
+.bt-lock-held { display: flex; align-items: center; gap: 6px; }
+.bt-lock-why, .bt-lock-held-ico { display: none; }
 
 /* ---- footer: INVESTED · MORE ▸ · SELL +n */
 .bt-panel-foot {
@@ -512,7 +529,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-sell:active { transform: scale(0.96); }
 .bt-move { color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); letter-spacing: var(--track-label); }
 .bt-move .bt-ico-sm { width: 16px; height: 16px; }
-.bt-move:disabled { cursor: default; color: var(--on-plate-dim); }
+.bt-move:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
 
 /* ---- the hero drawer: XP bar (no numbers), Level up · price, Next, the ult row, the skill row */
 .bt-xp { display: flex; align-items: center; gap: 8px; }
@@ -551,7 +568,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-dt-line .bt-dw-tag-ico { width: 16px; height: 16px; vertical-align: -3px; }
 .bt-dt-ult b { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); }
 .bt-dt-ult p { margin: 2px 0 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
-.bt-dt-ult small { color: var(--on-plate-dim); }
+.bt-dt-ult small { font-size: inherit; color: var(--on-plate-dim); }
 .bt-stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
 .bt-stat-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 4px 6px; border-radius: 2px; background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line); }
 .bt-stat-cell span { font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-plate-dim); overflow-wrap: anywhere; }
@@ -619,19 +636,71 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-has-panel .bt-wavectl { right: var(--bt-abar-panel-r); }
 }
 
-/* phones (the 288 px drawer): smaller paddings; Details in three columns */
+/* phones (the 288 px drawer, 844x390): the three path rows stay in view with her ⚡ ability row, an aim / pick row or
+   Flight on the Glance (UI_DIRECTION §6.6 "all 3 visible without scrolling"; ABILITIES_SPEC §8.4). The approved
+   image's density: buttons and chips are smaller to the eye while their hit areas keep the dense tap size; tighter
+   paddings; the open row is one line under the whole row; Details in three columns. */
 @media (max-height: 480px) {
-  .bt-panel-head { padding: 5px 6px 5px 8px; }
-  .bt-panel-scroll { padding: 4px 8px; gap: 3px; }
-  .bt-dw-row { min-height: 26px; }
-  .bt-tchip { min-height: 26px; padding: 0 7px; }
-  .bt-dw-stat { padding: 2px 4px 3px 6px; gap: 2px; }
-  /* the three path rows fit without scrolling: their coloured edges say "upgrades" (the label is for the wide drawer) */
+  .bt-panel-head { padding: 4px 6px 4px 8px; row-gap: 3px; }
+  .bt-panel-id { gap: 3px; }
+  .bt-panel-tiers { padding: 2px 5px; }
+  .bt-dw-tag { padding: 2px 6px 2px 4px; }
+  /* the role and attack words would wrap (fitHeader): the attack type keeps its icon */
+  .bt-dw-chips-icons { flex-wrap: nowrap; }
+  .bt-dw-chips-icons .bt-dw-type { padding: 3px 5px; }
+  .bt-dw-chips-icons .bt-dw-type .bt-dw-tag-word { display: none; }
+  .bt-panel-scroll { padding: 2px 8px; gap: 2px; }
+  .bt-dw-row { min-height: 24px; }
+  .bt-tchip { min-height: 24px; padding: 0 7px; }
+  .bt-dw-stat { padding: 2px 4px 1px 6px; gap: 0; }
+  .bt-dw-num { font-size: 20px; }
+  /* the three path rows: their coloured edges say "upgrades" (the label is for the wide drawer) */
   .bt-panel-scroll > .bt-dw-sec { display: none; }
-  .bt-path { padding: 2px 0; row-gap: 2px; }
+  .bt-path { padding: 2px 0; row-gap: 0; column-gap: 6px; }
+  .bt-path-open, .bt-path-lock, .bt-lock-final { margin-top: 2px; }
   .bt-path-lock, .bt-lock-line { font-size: var(--fs-label); }
-  .bt-path-main { gap: 2px; }
-  .bt-panel-foot { padding: 4px 8px calc(4px + var(--safe-bottom)); }
+  /* a lock is one line: the "i" is 18 px to the eye (its hit area the dense tap size); the final tier another copy
+     holds shows the lock on her "Held by … · Show ›" line, the rule behind the "i" */
+  .bt-panel .bt-dw-info { width: 18px; height: 18px; line-height: 18px; }
+  .bt-lock-final.has-holder { padding: 0; background: none; box-shadow: none; }
+  .bt-lock-final.has-holder .bt-lock-line { display: none; }
+  .bt-lock-final.has-holder .bt-lock-why { display: inline-block; }
+  .bt-lock-final .bt-final-show { position: relative; flex: 1; min-width: 0; width: auto; min-height: 28px; display: flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: var(--fs-label); }
+  .bt-lock-final .bt-final-show::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
+  .bt-lock-held-ico { display: inline-flex; flex: none; width: 13px; height: 13px; color: var(--bad-on-plate); }
+  .bt-path-main { gap: 1px; }
+  /* the name, its ⚡ chip and the pips share the first line (a longer name used to push the pips onto a line of their
+     own) */
+  .bt-path-top { gap: 2px 5px; }
+  .bt-path-name { font-size: 15px; line-height: 1.05; }
+  .bt-path-bolt { height: 16px; padding: 0 3px; }
+  .bt-pips { gap: 2px; }
+  .bt-pip { width: 8px; height: 5px; }
+  /* tap 1 widens the price ("Buy · 100", its words say coins): for that moment the open line says what the tier does
+     and the pips step away */
+  .bt-path.armed .bt-pips, .bt-path .bt-buy.armed:not(.poor) .bt-buy-coin { display: none; }
+  .bt-path .bt-buy, .bt-dw-price { min-height: 30px; }
+  .bt-path .bt-buy::after, .bt-panel-foot .bt-sell::after, .bt-panel .bt-abrow-fire::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%;
+  }
+  /* the open row: ONE line (fitOpenRow leaves out an effect chip that would wrap, whole) */
+  .bt-path-open { gap: 2px; }
+  .bt-path-chips { flex-wrap: nowrap; overflow: hidden; }
+  .bt-path-chips > * { flex: none; white-space: nowrap; }
+  .bt-panel .bt-path-chips .bt-dw-who, .bt-path-chips .bt-dw-fx { padding: 2px 5px; }
+  .bt-path-abil.inline { padding: 1px 5px; }
+  /* her ⚡ row: one 34 px line (FIRE is 28 px to the eye; the row is its hit area) */
+  .bt-panel .bt-abrow { padding: 3px 6px 3px 8px; }
+  .bt-panel .bt-abrow-top { min-height: 28px; }
+  .bt-panel .bt-abrow-name { min-height: 28px; }
+  .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
+  /* an ability that comes later: its line sits beside the name (two short lines at most), so the row stays one line */
+  .bt-panel .bt-abrow.s-later { display: flex; align-items: center; gap: 8px; }
+  .bt-panel .bt-abrow.s-later .bt-abrow-top { flex: 1 1 auto; min-width: 0; }
+  .bt-panel .bt-abrow.s-later .bt-abrow-name { overflow: visible; white-space: normal; line-height: 1.05; }
+  .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: 0 1 45%; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
+  .bt-panel-foot { padding: 3px 8px calc(3px + var(--safe-bottom)); }
+  .bt-panel-foot .bt-sell { position: relative; min-height: 30px; }
   .bt-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 

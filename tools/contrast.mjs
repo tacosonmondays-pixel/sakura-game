@@ -125,6 +125,11 @@ export const PAIRS = [
   ['--plate', ['#fff38a'], 'the yellow price button (top of its gradient)', 4.5],
   ['--plate', ['--yellow'], 'the yellow price button / MORE sticker / FIRE', 4.5],
   ['--plate', ['--on-plate'], 'the MAX sticker / the open MORE sticker', 4.5],
+  // disabled drawer controls keep full opacity (disabledOpacity() below guards base.css's `button:disabled` 0.5)
+  ['--on-plate-dim', ['white', '--plate-glass', 'rgba(255, 255, 255, 0.06)'], 'a disabled target / strip / aim / Flight chip (an ally\'s girl) over a white map', 4.5],
+  ['--plate', ['--blue-on-plate'], 'the active target chip of an ally\'s girl (disabled, full strength)', 4.5],
+  ['--on-plate-dim', ['white', '--plate-glass', 'rgba(255, 255, 255, 0.06)'], 'the hero\'s Move on cooldown ("Move · 12s", disabled) over a white map', 4.5],
+  ['--on-plate-dim', ['white', '--plate-glass', 'rgba(255, 255, 255, 0.06)'], 'a price / Level up disabled at the battle\'s end over a white map', 4.5],
   ['white', ['#c9184a'], 'the armed Sell (CONFIRM +n)', 4.5],
   // rarity tags: rarity-coloured letters on --plate (12-13 px caps, so 4.5:1)
   ['--rar-r', ['--plate'], 'R tag', 4.5],
@@ -151,6 +156,28 @@ export const PAIRS = [
   ]),
 ];
 
+/**
+ * base.css dims every `button:disabled` to opacity 0.5, which halves a text pair (the dim ink on the drawer plate falls
+ * to about 2.7:1; UI_DIRECTION §5.5 "never opacity: 0.5"). Every `.bt-…:disabled` button rule in battle.css must
+ * belong to a control whose `:disabled` rule puts the opacity back to 1, so the pairs above are what is on screen.
+ * @returns {{ checked: string[], bad: string[] }} the controls looked at, and those still dimmed
+ */
+export function disabledOpacity(css = readFileSync(new URL('../src/ui/styles/battle.css', import.meta.url), 'utf8')) {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const reset = new Set();
+  const seen = new Set();
+  for (const [, sels, body] of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const sel of sels.split(',').map((s) => s.trim())) {
+      const m = /^\.(bt-[\w-]+)[\w.-]*:disabled$/.exec(sel);
+      if (!m) continue;
+      seen.add(m[1]);
+      if (/(^|;)\s*opacity:\s*1\s*(;|$)/.test(body)) reset.add(m[1]);
+    }
+  }
+  const checked = [...seen].sort();
+  return { checked, bad: checked.filter((c) => !reset.has(c)) };
+}
+
 /** The table rows: { text, bg, where, ratio, min, ok }. */
 export function contrastTable(t = tokens()) {
   const col = (c) => (c.startsWith('--') ? t[c] : c);
@@ -167,5 +194,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   for (const r of rows) console.log(`| \`${r.text}\` | ${r.bg.replace(/--[\w-]+/g, (m) => `\`${m}\``)} | ${r.where} | ${r.ratio.toFixed(2)} | ${r.min} | ${r.ok ? 'pass' : '**FAIL**'} |`);
   const bad = rows.filter((r) => !r.ok);
   console.log(`\n${rows.length - bad.length}/${rows.length} pairs pass`);
-  process.exit(bad.length ? 1 : 0);
+  const dim = disabledOpacity();
+  console.log(`disabled controls at full opacity: ${dim.checked.length - dim.bad.length}/${dim.checked.length} (${dim.checked.join(', ')})${dim.bad.length ? ` — STILL DIMMED: ${dim.bad.join(', ')}` : ''}`);
+  process.exit(bad.length || dim.bad.length ? 1 : 0);
 }

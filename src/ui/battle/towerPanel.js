@@ -36,7 +36,7 @@ import { abilityText } from '../../data/abilityText.js';
 import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
-  drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, BUY_ARM_MS,
+  drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, BUY_ARM_MS,
 } from './drawerView.js';
 
 function statusLabel(s) {
@@ -55,6 +55,8 @@ const stat = (n) => fmtNum(n, 'stat');
 const money = (n) => fmtNum(n || 0, 'money');
 const price = (n) => fmtNum(n || 0, 'money', { round: 'up' });
 const isWide = () => typeof window !== 'undefined' && window.innerHeight > 480;
+/** How far content must reach below the drawer's body before the scroll cue shows (px; e2e/lib/uiProbe.mjs agrees). */
+const SCROLL_CUE_PX = 6;
 
 /** An ink chip button (target / aim / strips). */
 function chipBtn({ label, on = false, title = '', testid = null, mode = null, disabled = false, onClick }) {
@@ -174,7 +176,7 @@ export function createTowerPanel(ctx) {
    */
   el.addEventListener('click', (e) => {
     if (arm.armedPath(uid) == null) return;
-    if (e.target.closest?.('.bt-buy, .bt-path-main')) return;
+    if (e.target.closest?.('.bt-buy, .bt-path-main, .bt-path-open')) return;
     arm.disarm();
     clearTimeout(armTimer);
     rerender();
@@ -207,9 +209,11 @@ export function createTowerPanel(ctx) {
       pot >= 2 ? potPill(pot, { cls: 'bt-panel-pot', testid: 'panel-pot', title: `Potential ${pot}: ${potSummary}` }) : null);
     const roleName = (ROLES[def.role]?.name || def.role || '').toUpperCase();
     const typeName = (ATTACK_TYPES[st.attackType]?.name || st.attackType || '').toUpperCase();
+    // (on a phone, when the two words would wrap onto a second line, the attack type keeps only its icon: fitHeader)
     const chips = t.isHero ? null : h('div.bt-dw-chips',
       h('span.bt-dw-tag', { title: ROLES[def.role]?.desc || roleName }, svgEl(roleIcon(def.role), 'bt-dw-tag-ico'), roleName),
-      h('span.bt-dw-tag', { title: `${ATTACK_TYPES[st.attackType]?.name || st.attackType} damage` }, svgEl(attackTypeIcon(st.attackType), 'bt-dw-tag-ico'), typeName));
+      h('span.bt-dw-tag.bt-dw-type', { title: `${ATTACK_TYPES[st.attackType]?.name || st.attackType} damage`, 'aria-label': `${ATTACK_TYPES[st.attackType]?.name || st.attackType} damage` },
+        svgEl(attackTypeIcon(st.attackType), 'bt-dw-tag-ico'), h('span.bt-dw-tag-word', typeName)));
     return h('div.bt-panel-head',
       portrait,
       h('div.bt-panel-id', nameRow, chips),
@@ -293,7 +297,8 @@ export function createTowerPanel(ctx) {
       placeCost: sim.placeCost?.(t.unitId),
     });
     const rows = t.def.paths.map((p, i) => pathRow(t, p, i, { readOnly: ally }));
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, `${ctx.coop.ownerName(t.uid)}'s girl — only ${ctx.coop.ownerName(t.uid)} can upgrade, retarget or sell her.`) : null;
+    // (her controls read only, in the dim ink: the lock and this one line say why, UI_DIRECTION §5.5)
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), `${ctx.coop.ownerName(t.uid)}'s girl — only ${ctx.coop.ownerName(t.uid)} can upgrade, retarget or sell her.`) : null;
     return [
       allyNote,
       abRow.update(t),
@@ -306,8 +311,13 @@ export function createTowerPanel(ctx) {
     ];
   }
 
-  /** The holder of a locked final tier: the rule line and her line with "Show ›". */
+  /**
+   * The holder of a locked final tier: the rule line and her line with "Show ›". On a phone it is one line, the lock
+   * and her line with "Show ›", and the rule is a tap on the "i" away (UI_DIRECTION §6.6 "tap for the one-line
+   * reason"), so the three path rows stay in view.
+   */
   function finalLock(t, p, i, holderLine, holderUid) {
+    const reason = onePerPathReason(t.def.name, p.name);
     const show = holderUid != null ? h(
       'button.bt-final-show',
       {
@@ -319,14 +329,19 @@ export function createTowerPanel(ctx) {
           ctx.renderer?.pulseTower?.(holderUid);
         },
       },
+      icon('lock', 'bt-ico-sm.bt-lock-held-ico'),
       holderLine,
       h('b', ' · Show ›'),
     ) : null;
+    const why = show ? h('button.bt-dw-info.bt-lock-why', {
+      type: 'button', 'aria-label': 'Why is this tier locked?', title: reason,
+      onclick: () => ctx.feed?.push(reason, 'info', { key: 'path-lock', ms: 2600 }),
+    }, 'i') : null;
     return h(
-      'div.bt-lock.bt-lock-final',
+      `div.bt-lock.bt-lock-final${show ? '.has-holder' : ''}`,
       { 'data-testid': `final-lock-${i}`, title: ctx.coop ? ONE_PER_PATH_COOP : ONE_PER_PATH_RULE },
-      h('div.bt-lock-line', icon('lock', 'bt-ico-sm'), h('span', onePerPathReason(t.def.name, p.name))),
-      show,
+      h('div.bt-lock-line', icon('lock', 'bt-ico-sm'), h('span', reason)),
+      show ? h('div.bt-lock-held', show, why) : null,
     );
   }
 
@@ -404,14 +419,22 @@ export function createTowerPanel(ctx) {
     h('div.bt-path-top', h('span.bt-path-name', p.name),
       abil ? h('span.bt-path-bolt', { 'data-testid': `path-bolt-${i}`, title: later ? `Ability ${abil.name} — comes in a later update` : `Ability ${abil.name} at tier ${p.ability.unlockTier ?? 3}`, 'aria-label': `Ability path: ${abil.name}` }, ico(KIT_SVG.bolt, 'bt-path-bolt-ico')) : null,
       pips),
-    tierEl,
-    v.armed ? h('div.bt-path-chips', { 'data-testid': `path-chips-${i}` },
-      rowTags(t.def, i, cur + 1).map((label) => h('span.tag-chip.bt-dw-who', label)),
-      v.chips.map((c) => h('span.bt-dw-fx', c))) : null,
-    v.armed && v.desc ? h('div.bt-path-desc', v.desc) : null,
-    // (the open row teaches her ⚡: "Unlocks Skyfall Volley" at tier 3, "Upgrades …" at tier 5; the bolt chip on the
-    // name says it before that)
-    teaser && v.armed ? h('div.bt-path-abil', { 'data-testid': `path-abil-${i}`, title: teaser.replace(/⚡\+?\s*/g, '') }, boltText(shortTeaser(teaser))) : null);
+    tierEl);
+    if (v.armed) {
+      // the open row: one line under the whole row (its tags, the ⚡ line and the effect chips; on a phone ONE line,
+      // fitOpenRow leaves out a chip that would wrap); at 1280 the tier's sentence in place of the chips. (The ⚡ line
+      // teaches her ability: "Unlocks Skyfall Volley" at tier 3, "Upgrades …" at tier 5; the bolt chip on the name
+      // says it before that.)
+      const wide = isWide();
+      const abilLine = teaser ? h(`div.bt-path-abil${wide ? '' : '.inline'}`, { 'data-testid': `path-abil-${i}`, title: teaser.replace(/⚡\+?\s*/g, '') }, boltText(shortTeaser(teaser, { compact: !wide }))) : null;
+      extra = h('div.bt-path-open',
+        h('div.bt-path-chips', { 'data-testid': `path-chips-${i}` },
+          rowTags(t.def, i, cur + 1).map((label) => h('span.tag-chip.bt-dw-who', label)),
+          wide ? null : abilLine,
+          v.chips.map((c) => h('span.bt-dw-fx', c))),
+        v.desc ? h('div.bt-path-desc', v.desc) : null,
+        wide ? abilLine : null);
+    }
     const row = h(
       `div.bt-path.s-${v.state}${v.armed ? '.armed' : ''}${v.state === 'crosspath' || v.state === 'final' ? '.locked' : ''}${cur >= 3 ? '.main' : ''}`,
       { 'data-path': i, style: { '--path': v.color } },
@@ -470,7 +493,7 @@ export function createTowerPanel(ctx) {
         h('span.bt-buy-price', v.buy.priceText),
       );
     }
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, `${ctx.coop.ownerName(t.uid)}'s hero — only ${ctx.coop.ownerName(t.uid)} can level her up, retarget or move her.`) : null;
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), `${ctx.coop.ownerName(t.uid)}'s hero — only ${ctx.coop.ownerName(t.uid)} can level her up, retarget or move her.`) : null;
     const ult = t.def.hero?.ult;
     return [
       allyNote,
@@ -543,7 +566,9 @@ export function createTowerPanel(ctx) {
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 'time')}`);
     } else {
-      if (st.damage > 0) add('Damage', stat(st.damage));
+      // (a trapper's hit is her trap's: the same number as her DMG cell, drawerView.hitDamage)
+      const hit = st.behavior === 'trap' || st.behavior === 'strip' ? hitDamage(st) : st.damage;
+      if (hit > 0) add('Damage', stat(hit));
       if (st.rate > 0 && st.behavior !== 'none') add(st.behavior === 'trap' ? 'Traps/s' : 'Attacks/s', fmtNum(st.rate, 'rate'));
     }
     if (st.range > 0) add('Range', fmtNum(st.range, 'range'));
@@ -793,7 +818,9 @@ export function createTowerPanel(ctx) {
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
     el.classList.toggle('bt-panel-drones', hasDroneTabs(st));
-    ctx.shell?.classList.toggle('bt-hero-drawer-open', !!t.isHero);
+    // the HUD hero widget is YOUR hero's (sim.hero): it steps away only while her drawer says the same things (an
+    // ally's hero drawer is read only, so your ult and Level up stay on the widget)
+    ctx.shell?.classList.toggle('bt-hero-drawer-open', !!t.isHero && sim.hero === t);
     const head = header(t, st, { profile });
     let kids;
     let toTop = false;
@@ -809,17 +836,103 @@ export function createTowerPanel(ctx) {
       kids = t.isHero ? heroGlance(t, st, { ally }) : girlGlance(t, st, { ally });
     }
     const prevScroll = el.querySelector('.bt-panel-scroll')?.scrollTop || 0;
-    const scroll = h('div.bt-panel-scroll', kids);
-    el.replaceChildren(head, scroll, footer(t, { ally }));
+    // the render rebuilds the focused control (tap 1 on a price re-renders): its new copy takes the focus back, so a
+    // keyboard player's second Enter lands on it (the two-tap buy, Sell's confirm)
+    const refocus = el.dataset.uid === String(t.uid) ? focusKeyOf(typeof document !== 'undefined' ? document.activeElement : null) : null;
+    const scroll = h('div.bt-panel-scroll', { onscroll: () => paintScrollCue() }, kids);
+    const foot = footer(t, { ally });
+    // (the footer's top edge says when more of the body sits below: phones hide thin scrollbars)
+    foot.append(h('div.bt-scroll-cue', { 'data-testid': 'panel-scroll-cue', 'aria-hidden': 'true' }, h('span', '▾')));
+    el.replaceChildren(head, scroll, foot);
     if (prevScroll && el.dataset.uid === String(t.uid) && el.dataset.more === String(more) && !toTop) scroll.scrollTop = prevScroll;
     el.dataset.uid = String(t.uid);
     el.dataset.more = String(more);
+    if (refocus) el.querySelector(refocus)?.focus?.({ preventScroll: true });
+    fitHeader();
+    fitOpenRow(scroll, t);
+    paintScrollCue();
     updateLive(t, st);
   }
 
+  /**
+   * Phones: the role and attack chips stay on one line (the attack type keeps its icon, its word in the label). Looked
+   * at again a few times a second (updateLive), so a web font that arrives late settles it.
+   */
+  function fitHeader() {
+    const chips = el.querySelector('.bt-panel-head .bt-dw-chips');
+    if (!chips || chips.children.length < 2) return;
+    chips.classList.remove('bt-dw-chips-icons');
+    if (isWide() || el.hidden) return;
+    const [a, b] = chips.children;
+    if (b.offsetTop > a.offsetTop + 2) chips.classList.add('bt-dw-chips-icons');
+  }
+
+  let shownArm = ''; // the open row the last render scrolled into view
+  /**
+   * The open row (UI_DIRECTION §6.6 "expands one line"). On a phone its tags, ⚡ line and effect chips stay on ONE
+   * line: whole pieces that would wrap are left out, never cut — the last effect chips first (one stays), then the
+   * who-tags after the first, then (beside a ⚡ line, which says more) the last chip, and last of all the ⚡ line (the
+   * bolt on the path's name still marks it). Tap 1 then brings the whole open row, its Buy button too, into view (once
+   * per arming, so it never fights a scroll).
+   */
+  function fitOpenRow(scroll, t) {
+    const row = scroll.querySelector('.bt-path.armed');
+    const key = row ? `${t.uid}:${row.dataset.path}` : '';
+    if (!row) {
+      shownArm = '';
+      return;
+    }
+    const line = !isWide() ? row.querySelector('.bt-path-chips') : null;
+    if (line) {
+      const over = () => line.scrollWidth > line.clientWidth + 1;
+      const drop = (sel, keep) => {
+        for (let all = line.querySelectorAll(sel); over() && all.length > keep; all = line.querySelectorAll(sel)) all[all.length - 1].remove();
+      };
+      drop('.bt-dw-fx', 1);
+      drop('.bt-dw-who', 1);
+      if (line.querySelector('.bt-path-abil')) drop('.bt-dw-fx', 0);
+      drop('.bt-path-abil', 0);
+    }
+    if (key === shownArm) return;
+    shownArm = key;
+    const a = scroll.getBoundingClientRect();
+    const b = row.getBoundingClientRect();
+    if (b.bottom > a.bottom) scroll.scrollTop += Math.min(b.bottom - a.bottom, b.top - a.top);
+    else if (b.top < a.top) scroll.scrollTop -= a.top - b.top;
+  }
+
+  /**
+   * The scroll cue at the foot of the drawer's body: shown while content sits below what is in view (more than the
+   * body's bottom padding: a fade over a row that is fully in view would only dim it).
+   */
+  function paintScrollCue() {
+    const sc = el.querySelector('.bt-panel-scroll');
+    const below = !!sc && !el.hidden && sc.scrollHeight - sc.clientHeight - sc.scrollTop > SCROLL_CUE_PX;
+    el.classList.toggle('bt-scroll-more', below);
+  }
+
+  /** A selector for the focused control inside the drawer that finds its copy after a render (null: none). */
+  function focusKeyOf(node) {
+    if (!node || node === el || !el.contains(node)) return null;
+    const id = node.getAttribute?.('data-testid');
+    if (id) return `[data-testid="${id}"]`;
+    const row = node.classList?.contains('bt-path-main') ? node.closest('[data-path]') : null;
+    if (row) return `.bt-path[data-path="${row.dataset.path}"] .bt-path-main`;
+    const mode = node.getAttribute?.('data-mode');
+    return mode ? `.bt-target .bt-tchip[data-mode="${mode}"]` : null;
+  }
+
+  let cueAt = 0;
   function updateLive(t, st = null) {
     if (!live) return;
     abRow.update(t); // the button's seconds / ACTIVE countdown, in place
+    // (the ability row opens in place and the window can resize: the scroll cue looks again a few times a second)
+    const now = performance.now();
+    if (now - cueAt > 250) {
+      cueAt = now;
+      fitHeader();
+      paintScrollCue();
+    }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));
     if (more) drones.updateLive();

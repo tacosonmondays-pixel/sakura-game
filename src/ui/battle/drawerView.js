@@ -2,6 +2,7 @@
 // panel of docs/specs/ui-mock/tactical-oct14/battle-panel-844x390.webp). Pure and Node-safe: towerPanel.js draws
 // what these return, and tests/battle-ui/drawerView.test.js pins the rules.
 //
+//   hitDamage(st)                  the damage one hit really deals (a trapper's: her trap's)
 //   drawerStats(t, st, o)          the stat row: the role's 3 headline stats (+ PIERCE where she pierces)
 //   targetView(t, st, o)           FIRST · LAST · STRONG · CLOSE (+N: PRIORITY, AIR) or Azami's strip chips
 //   aimView(t, mode, o)            AUTO · SET AIM for mortar / mirror girls
@@ -42,6 +43,19 @@ const MODE_HELP = {
 const pct = (mul) => Math.round((mul - 1) * 100);
 const label = (mode) => (TARGET_MODES[mode] || mode).toUpperCase();
 
+/** Behaviours whose hits come from what she lays on the road: the trap's damage is the hit, never her base damage. */
+const TRAPPERS = new Set(['trap', 'strip']);
+
+/**
+ * The damage one of her hits really deals: a trapper's (Suzu's traps, Azami's strips) is her trap's (the sim's
+ * towerStats().trap.damage, which her paths raise; her `damage` stays at the base value); anyone else's is her
+ * attack's, or her drones' when she has no attack of her own.
+ */
+export function hitDamage(st) {
+  if (TRAPPERS.has(st?.behavior)) return st.trap?.damage ?? st.damage ?? 0;
+  return st?.damage || st?.turret?.damage || 0;
+}
+
 /** Does she pierce (the stat row's fourth cell)? Her attack passes through more than one enemy, or gear Pierce. */
 export function pierces(t, st) {
   return (st?.pierce || 0) > 1 || Math.round(t?.unitStats?.pierceK || 0) > 0;
@@ -79,8 +93,8 @@ export function drawerStats(t, st, { affects = null, placeCost = null, ultStatus
   const def = t.def;
   const kind = headlineKind(def);
   const range = (r, what = 'Range') => ({ key: 'range', label: 'RANGE', value: fmtNum(r || 0, 'range', { fixed: true }), unit: null, title: `${what} ${fmtNum(r || 0, 'range', { detail: true })}` });
-  const hit = st.damage || st.trap?.damage || st.turret?.damage || 0;
-  const dmg = { key: 'dmg', label: 'DMG', value: fmtNum(hit, 'stat'), unit: null, title: `Damage per hit ${fmtNum(hit, 'stat')}` };
+  const hit = hitDamage(st);
+  const dmg = { key: 'dmg', label: 'DMG', value: fmtNum(hit, 'stat'), unit: null, title: `${TRAPPERS.has(st.behavior) ? 'Damage per trap hit' : 'Damage per hit'} ${fmtNum(hit, 'stat')}` };
   const rateNum = fmtNum(st.rate || 0, 'rate');
   const rate = { key: 'rate', label: 'RATE', value: rateNum.replace(/\/s$/, ''), unit: '/s', title: `${rateNum.replace(/\/s$/, '')} ${st.behavior === 'trap' ? 'traps' : 'attacks'} per second` };
   let cells;
@@ -338,9 +352,11 @@ export function heroDrawerView(t, { xp = null, level = null, ult = null, max = 2
  * The open path row's ⚡ line without the tier (the row's tier line says it): "⚡ T3 Hawk Eye — unlocks Skyfall Volley"
  * → "⚡ Unlocks Skyfall Volley"; "⚡+ T5 … — upgrades …" → "⚡ Upgrades …"; "⚡ T3 … — Drone Surge comes in a later
  * update" → "⚡ Drone Surge comes in a later update" (abilityRow.js pathAbilityTeaser's words, no number).
+ * `compact` (a phone's one-line open row): "⚡ Drone Surge · later update".
  */
-export function shortTeaser(teaser) {
-  const rest = String(teaser || '').replace(/^⚡\+?\s*T\d+\s[^—]*—\s*/, '');
+export function shortTeaser(teaser, { compact = false } = {}) {
+  let rest = String(teaser || '').replace(/^⚡\+?\s*T\d+\s[^—]*—\s*/, '');
+  if (compact) rest = rest.replace(/ comes in a later update$/, ' · later update');
   return `⚡ ${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
 }
 

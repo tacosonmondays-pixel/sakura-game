@@ -636,6 +636,21 @@ async function runViewport(vp) {
     }), placedUid);
     check(!pan.open && pan.sel && pan.flash && !pan.paused, `battle: "Upgrade in panel ›" closes the tree, selects her and flashes that path (${JSON.stringify(pan)})`);
     await page.waitForTimeout(1300);
+    // (M4 review logic-2) the same from her MORE: the tree opens from there too (Tree button), and "Upgrade in
+    // panel ›" brings the drawer back to the Glance, where the path rows are, and flashes the row
+    await page.click('[data-testid="panel-more"]');
+    await page.waitForSelector('[data-testid="panel-details"]', { timeout: 3000 }).catch(() => null);
+    await page.click('[data-testid="panel-tree"]');
+    await page.waitForFunction(() => window.__battle.ui.tree.isOpen, null, { timeout: 3000 }).catch(() => null);
+    await page.click('[data-testid="upgrade-tree"] [data-testid="ut-cell-2-4"]');
+    await page.click('[data-testid="ut-goto-panel"]');
+    await page.waitForTimeout(300);
+    const fromMore = await page.evaluate(() => ({
+      open: window.__battle.ui.tree.isOpen, more: window.__battle.ui.panel.more, details: !!document.querySelector('[data-testid="panel-details"]'),
+      row: !!document.querySelector('.bt-panel [data-path="2"]'), flash: !!document.querySelector('.bt-panel [data-path="2"].bt-path-flash'),
+    }));
+    check(!fromMore.open && !fromMore.more && !fromMore.details && fromMore.row && fromMore.flash, `battle: "Upgrade in panel ›" from her MORE closes MORE, shows the path row and flashes it (${JSON.stringify(fromMore)})`);
+    await page.waitForTimeout(1300);
     // 14. panel: Tree button opens; Escape closes without deselecting; an open path row (A3 M4 drawer: a tap on a
     // row opens it) names who its next tier helps with a Self / Allies / Enemies tag
     const chipRows = [];

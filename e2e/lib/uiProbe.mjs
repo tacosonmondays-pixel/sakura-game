@@ -12,6 +12,8 @@
 //   p.overflowX          the page scrolls sideways
 //   p.overlaps           [{ a, b, area }] named boxes that overlap by more than 4 px²
 //   p.boxes              { name: [{ x, y, w, h }] } the visible rects of each named box
+//   drawerPathsInView(page)   the drawer's path rows and price buttons against its scroll body, the scroll cue, the
+//                             open row's one line
 /**
  * @param {import('playwright').Page} page
  * @param {{ root?: string, boxes?: Record<string, string>, skip?: string }} [o]
@@ -92,6 +94,41 @@ export async function uiProbe(page, { root = 'body', boxes = {}, skip = null } =
       boxes: rects,
     };
   }, { root, boxes, skip });
+}
+
+/**
+ * The selected-girl drawer's path rows against its scroll body (UI_DIRECTION §6.6 "Paths: all 3 visible without
+ * scrolling"; the M4 review look-1): each row and its price button (or MAX sticker / read-only price) inside the body's
+ * rect, whether the body overflows and the scroll cue says so, and whether the open row stayed one whole line.
+ * @param {import('playwright').Page} page
+ * @returns {Promise<null | { rows: { path: number, armed: boolean, row: boolean, price: boolean|null }[], allIn: boolean,
+ *   armedIn: boolean|null, overflow: boolean, cue: boolean, openOneLine: boolean|null, body: number[] }>}
+ */
+export async function drawerPathsInView(page) {
+  return page.evaluate(() => {
+    const p = document.querySelector('[data-testid="tower-panel"]');
+    const sc = p?.querySelector('.bt-panel-scroll');
+    if (!p || p.hidden || !sc) return null;
+    const a = sc.getBoundingClientRect();
+    const inside = (b) => b.top >= a.top - 1 && b.bottom <= a.bottom + 1;
+    const rows = [...p.querySelectorAll('.bt-path')].map((r) => {
+      const btn = r.querySelector('.bt-buy, .bt-dw-price, .bt-dw-max');
+      return { path: Number(r.dataset.path), armed: r.classList.contains('armed'), row: inside(r.getBoundingClientRect()), price: btn ? inside(btn.getBoundingClientRect()) : null };
+    });
+    const armed = rows.find((r) => r.armed) || null;
+    const line = p.querySelector('.bt-path.armed .bt-path-chips');
+    const tops = line ? [...line.children].map((c) => c.offsetTop) : [];
+    return {
+      rows,
+      allIn: rows.length > 0 && rows.every((r) => r.row && r.price !== false),
+      armedIn: armed ? armed.row && armed.price !== false : null,
+      // (the drawer's own rule, towerPanel.js SCROLL_CUE_PX: more than the body's bottom padding hides below)
+      overflow: sc.scrollHeight - sc.clientHeight - sc.scrollTop > 6,
+      cue: p.classList.contains('bt-scroll-more') && getComputedStyle(p.querySelector('[data-testid="panel-scroll-cue"]')).display !== 'none',
+      openOneLine: line ? line.scrollWidth <= line.clientWidth + 1 && tops.every((t) => Math.abs(t - tops[0]) <= 2) : null,
+      body: [Math.round(a.top), Math.round(a.bottom)],
+    };
+  });
 }
 
 /** One line for a log: "numbers 9 · smallest 12px · 0 truncated · no sideways scroll · overlaps none". */

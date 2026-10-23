@@ -800,6 +800,29 @@ try {
   await shot(B, 'coop-two-heroes-guest');
   const hh = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(hh.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op heroes: hashes still equal on both (${hh.map((l) => l.length).join(' / ')} checkpoints)`);
+  // (A3 M4 review logic-4) the HUD hero widget is the host's own hero: it steps away only for her own hero's drawer;
+  // the guest's hero drawer is read only, so the host's ult and Level up stay on the widget
+  const widgetShown = () => A.evaluate(() => {
+    const w = document.querySelector('[data-testid="hero-widget"]');
+    return !!w && !w.hidden && getComputedStyle(w).display !== 'none';
+  });
+  const allyHero = await A.evaluate(() => window.__battle.sim.heroes.find((h) => h && !window.__battle.coop.isMine(h.uid))?.uid ?? null);
+  const ownHero = await A.evaluate(() => window.__battle.sim.hero?.uid ?? null);
+  if (check(allyHero != null && ownHero != null, `co-op heroes: the host sees both heroes (own ${ownHero}, ally ${allyHero})`)) {
+    await A.evaluate((u) => window.__battle.ui.select(u), allyHero);
+    await A.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="ally-note"]', { timeout: 20000 }).catch(() => null);
+    await A.waitForTimeout(250);
+    const withAlly = { widget: await widgetShown(), note: await A.evaluate(() => document.querySelector('[data-testid="ally-note"]')?.textContent || ''), levelUp: await A.evaluate(() => !!document.querySelector('[data-testid="tower-panel"] [data-testid="hero-levelup"]')) };
+    check(withAlly.widget && /'s hero/.test(withAlly.note) && !withAlly.levelUp, `co-op heroes: the guest's hero drawer is read only and the host's hero widget stays (${JSON.stringify(withAlly)})`);
+    await shot(A, 'm4-ally-hero-drawer');
+    await A.evaluate((u) => window.__battle.ui.select(u), ownHero);
+    await A.waitForTimeout(250);
+    const withOwn = await widgetShown();
+    check(!withOwn, 'co-op heroes: the host\'s own hero drawer hides her widget (said once)');
+    await A.evaluate(() => window.__battle.ui.select(null));
+    await A.waitForTimeout(250);
+    check(await widgetShown(), 'co-op heroes: the widget is back once the drawer closes');
+  }
 
   // ---- abilities (ABILITIES_SPEC §7, §13; plan M1): the guest fires her own girl's ability from the bar ---------
   // Her ability path is bought to tier 3 through the upgrade command (battle 2 started with a bigger purse, above);

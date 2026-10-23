@@ -435,12 +435,16 @@ export function createUpgradeTree(ctx) {
     if (uid == null) return;
     flash = { uid, path, t0: performance.now() };
     ctx.select?.(uid);
-    requestAnimationFrame(() => {
+    // the tree opens from her MORE too (Tree button, portrait, T): the path rows are on the Glance, so MORE closes
+    // (selecting the same girl keeps the drawer as it was)
+    if (ctx.panel?.more) ctx.panel.setMore?.(false);
+    // (the row's render already asked decoratePathRow; two frames, so a re-render on the next update has landed)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const row = ctx.layer.querySelector(`.bt-panel [data-path="${path}"]`);
       if (!row) return;
       decoratePathRow(row, uid, path);
       row.scrollIntoView?.({ block: 'nearest' });
-    });
+    }));
   }
 
   /** towerPanel hook: marks the row the tree just pointed at (no-op otherwise). */

@@ -121,6 +121,11 @@ for (const vp of viewports) {
   if (m4Wanted.length) {
     try {
       probeLog[`${vp}-m4`] = await runM4Scenes(page, { base, vp, want: m4Wanted, shot: (name) => shot(page, name, vp) });
+      // (the M4 scenes check the drawer's layout and type floor themselves: a miss fails the run)
+      for (const f of probeLog[`${vp}-m4`].failures || []) {
+        failed++;
+        console.log(`  FAILED (m4 check): ${f}`);
+      }
     } catch (e) {
       failed++;
       console.log(`  FAILED (m4 scenes): ${e.stack || e.message}`);

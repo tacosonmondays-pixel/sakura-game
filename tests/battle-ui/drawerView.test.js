@@ -5,8 +5,9 @@ import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import {
   drawerStats, pierces, targetView, aimView, pathRowView, createBuyArm, footerView, heroNextLine, heroDrawerView,
-  sectionNumbers, drawerSections, crosspathShort, shortTeaser, PATH_COLORS, TARGET_CHIPS, BUY_ARM_MS, SECTION_NUMBERS,
+  sectionNumbers, drawerSections, crosspathShort, shortTeaser, hitDamage, PATH_COLORS, TARGET_CHIPS, BUY_ARM_MS, SECTION_NUMBERS,
 } from '../../src/ui/battle/drawerView.js';
+import { fmtNum } from '../../src/ui/format.js';
 import { pathAbilityTeaser } from '../../src/ui/battle/abilityRow.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { onePerPathReason, finalHolderLine } from '../../src/ui/battle/rules.js';
@@ -110,7 +111,33 @@ describe('the stat row: the role\'s three headline stats', () => {
     const t = place(sim, 'suzu');
     const st = sim.towerStats(t.uid);
     expect(drawerStats(t, st)[0].value).toBe(String(Math.round(st.trap.damage * 10) / 10));
-    expect(drawerStats(t, { ...st, damage: 136234.5 })[0].value).toBe('136.2k');
+    expect(drawerStats(t, { ...st, trap: { ...st.trap, damage: 136234.5 } })[0].value).toBe('136.2k');
+  });
+
+  // M4 review logic-1: her `damage` stays at the base value while her paths raise what the traps deal; at 0-0-0 the
+  // two are equal, so only upgraded trappers tell them apart
+  it.each([
+    ['suzu', [3, 0, 0]], ['suzu', [5, 2, 0]], ['suzu', [2, 0, 5]], ['azami', [3, 0, 0]], ['azami', [5, 2, 0]],
+  ])('%s %j: DMG is what her traps deal now, never her base damage', (id, tiers) => {
+    const sim = battle([id]);
+    const t = place(sim, id);
+    for (let p = 0; p < 3; p++) up(sim, t, p, tiers[p]);
+    const st = sim.towerStats(t.uid);
+    expect(['trap', 'strip']).toContain(st.behavior);
+    expect(st.trap.damage, 'the case tells the two apart').toBeGreaterThan(st.damage);
+    expect(hitDamage(st)).toBe(st.trap.damage);
+    const cell = drawerStats(t, st)[0];
+    expect(cell).toMatchObject({ key: 'dmg', value: fmtNum(st.trap.damage, 'stat') });
+    expect(cell.value).not.toBe(fmtNum(st.damage, 'stat'));
+    expect(cell.title).toBe(`Damage per trap hit ${fmtNum(st.trap.damage, 'stat')}`);
+  });
+
+  it('anyone else\'s hit is her attack\'s (her drones\' only when she has none)', () => {
+    expect(hitDamage({ behavior: 'projectile', damage: 12, turret: { damage: 30 } })).toBe(12);
+    expect(hitDamage({ behavior: 'turret', damage: 0, turret: { damage: 30 } })).toBe(30);
+    expect(hitDamage({ behavior: 'trap', damage: 12, trap: { damage: 38 } })).toBe(38);
+    expect(hitDamage({ behavior: 'strip', damage: 3 })).toBe(3);
+    expect(hitDamage({ behavior: 'none' })).toBe(0);
   });
 });
 
@@ -212,6 +239,9 @@ describe('the two-tap buy', () => {
     expect(shortTeaser('⚡+ T5 Thousand Leaves — upgrades Flash Lunge')).toBe('⚡ Upgrades Flash Lunge');
     expect(shortTeaser('⚡ T3 Sentry Grid — Drone Surge comes in a later update')).toBe('⚡ Drone Surge comes in a later update');
     for (const s of [shortTeaser(t3), shortTeaser(pathAbilityTeaser(def, p, 5))]) expect(sectionNumbers([s]), s).toBe(0);
+    // a phone's one-line open row (M4 review look-1): the later form is shorter, the others unchanged
+    expect(shortTeaser('⚡ T3 Sentry Grid — Drone Surge comes in a later update', { compact: true })).toBe('⚡ Drone Surge · later update');
+    expect(shortTeaser(t3, { compact: true })).toBe(shortTeaser(t3));
   });
 
   it('an unaffordable row is "poor" (the dim plate and the lock-coin), never a struck-through old price', () => {

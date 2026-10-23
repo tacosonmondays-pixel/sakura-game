@@ -1,7 +1,9 @@
 // End-to-end check of the one-final-tier-per-path rule in the battle UI (spec §5.3):
 //   two Aoi; A bought to 5-0-0, B to 4-0-0 (coins topped up through the test hook) → B's panel shows
 //   the lock on her first path with the exact copy and the holder line; Show selects A and pulses
-//   her; selling A gives B her buy button back. Then the wiki section "One final tier per path".
+//   her; selling A gives B her buy button back; the drawer's two-tap buy by mouse, then by keyboard (Enter, Enter:
+//   the focus survives tap 1's re-render; the row body and Sell's confirm too). Then the wiki section "One final tier
+//   per path".
 // Screenshots of the panel with the lock at 1280×720 and 844×390 (and the wiki) go to --shots <dir>.
 //
 //   node e2e/final-tier.mjs [--shots /tmp/shots]
@@ -141,6 +143,39 @@ try {
   await page.locator('[data-testid="buy-0"]').click({ timeout: 20000 });
   await settle(300);
   check(await page.evaluate((b) => window.__battle.sim.getTower(b).tiers.join('-') === '5-0-0', ids.B), 'B bought 5-0-0');
+
+  // (M4 review logic-3) the keyboard: tap 1 re-renders the drawer, and the price's new copy keeps the focus, so a
+  // second Enter buys; the row body (role=button) and Sell's two-tap confirm keep it too
+  log('\n--- the keyboard: Enter, then Enter again buys ---');
+  await page.evaluate(() => { window.__battle.sim.cash = 1e7; });
+  await settle(300);
+  const focused = () => page.evaluate(() => {
+    const a = document.activeElement;
+    return a?.dataset?.testid || (a?.classList?.contains('bt-path-main') ? `row-${a.closest('[data-path]')?.dataset.path}` : a?.tagName?.toLowerCase() || null);
+  });
+  await page.focus('[data-testid="buy-1"]');
+  await page.keyboard.press('Enter');
+  await settle(150);
+  const k1 = { label: await page.locator('[data-testid="buy-1"]').innerText(), focus: await focused(), tiers: await page.evaluate((b) => window.__battle.sim.getTower(b).tiers.join('-'), ids.B) };
+  check(/Buy/.test(k1.label) && k1.focus === 'buy-1' && k1.tiers === '5-0-0', `keyboard: Enter on a price arms it, buys nothing, and the focus stays on it (${JSON.stringify(k1)})`);
+  await page.keyboard.press('Enter');
+  await settle(300);
+  const k2 = { tiers: await page.evaluate((b) => window.__battle.sim.getTower(b).tiers.join('-'), ids.B), focus: await focused() };
+  check(k2.tiers === '5-1-0', `keyboard: the second Enter buys the tier (${JSON.stringify(k2)})`);
+  check(k2.focus === 'buy-1', `keyboard: the focus stays on her next price (${k2.focus})`);
+  // (her second path's row: 5-1-0 locks the third one)
+  await page.focus('.bt-path[data-path="1"] .bt-path-main[role="button"]');
+  await page.keyboard.press('Enter');
+  await settle(150);
+  const k3 = { armed: await page.evaluate(() => !!document.querySelector('.bt-path[data-path="1"].armed')), focus: await focused() };
+  check(k3.armed && k3.focus === 'row-1', `keyboard: Enter on a row opens it and the row keeps the focus (${JSON.stringify(k3)})`);
+  await page.focus('[data-testid="sell"]');
+  await page.keyboard.press('Enter');
+  await settle(150);
+  const k4 = { label: await page.locator('[data-testid="sell"]').innerText(), focus: await focused() };
+  check(/CONFIRM/.test(k4.label) && k4.focus === 'sell', `keyboard: Enter on Sell asks to confirm and Sell keeps the focus (${JSON.stringify(k4)})`);
+  await page.evaluate(() => window.__battle.ui.select(null));
+  await settle(200);
 
   log('\n--- wiki: one final tier per path ---');
   await go('#/wiki/crosspath');
