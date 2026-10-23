@@ -27,8 +27,9 @@ third-party images). Fonts: Barlow Condensed 700 / 600 from src/ui/styles/fonts 
 label face, OFL); if they are missing, DejaVu Sans Bold from the system, with a warning.
 
 Names, titles, palettes and looks are read from the roster (src/data/units.js) through node, so
-the colours are never written twice. Prints the PORTRAIT_DATA lines (face + cut aspect) to paste
-into src/art/portraits.js.
+the colours are never written twice. Prints the PORTRAIT_DATA lines (face + cut aspect, marked
+placeholder: true) to paste into src/art/portraits.js. When her drawn art lands, her files replace the
+sign's and her line loses the placeholder mark (as the seven academy girls' cards did, Oct 2026).
 
 It never overwrites art: a girl who already has portrait files in public/art/portraits (every
 painted girl, the nine returning girls included) is skipped by default and refused by id unless
@@ -1180,7 +1181,8 @@ def main():
     for u in units:
         data, imgs = build(u, out_dir)
         built[u['id']] = {'img': imgs, 'name': u['name']}
-        print(f"  {u['id']}: {{ face: [{data['face'][0]}, {data['face'][1]}], cut: {data['cut']} }},")
+        # placeholder: true lets src/art/portraits.js (isPlaceholderPortrait) and the tests tell a sign from art
+        print(f"  {u['id']}: {{ face: [{data['face'][0]}, {data['face'][1]}], cut: {data['cut']}, placeholder: true }},")
     if args.sheets:
         write_sheets(args.sheets, built)
 

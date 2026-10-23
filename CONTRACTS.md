@@ -378,7 +378,9 @@ Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, statu
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
-`tools/art/placeholder_portraits.py <id>` (skips / refuses girls who already have portrait files). Every returning student wears a
+`tools/art/placeholder_portraits.py <id>` (skips / refuses girls who already have portrait files; her line carries
+`placeholder: true`, read by `isPlaceholderPortrait`). No roster girl shows a sign since the seven academy girls' cards
+landed. Every returning student wears a
 school uniform with tech gear (look guard in `tests/data/units.test.js`).
 
 ## 4. World — enemies, maps, stages (owner: world)
@@ -1396,15 +1398,20 @@ acting the owner asked for. If you go this route, still keep a procedural fallba
 
 ## 8. Art — `src/art/**` (owner: art)
 
-All functions return **SVG markup strings** (no DOM), deterministic for the same input.
+All functions return **markup strings** (no DOM), deterministic for the same input: SVG, except the item icons
+and portraits, which are an `<img>` with an SVG fallback.
 
 ```js
 // src/art/cardArt.js
 export function cardArtSVG(unitDef, { variant = 'full' /*'full' 3:5 large | 'portrait' 3:5 card | 'thumb' square bust*/, awaken = 0 } = {})
-// src/art/icons.js
-export function itemIcon(itemId)          // materials per family+rarity, books, crowns, dice, tickets, tokens, coins, gems, gear
-export function gearIcon(slot, rarity)
-export function currencyIcon(kind /*'coins'|'gems'|'recruitPoints'|'token_boss'|'token_bounty'*/)
+// src/art/icons.js — item icons are the baked 3D-flat art (public/art/items, manifest src/art/itemArt.js):
+// <span class="ia"><svg>drawn fallback</svg><img class="item-art"></span>; px = the CSS size it shows at
+// (≤ 24 picks the 96 px small cut). The drawing shows only on a failed image (.ia.bad); a slow load shows a neutral
+// placeholder (.ia::before). Unknown keys return the drawn SVG alone. preloadSmallItemArt() warms the small cuts.
+export function itemIcon(itemId, { px = 64 } = {})   // materials per family+rarity, books, crowns, dice, tickets, tokens, coins, gems, gear
+export function gearIcon(slot, rarity, { ur = false, px = 64 } = {})
+export function currencyIcon(kind /*'coins'|'gems'|'recruitPoints'|'token_boss'|'token_bounty'*/, { px = 22 } = {})
+export function itemIconSVG(itemId), itemArtSVG(key), itemArtUrl(key, 256|128|'small'), hasItemArt(key), gearArtKey(slot, rarity, { ur })
 export function traitIcon(traitKey)
 export function roleIcon(roleKey)
 export function attackTypeIcon(attackType)
