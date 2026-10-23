@@ -1,13 +1,13 @@
 # Sakura Sentinels — handoff
 
-Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 22, 2026 (v0.1.46 shipped).
+Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 23, 2026 (v0.1.47 shipped).
 
 The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) with the full decision log and design docs that are not in this public repo. If they upload it to a session, read `OWNER_DECISIONS.md` in it before planning.
 
 ## 1. Where things stand
 
-- **Live:** v0.1.46 "A Backpack Glow-Up" (Oct 22) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is the v0.1.46 merge, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
-- **Next deploy is v0.1.47.** The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7).
+- **Live:** v0.1.47 "Picture Day" (Oct 23) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is the v0.1.47 merge, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
+- **Next deploy is v0.1.48.** The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7).
 - **Roster:** 35 girls. Heroes (6): hikari, luna, nami, kanna, yoriko, seiran. Students (29): aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede, chika, fuu, hana, ruri, noa, iroha, ena, azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi.
 - **Recent releases:**
   - v0.1.40: 7 academy girls (Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi) and catch-up joins (COOP 7).
@@ -17,6 +17,7 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
   - v0.1.44: the UR awakening popup fix (`modal()` now accepts several classes).
   - v0.1.45: the seven academy girls' drawn cards (online avatars now show each girl's drawn thumb), the girl page Compact/Detailed setting, eleven new Codex achievements, new map tier names (Sprout, Bud, Storm, Oni), shorter damage numbers and the co-op hold fix. Display only.
   - v0.1.46: new art for every item: 100 baked 3D-flat icons (`public/art/items/`, made by `tools/blender/items/`) on slanted rarity tiles, a rainbow tile for the rarest items, and shorter item counts (x450K, x1.2M). Display only.
+  - v0.1.47 "Picture Day": the seven academy girls' v2 scene portraits (style B; the same 42 file names in `public/art/portraits/`), a `--fig` scale so their lobby and story stands match the cast's head size. Display only. The hubs did not ship with it: they go out with the UI v2 package (owner, Oct 23).
   - Halloween 2026 event is open until Nov 1; its exchange until Nov 8.
 - **Usage:** the owner works under a weekly usage limit that resets around Monday 03:00 UTC (Sunday/Monday night in the owner's time). When budget is tight, the owner's rule is "closest to done first", and unfinished work is pushed to its branch so nothing is lost.
 
@@ -27,7 +28,7 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
 - Secrets do not carry over between accounts or environments: the Meshy key is an environment **network secret** (Bearer, injected for `api.meshy.ai`) and must be re-added in the new environment's settings. Never ask the owner to paste a key into chat.
 - The environment's network access must reach GitHub, the npm registry, PyPI, `api.meshy.ai`, the Supabase project and `tacosonmondays-pixel.github.io` (to read `version.json` after a deploy).
 - Tools a fresh container needs: `npm ci` (Node 22, as in CI); Chromium for the `e2e/` scripts (cloud containers have it; `e2e/browser.mjs` finds it); Python 3.11 with Pillow for image work; Blender as a Python module (`pip install bpy==4.2.0`) for everything in `tools/blender/` (girls, enemies, companions, item icons).
-- Generator credits: Meshy was at 4 credits (refills around Nov 7); the image tool account was nearly empty. Check balances before planning art.
+- Generator credits: Meshy had 1,126 credits on Oct 22 (older copies of this file say 4; that is out of date); the image tool account was nearly empty at last check. Check balances before planning art.
 - If the owner uploads `sakura-handoff-pack.zip` and the vault zip (`Sakura-Sentinels-Vault-*.zip`, style references), unzip them in the scratchpad, never in the repo. This file in the repo is the newest version of the handoff; the copies inside the zips may be older.
 - The published pages (§9) belong to the account that made them. To update one from another account, the owner shares it with edit access from the page's Share menu.
 - Connectors (image/3D generators) must be connected again on a new account.
@@ -36,18 +37,20 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
 
 | Branch | Head | State |
 |---|---|---|
-| `main` | the v0.1.46 merge | Live (v0.1.46). Pushing here deploys. |
+| `main` | the v0.1.47 merge | Live (v0.1.47). Pushing here deploys. |
 | `claude/sakura-sentinels` | = `main` | Coordination branch; ships are merged here, then pushed to `main`. |
-| `release/next` | 4eb4e3a | Merged: shipped as v0.1.46 (the item art, the item tile's 12 px text floor for the count's x, and the patch note). It is the staging branch for the next release: merge finished branches here, then into `claude/sakura-sentinels` at the ship (§7). |
+| `release/next` | 6150054 | Merged: shipped as v0.1.47 (`feature/portraits-7` and the patch note). It is the staging branch for the next release: merge finished branches here, then into `claude/sakura-sentinels` at the ship (§7). |
 | `feature/girl-page-detailed` | ebfaeb4 | Shipped in v0.1.45: the Settings switch "Girl page: Compact / Detailed" (default Compact). Detailed shows full stats, gear values, substats, set bonuses, level steppers and the tier list inline. |
 | `feature/academy-cards` | 82e0d12 | Shipped in v0.1.45: the seven academy girls' drawn cards (42 portrait files), and every girl's drawn thumb as her online avatar. |
-| `feature/abilities` | 0852dbf | In progress. Tower abilities A0–A2 and Tenka T0–T3 (synced with v0.1.44), then A3: M1 (the ability bar, the panel ability row, the hero skill, keys, Auto, ability FX, with review fixes), M2 (one live-ability rule, the ⚡ tips on, Ouka's recharge back, the Azami scaling and strip/sentry crit fixes, Hana's bio, with review fixes) and M3 (the returning girls' abilities: Hana, Ruri's Moon Pounce, Noa, Ena, Yoriko and Seiran are live; Fuu, Ruri's other forms, Iroha and Kanna wait). `COOP_PROTOCOL` is still 8 there and must go to 9 before it ships. Next: battle UI M2, T4 (Tenka's UI and FX), the four abilities that wait. Spec: `docs/specs/ABILITIES.md`. |
+| `feature/abilities` | ebebc27 (Oct 22; moving, check `git log`) | In progress. Since 0852dbf: a paused WIP of A3 M4 (the tactical battle drawer, unreviewed) and second-round review fixes for M1 and M2, which still need a fresh reviewer's OK; the whole branch gets a final independent review (§6) before it ships. Tower abilities A0–A2 and Tenka T0–T3 (synced with v0.1.44), then A3: M1 (the ability bar, the panel ability row, the hero skill, keys, Auto, ability FX, with review fixes), M2 (one live-ability rule, the ⚡ tips on, Ouka's recharge back, the Azami scaling and strip/sentry crit fixes, Hana's bio, with review fixes) and M3 (the returning girls' abilities: Hana, Ruri's Moon Pounce, Noa, Ena, Yoriko and Seiran are live; Fuu, Ruri's other forms, Iroha and Kanna wait). `COOP_PROTOCOL` is still 8 there and must go to 9 before it ships. Next: battle UI M2 (`docs/specs/UI_DIRECTION.md` M2) in two parts: finish A3 M4 (the tactical drawer, the hero drawer, the battle number style), then A3 M5 (the top strip, the card cost strip and the hero widget, the live tree and hold sheet, the boss warning band, the toast queue, damage numbers); merge `fix/seiran-dragon`; T4 (Tenka's UI and FX); the four abilities that wait. Spec: `docs/specs/ABILITIES.md`. |
 | `feature/vfx` | 09c057a | In progress. VFX M0 and its review fixes (tinted impact frames, impact holds, cel blasts, a flash guard by area). Next: the rest of M1 (glow/halo, colour grade, screen shake), a postprocessing trial (keep only if faster on a phone) and an ULTRA graphics tier. It needs its own patch note when it ships. |
 | `feature/fx-1` | 90ec45b | In progress, paused at the owner's request: FX-1 on top of `feature/vfx`, unfinished and unreviewed. |
 | `feature/items-3dflat` | 429facc | Shipped in v0.1.46: the baked 3D-flat item icons (100 icons, 210 WebP files, five art-review rounds) on the slanted rarity tile, and the short item counts. The pipeline is `tools/blender/items/`. |
-| `feature/ui-m5` | 93f72e4 | In progress. UI M5a (one countdown chip and one badge vocabulary, with review fixes) and M5b (hubs with host girls, the condensed Achievements, cleaner campaign cards, with review fixes). |
+| `feature/portraits-7` | c696c48 | Shipped in v0.1.47: the seven academy girls' v2 scene portraits (42 files, same names), `PORTRAIT_DATA` and the `--fig` stand scale. Independent in-game review OK (8.6/10). Open LOW: the lobby head-tap zone (`artStage.js` `CUT_FACE`) misses the lower face for some of the seven (e.g. Chigusa, Ouka). |
+| `feature/ui-m5` | 93f72e4 | In progress. UI M5a (one countdown chip and one badge vocabulary, with review fixes) and M5b (hubs with host girls, the condensed Achievements, cleaner campaign cards, with review fixes). The hubs ship as part of the UI v2 package (owner, Oct 23), not on their own. |
 | `feature/energy-m4` | 6aca2bc | Specs only so far: energy v2 with Bounty Passes, and the UI M4 + energy build plan. |
 | `feature/lively-figures` | 79bcec2 | In progress. Livelier 3D figures: library clips for Hikari, Hana and Ruri, an upper-body attack, slimmer GLBs, settings and rebuild tools, with review fixes. |
+| `fix/seiran-dragon` | 54cdb8d | Approved by an independent re-review. Seiran's Dragonflight flew a fixed 10/14/18 tiles (ranks 1/2/3) and never reached START from a road's exit (0 of 65 roads); it now flies all the way back to START (sim change: sim id `c0c82733d953` on this branch alone; the merged abilities build gets its own id), plus a display fix so a wave clear no longer cuts the dragon off mid-flight. It cannot ship alone: merge it into `feature/abilities` (it is based on the v0.1.46 merge, so this also syncs `main` into that branch) and ship it with the COOP 9 release. Diagnosis and clips are in the owner's private notes (outside this repo, not in the §11 pack). |
 | `proto/modern-city` | e02ac31 | The city look test (4 maps). Waiting for the owner's approval; not in `MAPS` or `STAGES`. |
 
 Not started on any branch:
@@ -68,7 +71,7 @@ Not started on any branch:
 7. **Balance and the gear update** last, in one pass (below).
 
 **Kickoff message the owner can paste into a new session:**
-> Read docs/HANDOFF.md first. Unzip the packs I upload into your scratchpad (never into the repo). Then tell me in a few lines what's live, what's unfinished and the suggested order in HANDOFF §4, and start on step 1. Ask me before anything that spends generator credits, and ship each step as its own update when it's ready.
+> Read docs/HANDOFF.md first. Unzip the packs I upload into your scratchpad (never into the repo). Then tell me in a few lines what's live, what's unfinished and the suggested order in HANDOFF §4, and start on step 1. Report the cost of every Meshy run (HANDOFF §6), ask me before spending any other generator's credits, and ship each step as its own update when it's ready.
 
 After the big update, roughly in order:
 1. **Balance pass.** Tune damage girls relative to Kage (Kage is the reference number). Inputs: §10 findings and the tier list.
@@ -100,13 +103,16 @@ After the big update, roughly in order:
 - **Names:** never write other games' or anime names in code, docs, commits, patch notes or generator prompts.
 - **Reference art:** never commit third-party reference images; references are for study only. Generators (Meshy, image tools) only ever receive the game's own art.
 - **Secrets:** only the Supabase URL and publishable/anon key may be in the repo. Never use, store or commit the secret key or DB password; the owner still needs to rotate both (keep reminding). Owner-only secrets (dev clan code, map editor code) go in through the Supabase SQL editor, never the repo or chat.
-- **Credits:** Meshy needs one test first, a credit report and the owner's approval before a batch; stop below 60 credits (balance was 4, refills around Nov 7).
+- **Credits:** Meshy: run one test first, report the cost of every run and stop below 60 credits. Since Oct 22 the owner has approved Meshy spending, so a batch no longer waits for their yes (balance 1,126 on the evening of Oct 22). Other generators (the image tool) still need the owner's yes before spending.
 - **Audio** is original; no private soundfonts in the repo. The loader slime is never a blue teardrop.
 - **People:** never put players' names on published pages; use they/them for players.
 - **Determinism:** the battle sim is lockstep co-op. Any sim change changes the sim id (§7) and needs a `COOP_PROTOCOL` bump; display-only releases keep both.
 - **Git:** no force pushes or history rewrites.
+- **Review gate (owner rule, Oct 22):** before any change (code, art and the specs that drive code) counts as done, it needs an explicit OK from a reviewer agent that did not build it. Every fix is re-reviewed by a fresh reviewer until it is OK; after three failed rounds, stop and report "not approved", never pass it silently. Every ship needs an independent go/no-go agent's GO before the push, then a live check by an agent that did not ship it. Visual reviews zoom into panel edges and corners. Never hand a fixer a truncated review: pass the whole text or its file.
 
 ## 7. Shipping a release
+
+The feature branch must already carry an independent reviewer's OK (§6, review gate). After the two merges below, an independent go/no-go agent checks the patch note and runs the gates (`npm test`, the sim id check, the build and the secret scan) on the merged `claude/sakura-sentinels`, and nothing is pushed until it says GO. After the deploy, an agent that did not ship it checks the live site.
 
 ```sh
 git fetch origin

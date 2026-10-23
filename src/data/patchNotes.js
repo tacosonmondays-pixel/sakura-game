@@ -20,6 +20,13 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.47', version: '0.1.47', date: '2026-10-23', title: 'Picture Day',
+    changed: [
+      'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi have new portraits, each in her own club scene and her own pose. See them on their pages, in Students, Formation, Recruit, battle, Story and the lobby.',
+      'Battles play the same, and co-op still works with players on v0.1.41 to v0.1.46.',
+    ],
+  },
+  {
     id: 'v0.1.46', version: '0.1.46', date: '2026-10-22', title: 'A Backpack Glow-Up',
     changed: [
       'Every item has new art! Coins, gems, boxes, books, gear and materials are now chunky little 3D-style toys, all drawn the same way.',

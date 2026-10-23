@@ -571,6 +571,10 @@ p { margin: 0 0 8px; line-height: 1.45; }
   mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0%)), linear-gradient(to left, transparent 0, #000 var(--fr, 0%)), linear-gradient(to top, transparent 0, #000 var(--fb, 0%));
   -webkit-mask-composite: source-in; mask-composite: intersect;
 }
+/* a stand that is not head-to-shoes (portraits.js fig, --fig): the lobby secretary is sized by height, so she is
+   scaled to bring her head near the cast's size, never below 0.62 (her figure still runs past the lobby's bottom
+   edge); the story player scales her by fig itself (story.css) */
+.lb-art-girl img.pt-img { height: calc(100% * max(var(--fig, 1), 0.62)); }
 .unit-card-art .pt-img { position: absolute; inset: 0; }
 .unit-card.locked .unit-card-art .pt-img { filter: none; }
 .unit-card-rarity { position: absolute; left: 6px; top: 4px; font-weight: 900; font-style: italic; color: var(--rarity); text-shadow: 0 1px 2px #000; font-size: 0.85rem; }

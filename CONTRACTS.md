@@ -1628,19 +1628,23 @@ Owner: "people won't even bother giving the game a shot if it looks ugly right a
 **Portraits — `src/art/portraits.js`** (pure, strings only). Every roster girl (all 19) has six files in
 `public/art/portraits/`: `<id>-full.webp` 768×1024 3:4 illustration, `<id>-card.webp` 300×500 tall card
 (head top ~8 %, bottom at the hips — one framing rule for every girl), `<id>-bust.webp` 512², `<id>-thumb.webp`
-160², `<id>-cut.webp` transparent **full-figure** stand 1000 px tall, `<id>-cut-s.webp` the same at 360 px.
+160², `<id>-cut.webp` transparent stand 1000 px tall, `<id>-cut-s.webp` the same at 360 px.
 ```js
-export const PORTRAIT_BASE, PORTRAIT_DATA /* { [id]: { face:[x%,y%], cut: w/h, edges?: 'lrb' } } */, PORTRAIT_KINDS
+export const PORTRAIT_BASE, PORTRAIT_DATA /* { [id]: { face:[x%,y%], cut: w/h, edges?: 'lrb', fig?: 0-1 } } */, PORTRAIT_KINDS
 export function hasPortrait(unitOrId), portraitUrl(unitOrId, kind = 'bust') /* null → caller falls back */
 export function portraitHTML(unitDef, kind, { eager, awaken, cls, alt }) // <img class="pt-img pt-<kind>" data-unit data-svg …> or the SVG
-export function portraitFace(unitOrId), portraitEdges(unitOrId), portraitFiles(unitOrId), artUrl(path) // public/art/<path>
+export function portraitFace(unitOrId), portraitEdges(unitOrId), portraitFig(unitOrId), portraitFiles(unitOrId), artUrl(path) // public/art/<path>
 ```
 Rules: every girl picture in the UI goes through `portraitHTML`/`portraitUrl` (student list/detail,
 formation, recruit banner/results/SSR splash, SSR Select picker, missions hub, lobby, title, battle
 bar + deploy name tag, victory MVP, mall exchange, wiki). URLs are `BASE_URL`-relative (Pages-safe).
-A broken `<img>` is swapped for its SVG by the UI (`data-svg`). Stands are full figures (head to shoes);
-the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a full-figure
-redraw of the same design for their stand. `edges` fades a frame-cut side only for future half-body art.
+A broken `<img>` is swapped for its SVG by the UI (`data-svg`). The painted girls' stands are full figures
+(head to shoes); the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a
+full-figure redraw of the same design for their stand. The seven academy girls' stands are cut out of their v2
+scene portraits (Oct 23 2026), so they are framed as there: `edges` fades the sides the frame cuts (Azami,
+Marumi, Yuzuha; Ena and Ruri too), and `fig` (her stand's height as a share of a head-to-shoes stand at the same
+head size) becomes `--fig` on her stand's `<img>`: the screens that size every stand by height (the story
+player, the lobby secretary) scale her by it so her head matches the cast's; contained stands (hubs, MVP) ignore it.
 Adding a girl = add her 6 files + one `PORTRAIT_DATA` row (tests check every unit has all files).
 
 **Title / load-up screen — `src/ui/screens/title.js`, route `#/title`.** `main.js` opens it on a cold

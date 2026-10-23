@@ -8,7 +8,7 @@ import { MATERIAL_FAMILIES } from '../../src/data/types.js';
 import { getItem } from '../../src/data/items.js';
 import { itemIcon } from '../../src/art/icons.js';
 import {
-  portraitUrl, portraitHTML, hasPortrait, portraitFiles, portraitEdges, PORTRAIT_KINDS, PORTRAIT_DATA,
+  portraitUrl, portraitHTML, hasPortrait, portraitFiles, portraitEdges, portraitFig, PORTRAIT_KINDS, PORTRAIT_DATA,
 } from '../../src/art/portraits.js';
 import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BOND_THEMES, BOND_LEVELS, BOND_MAX, lobbyBackgrounds, isBackgroundUnlocked, isBackgroundSelectable,
@@ -66,17 +66,34 @@ describe('drawn portraits', () => {
     expect(fallback).toMatch(/<svg/);
   });
 
-  // painted art that runs off the bottom of its frame (the stand fades that edge instead of a hard cut)
-  const FRAME_CUT = { ena: 'b', ruri: 'b' };
+  // painted art that runs off the bottom of its frame (the stand fades that edge instead of a hard cut), and the
+  // academy girls' v2 scene art whose figure the frame cuts (Azami's skirt, Marumi's legs, Yuzuha leaning in)
+  const FRAME_CUT = { ena: 'b', ruri: 'b', azami: 'b', marumi: 'b', yuzuha: 'r' };
 
-  it('gives every roster girl a full-figure stand (only the known frame-cut paintings fade an edge)', () => {
+  it('gives every roster girl a stand (only the known frame-cut paintings fade an edge)', () => {
     for (const u of UNITS) {
       expect(portraitEdges(u.id), u.id).toBe(FRAME_CUT[u.id] || '');
       if (FRAME_CUT[u.id]) expect(portraitHTML(u, 'cut'), u.id).toContain('pt-edge');
       else expect(portraitHTML(u, 'cut'), u.id).not.toContain('pt-edge');
-      // (the slimmest stand is Yuzuha's Clean Cel card, arms in at a tablet: 0.294)
+      // (the slimmest stand is Chika's, 0.406; the widest is Kinu's v2 needle twirl with her arm out, 0.967)
       expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.28);
-      expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(0.8);
+      expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(1);
+    }
+  });
+
+  it('scales a stand that is not head-to-shoes only where stands are sized by height (fig)', () => {
+    for (const u of UNITS) {
+      const fig = PORTRAIT_DATA[u.id].fig;
+      if (fig === undefined) {
+        expect(portraitFig(u.id), u.id).toBe(1);
+        expect(portraitHTML(u, 'cut'), u.id).not.toContain('--fig');
+        continue;
+      }
+      expect(fig, u.id).toBeGreaterThan(0.3);
+      expect(fig, u.id).toBeLessThan(1);
+      expect(portraitHTML(u, 'cut'), u.id).toContain(`--fig:${fig}`);
+      expect(portraitHTML(u, 'cutS'), u.id).toContain(`--fig:${fig}`);
+      for (const kind of ['full', 'card', 'bust', 'thumb']) expect(portraitHTML(u, kind), `${u.id} ${kind}`).not.toContain('--fig');
     }
   });
 
