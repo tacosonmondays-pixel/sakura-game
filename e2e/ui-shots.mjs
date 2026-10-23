@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { probe, summary } from './probe.mjs';
-import { seedUiSave, SHOT_NOW } from './uiSeed.mjs';
+import { seedUiSave, seedOnlineInvite, goOffline, SHOT_NOW } from './uiSeed.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -84,10 +84,15 @@ const SHOTS = {
   'event-halloween': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash },
   // the event page after the event and its exchange closed (E9 on the ended phase), on the dev clock
   'event-halloween-ended': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash, devNow: '2026-11-20T18:00:00Z' },
-  // the Multiplayer hub comes in M5d: until its route exists, its "before" is the co-op hub it replaces
-  multiplayer: { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5' },
+  // the Multiplayer hub comes in M5d: until its route exists, its "before" is the co-op hub it replaces. `multiplayer`
+  // is signed in on the local test server with one open invite from a friend (uiSeed.mjs seedOnlineInvite);
+  // `multiplayer-empty` is a player who never went online (no account, no invites: goOffline)
+  multiplayer: { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5', prepare: seedOnlineInvite, settleMs: 1800 },
+  'multiplayer-empty': { hash: '#/multiplayer', fallback: '#/coop', ready: '() => /multiplayer|coop/.test(document.querySelector("#app")?.dataset.screen || "")', seed: 'm5', prepare: goOffline, settleMs: 1800 },
   'multiplayer-pvp': { hash: '#/multiplayer', ready: isScreen('multiplayer'), seed: 'm5', needsRoute: 'multiplayer', open: async (page) => { await page.click('[data-testid="mp-pvp"]'); await page.waitForSelector('.ui-sheet', { timeout: 10000 }); } },
-  coop: { hash: '#/coop', ready: isScreen('coop'), seed: 'm5' },
+  coop: { hash: '#/coop', ready: isScreen('coop'), seed: 'm5', settleMs: 1800 },
+  // the lobby with that open invite: the Multiplayer button's red number (M5d; before it, the lobby had no such button)
+  'lobby-invite': { hash: '#/lobby', ready: isScreen('lobby'), seed: 'm5', prepare: seedOnlineInvite, prepareAt: ['#/missions', isScreen('missions')], settleMs: 1800 },
   profile: { hash: '#/profile', ready: isScreen('profile'), kind: 'detail', seed: 'm5' },
   students: { hash: '#/students', ready: isScreen('students'), kind: 'list', seed: 'm5' },
   formation: { hash: '#/formation', ready: isScreen('formation'), seed: 'm5' },
@@ -96,7 +101,8 @@ const SHOTS = {
 const FIRST_SIX = ['lobby', 'girl-info', 'backpack-equipment', 'stage-prep', 'achievements', 'battle-drawer'];
 const M5 = ['lobby', 'missions', 'commissions-daily', 'commissions-login', 'achievements', 'bounty', 'assault', 'titans', 'campaign',
   'mall-general', 'mall-boss', 'mail', 'happening', 'settings', 'settings-display', 'settings-audio', 'recruit', 'event-halloween',
-  'multiplayer', 'multiplayer-pvp', 'coop', 'profile', 'students', 'formation', 'm5-kit', 'happening-empty', 'event-halloween-ended'];
+  'multiplayer-empty', 'multiplayer', 'multiplayer-pvp', 'coop', 'lobby-invite', 'profile', 'students', 'formation', 'm5-kit', 'happening-empty',
+  'event-halloween-ended'];
 
 /**
  * A Settings section: its rail tab (M5c), or before the rail, the old panel with that title scrolled to the top.
@@ -149,13 +155,13 @@ const settle = (page, ms = 900) => page.waitForTimeout(ms)
   .then(() => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300))))));
 const closeModals = (page) => page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
 
-async function go(page, hash, ready) {
+async function go(page, hash, ready, settleMs = 900) {
   await page.evaluate((hh) => { location.hash = hh; }, hash);
   await page.waitForFunction(ready, null, { timeout: 60000 });
   // the screen change has finished (no transition, no loading chip): a busy machine never shoots the old screen
   await page.waitForFunction(() => !document.documentElement.dataset.tx && !document.querySelector('.ld-chip.on'), null, { timeout: 60000 }).catch(() => {});
   await closeModals(page);
-  await settle(page);
+  await settle(page, settleMs);
 }
 
 async function shot(page, name, vp) {
@@ -263,10 +269,12 @@ for (const vp of viewports) {
           }
           if (s.devNow) await devClock(page, s.devNow);
           if (s.prepare) {
-            await go(page, '#/lobby', isScreen('lobby')); // (a fresh draw of the screen after the state is set)
+            // (a fresh draw of the screen after the state is set: prepared on another screen, the lobby by default)
+            const [at, atReady] = s.prepareAt || ['#/lobby', isScreen('lobby')];
+            await go(page, at, atReady);
             await s.prepare(page);
           }
-          await go(page, hash, legacy ? legacy.ready : s.ready);
+          await go(page, hash, legacy ? legacy.ready : s.ready, s.settleMs);
           const open = legacy ? legacy.open : s.open;
           if (open) {
             await open(page);
