@@ -30,7 +30,13 @@
 //                   judges (low 7: "43.8 printed while asserting 44" cannot happen: both are the same value)
 //   - heads         the top bar no wider than its box, each of its controls inside the screen and on top at its
 //                   centre (the tap scan skips a control whose centre is off the screen); a top bar or plate head
-//                   title showing its words whole, not cut by its box or run under its chips (V1 review 1)
+//                   title showing its words whole, not cut by its box or run under its chips (V1 review 1); each
+//                   plate head item whole inside its head and on top, the title's line boxes clear of every item
+//                   beside them (V1 review 2)
+//   - clipped       panels (.panel, .modal, the list panel, .mb-card, .ui-panel, a floating sheet) and what they
+//                   cut: a child past a clipping panel's box or with its words, art or control in a chamfer, and a
+//                   child past a panel that does not clip (drawn outside it); HANG_OK lists the children hung
+//                   outside on purpose (V1 review 2)
 //
 //   import { probe, judge } from './probe.mjs';
 //   const r = await probe(page, { kind: 'hub', list: '.ma-hub-grid' });
@@ -64,6 +70,10 @@ export const PINK_OK = [
   '.ui-bdg.inprog', '.tag-ribbon', '.hero', '[data-hero]', '.is-hero', '.partner', '[data-partner]',
 ].join(', ');
 
+/** [ui-ink] Children a panel hangs outside itself on purpose (v2 `clipped` leaves them out): the profile's avatar over its
+ * banner (its panel is painted, not clipped: ink.css, V1 review 2). */
+export const HANG_OK = ['.pf-id .pf-ava'].join(', ');
+
 /**
  * @param {import('playwright').Page} page
  * @param {{ kind?: 'hub'|'list'|'detail', list?: string|null, content?: string|null, host?: string, bubble?: string,
@@ -75,7 +85,7 @@ export const PINK_OK = [
 export async function probe(page, opts = {}) {
   const o = {
     kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null, apart: [],
-    v2: false, skipV2: SKIP_V2, pinkRgb: PINK_RGB, pinkOk: PINK_OK, tapScanMax: 160,
+    v2: false, skipV2: SKIP_V2, pinkRgb: PINK_RGB, pinkOk: PINK_OK, tapScanMax: 160, hangOk: HANG_OK,
     ...opts,
   };
   return page.evaluate(probeInPage, o);
@@ -423,6 +433,116 @@ function probeInPage(o) {
       if (getComputedStyle(t).textOverflow === 'ellipsis' && t.scrollWidth > t.clientWidth + 1) heads.push(`${nameOf(t)} "${words}" ends in an ellipsis (${t.scrollWidth} px in ${t.clientWidth} px)`);
       else if (right > box.right + 1 || left < box.left - 1) heads.push(`${nameOf(t)} "${words}" is ${(right - left).toFixed(1)} px in a ${box.width.toFixed(1)} px box`);
     }
+    // a plate head's own items (V1 review 2, finding 1): each chip, wallet and button whole inside its head (a fixed
+    // height cut Memento's second row at 390 px: the "i" centre landed on the list), each control on top at its
+    // centre, and the title's words (their line boxes, not the h3's box) clear of every item beside them (Gem Shop's
+    // title ran 15.8 px under its WEEKLY chip while its h3 box looked whole)
+    const hit = (el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (top && top.closest(layered) && !el.closest(layered)) return true; // a sheet or a dialog is open over it
+      return !!top && (top === el || el.contains(top));
+    };
+    for (const ph of rt.querySelectorAll('.ui-plate-head')) {
+      if (!drawn(ph) || out2(ph) || isDeco(ph)) continue;
+      const hb = ph.getBoundingClientRect();
+      if (!seen(hb)) continue;
+      const items = [...ph.querySelectorAll(':scope > *, :scope > .ui-plate-right > *')]
+        .filter((e) => !e.matches('.ui-plate-title, .ui-plate-right, .ui-host') && drawn(e) && !e.closest('[aria-hidden="true"]'));
+      const lines = [];
+      const title = ph.querySelector(':scope > .ui-plate-title');
+      if (title && drawn(title)) {
+        const tw3 = document.createTreeWalker(title, NodeFilter.SHOW_TEXT);
+        for (let n = tw3.nextNode(); n; n = tw3.nextNode()) {
+          if (!/\S/.test(n.nodeValue) || !drawn(n.parentElement)) continue;
+          rg.selectNodeContents(n);
+          for (const b of rg.getClientRects()) if (b.width > 0.5) lines.push(b);
+        }
+      }
+      for (const it of items) {
+        const r = it.getBoundingClientRect();
+        const nm = `${nameOf(it)} "${cut(it.textContent || it.getAttribute('aria-label') || '')}"`;
+        const outBy = Math.max(hb.top - r.top, r.bottom - hb.bottom, hb.left - r.left, r.right - hb.right);
+        if (outBy > 0.5) heads.push(`${nm} runs ${outBy.toFixed(1)} px out of its plate head (${nameOf(ph)} ${hb.height.toFixed(1)} px tall)`);
+        const ctl = it.matches(CONTROLS) ? it : it.querySelector(CONTROLS);
+        if (ctl && !ctl.disabled && !hit(ctl)) heads.push(`${nm} not on top at its centre in its plate head`);
+        for (const b of lines) {
+          const w = Math.min(b.right, r.right) - Math.max(b.left, r.left);
+          const hh = Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top);
+          if (w > 0.5 && hh > 0.5) { heads.push(`the plate title "${cut(title.textContent || '')}" runs ${w.toFixed(1)} px under ${nm}`); break; }
+        }
+      }
+    }
+    // panels and what they cut (V1 review 2, finding 3): a child that a panel's clip-path cuts away (it hangs past the
+    // panel's clipped box, or its words, art or control reach into a chamfer), and a child that runs past a panel that
+    // does not clip (it is then drawn outside the panel). opt.hangOk: children hung outside on purpose (the profile's
+    // avatar over its banner: its panel is painted, not clipped). Children inside a scroller or a clipping box of their
+    // own are that box's business (the probe's spill and ellipsis checks).
+    const clipped = [];
+    const PANELS = '.panel, .modal, .ls > .ls-panel:not(.bare), .mb-card, .ui-panel, .ui-sheet:not(.full)';
+    for (const pn of rt.querySelectorAll(PANELS)) {
+      if (!drawn(pn) || out2(pn) || isDeco(pn)) continue;
+      const pr = pn.getBoundingClientRect();
+      if (!seen(pr)) continue;
+      const pcs = getComputedStyle(pn);
+      const clips = pcs.clipPath !== 'none';
+      const pad = clips && /padding-box/.test(pcs.clipPath);
+      const bl = pad ? parseFloat(pcs.borderLeftWidth) || 0 : 0;
+      const bt = pad ? parseFloat(pcs.borderTopWidth) || 0 : 0;
+      const br = pad ? parseFloat(pcs.borderRightWidth) || 0 : 0;
+      const bb = pad ? parseFloat(pcs.borderBottomWidth) || 0 : 0;
+      const P = { l: pr.left + bl, t: pr.top + bt, r: pr.right - br, b: pr.bottom - bb };
+      const c = clips ? parseFloat(pcs.getPropertyValue('--c')) || 0 : 0;
+      const pname = nameOf(pn);
+      for (const d of pn.querySelectorAll('*')) {
+        // (a child hung out on purpose is fine past a painted panel; a clipping panel still cuts it)
+        if (!drawn(d) || isDeco(d) || (!clips && opt.hangOk && d.closest(opt.hangOk))) continue;
+        let own = false;
+        for (let a = d.parentElement; a && a !== pn; a = a.parentElement) {
+          const s = getComputedStyle(a);
+          if (s.overflowX !== 'visible' || s.overflowY !== 'visible' || s.clipPath !== 'none' || s.maskImage !== 'none') { own = true; break; }
+        }
+        if (own) continue;
+        const ds = getComputedStyle(d);
+        const ctl = d.matches(CONTROLS);
+        const art = /^(IMG|svg|CANVAS|VIDEO)$/.test(d.tagName);
+        const fill = (ds.backgroundColor !== 'rgba(0, 0, 0, 0)' && ds.backgroundColor !== 'transparent') || ds.backgroundImage !== 'none';
+        const ring = ds.boxShadow !== 'none' || ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(ds[`border${s}Width`]) > 0 && !/rgba\(\d+, \d+, \d+, 0\)|transparent/.test(ds[`border${s}Color`]));
+        // what this element paints: its words' line boxes, and its own box when it is art or a fill, or a control that
+        // draws itself (a bare control's glyph and words are its children, checked on their own). A chamfer counts
+        // words, art and controls (a plain fill cut at a corner is the panel's own shape); a round one by its circle
+        const marks = [];
+        for (const n of d.childNodes) {
+          if (n.nodeType !== 3 || !/\S/.test(n.nodeValue)) continue;
+          rg.selectNodeContents(n);
+          for (const b of rg.getClientRects()) if (b.width > 0.5 && b.height > 0.5) marks.push({ r: b, corner: true, round: false });
+        }
+        if (art || fill || (ctl && ring)) {
+          const r = d.getBoundingClientRect();
+          const round = (parseFloat(ds.borderTopRightRadius) || 0) >= Math.min(r.width, r.height) / 2 - 1;
+          marks.push({ r, corner: art || ctl, round });
+        }
+        if (!marks.length) continue;
+        const nm = `${nameOf(d)}${d.dataset?.testid ? `[${d.dataset.testid}]` : ''} "${cut(d.textContent || d.getAttribute?.('aria-label') || '')}"`;
+        let worst = 0;
+        let corner = 0;
+        for (const { r, corner: inCorner, round } of marks) {
+          worst = Math.max(worst, P.l - r.left, r.right - P.r, P.t - r.top, r.bottom - P.b);
+          if (c > 0 && inCorner) {
+            // (how far past the cut line, measured along x: the box's corner, or the circle's farthest point)
+            const R = Math.min(r.width, r.height) / 2;
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const tr = round ? (cx - cy + R * Math.SQRT2) - (P.r - c - P.t) : (r.right - r.top) - (P.r - c - P.t);
+            const blc = round ? (cy - cx + R * Math.SQRT2) - (P.b - c - P.l) : (r.bottom - r.left) - (P.b - c - P.l);
+            if (r.top < P.t + c && r.right > P.r - c) corner = Math.max(corner, tr);
+            if (r.bottom > P.b - c && r.left < P.l + c) corner = Math.max(corner, blc);
+          }
+        }
+        if (worst > 1.5) clipped.push(`${nm} ${worst.toFixed(1)} px past ${pname}${clips ? ', cut by its clip' : ''}`);
+        else if (corner > 1.5) clipped.push(`${nm} ${corner.toFixed(1)} px into a chamfer of ${pname}, cut by its clip`);
+      }
+    }
     const fmt = (t) => `${t.w.toFixed(2)}x${t.h.toFixed(2)} ${t.name}`;
     const tapMin = taps.length ? Math.min(...taps.map((t) => t.s)) : null;
     return {
@@ -446,6 +566,8 @@ function probeInPage(o) {
       tapsUnder40Count: taps.filter((t) => t.s < 40).length,
       heads: heads.slice(0, 20),
       headsCount: heads.length,
+      clipped: clipped.slice(0, 20),
+      clippedCount: clipped.length,
     };
   }
 }
@@ -461,7 +583,7 @@ export const LIMITS_V2 = Object.freeze({ numbers: 10, yellow: 1, tap: 44 });
  * @param {ReturnType<typeof probeInPage>} r
  * @param {{ skip?: string[], only?: string[]|null, v2?: boolean }} [o] skip: checks not judged on this screen ('numbers',
  *   'taps', ...); only: judge just these checks; v2: also the v2 checks ('v2numbers', 'v2yellow', 'pink', 'radius',
- *   'covered', 'v2taps', 'heads'; the result needs probe(..., { v2: true }))
+ *   'covered', 'v2taps', 'heads', 'clipped'; the result needs probe(..., { v2: true }))
  */
 export function judge(r, { skip = [], only = null, v2 = false } = {}) {
   const fails = [];
@@ -476,6 +598,7 @@ export function judge(r, { skip = [], only = null, v2 = false } = {}) {
     // the number printed is the number judged: both are tapMin, in 0.25 px steps
     if (on('v2taps') && x.tapMin != null && x.tapMin < LIMITS_V2.tap) fails.push(`tap ${x.tapMinText} px < ${LIMITS_V2.tap} px (${x.tapsUnder44Count}: ${x.tapsUnder44.slice(0, 3).join('; ')})`);
     if (on('heads') && x.headsCount) fails.push(`${x.headsCount} bar or head faults (${x.heads.slice(0, 3).join('; ')})`);
+    if (on('clipped') && x.clippedCount) fails.push(`${x.clippedCount} children cut by or run past their panel (${x.clipped.slice(0, 3).join('; ')})`);
   }
   if (on('text') && r.minText != null && r.minText < r.floor) fails.push(`text ${r.minText}px < ${r.floor}px (${r.smallCount}: ${r.small.slice(0, 3).join('; ')})`);
   if (on('numbers') && r.numbers > LIMITS.numbers) fails.push(`numbers ${r.numbers} > ${LIMITS.numbers}`);
@@ -510,5 +633,5 @@ export function summary(r) {
 
 /** [ui-ink] The v2 half of the line: "v2: numbers 9 · yellow 1 · pink 2 (stray 0) · radius 0 · covered 0 · tap min 44.00 (≥ 44)". */
 export function summaryV2(x) {
-  return `v2: numbers ${x.numbersAll} · yellow ${x.yellowFills.length} · pink ${x.pinkCount} (stray ${x.pinkStrayCount}) · radius ${x.radiusCount} · covered ${x.coveredCount} · tap min ${x.tapMinText ?? '–'} (asserts ≥ ${LIMITS_V2.tap}; ${x.tapsUnder44Count} under) · heads ${x.headsCount ?? '–'}`;
+  return `v2: numbers ${x.numbersAll} · yellow ${x.yellowFills.length} · pink ${x.pinkCount} (stray ${x.pinkStrayCount}) · radius ${x.radiusCount} · covered ${x.coveredCount} · tap min ${x.tapMinText ?? '–'} (asserts ≥ ${LIMITS_V2.tap}; ${x.tapsUnder44Count} under) · heads ${x.headsCount ?? '–'} · clipped ${x.clippedCount ?? '–'}`;
 }

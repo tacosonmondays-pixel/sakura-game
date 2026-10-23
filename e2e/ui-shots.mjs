@@ -18,7 +18,8 @@
 //   --viewport 390x844  portrait phones: touch, the rotate prompt dismissed through its own session key
 //   --screens ink     every shot v2 touches; --screens regress: the screens it reaches only through shared parts
 //   --probe           also the probe's v2 numbers (e2e/probe.mjs v2: true), judged with --judge v2numbers,pink,...
-//   --pixels          the pixel probes a shot names (e2e/pixels.mjs) into pixels-<W>x<H>.json
+//   --pixels          the pixel probes a shot names (e2e/pixels.mjs) into pixels-<W>x<H>.json; --judge pixels makes
+//                     a failed pixel check fail the run (with --judge heads,clipped,pixels ...)
 //
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a shot fails.
 // A shot whose screen does not exist in this build yet is skipped with a note (the M5 list names later screens).
@@ -97,6 +98,12 @@ const SHOTS = {
   campaign: { hash: '#/campaign?chapter=1', ready: isScreen('campaign'), seed: 'm5' },
   'mall-general': { hash: '#/mall?tab=general', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
   'mall-boss': { hash: '#/mall?tab=boss', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
+  // [ui-ink] the other token shops: their plate heads carry the restock chip, the wallet and the "i" (V1 review 2: at
+  // 390x844 Memento's second row was cut and Gem Shop's title ran under its chip, on shots no list held)
+  'mall-gems': { hash: '#/mall?tab=gems', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
+  'mall-recruit': { hash: '#/mall?tab=recruit', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
+  'mall-bounty': { hash: '#/mall?tab=bounty', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
+  'mall-memento': { hash: '#/mall?tab=memento', ready: isScreen('mall'), kind: 'list', list: '.ma-offers', seed: 'm5' },
   // the Mailroom (M5c, #/mail); before it existed, its "before" is the Mail modal over the lobby
   mail: {
     hash: '#/mail', ready: isScreen('mail'), kind: 'list', list: '.mbx-list', seed: 'm5',
@@ -257,7 +264,8 @@ const M5 = ['lobby', 'missions', 'commissions-daily', 'commissions-login', 'achi
 /** [ui-ink] Every shot UI v2 touches (V1 to V6); the 10-pull spends the tickets, so it comes last before the fixture. */
 const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-reduced', 'home-low', 'girl-info', 'girl-info-ruri', 'girl-gear', 'girl-gear-empty',
   'girl-gear-picker', 'students', 'roster-end', 'formation', 'roster-pick', 'missions', 'commissions-daily', 'commissions-login', 'commissions-codes',
-  'mail', 'mail-history', 'recruit', 'recruit-free', 'mall-general', 'mall-boss', 'mall-buy', 'backpack-salvage', 'multiplayer-empty', 'multiplayer',
+  'mail', 'mail-history', 'recruit', 'recruit-free', 'mall-general', 'mall-boss', 'mall-gems', 'mall-recruit', 'mall-bounty', 'mall-memento', 'mall-buy',
+  'backpack-salvage', 'multiplayer-empty', 'multiplayer',
   'multiplayer-pvp', 'recruit-result', 'ink-kit'];
 /** [ui-ink] The screens v2 reaches only through shared components (battle-drawer must stay pixel-identical). */
 const REGRESS = ['bounty', 'assault', 'titans', 'campaign', 'happening', 'settings', 'profile', 'event-halloween', 'coop', 'backpack-equipment', 'stage-prep',
@@ -298,7 +306,13 @@ const DEFAULT_PIXELS = async (page) => ({
   titles: await contrastOnPixels(page, '#app .topbar-title, #app .ui-plate-title > span, #app .panel-title', { limit: 6 }),
   // the button labels on top, the overlays' included (V1 review 1: the pull result's Close on the night reveal)
   buttons: await contrastOnPixels(page, '.btn > .btn-label', { limit: 16, onTop: true }),
+  // the stickers, badges, chips and countdowns on top, over whatever is behind them (V1 review 2: the night OPEN chip's
+  // 8 % wash left cyan words on the lobby's bright painting at 1.6:1)
+  stickers: await contrastOnPixels(page, STICKERS, { limit: 24, onTop: true }),
 });
+/** [ui-ink] The small marks with words of their own: badges and stickers, chips, countdown chips, rarity tags. */
+const STICKERS = [':is(.ui-bdg, .ui-sticker, .ui-chip, .ui-cd, .ui-rar)', ':is(.ui-bdg, .ui-sticker, .ui-chip, .ui-cd, .ui-rar) *']
+  .flatMap((s) => [`#app ${s}`, `.ui-layer ${s}`]).join(', ');
 
 /** The Halloween event's route, from the event data (its id is not spelled here). */
 async function eventHash(page) {
@@ -530,6 +544,12 @@ for (const vp of viewports) {
         pixelRuns[name] = px;
         const parts = Object.entries(px).map(([k, v]) => `${k} ${v.checks.length - v.fails}/${v.checks.length}`);
         console.log(`    pixels: ${parts.join(' · ')}`);
+        // [ui-ink] --judge pixels: a failed pixel check fails the run too (V1 review 2: they were only printed)
+        const bad = Object.entries(px).flatMap(([k, v]) => v.checks.filter((c) => !c.ok).map((c) => `${k}: ${c.msg}`));
+        if (judged?.includes('pixels') && bad.length) {
+          failed++;
+          console.log(`  FAILED ${name} pixels: ${bad.slice(0, 4).join(' | ')}`);
+        }
       }
       if (s.open || s.legacy) await closeModals(page);
       if (s.after) await s.after(page);

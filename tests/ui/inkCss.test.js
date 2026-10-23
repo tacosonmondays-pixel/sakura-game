@@ -103,6 +103,28 @@ describe('ink.css', () => {
     expect(chip?.body).toMatch(/top: auto/);
     expect(chip?.body).toMatch(/bottom: -4px/);
   });
+  it('V1 review 2: a plate head grows with its rows, the night OPEN chip is opaque, the profile avatar is not cut', () => {
+    // the inset plate head: at least --h, never a fixed height, its slant a mask (a polygon's run is fixed by --h)
+    const head = ALL.find((r) => r.sel.endsWith('.ui-plate-head:where(:not(.bleed))'));
+    expect(head?.body).toMatch(/height: auto; min-height: var\(--h\)/);
+    expect(head?.body).toMatch(/clip-path: none/);
+    expect(head?.body).toMatch(/(^|[^-])mask: var\(--slant-end\)/);
+    expect(head?.body).toMatch(/linear-gradient\(98deg, #000 39\.11px, transparent 40\.11px\) 100% 0 \/ 40px 100%/);
+    expect(ALL.some((r) => /\.ui-plate-head/.test(r.sel) && /(^|[;\s])height: var\(--h\)/.test(r.body))).toBe(false);
+    // a narrow list head wraps; its "i" stays by the title, the chips go under it, to the right
+    expect(ALL.find((r) => r.sel.endsWith('.ls-panel > .ui-plate-head') && /flex-wrap: wrap/.test(r.body))).toBeTruthy();
+    expect(ALL.find((r) => r.sel.endsWith('> .ui-plate-right:has(> .ui-ibtn)'))?.body).toMatch(/display: contents/);
+    expect(ALL.find((r) => r.sel.endsWith('> .ui-plate-right > .ui-ibtn'))?.body).toMatch(/order: 1/);
+    // the OPEN chip's fill is opaque on both surfaces: the kit's wash over solid ink on night
+    expect(ALL.find((r) => r.sel.includes('.ui-bdg.open') && /--fill:/.test(r.body))?.body).toMatch(/--fill: var\(--m-open-fill\)/);
+    const night = ALL.find((r) => r.sel.startsWith('.ui-night, .ui-night-zone'));
+    expect(night?.body).toMatch(/--m-open-fill: linear-gradient\(rgba\(76, 214, 255, 0\.08\), rgba\(76, 214, 255, 0\.08\)\), var\(--plate\)/);
+    expect(ALL.find((r) => r.sel.startsWith('.ui-day, .ui-day-zone'))?.body).toMatch(/--m-open-fill: var\(--cyan-wash\)/);
+    // the profile's panels are painted, not clipped, and the avatar paints over the ring
+    expect(ALL.find((r) => r.sel.endsWith('.screen.pf .panel'))?.body).toMatch(/clip-path: none/);
+    expect(ALL.find((r) => r.sel.endsWith('.screen.pf .panel::before'))?.body).toMatch(/clip-path: polygon/);
+    expect(ALL.find((r) => r.sel.endsWith('.pf .pf-id .pf-ava') && /z-index/.test(r.body))?.body).toMatch(/z-index: 4/);
+  });
   it('the E3 rail: white caps on the active ink slab and the pink "/" bar (Q1); no yellow words', () => {
     expect(ALL.find((r) => split(r.sel)[0].endsWith('.ui-stab.on'))?.body).toMatch(/color: var\(--on-ink\)/);
     expect(ALL.find((r) => r.sel.includes('.ui-stab.on::before'))?.body).toMatch(/background: var\(--pink\)/);

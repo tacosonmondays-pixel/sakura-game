@@ -215,6 +215,7 @@ export const PAIRS = [
   ['--on-ink', ['rgb(199, 199, 199)', '--glass-ink-1'], 'v2: the same over the home scene capped at 199/255', 4.5],
   ['--on-ink-dim', ['rgb(199, 199, 199)', '--glass-ink-1'], 'v2: dim words over the capped home scene', 4.5],
   ['--cyan', ['--plate'], 'v2: cyan on ink (progress words, the focal kicker, NEW and OPEN on ink, "+")', 4.5],
+  ['--cyan', ['white', '--plate', 'rgba(76, 214, 255, 0.08)'], 'v2: the night OPEN chip\'s words on its own fill (the 8 % cyan wash over solid ink, over any art: V1 review 2)', 4.5],
   ['--cyan', ['white', '--glass-ink-1'], 'v2: cyan on the light ink glass (over white)', 4.5],
   ['--pink-on-ink', ['--plate'], 'v2: pink words on ink (a hero\'s name tag)', 4.5],
   ['--pink-on-ink', ['rgb(199, 199, 199)', '--glass-ink-1'], 'v2: pink words on the light glass over the capped scene', 4.5],

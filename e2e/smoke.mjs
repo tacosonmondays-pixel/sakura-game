@@ -92,6 +92,8 @@ const ROUTES = [
   ['assault', '#/assault'],
   ['challenge', '#/challenge'],
   ['mall', '#/mall'],
+  // [ui-ink] a token shop: its plate head's restock chip, wallet and "i" (V1 review 2; a locked shop opens the first)
+  ['mall memento', '#/mall?tab=memento'],
   ['commissions', '#/commissions'],
   ['rewards', '#/rewards'],
   ['mail', '#/mail'], // [ui-m5] the Mailroom
@@ -229,13 +231,30 @@ async function runViewport(vp) {
         if (top && top.closest('.modal-overlay, .ui-layer, [role="dialog"], [aria-modal="true"], .rotate-overlay') && !b.closest('[role="dialog"]')) continue;
         if (!top || !(top === b || b.contains(top))) bar.push(`${name} covered by ${top ? `${top.tagName.toLowerCase()}.${[...top.classList].slice(0, 2).join('.')}` : 'nothing'}`);
       }
-      return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1, bar };
+      // [ui-ink] a plate head's controls the same way, and inside their head (V1 review 2: at 390x844 a 48 px head cut
+      // the Mall's second row, so its "i" sat half outside the head with the list on top of its centre)
+      const heads = [];
+      for (const ph of document.querySelectorAll('#app .ui-plate-head')) {
+        const hb = ph.getBoundingClientRect();
+        if (!hb.width || !hb.height || hb.bottom < 0 || hb.top > innerHeight || (ph.checkVisibility && !ph.checkVisibility({ visibilityProperty: true }))) continue;
+        for (const b of ph.querySelectorAll('button, a[href], [role="button"]')) {
+          const r = b.getBoundingClientRect();
+          if (!r.width || !r.height || b.closest('[aria-hidden="true"]') || (b.checkVisibility && !b.checkVisibility({ visibilityProperty: true }))) continue;
+          const name = b.dataset.testid || b.getAttribute('aria-label') || b.title || b.className;
+          if (r.top < hb.top - 0.5 || r.bottom > hb.bottom + 0.5 || r.left < hb.left - 0.5 || r.right > hb.right + 0.5) { heads.push(`${name} out of its head`); continue; }
+          const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (top && top.closest('.modal-overlay, .ui-layer, [role="dialog"], [aria-modal="true"], .rotate-overlay')) continue;
+          if (!top || !(top === b || b.contains(top))) heads.push(`${name} covered by ${top ? `${top.tagName.toLowerCase()}.${[...top.classList].slice(0, 2).join('.')}` : 'nothing'}`);
+        }
+      }
+      return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1, bar, heads };
     });
     const errs = takeErrors();
     check(info.len > 40 && !info.crashed, `${label}: renders content (${info.len} chars, screen=${info.screen})`);
     check(!errs.length, `${label}: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);
     check(!info.overflow, `${label}: no horizontal page overflow`);
     check(!info.bar.length, `${label}: every top bar control on screen and on top${info.bar.length ? ` (${info.bar.join(', ')})` : ''}`);
+    check(!info.heads.length, `${label}: every plate head control inside its head and on top${info.heads.length ? ` (${info.heads.join(', ')})` : ''}`);
     await shot(label);
   }
 

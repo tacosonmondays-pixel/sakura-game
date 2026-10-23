@@ -44,6 +44,8 @@
   --m-raised: var(--panel-w); --m-opt-fill: var(--panel-w); --dot-ring: #fff;
   --m-plate-edge: transparent; /* the edge of a small ink thing (timer, NEW, ink chip): none on paper, a hairline on ink */
   --m-new-edge: transparent; --m-new-text: var(--on-ink);
+  /* the OPEN chip's fill: opaque on both surfaces (a sticker can hang over art: the lobby's painting) */
+  --m-open-fill: var(--cyan-wash);
 }
 .ui-night, .ui-night-zone,
 :where(.ui-day, .ui-night) :is(.ui-panel.ink, .ui-np, .ui-topbar, .ui-tabs, .ui-plate-head, .ui-band, .ui-strip, .ui-hubtile, .ui-sheet.ink, .ui-sheet.side, .ui-news, .ui-head) {
@@ -53,6 +55,10 @@
   --m-raised: var(--glass-ink-1); --m-opt-fill: transparent; --dot-ring: var(--plate);
   --m-plate-edge: var(--line-lo);
   --m-new-edge: var(--cyan); --m-new-text: var(--cyan);
+  /* (on ink the OPEN chip is the kit's 8 % cyan wash laid over solid ink, not over whatever is behind: on the V1 lobby,
+     still M5's bright painting until V2, the bare wash left cyan words on near-white art at 1.6:1; V1 review 2,
+     finding 2. Over the night scene it looks as the kit draws it) */
+  --m-open-fill: linear-gradient(rgba(76, 214, 255, 0.08), rgba(76, 214, 255, 0.08)), var(--plate);
 }
 /* layers: field or scene 0 · night scrims 1 · host 2 · the home's bottom scrim 3 · UI surfaces 4 · top bar 10 · sheets
    20+. UI always paints above the host, so her art can never cover a control. (Kit surfaces only: the M5 screens keep
@@ -179,11 +185,23 @@
     calc(var(--s) + var(--rw) * 0.87) var(--rw));
 }
 /* -- trailing slant: a straight left edge (it touches the screen edge or sits flush), a "/" right end -- */
-:where(.ui-day, .ui-night) :is(.ui-stab, .ui-band),
-:where(.ui-day, .ui-night) .ui-plate-head:where(:not(.bleed)) {
+:where(.ui-day, .ui-night) :is(.ui-stab, .ui-band) {
   --s: calc(var(--h) * var(--tan8));
   height: var(--h); min-height: 0;
   clip-path: polygon(0 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%);
+  background: var(--fill); border-color: transparent; border-radius: 0; box-shadow: none; transform: none;
+}
+/* the inset plate head is at least --h tall and grows with its rows (a narrow screen puts its chips under the title):
+   nothing in it is ever cut at --h. So its "/" end is a mask, not a polygon: the polygon's run was fixed by --h, the
+   mask's edge runs at -8 degrees from the top-right corner down the head's real height (a 98 degree gradient in a 40 px
+   end piece: its edge meets the piece's top-right corner at 40 x sin 98 = 39.61 px along the gradient, at any height;
+   1 px of ramp is its anti-aliasing). A mask, unlike a clip-path, never clips a control's hit square either.
+   (V1 review 2, finding 1: Memento's second row and its "i" were cut at 48 px) */
+:where(.ui-day, .ui-night) .ui-plate-head:where(:not(.bleed)) {
+  --s: calc(var(--h) * var(--tan8));
+  --slant-end: linear-gradient(#000 0 0) 0 0 / calc(100% - 39px) 100% no-repeat, linear-gradient(98deg, #000 39.11px, transparent 40.11px) 100% 0 / 40px 100% no-repeat;
+  height: auto; min-height: var(--h); clip-path: none;
+  -webkit-mask: var(--slant-end); mask: var(--slant-end);
   background: var(--fill); border-color: transparent; border-radius: 0; box-shadow: none; transform: none;
 }
 :where(.ui-day, .ui-night) .ui-stab::after {
@@ -430,7 +448,7 @@
    flag: the same ink chip. */
 :where(.ui-day, .ui-night) :is(.ui-bdg.new, .ui-bdg.newtab) { --c: 4px; --fill: var(--plate); --edge: var(--m-new-edge); display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
   color: var(--m-new-text); font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
-:where(.ui-day, .ui-night) .ui-bdg.open { --c: 4px; --fill: var(--m-cy-wash); --edge: var(--m-cy-stroke); display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
+:where(.ui-day, .ui-night) .ui-bdg.open { --c: 4px; --fill: var(--m-open-fill); --edge: var(--m-cy-stroke); display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
   color: var(--m-cy); font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
 /* Coming soon / Soon: a lock and the words; never yellow, never faded */
 :where(.ui-day, .ui-night) .ui-bdg.soon { --c: 4px; --fill: var(--m-raised); --edge: var(--m-hair); display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px 0 6px;
@@ -894,6 +912,37 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
     var(--rw) var(--rw));
 }
 :is(.ui-day, .ui-night) .modal { position: relative; }
+/* a panel whose child M5 hangs outside it on purpose is painted, not clipped: the fill is a chamfered ::before under
+   the children, the ring the same ::after, and the child stays whole and tappable (a clip-path clips hit testing
+   too). The profile's panels (V1 review 2, finding 3): the identity panel's avatar hangs over the banner (the clip cut
+   it flat at every size; it paints over the ring, as it painted over M5's border), and the head buttons of Showcase
+   and the pins (Edit, Pin) reach above their panel with their 44 px hit squares (the clip cut them to 37.75 px).
+   e2e/probe.mjs `clipped` scans every shot at three sizes for other children a panel cuts. */
+/* (.screen.pf: the panel rule above weighs (0,4,0) through its :is(); this one must outweigh it) */
+:is(.ui-day, .ui-night) .screen.pf .panel { clip-path: none; background: transparent; isolation: isolate; }
+:is(.ui-day, .ui-night) .screen.pf .panel::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--panel-w);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day, .ui-night) .pf .pf-id .pf-ava { z-index: 4; }
+/* a phone held upright (the fallback when the rotate prompt is dismissed): the avatar in its 70 px column (at 104 px
+   it covered the name), the online-name button wrapping inside itself (whole, now that the panel no longer cuts it),
+   and the Showcase head with Edit inside its panel (it ran 37 px past it, half off the screen; the hint takes its own
+   line, the "Auto" chip goes as on landscape phones). These are M5's own rules (feature/ui-m5 5049d64, profile.css),
+   carried here until V2's merge brings them; remove them then. */
+@media (max-width: 700px) and (min-height: 481px) {
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava { width: 70px; height: 70px; margin-top: -30px; }
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-img { inset: 6px; }
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-ur { inset: 2px; }
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-ur .ur-ring { --ur-w: 4px; }
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-ava-edit { width: 22px; height: 22px; padding: 4px; bottom: 2px; }
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-name { font-size: 1.5rem; }
+  :is(.ui-day, .ui-night) .pf .pf-id .pf-pick-name { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; border-radius: 12px; }
+  :is(.ui-day, .ui-night) .pf .pf-ph .pf-auto { display: none; }
+  :is(.ui-day, .ui-night) .pf .pf-show > .pf-ph { flex-wrap: wrap; row-gap: 4px; }
+  :is(.ui-day, .ui-night) .pf .pf-show > .pf-ph > .pf-hint { order: 1; flex-basis: 100%; margin-left: 0; white-space: normal; }
+  :is(.ui-day, .ui-night) .pf .pf-show > .pf-ph > .btn-small { margin-left: auto; }
+}
 /* the panel title: no gradient head, no yellow underline (Q8); a soft hairline under the italic title */
 :is(.ui-day, .ui-night) :is(.panel-title, .mb-card-title) { background: none; border-radius: 0; border-bottom: 1px solid var(--line-ink-soft); color: var(--ink); }
 :is(.ui-day, .ui-night) :is(.panel-title, .mb-card-title)::after { display: none; }
@@ -912,12 +961,35 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { --h: 48px; margin: 8px 8px 0; border-radius: 0; padding-right: calc(var(--sp-3) + var(--s)); }
 @media (max-height: 480px) { :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { --h: 40px; } }
 :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head .ui-ibtn { background: none; }
+/* (S5: no radius on a plate head anywhere; Settings' section heads kept M5's 4 px corners, hubs.css .st-group) */
+:is(.ui-day, .ui-night) .ui-plate-head:not(.bleed) { border-radius: 0; }
 :is(.ui-day, .ui-night) .ui-plate-head .ui-plate-title { color: var(--on-ink); }
 /* portrait phones (the desktop type scale on a 390 px column): a head's buttons take the small caps and drop their
    decorative glyph, so the title, its chip and the button each keep their whole width (V1 review 1, finding 3) */
 @media (max-width: 440px) {
   :is(.ui-day, .ui-night) .ui-plate-head .btn { gap: 6px; padding: 0 10px; font-size: var(--fs-body); letter-spacing: 0.04em; }
   :is(.ui-day, .ui-night) .ui-plate-head .btn > .btn-icon { display: none; }
+}
+/* a narrow list screen (the rail on its icons: hubs.css M5c, max-width 560): the head grows a row rather than cutting
+   one or running its title under a chip (V1 review 2, finding 1: at 390 px Memento's second row and its "i" were cut
+   at 48 px, Gem Shop's title ran 15.8 px under its WEEKLY chip, "Recruit / Bounty / Boss Exchange" showed one letter).
+   - The title keeps its words (a long one wraps, never under a neighbour); the head's own 2 px top and bottom keep a
+     one-row head at its 48 px.
+   - The chips (a restock chip, a wallet, Claim all) keep the right: beside the title when they fit, under it when not.
+   - A head with an "i" keeps the "i" beside the title it explains and puts its chips on the row under it, to the right:
+     all six Mall shops are two tap rows (98 px), so switching shops never moves the shelf. A short chip takes a tap
+     row's height in margins, so every chip row is the same 44 px. */
+@media (max-width: 560px) {
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { flex-wrap: wrap; column-gap: 8px; row-gap: 6px; padding-top: 2px; padding-bottom: 2px; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-title { flex: 1 0 auto; max-width: 100%; white-space: normal; overflow-wrap: break-word; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-right { margin-left: auto; max-width: 100%; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head:has(> .ui-plate-right > .ui-ibtn) { justify-content: flex-end; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head:has(> .ui-plate-right > .ui-ibtn) > .ui-plate-title { flex: 1 1 calc(100% - var(--tap) - 8px); min-width: 0; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-right:has(> .ui-ibtn) { display: contents; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-right > .ui-ibtn { order: 1; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-right:has(> .ui-ibtn) > :not(.ui-ibtn) { order: 2; }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-right:has(> .ui-ibtn) > .ui-cd { margin-block: calc((var(--tap-dense) - var(--chip-h)) / 2); }
+  :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head > .ui-plate-right:has(> .ui-ibtn) > .ui-cd.s { margin-block: calc((var(--tap-dense) - 20px) / 2); }
 }
 
 /* ---------- the E3 rail on the list screens: the kit's white tabs and ink slab, at the screen's own column ---------- */
