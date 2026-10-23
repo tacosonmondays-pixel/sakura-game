@@ -12,8 +12,9 @@
 //   p.overflowX          the page scrolls sideways
 //   p.overlaps           [{ a, b, area }] named boxes that overlap by more than 4 px²
 //   p.boxes              { name: [{ x, y, w, h }] } the visible rects of each named box
-//   drawerPathsInView(page)   the drawer's path rows and price buttons against its scroll body, the scroll cue, the
-//                             open row's one line
+//   drawerPathsInView(page)   the drawer's path rows and price buttons against its scroll body, the scroll cue (by the
+//                             drawer's own rule: content below the fold, not scrollHeight), the open row's one line, each
+//                             lock row's tier line and lock-line height
 /**
  * @param {import('playwright').Page} page
  * @param {{ root?: string, boxes?: Record<string, string>, skip?: string }} [o]
@@ -101,8 +102,10 @@ export async function uiProbe(page, { root = 'body', boxes = {}, skip = null } =
  * scrolling"; the M4 review look-1): each row and its price button (or MAX sticker / read-only price) inside the body's
  * rect, whether the body overflows and the scroll cue says so, and whether the open row stayed one whole line.
  * @param {import('playwright').Page} page
- * @returns {Promise<null | { rows: { path: number, armed: boolean, row: boolean, price: boolean|null }[], allIn: boolean,
- *   armedIn: boolean|null, overflow: boolean, cue: boolean, openOneLine: boolean|null, body: number[] }>}
+ * @returns {Promise<null | { rows: { path: number, armed: boolean, row: boolean, price: boolean|null, h: number,
+ *   locked?: boolean, tier?: boolean, lockH?: number|null }[], allIn: boolean,
+ *   armedIn: boolean|null, overflow: boolean, below: number, phantom: number, cue: boolean, openOneLine: boolean|null,
+ *   body: number[] }>} below: px of content under the fold; phantom: scroll range past the content (tap areas only)
  */
 export async function drawerPathsInView(page) {
   return page.evaluate(() => {
@@ -111,21 +114,39 @@ export async function drawerPathsInView(page) {
     if (!p || p.hidden || !sc) return null;
     const a = sc.getBoundingClientRect();
     const inside = (b) => b.top >= a.top - 1 && b.bottom <= a.bottom + 1;
+    const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
     const rows = [...p.querySelectorAll('.bt-path')].map((r) => {
       const btn = r.querySelector('.bt-buy, .bt-dw-price, .bt-dw-max');
-      return { path: Number(r.dataset.path), armed: r.classList.contains('armed'), row: inside(r.getBoundingClientRect()), price: btn ? inside(btn.getBoundingClientRect()) : null };
+      const b = r.getBoundingClientRect();
+      const row = { path: Number(r.dataset.path), armed: r.classList.contains('armed'), row: inside(b), price: btn ? inside(btn.getBoundingClientRect()) : null, h: Math.round(b.height) };
+      if (r.classList.contains('locked')) {
+        // a lock row: whether its tier line still shows, and how tall its lock line is (one line: the "i" or Show ›)
+        const lock = [...r.querySelectorAll('.bt-path-lock, .bt-lock-final')].find(shown);
+        row.locked = true;
+        row.tier = shown(r.querySelector('.bt-path-tier'));
+        row.lockH = lock ? Math.round(lock.getBoundingClientRect().height) : null;
+      }
+      return row;
     });
     const armed = rows.find((r) => r.armed) || null;
     const line = p.querySelector('.bt-path.armed .bt-path-chips');
     const tops = line ? [...line.children].map((c) => c.offsetTop) : [];
+    // how far the body's content reaches below its scroll port: its children's rects, never scrollHeight (which also
+    // counts the invisible ::after tap areas under the last row's "i" or price; the M4 re-review). The drawer's own
+    // rule: drawerView.js contentBelow and SCROLL_CUE_PX (2 px: a row cut by its hairline counts as in view).
+    const port = a.top + sc.clientTop + sc.clientHeight;
+    const below = Math.max(-Infinity, ...[...sc.children].map((k) => k.getBoundingClientRect().bottom)) - port;
     return {
       rows,
       allIn: rows.length > 0 && rows.every((r) => r.row && r.price !== false),
       armedIn: armed ? armed.row && armed.price !== false : null,
-      // (the drawer's own rule, towerPanel.js SCROLL_CUE_PX: more than the body's bottom padding hides below)
-      overflow: sc.scrollHeight - sc.clientHeight - sc.scrollTop > 6,
+      overflow: below > 2,
+      below: Math.round(below),
+      phantom: Math.max(0, Math.round(sc.scrollHeight - sc.clientHeight - sc.scrollTop - Math.max(0, below))),
       cue: p.classList.contains('bt-scroll-more') && getComputedStyle(p.querySelector('[data-testid="panel-scroll-cue"]')).display !== 'none',
       openOneLine: line ? line.scrollWidth <= line.clientWidth + 1 && tops.every((t) => Math.abs(t - tops[0]) <= 2) : null,
+      // the open row's name line (its name, ⚡ chip and pips): one line
+      armedTopH: armed ? Math.round(p.querySelector('.bt-path.armed .bt-path-top')?.getBoundingClientRect().height || 0) : null,
       body: [Math.round(a.top), Math.round(a.bottom)],
     };
   });

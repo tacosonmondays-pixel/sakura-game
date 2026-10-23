@@ -37,6 +37,7 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, BUY_ARM_MS,
+  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
 } from './drawerView.js';
 
 function statusLabel(s) {
@@ -55,8 +56,6 @@ const stat = (n) => fmtNum(n, 'stat');
 const money = (n) => fmtNum(n || 0, 'money');
 const price = (n) => fmtNum(n || 0, 'money', { round: 'up' });
 const isWide = () => typeof window !== 'undefined' && window.innerHeight > 480;
-/** How far content must reach below the drawer's body before the scroll cue shows (px; e2e/lib/uiProbe.mjs agrees). */
-const SCROLL_CUE_PX = 6;
 
 /** An ink chip button (target / aim / strips). */
 function chipBtn({ label, on = false, title = '', testid = null, mode = null, disabled = false, onClick }) {
@@ -297,8 +296,10 @@ export function createTowerPanel(ctx) {
       placeCost: sim.placeCost?.(t.unitId),
     });
     const rows = t.def.paths.map((p, i) => pathRow(t, p, i, { readOnly: ally }));
-    // (her controls read only, in the dim ink: the lock and this one line say why, UI_DIRECTION §5.5)
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), `${ctx.coop.ownerName(t.uid)}'s girl — only ${ctx.coop.ownerName(t.uid)} can upgrade, retarget or sell her.`) : null;
+    // (her controls read only, in the dim ink: the lock and this one line say why, UI_DIRECTION §5.5; a phone's line is
+    // short, so her three path rows stay in view under it)
+    const note = ally ? allyNoteText(ctx.coop.ownerName(t.uid), { wide: isWide() }) : null;
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', title: note.title, style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), note.text) : null;
     return [
       allyNote,
       abRow.update(t),
@@ -318,19 +319,22 @@ export function createTowerPanel(ctx) {
    */
   function finalLock(t, p, i, holderLine, holderUid) {
     const reason = onePerPathReason(t.def.name, p.name);
+    // (her place in its own span: a phone's line drops it, whole, when it would wrap; fitHolder)
+    const { who, where } = holderParts(holderLine);
     const show = holderUid != null ? h(
       'button.bt-final-show',
       {
         type: 'button',
         'data-testid': `final-show-${i}`,
-        title: `Select ${sim.getTower(holderUid)?.def.name || 'her'}`,
+        title: `Select ${sim.getTower(holderUid)?.def.name || 'her'}${where ? ` (${where.replace(/^ · /, '')})` : ''}`,
         onclick: () => {
           ctx.select(holderUid);
           ctx.renderer?.pulseTower?.(holderUid);
         },
       },
       icon('lock', 'bt-ico-sm.bt-lock-held-ico'),
-      holderLine,
+      h('span.bt-final-who', who),
+      where ? h('span.bt-final-where', where) : null,
       h('b', ' · Show ›'),
     ) : null;
     const why = show ? h('button.bt-dw-info.bt-lock-why', {
@@ -849,9 +853,24 @@ export function createTowerPanel(ctx) {
     el.dataset.more = String(more);
     if (refocus) el.querySelector(refocus)?.focus?.({ preventScroll: true });
     fitHeader();
+    fitHolder();
     fitOpenRow(scroll, t);
     paintScrollCue();
     updateLive(t, st);
+  }
+
+  /**
+   * Phones: the holder line of a final tier another copy holds stays ONE line beside its lock, so the row is one row
+   * high like the other lock rows (the M4 re-review). When her place on the map would not fit ("Held by Aoi 5-0-0 ·
+   * bottom right · Show ›"), the place steps away, whole; Show › still selects her and pulses her on the map, and the
+   * button's title keeps the place. Looked at again with the header (a late web font).
+   */
+  function fitHolder() {
+    for (const b of el.querySelectorAll('.bt-final-show')) {
+      b.classList.remove('bt-final-short');
+      if (isWide() || el.hidden || !b.querySelector('.bt-final-where')) continue;
+      if (b.scrollWidth > b.clientWidth + 1) b.classList.add('bt-final-short');
+    }
   }
 
   /**
@@ -882,6 +901,10 @@ export function createTowerPanel(ctx) {
       shownArm = '';
       return;
     }
+    // (a phone's wider "Buy · 3,000" can push the ⚡ chip beside a long path name onto a line of its own: while the row
+    // is open it steps away like the pips, and the open row says what the tier does)
+    const bolt = !isWide() ? row.querySelector('.bt-path-bolt') : null;
+    if (bolt && bolt.offsetTop > row.querySelector('.bt-path-name').offsetTop + 2) bolt.classList.add('bt-fold');
     const line = !isWide() ? row.querySelector('.bt-path-chips') : null;
     if (line) {
       const over = () => line.scrollWidth > line.clientWidth + 1;
@@ -902,12 +925,17 @@ export function createTowerPanel(ctx) {
   }
 
   /**
-   * The scroll cue at the foot of the drawer's body: shown while content sits below what is in view (more than the
-   * body's bottom padding: a fade over a row that is fully in view would only dim it).
+   * The scroll cue at the foot of the drawer's body: shown while content sits below what is in view. It measures the
+   * body's children (drawerView.contentBelow), never scrollHeight, which also counts the invisible tap areas that poke
+   * out under the last row: a fade over a row that is fully in view would only dim it.
    */
   function paintScrollCue() {
     const sc = el.querySelector('.bt-panel-scroll');
-    const below = !!sc && !el.hidden && sc.scrollHeight - sc.clientHeight - sc.scrollTop > SCROLL_CUE_PX;
+    let below = false;
+    if (sc && !el.hidden) {
+      const port = sc.getBoundingClientRect().top + sc.clientTop + sc.clientHeight;
+      below = contentBelow(port, [...sc.children].map((k) => k.getBoundingClientRect().bottom)) > SCROLL_CUE_PX;
+    }
     el.classList.toggle('bt-scroll-more', below);
   }
 
@@ -931,6 +959,7 @@ export function createTowerPanel(ctx) {
     if (now - cueAt > 250) {
       cueAt = now;
       fitHeader();
+      fitHolder();
       paintScrollCue();
     }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);

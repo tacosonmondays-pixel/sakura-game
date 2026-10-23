@@ -657,16 +657,26 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* the three path rows: their coloured edges say "upgrades" (the label is for the wide drawer) */
   .bt-panel-scroll > .bt-dw-sec { display: none; }
   .bt-path { padding: 2px 0; row-gap: 0; column-gap: 6px; }
-  .bt-path-open, .bt-path-lock, .bt-lock-final { margin-top: 2px; }
-  .bt-path-lock, .bt-lock-line { font-size: var(--fs-label); }
-  /* a lock is one line: the "i" is 18 px to the eye (its hit area the dense tap size); the final tier another copy
-     holds shows the lock on her "Held by … · Show ›" line, the rule behind the "i" */
-  .bt-panel .bt-dw-info { width: 18px; height: 18px; line-height: 18px; }
+  .bt-path-open { margin-top: 2px; }
+  /* a locked path is one row high like the others (the M4 re-review: a lock under the tier line made the row two lines
+     and cut the third row): its lock line takes the tier line's place, the lock, the short reason and the "i"
+     (UI_DIRECTION §6.6 "a lock icon … tap for the one-line reason"; the pips still show the capped tiers). The "i" is
+     16 px to the eye, its hit area the dense tap size. The final tier another copy holds shows her "Held by … · Show ›"
+     line there, the rule behind the "i". */
+  .bt-path.locked .bt-path-tier { display: none; }
+  .bt-path-lock, .bt-lock-final { margin-top: 1px; }
+  .bt-path-lock, .bt-lock-line { font-size: var(--fs-label); line-height: 1.25; }
+  .bt-panel .bt-dw-info { width: 16px; height: 16px; line-height: 16px; }
   .bt-lock-final.has-holder { padding: 0; background: none; box-shadow: none; }
   .bt-lock-final.has-holder .bt-lock-line { display: none; }
   .bt-lock-final.has-holder .bt-lock-why { display: inline-block; }
-  .bt-lock-final .bt-final-show { position: relative; flex: 1; min-width: 0; width: auto; min-height: 28px; display: flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: var(--fs-label); }
+  .bt-lock-final .bt-final-show { position: relative; flex: 1; min-width: 0; width: auto; min-height: 17px; display: flex; align-items: center; gap: 4px; padding: 1px 6px; font-size: var(--fs-label); line-height: 1.25; }
   .bt-lock-final .bt-final-show::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
+  /* her line stays one line: when her place on the map ("· bottom right") would not fit, it steps away, whole
+     (towerPanel fitHolder; the button's title keeps it) */
+  .bt-lock-final .bt-final-show > span { white-space: nowrap; }
+  .bt-lock-final .bt-final-show.bt-final-short > span { white-space: normal; }
+  .bt-final-show.bt-final-short .bt-final-where { display: none; }
   .bt-lock-held-ico { display: inline-flex; flex: none; width: 13px; height: 13px; color: var(--bad-on-plate); }
   .bt-path-main { gap: 1px; }
   /* the name, its ⚡ chip and the pips share the first line (a longer name used to push the pips onto a line of their
@@ -678,7 +688,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-pip { width: 8px; height: 5px; }
   /* tap 1 widens the price ("Buy · 100", its words say coins): for that moment the open line says what the tier does
      and the pips step away */
-  .bt-path.armed .bt-pips, .bt-path .bt-buy.armed:not(.poor) .bt-buy-coin { display: none; }
+  .bt-path.armed .bt-pips, .bt-path .bt-buy.armed:not(.poor) .bt-buy-coin, .bt-path.armed .bt-path-bolt.bt-fold { display: none; }
   .bt-path .bt-buy, .bt-dw-price { min-height: 30px; }
   .bt-path .bt-buy::after, .bt-panel-foot .bt-sell::after, .bt-panel .bt-abrow-fire::after {
     content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%;
@@ -699,6 +709,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-panel .bt-abrow.s-later .bt-abrow-top { flex: 1 1 auto; min-width: 0; }
   .bt-panel .bt-abrow.s-later .bt-abrow-name { overflow: visible; white-space: normal; line-height: 1.05; }
   .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: 0 1 45%; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
+  /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
+  .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
+  .bt-panel .bt-ally-note .bt-ico-sm { width: 13px; height: 13px; margin-right: 3px; }
   .bt-panel-foot { padding: 3px 8px calc(3px + var(--safe-bottom)); }
   .bt-panel-foot .bt-sell { position: relative; min-height: 30px; }
   .bt-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

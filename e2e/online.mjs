@@ -695,6 +695,7 @@ try {
       const r = p.getBoundingClientRect();
       return {
         note: p.querySelector('[data-testid="ally-note"]')?.textContent || '',
+        noteTitle: p.querySelector('[data-testid="ally-note"]')?.title || '',
         buys: p.querySelectorAll('[data-testid^="buy-"]').length,
         prices: p.querySelectorAll('.bt-dw-price').length,
         sell: !!p.querySelector('[data-testid="sell"]'),
@@ -703,7 +704,9 @@ try {
         width: Math.round(r.width),
       };
     });
-    check(/'s girl — only .+ can upgrade, retarget or sell her\./.test(ally.note), `ally drawer: the note says whose girl she is ("${ally.note}")`);
+    // (a phone's note is one short line; the full sentence is its title)
+    check((H <= 480 ? /'s girl · view only$/ : /'s girl — only .+ can upgrade, retarget or sell her\./).test(ally.note)
+      && /'s girl — only .+ can upgrade, retarget or sell her\./.test(ally.noteTitle), `ally drawer: the note says whose girl she is ("${ally.note}", title "${ally.noteTitle}")`);
     check(ally.buys === 0 && ally.prices > 0 && !ally.sell, `ally drawer: prices shown read only, no price buttons, no Sell (${JSON.stringify(ally)})`);
     check(ally.chips.length > 0 && ally.chips.every(Boolean), 'ally drawer: her target chips are read only');
     check(ally.stats >= 3, `ally drawer: her stat row shows (${ally.stats} cells)`);

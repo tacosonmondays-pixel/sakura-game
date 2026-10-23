@@ -18,16 +18,27 @@
 //   m4-drawer-iroha      Iroha: the MIRROR aim row; at 844 her attack type keeps only its icon (the words would wrap)
 //   m4-drawer-teaser     Aoi 0-2-0 after tap 1 on Rapid Volley: the open row's "⚡ Unlocks Skyfall Volley"
 //   m4-hero-more         Hikari LV 7's MORE: the ult text with "(rank 2 at LV n)"
+// M4 re-review (look-1, the scroll cue), in a second battle with another squad:
+//   m4-drawer-fit        stills m4-fit-<girl>-<tiers>: Midori, Iroha, Chika, Tenka 3-2-0, Azami, Sango, Aoi 0-3-2 and
+//                        Raika 2-0-3 (her ⚡ path at T3 and a second path at T2: the third row a lock), closed, then tap 1
+//                        on each price (checked, no screenshot); m4-fit-cue: on Aoi's drawer the last row put exactly
+//                        on the fold (scrollHeight overflows by its "i"'s tap area): no cue; 10 px lower: the cue;
+//                        m4-fit-held: Aoi 4-2-0 beside a 5-0-0 in a corner of the map ("Held by Aoi 5-0-0 · bottom
+//                        right · Show ›" would wrap at 844: the place steps away, the row stays one row high)
+//   m4-drawer-ally       a co-op partner's Aoi 1-3-0 and 2-3-0 (m4-drawer-ally-230, her owner's name 16 characters
+//                        long): the ally note one line at 844
 // Every drawer still is checked (the run fails on a miss): at 844 each path row and its price inside the scroll body
-// (an open row: its Buy in view, the rest in view or the scroll cue shown), the cue shown exactly when the body
-// overflows, the open row one line; the drawer's smallest text ≥ 12 px at 844 and ≥ 13 px at 1280; nothing cut by
-// an ellipsis.
+// (an open row: its Buy in view, the rest in view or the scroll cue shown), each lock row one row high (its lock line
+// in the tier line's place), the cue shown exactly when content sits below the fold (measured from the body's
+// children, never scrollHeight), the open row one line; the drawer's smallest text ≥ 12 px at 844 and ≥ 13 px at
+// 1280; nothing cut by an ellipsis.
 import { openApp, seedSave, openBattle, settle, until } from './battleKit.mjs';
 import { uiProbe, formatProbe, drawerPathsInView, BATTLE_BOXES } from './uiProbe.mjs';
 
 export const M4_SCENES = [
   'm4-drawer-aoi', 'm4-drawer-armed', 'm4-drawer-locked', 'm4-drawer-azami', 'm4-drawer-chika', 'm4-drawer-chika-more', 'm4-drawer-more', 'm4-hero-drawer', 'm4-reduce-motion',
   'm4-drawer-ability', 'm4-drawer-ability-armed', 'm4-drawer-midori', 'm4-drawer-iroha', 'm4-drawer-teaser', 'm4-hero-more',
+  'm4-drawer-fit', 'm4-drawer-ally',
 ];
 const GIRLS = ['hikari', 'aoi', 'azami', 'chika', 'miko', 'momo', 'rei', 'akane', 'midori', 'iroha'];
 const SQUAD = ['aoi', 'azami', 'chika', 'miko', 'momo', 'midori', 'iroha'];
@@ -89,14 +100,15 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     out.failures.push(`${name} ${vp}: ${what}`);
     log(`  FAIL ${name}: ${what}`);
   };
-  const still = async (name, { armed = false } = {}) => {
+  const still = async (name, { armed = false, shot = true } = {}) => {
     await clearToasts(page).catch(() => {});
     await settle(page, 250);
+    // (the rows first: an open row closes 2.6 s after tap 1, and the whole-page probe can take a second on a busy PC)
+    const paths = await drawerPathsInView(page);
     const facts = await drawerFacts(page);
     const probe = await uiProbe(page, { boxes: BOXES });
     // the drawer on its own (its smallest text, truncation, numbers): the HUD and the card strip are M5's
     const drawer = await uiProbe(page, { root: '[data-testid="tower-panel"]' });
-    const paths = await drawerPathsInView(page);
     out[name] = { facts, probe, drawer, paths };
     log(`  ${name}: ${JSON.stringify(facts)}`);
     log(`  probe ${name}: ${formatProbe(probe)}`);
@@ -111,8 +123,13 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       if (phone && !armed && !paths.allIn) fail(name, `a path row or its price is out of the scroll body at 844: ${JSON.stringify(paths.rows)}`);
       if (armed && !paths.armedIn) fail(name, `the open row or its Buy is out of view: ${JSON.stringify(paths.rows)}`);
       if (armed && !paths.allIn && !paths.cue) fail(name, 'a row sits below the fold with no scroll cue');
+      if (phone && armed && paths.armedTopH > 20) fail(name, `the open row's name line wraps (${paths.armedTopH} px)`);
+      // (a phone's lock row is one row high: its lock line takes the tier line's place, one line high)
+      for (const r of phone ? paths.rows.filter((x) => x.locked) : []) {
+        if (r.tier || r.lockH == null || r.lockH > 20) fail(name, `lock row ${r.path} is more than one row high (tier line ${r.tier ? 'shown' : 'hidden'}, lock line ${r.lockH} px, row ${r.h} px)`);
+      }
     }
-    await rawShot(name);
+    if (shot) await rawShot(name);
   };
   await openApp(page, base);
   await seedSave(page, { girls: GIRLS, hero: 'hikari', towers: SQUAD, settings: { reduceMotion: false }, aoi: { level: 48, breakthrough: 4, awaken: 3 }, cleared: ['1-1'] });
@@ -392,5 +409,212 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     await settle(page, 400);
     await page.emulateMedia({ reducedMotion: 'reduce' });
   }
+
+  // ---- the M4 re-review (look-1 and the scroll cue): a second battle with another squad
+  if (has('m4-drawer-fit') || has('m4-drawer-ally')) {
+    // (a real page load: a goto that only changes the hash would keep the first battle's page; and the first battle's
+    // save goes, or 1-1 would open on Continue)
+    await page.goto('about:blank');
+    await openApp(page, base);
+    await seedSave(page, { girls: ['hikari', ...FIT_SQUAD], hero: 'hikari', towers: FIT_SQUAD, settings: { reduceMotion: false }, cleared: ['1-1'] });
+    const rm = await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.battleSaves = {};
+      store.commit('e2e');
+      store.saveNow?.();
+      // (the page's save on leaving can carry the m4-reduce-motion scene's Reduce motion into this load, past
+      // openApp's localStorage.clear(); main.js reads it once at start: these stills are with Reduce motion off)
+      const before = document.documentElement.hasAttribute('data-reduce-motion');
+      document.documentElement.toggleAttribute('data-reduce-motion', !!store.profile.settings.reduceMotion);
+      return { attrBefore: before, setting: !!store.profile.settings.reduceMotion };
+    });
+    log(`  m4 second battle: Reduce motion ${JSON.stringify(rm)}`);
+    try {
+      await openBattle(page, { stage: '1-1', cash: 1e7 });
+    } catch (e) {
+      const diag = await page.evaluate(() => ({ hash: location.hash, screen: document.querySelector('#app')?.dataset.screen, modals: [...document.querySelectorAll('.modal-overlay, [role="dialog"]')].map((m) => m.textContent.slice(0, 120)), battle: !!window.__battle, sim: !!window.__battle?.sim, ui: Object.keys(window.__battle?.ui || {}).slice(0, 12) })).catch((x) => String(x));
+      log(`  DIAG openBattle: ${JSON.stringify(diag)}`);
+      await rawShot('m4-diag-openbattle');
+      throw e;
+    }
+    await settle(page, 500);
+    const sellAll = (uids) => page.evaluate((us) => {
+      window.__battle.ui.select(null);
+      for (const x of us) if (x != null) window.__battle.sim.sellTower(x);
+    }, uids);
+    // (staging: buys go through the sim; the ⚡ path to 3, the next path to 2)
+    const build = (g, plan) => stage(([g, plan]) => {
+      const { sim } = window.__battle;
+      sim.cash = 1e7;
+      const t = __ab.place(g);
+      if (t == null) return { err: `no spot for ${g}` };
+      const ap = __ab.abilPath(t);
+      for (const [p, n] of plan === 'abil3+2' ? [[ap, 3], [(ap + 1) % 3, 2]] : plan) __ab.up(t, p, n);
+      sim.cash = 1250;
+      return { t, tiers: sim.getTower(t).tiers.join('-') };
+    }, [g, plan]);
+
+    /**
+     * The scroll cue's rule in the real layout (the re-review: the cue showed over a third row fully in view): a spacer
+     * at the top of the body puts the last row's bottom exactly on the scroll port's (its "i"'s tap area pokes out below,
+     * so scrollHeight overflows), then 10 px lower. The cue must be off, then on.
+     */
+    const cueRule = async (tiers) => {
+      const r = await page.evaluate(() => {
+        const p = document.querySelector('[data-testid="tower-panel"]');
+        const sc = p.querySelector('.bt-panel-scroll');
+        const rows = sc.querySelectorAll('.bt-path');
+        const last = rows[rows.length - 1];
+        const port = () => sc.getBoundingClientRect().top + sc.clientTop + sc.clientHeight;
+        const spacer = document.createElement('div');
+        // (no transition: under the game's Reduce motion base.css gives every property a 1 ms transition, and a
+        // height read in the same task would still be the old one)
+        spacer.style.cssText = 'flex: none; height: 0; transition: none !important';
+        sc.prepend(spacer);
+        const read = () => {
+          sc.scrollTop = 0;
+          sc.dispatchEvent(new Event('scroll'));
+          const extra = sc.scrollHeight - sc.clientHeight - sc.scrollTop;
+          return { lastBottom: Math.round(last.getBoundingClientRect().bottom), port: Math.round(port()), scrollExtra: extra, oldRule: extra > 6, cue: p.classList.contains('bt-scroll-more'), scrollTop: sc.scrollTop, spacer: Math.round(spacer.getBoundingClientRect().height) };
+        };
+        spacer.style.height = `${Math.max(0, port() - last.getBoundingClientRect().bottom)}px`;
+        const fit = read();
+        spacer.style.height = `${parseFloat(spacer.style.height) + 10}px`;
+        const cut = read();
+        spacer.remove();
+        sc.dispatchEvent(new Event('scroll'));
+        return { lastIsLock: last.classList.contains('locked'), fit, cut };
+      });
+      out['m4-fit-cue'] = r;
+      log(`  m4-fit-cue (Aoi ${tiers}): ${JSON.stringify(r)}`);
+      if (r.fit.cue) fail('m4-fit-cue', `the cue shows over a last row that is fully in view (${JSON.stringify(r.fit)})`);
+      if (!r.cut.cue) fail('m4-fit-cue', `no cue with the last row 10 px below the fold (${JSON.stringify(r.cut)})`);
+    };
+
+    if (has('m4-drawer-fit')) {
+      // the standard crosspath build once abilities unlock at T3 (owner #53): the ⚡ path at T3 and a second path at T2,
+      // so the third row is a lock; with an aim, pick, strip or Flight row (Iroha, Midori, Azami, Chika); Raika 2-0-3,
+      // whose one buyable row is the third; Aoi 0-3-2 and Tenka 3-2-0, whose third row is fully in view (no cue over
+      // it). Each closed drawer is a still; tap 1 on each price is checked too (no screenshot).
+      for (const [g, plan] of FIT_BUILDS) {
+        const b = await build(g, plan);
+        if (b.err) {
+          fail('m4-drawer-fit', b.err);
+          continue;
+        }
+        const name = `m4-fit-${g}-${b.tiers.replace(/-/g, '')}`;
+        log(`  ${name} staging: ${JSON.stringify(b)}`);
+        await show(b.t);
+        await still(name);
+        if (g === 'aoi') await cueRule(b.tiers);
+        for (const p of [0, 1, 2]) {
+          await page.evaluate(() => { window.__battle.sim.cash = 1e6; });
+          await settle(page, 200);
+          const btn = page.locator(`[data-testid="tower-panel"] [data-testid="buy-${p}"]:not([disabled])`);
+          if (!(await btn.count())) continue;
+          await btn.click({ force: true });
+          await settle(page, 120);
+          const armedNow = await page.evaluate((q) => !!document.querySelector(`[data-testid="tower-panel"] .bt-path.armed[data-path="${q}"]`), p);
+          if (!armedNow) fail(`${name}-tap${p}`, 'tap 1 on the price did not open the row');
+          else await still(`${name}-tap${p}`, { armed: true, shot: false });
+          await page.evaluate(() => window.__battle.ui.select(null));
+          await show(b.t);
+        }
+        await sellAll([b.t]);
+        await settle(page, 200);
+      }
+
+      // a final tier another copy holds, her holder in a corner of the map (the re-review's Aoi 4-2-0 beside a held
+      // 5-0-0): "Held by Aoi 5-0-0 · bottom right · Show ›" is too long for a phone's one line, so the place steps away,
+      // whole, and the row stays one row high (still() checks every lock row); at 1280 the whole line shows
+      const held = await stage(() => {
+        const { sim } = window.__battle;
+        sim.cash = 1e7;
+        const w = sim.map.width;
+        const hh = sim.map.height;
+        // the corners' thirds, the longest place first ("bottom right", "bottom left", "top right", "top left")
+        const corners = [[(x) => x > (2 * w) / 3, (y) => y > (2 * hh) / 3], [(x) => x < w / 3, (y) => y > (2 * hh) / 3], [(x) => x > (2 * w) / 3, (y) => y < hh / 3], [(x) => x < w / 3, (y) => y < hh / 3]];
+        let a5 = null;
+        for (const [cx, cy] of corners) {
+          for (let y = 0.5; y < hh && a5 == null; y += 0.3) {
+            for (let x = 0.5; x < w && a5 == null; x += 0.3) {
+              if (cx(x) && cy(y) && sim.canPlace('aoi', x, y).ok) a5 = sim.placeTower('aoi', x, y)?.uid ?? null;
+            }
+          }
+          if (a5 != null) break;
+        }
+        if (a5 == null) return { err: 'no corner spot for the holder' };
+        __ab.up(a5, 0, 5);
+        const b4 = __ab.place('aoi', { near: a5, min: 2 });
+        if (b4 == null) return { err: 'no spot beside the holder' };
+        __ab.up(b4, 0, 4);
+        __ab.up(b4, 1, 2);
+        sim.cash = 1250;
+        return { a5, b4, tiers: `${sim.getTower(a5).tiers.join('-')} / ${sim.getTower(b4).tiers.join('-')}` };
+      });
+      if (held.err) fail('m4-fit-held', held.err);
+      else {
+        log(`  m4-fit-held staging: ${JSON.stringify(held)}`);
+        await show(held.b4);
+        const line = await page.evaluate(() => {
+          const b = document.querySelector('[data-testid="tower-panel"] [data-testid="final-show-0"]');
+          const where = b?.querySelector('.bt-final-where');
+          return b ? { text: b.textContent, title: b.title, who: b.querySelector('.bt-final-who')?.textContent, where: where?.textContent || '', whereShown: !!where && getComputedStyle(where).display !== 'none', h: Math.round(b.getBoundingClientRect().height), over: b.scrollWidth > b.clientWidth + 1 } : null;
+        });
+        log(`  m4-fit-held: holder ${JSON.stringify(line)}`);
+        if (!line) fail('m4-fit-held', 'no holder line on her first path');
+        else {
+          const place = line.where.replace(/^ · /, '');
+          if (line.who !== 'Held by Aoi 5-0-0' || !/^(bottom|top) (left|right)$/.test(place)) fail('m4-fit-held', `the holder line reads "${line.text}"`);
+          if (!line.title.includes(place)) fail('m4-fit-held', `the button's title "${line.title}" leaves out her place`);
+          if (line.over) fail('m4-fit-held', 'the holder line runs out of its button');
+          if (!phone && !line.whereShown) fail('m4-fit-held', 'at 1280 the holder line leaves out her place');
+        }
+        await still('m4-fit-held');
+        await sellAll([held.b4, held.a5]);
+        await settle(page, 200);
+      }
+    }
+
+    if (has('m4-drawer-ally')) {
+      // a co-op partner's girl (her note, her ⚡ row, read-only prices): Aoi 1-3-0, and 2-3-0 with two lock rows whose
+      // owner has a 16-character name (the most a name holds, common.js askName). The co-op seam is stubbed for the
+      // still (the online e2e drives the real two-client drawer).
+      for (const [name, plan, owner] of [['m4-drawer-ally', [[1, 3], [0, 1]], 'Bea'], ['m4-drawer-ally-230', [[1, 3], [0, 2]], 'Sakuramochi_1234']]) {
+        const b = await build('aoi', plan);
+        if (b.err) {
+          fail(name, b.err);
+          continue;
+        }
+        log(`  ${name} staging: ${JSON.stringify(b)}`);
+        await page.evaluate(([u, who]) => {
+          const { ui } = window.__battle;
+          window.__m4RealCoop = ui.coop;
+          ui.coop = { isMine: (x) => x !== u, colorOf: () => '#ff8fab', ownerName: () => who, ownerOf: () => 1, send: () => false, players: [] };
+        }, [b.t, owner]);
+        await show(b.t);
+        const note = await page.evaluate(() => {
+          const n = document.querySelector('[data-testid="tower-panel"] [data-testid="ally-note"]');
+          return n ? { text: n.textContent, title: n.title, h: Math.round(n.getBoundingClientRect().height), px: parseFloat(getComputedStyle(n).fontSize) } : null;
+        });
+        log(`  ${name}: note ${JSON.stringify(note)}`);
+        if (!note) fail(name, 'no ally note');
+        else {
+          const full = `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`;
+          const want = phone ? `${owner}'s girl · view only` : full;
+          if (note.text.trim() !== want || note.title !== full) fail(name, `the ally note reads "${note.text}" (title "${note.title}")`);
+          if (phone && note.h > 24) fail(name, `the ally note is more than one line at 844 (${note.h} px)`);
+        }
+        await still(name);
+        await page.evaluate(() => { window.__battle.ui.select(null); window.__battle.ui.coop = window.__m4RealCoop; });
+        await sellAll([b.t]);
+        await settle(page, 200);
+      }
+    }
+  }
   return out;
 }
+
+// the M4 re-review's squad and builds ('abil3+2': the ⚡ path to 3, the next path round to 2)
+const FIT_SQUAD = ['midori', 'iroha', 'chika', 'tenka', 'azami', 'sango', 'aoi', 'raika'];
+const FIT_BUILDS = FIT_SQUAD.map((g) => [g, 'abil3+2']);

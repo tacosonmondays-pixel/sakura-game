@@ -2,10 +2,12 @@
 // the stat row by role (a shooter, Miko, Momo, a hero) with PIERCE only where she pierces, the target chips (4 +
 // "+N"), the two-tap buy, the lock and holder lines, and at most 4 numbers in each drawer section.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { Sim } from '../../src/sim/Sim.js';
 import {
   drawerStats, pierces, targetView, aimView, pathRowView, createBuyArm, footerView, heroNextLine, heroDrawerView,
   sectionNumbers, drawerSections, crosspathShort, shortTeaser, hitDamage, PATH_COLORS, TARGET_CHIPS, BUY_ARM_MS, SECTION_NUMBERS,
+  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
 } from '../../src/ui/battle/drawerView.js';
 import { fmtNum } from '../../src/ui/format.js';
 import { pathAbilityTeaser } from '../../src/ui/battle/abilityRow.js';
@@ -288,6 +290,85 @@ describe('lock and holder lines', () => {
     const t = up(sim, place(sim, 'aoi'), 0, 5);
     const r = pathRowView(t.def, t.tiers, 0, sim.upgradeStatus(t.uid, 0));
     expect(r).toMatchObject({ state: 'max', sticker: 'MAX', tierLine: `T5 · ${t.def.paths[0].tiers[4].name.toUpperCase()}` });
+  });
+});
+
+// The M4 re-review (844 × 390): the third path row was cut on the standard crosspath build (the ⚡ path at T3 and a
+// second path at T2, so two lock rows), and the scroll cue covered a third row that was fully in view. The layout itself
+// is checked in the browser by e2e/lib/m4Scenes.mjs (m4-drawer-fit, m4-drawer-ally); these pin the rules it rests on.
+describe('the phone drawer: three rows in view, the cue only when content sits below', () => {
+  const css = readFileSync(new URL('../../src/ui/styles/battle.css', import.meta.url), 'utf8');
+  /** The drawer's phone block (`@media (max-height: 480px)`), up to its closing brace. */
+  const phoneBlock = (() => {
+    const at = css.indexOf('@media (max-height: 480px) {');
+    let depth = 0;
+    for (let i = css.indexOf('{', at); i < css.length; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}' && --depth === 0) return css.slice(at, i + 1);
+    }
+    return '';
+  })();
+  const px = (re) => Number((phoneBlock.match(re) || [])[1]);
+
+  it('a lock row is one row high: its lock line takes the tier line\'s place (the 1280 drawer keeps both)', () => {
+    expect(phoneBlock).toMatch(/\.bt-path\.locked \.bt-path-tier \{ display: none; \}/);
+    expect(css.replace(phoneBlock, '')).not.toMatch(/\.bt-path\.locked \.bt-path-tier/);
+    // one text line high: the "i" and the holder's "Show ›" stay at the line's height (their hit areas are ::after)
+    expect(px(/\.bt-panel \.bt-dw-info \{ width: (\d+)px; height: \1px/)).toBeLessThanOrEqual(16);
+    expect(px(/\.bt-lock-final \.bt-final-show \{[^}]*min-height: (\d+)px/)).toBeLessThanOrEqual(18);
+    expect(phoneBlock).toMatch(/\.bt-path-lock, \.bt-lock-line \{ font-size: var\(--fs-label\)/);
+    expect(phoneBlock).toMatch(/\.bt-dw-info::after|\.bt-final-show::after/);
+  });
+
+  it('the ally note: the full sentence at 1280; on a phone one short line naming her owner once, the sentence in its title', () => {
+    const full = "Bea's girl — only Bea can upgrade, retarget or sell her.";
+    expect(allyNoteText('Bea')).toEqual({ text: full, title: full });
+    const phone = allyNoteText('Bea', { wide: false });
+    expect(phone).toEqual({ text: "Bea's girl · view only", title: full });
+    // a name holds up to 16 characters (common.js askName): the phone line names it once, so it stays short
+    const long = allyNoteText('Sakuramochi_1234', { wide: false }).text;
+    expect(long).toBe("Sakuramochi_1234's girl · view only");
+    expect(long.split('Sakuramochi_1234').length - 1).toBe(1);
+    expect(long.length).toBeLessThanOrEqual(36);
+    expect(phoneBlock).toMatch(/\.bt-panel \.bt-ally-note \{ padding: 3px 6px; font-size: var\(--fs-label\)/);
+  });
+
+  it('a held final tier: the holder line splits into the girl and her place; a phone drops the place when it would wrap', () => {
+    expect(holderParts('Held by Aoi 5-0-0 · bottom right')).toEqual({ who: 'Held by Aoi 5-0-0', where: ' · bottom right' });
+    const a = { def: { name: 'Chika' }, tiers: [5, 0, 2] };
+    const p = holderParts(finalHolderLine(a, 'centre'));
+    expect(p.who + p.where).toBe(finalHolderLine(a, 'centre'));
+    expect(p.where).toBe(' · centre');
+    expect(holderParts('Held by Aoi 5-0-0')).toEqual({ who: 'Held by Aoi 5-0-0', where: '' });
+    expect(holderParts(null)).toEqual({ who: '', where: '' });
+    // the phone's one-line holder: nowrap pieces, the place hidden by fitHolder's class (the 1280 block keeps it)
+    expect(phoneBlock).toMatch(/\.bt-lock-final \.bt-final-show > span \{ white-space: nowrap; \}/);
+    expect(phoneBlock).toMatch(/\.bt-final-show\.bt-final-short \.bt-final-where \{ display: none; \}/);
+    expect(css.replace(phoneBlock, '')).not.toMatch(/bt-final-short/);
+    const panel = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+    const fit = panel.slice(panel.indexOf('function fitHolder()'), panel.indexOf('function fitHeader()'));
+    expect(fit).toMatch(/b\.scrollWidth > b\.clientWidth \+ 1\) b\.classList\.add\('bt-final-short'\)/);
+    expect(fit).toMatch(/isWide\(\)/);
+  });
+
+  it('the cue measures the body\'s children against its scroll port, never scrollHeight', () => {
+    // the re-review's Aoi 0-3-2: the last row ends at 348, the body's port at 347 (scrollHeight said 10 px more: the
+    // ::after tap areas under the last row's "i" and price) → no cue
+    expect(contentBelow(347, [131, 165, 189, 226, 348])).toBe(1);
+    expect(contentBelow(347, [131, 165, 189, 226, 348]) > SCROLL_CUE_PX).toBe(false);
+    // Midori 3-2-0 before the fix: Field Kit showed 28 of 55 px → 27 px below → the cue
+    expect(contentBelow(347, [140, 374]) > SCROLL_CUE_PX).toBe(true);
+    // a hidden child reads 0 (the phone's UPGRADES label); none at all: nothing below
+    expect(contentBelow(347, [0, 300])).toBe(-47);
+    expect(contentBelow(347, [])).toBe(0);
+    expect(SCROLL_CUE_PX).toBe(2);
+    // the drawer and the e2e guard use this rule, not scrollHeight
+    const panel = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+    const paint = panel.slice(panel.indexOf('function paintScrollCue()'), panel.indexOf('function focusKeyOf('));
+    expect(paint).toMatch(/contentBelow\(port, \[\.\.\.sc\.children\]/);
+    expect(paint).not.toMatch(/scrollHeight/);
+    const probe = readFileSync(new URL('../../e2e/lib/uiProbe.mjs', import.meta.url), 'utf8');
+    expect(probe).toContain(`overflow: below > ${SCROLL_CUE_PX},`);
   });
 });
 

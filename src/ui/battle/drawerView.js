@@ -11,6 +11,9 @@
 //   footerView(spent, value, o)    INVESTED n · SELL +n (two-tap confirm)
 //   heroNextLine(def, level)       "Steady Guard · +1 dmg"
 //   heroDrawerView(t, o)           the hero drawer: LV, XP fraction, Level up price, the Next line, the ult row
+//   allyNoteText(owner, o)         the ally note: the full sentence at 1280, one short line on a phone
+//   holderParts(line)              "Held by Aoi 5-0-0" and " · top right" (a phone's holder line drops the place to stay one line)
+//   contentBelow(port, bottoms)    how far the body's content reaches below the fold (the scroll cue's rule)
 //   sectionNumbers(texts)          how many shown texts hold a number (each section ≤ SECTION_NUMBERS)
 import { fmtNum } from '../format.js';
 import { headlineKind } from '../girlView.js';
@@ -358,6 +361,52 @@ export function shortTeaser(teaser, { compact = false } = {}) {
   let rest = String(teaser || '').replace(/^⚡\+?\s*T\d+\s[^—]*—\s*/, '');
   if (compact) rest = rest.replace(/ comes in a later update$/, ' · later update');
   return `⚡ ${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+}
+
+/**
+ * The ally note on a co-op partner's girl (UI_DIRECTION §5.5: a lock and one line with the reason). On a phone it is one
+ * short line that names her owner once ("Bea's girl · view only", the tree's ally chip), so a 16-character name still
+ * fits beside the lock and her three path rows stay in view under it (the M4 re-review); the full sentence is its title.
+ * @param {string} owner her owner's name
+ * @param {{ wide?: boolean }} [o] wide: 1280 (the full sentence in the note)
+ * @returns {{ text: string, title: string }}
+ */
+export function allyNoteText(owner, { wide = true } = {}) {
+  const title = `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`;
+  return { text: wide ? title : `${owner}'s girl · view only`, title };
+}
+
+/**
+ * A final tier another copy holds: her holder line ("Held by Aoi 5-0-0 · top right", rules.finalHolderLine) as the girl
+ * and her place on the map. A phone shows the line beside the lock on ONE line: when "· bottom right" would wrap it, the
+ * place steps away, whole (Show › still selects her and pulses her on the map; the button's title keeps the place).
+ * @param {string} line
+ * @returns {{ who: string, where: string }} where: "" when the line names no place
+ */
+export function holderParts(line) {
+  const s = String(line || '');
+  const at = s.lastIndexOf(' · ');
+  return at > 0 ? { who: s.slice(0, at), where: s.slice(at) } : { who: s, where: '' };
+}
+
+/**
+ * A row cut by at most this much (its hairline) counts as in view: the scroll cue's fade over it would only dim it.
+ * e2e/lib/uiProbe.mjs drawerPathsInView uses the same rule.
+ */
+export const SCROLL_CUE_PX = 2;
+
+/**
+ * How far the drawer body's content reaches below what is in view, in px (0 or less: all of it shows). It measures the
+ * body's children against the bottom of its scroll port, never scrollHeight: the invisible ::after hit areas that poke
+ * out under the last row's "i" or price count in scrollHeight but are not content (the M4 re-review: the cue's fade and
+ * ▾ covered a third row that was fully in view).
+ * @param {number} portBottom the scroll port's bottom edge (its rect's top + clientTop + clientHeight)
+ * @param {number[]} childBottoms the body's children's getBoundingClientRect().bottom (a hidden child reads 0)
+ */
+export function contentBelow(portBottom, childBottoms) {
+  let low = -Infinity;
+  for (const b of childBottoms || []) if (Number.isFinite(b) && b > low) low = b;
+  return low === -Infinity ? 0 : low - portBottom;
 }
 
 /** How many of these shown texts hold a number (the UI probe counts each element with a digit once). */
