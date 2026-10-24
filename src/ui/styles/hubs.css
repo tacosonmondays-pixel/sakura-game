@@ -379,6 +379,10 @@
   .lb-br { bottom: calc(var(--dock-h) + 22px + var(--safe-bottom)); }
   .lb-nameplate { left: 50%; }
   .lb-bubble { max-width: 56vw; }
+  /* a full illustration (artStage.js .lb-illustration): her picture cannot move up or down on an upright screen, and
+     the tray's strip would cover her face or push it off the right edge (the crop keeps her face clear of the menus:
+     lobby.js obstacles), so the tray stands as a column at the left edge instead and gives way to her head */
+  .lb-stage.lb-illustration ~ .lb-hud > .lb-tray { flex-direction: column; }
 }
 html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { display: none; }
 @media (prefers-reduced-motion: reduce) { .lb-shafts, .lb-motes { display: none; } .lb-layer, .lb-stage { transition: none; } }
@@ -391,8 +395,7 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .lb-art-layer.enter-r { opacity: 0; transform: translateX(6%); }
 .lb-art-layer.enter-l { opacity: 0; transform: translateX(-6%); }
 .lb-art-layer.leaving { opacity: 0; }
-.lb-art-scene, .lb-art-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 30%; user-select: none; }
-.lb-art-layer.scene .lb-art-scene { animation: lb-breathe 4.8s ease-in-out infinite; transform-origin: 60% 100%; }
+.lb-art-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 30%; user-select: none; }
 .lb-art-bg { filter: saturate(1.05) blur(1.5px) brightness(1.03); transform: scale(1.04); }
 /* her full-figure stand, memorial-lobby framing: big, centred in the open middle of the
    screen, the top of her head/hat just under the HUD and the picture running off the bottom edge
@@ -401,7 +404,7 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 .lb-art-girl img { flex: none; height: 100%; width: auto; max-width: none; display: block; filter: drop-shadow(0 10px 18px rgba(30, 50, 90, 0.28)); user-select: none; }
 .lb-art-girl.card { left: auto; top: auto; width: auto; display: block; height: 86%; bottom: 6%; right: 14%; aspect-ratio: 3 / 4; transform-origin: 50% 100%; }
 .lb-art-girl.card svg { height: 100%; width: auto; border-radius: 18px; box-shadow: 0 14px 32px rgba(20, 40, 80, 0.3); }
-.lb-art .bounce, .lb-art-layer.scene.bounce { animation: lb-bounce 420ms var(--ease); }
+.lb-art .bounce { animation: lb-bounce 420ms var(--ease); }
 @keyframes lb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.012) translateY(-0.4%); } }
 @keyframes lb-bounce { 0% { transform: scale(1); } 35% { transform: scale(1.025, 0.985); } 70% { transform: scale(0.995, 1.01); } 100% { transform: scale(1); } }
 .lb-art-fx { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
@@ -421,7 +424,15 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
    at 1280×720 (the achievements e2e, test 10, once its tap reached her again): the bubble steps aside then too */
 body:has(.jn-toast:not(.out)):has(.toast-host.has-ach) .lb-bubble.show { opacity: 0; transform: translateY(6px) scale(0.96); }
 @media (min-width: 1000px) and (min-height: 600px) { .lb-art-girl { height: 142%; left: 54%; } }
-@media (prefers-reduced-motion: reduce) { .lb-art-layer.scene .lb-art-scene, .lb-art-girl { animation: none; } .lb-art { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .lb-art-girl { animation: none; } .lb-art { transition: none; } }
+/* a full illustration (src/data/lobbyIllustrations.js) IS the lobby: full bleed, no backdrop, no stand, no speech
+   bubble. artStage.js crops it on her face (object-position) and breathes it from under her; .still = Reduce motion
+   or Low graphics (no breathing) */
+.lb-art-full { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 30%; display: block; user-select: none; }
+.lb-art-layer.full:not(.still) .lb-art-full { animation: lb-breathe 4.8s ease-in-out infinite; }
+html[data-reduce-motion] .lb-art-layer.full .lb-art-full { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lb-art-layer.full .lb-art-full { animation: none; } }
+.lb-art-host.lb-illustration .lb-bubble { display: none; }
 
 /* a modal over the lobby: pause the lobby's ambient motion (breathing art, petals, motes). The
    overlay's backdrop blur would otherwise re-render the whole animated lobby every frame —

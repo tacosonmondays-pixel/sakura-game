@@ -15,7 +15,7 @@ import { h, svgEl, glyph, modal, toast, applyMotionPreference } from '../compone
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { portraitHTML, portraitUrl } from '../../art/portraits.js';
-import { lobbyArtUrl, lobbyBackgroundFor, BACKDROP } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, lobbyBackgroundFor, stageArtUrls, BACKDROP } from '../../data/lobbyArt.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { redeemCode } from '../../systems/missions.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
@@ -72,7 +72,9 @@ const withTimeout = (p, ms = STEP_TIMEOUT) => Promise.race([Promise.resolve(p).c
 export function lobbyPreloadSteps(profile) {
   const sec = secretaryOf(profile);
   const bg = lobbyBackgroundFor(profile, sec);
-  const art = bg.kind === 'scene' ? [lobbyArtUrl(bg.file)] : [lobbyArtUrl(bg.file), portraitUrl(sec, 'cut')];
+  // (a full illustration's one picture, her 3:4 full art on a portrait screen when its row says so; else the academy
+  // backdrop + her stand: src/data/lobbyArt.js stageArtUrls)
+  const art = stageArtUrls(bg, { portrait: typeof innerHeight === 'number' && innerHeight > innerWidth });
   return [
     ['Opening the academy gates', () => import('./lobby.js')],
     ['Painting the lobby', () => Promise.all(art.map((u) => preloadImage(u)))],

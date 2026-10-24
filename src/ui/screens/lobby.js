@@ -33,11 +33,11 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyCard, eventLobbyDecor, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyCard, eventLobbyDecor, eventLobbyBackdrop, hangLobbyLanterns, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, lobbyBackgroundFor, showsBubble, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
@@ -129,10 +129,13 @@ export function render(root) {
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
+  let decor = null;
+  let eventBackdrop = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
-    const decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
+    decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
     if (decor) el.insertBefore(decor, nameplate);
+    eventBackdrop = eventLobbyBackdrop(); // [events] its painted backdrop behind every stand
   } catch (e) {
     console.warn('[lobby] event decor failed', e);
   }
@@ -144,8 +147,28 @@ export function render(root) {
   const lines = () => secretaryLines(store.profile);
   const stage = createArtStage(stageHost, {
     reduceMotion,
+    lowGfx: profile0.settings?.quality === 'low',
+    backdrop: eventBackdrop,
     // (her speech bubble keeps clear of the tray and the sticker row under it, while the menus show: UI M5d review)
     avoid: () => (el.classList.contains('ui-hidden') ? [] : [...el.querySelectorAll('.lb-hud > .lb-tray, .lb-hud > .lb-stickers')]),
+    // a full illustration keeps her face clear of these menus (layout boxes, so the entrance slides do not move them;
+    // hidden ones are skipped). Bars (the top bar, the dock, an event's lantern string) only limit her face up or
+    // down. (A full illustration has no speech bubble: stage.say() does nothing over one.) UI M5d's tray took the
+    // shortcuts' place, and its sticker row under it is a menu too.
+    obstacles: () => {
+      const box = (n, bar = false) => ({ l: n.offsetLeft, t: n.offsetTop, r: n.offsetLeft + n.offsetWidth, b: n.offsetTop + n.offsetHeight, bar });
+      const list = [top, shortcuts, stickers, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
+        .filter((n) => n.offsetParent === hud && n.offsetWidth && n.offsetHeight)
+        .map((n) => box(n, n === top || n === dock));
+      const lanterns = el.querySelector('.lb-ev-lanterns');
+      if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
+      return list;
+    },
+    // [events] a full illustration's crop can move her face down only on a screen wider than the picture, so the
+    // lantern string gives way to her head, hair and halo instead (cut back to one side of her head, or hidden)
+    onLayout: (at) => {
+      if (decor) hangLobbyLanterns(decor, at);
+    },
     onTap: (part, at) => {
       stage.react(part, at);
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);
@@ -164,13 +187,17 @@ export function render(root) {
     const bg = lobbyBackgroundFor(p, id);
     if (id === currentSec && bg.id === currentBg && !direction) return;
     const sameGirl = id === currentSec;
+    // back from a full illustration (which has no speech bubble) to her stand: she greets you again
+    const backToStand = sameGirl && !showsBubble(LOBBY_BG_MAP[currentBg]) && showsBubble(bg);
     currentSec = id;
     currentBg = bg.id;
     const u = getUnit(id);
     stage.hideBubble();
     await stage.show(u, { direction, background: bg });
+    // [events] over her stand the event's painted backdrop has its own lanterns and pumpkins: hide the overlay's
+    decor?.classList.toggle('on-stand', !!eventBackdrop && showsBubble(bg));
     if (currentSec !== id) return;
-    if (sameGirl && !direction) return; // a new background for the same girl: no greeting again
+    if (sameGirl && !direction && !backToStand) return; // another backdrop for the same girl: no greeting again
     lineIndex = 0;
     setTimeout(() => stage.say(lines()[0]), direction ? 120 : 650);
     if (direction) flashName(u);
