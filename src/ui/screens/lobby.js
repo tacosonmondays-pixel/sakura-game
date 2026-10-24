@@ -134,9 +134,9 @@ export function render(root) {
   const stage = createArtStage(stageHost, {
     reduceMotion,
     lowGfx: profile0.settings?.quality === 'low',
-    // a whole-scene secretary keeps her face and her speech bubble clear of these menus (layout boxes, so the
-    // entrance slides do not move them; hidden ones are skipped). Bars (the top bar, the dock, an event's lantern
-    // string) only push the bubble up or down.
+    // a full illustration keeps her face clear of these menus (layout boxes, so the entrance slides do not move them;
+    // hidden ones are skipped). Bars (the top bar, the dock, an event's lantern string) only limit her face up or
+    // down. (A full illustration has no speech bubble: stage.say() does nothing over one.)
     obstacles: () => {
       const box = (n, bar = false) => ({ l: n.offsetLeft, t: n.offsetTop, r: n.offsetLeft + n.offsetWidth, b: n.offsetTop + n.offsetHeight, bar });
       const list = [top, shortcuts, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
@@ -146,8 +146,8 @@ export function render(root) {
       if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
       return list;
     },
-    // [events] her crop can move her face down only on a screen wider than her scene, so the lantern string gives
-    // way to her head, hair and halo instead (cut back to one side of her head, or hidden)
+    // [events] a full illustration's crop can move her face down only on a screen wider than the picture, so the
+    // lantern string gives way to her head, hair and halo instead (cut back to one side of her head, or hidden)
     onLayout: (at) => {
       if (decor) hangLobbyLanterns(decor, at);
     },

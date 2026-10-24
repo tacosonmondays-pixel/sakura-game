@@ -72,7 +72,8 @@ const withTimeout = (p, ms = STEP_TIMEOUT) => Promise.race([Promise.resolve(p).c
 export function lobbyPreloadSteps(profile) {
   const sec = secretaryOf(profile);
   const bg = lobbyBackgroundFor(profile, sec);
-  // (a whole-scene girl on a portrait screen shows her 3:4 full art: src/ui/lobby/artStage.js)
+  // (a full illustration's one picture, her 3:4 full art on a portrait screen when its row says so; else the academy
+  // backdrop + her stand: src/data/lobbyArt.js stageArtUrls)
   const art = stageArtUrls(bg, { portrait: typeof innerHeight === 'number' && innerHeight > innerWidth });
   return [
     ['Opening the academy gates', () => import('./lobby.js')],

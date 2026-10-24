@@ -1,12 +1,13 @@
-// Layout math for a whole-scene lobby (src/data/lobbyScenes.js): where her picture is cropped, where her face lands,
-// where the speech bubble goes and whether a tap hit her head. Pure functions (no DOM), unit-tested in
-// tests/systems/lobbyScenes.test.js; src/ui/lobby/artStage.js feeds them the real sizes.
+// Layout math for a full illustration in the lobby (src/data/lobbyIllustrations.js): where the picture is cropped,
+// where her face lands and whether a tap hit her head (a full illustration has no speech bubble). Pure functions
+// (no DOM), unit-tested in tests/systems/lobbyIllustrations.test.js; src/ui/lobby/artStage.js feeds them the real
+// sizes.
 //
 // Coordinates: px in the stage host (the lobby screen). The picture fills a frame that may overhang the host
 // (the parallax frame is inset -2%): frame = { x, y, w, h } in host px. Obstacles are the menu boxes
 // { l, t, r, b, bar? } in host px; a bar (bar: true, or wider than 60% of the screen: the top bar, the dock, an
-// event's lantern string) only limits her face and the bubble vertically. An event's lantern string itself gives way
-// to her head (hangString).
+// event's lantern string) only limits her face vertically. An event's lantern string itself gives way to her head
+// (hangString).
 
 /** The crop the designed scenes were checked at (a 16:9 cover crop at 60% / 30%). */
 export const PREFER_POS = [0.6, 0.3];
@@ -59,8 +60,10 @@ export function freeBand(blocks, y0, y1, W) {
 }
 
 /**
- * Crops her picture (object-fit: cover) so her face sits where the scene was designed to put it, moved only as far
- * as needed to keep her face clear of the side menus and below the top bar.
+ * Crops her picture (object-fit: cover) so her face sits where the scene was designed to put it (on a portrait screen:
+ * across the middle of the screen), moved only as far as needed to keep her face clear of the side menus and below
+ * the top bar. The crop moves her face down only as far as the picture overflows top/bottom: on a screen with the
+ * picture's own aspect it cannot move at all.
  * @param {{ W: number, H: number, frame: {x:number,y:number,w:number,h:number}, iw: number, ih: number, fx: number, fy: number,
  *   obstacles?: object[], prefer?: number[], headR?: number }} o
  * @returns {{ posX: number, posY: number, face: {x:number,y:number}, r: number, fit: object, clear: boolean }}
@@ -79,14 +82,15 @@ export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer
     q = clamp((frame.y + fy * fit.dh - want) / fit.oy, 0, 1);
   }
   const y = faceY(q);
-  // horizontal: the designed crop, then the nearest spot whose face core is clear of the side menus
+  // horizontal: the designed crop (her face across the middle on a portrait screen, where the picture is cropped
+  // hard), then the nearest spot whose face core is clear of the side menus
   let p = prefer[0];
   if (fit.ox > 0.5) {
     const { L, R } = freeBand(blocks, y - CORE.up * r, y + CORE.down * r, W);
     const half = CORE.half * r + MARGIN;
     const lo = Math.max(L + half, half);
     const hi = Math.min(R - half, W - half);
-    let x = faceX(p);
+    let x = H > W ? W / 2 : faceX(p);
     x = lo <= hi ? clamp(x, lo, hi) : (Math.max(L, 0) + Math.min(R, W)) / 2;
     p = clamp((frame.x + fx * fit.dw - x) / fit.ox, 0, 1);
   }
@@ -96,47 +100,6 @@ export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer
   return { posX: p * 100, posY: q * 100, face, r, fit, clear };
 }
 
-/**
- * Where her speech bubble goes: beside her face (left first, as the scenes leave the left open, then right), clear of
- * the menus; a narrower bubble when the natural one does not fit; under her chin when neither side has room (a
- * portrait phone). It never covers her face core.
- * @param {{ face: {x:number,y:number}, r: number, W: number, H: number, obstacles?: object[],
- *   measure: (maxW: number|null) => {w:number,h:number}, minW?: number }} o
- *   measure(maxW) returns the bubble's size with that max width (null = its CSS max width)
- * @returns {{ side: 'left'|'right'|'below', x: number, y: number, w: number, h: number, maxW: number|null, tail: number }}
- *   x / y = top-left in host px; tail = px along the edge where the tail points at her face
- */
-export function placeBubble({ face, r, W, H, obstacles = [], measure, minW = 150 }) {
-  const { blocks, top, bottom } = splitObstacles(obstacles, W, H);
-  const gap = CORE.half * r + 14;
-  const yFor = (h) => clamp(face.y - 26, top + 6, Math.max(top + 6, bottom - 6 - h));
-  const room = (side, h) => {
-    const y = yFor(h);
-    const { L, R } = freeBand(blocks, y, y + h, W);
-    return side === 'left' ? face.x - gap - Math.max(L, 0) - 6 : Math.min(R, W) - (face.x + gap) - 6;
-  };
-  const place = (side, m, maxW) => {
-    const y = yFor(m.h);
-    const x = side === 'left' ? face.x - gap - m.w : face.x + gap;
-    return { side, x, y, w: m.w, h: m.h, maxW, tail: clamp(face.y - y - 9, 10, Math.max(10, m.h - 28)) };
-  };
-  const nat = measure(null);
-  for (const side of ['left', 'right']) if (room(side, nat.h) >= nat.w) return place(side, nat, null);
-  // a narrower bubble on the roomier side
-  const side = room('left', nat.h) >= room('right', nat.h) ? 'left' : 'right';
-  const space = Math.floor(room(side, nat.h));
-  if (space >= minW) {
-    const m = measure(space);
-    if (room(side, m.h) >= m.w) return place(side, m, space);
-  }
-  // under her chin, centred on her face and kept on screen (tail up at her chin)
-  const maxW = Math.min(nat.w, Math.max(minW, W - 24));
-  const m = maxW < nat.w ? measure(maxW) : nat;
-  const x = clamp(face.x - m.w / 2, 12, Math.max(12, W - 12 - m.w));
-  const y = Math.min(face.y + CORE.down * r + 14, Math.max(top + 6, bottom - 6 - m.h));
-  return { side: 'below', x, y, w: m.w, h: m.h, maxW: maxW < nat.w ? maxW : null, tail: clamp(face.x - x, 16, Math.max(16, m.w - 16)) };
-}
-
 /** Her head with her hair and what sits on it (a cap, a hat, a halo) around her face point, in head radii: what decor
  *  hung over her scene keeps clear of. 2 across: a hat brim or a tilted halo reaches about that far (Chigusa's vine
  *  halo); 1.8 up: on the 3:4 art the face point is her face centre, about 0.3 radii under her eyes, and halos float
@@ -144,8 +107,8 @@ export function placeBubble({ face, r, W, H, obstacles = [], measure, minW = 150
 export const DECOR_HEAD = Object.freeze({ half: 2.0, up: 1.8, down: 1.0 });
 
 /**
- * Where a decor string hung under the top bar (an event's lantern string) may hang over a whole scene: never across
- * her head, hair or halo (DECOR_HEAD). The cover crop can only move her face down on a screen wider than the scene,
+ * Where a decor string hung under the top bar (an event's lantern string) may hang over a full illustration: never
+ * across her head, hair or halo (DECOR_HEAD). The cover crop can only move her face down on a screen wider than the picture,
  * so on most screens the string has to give way instead: it keeps its whole length when it misses her head, else the
  * longer stretch from one of its own ends up to the side of her head; null (hide it) when neither stretch is minW px.
  * @param {{l:number,t:number,r:number,b:number}} box the string's own box (host px)
