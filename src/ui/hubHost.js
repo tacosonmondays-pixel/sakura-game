@@ -47,11 +47,24 @@ export const viewport = () => ({ vw: globalThis.innerWidth || 1280, vh: globalTh
 export const isPhone = () => viewport().vh <= 480;
 
 /**
- * Pure: the stand or the chip for a hub whose content sits beside her, from the content height that is left for the
- * list or grid under the screen's own header rows (`headerH`). The collapse rule of host.js.
+ * A hub whose slanted tiles need the width (`wideGrid`: Missions, Titan Trials) keeps her stand on a screen taller than
+ * a phone only from this width. Beside her 35% column the tiles cut their names short below it (the UI M5 final
+ * review: at 1024x768 Missions' small tiles read "Ti… Tr…", "M… pl…", "S…" and the titans "Foundry…", "Gloom R…"; at
+ * 1180x820 the Multiplayer tile ended in "…" and "★ Titan of the Week" ran under its token; 1280x720 fits). Under it,
+ * tablets in landscape (1024x768, 1180x820) show her chip and the tiles take the whole width. Phones keep the rule
+ * above (their tiles have their own phone sizes).
  */
-export function hubMode({ vw, vh, headerH = 0 }) {
+export const WIDE_GRID_VW = 1240;
+
+/**
+ * Pure: the stand or the chip for a hub whose content sits beside her, from the content height that is left for the
+ * list or grid under the screen's own header rows (`headerH`). The collapse rule of host.js, plus WIDE_GRID_VW for a
+ * hub whose tiles need the width (`wideGrid`).
+ * @param {{ vw: number, vh: number, headerH?: number, wideGrid?: boolean }} o
+ */
+export function hubMode({ vw, vh, headerH = 0, wideGrid = false }) {
   const topbar = vh <= 480 ? 40 : 48;
+  if (wideGrid && vh > 480 && vw < WIDE_GRID_VW) return 'chip';
   return hostMode({ vw, vh, kind: 'hub', contentH: vh - topbar - headerH }).mode;
 }
 

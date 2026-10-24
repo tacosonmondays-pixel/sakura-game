@@ -5,7 +5,8 @@
 // UI M5b (docs/specs/UI_DIRECTION.md §5.10 E1, P1): Kaede hosts on the collapse rule. The screen is dense, so on
 // phones (the content under the titan row is under 300 px) and under 800 px of width she is a bust chip with her
 // bubble at the start of the top row (the review: no chip under the art, which ran off small phones); on desktop she
-// stands in the left 35%. The week's countdown chip; Fight is the one primary (data-primary), Sweep the secondary
+// stands in the left 35% (from 1240 px of width: tablets in landscape get the chip, so the titan cards keep their
+// names whole; the UI M5 final review). The week's countdown chip; Fight is the one primary (data-primary), Sweep the secondary
 // (§5.5: a lock and the reason when it can't run). The titan's weaknesses, resistances, your girls, her blurb and the
 // reward rules move behind MORE.
 import '../styles/meta-a.css';
@@ -46,9 +47,13 @@ const big = (n) => (n >= 1e6 ? `${Math.round(n / 1e5) / 10}M` : n >= 1e3 ? `${Ma
 
 /** The rows above the titan detail (the key row and the titan cards), for the collapse rule: phone / desktop. */
 const HEADER_H = { phone: 112, desk: 150 };
-/** Kaede's stand or bust chip at this viewport (host.js collapse rule on the content left under the titan row). */
+/**
+ * Kaede's stand or bust chip at this viewport (host.js collapse rule on the content left under the titan row). The four
+ * titan cards need the width (hubHost.js WIDE_GRID_VW): on a tablet in landscape she is the chip, so each card holds
+ * its titan's whole name (the UI M5 final review, M5-1).
+ */
 export function titanHostMode({ vw, vh } = viewport()) {
-  return hubMode({ vw, vh, headerH: vh <= 480 ? HEADER_H.phone : HEADER_H.desk });
+  return hubMode({ vw, vh, headerH: vh <= 480 ? HEADER_H.phone : HEADER_H.desk, wideGrid: true });
 }
 
 export function render(root, params = {}) {

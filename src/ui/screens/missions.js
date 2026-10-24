@@ -10,8 +10,10 @@
 // name plate (small tiles).
 // UI M5b: the secretary is the hub's host girl (docs/specs/UI_DIRECTION.md §5.10 E1): her stand in the left 35%
 // with a speech bubble (the Missions lines of hostLines.js, picked by the state; a tap shows the next), never over
-// the tiles. Under 800 px of width (the collapse rule, host.js) she is a bust chip in a strip over the tiles and the
-// tiles take the whole width. Quick start is the screen's one primary (data-primary: Space on desktop).
+// the tiles. Under 800 px of width (the collapse rule, host.js), and on tablets in landscape (under 1240 px wide and
+// taller than a phone: hubHost.js WIDE_GRID_VW), she is a bust chip in a strip over the tiles and the tiles take the
+// whole width. Quick start is the screen's one primary (data-primary: Space on desktop). A subtitle's long or short
+// words and a small plate's padding are picked by measuring the tile (fitTiles).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
@@ -50,25 +52,75 @@ function arenaTheme(event) {
   return MAP_MAP?.[stage?.mapId]?.theme || 'sakura';
 }
 
+/**
+ * The secretary's stand or bust chip at this viewport: the collapse rule, and the tiles need the width (hubHost.js
+ * WIDE_GRID_VW: on a tablet in landscape she is the chip, so the small tiles keep their names; the UI M5 final review,
+ * M5-4).
+ */
+export function missionsHostMode({ vw, vh } = viewport()) {
+  return hubMode({ vw, vh, wideGrid: true });
+}
+
 export function render(root) {
   const { el, body } = screen('Missions', { cls: 'ma-hub-screen' });
   el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
   let drawn = null; // the host mode on screen
+  let fitter = null;
   const draw = () => {
     clear(body);
-    drawn = hubMode(viewport());
-    body.appendChild(build(draw, drawn));
+    fitter?.disconnect();
+    drawn = missionsHostMode();
+    const wrap = build(draw, drawn);
+    body.appendChild(wrap);
+    fitter = fitTiles(wrap.querySelector('.ma-hub-grid'));
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'secretary') draw(); });
   // a resize that flips the collapse rule (a phone turned, a window resized) draws her in her other place
-  const offResize = watchHostMode(el, () => drawn, () => hubMode(viewport()), draw);
+  const offResize = watchHostMode(el, () => drawn, () => missionsHostMode(), draw);
   return () => {
     off();
     offResize();
+    fitter?.disconnect();
   };
+}
+
+/**
+ * UI M5 final review (M5-3): each tile's words fit the tile it really has (her stand narrows the tiles at any width,
+ * so a viewport breakpoint cut "2× drops in Rune Ga…" at 915x412, 932x430 and 1180x820). Measured on the tile:
+ * - a subtitle with a short form ("2× drops this week", "Co-op") shows the long one only when it fits on one line;
+ * - a small tile's name plate whose words still run past it (Story's "Episodes" at 844x390) takes slimmer padding.
+ * Measured again when the grid changes size (ResizeObserver: a resize, the host's place) and once the fonts are in.
+ * @param {HTMLElement|null} grid
+ * @returns {{ disconnect(): void }}
+ */
+export function fitTiles(grid) {
+  if (!grid) return { disconnect() {} };
+  const fit = () => {
+    if (!grid.isConnected) return;
+    for (const sub of grid.querySelectorAll('.ma-hub-sub')) {
+      const long = sub.querySelector(':scope > .ma-sub-long');
+      if (!long) continue;
+      sub.classList.remove('fit-short');
+      if (!sub.clientWidth) continue;
+      if (sub.scrollWidth > sub.clientWidth + 1 || long.getClientRects().length > 1) sub.classList.add('fit-short');
+    }
+    for (const plate of grid.querySelectorAll(SMALL_PLATES)) {
+      plate.classList.remove('fit-tight');
+      if (!plate.clientWidth) continue;
+      if ([...plate.children].some((c) => c.scrollWidth > c.clientWidth + 1)) plate.classList.add('fit-tight');
+    }
+  };
+  fit();
+  let ro = null;
+  if (typeof ResizeObserver === 'function') {
+    ro = new ResizeObserver(() => fit());
+    ro.observe(grid);
+  }
+  globalThis.document?.fonts?.ready?.then(fit).catch(() => {});
+  return { disconnect: () => ro?.disconnect() };
 }
 
 /**
@@ -155,9 +207,11 @@ function bestWaveLine(profile) {
 
 /** Bottom-row tiles: full-colour scenery with a name plate at the bottom. */
 const SMALL_TILES = new Set(['challenge', 'coop', 'sandbox', 'story', 'titans']);
+/** Their name plates (fitTiles). */
+const SMALL_PLATES = [...SMALL_TILES].map((id) => `.ma-hub-${id} > .ma-hub-text`).join(', ');
 
 /**
- * One slanted hub tile. sub/short: the subtitle, and a shorter one for phone widths (CSS picks).
+ * One slanted hub tile. sub/short: the subtitle, and a shorter one for a tile too narrow for it (fitTiles picks).
  * Small tiles show a locked state as a lock line in their name plate; big tiles as a chip.
  * lockHint: a longer line for the tap toast (default: lockText).
  */

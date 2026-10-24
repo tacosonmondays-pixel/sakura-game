@@ -1,4 +1,5 @@
-// Before/after screenshots for the UI condense milestones (docs/specs/UI_DIRECTION.md §7) at 844x390 and 1280x720.
+// Before/after screenshots for the UI condense milestones (docs/specs/UI_DIRECTION.md §7) at 844x390 and 1280x720,
+// and (since the UI M5 final review) 915x412, 932x430, 1024x768 and 1180x820.
 // Without --screens it takes the first six shots, as it always did: the lobby, the girl page (Info), the backpack
 // Equipment tab, stage prep, achievements and a battle with the girl drawer open. --screens picks from every shot
 // below (or `m5` for the whole M5 list). The save is seeded the same way every run (fixed gear rolls, no
@@ -6,7 +7,8 @@
 // where the build differs.
 //
 //   node e2e/ui-shots.mjs --out /tmp/ui-before                      # the six shots, PNGs named <screen>-<W>x<H>.png
-//   node e2e/ui-shots.mjs --out /tmp/ui-after --viewport 844x390
+//   node e2e/ui-shots.mjs --out /tmp/ui-after --viewport 844x390          # one size, or a list: 844x390,390x844
+//   node e2e/ui-shots.mjs --port 5215 ...                              # a fixed port for its dev server
 //   node e2e/ui-shots.mjs --out /tmp/m5 --screens lobby,missions,mail --probe   # + probe-<W>x<H>.json (e2e/probe.mjs)
 //   node e2e/ui-shots.mjs --screens m5 --now live                    # the real clock
 //   node e2e/ui-shots.mjs --screens profile --probe --judge spill    # + fail (exit 1) when a probe check named fails
@@ -27,7 +29,11 @@ const opt = (name, def) => {
 };
 const flag = (name) => args.includes(`--${name}`);
 const out = opt('out', 'ui-shots');
-const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720'];
+// (--viewport takes one size or a comma list; the UI M5 final review added the common landscape phones 915x412 and
+// 932x430 and the tablets in landscape 1024x768 and 1180x820 to the default two)
+const viewports = opt('viewport', null) ? opt('viewport').split(',').map((s) => s.trim()).filter(Boolean)
+  : ['844x390', '1280x720', '915x412', '932x430', '1024x768', '1180x820'];
+const PORT = Number(opt('port', '0'));
 const NOW = opt('now', SHOT_NOW); // a Tuesday noon in Central: no weekly reset on the day
 // --judge spill,apart: those probe checks fail the run (e2e/probe.mjs judge); implies --probe
 const judged = opt('judge', null)?.split(',').map((s) => s.trim()).filter(Boolean) || null;
@@ -158,7 +164,7 @@ async function eventHash(page) {
   });
 }
 
-const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+const server = await createServer({ root: process.cwd(), server: { port: PORT, strictPort: PORT > 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 const { browser, label } = await launchChromium();
