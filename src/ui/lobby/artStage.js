@@ -28,13 +28,16 @@ const CUT_FACE = [55, 25];
 /**
  * @param {HTMLElement} host
  * @param {{ reduceMotion?: boolean, lowGfx?: boolean, onTap?: Function|null, obstacles?: (() => object[])|null,
- *   onLayout?: ((at: { face: {x:number,y:number}, r: number }|null) => void)|null }} [opts]
+ *   onLayout?: ((at: { face: {x:number,y:number}, r: number }|null) => void)|null,
+ *   backdrop?: { file: string, thumb: string }|null }} [opts]
  *   lowGfx: the Low graphics setting (a full illustration then holds still: no breathing, no parallax);
+ *   backdrop: a painted backdrop behind every stand instead of the academy (an event's, eventLobbyBackdrop), with
+ *   its own lighting, so no day / sunset / night tint is laid over it;
  *   obstacles(): the menu boxes { l, t, r, b } in host px, kept clear of her face (full illustrations);
  *   onLayout(at): after a full illustration is shown or re-cropped, where her face is in host px (null when the
  *   picture on screen is her stand), so the screen can keep its decor off her head
  */
-export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, obstacles = null, onLayout = null } = {}) {
+export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, obstacles = null, onLayout = null, backdrop = null } = {}) {
   host.classList.add('lb-art-host');
   const frame = h('div.lb-art', { 'data-testid': 'secretary-art' });
   const hearts = h('div.lb-art-fx');
@@ -101,8 +104,8 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       layer.append(img);
       return { layer, full: { layer, img, id: bg.id, art, fit: null } };
     }
-    layer.classList.add('stand', `tint-${bg?.tint || 'day'}`);
-    layer.append(h('img.lb-art-bg', { src: lobbyArtUrl(bg?.file || 'academy.webp'), alt: '', draggable: false, decoding: 'async' }), h('div.lb-art-tint'));
+    layer.classList.add('stand', backdrop ? 'tint-event' : `tint-${bg?.tint || 'day'}`);
+    layer.append(h('img.lb-art-bg', { src: lobbyArtUrl(backdrop?.file || bg?.file || 'academy.webp'), alt: '', draggable: false, decoding: 'async' }), h('div.lb-art-tint'));
     const girl = h('div.lb-art-girl');
     // her drawn stand (half-body stands fade where the frame cut them — portraits.js)
     if (portraitUrl(u, 'cut')) girl.innerHTML = portraitHTML(u, 'cut', { eager: true });
@@ -128,7 +131,7 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
     // first picture: its small painted thumb sits behind at once, so the lobby never shows an
     // empty backdrop while the full art (usually already preloaded by the title) decodes
     if (!current && bg?.thumb) {
-      if (!built.full) frame.style.backgroundImage = `url("${lobbyArtUrl(bg.thumb)}")`;
+      if (!built.full) frame.style.backgroundImage = `url("${lobbyArtUrl(backdrop?.thumb || bg.thumb)}")`;
       else if (built.full.art.variant === 'wide') {
         // the thumb has the picture's aspect, so the same position lines it up with the art
         frame.style.backgroundImage = `url("${bgArtUrl(bg, 'thumb')}")`;

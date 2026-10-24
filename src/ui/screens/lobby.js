@@ -21,11 +21,11 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyCard, eventLobbyDecor, hangLobbyLanterns, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyCard, eventLobbyDecor, eventLobbyBackdrop, hangLobbyLanterns, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, lobbyBackgroundFor, showsBubble, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
@@ -118,10 +118,12 @@ export function render(root) {
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
   let decor = null;
+  let eventBackdrop = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
     decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
     if (decor) el.insertBefore(decor, nameplate);
+    eventBackdrop = eventLobbyBackdrop(); // [events] its painted backdrop behind every stand
   } catch (e) {
     console.warn('[lobby] event decor failed', e);
   }
@@ -134,6 +136,7 @@ export function render(root) {
   const stage = createArtStage(stageHost, {
     reduceMotion,
     lowGfx: profile0.settings?.quality === 'low',
+    backdrop: eventBackdrop,
     // a full illustration keeps her face clear of these menus (layout boxes, so the entrance slides do not move them;
     // hidden ones are skipped). Bars (the top bar, the dock, an event's lantern string) only limit her face up or
     // down. (A full illustration has no speech bubble: stage.say() does nothing over one.)
@@ -169,13 +172,17 @@ export function render(root) {
     const bg = lobbyBackgroundFor(p, id);
     if (id === currentSec && bg.id === currentBg && !direction) return;
     const sameGirl = id === currentSec;
+    // back from a full illustration (which has no speech bubble) to her stand: she greets you again
+    const backToStand = sameGirl && !showsBubble(LOBBY_BG_MAP[currentBg]) && showsBubble(bg);
     currentSec = id;
     currentBg = bg.id;
     const u = getUnit(id);
     stage.hideBubble();
     await stage.show(u, { direction, background: bg });
+    // [events] over her stand the event's painted backdrop has its own lanterns and pumpkins: hide the overlay's
+    decor?.classList.toggle('on-stand', !!eventBackdrop && showsBubble(bg));
     if (currentSec !== id) return;
-    if (sameGirl && !direction) return; // a new background for the same girl: no greeting again
+    if (sameGirl && !direction && !backToStand) return; // another backdrop for the same girl: no greeting again
     lineIndex = 0;
     setTimeout(() => stage.say(lines()[0]), direction ? 120 : 650);
     if (direction) flashName(u);

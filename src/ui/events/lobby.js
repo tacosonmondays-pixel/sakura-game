@@ -1,6 +1,7 @@
 // The lobby's limited-event pieces (EVENT_SPEC §3.12 Lobby): the bottom-left EVENT card for the
 // featured event, and a light decor overlay (a string of lanterns, two pumpkins) while it runs. Over a full
-// illustration the lantern string gives way to her head (hangLobbyLanterns).
+// illustration the lantern string gives way to her head (hangLobbyLanterns); behind her stand the event's painted
+// backdrop (eventLobbyBackdrop) carries its own lanterns and pumpkins instead.
 import { h } from '../dom.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -38,6 +39,18 @@ export function eventLobbyCard() {
   ),
   h('span.lb-ev-kicker', 'EVENT!'),
   h('div.lb-ev-text', h('b', ev.name), h('small', phaseLabel(ev, phase, eventNow()))));
+}
+
+/**
+ * The event's painted backdrop behind every girl's stand while it runs (its theme's lobbyBackdrop), or null. It has
+ * its own lighting, so the stand's day / sunset / night tint is not laid over it, and its painted lanterns and
+ * pumpkins stand in for the decor overlay's (lobby.js hides those over a stand: .on-stand).
+ * @returns {{ file: string, thumb: string }|null} paths under public/art/lobby/
+ */
+export function eventLobbyBackdrop() {
+  const f = featuredEvent(store.profile, eventNow());
+  const file = f?.phase === 'active' ? f.ev.theme?.lobbyBackdrop : null;
+  return file ? { file, thumb: `thumbs/${file}` } : null;
 }
 
 /** The full lantern string: 9 lanterns on a 900-unit-wide drawing. */
