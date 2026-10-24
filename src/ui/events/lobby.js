@@ -1,6 +1,6 @@
 // The lobby's limited-event pieces (EVENT_SPEC §3.12 Lobby): the bottom-left EVENT card for the
 // featured event, and a light decor overlay (a string of lanterns, two pumpkins) while it runs. Over a full
-// illustration the lantern string gives way to her head (hangLobbyLanterns).
+// illustration or her stand the lantern string gives way to her head (hangLobbyLanterns).
 import { h } from '../dom.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -55,10 +55,10 @@ export function eventLobbyDecor() {
 }
 
 /**
- * Hangs the lantern string clear of her head, hair and halo in a full illustration (sceneLayout.hangString): cut back
- * to the open side of her head (same lantern size and spacing, a shallower dip), or hidden when neither side has
- * room for two lanterns. at = { face, r } from the art stage, in host px (the decor overlay covers the same box);
- * null = her stand on a backdrop, the full string. The string's own box never changes (only its drawing does), so the stage's
+ * Hangs the lantern string clear of her head, hair and halo, in a full illustration or on her stand
+ * (sceneLayout.hangString): cut back to the open side of her head (same lantern size and spacing, a shallower dip),
+ * or hidden when neither side has room for two lanterns. at = { face, r } from the art stage, in host px (the decor
+ * overlay covers the same box); null = no head known, the full string. The string's own box never changes (only its drawing does), so the stage's
  * menu boxes, and with them her crop, do not depend on it.
  * @param {HTMLElement|null} decor the eventLobbyDecor() node
  * @param {{ face: {x:number,y:number}, r: number }|null} at

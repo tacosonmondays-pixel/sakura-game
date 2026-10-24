@@ -20,7 +20,7 @@ import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, bgArtUrl, stageModeOf, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
 import { fullArt } from '../../data/lobbyIllustrations.js';
-import { anchorFace, headHit } from './sceneLayout.js';
+import { anchorFace, headHit, standHead } from './sceneLayout.js';
 
 /** Where the bubble/head zone sits for stands (her stand is centred at ~55%, head under the HUD). */
 const CUT_FACE = [55, 25];
@@ -31,8 +31,8 @@ const CUT_FACE = [55, 25];
  *   onLayout?: ((at: { face: {x:number,y:number}, r: number }|null) => void)|null }} [opts]
  *   lowGfx: the Low graphics setting (a full illustration then holds still: no breathing, no parallax);
  *   obstacles(): the menu boxes { l, t, r, b } in host px, kept clear of her face (full illustrations);
- *   onLayout(at): after a full illustration is shown or re-cropped, where her face is in host px (null when the
- *   picture on screen is her stand), so the screen can keep its decor off her head
+ *   onLayout(at): after a picture is shown or the screen resized, where her head is in host px (a full illustration's
+ *   face, or her stand's head from its picture; null when unknown), so the screen can keep its decor off her head
  */
 export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, obstacles = null, onLayout = null } = {}) {
   host.classList.add('lb-art-host');
@@ -56,10 +56,24 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       return [];
     }
   };
-  /** onLayout: her face on screen now (full illustration), or null */
+  /** her stand picture's box in host px, from layout offsets (so the entrance slide, the breathing and the parallax
+   *  do not move it), or null (no drawn stand) */
+  const standBox = () => {
+    const img = current?.querySelector('.lb-art-girl img');
+    if (!img?.offsetHeight) return null;
+    let x = 0;
+    let y = 0;
+    let n = img;
+    for (; n && n !== host; n = n.offsetParent) {
+      x += n.offsetLeft;
+      y += n.offsetTop;
+    }
+    return n === host ? { l: x, t: y, r: x + img.offsetWidth, b: y + img.offsetHeight } : null;
+  };
+  /** onLayout: her head on screen now (a full illustration's face, or her stand's head), or null */
   const notify = () => {
     try {
-      onLayout?.(full?.fit ? { face: full.fit.face, r: full.fit.r } : null);
+      onLayout?.(full ? (full.fit ? { face: full.fit.face, r: full.fit.r } : null) : standHead(standBox()));
     } catch (e) {
       console.warn('[lobby] onLayout failed', e);
     }
@@ -234,14 +248,18 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
     host.style.removeProperty('--ay');
   }
 
-  // the screen turned or resized: crop the full illustration again on her face
+  // the screen turned or resized: crop the full illustration again on her face (her stand just moves with the
+  // screen); either way the decor hears where her head is now
   let resizeRaf = 0;
   const onResize = () => {
-    if (resizeRaf || !full) return;
+    if (resizeRaf) return;
     resizeRaf = requestAnimationFrame(() => {
       resizeRaf = 0;
-      if (!full || disposed || (full.fit && full.fit.W === host.clientWidth && full.fit.H === host.clientHeight)) return;
-      layoutFull(full);
+      if (disposed) return;
+      if (full) {
+        if (full.fit && full.fit.W === host.clientWidth && full.fit.H === host.clientHeight) return;
+        layoutFull(full);
+      }
       notify();
     });
   };

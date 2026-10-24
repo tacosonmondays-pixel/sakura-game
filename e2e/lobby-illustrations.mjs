@@ -195,8 +195,14 @@ async function sizePass(size, { now, full = true }) {
       check(m.bubbleShown && m.bubbleText.length > 3, `${tag}: her greeting bubble ("${m.bubbleText.slice(0, 40)}")`);
       if (girl === 'marumi') check(m.nat && Math.abs(m.nat[0] / m.nat[1] - 0.432) < 0.004, `${tag}: the restored full-body stand (${m.nat?.join('x')}, aspect 0.432)`);
       if (event) {
+        // the lantern string gives way to her hair on her stand too (the top of her stand picture, around its middle)
         const L = m.lanterns;
-        check(!!L?.shown && L.items.length === 9, `${tag}: the whole lantern string (${L?.items.length} lanterns)`);
+        const s = m.imgBox;
+        const cx = (s.l + s.r) / 2;
+        const hgt = s.b - s.t;
+        const hair = { l: cx - 0.1 * hgt, r: cx + 0.1 * hgt, t: s.t, b: s.t + 0.16 * hgt };
+        const over = L?.shown ? [L.svg, ...L.items].filter((o) => o && hits(o, hair)) : [];
+        check(!!L && !over.length, `${tag}: the lantern string clear of her hair (${L?.shown ? `${L.items.length} lanterns` : 'hidden'})`);
       }
       await shot(page, `${tagSize}-default-${girl}`);
     }
@@ -298,6 +304,16 @@ async function sizePass(size, { now, full = true }) {
         await page.waitForTimeout(1800);
         const r = await measure(page);
         check(r.bg === 'marumi-scene' && r.cls.includes('full') && !r.bubbleShown, `${tag}: after a reload the lobby is still "Strike Lane" (${r.bg}), with no bubble`);
+        // back to her backdrop in the picker: her stand returns and greets you again (the full illustration had no bubble)
+        await openPicker(page);
+        await page.locator('[data-testid="bgp-marumi-day"]').click();
+        await page.waitForTimeout(250);
+        await page.locator('[data-testid="bgp-done"]').click({ force: true });
+        await page.waitForFunction(() => document.querySelectorAll('.lb-art-layer').length === 1 && document.querySelector('.lb-art-layer').dataset.bg === 'marumi-day', null, { timeout: 15000 });
+        await page.waitForTimeout(1200);
+        const home = await measure(page);
+        check(home.cls.includes('stand') && home.stand && home.bubbleShown && home.bubbleText.length > 3, `${tag}: back to her backdrop, her stand greets you again ("${home.bubbleText.slice(0, 40)}")`);
+        await shot(page, `${size}-default-marumi-after-picker`);
       }
       await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((n) => n.remove()));
     }

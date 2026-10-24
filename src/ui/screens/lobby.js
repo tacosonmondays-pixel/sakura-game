@@ -25,7 +25,7 @@ import { eventLobbyCard, eventLobbyDecor, hangLobbyLanterns, lobbyEventVisit } f
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, lobbyBackgroundFor, showsBubble, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
@@ -146,8 +146,9 @@ export function render(root) {
       if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
       return list;
     },
-    // [events] a full illustration's crop can move her face down only on a screen wider than the picture, so the
-    // lantern string gives way to her head, hair and halo instead (cut back to one side of her head, or hidden)
+    // [events] a full illustration's crop can move her face down only on a screen wider than the picture, and her
+    // stand's hair reaches up under the top bar, so the lantern string gives way to her head, hair and halo instead
+    // (cut back to one side of her head, or hidden)
     onLayout: (at) => {
       if (decor) hangLobbyLanterns(decor, at);
     },
@@ -169,13 +170,15 @@ export function render(root) {
     const bg = lobbyBackgroundFor(p, id);
     if (id === currentSec && bg.id === currentBg && !direction) return;
     const sameGirl = id === currentSec;
+    // back from a full illustration (which has no speech bubble) to her stand: she greets you again
+    const backToStand = sameGirl && !showsBubble(LOBBY_BG_MAP[currentBg]) && showsBubble(bg);
     currentSec = id;
     currentBg = bg.id;
     const u = getUnit(id);
     stage.hideBubble();
     await stage.show(u, { direction, background: bg });
     if (currentSec !== id) return;
-    if (sameGirl && !direction) return; // a new background for the same girl: no greeting again
+    if (sameGirl && !direction && !backToStand) return; // another backdrop for the same girl: no greeting again
     lineIndex = 0;
     setTimeout(() => stage.say(lines()[0]), direction ? 120 : 650);
     if (direction) flashName(u);

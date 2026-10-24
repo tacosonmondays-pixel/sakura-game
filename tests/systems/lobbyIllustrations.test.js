@@ -18,7 +18,7 @@ import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BG_CATEGORIES, BACKDROP, categoryOf, lobbyBackgrounds, lobbyBackgroundGroups, lobbyBackgroundFor,
   defaultBackgroundFor, chooseBackground, stageModeOf, showsBubble, stageArtUrls, bgArtUrl,
 } from '../../src/data/lobbyArt.js';
-import { coverFit, anchorFace, headHit, splitObstacles, hangString, DECOR_HEAD, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
+import { coverFit, anchorFace, headHit, splitObstacles, hangString, standHead, DECOR_HEAD, STAND_HEAD, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 
@@ -446,5 +446,27 @@ describe('full illustrations: an event lantern string over the picture', () => {
     expect(hangString(lb, { x: 380, y: 100 }, 50)).toEqual({ l: 380 + DECOR_HEAD.half * 50 + 8, r: 700, full: false });
     expect(hangString(lb, { x: 450, y: 120 }, 150, { minW: 120 })).toBeNull();
     expect(hangString(lb, { x: 330, y: 100 }, 50, { minW: 300 })).toBeNull();
+  });
+
+  it("her stand: the string gives way to her hair too (her head from the stand picture's box)", () => {
+    expect(standHead(null)).toBeNull();
+    expect(standHead({ l: 0, t: 10, r: 100, b: 10 })).toBeNull();
+    // Marumi's restored stand (432x1000) laid out as meta-a.css does on a 1280x720 lobby: 142% of the -2% frame
+    // tall, centred on its 54% line, its top (her hair) 10% + 8 px down, right under the top bar
+    const frame = frameOf(1280, 720);
+    const hgt = 1.42 * frame.h;
+    const wid = 0.432 * hgt;
+    const cx = frame.x + 0.54 * frame.w;
+    const top = frame.y + 0.1 * frame.h + 8;
+    const at = standHead({ l: cx - wid / 2, t: top, r: cx + wid / 2, b: top + hgt });
+    expect(at.face.x).toBeCloseTo(cx, 6);
+    expect(at.face.y).toBeCloseTo(top + STAND_HEAD.y * hgt, 6);
+    expect(at.r).toBeCloseTo(STAND_HEAD.r * hgt, 6);
+    // v0.1.50 hung the whole string across her hair; now it ends beside her head, with room for a few lanterns
+    const lb = lanternBox('1280x720');
+    const span = hangString(lb, at.face, at.r, { minW: 2.5 * (lb.r - lb.l) / 10 });
+    expect(span.full).toBe(false);
+    expect(span.r <= cx - 0.1 * hgt || span.l >= cx + 0.1 * hgt).toBe(true);
+    expect(span.r - span.l).toBeGreaterThanOrEqual(2.5 * (lb.r - lb.l) / 10);
   });
 });

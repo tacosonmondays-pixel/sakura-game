@@ -106,13 +106,30 @@ export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer
  *  above the hair. */
 export const DECOR_HEAD = Object.freeze({ half: 2.0, up: 1.8, down: 1.0 });
 
+/** Her head on her stand, as fractions of the stand picture's height: the stand is centred on her and its top is the
+ *  top of her hair, so the point between her eyes sits about a tenth of the way down; r is sized so the DECOR_HEAD
+ *  box covers her hair and what sits on it (a ribbon, a hair ornament). */
+export const STAND_HEAD = Object.freeze({ y: 0.1, r: 0.07 });
+
 /**
- * Where a decor string hung under the top bar (an event's lantern string) may hang over a full illustration: never
- * across her head, hair or halo (DECOR_HEAD). The cover crop can only move her face down on a screen wider than the picture,
+ * Her head on her stand (a Backdrop), from the stand picture's box in host px: the same { face, r } that a full
+ * illustration's anchorFace gives, so decor hung over the lobby (hangString) keeps off her hair either way.
+ * @param {{l:number,t:number,r:number,b:number}|null} box
+ * @returns {{ face: {x:number,y:number}, r: number }|null}
+ */
+export function standHead(box) {
+  const h = box ? box.b - box.t : 0;
+  if (!(h > 0)) return null;
+  return { face: { x: (box.l + box.r) / 2, y: box.t + STAND_HEAD.y * h }, r: STAND_HEAD.r * h };
+}
+
+/**
+ * Where a decor string hung under the top bar (an event's lantern string) may hang over a full illustration or her
+ * stand: never across her head, hair or halo (DECOR_HEAD). The cover crop can only move her face down on a screen wider than the picture,
  * so on most screens the string has to give way instead: it keeps its whole length when it misses her head, else the
  * longer stretch from one of its own ends up to the side of her head; null (hide it) when neither stretch is minW px.
  * @param {{l:number,t:number,r:number,b:number}} box the string's own box (host px)
- * @param {{x:number,y:number}} face her face point from anchorFace (host px)
+ * @param {{x:number,y:number}} face her face point from anchorFace or standHead (host px)
  * @param {number} r her head radius (px)
  * @param {{ minW?: number }} [o]
  * @returns {{ l: number, r: number, full: boolean }|null} the stretch to draw, in host px
