@@ -1135,6 +1135,11 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .lb-br .lb-assault { margin-bottom: 0; }
 /* (it stands on the dock's icons, never over Mall's and Recruit's) */
 .lb-br-side { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 24px; }
+/* only its buttons take taps: the cluster's box is taller than Campaign and wider than Total Assault, and its empty
+   corners stood over the › chevron and the carousel dots on landscape phones (the hubs review: at 844x390 the next
+   secretary arrow did nothing). Campaign's "Next" tag is a label: its overhang above the folder takes no taps either. */
+.lb-hud > .lb-br, .lb-br-side, .lb-campaign > .lb-camp-next { pointer-events: none; }
+.lb:not(.ui-hidden) .lb-br > button, .lb:not(.ui-hidden) .lb-br-side > button { pointer-events: auto; }
 .lb-mp { position: relative; display: flex; flex-direction: column; align-items: center; width: 132px; padding: 0; border: 0; background: transparent; cursor: pointer; transition: transform var(--t-press) var(--ease); }
 .lb-mp:active { transform: scale(0.95); }
 /* Momo + Sango (their small stands, cropped to the head and shoulders over the plate) */

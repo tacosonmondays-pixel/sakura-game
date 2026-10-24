@@ -9,8 +9,14 @@
 //   - the picker shows a thumbnail per entry, grouped under "Backdrops" and "Full illustrations", picking one there
 //     changes the lobby, and the choice survives a reload;
 //   - the event's lantern string never hangs over her head (dev clock pinned inside the Halloween window), and one
-//     more pass checks the lobby after the event; Reduce motion / Low graphics hold a full illustration still.
-// Usage: node e2e/lobby-illustrations.mjs [--shots dir] [--sizes 844x390,1280x720] [--port 5204] [--gpu]
+//     more pass checks the lobby after the event; Reduce motion / Low graphics hold a full illustration still;
+//   - every lobby control takes a tap at its centre (nothing stands over it), the ‹ › chevrons in their lower half
+//     too, and a real tap there changes the secretary (the UI M5 hubs review: the bottom-right cluster's box stood
+//     over the › chevron and the carousel dots on landscape phones while every box-size check passed).
+// Usage: node e2e/lobby-illustrations.mjs [--shots dir] [--sizes 844x390,1280x720] [--tap-sizes 915x412,740x360]
+//          [--port 5204] [--gpu]
+//   --tap-sizes: more sizes for the lobby controls check alone (default 915x412 and 740x360 when --sizes is not given;
+//     --sizes none runs only those, the after-event pass and the still checks)
 //   --gpu: the system Chrome with GPU rasterising (Windows desktop); without it e2e/browser.mjs picks the browser.
 // Playwright / the browser are found by e2e/browser.mjs (PLAYWRIGHT_MODULE / NODE_PATH, CHROME_PATH).
 import { createServer } from 'vite';
@@ -21,7 +27,10 @@ const args = process.argv.slice(2);
 const opt = (n, d) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
 const SHOTS = opt('shots', null);
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
-const SIZES = opt('sizes', '844x390,1280x720,667x375,932x430,1024x768,1180x820,390x844').split(',');
+const isSize = (s) => /^\d+x\d+$/.test(s);
+// (--sizes none: the controls check at --tap-sizes, the after-event pass and the still checks only)
+const SIZES = opt('sizes', '844x390,1280x720,667x375,932x430,1024x768,1180x820,390x844').split(',').filter(isSize);
+const TAP_SIZES = opt('tap-sizes', args.includes('--sizes') ? '' : '915x412,740x360').split(',').filter((s) => isSize(s) && !SIZES.includes(s));
 const PORT = Number(opt('port', '0'));
 const DEFAULT_GIRLS = ['marumi', 'rei', 'hikari'];
 const HEAD_PAT = /halo is not a button|one more pat|what are you doing|keep patting/i;
@@ -42,7 +51,7 @@ if (args.includes('--gpu')) {
 console.log(`browser: ${label}`);
 const fails = [];
 let oks = 0;
-const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (c) oks += 1; else fails.push(m); };
+const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (c) oks += 1; else fails.push(m); return c; };
 const hits = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
 const settle = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 120)))));
 const shot = async (page, name) => {
@@ -162,16 +171,72 @@ async function openPicker(page) {
 }
 
 /**
- * One screen size.
- * @param {string} size 'WxH'
- * @param {{ now: string, full?: boolean }} o now = the event dev clock; full = every check (else a short pass)
+ * Every lobby control takes a tap at its centre: elementFromPoint there is the control or inside it (a box drawn over
+ * it, even an empty one, would take the tap). The ‹ › chevrons are tried at their centre and in their lower half too
+ * (the review found the cluster box over the › chevron's lower third at 915x412 with its centre clear), and a real tap
+ * on each of those points changes the secretary.
+ * The one cover allowed is older than UI M5 and live in v0.1.51: below 760 px wide in landscape (667x375, 740x360) the
+ * event carousel is drawn over the › chevron and Campaign's folder reaches its lower end. Only those two may cover the
+ * › chevron, and only there.
  */
-async function sizePass(size, { now, full = true }) {
-  const [W, H] = size.split('x').map(Number);
+async function controlsPass(page, tag, W, H, touch) {
+  await page.evaluate(() => document.querySelectorAll('.toast, .jn-toast, .ach-toast, .modal-overlay').forEach((n) => n.remove()));
+  await settle(page);
+  const known = W > H && W < 760;
+  const res = await page.evaluate(() => {
+    const nm = (e) => (e ? `${e.tagName.toLowerCase()}${e.dataset?.testid ? `[${e.dataset.testid}]` : `.${String(e.className?.baseVal ?? e.className).split(' ').filter(Boolean).slice(0, 2).join('.')}`}` : 'nothing');
+    const hud = document.querySelector('.lb-hud');
+    const out = [];
+    for (const n of hud.querySelectorAll('button, [role="button"], a[href]')) {
+      if (!n.offsetParent || getComputedStyle(n).visibility === 'hidden') continue;
+      const r = n.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      const id = n.dataset.testid || '';
+      const pts = [['centre', 0]];
+      if (id === 'secretary-prev' || id === 'secretary-next') pts.push(['lower half', 0.3]);
+      for (const [part, dy] of pts) {
+        const x = Math.round(r.left + r.width / 2);
+        const y = Math.round(r.top + r.height / 2 + dy * r.height);
+        if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+        // (a carousel slide out of its window: its centre is clipped away, not covered)
+        let clipped = false;
+        for (let a = n.parentElement; a && a !== hud && !clipped; a = a.parentElement) {
+          const cs = getComputedStyle(a);
+          if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+          const ar = a.getBoundingClientRect();
+          clipped = x < ar.left || x > ar.right || y < ar.top || y > ar.bottom;
+        }
+        if (clipped) continue;
+        const t = document.elementFromPoint(x, y);
+        out.push({ name: `${nm(n)}${part === 'centre' ? '' : ` (${part})`}`, id, part, x, y, own: !!t && (t === n || n.contains(t)), by: nm(t), old: !!t?.closest('.lb-carousel, .lb-campaign') });
+      }
+    }
+    return out;
+  });
+  const allowed = res.filter((c) => !c.own && known && c.id === 'secretary-next' && c.old);
+  const covered = res.filter((c) => !c.own && !allowed.includes(c));
+  check(res.length >= 15 && !covered.length, `${tag}: ${covered.length ? `${covered.length} of ${res.length} points covered` : `all ${res.length - allowed.length} points take a tap`} (every lobby control's centre, and the chevrons' lower half)${allowed.length ? `; the › chevron aside, as in live v0.1.51: ${allowed.map((c) => `${c.part} under ${c.by}`).join(', ')}` : ''}${covered.length ? `: ${covered.map((c) => `${c.name} under ${c.by}`).join(' | ')}` : ''}`);
+  // a real tap on each of the chevrons' points changes the secretary
+  for (const c of res.filter((x) => (x.id === 'secretary-prev' || x.id === 'secretary-next') && !allowed.includes(x))) {
+    const was = await page.evaluate(() => window.__sakura.store.profile.secretary);
+    if (touch) await page.touchscreen.tap(c.x, c.y);
+    else await page.mouse.click(c.x, c.y);
+    const now = await page.waitForFunction((w) => window.__sakura.store.profile.secretary !== w && window.__sakura.store.profile.secretary, was, { timeout: 3000 })
+      .then((h) => h.jsonValue()).catch(() => null);
+    const where = await page.evaluate(() => location.hash);
+    check(!!now && where === '#/lobby', `${tag}: a tap on the ${c.id === 'secretary-next' ? '›' : '‹'} chevron's ${c.part} (${c.x},${c.y}) changes the secretary (${was} → ${now || 'no change'}, ${where})`);
+    if (where !== '#/lobby') {
+      await page.evaluate(() => { location.hash = '#/lobby'; });
+      await page.waitForSelector('[data-testid="lobby"]', { timeout: 20000 });
+    }
+    await page.waitForTimeout(700);
+  }
+  await page.evaluate(() => document.querySelectorAll('.toast, .jn-toast, .modal-overlay').forEach((n) => n.remove()));
+}
+
+/** Opens the lobby at that size with the event dev clock at `now`. */
+async function openLobby(W, H, now) {
   const touch = Math.min(W, H) < 600;
-  const portrait = H > W;
-  const event = now === DURING_EVENT;
-  const tagSize = event ? size : `${size}-after-event`;
   const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch });
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
@@ -184,6 +249,34 @@ async function sizePass(size, { now, full = true }) {
   await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
   await page.waitForSelector('[data-testid="lobby"]', { timeout: 60000 });
   await page.waitForTimeout(1600); // the entrance slides settle
+  return { page, errs, touch };
+}
+
+/** The lobby controls check alone, at one more size (her default stand, the event on). */
+async function controlsOnly(size) {
+  const [W, H] = size.split('x').map(Number);
+  const { page, errs, touch } = await openLobby(W, H, DURING_EVENT);
+  try {
+    for (const girl of DEFAULT_GIRLS) await secretary(page, girl);
+    await controlsPass(page, `${size} controls`, W, H, touch);
+    await shot(page, `${size}-controls`);
+  } finally {
+    check(!errs.length, `${size} controls: no page errors${errs.length ? `: ${errs.join(' | ')}` : ''}`);
+    await page.close();
+  }
+}
+
+/**
+ * One screen size.
+ * @param {string} size 'WxH'
+ * @param {{ now: string, full?: boolean }} o now = the event dev clock; full = every check (else a short pass)
+ */
+async function sizePass(size, { now, full = true }) {
+  const [W, H] = size.split('x').map(Number);
+  const portrait = H > W;
+  const event = now === DURING_EVENT;
+  const tagSize = event ? size : `${size}-after-event`;
+  const { page, errs, touch } = await openLobby(W, H, now);
   check(event === !!(await page.$('[data-testid="event-decor"]')), `${tagSize}: the event's lantern decor is ${event ? 'up' : 'gone'}`);
   const rows = await page.evaluate(async () => (await import('/src/data/lobbyIllustrations.js')).FULL_ILLUSTRATIONS.map((r) => ({ id: r.id, girl: r.girl, tall: !!r.tall, file: r.file })));
 
@@ -205,6 +298,8 @@ async function sizePass(size, { now, full = true }) {
       } else check(/lobby\/academy\.webp/.test(m.backdropSrc) && !m.cls.includes('tint-event'), `${tag}: the academy backdrop after the event (${m.backdropSrc.split('/').pop()})`);
       await shot(page, `${tagSize}-default-${girl}`);
     }
+    // ---- nothing stands over a lobby control; the chevrons change the secretary ----
+    if (full) await controlsPass(page, tagSize, W, H, touch);
 
     // ---- every full illustration: the whole lobby, no stand, no backdrop, no bubble ----
     for (const row of full ? rows : rows.filter((r) => ['marumi-scene', 'yoriko-summer-breeze', 'hikari-rampart'].includes(r.id))) {
@@ -244,10 +339,26 @@ async function sizePass(size, { now, full = true }) {
       const { face } = await measure(page);
       const headHearts = await tap(page, face.x, Math.round(face.y + 0.5 * face.r), touch);
       const afterHead = await measure(page);
-      const bodyHearts = await tap(page, Math.round(face.x), Math.min(H - 70, Math.round(face.y + 3.2 * face.r)), touch);
-      const afterBody = await measure(page);
       check(headHearts >= 3 && !afterHead.bubbleShown && !HEAD_PAT.test(afterHead.bubbleText), `${size} ${id}: a head tap gives ${headHearts} hearts and no bubble`);
-      check(!afterBody.bubbleShown, `${size} ${id}: a body tap gives no bubble (${bodyHearts} heart)`);
+      // her body: low on the picture, on a point the picture itself takes (no menu over it) and outside her head's tap
+      // area (sceneLayout.js headHit: 1.1 r either side, 1 r under her face). A fixed point can land on a menu: at
+      // 667x375 it was the Multiplayer button (the hubs review)
+      const body = await page.evaluate(({ fx, fy, r }) => {
+        const y0 = Math.min(innerHeight - 70, Math.round(fy + 3.2 * r));
+        for (const dx of [0, -40, 40, -80, 80, -120, 120, -160, 160]) {
+          const x = Math.round(fx + dx);
+          if (x < 4 || x > innerWidth - 4) continue;
+          for (let y = y0; y > fy + 1.2 * r && y > 4; y -= 10) {
+            const e = document.elementFromPoint(x, y);
+            if (e?.closest('.lb-art-layer.full:not(.leaving)') && !e.closest('.lb-hud')) return [x, y];
+          }
+        }
+        return null;
+      }, { fx: face.x, fy: face.y, r: face.r });
+      if (!check(!!body, `${size} ${id}: a point on her body that the picture takes, clear of the menus (${body ? body.join(',') : 'none found'})`)) continue;
+      const bodyHearts = await tap(page, body[0], body[1], touch);
+      const afterBody = await measure(page);
+      check(bodyHearts === 1 && !afterBody.bubbleShown, `${size} ${id}: a body tap at ${body.join(',')} gives ${bodyHearts} heart and no bubble`);
     }
     // her stand still talks: a head tap there is a head pat with its line
     await secretary(page, 'rei');
@@ -340,6 +451,8 @@ async function sizePass(size, { now, full = true }) {
 
 try {
   for (const size of SIZES) await sizePass(size, { now: DURING_EVENT });
+  // the lobby controls check at the landscape phones the main sizes leave out
+  for (const size of TAP_SIZES) await controlsOnly(size);
   // the lobby without the event: the same layouts, no lanterns
   await sizePass('844x390', { now: AFTER_EVENT, full: false });
 
