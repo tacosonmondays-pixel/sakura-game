@@ -18,7 +18,7 @@ import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BG_CATEGORIES, BACKDROP, categoryOf, lobbyBackgrounds, lobbyBackgroundGroups, lobbyBackgroundFor,
   defaultBackgroundFor, chooseBackground, stageModeOf, showsBubble, stageArtUrls, bgArtUrl,
 } from '../../src/data/lobbyArt.js';
-import { coverFit, stageFit, anchorFace, headHit, splitObstacles, hangString, DECOR_HEAD, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
+import { coverFit, anchorFace, headHit, splitObstacles, hangString, DECOR_HEAD, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 
@@ -324,7 +324,7 @@ describe('full illustrations: crop and face at every size', () => {
       for (const r of FULL_ILLUSTRATIONS) {
         const art = fullArt(r, { portrait });
         expect(art.variant, r.id).toBe(portrait && r.tall ? 'tall' : 'wide');
-        const fit = anchorFace({ W, H, frame: frameOf(W, H), iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles, headR: art.headR, zoom: art.zoom });
+        const fit = anchorFace({ W, H, frame: frameOf(W, H), iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles, headR: art.headR });
         const tag = `${size} ${r.id} face ${Math.round(fit.face.x)},${Math.round(fit.face.y)} r${Math.round(fit.r)}`;
         const core = { l: fit.face.x - 0.85 * fit.r, r: fit.face.x + 0.85 * fit.r, t: fit.face.y - 0.6 * fit.r, b: fit.face.y + 0.95 * fit.r };
         // her face core (brow to chin) never under a side menu
@@ -370,49 +370,6 @@ describe('full illustrations: crop and face at every size', () => {
     expect(moved.face.x).toBeLessThan(free.face.x);
     expect(moved.face.x + 0.85 * moved.r).toBeLessThanOrEqual(wall.l);
     expect(moved.face.x + 0.85 * moved.r).toBeGreaterThan(wall.l - 20);
-  });
-
-  it('zoom 1 (every picture but Summer Breeze) is the plain cover fit; a zoom never makes the picture shorter than the frame', () => {
-    for (const r of FULL_ILLUSTRATIONS) {
-      expect(r.zoom === undefined || (r.zoom > 0 && r.zoom <= 1), r.id).toBe(true);
-      expect(fullArt(r).zoom, r.id).toBe(r.zoom || 1);
-      if (r.tall) expect(fullArt(r, { portrait: true }).zoom, r.id).toBe(1);
-    }
-    expect(stageFit(1331, 749, 1920, 887, 1)).toEqual(coverFit(1331, 749, 1920, 887));
-    expect(stageFit(1331, 749, 1920, 887)).toEqual(coverFit(1331, 749, 1920, 887));
-    const g = stageFit(1331, 749, 1216, 832, 0.5);
-    expect(g.dh).toBeCloseTo(749, 6); // clamped at the frame's height, not half the cover size
-    expect(g.oy).toBe(0);
-    expect(g.ox).toBeLessThan(0);
-  });
-
-  it('Summer Breeze sits a bit further back (owner: "zoom out yorikos picture a bit"): smaller on a wide screen, whole height, inside the frame', () => {
-    const row = FULL_ILLUSTRATION_MAP['yoriko-summer-breeze'];
-    expect(row.zoom).toBe(0.8);
-    const art = fullArt(row);
-    for (const size of ['844x390', '667x375', '932x430', '1280x720']) {
-      const [W, H] = size.split('x').map(Number);
-      const frame = frameOf(W, H);
-      const base = { W, H, frame, iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles: boxes(size), headR: art.headR };
-      const near = anchorFace(base);
-      const back = anchorFace({ ...base, zoom: art.zoom });
-      expect(back.r, size).toBeLessThan(near.r);
-      expect(back.r, size).toBeGreaterThanOrEqual(0.8 * near.r - 1e-6);
-      expect(back.box.h, size).toBeGreaterThanOrEqual(frame.h - 1e-6);
-      expect(back.box.y, size).toBeLessThanOrEqual(frame.y + 1e-6);
-      expect(back.box.w, size).toBeLessThan(frame.w);
-      expect(back.box.x, size).toBeGreaterThanOrEqual(frame.x - 1e-6);
-      expect(back.box.x + back.box.w, size).toBeLessThanOrEqual(frame.x + frame.w + 1e-6);
-      expect(back.face.x, size).toBeCloseTo(back.box.x + art.fx * back.box.w, 6);
-      expect(back.clear, size).toBe(true);
-    }
-    // where the picture already shows nearly whole (a 4:3 or 1.44:1 tablet) or is cropped by height (a portrait
-    // phone), it stays as it was
-    for (const size of ['1024x768', '1180x820', '390x844']) {
-      const [W, H] = size.split('x').map(Number);
-      const base = { W, H, frame: frameOf(W, H), iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles: boxes(size), headR: art.headR };
-      expect(anchorFace({ ...base, zoom: art.zoom }), size).toEqual(anchorFace(base));
-    }
   });
 
   it('a screen wider than the picture crops top/bottom and keeps her face under the top bar', () => {

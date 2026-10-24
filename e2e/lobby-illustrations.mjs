@@ -111,8 +111,6 @@ const measure = (page) => page.evaluate(() => {
     attrs: img ? [img.getAttribute('width'), img.getAttribute('height')] : null,
     pos: img?.style.objectPosition || '',
     imgBox: img ? box(img) : null,
-    inset: layer.classList.contains('inset'),
-    fillBox: (() => { const n = layer.querySelector('.lb-art-fill'); return n && getComputedStyle(n).display !== 'none' && n.naturalWidth > 0 ? box(n) : null; })(),
     anim: img ? getComputedStyle(img).animationName : '',
     face: host.dataset.face ? { x: fx, y: fy, r: fr } : null,
     bubbleShown: !!bubble && bubble.classList.contains('show') && getComputedStyle(bubble).display !== 'none' && Number(getComputedStyle(bubble).opacity) > 0.05,
@@ -184,7 +182,7 @@ async function sizePass(size, { now, full = true }) {
   await page.waitForSelector('[data-testid="lobby"]', { timeout: 60000 });
   await page.waitForTimeout(1600); // the entrance slides settle
   check(event === !!(await page.$('[data-testid="event-decor"]')), `${tagSize}: the event's lantern decor is ${event ? 'up' : 'gone'}`);
-  const rows = await page.evaluate(async () => (await import('/src/data/lobbyIllustrations.js')).FULL_ILLUSTRATIONS.map((r) => ({ id: r.id, girl: r.girl, tall: !!r.tall, file: r.file, zoom: r.zoom || 1, w: r.w, h: r.h })));
+  const rows = await page.evaluate(async () => (await import('/src/data/lobbyIllustrations.js')).FULL_ILLUSTRATIONS.map((r) => ({ id: r.id, girl: r.girl, tall: !!r.tall, file: r.file })));
 
   try {
     // ---- the default: her stand on the academy backdrop, with her greeting bubble ----
@@ -213,13 +211,7 @@ async function sizePass(size, { now, full = true }) {
       check(m.variant === variant && (variant === 'tall' ? new RegExp(`portraits/${row.girl}-full\\.webp`) : new RegExp(row.file.replace('.', '\\.'))).test(m.src) && m.nat?.[0] > 0,
         `${tag}: ${variant === 'tall' ? 'her 3:4 full art' : 'the wide picture'} (${m.src.split('/').pop()})`);
       check(!m.bubbleShown, `${tag}: no speech bubble`);
-      // a zoomed-out picture (a row's zoom, on a wide screen) is full height, inside the screen across, with its blurred
-      // copy filling the whole screen behind it; every other picture covers the screen itself
-      const inset = !!row.zoom && row.zoom < 1 && W / H > row.w / row.h + 0.05;
-      check(m.inset === inset, `${tag}: ${inset ? 'zoomed out (inset)' : 'cover crop'}`);
-      check(!!m.attrs?.[0] && !!m.attrs?.[1] && !!m.pos && (inset
-        ? m.imgBox.t <= 0 && m.imgBox.b >= H && m.imgBox.l >= -0.03 * W && m.imgBox.r <= 1.03 * W && m.imgBox.r - m.imgBox.l < W && !!m.fillBox && m.fillBox.l <= 0 && m.fillBox.t <= 0 && m.fillBox.r >= W && m.fillBox.b >= H
-        : m.imgBox.l <= 0 && m.imgBox.t <= 0 && m.imgBox.r >= W && m.imgBox.b >= H && !m.fillBox), `${tag}: ${inset ? 'whole height, blurred fill behind it' : 'full bleed'}, size and crop set up front (${m.pos})`);
+      check(!!m.attrs?.[0] && !!m.attrs?.[1] && !!m.pos && m.imgBox.l <= 0 && m.imgBox.t <= 0 && m.imgBox.r >= W && m.imgBox.b >= H, `${tag}: full bleed, size and crop set up front (${m.pos})`);
       check(m.cls2 < 0.01, `${tag}: no layout shift while it loads (${m.cls2.toFixed(4)})`);
       const f = m.face;
       check(!!f && f.x - f.r > 0 && f.x + f.r < W && f.y > 0 && f.y + f.r < H, `${tag}: her face on screen (${f && `${f.x},${f.y} r${f.r}`})`);
