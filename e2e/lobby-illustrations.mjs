@@ -105,6 +105,8 @@ const measure = (page) => page.evaluate(() => {
     cls: layer.className,
     variant: layer.dataset.variant || null,
     backdrop: !!layer.querySelector('.lb-art-bg'),
+    backdropSrc: layer.querySelector('.lb-art-bg')?.currentSrc || layer.querySelector('.lb-art-bg')?.src || '',
+    pumpkinsShown: [...document.querySelectorAll('.lb-ev-pumpkin')].some((n) => getComputedStyle(n).visibility !== 'hidden'),
     stand: !!layer.querySelector('.lb-art-girl'),
     src: img?.currentSrc || img?.src || '',
     nat: img ? [img.naturalWidth, img.naturalHeight] : null,
@@ -194,10 +196,12 @@ async function sizePass(size, { now, full = true }) {
       check(new RegExp(`portraits/${girl}-cut\\.webp`).test(m.src) && m.nat?.[0] > 0, `${tag}: her stand file (${m.src.split('/').pop()} ${m.nat?.join('x')})`);
       check(m.bubbleShown && m.bubbleText.length > 3, `${tag}: her greeting bubble ("${m.bubbleText.slice(0, 40)}")`);
       if (girl === 'marumi') check(m.nat && Math.abs(m.nat[0] / m.nat[1] - 0.432) < 0.004, `${tag}: the restored full-body stand (${m.nat?.join('x')}, aspect 0.432)`);
+      // during Halloween her stand stands in the event's painted backdrop (a spooky tree with lanterns, pumpkins), with no
+      // tint over it and no overlay lanterns or pumpkins across her; after it, the academy again
       if (event) {
-        const L = m.lanterns;
-        check(!!L?.shown && L.items.length === 9, `${tag}: the whole lantern string (${L?.items.length} lanterns)`);
-      }
+        check(/lobby\/halloween\.webp/.test(m.backdropSrc) && m.cls.includes('tint-event') && !m.lanterns?.shown && !m.pumpkinsShown,
+          `${tag}: the Halloween backdrop, no overlay lanterns or pumpkins over her (${m.backdropSrc.split('/').pop()})`);
+      } else check(/lobby\/academy\.webp/.test(m.backdropSrc) && !m.cls.includes('tint-event'), `${tag}: the academy backdrop after the event (${m.backdropSrc.split('/').pop()})`);
       await shot(page, `${tagSize}-default-${girl}`);
     }
 
@@ -298,6 +302,16 @@ async function sizePass(size, { now, full = true }) {
         await page.waitForTimeout(1800);
         const r = await measure(page);
         check(r.bg === 'marumi-scene' && r.cls.includes('full') && !r.bubbleShown, `${tag}: after a reload the lobby is still "Strike Lane" (${r.bg}), with no bubble`);
+        // back to her backdrop in the picker: her stand returns and greets you again (the full illustration had no bubble)
+        await openPicker(page);
+        await page.locator('[data-testid="bgp-marumi-day"]').click();
+        await page.waitForTimeout(250);
+        await page.locator('[data-testid="bgp-done"]').click({ force: true });
+        await page.waitForFunction(() => document.querySelectorAll('.lb-art-layer').length === 1 && document.querySelector('.lb-art-layer').dataset.bg === 'marumi-day', null, { timeout: 15000 });
+        await page.waitForTimeout(1200);
+        const home = await measure(page);
+        check(home.cls.includes('stand') && home.stand && home.bubbleShown && home.bubbleText.length > 3, `${tag}: back to her backdrop, her stand greets you again ("${home.bubbleText.slice(0, 40)}")`);
+        await shot(page, `${size}-default-marumi-after-picker`);
       }
       await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((n) => n.remove()));
     }
