@@ -22,8 +22,12 @@ export const HOSTS = Object.freeze({
   multiplayer: 'momo', // owner #108
 });
 
-/** The newest academy girls still wear coming-soon art (src/art/portraits.js): never hosts until it is drawn. */
-export const PLACEHOLDER_ART = Object.freeze(new Set(['azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'chigusa', 'marumi']));
+/**
+ * Girls whose art is still coming-soon art (src/art/portraits.js): never hosts until it is drawn. Empty today: since
+ * v0.1.47 the seven academy girls (Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi) have their real portraits and
+ * their clean full-body stands, so they host like everyone else. A future girl who ships before her art goes here.
+ */
+export const PLACEHOLDER_ART = Object.freeze(new Set([]));
 
 /** A student in uniform with finished art. */
 export function canHost(unitOrId) {
