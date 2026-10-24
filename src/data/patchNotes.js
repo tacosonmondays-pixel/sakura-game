@@ -20,6 +20,12 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.50', version: '0.1.50', date: '2026-10-24', title: 'Close-Up Again',
+    changed: [
+      'Yoriko’s "Summer Breeze" lobby picture is back to its original, closer framing.',
+    ],
+  },
+  {
     id: 'v0.1.49', version: '0.1.49', date: '2026-10-23', title: 'Room to Breathe',
     changed: [
       'Yoriko’s "Summer Breeze" lobby picture sits a little further back, so more of the picture shows.',
