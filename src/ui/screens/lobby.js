@@ -21,7 +21,7 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyCard, eventLobbyDecor, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyCard, eventLobbyDecor, hangLobbyLanterns, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -117,9 +117,10 @@ export function render(root) {
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
+  let decor = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
-    const decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
+    decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
     if (decor) el.insertBefore(decor, nameplate);
   } catch (e) {
     console.warn('[lobby] event decor failed', e);
@@ -132,6 +133,24 @@ export function render(root) {
   const lines = () => secretaryLines(store.profile);
   const stage = createArtStage(stageHost, {
     reduceMotion,
+    lowGfx: profile0.settings?.quality === 'low',
+    // a full illustration keeps her face clear of these menus (layout boxes, so the entrance slides do not move them;
+    // hidden ones are skipped). Bars (the top bar, the dock, an event's lantern string) only limit her face up or
+    // down. (A full illustration has no speech bubble: stage.say() does nothing over one.)
+    obstacles: () => {
+      const box = (n, bar = false) => ({ l: n.offsetLeft, t: n.offsetTop, r: n.offsetLeft + n.offsetWidth, b: n.offsetTop + n.offsetHeight, bar });
+      const list = [top, shortcuts, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
+        .filter((n) => n.offsetParent === hud && n.offsetWidth && n.offsetHeight)
+        .map((n) => box(n, n === top || n === dock));
+      const lanterns = el.querySelector('.lb-ev-lanterns');
+      if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
+      return list;
+    },
+    // [events] a full illustration's crop can move her face down only on a screen wider than the picture, so the
+    // lantern string gives way to her head, hair and halo instead (cut back to one side of her head, or hidden)
+    onLayout: (at) => {
+      if (decor) hangLobbyLanterns(decor, at);
+    },
     onTap: (part, at) => {
       stage.react(part, at);
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);

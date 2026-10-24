@@ -20,6 +20,16 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Fill the Frame',
+    added: [
+      'The lobby background picker has a new group, Full illustrations. Pick one and her picture fills the whole lobby, with no castle backdrop or speech bubble in the way.',
+      'The first full illustrations: Yoriko’s "Summer Breeze" and the scenes of Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi. Hikari’s, Aoi’s and Sango’s scenes are there too now.',
+    ],
+    changed: [
+      'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi stand on the castle backdrop in their classic full-body poses again.',
+    ],
+  },
+  {
     id: 'v0.1.47', version: '0.1.47', date: '2026-10-23', title: 'Picture Day',
     changed: [
       'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi have new portraits, each in her own club scene and her own pose. See them on their pages, in Students, Formation, Recruit, battle, Story and the lobby.',

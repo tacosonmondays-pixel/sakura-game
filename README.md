@@ -67,8 +67,12 @@ the home screen as an app.
   session on a cold start, and it hands off to the lobby without a blink.
 - **Drawn lobby (memorial-lobby style):** your secretary is a full-screen illustration that
   breathes and reacts to taps, not a 3D model in an SVG room.
-- **Lobby backgrounds:** every background belongs to one girl and picking it makes her the secretary:
-  her painted scene (Hikari, Aoi, Sango), or her stand over the academy by day, at sunset or by night.
+- **Lobby backgrounds:** every background belongs to one girl and picking it makes her the secretary.
+  The picker has two groups. **Backdrops:** her stand over the academy by day, at sunset or by night,
+  with her speech bubble (by day is every girl's default). **Full illustrations:** a picture that fills
+  the whole lobby, with no stand and no bubble, her face kept clear of the menus (one table,
+  `src/data/lobbyIllustrations.js`: the seven academy girls' scenes, Hikari's, Aoi's and Sango's
+  scenes, and Yoriko's Summer Breeze so far).
   Each girl also has two bond memories (café date, festival night, sunset walk, study session…). They
   are shown locked until the coming City dates and gifts raise her bond to 5 and 10.
 - **Missions hub and events:** the painted academy behind the panels, drawn tiles with name plates and
