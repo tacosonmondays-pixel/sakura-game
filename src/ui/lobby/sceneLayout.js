@@ -25,6 +25,19 @@ export function coverFit(fw, fh, iw, ih) {
   return { s, dw, dh, ox: Math.max(0, dw - fw), oy: Math.max(0, dh - fh) };
 }
 
+/**
+ * The picture's size in the frame: a cover fit, or (zoom under 1, a row's `zoom`) that much smaller but never shorter
+ * than the frame, so only its sides can open up. Same fields as coverFit; a negative ox is the room left beside it.
+ */
+export function stageFit(fw, fh, iw, ih, zoom = 1) {
+  const cover = coverFit(fw, fh, iw, ih);
+  const s = Math.max(cover.s * Math.min(1, zoom > 0 ? zoom : 1), fh / ih);
+  if (s >= cover.s) return cover;
+  const dw = iw * s;
+  const dh = ih * s;
+  return { s, dw, dh, ox: dw - fw, oy: Math.max(0, dh - fh) };
+}
+
 /** Splits the menu boxes into bars (full-width strips) and blocks; returns the free band between the top and bottom bars. */
 export function splitObstacles(obstacles, W, H) {
   const bars = [];
@@ -63,14 +76,17 @@ export function freeBand(blocks, y0, y1, W) {
  * Crops her picture (object-fit: cover) so her face sits where the scene was designed to put it (on a portrait screen:
  * across the middle of the screen), moved only as far as needed to keep her face clear of the side menus and below
  * the top bar. The crop moves her face down only as far as the picture overflows top/bottom: on a screen with the
- * picture's own aspect it cannot move at all.
+ * picture's own aspect it cannot move at all. A zoomed-out picture (stageFit) narrower than the frame slides across
+ * the open room the same way (from flush left to flush right) instead of being cropped.
  * @param {{ W: number, H: number, frame: {x:number,y:number,w:number,h:number}, iw: number, ih: number, fx: number, fy: number,
- *   obstacles?: object[], prefer?: number[], headR?: number }} o
- * @returns {{ posX: number, posY: number, face: {x:number,y:number}, r: number, fit: object, clear: boolean }}
- *   posX / posY in % (object-position), face in host px, r = her head radius in px, clear = her face core misses every menu box
+ *   obstacles?: object[], prefer?: number[], headR?: number, zoom?: number }} o
+ * @returns {{ posX: number, posY: number, face: {x:number,y:number}, r: number, fit: object, clear: boolean,
+ *   box: {x:number,y:number,w:number,h:number} }}
+ *   posX / posY in % (object-position), face in host px, r = her head radius in px, clear = her face core misses every
+ *   menu box, box = where the whole picture lands in host px
  */
-export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer = PREFER_POS, headR = 0.12 }) {
-  const fit = coverFit(frame.w, frame.h, iw, ih);
+export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer = PREFER_POS, headR = 0.12, zoom = 1 }) {
+  const fit = stageFit(frame.w, frame.h, iw, ih, zoom);
   const r = headR * fit.dh;
   const { blocks, top } = splitObstacles(obstacles, W, H);
   const faceX = (p) => frame.x - fit.ox * p + fx * fit.dw;
@@ -83,9 +99,10 @@ export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer
   }
   const y = faceY(q);
   // horizontal: the designed crop (her face across the middle on a portrait screen, where the picture is cropped
-  // hard), then the nearest spot whose face core is clear of the side menus
+  // hard), then the nearest spot whose face core is clear of the side menus (a negative ox, a zoomed-out picture: the
+  // same p slides it across the room beside it)
   let p = prefer[0];
-  if (fit.ox > 0.5) {
+  if (Math.abs(fit.ox) > 0.5) {
     const { L, R } = freeBand(blocks, y - CORE.up * r, y + CORE.down * r, W);
     const half = CORE.half * r + MARGIN;
     const lo = Math.max(L + half, half);
@@ -97,7 +114,8 @@ export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles = [], prefer
   const face = { x: faceX(p), y };
   const core = { l: face.x - CORE.half * r, r: face.x + CORE.half * r, t: face.y - CORE.up * r, b: face.y + CORE.down * r };
   const clear = core.t >= top && blocks.every((o) => !(o.l < core.r && o.r > core.l && o.t < core.b && o.b > core.t));
-  return { posX: p * 100, posY: q * 100, face, r, fit, clear };
+  const box = { x: frame.x - fit.ox * p, y: frame.y - fit.oy * q, w: fit.dw, h: fit.dh };
+  return { posX: p * 100, posY: q * 100, face, r, fit, clear, box };
 }
 
 /** Her head with her hair and what sits on it (a cap, a hat, a halo) around her face point, in head radii: what decor

@@ -1581,6 +1581,11 @@ html[data-reduce-motion] .lb-shafts, html[data-reduce-motion] .lb-motes { displa
 html[data-reduce-motion] .lb-art-layer.full .lb-art-full { animation: none; }
 @media (prefers-reduced-motion: reduce) { .lb-art-layer.full .lb-art-full { animation: none; } }
 .lb-art-host.lb-illustration .lb-bubble { display: none; }
+/* .inset = a zoomed-out picture (a row's `zoom`), narrower than the screen: artStage.js gives it its own box and fades
+   its open sides into a soft blur of its own thumb behind it (static, so the blur is drawn once) */
+.lb-art-fill { display: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(14px) saturate(1.05) brightness(0.96); transform: scale(1.12); user-select: none; pointer-events: none; }
+.lb-art-layer.full.inset .lb-art-fill { display: block; }
+.lb-art-layer.full.inset .lb-art-full { right: auto; bottom: auto; }
 
 /* a modal over the lobby: pause the lobby's ambient motion (breathing art, petals, motes). The
    overlay's backdrop blur would otherwise re-render the whole animated lobby every frame —
