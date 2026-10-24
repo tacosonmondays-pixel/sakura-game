@@ -593,6 +593,17 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .pf-slot .ft .stars { order: -1; flex-basis: 100%; line-height: 1; letter-spacing: -2px; margin-right: 0; }
 }
 
+/* A tablet in landscape (1024x768, 1180x820: eight showcase cards of 68-76 px a row beside the stand): a card's stars
+   take their own line over "Lv." as on the upright phone (the stars ran 7-27 px past the card), and "Pick an online
+   name to share your profile" wraps in its column (at 1024 it ran 104 px on under the stat cards). Found by ui-shots at
+   the tablet sizes the UI M5 final review added */
+@media (min-width: 701px) and (max-width: 1279px) and (min-height: 481px) {
+  .pf-pick-name { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; border-radius: 12px; }
+  .pf-slot .nm { bottom: 36px; }
+  .pf-slot .ft { flex-wrap: wrap; row-gap: 1px; }
+  .pf-slot .ft .stars { order: -1; flex-basis: 100%; line-height: 1; letter-spacing: -2px; margin-right: 0; }
+}
+
 /* ---------- Reduce Motion: the UR ring, sweeps, petals and glints stand still ---------- */
 html[data-reduce-motion] .pf .ur-ring::before, html[data-reduce-motion] .pf .ur-sparkles i, html[data-reduce-motion] .pf-petal,
 html[data-reduce-motion] .pf-slot.is-ur::after, html[data-reduce-motion] .pf .ur-text,
