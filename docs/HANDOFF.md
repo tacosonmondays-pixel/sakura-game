@@ -113,6 +113,11 @@ After the big update, roughly in order:
 - **Determinism:** the battle sim is lockstep co-op. Any sim change changes the sim id (§7) and needs a `COOP_PROTOCOL` bump; display-only releases keep both.
 - **Git:** no force pushes or history rewrites.
 - **Review gate (owner rule, Oct 22):** before any change (code, art and the specs that drive code) counts as done, it needs an explicit OK from a reviewer agent that did not build it. Every fix is re-reviewed by a fresh reviewer until it is OK; after three failed rounds, stop and report "not approved", never pass it silently. Every ship needs an independent go/no-go agent's GO before the push, then a live check by an agent that did not ship it. Visual reviews zoom into panel edges and corners. Never hand a fixer a truncated review: pass the whole text or its file.
+  - **Fast lane (owner rule, Oct 24)** for small display-only tweaks: a zoom, crop, colour, copy or spacing fix, with no new feature and no sim, data or save change.
+    - **Review:** ONE independent reviewer covers look and logic, using targeted tests plus screenshots at 844x390 and 1280x720.
+    - **Tests:** the full test suite runs once, at the go/no-go. The shipper doesn't rerun it when only docs changed after the go/no-go.
+    - **Live check:** a quick one, version.json plus one screenshot of the changed screen.
+    - The reviewer and the go/no-go are still separate agents. Everything else keeps the full gate.
 
 ## 7. Shipping a release
 
