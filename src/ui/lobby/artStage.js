@@ -13,8 +13,7 @@
 //   full   Full illustrations (src/data/lobbyIllustrations.js): the picture IS the whole lobby, full bleed, with no
 //          stand, no academy behind it and NO speech bubble (owner: "you dont need the speech bubbles for these full
 //          illustration ones"). The crop is anchored on her face so it stays clear of the menus (sceneLayout.js),
-//          and head pats (hearts only) use her real face; a `tall` row shows her 3:4 full art on a portrait screen;
-//          a `zoom` row sits further back, with a soft blur of itself beside it on a wide screen.
+//          and head pats (hearts only) use her real face; a `tall` row shows her 3:4 full art on a portrait screen.
 // Every girl has drawn art (src/art/portraits.js); the SVG card stays only as a fallback for unknown ids.
 import { h } from '../dom.js';
 import { cardArtSVG } from '../../art/cardArt.js';
@@ -80,25 +79,10 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       f.layer.dataset.variant = art.variant;
     }
     const fr = { x: frame.offsetLeft, y: frame.offsetTop, w: frame.clientWidth || W, h: frame.clientHeight || H };
-    const fit = anchorFace({ W, H, frame: fr, iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles: hudBoxes(), headR: art.headR, zoom: art.zoom });
-    const st = f.img.style;
+    const fit = anchorFace({ W, H, frame: fr, iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles: hudBoxes(), headR: art.headR });
+    f.img.style.objectPosition = `${fit.posX.toFixed(2)}% ${fit.posY.toFixed(2)}%`;
     const fpx = ((fit.face.x - fr.x) / fr.w) * 100;
-    // zoomed out (a row's `zoom`): the picture is narrower than the frame, so it gets its own box and its open sides
-    // fade into the blurred copy behind it (.lb-art-fill); otherwise it covers the frame, cropped by object-position
-    const inset = fit.box.w < fr.w - 0.5;
-    f.layer.classList.toggle('inset', inset);
-    if (inset) {
-      const left = fit.box.x - fr.x;
-      const right = fr.w - left - fit.box.w;
-      Object.assign(st, { left: `${left.toFixed(1)}px`, top: `${(fit.box.y - fr.y).toFixed(1)}px`, width: `${fit.box.w.toFixed(1)}px`, height: `${fit.box.h.toFixed(1)}px`, objectPosition: '50% 50%' });
-      const mask = `linear-gradient(to right, ${left > 0.5 ? 'transparent 0, #000 7%' : '#000 0'}, ${right > 0.5 ? '#000 93%, transparent 100%' : '#000 100%'})`;
-      st.webkitMaskImage = st.maskImage = mask;
-      st.transformOrigin = `${(((fit.face.x - fit.box.x) / fit.box.w) * 100).toFixed(1)}% 100%`;
-    } else {
-      Object.assign(st, { left: '', top: '', width: '', height: '', objectPosition: `${fit.posX.toFixed(2)}% ${fit.posY.toFixed(2)}%` });
-      st.webkitMaskImage = st.maskImage = '';
-      st.transformOrigin = `${fpx.toFixed(1)}% 100%`;
-    }
+    f.img.style.transformOrigin = `${fpx.toFixed(1)}% 100%`;
     f.fit = { ...fit, frame: fr, W, H };
     face = [fpx, ((fit.face.y - fr.y) / fr.h) * 100];
     host.dataset.face = `${Math.round(fit.face.x)},${Math.round(fit.face.y)},${Math.round(fit.r)}`;
@@ -114,8 +98,6 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
       layer.dataset.variant = art.variant;
       // the box is reserved (full bleed, intrinsic size known) and the crop set before the file arrives: no shift on load
       const img = h('img.lb-art-full', { src: art.src, width: art.w, height: art.h, alt: bg.name || u.name, draggable: false, decoding: 'async' });
-      // a zoomed-out picture: its small thumb, blurred, fills the room beside it (shown only while it is inset)
-      if (fullArt(bg.id).zoom < 1) layer.append(h('img.lb-art-fill', { src: bgArtUrl(bg, 'thumb'), alt: '', 'aria-hidden': 'true', draggable: false, decoding: 'async' }));
       layer.append(img);
       return { layer, full: { layer, img, id: bg.id, art, fit: null } };
     }
