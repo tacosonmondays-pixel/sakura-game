@@ -23,9 +23,6 @@
 //   headR     her head's half-width as a share of the picture's height (default HEAD_R)
 //   tall      true: a portrait screen shows her 3:4 <id>-full.webp instead (that art is the picture's own middle at
 //             1:1, so her head keeps its size); otherwise the wide picture is cropped on her face there too
-//   zoom      under 1: the wide picture sits that much further back than a cover crop, but never shorter than the
-//             screen, so only its sides can open up; they show a soft blur of the same picture (sceneLayout.js
-//             stageFit, artStage.js). Default 1 (cover).
 // Plain data + pure helpers (no DOM).
 import { artUrl, portraitUrl, portraitFace, PORTRAIT_KINDS } from '../art/portraits.js';
 
@@ -37,9 +34,8 @@ export const FULL_ILLUSTRATIONS = Object.freeze([
   { id: 'hikari-rampart', girl: 'hikari', title: 'Rampart at Dawn', desc: 'Her sword raised over the academy walls.', file: 'lobby/hikari.webp', thumb: 'lobby/thumbs/hikari.webp', w: 1376, h: 768, faceX: 0.655, faceY: 0.185, headR: 0.094 },
   { id: 'aoi-archery', girl: 'aoi', title: 'Archery Range', desc: 'Morning practice among the training targets.', file: 'lobby/aoi.webp', thumb: 'lobby/thumbs/aoi.webp', w: 1376, h: 768, faceX: 0.568, faceY: 0.219, headR: 0.07 },
   { id: 'sango-harbour', girl: 'sango', title: 'Harbour Festival', desc: 'Waving from the pier as the ships come in.', file: 'lobby/sango.webp', thumb: 'lobby/thumbs/sango.webp', w: 1376, h: 768, faceX: 0.523, faceY: 0.238, headR: 0.1 },
-  // the owner's own picture, as is (byte copy; notes make_full_illustrations.py), a bit further back (owner, Oct 24:
-  // "can you zoom out yorikos picture a bit? I feel like shes too close")
-  { id: 'yoriko-summer-breeze', girl: 'yoriko', title: 'Summer Breeze', desc: 'A warm wind and a blue summer sky.', file: 'scenes/yoriko-summer-breeze.webp', thumb: 'scenes/thumbs/yoriko-summer-breeze.webp', w: 1216, h: 832, faceX: 0.641, faceY: 0.282, headR: 0.105, zoom: 0.8 },
+  // the owner's own picture, as is (byte copy; notes make_full_illustrations.py)
+  { id: 'yoriko-summer-breeze', girl: 'yoriko', title: 'Summer Breeze', desc: 'A warm wind and a blue summer sky.', file: 'scenes/yoriko-summer-breeze.webp', thumb: 'scenes/thumbs/yoriko-summer-breeze.webp', w: 1216, h: 832, faceX: 0.641, faceY: 0.282, headR: 0.105 },
   // the seven academy girls' wide scenes (public/art/scenes/, about 2.16:1, webp q90 like the portraits; notes make_assets.py)
   { id: 'azami-scene', girl: 'azami', title: 'Gate Duty', desc: 'Morning checkpoint at the academy gate under the cherry trees.', file: 'scenes/azami-scene.webp', thumb: 'scenes/thumbs/azami-scene.webp', w: 1920, h: 889, faceX: 0.6103, faceY: 0.2953, tall: true },
   { id: 'chigusa-scene', girl: 'chigusa', title: 'Greenhouse Morning', desc: 'Watering the seedlings in the academy greenhouse.', file: 'scenes/chigusa-scene.webp', thumb: 'scenes/thumbs/chigusa-scene.webp', w: 1920, h: 887, faceX: 0.6029, faceY: 0.3398, tall: true },
@@ -65,11 +61,10 @@ export function illustrationUrl(row, key = 'file') {
 
 /**
  * What the lobby draws for a full illustration on this screen: the wide picture, or (a `tall` row on a portrait
- * screen) her 3:4 full art. fx / fy = her face as fractions of that picture; headR = her head half-width / its height;
- * zoom = the row's zoom for the wide picture (1 for her 3:4 art).
+ * screen) her 3:4 full art. fx / fy = her face as fractions of that picture; headR = her head half-width / its height.
  * @param {object|string} rowOrId a FULL_ILLUSTRATIONS row or its id
  * @param {{ portrait?: boolean }} [opts]
- * @returns {{ variant: 'wide'|'tall', src: string, w: number, h: number, fx: number, fy: number, headR: number, zoom: number }|null}
+ * @returns {{ variant: 'wide'|'tall', src: string, w: number, h: number, fx: number, fy: number, headR: number }|null}
  */
 export function fullArt(rowOrId, { portrait = false } = {}) {
   const row = typeof rowOrId === 'string' ? FULL_ILLUSTRATION_MAP[rowOrId] : rowOrId;
@@ -78,8 +73,8 @@ export function fullArt(rowOrId, { portrait = false } = {}) {
     const src = portraitUrl(row.girl, 'full');
     if (src) {
       const [x, y] = portraitFace(row.girl);
-      return { variant: 'tall', src, w: PORTRAIT_KINDS.full.w, h: PORTRAIT_KINDS.full.h, fx: x / 100, fy: y / 100, headR: HEAD_R, zoom: 1 };
+      return { variant: 'tall', src, w: PORTRAIT_KINDS.full.w, h: PORTRAIT_KINDS.full.h, fx: x / 100, fy: y / 100, headR: HEAD_R };
     }
   }
-  return { variant: 'wide', src: illustrationUrl(row), w: row.w, h: row.h, fx: row.faceX, fy: row.faceY, headR: row.headR || HEAD_R, zoom: row.zoom || 1 };
+  return { variant: 'wide', src: illustrationUrl(row), w: row.w, h: row.h, fx: row.faceX, fy: row.faceY, headR: row.headR || HEAD_R };
 }
