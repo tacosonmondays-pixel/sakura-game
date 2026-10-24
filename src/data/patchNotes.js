@@ -20,9 +20,13 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Center Stage',
+    id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Fill the Frame',
+    added: [
+      'The lobby background picker has a new group, Full illustrations. Pick one and her picture fills the whole lobby, with no castle backdrop or speech bubble in the way.',
+      'The first full illustrations: Yoriko’s "Summer Breeze" and the scenes of Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi. Hikari’s, Aoi’s and Sango’s scenes are there too now.',
+    ],
     changed: [
-      'When Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa or Marumi is your secretary, her whole scene art now fills the lobby.',
+      'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi stand on the castle backdrop in their classic full-body poses again.',
     ],
   },
   {
