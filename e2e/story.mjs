@@ -342,12 +342,13 @@ async function runViewport(vp) {
     const toastText = toastEl ? await toastEl.textContent() : '';
     check(!!toastEl && /new lessons/i.test(toastText), `journal: Hikari's toast announces the new lessons ("${toastText}")`);
     await shot(page, 'journal-toast');
-    check(await page.evaluate(() => !!document.querySelector('[data-testid="journal-dot"]')), 'journal: the lobby Menu button has a dot');
+    // ([ui-ink] V2: the home's menu button and the menu sheet's Journal row carry the dot)
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="top-menu"] [data-testid="top-menu-dot"]')), 'journal: the lobby Menu button has a dot');
     const s0 = await story(page);
     check(['home', 'bestiary', 'formation'].every((id) => s0.lessons[id]) && !s0.lessons.recruit && s0.welcome === 'pending', `journal: lessons 1–3 unlocked at 1-2, welcome still pending (${Object.keys(s0.lessons).join(',')})`);
     await page.click('[data-testid="top-menu"]', { force: true });
-    await page.waitForSelector('[data-testid="menu-journal"] .notif-dot', { timeout: 5000 }).catch(() => null);
-    check(await page.evaluate(() => !!document.querySelector('[data-testid="menu-journal"] .notif-dot')), 'journal: the Menu Tab entry has a dot');
+    await page.waitForSelector('[data-testid="menu-journal"] [data-testid="menu-journal-dot"]', { timeout: 5000 }).catch(() => null);
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="menu-journal"] [data-testid="menu-journal-dot"]')), 'journal: the menu sheet\'s Journal row has a dot');
     await page.click('[data-testid="menu-journal"]', { force: true });
     await page.waitForSelector('[data-testid="journal-detail"]', { timeout: 8000 }).catch(() => null);
     const j = await page.evaluate(() => ({

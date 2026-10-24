@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  LINE_GLYPHS, GLYPH_GROUPS, CORE_GLYPHS, FRAME_GLYPHS, LINE_ALIASES, EMBLEM_GLYPHS, lineGlyph, lineFor, hasLineGlyph, emblemSvg,
+  LINE_GLYPHS, GLYPH_GROUPS, CORE_GLYPHS, FRAME_GLYPHS, LINE_ALIASES, EMBLEM_GLYPHS, CHAPTER_EMBLEMS, chapterEmblem, lineGlyph, lineFor, hasLineGlyph, emblemSvg,
 } from '../../src/ui/lineGlyphs.js';
 
 /** The glyph names the kit fixture (the approved specimen's boards) draws with <i data-g="…">. */
@@ -96,9 +96,18 @@ describe('line glyphs', () => {
     expect(lineGlyph('check', '', { kitSize: false })).toMatch(/class="lg"/);
     expect(() => lineGlyph('nope')).toThrow(/no line glyph/);
   });
-  it('the two drawn chapter emblems: the rings, four ticks (the first cyan) and the chapter glyph', () => {
-    expect(Object.keys(EMBLEM_GLYPHS)).toEqual(['gate', 'petal']);
-    for (const n of ['gate', 'petal']) {
+  it('a chapter emblem for each of the eight chapters (V2 drew the other six), each the rings, four ticks (the first cyan) and its glyph', () => {
+    expect(Object.keys(EMBLEM_GLYPHS).sort()).toEqual(['cog', 'gate', 'lantern', 'moon', 'petal', 'reeds', 'shrine', 'wing']);
+    expect({ ...CHAPTER_EMBLEMS }).toEqual({ 1: 'petal', 2: 'moon', 3: 'shrine', 4: 'gate', 5: 'reeds', 6: 'cog', 7: 'lantern', 8: 'wing' });
+    for (const id of [1, 2, 3, 4, 5, 6, 7, 8]) expect(EMBLEM_GLYPHS[chapterEmblem(id)], `chapter ${id}`).toBeTruthy();
+    expect(chapterEmblem(99)).toBe('gate');
+    for (const n of Object.keys(EMBLEM_GLYPHS)) {
+      // the glyph inside the inner ring (r 22.6): every stroke starts inside it
+      for (const [, x, y] of EMBLEM_GLYPHS[n].matchAll(/M\s*(-?\d*\.?\d+)[\s,]*(-?\d*\.?\d+)/g)) expect(Math.hypot(Number(x), Number(y)), `${n}: M${x} ${y}`).toBeLessThanOrEqual(21);
+      // line art: no fills
+      expect(EMBLEM_GLYPHS[n], n).not.toMatch(/fill=/);
+    }
+    for (const n of Object.keys(EMBLEM_GLYPHS)) {
       const svg = emblemSvg(n, { size: 64 });
       expect(svg).toMatch(/width="64" height="64"/);
       expect((svg.match(/class="tk-on"/g) || []).length).toBe(1);

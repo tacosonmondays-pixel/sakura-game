@@ -37,12 +37,15 @@ try {
       const { PATCH_GIFT_GEMS } = await import('/src/systems/patchGifts.js');
       return { notes: PATCH_NOTES.map((n) => n.id), gift: PATCH_GIFT_GEMS };
     });
-    const gemPill = page.locator('.lb-top [data-testid="gems"]').first();
+    // [ui-ink] V2: the home's floating top bar (.home-top); the Notice is the menu sheet's Notice row (C12)
+    const gemPill = page.locator('.home-top [data-testid="gems"]').first();
     await gemPill.waitFor({ timeout: 15000 });
     const gems0 = gemsOf(await gemPill.innerText());
-    check(await page.locator('[data-testid="shortcut-notice"] .lb-dot').count() === 1, `${W}x${H} Notice shows a red dot while gifts wait`);
+    check(await page.locator('[data-testid="top-menu"] .ui-dot').count() === 1, `${W}x${H} the menu button shows a red dot while gifts wait`);
+    await tap(page.locator('[data-testid="top-menu"]'));
+    check(await page.locator('[data-testid="menu-sheet"] [data-testid="shortcut-notice"] .ui-dot').count() === 1, `${W}x${H} Notice shows a red dot while gifts wait`);
 
-    await tap(page.locator('[data-testid="shortcut-notice"]'));
+    await tap(page.locator('[data-testid="menu-sheet"] [data-testid="shortcut-notice"]'));
     await page.waitForSelector('.lb-notice-modal', { timeout: 10000 });
     await tap(page.locator('[data-testid="notice-patch"]'));
     await page.waitForSelector('.lb-patch-list', { timeout: 10000 });
@@ -81,7 +84,9 @@ try {
 
     await tap(page.locator('[data-testid="notice-close"]'));
     await page.waitForTimeout(300);
-    check(await page.locator('[data-testid="shortcut-notice"] .lb-dot').count() === 0, `${W}x${H} red dot gone once everything is claimed and read`);
+    await tap(page.locator('[data-testid="top-menu"]'));
+    check(await page.locator('[data-testid="menu-sheet"] [data-testid="shortcut-notice"] .ui-dot').count() === 0, `${W}x${H} red dot gone once everything is claimed and read`);
+    await tap(page.locator('[data-testid="menu-sheet-close"]'));
     check(!errs.length, `${W}x${H} no page errors${errs.length ? `: ${errs.join(' | ')}` : ''}`);
     await page.close();
   }

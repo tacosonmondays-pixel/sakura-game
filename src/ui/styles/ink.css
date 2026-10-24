@@ -327,7 +327,8 @@
 /* .ui-ksheet: the kit's day sheet as a panel (the floating white sheet with a bleed head; M5's bottom sheet wears it
    in part 2) */
 :where(.ui-day, .ui-night) .ui-ksheet { --fill: var(--panel-w); --edge: var(--line-ink); color: var(--m-text); display: flex; flex-direction: column; }
-:where(.ui-day, .ui-night) .ui-sheet.side { position: fixed; top: 0; bottom: 0; right: 0; background: var(--glass-ink); box-shadow: inset 1px 0 0 var(--line-hi); border-radius: 0; clip-path: none; }
+:where(.ui-day, .ui-night) .ui-sheet.side { position: fixed; top: 0; bottom: 0; right: 0; left: auto; transform: none; max-height: none; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--glass-ink); box-shadow: inset 1px 0 0 var(--line-hi); border-radius: 0; clip-path: none; }
 
 /* ==========================================================================================================
    CONTROLS
@@ -935,11 +936,8 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 /* a dialog: the white panel with a bleed ink head (the day sheet's look) */
 :is(.ui-day, .ui-night) .modal-title { background: var(--plate); color: var(--on-ink); border-bottom: 0; }
 :is(.ui-day, .ui-night) .modal-title::after { display: none; }
-:is(.ui-day, .ui-night) .menu-tab { background: var(--panel-w); }
-:is(.ui-day, .ui-night) .menu-tab .modal-title { background: var(--plate); color: var(--on-ink); border-bottom: 0; }
+/* (the Menu Tab modal went in V2: the home's menu is a side sheet; the player card still wears its close) */
 :is(.ui-day, .ui-night) .menu-tab-x { color: var(--on-ink); border-radius: 0; }
-:is(.ui-day, .ui-night) .menu-tab-btn { border-radius: 0; border: 1px solid var(--line-ink-soft); background: var(--panel-w); box-shadow: none; color: var(--ink); }
-:is(.ui-day, .ui-night) .menu-tab-btn:active { transform: scale(0.98); box-shadow: none; }
 
 /* ---------- the list screens' plate head (E2): an ink band inset in its panel, a "/" end, the one countdown chip ---------- */
 :is(.ui-day, .ui-night) .ls-panel > .ui-plate-head { --h: 48px; margin: 8px 8px 0; border-radius: 0; padding-right: calc(var(--sp-3) + var(--s)); }
@@ -1115,13 +1113,13 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 /* ---------- sheets: a day sheet floats as a white panel with a bleed ink head; a 2 px blur behind it softens the rows
    it cuts (low 10). The Details sheet (full height, on three screen edges) has no chamfer (S2). ---------- */
 :is(.ui-day, .ui-night) .ui-layer > .ui-scrim { background: var(--scrim); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
-:is(.ui-day, .ui-night) .ui-sheet:not(.full) {
+:is(.ui-day, .ui-night) .ui-sheet:not(.full):not(.side) {
   --c: var(--cut); --rw: 1px; --edge: var(--line-ink);
   bottom: calc(8px + var(--safe-bottom)); width: min(calc(100% - 32px), 720px); max-height: calc(var(--sheet-max-h) - 8px);
   padding-bottom: 0; border-radius: 0; box-shadow: none; background: var(--panel-w);
   clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
 }
-:is(.ui-day, .ui-night) .ui-sheet:not(.full)::after {
+:is(.ui-day, .ui-night) .ui-sheet:not(.full):not(.side)::after {
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
   clip-path: polygon(evenodd,
     0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,

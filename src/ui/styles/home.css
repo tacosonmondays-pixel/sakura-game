@@ -1,0 +1,214 @@
+/* ==========================================================================================================
+   [ui-ink] The home (lobby) at night and its main menu sheet: UI v2 "Ink & Paper" V2 (notes/ui-v2/UI_V2_DIRECTION.md
+   12.1, 12.2; the approved mock-up notes/ui-v2/home/home.css). Coordinates only, as the mock-up's: every colour,
+   shape, type and glyph comes from the kit (src/ui/styles/ink.css). Desktop (1280x720) is the default; the landscape
+   phone (844x390) is the kit's own breakpoint, max-height: 480px; a phone held upright (the rotate prompt's fallback,
+   no mock-up) stacks the UI under her. The lobby is the only night screen (src/ui/surfaceMode.js).
+   Layers (5.5): scene 0 · scrims 1 · host 2 · bottom scrim 3 · UI 4 · top bar 10 · sheets 20+.
+   ========================================================================================================== */
+
+.home { position: absolute; inset: 0; overflow: hidden; background: var(--plate); }
+.home-stage-host, .home-stage { position: absolute; inset: 0; }
+
+/* ---------------------------------------------------------------- the scene (layer 0) */
+.ui-night .home .ui-scene { position: absolute; inset: 0; }
+.home .home-scene-layer { position: absolute; inset: 0; overflow: hidden; }
+/* the baked painting under its own layer (the kit's .ui-scene > img rules, one level down) */
+.ui-night .home .home-scene-layer > img.baked { position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: 50% 62%; filter: blur(1.5px); }
+.ui-night .home .home-scene-layer > .lift { position: absolute; inset: 0; background: radial-gradient(38% 52% at var(--hx, 52%) var(--hy, 46%), rgba(190, 215, 255, 0.08), transparent 70%); }
+/* a scene painting with her inside it is placed whole (src/ui/lobby/hostPlace.js placeScene): no blur, she is in it */
+.ui-night .home .home-scene-layer > img.home-scene-art { position: absolute; object-fit: fill; filter: none; }
+/* her chosen time of day, over the baked night grade (only ever darker: text over the scene keeps its contrast) */
+.home .home-tint { position: absolute; inset: 0; pointer-events: none; }
+.home .home-tint.tint-sunset { background: linear-gradient(180deg, rgba(110, 46, 52, 0.16), rgba(70, 30, 60, 0.12)); }
+.home .home-tint.tint-night { background: rgba(14, 25, 48, 0.24); }
+.home .home-live { position: absolute; inset: 0; z-index: 0; }
+.home .home-live-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* the living scene takes the scene and the host (0 to 2): the painting and her still picture step aside; her tap area stays */
+.home .home-stage.is-live .home-scene, .home .home-stage.is-live .home-fig, .home .home-stage.is-live .home-decor { visibility: hidden; }
+/* (the scene draws the left, top and right scrims itself, between her plate and her: she is never graded; the bottom
+   scrim stays over her, as over every host) */
+.ui-night .home .home-stage.is-live :is(.ui-scrim.l, .ui-scrim.t, .ui-scrim.r) { visibility: hidden; }
+/* an event's decor (the lanterns while Halloween runs): part of the scene, behind the scrims and her, never moving */
+.home .home-decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.home .home-decor .lb-ev-lanterns { left: 30%; right: 30%; top: 2px; height: 40px; opacity: 0.7; }
+.home .home-decor .lb-ev-lanterns svg g { animation: none; }
+.home .home-decor .lb-ev-pumpkin { display: none; }
+
+/* ---------------------------------------------------------------- scrims (layer 1; the bottom one layer 3) */
+.ui-night .home :is(.ui-scrim.l, .ui-scrim.t, .ui-scrim.r, .ui-scrim.b) { position: absolute; }
+/* (M5's sheet backdrop .ui-scrim is inset: 0: the top and bottom bands keep only their own edge) */
+.ui-night .home .ui-scrim.t { bottom: auto; }
+.ui-night .home .ui-scrim.b { top: auto; }
+
+/* ---------------------------------------------------------------- the secretary (layer 2) */
+.home .home-host { position: absolute; z-index: 2; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.home .home-fig { position: absolute; inset: 0; transform-origin: 50% 100%; }
+.home .home-fig > img, .home .home-fig > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; object-position: 50% 0; }
+/* she breathes: at most 1 % over 4.5 s (the direction's Q10), off under Reduce motion */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-reduce-motion]) .home .home-fig { animation: home-breathe 4.5s ease-in-out infinite alternate; }
+}
+@keyframes home-breathe { from { transform: none; } to { transform: scale(1.008); } }
+/* a girl drawn as a bust or from above who cannot reach the bottom edge on a phone: her picture fades out at its foot */
+.home .home-host.floats .home-fig { -webkit-mask-image: linear-gradient(to top, transparent 0, #000 20%); mask-image: linear-gradient(to top, transparent 0, #000 20%); }
+/* a phone held upright: her picture fades out 8 px before the controls under her (src/ui/lobby/hostPlace.js clipY) */
+.home .home-host.clipped .home-fig { -webkit-mask-image: linear-gradient(to bottom, #000 calc(var(--clip, 100%) - 56px), transparent var(--clip, 100%)); mask-image: linear-gradient(to bottom, #000 calc(var(--clip, 100%) - 56px), transparent var(--clip, 100%)); }
+/* her bubble: on a tap only, 2.4 s, under her face; never over a control (artStage.js fitBubble) */
+.ui-night .home .home-bubble { z-index: 5; opacity: 0; pointer-events: none; transition: opacity var(--t-snap) var(--ease-snap); }
+.ui-night .home .home-bubble.show { opacity: 1; }
+/* (an achievement toast comes down over her face's band on a phone: her bubble steps aside while it is up, as M5's did) */
+@media (max-height: 480px) { body:has(.toast-host.has-ach) .home .home-bubble.show { opacity: 0; } }
+
+/* ---------------------------------------------------------------- the UI (layer 4) and the floating top bar (10) */
+.home .home-ui { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.home .home-ui > * { pointer-events: auto; }
+.home.ui-hidden .home-ui, .home.ui-hidden .home-top { visibility: hidden; }
+.home.static :is(.ui-in, .ui-in-l) { animation: none; }
+
+.ui-night .home .home-top { position: absolute; top: 16px; height: 48px; padding: 0 24px; gap: 16px; }
+.home .home-top .who { position: relative; display: flex; align-items: center; gap: 12px; height: 100%; padding: 0; border: 0; background: none; color: var(--on-ink); text-align: left; cursor: pointer; }
+.home .home-top .who::before { content: ''; position: absolute; left: -4px; right: -4px; top: 50%; height: calc(var(--tap) + 2px); transform: translateY(-50%); }
+/* every hit square on the home is the tap size + 2 px (as V1's top bar): a 44 px square measures 43.75 px of real tap in
+   the probe's scan when its edge pixel belongs to its neighbour */
+.ui-night .home :is(.ui-ibtn, .ui-plus)::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+.ui-night .home-menu .ui-ibtn::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+.home .home-top .who-t { display: flex; flex-direction: column; gap: 4px; }
+.home .home-top .who-t .body { line-height: 1; white-space: nowrap; }
+.home .home-top .lv { display: flex; align-items: baseline; gap: 4px; }
+.home .home-top .lv .lbl { color: var(--on-ink-dim); }
+.home .home-top .serial { align-self: flex-start; margin-top: 6px; }
+.home .home-top .ui-pill + .ui-pill { margin-left: -6px; }
+.home .home-top .ui-pill[role="button"] { cursor: pointer; }
+.home .home-top .ui-vr { margin: 12px 0; }
+.home .home-top .ui-pill .num { color: var(--on-ink); }
+/* the chat button (src/ui/online/lobbyChat.js) in the kit's look: its unread dot red, its unread messages a red count */
+.home .home-top .ol-top-chat { position: relative; color: var(--on-ink); }
+.home .home-top .ol-top-chat .ol-unread { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--badge-red); box-shadow: 0 0 0 2px var(--plate); }
+.home .home-top .ol-top-chat .sc-badge { position: absolute; top: -2px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--badge-red); color: #fff;
+  font: 700 13px/20px var(--font-num); box-shadow: 0 0 0 1.5px var(--plate); }
+
+/* ---------------------------------------------------------------- the rail: x 24-300, 48 px rows, y 104-440 */
+.ui-night .home .home-rail { position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); top: 104px; width: 276px; }
+.home .home-rail .ui-hrow { width: 100%; }
+.home .home-rail .ui-chip.cy { margin-left: 2px; }
+.home .home-rail .ui-count { align-self: center; }
+
+/* ---------------------------------------------------------------- the right stack: x 900-1256 */
+.home .home-stack { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 84px; width: 356px; display: flex; flex-direction: column; gap: 12px; }
+.home .home-obj { width: 100%; }
+.home .home-obj .obj-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.home .home-obj .obj-t .body { white-space: normal; }
+.home .home-obj .ui-kbd { margin-right: 4px; }
+.ui-night .home .home-obj.two { --h: 64px; }
+.home .home-news .go { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 0 0 2px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.home .home-news .go .ui-thumb .ia, .home .home-news .go .ui-thumb > svg:not(.g) { width: 34px; height: 34px; display: block; }
+.home .home-news .go .ui-thumb .ia > img, .home .home-news .go .ui-thumb .ia > svg { width: 100%; height: 100%; }
+.home .home-news .go .ui-thumb svg.g { width: 22px; height: 22px; color: var(--on-ink-dim); }
+.home .home-news .body { white-space: normal; }
+.home .home-news .pager { border: 0; background: none; cursor: pointer; }
+.ui-night .home .home-news.two { height: 68px; }
+.home .home-news.two .pager { height: 100%; }
+/* the chapter entry: x 908-1256, y 372-520; its title box 240 px (names step to 30 px, then two lines) */
+.home .home-chap-host { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 372px; }
+.ui-night .home .home-chap { height: 148px; }
+.home .home-chap .emblem-wrap { display: block; flex: none; line-height: 0; }
+.ui-night .home .home-chap .title { max-width: 240px; }
+.home .home-chap .prog .num { color: var(--on-ink); }
+/* the corner tools: hide the UI, background and secretary; 0.86 opacity */
+.home .home-tools { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 648px; display: flex; gap: 8px; opacity: 0.86; color: var(--on-ink); }
+.ui-night .home .home-restore { position: absolute; z-index: 4; right: calc(24px + env(safe-area-inset-right, 0px)); top: 648px; color: var(--on-ink); opacity: 0.86; }
+.ui-night .home .home-restore[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- the main menu sheet (12.2) */
+.home-menu-layer { position: fixed; inset: 0; z-index: 180; }
+.home-menu-layer.closing { opacity: 0; transition: opacity 150ms linear; pointer-events: none; }
+/* (12.2: the home stays sharp under the sheet's scrim; the 2 px blur is the day sheets', low 10) */
+.ui-night .home-menu-layer .ui-scrim-full { position: absolute; z-index: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ui-night .home-menu { z-index: 1; width: 380px; padding: 16px calc(24px + env(safe-area-inset-right, 0px)) 24px 24px; display: flex; flex-direction: column; color: var(--on-ink); }
+.home-menu.home-menu-in { animation: home-menu-in 220ms var(--ease) both; }
+@keyframes home-menu-in { from { opacity: 0; transform: translateX(16px); } }
+.home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 12px; }
+.home-menu .m-head .sp { flex: 1; }
+.home-menu .m-k { flex: none; margin-top: 16px; display: flex; align-items: center; gap: 8px; }
+.home-menu .m-k .ui-rule { flex: 1; }
+.home-menu .m-k + .m-grid { margin-top: 8px; }
+.home-menu .m-grid + .m-k { margin-top: 20px; }
+/* desktop has the height for one column (8 rows at a 52 px pitch); the phone keeps two columns of 168 */
+.home-menu .m-grid { flex: none; display: grid; grid-template-columns: 1fr; row-gap: 4px; }
+.home-menu .m-foot { margin-top: auto; flex: none; }
+.home-menu .ui-hrow { color: var(--on-ink); text-decoration: none; }
+.home-menu .ui-hrow .ui-dot { transform: translateY(-7px); }
+/* while the sheet is open, the home UI it covers or cuts (the right stack, the chapter, the corner tools, the top bar's
+   currencies and buttons) fades out in 150 ms: nothing ghosts through the glass and no pill is cut by its edge. The rail
+   and the avatar stay under the scrim. Opacity only. */
+.home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home .home-stack, .home .home-chap-host, .home .home-tools { transition: opacity 150ms linear; }
+.home-menu-open .home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-stack, .home-menu-open .home .home-chap-host, .home-menu-open .home .home-tools {
+  opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .home-menu.home-menu-in { animation: ui-fade 150ms linear both; } }
+html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms linear both; }
+
+/* ================================================================ phone 844x390 */
+@media (max-height: 480px) {
+  .ui-night .home .home-top { top: 10px; height: 32px; padding: 0 calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px)); gap: 12px; }
+  .home .home-top .who { gap: 10px; }
+  .home .home-top .who-t { gap: 3px; }
+  .home .home-top .serial { margin-top: 2px; margin-left: -2px; }
+  .home .home-top .ui-pill + .ui-pill { margin-left: -4px; }
+  .home .home-top .ui-vr { margin: 6px 0; }
+  .home .home-top .ol-top-chat .sc-badge { min-width: 18px; height: 18px; font-size: 12px; line-height: 18px; }
+
+  /* 7 rows, y 50-365. (45 px, not the mock-up's 44: a 44 px row whose neighbour starts on its last line measures 43.75
+     px of real tap in the probe's scan; every control on the home is at least 44.25 px, the controls end by y 369) */
+  .ui-night .home .home-rail { left: calc(16px + env(safe-area-inset-left, 0px)); top: 50px; width: 184px; }
+  .ui-night .home .home-rail .ui-hrow { height: 45px; }
+  .ui-night .home .home-obj { --h: 46px; }
+  .ui-night .home .home-news { height: 46px; }
+  .ui-night .home .home-news .pager { width: 46px; height: 46px; }
+  .ui-night .home-menu .ui-hrow { height: 45px; }
+  .home-menu .m-grid { row-gap: 3px; }
+
+  .home .home-stack { right: calc(16px + env(safe-area-inset-right, 0px)); top: 50px; width: 272px; gap: 8px; }  /* objective y 50-94, news y 102-146 */
+  .home .home-obj .obj-t { gap: 4px; }
+  .ui-night .home .home-obj.two { --h: 56px; }
+  .home .home-news .go { gap: 8px; }
+  .ui-night .home .home-news.two { height: 60px; }
+  .home .home-chap-host { right: calc(16px + env(safe-area-inset-right, 0px)); top: 200px; }                  /* y 200-300 */
+  .ui-night .home .home-chap { height: 100px; }
+  .ui-night .home .home-chap .title { max-width: 196px; }                                                       /* x 556 at the most */
+  .home .home-tools { right: calc(20px + env(safe-area-inset-right, 0px)); top: 326px; gap: 10px; }            /* visuals 36, hits 46: y 321-367 */
+  .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); top: 326px; }
+
+  .ui-night .home-menu { width: 368px; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 34px 16px; }  /* x 476-844; the footer ends at y 356 */
+  .home-menu .m-head { height: 44px; gap: 8px; margin-right: -4px; }
+  .home-menu .m-grid { grid-template-columns: 1fr 1fr; }
+  .home-menu .m-k { margin-top: 8px; }
+  .home-menu .m-k + .m-grid { margin-top: 4px; }
+  .home-menu .m-grid + .m-k { margin-top: 12px; }
+}
+
+/* ================================================================ a phone held upright (390x844; no mock-up) */
+/* the bar on two rows (the avatar and the buttons, then the wallets), the corner tools under the wallets, her in the
+   middle, and under her the objective, the news, the chapter and the rail in two columns, in thumb reach */
+@media (max-width: 700px) and (min-height: 481px) {
+  .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
+  .home .home-top .who { height: 44px; order: 0; }
+  .home .home-top .sp { order: 1; }
+  .home .home-top > .ui-ibtn, .home .home-top > .ol-top-chat { order: 2; }
+  .home .home-top .ui-vr { order: 3; flex-basis: 100%; height: 0; margin: 0; background: none; }
+  .home .home-top .ui-pill { order: 4; }
+  .home .home-top .ui-pill:first-of-type { margin-left: auto; }
+  .home .home-top .serial { display: none; }
+  .home .home-tools { top: 120px; right: 16px; gap: 10px; }
+  .ui-night .home .home-restore { top: 120px; right: 16px; }
+  .ui-night .home .home-rail { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8px;
+    --fs-name: 16px; --icon: 20px; }
+  .ui-night .home .home-rail .ui-hrow { height: 45px; gap: 8px; padding-left: 8px; }
+  .ui-night .home .home-chap { height: auto; min-height: 100px; }
+  .home .home-stack { left: 16px; right: 16px; width: auto; top: auto; bottom: 324px; gap: 8px; }
+  .home .home-chap-host { left: 16px; right: 16px; top: auto; bottom: 216px; }
+  .ui-night .home .home-chap { height: 100px; width: 100%; }
+  .ui-night .home .home-chap .title { max-width: 240px; }
+  .ui-night .home-menu { width: min(100%, 368px); }
+  .home-menu .m-grid { grid-template-columns: 1fr 1fr; }
+}

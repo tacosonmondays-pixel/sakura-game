@@ -241,9 +241,11 @@ export async function tagToFrame(page, tileSel, tagSel, { min = 3 } = {}) {
  * @param {import('playwright').Page} page
  * @param {string} hostSel the host (her art)
  * @param {string} uiSel the UI boxes she must keep clear of
- * @param {{ min?: number }} [o]
+ * @param {{ min?: number, hide?: (() => Promise<void>)|null, show?: (() => Promise<void>)|null }} [o]
+ *   hide / show: how to take her away and bring her back when hiding her element is not it ([ui-ink] V2: the home's
+ *   living scene draws her in its canvas; its dev hook hides her layers there)
  */
-export async function artClearance(page, hostSel, uiSel, { min = 8 } = {}) {
+export async function artClearance(page, hostSel, uiSel, { min = 8, hide = null, show = null } = {}) {
   const vp = page.viewportSize();
   const boxes = await page.evaluate(([h, u]) => {
     const host = document.querySelector(h);
@@ -256,7 +258,8 @@ export async function artClearance(page, hostSel, uiSel, { min = 8 } = {}) {
   if (!boxes) return result([{ ok: false, msg: `art clearance: no host ${hostSel}` }]);
   const full = { x: 0, y: 0, width: vp.width, height: vp.height };
   const shot = await page.screenshot({ clip: full, type: 'png' });
-  await page.evaluate((h) => { const e = document.querySelector(h); e.dataset.pxHidden = e.style.visibility || '-'; e.style.visibility = 'hidden'; }, hostSel);
+  if (hide) await hide();
+  else await page.evaluate((h) => { const e = document.querySelector(h); e.dataset.pxHidden = e.style.visibility || '-'; e.style.visibility = 'hidden'; }, hostSel);
   const res = await withPixels(page, full, async (pix, q) => {
     const bin = atob(q.withHost);
     const bytes = new Uint8Array(bin.length);
@@ -289,7 +292,8 @@ export async function artClearance(page, hostSel, uiSel, { min = 8 } = {}) {
     }
     return out;
   }, { boxes, min, withHost: shot.toString('base64') });
-  await page.evaluate((h) => { const e = document.querySelector(h); e.style.visibility = e.dataset.pxHidden === '-' ? '' : e.dataset.pxHidden; delete e.dataset.pxHidden; }, hostSel);
+  if (show) await show();
+  else await page.evaluate((h) => { const e = document.querySelector(h); e.style.visibility = e.dataset.pxHidden === '-' ? '' : e.dataset.pxHidden; delete e.dataset.pxHidden; }, hostSel);
   return result(res, { boxes: boxes.length });
 }
 

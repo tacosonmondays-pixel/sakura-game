@@ -9,7 +9,6 @@ import { fmtItemCount } from './format.js';
 import { itemIcon, uiIcon, currencyIcon, UI_ICON_NAMES } from '../art/icons.js';
 import { cardArtSVG } from '../art/cardArt.js';
 import { portraitHTML } from '../art/portraits.js';
-import { lobbyIcon } from '../art/lobbyIcons.js';
 import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
 import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js';
@@ -392,55 +391,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
   });
 }
 
-/**
- * The "Menu Tab" popup: a white header with a centred title, yellow underline and an
- * X, then a 2-column grid of light buttons with illustrated icons — Options, Account,
- * Equipment, Items, Bestiary, Wiki, Fullscreen, plus any `extra` entries a screen adds
- * (the lobby adds Secretary and Notice).
- * @param {{ extra?: {icon: string, label: string, testid?: string, badge?: number|boolean, go: () => void}[] }} [opts]
- */
-export function menuTabModal({ extra = [] } = {}) {
-  const entries = [
-    { icon: 'options', label: 'Options', go: () => navigate('settings') },
-    { icon: 'account', label: 'Account', go: () => navigate('settings', { section: 'save' }) },
-    { icon: 'equipment', label: 'Equipment', go: () => navigate('backpack', { tab: 'equipment' }) },
-    { icon: 'items', label: 'Items', go: () => navigate('backpack') },
-    { icon: 'bestiary', label: 'Bestiary', go: () => navigate('bestiary') },
-    { icon: 'wiki', label: 'Wiki', go: () => navigate('wiki') },
-    ...extra,
-  ];
-  const grid = h('div.menu-tab-grid');
-  const m = modal({
-    title: 'Menu Tab',
-    body: grid,
-    actions: [],
-    cls: 'menu-tab',
-  });
-  const ico = (name, key) => svgEl(lobbyIcon(name, { uid: `menu-${key}`, shadow: false }), 'menu-tab-icon');
-  for (const e of entries) {
-    const key = e.label.toLowerCase();
-    // badge: a number (an unread count: the red number) or true (the red dot), e.g. unread messages; `dot` is a red
-    // dot. [ui-m5] one badge vocabulary (badges.js); the old classes stay for their place and the e2e tests
-    const badge = e.badge
-      ? (e.badge === true ? dot('claim', { cls: 'notif-dot' }) : countBadge(e.badge, { cls: 'menu-tab-badge' }))
-      : (e.dot ? dot('claim', { cls: 'notif-dot' }) : null);
-    grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label), badge));
-  }
-  const fs = h('button.menu-tab-btn', { 'data-testid': 'menu-fullscreen' }, ico('fullscreen', 'fullscreen'), h('span', 'Fullscreen'));
-  fs.addEventListener('click', async () => {
-    try {
-      const o = await import('./orientation.js');
-      await o.toggleFullscreen();
-      fs.querySelector('span:last-child').textContent = o.isFullscreen() ? 'Exit fullscreen' : 'Fullscreen';
-    } catch (e) {
-      console.warn('[menu] fullscreen unavailable', e);
-    }
-  });
-  grid.appendChild(fs);
-  m.el.querySelector('.modal-title')?.appendChild(h('button.menu-tab-x', { onclick: () => m.close(), 'aria-label': 'Close', 'data-testid': 'menu-close' }, svgEl(glyph('close'), 'menu-tab-x-icon')));
-  return m;
-}
-
+// ([ui-ink] the Menu Tab modal went with UI v2's home, V2: the home's menu is a side sheet, src/ui/lobby/menuSheet.js)
 /**
  * A short notice at the top. `message` is text or a node (kind 'ach': the achievement card of src/ui/achToast.js,
  * which takes taps and sits a little lower).

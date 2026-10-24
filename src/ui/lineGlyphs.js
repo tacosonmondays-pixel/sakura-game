@@ -261,11 +261,29 @@ export function lineGlyph(name, cls = '', { kitSize = true } = {}) {
   return `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
 }
 
+/** The cog of chapter 6 (ours): eight square-cut teeth on a 9 px hub circle, an axle hole. */
+function cogEmblem() {
+  const pt = (r, a) => {
+    const t = (a * Math.PI) / 180;
+    return `${f(r * Math.cos(t))} ${f(r * Math.sin(t))}`;
+  };
+  const rOut = 12.2;
+  const rIn = 9.2;
+  let d = '';
+  for (let i = 0; i < 8; i++) {
+    const c = i * 45 - 90;
+    d += `${i ? 'L' : 'M'}${pt(rIn, c - 12)} L${pt(rOut, c - 8)} L${pt(rOut, c + 8)} L${pt(rIn, c + 12)} A${rIn} ${rIn} 0 0 1 ${pt(rIn, c + 33)} `;
+  }
+  return `<path d="${d}Z"/><circle r="4"/>`;
+}
+
 /**
  * The chapter emblems (ours): an outer 1 px hairline ring, an inner 1.5 px ring at 78 %, four 45-degree ticks (the
- * kit's bracket motif; the first one cyan), and the chapter's glyph at 2 px. 64 px on the phone home, 88 px on desktop,
- * 40 px as a row emblem. Drawn so far: gate (chapter 4 Ironhold Pass: a gate arch under a ridge) and petal (chapter 1
- * Sakura Gardens); V2 draws the other six in the same strokes.
+ * kit's bracket motif; the first one cyan), and the chapter's glyph at 2 px inside a 30 px square (the `.ridge` parts,
+ * a skyline or a water line behind the glyph, at 1.5 px and 60 %). 64 px on the phone home, 88 px on desktop, 40 px as
+ * a row emblem. One per chapter (CHAPTER_EMBLEMS): petal (1 Sakura Gardens), moon (2 Moonlit Lakeshore: a crescent over
+ * the water), shrine (3 Moonveil Shrine: a shrine gate), gate (4 Ironhold Pass: a gate arch under a ridge), reeds
+ * (5 Gloomfen Marsh), cog (6 Clockwork Foundry), lantern (7 Oni Festival), wing (8 Ashwing Peaks: a wing over the peaks).
  */
 export const EMBLEM_GLYPHS = Object.freeze({
   gate: '<path d="M-8 13V4a8 8 0 0 1 16 0v9"/><path d="M-3.5 13V5.5a3.5 3.5 0 0 1 7 0V13"/><path d="M-13 13h26"/><path class="ridge" d="M-14 -5.5l5.5-6 4 3.5 4.5-6.5 4.5 5.5 3-2.2 6.5 5.7"/>',
@@ -274,7 +292,26 @@ export const EMBLEM_GLYPHS = Object.freeze({
     for (let i = 0; i < 5; i++) o += `<path transform="rotate(${i * 72})" d="M0 0C-4.6-2.6-5.3-7.9-2.1-10.1L0-8.4 2.1-10.1C5.3-7.9 4.6-2.6 0 0Z"/>`;
     return `${o}<circle r="1.6"/>`;
   })(),
+  // a crescent (the line set's moon, a size up) over two lines of the lake
+  moon: '<path d="M-1 -13.5a6.2 6.2 0 0 0 9.3 9.3 9.3 9.3 0 1 1-9.3-9.3Z"/><path d="M-13 8.5c2.2-1.6 4.3-1.6 6.5 0s4.3 1.6 6.5 0 4.3-1.6 6.5 0 4.3 1.6 6.5 0"/><path class="ridge" d="M-9 13c2.2-1.4 4.3-1.4 6.5 0s4.3 1.4 6.5 0 4.3-1.4 6.5 0"/>',
+  // a shrine gate: the curved top beam, the tie beam, two leaning pillars, the name tablet; the ground behind
+  shrine: '<path d="M-14 -9.5c6.5-2.6 21.5-2.6 28 0"/><path d="M-11 -3.5h22"/><path d="M-7.5 -8.4l-1.2 21.4"/><path d="M7.5 -8.4l1.2 21.4"/><path d="M0 -8.8v5.3"/><path class="ridge" d="M-14 13h28"/>',
+  // three reeds: two cattails and a blade leaf, the marsh water across them
+  reeds: '<path d="M-6.5 13c0-6 .6-12-.5-17"/><path d="M-8.5 -5v-6.5a1.5 1.5 0 0 1 3 0V-5a1.5 1.5 0 0 1-3 0z"/><path d="M1.5 13c0-8 .3-15-.8-21"/><path d="M-.8 -9v-4.5a1.6 1.6 0 0 1 3.2 0V-9a1.6 1.6 0 0 1-3.2 0z"/><path d="M3 13c1.5-7 5-12 10-14.5"/><path class="ridge" d="M-14 8c2.4-1.3 4.7-1.3 7 0s4.7 1.3 7 0 4.7-1.3 7 0 4.6 1.3 7 0"/>',
+  cog: cogEmblem(),
+  // a festival lantern (the line set's lantern, a size up), its cord above
+  lantern: '<path d="M0 -14.5v2.3"/><path d="M-4 -12.2h8v2.4h-8z"/><path d="M-4 -9.8C-8.2 -7.8 -9.2 -4.5 -9.2 -1S-8.2 5.8 -4 7.8h8C8.2 5.8 9.2 2.5 9.2 -1S8.2 -7.8 4 -9.8"/><path d="M-8.2 -5h16.4"/><path d="M-8.2 3h16.4"/><path d="M-4 7.8h8v2.4h-8z"/><path class="ridge" d="M0 10.2v3.3"/>',
+  // a wing in three feathered scallops, rising to the right over the ash peaks
+  wing: '<path d="M-12 1.5C-8 -6.5 1.5 -11.5 13.5 -12"/><path d="M13.5 -12Q12 -4.5 6.5 -3.6Q7.4 -.2 1.6 1.4Q2.3 4.8 -3.6 5.2Q-5.4 8 -12 6.2Z"/><path d="M-6.5 -.6C-1.5 -4.4 4.4 -7.2 10.4 -8.6"/><path class="ridge" d="M-14 13.5l5.5-4 4 2.5 4.5-5 4.5 4 3-1.6 6.5 4.1"/>',
 });
+
+/** The emblem of each campaign chapter (src/data/stages.js CHAPTERS ids). */
+export const CHAPTER_EMBLEMS = Object.freeze({ 1: 'petal', 2: 'moon', 3: 'shrine', 4: 'gate', 5: 'reeds', 6: 'cog', 7: 'lantern', 8: 'wing' });
+
+/** The emblem name of a chapter (gate for one with none). */
+export function chapterEmblem(chapterId) {
+  return CHAPTER_EMBLEMS[chapterId] || 'gate';
+}
 
 /**
  * A chapter emblem as SVG markup.

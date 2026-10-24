@@ -54,8 +54,8 @@ mkdirSync(out, { recursive: true });
 if (withCrops) mkdirSync(join(out, 'crops'), { recursive: true });
 
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
-/** The lobby secretary's speech bubble stays clear of the tray and the sticker row (probe `apart`; UI M5d review). */
-const LOBBY_APART = [['[data-testid="secretary-bubble"]', '.lb-hud > .lb-tray'], ['[data-testid="secretary-bubble"]', '.lb-hud > .lb-stickers']];
+/** The home secretary's speech bubble stays clear of the rail, the right stack and the chapter (probe `apart`; [ui-ink] V2). */
+const LOBBY_APART = [['[data-testid="secretary-bubble"]', '#app .home-rail'], ['[data-testid="secretary-bubble"]', '#app .home-stack'], ['[data-testid="secretary-bubble"]', '#app .home-chap-host']];
 /**
  * The Multiplayer hub's locked tiles: the "Coming soon" / "Soon" sticker clear of any other lock and of the tile's
  * words (probe `apart`; UI M5d review 2). The first pair is the review's own (a corner lock no longer drawn).
@@ -74,7 +74,9 @@ const MP_APART = [
  */
 const SHOTS = {
   // ---- the first six (M0-M4) ----
-  lobby: { hash: '#/lobby', ready: isScreen('lobby'), apart: LOBBY_APART },
+  // ([ui-ink] V2: drawn fresh from another screen, so the seeded secretary shows: the game opens on the lobby before the
+  // seed, and the same hash again does not redraw it)
+  lobby: { hash: '#/lobby', ready: isScreen('lobby'), apart: LOBBY_APART, prepareAt: ['#/missions', isScreen('missions')], prepare: async () => {} },
   'girl-info': { hash: '#/student/aoi?tab=info', ready: isScreen('student'), kind: 'detail' },
   'backpack-equipment': { hash: '#/backpack?tab=equipment', ready: isScreen('backpack'), kind: 'list' },
   'stage-prep': { hash: '#/stage/2-3', ready: isScreen('stage'), kind: 'detail' },
@@ -143,12 +145,17 @@ const SHOTS = {
   formation: { hash: '#/formation', ready: isScreen('formation'), seed: 'm5' },
   'm5-kit': { page: 'e2e/fixtures/m5-kit.html', ready: '() => document.body?.dataset.kitReady === "1"', kind: 'list', list: '[data-probe-list]' },
   // ---- [ui-ink] UI v2 "Ink & Paper" (notes/ui-v2/build/PLAN.md section 6 V1); made for --seed ink ----
-  // the home with its menu open (V2 replaces the Menu Tab with the side sheet: this is its before)
-  'home-menu': { hash: '#/lobby', ready: isScreen('lobby'), open: async (page) => { await page.click('[data-testid="top-menu"]'); await page.waitForSelector('.menu-tab', { timeout: 10000 }); } },
-  // Marumi as the secretary (V2's living scene), the same under Reduce motion, and Low graphics
-  'home-marumi': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi' }), after: restoreSave, settleMs: 1500 },
+  // the home with its menu open (V2 replaces the Menu Tab with the side sheet; the Menu Tab is its before)
+  'home-menu': {
+    hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: async () => {},
+    open: async (page) => { await page.click('[data-testid="top-menu"]'); await page.waitForSelector('.menu-tab, [data-testid="menu-sheet"]', { timeout: 10000 }); },
+  },
+  // Marumi as the secretary (V2's living scene, held at t = 0 and t = 2 s through its dev hook), the same under Reduce
+  // motion, and Low graphics (Marumi again: both must show her still portrait)
+  'home-marumi': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi' }), open: liveAt(0), after: restoreSave, settleMs: 1500 },
+  'home-marumi-2s': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi' }), open: liveAt(2), after: restoreSave, settleMs: 1500 },
   'home-marumi-reduced': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi', settings: { reduceMotion: true } }), after: restoreSave, settleMs: 1500 },
-  'home-low': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ settings: { quality: 'low' } }), after: restoreSave, settleMs: 1500 },
+  'home-low': { hash: '#/lobby', ready: isScreen('lobby'), prepareAt: ['#/missions', isScreen('missions')], prepare: setSave({ secretary: 'marumi', settings: { quality: 'low' } }), after: restoreSave, settleMs: 1500 },
   // the girl page as the mock-ups draw it: Ruri, LV 24/40, P4, her three pieces; a girl with nothing on; the picker
   'girl-info-ruri': { hash: '#/student/ruri?tab=info', ready: isScreen('student'), kind: 'detail' },
   'girl-gear': { hash: '#/student/ruri?tab=gear', ready: isScreen('student'), kind: 'detail' },
@@ -181,6 +188,18 @@ const SHOTS = {
   // (its pixel probes run in e2e/ink-kit.mjs, on a viewport that never zooms the 876 px page out)
   'ink-kit': { page: 'e2e/fixtures/ink-kit.html', ready: '() => document.body?.dataset.kitReady === "1"', kind: 'list', list: '[data-probe-list]', pixels: async () => ({}) },
 };
+
+/**
+ * [ui-ink] V2: the home's living scene held at `t` seconds (window.__sakura.live, dev builds): it renders that frame and
+ * stops its clock, so the shot is the same every run. A build without the living scene (or a fallback to her still
+ * portrait) has no hook: the shot is the still home.
+ */
+function liveAt(t) {
+  return async (page) => {
+    await page.waitForFunction(() => !window.__sakura?.live || window.__sakura.live.state !== 'loading', null, { timeout: 15000 }).catch(() => {});
+    await page.evaluate((tt) => window.__sakura?.live?.renderAt?.(tt), t);
+  };
+}
 
 /** [ui-ink] Puts the secretary and settings a shot needs into the save (restoreSave puts them back). */
 function setSave(patch) {
@@ -262,7 +281,7 @@ const M5 = ['lobby', 'missions', 'commissions-daily', 'commissions-login', 'achi
   'multiplayer-empty', 'multiplayer', 'multiplayer-pvp', 'coop', 'lobby-invite', 'profile', 'students', 'formation', 'm5-kit', 'happening-empty',
   'event-halloween-ended'];
 /** [ui-ink] Every shot UI v2 touches (V1 to V6); the 10-pull spends the tickets, so it comes last before the fixture. */
-const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-reduced', 'home-low', 'girl-info', 'girl-info-ruri', 'girl-gear', 'girl-gear-empty',
+const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-2s', 'home-marumi-reduced', 'home-low', 'girl-info', 'girl-info-ruri', 'girl-gear', 'girl-gear-empty',
   'girl-gear-picker', 'students', 'roster-end', 'formation', 'roster-pick', 'missions', 'commissions-daily', 'commissions-login', 'commissions-codes',
   'mail', 'mail-history', 'recruit', 'recruit-free', 'mall-general', 'mall-boss', 'mall-gems', 'mall-recruit', 'mall-bounty', 'mall-memento', 'mall-buy',
   'backpack-salvage', 'multiplayer-empty', 'multiplayer',
@@ -335,7 +354,11 @@ const seed = (page, m5) => (INK ? seedInkSave(page) : seedUiSave(page, m5));
 
 const settle = (page, ms = 900) => page.waitForTimeout(ms)
   .then(() => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300))))));
-const closeModals = (page) => page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+const closeModals = (page) => page.evaluate(() => {
+  document.querySelectorAll('.modal-overlay').forEach((o) => o.remove());
+  // ([ui-ink] V2: the home's menu sheet closes through its own X, so the home's UI comes back)
+  document.querySelector('[data-testid="menu-sheet-close"]')?.click();
+});
 
 async function go(page, hash, ready, settleMs = 900) {
   await page.evaluate((hh) => { location.hash = hh; }, hash);

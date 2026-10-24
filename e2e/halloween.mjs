@@ -174,7 +174,8 @@ try {
     await go('#/campaign', '#app');
     await go('#/lobby', '[data-testid="lobby"]');
     await page.waitForSelector('[data-testid="event-card"]', { timeout: T }).catch(() => null);
-    const card = await page.evaluate(() => document.querySelector('[data-testid="event-card"]')?.textContent || '');
+    // ([ui-ink] V2: the news card's event page; its countdown chip shows the time, its name says the phase)
+    const card = await page.evaluate(() => { const e = document.querySelector('[data-testid="event-card"]'); return e ? `${e.textContent} ${e.getAttribute('aria-label') || ''}` : ''; });
     check(/Pumpkin Lantern Night/.test(card) && /Ends in/i.test(card), `lobby: event card shows the event and its countdown ("${card.trim()}")`);
     check(!!(await page.$('[data-testid="event-decor"]')), 'lobby: lantern + pumpkin decor while the event runs');
     check(await noOverflow(), 'lobby: no horizontal overflow');

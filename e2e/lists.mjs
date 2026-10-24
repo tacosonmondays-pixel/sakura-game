@@ -278,11 +278,10 @@ async function mailroom(page, vp, touch) {
   await page.click('#app [data-testid="mail-close"]');
   await waitScreen(page, 'lobby');
   check(await screenIs(page, 'lobby'), 'mail: mail-close (the arrow) goes back to the lobby');
-  // the Menu's Mail, and Esc on desktop
-  await page.click('[data-testid="top-menu"]');
-  await page.click('[data-testid="menu-mail"]');
+  // [ui-ink] V2 (C12): the Menu's Mail folded into the top bar's mail button; it opens the Mailroom again, and Esc on desktop
+  await page.click('[data-testid="top-mail"]');
   await waitScreen(page, 'mail');
-  check(await screenIs(page, 'mail'), 'mail: the Menu\'s Mail opens the Mailroom');
+  check(await screenIs(page, 'mail'), 'mail: the top bar\'s mail button opens the Mailroom (the Menu\'s Mail folded into it)');
   if (!touch) {
     await page.keyboard.press('Escape');
     await waitScreen(page, 'lobby');
@@ -369,18 +368,14 @@ async function freeDoors(page, vp) {
   console.log(`-- Free pulls doors ${vp}`);
   const landed = () => page.evaluate(() => [location.hash, document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid, !!document.querySelector('#app [data-testid="happening-free"]')]);
   const isFree = (l) => l[0] === '#/rewards?tab=free' && l[1] === 'tab-free' && l[2];
+  // [ui-ink] V2: the home's carousel (and its "Free pulls" card) went (C12); the Notice is the menu sheet's Notice row
   await go(page, '#/lobby', 'lobby');
-  await page.evaluate(() => document.querySelector('#app [data-testid="banner-f2p"]').click()); // (a carousel slide)
-  await waitScreen(page, 'rewards');
-  let l = await landed();
-  check(isFree(l), `doors: the lobby's "Free pulls" card opens Happening Now on Free pulls (${l.join(', ')})`);
-  await shot(page, 'door-lobby-f2p', vp);
-  await go(page, '#/lobby', 'lobby');
-  await page.click('[data-testid="shortcut-notice"]');
+  await page.click('[data-testid="top-menu"]');
+  await page.click('[data-testid="menu-sheet"] [data-testid="shortcut-notice"]');
   await page.click('.lb-notice-modal [data-testid="notice-f2p"]');
   await page.click('.lb-notice-modal:not(.closing) .lb-notice-cta button');
   await waitScreen(page, 'rewards');
-  l = await landed();
+  let l = await landed();
   check(isFree(l), `doors: the Notice's "See the overview" opens Free pulls (${l.join(', ')})`);
   await closeModals(page);
   // Recruit with no gems and no tickets: "Not enough gems" → "Income overview"
@@ -583,17 +578,19 @@ async function settings(page, vp) {
     return { name, found: !!row, kids: row?.querySelector('.ma-set-control')?.childElementCount ?? 0, shown: !!d && d.getClientRects().length > 0, i: !!row?.querySelector('.st-i') };
   }));
   for (const b of bare) check(b.found && b.kids === 0 && b.shown && !b.i, `settings: "${b.name}" has no control, so its description stays in view with no "i" (${JSON.stringify(b)})`);
-  // a deep link, and the Menu's Account
+  // a deep link, and the menu sheet's Settings row ([ui-ink] V2, C12: the Menu Tab's Options and Account folded into it)
   await go(page, '#/lobby', 'lobby');
   await go(page, '#/settings?section=audio', 'settings');
   await settle(page, 300);
   check(await page.evaluate(() => document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid) === 'tab-audio', 'settings: #/settings?section=audio opens on Audio');
   await go(page, '#/lobby', 'lobby');
   await page.click('[data-testid="top-menu"]');
-  await page.click('[data-testid="menu-account"]');
+  await page.click('[data-testid="menu-sheet"] [data-testid="settings"]');
   await waitScreen(page, 'settings');
   await settle(page, 400);
-  check(await page.evaluate(() => document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid) === 'tab-account', 'settings: the Menu\'s Account opens on Account');
+  await page.click('#app [data-testid="tab-account"]');
+  await settle(page, 400);
+  check(await page.evaluate(() => document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid) === 'tab-account', 'settings: the menu sheet\'s Settings row opens Settings, and its rail opens Account');
 }
 
 // ---------------------------------------------------------------------------------------------------------------
