@@ -62,13 +62,22 @@ export function createFeed(layer) {
   /**
    * @param {string|Node} content
    * @param {'info'|'good'|'warn'|'bad'|'new'} kind
-   * @param {{ key?: string, ms?: number, merge?: boolean, icon?: Node, sticky?: boolean }} [o]
-   *   key: throttles duplicates (and with merge, bumps a ×N counter on the live toast);
+   * @param {{ key?: string, ms?: number, merge?: boolean, replace?: boolean, icon?: Node, sticky?: boolean }} [o]
+   *   key: throttles duplicates (and with merge, bumps a ×N counter on the live toast; with replace, the live toast
+   *   takes the new words and time in place: one toast per key, never throttled away, e.g. the drawer's lock "i");
    *   sticky: newer toasts push the others out first (a welcome back, a refund note)
    */
   function push(content, kind = 'info', o = {}) {
     const ms = (o.ms ?? 2600) * (shortScreen() ? 0.8 : 1);
-    if (o.key && o.merge) {
+    if (o.key && o.replace) {
+      const live = list.querySelector(`[data-key="${CSS.escape(o.key)}"]:not(.out)`);
+      if (live) {
+        live.className = `bt-toast bt-toast-${kind}`;
+        live.replaceChildren(...[o.icon, h('span.bt-toast-text', content)].filter(Boolean));
+        live.dataset.until = String(performance.now() + ms);
+        return live;
+      }
+    } else if (o.key && o.merge) {
       const live = list.querySelector(`[data-key="${CSS.escape(o.key)}"]`);
       if (live) {
         const n = Number(live.dataset.n || 1) + 1;

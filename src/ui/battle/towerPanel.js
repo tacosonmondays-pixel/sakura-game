@@ -16,7 +16,9 @@
 import { h, icon, setVar } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
-import { crosspathReason, onePerPathReason, heldPipTitle, whereOnMap, finalHolderLine, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE } from './rules.js';
+import {
+  crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
+} from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
@@ -56,6 +58,11 @@ const stat = (n) => fmtNum(n, 'stat');
 const money = (n) => fmtNum(n || 0, 'money');
 const price = (n) => fmtNum(n || 0, 'money', { round: 'up' });
 const isWide = () => typeof window !== 'undefined' && window.innerHeight > 480;
+/**
+ * A lock's "i": its one-line reason in the feed (UI_DIRECTION §6.6 "tap for the one-line reason"; one toast line,
+ * §5.8). One lock toast at a time: a tap on another row's "i" swaps the words in place instead of being throttled away.
+ */
+const LOCK_TOAST = { key: 'path-lock', ms: 2600, replace: true };
 
 /** An ink chip button (target / aim / strips). */
 function chipBtn({ label, on = false, title = '', testid = null, mode = null, disabled = false, onClick }) {
@@ -337,9 +344,10 @@ export function createTowerPanel(ctx) {
       where ? h('span.bt-final-where', where) : null,
       h('b', ' · Show ›'),
     ) : null;
+    // (the toast is the rule's one line; the full sentence is the title, and the 1280 drawer shows it in the row)
     const why = show ? h('button.bt-dw-info.bt-lock-why', {
       type: 'button', 'aria-label': 'Why is this tier locked?', title: reason,
-      onclick: () => ctx.feed?.push(reason, 'info', { key: 'path-lock', ms: 2600 }),
+      onclick: () => ctx.feed?.push(onePerPathWhy(t.def.name, p.name), 'info', LOCK_TOAST),
     }, 'i') : null;
     return h(
       `div.bt-lock.bt-lock-final${show ? '.has-holder' : ''}`,
@@ -376,10 +384,13 @@ export function createTowerPanel(ctx) {
     if (v.state === 'max') {
       action = h('span.bt-dw-max', { title: `${p.name} is finished` }, 'MAX');
     } else if (v.state === 'crosspath') {
+      // the "i": the one-line reason in the feed ("Capped at T2: Rapid Volley is T3"); the full reason and the rule are
+      // its title
+      const names = t.def.paths.map((x) => x.name);
       extra = h('div.bt-path-lock', { 'data-testid': `path-lock-${i}` }, icon('lock', 'bt-ico-sm'), h('span', v.lock),
         h('button.bt-dw-info', {
-          type: 'button', 'aria-label': 'Why is this path locked?', title: crosspathReason(t.tiers, i, t.def.paths.map((x) => x.name)),
-          onclick: () => ctx.feed?.push(`${crosspathReason(t.tiers, i, t.def.paths.map((x) => x.name))} One path can go past T2, a second up to T2.`, 'info', { key: 'path-lock', ms: 2600 }),
+          type: 'button', 'aria-label': 'Why is this path locked?', title: `${crosspathReason(t.tiers, i, names)} ${CROSSPATH_RULE}`,
+          onclick: () => ctx.feed?.push(crosspathWhy(t.tiers, i, names), 'info', LOCK_TOAST),
         }, 'i'));
     } else if (v.state === 'final') {
       extra = finalLock(t, p, i, holder?.line, holder?.uid ?? null);
@@ -465,7 +476,7 @@ export function createTowerPanel(ctx) {
       if (ctx.coop && !ctx.coop.isMine(t.uid)) return;
       const now = sim.upgradeStatus(t.uid, i);
       // the holder may have taken the final tier since the drawer was drawn
-      if (now.reason === 'onePerPath') ctx.feed.push(onePerPathReason(t.def.name, p.name), 'warn', { key: 'upg-final', ms: 2200 });
+      if (now.reason === 'onePerPath') ctx.feed.push(onePerPathWhy(t.def.name, p.name), 'warn', { key: 'upg-final', ms: 2200 });
       else ctx.feed.push(`Need ${price(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
       rerender();
       return;

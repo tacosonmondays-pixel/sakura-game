@@ -907,6 +907,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-feed.bt-feed-l { left: 12px; right: auto; }
   .bt-feed.bt-feed-r .bt-toast { animation-name: bt-slide-r; }
   .bt-feed.bt-feed-r .bt-toast.out { transform: translateX(12px); }
+  /* a feed docked right steps left of an open drawer, beside it like the ability bar (the M4 re-review: at 1280 a lock
+     "i"'s reason and "Need N more coins" sat under the drawer); landscape phones dock right by default, see below */
+  .bt-has-panel .bt-feed.bt-feed-r { right: var(--bt-abar-panel-r); max-width: calc(100% - var(--bt-abar-panel-r) - 12px); }
 }
 @keyframes bt-slide-r { from { opacity: 0; transform: translateX(14px); } }
 
@@ -1607,8 +1610,9 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
      there is nothing to open */
   .bt-abrow.s-later:not(.open) .bt-abrow-line { display: block; }
   .bt-abrow.s-later .bt-abrow-name::after { content: none; }
-  /* the feed docks left of an open panel (it used to sit under it: a "learned" toast nobody saw) */
-  .bt-has-panel .bt-feed:not(.bt-feed-l) { left: auto; right: calc(var(--bt-abar-panel-r) + var(--safe-right)); }
+  /* the feed docks left of an open panel (it used to sit under it: a "learned" toast nobody saw); here it docks right
+     even before feed.js picks a corner. (--bt-abar-panel-r holds the safe area already) */
+  .bt-has-panel .bt-feed:not(.bt-feed-l) { left: auto; right: var(--bt-abar-panel-r); }
 }
 /* narrow screens: 44 px buttons; hidden while a panel is open (cast from her panel row instead) */
 @media (max-width: 700px) {

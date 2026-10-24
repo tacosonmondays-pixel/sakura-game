@@ -11,8 +11,10 @@ import {
 } from '../../src/ui/battle/drawerView.js';
 import { fmtNum } from '../../src/ui/format.js';
 import { pathAbilityTeaser } from '../../src/ui/battle/abilityRow.js';
-import { UNIT_MAP } from '../../src/data/units.js';
-import { onePerPathReason, finalHolderLine } from '../../src/ui/battle/rules.js';
+import { UNIT_MAP, towers } from '../../src/data/units.js';
+import {
+  onePerPathReason, finalHolderLine, crosspathReason, crosspathWhy, onePerPathWhy, pathCap, CROSSPATH_RULE, LOCK_WHY_MAX,
+} from '../../src/ui/battle/rules.js';
 
 function battle(ids, { hero = null } = {}) {
   const sim = new Sim({ stageId: '1-2', difficulty: 'normal', loadout: ids.map((unitId) => ({ unitId })), hero: hero ? { unitId: hero } : null, seed: 5 });
@@ -369,6 +371,99 @@ describe('the phone drawer: three rows in view, the cue only when content sits b
     expect(paint).not.toMatch(/scrollHeight/);
     const probe = readFileSync(new URL('../../e2e/lib/uiProbe.mjs', import.meta.url), 'utf8');
     expect(probe).toContain(`overflow: below > ${SCROLL_CUE_PX},`);
+  });
+});
+
+// The M4 re-review, round 3: a lock's "i" put two sentences in the feed, but a toast is ONE line (UI_DIRECTION §5.8),
+// so a phone cut every reason mid-word; and at 1280 on 1-1 the feed docks right, where its toast sat under the open
+// drawer. The real toasts (the longest names, both sizes, both corners) are checked in the browser by
+// e2e/lib/m4Scenes.mjs m4-lock-why; these pin the copy for every girl and the rules the fix rests on.
+describe('the lock "i": its one-line reason, seen', () => {
+  const css = readFileSync(new URL('../../src/ui/styles/battle.css', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+  const feed = readFileSync(new URL('../../src/ui/battle/feed.js', import.meta.url), 'utf8');
+  /** Every crosspath-legal tier set (two paths at most, one past T2), with the paths each one locks. */
+  const lockedStates = () => {
+    const out = [];
+    for (let a = 0; a <= 5; a++) for (let b = 0; b <= 5; b++) for (let c = 0; c <= 5; c++) {
+      const tiers = [a, b, c];
+      if (tiers.filter((x) => x > 0).length > 2 || tiers.filter((x) => x > 2).length > 1) continue;
+      for (let p = 0; p < 3; p++) if (tiers[p] < 5 && pathCap(tiers, p) <= tiers[p]) out.push([tiers, p]);
+    }
+    return out;
+  };
+
+  it('the reason in one short line: capped, two paths in use, a held final tier (the full sentence stays the title)', () => {
+    const sim = battle(['aoi']);
+    const t = up(sim, up(sim, place(sim, 'aoi'), 1, 3), 0, 2); // 2-3-0
+    const names = t.def.paths.map((p) => p.name);
+    expect(sim.upgradeStatus(t.uid, 0).reason).toBe('crosspath');
+    expect(sim.upgradeStatus(t.uid, 2).reason).toBe('crosspath');
+    expect(crosspathWhy(t.tiers, 0, names)).toBe('Capped at T2: Rapid Volley is T3');
+    expect(crosspathWhy(t.tiers, 2, names)).toBe('Max two paths per girl');
+    expect(crosspathWhy([1, 3, 0], 2, names)).toBe('Max two paths per girl');
+    expect(crosspathWhy([0, 5, 2], 2, names)).toBe('Capped at T2: Rapid Volley is T5');
+    expect(onePerPathWhy('Aoi', names[0])).toBe('Only one Aoi can hold Piercing Arrows V');
+    // the "i"'s title keeps the whole story (a mouse user's hover): the full reason, then the rule
+    expect(`${crosspathReason(t.tiers, 0, names)} ${CROSSPATH_RULE}`).toBe('Capped at T2 — Rapid Volley is already T3. One path can go past T2, a second up to T2.');
+    expect(onePerPathReason('Aoi', names[0])).toBe(`${onePerPathWhy('Aoi', names[0])}. Sell or upgrade that one.`);
+  });
+
+  it(`every girl, every lock: one sentence of at most ${LOCK_WHY_MAX} characters; the longest are Sango's (the e2e measures those)`, () => {
+    let worst = { len: 0 };
+    const seen = (s, girl) => {
+      expect(s.length, `${girl}: "${s}"`).toBeLessThanOrEqual(LOCK_WHY_MAX);
+      expect(s, girl).not.toMatch(/\.\s|\.$|…/);
+      if (s.length > worst.len) worst = { len: s.length, s, girl };
+    };
+    const states = lockedStates();
+    expect(states.length).toBe(66);
+    for (const u of towers()) {
+      const names = u.paths.map((p) => p.name);
+      for (const [tiers, p] of states) {
+        const s = crosspathWhy(tiers, p, names);
+        expect(s, `${u.id} ${tiers.join('-')} path ${p}`).not.toBe('Locked by crosspathing'); // (every real lock has its reason)
+        seen(s, u.id);
+      }
+      for (const n of names) seen(onePerPathWhy(u.name, n), u.id);
+    }
+    expect(worst).toMatchObject({ girl: 'sango', s: 'Only one Sango can hold Armor-Breaker Shells V' });
+    const capped = Math.max(...towers().flatMap((u) => u.paths.map((q) => crosspathWhy([5, 2, 0], 1, [q.name, '', '']).length)));
+    expect(capped).toBe('Capped at T2: Armor-Breaker Shells is T5'.length);
+  });
+
+  it('the drawer\'s "i" puts the short reason in the feed, one lock toast at a time; a lost final tier says it short too', () => {
+    expect(panel).toMatch(/const LOCK_TOAST = \{ key: 'path-lock', ms: 2600, replace: true \};/);
+    expect(panel).toMatch(/ctx\.feed\?\.push\(crosspathWhy\(t\.tiers, i, names\), 'info', LOCK_TOAST\)/);
+    expect(panel).toMatch(/title: `\$\{crosspathReason\(t\.tiers, i, names\)\} \$\{CROSSPATH_RULE\}`/);
+    expect(panel).toMatch(/ctx\.feed\?\.push\(onePerPathWhy\(t\.def\.name, p\.name\), 'info', LOCK_TOAST\)/);
+    expect(panel).toMatch(/ctx\.feed\.push\(onePerPathWhy\(t\.def\.name, p\.name\), 'warn', \{ key: 'upg-final'/);
+    // no feed line carries a reason's long form any more
+    expect(panel).not.toMatch(/feed\??\.push\((`\$\{)?(crosspathReason|onePerPathReason)\(/);
+    // replace: the live toast with that key takes the new words in place, and is never throttled away
+    const push = feed.slice(feed.indexOf('function push('), feed.indexOf('function announce('));
+    expect(push.indexOf('o.replace')).toBeGreaterThan(-1);
+    expect(push.indexOf('o.replace')).toBeLessThan(push.indexOf('!throttle('));
+    expect(push).toMatch(/\[data-key="\$\{CSS\.escape\(o\.key\)\}"\]:not\(\.out\)/);
+  });
+
+  it('a feed docked right steps left of an open drawer at every width over 700 px (1280 too), the safe area counted once', () => {
+    /** The `@media (min-width: 701px)` block that docks the feed right, up to its closing brace. */
+    const at = css.indexOf('.bt-feed.bt-feed-r { left: auto; right: 12px; }');
+    const open = css.lastIndexOf('@media', at);
+    expect(css.slice(open, css.indexOf('{', open))).toBe('@media (min-width: 701px) ');
+    let depth = 0;
+    let block = '';
+    for (let i = css.indexOf('{', open); i < css.length; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}' && --depth === 0) { block = css.slice(open, i + 1); break; }
+    }
+    expect(block).toMatch(/\.bt-has-panel \.bt-feed\.bt-feed-r \{ right: var\(--bt-abar-panel-r\); max-width: calc\(100% - var\(--bt-abar-panel-r\) - 12px\); \}/);
+    // landscape phones dock right before feed.js picks a corner: their rule keeps every feed not sent left
+    expect(css).toMatch(/\.bt-has-panel \.bt-feed:not\(\.bt-feed-l\) \{ left: auto; right: var\(--bt-abar-panel-r\); \}/);
+    // (--bt-abar-panel-r already holds the safe area)
+    expect(css).toMatch(/--bt-abar-panel-r: calc\(var\(--drawer-w\) \+ 20px \+ var\(--safe-right\)\)/);
+    expect(css).not.toMatch(/var\(--bt-abar-panel-r\) \+ var\(--safe-right\)/);
   });
 });
 

@@ -27,6 +27,14 @@
 //                        right · Show ›" would wrap at 844: the place steps away, the row stays one row high)
 //   m4-drawer-ally       a co-op partner's Aoi 1-3-0 and 2-3-0 (m4-drawer-ally-230, her owner's name 16 characters
 //                        long): the ally note one line at 844
+// M4 re-review, round 3 (the lock "i"'s reason was cut on a phone, and hidden under the drawer at 1280 on 1-1):
+//   m4-lock-why          each lock "i" tapped for real (a touch tap at 844, a click at 1280) on 1-1, where the spawn
+//                        sends the feed to the right: Aoi 2-3-0's capped row, then at once her third row (the toast
+//                        swaps its words: one lock toast), Sango 3-2-0 (the longest path names), Sango 4-2-0 beside a
+//                        5-0-0 (the held final tier: its "i" on a phone; at 1280 the rule in the row), tap 2 on a price
+//                        she cannot pay ("Need N more coins."), then one "i" with the feed forced into each top corner.
+//                        Each toast must be on top at its centre (not under the drawer) and one line, nothing cut
+//                        (battleKit toastSeen); stills m4-lock-why-<case>
 // Every drawer still is checked (the run fails on a miss): at 844 each path row and its price inside the scroll body
 // (an open row: its Buy in view, the rest in view or the scroll cue shown), each lock row one row high (its lock line
 // in the tier line's place), the cue shown exactly when content sits below the fold (measured from the body's
@@ -38,7 +46,7 @@ import { uiProbe, formatProbe, drawerPathsInView, BATTLE_BOXES } from './uiProbe
 export const M4_SCENES = [
   'm4-drawer-aoi', 'm4-drawer-armed', 'm4-drawer-locked', 'm4-drawer-azami', 'm4-drawer-chika', 'm4-drawer-chika-more', 'm4-drawer-more', 'm4-hero-drawer', 'm4-reduce-motion',
   'm4-drawer-ability', 'm4-drawer-ability-armed', 'm4-drawer-midori', 'm4-drawer-iroha', 'm4-drawer-teaser', 'm4-hero-more',
-  'm4-drawer-fit', 'm4-drawer-ally',
+  'm4-drawer-fit', 'm4-drawer-ally', 'm4-lock-why',
 ];
 const GIRLS = ['hikari', 'aoi', 'azami', 'chika', 'miko', 'momo', 'rei', 'akane', 'midori', 'iroha'];
 const SQUAD = ['aoi', 'azami', 'chika', 'miko', 'momo', 'midori', 'iroha'];
@@ -411,7 +419,7 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
   }
 
   // ---- the M4 re-review (look-1 and the scroll cue): a second battle with another squad
-  if (has('m4-drawer-fit') || has('m4-drawer-ally')) {
+  if (has('m4-drawer-fit') || has('m4-drawer-ally') || has('m4-lock-why')) {
     // (a real page load: a goto that only changes the hash would keep the first battle's page; and the first battle's
     // save goes, or 1-1 would open on Continue)
     await page.goto('about:blank');
@@ -608,6 +616,163 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         await still(name);
         await page.evaluate(() => { window.__battle.ui.select(null); window.__battle.ui.coop = window.__m4RealCoop; });
         await sellAll([b.t]);
+        await settle(page, 200);
+      }
+    }
+
+    if (has('m4-lock-why')) {
+      // (the M4 re-review, round 3: the "i" put two sentences in the feed, cut mid-word on a phone; at 1280 on 1-1 the
+      // feed docks right, and its toast sat under the open drawer)
+      const L = (out['m4-lock-why'] = { cases: {} });
+      const tap = (loc) => (phone ? loc.tap() : loc.click());
+      const infoOf = (row) => page.locator(`[data-testid="tower-panel"] .bt-path[data-path="${row}"] .bt-path-lock .bt-dw-info`);
+      // (the toasts' font: its Latin subset loaded, or the widths below are a fallback's; the font has hundreds of
+      // unicode-range faces, so the check names the letters)
+      L.fonts = await page.evaluate(async () => {
+        await document.fonts.load('700 13px "M PLUS Rounded 1c"', 'Max two paths');
+        return { rounded: document.fonts.check('700 13px "M PLUS Rounded 1c"', 'Max two paths'), toast: getComputedStyle(document.body).fontFamily };
+      });
+      log(`  m4-lock-why fonts: ${JSON.stringify(L.fonts)}`);
+      /** The toast matching `re`: on top at its centre, one line, nothing cut (battleKit toastSeen), and clear of the drawer. */
+      const seenToast = async (label, re, { shot: stillName = null, one = false } = {}) => {
+        await settle(page, 200);
+        // (measured where it rests: its slide-in starts 14 px off, and a busy SwiftShader frame can hold that a while)
+        await page.evaluate(() => Promise.race([
+          Promise.all([...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast')].flatMap((t) => t.getAnimations()).map((an) => an.finished.catch(() => null))),
+          new Promise((r) => setTimeout(r, 1500)),
+        ]));
+        const s = await page.evaluate((src) => window.__ab.toastSeen(src), re);
+        const at = await page.evaluate(() => ({
+          feed: document.querySelector('[data-testid="battle-feed"]')?.className,
+          lockToasts: document.querySelectorAll('[data-testid="battle-feed"] .bt-toast[data-key="path-lock"]').length,
+          drawerLeft: Math.round(document.querySelector('[data-testid="tower-panel"]:not([hidden])')?.getBoundingClientRect().left ?? -1),
+        }));
+        L.cases[label] = { ...s, ...at };
+        log(`  m4-lock-why ${label}: ${JSON.stringify(L.cases[label])}`);
+        if (!s.found) fail('m4-lock-why', `${label}: no toast matches /${re}/ (the feed holds ${JSON.stringify(await page.evaluate(() => window.__ab.toasts()))})`);
+        else {
+          if (!s.onTop) fail('m4-lock-why', `${label}: the toast "${s.text}" is not on top (the hit test finds ${s.hit})`);
+          if (!s.oneLine) fail('m4-lock-why', `${label}: the toast "${s.text}" is cut or wraps (${JSON.stringify(s.rect)})`);
+          if (at.drawerLeft >= 0 && s.rect[0] + s.rect[2] > at.drawerLeft) fail('m4-lock-why', `${label}: the toast reaches under the drawer (toast ${JSON.stringify(s.rect)}, drawer from x ${at.drawerLeft})`);
+        }
+        if (one && at.lockToasts !== 1) fail('m4-lock-why', `${label}: ${at.lockToasts} lock toasts in the feed (one at a time)`);
+        if (stillName) await rawShot(stillName);
+      };
+
+      // Aoi 2-3-0: her first row capped at T2 (Rapid Volley is T3), her third row locked (two paths in use)
+      const a = await build('aoi', [[1, 3], [0, 2]]);
+      if (a.err) fail('m4-lock-why', a.err);
+      else {
+        log(`  m4-lock-why staging: ${JSON.stringify(a)}`);
+        await show(a.t);
+        await clearToasts(page);
+        const title = await infoOf(0).getAttribute('title').catch(() => null);
+        L.title = title;
+        if (title !== 'Capped at T2 — Rapid Volley is already T3. One path can go past T2, a second up to T2.') fail('m4-lock-why', `the capped "i"'s title reads "${title}" (the full reason, then the rule)`);
+        await tap(infoOf(0));
+        const t0 = Date.now();
+        await seenToast('capped', '^Capped at T2: Rapid Volley is T3$', { one: true });
+        // at once the third row's "i": the same toast takes its words (it used to be throttled away for about 1.5 s)
+        L.secondTapAfterMs = Date.now() - t0;
+        await tap(infoOf(2));
+        await seenToast('two', '^Max two paths per girl$', { shot: 'm4-lock-why-two', one: true });
+        await tap(infoOf(0));
+        await seenToast('capped-again', '^Capped at T2: Rapid Volley is T3$', { shot: 'm4-lock-why-capped', one: true });
+        log(`  m4-lock-why: the second "i" tapped ${L.secondTapAfterMs} ms after the first (the throttle window is ${phone ? 1248 : 1560} ms)`);
+        // tap 2 on a price she cannot pay: "Need N more coins." (the same feed, the same docking)
+        await clearToasts(page);
+        await page.evaluate(() => { window.__battle.sim.cash = 10; });
+        await settle(page, 300);
+        const buy = page.locator('[data-testid="tower-panel"] [data-testid="buy-1"]');
+        await tap(buy);
+        await settle(page, 150);
+        await tap(buy);
+        await seenToast('need', '^Need [\\d,.]+[kM]? more coins\\.$', { shot: 'm4-lock-why-need' });
+        await sellAll([a.t]);
+        await settle(page, 200);
+      }
+
+      // Sango 3-2-0: the longest path names of any girl ("Capped at T2: Armor-Breaker Shells is T3")
+      const s = await build('sango', [[0, 3], [1, 2]]);
+      if (s.err) fail('m4-lock-why', s.err);
+      else {
+        log(`  m4-lock-why staging: ${JSON.stringify(s)}`);
+        await show(s.t);
+        await clearToasts(page);
+        await tap(infoOf(1));
+        await seenToast('sango-capped', '^Capped at T2: Armor-Breaker Shells is T3$', { shot: 'm4-lock-why-sango', one: true });
+        await tap(infoOf(2));
+        await seenToast('sango-two', '^Max two paths per girl$', { one: true });
+        await sellAll([s.t]);
+        await settle(page, 200);
+      }
+
+      // the held final tier, Sango 4-2-0 beside a 5-0-0 (her longest pair): on a phone the row is one line and its "i"
+      // gives the rule; at 1280 the rule stays in the row, whole, with no "i"
+      const held = await stage(() => {
+        const { sim } = window.__battle;
+        sim.cash = 1e7;
+        const a5 = __ab.place('sango', { skip: 30 });
+        if (a5 == null) return { err: 'no spot for the holder' };
+        __ab.up(a5, 0, 5);
+        const b4 = __ab.place('sango', { near: a5, min: 2.5 });
+        if (b4 == null) return { err: 'no spot beside the holder' };
+        __ab.up(b4, 0, 4);
+        __ab.up(b4, 1, 2);
+        sim.cash = 1250;
+        return { a5, b4, tiers: `${sim.getTower(a5).tiers.join('-')} / ${sim.getTower(b4).tiers.join('-')}`, reason: sim.upgradeStatus(b4, 0).reason };
+      });
+      if (held.err) fail('m4-lock-why', held.err);
+      else {
+        log(`  m4-lock-why staging: ${JSON.stringify(held)}`);
+        await show(held.b4);
+        await clearToasts(page);
+        const why = page.locator('[data-testid="tower-panel"] [data-testid="final-lock-0"] .bt-lock-why');
+        const row = await page.evaluate(() => {
+          const lock = document.querySelector('[data-testid="tower-panel"] [data-testid="final-lock-0"]');
+          const line = lock?.querySelector('.bt-lock-line');
+          const i = lock?.querySelector('.bt-lock-why');
+          const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+          return lock ? { line: line?.textContent, lineShown: vis(line), iShown: vis(i), iTitle: i?.title } : null;
+        });
+        L.held = row;
+        log(`  m4-lock-why held row: ${JSON.stringify(row)}`);
+        const full = 'Only one Sango can hold Armor-Breaker Shells V. Sell or upgrade that one.';
+        if (!row) fail('m4-lock-why', 'no final-tier lock on her first row');
+        else if (phone) {
+          if (!row.iShown) fail('m4-lock-why', 'held: no "i" on the one-line held row at 844');
+          else {
+            if (row.iTitle !== full) fail('m4-lock-why', `held: the "i"'s title reads "${row.iTitle}"`);
+            await tap(why);
+            await seenToast('held', '^Only one Sango can hold Armor-Breaker Shells V$', { shot: 'm4-lock-why-held', one: true });
+          }
+        } else {
+          if (!row.lineShown || row.line !== full) fail('m4-lock-why', `held at 1280: the row's rule line reads "${row.line}" (${row.lineShown ? 'shown' : 'hidden'})`);
+          if (row.iShown) fail('m4-lock-why', 'held at 1280: an "i" beside a rule the row already shows');
+          await rawShot('m4-lock-why-held');
+        }
+        await sellAll([held.b4, held.a5]);
+        await settle(page, 200);
+      }
+
+      // one "i" with the feed in each top corner (1-1 sends it right; the other corner is staged: the feed keeps the
+      // corner it is given once its avoid points are gone). Last: the feed's spawn docking is off from here on.
+      const d = await build('aoi', [[1, 3], [0, 2]]);
+      if (d.err) fail('m4-lock-why', d.err);
+      else {
+        await show(d.t);
+        await page.evaluate(() => window.__battle.ui.feed.setAvoid(() => []));
+        for (const dock of ['bt-feed-l', 'bt-feed-r']) {
+          await clearToasts(page);
+          await page.evaluate((cls) => {
+            const f = document.querySelector('[data-testid="battle-feed"]');
+            f.classList.remove('bt-feed-l', 'bt-feed-r');
+            f.classList.add(cls);
+          }, dock);
+          await tap(infoOf(0));
+          await seenToast(`dock-${dock.slice(-1)}`, '^Capped at T2: Rapid Volley is T3$', { one: true });
+        }
+        await sellAll([d.t]);
         await settle(page, 200);
       }
     }
