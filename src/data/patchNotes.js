@@ -20,6 +20,12 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.49', version: '0.1.49', date: '2026-10-23', title: 'Room to Breathe',
+    changed: [
+      'Yoriko’s "Summer Breeze" lobby picture sits a little further back, so more of the picture shows.',
+    ],
+  },
+  {
     id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Fill the Frame',
     added: [
       'The lobby background picker has a new group, Full illustrations. Pick one and her picture fills the whole lobby, with no castle backdrop or speech bubble in the way.',
