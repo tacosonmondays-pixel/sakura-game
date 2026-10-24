@@ -62,10 +62,17 @@ const PLANS = {
   midori: ['5-0-2', '2-0-5', null, null],
   momo: ['5-0-2', '0-5-2', null, null],
   chika: ['0-5-2', '5-2-0', null, null],
+  // BALANCE REVIEW ONLY (untracked local change, never commit): plans for the review's builds F and S
+  azami: ['5-2-0', '2-5-0', null, '4-2-0'],
+  umeko: ['2-5-0', '5-2-0', null, null],
+  wakaba: ['5-0-2', '0-5-2', null, null],
+  kaede: ['2-5-0', '5-2-0', null, '2-4-0'],
+  ena: ['0-2-5', '5-0-2', null, '0-2-4'],
+  hotaru: ['5-2-0', '2-5-0', null, '4-2-0'],
 };
 const KAGE_ARMY = ['5-0-2', '2-0-5', '2-5-0', '4-0-2'];
 const CARRIES = ['shiro', 'kage', 'aoi', 'akane', 'sango'];
-const SUPPORTS = new Set(['miko', 'midori', 'chika']);
+const SUPPORTS = new Set(['miko', 'midori', 'chika', 'umeko', 'wakaba']);
 const HERO = 'hikari';
 const HERO_PLAN = '5-0-2';
 
@@ -296,6 +303,9 @@ function makeBrain({ sim, types, first, cap, copiesOf, carries, hero, act, cash,
 
 function buildConfig(name) {
   if (name === 'B') return { types: ['kage'], first: null, cap: 28, copiesOf: () => KAGE_ARMY, carries: ['kage'] };
+  // BALANCE REVIEW ONLY: F = the free roster (every girl here is free in the campaign), S = the buffed SSRs + supports
+  if (name === 'F') return { types: ['shiro', 'kage', 'aoi', 'sango', 'azami', 'umeko', 'midori', 'wakaba'], first: null, cap: 32, copiesOf: (ty) => PLANS[ty], carries: ['shiro', 'kage', 'aoi', 'sango', 'azami'] };
+  if (name === 'S') return { types: ['shiro', 'kage', 'kaede', 'ena', 'hotaru', 'umeko', 'chika', 'midori'], first: null, cap: 32, copiesOf: (ty) => PLANS[ty], carries: ['shiro', 'kage', 'kaede', 'ena', 'hotaru'] };
   const types = name === 'A2' ? ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'chika'] : ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'];
   return { types, first: name === 'A2' ? null : 'momo', cap: 32, copiesOf: (ty) => PLANS[ty], carries: CARRIES };
 }
@@ -316,6 +326,12 @@ function summarize(sim, extra) {
   const t4 = towers.reduce((a, t) => a + t.tiers.filter((n) => n === 4).length, 0);
   const girls = {};
   for (const t of towers) girls[t.unitId] = (girls[t.unitId] || 0) + 1;
+  // BALANCE REVIEW ONLY (local, never commit): each girl type's share of the board's damage, %
+  const dmgBy = {};
+  for (const t of sim.towers) dmgBy[t.unitId] = (dmgBy[t.unitId] || 0) + (t.damageDealt || 0);
+  const dmgAll = Object.values(dmgBy).reduce((a, b) => a + b, 0) || 1;
+  for (const k of Object.keys(dmgBy)) dmgBy[k] = Math.round((1000 * dmgBy[k]) / dmgAll) / 10;
+  extra = { ...extra, dmgShare: dmgBy, dmgTotal: Math.round(dmgAll) };
   return {
     build, stage: stageId, tier, seed, coop, fell: sim.state === 'lost' ? sim.wave : null, reached: sim.wave, goal: sim.totalWaves,
     firstLeak, lostBy, finals: finals.length, finalPaths: finals.sort().join(' '), t4, girls, towers: towers.length,

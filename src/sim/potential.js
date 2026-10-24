@@ -88,6 +88,25 @@ export function boostedAura(a) {
  * re-apply would keep a stronger Brittle someone else applied alive for ever.
  */
 export function applyFoeVuln(sim) {
+  // BALANCE MEASUREMENT ONLY (revert before any commit): aura.foeMark marks the enemies inside her aura
+  for (const t of sim.towers) {
+    const au = t.stats?.aura;
+    const mk = au?.foeMark;
+    if (!(mk > 0) || t.disabled > 0) continue;
+    const near = sim.grid.query(t.x, t.y, au.range, []);
+    const ctx = sim._statusCtx;
+    ctx.element = t.eff?.element || null;
+    ctx.attackType = t.eff?.attackType;
+    ctx.sourceUid = t.uid;
+    const spec = { type: 'mark', bonus: mk, duration: 0.4 };
+    for (const e of near) {
+      if (e.dead || !isEligible(e, t.eff)) continue;
+      const cur = e.statuses.mark;
+      if (cur && cur.bonus > mk) continue;
+      sim._applyStatusEvent(e, spec, ctx);
+      syncStatusFlags(e);
+    }
+  }
   for (const t of sim.towers) {
     const au = t.stats?.aura;
     const bonus = au?.foeVuln;

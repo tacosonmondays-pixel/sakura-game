@@ -26,7 +26,7 @@ import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
-import { hubsOn, applyHubs } from './hubs.js';
+import { hubsOn, applyHubs, BAL_HUB_OM } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
@@ -55,6 +55,17 @@ export function projectileKind(def, stats) {
 export function hitRadius(e) {
   return 0.3 + 0.06 * (e.def.size ?? 1);
 }
+
+// BALANCE MEASUREMENT ONLY (notes/balance/PROPOSAL.md; revert before any commit): env-gated aura rule variants
+const BAL_RULE = (globalThis.process?.env?.BAL_RULE || '').split(',');
+const BAL_HERO = BAL_RULE.includes('hero');
+const BAL_HALF = BAL_RULE.includes('half');
+const BAL_HALF_K = Number(globalThis.process?.env?.BAL_HALF_K || 0.5);
+const BAL_HERO_K = Number(globalThis.process?.env?.BAL_HERO_K || 1);
+// round 2 (fresh review finding 1): BAL_HERO_MODE=mono makes the hero layer monotone. Per stat the girl gets the
+// better of (a) today's best-of with the hero competing like any aura and (b) the students' auras (half rule
+// included) with the hero's bonus x BAL_HERO_K on top; armour pen and crit: max(best-of, students + K x hero).
+const BAL_HERO_MONO = BAL_HERO && (globalThis.process?.env?.BAL_HERO_MODE || '') === 'mono';
 
 function emptyBuff() {
   return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0, tea: 1 };
@@ -381,6 +392,10 @@ export function recomputeBuffs(sim) {
     // girl placed first
     const by = t.buffBy || (t.buffBy = emptyBuffBy());
     by.dmg = by.rate = by.range = by.pen = by.crit = by.det = by.cost = by.cleanse = by.rally = -1;
+    const hl = { d: 1, r: 1, g: 1, p: 0, c: 0 };
+    const s2 = { d: 1, r: 1, g: 1, p: 0, c: 0 };
+    const so = { d: 1, r: 1, g: 1, p: 0, c: 0 }; // (mono) students only: strongest
+    const so2 = { d: 1, r: 1, g: 1, p: 0, c: 0 }; // (mono) students only: second-strongest
     for (const a of towers) {
       if (a === t || !a.stats?.aura || a.disabled > 0) continue;
       // (a Potential rhythm's aura boost runs: her aura numbers × the boost, src/sim/potential.js)
@@ -388,6 +403,36 @@ export function recomputeBuffs(sim) {
       const dx = a.x - t.x;
       const dy = a.y - t.y;
       if (dx * dx + dy * dy > au.range * au.range) continue;
+      if (BAL_HERO_MONO) {
+        if (a.isHero) {
+          if (au.dmgMul > hl.d) hl.d = au.dmgMul;
+          if (au.rateMul > hl.r) hl.r = au.rateMul;
+          if (au.rangeMul > hl.g) hl.g = au.rangeMul;
+          if (au.armorPen > hl.p) hl.p = au.armorPen;
+          if (au.critChance > hl.c) hl.c = au.critChance;
+        } else {
+          const up = (k, v) => { if (v > so[k]) { if (so[k] > so2[k]) so2[k] = so[k]; so[k] = v; } else if (v > so2[k]) so2[k] = v; };
+          up('d', au.dmgMul ?? 1); up('r', au.rateMul ?? 1); up('g', au.rangeMul ?? 1); up('p', au.armorPen ?? 0); up('c', au.critChance ?? 0);
+        }
+        // the hero (and every student) also competes in today's best-of below: side (a)
+      } else if (BAL_HERO && a.isHero) {
+        if (au.dmgMul > hl.d) hl.d = au.dmgMul;
+        if (au.rateMul > hl.r) hl.r = au.rateMul;
+        if (au.rangeMul > hl.g) hl.g = au.rangeMul;
+        if (au.armorPen > hl.p) hl.p = au.armorPen;
+        if (au.critChance > hl.c) hl.c = au.critChance;
+        if (au.detection && !nb.detection) { nb.detection = true; by.det = a.uid; }
+        if (au.costCut > nb.costCut) { nb.costCut = au.costCut; by.cost = a.uid; }
+        if (au.cleanse && !nb.cleanse) { nb.cleanse = true; by.cleanse = a.uid; }
+        continue;
+      }
+      if (BAL_HALF) {
+        if (au.dmgMul > nb.dmgMul) { if (nb.dmgMul > s2.d) s2.d = nb.dmgMul; } else if (au.dmgMul > s2.d) s2.d = au.dmgMul;
+        if (au.rateMul > nb.rateMul) { if (nb.rateMul > s2.r) s2.r = nb.rateMul; } else if (au.rateMul > s2.r) s2.r = au.rateMul;
+        if (au.rangeMul > nb.rangeMul) { if (nb.rangeMul > s2.g) s2.g = nb.rangeMul; } else if (au.rangeMul > s2.g) s2.g = au.rangeMul;
+        if (au.armorPen > nb.armorPen) { if (nb.armorPen > s2.p) s2.p = nb.armorPen; } else if (au.armorPen > s2.p) s2.p = au.armorPen;
+        if (au.critChance > nb.critChance) { if (nb.critChance > s2.c) s2.c = nb.critChance; } else if (au.critChance > s2.c) s2.c = au.critChance;
+      }
       if (au.dmgMul > nb.dmgMul) { nb.dmgMul = au.dmgMul; by.dmg = a.uid; }
       if (au.rateMul > nb.rateMul) { nb.rateMul = au.rateMul; by.rate = a.uid; }
       if (au.rangeMul > nb.rangeMul) { nb.rangeMul = au.rangeMul; by.range = a.uid; }
@@ -398,6 +443,35 @@ export function recomputeBuffs(sim) {
       if (au.critChance > nb.critChance) { nb.critChance = au.critChance; by.crit = a.uid; }
     }
     const rulesChanged = hubs.length || t.rules ? applyHubs(t, nb, by, hubs) : false;
+    if (BAL_HERO_MONO) {
+      // side (a): nb as it stands (today's best-of, hero included; the office already applied by applyHubs)
+      // side (b): students (strongest + half the second) x office x (1 + (hero - 1) x K)
+      const om = hubs.length || t.rules ? BAL_HUB_OM : { r: 1, g: 1, d: 1 };
+      const hk = BAL_HALF ? BAL_HALF_K : 0;
+      const bd = so.d * (1 + (so2.d - 1) * hk) * om.d * (1 + (hl.d - 1) * BAL_HERO_K);
+      const br = so.r * (1 + (so2.r - 1) * hk) * om.r * (1 + (hl.r - 1) * BAL_HERO_K);
+      const bg = so.g * (1 + (so2.g - 1) * hk) * om.g * (1 + (hl.g - 1) * BAL_HERO_K);
+      const bp = so.p + so2.p * hk + hl.p * BAL_HERO_K;
+      const bc = so.c + so2.c * hk + hl.c * BAL_HERO_K;
+      if (bd > nb.dmgMul) nb.dmgMul = bd;
+      if (br > nb.rateMul) nb.rateMul = br;
+      if (bg > nb.rangeMul) nb.rangeMul = bg;
+      if (bp > nb.armorPen) nb.armorPen = bp;
+      if (bc > nb.critChance) nb.critChance = bc;
+    } else if (BAL_HALF) {
+      nb.dmgMul *= 1 + (s2.d - 1) * BAL_HALF_K;
+      nb.rateMul *= 1 + (s2.r - 1) * BAL_HALF_K;
+      nb.rangeMul *= 1 + (s2.g - 1) * BAL_HALF_K;
+      nb.armorPen += s2.p * BAL_HALF_K;
+      nb.critChance += s2.c * BAL_HALF_K;
+    }
+    if (BAL_HERO && !BAL_HERO_MONO) {
+      nb.dmgMul *= 1 + (hl.d - 1) * BAL_HERO_K;
+      nb.rateMul *= 1 + (hl.r - 1) * BAL_HERO_K;
+      nb.rangeMul *= 1 + (hl.g - 1) * BAL_HERO_K;
+      nb.armorPen += hl.p * BAL_HERO_K;
+      nb.critChance += hl.c * BAL_HERO_K;
+    }
     // limited buffs (Midori's brew, Chika's link) multiply on top of the auras, then ability rallies
     // (strongest per key; both players' girls), so a rally's ward clears sabotage below
     applyLimited(sim, t, nb);

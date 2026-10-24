@@ -353,13 +353,17 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     return best;
   };
 
+  // BALANCE REVIEW ONLY (round 2, fresh review finding 3; never commit): one carry score for carryNow and carryScore.
+  // BAL_CARRY_TIERS sets the tiers carryScore reads, BAL_CARRYNOW_TIERS the tiers carryNow reads (both default 5 =
+  // today). The real fix is carryScoreOf(def, main) = pathScore(def, main, needs, 4) * ... in both places.
+  const carryScoreOf = (def, main, tiers) => pathScore(def, main, needs, tiers) * (1 + 0.3 * (def.base?.bossMul || 1)) * (def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
   // the damage dealer placed so far that the focus step will push deep (carryScore below, same formula)
   const carryNow = () => {
     let best = null;
     let bestS = -Infinity;
     for (const p of placed) {
       if (p.role !== 'dps') continue;
-      const sc = pathScore(p.def, p.main, needs) * (1 + 0.3 * (p.def.base?.bossMul || 1)) * (p.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
+      const sc = carryScoreOf(p.def, p.main, Number(globalThis.process?.env?.BAL_CARRYNOW_TIERS || 5));
       if (sc > bestS) {
         bestS = sc;
         best = p;
@@ -427,7 +431,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   for (const rec of dpsRecs()) if (!isStrip(rec)) upgrade(rec, rec.main, 2);
   // Focus: like a real player, push one carry deep (tier 4) early instead of spreading every
   // coin over tier-2 girls — boss and miniboss stages are unwinnable without a real damage dealer.
-  const carryScore = (rec) => pathScore(rec.def, rec.main, needs) * (1 + 0.3 * (rec.def.base?.bossMul || 1)) * (rec.def.base?.canHitAir === false && needs.airborne ? 0.3 : 1);
+  const carryScore = (rec) => carryScoreOf(rec.def, rec.main, Number(globalThis.process?.env?.BAL_CARRY_TIERS || 5));
   const carry = focus ? dpsRecs().filter((r) => !isStrip(r)).sort((a, b) => carryScore(b) - carryScore(a))[0] || null : null;
   if (carry) upgrade(carry, carry.main, 4);
   for (const info of shooters.slice(0, 2)) if (copies(info) < maxCopies) place(info);

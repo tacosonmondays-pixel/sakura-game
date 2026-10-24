@@ -50,13 +50,34 @@ const sameRules = (a, b) => a.freeTiers === b.freeTiers && a.sellMul === b.sellM
  * into `nb` (strongest wins; `by` records the winner for the buff icons) and their rule keys into
  * t.rules. Never her own rules. @returns {boolean} t.rules changed (her effective stats need a refresh)
  */
+// BALANCE MEASUREMENT ONLY (revert before any commit): BAL_RULE=ouka multiplies the strongest office's keys on top
+const BAL_OUKA = (globalThis.process?.env?.BAL_RULE || '').split(',').includes('ouka');
+// (round 2: the last call's office multipliers, read by the monotone hero layer in towers.js)
+export const BAL_HUB_OM = { r: 1, g: 1, d: 1 };
+
 export function applyHubs(t, nb, by, hubs) {
   let r = null;
+  const om = { r: 1, g: 1, d: 1 };
+  BAL_HUB_OM.r = 1; BAL_HUB_OM.g = 1; BAL_HUB_OM.d = 1;
   for (let i = 0; i < hubs.length; i++) {
     const a = hubs[i];
     if (a === t || !hubCovers(a, t.x, t.y)) continue;
     const h = a.stats.hub;
     if (!r) r = { src: a.uid, freeTiers: 0, sellMul: 0, cdCut: 0, airGrant: false, typeFloor: 0 };
+    if (BAL_OUKA) {
+      if (h.rateMul > om.r) om.r = h.rateMul;
+      if (h.rangeMul > om.g) om.g = h.rangeMul;
+      if (h.dmgMul > om.d) om.d = h.dmgMul;
+      if (h.costCut > nb.costCut) { nb.costCut = h.costCut; by.cost = a.uid; }
+      if (h.detection && !nb.detection) { nb.detection = true; by.det = a.uid; }
+      if (h.cleanse && !nb.cleanse) { nb.cleanse = true; by.cleanse = a.uid; }
+      if (h.freeTiers > r.freeTiers) r.freeTiers = h.freeTiers;
+      if (h.sellMul > r.sellMul) r.sellMul = h.sellMul;
+      if (h.cdCut > r.cdCut) r.cdCut = h.cdCut;
+      if (h.airGrant) r.airGrant = true;
+      if (h.typeFloor > r.typeFloor) r.typeFloor = h.typeFloor;
+      continue;
+    }
     if (h.costCut > nb.costCut) { nb.costCut = h.costCut; by.cost = a.uid; }
     if (h.rateMul > nb.rateMul) { nb.rateMul = h.rateMul; by.rate = a.uid; }
     if (h.rangeMul > nb.rangeMul) { nb.rangeMul = h.rangeMul; by.range = a.uid; }
@@ -68,6 +89,12 @@ export function applyHubs(t, nb, by, hubs) {
     if (h.cdCut > r.cdCut) r.cdCut = h.cdCut;
     if (h.airGrant) r.airGrant = true;
     if (h.typeFloor > r.typeFloor) r.typeFloor = h.typeFloor;
+  }
+  if (BAL_OUKA) {
+    nb.rateMul *= om.r;
+    nb.rangeMul *= om.g;
+    nb.dmgMul *= om.d;
+    BAL_HUB_OM.r = om.r; BAL_HUB_OM.g = om.g; BAL_HUB_OM.d = om.d;
   }
   const old = t.rules;
   if (!r) {

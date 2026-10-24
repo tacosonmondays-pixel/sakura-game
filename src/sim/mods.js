@@ -518,6 +518,7 @@ export function applyModSet(s, mods, acc) {
       // Potential: reach added after every max rule (resolveStats), enemy Brittle inside her aura (N5, N6)
       if (v.rangeAdd != null && acc) acc.auraRangeAdd = (acc.auraRangeAdd || 0) + v.rangeAdd;
       if (v.foeVuln != null) s.aura.foeVuln = (s.aura.foeVuln || 0) + v.foeVuln;
+      if (v.foeMark != null) s.aura.foeMark = (s.aura.foeMark || 0) + v.foeMark; // BALANCE MEASUREMENT ONLY (revert)
     } else if (key === 'income') {
       if (!s.income) s.income = { perWave: 0, interest: 0 };
       s.income.perWave += v.perWave ?? 0;
