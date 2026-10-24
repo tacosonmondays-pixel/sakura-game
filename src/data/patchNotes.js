@@ -20,6 +20,16 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.51', version: '0.1.51', date: '2026-10-24', title: 'Spooky Courtyard',
+    added: [
+      'The lobby dresses up for Halloween: a moonlit academy with a spooky lantern tree and glowing pumpkins behind your secretary.',
+    ],
+    fixed: [
+      'The Halloween lantern string no longer hangs across the girls’ hair.',
+      'Switching from a full illustration back to a backdrop, your secretary greets you again.',
+    ],
+  },
+  {
     id: 'v0.1.50', version: '0.1.50', date: '2026-10-24', title: 'Close-Up Again',
     changed: [
       'Yoriko’s "Summer Breeze" lobby picture is back to its original, closer framing.',
