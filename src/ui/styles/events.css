@@ -104,22 +104,6 @@
 .lb-ev-limited .lb-ev-shade { background: linear-gradient(90deg, rgba(36,26,70,0.94) 0%, rgba(36,26,70,0.7) 50%, rgba(242,140,40,0) 78%); }
 .lb-ev-limited .lb-ev-kicker { color: #ffb347; }
 .lb-ev-limited .lb-ev-text small { color: #ffd39a; }
-.lb-ev-decor { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-.lb-ev-lanterns { position: absolute; left: 18%; right: 18%; top: calc(var(--top-h, 46px) + var(--safe-top) + 2px); height: 56px; line-height: 0; opacity: 0.92; }
-.lb-ev-lanterns svg { width: 100%; height: 100%; }
-.lb-ev-pumpkin { position: absolute; bottom: calc(var(--dock-h, 40px) + var(--safe-bottom) + 14px); width: 64px; height: 52px; line-height: 0; }
-.lb-ev-pumpkin svg { width: 100%; height: 100%; }
-.lb-ev-pumpkin.l { left: calc(var(--pad, 10px) + 250px + var(--safe-left)); }
-.lb-ev-pumpkin.r { right: calc(var(--pad, 10px) + 250px + var(--safe-right)); transform: scaleX(-1) scale(0.8); }
-/* over her stand the event's painted backdrop has its own lanterns (on the tree) and pumpkins (eventLobbyBackdrop);
-   hidden, not removed, so the string keeps its box for a full illustration's crop */
-.lb-ev-decor.on-stand .lb-ev-lanterns, .lb-ev-decor.on-stand .lb-ev-pumpkin { visibility: hidden; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .lb-ev-lanterns svg g { animation: ev-sway 3.2s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 0; }
-}
-@keyframes ev-sway { from { rotate: -3deg; } to { rotate: 3deg; } }
-
 /* Landscape phones (844×390): one compact header line, tabs scroll inside themselves */
 @media (max-height: 500px) {
   .ev-screen .screen-body { gap: 8px; padding-top: 8px; }
@@ -129,8 +113,6 @@
   .ev-head-girl { width: 110px; }
   .ev-lanterns { height: 30px; }
   .ev-op-thumb { height: 48px; }
-  .lb-ev-lanterns { height: 38px; left: 22%; right: 22%; }
-  .lb-ev-pumpkin { width: 46px; height: 38px; }
 }
 @media (max-width: 520px) {
   .ev-head-body { padding-right: 16px; }

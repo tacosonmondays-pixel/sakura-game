@@ -33,7 +33,7 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyCard, eventLobbyDecor, eventLobbyBackdrop, hangLobbyLanterns, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyCard, eventLobbyBackdrop, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -129,15 +129,12 @@ export function render(root) {
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
-  let decor = null;
   let eventBackdrop = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
-    decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
-    if (decor) el.insertBefore(decor, nameplate);
     eventBackdrop = eventLobbyBackdrop(); // [events] its painted backdrop behind every stand
   } catch (e) {
-    console.warn('[lobby] event decor failed', e);
+    console.warn('[lobby] event backdrop failed', e);
   }
   root.appendChild(el);
 
@@ -152,22 +149,14 @@ export function render(root) {
     // (her speech bubble keeps clear of the tray and the sticker row under it, while the menus show: UI M5d review)
     avoid: () => (el.classList.contains('ui-hidden') ? [] : [...el.querySelectorAll('.lb-hud > .lb-tray, .lb-hud > .lb-stickers')]),
     // a full illustration keeps her face clear of these menus (layout boxes, so the entrance slides do not move them;
-    // hidden ones are skipped). Bars (the top bar, the dock, an event's lantern string) only limit her face up or
-    // down. (A full illustration has no speech bubble: stage.say() does nothing over one.) UI M5d's tray took the
-    // shortcuts' place, and its sticker row under it is a menu too.
+    // hidden ones are skipped). Bars (the top bar, the dock) only limit her face up or down. (A full illustration has
+    // no speech bubble: stage.say() does nothing over one.) UI M5d's tray took the shortcuts' place, and its sticker
+    // row under it is a menu too.
     obstacles: () => {
       const box = (n, bar = false) => ({ l: n.offsetLeft, t: n.offsetTop, r: n.offsetLeft + n.offsetWidth, b: n.offsetTop + n.offsetHeight, bar });
-      const list = [top, shortcuts, stickers, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
+      return [top, shortcuts, stickers, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
         .filter((n) => n.offsetParent === hud && n.offsetWidth && n.offsetHeight)
         .map((n) => box(n, n === top || n === dock));
-      const lanterns = el.querySelector('.lb-ev-lanterns');
-      if (lanterns?.offsetWidth && lanterns.offsetParent?.offsetParent === el) list.push(box(lanterns, true));
-      return list;
-    },
-    // [events] a full illustration's crop can move her face down only on a screen wider than the picture, so the
-    // lantern string gives way to her head, hair and halo instead (cut back to one side of her head, or hidden)
-    onLayout: (at) => {
-      if (decor) hangLobbyLanterns(decor, at);
     },
     onTap: (part, at) => {
       stage.react(part, at);
@@ -194,8 +183,6 @@ export function render(root) {
     const u = getUnit(id);
     stage.hideBubble();
     await stage.show(u, { direction, background: bg });
-    // [events] over her stand the event's painted backdrop has its own lanterns and pumpkins: hide the overlay's
-    decor?.classList.toggle('on-stand', !!eventBackdrop && showsBubble(bg));
     if (currentSec !== id) return;
     if (sameGirl && !direction && !backToStand) return; // another backdrop for the same girl: no greeting again
     lineIndex = 0;

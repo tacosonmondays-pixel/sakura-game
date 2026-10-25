@@ -1155,8 +1155,6 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
 .lb-mp > .lb-mp-count { position: absolute; top: 0; right: 2px; z-index: 3; }
 /* Campaign: "Open!" (a mode newly open inside Missions) at the folder's top-left; "In Progress" stays over the label */
 .lb-campaign > .lb-camp-open { position: absolute; left: -4px; top: -4px; z-index: 3; transform: rotate(-6deg); }
-/* the right pumpkin (Halloween decor) steps left of the Multiplayer button */
-.lb .lb-ev-decor .lb-ev-pumpkin.r { right: calc(var(--pad, 10px) + 284px + var(--safe-right)); }
 
 @media (min-width: 1000px) and (min-height: 600px) {
   .lb-stickers { top: calc(var(--top-h) + 130px + var(--safe-top)); }
@@ -1169,7 +1167,6 @@ body:has(.modal-overlay) .lb-art *, body:has(.modal-overlay) .lb-petal, body:has
   .lb-mp-girl { height: 184px; width: 100px; }
   .lb-mp-plate { padding: 7px 10px 8px; }
   .lb-mp-label { font-size: var(--fs-name); }
-  .lb .lb-ev-decor .lb-ev-pumpkin.r { right: calc(var(--pad, 18px) + 430px + var(--safe-right)); }
 }
 @media (max-aspect-ratio: 1/1) {
   .lb-stickers { display: none; }

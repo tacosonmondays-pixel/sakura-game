@@ -8,8 +8,8 @@
 //     top bar; nothing shifts while it loads; a tap on her head still gives hearts;
 //   - the picker shows a thumbnail per entry, grouped under "Backdrops" and "Full illustrations", picking one there
 //     changes the lobby, and the choice survives a reload;
-//   - the event's lantern string never hangs over her head (dev clock pinned inside the Halloween window), and one
-//     more pass checks the lobby after the event; Reduce motion / Low graphics hold a full illustration still;
+//   - during the Halloween window (dev clock pinned) her stand has the event's painted backdrop and no overlay
+//     lanterns or pumpkins anywhere, and one more pass checks the lobby after the event; Reduce motion / Low graphics hold a full illustration still;
 //   - every lobby control takes a tap at its centre (nothing stands over it), the ‹ › chevrons in their lower half
 //     too, and a real tap there changes the secretary (the UI M5 hubs review: the bottom-right cluster's box stood
 //     over the › chevron and the carousel dots on landscape phones while every box-size check passed).
@@ -34,7 +34,7 @@ const TAP_SIZES = opt('tap-sizes', args.includes('--sizes') ? '' : '915x412,740x
 const PORT = Number(opt('port', '0'));
 const DEFAULT_GIRLS = ['marumi', 'rei', 'hikari'];
 const HEAD_PAT = /halo is not a button|one more pat|what are you doing|keep patting/i;
-/** the event dev clock: inside the Halloween window (its lantern string is up), and after the event */
+/** the event dev clock: inside the Halloween window (its painted backdrop is up), and after the event */
 const DURING_EVENT = '2026-10-24T18:00:00Z';
 const AFTER_EVENT = '2026-12-01T18:00:00Z';
 
@@ -107,16 +107,12 @@ const measure = (page) => page.evaluate(() => {
     .map((s) => document.querySelector(s)).filter((n) => n && n.offsetParent && n.offsetWidth).map(box);
   const [fx, fy, fr] = (host.dataset.face || '').split(',').map(Number);
   const bubble = document.querySelector('.lb-bubble');
-  const lan = document.querySelector('.lb-ev-lanterns');
-  const lanSvg = lan?.querySelector('svg');
   return {
-    lanterns: lan ? { shown: getComputedStyle(lan).visibility !== 'hidden', box: box(lan), svg: lanSvg ? box(lanSvg) : null, items: [...lan.querySelectorAll('svg g')].map(box) } : null,
     bg: layer.dataset.bg,
     cls: layer.className,
     variant: layer.dataset.variant || null,
     backdrop: !!layer.querySelector('.lb-art-bg'),
     backdropSrc: layer.querySelector('.lb-art-bg')?.currentSrc || layer.querySelector('.lb-art-bg')?.src || '',
-    pumpkinsShown: [...document.querySelectorAll('.lb-ev-pumpkin')].some((n) => getComputedStyle(n).visibility !== 'hidden'),
     stand: !!layer.querySelector('.lb-art-girl'),
     src: img?.currentSrc || img?.src || '',
     nat: img ? [img.naturalWidth, img.naturalHeight] : null,
@@ -277,7 +273,8 @@ async function sizePass(size, { now, full = true }) {
   const event = now === DURING_EVENT;
   const tagSize = event ? size : `${size}-after-event`;
   const { page, errs, touch } = await openLobby(W, H, now);
-  check(event === !!(await page.$('[data-testid="event-decor"]')), `${tagSize}: the event's lantern decor is ${event ? 'up' : 'gone'}`);
+  // the old overlay (a lantern string, two pumpkin stickers) is gone for good (owner, Oct 24: "theyre ugly")
+  check(!(await page.$('[data-testid="event-decor"], .lb-ev-lanterns, .lb-ev-pumpkin')), `${tagSize}: no lantern string or pumpkin stickers over the lobby`);
   const rows = await page.evaluate(async () => (await import('/src/data/lobbyIllustrations.js')).FULL_ILLUSTRATIONS.map((r) => ({ id: r.id, girl: r.girl, tall: !!r.tall, file: r.file })));
 
   try {
@@ -291,10 +288,10 @@ async function sizePass(size, { now, full = true }) {
       check(m.bubbleShown && m.bubbleText.length > 3, `${tag}: her greeting bubble ("${m.bubbleText.slice(0, 40)}")`);
       if (girl === 'marumi') check(m.nat && Math.abs(m.nat[0] / m.nat[1] - 0.432) < 0.004, `${tag}: the restored full-body stand (${m.nat?.join('x')}, aspect 0.432)`);
       // during Halloween her stand stands in the event's painted backdrop (a spooky tree with lanterns, pumpkins), with no
-      // tint over it and no overlay lanterns or pumpkins across her; after it, the academy again
+      // tint over it; after it, the academy again
       if (event) {
-        check(/lobby\/halloween\.webp/.test(m.backdropSrc) && m.cls.includes('tint-event') && !m.lanterns?.shown && !m.pumpkinsShown,
-          `${tag}: the Halloween backdrop, no overlay lanterns or pumpkins over her (${m.backdropSrc.split('/').pop()})`);
+        check(/lobby\/halloween\.webp/.test(m.backdropSrc) && m.cls.includes('tint-event'),
+          `${tag}: the Halloween backdrop (${m.backdropSrc.split('/').pop()})`);
       } else check(/lobby\/academy\.webp/.test(m.backdropSrc) && !m.cls.includes('tint-event'), `${tag}: the academy backdrop after the event (${m.backdropSrc.split('/').pop()})`);
       await shot(page, `${tagSize}-default-${girl}`);
     }
@@ -321,12 +318,6 @@ async function sizePass(size, { now, full = true }) {
         // her brow and eyes under the top bar always; her whole face core too unless the picture has the screen's
         // own aspect (then the crop cannot move it down): within 3 px of the bar
         check(!blocked.length && f.y - 0.4 * f.r >= m.topBar && core.t >= m.topBar - 3, `${tag}: her face clear of the menus and the top bar (core top ${Math.round(core.t)}, bar ${Math.round(m.topBar)})${blocked.length ? ` ${JSON.stringify(blocked)}` : ''}`);
-        if (event) {
-          const L = m.lanterns;
-          const head = { l: f.x - 1.9 * f.r, r: f.x + 1.9 * f.r, t: f.y - 1.7 * f.r, b: f.y + f.r };
-          const over = L?.shown ? [L.svg, ...L.items].filter((o) => o && hits(o, head)) : [];
-          check(!!L && !over.length && (L.shown || hits(L.box, head)), `${tag}: the lantern string clear of her head (${L?.shown ? `${L.items.length} lanterns` : 'hidden'})`);
-        }
       }
       await shot(page, `${tagSize}-full-${row.id}`);
     }
@@ -428,7 +419,7 @@ async function sizePass(size, { now, full = true }) {
       await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((n) => n.remove()));
     }
 
-    // ---- turning the phone with a full illustration up: re-cropped on her face, the string follows ----
+    // ---- turning the phone with a full illustration up: re-cropped on her face ----
     if (event && size === '844x390') {
       await secretary(page, 'marumi', 'marumi-scene');
       for (const [w, h] of [[390, 844], [844, 390]]) {
@@ -436,11 +427,8 @@ async function sizePass(size, { now, full = true }) {
         await page.waitForTimeout(1200);
         const m = await measure(page);
         const f = m.face;
-        const head = { l: f.x - 1.9 * f.r, r: f.x + 1.9 * f.r, t: f.y - 1.7 * f.r, b: f.y + f.r };
-        const L = m.lanterns;
-        const over = L?.shown ? [L.svg, ...L.items].filter((o) => o && hits(o, head)) : [];
-        check(m.variant === (h > w ? 'tall' : 'wide') && !m.bubbleShown && !over.length && f.x - f.r > 0 && f.x + f.r < w,
-          `turned to ${w}x${h} marumi-scene: ${m.variant}, face ${f.x},${f.y}, lantern string ${L?.shown ? `${L.items.length} lanterns, clear of her head` : 'hidden'}`);
+        check(m.variant === (h > w ? 'tall' : 'wide') && !m.bubbleShown && f.x - f.r > 0 && f.x + f.r < w,
+          `turned to ${w}x${h} marumi-scene: ${m.variant}, face ${f.x},${f.y}`);
       }
     }
   } finally {
