@@ -3,20 +3,20 @@
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
 ## What is live
-v0.1.52 "Hubs and Hosts" (the v0.1.52 merge on `main`; sim id `92e2e22527cf`, `COOP_PROTOCOL` 8). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.53, which is the next GitHub Pages run number.
+v0.1.53 "Hubs and Hosts" (the v0.1.53 merge on `main`; sim id `92e2e22527cf`, `COOP_PROTOCOL` 8). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.54, which is the next GitHub Pages run number.
 
-## UPDATE Oct 24, late evening Central: the hubs SHIPPED as v0.1.52 "Hubs and Hosts"
+## UPDATE Oct 24, late evening Central: the hubs SHIPPED as v0.1.53 "Hubs and Hosts"
 The owner said "just send out hubs no last review", so review round 2 was skipped on the owner's call. An independent go/no-go then passed every gate (full vitest, sim id, cssFloor, contrast, build + secret grep, smoke, `e2e/hubs.mjs` at 4 sizes, `e2e/lobby-illustrations.mjs`, patch notes) and a visual pass. The same release removed the lobby's lantern string and pumpkin stickers; the owner said "theyre ugly". The painted Halloween backdrop stays.
-- **Check first:** `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json` should show 0.1.52. If `docs/HANDOFF.md` §1 doesn't record an independent live check, do one: the lobby and each hub at 844x390, 1280x720 and 1024x768.
+- **Check first:** `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json` should show 0.1.53. If `docs/HANDOFF.md` §1 doesn't record an independent live check, do one: the lobby and each hub at 844x390, 1280x720 and 1024x768.
 - **The owner on the home screen:** "it just looks busy the homescreen is kinda packed now". They chose to leave it for UI v2 ("if the entire main menu hub is going to change it doesnt make sense to waste credits editing it"). Don't restyle the home screen on its own; do it in UI v2's home milestone. That means fewer, calmer pieces: the tray box, the Multiplayer plate with two stands, and the Assault and Multiplayer column over the girl.
 - **What's next, by the owner's order:** the ultimates (`feature/abilities`), then UI v2 (`feature/ui-v2` must merge `main` first: it is built on M5, which is now live), then balance.
-- **Open lows from v0.1.52:**
+- **Open lows from v0.1.53:**
   - Titan Trials at 1280x720 has no "Titan of the Week" kicker. Its `@container tt-cards (min-width: 838px)` keeps the kicker off the token, so lowering it brings back the overlap.
   - The Missions Bounty subtitle sits on dark art at 1024-1280.
   - The Profile showcase cuts names at 1024x768.
   - The carousel's Titan Trials title is cut at 844x390 (also on the old build).
 
-## Job 1 (DONE, kept for reference): ship the hubs (UI M5) on their own as v0.1.52
+## Job 1 (DONE, kept for reference): ship the hubs (UI M5) on their own as v0.1.53
 The owner said, Oct 24: "ship the hubs on their own with the full gate". This is NOT a fast-lane change. It needs:
 - two independent reviewers (look and logic);
 - fresh re-reviews until no blocker, high or medium finding remains (at most 3 rounds, then stop and report "not approved");
@@ -73,7 +73,7 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
    - Verify the HIGH and MEDIUM above, and M5-1..M5-4.
    - Check every screen M5 touches and the lobby next to live, at 844x390, 667x375, 915x412, 932x430, 1280x720, 1024x768, 1180x820 and 390x844. Zoom 3x on panel edges and corners.
    - Fix the Titan kicker low in the same round.
-2. **Prepare the release on `release/next`:** fast-forward to `main`, `git merge --no-ff origin/feature/ui-m5`, and add the v0.1.52 patch note at the top of `src/data/patchNotes.js`. Its id must equal the next Pages run number. Write 2-5 player-facing bullets about the hubs.
+2. **Prepare the release on `release/next`:** fast-forward to `main`, `git merge --no-ff origin/feature/ui-m5`, and add the v0.1.53 patch note at the top of `src/data/patchNotes.js`. Its id must equal the next Pages run number. Write 2-5 player-facing bullets about the hubs.
 3. **Independent go/no-go** on `release/next` merged into `claude/sakura-sentinels`:
    - full vitest;
    - sim id `92e2e22527cf` and COOP 8;
@@ -88,7 +88,7 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
    - Update HANDOFF §1/§3 in a docs commit.
    - Merge `release/next` into `claude/sakura-sentinels`.
    - Run `git push --atomic origin claude/sakura-sentinels claude/sakura-sentinels:main release/next`, fast-forward only and never forced.
-   - Wait for `version.json` to show 0.1.52.
+   - Wait for `version.json` to show 0.1.53.
 5. **Independent live check** of the hubs and the lobby on the live site.
 6. **After it ships:** `feature/ui-v2` must merge `main` (UI v2 is built on M5).
 
