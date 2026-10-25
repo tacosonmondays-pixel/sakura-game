@@ -5,7 +5,15 @@ This page is for a session that only has the GitHub repo (a cloud session), not 
 ## What is live
 v0.1.51 "Spooky Courtyard" (main `2015dc5`, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.52, which is the next GitHub Pages run number.
 
-## Job 1: ship the hubs (UI M5) on their own as v0.1.52
+## UPDATE Oct 24, 21:15 Central: the hubs are going out as v0.1.52 now
+The owner said "just send out hubs no last review", so review round 2 was skipped on the owner's call. The owner also asked to remove the lobby's lantern string and pumpkin stickers ("theyre ugly"); that went onto `feature/ui-m5` as `ca6ecf3`. The painted Halloween backdrop behind the stands stays.
+- `release/next` `5fe49e1` holds main, the `feature/ui-m5` merge and the v0.1.52 "Hubs and Hosts" patch note.
+- An independent go/no-go was running when this was written.
+- **First:** check `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
+  - **If it shows 0.1.52**, the hubs shipped. Do the independent live check if `docs/HANDOFF.md` §1 doesn't mention one, then start on the round-1 lows below.
+  - **If it shows 0.1.51**, the ship didn't happen. Run an independent go/no-go on `release/next` `5fe49e1`, then ship (§7).
+
+## Job 1: ship the hubs (UI M5) on their own as v0.1.52 (see the update above)
 The owner said, Oct 24: "ship the hubs on their own with the full gate". This is NOT a fast-lane change. It needs:
 - two independent reviewers (look and logic);
 - fresh re-reviews until no blocker, high or medium finding remains (at most 3 rounds, then stop and report "not approved");
