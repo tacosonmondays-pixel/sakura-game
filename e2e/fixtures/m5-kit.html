@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>M5 kit</title>
+  <!-- The UI M5 shared kit in every state, for e2e/m5-kit.mjs and the M5 screenshots. Dev server only
+       (http://127.0.0.1:<port>/e2e/fixtures/m5-kit.html): never part of the build (vite builds index.html only).
+       ?view=list (default): the left rail, a list with a plate header, the host on the right.
+       ?view=hub: the host stand at hub width beside the Multiplayer tile model (PvP locked "Coming soon", Titan Co-op
+       "Soon"). ?view=chip: the collapsed 96 px bust chip.
+       ?section=timers|badges|plates|hosts picks the rail section. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Nunito:ital,wght@0,700;0,900;1,800;1,900&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body { overflow: hidden; background: linear-gradient(180deg, #cee4f8, #9cccfb); font-family: var(--font); color: var(--ink); }
+    .kit { position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; }
+    body > .hub-bg { position: fixed; z-index: 0; }
+    .kit-top { position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; height: var(--topbar-h); padding: 0 8px 0 16px; background: rgba(255, 255, 255, 0.86); box-shadow: 0 2px 8px rgba(29, 78, 137, 0.12); }
+    .kit-top h1 { flex: 1; margin: 0; font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--navy); }
+    .kit-top .kit-close { display: inline-flex; flex-direction: column; align-items: center; }
+    .kit-main { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px 0 12px 16px; }
+    .kit-main .ui-srail { flex: none; align-self: flex-start; }
+    .kit-list { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+    .kit-panel { flex: 1; min-height: 0; overflow-y: auto; background: rgba(255, 255, 255, 0.92); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .kit-rows { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+    .kit-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 4px 12px; border-radius: 10px; background: var(--sky-1); position: relative; }
+    .kit-row > b { flex: 1; min-width: 0; font: 700 var(--fs-body)/1.2 var(--font); }
+    .kit-row > small { color: var(--muted); font: 500 var(--fs-body)/1.2 var(--font); }
+    .kit-foot { display: flex; justify-content: flex-end; align-items: flex-start; gap: 12px; padding: 8px 0 0; }
+    .kit-foot .kit-primary-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .kit-host-col { flex: none; position: relative; align-self: stretch; }
+    .kit-tiles { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; padding-right: 16px; }
+    .kit-tiles.three { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 8px; }
+    .kit-tile { position: relative; min-height: 96px; border-radius: 12px; background: rgba(255, 255, 255, 0.92); box-shadow: var(--shadow); padding: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+    .kit-tile b { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+    .kit-err { margin: 24px; padding: 16px; background: #fff; border-radius: 12px; font: 700 15px/1.4 var(--font, sans-serif); }
+    .kit-off { position: relative; height: 150px; border-radius: 10px; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div class="kit" id="app" data-screen="m5-kit"></div>
+  <script type="module">
+    import '/src/ui/styles/base.css';
+    import '/src/ui/styles/components.css';
+    import '/src/ui/styles/meta-a.css';
+
+    const q = new URLSearchParams(location.search);
+    const view = q.get('view') || 'list';
+    const root = document.getElementById('app');
+
+    // (a module path in a variable: a checkout without the kit fails here at run time, not in the dev server)
+    const load = (p) => import(/* @vite-ignore */ p);
+    try {
+      const { h } = await load('/src/ui/dom.js');
+      const kit = await load('/src/ui/kit.js');
+      const bd = await load('/src/ui/badges.js');
+      const { hostStand } = await load('/src/ui/host.js');
+      const { hostFor } = await load('/src/ui/hosts.js');
+      const { linesFor } = await load('/src/ui/hostLines.js');
+      const { hubBackdrop } = await load('/src/ui/hubArt.js');
+      const { UNIT_MAP } = await load('/src/data/units.js');
+      const { installKeys } = await load('/src/ui/keys.js');
+
+      const H = 3600000;
+      const D = 24 * H;
+      const profile = { units: { hikari: {} }, formation: { hero: 'hikari' } };
+      document.body.prepend(hubBackdrop('mail'));
+
+      const top = h('header.kit-top',
+        h('h1', 'Mailroom kit'),
+        // (test id "back": keys.js Esc presses the screen's back arrow)
+        h('div.kit-close', kit.iconBtn('close', { label: 'Close', testid: 'back', onClick: () => { document.body.dataset.closed = String(Number(document.body.dataset.closed || 0) + 1); } }), kit.kbdHint('Esc')));
+
+      // ---- the sections of the left rail ----
+      const SECTIONS = [
+        { id: 'timers', label: 'Timers', icon: 'calendar' },
+        { id: 'badges', label: 'Badges', icon: 'trophy', dot: true },
+        { id: 'plates', label: 'Plates', icon: 'info' },
+        { id: 'hosts', label: 'Hosts', icon: 'students' },
+      ];
+      const row = (title, ...right) => h('div.kit-row', { 'data-probe': 'tile' }, h('b', title), ...right);
+      const draw = {
+        // deadlines (something is lost at zero) turn red in the last day; recurring resets (urgent: false) never do
+        timers: () => [
+          row('Pumpkin Lantern Night', kit.countdownChip(6 * D + 3.2 * H, { label: 'Ends in', testid: 'cd-days' })),
+          row('Weekly stock', kit.countdownChip(6 * D, { label: 'Restock', urgent: false, testid: 'cd-day' })),
+          row('Daily commissions', kit.countdownChip(11 * H, { label: 'Resets in', urgent: false, testid: 'cd-hours' })),
+          row('Candy Exchange', kit.countdownChip(23.5 * H, { label: 'Exchange', testid: 'cd-urgent' })),
+          row('A letter with gifts', kit.countdownChip(12 * 60000 + 5000, { label: 'Expires', testid: 'cd-minutes' })),
+          row('Last month\'s festival', kit.countdownChip(0, { label: 'Ends in', doneText: 'Ended', testid: 'cd-done' })),
+        ],
+        badges: () => [
+          row('Something to claim', bd.dot('claim', { testid: 'bdg-dot' })),
+          row('Unread letters', bd.countBadge(3, { testid: 'bdg-count' })),
+          row('Tasks done today', bd.progressBadge(2, 5, { testid: 'bdg-prog' })),
+          row('Campaign', bd.inProgress({ testid: 'bdg-inprog' })),
+          row('A new costume', bd.newSticker({ testid: 'bdg-new' })),
+          row('Something new inside', bd.dot('new', { testid: 'bdg-ydot' })),
+          row('A new section', bd.newTab({ testid: 'bdg-newtab' })),
+          row('Titan Trials', bd.openSticker({ testid: 'bdg-open' })),
+          row('PvP', bd.soonSticker({ testid: 'bdg-soon' })),
+        ],
+        plates: () => [
+          kit.plateHead('Unclaimed', { right: kit.countdownChip(2 * D + 5 * H, { label: 'Expires' }), testid: 'plate-head' }),
+          row('Keyboard hints', kit.kbdHint('Space'), kit.kbdHint('Esc')),
+          h('div.kit-off', { 'data-probe': 'tile' }, kit.offSeasonBand({ text: 'The festival is over. See you next season!', date: 'Back Dec 18', art: hubBackdrop('happening'), testid: 'offseason' })),
+        ],
+        hosts: () => [
+          row('Mailroom host', h('small', UNIT_MAP[hostFor('mail', profile)]?.name || '')),
+          row('Missions host', h('small', UNIT_MAP[hostFor('missions', profile)]?.name || '')),
+          row('Multiplayer host', h('small', UNIT_MAP[hostFor('multiplayer', profile)]?.name || '')),
+        ],
+      };
+      let active = SECTIONS.some((s) => s.id === q.get('section')) ? q.get('section') : 'timers';
+      const head = h('div');
+      const rows = h('div.kit-rows');
+      const panel = h('div.kit-panel', { 'data-probe-list': '' }, head, rows);
+      const paint = () => {
+        head.replaceChildren(kit.plateHead(SECTIONS.find((s) => s.id === active).label, { testid: 'list-head' }));
+        rows.replaceChildren(...draw[active]());
+      };
+      const rail = kit.sideRail(SECTIONS, active, (id) => { active = id; rail.setActive(id); paint(); }, { label: 'Kit sections' });
+      const primary = h('button.btn.btn-yellow', { type: 'button', 'data-primary': '', 'data-testid': 'kit-primary', onclick: () => { document.body.dataset.primaryPressed = String(Number(document.body.dataset.primaryPressed || 0) + 1); } }, h('span', 'Claim all'));
+      const foot = h('div.kit-foot', h('div.kit-primary-wrap', primary, kit.kbdHint('Space')));
+
+      const unit = UNIT_MAP[hostFor('mail', profile)];
+      const lines = linesFor('mail', { gifts: 2 });
+      if (view === 'hub') {
+        // the Multiplayer hub's tile model (owner #79 + #108): Co-op live, PvP LOCKED "Coming soon" with Rival Run
+        // inside, Titan Co-op "Soon", Friends, Clan Boss (its weekly reset never turns red)
+        const hubUnit = UNIT_MAP[hostFor('multiplayer', profile)];
+        const host = hostStand(hubUnit, { kind: 'hub', lines: linesFor('multiplayer', { invites: 1 }) });
+        const probeTile = (el) => { el.dataset.probe = 'tile'; return el; };
+        const tiles = h('div.kit-tiles.three', { 'data-probe-list': '' },
+          h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Co-op'), bd.countBadge(1)),
+          probeTile(kit.lockedTile({ title: 'PvP', line: 'Rival Run inside', testid: 'kit-pvp' })),
+          probeTile(kit.lockedTile({ title: 'Titan Co-op', soon: 'Soon', testid: 'kit-titan-coop' })),
+          h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Friends'), bd.dot('claim')),
+          h('div.kit-tile', { 'data-probe': 'tile' }, h('b', 'Clan Boss'), kit.countdownChip(3 * D + 2 * H, { label: 'Resets in', urgent: false })),
+          h('div.kit-tile', { 'data-probe': 'tile' }, h('div.kit-primary-wrap', primary, kit.kbdHint('Space'))));
+        root.append(top, h('main.kit-main', { 'data-probe': 'content' }, h('div.kit-host-col', host), tiles));
+      } else if (view === 'chip') {
+        // the collapse rule: the 96 px bust chip and its bubble take the footer row, beside the primary
+        const host = hostStand(unit, { kind: 'list', lines, forceChip: true });
+        foot.prepend(host);
+        foot.style.justifyContent = 'space-between';
+        root.append(top, h('main.kit-main', { 'data-probe': 'content', style: { paddingRight: '16px' } }, rail, h('div.kit-list', panel, foot)));
+      } else {
+        const host = hostStand(unit, { kind: 'list', lines, railW: 140, gutters: 40 });
+        root.append(top, h('main.kit-main', { 'data-probe': 'content' }, rail, h('div.kit-list', panel, foot), h('div.kit-host-col', host)));
+      }
+      paint();
+      installKeys();
+      document.body.dataset.kitReady = '1';
+    } catch (e) {
+      console.error(e);
+      root.append(Object.assign(document.createElement('p'), { className: 'kit-err', textContent: `The M5 kit is not built in this checkout yet (${e.message}).` }));
+      document.body.dataset.kitError = String(e.message);
+      document.body.dataset.kitReady = '1';
+    }
+  </script>
+</body>
+</html>
