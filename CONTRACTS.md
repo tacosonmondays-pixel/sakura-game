@@ -1714,21 +1714,16 @@ export function fullArt(rowOrId, { portrait }) // { variant: 'wide'|'tall', src,
 export function coverFit(fw, fh, iw, ih), splitObstacles(obstacles, W, H), freeBand(blocks, y0, y1, W)
 export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles, prefer, headR }) // { posX, posY, face, r, clear }
 export function headHit(x, y, face, r)
-export const DECOR_HEAD                                 // { half: 2, up: 1.8, down: 1 } head radii: her head, hair, hat, halo
-export function hangString(box, face, r, { minW })      // { l, r, full } | null: where a decor string under the top bar may hang
 // src/ui/events/lobby.js
-export function hangLobbyLanterns(decor, at)            // at = { face, r } | null (the stage's onLayout)
+export function eventLobbyBackdrop()                    // { file, thumb } | null: the event's painted backdrop behind her stand
 ```
 The stage crops the picture (`object-fit: cover`) at the designed 60 % / 30 % (on a portrait screen: her face across
 the middle) and moves it only as far as needed to keep her face clear of the lobby's menus (`obstacles()` from
-lobby.js: layout boxes of the HUD; bars = top bar, dock, an event's lantern string). The crop moves her face down
+lobby.js: layout boxes of the HUD; bars = top bar, dock). The crop moves her face down
 only as far as the picture overflows top/bottom: on a screen with the picture's own aspect (the 16:9 scenes on a
 16:9 phone) her eyes stay under the top bar and her brow touches it. `stage.say()` does nothing over a full
 illustration (no greeting, no tap lines); a tap on her head gives hearts at her real face (±1.1 head radii across,
-1.4 up, 1.0 down). An event's lantern string gives way to her head: after every layout the stage calls
-`onLayout({ face, r })` (null for her stand) and the string is cut back to the open side of her head, hair and halo
-(`DECOR_HEAD`; same lantern size and spacing, a shallower dip), or hidden when neither side has room for two lanterns.
-Its box stays as laid out, so the menu boxes the crop uses never depend on it. Her stand keeps the whole string. The
+1.4 up, 1.0 down). During an event with a painted backdrop (`eventLobbyBackdrop`), her stand stands in it with no day/sunset/night tint; the old lantern string and pumpkin stickers overlay is gone (owner, Oct 24). The
 image's size and crop are set before it loads (no layout shift). Reduce motion or Low graphics (`quality: 'low'`):
 no breathing and no parallax. **Adding a full illustration = its picture + thumb and one `FULL_ILLUSTRATIONS` row**
 (tests check the files, sizes and face; the picker tile, the save and the stage follow from the row).

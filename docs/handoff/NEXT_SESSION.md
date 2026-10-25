@@ -3,17 +3,20 @@
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
 ## What is live
-v0.1.51 "Spooky Courtyard" (main `2015dc5`, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.52, which is the next GitHub Pages run number.
+v0.1.52 "Hubs and Hosts" (the v0.1.52 merge on `main`; sim id `92e2e22527cf`, `COOP_PROTOCOL` 8). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.53, which is the next GitHub Pages run number.
 
-## UPDATE Oct 24, 21:15 Central: the hubs are going out as v0.1.52 now
-The owner said "just send out hubs no last review", so review round 2 was skipped on the owner's call. The owner also asked to remove the lobby's lantern string and pumpkin stickers ("theyre ugly"); that went onto `feature/ui-m5` as `ca6ecf3`. The painted Halloween backdrop behind the stands stays.
-- `release/next` `5fe49e1` holds main, the `feature/ui-m5` merge and the v0.1.52 "Hubs and Hosts" patch note.
-- An independent go/no-go was running when this was written.
-- **First:** check `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
-  - **If it shows 0.1.52**, the hubs shipped. Do the independent live check if `docs/HANDOFF.md` §1 doesn't mention one, then start on the round-1 lows below.
-  - **If it shows 0.1.51**, the ship didn't happen. Run an independent go/no-go on `release/next` `5fe49e1`, then ship (§7).
+## UPDATE Oct 24, late evening Central: the hubs SHIPPED as v0.1.52 "Hubs and Hosts"
+The owner said "just send out hubs no last review", so review round 2 was skipped on the owner's call. An independent go/no-go then passed every gate (full vitest, sim id, cssFloor, contrast, build + secret grep, smoke, `e2e/hubs.mjs` at 4 sizes, `e2e/lobby-illustrations.mjs`, patch notes) and a visual pass. The same release removed the lobby's lantern string and pumpkin stickers; the owner said "theyre ugly". The painted Halloween backdrop stays.
+- **Check first:** `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json` should show 0.1.52. If `docs/HANDOFF.md` §1 doesn't record an independent live check, do one: the lobby and each hub at 844x390, 1280x720 and 1024x768.
+- **The owner on the home screen:** "it just looks busy the homescreen is kinda packed now". They chose to leave it for UI v2 ("if the entire main menu hub is going to change it doesnt make sense to waste credits editing it"). Don't restyle the home screen on its own; do it in UI v2's home milestone. That means fewer, calmer pieces: the tray box, the Multiplayer plate with two stands, and the Assault and Multiplayer column over the girl.
+- **What's next, by the owner's order:** the ultimates (`feature/abilities`), then UI v2 (`feature/ui-v2` must merge `main` first: it is built on M5, which is now live), then balance.
+- **Open lows from v0.1.52:**
+  - Titan Trials at 1280x720 has no "Titan of the Week" kicker. Its `@container tt-cards (min-width: 838px)` keeps the kicker off the token, so lowering it brings back the overlap.
+  - The Missions Bounty subtitle sits on dark art at 1024-1280.
+  - The Profile showcase cuts names at 1024x768.
+  - The carousel's Titan Trials title is cut at 844x390 (also on the old build).
 
-## Job 1: ship the hubs (UI M5) on their own as v0.1.52 (see the update above)
+## Job 1 (DONE, kept for reference): ship the hubs (UI M5) on their own as v0.1.52
 The owner said, Oct 24: "ship the hubs on their own with the full gate". This is NOT a fast-lane change. It needs:
 - two independent reviewers (look and logic);
 - fresh re-reviews until no blocker, high or medium finding remains (at most 3 rounds, then stop and report "not approved");
