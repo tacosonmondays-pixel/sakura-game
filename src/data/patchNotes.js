@@ -20,7 +20,7 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.52', version: '0.1.52', date: '2026-10-24', title: 'Hubs and Hosts',
+    id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
     added: [
       'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',
       'A Multiplayer button and hub in the lobby; the Mailroom, the Mall and Happening Now open as lists with their hosts.',
