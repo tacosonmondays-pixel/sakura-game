@@ -74,5 +74,8 @@ export default defineConfig({
     include: ['tests/**/*.test.js'],
     // co-op view rule: sim.hero / sim.heroConfig must not be read inside the step (throws under tests)
     setupFiles: ['tests/setup.js'],
+    // the game's home time zone (its daily reset), so local-time rules (the local-week double drops) test the same on
+    // every machine: CI runs in UTC, where the local week ends before Halloween's close and Happening Now's order differs
+    env: { TZ: 'America/Chicago' },
   },
 });
