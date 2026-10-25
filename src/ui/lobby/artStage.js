@@ -24,26 +24,43 @@ import { anchorFace, headHit } from './sceneLayout.js';
 
 /** Where the bubble/head zone sits for stands (her stand is centred at ~55%, head under the HUD). */
 const CUT_FACE = [55, 25];
+/** The room the bubble leaves between itself and the HUD pieces it keeps clear of (px). */
+const BUBBLE_GAP = 8;
+/** Narrower than this, the bubble may step closer to her face instead (px). */
+const BUBBLE_MIN_W = 168;
+
+/** An element's box as laid out (its transforms aside: the HUD's entrance slide, the bubble's pop), in page px. */
+function laidOut(el) {
+  let x = 0;
+  let y = 0;
+  for (let e = el; e; e = e.offsetParent) {
+    x += e.offsetLeft;
+    y += e.offsetTop;
+  }
+  return { left: x, top: y, right: x + el.offsetWidth, bottom: y + el.offsetHeight };
+}
 
 /**
  * @param {HTMLElement} host
- * @param {{ reduceMotion?: boolean, lowGfx?: boolean, onTap?: Function|null, obstacles?: (() => object[])|null,
- *   onLayout?: ((at: { face: {x:number,y:number}, r: number }|null) => void)|null,
+ * @param {{ reduceMotion?: boolean, lowGfx?: boolean, onTap?: Function|null, avoid?: (() => Element[])|null,
+ *   obstacles?: (() => object[])|null, onLayout?: ((at: { face: {x:number,y:number}, r: number }|null) => void)|null,
  *   backdrop?: { file: string, thumb: string }|null }} [opts]
  *   lowGfx: the Low graphics setting (a full illustration then holds still: no breathing, no parallax);
+ *   avoid: the HUD pieces at her left her speech bubble keeps clear of (the lobby's tray and sticker row);
  *   backdrop: a painted backdrop behind every stand instead of the academy (an event's, eventLobbyBackdrop), with
  *   its own lighting, so no day / sunset / night tint is laid over it;
  *   obstacles(): the menu boxes { l, t, r, b } in host px, kept clear of her face (full illustrations);
  *   onLayout(at): after a full illustration is shown or re-cropped, where her face is in host px (null when the
  *   picture on screen is her stand), so the screen can keep its decor off her head
  */
-export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, obstacles = null, onLayout = null, backdrop = null } = {}) {
+export function createArtStage(host, { reduceMotion = false, lowGfx = false, onTap = null, avoid = null, obstacles = null, onLayout = null, backdrop = null } = {}) {
   host.classList.add('lb-art-host');
   const frame = h('div.lb-art', { 'data-testid': 'secretary-art' });
   const hearts = h('div.lb-art-fx');
   const bubble = h('div.lb-bubble', { 'aria-live': 'polite', 'data-testid': 'secretary-bubble' }, h('span.lb-bubble-text'));
   host.append(frame, hearts, bubble);
   let face = CUT_FACE;
+  let bubbleRight = 100 - CUT_FACE[0] + 9;
   let bubbleTimer = 0;
   let disposed = false;
   let current = null;
@@ -219,13 +236,47 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
     span.textContent = text;
     // bubble to the left of her face (tail pointing at her), kept on screen
     bubble.style.left = 'auto';
-    bubble.style.right = `${Math.min(70, 100 - face[0] + 9)}%`;
+    bubbleRight = Math.min(70, 100 - face[0] + 9);
     bubble.style.top = `${Math.max(14, face[1] - 6)}%`;
+    fit();
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);
     if (ms) bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms);
   }
 
+  /**
+   * UI M5d review: the bubble never slides under the HUD at her left (the lobby's tray, the sticker row under it). Its
+   * left edge stops BUBBLE_GAP px right of whatever shares its rows and it narrows into more lines instead (a narrower
+   * bubble grows downward, so the rows are checked again until nothing beside it is left). Narrowed, it takes slimmer
+   * padding, and below BUBBLE_MIN_W it may come closer to her face (to 4% of the width and its tail) rather than turn
+   * into a thin column on the smallest phones.
+   */
+  function fit() {
+    bubble.style.maxWidth = '';
+    bubble.style.right = `${bubbleRight}%`;
+    bubble.classList.remove('tight');
+    const els = (avoid?.() || []).filter((e) => e?.offsetWidth);
+    if (!els.length) return;
+    const hb = laidOut(host);
+    const nearest = hb.left + (host.offsetWidth * (face[0] - 4)) / 100 - 9;
+    for (let pass = 0; pass < 4; pass++) {
+      const b = laidOut(bubble);
+      let left = -Infinity;
+      for (const el of els) {
+        const r = laidOut(el);
+        if (r.bottom + BUBBLE_GAP <= b.top || r.top >= b.bottom + BUBBLE_GAP || r.left >= b.right) continue;
+        left = Math.max(left, r.right + BUBBLE_GAP);
+      }
+      if (left <= b.left) return;
+      let right = b.right;
+      if (right - left < BUBBLE_MIN_W && right < nearest) {
+        right = Math.min(nearest, left + BUBBLE_MIN_W);
+        bubble.style.right = `${Math.round(hb.right - right)}px`;
+      }
+      bubble.classList.add('tight');
+      bubble.style.maxWidth = `${Math.max(0, Math.floor(right - left))}px`;
+    }
+  }
   function look(nx, ny) {
     if (reduceMotion || (full && lowGfx)) return;
     host.style.setProperty('--ax', nx.toFixed(3));
@@ -237,9 +288,11 @@ export function createArtStage(host, { reduceMotion = false, lowGfx = false, onT
     host.style.removeProperty('--ay');
   }
 
-  // the screen turned or resized: crop the full illustration again on her face
+  // the screen turned or resized: her stand's speech bubble is fitted again while it shows (a turned phone, a resized
+  // window); a full illustration is cropped again on her face
   let resizeRaf = 0;
   const onResize = () => {
+    if (!full && bubble.classList.contains('show')) fit();
     if (resizeRaf || !full) return;
     resizeRaf = requestAnimationFrame(() => {
       resizeRaf = 0;

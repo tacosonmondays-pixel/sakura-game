@@ -1,8 +1,13 @@
 // The condensed UI's shared components as DOM builders (docs/specs/UI_DIRECTION.md §5). They only put the M0
 // classes of src/ui/styles/components.css together (stat chip, ink strip + MORE, stickers, rarity tag, tab rail,
 // icon button, gear tile), so every screen that adopts them looks the same. No styles of their own.
+// UI M5 (§5.9, §5.10) adds the hub kit at the end: the countdown chip, the left section rail, the plate header,
+// keyboard hints, the off-season band and the locked "Coming soon" tile (badges: ./badges.js; the host girl: ./host.js);
+// the M5b review adds the secondary button and the count inside a button.
 import { h } from './dom.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
+import { countdownState, ticker } from './countdown.js';
+import { soonSticker } from './badges.js';
 
 /** A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. */
 export function ico(nameOrSvg, cls = 'ui-ico') {
@@ -21,6 +26,7 @@ export const KIT_SVG = {
   blossom: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor">'
     + [0, 72, 144, 216, 288].map((a) => `<ellipse cx="12" cy="6.6" rx="3.6" ry="5.2" transform="rotate(${a} 12 12)"/>`).join('')
     + '</g><circle cx="12" cy="12" r="2.4" fill="#ffd23f"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.4V12l3.2 2"/></svg>',
 };
 
 /** Replaces an element's children, skipping null / false (a plain replaceChildren() would print "null"). */
@@ -130,4 +136,166 @@ export function ghostBtn(text, { onClick = null, testid = null, icon = null, tit
 export function starRow(n, max = 5, { cls = 'ui-stars' } = {}) {
   return h(`span.${cls}`, { role: 'img', 'aria-label': `${n} of ${max} stars` },
     Array.from({ length: max }, (_, i) => ico(KIT_SVG.starFill, `ui-star${i < n ? '.on' : ''}`)));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// UI M5: the hub kit (§5.9, §5.10)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * The countdown chip (§5.9, E4): an ink pill with a clock, an optional caps label and the time left from
+ * fmtNum(…, 'time') ("6d 4h", "11h", "12:05"). Under 24 h the time turns --bad-on-plate (`.urgent`), for a deadline
+ * where something is lost at zero (an event's end, the exchange closing, mail expiry, limited stock). A recurring
+ * cycle (a daily or weekly reset, a restock, the next login gift) or an opening passes `urgent: false` and stays
+ * white: a daily reset is always under 24 h, and red on half the timers all day teaches players to ignore it (the
+ * M5a review; flagged to the owner as a §5.9 amendment). The one shared ticker (./countdown.js) keeps it current and
+ * lets it go once its screen is gone. The only way to write "time left" on a Glance surface.
+ *
+ * At zero the label goes and `doneText` stands alone ("Reset!", "Ended", "Expired"), never "Resets in Now"; `onDone`
+ * lets the screen redraw (the new day's list, the next phase). A chip built already at zero never calls onDone, so a
+ * redraw that lands on a stale clock cannot loop.
+ * @param {number} msLeft
+ * @param {{ label?: string|null, testid?: string|null, now?: () => number, doneText?: string|null, cls?: string,
+ *   urgent?: boolean, onDone?: Function|null }} [o] now: the clock it counts on (an event's preview clock);
+ *   urgent: false for a recurring reset or an opening (never red); doneText: what it says at zero (default "Reset!"
+ *   for a recurring chip, else "Ended"); onDone: called once when it reaches zero on screen
+ * @returns {HTMLElement}
+ */
+export function countdownChip(msLeft, { label = null, testid = null, now = () => Date.now(), doneText = null, cls = '', urgent = true, onDone = null } = {}) {
+  const endsAt = now() + (Number(msLeft) || 0);
+  const done = doneText || (urgent ? 'Ended' : 'Reset!');
+  const time = h('span.num.ui-cd-time');
+  const el = h(`span.ui-cd${cls ? `.${cls}` : ''}`, { 'data-testid': testid, 'data-urgent': urgent ? null : 'off' },
+    ico(KIT_SVG.clock), label ? [h('span.lbl.ui-cd-lbl', label), ' '] : null, time);
+  let seen = false;
+  let misses = 0;
+  let fired = !(Number(msLeft) > 0); // (born at zero: nothing to announce)
+  ticker.add({
+    endsAt,
+    now,
+    alive: () => {
+      if (el.isConnected) return (seen = true);
+      return !seen && ++misses < 3; // not on the page yet (built before it is attached)
+    },
+    update: (s) => {
+      const text = s.done ? done : s.text;
+      if (time.textContent !== text) time.textContent = text;
+      el.classList.toggle('urgent', urgent && s.urgent);
+      el.classList.toggle('done', s.done);
+      el.setAttribute('aria-label', s.done || !label ? text : `${label} ${text}`);
+      if (s.done && !fired) {
+        fired = true;
+        // (only from the page: a chip its screen already replaced stays quiet)
+        if (onDone && el.isConnected) onDone();
+      }
+    },
+  });
+  return el;
+}
+
+/** The chip's text and urgency for a time left, without a chip (tests, aria text). */
+export const countdownText = (msLeft) => countdownState(msLeft);
+
+/**
+ * The left section rail (E3) for list screens with 2-5 sections: vertical, active = an ink slab with yellow italic
+ * text at −8°, inactive = white glass with ink text, ≥ 44 px, red dots only. The vertical sibling of rail(): the
+ * same `tabs` shape and the same `tab-<id>` test ids.
+ * @returns {HTMLElement & { setActive(id: string): void }}
+ */
+export function sideRail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
+  const el = h(`nav.ui-srail${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label, 'aria-orientation': 'vertical' });
+  const btns = new Map();
+  for (const t of tabs) {
+    const b = h('button.ui-stab', {
+      type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
+      'aria-label': `${t.label}${t.dot ? ` (${t.dotTitle || 'something new'})` : ''}`,
+      onclick: () => onPick(t.id),
+    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label)), t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null);
+    btns.set(t.id, b);
+    el.append(b);
+  }
+  el.setActive = (id) => {
+    for (const [k, b] of btns) {
+      b.classList.toggle('on', k === id);
+      b.setAttribute('aria-selected', k === id ? 'true' : 'false');
+    }
+  };
+  el.setActive(active);
+  return el;
+}
+
+/** The plate header band (E2): a list panel's slanted ink title bar, white display italics, an optional right side. */
+export function plateHead(title, { right = null, testid = null } = {}) {
+  return h('div.ui-plate-head', { 'data-testid': testid }, h('h3.ui-plate-title', h('span', title)), right ? h('div.ui-plate-right', right) : null);
+}
+
+/** A keyboard hint (E8): a small ink chip ("Space" under the primary, "Esc" by a close). Hidden on touch screens. */
+export function kbdHint(key = 'Space') {
+  return h('kbd.ui-kbd', { 'aria-hidden': 'true' }, key);
+}
+
+/**
+ * The off-season / idle band (E9): full-bleed location art behind one ink band with one sentence and the next date.
+ * @param {{ text: string, date?: string|null, art?: HTMLElement|null, testid?: string|null }} o
+ *   art: the location (hubArt.js hubBackdrop(location)); date: "Back Dec 18"
+ */
+export function offSeasonBand({ text, date = null, art = null, testid = null }) {
+  return h('div.ui-offseason', { 'data-testid': testid },
+    art,
+    h('div.ui-offseason-band', h('p.ui-offseason-text', text), date ? h('span.ui-offseason-date', date) : null));
+}
+
+/**
+ * The ink row button (§5.5 cost shape, UI M5b): an ink plate with a yellow italic verb ("Claim") for the action of
+ * one row in a list, so the screen keeps its one yellow primary (P2). 44 px tall (40 in a dense row on phones).
+ * @param {string} label a verb of at most two words
+ * @param {{ onClick?: Function|null, testid?: string|null, title?: string|null, cls?: string }} [o]
+ */
+export function inkBtn(label, { onClick = null, testid = null, title = null, cls = '' } = {}) {
+  return h(`button.ui-cost.dense.ui-ink${cls ? `.${cls}` : ''}`, { type: 'button', 'data-testid': testid, title, onclick: onClick },
+    h('span.ui-cost-lbl', label));
+}
+
+/**
+ * A secondary button (§5.5; the UI M5b review): white glass, a 2 px --line edge, an ink label, slanted like every
+ * button. For the actions beside a screen's one yellow (Sweep, Filter, Open all), so two loud fills never read as two
+ * primaries. Disabled: a --sky-1 fill, --muted words and a lock, never opacity (§5.5); `reason` puts the one line that
+ * says why beside it (and in the title).
+ * @param {string} label a verb of at most two words, plus what it does ("Sweep ×10 · Hard")
+ * @param {{ icon?: string|null, onClick?: Function|null, testid?: string|null, title?: string|null, disabled?: boolean,
+ *   reason?: string|null, cls?: string }} [o]
+ * @returns {HTMLElement} the button; with `disabled` and `reason`, a span holding the button and its reason line
+ */
+export function secondaryBtn(label, { icon = null, onClick = null, testid = null, title = null, disabled = false, reason = null, cls = '' } = {}) {
+  const b = h(`button.btn.ui-sec${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, title: title || (disabled ? reason : null), disabled, onclick: onClick,
+    'aria-label': disabled && reason ? `${label}: ${reason}` : null,
+  }, disabled ? ico('lock', 'ui-ico.ui-sec-ico') : icon ? ico(icon, 'ui-ico.ui-sec-ico') : null, h('span.btn-label', label));
+  if (!disabled || !reason) return b;
+  return h('span.ui-sec-wrap', b, h('span.ui-sec-why', { 'aria-hidden': 'true' }, reason));
+}
+
+/** The count inside a button ("Claim all ⓫"): one ink pill, the same on every screen (the UI M5b review). */
+export function btnCount(n, { cls = '' } = {}) {
+  return h(`span.num.ui-btn-n${cls ? `.${cls}` : ''}`, String(n));
+}
+
+/**
+ * A mode that is not out yet, as a hub tile (§5.4: a designed locked state, never a faded one; owner #108: the
+ * Multiplayer hub's PvP "Coming soon" with Rival Run inside, Titan Co-op "Soon"). Glass (or the mode's art under a
+ * glass veil), the ink "Coming soon" sticker at the top-left, the title and one line on what is inside. One lock: the
+ * sticker's (a second one in an ink circle at the top-right said it twice, and on a narrow tile a long sticker ran over
+ * it: UI M5d review 2). A tap explains (the screen opens its sheet); it never starts anything.
+ * @param {{ title: string, line?: string|null, soon?: string, art?: HTMLElement|null, onClick?: Function|null,
+ *   testid?: string|null, cls?: string }} o line: "Rival Run inside" (or what opens it); soon: the sticker's words
+ * @returns {HTMLElement}
+ */
+export function lockedTile({ title, line = null, soon = 'Coming soon', art = null, onClick = null, testid = null, cls = '' }) {
+  return h(`button.ui-ltile${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, 'data-locked': 'soon', 'aria-label': `${title}, ${soon}${line ? `. ${line}` : ''}`, onclick: onClick,
+  },
+  art ? h('span.ui-ltile-art', { 'aria-hidden': 'true' }, art) : null,
+  soonSticker({ text: soon, testid: testid ? `${testid}-soon` : null }),
+  h('b.ui-ltile-title', title),
+  line ? h('span.ui-ltile-line', line) : null);
 }

@@ -1,165 +1,176 @@
-// Events & rewards (owner: meta-a). The current weekly event (double drops on one Bounty
-// arena) with next week's rotation, and the free-to-play income overview — a version-by-version
-// chart of every recurring and one-time source of gems and recruit tickets.
+// Happening Now (owner: meta-a; the old "Events" page). Route: #/rewards?tab=now|soon|free (the route name stays).
+// UI M5c (docs/specs/UI_DIRECTION.md §5.9, §5.10 E1-E3, E6, E9; notes/ui-m5/PLAN.md §5 M5c): a list screen. Suzu hosts
+// on the right; the rail In Progress · Coming Up · Free pulls; every row is an icon tile, a title, one line, a
+// countdown chip and an ink Go (no "In Progress" sticker on a row: the tab and the plate header say it once, P7). The
+// doors that promise free pulls (the lobby's "Free pulls" card, the Notice's guide, Recruit's "Not enough gems") open
+// #/rewards?tab=free. The rows (../happening.js): the limited events (their end is a deadline: red under 24 h), this
+// week's double drops, the Titan of the Week, Total Assault and the clan boss week (only when the social hub is ready);
+// a Go's screen arrows back here (../nav.js LIST_HUBS). Coming Up: teased events and the next two weeks' rotation. With nothing limited running, In Progress opens on the off-season band (E9: one sentence, the next date).
+// Free pulls: the free-to-play chart in its own section with a "?" (three headline numbers + MORE for the full
+// tables, and the recurring sources as bars). Nothing sells here.
 import '../styles/meta-a.css';
-import { h, screen, svgEl, button } from '../components.js';
-import { navigate } from '../router.js';
+import { h, svgEl } from '../components.js';
+import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { GACHA } from '../../data/types.js';
-import { UNIT_MAP } from '../../data/units.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
-import { portraitHTML } from '../../art/portraits.js';
-import { ARENA_ART, ARENA_GUEST } from '../lobby/notice.js';
-import { currencyIcon, itemIcon, uiIcon } from '../../art/icons.js';
-import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
+import { ARENA_ART } from '../lobby/notice.js';
+import { itemIcon, uiIcon } from '../../art/icons.js';
+import { f2pIncomeSummary } from '../../systems/missions.js';
 import { expectedSSRRate } from '../../systems/gacha.js';
-import { listEvents, phaseLabel, windowText } from '../../systems/events.js';
 import { eventNow } from '../events/clock.js';
+import { countdownChip, inkBtn, iconBtn, statStrip, offSeasonBand, secondaryBtn, ico } from '../kit.js';
+import { openSheet } from '../sheet.js';
+import { hubBackdrop } from '../hubArt.js';
+import { listScreen } from '../listScreen.js';
+import { happeningModel, happeningHostState, offSeasonText, HAPPENING_SECTIONS } from '../happening.js';
+import { hub as social } from '../online/socialHub.js';
 import '../styles/events.css';
+import '../styles/hubs.css';
 
-function msToWeekEnd() {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(24, 0, 0, 0);
-  next.setDate(next.getDate() + (7 - (now.getDay() || 7)));
-  return next - now;
+const LABEL = { now: 'In Progress', soon: 'Coming Up', free: 'Free pulls' };
+const ICON = { now: 'flame', soon: 'calendar', free: 'gacha' };
+/** A row's icon when it has no painting. */
+const KIND_ICON = { titans: 'crystal', assault: 'assault', clanboss: 'shield', event: 'star', exchange: 'mall' };
+
+const sections = () => HAPPENING_SECTIONS.map((id) => ({ id, label: LABEL[id], icon: ICON[id] }));
+const modelNow = () => happeningModel(store.profile, { now: Date.now(), eventNow: eventNow(), social: social.ready });
+
+export function render(root, params = {}) {
+  let tab = HAPPENING_SECTIONS.includes(params.tab) ? params.tab : 'now';
+  const model0 = modelNow();
+  const ls = listScreen({
+    title: 'Happening Now', cls: 'ma-rewards-screen hn-screen', location: 'happening', host: 'happening', state: happeningHostState(model0),
+    sections: sections(), active: tab, railLabel: 'Happening Now sections', headTestid: 'happening-head',
+    onPick: (id) => {
+      if (id === tab) return;
+      tab = id;
+      rememberParams('rewards', { tab: id });
+      ls.rail.setActive(id);
+      draw();
+      ls.list.scrollTop = 0;
+    },
+  });
+  root.appendChild(ls.el);
+
+  const draw = () => {
+    const model = modelNow();
+    ls.setLines(happeningHostState(model));
+    if (tab === 'free') {
+      ls.setHead('Free pulls', [iconBtn('info', { label: 'How the free pulls are counted', cls: 'hn-help', testid: 'free-help', onClick: freeHelp })]);
+      ls.list.replaceChildren(freeSection());
+      return;
+    }
+    ls.setHead(LABEL[tab], []);
+    const rows = model[tab];
+    const band = tab === 'now' && model.offSeason ? offBand(model.offSeason) : null;
+    ls.list.replaceChildren(...[band, h('div.hn-rows', { 'data-testid': `happening-${tab}` }, rows.map((r) => row(r)))].filter(Boolean));
+  };
+
+  // a chip that reaches zero on screen draws the list again (the next phase, the new week)
+  const turn = () => {
+    if (ls.el.isConnected) draw();
+  };
+
+  const row = (r) => {
+    const testBase = r.kind === 'event' || r.kind === 'exchange' ? `events-go-${r.id}` : r.kind === 'week' && r.id === 'week' ? 'event-go' : `hn-go-${r.id}`;
+    const chipId = r.kind === 'event' || r.kind === 'exchange' ? `events-time-${r.id}` : r.id === 'week' ? 'event-week-time' : `hn-time-${r.id}`;
+    return h(`div.hn-row.k-${r.kind}${r.locked ? '.locked' : ''}`, { 'data-testid': `hn-row-${r.id}` },
+      rowIcon(r),
+      h('div.hn-text',
+        h('div.hn-title-line', h('b.hn-title', r.title)),
+        h('div.hn-line-row',
+          r.locked ? h('span.hn-lock', ico('lock', 'ui-ico.hn-lock-ico'), r.locked) : h('span.hn-line', r.line),
+          r.msLeft != null && !r.locked
+            ? countdownChip(r.msLeft, { label: r.label, cls: 's', urgent: r.urgent, now: r.kind === 'event' || r.kind === 'exchange' ? eventNow : undefined, doneText: r.urgent ? 'Ended' : 'New week!', onDone: turn, testid: chipId })
+            : null)),
+      r.go && !r.locked ? inkBtn('Go', { testid: testBase, title: `Go to ${r.title}`, onClick: () => navigate(r.go.name, r.go.params) }) : null);
+  };
+
+  draw();
+  const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'event') draw(); });
+  const offSocial = social.on?.('status', () => { if (ls.el.isConnected) draw(); });
+  return () => {
+    off();
+    offSocial?.();
+    ls.cleanup();
+  };
 }
 
-function fmtLeft(ms) {
-  const h1 = Math.floor(ms / 3600000);
-  const d = Math.floor(h1 / 24);
-  return d ? `${d}d ${h1 % 24}h left` : `${h1}h ${Math.floor((ms % 3600000) / 60000)}m left`;
+/** A row's picture: an event's own currency (its candy) on its night colour, the arena's painting for a week of double
+ * drops, else the mode's glyph on ink. */
+function rowIcon(r) {
+  if (r.event?.currency?.id) {
+    return h('span.hn-ico.ev', { 'aria-hidden': 'true', style: { background: r.event.theme?.night || '#241a46' } }, svgEl(itemIcon(r.event.currency.id, { px: 36 }), 'hn-ico-item'));
+  }
+  const paint = r.arena ? ARENA_ART[r.arena] : null;
+  if (paint) return h('span.hn-ico.art', { 'aria-hidden': 'true' }, h('img', { src: lobbyArtUrl(paint), alt: '', loading: 'lazy', decoding: 'async', draggable: false }));
+  return h('span.hn-ico', { 'aria-hidden': 'true' }, ico(KIND_ICON[r.kind] || 'star', 'ui-ico.hn-ico-glyph'));
 }
 
-export function render(root) {
-  const { el, body } = screen('Events', { cls: 'ma-rewards-screen' });
-  root.appendChild(el);
-  const wrap = h('div.ma-wrap.ma-rewards');
-  const limited = limitedSection();
-  if (limited) wrap.appendChild(limited);
-  wrap.appendChild(eventSection());
-  wrap.appendChild(incomeSection());
-  body.appendChild(wrap);
+/** E9: nothing limited is running. One band, one sentence, the next date; the last festival's page stays readable. */
+function offBand(off) {
+  const t = offSeasonText(off);
+  const band = offSeasonBand({ text: t.text, date: t.date, art: hubBackdrop('happening'), testid: 'happening-offseason' });
+  if (off.past) {
+    band.querySelector('.ui-offseason-band')?.append(secondaryBtn('Past festival', { testid: 'happening-past', title: off.past.name, onClick: () => navigate('event', { id: off.past.id }) }));
+  }
+  return band;
 }
 
-/** Painted art of a weekly-event arena (the same pictures as the lobby EVENT card and Notice). */
-function arenaPaint(arenaId, cls = '') {
-  return h(`img${cls}`, { src: lobbyArtUrl(ARENA_ART[arenaId] || 'thumbs/academy.webp'), alt: '', loading: 'lazy', decoding: 'async', draggable: false });
-}
-
-/** The event's host girl: her drawn stand on the right of the hero card. */
-function arenaGuest(arenaId) {
-  const u = UNIT_MAP[ARENA_GUEST[arenaId]];
-  return u ? h('div.ma-event-girl', { 'aria-hidden': 'true', html: portraitHTML(u, 'cutS') }) : null;
-}
-
-/** [events] Limited events: open and upcoming ones first, then the past ones (their pages stay readable). */
-function limitedSection() {
-  const now = eventNow();
-  const rows = listEvents(store.profile, now);
-  if (!rows.length) return null;
-  return h('section.panel.ev-list', { 'data-testid': 'events-limited' },
-    h('h3.panel-title', 'Limited events'),
-    rows.map(({ ev, phase }) => h('div.ev-list-row',
-      h('div', h('b', ev.name), h('div.muted', `${ev.subtitle} · ${windowText(ev).dates}`)),
-      h(`span.ev-phase.ph-${phase}`, phaseLabel(ev, phase, now)),
-      phase === 'upcoming' ? null : button(phase === 'ended' ? 'View' : 'Go', { kind: phase === 'ended' ? 'ghost' : 'yellow', small: true, testid: `events-go-${ev.id}`, onClick: () => navigate('event', { id: ev.id }) }),
-    )),
-  );
-}
-
-function eventSection() {
-  const ev = currentEvent();
-  const next = currentEvent(new Date(Date.now() + 7 * 86400000));
-  const after = currentEvent(new Date(Date.now() + 14 * 86400000));
-  return h('section.ma-event',
-    h('div.ma-event-card',
-      h('div.ma-event-art', arenaPaint(ev.arena)),
-      arenaGuest(ev.arena),
-      h('div.ma-event-shade'),
-      h('div.ma-event-body',
-        h('div.ma-event-kicker', h('span.ma-event-badge', 'THIS WEEK'), h('span.ma-event-time', svgEl(uiIcon('calendar'), 'ma-inline-icon'), fmtLeft(msToWeekEnd()))),
-        h('h2.ma-event-name', ev.name),
-        h('p.ma-event-desc', ev.desc),
-        h('div.ma-event-mul', h('b', `${ev.dropMul}×`), h('span', `drops in ${ev.arenaName} (all tiers, sweeps included)`)),
-        button(`Go to ${ev.arenaName}`, { kind: 'yellow', icon: 'teleport', testid: 'event-go', onClick: () => navigate('bounty', { arena: ev.arena }) }),
-      ),
-    ),
-    h('div.ma-event-next',
-      h('div.ma-sub', 'Coming up'),
-      [next, after].map((e, i) => h('div.ma-next-row',
-        h('div.ma-next-thumb', arenaPaint(e.arena)),
-        h('div', h('b', e.name), h('div.muted', `${i === 0 ? 'Next week' : 'In two weeks'} · ${e.arenaName}`)),
-      )),
-      h('p.muted.ma-hint', 'Events rotate every Monday. Plan your Bounty farming around the double-drop arena.'),
-    ),
-  );
-}
-
-function incomeSection() {
+/** Free pulls: three headline numbers (+ MORE: every table), then the recurring sources as bars. */
+function freeSection() {
   const s = f2pIncomeSummary();
   const ssrRate = expectedSSRRate();
   const maxPulls = Math.max(1, ...s.rows.map((r) => r.pulls));
-  const perMonthSSR = s.totals.pulls * ssrRate;
-  const profile = store.profile;
-
-  const headline = h('div.ma-income-head',
-    stat(formatNumber(s.totals.pulls), `recruits every ${s.periodDays} days`, 'gacha'),
-    stat(formatNumber(s.totals.gems), 'gems', null, currencyIcon('gems', { px: 36 })),
-    stat(formatNumber(s.totals.tickets), 'tickets', null, itemIcon('ticket_recruit', { px: 36 })),
-    stat(perMonthSSR.toFixed(1), `SSRs expected (${(ssrRate * 100).toFixed(2)}% incl. pity)`, 'sparkle'),
-    stat(`${Math.max(1, Math.round((GACHA.sparkCost / Math.max(1, s.totals.pulls)) * s.periodDays))}d`, `to a guaranteed spark (${GACHA.sparkCost} points)`, 'star'),
-  );
-
-  const recurring = h('table.ma-table.ma-income-table',
-    h('thead', h('tr', h('th', 'Source'), h('th', 'Gems'), h('th', 'Tickets'), h('th', 'Recruits'))),
-    h('tbody',
-      s.rows.map((r) => h('tr',
-        h('td', h('div.ma-src', h('b', r.source), h('div.muted', r.note)), h('div.ma-bar', h('i', { style: { width: `${Math.round((r.pulls / maxPulls) * 100)}%` } }))),
-        h('td', formatNumber(r.gems)),
-        h('td', formatNumber(r.tickets)),
-        h('td.ma-pulls', formatNumber(r.pulls)),
-      )),
-      h('tr.ma-total', h('td', `Total per ${s.periodDays} days`), h('td', formatNumber(s.totals.gems)), h('td', formatNumber(s.totals.tickets)), h('td.ma-pulls', formatNumber(s.totals.pulls))),
-    ),
-  );
-
-  const oneTime = h('table.ma-table.ma-income-table',
-    h('thead', h('tr', h('th', 'One-time source'), h('th', 'Gems'), h('th', 'Tickets'), h('th', 'Recruits'))),
-    h('tbody',
-      s.oneTime.map((r) => h('tr',
-        h('td', h('div.ma-src', h('b', r.source), h('div.muted', r.note))),
-        h('td', formatNumber(r.gems)),
-        h('td', formatNumber(r.tickets)),
-        h('td.ma-pulls', formatNumber(r.pulls)),
-      )),
-      h('tr.ma-total', h('td', 'Total, once'), h('td', formatNumber(s.oneTimeTotals.gems)), h('td', formatNumber(s.oneTimeTotals.tickets)), h('td.ma-pulls', formatNumber(s.oneTimeTotals.pulls))),
-    ),
-  );
-
-  return h('section.ma-income',
-    h('h3.ma-section-title', 'Free-to-play income overview'),
-    h('p.muted', `Everything you can earn without paying, computed from the live reward tables. ${GACHA.costSingle} gems = 1 recruit; every recruit also gives 1 Recruit Point toward a spark.`),
-    headline,
-    h('div.ma-income-grid',
-      h('div.panel', h('h3.panel-title', `Recurring · ${s.periodDays} days`), recurring),
-      h('div.panel', h('h3.panel-title', 'One-time'), oneTime),
-    ),
-    h('div.panel.ma-you',
-      h('h3.panel-title', 'Your account'),
-      h('div.ma-income-head.small',
-        stat(formatNumber(profile.stats?.gemsEarned || 0), 'gems earned so far', null, currencyIcon('gems', { px: 36 })),
-        stat(formatNumber(profile.gacha?.totalPulls || 0), 'recruits made', 'gacha'),
-        stat(formatNumber(profile.gacha?.recruitPoints || 0), `of ${GACHA.sparkCost} spark points`, null, currencyIcon('recruitPoints', { px: 36 })),
-      ),
-    ),
-  );
+  const sparkDays = Math.max(1, Math.round((GACHA.sparkCost / Math.max(1, s.totals.pulls)) * s.periodDays));
+  return h('div.hn-free', { 'data-testid': 'happening-free' },
+    statStrip([
+      { label: `Recruits / ${s.periodDays}d`, value: formatNumber(s.totals.pulls), title: `${formatNumber(s.totals.pulls)} free recruits every ${s.periodDays} days` },
+      { label: 'SSRs', value: (s.totals.pulls * ssrRate).toFixed(1), title: `${(s.totals.pulls * ssrRate).toFixed(1)} SSRs expected every ${s.periodDays} days (${(ssrRate * 100).toFixed(2)}% with pity)` },
+      { label: 'Spark in', value: `${sparkDays}d`, title: `${sparkDays} days to a guaranteed spark (${GACHA.sparkCost} points)` },
+    ], { onMore: () => freeDetails(s, ssrRate), testid: 'free-strip', moreTestid: 'free-more' }),
+    h('div.hn-rows.hn-chart', { role: 'list', 'aria-label': `Recruits every ${s.periodDays} days by source` },
+      s.rows.map((r) => h('div.hn-row.hn-src', { role: 'listitem', title: r.note },
+        h('span.hn-ico', { 'aria-hidden': 'true' }, svgEl(r.tickets && !r.gems ? itemIcon('ticket_recruit', { px: 24 }) : uiIcon('gacha'), 'hn-ico-glyph')),
+        h('div.hn-text', h('b.hn-src-name', r.source), h('div.hn-bar', h('i', { style: { width: `${Math.round((r.pulls / maxPulls) * 100)}%` } }))),
+        h('span.num.hn-src-n', formatNumber(r.pulls))))));
 }
 
-function stat(value, label, icon, svg = null) {
-  return h('div.ma-stat',
-    svg ? svgEl(svg, 'ma-stat-icon') : icon ? svgEl(uiIcon(icon), 'ma-stat-icon.ui') : null,
-    h('div', h('div.ma-stat-val', value), h('div.ma-stat-label', label)),
-  );
+/** "?": how the chart is counted (one sheet, the rule text behind the button: P1). */
+function freeHelp() {
+  openSheet({
+    title: 'Free pulls',
+    testid: 'free-help-sheet',
+    body: h('div.hn-sheet',
+      h('p', 'Everything you can earn without paying, counted from the live reward tables.'),
+      h('p', `${GACHA.costSingle} gems make 1 recruit, and every recruit also gives 1 Recruit Point toward a spark (${GACHA.sparkCost} points pick any SSR).`),
+      h('p', 'Nothing here is for sale: the chart only shows what free play gives you.')),
+  });
+}
+
+/** MORE: the full tables (recurring and one-time sources, and your own account so far). */
+function freeDetails(s, ssrRate) {
+  const profile = store.profile;
+  const table = (head, rows, total) => h('table.ma-table.hn-table',
+    h('thead', h('tr', head.map((x) => h('th', x)))),
+    h('tbody', rows.map((r) => h('tr', h('td', h('b', r.source), h('div.muted', r.note)), h('td', formatNumber(r.gems)), h('td', formatNumber(r.tickets)), h('td.ma-pulls', formatNumber(r.pulls)))),
+      h('tr.ma-total', total.map((x, i) => (i === 3 ? h('td.ma-pulls', x) : h('td', x))))));
+  openSheet({
+    title: 'Free-to-play income',
+    full: true,
+    testid: 'free-details',
+    body: h('div.hn-sheet',
+      h('h4', `Every ${s.periodDays} days`),
+      table(['Source', 'Gems', 'Tickets', 'Recruits'], s.rows, [`Total per ${s.periodDays} days`, formatNumber(s.totals.gems), formatNumber(s.totals.tickets), formatNumber(s.totals.pulls)]),
+      h('h4', 'Once'),
+      table(['One-time source', 'Gems', 'Tickets', 'Recruits'], s.oneTime, ['Total, once', formatNumber(s.oneTimeTotals.gems), formatNumber(s.oneTimeTotals.tickets), formatNumber(s.oneTimeTotals.pulls)]),
+      h('h4', 'Your account'),
+      h('ul.hn-you',
+        h('li', `${formatNumber(profile.stats?.gemsEarned || 0)} gems earned so far`),
+        h('li', `${formatNumber(profile.gacha?.totalPulls || 0)} recruits made`),
+        h('li', `${formatNumber(profile.gacha?.recruitPoints || 0)} of ${GACHA.sparkCost} spark points`)),
+      h('p.muted', `SSR rate with pity: ${(ssrRate * 100).toFixed(2)}% a recruit.`)),
+  });
 }

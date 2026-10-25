@@ -20,6 +20,18 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.52', version: '0.1.52', date: '2026-10-24', title: 'Hubs and Hosts',
+    added: [
+      'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',
+      'A Multiplayer button and hub in the lobby; the Mailroom, the Mall and Happening Now open as lists with their hosts.',
+    ],
+    changed: [
+      'One look for every countdown and badge, a tidier Profile, and Settings in five sections.',
+      'The seven newest academy girls can host the hub screens too.',
+      'The lantern string and pumpkin stickers are gone from the lobby; the Halloween courtyard stays.',
+    ],
+  },
+  {
     id: 'v0.1.51', version: '0.1.51', date: '2026-10-24', title: 'Spooky Courtyard',
     added: [
       'The lobby dresses up for Halloween: a moonlit academy with a spooky lantern tree and glowing pumpkins behind your secretary.',

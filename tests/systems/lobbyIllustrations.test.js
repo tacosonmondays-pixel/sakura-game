@@ -5,8 +5,8 @@
 //   Full illustrations  one table (src/data/lobbyIllustrations.js); choosing one fills the whole lobby with it: no
 //                       stand, no speech bubble, no academy behind it
 // Covers the table and its files, the picker's groups, the default and full modes (src/data/lobbyArt.js), the crop
-// and head-pat math (src/ui/lobby/sceneLayout.js) at the phone, tablet and desktop sizes, the event lantern string,
-// and the seven academy girls' restored v0.1.46 stands. Display only: no sim, battle data or co-op change.
+// and head-pat math (src/ui/lobby/sceneLayout.js) at the phone, tablet and desktop sizes, and the seven academy
+// girls' restored v0.1.46 stands. Display only: no sim, battle data or co-op change.
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -18,7 +18,7 @@ import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BG_CATEGORIES, BACKDROP, categoryOf, lobbyBackgrounds, lobbyBackgroundGroups, lobbyBackgroundFor,
   defaultBackgroundFor, chooseBackground, stageModeOf, showsBubble, stageArtUrls, bgArtUrl,
 } from '../../src/data/lobbyArt.js';
-import { coverFit, anchorFace, headHit, splitObstacles, hangString, DECOR_HEAD, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
+import { coverFit, anchorFace, headHit, splitObstacles, PREFER_POS } from '../../src/ui/lobby/sceneLayout.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 
@@ -382,69 +382,5 @@ describe('full illustrations: crop and face at every size', () => {
       expect(fit.face.y - 0.6 * fit.r, id).toBeGreaterThanOrEqual(60);
       expect(fit.clear, id).toBe(true);
     }
-  });
-});
-
-// The Halloween lantern string (src/ui/events/lobby.js) at each size, measured in the game: 18% insets (22% on a
-// short landscape phone) right under the top bar. 9 lanterns, so a lantern step is a tenth of its width.
-const LANTERN_BOX = {
-  '844x390': [186, 40, 658, 78], '1280x720': [230, 54, 1050, 110], '667x375': [147, 40, 520, 78], '932x430': [205, 40, 727, 78],
-  '1024x768': [184, 54, 840, 110], '1180x820': [212, 54, 968, 110], '390x844': [70, 40, 320, 96],
-};
-const lanternBox = (size) => { const [l, t, r, b] = LANTERN_BOX[size]; return { l, t, r, b }; };
-
-describe('full illustrations: an event lantern string over the picture', () => {
-  for (const size of Object.keys(LANTERN_BOX)) {
-    const [W, H] = size.split('x').map(Number);
-    const portrait = H > W;
-    it(`${size}: the string never hangs over her head, hair or halo; it is cut back to one side of her head, or hidden`, () => {
-      const lb = lanternBox(size);
-      const step = (lb.r - lb.l) / 10;
-      for (const r of FULL_ILLUSTRATIONS) {
-        const art = fullArt(r, { portrait });
-        const fit = anchorFace({ W, H, frame: frameOf(W, H), iw: art.w, ih: art.h, fx: art.fx, fy: art.fy, obstacles: [...boxes(size), { ...lb, bar: true }], headR: art.headR });
-        const span = hangString(lb, fit.face, fit.r, { minW: 2.5 * step });
-        const head = { l: fit.face.x - DECOR_HEAD.half * fit.r, r: fit.face.x + DECOR_HEAD.half * fit.r, t: fit.face.y - DECOR_HEAD.up * fit.r, b: fit.face.y + DECOR_HEAD.down * fit.r };
-        const eyes = { l: fit.face.x - 0.85 * fit.r, r: fit.face.x + 0.85 * fit.r, t: fit.face.y - 0.4 * fit.r, b: fit.face.y + 0.35 * fit.r };
-        const tag = `${size} ${r.id}`;
-        if (!span) {
-          // hidden only where the whole string would reach her head and neither side of it has room for two lanterns
-          // (a portrait phone, or a face near the middle of a 4:3 screen)
-          expect(hits(lb, head), `${tag}: hidden although it misses her head`).toBe(true);
-          expect(Math.max(head.l - lb.l, lb.r - head.r) - 8, `${tag}: hidden although one side has room`).toBeLessThan(2.5 * step);
-          continue;
-        }
-        const drawn = { l: span.l, r: span.r, t: lb.t, b: lb.b };
-        expect(hits(drawn, head), `${tag}: string ${Math.round(span.l)}-${Math.round(span.r)} over her head`).toBe(false);
-        expect(hits(drawn, eyes), tag).toBe(false);
-        expect(span.l, tag).toBeGreaterThanOrEqual(lb.l);
-        expect(span.r, tag).toBeLessThanOrEqual(lb.r);
-        expect(span.r - span.l, `${tag}: room for two lanterns`).toBeGreaterThanOrEqual(2.5 * step);
-        // a cut string ends beside her head, on one side
-        if (!span.full) expect(span.r <= head.l || span.l >= head.r, tag).toBe(true);
-      }
-    });
-  }
-
-  it('Marumi on an 844x390 phone: the string ends left of her hair, with room for several lanterns', () => {
-    const lb = lanternBox('844x390');
-    const s = FULL_ILLUSTRATION_MAP['marumi-scene'];
-    const fit = anchorFace({ W: 844, H: 390, frame: frameOf(844, 390), iw: s.w, ih: s.h, fx: s.faceX, fy: s.faceY, obstacles: [...boxes('844x390'), { ...lb, bar: true }], headR: HEAD_R });
-    expect(fit.face.y).toBeLessThan(lb.b + 10);
-    const span = hangString(lb, fit.face, fit.r, { minW: 2.5 * (lb.r - lb.l) / 10 });
-    expect(span.full).toBe(false);
-    expect(span.l).toBe(lb.l);
-    expect(span.r).toBeLessThanOrEqual(fit.face.x - DECOR_HEAD.half * fit.r);
-    expect(span.r - span.l).toBeGreaterThan(4 * (lb.r - lb.l) / 10);
-  });
-
-  it('a string clear of her head keeps its whole length; with no room on either side it is hidden', () => {
-    const lb = { l: 200, t: 40, r: 700, b: 80 };
-    expect(hangString(lb, { x: 450, y: 300 }, 50)).toEqual({ l: 200, r: 700, full: true });
-    expect(hangString(lb, { x: 900, y: 90 }, 50)).toEqual({ l: 200, r: 700, full: true });
-    expect(hangString(lb, { x: 520, y: 100 }, 50)).toEqual({ l: 200, r: 520 - DECOR_HEAD.half * 50 - 8, full: false });
-    expect(hangString(lb, { x: 380, y: 100 }, 50)).toEqual({ l: 380 + DECOR_HEAD.half * 50 + 8, r: 700, full: false });
-    expect(hangString(lb, { x: 450, y: 120 }, 150, { minW: 120 })).toBeNull();
-    expect(hangString(lb, { x: 330, y: 100 }, 50, { minW: 300 })).toBeNull();
   });
 });

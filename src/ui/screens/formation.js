@@ -2,7 +2,12 @@
 // "recommended for the next stage" counter check (recommendedFor) highlighting missing counters.
 // Every change is saved to profile.formation immediately.
 // Route: #/formation[?stage=<stageId>]
+// UI M5d (notes/ui-m5/PLAN.md §5 M5d): every label 12 px or more (hubs.css, scoped under .mb-formation-screen); one fact
+// per slot on a squad girl (her name on the bar, her level in its own ink pill, her counters top-left, the remove ×
+// top-right); "Hero" and "Students 8/8" over the slots, heroes deploying free said in the line under them. No 3D (E10
+// is the tail's).
 import '../styles/meta-b.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, button, unitCard, toast } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
@@ -61,7 +66,8 @@ function slotTile(unitId, onRemove, needCaps) {
     ur ? h('span.mb-fslot-ur', urBadge()) : null,
     st && potentialLevel(st) >= 2 ? h('span.mb-fslot-pot', { 'data-testid': 'fslot-pot' }, potPill(potentialLevel(st), { compact: true })) : null,
     hasOutfitOn(store.profile, unitId) ? h('span.mb-fslot-outfit', { title: `Wearing ${equippedSkin(store.profile, unitId).name}` }, svgEl(uiIcon('hanger'))) : null,
-    h('div.mb-fslot-name', u.name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${st?.level || 1}`)));
+    h('span.mb-fslot-lv', { 'data-testid': 'fslot-lv' }, h('small', 'Lv'), String(st?.level || 1)),
+    h('div.mb-fslot-name', u.name));
   if (ur) applyUrFrame(el, u, store.profile);
   return el;
 }
@@ -71,7 +77,7 @@ export function render(root, params = {}) {
   const stageId = (params.stage && STAGE_MAP[params.stage] ? params.stage : null) || nextStage(profile) || CAMPAIGN_IDS[CAMPAIGN_IDS.length - 1];
   const stage = STAGE_MAP[stageId];
   const { el, body } = screen('Formation');
-  el.classList.add('mb-screen');
+  el.classList.add('mb-screen', 'mb-formation-screen');
   root.appendChild(el);
 
   let f = formationOf(profile);
@@ -121,10 +127,10 @@ export function render(root, params = {}) {
     put(squad,
       h('h3.mb-card-title', 'Squad'),
       h('div.mb-squad',
-        h('div.mb-hero-slot', h('div.mb-slot-label', 'Hero · free in battle'), heroTile),
-        h('div', h('div.mb-slot-label', `Students ${f.towers.length} / ${BATTLE.maxTowers}`), h('div.mb-tower-slots', towerTiles))),
+        h('div.mb-hero-slot', h('div.mb-slot-label', 'Hero'), heroTile),
+        h('div', h('div.mb-slot-label', `Students ${f.towers.length}/${BATTLE.maxTowers}`), h('div.mb-tower-slots', towerTiles))),
       h('div.mb-squad-foot',
-        h('div.muted', `Tap a girl to remove her · hold for her info · total deploy cost ${formatNumber(deploy)}`),
+        h('div.muted', `Tap a girl to remove her · hold for her info · deploy cost ${formatNumber(deploy)} (heroes are free)`),
         h('span.mb-saved', svgEl(uiIcon('check')), 'Saved')),
       h('div.mb-actions',
         button('Clear', { kind: 'ghost', small: true, disabled: !members(f).length, onClick: () => { f = { hero: null, towers: [] }; save(); } }),
