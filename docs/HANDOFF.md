@@ -2,6 +2,8 @@
 
 Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 24, 2026 (v0.1.51 shipped).
 
+**Next session (Oct 24): read `docs/handoff/NEXT_SESSION.md` first.** It has the exact state of the hubs ship (UI M5, `feature/ui-m5` `1d6f86f`, in review), what review round 1 found, and the steps to ship it as v0.1.52. It is written for a cloud session that only has this repo.
+
 The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) with the full decision log and design docs that are not in this public repo. If they upload it to a session, read `OWNER_DECISIONS.md` in it before planning.
 
 ## 1. Where things stand
