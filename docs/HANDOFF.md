@@ -87,9 +87,9 @@ Not started on any branch:
 > Read docs/HANDOFF.md first. Unzip the packs I upload into your scratchpad (never into the repo). Then tell me in a few lines what's live, what's unfinished and the suggested order in HANDOFF §4, and start on step 1. Report the cost of every Meshy run (HANDOFF §6), ask me before spending any other generator's credits, and ship each step as its own update when it's ready.
 
 After the big update, roughly in order:
-1. **Balance pass.** Tune damage girls relative to Kage (Kage is the reference number). Inputs: §10 findings and the tier list.
+1. **Balance pass.** Tune damage girls relative to Kage (Kage is the reference number). Inputs: §10 findings, the players' requests in §10 (Oct 26) and the tier list.
 2. **Gear update** (owner decisions, Oct 21):
-   - 5 equipment pieces: Charm, Ribbon, Shoes stay as they are; 2 new pieces come in role sets you farm (support, control, money, precision, abilities, …), each set from its own source (e.g. one Titan Trials boss per set). Wearing both pieces unlocks the set's passive.
+   - 5 equipment pieces: Charm, Ribbon, Shoes stay as they are; 2 new pieces (a hair accessory and a necklace, as the owner told players) come in role sets you farm (support, control, money, precision, abilities, …), each set from its own source (e.g. one Titan Trials boss per set). Wearing both pieces unlocks the set's passive.
    - Clubs can go on any of the 5 pieces (Armbands too) and count across all 5, so 3 + 2 club splits are possible.
    - Support main stats on role pieces: Aura Power, Aura Radius, Buff Duration, Control Strength.
    - LR gear above UR: max +18 (Legendary +10 and UR +12 today). Each LR piece raises the stat caps a little (`BATTLE_CAPS` in `src/data/gearStats.js`); aura most, crit least.
@@ -188,6 +188,15 @@ Then poll `version.json` until it shows the new version. Patch-note tests: `test
 - **Battle panel DPS readout** prints the raw number (`fmtNum(dps, 1)` in `src/ui/battle/util.js`, e.g. "136234.5"), and the cell clips it to about 5 digits. Use a compact format (136.2k, 1.2M) in the tower and Chika panels. (Fixed in v0.1.45: `fmtDps`.)
 - **`tools/bench.mjs`:** the walking boss reads `near.dist` but path samples only carry `d`, so the boss always spawns at the start of path 0; the 15 s warm-up is too short on stage 4-5; ults can fire inside the warm-up.
 - Players note crit-damage substats stack hard, and that LR gear will need higher stat caps (planned, §4).
+
+**Player feedback for the balance pass (Discord, Oct 26; no names in the repo):**
+- Raise the max DPS of every striker except Kage and Shiro, so other girls catch up to Kage and players have more ways to win.
+- Chigusa's bottom path (Harvest): remove the cap on total lives gained, but cap the gain per round so it can't scale forever.
+- Make the wind push-back stronger so Fuu has a niche.
+- Heroes should start with better base DPS than regular girls but not scale as high as a max-path tower (both are limited to one, and heroes level for free).
+- Enemies: the player thinks enemy HP is fine (the Matriarch is beatable on Crimson) and the girls are what need to catch up. The owner said high-level enemies have impossible HP, so either the girls get much stronger or enemy HP comes down. Measure both before choosing; the owner's standing target is "tune damage girls relative to Kage".
+
+**What the owner told players on Oct 26 is coming:** the new UI (almost done), the ultimates (about halfway), a new girl rarity, a new gear rarity, the two new gear pieces as a **hair accessory and a necklace** (the role-set pieces in §4, next to the shoes), real gear sets on top of clubs, new VFX, new models, new card art (the owner is drawing some), new companion models and turrets, PvP content before the full multiplayer hub, and balance updates. Later: real ultimate cut-in animations (the owner may learn to make them).
 
 ## 11. Private notes pack (not in this repo)
 
