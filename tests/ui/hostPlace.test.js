@@ -69,7 +69,9 @@ describe('placeHost: every girl on the home, at both sizes', () => {
     }
   });
 
-  it('the stand girls reach the bottom edge at 1280x720; on a phone only the two drawn from above float (their foot fades)', () => {
+  // (v0.1.48 brought back the seven academy girls' head-to-shoes stands in place of the v0.1.47 scene cut-outs, so the
+  // two drawn from above, Chigusa and Yuzuha, reach the bottom edge on a phone too now)
+  it('every stand girl reaches the bottom edge, at 1280x720 and on a phone (none floats)', () => {
     const floats = { '844x390': [], '1280x720': [] };
     for (const vp of Object.keys(floats)) {
       const [W, H] = vp.split('x').map(Number);
@@ -79,7 +81,7 @@ describe('placeHost: every girl on the home, at both sizes', () => {
       }
     }
     expect(floats['1280x720']).toEqual([]);
-    expect(floats['844x390'].sort()).toEqual(['chigusa', 'yuzuha']);
+    expect(floats['844x390']).toEqual([]);
   });
 
   it('the face box is ± 8 % of the width around her face (wider for a big face), from her hair to her chin', () => {

@@ -4,22 +4,35 @@
 //   the bottom scrim 3 · the home's UI 4 (src/ui/screens/lobby.js) · its top bar 10 · sheets 20+.
 // So her art can never cover a control, and the scrims seat the UI on the scene.
 //
-//   const stage = createArtStage(host, { reduceMotion, onTap, boxes })
-//   await stage.show(unitDef, { background })   her picture (the stand over a baked painting, or a scene painting)
+//   const stage = createArtStage(host, { reduceMotion, onTap, boxes, backdrop })
+//   await stage.show(unitDef, { background })   her picture (her stand over a painting, or a full illustration)
 //   stage.relayout()                            placed again (a resize, the UI drawn again)
 //   stage.say(text) / stage.hideBubble()        her bubble: on a tap only, 2.4 s, under her face, never over a control
 //   stage.liveHost()                            the slot her living scene's canvas goes in (src/ui/lobby/live/)
 //   stage.setLive(on)                           the canvas shown in place of the painting and her still picture
 //   stage.dispose()
 //
+// The picture is a lobby background (src/data/lobbyArt.js), drawn in one of the picker's two categories (stageModeOf):
+//   stand  Backdrops: her drawn stand over the painted academy (the baked night copy), in her day / sunset / night
+//          tint; while an event runs, over its painted backdrop instead (backdrop: eventLobbyBackdrop, v0.1.51), with
+//          no tint (it has its own lighting). Every girl's default.
+//   full   Full illustrations (src/data/lobbyIllustrations.js, v0.1.48): the picture IS the whole scene, with no stand
+//          and NO speech bubble (owner: "you dont need the speech bubbles for these full illustration ones"); a `tall`
+//          row shows her 3:4 full art on a portrait screen.
 // Where she stands: her face anchor (src/ui/faceAnchors.js) on the home's face spot, her art 8 px clear of every
-// control (src/ui/lobby/hostPlace.js placeHost; boxes() gives the controls' boxes). A painted scene with her inside it
-// (the three scene backgrounds) is zoomed and panned instead, so her face lands on the spot (placeScene). Her still
-// picture breathes at 1 % over 4.5 s (the direction's Q10; off under Reduce motion).
+// control (src/ui/lobby/hostPlace.js placeHost; boxes() gives the controls' boxes). A full illustration cannot move her
+// alone: the whole picture is zoomed and panned so her face (the row's face point) lands on the spot (placeFull over
+// hostPlace.js placeScene), between the rail and the right stack, a little lower when a control would stand over her
+// hair there, so no control covers her face. Her still stand breathes at 1 % over 4.5 s (the
+// direction's Q10; off under Reduce motion).
+// A painting with a baked night copy (HOME_BAKED, tools/art/bakeHome.mjs) shows that copy; any other picture (the event
+// backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
+// .graded), so the text over the scene keeps its contrast.
 import { h } from '../dom.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
-import { lobbyArtUrl, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, stageModeOf, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
+import { fullArt, FULL_ILLUSTRATION_MAP } from '../../data/lobbyIllustrations.js';
 import { faceAnchor, cutExtents } from '../faceAnchors.js';
 import { placeHost, placeScene, homeTarget } from './hostPlace.js';
 
@@ -28,9 +41,64 @@ export const BUBBLE_MS = 2400;
 /** The bubble's width (phone, desktop). */
 const BUBBLE_W = { phone: 222, desk: 300 };
 
+/** The lobby paintings (public/art/lobby/) that have a baked night copy beside them (<name>-home.webp). */
+export const HOME_BAKED = Object.freeze(['academy.webp', 'hikari.webp', 'aoi.webp', 'sango.webp']);
+
 /** The baked night copy of a lobby painting (tools/art/bakeHome.mjs): academy.webp → academy-home.webp. */
 export function homeArt(file) {
   return String(file || 'academy.webp').replace(/\.webp$/, '-home.webp');
+}
+
+/**
+ * The picture behind her stand: the baked night copy of a lobby painting, or (no copy: an event's backdrop) the
+ * painting itself, graded in CSS.
+ * @param {string} file a picture in public/art/lobby/
+ * @returns {{ src: string, baked: boolean }}
+ */
+export function homeBackdropArt(file = 'academy.webp') {
+  return HOME_BAKED.includes(file) ? { src: lobbyArtUrl(homeArt(file)), baked: true } : { src: lobbyArtUrl(file), baked: false };
+}
+
+/**
+ * A full illustration as the home draws it on this screen (lobbyIllustrations.js fullArt): an older lobby scene's baked
+ * night copy when it has one, else its own picture (graded in CSS); fx / fy = her face as fractions of the picture.
+ * @param {string} id a FULL_ILLUSTRATIONS id
+ * @param {{ portrait?: boolean }} [opts]
+ * @returns {{ variant: 'wide'|'tall', src: string, w: number, h: number, fx: number, fy: number, headR: number, baked: boolean }|null}
+ */
+export function homeFullArt(id, { portrait = false } = {}) {
+  const art = fullArt(id, { portrait });
+  if (!art) return null;
+  const file = FULL_ILLUSTRATION_MAP[id]?.file || '';
+  const name = art.variant === 'wide' && file.startsWith('lobby/') ? file.slice('lobby/'.length) : null;
+  if (name && HOME_BAKED.includes(name)) return { ...art, src: lobbyArtUrl(homeArt(name)), baked: true };
+  return { ...art, baked: false };
+}
+
+/**
+ * A full illustration on the home: zoomed and panned so her face lands on the face spot (placeScene); when a control
+ * stands over her face and hair there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit, 8 px
+ * clear), her face comes down a little, 4 px at a time, up to 12 % of the height. Pure.
+ * @param {number} W
+ * @param {number} H
+ * @param {{ w: number, h: number, fx: number, fy: number, headR: number }} art
+ * @param {{ x: number, y: number, w: number, h: number }[]} [boxes] the controls
+ * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean }}
+ */
+export function placeFull(W, H, art, boxes = []) {
+  const base = { x: homeTarget(W, H).x, y: H * 0.31 };
+  const at = (dy) => {
+    const p = placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x: base.x, y: base.y + dy } });
+    const r = art.headR * p.height;
+    const f = { x0: p.faceX - 1.1 * r - 8, x1: p.faceX + 1.1 * r + 8, y0: p.faceY - 1.4 * r - 8, y1: p.faceY + r + 8 };
+    const clear = boxes.every((b) => b.x + b.w <= f.x0 || b.x >= f.x1 || b.y + b.h <= f.y0 || b.y >= f.y1);
+    return { ...p, r, clear };
+  };
+  for (let dy = 0; dy <= H * 0.12; dy += 4) {
+    const p = at(dy);
+    if (p.clear) return p;
+  }
+  return at(0);
 }
 
 /** An element's box in viewport px. */
@@ -41,36 +109,45 @@ const rectOf = (el) => {
 
 /**
  * @param {HTMLElement} host
- * @param {{ reduceMotion?: boolean, onTap?: ((part: 'head'|'body') => void)|null, boxes?: (() => {x:number,y:number,w:number,h:number}[])|null }} [o]
+ * @param {{ reduceMotion?: boolean, onTap?: ((part: 'head'|'body') => void)|null, boxes?: (() => {x:number,y:number,w:number,h:number}[])|null,
+ *   backdrop?: { file: string, thumb?: string }|null }} [o]
+ *   backdrop: an event's painted backdrop behind every stand instead of the academy (src/ui/events/lobby.js
+ *   eventLobbyBackdrop), with its own lighting, so no day / sunset / night tint is laid over it
  */
-export function createArtStage(host, { reduceMotion = false, onTap = null, boxes = null } = {}) {
+export function createArtStage(host, { reduceMotion = false, onTap = null, boxes = null, backdrop = null } = {}) {
   host.classList.add('home-stage');
   const scene = h('div.ui-scene.home-scene', { 'data-testid': 'lobby-scene' });
   const live = h('div.home-live', { 'data-testid': 'lobby-live', hidden: true });
-  const decor = h('div.home-decor');
   const scrims = [h('div.ui-scrim.l'), h('div.ui-scrim.t'), h('div.ui-scrim.r')];
   const frame = h('div.home-host', { 'data-testid': 'secretary-art' });
   const bottom = h('div.ui-scrim.b');
   const bubble = h('div.ui-bubble.home-bubble', { role: 'status', 'aria-live': 'polite', 'data-testid': 'secretary-bubble' }, h('span.home-bubble-text'));
-  host.append(scene, live, decor, ...scrims, frame, bottom, bubble);
+  host.append(scene, live, ...scrims, frame, bottom, bubble);
 
   let disposed = false;
-  let current = null; // { u, bg, kind, img, aspect, anchor, extents, face }
+  let current = null; // { u, bg, kind: 'stand'|'full', sceneImg, fig, aspect, art, anchor, extents }
   let placed = null;
   let bubbleTimer = 0;
   let liveOn = false;
 
+  const portraitScreen = () => (host.clientHeight || globalThis.innerHeight || 0) > (host.clientWidth || globalThis.innerWidth || 0);
+
   function build(u, bg) {
-    const layer = h('div.home-scene-layer');
-    const tint = bg?.tint && bg.tint !== 'day' ? h(`div.home-tint.tint-${bg.tint}`) : null;
-    if (bg?.kind === 'scene') {
-      // a painting with her inside it: the whole painting is placed (zoomed, panned) so her face is on the spot
-      const img = h('img.baked.home-scene-art', { src: lobbyArtUrl(homeArt(bg.file)), alt: u.name, draggable: false, decoding: 'async' });
+    const layer = h('div.home-scene-layer', { dataset: { bg: bg?.id || '' } });
+    if (stageModeOf(bg) === 'full') {
+      // a full illustration: the whole picture is placed (zoomed, panned) so her face is on the spot; no stand
+      const art = homeFullArt(bg.id, { portrait: portraitScreen() });
+      const img = h(`img.home-scene-art${art.baked ? '.baked' : '.graded'}`, { src: art.src, width: art.w, height: art.h, alt: bg.name || u.name, draggable: false, decoding: 'async' });
+      layer.classList.add('full');
+      layer.dataset.variant = art.variant;
       layer.append(img, h('div.lift'));
-      return { layer, kind: 'scene', sceneImg: img, fig: null, face: bg.face || [55, 28] };
+      return { layer, kind: 'full', sceneImg: img, fig: null, art };
     }
-    const img = h('img.baked', { src: lobbyArtUrl(homeArt(bg?.file || 'academy.webp')), alt: '', draggable: false, decoding: 'async' });
+    // her stand over the academy (baked at night) in her tint, or over the event's painted backdrop (no tint)
+    const back = homeBackdropArt(backdrop?.file || bg?.file || 'academy.webp');
+    const img = h(`img${back.baked ? '.baked' : '.graded'}`, { src: back.src, alt: '', draggable: false, decoding: 'async' });
     layer.append(img);
+    const tint = !backdrop && bg?.tint && bg.tint !== 'day' ? h(`div.home-tint.tint-${bg.tint}`) : null;
     if (tint) layer.append(tint);
     layer.append(h('div.lift'));
     const fig = h('div.home-fig');
@@ -79,7 +156,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
       fig.classList.add('card');
       fig.innerHTML = cardArtSVG(u, { variant: 'full' });
     }
-    return { layer, kind: 'stand', sceneImg: img, fig, face: null };
+    return { layer, kind: 'stand', sceneImg: img, fig, art: null };
   }
 
   const arrived = (img) => (img.complete && img.naturalWidth ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r; setTimeout(r, 1500); }))
@@ -96,10 +173,25 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     const aspect = figImg?.naturalWidth ? figImg.naturalWidth / figImg.naturalHeight : 0.7;
     scene.replaceChildren(next.layer);
     frame.replaceChildren(...(next.fig ? [next.fig] : []));
-    frame.classList.toggle('scene-girl', next.kind === 'scene');
-    current = { u, bg, kind: next.kind, sceneImg: next.sceneImg, fig: next.fig, aspect, face: next.face, anchor: faceAnchor(u.id, 'cut'), extents: cutExtents(u.id) };
+    frame.classList.toggle('scene-girl', next.kind === 'full');
+    host.classList.toggle('home-illustration', next.kind === 'full');
+    current = { u, bg, kind: next.kind, sceneImg: next.sceneImg, fig: next.fig, aspect, art: next.art, anchor: faceAnchor(u.id, 'cut'), extents: cutExtents(u.id) };
     hideBubble();
     relayout();
+  }
+
+  /** A full illustration on a screen that turned: her wide picture ↔ her 3:4 full art (a `tall` row). */
+  function swapFullArt() {
+    const art = homeFullArt(current.bg.id, { portrait: portraitScreen() });
+    if (!art || art.src === current.art.src) return;
+    const im = current.sceneImg;
+    im.width = art.w;
+    im.height = art.h;
+    im.src = art.src;
+    im.classList.toggle('baked', art.baked);
+    im.classList.toggle('graded', !art.baked);
+    im.parentElement.dataset.variant = art.variant;
+    current.art = art;
   }
 
   /** Places her (and her bubble's spot) for the screen and the controls on it now. */
@@ -109,20 +201,26 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     const W = host.clientWidth || globalThis.innerWidth || 1;
     const H = host.clientHeight || globalThis.innerHeight || 1;
     const ui = boxes?.() || [];
-    if (current.kind === 'scene') {
+    if (current.kind === 'full') {
+      swapFullArt();
       const im = current.sceneImg;
-      const aspect = im.naturalWidth ? im.naturalWidth / im.naturalHeight : 1376 / 768;
-      const p = placeScene({ W, H, aspect, face: [current.face[0] / 100, current.face[1] / 100] });
+      const art = current.art;
+      const p = placeFull(W, H, art, ui);
       im.style.inset = 'auto';
       Object.assign(im.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.width}px`, height: `${p.height}px` });
-      // her tap area: around her face and down her figure
+      // her tap area: around her face and down her figure; her head: ±1.1 head radii across, 1.4 up, 1.0 down (as
+      // sceneLayout.js headHit)
       const fx = p.faceX;
       const fw = Math.max(120, W * 0.2);
-      Object.assign(frame.style, { left: `${fx - fw / 2}px`, top: `${Math.max(0, p.faceY - H * 0.16)}px`, width: `${fw}px`, height: `${H - Math.max(0, p.faceY - H * 0.16)}px` });
-      placed = { faceX: fx, faceY: p.faceY, face: { x: fx - W * 0.08, y: p.faceY - H * 0.15, w: W * 0.16, h: H * 0.27 }, scene: p };
+      const r = art.headR * p.height;
+      const frameTop = Math.max(0, p.faceY - Math.max(H * 0.16, 1.5 * r));
+      Object.assign(frame.style, { left: `${fx - fw / 2}px`, top: `${frameTop}px`, width: `${fw}px`, height: `${H - frameTop}px` });
+      placed = { faceX: fx, faceY: p.faceY, face: { x: fx - 1.1 * r, y: p.faceY - 1.4 * r, w: 2.2 * r, h: 2.4 * r }, scene: p };
+      host.dataset.face = `${Math.round(fx)},${Math.round(p.faceY)},${Math.round(r)}`;
       host.style.setProperty('--hx', `${(fx / W) * 100}%`);
       host.style.setProperty('--hy', `${(p.faceY / H) * 100 + 14}%`);
     } else {
+      delete host.dataset.face;
       // a phone held upright: the controls stand under her, so her picture fades out 8 px above the first of them
       const lower = W < H ? ui.filter((b) => b.y > H * 0.35).map((b) => b.y) : [];
       const clipY = lower.length ? Math.min(...lower) - 8 : null;
@@ -168,8 +266,13 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     Object.assign(bubble.style, { left: `${left}px`, top: `${top}px`, width: `${w}px`, '--tail-x': `${Math.max(16, Math.min(w - 16, placed.faceX - left))}px` });
   }
 
+  /** Her bubble under her stand's face. A full illustration has none: the call does nothing. */
   function say(text, ms = BUBBLE_MS) {
     if (disposed || !text) return;
+    if (current?.kind === 'full' && !liveOn) {
+      hideBubble();
+      return;
+    }
     bubble.firstElementChild.textContent = text;
     fitBubble();
     bubble.classList.add('show');
@@ -204,15 +307,16 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     disposed = true;
     clearTimeout(bubbleTimer);
     globalThis.removeEventListener?.('resize', onResize);
-    host.classList.remove('home-stage', 'is-live');
+    host.classList.remove('home-stage', 'is-live', 'home-illustration');
+    delete host.dataset.face;
     host.replaceChildren();
   }
 
   return {
     show, relayout, say, hideBubble, setLive, setLivePlacement, dispose,
     isLive: () => liveOn,
+    isIllustration: () => current?.kind === 'full',
     liveHost: () => live,
-    decorHost: () => decor,
     placement: () => placed,
     current: () => current,
     rectOf,

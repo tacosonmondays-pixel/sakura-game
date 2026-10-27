@@ -1,11 +1,13 @@
 // UI M5b: the hubs with host girls (docs/specs/UI_DIRECTION.md §5.10 E1, §6.5; notes/ui-m5/PLAN.md §5 M5b), on two
 // saves: the ui-shots save (chapters 1-3: Total Assault still locked) and a late veteran (everything open), at five
 // sizes: 844x390 and 1280x720 (the milestone's two), the small landscape phones 667x375 (iPhone SE / 8) and 740x360
-// (a common Android), and portrait 390x844 (the M5b review found all three unprobed). On the six hosted screens
-// (Missions; Commissions on Daily, Weekly, Codes and its Login tab; Bounty; Total Assault; Titan Trials):
+// (a common Android), and portrait 390x844 (the M5b review found all three unprobed); since the UI M5 final review
+// also the common landscape phones 915x412 and 932x430 and the tablets in landscape 1024x768, 1024x600 and 1180x820.
+// On the six hosted screens (Missions; Commissions on Daily, Weekly, Codes and its Login tab; Bounty; Total Assault;
+// Titan Trials):
 //   1. the probe (e2e/probe.mjs) passes: text ≥ 12 / 13 px, ≤ 12 numbers, no "…" on a number, no sideways scroll,
-//      a content window ≥ 300 px, ≤ 1 yellow primary, taps ≥ 40 px (the shared top bar aside, §5.3 tabs 44 × 36);
-//      in portrait also its clip check (no words cut off or run under a neighbour)
+//      a content window ≥ 300 px, ≤ 1 yellow primary, taps ≥ 40 px (the shared top bar aside, §5.3 tabs 44 × 36),
+//      and its clip check (no words cut off or run under a neighbour; portrait only until the UI M5 final review)
 //   2. the host is the right girl, on the collapse rule (host.js): from 800 px of width her stand within 35%; under it
 //      (or a short content window) her bust chip at the start of a header row with NO host column, the list or grid
 //      taking the whole width; in portrait no host (the M5b rule) and a plate header shows its title again, on one
@@ -17,6 +19,7 @@
 //   7. Sweep is the secondary button (§5.5: white glass), its disabled state --sky-1 with a lock and one reason line,
 //      never opacity; reward counts and gated drop labels never run into a neighbour, nor a boss card's words under
 //      its lock or medals
+//   8. no slanted tile, card or button has a corner cut flat by a scroller or the screen body (the UI M5 final review)
 // Achievements (§6.5): no host; Ready first; Done collapsed; ≤ 12 + 2 visible numbers counted the audit's way;
 // no "1/1" or "×1" and no bar on a ready row; ONE count (rows ready) in the Ready header, Claim all's pill and the
 // category sheet, in every category; Claim all claims the picked category only and is gone where nothing is ready; the
@@ -24,7 +27,7 @@
 // scrolls at most 10 screens. The Honor Ribbon Case, the Titles sheet, Total Assault's intel sheet and Titan Trials'
 // MORE sheet pass the text floor. Campaign: a stage card holds ≤ 2 numbers and no waves, ribbons, rule or mechanic chips.
 //
-//   node e2e/hubs.mjs [--viewport 844x390] [--save shots|late] [--shots <dir>]
+//   node e2e/hubs.mjs [--viewport 844x390[,1024x768,...]] [--save shots|late] [--shots <dir>] [--port 5214]
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 on any failure.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -40,8 +43,12 @@ const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 };
-const viewports = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x720', '667x375', '740x360', '390x844'];
+// (the UI M5 final review added the common landscape phones 915x412 and 932x430, and the tablets in landscape 1024x768,
+// 1024x600 and 1180x820: the 1000-1279 px widths, where its four findings hid while every gate passed)
+const viewports = opt('viewport', null) ? opt('viewport').split(',').map((s) => s.trim()).filter(Boolean)
+  : ['844x390', '1280x720', '667x375', '740x360', '390x844', '915x412', '932x430', '1024x768', '1024x600', '1180x820'];
 const saves = opt('save', null) ? [opt('save')] : ['shots', 'late'];
+const PORT = Number(opt('port', '0'));
 const shots = opt('shots', null);
 if (shots) mkdirSync(shots, { recursive: true });
 
@@ -68,7 +75,7 @@ const HOSTED = [
   { name: 'titans', hash: '#/titans', screen: 'titans', host: 'kaede', clear: '.tt-cards, .tt-side, .tt-show, .tt-top', rows: '.tt-cards, .tt-detail, .tt-actions', list: '.tt-side', main: '.tt-wrap', whole: '.tt-top, .tt-card, .tt-actions' },
 ];
 
-const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+const server = await createServer({ root: process.cwd(), server: { port: PORT, strictPort: PORT > 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 const { browser, label } = await launchChromium();
@@ -137,6 +144,8 @@ const expectedHost = (page, s) => page.evaluate(async (host) => {
 /** The mode the collapse rule asks for on this screen at this viewport (Titan Trials counts its titan row). */
 const ruleMode = (page, s) => page.evaluate(async (name) => {
   if (name === 'titans') return (await import('/src/ui/screens/titans.js')).titanHostMode();
+  // (Missions' tiles need the width too: hubHost.js WIDE_GRID_VW)
+  if (name === 'missions') return (await import('/src/ui/screens/missions.js')).missionsHostMode();
   const { hubMode, viewport } = await import('/src/ui/hubHost.js');
   return hubMode(viewport());
 }, s.name);
@@ -262,6 +271,51 @@ const cardMarks = (page) => page.evaluate(() => {
   return [...new Set(out)];
 });
 
+/**
+ * Slanted (skewX) pieces that paint something (a tile, a card, a button) with a corner cut flat by a scroller or the
+ * screen body: the part past that box's edge on an axis it does not scroll (the UI M5 final review, M5-2: Titan
+ * Trials' scroller sliced the titan cards' and the Titan shelf button's corners at every size; the tablet chip's tall
+ * Mission tile met the screen's edge). A piece clipped by its own card (a corner ribbon, a plate flush with its card's
+ * edge) is the card's design and is left out.
+ */
+const skewCuts = (page) => page.evaluate(() => {
+  const out = [];
+  const name = (e) => `${e.tagName.toLowerCase()}.${String(e.className?.baseVal ?? e.className).split(' ').filter(Boolean).slice(0, 2).join('.')}${e.dataset?.testid ? `[${e.dataset.testid}]` : ''}`;
+  for (const el of document.querySelectorAll('#app *')) {
+    const cs = getComputedStyle(el);
+    const t = cs.transform;
+    if (!t || !t.startsWith('matrix(') || Math.abs(parseFloat(t.slice(7).split(',')[2])) <= 0.01) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8 || cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue;
+    if (el.closest('[aria-hidden="true"]') && !el.closest('button')) continue;
+    const paints = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || cs.backgroundImage !== 'none' || parseFloat(cs.borderLeftWidth) > 0 || cs.boxShadow !== 'none';
+    if (!paints) continue;
+    let a = el.parentElement;
+    while (a && a !== document.documentElement) {
+      const s = getComputedStyle(a);
+      if (s.overflowX !== 'visible' || s.overflowY !== 'visible' || s.clipPath !== 'none') break;
+      a = a.parentElement;
+    }
+    if (!a || a === document.documentElement || a === document.body) continue;
+    const s = getComputedStyle(a);
+    const scrollsX = /auto|scroll/.test(s.overflowX);
+    const scrollsY = /auto|scroll/.test(s.overflowY);
+    if (!scrollsX && !scrollsY && !a.matches('.screen-body')) continue; // (its own card: the card's design)
+    const ar = a.getBoundingClientRect();
+    const L = ar.left + parseFloat(s.borderLeftWidth);
+    const R = ar.right - parseFloat(s.borderRightWidth);
+    const T = ar.top + parseFloat(s.borderTopWidth);
+    const B = ar.bottom - parseFloat(s.borderBottomWidth);
+    const hits = [];
+    if (!scrollsX && L - r.left > 0.75 && r.right > L + 4) hits.push(`L ${(L - r.left).toFixed(1)}`);
+    if (!scrollsX && r.right - R > 0.75 && r.left < R - 4) hits.push(`R ${(r.right - R).toFixed(1)}`);
+    if (!scrollsY && T - r.top > 0.75 && r.bottom > T + 4) hits.push(`T ${(T - r.top).toFixed(1)}`);
+    if (!scrollsY && r.bottom - B > 0.75 && r.top < B - 4) hits.push(`B ${(r.bottom - B).toFixed(1)}`);
+    if (hits.length) out.push(`${name(el)} cut ${hits.join(',')} by ${name(a)}`);
+  }
+  return [...new Set(out)];
+});
+
 /** The Sweep buttons: secondary (white glass), and when disabled: --sky-1, opaque, a lock and one reason line. */
 const sweeps = (page) => page.evaluate(() => [...document.querySelectorAll('#app [data-testid$="-sweep"]')].filter((e) => e.getClientRects().length).map((e) => {
   const cs = getComputedStyle(e);
@@ -312,8 +366,9 @@ async function hostedScreen(page, s, vp, save) {
   const r = await probe(page, { kind: 'hub', list: s.list, tapSkip: '.topbar' });
   const h1 = await hostInfo(page, s);
   const chip = h1?.mode === 'chip';
-  // (portrait also judges the probe's clip check: words cut off, or run under a neighbour, as on the list screens)
-  const fails = judge(r, { skip: chip || portrait ? ['host', 'bubble'] : ['bubble'], also: portrait ? ['clip'] : [] });
+  // (the probe's clip check too: words cut off, or run under a neighbour, as on the list screens. Portrait only until
+  // the UI M5 final review found "★ Titan of the Week" 40 px under its token at 1024x768, in landscape)
+  const fails = judge(r, { skip: chip || portrait ? ['host', 'bubble'] : ['bubble'], also: ['clip'] });
   check(fails.length === 0, `${s.name}: probe ${summary(r)}${fails.length ? ` → ${fails.join(' | ')}` : ''}`);
   if (!check(!!h1, `${s.name}: a host girl is on the screen`)) return;
   const want = await expectedHost(page, s);
@@ -328,6 +383,8 @@ async function hostedScreen(page, s, vp, save) {
     const marks = await cardMarks(page);
     check(marks.length === 0, `assault: no boss card's name or line runs under its lock or medals${marks.length ? ` (${marks.slice(0, 4).join(' | ')})` : ''}`);
   }
+  const sk = await skewCuts(page);
+  check(sk.length === 0, `${s.name}: no slanted tile, card or button has a corner cut flat by a scroller or the screen${sk.length ? ` (${sk.slice(0, 4).join(' | ')})` : ''}`);
   const sw = await sweeps(page);
   for (const x of sw) {
     check(x.secondary && x.opacity === 1, `${s.name}: ${x.id} is the secondary button, never faded (opacity ${x.opacity})`);

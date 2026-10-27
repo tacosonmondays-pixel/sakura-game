@@ -20,6 +20,50 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
+    added: [
+      'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',
+      'A Multiplayer button and hub in the lobby; the Mailroom, the Mall and Happening Now open as lists with their hosts.',
+    ],
+    changed: [
+      'One look for every countdown and badge, a tidier Profile, and Settings in five sections.',
+      'The seven newest academy girls can host the hub screens too.',
+      'The lantern string and pumpkin stickers are gone from the lobby; the Halloween courtyard stays.',
+    ],
+  },
+  {
+    id: 'v0.1.51', version: '0.1.51', date: '2026-10-24', title: 'Spooky Courtyard',
+    added: [
+      'The lobby dresses up for Halloween: a moonlit academy with a spooky lantern tree and glowing pumpkins behind your secretary.',
+    ],
+    fixed: [
+      'The Halloween lantern string no longer hangs across the girls’ hair.',
+      'Switching from a full illustration back to a backdrop, your secretary greets you again.',
+    ],
+  },
+  {
+    id: 'v0.1.50', version: '0.1.50', date: '2026-10-24', title: 'Close-Up Again',
+    changed: [
+      'Yoriko’s "Summer Breeze" lobby picture is back to its original, closer framing.',
+    ],
+  },
+  {
+    id: 'v0.1.49', version: '0.1.49', date: '2026-10-23', title: 'Room to Breathe',
+    changed: [
+      'Yoriko’s "Summer Breeze" lobby picture sits a little further back, so more of the picture shows.',
+    ],
+  },
+  {
+    id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Fill the Frame',
+    added: [
+      'The lobby background picker has a new group, Full illustrations. Pick one and her picture fills the whole lobby, with no castle backdrop or speech bubble in the way.',
+      'The first full illustrations: Yoriko’s "Summer Breeze" and the scenes of Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi. Hikari’s, Aoi’s and Sango’s scenes are there too now.',
+    ],
+    changed: [
+      'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi stand on the castle backdrop in their classic full-body poses again.',
+    ],
+  },
+  {
     id: 'v0.1.47', version: '0.1.47', date: '2026-10-23', title: 'Picture Day',
     changed: [
       'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi have new portraits, each in her own club scene and her own pose. See them on their pages, in Students, Formation, Recruit, battle, Story and the lobby.',

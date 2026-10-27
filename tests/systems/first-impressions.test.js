@@ -14,6 +14,7 @@ import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BOND_THEMES, BOND_LEVELS, BOND_MAX, lobbyBackgrounds, isBackgroundUnlocked, isBackgroundSelectable,
   chooseBackground, lobbyBackgroundFor, defaultBackgroundFor, unlockText, bondLevel, hasArt,
 } from '../../src/data/lobbyArt.js';
+import { fullIllustrationsOf } from '../../src/data/lobbyIllustrations.js';
 import {
   BETA_DEADLINE, BETA_GIFT, BETA_GIFT_ID, ensureBetaGift, isBetaEligible, pendingBetaGift, deliverMail, mailList, claimMail, claimAllMail,
   unclaimedMailCount, MAIL_LIMIT, betaNoticeState,
@@ -66,34 +67,35 @@ describe('drawn portraits', () => {
     expect(fallback).toMatch(/<svg/);
   });
 
-  // painted art that runs off the bottom of its frame (the stand fades that edge instead of a hard cut), and the
-  // academy girls' v2 scene art whose figure the frame cuts (Azami's skirt, Marumi's legs, Yuzuha leaning in)
-  const FRAME_CUT = { ena: 'b', ruri: 'b', azami: 'b', marumi: 'b', yuzuha: 'r' };
+  // painted art that runs off the bottom of its frame (the stand fades that edge instead of a hard cut)
+  const FRAME_CUT = { ena: 'b', ruri: 'b' };
 
-  it('gives every roster girl a stand (only the known frame-cut paintings fade an edge)', () => {
+  it('gives every roster girl a full-figure stand (only the known frame-cut paintings fade an edge)', () => {
     for (const u of UNITS) {
       expect(portraitEdges(u.id), u.id).toBe(FRAME_CUT[u.id] || '');
       if (FRAME_CUT[u.id]) expect(portraitHTML(u, 'cut'), u.id).toContain('pt-edge');
       else expect(portraitHTML(u, 'cut'), u.id).not.toContain('pt-edge');
-      // (the slimmest stand is Chika's, 0.406; the widest is Kinu's v2 needle twirl with her arm out, 0.967)
+      // (the slimmest stand is Yuzuha's Clean Cel stand, arms in at a tablet: 0.294)
       expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.28);
-      expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(1);
+      expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(0.8);
     }
   });
 
-  it('scales a stand that is not head-to-shoes only where stands are sized by height (fig)', () => {
+  it('every stand is head-to-shoes today (no fig); a future partial stand would be scaled where stands are sized by height', () => {
     for (const u of UNITS) {
-      const fig = PORTRAIT_DATA[u.id].fig;
-      if (fig === undefined) {
-        expect(portraitFig(u.id), u.id).toBe(1);
-        expect(portraitHTML(u, 'cut'), u.id).not.toContain('--fig');
-        continue;
-      }
-      expect(fig, u.id).toBeGreaterThan(0.3);
-      expect(fig, u.id).toBeLessThan(1);
-      expect(portraitHTML(u, 'cut'), u.id).toContain(`--fig:${fig}`);
-      expect(portraitHTML(u, 'cutS'), u.id).toContain(`--fig:${fig}`);
-      for (const kind of ['full', 'card', 'bust', 'thumb']) expect(portraitHTML(u, kind), `${u.id} ${kind}`).not.toContain('--fig');
+      expect(PORTRAIT_DATA[u.id].fig, u.id).toBeUndefined();
+      expect(portraitFig(u.id), u.id).toBe(1);
+      expect(portraitHTML(u, 'cut'), u.id).not.toContain('--fig');
+    }
+    PORTRAIT_DATA.__partial = { face: [50, 20], cut: 0.7, fig: 0.6 };
+    try {
+      const unit = { ...UNIT_MAP.rei, id: '__partial' };
+      expect(portraitFig('__partial')).toBe(0.6);
+      expect(portraitHTML(unit, 'cut')).toContain('--fig:0.6');
+      expect(portraitHTML(unit, 'cutS')).toContain('--fig:0.6');
+      for (const kind of ['full', 'card', 'bust', 'thumb']) expect(portraitHTML(unit, kind), kind).not.toContain('--fig');
+    } finally {
+      delete PORTRAIT_DATA.__partial;
     }
   });
 
@@ -113,15 +115,18 @@ describe('drawn portraits', () => {
 });
 
 describe('lobby backgrounds', () => {
-  it('lists backgrounds per girl: default stands (and scenes) + two bond memories', () => {
+  it('lists backgrounds per girl: three stands (day is her default), her full illustrations, two bond memories', () => {
     for (const u of UNITS) {
       const list = lobbyBackgrounds(u.id);
-      expect(list.filter((b) => b.kind === 'stand')).toHaveLength(3);
+      // every girl keeps her three stands over the academy (tests/systems/lobbyIllustrations.test.js)
+      expect(list.filter((b) => b.kind === 'stand'), u.id).toHaveLength(3);
+      expect(list.filter((b) => b.kind === 'full').map((b) => b.id), u.id).toEqual(fullIllustrationsOf(u.id).map((r) => r.id));
       const bond = list.filter((b) => b.kind === 'bond');
       expect(bond.map((b) => b.unlock.level)).toEqual(BOND_LEVELS);
       expect(LOBBY_BG_MAP[defaultBackgroundFor(u.id)].girl).toBe(u.id);
+      expect(defaultBackgroundFor(u.id)).toBe(`${u.id}-day`);
     }
-    expect(lobbyBackgrounds('hikari')[0].kind).toBe('scene');
+    expect(lobbyBackgrounds('hikari')[0].kind).toBe('stand');
     expect(new Set(LOBBY_BACKGROUNDS.map((b) => b.id)).size).toBe(LOBBY_BACKGROUNDS.length);
   });
 

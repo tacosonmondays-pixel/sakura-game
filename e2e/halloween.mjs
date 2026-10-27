@@ -177,7 +177,9 @@ try {
     // ([ui-ink] V2: the news card's event page; its countdown chip shows the time, its name says the phase)
     const card = await page.evaluate(() => { const e = document.querySelector('[data-testid="event-card"]'); return e ? `${e.textContent} ${e.getAttribute('aria-label') || ''}` : ''; });
     check(/Pumpkin Lantern Night/.test(card) && /Ends in/i.test(card), `lobby: event card shows the event and its countdown ("${card.trim()}")`);
-    check(!!(await page.$('[data-testid="event-decor"]')), 'lobby: lantern + pumpkin decor while the event runs');
+    // ([ui-ink] V2: the home's scene picture behind her stand, data-testid lobby-scene)
+    check(!(await page.$('[data-testid="event-decor"], .lb-ev-lanterns, .lb-ev-pumpkin')) && /lobby\/halloween\.webp/.test(await page.evaluate(() => document.querySelector('[data-testid="lobby-scene"] img')?.src || '')),
+      'lobby: the painted Halloween backdrop behind her stand, no lantern or pumpkin overlay');
     check(await noOverflow(), 'lobby: no horizontal overflow');
     await page.waitForTimeout(1200);
     await shot('lobby');

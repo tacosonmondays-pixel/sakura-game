@@ -10,7 +10,9 @@
 .tt-chip-ico { width: 18px; height: 18px; flex: none; }
 .tt-top .btn { margin-left: auto; }
 
-.tt-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+/* (a size container: the cards' type follows the width each card really gets, not the viewport: the UI M5 final
+   review found the desktop names and kicker squeezed under the token beside Kaede's stand at 1024-1180 px) */
+.tt-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; container: tt-cards / inline-size; }
 .tt-card { position: relative; height: 58px; border: 0; padding: 0; border-radius: var(--radius); overflow: hidden; cursor: pointer; text-align: left; background: var(--navy); box-shadow: var(--shadow); transform: skewX(var(--skew)); transition: transform var(--t-press) var(--ease); }
 .tt-card > * { transform: skewX(calc(var(--skew) * -1)); }
 .tt-card-art { position: absolute; inset: 0; opacity: 0.55; }
@@ -99,12 +101,25 @@
   .tt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tt-detail { grid-template-columns: minmax(0, 1fr); }
 }
+/* four cards a row on a small landscape phone (667x375: 161 px each): the token a little smaller and nearer the edge,
+   so "Weak: Pierce ×1.5" ends before it (it ran 5 px under the token: the clip check) */
+@media (min-aspect-ratio: 1001/1000) {
+  @container tt-cards (max-width: 719px) {
+    .tt-card-token { right: 6px; }
+    .tt-card-token svg { width: 28px; height: 28px; }
+    .tt-card-text { right: 38px; }
+  }
+}
 @media (min-width: 1000px) and (min-height: 600px) {
   .tt-card { height: 76px; }
-  /* (set tight, so "★ Titan of the Week" ends before the titan's token: it touched it at 1280, the clip check) */
-  .tt-week { display: block; letter-spacing: 0; }
-  .tt-star { display: none; }
-  .tt-card-name { font-size: var(--fs-name); }
   .tt-show { height: 200px; }
   .tt-line { font-size: var(--fs-label); }
+  /* the tall cards' kicker and big names only when each card holds them: 205 px a card, four a row (1280x720 gives
+     207 px; narrower cards keep the body-size name and the ★ sticker on the token). Set tight, so "★ Titan of the
+     Week" ends before the titan's token (it touched it at 1280, the clip check) */
+  @container tt-cards (min-width: 838px) {
+    .tt-week { display: block; letter-spacing: 0; }
+    .tt-star { display: none; }
+    .tt-card-name { font-size: var(--fs-name); }
+  }
 }

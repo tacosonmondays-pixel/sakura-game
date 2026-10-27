@@ -5,7 +5,9 @@
    sat; no layout moves. */
 
 /* ([ui-ink] the old lobby's rules went with UI v2's night home, V2: src/ui/styles/home.css draws the home; the Notice board
-   and the patch notes stay in meta-a.css, the event decor in events.css) */
+   and the patch notes stay in meta-a.css. v0.1.53's fixes to the old lobby (the bottom-right cluster's pointer-events,
+   the tray as a column over a full illustration, the .lb-art-full rules) have no element to style on the V2 home: the
+   home draws a full illustration and the event backdrop itself, src/ui/lobby/artStage.js) */
 
 /* ---------- Missions: a weekly mode's chip (top right), "Open!" (top left), the campaign in progress ---------- */
 .ma-hub-tile > .ma-hub-timer { position: absolute; top: 8px; right: 10px; z-index: 3; }
@@ -88,12 +90,28 @@
                          'challenge challenge challenge titans titans titans coop coop sandbox sandbox story story';
   }
 }
+@media (min-height: 481px) and (min-aspect-ratio: 1001/1000) {
+  /* her chip on a tablet in landscape (hubHost.js WIDE_GRID_VW): the tall Mission tile's slanted bottom-left corner
+     overhangs its box by half its height × tan 8° (33 px at 1180x820), past the 16 px gutter and its 8 px margin, and
+     the screen body cut it flat. The tile steps in by that much (its height is about 68% of the screen under the top
+     bar and her strip: 4.8vh less what the gutter and the margin already give) */
+  .ma-hub-screen .ma-hub.no-host > .ma-hub-grid > .ma-hub-mission { margin-left: max(8px, calc(4.8vh - 18px)); }
+}
 /* Quick start: the screen's one primary (a 40 px tap at least); its desktop key hint rides inside it */
 .ma-hub-screen .ma-hub-go { min-height: var(--tap-dense); font-size: var(--fs-body); } /* (0.8rem read 12.8 px in portrait, under the 13 px floor) */
 .ma-hub-go > .ui-kbd { margin-left: 8px; }
 /* the small tiles' name plates: the subtitle (12 px) wraps rather than ending in "…" (P6) */
 .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
 .ma-hub-screen .ma-hub-lockline > span { overflow: visible; text-overflow: clip; white-space: normal; }
+/* a subtitle's short words when its long ones do not fit its tile on one line, and slimmer padding on a small tile's
+   plate that its words still run past: measured on the tile (missions.js fitTiles), never by the viewport's width
+   (the UI M5 final review, M5-3: "2× drops in Rune Ga…" beside her stand at 915x412, 932x430 and 1180x820; Story's
+   "Episodes" past its plate at 844x390) */
+.ma-hub-screen .ma-hub-sub.fit-short > .ma-sub-long { display: none; }
+.ma-hub-screen .ma-hub-sub.fit-short > .ma-sub-short { display: inline; }
+.ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) > .ma-hub-text.fit-tight {
+  left: 4px; max-width: calc(100% - 8px); padding-left: 4px; padding-right: 4px;
+}
 .ma-hub-screen .ma-hub-lock > span { overflow: visible; text-overflow: clip; }
 @media (max-height: 480px) {
   .ma-hub-screen .ma-hub-tile { margin: 0 4px; }
@@ -123,6 +141,11 @@
 .hb-screen .ma-drop-chance, .hb-screen .ma-drop-range, .hb-screen .ma-drop-bonus { font-size: var(--fs-label); }
 .hb-screen .ma-drop.gated .ma-drop-chance { display: inline-flex; align-items: center; justify-content: center; gap: 2px; font-size: var(--fs-label); white-space: nowrap; color: var(--muted); }
 .hb-screen .ma-drop-gate-ico { width: 12px; height: 12px; flex: none; }
+@media (min-height: 481px) {
+  /* a gated drop's lock and "Hard+" (56 px at the 13 px floor) need 52 px a column with the 6 px gap: beside her stand
+     at 1024-1180 px the 46 px columns ran the labels into each other (hubs.mjs at the tablet sizes) */
+  .hb-screen .ma-drops.compact:has(> .ma-drop.gated) { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
+}
 .hb-screen .ma-enemy-tier { font-size: var(--fs-label); }
 .hb-screen .ma-sub, .as-intel .ma-sub { font-size: var(--fs-label); }
 
@@ -295,7 +318,10 @@
 
 /* ---------- Titan Trials: Kaede on the collapse rule (the stand on desktop; the bust chip at the start of the top row on
    phones and under 800 px of width) ---------- */
-.tt-screen .tt-hb > .hb-main { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+/* (the scroller's clip edge stands 6 px out from its content: the slanted titan cards and the Titan shelf button
+   overhang their boxes by up to 76 px × tan 8° / 2 = 5.3 px a side, and overflow-x: hidden sliced those corners flat;
+   the negative margin keeps the content where it was. UI M5 final review, M5-2) */
+.tt-screen .tt-hb > .hb-main { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding-inline: 6px; margin-inline: -6px; }
 .tt-screen .tt-top .btn, .tt-screen .tt-actions .btn { min-height: var(--tap-dense); }
 .tt-screen .tt-wrap { padding-bottom: 8px; }
 .tt-screen .tt-top .ui-cd { box-shadow: var(--shadow); }

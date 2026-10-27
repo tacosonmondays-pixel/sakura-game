@@ -41,13 +41,14 @@ export function artUrl(path) {
 
 /**
  * Girls with drawn art. face = her face centre in the full 3:4 illustration (% x, % y);
- * cut = width / height of her transparent stand. The painted girls' stands are full figures (head
- * to shoes): the seven whose illustration is half-body (hikari, kaede, suzu, chika, umeko, sango,
- * nami) got a full-figure redraw of the same design for their stand (round 2). The seven academy
- * girls' stands are cut out of their v2 scene art (fig below). edges (optional, 'l' 'r' 'b')
- * marks a stand that IS cut by its frame — portraitHTML fades those sides — for half-body art, the
- * academy girls' frame-cut v2 figures, or a painting that runs off its
- * bottom edge (Ena's standing foot). placeholder (optional, true) marks a coming-soon signboard set.
+ * cut = width / height of her transparent stand. Every stand is a full figure (head to shoes):
+ * the seven girls whose illustration is half-body (hikari, kaede, suzu, chika, umeko, sango,
+ * nami) got a full-figure redraw of the same design for their stand (round 2), and the seven
+ * academy girls keep their clean full-body stands under their newer scene portraits. edges
+ * (optional, 'l' 'r' 'b') marks a stand that IS cut by its frame — portraitHTML fades those sides —
+ * for half-body art or a painting that runs off its bottom edge (Ena's standing foot). fig
+ * (optional, 0-1) is for a future stand that is not head-to-shoes (portraitFig; none today).
+ * placeholder (optional, true) marks a coming-soon signboard set.
  */
 export const PORTRAIT_DATA = {
   hikari: { face: [48, 20], cut: 0.564 },
@@ -81,18 +82,17 @@ export const PORTRAIT_DATA = {
   seiran: { face: [50, 19], cut: 0.732 },
   yoriko: { face: [51, 22], cut: 0.639 },
   // the seven academy girls (UNIT_GAPS §5): their v2 scene portraits (Oct 23 2026, dynamic camera, a real scene)
-  // replaced the plain Clean Cel cards; face = between the eyes in the 3:4 master. Their stands are cut out of
-  // that same art, so they show her as framed there (a 3/4 or high-angle figure, not a head-to-shoes stand): the
-  // frame-cut sides fade (edges), and a table, bench or desk in front of her fades in the file itself.
-  // fig (optional, 0-1): her stand's height as a share of a head-to-shoes stand with the same head size, so a
-  // screen that sizes every stand by height can show her head as big as the cast's (--fig, story and lobby).
-  azami: { face: [40, 24], cut: 0.739, edges: 'b', fig: 0.63 },
-  kinu: { face: [44, 21], cut: 0.967, fig: 0.64 },
-  wakaba: { face: [52, 31], cut: 0.672, fig: 0.5 },
-  yuzuha: { face: [60, 26], cut: 0.579, edges: 'r', fig: 0.44 },
-  ouka: { face: [49, 33], cut: 0.737, fig: 0.57 },
-  chigusa: { face: [45, 32], cut: 0.707, fig: 0.44 },
-  marumi: { face: [58, 19], cut: 0.672, edges: 'b', fig: 0.85 },
+  // are the full / card / bust / thumb; face = between the eyes in that 3:4 master. Their stands (-cut, -cut-s) are
+  // the clean full-body Clean Cel stands from v0.1.46: v0.1.47 had cut stands out of the scene art, and over the
+  // academy backdrop the frame cut her props with straight edges (owner, Oct 23), so those files went back. cut is
+  // the restored stand's aspect.
+  azami: { face: [40, 24], cut: 0.423 },
+  kinu: { face: [44, 21], cut: 0.469 },
+  wakaba: { face: [52, 31], cut: 0.449 },
+  yuzuha: { face: [60, 26], cut: 0.294 },
+  ouka: { face: [49, 33], cut: 0.356 },
+  chigusa: { face: [45, 32], cut: 0.363 },
+  marumi: { face: [58, 19], cut: 0.432 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

@@ -1,5 +1,7 @@
 // The lobby's limited-event pieces (EVENT_SPEC §3.12 Lobby): the bottom-left EVENT card for the
-// featured event, and a light decor overlay (a string of lanterns, two pumpkins) while it runs.
+// featured event, and its painted backdrop behind her stand while it runs (eventLobbyBackdrop). The old overlay of a
+// lantern string and two pumpkin stickers is gone (owner, Oct 24: "get rid of the pumpkins and lanterns ... theyre
+// ugly"); the painted backdrop carries the theme.
 import { h } from '../dom.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -9,7 +11,6 @@ import { portraitHTML } from '../../art/portraits.js';
 import { featuredEvent, eventWindow, markEventLogin, settleEvents } from '../../systems/events.js';
 import { countdownChip } from '../kit.js';
 import { eventNow } from './clock.js';
-import { lanternString } from './art.js';
 
 /**
  * [ui-m5] An event's phase as the countdown chip (UI_DIRECTION §5.9): "Opens in 2d 4h", "Ends in 6d 4h",
@@ -58,20 +59,13 @@ export function eventLobbyCard({ onPhaseEnd = null } = {}) {
   h('div.lb-ev-text', h('b', ev.name), h('div.lb-ev-sub', eventPhaseChip(ev, phase, eventNow(), { cls: 's', testid: 'event-card-time', onDone: onPhaseEnd }))));
 }
 
-/** Lanterns across the top and two pumpkins at the bottom corners, while an event with decor runs. */
-export function eventLobbyDecor() {
+/**
+ * The event's painted backdrop behind every girl's stand while it runs (its theme's lobbyBackdrop), or null. It has
+ * its own lighting, so the stand's day / sunset / night tint is not laid over it.
+ * @returns {{ file: string, thumb: string }|null} paths under public/art/lobby/
+ */
+export function eventLobbyBackdrop() {
   const f = featuredEvent(store.profile, eventNow());
-  if (!f || f.phase !== 'active' || f.ev.key !== 'halloween') return null;
-  return h('div.lb-ev-decor', { 'aria-hidden': 'true', 'data-testid': 'event-decor' },
-    h('div.lb-ev-lanterns', { html: lanternString(9, 900) }),
-    h('div.lb-ev-pumpkin.l', { html: PUMPKIN_SVG }),
-    h('div.lb-ev-pumpkin.r', { html: PUMPKIN_SVG }));
+  const file = f?.phase === 'active' ? f.ev.theme?.lobbyBackdrop : null;
+  return file ? { file, thumb: `thumbs/${file}` } : null;
 }
-
-const PUMPKIN_SVG = '<svg viewBox="0 0 80 64" xmlns="http://www.w3.org/2000/svg">'
-  + '<ellipse cx="40" cy="60" rx="30" ry="4" fill="#000" opacity="0.18"/>'
-  + '<ellipse cx="26" cy="38" rx="16" ry="20" fill="#e5761c"/><ellipse cx="54" cy="38" rx="16" ry="20" fill="#e5761c"/>'
-  + '<ellipse cx="40" cy="37" rx="18" ry="22" fill="#f28c28" stroke="#8a3b0c" stroke-width="1.5"/>'
-  + '<path d="M40 15c0-6 3-9 8-10" stroke="#2d6a4f" stroke-width="4" fill="none" stroke-linecap="round"/>'
-  + '<path d="M28 32l5-7 5 7zM42 32l5-7 5 7z" fill="#ffe7a0"/><path d="M27 42q13 12 26 0l-4 2-3-3-3 4-3-4-3 3-4-2z" fill="#ffe7a0"/>'
-  + '</svg>';

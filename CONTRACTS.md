@@ -1638,14 +1638,16 @@ export function portraitFace(unitOrId), portraitEdges(unitOrId), portraitFig(uni
 Rules: every girl picture in the UI goes through `portraitHTML`/`portraitUrl` (student list/detail,
 formation, recruit banner/results/SSR splash, SSR Select picker, missions hub, lobby, title, battle
 bar + deploy name tag, victory MVP, mall exchange, wiki). URLs are `BASE_URL`-relative (Pages-safe).
-A broken `<img>` is swapped for its SVG by the UI (`data-svg`). The painted girls' stands are full figures
-(head to shoes); the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a
-full-figure redraw of the same design for their stand. The seven academy girls' stands are cut out of their v2
-scene portraits (Oct 23 2026), so they are framed as there: `edges` fades the sides the frame cuts (Azami,
-Marumi, Yuzuha; Ena and Ruri too), and `fig` (her stand's height as a share of a head-to-shoes stand at the same
-head size) becomes `--fig` on her stand's `<img>`: the screens that size every stand by height (the story
-player, the lobby secretary) scale her by it so her head matches the cast's; contained stands (hubs, MVP) ignore it.
-Adding a girl = add her 6 files + one `PORTRAIT_DATA` row (tests check every unit has all files).
+A broken `<img>` is swapped for its SVG by the UI (`data-svg`). Stands are full figures (head to shoes);
+the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a full-figure redraw of
+the same design for their stand. The seven academy girls' full / card / bust / thumb are their v2 scene portraits
+(v0.1.47), and their stands (`-cut`, `-cut-s`) are the clean full-body stands from v0.1.46 (ccdd278, byte for byte):
+v0.1.47's stands were cut out of the scene art and looked wrong over the academy backdrop (props cut by the frame),
+so those two files went back (Oct 23). `edges` fades a frame-cut side (Ena's and Ruri's paintings end at the shin;
+future half-body art). `fig` (optional) is for a future stand that is not head-to-shoes: it becomes `--fig` on her
+stand's `<img>` and the screens that size every stand by height (the story player, the lobby secretary) scale her
+by it; no girl has one today. Adding a girl = add her 6 files + one `PORTRAIT_DATA` row (tests check every unit has
+all files).
 
 **Title / load-up screen — `src/ui/screens/title.js`, route `#/title`.** `main.js` opens it on a cold
 start (no route in the URL) once per browser session (`sessionStorage['sakura-title-seen']`,
@@ -1659,28 +1661,77 @@ no zoom / pulse / petals.
 
 **Lobby art + bond model — `src/data/lobbyArt.js` (pure) + `src/ui/lobby/artStage.js` + `src/ui/lobby/bgPicker.js`.**
 The "memorial lobby": every background belongs to one girl; choosing it makes her the
-secretary. Kinds: `scene` (full landscape illustration with her in it, `public/art/lobby/<id>.webp`:
-hikari, aoi, sango), `stand` (her drawn stand over the painted academy, tint `day`/`sunset`/`night`,
-one each per girl), `bond` (two wholesome date memories per girl — café, festival night, sunset walk,
-study session, picnic, stargazing, aquarium — unlocked at **bond 5 and bond 10**).
+secretary. Two categories (owner, Oct 23: "There are two categories, like the character with the castle backdrop
+as a default and everyone will have a full illustration alt"): **Backdrops** = kind `stand` (her drawn stand over
+the painted academy, tint `day`/`sunset`/`night`, with her speech bubble; every girl has the three and **her day
+stand is every girl's default**), and **Full illustrations** = kind `full` (one picture that IS the whole lobby, no
+stand, no speech bubble, no academy: the table below) then kind `bond` (two wholesome date memories per girl — café,
+festival night, sunset walk, study session, picnic, stargazing, aquarium — unlocked at **bond 5 and bond 10**, not
+painted yet).
 ```js
 export const BOND_MAX = 10, BOND_LEVELS = [5, 10], BACKDROP, TINTS, BOND_THEMES, LOBBY_BACKGROUNDS, LOBBY_BG_MAP
-export function lobbyBackgrounds(girlId)              // scene, 3 stands, 2 bond memories
+export const BG_CATEGORIES                            // [{ id: 'backdrop', name: 'Backdrops' }, { id: 'full', name: 'Full illustrations' }]
+export function lobbyBackgrounds(girlId)              // her 3 stands, her full illustrations, 2 bond memories
+export function lobbyBackgroundGroups(girlId)         // [{ id, name, items }] in BG_CATEGORIES order (the picker)
+export function categoryOf(bg)                        // 'backdrop' (stand) | 'full' (full illustration, bond memory)
+export function stageModeOf(bg)                       // 'full' | 'stand' | 'bond': how the stage draws it
+export function showsBubble(bg)                       // false for a full illustration
+export function stageArtUrls(bg, { portrait })        // the pictures the stage loads (the title preloads them)
+export function bgArtUrl(bg, 'file'|'thumb')          // a full illustration's own file, else public/art/lobby/
 export function bondLevel(profile, girlId)            // profile.bond[id] clamped 0..BOND_MAX (0 until the City exists)
 export function isBackgroundUnlocked(profile, bg)     // owned girl (+ bond level for bond memories)
 export function hasArt(bg), isBackgroundSelectable(profile, bg) // bond memories have no file yet → shown locked
 export function unlockText(bg, profile?)              // "Recruit X to unlock" / "Bond Lv 5 with X (now 0) — date her and give gifts in the City to unlock"
 export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId)
 export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
-// src/ui/lobby/artStage.js
-export function createArtStage(host, { reduceMotion, onTap }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
+// src/ui/lobby/artStage.js ([ui-ink] UI v2 V2's night home, feature/ui-v2; live main still has the M5 stage above:
+// createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout, backdrop }) → { show, react, say, look, hideBubble, dispose })
+export function createArtStage(host, { reduceMotion, onTap, boxes, backdrop }) // { show(unitDef,{background}), relayout, say, hideBubble,
+                                                      //   setLive, setLivePlacement, liveHost, isLive, isIllustration, placement, current, dispose }
+export const HOME_BAKED                               // the lobby paintings with a baked night copy (<name>-home.webp)
+export function homeBackdropArt(file), homeFullArt(id, { portrait }) // the home's picture: the baked copy, else the CSS night grade
+export function placeFull(W, H, art, boxes)           // a full illustration: her face on the spot (placeScene), lower when a control is over her hair
 // src/ui/lobby/bgPicker.js
-export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button
+export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button;
+                                                      // her tiles (thumbnails) under "Backdrops" and "Full illustrations"
 ```
 Profile: `lobbyBg: { [girlId]: bgId }`, `bond: { [girlId]: 0..10 }` (save.js migrates both). **The future
 City dating / gift system only has to raise `profile.bond[id]` and paint the bond files** — add `file`
 /`thumb` to the bond entries and they become selectable; nothing else changes. Content rule: the
 academy girls are students; bond scenes are cosy date moments, fully clothed, never suggestive.
+
+**Full illustrations — `src/data/lobbyIllustrations.js` (pure, the one table) + `src/ui/lobby/sceneLayout.js`
+(pure).** Owner (Oct 23): "you dont need the speech bubbles for these full illustration ones", and for Yoriko's
+picture "just the entire lobby background instead of the castle backdrop", "the entire background as is". Choosing a
+full illustration fills the whole lobby with it: full bleed, **no stand, no speech bubble, no academy backdrop**.
+Today's rows: the seven academy girls' wide scenes (`public/art/scenes/<id>-scene.webp`, about 2.16:1, 1688-1920 px,
+webp q90; `tall: true`, so a portrait screen shows her 3:4 `<id>-full.webp`, the scene's own middle at 1:1), the
+three older landscape scenes (`public/art/lobby/hikari|aoi|sango.webp`, 1376×768; their shipped ids
+`hikari-rampart`, `aoi-archery`, `sango-harbour` kept) and **Summer Breeze**, the owner's own picture of Yoriko as
+made (`public/art/scenes/yoriko-summer-breeze.webp`, 1216×832, a byte copy; never edit it). Each has a 480 px thumb
+of the same aspect (`thumbs/`: picker tile and the blurred first paint). The picker names a tile "<her name>:
+<title>".
+```js
+export const FULL_ILLUSTRATIONS /* [{ id, girl, title, desc, file, thumb, w, h, faceX, faceY, headR?, tall? }] */, FULL_ILLUSTRATION_MAP, HEAD_R
+export function fullIllustrationsOf(girlId), illustrationUrl(row, 'file'|'thumb')            // file / thumb: paths under public/art/
+export function fullArt(rowOrId, { portrait }) // { variant: 'wide'|'tall', src, w, h, fx, fy, headR } | null
+// src/ui/lobby/sceneLayout.js
+export function coverFit(fw, fh, iw, ih), splitObstacles(obstacles, W, H), freeBand(blocks, y0, y1, W)
+export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles, prefer, headR }) // { posX, posY, face, r, clear }
+export function headHit(x, y, face, r)
+// src/ui/events/lobby.js
+export function eventLobbyBackdrop()                    // { file, thumb } | null: the event's painted backdrop behind her stand
+```
+The stage crops the picture (`object-fit: cover`) at the designed 60 % / 30 % (on a portrait screen: her face across
+the middle) and moves it only as far as needed to keep her face clear of the lobby's menus (`obstacles()` from
+lobby.js: layout boxes of the HUD; bars = top bar, dock). The crop moves her face down
+only as far as the picture overflows top/bottom: on a screen with the picture's own aspect (the 16:9 scenes on a
+16:9 phone) her eyes stay under the top bar and her brow touches it. `stage.say()` does nothing over a full
+illustration (no greeting, no tap lines); a tap on her head gives hearts at her real face (±1.1 head radii across,
+1.4 up, 1.0 down). During an event with a painted backdrop (`eventLobbyBackdrop`), her stand stands in it with no day/sunset/night tint; the old lantern string and pumpkin stickers overlay is gone (owner, Oct 24). The
+image's size and crop are set before it loads (no layout shift). Reduce motion or Low graphics (`quality: 'low'`):
+no breathing and no parallax. **Adding a full illustration = its picture + thumb and one `FULL_ILLUSTRATIONS` row**
+(tests check the files, sizes and face; the picker tile, the save and the stage follow from the row).
 
 **Hub art — `src/ui/hubArt.js`:** `hubBackdrop()` (dimmed painted academy) and `hubSecretary(profile)`
 / `hubStand(u)` (drawn stand) for the missions hub and Bounty; the missions hub tiles are painted

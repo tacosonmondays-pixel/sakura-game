@@ -1,9 +1,11 @@
 // The home (lobby) at night: UI v2 "Ink & Paper" V2 (notes/ui-v2/UI_V2_DIRECTION.md 12.1 and 12.2; the build plan's
 // V2). Layers and the host: src/ui/lobby/artStage.js. Coordinates: src/ui/styles/home.css.
 //
-//   · the scene: the player's lobby painting baked in the cooler night grade (public/art/lobby/<id>-home.webp), the
-//     scrims, the secretary placed by her face anchor (src/ui/faceAnchors.js), her bubble on a tap only; Marumi's
-//     living scene when she is the secretary on High or Medium graphics (src/ui/lobby/liveSlot.js)
+//   · the scene: the player's lobby background in the cooler night grade (public/art/lobby/<id>-home.webp, or the
+//     kit's CSS grade): her stand over the academy (over an event's painted backdrop while it runs), or one of her full
+//     illustrations (src/data/lobbyIllustrations.js: no stand, no bubble); the scrims, the secretary placed by her face
+//     anchor (src/ui/faceAnchors.js), her bubble on a tap only; Marumi's living scene when she is the secretary on High
+//     or Medium graphics and no full illustration is picked (src/ui/lobby/liveSlot.js)
 //   · the floating top bar: the avatar with the account level's cyan EXP arc, the name and LV; tickets, coins and gems;
 //     chat, mail (a red count) and the menu (a red dot when something inside is new)
 //   · the text rail: BATTLE, STUDENTS, RECRUIT (a cyan FREE PULL chip), COMMISSIONS (a red dot), CLAN, MALL, MULTIPLAYER
@@ -40,11 +42,11 @@ import { GACHA } from '../../data/types.js';
 import { ITEMS } from '../../data/items.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyDecor, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyBackdrop, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import { eventNow } from '../events/clock.js';
 import '../styles/events.css';
 import { portraitUrl } from '../../art/portraits.js';
-import { lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyBackgroundFor, stageModeOf, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon } from '../../art/icons.js';
@@ -140,6 +142,13 @@ export function render(root) {
   const ui = h('div.home-ui', rail, stack, chapHost, tools);
   const restore = h('button.ui-ibtn.home-restore', { type: 'button', 'aria-label': 'Show the menus', title: 'Show the menus', 'data-testid': 'lobby-restore' }, g('image'));
   el.append(stageHost, ui, top, restore);
+  let eventBackdrop = null;
+  try {
+    lobbyEventVisit(); // [events] today's event gift / settle, before the news card reads the state
+    eventBackdrop = eventLobbyBackdrop(); // [events] its painted backdrop behind every stand while it runs (no overlay)
+  } catch (e) {
+    console.warn('[lobby] event backdrop failed', e);
+  }
   root.appendChild(el);
 
   // ---- the stage: scene, scrims, the secretary ---------------------------------------------------------------
@@ -170,6 +179,7 @@ export function render(root) {
   const stage = createArtStage(stageHost, {
     reduceMotion: reduceMotion(),
     boxes: uiBoxes,
+    backdrop: eventBackdrop,
     onTap: (part) => {
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);
       else {
@@ -179,13 +189,6 @@ export function render(root) {
       }
     },
   });
-  try {
-    lobbyEventVisit(); // [events] today's event gift / settle, before the news card reads the state
-    const decor = eventLobbyDecor(); // [events] the lanterns while Halloween runs: part of the scene (render-only)
-    if (decor) stage.decorHost().append(decor);
-  } catch (e) {
-    console.warn('[lobby] event decor failed', e);
-  }
 
   let currentSec = null;
   let currentBg = null;
@@ -234,7 +237,9 @@ export function render(root) {
     const quality = p.settings?.quality || 'high';
     const portrait = (el.clientWidth || innerWidth) < (el.clientHeight || innerHeight);
     const want = liveSceneFor(id, { quality, reduceMotion: !!p.settings?.reduceMotion, prefersReduced: sysReduced(), webgl2: canWebGL2(), failed: liveFailed.has(id), portrait });
-    if (!want) {
+    // (her living scene stands in for her stand; a full illustration the player picked shows as it is)
+    const illustration = stageModeOf(LOBBY_BG_MAP[currentBg]) === 'full';
+    if (!want || illustration) {
       if (live || liveState === 'loading') disposeLive();
       return;
     }

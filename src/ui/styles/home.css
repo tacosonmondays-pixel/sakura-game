@@ -15,9 +15,15 @@
 .home .home-scene-layer { position: absolute; inset: 0; overflow: hidden; }
 /* the baked painting under its own layer (the kit's .ui-scene > img rules, one level down) */
 .ui-night .home .home-scene-layer > img.baked { position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: 50% 62%; filter: blur(1.5px); }
+/* a picture with no baked night copy (an event's painted backdrop, the full illustrations from v0.1.48 on, her 3:4 full
+   art): the kit's night grade in CSS instead (ink.css .ui-scene > img: the brightest pixel stays at or under 199/255) */
+.ui-night .home .home-scene-layer > img.graded { position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: 50% 62%;
+  filter: saturate(0.68) brightness(0.76) contrast(0.96) blur(1.5px); }
 .ui-night .home .home-scene-layer > .lift { position: absolute; inset: 0; background: radial-gradient(38% 52% at var(--hx, 52%) var(--hy, 46%), rgba(190, 215, 255, 0.08), transparent 70%); }
-/* a scene painting with her inside it is placed whole (src/ui/lobby/hostPlace.js placeScene): no blur, she is in it */
+/* a full illustration (src/data/lobbyIllustrations.js) is placed whole (src/ui/lobby/hostPlace.js placeScene): no blur,
+   she is in it; graded like any picture without a baked copy */
 .ui-night .home .home-scene-layer > img.home-scene-art { position: absolute; object-fit: fill; filter: none; }
+.ui-night .home .home-scene-layer > img.home-scene-art.graded { filter: saturate(0.68) brightness(0.76) contrast(0.96); }
 /* her chosen time of day, over the baked night grade (only ever darker: text over the scene keeps its contrast) */
 .home .home-tint { position: absolute; inset: 0; pointer-events: none; }
 .home .home-tint.tint-sunset { background: linear-gradient(180deg, rgba(110, 46, 52, 0.16), rgba(70, 30, 60, 0.12)); }
@@ -25,15 +31,12 @@
 .home .home-live { position: absolute; inset: 0; z-index: 0; }
 .home .home-live-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 /* the living scene takes the scene and the host (0 to 2): the painting and her still picture step aside; her tap area stays */
-.home .home-stage.is-live .home-scene, .home .home-stage.is-live .home-fig, .home .home-stage.is-live .home-decor { visibility: hidden; }
+.home .home-stage.is-live .home-scene, .home .home-stage.is-live .home-fig { visibility: hidden; }
 /* (the scene draws the left, top and right scrims itself, between her plate and her: she is never graded; the bottom
    scrim stays over her, as over every host) */
 .ui-night .home .home-stage.is-live :is(.ui-scrim.l, .ui-scrim.t, .ui-scrim.r) { visibility: hidden; }
-/* an event's decor (the lanterns while Halloween runs): part of the scene, behind the scrims and her, never moving */
-.home .home-decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-.home .home-decor .lb-ev-lanterns { left: 30%; right: 30%; top: 2px; height: 40px; opacity: 0.7; }
-.home .home-decor .lb-ev-lanterns svg g { animation: none; }
-.home .home-decor .lb-ev-pumpkin { display: none; }
+/* (an event shows no overlay on the home: the lantern string and the pumpkin stickers went in v0.1.53, owner: "theyre
+   ugly"; its painted backdrop stands behind her stand instead, artStage.js) */
 
 /* ---------------------------------------------------------------- scrims (layer 1; the bottom one layer 3) */
 .ui-night .home :is(.ui-scrim.l, .ui-scrim.t, .ui-scrim.r, .ui-scrim.b) { position: absolute; }

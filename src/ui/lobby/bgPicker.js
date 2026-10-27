@@ -3,9 +3,13 @@
 // a more intimate background"). Opened from the Menu Tab and the small picture button on the
 // lobby. Left: the girls you own (choosing a background makes her the secretary), then the rest
 // greyed out ("Recruit X" — so players see what they can collect). Right: her
-// backgrounds — her painted scene, her stand over the academy (day / sunset / night) and her
-// Bond memories, which stay locked (soft silhouette + lock + requirement) until the City dating
-// / gift system raises her bond level. The choice is saved in profile.lobbyBg + secretary.
+// backgrounds in two groups (owner, Oct 23: "There are two categories, like the character with the castle backdrop
+// as a default and everyone will have a full illustration alt"):
+//   Backdrops           her stand over the academy (day / sunset / night), with her speech bubble; day is her default
+//   Full illustrations  her pictures that fill the whole lobby with no stand and no bubble (src/data/lobbyIllustrations.js),
+//                       then her Bond memories, which stay locked (soft silhouette + lock + requirement) until the City
+//                       dating / gift system raises her bond level
+// Every tile is a thumbnail. The choice is saved in profile.lobbyBg + secretary.
 import { h, clear } from '../dom.js';
 import { modal, svgEl, glyph, toast } from '../components.js';
 import { store } from '../../core/store.js';
@@ -14,8 +18,9 @@ import { UNIT_RARITIES } from '../../data/types.js';
 import { applyUrFrame } from '../rarity.js';
 import { portraitHTML } from '../../art/portraits.js';
 import {
-  lobbyBackgrounds, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bondLevel, BOND_MAX,
+  lobbyBackgroundGroups, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bgArtUrl, bondLevel, BOND_MAX,
 } from '../../data/lobbyArt.js';
+import { FULL_ILLUSTRATION_MAP } from '../../data/lobbyIllustrations.js';
 import { ownedUnits } from '../../systems/unlocks.js';
 import { secretaryOf } from './secretaryOf.js';
 
@@ -33,12 +38,12 @@ export function openBackgroundPicker({ girl = null } = {}) {
   let current = girl && UNIT_MAP[girl] ? girl : secretaryOf(profile);
   const girls = h('nav.bgp-girls', { 'aria-label': 'Students' });
   const head = h('div.bgp-head');
-  const grid = h('div.bgp-grid');
+  const groups = h('div.bgp-groups');
   const m = modal({
     title: 'Lobby Background',
     wide: true,
     cls: 'bgp-modal',
-    body: h('div.bgp', girls, h('div.bgp-main', head, grid)),
+    body: h('div.bgp', girls, h('div.bgp-main', head, groups)),
     actions: [{ label: 'Done', kind: 'yellow', testid: 'bgp-done' }],
   });
 
@@ -81,32 +86,41 @@ export function openBackgroundPicker({ girl = null } = {}) {
         svgEl(glyph('heart'), 'bgp-bond-ico'), h('span', `Bond ${bondLevel(p, current)}/${BOND_MAX}`)),
       isSec ? h('span.bgp-sec-tag', 'Secretary') : null,
     ].filter(Boolean));
-    clear(grid);
-    for (const bg of lobbyBackgrounds(current)) {
-      const unlocked = isBackgroundUnlocked(p, bg);
-      const ready = unlocked && hasArt(bg);
-      const on = isSec && active.id === bg.id;
-      const tile = h(`button.bgp-tile.kind-${bg.kind}${bg.tint ? `.tint-${bg.tint}` : ''}${ready ? '' : '.locked'}${on ? '.on' : ''}`, {
-        'data-testid': `bgp-${bg.id}`, title: ready ? bg.desc : unlockText(bg, p),
-        onclick: () => {
-          if (!ready) {
-            toast(unlocked ? 'This memory is still being painted — coming soon!' : mine ? unlockText(bg, p) : `Recruit ${u.name} to unlock her backgrounds`, 'info', 3200);
-            return;
-          }
-          const r = chooseBackground(store.profile, bg.id);
-          if (!r.ok) return;
-          store.commit('lobby-bg');
-          paint();
-        },
-      },
-      thumbFor(bg, u),
-      ready ? null : h('div.bgp-lock', svgEl(glyph('lock'), 'bgp-lock-ico'), ...lockLines(bg, unlocked, mine)),
-      on ? h('span.bgp-check', svgEl(glyph('check'), 'bgp-check-ico')) : null,
-      h('div.bgp-tile-name', h('b', bg.name), bg.kind === 'bond' ? h('span.bgp-tag', `Bond ${bg.unlock.level}`) : null),
-      );
-      grid.appendChild(tile);
+    const scrollTop = groups.scrollTop;
+    clear(groups);
+    for (const group of lobbyBackgroundGroups(current)) {
+      const grid = h('div.bgp-grid');
+      groups.appendChild(h(`section.bgp-group.cat-${group.id}`, { 'data-testid': `bgp-group-${group.id}` },
+        h('h3.bgp-group-head', group.name), grid));
+      for (const bg of group.items) {
+        const unlocked = isBackgroundUnlocked(p, bg);
+        const ready = unlocked && hasArt(bg);
+        const on = isSec && active.id === bg.id;
+        grid.appendChild(tileFor(bg, { u, p, mine, unlocked, ready, on }));
+      }
     }
+    groups.scrollTop = scrollTop;
   };
+
+  /** One background tile: its thumbnail, a lock or a check, and its name. */
+  const tileFor = (bg, { u, p, mine, unlocked, ready, on }) => h(`button.bgp-tile.kind-${bg.kind}${bg.tint ? `.tint-${bg.tint}` : ''}${ready ? '' : '.locked'}${on ? '.on' : ''}`, {
+    'data-testid': `bgp-${bg.id}`, title: ready ? bg.desc : unlockText(bg, p),
+    onclick: () => {
+      if (!ready) {
+        toast(unlocked ? 'This memory is still being painted — coming soon!' : mine ? unlockText(bg, p) : `Recruit ${u.name} to unlock her backgrounds`, 'info', 3200);
+        return;
+      }
+      const r = chooseBackground(store.profile, bg.id);
+      if (!r.ok) return;
+      store.commit('lobby-bg');
+      paint();
+    },
+  },
+  thumbFor(bg, u),
+  ready ? null : h('div.bgp-lock', svgEl(glyph('lock'), 'bgp-lock-ico'), ...lockLines(bg, unlocked, mine)),
+  on ? h('span.bgp-check', svgEl(glyph('check'), 'bgp-check-ico')) : null,
+  h('div.bgp-tile-name', h('b', bg.name), bg.kind === 'bond' ? h('span.bgp-tag', `Bond ${bg.unlock.level}`) : null),
+  );
   paint();
   return m;
 }
@@ -119,9 +133,15 @@ function lockLines(bg, unlocked, owned = true) {
   return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`)];
 }
 
-/** Tile picture: the scene, the academy with her stand, or a soft silhouette for bond memories. */
+/** Tile picture: the full illustration's thumb (cropped on her face), the academy with her stand, or a soft silhouette for bond memories. */
 function thumbFor(bg, u) {
-  if (bg.kind === 'scene') return h('span.bgp-thumb', h('img', { src: lobbyArtUrl(bg.thumb || bg.file), alt: '', loading: 'lazy', decoding: 'async', draggable: false }));
+  const row = bg.kind === 'full' ? FULL_ILLUSTRATION_MAP[bg.id] : null;
+  if (row) {
+    return h('span.bgp-thumb', h('img', {
+      src: bgArtUrl(bg, 'thumb'), alt: '', loading: 'lazy', decoding: 'async', draggable: false,
+      style: { objectPosition: `${(row.faceX * 100).toFixed(1)}% ${(row.faceY * 100).toFixed(1)}%` },
+    }));
+  }
   if (bg.kind === 'stand') {
     return h('span.bgp-thumb',
       h('img.bgp-thumb-bg', { src: lobbyArtUrl(bg.thumb || bg.file), alt: '', loading: 'lazy', decoding: 'async', draggable: false }),

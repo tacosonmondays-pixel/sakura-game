@@ -49,6 +49,21 @@ describe('screen hosts', () => {
     for (const id of PLACEHOLDER_ART) expect(canHost(id), id).toBe(false);
     expect(canHost('nobody')).toBe(false);
   });
+  it('the seven academy girls have their real art since v0.1.47: none is turned away as coming-soon art', () => {
+    const seven = ['azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'chigusa', 'marumi'];
+    for (const id of seven) {
+      expect(UNIT_MAP[id], id).toBeTruthy();
+      expect(PLACEHOLDER_ART.has(id), id).toBe(false);
+      expect(canHost(id), id).toBe(true);
+    }
+    // she may host a Bounty week as its guest, and a secretary of hers hosts a screen whose host is turned away
+    expect(hostFor('bounty', profile, { guest: 'marumi' })).toBe('marumi');
+    expect(hostFor('bounty', { units: { azami: {} }, secretary: 'azami' }, { guest: 'luna' })).toBe('azami');
+  });
+  it('no girl with drawn art is on the coming-soon list (src/art/portraits.js isPlaceholderPortrait)', async () => {
+    const { isPlaceholderPortrait } = await import('../../src/art/portraits.js');
+    for (const id of PLACEHOLDER_ART) expect(isPlaceholderPortrait(id), id).toBe(true);
+  });
   it('an unknown screen falls back to the secretary', () => {
     expect(hostFor('nowhere', profile)).toBe('aoi');
   });

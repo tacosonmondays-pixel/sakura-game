@@ -1290,7 +1290,7 @@
 .ma-hub-coop .ma-hub-ribbon { top: 6px; left: 8px; right: auto; bottom: auto; }
 .ma-hub-story .ma-hub-kicker { margin-bottom: 1px; }
 .ma-sub-short { display: none; }
-@media (max-width: 900px) { .ma-sub-long { display: none; } .ma-sub-short { display: inline; } }
+/* (the short subtitle shows when the long one does not fit its tile, measured: missions.js fitTiles, hubs.css .fit-short) */
 @media (max-height: 480px) {
   .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { bottom: 5px; left: 6px; max-width: calc(100% - 12px); padding: 2px 7px 3px; }
   .ma-hub-story .ma-hub-title { font-size: 0.95rem; }
@@ -1318,7 +1318,12 @@
 .bgp-bond { display: inline-flex; align-items: center; gap: 4px; background: var(--pink-soft); color: #c2347a; font-weight: 900; font-size: 0.74rem; padding: 2px 10px 2px 6px; border-radius: 999px; }
 .bgp-bond-ico { width: 15px; height: 15px; display: inline-flex; }
 .bgp-sec-tag { font-size: 0.66rem; font-weight: 900; color: var(--navy); background: var(--yellow); padding: 1px 9px; border-radius: 4px; transform: skewX(var(--skew)); }
-.bgp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); grid-auto-rows: max-content; gap: 10px; overflow-y: auto; padding: 2px; align-content: start; min-height: 0; }
+/* her backgrounds in the picker's two groups (Backdrops, Full illustrations): the groups scroll, each a grid of tiles */
+.bgp-groups { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; padding: 2px; }
+.bgp-group { display: flex; flex-direction: column; gap: 6px; }
+.bgp-group-head { margin: 0; display: flex; align-items: center; gap: 8px; font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 0.86rem; color: var(--navy); }
+.bgp-group-head::after { content: ''; flex: 1; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--yellow), rgba(255,255,255,0)); }
+.bgp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); grid-auto-rows: max-content; gap: 10px; padding: 2px; align-content: start; }
 .bgp-tile { position: relative; padding: 0; border: 2px solid #fff; border-radius: 10px; overflow: hidden; background: #22385c; box-shadow: var(--shadow); text-align: left; transition: transform var(--t-press) var(--ease), box-shadow var(--t-panel); }
 .bgp-tile:active { transform: scale(0.97); }
 .bgp-tile.on { border-color: var(--yellow-deep); box-shadow: 0 0 0 3px var(--yellow), var(--shadow-strong); }
@@ -1366,8 +1371,11 @@
   .bgp-girl-art { width: 30px; height: 30px; }
   .bgp-girl.sec::after { left: 26px; }
   .bgp-tile-name b { white-space: normal; line-height: 1.1; }
-  /* five across, shorter thumbs: all of a girl's backgrounds (bond memories too) fit without scrolling */
+  /* five across, shorter thumbs: a girl's backgrounds fit in a short scroll */
   .bgp-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+  .bgp-groups { gap: 6px; }
+  .bgp-group { gap: 3px; }
+  .bgp-group-head { font-size: 0.75rem; }
   .bgp-thumb { aspect-ratio: 3 / 2; }
   .bgp-tile-name { padding: 3px 6px; font-size: 0.66rem; }
   .bgp-tag { display: none; } /* the lock overlay already says "Bond Lv N" */
@@ -1480,7 +1488,7 @@
 .bgp { grid-template-rows: minmax(0, 1fr); height: min(62vh, 520px); max-height: none; flex: 1 1 auto; }
 .bgp-girls, .bgp-main { min-height: 0; }
 .bgp-girls { overflow-y: auto; overscroll-behavior: contain; }
-.bgp-grid { overscroll-behavior: contain; }
+.bgp-groups { overscroll-behavior: contain; }
 @media (max-height: 480px) { .bgp { height: calc(100vh - 150px); max-height: none; } }
 
 
