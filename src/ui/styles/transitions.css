@@ -23,7 +23,20 @@ html[data-loader-bg="colour"] .tx-cut {
 .tx-cut::before { left: -26px; background: linear-gradient(90deg, #7be3a4 0 4px, transparent 4px 9px, #ff7aa8 9px 26px); }
 .tx-cut::after { right: -26px; background: linear-gradient(90deg, #ff7aa8 0 17px, transparent 17px 22px, #7be3a4 22px 26px); }
 
-/* (slides need no styles of their own: they animate a screen's few layers in place, from JS) */
+/* (slides animate a screen's few layers in place, from JS) */
+
+/* ---------- the ink wipe of a menu slide (UI v2 motion layer, Oct 27): a short slanted ink band with a cyan
+   leading hairline, swept across BEHIND the screens (z-index -1: under #app, over the page's own background), so it
+   shows through the old screen as it fades and in the gap before the new one is in; never over a control, never a
+   tap. 280 ms forward (right → left), 220 ms back (left → right); none under Reduce Motion. ---------- */
+.tx-wipe {
+  position: fixed; top: -10%; bottom: -10%; left: 0; width: 34vw; z-index: -1; pointer-events: none; visibility: hidden;
+  background: #0e1930; box-shadow: inset 3px 0 0 #4cd6ff, inset -2px 0 0 rgba(76, 214, 255, 0.35);
+  transform: translateX(110vw) skewX(-12deg); will-change: transform;
+}
+.tx-wipe.on { visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .tx-wipe { display: none; } }
+html[data-reduce-motion] .tx-wipe { display: none; }
 
 /* ---------- corner chip: a menu screen's code still on its way (the old screen stays) ---------- */
 /* UI M5 (UI_DIRECTION §5.10 E7): the corner is the bottom LEFT, so the chip never covers a primary button (they sit on

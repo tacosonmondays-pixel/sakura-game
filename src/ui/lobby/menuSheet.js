@@ -12,6 +12,7 @@
 import { h } from '../dom.js';
 import { onEscape } from '../hold.js';
 import { lineGlyph } from '../lineGlyphs.js';
+import { stagger } from '../motion.js';
 
 const svg = (name, cls = '') => {
   const t = document.createElement('template');
@@ -58,7 +59,7 @@ export function openMenuSheet({ dots = {}, go, onClose = null, reduced = false }
     window.removeEventListener('hashchange', close);
     layer.classList.add('closing');
     layer.inert = true;
-    setTimeout(() => layer.remove(), reduced ? 0 : 150);
+    setTimeout(() => layer.remove(), reduced ? 0 : 160);
     open = null;
     document.body.classList.remove('home-menu-open');
     onClose?.();
@@ -89,6 +90,8 @@ export function openMenuSheet({ dots = {}, go, onClose = null, reduced = false }
   const layer = h('div.home-menu-layer', { 'data-testid': 'menu-sheet-layer' },
     h('div.ui-scrim-full', { 'data-testid': 'menu-sheet-scrim', onclick: () => close() }), sheet);
   document.body.append(layer);
+  // its rows come in after it, 20 ms apart (motion.css: the sheet 240 ms from the right with its scrim; out 160 ms)
+  if (!reduced) stagger(sheet.querySelectorAll('.m-grid > .ui-hrow, .m-foot > .ui-hrow'), 'right', { base: 60, step: 20, dur: 200 });
   document.body.classList.add('home-menu-open');
   const offEsc = onEscape(close);
   window.addEventListener('hashchange', close);

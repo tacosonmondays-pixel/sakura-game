@@ -1,0 +1,128 @@
+/* ==========================================================================================================
+   [ui-ink] The UI v2 motion layer (owner, Oct 27: "add animated transitions"; src/ui/motion.js; the timings of the
+   Oct 27 motion study). Like ink.css it sits behind the scope fence: every rule is under the surface mode classes
+   (body.ui-day / body.ui-night: the menus and the home), so the battle, the title and a story scene never move by it.
+   Opacity and transforms only: the individual translate / scale properties, which compose with a control's own skew
+   and placement, so nothing here rewrites a transform. Nothing blocks a tap. Reduce Motion (Settings →
+   html[data-reduce-motion], or prefers-reduced-motion): no movement, a 120 ms fade at most, no pops, no lifts.
+
+   Timings (ms): pieces in 240 (the home's first entrance; 200 on a return), 30-40 apart; the wallpaper settles from
+   1.03 over 1000 (500 on a return); the girl rises 8 px in 360 (220); the top bar comes down 12 px in 240 (180);
+   sheets in 240 / out 160 (scrim 160); modals in 220 / out 160; press 100 down, 140 up (scale 0.97); hover lift 2 px
+   in 140 (a mouse only); badge pop 240; a gain's icon pulse 240 and sparkles 300. The screen push / pop and its ink
+   wipe: src/ui/transitions/ and transitions.css.
+   ========================================================================================================== */
+
+/* ---------- one piece comes in: [data-mo] (motion.js enter / stagger; markup: data-mo="left" style="--mo-d: 90ms") ---------- */
+:is(.ui-day, .ui-night) [data-mo] {
+  animation: var(--mo-k, mo-up) var(--mo-t, 240ms) var(--mo-e, cubic-bezier(0.3, 0, 0, 1)) var(--mo-d, 0ms) both;
+}
+:is(.ui-day, .ui-night) [data-mo="top"] { --mo-k: mo-top; }
+:is(.ui-day, .ui-night) [data-mo="left"] { --mo-k: mo-left; }
+:is(.ui-day, .ui-night) [data-mo="right"] { --mo-k: mo-right; }
+:is(.ui-day, .ui-night) [data-mo="up"] { --mo-k: mo-up; }
+:is(.ui-day, .ui-night) [data-mo="fade"] { --mo-k: mo-fade; --mo-e: linear; }
+/* the wallpaper settles: in over its first 35 %, scale 1.03 → 1 over the whole (the owner's "about 1 s") */
+:is(.ui-day, .ui-night) [data-mo="scene"] { --mo-k: mo-scene; --mo-t: 1000ms; --mo-e: cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: 50% 55%; }
+:is(.ui-day, .ui-night) [data-mo="girl"] { --mo-k: mo-girl; --mo-t: 360ms; --mo-e: cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes mo-top { from { opacity: 0; translate: 0 -12px; } }
+@keyframes mo-left { from { opacity: 0; translate: -12px 0; } }
+@keyframes mo-right { from { opacity: 0; translate: 16px 0; } }
+@keyframes mo-up { from { opacity: 0; translate: 0 8px; } }
+@keyframes mo-fade { from { opacity: 0; } }
+@keyframes mo-scene { 0% { opacity: 0; scale: var(--mo-s, 1.03); } 35% { opacity: 1; } 100% { opacity: 1; scale: 1; } }
+@keyframes mo-girl { from { opacity: 0; translate: 0 8px; } }
+/* while a cover still hides the screen (the boot loader, a battle's cut), every piece waits at its first frame; it
+   plays from the moment the reveal starts (transitions/index.js sets html[data-reveal]) */
+html[data-tx="boot"]:not([data-reveal]) :is(.ui-day, .ui-night) :is([data-mo], .mo-pop),
+html[data-tx="cut"]:not([data-reveal]) :is(.ui-day, .ui-night) :is([data-mo], .mo-pop) { animation-play-state: paused; }
+
+/* ---------- a red dot or count pops when it appears (motion.js badgeShown) ---------- */
+:is(.ui-day, .ui-night) .mo-pop { animation: mo-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: var(--mo-pop-d, 0ms); }
+@keyframes mo-pop { from { opacity: 0; scale: 0.4; } }
+/* (on the home's entrance a dot pops once its row has come in; later dots pop at once) */
+:is(.ui-day, .ui-night) .home[data-entrance="first"]:not(.static) { --mo-pop-d: 520ms; }
+:is(.ui-day, .ui-night) .home[data-entrance="return"]:not(.static) { --mo-pop-d: 180ms; }
+/* the home's entrance window is over (lobby.js .static, 1 s after the reveal, 0.7 s after a return): whatever has not
+   finished (a starved phone that drew few frames) shows as it ends */
+:is(.ui-night) .home.static [data-mo] { animation: none !important; }
+
+/* ---------- a gain: the colour coin / gem pulses and throws two sparkles (motion.js countTo) ---------- */
+:is(.ui-day, .ui-night) .ui-cur-art.mo-gain { animation: mo-gain 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes mo-gain { 0% { scale: 1; } 45% { scale: 1.12; } 100% { scale: 1; } }
+:is(.ui-day, .ui-night) .ui-cur-art.mo-gain::before, :is(.ui-day, .ui-night) .ui-cur-art.mo-gain::after {
+  content: ''; position: absolute; z-index: 1; width: 7px; height: 7px; pointer-events: none; background: #fff2b3;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  animation: mo-spark 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+:is(.ui-day, .ui-night) .ui-cur-art.mo-gain::before { left: -3px; top: -3px; --sx: -5px; --sy: -9px; }
+:is(.ui-day, .ui-night) .ui-cur-art.mo-gain::after { right: -4px; top: 1px; --sx: 7px; --sy: -7px; animation-delay: 40ms; }
+:is(.ui-day, .ui-night) .ui-cur-art[data-cur="gems"].mo-gain::before, :is(.ui-day, .ui-night) .ui-cur-art[data-cur="gems"].mo-gain::after { background: #ffd6e6; }
+@keyframes mo-spark { from { opacity: 1; translate: 0 0; scale: 0.6; } to { opacity: 0; translate: var(--sx) var(--sy); scale: 1; } }
+
+/* ---------- press: 0.97 on the controls that had no press of their own (the rest keep theirs, 0.96-0.98) ---------- */
+:is(.ui-day, .ui-night) :is(.ui-obj, .ui-chap, .ui-news .go, .ui-news .pager, .ui-tab, .ui-plus, .cur-plus, .ma-hub-tile, .ui-girltile) {
+  transition: scale 140ms cubic-bezier(0.3, 0, 0, 1), translate 140ms cubic-bezier(0.3, 0, 0, 1);
+}
+:is(.ui-day, .ui-night) :is(.ui-obj, .ui-chap, .ui-news .go, .ui-news .pager, .ui-tab, .ui-plus, .cur-plus, .ma-hub-tile, .ui-girltile):active:not(:disabled) {
+  scale: 0.97; transition-duration: 100ms;
+}
+
+/* ---------- a mouse: tiles and cards lift 2 px under the pointer (never on touch) ---------- */
+@media (hover: hover) and (pointer: fine) {
+  :is(.ui-day, .ui-night) :is(.ui-hubtile, button.ui-gtile, .ui-ltile, .mp-tile) {
+    transition: transform var(--t-press) var(--ease), translate 140ms cubic-bezier(0.3, 0, 0, 1);
+  }
+  :is(.ui-day, .ui-night) :is(.ui-obj, .ui-chap, .ui-hubtile, .ma-hub-tile, .ui-girltile, button.ui-gtile, .ui-ltile, .mp-tile):hover:not(:disabled) { translate: 0 -2px; }
+}
+
+/* ---------- sheets: in from their edge with the scrim (240 / 160), out faster (160) ---------- */
+:is(.ui-day, .ui-night) .ui-layer > .ui-scrim { animation: mo-fade 160ms linear both; }
+:is(.ui-day, .ui-night) .ui-sheet.enter:not(.side) { animation: mo-sheet-up 240ms cubic-bezier(0.3, 0, 0, 1) both; }
+:is(.ui-day, .ui-night) .ui-sheet.enter.side { animation: mo-sheet-side 240ms cubic-bezier(0.3, 0, 0, 1) both; }
+:is(.ui-day, .ui-night) .ui-layer.closing { opacity: 1; transition: none; }
+:is(.ui-day, .ui-night) .ui-layer.closing > .ui-scrim { animation: mo-fade-out 160ms linear forwards; }
+:is(.ui-day, .ui-night) .ui-layer.closing > .ui-sheet:not(.side) { animation: mo-sheet-down 160ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+:is(.ui-day, .ui-night) .ui-layer.closing > .ui-sheet.side { animation: mo-sheet-away 160ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+@keyframes mo-sheet-up { from { opacity: 0; translate: 0 32px; } }
+@keyframes mo-sheet-side { from { opacity: 0; translate: 48px 0; } }
+@keyframes mo-sheet-down { to { opacity: 0; translate: 0 24px; } }
+@keyframes mo-sheet-away { to { opacity: 0; translate: 24px 0; } }
+@keyframes mo-fade-out { to { opacity: 0; } }
+/* the home's menu sheet (src/ui/lobby/menuSheet.js): the same, its rows 20 ms apart (motion.js stagger) */
+:is(.ui-night) .home-menu-layer > .ui-scrim-full { animation: mo-fade 160ms linear both; }
+:is(.ui-night) .home-menu.home-menu-in { animation: mo-sheet-side 240ms cubic-bezier(0.3, 0, 0, 1) both; }
+:is(.ui-night) .home-menu-layer.closing { opacity: 1; transition: none; }
+:is(.ui-night) .home-menu-layer.closing > .ui-scrim-full { animation: mo-fade-out 160ms linear forwards; }
+:is(.ui-night) .home-menu-layer.closing > .home-menu { animation: mo-sheet-away 160ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+/* ---------- modals: pop from 0.96 (220), out 160; the scrim 160 ---------- */
+:is(.ui-day, .ui-night) .modal-overlay { animation: mo-fade 160ms linear both; }
+:is(.ui-day, .ui-night) .modal { animation: mo-modal-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+:is(.ui-day, .ui-night) .modal-overlay.closing { animation: mo-fade-out 160ms linear forwards; }
+:is(.ui-day, .ui-night) .modal-overlay.closing > .modal { animation: mo-modal-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+@keyframes mo-modal-in { from { opacity: 0; scale: 0.96; } }
+@keyframes mo-modal-out { to { opacity: 0; scale: 0.98; } }
+
+/* ---------- the home: hide the UI (180, ease-in; the bar also 8 px up) and bring it back (220) ---------- */
+:is(.ui-night) .home :is(.home-ui, .home-top) { transition: opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1), translate 220ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s; }
+:is(.ui-night) .home.ui-hidden :is(.home-ui, .home-top) { opacity: 0; transition: opacity 180ms cubic-bezier(0.4, 0, 1, 1), translate 180ms cubic-bezier(0.4, 0, 1, 1), visibility 0s 180ms; }
+:is(.ui-night) .home.ui-hidden .home-top { translate: 0 -8px; }
+
+/* ---------- Reduce Motion: a 120 ms fade at most, nothing moves, nothing pops or lifts ---------- */
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-day, .ui-night) [data-mo] { animation: mo-fade 120ms linear both !important; }
+  :is(.ui-day, .ui-night) :is(.mo-pop, .ui-cur-art.mo-gain) { animation: none !important; }
+  :is(.ui-day, .ui-night) .ui-cur-art.mo-gain::before, :is(.ui-day, .ui-night) .ui-cur-art.mo-gain::after { display: none; }
+  :is(.ui-day, .ui-night) :is(.ui-sheet.enter, .home-menu.home-menu-in, .modal, .ui-layer.closing > .ui-sheet, .home-menu-layer.closing > .home-menu, .modal-overlay.closing > .modal) { animation-name: mo-fade !important; animation-duration: 120ms !important; }
+  :is(.ui-day, .ui-night) :is(.ui-layer.closing > .ui-sheet, .home-menu-layer.closing > .home-menu, .modal-overlay.closing > .modal) { animation-name: mo-fade-out !important; }
+  :is(.ui-day, .ui-night) :is(.ui-obj, .ui-chap, .ui-news .go, .ui-news .pager, .ui-tab, .ui-plus, .cur-plus, .ma-hub-tile, .ui-girltile, .ui-hubtile, button.ui-gtile, .ui-ltile, .mp-tile) { scale: none !important; translate: none !important; }
+  :is(.ui-night) .home.ui-hidden .home-top { translate: none; }
+}
+html[data-reduce-motion] :is(.ui-day, .ui-night) [data-mo] { animation: mo-fade 120ms linear both !important; }
+html[data-reduce-motion] :is(.ui-day, .ui-night) :is(.mo-pop, .ui-cur-art.mo-gain) { animation: none !important; }
+html[data-reduce-motion] :is(.ui-day, .ui-night) .ui-cur-art.mo-gain::before, html[data-reduce-motion] :is(.ui-day, .ui-night) .ui-cur-art.mo-gain::after { display: none; }
+html[data-reduce-motion] :is(.ui-day, .ui-night) :is(.ui-sheet.enter, .home-menu.home-menu-in, .modal) { animation-name: mo-fade !important; animation-duration: 120ms !important; }
+html[data-reduce-motion] :is(.ui-day, .ui-night) :is(.ui-layer.closing > .ui-sheet, .home-menu-layer.closing > .home-menu, .modal-overlay.closing > .modal) { animation-name: mo-fade-out !important; animation-duration: 120ms !important; }
+html[data-reduce-motion] :is(.ui-day, .ui-night) :is(.ui-obj, .ui-chap, .ui-news .go, .ui-news .pager, .ui-tab, .ui-plus, .cur-plus, .ma-hub-tile, .ui-girltile, .ui-hubtile, button.ui-gtile, .ui-ltile, .mp-tile) { scale: none !important; translate: none !important; }
+html[data-reduce-motion] :is(.ui-night) .home.ui-hidden .home-top { translate: none; }

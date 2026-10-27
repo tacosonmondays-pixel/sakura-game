@@ -12,6 +12,7 @@ import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
 import { currencyIcon } from '../art/icons.js';
 import { COLOUR_CURRENCIES } from './wallets.js';
+import { noteTabPick, badge } from './motion.js';
 
 /**
  * A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. [ui-ink] On the menus and the home (a
@@ -129,16 +130,20 @@ export function rarityTag(rarity, { testid = null, ring = null, title = null } =
 export function rail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
   const el = h(`nav.ui-rail${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label });
   const btns = new Map();
+  const order = tabs.map((t) => t.id);
+  let on = active;
   for (const t of tabs) {
     const b = h(`button.ui-tab${t.locked ? '.locked' : ''}`, {
       type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
       'aria-label': `${t.label}${t.locked ? ' (locked)' : ''}${t.dot ? ` (${t.dotTitle || 'new'})` : ''}`,
-      onclick: () => onPick(t.id),
-    }, h('span', t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, t.label), t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null);
+      onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); }, // (motion.js tabSwap's direction)
+    }, h('span', t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, t.label),
+    badge(t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null, `tab:${testidPrefix}${t.id}`));
     btns.set(t.id, b);
     el.append(b);
   }
   el.setActive = (id) => {
+    on = id;
     for (const [k, b] of btns) {
       b.classList.toggle('on', k === id);
       b.setAttribute('aria-selected', k === id ? 'true' : 'false');
@@ -232,16 +237,19 @@ export const countdownText = (msLeft) => countdownState(msLeft);
 export function sideRail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
   const el = h(`nav.ui-srail${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label, 'aria-orientation': 'vertical' });
   const btns = new Map();
+  const order = tabs.map((t) => t.id);
+  let on = active;
   for (const t of tabs) {
     const b = h('button.ui-stab', {
       type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
       'aria-label': `${t.label}${t.dot ? ` (${t.dotTitle || 'something new'})` : ''}`,
-      onclick: () => onPick(t.id),
-    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label)), t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null);
+      onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); }, // (down the rail: the content comes up)
+    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label)), badge(t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null, `stab:${testidPrefix}${t.id}`));
     btns.set(t.id, b);
     el.append(b);
   }
   el.setActive = (id) => {
+    on = id;
     for (const [k, b] of btns) {
       b.classList.toggle('on', k === id);
       b.setAttribute('aria-selected', k === id ? 'true' : 'false');

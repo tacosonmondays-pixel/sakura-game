@@ -14,6 +14,9 @@
 //     entry (the home's one heavy italic); the corner tools (hide the UI, background and secretary)
 //   · the main menu: a side sheet from the right (src/ui/lobby/menuSheet.js)
 // The pure model (the objective's first-match order, the news card's pages): src/ui/lobbyTray.js.
+// Motion (UI v2 motion layer, src/ui/motion.js, owner Oct 27): homeEntrance() brings the home in on its first open
+// (from the boot loader or a battle's cut: waiting under the cover, playing from the reveal) and on every return from a
+// sub-screen (shorter); the balances count when they change; a red dot or count pops when it appears.
 // Hooks kept from UI M5: dock-* on the rail rows, tile-mission on BATTLE (it opens Missions, as the Campaign tile did,
 // with its "Open!" chip, campaign-open), lobby-multiplayer(-count) on MULTIPLAYER, top-mail, top-menu, top-chat,
 // tickets / coins / gems, account-level, lobby-hide / lobby-bg / lobby-restore, secretary-art / secretary-bubble,
@@ -25,6 +28,8 @@ import '../styles/hubs.css';
 import '../styles/home.css';
 import { h, clear, toast, applyMotionPreference, accountLevel } from '../components.js';
 import { countdownChip, curArt } from '../kit.js';
+import { homeEntrance, countTo, badge, tabSwap } from '../motion.js';
+import { whenSettled } from '../transitions/index.js';
 import { openModes } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
 import { homeObjective, homeNews, multiplayerLabel } from '../lobbyTray.js';
@@ -129,7 +134,11 @@ export function render(root) {
   applyMotionPreference();
   let alive = true;
   const reduceMotion = () => !!store.profile.settings?.reduceMotion || sysReduced();
-  const el = h('div.screen.lb.home', { 'data-testid': 'lobby' });
+  // the home brings its own entrance (data-mo-own: the screen change only fades it in): its first open comes from a
+  // cover (the boot loader, a battle's cut), a return from a menu slide
+  const txKind = globalThis.document?.documentElement?.dataset?.tx || '';
+  const firstOpen = !txKind || txKind === 'boot' || txKind === 'cut';
+  const el = h('div.screen.lb.home', { 'data-testid': 'lobby', 'data-mo-own': '', 'data-entrance': firstOpen ? 'first' : 'return' });
   const stageHost = h('div.home-stage-host');
   const top = h('header.ui-topbar.float.home-top');
   const rail = h('nav.ui-hrail.home-rail', { 'aria-label': 'Main' });
@@ -296,6 +305,7 @@ export function render(root) {
   const pageNews = (n) => {
     newsPage = n;
     buildNews(newsHost, { page: newsPage, onPage: pageNews });
+    tabSwap(newsHost.firstElementChild, 1); // (the next card: a 120 ms crossfade, 12 px in from the right)
     fitTexts();
   };
   function openMenu() {
@@ -317,13 +327,28 @@ export function render(root) {
   const drawAll = () => {
     buildTop(top, { onMenu: openMenu });
     buildRail(rail);
-    buildObjective(objHost, { reduced: reduceMotion() });
+    buildObjective(objHost);
     buildNews(newsHost, { page: newsPage, onPage: pageNews });
     buildChapter(chapHost);
     fitTexts();
   };
   drawAll();
+  homeEntrance({ first: firstOpen, scene: stageHost.querySelector('.home-scene'), live: stageHost.querySelector('.home-live'),
+    girl: stageHost.querySelector('.home-host'), top, rail, stack: [objHost, newsHost, chapHost], tools });
   const firstLayout = requestAnimationFrame(() => stage.relayout());
+  // the entrance's window: from the render until it has played (the screen change settled, then 760 ms on a first
+  // open, whose reveal began with the boot loader's 240 ms fade, so 1 s after the reveal: the wallpaper's settle; 540
+  // ms on a return). Then .static: whatever has not finished (a starved phone that drew few frames) is shown as it
+  // ends, and a redraw never plays it again.
+  let entering = true;
+  let staticTimer = 0;
+  whenSettled().then(() => {
+    if (!alive) return;
+    staticTimer = setTimeout(() => {
+      entering = false;
+      el.classList.add('static');
+    }, firstOpen ? 760 : 540);
+  });
 
   // ---- the Multiplayer row's red number: open invites (read only once the social hub is ready) ----
   const paintInvites = () => {
@@ -333,8 +358,6 @@ export function render(root) {
   const refreshInvites = () => openInvites().then(() => { if (alive) paintInvites(); }).catch(() => {});
   refreshInvites();
   const offHub = [hub.on('invites', refreshInvites), hub.on('status', refreshInvites), hub.on('badges', refreshInvites)];
-  // entrance once per visit; later redraws (store changes) never replay it
-  const staticTimer = setTimeout(() => el.classList.add('static'), 700);
   // (the webfonts change the words' widths, so the stack's and the rail's boxes: she is placed again once they are in)
   document.fonts?.ready?.then(() => {
     if (!alive) return;
@@ -368,6 +391,8 @@ export function render(root) {
 
   const off = store.on('change', () => {
     drawAll();
+    // (a redraw while the entrance still runs: the rebuilt rows and cards come in too, never popping in)
+    if (entering) homeEntrance({ first: firstOpen, rail, stack: [objHost, newsHost, chapHost] });
     stage.relayout();
     showSecretary().catch(() => {});
     syncLive();
@@ -470,11 +495,14 @@ function hasBox(profile) {
  * A balance on the floating bar (12.1): its icon (coins and gems their colour art, kit.js curArt, owner Oct 27; tickets a
  * line glyph) and the number; its "+" (a 44 px tap) opens where to get more.
  */
-function pill({ glyph = null, art = null, value, testid, label, onPlus = null, plusLabel = '', np = false }) {
-  const num = h('span.num', { 'data-testid': testid }, value);
+function pill({ glyph = null, art = null, amount, testid, label, onPlus = null, plusLabel = '', np = false }) {
+  const value = formatNumber(amount);
+  const num = h('span.num', { 'data-testid': testid });
   const el = h(`span.ui-pill${np ? '.np' : ''}`, { 'aria-label': `${label}: ${value}`, title: label, 'data-wallet': testid },
     art ? curArt(art) : g(glyph), num,
     onPlus ? h('button.ui-plus', { type: 'button', 'aria-label': plusLabel, title: plusLabel, 'data-testid': `${testid}-plus`, onclick: (e) => { e.stopPropagation(); onPlus(); } }, g('plus')) : null);
+  // (a change since this balance was last on show counts there: motion.js countTo, shared with the day bar's wallets)
+  countTo(num, amount, { key: testid });
   return el;
 }
 
@@ -499,16 +527,16 @@ function buildTop(host, { onMenu }) {
   chat.classList.add('ui-ibtn');
   (chat.querySelector('.lb-glyph') || chat.querySelector('svg'))?.replaceWith(g('chat'));
   const mail = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-mail', title: 'Mail', 'aria-label': mailCount ? `Mail, ${mailCount} unread` : 'Mail', onclick: () => openMailbox() },
-    g('mail'), mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null);
+    g('mail'), badge(mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null, 'home:mail'));
   const newInside = noticeUnread() || journalDot(profile) || hasBox(profile);
   const menu = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-menu', title: 'Menu', 'aria-label': newInside ? 'Menu, something new inside' : 'Menu', 'aria-haspopup': 'dialog', onclick: onMenu },
-    g('grid'), newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null);
+    g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   host.append(
     who,
     h('span.sp'),
-    pill({ glyph: 'ticket', value: formatNumber(tickets), testid: 'tickets', label: 'Recruit tickets', onPlus: () => navigate('mall', { tab: 'general' }), plusLabel: 'Get tickets' }),
-    pill({ art: 'coins', value: formatNumber(profile.currencies.coins), testid: 'coins', label: 'Coins', np: true }),
-    pill({ art: 'gems', value: formatNumber(profile.currencies.gems), testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
+    pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets', onPlus: () => navigate('mall', { tab: 'general' }), plusLabel: 'Get tickets' }),
+    pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins', np: true }),
+    pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
     chat, mail, menu,
   );
@@ -537,11 +565,11 @@ function buildRail(host) {
   ];
   clear(host);
   rows.forEach((r, i) => {
-    host.appendChild(h('button.ui-hrow.ui-in-l', { type: 'button', style: { '--i': i }, 'data-testid': r.testid, 'aria-label': r.aria || r.label, onclick: r.go },
+    host.appendChild(h('button.ui-hrow', { type: 'button', 'data-testid': r.testid, 'aria-label': r.aria || r.label, onclick: r.go },
       g(r.glyph), h('span.menu-lbl', r.label),
       r.chip ? h('span.ui-chip.cy', { 'data-testid': r.chip.testid }, r.chip.text) : null,
-      r.dot ? h('i.ui-dot') : null,
-      r.count ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(r.count) }, String(r.count)) : null));
+      badge(r.dot ? h('i.ui-dot') : null, `home:rail:${r.id}`),
+      badge(r.count ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(r.count) }, String(r.count)) : null, `home:count:${r.id}`)));
   });
 }
 
@@ -551,7 +579,7 @@ function setMultiplayerCount(row, n) {
   const had = row.querySelector('.ui-count');
   if (had && had.textContent === String(n)) return;
   had?.remove();
-  if (n > 0) row.appendChild(h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(n) }, String(n)));
+  badge(n > 0 ? row.appendChild(h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(n) }, String(n))) : null, 'home:count:multiplayer');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -585,7 +613,7 @@ function objectiveState(profile) {
   };
 }
 
-function buildObjective(host, { reduced = false } = {}) {
+function buildObjective(host) {
   const profile = store.profile;
   const s = objectiveState(profile);
   const o = homeObjective(s);
@@ -607,7 +635,7 @@ function buildObjective(host, { reduced = false } = {}) {
     return navigate('campaign', s.chapter ? { chapter: s.chapter.id } : {});
   };
   clear(host);
-  host.appendChild(h(`button.ui-obj.home-obj${reduced ? '' : '.ui-in'}`, { type: 'button', style: { '--i': 2 }, 'data-testid': 'lobby-objective', 'data-kind': o.kind, 'aria-label': `${o.kicker}: ${o.text}. Play`, onclick: play },
+  host.appendChild(h('button.ui-obj.home-obj', { type: 'button', 'data-testid': 'lobby-objective', 'data-kind': o.kind, 'aria-label': `${o.kicker}: ${o.text}. Play`, onclick: play },
     h('span.obj-t', h('span.lbl.cy', o.kicker), h('span.body', o.text)),
     h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Space'),
     h('span.ui-play', { 'data-testid': o.testid, title: o.kind === 'continue' ? `Continue your saved battle: ${s.save.name}` : null }, g('play'))));
@@ -662,7 +690,7 @@ function buildNews(host, { page = 0, onPage }) {
   };
   const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
   const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : 'sparkles'));
-  host.appendChild(h('div.ui-news.home-news.ui-in', { style: { '--i': 3 }, 'data-testid': 'lobby-news', 'data-page': n.id },
+  host.appendChild(h('div.ui-news.home-news', { 'data-testid': 'lobby-news', 'data-page': n.id },
     h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
       thumb,
       h('span.col', h('span.k', h('span.lbl', n.kicker), chip), h('span.body', n.title))),
@@ -682,7 +710,7 @@ function buildChapter(host) {
   let medals = 0;
   if (complete) for (const c of CHAPTERS) for (const id of c.stages) medals += Object.values(stageMedals(profile, id)).filter(Boolean).length;
   const segs = complete ? null : h('span.ui-seg', { style: { '--n': prog.total } }, Array.from({ length: prog.total }, (_, k) => h(`i${k < prog.cleared ? '.on' : ''}`)));
-  const el = h('button.ui-chap.home-chap.ui-in', { type: 'button', style: { '--i': 4 }, 'data-testid': 'lobby-chapter', 'data-chapter': chapter.id,
+  const el = h('button.ui-chap.home-chap', { type: 'button', 'data-testid': 'lobby-chapter', 'data-chapter': chapter.id,
     'aria-label': complete ? `Campaign, all clear: ${medals} medals` : `Campaign, chapter ${chapter.id}: ${chapter.name}, ${prog.cleared} of ${prog.total} stages cleared`,
     onclick: () => navigate('campaign', { chapter: chapter.id }) },
   h('span.emblem-wrap', { html: emblemSvg(chapterEmblem(chapter.id), { cls: 'emblem' }) }),

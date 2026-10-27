@@ -1806,9 +1806,12 @@ in-game result, relevant tests, and evidence against the original request."
   and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
   a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
   cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu, out then in and all in
-  place (the old body fades out where it is in 90 ms, then the new one slides in over 220 ms; nothing is
-  copied or moved in the DOM; the top bar stays and only its title crossfades) and **slide-back** for
-  the arrow, the back gesture, Home and parents, a **crossfade** for the same screen with new params
+  place (the old body fades out where it is in 80 ms, then the new one slides in from the right over
+  200 ms; UI v2, Oct 27: a short slanted ink wipe sweeps across behind the screens for the change's
+  280 ms; nothing is copied or moved in the DOM; the top bar stays and only its title crossfades) and
+  **slide-back** for the arrow, the back gesture, Home and parents (60 + 160 = 220 ms, the wipe the
+  other way; a screen with its own entrance, `data-mo-own`: the home, only fades in and plays its
+  pieces itself, `src/ui/motion.js`), a **crossfade** for the same screen with new params
   (70 + 150 ms), and the **boot** hold on the first screen. A screen's own entrance animations (panels,
   staggered cards) jump to their end when a slide brings it in. Loaders (owner: "just black or
   colored ... it saying loading is enough"): the full loader (`#ld`, in index.html from the first

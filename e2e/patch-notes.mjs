@@ -9,6 +9,8 @@ import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
 
+/** [ui-ink] A balance that changed counts to its new value (src/ui/motion.js countTo, at most 600 ms): wait for it. */
+const countsSettled = (page) => page.waitForFunction(() => !document.querySelector('[data-counting]'), null, { timeout: 5000 }).catch(() => {});
 const args = process.argv.slice(2);
 const SHOTS = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
@@ -63,6 +65,7 @@ try {
     await tap(page.locator(`[data-testid="patch-claim-${one}"]`));
     const toastText = await page.locator('.toast').last().innerText().catch(() => '');
     check(/Received 100/.test(toastText), `${W}x${H} toast after a claim ("${toastText}")`);
+    await countsSettled(page); // (the bar counts up to a new balance: motion.js countTo)
     const gems1 = gemsOf(await gemPill.innerText());
     check(gems1 === gems0 + gift, `${W}x${H} top-bar gems ${gems0} → ${gems1} (+${gift})`);
     check(await page.locator(`[data-testid="patch-claimed-${one}"]`).innerText() === 'Claimed ✓' && await page.locator(`[data-testid="patch-claim-${one}"]`).count() === 0, `${W}x${H} the button turns into Claimed ✓`);
@@ -75,6 +78,7 @@ try {
 
     // claim all
     await tap(page.locator('[data-testid="patch-claim-all"]'));
+    await countsSettled(page);
     const gems2 = gemsOf(await gemPill.innerText());
     check(gems2 === gems0 + gift * notes.length, `${W}x${H} Claim all: gems ${gems1} → ${gems2} (total +${gift * notes.length})`);
     check(await page.locator('.lb-patch-claimed').count() === notes.length && await page.locator('[data-testid="patch-claim-all"]').count() === 0, `${W}x${H} every version shows Claimed ✓, Claim all gone`);

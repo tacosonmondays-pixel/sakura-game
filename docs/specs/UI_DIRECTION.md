@@ -284,6 +284,24 @@ in 4.2.
 Drawers and tabs keep `--t-panel` (220 ms). Screen transitions keep `--t-screen`. Reduce motion turns everything into a 150 ms
 fade, as it does today.
 
+**UI v2 motion layer (Oct 27; owner: "add animated transitions").** `src/ui/motion.js` and `src/ui/styles/motion.css`
+(the menus and the home only, behind the surface-mode scope fence; opacity and the individual translate / scale
+properties only; nothing blocks a tap):
+
+| What | ms | Notes |
+|---|---|---|
+| Home, first open (boot or a battle's cut) | wallpaper 1000 (scale 1.03 → 1), girl 360 (80 late, 8 px up), top bar 240 (100 late, 12 px down), pieces 240 each, 40 ms apart from 160 | waits at its first frame under the cover and plays from the reveal; still by ~0.7 s, the wallpaper by 1 s |
+| Home, return from a sub-screen | wallpaper 500 (1.015 → 1), girl 220, bar 180, pieces 200, 30 ms apart | `homeEntrance()`; the home concepts reuse it, or `stagger()` / `data-mo` on their own pieces |
+| Screen push / pop | 80 + 200 forward, 60 + 160 back; the ink wipe 280 / 220 | `src/ui/transitions/` (MOTION); home ↔ battle keeps the cut and Mochi |
+| Tab switch | content 120 fade + 180 shift (12 px, the way the rail was walked) | `tabSwap()`: girl page, list screens (Mall, Mailroom, Happening, Settings), Commissions, the home's news pager |
+| Sheets, the home menu | in 240 (from the right 48 px / up 32 px) with a 160 scrim; out 160; menu rows 20 ms apart | |
+| Modals | in 220 (scale 0.96 → 1), out 160 | |
+| Press / hover | 100 down / 140 up at scale 0.97; a mouse lifts tiles 2 px in 140 | |
+| Balances | count 400 (≤ 600 for big jumps), the colour icon pulses 240 with two sparkles on a gain | `countTo()`; e2e waits for `[data-counting]` to go |
+| Red dots and counts | pop 240 (scale 0.4 → 1, one overshoot) when they appear | `badgeShown()` / `badge()` |
+
+Reduce Motion (the setting or the system): no movement, a 120 ms fade at most, numbers change at once, no pops.
+
 ### 4.8 Rarity
 
 These mirror the colours in `src/data/types.js` (`UNIT_RARITIES`, `ITEM_RARITIES`) and `src/ui/rarity.js` (UR). The JS stays the

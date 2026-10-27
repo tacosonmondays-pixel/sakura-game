@@ -21,6 +21,7 @@ import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
 import { walletsFor, WALLET_DEFS } from './wallets.js';
 import { curArt } from './kit.js';
+import { countTo } from './motion.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -246,8 +247,9 @@ function inkWallets({ plus = true, wallets = null } = {}) {
       : null;
     return h('div.cur-pill.ui-cur', { title: d.label, 'data-wallet': id }, d.art ? curArt(d.art) : line(d.glyph), vals[id], more);
   };
+  // (a balance that changed since it was last on show, here or on the home, counts there: motion.js countTo)
   const refresh = () => {
-    for (const id of ids) if (vals[id]) vals[id].textContent = formatNumber(itemCount(store.profile, WALLET_DEFS[id].item));
+    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, WALLET_DEFS[id].item), { key: id });
   };
   const draw = (next) => {
     ids = (next || []).filter((id) => WALLET_DEFS[id]);
