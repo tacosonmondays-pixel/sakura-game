@@ -1,20 +1,23 @@
 // Scene backgrounds for the story player (owner: story; STORY_SPEC §1.2.4). Resolves a background id from
 // src/data/story/backgrounds.js to a layer element and crossfades between layers:
-//   paint  the painted academy under one of the lobby's tints (day / sunset / night; soft = blurred + dimmed)
+//   paint  a painted picture (the academy or a story place) under one of the lobby's tints (day / sunset / night;
+//          soft = blurred + dimmed); a story place carries its focal point (object-position)
 //   cg     a painted lobby scene with a girl in it (the player hides portraits while it is up)
 //   solid  a flat colour (black for fades and title cards)
-//   stage  `stage:<id>` — a still of that stage's battle map when one is available (stageStill hook), else the
-//          chapter's academy tint (CHAPTER_FALLBACK_BG). A still is never a reason to delay text.
+//   stage  `stage:<id>` — that stage's painted place (STAGE_PLACE), else the chapter's academy tint
+//          (CHAPTER_FALLBACK_BG). A still from the stage-still hook would replace either; nothing registers one.
+//          A still is never a reason to delay text.
 import { h } from '../dom.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
-import { BACKGROUNDS, CHAPTER_FALLBACK_BG, stageOfBackground } from '../../data/story/backgrounds.js';
+import { BACKGROUNDS, CHAPTER_FALLBACK_BG, placeOfStage, stageOfBackground } from '../../data/story/backgrounds.js';
 import { STAGE_MAP } from '../../data/stages.js';
 
 const FADE_MS = 420;
 
 /**
- * Optional provider of stage stills: (stageId) => Promise<string|null> (an image URL). Set by a later build
- * step (renderer stills); until then stage backgrounds use the chapter's academy tint.
+ * Optional provider of stage stills: (stageId) => Promise<string|null> (an image URL). Planned for renderer
+ * stills of the battle maps; nothing in src/ registers one (Oct 27: every campaign stage shows its painted place,
+ * STAGE_PLACE, instead). Kept as a hook: a registered still crossfades over the place once it is ready.
  * @type {null | ((stageId: string) => Promise<string|null>)}
  */
 let stillProvider = null;
@@ -27,15 +30,17 @@ export function setStageStillProvider(fn) {
 }
 
 /**
- * What a background id draws. Stage backgrounds resolve to their chapter's academy tint (with the stage id
- * kept, so a still can replace it).
+ * What a background id draws. Stage backgrounds resolve to their painted place (STAGE_PLACE), or to their
+ * chapter's academy tint when the stage has none (with the stage id kept, so a still can replace either).
  * @param {string} id
  * @param {number} [chapter] the scene's chapter (fallback tint for stage stills)
- * @returns {{ id: string, kind: string, url?: string, thumb?: string, tint?: string, blur?: number, dim?: number, color?: string, stageId?: string, cg?: boolean }}
+ * @returns {{ id: string, kind: string, url?: string, thumb?: string, tint?: string, blur?: number, dim?: number, focus?: string|null, color?: string, stageId?: string, place?: string, cg?: boolean }}
  */
 export function resolveBackground(id, chapter = 0) {
   const stageId = stageOfBackground(id);
   if (stageId) {
+    const place = placeOfStage(stageId);
+    if (place) return { ...resolveBackground(place, chapter), id, stageId, place, fallback: true };
     const ch = STAGE_MAP[stageId]?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);
     return { ...fb, id, stageId, fallback: true };
@@ -50,6 +55,7 @@ export function resolveBackground(id, chapter = 0) {
     tint: bg.tint || null,
     blur: bg.blur || 0,
     dim: bg.dim || 0,
+    focus: bg.focus || null,
     cg: bg.kind === 'cg',
   };
 }
@@ -87,7 +93,7 @@ function stillFor(stageId) {
 
 function layerFor(spec) {
   if (spec.kind === 'solid') return h('div.sp-bg-layer.solid', { style: { background: spec.color } });
-  const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async' });
+  const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async', style: spec.focus ? { objectPosition: spec.focus } : null });
   const cls = spec.kind === 'cg' ? '.cg' : `.paint.tint-${spec.tint || 'day'}${spec.blur ? '.soft' : ''}`;
   const layer = h(`div.sp-bg-layer${cls}`, img, spec.kind === 'cg' ? null : h('div.sp-bg-tint'));
   if (spec.blur) layer.style.setProperty('--sp-bg-blur', `${spec.blur}px`);

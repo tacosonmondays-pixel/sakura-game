@@ -71,7 +71,7 @@ export default [
     narrate('She asks him to guard the pass instead. He has guarded it, very proudly, ever since.'),
     say('akane', "Captain, another grey scale in the beacon ashes! It's warm like a firework fuse. I love it.", { at: 'left', face: 'joy' }),
     say('hikari', "Four stones, four scales. All warm. All leaning north… {name:kage}'s board is getting crowded."),
-    cue({ bg: 'academy-day', music: 'home', exit: ['akane'], enter: [{ who: 'midori', at: 'right', fx: 'bounce' }] }),
+    cue({ bg: 'academy-courtyard', music: 'home', exit: ['akane'], enter: [{ who: 'midori', at: 'right', fx: 'bounce' }] }),
     say('midori', "Sentinels! Sorry, the flask is fizzing! It does that when it's happy! I'm {name:midori}, alchemy lab!"),
     say('midori', 'The marsh plants have started walking! Fascinating! And slightly alarming! Mostly fascinating!', { face: 'sparkle' }),
     say('yuki', 'Everything she brews is labelled "probably safe." That is the problem.', { at: 'left', fx: 'slide-in' }),
