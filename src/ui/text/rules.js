@@ -28,6 +28,37 @@ export function ruleText(id) {
   return RULE_TEXT[id] || null;
 }
 
+/** The text fields a stage skin may replace. */
+export const SKIN_FIELDS = ['name', 'short', 'desc', 'toast', 'activeWord'];
+
+/**
+ * Per-stage skins over a rule's display text (Gate Arc): a stage in another era tells a shipped rule
+ * in its own words ("Tailwind" becomes the rush hour on a Noon street), keyed by stage id:
+ * { rule, name?, short?, desc?, toast?, activeWord? }. A skin applies only to the rule it names.
+ * Display text only: the sim reads src/data/rules.js, so skins sit outside the sim id and the co-op
+ * data hash, and the numbers stay the rule's own (every number in the rule's description must appear
+ * in the skin's: tests/ui/ruleSkins.test.js). The Act 1 skins arrive with their stages.
+ */
+export const STAGE_RULE_SKINS = {};
+
+/**
+ * A stage's rule text: RULE_TEXT[ruleId] with the stage's skin over it (the icon, cycle and marks
+ * stay the rule's). `baseName` is the rule's own name when a skin renamed it.
+ * @param {{ id?: string, rule?: { id: string } }|null} stage StageDef (or a co-op / battle copy of one)
+ * @param {string|null} [ruleId] the rule in force (default: the stage's own)
+ * @param {object} [skins] skin table (tests)
+ * @returns {object|null} null when there is no rule text
+ */
+export function ruleTextFor(stage, ruleId = stage?.rule?.id ?? null, skins = STAGE_RULE_SKINS) {
+  const base = ruleId ? RULE_TEXT[ruleId] : null;
+  if (!base) return null;
+  const skin = stage?.id ? skins[stage.id] : null;
+  if (!skin || skin.rule !== ruleId) return base;
+  const out = { ...base, baseName: base.name };
+  for (const k of SKIN_FIELDS) if (skin[k] != null) out[k] = skin[k];
+  return out;
+}
+
 /** "6 s ACTIVE every 20 s" / "Always on" for a MAP_RULES entry. */
 export function ruleCycleLabel(rule) {
   if (!rule?.cycle) return 'Always on';
@@ -37,4 +68,15 @@ export function ruleCycleLabel(rule) {
 /** Does the rule draw marks on the map (vents or pads)? */
 export function ruleHasMarks(rule) {
   return !!(rule?.zones?.length || rule?.pads?.length);
+}
+
+/** The wave banner's line on a wave a lane schedule closes a lane (Gate Arc: a level crossing's barrier). */
+export const LANE_CLOSED_LINE = 'Crossing closed: long way round';
+
+/** Per-stage wording of that line (stage id → text; e.g. a checkpoint gate instead of a crossing). */
+export const STAGE_LANE_TEXT = {};
+
+/** The banner line for `stage` when a lane is closed. */
+export function laneClosedText(stage) {
+  return (stage?.id && STAGE_LANE_TEXT[stage.id]) || LANE_CLOSED_LINE;
 }
