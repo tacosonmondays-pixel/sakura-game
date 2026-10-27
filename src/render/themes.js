@@ -8,6 +8,14 @@
 //   frame        prop types cycled around the map border (fence / hedge / flower bed / rocks…)
 //   life         ambient life flags: butterflies, birds, koi, clouds, fireflies, sparkle
 //   gate         { spawn, goal } colours for the entrance / exit gates
+//
+// Gate Arc (the city, src/render/city/):
+//   spawnGate / goalGate  prop types for the entrance / exit (default spawnGate / goalGate)
+//   spawnGateInset / goalGateInset  how far those gates stand inside the board (tiles, default 0)
+//   rocks        [single, cluster] props for 'R' tiles (default rock / boulder)
+//   nightLight   this theme's own night lighting (default: the shared moonlit preset)
+//   weatherColors petal-weather particle colours (the city mixes in paper litter)
+//   city         the city kit's config: sidewalk / kerb colours, lawn, glass tints (cityKit.js)
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -297,6 +305,58 @@ export const THEMES = {
     weather: 'petals',
     bg: '#cfeaff',
   },
+  // ----- Gate Arc · Noon: Itomachi, Sensei's present-day city (src/render/city/) -------
+  // Warm and lived-in: pale paving with slab seams, asphalt streets with lane markings and
+  // kerbs, shop fronts with green and red awnings, utility poles and wires, cherry street trees,
+  // a skirt railway and the Brigade's patrol drones overhead. The Petal Gate tears open in the
+  // street (petalRift); the goal is the shelter door (shelterDoor). No map uses it before the
+  // Gate Arc's Act II stages.
+  city: {
+    ground: ['#e9e6e0', '#e1ddd5'],
+    groundSpeck: '#f4f2ee',
+    groundShade: '#c4beb3',
+    clover: '#8fbf6a',
+    wet: '#b9c3c9',
+    dirt: '#e4dbcc',
+    pebble: '#c9c0b0',
+    groundStyle: 'paved',
+    flowers: ['#7cc96a', '#5fae55', '#ffd166', '#ff9ec4'],
+    bank: '#a8a093',
+    bankDark: '#857d71',
+    shore: '#d2cabb',
+    path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#8a8d96', base: '#4b505b', crisp: true, plainJunction: true },
+    bridge: { deck: '#bdb7ac', rail: '#eef0f2', post: '#8f8a80', lacquer: false, overpass: '#cbc5ba', girder: '#7d7870', overRail: '#e9ecef', grating: false, shadow: 0.32 },
+    tunnel: { style: 'subway', top: '#d8d0c2', side: '#c4bcae', portal: '#f2efe8', dark: '#22252e', stripe: '#4f9a62', hall: '#f3e7d0', roof: '#8fa3b8', glass: '#9cc4d8' },
+    water: { deep: '#2f7fae', shallow: '#68b8d0', foam: '#eef8ff', glow: 0.02 },
+    trees: ['streetTree'],
+    scatter: ['streetTree'],
+    scatterDensity: 0.3,
+    treeColors: { leaf: '#ffb3cf', leaf2: '#ff8fb8', trunk: '#7d5240' },
+    rocks: ['bollard', 'planterBox'],
+    rock: '#a9a49a',
+    building: 'cityBlock',
+    wall: 'cityWall',
+    frame: ['guardRail', 'guardRail', 'planterBox', 'guardRail', 'bollard'],
+    detail: 'manhole',
+    detailDensity: 0.05,
+    life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
+    gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    spawnGate: 'petalRift',
+    // the rift and the shelter stand a little inside the board so the battle camera frames
+    // them whole on every aspect (the rift's ring leans back toward the board edge)
+    spawnGateInset: 1.0,
+    goalGate: 'shelterDoor',
+    goalGateInset: 0.75,
+    weather: 'petals',
+    weatherColors: ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ffffff', '#f2ead8'],
+    light: { sky: '#fff8ee', ground: '#b8ae9c', hemi: 1.05, key: '#fff0dc', keyI: 1.45, fill: '#d6e4ff', fillI: 0.34 },
+    nightLight: { sky: '#9fb2ff', ground: '#2c3150', hemi: 0.75, key: '#cdd6ff', keyI: 0.95, fill: '#ff8fd6', fillI: 0.4 },
+    bg: '#cfe1f2',
+    city: {
+      sidewalk: '#ddd3c2', kerb: '#f6f4ef', kerbSide: '#b9b0a2', lawn: '#9fcf7c', plaza: ['#efe4d2', '#e6d2bc'],
+      glass: { glassA: '#86b9d6', glassB: '#e2f1f8', warm: '#ffe6bf' },
+    },
+  },
 };
 
 /**
@@ -338,6 +398,7 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     treeColors: { ...BASE.treeColors, ...(t.treeColors || {}) },
     life: { ...BASE.life, ...(t.life || {}) },
     gate: { ...BASE.gate, ...(t.gate || {}) },
+    ...(t.city ? { city: { ...t.city } } : {}),
     theme: THEMES[themeId] ? themeId : 'sakura',
   };
   look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
@@ -347,7 +408,8 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
   look.fog = !!scenery.fog;
   look.weather = scenery.weather !== undefined ? scenery.weather : look.weather;
   if (look.night) {
-    look.light = {
+    // a theme may bring its own night (the city's warm neon night); otherwise the moonlit preset
+    look.light = t.nightLight ? { ...t.nightLight } : {
       sky: '#aebfff', ground: '#39406a', hemi: 0.8, key: '#d8e2ff', keyI: 1.15, fill: '#ffb8de', fillI: 0.35,
     };
     look.bg = themeId === 'night' ? look.bg : mixBg(look.bg, '#232c52', 0.75);

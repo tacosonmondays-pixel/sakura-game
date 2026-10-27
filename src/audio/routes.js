@@ -17,6 +17,8 @@ export const THEME_FAMILY = {
   foundry: 'ironclock',
   festival: 'matsuri',
   volcano: 'matsuri',
+  // Gate Arc · Noon (Itomachi): the blossom family until a Noon city cue is written
+  city: 'blossom',
 };
 export const FAMILIES = ['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri'];
 

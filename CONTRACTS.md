@@ -451,6 +451,10 @@ export function getMap(id)
 export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
 MapDef = {
   id, name, theme: 'sakura'|'lake'|'shrine'|'mountain'|'marsh'|'foundry'|'festival'|'volcano'|'snow'|'night'|'arena',
+        // (+ 'city', the Gate Arc's Noon city: render only so far, src/render/city/; no map uses
+        //  it until the Act II maps, which may also carry `city` render hints: { railway: { z } | false,
+        //  waterBus: { z, x0, x1 } | { x, z0, z1 }, areas: [{ type: 'plaza'|'lawn', x, y, w, h }],
+        //  spawnGate?, goalGate?, goalVariant? })
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),

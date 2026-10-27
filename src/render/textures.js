@@ -765,6 +765,62 @@ export function createAtlas(extra = []) {
     p.closePath();
   });
 
+  // City road marks (Gate Arc `city` theme; drawn on the ground batches by AmbientSystem.drawMarks).
+  // zebra: five bars along v (the quad's u runs across the road); stopLine: one bar;
+  // junctionBox: a square outline with a cross; cracks: a burst of jagged cracks round a hole.
+  add('zebra', 64, 32, (ctx, w, h) => {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 5; i++) ctx.fillRect(Math.round(i * (w / 5) + w * 0.03), 1, Math.round(w / 5 - w * 0.08), h - 2);
+  });
+  add('stopLine', 32, 8, (ctx, w, h) => {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(1, 1, w - 2, h - 2);
+  });
+  add('junctionBox', 64, 64, (ctx, w, h) => {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(3, 3, w - 6, h - 6);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(4, 4);
+    ctx.lineTo(w - 4, h - 4);
+    ctx.moveTo(w - 4, 4);
+    ctx.lineTo(4, h - 4);
+    ctx.stroke();
+  });
+  add('cracks', 96, 96, (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    let seed = 7;
+    const rr = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    ctx.strokeStyle = '#fff';
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 9; k++) {
+      let a = (k / 9) * Math.PI * 2 + rr() * 0.5;
+      let x = cx + Math.cos(a) * w * 0.08;
+      let y = cy + Math.sin(a) * h * 0.08;
+      ctx.lineWidth = k % 2 ? 2 : 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      const segs = 3 + Math.floor(rr() * 3);
+      for (let s = 0; s < segs; s++) {
+        a += (rr() - 0.5) * 0.9;
+        const len = w * (0.07 + rr() * 0.06);
+        x += Math.cos(a) * len;
+        y += Math.sin(a) * len;
+        ctx.lineTo(Math.max(2, Math.min(w - 2, x)), Math.max(2, Math.min(h - 2, y)));
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, w * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
   // Glyphs: bold white with a navy outline (tint multiplies the fill; outline stays dark).
   const glyphW = 40;
   const glyphH = 56;
@@ -916,6 +972,9 @@ const GROUND_STYLES = {
   snow: { mottle: 0.22, patch: 0.7, cloverScale: 0.45, cloverAmt: 0.55, flowers: 0.15, wet: 0 },
   ash: { mottle: 0.3, patch: 1.0, cloverScale: 0.5, cloverAmt: 0.5, flowers: 0.1, wet: 0, cracks: 1 },
   metal: { mottle: 0.2, patch: 1.2, cloverScale: 0.7, cloverAmt: 0.45, flowers: 0.05, wet: 0.3, plates: 1 },
+  // the city (Gate Arc): warm paving slabs (half-tile seams), a painted sidewalk with a kerb along
+  // every road instead of worn dirt and pebbles, no clover or flower drifts on plain tiles
+  paved: { mottle: 0.16, patch: 1.0, patchAmt: 0.35, cloverScale: 0.5, cloverAmt: 0, flowers: 0, wet: 0.05, slabs: 1, kerb: 1 },
 };
 
 /**
@@ -935,6 +994,8 @@ const GROUND_STYLES = {
  * @param {number[][][]} o.roads road centrelines in world coords, [[x, z], ...] per road
  * @param {number} [o.px=32] pixels per tile
  * @param {number} [o.seed=1]
+ * @param {(g: CanvasRenderingContext2D, toPx: Function, px: number, rnd: Function) => void} [o.extra]
+ *   a theme painter run last (the city kit paints verges and plazas: src/render/city/cityGround.js)
  * @returns {{ texture: THREE.CanvasTexture, canvas: HTMLCanvasElement }}
  */
 export function paintGround(o) {
@@ -971,8 +1032,9 @@ export function paintGround(o) {
       const n2 = noise.fbm(wx * style.patch + 50, wz * style.patch + 50, 2);
       const n3 = noise.at(wx * 5.3 + 11, wz * 5.3 + 7);
       let col = mix3(cA, cB, n1);
-      col = mix3(col, cLight, Math.max(0, n2 - 0.52) * 1.5);
-      col = mix3(col, cShade, Math.max(0, 0.46 - n2) * 1.4);
+      const pk = style.patchAmt ?? 1;
+      col = mix3(col, cLight, Math.max(0, n2 - 0.52) * 1.5 * pk);
+      col = mix3(col, cShade, Math.max(0, 0.46 - n2) * 1.4 * pk);
       const grain = 0.95 + n3 * 0.1;
       col = [col[0] * grain, col[1] * grain, col[2] * grain];
       if (style.cloverAmt > 0) {
@@ -991,6 +1053,15 @@ export function paintGround(o) {
         const heat = noise.at(wx * 0.5 + 900, wz * 0.5 + 900);
         col = mix3(col, heat > 0.5 ? cCrackHot : cCrack, glow * 0.95);
         col = mix3(col, cShade, smooth(0.12, 0.04, d) * 0.5 * (1 - glow));
+      }
+      if (style.slabs) {
+        // paving slabs: a faint seam grid every half tile, a lighter slab here and there
+        const gx = Math.abs(((wx * 2 + 1) % 2) - 1);
+        const gz = Math.abs(((wz * 2 + 1) % 2) - 1);
+        const seam = 1 - smooth(0.0, 0.06, Math.min(gx, gz));
+        col = mix3(col, cShade, seam * 0.75);
+        const slab = noise.at(Math.floor(wx * 2) * 3.1 + 900, Math.floor(wz * 2) * 3.1 + 900);
+        col = mix3(col, cLight, smooth(0.7, 0.85, slab) * 0.45);
       }
       if (style.plates) {
         // concrete slabs: a faint seam grid every 2 tiles with rust bleeding along it
@@ -1058,15 +1129,64 @@ export function paintGround(o) {
         wg.stroke();
       }
     };
-    stroke(px * 2.3, look.dirt || '#b89a6a', 0.55);
-    g.drawImage(blurCanvas(wear, px * 0.5), 0, 0);
-    wg.clearRect(0, 0, W, H);
-    stroke(px * 1.55, look.dirt || '#b89a6a', 0.5);
-    g.drawImage(blurCanvas(wear, px * 0.18), 0, 0);
+    if (style.kerb) {
+      // a crisp painted sidewalk (1.68 tiles wide: the city kit's raised kerbs sit on it), slab
+      // joints across it every half tile, a pale kerb line along the road edge
+      const crisp = (lineW, color) => {
+        g.lineCap = 'round';
+        g.lineJoin = 'round';
+        g.strokeStyle = color;
+        g.lineWidth = lineW;
+        for (const road of roads) {
+          g.beginPath();
+          road.forEach(([x, z], i) => {
+            const [sx, sy] = toPx(x, z);
+            if (i === 0) g.moveTo(sx, sy);
+            else g.lineTo(sx, sy);
+          });
+          g.stroke();
+        }
+      };
+      const walk = look.city?.sidewalk || look.dirt || '#e2d8c8';
+      crisp(px * 1.68, walk);
+      g.strokeStyle = darken(walk, 0.86);
+      g.lineWidth = Math.max(1, px * 0.03);
+      for (const road of roads) {
+        let acc = 0;
+        for (let i = 1; i < road.length; i++) {
+          const [ax, az] = road[i - 1];
+          const [bx, bz] = road[i];
+          const len = Math.hypot(bx - ax, bz - az);
+          if (len < 1e-4) continue;
+          acc += len;
+          if (acc < 0.5) continue;
+          acc -= 0.5;
+          const nx = -(bz - az) / len;
+          const nz = (bx - ax) / len;
+          const [p0x, p0y] = toPx(bx + nx * 0.5, bz + nz * 0.5);
+          const [p1x, p1y] = toPx(bx + nx * 0.84, bz + nz * 0.84);
+          const [q0x, q0y] = toPx(bx - nx * 0.5, bz - nz * 0.5);
+          const [q1x, q1y] = toPx(bx - nx * 0.84, bz - nz * 0.84);
+          g.beginPath();
+          g.moveTo(p0x, p0y);
+          g.lineTo(p1x, p1y);
+          g.moveTo(q0x, q0y);
+          g.lineTo(q1x, q1y);
+          g.stroke();
+        }
+      }
+      crisp(px * 1.1, look.city?.kerb || '#f4f1ea');
+    } else {
+      stroke(px * 2.3, look.dirt || '#b89a6a', 0.55);
+      g.drawImage(blurCanvas(wear, px * 0.5), 0, 0);
+      wg.clearRect(0, 0, W, H);
+      stroke(px * 1.55, look.dirt || '#b89a6a', 0.5);
+      g.drawImage(blurCanvas(wear, px * 0.18), 0, 0);
+    }
     // slab base (the ribbon mesh bevels down onto this)
     g.lineCap = 'round';
     g.lineJoin = 'round';
-    g.strokeStyle = darken(look.path.color, 0.86);
+    g.strokeStyle = look.path.base || darken(look.path.color, 0.86);
     g.lineWidth = px * 0.98;
     for (const road of roads) {
       g.beginPath();
@@ -1080,7 +1200,7 @@ export function paintGround(o) {
     // pebbles along both edges
     const pebble = look.pebble || '#b8b0a4';
     const pebbleDark = darken(pebble, 0.78);
-    for (const road of roads) {
+    for (const road of style.kerb ? [] : roads) {
       let acc = 0;
       for (let i = 1; i < road.length; i++) {
         const [ax, az] = road[i - 1];
@@ -1214,6 +1334,9 @@ export function paintGround(o) {
     }
   }
 
+  // --- 5. a theme painter on top (city kit: verges and plazas) ----------------------------
+  if (o.extra) o.extra(g, toPx, px, rnd);
+
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -1241,7 +1364,7 @@ function makeRnd(seed) {
 
 /**
  * Tileable greyscale detail (around 1.0, multiplies the painted ground). One repeat = 1 tile.
- * style: grass | moss | sand | snow | ash | metal
+ * style: grass | moss | sand | snow | ash | metal | paved
  */
 export function detailTexture(style = 'grass', seed = 7) {
   const size = 256;
@@ -1337,6 +1460,25 @@ export function detailTexture(style = 'grass', seed = 7) {
       g.fillStyle = `rgba(${v},${v},${v},0.35)`;
       g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
     }
+  } else if (style === 'paved') {
+    // fine concrete speckle and a few faint stains
+    for (let i = 0; i < 900; i++) {
+      const v = rnd() > 0.5 ? 255 : 196;
+      g.fillStyle = `rgba(${v},${v},${v},${0.18 + rnd() * 0.22})`;
+      g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
+    }
+    for (let i = 0; i < 4; i++) {
+      const x = rnd() * size;
+      const y = rnd() * size;
+      const r = 10 + rnd() * 18;
+      wrapDraw(() => {
+        const gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, 'rgba(200,200,200,0.25)');
+        gr.addColorStop(1, 'rgba(200,200,200,0)');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, size, size);
+      });
+    }
   } else if (style === 'metal') {
     g.strokeStyle = 'rgba(255,255,255,0.22)';
     g.lineWidth = 1;
@@ -1368,7 +1510,7 @@ export function grassTexture(seed = 7) {
 /**
  * Tileable road surface (greyscale around 1.0, tinted by vertex colour). u runs along the
  * road, v across it; one repeat = 1 tile of road.
- * style: flagstone | cobble | planks | metal | dirt | brick | sand
+ * style: flagstone | cobble | planks | metal | dirt | brick | sand | asphalt (coloured: the city)
  */
 export function pathTexture(style = 'flagstone', seed = 3) {
   const size = 256;
@@ -1419,6 +1561,30 @@ export function pathTexture(style = 'flagstone', seed = 3) {
         wrap(() => stoneShape(cx, cy, size / cols * 0.5, size / rows * 0.46, rnd(), v));
       }
     }
+  } else if (style === 'asphalt') {
+    // the city road (Gate Arc): this style carries its own colour, so the theme sets path.color
+    // to white. Values are LINEAR (the road texture has no colour space). u runs along the road
+    // (one repeat per tile), v across it: white edge lines, a dashed white centre line (half a
+    // tile on, half off), aggregate speck and a few patched squares. The band v 0.2-0.4 is left
+    // plain for flat junction boxes (terrain.js buildRibbon `plain`).
+    const base = [62, 64, 72];
+    g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
+    g.fillRect(0, 0, size, size);
+    for (let i = 0; i < 1500; i++) {
+      const k = rnd() > 0.5 ? 1.2 : 0.82;
+      g.fillStyle = `rgba(${Math.round(base[0] * k)},${Math.round(base[1] * k)},${Math.round(base[2] * k)},0.7)`;
+      g.fillRect(rnd() * size, rnd() * size, 2, 2);
+    }
+    for (let i = 0; i < 2; i++) {
+      const k = 0.9 + rnd() * 0.08;
+      g.fillStyle = `rgb(${Math.round(base[0] * k)},${Math.round(base[1] * k)},${Math.round(base[2] * k)})`;
+      g.fillRect(rnd() * size * 0.7, size * (0.15 + rnd() * 0.5), 30 + rnd() * 40, 18 + rnd() * 20);
+    }
+    g.fillStyle = 'rgb(226,226,220)';
+    g.fillRect(0, size * 0.065, size, size * 0.035);
+    g.fillRect(0, size * 0.9, size, size * 0.035);
+    g.fillRect(size * 0.04, size * 0.48, size * 0.46, size * 0.04);
+    return finishTileTex(c);
   } else if (style === 'cobble') {
     g.fillStyle = 'rgb(150,150,150)';
     g.fillRect(0, 0, size, size);

@@ -18,6 +18,9 @@ import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
+import { buildCity, cityBuildingFor, cityWallVariant } from './city/cityKit.js';
+import { cityGroundPainter } from './city/cityGround.js';
+import { createFacadeMaterial } from './city/cityMaterials.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
 export const PATH_H = 0.05;
@@ -149,6 +152,21 @@ export const SCENERY = {
   moonPond: { ambient: 'moon' },
   prismSparkles: { ambient: 'sparkles' },
   featherDrifts: { ambient: 'feathers' },
+  // the city kit (Gate Arc, Noon `city` theme): street furniture beside the roads and in the skirt
+  streetLamps: { prop: 'streetLamp', slot: 'pathside', n: 6 },
+  trafficLights: { prop: 'trafficLight', slot: 'pathside', n: 3 },
+  vendingMachines: { prop: 'vendingMachine', slot: 'grass', alt: 'skirt', n: 3, face: true },
+  busStops: { prop: 'busStop', slot: 'pathside', n: 2 },
+  parkedCars: { prop: 'parkedCar', slot: 'skirt', n: 5 },
+  roadWorks: { prop: 'roadCone', slot: 'pathside', n: 5, s: 0.9 },
+  streetBits: { prop: 'trashBin', slot: 'grass', n: 4, s: 0.9 },
+  mailboxes: { prop: 'mailbox', slot: 'grass', n: 2 },
+  bikeRacks: { prop: 'bikeRack', slot: 'grass', alt: 'skirt', n: 2, face: true },
+  powerLines: { prop: 'powerPole', slot: 'skirt', n: 4 },
+  strays: { prop: 'pigeonGroup', slot: 'grass', n: 3 },
+  laundry: { prop: 'laundryLine', slot: 'skirt', n: 3, face: true },
+  billboards: { prop: 'billboard', slot: 'skirt', n: 3, face: true },
+  missingPosters: { prop: 'missingPoster', slot: 'grass', n: 2, face: true },
 };
 
 /** Trait / family → keyword that dresses the stage when that enemy is introduced. */
@@ -284,6 +302,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const px = quality === 'low' ? 20 : quality === 'medium' ? 26 : 32;
   const painted = paintGround({
     look, x0: X0, y0: Y0, w: EW, h: EH, charAt, isPath, isWater, roads, px, seed: hash(map.id, 'paint') % 100000,
+    // the city kit paints planted verges and plazas on top (src/render/city/cityGround.js)
+    extra: look.city ? cityGroundPainter(map, look, charAt, isPath) : null,
   });
   disposables.push(painted.texture);
   const groundGeo = new THREE.PlaneGeometry(EW, EH, EW, EH);
@@ -334,6 +354,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     buildRibbon(road, r.pts, {
       half: ROAD_HALF, bevel: ROAD_BEVEL, h: PATH_H + ri * 0.004, seed: hash(map.id, 'road', ri),
       elev: r.elev, lift: r.lift, noSide: r.noSide,
+      // city roads: crisp edges, and a plain junction box where a flat crossing's later pass is lifted
+      wobble: look.path.crisp ? 0 : 1,
+      plain: look.path.plainJunction ? (i) => r.lift[i] > 0 : null,
       skip: (i) => r.tunnel[i] || decks.waterSections.has(`${r.index}:${i}`),
       colorTop: (x, z, s) => fade(tmp.copy(cPath).multiplyScalar(0.97 + 0.03 * Math.sin(s * 1.3 + ri)).clone(), x, z),
       colorSide: (x, z, e) => fade(tmp.copy(e > 0.05 ? cBridgeSide : cPathSide).clone(), x, z),
@@ -396,6 +419,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const solidParts = [];
   const foliageParts = [];
   const glowParts = [];
+  // city kit buildings (shader windows): merged into one facade mesh (src/render/city/)
+  const facadeParts = [];
   const occupied = new Set(); // tiles with a prop (outside slots avoid them)
   const m4 = new THREE.Matrix4();
   const v3 = new THREE.Vector3();
@@ -405,6 +430,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   mats.foliage = createFoliageMaterial();
   mats.glow = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   disposables.push(mats.solid, mats.foliage, mats.glow);
+  // city buildings: one opaque facade material (shader windows), shared with the kit's movers
+  mats.facade = look.city ? createFacadeMaterial({ ...(look.city.glass || {}), night: look.night }) : null;
+  if (mats.facade) disposables.push(mats.facade);
   const place = (type, x, y, z, ry = 0, s = 1, variant = 0, target = null, lod = 'near') => {
     if (!hasProp(type) && type !== 'puddle') return;
     if (type === 'puddle') {
@@ -422,8 +450,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     if (target) {
       // separate object (water set pieces that hide under water girls)
       const sub = new THREE.Group();
-      for (const [src, mat] of [[p.solid, 'solid'], [p.foliage, 'foliage'], [p.glow, 'glow']]) {
-        if (!src) continue;
+      for (const [src, mat] of [[p.solid, 'solid'], [p.foliage, 'foliage'], [p.glow, 'glow'], [p.facade, 'facade']]) {
+        if (!src || !mats[mat]) continue;
         const mesh = new THREE.Mesh(src, mats[mat]);
         mesh.castShadow = shadows && mat !== 'glow';
         sub.add(mesh);
@@ -437,14 +465,15 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       push(p.solid, solidParts);
       push(p.foliage, foliageParts);
       push(p.glow, glowParts);
+      push(p.facade, facadeParts);
     }
     for (const gl of p.glows) {
       v3.set(gl.x, gl.y, gl.z).applyMatrix4(m4);
-      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null });
+      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}) });
     }
     for (const em of p.emitters) {
       v3.set(em.x, em.y, em.z).applyMatrix4(m4);
-      emitters.push({ kind: em.kind, x: v3.x, y: v3.y, z: v3.z, color: em.color, owner: target ? target[target.length - 1] : null });
+      emitters.push({ kind: em.kind, x: v3.x, y: v3.y, z: v3.z, color: em.color, owner: target ? target[target.length - 1] : null, ...(em.r ? { r: em.r * s } : {}) });
     }
   };
 
@@ -498,7 +527,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       } else if (c === 'R') {
         let n = 0;
         for (const [dx, dy] of DIRS) if (inMap(x + dx, y + dy) && rows[y + dy][x + dx] === 'R') n++;
-        place(n >= 2 ? 'boulder' : 'rock', cx, 0, cz, r01 * 6.28, 1, h % 5);
+        const rocks = look.rocks || ['rock', 'boulder'];
+        place(n >= 2 ? rocks[1] : rocks[0], cx, 0, cz, r01 * 6.28, 1, h % 5);
         occupied.add(key);
       } else if (c === 'H' && tunnels.hallTiles.has(key)) {
         occupied.add(key);
@@ -506,7 +536,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
         if (border) {
           const alongX = y === 0 || y === H - 1;
-          place(look.wall, cx, 0, cz, alongX ? (y === 0 ? Math.PI : 0) : (x === 0 ? Math.PI / 2 : -Math.PI / 2), 1, h % 4);
+          place(look.wall, cx, 0, cz, alongX ? (y === 0 ? Math.PI : 0) : (x === 0 ? Math.PI / 2 : -Math.PI / 2), 1, look.city ? cityWallVariant(map, x, y) : h % 4);
+        } else if (look.city) {
+          // the city kit picks the building: shops on the street, homes and offices behind
+          const b = cityBuildingFor(map, x, y, isPath);
+          place(b.type, cx, 0, cz, facePath(x, y), 1, b.variant);
         } else {
           place(look.building, cx, 0, cz, facePath(x, y), 1, h % 3);
         }
@@ -521,7 +555,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
   if (decks.shadow) {
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: look.bridge.shadow ?? 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    // the city keeps every terrain mesh out of the sorted transparent pass (phone budget): its
+    // overpass shadow multiplies the frame buffer instead (the same darkening as black at the
+    // same opacity), drawn right after the ground in the opaque pass
+    const shadowMat = look.city ? createMultiplyMaterial(1 - (look.bridge.shadow ?? 0.36))
+      : new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: look.bridge.shadow ?? 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     disposables.push(shadowMat);
     const m = addMesh(decks.shadow, shadowMat, { name: 'overpassShadow', receive: false });
     m.renderOrder = 2;
@@ -588,16 +626,32 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   };
   for (const e of entrances) {
     const gi = gateInfo(e, false);
+    // a big spawn gate (the city's rift) may stand a little inside the board so the camera frames it
+    const inset = look.spawnGateInset || 0;
+    gi.x += gi.dir[0] * inset;
+    gi.z += gi.dir[1] * inset;
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
-    const type = scenery.keywords?.includes('torii') ? 'toriiGate' : 'spawnGate';
+    const type = scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
     place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, 0);
     gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
+    const outset = look.goalGateInset || 0;
+    gi.x -= gi.dir[0] * outset;
+    gi.z -= gi.dir[1] * outset;
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
-    place('goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, 0);
+    place(map.city?.goalGate || look.goalGate || 'goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, map.city?.goalVariant ?? 0);
     gates.push({ kind: 'goal', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.goal });
+  }
+
+  // ----- the city kit: kerbs, crossings, street furniture, skyline, railway, movers --------
+  const city = look.city ? buildCity({
+    map, look, plan, isPath, isWater, occupied, gates, portals: tunnels.portals, place, facadeParts, quality, margin: MARGIN, facadeMaterial: mats.facade,
+  }) : null;
+  if (city) {
+    for (const m of city.meshes) group.add(m);
+    for (const gl of city.glows) glows.push(gl);
   }
 
   // ----- outside scatter (frames the board) ------------------------------------------
@@ -659,6 +713,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       for (const spot of list) {
         if (n >= rec.n) break;
         if (spot.used) continue;
+        if (city && city.furniture.some(([fx, fz]) => Math.hypot(fx - spot.x, fz - spot.z) < 0.75)) continue;
         spot.used = true;
         for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
         const s = (rec.s ?? 1) * (spot.s ?? 1);
@@ -745,7 +800,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   if (puddles.length) {
     const pb = new MeshData(false);
     for (const p of puddles) pb.disc(p.x, 0.012, p.z, 0.28 * p.s, new THREE.Color(p.color));
-    const pm = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.42, depthWrite: false });
+    // (city: opaque, the colour pre-mixed with the paving, so nothing joins the sorted pass)
+    if (look.city) for (const p of puddles) p.color = mixHexColor(look.ground[0], p.color, 0.42);
+    const pm = look.city ? new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
+      : new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.42, depthWrite: false });
     disposables.push(pm);
     addMesh(pb.build(0), pm, { name: 'puddles', receive: false });
   }
@@ -758,19 +816,31 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   addMesh(solidGeo, mats.solid, { cast: true, name: 'props' });
   addMesh(foliageGeo, mats.foliage, { cast: true, name: 'foliage' });
   addMesh(glowGeo, mats.glow, { receive: false, name: 'glowProps' });
+  if (facadeParts.length) {
+    const facadeGeo = mergeGeometries(facadeParts);
+    for (const g of facadeParts) g.dispose();
+    let facadeMat = mats.facade;
+    if (!facadeMat) {
+      // (a city prop on a non-city theme: a facade material of its own)
+      facadeMat = createFacadeMaterial({});
+      disposables.push(facadeMat);
+    }
+    addMesh(facadeGeo, facadeMat, { cast: true, name: 'cityFacade' });
+  }
 
   // ----- per-frame update ----------------------------------------------------------------
   const update = (time) => {
     mats.foliage.userData.uTime.value = time;
     if (waterMat) waterMat.uniforms.uTime.value = time;
     if (lavaMat) lavaMat.uniforms.uTime.value = time;
+    city?.update(time);
   };
 
   const setShadows = (on) => {
     group.traverse((o) => {
       if (!o.isMesh) return;
-      o.receiveShadow = on && o.name !== 'water' && o.name !== 'glowProps' && o.name !== 'lava';
-      o.castShadow = on && (o.name === 'props' || o.name === 'foliage' || o.parent !== group);
+      o.receiveShadow = on && o.name !== 'water' && o.name !== 'glowProps' && o.name !== 'lava' && o.name !== 'cityDrones';
+      o.castShadow = on && (o.name === 'props' || o.name === 'foliage' || o.name === 'cityFacade' || o.name === 'cityTrain' || o.parent !== group);
     });
   };
 
@@ -789,8 +859,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     exits,
     /** Gate markers (1 tile outside the board): { kind: 'spawn'|'goal', x, z, dir, color }. */
     gates,
-    /** Painted ground marks drawn by the ambient batches: rune circles, junction chevrons. */
-    marks: features.marks,
+    /** Painted ground marks drawn by the ambient batches: rune circles, junction chevrons, city crossings. */
+    marks: city ? [...features.marks, ...city.marks] : features.marks,
+    /** City kit layout counts (null on other themes). */
+    city: city ? city.stats : null,
     /** Road centreline pieces in world coords (the canonical tracks, run out past the board, tunnels cut out). */
     roads,
     /** Drawing plan per track (points, elevation, tunnel flags) and tunnel portals. */
@@ -804,6 +876,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     waterMaterial: waterMat,
     dispose() {
       for (const d of disposables) d.dispose?.();
+      city?.dispose();
       group.clear();
     },
   };
@@ -841,13 +914,16 @@ function valueNoise(x, y, seed) {
  * @param {object} o { half, bevel, h, seed, colorTop(x,z,s), colorSide(x,z,elev),
  *   elev?: number[] (overpass height per point), lift?: number[] (flat-junction lift, 0/1),
  *   noSide?: boolean[] (no bevels: the upper pass of a flat junction),
- *   skip?(i) (section i-1→i not drawn: tunnels, plank decks), skipAt?(x,z) (legacy) }
+ *   skip?(i) (section i-1→i not drawn: tunnels, plank decks), skipAt?(x,z) (legacy),
+ *   wobble?: number (edge waviness, 1 = default, 0 = crisp city kerbs), plain?(i) (top uses the
+ *   texture's plain band: a city junction box) }
  */
 export function buildRibbon(md, pts, o) {
   if (pts.length < 2) return;
   const r = makeRand(o.seed || 1);
   const ph = [r() * 6.28, r() * 6.28, r() * 6.28, r() * 6.28];
-  const wob = (s, k) => 0.03 * Math.sin(s * 1.9 + ph[k]) + 0.022 * Math.sin(s * 4.1 + ph[k + 2]);
+  const wk = o.wobble ?? 1;
+  const wob = (s, k) => wk * (0.03 * Math.sin(s * 1.9 + ph[k]) + 0.022 * Math.sin(s * 4.1 + ph[k + 2]));
   const up = [0, 1, 0];
   const sections = [];
   let s = 0;
@@ -894,6 +970,9 @@ export function buildRibbon(md, pts, o) {
     const B = sections[i];
     if (o.skip && o.skip(i)) continue;
     if (o.skipAt && (o.skipAt((A.x + B.x) / 2, (A.z + B.z) / 2))) continue;
+    // a plain section (a flat junction's box): the top samples a band of the road texture
+    // without lines (asphalt: v 0.2-0.4)
+    const plain = o.plain && (o.plain(i) || o.plain(i - 1));
     for (let k = 0; k < 3; k++) {
       if (k !== 1 && (A.noSide || B.noSide)) continue;
       const a0 = A.v[k];
@@ -901,8 +980,9 @@ export function buildRibbon(md, pts, o) {
       const b0 = B.v[k];
       const b1 = B.v[k + 1];
       const n = k === 1 ? up : k === 0 ? A.sideL : A.sideR;
-      md.triUV(a0.p, b0.p, b1.p, n, a0.c, b0.c, b1.c, a0.uv, b0.uv, b1.uv);
-      md.triUV(a0.p, b1.p, a1.p, n, a0.c, b1.c, a1.c, a0.uv, b1.uv, a1.uv);
+      const uv = (q) => (plain && k === 1 ? [q.uv[0], 0.22 + q.uv[1] * 0.16] : q.uv);
+      md.triUV(a0.p, b0.p, b1.p, n, a0.c, b0.c, b1.c, uv(a0), uv(b0), uv(b1));
+      md.triUV(a0.p, b1.p, a1.p, n, a0.c, b1.c, a1.c, uv(a0), uv(b1), uv(a1));
     }
   }
 }
@@ -1177,4 +1257,30 @@ function createLavaMaterial(mask, rect) {
   });
   mat.uniforms.uMask.value = mask;
   return mat;
+}
+
+/**
+ * An opaque-pass material that multiplies what is already drawn by `k` (0..1): the same
+ * darkening as black at opacity 1 − k with normal blending, in whatever space the frame buffer is,
+ * without joining the sorted transparent pass. Drawn after the ground (renderOrder 2).
+ */
+function createMultiplyMaterial(k) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uK: { value: k } },
+    vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uK; void main() { gl_FragColor = vec4(vec3(uK), 1.0); }',
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.ZeroFactor,
+    blendDst: THREE.SrcColorFactor,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+}
+
+/** '#rrggbb' mixed toward another by t. */
+function mixHexColor(a, b, t) {
+  return `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
 }

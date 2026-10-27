@@ -19,6 +19,8 @@ export const MAP_THEMES = {
   snow: { ground: '#eef6fb', alt: '#e3eef6', edge: '#a9c2d6', path: '#d7e0ea', pathEdge: '#8ea4ba', water: '#8fd0f5', tree: '#3f7d5c', treeDark: '#24563a', rock: '#a7b4c2', roof: '#5c7cfa', wall: '#ffffff', flower: ['#a5d8ff', '#fff', '#d0ebff'], voidc: '#4a5a6a', snowy: true },
   night: { ground: '#4a6b8a', alt: '#45647f', edge: '#2c4560', path: '#c7d2e2', pathEdge: '#7f8fa6', water: '#2f6db0', tree: '#2f5d62', treeDark: '#1c3c40', rock: '#6c7a89', roof: '#7b3fd4', wall: '#d9d4f0', flower: ['#ffe066', '#c0eb75', '#b197fc'], voidc: '#151a2a' },
   arena: { ground: '#e3cfa0', alt: '#d9c494', edge: '#a88c5c', path: '#f7ead0', pathEdge: '#b08960', water: '#4cc9f0', tree: '#5f9e3f', treeDark: '#3d6e28', rock: '#b0a08a', roof: '#c1121f', wall: '#f4e9d8', flower: ['#ffd166', '#fff', '#ff8fab'], voidc: '#3a2f22' },
+  // Gate Arc · Noon: Itomachi's paving, dark asphalt with a pale line, canals, cherry street trees, warm roofs
+  city: { ground: '#e3d9c9', alt: '#dbd0bf', edge: '#a99e8c', path: '#5a5f6a', pathEdge: '#f4f1ea', water: '#3f8fbc', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#9aa3ae', roof: '#4f9a62', wall: '#f3e7d0', flower: ['#7cc96a', '#ffd166', '#ff9ec4'], voidc: '#2e3138' },
 };
 
 const DECOR_COLORS = {
@@ -27,6 +29,10 @@ const DECOR_COLORS = {
   campfire: '#ff7b25', banner: '#ff5d73', flag: '#ff5d73', stall: '#ff8fab', taiko: '#9c2f2f', boat: '#a47148',
   pier: '#a47148', waterwheel: '#8d6e63', statue: '#c0c7d6', bones: '#f1ece2', chimney: '#6c757d', gearTower: '#adb5bd',
   vent: '#ff9f1c', crane: '#ffb703', nest: '#a47148', bookshelf: '#8d6e63', candle: '#ffe066', bench: '#a47148', signpost: '#a47148',
+  // the city kit's set pieces (Gate Arc)
+  stationHall: '#f3e7d0', ticketGates: '#9aa3ae', clockTower: '#b8674e', levelCrossing: '#ffd84d', waterBus: '#f7f4ee',
+  lockGate: '#7a5a40', arcadeRibs: '#9aa3ae', roofBlock: '#dcc29c', busStop: '#4f9a62', vendingMachine: '#e8473f',
+  missingPoster: '#f7f4ee', bunSteamer: '#c9b08a', streetTree: '#ffb3cf',
 };
 
 function treeSym(x, y, t, th) {

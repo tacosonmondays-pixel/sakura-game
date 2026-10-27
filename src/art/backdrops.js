@@ -213,6 +213,7 @@ const THEME_SKY = {
   sakura: ['#9fd8ff', '#ffe3ef'], lake: ['#5b7ccf', '#f6c6d8'], shrine: ['#ffcf9f', '#ffe9c7'], mountain: ['#7ec8ff', '#e6f6ff'],
   marsh: ['#7f9f8a', '#d9e8c7'], foundry: ['#6c7a89', '#d6c7a8'], festival: ['#2b2a5c', '#ff9eb5'], volcano: ['#3a1c2a', '#ff8a4d'],
   snow: ['#a9d6ff', '#f4fbff'], night: ['#0f1d3d', '#3d5a9a'], arena: ['#7cc4ff', '#ffe8b8'],
+  city: ['#8ec5ec', '#fde9d6'],
 };
 
 /** Banner scene for a chapter / map theme (2.75:1). */
@@ -308,6 +309,31 @@ export function themeBackdropSVG(theme) {
       for (const x of [140, 960]) s += `<path d="M${x} 210v-90" stroke="#5c4a32" stroke-width="5"/><path d="M${x} 120h50l-12 14 12 14h-50z" fill="#ff5d73"/>`;
       s += `<rect y="340" width="${W}" height="60" fill="#f2e2bb"/>`;
       break;
+    case 'city': {
+      // Itomachi by day: a warm skyline (offices, flats, a clock tower), utility poles and wires,
+      // a row of shop awnings and the dark street in front
+      s += cloud(240, 80, 1) + cloud(820, 60, 0.8);
+      let x = 0;
+      while (x < W) {
+        const w = 60 + rnd() * 70;
+        const h = 90 + rnd() * 150;
+        const c = ['#d9c7aa', '#c9b79c', '#e6d6bc', '#b8674e', '#cfd8e0'][Math.floor(rnd() * 5)];
+        s += `<rect x="${n(x)}" y="${n(300 - h)}" width="${n(w)}" height="${n(h + 20)}" fill="${c}"/>`;
+        for (let wy = 300 - h + 14; wy < 290; wy += 22) s += `<rect x="${n(x + 8)}" y="${n(wy)}" width="${n(w - 16)}" height="8" fill="#9cc4d8" opacity="0.75"/>`;
+        x += w + 4 + rnd() * 10;
+      }
+      s += '<rect x="520" y="90" width="44" height="220" fill="#b8674e"/><path d="M510 90h64l-32-40z" fill="#5f646c"/><circle cx="542" cy="120" r="16" fill="#f7f4ee" stroke="#34405e" stroke-width="3"/>';
+      s += `<rect y="300" width="${W}" height="100" fill="#ece2d2"/>`;
+      for (let i = 0; i < 8; i++) {
+        const sx = 20 + i * 136;
+        s += `<rect x="${sx}" y="250" width="120" height="60" fill="#f3e7d0"/><path d="M${sx - 4} 262h128l-10 18H${sx + 6}z" fill="${['#4f9a62', '#d9604a', '#3d6a9a', '#e3b04a'][i % 4]}"/><rect x="${sx + 14}" y="284" width="92" height="22" fill="#9cc4d8"/>`;
+      }
+      for (const px of [90, 430, 770, 1060]) s += `<rect x="${px - 4}" y="140" width="8" height="200" fill="#cbc4b8"/><rect x="${px - 24}" y="150" width="48" height="6" fill="#8f887c"/>`;
+      s += '<path d="M0 156Q260 176 430 156T770 156T1100 156" stroke="#45424a" stroke-width="2" fill="none"/><path d="M0 162Q260 184 430 162T770 162T1100 162" stroke="#45424a" stroke-width="2" fill="none"/>';
+      s += `<rect y="340" width="${W}" height="60" fill="#4b505b"/><path d="M0 370H1100" stroke="#f4f1ea" stroke-width="5" stroke-dasharray="40 30"/>`;
+      s += sakuraTree(150, 340, 0.9) + sakuraTree(980, 345, 1.0) + petals(rnd, W, H, 18);
+      break;
+    }
     default:
       break;
   }
