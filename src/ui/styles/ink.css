@@ -844,8 +844,9 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
   :is(.ui-day, .ui-night) .topbar-back { width: 40px; height: 40px; padding: 9px; }
   :is(.ui-day, .ui-night) .topbar-icon { height: 44px; padding: 10px 13px; }
 }
-/* the wallets (components.js currencyPills, src/ui/wallets.js): a line glyph and the number, split by slanted slashes;
-   "+" a hairline square (Q3: only the currencies the screen spends) */
+/* the wallets (components.js currencyPills, src/ui/wallets.js): the icon and the number, split by slanted slashes;
+   "+" a hairline square (Q3: only the currencies the screen spends). Coins and gems wear their colour art (kit.js
+   curArt, components.css .ui-cur-art; owner, Oct 27), tickets their line glyph. */
 :is(.ui-day, .ui-night) .topbar .cur-pills { gap: 12px; }
 :is(.ui-day, .ui-night) .cur-pills > .cur-pill {
   transform: none; gap: 6px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--on-ink);
@@ -884,6 +885,7 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
   :is(.ui-day, .ui-night) .cur-pills > .cur-pill { gap: 4px; }
   :is(.ui-day, .ui-night) .cur-pills > .cur-pill, :is(.ui-day, .ui-night) .topbar .cur-val { font-size: 16px; }
   :is(.ui-day, .ui-night) .cur-pills > .cur-pill .svg-icon { width: 16px; height: 16px; }
+  :is(.ui-day, .ui-night) .cur-pills > .cur-pill .ui-cur-art { --cur-art: 18px; }
   :is(.ui-day, .ui-night) .topbar :is(.cur-plus, .ui-slash, .ui-vr) { display: none; }
   :is(.ui-day, .ui-night) .topbar > .topbar-group:has(> .topbar-icon) { flex: none; }
   :is(.ui-day, .ui-night) .topbar-icon { width: 46px; padding: 11px 12px; }

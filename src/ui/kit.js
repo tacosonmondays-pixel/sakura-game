@@ -10,6 +10,8 @@ import { countdownState, ticker } from './countdown.js';
 import { soonSticker } from './badges.js';
 import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
+import { currencyIcon } from '../art/icons.js';
+import { COLOUR_CURRENCIES } from './wallets.js';
 
 /**
  * A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. [ui-ink] On the menus and the home (a
@@ -20,6 +22,20 @@ export function ico(nameOrSvg, cls = 'ui-ico') {
   const span = h(`span.${cls}`, { 'aria-hidden': 'true' });
   const line = !nameOrSvg.startsWith('<') && inkSurface() ? lineFor(nameOrSvg) : null;
   span.innerHTML = line ? lineGlyph(line, '', { kitSize: false }) : nameOrSvg.startsWith('<') ? nameOrSvg : glyphSVG(nameOrSvg);
+  return span;
+}
+
+/**
+ * [ui-ink] The colour coin or gem for a balance or a price (owner, Oct 27: "for the coins and premium currency bring
+ * back the color icons"): the baked item art (src/art/icons.js currencyIcon, its 96 px small cut), sized by the kit
+ * (.ui-cur-art: 20 px on a phone, 22 px on desktop; components.css, ink.css). Every other glyph stays a line glyph.
+ * @param {'coins'|'gems'} kind
+ * @param {string} [cls] extra classes ('a.b')
+ */
+export function curArt(kind, cls = '') {
+  const k = COLOUR_CURRENCIES.includes(kind) ? kind : 'coins';
+  const span = h(`span.ui-cur-art${cls ? `.${cls}` : ''}`, { 'aria-hidden': 'true', 'data-cur': k });
+  span.innerHTML = currencyIcon(k, { px: 22 });
   return span;
 }
 

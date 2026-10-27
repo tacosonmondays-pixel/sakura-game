@@ -24,7 +24,7 @@ import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import '../styles/home.css';
 import { h, clear, toast, applyMotionPreference, accountLevel } from '../components.js';
-import { countdownChip } from '../kit.js';
+import { countdownChip, curArt } from '../kit.js';
 import { openModes } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
 import { homeObjective, homeNews, multiplayerLabel } from '../lobbyTray.js';
@@ -466,11 +466,14 @@ function hasBox(profile) {
   return Object.values(ITEMS).some((i) => i.category === 'gearbox' && itemCount(profile, i.id) > 0);
 }
 
-/** A balance on the floating bar (12.1): a line glyph and the number; its "+" (a 44 px tap) opens where to get more. */
-function pill({ glyph, value, testid, label, onPlus = null, plusLabel = '', np = false }) {
+/**
+ * A balance on the floating bar (12.1): its icon (coins and gems their colour art, kit.js curArt, owner Oct 27; tickets a
+ * line glyph) and the number; its "+" (a 44 px tap) opens where to get more.
+ */
+function pill({ glyph = null, art = null, value, testid, label, onPlus = null, plusLabel = '', np = false }) {
   const num = h('span.num', { 'data-testid': testid }, value);
-  const el = h(`span.ui-pill${np ? '.np' : ''}`, { 'aria-label': `${label}: ${value}`, title: label },
-    g(glyph), num,
+  const el = h(`span.ui-pill${np ? '.np' : ''}`, { 'aria-label': `${label}: ${value}`, title: label, 'data-wallet': testid },
+    art ? curArt(art) : g(glyph), num,
     onPlus ? h('button.ui-plus', { type: 'button', 'aria-label': plusLabel, title: plusLabel, 'data-testid': `${testid}-plus`, onclick: (e) => { e.stopPropagation(); onPlus(); } }, g('plus')) : null);
   return el;
 }
@@ -504,8 +507,8 @@ function buildTop(host, { onMenu }) {
     who,
     h('span.sp'),
     pill({ glyph: 'ticket', value: formatNumber(tickets), testid: 'tickets', label: 'Recruit tickets', onPlus: () => navigate('mall', { tab: 'general' }), plusLabel: 'Get tickets' }),
-    pill({ glyph: 'coin', value: formatNumber(profile.currencies.coins), testid: 'coins', label: 'Coins', np: true }),
-    pill({ glyph: 'gem', value: formatNumber(profile.currencies.gems), testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
+    pill({ art: 'coins', value: formatNumber(profile.currencies.coins), testid: 'coins', label: 'Coins', np: true }),
+    pill({ art: 'gems', value: formatNumber(profile.currencies.gems), testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
     chat, mail, menu,
   );

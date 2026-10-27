@@ -107,8 +107,8 @@
   <div class="board day">
     <div class="ui-field"><img src="${A.lobby}academy.webp" alt=""></div>
     <header class="ui-topbar"><a class="ui-back" aria-label="Back"><i data-g="back"></i></a><span class="tb-title">Students</span><span class="sp"></span>
-      <span class="ui-cur" aria-label="Coins"><i data-g="coin"></i><span class="num">284,650</span></span><span class="ui-slash"></span>
-      <span class="ui-cur" aria-label="Gems"><i data-g="gem"></i><span class="num">16,570</span><a class="ui-plus" aria-label="Buy gems"><i data-g="plus"></i></a></span>
+      <span class="ui-cur" aria-label="Coins"><i data-cur="coins"></i><span class="num">284,650</span></span><span class="ui-slash"></span>
+      <span class="ui-cur" aria-label="Gems"><i data-cur="gems"></i><span class="num">16,570</span><a class="ui-plus" aria-label="Buy gems"><i data-g="plus"></i></a></span>
       <span class="ui-vr"></span><a class="ui-ibtn" aria-label="Settings"><i data-g="settings"></i></a><a class="ui-ibtn" aria-label="Home"><i data-g="house"></i></a></header>
     <div class="ui-host" style="left:96px;top:44px;width:300px;height:420px"><img src="${A.pt}ruri-cut.webp" alt="Ruri"></div>
     <section class="ui-np" style="position:absolute;left:16px;bottom:16px;width:304px">
@@ -153,8 +153,8 @@
         <span class="col-f" style="gap:3px"><span class="body" style="line-height:1">Sensei</span><span class="row-f" style="gap:4px"><span class="lbl">LV</span><span class="num">8</span></span></span><span class="serial" aria-hidden="true">SNT-HQ</span></span>
       <span class="sp"></span>
       <span class="ui-pill"><i data-g="ticket"></i><span class="num">12</span><a class="ui-plus" aria-label="Buy tickets"><i data-g="plus"></i></a></span>
-      <span class="ui-pill np"><i data-g="coin"></i><span class="num">284,650</span></span>
-      <span class="ui-pill"><i data-g="gem"></i><span class="num">16,570</span><a class="ui-plus" aria-label="Buy gems"><i data-g="plus"></i></a></span>
+      <span class="ui-pill np"><i data-cur="coins"></i><span class="num">284,650</span></span>
+      <span class="ui-pill"><i data-cur="gems"></i><span class="num">16,570</span><a class="ui-plus" aria-label="Buy gems"><i data-g="plus"></i></a></span>
       <span class="ui-vr" style="margin:6px 4px"></span>
       <a class="ui-ibtn" aria-label="Chat"><i data-g="chat"></i></a><a class="ui-ibtn" aria-label="Mail, 1 unread"><i data-g="mail"></i><span class="ui-count">1</span></a><a class="ui-ibtn" aria-label="Menu"><i data-g="grid"></i><i class="ui-dot"></i></a>
     </header>
@@ -258,6 +258,9 @@
         + `<div style="display:flex;gap:16px;align-items:center;margin-top:12px">${glyphs.emblemSvg('gate', { size: 64 })}${glyphs.emblemSvg('gate', { size: 88 })}${glyphs.emblemSvg('petal', { size: 64 })}${glyphs.emblemSvg('gate', { size: 40 })}<span class="lbl">Chapter emblems: 4 Ironhold Pass (64 / 88), 1 Sakura Gardens, row size 40</span></div>`;
     }
     glyphs.hydrateGlyphs(root);
+    // coins and gems wear their colour art (kit.js curArt; owner, Oct 27), every other glyph its line drawing
+    const { curArt } = await load('/src/ui/kit.js');
+    for (const el of root.querySelectorAll('i[data-cur]')) el.replaceWith(curArt(el.dataset.cur));
     await document.fonts.ready;
     // wait for the images (the item art is lazy: load it now), so a screenshot never catches a half-loaded board
     for (const im of document.images) im.loading = 'eager';

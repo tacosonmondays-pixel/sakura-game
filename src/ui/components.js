@@ -20,6 +20,7 @@ import { pickMarks } from './pickMarks.js';
 import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
 import { walletsFor, WALLET_DEFS } from './wallets.js';
+import { curArt } from './kit.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -206,7 +207,8 @@ function autoCleanup(el, off) {
 /**
  * Coins + gems pills (gems carry a "+" that opens the Mall). Auto-updates.
  * [ui-ink] On the menus (a surface mode on <body>): only the currencies this screen spends (src/ui/wallets.js, Q3), each
- * a line glyph and its number, split by slanted slashes, "+" as a hairline square; `wallets` overrides the table, and
+ * its icon (coins and gems their colour art, tickets a line glyph) and its number, split by slanted slashes, "+" as a
+ * hairline square; `wallets` overrides the table, and
  * the element's setWallets(ids) redraws them (the Mall, when its shop changes). The test ids stay (coins, gems,
  * tickets). Empty: the group is hidden.
  */
@@ -242,7 +244,7 @@ function inkWallets({ plus = true, wallets = null } = {}) {
     const more = plus && d.plus
       ? h('button.cur-plus', { type: 'button', onclick: () => navigate(d.plus.route, d.plus.params), title: d.plus.label, 'aria-label': d.plus.label }, line('plus'))
       : null;
-    return h('div.cur-pill.ui-cur', { title: d.label }, line(d.glyph), vals[id], more);
+    return h('div.cur-pill.ui-cur', { title: d.label, 'data-wallet': id }, d.art ? curArt(d.art) : line(d.glyph), vals[id], more);
   };
   const refresh = () => {
     for (const id of ids) if (vals[id]) vals[id].textContent = formatNumber(itemCount(store.profile, WALLET_DEFS[id].item));

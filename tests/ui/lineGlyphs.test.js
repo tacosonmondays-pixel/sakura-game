@@ -52,8 +52,12 @@ describe('line glyphs', () => {
     expect(Object.keys(LINE_GLYPHS)).toHaveLength(89); // the 86 + armorbreak, pierce and lantern (the mock-ups)
   });
   it('every glyph the kit fixture draws exists', () => {
-    expect(FIXTURE_NAMES.length).toBeGreaterThan(40);
+    expect(FIXTURE_NAMES.length).toBeGreaterThan(36);
     for (const n of FIXTURE_NAMES) expect(hasLineGlyph(n), n).toBe(true);
+    // coins and gems wear their colour art (kit.js curArt; owner, Oct 27), never the line coin or gem
+    expect(FIXTURE_NAMES).not.toContain('coin');
+    expect(FIXTURE_NAMES).not.toContain('gem');
+    expect([...FIXTURE.matchAll(/data-cur="(\w+)"/g)].map((m) => m[1]).sort()).toEqual(['coins', 'coins', 'gems', 'gems']);
   });
   it('a 24 grid: a 0 0 24 24 view box and every coordinate inside it', () => {
     for (const [n, body] of Object.entries(LINE_GLYPHS)) {

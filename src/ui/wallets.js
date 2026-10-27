@@ -4,13 +4,18 @@
 // plate header until V5 moves it into the bar, so the bar shows none); Recruit tickets and gems; the Backpack as today
 // (coins and gems). Every hub, list, the roster, stage prep and the rest: none.
 // Pure (no DOM): components.js currencyPills() draws them, tests/ui/wallets.test.js checks the table.
+// Icons (owner, Oct 27: "for the coins and premium currency bring back the color icons"): coins and gems wear their
+// colour art (`art`: a src/art/icons.js currencyIcon kind, drawn by kit.js curArt()); tickets keep their line glyph.
 
-/** The wallets the bar can show, in their order (a line glyph each; "+" opens where to get more). */
+/** The wallets the bar can show, in their order (an icon each: `art` colour art or `glyph` a line glyph; "+" opens where to get more). */
 export const WALLET_DEFS = Object.freeze({
-  tickets: { item: 'ticket_recruit', glyph: 'ticket', label: 'Recruit Tickets', plus: { route: 'mall', params: { tab: 'recruit' }, label: 'Get tickets' } },
-  coins: { item: 'coins', glyph: 'coin', label: 'Coins', plus: null },
-  gems: { item: 'gems', glyph: 'gem', label: 'Gems', plus: { route: 'mall', params: { tab: 'gems' }, label: 'Get gems' } },
+  tickets: { item: 'ticket_recruit', glyph: 'ticket', art: null, label: 'Recruit Tickets', plus: { route: 'mall', params: { tab: 'recruit' }, label: 'Get tickets' } },
+  coins: { item: 'coins', glyph: null, art: 'coins', label: 'Coins', plus: null },
+  gems: { item: 'gems', glyph: null, art: 'gems', label: 'Gems', plus: { route: 'mall', params: { tab: 'gems' }, label: 'Get gems' } },
 });
+
+/** The currencies that wear their colour art wherever a balance or a price shows (kit.js curArt). */
+export const COLOUR_CURRENCIES = Object.freeze(['coins', 'gems']);
 export const WALLET_ORDER = Object.freeze(['tickets', 'coins', 'gems']);
 
 /** Screens that spend currencies (route name → wallets). Everything else shows none. */

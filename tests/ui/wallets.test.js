@@ -1,8 +1,12 @@
 // [ui-ink] The top bar's wallets (src/ui/wallets.js; notes/ui-v2/UI_V2_DIRECTION.md section 10, Q3): only the
 // currencies a screen spends. The home all three; the girl page coins and gems; the Mall the active shop's own; Recruit
 // tickets and gems; the Backpack coins and gems; hubs, lists, the roster and stage prep none.
+// Icons (owner, Oct 27: "for the coins and premium currency bring back the color icons"): coins and gems wear their
+// colour art everywhere a balance or a price shows (kit.js curArt); tickets keep their line glyph.
 import { describe, it, expect } from 'vitest';
-import { walletsFor, WALLET_DEFS, WALLET_ORDER, SCREEN_WALLETS, MALL_WALLETS } from '../../src/ui/wallets.js';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { walletsFor, WALLET_DEFS, WALLET_ORDER, SCREEN_WALLETS, MALL_WALLETS, COLOUR_CURRENCIES } from '../../src/ui/wallets.js';
 import { SHOP_TABS } from '../../src/data/shop.js';
 
 describe('wallets (Q3)', () => {
@@ -30,13 +34,33 @@ describe('wallets (Q3)', () => {
       else expect(bar, tab.id).toEqual([]);
     }
   });
-  it('every wallet has a line glyph, an item to count and a label; "+" only where more can be got', () => {
+  it('every wallet has one icon (coins and gems their colour art, tickets a line glyph), an item to count and a label; "+" only where more can be got', () => {
     for (const id of WALLET_ORDER) {
       const d = WALLET_DEFS[id];
-      expect(d.glyph && d.item && d.label, id).toBeTruthy();
+      expect(d.item && d.label, id).toBeTruthy();
+      expect(!!d.glyph !== !!d.art, `${id}: exactly one of glyph / art`).toBe(true);
     }
+    expect(WALLET_DEFS.coins.art).toBe('coins');
+    expect(WALLET_DEFS.gems.art).toBe('gems');
+    expect(WALLET_DEFS.tickets.glyph).toBe('ticket');
+    expect(COLOUR_CURRENCIES).toEqual(['coins', 'gems']);
     expect(WALLET_DEFS.coins.plus).toBeNull();
     expect(WALLET_DEFS.gems.plus).toMatchObject({ route: 'mall', params: { tab: 'gems' } });
     expect(Object.values(SCREEN_WALLETS).flat().every((w) => WALLET_ORDER.includes(w))).toBe(true);
+  });
+  it('no screen draws coins or gems with a line glyph any more (the colour art instead)', () => {
+    const files = [];
+    const walk = (d) => {
+      for (const f of readdirSync(d)) {
+        const p = join(d, f);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (p.endsWith('.js')) files.push(p);
+      }
+    };
+    walk(join(__dirname, '../../src/ui'));
+    // a line glyph by name (kit.js ico, components.js glyph, the home's g(), lineGlyph) or a wallet / pill glyph field
+    const lineCoin = /\b(?:ico|glyph|g|lineGlyph)\(\s*['"](?:coin|gem)['"]|glyph:\s*['"](?:coin|gem)['"]/;
+    const hits = files.filter((p) => !p.endsWith('lineGlyphs.js') && lineCoin.test(readFileSync(p, 'utf8')));
+    expect(hits).toEqual([]);
   });
 });
