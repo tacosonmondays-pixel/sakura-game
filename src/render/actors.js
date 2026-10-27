@@ -747,6 +747,9 @@ export class Actors {
         gN.push(v.x, 0.065, v.z, s * 1.8, s * 1.8, R.disc, 0.6, 0.1, 0.18, 0.18);
       }
     }
+    // the city's patrol drones (terrain dressing, high over the skirts): a faint shadow straight
+    // below each says they fly (the near top-down camera hides height)
+    for (const f of this.terrain.flyers || []) gN.push(f.x, 0.06, f.z, 0.42, 0.42, R.shadow, 0.05, 0.04, 0.1, 0.28);
     // drone shadows
     // (attack FX draws its drones' shadows itself)
     if (!this.fxHook?.drones) {

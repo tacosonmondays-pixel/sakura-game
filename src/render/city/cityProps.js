@@ -27,7 +27,7 @@ export const CITY_VARIANTS = {
   // Act 1 set pieces
   stationHall: 1, ticketGates: 1, clockTower: 1, levelCrossing: 2, waterBus: 1, lockGate: 1, arcadeRibs: 1, roofBlock: 2,
   // gates
-  petalRift: 1, shelterDoor: 3,
+  petalRift: 2, shelterDoor: 3,
 };
 
 /** cityBlock variant → kind (GATE_ARC §18.3). */
@@ -40,8 +40,28 @@ export const SHELTER_KINDS = ['stationShelter', 'schoolMain', 'schoolBack'];
 export const SIGNAL_CYCLE = { colors: ['#5fe0a8', '#5fe0a8', '#ffd54f', '#ff6f8a', '#ff6f8a'], period: 10 };
 
 const RIFT = { violet: '#b46cff', pink: '#ff8fcf', core: '#ffe6f6', frost: '#d8f2ff' };
-/** How far the rift's ring leans back from upright (radians). */
+/** How far the rift's ring leans from upright (radians). */
 export const RIFT_TILT = 0.9;
+/** Lean per petalRift variant (+ = top back over the street the column came down): 0 on a side or
+ * the far edge (leaning back turns the disc up toward the camera), 1 on the near edge, where
+ * leaning back would show the camera the disc's rim: there the top leans forward over the board. */
+const RIFT_LEANS = [RIFT_TILT, -RIFT_TILT];
+
+/**
+ * Where the petalRift stands for a spawn gate walking in along `dir` (board coords: +z is toward
+ * the battle camera, down the screen in landscape): its variant, and how far in from the board
+ * edge its foot stands (tiles). It stands on the edge like every shipped gate, so the column is
+ * not seen on the street behind it, except on the far edge: there what lies behind it is under
+ * the HUD (landscape) or past the screen's edge (portrait) and its own disc hides the last of
+ * the street, so it stands a little in, which keeps its leaning ring on screen.
+ * @param {number[]} dir [dx, dz] unit walk direction at the gate
+ * @returns {{ variant: number, inset: number }}
+ */
+export function riftPlacement(dir) {
+  if (dir[1] < -0.7) return { variant: 1, inset: 0 };
+  if (dir[1] > 0.7) return { variant: 0, inset: 0.55 };
+  return { variant: 0, inset: 0 };
+}
 
 function glowPoint(c, x, y, z, color, size = 0.6, flicker = 0.15, extra = null) {
   c.glows.push({ x, y, z, color, size, flicker, ...(extra || {}) });
@@ -458,16 +478,17 @@ export const CITY_BUILDERS = {
 
   // ----- gates ------------------------------------------------------------------------
   petalRift(c) {
-    // a Petal Gate mouth torn open in the street: a ragged ring of asphalt slabs leaning back
-    // over the road (so the battle camera sees the disc from any side, landscape or portrait),
+    // a Petal Gate mouth torn open in the street: a ragged ring of asphalt slabs leaning over the
+    // road (variant 0 back over the street behind, 1 forward on the near edge: riftPlacement), so
+    // the battle camera sees the disc on any edge, landscape or portrait,
     // violet-pink seams and the portal disc as glow geometry, a bent street sign and a lamp post
     // leaning into it (local +z = the way the monsters walk out of it)
     const R = 0.62;
     const cy = 0.76;
     const col = c.look.gate?.spawn || RIFT.violet;
-    // the ring leans back by RIFT_TILT about its foot on the road
+    // the ring leans about its foot on the road, toward the camera's side (RIFT_LEANS)
     const T = new THREE.Matrix4().makeTranslation(0, 0.06, 0)
-      .multiply(new THREE.Matrix4().makeRotationX(-RIFT_TILT))
+      .multiply(new THREE.Matrix4().makeRotationX(-RIFT_LEANS[v(c, 'petalRift')]))
       .multiply(new THREE.Matrix4().makeTranslation(0, -0.06, 0));
     const disc = (r, z, color) => {
       c.glow.add(new THREE.CircleGeometry(r, 18), { y: cy, z, color, matrix: T });
@@ -518,7 +539,9 @@ export const CITY_BUILDERS = {
     const k = v(c, 'shelterDoor');
     const pink = c.look.gate?.goal || '#ff7aa2';
     const F = c.facade;
-    const depth = 0.7;
+    // deep enough that the column's last tile of road (every road runs 1 tile past the board) ends
+    // inside the block: they go in at the door and are not seen again
+    const depth = 0.95;
     const wall = k === 0 ? '#b9b4aa' : PAL.cream;
     const roof = k === 0 ? '#5f9a72' : k === 1 ? '#c98a6e' : '#9fb59a';
     const H = k === 0 ? 0.62 : 0.68;

@@ -5,7 +5,9 @@
 //
 // Rows use the usual legend (src/data/maps.js): '.' paving (buildable), ',' planted verge
 // (buildable), 'T' street tree, 'R' bollards / planter, 'H' building (border H = a wall),
-// '~' water. `city` carries the kit's render hints (src/render/city/cityKit.js).
+// '~' water. Roads run 1 tile past the board edge at each end, as every shipped map's do (so the
+// gates on the edge read as they do there). `city` carries the kit's render hints
+// (src/render/city/cityKit.js).
 import { buildMapTracks, LINE, TUNNEL_IN, TUNNEL_OUT } from '../src/core/track.js';
 import { STAGE_MAP } from '../src/data/stages.js';
 
@@ -94,13 +96,14 @@ function defineFixtureMap(o) {
 }
 
 // ---------------------------------------------------------------------------
-// (a) Downtown Itomachi by day: a scramble crossing, the shopping street, the subway station
+// (a) Downtown Itomachi by day: a scramble crossing, the shopping street, the subway station and
+// the commuter line just past the far edge (the strip the battle shows between its HUD and the board)
 // ---------------------------------------------------------------------------
 const downtown = defineFixtureMap({
   id: 'fixture_city_downtown',
   name: 'Itomachi Downtown',
   theme: 'city',
-  desc: 'Preview board: in from the west along the shopping street, round the block, back across the scramble crossing and under the station to the shelter.',
+  desc: 'Preview board: in from the west along the shopping street, round the block, back across the scramble crossing and under the station to the shelter; the commuter line runs behind the back row.',
   rows: [
     'HHHH,HHHT.HHHHHHHHHH',
     'H..HH..,..HHHHHH..TH',
@@ -116,7 +119,7 @@ const downtown = defineFixtureMap({
     '~~~~~~~~~~~~~~~~~~~~',
   ],
   paths: [
-    street([[-1.6, 6.5], [15.5, 6.5], [15.5, 2.5], [9.5, 2.5], [9.5, 9.5], [21.6, 9.5]], { tunnel: [[12.3, 9.5], [15.7, 9.5]] }),
+    street([[-1, 6.5], [15.5, 6.5], [15.5, 2.5], [9.5, 2.5], [9.5, 9.5], [21, 9.5]], { tunnel: [[12.3, 9.5], [15.7, 9.5]] }),
   ],
   crossings: 'flat',
   decor: [
@@ -128,33 +131,34 @@ const downtown = defineFixtureMap({
   city: {
     areas: [{ type: 'plaza', x: 16.2, y: 2.2, w: 2.6, h: 2.6 }],
     waterBus: { z: 12.7, x0: -6, x1: 26, period: 34 },
+    railway: { z: -0.85 },
   },
 });
 
 // ---------------------------------------------------------------------------
-// (b) The canal quarter: in over the level crossing, a flyover, the canal and its lock
+// (b) The canal quarter: a flyover, and the canal (quays on both banks) narrowing at its lock
 // ---------------------------------------------------------------------------
 const canal = defineFixtureMap({
   id: 'fixture_city_canal',
   name: 'Canal Quarter',
   theme: 'city',
-  desc: 'Preview board: in from the north over the railway, down past the shops, along the canal quay and back over the flyover to the shelter in the west.',
+  desc: 'Preview board: in from the north, down past the shops, along the canal quay and back over the flyover to the shelter in the west; the canal runs north to south between two quays and narrows at its lock.',
   rows: [
-    'HHHH.HHHHH.HHHH..~~~',
-    'H.......HHH......~~~',
-    'HH..HH...........~~~',
-    '....HH...,,,.T...~~~',
-    '.........,T,.....~~~',
-    'HH.HHH...,,,.....~~~',
-    '..........HHH....~~~',
-    '.HH..HH..........~~~',
-    '..........,......~~~',
-    '.H...............~~~',
-    '.HHH.HHHHH.HHHH..~~~',
-    'HHHHHHHHHHHHHHHH.~~~',
+    'HHHH.HHHHH.HHHH..~~,',
+    'H.......HHH......~~,',
+    'HH..HH...........~~,',
+    '....HH...,,,.T...~~,',
+    '.........,T,.....~~,',
+    'HH.HHH...,,,.....~~,',
+    '..........HHH.....~,',
+    '.HH..HH..........~~,',
+    '..........,......~~,',
+    '.H...............~~,',
+    '.HHH.HHHHH.HHHH..~~,',
+    'HHHHHHHHHHHHHHHH.~~,',
   ],
   paths: [
-    street([[6.5, -1.6], [6.5, 8.5], [14.5, 8.5], [14.5, 3.5], [3.5, 3.5], [3.5, 1.5], [-1.6, 1.5]]),
+    street([[6.5, -1], [6.5, 8.5], [14.5, 8.5], [14.5, 3.5], [3.5, 3.5], [3.5, 1.5], [-1, 1.5]]),
   ],
   crossings: 'bridge',
   decor: [
@@ -166,7 +170,8 @@ const canal = defineFixtureMap({
     { type: 'arcadeRibs', x: 1, y: 6, rot: Math.PI / 2 },
   ],
   city: {
-    waterBus: { x: 21.4, z0: -7, z1: 19, period: 40 },
+    // up the canal from the north and back, turning short of the lock (the moored one is at 18,2)
+    waterBus: { x: 17.5, z0: -7, z1: 4.6, period: 30 },
     goalVariant: 1,
   },
 });

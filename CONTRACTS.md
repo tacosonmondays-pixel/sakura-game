@@ -452,7 +452,8 @@ export function pathTiles(map)     // Set of "x,y" tiles the road band touches (
 MapDef = {
   id, name, theme: 'sakura'|'lake'|'shrine'|'mountain'|'marsh'|'foundry'|'festival'|'volcano'|'snow'|'night'|'arena',
         // (+ 'city', the Gate Arc's Noon city: render only so far, src/render/city/; no map uses
-        //  it until the Act II maps, which may also carry `city` render hints: { railway: { z } | false,
+        //  it until the Act II maps, which may also carry `city` render hints: { railway?: { z }
+        //  (no railway unless given; z ≈ -1.2…-0.5 is the strip the battle shows past the far edge),
         //  waterBus: { z, x0, x1 } | { x, z0, z1 }, areas: [{ type: 'plaza'|'lawn', x, y, w, h }],
         //  spawnGate?, goalGate?, goalVariant? })
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,

@@ -17,10 +17,17 @@
   select, button { font: inherit; font-weight: 700; color: var(--navy); border: 0; background: transparent; cursor: pointer; }
   #info { position: fixed; left: 12px; bottom: 10px; color: #fff; font: 11px ui-monospace, monospace; text-shadow: 0 1px 2px #000; pointer-events: none; }
   body.clean #hud, body.clean #info { display: none; }
+  /* &bands=1: the battle's HUD and tower bar as plain bands (src/ui/styles/battle.css .bt-hud / .bt-bar) */
+  .band { display: none; position: fixed; left: 0; right: 0; pointer-events: none; }
+  body.bands .band { display: block; }
+  #bandHud { top: 0; height: var(--hud-h, 0); background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.78)); box-shadow: 0 3px 14px rgba(29, 78, 137, 0.16); }
+  #bandBar { bottom: 0; height: var(--bar-h, 0); background: linear-gradient(0deg, rgba(18,36,70,0.62), rgba(18,36,70,0.28) 70%, rgba(18,36,70,0.08)); border-top: 1px solid rgba(255,255,255,0.45); }
 </style>
 </head>
 <body>
 <div id="stage"></div>
+<div class="band" id="bandHud"></div>
+<div class="band" id="bandBar"></div>
 <div id="hud">
   <div class="pill tag"><span>PREVIEW</span></div>
   <div class="pill"><span><select id="mapSel">

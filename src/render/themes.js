@@ -10,8 +10,8 @@
 //   gate         { spawn, goal } colours for the entrance / exit gates
 //
 // Gate Arc (the city, src/render/city/):
-//   spawnGate / goalGate  prop types for the entrance / exit (default spawnGate / goalGate)
-//   spawnGateInset / goalGateInset  how far those gates stand inside the board (tiles, default 0)
+//   spawnGate / goalGate  prop types for the entrance / exit (default spawnGate / goalGate); like the
+//                shipped gates they stand on the board edge, where the road leaves the board
 //   rocks        [single, cluster] props for 'R' tiles (default rock / boulder)
 //   nightLight   this theme's own night lighting (default: the shared moonlit preset)
 //   weatherColors petal-weather particle colours (the city mixes in paper litter)
@@ -308,9 +308,9 @@ export const THEMES = {
   // ----- Gate Arc · Noon: Itomachi, Sensei's present-day city (src/render/city/) -------
   // Warm and lived-in: pale paving with slab seams, asphalt streets with lane markings and
   // kerbs, shop fronts with green and red awnings, utility poles and wires, cherry street trees,
-  // a skirt railway and the Brigade's patrol drones overhead. The Petal Gate tears open in the
-  // street (petalRift); the goal is the shelter door (shelterDoor). No map uses it before the
-  // Gate Arc's Act II stages.
+  // a railway where the map lays one (map.city.railway) and the Brigade's patrol drones circling
+  // over the side skirts. The Petal Gate tears open in the street (petalRift); the goal is the
+  // shelter door (shelterDoor). No map uses it before the Gate Arc's Act II stages.
   city: {
     ground: ['#e9e6e0', '#e1ddd5'],
     groundSpeck: '#f4f2ee',
@@ -341,12 +341,10 @@ export const THEMES = {
     detailDensity: 0.05,
     life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
     gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    // on the board edge like every shipped gate: the column walks out of the rift's leaning ring
+    // onto the board, and into the shelter's doorway as it leaves (the block stands in the skirt)
     spawnGate: 'petalRift',
-    // the rift and the shelter stand a little inside the board so the battle camera frames
-    // them whole on every aspect (the rift's ring leans back toward the board edge)
-    spawnGateInset: 1.0,
     goalGate: 'shelterDoor',
-    goalGateInset: 0.75,
     weather: 'petals',
     weatherColors: ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ffffff', '#f2ead8'],
     light: { sky: '#fff8ee', ground: '#b8ae9c', hemi: 1.05, key: '#fff0dc', keyI: 1.45, fill: '#d6e4ff', fillI: 0.34 },

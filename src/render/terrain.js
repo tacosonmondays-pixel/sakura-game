@@ -19,6 +19,7 @@ import { detailTexture, pathTexture, maskTexture, paintGround } from './textures
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
 import { buildCity, cityBuildingFor, cityWallVariant } from './city/cityKit.js';
+import { riftPlacement } from './city/cityProps.js';
 import { cityGroundPainter } from './city/cityGround.js';
 import { createFacadeMaterial } from './city/cityMaterials.js';
 import { stampTracks, mapTracks } from '../core/track.js';
@@ -586,6 +587,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   // ----- framing ring around the board (fences / hedges / flower beds / rocks) ---------
   const frame = look.frame || [];
+  // a city map's railway (map.city.railway, cityKit.js) may run just past the board edge: keep the
+  // ring out of its band
+  const railZ = look.city ? map.city?.railway?.z : undefined;
   if (frame.length) {
     const ring = [];
     for (let x = -1; x <= W; x++) {
@@ -601,6 +605,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       i++;
       // leave the road exits open, keep off water and away from set pieces on the border
       if (isPath(x, y) || isWater(x, y)) continue;
+      if (Number.isFinite(railZ) && Math.abs(y + 0.5 - railZ) < 0.9) continue;
       let nearPath = false;
       for (const [dx, dy] of DIRS) if (isPath(x + dx, y + dy)) nearPath = true;
       if (nearPath) continue;
@@ -626,20 +631,19 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   };
   for (const e of entrances) {
     const gi = gateInfo(e, false);
-    // a big spawn gate (the city's rift) may stand a little inside the board so the camera frames it
-    const inset = look.spawnGateInset || 0;
-    gi.x += gi.dir[0] * inset;
-    gi.z += gi.dir[1] * inset;
-    const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
     const type = scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
-    place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, 0);
+    // the city's rift leans its disc toward the camera whichever edge it stands on (cityProps.riftPlacement)
+    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : null;
+    if (rift) {
+      gi.x += gi.dir[0] * rift.inset;
+      gi.z += gi.dir[1] * rift.inset;
+    }
+    const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
+    place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, rift ? rift.variant : 0);
     gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
-    const outset = look.goalGateInset || 0;
-    gi.x -= gi.dir[0] * outset;
-    gi.z -= gi.dir[1] * outset;
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
     place(map.city?.goalGate || look.goalGate || 'goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, map.city?.goalVariant ?? 0);
     gates.push({ kind: 'goal', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.goal });
@@ -863,6 +867,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     marks: city ? [...features.marks, ...city.marks] : features.marks,
     /** City kit layout counts (null on other themes). */
     city: city ? city.stats : null,
+    /** Live positions of the city's patrol drones ({ x, y, z }, updated by update(); empty elsewhere): the actor layer shadows them. */
+    flyers: city ? city.flyers : [],
     /** Road centreline pieces in world coords (the canonical tracks, run out past the board, tunnels cut out). */
     roads,
     /** Drawing plan per track (points, elevation, tunnel flags) and tunnel portals. */

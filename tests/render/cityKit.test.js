@@ -1,10 +1,11 @@
 // Gate Arc · the city kit (src/render/city/, THEMES.city): every builder builds near and far
 // within its variants and triangle cap, on-board buildings stay low, the gates carry their
 // emitters, nothing is transparent, and the kit's layout is deterministic per map.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as THREE from 'three';
 import { buildProp, hasProp, clearPropCache } from '../../src/render/props.js';
 import { resolveLook, THEMES } from '../../src/render/themes.js';
-import { CITY_BUILDERS, CITY_VARIANTS, BLOCK_KINDS, SHOP_KINDS, SHELTER_KINDS } from '../../src/render/city/cityProps.js';
+import { CITY_BUILDERS, CITY_VARIANTS, BLOCK_KINDS, SHOP_KINDS, SHELTER_KINDS, riftPlacement } from '../../src/render/city/cityProps.js';
 import { BOARD_MAX_H } from '../../src/render/city/buildings.js';
 import { buildCity, cityBuildingFor, cityWallVariant } from '../../src/render/city/cityKit.js';
 import { createFacadeMaterial, FK } from '../../src/render/city/cityMaterials.js';
@@ -16,6 +17,8 @@ import { MAP_THEMES } from '../../src/art/stageThumb.js';
 import { themeBackdropSVG } from '../../src/art/backdrops.js';
 import { THEME_FAMILY } from '../../src/audio/routes.js';
 import { CITY_FIXTURES } from '../../previews/cityMaps.js';
+import { buildTerrain } from '../../src/render/terrain.js';
+import { recordingDocument } from './terrainHash.js';
 
 const look = resolveLook('city', {});
 const tris = (g) => (g ? (g.index ? g.index.count : g.attributes.position.count) / 3 : 0);
@@ -103,6 +106,28 @@ describe('city builders', () => {
     expect(look.goalGate).toBe('shelterDoor');
   });
 
+  it('the rift leans its disc toward the camera on every edge', () => {
+    // local +z is the way the column walks out; the battle camera looks down toward world -z
+    const zRange = (v) => {
+      const p = buildProp('petalRift', look, v);
+      p.glow.computeBoundingBox();
+      return p.glow.boundingBox;
+    };
+    expect(riftPlacement([1, 0])).toEqual({ variant: 0, inset: 0 });
+    expect(riftPlacement([-1, 0])).toEqual({ variant: 0, inset: 0 });
+    expect(riftPlacement([0, -1])).toEqual({ variant: 1, inset: 0 });
+    // the far edge: a little in (behind it is the HUD or the screen edge; its disc hides the rest)
+    expect(riftPlacement([0, 1]).variant).toBe(0);
+    expect(riftPlacement([0, 1]).inset).toBeGreaterThan(0.3);
+    expect(riftPlacement([0, 1]).inset).toBeLessThan(0.7);
+    // side or far edge: well back over the street it came down (the disc tips up to the camera)
+    expect(zRange(0).min.z).toBeLessThan(-0.8);
+    // near edge (walking away from the camera): the top leans forward over the board instead
+    expect(zRange(1).max.z).toBeGreaterThan(0.8);
+    expect(zRange(1).min.z).toBeGreaterThan(-0.3);
+    for (let v = 0; v < 2; v++) expect(buildProp('petalRift', look, v).emitters.map((e) => e.kind)).toContain('portal');
+  });
+
   it('the traffic signal cycles its lamp colour', () => {
     const p = buildProp('trafficLight', look, 0);
     expect(p.glows.some((g) => g.cycle && g.cycle.colors.length >= 3 && g.cycle.period > 0)).toBe(true);
@@ -178,7 +203,8 @@ function runKit(map, quality = 'high') {
   return { city, placed, facadeParts };
 }
 
-describe('the city kit on the preview boards', () => {
+// (each test builds whole city boards: generous timeouts, so a loaded machine does not fail them)
+describe('the city kit on the preview boards', { timeout: 60000 }, () => {
   for (const [key, map] of Object.entries(CITY_FIXTURES)) {
     it(`${key}: furniture, marks, ≤ 3 instanced movers, nothing transparent, deterministic`, () => {
       const a = runKit(map);
@@ -244,6 +270,90 @@ describe('the city kit on the preview boards', () => {
     }
     expect(n).toBeGreaterThan(10);
     expect(cityWallVariant(map, 0, 0)).toBeLessThan(CITY_VARIANTS.cityWall);
+  });
+
+  it('the railway is opt-in: no train and no crossings unless the map places one', () => {
+    // the battle frames the board tightly, so a default skirt rail would never be seen (S1b review L2)
+    const canal = runKit(CITY_FIXTURES.canal);
+    expect(canal.city.stats.train).toBe(false);
+    expect(canal.city.meshes.some((m) => m.name === 'cityTrain')).toBe(false);
+    expect(canal.placed.some(([t]) => t === 'levelCrossing')).toBe(false);
+    // downtown runs its line in the strip past the far edge (no road crosses it there)
+    const downtown = runKit(CITY_FIXTURES.downtown);
+    expect(downtown.city.stats.train).toBe(true);
+    const train = downtown.city.meshes.find((m) => m.name === 'cityTrain');
+    expect(train.userData.z).toBe(-0.85);
+    // a line across the canal's north-south street gets a barrier on each side of the road
+    const railed = { ...CITY_FIXTURES.canal, city: { ...CITY_FIXTURES.canal.city, railway: { z: 6.0 } } };
+    const r = runKit(railed);
+    expect(r.city.stats.train).toBe(true);
+    const crossings = r.placed.filter(([t]) => t === 'levelCrossing');
+    expect(crossings.length).toBeGreaterThanOrEqual(2);
+    expect(crossings.length % 2).toBe(0);
+    for (const [, x, , z] of crossings) {
+      expect(Math.abs(z - 6.0)).toBeLessThan(0.6);
+      expect(x).toBeGreaterThan(0);
+    }
+    canal.city.dispose();
+    downtown.city.dispose();
+    r.city.dispose();
+  });
+
+  it('the Brigade drones hold station over the side skirts: never over the board or a road', () => {
+    // over the board the near top-down camera shows them sitting on it like monsters, and over a
+    // road like one walking in (S1b review L4)
+    for (const map of Object.values(CITY_FIXTURES)) {
+      const { city } = runKit(map);
+      const plan = planRoads(map, { margin: 8 });
+      const sideRoads = (west) => [...plan.entrances, ...plan.exits].filter((g) => (west ? g.x < 0.5 : g.x > map.width - 0.5)).map((g) => g.z);
+      const drones = city.meshes.find((m) => m.name === 'cityDrones');
+      expect(drones.count).toBe(city.stats.drones);
+      expect(city.flyers).toHaveLength(drones.count);
+      const m4 = new THREE.Matrix4();
+      const p = new THREE.Vector3();
+      for (let t = 0; t < 120; t += 0.7) {
+        city.update(t);
+        for (let i = 0; i < drones.count; i++) {
+          drones.getMatrixAt(i, m4);
+          p.setFromMatrixPosition(m4);
+          const at = `${map.id} drone ${i} at ${p.x.toFixed(2)},${p.z.toFixed(2)}`;
+          // west ≥ 1.3 tiles out; east further (in portrait the camera's lift carries it boardward)
+          const west = p.x < 0;
+          expect(west ? p.x <= -1.3 : p.x >= map.width + 3.5, at).toBe(true);
+          expect(p.y, at).toBeGreaterThan(3);
+          // where the camera shows it (lifted ≈ 0.9 · height up the screen) is clear of that side's road
+          const seen = p.z - 0.9 * p.y;
+          for (const z of sideRoads(west)) expect(Math.abs(seen - z), at).toBeGreaterThanOrEqual(1);
+          for (const k of ['x', 'y', 'z']) expect(city.flyers[i][k]).toBeCloseTo(p[k], 4);
+        }
+      }
+      city.dispose();
+    }
+  });
+
+  it('the rift and the shelter stand on the board edge, like every shipped gate', () => {
+    // inside the board they showed the column walking into the rift from the street behind it and
+    // on past the shelter door (S1b review M1); only a far-edge rift stands a little in
+    const rec = recordingDocument();
+    vi.stubGlobal('document', rec.document);
+    try {
+      for (const map of Object.values(CITY_FIXTURES)) {
+        const t = buildTerrain(map, resolveLook('city', {}), { keywords: [] }, { quality: 'low' });
+        const edgeDist = (g) => Math.min(Math.abs(g.x), Math.abs(g.z), Math.abs(g.x - map.width), Math.abs(g.z - map.height));
+        expect(t.gates.map((g) => g.kind).sort()).toEqual(['goal', 'spawn']);
+        for (const g of t.gates) {
+          const allowed = g.kind === 'spawn' ? riftPlacement(g.dir).inset + 0.07 : 0.07;
+          expect(edgeDist(g), `${map.id} ${g.kind} at ${g.x.toFixed(2)},${g.z.toFixed(2)}`).toBeLessThanOrEqual(allowed);
+        }
+        // downtown's rift is on the west edge, the canal's on the far (north) edge (a spawn gate's
+        // foot is 0.06 outside the edge before any inset)
+        const spawn = t.gates.find((g) => g.kind === 'spawn');
+        expect(edgeDist(spawn)).toBeCloseTo(Math.abs(riftPlacement(spawn.dir).inset - 0.06), 2);
+        t.dispose();
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('the preview boards stay out of the game data', async () => {

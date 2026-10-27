@@ -11,10 +11,13 @@
 //     roads and the overhead wires between them (pigeons sitting on a few spans), a cat napping
 //     on a wall, subway signs at tunnel mouths,
 //   • the skyline in the skirt (tall at the back, low in front so the board stays clear),
-//   • a railway on the skirt with level crossings where a road crosses it,
-//   • three instanced movers (one draw call each): the commuter train every 40 s, a water-bus on
-//     the canal, and Brigade patrol drones high overhead — dressing only: they never fire and
-//     never target anything (GATE_ARC §7.3, §18.5).
+//   • a railway with level crossings where a road crosses it, only where the map places one
+//     (map.city.railway): the battle frames the board tightly between the HUD and the tower bar,
+//     so a rail behind the board is only seen in the thin strip just past its far edge,
+//   • up to three instanced movers (one draw call each): the commuter train every 40 s (with the
+//     railway), a water-bus on the canal, and Brigade patrol drones circling high over the side
+//     skirts — dressing only: they never fire, never target anything and never hang over the
+//     board or a road, so they cannot be read as monsters or cover a gate (GATE_ARC §7.3, §18.5).
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -34,8 +37,6 @@ export const SW_Y = 0.07;
 const KERB = 0.06;
 /** Height of the overhead wires on the utility poles. */
 const WIRE_Y = 1.46;
-/** Default skirt railway (behind the board) when the map does not say. */
-const RAIL_Z = -2.75;
 /** Train: cars, car length, period (s) and the part of it spent crossing. */
 const TRAIN = { cars: 5, len: 1.24, period: 40, run: 0.32 };
 
@@ -87,7 +88,8 @@ const WALL_TOP = [0.27, null, 0.375];
 /**
  * Builds the city layer of a `look.city` board.
  * @param {object} o
- * @param {object} o.map MapDef (map.city: optional render hints { railway: { z } | false, waterBus: { z, x0, x1 }, areas, goalGate, goalVariant })
+ * @param {object} o.map MapDef (map.city: optional render hints { railway: { z }, waterBus: { z, x0, x1 }, areas, goalGate, goalVariant };
+ *   no railway unless the map gives one: z ≈ -1.2…-0.5 is the strip the battle shows past the board's far edge)
  * @param {object} o.look resolved look (look.city)
  * @param {object} o.plan planRoads() result
  * @param {(x: number, y: number) => boolean} o.isPath tile on a road
@@ -100,7 +102,7 @@ const WALL_TOP = [0.27, null, 0.375];
  * @param {string} [o.quality]
  * @param {number} [o.margin] how far the terrain reaches outside the board
  * @param {THREE.Material} [o.facadeMaterial] the terrain's facade material (shared by the movers)
- * @returns {{ meshes: THREE.Mesh[], glows: object[], marks: object[], furniture: number[][], update(t: number): void, dispose(): void, stats: object }}
+ * @returns {{ meshes: THREE.Mesh[], glows: object[], marks: object[], furniture: number[][], flyers: { x: number, y: number, z: number }[], update(t: number): void, dispose(): void, stats: object }}
  */
 export function buildCity(o) {
   const { map, look, plan, isPath, isWater, occupied, gates, portals, place, facadeParts } = o;
@@ -405,7 +407,7 @@ export function buildCity(o) {
   }
 
   // ----- skyline in the skirt -------------------------------------------------------------
-  const rail = cfg.railway === false ? null : { z: cfg.railway?.z ?? RAIL_Z };
+  const rail = Number.isFinite(cfg.railway?.z) ? { z: cfg.railway.z } : null;
   // (a railway may cross a canal on its own bridge; it only gives way to open water mid-board)
   if (rail && wet(W / 2, rail.z)) rail.z = null;
   const STEP = 2.1;
@@ -445,7 +447,7 @@ export function buildCity(o) {
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
   });
 
-  // ----- railway on the skirt, level crossings, the commuter train -------------------------------
+  // ----- the railway (when the map places one), level crossings, the commuter train ---------------
   let train = null;
   if (rail?.z != null) {
     const rz = rail.z;
@@ -498,10 +500,13 @@ export function buildCity(o) {
     meshes.push(boat);
   }
 
-  // ----- Brigade patrol drones high overhead (dressing only) ------------------------------
+  // ----- Brigade patrol drones holding station over the side skirts (dressing only) --------
   const nDrones = cfg.drones === false ? 0 : quality === 'high' ? 4 : quality === 'medium' ? 3 : 2;
   let drones = null;
   const flights = [];
+  /** Where each drone is now ({ x, y, z }): the actor layer drops a soft shadow under each, which
+   * is what tells the near top-down camera that they fly high (without one they read as standing). */
+  const flyers = [];
   if (nDrones > 0) {
     const geo = droneGeometry(new CityAcc());
     disposables.push(geo);
@@ -511,13 +516,32 @@ export function buildCity(o) {
     drones.userData.cast = false;
     meshes.push(drones);
     const dr = makeRand(hash(map.id, 'drones'));
+    // Each drone holds station over a side skirt (west, east, west…), circling slowly: never over
+    // the board (from the near top-down battle camera a drone over it sits there like a monster)
+    // and never over a road where it crosses that side (it would read as one walking in). The
+    // camera lifts a thing y high by ≈ 0.9·y tiles up the screen, so a drone is placed by where it
+    // appears (az), 0.9·y further back. The east station keeps further out: in portrait the
+    // camera turns and that lift carries it toward the board from the east side.
+    const LIFT = 0.9;
+    const R = 0.45;
     for (let i = 0; i < nDrones; i++) {
-      // pairs flying in formation along a slow line across the sky
-      const a = (dr() - 0.5) * 0.8 + (i % 2 ? Math.PI : 0);
-      flights.push({
-        cx: W * (0.2 + dr() * 0.6), cz: H * (0.15 + dr() * 0.5), dx: Math.cos(a), dz: Math.sin(a) * 0.5,
-        y: 3.3 + dr() * 0.6, sp: 0.55 + dr() * 0.25, ph: dr() * 100, L: W + 16,
-      });
+      const west = i % 2 === 0;
+      const off = west ? 1.8 + dr() * 1.0 : 4.0 + dr() * 0.8;
+      const y = 3.3 + dr() * 0.6;
+      const roadsHere = gates.filter((g) => (west ? g.x < 0.5 : g.x > W - 0.5)).map((g) => g.z);
+      let az = H / 2;
+      let best = -1;
+      for (const c of [1.6, H / 2, H - 1.6, 3.2, H - 3.2]) {
+        const d = roadsHere.length ? Math.min(...roadsHere.map((z) => Math.abs(z - c))) : 99;
+        if (d > best + 0.5) {
+          best = d;
+          az = c;
+        }
+      }
+      // a pair on the same side keeps a little apart
+      az += i >= 2 ? (az < H / 2 ? 1.1 : -1.1) : 0;
+      flights.push({ cx: west ? -off : W + off, cz: az + LIFT * y, y, r: R, w: (i % 2 ? -1 : 1) * (0.28 + dr() * 0.1), ph: dr() * 6.28 });
+      flyers.push({ x: 0, y: 0, z: 0 });
     }
   }
 
@@ -564,14 +588,19 @@ export function buildCity(o) {
     }
     if (drones) {
       flights.forEach((f, i) => {
-        const s = ((time * f.sp + f.ph) % f.L) - f.L / 2;
-        const x = f.cx + f.dx * s;
-        const z = f.cz + f.dz * s;
+        const a = time * f.w + f.ph;
+        const x = f.cx + Math.cos(a) * f.r;
+        const z = f.cz + Math.sin(a) * f.r;
         const y = f.y + Math.sin(time * 1.9 + f.ph) * 0.05;
-        eu.set(0.08, Math.atan2(f.dx, f.dz), Math.sin(time * 1.4 + i) * 0.05);
+        // nose along the circle
+        eu.set(0.08, Math.atan2(-Math.sin(a) * f.w, Math.cos(a) * f.w), Math.sin(time * 1.4 + i) * 0.05);
         q.setFromEuler(eu);
         m4.compose(pv.set(x, y, z), q, sc);
         drones.setMatrixAt(i, m4);
+        const fl = flyers[i];
+        fl.x = x;
+        fl.y = y;
+        fl.z = z;
       });
       drones.instanceMatrix.needsUpdate = true;
     }
@@ -583,6 +612,7 @@ export function buildCity(o) {
     glows,
     marks,
     furniture,
+    flyers,
     update,
     getFacadeMaterial: getFacade,
     dispose() {

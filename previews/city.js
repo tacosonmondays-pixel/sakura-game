@@ -7,6 +7,11 @@
 //   &cam=rift|shelter            close-up of the spawn rift / the shelter door (free camera)
 //   &zoom=9                      close-up zoom steps
 //   &clean=1                     hide the HUD (screenshots)   &grey=1  greyscale (readability check)
+//   &frame=battle|full           battle (default): the board framed exactly as the battle frames it,
+//                                between its HUD and its tower bar (battleInsets below), so shots and
+//                                gate / readability checks match the game; full: the whole viewport
+//   &bands=1                     draw the battle's HUD and tower-bar bands (plain, no content) over
+//                                the battle framing: what the game leaves visible
 //   &girls=0                     no girls   &empty=1  terrain and ambient only (no girls, no monsters)
 //   &freeze=1                    stop the sim after the fast-forward
 // window.__perf() → { calls, triangles } of the last frame (all passes);
@@ -26,8 +31,23 @@ const fastForward = Number(params.get('t') ?? 10);
 const freeze = params.get('freeze') === '1';
 const cam = params.get('cam');
 const empty = params.get('empty') === '1';
+const battleFrame = params.get('frame') !== 'full';
 if (params.get('clean') === '1') document.body.classList.add('clean');
 if (params.get('grey') === '1') document.body.classList.add('grey');
+if (battleFrame && params.get('bands') === '1') document.body.classList.add('bands');
+
+/**
+ * The battle's HUD / tower-bar insets (src/ui/battle/controller.js insets(): HUD bottom + 4, tower
+ * bar + 2), measured on stage 1-1 on Oct 27 at 844x390, 667x375, 1280x720 and 390x844. They follow
+ * battle.css: ≤ 700 px wide the HUD wraps to two rows; ≤ 500 px tall the landscape bar is short.
+ * @param {number} w viewport width (CSS px)
+ * @param {number} h viewport height
+ */
+export function battleInsets(w, h) {
+  if (w <= 700) return { top: 104, right: 0, bottom: 105, left: 0 };
+  if (h <= 500) return { top: 50, right: 0, bottom: 83, left: 0 };
+  return { top: 62, right: 0, bottom: 115, left: 0 };
+}
 
 // girls beside the streets (tile coords; the first spot that fits is used)
 const GIRLS = {
@@ -80,11 +100,18 @@ async function main() {
 
   const el = document.getElementById('stage');
   const clean = document.body.classList.contains('clean');
+  const insets = () => {
+    const ins = battleFrame ? battleInsets(window.innerWidth, window.innerHeight) : { top: clean ? 0 : 48, right: 0, bottom: 0, left: 0 };
+    document.documentElement.style.setProperty('--hud-h', `${ins.top - 4}px`);
+    document.documentElement.style.setProperty('--bar-h', `${Math.max(0, ins.bottom - 2)}px`);
+    return ins;
+  };
   const r = createBattleRenderer(el, sim, {
     quality,
     settings: { quality, camera: cam ? 'free' : 'locked', lighting: { exposure: 1, warmth: 0 } },
-    insets: { top: clean ? 0 : 48, right: 0, bottom: 0, left: 0 },
+    insets: insets(),
   });
+  window.addEventListener('resize', () => r.setInsets(insets()));
   window.__sim = sim;
   window.__r = r;
   window.__perf = () => ({ calls: r.info.calls, triangles: r.info.triangles });
