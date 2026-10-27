@@ -1,7 +1,11 @@
 // Dev preview of the Gate Arc city look (src/render/city/, THEMES.city): the real Sim and
 // BattleRenderer on the fixture boards in previews/cityMaps.js (never in MAPS or STAGES).
 // Query params:
-//   ?map=downtown|canal          which fixture board (default downtown)
+//   ?map=downtown|canal|crossing which fixture board (default downtown); crossing = rooftops and the
+//                                lane schedule (Gate Arc S1c)
+//   &wave=2                      crossing: play on to this wave (its lanes; even waves shut the crossing)
+//   &card=rule                   the stage card's Map rule panel with a modern skin (src/ui/text/rules.js)
+//   &placing=aoi                 show the placement ghost of this girl (roof outlines while placing)
 //   &quality=high|medium|low     renderer quality (default high)
 //   &t=10                        fast-forward this many seconds of game time first
 //   &cam=rift|shelter            close-up of the spawn rift / the shelter door (free camera)
@@ -23,6 +27,8 @@ import { createBattleRenderer } from '../src/render/BattleRenderer.js';
 import { buildTerrain, resolveScenery } from '../src/render/terrain.js';
 import { resolveLook } from '../src/render/themes.js';
 import { CITY_FIXTURES, fixtureStage } from './cityMaps.js';
+import { laneClosedText, STAGE_RULE_SKINS } from '../src/ui/text/rules.js';
+import { STAGE_MAP } from '../src/data/stages.js';
 
 const params = new URLSearchParams(location.search);
 const key = CITY_FIXTURES[params.get('map')] ? params.get('map') : 'downtown';
@@ -53,11 +59,37 @@ export function battleInsets(w, h) {
 const GIRLS = {
   downtown: [['aoi', 7, 5], ['akane', 11, 7], ['yuki', 8, 3], ['sango', 16, 5], ['rei', 13, 4], ['hotaru', 4, 7]],
   canal: [['aoi', 7, 6], ['akane', 9, 4], ['yuki', 13, 6], ['sango', 5, 9], ['rei', 12, 2], ['hotaru', 15, 5]],
+  // aoi and yuki on the shop roofs between the two lanes ('U' tiles), the rest on the street
+  crossing: [['aoi', 8.5, 5.0], ['yuki', 11.5, 8.0], ['akane', 3, 3], ['rei', 12, 2], ['hotaru', 3, 8], ['kage', 17, 6]],
 };
+/** Spots given with a .5 are exact (a roof's middle); whole numbers are searched round. */
+const exact = (v) => !Number.isInteger(v);
 // Act 1's families spread along the route (existing enemy models)
 const MARCH = ['slime_green', 'goblin_runner', 'slime_gold', 'orc_grunt', 'beast_boar', 'goblin_dasher', 'slime_green', 'goblin_runner', 'slime_gold', 'orc_grunt'];
 
+/** The stage card's Map rule panel with a modern skin (the 1-9 idea), on the game's own styles. */
+async function ruleCard() {
+  await import('../src/ui/styles/base.css');
+  await import('../src/ui/styles/components.css');
+  await import('../src/ui/styles/modes.css');
+  const { rulePanel } = await import('../src/ui/screens/stageModes.js');
+  const stage = { ...STAGE_MAP['2-1'], id: 'preview:fixture_city_crossing' };
+  // a preview skin (display text only; the Act 1 skins arrive with their stages): every number stays the rule's
+  STAGE_RULE_SKINS[stage.id] = {
+    rule: 'changing_tides',
+    name: 'Lock Cycle',
+    short: 'Lock',
+    desc: 'The canal lock fills (7 s in every 18): slimes wade 35% slower through the spill, and Lightning hits 35% harder off the wet street.',
+    toast: 'The lock fills! Slimes slowed, Lightning +35% (7 s)',
+  };
+  document.body.classList.add('card');
+  const host = document.getElementById('cardHost');
+  host.replaceChildren(rulePanel(stage));
+  document.getElementById('status').textContent = 'Map rule card';
+}
+
 async function main() {
+  if (params.get('card') === 'rule') return ruleCard();
   await preloadModels();
   const map = CITY_FIXTURES[key];
   const stage = fixtureStage(map);
@@ -66,6 +98,11 @@ async function main() {
   sim.cash += 6000;
   if (params.get('girls') !== '0' && !empty) {
     for (const [id, x, y] of GIRLS[key]) {
+      if (exact(x) || exact(y)) {
+        if (sim.canPlace(id, x, y).ok) sim.placeTower(id, x, y);
+        else console.warn(`[preview] ${id} cannot stand at ${x}, ${y}: ${sim.canPlace(id, x, y).reason}`);
+        continue;
+      }
       let placed = false;
       for (let r = 0; r <= 2 && !placed; r++) {
         for (let dy = -r; dy <= r && !placed; dy++) {
@@ -79,7 +116,30 @@ async function main() {
       }
     }
   }
-  if (!empty) {
+  const laneBoard = !!stage.waveGen?.laneCycle;
+  const targetWave = Math.max(1, Number(params.get('wave') || 1));
+  let banner = '';
+  if (!empty && laneBoard) {
+    // play on to the wave asked for: earlier waves are cleared at once (only their lanes matter here)
+    for (let w = 1; w < targetWave; w++) {
+      sim.startNextWave();
+      sim._spawnQueue = [];
+      sim._spawnIndex = 0;
+      sim.update(0.05);
+      for (const e of sim.enemies) e.hp = 0;
+      for (let k = 0; k < 40 && sim.state === 'wave'; k++) sim.update(0.1);
+      sim.drainEvents();
+    }
+    sim.startNextWave();
+    const ev = sim.drainEvents().find((e) => e.type === 'waveStart');
+    // the battle banner's line for this wave (src/ui/battle/modes.js waveSub)
+    banner = ev?.lanes && ev.lanes.length < sim.pathData.length ? laneClosedText(stage) : `both lanes open (lanes ${ev?.lanes?.join(', ')})`;
+    banner = `Wave ${sim.wave} · ${banner}`;
+    for (let t = 0; t < fastForward; t += 0.25) {
+      sim.update(0.25);
+      sim.drainEvents();
+    }
+  } else if (!empty) {
     sim.startNextWave();
     for (let t = 0; t < fastForward; t += 0.25) {
       sim.update(0.25);
@@ -114,6 +174,18 @@ async function main() {
   window.addEventListener('resize', () => r.setInsets(insets()));
   window.__sim = sim;
   window.__r = r;
+  // &placing=<girl>: the placement ghost on the first free roof spot (roof outlines show while placing)
+  if (params.get('placing')) {
+    const id = params.get('placing');
+    let spot = null;
+    for (let y = 0.55; y < map.height && !spot; y += 0.25) {
+      for (let x = 0.55; x < map.width && !spot; x += 0.25) {
+        if (map.rows[Math.floor(y)]?.[Math.floor(x)] === 'U' && sim.canPlace(id, x, y).ok) spot = [x, y];
+      }
+    }
+    const [gx, gy] = spot || [8.5, 5.0];
+    r.setGhost(id, gx, gy, sim.canPlace(id, gx, gy).ok);
+  }
   window.__perf = () => ({ calls: r.info.calls, triangles: r.info.triangles });
   window.__terrainStats = (q = quality) => {
     const familyOf = (id) => sim.data?.enemy?.(id)?.family || null;
@@ -208,7 +280,7 @@ async function main() {
     fpsT += dt;
     if (fpsT >= 0.5) {
       const i = r.info;
-      status.textContent = `${map.name} · ${Math.round(frames / fpsT)} fps`;
+      status.textContent = `${map.name}${banner ? ` · ${banner}` : ''} · ${Math.round(frames / fpsT)} fps`;
       info.textContent = `theme ${i.theme} · ${i.calls} draw calls · ${i.triangles.toLocaleString()} triangles · ${quality}`;
       frames = 0;
       fpsT = 0;

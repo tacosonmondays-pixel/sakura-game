@@ -25,10 +25,19 @@ export const CITY_VARIANTS = {
   trashBin: 1, bikeRack: 1, streetTree: 2, powerPole: 1, planterBox: 2, guardRail: 1, laundryLine: 3,
   catOnWall: 2, pigeonGroup: 2, missingPoster: 4, manhole: 1, bunSteamer: 1,
   // Act 1 set pieces
-  stationHall: 1, ticketGates: 1, clockTower: 1, levelCrossing: 2, waterBus: 1, lockGate: 1, arcadeRibs: 1, roofBlock: 2,
+  stationHall: 1, ticketGates: 1, clockTower: 1, levelCrossing: 3, waterBus: 1, lockGate: 1, arcadeRibs: 1, roofBlock: 2,
   // gates
   petalRift: 2, shelterDoor: 3,
 };
+
+/** Height of a rooftop ('U' tile, src/sim/placement.js): girls stand on it, so it stays low (≤ 0.6) and readable. */
+export const ROOF_Y = 0.56;
+
+/**
+ * The level crossing's barrier arm, in the post's frame (levelCrossing; cityKit animates it): the
+ * hub it turns on, its length (the road side is local +x) and its striped segments.
+ */
+export const CROSSING_ARM = { hubX: 0.1, hubY: 0.44, segs: 6, seg: 0.16, w: 0.035 };
 
 /** cityBlock variant → kind (GATE_ARC §18.3). */
 export const BLOCK_KINDS = ['shopRow', 'apartment', 'office', 'convenienceStore', 'clinic', 'policeBox'];
@@ -415,22 +424,26 @@ export const CITY_BUILDERS = {
   },
   levelCrossing(c) {
     // a crossing post (striped, crossbuck, twin red lamps) and its barrier arm: variant 0 up,
-    // variant 1 down across the road (+x). The barrier reading the wave arrives with the lane schedule.
-    const down = v(c, 'levelCrossing') === 1;
+    // variant 1 down across the road (+x); variant 2 is the post alone, its lamp light and arm left
+    // to the city kit, which lowers and raises the arm with the lane schedule (cityKit setLanes).
+    const k = v(c, 'levelCrossing');
+    const down = k === 1;
     c.solid.box(0.12, 0.08, 0.12, { color: '#6f6f6f' });
     for (let i = 0; i < 4; i++) c.solid.box(0.05, 0.22, 0.05, { y: 0.08 + i * 0.22, color: i % 2 ? '#2b2b2b' : '#ffd84d' });
     c.solid.box(0.36, 0.04, 0.02, { y: 1.02, rz: 0.6, z: 0.03, color: '#f7f4ee' });
     c.solid.box(0.36, 0.04, 0.02, { y: 1.02, rz: -0.6, z: 0.03, color: '#f7f4ee' });
     c.solid.box(0.3, 0.1, 0.04, { y: 0.8, z: 0.03, color: '#2b2b2b' });
     for (const x of [-0.09, 0.09]) c.glow.box(0.06, 0.06, 0.012, { x, y: 0.85, z: 0.055, color: '#ff4d5e' });
-    glowPoint(c, 0, 0.85, 0.08, '#ff4d5e', 0.45, down ? 0.5 : 0.08);
     c.solid.box(0.1, 0.1, 0.1, { x: 0.08, y: 0.4, color: '#4a4a4a' });
+    if (k === 2) return;
+    glowPoint(c, 0, 0.85, 0.08, '#ff4d5e', 0.45, down ? 0.5 : 0.08);
+    const A = CROSSING_ARM;
     const arm = (i) => (down
-      ? { x: 0.2 + i * 0.16, y: 0.44, color: i % 2 ? '#e84a4a' : '#f7f4ee' }
-      : { x: 0.1, y: 0.5 + i * 0.16, color: i % 2 ? '#e84a4a' : '#f7f4ee' });
-    for (let i = 0; i < 6; i++) {
+      ? { x: A.hubX + A.seg / 2 + 0.02 + i * A.seg, y: A.hubY, color: i % 2 ? '#e84a4a' : '#f7f4ee' }
+      : { x: A.hubX, y: A.hubY + 0.06 + i * A.seg, color: i % 2 ? '#e84a4a' : '#f7f4ee' });
+    for (let i = 0; i < A.segs; i++) {
       const a = arm(i);
-      c.solid.box(down ? 0.16 : 0.035, down ? 0.035 : 0.16, 0.035, { ...a });
+      c.solid.box(down ? A.seg : A.w, down ? A.w : A.seg, A.w, { ...a });
     }
   },
   waterBus(c) {
@@ -464,11 +477,11 @@ export const CITY_BUILDERS = {
     c.glow.box(0.3, 0.04, 0.01, { y: 0.98, z: 0.32, color: '#ffe6c4' });
   },
   roofBlock(c) {
-    // the base under a rooftop (U) tile: a flat-roofed block ≤ 0.6 tall with a parapet and AC
-    // units (a girl stands on it; rooftops arrive with S1c)
+    // a lone flat-roofed block ROOF_Y tall with a parapet and AC units, as a set piece (decor). The
+    // rooftops girls stand on ('U' tiles) are built per connected region by the city kit (buildRoofs).
     const k = v(c, 'roofBlock');
     const F = c.facade;
-    const H = 0.56;
+    const H = ROOF_Y;
     F.box(0, 0, 0, 0.98, H, 0.98, { color: k ? PAL.plaster : PAL.tan, side: k ? FK.flats : FK.shop, top: '#c9c2b6', topKind: 0 });
     parapet(F, 0.98, 0.98, H, PAL.parapet, 0.035, 0.045);
     F.box(0.32, H, -0.32, 0.16, 0.1, 0.12, { color: '#e9e6df' });

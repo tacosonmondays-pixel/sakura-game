@@ -18,14 +18,16 @@ import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
-import { buildCity, cityBuildingFor, cityWallVariant } from './city/cityKit.js';
-import { riftPlacement } from './city/cityProps.js';
+import { buildCity, cityBuildingFor, cityWallVariant, buildRoofs } from './city/cityKit.js';
+import { riftPlacement, ROOF_Y } from './city/cityProps.js';
 import { cityGroundPainter } from './city/cityGround.js';
-import { createFacadeMaterial } from './city/cityMaterials.js';
+import { createFacadeMaterial, CityAcc } from './city/cityMaterials.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
 export const PATH_H = 0.05;
 export const WATER_Y = 0.012;
+/** Top of a rooftop ('U' tiles): where a girl standing on one stands (src/render/city/cityKit.js buildRoofs). */
+export { ROOF_Y };
 export const LAVA_Y = 0.01;
 const MARGIN = 8;
 /** Half width of the road slab in tiles (the sim's path tiles are 1 wide). */
@@ -549,9 +551,22 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       } else if (c === ',') {
         // the painted ground already shows a flower drift here; add a few 3D blossoms on top
         if (h % 3 === 0) place('flowersPatch', cx, 0, cz, r01 * 6.28, 0.75, h % 4);
+      } else if (c === 'U') {
+        // a rooftop: its block is built per region below; nothing else stands on the tile
+        occupied.add(key);
       }
     }
   }
+
+  // ----- rooftops ('U'): one low flat-roofed block per connected region, on any theme --------
+  let roofStats = null;
+  if (rows.some((r) => r.includes('U'))) {
+    const roofAcc = new CityAcc();
+    roofStats = buildRoofs(map, roofAcc, { quality });
+    const rg = roofAcc.build();
+    if (rg) facadeParts.push(rg);
+  }
+  const isRoofTile = (x, y) => inMap(x, y) && rows[y][x] === 'U';
 
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
@@ -749,7 +764,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           const pz = z + nz * sd * 0.66;
           const tx = Math.floor(px);
           const tz = Math.floor(pz);
-          if (!inMap(tx, tz) || isWater(tx, tz) || isLava(tx, tz)) continue;
+          if (!inMap(tx, tz) || isWater(tx, tz) || isLava(tx, tz) || isRoofTile(tx, tz)) continue;
+          // (nor on a city railway that crosses the board)
+          if (look.city && Number.isFinite(railZ) && Math.abs(pz - railZ) < 0.7) continue;
           // stay off every other road
           let clear = true;
           for (const o of plan.roads) {
@@ -820,8 +837,15 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   addMesh(solidGeo, mats.solid, { cast: true, name: 'props' });
   addMesh(foliageGeo, mats.foliage, { cast: true, name: 'foliage' });
   addMesh(glowGeo, mats.glow, { receive: false, name: 'glowProps' });
+  // the level crossings' barrier arms go last, so the kit can re-pose their vertex range in place
+  let armsOffset = -1;
+  if (city?.armsPart) {
+    armsOffset = facadeParts.reduce((n, g) => n + g.attributes.position.count, 0);
+    facadeParts.push(city.armsPart);
+  }
   if (facadeParts.length) {
     const facadeGeo = mergeGeometries(facadeParts);
+    if (armsOffset >= 0) city.bindFacade(facadeGeo, armsOffset);
     for (const g of facadeParts) g.dispose();
     let facadeMat = mats.facade;
     if (!facadeMat) {
@@ -869,6 +893,14 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     city: city ? city.stats : null,
     /** Live positions of the city's patrol drones ({ x, y, z }, updated by update(); empty elsewhere): the actor layer shadows them. */
     flyers: city ? city.flyers : [],
+    /** Rooftop layout ({ regions, tiles }, null without 'U' tiles). */
+    roofs: roofStats,
+    /** Height a girl stands at on the board point (x, y): ROOF_Y on a rooftop tile, else 0. */
+    roofAt: (x, y) => (isRoofTile(Math.floor(x), Math.floor(y)) ? ROOF_Y : 0),
+    /** The lane schedule's open lanes (Sim.openLanes(); null = every lane): the city's level crossings follow it. */
+    setLanes(open) {
+      city?.setLanes(open);
+    },
     /** Road centreline pieces in world coords (the canonical tracks, run out past the board, tunnels cut out). */
     roads,
     /** Drawing plan per track (points, elevation, tunnel flags) and tunnel portals. */

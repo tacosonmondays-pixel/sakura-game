@@ -459,7 +459,9 @@ MapDef = {
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
-                        // ',' flowers/decor (buildable), 'X' void/blocked
+                        // ',' flowers/decor (buildable), 'X' void/blocked,
+                        // 'U' rooftop (Gate Arc): a low flat roof girls stand on (§6); like 'X' it is
+                        // never cleared under a road, and a road over a roof fails the path test
   // Tracks v3 (src/core/track.js): paths are authored as smooth curves in WORLD coords and
   // sampled ONCE into dense centrelines that the sim walks, the renderer draws and the
   // thumbnails trace (no re-smoothing downstream).
@@ -477,6 +479,12 @@ MapDef = {
           | { type: 'icefall', x0, x1, y }  // frozen falls over a river head
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
+  city?: {...},                    // the city kit's render hints (see `theme` above)
+  echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
+                                   // Gate Arc echo: the same place as an Act I map in another era, its
+                                   // rows / paths / crossings / tunnels literal except the tiles echoDiff
+                                   // lists (e.g. the dry fountain basin '~' → '.'). At most three; only
+                                   // declared pairs skip the silhouette and turning tests
 }
 ```
 
@@ -503,7 +511,9 @@ edge, no two maps with the same silhouette: coarse 10×6 raster IoU < 0.65, and 
 turning signatures match (the sequence of signed curvature lobes, mirrored / reversed variants
 included — tests/data/trackShape.js) must sit differently on the board (IoU < 0.5, < 0.45 for three
 or more lobes); at most two maps may be meanders (three or more alternating U-bends marching across
-the board).
+the board). A declared echo pair (`echoOf`, `isDeclaredEcho`) is the only exemption from the
+silhouette and turning rules: at most three echoes, each of a map of another era (Morning = the
+eleven shipped themes, Noon = city / campus / drowned, Evening = vesper), literal except `echoDiff`.
 
 Rendering rules for the road (src/render/trackMesh.js, terrain.js): a road section over water is
 ONE continuous plank ribbon along the centreline over the whole wet span (short dry gaps bridged,
@@ -565,6 +575,12 @@ StageDef = {
     groups /*max groups per wave*/,
     fixed: [{ wave, enemy, count, spacing?, delay?, path? }],   // scripted additions (minibosses, intros);
                                                           // bosses/minibosses default to the longest path
+    laneCycle?: [[laneIdx...]...],  // Gate Arc lane schedule: wave n walks only the lanes of entry (n-1) mod
+                                    // length, e.g. [[0, 1], [1]] = even waves keep off lane 0 (a level
+                                    // crossing's barrier). Generated groups round-robin over the open
+                                    // lanes; a fixed group pinned to a closed lane moves to the first open
+                                    // one, a boss to the longest open one; freeplay waves follow the same
+                                    // cycle. Absent = the waves exactly as before (waves.js openLanes)
   },
   hpScale /*1.0 at 1-1 rising to ~6 at 8-5*/, startCash, lives /*base before difficulty override*/,
   cashScale? /*optional economy multiplier on kill bounties + wave-clear bonus (default 1; campaign = hpScale^0.6)*/,
@@ -591,7 +607,11 @@ enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € live
 padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
 zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
 1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
-(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`).
+(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`). Screens read a stage's rule text through
+`ruleTextFor(stage, ruleId?)`: Gate Arc stages may tell a shipped rule in their own words
+(`STAGE_RULE_SKINS[stageId] = { rule, name?, short?, desc?, toast?, activeWord? }`, applied only to the rule it
+names; the numbers stay the rule's own, tests/ui/ruleSkins.test.js). A lane schedule's wave banner line is
+`laneClosedText(stage)` (`STAGE_LANE_TEXT` per stage, else "Crossing closed: long way round").
 
 Free recruits arrive one stage **before** their mechanic (see roster table). Chapters:
 1 Sakura Gardens (basics, slimes, hasty goblins; 1-5 Slime Prince), 2 Moonlit Lakeshore
@@ -1062,7 +1082,12 @@ a UnitDef may override with `footprint`). A spot is legal when the centre is ins
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
 line ≥ 0.55 + r), it clears obstacles (trees = discs r 0.45 at the tile centre; rocks / buildings /
 void = the tile square) and the terrain under the CENTRE matches her placement ('~' and 'B' water —
-the road itself is excluded by the band —, '.' / ',' land). Path distance is measured to the dense
+the road itself is excluded by the band —, '.' / ',' / 'U' land). Rooftops ('U', Gate Arc): a girl
+whose centre is on a roof needs her whole footprint on roof tiles (every other tile, and the board's
+outside, is the roof's edge: else 'blocked'); for a girl on the ground a roof tile blocks like a
+building; water girls get 'needsWater' there, amphibious girls may stand there; a roof adds no range.
+`sim.placement.isRoof(x, y)` answers it; the renderer (terrain `roofAt`) stands roof girls ROOF_Y (0.56) higher; autoPlan
+takes roofs as land and marks such place actions `roof: true`. Path distance is measured to the dense
 Tracks v3 centrelines (segments bucketed per tile, so the hundreds of short segments stay cheap).
 Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
 `towerAt` / `placeCost` are read as a tile (tx, ty) and resolve to its centre (legacy wrapper;
@@ -1177,7 +1202,9 @@ SimEvent = { type, ...payload } with types:
   'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
-  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
+  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
+               lanes? /*the open lane indices, only on a stage with waveGen.laneCycle*/ }
+  sim.openLanes(n?) → number[]|null   // lanes open on wave n (default: this wave, or the next between waves); null = all
   'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
   'rift' {uid, x, y, x2, y2} (Shifting Stars)   'won' {finished: true} (freeplay Finish)
 ```
@@ -1480,6 +1507,7 @@ r.dispose()
 r.canvas                         // the WebGL canvas
 r.towerSkin(uid)                 // the outfit (skin id) a placed girl's model wears, null before it is drawn (e2e / debug)
 r.pick(clientX, clientY)         // -> { x, y /*continuous world point, free placement*/, tx, ty /*tile under it*/, towerUid|null, inBounds }
+                                 //    (a ray over a rooftop lands on the roof's top first: boardInput.js boardPoint)
 r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + small footprint
                                  //    circle: white = valid, red = invalid; neutral white range circle). Two integers = a tile centre (legacy).
 r.setPlacementRange(on)          // show/hide the ghost's range circle (settings.showRanges)

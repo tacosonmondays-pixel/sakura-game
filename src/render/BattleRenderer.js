@@ -15,7 +15,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CameraRig, clearSlide } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
-import { attachBoardInput } from './boardInput.js';
+import { attachBoardInput, boardPoint } from './boardInput.js';
 import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
@@ -24,7 +24,7 @@ import { RuleDecals } from './ruleDecals.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
 import { BuffIcons } from './buffIcons.js';
-import { buildTerrain, resolveScenery } from './terrain.js';
+import { buildTerrain, resolveScenery, ROOF_Y } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
 import { clearCostumeCache } from './costumes.js';
@@ -629,6 +629,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
         compFail(err);
       }
     }
+    // the lane schedule (Gate Arc): the level crossings show this wave's lanes, or the next wave's
+    // between waves (the barrier comes down before the column arrives)
+    terrain.setLanes(sim.openLanes ? sim.openLanes() : null);
     terrain.update(time);
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
@@ -712,14 +715,15 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const rect = canvas.getBoundingClientRect();
     ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    const hit = raycaster.ray.intersectPlane(plane, hitP);
+    // the ground plane, or a rooftop's top first (Gate Arc 'U' tiles: boardInput.js boardPoint)
+    const hit = terrain.roofs ? boardPoint(raycaster.ray, terrain.roofAt, ROOF_Y) : raycaster.ray.intersectPlane(plane, hitP) && { x: hitP.x, y: hitP.z };
     let x = null;
     let y = null;
     let tx = -999;
     let ty = -999;
     if (hit) {
-      x = hitP.x;
-      y = hitP.z;
+      x = hit.x;
+      y = hit.y;
       tx = Math.floor(x);
       ty = Math.floor(y);
     }
@@ -740,7 +744,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const radius = 0.38 / rig.scale;
       let best = radius * radius;
       for (const t of sim.towers) {
-        const s = projectPx(t.x, t.y, 0.45, rect);
+        const s = projectPx(t.x, t.y, 0.45 + (terrain.roofAt?.(t.x, t.y) || 0), rect);
         const dd = (s.x - px) ** 2 + (s.y - py) ** 2;
         if (dd < best) {
           best = dd;

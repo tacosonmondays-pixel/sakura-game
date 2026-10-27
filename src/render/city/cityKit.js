@@ -17,7 +17,15 @@
 //   • up to three instanced movers (one draw call each): the commuter train every 40 s (with the
 //     railway), a water-bus on the canal, and Brigade patrol drones circling high over the side
 //     skirts — dressing only: they never fire, never target anything and never hang over the
-//     board or a road, so they cannot be read as monsters or cover a gate (GATE_ARC §7.3, §18.5).
+//     board or a road, so they cannot be read as monsters or cover a gate (GATE_ARC §7.3, §18.5),
+//   • the lane schedule (Gate Arc S1c): each level crossing guards the lane whose road crosses the
+//     line (an underpass or a deck has none); setLanes(open) lowers the barrier arms of closed
+//     lanes, blinks their lamps and runs the train through while one is closed (on a line with
+//     crossings the train only runs then). The arms live in the facade mesh (armsPart, appended
+//     last by terrain.js) and are re-posed on the CPU only while they swing: 0 extra draw calls,
+//   • rooftops (Gate Arc S1c): buildRoofs draws one flat-roofed block ROOF_Y tall under each
+//     connected region of 'U' tiles (walls and a parapet on its outline only, a little dressing),
+//     into the same facade mesh; terrain.js calls it on every theme.
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -25,8 +33,10 @@
 import * as THREE from 'three';
 import { makeRand, hash } from '../geo.js';
 import { CityAcc, FK, createFacadeMaterial } from './cityMaterials.js';
-import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry } from './cityProps.js';
+import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry, ROOF_Y, CROSSING_ARM } from './cityProps.js';
 import { prim } from './buildings.js';
+
+export { ROOF_Y };
 import { crosswalkMarks } from '../groundFeatures.js';
 
 const PATH_H = 0.05;
@@ -39,6 +49,110 @@ const KERB = 0.06;
 const WIRE_Y = 1.46;
 /** Train: cars, car length, period (s) and the part of it spent crossing. */
 const TRAIN = { cars: 5, len: 1.24, period: 40, run: 0.32 };
+/** While a lane schedule holds a crossing shut: a pass takes `pass` s, the next follows `gap` s later, the first `lead` s after the arms start down. */
+const BUSY = { pass: 6.4, gap: 4.5, lead: 1.3 };
+/** Barrier arm: up angle (rad, about the hub) and swing speed (rad/s). */
+const ARM_UP = Math.PI / 2;
+const ARM_SPEED = 2.4;
+
+/**
+ * Connected rooftop regions of a map ('U' tiles, 4-neighbour), in reading order.
+ * @param {{ rows: string[] }} map
+ * @returns {{ tiles: number[][] }[]}
+ */
+export function roofRegions(map) {
+  const rows = map.rows || [];
+  const seen = new Set();
+  const out = [];
+  for (let y = 0; y < rows.length; y++) {
+    for (let x = 0; x < rows[y].length; x++) {
+      if (rows[y][x] !== 'U' || seen.has(`${x},${y}`)) continue;
+      const tiles = [];
+      const stack = [[x, y]];
+      seen.add(`${x},${y}`);
+      while (stack.length) {
+        const [tx, ty] = stack.pop();
+        tiles.push([tx, ty]);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = tx + dx;
+          const ny = ty + dy;
+          if (rows[ny]?.[nx] === 'U' && !seen.has(`${nx},${ny}`)) {
+            seen.add(`${nx},${ny}`);
+            stack.push([nx, ny]);
+          }
+        }
+      }
+      tiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+      out.push({ tiles });
+    }
+  }
+  return out;
+}
+
+/**
+ * The blocks under the rooftops ('U' tiles): per connected region one flat roof ROOF_Y high, its
+ * shop or flat walls and a low parapet on the region's outline only (no seams between its tiles,
+ * so a girl may stand across them), and a little dressing in a corner (an AC unit; a water tank on
+ * bigger roofs). Facade geometry into `acc`; deterministic per map.
+ * @param {object} map MapDef
+ * @param {CityAcc} acc facade accumulator
+ * @param {{ quality?: string }} [o]
+ * @returns {{ regions: number, tiles: number }}
+ */
+export function buildRoofs(map, acc, { quality = 'high' } = {}) {
+  const regions = roofRegions(map);
+  const isRoof = (x, y) => map.rows[y]?.[x] === 'U';
+  const T = 0.035;
+  const PH = 0.05;
+  let tiles = 0;
+  regions.forEach((reg, ri) => {
+    const h = hash(map.id, 'roof', reg.tiles[0][0], reg.tiles[0][1]);
+    const flats = h % 2 === 1;
+    const side = flats ? FK.flats : FK.shop;
+    const wall = flats ? '#efe7da' : '#e9d9bf';
+    const top = ['#cfc8bb', '#c9c2b6', '#d3cdc2'][h % 3];
+    for (const [x, y] of reg.tiles) {
+      tiles++;
+      // the roof surface
+      acc.quad([x, ROOF_Y, y + 1], [x + 1, ROOF_Y, y + 1], [x + 1, ROOF_Y, y], [x, ROOF_Y, y], top, 0);
+      const H = ROOF_Y;
+      // walls and parapet on the outline: north (-z), south (+z), west (-x), east (+x)
+      if (!isRoof(x, y - 1)) {
+        acc.quad([x + 1, 0, y], [x, 0, y], [x, H, y], [x + 1, H, y], wall, side, [[x + 1, 0], [x, 0], [x, H], [x + 1, H]]);
+        acc.box(x + 0.5, H, y + T / 2, 1, PH, T, { color: PAL_PARAPET });
+      }
+      if (!isRoof(x, y + 1)) {
+        acc.quad([x, 0, y + 1], [x + 1, 0, y + 1], [x + 1, H, y + 1], [x, H, y + 1], wall, side, [[x, 0], [x + 1, 0], [x + 1, H], [x, H]]);
+        acc.box(x + 0.5, H, y + 1 - T / 2, 1, PH, T, { color: PAL_PARAPET });
+      }
+      if (!isRoof(x - 1, y)) {
+        acc.quad([x, 0, y], [x, 0, y + 1], [x, H, y + 1], [x, H, y], wall, side, [[y, 0], [y + 1, 0], [y + 1, H], [y, H]]);
+        acc.box(x + T / 2, H, y + 0.5, T, PH, 1, { color: PAL_PARAPET });
+      }
+      if (!isRoof(x + 1, y)) {
+        acc.quad([x + 1, 0, y + 1], [x + 1, 0, y], [x + 1, H, y], [x + 1, H, y + 1], wall, side, [[y + 1, 0], [y, 0], [y, H], [y + 1, H]]);
+        acc.box(x + 1 - T / 2, H, y + 0.5, T, PH, 1, { color: PAL_PARAPET });
+      }
+    }
+    if (quality === 'low') return;
+    // dressing tucked into the first tile's outer corner (a girl's footprint stays clear of the edge
+    // band, so it seldom meets her), and a water tank in the last tile's on a roof of 3+ tiles
+    const [ax, ay] = reg.tiles[0];
+    const cx = !isRoof(ax - 1, ay) ? ax + 0.17 : ax + 0.83;
+    const cz = !isRoof(ax, ay - 1) ? ay + 0.15 : ay + 0.85;
+    acc.box(cx, ROOF_Y, cz, 0.18, 0.1, 0.13, { color: '#e9e6df' });
+    acc.box(cx, ROOF_Y + 0.1, cz, 0.12, 0.012, 0.09, { color: '#9aa3ae' });
+    if (reg.tiles.length >= 3) {
+      const [bx, by] = reg.tiles[reg.tiles.length - 1];
+      const tx = !isRoof(bx + 1, by) ? bx + 0.82 : bx + 0.18;
+      const tz = !isRoof(bx, by + 1) ? by + 0.82 : by + 0.18;
+      prim(acc, new THREE.CylinderGeometry(0.075, 0.075, 0.15, 7), { x: tx, y: ROOF_Y + 0.075, z: tz }, ri % 2 ? '#cfd6dc' : '#d8d2c4');
+    }
+  });
+  return { regions: regions.length, tiles };
+}
+
+const PAL_PARAPET = '#f1ede4';
 
 /**
  * Which building stands on an interior H tile: shops along the street (shopFront, the shop-row
@@ -398,7 +512,7 @@ export function buildCity(o) {
     const sgn = p.end === 'in' ? -1 : 1;
     const x = p.x + nx * 0.98 + dx * sgn * 0.3;
     const z = p.z + nz * 0.98 + dz * sgn * 0.3;
-    if (roadDist(x, z) < 0.6 || wet(x, z)) continue;
+    if (roadDist(x, z) < 0.6 || wet(x, z) || map.rows[Math.floor(z)]?.[Math.floor(x)] === 'U') continue;
     const ry = Math.atan2(dx * sgn, dz * sgn);
     acc.box(x, 0, z, 0.05, 0.62, 0.05, { color: '#9aa3ae' });
     acc.box(x, 0.6, z, 0.24, 0.22, 0.04, { ry, color: '#3d6a9a' });
@@ -449,6 +563,8 @@ export function buildCity(o) {
 
   // ----- the railway (when the map places one), level crossings, the commuter train ---------------
   let train = null;
+  /** Level crossings: { lane, posts: [{ x, z, ry, glow }], angle, target, base } (the lane schedule drives them). */
+  const levelCrossings = [];
   if (rail?.z != null) {
     const rz = rail.z;
     const x0 = -margin - 2;
@@ -456,17 +572,28 @@ export function buildCity(o) {
     acc.box((x0 + x1) / 2, 0, rz, x1 - x0, 0.03, 0.78, { color: '#a49d93', top: '#9a9389', topKind: FK.sleepers });
     for (const s of [-1, 1]) acc.box((x0 + x1) / 2, 0.03, rz + s * 0.19, x1 - x0, 0.03, 0.035, { color: '#c7ccd2' });
     for (let x = Math.ceil(x0 / 4) * 4; x < x1; x += 4) occupied.add(`${Math.floor(x)},${Math.floor(rz)}`);
+    // a line across the board itself keeps every tile it runs over free of props
+    if (rz > 0 && rz < H) for (let x = 0; x < W; x++) occupied.add(`${x},${Math.floor(rz)}`);
     for (const r of plan.roads) {
       for (let i = 1; i < r.pts.length; i++) {
         const [ax, az] = r.pts[i - 1];
         const [bx, bz] = r.pts[i];
         if ((az - rz) * (bz - rz) > 0 || az === bz) continue;
+        // a road that passes under the line (an underpass) or over it on a deck has no level crossing
+        if (r.tunnel[i - 1] || r.tunnel[i] || r.elev[i - 1] > 0.01 || r.elev[i] > 0.01) continue;
         const cx = ax + ((rz - az) / (bz - az)) * (bx - ax);
         acc.box(cx, PATH_H - 0.01, rz, 1.0, 0.03, 0.8, { color: '#7f7a75' });
         for (const s of [-1, 1]) acc.box(cx, 0.06, rz + s * 0.19, 1.0, 0.012, 0.035, { color: '#c7ccd2' });
-        place('levelCrossing', cx - 0.7, 0, rz - 0.55, 0, 1, 0);
-        place('levelCrossing', cx + 0.7, 0, rz + 0.55, Math.PI, 1, 0);
-        furniture.push([cx - 0.7, rz - 0.55], [cx + 0.7, rz + 0.55]);
+        // the posts (variant 2: without their arm, which the kit swings) on either side of the road
+        const posts = [[cx - 0.7, rz - 0.55, 0], [cx + 0.7, rz + 0.55, Math.PI]].map(([x, z, ry]) => {
+          place('levelCrossing', x, 0, z, ry, 1, 2);
+          furniture.push([x, z]);
+          // its lamps' light: dim while the road is open, blinking while the barrier is down
+          const glow = { x: x + Math.sin(ry) * 0.08, y: 0.85, z: z + Math.cos(ry) * 0.08, color: new THREE.Color('#ff4d5e'), size: 0.16, flicker: 0, phase: ry ? Math.PI : 0 };
+          glows.push(glow);
+          return { x, z, ry, glow };
+        });
+        levelCrossings.push({ lane: r.index, x: cx, z: rz, posts, angle: ARM_UP, target: ARM_UP, base: 0 });
       }
     }
     const geo = trainCarGeometry(new CityAcc());
@@ -545,6 +672,71 @@ export function buildCity(o) {
     }
   }
 
+  // ----- the barrier arms (facade geometry of their own, appended last to the facade mesh) ----------
+  // Built at the up pose; bindFacade() points them at the merged mesh, then update() re-poses only
+  // the arms that swing (their vertex range alone is uploaded).
+  const ARM = CROSSING_ARM;
+  const armTpl = new CityAcc();
+  for (let i = 0; i < ARM.segs; i++) {
+    // down pose, about the hub (its axis through the arm's middle): the road side is local +x
+    armTpl.box(ARM.seg / 2 + 0.02 + i * ARM.seg, -ARM.w / 2, 0, ARM.seg, ARM.w, ARM.w, { color: i % 2 ? '#e84a4a' : '#f7f4ee' });
+  }
+  const tplGeo = armTpl.build();
+  disposables.push(tplGeo);
+  const tplPos = tplGeo.attributes.position.array;
+  const tplNor = tplGeo.attributes.normal.array;
+  const armVerts = tplGeo.attributes.position.count;
+  let armsPart = null;
+  /** Writes the arms of crossing `c` at its current angle into position/normal arrays from vertex `at`. */
+  const poseArms = (c, pos, nor, at) => {
+    const ca = Math.cos(c.angle);
+    const sa = Math.sin(c.angle);
+    c.posts.forEach((p, k) => {
+      const cy = Math.cos(p.ry);
+      const sy = Math.sin(p.ry);
+      // the hub in the post's frame, then the post on the board
+      const hx = ARM.hubX;
+      const hy = ARM.hubY + ARM.w / 2;
+      const o = (at + k * armVerts) * 3;
+      for (let v = 0; v < armVerts * 3; v += 3) {
+        // turn about the hub's z axis (up = the road side swings to the sky), then about y with the post
+        const lx = tplPos[v] * ca - tplPos[v + 1] * sa + hx;
+        const ly = tplPos[v] * sa + tplPos[v + 1] * ca + hy;
+        const lz = tplPos[v + 2];
+        pos[o + v] = p.x + lx * cy + lz * sy;
+        pos[o + v + 1] = ly;
+        pos[o + v + 2] = p.z - lx * sy + lz * cy;
+        const nx = tplNor[v] * ca - tplNor[v + 1] * sa;
+        const ny = tplNor[v] * sa + tplNor[v + 1] * ca;
+        const nz = tplNor[v + 2];
+        nor[o + v] = nx * cy + nz * sy;
+        nor[o + v + 1] = ny;
+        nor[o + v + 2] = -nx * sy + nz * cy;
+      }
+    });
+  };
+  if (levelCrossings.length) {
+    const n = levelCrossings.length * 2 * armVerts;
+    const pos = new Float32Array(n * 3);
+    const nor = new Float32Array(n * 3);
+    const col = new Float32Array(n * 3);
+    levelCrossings.forEach((c, i) => {
+      c.base = i * 2 * armVerts;
+      poseArms(c, pos, nor, c.base);
+      for (let k = 0; k < 2; k++) col.set(tplGeo.attributes.color.array, (c.base + k * armVerts) * 3);
+    });
+    armsPart = new THREE.BufferGeometry();
+    armsPart.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    armsPart.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    armsPart.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    armsPart.setAttribute('fuv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+    armsPart.setAttribute('fkind', new THREE.BufferAttribute(new Float32Array(n), 1));
+    armsPart.computeBoundingSphere();
+    armsPart.computeBoundingBox();
+  }
+  /** The merged facade mesh's attributes and where the arms start in it (bindFacade). */
+  let armBind = null;
+
   // ----- the facade parts ---------------------------------------------------------------
   const geo = acc.build();
   if (geo) facadeParts.push(geo);
@@ -556,18 +748,83 @@ export function buildCity(o) {
   const eu = new THREE.Euler();
   const sc = new THREE.Vector3(1, 1, 1);
   const pv = new THREE.Vector3();
+  // ----- the lane schedule: which crossings are shut ------------------------------------------
+  let lastTime = 0;
+  let lanesKey = '';
+  /** The current pass of the train while a crossing is shut ({ t0 }), and when the next may start. */
+  let pass = null;
+  let nextPass = Infinity;
+  const anyShut = () => levelCrossings.some((c) => c.target === 0);
+  /**
+   * The lanes open now (Sim.openLanes(): null = every lane). A closed lane's crossing lowers its arms
+   * and blinks its lamps, and the train runs through while one is shut; an open lane's rises again.
+   * @param {number[]|null} open
+   */
+  function setLanes(open) {
+    const key = open ? open.join(',') : '*';
+    if (key === lanesKey) return;
+    lanesKey = key;
+    const wasShut = anyShut();
+    for (const c of levelCrossings) {
+      const shut = !!open && !open.includes(c.lane);
+      c.target = shut ? 0 : ARM_UP;
+      for (const p of c.posts) {
+        p.glow.size = shut ? 0.5 : 0.16;
+        p.glow.flicker = shut ? 0.9 : 0;
+      }
+    }
+    if (anyShut() && !wasShut) nextPass = Math.min(nextPass, lastTime + BUSY.lead);
+    if (!anyShut()) nextPass = Infinity;
+  }
+  /** Points the arms at the merged facade mesh (terrain.js, after merging the parts: armsPart last). */
+  function bindFacade(geometry, offset) {
+    if (!armsPart || !geometry) return;
+    armBind = { pos: geometry.attributes.position, nor: geometry.attributes.normal, offset };
+  }
+  const placeTrain = (head, z) => {
+    for (let i = 0; i < TRAIN.cars; i++) {
+      m4.compose(pv.set(head - i * (TRAIN.len + 0.04), 0.09, z), q.identity(), sc);
+      train.setMatrixAt(i, m4);
+    }
+    train.instanceMatrix.needsUpdate = true;
+  };
+
   function update(time) {
-    if (train) {
+    const dt = Math.max(0, Math.min(0.1, time - lastTime));
+    lastTime = time;
+    // the barrier arms swing toward their target; only a swinging crossing's vertices are uploaded
+    for (const c of levelCrossings) {
+      if (c.angle === c.target) continue;
+      const step = ARM_SPEED * dt;
+      c.angle = Math.abs(c.target - c.angle) <= step ? c.target : c.angle + Math.sign(c.target - c.angle) * step;
+      if (!armBind) continue;
+      poseArms(c, armBind.pos.array, armBind.nor.array, armBind.offset + c.base);
+      const start = (armBind.offset + c.base) * 3;
+      armBind.pos.addUpdateRange(start, 2 * armVerts * 3);
+      armBind.nor.addUpdateRange(start, 2 * armVerts * 3);
+      armBind.pos.needsUpdate = true;
+      armBind.nor.needsUpdate = true;
+    }
+    if (train && !levelCrossings.length) {
+      // a line with no crossing: the commuter timetable (every 40 s)
       const u = train.userData;
       const k = (time % TRAIN.period) / TRAIN.period;
       // glide across in the first part of the period, then wait off screen
       const t = Math.min(1, k / TRAIN.run);
-      const head = u.x0 + (u.x1 - u.x0) * (t * t * (3 - 2 * t) * 0.25 + t * 0.75);
-      for (let i = 0; i < TRAIN.cars; i++) {
-        m4.compose(pv.set(head - i * (TRAIN.len + 0.04), 0.09, u.z), q.identity(), sc);
-        train.setMatrixAt(i, m4);
-      }
-      train.instanceMatrix.needsUpdate = true;
+      placeTrain(u.x0 + (u.x1 - u.x0) * (t * t * (3 - 2 * t) * 0.25 + t * 0.75), u.z);
+    } else if (train) {
+      // a line with crossings runs only while one is shut (the column takes the long way round):
+      // a pass, a gap, the next pass; the pass under way finishes when the crossings open again
+      const u = train.userData;
+      if (!pass && anyShut() && time >= nextPass) pass = { t0: time };
+      if (pass) {
+        const t = Math.min(1, (time - pass.t0) / BUSY.pass);
+        placeTrain(u.x0 + (u.x1 - u.x0) * (t * t * (3 - 2 * t) * 0.25 + t * 0.75), u.z);
+        if (t >= 1) {
+          pass = null;
+          nextPass = anyShut() ? time + BUSY.gap : Infinity;
+        }
+      } else placeTrain(u.x1 + TRAIN.len * TRAIN.cars, u.z);
     }
     if (boat) {
       const u = boat.userData;
@@ -614,13 +871,19 @@ export function buildCity(o) {
     furniture,
     flyers,
     update,
+    setLanes,
+    /** The barrier arms' facade geometry (null without level crossings): terrain.js appends it last, then calls bindFacade. */
+    armsPart,
+    bindFacade,
+    /** Level crossings for tests and previews: { lane, x, z, angle, target }. */
+    levelCrossings,
     getFacadeMaterial: getFacade,
     dispose() {
       for (const d of disposables) d.dispose?.();
     },
     stats: {
       corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
-      kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones,
+      kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones, crossings: levelCrossings.length,
     },
   };
 }

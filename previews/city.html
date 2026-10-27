@@ -22,6 +22,11 @@
   body.bands .band { display: block; }
   #bandHud { top: 0; height: var(--hud-h, 0); background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.78)); box-shadow: 0 3px 14px rgba(29, 78, 137, 0.16); }
   #bandBar { bottom: 0; height: var(--bar-h, 0); background: linear-gradient(0deg, rgba(18,36,70,0.62), rgba(18,36,70,0.28) 70%, rgba(18,36,70,0.08)); border-top: 1px solid rgba(255,255,255,0.45); }
+  /* &card=rule: the stage card's rule panel on the game's own styles */
+  #cardHost { display: none; }
+  body.card { overflow: auto; background: #eef3fb; }
+  body.card #stage { display: none; }
+  body.card #cardHost { display: block; max-width: 520px; margin: 64px auto 24px; padding: 0 16px; }
 </style>
 </head>
 <body>
@@ -33,6 +38,7 @@
   <div class="pill"><span><select id="mapSel">
     <option value="downtown">Itomachi Downtown</option>
     <option value="canal">Canal Quarter</option>
+    <option value="crossing">Level Crossing</option>
   </select></span></div>
   <div class="pill"><span><select id="qualitySel"><option>high</option><option>medium</option><option>low</option></select></span></div>
   <div class="pill"><span><button id="riftBtn">Rift close-up</button></span></div>
@@ -40,6 +46,7 @@
   <div class="pill"><span id="status"></span></div>
 </div>
 <div id="info"></div>
+<div id="cardHost"></div>
 <script type="module" src="./city.js"></script>
 </body>
 </html>

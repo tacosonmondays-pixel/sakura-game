@@ -5,9 +5,9 @@
 //
 // Rows use the usual legend (src/data/maps.js): '.' paving (buildable), ',' planted verge
 // (buildable), 'T' street tree, 'R' bollards / planter, 'H' building (border H = a wall),
-// '~' water. Roads run 1 tile past the board edge at each end, as every shipped map's do (so the
-// gates on the edge read as they do there). `city` carries the kit's render hints
-// (src/render/city/cityKit.js).
+// '~' water, 'U' a shop roof girls stand on. Roads run 1 tile past the board edge at each end, as
+// every shipped map's do (so the gates on the edge read as they do there). `city` carries the
+// kit's render hints (src/render/city/cityKit.js).
 import { buildMapTracks, LINE, TUNNEL_IN, TUNNEL_OUT } from '../src/core/track.js';
 import { STAGE_MAP } from '../src/data/stages.js';
 
@@ -176,8 +176,52 @@ const canal = defineFixtureMap({
   },
 });
 
+// ---------------------------------------------------------------------------
+// (c) The level crossing (Gate Arc S1c: rooftops and the lane schedule on one board): the road
+// comes down from the north and forks; the short lane runs straight over the level crossing, the
+// long lane swings east round two shop blocks and dives under the line through an underpass, and
+// they meet again before the shelter in the south. Its stage closes the short lane on even waves
+// (laneCycle [[0, 1], [1]]): the barrier comes down, a train rolls through and the column takes
+// the long way round. Girls can stand on the two shop roofs ('U') between the lanes.
+// ---------------------------------------------------------------------------
+const crossing = defineFixtureMap({
+  id: 'fixture_city_crossing',
+  name: 'Level Crossing',
+  theme: 'city',
+  desc: 'Preview board: in from the north, the short lane straight over the level crossing, the long lane round the shop roofs and under the line; both meet before the shelter in the south.',
+  rows: [
+    'HHHHH.HHHHHHHHHHHHHH',
+    'H...........,,,....H',
+    'H.HH...............H',
+    '.HH................H',
+    '.HH....UUU.....,...H',
+    '.......UUU.....,...H',
+    '....................',
+    '.HHH......UUU.......',
+    '.,,.......UUU.......',
+    'H.HH...HH...........',
+    'H..................H',
+    'HHHHH.HHHHHHHHHHHHHH',
+  ],
+  paths: [
+    [[5.5, -1], L, [5.5, 13]],
+    { fork: { path: 0, at: [5.5, 1.3] }, nodes: [[7.4, 2.6], [10.5, 3.0], [13.0, 3.2], [14.5, 4.6], L, [14.5, 5.0], IN, L, [14.5, 8.2], OUT, L, [14.5, 8.8], [13.7, 9.8], [10.5, 10.0], [7.5, 9.9]], join: { path: 0, at: [5.5, 11.2] } },
+  ],
+  crossings: 'bridge',
+  decor: [
+    { type: 'vendingMachine', x: 3, y: 5, rot: Math.PI / 2 },
+    { type: 'busStop', x: 7, y: 1, rot: 0 },
+  ],
+  city: {
+    railway: { z: 6.5 },
+  },
+});
+
 /** Variant key (preview URL) → fixture map. */
-export const CITY_FIXTURES = { downtown, canal };
+export const CITY_FIXTURES = { downtown, canal, crossing };
+
+/** The crossing board's lane schedule: the short lane (0) closes on even waves. */
+export const CROSSING_LANES = [[0, 1], [1]];
 
 /** The city keywords the preview stage dresses its boards with (src/render/terrain.js SCENERY). */
 export const PREVIEW_KEYWORDS = ['streetLamps', 'busStops', 'vendingMachines', 'parkedCars', 'strays', 'laundry', 'billboards', 'bikeRacks'];
@@ -197,5 +241,7 @@ export function fixtureStage(map, baseId = '1-3') {
     scenery: { props: PREVIEW_KEYWORDS },
     introduces: [],
     rule: null,
+    // the crossing board runs the lane schedule (src/sim/waves.js openLanes)
+    ...(map.id === 'fixture_city_crossing' ? { waveGen: { ...base.waveGen, laneCycle: CROSSING_LANES } } : {}),
   };
 }
