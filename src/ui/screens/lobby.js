@@ -12,15 +12,16 @@
 //   · the floating top bar: the avatar with the account level's cyan EXP arc, the name and LV; tickets (shown only),
 //     coins (shown only) and gems (with its "+"), the coin and gem in their colour art; chat, mail (a red count) and the
 //     menu (a red dot when something inside is new, Clan donations too)
-//   · one news chip, top left: up to three pages (the objective when there is one to act on, the event, the weekly
-//     bosses; the Notice or the recruit banner fill a free page), paged by its "›" and on its own every 6 s (a 240 ms
-//     wipe; held while a pointer is over it, it has the focus or a finger is on it; never under Reduce Motion)
-//   · four icons, bottom left: STUDENTS, RECRUIT (a cyan dot for a free pull), COMMISSIONS (a red dot), MALL; no plates
+//   · one news chip, top left: up to three pages, turned by hand only by its "›" (a 240 ms wipe; nothing on the home turns
+//     on its own: UI v2 rule 11, P8). A running event leads, so its name and countdown show at landing; a saved battle
+//     leads before it; otherwise the objective (the login gift, commissions) leads; then the weekly bosses, the Notice or
+//     the recruit banner fill a free page (src/ui/lobbyTray.js homeChipPages)
+//   · four icons, bottom left: STUDENTS, RECRUIT (a FREE sticker for a free pull), COMMISSIONS (a red dot), MALL; no plates
 //   · the Battle plate, bottom right in thumb reach (the home's one yellow: its play edge; the one heavy italic): its
 //     upper zone opens Missions (with its OPEN chip), its lower band the campaign's chapter; CO-OP rides on its top-left
 //     corner as a tab (the red number of open invites)
-//   · a full illustration whose girl stands right of the middle mirrors the corners (the plate bottom left, the icons
-//     bottom right), so the big plate keeps off her
+//   · the corners never swap: Battle stays bottom right in thumb reach for every girl and picture; a full illustration
+//     whose girl stands off the middle is panned to bring her face toward the middle instead (artStage.js placeFull)
 //   · the main menu: a side sheet from the right, in groups (src/ui/lobby/menuSheet.js); its head carries hide the UI
 //     and the background picker; a long press (600 ms) on the wallpaper hides the UI too
 // The pure model (the objective's first-match order, the news pages): src/ui/lobbyTray.js.
@@ -30,7 +31,7 @@
 // edges; the balances count when they change; a red dot or count pops when it appears.
 // Hooks kept from UI M5 and V2: tile-mission on the Battle plate (it opens Missions) with its "Open!" chip
 // (campaign-open), lobby-chapter on its band, lobby-multiplayer(-count) on CO-OP, dock-students / dock-recruit /
-// dock-commissions / dock-mall on the icons (recruit-free on the cyan dot), dock-clan in the menu, top-mail, top-menu,
+// dock-commissions / dock-mall on the icons (recruit-free on the FREE sticker), dock-clan in the menu, top-mail, top-menu,
 // top-chat, tickets / coins / gems, gems-plus, account-level, lobby-hide / lobby-bg in the menu's head, lobby-restore,
 // secretary-art / secretary-bubble, lobby-news / lobby-news-next on the chip, event-card / event-strip(-time),
 // banner-titans / banner-assault / banner-recruit on its pages, lobby-objective (lobby-continue / login-claim on its play
@@ -44,7 +45,7 @@ import { homeEntrance, stagger, countTo, badge, MOTION_UI } from '../motion.js';
 import { whenSettled } from '../transitions/index.js';
 import { openModes } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
-import { homeObjective, homeNews, multiplayerLabel, NEWS_MAX } from '../lobbyTray.js';
+import { homeObjective, homeNews, homeChipPages, multiplayerLabel } from '../lobbyTray.js';
 import { openInvites, lastInvites } from '../online/openInvites.js';
 import { msToLocalWeekEnd, countdownState } from '../countdown.js';
 import { chatButton } from '../online/lobbyChat.js';
@@ -142,12 +143,8 @@ let engineStats = null;
 
 const sysReduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** The news chip turns on its own this often (ms), held while a pointer, the focus or a finger is on it. */
-export const NEWS_AUTO_MS = 6000;
 /** A press this long on the wallpaper (not on her, not on a control) hides the UI, or brings it back (ms). */
 export const LONG_PRESS_MS = 600;
-/** Her full illustration mirrors the corners when its face point lies this far right of the middle (a fraction). */
-const MIRROR_FX = 0.55;
 
 export function render(root) {
   applyMotionPreference();
@@ -191,19 +188,34 @@ export function render(root) {
     }
     return { x, y, w: e.offsetWidth, h: e.offsetHeight };
   };
+  // each box says what it is (kind): 'ctl' a control, 'pill' a wallet's plate (shown only), 'gap' the bar's spacer and
+  // rule, 'soft' the words and icon inside a wallet. Her stand keeps clear of all of them; a full illustration keeps her
+  // hair clear of the controls first and of the wallets' words and icons where the picture allows (artStage.js placeFull)
+  const kindOf = (e) => (e.classList.contains('sp') || e.classList.contains('ui-vr') ? 'gap' : e.classList.contains('ui-pill') ? 'pill' : 'ctl');
   const uiBoxes = () => {
     if (el.classList.contains('ui-hidden')) return [];
     const sel = [...top.children, ...dock.children, ...newsHost.querySelectorAll('.ui-news'), ...battleHost.querySelectorAll('.home-plate, .home-coop')];
+    const inner = [...top.querySelectorAll(':scope > .ui-pill > *')];
     const o = laidOut(el);
     // (the news chip counts at its two-line height on every page: a page turn never brings it over her)
     const ncs = getComputedStyle(newsHost);
     const tall = parseFloat(ncs.getPropertyValue('--news-tall')) || 0;
     const up = ncs.getPropertyValue('--news-up').trim() === '1';
-    return sel.filter((e) => e.offsetParent !== null).map((e) => {
-      const b = laidOut(e);
-      const grow = e.classList.contains('ui-news') ? Math.max(0, tall - b.h) : 0;
-      return { x: b.x - o.x, y: b.y - o.y - (up ? grow : 0), w: b.w, h: b.h + grow };
-    }).filter((b) => b.w > 0 && b.h > 0);
+    return [
+      ...sel.filter((e) => e.offsetParent !== null).map((e) => {
+        const b = laidOut(e);
+        const grow = e.classList.contains('ui-news') ? Math.max(0, tall - b.h) : 0;
+        return { x: b.x - o.x, y: b.y - o.y - (up ? grow : 0), w: b.w, h: b.h + grow, kind: kindOf(e) };
+      }),
+      // (a wallet's icon may be an SVG, which has no offset box: its place inside its pill, from the pill's laid-out box)
+      ...inner.map((e) => {
+        const pill = e.parentElement;
+        const pb = laidOut(pill);
+        const pr = pill.getBoundingClientRect();
+        const r = e.getBoundingClientRect();
+        return { x: pb.x - o.x + r.left - pr.left, y: pb.y - o.y + r.top - pr.top, w: r.width, h: r.height, kind: e.matches('button') ? 'ctl' : 'soft' };
+      }),
+    ].filter((b) => b.w > 0 && b.h > 0);
   };
   const stage = createArtStage(stageHost, {
     reduceMotion: reduceMotion(),
@@ -218,20 +230,6 @@ export function render(root) {
       }
     },
   });
-
-  /**
-   * A full illustration whose girl stands right of the middle (its face point, src/data/lobbyIllustrations.js): the
-   * corners swap (the Battle plate bottom left, the icons bottom right), so the big plate keeps off her (a landscape
-   * screen only: upright, the controls stack under her).
-   */
-  const applyMirror = () => {
-    const art = stage.isIllustration() ? stage.current()?.art : null;
-    const wide = (el.clientWidth || innerWidth) > (el.clientHeight || innerHeight);
-    const on = !!art && wide && art.fx > MIRROR_FX;
-    if (el.classList.contains('mirror') === on) return false;
-    el.classList.toggle('mirror', on);
-    return true;
-  };
 
   /**
    * A girl whose art reaches into the icons' corner where she stands (Marumi's ball, a wide stand on a narrow screen):
@@ -266,7 +264,6 @@ export function render(root) {
     currentBg = bg.id;
     lineIndex = 0;
     await stage.show(getUnit(id), { background: bg });
-    if (applyMirror()) stage.relayout();
     refold();
     syncLive();
   };
@@ -351,7 +348,6 @@ export function render(root) {
     stage.setLivePlacement(lay.place);
   };
   const onResize = () => {
-    if (applyMirror()) stage.relayout();
     fitTexts();
     relayoutLive();
     refold();
@@ -361,38 +357,15 @@ export function render(root) {
 
   // ---- the UI --------------------------------------------------------------------------------------------------
   let newsPage = 0;
-  // (the pager rebuilds only the news chip: the old words wipe out to the left, the new in from the right)
-  const pageNews = (n, { auto = false } = {}) => {
+  // the news chip turns by hand only, by its "›" (UI v2 rule 11, P8: nothing on the home turns on its own); the pager
+  // rebuilds only the chip: the old words wipe out to the left, the new in from the right
+  const pageNews = (n) => {
     const old = newsHost.querySelector('.ui-news');
     newsPage = n;
     buildNews(newsHost, { page: newsPage, onPage: (k) => pageNews(k) });
     wipeNews(newsHost, old, reduceMotion());
     fitTexts();
-    if (!auto) armNews(); // (a page turned by hand: the next turn on its own waits a whole period again)
   };
-  // the chip turns on its own every 6 s: never under Reduce Motion, never while a pointer is over it, it holds the
-  // focus or a finger is on it, nor while the UI is hidden, the menu is open or the tab is in the background
-  let newsTimer = 0;
-  let newsHold = 0; // pointers over / fingers on / focus inside the chip
-  const armNews = () => {
-    clearTimeout(newsTimer);
-    if (!alive || reduceMotion()) return;
-    newsTimer = setTimeout(() => {
-      const card = newsHost.querySelector('.ui-news');
-      const pages = Number(card?.dataset.pages || 0);
-      const busy = newsHold > 0 || el.classList.contains('ui-hidden') || menuSheetOpen() || document.hidden || document.querySelector('.modal-overlay, .ui-layer');
-      if (pages > 1 && !busy) pageNews(newsPage + 1, { auto: true });
-      armNews();
-    }, NEWS_AUTO_MS);
-  };
-  const holdNews = (d) => () => { newsHold = Math.max(0, newsHold + d); if (d < 0) armNews(); };
-  newsHost.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') holdNews(1)(); });
-  newsHost.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') holdNews(-1)(); });
-  newsHost.addEventListener('focusin', holdNews(1));
-  newsHost.addEventListener('focusout', holdNews(-1));
-  newsHost.addEventListener('touchstart', holdNews(1), { passive: true });
-  newsHost.addEventListener('touchend', holdNews(-1), { passive: true });
-  newsHost.addEventListener('touchcancel', holdNews(-1), { passive: true });
 
   // the menu sheet: Hide the UI and the background picker ride in its head. Upright or on a narrow landscape screen
   // her stage slides aside under it as far as her face box needs (src/ui/styles/home.css .menu-shift)
@@ -439,15 +412,14 @@ export function render(root) {
     fitTexts();
   };
   drawAll();
-  /** The pieces come in from their own edges (the kit's stagger): the chip from the left, the icons up from the
-   * bottom, CO-OP and the plate from their side (the left in the mirrored corners). */
+  /** The pieces come in from their own edges (the kit's stagger, 40 ms apart on a first open, 30 on a return): the chip
+   * from the left, the four icons up from the bottom one by one, then CO-OP and the plate from the right. */
   const pieceEntrance = () => {
     const M = MOTION_UI;
     const o = firstOpen ? { base: M.pieceFirstBase, step: M.pieceFirstStep, dur: M.pieceFirst } : { base: M.pieceReturnBase, step: M.pieceReturnStep, dur: M.pieceReturn };
-    const side = el.classList.contains('mirror') ? 'left' : 'right';
     let i = stagger(newsHost.querySelectorAll('.ui-news'), 'left', o);
     i += stagger(dock.children, 'up', { ...o, start: i });
-    stagger(battleHost.querySelectorAll('.home-coop, .home-plate'), side, { ...o, start: i });
+    stagger(battleHost.querySelectorAll('.home-coop, .home-plate'), 'right', { ...o, start: i });
   };
   homeEntrance({ first: firstOpen, scene: stageHost.querySelector('.home-scene'), live: stageHost.querySelector('.home-live'),
     girl: stageHost.querySelector('.home-host'), top });
@@ -465,7 +437,6 @@ export function render(root) {
       entering = false;
       el.classList.add('static');
     }, firstOpen ? 760 : 540);
-    armNews();
   });
 
   // ---- CO-OP's red number: open invites (read only once the social hub is ready) ----
@@ -562,10 +533,7 @@ export function render(root) {
     window.__sakura ||= {};
     // her still picture's placement (the face box, her scale and slide) and the controls' boxes she keeps clear of
     window.__sakura.home = {
-      placement: () => stage.placement(), boxes: uiBoxes, current: () => stage.current()?.u?.id || null, mirrored: () => el.classList.contains('mirror'),
-      // (screenshots: hold the news chip on its page; a test turns it on its own: `newsTick()`)
-      holdNews: (on = true) => { newsHold = Math.max(0, newsHold + (on ? 1 : -1)); if (!on) armNews(); },
-      newsTick: () => pageNews(newsPage + 1, { auto: true }),
+      placement: () => stage.placement(), boxes: uiBoxes, current: () => stage.current()?.u?.id || null,
     };
     window.__sakura.live = {
       get state() { return liveState; },
@@ -584,7 +552,6 @@ export function render(root) {
     offHub.forEach((fn) => fn());
     clearTimeout(betaTimer);
     clearTimeout(staticTimer);
-    clearTimeout(newsTimer);
     endPress();
     cancelAnimationFrame(firstLayout);
     off();
@@ -693,7 +660,8 @@ function buildTop(host, { onMenu }) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The four icons, bottom left: STUDENTS · RECRUIT · COMMISSIONS · MALL (a glyph over a caps label; no plates)
+// The four icons, bottom left: STUDENTS · RECRUIT · COMMISSIONS · MALL (a glyph over a caps label; no plates; RECRUIT
+// wears a small FREE sticker for a free pull, COMMISSIONS a red dot for something to claim)
 // ---------------------------------------------------------------------------------------------
 
 function buildDock(host) {
@@ -702,8 +670,9 @@ function buildDock(host) {
   const tag = recruitTag(profile);
   const items = [
     { id: 'students', label: 'Students', glyph: 'cap', testid: 'dock-students', go: () => navigate('students') },
-    { id: 'recruit', label: 'Recruit', glyph: 'sparkles', testid: 'dock-recruit', cyan: tag ? { testid: 'recruit-free', title: tag } : null, aria: tag ? `Recruit, ${tag.toLowerCase()}` : null,
-      go: () => navigate('recruit') },
+    { id: 'recruit', label: 'Recruit', glyph: 'sparkles', testid: 'dock-recruit', aria: tag ? `Recruit, ${tag.toLowerCase()}` : null, go: () => navigate('recruit'),
+      // (a free pull or a spark says so in words: the badge vocabulary's ink sticker, 5.10)
+      sticker: tag ? { testid: 'recruit-free', title: tag, text: tag === 'Free pull' ? 'Free' : 'Spark' } : null },
     { id: 'commissions', label: 'Commissions', glyph: 'clipboard', testid: 'dock-commissions', dot: notice.any, aria: notice.any ? 'Commissions, something to claim' : null,
       go: () => navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {}) },
     { id: 'mall', label: 'Mall', glyph: 'bag', testid: 'dock-mall', go: () => navigate('mall') },
@@ -713,7 +682,7 @@ function buildDock(host) {
     host.appendChild(h('button.home-ico', { type: 'button', 'data-testid': r.testid, 'data-dock': r.id, 'aria-label': r.aria || r.label, onclick: r.go },
       h('span.ico', g(r.glyph),
         badge(r.dot ? h('i.ui-dot') : null, `home:dock:${r.id}`),
-        badge(r.cyan ? h('i.home-cdot', { 'data-testid': r.cyan.testid, title: r.cyan.title }) : null, `home:dock:${r.id}:cyan`)),
+        badge(r.sticker ? h('span.ui-bdg.new.home-free', { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)),
       h('span.lbl', r.label)));
   }
 }
@@ -763,13 +732,10 @@ function setMultiplayerCount(row, n) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The objective: first match wins (src/ui/lobbyTray.js homeObjective); on this home the news chip's first page when
-// there is something to act on (a saved battle, the login gift, commissions, an event that asks): the next story stage
-// and medals are the Battle plate's own job
+// The objective: first match wins (src/ui/lobbyTray.js homeObjective); on this home a page of the news chip when there
+// is something to act on (a saved battle, the login gift, commissions, an event that asks; lobbyTray.js
+// CHIP_OBJECTIVES): the next story stage and medals are the Battle plate's own job
 // ---------------------------------------------------------------------------------------------
-
-/** The objective kinds that take the news chip's first page. */
-const CHIP_OBJECTIVES = new Set(['continue', 'login', 'commissions', 'event']);
 
 function objectiveState(profile) {
   const rec = listBattleSaves(profile).find((r) => STAGE_MAP[r.stageId]);
@@ -819,8 +785,8 @@ function playObjective(o, s) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The news chip: up to three pages (the objective, the event, the weekly bosses; the Notice or the recruit banner
-// fill a free page), paged by its "›" and on its own (src/ui/lobbyTray.js homeNews)
+// The news chip: up to three pages (a running event or the objective first, then the other, the weekly bosses; the
+// Notice or the recruit banner fill a free page), turned by its "›" only (src/ui/lobbyTray.js homeChipPages)
 // ---------------------------------------------------------------------------------------------
 
 function newsState(profile) {
@@ -842,19 +808,13 @@ function newsState(profile) {
   };
 }
 
-/** The chip's pages in order: the objective (when it asks for something), the event, the weekly bosses, then the
- * Notice (unread) and the recruit banner while a page is free; three at most. */
+/** The chip's pages in order (src/ui/lobbyTray.js homeChipPages): a saved battle, else a running event, else the
+ * objective first; then the event or the objective, the weekly bosses, the unread Notice and the recruit banner while a
+ * page is free; three at most. */
 function chipPages(profile) {
   const s = objectiveState(profile);
-  const o = homeObjective(s);
-  const news = homeNews(newsState(profile));
-  const pages = [];
-  if (CHIP_OBJECTIVES.has(o.kind)) pages.push({ id: 'objective', o, s });
-  pages.push(...news.filter((n) => n.id === 'event' || n.id === 'weekly'));
-  pages.push(...news.filter((n) => n.id === 'bosses'));
-  if (noticeUnread()) pages.push({ id: 'notice', kicker: 'Notice', title: 'Patch notes and news', testid: 'lobby-news-notice', timeTestid: null, msLeft: null, phase: null, art: null });
-  pages.push(...news.filter((n) => n.id === 'recruit'));
-  return pages.slice(0, NEWS_MAX);
+  const notice = noticeUnread() ? { id: 'notice', kicker: 'Notice', title: 'Patch notes and news', testid: 'lobby-news-notice', timeTestid: null, msLeft: null, phase: null, art: null } : null;
+  return homeChipPages({ objective: homeObjective(s), news: homeNews(newsState(profile)), notice }).map((pg) => (pg.id === 'objective' ? { ...pg, s } : pg));
 }
 
 const PHASE_LABEL = { upcoming: 'Opens in', active: 'Ends in', exchange: 'Exchange closes in' };

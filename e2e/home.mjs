@@ -15,10 +15,14 @@
 //      top, her art 8 px clear of every control (the icons fold two by two for her ball), her face box clear; one WebGL
 //      context; leaving the home disposes it and loses the context, coming back makes one again; Reduce motion (the
 //      setting and the system's) and Low graphics show her still portrait with no canvas; a phone held upright too
-//   6. the news chip turns on its own every 6 s (motion allowed), never under Reduce motion; a full illustration whose
-//      girl stands right of the middle mirrors the corners (the plate bottom left), her face clear
+//   6. the news chip turns by hand only, never on its own (motion allowed or not: UI v2 rule 11, P8); a running event
+//      leads it, so the event shows at landing; a full illustration whose girl stands right of the middle keeps the
+//      corners (Battle bottom right) and comes toward the middle, her face and hair clear of every control
+//   7. Hikari's rampart (a bright full illustration) at 667x375, 844x390 and 1024x768: Battle bottom right, her face and
+//      hair clear of every control, the icons' caps and the SNT-HQ serial at 4.5:1 or more on the pixels under them
+//      (the glyphs' own pixels against the background with the halo, at the 10th percentile)
 //
-//   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--shots dir]
+//   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--rampart 667x375,844x390,1024x768] [--shots dir]
 // Starts its own Vite dev server on a free port; exit code 1 when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -31,6 +35,7 @@ import { seedInkSave, inkRandomInit, INK_NOW, INK_RANDOM_SEED } from './uiSeed.m
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
 const viewports = opt('viewport', '844x390,1280x720,390x844').split(',').map((s) => s.trim());
+const rampartSizes = opt('rampart', '667x375,844x390,1024x768').split(',').map((s) => s.trim()).filter(Boolean);
 const shots = opt('shots', null);
 if (shots) mkdirSync(shots, { recursive: true });
 
@@ -229,7 +234,7 @@ async function staticChecks(vp) {
       await page.click('[data-testid="lobby-news-next"]');
       await settle(page, 150);
     }
-    check(pages.length === 4 && pages[0] === pages[3] && new Set(pages).size === 3 && pages[0] === 'objective', `${vp} the news pager turns by hand through 3 pages (the objective first) and wraps (${pages.join(' → ')})`);
+    check(pages.length === 4 && pages[0] === pages[3] && new Set(pages).size === 3 && pages[0] === 'event' && pages[1] === 'objective', `${vp} the news pager turns by hand through 3 pages (the running event first, then the objective) and wraps (${pages.join(' → ')})`);
     // under Reduce motion it never turns on its own
     const still0 = await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
     await page.waitForTimeout(7000);
@@ -294,23 +299,13 @@ async function staticChecks(vp) {
     await page.click('[data-testid="lobby-bg"]');
     check(!!(await page.waitForSelector('[data-testid="bgp-done"]', { timeout: 5000 }).catch(() => null)), `${vp} the background tool opens the background and secretary picker`);
     await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
-    // a full illustration whose girl stands right of the middle (Hikari's rampart): the corners mirror, the plate bottom
-    // left, her face box clear of every control
+    // a full illustration whose girl stands right of the middle (Hikari's rampart): the corners stay (Battle bottom
+    // right), her face comes toward the middle, her face and hair clear of every control (rampartChecks)
     if (W > H) {
       await homeWith(page, { secretary: 'hikari', lobbyBg: { hikari: 'hikari-rampart' } });
       await page.waitForFunction(() => window.__sakura?.home?.current?.() === 'hikari', null, { timeout: 15000 }).catch(() => {});
       await settle(page, 400);
-      // (her face itself, brow to chin, as src/ui/lobby/sceneLayout.js CORE: ±0.85 head radii across, 0.6 up, 0.95 down;
-      // the hair box above it is placeFull's wish, which a picture with her face near its top edge cannot always meet)
-      const mir = await page.evaluate(() => {
-        const pl = window.__sakura.home.placement();
-        const plate = document.querySelector('#app .home-plate').getBoundingClientRect();
-        const r = pl?.scene?.r || 0;
-        const face = pl ? { x: pl.faceX - 0.85 * r, y: pl.faceY - 0.6 * r, w: 1.7 * r, h: 1.55 * r } : null;
-        return { mirrored: window.__sakura.home.mirrored(), plateLeft: plate.left < innerWidth / 2, face, hair: pl?.scene?.clear };
-      });
-      const hitF = mir.face ? (await boxesOf(page)).filter((b) => overlaps(mir.face, b)) : ['no face'];
-      check(mir.mirrored && mir.plateLeft && !hitF.length, `${vp} a full illustration with her right of the middle: the corners mirror, her face clear (${JSON.stringify({ ...mir, face: mir.face && [mir.face.x, mir.face.y, mir.face.w, mir.face.h].map(Math.round) })}${hitF.length ? `; under ${hitF.map((b) => b.name || b).join(', ')}` : ''})`);
+      await rampartLayout(page, vp, W, H);
       await shot(page, 'home-illustration', vp);
       await homeWith(page, { secretary: 'hikari', lobbyBg: { hikari: 'hikari-day' } });
     }
@@ -321,6 +316,96 @@ async function staticChecks(vp) {
     check(sys.canvases === 0 && sys.fig, `${vp} Marumi under the system's Reduce motion: her still portrait, no canvas (${JSON.stringify(sys)})`);
     await shot(page, 'home-marumi-reduced', vp);
     check(!errors.length, `${vp} no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
+  } finally {
+    await context.close();
+  }
+}
+
+/** Battle bottom right, her face toward the middle, her face (CORE) and hair (placeFull's head box) clear of every
+ * control (the top bar's "+" included), and the controls clear of her body box's middle (a full illustration). */
+async function rampartLayout(page, vp, W, H) {
+  const m = await page.evaluate(() => {
+    const pl = window.__sakura.home.placement();
+    const sc = pl?.scene;
+    const plate = document.querySelector('#app .home-plate').getBoundingClientRect();
+    if (!sc) return null;
+    const r = sc.r;
+    const ctl = [...document.querySelectorAll('#app .home button, #app .home a[href]')].filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => {
+      const b = e.getBoundingClientRect();
+      return { name: e.dataset.testid || e.className.toString().slice(0, 24), x: b.left, y: b.top, w: b.width, h: b.height };
+    });
+    return {
+      plate: { right: plate.right, bottom: plate.bottom, left: plate.left },
+      faceX: sc.faceX,
+      core: { x: sc.faceX - 0.85 * r, y: sc.faceY - 0.6 * r, w: 1.7 * r, h: 1.55 * r },
+      hair: { x: sc.faceX - 1.1 * r, y: sc.faceY - 1.4 * r, w: 2.2 * r, h: 2.4 * r },
+      ctl,
+    };
+  });
+  if (!check(!!m, `${vp} Hikari's rampart shows as a full illustration`)) return;
+  check(m.plate.left > W / 2 && Math.abs(m.plate.right - W) < 40 && Math.abs(m.plate.bottom - H) < 40, `${vp} rampart: Battle stays bottom right (plate x ${Math.round(m.plate.left)}-${Math.round(m.plate.right)})`);
+  check(Math.abs(m.faceX - W / 2) <= W * 0.12, `${vp} rampart: her face toward the middle (x ${Math.round(m.faceX)} of ${W})`);
+  const hitCore = m.ctl.filter((b) => overlaps(m.core, b));
+  const hitHair = m.ctl.filter((b) => overlaps(m.hair, b));
+  check(!hitCore.length && !hitHair.length, `${vp} rampart: her face and hair clear of every control${hitHair.length ? `; under ${hitHair.map((b) => b.name).join(', ')}` : ''}`);
+}
+
+/**
+ * Text on its real pixels: each element's glyph pixels (those that change when its colour goes transparent, its halo
+ * kept) against the background under them with the halo, the WCAG ratio at the 10th percentile (the worst tenth).
+ */
+async function glyphContrast(page, sel) {
+  const items = await page.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => {
+    const r = e.getBoundingClientRect();
+    const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(getComputedStyle(e).color);
+    return { text: e.textContent.trim().slice(0, 20), x: Math.max(0, Math.floor(r.left)), y: Math.max(0, Math.floor(r.top)), w: Math.ceil(r.width), h: Math.ceil(r.height), fg: m ? m.slice(1, 4).map(Number) : [0, 0, 0] };
+  }), sel);
+  const a = (await page.screenshot()).toString('base64');
+  await page.evaluate((s) => document.head.append(Object.assign(document.createElement('style'), { id: 'e2e-glyphs', textContent: `${s} { color: transparent !important; }` })), sel);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const b = (await page.screenshot()).toString('base64');
+  await page.evaluate(() => document.getElementById('e2e-glyphs')?.remove());
+  return page.evaluate(async ([A, B, list]) => {
+    const dec = async (b64) => {
+      const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))], { type: 'image/png' }));
+      const cv = new OffscreenCanvas(bmp.width, bmp.height);
+      const cx = cv.getContext('2d');
+      cx.drawImage(bmp, 0, 0);
+      return { w: bmp.width, h: bmp.height, d: cx.getImageData(0, 0, bmp.width, bmp.height).data };
+    };
+    const [sa, sb] = [await dec(A), await dec(B)];
+    const lin = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const L = (r, g, bl) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(bl);
+    return list.map((it) => {
+      const lf = L(...it.fg);
+      const out = [];
+      for (let y = it.y; y < Math.min(sa.h, it.y + it.h); y++) {
+        for (let x = it.x; x < Math.min(sa.w, it.x + it.w); x++) {
+          const i = (y * sa.w + x) * 4;
+          if (Math.abs(sa.d[i] - sb.d[i]) + Math.abs(sa.d[i + 1] - sb.d[i + 1]) + Math.abs(sa.d[i + 2] - sb.d[i + 2]) < 45) continue;
+          const lb = L(sb.d[i], sb.d[i + 1], sb.d[i + 2]);
+          out.push((Math.max(lf, lb) + 0.05) / (Math.min(lf, lb) + 0.05));
+        }
+      }
+      out.sort((p, q) => p - q);
+      return { text: it.text, n: out.length, p10: out.length ? out[Math.floor(out.length * 0.1)] : null };
+    });
+  }, [a, b, items]);
+}
+
+async function rampartChecks(vp) {
+  console.log(`\n== ${vp}: Hikari's rampart (a bright full illustration) ==`);
+  const { context, page, errors, W, H } = await openHome(vp, { reduced: true });
+  try {
+    await homeWith(page, { secretary: 'hikari', lobbyBg: { hikari: 'hikari-rampart' }, settings: { quality: 'high', reduceMotion: false } });
+    await page.waitForFunction(() => window.__sakura?.home?.current?.() === 'hikari', null, { timeout: 15000 }).catch(() => {});
+    await settle(page, 600);
+    await rampartLayout(page, vp, W, H);
+    const c = await glyphContrast(page, '#app .home-ico .lbl, #app .home-top .serial');
+    const low = c.filter((x) => x.p10 != null && x.p10 < 4.5);
+    check(c.length >= 5 && !low.length, `${vp} rampart: the icons' caps and the serial at 4.5:1 or more (${c.map((x) => `${x.text} ${x.p10 == null ? '-' : x.p10.toFixed(2)}`).join(', ')})`);
+    await shot(page, 'home-rampart', vp);
+    check(!errors.length, `${vp} rampart: no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   } finally {
     await context.close();
   }
@@ -385,16 +470,11 @@ async function liveChecks(vp) {
     await settle(page, 150);
     await shot(page, 'home-marumi-2s', vp);
     await page.evaluate(() => window.__sakura.live.start());
-    // the news chip turns on its own every 6 s (motion allowed), held while a pointer is over it
+    // the news chip never turns on its own, motion allowed too (UI v2 rule 11, P8): the running event leads it
     const p0 = await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
-    await page.waitForFunction((was) => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page !== was, p0, { timeout: 9000 }).catch(() => {});
+    await page.waitForTimeout(8000);
     const p1 = await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
-    check(p1 && p1 !== p0, `${vp} the news chip turns on its own (${p0} → ${p1})`);
-    const chip = await page.evaluate(() => { const r = document.querySelector('#app [data-testid="lobby-news"] .go').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-    await page.mouse.move(chip.x, chip.y);
-    await page.waitForTimeout(7000);
-    check(await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page) === p1, `${vp} … and holds while the pointer is over it (7 s)`);
-    await page.mouse.move(2, H / 2);
+    check(p0 === 'event' && p1 === p0, `${vp} motion allowed: the news chip opens on the running event and stays there (8 s: ${p0} → ${p1})`);
     // the menu sheet over her scene
     await page.click('[data-testid="top-menu"]');
     await settle(page, 300);
@@ -438,6 +518,7 @@ try {
     await staticChecks(vp);
     await liveChecks(vp);
   }
+  for (const vp of rampartSizes) await rampartChecks(vp);
 } finally {
   await browser.close();
   await server.close();

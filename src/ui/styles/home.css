@@ -9,8 +9,8 @@
    middle; four icons bottom left x 16-284 [24-412], y 318-374 [616-696]; the Battle plate bottom right x 588-828
    [916-1256], y 270-374 [528-696], CO-OP riding on its top-left corner y 224-270 [468-528]. A narrower screen (a
    small phone under 760 px, a 4:3 tablet under 1180 px) stacks the icons two by two and takes the plate down to 200 px
-   [280], so her legs keep their gap between them. .mirror (a full illustration whose girl stands right of the
-   middle): the plate bottom left, the icons bottom right.
+   [280], so her legs keep their gap between them. The corners never swap: Battle stays bottom right for every girl
+   and picture (a full illustration is panned to bring her face toward the middle instead, artStage.js placeFull).
    Layers (5.5): scene 0 · scrims 1 · host 2 · bottom scrim 3 · UI 4 · top bar 10 · sheets 20+.
    ========================================================================================================== */
 
@@ -60,9 +60,6 @@
 .ui-night .home .ui-scrim.b { height: 220px;
   background: radial-gradient(560px 220px at 0 100%, rgba(14, 25, 48, 0.78), rgba(14, 25, 48, 0.5) 50%, rgba(14, 25, 48, 0) 100%),
     linear-gradient(0deg, rgba(14, 25, 48, 0.5) 0, rgba(14, 25, 48, 0) 120px); }
-.ui-night .home.mirror .ui-scrim.b {
-  background: radial-gradient(560px 220px at 100% 100%, rgba(14, 25, 48, 0.78), rgba(14, 25, 48, 0.5) 50%, rgba(14, 25, 48, 0) 100%),
-    linear-gradient(0deg, rgba(14, 25, 48, 0.5) 0, rgba(14, 25, 48, 0) 120px); }
 /* (a long press on the wallpaper hides the UI: no picture menu, no text selection on the way) */
 .home .home-stage-host { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 
@@ -103,6 +100,8 @@
 .home .home-top .lv { display: flex; align-items: baseline; gap: 4px; }
 .home .home-top .lv .lbl { color: var(--on-ink-dim); }
 .home .home-top .serial { align-self: flex-start; margin-top: 6px; }
+/* (the decorative serial at full strength on the home: at the kit's 0.7 it read 4.0-4.5:1 over the brighter wallpapers) */
+.ui-night .home .home-top .serial { opacity: 1; }
 .home .home-top .ui-pill + .ui-pill { margin-left: -6px; }
 .home .home-top .ui-pill[role="button"] { cursor: pointer; }
 .home .home-top .ui-vr { margin: 12px 0; }
@@ -139,17 +138,19 @@
 /* ---------------------------------------------------------------- the four icons: x 24-412, y 616-696 */
 .home .home-dock { --ico-w: clamp(76px, 7.05vw, 90px); --ico-h: 80px; position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   display: flex; gap: 4px; }
-.home.mirror .home-dock { left: auto; right: calc(24px + env(safe-area-inset-right, 0px)); }
 .ui-night .home .home-ico { position: relative; width: var(--ico-w); height: var(--ico-h); flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   padding: 0; border: 0; background: none; color: var(--on-ink); cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: scale 140ms cubic-bezier(0.3, 0, 0, 1); }
 .home .home-ico > * { position: relative; z-index: 1; }
 .home .home-ico .ico { position: relative; display: block; line-height: 0; }
 .ui-night .home .home-ico svg.g { width: 28px; height: 28px; }
-.ui-night .home .home-ico .lbl { font: 600 13px/1 var(--font-num); letter-spacing: 0.06em; text-transform: uppercase; color: var(--on-ink); white-space: nowrap; }
+.ui-night .home .home-ico .lbl { font: 600 13px/1 var(--font-num); letter-spacing: 0.06em; text-transform: uppercase; color: var(--on-ink); white-space: nowrap;
+  /* (the caps float on the wallpaper: a soft ink halo keeps them at 4.5:1 or more over a bright painting) */
+  text-shadow: 0 0 2px rgba(14, 25, 48, 0.9), 0 0 6px rgba(14, 25, 48, 0.85), 0 1px 10px rgba(14, 25, 48, 0.7); }
+.ui-night .home .home-ico svg.g { filter: drop-shadow(0 0 3px rgba(14, 25, 48, 0.8)); }
 .home .home-ico .ui-dot { position: absolute; top: -2px; right: -7px; }
-/* a free pull: a cyan dot (live, not red: nothing to claim) */
-.home .home-ico .home-cdot { position: absolute; top: -2px; right: -7px; width: 10px; height: 10px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 2px var(--plate); }
+/* a free pull (or a spark ready): the badge vocabulary's ink sticker with the word, up and right of the glyph */
+.ui-night .home .home-ico .home-free { position: absolute; left: calc(100% - 2px); bottom: calc(100% - 10px); height: 18px; padding: 0 5px; line-height: 1; pointer-events: none; }
 /* a hairline between two icons; no plate at rest, the kit's slanted press plate on press and keyboard focus */
 .home .home-ico + .home-ico::after { content: ''; position: absolute; left: -2.5px; top: 22px; bottom: 22px; width: 1px; background: var(--line-lo); }
 .home .home-ico::before { content: ''; position: absolute; inset: 2px -2px; z-index: 0; transform: skewX(var(--skew)); background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi);
@@ -162,7 +163,6 @@
 /* ---------------------------------------------------------------- the Battle plate: x 916-1256, y 528-696 */
 .home .home-battle { --bw: clamp(280px, 25.8vw, 330px); --gh: 112px; --ch: 56px; position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   width: var(--bw); height: calc(var(--gh) + var(--ch)); }
-.home.mirror .home-battle { right: auto; left: calc(24px + env(safe-area-inset-left, 0px)); }
 .ui-night .home .home-plate { --c: var(--cut); --fill: var(--glass-ink-1); --edge: var(--line-hi); --rw: 1px; position: absolute; inset: 0; z-index: 4; isolation: isolate; display: flex; flex-direction: column;
   clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); background: var(--fill); color: var(--on-ink); }
 .ui-night .home .home-plate::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
@@ -238,7 +238,8 @@
 .home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 10px; }
 .home-menu .m-head .sp { flex: 1; }
 .home-menu .m-tools { display: flex; gap: 6px; }
-.ui-night .home-menu .m-tool { --h: 44px; gap: 6px; padding: 0 calc(10px + var(--s)); font-size: 13px; }
+/* (46 px tall: the kit's 44 px parallelogram measured 43.75-44 px of real tap at its edges) */
+.ui-night .home-menu .m-tool { --h: 46px; gap: 6px; padding: 0 calc(10px + var(--s)); font-size: 13px; }
 .ui-night .home-menu .m-tool svg.lg { width: 18px; height: 18px; }
 /* the groups: SQUAD and ACADEMY side by side, SOCIAL under SQUAD with Settings beside it */
 .home-menu .m-cols { flex: none; margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; row-gap: 14px; align-items: end; }
@@ -279,9 +280,6 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .ui-scrim.b { height: 140px;
     background: radial-gradient(400px 140px at 0 100%, rgba(14, 25, 48, 0.8), rgba(14, 25, 48, 0.52) 50%, rgba(14, 25, 48, 0) 100%),
       linear-gradient(0deg, rgba(14, 25, 48, 0.46) 0, rgba(14, 25, 48, 0) 84px); }
-  .ui-night .home.mirror .ui-scrim.b {
-    background: radial-gradient(400px 140px at 100% 100%, rgba(14, 25, 48, 0.8), rgba(14, 25, 48, 0.52) 50%, rgba(14, 25, 48, 0) 100%),
-      linear-gradient(0deg, rgba(14, 25, 48, 0.46) 0, rgba(14, 25, 48, 0) 84px); }
 
   /* the news chip: x 16-252, y 52-98 (46 px: every hit square on the home is at least 44.25 px in the probe's scan) */
   .home .home-news-host { --news-tall: 60px; left: calc(16px + env(safe-area-inset-left, 0px)); top: 52px; width: 236px; }
@@ -298,17 +296,14 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 
   /* the four icons: x 16-284, y 318-374 (64 x 56 each: COMMISSIONS is 60 px at 12 px) */
   .home .home-dock { --ico-w: 64px; --ico-h: 56px; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
-  .home.mirror .home-dock { right: calc(16px + env(safe-area-inset-right, 0px)); }
   .ui-night .home .home-ico { gap: 5px; }
   .ui-night .home .home-ico svg.g { width: 24px; height: 24px; }
   .ui-night .home .home-ico .lbl { font-size: 12px; letter-spacing: 0.03em; }
-  .home .home-ico .ui-dot, .home .home-ico .home-cdot { top: -3px; right: -6px; }
-  .home .home-ico .home-cdot { width: 8px; height: 8px; }
+  .home .home-ico .ui-dot { top: -3px; right: -6px; }
   .home .home-ico + .home-ico::after { top: 16px; bottom: 16px; }
 
   /* the Battle plate: x 588-828, y 270-374 (240 x 104; 200 wide on a narrow phone); CO-OP y 224-270 */
   .home .home-battle { --bw: clamp(200px, 28.44vw, 240px); --gh: 60px; --ch: 44px; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
-  .home.mirror .home-battle { left: calc(16px + env(safe-area-inset-left, 0px)); }
   .ui-night .home .home-plate > .home-go { gap: 8px; padding: 0 calc(52px + var(--s)) 0 16px; }
   .home .home-go .txt { gap: 3px; }
   .ui-night .home .home-go .title { font-size: 30px; }

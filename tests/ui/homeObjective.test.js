@@ -4,7 +4,7 @@
 // carries the old hooks of the jobs it took over (lobby-continue, login-claim). And the home's source keeps its hooks.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { homeObjective, OBJECTIVE_ORDER, eventAsks, multiplayerLabel } from '../../src/ui/lobbyTray.js';
+import { homeObjective, OBJECTIVE_ORDER, eventAsks, multiplayerLabel, homeChipPages, homeNews, NEWS_MAX } from '../../src/ui/lobbyTray.js';
 
 const HOUR = 3600e3;
 const ALL = {
@@ -103,5 +103,51 @@ describe('the home\'s source (C12: the hooks stay, the folded parts go)', () => 
   it('the menu is the side sheet; the Notice row keeps the tray\'s hook', () => {
     expect(src).toContain('openMenuSheet');
     expect(readFileSync('src/ui/lobby/menuSheet.js', 'utf8')).toContain("testid: 'shortcut-notice'");
+  });
+});
+
+describe('the news chip\'s pages (home layout B: turned by hand only; what shows at landing)', () => {
+  const news = (phase) => homeNews({
+    limited: phase ? { id: 'halloween', name: 'Pumpkin Lantern Night', phase, msLeft: 10 * 24 * HOUR } : null,
+    weekly: { name: 'Cherry Week', arena: 'grove', dropMul: 2, msLeft: 3 * 24 * HOUR },
+    recruit: { pity: 40 },
+    bosses: { titans: { open: true, name: 'Ironhide' }, msLeft: 3 * 24 * HOUR },
+  });
+  const ids = (pages) => pages.map((p) => (p.id === 'objective' ? `objective:${p.o.kind}` : p.id));
+  const notice = { id: 'notice' };
+
+  it('a running event leads, so it shows at landing; the login gift follows', () => {
+    expect(ids(homeChipPages({ objective: homeObjective(without('save')), news: news('active'), notice }))).toEqual(['event', 'objective:login', 'bosses']);
+    // (its exchange still runs: it leads too)
+    expect(ids(homeChipPages({ objective: homeObjective(without('save', 'event')), news: news('exchange') }))).toEqual(['event', 'objective:login', 'bosses']);
+  });
+
+  it('a saved battle leads before the event', () => {
+    expect(ids(homeChipPages({ objective: homeObjective(ALL), news: news('active') }))).toEqual(['objective:continue', 'event', 'bosses']);
+  });
+
+  it('an objective that is the running event itself gives way to the event\'s own page', () => {
+    const o = homeObjective(without('save', 'login', 'commissions'));
+    expect(o.kind).toBe('event');
+    expect(ids(homeChipPages({ objective: o, news: news('exchange'), notice }))).toEqual(['event', 'bosses', 'notice']);
+  });
+
+  it('no running event (none, or one still to open): the objective leads, then the week\'s drops or the event', () => {
+    expect(ids(homeChipPages({ objective: homeObjective(without('save')), news: news(null), notice }))).toEqual(['objective:login', 'weekly', 'bosses']);
+    expect(ids(homeChipPages({ objective: homeObjective(without('save')), news: news('upcoming') }))).toEqual(['objective:login', 'event', 'bosses']);
+  });
+
+  it('the next stage and medals stay on the Battle plate; free pages go to the Notice, then the recruit banner', () => {
+    const stage = homeObjective(without('save', 'login', 'commissions', 'event'));
+    expect(stage.kind).toBe('stage');
+    expect(ids(homeChipPages({ objective: stage, news: news(null), notice }))).toEqual(['weekly', 'bosses', 'notice']);
+    expect(ids(homeChipPages({ objective: stage, news: news(null) }))).toEqual(['weekly', 'bosses', 'recruit']);
+    expect(homeChipPages({ objective: homeObjective(ALL), news: news('active'), notice }).length).toBeLessThanOrEqual(NEWS_MAX);
+  });
+
+  it('the home turns the chip by hand only: no timer of its own', () => {
+    const src = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(src).not.toMatch(/NEWS_AUTO|setInterval/);
+    expect(src).toContain('homeChipPages');
   });
 });

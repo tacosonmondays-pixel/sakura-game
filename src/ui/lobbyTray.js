@@ -106,6 +106,36 @@ export function homeNews(s = {}) {
   return out.slice(0, NEWS_MAX);
 }
 
+/** The objective kinds that take a page of the home's news chip (home layout B): something to act on. The next story
+ * stage and medals are the Battle plate's own job. */
+export const CHIP_OBJECTIVES = Object.freeze(['continue', 'login', 'commissions', 'event']);
+
+/** A limited event that runs now (its battles or its exchange open): it leads the news chip, so it shows at landing. */
+const RUNNING = new Set(['active', 'exchange']);
+
+/**
+ * The home's news chip (home layout B "Quiet Home"): its pages in order, three at most, turned by hand only (UI v2 rule
+ * 11 and P8: nothing on the home turns on its own). The page it opens on is the one the player sees at landing:
+ *   - a saved battle waits: the objective (Continue) first, then the event;
+ *   - a limited event runs (active, or its exchange open): the event first (its name and countdown at landing), then the
+ *     objective (the login gift, commissions); an objective that is that event itself ("Last day", "exchange open") gives
+ *     way to the event's own page, whose countdown says the same;
+ *   - otherwise the objective first, then the event (or the week's double drops);
+ * then the weekly bosses, the unread Notice and the recruit banner while a page is free.
+ * @param {{ objective?: { kind: string }|null, news?: { id: string, phase?: string|null }[], notice?: { id: string }|null }} s
+ *   news: homeNews() pages; notice: the Notice page when it is unread
+ * @returns {{ id: string }[]} the objective's page is { id: 'objective', o: objective }; the others are the news pages
+ */
+export function homeChipPages({ objective = null, news = [], notice = null } = {}) {
+  const ev = news.find((n) => n.id === 'event' || n.id === 'weekly') || null;
+  const running = ev?.id === 'event' && RUNNING.has(ev.phase);
+  let obj = objective && CHIP_OBJECTIVES.includes(objective.kind) ? { id: 'objective', o: objective } : null;
+  if (obj && running && objective.kind === 'event') obj = null;
+  const lead = running && obj?.o.kind !== 'continue' ? [ev, obj] : [obj, ev];
+  const pages = [...lead, ...news.filter((n) => n.id === 'bosses'), notice, ...news.filter((n) => n.id === 'recruit')];
+  return pages.filter(Boolean).slice(0, NEWS_MAX);
+}
+
 /** The Multiplayer row's accessible name: "Multiplayer, 1 open invite". */
 export function multiplayerLabel(count = 0) {
   const n = Math.max(0, Math.floor(Number(count) || 0));

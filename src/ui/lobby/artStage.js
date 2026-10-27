@@ -22,9 +22,9 @@
 // Where she stands: her face anchor (src/ui/faceAnchors.js) on the home's face spot, her art 8 px clear of every
 // control (src/ui/lobby/hostPlace.js placeHost; boxes() gives the controls' boxes). A full illustration cannot move her
 // alone: the whole picture is zoomed and panned so her face (the row's face point) lands on the spot (placeFull over
-// hostPlace.js placeScene), between the home's corners (home layout B: near where the picture itself puts her face), a
-// little lower when a control would stand over her hair there, so no control covers her face. Her still stand breathes
-// at 1 % over 4.5 s (the direction's Q10; off under Reduce motion).
+// hostPlace.js placeScene), between the home's corners (home layout B: as near the middle as the picture allows without
+// zooming in much), moved a little when a control would stand over her hair there, so no control covers her face or hair.
+// Her still stand breathes at 1 % over 4.5 s (the direction's Q10; off under Reduce motion).
 // A painting with a baked night copy (HOME_BAKED, tools/art/bakeHome.mjs) shows that copy; any other picture (the event
 // backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
 // .graded), so the text over the scene keeps its contrast.
@@ -76,37 +76,66 @@ export function homeFullArt(id, { portrait = false } = {}) {
 }
 
 /**
- * A full illustration on the home: zoomed and panned so her face lands on the face spot (placeScene); when a control
- * stands over her face and hair there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit, 8 px
- * clear), her face comes down a little, 4 px at a time, up to 12 % of the height. Pure.
- * Home layout B: on a landscape screen the spot across is where the picture itself puts her face (its face point, kept
- * between 38 % and 62 % of the width), so the picture is shown close to whole (the wallpaper is the show) rather than
- * zoomed to bring her to the middle; the home mirrors its corners when she stands right of the middle (lobby.js).
+ * A full illustration on the home: zoomed and panned so her face lands on the face spot (placeScene). Pure.
+ * Home layout B "Quiet Home": the corners never swap (Battle stays bottom right), so on a landscape screen her face goes
+ * as near the middle as the picture allows, zooming in at most 10 % past the zoom her own face point needs
+ * (FULL_FACE_X keeps that point between 38 % and 62 % of the width): a girl painted right of the middle comes toward
+ * the middle, clear of the Battle plate, and the picture stays close to whole (the wallpaper is the show).
+ * Her head there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit): when a control stands over it
+ * (8 px clear) or a wallet's words and icon do, her face moves a little, 4 px at a time, down (up to 12 %
+ * of the height) and across (up to 8 % of the width), the smallest move that clears everything, else the smallest that
+ * clears the controls. The boxes say what they are (`kind`, lobby.js uiBoxes): 'ctl' (or none) a control, 'soft' a
+ * wallet's words or icon, 'pill' / 'gap' a wallet's plate and the bar's spacer (the plates may pass over her hair).
  * @param {number} W
  * @param {number} H
  * @param {{ w: number, h: number, fx: number, fy: number, headR: number }} art
- * @param {{ x: number, y: number, w: number, h: number }[]} [boxes] the controls
- * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean }}
+ * @param {{ x: number, y: number, w: number, h: number, kind?: string }[]} [boxes] the controls
+ * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean, clearCtl: boolean, dx: number, dy: number }}
  */
 export function placeFull(W, H, art, boxes = []) {
-  const across = W > H ? W * Math.min(FULL_FACE_X[1], Math.max(FULL_FACE_X[0], art.fx)) : homeTarget(W, H).x;
-  const base = { x: across, y: H * 0.31 };
-  const at = (dy) => {
-    const p = placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x: base.x, y: base.y + dy } });
-    const r = art.headR * p.height;
-    const f = { x0: p.faceX - 1.1 * r - 8, x1: p.faceX + 1.1 * r + 8, y0: p.faceY - 1.4 * r - 8, y1: p.faceY + r + 8 };
-    const clear = boxes.every((b) => b.x + b.w <= f.x0 || b.x >= f.x1 || b.y + b.h <= f.y0 || b.y >= f.y1);
-    return { ...p, r, clear };
-  };
-  for (let dy = 0; dy <= H * 0.12; dy += 4) {
-    const p = at(dy);
-    if (p.clear) return p;
+  const scene = (x, y) => placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x, y } });
+  const y0 = H * 0.31;
+  let across = homeTarget(W, H).x;
+  if (W > H) {
+    const own = W * Math.min(FULL_FACE_X[1], Math.max(FULL_FACE_X[0], art.fx));
+    const mid = W * 0.5;
+    const dir = Math.sign(mid - own);
+    const h0 = scene(own, y0).height;
+    across = own;
+    for (let x = own + dir * 4; dir && (x - mid) * dir <= 0; x += dir * 4) {
+      if (scene(x, y0).height > h0 * FULL_ZOOM_MAX) break;
+      across = x;
+    }
+    if (dir && scene(mid, y0).height <= h0 * FULL_ZOOM_MAX) across = mid;
   }
-  return at(0);
+  const ctl = boxes.filter((b) => !b.kind || b.kind === 'ctl');
+  const soft = boxes.filter((b) => b.kind === 'soft');
+  const apart = (list, f, m) => list.every((b) => b.x + b.w <= f.x0 - m || b.x >= f.x1 + m || b.y + b.h <= f.y0 - m || b.y >= f.y1 + m);
+  const at = (dx, dy) => {
+    const p = scene(across + dx, y0 + dy);
+    const r = art.headR * p.height;
+    const f = { x0: p.faceX - 1.1 * r, x1: p.faceX + 1.1 * r, y0: p.faceY - 1.4 * r, y1: p.faceY + r };
+    const clearCtl = apart(ctl, f, 8);
+    return { ...p, r, dx, dy, clearCtl, clear: clearCtl && apart(soft, f, 0) };
+  };
+  // (the moves in order of size, down before across when two are as big)
+  const moves = [];
+  for (let dy = 0; dy <= H * 0.12; dy += 4) for (let dx = 0; dx <= W * 0.08; dx += 4) for (const sx of dx ? [-1, 1] : [1]) moves.push([sx * dx, dy]);
+  moves.sort((a, b) => Math.abs(a[0]) + a[1] - (Math.abs(b[0]) + b[1]) || b[1] - a[1]);
+  let firstCtl = null;
+  for (const [dx, dy] of moves) {
+    const p = at(dx, dy);
+    if (p.clear) return p;
+    if (!firstCtl && p.clearCtl) firstCtl = p;
+  }
+  return firstCtl || at(0, 0);
 }
 
-/** Where a full illustration's face may land across a landscape screen (fractions of the width; placeFull). */
+/** Where a full illustration's own face point counts across a landscape screen (fractions of the width; placeFull). */
 export const FULL_FACE_X = Object.freeze([0.38, 0.62]);
+/** How much further a full illustration may zoom in to bring her face toward the middle (placeFull; a picture painted
+ * narrower than the screen has no room to pan otherwise). */
+export const FULL_ZOOM_MAX = 1.1;
 
 /** An element's box in viewport px. */
 const rectOf = (el) => {
