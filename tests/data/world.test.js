@@ -10,6 +10,7 @@ import {
 } from './trackShape.js';
 import {
   CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
+  ACT2_PLAN, ACT2_PLAN_MAP, stageRequires,
 } from '../../src/data/stages.js';
 import { UNITS, freeUnlocksByStage } from '../../src/data/units.js';
 import * as itemsModule from '../../src/data/items.js';
@@ -35,7 +36,7 @@ const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
-const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule'];
+const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter'];
 const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X']);
 const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
@@ -532,15 +533,41 @@ describe('maps', () => {
 // Stages
 // ---------------------------------------------------------------------------
 
+/**
+ * Every stage that must be cleared, directly or through its own requirements, before `id` opens (its unlock
+ * ancestors). The campaign's "earlier" is this set, never an array index: an Act II stage appended after 8-5 is not
+ * "after" 8-5 (docs/CAMPAIGN.md "Act II").
+ */
+const ancestorMemo = new Map();
+function unlockAncestors(id) {
+  if (ancestorMemo.has(id)) return ancestorMemo.get(id);
+  const out = new Set();
+  const stack = [...stageRequires(id)];
+  while (stack.length) {
+    const r = stack.pop();
+    if (out.has(r)) continue;
+    out.add(r);
+    stack.push(...stageRequires(r));
+  }
+  ancestorMemo.set(id, out);
+  return out;
+}
+
 describe('stages', () => {
   const campaign = campaignStages();
+  const act1 = campaign.filter((s) => s.act === 1);
+  const act2 = campaign.filter((s) => s.act === 2);
 
   it('has the expected stage counts and lookup helpers', () => {
-    expect(campaign.length).toBe(40);
+    // 40 Act I + the registered Act II stages (none yet: Gate Arc S1a)
+    expect(act1.length).toBe(40);
+    expect(act2.length).toBe(CHAPTERS.reduce((n, c) => n + c.act2.length, 0));
+    expect(campaign.length).toBe(40 + act2.length);
+    expect(campaign.every((s) => s.act === 1 || s.act === 2)).toBe(true);
     expect(stagesOfKind('resource').length).toBe(15);
     expect(stagesOfKind('boss').map((s) => s.id).sort()).toEqual(['boss-ashwing', 'boss-colossus', 'boss-lych']);
     expect(stagesOfKind('challenge').map((s) => s.id)).toEqual(['challenge']);
-    expect(STAGES.length).toBe(59);
+    expect(STAGES.length).toBe(59 + act2.length);
     expect(new Set(STAGES.map((s) => s.id)).size).toBe(STAGES.length);
     expect(getStage('1-1')).toBe(STAGE_MAP['1-1']);
     expect(() => getStage('nope')).toThrow();
@@ -557,9 +584,16 @@ describe('stages', () => {
       expect(c.stages).toEqual([1, 2, 3, 4, 5].map((n) => `${i + 1}-${n}`));
       for (const k of ['name', 'theme', 'tier', 'desc', 'mechanic']) expect(c[k], `chapter ${c.id} ${k}`).toBeTruthy();
       expect(MAP_TIERS[c.tier]).toBeTruthy();
-      for (const sid of c.stages) expect(getStage(sid).chapter).toBe(c.id);
+      for (const sid of c.stages) expect(getStage(sid)).toMatchObject({ chapter: c.id, act: 1, finale: sid === `${c.id}-5` });
+      // Act II: only registered c-6 … c-10 ids, in order; its row needs its header text once it has stages
+      expect(Array.isArray(c.act2)).toBe(true);
+      expect(c.act2).toEqual([6, 7, 8, 9, 10].map((n) => `${c.id}-${n}`).slice(0, c.act2.length));
+      for (const sid of c.act2) expect(getStage(sid)).toMatchObject({ chapter: c.id, act: 2, finale: sid === `${c.id}-10` });
+      if (c.act2.length) for (const k of ['act2Name', 'act2Theme', 'act2Desc']) expect(c[k], `chapter ${c.id} ${k}`).toBeTruthy();
     });
-    expect(campaign.map((s) => s.id)).toEqual(CHAPTERS.flatMap((c) => c.stages));
+    // CAMPAIGN_IDS: Act I first (1-1 … 8-5, unchanged), then Act II by (chapter, n)
+    expect(CAMPAIGN_IDS).toEqual([...CHAPTERS.flatMap((c) => c.stages), ...CHAPTERS.flatMap((c) => c.act2)]);
+    expect(campaign.map((s) => s.id)).toEqual(CAMPAIGN_IDS);
   });
 
   it('every StageDef matches the contract schema', () => {
@@ -601,7 +635,9 @@ describe('stages', () => {
       for (const c of s.recommended) expect(CAPABILITIES[c], `${s.id} recommends ${c}`).toBeTruthy();
       expect(Array.isArray(s.scenery.props) && s.scenery.props.length > 0, `${s.id} scenery`).toBe(true);
       if (s.scenery.weather != null) expect(['rain', 'snow', 'petals', 'embers']).toContain(s.scenery.weather);
-      if (s.requires !== null) expect(STAGE_MAP[s.requires], `${s.id} requires`).toBeTruthy();
+      // requires: null, one stage id or (an Act II x-6) a list of two, read through stageRequires
+      expect(s.requires === null || typeof s.requires === 'string' || (Array.isArray(s.requires) && s.requires.length === 2), `${s.id} requires`).toBe(true);
+      for (const r of stageRequires(s)) expect(STAGE_MAP[r], `${s.id} requires ${r}`).toBeTruthy();
       expect(typeof s.unlocks).toBe('object');
     }
   });
@@ -629,24 +665,27 @@ describe('stages', () => {
     }
   });
 
-  it('campaign requires-chain, hpScale, waves and start cash ramp (§5b)', () => {
-    campaign.forEach((s, i) => {
-      expect(s.requires).toBe(i === 0 ? null : campaign[i - 1].id);
+  it('Act I requires-chain, hpScale, waves and start cash ramp (§5b)', () => {
+    act1.forEach((s, i) => {
+      expect(s.requires).toBe(i === 0 ? null : act1[i - 1].id);
       if (i > 0) {
         // the base ramp is monotonic; the hero-rework HP pass (hpPass, per stage) sits on top of it
-        expect(s.hpScale / s.hpPass, s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale / campaign[i - 1].hpPass - 0.01);
+        expect(s.hpScale / s.hpPass, s.id).toBeGreaterThanOrEqual(act1[i - 1].hpScale / act1[i - 1].hpPass - 0.01);
         expect(s.hpPass, s.id).toBeGreaterThanOrEqual(1);
-        expect(s.waves, s.id).toBeGreaterThanOrEqual(campaign[i - 1].waves - 2);
+        expect(s.waves, s.id).toBeGreaterThanOrEqual(act1[i - 1].waves - 2);
         expect(s.startCash, s.id).toBeGreaterThanOrEqual(700);
         expect(s.startCash, s.id).toBeLessThanOrEqual(900);
       }
+      expect(s.medalGemMul, s.id).toBeUndefined();
+      expect(s.modeChapter, s.id).toBeUndefined();
     });
-    expect(campaign[0].hpScale / campaign[0].hpPass).toBe(1);
-    expect(campaign[0].startCash).toBe(650);
-    expect(campaign[0].waves).toBe(12);
-    expect(campaign[39].hpScale / campaign[39].hpPass).toBeGreaterThanOrEqual(6);
-    expect(campaign[39].hpScale / campaign[39].hpPass).toBeLessThanOrEqual(7);
-    expect(campaign[39].waves).toBe(30);
+    expect(act1[0].hpScale / act1[0].hpPass).toBe(1);
+    expect(act1[0].startCash).toBe(650);
+    expect(act1[0].waves).toBe(12);
+    expect(act1[39].id).toBe('8-5');
+    expect(act1[39].hpScale / act1[39].hpPass).toBeGreaterThanOrEqual(6);
+    expect(act1[39].hpScale / act1[39].hpPass).toBeLessThanOrEqual(7);
+    expect(act1[39].waves).toBe(30);
     const res = stagesOfKind('resource');
     for (const s of res) {
       const t = Number(s.id.slice(-1));
@@ -655,6 +694,30 @@ describe('stages', () => {
     for (const s of stagesOfKind('boss')) {
       expect(s.hpScale).toBeGreaterThanOrEqual(5);
       expect(s.hpScale).toBeLessThanOrEqual(7);
+    }
+  });
+
+  it('Act II chain and ramp (ACT2_PLAN, and every registered Act II stage follows it)', () => {
+    for (const ch of CHAPTERS) {
+      const rows = ACT2_PLAN.filter((r) => r.chapter === ch.id);
+      expect(rows.map((r) => r.id)).toEqual([6, 7, 8, 9, 10].map((n) => `${ch.id}-${n}`));
+      // x-6: two keys (x-5 and the previous chapter's x-10; 1-6 only 1-5); x-7 … x-10: the Act II stage before
+      expect(rows[0].requires).toEqual(ch.id === 1 ? '1-5' : [`${ch.id}-5`, `${ch.id - 1}-10`]);
+      for (let k = 1; k < 5; k++) {
+        expect(rows[k].requires).toBe(rows[k - 1].id);
+        expect(rows[k].hpScale, rows[k].id).toBeGreaterThanOrEqual(rows[k - 1].hpScale);
+        expect(rows[k].hpScale / rows[k].hpPass, rows[k].id).toBeGreaterThanOrEqual(rows[k - 1].hpScale / rows[k - 1].hpPass);
+      }
+      for (const r of rows) {
+        if (ch.id < 8) expect(r.waves, r.id).toBe(getStage(`${ch.id + 1}-${r.k}`).waves);
+        expect(r.startCash, r.id).toBeLessThanOrEqual(900);
+      }
+    }
+    for (const s of act2) {
+      const r = ACT2_PLAN_MAP[s.id];
+      expect(r, s.id).toBeTruthy();
+      expect(s).toMatchObject({ waves: r.waves, hpScale: r.hpScale, hpPass: r.hpPass, cashScale: r.cashScale, startCash: r.startCash, tier: r.tier, medalGemMul: 0.5, modeChapter: r.modeChapter });
+      expect(stageRequires(s)).toEqual(Array.isArray(r.requires) ? [...r.requires] : [r.requires]);
     }
   });
 
@@ -758,9 +821,10 @@ describe('stages', () => {
   });
 
   it('FREE-COUNTER RULE: essential counters come from starters and earlier free recruits', () => {
-    const order = new Map(campaign.map((s, i) => [s.id, i]));
-    const available = (idx) => UNITS.filter((u) => u.acquisition.type === 'starter'
-      || (u.acquisition.type === 'free' && order.has(u.acquisition.afterStage) && order.get(u.acquisition.afterStage) < idx));
+    // "earlier" = an unlock ancestor (stageRequires, transitive), never an index in CAMPAIGN_IDS: an Act II stage of
+    // chapter 1 sits right after 1-5, so a chapter-3 recruit never counts for it (A15)
+    const available = (s) => UNITS.filter((u) => u.acquisition.type === 'starter'
+      || (u.acquisition.type === 'free' && unlockAncestors(s.id).has(u.acquisition.afterStage)));
     const provides = (u, cap) => {
       const b = u.base;
       if (cap === 'detection') return !!(b.detection || b.aura?.detection) || u.capabilities.includes('detection') || u.pathCapabilities.includes('detection');
@@ -768,8 +832,8 @@ describe('stages', () => {
       if (cap === 'water') return u.placement === 'water' || u.placement === 'amphibious';
       return u.capabilities.includes(cap) || u.pathCapabilities.includes(cap);
     };
-    campaign.forEach((s, idx) => {
-      const units = available(idx);
+    campaign.forEach((s) => {
+      const units = available(s);
       const traits = new Set(stageEnemies(s).flatMap((id) => enemyTraits(id)));
       if (traits.has('veiled')) expect(units.some((u) => provides(u, 'detection')), `${s.id} detection`).toBe(true);
       if (traits.has('airborne')) expect(units.some((u) => provides(u, 'antiAir')), `${s.id} antiAir`).toBe(true);
@@ -779,7 +843,7 @@ describe('stages', () => {
     // Each free recruit arrives right before the mechanic it counters.
     const firstWith = (trait, tier = null) => campaign.find((s) => stageEnemies(s)
       .some((id) => enemyTraits(id).includes(trait) && (!tier || getEnemy(id).tier === tier))).id;
-    const before = (a, b) => order.get(a) < order.get(b);
+    const before = (a, b) => unlockAncestors(b).has(a);
     expect(before('1-2', firstWith('hasty'))).toBe(true); // Yuki
     expect(firstWith('veiled')).toBe('3-1'); // Kage after 2-5
     expect(firstWith('armored', 'normal')).toBe('4-1'); // Shiro after 3-5 (armored elites before then are light)
