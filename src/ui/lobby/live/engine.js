@@ -4,7 +4,8 @@
 // lobby, never part of its first load.
 //
 //   const live = await createLiveScene(canvas, def, { quality, layout })    def: a scene (./marumi.js)
-//   live.layout({ W, H, place })   the screen and where her figure stands (place: her texture's rect, CSS px)
+//   live.layout({ W, H, place, side })   the screen and where her figure stands (place: her texture's rect, CSS px;
+//                                  side: the side the home's controls take, home layout C: the scrims follow it)
 //   live.start() / live.stop()     the clock (paused on its own while the page is hidden)
 //   live.renderAt(t)               one frame at t seconds, the clock held (shots, tests)
 //   live.setGirlVisible(on)        her layers only (the art-clearance probe diffs the plate with and without her)
@@ -90,19 +91,22 @@ function plateMesh(def, tex) {
 /**
  * The home's left, top and right scrims (base.css --scrim-l / -t / -r), drawn between the plate and her: the CSS scrims
  * would lie over her too (the canvas is one layer), and a host is never graded (5.5). The lobby hides those three CSS
- * scrims while the scene shows; the bottom one stays over her, as over every host.
+ * scrims while the scene shows; the bottom one stays over her, as over every host. Home layout C: the side the
+ * controls' block takes keeps its wide scrim, her side only an edge wash under the caption (0.8 for 40 px, gone by 88;
+ * uWide: 1 wide, 0 the wash; x left, y right), as home.css draws them.
  */
 function scrimMesh() {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uSize: { value: new THREE.Vector2(1, 1) } },
+    uniforms: { uSize: { value: new THREE.Vector2(1, 1) }, uWide: { value: new THREE.Vector2(1, 1) } },
     vertexShader: /* glsl */ `uniform vec2 uSize; varying vec2 vP;
       void main(){ vP = position.xy * uSize; gl_Position = projectionMatrix * modelViewMatrix * vec4(vP.x, -vP.y, 0.0, 1.0); }`,
-    fragmentShader: /* glsl */ `uniform vec2 uSize; varying vec2 vP;
+    fragmentShader: /* glsl */ `uniform vec2 uSize; uniform vec2 uWide; varying vec2 vP;
       float ramp(float t, float a0, float t1, float a1, float t2){ return t < t1 ? mix(a0, a1, t / t1) : mix(a1, 0.0, clamp((t - t1) / (t2 - t1), 0.0, 1.0)); }
+      float wash(float px){ return 0.8 * (1.0 - clamp((px - 40.0) / 48.0, 0.0, 1.0)); }
       void main(){
-        float l = ramp(vP.x / uSize.x, 0.82, 0.26, 0.58, 0.50);
+        float l = mix(wash(vP.x), ramp(vP.x / uSize.x, 0.82, 0.26, 0.58, 0.50), uWide.x);
         float t = ramp(vP.y, 0.62, 48.0, 0.5, 104.0);
-        float r = ramp((uSize.x - vP.x) / uSize.x, 0.62, 0.28, 0.5, 0.46);
+        float r = mix(wash(uSize.x - vP.x), ramp((uSize.x - vP.x) / uSize.x, 0.62, 0.28, 0.5, 0.46), uWide.y);
         float a = 1.0 - (1.0 - l) * (1.0 - t) * (1.0 - r);
         gl_FragColor = vec4(vec3(14.0, 25.0, 48.0) / 255.0 * a, a);
       }`,
@@ -379,7 +383,7 @@ export async function createLiveScene(canvas, def, { quality = 'high', base = '.
 
   let size = { W: 1, H: 1 };
   let place = null;
-  function layout({ W, H, place: p }) {
+  function layout({ W, H, place: p, side = null }) {
     size = { W, H };
     place = p;
     renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, LIVE_CAPS.dpr));
@@ -394,6 +398,8 @@ export async function createLiveScene(canvas, def, { quality = 'high', base = '.
     L.plate.material.uniforms.uT.value.copy(plateT);
     L.motes.material.uniforms.uT.value.copy(plateT);
     L.scrim.material.uniforms.uSize.value.set(W, H);
+    // (home layout C: the block's side keeps the wide scrim, her side the edge wash; no side: both wide, as before)
+    L.scrim.material.uniforms.uWide.value.set(side === 'r' ? 0 : 1, side === 'l' ? 0 : 1);
     for (const m of [L.girl, L.halo, L.sparks]) m.material.uniforms.uT.value.copy(girlT);
     // her figure runs on past the frame's bottom to the screen's edge (its last rows repeat: the bottom scrim lies over them)
     const need = Math.max(FRAME.h + FRAME.ext, Math.ceil((H - p.top) / s) + 4);

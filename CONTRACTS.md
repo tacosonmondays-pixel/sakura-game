@@ -1686,11 +1686,25 @@ export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId
 export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
 // src/ui/lobby/artStage.js ([ui-ink] UI v2 V2's night home, feature/ui-v2; live main still has the M5 stage above:
 // createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout, backdrop }) → { show, react, say, look, hideBubble, dispose })
-export function createArtStage(host, { reduceMotion, onTap, boxes, backdrop }) // { show(unitDef,{background}), relayout, say, hideBubble,
-                                                      //   setLive, setLivePlacement, liveHost, isLive, isIllustration, placement, current, dispose }
+export function createArtStage(host, { reduceMotion, onTap, boxes, under, side, backdrop }) // { show(unitDef,{background}), relayout, say,
+                                                      //   hideBubble, setLive, setLivePlacement, liveHost, isLive, isIllustration, placement,
+                                                      //   current, artOver(box, margin), dispose }
+                                                      // boxes(): controls her art always keeps 8 px clear of (the top bar); under(): controls it
+                                                      // keeps clear of when she can stand that way, else passes under (never her face box);
+                                                      // side(): 'r' | 'l', the side the home's controls take (home layout C)
 export const HOME_BAKED                               // the lobby paintings with a baked night copy (<name>-home.webp)
 export function homeBackdropArt(file), homeFullArt(id, { portrait }) // the home's picture: the baked copy, else the CSS night grade
-export function placeFull(W, H, art, boxes)           // a full illustration: her face on the spot (placeScene), lower when a control is over her hair
+export function placeFull(W, H, art, boxes, side)     // a full illustration: her face on the spot (placeScene), lower when a control is over her hair
+// src/ui/lobby/hostPlace.js
+export function homeTarget(W, H, side = 'r')          // her face spot: 0.30 of the width ('r': the controls on the right), 0.70 ('l')
+export function placeHost({ W, H, aspect, anchor, extents, boxes, under, target, ... }) // → { left, top, width, height, scale, shift,
+                                                      //   drop, fits, floats, face, under }: under = her art passes under the `under` boxes
+// src/ui/lobby/homeLayout.js (home layout C, pure: the boxes of the home's pieces)
+export function homeLayout(W, H, { side })            // { kind: 'wide'|'compact'|'tall', side, ticker, tiles: { students, recruit, coop,
+                                                      //   commissions, mall, battle } (each { x, y, w, h, lean }), caption, tools, block, battleBand }
+export function uiSideFor(faceX)                      // 'l' for a picture whose girl stands right of centre (every full illustration, the living scene)
+export function layoutBoxes(L), tickerPages({ news, objective, notice }), tickerEdge(page), latestRecruit(profile, secretary, hasArt),
+       cardCrop(anchor, tw, th, { eyeAt, faceH })
 // src/ui/lobby/bgPicker.js
 export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button;
                                                       // her tiles (thumbnails) under "Backdrops" and "Full illustrations"

@@ -1,9 +1,12 @@
 /* ==========================================================================================================
-   [ui-ink] The home (lobby) at night and its main menu sheet: UI v2 "Ink & Paper" V2 (notes/ui-v2/UI_V2_DIRECTION.md
-   12.1, 12.2; the approved mock-up notes/ui-v2/home/home.css). Coordinates only, as the mock-up's: every colour,
-   shape, type and glyph comes from the kit (src/ui/styles/ink.css). Desktop (1280x720) is the default; the landscape
-   phone (844x390) is the kit's own breakpoint, max-height: 480px; a phone held upright (the rotate prompt's fallback,
-   no mock-up) stacks the UI under her. The lobby is the only night screen (src/ui/surfaceMode.js).
+   [ui-ink] The home (lobby) at night and its main menu sheet: UI v2 "Ink & Paper", home layout C (the owner, Oct 27:
+   "keep the new wallpaper concepts but change the layout"). The kit (src/ui/styles/ink.css) gives every colour, type
+   and glyph; the boxes come from src/ui/lobby/homeLayout.js (the screen sets each piece's left / top / width / height,
+   and a tile's --lean). Desktop (1280x720) is the default; the landscape phone (844x390) is the kit's own breakpoint,
+   max-height: 480px; a phone held upright (data-layout="tall") stacks the block under her. data-side: the side the
+   controls' block takes ('r': she stands left; 'l': mirrored for a picture whose girl stands right of centre).
+   The block's look: chamfered -8 degree ink tiles with a 1 px hairline ring (cut top-right and bottom-left), tick marks
+   along each tile's top edge, Barlow Condensed caps, one cyan, and one yellow (BATTLE's play edge).
    Layers (5.5): scene 0 · scrims 1 · host 2 · bottom scrim 3 · UI 4 · top bar 10 · sheets 20+.
    ========================================================================================================== */
 
@@ -91,36 +94,140 @@
 .home .home-top .ol-top-chat .sc-badge { position: absolute; top: -2px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--badge-red); color: #fff;
   font: 700 13px/20px var(--font-num); box-shadow: 0 0 0 1.5px var(--plate); }
 
-/* ---------------------------------------------------------------- the rail: x 24-300, 48 px rows, y 104-440 */
-.ui-night .home .home-rail { position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); top: 104px; width: 276px; }
-.home .home-rail .ui-hrow { width: 100%; }
-.home .home-rail .ui-chip.cy { margin-left: 2px; }
-.home .home-rail .ui-count { align-self: center; }
+/* ---------------------------------------------------------------- scrims: the block's side keeps its wide scrim,
+   her side only an edge wash under the caption, 0.8 for 40 px then gone by 88 (the living scene draws the same,
+   engine.js uWide) */
+.ui-night .home[data-side="r"] .ui-scrim.l { background: linear-gradient(90deg, rgba(14, 25, 48, 0.8) 0, rgba(14, 25, 48, 0.8) 40px, rgba(14, 25, 48, 0) 88px); }
+.ui-night .home[data-side="l"] .ui-scrim.r { background: linear-gradient(270deg, rgba(14, 25, 48, 0.8) 0, rgba(14, 25, 48, 0.8) 40px, rgba(14, 25, 48, 0) 88px); }
+.ui-night .home[data-layout="tall"] :is(.ui-scrim.l, .ui-scrim.r) { background: none; }
+.ui-night .home[data-layout="tall"] .ui-scrim.b { height: 58%; background: linear-gradient(0deg, rgba(14, 25, 48, 0.72) 0, rgba(14, 25, 48, 0.5) 55%, rgba(14, 25, 48, 0) 100%); }
 
-/* ---------------------------------------------------------------- the right stack: x 900-1256 */
-.home .home-stack { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 84px; width: 356px; display: flex; flex-direction: column; gap: 12px; }
-.home .home-obj { width: 100%; }
-.home .home-obj .obj-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.home .home-obj .obj-t .body { white-space: normal; }
-.home .home-obj .ui-kbd { margin-right: 4px; }
-.ui-night .home .home-obj.two { --h: 64px; }
-.home .home-news .go { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 0 0 2px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
-.home .home-news .go .ui-thumb .ia, .home .home-news .go .ui-thumb > svg:not(.g) { width: 34px; height: 34px; display: block; }
-.home .home-news .go .ui-thumb .ia > img, .home .home-news .go .ui-thumb .ia > svg { width: 100%; height: 100%; }
-.home .home-news .go .ui-thumb svg.g { width: 22px; height: 22px; color: var(--on-ink-dim); }
-.home .home-news .body { white-space: normal; }
-.home .home-news .pager { border: 0; background: none; cursor: pointer; }
-.ui-night .home .home-news.two { height: 68px; }
-.home .home-news.two .pager { height: 100%; }
-/* the chapter entry: x 908-1256, y 372-520; its title box 240 px (names step to 30 px, then two lines) */
-.home .home-chap-host { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 372px; }
-.ui-night .home .home-chap { height: 148px; }
-.home .home-chap .emblem-wrap { display: block; flex: none; line-height: 0; }
-.ui-night .home .home-chap .title { max-width: 240px; }
-.home .home-chap .prog .num { color: var(--on-ink); }
+/* ---------------------------------------------------------------- the block: the ticker and the mosaic */
+.home .home-ui > .home-block { position: absolute; inset: 0; pointer-events: none; }
+.home .home-block > * { position: absolute; pointer-events: auto; }
+.home .home-ticker-host { z-index: 4; }
+
+/* the ticker: one page, a cyan tick edge (amber hazard stripes only for a boss, P8), "›" with its pips */
+.ui-night .home .home-ticker { position: absolute; inset: 0; height: auto; --c: var(--cut); --fill: var(--glass-ink-1); --edge: var(--line-lo);
+  display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
+.home .home-ticker .tk-edge { flex: none; width: 14px; position: relative; }
+.home .home-ticker .tk-edge::before { content: ''; position: absolute; left: 6px; top: 9px; bottom: 9px; width: 3px;
+  background: repeating-linear-gradient(180deg, var(--cyan) 0 2px, transparent 2px 6px); opacity: 0.85; }
+.home .home-ticker[data-edge="hazard"] .tk-edge::before { left: 0; top: 0; bottom: 0; width: 8px; opacity: 1;
+  background: repeating-linear-gradient(-45deg, #f5b83d 0 5px, var(--plate) 5px 10px); }
+.home .home-ticker .tk-page { flex: 1; min-width: 0; display: flex; }
+.home .home-ticker .go { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 4px; margin: 0; border: 0;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.home .home-ticker .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.home .home-ticker .k { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.home .home-ticker .k .lbl { letter-spacing: 0.14em; white-space: nowrap; }
+.home .home-ticker .body { line-height: 1.15; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.home .home-ticker .ui-cd .ui-cd-time { font-variant-numeric: tabular-nums; }
+/* the objective's play square: cyan ink (the home's one yellow is BATTLE's) */
+.ui-night .home .home-ticker .ui-play.c-sq { --fill: rgba(76, 214, 255, 0.1); --edge: rgba(76, 214, 255, 0.6); color: var(--cyan); width: 34px; height: 34px; }
+.home .home-ticker .ui-kbd { margin-right: 2px; }
+.home .home-ticker .pager { flex: none; width: 56px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  margin: 0; padding: 0; border: 0; background: none; box-shadow: inset 1px 0 0 var(--line-lo); color: var(--on-ink); cursor: pointer; }
+.home .home-ticker .pager svg.g { width: 18px; height: 18px; }
+.home .home-ticker .tk-wipe { position: absolute; z-index: 5; top: 0; bottom: 0; left: 0; width: 40%; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 7px, rgba(76, 214, 255, 0.5) 7px 8px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent); mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent); }
+
+/* the tiles: -8 degree ink parallelograms, cut top-right and bottom-left, one 1 px hairline ring; the fill and the ring
+   are skewed layers (so the slant is exact at any size), the words and the art stay upright */
+.home .c-tile { z-index: 4; display: block; margin: 0; padding: 0; border: 0; background: none; color: var(--on-ink); font: inherit; text-align: left;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; outline: none;
+  --c: var(--cut); --fill: var(--glass-ink-1); --edge: var(--line-lo); --rw: 1px; --lean: 0px; }
+.home .c-tile::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; transform: skewX(var(--skew)); background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142),
+    calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw)); }
+.home .c-skin { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; transform: skewX(var(--skew)); background: var(--fill);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); }
+.home .c-skin .c-ticks { position: absolute; z-index: 2; left: calc(var(--c) + 6px); top: 4px; width: 42%; height: 4px; opacity: 0.22;
+  background: repeating-linear-gradient(90deg, rgb(150, 200, 255) 0 1px, transparent 1px 8px); }
+/* (art in a tile stands upright: skewed back inside the skewed skin) */
+.home .c-skin .c-art { position: absolute; inset: 0; transform: skewX(8deg); }
+.home .c-tile > :not(.c-skin) { position: absolute; z-index: 1; }
+.home .c-tile .c-lbl { display: flex; align-items: center; gap: 8px; white-space: nowrap; letter-spacing: 0.1em; }
+.home .c-tile .c-lbl svg.g { width: 20px; height: 20px; opacity: 0.86; flex: none; }
+.home .c-tile .c-lbl .ui-dot { transform: translateY(-7px); margin-left: -3px; }
+.home .c-tile .c-lbl .ui-count { margin-left: 2px; }
+/* (a word that does not fit its tile: its glyph steps aside, then the word tightens; lobby.js fitLabels) */
+.home .c-tile .c-lbl.tight svg.g { display: none; }
+.home .c-tile .c-lbl.tighter { font-size: 13px; letter-spacing: 0.04em; }
+@media (min-height: 481px) { .home .c-tile .c-lbl.tighter { font-size: 15px; } }
+.home :is(.c-coop, .c-comm, .c-mall) .c-lbl { inset: 0 8px 0 16px; }
+.home .c-tile:focus-visible, .home .c-battle:has(:focus-visible) { --edge: rgba(76, 214, 255, 0.6); --rw: 2px; }
+.home .c-tile:is(:hover, :focus-visible) .c-lbl svg.g { color: var(--cyan); opacity: 1; }
+/* press: 0.97 (100 down, 140 up) */
+.home .c-tile { transition: scale 140ms var(--ease-snap), translate 140ms var(--ease-snap); }
+.home button.c-tile:active, .home .c-battle:has(button:active) { scale: 0.97; transition-duration: 100ms; }
+@media (hover: hover) and (pointer: fine) { .home .c-tile:hover { translate: 0 -2px; } }
+
+/* STUDENTS: the girl who joined last, framed on her face (lobby.js paintStudentsFace), her name band at the foot */
+.home .c-students .c-face img { position: absolute; max-width: none; filter: saturate(0.9) brightness(0.92); }
+.home .c-students.has-face .c-skin::after { content: ''; position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 36px;
+  background: linear-gradient(180deg, rgba(14, 25, 48, 0) 0, rgba(14, 25, 48, 0.92) 42%); }
+.home .c-students .c-lbl { left: 14px; right: 6px; bottom: 0; height: 26px; }
+.home .c-students:not(.has-face) .c-lbl { inset: 0 6px 0 16px; height: auto; }
+
+/* RECRUIT: the banner's three girls on the right 60 %, the word and the FREE PULL chip on the left */
+.home .c-recruit .c-banner { left: 38%; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 42%); mask-image: linear-gradient(90deg, transparent 0, #000 42%); }
+.home .c-recruit .c-banner::before { content: ''; position: absolute; inset: 0; background: radial-gradient(60% 90% at 70% 40%, rgba(76, 214, 255, 0.16), transparent 70%); }
+.home .c-recruit .c-banner img { position: absolute; top: -4%; height: 280%; width: auto; max-width: none; filter: saturate(0.92) brightness(0.94); }
+.home .c-recruit .c-banner img.s0 { left: 4%; }
+.home .c-recruit .c-banner img.s1 { left: 30%; z-index: 1; top: -10%; height: 300%; }
+.home .c-recruit .c-banner img.s2 { left: 58%; }
+.home .c-recruit .c-col { left: 16px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 5px; }
+.home .c-recruit .ui-chip.cy { --chip-h: 22px; padding: 0 7px; }
+
+/* BATTLE: the biggest tile; the word, its kicker, the yellow play edge (the home's one yellow); its band opens the
+   chapter: the chapter's name, five tick marks and n/5 */
+.home .c-battle { cursor: default; --band: 46px; container-type: size; }
+.home .c-battle .c-skin::before { content: ''; position: absolute; z-index: 0; left: 0; right: 0; bottom: 0; height: var(--band);
+  background: rgba(14, 25, 48, 0.55); box-shadow: inset 0 1px 0 var(--line-lo); }
+.home .c-battle .c-yel { position: absolute; z-index: 1; right: 0; top: 0; bottom: var(--band); width: var(--yel, 46px); display: grid; place-items: center;
+  background: var(--yellow); color: var(--plate); }
+.home .c-battle .c-yel svg.g { width: 22px; height: 22px; transform: skewX(8deg); fill: currentColor; }
+.home .c-battle .c-go { left: 0; right: 0; top: 0; bottom: var(--band); margin: 0; padding: 0 calc(var(--yel, 46px) + 10px) 0 calc(var(--lean) / 4 + 16px); border: 0;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.home .c-battle .c-kick { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.home .c-battle .c-kick .lbl { letter-spacing: 0.14em; }
+.home .c-battle .c-kick .ui-chip { --chip-h: 20px; padding: 0 6px; }
+@container (max-width: 240px) { .home .c-battle .c-kick .kk { display: none; } }
+.home .c-battle .c-word { display: flex; align-items: center; gap: 10px; }
+/* (the word grows with its tile: 28 px on a landscape phone up to 40 on desktop, never past what the tile holds) */
+.home .c-battle .c-word .title { font-size: clamp(24px, 13cqw, 28px); line-height: 1; padding-right: 2px; text-transform: uppercase; }
+.home .c-battle .c-chap { left: 0; right: 0; bottom: 0; height: var(--band); margin: 0; padding: 0 16px 0 calc(16px - var(--lean) / 4); border: 0; background: none;
+  color: var(--on-ink); font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.home .c-battle .c-chname { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--on-ink-dim); letter-spacing: 0.1em; }
+/* (a chapter name that does not fit its band steps aside: the kicker above says the chapter) */
+.home .c-battle .c-chap.noname .c-chname { visibility: hidden; }
+.home .c-battle .c-prog { display: inline-grid; grid-template-columns: repeat(var(--n, 5), 5px); gap: 3px; height: 10px; flex: none; }
+.home .c-battle .c-prog > i { display: block; background: rgba(255, 255, 255, 0.2); transform: skewX(var(--skew)); }
+.home .c-battle .c-prog > i.on { background: var(--cyan); }
+.home .c-battle .c-chap .num { color: var(--on-ink); }
+.home .c-battle .c-chap svg.g { width: 16px; height: 16px; color: var(--on-ink-dim); flex: none; }
+.home .c-battle.no-band .c-go { bottom: 0; }
+
+/* her caption: her name down a 1 px rule (aria-hidden; the screen's one decorative serial) */
+.home .home-ui > .home-caption { position: absolute; z-index: 4; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.home .home-caption .cap-rule { flex: 1; width: 1px; background: rgba(76, 214, 255, 0.4); }
+.home .home-caption .cap-rule:last-child { flex: 2; }
+.home .home-caption .cap-t { flex: none; writing-mode: vertical-rl; font: 600 12px/1 var(--font-num); letter-spacing: 0.3em; text-transform: uppercase; color: var(--cyan); }
+.home .home-caption.off, .home .home-caption[hidden] { visibility: hidden; }
+
 /* the corner tools: hide the UI, background and secretary; 0.86 opacity */
-.home .home-tools { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 648px; display: flex; gap: 8px; opacity: 0.86; color: var(--on-ink); }
-.ui-night .home .home-restore { position: absolute; z-index: 4; right: calc(24px + env(safe-area-inset-right, 0px)); top: 648px; color: var(--on-ink); opacity: 0.86; }
+.home .home-ui > .home-tools { position: absolute; display: flex; align-items: center; justify-content: space-between; opacity: 0.86; color: var(--on-ink); }
+.home[data-layout="tall"] .home-ui > .home-tools { flex-direction: column; }
+.ui-night .home .home-restore { position: absolute; z-index: 4; color: var(--on-ink); opacity: 0.86; }
 .ui-night .home .home-restore[hidden] { display: none; }
 
 /* ---------------------------------------------------------------- the main menu sheet (12.2) */
@@ -133,66 +240,95 @@
 @keyframes home-menu-in { from { opacity: 0; transform: translateX(16px); } }
 .home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 12px; }
 .home-menu .m-head .sp { flex: 1; }
+.home-menu .m-head .m-set { color: var(--on-ink); }
 .home-menu .m-k { flex: none; margin-top: 16px; display: flex; align-items: center; gap: 8px; }
 .home-menu .m-k .ui-rule { flex: 1; }
 .home-menu .m-k + .m-grid { margin-top: 8px; }
 .home-menu .m-grid + .m-k { margin-top: 20px; }
-/* desktop has the height for one column (8 rows at a 52 px pitch); the phone keeps two columns of 168 */
+/* desktop has the height for one column (9 rows at a 52 px pitch); the phone keeps two columns of 168 */
 .home-menu .m-grid { flex: none; display: grid; grid-template-columns: 1fr; row-gap: 4px; }
-.home-menu .m-foot { margin-top: auto; flex: none; }
 .home-menu .ui-hrow { color: var(--on-ink); text-decoration: none; }
 .home-menu .ui-hrow .ui-dot { transform: translateY(-7px); }
-/* while the sheet is open, the home UI it covers or cuts (the right stack, the chapter, the corner tools, the top bar's
-   currencies and buttons) fades out in 150 ms: nothing ghosts through the glass and no pill is cut by its edge. The rail
-   and the avatar stay under the scrim. Opacity only. */
-.home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home .home-stack, .home .home-chap-host, .home .home-tools { transition: opacity 150ms linear; }
-.home-menu-open .home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-stack, .home-menu-open .home .home-chap-host, .home-menu-open .home .home-tools {
+/* while the sheet is open, the home UI it covers or cuts (the block, the caption, the corner tools, the top bar's
+   currencies and buttons) fades out in 150 ms: nothing ghosts through the glass and no pill is cut by its edge. The
+   avatar stays under the scrim. Opacity only. */
+.home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home .home-block, .home .home-caption, .home .home-tools { transition: opacity 150ms linear; }
+.home-menu-open .home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-block, .home-menu-open .home .home-caption, .home-menu-open .home .home-tools {
   opacity: 0; pointer-events: none; }
+.home-menu-open .home .home-block > * { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .home-menu.home-menu-in { animation: ui-fade 150ms linear both; } }
 html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms linear both; }
+@media (prefers-reduced-motion: reduce) { .home .c-tile { transition: none; } .home .c-tile:hover { translate: none; } .home :is(button.c-tile:active, .c-battle:has(button:active)) { scale: none; } }
+html[data-reduce-motion] .home .c-tile { transition: none; }
+html[data-reduce-motion] .home .c-tile:hover { translate: none; }
+html[data-reduce-motion] .home :is(button.c-tile:active, .c-battle:has(button:active)) { scale: none; }
+
+/* ---------------------------------------------------------------- desktop sizes (the default) */
+@media (min-height: 481px) {
+  .home .c-tile .menu-lbl { font-size: 18px; }
+  .home .c-tile .c-lbl svg.g { width: 22px; height: 22px; }
+  .home :is(.c-coop, .c-comm, .c-mall) .c-lbl { inset: 0 10px 0 22px; gap: 12px; }
+  .home .c-students .c-lbl { left: 20px; height: 34px; }
+  .home .c-students.has-face .c-skin::after { height: 46px; }
+  .home .c-recruit .c-col { left: 24px; gap: 8px; }
+  .home .c-recruit .ui-chip.cy { --chip-h: 26px; }
+  .home .c-battle { --band: 56px; }
+  .home .c-battle { --yel: clamp(48px, 20cqw, 72px); }
+  .home .c-battle .c-yel svg.g { width: 30px; height: 30px; }
+  .home .c-battle .c-go { padding-left: calc(var(--lean) / 4 + 26px); gap: 6px; }
+  .home .c-battle .c-kick .ui-chip { --chip-h: 24px; padding: 0 8px; }
+  .home .c-battle .c-word .title { font-size: clamp(28px, 13cqw, 40px); }
+  .home .c-battle .c-chap { padding: 0 22px 0 calc(24px - var(--lean) / 4); gap: 14px; }
+  .home .c-battle .c-prog { grid-template-columns: repeat(var(--n, 5), 8px); gap: 5px; height: 12px; }
+  .home .c-skin .c-ticks { top: 6px; }
+  .home .home-ticker .tk-edge { width: 18px; }
+  .home .home-ticker .tk-edge::before { left: 8px; top: 12px; bottom: 12px; }
+  .home .home-ticker .go { padding: 0 14px 0 6px; gap: 14px; }
+  .home .home-ticker .col { gap: 5px; }
+  .ui-night .home .home-ticker .ui-play.c-sq { width: 40px; height: 40px; }
+  .home .home-ticker .pager { width: 64px; }
+  .home .home-caption .cap-t { font-size: 13px; }
+  .home .home-tools .ui-ibtn { width: 44px; height: 44px; }
+}
 
 /* ================================================================ phone 844x390 */
 @media (max-height: 480px) {
   .ui-night .home .home-top { top: 10px; height: 32px; padding: 0 calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px)); gap: 12px; }
   .home .home-top .who { gap: 10px; }
   .home .home-top .who-t { gap: 3px; }
-  .home .home-top .serial { margin-top: 2px; margin-left: -2px; }
   .home .home-top .ui-pill + .ui-pill { margin-left: -4px; }
   .home .home-top .ui-vr { margin: 6px 0; }
   .home .home-top .ol-top-chat .sc-badge { min-width: 18px; height: 18px; font-size: 12px; line-height: 18px; }
 
-  /* 7 rows, y 50-365. (45 px, not the mock-up's 44: a 44 px row whose neighbour starts on its last line measures 43.75
-     px of real tap in the probe's scan; every control on the home is at least 44.25 px, the controls end by y 369) */
-  .ui-night .home .home-rail { left: calc(16px + env(safe-area-inset-left, 0px)); top: 50px; width: 184px; }
-  .ui-night .home .home-rail .ui-hrow { height: 45px; }
-  .ui-night .home .home-obj { --h: 46px; }
-  .ui-night .home .home-news { height: 46px; }
-  .ui-night .home .home-news .pager { width: 46px; height: 46px; }
+  .home .c-tile .menu-lbl { font-size: 15px; }
+  .home .home-ticker .pager { width: 46px; gap: 5px; }
+  .home .home-ticker .pager svg.g { width: 16px; height: 16px; }
+  .home .home-ticker .body { font-size: 13px; }
+
   .ui-night .home-menu .ui-hrow { height: 45px; }
   .home-menu .m-grid { row-gap: 3px; }
-
-  .home .home-stack { right: calc(16px + env(safe-area-inset-right, 0px)); top: 50px; width: 272px; gap: 8px; }  /* objective y 50-94, news y 102-146 */
-  .home .home-obj .obj-t { gap: 4px; }
-  .ui-night .home .home-obj.two { --h: 56px; }
-  .home .home-news .go { gap: 8px; }
-  .ui-night .home .home-news.two { height: 60px; }
-  .home .home-chap-host { right: calc(16px + env(safe-area-inset-right, 0px)); top: 200px; }                  /* y 200-300 */
-  .ui-night .home .home-chap { height: 100px; }
-  .ui-night .home .home-chap .title { max-width: 196px; }                                                       /* x 556 at the most */
-  .home .home-tools { right: calc(20px + env(safe-area-inset-right, 0px)); top: 326px; gap: 10px; }            /* visuals 36, hits 46: y 321-367 */
-  .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); top: 326px; }
-
-  .ui-night .home-menu { width: 368px; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 34px 16px; }  /* x 476-844; the footer ends at y 356 */
+  .ui-night .home-menu { width: 368px; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 10px 16px; }  /* x 476-844 */
   .home-menu .m-head { height: 44px; gap: 8px; margin-right: -4px; }
   .home-menu .m-grid { grid-template-columns: 1fr 1fr; }
-  .home-menu .m-k { margin-top: 8px; }
-  .home-menu .m-k + .m-grid { margin-top: 4px; }
-  .home-menu .m-grid + .m-k { margin-top: 12px; }
+  .home-menu .m-k { margin-top: 6px; }
+  .home-menu .m-k + .m-grid { margin-top: 3px; }
+  .home-menu .m-grid + .m-k { margin-top: 8px; }
 }
+/* a small landscape phone (667 wide) and a phone held upright: the Students tile without her face (one row tall) */
+.home:is([data-layout="compact"], [data-layout="tall"]) .c-students .c-face { display: none; }
+.home:is([data-layout="compact"], [data-layout="tall"]) .c-students.has-face .c-skin::after { display: none; }
+.home:is([data-layout="compact"], [data-layout="tall"]) .c-students .c-lbl { inset: 0 6px 0 12px; height: auto; }
+/* a small landscape phone (667 wide): 3 rows, tighter words, a narrower play edge */
+.home[data-layout="compact"] .c-battle { --yel: 36px; }
+.home[data-layout="compact"] .c-battle .c-go { padding-left: calc(var(--lean) / 4 + 12px); }
+.home[data-layout="compact"] .c-tile .menu-lbl { font-size: 14px; letter-spacing: 0.06em; }
+.home[data-layout="compact"] :is(.c-coop, .c-comm, .c-mall, .c-students) .c-lbl { inset: 0 6px 0 12px; gap: 6px; }
+.home[data-layout="compact"] .c-recruit .c-banner { display: none; }
+.home[data-layout="compact"] .c-recruit .c-col { left: 12px; }
 
 /* ================================================================ a phone held upright (390x844; no mock-up) */
-/* the bar on two rows (the avatar and the buttons, then the wallets), the corner tools under the wallets, her in the
-   middle, and under her the objective, the news, the chapter and the rail in two columns, in thumb reach */
+/* the bar on two rows (the avatar and the buttons, then the wallets), the corner tools under the wallets, her above,
+   the ticker and the block under her in thumb reach (BATTLE at the foot) */
 @media (max-width: 700px) and (min-height: 481px) {
   .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
   .home .home-top .who { height: 44px; order: 0; }
@@ -201,17 +337,14 @@ html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms line
   .home .home-top .ui-vr { order: 3; flex-basis: 100%; height: 0; margin: 0; background: none; }
   .home .home-top .ui-pill { order: 4; }
   .home .home-top .ui-pill:first-of-type { margin-left: auto; }
-  .home .home-top .serial { display: none; }
-  .home .home-tools { top: 120px; right: 16px; gap: 10px; }
-  .ui-night .home .home-restore { top: 120px; right: 16px; }
-  .ui-night .home .home-rail { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8px;
-    --fs-name: 16px; --icon: 20px; }
-  .ui-night .home .home-rail .ui-hrow { height: 45px; gap: 8px; padding-left: 8px; }
-  .ui-night .home .home-chap { height: auto; min-height: 100px; }
-  .home .home-stack { left: 16px; right: 16px; width: auto; top: auto; bottom: 324px; gap: 8px; }
-  .home .home-chap-host { left: 16px; right: 16px; top: auto; bottom: 216px; }
-  .ui-night .home .home-chap { height: 100px; width: 100%; }
-  .ui-night .home .home-chap .title { max-width: 240px; }
   .ui-night .home-menu { width: min(100%, 368px); }
   .home-menu .m-grid { grid-template-columns: 1fr 1fr; }
+  .home[data-layout="tall"] .c-tile .menu-lbl { font-size: 15px; letter-spacing: 0.06em; }
+  .home[data-layout="tall"] :is(.c-coop, .c-comm, .c-mall, .c-students) .c-lbl { inset: 0 6px 0 14px; gap: 8px; }
+  .home[data-layout="tall"] .c-recruit .c-banner { display: none; }
+  .home[data-layout="tall"] .c-recruit .c-col { left: 14px; }
+  .home[data-layout="tall"] .c-battle { --band: 46px; }
+  .home[data-layout="tall"] .c-battle { --yel: 52px; }
+  .home[data-layout="tall"] .c-battle .c-word .title { font-size: 30px; }
+  .home[data-layout="tall"] .home-ticker .pager { width: 52px; }
 }

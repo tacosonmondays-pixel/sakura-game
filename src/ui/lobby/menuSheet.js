@@ -1,13 +1,15 @@
 // [ui-ink] The home's main menu: a night side sheet from the right edge (UI v2 "Ink & Paper", notes/ui-v2/
 // UI_V2_DIRECTION.md 12.2; the build plan's V2 step 4). It replaces the Menu Tab modal on the home.
 //
-// Two groups of rows, a line glyph and a 16 px caps label each, an optional red dot: SQUAD (Formation, Backpack with a
-// dot when a box can be opened, Bestiary, Profile) and ACADEMY (Story, Journal with its dot, Notice with a dot when
-// unread, Wiki); Settings on the footer row. No numbers, no yellow. It closes on its X, Esc and a tap outside it (and on
-// any route change); it slides 16 px and fades in 220 ms (a 150 ms fade under Reduce motion).
+// Three groups of rows, a line glyph and a 16 px caps label each, an optional red dot: SQUAD (Formation, Backpack with a
+// dot when a box can be opened, Bestiary, Profile), ACADEMY (Story, Journal with its dot, Notice with a dot when
+// unread, Wiki) and SOCIAL (Clan, with a dot when donations wait: home layout C keeps it off the home, its old hook
+// dock-clan goes with it); Settings is the gear beside the X in the sheet's head. No numbers, no yellow. It closes on
+// its X, Esc and a tap outside it (and on any route change); it slides in from the right with its scrim (motion.css; a
+// fade under Reduce motion).
 // Where the Menu Tab's other entries went (C12): Mail is the top bar's mail button, Chat and Messages the chat button
-// (its drawer), Multiplayer and Clan rows of the home's rail, Lobby Background the corner tool, Options and Account
-// Settings, Equipment and Items the Backpack, Fullscreen Settings › Display. The Notice row keeps the old tray's hook
+// (its drawer), Multiplayer the home's CO-OP tile, Lobby Background the corner tool, Options and Account Settings,
+// Equipment and Items the Backpack, Fullscreen Settings › Display. The Notice row keeps the old tray's hook
 // (shortcut-notice).
 import { h } from '../dom.js';
 import { onEscape } from '../hold.js';
@@ -34,8 +36,11 @@ export const MENU_GROUPS = Object.freeze([
     Object.freeze({ id: 'notice', label: 'Notice', glyph: 'megaphone', testid: 'shortcut-notice', route: null }),
     Object.freeze({ id: 'wiki', label: 'Wiki', glyph: 'library', testid: 'menu-wiki', route: 'wiki' }),
   ]) }),
+  Object.freeze({ id: 'social', label: 'Social', rows: Object.freeze([
+    Object.freeze({ id: 'clan', label: 'Clan', glyph: 'flag', testid: 'dock-clan', route: 'clan' }),
+  ]) }),
 ]);
-/** The footer row. */
+/** Settings: the gear in the sheet's head (the footer row before home layout C). */
 export const MENU_FOOT = Object.freeze({ id: 'settings', label: 'Settings', glyph: 'settings', testid: 'settings', route: 'settings' });
 
 let open = null;
@@ -46,7 +51,7 @@ export const menuSheetOpen = () => !!open;
 /**
  * Opens the menu sheet (a second call while it is open does nothing).
  * @param {{ dots?: Record<string, boolean>, go: (row: object) => void, onClose?: Function, reduced?: boolean }} o
- *   dots: a red dot per row id (backpack, journal, notice); go: a row was chosen (the sheet is closed first)
+ *   dots: a red dot per row id (backpack, journal, notice, clan); go: a row was chosen (the sheet is closed first)
  * @returns {{ close: () => void, el: HTMLElement }}
  */
 export function openMenuSheet({ dots = {}, go, onClose = null, reduced = false }) {
@@ -68,7 +73,7 @@ export function openMenuSheet({ dots = {}, go, onClose = null, reduced = false }
     const dot = dots[r.id];
     return h('a.ui-hrow', {
       href: r.route ? `#/${r.route}` : '#', role: 'button', 'data-testid': r.testid,
-      'aria-label': `${r.aria || r.label}${dot ? (r.id === 'notice' ? ', unread' : ', something new') : ''}`,
+      'aria-label': `${r.aria || r.label}${dot ? (r.id === 'notice' ? ', unread' : r.id === 'clan' ? ', donations to collect' : ', something new') : ''}`,
       onclick: (e) => {
         e.preventDefault();
         close();
@@ -77,21 +82,21 @@ export function openMenuSheet({ dots = {}, go, onClose = null, reduced = false }
     }, svg(r.glyph), h('span.menu-lbl', r.label), dot ? h('i.ui-dot', { 'data-testid': `${r.testid}-dot` }) : null);
   };
   const closeBtn = h('button.ui-ibtn', { type: 'button', 'aria-label': 'Close the menu', title: 'Close', 'data-testid': 'menu-sheet-close', onclick: () => close() }, svg('x'));
+  const settingsBtn = h('a.ui-ibtn.m-set', {
+    href: `#/${MENU_FOOT.route}`, role: 'button', 'data-testid': MENU_FOOT.testid, 'aria-label': MENU_FOOT.label, title: MENU_FOOT.label,
+    onclick: (e) => { e.preventDefault(); close(); go(MENU_FOOT); },
+  }, svg(MENU_FOOT.glyph));
   const sheet = h(`aside.ui-sheet.side.home-menu${reduced ? '.ui-fade' : '.home-menu-in'}`, { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Menu', 'data-testid': 'menu-sheet' },
-    h('div.m-head', h('span.lbl.ink', 'Menu'), h('span.sp'), h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Esc'), closeBtn),
+    h('div.m-head', h('span.lbl.ink', 'Menu'), h('span.sp'), h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Esc'), settingsBtn, closeBtn),
     ...MENU_GROUPS.flatMap((g) => [
       h('div.ui-sect.m-k', h('span.lbl', g.label), h('span.ui-rule')),
       h('div.m-grid', { 'data-group': g.id }, g.rows.map(row)),
-    ]),
-    h('div.m-foot', h('a.ui-hrow.foot', {
-      href: `#/${MENU_FOOT.route}`, 'data-testid': MENU_FOOT.testid, 'aria-label': MENU_FOOT.label,
-      onclick: (e) => { e.preventDefault(); close(); go(MENU_FOOT); },
-    }, svg(MENU_FOOT.glyph), h('span.menu-lbl', MENU_FOOT.label))));
+    ]));
   const layer = h('div.home-menu-layer', { 'data-testid': 'menu-sheet-layer' },
     h('div.ui-scrim-full', { 'data-testid': 'menu-sheet-scrim', onclick: () => close() }), sheet);
   document.body.append(layer);
   // its rows come in after it, 20 ms apart (motion.css: the sheet 240 ms from the right with its scrim; out 160 ms)
-  if (!reduced) stagger(sheet.querySelectorAll('.m-grid > .ui-hrow, .m-foot > .ui-hrow'), 'right', { base: 60, step: 20, dur: 200 });
+  if (!reduced) stagger(sheet.querySelectorAll('.m-grid > .ui-hrow'), 'right', { base: 60, step: 20, dur: 200 });
   document.body.classList.add('home-menu-open');
   const offEsc = onEscape(close);
   window.addEventListener('hashchange', close);

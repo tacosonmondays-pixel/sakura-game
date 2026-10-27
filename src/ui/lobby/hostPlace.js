@@ -13,15 +13,24 @@
 //      tests fail: the owner is asked, C5).
 // A painted scene with her inside it (the three scene backgrounds) cannot slide her alone: placeScene() zooms and pans
 // the whole painting so her face lands on the spot, never leaving a gap at an edge.
+import { FACE_X } from './homeLayout.js';
 
-/** The home's face spot and her size, per screen shape (12.1; desktop at 1280x720, phones at 844x390). */
-export function homeTarget(W, H) {
+/**
+ * The home's face spot and her size, per screen shape (12.1; desktop at 1280x720, phones at 844x390). Home layout C
+ * (src/ui/lobby/homeLayout.js): her face at 0.30 of the width with the controls' block on the right (side 'r'), at
+ * 0.70 when the block takes the left (side 'l': a picture whose girl stands right of centre).
+ * @param {number} W
+ * @param {number} H
+ * @param {'r'|'l'} [side] the side the controls' block takes
+ */
+export function homeTarget(W, H, side = 'r') {
   if (W < H) {
     // a phone held upright (no mock-up: the rotate prompt covers it; the fallback after "Continue in portrait")
     return { x: W * 0.5, y: H * 0.235, base: H * 0.62, shiftMax: W * 0.06 };
   }
-  if (H <= 480) return { x: W * 0.485, y: H * 0.29, base: H * 1.087, shiftMax: W * 0.04 };
-  return { x: W * 0.47, y: H * 0.29, base: H * 1.111, shiftMax: W * 0.04 };
+  const x = W * FACE_X[side === 'l' ? 'l' : 'r'];
+  if (H <= 480) return { x, y: H * 0.29, base: H * 1.087, shiftMax: W * 0.04 };
+  return { x, y: H * 0.29, base: H * 1.111, shiftMax: W * 0.04 };
 }
 
 /** Ruri's face height (brow to chin) in her -cut: the size every girl's face is evened out to. */
@@ -34,12 +43,19 @@ export const FACE_K = Object.freeze({ min: 0.62, max: 1.25 });
  * null when there is none. Each band beside a box forbids an open interval of slides; what is left is allowed.
  */
 export function freeShift(bands, boxes, margin, max) {
+  return freeShiftOf([[bands, boxes, margin]], max);
+}
+
+/** freeShift over several sets at once: [bands, boxes, margin] each (her art against some boxes, her face box others). */
+function freeShiftOf(sets, max) {
   const forbidden = [];
-  for (const b of bands) {
-    for (const u of boxes) {
-      if (b.y1 <= u.y - margin || b.y0 >= u.y + u.h + margin) continue;
-      // slides that would put the band within `margin` of the box (open interval)
-      forbidden.push([u.x - margin - b.x1, u.x + u.w + margin - b.x0]);
+  for (const [bands, boxes, margin] of sets) {
+    for (const b of bands) {
+      for (const u of boxes) {
+        if (b.y1 <= u.y - margin || b.y0 >= u.y + u.h + margin) continue;
+        // slides that would put the band within `margin` of the box (open interval)
+        forbidden.push([u.x - margin - b.x1, u.x + u.w + margin - b.x0]);
+      }
     }
   }
   const ok = (d) => forbidden.every(([lo, hi]) => d <= lo || d >= hi);
@@ -86,15 +102,19 @@ export function faceBox(anchor, { left, top, width, height }, W) {
  * @param {{ W: number, H: number, aspect: number, anchor: { cx: number, brow: number, eye: number, chin: number },
  *   extents: ([number, number]|null)[], boxes?: { x: number, y: number, w: number, h: number }[],
  *   target?: { x: number, y: number, base: number, shiftMax: number }, margin?: number, minScale?: number,
- *   normalise?: boolean, dropSoft?: number, dropMax?: number, toBottom?: boolean, clipY?: number|null }} o
+ *   normalise?: boolean, dropSoft?: number, dropMax?: number, toBottom?: boolean, clipY?: number|null,
+ *   under?: { x: number, y: number, w: number, h: number }[] }} o
  *   aspect: the art's width / height; dropSoft / dropMax: how far (px) her eye line may come down; toBottom: she should
- *   reach the bottom edge; clipY: her picture fades out above that line (a phone held upright: nothing under it counts)
+ *   reach the bottom edge; clipY: her picture fades out above that line (a phone held upright: nothing under it counts);
+ *   under: controls her art may pass under when nothing else lets her stand at her size (home layout C's mosaic: her
+ *   arm or skirt, never her face): first every box keeps her art 8 px clear, as `boxes` do; only when no size, slide or
+ *   drop passes that way are these left out for her art, while her face box still keeps clear of them
  * @returns {{ left: number, top: number, width: number, height: number, scale: number, shift: number, drop: number,
  *   fits: boolean, floats: boolean, faceX: number, eyeY: number, face: { x: number, y: number, w: number, h: number } }}
  *   scale: of her plain size (1 = 12.1's height, evened out); shift: the slide used (px); drop: how far her eye line came
  *   down (px); floats: her picture ends above the bottom edge (the home fades its foot out)
  */
-export function placeHost({ W, H, aspect, anchor, extents, boxes = [], target = homeTarget(W, H), margin = 8, minScale = 0.8, normalise = true, dropSoft = H * 0.05, dropMax = H * 0.12, toBottom = true, clipY = null }) {
+export function placeHost({ W, H, aspect, anchor, extents, boxes = [], target = homeTarget(W, H), margin = 8, minScale = 0.8, normalise = true, dropSoft = H * 0.05, dropMax = H * 0.12, toBottom = true, clipY = null, under = [] }) {
   const reachBottom = toBottom && clipY == null;
   const fh = Math.max(0.01, anchor.chin - anchor.brow);
   const k = normalise ? Math.min(FACE_K.max, Math.max(FACE_K.min, REF_FACE / fh)) : 1;
@@ -120,21 +140,27 @@ export function placeHost({ W, H, aspect, anchor, extents, boxes = [], target = 
   sizes.add(hMin);
   if (reachBottom) for (const dy of [...soft, ...hard]) { const hr = (H - target.y - dy) / below; if (hr >= hMin && hr <= hStart) sizes.add(hr + 0.01); }
   const heights = [...sizes].sort((a, b) => b - a);
-  const tryAll = (drops, wantReach) => {
+  const all = [...boxes, ...under];
+  const tryAll = (drops, wantReach, loose) => {
     for (const height of heights) {
       for (const dy of drops) {
         if (wantReach && !reaches(height, dy)) continue;
         const p0 = at(height, 0, dy);
-        const dx = freeShift(bandsOf(extents, p0, H, clipY), boxes, margin, target.shiftMax);
+        const bands = bandsOf(extents, p0, H, clipY);
+        // (her face box as one more band: it keeps clear of every box, the ones her art may pass under too)
+        const f = faceBox(anchor, p0, W);
+        const face = [{ x0: f.x, x1: f.x + f.w, y0: f.y, y1: f.y + f.h }];
+        const dx = freeShiftOf([[bands, loose ? boxes : all, margin], [face, all, 0]], target.shiftMax);
         if (dx == null) continue;
         const p = at(height, dx, dy);
-        return { ...p, scale: height / hFace, shift: dx, drop: dy, fits: true, floats: p.top + p.height < H - 0.5, faceX: target.x + dx, eyeY: target.y + dy, face: faceBox(anchor, p, W) };
+        return { ...p, scale: height / hFace, shift: dx, drop: dy, fits: true, floats: p.top + p.height < H - 0.5, faceX: target.x + dx, eyeY: target.y + dy, face: faceBox(anchor, p, W), under: loose };
       }
     }
     return null;
   };
   // she reaches the bottom edge as long as any size and drop lets her; she floats only when nothing else fits
-  const found = (reachBottom && (tryAll(soft, true) || tryAll(hard, true))) || tryAll(soft, false) || tryAll(hard, false);
+  const pass = (loose) => (reachBottom && (tryAll(soft, true, loose) || tryAll(hard, true, loose))) || tryAll(soft, false, loose) || tryAll(hard, false, loose);
+  const found = pass(false) || (under.length ? pass(true) : null);
   if (found) return found;
   const p = at(hStart);
   return { ...p, scale: hStart / hFace, shift: 0, drop: 0, fits: false, floats: false, faceX: target.x, eyeY: target.y, face: faceBox(anchor, p, W) };

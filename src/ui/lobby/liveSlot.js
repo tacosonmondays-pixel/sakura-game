@@ -11,9 +11,13 @@
 // the fuse's sparks. Off: camera drift, roll and dolly, pointer and gyro parallax (and the iOS motion prompt), the
 // petals, the near and far bokeh, the head's sway, the flame's bob, the floor's moving sheen.
 
-/** Hosts with a living scene: id → how to load its definition (dynamic import: fetched only when she hosts). */
+/**
+ * Hosts with a living scene: id → how to load its definition (dynamic import: fetched only when she hosts), and the side
+ * the home's controls take beside it (home layout C, src/ui/lobby/homeLayout.js: her plate puts her right of centre, so
+ * the block mirrors to the left; the definition's SIDE says the same, tests/ui/homeLayout.test.js).
+ */
 export const LIVE_SCENES = Object.freeze({
-  marumi: Object.freeze({ id: 'marumi', load: () => import('./live/marumi.js') }),
+  marumi: Object.freeze({ id: 'marumi', side: 'l', load: () => import('./live/marumi.js') }),
 });
 
 /**
@@ -22,7 +26,7 @@ export const LIVE_SCENES = Object.freeze({
  *   quality: 'high' | 'medium' | 'low' (an unknown value counts as high, as the save's default); failed: her scene
  *   failed to load in this session; portrait: a phone held upright (the rotate prompt's fallback: her scene is
  *   composed for landscape, so she shows still)
- * @returns {{ id: string, load: () => Promise<object> }|null} null: her still portrait
+ * @returns {{ id: string, side: 'r'|'l', load: () => Promise<object> }|null} null: her still portrait
  */
 export function liveSceneFor(hostId, { quality = 'high', reduceMotion = false, prefersReduced = false, webgl2 = false, failed = false, portrait = false } = {}) {
   const scene = LIVE_SCENES[hostId];

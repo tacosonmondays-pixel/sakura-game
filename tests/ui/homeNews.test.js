@@ -53,9 +53,10 @@ describe('the home news card', () => {
     for (const p of homeNews(FULL)) expect(p.title.length, p.title).toBeLessThanOrEqual(56);
   });
 
-  it('the home pages by hand only: no timer turns the pages (rule 11)', () => {
+  it('the home\'s ticker pages by hand, and on its own only through a 6 s timer that Reduce Motion stops (home layout C; the Oct 27 motion study)', () => {
     const src = readFileSync('src/ui/screens/lobby.js', 'utf8');
     expect(src).not.toMatch(/setInterval/);
     expect(src).toContain("'lobby-news-next'");
+    expect(src).toMatch(/if \(!alive \|\| reduceMotion\(\)\) return;/);
   });
 });

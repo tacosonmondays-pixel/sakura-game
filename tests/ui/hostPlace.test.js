@@ -1,21 +1,25 @@
-// [ui-ink] UI v2 V2: where the home puts its host (src/ui/lobby/hostPlace.js) and Marumi's living scene
-// (src/ui/lobby/live/marumi.js, C5). With the mock-up's control boxes at 844x390 and 1280x720 (12.1): every girl's
-// eye line lands on the home's eye line (or at most 12 % lower), her face where the face spot is (or at most 4 % of
-// the width aside), her art (by its measured extents) 8 px clear of every control, never below 0.8 of her size; Marumi's
-// living figure the same at the largest scale that passes (C5's floor 0.8 of the cover fit).
+// [ui-ink] UI v2: where the home puts its host (src/ui/lobby/hostPlace.js) and Marumi's living scene
+// (src/ui/lobby/live/marumi.js, C5), on home layout C's boxes (src/ui/lobby/homeLayout.js) at 844x390 and 1280x720:
+// every girl's eye line lands on the home's eye line (or at most 12 % lower), her face where the face spot is (or at
+// most 4 % of the width aside), her art (by its measured extents) 8 px clear of the top bar always and of the block
+// whenever she can stand that way (else it may pass under the block, never her face), never below 0.8 of her size;
+// Marumi's living figure the same at the largest scale that passes (C5's floor 0.8 of the cover fit), mirrored.
 import { describe, it, expect } from 'vitest';
 import { UNITS } from '../../src/data/units.js';
 import { FACE_ANCHORS, CUT_EXTENTS } from '../../src/ui/faceAnchors.js';
 import { placeHost, homeTarget, freeShift, bandsOf, placeScene, faceBox } from '../../src/ui/lobby/hostPlace.js';
 import { placeMarumi, ANCHOR as M_ANCHOR, EXTENTS as M_EXTENTS, FRAME } from '../../src/ui/lobby/live/marumi.js';
+import { homeLayout, layoutBoxes } from '../../src/ui/lobby/homeLayout.js';
 import { PORTRAIT_DATA } from '../../src/art/portraits.js';
 
-/** The home's control boxes as the mock-up draws them (12.1): top bar pieces, rail, objective + news, chapter, tools. */
-const BOXES = {
-  '844x390': [[16, 10, 150, 32], [374, 10, 268, 32], [690, 10, 138, 32], [16, 50, 184, 308], [556, 50, 272, 96], [556, 200, 272, 100], [740, 322, 88, 44]],
-  '1280x720': [[24, 16, 200, 48], [694, 16, 364, 48], [1090, 16, 166, 48], [24, 104, 276, 336], [900, 84, 356, 120], [910, 372, 346, 148], [1160, 648, 96, 48]],
+/** The top bar's boxes (avatar, wallets, buttons): her art always keeps 8 px clear of them. */
+const TOP = {
+  '844x390': [[16, 10, 150, 32], [374, 10, 268, 32], [690, 10, 138, 32]],
+  '1280x720': [[24, 16, 200, 48], [694, 16, 364, 48], [1090, 16, 166, 48]],
 };
-const boxes = (vp) => BOXES[vp].map(([x, y, w, h]) => ({ x, y, w, h }));
+const boxes = (vp) => TOP[vp].map(([x, y, w, h]) => ({ x, y, w, h }));
+/** Home layout C's block, caption and tools (her side 'r', or mirrored for her living scene). */
+const under = (vp, side = 'r') => { const [W, H] = vp.split('x').map(Number); return layoutBoxes(homeLayout(W, H, { side })); };
 // (to a thousandth of a px: a slide lands exactly on the 8 px line)
 const clearOf = (bands, bx, m) => bands.every((b) => bx.every((u) => b.y1 <= u.y - m + 1e-3 || b.y0 >= u.y + u.h + m - 1e-3 || b.x1 <= u.x - m + 1e-3 || b.x0 >= u.x + u.w + m - 1e-3));
 
@@ -38,7 +42,7 @@ describe('placeHost: every girl on the home, at both sizes', () => {
       it(`${u.id} at ${vp}`, () => {
         const a = FACE_ANCHORS[u.id].cut;
         const aspect = PORTRAIT_DATA[u.id].cut;
-        const p = placeHost({ W, H, aspect, anchor: a, extents: CUT_EXTENTS[u.id], boxes: boxes(vp) });
+        const p = placeHost({ W, H, aspect, anchor: a, extents: CUT_EXTENTS[u.id], boxes: boxes(vp), under: under(vp) });
         expect(p.fits, `${u.id} fits`).toBe(true);
         expect(p.scale, 'never below 0.8 of her size').toBeGreaterThanOrEqual(0.8 - 1e-9);
         // her face: on the face spot, at most 4 % of the width aside (5.5), her eye line at most 12 % lower
@@ -46,11 +50,12 @@ describe('placeHost: every girl on the home, at both sizes', () => {
         const eyeY = p.top + a.eye * p.height;
         expect(eyeY).toBeGreaterThanOrEqual(t.y - 0.01);
         expect(eyeY - t.y).toBeLessThanOrEqual(H * 0.12 + 0.01);
-        // her art 8 px clear of every control, band by band
+        // her art 8 px clear of the top bar, band by band, and of the block too unless nothing else lets her stand
         expect(clearOf(bandsOf(CUT_EXTENTS[u.id], p, H), boxes(vp), 8)).toBe(true);
+        if (!p.under) expect(clearOf(bandsOf(CUT_EXTENTS[u.id], p, H), under(vp), 8)).toBe(true);
         // the face box clear of every control (nothing over a face)
         const f = p.face;
-        for (const b of boxes(vp)) {
+        for (const b of [...boxes(vp), ...under(vp)]) {
           const apart = f.x + f.w <= b.x || f.x >= b.x + b.w || f.y + f.h <= b.y || f.y >= b.y + b.h;
           expect(apart, `face box vs ${JSON.stringify(b)}`).toBe(true);
         }
@@ -61,8 +66,9 @@ describe('placeHost: every girl on the home, at both sizes', () => {
   it('Ruri (the mock-ups\' secretary) stands at full size, on the spot, and reaches the bottom edge', () => {
     for (const vp of ['844x390', '1280x720']) {
       const [W, H] = vp.split('x').map(Number);
-      const p = placeHost({ W, H, aspect: PORTRAIT_DATA.ruri.cut, anchor: FACE_ANCHORS.ruri.cut, extents: CUT_EXTENTS.ruri, boxes: boxes(vp) });
+      const p = placeHost({ W, H, aspect: PORTRAIT_DATA.ruri.cut, anchor: FACE_ANCHORS.ruri.cut, extents: CUT_EXTENTS.ruri, boxes: boxes(vp), under: under(vp) });
       expect(p.scale).toBeGreaterThanOrEqual(1);
+      expect(p.under).toBe(false);
       expect(p.drop).toBe(0);
       expect(p.floats).toBe(false);
       expect(p.top + p.height).toBeGreaterThanOrEqual(H);
@@ -76,7 +82,7 @@ describe('placeHost: every girl on the home, at both sizes', () => {
     for (const vp of Object.keys(floats)) {
       const [W, H] = vp.split('x').map(Number);
       for (const u of UNITS) {
-        const p = placeHost({ W, H, aspect: PORTRAIT_DATA[u.id].cut, anchor: FACE_ANCHORS[u.id].cut, extents: CUT_EXTENTS[u.id], boxes: boxes(vp) });
+        const p = placeHost({ W, H, aspect: PORTRAIT_DATA[u.id].cut, anchor: FACE_ANCHORS[u.id].cut, extents: CUT_EXTENTS[u.id], boxes: boxes(vp), under: under(vp) });
         if (p.floats) floats[vp].push(u.id);
       }
     }
@@ -109,13 +115,14 @@ describe('placeScene: a painting with her inside it', () => {
 describe('Marumi\'s living scene (C5)', () => {
   for (const vp of ['844x390', '1280x720']) {
     const [W, H] = vp.split('x').map(Number);
-    it(`at ${vp}: her face on the spot, all her art (ball and hands too) 8 px clear, at least 0.8 of the cover fit`, () => {
-      const p = placeMarumi(W, H, boxes(vp));
+    it(`at ${vp}: her face on the (mirrored) spot, all her art (ball and hands too) 8 px clear, at least 0.8 of the cover fit`, () => {
+      const p = placeMarumi(W, H, boxes(vp), { side: 'l', under: under(vp, 'l') });
       expect(p.fits).toBe(true);
       expect(p.rel).toBeGreaterThanOrEqual(0.8 - 1e-9);
-      const t = homeTarget(W, H);
+      const t = homeTarget(W, H, 'l');
       expect(Math.abs(p.left + M_ANCHOR.cx * p.width - t.x)).toBeLessThanOrEqual(W * 0.04 + 0.01);
       expect(clearOf(bandsOf(M_EXTENTS, p, H), boxes(vp), 8)).toBe(true);
+      if (!p.under) expect(clearOf(bandsOf(M_EXTENTS, p, H), under(vp, 'l'), 8)).toBe(true);
       // her figure (with its 48 px of skirt under the frame) reaches the screen's bottom edge; the scrim lies over it
       expect(p.floats).toBe(false);
       expect(p.height / p.width).toBeCloseTo((FRAME.h + FRAME.ext) / FRAME.w, 6);

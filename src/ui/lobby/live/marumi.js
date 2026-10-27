@@ -8,6 +8,7 @@
 // all of her art (the ball and both hands too) ends 8 px before every control, at the largest scale that passes and
 // never below 0.8 of the plate's cover fit (src/ui/lobby/hostPlace.js placeHost). Her plate stays cover-fit behind her.
 import { placeHost, homeTarget } from '../hostPlace.js';
+import { uiSideFor } from '../homeLayout.js';
 
 /** The art frame (px): every rig number below is in these px, y down. Her figure's texture is FRAME.w x FRAME.h + EXT. */
 export const FRAME = Object.freeze({ w: 1688, h: 780, ext: 48 });
@@ -42,6 +43,12 @@ export const FILES = Object.freeze({
   masks: Object.freeze({ breath: 'mask-breath.png', head: 'mask-head.png', hair: 'mask-hair.png', ribbon: 'mask-ribbon.png', skirt: 'mask-skirt.png', ball: 'mask-ball.png', lock: 'mask-lock.png' }),
 });
 
+/**
+ * The side of the home the controls' block takes beside her scene (home layout C, src/ui/lobby/homeLayout.js): her plate
+ * puts her right of centre (her face at 0.65 of its width), so the block mirrors to the left and her face goes to 0.70.
+ */
+export const SIDE = uiSideFor(RIG.face[0] / FRAME.w);
+
 /** The plate's cover fit (px per art px) for a screen. */
 export function coverScale(W, H) {
   return Math.max(W / FRAME.w, H / FRAME.h);
@@ -52,14 +59,16 @@ export function coverScale(W, H) {
  * @param {number} W
  * @param {number} H
  * @param {{ x: number, y: number, w: number, h: number }[]} boxes the controls' boxes
+ * @param {{ side?: 'r'|'l', under?: object[] }} [o] side: the block's side (homeLayout.js); under: controls her art may
+ *   pass under when nothing else fits (never her face; hostPlace.js placeHost)
  * @returns {ReturnType<typeof placeHost> & { cover: number, rel: number }} rel: her scale against the cover fit
  */
-export function placeMarumi(W, H, boxes = []) {
+export function placeMarumi(W, H, boxes = [], { side = SIDE, under = [] } = {}) {
   const cover = coverScale(W, H);
-  const target = { ...homeTarget(W, H), base: cover * (FRAME.h + FRAME.ext) };
+  const target = { ...homeTarget(W, H, side), base: cover * (FRAME.h + FRAME.ext) };
   // (10 px, not 8: her ball floats by up to 0.7 px and her edges carry a soft warm rim the extents' alpha cut leaves out)
-  const p = placeHost({ W, H, aspect: FRAME.w / (FRAME.h + FRAME.ext), anchor: ANCHOR, extents: EXTENTS, boxes, target, normalise: false, minScale: 0.8, margin: 10 });
+  const p = placeHost({ W, H, aspect: FRAME.w / (FRAME.h + FRAME.ext), anchor: ANCHOR, extents: EXTENTS, boxes, under, target, normalise: false, minScale: 0.8, margin: 10 });
   return { ...p, cover, rel: p.height / (FRAME.h + FRAME.ext) / cover };
 }
 
-export default Object.freeze({ id: 'marumi', dir: 'art/live/marumi/', FRAME, RIG, ANCHOR, EXTENTS, MESH_X, FILES, place: placeMarumi });
+export default Object.freeze({ id: 'marumi', dir: 'art/live/marumi/', FRAME, RIG, ANCHOR, EXTENTS, MESH_X, FILES, SIDE, place: placeMarumi });

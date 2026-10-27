@@ -90,11 +90,12 @@ describe('the Multiplayer row', () => {
 
 describe('the home\'s source (C12: the hooks stay, the folded parts go)', () => {
   const src = readFileSync('src/ui/screens/lobby.js', 'utf8');
-  it('keeps the hooks the e2e use, on the elements that do those jobs now', () => {
-    for (const id of ['tile-mission', 'dock-students', 'dock-recruit', 'dock-commissions', 'dock-clan', 'dock-mall', 'lobby-multiplayer', 'lobby-multiplayer-count',
-      'lobby-objective', 'lobby-news', 'lobby-chapter', 'top-mail', 'top-menu', 'account-level', 'tickets', 'coins', 'gems', 'lobby-hide', 'lobby-bg', 'lobby-restore', 'campaign-open']) {
+  it('keeps the hooks the e2e use, on the elements that do those jobs now (home layout C: Clan is the menu\'s row)', () => {
+    for (const id of ['tile-mission', 'dock-students', 'dock-recruit', 'dock-commissions', 'dock-mall', 'lobby-multiplayer', 'lobby-multiplayer-count',
+      'lobby-objective', 'lobby-news', 'lobby-news-next', 'lobby-chapter', 'top-mail', 'top-menu', 'account-level', 'tickets', 'coins', 'gems', 'lobby-hide', 'lobby-bg', 'lobby-restore', 'campaign-open']) {
       expect(src, id).toContain(`'${id}'`);
     }
+    expect(readFileSync('src/ui/lobby/menuSheet.js', 'utf8')).toContain("testid: 'dock-clan'");
   });
   it('the tray, the stickers, the Assault shortcut, the clock and the secretary chevrons are gone', () => {
     for (const id of ['lobby-tray', 'lobby-sticker', 'shortcut-assault', 'shortcut-tasks', 'lobby-clock', 'secretary-prev', 'secretary-next', 'menuTabModal']) expect(src, id).not.toContain(id);

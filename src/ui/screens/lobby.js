@@ -1,34 +1,43 @@
-// The home (lobby) at night: UI v2 "Ink & Paper" V2 (notes/ui-v2/UI_V2_DIRECTION.md 12.1 and 12.2; the build plan's
-// V2). Layers and the host: src/ui/lobby/artStage.js. Coordinates: src/ui/styles/home.css.
+// The home (lobby) at night: UI v2 "Ink & Paper", home layout C (the owner, Oct 27: "keep the new wallpaper concepts
+// but change the layout"; Oct 24: "it just looks busy the homescreen is kinda packed now"). Layers and the host:
+// src/ui/lobby/artStage.js. Where every piece goes: src/ui/lobby/homeLayout.js. Look: src/ui/styles/home.css.
 //
-//   · the scene: the player's lobby background in the cooler night grade (public/art/lobby/<id>-home.webp, or the
-//     kit's CSS grade): her stand over the academy (over an event's painted backdrop while it runs), or one of her full
-//     illustrations (src/data/lobbyIllustrations.js: no stand, no bubble); the scrims, the secretary placed by her face
-//     anchor (src/ui/faceAnchors.js), her bubble on a tap only; Marumi's living scene when she is the secretary on High
-//     or Medium graphics and no full illustration is picked (src/ui/lobby/liveSlot.js)
-//   · the floating top bar: the avatar with the account level's cyan EXP arc, the name and LV; tickets, coins and gems;
-//     chat, mail (a red count) and the menu (a red dot when something inside is new)
-//   · the text rail: BATTLE, STUDENTS, RECRUIT (a cyan FREE PULL chip), COMMISSIONS (a red dot), CLAN, MALL, MULTIPLAYER
-//     (the red number of open invites); no plate at rest, a slanted plate on press and keyboard focus
-//   · the right stack: the objective (the home's one yellow: its play tile), the news card (paged by hand), the chapter
-//     entry (the home's one heavy italic); the corner tools (hide the UI, background and secretary)
-//   · the main menu: a side sheet from the right (src/ui/lobby/menuSheet.js)
-// The pure model (the objective's first-match order, the news card's pages): src/ui/lobbyTray.js.
-// Motion (UI v2 motion layer, src/ui/motion.js, owner Oct 27): homeEntrance() brings the home in on its first open
-// (from the boot loader or a battle's cut: waiting under the cover, playing from the reveal) and on every return from a
-// sub-screen (shorter); the balances count when they change; a red dot or count pops when it appears.
-// Hooks kept from UI M5: dock-* on the rail rows, tile-mission on BATTLE (it opens Missions, as the Campaign tile did,
-// with its "Open!" chip, campaign-open), lobby-multiplayer(-count) on MULTIPLAYER, top-mail, top-menu, top-chat,
-// tickets / coins / gems, account-level, lobby-hide / lobby-bg / lobby-restore, secretary-art / secretary-bubble,
-// event-card / event-strip / event-strip-time on the news card, lobby-continue / login-claim on the objective's play
-// tile; new: lobby-objective, lobby-news, lobby-chapter, lobby-live. Gone (C12): the tray (its Notice is the menu's
-// Notice row, shortcut-notice), the stickers, the Assault shortcut, the clock and the secretary chevrons.
+//   · the scene (unchanged): the player's lobby background in the night grade, her stand over the academy (over an
+//     event's painted backdrop while it runs), or one of her full illustrations, or Marumi's living scene; her bubble on
+//     a tap only. Her face at 0.30 of the width, the controls on the right; a picture whose girl stands right of centre
+//     (every full illustration, the living scene) mirrors it: the controls on the left, her face at 0.70
+//   · the floating top bar: the avatar with the account level's cyan EXP arc, the name and LV; tickets (shown only),
+//     coins and gems in their colour art (the gems' "+"); chat, mail (a red count) and the menu (a red dot when something
+//     inside is new)
+//   · one block on the controls' side: the ticker (one page at a time: the event, the objective with its cyan play
+//     square, the weekly bosses or the notice board; "›" pages it, and so does a 6 s timer unless Reduce Motion is on,
+//     held while a pointer, a finger or the keys are on it), then the mosaic of -8 degree ink tiles leaning as one
+//     shape: STUDENTS (the girl who joined last, framed on her face), RECRUIT (the banner's three girls, a cyan FREE PULL
+//     chip), CO-OP (the red number of open invites), COMMISSIONS (a red dot), MALL and BATTLE, the biggest tile at the
+//     bottom of the block in thumb reach: the home's one yellow (its play edge) and its one heavy italic; its lower band
+//     opens the chapter
+//   · on her side: a vertical caption (her name, the screen's one decorative serial) and the corner tools (hide the UI,
+//     background and secretary)
+//   · the main menu: a side sheet from the right (src/ui/lobby/menuSheet.js; Clan is its Social row)
+// The pure models: src/ui/lobbyTray.js (the objective's first-match order, the news pages), homeLayout.js (the boxes,
+// the ticker's pages, the Students girl and her crop).
+// Motion (UI v2 motion layer, src/ui/motion.js): homeEntrance() brings the home in on its first open (from the boot
+// loader or a battle's cut) and on every return from a sub-screen (shorter): the block's pieces from their side 40 ms
+// apart, the caption and the tools fade in last; the balances count when they change; a red dot or count pops when it
+// appears; the ticker's page comes in with a tick wipe (240 ms; a 120 ms fade under Reduce Motion).
+// Hooks kept: tile-mission on BATTLE (it opens Missions, with its "Open!" chip campaign-open), lobby-chapter on its band
+// (the campaign), dock-students, dock-recruit (recruit-free), dock-commissions, dock-mall, lobby-multiplayer(-count),
+// lobby-news / lobby-news-next on the ticker with event-card / event-strip / banner-titans / banner-assault on its pages,
+// lobby-objective (lobby-continue / login-claim on its play square) on the objective page, top-mail, top-menu, top-chat,
+// account-level, tickets / coins / gems / gems-plus, lobby-hide / lobby-bg / lobby-restore, secretary-art /
+// secretary-bubble, lobby-live; dock-clan is the menu sheet's Clan row. New: home-block, home-caption, news-notice,
+// students-face.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import '../styles/home.css';
 import { h, clear, toast, applyMotionPreference, accountLevel } from '../components.js';
 import { countdownChip, curArt } from '../kit.js';
-import { homeEntrance, countTo, badge, tabSwap } from '../motion.js';
+import { homeEntrance, enter, countTo, badge, reduced as motionReduced } from '../motion.js';
 import { whenSettled } from '../transitions/index.js';
 import { openModes } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
@@ -45,16 +54,17 @@ import { STAGE_MAP, CHAPTERS } from '../../data/stages.js';
 import { UNIT_MAP, getUnit } from '../../data/units.js';
 import { GACHA } from '../../data/types.js';
 import { ITEMS } from '../../data/items.js';
+import { PATCH_NOTES } from '../../data/patchNotes.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
 import { eventLobbyBackdrop, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import { eventNow } from '../events/clock.js';
 import '../styles/events.css';
-import { portraitUrl } from '../../art/portraits.js';
+import { portraitUrl, hasPortrait } from '../../art/portraits.js';
 import { lobbyBackgroundFor, stageModeOf, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
+import { FULL_ILLUSTRATION_MAP } from '../../data/lobbyIllustrations.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
-import { itemIcon } from '../../art/icons.js';
 import { nextStage, chapterProgress, isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent } from '../../systems/missions.js';
 import { featuredEvent, eventWindow } from '../../systems/events.js';
@@ -64,10 +74,12 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { showNoticeModal, noticeUnread } from '../lobby/notice.js';
+import { showNoticeModal, noticeUnread, RECRUIT_FEATURED } from '../lobby/notice.js';
 import { openMenuSheet, closeMenuSheet, menuSheetOpen } from '../lobby/menuSheet.js';
 import { liveSceneFor, canWebGL2 } from '../lobby/liveSlot.js';
-import { lineGlyph, emblemSvg, chapterEmblem } from '../lineGlyphs.js';
+import { homeLayout, uiSideFor, tickerPages, tickerEdge, latestRecruit, cardCrop } from '../lobby/homeLayout.js';
+import { faceAnchor } from '../faceAnchors.js';
+import { lineGlyph } from '../lineGlyphs.js';
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
@@ -95,7 +107,7 @@ function recruitTag(profile) {
   return canSpark(profile) ? 'Spark ready' : null;
 }
 
-/** Chapter / next-stage summary used by the chapter entry and the missions hub. */
+/** Chapter / next-stage summary used by the BATTLE tile and the missions hub. */
 export function campaignStatus(profile) {
   const next = nextStage(profile);
   const nextDef = next ? STAGE_MAP[next] : null;
@@ -127,38 +139,89 @@ const g = (name, cls = '') => {
 const liveFailed = new Set();
 /** The engine module's stats, once it has been loaded (e2e: one context at most). */
 let engineStats = null;
+/** The ticker's page in this session (a redraw or a return keeps it). */
+let tickerPage = 0;
+
+/** The ticker turns a page on its own this often (ms) unless Reduce Motion is on (the Oct 27 motion study). */
+export const TICKER_MS = 6000;
+/** A touch on the ticker holds its timer this long (ms). */
+const TICKER_HOLD_MS = 10000;
 
 const sysReduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function render(root) {
   applyMotionPreference();
   let alive = true;
-  const reduceMotion = () => !!store.profile.settings?.reduceMotion || sysReduced();
+  const reduceMotion = () => !!store.profile.settings?.reduceMotion || sysReduced() || motionReduced();
   // the home brings its own entrance (data-mo-own: the screen change only fades it in): its first open comes from a
   // cover (the boot loader, a battle's cut), a return from a menu slide
   const txKind = globalThis.document?.documentElement?.dataset?.tx || '';
   const firstOpen = !txKind || txKind === 'boot' || txKind === 'cut';
-  const el = h('div.screen.lb.home', { 'data-testid': 'lobby', 'data-mo-own': '', 'data-entrance': firstOpen ? 'first' : 'return' });
+  const el = h('div.screen.lb.home.home-c', { 'data-testid': 'lobby', 'data-mo-own': '', 'data-entrance': firstOpen ? 'first' : 'return' });
   const stageHost = h('div.home-stage-host');
   const top = h('header.ui-topbar.float.home-top');
-  const rail = h('nav.ui-hrail.home-rail', { 'aria-label': 'Main' });
-  const stack = h('div.home-stack');
-  const objHost = h('div.home-obj-host');
-  const newsHost = h('div.home-news-host');
-  stack.append(objHost, newsHost);
-  const chapHost = h('div.home-chap-host');
+  const tickerHost = h('div.home-ticker-host');
+  const tiles = {
+    students: h('button.c-tile.c-students', { type: 'button', 'data-testid': 'dock-students', 'aria-label': 'Students', onclick: () => navigate('students') }),
+    recruit: h('button.c-tile.c-recruit', { type: 'button', 'data-testid': 'dock-recruit', onclick: () => navigate('recruit') }),
+    coop: h('button.c-tile.c-coop', { type: 'button', 'data-testid': 'lobby-multiplayer', onclick: () => navigate('multiplayer') }),
+    commissions: h('button.c-tile.c-comm', { type: 'button', 'data-testid': 'dock-commissions' }),
+    mall: h('button.c-tile.c-mall', { type: 'button', 'data-testid': 'dock-mall', 'aria-label': 'Mall', onclick: () => navigate('mall') }),
+    battle: h('div.c-tile.c-battle'),
+  };
+  const block = h('nav.home-block', { 'aria-label': 'Main', 'data-testid': 'home-block' }, tickerHost, ...Object.values(tiles));
+  const caption = h('div.home-caption', { 'aria-hidden': 'true', 'data-testid': 'home-caption' }, h('i.cap-rule'), h('span.cap-t'));
   const tools = h('div.home-tools');
-  const ui = h('div.home-ui', rail, stack, chapHost, tools);
+  const ui = h('div.home-ui', block, caption, tools);
   const restore = h('button.ui-ibtn.home-restore', { type: 'button', 'aria-label': 'Show the menus', title: 'Show the menus', 'data-testid': 'lobby-restore' }, g('image'));
   el.append(stageHost, ui, top, restore);
   let eventBackdrop = null;
   try {
-    lobbyEventVisit(); // [events] today's event gift / settle, before the news card reads the state
+    lobbyEventVisit(); // [events] today's event gift / settle, before the ticker reads the state
     eventBackdrop = eventLobbyBackdrop(); // [events] its painted backdrop behind every stand while it runs (no overlay)
   } catch (e) {
     console.warn('[lobby] event backdrop failed', e);
   }
   root.appendChild(el);
+
+  // ---- the layout: which side the block takes, every piece's box (homeLayout.js) ------------------------------
+  let side = 'r';
+  let lay = null;
+  const screenWH = () => [el.clientWidth || innerWidth, el.clientHeight || innerHeight];
+  /** The block's side for what she shows now: a full illustration or her living scene by its face, her stand 'r'. */
+  const sideNow = () => {
+    const [W, H] = screenWH();
+    if (W < H) return 'r';
+    const p = store.profile;
+    const id = secretaryId(p);
+    const bg = LOBBY_BG_MAP[currentBg] || lobbyBackgroundFor(p, id);
+    if (stageModeOf(bg) === 'full') return uiSideFor(FULL_ILLUSTRATION_MAP[bg.id]?.faceX);
+    // (her living scene, from before it loads: the block is on its side when she appears; a scene that fails gives
+    // her still stand, and the block its usual side)
+    return liveWant()?.side || 'r';
+  };
+  const px = (n) => `${Math.round(n * 100) / 100}px`;
+  const put = (node, r) => {
+    if (!node) return;
+    Object.assign(node.style, { left: px(r.x), top: px(r.y), width: px(r.w), height: px(r.h) });
+    if (r.lean != null) node.style.setProperty('--lean', px(r.lean));
+  };
+  function applyLayout() {
+    side = sideNow();
+    const [W, H] = screenWH();
+    lay = homeLayout(W, H, { side });
+    el.dataset.side = lay.side;
+    el.dataset.layout = lay.kind;
+    put(tickerHost, lay.ticker);
+    for (const [k, node] of Object.entries(tiles)) put(node, lay.tiles[k]);
+    tiles.battle.style.setProperty('--band', px(lay.battleBand));
+    caption.hidden = !lay.caption;
+    if (lay.caption) put(caption, lay.caption);
+    put(tools, lay.tools);
+    Object.assign(restore.style, { left: px(lay.tools.x), top: px(lay.tools.y), right: 'auto' });
+    paintStudentsFace();
+    fitLabels(el);
+  }
 
   // ---- the stage: scene, scrims, the secretary ---------------------------------------------------------------
   let lineIndex = 0;
@@ -176,18 +239,32 @@ export function render(root) {
     }
     return { x, y, w: e.offsetWidth, h: e.offsetHeight };
   };
+  const boxesOf = (els) => {
+    const o = laidOut(el);
+    return els.filter((e) => e && e.offsetParent !== null).map((e) => {
+      const b = laidOut(e);
+      // (a tile's drawn parallelogram pokes half its lean past its box at two corners)
+      const lean = parseFloat(e.style.getPropertyValue('--lean')) || 0;
+      return { x: b.x - o.x - lean / 2, y: b.y - o.y, w: b.w + lean, h: b.h };
+    }).filter((b) => b.w > 0 && b.h > 0);
+  };
+  const blockEls = () => [tickerHost.firstElementChild, ...Object.values(tiles)];
+  const sideEls = () => [...tools.children, caption.hidden || caption.classList.contains('off') ? null : caption];
+  /** The boxes her art always keeps 8 px clear of: the top bar (and on a phone held upright, the block under her). */
   const uiBoxes = () => {
     if (el.classList.contains('ui-hidden')) return [];
-    const sel = [...top.children, ...rail.children, ...stack.querySelectorAll('.ui-obj, .ui-news'), ...chapHost.children, ...tools.children];
-    const o = laidOut(el);
-    return sel.filter((e) => e.offsetParent !== null).map((e) => {
-      const b = laidOut(e);
-      return { x: b.x - o.x, y: b.y - o.y, w: b.w, h: b.h };
-    }).filter((b) => b.w > 0 && b.h > 0);
+    return boxesOf([...top.children, ...(lay?.kind === 'tall' ? blockEls() : [])]);
+  };
+  /** The block and her side's pieces: her art stays 8 px clear of them too when she can; her face box always does. */
+  const underBoxes = () => {
+    if (el.classList.contains('ui-hidden')) return [];
+    return boxesOf(lay?.kind === 'tall' ? sideEls() : [...blockEls(), ...sideEls()]);
   };
   const stage = createArtStage(stageHost, {
     reduceMotion: reduceMotion(),
     boxes: uiBoxes,
+    under: underBoxes,
+    side: () => side,
     backdrop: eventBackdrop,
     onTap: (part) => {
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);
@@ -198,6 +275,15 @@ export function render(root) {
       }
     },
   });
+  /** Her caption steps aside when her stand needs its strip (a wide girl on a 4:3 screen): it is only a serial. */
+  const fitCaption = () => {
+    if (!lay?.caption || caption.hidden) return;
+    const was = caption.classList.contains('off');
+    caption.classList.remove('off');
+    const over = stage.artOver?.(lay.caption, 6);
+    caption.classList.toggle('off', !!over);
+    if (!!over !== was) stage.relayout();
+  };
 
   let currentSec = null;
   let currentBg = null;
@@ -209,8 +295,11 @@ export function render(root) {
     currentSec = id;
     currentBg = bg.id;
     lineIndex = 0;
+    caption.querySelector('.cap-t').textContent = (getUnit(id)?.name || '').toUpperCase();
+    relayoutAll();
     await stage.show(getUnit(id), { background: bg });
     syncLive();
+    fitCaption();
   };
 
   // ---- the living scene (Marumi): one WebGL context at most, her still portrait otherwise ---------------------
@@ -218,10 +307,16 @@ export function render(root) {
   let liveToken = 0;
   let liveState = 'static';
   let loadingFor = '';
+  const liveWant = () => {
+    const p = store.profile;
+    const id = secretaryId(p);
+    const [W, H] = screenWH();
+    if (stageModeOf(LOBBY_BG_MAP[currentBg] || lobbyBackgroundFor(p, id)) === 'full') return null;
+    return liveSceneFor(id, { quality: p.settings?.quality || 'high', reduceMotion: !!p.settings?.reduceMotion, prefersReduced: sysReduced(), webgl2: canWebGL2(), failed: liveFailed.has(id), portrait: W < H });
+  };
   const liveLayout = (def) => {
-    const W = el.clientWidth || innerWidth;
-    const H = el.clientHeight || innerHeight;
-    return { W, H, place: def.place(W, H, uiBoxes()) };
+    const [W, H] = screenWH();
+    return { W, H, side, place: def.place(W, H, uiBoxes(), { side, under: underBoxes() }) };
   };
   const disposeLive = () => {
     liveToken++;
@@ -233,6 +328,7 @@ export function render(root) {
     if (stage.isLive()) stage.setLive(false);
     liveState = 'static';
     loadingFor = '';
+    relayoutAll();
   };
   const failLive = (id, e) => {
     if (e) console.warn('[lobby] the living scene failed; her still portrait shows', e);
@@ -244,11 +340,8 @@ export function render(root) {
     const p = store.profile;
     const id = secretaryId(p);
     const quality = p.settings?.quality || 'high';
-    const portrait = (el.clientWidth || innerWidth) < (el.clientHeight || innerHeight);
-    const want = liveSceneFor(id, { quality, reduceMotion: !!p.settings?.reduceMotion, prefersReduced: sysReduced(), webgl2: canWebGL2(), failed: liveFailed.has(id), portrait });
-    // (her living scene stands in for her stand; a full illustration the player picked shows as it is)
-    const illustration = stageModeOf(LOBBY_BG_MAP[currentBg]) === 'full';
-    if (!want || illustration) {
+    const want = liveWant();
+    if (!want) {
       if (live || liveState === 'loading') disposeLive();
       return;
     }
@@ -258,6 +351,7 @@ export function render(root) {
     const token = ++liveToken;
     liveState = 'loading';
     loadingFor = `${id}:${quality}`;
+    relayoutAll(); // (her scene's side: the block moves before she shows)
     try {
       const [mod, eng] = await Promise.all([want.load(), import('../lobby/live/engine.js')]);
       engineStats = eng.liveStats;
@@ -265,8 +359,8 @@ export function render(root) {
       const def = mod.default;
       const canvas = h('canvas.home-live-canvas', { 'data-live': id, 'aria-hidden': 'true' });
       stage.liveHost().replaceChildren(canvas);
-      const lay = liveLayout(def);
-      const handle = await eng.createLiveScene(canvas, def, { quality, base: import.meta.env?.BASE_URL || './', layout: lay, onLost: () => failLive(id) });
+      const lay0 = liveLayout(def);
+      const handle = await eng.createLiveScene(canvas, def, { quality, base: import.meta.env?.BASE_URL || './', layout: lay0, onLost: () => failLive(id) });
       if (token !== liveToken || !alive) {
         handle.dispose();
         canvas.remove();
@@ -275,7 +369,7 @@ export function render(root) {
       live = { id, quality, handle, def };
       handle.renderAt(0);
       stage.setLive(true);
-      stage.setLivePlacement(lay.place);
+      stage.setLivePlacement(lay0.place);
       handle.start();
       liveState = 'live';
     } catch (e) {
@@ -284,36 +378,63 @@ export function render(root) {
   }
   const relayoutLive = () => {
     if (!live) return;
-    const lay = liveLayout(live.def);
-    live.handle.layout(lay);
-    stage.setLivePlacement(lay.place);
+    const l = liveLayout(live.def);
+    live.handle.layout(l);
+    stage.setLivePlacement(l.place);
   };
-  const onResize = () => {
-    fitTexts();
+  /** Every piece placed again, then her (the block's side may have changed with her picture). */
+  function relayoutAll() {
+    if (!alive) return;
+    applyLayout();
+    stage.relayout();
     relayoutLive();
+  }
+  const onResize = () => {
+    relayoutAll();
+    fitCaption();
     syncLive(); // (a phone turned upright shows her still; turned back, her scene again)
   };
   window.addEventListener('resize', onResize);
 
   // ---- the UI --------------------------------------------------------------------------------------------------
-  let newsPage = 0;
   const hideBtn = h('button.ui-ibtn', { type: 'button', 'aria-label': 'Hide the menus', title: 'Hide the menus', 'data-testid': 'lobby-hide', onclick: () => setHidden(true) }, g('eyeoff'));
   const bgBtn = h('button.ui-ibtn', { type: 'button', 'aria-label': 'Background and secretary', title: 'Background and secretary', 'data-testid': 'lobby-bg', onclick: () => openBackgroundPicker() }, g('image'));
   tools.append(hideBtn, bgBtn);
 
-  // (the pager rebuilds only the news card)
-  const pageNews = (n) => {
-    newsPage = n;
-    buildNews(newsHost, { page: newsPage, onPage: pageNews });
-    tabSwap(newsHost.firstElementChild, 1); // (the next card: a 120 ms crossfade, 12 px in from the right)
-    fitTexts();
+  // the ticker: a page by hand ("›"), or on its own every 6 s unless Reduce Motion is on; held while a pointer is
+  // over it, it has the keys, or for 10 s after a touch; never while the menu is open, the UI is hidden or the page is
+  // in the background
+  let tickerTimer = 0;
+  let hover = false;
+  let focusIn = false;
+  let heldUntil = 0;
+  const tickerHeld = () => hover || focusIn || Date.now() < heldUntil || menuSheetOpen() || el.classList.contains('ui-hidden') || document.hidden;
+  const scheduleTicker = () => {
+    clearTimeout(tickerTimer);
+    if (!alive || reduceMotion()) return;
+    tickerTimer = setTimeout(() => {
+      if (!alive) return;
+      if (!tickerHeld() && tickerHost.querySelector('[data-testid="lobby-news-next"]')) pageTicker(tickerPage + 1, { auto: true });
+      scheduleTicker();
+    }, TICKER_MS);
   };
+  tickerHost.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hover = true; });
+  tickerHost.addEventListener('pointerleave', () => { hover = false; });
+  tickerHost.addEventListener('pointerdown', () => { heldUntil = Date.now() + TICKER_HOLD_MS; });
+  tickerHost.addEventListener('focusin', () => { focusIn = true; });
+  tickerHost.addEventListener('focusout', () => { focusIn = false; });
+  function pageTicker(n, { auto = false } = {}) {
+    tickerPage = n;
+    buildTicker(tickerHost, { page: tickerPage, onPage: (i) => pageTicker(i), wipe: true });
+    if (!auto) scheduleTicker(); // (a page turned by hand starts the 6 s again)
+  }
+
   function openMenu() {
     const p = store.profile;
     stage.hideBubble();
     openMenuSheet({
       reduced: reduceMotion(),
-      dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread() },
+      dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread(), clan: clanDot() },
       go: (row) => {
         if (row.id === 'notice') {
           showNoticeModal();
@@ -326,16 +447,20 @@ export function render(root) {
   }
   const drawAll = () => {
     buildTop(top, { onMenu: openMenu });
-    buildRail(rail);
-    buildObjective(objHost);
-    buildNews(newsHost, { page: newsPage, onPage: pageNews });
-    buildChapter(chapHost);
-    fitTexts();
+    buildTicker(tickerHost, { page: tickerPage, onPage: (i) => pageTicker(i) });
+    buildTiles(tiles);
+    applyLayout();
   };
   drawAll();
-  homeEntrance({ first: firstOpen, scene: stageHost.querySelector('.home-scene'), live: stageHost.querySelector('.home-live'),
-    girl: stageHost.querySelector('.home-host'), top, rail, stack: [objHost, newsHost, chapHost], tools });
-  const firstLayout = requestAnimationFrame(() => stage.relayout());
+  // the entrance: the block's pieces from its own side (the right: the tiles slide in leftwards; mirrored, from the
+  // left), the caption and the corner tools fade in last (motion.js homeEntrance; Reduce Motion: a 120 ms fade)
+  const entrance = () => homeEntrance(side === 'l'
+    ? { first: firstOpen, scene: stageHost.querySelector('.home-scene'), live: stageHost.querySelector('.home-live'), girl: stageHost.querySelector('.home-host'), top, rail: block, tools }
+    : { first: firstOpen, scene: stageHost.querySelector('.home-scene'), live: stageHost.querySelector('.home-live'), girl: stageHost.querySelector('.home-host'), top, stack: [block], tools });
+  entrance();
+  enter(caption, 'fade', { base: firstOpen ? 420 : 120, dur: firstOpen ? 240 : 200 });
+  const firstLayout = requestAnimationFrame(() => relayoutAll());
+  scheduleTicker();
   // the entrance's window: from the render until it has played (the screen change settled, then 760 ms on a first
   // open, whose reveal began with the boot loader's 240 ms fade, so 1 s after the reveal: the wallpaper's settle; 540
   // ms on a return). Then .static: whatever has not finished (a starved phone that drew few frames) is shown as it
@@ -350,20 +475,16 @@ export function render(root) {
     }, firstOpen ? 760 : 540);
   });
 
-  // ---- the Multiplayer row's red number: open invites (read only once the social hub is ready) ----
-  const paintInvites = () => {
-    const row = rail.querySelector('[data-testid="lobby-multiplayer"]');
-    if (row) setMultiplayerCount(row, lastInvites().count);
-  };
+  // ---- the CO-OP tile's red number: open invites (read only once the social hub is ready) ----
+  const paintInvites = () => setCoopCount(tiles.coop, lastInvites().count);
   const refreshInvites = () => openInvites().then(() => { if (alive) paintInvites(); }).catch(() => {});
   refreshInvites();
-  const offHub = [hub.on('invites', refreshInvites), hub.on('status', refreshInvites), hub.on('badges', refreshInvites)];
-  // (the webfonts change the words' widths, so the stack's and the rail's boxes: she is placed again once they are in)
+  const offHub = [hub.on('invites', refreshInvites), hub.on('status', refreshInvites), hub.on('badges', () => { refreshInvites(); if (alive) buildTop(top, { onMenu: openMenu }); })];
+  // (the webfonts change the words' widths: she is placed again once they are in)
   document.fonts?.ready?.then(() => {
     if (!alive) return;
-    fitTexts();
-    stage.relayout();
-    relayoutLive();
+    relayoutAll();
+    fitCaption();
   });
 
   // ---- hide the UI ----
@@ -382,17 +503,16 @@ export function render(root) {
     if (e.code !== 'Space' || e.repeat || menuSheetOpen() || document.querySelector('.modal-overlay, .ui-layer')) return;
     const t = e.target;
     if (t && (t.closest?.('input, textarea, select, button, a, [contenteditable]'))) return;
-    const obj = objHost.querySelector('[data-testid="lobby-objective"]');
-    if (!obj || el.classList.contains('ui-hidden')) return;
+    if (el.classList.contains('ui-hidden')) return;
     e.preventDefault();
-    obj.click();
+    objectivePlay(store.profile)();
   };
   window.addEventListener('keydown', onKey);
 
   const off = store.on('change', () => {
     drawAll();
-    // (a redraw while the entrance still runs: the rebuilt rows and cards come in too, never popping in)
-    if (entering) homeEntrance({ first: firstOpen, rail, stack: [objHost, newsHost, chapHost] });
+    // (a redraw while the entrance still runs: the rebuilt pieces come in too, never popping in)
+    if (entering) entrance();
     stage.relayout();
     showSecretary().catch(() => {});
     syncLive();
@@ -420,7 +540,7 @@ export function render(root) {
   if (import.meta.env?.DEV) {
     window.__sakura ||= {};
     // her still picture's placement (the face box, her scale and slide) and the controls' boxes she keeps clear of
-    window.__sakura.home = { placement: () => stage.placement(), boxes: uiBoxes, current: () => stage.current()?.u?.id || null };
+    window.__sakura.home = { placement: () => stage.placement(), boxes: () => [...uiBoxes(), ...underBoxes()], current: () => stage.current()?.u?.id || null, layout: () => lay, side: () => side };
     window.__sakura.live = {
       get state() { return liveState; },
       get stats() { return engineStats ? { ...engineStats } : null; },
@@ -438,6 +558,7 @@ export function render(root) {
     offHub.forEach((fn) => fn());
     clearTimeout(betaTimer);
     clearTimeout(staticTimer);
+    clearTimeout(tickerTimer);
     cancelAnimationFrame(firstLayout);
     off();
     window.removeEventListener('resize', onResize);
@@ -491,9 +612,13 @@ function hasBox(profile) {
   return Object.values(ITEMS).some((i) => i.category === 'gearbox' && itemCount(profile, i.id) > 0);
 }
 
+/** Clan donations to collect (the menu's Clan row wears a red dot). */
+const clanDot = () => (hub.badges?.donationsReady || 0) > 0;
+
 /**
  * A balance on the floating bar (12.1): its icon (coins and gems their colour art, kit.js curArt, owner Oct 27; tickets a
- * line glyph) and the number; its "+" (a 44 px tap) opens where to get more.
+ * line glyph) and the number; its "+" (a 44 px tap) opens where to get more. Home layout C: only the gems keep a "+"
+ * (the Mall sells tickets; coins come from battles).
  */
 function pill({ glyph = null, art = null, amount, testid, label, onPlus = null, plusLabel = '', np = false }) {
   const value = formatNumber(amount);
@@ -521,20 +646,20 @@ function buildTop(host, { onMenu }) {
   // [profile] the avatar opens the Sensei Profile (owner, Oct 15)
   const who = h('button.who', { type: 'button', 'data-testid': 'account-level', title: 'Sensei Profile', onclick: () => navigate('profile'),
     'aria-label': `Profile: ${name}, level ${a.level}${a.need ? `, ${pct}% of the way to level ${a.level + 1}` : ''}` },
-  av, h('span.who-t', h('span.body.who-name', name), h('span.lv', h('span.lbl', 'LV'), h('span.num', String(a.level)))), h('span.serial', { 'aria-hidden': 'true' }, 'SNT-HQ'));
+  av, h('span.who-t', h('span.body.who-name', name), h('span.lv', h('span.lbl', 'LV'), h('span.num', String(a.level)))));
   const chat = chatButton(); // [online] global / clan chat drawer, its unread dot and the unread messages count
   chat.classList.remove('lb-tr-btn');
   chat.classList.add('ui-ibtn');
   (chat.querySelector('.lb-glyph') || chat.querySelector('svg'))?.replaceWith(g('chat'));
   const mail = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-mail', title: 'Mail', 'aria-label': mailCount ? `Mail, ${mailCount} unread` : 'Mail', onclick: () => openMailbox() },
     g('mail'), badge(mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null, 'home:mail'));
-  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile);
+  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || clanDot();
   const menu = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-menu', title: 'Menu', 'aria-label': newInside ? 'Menu, something new inside' : 'Menu', 'aria-haspopup': 'dialog', onclick: onMenu },
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   host.append(
     who,
     h('span.sp'),
-    pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets', onPlus: () => navigate('mall', { tab: 'general' }), plusLabel: 'Get tickets' }),
+    pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets', np: true }),
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins', np: true }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
@@ -543,47 +668,115 @@ function buildTop(host, { onMenu }) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The text rail: BATTLE · STUDENTS · RECRUIT · COMMISSIONS · CLAN · MALL · MULTIPLAYER
+// The mosaic: STUDENTS · RECRUIT · CO-OP · COMMISSIONS · MALL · BATTLE
 // ---------------------------------------------------------------------------------------------
 
-function buildRail(host) {
+/** A tile's skin: its fill, ring and tick marks on a -8 degree layer (home.css .c-skin); art goes inside it. */
+const skin = (...art) => h('span.c-skin', ...art, h('i.c-ticks'));
+
+function buildTiles(tiles) {
   const profile = store.profile;
   const notice = commissionsNotice(profile);
   const fresh = openModes(modesOpenNow(profile)).length > 0;
   const tag = recruitTag(profile);
   const invites = lastInvites().count;
-  const rows = [
-    // BATTLE opens Missions (as the Campaign tile did): its hook and its "Open!" chip stay with it
-    { id: 'mission', label: 'Battle', glyph: 'swords', testid: 'tile-mission', go: () => navigate('missions'), chip: fresh ? { text: 'Open', testid: 'campaign-open' } : null },
-    { id: 'students', label: 'Students', glyph: 'cap', testid: 'dock-students', go: () => navigate('students') },
-    { id: 'recruit', label: 'Recruit', glyph: 'sparkles', testid: 'dock-recruit', go: () => navigate('recruit'), chip: tag ? { text: tag, testid: 'recruit-free' } : null },
-    { id: 'commissions', label: 'Commissions', glyph: 'clipboard', testid: 'dock-commissions', dot: notice.any, aria: notice.any ? 'Commissions, something to claim' : null,
-      go: () => navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {}) },
-    { id: 'clan', label: 'Clan', glyph: 'flag', testid: 'dock-clan', dot: hub.badges.donationsReady > 0, go: () => navigate('clan') },
-    { id: 'mall', label: 'Mall', glyph: 'bag', testid: 'dock-mall', go: () => navigate('mall') },
-    { id: 'multiplayer', label: 'Multiplayer', glyph: 'users', testid: 'lobby-multiplayer', count: invites, aria: multiplayerLabel(invites), go: () => navigate('multiplayer') },
-  ];
-  clear(host);
-  rows.forEach((r, i) => {
-    host.appendChild(h('button.ui-hrow', { type: 'button', 'data-testid': r.testid, 'aria-label': r.aria || r.label, onclick: r.go },
-      g(r.glyph), h('span.menu-lbl', r.label),
-      r.chip ? h('span.ui-chip.cy', { 'data-testid': r.chip.testid }, r.chip.text) : null,
-      badge(r.dot ? h('i.ui-dot') : null, `home:rail:${r.id}`),
-      badge(r.count ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(r.count) }, String(r.count)) : null, `home:count:${r.id}`)));
-  });
+  const sec = secretaryId(profile);
+
+  // STUDENTS: the girl who joined last (never the secretary), framed on her face (paintStudentsFace)
+  const face = latestRecruit(profile, sec, hasPortrait);
+  const t = tiles.students;
+  t.dataset.face = face || '';
+  t.replaceChildren(
+    skin(face ? h('span.c-art.c-face', h('img', { src: portraitUrl(face, 'card'), alt: '', draggable: false, decoding: 'async', 'data-testid': 'students-face' })) : null),
+    h('span.c-lbl.menu-lbl', face ? null : g('cap'), 'Students'));
+  t.classList.toggle('has-face', !!face);
+
+  // RECRUIT: the banner's three girls on the right, the cyan FREE PULL chip under the word
+  const r = tiles.recruit;
+  r.setAttribute('aria-label', tag ? `Recruit, ${tag.toLowerCase()}` : 'Recruit');
+  r.replaceChildren(
+    skin(h('span.c-art.c-banner', RECRUIT_FEATURED.map((id, i) => {
+      const url = portraitUrl(id, 'cut');
+      return url ? h(`img.s${i}`, { src: url, alt: '', draggable: false, decoding: 'async' }) : null;
+    }))),
+    h('span.c-col', h('span.c-lbl.menu-lbl', g('sparkles'), 'Recruit'), tag ? h('span.ui-chip.cy', { 'data-testid': 'recruit-free' }, tag) : null));
+
+  // CO-OP: the red number of open invites
+  const c = tiles.coop;
+  c.replaceChildren(skin(), h('span.c-lbl.menu-lbl', g('users'), 'Co-op'));
+  setCoopCount(c, invites);
+
+  // COMMISSIONS (a red dot when something waits) and MALL
+  const m = tiles.commissions;
+  m.setAttribute('aria-label', notice.any ? 'Commissions, something to claim' : 'Commissions');
+  m.onclick = () => navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {});
+  m.replaceChildren(skin(), h('span.c-lbl.menu-lbl', g('clipboard'), h('span.w', 'Commissions'), badge(notice.any ? h('i.ui-dot') : null, 'home:tile:commissions')));
+  tiles.mall.replaceChildren(skin(), h('span.c-lbl.menu-lbl', g('bag'), 'Mall'));
+
+  // BATTLE: the biggest tile; its upper part opens Missions (tile-mission), its lower band the chapter (lobby-chapter)
+  const { chapter, prog, complete } = campaignStatus(profile);
+  let medals = 0;
+  if (complete) for (const ch of CHAPTERS) for (const id of ch.stages) medals += Object.values(stageMedals(profile, id)).filter(Boolean).length;
+  const b = tiles.battle;
+  // (a narrow tile drops "Campaign · " from its kicker: home.css, a container query)
+  const kicker = [h('span.kk', 'Campaign · '), chapter ? (complete ? 'All clear' : `Ch.${chapter.id}`) : 'Missions'];
+  const go = h('button.c-go', { type: 'button', 'data-testid': 'tile-mission', 'aria-label': `Battle: missions${fresh ? ', something new is open' : ''}`, onclick: () => navigate('missions') },
+    h('span.c-kick', h('span.lbl.cy', kicker), fresh ? h('span.ui-chip.cy', { 'data-testid': 'campaign-open' }, 'Open') : null),
+    h('span.c-word', h('span.title', 'Battle')));
+  const ticks = chapter && !complete ? h('span.c-prog', { 'aria-hidden': 'true', style: { '--n': prog.total } }, Array.from({ length: prog.total }, (_, k) => h(`i${k < prog.cleared ? '.on' : ''}`))) : null;
+  const band = chapter ? h('button.c-chap', { type: 'button', 'data-testid': 'lobby-chapter', 'data-chapter': chapter.id,
+    'aria-label': complete ? `Campaign, all clear: ${medals} medals` : `Campaign, chapter ${chapter.id}: ${chapter.name}, ${prog.cleared} of ${prog.total} stages cleared`,
+    onclick: () => navigate('campaign', { chapter: chapter.id }) },
+  h('span.c-chname.lbl', chapter.name), ticks, h('span.num', complete ? `${medals} medals` : `${prog.cleared}/${prog.total}`), g('chevR')) : null;
+  b.replaceChildren(skin(h('span.c-yel', g('play'))), go, band);
+  b.classList.toggle('no-band', !band);
 }
 
-/** The Multiplayer row's red number, in place (a new invite, one that ended). */
-function setMultiplayerCount(row, n) {
-  row.setAttribute('aria-label', multiplayerLabel(n));
-  const had = row.querySelector('.ui-count');
+/** The CO-OP tile's red number and its name, in place (a new invite, one that ended). */
+function setCoopCount(tile, n) {
+  tile.setAttribute('aria-label', `Co-op: ${multiplayerLabel(n)}`);
+  const had = tile.querySelector('.ui-count');
   if (had && had.textContent === String(n)) return;
   had?.remove();
-  badge(n > 0 ? row.appendChild(h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(n) }, String(n))) : null, 'home:count:multiplayer');
+  const lbl = tile.querySelector('.c-lbl');
+  badge(n > 0 ? (lbl || tile).appendChild(h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(n) }, String(n))) : null, 'home:count:multiplayer');
+}
+
+/**
+ * Words that do not fit their tile: the glyph steps aside, then the word tightens (13 px, never under the 12 px floor);
+ * the chapter's name steps aside from BATTLE's band (its kicker says the chapter).
+ */
+function fitLabels(root) {
+  for (const l of root.querySelectorAll('.c-tile .c-lbl')) {
+    l.classList.remove('tight', 'tighter');
+    const box = l.closest('.c-tile');
+    const fits = () => l.scrollWidth <= l.clientWidth + 0.5 && l.getBoundingClientRect().right <= box.getBoundingClientRect().right - 4;
+    if (!fits()) l.classList.add('tight');
+    if (!fits()) l.classList.add('tighter');
+  }
+  for (const b of root.querySelectorAll('.c-battle .c-chap')) {
+    b.classList.remove('noname');
+    const n = b.querySelector('.c-chname');
+    if (n && n.scrollWidth > n.clientWidth + 0.5) b.classList.add('noname');
+  }
+}
+
+/** The Students tile's girl framed on her face: her eye line at 35 % of the tile, her face 36 px tall (desktop 72). */
+function paintStudentsFace() {
+  const t = document.querySelector('.home-c .c-students');
+  const img = t?.querySelector('.c-face img');
+  if (!img) return;
+  const id = t.dataset.face;
+  const tw = t.offsetWidth;
+  const th = t.offsetHeight;
+  if (!id || !tw || !th) return;
+  const phone = innerHeight <= 480;
+  const c = cardCrop(faceAnchor(id, 'card'), tw, th, { eyeAt: 0.35, faceH: phone ? 36 : 72 });
+  Object.assign(img.style, { left: `${c.left}px`, top: `${c.top}px`, width: `${c.width}px`, height: `${c.height}px` });
 }
 
 // ---------------------------------------------------------------------------------------------
-// The objective (the home's one yellow): first match wins (src/ui/lobbyTray.js homeObjective)
+// The objective (first match wins: src/ui/lobbyTray.js homeObjective) and the ticker's pages
 // ---------------------------------------------------------------------------------------------
 
 function objectiveState(profile) {
@@ -613,11 +806,9 @@ function objectiveState(profile) {
   };
 }
 
-function buildObjective(host) {
-  const profile = store.profile;
-  const s = objectiveState(profile);
-  const o = homeObjective(s);
-  const play = () => {
+/** What the objective does now (its play square, the Space key). */
+function objectivePlay(profile, s = objectiveState(profile), o = homeObjective(s)) {
+  return () => {
     if (o.kind === 'continue') {
       const stage = STAGE_MAP[s.save.rec.stageId];
       return navigate('stage', s.save.rec.endless && stage.kind !== 'challenge' ? { id: stage.id, endless: 1 } : { id: stage.id });
@@ -634,16 +825,7 @@ function buildObjective(host) {
     if (o.kind === 'stage') return navigate('stage', { id: s.next.id });
     return navigate('campaign', s.chapter ? { chapter: s.chapter.id } : {});
   };
-  clear(host);
-  host.appendChild(h('button.ui-obj.home-obj', { type: 'button', 'data-testid': 'lobby-objective', 'data-kind': o.kind, 'aria-label': `${o.kicker}: ${o.text}. Play`, onclick: play },
-    h('span.obj-t', h('span.lbl.cy', o.kicker), h('span.body', o.text)),
-    h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Space'),
-    h('span.ui-play', { 'data-testid': o.testid, title: o.kind === 'continue' ? `Continue your saved battle: ${s.save.name}` : null }, g('play'))));
 }
-
-// ---------------------------------------------------------------------------------------------
-// The news card: up to three pages, paged by hand (src/ui/lobbyTray.js homeNews)
-// ---------------------------------------------------------------------------------------------
 
 function newsState(profile) {
   const f = featuredEvent(profile, eventNow());
@@ -659,87 +841,86 @@ function newsState(profile) {
   return {
     limited,
     weekly: { name: event.name, arena: event.arena, dropMul: event.dropMul, msLeft: msToLocalWeekEnd() },
-    recruit: { pity: Math.max(0, GACHA.pity - (profile.gacha?.pity || 0)) },
     bosses: { titans: { open: titansOpen, name: titansOpen ? TITAN_MAP[titanOfWeek()]?.name : null }, assault: { open: assaultOpen }, msLeft: msToLocalWeekEnd() },
   };
 }
 
 const PHASE_LABEL = { upcoming: 'Opens in', active: 'Ends in', exchange: 'Exchange closes in' };
 
-function buildNews(host, { page = 0, onPage }) {
+/** The notice board's latest page (shown when no weekly boss is open yet). */
+function noticePage() {
+  const n = PATCH_NOTES[0];
+  return n ? { kicker: `Notice · v${n.version}`, title: n.title, testid: 'news-notice' } : null;
+}
+
+/**
+ * The ticker: one page (lobbyTray.js homeNews + homeObjective, ordered by homeLayout.js tickerPages), its edge (cyan
+ * ticks; amber hazard stripes for a boss), "›" with its pips. A page turned comes in with a tick wipe.
+ */
+function buildTicker(host, { page = 0, onPage, wipe = false }) {
   const profile = store.profile;
   const s = newsState(profile);
-  const pages = homeNews(s);
+  const os = objectiveState(profile);
+  const o = homeObjective(os);
+  const pages = tickerPages({ news: homeNews(s), objective: o, notice: noticePage() });
   clear(host);
   if (!pages.length) return;
   const i = ((page % pages.length) + pages.length) % pages.length;
   const n = pages[i];
   const redraw = () => { if (host.isConnected) onPage(i); };
-  let chip = null;
-  if (n.msLeft != null) {
-    const urgent = n.id === 'event' && n.phase !== 'upcoming';
-    chip = countdownChip(n.msLeft, { cls: 's', testid: n.timeTestid, urgent, now: n.id === 'event' ? eventNow : undefined, doneText: n.id === 'event' ? 'Ended' : 'New week!', onDone: redraw });
+  let main;
+  if (n.id === 'objective') {
+    main = h('button.go', { type: 'button', 'data-testid': 'lobby-objective', 'data-kind': o.kind, 'aria-label': `${o.kicker}: ${o.text}. Play`, onclick: objectivePlay(profile, os, o) },
+      h('span.col', h('span.k', h('span.lbl.cy', o.kicker)), h('span.body', o.text)),
+      h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Space'),
+      h('span.ui-play.c-sq', { 'data-testid': o.testid, title: o.kind === 'continue' ? `Continue your saved battle: ${os.save.name}` : null }, g('play')));
+  } else {
+    let chip = null;
+    if (n.msLeft != null) {
+      const urgent = n.id === 'event' && n.phase !== 'upcoming';
+      chip = countdownChip(n.msLeft, { cls: 's', testid: n.timeTestid, urgent, now: n.id === 'event' ? eventNow : undefined, doneText: n.id === 'event' ? 'Ended' : 'New week!', onDone: redraw });
+    }
+    const go = () => {
+      if (n.id === 'event') return navigate('event', { id: s.limited.id });
+      if (n.id === 'weekly') return navigate('bounty', { arena: s.weekly.arena });
+      if (n.id === 'notice') return showNoticeModal();
+      if (n.testid === 'banner-titans') return navigate('titans');
+      if (n.testid === 'banner-assault') return isStageUnlocked(profile, 'boss-lych') ? navigate('assault') : toast(requirementText(profile, 'boss-lych'), 'info');
+      return null;
+    };
+    const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
+    main = h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
+      h('span.col', h('span.k', h('span.lbl.cy', n.kicker), chip), h('span.body', n.title)));
   }
-  const go = () => {
-    if (n.id === 'event') return navigate('event', { id: s.limited.id });
-    if (n.id === 'weekly') return navigate('bounty', { arena: s.weekly.arena });
-    if (n.id === 'recruit') return navigate('recruit');
-    if (n.testid === 'banner-titans') return navigate('titans');
-    if (n.testid === 'banner-assault') return isStageUnlocked(profile, 'boss-lych') ? navigate('assault') : toast(requirementText(profile, 'boss-lych'), 'info');
-    return null;
-  };
-  const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
-  const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : 'sparkles'));
-  host.appendChild(h('div.ui-news.home-news', { 'data-testid': 'lobby-news', 'data-page': n.id },
-    h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
-      thumb,
-      h('span.col', h('span.k', h('span.lbl', n.kicker), chip), h('span.body', n.title))),
+  const edge = tickerEdge(n);
+  const card = h('div.ui-news.home-ticker', { 'data-testid': 'lobby-news', 'data-page': n.id, 'data-edge': edge },
+    h('i.tk-edge', { 'aria-hidden': 'true' }),
+    h('span.tk-page', main),
     pages.length > 1 ? h('button.pager', { type: 'button', 'data-testid': 'lobby-news-next', 'aria-label': `Next card, ${i + 1} of ${pages.length}`, onclick: () => onPage(i + 1) },
-      h('span.ui-pips', pages.map((_, k) => h(`i${k === i ? '.on' : ''}`)))) : null));
+      g('chevR'), h('span.ui-pips', pages.map((_, k) => h(`i${k === i ? '.on' : ''}`)))) : null);
+  host.appendChild(card);
+  if (wipe) tickWipe(card);
 }
 
-// ---------------------------------------------------------------------------------------------
-// The chapter entry: emblem, cyan kicker, the one heavy italic, 5 segments, n/5 (the home's focal point)
-// ---------------------------------------------------------------------------------------------
-
-function buildChapter(host) {
-  const profile = store.profile;
-  const { chapter, prog, complete } = campaignStatus(profile);
-  clear(host);
-  if (!chapter) return;
-  let medals = 0;
-  if (complete) for (const c of CHAPTERS) for (const id of c.stages) medals += Object.values(stageMedals(profile, id)).filter(Boolean).length;
-  const segs = complete ? null : h('span.ui-seg', { style: { '--n': prog.total } }, Array.from({ length: prog.total }, (_, k) => h(`i${k < prog.cleared ? '.on' : ''}`)));
-  const el = h('button.ui-chap.home-chap', { type: 'button', 'data-testid': 'lobby-chapter', 'data-chapter': chapter.id,
-    'aria-label': complete ? `Campaign, all clear: ${medals} medals` : `Campaign, chapter ${chapter.id}: ${chapter.name}, ${prog.cleared} of ${prog.total} stages cleared`,
-    onclick: () => navigate('campaign', { chapter: chapter.id }) },
-  h('span.emblem-wrap', { html: emblemSvg(chapterEmblem(chapter.id), { cls: 'emblem' }) }),
-  h('span.txt',
-    h('span.lbl.cy', complete ? 'Campaign · All clear' : `Campaign · Chapter ${chapter.id}`),
-    h('span.ui-rule'),
-    h('span.title', chapter.name),
-    h('span.prog', segs, h('span.num', complete ? `${medals} medals` : `${prog.cleared}/${prog.total}`), g('chevR'))));
-  host.appendChild(el);
-}
-
-/**
- * Long words step down instead of clipping (6, 12.1): the chapter title 28 → 24 → two lines at 22 (desktop 36 / 30 /
- * 28), never growing left of the right stack's edge; the objective's line and the news title wrap to a second line and
- * their card grows (44 → 56 px on phones).
- */
-function fitTexts() {
-  for (const t of document.querySelectorAll('.home .ui-chap .title')) {
-    t.classList.remove('t24', 't2l');
-    const max = parseFloat(getComputedStyle(t).maxWidth) || Infinity;
-    if (t.scrollWidth > max + 0.5) t.classList.add('t24');
-    if (t.scrollWidth > max + 0.5) { t.classList.remove('t24'); t.classList.add('t2l'); }
-  }
-  for (const card of document.querySelectorAll('.home .home-obj, .home .home-news')) {
-    const body = card.querySelector('.body');
-    if (!body) continue;
-    card.classList.remove('two');
-    const cs = getComputedStyle(body);
-    const lh = cs.lineHeight.endsWith('px') ? parseFloat(cs.lineHeight) : parseFloat(cs.fontSize) * 1.2;
-    if (body.getBoundingClientRect().height > lh * 1.5) card.classList.add('two');
+/** A page turned: the new page in from 12 px right (200 ms) behind a sweep of tick marks (240 ms); RM: a 120 ms fade. */
+function tickWipe(card) {
+  const pageEl = card.querySelector('.tk-page');
+  if (!pageEl || typeof pageEl.animate !== 'function') return;
+  try {
+    const runs = [];
+    if (motionReduced()) runs.push(pageEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: 'linear' }));
+    else {
+      runs.push(pageEl.animate([{ opacity: 0, transform: 'translateX(12px)' }, { opacity: 1, transform: 'none' }], { duration: 200, delay: 40, easing: 'cubic-bezier(0.3, 0, 0, 1)', fill: 'backwards' }));
+      const sweep = h('i.tk-wipe', { 'aria-hidden': 'true' });
+      card.appendChild(sweep);
+      const a = sweep.animate([{ transform: 'translateX(-100%)', opacity: 1 }, { transform: 'translateX(250%)', opacity: 0.4 }], { duration: 240, easing: 'cubic-bezier(0.3, 0, 0, 1)' });
+      a.onfinish = () => sweep.remove();
+      a.oncancel = () => sweep.remove();
+      runs.push(a);
+    }
+    // (a page that never drew a frame of it, a starved phone, shows the page as it ends: no animation outlives 400 ms)
+    setTimeout(() => runs.forEach((r) => { if (r.playState !== 'finished') r.cancel(); }), 400);
+  } catch {
+    /* a card that left the page */
   }
 }

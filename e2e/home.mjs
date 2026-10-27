@@ -1,20 +1,23 @@
-// [ui-ink] UI v2 "Ink & Paper" V2: the night home and its menu sheet, end to end (notes/ui-v2/UI_V2_DIRECTION.md 12.1,
-// 12.2; the build plan's V2 tests). On the mock-ups' sample save (uiSeed.mjs seedInkSave), at 844x390, 1280x720 and
-// 390x844, in headless Chrome (one browser):
-//   1. the probe in v2 mode: at most 10 numbers counting the top bar, one yellow (the play tile), no pink at rest,
-//      no control painted over, the bar whole, every tap 44 px
+// [ui-ink] UI v2 "Ink & Paper", home layout C: the night home and its menu sheet, end to end (src/ui/lobby/homeLayout.js;
+// notes/ui-v2/UI_V2_DIRECTION.md 12.1, 12.2). On the mock-ups' sample save (uiSeed.mjs seedInkSave), at 844x390, 1280x720
+// and 390x844, in headless Chrome (one browser):
+//   1. the probe in v2 mode: at most 10 numbers counting the top bar, one yellow (BATTLE's play edge), no pink at rest,
+//      no control painted over, the bar whole, every tap 44 px; the block on the right of her, BATTLE in thumb reach
 //   2. Ruri (with Kon) as the secretary: her art 8 px clear of every control (pixels.mjs artClearance), her face box
 //      clear of every control, her bubble on a tap only (2.4 s), never over a control
-//   3. the menu sheet: it opens from the menu button, closes by its X, by Esc and by a tap outside
-//   4. every hook works: the rail rows, the objective, the news card and its pager, the chapter entry, the top bar's
-//      mail, chat and avatar, the corner tools
-//   5. Marumi as the secretary (landscape, High, motion allowed): her living scene's canvas draws, every control stays on
-//      top, her art 8 px clear of every control, her face box clear; one WebGL context; leaving the home disposes it
-//      and loses the context, coming back makes one again; Reduce motion (the setting and the system's) and Low
-//      graphics show her still portrait with no canvas; a phone held upright too
+//   3. the menu sheet: it opens from the menu button (Clan is its Social row, Settings its head's gear), closes by its X,
+//      by Esc and by a tap outside
+//   4. every hook works: the tiles, BATTLE and its chapter band, the ticker's event page and its pager (by hand, three
+//      pages, wrapping), the objective's page (the login gift, claimed by its play square), the top bar's mail, chat and
+//      avatar, the corner tools, the menu's Formation and Clan rows
+//   5. Marumi as the secretary (landscape, High, motion allowed): her living scene's canvas draws, the block mirrors to
+//      the left, every control stays on top, her art 8 px clear of the top bar (and of the block when she can stand that
+//      way), her face box clear; one WebGL context; leaving the home disposes it and loses the context, coming back makes
+//      one again; Reduce motion (the setting and the system's) and Low graphics show her still portrait with no canvas;
+//      a phone held upright too
 //
-//   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--shots dir]
-// Starts its own Vite dev server on a free port; exit code 1 when a check fails.
+//   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--shots dir] [--port n]
+// Starts its own Vite dev server (on --port, or a free one); exit code 1 when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,6 +30,7 @@ const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
 const viewports = opt('viewport', '844x390,1280x720,390x844').split(',').map((s) => s.trim());
 const shots = opt('shots', null);
+const port = Number(opt('port', '0'));
 if (shots) mkdirSync(shots, { recursive: true });
 
 const fails = [];
@@ -36,10 +40,12 @@ const check = (ok, msg) => {
   return ok;
 };
 
-/** The home's controls (the boxes her art and her face keep clear of). */
-const UI = '#app .home-top > *, #app .home-rail > .ui-hrow, #app .home-stack .ui-obj, #app .home-stack .ui-news, #app .home-chap, #app .home-tools > .ui-ibtn';
+/** The home's controls (the boxes her art and her face keep clear of): the top bar, the ticker, the tiles, the tools. */
+const TOP = '#app .home-top > *';
+const BLOCK = '#app .home-block .home-ticker, #app .home-block .c-tile, #app .home-tools > .ui-ibtn';
+const UI = `${TOP}, ${BLOCK}`;
 
-const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+const server = await createServer({ root: process.cwd(), server: { port, strictPort: !!port, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 const { browser, label } = await launchChromium();
@@ -104,10 +110,18 @@ async function staticChecks(vp) {
     await homeWith(page, { secretary: 'ruri', settings: { quality: 'high', reduceMotion: false } });
     await shot(page, 'home', vp);
     // 1. the probe, v2
-    const r = await probe(page, { kind: 'hub', v2: true, apart: [['[data-testid="secretary-bubble"]', '#app .home-rail'], ['[data-testid="secretary-bubble"]', '#app .home-stack']] });
+    const r = await probe(page, { kind: 'hub', v2: true, apart: [['[data-testid="secretary-bubble"]', '#app .home-block .c-tile'], ['[data-testid="secretary-bubble"]', '#app .home-ticker']] });
     const f = judge(r, { only: ['v2numbers', 'v2yellow', 'pink', 'covered', 'heads', 'v2taps', 'clipped', 'overflow', 'text'], v2: true });
     check(!f.length, `${vp} probe v2: ${summary(r)}${f.length ? ` — ${f.join(' | ')}` : ''}`);
-    check(r.v2.yellowFills.length === 1 && /play|Claim|Clear|Collect/i.test(r.v2.yellowFills[0] || ''), `${vp} the one yellow is the objective's play tile (${r.v2.yellowFills.join('; ')})`);
+    check(r.v2.yellowFills.length === 1 && /c-yel/.test(r.v2.yellowFills[0] || ''), `${vp} the one yellow is BATTLE's play edge (${r.v2.yellowFills.join('; ')})`);
+    // the block on the controls' side (she stands left), BATTLE the biggest tile at its foot, in the bottom-right third
+    const lay = await page.evaluate(() => {
+      const box = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+      const tiles = [...document.querySelectorAll('#app .home-block .c-tile')].map((e) => { const b = e.getBoundingClientRect(); return b.width * b.height; });
+      return { side: document.querySelector('#app .home')?.dataset.side, layout: document.querySelector('#app .home')?.dataset.layout, battle: box('#app .c-battle'), mission: box('[data-testid="tile-mission"]'), biggest: Math.max(...tiles) };
+    });
+    check(lay.side === 'r' && lay.battle && lay.battle.w * lay.battle.h >= lay.biggest - 0.5, `${vp} the block on the right of her, BATTLE its biggest tile (${lay.side}, ${lay.layout})`);
+    if (W > H) check(lay.battle.x + lay.battle.w / 2 > W * 2 / 3 && lay.battle.y + lay.battle.h / 2 > H * 2 / 3, `${vp} BATTLE in the bottom-right third, in thumb reach (centre ${Math.round(lay.battle.x + lay.battle.w / 2)},${Math.round(lay.battle.y + lay.battle.h / 2)})`);
     // 2. her art and her face box clear of every control
     const art = await artClearance(page, '#app [data-testid="secretary-art"]', UI, { min: 8 });
     check(art.fails === 0, `${vp} Ruri's art (and Kon) 8 px clear of every control: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);
@@ -149,8 +163,8 @@ async function staticChecks(vp) {
     const sheetOpen = () => page.evaluate(() => !!document.querySelector('[data-testid="menu-sheet"]') && !document.querySelector('.home-menu-layer.closing'));
     const openSheet = async () => { await page.click('[data-testid="top-menu"]'); await page.waitForSelector('[data-testid="menu-sheet"]', { timeout: 5000 }); await settle(page, 350); };
     await openSheet();
-    const sh = await page.evaluate(() => { const r = document.querySelector('[data-testid="menu-sheet"]').getBoundingClientRect(); return { x: r.left, w: r.width, h: r.height, rows: document.querySelectorAll('[data-testid="menu-sheet"] .ui-hrow').length }; });
-    check(sh.rows === 9 && Math.abs(sh.x + sh.w - W) < 1 && sh.h >= H - 1, `${vp} the menu sheet: 8 rows and Settings, from the right edge, full height (x ${Math.round(sh.x)}, ${Math.round(sh.w)} wide)`);
+    const sh = await page.evaluate(() => { const r = document.querySelector('[data-testid="menu-sheet"]').getBoundingClientRect(); const sheet = document.querySelector('[data-testid="menu-sheet"]'); return { x: r.left, w: r.width, h: r.height, rows: sheet.querySelectorAll('.ui-hrow').length, settings: !!sheet.querySelector('.m-head [data-testid="settings"]'), clan: !!sheet.querySelector('[data-group="social"] [data-testid="dock-clan"]'), fits: sheet.scrollHeight <= sheet.clientHeight + 1 }; });
+    check(sh.rows === 9 && sh.settings && sh.clan && Math.abs(sh.x + sh.w - W) < 1 && sh.h >= H - 1 && sh.fits, `${vp} the menu sheet: 9 rows (Clan in Social), Settings in its head, from the right edge, full height, nothing to scroll (x ${Math.round(sh.x)}, ${Math.round(sh.w)} wide)`);
     const rs = await probe(page, { kind: 'hub', v2: true, root: '[data-testid="menu-sheet"]' });
     check(rs.v2.numbersAll === 0 && rs.v2.yellowFills.length === 0, `${vp} the menu sheet: no numbers, no yellow (${rs.v2.numbersAll}, ${rs.v2.yellowFills.length})`);
     await shot(page, 'home-menu', vp);
@@ -179,24 +193,33 @@ async function staticChecks(vp) {
     await opens('RECRUIT', '[data-testid="dock-recruit"]', 'recruit');
     await opens('COMMISSIONS', '[data-testid="dock-commissions"]', 'commissions');
     await opens('MALL', '[data-testid="dock-mall"]', 'mall');
-    await opens('MULTIPLAYER', '[data-testid="lobby-multiplayer"]', 'multiplayer');
-    await opens('the chapter entry', '[data-testid="lobby-chapter"]', 'campaign');
+    await opens('CO-OP', '[data-testid="lobby-multiplayer"]', 'multiplayer');
+    await opens('BATTLE\'s chapter band', '[data-testid="lobby-chapter"]', 'campaign');
     await opens('the mail button', '[data-testid="top-mail"]', 'mail');
     await opens('the avatar', '[data-testid="account-level"]', 'profile');
-    await opens('the news card\'s event page', '#app [data-testid="lobby-news"] .go', 'event');
+    await opens('the ticker\'s event page', '#app [data-testid="lobby-news"] .go', 'event');
     await opens('the menu\'s Formation row', '[data-testid="menu-sheet"] [data-testid="menu-formation"]', 'formation', () => page.click('[data-testid="top-menu"]'));
+    await opens('the menu\'s Clan row', '[data-testid="menu-sheet"] [data-testid="dock-clan"]', 'clan', () => page.click('[data-testid="top-menu"]'));
     await go(page, '#/lobby', 'lobby');
-    // the pager turns the news card by hand, and wraps
+    // the pager turns the ticker by hand (Reduce Motion: never on its own), and wraps
     const pages = [];
     for (let i = 0; i < 4; i++) {
       pages.push(await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page));
       await page.click('[data-testid="lobby-news-next"]');
       await settle(page, 150);
     }
-    check(pages.length === 4 && pages[0] === pages[3] && new Set(pages).size === 3, `${vp} the news pager turns by hand through 3 pages and wraps (${pages.join(' → ')})`);
-    // the objective: the login gift first on this save; a tap claims it and the next objective takes its place
+    check(pages.length === 4 && pages[0] === pages[3] && new Set(pages).size === 3 && pages[0] === 'event' && pages[1] === 'objective', `${vp} the ticker turns by hand through 3 pages (the event, the objective, the weekly bosses) and wraps (${pages.join(' → ')})`);
+    const shownNow = () => page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
+    const before = await shownNow();
+    await page.waitForTimeout(6500);
+    check(await shownNow() === before, `${vp} … and under Reduce Motion it never turns on its own (${before}, 6.5 s)`);
+    // the objective: the login gift on this save, the ticker's second page; a tap claims it and the next objective takes its place
+    for (let i = 0; i < 3 && (await shownNow()) !== 'objective'; i++) {
+      await page.click('[data-testid="lobby-news-next"]');
+      await settle(page, 150);
+    }
     const o0 = await page.evaluate(() => ({ kind: document.querySelector('[data-testid="lobby-objective"]')?.dataset.kind, tile: !!document.querySelector('[data-testid="lobby-objective"] [data-testid="login-claim"]') }));
-    check(o0.kind === 'login' && o0.tile, `${vp} the objective: today's login gift, its play tile wears login-claim (${JSON.stringify(o0)})`);
+    check(o0.kind === 'login' && o0.tile, `${vp} the objective: today's login gift, its play square wears login-claim (${JSON.stringify(o0)})`);
     await page.click('[data-testid="login-claim"]');
     await page.waitForSelector('.modal-overlay', { timeout: 5000 }).catch(() => null);
     const o1 = await page.evaluate(() => ({ claimed: window.__sakura.store.profile.missions?.login?.lastDay != null || !!document.querySelector('.modal-overlay'), kind: document.querySelector('[data-testid="lobby-objective"]')?.dataset.kind }));
@@ -251,7 +274,8 @@ async function liveChecks(vp) {
     });
     check(px.n === 1 && px.w > 100, `${vp} one canvas, full screen (${px.w}x${px.h})`);
     check(px.stats && px.stats.created - px.stats.disposed === 1, `${vp} one live WebGL scene (${JSON.stringify(px.stats)})`);
-    const buf = await page.screenshot({ clip: { x: Math.round(W * 0.3), y: Math.round(H * 0.25), width: Math.round(W * 0.3), height: Math.round(H * 0.5) } });
+    // (a software-drawn WebGL frame on a busy machine can take more than the default 30 s to capture)
+    const buf = await page.screenshot({ clip: { x: Math.round(W * 0.3), y: Math.round(H * 0.25), width: Math.round(W * 0.3), height: Math.round(H * 0.5) }, timeout: 120000 });
     const spread = await page.evaluate(async (b64) => {
       const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
       const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
@@ -271,13 +295,17 @@ async function liveChecks(vp) {
     const r = await probe(page, { kind: 'hub', v2: true });
     const f = judge(r, { only: ['covered', 'v2yellow', 'pink', 'v2numbers', 'heads'], v2: true });
     check(!f.length, `${vp} with her scene: every control on top, one yellow, no pink (${summary(r)}${f.length ? ` — ${f.join(' | ')}` : ''})`);
-    // her art (the ball and both hands too) 8 px clear of every control; her face box clear
-    const art = await artClearance(page, '#app [data-testid="secretary-art"]', UI, {
+    // the block mirrors to the left of her scene (her plate puts her right of centre)
+    const lv = await page.evaluate(() => ({ side: document.querySelector('#app .home')?.dataset.side, block: (() => { const b = document.querySelector('#app .c-battle').getBoundingClientRect(); return b.left + b.width / 2; })() }));
+    check(lv.side === 'l' && lv.block < W / 2, `${vp} her living scene: the block on the left, she on the right (${lv.side}, BATTLE at x ${Math.round(lv.block)})`);
+    // her art (the ball and both hands too) 8 px clear of the top bar, and of the block when she can stand that way; her face box clear
+    const under = !!(await page.evaluate(() => window.__sakura.live.placement()?.under));
+    const art = await artClearance(page, '#app [data-testid="secretary-art"]', under ? TOP : UI, {
       min: 8,
       hide: () => page.evaluate(() => { window.__sakura.live.setGirlVisible(false); }),
       show: () => page.evaluate(() => { window.__sakura.live.setGirlVisible(true); }),
     });
-    check(art.fails === 0, `${vp} Marumi's living art 8 px clear of every control: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);
+    check(art.fails === 0, `${vp} Marumi's living art 8 px clear of ${under ? 'the top bar (she passes under the block: never her face)' : 'every control'}: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);
     const pl = await page.evaluate(() => window.__sakura.live.placement());
     const hit = (await boxesOf(page)).filter((b) => overlaps(pl.face, b));
     check(!hit.length && pl.fits && pl.rel >= 0.8, `${vp} her face box clear of every control, at ${Math.round(pl.rel * 100)} % of the cover fit (C5: ≥ 80 %)${hit.length ? `; under ${hit.map((b) => b.name).join(', ')}` : ''}`);

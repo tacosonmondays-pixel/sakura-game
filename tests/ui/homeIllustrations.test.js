@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import { homeArt, homeBackdropArt, homeFullArt, placeFull, HOME_BAKED } from '../../src/ui/lobby/artStage.js';
 import { FULL_ILLUSTRATIONS } from '../../src/data/lobbyIllustrations.js';
+import { uiSideFor } from '../../src/ui/lobby/homeLayout.js';
 
 const file = (url) => `public/${String(url).replace(/^\.?\//, '')}`;
 
@@ -53,7 +54,8 @@ describe('placeFull: her face on the spot, clear of the controls', () => {
     const pills = { x: 375, y: 10, w: 295, h: 32 };
     let cleared = 0;
     for (const row of FULL_ILLUSTRATIONS) {
-      const p = placeFull(844, 390, homeFullArt(row.id), [pills]);
+      // (on the side home layout C gives the picture: her face right of centre, under the wallets)
+      const p = placeFull(844, 390, homeFullArt(row.id), [pills], uiSideFor(row.faceX));
       // her face itself (brow down, sceneLayout.js CORE: 0.6 head radii up) always under the bar
       expect(p.faceY - 0.6 * p.r, row.id).toBeGreaterThanOrEqual(pills.y + pills.h);
       // her hair too, unless the picture cannot come down that far (her face near its top edge, the zoom capped)

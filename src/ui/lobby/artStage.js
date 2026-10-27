@@ -9,6 +9,7 @@
 //   stage.relayout()                            placed again (a resize, the UI drawn again)
 //   stage.say(text) / stage.hideBubble()        her bubble: on a tap only, 2.4 s, under her face, never over a control
 //   stage.liveHost()                            the slot her living scene's canvas goes in (src/ui/lobby/live/)
+//   stage.artOver(box, margin)                  her stand's paint reaches into a box (home layout C's caption)
 //   stage.setLive(on)                           the canvas shown in place of the painting and her still picture
 //   stage.dispose()
 //
@@ -34,7 +35,7 @@ import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, stageModeOf, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
 import { fullArt, FULL_ILLUSTRATION_MAP } from '../../data/lobbyIllustrations.js';
 import { faceAnchor, cutExtents } from '../faceAnchors.js';
-import { placeHost, placeScene, homeTarget } from './hostPlace.js';
+import { placeHost, placeScene, homeTarget, bandsOf } from './hostPlace.js';
 
 /** Her bubble: shown for this long after a tap (12.1). */
 export const BUBBLE_MS = 2400;
@@ -83,10 +84,11 @@ export function homeFullArt(id, { portrait = false } = {}) {
  * @param {number} H
  * @param {{ w: number, h: number, fx: number, fy: number, headR: number }} art
  * @param {{ x: number, y: number, w: number, h: number }[]} [boxes] the controls
+ * @param {'r'|'l'} [side] the side the controls' block takes (home layout C: her face at 0.30 or 0.70 of the width)
  * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean }}
  */
-export function placeFull(W, H, art, boxes = []) {
-  const base = { x: homeTarget(W, H).x, y: H * 0.31 };
+export function placeFull(W, H, art, boxes = [], side = 'r') {
+  const base = { x: homeTarget(W, H, side).x, y: H * 0.31 };
   const at = (dy) => {
     const p = placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x: base.x, y: base.y + dy } });
     const r = art.headR * p.height;
@@ -112,9 +114,11 @@ const rectOf = (el) => {
  * @param {{ reduceMotion?: boolean, onTap?: ((part: 'head'|'body') => void)|null, boxes?: (() => {x:number,y:number,w:number,h:number}[])|null,
  *   backdrop?: { file: string, thumb?: string }|null }} [o]
  *   backdrop: an event's painted backdrop behind every stand instead of the academy (src/ui/events/lobby.js
- *   eventLobbyBackdrop), with its own lighting, so no day / sunset / night tint is laid over it
+ *   eventLobbyBackdrop), with its own lighting, so no day / sunset / night tint is laid over it;
+ *   under: the controls her art may pass under when nothing else lets her stand at her size (never her face:
+ *   hostPlace.js placeHost); side: the side the controls' block takes ('r' or 'l', home layout C)
  */
-export function createArtStage(host, { reduceMotion = false, onTap = null, boxes = null, backdrop = null } = {}) {
+export function createArtStage(host, { reduceMotion = false, onTap = null, boxes = null, under = null, side = null, backdrop = null } = {}) {
   host.classList.add('home-stage');
   const scene = h('div.ui-scene.home-scene', { 'data-testid': 'lobby-scene' });
   const live = h('div.home-live', { 'data-testid': 'lobby-live', hidden: true });
@@ -205,7 +209,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
       swapFullArt();
       const im = current.sceneImg;
       const art = current.art;
-      const p = placeFull(W, H, art, ui);
+      const p = placeFull(W, H, art, [...ui, ...(under?.() || [])], side?.() || 'r');
       im.style.inset = 'auto';
       Object.assign(im.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.width}px`, height: `${p.height}px` });
       // her tap area: around her face and down her figure; her head: ±1.1 head radii across, 1.4 up, 1.0 down (as
@@ -224,7 +228,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
       // a phone held upright: the controls stand under her, so her picture fades out 8 px above the first of them
       const lower = W < H ? ui.filter((b) => b.y > H * 0.35).map((b) => b.y) : [];
       const clipY = lower.length ? Math.min(...lower) - 8 : null;
-      const p = placeHost({ W, H, aspect: current.aspect, anchor: current.anchor, extents: current.extents, boxes: ui, target: homeTarget(W, H), clipY });
+      const p = placeHost({ W, H, aspect: current.aspect, anchor: current.anchor, extents: current.extents, boxes: ui, under: under?.() || [], target: homeTarget(W, H, side?.() || 'r'), clipY });
       Object.assign(frame.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.width}px`, height: `${p.height}px` });
       frame.classList.toggle('floats', !!p.floats && clipY == null);
       frame.classList.toggle('clipped', clipY != null);
@@ -250,7 +254,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     const W = host.clientWidth || globalThis.innerWidth;
     const H = host.clientHeight || globalThis.innerHeight;
     const phone = H <= 480;
-    const ui = boxes?.() || [];
+    const ui = [...(boxes?.() || []), ...(under?.() || [])];
     const fb = placed.face;
     const top = fb.y + fb.h + 10;
     // the free band at the bubble's rows: right of every control on the left, left of every control on the right
@@ -300,6 +304,16 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     if (bubble.classList.contains('show')) fitBubble();
   }
 
+  /**
+   * Her still stand's paint reaches into `box` (grown by `margin` px)? (Home layout C: her caption steps aside for a
+   * wide girl.) A full illustration or her living scene: false.
+   */
+  function artOver(box, margin = 0) {
+    if (!current || current.kind !== 'stand' || liveOn || !placed?.width || !box) return false;
+    const H = host.clientHeight || globalThis.innerHeight || 1;
+    return bandsOf(current.extents, placed, H).some((b) => b.x1 > box.x - margin && b.x0 < box.x + box.w + margin && b.y1 > box.y - margin && b.y0 < box.y + box.h + margin);
+  }
+
   const onResize = () => relayout();
   globalThis.addEventListener?.('resize', onResize);
 
@@ -313,7 +327,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   }
 
   return {
-    show, relayout, say, hideBubble, setLive, setLivePlacement, dispose,
+    show, relayout, say, hideBubble, setLive, setLivePlacement, dispose, artOver,
     isLive: () => liveOn,
     isIllustration: () => current?.kind === 'full',
     liveHost: () => live,

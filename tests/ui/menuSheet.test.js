@@ -1,24 +1,26 @@
-// [ui-ink] UI v2 V2: the home's main menu side sheet (src/ui/lobby/menuSheet.js; notes/ui-v2/UI_V2_DIRECTION.md 12.2).
-// SQUAD: Formation, Backpack, Bestiary, Profile; ACADEMY: Story, Journal, Notice, Wiki; Settings on the footer. Line
-// glyphs only, no numbers, no yellow. The hooks the e2e use stay; the Notice row keeps the old tray's hook. Every glyph
-// it names is a line glyph, and every route it opens is a route of the game.
+// [ui-ink] UI v2: the home's main menu side sheet (src/ui/lobby/menuSheet.js; notes/ui-v2/UI_V2_DIRECTION.md 12.2).
+// SQUAD: Formation, Backpack, Bestiary, Profile; ACADEMY: Story, Journal, Notice, Wiki; SOCIAL: Clan (home layout C
+// keeps it off the home; its old hook dock-clan comes with it); Settings the gear in the head. Line glyphs only, no
+// numbers, no yellow. The hooks the e2e use stay; the Notice row keeps the old tray's hook. Every glyph it names is a
+// line glyph, and every route it opens is a route of the game.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { MENU_GROUPS, MENU_FOOT } from '../../src/ui/lobby/menuSheet.js';
 import { hasLineGlyph } from '../../src/ui/lineGlyphs.js';
 
 describe('the menu sheet', () => {
-  it('two groups of four rows and the Settings footer, in the mock-up\'s order', () => {
+  it('two groups of four rows and Social with Clan, in the mock-up\'s order; Settings in the head', () => {
     expect(MENU_GROUPS.map((g) => [g.label, g.rows.map((r) => r.label)])).toEqual([
       ['Squad', ['Formation', 'Backpack', 'Bestiary', 'Profile']],
       ['Academy', ['Story', 'Journal', 'Notice', 'Wiki']],
+      ['Social', ['Clan']],
     ]);
     expect(MENU_FOOT.label).toBe('Settings');
   });
 
-  it('keeps the hooks: menu-formation, menu-backpack, menu-bestiary, menu-profile, menu-story, menu-journal, menu-wiki, settings; Notice is shortcut-notice', () => {
+  it('keeps the hooks: menu-formation, menu-backpack, menu-bestiary, menu-profile, menu-story, menu-journal, menu-wiki, dock-clan, settings; Notice is shortcut-notice', () => {
     const ids = [...MENU_GROUPS.flatMap((g) => g.rows.map((r) => r.testid)), MENU_FOOT.testid];
-    expect(ids).toEqual(['menu-formation', 'menu-backpack', 'menu-bestiary', 'menu-profile', 'menu-story', 'menu-journal', 'shortcut-notice', 'menu-wiki', 'settings']);
+    expect(ids).toEqual(['menu-formation', 'menu-backpack', 'menu-bestiary', 'menu-profile', 'menu-story', 'menu-journal', 'shortcut-notice', 'menu-wiki', 'dock-clan', 'settings']);
   });
 
   it('line glyphs only, each one drawn; every route a route of the game (Notice opens its board)', () => {
