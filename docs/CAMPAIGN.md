@@ -83,6 +83,53 @@ unlocked by earlier stages — `tests/data/world.test.js` enforces this ("free-c
 with detection before any veiled enemy, anti-air before any airborne enemy and a water girl
 before chapter 2.
 
+## Act II (the Gate Arc, docs/specs/GATE_ARC.md)
+
+Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "the Noon", a modern city era); `c-1` …
+`c-5` are Act I ("the Morning") and never change, and `c-11` … `c-15` are reserved. Status: the plumbing is in
+(Gate Arc Step 1, milestone S1a); **no Act II stage is registered yet**, so the game plays exactly as before.
+
+* **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
+  `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
+  Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with
+  `act2Name` / `act2Theme` / `act2Desc` for the act's row once it ships).
+* **Unlocks.** `requires` is a stage id, a list of ids, or null, and is read only through `stageRequires(stage)` /
+  `requirementsMet(stage, isCleared)` (`src/data/stages.js`). 1-6 needs 1-5; every other x-6 needs **x-5 and
+  (c−1)-10** (two keys); x-7 … x-10 need the Act II stage before. The lock text names what is still missing
+  ("Clear 2-5 and 1-10 first") and Go to opens the first of them.
+* **Order.** `CAMPAIGN_IDS` is Act I (1-1 … 8-5) first, then Act II by (chapter, n). Anything that means play order
+  sorts by `stageOrderKey(id)` = (chapter, act, n): the after-scene queue plays a 1-10 epilogue before a waiting 2-1
+  one. "Next stage" (`nextStage`) stays the first uncleared stage in `CAMPAIGN_IDS`, so a veteran is never pulled back
+  to 1-6; the results screen's Next button stays inside the act (`nextInAct`: 8-5 → none, never 1-6; x-10 → (c+1)-6).
+  Act II is found through the campaign screen's act rows and its NEW sticker.
+* **Numbers** (`ACT2_PLAN`, computed, pinned by `tests/data/act2Plan.test.js`): for Act II stage k of chapter c, the
+  rung `hpScaleAt(5c + k − 1)` × chapter c's mean hero-rework HP pass (1.69 / 1.77 / 1.4 / 2.15 / 1.92 / 1.77 / 2.19 /
+  1.25); `hpPass` = that mean; cash scale and start cash from the rung (start cash ≤ 900); waves from chapter c+1's
+  Act I row (chapter 8: 30/30/31/31/32); tier from stage (c+1)-k (chapter 8: expert); drops from chapter c+1's table;
+  first clear `campaignFirstClear(c, k === 5)` (x-10 pays 100 + 20c gems and a recruit ticket). Act II starts at or
+  above its own x-5 and climbs ≈ 20 %; 7-10 (14.24) becomes the highest `hpScale`. Starting values for the balance
+  pass, not tuned numbers.
+
+  | Ch | Act II hpScale (x-6 … x-10) | Waves | Start cash |
+  |---|---|---|---|
+  | 1 | 2.15 / 2.25 / 2.37 / 2.48 / 2.6 | 18/20/20/22/22 | 720–740 |
+  | 2 | 2.87 / 3.01 / 3.15 / 3.31 / 3.47 | 22/22/24/24/25 | 750–770 |
+  | 3 | 2.87 / 3.02 / 3.16 / 3.32 / 3.49 | 24/25/25/26/26 | 770–790 |
+  | 4 | 5.61 / 5.89 / 6.17 / 6.49 / 6.79 | 25/26/26/27/28 | 800–820 |
+  | 5 | 6.37 / 6.68 / 7.01 / 7.35 / 7.72 | 26/27/27/28/28 | 830–850 |
+  | 6 | 7.47 / 7.84 / 8.23 / 8.62 / 9.04 | 28/28/29/29/30 | 850–870 |
+  | 7 | 11.74 / 12.33 / 12.94 / 13.58 / 14.24 | 28/29/29/30/30 | 880–900 |
+  | 8 | 8.53 / 8.94 / 9.39 / 9.85 / 10.33 | 30/30/31/31/32 | 900 |
+
+* **Achievements.** Chapter rows count Act I only (`chapterClear` over `CHAPTERS[c].stages`). "Chapter c · Act II
+  Complete" (`a_ch{c}_act2`, half the chapter row's gems, 848 in all) and the 80-stage goals (`a_clear_80`,
+  `a_gold_80`, `a_sakura_80`, `a_quad_80`: items and titles, no gems) stay hidden until every stage they `need`
+  exists. The "all 40" goals read "on 40 campaign stages" and the ribbon capstone "800 campaign mode ribbons".
+* **Story.** Arc 1 episodes are kind `event` (0 gems) with `act: 2`; `CHAPTER_SCENE_IDS` stays Act I, and
+  `ACT_SCENE_IDS['c:2']` indexes the Act II episodes, so the Story Time achievements never go backwards.
+* **Campaign screen.** One row per act (`src/ui/screens/campaignActs.js`, `campaign-acts.css`); a chapter with Act I
+  alone draws no header, exactly as before.
+
 ## Map rules and battle modes (docs/specs/CODEX_MODES.md)
 
 Every campaign stage from 1-4 on has one **map rule**, always on (every mode, difficulty, co-op and past the

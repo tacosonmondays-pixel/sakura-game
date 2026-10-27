@@ -530,16 +530,28 @@ renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
 ### `src/data/stages.js`
 
 ```js
-export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] }] // 8 chapters × 5 stages
-export const STAGES = [StageDef...]   // campaign (40) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
+export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] /*Act I*/,
+  act2: ['1-6',...] /*registered Act II ids, [] until that act ships*/, act2Name, act2Theme, act2Desc /*null until then*/ }] // 8 chapters × 5 (+5)
+export const STAGES = [StageDef...]   // campaign (40 Act I + registered Act II) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
 export const STAGE_MAP
+export const CAMPAIGN_IDS             // Act I (1-1 … 8-5) first, then Act II by (chapter, n); never a play-order index
 export function getStage(id)
-export function campaignStages()
+export function campaignStages()      // StageDefs in CAMPAIGN_IDS order
 export function stagesOfKind(kind)
+// Gate Arc Act II (docs/CAMPAIGN.md "Act II", docs/specs/GATE_ARC.md):
+export const ACT2_PLAN, ACT2_PLAN_MAP // the 40 computed Act II rows { id, chapter, k, n, waves, hpScale, hpPass, cashScale,
+                                      //   startCash, tier, requires, dropChapter, modeChapter, medalGemMul, finale }
+export const CHAPTER_HP_PASS_MEAN     // { [chapter]: mean HERO_HP_PASS of its Act I }
+export function act2Stage(o)          // Act II StageDef builder: authored parts from o, numbers/requires/tier/drops from the plan
+export function stageRequires(stageOrId)            // -> string[]: the ONLY reader of StageDef.requires
+export function requirementsMet(stageOrId, isCleared) // every requirement cleared (the unlock rule)
+export function stageOrderKey(id)     // (chapter, act, n) as a number; non-campaign ids → Infinity
+export function actStages(chapterId, act = 1)       // chapter.stages (act 1) / chapter.act2 (act 2)
+export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null)
 
 StageDef = {
   id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge'*/, kind: 'campaign'|'resource'|'boss'|'challenge',
-  chapter?, name, mapId, desc,
+  chapter?, act? /*campaign: 1 | 2*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
   waves /*count; challenge = Infinity*/,
   waveGen: {
     pool: [{ enemy, weight, from /*wave idx, 1-based*/, to? }],
@@ -554,7 +566,10 @@ StageDef = {
   introduces: (enemyId|TraitKey)[],   // shown as "New!" on prep + reflected in scenery
   recommended: CapabilityKey[],        // drives the "add counters" shortcut
   unlocks: { units?: unitId[] },       // free recruits granted on first clear (any difficulty)
-  requires: stageId|null,              // previous stage that must be cleared
+  requires: stageId|stageId[]|null,    // stage(s) that must be cleared: Act I the previous stage; an Act II x-6 two
+                                       // (x-5 and (c-1)-10). Read it only through stageRequires / requirementsMet
+  medalGemMul?: number,                // campaign Act II: 0.5 (medal gems × it, rewards.js medalGems); default 1
+  modeChapter?: number,                // campaign Act II: Ironclad's armor row (c+1); default `chapter`
   drops: [{ item, chance, min, max, difficulty? /*min difficulty*/ }],
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
@@ -928,6 +943,7 @@ export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) 
 export function rewardDifficulty(profile, stageId, difficulty, mode) // Standard: difficulty; a mode: min(difficulty, best Standard medal here)
 export function resultMode(profile, stageId, difficulty, mode)       // the mode a result counts as (Standard when locked / Nightmare × Last Petal)
 export const MODE_RIBBON_GEMS  // { easy: 0, normal: 0, hard: 0, nightmare: 0 } (owner Q1; switching on needs a SAVE_VERSION bump)
+export function medalGems(stage, difficulty) // a first medal's gems: DIFFICULTIES[d].firstClearGems × (stage.medalGemMul ?? 1), rounded
 export function sweep(profile, stageId, difficulty, times, rng)  // instant rewards; allowed when stage cleared on hard+
 export function canSweep(profile, stageId)
 ```
@@ -939,17 +955,17 @@ export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
 export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, tomes, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments;
   // past P6 it also pays Akashic Tomes (SR 1, SSR 5; potential.js DUPE_PAST_MAX_TOMES / dupePastMaxTomes, next to potentialLevel)
-export function isStageUnlocked(profile, stageId)
+export function isStageUnlocked(profile, stageId)  // stages.js requirementsMet (story.js stageOpen reads the same)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
 export function stageMedals(profile, stageId) // -> { easy, normal, hard, nightmare }
-export function chapterProgress(profile, chapterId) // -> { cleared, total, medals }
-export function nextStage(profile)           // first uncleared campaign stage
+export function chapterProgress(profile, chapterId, act = 1) // -> { cleared, total, medals } over that act's stages
+export function nextStage(profile)           // first uncleared stage in CAMPAIGN_IDS (Act I first: never pulls a veteran to 1-6)
 export function recommendedFor(profile, stageId) // -> { needs: CapabilityKey[], ownedCounters: {cap: unitId[]}, missing: cap[] }
 export function modesUnlocked(profile, stageId)  // a campaign stage cleared once (any difficulty)
 export function modeRibbons(profile, stageId)    // -> { 'easy:reverse': bool, … } 20 keys (nightmare:laststand derived from the medal)
 export function ribbonCount(profile, stageId)    // -> { have, total: 20 }
-export function chapterRibbons(profile, chapterId) // -> { have, total: 100 }
+export function chapterRibbons(profile, chapterId, act = 1) // -> { have, total: 100 } over that act's stages
 export function stageShowcase(profile, stageId)  // the medal and ribbon showcase of a stage (the profile showcase reads this):
   // -> { stageId, chapter, cleared, modesUnlocked, medals: { have, total: 4 }, ribbons: { have, total: 20 },
   //      grid: { [mode in MODE_ORDER]: { [difficulty in DIFFICULTY_ORDER]: { earned, kind: 'medal'|'ribbon', merged? } } } }
@@ -999,7 +1015,10 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 
 - **Def fields** (`src/data/achievements.js`): `{ id, name, desc, metric, param?, goal, rewards, cat, tier, series?,
   honor?: { no, name, cls: plain|shiny|special, fx, emblem }, title?: { text, tier: std|gold|prism }, hidden?, hint?,
-  since?, grind?, wave: launch|social|codex|later, shipped?, retired? }`. Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
+  since?, grind?, wave: launch|social|codex|later|act2, needs?, shipped?, retired? }`. `needs` (Gate Arc Act II rows):
+  stage ids that must all exist in this build before the row is live (`achievementLive` → `achievementStagesExist`), so
+  "Chapter c · Act II Complete" (`chapterActClear`, param `'c:2'`) and the 80-stage rows light up as their stages ship.
+  Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
   a shipped row's `rewards` never change (frozen in `tests/fixtures/achievements-ledger.json`); rewards are item ids
   only, never a ribbon or a title. Metrics: `src/systems/achievementMetrics.js` (pure; an unknown metric throws).
 - **Claim gate**: a `gearbox_*` reward waits for `featureOpen(p, 'gear')`, a `crown_*` for `featureOpen(p, 'awaken')`
