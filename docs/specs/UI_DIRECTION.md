@@ -299,6 +299,9 @@ properties only; nothing blocks a tap):
 | Press / hover | 100 down / 140 up at scale 0.97; a mouse lifts tiles 2 px in 140 | |
 | Balances | count 400 (≤ 600 for big jumps), the colour icon pulses 240 with two sparkles on a gain | `countTo()`; e2e waits for `[data-counting]` to go |
 | Red dots and counts | pop 240 (scale 0.4 → 1, one overshoot) when they appear | `badgeShown()` / `badge()` |
+| Home layout B: the news chip | a page turn 240 (the old words 12 px left and out in 120, the new 12 px in from the right in 200, 40 late); on its own every 6 s | held while a pointer is over it, it has the focus or a finger is on it, and while the UI is hidden or a sheet is open; never on its own under Reduce Motion, where a turn by hand is a 120 ms fade |
+| Home layout B: the menu over a narrow screen | her stage slides aside under the sheet (240 in, 160 back), only as far as her face box needs | a jump under Reduce Motion |
+| Home layout B: hide the UI | a long press (600 ms) on the wallpaper, not on her or a control, hides the UI or brings it back | the menu's Hide UI and the restore button as before |
 
 Reduce Motion (the setting or the system): no movement, a 120 ms fade at most, numbers change at once, no pops.
 

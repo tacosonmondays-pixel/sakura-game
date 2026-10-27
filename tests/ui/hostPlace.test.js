@@ -1,8 +1,10 @@
 // [ui-ink] UI v2 V2: where the home puts its host (src/ui/lobby/hostPlace.js) and Marumi's living scene
-// (src/ui/lobby/live/marumi.js, C5). With the mock-up's control boxes at 844x390 and 1280x720 (12.1): every girl's
-// eye line lands on the home's eye line (or at most 12 % lower), her face where the face spot is (or at most 4 % of
-// the width aside), her art (by its measured extents) 8 px clear of every control, never below 0.8 of her size; Marumi's
-// living figure the same at the largest scale that passes (C5's floor 0.8 of the cover fit).
+// (src/ui/lobby/live/marumi.js, C5). With home layout B's control boxes at 844x390 and 1280x720 (as the game lays
+// them out: the top bar, the news chip top left, the four icons bottom left, CO-OP and the Battle plate bottom right):
+// every girl's eye line lands on the home's eye line (or at most 12 % lower), her face where the face spot is (the
+// middle of the screen, or at most 4 % of the width aside), her art (by its measured extents) 8 px clear of every
+// control, never below 0.8 of her size; Marumi's living figure the same at the largest scale that passes (C5's floor 0.8
+// of the cover fit), with the icons folded two by two as the home folds them for her (lobby.js refold).
 import { describe, it, expect } from 'vitest';
 import { UNITS } from '../../src/data/units.js';
 import { FACE_ANCHORS, CUT_EXTENTS } from '../../src/ui/faceAnchors.js';
@@ -10,12 +12,22 @@ import { placeHost, homeTarget, freeShift, bandsOf, placeScene, faceBox } from '
 import { placeMarumi, ANCHOR as M_ANCHOR, EXTENTS as M_EXTENTS, FRAME } from '../../src/ui/lobby/live/marumi.js';
 import { PORTRAIT_DATA } from '../../src/art/portraits.js';
 
-/** The home's control boxes as the mock-up draws them (12.1): top bar pieces, rail, objective + news, chapter, tools. */
+/**
+ * Home layout B's control boxes (measured in the game: window.__sakura.home.boxes()): the avatar, the three wallets and
+ * the three buttons; the news chip (two lines); the four icons (one box for the row); CO-OP; the Battle plate.
+ */
 const BOXES = {
-  '844x390': [[16, 10, 150, 32], [374, 10, 268, 32], [690, 10, 138, 32], [16, 50, 184, 308], [556, 50, 272, 96], [556, 200, 272, 100], [740, 322, 88, 44]],
-  '1280x720': [[24, 16, 200, 48], [694, 16, 364, 48], [1090, 16, 166, 48], [24, 104, 276, 336], [900, 84, 356, 120], [910, 372, 346, 148], [1160, 648, 96, 48]],
+  '844x390': [[16, 10, 140, 32], [386, 10, 59, 32], [453, 10, 99, 32], [560, 10, 111, 32], [696, 8, 36, 36], [744, 8, 36, 36], [792, 8, 36, 36],
+    [16, 52, 236, 60], [16, 318, 268, 56], [588, 224, 112, 46], [588, 270, 240, 104]],
+  '1280x720': [[24, 16, 165, 48], [723, 20, 70, 40], [804, 20, 113, 40], [927, 20, 132, 40], [1092, 18, 44, 44], [1152, 18, 44, 44], [1212, 18, 44, 44],
+    [24, 84, 320, 68], [24, 616, 372, 80], [926, 468, 156, 60], [926, 528, 330, 168]],
 };
-const boxes = (vp) => BOXES[vp].map(([x, y, w, h]) => ({ x, y, w, h }));
+/** The same with the four icons folded two by two (.fold: Marumi's ball reaches into their corner). */
+const FOLDED = {
+  '844x390': [...BOXES['844x390'].filter((b) => b[1] !== 318), [16, 258, 132, 116]],
+  '1280x720': [...BOXES['1280x720'].filter((b) => b[1] !== 616), [24, 532, 184, 164]],
+};
+const boxes = (vp, set = BOXES) => set[vp].map(([x, y, w, h]) => ({ x, y, w, h }));
 // (to a thousandth of a px: a slide lands exactly on the 8 px line)
 const clearOf = (bands, bx, m) => bands.every((b) => bx.every((u) => b.y1 <= u.y - m + 1e-3 || b.y0 >= u.y + u.h + m - 1e-3 || b.x1 <= u.x - m + 1e-3 || b.x0 >= u.x + u.w + m - 1e-3));
 
@@ -110,12 +122,12 @@ describe('Marumi\'s living scene (C5)', () => {
   for (const vp of ['844x390', '1280x720']) {
     const [W, H] = vp.split('x').map(Number);
     it(`at ${vp}: her face on the spot, all her art (ball and hands too) 8 px clear, at least 0.8 of the cover fit`, () => {
-      const p = placeMarumi(W, H, boxes(vp));
+      const p = placeMarumi(W, H, boxes(vp, FOLDED));
       expect(p.fits).toBe(true);
       expect(p.rel).toBeGreaterThanOrEqual(0.8 - 1e-9);
       const t = homeTarget(W, H);
       expect(Math.abs(p.left + M_ANCHOR.cx * p.width - t.x)).toBeLessThanOrEqual(W * 0.04 + 0.01);
-      expect(clearOf(bandsOf(M_EXTENTS, p, H), boxes(vp), 8)).toBe(true);
+      expect(clearOf(bandsOf(M_EXTENTS, p, H), boxes(vp, FOLDED), 8)).toBe(true);
       // her figure (with its 48 px of skirt under the frame) reaches the screen's bottom edge; the scrim lies over it
       expect(p.floats).toBe(false);
       expect(p.height / p.width).toBeCloseTo((FRAME.h + FRAME.ext) / FRAME.w, 6);

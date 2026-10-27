@@ -22,9 +22,9 @@
 // Where she stands: her face anchor (src/ui/faceAnchors.js) on the home's face spot, her art 8 px clear of every
 // control (src/ui/lobby/hostPlace.js placeHost; boxes() gives the controls' boxes). A full illustration cannot move her
 // alone: the whole picture is zoomed and panned so her face (the row's face point) lands on the spot (placeFull over
-// hostPlace.js placeScene), between the rail and the right stack, a little lower when a control would stand over her
-// hair there, so no control covers her face. Her still stand breathes at 1 % over 4.5 s (the
-// direction's Q10; off under Reduce motion).
+// hostPlace.js placeScene), between the home's corners (home layout B: near where the picture itself puts her face), a
+// little lower when a control would stand over her hair there, so no control covers her face. Her still stand breathes
+// at 1 % over 4.5 s (the direction's Q10; off under Reduce motion).
 // A painting with a baked night copy (HOME_BAKED, tools/art/bakeHome.mjs) shows that copy; any other picture (the event
 // backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
 // .graded), so the text over the scene keeps its contrast.
@@ -79,6 +79,9 @@ export function homeFullArt(id, { portrait = false } = {}) {
  * A full illustration on the home: zoomed and panned so her face lands on the face spot (placeScene); when a control
  * stands over her face and hair there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit, 8 px
  * clear), her face comes down a little, 4 px at a time, up to 12 % of the height. Pure.
+ * Home layout B: on a landscape screen the spot across is where the picture itself puts her face (its face point, kept
+ * between 38 % and 62 % of the width), so the picture is shown close to whole (the wallpaper is the show) rather than
+ * zoomed to bring her to the middle; the home mirrors its corners when she stands right of the middle (lobby.js).
  * @param {number} W
  * @param {number} H
  * @param {{ w: number, h: number, fx: number, fy: number, headR: number }} art
@@ -86,7 +89,8 @@ export function homeFullArt(id, { portrait = false } = {}) {
  * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean }}
  */
 export function placeFull(W, H, art, boxes = []) {
-  const base = { x: homeTarget(W, H).x, y: H * 0.31 };
+  const across = W > H ? W * Math.min(FULL_FACE_X[1], Math.max(FULL_FACE_X[0], art.fx)) : homeTarget(W, H).x;
+  const base = { x: across, y: H * 0.31 };
   const at = (dy) => {
     const p = placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x: base.x, y: base.y + dy } });
     const r = art.headR * p.height;
@@ -100,6 +104,9 @@ export function placeFull(W, H, art, boxes = []) {
   }
   return at(0);
 }
+
+/** Where a full illustration's face may land across a landscape screen (fractions of the width; placeFull). */
+export const FULL_FACE_X = Object.freeze([0.38, 0.62]);
 
 /** An element's box in viewport px. */
 const rectOf = (el) => {
@@ -244,7 +251,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     onTap?.(head ? 'head' : 'body');
   });
 
-  /** Under her face box, centred on her face, inside the band between the rail and the right stack. */
+  /** Under her face box, centred on her face, inside the free band between the controls on her left and on her right. */
   function fitBubble() {
     if (!placed) return;
     const W = host.clientWidth || globalThis.innerWidth;

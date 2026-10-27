@@ -1,17 +1,22 @@
-// [ui-ink] UI v2 "Ink & Paper" V2: the night home and its menu sheet, end to end (notes/ui-v2/UI_V2_DIRECTION.md 12.1,
-// 12.2; the build plan's V2 tests). On the mock-ups' sample save (uiSeed.mjs seedInkSave), at 844x390, 1280x720 and
-// 390x844, in headless Chrome (one browser):
-//   1. the probe in v2 mode: at most 10 numbers counting the top bar, one yellow (the play tile), no pink at rest,
-//      no control painted over, the bar whole, every tap 44 px
+// [ui-ink] UI v2 "Ink & Paper": the night home (home layout B "Quiet Home") and its menu sheet, end to end
+// (notes/ui-v2/UI_V2_DIRECTION.md 12.1, 12.2; the Oct 27 layout study). On the mock-ups' sample save (uiSeed.mjs
+// seedInkSave), at 844x390, 1280x720 and 390x844, in headless Chrome (one browser):
+//   1. the probe in v2 mode: at most 10 numbers counting the top bar, one yellow (the Battle plate's play edge), no pink
+//      at rest, no control painted over, the bar whole, every tap 44 px; at most 12 controls on a landscape screen (the
+//      study's count: the avatar, the gems' "+", chat, mail, menu, the news chip, four icons, the plate, CO-OP)
 //   2. Ruri (with Kon) as the secretary: her art 8 px clear of every control (pixels.mjs artClearance), her face box
 //      clear of every control, her bubble on a tap only (2.4 s), never over a control
-//   3. the menu sheet: it opens from the menu button, closes by its X, by Esc and by a tap outside
-//   4. every hook works: the rail rows, the objective, the news card and its pager, the chapter entry, the top bar's
-//      mail, chat and avatar, the corner tools
+//   3. the menu sheet: it opens from the menu button (from the right; from the bottom on a phone held upright), closes by
+//      its X, by Esc and by a tap outside; its head holds hide the UI and the background picker
+//   4. every hook works: the four icons, the Battle plate's two zones, CO-OP, the news chip (its objective page, its
+//      event page and its pager), the top bar's mail and avatar, the menu's Formation and Clan rows; hide the UI from the
+//      menu and by a long press on the wallpaper, the background picker from the menu
 //   5. Marumi as the secretary (landscape, High, motion allowed): her living scene's canvas draws, every control stays on
-//      top, her art 8 px clear of every control, her face box clear; one WebGL context; leaving the home disposes it
-//      and loses the context, coming back makes one again; Reduce motion (the setting and the system's) and Low
-//      graphics show her still portrait with no canvas; a phone held upright too
+//      top, her art 8 px clear of every control (the icons fold two by two for her ball), her face box clear; one WebGL
+//      context; leaving the home disposes it and loses the context, coming back makes one again; Reduce motion (the
+//      setting and the system's) and Low graphics show her still portrait with no canvas; a phone held upright too
+//   6. the news chip turns on its own every 6 s (motion allowed), never under Reduce motion; a full illustration whose
+//      girl stands right of the middle mirrors the corners (the plate bottom left), her face clear
 //
 //   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--shots dir]
 // Starts its own Vite dev server on a free port; exit code 1 when a check fails.
@@ -37,7 +42,9 @@ const check = (ok, msg) => {
 };
 
 /** The home's controls (the boxes her art and her face keep clear of). */
-const UI = '#app .home-top > *, #app .home-rail > .ui-hrow, #app .home-stack .ui-obj, #app .home-stack .ui-news, #app .home-chap, #app .home-tools > .ui-ibtn';
+const UI = '#app .home-top > *, #app .home-dock > .home-ico, #app .home-news-host .ui-news, #app .home-plate, #app .home-coop';
+/** The bubble keeps clear of these. */
+const APART = [['[data-testid="secretary-bubble"]', '#app .home-dock'], ['[data-testid="secretary-bubble"]', '#app .home-battle'], ['[data-testid="secretary-bubble"]', '#app .home-news-host']];
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
@@ -80,6 +87,7 @@ async function homeWith(page, patch) {
     const { store } = window.__sakura;
     const p = store.profile;
     if (pt.secretary) p.secretary = pt.secretary;
+    if (pt.lobbyBg) p.lobbyBg = { ...(p.lobbyBg || {}), ...pt.lobbyBg };
     Object.assign(p.settings, pt.settings || {});
     document.documentElement.toggleAttribute('data-reduce-motion', !!p.settings.reduceMotion);
     store.commit('e2e');
@@ -104,10 +112,19 @@ async function staticChecks(vp) {
     await homeWith(page, { secretary: 'ruri', settings: { quality: 'high', reduceMotion: false } });
     await shot(page, 'home', vp);
     // 1. the probe, v2
-    const r = await probe(page, { kind: 'hub', v2: true, apart: [['[data-testid="secretary-bubble"]', '#app .home-rail'], ['[data-testid="secretary-bubble"]', '#app .home-stack']] });
+    const r = await probe(page, { kind: 'hub', v2: true, apart: APART });
     const f = judge(r, { only: ['v2numbers', 'v2yellow', 'pink', 'covered', 'heads', 'v2taps', 'clipped', 'overflow', 'text'], v2: true });
     check(!f.length, `${vp} probe v2: ${summary(r)}${f.length ? ` — ${f.join(' | ')}` : ''}`);
-    check(r.v2.yellowFills.length === 1 && /play|Claim|Clear|Collect/i.test(r.v2.yellowFills[0] || ''), `${vp} the one yellow is the objective's play tile (${r.v2.yellowFills.join('; ')})`);
+    check(r.v2.yellowFills.length === 1 && /home-play/.test(r.v2.yellowFills[0] || ''), `${vp} the one yellow is the Battle plate's play edge (${r.v2.yellowFills.join('; ')})`);
+    // the quiet home's count (the study's): one per control, the chip and the plate once each (their "›" and band are
+    // second hit zones of the same piece)
+    const count = await page.evaluate(() => {
+      const shown = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
+      const zones = [...document.querySelectorAll('#app .home button, #app .home a[href], #app .home [role="button"]')].filter((e) => shown(e) && !e.closest('[aria-hidden="true"], .ghost') && !e.hidden);
+      const pieces = new Set(zones.map((e) => e.closest('.home-news, .home-plate') || e));
+      return { zones: zones.length, controls: pieces.size };
+    });
+    if (W > H) check(count.controls <= 12, `${vp} the quiet home: ${count.controls} controls (${count.zones} hit zones), at most 12`);
     // 2. her art and her face box clear of every control
     const art = await artClearance(page, '#app [data-testid="secretary-art"]', UI, { min: 8 });
     check(art.fails === 0, `${vp} Ruri's art (and Kon) 8 px clear of every control: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);
@@ -149,8 +166,19 @@ async function staticChecks(vp) {
     const sheetOpen = () => page.evaluate(() => !!document.querySelector('[data-testid="menu-sheet"]') && !document.querySelector('.home-menu-layer.closing'));
     const openSheet = async () => { await page.click('[data-testid="top-menu"]'); await page.waitForSelector('[data-testid="menu-sheet"]', { timeout: 5000 }); await settle(page, 350); };
     await openSheet();
-    const sh = await page.evaluate(() => { const r = document.querySelector('[data-testid="menu-sheet"]').getBoundingClientRect(); return { x: r.left, w: r.width, h: r.height, rows: document.querySelectorAll('[data-testid="menu-sheet"] .ui-hrow').length }; });
-    check(sh.rows === 9 && Math.abs(sh.x + sh.w - W) < 1 && sh.h >= H - 1, `${vp} the menu sheet: 8 rows and Settings, from the right edge, full height (x ${Math.round(sh.x)}, ${Math.round(sh.w)} wide)`);
+    const sh = await page.evaluate(() => { const r = document.querySelector('[data-testid="menu-sheet"]').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, rows: document.querySelectorAll('[data-testid="menu-sheet"] .ui-hrow').length, tools: document.querySelectorAll('[data-testid="menu-sheet"] .m-head [data-testid="lobby-hide"], [data-testid="menu-sheet"] .m-head [data-testid="lobby-bg"]').length }; });
+    if (W > H) check(sh.rows === 10 && sh.tools === 2 && Math.abs(sh.x + sh.w - W) < 1 && sh.h >= H - 1, `${vp} the menu sheet: 9 rows and Settings, hide and background in its head, from the right edge, full height (x ${Math.round(sh.x)}, ${Math.round(sh.w)} wide)`);
+    else check(sh.rows === 10 && sh.tools === 2 && Math.abs(sh.y + sh.h - H) < 1 && sh.w >= W - 1, `${vp} the menu sheet: 9 rows and Settings, hide and background in its head, from the bottom edge, full width (y ${Math.round(sh.y)}, ${Math.round(sh.h)} tall)`);
+    // her face stays clear of the open sheet (her stage slides aside when it must)
+    const faceVsSheet = await page.evaluate(() => {
+      const pl = window.__sakura.home.placement();
+      const host = document.querySelector('#app .home-stage-host');
+      const dx = new DOMMatrix(getComputedStyle(host).translate === 'none' ? undefined : `translate(${getComputedStyle(host).translate.split(' ').map((v) => v || '0px').join(',')})`).m41 || 0;
+      const r = document.querySelector('[data-testid="menu-sheet"]').getBoundingClientRect();
+      const f = { x: pl.face.x + dx, y: pl.face.y, w: pl.face.w, h: pl.face.h };
+      return { apart: f.x + f.w <= r.left || f.x >= r.right || f.y + f.h <= r.top || f.y >= r.bottom, f: [f.x, f.y, f.w, f.h].map(Math.round), sheet: [r.left, r.top].map(Math.round) };
+    });
+    check(faceVsSheet.apart, `${vp} the open menu sheet keeps clear of her face box (${JSON.stringify(faceVsSheet)})`);
     const rs = await probe(page, { kind: 'hub', v2: true, root: '[data-testid="menu-sheet"]' });
     check(rs.v2.numbersAll === 0 && rs.v2.yellowFills.length === 0, `${vp} the menu sheet: no numbers, no yellow (${rs.v2.numbersAll}, ${rs.v2.yellowFills.length})`);
     await shot(page, 'home-menu', vp);
@@ -162,7 +190,7 @@ async function staticChecks(vp) {
     await settle(page, 300);
     check(!(await sheetOpen()), `${vp} … by Esc`);
     await openSheet();
-    await page.mouse.click(Math.min(40, sh.x - 10), H / 2);
+    await page.mouse.click(W > H ? Math.min(40, sh.x - 10) : W / 2, W > H ? H / 2 : Math.max(10, sh.y - 40));
     await settle(page, 300);
     check(!(await sheetOpen()), `${vp} … and by a tap outside it`);
     check(await screenIs(page) === 'lobby', `${vp} … and the home stays (${await screenIs(page)})`);
@@ -170,7 +198,7 @@ async function staticChecks(vp) {
     const opens = async (labelText, sel, screen, prep = null) => {
       await go(page, '#/lobby', 'lobby');
       if (prep) await prep();
-      await page.click(sel, { timeout: 8000 });
+      await page.click(sel, { timeout: 20000 });
       await page.waitForFunction((s) => document.querySelector('#app')?.dataset.screen === s, screen, { timeout: 20000 }).catch(() => {});
       check(await screenIs(page) === screen, `${vp} ${labelText} opens ${screen} (now ${await screenIs(page)})`);
     };
@@ -179,22 +207,35 @@ async function staticChecks(vp) {
     await opens('RECRUIT', '[data-testid="dock-recruit"]', 'recruit');
     await opens('COMMISSIONS', '[data-testid="dock-commissions"]', 'commissions');
     await opens('MALL', '[data-testid="dock-mall"]', 'mall');
-    await opens('MULTIPLAYER', '[data-testid="lobby-multiplayer"]', 'multiplayer');
-    await opens('the chapter entry', '[data-testid="lobby-chapter"]', 'campaign');
+    await opens('CO-OP', '[data-testid="lobby-multiplayer"]', 'multiplayer');
+    await opens('the Battle plate\'s chapter band', '[data-testid="lobby-chapter"]', 'campaign');
     await opens('the mail button', '[data-testid="top-mail"]', 'mail');
     await opens('the avatar', '[data-testid="account-level"]', 'profile');
-    await opens('the news card\'s event page', '#app [data-testid="lobby-news"] .go', 'event');
+    const toPage = (id) => page.evaluate(async (want) => {
+      for (let k = 0; k < 4 && document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page !== want; k++) {
+        document.querySelector('#app [data-testid="lobby-news-next"]')?.click();
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      return document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page;
+    }, id);
+    await opens('the news chip\'s event page', '#app [data-testid="lobby-news"] [data-testid="event-card"]', 'event', () => toPage('event'));
     await opens('the menu\'s Formation row', '[data-testid="menu-sheet"] [data-testid="menu-formation"]', 'formation', () => page.click('[data-testid="top-menu"]'));
+    await opens('the menu\'s Clan row', '[data-testid="menu-sheet"] [data-testid="dock-clan"]', 'clan', () => page.click('[data-testid="top-menu"]'));
     await go(page, '#/lobby', 'lobby');
-    // the pager turns the news card by hand, and wraps
+    // the pager turns the news chip by hand, and wraps
     const pages = [];
     for (let i = 0; i < 4; i++) {
       pages.push(await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page));
       await page.click('[data-testid="lobby-news-next"]');
       await settle(page, 150);
     }
-    check(pages.length === 4 && pages[0] === pages[3] && new Set(pages).size === 3, `${vp} the news pager turns by hand through 3 pages and wraps (${pages.join(' → ')})`);
-    // the objective: the login gift first on this save; a tap claims it and the next objective takes its place
+    check(pages.length === 4 && pages[0] === pages[3] && new Set(pages).size === 3 && pages[0] === 'objective', `${vp} the news pager turns by hand through 3 pages (the objective first) and wraps (${pages.join(' → ')})`);
+    // under Reduce motion it never turns on its own
+    const still0 = await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
+    await page.waitForTimeout(7000);
+    check(await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page) === still0, `${vp} Reduce motion: the news chip stays on its page (7 s)`);
+    // the objective: the login gift first on this save (the chip's first page); a tap claims it and the next takes its place
+    await toPage('objective');
     const o0 = await page.evaluate(() => ({ kind: document.querySelector('[data-testid="lobby-objective"]')?.dataset.kind, tile: !!document.querySelector('[data-testid="lobby-objective"] [data-testid="login-claim"]') }));
     check(o0.kind === 'login' && o0.tile, `${vp} the objective: today's login gift, its play tile wears login-claim (${JSON.stringify(o0)})`);
     await page.click('[data-testid="login-claim"]');
@@ -202,19 +243,77 @@ async function staticChecks(vp) {
     const o1 = await page.evaluate(() => ({ claimed: window.__sakura.store.profile.missions?.login?.lastDay != null || !!document.querySelector('.modal-overlay'), kind: document.querySelector('[data-testid="lobby-objective"]')?.dataset.kind }));
     check(o1.claimed && o1.kind !== 'login', `${vp} … a tap claims it and the next objective takes its place (${o1.kind})`);
     await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
-    // the corner tools: hide the UI and bring it back; the background picker
+    // the menu's tools: hide the UI and bring it back; the background picker
     await go(page, '#/lobby', 'lobby');
+    await page.click('[data-testid="top-menu"]');
+    await page.waitForSelector('[data-testid="menu-sheet"] [data-testid="lobby-hide"]', { timeout: 5000 });
+    await settle(page, 300);
     await page.click('[data-testid="lobby-hide"]');
-    await settle(page, 200);
+    await settle(page, 300);
     const hidden = await page.evaluate(() => ({ hidden: document.querySelector('#app .home')?.classList.contains('ui-hidden'), restore: !document.querySelector('[data-testid="lobby-restore"]').hidden }));
     check(hidden.hidden && hidden.restore, `${vp} hide the UI: the menus go, the restore button stays`);
     await shot(page, 'home-hidden', vp);
     await page.click('[data-testid="lobby-restore"]');
     await settle(page, 200);
     check(!(await page.evaluate(() => document.querySelector('#app .home')?.classList.contains('ui-hidden'))), `${vp} … and come back`);
+    // a long press (600 ms) on the wallpaper, not on her or a control, hides the UI too; another brings it back
+    // (landscape: the open sides; a phone held upright: her frame spans the width, so the strips between the bar, her
+    // frame, the plate and the dock — any spot with wallpaper 6 px around it; looked for again once the UI hides, as
+    // she may stand taller then)
+    const findWall = () => page.evaluate(() => {
+      const isWall = (x, y) => {
+        const e = document.elementFromPoint(x, y);
+        return !!(e && e.closest('#app .home-stage-host') && !e.closest('.home-host'));
+      };
+      const roomy = (x, y) => isWall(x, y) && isWall(x - 6, y) && isWall(x + 6, y) && isWall(x, y - 6) && isWall(x, y + 6);
+      for (const fy of [0.45, 0.3, 0.6, 0.2]) for (const fx of [0.88, 0.12, 0.8, 0.2, 0.72, 0.28, 0.97, 0.03]) {
+        if (roomy(innerWidth * fx, innerHeight * fy)) return { x: innerWidth * fx, y: innerHeight * fy };
+      }
+      for (let y = 12; y < innerHeight - 12; y += 4) for (let x = 12; x < innerWidth - 12; x += 8) if (roomy(x, y)) return { x, y };
+      return null;
+    });
+    const isHidden = () => page.evaluate(() => document.querySelector('#app .home')?.classList.contains('ui-hidden'));
+    // (held 1.2 s: twice the 600 ms, so a busy page's late timer still fires before the finger lifts)
+    const longPress = async (at) => { await page.mouse.move(at.x, at.y); await page.mouse.down(); await page.waitForTimeout(1200); await page.mouse.up(); await settle(page, 300); };
+    const wall = await findWall();
+    if (check(!!wall, `${vp} a spot on the wallpaper (${JSON.stringify(wall)})`)) {
+      await longPress(wall);
+      const lp = await page.evaluate(() => ({ hidden: document.querySelector('#app .home')?.classList.contains('ui-hidden'), restore: !document.querySelector('[data-testid="lobby-restore"]').hidden }));
+      check(lp.hidden && lp.restore, `${vp} a long press on the wallpaper hides the UI (${JSON.stringify(lp)})`);
+      const wall2 = await findWall();
+      if (wall2) await longPress(wall2);
+      check(!!wall2 && !(await isHidden()), `${vp} … and another brings it back (${JSON.stringify(wall2)})`);
+      const wall3 = await findWall();
+      if (wall3) { await page.mouse.click(wall3.x, wall3.y); await settle(page, 200); }
+      check(!!wall3 && !(await isHidden()), `${vp} … a plain tap there does nothing`);
+    }
+    if (await isHidden()) { await page.click('[data-testid="lobby-restore"]'); await settle(page, 200); }
+    await page.click('[data-testid="top-menu"]');
+    await page.waitForSelector('[data-testid="menu-sheet"] [data-testid="lobby-bg"]', { timeout: 5000 });
+    await settle(page, 300);
     await page.click('[data-testid="lobby-bg"]');
     check(!!(await page.waitForSelector('[data-testid="bgp-done"]', { timeout: 5000 }).catch(() => null)), `${vp} the background tool opens the background and secretary picker`);
     await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    // a full illustration whose girl stands right of the middle (Hikari's rampart): the corners mirror, the plate bottom
+    // left, her face box clear of every control
+    if (W > H) {
+      await homeWith(page, { secretary: 'hikari', lobbyBg: { hikari: 'hikari-rampart' } });
+      await page.waitForFunction(() => window.__sakura?.home?.current?.() === 'hikari', null, { timeout: 15000 }).catch(() => {});
+      await settle(page, 400);
+      // (her face itself, brow to chin, as src/ui/lobby/sceneLayout.js CORE: ±0.85 head radii across, 0.6 up, 0.95 down;
+      // the hair box above it is placeFull's wish, which a picture with her face near its top edge cannot always meet)
+      const mir = await page.evaluate(() => {
+        const pl = window.__sakura.home.placement();
+        const plate = document.querySelector('#app .home-plate').getBoundingClientRect();
+        const r = pl?.scene?.r || 0;
+        const face = pl ? { x: pl.faceX - 0.85 * r, y: pl.faceY - 0.6 * r, w: 1.7 * r, h: 1.55 * r } : null;
+        return { mirrored: window.__sakura.home.mirrored(), plateLeft: plate.left < innerWidth / 2, face, hair: pl?.scene?.clear };
+      });
+      const hitF = mir.face ? (await boxesOf(page)).filter((b) => overlaps(mir.face, b)) : ['no face'];
+      check(mir.mirrored && mir.plateLeft && !hitF.length, `${vp} a full illustration with her right of the middle: the corners mirror, her face clear (${JSON.stringify({ ...mir, face: mir.face && [mir.face.x, mir.face.y, mir.face.w, mir.face.h].map(Math.round) })}${hitF.length ? `; under ${hitF.map((b) => b.name || b).join(', ')}` : ''})`);
+      await shot(page, 'home-illustration', vp);
+      await homeWith(page, { secretary: 'hikari', lobbyBg: { hikari: 'hikari-day' } });
+    }
     // Marumi as the secretary under the system's Reduce motion: her still portrait, no canvas
     await homeWith(page, { secretary: 'marumi', settings: { quality: 'high', reduceMotion: false } });
     await page.waitForTimeout(800);
@@ -285,6 +384,17 @@ async function liveChecks(vp) {
     await page.evaluate(() => window.__sakura.live.renderAt(2));
     await settle(page, 150);
     await shot(page, 'home-marumi-2s', vp);
+    await page.evaluate(() => window.__sakura.live.start());
+    // the news chip turns on its own every 6 s (motion allowed), held while a pointer is over it
+    const p0 = await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
+    await page.waitForFunction((was) => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page !== was, p0, { timeout: 9000 }).catch(() => {});
+    const p1 = await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page);
+    check(p1 && p1 !== p0, `${vp} the news chip turns on its own (${p0} → ${p1})`);
+    const chip = await page.evaluate(() => { const r = document.querySelector('#app [data-testid="lobby-news"] .go').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await page.mouse.move(chip.x, chip.y);
+    await page.waitForTimeout(7000);
+    check(await page.evaluate(() => document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page) === p1, `${vp} … and holds while the pointer is over it (7 s)`);
+    await page.mouse.move(2, H / 2);
     // the menu sheet over her scene
     await page.click('[data-testid="top-menu"]');
     await settle(page, 300);

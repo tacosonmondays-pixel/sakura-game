@@ -147,6 +147,12 @@ async function tap(page, x, y, touch) {
 
 /** Opens the picker on the current secretary with the lobby's picture button and reads its groups. */
 async function openPicker(page) {
+  // (home layout B: the background button rides in the menu sheet's head)
+  if (!(await page.locator('[data-testid="lobby-bg"]').count())) {
+    await page.locator('[data-testid="top-menu"]').click({ force: true });
+    await page.waitForSelector('[data-testid="menu-sheet"] [data-testid="lobby-bg"]', { timeout: 5000 });
+    await page.waitForTimeout(300);
+  }
   await page.locator('[data-testid="lobby-bg"]').click({ force: true });
   await page.waitForSelector('[data-testid="bgp-group-full"]', { timeout: 10000 });
   await page.waitForTimeout(400);

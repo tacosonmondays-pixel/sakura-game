@@ -89,7 +89,8 @@ describe('the Multiplayer row', () => {
 });
 
 describe('the home\'s source (C12: the hooks stay, the folded parts go)', () => {
-  const src = readFileSync('src/ui/screens/lobby.js', 'utf8');
+  // (home layout B: Clan, hide the UI and the background moved into the menu sheet, whose rows and head hold them)
+  const src = readFileSync('src/ui/screens/lobby.js', 'utf8') + readFileSync('src/ui/lobby/menuSheet.js', 'utf8');
   it('keeps the hooks the e2e use, on the elements that do those jobs now', () => {
     for (const id of ['tile-mission', 'dock-students', 'dock-recruit', 'dock-commissions', 'dock-clan', 'dock-mall', 'lobby-multiplayer', 'lobby-multiplayer-count',
       'lobby-objective', 'lobby-news', 'lobby-chapter', 'top-mail', 'top-menu', 'account-level', 'tickets', 'coins', 'gems', 'lobby-hide', 'lobby-bg', 'lobby-restore', 'campaign-open']) {

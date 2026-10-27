@@ -1,9 +1,16 @@
 /* ==========================================================================================================
-   [ui-ink] The home (lobby) at night and its main menu sheet: UI v2 "Ink & Paper" V2 (notes/ui-v2/UI_V2_DIRECTION.md
-   12.1, 12.2; the approved mock-up notes/ui-v2/home/home.css). Coordinates only, as the mock-up's: every colour,
-   shape, type and glyph comes from the kit (src/ui/styles/ink.css). Desktop (1280x720) is the default; the landscape
-   phone (844x390) is the kit's own breakpoint, max-height: 480px; a phone held upright (the rotate prompt's fallback,
-   no mock-up) stacks the UI under her. The lobby is the only night screen (src/ui/surfaceMode.js).
+   [ui-ink] The home (lobby) at night and its main menu sheet: UI v2 "Ink & Paper", home layout B "Quiet Home" (the
+   owner's Oct 27 "keep the new wallpaper concepts but change the layout"; the Oct 27 layout study, notes/ui-v2).
+   Coordinates and the home's own pieces: every colour, shape, type and glyph comes from the kit (src/ui/styles/ink.css).
+   Desktop (1280x720) is the default; the landscape phone (844x390) is the kit's own breakpoint, max-height: 480px; a
+   phone held upright (the rotate prompt's fallback) stacks the UI under her. The lobby is the only night screen
+   (src/ui/surfaceMode.js).
+   The quiet home, 844x390 [1280x720]: the bar on top; one news chip top left x 16-252 [24-344]; her face in the
+   middle; four icons bottom left x 16-284 [24-412], y 318-374 [616-696]; the Battle plate bottom right x 588-828
+   [916-1256], y 270-374 [528-696], CO-OP riding on its top-left corner y 224-270 [468-528]. A narrower screen (a
+   small phone under 760 px, a 4:3 tablet under 1180 px) stacks the icons two by two and takes the plate down to 200 px
+   [280], so her legs keep their gap between them. .mirror (a full illustration whose girl stands right of the
+   middle): the plate bottom left, the icons bottom right.
    Layers (5.5): scene 0 · scrims 1 · host 2 · bottom scrim 3 · UI 4 · top bar 10 · sheets 20+.
    ========================================================================================================== */
 
@@ -43,6 +50,21 @@
 /* (M5's sheet backdrop .ui-scrim is inset: 0: the top and bottom bands keep only their own edge) */
 .ui-night .home .ui-scrim.t { bottom: auto; }
 .ui-night .home .ui-scrim.b { top: auto; }
+/* the quiet home's scrims: none down her sides (her side stays ungraded); a soft wash in each top corner (the avatar and
+   the news chip on the left, the wallets and the buttons on the right) with the top middle, her hair, left clear; the
+   bottom band, deeper in the icons' corner, under the caps labels that float there */
+.ui-night .home :is(.ui-scrim.l, .ui-scrim.r) { display: none; }
+.ui-night .home .ui-scrim.t { height: 200px;
+  background: radial-gradient(440px 200px at 0 0, rgba(14, 25, 48, 0.86), rgba(14, 25, 48, 0.62) 50%, rgba(14, 25, 48, 0) 100%),
+    radial-gradient(720px 120px at 100% 0, rgba(14, 25, 48, 0.62), rgba(14, 25, 48, 0.34) 55%, rgba(14, 25, 48, 0) 100%); }
+.ui-night .home .ui-scrim.b { height: 220px;
+  background: radial-gradient(560px 220px at 0 100%, rgba(14, 25, 48, 0.78), rgba(14, 25, 48, 0.5) 50%, rgba(14, 25, 48, 0) 100%),
+    linear-gradient(0deg, rgba(14, 25, 48, 0.5) 0, rgba(14, 25, 48, 0) 120px); }
+.ui-night .home.mirror .ui-scrim.b {
+  background: radial-gradient(560px 220px at 100% 100%, rgba(14, 25, 48, 0.78), rgba(14, 25, 48, 0.5) 50%, rgba(14, 25, 48, 0) 100%),
+    linear-gradient(0deg, rgba(14, 25, 48, 0.5) 0, rgba(14, 25, 48, 0) 120px); }
+/* (a long press on the wallpaper hides the UI: no picture menu, no text selection on the way) */
+.home .home-stage-host { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 
 /* ---------------------------------------------------------------- the secretary (layer 2) */
 .home .home-host { position: absolute; z-index: 2; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -91,65 +113,154 @@
 .home .home-top .ol-top-chat .sc-badge { position: absolute; top: -2px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--badge-red); color: #fff;
   font: 700 13px/20px var(--font-num); box-shadow: 0 0 0 1.5px var(--plate); }
 
-/* ---------------------------------------------------------------- the rail: x 24-300, 48 px rows, y 104-440 */
-.ui-night .home .home-rail { position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); top: 104px; width: 276px; }
-.home .home-rail .ui-hrow { width: 100%; }
-.home .home-rail .ui-chip.cy { margin-left: 2px; }
-.home .home-rail .ui-count { align-self: center; }
-
-/* ---------------------------------------------------------------- the right stack: x 900-1256 */
-.home .home-stack { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 84px; width: 356px; display: flex; flex-direction: column; gap: 12px; }
-.home .home-obj { width: 100%; }
-.home .home-obj .obj-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.home .home-obj .obj-t .body { white-space: normal; }
-.home .home-obj .ui-kbd { margin-right: 4px; }
-.ui-night .home .home-obj.two { --h: 64px; }
-.home .home-news .go { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 0 0 2px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
-.home .home-news .go .ui-thumb .ia, .home .home-news .go .ui-thumb > svg:not(.g) { width: 34px; height: 34px; display: block; }
+/* ---------------------------------------------------------------- the news chip: x 24-344, y 84-140 */
+/* (--news-tall: the chip with two lines; her placement keeps clear of that height on every page, so a page turn never
+   brings the chip over her; --news-up: 1 where the chip grows upward) */
+.home .home-news-host { --news-tall: 68px; --news-up: 0; position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); top: 84px; width: 320px; }
+.ui-night .home .home-news { width: 100%; height: 56px; gap: 0; overflow: hidden; }
+.ui-night .home .home-news.two { height: var(--news-tall); }
+.home .home-news .go { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 6px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.home .home-news .go.ghost { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; background: none; }
+.ui-night .home .home-news .ui-thumb { width: 44px; height: 44px; }
+.home .home-news .go .ui-thumb .ia, .home .home-news .go .ui-thumb > svg:not(.g) { width: 36px; height: 36px; display: block; }
 .home .home-news .go .ui-thumb .ia > img, .home .home-news .go .ui-thumb .ia > svg { width: 100%; height: 100%; }
 .home .home-news .go .ui-thumb svg.g { width: 22px; height: 22px; color: var(--on-ink-dim); }
+.home .home-news .col { gap: 4px; }
 .home .home-news .body { white-space: normal; }
-.home .home-news .pager { border: 0; background: none; cursor: pointer; }
-.ui-night .home .home-news.two { height: 68px; }
-.home .home-news.two .pager { height: 100%; }
-/* the chapter entry: x 908-1256, y 372-520; its title box 240 px (names step to 30 px, then two lines) */
-.home .home-chap-host { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 372px; }
-.ui-night .home .home-chap { height: 148px; }
-.home .home-chap .emblem-wrap { display: block; flex: none; line-height: 0; }
-.ui-night .home .home-chap .title { max-width: 240px; }
-.home .home-chap .prog .num { color: var(--on-ink); }
-/* the corner tools: hide the UI, background and secretary; 0.86 opacity */
-.home .home-tools { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); top: 648px; display: flex; gap: 8px; opacity: 0.86; color: var(--on-ink); }
-.ui-night .home .home-restore { position: absolute; z-index: 4; right: calc(24px + env(safe-area-inset-right, 0px)); top: 648px; color: var(--on-ink); opacity: 0.86; }
+/* the objective's page: its play square in cyan ink (the home's one yellow is Battle's) */
+.ui-night .home .home-news .ui-play.cy { --fill: var(--plate-2); --edge: rgba(76, 214, 255, 0.6); width: 44px; height: 44px; color: var(--cyan); }
+.home .home-news .obj .k .lbl { color: var(--cyan); }
+/* "›" with "1/3": the next page */
+.ui-night .home .home-news .pager { width: 60px; height: 100%; flex: none; display: flex; align-items: center; justify-content: center; gap: 2px; border: 0; background: none; cursor: pointer;
+  color: var(--on-ink); box-shadow: inset 1px 0 0 var(--line-lo); }
+.home .home-news .pager .num { font-size: 13px; color: var(--on-ink-dim); }
+.home .home-news .pager svg.g { width: 18px; height: 18px; }
+
+/* ---------------------------------------------------------------- the four icons: x 24-412, y 616-696 */
+.home .home-dock { --ico-w: clamp(76px, 7.05vw, 90px); --ico-h: 80px; position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 4px; }
+.home.mirror .home-dock { left: auto; right: calc(24px + env(safe-area-inset-right, 0px)); }
+.ui-night .home .home-ico { position: relative; width: var(--ico-w); height: var(--ico-h); flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 0; border: 0; background: none; color: var(--on-ink); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: scale 140ms cubic-bezier(0.3, 0, 0, 1); }
+.home .home-ico > * { position: relative; z-index: 1; }
+.home .home-ico .ico { position: relative; display: block; line-height: 0; }
+.ui-night .home .home-ico svg.g { width: 28px; height: 28px; }
+.ui-night .home .home-ico .lbl { font: 600 13px/1 var(--font-num); letter-spacing: 0.06em; text-transform: uppercase; color: var(--on-ink); white-space: nowrap; }
+.home .home-ico .ui-dot { position: absolute; top: -2px; right: -7px; }
+/* a free pull: a cyan dot (live, not red: nothing to claim) */
+.home .home-ico .home-cdot { position: absolute; top: -2px; right: -7px; width: 10px; height: 10px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 2px var(--plate); }
+/* a hairline between two icons; no plate at rest, the kit's slanted press plate on press and keyboard focus */
+.home .home-ico + .home-ico::after { content: ''; position: absolute; left: -2.5px; top: 22px; bottom: 22px; width: 1px; background: var(--line-lo); }
+.home .home-ico::before { content: ''; position: absolute; inset: 2px -2px; z-index: 0; transform: skewX(var(--skew)); background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi);
+  opacity: 0; transition: opacity var(--t-snap) var(--ease-snap); }
+.home .home-ico:is(:active, :focus-visible)::before { opacity: 1; }
+.home .home-ico:is(:active, :focus-visible) svg.g { color: var(--cyan); }
+.home .home-ico:focus-visible { outline: none; }
+.home .home-ico:active { scale: 0.96; transition-duration: 100ms; }
+
+/* ---------------------------------------------------------------- the Battle plate: x 916-1256, y 528-696 */
+.home .home-battle { --bw: clamp(280px, 25.8vw, 330px); --gh: 112px; --ch: 56px; position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: var(--bw); height: calc(var(--gh) + var(--ch)); }
+.home.mirror .home-battle { right: auto; left: calc(24px + env(safe-area-inset-left, 0px)); }
+.ui-night .home .home-plate { --c: var(--cut); --fill: var(--glass-ink-1); --edge: var(--line-hi); --rw: 1px; position: absolute; inset: 0; z-index: 4; isolation: isolate; display: flex; flex-direction: column;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); background: var(--fill); color: var(--on-ink); }
+.ui-night .home .home-plate::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142),
+    calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw)); }
+.ui-night .home .home-plate > button { position: relative; z-index: 1; display: flex; align-items: center; width: 100%; border: 0; background: none; color: inherit; text-align: left; font: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ui-night .home .home-plate > button::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--plate-2); opacity: 0; transition: opacity var(--t-snap) var(--ease-snap); }
+.ui-night .home .home-plate > button:is(:active, :focus-visible)::before { opacity: 1; }
+.ui-night .home .home-plate > button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(76, 214, 255, 0.6); }
+/* the upper zone: Missions. A cyan kicker, the one heavy italic, the OPEN chip; the yellow play edge on the right */
+.ui-night .home .home-plate > .home-go { --s: calc(var(--gh) * var(--tan8)); flex: none; height: var(--gh); gap: 12px; padding: 0 calc(76px + var(--s)) 0 22px; }
+.home .home-go .txt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.home .home-go .txt .k { display: flex; align-items: center; gap: 8px; min-height: 20px; }
+.ui-night .home .home-go .title { font: italic 900 44px/1 var(--font-head); letter-spacing: -0.005em; text-transform: uppercase; color: var(--on-ink); white-space: nowrap; }
+/* (the Space hint sits in the yellow edge, under the play mark: never across the kicker or the OPEN chip) */
+.ui-night .home .home-go .ui-kbd { position: absolute; z-index: 1; right: 10px; bottom: 10px; }
+.home .home-go .txt .k .lbl { white-space: nowrap; }
+.ui-night .home .home-play { position: absolute; right: 0; top: 0; bottom: 0; width: calc(64px + var(--s)); display: grid; place-items: center; padding-left: var(--s); background: var(--yellow); color: var(--plate);
+  clip-path: polygon(var(--s) 0, 100% 0, 100% 100%, 0 100%); }
+.ui-night .home .home-play svg.g { width: 28px; height: 28px; }
+.ui-night .home .home-go:active .home-play { filter: brightness(0.92); }
+/* the lower band: the campaign's chapter (its name, the segments, n/5) */
+.ui-night .home .home-plate > .home-chapter { flex: none; height: var(--ch); gap: 10px; padding: 0 16px 0 22px; box-shadow: inset 0 1px 0 var(--line-lo); }
+.home .home-chapter .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.home .home-chapter .chap-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.15; color: var(--on-ink); }
+.home .home-chapter .prog { display: flex; align-items: center; gap: 8px; }
+.ui-night .home .home-chapter .ui-seg { width: 96px; flex: none; }
+.ui-night .home .home-chapter .num { font-size: 14px; line-height: 1; color: var(--on-ink); }
+.home .home-chapter svg.g { width: 16px; height: 16px; color: var(--on-ink-dim); flex: none; }
+/* CO-OP: a tab on the plate's top-left corner, straight where it meets the plate, a "/" right end */
+.ui-night .home .home-coop { --h: 60px; --s: calc(var(--h) * var(--tan8)); --fill: var(--glass-ink-1); --edge: var(--line-hi); --rw: 1px; position: absolute; left: 0; bottom: 100%; z-index: 4; isolation: isolate;
+  height: var(--h); min-width: 156px; display: flex; align-items: center; gap: 10px; padding: 0 calc(18px + var(--s)) 0 18px; border: 0; color: var(--on-ink); cursor: pointer;
+  background: var(--fill); clip-path: polygon(0 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%); -webkit-tap-highlight-color: transparent; transition: scale 140ms cubic-bezier(0.3, 0, 0, 1); }
+.ui-night .home .home-coop::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%, 0 0,
+    var(--rw) var(--rw),
+    calc(100% - var(--rw) * 1.15) var(--rw),
+    calc(100% - var(--s) - var(--rw) * 0.87) calc(100% - var(--rw)),
+    var(--rw) calc(100% - var(--rw)),
+    var(--rw) var(--rw)); }
+.home .home-coop > * { position: relative; z-index: 1; }
+.ui-night .home .home-coop svg.g { width: 24px; height: 24px; }
+.ui-night .home .home-coop .lbl { font: 600 15px/1 var(--font-num); letter-spacing: var(--track-menu); color: var(--on-ink); }
+.ui-night .home .home-coop:is(:active, :focus-visible) { --fill: var(--plate-2); outline: none; }
+.ui-night .home .home-coop:focus-visible { --edge: rgba(76, 214, 255, 0.6); --rw: 2px; }
+.home .home-coop:active { scale: 0.97; transition-duration: 100ms; }
+@media (hover: hover) and (pointer: fine) {
+  .ui-night .home .home-plate > button:hover::before { opacity: 0.6; }
+  .ui-night .home .home-coop:hover { --fill: var(--plate-2); }
+}
+
+/* ---------------------------------------------------------------- hide the UI: the restore button, bottom right */
+.ui-night .home .home-restore { position: absolute; z-index: 4; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); color: var(--on-ink); opacity: 0.86; }
 .ui-night .home .home-restore[hidden] { display: none; }
 
-/* ---------------------------------------------------------------- the main menu sheet (12.2) */
+/* ---------------------------------------------------------------- the main menu sheet (12.2): grouped, two columns */
 .home-menu-layer { position: fixed; inset: 0; z-index: 180; }
 .home-menu-layer.closing { opacity: 0; transition: opacity 150ms linear; pointer-events: none; }
 /* (12.2: the home stays sharp under the sheet's scrim; the 2 px blur is the day sheets', low 10) */
 .ui-night .home-menu-layer .ui-scrim-full { position: absolute; z-index: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
-.ui-night .home-menu { z-index: 1; width: 380px; padding: 16px calc(24px + env(safe-area-inset-right, 0px)) 24px 24px; display: flex; flex-direction: column; color: var(--on-ink); }
+.ui-night .home-menu { z-index: 1; width: 440px; padding: 16px calc(24px + env(safe-area-inset-right, 0px)) 24px 24px; display: flex; flex-direction: column; color: var(--on-ink); }
 .home-menu.home-menu-in { animation: home-menu-in 220ms var(--ease) both; }
 @keyframes home-menu-in { from { opacity: 0; transform: translateX(16px); } }
-.home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 12px; }
+.home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 10px; }
 .home-menu .m-head .sp { flex: 1; }
-.home-menu .m-k { flex: none; margin-top: 16px; display: flex; align-items: center; gap: 8px; }
+.home-menu .m-tools { display: flex; gap: 6px; }
+.ui-night .home-menu .m-tool { --h: 44px; gap: 6px; padding: 0 calc(10px + var(--s)); font-size: 13px; }
+.ui-night .home-menu .m-tool svg.lg { width: 18px; height: 18px; }
+/* the groups: SQUAD and ACADEMY side by side, SOCIAL under SQUAD with Settings beside it */
+.home-menu .m-cols { flex: none; margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; row-gap: 14px; align-items: end; }
+.home-menu .m-group { min-width: 0; align-self: start; }
+.home-menu .m-k { display: flex; align-items: center; gap: 8px; }
 .home-menu .m-k .ui-rule { flex: 1; }
-.home-menu .m-k + .m-grid { margin-top: 8px; }
-.home-menu .m-grid + .m-k { margin-top: 20px; }
-/* desktop has the height for one column (8 rows at a 52 px pitch); the phone keeps two columns of 168 */
-.home-menu .m-grid { flex: none; display: grid; grid-template-columns: 1fr; row-gap: 4px; }
-.home-menu .m-foot { margin-top: auto; flex: none; }
+.home-menu .m-k + .m-grid { margin-top: 6px; }
+.home-menu .m-grid { display: grid; grid-template-columns: 1fr; row-gap: 4px; }
+.home-menu .m-foot { min-width: 0; }
 .home-menu .ui-hrow { color: var(--on-ink); text-decoration: none; }
 .home-menu .ui-hrow .ui-dot { transform: translateY(-7px); }
-/* while the sheet is open, the home UI it covers or cuts (the right stack, the chapter, the corner tools, the top bar's
-   currencies and buttons) fades out in 150 ms: nothing ghosts through the glass and no pill is cut by its edge. The rail
-   and the avatar stay under the scrim. Opacity only. */
-.home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home .home-stack, .home .home-chap-host, .home .home-tools { transition: opacity 150ms linear; }
-.home-menu-open .home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-stack, .home-menu-open .home .home-chap-host, .home-menu-open .home .home-tools {
+/* while the sheet is open, the home UI it covers or cuts fades out in 150 ms (the chip, the icons, the plate, the top
+   bar's wallets and buttons): she and the avatar stay under the scrim. Opacity only. */
+.home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home .home-news-host, .home .home-dock, .home .home-battle { transition: opacity 150ms linear; }
+.home-menu-open .home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-news-host, .home-menu-open .home .home-dock, .home-menu-open .home .home-battle {
   opacity: 0; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .home-menu.home-menu-in { animation: ui-fade 150ms linear both; } }
+/* a narrow screen: her stage slides aside under the sheet so her face stays clear of it (lobby.js shiftForSheet) */
+.home .home-stage-host { transition: translate 160ms cubic-bezier(0.4, 0, 1, 1); }
+.home.menu-shift .home-stage-host { translate: var(--sheet-dx, 0px) 0; transition: translate 240ms cubic-bezier(0.3, 0, 0, 1); }
+@media (prefers-reduced-motion: reduce) { .home-menu.home-menu-in { animation: ui-fade 150ms linear both; } .home .home-stage-host { transition: none !important; } }
 html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms linear both; }
+html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 
 /* ================================================================ phone 844x390 */
 @media (max-height: 480px) {
@@ -161,38 +272,90 @@ html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms line
   .home .home-top .ui-vr { margin: 6px 0; }
   .home .home-top .ol-top-chat .sc-badge { min-width: 18px; height: 18px; font-size: 12px; line-height: 18px; }
 
-  /* 7 rows, y 50-365. (45 px, not the mock-up's 44: a 44 px row whose neighbour starts on its last line measures 43.75
-     px of real tap in the probe's scan; every control on the home is at least 44.25 px, the controls end by y 369) */
-  .ui-night .home .home-rail { left: calc(16px + env(safe-area-inset-left, 0px)); top: 50px; width: 184px; }
-  .ui-night .home .home-rail .ui-hrow { height: 45px; }
-  .ui-night .home .home-obj { --h: 46px; }
+  /* scrims, phone */
+  .ui-night .home .ui-scrim.t { height: 140px;
+    background: radial-gradient(300px 140px at 0 0, rgba(14, 25, 48, 0.86), rgba(14, 25, 48, 0.62) 50%, rgba(14, 25, 48, 0) 100%),
+      radial-gradient(520px 76px at 100% 0, rgba(14, 25, 48, 0.62), rgba(14, 25, 48, 0.34) 55%, rgba(14, 25, 48, 0) 100%); }
+  .ui-night .home .ui-scrim.b { height: 140px;
+    background: radial-gradient(400px 140px at 0 100%, rgba(14, 25, 48, 0.8), rgba(14, 25, 48, 0.52) 50%, rgba(14, 25, 48, 0) 100%),
+      linear-gradient(0deg, rgba(14, 25, 48, 0.46) 0, rgba(14, 25, 48, 0) 84px); }
+  .ui-night .home.mirror .ui-scrim.b {
+    background: radial-gradient(400px 140px at 100% 100%, rgba(14, 25, 48, 0.8), rgba(14, 25, 48, 0.52) 50%, rgba(14, 25, 48, 0) 100%),
+      linear-gradient(0deg, rgba(14, 25, 48, 0.46) 0, rgba(14, 25, 48, 0) 84px); }
+
+  /* the news chip: x 16-252, y 52-98 (46 px: every hit square on the home is at least 44.25 px in the probe's scan) */
+  .home .home-news-host { --news-tall: 60px; left: calc(16px + env(safe-area-inset-left, 0px)); top: 52px; width: 236px; }
   .ui-night .home .home-news { height: 46px; }
-  .ui-night .home .home-news .pager { width: 46px; height: 46px; }
+  .home .home-news .go { gap: 8px; padding: 0 6px 0 4px; }
+  .ui-night .home .home-news .ui-thumb { width: 36px; height: 36px; }
+  .home .home-news .go .ui-thumb .ia, .home .home-news .go .ui-thumb > svg:not(.g) { width: 30px; height: 30px; }
+  .home .home-news .go .ui-thumb svg.g { width: 18px; height: 18px; }
+  .ui-night .home .home-news .ui-play.cy { width: 36px; height: 36px; }
+  .home .home-news .col { gap: 3px; }
+  .ui-night .home .home-news .pager { width: 50px; }
+  .home .home-news .pager .num { font-size: 12px; }
+  .home .home-news .pager svg.g { width: 16px; height: 16px; }
+
+  /* the four icons: x 16-284, y 318-374 (64 x 56 each: COMMISSIONS is 60 px at 12 px) */
+  .home .home-dock { --ico-w: 64px; --ico-h: 56px; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .home.mirror .home-dock { right: calc(16px + env(safe-area-inset-right, 0px)); }
+  .ui-night .home .home-ico { gap: 5px; }
+  .ui-night .home .home-ico svg.g { width: 24px; height: 24px; }
+  .ui-night .home .home-ico .lbl { font-size: 12px; letter-spacing: 0.03em; }
+  .home .home-ico .ui-dot, .home .home-ico .home-cdot { top: -3px; right: -6px; }
+  .home .home-ico .home-cdot { width: 8px; height: 8px; }
+  .home .home-ico + .home-ico::after { top: 16px; bottom: 16px; }
+
+  /* the Battle plate: x 588-828, y 270-374 (240 x 104; 200 wide on a narrow phone); CO-OP y 224-270 */
+  .home .home-battle { --bw: clamp(200px, 28.44vw, 240px); --gh: 60px; --ch: 44px; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .home.mirror .home-battle { left: calc(16px + env(safe-area-inset-left, 0px)); }
+  .ui-night .home .home-plate > .home-go { gap: 8px; padding: 0 calc(52px + var(--s)) 0 16px; }
+  .home .home-go .txt { gap: 3px; }
+  .ui-night .home .home-go .title { font-size: 30px; }
+  .ui-night .home .home-play { width: calc(44px + var(--s)); }
+  .ui-night .home .home-play svg.g { width: 22px; height: 22px; }
+  .ui-night .home .home-plate > .home-chapter { gap: 8px; padding: 0 10px 0 16px; }
+  .home .home-chapter .txt { gap: 4px; }
+  .ui-night .home .home-chapter .ui-seg { width: 64px; height: 5px; }
+  .ui-night .home .home-chapter .num { font-size: 12px; }
+  .home .home-chapter svg.g { width: 14px; height: 14px; }
+  .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
+  .ui-night .home .home-coop svg.g { width: 20px; height: 20px; }
+  .ui-night .home .home-coop .lbl { font-size: 13px; }
+
+  .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+
+  /* the menu sheet, phone: 344 px (x 500-844), two columns of 45 px rows; her face box ends at x 490 */
+  .ui-night .home-menu { width: 344px; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 16px 16px; }
   .ui-night .home-menu .ui-hrow { height: 45px; }
-  .home-menu .m-grid { row-gap: 3px; }
-
-  .home .home-stack { right: calc(16px + env(safe-area-inset-right, 0px)); top: 50px; width: 272px; gap: 8px; }  /* objective y 50-94, news y 102-146 */
-  .home .home-obj .obj-t { gap: 4px; }
-  .ui-night .home .home-obj.two { --h: 56px; }
-  .home .home-news .go { gap: 8px; }
-  .ui-night .home .home-news.two { height: 60px; }
-  .home .home-chap-host { right: calc(16px + env(safe-area-inset-right, 0px)); top: 200px; }                  /* y 200-300 */
-  .ui-night .home .home-chap { height: 100px; }
-  .ui-night .home .home-chap .title { max-width: 196px; }                                                       /* x 556 at the most */
-  .home .home-tools { right: calc(20px + env(safe-area-inset-right, 0px)); top: 326px; gap: 10px; }            /* visuals 36, hits 46: y 321-367 */
-  .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); top: 326px; }
-
-  .ui-night .home-menu { width: 368px; padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 34px 16px; }  /* x 476-844; the footer ends at y 356 */
-  .home-menu .m-head { height: 44px; gap: 8px; margin-right: -4px; }
-  .home-menu .m-grid { grid-template-columns: 1fr 1fr; }
-  .home-menu .m-k { margin-top: 8px; }
+  .home-menu .m-head { height: 46px; gap: 6px; margin-right: -4px; }
+  .home-menu .m-tools { gap: 4px; }
+  .ui-night .home-menu .m-tool { padding: 0 calc(6px + var(--s)); font-size: 12px; gap: 5px; }
+  .ui-night .home-menu .m-tool svg.lg { width: 16px; height: 16px; }
+  .home-menu .m-cols { margin-top: 6px; column-gap: 12px; row-gap: 10px; }
   .home-menu .m-k + .m-grid { margin-top: 4px; }
-  .home-menu .m-grid + .m-k { margin-top: 12px; }
+  .home-menu .m-grid { row-gap: 3px; }
 }
 
-/* ================================================================ a phone held upright (390x844; no mock-up) */
-/* the bar on two rows (the avatar and the buttons, then the wallets), the corner tools under the wallets, her in the
-   middle, and under her the objective, the news, the chapter and the rail in two columns, in thumb reach */
+/* ================================================================ narrower landscape screens: the icons two by two */
+/* (a small phone, 667x375 or 740x360; a 4:3 tablet, 1024x768): four icons in a row and the plate leave her legs too
+   little room between them, so the icons stack in a 2 x 2 block in their corner */
+@media (max-height: 480px) and (max-width: 759px), (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) {
+  .home .home-dock { display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
+  .home .home-dock .home-ico:nth-child(3)::after { display: none; }
+}
+/* (.fold: a girl whose art reaches into the icons' corner on any landscape screen, Marumi's ball: the icons fold the
+   same way, lobby.js refold) */
+@media (min-aspect-ratio: 1/1) {
+  .home.fold .home-dock { display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
+  .home.fold .home-dock .home-ico:nth-child(3)::after { display: none; }
+}
+@media (max-height: 480px) and (max-width: 759px) { .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } }
+@media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .home .home-battle { --bw: 300px; } }
+
+/* ================================================================ a phone held upright (390x844) */
+/* the bar on two rows (the avatar and the buttons, then the wallets), her in the upper half, and under her, in thumb
+   reach: the news chip across, CO-OP on the Battle plate, the four icons across */
 @media (max-width: 700px) and (min-height: 481px) {
   .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
   .home .home-top .who { height: 44px; order: 0; }
@@ -202,16 +365,29 @@ html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms line
   .home .home-top .ui-pill { order: 4; }
   .home .home-top .ui-pill:first-of-type { margin-left: auto; }
   .home .home-top .serial { display: none; }
-  .home .home-tools { top: 120px; right: 16px; gap: 10px; }
-  .ui-night .home .home-restore { top: 120px; right: 16px; }
-  .ui-night .home .home-rail { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8px;
-    --fs-name: 16px; --icon: 20px; }
-  .ui-night .home .home-rail .ui-hrow { height: 45px; gap: 8px; padding-left: 8px; }
-  .ui-night .home .home-chap { height: auto; min-height: 100px; }
-  .home .home-stack { left: 16px; right: 16px; width: auto; top: auto; bottom: 324px; gap: 8px; }
-  .home .home-chap-host { left: 16px; right: 16px; top: auto; bottom: 216px; }
-  .ui-night .home .home-chap { height: 100px; width: 100%; }
-  .ui-night .home .home-chap .title { max-width: 240px; }
-  .ui-night .home-menu { width: min(100%, 368px); }
-  .home-menu .m-grid { grid-template-columns: 1fr 1fr; }
+  .ui-night .home .ui-scrim.b { height: 360px; background: linear-gradient(0deg, rgba(14, 25, 48, 0.82) 0, rgba(14, 25, 48, 0.62) 55%, rgba(14, 25, 48, 0) 100%); }
+  .home .home-dock { --ico-h: 56px; left: 16px; right: 16px; bottom: 16px; }
+  .ui-night .home .home-ico { flex: 1; width: auto; gap: 5px; }
+  .ui-night .home .home-ico svg.g { width: 24px; height: 24px; }
+  .ui-night .home .home-ico .lbl { font-size: 13px; letter-spacing: 0.03em; }
+  .home .home-ico + .home-ico::after { top: 16px; bottom: 16px; }
+  .home .home-battle { --gh: 60px; --ch: 44px; left: 16px; right: 16px; width: auto; bottom: 84px; }
+  .ui-night .home .home-plate > .home-go { padding: 0 calc(52px + var(--s)) 0 16px; gap: 8px; }
+  .home .home-go .txt { gap: 3px; }
+  .ui-night .home .home-go .title { font-size: 30px; }
+  .ui-night .home .home-play { width: calc(44px + var(--s)); }
+  .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
+  .ui-night .home .home-coop .lbl { font-size: 13px; }
+  .home .home-news-host { --news-tall: 60px; --news-up: 1; left: 16px; right: 16px; width: auto; top: auto; bottom: 246px; }
+  .ui-night .home .home-news { height: 46px; }
+  .ui-night .home .home-news .pager { width: 50px; }
+  .ui-night .home .home-restore { right: 16px; bottom: 16px; }
+  /* the menu: a sheet from the bottom edge, her face stays above it */
+  body.ui-night .home-menu { top: auto; left: 0; right: 0; width: 100%; max-height: 64vh; padding: 8px 16px 16px; }
+  body.ui-night .home-menu.home-menu-in { animation-name: mo-sheet-up; }
+  body.ui-night .home-menu-layer.closing > .home-menu { animation-name: mo-sheet-down; }
+  .home-menu .m-head { height: 46px; gap: 6px; }
+  .ui-night .home-menu .m-tool { padding: 0 calc(8px + var(--s)); font-size: 12px; }
+  .ui-night .home-menu .ui-hrow { height: 45px; }
+  .home-menu .m-cols { margin-top: 6px; column-gap: 12px; row-gap: 10px; }
 }
