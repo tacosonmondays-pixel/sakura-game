@@ -79,6 +79,19 @@ export function preloadImage(url, timeout = 2500) {
   });
 }
 
+/** Resolve once an <img> has loaded and decoded (or failed, or after `timeout` ms). Never rejects. */
+function imageReady(img, timeout = 2500) {
+  if (!img) return Promise.resolve();
+  const loaded = img.decode
+    ? img.decode().catch(() => {})
+    : new Promise((r) => {
+      if (img.complete) return r();
+      img.addEventListener('load', r, { once: true });
+      img.addEventListener('error', r, { once: true });
+    });
+  return Promise.race([loaded, new Promise((r) => setTimeout(r, timeout))]);
+}
+
 function stillFor(stageId) {
   if (!stillProvider || !stageId) return Promise.resolve(null);
   if (!stillCache.has(stageId)) {
@@ -115,9 +128,13 @@ export function createBackdrop(el, { chapter = 0 } = {}) {
     layer.classList.add('sp-bg-in');
     if (instant) layer.classList.add('sp-bg-instant');
     el.appendChild(layer);
-    // two frames so the opacity transition runs
-    requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('on')));
-    setTimeout(() => old.forEach((o) => o.remove()), instant ? 0 : FADE_MS + 60);
+    // every place is its own picture now: keep the old layer until the new one has decoded (capped), so a slow
+    // phone never flashes black between two backgrounds
+    imageReady(layer.querySelector('img')).then(() => {
+      // two frames so the opacity transition runs
+      requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('on')));
+      setTimeout(() => old.forEach((o) => o.remove()), instant ? 0 : FADE_MS + 60);
+    });
   }
 
   return {
