@@ -1,38 +1,48 @@
-// The home (lobby) at night: UI v2 "Ink & Paper" V2 (notes/ui-v2/UI_V2_DIRECTION.md 12.1 and 12.2; the build plan's
-// V2). Layers and the host: src/ui/lobby/artStage.js. Coordinates: src/ui/styles/home.css.
+// The home (lobby) at night: UI v2 "Ink & Paper" (notes/ui-v2/UI_V2_DIRECTION.md 12.1 and 12.2), home layout A (the
+// owner, Oct 27: "keep the new wallpaper concepts but change the layout"; Oct 24: "the homescreen is kinda packed"):
+// fewer, calmer pieces, one obvious primary (BATTLE), the wallpaper and the girl are the show. Layers and the host:
+// src/ui/lobby/artStage.js. Coordinates: src/ui/styles/home.css.
 //
 //   · the scene: the player's lobby background in the cooler night grade (public/art/lobby/<id>-home.webp, or the
 //     kit's CSS grade): her stand over the academy (over an event's painted backdrop while it runs), or one of her full
 //     illustrations (src/data/lobbyIllustrations.js: no stand, no bubble); the scrims, the secretary placed by her face
-//     anchor (src/ui/faceAnchors.js), her bubble on a tap only; Marumi's living scene when she is the secretary on High
-//     or Medium graphics and no full illustration is picked (src/ui/lobby/liveSlot.js)
-//   · the floating top bar: the avatar with the account level's cyan EXP arc, the name and LV; tickets, coins and gems;
-//     chat, mail (a red count) and the menu (a red dot when something inside is new)
-//   · the text rail: BATTLE, STUDENTS, RECRUIT (a cyan FREE PULL chip), COMMISSIONS (a red dot), CLAN, MALL, MULTIPLAYER
-//     (the red number of open invites); no plate at rest, a slanted plate on press and keyboard focus
-//   · the right stack: the objective (the home's one yellow: its play tile), the news card (paged by hand), the chapter
-//     entry (the home's one heavy italic); the corner tools (hide the UI, background and secretary)
-//   · the main menu: a side sheet from the right (src/ui/lobby/menuSheet.js)
+//     anchor (src/ui/faceAnchors.js) at 0.42 of the width on a phone, 0.40 on desktop (hostPlace.js homeTarget), her
+//     bubble on a tap only; Marumi's living scene when she is the secretary on High or Medium graphics and no full
+//     illustration is picked (src/ui/lobby/liveSlot.js)
+//   · the floating top bar: the avatar with the account level's cyan EXP arc, the name and LV; tickets (a line glyph),
+//     coins and gems (their colour art; gems keep their "+"); chat, mail (a red count) and the menu (a red dot when
+//     something inside is new)
+//   · two chips under the account: the news (paged by hand: the event, the weekly bosses, the notice) and the
+//     objective (its play square cyan: the home's one yellow is BATTLE's)
+//   · the right column, three slanted ink tiles, the biggest at the bottom in thumb reach: MULTIPLAYER (the red number
+//     of open invites), RECRUIT (the pick-up girl's card art, a cyan FREE PULL chip), BATTLE (the one heavy italic and
+//     the one yellow: its play edge; it opens Missions, with its OPEN chip) over the chapter band (the campaign)
+//   · the dock in the bottom-left corner: STUDENTS, FORMATION, COMMISSIONS (a red dot), CLAN (a red dot), MALL: line
+//     glyphs and labels on the bottom scrim, no plate at rest, a slanted plate on press; the corner tools (hide the UI,
+//     background and secretary) in the bottom-right corner
+//   · the main menu: a side sheet from the right (src/ui/lobby/menuSheet.js): what the home does not show
 // The pure model (the objective's first-match order, the news card's pages): src/ui/lobbyTray.js.
 // Motion (UI v2 motion layer, src/ui/motion.js, owner Oct 27): homeEntrance() brings the home in on its first open
 // (from the boot loader or a battle's cut: waiting under the cover, playing from the reveal) and on every return from a
-// sub-screen (shorter); the balances count when they change; a red dot or count pops when it appears.
-// Hooks kept from UI M5: dock-* on the rail rows, tile-mission on BATTLE (it opens Missions, as the Campaign tile did,
-// with its "Open!" chip, campaign-open), lobby-multiplayer(-count) on MULTIPLAYER, top-mail, top-menu, top-chat,
-// tickets / coins / gems, account-level, lobby-hide / lobby-bg / lobby-restore, secretary-art / secretary-bubble,
-// event-card / event-strip / event-strip-time on the news card, lobby-continue / login-claim on the objective's play
-// tile; new: lobby-objective, lobby-news, lobby-chapter, lobby-live. Gone (C12): the tray (its Notice is the menu's
-// Notice row, shortcut-notice), the stickers, the Assault shortcut, the clock and the secretary chevrons.
+// sub-screen (shorter): the chips from the left, the tiles from the right, the dock up from the bottom; the balances
+// count when they change; a red dot or count pops when it appears.
+// Hooks: tile-mission on BATTLE (it opens Missions, with its "Open" chip, campaign-open), lobby-chapter on the chapter
+// band, dock-recruit / recruit-free on RECRUIT, lobby-multiplayer(-count) on MULTIPLAYER, dock-students,
+// dock-formation (new), dock-commissions, dock-clan, dock-mall on the dock, top-mail, top-menu, top-chat, tickets /
+// coins / gems / gems-plus, account-level, lobby-hide / lobby-bg / lobby-restore, secretary-art / secretary-bubble,
+// lobby-news / lobby-news-next with event-card / event-strip / banner-titans / banner-assault / news-notice pages,
+// lobby-objective with lobby-continue / login-claim on its play square, lobby-live. Gone from the home: the tickets'
+// "+" (the Mall still sells them), the recruit news page (RECRUIT is a tile now).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import '../styles/home.css';
 import { h, clear, toast, applyMotionPreference, accountLevel } from '../components.js';
 import { countdownChip, curArt } from '../kit.js';
-import { homeEntrance, countTo, badge, tabSwap } from '../motion.js';
+import { homeEntrance, countTo, badge, tabSwap, stagger, MOTION_UI } from '../motion.js';
 import { whenSettled } from '../transitions/index.js';
 import { openModes } from '../badges.js';
 import { modesOpenNow } from '../modesOpen.js';
-import { homeObjective, homeNews, multiplayerLabel } from '../lobbyTray.js';
+import { homeObjective, homeNews, multiplayerLabel, NEWS_MAX } from '../lobbyTray.js';
 import { openInvites, lastInvites } from '../online/openInvites.js';
 import { msToLocalWeekEnd, countdownState } from '../countdown.js';
 import { chatButton } from '../online/lobbyChat.js';
@@ -54,7 +64,6 @@ import { portraitUrl } from '../../art/portraits.js';
 import { lobbyBackgroundFor, stageModeOf, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
-import { itemIcon } from '../../art/icons.js';
 import { nextStage, chapterProgress, isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent } from '../../systems/missions.js';
 import { featuredEvent, eventWindow } from '../../systems/events.js';
@@ -64,14 +73,16 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { showNoticeModal, noticeUnread } from '../lobby/notice.js';
+import { showNoticeModal, noticeUnread, RECRUIT_FEATURED } from '../lobby/notice.js';
 import { openMenuSheet, closeMenuSheet, menuSheetOpen } from '../lobby/menuSheet.js';
 import { liveSceneFor, canWebGL2 } from '../lobby/liveSlot.js';
-import { lineGlyph, emblemSvg, chapterEmblem } from '../lineGlyphs.js';
+import { faceAnchor } from '../faceAnchors.js';
+import { lineGlyph } from '../lineGlyphs.js';
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
 import { shownTips } from '../../data/unitTips.js';
+import { PATCH_NOTES } from '../../data/patchNotes.js';
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -123,6 +134,9 @@ const g = (name, cls = '') => {
   return t.content.firstElementChild;
 };
 
+/** Home layout A's left scrim ramp (home.css .home-a .ui-scrim.l): alpha 0.5 at the edge, 0.26 at 16 %, none from 28 %. */
+export const HOME_A_SCRIM_L = Object.freeze([0.5, 0.16, 0.26, 0.28]);
+
 /** The living scenes that failed in this session (each falls back to her still portrait until a reload). */
 const liveFailed = new Set();
 /** The engine module's stats, once it has been loaded (e2e: one context at most). */
@@ -138,17 +152,22 @@ export function render(root) {
   // cover (the boot loader, a battle's cut), a return from a menu slide
   const txKind = globalThis.document?.documentElement?.dataset?.tx || '';
   const firstOpen = !txKind || txKind === 'boot' || txKind === 'cut';
-  const el = h('div.screen.lb.home', { 'data-testid': 'lobby', 'data-mo-own': '', 'data-entrance': firstOpen ? 'first' : 'return' });
+  const el = h('div.screen.lb.home.home-a', { 'data-testid': 'lobby', 'data-home-layout': 'a', 'data-mo-own': '', 'data-entrance': firstOpen ? 'first' : 'return' });
   const stageHost = h('div.home-stage-host');
   const top = h('header.ui-topbar.float.home-top');
-  const rail = h('nav.ui-hrail.home-rail', { 'aria-label': 'Main' });
-  const stack = h('div.home-stack');
-  const objHost = h('div.home-obj-host');
+  // home layout A: the two chips under the account, the right column of tiles, the dock, the corner tools. Each piece
+  // sits in a host that stays for the screen's life (its entrance plays on the host, so a redraw mid-entrance never
+  // pops a piece in); the dock's buttons are built once and only their dots are redrawn.
   const newsHost = h('div.home-news-host');
-  stack.append(objHost, newsHost);
-  const chapHost = h('div.home-chap-host');
+  const objHost = h('div.home-obj-host');
+  const left = h('div.home-left', newsHost, objHost);
+  const mpHost = h('div.home-mp-host');
+  const recHost = h('div.home-rec-host');
+  const battleHost = h('div.home-battle-host');
+  const col = h('div.home-col', mpHost, recHost, battleHost);
+  const dock = h('nav.home-dock', { 'aria-label': 'Main' });
   const tools = h('div.home-tools');
-  const ui = h('div.home-ui', rail, stack, chapHost, tools);
+  const ui = h('div.home-ui', left, col, dock, tools);
   const restore = h('button.ui-ibtn.home-restore', { type: 'button', 'aria-label': 'Show the menus', title: 'Show the menus', 'data-testid': 'lobby-restore' }, g('image'));
   el.append(stageHost, ui, top, restore);
   let eventBackdrop = null;
@@ -166,6 +185,8 @@ export function render(root) {
   /**
    * The controls' boxes the secretary keeps 8 px clear of (5.5), as laid out: their entrance slide and the screen
    * change's own motion aside (a box read mid-slide would place her against where a control is passing through).
+   * Home layout A leaves the dock out: it runs along the bottom edge on the bottom scrim, over her legs (no plates, line
+   * glyphs and labels only), as a dock does; her face and everything above her knees stay clear of every control.
    */
   const laidOut = (e) => {
     let x = 0;
@@ -178,7 +199,7 @@ export function render(root) {
   };
   const uiBoxes = () => {
     if (el.classList.contains('ui-hidden')) return [];
-    const sel = [...top.children, ...rail.children, ...stack.querySelectorAll('.ui-obj, .ui-news'), ...chapHost.children, ...tools.children];
+    const sel = [...top.children, ...left.querySelectorAll('.ui-obj, .ui-news'), ...col.querySelectorAll('.home-tile'), ...tools.children];
     const o = laidOut(el);
     return sel.filter((e) => e.offsetParent !== null).map((e) => {
       const b = laidOut(e);
@@ -218,10 +239,11 @@ export function render(root) {
   let liveToken = 0;
   let liveState = 'static';
   let loadingFor = '';
+  // (home layout A's left scrim is a corner wash behind the chips, home.css: her scene draws the same ramp)
   const liveLayout = (def) => {
     const W = el.clientWidth || innerWidth;
     const H = el.clientHeight || innerHeight;
-    return { W, H, place: def.place(W, H, uiBoxes()) };
+    return { W, H, place: def.place(W, H, uiBoxes()), scrimL: HOME_A_SCRIM_L };
   };
   const disposeLive = () => {
     liveToken++;
@@ -289,7 +311,6 @@ export function render(root) {
     stage.setLivePlacement(lay.place);
   };
   const onResize = () => {
-    fitTexts();
     relayoutLive();
     syncLive(); // (a phone turned upright shows her still; turned back, her scene again)
   };
@@ -306,7 +327,6 @@ export function render(root) {
     newsPage = n;
     buildNews(newsHost, { page: newsPage, onPage: pageNews });
     tabSwap(newsHost.firstElementChild, 1); // (the next card: a 120 ms crossfade, 12 px in from the right)
-    fitTexts();
   };
   function openMenu() {
     const p = store.profile;
@@ -324,35 +344,40 @@ export function render(root) {
       },
     });
   }
+  buildDock(dock);
   const drawAll = () => {
     buildTop(top, { onMenu: openMenu });
-    buildRail(rail);
-    buildObjective(objHost);
     buildNews(newsHost, { page: newsPage, onPage: pageNews });
-    buildChapter(chapHost);
-    fitTexts();
+    buildObjective(objHost);
+    buildMultiplayer(mpHost);
+    buildRecruit(recHost);
+    buildBattle(battleHost);
+    paintDock(dock);
   };
   drawAll();
+  // the entrance (motion.js homeEntrance): the wallpaper settles, the girl rises in, the bar comes down, the chips in
+  // from the left and the tiles from the right 40 ms apart, the dock up from the bottom 30 ms apart, the tools last
   homeEntrance({ first: firstOpen, scene: stageHost.querySelector('.home-scene'), live: stageHost.querySelector('.home-live'),
-    girl: stageHost.querySelector('.home-host'), top, rail, stack: [objHost, newsHost, chapHost], tools });
+    girl: stageHost.querySelector('.home-host'), top, rail: left, stack: [col], tools });
+  stagger(dock.children, 'up', firstOpen
+    ? { base: MOTION_UI.pieceFirstBase + MOTION_UI.pieceFirstStep, step: 30, dur: MOTION_UI.pieceFirst }
+    : { base: MOTION_UI.pieceReturnBase + MOTION_UI.pieceReturnStep, step: 20, dur: MOTION_UI.pieceReturn });
   const firstLayout = requestAnimationFrame(() => stage.relayout());
   // the entrance's window: from the render until it has played (the screen change settled, then 760 ms on a first
   // open, whose reveal began with the boot loader's 240 ms fade, so 1 s after the reveal: the wallpaper's settle; 540
   // ms on a return). Then .static: whatever has not finished (a starved phone that drew few frames) is shown as it
   // ends, and a redraw never plays it again.
-  let entering = true;
   let staticTimer = 0;
   whenSettled().then(() => {
     if (!alive) return;
     staticTimer = setTimeout(() => {
-      entering = false;
       el.classList.add('static');
     }, firstOpen ? 760 : 540);
   });
 
   // ---- the Multiplayer row's red number: open invites (read only once the social hub is ready) ----
   const paintInvites = () => {
-    const row = rail.querySelector('[data-testid="lobby-multiplayer"]');
+    const row = col.querySelector('[data-testid="lobby-multiplayer"]');
     if (row) setMultiplayerCount(row, lastInvites().count);
   };
   const refreshInvites = () => openInvites().then(() => { if (alive) paintInvites(); }).catch(() => {});
@@ -361,7 +386,6 @@ export function render(root) {
   // (the webfonts change the words' widths, so the stack's and the rail's boxes: she is placed again once they are in)
   document.fonts?.ready?.then(() => {
     if (!alive) return;
-    fitTexts();
     stage.relayout();
     relayoutLive();
   });
@@ -390,9 +414,8 @@ export function render(root) {
   window.addEventListener('keydown', onKey);
 
   const off = store.on('change', () => {
+    // (a redraw while the entrance still runs: the pieces are redrawn inside their hosts, which keep coming in)
     drawAll();
-    // (a redraw while the entrance still runs: the rebuilt rows and cards come in too, never popping in)
-    if (entering) homeEntrance({ first: firstOpen, rail, stack: [objHost, newsHost, chapHost] });
     stage.relayout();
     showSecretary().catch(() => {});
     syncLive();
@@ -534,7 +557,8 @@ function buildTop(host, { onMenu }) {
   host.append(
     who,
     h('span.sp'),
-    pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets', onPlus: () => navigate('mall', { tab: 'general' }), plusLabel: 'Get tickets' }),
+    // (home layout A: no "+" on tickets, the Mall still sells them; coins and gems wear their colour art)
+    pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets', np: true }),
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins', np: true }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
@@ -543,43 +567,110 @@ function buildTop(host, { onMenu }) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The text rail: BATTLE · STUDENTS · RECRUIT · COMMISSIONS · CLAN · MALL · MULTIPLAYER
+// The dock (home layout A): STUDENTS · FORMATION · COMMISSIONS · CLAN · MALL, along the bottom
 // ---------------------------------------------------------------------------------------------
 
-function buildRail(host) {
-  const profile = store.profile;
-  const notice = commissionsNotice(profile);
-  const fresh = openModes(modesOpenNow(profile)).length > 0;
-  const tag = recruitTag(profile);
-  const invites = lastInvites().count;
-  const rows = [
-    // BATTLE opens Missions (as the Campaign tile did): its hook and its "Open!" chip stay with it
-    { id: 'mission', label: 'Battle', glyph: 'swords', testid: 'tile-mission', go: () => navigate('missions'), chip: fresh ? { text: 'Open', testid: 'campaign-open' } : null },
-    { id: 'students', label: 'Students', glyph: 'cap', testid: 'dock-students', go: () => navigate('students') },
-    { id: 'recruit', label: 'Recruit', glyph: 'sparkles', testid: 'dock-recruit', go: () => navigate('recruit'), chip: tag ? { text: tag, testid: 'recruit-free' } : null },
-    { id: 'commissions', label: 'Commissions', glyph: 'clipboard', testid: 'dock-commissions', dot: notice.any, aria: notice.any ? 'Commissions, something to claim' : null,
-      go: () => navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {}) },
-    { id: 'clan', label: 'Clan', glyph: 'flag', testid: 'dock-clan', dot: hub.badges.donationsReady > 0, go: () => navigate('clan') },
-    { id: 'mall', label: 'Mall', glyph: 'bag', testid: 'dock-mall', go: () => navigate('mall') },
-    { id: 'multiplayer', label: 'Multiplayer', glyph: 'users', testid: 'lobby-multiplayer', count: invites, aria: multiplayerLabel(invites), go: () => navigate('multiplayer') },
-  ];
+/** The dock's buttons (built once; paintDock() redraws their red dots). */
+const DOCK = Object.freeze([
+  Object.freeze({ id: 'students', label: 'Students', glyph: 'cap', testid: 'dock-students', route: 'students' }),
+  Object.freeze({ id: 'formation', label: 'Formation', glyph: 'shield', testid: 'dock-formation', route: 'formation' }),
+  Object.freeze({ id: 'commissions', label: 'Commissions', glyph: 'clipboard', testid: 'dock-commissions', route: 'commissions' }),
+  Object.freeze({ id: 'clan', label: 'Clan', glyph: 'flag', testid: 'dock-clan', route: 'clan' }),
+  Object.freeze({ id: 'mall', label: 'Mall', glyph: 'bag', testid: 'dock-mall', route: 'mall' }),
+]);
+
+function buildDock(host) {
   clear(host);
-  rows.forEach((r, i) => {
-    host.appendChild(h('button.ui-hrow', { type: 'button', 'data-testid': r.testid, 'aria-label': r.aria || r.label, onclick: r.go },
-      g(r.glyph), h('span.menu-lbl', r.label),
-      r.chip ? h('span.ui-chip.cy', { 'data-testid': r.chip.testid }, r.chip.text) : null,
-      badge(r.dot ? h('i.ui-dot') : null, `home:rail:${r.id}`),
-      badge(r.count ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(r.count) }, String(r.count)) : null, `home:count:${r.id}`)));
-  });
+  for (const d of DOCK) {
+    const go = () => {
+      if (d.id !== 'commissions') return navigate(d.route);
+      const notice = commissionsNotice(store.profile);
+      return navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {});
+    };
+    host.appendChild(h('button.home-dk', { type: 'button', 'data-testid': d.testid, 'data-dock': d.id, 'aria-label': d.label, onclick: go },
+      h('span.dk-ico', g(d.glyph)), h('span.lbl.dk-lbl', d.label)));
+  }
 }
 
-/** The Multiplayer row's red number, in place (a new invite, one that ended). */
+/** The dock's red dots: Commissions (something to claim), Clan (a donation ready). */
+function paintDock(host) {
+  const profile = store.profile;
+  const dots = { commissions: commissionsNotice(profile).any, clan: hub.badges.donationsReady > 0 };
+  const aria = { commissions: 'Commissions, something to claim', clan: 'Clan, a donation is ready' };
+  for (const btn of host.children) {
+    const id = btn.dataset.dock;
+    const on = !!dots[id];
+    const had = btn.querySelector(':scope > .dk-ico > .ui-dot');
+    btn.setAttribute('aria-label', on ? aria[id] : DOCK.find((d) => d.id === id)?.label || id);
+    if (on === !!had) continue;
+    had?.remove();
+    badge(on ? btn.firstElementChild.appendChild(h('i.ui-dot')) : null, `home:dock:${id}`);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The right column (home layout A): MULTIPLAYER · RECRUIT · BATTLE over the chapter band
+// ---------------------------------------------------------------------------------------------
+
+function buildMultiplayer(host) {
+  const invites = lastInvites().count;
+  clear(host);
+  host.appendChild(h('button.home-tile.home-mp', { type: 'button', 'data-testid': 'lobby-multiplayer', 'aria-label': multiplayerLabel(invites), onclick: () => navigate('multiplayer') },
+    g('users'), h('span.menu-lbl', 'Multiplayer'),
+    badge(invites ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(invites) }, String(invites)) : null, 'home:count:multiplayer')));
+}
+
+/** The Multiplayer tile's red number, in place (a new invite, one that ended). */
 function setMultiplayerCount(row, n) {
   row.setAttribute('aria-label', multiplayerLabel(n));
   const had = row.querySelector('.ui-count');
   if (had && had.textContent === String(n)) return;
   had?.remove();
   badge(n > 0 ? row.appendChild(h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(n) }, String(n))) : null, 'home:count:multiplayer');
+}
+
+/** The Recruit tile's girl: the first of the banner's pick-ups who is not the secretary (never her face twice). */
+export function recruitPickup(secretary, featured = RECRUIT_FEATURED) {
+  return featured.find((id) => id !== secretary && UNIT_MAP[id]) || null;
+}
+
+function buildRecruit(host) {
+  const profile = store.profile;
+  const tag = recruitTag(profile);
+  const id = recruitPickup(secretaryId(profile));
+  const url = id ? portraitUrl(UNIT_MAP[id], 'card') : null;
+  // her card art in the tile's right part, framed on her face by her -card anchor (src/ui/faceAnchors.js): the words
+  // stay in the left part, never over her face
+  const a = id ? faceAnchor(id, 'card') : null;
+  const art = url ? h('span.rec-art', { 'aria-hidden': 'true', style: { '--cx': String(a?.cx ?? 0.5), '--eye': String(a?.eye ?? 0.26) } },
+    h('img', { src: url, alt: '', draggable: false, decoding: 'async', loading: 'eager' })) : null;
+  clear(host);
+  host.appendChild(h('button.home-tile.home-rec', { type: 'button', 'data-testid': 'dock-recruit', 'data-pickup': id || '', 'aria-label': tag ? `Recruit, ${tag.toLowerCase()}` : 'Recruit', onclick: () => navigate('recruit') },
+    h('span.rec-t', g('sparkles'), h('span.menu-lbl', 'Recruit'), tag ? h('span.ui-chip.cy', { 'data-testid': 'recruit-free' }, tag) : null),
+    art));
+}
+
+function buildBattle(host) {
+  const profile = store.profile;
+  const fresh = openModes(modesOpenNow(profile)).length > 0;
+  const { chapter, prog, complete } = campaignStatus(profile);
+  let medals = 0;
+  if (complete) for (const c of CHAPTERS) for (const sid of c.stages) medals += Object.values(stageMedals(profile, sid)).filter(Boolean).length;
+  // BATTLE opens Missions (as the Campaign tile did): its hook and its "Open" chip stay with it; the band under it is
+  // the chapter entry (the campaign)
+  const go = h('button.bt-go', { type: 'button', 'data-testid': 'tile-mission', 'aria-label': fresh ? 'Battle: missions, something new is open' : 'Battle: missions', onclick: () => navigate('missions') },
+    h('span.bt-t',
+      h('span.lbl.cy.bt-k', chapter && !complete ? `Campaign · Ch.${chapter.id}` : 'Campaign'),
+      h('span.bt-title', 'Battle'),
+      fresh ? h('span.ui-chip.cy.bt-open', { 'data-testid': 'campaign-open' }, 'Open') : null),
+    h('span.bt-play', g('play'))); // (no aria-hidden: the probe counts it as the home's one yellow; the button has its name)
+  const segs = chapter && !complete ? h('span.ui-seg', { style: { '--n': prog.total } }, Array.from({ length: prog.total }, (_, k) => h(`i${k < prog.cleared ? '.on' : ''}`))) : null;
+  const band = chapter ? h('button.bt-chap', { type: 'button', 'data-testid': 'lobby-chapter', 'data-chapter': chapter.id,
+    'aria-label': complete ? `Campaign, all clear: ${medals} medals` : `Campaign, chapter ${chapter.id}: ${chapter.name}, ${prog.cleared} of ${prog.total} stages cleared`,
+    onclick: () => navigate('campaign', { chapter: chapter.id }) },
+  h('span.lbl.ink.bt-name', complete ? 'All clear' : chapter.name), segs, h('span.num', complete ? `${medals} medals` : `${prog.cleared}/${prog.total}`), g('chevR')) : null;
+  clear(host);
+  host.appendChild(h('div.home-tile.home-battle', go, band));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -635,10 +726,12 @@ function buildObjective(host) {
     return navigate('campaign', s.chapter ? { chapter: s.chapter.id } : {});
   };
   clear(host);
-  host.appendChild(h('button.ui-obj.home-obj', { type: 'button', 'data-testid': 'lobby-objective', 'data-kind': o.kind, 'aria-label': `${o.kicker}: ${o.text}. Play`, onclick: play },
-    h('span.obj-t', h('span.lbl.cy', o.kicker), h('span.body', o.text)),
-    h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Space'),
-    h('span.ui-play', { 'data-testid': o.testid, title: o.kind === 'continue' ? `Continue your saved battle: ${s.save.name}` : null }, g('play'))));
+  // (home layout A: its words alone, two lines at most: they say what it is (a saved battle says "Continue"); the play
+  // square is cyan ink: the home's one yellow is BATTLE's)
+  const text = o.kind === 'continue' ? `${o.kicker}: ${o.text}` : o.text;
+  host.appendChild(h('button.ui-obj.home-obj', { type: 'button', 'data-testid': 'lobby-objective', 'data-kind': o.kind, 'aria-label': `${o.kicker}: ${o.text}. Play`, title: `${o.kicker}: ${o.text}`, onclick: play },
+    h('span.obj-t', h('span.body', text)),
+    h('span.ui-play.cy', { 'data-testid': o.testid, title: o.kind === 'continue' ? `Continue your saved battle: ${s.save.name}` : null }, g('play'))));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -666,10 +759,20 @@ function newsState(profile) {
 
 const PHASE_LABEL = { upcoming: 'Opens in', active: 'Ends in', exchange: 'Exchange closes in' };
 
+/**
+ * The news chip's pages (home layout A): the model's pages (src/ui/lobbyTray.js homeNews) without the recruit page
+ * (RECRUIT is a tile of its own), then the notice board's latest patch while there is room (it opens the Notice).
+ */
+export function homeNewsPages(s, latest = PATCH_NOTES[0]) {
+  const pages = homeNews(s).filter((p) => p.id !== 'recruit');
+  if (latest?.title && pages.length < NEWS_MAX) pages.push({ id: 'notice', kicker: 'Notice', title: latest.title, testid: 'news-notice', timeTestid: null, msLeft: null, phase: null, art: null });
+  return pages;
+}
+
 function buildNews(host, { page = 0, onPage }) {
   const profile = store.profile;
   const s = newsState(profile);
-  const pages = homeNews(s);
+  const pages = homeNewsPages(s);
   clear(host);
   if (!pages.length) return;
   const i = ((page % pages.length) + pages.length) % pages.length;
@@ -683,63 +786,22 @@ function buildNews(host, { page = 0, onPage }) {
   const go = () => {
     if (n.id === 'event') return navigate('event', { id: s.limited.id });
     if (n.id === 'weekly') return navigate('bounty', { arena: s.weekly.arena });
-    if (n.id === 'recruit') return navigate('recruit');
+    if (n.id === 'notice') return showNoticeModal();
     if (n.testid === 'banner-titans') return navigate('titans');
     if (n.testid === 'banner-assault') return isStageUnlocked(profile, 'boss-lych') ? navigate('assault') : toast(requirementText(profile, 'boss-lych'), 'info');
     return null;
   };
   const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
-  const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : 'sparkles'));
+  // (home layout A: one run of words over two lines at most: a kicker, the countdown, the title (the countdown first, so
+  // a long title never pushes it out of the two lines); no thumbnail: the chip stays small. An event's name is its own headline (no kicker); the Titan Trials show the titan's name under
+  // their own kicker.)
+  const titan = n.testid === 'banner-titans' && s.bosses?.titans?.name ? s.bosses.titans.name : null;
+  const kickerText = titan ? 'Titan Trials' : n.kicker;
+  const kicker = n.id === 'event' || n.id === 'weekly' ? null : h('span.lbl.cy', kickerText);
+  const title = titan || n.title;
   host.appendChild(h('div.ui-news.home-news', { 'data-testid': 'lobby-news', 'data-page': n.id },
     h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
-      thumb,
-      h('span.col', h('span.k', h('span.lbl', n.kicker), chip), h('span.body', n.title))),
+      h('span.run', kicker, kicker ? ' ' : null, chip, chip ? ' ' : null, h('span.body', title))),
     pages.length > 1 ? h('button.pager', { type: 'button', 'data-testid': 'lobby-news-next', 'aria-label': `Next card, ${i + 1} of ${pages.length}`, onclick: () => onPage(i + 1) },
-      h('span.ui-pips', pages.map((_, k) => h(`i${k === i ? '.on' : ''}`)))) : null));
-}
-
-// ---------------------------------------------------------------------------------------------
-// The chapter entry: emblem, cyan kicker, the one heavy italic, 5 segments, n/5 (the home's focal point)
-// ---------------------------------------------------------------------------------------------
-
-function buildChapter(host) {
-  const profile = store.profile;
-  const { chapter, prog, complete } = campaignStatus(profile);
-  clear(host);
-  if (!chapter) return;
-  let medals = 0;
-  if (complete) for (const c of CHAPTERS) for (const id of c.stages) medals += Object.values(stageMedals(profile, id)).filter(Boolean).length;
-  const segs = complete ? null : h('span.ui-seg', { style: { '--n': prog.total } }, Array.from({ length: prog.total }, (_, k) => h(`i${k < prog.cleared ? '.on' : ''}`)));
-  const el = h('button.ui-chap.home-chap', { type: 'button', 'data-testid': 'lobby-chapter', 'data-chapter': chapter.id,
-    'aria-label': complete ? `Campaign, all clear: ${medals} medals` : `Campaign, chapter ${chapter.id}: ${chapter.name}, ${prog.cleared} of ${prog.total} stages cleared`,
-    onclick: () => navigate('campaign', { chapter: chapter.id }) },
-  h('span.emblem-wrap', { html: emblemSvg(chapterEmblem(chapter.id), { cls: 'emblem' }) }),
-  h('span.txt',
-    h('span.lbl.cy', complete ? 'Campaign · All clear' : `Campaign · Chapter ${chapter.id}`),
-    h('span.ui-rule'),
-    h('span.title', chapter.name),
-    h('span.prog', segs, h('span.num', complete ? `${medals} medals` : `${prog.cleared}/${prog.total}`), g('chevR'))));
-  host.appendChild(el);
-}
-
-/**
- * Long words step down instead of clipping (6, 12.1): the chapter title 28 → 24 → two lines at 22 (desktop 36 / 30 /
- * 28), never growing left of the right stack's edge; the objective's line and the news title wrap to a second line and
- * their card grows (44 → 56 px on phones).
- */
-function fitTexts() {
-  for (const t of document.querySelectorAll('.home .ui-chap .title')) {
-    t.classList.remove('t24', 't2l');
-    const max = parseFloat(getComputedStyle(t).maxWidth) || Infinity;
-    if (t.scrollWidth > max + 0.5) t.classList.add('t24');
-    if (t.scrollWidth > max + 0.5) { t.classList.remove('t24'); t.classList.add('t2l'); }
-  }
-  for (const card of document.querySelectorAll('.home .home-obj, .home .home-news')) {
-    const body = card.querySelector('.body');
-    if (!body) continue;
-    card.classList.remove('two');
-    const cs = getComputedStyle(body);
-    const lh = cs.lineHeight.endsWith('px') ? parseFloat(cs.lineHeight) : parseFloat(cs.fontSize) * 1.2;
-    if (body.getBoundingClientRect().height > lh * 1.5) card.classList.add('two');
-  }
+      g('chevR'), h('span.ui-pips', pages.map((_, k) => h(`i${k === i ? '.on' : ''}`)))) : null));
 }

@@ -1691,6 +1691,13 @@ export function createArtStage(host, { reduceMotion, onTap, boxes, backdrop }) /
 export const HOME_BAKED                               // the lobby paintings with a baked night copy (<name>-home.webp)
 export function homeBackdropArt(file), homeFullArt(id, { portrait }) // the home's picture: the baked copy, else the CSS night grade
 export function placeFull(W, H, art, boxes)           // a full illustration: her face on the spot (placeScene), lower when a control is over her hair
+// src/ui/screens/lobby.js (home layout A): two chips under the account (.home-left: the news chip, the objective), the
+// right column (.home-col: MULTIPLAYER, RECRUIT, BATTLE over the chapter band), the dock (.home-dock: Students,
+// Formation, Commissions, Clan, Mall), the corner tools. The stage's boxes() are every control but the dock (it runs on
+// the bottom scrim; her legs may pass under it, her face box never: hostPlace.js counts the face box as a band).
+export function homeNewsPages(newsState, latestPatch)   // the news chip's pages: homeNews() without the recruit page, then the notice
+export function recruitPickup(secretaryId, featured)    // the Recruit tile's girl: the first pick-up who is not the secretary
+export const HOME_A_SCRIM_L                             // the left scrim's ramp, shared with the living scene (engine.js layout scrimL)
 // src/ui/lobby/bgPicker.js
 export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button;
                                                       // her tiles (thumbnails) under "Backdrops" and "Full illustrations"

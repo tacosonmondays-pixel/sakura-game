@@ -61,7 +61,7 @@ if (withCrops) mkdirSync(join(out, 'crops'), { recursive: true });
 
 const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 /** The home secretary's speech bubble stays clear of the rail, the right stack and the chapter (probe `apart`; [ui-ink] V2). */
-const LOBBY_APART = [['[data-testid="secretary-bubble"]', '#app .home-rail'], ['[data-testid="secretary-bubble"]', '#app .home-stack'], ['[data-testid="secretary-bubble"]', '#app .home-chap-host']];
+const LOBBY_APART = [['[data-testid="secretary-bubble"]', '#app .home-left'], ['[data-testid="secretary-bubble"]', '#app .home-col'], ['[data-testid="secretary-bubble"]', '#app .home-dock']];
 /**
  * The Multiplayer hub's locked tiles: the "Coming soon" / "Soon" sticker clear of any other lock and of the tile's
  * words (probe `apart`; UI M5d review 2). The first pair is the review's own (a corner lock no longer drawn).

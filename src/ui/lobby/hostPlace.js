@@ -11,17 +11,24 @@
 //   4. only if no slide does it, she is drawn smaller, 2 % at a time, down to `minScale` (0.8): the largest scale that
 //      passes wins. If even that fails, the placement says `fits: false` (the caller keeps the least clash and the
 //      tests fail: the owner is asked, C5).
+// Her face box (faceBox: her face and hair, ± 8 % of the width) counts as one more band in 3 and 4, so no control is
+// ever over it, even where her drawn hair stops short of the box.
 // A painted scene with her inside it (the three scene backgrounds) cannot slide her alone: placeScene() zooms and pans
 // the whole painting so her face lands on the spot, never leaving a gap at an edge.
 
-/** The home's face spot and her size, per screen shape (12.1; desktop at 1280x720, phones at 844x390). */
+/**
+ * The home's face spot and her size, per screen shape (12.1; desktop at 1280x720, phones at 844x390). Home layout A
+ * (the right column of tiles, the two chips under the account, the dock in the bottom-left corner): her face at 0.42
+ * of the width on a phone, 0.40 on desktop, between the chips (they end by x 228 on a phone, 296 on desktop) and the
+ * column (a third of the width off the right edge), her eye line at 0.29 of the height.
+ */
 export function homeTarget(W, H) {
   if (W < H) {
     // a phone held upright (no mock-up: the rotate prompt covers it; the fallback after "Continue in portrait")
     return { x: W * 0.5, y: H * 0.235, base: H * 0.62, shiftMax: W * 0.06 };
   }
-  if (H <= 480) return { x: W * 0.485, y: H * 0.29, base: H * 1.087, shiftMax: W * 0.04 };
-  return { x: W * 0.47, y: H * 0.29, base: H * 1.111, shiftMax: W * 0.04 };
+  if (H <= 480) return { x: W * 0.42, y: H * 0.29, base: H * 1.087, shiftMax: W * 0.04 };
+  return { x: W * 0.4, y: H * 0.29, base: H * 1.111, shiftMax: W * 0.04 };
 }
 
 /** Ruri's face height (brow to chin) in her -cut: the size every girl's face is evened out to. */
@@ -125,7 +132,9 @@ export function placeHost({ W, H, aspect, anchor, extents, boxes = [], target = 
       for (const dy of drops) {
         if (wantReach && !reaches(height, dy)) continue;
         const p0 = at(height, 0, dy);
-        const dx = freeShift(bandsOf(extents, p0, H, clipY), boxes, margin, target.shiftMax);
+        const fb = faceBox(anchor, p0, W);
+        const bands = [...bandsOf(extents, p0, H, clipY), { x0: fb.x, x1: fb.x + fb.w, y0: fb.y, y1: fb.y + fb.h }];
+        const dx = freeShift(bands, boxes, margin, target.shiftMax);
         if (dx == null) continue;
         const p = at(height, dx, dy);
         return { ...p, scale: height / hFace, shift: dx, drop: dy, fits: true, floats: p.top + p.height < H - 0.5, faceX: target.x + dx, eyeY: target.y + dy, face: faceBox(anchor, p, W) };

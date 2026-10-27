@@ -159,7 +159,7 @@ async function probeBoth(page, name, { kind = 'hub', list = null } = {}) {
 }
 
 /** The home secretary's speech bubble stays clear of the rail, the right stack and the chapter entry (probe `apart`; [ui-ink] V2). */
-const LOBBY_APART = [['[data-testid="secretary-bubble"]', '#app .home-rail'], ['[data-testid="secretary-bubble"]', '#app .home-stack'], ['[data-testid="secretary-bubble"]', '#app .home-chap-host']];
+const LOBBY_APART = [['[data-testid="secretary-bubble"]', '#app .home-left'], ['[data-testid="secretary-bubble"]', '#app .home-col'], ['[data-testid="secretary-bubble"]', '#app .home-dock']];
 
 /**
  * UI M5d review: on the lobby, every line the secretary says (a tap on her, not her head, says the next one) keeps her
