@@ -136,8 +136,11 @@ export function headlineKind(unit) {
   return 'shooter';
 }
 
-/** What a support's buff is: "+10%" with its stat, or one word (Veil Sight, cleanse). */
-function buffOf(b) {
+/**
+ * What a support's buff is: "+10%" with its stat, or one word (Veil Sight, cleanse). The girl page passes her def's base,
+ * the battle drawer her live aura / office (drawerView.drawerStats).
+ */
+export function buffOf(b) {
   const a = b.aura || null;
   if (a?.dmgMul && a.dmgMul !== 1) return { value: `+${pctWhole(a.dmgMul)}%`, unit: 'DMG', title: `Allies in her aura deal +${pctWhole(a.dmgMul)}% damage` };
   if (a?.rateMul && a.rateMul !== 1) return { value: `+${pctWhole(a.rateMul)}%`, unit: 'SPD', title: `Allies in her aura attack +${pctWhole(a.rateMul)}% faster` };

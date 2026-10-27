@@ -665,6 +665,9 @@ describe('battleKeyAction', () => {
     expect(battleKeyAction(k({ key: 'q', code: 'KeyQ' }))).toEqual({ do: 'ult' });
     expect(battleKeyAction(k({ key: 'l', code: 'KeyL' }))).toEqual({ do: 'level' });
     expect(battleKeyAction(k({ key: ' ', code: 'Space' }))).toEqual({ do: 'wave' });
+    // Space on a focused drawer control presses it, never the wave too (the M4 review)
+    expect(battleKeyAction(k({ key: ' ', code: 'Space' }), { control: true })).toBeNull();
+    expect(battleKeyAction(k({ key: 'f', code: 'KeyF' }), { control: true })).toEqual({ do: 'speed' });
     expect(battleKeyAction(k({ key: 'f', code: 'KeyF' }))).toEqual({ do: 'speed' });
     expect(battleKeyAction(k({ key: 'Escape', code: 'Escape' }))).toEqual({ do: 'escape' });
     // browser shortcuts stay the browser's

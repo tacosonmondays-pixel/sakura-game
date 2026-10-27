@@ -751,11 +751,16 @@ export function mountBattle(root, params, hooks) {
     };
     renderer.canvas.addEventListener('pointermove', onCanvasMove);
     cleanups.push(() => renderer.canvas.removeEventListener('pointermove', onCanvasMove));
+    let keyNav = false; // the keyboard (Tab) put the focus where it is, not a pointer
+    ctx.keyFocus = () => keyNav;
     const onKey = (e) => {
       // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
       const typing = !!e.target?.closest?.('input, select, textarea') || !!document.querySelector('.modal-overlay');
       // (the upgrade tree open: only Esc; in co-op it does not pause, and nothing may fire blind behind it)
-      const act = battleKeyAction(e, { paused: ctx.paused, typing, blocked: !!ctx.tree?.isOpen });
+      // (Space on a drawer control the keyboard focused presses it, never the wave as well: the M4 review. After a
+      // click on one, Space still starts the wave, and its preventDefault keeps the clicked button from a second press)
+      const control = e.defaultPrevented || (keyNav && !!e.target?.closest?.('.bt-panel button, .bt-panel [role="button"], .bt-panel [tabindex]'));
+      const act = battleKeyAction(e, { paused: ctx.paused, typing, blocked: !!ctx.tree?.isOpen, control });
       if (!act) return;
       switch (act.do) {
         case 'escape':
@@ -801,6 +806,19 @@ export function mountBattle(root, params, hooks) {
     };
     window.addEventListener('keydown', onKey);
     cleanups.push(() => window.removeEventListener('keydown', onKey));
+    // how the focus last arrived: Tab (the keyboard) or a pointer (ctx.keyFocus; the drawer's rows read it too)
+    const onNavKey = (e) => {
+      if (e.key === 'Tab') keyNav = true;
+    };
+    const onNavPointer = () => {
+      keyNav = false;
+    };
+    window.addEventListener('keydown', onNavKey, true);
+    window.addEventListener('pointerdown', onNavPointer, true);
+    cleanups.push(() => {
+      window.removeEventListener('keydown', onNavKey, true);
+      window.removeEventListener('pointerdown', onNavPointer, true);
+    });
 
     // ---- layout: keep the map framed between HUD and tower bar --------------------------
     function insets() {

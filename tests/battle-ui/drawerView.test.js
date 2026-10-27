@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { Sim } from '../../src/sim/Sim.js';
 import {
   drawerStats, pierces, targetView, aimView, pathRowView, createBuyArm, footerView, heroNextLine, heroDrawerView,
-  sectionNumbers, drawerSections, crosspathShort, shortTeaser, hitDamage, PATH_COLORS, TARGET_CHIPS, BUY_ARM_MS, SECTION_NUMBERS,
+  crosspathShort, shortTeaser, hitDamage, PATH_COLORS, TARGET_CHIPS, BUY_ARM_MS, SECTION_NUMBERS,
   allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
 } from '../../src/ui/battle/drawerView.js';
 import { fmtNum } from '../../src/ui/format.js';
@@ -15,6 +15,25 @@ import { UNIT_MAP, towers } from '../../src/data/units.js';
 import {
   onePerPathReason, finalHolderLine, crosspathReason, crosspathWhy, onePerPathWhy, pathCap, CROSSPATH_RULE, LOCK_WHY_MAX,
 } from '../../src/ui/battle/rules.js';
+
+/** How many of these shown texts hold a number (the UI probe counts each element with a digit once). */
+function sectionNumbers(texts) {
+  return (texts || []).filter((s) => s != null && /\d/.test(String(s))).length;
+}
+
+/** The texts each section of a girl's drawer shows (for the ≤ 4 numbers rule): header, stats, paths, footer. */
+function drawerSections({ code = '', stats = [], rows = [], footer = null, target = null } = {}) {
+  const out = {
+    header: [code],
+    target: target ? target.chips.map((c) => c.label) : [],
+    stats: stats.map((c) => c.value),
+    footer: footer ? [footer.invested, footer.sellValue] : [],
+  };
+  rows.forEach((r, k) => {
+    out[`path${k}`] = [r.tierLine, r.priceText, ...(r.chips || []), r.desc, r.lock, r.holder?.line];
+  });
+  return out;
+}
 
 function battle(ids, { hero = null } = {}) {
   const sim = new Sim({ stageId: '1-2', difficulty: 'normal', loadout: ids.map((unitId) => ({ unitId })), hero: hero ? { unitId: hero } : null, seed: 5 });
@@ -64,8 +83,20 @@ describe('the stat row: the role\'s three headline stats', () => {
     const cells = drawerStats(t, st);
     expect(labels(cells)).toEqual(['DMG', 'RATE', 'RANGE', 'PIERCE']);
     expect(cells[3].value).toBe(String(st.pierce));
-    // gear Pierce alone counts as piercing (its % chance is in Details)
-    expect(pierces({ unitStats: { pierceK: 46 } }, { pierce: 1 })).toBe(true);
+    // gear Pierce alone counts only where it adds targets (towers.js shotPierce, bladeArts, drones; the M4 review):
+    // a shot without splash, a beam, drones, Kaede's blade — never a trap, strip, duel without a blade, blast, pulse or chain
+    const gear = { unitStats: { pierceK: 46 } };
+    for (const st of [{ behavior: 'projectile' }, { behavior: 'beam' }, { behavior: 'turret' }, { behavior: 'projectile', turret: { max: 2 } }]) {
+      expect(pierces(gear, { pierce: 1, ...st }), st.behavior).toBe(true);
+    }
+    expect(pierces({ ...gear, eff: { blade: {} } }, { pierce: 1, behavior: 'duel' })).toBe(true);
+    for (const st of [{ behavior: 'trap' }, { behavior: 'strip' }, { behavior: 'duel' }, { behavior: 'projectile', splash: 1 }, { behavior: 'pulse' }, { behavior: 'chain' }]) {
+      expect(pierces(gear, { pierce: 1, ...st }), JSON.stringify(st)).toBe(false);
+    }
+    // the title never reads "undefined", and says "enemy" for one
+    const one = drawerStats({ ...t, unitStats: { pierceK: 46 } }, { ...st, pierce: undefined }).find((c) => c.key === 'pierce');
+    expect(one.title).toBe('Pierces 1 enemy, +46% chance of one more');
+    expect(one.value).toBe('1');
     const miko = place(sim, 'miko');
     const momo = place(sim, 'momo');
     expect(labels(drawerStats(miko, { ...sim.towerStats(miko.uid), pierce: 3 }))).not.toContain('PIERCE');
@@ -481,7 +512,7 @@ describe('numbers per section (≤ 4)', () => {
       for (const wide of [false, true]) {
         for (let armedPath = -1; armedPath < 3; armedPath++) {
           const rows = rowsOf(sim, t, { armedPath, wide });
-          const secs = drawerSections({ code: t.tiers.join('-'), pot: 'P5', stats, rows, footer: footerView(t.spent, sim.sellValue(t.uid)), target });
+          const secs = drawerSections({ code: t.tiers.join('-'), stats, rows, footer: footerView(t.spent, sim.sellValue(t.uid)), target });
           for (const [name, texts] of Object.entries(secs)) expect(sectionNumbers(texts), `${id} ${t.tiers.join('-')} ${wide ? 'PC' : 'phone'} ${name}: ${texts.join(' | ')}`).toBeLessThanOrEqual(SECTION_NUMBERS);
         }
       }
@@ -499,7 +530,7 @@ describe('the hero drawer', () => {
     const sim = battle(['aoi'], { hero: 'hikari' });
     const h = place(sim, 'hikari');
     const st = sim.towerStats(h.uid);
-    const v = heroDrawerView(h, { xp: st.xp, level: sim.heroLevelStatus(), ult: sim.heroUltStatus() });
+    const v = heroDrawerView(h, { xp: st.xp, level: sim.heroLevelStatus(), ult: sim.heroUltStatus(), ultRank: st.ultRank });
     expect(v).toMatchObject({ name: 'Hikari', lv: 'LV 1', next: 'Steady Guard · +1 dmg', ult: { name: 'Celestial Bloom', line: 'Unlocks at LV 3', unlocked: false } });
     expect(v.xpFrac).toBeGreaterThanOrEqual(0);
     expect(v.xpFrac).toBeLessThanOrEqual(1);

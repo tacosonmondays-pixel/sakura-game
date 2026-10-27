@@ -84,7 +84,7 @@ async function go(page, hash, ready) {
 
 async function shot(page, name, vp) {
   const file = join(out, `${name}-${vp}.png`);
-  await page.screenshot({ path: file });
+  await page.screenshot({ path: file, timeout: 120000 }); // (a busy machine: SwiftShader frames can take seconds)
   console.log(`  saved ${file}`);
 }
 

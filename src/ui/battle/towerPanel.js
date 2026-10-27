@@ -13,7 +13,7 @@
 // Heroes: the hero drawer (LV, the XP bar without numbers, Level up · price, one Next line, the ult and skill rows,
 // Move, MORE with the 25-level track). An ally's girl in co-op: the same drawer, read only, with the ally note.
 // The view models are pure (drawerView.js); this module draws them and wires the actions. data-testids stay stable.
-import { h, icon, setVar } from './util.js';
+import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import {
@@ -24,8 +24,6 @@ import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
 import { ROLES, ATTACK_TYPES, ELEMENTS, STATUSES } from '../../data/types.js';
 import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
-import { potPill } from '../potential.js';
-import { potentialSummary } from '../../systems/potential.js';
 import { potentialRows, potentialRowText } from './potentialRows.js';
 import { TREE_GLYPH } from '../tagChips.js'; // [unit-info] tree button
 import { tierDesc } from '../upgradeTags.js';
@@ -38,7 +36,7 @@ import { abilityText } from '../../data/abilityText.js';
 import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
-  drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, BUY_ARM_MS,
+  drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, gearPierce, pierces, BUY_ARM_MS,
   allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
 } from './drawerView.js';
 
@@ -57,12 +55,26 @@ function statusLabel(s) {
 const stat = (n) => fmtNum(n, 'stat');
 const money = (n) => fmtNum(n || 0, 'money');
 const price = (n) => fmtNum(n || 0, 'money', { round: 'up' });
-const isWide = () => typeof window !== 'undefined' && window.innerHeight > 480;
+const isWide = () => !isPhone();
 /**
  * A lock's "i": its one-line reason in the feed (UI_DIRECTION §6.6 "tap for the one-line reason"; one toast line,
  * §5.8). One lock toast at a time: a tap on another row's "i" swaps the words in place instead of being throttled away.
  */
 const LOCK_TOAST = { key: 'path-lock', ms: 2600, replace: true };
+
+/** At most this many numbers in the girl drawer (UI_DIRECTION M2 done-when; her ⚡ row's live seconds are the one extra). */
+const DRAWER_NUMBERS = 13;
+
+/** How many shown elements under `root` hold a digit, each once (the UI probe's count, e2e/lib/uiProbe.mjs). */
+function shownNumbers(root) {
+  const seen = new Set();
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    const e = n.parentElement;
+    if (e && /\d/.test(n.nodeValue) && !e.closest('[hidden]') && e.getClientRects().length) seen.add(e);
+  }
+  return seen.size;
+}
 
 /** An ink chip button (target / aim / strips). */
 function chipBtn({ label, on = false, title = '', testid = null, mode = null, disabled = false, onClick }) {
@@ -84,7 +96,10 @@ export function createTowerPanel(ctx) {
   let more = false; // MORE: the Details sheet is open in the drawer
   let targetsOpen = false; // the target row's "+N" is open
   let heroShown = null; // the level status the Level up button shows (a tap buys exactly this)
-  const arm = createBuyArm({ now: () => performance.now() });
+  // (holdArm, tests: an open row stays open until the next tap, so a slow machine's still never finds it closed)
+  let armHeld = false;
+  let heldAt = 0;
+  const arm = createBuyArm({ now: () => (armHeld ? heldAt : performance.now()) });
   let armTimer = 0;
   const drones = createDronePanel(ctx, { rerender: () => { sig = ''; update(true); } });
   // her ⚡ ability row (abilityRow.js): built once, re-dressed on a render, its seconds painted every frame
@@ -111,7 +126,7 @@ export function createTowerPanel(ctx) {
   function buffSig(t) {
     const src = more ? (sim.buffSources?.(t.uid) || []).map((r) => `${r.kind}${r.src}${r.key}`).join('.') : '';
     const tg = (sim.buffTargets?.(t.uid) || []).map((r) => `${r.uid}${r.kinds.join('')}`).join('.');
-    const short = typeof window !== 'undefined' && window.innerHeight <= 500 ? 1 : 0;
+    const short = isPhone() ? 1 : 0;
     return `${src}/${tg}/${t.buffPick ?? -1}/${ctx.picking ?? ''}/${expanded.has(t.uid) ? 1 : 0}${short}`;
   }
 
@@ -190,6 +205,7 @@ export function createTowerPanel(ctx) {
 
   function scheduleDisarm() {
     clearTimeout(armTimer);
+    if (armHeld) return;
     armTimer = setTimeout(() => {
       arm.disarm();
       rerender();
@@ -201,8 +217,6 @@ export function createTowerPanel(ctx) {
   // ------------------------------------------------------------------------------------------------------------------
   function header(t, st, { profile }) {
     const def = t.def;
-    const pot = t.unitStats?.potential || 1;
-    const potSummary = pot >= 2 ? potentialSummary(def, pot) : '';
     const ur = isUR(def, profile);
     const portrait = svgEl(portraitHTML(def, 'thumb', { eager: true }), 'bt-panel-portrait');
     setVar(portrait, '--rarity', rarityColor(def, profile));
@@ -211,8 +225,8 @@ export function createTowerPanel(ctx) {
     const code = t.isHero
       ? h('span.bt-panel-tiers.bt-dw-lv', { 'data-testid': 'hero-lv' }, t.level >= (st.heroLevel?.max ?? 25) ? 'MAX' : fmtNum(t.level, 'level'))
       : h('span.bt-panel-tiers', { title: `Tiers ${t.tiers.join('-')}` }, t.tiers.join('-'));
-    const nameRow = h('div.bt-panel-name', h('span.bt-panel-nm', def.name), code, ur ? urBadge() : null,
-      pot >= 2 ? potPill(pot, { cls: 'bt-panel-pot', testid: 'panel-pot', title: `Potential ${pot}: ${potSummary}` }) : null);
+    // (her Potential is in MORE only: one fact once, UI_DIRECTION P7 and §6.6)
+    const nameRow = h('div.bt-panel-name', h('span.bt-panel-nm', def.name), code, ur ? urBadge() : null);
     const roleName = (ROLES[def.role]?.name || def.role || '').toUpperCase();
     const typeName = (ATTACK_TYPES[st.attackType]?.name || st.attackType || '').toUpperCase();
     // (on a phone, when the two words would wrap onto a second line, the attack type keeps only its icon: fitHeader)
@@ -252,7 +266,7 @@ export function createTowerPanel(ctx) {
         chips.push(h('button.bt-tchip.bt-tchip-more', {
           type: 'button', 'data-testid': 'target-more', 'aria-label': `${v.more} more target modes`, title: 'Priority and the other modes',
           disabled: !mine, onclick: () => { targetsOpen = true; rerender(); },
-        }, `+${v.more}`));
+        }, '+')); // (no digit: the drawer's numbers stay ≤ 13; its label says how many)
       }
       rows.push(h('div.bt-dw-row.bt-target', { 'data-testid': v.kind === 'strip' ? 'strip-row' : 'target-row' },
         h('span.bt-dw-k', v.label), h('div.bt-tchips', chips)));
@@ -378,7 +392,7 @@ export function createTowerPanel(ctx) {
       title: s === 'held' ? heldPipTitle(p.tiers[k].name, t.def.name) : `T${k + 1} ${p.tiers[k].name}`,
     })));
     const [tierNo, ...tierRest] = v.tierLine.split(' · ');
-    const tierEl = h('div.bt-path-tier', h('b', tierNo), ` · ${tierRest.join(' · ')}`);
+    const tierEl = h('div.bt-path-tier', h('span', h('b', tierNo), ` · ${tierRest.join(' · ')}`));
     let action = null;
     let extra = null;
     if (v.state === 'max') {
@@ -427,7 +441,11 @@ export function createTowerPanel(ctx) {
       },
       onkeydown: (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
+        // (Space presses the row only when the keyboard focused it; after a click on the row Space still starts the
+        // wave, controller onKey. The row's key never reaches the wave as well: the M4 review)
+        if (e.key === ' ' && !ctx.keyFocus?.()) return;
         e.preventDefault();
+        e.stopPropagation();
         e.currentTarget.click();
       },
     },
@@ -437,7 +455,7 @@ export function createTowerPanel(ctx) {
     tierEl);
     if (v.armed) {
       // the open row: one line under the whole row (its tags, the ⚡ line and the effect chips; on a phone ONE line,
-      // fitOpenRow leaves out a chip that would wrap); at 1280 the tier's sentence in place of the chips. (The ⚡ line
+      // showOpenRow leaves out a chip that would wrap); at 1280 the tier's sentence in place of the chips. (The ⚡ line
       // teaches her ability: "Unlocks Skyfall Volley" at tier 3, "Upgrades …" at tier 5; the bolt chip on the name
       // says it before that.)
       const wide = isWide();
@@ -491,7 +509,7 @@ export function createTowerPanel(ctx) {
   function heroGlance(t, st, { ally }) {
     const own = sim.hero === t;
     if (own) heroShown = sim.heroLevelStatus();
-    const v = heroDrawerView(t, { xp: st.xp, level: own ? heroShown : null, ult: own ? sim.heroUltStatus() : null, max: st.heroLevel?.max ?? 25, own });
+    const v = heroDrawerView(t, { xp: st.xp, level: own ? heroShown : null, ult: own ? sim.heroUltStatus() : null, ultRank: st.ultRank, max: st.heroLevel?.max ?? 25, own });
     const xpFill = h('span.bt-xp-fill');
     xpFill.style.width = `${(v.xpFrac * 100).toFixed(1)}%`;
     // (her ultimate's button once it is unlocked; before that the row's line says when, once)
@@ -508,7 +526,8 @@ export function createTowerPanel(ctx) {
         h('span.bt-buy-price', v.buy.priceText),
       );
     }
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), `${ctx.coop.ownerName(t.uid)}'s hero — only ${ctx.coop.ownerName(t.uid)} can level her up, retarget or move her.`) : null;
+    const note = ally ? allyNoteText(ctx.coop.ownerName(t.uid), { wide: isWide(), hero: true }) : null;
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', title: note.title, style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), note.text) : null;
     const ult = t.def.hero?.ult;
     return [
       allyNote,
@@ -586,12 +605,13 @@ export function createTowerPanel(ctx) {
       if (hit > 0) add('Damage', stat(hit));
       if (st.rate > 0 && st.behavior !== 'none') add(st.behavior === 'trap' ? 'Traps/s' : 'Attacks/s', fmtNum(st.rate, 'rate'));
     }
-    if (st.range > 0) add('Range', fmtNum(st.range, 'range'));
+    if (st.range > 0) add('Range', fmtNum(st.range, 'range', { fixed: true })); // (as the stat row: 3.0)
     if (st.behavior === 'projectile' && st.projectiles > 1) add('Targets', fmtNum(st.projectiles));
     if (st.behavior === 'beam' && st.projectiles > 1) add('Beams', fmtNum(st.projectiles));
     // gear Pierce (docs/specs/GEAR_STATS.md §A.3): "Pierce 2 (+46%)" — the % is her chance of one more target
-    const gearPierce = Math.round(t.unitStats?.pierceK || 0);
-    if (st.pierce > 1 || gearPierce > 0) add('Pierce', gearPierce > 0 ? `${fmtNum(st.pierce)} (+${gearPierce}%)` : fmtNum(st.pierce));
+    // (only where it adds targets: drawerView.gearPierce; a blast or trap shows it in its wider Splash)
+    const gear = gearPierce(t, st);
+    if (pierces(t, st)) add('Pierce', `${fmtNum(Math.max(1, st.pierce || 1))}${gear > 0 ? ` (+${gear}%)` : ''}`);
     if (st.behavior === 'pulse' && st.maxTargets < 99) add('Max hits', fmtNum(st.maxTargets));
     if (st.splash > 0) add('Splash', fmtNum(st.splash, 'range'));
     if (st.chain > 0) add('Jumps', fmtNum(st.chain));
@@ -719,7 +739,7 @@ export function createTowerPanel(ctx) {
     const sources = sim.buffSources?.(t.uid) || [];
     if (!sources.length) return null;
     const rows = buffedByRows(sources);
-    const short = typeof window !== 'undefined' && window.innerHeight <= 500;
+    const short = isPhone();
     const all = !short || expanded.has(t.uid) || rows.length <= 2;
     const shown = all ? rows : rows.slice(0, 2);
     live.buffKinds = [];
@@ -863,11 +883,60 @@ export function createTowerPanel(ctx) {
     el.dataset.uid = String(t.uid);
     el.dataset.more = String(more);
     if (refocus) el.querySelector(refocus)?.focus?.({ preventScroll: true });
+    fitNumbers(t);
+    fitAll();
+    showOpenRow(scroll, t);
+    updateLive(t, st);
+  }
+
+  /**
+   * The layout fits (the header's chips, the holder line, the path rows' name lines, her ⚡ name) and the scroll cue: on a
+   * render, when the drawer or her ⚡ row changes size (a resize, the ⚡ row opened in place), and when a web font arrives.
+   * Never on a timer: each reads the layout (the M4 review).
+   */
+  function fitAll() {
+    if (el.hidden || !live) return;
     fitHeader();
     fitHolder();
-    fitOpenRow(scroll, t);
+    fitPaths();
+    abRow.fit();
     paintScrollCue();
-    updateLive(t, st);
+  }
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => fitAll()) : null;
+  ro?.observe(el);
+  ro?.observe(abRow.el);
+  const fonts = typeof document !== 'undefined' ? document.fonts : null;
+  fonts?.addEventListener?.('loadingdone', fitAll);
+
+  /**
+   * The girl drawer shows at most DRAWER_NUMBERS numbers (UI_DIRECTION M2 done-when; her ⚡ row's live seconds are the
+   * one extra), counted as the UI probe counts them (each shown element with a digit, once). When it would pass them,
+   * whole pieces step away, in this order: tap 1's effect chips with a number, the last first (its tags and ⚡ line stay);
+   * the open row's tier code (its pips still mark the tier: at 1280 the tier's sentence holds the chips' numbers on one
+   * line); last her ⚡ row's live line, which then opens with a tap on her name as on a phone (abilityRow setFolded). An
+   * open row never needs that last step unless the closed drawer did, so tap 1 never moves the row under the pointer.
+   */
+  function fitNumbers(t) {
+    abRow.setFolded(false);
+    if (more || t.isHero) return;
+    const cooling = el.querySelector('.bt-abrow.s-charging, .bt-abrow.s-active') ? 1 : 0;
+    let over = shownNumbers(el) - DRAWER_NUMBERS - cooling;
+    if (over <= 0) return;
+    const row = el.querySelector('.bt-path.armed');
+    if (row) {
+      const fx = [...row.querySelectorAll('.bt-dw-fx')].filter((c) => /\d/.test(c.textContent));
+      while (over > 0 && fx.length) {
+        fx.pop().remove();
+        over--;
+      }
+      const code = over > 0 ? row.querySelector('.bt-path-main > .bt-path-tier > span') : null;
+      if (code?.querySelector('b')) {
+        code.replaceChildren(code.textContent.replace(/^T\d+ · /, ''));
+        over--;
+      }
+    }
+    const line = abRow.el.isConnected ? abRow.el.querySelector('.bt-abrow-line') : null;
+    if (over > 0 && line?.getClientRects().length && /\d/.test(line.textContent)) abRow.setFolded(true);
   }
 
   /**
@@ -886,7 +955,7 @@ export function createTowerPanel(ctx) {
 
   /**
    * Phones: the role and attack chips stay on one line (the attack type keeps its icon, its word in the label). Looked
-   * at again a few times a second (updateLive), so a web font that arrives late settles it.
+   * at again when a web font arrives (fitAll), so a late font settles it.
    */
   function fitHeader() {
     const chips = el.querySelector('.bt-panel-head .bt-dw-chips');
@@ -897,6 +966,35 @@ export function createTowerPanel(ctx) {
     if (b.offsetTop > a.offsetTop + 2) chips.classList.add('bt-dw-chips-icons');
   }
 
+  /**
+   * Phones: each path row's name line stays ONE line (the M4 review: a long name pushed its ⚡ chip, then the pips, onto
+   * lines of their own). Whole pieces move or step away, never cut: the pips move to the tier line; then on the open row
+   * the ⚡ chip folds (its open line says what the tier does); last, a name that still would not fit takes the smaller
+   * name size. Looked at again on a resize and when a web font arrives (fitAll), from the row's first layout.
+   */
+  function fitPaths() {
+    const phone = !isWide();
+    for (const row of el.querySelectorAll('.bt-path')) {
+      const top = row.querySelector('.bt-path-top');
+      const name = top?.querySelector('.bt-path-name');
+      const pips = row.querySelector('.bt-pips');
+      if (!name || !pips) continue;
+      if (row.classList.contains('bt-pips-low')) top.append(pips);
+      row.classList.remove('bt-pips-low');
+      name.classList.remove('bt-path-name-s');
+      top.querySelector('.bt-path-bolt')?.classList.remove('bt-fold');
+      const over = () => top.scrollWidth > top.clientWidth + 1;
+      if (!phone || !over()) continue;
+      const tier = row.querySelector('.bt-path-main > .bt-path-tier');
+      if (tier && tier.getClientRects().length) {
+        tier.append(pips);
+        row.classList.add('bt-pips-low');
+      }
+      if (over() && row.classList.contains('armed')) top.querySelector('.bt-path-bolt')?.classList.add('bt-fold');
+      if (over()) name.classList.add('bt-path-name-s');
+    }
+  }
+
   let shownArm = ''; // the open row the last render scrolled into view
   /**
    * The open row (UI_DIRECTION §6.6 "expands one line"). On a phone its tags, ⚡ line and effect chips stay on ONE
@@ -905,17 +1003,13 @@ export function createTowerPanel(ctx) {
    * bolt on the path's name still marks it). Tap 1 then brings the whole open row, its Buy button too, into view (once
    * per arming, so it never fights a scroll).
    */
-  function fitOpenRow(scroll, t) {
+  function showOpenRow(scroll, t) {
     const row = scroll.querySelector('.bt-path.armed');
     const key = row ? `${t.uid}:${row.dataset.path}` : '';
     if (!row) {
       shownArm = '';
       return;
     }
-    // (a phone's wider "Buy · 3,000" can push the ⚡ chip beside a long path name onto a line of its own: while the row
-    // is open it steps away like the pips, and the open row says what the tier does)
-    const bolt = !isWide() ? row.querySelector('.bt-path-bolt') : null;
-    if (bolt && bolt.offsetTop > row.querySelector('.bt-path-name').offsetTop + 2) bolt.classList.add('bt-fold');
     const line = !isWide() ? row.querySelector('.bt-path-chips') : null;
     if (line) {
       const over = () => line.scrollWidth > line.clientWidth + 1;
@@ -961,18 +1055,9 @@ export function createTowerPanel(ctx) {
     return mode ? `.bt-target .bt-tchip[data-mode="${mode}"]` : null;
   }
 
-  let cueAt = 0;
   function updateLive(t, st = null) {
     if (!live) return;
     abRow.update(t); // the button's seconds / ACTIVE countdown, in place
-    // (the ability row opens in place and the window can resize: the scroll cue looks again a few times a second)
-    const now = performance.now();
-    if (now - cueAt > 250) {
-      cueAt = now;
-      fitHeader();
-      fitHolder();
-      paintScrollCue();
-    }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));
     if (more) drones.updateLive();
@@ -1025,6 +1110,12 @@ export function createTowerPanel(ctx) {
     },
     /** Opens or closes MORE (keys, tests). */
     setMore,
+    /** Tests: tap 1's open row stays open until the next tap (no 2.6 s close), so a still on a slow machine finds it. */
+    holdArm(on = true) {
+      armHeld = !!on;
+      heldAt = performance.now();
+      if (armHeld) clearTimeout(armTimer);
+    },
     /** The drone shown on the drone card, or null. */
     get droneUid() {
       return uid != null ? drones.droneUid : null;
@@ -1036,6 +1127,8 @@ export function createTowerPanel(ctx) {
     destroy() {
       clearTimeout(sellTimer);
       clearTimeout(armTimer);
+      ro?.disconnect();
+      fonts?.removeEventListener?.('loadingdone', fitAll);
       el.remove();
     },
   };

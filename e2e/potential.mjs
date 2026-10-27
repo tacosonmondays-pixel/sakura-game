@@ -485,8 +485,8 @@ try {
       const txt = p.textContent.replace(/\s+/g, ' ');
       return { pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, cls: p.querySelector('[data-testid="panel-pot"]')?.className, title: p.querySelector('[data-testid="panel-pot"]')?.title, overflow: name.scrollWidth > name.clientWidth + 1, dps: st.dps, txt };
     }, placed.aoi);
-    check(panel.pill === `P${aoiP}` && /bt-panel-pot/.test(panel.cls), `${tag} battle: Aoi's panel pill "${panel.pill}" (P${aoiP})`);
-    check(/^Potential \d: Dawn Practice, Through-Shot/.test(panel.title), `${tag} battle: the pill's tooltip "${panel.title}"`);
+    // (her Potential is in MORE only, not also a pill in the drawer header: one fact once, UI_DIRECTION P7; A3 M4 review)
+    check(panel.pill == null, `${tag} battle: no Potential pill in Aoi's drawer header ("${panel.pill}")`);
     check(!panel.overflow, `${tag} battle: the name line does not overflow`);
     const aoiSim = await page.evaluate((uid) => { const t = window.__battle.sim.towers.find((x) => x.uid === uid); return { p: t.unitStats.potential, dmg: t.stats.damage, base: t.def.base.damage }; }, placed.aoi);
     check(aoiSim.p === aoiP && Math.abs(aoiSim.dmg - aoiSim.base * (aoiP >= 6 ? 1.04 * 1.04 * 1.05 : aoiP >= 4 ? 1.04 * 1.04 : 1.04)) < 1e-9, `${tag} battle: Aoi fights at P${aoiSim.p} (damage ${aoiSim.dmg})`);
@@ -532,14 +532,14 @@ try {
       const sr = sc?.getBoundingClientRect();
       const br = pb?.getBoundingClientRect();
       const potInView = !!(sr && br && br.height > 0 && br.top >= sr.top - 0.5 && br.bottom <= sr.bottom + 0.5 && sc.scrollTop === 0);
-      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: (t.potCount ?? 0) % 8, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pill: p.querySelector('[data-testid="panel-pot"]')?.textContent, crown: !!p.querySelector('[data-testid="panel-pot"] .pot-pill-crown svg'), nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1, potInView, potAt: br && sr ? [Math.round(br.top - sr.top), Math.round(br.bottom - sr.top), Math.round(sr.height)] : null };
+      return { rhythm: row('rhythm'), tempo: row('tempo'), shots: row('shots'), count: (t.potCount ?? 0) % 8, stacks: t.tempoStacks || 0, proj: window.__battle.sim.towerStats(uid).projectiles, pot: [...p.querySelectorAll('.bt-stat-cell')].find((c) => c.querySelector('span')?.textContent === 'Potential')?.querySelector('b')?.textContent, nameFull: nm && nm.scrollWidth <= nm.clientWidth + 1, potInView, potAt: br && sr ? [Math.round(br.top - sr.top), Math.round(br.bottom - sr.top), Math.round(sr.height)] : null };
     }, placed.kage);
     check(kp.potInView, `${tag} battle: Kage's Potential rows are in view when her drawer's MORE opens (top/bottom/visible ${kp.potAt?.join(' / ')})`);
     check(kp.rhythm?.name === 'Shuriken Storm' && kp.rhythm.pips === 8 && kp.rhythm.text === 'every 8th' && kp.rhythm.on === kp.count, `${tag} battle: Kage's storm pips ${JSON.stringify(kp.rhythm)} (count ${kp.count})`);
     check(kp.tempo?.name === 'Shadow Tempo' && kp.tempo.pips === 6 && kp.tempo.on === kp.stacks && kp.tempo.text === `+${kp.stacks}%`, `${tag} battle: Kage's tempo pips ${JSON.stringify(kp.tempo)} (stacks ${kp.stacks})`);
     check(kp.shots?.name === 'Shuriken' && kp.shots.text === `${kp.proj} → ${+(kp.proj * 1.08).toFixed(2)} / throw`, `${tag} battle: shuriken per throw "${kp.shots?.text}"`);
-    check(kp.pill === 'P6' && kp.crown && [kp.rhythm, kp.tempo, kp.shots].every((r) => r?.fits), `${tag} battle: Kage's P6 pill wears the crown, the rows fit the panel`);
-    check(kp.nameFull, `${tag} battle: "Kage" is not cut short beside 0-0-0 and the crowned P6 pill`);
+    check(kp.pot === 'P6' && [kp.rhythm, kp.tempo, kp.shots].every((r) => r?.fits), `${tag} battle: Kage's MORE says Potential P6 ("${kp.pot}"), the rows fit the panel`);
+    check(kp.nameFull, `${tag} battle: "Kage" is not cut short beside 0-0-0`);
     await shot(page, `battle-kage-p6-${tag}`);
     // the longest name in the panel: Kaede UR + 5-0-2 + P6 (+ the longest girl's name)
     await page.evaluate((uid) => {
@@ -554,7 +554,7 @@ try {
     }, placed.kaede);
     await page.waitForTimeout(400);
     const wide = await page.evaluate(() => { const n = document.querySelector('[data-testid="tower-panel"] .bt-panel-name'); const pill = n.querySelector('.pot-pill'); const r = n.getBoundingClientRect(); const pr = pill?.getBoundingClientRect(); return { overflow: n.scrollWidth > n.clientWidth + 1, pillIn: pr && pr.right <= r.right + 0.5, text: n.textContent }; });
-    check(!wide.overflow && wide.pillIn, `${tag} battle: "${wide.text}" fits the name line, the P6 pill inside`);
+    check(!wide.overflow, `${tag} battle: "${wide.text}" fits the name line`);
     await shot(page, `battle-longname-${tag}`);
     await page.evaluate(() => { window.__sakura.store.profile.units.kaede.awaken = 0; window.__battle.ui.paused = false; });
 

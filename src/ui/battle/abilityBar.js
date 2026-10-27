@@ -400,12 +400,14 @@ export function slotNumbers(slot) {
  * What a key does in battle (UI_DIRECTION §5.10 E8, ABILITIES_SPEC §8.3). 1–9 (the digit row or the numpad, read from
  * `e.code`, so every keyboard layout works) fire ability slots 1–9; Shift+1–9 arm tower-bar cards 1–9; E fires the
  * hero skill; Q / L / Space / F / Esc keep their jobs. Nothing while typing; only Esc while paused, or while
- * `blocked` (the upgrade tree is open: in co-op it does not pause, and nothing may fire blind behind it).
+ * `blocked` (the upgrade tree is open: in co-op it does not pause, and nothing may fire blind behind it). Space on a
+ * drawer control the keyboard focused (`control`: a path row, a price, Sell, a chip) presses that control, never the
+ * wave too.
  * @param {{ key?: string, code?: string, shiftKey?: boolean, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, repeat?: boolean }} e
- * @param {{ paused?: boolean, typing?: boolean, blocked?: boolean }} [s]
+ * @param {{ paused?: boolean, typing?: boolean, blocked?: boolean, control?: boolean }} [s]
  * @returns {{ do: 'escape'|'wave'|'speed'|'ult'|'level'|'skill'|'ability'|'card', slot?: number, index?: number }|null}
  */
-export function battleKeyAction(e, { paused = false, typing = false, blocked = false } = {}) {
+export function battleKeyAction(e, { paused = false, typing = false, blocked = false, control = false } = {}) {
   if (!e || typing) return null;
   if (e.key === 'Escape') return { do: 'escape' };
   if (paused || blocked || e.ctrlKey || e.metaKey || e.altKey) return null;
@@ -418,7 +420,7 @@ export function battleKeyAction(e, { paused = false, typing = false, blocked = f
   // no e.code (an old browser): the plain digit keys still fire slots
   if (!e.code && /^[1-9]$/.test(e.key || '') && !e.shiftKey) return e.repeat ? null : { do: 'ability', slot: Number(e.key) - 1 };
   const k = e.key;
-  if (k === ' ') return { do: 'wave' };
+  if (k === ' ') return control ? null : { do: 'wave' };
   if (k === 'f' || k === 'F') return { do: 'speed' };
   if (k === 'q' || k === 'Q') return { do: 'ult' };
   if ((k === 'l' || k === 'L') && !e.repeat) return { do: 'level' };

@@ -41,6 +41,17 @@ export async function uiProbe(page, { root = 'body', boxes = {}, skip = null } =
       if (id) return `[data-testid="${id}"]`;
       return `${el.tagName.toLowerCase()}${[...el.classList].slice(0, 2).map((c) => `.${c}`).join('')}`;
     };
+    // (to the subpixel: scrollWidth is a whole number, and a 0.6 px overflow still draws an ellipsis; a button's
+    // scrollWidth does not see its text overflow at all). Its text's width against its content box.
+    const textOverflows = (el, cs) => {
+      if (cs.whiteSpace !== 'nowrap' && cs.whiteSpace !== 'pre') return false;
+      const rg = document.createRange();
+      rg.selectNodeContents(el);
+      const text = rg.getBoundingClientRect().width;
+      const box = el.getBoundingClientRect().width - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)
+        - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0);
+      return text > box + 0.05;
+    };
     const base = document.querySelector(root) || document.body;
     const walker = document.createTreeWalker(base, NodeFilter.SHOW_TEXT);
     const numEls = new Set();
@@ -62,7 +73,7 @@ export async function uiProbe(page, { root = 'body', boxes = {}, skip = null } =
     for (const el of base.querySelectorAll('*')) {
       if (!visible(el)) continue;
       const cs = getComputedStyle(el);
-      if (cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) truncated.push({ text: el.textContent.trim().slice(0, 40), sel: sel(el) });
+      if (cs.textOverflow === 'ellipsis' && (el.scrollWidth > el.clientWidth + 1 || textOverflows(el, cs))) truncated.push({ text: el.textContent.trim().slice(0, 40), sel: sel(el) });
     }
     const rects = {};
     for (const [name, s] of Object.entries(boxes)) {

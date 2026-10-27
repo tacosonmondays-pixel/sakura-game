@@ -4,6 +4,7 @@
 //
 //   hitDamage(st)                  the damage one hit really deals (a trapper's: her trap's)
 //   drawerStats(t, st, o)          the stat row: the role's 3 headline stats (+ PIERCE where she pierces)
+//   gearPierce(t, st)              her gear Pierce % where it adds targets (shots, beams, drones, Kaede's blade), else 0
 //   targetView(t, st, o)           FIRST · LAST · STRONG · CLOSE (+N: PRIORITY, AIR) or Azami's strip chips
 //   aimView(t, mode, o)            AUTO · SET AIM for mortar / mirror girls
 //   pathRowView(def, tiers, i, st, o)  one path row: edge colour, tier line, pips, price / lock / holder / MAX
@@ -11,12 +12,11 @@
 //   footerView(spent, value, o)    INVESTED n · SELL +n (two-tap confirm)
 //   heroNextLine(def, level)       "Steady Guard · +1 dmg"
 //   heroDrawerView(t, o)           the hero drawer: LV, XP fraction, Level up price, the Next line, the ult row
-//   allyNoteText(owner, o)         the ally note: the full sentence at 1280, one short line on a phone
+//   allyNoteText(owner, o)         the ally note (a girl's or a hero's): the full sentence at 1280, one short line on a phone
 //   holderParts(line)              "Held by Aoi 5-0-0" and " · top right" (a phone's holder line drops the place to stay one line)
 //   contentBelow(port, bottoms)    how far the body's content reaches below the fold (the scroll cue's rule)
-//   sectionNumbers(texts)          how many shown texts hold a number (each section ≤ SECTION_NUMBERS)
 import { fmtNum } from '../format.js';
-import { headlineKind } from '../girlView.js';
+import { headlineKind, buffOf } from '../girlView.js';
 import { effectParts, tierTags, UPGRADE_TAGS, TRANSFORM_TAG } from '../upgradeTags.js';
 import { TARGET_MODES } from '../../data/types.js';
 import { pathCap } from './rules.js';
@@ -43,7 +43,6 @@ const MODE_HELP = {
   air: 'Flyers first, then the leader',
 };
 
-const pct = (mul) => Math.round((mul - 1) * 100);
 const label = (mode) => (TARGET_MODES[mode] || mode).toUpperCase();
 
 /** Behaviours whose hits come from what she lays on the road: the trap's damage is the hit, never her base damage. */
@@ -59,26 +58,21 @@ export function hitDamage(st) {
   return st?.damage || st?.turret?.damage || 0;
 }
 
-/** Does she pierce (the stat row's fourth cell)? Her attack passes through more than one enemy, or gear Pierce. */
-export function pierces(t, st) {
-  return (st?.pierce || 0) > 1 || Math.round(t?.unitStats?.pierceK || 0) > 0;
+/**
+ * Her gear Pierce in % where it gives her extra targets (towers.js shotPierce, bladeArts, drones): a shot without splash,
+ * a beam, her drones, Kaede's blade. 0 for traps, strips, a duel without a blade, blasts, pulses and chains: there it
+ * widens the blast (mods.js applyGearReach), adds pulse hits or one more jump, never a pierced enemy.
+ */
+export function gearPierce(t, st) {
+  const k = Math.round(t?.unitStats?.pierceK || 0);
+  const b = st?.behavior;
+  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade);
+  return k > 0 && extra ? k : 0;
 }
 
-/** A support's buff for the BUFF cell, from her live aura or office (one number at most). */
-function buffCell(st, def) {
-  const a = st.aura || null;
-  const hub = st.hub || null;
-  const base = def?.base || {};
-  if (a?.dmgMul > 1) return { value: `+${pct(a.dmgMul)}%`, unit: 'DMG', title: `Girls in her aura deal +${pct(a.dmgMul)}% damage` };
-  if (a?.rateMul > 1) return { value: `+${pct(a.rateMul)}%`, unit: 'SPD', title: `Girls in her aura attack +${pct(a.rateMul)}% faster` };
-  if (a?.rangeMul > 1) return { value: `+${pct(a.rangeMul)}%`, unit: 'RNG', title: `Girls in her aura reach +${pct(a.rangeMul)}% farther` };
-  if (a?.costCut > 0) return { value: `−${Math.round(a.costCut * 100)}%`, unit: 'COST', title: `Upgrades in her aura cost ${Math.round(a.costCut * 100)}% less` };
-  if (hub?.costCut > 0) return { value: `−${Math.round(hub.costCut * 100)}%`, unit: 'COST', title: `Upgrades in her office cost ${Math.round(hub.costCut * 100)}% less` };
-  if (a?.detection) return { value: 'Sight', unit: null, title: 'Girls in her aura gain Veil Sight' };
-  if (a?.cleanse) return { value: 'Cleanse', unit: null, title: 'Her aura clears sabotage' };
-  if (base.drink) return { value: 'Speed', unit: null, title: 'Her sports drinks speed up the girl who has dealt the most damage' };
-  if (st.brew || base.brew) return { value: 'Brew', unit: null, title: 'Her brew helps the girls she picks' };
-  return { value: 'Aura', unit: null, title: 'Her aura helps the girls around her' };
+/** Does she pierce (the stat row's fourth cell)? Her attack passes through more than one enemy, or gear Pierce does. */
+export function pierces(t, st) {
+  return (st?.pierce || 0) > 1 || gearPierce(t, st) > 0;
 }
 
 /**
@@ -123,7 +117,8 @@ export function drawerStats(t, st, { affects = null, placeCost = null, ultStatus
       break;
     }
     case 'support': {
-      const buff = buffCell(st, def);
+      // (her live aura or office: the girl page's BUFF cell, girlView.buffOf)
+      const buff = buffOf({ aura: st.aura, hub: st.hub, drink: def.base?.drink });
       const reach = st.aura?.range || st.hub?.radius || st.range;
       const n = affects ?? 0;
       cells = [
@@ -137,8 +132,10 @@ export function drawerStats(t, st, { affects = null, placeCost = null, ultStatus
       cells = [dmg, rate, range(st.range)];
   }
   if (kind !== 'support' && kind !== 'income' && pierces(t, st)) {
-    const gearPierce = Math.round(t.unitStats?.pierceK || 0);
-    cells.push({ key: 'pierce', label: 'PIERCE', value: fmtNum(Math.max(1, st.pierce || 1), 'count'), unit: null, title: gearPierce > 0 ? `Pierces ${st.pierce} enemies, +${gearPierce}% chance of one more` : `Pierces ${st.pierce} enemies` });
+    const n = Math.max(1, st.pierce || 1);
+    const gear = gearPierce(t, st);
+    const title = `Pierces ${n} ${n === 1 ? 'enemy' : 'enemies'}${gear > 0 ? `, +${gear}% chance of one more` : ''}`;
+    cells.push({ key: 'pierce', label: 'PIERCE', value: fmtNum(n, 'count'), unit: null, title });
   }
   return cells.map((c, i) => ({ ...c, accent: i === 0 }));
 }
@@ -324,18 +321,18 @@ export function heroNextLine(def, level) {
  * The hero drawer's Glance (UI_DIRECTION §6.6): LV, the XP bar's fraction (no numbers on it), the Level up price,
  * one Next line, the ult row.
  * @param {object} t the hero TowerRT
- * @param {{ xp?: object|null, level?: object|null, ult?: object|null, max?: number, own?: boolean }} o
- *   xp: towerStats().xp; level: sim.heroLevelStatus() (own hero); ult: sim.heroUltStatus() (own hero)
+ * @param {{ xp?: object|null, level?: object|null, ult?: object|null, ultRank?: number, max?: number, own?: boolean }} o
+ *   xp: towerStats().xp; level: sim.heroLevelStatus() (own hero); ult: sim.heroUltStatus() (own hero);
+ *   ultRank: towerStats().ultRank (the sim's, hero.js ultRank)
  */
-export function heroDrawerView(t, { xp = null, level = null, ult = null, max = 25, own = true } = {}) {
+export function heroDrawerView(t, { xp = null, level = null, ult = null, ultRank = 1, max = 25, own = true } = {}) {
   const def = t.def;
   const atMax = (t.level || 1) >= max;
   const frac = !xp || xp.next == null ? 1 : Math.max(0, Math.min(1, (xp.xp - xp.current) / Math.max(1, xp.next - xp.current)));
   const u = def.hero?.ult || null;
   const unlockAt = u?.unlockLevel ?? 3;
   const unlocked = ult ? !!ult.unlocked : (t.level || 1) >= unlockAt;
-  const ranks = u?.ranks || [];
-  const rank = 1 + ranks.filter((r) => (t.level || 1) >= r.level).length;
+  const rank = ultRank || 1;
   let buy = null;
   if (own && level && level.reason !== 'max' && level.reason !== 'noHero') {
     buy = { price: level.price, priceText: fmtNum(level.price, 'money', { round: 'up' }), poor: level.reason === 'cash', ended: level.reason === 'ended', level: level.level };
@@ -368,12 +365,12 @@ export function shortTeaser(teaser, { compact = false } = {}) {
  * short line that names her owner once ("Bea's girl · view only", the tree's ally chip), so a 16-character name still
  * fits beside the lock and her three path rows stay in view under it (the M4 re-review); the full sentence is its title.
  * @param {string} owner her owner's name
- * @param {{ wide?: boolean }} [o] wide: 1280 (the full sentence in the note)
+ * @param {{ wide?: boolean, hero?: boolean }} [o] wide: 1280 (the full sentence in the note); hero: an ally's hero
  * @returns {{ text: string, title: string }}
  */
-export function allyNoteText(owner, { wide = true } = {}) {
-  const title = `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`;
-  return { text: wide ? title : `${owner}'s girl · view only`, title };
+export function allyNoteText(owner, { wide = true, hero = false } = {}) {
+  const title = hero ? `${owner}'s hero — only ${owner} can level her up, retarget or move her.` : `${owner}'s girl — only ${owner} can upgrade, retarget or sell her.`;
+  return { text: wide ? title : `${owner}'s ${hero ? 'hero' : 'girl'} · view only`, title };
 }
 
 /**
@@ -407,23 +404,4 @@ export function contentBelow(portBottom, childBottoms) {
   let low = -Infinity;
   for (const b of childBottoms || []) if (Number.isFinite(b) && b > low) low = b;
   return low === -Infinity ? 0 : low - portBottom;
-}
-
-/** How many of these shown texts hold a number (the UI probe counts each element with a digit once). */
-export function sectionNumbers(texts) {
-  return (texts || []).filter((s) => s != null && /\d/.test(String(s))).length;
-}
-
-/** The texts each section of a girl's drawer shows (for the ≤ 4 numbers rule): header, stats, paths, footer. */
-export function drawerSections({ code = '', pot = null, stats = [], rows = [], footer = null, target = null } = {}) {
-  const out = {
-    header: [code, pot],
-    target: target ? [...target.chips.map((c) => c.label), target.more ? `+${target.more}` : null] : [],
-    stats: stats.map((c) => c.value),
-    footer: footer ? [footer.invested, footer.sellValue] : [],
-  };
-  rows.forEach((r, k) => {
-    out[`path${k}`] = [r.tierLine, r.priceText, ...(r.chips || []), r.desc, r.lock, r.holder?.line];
-  });
-  return out;
 }

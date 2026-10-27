@@ -7,8 +7,8 @@
 //   abilityRowView(sim, t, { mine, pending })   pure: what the row shows (tests/battle-ui/abilityRow.test.js)
 //   abilityLine(def, values, { coinMul })       pure: the ≤ 60-character live line
 //   pathAbilityTeaser(def, path, nextTier, { later })  pure: "⚡ T3 Hawk Eye — unlocks Skyfall Volley"
-//   createAbilityRow(ctx) → { el, update(t), sig(t) }
-import { h } from './util.js';
+//   createAbilityRow(ctx) → { el, update(t), sig(t), fit(), setFolded(on) }
+import { h, isPhone } from './util.js';
 import { svgEl } from '../components.js';
 import { fmtNum } from '../format.js';
 import { abilityText, abilityAim, abilityValues } from '../../data/abilityText.js';
@@ -205,6 +205,8 @@ export function createAbilityRow(ctx) {
   // phones show the row as one 44 px line; a tap on her ability's name opens the live line and Auto (battle.css)
   let open = false;
   let openUid = null;
+  // a wide drawer at its number budget folds the live line and Auto behind a tap on her name, as on a phone (setFolded)
+  let folded = false;
   const name = h('button.bt-abrow-name', {
     type: 'button', 'aria-expanded': 'false', 'data-testid': 'ability-row-name',
     onclick: () => {
@@ -212,6 +214,7 @@ export function createAbilityRow(ctx) {
       openUid = t?.uid ?? null;
       el.classList.toggle('open', open);
       name.setAttribute('aria-expanded', open ? 'true' : 'false');
+      fit(); // (open, Auto shares the name's line)
     },
   });
   const fire = h('button.bt-abrow-fire', { type: 'button', 'data-testid': 'ability-fire', onclick: () => onFire() });
@@ -229,6 +232,30 @@ export function createAbilityRow(ctx) {
   const el = h('div.bt-abrow', { 'data-testid': 'ability-row' },
     h('div.bt-abrow-top', svgEl(BOLT_SVG, 'bt-abrow-bolt'), name, auto, fire, chip),
     line);
+
+  /**
+   * Phones: her ability's name is never cut (UI_DIRECTION P6; the M4 review: "Tidebreaker Sh…"): when it would not fit
+   * its line beside the button, it takes two smaller lines, so the row stays one row high.
+   */
+  function fit() {
+    name.classList.remove('bt-abrow-2l');
+    if (name.isConnected && nameOverflows()) name.classList.add('bt-abrow-2l');
+  }
+
+  /**
+   * Does her name (with its ▾) run past its box? Measured to the subpixel on an unsized copy: a button's scrollWidth is a
+   * whole number, and a 0.6 px overflow still draws an ellipsis ("Shadow Doubl…").
+   */
+  function nameOverflows() {
+    const copy = name.cloneNode(true);
+    copy.removeAttribute('data-testid');
+    copy.setAttribute('aria-hidden', 'true');
+    copy.style.cssText = 'position: absolute; visibility: hidden; width: auto; min-width: 0; max-width: none; flex: none; white-space: nowrap';
+    name.parentElement.append(copy);
+    const over = copy.getBoundingClientRect().width > name.getBoundingClientRect().width + 0.01;
+    copy.remove();
+    return over;
+  }
 
   function paintAuto(on) {
     auto.classList.toggle('on', !!on);
@@ -263,7 +290,7 @@ export function createAbilityRow(ctx) {
       openUid = tower.uid;
       name.setAttribute('aria-expanded', 'false');
     }
-    el.className = `bt-abrow s-${view.state}${view.readOnly ? ' ro' : ''}${view.hero ? ' hero' : ''}${open ? ' open' : ''}`;
+    el.className = `bt-abrow s-${view.state}${view.readOnly ? ' ro' : ''}${view.hero ? ' hero' : ''}${open ? ' open' : ''}${folded ? ' fold' : ''}`;
     el.title = view.title;
     if (name.textContent !== view.name) name.textContent = view.name;
     const label = `${view.name}: ${view.line}`;
@@ -276,7 +303,9 @@ export function createAbilityRow(ctx) {
     }
     chip.hidden = !view.chip;
     if (view.chip && chip.textContent !== view.chip) chip.textContent = view.chip;
-    if (line.textContent !== view.line) line.textContent = view.line;
+    // (a phone's later-ability note is short, beside the name on its one line; the title keeps the sentence)
+    const words = view.state === 'later' && isPhone() ? 'Later update' : view.line;
+    if (line.textContent !== words) line.textContent = words;
     auto.hidden = !view.canAuto;
     paintAuto(view.auto);
     return el;
@@ -285,6 +314,12 @@ export function createAbilityRow(ctx) {
   return {
     el,
     update,
+    fit,
+    /** The drawer is at its 13 numbers (towerPanel fitNumbers): the live line and Auto open with a tap on her name. */
+    setFolded(on) {
+      folded = !!on;
+      el.classList.toggle('fold', folded);
+    },
     /** Her row's signature (state, Auto, line; not the seconds): towerPanel's re-render key. */
     sig: (tower) => rowSignature(tower ? viewOf(tower) : null),
     get view() {

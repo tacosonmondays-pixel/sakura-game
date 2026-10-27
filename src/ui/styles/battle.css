@@ -513,10 +513,11 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-spent b { font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--on-plate); }
 .bt-dw-more {
   position: relative; flex: none; padding: 4px 9px; border: 0; border-radius: 2px; transform: rotate(var(--sticker-tilt)); cursor: pointer;
-  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--plate); background: var(--yellow); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
 }
+/* (an ink chip like the target chips: yellow is for prices) */
 .bt-dw-more::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap-dense)); height: var(--tap-dense); translate: -50% -50%; }
-.bt-dw-more.open { background: var(--on-plate); }
+.bt-dw-more.open { background: var(--blue-on-plate); color: var(--plate); box-shadow: none; }
 /* an ally's girl: MORE still opens her Details (online.css greys the ally drawer's other footer buttons) */
 .bt-panel-ally .bt-panel-foot .bt-dw-more { filter: none; opacity: 1; }
 .bt-sell {
@@ -631,7 +632,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-hero-drawer-open .bt-herow { display: none; }
 /* the tower bar ends left of the open drawer (the approved panel image), so no card hides under it; the wave control
    steps left of it with the ability bar (landscape phones hide it while a drawer is open) */
-@media (min-width: 701px) {
+@media (min-width: 701px), (max-width: 700px) and (orientation: landscape) {
   .bt-has-panel .bt-bar { right: calc(var(--drawer-w) + 8px + var(--safe-right)); }
   .bt-has-panel .bt-wavectl { right: var(--bt-abar-panel-r); }
 }
@@ -681,8 +682,13 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-path-main { gap: 1px; }
   /* the name, its ⚡ chip and the pips share the first line (a longer name used to push the pips onto a line of their
      own) */
-  .bt-path-top { gap: 2px 5px; }
-  .bt-path-name { font-size: 15px; line-height: 1.05; }
+  .bt-path-top { flex-wrap: nowrap; gap: 2px 5px; }
+  .bt-path-name { font-size: 15px; line-height: 1.05; white-space: nowrap; }
+  /* the name line stays one line (towerPanel fitPaths): the pips move to the tier line, then the open row's ⚡ chip
+     folds, last the name takes the smaller size */
+  .bt-pips-low .bt-path-tier { display: flex; align-items: center; gap: 6px; }
+  .bt-pips-low .bt-path-tier .bt-pips { margin-left: auto; }
+  .bt-path-name.bt-path-name-s { font-size: 13px; }
   .bt-path-bolt { height: 16px; padding: 0 3px; }
   .bt-pips { gap: 2px; }
   .bt-pip { width: 8px; height: 5px; }
@@ -693,7 +699,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-path .bt-buy::after, .bt-panel-foot .bt-sell::after, .bt-panel .bt-abrow-fire::after {
     content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%;
   }
-  /* the open row: ONE line (fitOpenRow leaves out an effect chip that would wrap, whole) */
+  /* the open row: ONE line (towerPanel showOpenRow leaves out an effect chip that would wrap, whole) */
   .bt-path-open { gap: 2px; }
   .bt-path-chips { flex-wrap: nowrap; overflow: hidden; }
   .bt-path-chips > * { flex: none; white-space: nowrap; }
@@ -704,11 +710,12 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-panel .bt-abrow-top { min-height: 28px; }
   .bt-panel .bt-abrow-name { min-height: 28px; }
   .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
-  /* an ability that comes later: its line sits beside the name (two short lines at most), so the row stays one line */
+  /* an ability that comes later: its name on one line, the short note ("Later update", abilityRow.js) beside it, so the
+     row stays one line (the M4 review: two two-line pieces pushed the third path row under the fold) */
   .bt-panel .bt-abrow.s-later { display: flex; align-items: center; gap: 8px; }
   .bt-panel .bt-abrow.s-later .bt-abrow-top { flex: 1 1 auto; min-width: 0; }
-  .bt-panel .bt-abrow.s-later .bt-abrow-name { overflow: visible; white-space: normal; line-height: 1.05; }
-  .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: 0 1 45%; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
+  .bt-panel .bt-abrow.s-later .bt-abrow-name { line-height: 1.05; }
+  .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: none; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
   /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
   .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
   .bt-panel .bt-ally-note .bt-ico-sm { width: 13px; height: 13px; margin-right: 3px; }
@@ -840,9 +847,6 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-card { width: 68px; height: 80px; }
   .bt-card-hero { width: 72px; }
   .bt-card-art { height: 58px; }
-  /* narrow portrait: the ink drawer is a bottom sheet (the full width, at most 64 % tall) */
-  .bt-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 64%; z-index: 8; }
-  .bt-panel.bt-panel-in { animation: bt-sheet-up 0.26s var(--bt-ease); }
   .bt-has-panel .bt-wavectl, .bt-has-panel .bt-herow { display: none; }
   .bt-feed { left: 0; right: 0; margin: 0 auto; align-items: center; }
   .bt-place-hint { bottom: auto; top: calc(var(--bt-hud-h) + var(--safe-top) + 10px); font-size: 0.8rem; }
@@ -867,6 +871,20 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-wave-label { font-size: 0.56rem; letter-spacing: 0; }
   .bt-speed { width: 48px; padding: 0 6px; }
 }
+/* narrow portrait: the ink drawer is a bottom sheet (the full width, at most 64 % tall). A phone held sideways under
+   701 px wide (667x375) keeps the 288 px side drawer and the phone density (the M4 review: a 667 px sheet hid the path
+   rows) */
+@media (max-width: 700px) and (orientation: portrait) {
+  .bt-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 64%; z-index: 8; }
+  .bt-panel.bt-panel-in { animation: bt-sheet-up 0.26s var(--bt-ease); }
+}
+/* a phone held sideways under 701 px wide (667x375): the side drawer starts under the HUD's first row (the next-wave
+   row's words sit at its left, clear of the drawer), and the feed stays left of the drawer */
+@media (max-width: 700px) and (orientation: landscape) {
+  .bt-panel { top: calc(47px + var(--safe-top)); bottom: calc(4px + var(--safe-bottom)); z-index: 8; }
+  /* (its one-line toasts are the landscape phone's, below) */
+  .bt-has-panel .bt-feed { left: 8px; right: auto; margin: 0; align-items: stretch; width: min(340px, calc(100% - var(--drawer-w) - 32px - var(--safe-right))); }
+}
 @keyframes bt-sheet-up { from { transform: translateY(40%); opacity: 0.4; } }
 
 /* Landscape phones: compact everything vertically */
@@ -888,8 +906,6 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
   .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(340px, 42%); gap: 4px; align-items: stretch; }
   .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px); }
-  .bt-toast { padding: 4px 9px; font-size: 0.72rem; border-left-width: 3px; opacity: 0.92; }
-  .bt-toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .bt-toast-ico { width: 14px; height: 14px; }
   .bt-banner { padding: 6px 44px 7px; }
   .bt-banner-title { font-size: 1.35rem; }
@@ -898,6 +914,12 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-herow-portrait { width: 54px; height: 54px; }
   .bt-ult { width: 48px; height: 48px; }
   .bt-start-label { font-size: 1.15rem; }
+}
+/* landscape phones, 844x390 and under 701 px wide (667x375): one-line toasts (one rule for both, so the lock "i"'s
+   longest reason fits the same feed width on each) */
+@media (max-height: 500px) and (min-width: 701px), (max-width: 700px) and (orientation: landscape) {
+  .bt-toast { padding: 4px 9px; font-size: 0.72rem; border-left-width: 3px; opacity: 0.92; }
+  .bt-toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 }
 
 /* spawn-aware feed docking (feed.js): swap to the other top corner when a spawn gate sits under
@@ -1387,8 +1409,6 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
     white-space: normal; text-wrap: balance; border-radius: 16px; line-height: 1.25;
   }
   .bt-has-panel .bt-dr-banner > span { min-width: 0; }
-  /* a short screen: the mode hint shows only while picking */
-  .bt-panel-drones .bt-dr-hint:not(.bt-dr-picking) { display: none; }
 }
 
 /* ---------- Ability bar (src/ui/battle/abilityBar.js; ABILITIES_SPEC §8.1–§8.2, UI_DIRECTION §4.5, §6.6) ----------
@@ -1540,7 +1560,13 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   flex: 1; min-width: 0; padding: 0; border: none; background: none; text-align: left; cursor: default;
   font: 900 italic var(--fs-name)/1.1 var(--font-head); color: var(--on-plate);
 }
-@media (max-height: 500px) and (min-width: 701px) { .bt-abrow-name { cursor: pointer; min-height: 36px; } }
+@media (max-height: 480px) { .bt-abrow-name { cursor: pointer; min-height: 36px; } }
+/* a wide drawer at its 13 numbers (towerPanel fitNumbers): her live line and Auto open with a tap on her name, as on a
+   phone */
+.bt-abrow.fold .bt-abrow-name { cursor: pointer; }
+.bt-abrow.fold:not(.open) .bt-abrow-line, .bt-abrow.fold:not(.open) .bt-abrow-auto { display: none; }
+.bt-abrow.fold .bt-abrow-name::after { content: ' ▾'; font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; color: var(--on-plate-dim); }
+.bt-abrow.fold.open .bt-abrow-name::after { content: ' ▴'; }
 .bt-abrow-fire, .bt-abrow-chip {
   min-width: 68px; min-height: 40px; padding: 0 10px; flex: none; border: 2px solid var(--plate-line); border-radius: var(--radius-plate);
   display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--on-plate);
@@ -1596,6 +1622,12 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-wavectl { bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px + var(--hud-ability-h, 0px)); }
   .bt-abcard { width: 330px; }
   .bt-abcard-help { display: none; }
+  /* the feed docks left of an open panel (it used to sit under it: a "learned" toast nobody saw); here it docks right
+     even before feed.js picks a corner. (--bt-abar-panel-r holds the safe area already) */
+  .bt-has-panel .bt-feed:not(.bt-feed-l) { left: auto; right: var(--bt-abar-panel-r); }
+}
+/* phones (the drawer's density, battle.css max-height: 480px; 844x390 and 667x375): her ⚡ row */
+@media (max-height: 480px) {
   /* the panel's ability row is ONE 44 px line (ABILITIES_SPEC §8.4): bolt, name, FIRE / 12s / WAVE. Its live line
      and Auto open with a tap on her name (they are also on the hold card), so the first Buy button stays in view */
   .bt-abrow { margin: 0 0 6px; padding: 4px 6px 4px 8px; }
@@ -1604,15 +1636,24 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-abrow:not(.open) .bt-abrow-line, .bt-abrow:not(.open) .bt-abrow-auto { display: none; }
   .bt-abrow.open { padding-bottom: 6px; }
   .bt-abrow-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* never cut (UI_DIRECTION P6): a name that would not fit beside the button takes two smaller lines (abilityRow fit;
+     the ellipsis above is only a safety net the UI probe would flag) */
+  .bt-abrow-name.bt-abrow-2l { white-space: normal; font-size: var(--fs-label); line-height: 1.1; }
   .bt-abrow-name::after { content: ' ▾'; font: 700 12px/1 var(--font-num); font-style: normal; color: var(--on-plate-dim); }
   .bt-abrow.open .bt-abrow-name::after { content: ' ▴'; }
   /* an ability that comes later (Fuu, Iroha, Ruri's other forms) has no button: its one line says so at once, and
      there is nothing to open */
   .bt-abrow.s-later:not(.open) .bt-abrow-line { display: block; }
   .bt-abrow.s-later .bt-abrow-name::after { content: none; }
-  /* the feed docks left of an open panel (it used to sit under it: a "learned" toast nobody saw); here it docks right
-     even before feed.js picks a corner. (--bt-abar-panel-r holds the safe area already) */
-  .bt-has-panel .bt-feed:not(.bt-feed-l) { left: auto; right: var(--bt-abar-panel-r); }
+  /* a short screen: Chika's flight mode hint shows only while picking */
+  .bt-panel-drones .bt-dr-hint:not(.bt-dr-picking) { display: none; }
+}
+/* the shortest phones (667x375, 15 px shorter than 844x390): a tighter header, ⚡ row gap and stat row, so the three
+   path rows stay in view with an aim, pick or Flight row on the Glance */
+@media (max-height: 380px) {
+  .bt-panel .bt-panel-head { padding-top: 2px; padding-bottom: 2px; }
+  .bt-panel .bt-abrow { margin-bottom: 3px; }
+  .bt-panel .bt-dw-num { font-size: 18px; }
 }
 /* narrow screens: 44 px buttons; hidden while a panel is open (cast from her panel row instead) */
 @media (max-width: 700px) {

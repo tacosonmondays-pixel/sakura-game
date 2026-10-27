@@ -6,6 +6,13 @@ import { uiIcon, traitIcon } from '../../art/icons.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
 
+/**
+ * A phone's battle drawer: the window height at or under which the drawer takes its phone density (battle.css
+ * @media (max-height: 480px); 844x390, 667x375). The one threshold every battle-UI module reads.
+ */
+export const PHONE_H = 480;
+export const isPhone = () => typeof window !== 'undefined' && window.innerHeight <= PHONE_H;
+
 /** Sets a CSS custom property on an existing element (skipped when the value is null). */
 export function setVar(el, name, value) {
   if (el && value != null) el.style.setProperty(name, String(value));

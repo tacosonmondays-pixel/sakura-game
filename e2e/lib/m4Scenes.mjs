@@ -35,6 +35,9 @@
 //                        she cannot pay ("Need N more coins."), then one "i" with the feed forced into each top corner.
 //                        Each toast must be on top at its centre (not under the drawer) and one line, nothing cut
 //                        (battleKit toastSeen); stills m4-lock-why-<case>
+// M4 review round 1: m4-key-space (in m4-drawer-armed): Space on a path row the keyboard focused opens it, the wave
+// stays; m4-key-space-click: after a click on a row, Space starts the wave and leaves the row as it was; every girl
+// drawer still shows ≤ 13 numbers (+1 for a cooling ability); a phone is any window ≤ 480 px tall (667x375 too).
 // Every drawer still is checked (the run fails on a miss): at 844 each path row and its price inside the scroll body
 // (an open row: its Buy in view, the rest in view or the scroll cue shown), each lock row one row high (its lock line
 // in the tier line's place), the cue shown exactly when content sits below the fold (measured from the body's
@@ -88,6 +91,8 @@ async function drawerFacts(page) {
       rows: [...p.querySelectorAll('.bt-path')].map((row) => row.innerText.replace(/\s+/g, ' ').trim()),
       foot: p.querySelector('.bt-panel-foot')?.innerText.replace(/\s+/g, ' ').trim(),
       more: !!p.querySelector('[data-testid="panel-details"]'),
+      hero: p.classList.contains('bt-drawer-hero'),
+      cooling: !!p.querySelector('.bt-abrow.s-charging, .bt-abrow.s-active'),
       bar: (() => { const b = document.querySelector('[data-testid="ability-bar"]'); const br = b?.getBoundingClientRect(); return br && br.width ? { right: Math.round(innerWidth - br.right), panelLeft: Math.round(r.left), barRight: Math.round(br.right) } : null; })(),
       herow: (() => { const w = document.querySelector('[data-testid="hero-widget"]'); return w ? getComputedStyle(w).display !== 'none' && !w.hidden : null; })(),
     };
@@ -102,7 +107,8 @@ async function drawerFacts(page) {
 export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = console.log }) {
   const has = (n) => want.includes(n) && (n !== 'm4-reduce-motion' || vp === '844x390');
   const out = { failures: [] };
-  const phone = vp === '844x390';
+  // (a phone is any window 480 px tall or less: 844x390, 667x375; battle util PHONE_H)
+  const phone = Number(String(vp).split('x')[1]) <= 480;
   const floor = phone ? 12 : 13; // UI_DIRECTION P6: 12 px [13 px]
   const fail = (name, what) => {
     out.failures.push(`${name} ${vp}: ${what}`);
@@ -124,6 +130,8 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     log(`  paths ${name}: ${JSON.stringify(paths)}`);
     if (drawer.smallest && drawer.smallest.px < floor) fail(name, `drawer text under ${floor} px: ${drawer.smallest.px}px "${drawer.smallest.text}" (${drawer.smallest.sel})`);
     if (drawer.truncated.length) fail(name, `drawer text cut by an ellipsis: ${JSON.stringify(drawer.truncated)}`);
+    // (the girl drawer: ≤ 13 numbers, her ⚡ row's live seconds the one extra; UI_DIRECTION M2 done-when)
+    if (facts && !facts.more && !facts.hero && facts.total > 13 + (facts.cooling ? 1 : 0)) fail(name, `the drawer shows ${facts.total} numbers (≤ 13${facts.cooling ? ' + 1 cooling' : ''}): ${JSON.stringify(facts.sections)}`);
     if (paths?.rows.length) {
       // (the scroll cue says exactly when more of the body sits below)
       if (paths.cue !== paths.overflow) fail(name, `the scroll cue is ${paths.cue ? 'on' : 'off'} while the body ${paths.overflow ? 'overflows' : 'fits'}`);
@@ -143,6 +151,8 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
   await seedSave(page, { girls: GIRLS, hero: 'hikari', towers: SQUAD, settings: { reduceMotion: false }, aoi: { level: 48, breakthrough: 4, awaken: 3 }, cleared: ['1-1'] });
 
   await openBattle(page, { stage: '1-1', cash: 1e6 });
+  // (an open row stays open until the next tap: a slow machine's still never finds it closed after 2.6 s)
+  await page.evaluate(() => window.__battle.ui.panel.holdArm(true));
   const u = await page.evaluate(() => {
     const { sim } = window.__battle;
     const aoi = __ab.place('aoi');
@@ -164,6 +174,46 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       await still('m4-drawer-armed', { armed: true });
       const armed = await page.evaluate(() => document.querySelector('[data-testid="buy-0"]')?.textContent);
       log(`  m4-drawer-armed: buy-0 reads "${armed}"`);
+      // Space on a path row the keyboard focused opens that row and never starts the wave too (the M4 review, logic-1;
+      // a Tab first: the keyboard brought the focus, as for a keyboard player)
+      await page.keyboard.press('Tab');
+      const before = await page.evaluate(() => {
+        document.querySelector('[data-testid="tower-panel"] .bt-path[data-path="2"] .bt-path-main')?.focus();
+        return { state: window.__battle.sim.state, wave: window.__battle.sim.wave, focused: !!document.activeElement?.closest?.('.bt-path-main') };
+      });
+      await page.keyboard.press('Space');
+      await settle(page, 300);
+      const after = await page.evaluate(() => ({ state: window.__battle.sim.state, wave: window.__battle.sim.wave, armed: !!document.querySelector('[data-testid="tower-panel"] .bt-path.armed[data-path="2"]') }));
+      out['m4-key-space'] = { before, after };
+      log(`  m4-key-space: ${JSON.stringify(out['m4-key-space'])}`);
+      if (!before.focused) fail('m4-key-space', 'her third path row did not take the focus');
+      if (after.state !== before.state || after.wave !== before.wave) fail('m4-key-space', `Space on a focused row started the wave (${JSON.stringify(before)} → ${JSON.stringify(after)})`);
+      if (!after.armed) fail('m4-key-space', 'Space on the focused row did not open it');
+      // Space after a click on a path row (a mouse player): the battle's Space (the wave) runs, and the row stays as the
+      // click left it (it takes Space only when the keyboard focused it). The wave call is counted, not run, so the
+      // scenes below keep wave 0.
+      await page.evaluate(() => {
+        const { ui } = window.__battle;
+        window.__m4Wave = { calls: 0, real: ui.startWave };
+        ui.startWave = () => { window.__m4Wave.calls++; };
+      });
+      await page.locator('[data-testid="tower-panel"] .bt-path[data-path="0"] .bt-path-main').click({ force: true });
+      await settle(page, 200);
+      const rowState = () => page.evaluate(() => ({
+        armed: !!document.querySelector('[data-testid="tower-panel"] .bt-path.armed[data-path="0"]'),
+        focused: !!document.activeElement?.closest?.('.bt-path[data-path="0"] .bt-path-main'),
+        waveCalls: window.__m4Wave.calls,
+      }));
+      const clicked = await rowState();
+      await page.keyboard.press('Space');
+      await settle(page, 300);
+      const spaced = await rowState();
+      await page.evaluate(() => { window.__battle.ui.startWave = window.__m4Wave.real; });
+      out['m4-key-space-click'] = { clicked, spaced };
+      log(`  m4-key-space-click: ${JSON.stringify(out['m4-key-space-click'])}`);
+      if (!clicked.armed || !clicked.focused) fail('m4-key-space-click', `the click did not open and focus her first row (${JSON.stringify(clicked)})`);
+      if (spaced.waveCalls !== 1) fail('m4-key-space-click', `Space after a click on a row called the wave ${spaced.waveCalls} times (once)`);
+      if (spaced.armed !== clicked.armed) fail('m4-key-space-click', 'Space after a click pressed the row as well');
     }
     await page.evaluate(() => window.__battle.ui.select(null));
     await settle(page, 300);
@@ -446,6 +496,7 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       throw e;
     }
     await settle(page, 500);
+    await page.evaluate(() => window.__battle.ui.panel.holdArm(true));
     const sellAll = (uids) => page.evaluate((us) => {
       window.__battle.ui.select(null);
       for (const x of us) if (x != null) window.__battle.sim.sellTower(x);
@@ -624,7 +675,21 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       // (the M4 re-review, round 3: the "i" put two sentences in the feed, cut mid-word on a phone; at 1280 on 1-1 the
       // feed docks right, and its toast sat under the open drawer)
       const L = (out['m4-lock-why'] = { cases: {} });
-      const tap = (loc) => (phone ? loc.tap() : loc.click());
+      // every tap is checked to have reached its control (a click on a busy machine can land on a copy the drawer has
+      // just replaced, and then nothing happens): the control's click is recorded on the document, and a tap that never
+      // arrived is tapped again, once, and logged. A tap that arrived and showed no toast still fails below.
+      await page.evaluate(() => {
+        window.__m4Taps = 0;
+        document.addEventListener('click', (e) => { if (e.target.closest?.('[data-testid="tower-panel"] .bt-dw-info, [data-testid="tower-panel"] .bt-buy')) window.__m4Taps++; }, true);
+      });
+      const tap = async (loc) => {
+        const n = await page.evaluate(() => window.__m4Taps);
+        await (phone ? loc.tap() : loc.click());
+        if (await page.evaluate((k) => window.__m4Taps > k, n)) return;
+        L.retaps = (L.retaps || 0) + 1;
+        log('  m4-lock-why: a tap never reached its control (a busy machine): tapped again');
+        await (phone ? loc.tap() : loc.click());
+      };
       const infoOf = (row) => page.locator(`[data-testid="tower-panel"] .bt-path[data-path="${row}"] .bt-path-lock .bt-dw-info`);
       // (the toasts' font: its Latin subset loaded, or the widths below are a fallback's; the font has hundreds of
       // unicode-range faces, so the check names the letters)
@@ -633,14 +698,32 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         return { rounded: document.fonts.check('700 13px "M PLUS Rounded 1c"', 'Max two paths'), toast: getComputedStyle(document.body).fontFamily };
       });
       log(`  m4-lock-why fonts: ${JSON.stringify(L.fonts)}`);
+      // (the toasts stay up a minute in this scene, each case clearing or replacing the last: on a busy machine a click
+      // can return many seconds after a 2.6 s toast has gone, as Playwright first waits for the target to hold still
+      // over two slow SwiftShader frames)
+      await page.evaluate(() => {
+        const f = window.__battle.ui.feed;
+        if (f.__m4Long) return;
+        const push = f.push;
+        window.__m4Pushes = [];
+        f.push = (content, kind, o = {}) => {
+          window.__m4Pushes.push(`${Math.round(performance.now())} ${o.key || '-'} ${typeof content === 'string' ? content : content?.textContent}`);
+          return push(content, kind, { ...o, ms: 60000 });
+        };
+        f.__m4Long = true;
+      });
       /** The toast matching `re`: on top at its centre, one line, nothing cut (battleKit toastSeen), and clear of the drawer. */
       const seenToast = async (label, re, { shot: stillName = null, one = false } = {}) => {
-        await settle(page, 200);
-        // (measured where it rests: its slide-in starts 14 px off, and a busy SwiftShader frame can hold that a while)
-        await page.evaluate(() => Promise.race([
-          Promise.all([...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast')].flatMap((t) => t.getAnimations()).map((an) => an.finished.catch(() => null))),
-          new Promise((r) => setTimeout(r, 1500)),
-        ]));
+        // (read where it rests, on any machine: from the tap on the toasts stay a few seconds longer (a phone's lock
+        // toast lives 2.1 s, "Need N more coins." 1.2 s, and a busy SwiftShader frame can outlast that), and their
+        // 0.24 s slide-in, which starts 14 px off, is played to its end)
+        await page.evaluate(() => {
+          for (const t of document.querySelectorAll('[data-testid="battle-feed"] .bt-toast:not(.out)')) {
+            t.dataset.until = String(Math.max(Number(t.dataset.until) || 0, performance.now() + 4000));
+            for (const an of t.getAnimations()) an.finish();
+          }
+        });
+        await settle(page, 100);
         const s = await page.evaluate((src) => window.__ab.toastSeen(src), re);
         const at = await page.evaluate(() => ({
           feed: document.querySelector('[data-testid="battle-feed"]')?.className,
@@ -649,7 +732,7 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         }));
         L.cases[label] = { ...s, ...at };
         log(`  m4-lock-why ${label}: ${JSON.stringify(L.cases[label])}`);
-        if (!s.found) fail('m4-lock-why', `${label}: no toast matches /${re}/ (the feed holds ${JSON.stringify(await page.evaluate(() => window.__ab.toasts()))})`);
+        if (!s.found) fail('m4-lock-why', `${label}: no toast matches /${re}/ (the feed holds ${JSON.stringify(await page.evaluate(() => window.__ab.toasts()))}; pushed ${JSON.stringify(await page.evaluate(() => (window.__m4Pushes || []).slice(-3)))} at ${await page.evaluate(() => Math.round(performance.now()))})`);
         else {
           if (!s.onTop) fail('m4-lock-why', `${label}: the toast "${s.text}" is not on top (the hit test finds ${s.hit})`);
           if (!s.oneLine) fail('m4-lock-why', `${label}: the toast "${s.text}" is cut or wraps (${JSON.stringify(s.rect)})`);
