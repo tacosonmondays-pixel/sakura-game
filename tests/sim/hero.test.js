@@ -6,6 +6,7 @@ import {
 import { HERO_XP, HERO_LEVEL_PRICES, HERO_MOVE } from '../../src/data/heroTracks.js';
 import { resolveStats } from '../../src/sim/mods.js';
 import { getUnit } from '../../src/data/units.js';
+import { HERO_POWER } from '../../src/data/balance.js';
 import { Sim } from '../../src/sim/Sim.js';
 
 function park(sim, id, dist) {
@@ -104,7 +105,7 @@ describe('hero XP, pace and levels', () => {
     expect(sim.drainEvents().filter((e) => e.type === 'heroMastery')).toHaveLength(1); // the one capping step only
   });
 
-  test('growth: Lv 25 damage = the track sum × (1 + 24 × 0.03) for the real heroes', () => {
+  test('growth: Lv 25 damage = the track sum × (1 + 24 × 0.03) × her Lv 25 power (src/data/balance.js) for the real heroes', () => {
     for (const id of ['hikari', 'luna', 'nami']) {
       const u = getUnit(id);
       const s = resolveStats(u, { heroLevel: 25 });
@@ -114,7 +115,8 @@ describe('hero XP, pace and levels', () => {
         add += l.mods.damage || 0;
         mul *= l.mods.damageMul || 1;
       }
-      expect(s.damage, id).toBeCloseTo(add * mul * 1.72, 6);
+      const lv25 = HERO_POWER[id]?.[HERO_POWER[id].length - 1] ?? 1;
+      expect(s.damage, id).toBeCloseTo(add * mul * 1.72 * lv25, 6);
     }
   });
 });

@@ -9,7 +9,7 @@ import {
   INCOME_INTEREST_MAX,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -552,7 +552,12 @@ export class Sim {
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
-        if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
+        // (a push-locked girl's wind spends WIND_KB_COST of a tile of Freeplay's Resolve budget per tile)
+        if (e.kbLeft != null) {
+          const c = locks ? WIND_KB_COST : 1;
+          amt = Math.min(amt, e.kbLeft / c);
+          e.kbLeft -= amt * c;
+        }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);

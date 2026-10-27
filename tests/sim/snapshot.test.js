@@ -268,9 +268,10 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
   });
 
   it('Marumi mid-wave (UNIT_GAPS §5.9): balls on the road, a Giant Strike rolling', () => {
+    // (Hard since the Oct 27 power pass: on Normal the raised team wins 1-5 before six comparisons)
     const team = ['marumi', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
     const stats = { costMul: 0.3 };
-    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3333, options: { autoStart: true, autoAbilities: true } };
+    const args = { stageId: '1-5', difficulty: 'hard', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3333, options: { autoStart: true, autoAbilities: true } };
     const sim = fresh(args);
     const bot = makeAbilityBot('1-5', [...team, 'hikari']);
     sim.cash += 20000;
@@ -296,9 +297,10 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
   });
 
   it('Chigusa mid-wave (UNIT_GAPS §5.7): a vine hold, thorn beds, Bloom Rush and Overgrowth running', () => {
+    // (Nightmare since the Oct 27 power pass: on Normal or Hard the raised team wins 1-5 before six comparisons)
     const team = ['chigusa', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
     const stats = { costMul: 0.3 };
-    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3232, options: { autoStart: true, autoAbilities: true } };
+    const args = { stageId: '1-5', difficulty: 'nightmare', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3232, options: { autoStart: true, autoAbilities: true } };
     const sim = fresh(args);
     const bot = makeAbilityBot('1-5', [...team, 'hikari']);
     sim.cash += 20000;

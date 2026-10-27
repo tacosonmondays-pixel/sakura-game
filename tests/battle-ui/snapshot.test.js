@@ -1600,6 +1600,16 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !azg.stripCursor; i++) az.update(STEP);
     expect(azg.stripCursor > 0).toBe(true);
     for (const t of az.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Miko at P6 mid-wave: Festival Bells' aura boost. The P6 team used to show it, but since the Oct 27
+    // power pass its strikers clear the road before Miko lands her fourth talisman, so she gets her own run)
+    const mk = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['miko', 'aoi'], hero: null, stats: { potential: 6 }, seed: 15 });
+    mk.cash = 1e6;
+    for (const a of autoPlan('1-1', ['miko', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') mk.placeTower(a.unitId, a.x, a.y);
+    const mi = mk.towers.find((t) => t.unitId === 'miko');
+    mk.startNextWave();
+    for (let i = 0; i < 60 * 60 && !(mi.auraBoostLeft > 0); i++) mk.update(STEP);
+    expect(mi.auraBoostLeft > 0).toBe(true);
+    for (const t of mk.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and an Archery trap girl: Follow-Through's trap count)

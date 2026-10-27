@@ -11,6 +11,8 @@ import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { abilityPathOf, abilityReach, abilityDef } from '../../src/sim/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { abilityCommandArgs } from '../../src/ui/battle/abilityBar.js';
+import { POWER } from '../../src/data/balance.js';
+import { POWER_HP_PASS } from '../../src/data/stages.js';
 
 const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
   seed,
@@ -485,10 +487,11 @@ describe('the hash and both views', () => {
     let tick = 0;
     const refused = new Set();
     while (cs[0].sim.wavesCleared < 10 && !['won', 'lost'].includes(cs[0].sim.state)) {
-      // player 1 taps a girl every 7 s, round robin (some taps land on a recharging one)
-      if (tick % 420 === 0) {
-        const uid = p0[(tick / 420) % p0.length];
-        const r = all(cs, cmd(0, 'abil', abilArgs(uid, { group: tick % 840 === 0 })));
+      // player 1 taps a girl every 3.5 s, round robin (some taps land on a recharging one; every 7 s before the Oct 27
+      // power pass, whose raised team clears the 10 waves too fast for every girl to get a tap in a wave)
+      if (tick % 210 === 0) {
+        const uid = p0[(tick / 210) % p0.length];
+        const r = all(cs, cmd(0, 'abil', abilArgs(uid, { group: tick % 420 === 0 })));
         if (!r.ok) refused.add(r.reason);
       }
       step(cs);
@@ -673,11 +676,13 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
 
 describe('the returning girls in co-op (A3 M3)', () => {
   it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
-    const STRONG = { damageMul: 6, rateMul: 1.3 };
+    // (the girls' Oct 27 power rows, src/data/balance.js, are divided back out and chapter 8's HP pass multiplied in:
+    // the same kill speed for the HP as before, so enemies still reach Noa's 3 tiles and her rally has kills to count)
+    const STRONG = (id) => ({ damageMul: (6 * (POWER_HP_PASS[8] ?? 1)) / (POWER[id]?.dmg ?? 1), rateMul: 1.3 });
     const st = start({
       stageId: '8-1',
-      p0: { loadout: [{ unitId: 'noa' }, { unitId: 'hana', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
-      p1: { loadout: [{ unitId: 'ena', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
+      p0: { loadout: [{ unitId: 'noa' }, { unitId: 'hana', stats: STRONG('hana') }, { unitId: 'aoi', stats: STRONG('aoi') }], hero: null },
+      p1: { loadout: [{ unitId: 'ena', stats: STRONG('ena') }, { unitId: 'aoi', stats: STRONG('aoi') }], hero: null },
     });
     const cs = views(st);
     const noa = upAbil(cs, 0, place(cs, 0, 'noa'));

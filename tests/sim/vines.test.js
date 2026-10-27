@@ -138,7 +138,7 @@ describe('Bloom Rush (Wild Growth tier 3)', () => {
 });
 
 describe('Harvest', () => {
-  test('Herb Garden: +1 life a wave cleared, never above the starting lives, at most 30; none without healing', () => {
+  test('Herb Garden: +1 life a wave cleared, never above the starting lives, no battle cap; none without healing', () => {
     const { sim } = setup({ tiers: [0, 0, 3] });
     sim.lives = sim.maxLives - 5;
     endVineWave(sim);
@@ -146,15 +146,26 @@ describe('Harvest', () => {
     sim.lives = sim.maxLives;
     endVineWave(sim);
     expect(sim.lives).toBe(sim.maxLives);
-    sim.stats.harvestLives = 30;
+    // no cap for the whole battle (players' request, Oct 26): a long battle keeps harvesting
+    sim.stats.harvestLives = 300;
     sim.lives = 1;
     endVineWave(sim);
-    expect(sim.lives).toBe(1);
+    expect(sim.lives).toBe(2);
     const t4 = setup({ tiers: [0, 0, 4] });
     t4.sim.lives = 3;
     endVineWave(t4.sim);
     expect(t4.sim.lives).toBe(5);
     expect(t4.t.stats.income.perWave).toBe(120);
+    // her copies add up, at most HARVEST_LIVES_PER_WAVE (5) at one wave clear: three Bumper Crops give 5, not 6
+    const many = setup({ tiers: [0, 0, 4] });
+    for (const [x, y] of [[7.5, 6.2], [11.5, 6.2]]) {
+      const c = many.sim.placeTower('chigusa', x, y);
+      expect(c, 'copy placed').toBeTruthy();
+      for (let k = 0; k < 4; k++) expect(many.sim.upgradeTower(c.uid, 2)).toBe(true);
+    }
+    many.sim.lives = 10;
+    endVineWave(many.sim);
+    expect(many.sim.lives).toBe(15);
     const noHeal = setup({ tiers: [0, 0, 3] });
     noHeal.sim.mode = { ...noHeal.sim.mode, noHeal: true };
     noHeal.sim.lives = 3;

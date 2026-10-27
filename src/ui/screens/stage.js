@@ -433,8 +433,8 @@ export function acquisitionHint(unit) {
 const DIFF_SUMMARY = {
   easy: 'Forgiving: −15% HP, +10% coins',
   normal: 'Upgrades + right counters',
-  hard: '+35% HP, faster, 50 lives',
-  nightmare: '+75% HP, 1 life, no income',
+  hard: '+45% HP, faster, 50 lives',
+  nightmare: '+120% HP, 1 life, no income',
 };
 
 /**

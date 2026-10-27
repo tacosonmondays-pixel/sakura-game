@@ -11,6 +11,7 @@ import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { soloFreeplayStage } from '../../src/data/freeplaySolo.js';
 import { DIFFICULTIES } from '../../src/data/types.js';
 import { FREEPLAY_ARMOR_FLOOR } from '../../src/sim/constants.js';
+import { POWER_HP_PASS } from '../../src/data/stages.js';
 
 const look = (id) => ENEMY_MAP[id] || null;
 const OPTS = { pathCount: 1, pathLengths: null };
@@ -75,13 +76,17 @@ describe('freeplay curve (d): steady growth after wave 30', () => {
     // (HERO_HP_PASS, ×1.1 on 8-5) reaches it; co-op Freeplay divides it back out (src/data/coop.js).
     // The numbers below are the ramp itself (pass divided out). Whether solo Freeplay should match
     // co-op is open for the train-C balance pass (owner decision); today solo is ×hpPass on top.
+    // The Oct 27 power pass (POWER_HP_PASS, ×1.5 on chapter 8; PROPOSAL) sits on top too and is divided out
+    // the same way: the ramp the owner likes keeps its shape, every enemy has ×1.5 HP against girls who rose.
     const pass = soloFreeplayStage('8-5', 'blossom').hpPass || 1;
     expect(pass).toBeCloseTo(1.1, 9);
-    const at = (n) => rows.find((r) => r.n === n).big / pass;
-    // same as before the pass (tools/baselines/curve-8-5-blossom.json): 70M+ from 190, the Matriarch 372M
-    expect(Math.round(at(170) / 1e4) / 100).toBe(34.41);
-    expect(Math.round(at(180) / 1e4) / 100).toBe(59.43);
-    expect(Math.round(at(190) / 1e4) / 100).toBe(75.4);
-    expect(Math.round(at(200) / 1e4) / 100).toBe(372.03);
+    expect(POWER_HP_PASS[8]).toBe(1.5);
+    const at = (n) => rows.find((r) => r.n === n).big / pass / POWER_HP_PASS[8];
+    // same as before the pass (tools/baselines/curve-8-5-blossom.json): 70M+ from 190, the Matriarch 372M (+0.05%:
+    // hpScale rounds to two decimals after the power pass, 7.15 × 1.5 → 10.73)
+    expect(Math.round(at(170) / 1e4) / 100).toBe(34.43);
+    expect(Math.round(at(180) / 1e4) / 100).toBe(59.45);
+    expect(Math.round(at(190) / 1e4) / 100).toBe(75.43);
+    expect(Math.round(at(200) / 1e4) / 100).toBe(372.2);
   });
 });

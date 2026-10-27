@@ -13,6 +13,7 @@ import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
 import { gearStatTotals, gearFillIn, gearSetInfo } from './gear.js';
 import { BATTLE_CAPS } from '../data/gearStats.js';
+import { POWER } from '../data/balance.js';
 
 export { BATTLE_CAPS };
 import { track } from './missions.js';
@@ -523,5 +524,6 @@ export function unitPower(profile, unitId) {
   const range = Math.sqrt(Math.max(1, (b.range || 1) * s.rangeMul));
   const rarity = { R: 1, SR: 1.1, SSR: 1.2 }[def.rarity] || 1;
   const pot = potentialPowerFactor(def, s.potential);
-  return Math.round(dps * s.damageMul * s.rateMul * crit * range * rarity * pot * 10 + s.level * 5 + s.awaken * 50 + (s.potential - 1) * 20);
+  const pw = POWER[unitId]?.dmg ?? 1; // the Oct 27 power pass (src/data/balance.js)
+  return Math.round(dps * pw * s.damageMul * s.rateMul * crit * range * rarity * pot * 10 + s.level * 5 + s.awaken * 50 + (s.potential - 1) * 20);
 }

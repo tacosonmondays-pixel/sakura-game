@@ -60,6 +60,12 @@ export const HERO_HP_PASS = Object.freeze({
   '7-1': 1.55, '7-2': 2.4, '7-3': 2.2, '7-4': 2.4, '7-5': 2.4,
   '8-1': 1.3, '8-2': 1.25, '8-3': 1.3, '8-4': 1.3, '8-5': 1.1,
 });
+// The Oct 27 power pass (src/data/balance.js; PROPOSAL): every striker rose to the raised Kage, so campaign enemy
+// HP rises with the measured kill speed of a mid-game account's free and gacha teams per chapter (the campaign
+// census): chapters 1-2 stay gentler than before, 3-7 come back to where they were, 8 keeps its wall. Enemy HP
+// only, like the hero pass: cashScale is computed from the pre-pass hpScale, so coins per wave do not move.
+// Freeplay after a stage inherits it (its stage hpScale), co-op freeplay too (only the hero pass is divided out).
+export const POWER_HP_PASS = Object.freeze({ 1: 1, 2: 1.1, 3: 1.15, 4: 1.25, 5: 1.15, 6: 1.2, 7: 1.2, 8: 1.5 });
 // Economy scale (kill bounties + wave-clear bonus, applied by the sim) grows with enemy HP so
 // late chapters can afford tier 4–5 upgrades: hpScale^0.6 (1.0 at 1-1 → ≈3.1 at 8-5).
 const cashScaleFor = (hpScale) => Math.round(hpScale ** 0.6 * 100) / 100;
@@ -142,7 +148,7 @@ function campaign(o) {
       groups: o.groups ?? 3,
       fixed: o.fixed || [],
     },
-    hpScale: Math.round((o.hpScale ?? hpScaleAt(index)) * (HERO_HP_PASS[o.id] ?? 1) * 100) / 100,
+    hpScale: Math.round((o.hpScale ?? hpScaleAt(index)) * (HERO_HP_PASS[o.id] ?? 1) * (POWER_HP_PASS[chapter] ?? 1) * 100) / 100,
     // the hero-rework HP multiplier inside hpScale (co-op freeplay divides it back out: its HP bands
     // were calibrated on the pre-pass ramp; the train-C combined pass re-checks them)
     hpPass: HERO_HP_PASS[o.id] ?? 1,

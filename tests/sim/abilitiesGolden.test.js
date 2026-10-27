@@ -17,26 +17,28 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 // coins and casts. Re-pinned again at the v0.1.40 sync (feature/abilities 93e902c + main 1b9ba02), hashSim
 // only, for the same reason: main's three tables were taken on its hashSim without A2's fold (every wave,
 // life, step, coin and cast below is main's; the A1 and base hashes are the ones feature/abilities had).
+// Re-pinned for the Oct 27 power pass (scratch/balance-oct27, src/data/balance.js + the chapter HP pass in
+// src/data/stages.js and Hard ×1.45): a deliberate sim and data change; every table below moved with it.
 const GOLDEN = {
-  '1-3:normal': 'W15/100/20746/864/ab76d249/4',
-  '4-5:hard': 'W26/2/65954/3532/27257eef/21',
+  '1-3:normal': 'W15/100/19319/864/8f98d146/3',
+  '4-5:hard': 'W26/11/60505/3678/e412c34d/20',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
   // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)
-  '8-5:normal': 'L30/0/37439/8586/c7958807/22',
+  '8-5:normal': 'W30/95/35559/18646/2afa315a/13',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
-  '1-3:normal': 'W15/100/20746/864/ab76d249/4',
-  '4-5:hard': 'L26/0/67651/3566/3decde6a/20',
+  '1-3:normal': 'W15/100/19319/864/8f98d146/3',
+  '4-5:hard': 'W26/3/59315/4181/5771e4c4/20',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/39114/7321/a30aaa7b/18): Hana's
   // and Noa's abilities cast on Auto now (18 → 23 casts)
-  '8-5:normal': 'L30/0/38801/7168/d359d2ce/23',
+  '8-5:normal': 'L30/0/37169/7168/def078a4/19',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 const LIVE_GOLDEN = {
-  '8-5:normal': 'L30/0/40233/8036/a5d9340a/30',
+  '8-5:normal': 'L30/0/42614/7563/2dc2b64c/32',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;
@@ -54,6 +56,7 @@ describe.skipIf(!hasRealData())('battles with abilities on Auto', () => {
 describe.skipIf(!hasRealData())('battles with abilities on Auto, the 19 girls of A1', () => {
   it.each(Object.keys(LIVE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
     const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: [...EXPANSION_IDS, ...NEW_GIRL_IDS] });
+    if (process.env.GOLDEN_PRINT) console.log(`GOLDEN_LIVE '${stageId}:${difficulty}': '${digest(r)}',`);
     expect(digest(r)).toBe(LIVE_GOLDEN[`${stageId}:${difficulty}`]);
   }, 180000);
 });
@@ -61,6 +64,7 @@ describe.skipIf(!hasRealData())('battles with abilities on Auto, the 19 girls of
 describe.skipIf(!hasRealData())('battles with abilities on Auto, the base roster (before the new girls)', () => {
   it.each(Object.keys(BASE_GOLDEN).map((k) => k.split(':')))('%s %s', (stageId, difficulty) => {
     const r = botBattle(stageId, difficulty, { autoAbilities: true }, 1, { ability: true, exclude: NEW_GIRL_IDS });
+    if (process.env.GOLDEN_PRINT) console.log(`GOLDEN_BASE '${stageId}:${difficulty}': '${digest(r)}',`);
     expect(digest(r)).toBe(BASE_GOLDEN[`${stageId}:${difficulty}`]);
   }, 180000);
 });

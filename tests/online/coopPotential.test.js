@@ -11,6 +11,7 @@ import { ultEffect } from '../../src/sim/hero.js';
 import { bountyMulAt } from '../../src/sim/potential.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { snapshotDigest } from '../../src/sim/snapshot.js';
+import { POWER } from '../../src/data/balance.js';
 
 const start = {
   seed: 91,
@@ -118,7 +119,7 @@ describe('co-op: the same girl at two Potentials', () => {
     B.step();
     expect(gk.buffBy.dmg).toBe(miko.uid);
     expect(gk.buff.dmgMul).toBeCloseTo(miko.stats.aura.dmgMul, 12);
-    expect(miko.stats.aura.dmgMul).toBeCloseTo(1.1 * 1.03 ** 5, 12);
+    expect(miko.stats.aura.dmgMul).toBeCloseTo(1 + (1.1 * 1.03 ** 5 - 1) * (POWER.miko?.buff ?? 1), 12); // × her Oct 27 power row
     expect(A.hash()).toBe(B.hash());
     // Luna P6's Moonfall (her own steps: +0.05 and +0.05 haste on its rate bonus) reaches the guest's girls too
     for (const c of [A, B]) {

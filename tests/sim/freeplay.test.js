@@ -454,7 +454,9 @@ describe('numeric safety deep in (waves 200, 250, 400)', () => {
       }
     }
     expect(biggest).toBeGreaterThan(1e9);
-    expect(biggest).toBeLessThan(1e13); // ulp at 1e13 is 0.002: a hit of 1 still counts
-    expect(biggest).toBeLessThan(2 ** 53 / 1000);
+    // (1e13 and 2^53 / 1000 before the Oct 27 power pass; its Nightmare ×2.2 and chapter 8 ×1.5 HP put the
+    // biggest wave-400 Nightmare enemy at about 1.65e13, still 500× inside exact doubles)
+    expect(biggest).toBeLessThan(2e13); // ulp at 2e13 is 0.004: a hit of 1 still counts
+    expect(biggest).toBeLessThan(2 ** 53 / 400);
   }, 120000);
 });

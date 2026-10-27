@@ -59,11 +59,11 @@ describe('abilityLine', () => {
     expect(line, where).not.toMatch(/[{}]|NaN|undefined|Infinity/);
   });
 
-  it('reads like the spec (Aoi 0-3-0: 6 targets, 24 damage; Market Day: its coins at the difficulty rate)', () => {
+  it('reads like the spec (Aoi 0-3-0: 6 targets, 24 damage × her Oct 27 power row = 32; Market Day: its coins at the difficulty rate)', () => {
     const u = UNIT_MAP.aoi;
     const e = u.paths[1].ability;
     const line = abilityLine(e, abilityValues(e, resolveStats(u, { tiers: [0, 3, 0] })));
-    expect(line).toBe('6 targets · 24 dmg · pin 0.5s');
+    expect(line).toBe('6 targets · 32 dmg · pin 0.5s');
     const m = UNIT_MAP.momo.paths[0].ability;
     expect(abilityLine(m, abilityValues(m, null), { coinMul: 1.5 })).toBe('+150 coins · twice per wave');
   });
@@ -82,16 +82,16 @@ describe('abilityLine', () => {
       const e = skillAtLevel(u.hero.skill, level);
       return abilityLine(e, abilityValues(e, resolveStats(u, { heroLevel: level })));
     };
-    expect(at('hana', 'falconry', 3)).toBe('4 targets · 30 dmg · ground 4s');
-    expect(at('ruri', 'hound', 3)).toBe('64 dmg · 3 hits · hold 1.5s'); // (one enemy: no "1 target")
+    expect(at('hana', 'falconry', 3)).toBe('4 targets · 221 dmg · ground 4s');
+    expect(at('ruri', 'hound', 3)).toBe('403 dmg · 3 hits · hold 1.5s'); // (one enemy: no "1 target")
     expect(at('ruri', 'falcon', 3)).toBe('1 target · carry 3 tiles');
     expect(at('ruri', 'otter', 3)).toBe('4 tiles · 1 tile back · soak 4s');
     expect(at('noa', 'sanctuary', 3)).toBe('4 tiles · 10s · up to 3 lives');
     expect(at('noa', 'sanctuary', 5)).toBe('4 tiles · 14s · up to 5 lives');
-    expect(at('ena', 'bloom', 3)).toBe('bursts 36 · 4.8 tiles');
+    expect(at('ena', 'bloom', 3)).toBe('bursts 252 · 4.8 tiles');
     expect(at('iroha', 'hall', 3)).toBe('1 mirror · 8s');
     expect(hero('yoriko', 7)).toBe('1 target · hex 1.5%/s · slow 30%');
-    expect(hero('seiran', 17)).toBe('12 targets · 91 dmg · ground 3s');
+    expect(hero('seiran', 17)).toBe('12 targets · 193 dmg · ground 3s');
   });
 });
 

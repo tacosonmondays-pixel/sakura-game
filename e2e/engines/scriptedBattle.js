@@ -17,7 +17,8 @@ import { createRng } from '../../src/core/rng.js';
 import { coopVersion } from '../../src/online/coop/version.js';
 import { generateWave } from '../../src/sim/waves.js';
 import { generateFreeplayWave, freeplayHpRamp, freeplayPressure, freeplaySpeed } from '../../src/sim/freeplay.js';
-import { STAGES, CAMPAIGN_IDS } from '../../src/data/stages.js';
+import { STAGES, CAMPAIGN_IDS, POWER_HP_PASS } from '../../src/data/stages.js';
+import { POWER, HERO_POWER } from '../../src/data/balance.js';
 import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { coopStage } from '../../src/data/coop.js';
 import { FREEPLAY_TIERS } from '../../src/data/freeplay.js';
@@ -1410,15 +1411,25 @@ export function runRosterBattle({ checkpointAt = 6, toWave = 14, maxFrames = 60 
 const RETURNING_ABIL_STATS = Object.freeze({ costMul: 0.06, damageMul: 0.8, rateMul: 1.1 });
 // (the heroes start weak: alone in wave 1 they let some through)
 const RETURNING_ABIL_HERO = Object.freeze({ costMul: 0.06, damageMul: 0.15 });
-const retLoadout = (ids) => ids.map((unitId) => ({ unitId, stats: RETURNING_ABIL_STATS }));
+// (power-neutral: the power pass's damage row is divided back out and chapter 2's enemy HP pass folded in, so the
+// enemies still crowd Noa long enough for First Aid Call)
+const retLoadout = (ids) => ids.map((unitId) => ({
+  unitId,
+  stats: { ...RETURNING_ABIL_STATS, damageMul: (RETURNING_ABIL_STATS.damageMul * (POWER_HP_PASS[2] ?? 1)) / (POWER[unitId]?.dmg ?? 1) },
+}));
+// (her Lv 1 power is divided back out too, so wave 1 still leaks a little)
+const retHero = (unitId) => ({
+  unitId,
+  stats: { ...RETURNING_ABIL_HERO, damageMul: (RETURNING_ABIL_HERO.damageMul * (POWER_HP_PASS[2] ?? 1)) / (HERO_POWER[unitId]?.[0] ?? 1) },
+});
 /** The host brings Hana, Ruri (Moonhound), Noa and Seiran and taps by hand; the guest Ena, Aoi and Yoriko on Auto-cast. */
 export const RETURNING_ABIL_START = Object.freeze({
   seed: 535353,
   stageId: '2-5',
   difficulty: 'normal',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: retLoadout(['hana', 'ruri', 'noa']), hero: { unitId: 'seiran', stats: RETURNING_ABIL_HERO } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: retLoadout(['ena', 'aoi']), hero: { unitId: 'yoriko', stats: RETURNING_ABIL_HERO } },
+    { slot: 0, uid: 'host', name: 'Host', loadout: retLoadout(['hana', 'ruri', 'noa']), hero: retHero('seiran') },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: retLoadout(['ena', 'aoi']), hero: retHero('yoriko') },
   ],
 });
 /** The returning abilities that run (the scenario must cast each of them). */

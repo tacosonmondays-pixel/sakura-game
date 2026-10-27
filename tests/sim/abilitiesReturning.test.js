@@ -230,7 +230,7 @@ describe('Ruri, Moon Pounce (strike, local, from Kon\'s relay origin)', () => {
       if (d2(p, kon) <= (reach - 0.2) * (reach - 0.2) && d2(p, t) > (reach + 0.2) * (reach + 0.2)) xIn = x;
     }
     expect(xIn, 'a spot only Kon reaches').not.toBeNull();
-    const weakInKon = at(sim, 'orc_grunt', xIn, { hpMul: 30 });
+    const weakInKon = at(sim, 'orc_grunt', xIn, { hpMul: 300 }); // (300: her Oct 27 power row ×6.3 would kill a 30)
     const strongOut = at(sim, 'orc_grunt', 15.5, { hpMul: 900 }); // farther than reach from both
     expect(d2(strongOut, kon)).toBeGreaterThan(reach * reach);
     run(sim, STEP);
@@ -261,7 +261,7 @@ describe('Ruri, Moon Pounce (strike, local, from Kon\'s relay origin)', () => {
     boss.dead = true;
     const sim2 = setup().sim;
     const t2 = sim2.towers[0];
-    const mini = at(sim2, 'orc_general', t2.ox, { hpMul: 1 });
+    const mini = at(sim2, 'orc_general', t2.ox, { hpMul: 20 }); // (20: survives her power-row bites)
     run(sim2, STEP);
     ready(t2);
     expect(sim2.castAbility(t2.uid).ok).toBe(true);

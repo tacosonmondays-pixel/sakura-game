@@ -11,8 +11,9 @@
 import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
-import { BREW_TARGETS_MAX } from './constants.js';
+import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE } from './constants.js';
 import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
+import { powerFor } from '../data/balance.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
 const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul', 'airMul'];
@@ -209,7 +210,7 @@ const HUB_ADDS = ['radiusAdd', 'cutAdd'];
  *   every (s per vine) · hold (s) · dps (vine damage a second while it holds)
  *   beds (hits per thorn bed; 0 = none) · bedDmg · bedTtl (s)
  *   bloom (Bloom Rush cap, 0.6 = +60% attack speed) · bloomPer (a second of attacking) · bloomIdle (s)
- *   lives (a wave cleared) · livesCap (a battle)
+ *   lives (a wave cleared) · livesCap (the most at one wave clear, her copies together; HARVEST_LIVES_PER_WAVE)
  */
 function normVine(t = {}) {
   return {
@@ -223,7 +224,7 @@ function normVine(t = {}) {
     bloomPer: t.bloomPer ?? 0.05,
     bloomIdle: t.bloomIdle ?? 2,
     lives: t.lives ?? 0,
-    livesCap: t.livesCap ?? 30,
+    livesCap: t.livesCap ?? HARVEST_LIVES_PER_WAVE,
   };
 }
 /**
@@ -738,6 +739,54 @@ function applyGearReach(s, u) {
   }
 }
 
+/** Status types whose duration is crowd control (a power row's `ctl` stretches them). */
+const CTL_TYPES = ['slow', 'freeze', 'stun', 'hold', 'ground'];
+
+/**
+ * The Oct 27 power pass (src/data/balance.js) after her unit stats: her burns and poisons follow her
+ * damage row (their flat part; the %-of-max-HP part never moves), `boss` multiplies her bossMul, `buff` grows
+ * the bonus part of her aura / brew / link / drink and her Brittle, `reach` her aura's reach and `ctl` how long
+ * her crowd control lasts. Coins, discounts and income never move. Copy-on-write: no block is shared after this.
+ */
+function applyPower(s, pw) {
+  const lists = (fn) => {
+    s.status = fn(s.status);
+    if (s.trap?.status) s.trap = { ...s.trap, status: fn(s.trap.status) };
+    if (s.turret?.status) s.turret = { ...s.turret, status: fn(s.turret.status) };
+  };
+  if (pw.dmg !== 1 || pw.ctl !== 1 || pw.buff !== 1) {
+    lists((list) => (list || []).map((st) => {
+      let o = st;
+      if (pw.dmg !== 1 && (st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number') o = { ...o, dps: st.dps * pw.dmg };
+      if (pw.ctl !== 1 && CTL_TYPES.includes(st.type) && typeof st.duration === 'number') o = { ...o, duration: st.duration * pw.ctl };
+      if (pw.buff !== 1 && st.type === 'vulnerable' && typeof st.bonus === 'number') o = { ...o, bonus: st.bonus * pw.buff };
+      return o;
+    }));
+  }
+  if (pw.boss !== 1) s.bossMul *= pw.boss;
+  const grow = (v) => (typeof v === 'number' && v > 1 ? 1 + (v - 1) * pw.buff : v);
+  if (pw.buff !== 1) {
+    if (s.aura) {
+      const a = { ...s.aura };
+      for (const k of ['dmgMul', 'rateMul', 'rangeMul']) a[k] = grow(a[k]);
+      for (const k of ['armorPen', 'critChance', 'foeVuln']) if (typeof a[k] === 'number' && a[k] > 0) a[k] *= pw.buff;
+      s.aura = a;
+    }
+    for (const key of ['brew', 'link']) {
+      if (!s[key]) continue;
+      const l = { ...s[key] };
+      l.dmgMul = grow(l.dmgMul);
+      l.rateMul = grow(l.rateMul);
+      if (l.armorPen > 0) l.armorPen *= pw.buff;
+      if (l.critChance > 0) l.critChance *= pw.buff;
+      s[key] = l;
+    }
+    if (s.drink) s.drink = { ...s.drink, dmg: s.drink.dmg * pw.buff, rate: s.drink.rate * pw.buff, range: s.drink.range * pw.buff };
+    if (s.hub) s.hub = { ...s.hub, dmgMul: grow(s.hub.dmgMul), rateMul: grow(s.hub.rateMul), rangeMul: grow(s.hub.rangeMul) };
+  }
+  if (pw.reach !== 1 && s.aura && typeof s.aura.range === 'number') s.aura = { ...s.aura, range: s.aura.range * pw.reach };
+}
+
 /**
  * After her unit stats: Potential's whole-girl DoT multiplier on every burn / poison she applies (N1),
  * her aura's added reach after every max rule (N5), and one more brewed / linked girl (N12; brews
@@ -770,6 +819,9 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
+  // the Oct 27 power pass (src/data/balance.js): her damage row folds in like level and gear ATK
+  const pw = powerFor(def, heroLevel);
+  if (pw && pw.dmg !== 1) us.damageMul *= pw.dmg;
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
   // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)
   if (s.blade) s.blade.capMax = s.ramp ? s.ramp.max : 0;
@@ -781,6 +833,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   if (extra) for (const m of Array.isArray(extra) ? extra : [extra]) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
   applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
+  if (pw) applyPower(s, pw);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
   if (s.hub && pot.incomeMul !== 1) s.hub.costCut *= pot.incomeMul; // (Ouka's coins track: her discount)
   if (pot.level > 1) potentialTail(s, pot, acc);

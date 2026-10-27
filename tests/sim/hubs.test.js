@@ -13,6 +13,10 @@ import { defaultData } from '../../src/sim/data.js';
 import { computeHit } from '../../src/sim/combat.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
 import { MAP, STAGE, ENEMIES } from './fixtures.js';
+import { POWER } from '../../src/data/balance.js';
+
+// Ouka's Oct 27 power row (src/data/balance.js) grows the bonus part of her office's speed / range / damage
+const ob = (m) => 1 + (m - 1) * (POWER.ouka?.buff ?? 1);
 
 const units = defaultData().units;
 
@@ -118,16 +122,16 @@ describe('the office rules', () => {
   test('Morning Bell / Club Mentors / Student Body / Academy Charter fold into her buff; Hall Monitors and Rooftop Watch grant', () => {
     const plain = makeSim().placeTower('rei', 9.7, 6.2);
     const bell = setup({ tiers: [0, 1, 0], girl: 'rei' });
-    expect(bell.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.1, 9);
+    expect(bell.g.eff.rate).toBeCloseTo(plain.eff.rate * ob(1.1), 9);
     const { g } = setup({ tiers: [0, 4, 0], girl: 'rei' });
-    expect(g.eff.rate).toBeCloseTo(plain.eff.rate * 1.15, 9); // Club Mentors' 15% (strongest wins)
-    expect(g.eff.range).toBeCloseTo(plain.eff.range * 1.1, 9);
+    expect(g.eff.rate).toBeCloseTo(plain.eff.rate * ob(1.15), 9); // Club Mentors' 15% (strongest wins)
+    expect(g.eff.range).toBeCloseTo(plain.eff.range * ob(1.1), 9);
     const safe = setup({ tiers: [0, 0, 2], girl: 'rei' });
     expect(plain.eff.canHitAir).toBe(false);
     expect(safe.g.eff.canHitAir).toBe(true);
     expect(safe.g.eff.detection).toBe(true);
     const ch = setup({ tiers: [0, 2, 5], girl: 'rei' });
-    expect(ch.g.eff.damage).toBeCloseTo(plain.eff.damage * 1.15, 9);
+    expect(ch.g.eff.damage).toBeCloseTo(plain.eff.damage * ob(1.15), 9);
     expect(ch.g.eff.typeFloor).toBe(1);
     expect(ch.o.stats.hub.radius).toBe(4);
     expect(ch.o.stats.range).toBe(4);
@@ -145,11 +149,11 @@ describe('the office rules', () => {
   test('Club Mentors: girls in her radius attack 15% faster; Festival of Clubs: 25% faster and 15% further', () => {
     const plain = makeSim().placeTower('rei', 9.7, 6.2);
     const t3 = setup({ tiers: [0, 3, 0], girl: 'rei' });
-    expect(t3.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.15, 9);
+    expect(t3.g.eff.rate).toBeCloseTo(plain.eff.rate * ob(1.15), 9);
     expect(t3.g.eff.range).toBeCloseTo(plain.eff.range, 9);
     const t5 = setup({ tiers: [0, 5, 0], girl: 'rei' });
-    expect(t5.g.eff.rate).toBeCloseTo(plain.eff.rate * 1.25, 9);
-    expect(t5.g.eff.range).toBeCloseTo(plain.eff.range * 1.15, 9);
+    expect(t5.g.eff.rate).toBeCloseTo(plain.eff.rate * ob(1.25), 9);
+    expect(t5.g.eff.range).toBeCloseTo(plain.eff.range * ob(1.15), 9);
     // the v0.1.40 speed stays and the ability recharge is back (owner default Q1): Club Mentors 15 %, Festival 25 %
     const cuts = units.ouka.paths[1].tiers.map((t) => t.mods.hub.cdCut ?? 0);
     expect(cuts).toEqual([0, 0, 0.15, 0, 0.25]);
@@ -157,8 +161,13 @@ describe('the office rules', () => {
     expect(t5.g.rules.cdCut).toBe(0.25);
     for (const i of [2, 4]) expect(units.ouka.paths[1].tiers[i].desc, units.ouka.paths[1].tiers[i].name).toMatch(/faster.*abilities recharge \d+% faster/);
     // the panel's Office line reads her office from towerStats (a hub girl only; nobody else carries the key)
-    expect(t3.sim.towerStats(t3.o.uid).hub).toMatchObject({ cdCut: 0.15, rateMul: 1.15 });
-    expect(t5.sim.towerStats(t5.o.uid).hub).toMatchObject({ cdCut: 0.25, rateMul: 1.25, rangeMul: 1.15 });
+    const h3 = t3.sim.towerStats(t3.o.uid).hub;
+    const h5 = t5.sim.towerStats(t5.o.uid).hub;
+    expect(h3.cdCut).toBe(0.15);
+    expect(h3.rateMul).toBeCloseTo(ob(1.15), 12);
+    expect(h5.cdCut).toBe(0.25);
+    expect(h5.rateMul).toBeCloseTo(ob(1.25), 12);
+    expect(h5.rangeMul).toBeCloseTo(ob(1.15), 12);
     expect('hub' in t3.sim.towerStats(t3.g.uid)).toBe(false);
   });
 

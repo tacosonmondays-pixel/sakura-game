@@ -202,11 +202,14 @@ export const TARGET_MODES = {
   air: 'Air', // flyers first, then first
 };
 
+// hpMul: Hard 1.35 → 1.45 and Nightmare 1.75 → 2.2 in the Oct 27 power pass (src/data/balance.js), so they keep
+// their bite over the raised roster (the campaign census: a mid-game account's Nightmare clears went 27/80 → 52/80
+// with the girls raised and only the chapter HP pass)
 export const DIFFICULTIES = {
   easy: { id: 'easy', name: 'Easy', hpMul: 0.85, speedMul: 1.0, cashMul: 1.1, costMul: 0.9, lives: 150, medal: 'bronze', firstClearGems: 20 },
   normal: { id: 'normal', name: 'Normal', hpMul: 1.0, speedMul: 1.0, cashMul: 1.0, costMul: 1.0, lives: 100, medal: 'silver', firstClearGems: 40 },
-  hard: { id: 'hard', name: 'Hard', hpMul: 1.35, speedMul: 1.1, cashMul: 0.95, costMul: 1.08, lives: 50, medal: 'gold', firstClearGems: 60 },
-  nightmare: { id: 'nightmare', name: 'Nightmare', hpMul: 1.75, speedMul: 1.15, cashMul: 0.9, costMul: 1.2, lives: 1, medal: 'sakura', firstClearGems: 100, noIncome: true },
+  hard: { id: 'hard', name: 'Hard', hpMul: 1.45, speedMul: 1.1, cashMul: 0.95, costMul: 1.08, lives: 50, medal: 'gold', firstClearGems: 60 },
+  nightmare: { id: 'nightmare', name: 'Nightmare', hpMul: 2.2, speedMul: 1.15, cashMul: 0.9, costMul: 1.2, lives: 1, medal: 'sakura', firstClearGems: 100, noIncome: true },
 };
 export const DIFFICULTY_ORDER = ['easy', 'normal', 'hard', 'nightmare'];
 

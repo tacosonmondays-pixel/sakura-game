@@ -725,8 +725,9 @@ describe('numbers', () => {
 
   test('ability hits scale with her hit at the ⚡ tier-3 build (spec §5.1 examples)', () => {
     const at3 = (id) => { const u = UNIT_MAP[id]; const [, d, s] = states(u)[0]; return abilityValues(d, s); };
-    expect(at3('aoi').dmg).toBe(24); // 6 × 4 at 0-3-0
-    expect(at3('shiro').dmg).toBe(295); // 5 × 59 at 3-0-0
+    // (× her Oct 27 power row, src/data/balance.js: Aoi ×1.34, Shiro ×1.05, Hana ×7.37, Ena ×7.01; Tenka's row is bosses only)
+    expect(at3('aoi').dmg).toBe(32); // 6 × 4 at 0-3-0 (24 before the power pass)
+    expect(at3('shiro').dmg).toBe(310); // 5 × 59 at 3-0-0 × 1.05 (295 before the power pass)
     expect(at3('aoi').reach).toBe(5.4); // 1.5 × 3.6 tiles
     expect(at3('tenka').dmg).toBe(320); // 40 × (3 + 5) at 0-3-0
     expect(at3('tenka').reach).toBe(3.4);
@@ -743,10 +744,10 @@ describe('numbers', () => {
 
   test('the returning girls at their unlock builds (§5.2 examples, base stats)', () => {
     const v = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return abilityValues(d, s); };
-    expect(v('hana').dmg).toBe(6 * 5); // 6 × her hit at 3-0-0 (4 + 1)
+    expect(v('hana').dmg).toBe(221); // 6 × her hit at 3-0-0 (4 + 1) × her power row 7.37 (30 before the power pass)
     expect(v('ruri').reach).toBe(4.4); // her range + 2 tiles, from Kon
     expect(v('ruri').hits).toBe(3);
-    expect(v('ena').curseBurst).toBe(36); // 3 × her hit at 3-0-0 (12)
+    expect(v('ena').curseBurst).toBe(252); // 3 × her hit at 3-0-0 (12) × 7.01 (36 before the power pass)
     expect(v('yoriko').reach).toBe(Math.round((resolveStats(UNIT_MAP.yoriko, { heroLevel: 7 }).range + 1) * 10) / 10);
     expect(v('seiran', 1)).toMatchObject({ count: 12, dmgMul: 4, cd: 25 }); // Lv 17
     expect(v('noa', 1)).toMatchObject({ lifeMax: 5, dur: 14, cd: 42 }); // tier 5
@@ -815,16 +816,16 @@ describe('text (src/data/abilityText.js, UI only)', () => {
   test('the returning girls read right at their unlock builds', () => {
     const fill = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return fillAbilityText(abilityText(d.id).desc, abilityValues(d, s)); };
     // (M3 review round 2: he dives only within her reach; the rest take a strike from the sky — the card says so)
-    expect(fill('hana')).toBe('Kaze strikes up to 4 flyers still in the sky anywhere on the map (casters, bosses and elites first): he dives on the ones near Hana and strikes the rest from the sky. 30 damage each, and they are grounded for 4s. With no flyer up, he takes the 2 strongest walkers instead.');
-    expect(fill('ena')).toBe('Every enemy within 4.8 tiles draws a cursed card: when it falls it bursts for 36 damage (3× her hit) within 1.6 tiles and passes a weaker curse on, so a dense wave chain-reacts.');
+    expect(fill('hana')).toBe('Kaze strikes up to 4 flyers still in the sky anywhere on the map (casters, bosses and elites first): he dives on the ones near Hana and strikes the rest from the sky. 221 damage each, and they are grounded for 4s. With no flyer up, he takes the 2 strongest walkers instead.');
+    expect(fill('ena')).toBe('Every enemy within 4.8 tiles draws a cursed card: when it falls it bursts for 252 damage (3× her hit) within 1.6 tiles and passes a weaker curse on, so a dense wave chain-reacts.');
     expect(fill('noa')).toMatch(/^Girls within 4 tiles of her, your ally's too, are cleansed and can't be sabotaged or stunned for 10s\. Meanwhile every 10 enemies that fall within 3 tiles of her bring back a life \(at most 3;/);
     expect(fill('ruri')).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites of \d+ damage, then he holds it for 1\.5s/);
   });
 
-  test('Aoi at 0-3-0 reads like the spec example (24 damage, 5.4 tiles)', () => {
+  test('Aoi at 0-3-0 reads like the spec example (24 damage × her power row = 32, 5.4 tiles)', () => {
     const [, d, s] = states(UNIT_MAP.aoi)[0];
     expect(fillAbilityText(abilityText(d.id).desc, abilityValues(d, s))).toBe(
-      'Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 24 damage each and a 0.5s pin.',
+      'Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 32 damage each and a 0.5s pin.',
     );
   });
 

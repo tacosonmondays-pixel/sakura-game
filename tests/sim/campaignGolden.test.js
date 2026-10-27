@@ -56,6 +56,7 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     for (const [stageId, difficulty] of [['1-3', 'normal'], ['4-2', 'hard'], ['8-5', 'normal']]) {
       out[stageId] = battleDigest({ stageId, difficulty, plan: autoPlan(stageId, units), seed: 77, maxTime: 2400 });
     }
+    if (process.env.GOLDEN_PRINT) console.log('SOLO', JSON.stringify(out));
     expect(out).toEqual(GOLDEN.solo);
   }, 120000);
 
@@ -64,6 +65,7 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     const cs = coopStage('2-4');
     const coop = battleDigest({ stageId: '2-4', plan: autoPlan('2-4', units), seed: 5, maxTime: 2400, data: { stage: cs } });
     const endless = battleDigest({ stageId: '1-2', plan: autoPlan('1-2', units), seed: 9, maxTime: 900, options: { endless: true } });
+    if (process.env.GOLDEN_PRINT) console.log('COOPENDLESS', JSON.stringify({ coop, endless }));
     expect({ coop, endless }).toEqual(GOLDEN.coopEndless);
   }, 120000);
 
@@ -89,6 +91,7 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     c.apply({ t: 0, p: 0, s: 2, k: 'wave', a: [] });
     for (let i = 0; i < 60 * 120; i++) c.step();
     out.coop = [c.hash(), c.sim.wave];
+    if (process.env.GOLDEN_PRINT) console.log('HEROLESS', JSON.stringify(out));
     expect(out).toEqual(HEROLESS);
   }, 120000);
 
@@ -122,7 +125,9 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     c.apply({ t, p: 0, s: 99, k: 'auto', a: [true] });
     c.apply({ t, p: 0, s: 100, k: 'wave', a: [] });
     for (let i = 0; i < 60 * 240 && c.sim.wave <= 3 && c.sim.state !== 'lost'; i++) c.step();
-    expect({ hash: c.hash(), wave: c.sim.wave, state: c.sim.state, wallets: c.wallets.join('/'), towers: c.sim.towers.length }).toEqual(GOLDEN.coopSim);
+    const got = { hash: c.hash(), wave: c.sim.wave, state: c.sim.state, wallets: c.wallets.join('/'), towers: c.sim.towers.length };
+    if (process.env.GOLDEN_PRINT) console.log('COOPSIM', JSON.stringify(got));
+    expect(got).toEqual(GOLDEN.coopSim);
   }, 60000);
 });
 
@@ -134,18 +139,22 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 // autoPlan buys tier 4s (Yuki 2-4-0 with Frostbite's Shatter Point: Brittle 25 → 30 %, +25 % damage,
 // and others whose rows the pass changed); with the pre-merge units.js the merged sim reproduces every
 // digest here. The outcome is the same (lost on wave 30).
+// Re-pinned for the Oct 27 power pass (scratch/balance-oct27: src/data/balance.js, the chapter HP pass and
+// Hard ×1.45), a deliberate sim and data change (was solo 2a092051 / 7926f22f wave 13 / 0281ca62, co-op 86503440,
+// endless c754a97f, coopSim 57814410). Same outcomes except 4-2 Hard, now lost on wave 19 instead of 13; the wave
+// tables did not move.
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '2a092051', wave: 15, won: true },
-    '4-2': { digest: '7926f22f', wave: 13, won: false },
-    '8-5': { digest: '0281ca62', wave: 30, won: false },
+    '1-3': { digest: '4c3674a2', wave: 15, won: true },
+    '4-2': { digest: '5013044f', wave: 19, won: false },
+    '8-5': { digest: '6edd97a4', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: '86503440', wave: 22, won: true },
-    endless: { digest: 'c754a97f', wave: 25, won: false },
+    coop: { digest: 'e2673499', wave: 22, won: true },
+    endless: { digest: 'e7ff3630', wave: 25, won: false },
   },
-  coopSim: { hash: 57814410, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 1653977433, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
@@ -153,11 +162,12 @@ const GOLDEN = {
 // more enemy HP) moves them, so they were re-pinned once in that commit. From here they must not move.
 // Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
 // the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
+// Re-pinned for the Oct 27 power pass (was 15a8e76f / 15f8aba0 / 61fe353d / 3341544735): same outcomes.
 const HEROLESS = {
-  '1-3': ['15a8e76f', 15, true],
-  '4-5': ['15f8aba0', 13, false],
-  '8-5': ['61fe353d', 30, false],
-  coop: [3341544735, 3],
+  '1-3': ['7f9338bf', 15, true],
+  '4-5': ['6128b238', 13, false],
+  '8-5': ['d6900eb7', 30, false],
+  coop: [712170708, 3],
 };
 
 // Recorded when the map rules landed (feature/codex-modes): 4-2 Rear Ambush, 8-5 Tailwind, 2-4 Supply Ship.
@@ -165,8 +175,9 @@ const HEROLESS = {
 // these battles field Hikari, who levels on her hero track since the hero rework, and the path-cap
 // tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
+// Re-pinned for the Oct 27 power pass (was 887447f2 wave 12 / a1fc2ade / b8a73060): 4-2 Hard now falls on wave 20.
 const RULED = {
-  '4-2': { digest: '887447f2', wave: 12, won: false },
-  '8-5': { digest: 'a1fc2ade', wave: 30, won: false },
-  coop: { digest: 'b8a73060', wave: 22, won: true },
+  '4-2': { digest: '1134d1fd', wave: 20, won: false },
+  '8-5': { digest: '795857fc', wave: 30, won: false },
+  coop: { digest: '2366c104', wave: 22, won: true },
 };

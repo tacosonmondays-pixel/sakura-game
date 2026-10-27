@@ -7,6 +7,7 @@ import { hasDroneTabs, wingNumbers, sampleDroneRates, wingDpsCells, DRONE_TABS }
 import { createBattleSim } from '../../src/ui/battle/setup.js';
 import { createProfile } from '../../src/systems/save.js';
 import { FLIGHT_PURSUIT_RATE_MUL, STEP } from '../../src/sim/constants.js';
+import { POWER } from '../../src/data/balance.js';
 
 function chikaBattle() {
   const profile = createProfile();
@@ -69,7 +70,7 @@ describe('the tabs share one DPS basis', () => {
     const w = wingNumbers(st);
     expect(w.building).toBe(true);
     expect(w.wing).toBeCloseTo(st.turret.damage * st.turret.rate * st.turret.max, 9);
-    expect(st.own.dps).toBeCloseTo(2 * 0.8, 9); // her wrench bolt
+    expect(st.own.dps).toBeCloseTo(2 * 0.8 * (POWER.chika?.dmg ?? 1), 9); // her wrench bolt (× her Oct 27 power row)
     sim.setFlight(t.uid, 'pursuit');
     const p = wingNumbers(sim.towerStats(t.uid));
     expect(p.wing).toBeCloseTo(w.wing * FLIGHT_PURSUIT_RATE_MUL, 9);
