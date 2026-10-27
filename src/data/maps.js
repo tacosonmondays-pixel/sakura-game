@@ -4,6 +4,10 @@
 //   '.' grass/stone (buildable)   ',' flowers / decor (buildable)   '~' water (water units only)
 //   'T' tree   'R' rock   'H' building / shrine / machinery   'X' void, lava or furnace (blocked)
 //   'B' bridge: a water tile the road crosses or grazes (stamped automatically from the paths)
+//   'U' rooftop (Gate Arc): a low flat roof girls stand on, their whole footprint on the roof; a wall
+//       for a girl on the ground (src/sim/placement.js). Like void it is never cleared under a road:
+//       tests fail if a path runs over a roof. A map drops its roofs (the rollout's fallback) by
+//       turning its 'U' tiles into '.' (open yards): data only, the route stays the same.
 //
 // Tracks v3: every path is authored as a smooth curve in WORLD coordinates (tile (x, y) covers
 // [x, x+1) × [y, y+1); its centre is (x + 0.5, y + 0.5)) — control points the centreline passes
@@ -28,6 +32,12 @@
 // bench, fountain, bookshelf, vent, campfire, flag, bridgeLantern, candle.
 //
 // `concept` names each map's track silhouette (Tracks v3 plan: no two maps share one).
+//
+// Gate Arc fields (optional): `city` carries the city kit's render hints (src/render/city/cityKit.js);
+// `echoOf` names the Act I map an echo map re-skins (the same place in another era: its rows, paths,
+// crossings and tunnels stay literal, so the silhouette tests exempt the declared pair only) and
+// `echoDiff` lists the tiles whose terrain the story changed ([{ x, y, from, to }], e.g. the dry
+// fountain basin '~' → '.').
 
 import {
   buildMapTracks, stampTracks, mapTracks, BAND_HALF_WIDTH, arc, spiral, curve, loopNodes, LINE, TUNNEL_IN, TUNNEL_OUT,
@@ -53,7 +63,7 @@ const TOWER_R = 0.42;
  * @param {object} o map fields; `rows` are the unstamped terrain rows, `paths` the path specs
  * @returns {object} MapDef
  */
-function defineMap(o) {
+export function defineMap(o) {
   const grid = o.rows.map((r) => r.split(''));
   const height = grid.length;
   const width = grid[0].length;
@@ -64,6 +74,7 @@ function defineMap(o) {
     const ch = grid[y][x];
     if (ch === '~') grid[y][x] = 'B';
     else if (ch === 'T' || ch === 'R' || ch === 'H' || ch === ',') grid[y][x] = '.';
+    // void ('X') and rooftops ('U') stay: a road may not run through either (tests)
   }
   // Set pieces on land occupy their tile (drawn instead of a generic building).
   for (const d of o.decor || []) {
@@ -95,6 +106,9 @@ function defineMap(o) {
     // optional composed ground features (src/render/groundFeatures.js): { type: 'vat', x, y, w, h }
     // machined tank rim, { type: 'icefall', x0, x1, y } frozen falls, { type: 'runeRing', x, y, r }
     ...(o.ground ? { ground: o.ground } : {}),
+    // Gate Arc (see the header): the city kit's render hints and a declared echo of an Act I map
+    ...(o.city ? { city: o.city } : {}),
+    ...(o.echoOf ? { echoOf: o.echoOf, echoDiff: o.echoDiff || [] } : {}),
     desc: o.desc,
     concept: o.concept || '',
   };
@@ -1483,7 +1497,8 @@ function centrelineDistance(tracks, x, y) {
 
 /**
  * Buildable tile counts for UI badges / recommendations: tiles whose CENTRE is a legal spot
- * for an ordinary girl as far as the road band goes (free placement), by terrain.
+ * for an ordinary girl as far as the road band goes (free placement), by terrain. A rooftop
+ * ('U') counts as land.
  * @param {object} map MapDef
  * @returns {{ land: number, water: number }}
  */
@@ -1495,7 +1510,7 @@ export function buildableTiles(map) {
   map.rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      const isLand = ch === '.' || ch === ',';
+      const isLand = ch === '.' || ch === ',' || ch === 'U';
       const isWater = ch === '~' || ch === 'B';
       if (!isLand && !isWater) continue;
       if (centrelineDistance(tracks, x + 0.5, y + 0.5) < clear) continue;

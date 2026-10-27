@@ -194,9 +194,10 @@ describe('display only: the battle sim is untouched', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
     const KNOWN = { 8: '92e2e22527cf' };
     // feature/gate-arc only: Gate Arc Step 1 changes the sim on protocol 8 (S1a: the Act II fields in stages.js and
-    // Ironclad's modeChapter in modes.js; S1c and S1d change it again). The bundled co-op release sets COOP_PROTOCOL
-    // once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 8: '2e1d8ba1b1b0' };
+    // Ironclad's modeChapter in modes.js; S1c: rooftops, the lane schedule and the map fields; S1d changes it again).
+    // The bundled co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only
+    // this exact in-progress id passes here.
+    const PENDING_BUMP = { 8: 'e6099d38b101' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

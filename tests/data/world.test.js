@@ -3,10 +3,10 @@ import { describe, it, expect } from 'vitest';
 import {
   FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, getEnemy, enemiesByFamily, enemyTraits, spawnedBy,
 } from '../../src/data/enemies.js';
-import { MAPS, getMap, pathTiles, buildableTiles } from '../../src/data/maps.js';
+import { MAPS, MAP_MAP, getMap, pathTiles, buildableTiles, defineMap } from '../../src/data/maps.js';
 import { TRACK_STEP, BRIDGE_HEIGHT } from '../../src/core/track.js';
 import {
-  silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount,
+  silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount, isDeclaredEcho,
 } from './trackShape.js';
 import {
   CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
@@ -31,14 +31,95 @@ const ENEMY_OPTIONAL = ['phases'];
 const FREEPLAY_ONLY = (e) => e.introducedIn === 'freeplay';
 const CAMPAIGN_ENEMIES = ENEMIES.filter((e) => !FREEPLAY_ONLY(e));
 const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths', 'tracks', 'crossings'];
-const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground'];
+const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground', 'echoOf', 'echoDiff', 'city'];
 const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
 const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter'];
 const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena'];
-const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X']);
+const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
+/** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
+const ERA_BY_THEME = {
+  sakura: 'morning', lake: 'morning', shrine: 'morning', mountain: 'morning', marsh: 'morning', foundry: 'morning',
+  festival: 'morning', volcano: 'morning', snow: 'morning', night: 'morning', arena: 'morning',
+  city: 'noon', campus: 'noon', drowned: 'noon', vesper: 'evening',
+};
+/** At most this many declared echo maps (GATE_ARC §17: 1-10, 3-10, 8-10). */
+const MAX_ECHOES = 3;
+
+/**
+ * Pairs of maps whose tracks clash: a silhouette IoU ≥ 0.65, or the same bend sequence placed too
+ * similarly on the board. Declared echo pairs (MapDef.echoOf) are skipped, and only they.
+ * @returns {string[]} one line per clash
+ */
+function shapeClashes(maps) {
+  const out = [];
+  const sigs = maps.map((m) => turningSignature(m));
+  for (let i = 0; i < maps.length; i++) {
+    for (let j = i + 1; j < maps.length; j++) {
+      if (isDeclaredEcho(maps[i], maps[j])) continue;
+      const iou = silhouetteIoU(maps[i], maps[j]);
+      if (iou >= 0.65) out.push(`silhouette ${maps[i].id} vs ${maps[j].id}: IoU ${iou.toFixed(2)}`);
+      // signature = the signed curvature lobes between inflections (mirrored / reversed variants
+      // count as the same); two maps with the same bend sequence must at least sit differently on
+      // the board, and a sequence of three or more lobes may not repeat on an overlapping layout
+      if (!signaturesMatch(sigs[i], sigs[j])) continue;
+      const complex = Math.min(lobeCount(sigs[i]), lobeCount(sigs[j])) >= 3;
+      if (iou >= (complex ? 0.45 : 0.5)) {
+        out.push(`turning ${maps[i].id} (${signatureText(sigs[i])}) vs ${maps[j].id} (${signatureText(sigs[j])}), IoU ${iou.toFixed(2)}`);
+      }
+    }
+  }
+  return out;
+}
+
+/** Tiles an echo map's `echoDiff` lists ({ x, y, w?, h?, from?, to }) → Map "x,y" → { from, to }. */
+function echoDiffTiles(echo) {
+  const out = new Map();
+  for (const d of echo.echoDiff || []) {
+    for (let y = d.y; y < d.y + (d.h ?? 1); y++) for (let x = d.x; x < d.x + (d.w ?? 1); x++) out.set(`${x},${y}`, d);
+  }
+  return out;
+}
+
+/**
+ * What is wrong with a declared echo (empty = a valid echo of `original`): another era, the same
+ * size, the paths, crossings and tunnels literal, and the rows equal except the tiles its echoDiff
+ * lists (each of those really changed, from `from` to `to`).
+ * @returns {string[]}
+ */
+function echoProblems(echo, original) {
+  const out = [];
+  const id = echo.id;
+  if (!original) return [`${id}: echoOf '${echo.echoOf}' names no map`];
+  if (echo.echoOf !== original.id) out.push(`${id}: echoOf is not ${original.id}`);
+  const ea = ERA_BY_THEME[echo.theme];
+  const eb = ERA_BY_THEME[original.theme];
+  if (!ea || !eb || ea === eb) out.push(`${id}: an echo must be of another era (${echo.theme}: ${ea}, ${original.theme}: ${eb})`);
+  if (echo.width !== original.width || echo.height !== original.height) out.push(`${id}: size differs`);
+  if (JSON.stringify(echo.paths) !== JSON.stringify(original.paths)) out.push(`${id}: paths differ`);
+  if (JSON.stringify(echo.tracks.map((t) => t.points)) !== JSON.stringify(original.tracks.map((t) => t.points))) out.push(`${id}: tracks differ`);
+  if (JSON.stringify(echo.tracks.map((t) => t.tunnels)) !== JSON.stringify(original.tracks.map((t) => t.tunnels))) out.push(`${id}: tunnels differ`);
+  if (JSON.stringify(echo.crossings) !== JSON.stringify(original.crossings)) out.push(`${id}: crossings differ`);
+  if (!Array.isArray(echo.echoDiff)) out.push(`${id}: echoDiff must be a list`);
+  const diff = echoDiffTiles(echo);
+  for (let y = 0; y < Math.min(echo.height, original.height); y++) {
+    for (let x = 0; x < Math.min(echo.width, original.width); x++) {
+      const a = echo.rows[y][x];
+      const b = original.rows[y][x];
+      const d = diff.get(`${x},${y}`);
+      if (!d) {
+        if (a !== b) out.push(`${id}: tile ${x},${y} is '${a}', the original's '${b}' (not in echoDiff)`);
+      } else {
+        if (a === b) out.push(`${id}: echoDiff lists ${x},${y} but it did not change`);
+        if (d.from != null && b !== d.from) out.push(`${id}: echoDiff ${x},${y} expects '${d.from}' in the original, found '${b}'`);
+        if (d.to != null && a !== d.to) out.push(`${id}: echoDiff ${x},${y} expects '${d.to}', found '${a}'`);
+      }
+    }
+  }
+  return out;
+}
 const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
 const TRAIT_SHAPES = {
   barrier: ['hp'], crystal: ['cap', 'hits'], regen: ['pct', 'delay'], hasty: ['mul', 'every', 'duration'],
@@ -383,27 +464,51 @@ describe('maps', () => {
   });
 
   it('silhouettes differ: no two maps share a track shape (coarse 10x6 raster IoU < 0.65)', () => {
-    for (let i = 0; i < MAPS.length; i++) {
-      for (let j = i + 1; j < MAPS.length; j++) {
-        expect(silhouetteIoU(MAPS[i], MAPS[j]), `${MAPS[i].id} vs ${MAPS[j].id}`).toBeLessThan(0.65);
-      }
-    }
+    // (declared echo pairs only are exempt: see 'echoes' below)
+    expect(shapeClashes(MAPS).filter((c) => c.startsWith('silhouette'))).toEqual([]);
   });
 
   it('turning signatures differ: no two maps bend the same way in the same place', () => {
-    // signature = the signed curvature lobes between inflections (mirrored / reversed variants
-    // count as the same); two maps with the same bend sequence must at least sit differently on
-    // the board, and a sequence of three or more lobes may not repeat on an overlapping layout
-    const sigs = MAPS.map((m) => turningSignature(m));
-    for (let i = 0; i < MAPS.length; i++) {
-      for (let j = i + 1; j < MAPS.length; j++) {
-        if (!signaturesMatch(sigs[i], sigs[j])) continue;
-        const iou = silhouetteIoU(MAPS[i], MAPS[j]);
-        const complex = Math.min(lobeCount(sigs[i]), lobeCount(sigs[j])) >= 3;
-        const what = `${MAPS[i].id} (${signatureText(sigs[i])}) vs ${MAPS[j].id} (${signatureText(sigs[j])}), IoU ${iou.toFixed(2)}`;
-        expect(iou, what).toBeLessThan(complex ? 0.45 : 0.5);
-      }
-    }
+    expect(shapeClashes(MAPS).filter((c) => c.startsWith('turning'))).toEqual([]);
+  });
+
+  it('echoes: at most three, each a literal re-skin of a map of another era', () => {
+    const echoes = MAPS.filter((m) => m.echoOf);
+    expect(echoes.length, echoes.map((m) => m.id).join(', ')).toBeLessThanOrEqual(MAX_ECHOES);
+    for (const m of echoes) expect(echoProblems(m, MAP_MAP[m.echoOf]), m.id).toEqual([]);
+    // an original is echoed once at most, and an echo is never itself echoed
+    const originals = echoes.map((m) => m.echoOf);
+    expect(new Set(originals).size).toBe(originals.length);
+    for (const m of echoes) expect(MAP_MAP[m.echoOf].echoOf, `${m.echoOf} is an echo itself`).toBeFalsy();
+  });
+
+  it('the echo exemption covers a declared pair only: an undeclared copy still fails', () => {
+    // a synthetic Noon echo of Blossom Court with its fountain basin dried out (the 1-10 idea)
+    const court = getMap('sakura_court');
+    const basin = [{ x: 8, y: 5, w: 3, h: 1, from: '~', to: '.' }];
+    const dryRows = court.rows.map((r, y) => (y === 5 ? `${r.slice(0, 8)}...${r.slice(11)}` : r));
+    const echo = { ...court, id: 'noon_fixture_echo', theme: 'city', rows: dryRows, echoOf: 'sakura_court', echoDiff: basin };
+    expect(isDeclaredEcho(echo, court)).toBe(true);
+    expect(isDeclaredEcho(court, echo)).toBe(true);
+    expect(echoProblems(echo, court)).toEqual([]);
+    expect(shapeClashes([...MAPS, echo])).toEqual([]);
+    // the same copy, undeclared: both shape tests catch it
+    const copy = { ...echo, id: 'noon_fixture_copy', echoOf: undefined, echoDiff: undefined };
+    expect(isDeclaredEcho(copy, court)).toBe(false);
+    expect(silhouetteIoU(copy, court)).toBeGreaterThanOrEqual(0.65);
+    const clashes = shapeClashes([...MAPS, copy]);
+    expect(clashes.some((c) => c.startsWith('silhouette sakura_court vs noon_fixture_copy'))).toBe(true);
+    // a declared echo is exempt from its original only, never from a third map
+    const third = { ...echo, id: 'noon_fixture_third', echoOf: 'sakura_terrace' };
+    expect(shapeClashes([...MAPS, third]).some((c) => c.includes('sakura_court vs noon_fixture_third'))).toBe(true);
+    // what the echo test refuses: the same era, a moved road, a changed tile it does not list,
+    // a listed tile that did not change
+    expect(echoProblems({ ...echo, theme: 'lake' }, court).join()).toMatch(/another era/);
+    expect(echoProblems({ ...echo, paths: [court.paths[0].slice(1)] }, court).join()).toMatch(/paths differ/);
+    expect(echoProblems({ ...echo, crossings: [] }, court).join()).toMatch(/crossings differ/);
+    expect(echoProblems({ ...echo, echoDiff: [] }, court).join()).toMatch(/not in echoDiff/);
+    expect(echoProblems({ ...echo, echoDiff: [...basin, { x: 1, y: 1, to: ',' }] }, court).join()).toMatch(/did not change/);
+    expect(echoProblems({ ...echo, echoOf: 'nope' }, undefined).join()).toMatch(/names no map/);
   });
 
   it('meanders are rare: at most two maps are U-bends marching across the board', () => {
@@ -468,6 +573,33 @@ describe('maps', () => {
         if (ch === 'B') expect(tiles.has(`${x},${y}`), `${m.id} stray bridge ${x},${y}`).toBe(true);
       }));
     }
+  });
+
+  it('rooftops (U) are a tile of their own: never cleared under a road, so a road over a roof fails', () => {
+    expect(TILE_CHARS.has('U')).toBe(true);
+    // a fixture: a 2×2 roof beside the road and a roof tile the road runs over
+    const rows = [
+      '..........',
+      '..UU......',
+      '..UU......',
+      '..........',
+      '......U...',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+    ];
+    const m = defineMap({ id: 'fixture_roofs', name: 'Roofs', theme: 'city', tier: 'beginner', rows, paths: [[[-1, 4.5], [11, 4.5]]], decor: [] });
+    expect(m.rows[1]).toBe('..UU......');
+    const onRoad = [...pathTiles(m)].filter((k) => {
+      const [x, y] = k.split(',').map(Number);
+      return m.rows[y]?.[x] === 'U';
+    });
+    expect(onRoad).toEqual(['6,4']); // kept: the path test above refuses it
+    // a roof is land for the build counts
+    const flat = defineMap({ id: 'fixture_flat', name: 'Flat', theme: 'city', tier: 'beginner', rows: rows.map((r) => r.replace(/U/g, '.')), paths: [[[-1, 4.5], [11, 4.5]]] });
+    const roofs = defineMap({ id: 'fixture_roofs2', name: 'Roofs', theme: 'city', tier: 'beginner', rows: rows.map((r, y) => (y === 4 ? '..........' : r)), paths: [[[-1, 4.5], [11, 4.5]]] });
+    expect(buildableTiles(roofs)).toEqual(buildableTiles(flat));
   });
 
   it('paths are long enough and every map has room to build', () => {
