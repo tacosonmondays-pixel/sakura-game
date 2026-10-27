@@ -7,7 +7,7 @@
 // the max of the solo stat and the kill counter that co-op also feeds).
 
 import { ACHIEVEMENT_MAP, ACHIEVEMENT_METRICS, achievementLive } from '../data/achievements.js';
-import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies } from '../data/stages.js';
+import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies, actStages } from '../data/stages.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { UNIT_MAP } from '../data/units.js';
 import { DIFFICULTY_ORDER, ITEM_RARITY_ORDER } from '../data/types.js';
@@ -187,7 +187,8 @@ function stageRibbons(entry) {
 export const RIBBONS_PER_STAGE = DIFFICULTY_ORDER.length * RIBBON_MODES.length;
 
 /**
- * The Codex modes' ribbons over the 40 campaign stages (800 in all): per mode, the total and the stages with all 20
+ * The Codex modes' ribbons over the campaign stages (CAMPAIGN_IDS: 800 over Act I's 40, 20 more per Act II stage): per
+ * mode, the total and the stages with all 20
  * (a rosette). Ribbons are never taken back, so every count only rises.
  * @returns {{ total: number, perfect: number, byMode: Object<string, number> }}
  */
@@ -258,7 +259,13 @@ export function metricValue(p, a, ctx = achievementContext(p)) {
   switch (a.metric) {
     // ---- campaign
     case 'stagesCleared': return ctx.once('stagesCleared', () => CAMPAIGN_IDS.filter((id) => cleared(st[id])).length);
-    case 'chapterClear': return CAMPAIGN_IDS.filter((id) => id.startsWith(`${a.param}-`) && cleared(st[id])).length;
+    // a chapter is its Act I (CHAPTERS[c].stages, never an id prefix: '1-' would also match 1-6 … 1-10)
+    case 'chapterClear': return actStages(a.param, 1).filter((id) => cleared(st[id])).length;
+    // param 'c:act' ('1:2' = chapter 1's Act II): the registered stages of that act
+    case 'chapterActClear': {
+      const [c, act] = String(a.param).split(':').map(Number);
+      return actStages(c, act).filter((id) => cleared(st[id])).length;
+    }
     case 'medals': return ctx.once(`medals:${a.param}`, () => CAMPAIGN_IDS.filter((id) => has(id, a.param)).length);
     case 'medalsAll': return ctx.once('medalsAll', () => CAMPAIGN_IDS.filter((id) => DIFFICULTY_ORDER.every((d) => has(id, d))).length);
     case 'chapterSets': return CHAPTERS.filter((ch) => ch.stages.every((id) => has(id, a.param))).length;

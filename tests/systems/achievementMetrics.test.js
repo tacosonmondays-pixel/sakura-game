@@ -13,7 +13,7 @@ import { claimLesson, skipOnboarding, checkLessons, lessonList } from '../../src
 import { claimAchievement, achievementList } from '../../src/systems/missions.js';
 import { MAX_AWAKEN } from '../../src/systems/progression.js';
 import { CHAPTER_SCENE_IDS } from '../../src/data/story/sceneIndex.js';
-import { CAMPAIGN_IDS, STAGES } from '../../src/data/stages.js';
+import { CAMPAIGN_IDS, STAGES, CHAPTERS } from '../../src/data/stages.js';
 import { createRng } from '../../src/core/rng.js';
 import { MAP_RULES, STAGE_RULES } from '../../src/data/rules.js';
 import { modeRibbons, ribbonCount } from '../../src/systems/unlocks.js';
@@ -72,6 +72,33 @@ describe('campaign and bounty', () => {
     expect(value(p, 'a_bountyg_15')).toBe(1);
     expect(value(p, 'a_boss_gold_3')).toBe(1);
     expect(value(p, 'a_boss_1')).toBe(1);
+  });
+
+  it('chapterClear counts the chapter\'s Act I (CHAPTERS[c].stages), never the id prefix: 1-6 … 1-10 progress is ignored', () => {
+    const p = createProfile();
+    for (const id of ['1-6', '1-7', '1-8', '1-9', '1-10']) stage(p, id, { normal: true });
+    expect(value(p, 'a_chapter_1')).toBe(0);
+    for (const id of ['1-1', '1-2', '1-3']) stage(p, id, { normal: true });
+    expect(value(p, 'a_chapter_1')).toBe(3);
+    expect(value(p, 'a_ch1_act2')).toBe(0); // no Act II stage is registered in this build
+    // stagesCleared and the medal counts read CAMPAIGN_IDS: ids that are not stages yet never count
+    expect(value(p, 'a_clear_10')).toBe(3);
+  });
+
+  it('chapterActClear counts the registered stages of that act (chapter 1 Act II as S1d will register it)', () => {
+    const ch1 = CHAPTERS[0];
+    const was = ch1.act2;
+    ch1.act2 = ['1-6', '1-7', '1-8', '1-9', '1-10'];
+    try {
+      const p = createProfile();
+      for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '1-6', '1-8']) stage(p, id, { easy: true });
+      expect(value(p, 'a_ch1_act2')).toBe(2);
+      expect(value(p, 'a_chapter_1')).toBe(5);
+      expect(metricValue(p, { metric: 'chapterActClear', param: '1:1' })).toBe(5);
+      expect(metricValue(p, { metric: 'chapterActClear', param: '2:2' })).toBe(0);
+    } finally {
+      ch1.act2 = was;
+    }
   });
 
   it('arenaRuns sums clears over the three tiers (sweeps count); challengeWave reads the best wave', () => {

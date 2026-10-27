@@ -162,14 +162,14 @@ export function plaqueEl(pin, { size = phone() ? 36 : 40 } = {}) {
   return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', info.title), h('span', info.sub)));
 }
 
-/** Ribbon counts per battle mode (reverse, rush, ironclad, frugal, laststand), each out of the campaign's 40 × 4. */
+/** Ribbon counts per battle mode (reverse, rush, ironclad, frugal, laststand), each out of `total` (campaign stages × 4). */
 export function ribbonTallyRow(r, total) {
   return h('div.pf-tally-row', { 'data-testid': 'profile-ribbon-tally' }, RIBBON_MODES.map((m, i) => h('div.pf-tc', { 'data-mode': m, title: `${modeText(m).name} ribbons` },
     svgEl(modeIcon(m), 'pf-tc-ico'), h('b', String(r[i] || 0), h('small', `/${total}`)))));
 }
 
 /**
- * Medal counts per difficulty, each out of the 59 stages.
+ * Medal counts per difficulty, each out of every stage (STAGE_COUNT: 59 today, more as Act II ships).
  * @param {{ only?: string[]|null }} [o] only: the difficulties to show (UI M5d: profile/zero.js leaves out the zeros)
  */
 export function medalTallyRow(a, { only = null } = {}) {

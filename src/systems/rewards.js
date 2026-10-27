@@ -25,6 +25,19 @@ export const MODE_RIBBON_GEMS = Object.freeze({ easy: 0, normal: 0, hard: 0, nig
 
 const diffIndex = (d) => Math.max(0, DIFFICULTY_ORDER.indexOf(d));
 
+/**
+ * The gems a stage's first medal on a difficulty pays: DIFFICULTIES[d].firstClearGems (20 / 40 / 60 / 100) × the
+ * stage's `medalGemMul` (Act II: 0.5 → 10 / 20 / 30 / 50), rounded. Stage prep shows the same number.
+ * @param {object} stage StageDef
+ * @param {string} difficulty
+ * @returns {number}
+ */
+export function medalGems(stage, difficulty) {
+  const base = DIFFICULTIES[difficulty]?.firstClearGems || 0;
+  const mul = Number.isFinite(stage?.medalGemMul) && stage.medalGemMul >= 0 ? stage.medalGemMul : 1;
+  return Math.round(base * mul);
+}
+
 /** [events] An event stage pays only on its own `difficulties`; every other stage on all four (a locked one: eventDifficultyStatus). */
 export function eventDifficultyOk(stage, difficulty) {
   return stage?.kind !== 'event' || !Array.isArray(stage.difficulties) || stage.difficulties.includes(difficulty);
@@ -160,7 +173,8 @@ export function battleDropSeed(stageId, difficulty, seed) {
 /**
  * Apply a finished battle (sim.result()) to the profile.
  * - bestiary: every encountered enemy becomes `seen`; on a WIN it also becomes `discovered`
- * - win: medal for the difficulty, first-clear gems per difficulty (DIFFICULTIES.firstClearGems),
+ * - win: medal for the difficulty, first-clear gems per difficulty (medalGems: DIFFICULTIES.firstClearGems × the
+ *   stage's medalGemMul),
  *   stage.firstClear on the very first clear, free unit unlocks, drop rolls
  * - loss: a small coin consolation (40 per wave cleared)
  * - stats, kills and mission tracking (battleWin/battleWinHard/kill/bossKill) are handled here
@@ -271,7 +285,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
       if (!entry.modes['nightmare:laststand']) out.newRibbon = true;
       entry.modes['nightmare:laststand'] = true;
     }
-    if (out.newMedal && stage.kind !== 'challenge') rewards.push({ id: 'gems', count: DIFFICULTIES[difficulty].firstClearGems });
+    if (out.newMedal && stage.kind !== 'challenge') rewards.push({ id: 'gems', count: medalGems(stage, difficulty) });
     if (out.firstClear) rewards.push(...(stage.firstClear || []));
     for (const unitId of stage.unlocks?.units || []) {
       if (!isOwned(profile, unitId)) {

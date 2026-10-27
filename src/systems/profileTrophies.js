@@ -93,7 +93,8 @@ export function bannerUnlocked(p, id) {
   if (b.kind === 'academy') return true;
   if (b.kind === 'scene') return !!p?.units?.[b.girl];
   const chapter = CHAPTERS.find((c) => c.id === b.chapter);
-  const ids = STAGES.filter((s) => s.kind === 'campaign' && s.chapter === b.chapter).map((s) => s.id);
+  // the chapter's Act I (`stages`): an Act II that ships later never re-locks a banner a player already has
+  const ids = chapter ? chapter.stages : [];
   return !!chapter && ids.length > 0 && ids.every((sid) => stageCleared(p, sid));
 }
 

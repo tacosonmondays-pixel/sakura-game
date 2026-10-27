@@ -2,13 +2,13 @@
 // because systems code must never import the scene chunk. It must equal each chapter's archive episodes minus those
 // with a scene-level `ifUnit` (they cannot play until their girl joins). This test is the one place that imports both.
 import { describe, it, expect } from 'vitest';
-import { CHAPTER_SCENE_IDS } from '../../src/data/story/sceneIndex.js';
+import { CHAPTER_SCENE_IDS, ACT_SCENE_IDS } from '../../src/data/story/sceneIndex.js';
 import { SCENE_LIST } from '../../src/data/story/index.js';
 
 describe('CHAPTER_SCENE_IDS', () => {
-  it('equals each chapter\'s scenes from SCENE_LIST minus the scene-level ifUnit ones', () => {
+  it('equals each chapter\'s Act I scenes from SCENE_LIST minus the scene-level ifUnit ones', () => {
     for (let c = 1; c <= 8; c++) {
-      const want = SCENE_LIST.filter((s) => s.chapter === c && !s.ifUnit).map((s) => s.id);
+      const want = SCENE_LIST.filter((s) => s.chapter === c && (s.act ?? 1) === 1 && !s.ifUnit).map((s) => s.id);
       expect(CHAPTER_SCENE_IDS[c], `chapter ${c}`).toEqual(want);
     }
     expect(Object.keys(CHAPTER_SCENE_IDS).map(Number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
@@ -22,5 +22,25 @@ describe('CHAPTER_SCENE_IDS', () => {
     const waiting = SCENE_LIST.filter((s) => s.ifUnit).map((s) => s.id);
     expect(waiting.length).toBeGreaterThan(0);
     for (const id of waiting) expect(Object.values(CHAPTER_SCENE_IDS).flat()).not.toContain(id);
+  });
+});
+
+describe('ACT_SCENE_IDS (Gate Arc episodes per act, kept apart so Story Time never goes backwards)', () => {
+  it("'chapter:act' keys list exactly that act's scenes from SCENE_LIST minus the ifUnit ones", () => {
+    for (const [key, ids] of Object.entries(ACT_SCENE_IDS)) {
+      const [c, act] = key.split(':').map(Number);
+      expect(act, key).toBeGreaterThan(1);
+      const want = SCENE_LIST.filter((s) => s.chapter === c && (s.act ?? 1) === act && !s.ifUnit).map((s) => s.id);
+      expect(ids, key).toEqual(want);
+    }
+    // every Act II scene in the chunk is indexed
+    const indexed = new Set(Object.values(ACT_SCENE_IDS).flat());
+    for (const s of SCENE_LIST.filter((x) => (x.act ?? 1) > 1 && !x.ifUnit)) expect(indexed.has(s.id), s.id).toBe(true);
+    expect(Object.keys(ACT_SCENE_IDS)).toContain('1:2');
+  });
+
+  it('never shares an id with CHAPTER_SCENE_IDS', () => {
+    const act1 = new Set(Object.values(CHAPTER_SCENE_IDS).flat());
+    for (const id of Object.values(ACT_SCENE_IDS).flat()) expect(act1.has(id), id).toBe(false);
   });
 });

@@ -159,7 +159,9 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
   it('the list carries the display fields', () => {
     const a = achievementList(createProfile()).find((x) => x.id === 'a_sakura_40');
     expect(a).toMatchObject({ cat: 'campaign', tier: 5, series: 'sakura', hidden: false, since: null, locked: null, live: true });
-    expect(a.seriesIds).toEqual(['a_sakura_1', 'a_sakura_10', 'a_sakura_20', 'a_sakura_40']);
+    // (a_sakura_80 is the Act II step, listed in the series but hidden until its stages exist: the ladder shows live rows only)
+    expect(a.seriesIds).toEqual(['a_sakura_1', 'a_sakura_10', 'a_sakura_20', 'a_sakura_40', 'a_sakura_80']);
+    expect(achievementList(createProfile()).some((x) => x.id === 'a_sakura_80')).toBe(false);
     expect(a.honor).toMatchObject({ no: 28, cls: 'special', fx: 'sakura' });
     expect(a.title).toEqual({ text: 'Thousand-Petal Sentinel', tier: 'prism' });
     const secret = achievementList(createProfile()).find((x) => x.id === 'a_close_call');

@@ -5,17 +5,15 @@
 // Trigger kinds (format.js): { opening: true } | { tutorial: 'won' } | { before: stageId } | { after: stageId }
 // | { lesson: id } | null (archive only).
 
-import { CAMPAIGN_IDS, STAGE_MAP } from '../data/stages.js';
+import { stageOrderKey, stageRequires } from '../data/stages.js';
 import { storyRewardFor } from '../data/story/lessons.js';
 import { addItems } from './inventory.js';
 import {
   storyOf, stageCleared, stageOpen, setOpening, markSceneSeen, SEEN_LIMIT, QUEUE_LIMIT,
 } from './story.js';
 
-const campaignIndex = (stageId) => {
-  const i = CAMPAIGN_IDS.indexOf(stageId);
-  return i < 0 ? Infinity : i;
-};
+/** Play order of a trigger stage: (chapter, act, n), so a 1-10 after-scene plays before a waiting 2-1 one. */
+const playOrder = (stageId) => stageOrderKey(stageId);
 
 const availableFor = (hasUnit) => (sc) => !sc.ifUnit || !hasUnit || !!hasUnit(sc.ifUnit);
 
@@ -51,7 +49,7 @@ export function beforeSceneFor(profile, stageId, scenes, hasUnit) {
 }
 
 /**
- * First clears → queue their `after` scenes (campaign order, no duplicates, nothing already seen). The queue is
+ * First clears → queue their `after` scenes (play order: chapter, act, n; no duplicates, nothing already seen). The queue is
  * persisted in the profile, so a scene interrupted by closing the app plays again next session.
  * @param {object} profile
  * @param {Iterable<string>} newlyCleared stage ids cleared by the last battle
@@ -66,7 +64,7 @@ export function queueAfterClears(profile, newlyCleared, scenes, hasUnit) {
   const ok = availableFor(hasUnit);
   const add = (scenes || [])
     .filter((sc) => sc.trigger?.after && cleared.has(sc.trigger.after) && ok(sc) && !s.seen.includes(sc.id) && !s.queue.includes(sc.id))
-    .sort((a, b) => campaignIndex(a.trigger.after) - campaignIndex(b.trigger.after));
+    .sort((a, b) => playOrder(a.trigger.after) - playOrder(b.trigger.after));
   const added = [];
   for (const sc of add) {
     if (s.queue.length >= QUEUE_LIMIT) break;
@@ -89,14 +87,14 @@ export function pruneQueue(profile, scenes, hasUnit) {
 }
 
 /**
- * The next queued after-scene, in campaign order of its trigger stage.
+ * The next queued after-scene, in play order (chapter, act, n) of its trigger stage.
  * @returns {object|null} scene
  */
 export function nextQueued(profile, scenes, hasUnit) {
   const queue = pruneQueue(profile, scenes, hasUnit);
   if (!queue.length) return null;
   const byId = new Map((scenes || []).map((sc) => [sc.id, sc]));
-  const sorted = [...queue].sort((a, b) => campaignIndex(byId.get(a)?.trigger?.after) - campaignIndex(byId.get(b)?.trigger?.after));
+  const sorted = [...queue].sort((a, b) => playOrder(byId.get(a)?.trigger?.after) - playOrder(byId.get(b)?.trigger?.after));
   return byId.get(sorted[0]) || null;
 }
 
@@ -133,16 +131,18 @@ export function recordChoice(profile, sceneId, index) {
 }
 
 /**
- * Requirement shown on a locked archive card (tokens resolve through src/data/story/tokens.js).
- * @returns {string|null} e.g. "Clear 2-5 {stage:2-5}" → "Clear 2-5 Basilisk Moon"
+ * Requirement shown on a locked archive card (tokens resolve through src/data/story/tokens.js). A `before` scene names
+ * every stage its stage needs (an Act II x-6 needs two).
+ * @returns {string|null} e.g. "Clear 2-5 {stage:2-5}" → "Clear 2-5 Basilisk Moon";
+ *   "Clear 2-5 {stage:2-5} and 1-10 {stage:1-10}" for a two-key stage
  */
 export function requirementFor(scene) {
   const t = scene?.trigger;
   if (!t) return null;
   if (t.after) return `Clear ${t.after} {stage:${t.after}}`;
   if (t.before) {
-    const req = STAGE_MAP[t.before]?.requires;
-    return req ? `Clear ${req} {stage:${req}}` : null;
+    const req = stageRequires(t.before);
+    return req.length ? `Clear ${req.map((id) => `${id} {stage:${id}}`).join(' and ')}` : null;
   }
   if (t.lesson) return "Unlocks in the Captain's Journal";
   return null;

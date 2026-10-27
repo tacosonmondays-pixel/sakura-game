@@ -17,7 +17,7 @@ import {
 } from '../../src/systems/storyTriggers.js';
 import { SCENE_LIST, sceneById, LESSON_SCENES } from '../../src/data/story/index.js';
 import { STORY_REWARDS } from '../../src/data/story/lessons.js';
-import { CAMPAIGN_IDS, CHAPTERS } from '../../src/data/stages.js';
+import { CAMPAIGN_IDS, CHAPTERS, STAGE_MAP, act2Stage } from '../../src/data/stages.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -315,5 +315,42 @@ describe('bundle (T-bundle-1)', () => {
     const statics = [...src.matchAll(/^import[^;]*?from\s+['"]([^'"]+)['"]/gm)].map((m) => m[1]);
     expect(statics.filter((s) => /story/.test(s))).toEqual([]);
     expect(src).toMatch(/import\(['"]\.\/ui\/story\/install\.js['"]\)/);
+  });
+});
+
+describe('Act II order and two-key requirements (Gate Arc; docs/CAMPAIGN.md "Act II")', () => {
+  // synthetic scenes: the queue sorts by (chapter, act, n) from the trigger id alone, so they work before 1-6 exists
+  const SYN = [
+    { id: 'syn.c2', kind: 'epilogue', chapter: 2, trigger: { after: '2-1' } },
+    { id: 'syn.g1', kind: 'event', chapter: 1, act: 2, trigger: { after: '1-10' } },
+    { id: 'syn.c1', kind: 'epilogue', chapter: 1, trigger: { after: '1-5' } },
+    { id: 'syn.g1b', kind: 'event', chapter: 1, act: 2, trigger: { after: '1-6' } },
+  ];
+
+  it('a 1-10 after-scene plays before a waiting 2-1 one, and 1-5 before 1-6', () => {
+    const p = createProfile();
+    const added = queueAfterClears(p, ['2-1', '1-10', '1-5', '1-6'], SYN, hasUnit);
+    expect(added).toEqual(['syn.c1', 'syn.g1b', 'syn.g1', 'syn.c2']);
+    p.story.queue = ['syn.c2', 'syn.g1'];
+    expect(nextQueued(p, SYN, hasUnit).id).toBe('syn.g1');
+    markSeen(p, 'syn.g1', { kind: 'event' });
+    expect(nextQueued(p, SYN, hasUnit).id).toBe('syn.c2');
+  });
+
+  it('requirementFor names both stages of a two-key x-6; a single-key stage reads as before', () => {
+    const base = { name: 'Fixture', mapId: 'sakura_court', desc: 'x', budget: [8, 200], pool: [{ enemy: 'slime_green', weight: 1, from: 1 }], fam: ['charm', 'rune'], scenery: { props: ['x'] } };
+    STAGE_MAP['2-6'] = act2Stage({ ...base, id: '2-6' });
+    STAGE_MAP['1-6'] = act2Stage({ ...base, id: '1-6' });
+    try {
+      expect(requirementFor({ trigger: { before: '2-6' } })).toBe('Clear 2-5 {stage:2-5} and 1-10 {stage:1-10}');
+      expect(requirementFor({ trigger: { before: '1-6' } })).toBe('Clear 1-5 {stage:1-5}');
+      expect(requirementFor({ trigger: { before: '2-1' } })).toBe('Clear 1-5 {stage:1-5}');
+      const p = clearUpTo(createProfile(), '2-5');
+      expect(sceneUnlocked(p, { trigger: { before: '2-6' } })).toBe(false); // 1-10 is still missing
+      expect(sceneUnlocked(p, { trigger: { before: '1-6' } })).toBe(true);
+    } finally {
+      delete STAGE_MAP['2-6'];
+      delete STAGE_MAP['1-6'];
+    }
   });
 });
