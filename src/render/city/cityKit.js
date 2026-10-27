@@ -1,0 +1,596 @@
+// City kit (Gate Arc, Noon `city` theme): what a `look.city` board adds on top of the usual
+// terrain (terrain.js calls these when the theme has a `city` block):
+//
+//   • cityBuildingFor / cityWallVariant: which building stands on each H tile (shop fronts and
+//     shop rows on the street, apartments and offices behind; every on-board building is low,
+//     BOARD_MAX_H), which wall on the border,
+//   • raised kerbs and sidewalks along every road on the ground (high and medium; the painted
+//     sidewalk under them carries low quality), crosswalks, stop lines and box markings (ground
+//     marks drawn by the ambient batches: 0 draw calls),
+//   • street furniture: traffic signals at the corners, utility poles with a lamp arm along the
+//     roads and the overhead wires between them (pigeons sitting on a few spans), a cat napping
+//     on a wall, subway signs at tunnel mouths,
+//   • the skyline in the skirt (tall at the back, low in front so the board stays clear),
+//   • a railway on the skirt with level crossings where a road crosses it,
+//   • three instanced movers (one draw call each): the commuter train every 40 s, a water-bus on
+//     the canal, and Brigade patrol drones high overhead — dressing only: they never fire and
+//     never target anything (GATE_ARC §7.3, §18.5).
+//
+// Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
+// facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
+// transparent. Deterministic per map id (no Math.random).
+import * as THREE from 'three';
+import { makeRand, hash } from '../geo.js';
+import { CityAcc, FK, createFacadeMaterial } from './cityMaterials.js';
+import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry } from './cityProps.js';
+import { prim } from './buildings.js';
+import { crosswalkMarks } from '../groundFeatures.js';
+
+const PATH_H = 0.05;
+/** Sidewalk: from the road edge out to SW_OUT, top at SW_Y (the kerb is the step up from the road). */
+export const SW_IN = 0.47;
+export const SW_OUT = 0.84;
+export const SW_Y = 0.07;
+const KERB = 0.06;
+/** Height of the overhead wires on the utility poles. */
+const WIRE_Y = 1.46;
+/** Default skirt railway (behind the board) when the map does not say. */
+const RAIL_Z = -2.75;
+/** Train: cars, car length, period (s) and the part of it spent crossing. */
+const TRAIN = { cars: 5, len: 1.24, period: 40, run: 0.32 };
+
+/**
+ * Which building stands on an interior H tile: shops along the street (shopFront, the shop-row
+ * and corner kinds of cityBlock), homes and offices one row back. Every kind is ≤ BOARD_MAX_H.
+ * @param {object} map MapDef
+ * @param {number} x tile
+ * @param {number} y tile
+ * @param {(x: number, y: number) => boolean} isPath
+ * @returns {{ type: string, variant: number }}
+ */
+export function cityBuildingFor(map, x, y, isPath) {
+  let d = 9;
+  for (let r = 1; r <= 3 && d === 9; r++) {
+    for (let dy = -r; dy <= r && d === 9; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r && isPath(x + dx, y + dy)) {
+          d = r;
+          break;
+        }
+      }
+    }
+  }
+  const h = hash(map.id, 'block', x, y);
+  const roll = h % 100;
+  if (d <= 1) {
+    // on the street: mostly shop fronts, now and then a shop row, a convenience store, a clinic,
+    // a police box or a small office
+    if (roll < 52) return { type: 'shopFront', variant: (h >>> 8) % CITY_VARIANTS.shopFront };
+    if (roll < 68) return { type: 'cityBlock', variant: 0 };
+    if (roll < 78) return { type: 'cityBlock', variant: 3 };
+    if (roll < 86) return { type: 'cityBlock', variant: 4 };
+    if (roll < 91) return { type: 'cityBlock', variant: 5 };
+    return { type: 'cityBlock', variant: 2 };
+  }
+  // one row back: apartments and offices
+  return { type: 'cityBlock', variant: roll < 62 ? 1 : 2 };
+}
+
+/** Which cityWall a border H tile gets (retaining wall + hedge, construction fence, brick wall). */
+export function cityWallVariant(map, x, y) {
+  return hash(map.id, 'wall', x, y) % CITY_VARIANTS.cityWall;
+}
+
+/** Top of each cityWall variant (where a cat can sit), null when there is no ledge. */
+const WALL_TOP = [0.27, null, 0.375];
+
+/**
+ * Builds the city layer of a `look.city` board.
+ * @param {object} o
+ * @param {object} o.map MapDef (map.city: optional render hints { railway: { z } | false, waterBus: { z, x0, x1 }, areas, goalGate, goalVariant })
+ * @param {object} o.look resolved look (look.city)
+ * @param {object} o.plan planRoads() result
+ * @param {(x: number, y: number) => boolean} o.isPath tile on a road
+ * @param {(x: number, y: number) => boolean} o.isWater tile is water (board and skirt)
+ * @param {Set<string>} o.occupied tiles with a prop (the kit adds its own)
+ * @param {object[]} o.gates terrain gate markers ({ kind, x, z, dir })
+ * @param {object[]} o.portals tunnel portals ({ x, z, dir, end })
+ * @param {Function} o.place terrain prop placer (type, x, y, z, ry, s, variant, target, lod)
+ * @param {THREE.BufferGeometry[]} o.facadeParts the terrain's facade parts (merged into one mesh)
+ * @param {string} [o.quality]
+ * @param {number} [o.margin] how far the terrain reaches outside the board
+ * @param {THREE.Material} [o.facadeMaterial] the terrain's facade material (shared by the movers)
+ * @returns {{ meshes: THREE.Mesh[], glows: object[], marks: object[], furniture: number[][], update(t: number): void, dispose(): void, stats: object }}
+ */
+export function buildCity(o) {
+  const { map, look, plan, isPath, isWater, occupied, gates, portals, place, facadeParts } = o;
+  const quality = o.quality || 'high';
+  const margin = o.margin ?? 8;
+  const W = map.width;
+  const H = map.height;
+  const cfg = { ...(look.city || {}), ...(map.city || {}) };
+  const rand = makeRand(hash(map.id, 'city'));
+  const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
+  const outsideDist = (x, z) => Math.hypot(Math.max(0, -x, x - W), Math.max(0, -z, z - H));
+  const wet = (x, z) => isWater(Math.floor(x), Math.floor(z));
+  const acc = new CityAcc();
+  const disposables = [];
+  const meshes = [];
+  const glows = [];
+  const marks = [];
+  const furniture = [];
+  // the facade material: the terrain's (shared with the buildings) or one of the kit's own
+  let facadeMat = o.facadeMaterial || null;
+  function getFacade() {
+    if (!facadeMat) {
+      facadeMat = createFacadeMaterial({ ...(look.city?.glass || {}), night: look.night });
+      disposables.push(facadeMat);
+    }
+    return facadeMat;
+  }
+
+  // ----- road samples on the ground (clearances) -----------------------------------------
+  const ground = [];
+  plan.roads.forEach((r) => {
+    r.pts.forEach(([x, z], i) => {
+      if (!r.tunnel[i] && r.elev[i] < 0.05) ground.push({ x, z, r: r.index, i });
+    });
+  });
+  const grid = new Map();
+  for (const p of ground) {
+    const k = `${Math.floor(p.x)},${Math.floor(p.z)}`;
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(p);
+  }
+  /** Distance to the nearest road on the ground, ignoring road `r`'s own samples near index `i`. */
+  const roadDist = (x, z, r = -1, i = -1, skip = 14) => {
+    let best = Infinity;
+    const fx = Math.floor(x);
+    const fz = Math.floor(z);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const list = grid.get(`${fx + dx},${fz + dz}`);
+        if (!list) continue;
+        for (const p of list) {
+          if (p.r === r && Math.abs(p.i - i) < skip) continue;
+          const d = Math.hypot(p.x - x, p.z - z);
+          if (d < best) best = d;
+        }
+      }
+    }
+    return best;
+  };
+  const crossings = (map.crossings || []).map((c) => [c.x, c.y]);
+  const nearCrossing = (x, z, d) => crossings.some(([cx, cz]) => Math.hypot(cx - x, cz - z) < d);
+  const nearGate = (x, z, d) => gates.some((g) => Math.hypot(g.x - x, g.z - z) < d);
+  const nearPortal = (x, z, d) => portals.some((p) => Math.hypot(p.x - x, p.z - z) < d);
+  const normalAt = (r, i) => {
+    const a = r.pts[Math.max(0, i - 1)];
+    const b = r.pts[Math.min(r.pts.length - 1, i + 1)];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l, (b[0] - a[0]) / l, (b[1] - a[1]) / l];
+  };
+  const freeSpot = (x, z, d = 0.7) => !furniture.some(([fx, fz]) => Math.hypot(fx - x, fz - z) < d)
+    && !occupied.has(`${Math.floor(x)},${Math.floor(z)}`) && !wet(x, z);
+
+  // ----- corners (heading turns ≥ ~50°) ------------------------------------------------------
+  const corners = [];
+  for (const r of plan.roads) {
+    const P = r.pts;
+    const K = 5;
+    let best = null;
+    for (let i = K; i < P.length - K; i++) {
+      const ax = P[i][0] - P[i - K][0];
+      const az = P[i][1] - P[i - K][1];
+      const bx = P[i + K][0] - P[i][0];
+      const bz = P[i + K][1] - P[i][1];
+      const la = Math.hypot(ax, az) || 1;
+      const lb = Math.hypot(bx, bz) || 1;
+      const turn = Math.acos(Math.max(-1, Math.min(1, (ax * bx + az * bz) / (la * lb))));
+      if (turn > 0.85 && !r.tunnel[i] && r.elev[i] < 0.01) {
+        if (!best || turn > best.turn) best = { i, turn, ax: ax / la, az: az / la, bx: bx / lb, bz: bz / lb };
+      } else if (best) {
+        const [x, z] = P[best.i];
+        let ox = best.ax - best.bx;
+        let oz = best.az - best.bz;
+        const l = Math.hypot(ox, oz) || 1;
+        ox /= l;
+        oz /= l;
+        corners.push({ road: r, i: best.i, x, z, ox, oz });
+        best = null;
+      }
+    }
+  }
+
+  // ----- raised kerbs + sidewalks (high / medium; low keeps the painted sidewalk) -----------
+  const walkOk = (r, i, side) => {
+    if (r.tunnel[i] || r.elev[i] > 0.01 || r.lift[i]) return false;
+    const [x, z] = r.pts[i];
+    if (outsideDist(x, z) > 6) return false;
+    const [nx, nz] = normalAt(r, i);
+    const ox = x + nx * side * SW_OUT;
+    const oz = z + nz * side * SW_OUT;
+    if (wet(ox, oz) || wet(x + nx * side * SW_IN, z + nz * side * SW_IN)) return false;
+    if (roadDist(ox, oz, r.index, i) < SW_IN + 0.02) return false;
+    if (nearPortal(x, z, 0.4)) return false;
+    if (gates.some((g) => g.kind === 'spawn' && Math.hypot(g.x - x, g.z - z) < 0.9)) return false;
+    return true;
+  };
+  let kerbTris = 0;
+  if (quality !== 'low') {
+    const cWalk = look.city?.sidewalk || '#e6dccb';
+    const cKerb = look.city?.kerb || '#f4f1ea';
+    const cKerbSide = look.city?.kerbSide || '#c9c1b2';
+    const before = acc.pos.length;
+    for (const r of plan.roads) {
+      const P = r.pts;
+      // every second sample (0.4 tiles) keeps the kerb inside its triangle budget
+      const idx = [];
+      for (let i = 0; i < P.length; i += 2) idx.push(i);
+      if (idx[idx.length - 1] !== P.length - 1) idx.push(P.length - 1);
+      const N = idx.map((i) => normalAt(r, i));
+      for (const side of [-1, 1]) {
+        const ok = idx.map((i) => walkOk(r, i, side));
+        for (let k = 1; k < idx.length; k++) {
+          if (!ok[k] || !ok[k - 1]) continue;
+          const a = idx[k - 1];
+          const b = idx[k];
+          const pt = (kk, i, off, y) => [P[i][0] + N[kk][0] * side * off, y, P[i][1] + N[kk][1] * side * off];
+          const quadUp = (p0, p1, p2, p3, col, kind = 0, uvs = null) => {
+            // wind so the face points up whatever the side
+            if (side > 0) acc.quad(p0, p3, p2, p1, col, kind, uvs ? [uvs[0], uvs[3], uvs[2], uvs[1]] : null);
+            else acc.quad(p0, p1, p2, p3, col, kind, uvs);
+          };
+          const kIn = SW_IN;
+          const kOut = SW_IN + KERB;
+          quadUp(pt(k - 1, a, kIn, SW_Y), pt(k, b, kIn, SW_Y), pt(k, b, kOut, SW_Y), pt(k - 1, a, kOut, SW_Y), cKerb);
+          quadUp(pt(k - 1, a, kOut, SW_Y), pt(k, b, kOut, SW_Y), pt(k, b, SW_OUT, SW_Y), pt(k - 1, a, SW_OUT, SW_Y), cWalk);
+          // kerb face toward the road, and the low outer edge
+          const f0 = pt(k - 1, a, kIn, PATH_H - 0.02);
+          const f1 = pt(k, b, kIn, PATH_H - 0.02);
+          const f2 = pt(k, b, kIn, SW_Y);
+          const f3 = pt(k - 1, a, kIn, SW_Y);
+          if (side > 0) acc.quad(f0, f1, f2, f3, cKerbSide);
+          else acc.quad(f0, f3, f2, f1, cKerbSide);
+          const e0 = pt(k - 1, a, SW_OUT, 0);
+          const e1 = pt(k, b, SW_OUT, 0);
+          const e2 = pt(k, b, SW_OUT, SW_Y);
+          const e3 = pt(k - 1, a, SW_OUT, SW_Y);
+          if (side > 0) acc.quad(e0, e3, e2, e1, cKerbSide);
+          else acc.quad(e0, e1, e2, e3, cKerbSide);
+        }
+      }
+    }
+    kerbTris = (acc.pos.length - before) / 9;
+  }
+
+  // ----- crosswalks: on every flat junction's arms, and beside a few corners -----------------
+  for (const m of crosswalkMarks(map)) marks.push(m);
+  let cornerWalks = 0;
+  for (const c of corners) {
+    if (cornerWalks >= 6) break;
+    const r = c.road;
+    for (const dir of [-1, 1]) {
+      const k = c.i + dir * 9;
+      if (k < 1 || k >= r.pts.length - 1 || cornerWalks >= 6) continue;
+      const [x, z] = r.pts[k];
+      if (!inMap(x, z) || r.tunnel[k] || r.elev[k] > 0.005 || r.lift[k] || nearCrossing(x, z, 1.8) || nearGate(x, z, 1.4) || nearPortal(x, z, 0.8)) continue;
+      if (marks.some((mk) => mk.kind === 'zebra' && Math.hypot(mk.x - x, mk.z - z) < 2.2)) continue;
+      const [nx, nz, tx, tz] = normalAt(r, k);
+      marks.push({ kind: 'zebra', x, z, rot: Math.atan2(-nz, nx) });
+      // the stop line on the approach side
+      const sx = x - tx * 0.34 * -dir;
+      const sz = z - tz * 0.34 * -dir;
+      marks.push({ kind: 'stopLine', x: sx, z: sz, rot: Math.atan2(-nz, nx) });
+      cornerWalks++;
+    }
+  }
+  // the rift's cracks on the road at every spawn gate
+  for (const g of gates) {
+    if (g.kind !== 'spawn') continue;
+    marks.push({ kind: 'cracks', x: g.x + g.dir[0] * 0.55, z: g.z + g.dir[1] * 0.55, rot: Math.atan2(-g.dir[1], g.dir[0]), color: look.gate?.spawn || '#b46cff' });
+  }
+
+  // ----- traffic signals at the corners --------------------------------------------------
+  let signals = 0;
+  for (const c of corners) {
+    if (signals >= 6) break;
+    const x = c.x + c.ox * 0.78;
+    const z = c.z + c.oz * 0.78;
+    if (!inMap(x, z) && outsideDist(x, z) > 1.5) continue;
+    if (nearCrossing(x, z, 1.2) || nearGate(x, z, 1.4) || roadDist(x, z, c.road.index, c.i, 30) < 0.8 || !freeSpot(x, z)) continue;
+    furniture.push([x, z]);
+    place('trafficLight', x, quality === 'low' ? 0 : SW_Y, z, Math.atan2(-c.ox, -c.oz), 1, 0);
+    signals++;
+  }
+
+  // ----- utility poles with a lamp arm along the roads, wires between them --------------------
+  const runs = [];
+  for (const r of plan.roads) {
+    let dist = 1.4;
+    let run = [];
+    runs.push(run);
+    const side = hash(map.id, 'poles', r.index) % 2 ? 1 : -1;
+    for (let i = 1; i < r.pts.length - 1; i++) {
+      dist += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+      if (dist < 3.0) continue;
+      const [x, z] = r.pts[i];
+      const breakRun = () => {
+        if (run.length) {
+          run = [];
+          runs.push(run);
+        }
+      };
+      if (outsideDist(x, z) > 3.5 || r.tunnel[i] || r.elev[i] > 0.01 || corners.some((c) => Math.hypot(c.x - x, c.z - z) < 1.1)) {
+        breakRun();
+        continue;
+      }
+      const [nx, nz] = normalAt(r, i);
+      const px = x + nx * side * 0.72;
+      const pz = z + nz * side * 0.72;
+      if (!walkOk(r, i, side) || nearGate(px, pz, 1.5) || nearCrossing(px, pz, 1.3) || nearPortal(px, pz, 0.9) || !freeSpot(px, pz, 1.0)
+        || marks.some((m) => m.kind === 'zebra' && Math.hypot(m.x - px, m.z - pz) < 0.9)) {
+        breakRun();
+        continue;
+      }
+      const last = run[run.length - 1];
+      if (last && Math.hypot(last[0] - px, last[1] - pz) > 4.0) breakRun();
+      furniture.push([px, pz]);
+      const ry = Math.atan2(-nx * side, -nz * side);
+      run.push([px, pz, ry]);
+      place('powerPole', px, quality === 'low' ? 0 : SW_Y, pz, ry, 1, 0);
+      dist = 0;
+    }
+  }
+  const cWire = '#45424a';
+  let spans = 0;
+  for (const run of runs) {
+    for (let k = 1; k < run.length; k++) {
+      const [ax, az, ar] = run[k - 1];
+      const [bx, bz, br] = run[k];
+      const y0 = (quality === 'low' ? 0 : SW_Y) + WIRE_Y;
+      for (const off of [-0.22, 0.22]) {
+        const a = [ax + Math.cos(ar) * off, y0, az - Math.sin(ar) * off];
+        const b = [bx + Math.cos(br) * off, y0, bz - Math.sin(br) * off];
+        const m = [(a[0] + b[0]) / 2, y0 - 0.1, (a[2] + b[2]) / 2];
+        wire(acc, a, m, cWire);
+        wire(acc, m, b, cWire);
+        // pigeons sit on every third span
+        if (off > 0 && spans % 3 === 1) {
+          for (let p = 0; p < 3; p++) {
+            const t = 0.3 + p * 0.12;
+            const px = a[0] + (b[0] - a[0]) * t;
+            const pz = a[2] + (b[2] - a[2]) * t;
+            const py = y0 - 0.1 * Math.sin(Math.PI * t) + 0.035;
+            prim(acc, new THREE.OctahedronGeometry(0.035, 0), { x: px, y: py, z: pz, sy: 1.1, sz: 1.3, ry: ar }, p % 2 ? '#8a8f9a' : '#a3a8b2');
+          }
+        }
+      }
+      spans++;
+    }
+  }
+
+  // ----- a cat napping on a wall ---------------------------------------------------------
+  {
+    const walls = [];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
+        if (!border || map.rows[y][x] !== 'H' || isPath(x, y)) continue;
+        const top = WALL_TOP[cityWallVariant(map, x, y)];
+        if (top != null) walls.push([x, y, top]);
+      }
+    }
+    if (walls.length) {
+      const [x, y, top] = walls[hash(map.id, 'cat') % walls.length];
+      const alongX = y === 0 || y === H - 1;
+      place('catOnWall', x + 0.5, top, y + 0.5, alongX ? 0 : Math.PI / 2, 1, hash(map.id, 'catv') % 2);
+    }
+  }
+
+  // ----- subway signs at the tunnel mouths ------------------------------------------------
+  for (const p of portals) {
+    const [dx, dz] = p.dir;
+    const nx = -dz;
+    const nz = dx;
+    const sgn = p.end === 'in' ? -1 : 1;
+    const x = p.x + nx * 0.98 + dx * sgn * 0.3;
+    const z = p.z + nz * 0.98 + dz * sgn * 0.3;
+    if (roadDist(x, z) < 0.6 || wet(x, z)) continue;
+    const ry = Math.atan2(dx * sgn, dz * sgn);
+    acc.box(x, 0, z, 0.05, 0.62, 0.05, { color: '#9aa3ae' });
+    acc.box(x, 0.6, z, 0.24, 0.22, 0.04, { ry, color: '#3d6a9a' });
+    furniture.push([x, z]);
+    glows.push({ x, y: 0.72, z, color: new THREE.Color('#cfe6ff'), size: 0.45, flicker: 0.04, phase: rand() * 6 });
+  }
+
+  // ----- skyline in the skirt -------------------------------------------------------------
+  const rail = cfg.railway === false ? null : { z: cfg.railway?.z ?? RAIL_Z };
+  // (a railway may cross a canal on its own bridge; it only gives way to open water mid-board)
+  if (rail && wet(W / 2, rail.z)) rail.z = null;
+  const STEP = 2.1;
+  const lots = [];
+  const lotFree = (cx, cz, half) => {
+    for (const [dx, dz] of [[0, 0], [-half, -half], [half, -half], [-half, half], [half, half], [0, -half], [0, half], [-half, 0], [half, 0]]) {
+      if (roadDist(cx + dx, cz + dz) < 1.05 || wet(cx + dx, cz + dz)) return false;
+    }
+    if (rail?.z != null && Math.abs(cz - rail.z) < half + 0.6) return false;
+    return true;
+  };
+  const reach = Math.min(margin - 1.2, 6.6);
+  for (let cz = -reach; cz <= H + 2.7 + 1e-6; cz += STEP) {
+    for (let cx = -reach; cx <= W + reach + 1e-6; cx += STEP) {
+      if (cx > -2.0 && cx < W + 2.0 && cz > -2.0 && cz < H + 2.0) continue;
+      if (!lotFree(cx, cz, 0.85)) continue;
+      lots.push([cx, cz]);
+    }
+  }
+  lots.forEach(([cx, cz], k) => {
+    const h = hash(map.id, 'lot', k);
+    const back = cz < 0;
+    const front = cz > H;
+    const depth = back ? Math.round(-cz / STEP) : Math.round(Math.max(-cx, cx - W) / STEP);
+    let variant;
+    if (front) {
+      // in front of the board (near the camera): low houses and street trees only
+      if (h % 3 === 0) {
+        place('streetTree', cx, 0, cz, (h % 628) / 100, 1.2, h % 2, null, 'far');
+        return;
+      }
+      variant = 5;
+    } else if (back) variant = depth >= 2 ? [0, 3, 4, 3, 0][h % 5] : [1, 2, 4, 1][h % 4];
+    else variant = depth >= 2 ? [0, 1, 2, 4][h % 4] : [1, 2, 5, 2][h % 4];
+    const lod = quality === 'high' && outsideDist(cx, cz) < 3 ? 'near' : 'far';
+    place('cityTower', cx, 0, cz, 0, 1, variant, null, lod);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+  });
+
+  // ----- railway on the skirt, level crossings, the commuter train -------------------------------
+  let train = null;
+  if (rail?.z != null) {
+    const rz = rail.z;
+    const x0 = -margin - 2;
+    const x1 = W + margin + 2;
+    acc.box((x0 + x1) / 2, 0, rz, x1 - x0, 0.03, 0.78, { color: '#a49d93', top: '#9a9389', topKind: FK.sleepers });
+    for (const s of [-1, 1]) acc.box((x0 + x1) / 2, 0.03, rz + s * 0.19, x1 - x0, 0.03, 0.035, { color: '#c7ccd2' });
+    for (let x = Math.ceil(x0 / 4) * 4; x < x1; x += 4) occupied.add(`${Math.floor(x)},${Math.floor(rz)}`);
+    for (const r of plan.roads) {
+      for (let i = 1; i < r.pts.length; i++) {
+        const [ax, az] = r.pts[i - 1];
+        const [bx, bz] = r.pts[i];
+        if ((az - rz) * (bz - rz) > 0 || az === bz) continue;
+        const cx = ax + ((rz - az) / (bz - az)) * (bx - ax);
+        acc.box(cx, PATH_H - 0.01, rz, 1.0, 0.03, 0.8, { color: '#7f7a75' });
+        for (const s of [-1, 1]) acc.box(cx, 0.06, rz + s * 0.19, 1.0, 0.012, 0.035, { color: '#c7ccd2' });
+        place('levelCrossing', cx - 0.7, 0, rz - 0.55, 0, 1, 0);
+        place('levelCrossing', cx + 0.7, 0, rz + 0.55, Math.PI, 1, 0);
+        furniture.push([cx - 0.7, rz - 0.55], [cx + 0.7, rz + 0.55]);
+      }
+    }
+    const geo = trainCarGeometry(new CityAcc());
+    disposables.push(geo);
+    train = new THREE.InstancedMesh(geo, getFacade(), TRAIN.cars);
+    train.name = 'cityTrain';
+    train.frustumCulled = false;
+    train.userData = { cast: true, z: rz, x0: x0 - TRAIN.cars * TRAIN.len, x1: x1 + TRAIN.len };
+    meshes.push(train);
+  }
+
+  // ----- the water-bus on the canal --------------------------------------------------------
+  let boat = null;
+  const wb = cfg.waterBus;
+  // a lane along z (x0 → x1 at depth z) or along x (z0 → z1 at column x)
+  const alongX = wb && wb.x == null;
+  if (wb && (alongX ? wet(((wb.x0 ?? 0) + (wb.x1 ?? W)) / 2, wb.z) : wet(wb.x, ((wb.z0 ?? 0) + (wb.z1 ?? H)) / 2))) {
+    const tmpAcc = new CityAcc();
+    // the waterBus prop's facade geometry (a fresh context, so the prop cache stays untouched;
+    // its headlight glow is left out: the moving boat is one facade mesh)
+    const ctx = { facade: tmpAcc, glow: { box() {} }, glows: [], emitters: [], variant: 0, look, lod: 'near' };
+    CITY_BUILDERS.waterBus(ctx);
+    const geo = tmpAcc.build();
+    disposables.push(geo);
+    boat = new THREE.InstancedMesh(geo, getFacade(), 1);
+    boat.name = 'cityWaterBus';
+    boat.frustumCulled = false;
+    boat.userData = alongX
+      ? { cast: false, alongX, c: wb.z, a0: wb.x0 ?? -3, a1: wb.x1 ?? W + 3, period: wb.period ?? 36 }
+      : { cast: false, alongX, c: wb.x, a0: wb.z0 ?? -3, a1: wb.z1 ?? H + 3, period: wb.period ?? 36 };
+    meshes.push(boat);
+  }
+
+  // ----- Brigade patrol drones high overhead (dressing only) ------------------------------
+  const nDrones = cfg.drones === false ? 0 : quality === 'high' ? 4 : quality === 'medium' ? 3 : 2;
+  let drones = null;
+  const flights = [];
+  if (nDrones > 0) {
+    const geo = droneGeometry(new CityAcc());
+    disposables.push(geo);
+    drones = new THREE.InstancedMesh(geo, getFacade(), nDrones);
+    drones.name = 'cityDrones';
+    drones.frustumCulled = false;
+    drones.userData.cast = false;
+    meshes.push(drones);
+    const dr = makeRand(hash(map.id, 'drones'));
+    for (let i = 0; i < nDrones; i++) {
+      // pairs flying in formation along a slow line across the sky
+      const a = (dr() - 0.5) * 0.8 + (i % 2 ? Math.PI : 0);
+      flights.push({
+        cx: W * (0.2 + dr() * 0.6), cz: H * (0.15 + dr() * 0.5), dx: Math.cos(a), dz: Math.sin(a) * 0.5,
+        y: 3.3 + dr() * 0.6, sp: 0.55 + dr() * 0.25, ph: dr() * 100, L: W + 16,
+      });
+    }
+  }
+
+  // ----- the facade parts ---------------------------------------------------------------
+  const geo = acc.build();
+  if (geo) facadeParts.push(geo);
+
+
+  // ----- per frame ---------------------------------------------------------------------
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const eu = new THREE.Euler();
+  const sc = new THREE.Vector3(1, 1, 1);
+  const pv = new THREE.Vector3();
+  function update(time) {
+    if (train) {
+      const u = train.userData;
+      const k = (time % TRAIN.period) / TRAIN.period;
+      // glide across in the first part of the period, then wait off screen
+      const t = Math.min(1, k / TRAIN.run);
+      const head = u.x0 + (u.x1 - u.x0) * (t * t * (3 - 2 * t) * 0.25 + t * 0.75);
+      for (let i = 0; i < TRAIN.cars; i++) {
+        m4.compose(pv.set(head - i * (TRAIN.len + 0.04), 0.09, u.z), q.identity(), sc);
+        train.setMatrixAt(i, m4);
+      }
+      train.instanceMatrix.needsUpdate = true;
+    }
+    if (boat) {
+      const u = boat.userData;
+      const k = (time % u.period) / u.period;
+      // there and back, turning round at each end
+      const t = k < 0.5 ? k * 2 : 2 - k * 2;
+      const e = t * t * (3 - 2 * t);
+      const a = u.a0 + (u.a1 - u.a0) * e;
+      // the hull's bow is local +z: face the way it is going
+      const fwd = k < 0.5 ? 1 : -1;
+      eu.set(0, u.alongX ? fwd * Math.PI / 2 : (fwd > 0 ? 0 : Math.PI), Math.sin(time * 1.3) * 0.02);
+      q.setFromEuler(eu);
+      const y = 0.03 + Math.sin(time * 1.7) * 0.008;
+      if (u.alongX) m4.compose(pv.set(a, y, u.c), q, sc);
+      else m4.compose(pv.set(u.c, y, a), q, sc);
+      boat.setMatrixAt(0, m4);
+      boat.instanceMatrix.needsUpdate = true;
+    }
+    if (drones) {
+      flights.forEach((f, i) => {
+        const s = ((time * f.sp + f.ph) % f.L) - f.L / 2;
+        const x = f.cx + f.dx * s;
+        const z = f.cz + f.dz * s;
+        const y = f.y + Math.sin(time * 1.9 + f.ph) * 0.05;
+        eu.set(0.08, Math.atan2(f.dx, f.dz), Math.sin(time * 1.4 + i) * 0.05);
+        q.setFromEuler(eu);
+        m4.compose(pv.set(x, y, z), q, sc);
+        drones.setMatrixAt(i, m4);
+      });
+      drones.instanceMatrix.needsUpdate = true;
+    }
+  }
+  update(0);
+
+  return {
+    meshes,
+    glows,
+    marks,
+    furniture,
+    update,
+    getFacadeMaterial: getFacade,
+    dispose() {
+      for (const d of disposables) d.dispose?.();
+    },
+    stats: {
+      corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
+      kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones,
+    },
+  };
+}

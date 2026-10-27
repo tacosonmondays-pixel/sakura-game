@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { GeoBuilder, makeRand, hash } from './geo.js';
 import { addPumpkin, PUMPKIN_COLORS } from './pumpkin.js';
+import { CITY_BUILDERS } from './city/cityProps.js';
+import { CityAcc } from './city/cityMaterials.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
 
@@ -15,7 +17,8 @@ const cache = new Map();
  * @param {string} type prop type
  * @param {object} look resolved theme look (themes.js)
  * @param {number} variant small integer for variation
- * @returns {{ solid, foliage, glow, glows: object[], emitters: object[] }}
+ * @returns {{ solid, foliage, glow, facade, glows: object[], emitters: object[] }}
+ *   facade: city buildings (src/render/city/: shader windows), null for every other prop
  */
 export function buildProp(type, look, variant = 0, lod = 'near') {
   const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${variant}|${lod}`;
@@ -25,6 +28,8 @@ export function buildProp(type, look, variant = 0, lod = 'near') {
     solid: new GeoBuilder(),
     foliage: new GeoBuilder({ extra: ['sway'] }),
     glow: new GeoBuilder(),
+    /** city kit buildings: boxes whose windows the facade shader draws (cityMaterials.js) */
+    facade: new CityAcc(),
     glows: [],
     emitters: [],
     rand: makeRand(hash(type, look.theme, variant)),
@@ -39,6 +44,7 @@ export function buildProp(type, look, variant = 0, lod = 'near') {
     solid: ctx.solid.finish(),
     foliage: ctx.foliage.finish(),
     glow: ctx.glow.finish(),
+    facade: ctx.facade.build(),
     glows: ctx.glows,
     emitters: ctx.emitters,
   };
@@ -52,6 +58,7 @@ export function clearPropCache() {
     p.solid?.dispose();
     p.foliage?.dispose();
     p.glow?.dispose();
+    p.facade?.dispose();
   }
   cache.clear();
 }
@@ -1018,3 +1025,6 @@ const BUILDERS = {
     }
   },
 };
+
+// the city kit (Gate Arc, Noon `city` theme): street furniture, Act 1 set pieces, the city gates
+Object.assign(BUILDERS, CITY_BUILDERS);
