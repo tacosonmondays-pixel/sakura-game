@@ -124,7 +124,9 @@ export async function drawerPathsInView(page) {
     const sc = p?.querySelector('.bt-panel-scroll');
     if (!p || p.hidden || !sc) return null;
     const a = sc.getBoundingClientRect();
-    const inside = (b) => b.top >= a.top - 1 && b.bottom <= a.bottom + 1;
+    // (in view: the drawer's own rule, drawerView SCROLL_CUE_PX: a row whose last 2 px, its bottom padding, sit under
+    // the fold still counts as in view, and the cue stays off; the check and the cue never disagree)
+    const inside = (b) => b.top >= a.top - 1 && b.bottom <= a.bottom + 2;
     const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
     const rows = [...p.querySelectorAll('.bt-path')].map((r) => {
       const btn = r.querySelector('.bt-buy, .bt-dw-price, .bt-dw-max');

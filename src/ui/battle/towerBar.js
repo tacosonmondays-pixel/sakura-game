@@ -20,7 +20,13 @@ export function createTowerBar(ctx) {
   ids.push(...sim.loadout.keys());
   const cards = new Map();
   const scroller = h('div.bt-bar-scroll');
-  const el = h('nav.bt-bar', { 'data-testid': 'tower-bar' }, scroller);
+  // the strip's edges (an open drawer ends it early): a card cut by an edge fades and hides its price until it is in
+  // view, and a ‹ / › cue says more cards sit there (a tap scrolls to them). A cut price read as a lower one ("60" for
+  // 600: the M4 review, round r1)
+  const page = (dir) => scroller.scrollBy({ left: dir * Math.max(60, scroller.clientWidth * 0.7), behavior: 'smooth' });
+  const cueL = h('button.bt-bar-cue.bt-bar-cue-l', { type: 'button', tabindex: '-1', 'aria-label': 'Earlier cards', 'data-testid': 'bar-cue-l', onclick: () => page(-1) }, '‹');
+  const cueR = h('button.bt-bar-cue.bt-bar-cue-r', { type: 'button', tabindex: '-1', 'aria-label': 'More cards', 'data-testid': 'bar-cue-r', onclick: () => page(1) }, '›');
+  const el = h('nav.bt-bar', { 'data-testid': 'tower-bar' }, scroller, cueL, cueR);
 
   for (const unitId of ids) {
     const def = sim.data.unit(unitId);
@@ -143,10 +149,32 @@ export function createTowerBar(ctx) {
     }
   }
 
+  /** Marks each card the strip's edges cut (bt-card-part: faded, its price hidden) and shows the cue on that side. */
+  function paintEdges() {
+    const port = scroller.getBoundingClientRect();
+    if (!port.width) return;
+    let left = false;
+    let right = false;
+    for (const { card } of cards.values()) {
+      const r = card.getBoundingClientRect();
+      const cutL = r.left < port.left - 0.5;
+      const cutR = r.right > port.right + 0.5;
+      card.classList.toggle('bt-card-part', cutL || cutR);
+      left ||= cutL;
+      right ||= cutR;
+    }
+    el.classList.toggle('bt-bar-less', left);
+    el.classList.toggle('bt-bar-more', right);
+  }
+  scroller.addEventListener('scroll', paintEdges, { passive: true });
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => paintEdges()) : null;
+  ro?.observe(scroller);
+
   update();
   return {
     el,
     update,
+    paintEdges,
     cardFor: (unitId) => cards.get(unitId)?.card || null,
     /** Brief glow on a girl's card (just deployed), so the card connects to her chibi on the map. */
     flash(unitId) {
@@ -158,6 +186,8 @@ export function createTowerBar(ctx) {
       clearTimeout(card._flashT);
       card._flashT = setTimeout(() => card.classList.remove('bt-card-flash'), 1300);
     },
-    destroy() {},
+    destroy() {
+      ro?.disconnect();
+    },
   };
 }

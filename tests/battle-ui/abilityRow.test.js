@@ -4,7 +4,7 @@
 // run, and an ally's girl read only.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { abilityRowView, abilityLine, pathAbilityTeaser, rowSignature, LINE_MAX, LINE_NUMBERS } from '../../src/ui/battle/abilityRow.js';
+import { abilityRowView, abilityLine, pathAbilityTeaser, rowSignature, keepPhrases, LINE_MAX, LINE_NUMBERS } from '../../src/ui/battle/abilityRow.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
 import { abilityValues } from '../../src/data/abilityText.js';
 import { abilityAtTier, skillAtLevel } from '../../src/data/abilities.js';
@@ -237,5 +237,14 @@ describe('pathAbilityTeaser', () => {
     const p = abilityPathOf(kage);
     expect(pathAbilityTeaser(kage, p, 3, { later: true })).toBe(`⚡ T3 ${kage.paths[p].tiers[2].name} — Shadow Doubles comes in a later update`);
     expect(pathAbilityTeaser(kage, p, 5, { later: true })).toBeNull();
+  });
+});
+
+describe('the live line wraps only between its phrases (the M4 review, round r1: "1.5 / tiles" beside Auto)', () => {
+  it('keeps each " · " phrase whole with no-break spaces, the separators breakable', () => {
+    expect(keepPhrases('80 dmg · pin 0.6s · 1.5 tiles')).toBe('80\u00a0dmg · pin\u00a00.6s · 1.5\u00a0tiles');
+    expect(keepPhrases('Comes in a later update')).toBe('Comes\u00a0in\u00a0a\u00a0later\u00a0update');
+    expect(keepPhrases('')).toBe('');
+    expect(keepPhrases(null)).toBe('');
   });
 });

@@ -35,6 +35,17 @@
 //                        she cannot pay ("Need N more coins."), then one "i" with the feed forced into each top corner.
 //                        Each toast must be on top at its centre (not under the drawer) and one line, nothing cut
 //                        (battleKit toastSeen); stills m4-lock-why-<case>
+// M4 review round r1 (fix-r2):
+//   m4-stat-live         Aoi's drawer open, Miko placed beside her: the stat row's DMG follows her aura at once (no redraw)
+//   m4-keys              Enter on "⋯" leaves the focus on PRIORITY, and a keyboard buy that finishes a path leaves it on
+//                        MAX (a Space after either never starts the wave); a tap on a price disarms Sell's CONFIRM
+//   m4-abname            the longest ability names (Sango, Akane, Yuzuha, Rei, Kage, Aoi), closed and opened (a tap on
+//                        her name on a phone): never cut, to the subpixel (with its ▾), Auto on the live line, never beside
+//                        the name; again with a wide fallback font (a web font not yet arrived); at 1280 the name is one
+//                        line; still m4-abname-sango-open
+//   every still: a card the tower bar's edge cuts shows no price, and the cue on that edge says more cards sit there;
+//   the ally's path rows are no buttons (no role, no tab stop); m4-lock-why also checks each toast's size (≥ 12 px on a
+//   phone) and a long tip toast (it wraps, never cut)
 // M4 review round 1: m4-key-space (in m4-drawer-armed): Space on a path row the keyboard focused opens it, the wave
 // stays; m4-key-space-click: after a click on a row, Space starts the wave and leaves the row as it was; every girl
 // drawer still shows ≤ 13 numbers (+1 for a cooling ability); a phone is any window ≤ 480 px tall (667x375 too).
@@ -50,6 +61,7 @@ export const M4_SCENES = [
   'm4-drawer-aoi', 'm4-drawer-armed', 'm4-drawer-locked', 'm4-drawer-azami', 'm4-drawer-chika', 'm4-drawer-chika-more', 'm4-drawer-more', 'm4-hero-drawer', 'm4-reduce-motion',
   'm4-drawer-ability', 'm4-drawer-ability-armed', 'm4-drawer-midori', 'm4-drawer-iroha', 'm4-drawer-teaser', 'm4-hero-more',
   'm4-drawer-fit', 'm4-drawer-ally', 'm4-lock-why',
+  'm4-stat-live', 'm4-keys', 'm4-abname',
 ];
 const GIRLS = ['hikari', 'aoi', 'azami', 'chika', 'miko', 'momo', 'rei', 'akane', 'midori', 'iroha'];
 const SQUAD = ['aoi', 'azami', 'chika', 'miko', 'momo', 'midori', 'iroha'];
@@ -57,6 +69,34 @@ const BOXES = BATTLE_BOXES;
 
 const clearToasts = (page) => page.evaluate(() => document.querySelectorAll('[data-testid="battle-feed"] .bt-toast').forEach((t) => t.remove()));
 const panelOpen = (page) => page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden; }, null, { timeout: 15000 });
+
+/** The tower bar's edges: cards the strip's port cuts, any of their prices still shown, and the ‹ / › cues. */
+const barEdges = (page) => page.evaluate(() => {
+  const sc = document.querySelector('[data-testid="tower-bar"] .bt-bar-scroll');
+  if (!sc) return { cutPrices: [], cutLeft: false, cutRight: false, cueL: false, cueR: false, cut: [] };
+  const port = sc.getBoundingClientRect();
+  const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none';
+  const cut = [];
+  const cutPrices = [];
+  let cutLeft = false;
+  let cutRight = false;
+  for (const c of sc.querySelectorAll('.bt-card')) {
+    const r = c.getBoundingClientRect();
+    const l = r.left < port.left - 0.5;
+    const rt = r.right > port.right + 0.5;
+    if (!l && !rt) continue;
+    cutLeft ||= l;
+    cutRight ||= rt;
+    const val = c.querySelector('.bt-card-cost-val');
+    cut.push(c.dataset.unit);
+    // (a price whose text runs past the port is a cut price; a card cut only in its art keeps a whole price in view)
+    if (shown(val)) {
+      const v = val.getBoundingClientRect();
+      if (v.left < port.left - 0.5 || v.right > port.right + 0.5) cutPrices.push(`${c.dataset.unit} "${val.textContent}"`);
+    }
+  }
+  return { cut, cutPrices, cutLeft, cutRight, cueL: shown(document.querySelector('[data-testid="bar-cue-l"]')), cueR: shown(document.querySelector('[data-testid="bar-cue-r"]')) };
+});
 
 /** What the drawer shows: width, its sections' numbers, the texts the checks read. */
 async function drawerFacts(page) {
@@ -145,6 +185,13 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         if (r.tier || r.lockH == null || r.lockH > 20) fail(name, `lock row ${r.path} is more than one row high (tier line ${r.tier ? 'shown' : 'hidden'}, lock line ${r.lockH} px, row ${r.h} px)`);
       }
     }
+    // (the tower bar: a card its edge cuts shows no price, and the cue on that edge is up; the M4 review, round r1: a
+    // drawer's edge cut "600" to "60")
+    const bar = await barEdges(page);
+    out[name].bar = bar;
+    if (bar.cutPrices.length) fail(name, `the tower bar cuts a price: ${JSON.stringify(bar.cutPrices)}`);
+    if (bar.cutRight && !bar.cueR) fail(name, 'a card is cut at the tower bar\'s right edge with no › cue');
+    if (bar.cutLeft && !bar.cueL) fail(name, 'a card is cut at the tower bar\'s left edge with no ‹ cue');
     if (shot) await rawShot(name);
   };
   await openApp(page, base);
@@ -216,6 +263,115 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       if (spaced.armed !== clicked.armed) fail('m4-key-space-click', 'Space after a click pressed the row as well');
     }
     await page.evaluate(() => window.__battle.ui.select(null));
+    await settle(page, 300);
+  }
+
+  if (has('m4-stat-live')) {
+    // the stat row follows a buff at once (the M4 review, round r1: placing an aura girl beside the open girl left DMG
+    // and RATE as they were until something else redrew the drawer): Aoi's drawer open, Miko (+10% damage aura) placed
+    // beside her, no redraw asked for
+    await page.evaluate((x) => { window.__battle.sim.cash = 1250; window.__battle.ui.select(x.aoi); }, u);
+    await panelOpen(page);
+    await settle(page, 500);
+    const read = () => page.evaluate(async (x) => {
+      const { sim } = window.__battle;
+      const dv = await import('/src/ui/battle/drawerView.js');
+      const t = sim.getTower(x.aoi);
+      const want = dv.drawerStats(t, sim.towerStats(x.aoi), { affects: (sim.buffTargets?.(x.aoi) || []).length, placeCost: sim.placeCost(t.unitId) }).map((c) => `${c.label} ${c.value}`);
+      const shown = [...document.querySelectorAll('[data-testid="tower-panel"] [data-testid="drawer-stats"] .bt-dw-stat')].map((c) => `${c.querySelector('.bt-dw-lbl').textContent} ${c.querySelector('.bt-dw-num').firstChild.nodeValue}`);
+      return { want, shown, renders: window.__m4Renders || 0 };
+    }, u);
+    const before = await read();
+    const miko = await page.evaluate((x) => {
+      // (count the drawer's redraws from here: the numbers must change without one)
+      const p = document.querySelector('[data-testid="tower-panel"]');
+      window.__m4Renders = 0;
+      window.__m4Obs?.disconnect();
+      window.__m4Obs = new MutationObserver((ms) => { for (const m of ms) if (m.target === p && m.type === 'childList') window.__m4Renders++; });
+      window.__m4Obs.observe(p, { childList: true });
+      const { sim } = window.__battle;
+      sim.cash = 1e6;
+      const m = __ab.place('miko', { near: x.aoi, min: 0.8 });
+      sim.cash = 1250;
+      const a = sim.getTower(x.aoi);
+      const mt = sim.getTower(m);
+      return { uid: m, dist: mt ? Math.hypot(mt.x - a.x, mt.y - a.y) : null };
+    }, u);
+    await settle(page, 900);
+    const after = await read();
+    await page.evaluate(() => window.__m4Obs?.disconnect());
+    out['m4-stat-live'] = { before, miko, after };
+    log(`  m4-stat-live: ${JSON.stringify(out['m4-stat-live'])}`);
+    if (JSON.stringify(after.shown) !== JSON.stringify(after.want)) fail('m4-stat-live', `the stat row reads ${JSON.stringify(after.shown)}, the sim ${JSON.stringify(after.want)}`);
+    if (JSON.stringify(after.want) === JSON.stringify(before.want)) fail('m4-stat-live', `Miko's aura did not reach Aoi (${JSON.stringify(miko)}): the check proves nothing`);
+    await page.evaluate((x) => { window.__battle.ui.select(null); if (x.uid != null) window.__battle.sim.sellTower(x.uid); }, miko);
+    await settle(page, 300);
+  }
+
+  if (has('m4-keys')) {
+    // the keyboard's focus never drops to the page (the M4 review, round r1): Enter on "⋯" leaves it on PRIORITY, a
+    // keyboard buy that finishes a path leaves it on MAX; a Space after either never starts the wave. And a tap on a
+    // price disarms Sell's CONFIRM.
+    const k = await page.evaluate((x) => {
+      const { sim } = window.__battle;
+      sim.cash = 1e7;
+      const t = __ab.place('aoi', { near: x.aoi, min: 3 });
+      __ab.up(t, 2, 4);
+      sim.cash = 1e6;
+      window.__battle.ui.select(t);
+      window.__m4Wave = { calls: 0, real: window.__battle.ui.startWave };
+      window.__battle.ui.startWave = () => { window.__m4Wave.calls++; };
+      return { t, tiers: sim.getTower(t).tiers.join('-') };
+    }, u);
+    await panelOpen(page);
+    await settle(page, 500);
+    const focusOn = () => page.evaluate(() => {
+      const a = document.activeElement;
+      return { tag: a?.tagName, testid: a?.getAttribute?.('data-testid') || null, mode: a?.getAttribute?.('data-mode') || null, cls: a?.className?.baseVal ?? a?.className, inDrawer: !!a?.closest?.('[data-testid="tower-panel"]'), calls: window.__m4Wave.calls };
+    });
+    // (a Tab first: the keyboard brought the focus)
+    await page.keyboard.press('Tab');
+    await page.evaluate(() => document.querySelector('[data-testid="tower-panel"] [data-testid="target-more"]')?.focus());
+    await page.keyboard.press('Enter');
+    await settle(page, 300);
+    const more = await focusOn();
+    await page.keyboard.press('Space');
+    await settle(page, 200);
+    const moreSpace = await focusOn();
+    // the keyboard buy that finishes her third path: Enter arms, Enter buys T5
+    await page.evaluate(() => document.querySelector('[data-testid="tower-panel"] [data-testid="buy-2"]')?.focus());
+    await page.keyboard.press('Enter');
+    await settle(page, 200);
+    await page.keyboard.press('Enter');
+    await settle(page, 400);
+    const max = await focusOn();
+    const tiers = await page.evaluate((x) => window.__battle.sim.getTower(x.t).tiers.join('-'), k);
+    await page.keyboard.press('Space');
+    await settle(page, 200);
+    const maxSpace = await focusOn();
+    // Sell's CONFIRM, then a tap on a price: one armed at a time (both taps in one task: Sell's confirm closes after
+    // 2.6 s, and a busy machine's next step can come later than that)
+    const { sellArmed, after } = await page.evaluate(() => {
+      const q = (s) => document.querySelector(`[data-testid="tower-panel"] ${s}`);
+      q('[data-testid="sell"]').click();
+      const armedText = q('[data-testid="sell"]')?.textContent;
+      q('[data-testid="buy-0"]').click();
+      return { sellArmed: armedText, after: { sell: q('[data-testid="sell"]')?.textContent, armed: !!q('.bt-path.armed[data-path="0"]') } };
+    });
+    await page.evaluate((x) => {
+      window.__battle.ui.startWave = window.__m4Wave.real;
+      window.__battle.ui.select(null);
+      window.__battle.sim.sellTower(x.t);
+    }, k);
+    out['m4-keys'] = { k, more, moreSpace, max, tiers, maxSpace, sellArmed, after };
+    log(`  m4-keys: ${JSON.stringify(out['m4-keys'])}`);
+    if (!more.inDrawer || more.mode !== 'elite') fail('m4-keys', `after Enter on "⋯" the focus is on ${JSON.stringify(more)} (PRIORITY)`);
+    if (moreSpace.calls) fail('m4-keys', 'a Space after "⋯" started the wave');
+    if (!/-5$/.test(tiers)) fail('m4-keys', `the keyboard buy did not finish her third path (${k.tiers} → ${tiers})`);
+    else if (!max.inDrawer || !/bt-dw-max/.test(max.cls || '')) fail('m4-keys', `after the keyboard buy to MAX the focus is on ${JSON.stringify(max)}`);
+    if (maxSpace.calls) fail('m4-keys', 'a Space after the keyboard buy to MAX started the wave');
+    if (!/CONFIRM/.test(sellArmed || '')) fail('m4-keys', `Sell did not arm ("${sellArmed}")`);
+    if (/CONFIRM/.test(after.sell || '') || !after.armed) fail('m4-keys', `a tap on a price left Sell armed or the row closed (${JSON.stringify(after)})`);
     await settle(page, 300);
   }
 
@@ -664,6 +820,9 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
           if (note.text.trim() !== want || note.title !== full) fail(name, `the ally note reads "${note.text}" (title "${note.title}")`);
           if (phone && note.h > 24) fail(name, `the ally note is more than one line at 844 (${note.h} px)`);
         }
+        // (her path rows are read only: no button role, tab stop or expanded state; the M4 review, round r1)
+        const fakeButtons = await page.evaluate(() => document.querySelectorAll('[data-testid="tower-panel"] .bt-path-main[role], [data-testid="tower-panel"] .bt-path-main[tabindex], [data-testid="tower-panel"] .bt-path-main[aria-expanded]').length);
+        if (fakeButtons) fail(name, `${fakeButtons} of her read-only path rows are announced as buttons`);
         await still(name);
         await page.evaluate(() => { window.__battle.ui.select(null); window.__battle.ui.coop = window.__m4RealCoop; });
         await sellAll([b.t]);
@@ -712,8 +871,11 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         };
         f.__m4Long = true;
       });
-      /** The toast matching `re`: on top at its centre, one line, nothing cut (battleKit toastSeen), and clear of the drawer. */
-      const seenToast = async (label, re, { shot: stillName = null, one = false } = {}) => {
+      /**
+       * The toast matching `re`: on top at its centre, at the type floor (12 px on a phone), nothing cut (battleKit
+       * toastSeen), clear of the drawer, and one line (a lock reason) or at most `lines` lines (a tip wraps).
+       */
+      const seenToast = async (label, re, { shot: stillName = null, one = false, lines = 1 } = {}) => {
         // (read where it rests, on any machine: from the tap on the toasts stay a few seconds longer (a phone's lock
         // toast lives 2.1 s, "Need N more coins." 1.2 s, and a busy SwiftShader frame can outlast that), and their
         // 0.24 s slide-in, which starts 14 px off, is played to its end)
@@ -735,7 +897,9 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         if (!s.found) fail('m4-lock-why', `${label}: no toast matches /${re}/ (the feed holds ${JSON.stringify(await page.evaluate(() => window.__ab.toasts()))}; pushed ${JSON.stringify(await page.evaluate(() => (window.__m4Pushes || []).slice(-3)))} at ${await page.evaluate(() => Math.round(performance.now()))})`);
         else {
           if (!s.onTop) fail('m4-lock-why', `${label}: the toast "${s.text}" is not on top (the hit test finds ${s.hit})`);
-          if (!s.oneLine) fail('m4-lock-why', `${label}: the toast "${s.text}" is cut or wraps (${JSON.stringify(s.rect)})`);
+          if (s.px < floor) fail('m4-lock-why', `${label}: the toast "${s.text}" is ${s.px}px (the floor is ${floor} px)`);
+          if (s.cut) fail('m4-lock-why', `${label}: the toast "${s.text}" is cut (${JSON.stringify(s.rect)})`);
+          if (s.lines > lines) fail('m4-lock-why', `${label}: the toast "${s.text}" takes ${s.lines} lines (${lines === 1 ? 'one line' : `at most ${lines}`}; ${JSON.stringify(s.rect)})`);
           if (at.drawerLeft >= 0 && s.rect[0] + s.rect[2] > at.drawerLeft) fail('m4-lock-why', `${label}: the toast reaches under the drawer (toast ${JSON.stringify(s.rect)}, drawer from x ${at.drawerLeft})`);
         }
         if (one && at.lockToasts !== 1) fail('m4-lock-why', `${label}: ${at.lockToasts} lock toasts in the feed (one at a time)`);
@@ -816,7 +980,9 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
           const line = lock?.querySelector('.bt-lock-line');
           const i = lock?.querySelector('.bt-lock-why');
           const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
-          return lock ? { line: line?.textContent, lineShown: vis(line), iShown: vis(i), iTitle: i?.title } : null;
+          const span = line?.querySelector('span');
+          const lh = span ? parseFloat(getComputedStyle(span).lineHeight) || 19 : 19;
+          return lock ? { line: line?.textContent, lineTitle: line?.title, lineShown: vis(line), lineLines: span && vis(line) ? Math.round(span.getBoundingClientRect().height / lh) : 0, iShown: vis(i), iTitle: i?.title } : null;
         });
         L.held = row;
         log(`  m4-lock-why held row: ${JSON.stringify(row)}`);
@@ -830,12 +996,29 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
             await seenToast('held', '^Only one Sango can hold Armor-Breaker Shells V$', { shot: 'm4-lock-why-held', one: true });
           }
         } else {
-          if (!row.lineShown || row.line !== full) fail('m4-lock-why', `held at 1280: the row's rule line reads "${row.line}" (${row.lineShown ? 'shown' : 'hidden'})`);
+          // (one line in the row, the M4 review round r1: "Tier V: one Sango at a time"; the whole sentence is its title)
+          if (!row.lineShown || row.line !== 'Tier V: one Sango at a time' || row.lineTitle !== full) fail('m4-lock-why', `held at 1280: the row's rule line reads "${row.line}" (title "${row.lineTitle}", ${row.lineShown ? 'shown' : 'hidden'})`);
+          if (row.lineLines > 1) fail('m4-lock-why', `held at 1280: the row's rule takes ${row.lineLines} lines`);
           if (row.iShown) fail('m4-lock-why', 'held at 1280: an "i" beside a rule the row already shows');
           await rawShot('m4-lock-why-held');
         }
         await sellAll([held.b4, held.a5]);
         await settle(page, 200);
+      }
+
+      // a long tip (the upgrade tree's, upgradeTree.js): on a phone it wraps onto a second line at 12 px, never cut by an
+      // ellipsis (the M4 review, round r1: "Tip: hold a girl (or her card) to see her whole u…")
+      {
+        const tipOwner = await build('aoi', [[0, 1]]);
+        if (tipOwner.err) fail('m4-lock-why', tipOwner.err);
+        else {
+          await show(tipOwner.t);
+          await clearToasts(page);
+          await page.evaluate(() => window.__battle.ui.feed.push('Tip: hold a girl (or her card) to see her whole upgrade tree.', 'info', { ms: 4200, key: 'tip-tree' }));
+          await seenToast('tip', '^Tip: hold a girl \\(or her card\\) to see her whole upgrade tree\\.$', { shot: 'm4-lock-why-tip', lines: 2 });
+          await sellAll([tipOwner.t]);
+          await settle(page, 200);
+        }
       }
 
       // one "i" with the feed in each top corner (1-1 sends it right; the other corner is staged: the feed keeps the
@@ -860,8 +1043,125 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       }
     }
   }
+  if (has('m4-abname')) {
+    // the longest ability names, closed and opened (the M4 review, round r1: once her name was tapped open on a phone,
+    // Auto shared its line and "Tidebreaker Shell" read "Tidebreak… Shell"): never cut, to the subpixel with its ▾; Auto
+    // on the live line; the same with a wide fallback font (a web font that has not arrived); one line at 1280
+    await page.goto('about:blank');
+    await openApp(page, base);
+    await seedSave(page, { girls: ['hikari', ...ABNAME_SQUAD], hero: 'hikari', towers: ABNAME_SQUAD, settings: { reduceMotion: false }, cleared: ['1-1'] });
+    await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.battleSaves = {};
+      store.commit('e2e');
+      store.saveNow?.();
+      document.documentElement.toggleAttribute('data-reduce-motion', !!store.profile.settings.reduceMotion);
+    });
+    await openBattle(page, { stage: '1-1', cash: 1e7 });
+    await settle(page, 500);
+    /** Her ⚡ row's name and Auto: cut (a clone with the ▾, unsized, against the name's box), lines, where Auto sits. */
+    const nameFacts = () => page.evaluate(() => {
+      const row = document.querySelector('[data-testid="tower-panel"] [data-testid="ability-row"]');
+      const n = row?.querySelector('[data-testid="ability-row-name"]');
+      if (!n) return null;
+      const copy = n.cloneNode(true);
+      copy.removeAttribute('data-testid');
+      copy.style.cssText = 'position: absolute; visibility: hidden; width: auto; min-width: 0; max-width: none; flex: none; white-space: nowrap';
+      n.parentElement.append(copy);
+      const full = copy.getBoundingClientRect().width;
+      const longest = (n.textContent || '').split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
+      copy.textContent = longest;
+      const word = copy.getBoundingClientRect().width;
+      copy.remove();
+      const box = n.getBoundingClientRect();
+      const cs = getComputedStyle(n);
+      const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.1;
+      const twoLines = n.classList.contains('bt-abrow-2l');
+      // (two lines: each word must fit the box; one line: the whole name with its ▾)
+      const cut = twoLines ? word > box.width + 0.01 : full > box.width + 0.01;
+      const auto = row.querySelector('[data-testid="ability-row-auto"]');
+      const autoShown = !!auto && !auto.hidden && auto.getClientRects().length > 0 && getComputedStyle(auto).display !== 'none';
+      const top = row.querySelector('.bt-abrow-top').getBoundingClientRect();
+      const a = autoShown ? auto.getBoundingClientRect() : null;
+      return {
+        text: n.textContent, open: row.classList.contains('open'), twoLines, px: parseFloat(cs.fontSize), boxW: Math.round(box.width * 10) / 10, fullW: Math.round(full * 10) / 10, wordW: Math.round(word * 10) / 10,
+        cut, lines: Math.round(n.scrollHeight / lh) || 1, later: row.classList.contains('s-later'), autoShown, autoOnNameLine: !!a && a.top < top.bottom - 1, autoParent: auto?.parentElement?.className || null, noBolt: row.classList.contains('bt-abrow-nobolt'),
+      };
+    });
+    const R = (out['m4-abname'] = {});
+    let k = 0;
+    for (const g of ABNAME_SQUAD) {
+      const uid = await page.evaluate(([id, skip]) => {
+        window.__battle.ui.select(null);
+        const t = __ab.place(id, { skip });
+        if (t == null) return null;
+        __ab.unlock(t, 3);
+        window.__battle.sim.cash = 1250;
+        return t;
+      }, [g, k * 4]);
+      k++;
+      if (uid == null) {
+        fail('m4-abname', `no spot for ${g}`);
+        continue;
+      }
+      // (a busy machine can take longer than the usual 15 s to draw a drawer: select once more, then wait longer)
+      await page.evaluate((x) => window.__battle.ui.select(x), uid);
+      await panelOpen(page).catch(async () => {
+        log(`  m4-abname: ${g}'s drawer took over 15 s to open (a busy machine): selected again`);
+        await page.evaluate((x) => { window.__battle.ui.select(null); window.__battle.ui.select(x); }, uid);
+        await page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden; }, null, { timeout: 60000 });
+      });
+      await settle(page, 500);
+      const closed = await nameFacts();
+      let opened = closed;
+      if (phone) {
+        await page.locator('[data-testid="tower-panel"] [data-testid="ability-row-name"]').click({ force: true });
+        await settle(page, 300);
+        opened = await nameFacts();
+      }
+      const probe = await uiProbe(page, { root: '[data-testid="ability-row"]' });
+      // a wide fallback font (before the web font arrives): the row fits again (its ResizeObserver), still never cut
+      await page.evaluate(() => {
+        const st = document.createElement('style');
+        st.id = '__m4fallback';
+        st.textContent = '[data-testid="ability-row"] .bt-abrow-name, [data-testid="ability-row"] .bt-abrow-fire { font-family: Verdana, "DejaVu Sans", sans-serif !important; font-style: normal !important; }';
+        document.head.append(st);
+      });
+      await settle(page, 300);
+      const fallback = await nameFacts();
+      await page.evaluate(() => document.getElementById('__m4fallback')?.remove());
+      await settle(page, 300);
+      const back = await nameFacts();
+      R[g] = { closed, opened, fallback, back, truncated: probe.truncated };
+      log(`  m4-abname ${g}: ${JSON.stringify(R[g])}`);
+      for (const [when, f] of [['closed', closed], ['open', opened], ['with a fallback font', fallback], ['after the fallback', back]]) {
+        if (!f) {
+          fail('m4-abname', `${g} ${when}: no ability row`);
+          continue;
+        }
+        if (f.cut) fail('m4-abname', `${g} ${when}: "${f.text}" is cut (${JSON.stringify(f)})`);
+        if (f.px < floor) fail('m4-abname', `${g} ${when}: her ability's name is ${f.px}px`);
+        if (f.autoOnNameLine) fail('m4-abname', `${g} ${when}: Auto shares her name's line`);
+        // (one line on the wide drawer with the real font; a far wider fallback may take two lines, never a cut)
+        if (!phone && f !== fallback && f.lines > 1) fail('m4-abname', `${g} ${when}: her ability's name takes ${f.lines} lines at ${vp}`);
+      }
+      if (phone && !opened?.open) fail('m4-abname', `${g}: a tap on her name did not open the row`);
+      // (an ability that comes later has no Auto: its row says so)
+      if (phone && opened && !opened.autoShown && !opened.later) fail('m4-abname', `${g}: the open row shows no Auto`);
+      if (probe.truncated.length) fail('m4-abname', `${g}: the ⚡ row has text cut by an ellipsis: ${JSON.stringify(probe.truncated)}`);
+      if (g === 'sango') {
+        await clearToasts(page);
+        await rawShot(phone ? 'm4-abname-sango-open' : 'm4-abname-sango');
+      }
+      await page.evaluate((x) => { window.__battle.ui.select(null); window.__battle.sim.sellTower(x); }, uid);
+      await settle(page, 200);
+    }
+  }
   return out;
 }
+
+// the ability names the M4 review measured (round r1): the longest of every ⚡ path
+const ABNAME_SQUAD = ['sango', 'akane', 'yuzuha', 'rei', 'kage', 'aoi'];
 
 // the M4 re-review's squad and builds ('abil3+2': the ⚡ path to 3, the next path round to 2)
 const FIT_SQUAD = ['midori', 'iroha', 'chika', 'tenka', 'azami', 'sango', 'aoi', 'raika'];

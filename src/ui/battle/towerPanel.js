@@ -3,7 +3,7 @@
 // phones, 340 on PC), full height under the HUD; the ability bar sits left of it (owner default Q4).
 //   Header: portrait (40 px, UR frame), the name in display italics, the path code chip (2-0-1), role + attack chips,
 //     Tree, close.
-//   Glance: her ⚡ ability row; Chika's Flight row; the target chips (FIRST · LAST · STRONG · CLOSE + "+N") or Azami's
+//   Glance: her ⚡ ability row; Chika's Flight row; the target chips (FIRST · LAST · STRONG · CLOSE + "⋯") or Azami's
 //     strip chips, the aim row; Midori's / Chika's pick control; the stat row (the role's 3 headline stats + PIERCE);
 //     the 3 path rows (coloured edge, tier line, pips, the yellow price button with the two-tap buy, the lock line,
 //     the final-tier holder, MAX).
@@ -17,7 +17,7 @@ import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import {
-  crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
+  crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, onePerPathLine, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
 } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
@@ -37,7 +37,7 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, gearPierce, pierces, BUY_ARM_MS,
-  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
+  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX, TARGET_EXTRA,
 } from './drawerView.js';
 
 function statusLabel(s) {
@@ -61,6 +61,9 @@ const isWide = () => !isPhone();
  * §5.8). One lock toast at a time: a tap on another row's "i" swaps the words in place instead of being throttled away.
  */
 const LOCK_TOAST = { key: 'path-lock', ms: 2600, replace: true };
+
+/** The target row's overflow chip: three dots (a font's "⋯" is a few pixels in Barlow, and missing in some). */
+const MORE_SVG = '<svg viewBox="0 0 18 4" aria-hidden="true"><circle cx="2" cy="2" r="2" fill="currentColor"/><circle cx="9" cy="2" r="2" fill="currentColor"/><circle cx="16" cy="2" r="2" fill="currentColor"/></svg>';
 
 /** At most this many numbers in the girl drawer (UI_DIRECTION M2 done-when; her ⚡ row's live seconds are the one extra). */
 const DRAWER_NUMBERS = 13;
@@ -94,7 +97,7 @@ export function createTowerPanel(ctx) {
   let sellArmed = 0;
   let sellTimer = 0;
   let more = false; // MORE: the Details sheet is open in the drawer
-  let targetsOpen = false; // the target row's "+N" is open
+  let targetsOpen = false; // the target row's "⋯" is open
   let heroShown = null; // the level status the Level up button shows (a tap buys exactly this)
   // (holdArm, tests: an open row stays open until the next tap, so a slow machine's still never finds it closed)
   let armHeld = false;
@@ -263,13 +266,16 @@ export function createTowerPanel(ctx) {
         },
       }));
       if (v.more > 0) {
+        // (a "more" glyph, no digit: the drawer's numbers stay ≤ 13; its label names what it opens. Its chip is the dense
+        // tap size wide; the keyboard's focus moves on to the first mode it shows, focusKeyOf)
+        const what = `More targets: ${v.moreNames.join(', ')}`;
         chips.push(h('button.bt-tchip.bt-tchip-more', {
-          type: 'button', 'data-testid': 'target-more', 'aria-label': `${v.more} more target modes`, title: 'Priority and the other modes',
+          type: 'button', 'data-testid': 'target-more', 'aria-label': what, title: what,
           disabled: !mine, onclick: () => { targetsOpen = true; rerender(); },
-        }, '+')); // (no digit: the drawer's numbers stay ≤ 13; its label says how many)
+        }, svgEl(MORE_SVG, 'bt-tchip-more-ico')));
       }
       rows.push(h('div.bt-dw-row.bt-target', { 'data-testid': v.kind === 'strip' ? 'strip-row' : 'target-row' },
-        h('span.bt-dw-k', v.label), h('div.bt-tchips', chips)));
+        h('span.bt-dw-k', v.label), h('div.bt-tchips', { role: 'group', 'aria-label': v.kind === 'strip' ? 'Strips' : 'Target' }, chips)));
     }
     const aim = aimView(t, am, { aiming });
     if (aim) {
@@ -302,20 +308,48 @@ export function createTowerPanel(ctx) {
       !ally && pick ? h('button.bt-tchip.bt-buff-auto', { type: 'button', 'data-testid': 'buff-auto', onclick: () => ctx.sendPick?.(t.uid, -1) }, 'AUTO') : null);
   }
 
-  /** The stat row: caps labels over big numbers (drawerView.drawerStats). */
-  function statRow(t, st, cells) {
-    return h('div.bt-dw-stats', { 'data-testid': 'drawer-stats', role: 'group', 'aria-label': cells.map((c) => c.title).join(', ') },
-      cells.map((c) => h(`div.bt-dw-stat${c.accent ? '.acc' : ''}`, { 'data-key': c.key, title: c.title },
+  /**
+   * The stat row: caps labels over big numbers (drawerView.drawerStats). Its values are painted in place every frame
+   * (paintStats), so an aura, a rally or a brew that reaches her shows at once without a redraw (the M4 review, round
+   * r1: the row kept the old DMG and RATE until something else redrew the drawer). `opts`: drawerStats' options, read
+   * again on each paint.
+   */
+  function statRow(t, st, opts) {
+    const cells = drawerStats(t, st, opts());
+    const row = h('div.bt-dw-stats', { 'data-testid': 'drawer-stats', role: 'group', 'aria-label': cells.map((c) => c.title).join(', ') });
+    const nodes = cells.map((c) => {
+      const value = document.createTextNode(c.value);
+      const cell = h(`div.bt-dw-stat${c.accent ? '.acc' : ''}`, { 'data-key': c.key, title: c.title },
         h('span.bt-dw-lbl', c.label),
-        h('span.bt-dw-num', c.value, c.unit ? h('small', c.unit) : null))));
+        h('span.bt-dw-num', value, c.unit ? h('small', c.unit) : null));
+      row.append(cell);
+      return { key: c.key, unit: c.unit, cell, value };
+    });
+    live.stats = { row, nodes, opts };
+    return row;
+  }
+
+  /** The stat row's numbers, painted in place; a cell that comes or goes (or changes its unit) asks for a redraw. */
+  function paintStats(t, st) {
+    const ls = live?.stats;
+    if (!ls?.row.isConnected) return;
+    const cells = drawerStats(t, st || sim.towerStats(t.uid), ls.opts());
+    if (cells.length !== ls.nodes.length || cells.some((c, i) => c.key !== ls.nodes[i].key || c.unit !== ls.nodes[i].unit)) {
+      sig = '';
+      return;
+    }
+    cells.forEach((c, i) => {
+      const n = ls.nodes[i];
+      if (n.value.nodeValue !== c.value) n.value.nodeValue = c.value;
+      if (n.cell.title !== c.title) n.cell.title = c.title;
+    });
+    const label = cells.map((c) => c.title).join(', ');
+    if (ls.row.getAttribute('aria-label') !== label) ls.row.setAttribute('aria-label', label);
   }
 
   function girlGlance(t, st, { ally }) {
     const mine = !ally;
-    const cells = drawerStats(t, st, {
-      affects: (sim.buffTargets?.(t.uid) || []).length,
-      placeCost: sim.placeCost?.(t.unitId),
-    });
+    const statOpts = () => ({ affects: (sim.buffTargets?.(t.uid) || []).length, placeCost: sim.placeCost?.(t.unitId) });
     const rows = t.def.paths.map((p, i) => pathRow(t, p, i, { readOnly: ally }));
     // (her controls read only, in the dim ink: the lock and this one line say why, UI_DIRECTION §5.5; a phone's line is
     // short, so her three path rows stay in view under it)
@@ -327,7 +361,7 @@ export function createTowerPanel(ctx) {
       hasDroneTabs(st) ? drones.glance(t, mine) : null,
       ...targetRows(t, st, { mine }),
       pickRow(t, ally),
-      statRow(t, st, cells),
+      statRow(t, st, statOpts),
       rows.length ? h('div.bt-dw-sec', h('span.bt-dw-k', 'UPGRADES'), h('span.bt-dw-rule')) : null,
       rows.length ? h('div.bt-paths', rows) : null,
     ];
@@ -363,10 +397,12 @@ export function createTowerPanel(ctx) {
       type: 'button', 'aria-label': 'Why is this tier locked?', title: reason,
       onclick: () => ctx.feed?.push(onePerPathWhy(t.def.name, p.name), 'info', LOCK_TOAST),
     }, 'i') : null;
+    // (the row's rule is one line, "Tier V: one Sango at a time": the path is the row's name; the whole sentence with
+    // "Sell or upgrade that one." is its title. The M4 review, round r1: at 1280 the sentence took two lines)
     return h(
       `div.bt-lock.bt-lock-final${show ? '.has-holder' : ''}`,
       { 'data-testid': `final-lock-${i}`, title: ctx.coop ? ONE_PER_PATH_COOP : ONE_PER_PATH_RULE },
-      h('div.bt-lock-line', icon('lock', 'bt-ico-sm'), h('span', reason)),
+      h('div.bt-lock-line', { title: reason }, icon('lock', 'bt-ico-sm'), h('span', onePerPathLine(t.def.name))),
       show ? h('div.bt-lock-held', show, why) : null,
     );
   }
@@ -396,7 +432,8 @@ export function createTowerPanel(ctx) {
     let action = null;
     let extra = null;
     if (v.state === 'max') {
-      action = h('span.bt-dw-max', { title: `${p.name} is finished` }, 'MAX');
+      // (tabindex -1: a keyboard buy that finishes the path leaves the focus here, never on the page: focusKeyOf)
+      action = h('span.bt-dw-max', { title: `${p.name} is finished`, tabindex: readOnly ? null : '-1' }, 'MAX');
     } else if (v.state === 'crosspath') {
       // the "i": the one-line reason in the feed ("Capped at T2: Rapid Volley is T3"); the full reason and the rule are
       // its title
@@ -429,12 +466,16 @@ export function createTowerPanel(ctx) {
         h('span.bt-buy-price', v.priceText),
       );
     }
+    // (an ally's row is read only: no button role, tab stop or expanded state, so nothing announces a button that does
+    // nothing; the M4 review, round r1)
+    const pressable = !readOnly && (v.state === 'buy' || v.state === 'poor');
     const main = h('div.bt-path-main', {
-      role: v.state === 'buy' || v.state === 'poor' ? 'button' : null,
-      tabindex: v.state === 'buy' || v.state === 'poor' ? '0' : null,
-      'aria-expanded': v.state === 'buy' || v.state === 'poor' ? (v.armed ? 'true' : 'false') : null,
+      role: pressable ? 'button' : null,
+      tabindex: pressable ? '0' : null,
+      'aria-expanded': pressable ? (v.armed ? 'true' : 'false') : null,
       onclick: () => {
-        if (readOnly || (v.state !== 'buy' && v.state !== 'poor')) return;
+        if (!pressable) return;
+        disarmSell();
         if (arm.toggle(t.uid, i) === 'arm') scheduleDisarm();
         else clearTimeout(armTimer);
         rerender();
@@ -482,6 +523,7 @@ export function createTowerPanel(ctx) {
 
   /** The price button: tap 1 arms (the row opens, "Buy · 565"), tap 2 buys through ctx.act.upgrade. */
   function onBuyTap(t, p, i) {
+    disarmSell();
     if (arm.tap(t.uid, i) === 'arm') {
       scheduleDisarm();
       rerender();
@@ -547,7 +589,7 @@ export function createTowerPanel(ctx) {
 
   function heroDetails(t, st) {
     const def = t.def;
-    const cells = drawerStats(t, st, { ultStatus: sim.hero === t ? sim.heroUltStatus() : null });
+    const statOpts = () => ({ ultStatus: sim.hero === t ? sim.heroUltStatus() : null });
     const rows = (def.hero?.levels || []).map((row) => {
       const skill = trackSkillLine(def, row.level);
       return h(
@@ -567,7 +609,7 @@ export function createTowerPanel(ctx) {
     if (t.mastery > 0) bonus.push(`Mastery ${fmtNum(t.mastery, 'pct')} damage`);
     if ((t.unitStats?.costMul ?? 1) < 1) bonus.push(`level prices ${fmtNum(-(1 - t.unitStats.costMul), 'pct')}`);
     return [
-      statRow(t, st, cells),
+      statRow(t, st, statOpts),
       h('div.bt-dt-sec', h('span.bt-dw-k', 'LEVEL'), h('span.bt-dw-rule')),
       xpLine ? h('p.bt-dt-line', { 'data-testid': 'hero-xp-text' }, xpLine) : null,
       bonus.length ? h('p.bt-dt-line', bonus.join(' · ')) : null,
@@ -819,6 +861,13 @@ export function createTowerPanel(ctx) {
     return h('div.bt-panel-foot', h('span.bt-spent', h('span.bt-dw-k', 'INVESTED'), ' ', h('b', f.invested)), moreBtn, sell || h('span'));
   }
 
+  /** A tap on a price or a row: Sell's CONFIRM (and its timer) goes, so two confirms are never armed at once. */
+  function disarmSell() {
+    if (!sellArmed) return;
+    sellArmed = 0;
+    clearTimeout(sellTimer);
+  }
+
   function onSell(t) {
     if (!sellArmed) {
       sellArmed = 1;
@@ -848,7 +897,7 @@ export function createTowerPanel(ctx) {
     const mine = !ctx.coop || ctx.coop.isMine(t.uid);
     const ally = !mine;
     const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
-    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null };
+    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
@@ -873,7 +922,7 @@ export function createTowerPanel(ctx) {
     const prevScroll = el.querySelector('.bt-panel-scroll')?.scrollTop || 0;
     // the render rebuilds the focused control (tap 1 on a price re-renders): its new copy takes the focus back, so a
     // keyboard player's second Enter lands on it (the two-tap buy, Sell's confirm)
-    const refocus = el.dataset.uid === String(t.uid) ? focusKeyOf(typeof document !== 'undefined' ? document.activeElement : null) : null;
+    const refocus = el.dataset.uid === String(t.uid) ? focusKeyOf(typeof document !== 'undefined' ? document.activeElement : null) : [];
     const scroll = h('div.bt-panel-scroll', { onscroll: () => paintScrollCue() }, kids);
     const foot = footer(t, { ally });
     // (the footer's top edge says when more of the body sits below: phones hide thin scrollbars)
@@ -882,7 +931,15 @@ export function createTowerPanel(ctx) {
     if (prevScroll && el.dataset.uid === String(t.uid) && el.dataset.more === String(more) && !toTop) scroll.scrollTop = prevScroll;
     el.dataset.uid = String(t.uid);
     el.dataset.more = String(more);
-    if (refocus) el.querySelector(refocus)?.focus?.({ preventScroll: true });
+    // (the first of its selectors that finds a control: the same one, else where the keyboard goes on from a control
+    // that is gone, so the focus never drops to the page and a Space never starts the wave instead)
+    for (const sel of refocus) {
+      const n = el.querySelector(sel);
+      if (n) {
+        n.focus?.({ preventScroll: true });
+        break;
+      }
+    }
     fitNumbers(t);
     fitAll();
     showOpenRow(scroll, t);
@@ -1044,20 +1101,33 @@ export function createTowerPanel(ctx) {
     el.classList.toggle('bt-scroll-more', below);
   }
 
-  /** A selector for the focused control inside the drawer that finds its copy after a render (null: none). */
+  /**
+   * Selectors for the focused control inside the drawer, in order: its copy after a render, then where the keyboard
+   * goes on when that control is gone (the M4 review, round r1: the overflow chip opened PRIORITY and AIR and the focus fell to the
+   * page, so the next Space started the wave): the overflow chip's first new mode; a price or row whose path just hit
+   * MAX (or a tier another copy holds), its row, its MAX or the row's other control. Empty: none.
+   */
   function focusKeyOf(node) {
-    if (!node || node === el || !el.contains(node)) return null;
+    if (!node || node === el || !el.contains(node)) return [];
     const id = node.getAttribute?.('data-testid');
-    if (id) return `[data-testid="${id}"]`;
+    const rowOf = (path) => [`.bt-path[data-path="${path}"] .bt-path-main[tabindex]`, `.bt-path[data-path="${path}"] .bt-dw-max`, `.bt-path[data-path="${path}"] button`];
+    if (id === 'target-more') return [`[data-testid="${id}"]`, ...TARGET_EXTRA.map((m) => `.bt-target .bt-tchip[data-mode="${m}"]`)];
+    const buy = /^buy-(\d)$/.exec(id || '');
+    if (buy) return [`[data-testid="${id}"]`, ...rowOf(buy[1])];
+    if (id) return [`[data-testid="${id}"]`];
     const row = node.classList?.contains('bt-path-main') ? node.closest('[data-path]') : null;
-    if (row) return `.bt-path[data-path="${row.dataset.path}"] .bt-path-main`;
+    if (row) return [`.bt-path[data-path="${row.dataset.path}"] .bt-path-main`, ...rowOf(row.dataset.path)];
     const mode = node.getAttribute?.('data-mode');
-    return mode ? `.bt-target .bt-tchip[data-mode="${mode}"]` : null;
+    return mode ? [`.bt-target .bt-tchip[data-mode="${mode}"]`] : [];
   }
 
   function updateLive(t, st = null) {
     if (!live) return;
     abRow.update(t); // the button's seconds / ACTIVE countdown, in place
+    if (live.stats) {
+      st ||= sim.towerStats(t.uid);
+      paintStats(t, st);
+    }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));
     if (more) drones.updateLive();

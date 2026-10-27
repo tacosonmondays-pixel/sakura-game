@@ -13,7 +13,7 @@ import { fmtNum } from '../../src/ui/format.js';
 import { pathAbilityTeaser } from '../../src/ui/battle/abilityRow.js';
 import { UNIT_MAP, towers } from '../../src/data/units.js';
 import {
-  onePerPathReason, finalHolderLine, crosspathReason, crosspathWhy, onePerPathWhy, pathCap, CROSSPATH_RULE, LOCK_WHY_MAX,
+  onePerPathReason, onePerPathLine, finalHolderLine, crosspathReason, crosspathWhy, onePerPathWhy, pathCap, CROSSPATH_RULE, LOCK_WHY_MAX,
 } from '../../src/ui/battle/rules.js';
 
 /** How many of these shown texts hold a number (the UI probe counts each element with a digit once). */
@@ -188,11 +188,16 @@ describe('the target chips', () => {
     expect(v.chips.filter((c) => c.on).map((c) => c.mode)).toEqual([t.targetMode]);
     expect(v.more).toBe(st.canHitAir ? 2 : 1);
     expect(targetView(t, { ...st, canHitAir: false }).more).toBe(1);
+    // the overflow chip's label names what it opens ("More targets: Priority, Air")
+    expect(targetView(t, { ...st, canHitAir: true }).moreNames).toEqual(['Priority', 'Air']);
+    expect(targetView(t, { ...st, canHitAir: false }).moreNames).toEqual(['Priority']);
+    expect(targetView(t, { ...st, canHitAir: true }, { expanded: true }).moreNames).toEqual([]);
     expect(targetView(t, { ...st, canHitAir: true }, { expanded: true }).chips.map((c) => c.label)).toEqual(['FIRST', 'LAST', 'STRONG', 'CLOSE', 'PRIORITY', 'AIR']);
     // an extra mode in use shows filled in place, the rest stays behind "+1"
     const pri = targetView({ ...t, targetMode: 'elite' }, { ...st, canHitAir: true });
     expect(pri.chips.map((c) => `${c.label}${c.on ? '*' : ''}`)).toEqual(['FIRST', 'LAST', 'STRONG', 'CLOSE', 'PRIORITY*']);
     expect(pri.more).toBe(1);
+    expect(pri.moreNames).toEqual(['Air']);
   });
 
   it('Azami: Near exit · Spread, plus Checkpoint from Checkpoint tier 3; no target row for a girl who aims none', () => {
@@ -438,6 +443,10 @@ describe('the lock "i": its one-line reason, seen', () => {
     // the "i"'s title keeps the whole story (a mouse user's hover): the full reason, then the rule
     expect(`${crosspathReason(t.tiers, 0, names)} ${CROSSPATH_RULE}`).toBe('Capped at T2 — Rapid Volley is already T3. One path can go past T2, a second up to T2.');
     expect(onePerPathReason('Aoi', names[0])).toBe(`${onePerPathWhy('Aoi', names[0])}. Sell or upgrade that one.`);
+    // the held row's own line (1280): one short line, the path being the row's name; the sentence is its title
+    expect(onePerPathLine('Sango')).toBe('Tier V: one Sango at a time');
+    for (const u of towers()) expect(onePerPathLine(u.name).length, u.id).toBeLessThanOrEqual(30);
+    expect(panel).toMatch(/h\('div\.bt-lock-line', \{ title: reason \}, icon\('lock', 'bt-ico-sm'\), h\('span', onePerPathLine\(t\.def\.name\)\)\)/);
   });
 
   it(`every girl, every lock: one sentence of at most ${LOCK_WHY_MAX} characters; the longest are Sango's (the e2e measures those)`, () => {
@@ -554,5 +563,57 @@ describe('the hero drawer', () => {
         expect(sectionNumbers([line]), `${id} ${l}`).toBeLessThanOrEqual(1);
       }
     }
+  });
+});
+
+// The M4 review, round r1 (logic-r1-1, -4, -5, -6): the drawer's live stat row, the keyboard's focus when a control goes,
+// one armed confirm at a time, and an ally's read-only rows. The real drawer is driven by e2e/lib/m4Scenes.mjs
+// (m4-stat-live, m4-keys, m4-drawer-ally); these pin the sim facts and the code paths the fixes rest on.
+describe('the drawer after the M4 review, round r1', () => {
+  const panel = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+
+  it('the stat row follows an aura placed after the drawer opened: its numbers are painted every frame, never only on a redraw', () => {
+    const sim = battle(['aoi', 'miko']);
+    const aoi = place(sim, 'aoi');
+    const before = drawerStats(aoi, sim.towerStats(aoi.uid)).map((c) => `${c.label} ${c.value}`);
+    // Miko (+10% damage aura, 2.5 tiles) right beside her
+    let miko = null;
+    for (let r = 0.6; r < 2.2 && !miko; r += 0.2) {
+      for (let a = 0; a < 6.28 && !miko; a += 0.4) {
+        const x = aoi.x + Math.cos(a) * r;
+        const y = aoi.y + Math.sin(a) * r;
+        if (sim.canPlace('miko', x, y).ok) miko = sim.placeTower('miko', x, y);
+      }
+    }
+    expect(miko).toBeTruthy();
+    for (let i = 0; i < 30; i++) sim.update(1 / 30);
+    const after = drawerStats(aoi, sim.towerStats(aoi.uid)).map((c) => `${c.label} ${c.value}`);
+    expect(after[0]).not.toBe(before[0]); // DMG rose
+    // the drawer paints those cells in place each frame (no redraw: a tap is never lost to one)
+    const live = panel.slice(panel.indexOf('function updateLive('), panel.indexOf('function update(force'));
+    expect(live).toMatch(/paintStats\(t, st\)/);
+    const paint = panel.slice(panel.indexOf('function paintStats('), panel.indexOf('function girlGlance('));
+    expect(paint).toMatch(/drawerStats\(t, st \|\| sim\.towerStats\(t\.uid\), ls\.opts\(\)\)/);
+    expect(paint).toMatch(/n\.value\.nodeValue = c\.value/);
+  });
+
+  it('the keyboard\'s focus goes on when its control is gone: "⋯" to its first mode, a path at MAX to its row, MAX or button', () => {
+    const fk = panel.slice(panel.indexOf('function focusKeyOf('), panel.indexOf('function updateLive('));
+    expect(fk).toMatch(/id === 'target-more'\) return \[`\[data-testid="\$\{id\}"\]`, \.\.\.TARGET_EXTRA\.map/);
+    expect(fk).toMatch(/\.bt-dw-max/);
+    // MAX takes a programmatic focus (tabindex -1), so the battle keys treat it as a drawer control (no wave on Space)
+    expect(panel).toMatch(/h\('span\.bt-dw-max', \{ title: `\$\{p\.name\} is finished`, tabindex: readOnly \? null : '-1' \}, 'MAX'\)/);
+  });
+
+  it('a tap on a price or a row disarms Sell\'s CONFIRM; an ally\'s rows are no buttons', () => {
+    const buy = panel.slice(panel.indexOf('function onBuyTap('), panel.indexOf('function heroGlance('));
+    expect(buy.indexOf('disarmSell()')).toBeGreaterThan(-1);
+    expect(buy.indexOf('disarmSell()')).toBeLessThan(buy.indexOf('arm.tap('));
+    const row = panel.slice(panel.indexOf('const pressable = '), panel.indexOf("h('div.bt-path-top'"));
+    expect(row).toMatch(/const pressable = !readOnly && \(v\.state === 'buy' \|\| v\.state === 'poor'\);/);
+    expect(row).toMatch(/role: pressable \? 'button' : null/);
+    expect(row).toMatch(/tabindex: pressable \? '0' : null/);
+    expect(row).toMatch(/'aria-expanded': pressable \?/);
+    expect(row).toMatch(/disarmSell\(\);\s+if \(arm\.toggle/);
   });
 });

@@ -158,10 +158,21 @@ export async function installHelpers(page, cash = 1e6) {
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         feed.style.pointerEvents = pe;
         toast.style.pointerEvents = '';
-        const fs = parseFloat(getComputedStyle(text).fontSize) || 12;
+        const cs = getComputedStyle(text);
+        const fs = parseFloat(cs.fontSize) || 12;
+        const lh = parseFloat(cs.lineHeight) || fs * 1.3;
+        // cut: an ellipsis, or a line fragment past the text's box (to the subpixel)
+        const box = text.getBoundingClientRect();
+        const rg = document.createRange();
+        rg.selectNodeContents(text);
+        const frags = [...rg.getClientRects()];
+        const cut = cs.textOverflow === 'ellipsis' && text.scrollWidth > text.clientWidth
+          || frags.some((f) => f.right > box.right + 0.05 || f.left < box.left - 0.05)
+          || text.scrollWidth > text.clientWidth + 1;
+        const lines = Math.max(1, Math.round(text.offsetHeight / lh));
         return {
           found: true, text: text.textContent, onTop: !!hit && toast.contains(hit), hit: hit ? `${hit.tagName}.${hit.className?.baseVal ?? hit.className}` : null,
-          oneLine: text.offsetHeight < fs * 1.9 && text.scrollWidth <= text.clientWidth + 1, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+          oneLine: lines === 1 && !cut, lines, cut, px: fs, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
         };
       },
       /** A board spot on screen where `unitId` can stand and a tap there lands on it (CSS px), or null. */

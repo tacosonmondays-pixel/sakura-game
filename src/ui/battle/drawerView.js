@@ -23,9 +23,9 @@ import { pathCap } from './rules.js';
 
 /** The upgrade paths' edge colours (VAULT_BRIEF §2.4: 1 #ff5d7a, 2 #3b8cff, 3 #9b6bff). */
 export const PATH_COLORS = Object.freeze(['#ff5d7a', '#3b8cff', '#9b6bff']);
-/** The four target chips always shown (owner default Q5: 4 chips + "+N"). */
+/** The four target chips always shown (owner default Q5: 4 chips + an overflow chip, "⋯"). */
 export const TARGET_CHIPS = Object.freeze(['first', 'last', 'strong', 'close']);
-/** The modes behind "+N" (Air only for a girl who hits flyers). */
+/** The modes behind the overflow chip "⋯" (Air only for a girl who hits flyers). */
 export const TARGET_EXTRA = Object.freeze(['elite', 'air']);
 /** Behaviours that pick a target (the rest have no target row). */
 export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
@@ -142,10 +142,11 @@ export function drawerStats(t, st, { affects = null, placeCost = null, ultStatus
 
 /**
  * Her target row. A targeting girl: FIRST · LAST · STRONG · CLOSE, then PRIORITY (and AIR when she hits flyers)
- * behind a "+N" chip; an extra mode in use shows filled in its place. Azami: Near exit · Spread (· Checkpoint from
+ * behind the "⋯" chip; an extra mode in use shows filled in its place. Azami: Near exit · Spread (· Checkpoint from
  * Checkpoint tier 3) instead. Null when she picks no target.
  * @param {{ expanded?: boolean, aiming?: boolean, aimMode?: string|null }} [o]
- * @returns {null | { kind: 'target'|'strip', label: string, chips: { mode: string, label: string, on: boolean, title: string, testid?: string }[], more: number }}
+ * @returns {null | { kind: 'target'|'strip', label: string, chips: { mode: string, label: string, on: boolean, title: string, testid?: string }[], more: number, moreNames: string[] }}
+ *   more / moreNames: how many modes, and which ("Priority", "Air"), wait behind the overflow chip
  */
 export function targetView(t, st, { expanded = false, aiming = false, aimMode = null } = {}) {
   if (st.behavior === 'strip') {
@@ -155,15 +156,16 @@ export function targetView(t, st, { expanded = false, aiming = false, aimMode = 
       { mode: 'last', label: 'SPREAD', on: !checkpoint && t.targetMode === 'last', title: 'Spread along the road', testid: 'strip-spread' },
     ];
     if (aimMode === 'checkpoint') chips.push({ mode: 'checkpoint', label: aiming ? 'TAP MAP…' : 'CHECKPOINT', on: checkpoint, title: 'Tap the road: her strips land around that point', testid: 'aim-set' });
-    return { kind: 'strip', label: 'STRIPS', chips, more: 0 };
+    return { kind: 'strip', label: 'STRIPS', chips, more: 0, moreNames: [] };
   }
   if (!TARGETABLE.has(st.behavior)) return null;
   const extras = TARGET_EXTRA.filter((m) => m !== 'air' || st.canHitAir);
   const chip = (mode) => ({ mode, label: label(mode), on: t.targetMode === mode, title: MODE_HELP[mode] || '' });
   const chips = TARGET_CHIPS.map(chip);
-  if (expanded) return { kind: 'target', label: 'TARGET', chips: [...chips, ...extras.map(chip)], more: 0 };
+  if (expanded) return { kind: 'target', label: 'TARGET', chips: [...chips, ...extras.map(chip)], more: 0, moreNames: [] };
   const inUse = extras.filter((m) => m === t.targetMode);
-  return { kind: 'target', label: 'TARGET', chips: [...chips, ...inUse.map(chip)], more: extras.length - inUse.length };
+  const hidden = extras.filter((m) => m !== t.targetMode);
+  return { kind: 'target', label: 'TARGET', chips: [...chips, ...inUse.map(chip)], more: hidden.length, moreNames: hidden.map((m) => TARGET_MODES[m] || m) };
 }
 
 /** The aim row of a mortar / mirror girl (an aimed hero ult too): Auto · Set aim. Null for others and Azami. */

@@ -173,6 +173,17 @@
 .bt-card.bt-poor:not(.bt-deployed) .bt-card-art, .bt-card.bt-poor:not(.bt-deployed) .bt-card-name { filter: grayscale(0.85) brightness(0.62); }
 .bt-card.bt-poor:not(.bt-deployed) .bt-card-cost { color: #ff8a9b; }
 .bt-card.bt-active { transform: translateY(-5px); box-shadow: 0 0 0 3px var(--yellow), 0 8px 18px rgba(242,183,5,0.55); }
+/* a card the strip's edge cuts (an open drawer ends the strip early): faded, its price hidden until it is in view (a cut
+   price reads as a lower one), and a ‹ / › cue on that edge; a tap on the cue scrolls (towerBar paintEdges) */
+.bt-card.bt-card-part { opacity: 0.5; }
+.bt-card.bt-card-part .bt-card-cost-val, .bt-card.bt-card-part .bt-card-coin { visibility: hidden; }
+.bt-bar-cue {
+  display: none; position: absolute; top: 0; bottom: 0; z-index: 1; width: 32px; padding: 0 0 2px; border: 0; place-items: center; cursor: pointer;
+  font: 700 var(--fs-num)/1 var(--font-num); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+.bt-bar-cue-r { right: 0; background: linear-gradient(90deg, rgba(18, 36, 70, 0), rgba(18, 36, 70, 0.92) 55%); }
+.bt-bar-cue-l { left: 0; background: linear-gradient(270deg, rgba(18, 36, 70, 0), rgba(18, 36, 70, 0.92) 55%); }
+.bt-bar.bt-bar-more .bt-bar-cue-r, .bt-bar.bt-bar-less .bt-bar-cue-l { display: grid; }
 
 /* ---------- Placement hint ---------- */
 .bt-place-hint {
@@ -370,6 +381,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 }
 .bt-panel .bt-x::after { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap-dense); height: var(--tap-dense); translate: -50% -50%; }
 .bt-panel .bt-x:active { transform: scale(0.96); }
+/* (Tree's hit area reaches left, over the name, ending where Close's begins: each one the dense tap size wide; the M4
+   review, round r1: Tree was 36 px wide) */
+.bt-panel .bt-panel-tree::after { left: auto; right: calc((var(--tap-dense) - 30px) / 2 - 6px); translate: 0 -50%; }
 
 /* ---- the scroll body */
 .bt-panel-scroll {
@@ -403,7 +417,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
    note's lock and line say why */
 .bt-tchip:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
 .bt-tchip.on:disabled { color: var(--plate); }
-.bt-tchip-more { color: var(--blue-on-plate); font: 700 var(--fs-label)/1 var(--font-num); }
+.bt-tchip-more { min-width: var(--tap-dense); color: var(--blue-on-plate); }
+.bt-tchip-more-ico { display: inline-flex; width: 18px; height: 4px; line-height: 0; }
+.bt-tchip-more-ico svg { width: 100%; height: 100%; display: block; }
 .bt-tchip:active:not(:disabled) { transform: scale(0.96); }
 .bt-buff-pick-now { flex: 1 1 auto; min-width: 0; font: 500 var(--fs-body)/1.25 var(--font); color: var(--on-plate-dim); }
 .bt-buff-pick-now b { color: var(--on-plate); font-weight: 700; }
@@ -486,6 +502,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   font: 700 var(--fs-label)/22px var(--font-num); color: var(--plate); background: var(--on-plate-dim);
 }
 .bt-dw-info::after { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap-dense); height: var(--tap-dense); translate: -50% -50%; }
+/* (on a lock row the "i" sits on the row's second line: its hit area reaches up over the locked row's own name, which
+   takes no tap, so the last row's "i" keeps it whole above the drawer's footer; the M4 review, round r1: 28 px) */
+.bt-path-lock .bt-dw-info::after, .bt-lock-held .bt-dw-info::after { translate: -50% -75%; }
 .bt-path.locked .bt-path-name { color: var(--on-plate-dim); }
 .bt-lock-final {
   grid-column: 2 / -1; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border-radius: 2px;
@@ -559,10 +578,10 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-ult-btn.ready .bt-ult-label { color: var(--plate); }
 .bt-ult-btn:disabled { opacity: 1; cursor: default; }
 .bt-ult-btn.locked .bt-ult-label { color: var(--on-plate-dim); }
-.bt-panel .bt-abrow { margin: 0; background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); }
+.bt-panel .bt-abrow { margin: 0; background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); clip-path: none; }
 .bt-panel .bt-abrow.hero { margin-top: 0; }
 /* a locked skill: its LV chip says when (the "Unlocks at LV 7" line would say it twice) */
-.bt-panel .bt-abrow.s-locked .bt-abrow-line { display: none; }
+.bt-panel .bt-abrow.s-locked .bt-abrow-sub { display: none; }
 
 /* ---- MORE: the Details sheet (every stat, kills and damage dealt, Potential, buffs, the drone tabs, the track) */
 .bt-dt-line { margin: 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
@@ -652,9 +671,17 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-dw-chips-icons .bt-dw-type .bt-dw-tag-word { display: none; }
   .bt-panel-scroll { padding: 2px 8px; gap: 2px; }
   .bt-dw-row { min-height: 24px; }
-  .bt-tchip { min-height: 24px; padding: 0 7px; }
+  /* each chip the dense tap size wide at least (the M4 review, round r1: LAST was 38 px, "+" 20 px); the target row's
+     TARGET label steps away for the room (FIRST · LAST · STRONG · CLOSE say what they are; the row's group label keeps
+     the word), as UPGRADES does below */
+  .bt-tchip { min-height: 24px; padding: 0 7px; min-width: var(--tap-dense); }
+  /* (a chip's hit area starts at its top and reaches down, where the stat row takes no taps, so it never takes the
+     bottom of her ⚡ row's FIRE or name above it; the M4 review, round r1 measured those at 34 and 25 px) */
+  .bt-panel .bt-tchip::after { top: 0; translate: none; }
+  .bt-panel [data-testid="target-row"] > .bt-dw-k { display: none; }
   .bt-dw-stat { padding: 2px 4px 1px 6px; gap: 0; }
-  .bt-dw-num { font-size: 20px; }
+  /* (the phone type scale: 12 · 13 · 16 · 22, UI_DIRECTION P6) */
+  .bt-dw-num { font-size: var(--fs-num); }
   /* the three path rows: their coloured edges say "upgrades" (the label is for the wide drawer) */
   .bt-panel-scroll > .bt-dw-sec { display: none; }
   .bt-path { padding: 2px 0; row-gap: 0; column-gap: 6px; }
@@ -683,12 +710,12 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* the name, its ⚡ chip and the pips share the first line (a longer name used to push the pips onto a line of their
      own) */
   .bt-path-top { flex-wrap: nowrap; gap: 2px 5px; }
-  .bt-path-name { font-size: 15px; line-height: 1.05; white-space: nowrap; }
+  .bt-path-name { font-size: var(--fs-name); line-height: 1; white-space: nowrap; }
   /* the name line stays one line (towerPanel fitPaths): the pips move to the tier line, then the open row's ⚡ chip
      folds, last the name takes the smaller size */
   .bt-pips-low .bt-path-tier { display: flex; align-items: center; gap: 6px; }
   .bt-pips-low .bt-path-tier .bt-pips { margin-left: auto; }
-  .bt-path-name.bt-path-name-s { font-size: 13px; }
+  .bt-path-name.bt-path-name-s { font-size: var(--fs-body); }
   .bt-path-bolt { height: 16px; padding: 0 3px; }
   .bt-pips { gap: 2px; }
   .bt-pip { width: 8px; height: 5px; }
@@ -708,13 +735,23 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* her ⚡ row: one 34 px line (FIRE is 28 px to the eye; the row is its hit area) */
   .bt-panel .bt-abrow { padding: 3px 6px 3px 8px; }
   .bt-panel .bt-abrow-top { min-height: 28px; }
-  .bt-panel .bt-abrow-name { min-height: 28px; }
+  /* (no clip: fitAll keeps the name in its box, two smaller lines or no ⚡ before an ellipsis, and the e2e measures it;
+     a clip would also cut the hit area below, which reaches the dense tap size) */
+  .bt-panel .bt-abrow-name { position: relative; min-height: 28px; overflow: visible; }
+  .bt-panel .bt-abrow-name::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
+  /* the edge controls' hit areas step inward from the drawer's edge, which would clip them (Tree and Close at its top,
+     Sell and MORE at its foot), so each stays the dense tap size */
+  .bt-panel .bt-x::after { translate: -50% calc(-50% + 2px); }
+  .bt-panel .bt-panel-tree::after { translate: 0 calc(-50% + 2px); }
+  .bt-panel-foot .bt-sell::after { translate: 0 calc(-50% - 3px); }
+  .bt-panel-foot .bt-dw-more::after { translate: -50% calc(-50% - 3px); }
   .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
   /* an ability that comes later: its name on one line, the short note ("Later update", abilityRow.js) beside it, so the
      row stays one line (the M4 review: two two-line pieces pushed the third path row under the fold) */
   .bt-panel .bt-abrow.s-later { display: flex; align-items: center; gap: 8px; }
   .bt-panel .bt-abrow.s-later .bt-abrow-top { flex: 1 1 auto; min-width: 0; }
   .bt-panel .bt-abrow.s-later .bt-abrow-name { line-height: 1.05; }
+  .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-sub { flex: none; margin: 0; }
   .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: none; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
   /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
   .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
@@ -883,7 +920,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 @media (max-width: 700px) and (orientation: landscape) {
   .bt-panel { top: calc(47px + var(--safe-top)); bottom: calc(4px + var(--safe-bottom)); z-index: 8; }
   /* (its one-line toasts are the landscape phone's, below) */
-  .bt-has-panel .bt-feed { left: 8px; right: auto; margin: 0; align-items: stretch; width: min(340px, calc(100% - var(--drawer-w) - 32px - var(--safe-right))); }
+  .bt-has-panel .bt-feed { left: 8px; right: auto; margin: 0; align-items: stretch; width: min(350px, calc(100% - var(--drawer-w) - 24px - var(--safe-right))); }
 }
 @keyframes bt-sheet-up { from { transform: translateY(40%); opacity: 0.4; } }
 
@@ -904,7 +941,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* the drawer: --drawer-w (288 px on a phone), full height under the HUD, beside the tower bar's right end */
   .bt-panel { bottom: calc(6px + var(--safe-bottom)); top: calc(var(--bt-hud-h) + var(--safe-top) + 4px); z-index: 8; }
   /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
-  .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(340px, 42%); gap: 4px; align-items: stretch; }
+  .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(350px, 42%); gap: 4px; align-items: stretch; }
   .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px); }
   .bt-toast-ico { width: 14px; height: 14px; }
   .bt-banner { padding: 6px 44px 7px; }
@@ -915,11 +952,14 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-ult { width: 48px; height: 48px; }
   .bt-start-label { font-size: 1.15rem; }
 }
-/* landscape phones, 844x390 and under 701 px wide (667x375): one-line toasts (one rule for both, so the lock "i"'s
-   longest reason fits the same feed width on each) */
+/* landscape phones, 844x390 and under 701 px wide (667x375): compact toasts at the type floor (one rule for both, so the
+   lock "i"'s longest reason fits the same feed width on each: one line in the 350 px feed, rules.js LOCK_WHY_MAX; it
+   was 340 px before the floor). A longer toast (a tip)
+   wraps onto a second line, never cut by an ellipsis (UI_DIRECTION P6; the M4 review, round r1: 11.5 px, and "Tip: hold
+   a girl (or her card) to see her whole u…") */
 @media (max-height: 500px) and (min-width: 701px), (max-width: 700px) and (orientation: landscape) {
-  .bt-toast { padding: 4px 9px; font-size: 0.72rem; border-left-width: 3px; opacity: 0.92; }
-  .bt-toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .bt-toast { padding: 4px 8px; font-size: var(--fs-label); line-height: 1.3; border-left-width: 3px; opacity: 0.92; }
+  .bt-toast-text { min-width: 0; overflow-wrap: break-word; }
 }
 
 /* spawn-aware feed docking (feed.js): swap to the other top corner when a spawn gate sits under
@@ -1453,6 +1493,8 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(14, 25, 48, 0.9); white-space: nowrap;
 }
 .bt-ab-num.lbl { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); bottom: 5px; }
+/* (a word label sits on a plate, so it reads over any portrait: the M4 review, round r1 measured WAVE at 2.9-3.6:1) */
+.bt-ab-num.lbl { left: 4px; right: 4px; padding: 2px 0 1px; border-radius: 2px; background: var(--plate-glass); }
 /* badges: Auto top-left, the ready count sticker over the top-right corner, map-wide below the chamfer, the key
    hint (hover devices only, E8) over the top edge */
 .bt-ab-auto {
@@ -1484,7 +1526,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-ab.s-charging .bt-ab-sweep, .bt-ab.s-between .bt-ab-sweep { display: block; }
 .bt-ab.s-between .bt-ab-art { filter: grayscale(1) brightness(0.72); }
 .bt-ab.s-between .bt-ab-sweep { opacity: 0.6; }
-.bt-ab.s-between .bt-ab-num { color: var(--on-plate-dim); }
+.bt-ab.s-between .bt-ab-num { color: var(--on-plate); }
 .bt-ab.s-blocked .bt-ab-art { filter: grayscale(0.7) brightness(0.48); }
 .bt-ab.s-blocked:not(.jammed)::before {
   content: '—'; position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; z-index: 1; text-align: center; pointer-events: none;
@@ -1564,7 +1606,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 /* a wide drawer at its 13 numbers (towerPanel fitNumbers): her live line and Auto open with a tap on her name, as on a
    phone */
 .bt-abrow.fold .bt-abrow-name { cursor: pointer; }
-.bt-abrow.fold:not(.open) .bt-abrow-line, .bt-abrow.fold:not(.open) .bt-abrow-auto { display: none; }
+.bt-abrow.fold:not(.open) .bt-abrow-sub { display: none; }
 .bt-abrow.fold .bt-abrow-name::after { content: ' ▾'; font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; color: var(--on-plate-dim); }
 .bt-abrow.fold.open .bt-abrow-name::after { content: ' ▴'; }
 .bt-abrow-fire, .bt-abrow-chip {
@@ -1578,7 +1620,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-abrow.s-active .bt-abrow-fire { border-color: var(--pink); }
 .bt-abrow.s-between .bt-abrow-fire, .bt-abrow.s-blocked .bt-abrow-fire, .bt-abrow.s-locked .bt-abrow-chip { color: var(--on-plate-dim); }
 .bt-abrow-auto {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 6px; flex: none; border: none; background: transparent;
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap-dense); padding: 0 6px; margin-left: auto; flex: none; border: none; background: transparent;
   color: var(--on-plate-dim); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; cursor: pointer;
 }
 .bt-abrow-knob { position: relative; width: 30px; height: 18px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); }
@@ -1586,7 +1628,11 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-abrow-auto.on { color: var(--good-on-plate); }
 .bt-abrow-auto.on .bt-abrow-knob { background: var(--good-on-plate); }
 .bt-abrow-auto.on .bt-abrow-knob::after { left: 14px; background: var(--plate); }
-.bt-abrow-line { display: block; margin-top: 1px; font-size: var(--fs-body); line-height: 1.25; color: var(--on-plate-dim); }
+/* the second line: her live line, and Auto at its right (never beside her name: the name keeps its room open or closed) */
+.bt-abrow-sub { display: flex; align-items: center; gap: 8px; margin-top: 1px; }
+.bt-abrow-line { display: block; flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); line-height: 1.25; color: var(--on-plate-dim); text-wrap: pretty; }
+/* (a name whose longest word would not fit its two-line box: the ⚡ steps away, abilityRow fit) */
+.bt-abrow.bt-abrow-nobolt .bt-abrow-bolt { display: none; }
 .bt-abrow.s-later .bt-abrow-line, .bt-abrow.s-locked .bt-abrow-line { color: var(--on-plate); }
 .bt-abrow.hero { margin-top: 6px; }
 /* (the ⚡ path's bolt, its teaser and the track's bolt live in the drawer section: on the ink plate the plain yellow reads) */
@@ -1633,7 +1679,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-abrow { margin: 0 0 6px; padding: 4px 6px 4px 8px; }
   .bt-abrow-top { min-height: 36px; }
   .bt-abrow-fire, .bt-abrow-chip { min-height: 36px; }
-  .bt-abrow:not(.open) .bt-abrow-line, .bt-abrow:not(.open) .bt-abrow-auto { display: none; }
+  .bt-abrow:not(.open) .bt-abrow-sub { display: none; }
   .bt-abrow.open { padding-bottom: 6px; }
   .bt-abrow-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* never cut (UI_DIRECTION P6): a name that would not fit beside the button takes two smaller lines (abilityRow fit;
@@ -1643,7 +1689,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
   .bt-abrow.open .bt-abrow-name::after { content: ' ▴'; }
   /* an ability that comes later (Fuu, Iroha, Ruri's other forms) has no button: its one line says so at once, and
      there is nothing to open */
-  .bt-abrow.s-later:not(.open) .bt-abrow-line { display: block; }
+  .bt-abrow.s-later:not(.open) .bt-abrow-sub { display: flex; }
   .bt-abrow.s-later .bt-abrow-name::after { content: none; }
   /* a short screen: Chika's flight mode hint shows only while picking */
   .bt-panel-drones .bt-dr-hint:not(.bt-dr-picking) { display: none; }
@@ -1653,7 +1699,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 @media (max-height: 380px) {
   .bt-panel .bt-panel-head { padding-top: 2px; padding-bottom: 2px; }
   .bt-panel .bt-abrow { margin-bottom: 3px; }
-  .bt-panel .bt-dw-num { font-size: 18px; }
+  .bt-panel .bt-dw-num { font-size: var(--fs-num-s); }
 }
 /* narrow screens: 44 px buttons; hidden while a panel is open (cast from her panel row instead) */
 @media (max-width: 700px) {

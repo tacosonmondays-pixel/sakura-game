@@ -8,6 +8,10 @@
 //   abilityLine(def, values, { coinMul })       pure: the ≤ 60-character live line
 //   pathAbilityTeaser(def, path, nextTier, { later })  pure: "⚡ T3 Hawk Eye — unlocks Skyfall Volley"
 //   createAbilityRow(ctx) → { el, update(t), sig(t), fit(), setFolded(on) }
+//
+// The row's two lines: the name line (⚡, her name, the button) and the live line with the Auto switch at its right.
+// Auto never shares the name's line, so the name has the same room whether the row is open or closed (the M4 review,
+// round r1: an open row's Auto pushed "Tidebreaker Shell" into an ellipsis on a phone).
 import { h, isPhone } from './util.js';
 import { svgEl } from '../components.js';
 import { fmtNum } from '../format.js';
@@ -189,6 +193,11 @@ export function abilityRowView(sim, t, { mine = true, pending = false } = {}) {
   };
 }
 
+/** The live line with each " · " phrase kept whole (no-break spaces inside a phrase), so it wraps only between them. */
+export function keepPhrases(line) {
+  return String(line || '').split(' · ').map((p) => p.replace(/ /g, '\u00a0')).join(' · ');
+}
+
 /** What a re-render needs to know (the seconds tick in place). */
 export function rowSignature(v) {
   return v ? `${v.id}|${v.state}|${v.auto}|${v.readOnly}|${v.line}` : '-';
@@ -214,7 +223,7 @@ export function createAbilityRow(ctx) {
       openUid = t?.uid ?? null;
       el.classList.toggle('open', open);
       name.setAttribute('aria-expanded', open ? 'true' : 'false');
-      fit(); // (open, Auto shares the name's line)
+      fit(); // (the ▾ turns ▴; Auto opens on the live line, never beside her name)
     },
   });
   const fire = h('button.bt-abrow-fire', { type: 'button', 'data-testid': 'ability-fire', onclick: () => onFire() });
@@ -230,27 +239,36 @@ export function createAbilityRow(ctx) {
     },
   }, 'Auto', h('span.bt-abrow-knob', { 'aria-hidden': 'true' }));
   const el = h('div.bt-abrow', { 'data-testid': 'ability-row' },
-    h('div.bt-abrow-top', svgEl(BOLT_SVG, 'bt-abrow-bolt'), name, auto, fire, chip),
-    line);
+    h('div.bt-abrow-top', svgEl(BOLT_SVG, 'bt-abrow-bolt'), name, fire, chip),
+    h('div.bt-abrow-sub', line, auto));
+  let fireW = -1; // the button's width the last fit() saw ("FIRE", "12", "ACTIVE 3", "WAVE" differ)
 
   /**
-   * Phones: her ability's name is never cut (UI_DIRECTION P6; the M4 review: "Tidebreaker Sh…"): when it would not fit
-   * its line beside the button, it takes two smaller lines, so the row stays one row high.
+   * Her ability's name is never cut (UI_DIRECTION P6; the M4 review: "Tidebreaker Sh…"): when it would not fit its line
+   * beside the button, it takes two smaller lines, so the row stays one row high; when even its longest word would not
+   * fit one of those lines (a fallback font before the web font arrives), the ⚡ steps away to give it the room. Run
+   * again on a render, a resize, a web font's arrival and when the button's label changes width.
    */
   function fit() {
     name.classList.remove('bt-abrow-2l');
-    if (name.isConnected && nameOverflows()) name.classList.add('bt-abrow-2l');
+    el.classList.remove('bt-abrow-nobolt');
+    fireW = fire.isConnected ? fire.getBoundingClientRect().width : -1;
+    if (!name.isConnected || !overflows()) return;
+    name.classList.add('bt-abrow-2l');
+    if (overflows({ word: true })) el.classList.add('bt-abrow-nobolt');
   }
 
   /**
    * Does her name (with its ▾) run past its box? Measured to the subpixel on an unsized copy: a button's scrollWidth is a
-   * whole number, and a 0.6 px overflow still draws an ellipsis ("Shadow Doubl…").
+   * whole number, and a 0.6 px overflow still draws an ellipsis ("Shadow Doubl…"). `word`: its longest word alone, at
+   * the size the name has now (the two-line size once that is on).
    */
-  function nameOverflows() {
+  function overflows({ word = false } = {}) {
     const copy = name.cloneNode(true);
     copy.removeAttribute('data-testid');
     copy.setAttribute('aria-hidden', 'true');
     copy.style.cssText = 'position: absolute; visibility: hidden; width: auto; min-width: 0; max-width: none; flex: none; white-space: nowrap';
+    if (word) copy.textContent = (name.textContent || '').split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
     name.parentElement.append(copy);
     const over = copy.getBoundingClientRect().width > name.getBoundingClientRect().width + 0.01;
     copy.remove();
@@ -297,14 +315,19 @@ export function createAbilityRow(ctx) {
     if (name.getAttribute('aria-label') !== label) name.setAttribute('aria-label', label);
     fire.hidden = !view.button;
     if (view.button) {
-      if (fire.textContent !== view.button.label) fire.textContent = view.button.label;
+      if (fire.textContent !== view.button.label) {
+        fire.textContent = view.button.label;
+        // (a wider label narrows her name's box: fit again when the button's width changed)
+        if (fireW >= 0 && el.isConnected && fire.getBoundingClientRect().width !== fireW) fit();
+      }
       fire.classList.toggle('ready', view.button.enabled);
       fire.setAttribute('aria-label', `${view.name}: ${view.button.label === 'FIRE' ? 'fire' : view.title}`);
     }
     chip.hidden = !view.chip;
     if (view.chip && chip.textContent !== view.chip) chip.textContent = view.chip;
     // (a phone's later-ability note is short, beside the name on its one line; the title keeps the sentence)
-    const words = view.state === 'later' && isPhone() ? 'Later update' : view.line;
+    // (a phrase never breaks inside, "1.5 tiles" stays whole: the line wraps only between its phrases, beside Auto)
+    const words = view.state === 'later' && isPhone() ? 'Later update' : keepPhrases(view.line);
     if (line.textContent !== words) line.textContent = words;
     auto.hidden = !view.canAuto;
     paintAuto(view.auto);

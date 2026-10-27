@@ -877,6 +877,11 @@ touches, and an owner check on a real phone. The owner approved this direction o
   - the HUD shows ≤ 4 numbers + card costs (+ cooling abilities);
   - the drawer is ≤ 300 px on phones;
   - the girl drawer shows ≤ 13 numbers with HUD, and the tree ≤ 8;
+    - *Reading in use (the abilities branch's drawer, A3 M4; the owner has not ruled on it yet):* the 13 count the drawer
+      itself, a cooling ability's seconds the one extra. The HUD and the card strip keep the first line's budget (≤ 4
+      numbers + card costs, M5's work). With all three in view an 844 screen shows about 25–28 numbers, as the approved
+      tactical mock-up does; the drawer's own required content (the stat row, tier codes, prices, Invested, Sell) cannot
+      fit 13 together with the HUD. Ask the owner before M5 calls this line met;
   - nothing covers the centre 50% of the map for more than 1.2 s;
   - co-op runs unchanged (display only).
 
