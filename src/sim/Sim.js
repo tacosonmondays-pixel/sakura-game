@@ -2,6 +2,7 @@
 // sequence of player actions, fixed 1/60 s internal timestep.
 
 import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
+import { UNIT_SCALE } from '../data/balance.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
@@ -9,7 +10,7 @@ import {
   INCOME_INTEREST_MAX,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KITS, WIND_LOCK, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -436,6 +437,15 @@ export class Sim {
    *   leak?: number, mods?: object, parent?: object }} o
    * @returns {object|null} EnemyRT
    */
+  /**
+   * Enemy HP from the stage and the difficulty: the stage's hpScale × the difficulty's hpMul × the Oct 27 power
+   * pass's campaign multiplier for this difficulty (stage.powerHp: campaign battles only, never Freeplay, events,
+   * modes or titans; src/data/stages.js) × Option A's number scale (src/data/balance.js; 1 under Option B).
+   */
+  enemyHpBase() {
+    return (this.stage.hpScale ?? 1) * this.diff.hpMul * (this.stage.powerHp?.[this.difficulty] ?? 1) * UNIT_SCALE;
+  }
+
   spawnEnemy(enemyId, o = {}) {
     const def = this.data.enemy(enemyId);
     if (!def) {
@@ -443,7 +453,7 @@ export class Sim {
       return null;
     }
     const pathIndex = ((o.pathIndex ?? 0) % this.pathData.length + this.pathData.length) % this.pathData.length;
-    const base = (this.stage.hpScale ?? 1) * this.diff.hpMul;
+    const base = this.enemyHpBase();
     const hpMul = o.hpMul ?? base * (o.waveHpMul ?? this._waveHpMul);
     const childHpMul = o.childHpMul ?? o.hpMul ?? base * this._waveHpMul;
     const e = createEnemy(def, {
@@ -549,19 +559,25 @@ export class Sim {
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
+      // (Fuu's wind, WIND_KITS: its own shorter lock and half the Freeplay Resolve cost; Oct 27 power pass)
+      const wind = locks && WIND_KITS.includes(tower?.unitId);
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
-        // (a push-locked girl's wind spends WIND_KB_COST of a tile of Freeplay's Resolve budget per tile)
         if (e.kbLeft != null) {
-          const c = locks ? WIND_KB_COST : 1;
-          amt = Math.min(amt, e.kbLeft / c);
-          e.kbLeft -= amt * c;
+          if (wind) {
+            amt = Math.min(amt, e.kbLeft / WIND_KB_COST);
+            e.kbLeft -= amt * WIND_KB_COST;
+          } else {
+            amt = Math.min(amt, e.kbLeft);
+            e.kbLeft -= amt;
+          }
         }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
+          else if (wind) e.pushLock = WIND_LOCK[e.tier] ?? WIND_LOCK.normal;
           else if (locks) e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
         }
       }

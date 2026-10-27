@@ -159,7 +159,9 @@ function buffOf(b) {
  */
 export function headlineStats(unit, profile) {
   const battle = unitBattleStats(profile, unit.id);
-  const y = resolveStats(unit, { unitStats: battle });
+  // her kit's numbers: the Oct 27 power pass's damage row stays in battle (src/data/balance.js), so the headline
+  // compares kits, not rows
+  const y = resolveStats(unit, { unitStats: battle, noPower: true });
   const b = unit.base || {};
   const dmg = { key: 'dmg', label: 'DMG', value: stat1(y.damage || 0), unit: null, title: `Damage per hit ${stat1(y.damage || 0)}` };
   const rate = { key: 'rate', label: 'RATE', value: stat1(y.rate || 0), unit: '/s', title: `${stat1(y.rate || 0)} attacks per second` };

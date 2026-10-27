@@ -5,6 +5,7 @@
 // Pure; not co-op hashed.
 
 import { tierStep } from '../data/titans.js';
+import { UNIT_SCALE } from '../data/balance.js';
 
 export const TITAN_BOARD_VERSION = 1;
 /** The server refuses shorter battles. */
@@ -26,8 +27,12 @@ export function boardReward(rank, bronze) {
   return { tokens: bronze ? BRONZE_TOKENS : 0, title: null };
 }
 
-/** The arguments of submit_titan_best for one battle (null when it cannot count: under 10 s). */
+/**
+ * The arguments of submit_titan_best for one battle (null when it cannot count: under 10 s). The server clamps damage
+ * to the tier's pool in today's units, so Option A of the owner's band (src/data/balance.js: every battle number
+ * ×UNIT_SCALE; 1 under Option B) sends the battle's damage divided back by its scale.
+ */
 export function boardSubmission({ titanId, tier, rank = 0, damage, seconds, coop = false }) {
   if (!(seconds >= MIN_BOARD_SECONDS)) return null;
-  return { titan: titanId, step: tierStep(tier, rank), damage: Math.max(0, Math.round(damage) || 0), seconds: Math.floor(seconds), coop: !!coop };
+  return { titan: titanId, step: tierStep(tier, rank), damage: Math.max(0, Math.round((damage || 0) / UNIT_SCALE) || 0), seconds: Math.floor(seconds), coop: !!coop };
 }

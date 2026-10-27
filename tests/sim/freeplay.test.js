@@ -76,10 +76,13 @@ describe('freeplay table (src/data/freeplay.js)', () => {
     expect(fpStage('1-3', 'nope').freeplay).toBeUndefined();
     expect(coopStage('1-3', { freeplay: null }).freeplay).toBeUndefined();
     // the co-op stage itself is unchanged by freeplay (same waves, pools) except that freeplay keeps
-    // the pre-hero-rework HP ramp (the stage's hpPass divided back out)
-    const { freeplay, hpScale, ...rest } = fpStage('4-2', 'crimson');
-    const { hpScale: coopHp, ...coopRest } = coopStage('4-2');
+    // the pre-hero-rework HP ramp (the stage's hpPass divided back out) and drops the Oct 27 power pass's
+    // campaign HP (powerHp; PROPOSAL)
+    const { freeplay, hpScale, powerHp, ...rest } = fpStage('4-2', 'crimson');
+    const { hpScale: coopHp, powerHp: coopPower, ...coopRest } = coopStage('4-2');
     expect(rest).toEqual(coopRest);
+    expect(powerHp).toBeNull();
+    expect(coopPower).toEqual(STAGE_MAP['4-2'].powerHp);
     expect(hpScale).toBeCloseTo(coopHp / STAGE_MAP['4-2'].hpPass, 1);
   });
 });
@@ -454,9 +457,7 @@ describe('numeric safety deep in (waves 200, 250, 400)', () => {
       }
     }
     expect(biggest).toBeGreaterThan(1e9);
-    // (1e13 and 2^53 / 1000 before the Oct 27 power pass; its Nightmare ×2.2 and chapter 8 ×1.5 HP put the
-    // biggest wave-400 Nightmare enemy at about 1.65e13, still 500× inside exact doubles)
-    expect(biggest).toBeLessThan(2e13); // ulp at 2e13 is 0.004: a hit of 1 still counts
-    expect(biggest).toBeLessThan(2 ** 53 / 400);
+    expect(biggest).toBeLessThan(1e13); // ulp at 1e13 is 0.002: a hit of 1 still counts
+    expect(biggest).toBeLessThan(2 ** 53 / 1000);
   }, 120000);
 });

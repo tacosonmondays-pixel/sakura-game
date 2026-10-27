@@ -20,25 +20,25 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 // Re-pinned for the Oct 27 power pass (scratch/balance-oct27, src/data/balance.js + the chapter HP pass in
 // src/data/stages.js and Hard ×1.45): a deliberate sim and data change; every table below moved with it.
 const GOLDEN = {
-  '1-3:normal': 'W15/100/19319/864/8f98d146/3',
-  '4-5:hard': 'W26/11/60505/3678/e412c34d/20',
+  '1-3:normal': 'W15/100/19216/864/c51e870/3',
+  '4-5:hard': 'W26/10/63754/3676/defe6186/22',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
   // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)
-  '8-5:normal': 'W30/95/35559/18646/2afa315a/13',
+  '8-5:normal': 'W30/95/35724/18646/f66c7e32/14',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
-  '1-3:normal': 'W15/100/19319/864/8f98d146/3',
-  '4-5:hard': 'W26/3/59315/4181/5771e4c4/20',
+  '1-3:normal': 'W15/100/19216/864/c51e870/3',
+  '4-5:hard': 'L26/0/65074/3632/29e2e162/21',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/39114/7321/a30aaa7b/18): Hana's
   // and Noa's abilities cast on Auto now (18 → 23 casts)
-  '8-5:normal': 'L30/0/37169/7168/def078a4/19',
+  '8-5:normal': 'L30/0/37692/7168/63db9f3/20',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 const LIVE_GOLDEN = {
-  '8-5:normal': 'L30/0/42614/7563/2dc2b64c/32',
+  '8-5:normal': 'L30/0/42098/8208/a6b651bd/35',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

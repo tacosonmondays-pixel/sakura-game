@@ -14,6 +14,7 @@ import { MATERIAL_FAMILIES, ATTACK_TYPES } from '../../data/types.js';
 import { ITEMS, zenithId } from '../../data/items.js';
 import { TITANS, TITAN_MAP, TITAN_TIERS, tierLabel, tierStep, titanPoolHp, MAX_RANK } from '../../data/titans.js';
 import { getMap } from '../../data/maps.js';
+import { UNIT_SCALE } from '../../data/balance.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, itemIcon } from '../../art/icons.js';
 import { enemyToken } from '../battle/util.js';
@@ -83,7 +84,8 @@ export function render(root, params = {}) {
     const open = tierOpen(p, id, cur.tier, cur.rank);
     const lock = tierLock(p, id, cur.tier, cur.rank);
     const keys = keyState(p);
-    const pool = titanPoolHp(id, cur.tier, cur.rank);
+    // (Option A of the owner's band, src/data/balance.js, scales every battle number: the titan spawns ×UNIT_SCALE)
+    const pool = titanPoolHp(id, cur.tier, cur.rank) * UNIT_SCALE;
     const odds = chestOdds(cur.tier, cur.rank);
     const fc = firstClearTable(cur.tier, cur.rank);
     const fcDone = !!p.missions?.counters?.[`tfc:${id}:${tierStep(cur.tier, cur.rank)}`];

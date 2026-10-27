@@ -12,6 +12,7 @@
 
 import { typeMultiplier } from '../data/types.js';
 import { WARD_MUL, SOAK_BONUS, BARRIER_BLAST_MUL, SHRED_MAX_STACKS, MAX_REDUCTION } from './constants.js';
+import { UNIT_SCALE } from '../data/balance.js';
 
 export const BARRIER_BROKE = 1;
 export const SHELL_BROKE = 2;
@@ -38,9 +39,12 @@ export function shredAmount(enemy) {
   return (s.amount || 0) * Math.min(SHRED_MAX_STACKS, s.stacks || 1);
 }
 
-/** Armor after pen and shred (never negative). */
+/**
+ * Armor after pen and shred (never negative). Option A of the owner's band (src/data/balance.js) scales flat armor
+ * with enemy HP (UNIT_SCALE; the girls' pen and shred are scaled in src/sim/mods.js); 1 under Option B.
+ */
 export function effectiveArmor(enemy, armorPen = 0) {
-  return Math.max(0, (enemy.armor || 0) - armorPen - shredAmount(enemy));
+  return Math.max(0, (enemy.armor || 0) * UNIT_SCALE - armorPen - shredAmount(enemy));
 }
 
 /** Bonus multiplier from mark + vulnerable (additive with each other). */
@@ -109,7 +113,7 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
   if (dmg > 0) {
     if (enemy.crystalHits > 0) {
       shellHit = true;
-      if (dmg > enemy.crystalCap) dmg = enemy.crystalCap;
+      if (dmg > enemy.crystalCap * UNIT_SCALE) dmg = enemy.crystalCap * UNIT_SCALE;
     }
     toHp = dmg - effectiveArmor(enemy, hit.armorPen || 0);
     // freeplay armor floor: armor never removes more than (1 − floor) of a hit

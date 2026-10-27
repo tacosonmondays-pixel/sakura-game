@@ -30,6 +30,7 @@ import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
+import { supportCapFactor } from '../data/balance.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -202,7 +203,12 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   const envMul = t.envRangeMul ?? 1;
   const envAdd = t.envRangeAdd ?? 0;
   const env = envMul !== 1 || envAdd !== 0;
-  const dmgMul = b.dmgMul * globalDmgMul;
+  // Wakaba's drink (src/sim/drinks.js), read here for the band's soft cap and applied below
+  const hy = t.hydrated;
+  // the owner's band, Option B (src/data/balance.js supportCapFactor): the supports' combined damage × attack-speed
+  // multiplier on her keeps its full value up to the knee and has diminishing returns past it (exactly 1 below it)
+  const cap = supportCapFactor(b.dmgMul * b.rateMul * (b.tea || 1) * (hy ? hy.dmgMul * hy.rateMul : 1));
+  const dmgMul = b.dmgMul * globalDmgMul * cap;
   t.eff = {
     ...s,
     damage: s.damage * dmgMul,
@@ -221,7 +227,6 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     if (ru.typeFloor > 0) t.eff.typeFloor = ru.typeFloor;
   }
   // Wakaba's drink (src/sim/drinks.js): on top of auras and rallies, while it lasts
-  const hy = t.hydrated;
   if (hy) {
     t.eff.damage *= hy.dmgMul;
     t.eff.rate *= hy.rateMul;

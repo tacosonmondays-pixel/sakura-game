@@ -25,6 +25,7 @@ import { store } from '../../core/store.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import { STAGE_MAP, CHAPTERS, stageEnemies } from '../../data/stages.js';
+import { UNIT_SCALE } from '../../data/balance.js';
 import { getMap } from '../../data/maps.js';
 import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
 import { UNIT_MAP, unitsWithCapability, hasCapability } from '../../data/units.js';
@@ -433,9 +434,12 @@ export function acquisitionHint(unit) {
 const DIFF_SUMMARY = {
   easy: 'Forgiving: −15% HP, +10% coins',
   normal: 'Upgrades + right counters',
-  hard: '+45% HP, faster, 50 lives',
-  nightmare: '+120% HP, 1 life, no income',
+  hard: '+35% HP, faster, 50 lives',
+  nightmare: '+75% HP, 1 life, no income',
 };
+// campaign battles take the Oct 27 power pass's Hard / Nightmare HP on top (src/data/stages.js POWER_DIFF_PASS)
+const CAMPAIGN_DIFF_SUMMARY = { ...DIFF_SUMMARY, hard: '+45% HP, faster, 50 lives', nightmare: '+120% HP, 1 life, no income' };
+const diffSummary = (stage, d) => (stage?.powerHp ? CAMPAIGN_DIFF_SUMMARY : DIFF_SUMMARY)[d];
 
 /**
  * The battle screen's code, downloaded in idle time once stage prep is open (Start then has it at once).
@@ -593,7 +597,7 @@ function buildPrep(stage, state, { endless, redraw }) {
   left.appendChild(panel(
     'Enemies',
     newTraits.length ? h('div.ma-new-mech', h('span.badge-new', 'New mechanic'), newTraits.map((t) => h('span.ma-new-trait', svgEl(traitIcon(t), 'ma-trait'), h('b', TRAITS[t].name), h('span.muted', ` — ${TRAITS[t].desc}`)))) : null,
-    h('div.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: played.hpScale * DIFFICULTIES[state.difficulty].hpMul }))),
+    h('div.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: played.hpScale * DIFFICULTIES[state.difficulty].hpMul * (played.powerHp?.[state.difficulty] ?? 1) * UNIT_SCALE }))),
     h('p.muted.ma-hint', 'Tap an enemy for HP, traits and counters.'),
   ));
   wrap.appendChild(left);
@@ -867,7 +871,7 @@ function difficultyPicker(stage, state, medals, redraw, savedDifficulty = null) 
       h('span.ma-diff-name', def.name),
       locked
         ? h('span.ma-diff-sub', { 'data-testid': `diff-lock-${d}` }, svgEl(uiIcon('lock'), 'ma-diff-lock'), gate.text)
-        : h('span.ma-diff-sub', modeSubLine(variant?.sub || DIFF_SUMMARY[d], d, state.mode)),
+        : h('span.ma-diff-sub', modeSubLine(variant?.sub || diffSummary(stage, d), d, state.mode)),
       ribbonCorner(store.profile, stage.id, d, state.mode)
         ?? (medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`)),
       savedDifficulty === d ? h('span.ma-diff-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null,

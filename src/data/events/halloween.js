@@ -8,7 +8,7 @@ const CANDY = 'evt_halloween_candy';
 const LOOK = { night: 'lantern', costumes: true };
 
 // Nightmare (owner, Oct 20: "add nightmare modes for the event stages with the final one being really hard"): an
-// operation's Nightmare is the campaign's (src/data/types.js DIFFICULTIES.nightmare: +120% HP, faster, 1 life, no
+// operation's Nightmare is the campaign's (src/data/types.js DIFFICULTIES.nightmare: +75% HP, faster, 1 life, no
 // income) on its own waves, open after its Normal medal; it pays twice the candy and can drop a Super Rare book.
 const opDrops = (candy) => [
   D(CANDY, 1, candy, candy), D('coins', 1, 1500, 2500), D('book_rare', 0.4, 1, 1),

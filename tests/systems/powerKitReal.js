@@ -1,0 +1,25 @@
+// Measured on the round-2 fixed bench (the owner's notes, balance-oct27 r2 + r3): real DPS ÷ Kage's, fully maxed, with
+// Umeko 2-5-0 + Midori 5-0-2: [boss before the pass, boss after, late crowd after (splash girls and Kage)].
+export const REAL = Object.freeze({
+  kinu: [0.0493, 0.3492, 0.7179],
+  ena: [0.1379, 0.9487, null],
+  hana: [0.1373, 0.9414, null],
+  tenka: [0.696, 0.9284, 1.0097],
+  chigusa: [0.2286, 0.9723, null],
+  ruri: [0.053, 0.6937, 0.9536],
+  marumi: [0.1512, 0.6654, 0.8288],
+  iroha: [0.1015, 0.6517, 0.9611],
+  raika: [0.1109, 0.6432, 0.9554],
+  fuu: [0.06, 0.1124, null],
+  rei: [0.2971, 1.0725, null],
+  akane: [0.3973, 0.639, 1.3598],
+  aoi: [0.6684, 0.8668, null],
+  shiro: [1.3714, 1.324, 1.383],
+  kaede: [0.7908, 0.9982, null],
+  sango: [0.26, 0.6557, 0.9684],
+  hotaru: [0.318, 0.6328, 1.1354],
+  yuzuha: [0.3725, 1.0128, null],
+  azami: [0.0007, 0.0167, 0.8088],
+  chika: [0.7104, 0.7217, null],
+  suzu: [0.0135, 0.0773, 0.7799],
+});

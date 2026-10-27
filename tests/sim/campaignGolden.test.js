@@ -142,19 +142,21 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 // Re-pinned for the Oct 27 power pass (scratch/balance-oct27: src/data/balance.js, the chapter HP pass and
 // Hard ×1.45), a deliberate sim and data change (was solo 2a092051 / 7926f22f wave 13 / 0281ca62, co-op 86503440,
 // endless c754a97f, coopSim 57814410). Same outcomes except 4-2 Hard, now lost on wave 19 instead of 13; the wave
-// tables did not move.
+// tables did not move. Round 2 of the pass (rows re-sized on the fixed bench, heroes one multiplier a level, the
+// support soft cap; round-1 digests 4c3674a2 / 5013044f wave 19 / 6edd97a4, e2673499, e7ff3630, 1653977433): the
+// same outcomes, 4-2 Hard lost on wave 16.
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '4c3674a2', wave: 15, won: true },
-    '4-2': { digest: '5013044f', wave: 19, won: false },
-    '8-5': { digest: '6edd97a4', wave: 30, won: false },
+    '1-3': { digest: '9b5e32e1', wave: 15, won: true },
+    '4-2': { digest: '76a0f0bc', wave: 16, won: false },
+    '8-5': { digest: '74220bfc', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: 'e2673499', wave: 22, won: true },
-    endless: { digest: 'e7ff3630', wave: 25, won: false },
+    coop: { digest: '2e1ebbba', wave: 22, won: true },
+    endless: { digest: '113b8b14', wave: 25, won: false },
   },
-  coopSim: { hash: 1653977433, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 1530477280, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
@@ -162,12 +164,13 @@ const GOLDEN = {
 // more enemy HP) moves them, so they were re-pinned once in that commit. From here they must not move.
 // Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
 // the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
-// Re-pinned for the Oct 27 power pass (was 15a8e76f / 15f8aba0 / 61fe353d / 3341544735): same outcomes.
+// Re-pinned for the Oct 27 power pass (was 15a8e76f / 15f8aba0 / 61fe353d / 3341544735): same outcomes; and for its
+// round 2 (was 7f9338bf / 6128b238 / d6900eb7 / 712170708): same outcomes.
 const HEROLESS = {
-  '1-3': ['7f9338bf', 15, true],
-  '4-5': ['6128b238', 13, false],
-  '8-5': ['d6900eb7', 30, false],
-  coop: [712170708, 3],
+  '1-3': ['4b677e91', 15, true],
+  '4-5': ['1d68cc23', 13, false],
+  '8-5': ['ae15151d', 30, false],
+  coop: [1679962126, 3],
 };
 
 // Recorded when the map rules landed (feature/codex-modes): 4-2 Rear Ambush, 8-5 Tailwind, 2-4 Supply Ship.
@@ -175,9 +178,10 @@ const HEROLESS = {
 // these battles field Hikari, who levels on her hero track since the hero rework, and the path-cap
 // tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
-// Re-pinned for the Oct 27 power pass (was 887447f2 wave 12 / a1fc2ade / b8a73060): 4-2 Hard now falls on wave 20.
+// Re-pinned for the Oct 27 power pass (was 887447f2 wave 12 / a1fc2ade / b8a73060): 4-2 Hard now falls on wave 20;
+// round 2 of the pass (was 1134d1fd wave 20 / 795857fc / 2366c104): 4-2 Hard falls on wave 16.
 const RULED = {
-  '4-2': { digest: '1134d1fd', wave: 20, won: false },
-  '8-5': { digest: '795857fc', wave: 30, won: false },
-  coop: { digest: '2366c104', wave: 22, won: true },
+  '4-2': { digest: '09126e7f', wave: 16, won: false },
+  '8-5': { digest: '8cb443e1', wave: 30, won: false },
+  coop: { digest: 'dcdf517d', wave: 22, won: true },
 };

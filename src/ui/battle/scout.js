@@ -70,7 +70,7 @@ export function freeplayBossTelegraph(sim, n) {
     const def = sim.data?.enemy?.(id);
     if (!def) continue;
     const mul = info.bossHpMul?.[0] ?? 1;
-    const hp = (def.hp || 0) * (sim.stage.hpScale ?? 1) * (sim.diff?.hpMul ?? 1) * mul;
+    const hp = (def.hp || 0) * (sim.enemyHpBase ? sim.enemyHpBase() : (sim.stage.hpScale ?? 1) * (sim.diff?.hpMul ?? 1)) * mul;
     const counter = def.traits?.ward ? BOSS_COUNTER.ward : BOSS_COUNTER[def.armorClass] || '';
     return { inWaves, wave: w, enemyId: id, name: def.name || id, hp, counter, small: !!b.small, kind: b.kind };
   }

@@ -13,7 +13,7 @@ import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
 import { gearStatTotals, gearFillIn, gearSetInfo } from './gear.js';
 import { BATTLE_CAPS } from '../data/gearStats.js';
-import { POWER } from '../data/balance.js';
+import { POWER_KIT } from '../data/powerKit.js';
 
 export { BATTLE_CAPS };
 import { track } from './missions.js';
@@ -509,8 +509,8 @@ export function unitBattleStats(profile, unitId) {
 }
 
 /**
- * Single number for sorting/UI: base DPS × multipliers × range factor, plus a small rarity weight;
- * Potential multiplies in its whole-girl steps and adds 20 per step (so every girl's Power moves).
+ * Single number for sorting/UI: base DPS × her kit factor (src/data/powerKit.js) × multipliers × range factor, plus
+ * a small rarity weight; Potential multiplies in its whole-girl steps and adds 20 per step (so every girl's Power moves).
  * @returns {number}
  */
 export function unitPower(profile, unitId) {
@@ -524,6 +524,6 @@ export function unitPower(profile, unitId) {
   const range = Math.sqrt(Math.max(1, (b.range || 1) * s.rangeMul));
   const rarity = { R: 1, SR: 1.1, SSR: 1.2 }[def.rarity] || 1;
   const pot = potentialPowerFactor(def, s.potential);
-  const pw = POWER[unitId]?.dmg ?? 1; // the Oct 27 power pass (src/data/balance.js)
-  return Math.round(dps * pw * s.damageMul * s.rateMul * crit * range * rarity * pot * 10 + s.level * 5 + s.awaken * 50 + (s.potential - 1) * 20);
+  const kit = POWER_KIT[unitId] ?? 1; // her kit factor (src/data/powerKit.js; not the power pass's damage row)
+  return Math.round(dps * kit * s.damageMul * s.rateMul * crit * range * rarity * pot * 10 + s.level * 5 + s.awaken * 50 + (s.potential - 1) * 20);
 }

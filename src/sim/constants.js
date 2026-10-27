@@ -228,7 +228,7 @@ export const FAMILIAR_STANDOFF = 0.7;
 /** Lane sampling step for relay origins (tiles). */
 export const RELAY_SAMPLE_STEP = 0.25;
 /** Seconds an enemy cannot be knocked back / gathered again after it was moved (bosses never move). */
-export const PUSH_LOCK = { normal: 1.2, elite: 1.2, miniboss: 3.0, boss: 3.0 };
+export const PUSH_LOCK = { normal: 1.5, elite: 1.5, miniboss: 3.0, boss: 3.0 };
 /** Girls whose pushes take the push lock (roster wave: the live girls' pushes stay unlocked, as on live). */
 export const PUSH_LOCK_KITS = Object.freeze(['fuu']);
 /** Gather: radius around the hit enemy and the strongest pull fraction. */
@@ -319,9 +319,12 @@ export const BOUNCE_SPEED = 9;
 export const BOUNCE_MAX_T = 1;
 export const FINALE_RADIUS = 1.5;
 
-// The Oct 27 power pass (src/data/balance.js; players' requests): a push-locked girl's push (Fuu's wind)
-// spends this share of a Freeplay enemy's knockback budget (Resolve, src/sim/freeplay.js), so her
-// gusts still move late Freeplay walkers; every other push spends it whole.
+// The Oct 27 power pass (src/data/balance.js; players' request "stronger wind push-back for Fuu"): the girls whose
+// pushes are wind (Fuu only). Her wind locks a normal or elite enemy for WIND_LOCK instead of PUSH_LOCK and spends
+// WIND_KB_COST of a tile of a Freeplay enemy's knockback budget (Resolve, src/sim/freeplay.js) per tile, so her gusts
+// still move late Freeplay walkers. Every other push (Marumi's ball blast, Giant Strike, gathers, heroes) is unchanged.
+export const WIND_KITS = Object.freeze(['fuu']);
+export const WIND_LOCK = Object.freeze({ normal: 1.2, elite: 1.2, miniboss: 3.0, boss: 3.0 });
 export const WIND_KB_COST = 0.5;
 // Harvest lives (Chigusa, src/sim/vines.js): the most lives her copies give back at one wave clear,
 // together (no cap for the whole battle; never above the starting lives).

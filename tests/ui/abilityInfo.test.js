@@ -47,7 +47,7 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
   it('Aoi: the chip, her numbers on Rapid Volley at tier 3, the recharge and the tier-5 upgrade', () => {
     const v = abilityInfoView(UNIT_MAP.aoi);
     expect(v.chip).toBe('⚡ Skyfall Volley · Rapid Volley T3');
-    expect(v.desc).toBe('Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 32 damage each and a 0.5s pin.');
+    expect(v.desc).toBe('Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 35 damage each and a 0.5s pin.');
     expect(v.cooldown).toBe('Recharges in 35s of wave time');
     expect(v.unlock).toBe('Unlocks at Rapid Volley tier 3');
     expect(v.up.at).toBe('Rapid Volley T5');

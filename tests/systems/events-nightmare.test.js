@@ -60,8 +60,8 @@ describe('NM-1 the data', () => {
     const boss = STAGE_MAP['ev-halloween-boss'];
     expect(boss.difficulties).toEqual(['normal', 'hard', 'nightmare']);
     expect(boss.unlockAfter).toEqual({ nightmare: 'hard' });
-    // Nightmare is the campaign's (no new difficulty rules; HP ×1.75 → ×2.2 in the Oct 27 power pass, PROPOSAL)
-    expect(DIFFICULTIES.nightmare).toMatchObject({ hpMul: 2.2, speedMul: 1.15, cashMul: 0.9, costMul: 1.2, lives: 1, medal: 'sakura', firstClearGems: 100, noIncome: true });
+    // Nightmare is the campaign's (no new difficulty rules)
+    expect(DIFFICULTIES.nightmare).toMatchObject({ hpMul: 1.75, speedMul: 1.15, cashMul: 0.9, costMul: 1.2, lives: 1, medal: 'sakura', firstClearGems: 100, noIncome: true });
   });
 
   it('candy per win: an operation\'s Nightmare pays twice its Normal; the boss 150 / 220 / 500', () => {

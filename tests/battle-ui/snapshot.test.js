@@ -778,14 +778,14 @@ function nearPath(sim, units) {
 /** Potential v3 test team: every girl at P6 by the path on 4-5 Hard (a blizzard rule, a kept focus). */
 const POT = { stageId: '4-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'momo', 'suzu', 'chika', 'akane'], hero: 'luna', stats: { damageMul: 1.5, rateMul: 1.2, potential: 6 }, seed: 4545 };
 /** The team on spots by the path, tier 2 on path 0, the waves' own streams (as the controller). */
-function potBuild() {
-  const sim = makeSim(POT);
+function potBuild(P = POT) {
+  const sim = makeSim(P);
   sim.cash = 5e6;
   const placed = {};
-  for (const [u, [x, y]] of Object.entries(nearPath(sim, [...POT.towers, POT.hero]))) placed[u] = sim.placeTower(u, x, y);
-  for (const id of POT.towers) for (let k = 0; k < 2; k++) expect(sim.upgradeTower(placed[id].uid, 0), id).toBe(true);
+  for (const [u, [x, y]] of Object.entries(nearPath(sim, [...P.towers, P.hero]))) placed[u] = sim.placeTower(u, x, y);
+  for (const id of P.towers) for (let k = 0; k < 2; k++) expect(sim.upgradeTower(placed[id].uid, 0), id).toBe(true);
   sim.cash = 4000;
-  wrapWaves(sim, POT.seed);
+  wrapWaves(sim, P.seed);
   return { sim, placed };
 }
 /** Plays wave by wave; at each wave's end (shots landed), `onCalm(sim)`. */
@@ -957,8 +957,11 @@ describe('battle save and Kaede\'s blade arts (her strike count toward the next 
 });
 
 describe('battle save and Potential v3 (format 3: rhythms, tempo, shuriken carry, kept focus, overclock)', SLOW, () => {
-  const c = POT;
-  const build = potBuild;
+  // The same team with Kage on the last spot by the path (Oct 27 power pass, scratch/balance-oct27): with her
+  // teammates' power rows the waves now end on their shots, so Kage at the first spot never ends a wave mid-tempo;
+  // on the last spot she finishes waves again and every counter below is still caught mid-run.
+  const c = { ...POT, towers: ['momo', 'rei', 'kaede', 'suzu', 'chika', 'akane', 'kage'] };
+  const build = () => potBuild(c);
   const waves = potWaves;
 
   it('every counter and timer comes back exactly, and a split run plays on like the straight one', () => {

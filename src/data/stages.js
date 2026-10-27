@@ -62,10 +62,18 @@ export const HERO_HP_PASS = Object.freeze({
 });
 // The Oct 27 power pass (src/data/balance.js; PROPOSAL): every striker rose to the raised Kage, so campaign enemy
 // HP rises with the measured kill speed of a mid-game account's free and gacha teams per chapter (the campaign
-// census): chapters 1-2 stay gentler than before, 3-7 come back to where they were, 8 keeps its wall. Enemy HP
-// only, like the hero pass: cashScale is computed from the pre-pass hpScale, so coins per wave do not move.
-// Freeplay after a stage inherits it (its stage hpScale), co-op freeplay too (only the hero pass is divided out).
+// census): chapters 1-2 stay gentler than before, 3-7 come back to where they were, 8 keeps its wall; Hard and
+// Nightmare campaign battles take a little more on top so they keep their bite (Hard ×1.45, Nightmare ×2.2 in all,
+// was ×1.35 and ×1.75). Campaign battles only (solo and co-op): it sits in `powerHp`, read by the sim
+// (Sim#enemyHpBase), never in hpScale, so Freeplay after a stage, events, Total Assault, Bounty, Challenge and
+// Titan Trials keep their HP, and cashScale (coins per wave) does not move.
 export const POWER_HP_PASS = Object.freeze({ 1: 1, 2: 1.1, 3: 1.15, 4: 1.25, 5: 1.15, 6: 1.2, 7: 1.2, 8: 1.5 });
+export const POWER_DIFF_PASS = Object.freeze({ easy: 1, normal: 1, hard: 1.45 / 1.35, nightmare: 2.2 / 1.75 });
+/** A campaign chapter's power-pass HP multiplier per difficulty (Sim#enemyHpBase). */
+export function powerHpFor(chapter) {
+  const c = POWER_HP_PASS[chapter] ?? 1;
+  return Object.freeze(Object.fromEntries(Object.entries(POWER_DIFF_PASS).map(([d, m]) => [d, c * m])));
+}
 // Economy scale (kill bounties + wave-clear bonus, applied by the sim) grows with enemy HP so
 // late chapters can afford tier 4–5 upgrades: hpScale^0.6 (1.0 at 1-1 → ≈3.1 at 8-5).
 const cashScaleFor = (hpScale) => Math.round(hpScale ** 0.6 * 100) / 100;
@@ -148,7 +156,9 @@ function campaign(o) {
       groups: o.groups ?? 3,
       fixed: o.fixed || [],
     },
-    hpScale: Math.round((o.hpScale ?? hpScaleAt(index)) * (HERO_HP_PASS[o.id] ?? 1) * (POWER_HP_PASS[chapter] ?? 1) * 100) / 100,
+    hpScale: Math.round((o.hpScale ?? hpScaleAt(index)) * (HERO_HP_PASS[o.id] ?? 1) * 100) / 100,
+    // the Oct 27 power pass, campaign battles only (POWER_HP_PASS above; Freeplay drops it)
+    powerHp: powerHpFor(chapter),
     // the hero-rework HP multiplier inside hpScale (co-op freeplay divides it back out: its HP bands
     // were calibrated on the pre-pass ramp; the train-C combined pass re-checks them)
     hpPass: HERO_HP_PASS[o.id] ?? 1,

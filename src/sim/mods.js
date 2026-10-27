@@ -754,14 +754,23 @@ function applyPower(s, pw) {
     if (s.trap?.status) s.trap = { ...s.trap, status: fn(s.trap.status) };
     if (s.turret?.status) s.turret = { ...s.turret, status: fn(s.turret.status) };
   };
-  if (pw.dmg !== 1 || pw.ctl !== 1 || pw.buff !== 1) {
+  const sc = pw.scale ?? 1;
+  if (pw.dmg !== 1 || pw.ctl !== 1 || pw.buff !== 1 || sc !== 1) {
     lists((list) => (list || []).map((st) => {
       let o = st;
       if (pw.dmg !== 1 && (st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number') o = { ...o, dps: st.dps * pw.dmg };
       if (pw.ctl !== 1 && CTL_TYPES.includes(st.type) && typeof st.duration === 'number') o = { ...o, duration: st.duration * pw.ctl };
       if (pw.buff !== 1 && st.type === 'vulnerable' && typeof st.bonus === 'number') o = { ...o, bonus: st.bonus * pw.buff };
+      // (Option A's scale: shred removes flat armor, and armor scales with enemy HP)
+      if (sc !== 1 && st.type === 'shred' && typeof st.amount === 'number') o = { ...o, amount: st.amount * sc };
       return o;
     }));
+  }
+  // (Option A's scale, src/data/balance.js: armor pen is flat armor, which scales with enemy HP)
+  if (sc !== 1) {
+    s.armorPen *= sc;
+    if (s.aura && s.aura.armorPen > 0) s.aura = { ...s.aura, armorPen: s.aura.armorPen * sc };
+    for (const key of ['brew', 'link']) if (s[key]?.armorPen > 0) s[key] = { ...s[key], armorPen: s[key].armorPen * sc };
   }
   if (pw.boss !== 1) s.bossMul *= pw.boss;
   const grow = (v) => (typeof v === 'number' && v > 1 ? 1 + (v - 1) * pw.buff : v);
@@ -811,16 +820,17 @@ function potentialTail(s, pot, acc) {
  * Full stat resolution for a tower/hero.
  * @param {object} def UnitDef
  * @param {{ tiers?: number[], heroLevel?: number, unitStats?: object, heroMastery?: number,
- *   extra?: object|object[]|null }} opts unitStats.potential (1…6) adds her Potential steps; `extra`
+ *   extra?: object|object[]|null, noPower?: boolean }} opts unitStats.potential (1…6) adds her Potential steps; `extra`
  *   (a ModSet or a list of them: a running ability boost, src/sim/abilities.js) applies after every
  *   other set and before the damage is resolved. No `extra`: bit-identical to before it existed.
  */
-export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0, extra = null } = {}) {
+export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats = null, heroMastery = 0, extra = null, noPower = false } = {}) {
   const s = normalizeBase(def.base, def);
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
-  // the Oct 27 power pass (src/data/balance.js): her damage row folds in like level and gear ATK
-  const pw = powerFor(def, heroLevel);
+  // the Oct 27 power pass (src/data/balance.js): her damage row folds in like level and gear ATK (`noPower`: the
+  // menus' kit numbers, src/ui/girlView.js, read her without it)
+  const pw = noPower ? null : powerFor(def, heroLevel);
   if (pw && pw.dmg !== 1) us.damageMul *= pw.dmg;
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
   // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)

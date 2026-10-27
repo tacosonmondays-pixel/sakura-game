@@ -9,7 +9,7 @@ import {
   silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount,
 } from './trackShape.js';
 import {
-  CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS, POWER_HP_PASS,
+  CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
 } from '../../src/data/stages.js';
 import { UNITS, freeUnlocksByStage } from '../../src/data/units.js';
 import * as itemsModule from '../../src/data/items.js';
@@ -35,7 +35,8 @@ const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
-const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule'];
+// powerHp: the Oct 27 power pass's campaign HP per difficulty (src/data/stages.js POWER_HP_PASS; PROPOSAL)
+const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'powerHp'];
 const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X']);
 const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
@@ -630,26 +631,22 @@ describe('stages', () => {
   });
 
   it('campaign requires-chain, hpScale, waves and start cash ramp (§5b)', () => {
-    // the base ramp without the passes on top: the hero-rework pass (hpPass, per stage) and the Oct 27 power
-    // pass (POWER_HP_PASS, per chapter; PROPOSAL)
-    const pass = (s) => s.hpPass * (POWER_HP_PASS[s.chapter] ?? 1);
     campaign.forEach((s, i) => {
       expect(s.requires).toBe(i === 0 ? null : campaign[i - 1].id);
       if (i > 0) {
-        // the base ramp is monotonic; the HP passes sit on top of it
-        expect(s.hpScale / pass(s), s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale / pass(campaign[i - 1]) - 0.01);
+        // the base ramp is monotonic; the hero-rework HP pass (hpPass, per stage) sits on top of it
+        expect(s.hpScale / s.hpPass, s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale / campaign[i - 1].hpPass - 0.01);
         expect(s.hpPass, s.id).toBeGreaterThanOrEqual(1);
-        expect(POWER_HP_PASS[s.chapter] ?? 1, s.id).toBeGreaterThanOrEqual(1);
         expect(s.waves, s.id).toBeGreaterThanOrEqual(campaign[i - 1].waves - 2);
         expect(s.startCash, s.id).toBeGreaterThanOrEqual(700);
         expect(s.startCash, s.id).toBeLessThanOrEqual(900);
       }
     });
-    expect(campaign[0].hpScale / pass(campaign[0])).toBe(1);
+    expect(campaign[0].hpScale / campaign[0].hpPass).toBe(1);
     expect(campaign[0].startCash).toBe(650);
     expect(campaign[0].waves).toBe(12);
-    expect(campaign[39].hpScale / pass(campaign[39])).toBeGreaterThanOrEqual(6);
-    expect(campaign[39].hpScale / pass(campaign[39])).toBeLessThanOrEqual(7);
+    expect(campaign[39].hpScale / campaign[39].hpPass).toBeGreaterThanOrEqual(6);
+    expect(campaign[39].hpScale / campaign[39].hpPass).toBeLessThanOrEqual(7);
     expect(campaign[39].waves).toBe(30);
     const res = stagesOfKind('resource');
     for (const s of res) {

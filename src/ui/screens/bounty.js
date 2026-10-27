@@ -9,6 +9,7 @@ import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { bountyArenas, STAGE_MAP, stageEnemies } from '../../data/stages.js';
+import { UNIT_SCALE } from '../../data/balance.js';
 import { getMap } from '../../data/maps.js';
 import { CAPABILITIES, DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
@@ -126,7 +127,7 @@ export function render(root, params = {}) {
         un ? medalRow(profile, id, { size: 16, cls: 'ma-tier-medals' }) : svgEl(uiIcon('lock'), 'ma-inline-icon'),
       );
     }));
-    const enemies = stageEnemies(stage).slice(0, 10).map((id) => enemyChip(id, { hpScale: stage.hpScale }));
+    const enemies = stageEnemies(stage).slice(0, 10).map((id) => enemyChip(id, { hpScale: stage.hpScale * UNIT_SCALE }));
     const actions = h('div.ma-loc-actions',
       unlocked && canSweep(profile, stageId)
         ? button(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {

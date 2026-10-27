@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { stagesOfKind } from '../../data/stages.js';
+import { UNIT_SCALE } from '../../data/balance.js';
 import { getMap } from '../../data/maps.js';
 import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
 import { TRAITS, ARMOR_CLASSES, CAPABILITIES, DIFFICULTIES } from '../../data/types.js';
@@ -56,7 +57,7 @@ export function render(root, params = {}) {
         h('div.ma-boss-card-text',
           h('span.ma-boss-kicker', 'BOSS'),
           h('span.ma-boss-card-name', boss?.name || s.name),
-          h('span.ma-boss-card-sub', unlocked ? `HP ${formatNumber(Math.round((boss?.hp || 0) * s.hpScale))}` : requirementText(profile, s.id)),
+          h('span.ma-boss-card-sub', unlocked ? `HP ${formatNumber(Math.round((boss?.hp || 0) * s.hpScale * UNIT_SCALE))}` : requirementText(profile, s.id)),
           unlocked ? savedBadge(profile, s.id) : null,
         ),
         unlocked ? medalRow(profile, s.id, { size: 18, cls: 'ma-boss-card-medals' }) : svgEl(uiIcon('lock'), 'ma-boss-card-lock'),
@@ -98,7 +99,7 @@ export function render(root, params = {}) {
     mountBoss(viewerHost, boss, discovered);
 
     const statRow = h('div.ma-facts',
-      fact('HP', formatNumber(Math.round(boss.hp * stage.hpScale))),
+      fact('HP', formatNumber(Math.round(boss.hp * stage.hpScale * UNIT_SCALE))),
       fact('Armor', h('span.ma-inline', svgEl(armorClassIcon(boss.armorClass), 'ma-inline-icon'), `${ARMOR_CLASSES[boss.armorClass]?.name || boss.armorClass}${boss.armor ? ` · ${boss.armor}` : ''}`)),
       fact('Speed', `${boss.speed} t/s`),
       fact('Waves', `${stage.waves} · boss on ${Math.max(...stage.waveGen.fixed.filter((f) => f.enemy === boss.id).map((f) => f.wave))}`),

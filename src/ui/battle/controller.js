@@ -13,6 +13,7 @@ import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
 import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor } from './setup.js';
 import { createTitanTracker } from '../../data/titans.js';
+import { UNIT_SCALE } from '../../data/balance.js';
 import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
 import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
@@ -1423,7 +1424,9 @@ export function mountBattle(root, params, hooks) {
    * battle); the server caps what one battle of this length can count.
    */
   function submitClanBoss() {
-    const dmg = Math.round(Object.values(sim.stats.damageByTower || {}).reduce((a, b) => a + b, 0));
+    // (Option A of the owner's band, src/data/balance.js, scales every battle number ×UNIT_SCALE; the server's hit caps
+    // and the clan's shared HP pool are in today's units, so the battle's damage goes up divided back; 1 under Option B)
+    const dmg = Math.round(Object.values(sim.stats.damageByTower || {}).reduce((a, b) => a + b, 0) / UNIT_SCALE);
     ctx.clanBossDamage = dmg;
     import('../../online/backend.js').then(({ getBackend }) => {
       const backend = getBackend();
