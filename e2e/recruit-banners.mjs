@@ -7,6 +7,7 @@
 //   node e2e/recruit-banners.mjs --viewport 844x390 --shots /tmp/rb   # one size + screenshots
 //   node e2e/recruit-banners.mjs --at 2026-11-08T12:00:00-06:00      # another banner day (the duo's debut week)
 // Exit code 1 if any check fails. Starts its own Vite dev server on a free port.
+import { nextDailyReset } from '../src/core/reset.js';
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
@@ -175,11 +176,13 @@ async function run(vp) {
   await shot('7-spark');
   await closeModal();
 
-  // 7 PM Central passes with the screen open: the Student Spotlight changes
+  // 7 PM Central passes with the screen open: the Student Spotlight changes (a multi-day LR premiere does not)
   await tap('[data-testid="banner-tab-tower"]');
   await page.waitForTimeout(300);
   const before = await page.getAttribute('.bn-page', 'data-banner');
-  await page.clock.runFor(11 * 60 * 1000);
+  // (to just past the next 7 PM Central, whatever --at was: a noon --at would otherwise never reach the rollover)
+  const pageNow = await page.evaluate(() => Date.now());
+  await page.clock.runFor(nextDailyReset(pageNow) - pageNow + 60 * 1000);
   await page.waitForTimeout(500);
   const after = await page.getAttribute('.bn-page', 'data-banner');
   check(before !== after && /^tower:/.test(after), `the banner switches at 7 PM Central (${before} → ${after})`);
