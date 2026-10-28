@@ -86,7 +86,7 @@ export default [
     title: 'The Empty Chair', chapter: 6, act: 2, kind: 'event', trigger: { after: '6-8' }, bg: 'stage:6-9', music: 'silence',
   }, [
     narrate('High in a frozen lecture tower: the Defence Corps briefing room. Through the frosted glass, the ring road.'),
-    say('hikari', "Sensei, this was their briefing room. Their maps are still pinned up. Nobody took them down.", { at: 'center' }),
+    say('hikari', "Sensei, this was their briefing room. Their maps are still up on the wall. Nobody took them down.", { at: 'center' }),
     narrate('Twelve chairs round a long table, frost on every seat. One chair is labelled in neat white letters: SENSEI.'),
     narrate('In front of it stands a mug, frozen to the table, and beside it a cracked card in a plastic sleeve.'),
     narrate('"SENSEI · Faculty Advisor · MISSING since the Fall."'),
