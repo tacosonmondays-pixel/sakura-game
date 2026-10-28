@@ -17,6 +17,13 @@ const REQUIRED_CLIPS = ['move', 'idle', 'hit', 'death', 'special'];
 const MAX_FAMILY_BYTES = 320 * 1024;
 const MAX_TOTAL_BYTES = 2_500_000;
 
+/**
+ * Families with a GLB of their own: every bestiary family but one whose defs all wear another family's shipped model
+ * (Gate Arc Step 4: the Brigade on construct, `model.base`, until its own model arrives with the enemy rebuild).
+ */
+const GLB_FAMILIES = FAMILY_ORDER.filter((fam) => ENEMIES.some((e) => e.model.base === fam));
+const BORROWING = FAMILY_ORDER.filter((fam) => !GLB_FAMILIES.includes(fam));
+
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
 /** Piece names ("<vis>|<group>|<material>") of every mesh node in a family GLB. */
@@ -28,7 +35,9 @@ describe('enemy family GLBs', () => {
   it('has a manifest listing every family of the bestiary', () => {
     expect(manifest).toBeTruthy();
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_ORDER].sort());
-    for (const fam of FAMILY_ORDER) {
+    expect(BORROWING).toEqual(['brigade']);
+    for (const fam of BORROWING) expect(manifest[fam], `${fam} has no GLB of its own`).toBeUndefined();
+    for (const fam of GLB_FAMILIES) {
       expect(manifest[fam], fam).toBeTruthy();
       expect(manifest[fam].file).toBe(`${fam}.glb`);
       for (const c of REQUIRED_CLIPS) expect(manifest[fam].animations, `${fam} ${c}`).toContain(c);
@@ -37,7 +46,7 @@ describe('enemy family GLBs', () => {
     }
   });
 
-  for (const fam of FAMILY_ORDER) {
+  for (const fam of GLB_FAMILIES) {
     it(`${fam}: valid GLB with clips, rig, tinted body + glow materials, face atlas`, () => {
       const file = path.join(dir, `${fam}.glb`);
       expect(existsSync(file), file).toBe(true);
@@ -106,7 +115,9 @@ describe('enemy family GLBs', () => {
     for (const e of ENEMIES) {
       const fam = e.model.base;
       expect(FAMILIES[fam], `${e.id} family ${fam}`).toBeTruthy();
-      expect(e.family).toBe(fam);
+      // its own family's GLB, or (a family without one) a shipped family's GLB in its colours
+      if (GLB_FAMILIES.includes(e.family)) expect(e.family).toBe(fam);
+      else expect(GLB_FAMILIES, `${e.id} wears a shipped model`).toContain(fam);
       const m = manifest[fam];
       expect(m, `${e.id} family GLB ${fam}`).toBeTruthy();
       expect(m.variants, `${e.id} variant ${e.model.variant}`).toContain(e.model.variant);
@@ -115,7 +126,7 @@ describe('enemy family GLBs', () => {
   });
 
   it('variant pieces and hide tables match the defs that use them', () => {
-    for (const fam of FAMILY_ORDER) {
+    for (const fam of GLB_FAMILIES) {
       const { json } = readGlbHeader(path.join(dir, `${fam}.glb`));
       const ps = pieces(json);
       const varPieces = new Set(ps.filter((p) => p.vis.startsWith('var:')).map((p) => p.vis.slice(4)));
@@ -131,8 +142,8 @@ describe('enemy family GLBs', () => {
 
   it('keeps the whole set under the budget', () => {
     let total = 0;
-    for (const fam of FAMILY_ORDER) total += statSync(path.join(dir, `${fam}.glb`)).size;
+    for (const fam of GLB_FAMILIES) total += statSync(path.join(dir, `${fam}.glb`)).size;
     expect(total).toBeLessThanOrEqual(MAX_TOTAL_BYTES);
-    for (const fam of FAMILY_ORDER) expect(manifest[fam].size).toBe(statSync(path.join(dir, `${fam}.glb`)).size);
+    for (const fam of GLB_FAMILIES) expect(manifest[fam].size).toBe(statSync(path.join(dir, `${fam}.glb`)).size);
   });
 });

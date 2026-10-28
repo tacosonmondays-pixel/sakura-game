@@ -117,6 +117,9 @@ export function createFeed(layer) {
   function announce(title, sub = '', kind = 'wave', ms = 2200, o = {}) {
     // on a landscape phone the ribbon covers a third of the board: routine wave banners leave fast
     if (shortScreen() && kind === 'wave') ms = Math.min(ms, 800);
+    // a boss or miniboss walks in while its banner is up: on a short screen it leaves sooner (and lets the board show
+    // through, battle.css), so the boss is never hidden for long behind it
+    else if (shortScreen() && (kind === 'boss' || kind === 'phase')) ms = Math.min(ms, 1400);
     else if (shortScreen() && (kind === 'free' || kind === 'finale' || kind === 'titan')) ms = Math.min(ms, Math.max(1200, ms * 0.67));
     banner.replaceChildren();
     const titleEl = h('div.bt-banner-title', { 'data-text': o.glitch ? title : null }, title);

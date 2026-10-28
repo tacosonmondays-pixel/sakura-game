@@ -95,6 +95,12 @@ export const STAGE_RULES = Object.freeze({
   '3-8': { id: 'alchemists_mist' },
   '3-9': { id: 'heat_mirage' },
   '3-10': { id: 'lunar_eclipse' },
+  // Chapter 4 · Act II — The Checkpoint (4-9's pads are the village's three last warm hearths)
+  '4-6': { id: 'supply_ship' },
+  '4-7': { id: 'heat_mirage' },
+  '4-8': { id: 'rear_ambush' },
+  '4-9': { id: 'prism_conduits', pads: [pad(7.5, 4.5), pad(12.5, 4.5), pad(10, 9)] },
+  '4-10': { id: 'snowbell_blizzard' },
 });
 
 /** The stage's rule (MAP_RULES entry + its zones and pads), or null. */

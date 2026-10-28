@@ -120,7 +120,9 @@ function echoProblems(echo, original) {
   }
   return out;
 }
-const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
+const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon', 'brigade'];
+/** Families without a model of their own (Gate Arc Step 4): each def wears a shipped family's GLB (`model.base`). */
+const BORROWED_MODEL = { brigade: 'construct' };
 const TRAIT_SHAPES = {
   barrier: ['hp'], crystal: ['cap', 'hits'], regen: ['pct', 'delay'], hasty: ['mul', 'every', 'duration'],
   volatile: ['radius', 'stun'], brood: ['spawn', 'count'], splitter: ['spawn', 'count'], siphon: ['radius', 'rate'],
@@ -151,7 +153,7 @@ const isCrossing = (map) => (map.crossings || []).length;
 // ---------------------------------------------------------------------------
 
 describe('enemies', () => {
-  it('has 12 families and 60-110 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
+  it('has 13 families and 60-110 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_IDS].sort());
     expect([...FAMILY_ORDER].sort()).toEqual([...FAMILY_IDS].sort());
     for (const [id, f] of Object.entries(FAMILIES)) {
@@ -188,7 +190,7 @@ describe('enemies', () => {
       else expect(Number.isInteger(e.leak) && e.leak >= 0, `${e.id}.leak`).toBe(true);
       expect(e.color).toMatch(/^#[0-9a-f]{6}$/i);
       expect(e.accent).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(e.model.base).toBe(e.family);
+      expect(e.model.base).toBe(BORROWED_MODEL[e.family] || e.family);
       expect(typeof e.model.variant).toBe('string');
       expect(Array.isArray(e.model.props)).toBe(true);
       expect(e.lore.length, `${e.id} lore`).toBeGreaterThan(20);
@@ -296,11 +298,12 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 7 minibosses and 3 bosses with announced phases', () => {
+  it('has the 8 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
     // (Gate Arc: the Frostbitten Heir, 1-10, on the Slime Prince's model in frost colours; Old Lamp-Hugger, 2-10, on
-    // the Bog Basilisk's model at miniboss scale; the Ashen Warden, 3-10, on the Hollow Samurai's)
-    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_general', 'slime_frost_heir', 'slime_prince']);
+    // the Bog Basilisk's model at miniboss scale; the Ashen Warden, 3-10, on the Hollow Samurai's; the Frost Vanguard,
+    // 4-10, on the Orc Warlord's)
+    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_frost_vanguard', 'orc_general', 'slime_frost_heir', 'slime_prince']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -885,6 +888,7 @@ describe('stages', () => {
     expect(fixedHas('1-10', 'slime_frost_heir')).toBe(true);
     expect(fixedHas('2-10', 'lizard_lamp_hugger')).toBe(true);
     expect(fixedHas('3-10', 'ghost_ashen_warden')).toBe(true);
+    expect(fixedHas('4-10', 'orc_frost_vanguard')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);

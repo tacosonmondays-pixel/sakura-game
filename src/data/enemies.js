@@ -1,6 +1,6 @@
 // Sakura Sentinels — the bestiary (owner: world). See CONTRACTS.md §4 and docs/BESTIARY.md.
 //
-// 12 families, 74 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
+// 13 families, 83 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
 // that break open into bosses when they fall). Readability rules (CONTRACTS §12):
 // * Ordinary enemies have exactly ONE rule — one trait, or none for plain fodder (their armor
 //   class is their only quirk). Flat armor counts as the 'armored' rule.
@@ -81,9 +81,16 @@ export const FAMILIES = {
     desc: 'The brood of the Ashwing Matriarch.',
     behavior: 'Scaled and often airborne. Fire-warded ashdrakes laugh at burns.',
   },
+  // Gate Arc Step 4: the Gate Response Brigade. Our own city's people and machines, not monsters; until the Brigade's
+  // own model arrives with the enemy rebuild its units wear shipped construct models in navy and amber (`model.base`)
+  brigade: {
+    id: 'brigade', name: 'Gate Response Brigade', color: '#f4a62a',
+    desc: 'Our own city. Signed up for floods and fires.',
+    behavior: 'Troopers in plate and shield lines, drones that run ahead, armoured vans that let their crews out when they break down.',
+  },
 };
 
-export const FAMILY_ORDER = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
+export const FAMILY_ORDER = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon', 'brigade'];
 
 const DEFAULT_LEAK = { normal: 1, elite: 5, miniboss: 25, boss: Infinity };
 
@@ -109,7 +116,8 @@ function enemy(o) {
     size: o.size ?? 0.8,
     color: o.color,
     accent: o.accent,
-    model: { base: o.family, variant: o.variant || 'basic', props: o.props || [] },
+    // (a family without a model of its own names the shipped family GLB it wears: `base`, e.g. the Brigade on construct)
+    model: { base: o.base || o.family, variant: o.variant || 'basic', props: o.props || [] },
     traits: o.traits || {},
     ...(o.phases ? { phases: o.phases } : {}),
     lore: o.lore,
@@ -392,6 +400,19 @@ const ORCS = [
     counters: 'Phase 2 armor 10: only armor pierce and shred matter — stack Shiro and Sango. Phase 3 he sprints: have Yuki ready.',
     introducedIn: '4-5',
   }),
+  // Gate Arc Act II miniboss (4-10): the Orc Warlord's GLB at miniboss scale in frost iron; no crown (the General's)
+  enemy({
+    id: 'orc_frost_vanguard', name: 'The Frost Vanguard', family: 'orc', tier: 'miniboss', hp: 3950, speed: 0.45, armorClass: 'heavy', armor: 6,
+    bounty: 400, leak: 25, threat: 200, size: 2.3, color: '#9fb8cc', accent: '#e8f4ff', variant: 'warlord', props: ['helmet', 'towerShield', 'cape'],
+    traits: { guardian: { radius: 1.8, reduction: 0.3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Vanguard plants its banner. Alpha Wolves answer the horn!', set: { traits: { guardian: { radius: 1.8, reduction: 0.3 }, summoner: { spawn: 'beast_alpha', count: 1, every: 9 } } } },
+      { atHp: 0.33, announce: 'NO. MORE. GUNS.', set: { armor: 8, speed: 0.38, traits: { guardian: { radius: 1.8, reduction: 0.3 }, summoner: { spawn: 'beast_alpha', count: 1, every: 9 } } } },
+    ],
+    lore: 'The rearguard of a people running from the cold. It stood on the bridge until the children were across.',
+    counters: 'Armoured guardian like the Warlord, only bigger: armour pierce and shred (Shiro, Sango), blast for its escort, and a girl free for the Alpha Wolves it calls.',
+    introducedIn: '4-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -636,16 +657,6 @@ const CONSTRUCTS = [
     counters: 'Heavy body: blast and mystic deal extra; slash bounces off.',
     introducedIn: '6-1',
   }),
-  // Gate Arc: the Gate Response Brigade's spotter drone (3-9), on the Cogling's GLB in Brigade navy and amber until the
-  // Brigade's own model arrives with the enemy rebuild (STEP3_BUILD_PLAN, builder's override: no 13th family yet)
-  enemy({
-    id: 'brigade_gnat', name: 'Gnat Spotter', family: 'construct', hp: 12, speed: 1.6, armorClass: 'light',
-    bounty: 1, threat: 1.2, size: 0.72, color: '#2b3a5c', accent: '#f4a62a', variant: 'cogling', props: ['gears'],
-    traits: { hasty: { mul: 2.2, every: 3.5, duration: 1 } },
-    lore: 'A little Brigade drone that flies ahead of the column and reports everything it sees. It is very good at its job.',
-    counters: 'Fast and fragile, and it comes in a group: splash or a quick shooter near the start.',
-    introducedIn: '3-9',
-  }),
   enemy({
     id: 'construct_shellback', name: 'Shellback', family: 'construct', hp: 50, speed: 0.8, armorClass: 'heavy',
     bounty: 18, threat: 4.5, size: 1.0, color: '#4cc9f0', accent: '#e0fbfc', variant: 'beetle', props: ['crystals', 'shell'],
@@ -865,6 +876,55 @@ const DRAGONS = [
 ];
 
 // ---------------------------------------------------------------------------
+// The Gate Response Brigade (Gate Arc Step 4, STEP4_BUILD_PLAN decisions 1-3): our own city's people and machines.
+// They are never monsters: the troopers wear the Iron Sentry and Prism Warden's models, the vans the Shellback's,
+// all in Brigade navy (#2b3a5c) with amber and a white visor, until the Brigade's own model arrives with the
+// enemy rebuild. A beaten trooper falls and fades (src/render/fallStyles.js); nobody is ever shown hurt.
+// ---------------------------------------------------------------------------
+
+const BRIGADE = [
+  // the spotter drone (3-9), on the Cogling's GLB (Step 3 kept it on the construct family; Step 4 moves it here)
+  enemy({
+    id: 'brigade_gnat', name: 'Gnat Spotter', family: 'brigade', base: 'construct', hp: 12, speed: 1.6, armorClass: 'light',
+    bounty: 1, threat: 1.2, size: 0.72, color: '#2b3a5c', accent: '#f4a62a', variant: 'cogling', props: ['gears'],
+    traits: { hasty: { mul: 2.2, every: 3.5, duration: 1 } },
+    lore: 'A little Brigade drone that flies ahead of the column and reports everything it sees. It is very good at its job.',
+    counters: 'Fast and fragile, and it comes in a group: splash or a quick shooter near the start.',
+    introducedIn: '3-9',
+  }),
+  enemy({
+    id: 'brigade_trooper', name: 'Response Trooper', family: 'brigade', base: 'construct', hp: 40, speed: 0.85, armorClass: 'light', armor: 1,
+    bounty: 4, threat: 3.5, size: 0.95, color: '#2b3a5c', accent: '#eef3f8', variant: 'sentry', props: ['helmet'],
+    lore: 'Signed up for floods and fires. Got a gate instead. Still says sorry.',
+    counters: 'Light plate (armour 1): anything quick wears it down; splash for a squad.',
+    introducedIn: '4-8',
+  }),
+  enemy({
+    id: 'brigade_shieldline', name: 'Shieldline Trooper', family: 'brigade', base: 'construct', hp: 60, speed: 0.75, armorClass: 'light',
+    bounty: 7, threat: 6, size: 1.1, color: '#2b3a5c', accent: '#f4a62a', variant: 'warden', props: ['shield', 'helmet'],
+    traits: { guardian: { radius: 1.6, reduction: 0.3 } },
+    lore: 'Carries the riot shield in front of the squad, because somebody has to. Hums while it walks.',
+    counters: 'Guardian: troopers near it take 30% less, except from blast. Shell the line or pick off the shield first.',
+    introducedIn: '4-8',
+  }),
+  enemy({
+    id: 'brigade_tortoise', name: 'Tortoise', family: 'brigade', base: 'construct', tier: 'elite', hp: 240, speed: 0.6, armorClass: 'heavy', armor: 3,
+    bounty: 50, threat: 16, size: 1.35, color: '#2b3a5c', accent: '#f4a62a', variant: 'beetle', props: ['shell'],
+    traits: { splitter: { spawn: 'brigade_trooper', count: 3 } },
+    lore: 'An armoured van with a hatch at the back. When it breaks down, the crew climbs out and keeps walking.',
+    counters: 'Armoured (3), and three troopers climb out when it stops: break it with armour pierce, keep splash for the crew.',
+    introducedIn: '4-8',
+  }),
+  enemy({
+    id: 'brigade_badger', name: 'Badger', family: 'brigade', base: 'construct', tier: 'elite', hp: 400, speed: 0.5, armorClass: 'heavy', armor: 6,
+    bounty: 90, threat: 22, size: 1.55, color: '#2b3a5c', accent: '#f4a62a', variant: 'warden', props: ['helmet'],
+    lore: 'The Brigade\'s little tank. Its crew named it, painted a badger on the side and never once called it little.',
+    counters: 'Armour 6: chip damage does almost nothing. Armour pierce and shred (Shiro, Sango), or big blast shells.',
+    introducedIn: '4-9',
+  }),
+];
+
+// ---------------------------------------------------------------------------
 // Freeplay titans — co-op freeplay only (src/data/freeplay.js boss pool). Each reuses its family's
 // boss model (bigger, re-tinted) and, when it falls, breaks open into the bosses it was built
 // around (`inherit` × its own HP multiplier each) — a giant that holds giants.
@@ -926,7 +986,7 @@ const TITANS = [
 
 export const ENEMIES = [
   ...SLIMES, ...GOBLINS, ...ORCS, ...GHOSTS, ...GHOULS, ...ONI,
-  ...LIZARDS, ...CONSTRUCTS, ...BEASTS, ...FAE, ...PLANTS, ...DRAGONS, ...TITANS,
+  ...LIZARDS, ...CONSTRUCTS, ...BEASTS, ...FAE, ...PLANTS, ...DRAGONS, ...BRIGADE, ...TITANS,
 ];
 
 export const ENEMY_MAP = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));

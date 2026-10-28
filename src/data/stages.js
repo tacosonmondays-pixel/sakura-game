@@ -204,7 +204,8 @@ export const CHAPTERS = [
     desc: 'Armored orc columns march over the mountain pass with wolf packs at their heels.',
     mechanic: 'Flat armor (armor pierce and shred), guardian shieldbearers, pack fury. Finale: the Orc General.',
     stages: ['4-1', '4-2', '4-3', '4-4', '4-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'The Checkpoint', act2Theme: 'city',
+    act2Desc: 'Up the mountain highway to the Brigade\'s checkpoint, through the tunnels and out into the far north, where the snow has come early and the villages are empty. Azami\'s barrier, the Brigade on the road, and a long bridge over the ravine.',
   },
   {
     id: 5, name: 'Gloomfen Marsh', theme: 'marsh', tier: 'advanced',
@@ -325,7 +326,7 @@ const CAMPAIGN = [
     ],
     fixed: [F(3, 'lizard_hunter', 3, 1.2)],
     introduces: ['lizard_hunter'], recommended: ['water'],
-    unlocks: ['azami'],
+    // (Azami joined here until Gate Arc Step 4 moved her to 4-7: src/systems/catchUpJoins.js PRE_UPDATE_JOIN_STAGES)
     fam: ['charm', 'blade'],
     scenery: { props: ['reeds', 'lizardTotems', 'fishingNets', 'lilyPads'], night: true },
   }),
@@ -1087,6 +1088,76 @@ const CAMPAIGN_ACT2 = [
     introduces: ['ghost_ashen_warden'], recommended: ['detection', 'priority'],
     fam: ['cog', 'feather'],
     scenery: { props: ['streetLamps'], night: true, ruined: 'burning' },
+  }),
+
+  // ----- Chapter 4 · Act II — The Checkpoint (the mountain highway, then the far north; STEP4_BUILD_PLAN §5) -----
+  // Chapter-4 families (and earlier) and the Brigade; budgets start from the same slot of chapter 5. 4-8's even waves
+  // and 4-9's lead are the Brigade (decision 5: fixed groups, the sim has no per-parity pool).
+  act2Stage({
+    id: '4-6', name: 'Toll Plaza', mapId: 'noon_toll_plaza',
+    desc: 'The iron column comes down the mountain highway to the toll plaza, fans out through the three toll lanes and closes up again past the barrier. Stand on the booth roofs. A Brigade convoy drops off coins every few waves.',
+    budget: [6.5, 210], groups: 3,
+    pool: [P('orc_grunt', 4), P('orc_ironhide', 3, 2), P('orc_berserker', 1, 8), P('beast_wolf', 2, 3), P('slime_iron', 2)],
+    fixed: [F(3, 'orc_ironhide', 3, 1.5), F(16, 'beast_wolf', 6, 0.6)],
+    recommended: ['armorPen', 'armorShred'],
+    fam: ['blade', 'rime'],
+    scenery: { props: ['streetLamps', 'billboards', 'vendingMachines', 'snowdrifts'] },
+  }),
+  act2Stage({
+    id: '4-7', name: 'Azami\'s Checkpoint', mapId: 'noon_checkpoint',
+    desc: 'Dusk at the Brigade\'s checkpoint. Azami has the barrier: on odd waves the gate is shut and the column takes the long chicane round the barricades; on even waves both lanes are open. Flare smoke drifts over the road.',
+    budget: [6.5, 132], groups: 3,
+    pool: [P('orc_shieldbearer', 3, 2), P('orc_ironhide', 3), P('orc_berserker', 3), P('beast_wolf', 3), P('beast_bear', 2, 6)],
+    fixed: [F(4, 'orc_shieldbearer', 2, 2), F(18, 'beast_bear', 3, 1.5)],
+    // odd waves: the checkpoint gate (lane 0) is shut and the wave walks the chicane; even waves use both lanes
+    laneCycle: [[1], [0, 1]],
+    recommended: ['armorShred', 'slow'],
+    unlocks: ['azami'],
+    fam: ['feather', 'cog'],
+    scenery: { props: ['streetLamps', 'parkedCars', 'roadWorks', 'warCamp'] },
+    // (render only: S4a's dusk light on the checkpoint)
+    look: { dusk: true },
+  }),
+  act2Stage({
+    id: '4-8', name: 'Tunnel Mouth', mapId: 'noon_tunnel_mouth',
+    desc: 'Snow blows out of the highway tunnels. Orcs and wolves come through the bores on odd waves; on even waves the Brigade\'s strike column comes up the carriageways from the city behind you.',
+    budget: [4.5, 36], groups: 3,
+    pool: [P('orc_grunt', 3), P('orc_ironhide', 3), P('orc_berserker', 2, 4), P('beast_wolf', 2)],
+    fixed: [
+      ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26].map((w) => F(w, 'brigade_trooper', 2 + Math.floor(w / 10), 0.8)),
+      ...[4, 8, 12, 16, 20, 24].map((w) => F(w, 'brigade_shieldline', 1 + Math.floor(w / 14), 1.4, 1)),
+      ...[8, 16, 24].map((w) => F(w, 'brigade_gnat', 3, 0.4, 2)),
+      ...[14, 22].map((w) => F(w, 'brigade_tortoise', 1, 1, 3)),
+    ],
+    introduces: ['brigade_trooper', 'brigade_shieldline', 'brigade_tortoise'], recommended: ['armorPen', 'multiHit'],
+    fam: ['ember', 'charm'],
+    scenery: { props: ['streetLamps', 'parkedCars', 'snowdrifts', 'icicles'], weather: 'snow' },
+  }),
+  act2Stage({
+    id: '4-9', name: 'The Frozen Villages', mapId: 'north_frozen_villages',
+    desc: 'Out of the Petal Gate\'s north mouth and into the far north. The Brigade has crossed ahead of you, and wolves and bears stampede up the valley before the guns. Hold the village\'s three last warm hearths.',
+    budget: [6.5, 300], groups: 3,
+    pool: [
+      P('brigade_trooper', 4), P('brigade_shieldline', 2, 3), P('brigade_gnat', 2), P('brigade_tortoise', 1, 8),
+      P('beast_wolf', 3), P('beast_bear', 2, 4),
+    ],
+    fixed: [F(25, 'brigade_badger', 1), F(26, 'brigade_badger', 1), F(27, 'brigade_badger', 1)],
+    introduces: ['brigade_badger'], recommended: ['armorPen', 'armorShred'],
+    fam: ['rune', 'feather'],
+    scenery: { props: ['snowPines', 'snowdrifts', 'hotSprings', 'campfire'], weather: 'snow' },
+  }),
+  act2Stage({
+    id: '4-10', name: 'The Frost Vanguard', mapId: 'north_snow_bridge',
+    desc: 'Two columns of the far north\'s rearguard meet at the bridgehead in a blizzard and cross the ravine on the Brigade\'s long folding bridge. The Frost Vanguard holds the far end.',
+    budget: [6.5, 290], groups: 3,
+    pool: [
+      P('orc_shieldbearer', 3), P('orc_ironhide', 3), P('beast_wolf', 3), P('beast_bear', 2),
+      P('beast_alpha', 1, 10), P('orc_warlord', 1, 16),
+    ],
+    fixed: [F(10, 'beast_alpha', 1), F(20, 'orc_warlord', 1), F(28, 'orc_frost_vanguard', 1, 2, 6)],
+    introduces: ['orc_frost_vanguard'], recommended: ['armorPen', 'armorShred', 'priority'],
+    fam: ['cog', 'blade'],
+    scenery: { props: ['snowPines', 'warBanners', 'warCamp', 'icicles'], weather: 'snow' },
   }),
 ];
 

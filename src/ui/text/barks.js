@@ -5,7 +5,7 @@
 // reads LINK LOST. Keyed by unit id (a variant id `brigade_gnat_*` uses its base unit's lines) and
 // event: `spawn` over a group as it comes on, `beaten` over a unit as it falls.
 //
-// Step 3 fields only the Gnat (3-9's spotter groups); the other units' lines arrive with them.
+// Step 3 fielded only the Gnat (3-9's spotter groups); Step 4 adds the troopers, the Tortoise and the Badger.
 
 /** Longest bark in words (the monster rule). */
 export const BARK_MAX_WORDS = 6;
@@ -19,11 +19,32 @@ export const BARKS = Object.freeze({
     // the screen text, as a chip (the stand-in model has no screen of its own)
     beaten: Object.freeze(['LINK LOST']),
   }),
+  // Gate Arc Step 4 (STEP4_BUILD_PLAN decision 4): a beaten trooper is "down", a van's crew climbs out
+  brigade_trooper: Object.freeze({
+    spawn: Object.freeze(['Contact front!']),
+    beaten: Object.freeze(['Trooper down!']),
+  }),
+  brigade_shieldline: Object.freeze({
+    spawn: Object.freeze(['Shields! Form a line!']),
+    beaten: Object.freeze(['Close up! Close up!']),
+  }),
+  brigade_tortoise: Object.freeze({
+    spawn: Object.freeze(['Tortoise rolling!']),
+    beaten: Object.freeze(['Crew out! Crew out!']),
+  }),
+  // (the Badger rolls on in silence; only its crew's call when it is beaten)
+  brigade_badger: Object.freeze({
+    beaten: Object.freeze(['Fall back! Fall back!']),
+  }),
 });
 
 /** Bestiary lines for the Brigade's units (the Gnat's ships with its def, S3c). */
 export const BRIGADE_LORE = Object.freeze({
   brigade_gnat: 'Watches everything. Understands nothing. Reports both.',
+  brigade_trooper: 'Signed up for floods and fires. Got a gate instead. Still says sorry.',
+  brigade_shieldline: 'Holds the line because the line is holding them.',
+  brigade_tortoise: 'Slow, loud and full of people who would rather be home.',
+  brigade_badger: 'Somebody painted a badger on it. Everyone salutes the badger.',
 });
 
 /** The unit whose lines an enemy id uses (its own, or its base unit's for a variant id), or null. */

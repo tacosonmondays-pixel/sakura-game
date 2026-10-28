@@ -132,6 +132,7 @@
   "a_rules_15": [{"id":"gearbox_superRare", "count": 2}],
   "a_ch1_act2": [{"id":"gems", "count": 62}],
   "a_ch2_act2": [{"id":"gems", "count": 75}],
-  "a_ch3_act2": [{"id":"gems", "count": 87}]
+  "a_ch3_act2": [{"id":"gems", "count": 87}],
+  "a_ch4_act2": [{"id":"gems", "count": 100}]
  }
 }

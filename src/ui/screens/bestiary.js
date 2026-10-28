@@ -248,7 +248,7 @@ export function render(root, params = {}) {
     }
     const active = tabsEl.querySelector('.mb-tab.active');
     requestAnimationFrame(() => active?.scrollIntoView?.({ block: 'nearest', inline: 'center' }));
-    famDesc.textContent = view.family === 'all' ? 'Twelve families, from garden slimes to the dragons of Ashwing Peaks.' : `${FAMILIES[view.family].desc} ${FAMILIES[view.family].behavior}`;
+    famDesc.textContent = view.family === 'all' ? 'Thirteen families, from garden slimes to the dragons of Ashwing Peaks and the Gate Response Brigade.' : `${FAMILIES[view.family].desc} ${FAMILIES[view.family].behavior}`;
   }
 
   let gridToken = 0;

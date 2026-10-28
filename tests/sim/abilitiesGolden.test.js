@@ -13,7 +13,9 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 const GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/f5875291/4',
-  '4-5:hard': 'W26/2/65954/3532/98fba3e0/21',
+  // Gate Arc Step 4: Azami joins after 4-7, so 4-5's free team is without her (her strips held the 2-life win):
+  // re-pinned, a narrow Hard loss as in BASE_GOLDEN below
+  '4-5:hard': 'L26/0/67565/2710/7f4c1c2d/22',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out)
   '8-5:normal': 'L30/0/37594/8800/f23b76ee/14',

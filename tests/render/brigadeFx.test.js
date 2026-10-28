@@ -36,8 +36,10 @@ describe('fall styles', () => {
     expect(fallStyleOf({ id: 'x', fall: 'breakdown' })).toBe('breakdown');
     expect(fallStyleOf({ id: 'x', fall: 'nonsense' })).toBe('sparkle');
     expect(fallStyleOf(null)).toBe('sparkle');
-    // every shipped enemy (the construct family included) keeps the shipped death, but the real Gnat (3-9) sparks
-    for (const e of ENEMIES) expect(fallStyleOf(e), e.id).toBe(e.id === 'brigade_gnat' ? 'sparkFall' : 'sparkle');
+    // every monster keeps the shipped death; the real Brigade defs (Step 4: the brigade family) go their own way
+    const BRIGADE_STYLE = { brigade_gnat: 'sparkFall', brigade_trooper: 'fade', brigade_shieldline: 'fade', brigade_tortoise: 'breakdown', brigade_badger: 'breakdown' };
+    for (const e of ENEMIES) expect(fallStyleOf(e), e.id).toBe(BRIGADE_STYLE[e.id] || 'sparkle');
+    expect(ENEMIES.filter((e) => e.family === 'brigade').map((e) => e.id).sort()).toEqual(Object.keys(BRIGADE_STYLE).sort());
     expect(FALL_STYLES.filter(homeward)).toEqual(['sparkle']);
   });
 

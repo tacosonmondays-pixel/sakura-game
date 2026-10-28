@@ -46,7 +46,7 @@ const ROSTER = [
   ['iroha', 'tower', 'SSR', 'mirror', 'mystic', null, 'land', 'rune', 'gacha'],
   ['ena', 'tower', 'SSR', 'hexer', 'mystic', null, 'land', 'rune', 'gacha'],
   // the new girls (UNIT_GAPS §5, src/data/unitsNewGirls.js)
-  ['azami', 'tower', 'R', 'spiker', 'pierce', null, 'land', 'cog', '2-2'],
+  ['azami', 'tower', 'R', 'spiker', 'pierce', null, 'land', 'cog', '4-7'],
   ['kinu', 'tower', 'R', 'ring', 'pierce', null, 'land', 'feather', 'gacha'],
   ['wakaba', 'tower', 'R', 'manager', 'pierce', null, 'land', 'charm', '6-5'],
   ['yuzuha', 'tower', 'SR', 'builder', 'pierce', 'lightning', 'land', 'cog', '1-7'],
@@ -831,7 +831,7 @@ describe('helpers', () => {
 
   it('freeUnlocksByStage maps stages to free recruits', () => {
     expect(freeUnlocksByStage()).toEqual({
-      '1-2': ['yuki'], '1-5': ['nami', 'sango'], '2-2': ['azami'], '2-5': ['kage'], '3-2': ['umeko'], '1-7': ['yuzuha'],
+      '1-2': ['yuki'], '1-5': ['nami', 'sango'], '4-7': ['azami'], '2-5': ['kage'], '3-2': ['umeko'], '1-7': ['yuzuha'],
       '3-5': ['shiro'], '4-5': ['midori'], '5-5': ['suzu'], '6-2': ['noa'], '6-5': ['wakaba'], '7-5': ['hana'],
     });
   });
