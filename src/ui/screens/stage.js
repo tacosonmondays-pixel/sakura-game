@@ -660,17 +660,18 @@ function eventLine(stage, state) {
       : h('p.sp-event-candy', 'The operations have ended: your rewards are yours to keep.'));
 }
 
-/** "Saved · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team (one line; each part stays whole). */
+/**
+ * "Saved · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team. Three whole pieces (each wraps as one): the
+ * run, where it stands, when it was played.
+ */
 function savedLine(rec) {
   const sum = saveSummary(rec);
-  const nb = (s) => String(s).replace(/ /g, ' ');
-  const parts = sum.endless
-    ? ['Saved run', `wave ${sum.next}`, `♥ ${sum.lives}`, sum.ago]
-    : ['Saved', DIFFICULTIES[sum.difficulty].name, savedModeName(rec), `wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago].filter(Boolean);
+  const head = sum.endless ? ['Saved run'] : ['Saved', DIFFICULTIES[sum.difficulty].name, savedModeName(rec)].filter(Boolean);
+  const where = sum.endless ? `wave ${sum.next} · ♥ ${sum.lives}` : `wave ${sum.next} of ${sum.of} · ♥ ${sum.lives}`;
   const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
   const note = 'Continues with the team you started with.';
   return h('div.sp-saved', { 'data-testid': 'stage-saved', title: note },
-    h('span.sp-saved-text', parts.map(nb).join(' · ')),
+    h('span.sp-saved-text', h('span.sp-seg', head.join(' · ')), ' · ', h('span.sp-seg', where), ' · ', h('span.sp-seg', sum.ago)),
     h('span.sp-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 4).map((id) => h('span.sp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))));
 }
 

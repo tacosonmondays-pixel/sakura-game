@@ -145,7 +145,7 @@ function stageCard(profile, stageId, { isNext }) {
     h('span.cp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
     h('span.cp-id.num', stage.id),
     unlocked
-      ? (isNext ? h('span.ui-bdg.open.cp-next', 'Next') : savedBadge(profile, stageId))
+      ? (savedBadge(profile, stageId) || (isNext ? h('span.ui-bdg.open.cp-next', 'Next') : null))
       : h('span.cp-lock', ico('lock'), h('span', requirementText(profile, stageId)))),
   h('span.cp-card-cap',
     h('span.cp-name', stage.name),
