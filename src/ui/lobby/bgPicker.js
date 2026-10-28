@@ -129,7 +129,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
 function lockLines(bg, unlocked, owned = true) {
   if (unlocked) return [h('b', 'Coming soon')];
   if (!owned) return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`), bg.unlock.type === 'bond' ? h('small', `then Bond Lv ${bg.unlock.level}`) : null];
-  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Date her & give gifts in the City')];
+  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Spend time with her & give gifts in the City')];
   return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`)];
 }
 
