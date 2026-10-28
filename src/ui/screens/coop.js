@@ -218,7 +218,7 @@ function updateNotice() {
     if (!info) return;
     box.replaceChildren(h('div.ol-banner.ol-banner-row',
       h('span', `A new version${info.version ? ` (${versionLabel(info.version)})` : ''} is out. Update before you play so you and your ally match.`),
-      button('Update', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
+      button('Update', { kind: 'primary', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
   };
   paint(updateAvailable());
   checkForUpdate({ force: true }).then(paint).catch(() => {});
@@ -280,7 +280,8 @@ function versionDiff(mine, theirs) {
 
 export function render(root, params = {}) {
   const code = normalizeCode(params.id || '');
-  const { el, body } = screen(code ? `Co-op · ${code}` : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
+  // ([ui-v2 M8] a room's code is on its plate: the bar says Co-op room)
+  const { el, body } = screen(code ? 'Co-op room' : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
   root.append(el);
   let destroyed = false;
   let cleanup = () => {};
@@ -322,14 +323,7 @@ export function render(root, params = {}) {
           h('ul.ol-coop-facts',
             h('li', `Enemy HP ×${COOP.hpMul}`),
             h('li', `${formatNumber(coopStartCash(s))} coins each to start`),
-            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you')),
-          button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
-            const r = await pickStage(stageId, difficulty, freeplay, mode);
-            if (!r) return;
-            ({ stageId, difficulty, freeplay, mode } = r);
-            writePref(r);
-            paintStage();
-          } })),
+            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you'))),
         // freeplay right here (not only inside Change stage): Off or a difficulty tier
         h('div.ol-fp-row.ol-fp-row-hub',
           h('span.ol-fp-label', 'Freeplay'),
@@ -342,9 +336,19 @@ export function render(root, params = {}) {
       );
     };
     paintStage();
+    // [ui-v2 M8] Change stage sits on the panel's foot beside Create room (the stage's lines stay short on a phone)
+    const changeStage = button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
+      const r = await pickStage(stageId, difficulty, freeplay, mode);
+      if (!r) return;
+      ({ stageId, difficulty, freeplay, mode } = r);
+      writePref(r);
+      paintStage();
+    } });
 
+    // [ui-v2 M8] one yellow: Rejoin when there is a last room to go back to, else Create room
+    const hasLast = !!lastRoom(backend.uid);
     const create = button('Create room', {
-      kind: 'yellow', icon: 'plus', testid: 'coop-create',
+      kind: hasLast ? 'primary' : 'yellow', icon: 'plus', testid: 'coop-create',
       onClick: () => {
         writePref({ stageId, difficulty, freeplay, mode });
         navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty, ...(freeplay ? { freeplay } : {}), ...(mode !== 'standard' ? { mode } : {}) });
@@ -406,7 +410,7 @@ export function render(root, params = {}) {
             }
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room, 'data-testid': 'invite-row-dm' }, avatar(m.avatar, 34),
               h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)} · private invite`)),
-              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
+              button('Join', { kind: 'primary', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
           }
         }
         const mine = await backend.myClan();
@@ -416,7 +420,7 @@ export function render(root, params = {}) {
           const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && !social.isBlocked(m.userId) && Date.now() - m.createdAt < 15 * 60000).reverse();
           for (const m of msgs.slice(0, 4)) {
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room }, avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
-              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
+              button('Join', { kind: 'primary', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
           }
         }
         if (destroyed) return;
@@ -442,7 +446,7 @@ export function render(root, params = {}) {
         h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
           h('h3.panel-title', 'Host a room'),
           stagePane,
-          h('div.ol-row-end', create)),
+          h('div.ol-row-end.ol-coop-foot', changeStage, create)),
         h('div.ol-coop-right',
           lastPanel(),
           h('section.panel.ol-coop-join',
@@ -664,13 +668,10 @@ export function render(root, params = {}) {
         h('div.ol-field-body',
           thumb(s.stageId, 'ol-field-thumb'),
           h('div.ol-field-info',
-            h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode, { testid: 'coop-field-mode' })),
+            // [ui-v2 M8] said once: the stage, its difficulty, the enemy HP and the coins are on the room's head
+            h('div.ol-coop-stage-name', h('span.ol-field-waves', h('b', String(st.waves ?? '—')), ' waves'), modeChip(s.mode, { testid: 'coop-field-mode' })),
             st.desc ? h('p.ol-field-desc', st.desc) : null,
             rule ? h('p.ol-field-rule', { 'data-testid': 'coop-field-rule' }, 'Map rule: ', h('b', rule.name), `: ${rule.desc}`) : null,
-            h('div.ol-field-stats',
-              h('span', h('b', String(st.waves ?? '—')), ' waves'),
-              h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),
-              h('span', h('b', formatNumber(coopStartCash(st))), ' coins each')),
             freeplayPanel(s, st),
             foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
     }
@@ -790,7 +791,7 @@ export function render(root, params = {}) {
         ['Nobody is left alone', 'If a connection drops, the other keeps playing — her girls keep fighting.'],
       ];
       return h('section.panel.ol-room-tips', h('h3.panel-title', 'How co-op works'),
-        h('ol.ol-tips', tips.map(([t, d], i) => h('li', h('span.ol-tip-n', String(i + 1)), h('div', h('b', t), h('small', d))))));
+        h('ol.ol-tips', tips.map(([t, d]) => h('li', h('span.ol-tip-n', { 'aria-hidden': 'true' }), h('div', h('b', t), h('small', d))))));
     }
 
     const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
