@@ -11,13 +11,33 @@ export const milestone = 'm8';
 export const SHOT_CLAN = Object.freeze({ name: 'Petal Guard', tag: 'PTL', emblem: 'assault', joinMode: 'request', description: 'Friendly co-op every evening. Boss runs on weekends!' });
 
 /**
+ * seedOnlineInvite once per tab (a second call would send Bea's friend request again, and on the fixed clock the
+ * server's request limit stops it); later shots only make sure Aiko is signed in.
+ * @param {import('playwright').Page} page
+ */
+export async function seedOnline(page) {
+  const done = await page.evaluate(() => sessionStorage.getItem('m8-online-seeded') === '1');
+  if (!done) {
+    await seedOnlineInvite(page);
+    await page.evaluate(() => sessionStorage.setItem('m8-online-seeded', '1'));
+    return;
+  }
+  await page.evaluate(async () => {
+    const common = await import('/src/ui/online/common.js');
+    const social = await import('/src/ui/online/socialHub.js');
+    await common.ensureOnline({ ask: false });
+    await social.startSocialHub({ force: true });
+  });
+}
+
+/**
  * M8: Aiko (seedOnlineInvite) in a clan on the local test server, as an officer (so the Applicants tab shows): Bea
  * founded it, Mio is a member, Rin's join request waits, everyone joined three days ago, Bea asks for a material, and
  * the clan chat has two lines. Safe to call twice.
  * @param {import('playwright').Page} page
  */
 export async function seedClanMember(page) {
-  await seedOnlineInvite(page);
+  await seedOnline(page);
   return page.evaluate(async ([clan, bea, mio, rin]) => {
     const { getBackend } = await import('/src/online/backend.js');
     const { createLocalDb } = await import('/src/online/adapters/localDb.js');
@@ -50,7 +70,7 @@ export async function seedClanMember(page) {
 
 /** Aiko with one friend request waiting (from Tama) and one blocked player (Nao). Safe to call twice. */
 async function seedRequestAndBlock(page) {
-  await seedOnlineInvite(page);
+  await seedOnline(page);
   return page.evaluate(async ([tama, nao]) => {
     const { getBackend } = await import('/src/online/backend.js');
     const { createLocalDb } = await import('/src/online/adapters/localDb.js');
@@ -69,12 +89,18 @@ async function seedRequestAndBlock(page) {
 }
 
 /** The social pop-ups (Bea's invite shows as one when the hub notices it) close first: a shot is of the screen. */
-const quiet = (page) => page.evaluate(() => document.querySelectorAll('.sc-toast-host').forEach((x) => x.remove()));
-const withQuiet = (open) => async (page) => {
-  await quiet(page);
+/** (a pop-up can arrive any time while a shot opens or settles: they stay hidden, except in the pop-up's own shot) */
+const quiet = (page, show = false) => page.evaluate((on) => {
+  document.querySelectorAll('.sc-toast-host').forEach((x) => x.remove());
+  let st = document.getElementById('m8-no-toasts');
+  if (!st) document.head.append((st = Object.assign(document.createElement('style'), { id: 'm8-no-toasts', textContent: '.sc-toast-host { display: none !important; }' })));
+  st.disabled = on;
+}, show);
+const withQuiet = (open, toast = false) => async (page) => {
+  await quiet(page, toast);
   if (open) await open(page);
 };
-const online = (hash, screenId, { open, ...more } = {}) => ({ hash, ready: isScreen(screenId), prepare: seedOnlineInvite, settleMs: 1800, rebuilt: true, ...more, open: withQuiet(open) });
+const online = (hash, screenId, { open, toast, ...more } = {}) => ({ hash, ready: isScreen(screenId), prepare: seedOnline, settleMs: 1800, rebuilt: true, ...more, open: withQuiet(open, toast) });
 const clanTab = (tab, { open, ...more } = {}) => ({ hash: `#/clan?tab=${tab}`, ready: isScreen('clan'), prepare: seedClanMember, settleMs: 2200, rebuilt: true, ...more, open: withQuiet(open) });
 
 export const shots = {
@@ -111,6 +137,7 @@ export const shots = {
   'coop-room': online('#/coop/AIKO7?host=1', 'coop', { settleMs: 2500 }),
   // the co-op invite pop-up (src/ui/online/inviteToast.js) over the co-op menu
   'invite-toast': online('#/coop', 'coop', {
+    toast: true,
     open: async (page) => {
       await page.evaluate(async (f) => {
         const { showSocialToast } = await import('/src/ui/online/inviteToast.js');
@@ -119,7 +146,7 @@ export const shots = {
       }, INVITE_FRIEND);
       await page.waitForSelector('[data-testid="shot-invite-toast"]', { timeout: 5000 });
     },
-    after: async (page) => page.evaluate(() => document.querySelectorAll('.sc-toast-host').forEach((x) => x.remove())),
+    after: (page) => quiet(page),
   }),
   // Aiko in a clan: the six tabs (Supply Bot is the developer clan's only: no shot)
   'clan-members': clanTab('members'),

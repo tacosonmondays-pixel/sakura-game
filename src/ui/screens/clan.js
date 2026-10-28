@@ -225,7 +225,7 @@ export function render(root, params = {}) {
           recruitSlot({ clan, role })), // [clan invites] the daily recruiting post (leader / officers)
         h('div.ol-clan-level',
           h('div.ol-lvl-big', h('small', 'CLAN LV'), h('b', String(lv.level))),
-          h('div.ol-xp', h('i', { style: { width: `${Math.round(lv.pct * 100)}%` } })),
+          h('div.ol-xp', { title: lv.need ? `${formatNumber(lv.into)}/${formatNumber(lv.need)} XP` : 'Max level' }, h('i', { style: { width: `${Math.round(lv.pct * 100)}%` } })),
           h('small.muted', lv.need ? `${formatNumber(lv.into)}/${formatNumber(lv.need)} XP` : 'Max level')),
         button('Leave', { kind: 'ghost', small: true, testid: 'clan-leave', onClick: leave }),
       );
