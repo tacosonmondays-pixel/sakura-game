@@ -181,6 +181,7 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     // and no control's own face reaches another one; each path name line is one line, its ⚡ beside it, on every drawer)
     if (hits?.dead.length) fail(name, `a tap on a part that takes none reaches a control: ${JSON.stringify(hits.dead)}`);
     if (hits?.faces.length) fail(name, `a control's own face reaches another control: ${JSON.stringify(hits.faces)}`);
+    if (hits?.foot) fail(name, `a tap on the drawer's rows reaches a footer control: ${JSON.stringify(hits.foot)}`);
     const wrapped = (hits?.names || []).filter((r) => r.lines > 1 || r.boltOwnLine);
     if (wrapped.length) fail(name, `a path name line takes more than one line: ${JSON.stringify(wrapped)}`);
     if (drawer.smallest && drawer.smallest.px < floor) fail(name, `drawer text under ${floor} px: ${drawer.smallest.px}px "${drawer.smallest.text}" (${drawer.smallest.sel})`);
@@ -1232,18 +1233,22 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         const oh = await drawerHits(page);
         if (oh?.dead.length) fail('m4-abname', `${g} open: a tap on a part that takes none reaches a control: ${JSON.stringify(oh.dead)}`);
         if (oh?.faces.length) fail('m4-abname', `${g} open: a control's own face reaches another control: ${JSON.stringify(oh.faces)}`);
+        if (oh?.foot) fail('m4-abname', `${g} open: a tap on the drawer's rows reaches a footer control: ${JSON.stringify(oh.foot)}`);
       }
       const probe = await uiProbe(page, { root: '[data-testid="ability-row"]' });
-      // a wide fallback font (before the web font arrives): the row fits again (its ResizeObserver), still never cut
+      // a wide fallback font (before the web font arrives): the row fits again, still never cut. A real font swap ends
+      // with the font set's 'loadingdone' (towerPanel refits on it); a style swap alone fires none and may change no
+      // box the row observes, so the scene sends it as the browser would (the M4 review, round r3: logic-r3-2)
       await page.evaluate(() => {
         const st = document.createElement('style');
         st.id = '__m4fallback';
         st.textContent = '[data-testid="ability-row"] .bt-abrow-name, [data-testid="ability-row"] .bt-abrow-fire { font-family: Verdana, "DejaVu Sans", sans-serif !important; font-style: normal !important; }';
         document.head.append(st);
+        document.fonts.dispatchEvent(new Event('loadingdone'));
       });
       await settle(page, 300);
       const fallback = await nameFacts();
-      await page.evaluate(() => document.getElementById('__m4fallback')?.remove());
+      await page.evaluate(() => { document.getElementById('__m4fallback')?.remove(); document.fonts.dispatchEvent(new Event('loadingdone')); });
       await settle(page, 300);
       const back = await nameFacts();
       R[g] = { closed, opened, fallback, back, truncated: probe.truncated };

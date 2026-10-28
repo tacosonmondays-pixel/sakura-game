@@ -1,0 +1,146 @@
+{
+ "verdict": "OK",
+ "lens": "look",
+ "round": "r3",
+ "commit": "233ae9b1a456a25efd37841fb809a79fabfb9a2d",
+ "summary": "Look review of A3 M4 round r3 (fix commit 233ae9b1, reviewed at feature/abilities 5860f66). I changed no tracked files. I rendered every M4 scene at 844x390, 667x375, 1024x768 and 1280x720 and looked at the stills, with crops. Verdict OK: no high or medium finding. Three new low ones. The drawer is consistent across Aoi, Azami, Chika, Midori, Iroha, Sango, Tenka, Raika, the hero, the ally, locked, armed, teaser and reduce-motion. No text is cut by an ellipsis on any still. Every path name sits on one line with its ⚡ beside it, on every size. The smallest drawer text is 12 px on phones and 13 px at 1024 and 1280. tools/cssFloor.mjs and tools/contrast.mjs pass. The scroll cue's ▾ now sits on its own ink pill and no longer mixes with letters. The harness passes at 1024 and 1280. On phones it exits 1, but only on the m4-abname fallback-font check. That check fails the same way on the r2 commit 04383d0, so this is not new (look-r3-2). The shared machine was very busy, so the first runs hit screenshot timeouts and one stray modal overlay. Clean re-runs passed.",
+ "findings": [
+  {
+   "id": "look-r3-1",
+   "severity": "low",
+   "title": "Wide drawer, tap 1: the open row's tier name now breaks onto two lines (\"T3 · STEEL / BROADHEADS\")",
+   "detail": "r3 runs fitPaths on the wide drawer too. On tap 1 the wider \"Buy · 650\" pushes the name line over its width, so the pips move down to the tier line. The tier line then has no room and wraps mid-phrase: \"T3 · STEEL\" over \"BROADHEADS\", with the pips floating between. At r2 the same tap put the pips on a line of their own and kept the tier name whole (r2 armed row 108 px, r3 114 px at 1280). The name line is now one line as intended. Only the tier line suffers, and only while a row is open.",
+   "where": "m4-drawer-armed at 1024x768 and 1280x720 (Aoi 2-0-1, Piercing Arrows armed); crops/armed1024-r2-vs-r3.png, crops/armed-1280.png",
+   "suggested_fix": "On the wide drawer, do what the phone does for the open row: hide its pips (.bt-path.armed .bt-pips { display: none } outside the phone media query) before moving them to the tier line. Or keep the tier text on one line (white-space: nowrap) and let only the pips step away."
+  },
+  {
+   "id": "look-r3-2",
+   "severity": "low",
+   "title": "Phones: the m4-abname 'with a fallback font' check fails; the open ability name runs into WAVE (not new in r3)",
+   "detail": "At 844 and 667, the harness fails 'sango/akane/yuzuha with a fallback font: name is cut'. It failed twice at each size: the full run and a re-run on a quiet machine. The harness swaps the name and FIRE to Verdana after layout without a fonts event, and nothing refits. FIRE grows, the name box shrinks from 160 to 151 px, and the name has overflow: visible on phones, so it runs into the button: \"Tidebreaker Shell▴WAVE\" (crops/fb1-injected-667x375.png). When the fallback font is there at first layout, fit() picks the two-line class and nothing is cut (crops/fb3-reopened-open-667x375.png). A real web font fires loadingdone, which refits. So players are unlikely to see this. My same script on 04383d0 gives the same numbers, and the check was already there, so this is not an r3 regression. It does mean the phone M4 run is not green on this machine, unlike the commit says.",
+   "where": "m4-abname at 844x390 and 667x375 (log-rerun-844.txt, log-rerun-abname-667.txt, log-r2base.txt)",
+   "suggested_fix": "Watch FIRE's width as well as the row: ro.observe(fire), or refit when fire's width changes in a ResizeObserver. Or have the harness dispatch loadingdone after it injects the font, as the no-⚡ step already does. Then the check matches what a player can meet."
+  },
+  {
+   "id": "look-r3-3",
+   "severity": "low",
+   "title": "Armed row at tier 0: 1024 and 1280 drop the \"T1 ·\" prefix the phone keeps",
+   "detail": "Aoi 0-3-0 with Sky Hunter armed reads \"LONG BOW\" at 1024 and 1280, but \"T1 · LONG BOW\" at 844 and 667 and on every closed row. This is the same at r2 (r2base/m4-drawer-ability-armed-1024x768.png). It is a small consistency nit.",
+   "where": "m4-drawer-ability-armed at 1280x720 (crops/armed-sky-1280.png) and 1024x768",
+   "suggested_fix": "Keep the tier prefix on the wide open row, as the phone does, or drop it on both."
+  }
+ ],
+ "earlier_findings": [
+  {
+   "id": "look-1 (r0)",
+   "status": "fixed",
+   "evidence": "At 667x375 the drawer is the 288 px side drawer, and all three rows and their prices are in view on every still (667x375/m4-drawer-aoi, m4-fit-*)."
+  },
+  {
+   "id": "look-2 (r0)",
+   "status": "fixed",
+   "evidence": "Chika 3-2-0: 'Drone Surge · Later update' is one line, and Tesla Engineering's lock line is in view at 844 and 667 (crops/fit844a.png, crops/fit667a.png)."
+  },
+  {
+   "id": "look-3 (r0)",
+   "status": "fixed",
+   "evidence": "Tidebreaker Shell is never cut on any still. Wide Fragmentation is one line with its ⚡ at 844, 667, 1024 and 1280 (crops/fit844b.png, crops/w1024c.png, crops/w1280c.png)."
+  },
+  {
+   "id": "look-4 (r0)",
+   "status": "fixed",
+   "evidence": "MORE is an ink chip, RANGE reads the same in the stat row and Details (4.3), and the hero ally note is short on phones."
+  },
+  {
+   "id": "look-r1-1",
+   "status": "fixed",
+   "evidence": "m4-lock-why at 844 and 667: every lock toast is 12 px, one line, on top and uncut. The long tip wraps to 2 lines, uncut."
+  },
+  {
+   "id": "look-r1-2",
+   "status": "fixed",
+   "evidence": "drawerHits: target-more is 40x40 at 844 on the normal Glances."
+  },
+  {
+   "id": "look-r1-3",
+   "status": "fixed",
+   "evidence": "The tower bar's cut card shows no price and a › cue on every phone still (e.g. 844x390/m4-drawer-chika)."
+  },
+  {
+   "id": "look-r1-4",
+   "status": "partly fixed",
+   "evidence": "Chips are 40 px tall wherever there is room. In the three densest Glances (Chika, Iroha, Midori 3-2-0) they are 26 px at 844 and 24 px at 667 (log-844x390 hits m4-fit-*-320). Path row bodies and prices are still 32 to 36 px. The commit documents both. The two-tap buy guards the prices."
+  },
+  {
+   "id": "look-r1-5",
+   "status": "not changed (owner ruling)",
+   "evidence": "The drawer alone shows 11 to 13 numbers. The screen-wide count is waiting for the owner's ruling."
+  },
+  {
+   "id": "look-r1-6",
+   "status": "fixed",
+   "evidence": "The smallest drawer text is 12 px on every phone still (66 probes) and 13 px on every wide still (69 probes). The stills show no off-scale sizes."
+  },
+  {
+   "id": "look-r1-7",
+   "status": "partly fixed",
+   "evidence": "At 1024 and 1280 every ability name is one line (m4-abname passes at both), and 'Tier V: one Aoi at a time' is one line. The held box 'Held by Aoi 5-0-0 · bottom right · Show ›' still takes 2 lines on the wide drawer (1280x720/m4-fit-held). That is acceptable."
+  },
+  {
+   "id": "look-r1-8",
+   "status": "not changed (outside M4)",
+   "evidence": "This is ability-bar styling from M1, not touched by r3."
+  },
+  {
+   "id": "look-r2-1",
+   "status": "fixed",
+   "evidence": "Sango 0-3-2's 'Wide Fragmentation' is one line at 1024 and 1280, at the smaller name size with the pips on the tier line (crops/w1280c.png, crops/w1024c.png). The same fit has a side effect on tap 1: see look-r3-1."
+  },
+  {
+   "id": "look-r2-2",
+   "status": "fixed",
+   "evidence": "The ▾ sits on its own ink pill, apart from the letters at the fold, in the MORE views at 844, 667 and 1280 (crops/cue-more-844.png, cue-chikamore-667.png, cue-heromore-667.png, cue-heromore-1280.png)."
+  },
+  {
+   "id": "look-r2-3",
+   "status": "partly fixed",
+   "evidence": "Same as look-r1-4. Chips reach 40 px where there is room and 24 to 26 px in the densest Glances, and no hit area reaches another row (drawerHits: dead [], faces [] on every still at all four sizes)."
+  },
+  {
+   "id": "look-r2-4",
+   "status": "not changed (information)",
+   "evidence": "At 667 the side drawer still covers part of the board, as the spec prescribes."
+  },
+  {
+   "id": "look-r2-5",
+   "status": "not changed (M5)",
+   "evidence": "The whole-screen smallest text is still 8.96 px: the 'New!' sticker on the next-wave chip."
+  }
+ ],
+ "screenshots": [
+  "<reviewer scratch>/rev-look-evidence/crops/fit844a.png",
+  "<reviewer scratch>/rev-look-evidence/crops/fit844b.png",
+  "<reviewer scratch>/rev-look-evidence/crops/fit667a.png",
+  "<reviewer scratch>/rev-look-evidence/crops/fit667b.png",
+  "<reviewer scratch>/rev-look-evidence/crops/m667a.png",
+  "<reviewer scratch>/rev-look-evidence/crops/m667b.png",
+  "<reviewer scratch>/rev-look-evidence/crops/m844c.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1024a.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1024b.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1024c.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1280a.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1280b.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1280c.png",
+  "<reviewer scratch>/rev-look-evidence/crops/w1280d.png",
+  "<reviewer scratch>/rev-look-evidence/crops/armed1024-r2-vs-r3.png",
+  "<reviewer scratch>/rev-look-evidence/crops/armed-1280.png",
+  "<reviewer scratch>/rev-look-evidence/crops/armed-sky-1280.png",
+  "<reviewer scratch>/rev-look-evidence/crops/fb1-injected-667x375.png",
+  "<reviewer scratch>/rev-look-evidence/crops/fb3-reopened-open-667x375.png",
+  "<reviewer scratch>/rev-look-evidence/crops/cue-more-844.png",
+  "<reviewer scratch>/rev-look-evidence/crops/cue-heromore-1280.png",
+  "<reviewer scratch>/rev-look-evidence/844x390/m4-drawer-aoi-844x390.png",
+  "<reviewer scratch>/rev-look-evidence/667x375/m4-lock-why-two-667x375.png",
+  "<reviewer scratch>/rev-look-evidence/1280x720/m4-lock-why-held-1280x720.png"
+ ]
+}
