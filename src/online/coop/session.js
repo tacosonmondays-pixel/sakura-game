@@ -29,6 +29,10 @@
 //                                    LOBBY.fightingMs; over = it just ended (results screen);
 //                                    keeps the waiting lobby from its idle close
 //   { type: 'leave', uid }           I left the room (Leave, Home, closing the tab)
+//   { type: 'note', uid, note }      a small battle note to my ally, outside lockstep (never a sim
+//                                    command; it never touches the sim or its hash): roomNote()
+//                                    lists the kinds, e.g. Tryout Day's Subject suggestion
+//                                    { kind: 'subject', period, k } (docs/specs/TRYOUT_DAY.md §11)
 //
 // Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
 // difficulty: off (null) or a tier id. The host picks it (setStage), it rides in room, hello and
@@ -69,6 +73,19 @@ import { clampStart, clampTryout, clampDraft, DRAFT_MAX } from './statLimits.js'
 import { mapChoices, TRYOUT_GRADES } from '../../sim/tryout/plan.js';
 
 let current = null;
+
+/** Room note kinds (see the 'note' message): each one's cleaner returns the note, or null. */
+const NOTE_KINDS = {
+  // Tryout Day: the player who does not choose the next Subject suggests one (period, option 0 | 1)
+  subject: (n) => (Number.isInteger(n.period) && n.period >= 1 && n.period <= 99 && (n.k === 0 || n.k === 1)
+    ? { kind: 'subject', period: n.period, k: n.k } : null),
+};
+
+/** A room note, cleaned (only the known kinds and their fields), or null. */
+export function roomNote(note) {
+  if (!note || typeof note !== 'object' || !Object.prototype.hasOwnProperty.call(NOTE_KINDS, note.kind)) return null;
+  return NOTE_KINDS[note.kind](note);
+}
 
 /** The active co-op session (lobby or battle), or null. */
 export function getSession() {
@@ -560,6 +577,13 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           changed();
         }
         break;
+      case 'note': {
+        // a battle note from my ally (outside lockstep: the battle UI shows it, the sim never sees it)
+        if (s.phase !== 'battle' || !isAlly(msg.uid) || (from && from !== msg.uid)) break;
+        const note = roomNote(msg.note);
+        if (note) emitter.emit('note', note);
+        break;
+      }
       case 'fighting':
         // back in the room while my ally's battle runs on (freeplay): "Rin is still fighting — wave 87"
         if (s.phase === 'lobby' && s.returning && msg.uid === s.returning.uid && !s.returning.inRoom) {
@@ -920,6 +944,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       hello();
       changed();
       return true;
+    },
+    /**
+     * A small note to my ally during the battle (roomNote kinds; outside lockstep: never a command,
+     * never in the sim or its hash). Lossy like every room message. The ally's session emits 'note'.
+     * @returns {boolean} sent
+     */
+    sendNote(note) {
+      const n = roomNote(note);
+      if (!n || s.phase !== 'battle') return false;
+      return send({ type: 'note', uid: s.me.uid, note: n }, { latest: `note-${n.kind}` }) !== false;
     },
     /** Player info by slot (names / colours for the HUD). */
     player(slot) {

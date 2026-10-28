@@ -12,7 +12,7 @@ import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor } from '../../sim/tryout/offers.js';
 import { lengthOf, periodWaves } from '../../sim/tryout/plan.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT } from '../text/tryout.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN } from '../text/tryout.js';
 import '../styles/tryout.css';
 
 const Q = 1024;
@@ -29,6 +29,21 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const len = lengthOf(ty().length);
   let moving = null; // uid of the girl a Hall Pass is moving
   let shown = '';
+  // co-op Subject suggestions (§11): a room note outside lockstep (session.sendNote / 'note'), never a sim
+  // command. mySuggest: what I suggested to the chooser; allySuggest: what my ally suggested to me
+  let mySuggest = null; // { period, k }
+  let allySuggest = null; // { period, k }
+  const session = () => ctx.coop?.session || null;
+  const offNote = session()?.on?.('note', (n) => {
+    if (n?.kind !== 'subject') return;
+    allySuggest = { period: n.period, k: n.k };
+    last = ''; // repaint the class bar on the next frame
+  }) || null;
+  function suggest(period, k) {
+    if (!session()?.sendNote?.({ kind: 'subject', period, k })) return;
+    mySuggest = { period, k };
+    last = '';
+  }
 
   // ---- tracker -------------------------------------------------------------------------------------
   const head = h('div.ty-head', { 'data-testid': 'ty-head' });
@@ -43,6 +58,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const photo = h('div.ty-sheet-wrap', { 'data-testid': 'ty-photo', hidden: true });
   const el = h('div.ty-layer', tracker, cls, sheet, brk, photo);
   ctx.layer.append(el);
+  /** A sheet (the pick, the Make-up Test, the Class Photo) covers the board: the tracker steps aside (phones: it covered the title). */
+  const syncSheets = () => {
+    tracker.hidden = !sheet.hidden || !photo.hidden;
+  };
 
   /** Credits if every assignment still open clears (locked-in ones, open ones on track, a banked hand-in). */
   function liveCredits() {
@@ -65,8 +84,11 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const [a] = periodWaves(len, p);
     const done = t.base ? Math.max(0, Math.min(len.wavesPerPeriod, sim.wave - a + (sim.state === 'wave' ? 1 : 1))) : 0;
     const name = p >= len.periods ? 'Final Period' : `Period ${p}`;
+    // while a period runs, its Subject (the class rule in play) is named in the head
+    const subj = t.base && t.subject ? SUBJECT_TEXT[t.subject]?.name || t.subject : null;
     head.replaceChildren(...[
       h('b', t.base ? name : `Next: ${name}`), t.base ? h('span', ` · wave ${done}/${len.wavesPerPeriod}`) : null,
+      subj ? h('span.ty-head-subj', { 'data-testid': 'ty-head-subject', title: SUBJECT_TEXT[t.subject]?.line }, ` · ${subj}`) : null,
       h('span.ty-score', ` · Score ${fmtNum(t.score + t.periodScore, 'count', { detail: true })}`),
     ].filter(Boolean));
     const list = assignProgress(sim, mySlot);
@@ -126,6 +148,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     shown = key;
     if (!o) {
       sheet.hidden = true;
+      syncSheets();
       return;
     }
     const pay = Math.floor((TRYOUT.handIn.base + TRYOUT.handIn.perPeriod * ty().period) * sim.cashScale);
@@ -145,6 +168,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         h('button.bt-btn', { 'data-testid': 'ty-hand', onclick: () => send('tr', ['hand', o.seq]) }, `Hand it in later (+${fmtNum(pay, 'money')}${last ? '' : ' · next pick +1'})`),
         partner ? h('span.ty-dim', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null)));
     sheet.hidden = false;
+    syncSheets();
   }
 
   function take(i, path = 0) {
@@ -167,17 +191,30 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const chosen = pair ? (pair.includes(t.nextSubject) ? t.nextSubject : pair[0]) : null;
     const dare = dareOf(t, next);
     const partner = t.coop ? t.players.find((_, i) => i !== mySlot) : null;
-    cls.replaceChildren(
+    // co-op: the chooser sees the ally's suggestion; the other player's taps suggest (a room note, §11)
+    const sugg = mine && partner && allySuggest?.period === next && pair?.[allySuggest.k] ? pair[allySuggest.k] : null;
+    const mySug = !mine && mySuggest?.period === next ? mySuggest.k : -1;
+    const twist = (id) => [
+      h('span.ty-long.ty-dim', ` ${SUBJECT_TEXT[id]?.line || ''}`),
+      h('span.ty-short', SUBJECT_TEXT[id]?.short || SUBJECT_TEXT[id]?.line || ''),
+    ];
+    cls.replaceChildren(...[
       pair ? h('div.ty-class-row',
-        h('b', mine ? 'Next class:' : 'Next class (partner picks):'),
-        ...pair.map((id, k) => h(`button.bt-btn.ty-subject${id === chosen ? '.on' : ''}`, {
-          'data-testid': `ty-subject-${k}`, disabled: !mine, title: SUBJECT_TEXT[id]?.line, onclick: () => send('tr', ['subject', k]),
-        }, h('b', SUBJECT_TEXT[id]?.name || id), h('span.ty-dim', ` ${SUBJECT_TEXT[id]?.line || ''}`)))) : null,
+        h('b.ty-class-q', mine ? 'Next class:' : 'Next class (partner picks; tap to suggest):'),
+        ...pair.map((id, k) => h(`button.bt-btn.ty-subject${id === chosen ? '.on' : ''}${k === mySug ? '.sug' : ''}`, {
+          'data-testid': `ty-subject-${k}`, title: SUBJECT_TEXT[id]?.line,
+          'aria-pressed': mine ? String(id === chosen) : String(k === mySug),
+          onclick: () => (mine ? send('tr', ['subject', k]) : suggest(next, k)),
+        }, h('b', SUBJECT_TEXT[id]?.name || id), ...twist(id)))) : null,
+      sugg ? h('div.ty-suggest', { 'data-testid': 'ty-suggest' }, 'Your ally suggests: ', h('b', SUBJECT_TEXT[sugg]?.name || sugg)) : null,
+      mySug >= 0 && pair ? h('div.ty-suggest', { 'data-testid': 'ty-suggested' }, 'You suggested: ', h('b', SUBJECT_TEXT[pair[mySug]]?.name || pair[mySug])) : null,
       h('div.ty-class-row',
         h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
           `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`),
-        h('span.ty-dim', ` ${DARE_TEXT[dare.id] || dare.id} · +1 credit, Period Score ×1.1${t.coop ? ' · both must tap' : ''}`),
-        partner ? h('span.ty-dim', ` · Partner: ${partner.dare ? 'on' : 'off'}`) : null));
+        h('span.ty-long.ty-dim', ` ${DARE_TEXT[dare.id] || dare.id} · ${DARE_GAIN}${t.coop ? ' · both must tap' : ''}`),
+        h('span.ty-short', { 'data-testid': 'ty-dare-gain' }, `${DARE_GAIN}${t.coop ? ' · both tap' : ''}`),
+        partner ? h('span.ty-partner-dare', ` Partner: ${partner.dare ? 'on' : 'off'}`) : null),
+    ].filter(Boolean)); // (replaceChildren would print a null)
     cls.hidden = false;
   }
 
@@ -263,6 +300,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     sheet.hidden = true;
     brk.hidden = true;
     cls.hidden = true;
+    syncSheets();
   }
 
   /** Out of hearts with the Make-up Test unused (solo): replay the wave, or end the run. */
@@ -277,6 +315,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     sheet.hidden = true;
     brk.hidden = true;
     cls.hidden = true;
+    syncSheets();
   }
 
   let last = '';
@@ -291,7 +330,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       squadN = p.squad.length;
       import('../../models/index.js').then((m) => m.preloadModels(fresh, { skins: ctx.skins || {} })).catch(() => {});
     }
-    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}`;
+    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}`;
     if (sig === last) return;
     last = sig;
     paintTracker();
@@ -313,6 +352,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       return !!me().win;
     },
     destroy() {
+      offNote?.();
       el.remove();
     },
   };

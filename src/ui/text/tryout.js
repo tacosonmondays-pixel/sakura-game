@@ -40,7 +40,7 @@ export const CARD_TEXT = {
   B01: { name: 'Snack Fund', line: (m, u, r) => `+${PEP_CARDS.B01.now[r]} coins now and +${PEP_CARDS.B01.perWave[r]} at each of the next ${PEP_CARDS.B01.waves} wave clears (× this stage's coin rate)` },
   B02: { name: 'Spare Change', line: (m, u, r) => `Every foe gives +${PEP_CARDS.B02.bounty[r]} coin${PEP_CARDS.B02.bounty[r] > 1 ? 's' : ''} (the whole team)` },
   B03: { name: "Nurse's Office", line: (m, u, r) => `Heal ${PEP_CARDS.B03.heal[r]} hearts; max hearts +${PEP_CARDS.B03.maxHearts[r]}` },
-  B04: { name: 'Sunny Window', line: (m, u, r) => `Window Seats give +${pct(PEP_CARDS.B04.seatDmg[r])} damage and +${PEP_CARDS.B04.seatReach[r]} reach${PEP_CARDS.B04.seatAdd[r] ? '; one more seat' : ''} (the whole team)` },
+  B04: { name: 'Sunny Window', line: (m, u, r) => `Window Seats give +${pct(PEP_CARDS.B04.seatDmg[r])} damage${PEP_CARDS.B04.seatAdd[r] ? '; one more seat' : ''} (the whole team)` },
   B05: { name: 'Spare Pass', line: () => '+1 Hall Pass at every break from now on (the whole team)' },
   B06: { name: 'Rainy-Day Fund', line: () => 'At every period end, +10% of your unspent coins (at most 300 × the coin rate)' },
   B07: { name: 'Multiple Choice', line: () => `Every later pick shows ${3 + PEP_CARDS.B07.cards} cards and +${PEP_CARDS.B07.erasers} Eraser; Hand it in no longer pays coins` },
@@ -74,7 +74,7 @@ export const CARD_TEXT = {
   U05: { name: 'Varsity Letter', line: (m, u) => `${u || 'A squad girl'} gains Varsity (+15% damage, +10% attack speed, copies 10% cheaper); your next pick shows ${PEP_CARDS.U05.draw.nextCards} cards` },
   X01: { name: 'Hundred Points', line: (m) => `Everyone +${pct(m.damageMul)} damage, +${pct(m.rateMul)} attack speed; foes +${pct(PEP_CARDS.X01.draw.foeHp)} HP for the rest of the run` },
   X02: { name: 'Whole Class Turns Up', line: () => `Take ${PEP_CARDS.X02.girls} of ${PEP_CARDS.X02.of} girls, both with the SSR arrival package; +${PEP_CARDS.X02.squad} squad spot; your next pick is skipped` },
-  X03: { name: 'Golden Chalk', line: () => `Window Seats +${PEP_CARDS.X03.seatAdd} and the seat bonus to its cap (+50% damage, +${tiles(1)} reach); −1 Hall Pass at every later break` },
+  X03: { name: 'Golden Chalk', line: () => `Window Seats +${PEP_CARDS.X03.seatAdd} and the seat bonus to its cap (+50% damage); −1 Hall Pass at every later break` },
   X04: { name: 'Final Bell', line: () => `Last wave of every period: all girls +${pct(PEP_CARDS.X04.lastWave.rateMul)} attack speed, +${pct(PEP_CARDS.X04.lastWave.damageMul)} damage; first wave: −${pct(-PEP_CARDS.X04.firstWave.damageMul)} damage` },
 };
 
@@ -137,21 +137,24 @@ export function oddsLine(w) {
   return w.map((x, i) => (x > 0 ? `${RARITIES[i]} ${Math.round((100 * x) / tot)}` : null)).filter(Boolean).join(' · ');
 }
 
-/** The class choice's Subjects (§2.4): name and the period's twist. */
+/** The class choice's Subjects (§2.4): name, the period's twist, and `short`, the twist in one phone line. */
 export const SUBJECT_TEXT = {
-  subj_science: { name: 'Science', line: 'Poison ×1.4; heavy foes slower' },
-  subj_pe: { name: 'P.E.', line: 'In pulses: foes faster; pierce, slash and blast ×1.25' },
-  subj_music: { name: 'Music', line: 'In pulses: all damage ×1.25' },
-  subj_festival: { name: 'Festival Prep', line: 'Every 3rd wave clear: +120 coins and ult charge' },
-  subj_shop: { name: 'Shop Class', line: 'Every 4th wave clear: +150 coins; lightning ×1.2' },
-  subj_homeec: { name: 'Home Ec', line: '+3 hearts at every wave clear' },
-  subj_night: { name: 'Night Class', line: 'In pulses: holy ×1.5; spectral foes faster' },
-  subj_lit: { name: 'Literature', line: 'In pulses: holy ×1.3' },
-  subj_geo: { name: 'Geography', line: 'In pulses: slimes slower; lightning ×1.35' },
-  subj_winter: { name: 'Winter Sports', line: 'In pulses: foes ×0.7 speed, reach ×0.85' },
-  subj_history: { name: 'History', line: 'The Back Gate: even waves come in by the exit road' },
-  subj_art: { name: 'Art Class', line: '+1 Window Seat this period' },
+  subj_science: { name: 'Science', line: 'Poison ×1.4; heavy foes slower', short: 'Poison ×1.4; heavy foes slower' },
+  subj_pe: { name: 'P.E.', line: 'In pulses: foes faster; pierce, slash and blast ×1.25', short: 'Pulses: fast foes; pierce/slash/blast ×1.25' },
+  subj_music: { name: 'Music', line: 'In pulses: all damage ×1.25', short: 'Pulses: all damage ×1.25' },
+  subj_festival: { name: 'Festival Prep', line: 'Every 3rd wave clear: +120 coins and ult charge', short: 'Every 3rd clear: +120 coins, ult' },
+  subj_shop: { name: 'Shop Class', line: 'Every 4th wave clear: +150 coins; lightning ×1.2', short: 'Every 4th clear: +150 coins; lightning ×1.2' },
+  subj_homeec: { name: 'Home Ec', line: '+3 hearts at every wave clear', short: '+3 hearts every wave clear' },
+  subj_night: { name: 'Night Class', line: 'In pulses: holy ×1.5; spectral foes faster', short: 'Pulses: holy ×1.5; spirits faster' },
+  subj_lit: { name: 'Literature', line: 'In pulses: holy ×1.3', short: 'Pulses: holy ×1.3' },
+  subj_geo: { name: 'Geography', line: 'In pulses: slimes slower; lightning ×1.35', short: 'Pulses: slimes slower; lightning ×1.35' },
+  subj_winter: { name: 'Winter Sports', line: 'In pulses: foes ×0.7 speed, reach ×0.85', short: 'Pulses: foes ×0.7 speed, reach ×0.85' },
+  subj_history: { name: 'History', line: 'The Back Gate: even waves come in by the exit road', short: 'Back Gate: even waves by the exit road' },
+  subj_art: { name: 'Art Class', line: '+1 Window Seat this period', short: '+1 Window Seat this period' },
 };
+
+/** Double Dare's reward, in one phone line. */
+export const DARE_GAIN = '+1 credit, Period Score ×1.1';
 
 /** Double Dare curses, short (the toggle's label). */
 export const DARE_SHORT = { swift: 'swift foes', regen: 'regenerating foes', armored: 'armoured foes', shielded: 'shielded foes' };

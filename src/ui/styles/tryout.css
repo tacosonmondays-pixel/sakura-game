@@ -9,7 +9,11 @@
   background: rgba(255, 255, 255, 0.92); border-radius: 8px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(29, 78, 137, 0.18);
   color: var(--navy); font-size: 12px; line-height: 1.35; pointer-events: auto;
 }
-.ty-head { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ty-head { font-size: 13px; }
+.ty-head > * { white-space: nowrap; }
+.ty-head-subj { font-weight: 800; }
+/* a sheet (pick, Make-up Test, Class Photo) hides the tracker (tryout.js syncSheets) */
+.ty-tracker[hidden] { display: none; }
 .ty-score { font-variant-numeric: tabular-nums; }
 .ty-chips { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
 .ty-chip { display: flex; gap: 5px; align-items: baseline; white-space: nowrap; overflow: hidden; }
@@ -68,8 +72,15 @@
 .ty-class-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .ty-subject, .ty-dare { font-size: 12px; padding: 3px 8px; text-align: left; }
 .ty-subject.on, .ty-dare.on { outline: 2px solid var(--navy); background: #ffe9b8; }
-.ty-paths { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
-.ty-path { font-size: 12px; padding: 2px 6px; }
+/* co-op: the Subject I suggested to the chooser (a room note, not a choice) */
+.ty-subject.sug { outline: 2px dashed var(--navy); }
+.ty-suggest { font-size: 12px; font-weight: 700; color: #33406b; }
+.ty-partner-dare { color: #5a6280; font-weight: 600; }
+/* the phone lines (short twist, Dare reward) show only on small screens; the long ones elsewhere */
+.ty-short { display: none; }
+/* a girl card's path buttons: one row, wrapping only when they do not fit */
+.ty-paths { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; width: 100%; }
+.ty-paths .ty-path { font-size: 12px; padding: 2px 6px; min-height: 28px; white-space: nowrap; }
 .ty-break-title { font-size: 14px; }
 .ty-break-hint { font-size: 12px; color: #4a5578; margin-top: 2px; }
 
@@ -86,10 +97,28 @@
 
 @media (max-width: 700px), (max-height: 430px) {
   .ty-tracker { max-width: 44vw; padding: 4px 6px; }
-  .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 12px; }
-  .ty-class .ty-dim { display: none; }
+  .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 12px; gap: 3px; }
+  /* touch screens have no tooltips: each Subject shows its twist in one short line under its name, and the
+     Dare its reward (the long lines stay on bigger screens) */
+  .ty-class .ty-long { display: none; }
+  .ty-class .ty-short { display: inline; color: #33406b; font-weight: 600; }
+  .ty-class-q { flex: 1 0 100%; }
+  .ty-class .ty-subject { flex: 1 1 100%; min-width: 0; padding: 2px 8px; display: flex; flex-direction: column; align-items: flex-start; }
+  .ty-class .ty-subject .ty-short { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ty-class .ty-subject, .ty-class .ty-dare { min-height: 30px; }
+  .ty-class .ty-dare { padding: 2px 8px; }
   .ty-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .ty-card { min-height: 0; padding: 6px; }
+  .ty-card { min-height: 0; padding: 6px; gap: 2px; }
+  .ty-paths .ty-path { padding: 2px 5px; }
+  /* a girl card on a phone: her portrait beside the slot, name and role, the rest full width, so the path
+     buttons, Eraser and Hand it in stay above the fold at 844 x 390 */
+  .ty-card.ty-girl { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 6px; row-gap: 2px; align-content: start; }
+  .ty-card.ty-girl > * { grid-column: 1 / -1; }
+  .ty-card.ty-girl > .ty-card-art { grid-column: 1; grid-row: 1 / span 3; }
+  .ty-card.ty-girl > .ty-slot { grid-column: 2; grid-row: 1; }
+  .ty-card.ty-girl > .ty-card-name { grid-column: 2; grid-row: 2; }
+  .ty-card.ty-girl > .ty-card-name + .ty-card-line { grid-column: 2; grid-row: 3; }
+  .ty-actions .bt-btn, .ty-actions .bt-cta { min-height: 36px; padding: 6px 12px; }
   .ty-card-art { width: 40px; height: 40px; }
   .ty-sheet { padding: 8px 10px; }
   .ty-sheet-title { font-size: 16px; }

@@ -7,6 +7,7 @@ import { h, icon } from './util.js';
 import { svgEl } from '../components.js';
 import { MODE_TEXT, modeText, ironcladArmor } from '../text/modes.js';
 import { RULE_TEXT, AFFINITY_NAMES, PAST_GOAL_LINE } from '../text/rules.js';
+import { SUBJECT_TEXT } from '../text/tryout.js';
 import { ruleIcon, ruleColor, elementIcon, attackTypeIcon } from '../../art/icons.js';
 import { ATTACK_TYPES, ELEMENTS } from '../../data/types.js';
 import { capabilitySources } from '../../sim/report.js';
@@ -104,8 +105,12 @@ export function createModesBattle(ctx) {
   const { sim } = ctx;
   const mode = sim.mode?.id || 'standard';
   const mt = MODE_TEXT[mode];
-  const ruleId = sim.rule?.id || null;
-  const rt = ruleId ? RULE_TEXT[ruleId] : null;
+  // the rule can change mid-battle: Tryout Day installs each period's Subject rule (src/sim/tryout/index.js
+  // installRule), so the pill follows sim.rule.id (syncRule, a cheap check in update)
+  let ruleId = sim.rule?.id || null;
+  let rt = ruleId ? RULE_TEXT[ruleId] : null;
+  /** The pill's name: in a Tryout Day period, its Subject (Science), else the rule's. */
+  const ruleName = () => (sim.tryout?.subject && SUBJECT_TEXT[sim.tryout.subject]?.name) || rt?.name || '';
 
   const chip = mode !== 'standard'
     ? h(`span.bt-mode.bt-mode-${mode}`, { 'data-testid': 'hud-mode', title: mt.name }, mt.short)
@@ -113,20 +118,45 @@ export function createModesBattle(ctx) {
   if (chip) chip.style.setProperty('--mode', mt.color);
 
   let pop = null;
-  const pillIcon = rt ? svgEl(ruleIcon(ruleId), 'bt-rule-ico') : null;
-  const pillName = h('span.bt-rule-name', rt?.name || '');
+  const pillRing = h('span.bt-rule-ring');
+  const pillName = h('span.bt-rule-name');
   const pillState = h('span.bt-rule-state');
-  const pill = rt
-    ? h('button.bt-rule', { type: 'button', 'data-testid': 'rule-pill', title: `Map rule: ${rt.name}`, onclick: () => togglePop() }, h('span.bt-rule-ring', pillIcon), pillName, pillState)
+  // a Tryout Day run always has the pill (hidden while its rule has no text: P1, Art Class)
+  const pill = rt || sim.tryout
+    ? h('button.bt-rule', { type: 'button', 'data-testid': 'rule-pill', onclick: () => togglePop() }, pillRing, pillName, pillState)
     : null;
-  if (pill) pill.style.setProperty('--rule', ruleColor(ruleId));
+  let pillKey = null;
+  /** The pill for the rule in place now (and a closed popover when there is none). */
+  function syncRule() {
+    const id = sim.rule?.id || null;
+    const key = `${id}:${sim.tryout?.subject || ''}`;
+    if (key === pillKey) return false;
+    pillKey = key;
+    if (ctx.shell && ruleId && ctx.shell.dataset.ruleOn === ruleId) delete ctx.shell.dataset.ruleOn;
+    ruleId = id;
+    rt = id ? RULE_TEXT[id] || null : null;
+    last = { active: null, s: null, inWave: null, wave: null };
+    if (!pill) return true;
+    pill.hidden = !rt;
+    if (!rt) {
+      togglePop(false);
+      return true;
+    }
+    pillRing.replaceChildren(svgEl(ruleIcon(ruleId), 'bt-rule-ico'));
+    pillName.textContent = ruleName();
+    pill.title = ruleName() === rt.name ? `Map rule: ${rt.name}` : `Class rule: ${ruleName()} (${rt.name})`;
+    pill.style.setProperty('--rule', ruleColor(ruleId));
+    pill.classList.remove('on', 'always');
+    return true;
+  }
 
   let flips = 0;
   let last = { active: null, s: null, inWave: null, wave: null };
+  syncRule();
 
   function togglePop(force) {
     const open = force ?? !pop;
-    if (!open) {
+    if (!open || !rt) {
       pop?.remove();
       pop = null;
       return;
@@ -152,7 +182,7 @@ export function createModesBattle(ctx) {
     if (info.pads.length) lines.push(h('div.bt-rule-line', 'Pads: ', h('b', `${info.pads.filter((p) => p.ownerUid != null).length} of ${info.pads.length}`), ' taken'));
     if (info.pastGoal) lines.push(h('div.bt-rule-line.muted', PAST_GOAL_LINE));
     pop.replaceChildren(
-      h('div.bt-pop-head', h('span.bt-pop-title', svgEl(ruleIcon(ruleId), 'bt-rule-pop-ico'), rt.name), h('button.bt-x', { onclick: () => togglePop(false), title: 'Close' }, '×')),
+      h('div.bt-pop-head', h('span.bt-pop-title', svgEl(ruleIcon(ruleId), 'bt-rule-pop-ico'), ruleName() === rt.name ? rt.name : `${ruleName()} · ${rt.name}`), h('button.bt-x', { onclick: () => togglePop(false), title: 'Close' }, '×')),
       h('p.bt-rule-desc', rt.desc),
       h(`div.bt-rule-now${info.active && info.inWave && info.cycle ? '.on' : ''}`, stateSentence(info, rt)),
       ...lines,
@@ -174,6 +204,8 @@ export function createModesBattle(ctx) {
       ctx.renderer?.setRouteFlipped?.(!!sim.routeFlippedFor?.(next), !!sim.routeReversedFor?.(next));
     }
     if (!pill) return;
+    syncRule();
+    if (!rt) return;
     const info = sim.ruleInfo();
     const s = info.cycle ? Math.ceil(info.secondsToFlip - 1e-6) : 0;
     const on = !!(info.active && info.inWave && info.cycle);
@@ -198,6 +230,7 @@ export function createModesBattle(ctx) {
   /** Toasts and banners for the sim's rule events. */
   function handle(ev) {
     const feed = ctx.feed;
+    syncRule();
     if (!feed || !rt) return;
     switch (ev.type) {
       case 'ruleState':

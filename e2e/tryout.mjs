@@ -1,8 +1,10 @@
 // Tryout Day e2e (docs/specs/TRYOUT_DAY.md, M1 plain UI): plays the real game in a browser.
 //   1. locked before 2-5; the hub opens once 2-5 is cleared; Before Class: 2 maps, a hero, 6 girls, pick 3, Redraw
 //   2. Start class → the battle: the tracker under the HUD, the hero and squad cards
-//   3. waves played (the Sim stepped from the page) to the first pick: the Tryout pick sheet; take a girl → her card
-//      joins the bar; the next wave waits while a pick is open
+//   3. waves played (the Sim stepped from the page) to the first pick: the Tryout pick sheet (the tracker steps
+//      aside; Eraser and Hand-in above the fold); take a girl → her card joins the bar; the next wave waits while a
+//      pick is open. Between periods the class bar shows each Subject's twist (a short line on phones) and the
+//      Dare's reward; once the period runs, the tracker head and the rule pill name its Subject
 //   4. to Recess: the break bar, the next block's seats; a Hall Pass move and Undo; Back to class
 //   5. a reload mid-break continues the same run at the same break (the run's own save slot)
 //   6. a reload mid-wave: the hub's Continue says it uses the Make-up Test; Continue voids that period
@@ -111,6 +113,14 @@ for (const [W, H] of viewports) {
   await page.waitForSelector('[data-testid="ty-pick"]:not([hidden])', { timeout: 5000 }).catch(() => {});
   check(await page.locator('[data-testid="ty-pick"]').isVisible(), 'pick sheet shows');
   check(await page.locator('[data-testid^="ty-card-"]').count() === 3, 'three cards');
+  check(!(await page.locator('[data-testid="ty-tracker"]').isVisible()), 'the tracker steps aside while the pick sheet shows');
+  const fold = await page.evaluate(() => {
+    const r = (q) => document.querySelector(q)?.getBoundingClientRect();
+    const sheet = r('[data-testid="ty-pick"] .ty-sheet');
+    const low = ['[data-testid="ty-erase"]', '[data-testid="ty-hand"]', '[data-testid^="ty-path-"]'].map(r).filter(Boolean);
+    return { ok: !!sheet && low.every((b) => b.bottom <= Math.min(window.innerHeight, sheet.bottom) + 1), bottoms: low.map((b) => Math.round(b.bottom)), sheet: sheet && Math.round(sheet.bottom), h: window.innerHeight };
+  });
+  check(fold.ok, `Eraser, Hand it in and the path buttons are above the fold (${JSON.stringify(fold)})`);
   await shot('ty-pick');
   const waited = await page.evaluate(() => !window.__battle.sim.startNextWave());
   check(waited, 'the next wave waits while the pick is open');
@@ -122,6 +132,15 @@ for (const [W, H] of viewports) {
   // 3b. between periods: the class choice and Double Dare
   await page.waitForSelector('[data-testid="ty-class"]:not([hidden])', { timeout: 30000 }).catch(() => {});
   check(await page.locator('[data-testid^="ty-subject-"]').count() === 2, 'the class choice shows two Subjects');
+  const bar = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="ty-class"]');
+    const vis = (q) => { const e = el.querySelector(q); return !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; };
+    const twist = [...el.querySelectorAll('[data-testid^="ty-subject-"]')].every((b) => [...b.querySelectorAll('.ty-short, .ty-long')].some((t) => t.getClientRects().length && t.textContent.trim()));
+    return { w: Math.round(el.getBoundingClientRect().width), vw: window.innerWidth, twist, gain: vis('[data-testid="ty-dare-gain"]') || vis('.ty-dare ~ .ty-long') };
+  });
+  check(bar.twist && bar.gain, `each Subject shows its twist and the Dare its reward (${JSON.stringify(bar)})`);
+  check(bar.w <= bar.vw * 0.5 + 2, `the class bar stays within half the screen (${bar.w}px of ${bar.vw})`);
+  const subjName = (await page.locator('[data-testid="ty-subject-1"] b').textContent()).trim();
   await page.click('[data-testid="ty-subject-1"]');
   await page.click('[data-testid="ty-dare"]');
   await page.waitForTimeout(200);
@@ -129,6 +148,21 @@ for (const [W, H] of viewports) {
   check(cls.next === cls.pair[1] && cls.dare === true, `a Subject and the Dare are chosen (${JSON.stringify(cls)})`);
   await shot('ty-class');
   await page.click('[data-testid="ty-dare"]'); // (off again: the rest of the run plays without the curse)
+  // the period starts: its Subject is named in the tracker head (and on the rule pill when it has a map rule)
+  await page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    ui.startWave();
+    for (let i = 0; i < 30 && sim.state === 'wave'; i++) sim.update(1 / 60);
+  });
+  const headSubj = await page.waitForFunction(() => document.querySelector('[data-testid="ty-head-subject"]')?.textContent, null, { timeout: 10000, polling: 100 })
+    .then((x) => x.jsonValue()).catch(() => '');
+  check(headSubj.includes(subjName), `the tracker head names the period's Subject (${JSON.stringify(headSubj)} vs ${subjName})`);
+  const pill = await page.evaluate(() => {
+    const p = document.querySelector('[data-testid="rule-pill"]');
+    return { rule: window.__battle.sim.rule?.id, shown: !!p && !p.hidden && p.getClientRects().length > 0, text: p?.textContent || '' };
+  });
+  check(pill.rule === 'tryout' ? !pill.shown : pill.shown && pill.text.includes(subjName), `the rule pill follows the period's Subject (${JSON.stringify(pill)})`);
+  await shot('ty-period');
 
   // 4. to Recess
   for (let k = 0; k < 3; k++) {
@@ -176,6 +210,7 @@ for (const [W, H] of viewports) {
   });
   const mk = await page.waitForSelector('[data-testid="ty-makeup"]', { timeout: 30000 }).then(() => true).catch(() => false);
   check(mk, 'the Make-up Test sheet shows at 0 hearts');
+  check(!(await page.locator('[data-testid="ty-tracker"]').isVisible()), 'the tracker steps aside for the Make-up sheet');
   await shot('ty-makeup');
   const wave0 = await page.evaluate(() => window.__battle.sim.wave);
   await page.click('[data-testid="ty-makeup-go"]');

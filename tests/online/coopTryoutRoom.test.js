@@ -3,7 +3,7 @@
 // rides in room / hello like freeplay, a changed run takes the guest's Ready back, each player's draft,
 // pool and run hero ride in hello / ready, and the start message both clients build the run from.
 import { describe, it, expect } from 'vitest';
-import { openSession, LOBBY, tryoutSetting, sameTryout, draftReady } from '../../src/online/coop/session.js';
+import { openSession, LOBBY, tryoutSetting, sameTryout, draftReady, roomNote } from '../../src/online/coop/session.js';
 import { clampStart, clampPlayer, clampPool, clampDraft, clampTryout, LOADOUT_MAX } from '../../src/online/coop/statLimits.js';
 import { TRYOUT_STUDENTS } from '../../src/data/tryout.js';
 import { createProfile } from '../../src/systems/save.js';
@@ -378,3 +378,48 @@ describe('the room\'s Tryout Day setting', () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------------------------
+// The Subject suggestion (§11): a room note outside lockstep
+// ---------------------------------------------------------------------------------------------
+describe('room notes: the partner\'s Subject suggestion', () => {
+  it('roomNote keeps only known kinds and their fields', () => {
+    expect(roomNote({ kind: 'subject', period: 3, k: 1, extra: 'x' })).toEqual({ kind: 'subject', period: 3, k: 1 });
+    expect(roomNote({ kind: 'subject', period: 3, k: 2 })).toBe(null);
+    expect(roomNote({ kind: 'subject', period: 0, k: 0 })).toBe(null);
+    expect(roomNote({ kind: 'subject', period: 2.5, k: 0 })).toBe(null);
+    expect(roomNote({ kind: 'toString', period: 2, k: 0 })).toBe(null);
+    expect(roomNote(null)).toBe(null);
+    expect(roomNote('subject')).toBe(null);
+  });
+
+  it('goes to the ally during the battle as a room message, never as a lockstep command', () => {
+    const W = world();
+    const { host, guest } = paired(W);
+    // in the lobby there is nothing to suggest: nothing is sent
+    expect(guest.sendNote({ kind: 'subject', period: 2, k: 1 })).toBe(false);
+    expect(guest.room.log.some((e) => e.msg.type === 'note')).toBe(false);
+    guest.setReady(true);
+    expect(W.until(() => host.canStart, 3000)).not.toBe(null);
+    expect(host.startBattle(7)).toBe(true);
+    expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
+    const got = [];
+    host.on('note', (n) => got.push(n));
+    const before = { host: [...host.lockstep.pending.values()].flat().length, guest: [...guest.lockstep.pending.values()].flat().length };
+    expect(guest.sendNote({ kind: 'subject', period: 2, k: 1 })).toBe(true);
+    expect(guest.sendNote({ kind: 'subject', period: 2, k: 5 })).toBe(false); // not a note
+    W.step(500);
+    expect(got).toEqual([{ kind: 'subject', period: 2, k: 1 }]);
+    expect(lastMsg(guest, 'note')).toEqual({ type: 'note', uid: GUEST, note: { kind: 'subject', period: 2, k: 1 } });
+    // outside lockstep: no command queued on either side
+    expect([...host.lockstep.pending.values()].flat().length).toBe(before.host);
+    expect([...guest.lockstep.pending.values()].flat().length).toBe(before.guest);
+    // a note claiming another player, or a junk note, is dropped
+    host.room.handlers.onMessage({ type: 'note', uid: 'someone-else', note: { kind: 'subject', period: 2, k: 0 } }, 'someone-else');
+    host.room.handlers.onMessage({ type: 'note', uid: GUEST, note: { kind: 'subject', period: 2, k: 0 } }, 'someone-else');
+    host.room.handlers.onMessage({ type: 'note', uid: GUEST, note: { kind: 'subject', period: 'x', k: 0 } }, GUEST);
+    expect(got).toHaveLength(1);
+    host.close();
+    guest.close();
+  });
+});
