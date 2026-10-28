@@ -5,8 +5,8 @@
 //                T3 Iron Ring: the heat ring (drawn from the sim in src/render/actors.js) carries a
 //                crown of embers riding its edge out to her range; T5 Molten Hem: two crowns, and
 //                the sparks a finished walker throws fly as embers
-//   P1 Spinning Bobbin: T3+ the pins become tiny spinning cross blades (ice-white at T4, gold at T5);
-//                Blade Spiral's blades too
+//   P1 Spinning Bobbin: T3+ Thread Cutter: the pins (the sim keeps them 'needle' shots) are drawn as
+//                tiny spinning cross blades (ice-white at T4, gold at T5); Blade Spiral's blades too
 //   P2 Pin Cushion: more pins (the burst gets more spokes); T4+ each orbiting pair of scissors
 //                flashes two crossing blades and a glint where the sim has it
 import { lookAt } from '../flair.js';
@@ -84,7 +84,7 @@ export const kinu = {
       ctx.quad(B, DECOR, v.x, v.z, v.y, 0.16, 0.16, ctx.R.glow, ctx.col(HOT), 0.7);
       return;
     }
-    if (p.kind === 'blade') {
+    if (p.kind === 'blade' || (p.kind === 'needle' && lookAt(lk, 1) >= 3)) {
       // a tiny spinning cross blade: two crossing bright edges turning round its flight
       const c = ctx.col(bladeHex(lk));
       const a = (ctx.reduceMotion ? 0 : ctx.time * 22) + rec.uid;
@@ -117,7 +117,7 @@ export const kinu = {
       flash(ctx, x, 0.3, y, 0.3, ctx.col(EMBER), 0.08);
       return;
     }
-    if (rec.kind === 'blade') {
+    if (rec.kind === 'blade' || (lk && lookAt(lk, 1) >= 3)) {
       const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, x, 0.4, y, 0.35, 0.5, 0.12, ctx.col(lk ? bladeHex(lk) : SILVER), 1);
       if (p) {
         p.asp = 2;

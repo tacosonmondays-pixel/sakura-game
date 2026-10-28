@@ -106,7 +106,8 @@ export const azami = {
     stripDir(ev.uid, DIR);
     const steel = ctx.col(extra ? THISTLE : STEEL);
     const hot = lookAt(lk, 0) >= 4;
-    spikes(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.6, ctx.q.trails > 0 ? 5 : 3, 0.32, hot ? ctx.col(HOT) : steel, 0.18);
+    spikes(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.62, ctx.q.trails > 0 ? 5 : 3, 0.45, hot ? ctx.col(HOT) : steel, 0.2);
+    groundStreak(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.8, 0.12, steel, 0.16, 0.7, DECOR);
     if (ctx.cap('impact')) {
       sparks(ctx, ev.x, 0.2, ev.y, 3, steel, 1.5);
       flash(ctx, ev.x, 0.15, ev.y, 0.35, col, 0.08, DECOR);

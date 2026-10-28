@@ -59,7 +59,7 @@ export function spikes(ctx, x, y, ux, uy, span, n, len, c, life = 0.2, cls = COR
     const k = n > 1 ? i / (n - 1) - 0.5 : 0;
     const px = x + ux * span * k;
     const py = y + uy * span * k;
-    const p = streak(ctx, i === 0 ? CORE : cls, px, 0.08 + len * 0.5, py, 0, 1, 0, len, 0.05, life, c, 1);
+    const p = streak(ctx, i === 0 ? CORE : cls, px, 0.08 + len * 0.5, py, 0, 1, 0, len, 0.065, life, c, 1);
     if (p) p.delay = 0.015 * i;
   }
 }
