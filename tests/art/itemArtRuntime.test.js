@@ -194,7 +194,7 @@ describe('display only: the battle sim is untouched', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
     // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START;
     // 11: the banners release: the duo Kohaku & Tsubaki, LR Limit Break, UR Resonance, the staff heroes, Kohaku's constant beam)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: 'c2b505576e84' };
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '54840732b1f9' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

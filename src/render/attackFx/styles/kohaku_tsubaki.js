@@ -13,9 +13,10 @@
 import { genericAttack } from './generic.js';
 import { CORE } from '../context.js';
 import { prismRamp } from '../../../sim/duo.js';
-import { DUO_SPREAD } from '../../../models/duo.js';
+import { DUO_LAYOUT } from '../../../models/duo.js';
 
 const MAX_BEAMS = 6;
+const KOHAKU = DUO_LAYOUT.kohaku;
 const FADE_IN = 0.08; // game seconds
 const FADE_OUT = 0.15;
 const SWELL_HZ = 1.1;
@@ -61,12 +62,12 @@ export const kohaku_tsubaki = {
     if (!v) return;
     const m = v.model.position;
     const sc = v.model.scale?.x ?? (v.scale || 1.22);
-    // her prism: the model's lens anchor when it has one (the duo's GLB models: a world-space point, read and copied),
-    // else Kohaku's spot on the left of the pair (src/models/duo.js keeps the pair across the screen)
+    // her prism: the model's lens anchor when it has one (a world-space point, read and copied), else Kohaku's spot
+    // on the base (src/models/duo.js DUO_LAYOUT: the pair keeps its layout across the screen as the figure turns)
     const lens = v.model.userData?.anchors?.lens;
-    const px = lens ? lens.x : m.x - DUO_SPREAD * sc;
+    const px = lens ? lens.x : m.x + KOHAKU.x * sc;
     const ph = lens ? lens.y : m.y + 0.5 * sc;
-    const pz = lens ? lens.z : m.z;
+    const pz = lens ? lens.z : m.z + KOHAKU.z * sc;
     const many = spec.projectiles >= 3;
     const swellT = ctx.time * SWELL_HZ * Math.PI * 2;
     const tick = t.beamTickSpec;

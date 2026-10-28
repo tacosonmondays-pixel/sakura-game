@@ -90,7 +90,7 @@ export function buildPartnerSpec(t) {
  * returns before both, and a sabotage lets go of her beams, partnerOff). Every PRISM_BEAM_TICK steps while
  * she has a target: one damage tick of her constant beam (prismBeam), with t.eff swapped to the partner spec.
  * A step with no target keeps the timer at 0 (her beam comes on the moment one comes into reach).
- * `h`: the targeting helpers of src/sim/towers.js ({ selectTargets, linePierce, face }).
+ * `h`: the targeting helpers of src/sim/towers.js ({ selectTargetsInto, linePierceInto, face }).
  */
 export function partnerTick(sim, t, h) {
   const spec = t.beamSpec;
@@ -127,10 +127,16 @@ export function prismRamp(spec, tick, held) {
   return ramp ? 1 + Math.min(ramp.per * held * tick.share, ramp.max) : 1;
 }
 
+// Scratch arrays of the damage tick (filled and read inside one synchronous prismBeam call, never across steps:
+// nothing to save): a tick allocates nothing but its hit events.
+const TARGETS = [];
+const HITS = [];
+const NEAR = [];
+
 /** One damage tick of her constant beam. @returns {boolean} whether she had a target */
 function prismBeam(sim, t, spec, h) {
   const n = spec.projectiles;
-  const targets = h.selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n);
+  const targets = h.selectTargetsInto(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n, TARGETS);
   if (!targets.length) {
     partnerOff(t);
     return false;
@@ -173,7 +179,7 @@ function prismBeam(sim, t, spec, h) {
     if (!e || e.dead) continue; // (an earlier beam's tick finished it: the next tick lets go)
     const scale = prismRamp(spec, tick, b.held);
     const silence = sil > 0 && (b.held * PRISM_BEAM_TICK) % PRISM_SILENCE_TICKS === 0;
-    const { hits } = h.linePierce(sim, t, tick, e, spec.range, BEAM_HALF_WIDTH, spec.pierce);
+    const hits = h.linePierceInto(sim, t, tick, e, spec.range, BEAM_HALF_WIDTH, spec.pierce, HITS, NEAR);
     for (let j = 0; j < hits.length; j++) {
       const v = hits[j];
       if (v.dead) continue;
@@ -193,6 +199,9 @@ function prismBeam(sim, t, spec, h) {
     }
   }
   if (locked) sim._emit('attack', { towerUid: t.uid, targetUid: locked.uid, kind: 'beam' });
+  TARGETS.length = 0;
+  HITS.length = 0;
+  NEAR.length = 0;
   return true;
 }
 

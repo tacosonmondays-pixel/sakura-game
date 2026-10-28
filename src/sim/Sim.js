@@ -379,9 +379,10 @@ export class Sim {
   // Events / ids / cash
   // -------------------------------------------------------------------------
 
+  /** Queues an event. A payload built for it that already carries this `type` first (a hit) is queued as is, uncopied. */
   _emit(type, payload) {
     if (this.events.length >= MAX_EVENT_BACKLOG) this.events.splice(0, this.events.length >> 1);
-    this.events.push({ type, ...payload });
+    this.events.push(payload.type === type ? payload : { type, ...payload });
   }
 
   /** Returns and clears every event since the last call. */
@@ -507,13 +508,14 @@ export class Sim {
     e.flash = 1;
     e.lastDamageAt = this.time;
     // (`tick`: a constant beam's damage tick, src/sim/duo.js: the display sums those instead of popping each)
+    // (one object per hit event: built with its type, so _emit queues it uncopied)
     if (spec.tick) {
       this._emit('hit', {
-        uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
       });
     } else {
       this._emit('hit', {
-        uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
       });
     }
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });

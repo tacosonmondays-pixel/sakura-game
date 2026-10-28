@@ -44,7 +44,7 @@ const KOHAKU_TSUBAKI = {
   quote: 'You mark the spot, I\'ll bend the light. Starfall!',
   tips: [
     'Tsubaki\'s shells reach the whole map but only hit the ground; Kohaku\'s constant beam guards the sky close to them.',
-    'Kohaku\'s beam stays on while an enemy is in reach and pierces everything behind it: line it up along a straight.',
+    'Kohaku\'s beam stays on while an enemy is in reach and pierces the enemies lined up behind it: line it up along a straight.',
     'Every 4th shell splits into shards of light that hit flyers too: give them an aim point where the road bunches up.',
     '⚡ Refraction tier 3 teaches Prismfall: a barrage of split shells on her aim point, or on the densest crowd anywhere.',
   ],
