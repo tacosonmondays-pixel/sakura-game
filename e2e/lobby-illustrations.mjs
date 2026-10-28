@@ -455,6 +455,27 @@ async function sizePass(size, { now, full = true }) {
     }
     if (!full) return;
 
+    // ---- two quick picks, the first picture slower: the home ends on the second (artStage.js show token) ----
+    if (size === '844x390') {
+      await secretary(page, 'marumi', 'marumi-scene'); // (her picture in the cache)
+      await secretary(page, 'hikari', null);
+      await page.route(/lobby\/hikari(-home)?\.webp/, async (r) => { await new Promise((ok) => setTimeout(ok, 1200)); await r.continue(); });
+      await page.evaluate(async () => {
+        const { store } = window.__sakura;
+        const { chooseBackground } = await import('/src/data/lobbyArt.js');
+        const p = store.profile;
+        chooseBackground(p, 'hikari-rampart');
+        store.commit('lobby-bg');
+        await new Promise((ok) => setTimeout(ok, 150));
+        chooseBackground(p, 'marumi-scene');
+        store.commit('lobby-bg');
+      });
+      await page.waitForTimeout(2200);
+      const race = await page.evaluate(() => ({ bg: [...document.querySelectorAll('#app .home-scene-layer')].map((l) => l.dataset.bg), who: window.__sakura.home.current(), sec: window.__sakura.store.profile.secretary }));
+      check(race.bg.length === 1 && race.bg[0] === 'marumi-scene' && race.who === 'marumi' && race.sec === 'marumi', `${size} two quick picks (the first picture 1.2 s slower): the home ends on the second (${JSON.stringify(race)})`);
+      await page.unroute(/lobby\/hikari(-home)?\.webp/);
+    }
+
     // ---- taps on a full illustration: hearts, never a bubble (with motion allowed: the old stage drew no hearts under
     // Reduce motion, so the home is drawn again under the system's no-preference for these taps) ----
     await setMotion(page, true);

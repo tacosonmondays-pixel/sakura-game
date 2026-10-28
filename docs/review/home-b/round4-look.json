@@ -1,0 +1,57 @@
+{
+  "review": "home layout B 'Quiet Home', round 4 (one-time, narrow), LOOK lens (independent reviewer)",
+  "branch": "concept/home-b",
+  "commit": "716b428",
+  "verdict": "OK",
+  "summary": "R3-B1 is fixed and nothing else moved. On the 768x1024 upright tablet, Kinu's Sewing Club and Marumi's Strike Lane still move the chip down (.news-down), and lowerNews now sets --dock-h to the dock's measured height (156px when it folds 2x2). The chip now sits at 24,768 320x56. That is exactly 20 px above the top row of icons (dock top 844), 100 px left of the CO-OP tab (x 444) and the plate, and 436-457 px below her face core. The FREE sticker on RECRUIT (top about y 843) is clear of the chip's lower edge too. elementFromPoint at the centre of every home control returns that control: 14 of 14 on every picture at every size, 60 cases. The chip-down layout reads balanced. The chip and the CO-OP tab form one band above the dock and the plate: tops 768 and 772 for a one-line chip, 756 and 772 for a two-line one. The 2x2 icons sit below the chip, and her face and body are untouched above. When the chip turns to a two-line page (Daily gift, Weekly bosses) it grows upward to 756-824, with the gap to the icons still 20 px. A box-by-box compare with round 3's metrics (chip, dock, plate, CO-OP, top bar, picture box, face placement) is identical for all 12 views (default stand plus 11 full illustrations) at 360x800, 390x844 and 768x1024. The only differences are the chip on 768x1024 kinu-scene and marumi-scene (y 844 to 768). At 844x390 and 1280x720 news-down never fires, and the full illustrations match round 3's look. node e2e/lobby-illustrations.mjs --sizes 768x1024,360x800,390x844,844x390,1280x720 --tap-sizes none: PASS, 939 checks, 0 FAIL, including 58 'takes a tap at its centre' checks (the new per-illustration check among them). No page errors. The bond hint copy change (R3-L2) is in: the tooltip now reads 'raised by time together and gifts in the City'.",
+  "environment_note": "4 CPUs, other agents running. Headless Playwright Chromium 153 (SwiftShader), loaded from /opt/node22/lib/node_modules/playwright via PLAYWRIGHT_MODULE, through e2e/browser.mjs launchChromium(). Dev server npx vite --port 5297 --strictPort; the e2e script started its own server. Seeded as e2e/lobby-illustrations.mjs does: seedInkSave plus Yoriko and the seven academy girls granted in the page, Reduce Motion, event clock 2026-10-24T18:00Z, page clock INK_NOW. Each picture was chosen through chooseBackground + store.commit('lobby-bg'), then measured after .news-wait cleared.",
+  "evidence_dirs": {
+    "full": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look4/full/ (<id>-<size>.png for default + 11 pictures at 768x1024, 360x800, 390x844, 844x390, 1280x720; metrics-<size>.json with chip, dock, icons, plate, CO-OP, face core, and every control's elementFromPoint hit; summary-<size>.txt)",
+    "extra": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look4/extra/ (kinu/marumi-768-page1..4.png: the news pages on the chip-down layout, one and two lines; resize-kinu-<size>.png: 768x1024 > 1024x768 > 768x1024 > 820x1180 > 744x1133 > 810x1080 > 834x1112 > 768x1024)",
+    "zooms": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look4/zoom/ (kinu-scene-768-chip-dock.png, marumi-scene-768-chip-dock.png, kinu-768-chip-dock-r3.png for the round-3 'before', kinu-768-twoline-chip-dock.png, kinu-834-resize-chip-dock.png, sheet-360/390/768/844/1280.png)",
+    "e2e": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look4/e2e.log and e2e/ (the script's own screenshots)"
+  },
+  "findings": [
+    {
+      "id": "R4-L1",
+      "severity": "low",
+      "title": "(predates, not from 716b428) A two-line news page leaves a one-word orphan: 'Claim your login gift: day' / '1'",
+      "detail": "Seen on the chip-down layout at 768x1024 (kinu-768-page2, marumi-768-page1). It also shows wherever the 320 px chip turns to the Daily gift page. The chip itself is correctly placed and clear. This is only copy fit. Optional: shorten it to 'Claim day 1's login gift', or keep 'day N' together with a non-breaking space.",
+      "evidence": "zoom/kinu-768-twoline-chip-dock.png, extra/kinu-768-page2.png"
+    },
+    {
+      "id": "R3-L2 residue",
+      "severity": "low",
+      "title": "(content, code comments only) bgPicker.js lines 2 and 11 and lobbyArt.js lines 13 and 185 still say 'date' or 'dating'",
+      "detail": "The player-facing tooltip is fixed ('Bond level — raised by time together and gifts in the City (coming soon)'). The words remain only in code comments, which no player sees. For consistency, they could say 'time together' too.",
+      "evidence": "src/ui/lobby/bgPicker.js:2,11; src/data/lobbyArt.js:13,185"
+    },
+    {
+      "id": "R4-N1",
+      "severity": "low",
+      "title": "(note) After a resize, the chip can also move down at 810x1080 and 834x1112 when its page has two lines; it lands correctly",
+      "detail": "Round 3 probed those sizes fresh, with a one-line chip, and they did not trigger. With the two-line Weekly bosses page (68 px), lowerNews moves the chip down after a resize. It still sits 20 px above the 2x2 dock (810: y 812-880, dock 900; 834: y 844-912, dock 932), 142-166 px from CO-OP, with 14 of 14 taps OK. This shows --dock-h measured fresh on each move. No change asked.",
+      "evidence": "extra/resize-kinu-810x1080.png, extra/resize-kinu-834x1112.png, zoom/kinu-834-resize-chip-dock.png"
+    },
+    {
+      "id": "R3-L1 / R3-L3 / L5 / L7 / N1 / N3 / N2-N4-N5",
+      "severity": "low",
+      "title": "(carried, unchanged by 716b428) As listed in round3-look.json",
+      "detail": "Re-seen in this round's sheets with the same boxes: Sango panned right at 360x800; the chip touching the crown of her hair on some upright-tablet pictures; the plate, CO-OP and chip over her body on small and 4:3 screens; the white day-style picker; the wallet over the top of her hair on upright phones; 'Summer Breeze' framing on upright screens (owner's call). Nothing new.",
+      "evidence": "zoom/sheet-360.png, zoom/sheet-390.png, zoom/sheet-768.png, full/yoriko-summer-breeze-768x1024.png"
+    }
+  ],
+  "round3_rechecks": {
+    "R3-B1 (chip-down covers STUDENTS and RECRUIT at 768x1024)": "Fixed. kinu-scene and marumi-scene: news-down true, --dock-h 156px, chip 24,768 320x56 (two-line 24,756 320x68), dock 24,844 180x156. Gap to the nearest icon is 20 px, and the chip box overlaps no icon or FREE sticker. dock-students, dock-recruit and every other control pass elementFromPoint at their centre (14/14). The chip is 100 px from CO-OP and the plate, and 436-457 px from her face core. The zooms show both icon rows whole, with captions, below the chip.",
+    "R3-L2 (bond tooltip says dates)": "Fixed in the UI (bgPicker.js:85). Comment residue noted above.",
+    "e2e coverage asked in R3-B1": "Added: sizePass runs an elementFromPoint check on every home control for every full illustration. In this run it passed in all 55 full-illustration cases across the 5 sizes."
+  },
+  "checks_passed": {
+    "chip_clear_everywhere": "60 cases (default + 11 full illustrations x 5 sizes). The chip never overlaps a dock icon, the plate, CO-OP or her face core. Gaps: 768x1024 chip-down 20 px to the icons and 100 px to CO-OP and the plate; 360x800 and 390x844 12 px to CO-OP and 58 px to the plate (the phone stack, unchanged from round 3); 844x390 and 1280x720 chip at the top, 206 and 476 px from the icons.",
+    "taps_at_centre": "14 of 14 controls per case, 60 of 60 cases. The same holds through 4 news pages on each chip-down picture, and through a resize sequence over 7 sizes.",
+    "nothing_else_moved": "Against round 3's metrics at 360x800, 390x844 and 768x1024, every box and every face placement matched (36 views), except the intended chip move on 768 kinu/marumi. At 844x390 and 1280x720 news-down is never set, and the sheets match round 3.",
+    "chip_back_on_return": "From Kinu's chip-down picture back to Hikari's default stand at 768x1024, the chip returns to 24,84 and news-down clears.",
+    "e2e": "node e2e/lobby-illustrations.mjs --sizes 768x1024,360x800,390x844,844x390,1280x720 --tap-sizes none: LOBBY ILLUSTRATIONS PASS (939 checks), 0 FAIL.",
+    "no_page_errors": "No pageerror in any run."
+  }
+}

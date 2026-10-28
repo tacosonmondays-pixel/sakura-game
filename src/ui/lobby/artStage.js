@@ -176,6 +176,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   let current = null; // { u, bg, kind: 'stand'|'full', sceneImg, fig, aspect, art, anchor, extents }
   let placed = null;
   let bubbleTimer = 0;
+  let showToken = 0;
   let liveOn = false;
 
   const portraitScreen = () => (host.clientHeight || globalThis.innerHeight || 0) > (host.clientWidth || globalThis.innerWidth || 0);
@@ -211,12 +212,14 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     .then(() => (img.decode && img.naturalWidth ? Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 600))]) : null));
 
   async function show(u, { background = null } = {}) {
-    if (!u || disposed) return;
+    if (!u || disposed) return false;
+    // (a newer show wins: two quick picks in the picker, the first picture slower, never ends on the first)
+    const token = ++showToken;
     const bg = background || LOBBY_BG_MAP[defaultBackgroundFor(u.id)];
     const next = build(u, bg);
     const imgs = [next.sceneImg, ...(next.fig ? next.fig.querySelectorAll('img') : [])];
     await Promise.all(imgs.map(arrived));
-    if (disposed) return;
+    if (disposed || token !== showToken) return false;
     const figImg = next.fig?.querySelector('img');
     const aspect = figImg?.naturalWidth ? figImg.naturalWidth / figImg.naturalHeight : 0.7;
     scene.replaceChildren(next.layer);
@@ -226,6 +229,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     current = { u, bg, kind: next.kind, sceneImg: next.sceneImg, fig: next.fig, aspect, art: next.art, anchor: faceAnchor(u.id, 'cut'), extents: cutExtents(u.id) };
     hideBubble();
     relayout();
+    return true;
   }
 
   /** A full illustration on a screen that turned: her wide picture ↔ her 3:4 full art (a `tall` row). */

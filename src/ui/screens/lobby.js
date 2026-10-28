@@ -275,7 +275,12 @@ export function render(root) {
     if (!sc || !chip || el.classList.contains('ui-hidden')) return;
     const r = sc.r;
     const core = { x0: sc.faceX - 0.85 * r - 4, x1: sc.faceX + 0.85 * r + 4, y0: sc.faceY - 0.6 * r - 4, y1: sc.faceY + 0.95 * r + 4 };
-    const b = chip.getBoundingClientRect();
+    // (the chip's resting box, not its slide-in, at its two-line height: as uiBoxes counts it)
+    const hb = newsHost.getBoundingClientRect();
+    const tall = parseFloat(getComputedStyle(newsHost).getPropertyValue('--news-tall')) || hb.height;
+    const up = getComputedStyle(newsHost).getPropertyValue('--news-up').trim() === '1';
+    const h = Math.max(hb.height, tall);
+    const b = { left: hb.left, right: hb.right, top: up ? hb.bottom - h : hb.top, bottom: up ? hb.bottom : hb.top + h };
     if (b.right > core.x0 && b.left < core.x1 && b.bottom > core.y0 && b.top < core.y1) {
       // (above the icons as they stand now: one row, or two by two on a narrow screen)
       el.style.setProperty('--dock-h', `${Math.round(dock.getBoundingClientRect().height)}px`);
@@ -528,6 +533,7 @@ export function render(root) {
       buildBattle(battleHost);
     });
     fitTexts();
+    lowerNews();
   };
   drawAll();
   /** The pieces come in from their own edges (the kit's stagger, 40 ms apart on a first open, 30 on a return): the chip
@@ -585,6 +591,7 @@ export function render(root) {
     stage.hideBubble();
     stage.relayout();
     relayoutLive();
+    if (!on) lowerNews(); // (a resize while hidden may have changed where the chip must stand)
   };
   restore.hidden = true;
   restore.addEventListener('click', () => setHidden(false));
