@@ -170,6 +170,9 @@ export function createTryout(sim, cfg) {
       gone: false,
       cleared: 0,
       picks: [],
+      moves: 0, // her Hall Pass moves (the Yearbook and the achievements read them)
+      seen: [], // Pep Talk ids offered to her (once each)
+      tried: [], // girls offered at her Tryout picks (once each)
     })),
   };
   sim.maxLives = g.hearts;
@@ -695,6 +698,9 @@ export function tryoutResult(sim) {
   return {
     seed: ty.seed, grade: ty.grade, length: ty.length, mapId: ty.mapId, periods: ty.periods.map((x) => ({ ...x })), perks: ty.perks ? { ...ty.perks } : null,
     score: ty.score, runScore, cleared: ty.players.map((p) => p.cleared), moves: ty.moves,
-    players: ty.players.map((p) => ({ squad: p.squad.slice(), cards: p.cards.map((c) => ({ ...c })), picks: p.picks.map((c) => ({ ...c })) })),
+    players: ty.players.map((p) => ({
+      squad: p.squad.slice(), cards: p.cards.map((c) => ({ ...c })), picks: p.picks.map((c) => ({ ...c })),
+      moves: p.moves || 0, seen: (p.seen || []).slice(), tried: (p.tried || []).slice(),
+    })),
   };
 }

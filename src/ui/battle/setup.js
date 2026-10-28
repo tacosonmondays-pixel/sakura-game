@@ -216,14 +216,16 @@ export function createTryoutSim(profile, rec) {
   const plan = buildTryoutPlan({ seed: rec.seed, grade: rec.grade, length: rec.length, mapId: rec.mapId });
   const stage = buildTryoutStage(plan);
   const resume = !!rec.snap;
+  const hasPerks = !!rec.perks && Object.keys(rec.perks).length > 0;
   const sim = new Sim({
     stageId: stage.id, hero: rec.hero || null, seed: (rec.seed ^ 0x5eed) >>> 0, data: { stage },
     options: {
       autoStart: !!profile.settings?.autoStart, ...autoAbilities(profile),
       tryout: {
-        seed: rec.seed, grade: rec.grade, length: rec.length, mapId: plan.mapId, players: [{ squad: rec.squad }], pools: [rec.pool || {}],
-        // the Desk Supplies the run was started with (src/systems/tryoutRuns.js activePerks; solo only, never in the Weekly)
-        ...(rec.perks && Object.keys(rec.perks).length ? { perks: { ...rec.perks } } : null),
+        seed: rec.seed, grade: rec.grade, length: rec.length, mapId: plan.mapId, players: [{ squad: rec.squad, ...(hasPerks ? { perks: { ...rec.perks } } : null) }], pools: [rec.pool || {}],
+        // the Desk Supplies the run was started with (src/systems/tryoutRuns.js activePerks; solo only, never in the Weekly):
+        // the Sim reads options.tryout.perks (createTryout); players[0].perks rides along for the run config's contract
+        ...(hasPerks ? { perks: { ...rec.perks } } : null),
         ...(resume ? { squads: [rec.squad], period: rec.period || 1 } : null),
       },
     },

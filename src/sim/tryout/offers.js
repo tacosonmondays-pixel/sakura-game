@@ -99,6 +99,15 @@ const hasTalent = (p, unit) => p.cards.some((x) => PEP_CARDS[x.id]?.group === 't
 /** Varsity: from an arrival package or the Varsity Letter. */
 export const hasVarsity = (p, unit) => !!p.varsity?.[unit] || p.cards.some((x) => PEP_CARDS[x.id]?.varsity && x.unit === unit);
 
+/** Notes what an offer showed her (the Yearbook's seen Pep Talks and girls who tried out; once each, in order). */
+function noteSeen(p, cards) {
+  for (const c of cards || []) {
+    const list = c.girl ? (p.tried || (p.tried = [])) : (p.seen || (p.seen = []));
+    const id = c.girl || c.id;
+    if (id && !list.includes(id)) list.push(id);
+  }
+}
+
 /** Can this card be offered to this player at this pick (§4.5)? */
 export function cardOk(sim, owner, inst, pick) {
   const ty = sim.tryout;
@@ -331,6 +340,7 @@ export function classOffer(sim, owner, pick) {
   const girls = drawGirls(sim, owner, rng, PEP_CARDS.X02.of, null, { varsity: false });
   p.seq++;
   p.offer = { seq: p.seq, pick, rarity: PEP_CARDS.X02.arrival, credits: 0, floor: 0, kind: 'girls', cards: girls, erasers: 0, multi: PEP_CARDS.X02.girls, follow: true };
+  noteSeen(p, girls);
   return p.offer;
 }
 
@@ -352,6 +362,7 @@ export function openOffer(sim, owner, pick, credits) {
   delete p.nextCards; // (the Varsity Letter's drawback is spent on this pick)
   p.seq++;
   p.offer = { seq: p.seq, pick, rarity, credits: k, floor, kind: drawn.kind, cards: drawn.cards, erasers: 0, ...(two ? { two: true } : null) };
+  noteSeen(p, drawn.cards);
   return p.offer;
 }
 
@@ -370,6 +381,7 @@ export function eraseOffer(sim, owner) {
   p.erasers--;
   o.erasers++;
   o.cards = drawn.cards;
+  noteSeen(p, drawn.cards);
   o.kind = drawn.kind;
   p.seq++;
   o.seq = p.seq;

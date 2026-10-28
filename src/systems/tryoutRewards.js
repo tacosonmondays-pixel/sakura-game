@@ -274,7 +274,8 @@ export function applyTryoutResult(profile, result, { rec = null, slot = 0, coop 
       bosses = [...plan.minibosses, plan.boss].filter((id) => whole(result.kills?.[id]) > 0);
     } catch { /* (a plan that no longer builds stamps no bosses) */ }
     run.stamps = stampRun(profile, {
-      squad: pl.squad || [], cards: (pl.picks || []).filter((p) => p.card).map((p) => p.card), seen: pl.seen || [], bosses,
+      // (a girl tries out when a Tryout pick offers her, or she is in the squad)
+      squad: [...new Set([...(pl.squad || []), ...(pl.tried || [])])], cards: (pl.picks || []).filter((p) => p.card).map((p) => p.card), seen: pl.seen || [], bosses,
       week: run.weeklyFirst ? weekly : null,
     });
     run.marbles.yearbook = addMarbles(profile, yearbookTensDue(profile), { capped: false, now }).paid;

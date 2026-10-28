@@ -222,10 +222,7 @@ export const TRYOUT = deepFreeze({
   arrival: [{ tier: 0 }, { tier: 2 }, { tier: 3 }, { tier: 3, varsity: true }, { tier: 4, varsity: true, talent: true }],
   varsity: { damageMul: 0.15, rateMul: 0.1, costCut: 0.1 },
 
-  // ---- rewards (§10) ------------------------------------------------------------------------------
-  marbles: { perPeriod: 2, perAssignment: 1, clear: 6, perGrade: 0.1, weeklyCap: 150, gradeFirstClear: 10 },
-  lunchbox: { perWeek: 3 },
-  coins: { share: 0.6, weeklyWaves: 150 },
+  // (rewards, Marbles, the Lunchbox and the Jar: src/data/tryoutMeta.js, outside the sim id)
 });
 
 /**

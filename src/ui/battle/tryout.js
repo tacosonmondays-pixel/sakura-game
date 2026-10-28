@@ -12,6 +12,7 @@ import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor } from '../../sim/tryout/offers.js';
 import { lengthOf, periodWaves } from '../../sim/tryout/plan.js';
+import { passMax } from '../../sim/tryout/breaks.js';
 import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT } from '../text/tryout.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
@@ -92,6 +93,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     head.replaceChildren(...[
       h('b', t.base ? name : `Next: ${name}`), t.base ? h('span', ` · wave ${done}/${len.wavesPerPeriod}`) : null,
       subj ? h('span.ty-head-subj', { 'data-testid': 'ty-head-subject', title: SUBJECT_TEXT[t.subject]?.line }, ` · ${subj}`) : null,
+      // a Grade 8+ period affix (sim.tryout.affixes[period], a TRYOUT.dares id)
+      t.affixes?.[p] ? h('span.ty-head-affix', { 'data-testid': 'ty-head-affix', title: DARE_TEXT[t.affixes[p]] }, ` · ${DARE_SHORT[t.affixes[p]] || t.affixes[p]}`) : null,
       h('span.ty-score', ` · Score ${fmtNum(t.score + t.periodScore, 'count', { detail: true })}`),
     ].filter(Boolean));
     const list = assignProgress(sim, mySlot);
@@ -211,6 +214,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         }, h('b', SUBJECT_TEXT[id]?.name || id), ...twist(id)))) : null,
       sugg ? h('div.ty-suggest', { 'data-testid': 'ty-suggest' }, 'Your ally suggests: ', h('b', SUBJECT_TEXT[sugg]?.name || sugg)) : null,
       mySug >= 0 && pair ? h('div.ty-suggest', { 'data-testid': 'ty-suggested' }, 'You suggested: ', h('b', SUBJECT_TEXT[pair[mySug]]?.name || pair[mySug])) : null,
+      t.affixes?.[next] ? h('div.ty-class-row.ty-affix', { 'data-testid': 'ty-class-affix' }, h('b', 'Grade twist: '), DARE_SHORT[t.affixes[next]] || t.affixes[next],
+        h('span.ty-long.ty-dim', ` (${DARE_TEXT[t.affixes[next]] || ''})`)) : null,
       h('div.ty-class-row',
         h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
           `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`),
@@ -230,7 +235,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       return;
     }
     const kind = len.breaks[ty().period] || 'recess';
-    const dots = '●'.repeat(p.passes) + '○'.repeat(Math.max(0, TRYOUT.passes.max - p.passes));
+    const dots = '●'.repeat(p.passes) + '○'.repeat(Math.max(0, passMax(sim) - p.passes)); // (Extra Pocket: 6)
     // (Brush Up raises a scaling card: one with numbers at every rarity, as breaks.js brushUp checks)
     const scaling = p.cards.map((c, i) => ({ c, i })).filter(({ c }) => (PEP_CARDS[c.id]?.mods || PEP_CARDS[c.id]?.steps) && PEP_CARDS[c.id].rar.length >= 4 && c.r < 3);
     const full = sim.lives >= sim.maxLives;

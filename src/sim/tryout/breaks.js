@@ -212,6 +212,7 @@ export function moveGirl(sim, owner, uid, x, y) {
     p.used[uid] = 0;
   }
   ty.moves++;
+  p.moves = (p.moves || 0) + 1;
   if (!ty.breakMoves.includes(uid)) ty.breakMoves.push(uid);
   relocateGirl(sim, t, x, y);
   sim._emit('tryoutMove', { towerUid: uid, x, y, owner });

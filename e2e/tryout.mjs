@@ -216,10 +216,11 @@ for (const [W, H] of viewports) {
   await page.evaluate(() => {
     const { sim, ui } = window.__battle;
     ui.startWave();
-    for (let i = 0; i < 240 && !sim.enemies.length; i++) sim.update(1 / 60);
+    for (let i = 0; i < 1800 && !sim.enemies.length; i++) sim.update(1 / 60);
     ui.saver.tick();
     sim.lives = 1;
-    sim._leak(sim.enemies[0]);
+    // (a leak costs at least one heart: leak until the hearts run out)
+    for (let k = 0; k < 20 && sim.state === 'wave' && sim.enemies.length; k++) sim._leak(sim.enemies[0]);
   });
   const mk = await page.waitForSelector('[data-testid="ty-makeup"]', { timeout: 30000 }).then(() => true).catch(() => false);
   check(mk, 'the Make-up Test sheet shows at 0 hearts');
@@ -270,10 +271,11 @@ for (const [W, H] of viewports) {
   await page.evaluate(() => {
     const { sim, ui } = window.__battle;
     ui.startWave();
-    for (let i = 0; i < 240 && !sim.enemies.length; i++) sim.update(1 / 60);
+    for (let i = 0; i < 1800 && !sim.enemies.length; i++) sim.update(1 / 60);
     ui.saver.tick();
     sim.lives = 1;
-    sim._leak(sim.enemies[0]);
+    // (a leak costs at least one heart: leak until the hearts run out)
+    for (let k = 0; k < 20 && sim.state === 'wave' && sim.enemies.length; k++) sim._leak(sim.enemies[0]);
   });
   await page.waitForSelector('[data-testid="ty-makeup-no"]', { timeout: 30000 }).catch(() => {});
   await page.click('[data-testid="ty-makeup-no"]');

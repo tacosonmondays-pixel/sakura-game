@@ -367,7 +367,7 @@ describe('the Marble Jar (§10.3)', () => {
     const six = beforeClass(p, 77, 1, 0).draft;
     const seven = beforeClass(p, 77, 1, 0, { perks: { draft7: true } }).draft;
     expect(seven.slice(0, 6)).toEqual(six);
-    expect(seven).toHaveLength(TRYOUT.perks?.draft || 7);
+    expect(seven).toHaveLength(7);
     // ownership is the counter mask: a dropped meta block keeps every purchase (only the switches go)
     delete p.tryoutMeta;
     expect(jarOwned(p, 'eraser') && jarOwned(p, 'draft7')).toBe(true);

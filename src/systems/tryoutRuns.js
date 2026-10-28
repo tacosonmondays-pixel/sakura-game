@@ -10,7 +10,7 @@ import { isOwned, isStageCleared } from './unlocks.js';
 import { unitBattleStats } from './progression.js';
 import { recordMax } from './missions.js';
 import { mapChoices, TRYOUT_GRADES } from '../sim/tryout/plan.js';
-import { draftOf } from '../sim/tryout/draft.js';
+import { draftOf, BIGGER_DRAFT } from '../sim/tryout/draft.js';
 
 const GRADE_KEY = TRYOUT_META.keys.grade;
 const whole = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
@@ -84,7 +84,7 @@ export function heroEntry(profile, id) {
  */
 export function beforeClass(profile, seed, grade = 1, redraw = 0, { floor = false, perks = null } = {}) {
   const owned = floor ? () => false : (id) => isOwned(profile, id);
-  const size = perks?.draft7 ? TRYOUT.perks?.draft || TRYOUT.squad.draft + 1 : TRYOUT.squad.draft;
+  const size = perks?.draft7 ? BIGGER_DRAFT : TRYOUT.squad.draft;
   return { seed, grade, maps: mapChoices(seed, grade), draft: draftOf(owned, seed, 0, redraw, size).slice(0, size), heroes: heroChoices(profile) };
 }
 

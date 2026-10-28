@@ -5,7 +5,7 @@
 //   yb.girls   { id: 1 }   a student's page is stamped the first time she tries out (is in the player's squad in a
 //                          run that counts); pencil while unowned, colour once owned (read at display time)
 //   yb.cards   { id: 1 }   every Pep Talk taken (by card id; Personal cards count once per template)
-//   yb.seen    { id: 1 }   every Pep Talk seen in an offer (needs the Sim's players[i].seen; until then = taken)
+//   yb.seen    { id: 1 }   every Pep Talk seen in an offer (the Sim's players[i].seen) or taken
 //   yb.bosses  { id: 1 }   every miniboss and boss beaten in a run
 //   yb.weeks   [week…]     a Weekly Timetable first clear (its stamp)
 //   best       { 'half:3:lake_shore': score }   best Run Score per length, Grade and map (practice never records)
