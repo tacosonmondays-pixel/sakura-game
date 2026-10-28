@@ -236,6 +236,19 @@
     var(--rw) calc(100% - var(--rw)),
     var(--rw) var(--rw)); }
 .home .home-coop > * { position: relative; z-index: 1; }
+/* Events: CO-OP's twin on the plate's top-right corner ("\" left end, straight where it meets the plate), its time-left
+   sticker over the lantern, its red dot by the word (lobby.js eventsTab) */
+.ui-night .home .home-evt { left: auto; right: 0; min-width: 0; padding: 0 18px 0 calc(18px + var(--s));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, var(--s) 100%); }
+.ui-night .home .home-evt::after { clip-path: polygon(evenodd,
+    0 0, 100% 0, 100% 100%, var(--s) 100%, 0 0,
+    calc(var(--rw) * 1.15) var(--rw),
+    calc(100% - var(--rw)) var(--rw),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(var(--s) + var(--rw) * 0.87) calc(100% - var(--rw)),
+    calc(var(--rw) * 1.15) var(--rw)); }
+.ui-night .home .home-evt .home-evt-left { position: absolute; z-index: 2; left: calc(var(--s) + 6px); top: 2px; height: 16px; padding: 0 4px; line-height: 1; font-size: 12px; pointer-events: none; }
+.ui-night .home .home-evt .ui-dot { position: absolute; z-index: 2; right: 6px; top: 6px; }
 .ui-night .home .home-coop svg.g { width: 24px; height: 24px; }
 .ui-night .home .home-coop .lbl { font: 600 15px/1 var(--font-num); letter-spacing: var(--track-menu); color: var(--on-ink); }
 .ui-night .home .home-coop:is(:active, :focus-visible) { --fill: var(--plate-2); outline: none; }
@@ -351,6 +364,7 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
   .ui-night .home .home-coop svg.g { width: 20px; height: 20px; }
   .ui-night .home .home-coop .lbl { font-size: 13px; }
+  .ui-night .home .home-evt { padding: 0 12px 0 calc(12px + var(--s)); }
 
   .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 
@@ -373,6 +387,9 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .home .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
   .ui-night .home .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home .home-dock .home-ico:nth-child(3)::after { display: none; }
+  .home .home-dock.five { grid-template-columns: repeat(3, var(--ico-w)); }
+  .home .home-dock.five .home-ico:nth-child(3)::after { display: block; }
+  .home .home-dock.five .home-ico:nth-child(4)::after { display: none; }
 }
 /* (.fold: a girl whose art reaches into the icons' corner on any landscape screen, Marumi's ball: the icons fold the
    same way, lobby.js refold) */
@@ -380,8 +397,12 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .home.fold .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
   .ui-night .home.fold .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home.fold .home-dock .home-ico:nth-child(3)::after { display: none; }
+  /* five shortcuts (Events): three by two, so the fold stays two rows tall */
+  .home.fold .home-dock.five { grid-template-columns: repeat(3, var(--ico-w)); }
+  .home.fold .home-dock.five .home-ico:nth-child(3)::after { display: block; }
+  .home.fold .home-dock.five .home-ico:nth-child(4)::after { display: none; }
 }
-@media (max-height: 480px) and (max-width: 759px) { .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } }
+@media (max-height: 480px) and (max-width: 759px) { .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } .home .home-evt .lbl { display: none; } }
 @media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .ui-night .home .home-ico .home-free { --free-y: -2px; } .home .home-battle { --bw: 300px; } }
 
 /* ================================================================ a phone held upright (390x844) */

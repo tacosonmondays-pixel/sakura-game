@@ -3,7 +3,7 @@
 // seedInkSave), at 844x390, 1280x720 and 390x844, in headless Chrome (one browser):
 //   1. the probe in v2 mode: at most 10 numbers counting the top bar, one yellow (the Battle plate's play edge), no pink
 //      at rest, no control painted over, the bar whole, every tap 44 px; at most 13 controls on a landscape screen (the
-//      study's count: the avatar, the gems' "+", chat, mail, menu, the news chip, four icons, the plate, CO-OP; and Clan since Oct 28)
+//      study's count: the avatar, the gems' "+", chat, mail, menu, the news chip, four icons, the plate, CO-OP; Clan and Events since Oct 28)
 //   2. Ruri (with Kon) as the secretary: her art 8 px clear of every control (pixels.mjs artClearance), her face box
 //      clear of every control, her bubble on a tap only (2.4 s), never over a control
 //   3. the menu sheet: it opens from the menu button (from the right; from the bottom on a phone held upright), closes by
@@ -28,6 +28,9 @@
 //  10. keys (desktop): Tab reads the top bar first; the news pager keeps the focus through its page turns, and a redraw
 //      keeps it on an icon; the menu sheet keeps Tab inside, its rows take Space, and closing it by Esc, its X or a tap
 //      outside gives the focus back to the menu button; Esc closes the Notice opened from it
+//
+//  11. the Events button: the live event's page while it runs (its dot and time-left sticker as the save says), Happening
+//      Now out of season (the event dev clock past the exchange, in its own context)
 //
 //   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--rampart 667x375,844x390,1024x768] [--small 667x375] [--shots dir]
 // Starts its own Vite dev server on a free port; exit code 1 when a check fails.
@@ -137,7 +140,7 @@ async function staticChecks(vp) {
       const pieces = new Set(zones.map((e) => e.closest('.home-news, .home-plate') || e));
       return { zones: zones.length, controls: pieces.size };
     });
-    if (W > H) check(count.controls <= 13, `${vp} the quiet home: ${count.controls} controls (${count.zones} hit zones), at most 13 (12 + the Clan button the owner asked for, Oct 28)`);
+    if (W > H) check(count.controls <= 14, `${vp} the quiet home: ${count.controls} controls (${count.zones} hit zones), at most 14 (12 + the Clan and Events buttons the owner asked for, Oct 28)`);
     // 2. her art and her face box clear of every control
     const art = await artClearance(page, '#app [data-testid="secretary-art"]', UI, { min: 8 });
     check(art.fails === 0, `${vp} Ruri's art (and Kon) 8 px clear of every control: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);
@@ -224,6 +227,17 @@ async function staticChecks(vp) {
     await opens('the Battle plate\'s chapter band', '[data-testid="lobby-chapter"]', 'campaign');
     await opens('the mail button', '[data-testid="top-mail"]', 'mail');
     await opens('the Clan button', '[data-testid="home-clan"]', 'clan');
+    // the Events button: the live event's page while one runs (its dot and its time-left sticker as the save says), and
+    // Happening Now out of season (the event dev clock moved past the exchange)
+    await go(page, '#/lobby', 'lobby');
+    const evb = await page.evaluate(async () => {
+      const { eventHomeButton } = await import('/src/systems/events.js');
+      const { eventNow } = await import('/src/ui/events/clock.js');
+      const want = eventHomeButton(window.__sakura.store.profile, eventNow());
+      return { want, dot: !!document.querySelector('[data-testid="home-events-dot"]'), left: document.querySelector('[data-testid="home-events-left"]')?.textContent || null };
+    });
+    check(evb.want.route === 'event' && evb.dot === evb.want.dot && /^(\d+[dh]|<1h)$/.test(evb.left || ''), `${vp} the Events button while the event runs: dot ${evb.dot} (save says ${evb.want.dot}), sticker "${evb.left}"`);
+    await opens('the Events button', '[data-testid="home-events"]', 'event');
     await opens('the avatar', '[data-testid="account-level"]', 'profile');
     const toPage = (id) => page.evaluate(async (want) => {
       for (let k = 0; k < 4 && document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page !== want; k++) {
@@ -358,6 +372,29 @@ async function staticChecks(vp) {
     check(sys.canvases === 0 && sys.fig, `${vp} Marumi under the system's Reduce motion: her still portrait, no canvas (${JSON.stringify(sys)})`);
     await shot(page, 'home-marumi-reduced', vp);
     check(!errors.length, `${vp} no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
+  } finally {
+    await context.close();
+  }
+}
+
+/** The Events button out of season (its own context: a visit past the event settles it in the save). */
+async function offSeasonChecks(vp) {
+  console.log(`\n== ${vp}: the Events button out of season ==`);
+  const { context, page, errors } = await openHome(vp, { reduced: true });
+  try {
+    await page.evaluate(() => { try { localStorage.setItem('sakura-dev-now', '2026-12-01T18:00:00Z'); } catch { /* none */ } });
+    await page.evaluate(() => window.__sakura.store.saveNow?.());
+    await go(page, '#/lobby', 'lobby');
+    await page.reload({ waitUntil: 'load', timeout: 90000 });
+    await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'lobby' && document.querySelector('[data-testid="home-events"]'), null, { timeout: 30000 }).catch(() => {});
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    await settle(page, 900);
+    const off = await page.evaluate(() => ({ btn: !!document.querySelector('[data-testid="home-events"]'), dot: !!document.querySelector('[data-testid="home-events-dot"]'), left: !!document.querySelector('[data-testid="home-events-left"]') }));
+    check(off.btn && !off.dot && !off.left, `${vp} out of season: the Events button, no dot, no sticker (${JSON.stringify(off)})`);
+    await page.click('[data-testid="home-events"]', { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'rewards', null, { timeout: 20000 }).catch(() => {});
+    check(await screenIs(page) === 'rewards', `${vp} … and it opens Happening Now (now ${await screenIs(page)})`);
+    check(!errors.length, `${vp} out of season: no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   } finally {
     await context.close();
   }
@@ -662,6 +699,7 @@ try {
   for (const vp of viewports) {
     await staticChecks(vp);
     await liveChecks(vp);
+    await offSeasonChecks(vp);
   }
   for (const vp of rampartSizes) await rampartChecks(vp);
   for (const vp of smallSizes) await smallLiveChecks(vp);

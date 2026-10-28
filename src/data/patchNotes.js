@@ -21,6 +21,9 @@
 export const PATCH_NOTES = [
   {
     id: 'v0.1.58', version: '0.1.58', date: '2026-10-28', title: 'Brighter Details',
+    added: [
+      'An Events button on the home, right beside Co-op: it opens the running event (with the time left and a red dot when a gift or reward waits), or Happening Now between events.',
+    ],
     changed: [
       'Marumi’s living scene on the home now shows in full colour too.',
       'The “new lesson” bubble on the home no longer covers your coins or your secretary’s face.',
