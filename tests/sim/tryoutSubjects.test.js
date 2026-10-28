@@ -5,7 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { buildTryoutPlan, buildTryoutStage, subjectPairs, lengthOf } from '../../src/sim/tryout/plan.js';
 import { chooserOf, dareOf } from '../../src/sim/tryout/index.js';
-import { seatCount } from '../../src/sim/tryout/breaks.js';
+import { seatCount, nextSeats, openBreak } from '../../src/sim/tryout/breaks.js';
+import { cardOk } from '../../src/sim/tryout/offers.js';
 import { TRYOUT } from '../../src/data/tryout.js';
 import { gradeOpen, recordGradeClear, TRYOUT_GRADES } from '../../src/systems/tryoutRuns.js';
 
@@ -119,6 +120,33 @@ describe('tryout: Subjects', () => {
     sim.tryoutCommand(0, 'subject', [sim.tryout.subjects[2].indexOf('subj_art')]);
     sim.startNextWave();
     expect(seatCount(sim)).toBe(Math.min(6, before + 1));
+  }, 60000);
+});
+
+describe('tryout: M2 review regressions', () => {
+  it('a Hidden Talent can be offered at UR (its +20 %), never at SR', () => {
+    const sim = makeSim(17);
+    expect(cardOk(sim, 0, { id: 'T_kage', unit: 'kage', r: 3 }, 2)).toBe(true);
+    expect(cardOk(sim, 0, { id: 'T_kage', unit: 'kage', r: 1 }, 2)).toBe(false);
+  });
+
+  it('the break previews the coming period\'s seats: an Art Class there adds its seat', () => {
+    const seed = seedWith((s) => s[3].includes('subj_art'));
+    const sim = makeSim(seed);
+    finishPeriod(sim);
+    closeWindow(sim);
+    sim.startNextWave();
+    finishPeriod(sim); // (P2 over: the coming period is P3)
+    closeWindow(sim);
+    const ty = sim.tryout;
+    ty.nextSubject = 'subj_art';
+    for (const p of ty.players) p.win = null;
+    openBreak(sim, 0);
+    // (P3 is in P2's block: without the Art Class extra seat there would be nothing new to preview)
+    expect(nextSeats(sim).length).toBe(seatCount(sim, 'subj_art'));
+    expect(seatCount(sim, 'subj_art')).toBe(seatCount(sim) + 1);
+    ty.nextSubject = ty.subjects[3].find((id) => id !== 'subj_art');
+    if (ty.nextSubject !== 'subj_art' && ty.subjects[3][0] !== 'subj_art') expect(nextSeats(sim)).toEqual([]);
   }, 60000);
 });
 
