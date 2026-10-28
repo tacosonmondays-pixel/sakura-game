@@ -1,0 +1,68 @@
+{
+ "verdict": "NOT_OK",
+ "lens": "logic",
+ "reviewed": "feature/abilities a801fd08999dd1a5caff0c0ca1a408d71bbd0337 (A3 M4 + review round r1), in a private detached worktree; no tracked file changed",
+ "summary": "This is the logic review of A3 M4 at a801fd0, round 1. It is not ready to ship: 2 medium findings block it, and there are 4 low ones.\n\nEarlier findings (r0):\n- logic-1 (Space on a row) is fixed.\n  - A keyboard-focused row, price, chip or MORE: Space presses that control and the wave does not start.\n  - After a mouse click on a row or price: Space starts the wave once and the control is not pressed again.\n  - Enter, Enter buys. Escape closes the drawer.\n  - Checked at 844x390 and 1280x720, with a unit test for battleKeyAction({control}) and the e2e m4-key-space scenes.\n- logic-2 (gear Pierce) is fixed. gearPierce matches the sim's shotPierce / bladeArts / droneShot, and the tests cover each case.\n- look-1 (667 drawer) is fixed. At 667x375 the drawer is the 288x324 side drawer (top 47).\n- logic-3 (13 numbers) is fixed for the drawer. It shows 12-13 numbers, or 14 with a cooling ability. The P pill is gone from the header and the '+' chip has no digit.\n- look-3 (ability name cut) is only partly fixed: see the first medium finding.\n- The lows logic-4 to logic-8 are fixed: one buffOf, ultRank, test-only helpers, no 250 ms timer, PHONE_H, holdArm / phone by height.\n- look-2 is for the look reviewer and was not re-checked here.\n\nCo-op safety:\n- The sim id is c22b2587f4b7 at a801fd0. No file in the 63-file sim graph changed since e07e5e9, the pre-M4 merge.\n- COOP_PROTOCOL is still 8.\n- M4 adds no co-op command.\n\nNo state leaks across battles:\n- document.fonts 'loadingdone' listeners go 1, then 0 after leaving, then 1. Window keydown goes 3/0/3 and pointerdown 2/1/2.\n- The second battle starts with the drawer closed, nothing armed and MORE shut.\n\nFlows checked at 1280 (in-page timing, robust to load):\n- Two-tap: an armed row closes after 2,671 ms (a 2,630 ms test timer fired at 2,631). Two quick taps buy. A late tap arms the row again instead of buying. Another price moves the arm, and a tap elsewhere disarms.\n- Sell confirm reverts after 2,821 ms (test timer 2,604).\n- A poor row shows 'Need 70 more coins.'\n- Target chips and '+' -> PRIORITY/AIR work.\n- Ability FIRE: Momo's Market Day cast, +100 coins, 45 s cooldown. Auto toggles.\n- Hero Level up and the L key work. The hero widget hides while the hero drawer is open and comes back after.\n- The ally drawer is read only: no Sell, no buy buttons, chips disabled.\n\nTests and console:\n- tests/battle-ui and tests/ui pass (52 files, 780 tests).\n- The full vitest run hit the 30-min background limit on this overloaded box (load 20-35). Its only failure, perf.tenka, timed out after 926 s and is outside M4, which touches no sim file.\n- The only console error is an ERR_CERT_AUTHORITY_INVALID resource load from the sandbox proxy. One 844 run also logged \"Cannot read properties of undefined (reading 'ui')\". No src file reads .ui, it did not come back in the 1280 run, so it is put down to the harness.\n- The 844 facts file also lists P1/P5/A1 failures. They came from probe timing on this loaded box, before the probe measured in-page, and from a strike with no target. They are not app faults. The same checks pass at 1280.",
+ "findings": [
+  {
+   "id": "logic-r1-1",
+   "severity": "medium",
+   "lens": "logic",
+   "title": "The drawer's stat row (DMG / RATE / RANGE) goes stale when a buff reaches the open girl",
+   "where": "src/ui/battle/towerPanel.js buffSig (line ~126: `const src = more ? (sim.buffSources?.(t.uid) ...) : ''`), signature(); statRow is built only in render() and updateLive never repaints it. Introduced by fb931ba6; before M4 buffSig always included the buff sources.",
+   "evidence": "Scratch stale.mjs at 1280x720: Aoi's drawer open on the Glance reads DMG 4 · RATE 1.4/s. Umeko (Plum Rain T3) is placed beside her: the sim reports damage 4.41 and rate 1.617, but after 3 s the drawer still reads DMG 4 · RATE 1.4/s. A re-render (MORE then back) shows DMG 4.4 · RATE 1.6/s. Results: /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r1logic/stale-1280.json. The same gap covers other cases. A rally or boost cast from the ability bar (Shrine Chorus, Morning Rally, Assembly Bell, Drumstorm) while a girl's drawer is open. A Midori brew pick. A co-op partner's aura. In each case the headline numbers keep the old value until something else re-renders, and a re-render during a rally freezes the boosted value until the next one.",
+   "fix": "Let the stat row follow her live stats. Either put the shown cell values (drawerStats(...).map(c => c.value).join()) in signature(), or paint the cells in place in updateLive the way kills and damage are painted. Keep the cheap path: compare the formatted strings, not the raw floats. Add a test: an aura girl placed beside an open girl changes her DMG cell."
+  },
+  {
+   "id": "logic-r1-2",
+   "severity": "medium",
+   "lens": "logic",
+   "title": "On phones an ability's name is still cut by an ellipsis once her ⚡ row is opened (r0 look-3 only half fixed)",
+   "where": "src/ui/battle/abilityRow.js fit()/nameOverflows (the 2-line fallback) + battle.css @media (max-height: 480px) `.bt-abrow-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }` / `.bt-abrow-name.bt-abrow-2l`; e2e m4Scenes checks the closed row only",
+   "evidence": "Scratch abname.mjs, Sango 0-3-0 with her name tapped (the only way to reach her Auto switch and live line on a phone). Auto and WAVE/FIRE then share her name's line, and the name box shrinks to 81 px. 'Tidebreaker' needs 82 px at 12 px, so the row reads 'Tidebreak… Shell▴' at 844x390 and 667x375. Stills: /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r1logic/abname-open-844-sheet.png and abname-sango-667x375.png. Before the web font loads, 'Starmine Barrage' and 'Emergency Deploy' are cut too: the name box is 57 px, as in a-sango-844x390.png and the first abname-844.log. The closed row is never cut. uiProbe misses this case: its scrollWidth test is in whole pixels (82 vs 81 + 1).",
+   "fix": "The 2-line fallback only works when the longest single word fits. In fit(), measure the widest word at the 2-line size against the box. If it does not fit, move Auto onto the open live line (second line), so the name keeps the space Auto took, or step down to a smaller size. Run fit() again when the button's label width changes (FIRE / 40s / ACTIVE 8s). Add an m4 scene that opens the row for Sango (and the other long names) at 844 and 667, and make the probe catch a sub-pixel ellipsis on buttons (range.getBoundingClientRect against the content box)."
+  },
+  {
+   "id": "logic-r1-3",
+   "severity": "low",
+   "lens": "logic",
+   "title": "The 13-number limit is applied to the drawer alone; with the HUD in view the screen shows 27-28 numbers",
+   "where": "towerPanel.js DRAWER_NUMBERS / fitNumbers; UI_DIRECTION M2 done-when 'the girl drawer shows ≤ 13 numbers with HUD'",
+   "evidence": "With the drawer open, the in-view numbers are 27 at 844 and 28 at 1280. The drawer holds 13 or 12 of them. The other 14-15 come from the HUD and the cards: 100, the coins, 0/12, NEXT 1, ×6, the 1-1 stage id, 1×, 7 card costs, and at 1280 'Wave 1/12'. facts-844x390.json and facts-1280x720.json, check N-numbers-with-hud. This conflicts with the M2 draft itself, which requires a stat row, T-codes, prices, Invested and Sell (about 12 numbers in the drawer alone). m4Scenes marks the HUD and card strip as M5's, and the r0 review counted the drawer alone.",
+   "fix": "No code change needed for M4. Record the reading (13 in the drawer, the HUD budget in M5) in the spec or the plan, or ask the owner, so M5 does not ship believing the done-when is met."
+  },
+  {
+   "id": "logic-r1-4",
+   "severity": "low",
+   "lens": "logic",
+   "title": "Keyboard focus is lost when the focused control disappears ('+' target chip, a path reaching MAX), so the next Space starts the wave",
+   "where": "towerPanel.js focusKeyOf / render refocus",
+   "evidence": "At 844 and 1280, Tab to '+' and press Enter. PRIORITY and AIR appear but the focus falls to BODY, and the next Space called startWave once (check K5c in facts-*.json). The same happens after a keyboard buy that maxes a path: buy-i no longer exists.",
+   "fix": "Fall back to a neighbour when the refocus target is gone: the first new chip (PRIORITY) for target-more, and the row body or the path's MAX for a maxed path."
+  },
+  {
+   "id": "logic-r1-5",
+   "severity": "low",
+   "lens": "logic",
+   "title": "Sell's CONFIRM and a row's Buy can be armed at the same time",
+   "where": "towerPanel.js onSell / onBuyTap / the drawer click handler",
+   "evidence": "Tap SELL (it reads 'CONFIRM +819'), then tap a price: the row arms and Sell still reads CONFIRM (check P6c). The reverse order is handled, because the drawer's click handler disarms the row.",
+   "fix": "Clear sellArmed (and its timer) on tap 1 of a price or row, so only one two-tap is pending at a time."
+  },
+  {
+   "id": "logic-r1-6",
+   "severity": "low",
+   "lens": "logic",
+   "title": "An ally's path rows are still focusable buttons that do nothing",
+   "where": "towerPanel.js pathRow: role/tabindex/aria-expanded depend on v.state (buy/poor) even when readOnly",
+   "evidence": "In the stubbed ally drawer, 3 '.bt-path-main[role=button]' rows have tabindex 0 and aria-expanded=false. Clicking them, or Enter on them, does nothing (check L1).",
+   "fix": "Give read-only rows no role, tabindex or aria-expanded."
+  }
+ ],
+ "evidence_dir": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r1logic",
+ "scripts": [
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/tools/r1logic.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/tools/abname.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/tools/stale.mjs"
+ ]
+}

@@ -242,6 +242,9 @@ export function createAbilityRow(ctx) {
     h('div.bt-abrow-top', svgEl(BOLT_SVG, 'bt-abrow-bolt'), name, fire, chip),
     h('div.bt-abrow-sub', line, auto));
   let fireW = -1; // the button's width the last fit() saw ("FIRE", "12", "ACTIVE 3", "WAVE" differ)
+  // fit()'s last word: her name's longest word would not fit even its two-line box, so the ⚡ steps away (update() keeps
+  // it; the M4 review, round r2: the next frame's className dropped it)
+  let noBolt = false;
 
   /**
    * Her ability's name is never cut (UI_DIRECTION P6; the M4 review: "Tidebreaker Sh…"): when it would not fit its line
@@ -251,11 +254,15 @@ export function createAbilityRow(ctx) {
    */
   function fit() {
     name.classList.remove('bt-abrow-2l');
+    noBolt = false;
     el.classList.remove('bt-abrow-nobolt');
     fireW = fire.isConnected ? fire.getBoundingClientRect().width : -1;
     if (!name.isConnected || !overflows()) return;
     name.classList.add('bt-abrow-2l');
-    if (overflows({ word: true })) el.classList.add('bt-abrow-nobolt');
+    if (overflows({ word: true })) {
+      noBolt = true;
+      el.classList.add('bt-abrow-nobolt');
+    }
   }
 
   /**
@@ -308,7 +315,7 @@ export function createAbilityRow(ctx) {
       openUid = tower.uid;
       name.setAttribute('aria-expanded', 'false');
     }
-    el.className = `bt-abrow s-${view.state}${view.readOnly ? ' ro' : ''}${view.hero ? ' hero' : ''}${open ? ' open' : ''}${folded ? ' fold' : ''}`;
+    el.className = `bt-abrow s-${view.state}${view.readOnly ? ' ro' : ''}${view.hero ? ' hero' : ''}${open ? ' open' : ''}${folded ? ' fold' : ''}${noBolt ? ' bt-abrow-nobolt' : ''}`;
     el.title = view.title;
     if (name.textContent !== view.name) name.textContent = view.name;
     const label = `${view.name}: ${view.line}`;
