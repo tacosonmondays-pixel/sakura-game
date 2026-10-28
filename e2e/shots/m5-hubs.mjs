@@ -15,8 +15,8 @@ export const shots = {
   // the category sheet, a row's ladder sheet (the first row: its tiers and rewards)
   'achievements-cats': { ...ach, open: clickOpen('#app [data-testid="ach-category"]', '[data-testid="ach-cat-sheet"]') },
   'achievements-ladder': { ...ach, open: clickOpen('#app .ach-list .ach-row .ach-title', '[data-testid="ach-ladder-sheet"]') },
-  // Claim all: the claim fanfare (its first beat)
-  'achievements-fanfare': { ...ach, open: clickOpen('#app [data-testid="ach-claim-all"]', '[data-testid="ach-fanfare-skip"]'), settleMs: 600 },
+  // Claim all: the claim moment (the fanfare first when a special ribbon comes with it, else the claim modal)
+  'achievements-claim': { ...ach, open: clickOpen('#app [data-testid="ach-claim-all"]', '[data-testid="ach-fanfare-skip"], [data-testid="ach-claimall-modal"]'), settleMs: 600 },
   // the Bounty arena list scrolled to the open arena's tiers (the locked tier row)
   'bounty-tiers': { hash: '#/bounty', ready: isScreen('bounty'), seed: 'm5', rebuilt: true, open: scrollBody(160, '#app .ma-loc-list') },
   // Titan Trials' MORE sheet
@@ -35,4 +35,4 @@ export const gate = Object.fromEntries(['missions', 'commissions-daily', 'commis
 export const list = ['missions', 'commissions-daily', 'commissions-weekly', 'commissions-login', 'commissions-codes', 'achievements', 'achievements-case',
   'achievements-cats', 'achievements-ladder', 'bounty', 'bounty-tiers', 'assault', 'titans', 'titans-more', 'challenge', 'sandbox', 'happening',
   'happening-soon', 'happening-empty', 'recruit-free', 'mail', 'mail-letter', 'mail-history', 'multiplayer-empty', 'multiplayer', 'multiplayer-pvp',
-  'achievements-fanfare'];
+  'achievements-claim'];

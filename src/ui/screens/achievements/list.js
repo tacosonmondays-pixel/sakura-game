@@ -148,7 +148,7 @@ function ladderSheet(row, { onClaim }) {
         steps.length > 1 || hidden ? h('b', hidden ? '???' : s.name) : null,
         h('span', hidden ? `Hint · ${s.hint}` : s.desc)),
       h('div.ach-ls-rew',
-        items.map((r) => tile(r.id, r.count > 1 ? r.count : null, { size: 40 })), // (never "×1", P7)
+        items.map((r) => tile(r.id, r.count > 1 ? r.count : null, { size: 50 })), // (never "×1", P7; a 46 px tap)
         s.honor ? h('button.ach-chip-hr.' + (s.honor.cls || 'plain'), { type: 'button', title: `Honor Ribbon · ${s.honor.name}`, 'aria-label': `Honor Ribbon: ${s.honor.name}`, onclick: () => ribbonInfo(s.id) }, ribbonArt(s.id, 34, { still: true })) : null,
         s.title ? h('button.ach-chip-title', { type: 'button', title: `Title · ${s.title.text}`, onclick: () => titleInfo(s.id) }, titlePlate(s.id, { small: true })) : null));
   };
