@@ -1982,7 +1982,7 @@ export const MAPS = [
       street([[21, 10.0], [6.0, 10.0], [6.0, 5.0], [-1, 5.0]], { r: [3.0, 1.7] }),
     ],
     decor: [
-      { type: 'willow', x: 10, y: 6 }, { type: 'boat', x: 16, y: 4 }, { type: 'boat', x: 3, y: 7 },
+      { type: 'greatWillow', x: 10, y: 6, s: 1.25 }, { type: 'boat', x: 16, y: 4 }, { type: 'boat', x: 3, y: 7 },
       { type: 'lantern', x: 1, y: 0 }, { type: 'lantern', x: 18, y: 11 },
     ],
   }),

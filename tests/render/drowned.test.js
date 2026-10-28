@@ -265,7 +265,13 @@ describe('the subway spawn: an inside lane that opens in a tunnel', () => {
     const tun = DROWNED_FIXTURES.tunnels;
     expect(headTunnel(tun.tracks[0], tun.width, tun.height)).toBeNull();
     // every shipped map draws as before: none opens in a tunnel
-    for (const m of MAPS) for (const tr of m.tracks) expect(headTunnel(tr, m.width, m.height), m.id).toBeNull();
+    // the shipped maps draw as before: none opens in a tunnel, except Act 5's Flooded Platform (5-6), the one subway spawn
+    for (const m of MAPS) {
+      for (const tr of m.tracks) {
+        if (m.id === 'noon_flooded_platform' && tr.inside) expect(headTunnel(tr, m.width, m.height), m.id).toBeTruthy();
+        else expect(headTunnel(tr, m.width, m.height), m.id).toBeNull();
+      }
+    }
   });
 
   it('no run-out, its entrance at the OUT mouth facing along the lane, no portal behind its start', () => {
@@ -548,7 +554,9 @@ describe('the Noon machines break apart (vesper_*)', () => {
       expect(def.family).toBe('construct');
       expect(homeward(fallStyleOf(def))).toBe(false);
     }
-    for (const e of ENEMIES.filter((x) => x.family === 'construct')) expect(fallStyleOf(e), e.id).toBe('sparkle');
+    for (const e of ENEMIES.filter((x) => x.family === 'construct')) expect(fallStyleOf(e), e.id).toBe(e.id.startsWith('vesper_') ? fallStyleOf(FIXTURE_VESPER[e.id] || e) : 'sparkle');
+    // the real machines (S5c) fall the fixtures' way
+    for (const id of Object.keys(FIXTURE_VESPER)) if (ENEMIES.some((e) => e.id === id)) expect(fallStyleOf(ENEMIES.find((e) => e.id === id)), id).toBe(fallStyleOf(FIXTURE_VESPER[id]));
     // (a shipped id that merely starts with a v is still a monster)
     expect(fallStyleOf({ id: 'volcano_imp', family: 'oni' })).toBe('sparkle');
   });

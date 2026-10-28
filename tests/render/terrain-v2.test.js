@@ -4,9 +4,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { THEMES, resolveLook } from '../../src/render/themes.js';
 import { buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
 import * as THREE from 'three';
-import { planRoads, buildDecks, buildTunnels, Acc } from '../../src/render/trackMesh.js';
+import { planRoads, buildDecks, buildTunnels, Acc, headTunnel } from '../../src/render/trackMesh.js';
 import { buildGroundFeatures, junctionChevrons } from '../../src/render/groundFeatures.js';
-import { pointAtDistance } from '../../src/core/track.js';
+import { pointAtDistance, cumulative } from '../../src/core/track.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
 import { Noise2, pathTexture, TRACK_TILES } from '../../src/render/textures.js';
 import { recordingDocument } from './terrainHash.js';
@@ -44,7 +44,13 @@ describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', (
       const roots = map.tracks.filter((t) => !t.fork).length;
       expect(plan.entrances.length, map.id).toBe(roots);
       // (a lane flagged `inside` opens at a rift inside the board, 3-8: its gate stands at its first point)
-      const insideStarts = map.tracks.filter((t) => t.inside).map((t) => t.points[0]);
+      // (Step 5, 5-6: an inside lane that opens in a tunnel is the subway spawn: its gate stands at the tunnel's OUT mouth)
+      const insideStarts = map.tracks.filter((t) => t.inside).map((t) => {
+        const head = headTunnel(t, map.width, map.height);
+        if (!head) return t.points[0];
+        const p = pointAtDistance(t.points, cumulative(t.points), head[1]);
+        return [p.x, p.y];
+      });
       for (const g of [...plan.entrances, ...plan.exits]) {
         if (insideStarts.some(([x, z]) => close(g.x, x, 0.05) && close(g.z, z, 0.05))) continue;
         const onEdge = close(g.x, 0, 0.02) || close(g.z, 0, 0.02) || close(g.x, map.width, 0.02) || close(g.z, map.height, 0.02);

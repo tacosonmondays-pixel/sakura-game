@@ -38,7 +38,9 @@ describe('fall styles', () => {
     expect(fallStyleOf(null)).toBe('sparkle');
     // every monster keeps the shipped death; the real Brigade defs (Step 4: the brigade family) go their own way
     const BRIGADE_STYLE = { brigade_gnat: 'sparkFall', brigade_trooper: 'fade', brigade_shieldline: 'fade', brigade_tortoise: 'breakdown', brigade_badger: 'breakdown' };
-    for (const e of ENEMIES) expect(fallStyleOf(e), e.id).toBe(BRIGADE_STYLE[e.id] || 'sparkle');
+    // (Step 5's Noon machines break apart their own way: tests/render/drowned.test.js)
+    const VESPER_STYLE = { vesper_patrol_orb: 'sparkFall', vesper_halo_drone: 'sparkFall', vesper_line_sentry: 'breakdown' };
+    for (const e of ENEMIES) expect(fallStyleOf(e), e.id).toBe(BRIGADE_STYLE[e.id] || VESPER_STYLE[e.id] || 'sparkle');
     expect(ENEMIES.filter((e) => e.family === 'brigade').map((e) => e.id).sort()).toEqual(Object.keys(BRIGADE_STYLE).sort());
     expect(FALL_STYLES.filter(homeward)).toEqual(['sparkle']);
   });
