@@ -20,11 +20,15 @@ import {
 
 const HISTORY_LIMIT = 100;
 
-/** Unit ids by rarity: every unit (the whole roster, LR units included). Banner pools are in banners.js. */
+/**
+ * Unit ids by rarity, the one-pool view (legacy rates page): every unit except LR units, who come only from their
+ * LR Banner. The banners' own pools are in banners.js.
+ */
+const inPlainPool = (u) => unitClass(u.id) !== 'legend' && unitClass(u.id) !== 'event';
 export const POOL = {
-  R: UNITS.filter((u) => u.rarity === 'R').map((u) => u.id),
-  SR: UNITS.filter((u) => u.rarity === 'SR').map((u) => u.id),
-  SSR: UNITS.filter((u) => u.rarity === 'SSR').map((u) => u.id),
+  R: UNITS.filter((u) => u.rarity === 'R' && inPlainPool(u)).map((u) => u.id),
+  SR: UNITS.filter((u) => u.rarity === 'SR' && inPlainPool(u)).map((u) => u.id),
+  SSR: UNITS.filter((u) => u.rarity === 'SSR' && inPlainPool(u)).map((u) => u.id),
 };
 
 function ensureState(state) {

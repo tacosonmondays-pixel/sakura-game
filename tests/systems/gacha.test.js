@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { unitClass } from '../../src/data/banners.js';
 import { POOL, rollOnce, pull, pullCost, canSpark, spark, expectedSSRRate, ratesTable } from '../../src/systems/gacha.js';
 import { createProfile } from '../../src/systems/save.js';
 import { essenceBalance } from '../../src/systems/essence.js';
@@ -11,10 +12,12 @@ import { rngOn, noWelcome } from '../fixtures/gachaRng.js';
 const fixedRng = (value, pickIndex = 0) => ({ next: () => value, pick: (arr) => arr[Math.min(pickIndex, arr.length - 1)], int: (a) => a, range: (a) => a, chance: () => false });
 
 describe('pool', () => {
-  it('contains every unit under its rarity', () => {
+  it('contains every unit under its rarity, except LR units (their LR Banner only)', () => {
+    const lr = (id) => unitClass(id) === 'legend';
     const all = [...POOL.R, ...POOL.SR, ...POOL.SSR];
-    expect(all.sort()).toEqual(UNITS.map((u) => u.id).sort());
-    for (const u of UNITS) expect(POOL[u.rarity]).toContain(u.id);
+    expect(all.sort()).toEqual(UNITS.filter((u) => !lr(u.id)).map((u) => u.id).sort());
+    for (const u of UNITS) if (!lr(u.id)) expect(POOL[u.rarity]).toContain(u.id);
+    expect(POOL.SSR).not.toContain('tenka');
   });
 });
 

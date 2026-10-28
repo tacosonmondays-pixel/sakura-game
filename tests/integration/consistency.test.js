@@ -22,7 +22,9 @@ import { createBattleSim, resolveFormation, parseBattleParams, followingStage } 
 import { hasItemIcon } from '../../src/art/icons.js';
 import { cardArtSVG } from '../../src/art/cardArt.js';
 import { stageThumbSVG } from '../../src/art/stageThumb.js';
-import { LEGEND_UNITS } from '../../src/data/recruitFeature.js';
+import { UNIT_CLASS } from '../../src/data/banners.js';
+
+const LEGEND_UNITS = Object.keys(UNIT_CLASS).filter((id) => UNIT_CLASS[id] === 'legend' && UNITS.some((u) => u.id === id));
 
 const ROUTES = [...readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8').matchAll(/registerRoute\('([a-z]+)'/g)].map((m) => m[1]);
 
