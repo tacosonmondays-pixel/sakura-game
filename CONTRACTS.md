@@ -486,6 +486,10 @@ MapDef = {
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
   city?: {...},                    // the city kit's render hints (see `theme` above)
+  district?: 'oldtown',            // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District")
+                                   // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
+                                   // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
+                                   // as always, the renderer stands the rift gate there with no run-out
   echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
                                    // Gate Arc echo: the same place as an Act I map in another era, its
                                    // rows / paths / crossings / tunnels literal except the tiles echoDiff

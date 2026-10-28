@@ -114,6 +114,17 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   | 2-9 The Running Track | `noon_running_track` | an infield straight, then one lap that crosses its own entry on a footbridge | firefly_chorus (Starting Pistol) | dashers, boars |
   | 2-10 The Boathouse Lamp | `noon_boathouse_lamp` | a breakwater, a 270° curl round the old lamp, a flat crossing on the breakwater head | changing_tides (Lake Swell) | `lizard_lamp_hugger` (Old Lamp-Hugger, the Bog Basilisk's model at miniboss scale) |
 
+* **Chapter 3 · Act II · The Bell Festival** (Itomachi's Old Town at night, theme `city`, `district: 'oldtown'`;
+  STEP3_BUILD_PLAN). 3-6 needs 3-5 **and** 2-10. 3-9 and 3-10 burn (`scenery.ruined: 'burning'`).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 3-6 Old Town Lanes | `noon_old_town` | three hooked lanes (north, south, north) with flat roofs ('U') inside the hooks | moonlit_blessing (Bell Festival) | wisps, two taught groups of veiled wraiths; scene `g3.pro` before |
+  | 3-7 Takoyaki Row | `noon_takoyaki_row` | three long diagonals across two stall rows | forge_vents (Hot Griddles, 2 zones on the stall rows) | phantoms, smoke goblins |
+  | 3-8 The Lake Steps | `noon_shrine_steps` | a town road and a lake lane that opens at a rift mid-lake (`inside`) meet at the foot of a Z climb | alchemists_mist (Lake Fog) | lantern bearers from wave 10; fog |
+  | 3-9 Old Town, Burning | `noon_old_town_burning` | one long S round two fallen blocks of 3-6's ground | heat_mirage (HAMMER's Smoke) | `brigade_gnat` (Gnat Spotter, construct family on the Cogling model) in fixed groups every 6th wave |
+  | 3-10 The Ashen Warden | `noon_lakeside_shrine` (echo of `shrine_sanctum`) | the sanctum tunnel under the tear | lunar_eclipse (The Tear) | `ghost_ashen_warden` (the Hollow Samurai's model at miniboss scale, charred) |
+
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
   Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with
