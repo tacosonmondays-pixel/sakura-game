@@ -144,6 +144,8 @@ function stageCard(profile, stageId, { isNext }) {
   const unlocks = cleared ? [] : (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
   const isFinale = !!stage.finale;
   const order = stage.difficulties || DIFFICULTY_ORDER;
+  // an echo stage (Gate Arc 1-10): the stage it echoes shows through the map faintly; its chip sits with the tags
+  const [ghost = null, echoChip = null] = (map?.echoOf && echoGhost(map)) || [];
 
   return h(`button.ma-stage-card.cp-card${unlocked ? '' : '.locked'}${isNext ? '.next' : ''}${cleared ? '.cleared' : ''}${isFinale ? '.finale' : ''}`, {
     type: 'button', 'data-testid': `stage-${stageId}`, onclick: () => navigate('stage', { id: stageId }),
@@ -151,8 +153,7 @@ function stageCard(profile, stageId, { isNext }) {
   },
   h('span.cp-card-map',
     h('span.cp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
-    // an echo stage (Gate Arc 1-10): the stage it echoes shows through faintly, a chip names it
-    map?.echoOf ? echoGhost(map) : null,
+    ghost,
     h('span.cp-id.num', stage.id),
     unlocked
       ? (savedBadge(profile, stageId) || (isNext ? h('span.ui-bdg.open.cp-next', 'Next') : null))
@@ -165,5 +166,6 @@ function stageCard(profile, stageId, { isNext }) {
     h('span.cp-meta',
       tier ? h('span.cp-tier.s', { style: { '--tier': tier.color } }, tier.name) : null,
       isFinale ? h('span.ui-chip.ink.cp-boss', 'Boss') : null,
+      echoChip,
       unlocks.map((id) => h('span.cp-unlock', { title: `${UNIT_MAP[id].name} joins on the first clear` }, h('span.cp-unlock-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), h('span', `+${UNIT_MAP[id].name}`))))));
 }

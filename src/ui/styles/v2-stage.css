@@ -491,12 +491,11 @@
 /* the chapter tab's "new act inside" dot, inside the tab's top-right corner (the tab's shape would cut it outside) */
 :is(.ui-day) .cp-tab.has-new-act { position: relative; }
 :is(.ui-day) .cp-tab.has-new-act > .ma-act-newdot { position: absolute; right: calc(var(--s) + 6px); top: 5px; }
-/* [Gate Arc] an echo stage's card (1-10): the echoed stage shows through faintly; its chip under the id plate */
+/* [Gate Arc] an echo stage's card (1-10): the echoed stage shows through the map faintly; its chip with the tags */
 :is(.ui-day) .cp-card-map > .ma-sc-ghost { position: absolute; inset: 0; z-index: 1; line-height: 0; opacity: 0.24; pointer-events: none; filter: saturate(0.7); mix-blend-mode: multiply; aspect-ratio: auto; }
 :is(.ui-day) .cp-card-map > .ma-sc-ghost svg { width: 100%; height: 100%; display: block; }
-:is(.ui-day) .cp-card-map > .ma-sc-echo { position: absolute; left: 0; right: auto; top: 34px; bottom: auto; z-index: 2; padding: 3px 12px 3px 8px; border-radius: 0;
-  background: var(--panel-w); color: var(--ink); font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+:is(.ui-day) .cp-meta > .ma-sc-echo { position: static; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 0; background: var(--sky-1);
+  color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-ink-soft); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
 @media (min-height: 481px) {
   :is(.ui-day) .cp-rail { margin-bottom: 12px; }
   :is(.ui-day) .cp-chapter { margin-bottom: 12px; }
