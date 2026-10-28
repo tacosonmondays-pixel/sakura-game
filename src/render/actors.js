@@ -289,7 +289,7 @@ export class Actors {
       if (o.isMesh && !o.userData.isOutline) o.castShadow = this.shadows;
     });
     const water = this.terrain.isWater(t.tx, t.ty);
-    // (the duo and the staff heroes keep their faces to the camera: src/render/facing.js)
+    // (every girl keeps her face to the camera: src/render/facing.js)
     const faceCam = facesCamera(t.def);
     const v = {
       uid: t.uid, model, facing: faceCam ? cameraFacing(t.facing, this.cameraYaw) : t.facing || 0, faceCam, pop: 0, water, hero: t.isHero, state: 'idle',

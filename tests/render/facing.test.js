@@ -1,9 +1,9 @@
-// The drawn facing that keeps the duo's and the staff heroes' faces to the battle camera (src/render/facing.js):
-// near the camera she turns exactly toward her target, past FREE_TURN the turn eases, and no target direction
-// ever turns her further than MAX_TURN from the camera (never her back). Other girls are untouched.
+// The drawn facing that keeps every girl's face to the battle camera (src/render/facing.js): near the camera she
+// turns exactly toward her target, past FREE_TURN the turn eases, and no target direction ever turns her further
+// than MAX_TURN from the camera (never her back).
 import { describe, it, expect } from 'vitest';
-import { cameraFacing, facesCamera, FREE_TURN, MAX_TURN, FACE_CAMERA_UNITS } from '../../src/render/facing.js';
-import { getUnit, UNITS } from '../../src/data/units.js';
+import { cameraFacing, facesCamera, FREE_TURN, MAX_TURN } from '../../src/render/facing.js';
+import { UNITS } from '../../src/data/units.js';
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -42,12 +42,10 @@ describe('cameraFacing', () => {
 });
 
 describe('facesCamera', () => {
-  it('the duo and the staff heroes keep their faces to the camera; the other girls turn freely', () => {
-    expect(facesCamera(getUnit('kohaku_tsubaki'))).toBe(true);
-    for (const id of FACE_CAMERA_UNITS) expect(facesCamera(getUnit(id)), id).toBe(true);
-    const others = UNITS.filter((u) => !u.duo && !FACE_CAMERA_UNITS.includes(u.id));
-    expect(others.length).toBeGreaterThan(30);
-    for (const u of others) expect(facesCamera(u), u.id).toBe(false);
+  it('every girl keeps her face to the camera: towers, heroes, the duo and the staff heroes', () => {
+    expect(UNITS.length).toBeGreaterThan(30);
+    for (const id of ['kohaku_tsubaki', 'kogane', 'norika']) expect(UNITS.some((u) => u.id === id), id).toBe(true);
+    for (const u of UNITS) expect(facesCamera(u), u.id).toBe(true);
     expect(facesCamera(null)).toBe(false);
   });
 });
