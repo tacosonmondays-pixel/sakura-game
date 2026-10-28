@@ -6,7 +6,7 @@
 // tab id 'requests' — the old join-requests tab keeps its id for old links) · Supply Bot (dev clan).
 import { h, screen, button, toast, confirmDialog, tabs as tabBar } from '../components.js';
 import { countdownChip } from '../kit.js';
-import { navigate } from '../router.js';
+import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
@@ -194,7 +194,9 @@ export function render(root, params = {}) {
     const pane = h('div.ol-pane');
     const tabsEl = tabBar(tabItems, tab, (id) => {
       tab = id;
-      navigate('clan', { tab: id }, { replace: true });
+      // the tab goes in the URL in place (src/ui/router.js): a navigate() would redraw the whole screen on its
+      // hashchange, rebuilding the tab just painted (a clan chat line typed in that moment was lost)
+      history.replaceState(history.state, '', buildHash('clan', { tab: id }));
       paintTab();
     });
     const setDonateBadge = () => {

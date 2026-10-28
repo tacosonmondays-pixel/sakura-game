@@ -757,6 +757,13 @@ try {
   await tap(D, '[data-testid="tab-chat"]');
   await wait(D, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
   await toFront(D);
+  // a clan tab rewrites the URL in place: the screen is not redrawn under the panel (a line typed then was lost)
+  const kept = await D.evaluate(async () => {
+    const p = document.querySelector('[data-testid="chat-panel"]');
+    await new Promise((r) => setTimeout(r, 2000));
+    return document.querySelector('[data-testid="chat-panel"]') === p;
+  });
+  check(kept, 'clan tabs: opening Chat does not redraw the screen under it (the panel stays the same)');
   await D.fill('[data-testid="chat-input"]', 'Dara says hi without the update');
   await D.press('[data-testid="chat-input"]', 'Enter');
   check(await until(A, () => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((m) => /without the update/.test(m.innerText)), null, 10000), 'needs update: clan chat still delivers');
