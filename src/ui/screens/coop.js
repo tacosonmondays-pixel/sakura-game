@@ -797,9 +797,9 @@ export function render(root, params = {}) {
     const RUN_TILE = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '72px', padding: '6px 6px', fontStyle: 'normal' };
 
     /** A fresh run for the host: a new seed, Grade 1, Half Day, the seed's first (or second) map. */
-    function newRun(mapPick = 0, grade = 1) {
+    function newRun(mapPick = 0, grade = 1, length = 'half') {
       const seed = newRunSeed();
-      return { seed, grade, length: 'half', mapId: mapChoices(seed, grade)[mapPick] };
+      return { seed, grade, length, mapId: mapChoices(seed, grade)[mapPick] };
     }
 
     function mapName(id) {
@@ -879,11 +879,16 @@ export function render(root, params = {}) {
             ? h('div.ol-seg', { 'data-testid': 'coop-run-grade' }, ...Array.from({ length: TRYOUT_GRADES }, (_, i) => i + 1).map((n) => h(`button.ol-seg-btn${run.grade === n ? '.on' : ''}`, {
               type: 'button', 'data-grade': String(n), disabled: !gradeOpen(store.profile, n).open, title: `Grade ${n}`,
               // (another Grade can change the content window: a new seed's maps come with it)
-              onclick: () => { if (run.grade !== n) s.setTryout(newRun(0, n)); },
+              onclick: () => { if (run.grade !== n) s.setTryout(newRun(0, n, run.length)); },
             }, `G${n}`)))
             : null,
-          h('span', { style: RUN_TEXT }, `Grade ${run.grade} · Half Day`),
-          s.isHost ? button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade)) }) : null),
+          s.isHost
+            ? h('div.ol-seg', { 'data-testid': 'coop-run-length' }, ...[['half', 'Half Day'], ['full', 'Full Day']].map(([k, label]) => h(`button.ol-seg-btn${run.length === k ? '.on' : ''}`, {
+              type: 'button', 'data-length': k, onclick: () => { if (run.length !== k) s.setTryout({ ...run, length: k }); },
+            }, label)))
+            : null,
+          h('span', { style: RUN_TEXT }, `Grade ${run.grade} · ${run.length === 'full' ? 'Full Day' : 'Half Day'}`),
+          s.isHost ? button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade, run.length)) }) : null),
         h('div.ol-fp-row',
           h('span.ol-fp-label', `Your squad: ${picked.length}/3`),
           button(ui.redraw ? 'Redrawn' : 'Redraw (1)', {
