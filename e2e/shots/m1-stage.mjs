@@ -1,6 +1,6 @@
 // M1 (docs/specs/UI_V2_MENUS.md): Campaign and Stage prep. Owned by the M1 builder; e2e/menus.mjs --milestone m1.
 // The ink save: chapters 1-3 and 4-1..4-3 cleared on Easy and Normal, so 4-4 is the next stage (new) and 2-3 a cleared
-// one (Sweep still locked: no Hard medal). The sheets are Details layers over prep (P1: no number budget inside them;
+// one (Sweep still locked: no Hard medal; the sweep shots grant its Hard medal and take it back). The sheets are Details layers over prep (P1: no number budget inside them;
 // their limit counts the screen behind the scrim too). The event and saved-battle shots change the save, so they run
 // last and put it back.
 import { isScreen, clickOpen } from './_util.mjs';
@@ -36,6 +36,43 @@ const readEventEpisode = (page) => page.evaluate(async () => {
   if (ep && !st.read.includes(ep)) st.read.push(ep);
   store.commit('e2e');
 });
+/**
+ * Sweep unlocked on 2-3 (its Hard medal), optionally with a saved Hard battle there (wave 12 of 25, ♥ 33) and/or an
+ * empty formation; `restore` puts the ink save back after the shot.
+ */
+const sweepState = ({ save = false, empty = false } = {}) => (page) => page.evaluate(({ save, empty }) => {
+  const { store } = window.__sakura;
+  const p = store.profile;
+  p.progress.stages['2-3'].hard = true;
+  if (save) {
+    const at = Date.now() - 2 * 3600e3;
+    p.battleSaves ||= {};
+    p.battleSaves['2-3'] = {
+      id: 'bs-shot-23', slot: '2-3', stageId: '2-3', difficulty: 'hard', seed: 4223, v: 1, endless: false, createdAt: at, updatedAt: at, resumes: 0,
+      snap: { v: 3, state: 'between', cash: 820, lives: 33, wave: 11, time: 480, towers: [] },
+      hero: { unitId: 'hikari', stats: {} },
+      loadout: ['ruri', 'aoi', 'rei', 'yuki', 'momo'].map((unitId) => ({ unitId, stats: {} })),
+    };
+  }
+  if (empty) {
+    window.__m1Formation = JSON.stringify(p.formation);
+    p.formation = { hero: null, towers: [] };
+    store.commit('formation');
+  }
+  store.commit('e2e');
+}, { save, empty });
+const restore = (page) => page.evaluate(() => {
+  const { store } = window.__sakura;
+  const p = store.profile;
+  p.progress.stages['2-3'].hard = false;
+  delete p.battleSaves?.['2-3'];
+  if (window.__m1Formation) {
+    p.formation = JSON.parse(window.__m1Formation);
+    delete window.__m1Formation;
+    store.commit('formation');
+  }
+  store.commit('e2e');
+});
 const sheet = (testid, id) => clickOpen(`#app [data-testid="${testid}"]`, `[data-testid="${id}"]`);
 /** Closes the sheet through its own X (ui-shots clears modals only; the next shot may open prep on the same route). */
 const closeSheet = async (page) => {
@@ -57,11 +94,22 @@ export const shots = {
   // (the drop grid scrolls in the sheet: a tile its bottom edge cuts measures only its visible part, so it is judged as dense)
   'stage-prep-drops': prep('#/stage/4-4', { open: sheet('prep-drops', 'drops-sheet'), after: closeSheet, limit: 20, dense: ['.stp-sheet .ma-drop'] }),
   'stage-prep-mode': prep('#/stage/2-3', { open: sheet('prep-mode', 'mode-sheet'), after: closeSheet, limit: 20 }),
-  'stage-prep-info': prep('#/stage/4-4', { open: sheet('prep-info', 'info-sheet'), after: closeSheet, limit: 20 }),
+  // (the enemy list runs past the sheet's fold: a chip the fold cuts is judged as dense too)
+  'stage-prep-info': prep('#/stage/4-4', { open: sheet('prep-info', 'info-sheet'), after: closeSheet, limit: 20, dense: ['.stp-sheet .ma-enemy'] }),
   // a Freeplay tier picked in the Mode sheet: the chip and Start name it
   'stage-prep-freeplay': prep('#/stage/2-3?freeplay=blossom'),
-  // the Halloween event's first operation (its events line) and a saved battle's Continue
+  // Sweep unlocked (2-3's Hard medal): alone, beside a saved battle's New game, beside a freeplay tier's Start (the
+  // footer folds the sweeps when the actions leave them no room), and with an empty formation (the sweeps stay)
+  'stage-prep-sweep': prep('#/stage/2-3?difficulty=hard', { prepare: sweepState(), after: restore }),
+  // (a saved battle's line and Continue name its wave, lives and age: one number over a detail's 11)
+  'stage-prep-sweep-save': prep('#/stage/2-3?difficulty=hard', { prepare: sweepState({ save: true }), after: restore, limit: 12 }),
+  'stage-prep-sweep-fp': prep('#/stage/2-3?difficulty=nightmare&freeplay=crimson', { prepare: sweepState(), after: restore }),
+  'stage-prep-sweep-fp-save': prep('#/stage/2-3?difficulty=hard&freeplay=crimson', { prepare: sweepState({ save: true }), after: restore, limit: 12 }),
+  'stage-prep-empty': prep('#/stage/2-3?difficulty=hard', { prepare: sweepState({ empty: true }), after: restore }),
+  // the Halloween event's first operation (its events line) and its boss on Nightmare (FIRST: the candy) and a saved
+  // battle's Continue
   'stage-prep-event': prep('#/stage/ev-halloween-1', { prepare: readEventEpisode }),
+  'stage-prep-event-boss': prep('#/stage/ev-halloween-boss?difficulty=nightmare', { prepare: readEventEpisode }),
   'stage-prep-continue': prep('#/stage/4-3', { prepare: seedSave, after: dropSave }),
 };
 export const list = Object.keys(shots);
