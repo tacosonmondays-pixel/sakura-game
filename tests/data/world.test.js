@@ -4,7 +4,11 @@ import {
   FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, getEnemy, enemiesByFamily, enemyTraits, spawnedBy,
 } from '../../src/data/enemies.js';
 import { MAPS, MAP_MAP, getMap, pathTiles, buildableTiles, defineMap } from '../../src/data/maps.js';
-import { TRACK_STEP, BRIDGE_HEIGHT } from '../../src/core/track.js';
+import {
+  TRACK_STEP, BRIDGE_HEIGHT, viaductAt, nearestOnPolyline, elevationAt, underDeck, inTunnel,
+} from '../../src/core/track.js';
+import { stageRule } from '../../src/data/rules.js';
+import { VIADUCT_FIXTURE } from '../../previews/viaductMaps.js';
 import {
   silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount, isDeclaredEcho,
 } from './trackShape.js';
@@ -440,15 +444,71 @@ describe('maps', () => {
   });
 
   it('crossings are resolved: bridges keep the lower pass on the ground, tunnels pass underneath', () => {
-    for (const m of MAPS) {
+    // (+ the S6v viaduct fixture until a shipped map raises one: a crossing with a pass on a viaduct is a
+    // bridge with the viaduct over, on its flat top, and the lower pass on the ground)
+    for (const m of [...MAPS, VIADUCT_FIXTURE]) {
       for (const c of m.crossings) {
         expect(['flat', 'bridge', 'tunnel'], m.id).toContain(c.mode);
+        const elevAt = (t, d) => (t.elev ? t.elev[t.cum.findIndex((v) => v >= d - 1e-9)] || 0 : 0);
         if (c.mode === 'bridge') {
           const over = m.tracks[c[c.over].path];
           const under = m.tracks[c[c.over === 'a' ? 'b' : 'a'].path];
-          const elevAt = (t, d) => (t.elev ? t.elev[t.cum.findIndex((v) => v >= d - 1e-9)] || 0 : 0);
           expect(elevAt(over, c[c.over].d), `${m.id} overpass height`).toBeGreaterThan(0.3);
           expect(elevAt(under, c[c.over === 'a' ? 'b' : 'a'].d), `${m.id} lower pass`).toBeLessThan(0.05);
+        }
+        for (const k of ['a', 'b']) {
+          const t = m.tracks[c[k].path];
+          if (!viaductAt(t, c[k].d) || c.mode === 'tunnel') continue;
+          expect(c.mode, `${m.id} viaduct crossing`).toBe('bridge');
+          expect(c.over, `${m.id} viaduct over`).toBe(k);
+          expect(elevAt(t, c[k].d), `${m.id} on the flat top`).toBe(BRIDGE_HEIGHT);
+        }
+      }
+      // `viaducts` is written only where a track has one
+      for (const t of m.tracks) if ('viaducts' in t) expect(t.viaducts.length, m.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('vent zones and transit-pad points sit on ground road, clear of crossings', () => {
+    // Step 6 (S6v): a forge_vents zone never covers a raised or under-deck stretch (the sim skips those
+    // walkers: a zone there would burn nothing); from Act 6 on (S6b / S6c), zone centres and the
+    // shifting_stars rift points (`at` and `at + jump` of each lane) also sit ≥ 2 tiles along the road
+    // from every crossing
+    const strict = (st) => st.act === 2 && st.chapter >= 6;
+    for (const st of STAGES) {
+      const rule = stageRule(st.id);
+      if (!rule) continue;
+      const m = MAPS.find((x) => x.id === st.mapId);
+      const points = [];
+      for (const z of rule.zones || []) {
+        m.tracks.forEach((t, ti) => {
+          const n = nearestOnPolyline(t.points, t.cum, z.x, z.y);
+          if (n.dist <= z.r) points.push({ what: `vent (${z.x}, ${z.y})`, ti, d: n.d });
+          for (let i = 0; i < t.points.length; i++) {
+            if (Math.hypot(t.points[i][0] - z.x, t.points[i][1] - z.y) > z.r) continue;
+            expect(elevationAt(t, t.cum[i]), `${st.id} vent over a raised road`).toBeLessThan(0.015);
+            expect(underDeck(t, t.cum[i]), `${st.id} vent under a deck`).toBe(false);
+          }
+        });
+      }
+      const portals = rule.always?.portals;
+      if (portals) {
+        m.tracks.forEach((t, ti) => {
+          for (const f of [portals.at, portals.at + portals.jump]) {
+            const d = f * t.length;
+            points.push({ what: `rift ${f}`, ti, d });
+            expect(elevationAt(t, d), `${st.id} rift point raised`).toBeLessThan(0.015);
+            expect(underDeck(t, d), `${st.id} rift point under a deck`).toBe(false);
+            expect(inTunnel(t, d), `${st.id} rift point in a tunnel`).toBe(false);
+          }
+        });
+      }
+      if (!strict(st)) continue;
+      for (const p of points) {
+        for (const c of m.crossings) {
+          for (const k of ['a', 'b']) {
+            if (c[k].path === p.ti) expect(Math.abs(c[k].d - p.d), `${st.id} ${p.what} near the crossing at (${c.x}, ${c.y})`).toBeGreaterThanOrEqual(2);
+          }
         }
       }
     }
