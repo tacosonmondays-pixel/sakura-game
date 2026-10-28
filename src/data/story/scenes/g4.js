@@ -17,7 +17,7 @@
 
 import { scene, say, narrate, cue, choice } from '../format.js';
 
-const ORC = { name: 'Shield-line Orc' };
+const ORC = { name: 'Orc Shieldbearer' };
 const KAGARI = { name: 'Kagari' };
 const KUROE = { name: 'Commander Kuroe' };
 const KOHAKU = { name: '{name:kohaku}' };
@@ -51,7 +51,7 @@ export default [
   ]),
 
   scene('g4.azami', {
-    title: 'Across the Barrier', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-7' }, bg: 'stage:4-7', music: 'calm',
+    title: 'Across the Barrier', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-7' }, bg: 'stage:4-7@dusk', music: 'calm',
   }, [
     narrate("{name:azami}'s checkpoint at dusk. Jersey barriers, a striped barrier arm, and a citation stand with a lamp."),
     say('hikari', 'Sensei, every wave took the long way round tonight. At walking pace. Guess who was on the gate.', { at: 'center', face: 'smile' }),
@@ -85,9 +85,10 @@ export default [
     say('hikari', 'Wake up, old lamp. …First light.', { fx: 'nod' }),
     cue({ flash: 'gold', sfx: 'firstLight' }),
     narrate('The lamp blazes. Along the road the beaten wolves shimmer, and slip home through the seam one by one.'),
+    cue({ exit: ['hikari'] }),
     narrate('Where a trooper fell, nothing shimmers. In the snow there is only a white visor helmet, lying on its side.'),
     say('unknown', "The wolves' readings went back through the seam. His… just stopped.", KOHAKU),
-    say('hikari', 'First light sends the wilds home. He was already home.', { face: 'sad' }),
+    say('hikari', 'First light sends the wilds home. He was already home.', { at: 'center', face: 'sad' }),
     cue({ enter: [{ who: 'azami', at: 'right', fx: 'fade' }] }),
     narrate('{name:azami} kneels in the snow and picks up the helmet. She turns it over in her hands.'),
     say('azami', 'I wrote his van a ticket on Tuesday.'),
@@ -104,7 +105,7 @@ export default [
   ]),
 
   scene('g4.logs', {
-    title: 'Night Watch Logs', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-8' }, bg: 'stage:4-8', music: 'moonlit',
+    title: 'Night Watch Logs', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-8' }, bg: 'stage:4-8@night', music: 'moonlit',
   }, [
     narrate('Night at the tunnel mouth. The Sentinels sleep in shifts under the beacon lamp. One radio is still on.'),
     say('hikari', "Sensei, you should be asleep. I've got the watch. …I've had it since sundown.", { at: 'center' }),
@@ -171,7 +172,7 @@ export default [
   ]),
 
   scene('g4.epi', {
-    title: 'Gates Bloom', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-10' }, bg: 'stage:4-7', music: 'calm',
+    title: 'Gates Bloom', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-10' }, bg: 'stage:4-7@dusk', music: 'calm',
   }, [
     narrate('Back at the checkpoint, the next evening. {name:kohaku} has pinned a chart to the citation stand.'),
     say('hikari', "Sensei, she's been up all night with that chart. I think she wants us to look.", { at: 'center' }),
@@ -188,7 +189,7 @@ export default [
     narrate('The Captain turns the radio down. Then she turns it back up, and listens to the end.'),
     cue({ bg: 'stage:4-5', music: 'calm', exit: 'all' }),
     narrate("Ironhold Pass. {name:kaede} carries the General's helmet up the steps, to a pass that has no guard now."),
-    cue({ bg: 'stage:4-7', enter: [{ who: 'azami', at: 'right', fx: 'fade' }] }),
+    cue({ bg: 'stage:4-7@night', enter: [{ who: 'azami', at: 'right', fx: 'fade' }] }),
     narrate('{name:azami} pages back through her citation book, to the Brigade vans she ticketed all week.'),
     narrate('She tears out the pages whose crews did not answer, folds them, and keeps them.'),
     say('azami', 'Citation: Commander Kuroe.'),

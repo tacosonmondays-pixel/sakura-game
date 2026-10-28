@@ -164,6 +164,7 @@ roster does.
 | `cg:aoi-archery` | cg | `public/art/lobby/aoi.webp` | Aoi moments (ch1, ch2) |
 | `cg:sango-harbour` | cg | `public/art/lobby/sango.webp` | the harbour arrival (end of ch1), ch2 |
 | `stage:<stageId>` | stage | that stage's painted place (`STAGE_PLACE` in `backgrounds.js`), else the chapter's academy tint | every chapter location |
+| `stage:<stageId>@dusk` / `@night` | stage, time of day | the same place at dusk or night (a painted place's `-sunset` / `-night` picture when listed; a drawn skyline gets the dusk or night sky and its lights) | evening and night scenes |
 | `black` | — | solid | fades, title cards |
 
 A CG already has a girl painted in it, so while a `cg:` background is up the player **hides portraits** (lines still

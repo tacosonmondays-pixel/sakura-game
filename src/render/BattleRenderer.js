@@ -140,7 +140,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const yaw = rig.yaw;
     const ox = -6;
     const oz = 7;
-    key.position.set(cx + ox * Math.cos(yaw) + oz * Math.sin(yaw), 12, cz - ox * Math.sin(yaw) + oz * Math.cos(yaw));
+    // (a low sun, e.g. dusk's keyY, comes in from nearer the horizon: longer shadows)
+    key.position.set(cx + ox * Math.cos(yaw) + oz * Math.sin(yaw), look.light.keyY ?? 12, cz - ox * Math.sin(yaw) + oz * Math.cos(yaw));
     fill.position.set(cx - (ox * Math.cos(yaw) + oz * Math.sin(yaw)), 6, cz + ox * Math.sin(yaw) - oz * Math.cos(yaw));
     const r = Math.hypot(map.width, map.height) / 2 + 2;
     const sc = key.shadow.camera;

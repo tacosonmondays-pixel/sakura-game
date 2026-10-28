@@ -9,8 +9,10 @@ import { join, dirname } from 'node:path';
 import { SCENES } from '../../src/data/story/index.js';
 import { forEachLine } from '../../src/data/story/format.js';
 import {
-  BACKGROUNDS, STAGE_PLACE, CHAPTER_FALLBACK_BG, SPARE_BACKGROUNDS, placeOfStage, stageOfBackground,
+  BACKGROUNDS, STAGE_PLACE, CHAPTER_FALLBACK_BG, SPARE_BACKGROUNDS, placeOfStage, stageOfBackground, timeOfBackground,
+  isBackgroundId,
 } from '../../src/data/story/backgrounds.js';
+import { themeBackdropSVG } from '../../src/art/backdrops.js';
 import { resolveBackground, backgroundUrls, imageDecoded, layersToDrop, fadedIn, FADE_FALLBACK_MS } from '../../src/ui/story/backdrop.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../src/data/stages.js';
 
@@ -63,8 +65,12 @@ describe('story backdrops', () => {
           continue;
         }
         expect(STAGE_PLACE[stage], `${sc.id}: ${id} has a place`).toBeTruthy();
-        expect(spec.place, `${sc.id}: ${id}`).toBe(STAGE_PLACE[stage]);
-        expect(fileOf(spec.url), `${sc.id}: ${id}`).toBe(`story/${STAGE_PLACE[stage]}.webp`);
+        // (a `@dusk` / `@night` stage background shows the place's own -sunset / -night picture when listed)
+        const time = timeOfBackground(id);
+        const timed = time && `${STAGE_PLACE[stage]}-${time === 'dusk' ? 'sunset' : 'night'}`;
+        const place = timed && BACKGROUNDS[timed] ? timed : STAGE_PLACE[stage];
+        expect(spec.place, `${sc.id}: ${id}`).toBe(place);
+        expect(fileOf(spec.url), `${sc.id}: ${id}`).toBe(`story/${place}.webp`);
       }
     }
   });
@@ -119,6 +125,48 @@ describe('story backdrops', () => {
       expect(m, `${id} focus "${bg.focus}"`).toBeTruthy();
       for (const v of [Number(m[1]), Number(m[2])]) expect(v >= 0 && v <= 100, `${id} focus ${bg.focus}`).toBe(true);
     }
+  });
+
+  it('the far north (4-9, 4-10) is no summer painting: the frozen villages and the snow bridge are drawn snowy', () => {
+    for (const [stage, variant] of [['4-9', 'north'], ['4-10', 'northBridge']]) {
+      expect(STAGE_PLACE[stage], stage).toBeUndefined();
+      const spec = resolveBackground(`stage:${stage}`, 4);
+      expect(spec.kind, stage).toBe('svg');
+      expect(spec.html, stage).toBe(themeBackdropSVG('snow', { variant }));
+      expect(spec.html, stage).not.toBe(themeBackdropSVG('snow'));
+      expect(spec.html).not.toMatch(/NaN|undefined/);
+    }
+    expect(themeBackdropSVG('snow', { variant: 'north' })).not.toBe(themeBackdropSVG('snow', { variant: 'northBridge' }));
+  });
+
+  it('`stage:<id>@dusk` / `@night` picks a time of day: a skyline re-lit, a painted place\'s own picture when listed', () => {
+    expect(stageOfBackground('stage:4-7@dusk')).toBe('4-7');
+    expect(timeOfBackground('stage:4-7@dusk')).toBe('dusk');
+    expect(timeOfBackground('stage:4-8@night')).toBe('night');
+    expect(timeOfBackground('stage:4-7')).toBeNull();
+    for (const bad of ['stage:4-7@noon', 'stage:4-7@', 'stage:4-7@dusk@night', 'academy-day@dusk']) expect(isBackgroundId(bad), bad).toBe(false);
+    // a drawn skyline: the same place, re-lit (its own gradient ids, so a day and a dusk layer can crossfade)
+    const day = resolveBackground('stage:4-7', 4);
+    const dusk = resolveBackground('stage:4-7@dusk', 4);
+    const night = resolveBackground('stage:4-8@night', 4);
+    expect(dusk.html).toBe(themeBackdropSVG('city', { variant: 'highway', time: 'dusk' }));
+    expect(night.html).toBe(themeBackdropSVG('city', { variant: 'highwaySnow', time: 'night' }));
+    expect(dusk.html).not.toBe(day.html);
+    expect(dusk.html).toContain('tb-city-highway-dusk-sky');
+    expect(day.html).not.toContain('-dusk');
+    for (const sp of [dusk, night]) expect(sp.html).not.toMatch(/NaN|undefined/);
+    // a painted place: its -sunset picture when there is one, else the place as painted
+    expect(resolveBackground('stage:1-1@dusk', 1).place).toBe('blossom-court-sunset');
+    expect(resolveBackground('stage:2-1@night', 2).place).toBe('lakeshore');
+  });
+
+  it('Act 4\'s evening and night scenes play on a dusk or night backdrop, not the noon highway', () => {
+    expect(SCENES['g4.azami'].bg).toBe('stage:4-7@dusk');
+    expect(SCENES['g4.logs'].bg).toBe('stage:4-8@night');
+    expect(SCENES['g4.epi'].bg).toBe('stage:4-7@dusk');
+    const epiCues = [];
+    forEachLine(SCENES['g4.epi'], (l) => { if (l.t === 'cue' && l.bg) epiCues.push(l.bg); });
+    expect(epiCues).toEqual(['stage:4-5', 'stage:4-7@night']);
   });
 
   it('spares are real backgrounds', () => {

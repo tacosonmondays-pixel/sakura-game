@@ -121,9 +121,10 @@ on protocol 9). Every milestone: independent reviewer OK (≤ 3 fix rounds), has
     people running from the cold. It stood on the bridge until the children were across."). Joins `ENEMY_SPEAKERS`.
     No crown (orc's `crown_iron` belongs to the General at 4-5; keep the crown for Act I).
 11. **Story places.** 4-6…4-8: a highway skyline variant of the city backdrop (`PLACE_VARIANT`: `noon_toll_plaza`,
-    `noon_checkpoint` → `'highway'`, `noon_tunnel_mouth` → `'highwaySnow'`) drawn in S4a; 4-9/4-10: painted
-    `STAGE_PLACE` entries from the shipped set (`'4-9': 'base-camp'`, `'4-10': 'mountain-pass'`), the far north being
-    Morning ground. The story test covers all five.
+    `noon_checkpoint` → `'highway'`, `noon_tunnel_mouth` → `'highwaySnow'`) drawn in S4a; 4-9/4-10: drawn snow
+    variants (`north_frozen_villages` → `'north'`, `north_snow_bridge` → `'northBridge'`; visual review: the painted
+    summer places did not fit the far north). Scenes can ask for the time of day: `stage:<id>@dusk` / `@night`
+    (g4.azami, g4.logs, g4.epi). The story test covers all five.
 12. **Six cutscenes, joins included** (GATE_ARC §17 / Q17): `g4.pro`, `g4.azami` (join), `g4.cross`, `g4.boss`,
     `g4.after`, `g4.epi`, plus the side `g4.logs`. Hana's line in `g4.cross` is an `ifUnit` line (everyone has the unit
     defined); if the owner wants it gated on ownership, a per-line `ifOwned` is a later feature.
@@ -315,7 +316,7 @@ GLBs, the non-vacuous family rule; `docs/CAMPAIGN.md` Checkpoint table; HANDOFF 
   back and field only orcs and beasts until then (4-8 and 4-9 would lose their story beat)?
 - **A `brigade` bestiary family now** (five members, the Gnat moves out of Constructs), with the non-vacuous family rule.
 - **Azami joins after 4-7** (new players meet her there; saves that cleared 2-2 before the update keep her or get her once by letter; a 2-2 win after the update no longer brings her).
-- 4-9/4-10 story places reuse the painted `base-camp` / `mountain-pass`; 4-6…4-8 use a drawn highway skyline. Painted
+- 4-6…4-10 story places are drawn skylines (highway, then the snowy north, with dusk and night versions). Painted
   "toll-plaza", "frozen-village" and "snow-bridge" pictures could replace them.
 - Hana's `g4.cross` line plays for everyone (`ifUnit`, she exists); a per-line ownership gate is a later feature.
 - Deferred art: the Brigade GLB family (`brigade.glb`, faces, clips), portraits for Kagari, Kuroe and Kohaku.

@@ -66,7 +66,7 @@ import { CAMPUS } from './campusProps.js';
 import { prim } from './buildings.js';
 import { OLD, LANTERN_STRINGS } from './oldTownProps.js';
 import { RUIN_ON_BOARD } from './ruinProps.js';
-import { BARRIER_ARM, HW } from './highwayProps.js';
+import { BARRIER_ARM, HW, barrierArmBoxes } from './highwayProps.js';
 
 export { ROOF_Y };
 import { crosswalkMarks } from '../groundFeatures.js';
@@ -1059,44 +1059,48 @@ export function buildCity(o) {
   // Built at the up pose; bindFacade() points them at the merged mesh, then update() re-poses only
   // the arms that swing (their vertex range alone is uploaded).
   const ARM = CROSSING_ARM;
-  const armTpl = new CityAcc();
+  /** An arm template: its lowered geometry about the hub, posed per post by poseArms. */
+  const armTemplate = (acc, A) => {
+    const geo = acc.build();
+    disposables.push(geo);
+    return { pos: geo.attributes.position.array, nor: geo.attributes.normal.array, col: geo.attributes.color.array, verts: geo.attributes.position.count, hx: A.hubX, hy: A.hubY + A.w / 2 };
+  };
+  // the level crossing's arm: red and white segments
+  const crossingAcc = new CityAcc();
   for (let i = 0; i < ARM.segs; i++) {
     // down pose, about the hub (its axis through the arm's middle): the road side is local +x
-    armTpl.box(ARM.seg / 2 + 0.02 + i * ARM.seg, -ARM.w / 2, 0, ARM.seg, ARM.w, ARM.w, { color: i % 2 ? '#e84a4a' : '#f7f4ee' });
+    crossingAcc.box(ARM.seg / 2 + 0.02 + i * ARM.seg, -ARM.w / 2, 0, ARM.seg, ARM.w, ARM.w, { color: i % 2 ? '#e84a4a' : '#f7f4ee' });
   }
-  const tplGeo = armTpl.build();
-  disposables.push(tplGeo);
-  // the checkpoint's arm: the same shape striped white and Brigade amber (highwayProps BARRIER_ARM)
-  const barrierCols = new Float32Array(tplGeo.attributes.color.array.length);
-  {
-    const ca = new THREE.Color(BARRIER_ARM.colors[0]);
-    const cb = new THREE.Color(BARRIER_ARM.colors[1]);
-    const per = barrierCols.length / 3 / ARM.segs;
-    for (let v = 0; v < barrierCols.length / 3; v++) {
-      const c = Math.floor(v / per) % 2 ? cb : ca;
-      barrierCols[v * 3] = c.r;
-      barrierCols[v * 3 + 1] = c.g;
-      barrierCols[v * 3 + 2] = c.b;
-    }
-  }
+  const crossingTpl = armTemplate(crossingAcc, ARM);
+  // the checkpoint's arm: twice as thick, a navy core banded white and Brigade amber, a STOP plate at
+  // the tip (highwayProps BARRIER_ARM / barrierArmBoxes); built only when the map has a barrier
+  const barrierTpl = barrierSpots.length
+    ? (() => {
+      const acc = new CityAcc();
+      for (const b of barrierArmBoxes()) acc.box(b.x, b.y, b.z, b.w, b.h, b.d, { color: b.color, rz: b.rz });
+      return armTemplate(acc, BARRIER_ARM);
+    })()
+    : null;
+  for (const c of levelCrossings) c.tpl = crossingTpl;
+  for (const c of barriers) c.tpl = barrierTpl;
   /** Every swinging arm: the level crossings', then the checkpoint barriers'. */
   const arms = levelCrossings.concat(barriers);
-  const tplPos = tplGeo.attributes.position.array;
-  const tplNor = tplGeo.attributes.normal.array;
-  const armVerts = tplGeo.attributes.position.count;
   let armsPart = null;
   /** Writes the arms of crossing `c` at its current angle into position/normal arrays from vertex `at`. */
   const poseArms = (c, pos, nor, at) => {
     const ca = Math.cos(c.angle);
     const sa = Math.sin(c.angle);
+    const T = c.tpl;
+    const tplPos = T.pos;
+    const tplNor = T.nor;
     c.posts.forEach((p, k) => {
       const cy = Math.cos(p.ry);
       const sy = Math.sin(p.ry);
       // the hub in the post's frame, then the post on the board
-      const hx = ARM.hubX;
-      const hy = ARM.hubY + ARM.w / 2;
-      const o = (at + k * armVerts) * 3;
-      for (let v = 0; v < armVerts * 3; v += 3) {
+      const hx = T.hx;
+      const hy = T.hy;
+      const o = (at + k * T.verts) * 3;
+      for (let v = 0; v < T.verts * 3; v += 3) {
         // turn about the hub's z axis (up = the road side swings to the sky), then about y with the post
         const lx = tplPos[v] * ca - tplPos[v + 1] * sa + hx;
         const ly = tplPos[v] * sa + tplPos[v + 1] * ca + hy;
@@ -1114,15 +1118,18 @@ export function buildCity(o) {
     });
   };
   if (arms.length) {
-    const n = arms.length * 2 * armVerts;
+    let n = 0;
+    for (const c of arms) {
+      c.base = n;
+      n += 2 * c.tpl.verts;
+    }
     const pos = new Float32Array(n * 3);
     const nor = new Float32Array(n * 3);
     const col = new Float32Array(n * 3);
-    arms.forEach((c, i) => {
-      c.base = i * 2 * armVerts;
+    for (const c of arms) {
       poseArms(c, pos, nor, c.base);
-      for (let k = 0; k < 2; k++) col.set(c.barrier ? barrierCols : tplGeo.attributes.color.array, (c.base + k * armVerts) * 3);
-    });
+      for (let k = 0; k < 2; k++) col.set(c.tpl.col, (c.base + k * c.tpl.verts) * 3);
+    }
     armsPart = new THREE.BufferGeometry();
     armsPart.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     armsPart.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
@@ -1207,8 +1214,8 @@ export function buildCity(o) {
       if (!armBind) continue;
       poseArms(c, armBind.pos.array, armBind.nor.array, armBind.offset + c.base);
       const start = (armBind.offset + c.base) * 3;
-      armBind.pos.addUpdateRange(start, 2 * armVerts * 3);
-      armBind.nor.addUpdateRange(start, 2 * armVerts * 3);
+      armBind.pos.addUpdateRange(start, 2 * c.tpl.verts * 3);
+      armBind.nor.addUpdateRange(start, 2 * c.tpl.verts * 3);
       armBind.pos.needsUpdate = true;
       armBind.nor.needsUpdate = true;
     }

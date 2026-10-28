@@ -12,7 +12,8 @@ import { NORTH_BUILDERS, NORTH_VARIANTS, HUT_KINDS, HEARTH_RING } from '../../sr
 import { CITY_VARIANTS } from '../../src/render/city/cityProps.js';
 import { HIGHWAY_VARIANTS } from '../../src/render/city/highwayProps.js';
 import { BRIGADE_VARIANTS } from '../../src/render/city/brigadeProps.js';
-import { SCENERY, buildTerrain, resolveScenery } from '../../src/render/terrain.js';
+import { SCENERY, buildTerrain, resolveScenery, deckPierRow, WATER_Y } from '../../src/render/terrain.js';
+import { MAP_MAP } from '../../src/data/maps.js';
 import { buildDecks, planRoads } from '../../src/render/trackMesh.js';
 import { HIGHWAY_FIXTURES, highwayStage, NORTH_PADS } from '../../previews/highwayMaps.js';
 import { recordingDocument, terrainFingerprint } from './terrainHash.js';
@@ -140,6 +141,39 @@ describe('the far north on the shipped snow theme', () => {
     };
     expect(below(plank.geometry)).toBeGreaterThan(0);
     expect(below(layer.geometry)).toBe(0);
+  });
+
+  it('4-10\'s old piers stand in one evenly spaced row in the water, a tile to one side of the deck and parallel to it', () => {
+    expect(SCENERY.snowBridge.ordered).toBe(true);
+    const map = MAP_MAP.north_snow_bridge;
+    const plan = planRoads(map, { margin: 8 });
+    const tile = (x, z) => map.rows[z]?.[x];
+    const wet = (x, z) => tile(x, z) === '~' || tile(x, z) === 'B';
+    const isWaterAt = (x, z) => wet(Math.floor(x), Math.floor(z));
+    const opts = { pathH: 0.05, waterY: 0.012, crossings: plan.crossings, links: plan.links };
+    const decks = buildDecks(plan.roads, isWaterAt, resolveLook('snow', { keywords: ['snowBridge'] }), opts);
+    const roadTiles = new Set(plan.roads.flatMap((r) => r.pts.map(([x, z]) => `${Math.floor(x)},${Math.floor(z)}`)));
+    const row = deckPierRow(plan.roads, decks.waterSections, wet, (x, z) => roadTiles.has(`${x},${z}`));
+    expect(row).toHaveLength(SCENERY.snowBridge.n);
+    // the deck over the ravine (the longest run of points over water)
+    const deck = plan.roads.flatMap((r) => r.pts.filter((_, i) => decks.waterSections.has(`${r.index}:${i}`)));
+    const dist = (p) => Math.min(...deck.map(([x, z]) => Math.hypot(x - p.x, z - p.z)));
+    const gaps = row.slice(1).map((p, i) => Math.hypot(p.x - row[i].x, p.z - row[i].z));
+    for (const p of row) {
+      expect(tile(Math.floor(p.x), Math.floor(p.z)), `${p.x},${p.z} in the water`).toBe('~');
+      expect(p.y).toBe(WATER_Y);
+      expect(dist(p)).toBeGreaterThan(0.9);
+      expect(dist(p)).toBeLessThan(1.4);
+      expect(Math.abs(p.ry - row[0].ry)).toBeLessThan(0.05);
+    }
+    for (const g of gaps) {
+      expect(g).toBeGreaterThan(1.5);
+      expect(Math.abs(g - gaps[0])).toBeLessThan(0.3);
+    }
+    // all on one side: a straight line (every pier the same signed distance across the deck's direction)
+    const [a, b] = [row[0], row[row.length - 1]];
+    const l = Math.hypot(b.x - a.x, b.z - a.z);
+    for (const p of row) expect(Math.abs(((p.x - a.x) * (b.z - a.z) - (p.z - a.z) * (b.x - a.x)) / l)).toBeLessThan(0.2);
   });
 });
 

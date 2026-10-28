@@ -85,6 +85,18 @@ function stars(rnd, w, h, count) {
   return s;
 }
 
+/** A snowfall of round flakes over (0..w, 0..h): `count` flakes of radius r0 + rnd()·rr. */
+function snowfall(rnd, w, h, count, r0, rr, op) {
+  let s = '';
+  for (let i = 0; i < count; i++) s += `<circle cx="${n(rnd() * w)}" cy="${n(rnd() * h)}" r="${n(r0 + rnd() * rr)}" fill="#ffffff" opacity="${op}"/>`;
+  return s;
+}
+
+/** A lit lamp: a bright core and a soft glow round it (story backdrops at dusk and at night). */
+function lamp(x, y, r, color, glow, glowOp) {
+  return `<circle cx="${n(x)}" cy="${n(y)}" r="${n(glow)}" fill="${color}" opacity="${n(glowOp * 0.45)}"/><circle cx="${n(x)}" cy="${n(y)}" r="${n(glow * 0.5)}" fill="${color}" opacity="${glowOp}"/><circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" fill="#fff4d6"/>`;
+}
+
 function svg(w, h, body, label) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${label}">${body}</svg>`;
 }
@@ -217,11 +229,7 @@ const THEME_SKY = {
   campus: ['#16244a', '#3f5d96'],
 };
 
-/**
- * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
- * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10; city:
- * 'oldtown' / 'burning' (Act 3), 'highway' / 'highwaySnow' (Act 4's mountain highway, its tunnel mouth in snow)).
- */
+
 /**
  * Old Town by night (Gate Arc S3a, the Bell Festival): a night sky, the shrine's bell tower on the
  * hill, rows of wooden houses with tiled roofs and warm paper windows, lantern strings across the
@@ -279,12 +287,26 @@ function oldTownScene(rnd, id, W, H, burning) {
  * canopy with booths and a lit price board, the Brigade's checkpoint barrier arm (amber and white)
  * and two of its navy vans parked by the sound wall. `snow` (the tunnel mouth, 4-8): a grey morning,
  * snow on everything, the mountain face in front with the two bores lit inside, snow blowing out.
- * No people.
+ * `time` ('dusk' / 'night', TIME_OF_DAY): a low sun and pink clouds, or stars and a moon; the lamps,
+ * booth windows, price board, van lights and the bores' sodium lamps go into `lights`, drawn over the
+ * time-of-day wash so they stay bright. No people.
+ * @returns {{ s: string, lights: string }}
  */
-function highwayScene(rnd, id, W, H, snow) {
+function highwayScene(rnd, id, W, H, snow, time) {
   let s = '';
+  let lights = '';
+  const lit = !!time;
+  const night = time === 'night';
   if (snow) s += `<rect width="${W}" height="${H}" fill="#dfe6ee" opacity="0.55"/>`;
-  else s += cloud(260, 70, 0.9) + cloud(820, 96, 0.7);
+  else if (time === 'dusk') {
+    // the sun going down behind the pass, pink-lit clouds
+    s += '<circle cx="860" cy="200" r="130" fill="#ffd6a0" opacity="0.35"/><circle cx="860" cy="200" r="44" fill="#ffd08a"/>';
+    s += cloud(260, 70, 0.9, '#ffc4b4', 0.9) + cloud(820, 96, 0.7, '#ffb4a6', 0.85);
+  } else if (!night) s += cloud(260, 70, 0.9) + cloud(820, 96, 0.7);
+  if (night) {
+    const sky = seeded(`${id}-sky`);
+    lights += stars(sky, W, 170, 70) + '<path d="M180 50a34 34 0 1 0 28 54 27 27 0 1 1-28-54z" fill="#fff6c4"/>';
+  }
   s += peaks(rnd, W, 210, 150, H, snow ? '#b8c4d2' : '#8da2bb', 6, '#ffffff');
   s += peaks(rnd, W, 260, 90, H, snow ? '#a4b0bf' : '#6f8aa0', 8, snow ? '#f4f8fc' : null);
   for (let x = -10; x < W + 20; x += 34 + rnd() * 20) s += pine(x, 292 - rnd() * 14, 0.55 + rnd() * 0.3, snow ? '#4a6f62' : '#3d6b52', snow);
@@ -292,26 +314,41 @@ function highwayScene(rnd, id, W, H, snow) {
   const fy = snow ? 150 : 162;
   for (let x = 60; x < W; x += 180) s += `<rect x="${x - 9}" y="${fy + 22}" width="18" height="${n(300 - fy - 22)}" fill="${snow ? '#b4b6b8' : '#a9a69e'}"/><rect x="${x - 26}" y="${fy + 16}" width="52" height="10" fill="#8e8b84"/>`;
   s += `<rect y="${fy}" width="${W}" height="20" fill="#cfccc4"/><rect y="${fy + 18}" width="${W}" height="6" fill="#8e8b84"/><rect y="${fy - 7}" width="${W}" height="7" fill="#e4e2dc"/>`;
-  for (let x = 140; x < W; x += 260) s += `<rect x="${x}" y="${fy - 40}" width="4" height="34" fill="#6d737b"/><rect x="${x - 6}" y="${fy - 44}" width="20" height="6" fill="#6d737b"/><circle cx="${x + 10}" cy="${fy - 38}" r="9" fill="#ffc46b" opacity="0.5"/>`;
+  for (let x = 140; x < W; x += 260) {
+    s += `<rect x="${x}" y="${fy - 40}" width="4" height="34" fill="#6d737b"/><rect x="${x - 6}" y="${fy - 44}" width="20" height="6" fill="#6d737b"/>`;
+    if (lit) lights += lamp(x + 10, fy - 38, 4, '#ffc46b', night ? 30 : 22, night ? 0.45 : 0.35);
+    else s += `<circle cx="${x + 10}" cy="${fy - 38}" r="9" fill="#ffc46b" opacity="0.5"/>`;
+  }
   if (snow) {
     // the mountain face with the two bores: concrete headwalls, the hazard band, sodium lamps inside
     s += '<path d="M0 300L0 210Q200 170 420 200T840 190T1100 214V300Z" fill="#9aa0a8"/><path d="M0 214Q200 176 420 206T840 196T1100 218V232Q860 214 600 226T0 240Z" fill="#f4f8fc"/>';
     for (const x of [330, 690]) {
       s += `<rect x="${x - 80}" y="210" width="160" height="92" fill="#cbc8c0"/><rect x="${x - 56}" y="236" width="112" height="66" fill="#1b1e26"/><rect x="${x - 56}" y="230" width="112" height="6" fill="#f4a62a"/>`;
       s += `<rect x="${x - 90}" y="204" width="180" height="8" fill="#e4e8ee"/><rect x="${x - 26}" y="214" width="52" height="12" fill="#2f6f52"/>`;
-      for (const k of [-34, 0, 34]) s += `<circle cx="${x + k}" cy="252" r="4" fill="#ffc46b"/><circle cx="${x + k}" cy="252" r="12" fill="#ffc46b" opacity="0.25"/>`;
+      for (const k of [-34, 0, 34]) {
+        if (lit) lights += lamp(x + k, 252, 4, '#ffc46b', night ? 18 : 14, night ? 0.45 : 0.35);
+        else s += `<circle cx="${x + k}" cy="252" r="4" fill="#ffc46b"/><circle cx="${x + k}" cy="252" r="12" fill="#ffc46b" opacity="0.25"/>`;
+      }
       for (let i = 0; i < 14; i++) s += `<circle cx="${n(x - 50 + rnd() * 100 + i * 4)}" cy="${n(280 + rnd() * 70)}" r="${n(2 + rnd() * 3)}" fill="#ffffff" opacity="0.9"/>`;
     }
   } else {
     // the sound wall behind the plaza, two Brigade vans parked by it (a ticket under each wiper)
     s += `<rect y="252" width="${W}" height="48" fill="#7a9a8c"/><path d="M0 252H1100" stroke="#a9a69e" stroke-width="5"/>`;
     for (let x = 0; x < W; x += 60) s += `<rect x="${x}" y="252" width="5" height="48" fill="#a9a69e"/>`;
-    for (const x of [800, 920]) s += `<rect x="${x}" y="262" width="96" height="40" rx="6" fill="#2b3a5c"/><rect x="${x}" y="280" width="96" height="6" fill="#f4a62a"/><rect x="${x + 70}" y="266" width="22" height="14" fill="#2e3a4c"/><rect x="${x + 70}" y="264" width="22" height="3" fill="#eef3f8"/><rect x="${x + 74}" y="276" width="8" height="5" fill="#fff8e6"/>`;
+    for (const x of [800, 920]) {
+      s += `<rect x="${x}" y="262" width="96" height="40" rx="6" fill="#2b3a5c"/><rect x="${x}" y="280" width="96" height="6" fill="#f4a62a"/><rect x="${x + 70}" y="266" width="22" height="14" fill="#2e3a4c"/><rect x="${x + 70}" y="264" width="22" height="3" fill="#eef3f8"/><rect x="${x + 74}" y="276" width="8" height="5" fill="#fff8e6"/>`;
+      if (lit) lights += lamp(x + 78, 278.5, 3, '#fff2cf', 12, 0.4);
+    }
     // the toll canopy: a white slab with an amber fascia on pillars, three booths, the price board
     s += '<rect x="120" y="214" width="420" height="16" fill="#e4e2dc"/><rect x="120" y="230" width="420" height="7" fill="#f4a62a"/>';
     for (const x of [140, 290, 440, 520]) s += `<rect x="${x}" y="237" width="8" height="66" fill="#b9bfc6"/>`;
-    for (const x of [180, 330, 470]) s += `<rect x="${x}" y="262" width="40" height="40" fill="#eef3f8"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#fff2cf"/><rect x="${x - 6}" y="298" width="52" height="8" fill="#a9a69e"/>`;
+    for (const x of [180, 330, 470]) {
+      s += `<rect x="${x}" y="262" width="40" height="40" fill="#eef3f8"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#fff2cf"/><rect x="${x - 6}" y="298" width="52" height="8" fill="#a9a69e"/>`;
+      // a lit booth window over the wash, its light spilling onto the road
+      if (lit) lights += `<ellipse cx="${x + 20}" cy="312" rx="34" ry="8" fill="#ffd98f" opacity="${night ? 0.3 : 0.2}"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#ffe2a0"/><circle cx="${x + 20}" cy="276" r="20" fill="#ffd98f" opacity="0.28"/>`;
+    }
     s += '<rect x="560" y="226" width="54" height="34" fill="#1f2733"/><rect x="566" y="234" width="42" height="5" fill="#ffc46b"/><rect x="566" y="244" width="34" height="5" fill="#7fe0a8"/><rect x="584" y="260" width="5" height="46" fill="#6d737b"/>';
+    if (lit) lights += '<rect x="566" y="234" width="42" height="5" fill="#ffd27a"/><rect x="566" y="244" width="34" height="5" fill="#9ff0c0"/><circle cx="587" cy="242" r="30" fill="#9ff0c0" opacity="0.2"/>';
   }
   // the road: pale concrete, its expansion joints and edge lines, the dark hard shoulder, the rail
   s += `<rect y="300" width="${W}" height="14" fill="${snow ? '#9aa2ab' : '#77797e'}"/><rect y="314" width="${W}" height="86" fill="${snow ? '#d9dde2' : '#dcdad3'}"/>`;
@@ -325,19 +362,119 @@ function highwayScene(rnd, id, W, H, snow) {
     for (const [x, w] of [[680, 160], [880, 140]]) s += `<rect x="${x}" y="158" width="${w}" height="46" fill="#2f6f52"/><rect x="${x + 12}" y="168" width="${w * 0.6}" height="7" fill="#eef3f0"/><rect x="${x + 12}" y="184" width="${w * 0.4}" height="6" fill="#eef3f0"/>`;
     s += '<rect x="84" y="318" width="22" height="50" fill="#2b3a5c"/><rect x="84" y="336" width="22" height="6" fill="#f4a62a"/><circle cx="95" cy="314" r="6" fill="#f4a62a"/>';
     for (let i = 0; i < 9; i++) s += `<rect x="${106 + i * 30}" y="336" width="30" height="7" fill="${i % 2 ? '#f4a62a' : '#f7f4ee'}"/>`;
+    if (lit) lights += lamp(95, 314, 3, '#f4a62a', 16, 0.45);
+  } else if (lit) {
+    lights += snowfall(rnd, W, H, 70, 1.2, 2.2, night ? 0.7 : 0.85);
   } else {
-    for (let i = 0; i < 70; i++) s += `<circle cx="${n(rnd() * W)}" cy="${n(rnd() * H)}" r="${n(1.2 + rnd() * 2.2)}" fill="#ffffff" opacity="0.85"/>`;
+    s += snowfall(rnd, W, H, 70, 1.2, 2.2, 0.85);
   }
-  return s;
+  return { s, lights };
 }
 
-export function themeBackdropSVG(theme, { variant = null } = {}) {
+/**
+ * The far north (Gate Arc Act 4, 4-9 / 4-10 story backgrounds; snow theme variants). `north`: the
+ * frozen villages under deep snow and a cold overcast sky: far peaks, snowy hills, snow pines, huts
+ * with heavy snow on their roofs, icicles and dark windows, and in the middle a ring of stones where
+ * a fire is going out (a few embers). `northBridge`: the snow bridge in a blizzard: two cliff sides
+ * of the ravine, the old stone span across it on its arch, the Brigade's folding deck beside it (navy
+ * treadway, amber rails), a few lanterns crossing, snow driving across everything. No people.
+ * @returns {{ s: string, lights: string }}
+ */
+function northScene(rnd, id, W, H, bridge) {
+  let s = '';
+  let lights = '';
+  if (!bridge) {
+    // a pale sun behind the overcast, far peaks, snowy hills and a line of snow pines
+    s += '<circle cx="820" cy="110" r="70" fill="#f4f1e8" opacity="0.3"/><circle cx="820" cy="110" r="30" fill="#f4f1e8" opacity="0.7"/>';
+    s += peaks(rnd, W, 200, 140, H, '#a9b8cc', 6, '#ffffff');
+    s += peaks(rnd, W, 245, 80, H, '#93a5bb', 8, '#f4f8fc');
+    s += hills(rnd, W, 285, 30, H, '#e3eaf2');
+    for (let x = -10; x < W + 20; x += 40 + rnd() * 30) s += pine(x, 302 - rnd() * 10, 0.5 + rnd() * 0.3, '#3f6658', true);
+    // the snowfield, blue drift shadows across it
+    s += '<path d="M0 310Q300 296 560 312T1100 306V400H0Z" fill="#eef3f8"/>';
+    for (let i = 0; i < 9; i++) s += `<path d="M${n(rnd() * W)} ${n(330 + rnd() * 60)}q60 -12 120 0" stroke="#c9d6e4" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+    // the huts: dark timber, snow heaped on the roofs and round the walls, icicles, cold windows
+    for (const [x, y, w, h] of [[110, 334, 120, 56], [300, 322, 96, 46], [740, 326, 110, 50], [940, 340, 130, 58]]) {
+      const l = x - w / 2;
+      const top = y - h;
+      s += `<rect x="${n(l)}" y="${n(top)}" width="${w}" height="${h}" fill="#5a4636"/>`;
+      s += `<path d="M${n(l)} ${n(top + h * 0.35)}h${w}M${n(l)} ${n(top + h * 0.7)}h${w}" stroke="#46372b" stroke-width="2"/>`;
+      s += `<rect x="${n(x - w * 0.12)}" y="${n(y - h * 0.62)}" width="${n(w * 0.24)}" height="${n(h * 0.62)}" fill="#2a2228"/>`;
+      s += `<rect x="${n(l + w * 0.1)}" y="${n(top + h * 0.22)}" width="${n(w * 0.18)}" height="${n(h * 0.24)}" fill="#3a3f4e"/><rect x="${n(x + w * 0.22)}" y="${n(top + h * 0.22)}" width="${n(w * 0.18)}" height="${n(h * 0.24)}" fill="#3a3f4e"/>`;
+      s += `<path d="M${n(l - 16)} ${n(top + 6)}L${n(x)} ${n(top - h * 0.72)}L${n(x + w / 2 + 16)} ${n(top + 6)}Z" fill="#f4f8fc" stroke="#d4dee9" stroke-width="3"/>`;
+      let ice = '';
+      for (let k = l - 8; k < x + w / 2 + 8; k += 12) ice += `M${n(k)} ${n(top + 6)}l3 ${n(6 + rnd() * 8)}l3 ${n(-6 - rnd() * 8)}`;
+      s += `<path d="${ice}" fill="#dbeaf6"/>`;
+      s += `<ellipse cx="${n(x)}" cy="${n(y + 2)}" rx="${n(w * 0.66)}" ry="7" fill="#f7fafd"/>`;
+    }
+    // the fire going out: a ring of stones, grey ash and a few embers
+    s += '<ellipse cx="530" cy="352" rx="46" ry="11" fill="#8d96a3"/><ellipse cx="530" cy="350" rx="34" ry="7" fill="#5e6470"/>';
+    lights += '<circle cx="530" cy="346" r="26" fill="#ff9a4a" opacity="0.22"/>';
+    for (const [x, y] of [[520, 349], [532, 346], [542, 350], [528, 352]]) lights += `<circle cx="${x}" cy="${y}" r="2.6" fill="#ff8a3d" opacity="0.9"/>`;
+    s += snowfall(rnd, W, H, 50, 1.2, 2.2, 0.85);
+    return { s, lights };
+  }
+  // the snow bridge in a blizzard: faint far peaks behind a white haze
+  s += peaks(rnd, W, 150, 100, H, '#b4c0ce', 5, '#ffffff');
+  s += `<rect width="${W}" height="${H}" fill="#e6ebf0" opacity="0.4"/>`;
+  // the ravine: the dark gap between two cliff sides, snow on their rims, mist down in it
+  s += '<path d="M330 212L380 400H720L770 216Q550 246 330 212Z" fill="#2e3640"/><path d="M360 300H740" stroke="#aab4c0" stroke-width="22" opacity="0.3"/>';
+  s += '<path d="M0 400V200Q120 186 260 196L340 212 380 400Z" fill="#6f7884"/><path d="M1100 400V194Q980 182 840 198L760 216 720 400Z" fill="#6f7884"/>';
+  s += '<path d="M0 202Q120 188 260 198L340 214 330 224Q250 210 120 204T0 216Z" fill="#f4f8fc"/><path d="M1100 196Q980 184 840 200L760 218 772 228Q850 212 980 200T1100 210Z" fill="#f4f8fc"/>';
+  // the old stone bridge: one arch across the gap, stone spandrels up to the deck, snow along its top
+  s += '<path d="M346 218H754V312H730Q550 154 370 312H346Z" fill="#7f7b74"/><path d="M370 312Q550 154 730 312" stroke="#6a665f" stroke-width="6" fill="none"/>';
+  s += '<rect x="300" y="196" width="500" height="22" fill="#8d8a84"/><rect x="300" y="190" width="500" height="7" fill="#f4f8fc"/>';
+  for (let x = 306; x < 800; x += 38) s += `<rect x="${x}" y="182" width="18" height="10" fill="#8d8a84"/><rect x="${x}" y="179" width="18" height="4" fill="#f4f8fc"/>`;
+  // the Brigade's folding deck beside it, nearer: navy treadway sections on trusses, amber rails
+  s += '<rect x="320" y="256" width="460" height="14" fill="#3a465c"/>';
+  let truss = '';
+  for (let x = 320; x < 780; x += 46) truss += `M${x} 270L${x + 23} 290L${x + 46} 270`;
+  s += `<path d="${truss}" stroke="#2b3a5c" stroke-width="4" fill="none"/><path d="M320 290H780" stroke="#2b3a5c" stroke-width="4"/>`;
+  for (let x = 320; x <= 780; x += 46) s += `<rect x="${x - 1.5}" y="242" width="3" height="16" fill="#2b3a5c"/>`;
+  s += '<path d="M320 244H780" stroke="#f4a62a" stroke-width="4"/><path d="M320 256H780" stroke="#f4a62a" stroke-width="2"/>';
+  // lanterns of the column, still crossing the old span
+  for (const x of [420, 470, 560, 610, 700]) lights += lamp(x, 178, 2.4, '#ffc46b', 10, 0.4);
+  // the blizzard: a haze over everything, snow driving across, flakes
+  s += `<rect width="${W}" height="${H}" fill="#eef2f6" opacity="0.28"/>`;
+  let streaks = '';
+  for (let i = 0; i < 90; i++) streaks += `M${n(rnd() * W)} ${n(rnd() * H)}l${n(14 + rnd() * 14)} ${n(4 + rnd() * 4)}`;
+  lights += `<path d="${streaks}" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.65"/>`;
+  lights += snowfall(rnd, W, H, 80, 1.2, 2.6, 0.9);
+  return { s, lights };
+}
+
+/**
+ * Time of day for a story backdrop (themeBackdropSVG `time`): its sky, then a wash over the whole
+ * scene; the scene's `lights` (lamps, lit windows, embers) are drawn after the wash so they stay bright.
+ */
+export const TIME_OF_DAY = {
+  dusk: { sky: ['#5a4a8e', '#ffa070'], wash: '#5b3c82', washOp: 0.24 },
+  night: { sky: ['#0a1430', '#2a3c68'], wash: '#0b1634', washOp: 0.52 },
+};
+
+/** A variant's own sky (the far north is overcast, the bridge in a blizzard). */
+const VARIANT_SKY = {
+  north: ['#7d93b4', '#dde5ee'],
+  northBridge: ['#8e9cae', '#e2e8ee'],
+};
+
+/**
+ * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
+ * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10; city:
+ * 'oldtown' / 'burning' (Act 3), 'highway' / 'highwaySnow' (Act 4's mountain highway, its tunnel mouth in snow);
+ * snow: 'north' / 'northBridge' (Act 4's frozen villages, the snow bridge in a blizzard)). `time` ('dusk' /
+ * 'night', TIME_OF_DAY) re-lights it for a story scene: the sky, a wash, and the scene's lamps lit over it.
+ */
+export function themeBackdropSVG(theme, { variant = null, time = null } = {}) {
   const key = THEME_SKY[theme] ? theme : 'sakura';
   const W = 1100;
   const H = 400;
   const rnd = seeded(`theme-${key}`);
-  const [top, bottom] = THEME_SKY[key];
-  const id = `tb-${key}${variant ? `-${variant}` : ''}`;
+  const tod = TIME_OF_DAY[time] || null;
+  const [top, bottom] = tod?.sky || VARIANT_SKY[variant] || THEME_SKY[key];
+  // (the time is in the id: a day and a dusk copy of one place can be on screen together mid-fade)
+  const id = `tb-${key}${variant ? `-${variant}` : ''}${tod ? `-${time}` : ''}`;
+  let lights = '';
   let s = `<defs>${linGrad(`${id}-sky`, [[0, top], [1, bottom]])}${radGrad(`${id}-glow`, [[0, '#ffffff', 0.9], [1, '#ffffff', 0]])}</defs>`;
   s += `<rect width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
   switch (key) {
@@ -402,9 +539,15 @@ export function themeBackdropSVG(theme, { variant = null } = {}) {
       s += '<path d="M760 120c40-30 90-20 110 10 30-20 70 0 60 30-60 0-140-10-170-40z" fill="#2a1a1a" opacity="0.8"/>';
       break;
     case 'snow':
+      if (variant === 'north' || variant === 'northBridge') {
+        const north = northScene(rnd, id, W, H, variant === 'northBridge');
+        s += north.s;
+        lights += north.lights;
+        break;
+      }
       s += peaks(rnd, W, 260, 150, H, '#c6dcf0', 5, '#ffffff') + hills(rnd, W, 330, 40, H, '#f4fbff');
       for (const x of [100, 220, 860, 1000, 520]) s += pine(x, 380, 1.4, '#3f7d5c', true);
-      for (let i = 0; i < 60; i++) s += `<circle cx="${n(rnd() * W)}" cy="${n(rnd() * H)}" r="${n(1.5 + rnd() * 2.5)}" fill="#ffffff" opacity="0.9"/>`;
+      s += snowfall(rnd, W, H, 60, 1.5, 2.5, 0.9);
       break;
     case 'night':
       s += stars(rnd, W, 260, 90) + `<path d="M860 70a50 50 0 1 0 40 80 40 40 0 1 1-40-80z" fill="#fff6c4"/>`;
@@ -429,7 +572,9 @@ export function themeBackdropSVG(theme, { variant = null } = {}) {
         break;
       }
       if (variant === 'highway' || variant === 'highwaySnow') {
-        s += highwayScene(rnd, id, W, H, variant === 'highwaySnow');
+        const hw = highwayScene(rnd, id, W, H, variant === 'highwaySnow', tod ? time : null);
+        s += hw.s;
+        lights += hw.lights;
         break;
       }
       // Itomachi by day: a warm skyline (offices, flats, a clock tower), utility poles and wires,
@@ -502,6 +647,9 @@ export function themeBackdropSVG(theme, { variant = null } = {}) {
     default:
       break;
   }
+  // the time of day: a wash over the scene, then its lights over the wash
+  if (tod) s += `<rect width="${W}" height="${H}" fill="${tod.wash}" opacity="${tod.washOp}"/>`;
+  s += lights;
   // soft vignette for text legibility
   s += `<rect width="${W}" height="${H}" fill="url(#${id}-sky)" opacity="0.08"/>`;
   return svg(W, H, s, `${key} scenery`);

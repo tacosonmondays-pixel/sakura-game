@@ -242,7 +242,8 @@ export const THEMES = {
     shore: '#dfe8f3',
     path: { style: 'cobble', color: '#bcb9c8', curb: '#8f8ca0', side: '#7d7a8e' },
     tunnel: { top: '#eef6fb', side: '#a9c2d6', portal: '#8fb9e6', dark: '#1d2a3e' },
-    water: { deep: '#3d8fc6', shallow: '#a8e4f5', foam: '#ffffff', glow: 0 },
+    // (a notch darker than the snow in greyscale: the river reads as water, not a paler drift)
+    water: { deep: '#2a6c9c', shallow: '#6fb2d2', foam: '#ffffff', glow: 0 },
     trees: ['snowPine', 'snowPine', 'pine'],
     scatter: ['snowPine', 'cliff', 'snowPine', 'boulder', 'snowPine'],
     treeColors: { leaf: '#3c7a62', leaf2: '#2f6552', trunk: '#5e4636' },
@@ -524,6 +525,8 @@ const HIGHWAY = {
   // the highway bores (trackMesh.buildTunnels style 'highway'): a rock ridge over the bore, a
   // concrete headwall with the Brigade-amber hazard band, jet fans and sodium lamps in the mouth
   tunnel: { style: 'highway', top: '#8c8f94', side: '#74767b', portal: '#cbc8c0', dark: '#1b1e26', stripe: '#f4a62a', hall: '#bdb9b0', roof: '#686b70', lamp: '#ffc46b' },
+  // mountain water a notch darker than the city's, so it never reads as more pale concrete
+  water: { deep: '#22557c', shallow: '#4a88a8', foam: '#e4eef6', glow: 0.02 },
   trees: ['pine', 'pine', 'cedar'],
   scatter: ['pine', 'pine', 'cliff', 'boulder', 'pine', 'cedar'],
   scatterDensity: 0.45,
@@ -546,15 +549,18 @@ const HIGHWAY = {
 DISTRICTS.highway = HIGHWAY;
 
 /**
- * `stage.look.dusk` (Gate Arc 4-7, Azami's checkpoint): the sun low and warm under a violet sky.
- * Not night (no lit windows, no fireflies); the board stays readable, the road the lightest band.
+ * `stage.look.dusk` (Gate Arc 4-7, Azami's checkpoint): evening, not noon. The sun low (keyY: the key
+ * light comes in from just over the horizon, so shadows run long) and orange under a violet sky, a
+ * violet hemisphere and fill, a light violet wash on the ground, and the highway lamps already on
+ * (ambient.js lights their glows and pools at dusk). Not night (no lit windows, no fireflies); the
+ * board stays readable, the road the lightest band.
  */
 export const DUSK = {
-  light: { sky: '#ffd2b4', ground: '#5d5068', hemi: 0.98, key: '#ffb682', keyI: 1.4, fill: '#8f88ea', fillI: 0.36 },
-  bg: '#d69a8c',
-  fogColor: '#b88e96',
-  groundTint: '#d8a07e',
-  groundAmt: 0.07,
+  light: { sky: '#c8a6dc', ground: '#4a3f62', hemi: 0.9, key: '#ff9a5c', keyI: 1.35, fill: '#7f78e6', fillI: 0.46, keyY: 5 },
+  bg: '#8a6496',
+  fogColor: '#9a7896',
+  groundTint: '#8a6aa8',
+  groundAmt: 0.1,
 };
 
 /**

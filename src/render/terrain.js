@@ -223,7 +223,8 @@ export const SCENERY = {
   gateSandbags: { prop: 'sandbagPit', slot: 'goalside', n: 2, variant: 1 },
   hostBanners: { prop: 'warBanner', slot: 'pathside', n: 4, s: 0.8 },
   passCairn: { prop: 'passCairn', slot: 'grass', alt: 'skirt', n: 1, variant: 0 },
-  snowBridge: { prop: 'stoneBridgePier', slot: 'deckside', n: 4 },
+  // (the old bridge's piers in one row beside the deck, in order: one broken off)
+  snowBridge: { prop: 'stoneBridgePier', slot: 'deckside', n: 4, ordered: true, variants: [0, 0, 1, 0] },
   vastShadow: { ambient: 'vastShadow' },
 };
 
@@ -236,6 +237,63 @@ const TEAR_TYPES = new Set(['hammerTear']);
 const ROAD_STYLES = {
   track: { style: 'track', base: '#7a3428', side: '#7d5a50', plainJunction: false },
 };
+
+/**
+ * The old bridge's piers beside the Brigade's deck (scenery 'snowBridge', slot 'deckside', 4-10): one row,
+ * parallel to the longest deck run over water, `offset` tiles to one side, the spots evenly spaced along
+ * it (the middle of each of up to `max` equal stretches, at least 1.6 tiles apart), standing in the water
+ * (y = WATER_Y), turned with the deck (local x along it). The side where the whole row is in open water
+ * wins (else the side with more of it). Pure: tests/render/north.test.js checks it on the 4-10 map.
+ * @param {{ index: number, pts: number[][] }[]} roads planRoads' roads
+ * @param {Set<string>} waterSections buildDecks' `${road}:${i}` keys of points over water
+ * @param {(tx: number, tz: number) => boolean} isWater tile is water
+ * @param {(tx: number, tz: number) => boolean} isPath tile is road
+ * @returns {{ x: number, z: number, y: number, ry: number, s: number }[]}
+ */
+export function deckPierRow(roads, waterSections, isWater, isPath, { max = 4, offset = 1.15 } = {}) {
+  let best = null;
+  for (const r of roads) {
+    let run = null;
+    for (let i = 1; i < r.pts.length - 1; i++) {
+      const [x, z] = r.pts[i];
+      const wet = waterSections.has(`${r.index}:${i}`) && isWater(Math.floor(x), Math.floor(z));
+      if (wet && !run) run = { r, i0: i, i1: i };
+      else if (wet) run.i1 = i;
+      if ((!wet || i === r.pts.length - 2) && run) {
+        let len = 0;
+        for (let k = run.i0 + 1; k <= run.i1; k++) len += Math.hypot(r.pts[k][0] - r.pts[k - 1][0], r.pts[k][1] - r.pts[k - 1][1]);
+        if (!best || len > best.len) best = { ...run, len };
+        run = null;
+      }
+    }
+  }
+  const count = best ? Math.min(max, Math.floor(best.len / 1.6)) : 0;
+  if (count < 2) return [];
+  const { r, i0, i1, len } = best;
+  // the points along the run at even arc lengths
+  const at = [];
+  let acc = 0;
+  for (let i = i0 + 1; i <= i1 && at.length < count; i++) {
+    acc += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+    if (acc >= ((at.length + 0.5) * len) / count) at.push(i);
+  }
+  const side = (sd) => at.map((i) => {
+    const a = r.pts[Math.max(0, i - 2)];
+    const b = r.pts[Math.min(r.pts.length - 1, i + 2)];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = -(b[1] - a[1]) / l;
+    const nz = (b[0] - a[0]) / l;
+    const px = r.pts[i][0] + nx * sd * offset;
+    const pz = r.pts[i][1] + nz * sd * offset;
+    const ok = isWater(Math.floor(px), Math.floor(pz)) && !isPath(Math.floor(px), Math.floor(pz)) &&
+      !roads.some((o) => o !== r && o.pts.some(([qx, qz]) => Math.hypot(qx - px, qz - pz) < 1.0));
+    return ok ? { x: px, z: pz, y: WATER_Y, ry: Math.atan2(nx, nz), s: 1 } : null;
+  });
+  const west = side(-1);
+  const east = side(1);
+  const full = (l) => l.filter(Boolean).length;
+  return (full(east) > full(west) ? east : west).filter(Boolean);
+}
 
 /** Trait / family → keyword that dresses the stage when that enemy is introduced. */
 const INTRO_KEYWORDS = {
@@ -880,7 +938,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     let n = 0;
     for (const slot of rec.alt ? [rec.slot, rec.alt] : [rec.slot]) {
       const list = slots[slot] || [];
-      shuffle(list, r);
+      // (an ordered keyword keeps its slot's order: a row stays a row)
+      if (!rec.ordered) shuffle(list, r);
       for (const spot of list) {
         if (n >= rec.n) break;
         if (spot.used) continue;
@@ -955,29 +1014,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         out.span.push({ x, z, y: 0, ry: Math.atan2(-nz, nx), s: 1 });
       }
     }
-    // deckside: the water either side of a deck, along the river (the old bridge's piers, 4-10)
-    for (const r of plan.roads) {
-      let acc = 0;
-      for (let i = 1; i < r.pts.length - 1; i++) {
-        acc += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
-        if (acc < 1.8 || !decks.waterSections.has(`${r.index}:${i}`)) continue;
-        const [x, z] = r.pts[i];
-        if (!isWater(Math.floor(x), Math.floor(z))) continue;
-        acc = 0;
-        const a = r.pts[i - 1];
-        const b = r.pts[i + 1];
-        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-        const nx = -(b[1] - a[1]) / l;
-        const nz = (b[0] - a[0]) / l;
-        for (const sd of [-1, 1]) {
-          const px = x + nx * sd * 1.35;
-          const pz = z + nz * sd * 1.35;
-          if (!isWater(Math.floor(px), Math.floor(pz)) || isPath(Math.floor(px), Math.floor(pz))) continue;
-          if (plan.roads.some((o) => o !== r && o.pts.some(([qx, qz]) => Math.hypot(qx - px, qz - pz) < 1.0))) continue;
-          out.deckside.push({ x: px, z: pz, y: WATER_Y, ry: Math.atan2(nx, nz), s: 1 });
-        }
-      }
-    }
+    // deckside: the old bridge's piers (4-10), one evenly spaced row beside the longest deck (deckPierRow)
+    out.deckside.push(...deckPierRow(plan.roads, decks.waterSections, isWater, isPath));
     // gateside / goalside: beside the road just inside a spawn / goal gate, facing the road
     for (const [list, sign] of [[entrances, 1], [exits, -1]]) {
       for (const e of list) {

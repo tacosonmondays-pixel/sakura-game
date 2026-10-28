@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { buildProp, hasProp, clearPropCache } from '../../src/render/props.js';
 import { resolveLook, THEMES, DISTRICTS, DUSK, FROST, SNOW_COVER } from '../../src/render/themes.js';
-import { HIGHWAY_BUILDERS, HIGHWAY_VARIANTS, ROADSIDE_KINDS, BARRIER_ARM } from '../../src/render/city/highwayProps.js';
+import { HIGHWAY_BUILDERS, HIGHWAY_VARIANTS, ROADSIDE_KINDS, BARRIER_ARM, HW, barrierArmBoxes } from '../../src/render/city/highwayProps.js';
 import { BRIGADE_BUILDERS, BRIGADE_VARIANTS } from '../../src/render/city/brigadeProps.js';
 import { NORTH_VARIANTS } from '../../src/render/northProps.js';
 import { CITY_VARIANTS, CROSSING_ARM } from '../../src/render/city/cityProps.js';
@@ -39,7 +39,7 @@ const lin = (hex) => {
 /** Near caps (this kit's own budgets: a roadside block near TECH §3.5's 100-250 + dressing; set pieces once or twice a map). */
 const CAPS = {
   roadsideBlock: 320, soundWall: 140, jerseyBarrier: 80, crashBarrier: 90, highwayLamp: 90, tollBooth: 300, signGantry: 320,
-  barrierArm: 170, tunnelPortal: 300, stoppedLorry: 240, restStop: 220, flyover: 200,
+  barrierArm: 220, tunnelPortal: 300, stoppedLorry: 240, restStop: 220, flyover: 200,
   sandbagPit: 320, searchlightTower: 300, tortoiseVan: 360, brigadeTent: 240, droneDock: 320, checkpointHut: 200, citationStand: 230,
 };
 
@@ -135,6 +135,17 @@ describe('highway and Brigade builders', () => {
     expect(down.solid.boundingBox.max.x).toBeGreaterThan(1.0);
     expect(BARRIER_ARM.hubX).toBe(CROSSING_ARM.hubX);
     expect(BARRIER_ARM.hubY).toBe(CROSSING_ARM.hubY);
+    // the checkpoint arm reads at 844×390: twice the crossing's thickness, a dark navy core (dark in
+    // greyscale against the pale concrete), white and amber bands, a red STOP plate past the tip
+    expect(BARRIER_ARM.w).toBeCloseTo(CROSSING_ARM.w * 2, 6);
+    const boxes = barrierArmBoxes();
+    const core = boxes.find((b) => b.color === BARRIER_ARM.core);
+    expect(core.h).toBeCloseTo(BARRIER_ARM.w, 6);
+    expect(lin(BARRIER_ARM.core)).toBeLessThan(0.05);
+    expect(lin(BARRIER_ARM.core)).toBeLessThan(lin(HW.concrete) / 8);
+    for (const c of BARRIER_ARM.colors) expect(boxes.some((b) => b.color === c), c).toBe(true);
+    const tip = Math.max(...boxes.filter((b) => b.color !== BARRIER_ARM.stop && b.color !== BARRIER_ARM.stopText).map((b) => b.x + b.w / 2));
+    expect(boxes.filter((b) => b.color === BARRIER_ARM.stop).every((b) => b.x > tip - 0.1)).toBe(true);
   });
 
   it('every van carries the ticket under its wiper; the Brigade is navy and amber, never camouflage', () => {
@@ -312,12 +323,17 @@ describe('the checkpoint barrier follows the lane schedule', () => {
     expect(city.meshes.some((m) => m.name === 'cityTrain')).toBe(false);
     expect(city.stats.barriers).toBe(1);
     expect(city.armsPart).toBeTruthy();
-    // its arms are striped white and Brigade amber
+    // its arms are banded white and Brigade amber
     const col = city.armsPart.attributes.color.array;
-    const amber = new THREE.Color(BARRIER_ARM.colors[1]);
-    let hasAmber = false;
-    for (let i = 0; i < col.length && !hasAmber; i += 3) hasAmber = Math.abs(col[i] - amber.r) < 1e-4 && Math.abs(col[i + 1] - amber.g) < 1e-4;
-    expect(hasAmber).toBe(true);
+    const has = (hex) => {
+      const c = new THREE.Color(hex);
+      for (let i = 0; i < col.length; i += 3) if (Math.abs(col[i] - c.r) < 1e-4 && Math.abs(col[i + 1] - c.g) < 1e-4 && Math.abs(col[i + 2] - c.b) < 1e-4) return true;
+      return false;
+    };
+    expect(has(BARRIER_ARM.colors[1])).toBe(true);
+    // (and its navy core and the STOP plate at the tip)
+    expect(has(BARRIER_ARM.core)).toBe(true);
+    expect(has(BARRIER_ARM.stop)).toBe(true);
     city.dispose();
   });
 

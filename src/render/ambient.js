@@ -364,20 +364,22 @@ export class AmbientSystem {
 
     // prop glows (+ warm light pools on the ground at night)
     const night = this.look.night || this.look.fog;
-    const ga = night ? 0.6 : 0.32;
+    // dusk (stage.look.dusk): the lamps are on, between day and night, with their pools on the road
+    const dusk = !night && !!this.look.dusk;
+    const ga = night ? 0.6 : dusk ? 0.5 : 0.32;
     for (const g of this.glows) {
       if (g.owner && !g.owner.visible) continue;
       // a traffic signal: the lit lamp steps through its colours (city kit)
       if (g.cycle) g.color = this._cycleColor(g.cycle, t + (g.phase || 0));
       let fl = (1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2))) * (g.keep ? 1 : this.dim);
-      let s = g.size * (night ? 1.1 : 0.8);
+      let s = g.size * (night ? 1.1 : dusk ? 1.0 : 0.8);
       // the tear's glow swells while the rule pulses
       if (g.tear) {
         s *= 0.75 + 0.55 * this.tear;
         fl *= 0.6 + 0.5 * this.tear;
       }
       bbA.push(g.x, g.y, g.z, s, s, R.glow, g.color.r, g.color.g, g.color.b, ga * fl);
-      if (night && g.y < 1.6 && g.size >= 0.4) gA.push(g.x, 0.02, g.z, s * 2.2, s * 2.2, R.soft, g.color.r, g.color.g, g.color.b, 0.16 * fl);
+      if ((night || dusk) && g.y < 1.6 && g.size >= 0.4) gA.push(g.x, 0.02, g.z, s * 2.2, s * 2.2, R.soft, g.color.r, g.color.g, g.color.b, (night ? 0.16 : 0.12) * fl);
     }
 
     // searchlights (the campus): a soft beam across the water and the bright spot it sweeps

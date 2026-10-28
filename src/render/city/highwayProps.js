@@ -28,8 +28,38 @@ export const ROADSIDE_KINDS = ['soundBank', 'rockCut', 'depot', 'saltDome', 'con
 /**
  * The checkpoint barrier arm (barrierArm; cityKit swings it with the lane schedule): the hub sits
  * where the level crossing's does (cityProps CROSSING_ARM), so the kit poses both with one routine.
+ * Twice the crossing arm's thickness (`w`) so it reads at 844×390: a dark navy core banded white and
+ * Brigade amber (`colors`), navy showing between the bands, and a red STOP plate at the tip; the
+ * navy against the pale concrete carries it in greyscale too.
  */
-export const BARRIER_ARM = { ...CROSSING_ARM, colors: ['#f7f4ee', '#f4a62a'] };
+export const BARRIER_ARM = { ...CROSSING_ARM, w: 0.07, colors: ['#f7f4ee', '#f4a62a'], core: '#1c2742', stop: '#d62828', stopText: '#f7f4ee' };
+
+/**
+ * The checkpoint arm's boxes in its hub frame, lowered: the arm runs along +x from the hub, its axis
+ * at y = 0; each box is { x, y, z, w, h, d, rz, color } with (x, y, z) its bottom centre (geo.js /
+ * CityAcc box convention). The kit builds its swinging template from these, the down-arm variant
+ * places them on its post: one shape for both. 10 boxes.
+ */
+export function barrierArmBoxes() {
+  const A = BARRIER_ARM;
+  const len = A.segs * A.seg;
+  const x0 = 0.02;
+  const out = [];
+  // the navy core, the whole length
+  out.push({ x: x0 + len / 2, y: -A.w / 2, z: 0, w: len, h: A.w, d: A.w * 0.86, rz: 0, color: A.core });
+  // a band per segment, white and amber in turn, a little proud of the core; navy shows between them
+  const band = A.seg * 0.62;
+  for (let i = 0; i < A.segs; i++) {
+    out.push({ x: x0 + (i + 0.5) * A.seg, y: -A.w / 2 - 0.004, z: 0, w: band, h: A.w + 0.008, d: A.w * 0.86 + 0.008, rz: 0, color: A.colors[i % 2] });
+  }
+  // the STOP plate past the tip: a square and the same square turned 45° (an eight-pointed red
+  // plate about its centre), a white bar across both faces
+  const S = 0.15;
+  const cx = x0 + len + S * 0.42;
+  for (const rz of [0, Math.PI / 4]) out.push({ x: cx + Math.sin(rz) * (S / 2), y: -Math.cos(rz) * (S / 2), z: 0, w: S, h: S, d: 0.04, rz, color: A.stop });
+  out.push({ x: cx, y: -0.016, z: 0, w: S * 0.72, h: 0.032, d: 0.046, rz: 0, color: A.stopText });
+  return out;
+}
 
 /** The flyover's deck height in the skirt (tiles). */
 export const FLYOVER_Y = 1.15;
@@ -235,7 +265,7 @@ export const HIGHWAY_BUILDERS = {
     }
     if (k === 1) {
       const A = BARRIER_ARM;
-      for (let i = 0; i < 4; i++) c.solid.box(A.w, A.seg, A.w, { x: 0.42, y: 0.18 + i * A.seg, z: 0.12, color: A.colors[i % 2] });
+      for (let i = 0; i < 4; i++) c.solid.box(CROSSING_ARM.w, A.seg, CROSSING_ARM.w, { x: 0.42, y: 0.18 + i * A.seg, z: 0.12, color: A.colors[i % 2] });
     }
   },
   signGantry(c) {
@@ -279,7 +309,9 @@ export const HIGHWAY_BUILDERS = {
     c.glow.cyl(0.03, 0.03, 0.04, 6, { y: 0.45, color: HW.amber });
     if (v(c, 'barrierArm') === 0) return;
     glowPoint(c, 0, 0.48, 0, HW.amber, 0.42, 0.6);
-    for (let i = 0; i < A.segs; i++) c.solid.box(A.seg, A.w, A.w, { x: A.hubX + A.seg / 2 + 0.02 + i * A.seg, y: A.hubY, color: A.colors[i % 2] });
+    // the arm down across the road: the kit's shape (barrierArmBoxes), its axis at the hub
+    const hy = A.hubY + A.w / 2;
+    for (const b of barrierArmBoxes()) c.solid.box(b.w, b.h, b.d, { x: A.hubX + b.x, y: hy + b.y, z: b.z, rz: b.rz, color: b.color });
   },
   tunnelPortal(c) {
     // a highway bore's dressing (trackMesh draws the headwall and its dark mouth): a short concrete
