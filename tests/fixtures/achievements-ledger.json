@@ -134,6 +134,7 @@
   "a_ch2_act2": [{"id":"gems", "count": 75}],
   "a_ch3_act2": [{"id":"gems", "count": 87}],
   "a_ch4_act2": [{"id":"gems", "count": 100}],
-  "a_ch5_act2": [{"id":"gems", "count": 112}]
+  "a_ch5_act2": [{"id":"gems", "count": 112}],
+  "a_ch6_act2": [{"id":"gems", "count": 125}]
  }
 }

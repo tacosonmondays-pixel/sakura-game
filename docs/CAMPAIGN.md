@@ -151,6 +151,29 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   | 5-9 Reservoir Park | `noon_reservoir_park` (`district: 'park'`) | east along the dam crest, down the spillway steps, west across the bowl, north through the dam's service tunnel under its own first leg | alchemists_mist (Reservoir Fog) | ghouls and plants, a few Line Sentries from 8, a Grave Priest from 10, an Elder Treant from 14; two of each added on the last wave |
   | 5-10 The Reservoir Willow | `noon_reservoir_willow` (`district: 'park'`, night) | two S-shaped causeways round the willow island that never cross | firefly_chorus (Reservoir Fireflies) | `plant_reservoir_willow` (the Elder Treant's model at miniboss scale, 3,950 HP, seed pods at 66 %, armour 7 at 33 %) on the longer lane |
 
+* **Chapter 6 · Act II · Vesperline** (through the Noon Gate into the glass city, frozen: theme `vesper` with
+  `scenery.ruined: 'frozen'` on every stage, snow; STEP6_BUILD_PLAN). 6-6 needs 6-5 **and** 5-10. One new glass machine
+  per stage (all Constructs on the shipped construct model, white and ice-blue glass with outlines); the Rime Wisp
+  (a Ghost) and Gatekeeper Unit 01 on 6-10. No girl joins in Act 6.
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 6-6 Frost Causeway | `vesper_frost_causeway` | a broken causeway in a five-lobe W, two light-bridges over open leads | prism_conduits (Prism Batteries, 3 pads on the islands) | `vesper_lattice_shell` (crystal 5 / 10) from wave 3 |
+  | 6-7 Sky-Rail Viaduct | `vesper_skyrail` (`bridge.skyRail`) | up onto a 9.7-tile viaduct, an S along it, down at the broken span, back west underneath it | heat_mirage (Frost Haze) | the first viaduct: enemies on it can still be hit; `vesper_aegis` (barrier 60) from wave 3 |
+  | 6-8 Museum of Noon | `vesper_museum` (gallery tunnels) | through one gallery wing, half round the rotunda, through the other wing, out in a small S | lunar_eclipse (Dead Grid) | `look.blackout`; `vesper_warden` (elite: barrier + crystal) from wave 15 |
+  | 6-9 Lecture Tower Ring | `vesper_tower_ring` | phi: up a spoke, a full lap of the ring, across the plaza (flat) and out over the ring | shifting_stars (Transit Pads) | the Warden leads from wave 10; both pad points ≥ 2 tiles from every crossing |
+  | 6-10 Gatekeeper Unit 01 | `vesper_spindle_foot` (`city.spawnGate: 'vesperGate'`) | a double helix: two lanes cross north and south of the Spindle's foot and merge before the shelter | supply_ship (Last Watch Caches) | Rime Wisps (frost-warded) on waves 28-30; `vesper_gatekeeper` (Iron Colossus model, 3,950 HP, calls Line Sentries at 66 %, thicker shell at 33 %) on the last wave, longer lane |
+
+* **Side stages** (`kind: 'side'`, Gate Arc §20, STEP6_BUILD_PLAN decision 9). An optional stage beside an act:
+  `anchor` names the Act II stage it is drawn after (a small card in that act's row, locked "Clear 6-10" until the
+  anchor is cleared; it opens the stage screen), `requires` the anchor. Numbers are the anchor's ACT2_PLAN row with HP ×
+  1.1; medal gems at 0.5; first clear coins and books (no recruit ticket); the anchor's drop table. Not in
+  `CAMPAIGN_IDS`: no co-op, no campaign counters, medals, ribbons, missions, achievements or profile trophies; no battle
+  modes, freeplay or endless; no new enemy. The first is **The Starfall Trial** (`side-6-starfall`, after 6-10) on
+  `vesper_starfall` (The Starfall Deck, night): an orrery, the outer ring, a spiral over the star-map pool on a
+  light-bridge, the inner ring and a spur tunnelling out under the spiral; forge_vents (Starfall, three zones on ground
+  road); hpScale 9.94, 30 waves, families up to chapter 6 and the glass machines, no Rime Wisp.
+
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
   Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with

@@ -9,7 +9,7 @@
 import '../styles/campaign-acts.css';
 import { h } from '../dom.js';
 import { newSticker, dot } from '../badges.js';
-import { stageRequires, STAGES } from '../../data/stages.js';
+import { stageRequires, STAGES, sideStagesAfter } from '../../data/stages.js';
 import { MAP_MAP } from '../../data/maps.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked, isStageCleared } from '../../systems/unlocks.js';
@@ -72,11 +72,29 @@ export function chapterHasNewAct(profile, chapter) {
 }
 
 /**
+ * The side stages of an act row (Gate Arc Step 6, docs/specs/GATE_ARC.md §20: the Starfall Trial after 6-10), each drawn as
+ * a small card right after its anchor's card; a card opens the stage screen (route `stage`, `params.id` the side stage,
+ * so its before-scene plays). Locked ("Clear 6-10") until its requirements are cleared. Side stages are not counted in the
+ * row's progress.
+ * @param {object} profile
+ * @param {string[]} ids the row's stage ids
+ * @returns {Array<{ id: string, anchor: string, unlocked: boolean, cleared: boolean, lockText: string|null }>}
+ */
+export function sideCards(profile, ids) {
+  return (ids || []).flatMap((anchor) => sideStagesAfter(anchor).map((s) => {
+    const unlocked = isStageUnlocked(profile, s.id);
+    const missing = unlocked ? [] : stageRequires(s).filter((id) => !isStageCleared(profile, id));
+    return { id: s.id, anchor, unlocked, cleared: isStageCleared(profile, s.id), lockText: unlocked ? null : `Clear ${missing.join(' and ') || s.anchor}` };
+  }));
+}
+
+/**
  * One row per act with stages in this build.
  * @param {object} profile
  * @param {object} chapter a CHAPTERS row ({ id, stages, act2?, act2Name? })
  * @returns {Array<{ act: number, ids: string[], header: string|null, unlocked: boolean, lockText: string|null,
- *   cleared: number, total: number, isNew: boolean }>} `header` is null when the chapter has a single act
+ *   cleared: number, total: number, isNew: boolean, sides: ReturnType<typeof sideCards> }>} `header` is null when the
+ *   chapter has a single act; `sides` are the row's side stages (sideCards)
  */
 export function actRows(profile, chapter) {
   const acts = [1, 2].map((act) => ({ act, ids: actIds(chapter, act) })).filter((r) => r.ids.length > 0);
@@ -94,6 +112,7 @@ export function actRows(profile, chapter) {
       cleared: ids.filter((id) => isStageCleared(profile, id)).length,
       total: ids.length,
       isNew: act > 1 && actIsNew(profile, chapter, act),
+      sides: sideCards(profile, ids),
     };
   });
 }

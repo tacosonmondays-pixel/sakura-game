@@ -220,7 +220,8 @@ export const CHAPTERS = [
     desc: 'Goblin engineers have taken over the academy foundry and its crystal vats.',
     mechanic: 'Crystal shells (many small hits), barriers (blast), sabotage (traps, cleanse) and volatile blasts. Finale: the Goblin Machine.',
     stages: ['6-1', '6-2', '6-3', '6-4', '6-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'Vesperline', act2Theme: 'vesper',
+    act2Desc: 'Through the Noon Gate, holding Sensei\'s hands, into Vesperline: a city of glass on this same lake, frozen in the moment it fell. Its machines still hold the line, and under its white tower one window is still warm.',
   },
   {
     id: 7, name: 'Oni Festival', theme: 'festival', tier: 'expert',
@@ -1231,11 +1232,174 @@ const CAMPAIGN_ACT2 = [
     fam: ['feather', 'cog'],
     scenery: { props: ['reservoirWillow', 'reservoirDam', 'searchBoats', 'fireflies'], fog: true, night: true },
   }),
+
+  // ----- Chapter 6 · Act II — Vesperline (the glass city through the Noon Gate, frozen; STEP6_BUILD_PLAN §6) -----
+  // Chapter-6 families (and earlier), the glass machines one per stage (decision 3), the Rime Wisp and Gatekeeper Unit 01
+  // on 6-10. Theme `vesper`, frozen (`scenery.ruined: 'frozen'`), snow on every stage. No girl joins in Act 6
+  // (decision 12).
+  act2Stage({
+    id: '6-6', name: 'Frost Causeway', mapId: 'vesper_frost_causeway',
+    desc: 'Out across the frozen lake to Vesperline\'s gate, on a causeway broken in three and mended with fold-out light-bridges. Patrol Orbs and Quartz Slimes come first; Lattice Shells from wave 3, Iron Slimes from wave 4, Goblin Sappers from wave 6. Three prism batteries on the causeway still hold a charge.',
+    budget: [6, 1600], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 4), P('slime_crystal', 3), P('vesper_lattice_shell', 3, 3), P('slime_iron', 2, 4), P('goblin_sapper', 2, 6),
+    ],
+    fixed: [F(2, 'slime_crystal', 4, 0.6), F(3, 'vesper_lattice_shell', 3, 1.2), F(4, 'slime_iron', 3, 0.8), F(6, 'goblin_sapper', 3, 0.6)],
+    introduces: ['vesper_lattice_shell'], recommended: ['multiHit', 'priority'],
+    fam: ['cog', 'rime'],
+    scenery: { props: ['frostCauseway', 'prismBatteries', 'holoSigns', 'coldAurora'], weather: 'snow', ruined: 'frozen' },
+  }),
+  act2Stage({
+    id: '6-7', name: 'Sky-Rail Viaduct', mapId: 'vesper_skyrail',
+    desc: 'A sky-rail viaduct over the frozen ruins: the road climbs onto the rail, snakes along it, comes down at the broken span and runs back underneath. Enemies up on the rail can still be hit. Patrol Orbs, Ember Slimes and Goblin Sappers come first; the Vesper Aegis from wave 3, Goblin Bombers from wave 5, Line Sentries from wave 8.',
+    budget: [6, 1700], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 3), P('slime_ember', 3), P('goblin_sapper', 2), P('vesper_aegis', 3, 3), P('goblin_bomber', 2, 5),
+      P('vesper_line_sentry', 2, 8),
+    ],
+    fixed: [F(2, 'goblin_sapper', 3, 0.6), F(3, 'vesper_aegis', 3, 1.2), F(5, 'goblin_bomber', 3, 0.6), F(8, 'vesper_line_sentry', 2, 2)],
+    introduces: ['vesper_aegis'], recommended: ['barrierBreak', 'armorPen'],
+    fam: ['ember', 'cog'],
+    scenery: { props: ['skyRailViaduct', 'frozenCanal', 'frostHaze', 'holoSigns', 'coldAurora'], weather: 'snow', ruined: 'frozen' },
+  }),
+  act2Stage({
+    id: '6-8', name: 'Museum of Noon', mapId: 'vesper_museum',
+    desc: 'The museum\'s last generator keeps failing, and the column vanishes inside each gallery wing. Line Sentries, Shrine Wisps and Goblin Sappers come first; the Vesper Aegis from wave 4, Halo Drones from wave 6, Phantoms from wave 9 and a Vesper Warden from wave 15. Hold the rotunda.',
+    budget: [4, 600], groups: 3,
+    pool: [
+      P('vesper_line_sentry', 3), P('ghost_wisp', 3), P('goblin_sapper', 2), P('vesper_aegis', 2, 4), P('vesper_halo_drone', 3, 6),
+      P('ghost_phantom', 2, 9), P('vesper_warden', 1, 15),
+    ],
+    fixed: [
+      F(2, 'goblin_sapper', 3, 0.6), F(3, 'vesper_line_sentry', 2, 2), F(4, 'vesper_aegis', 2, 1.5), F(6, 'vesper_halo_drone', 3, 1.2), F(9, 'ghost_phantom', 3, 1.0),
+      F(15, 'vesper_warden', 1), F(29, 'vesper_warden', 2, 3, 6),
+    ],
+    introduces: ['vesper_warden'], recommended: ['armorPen', 'barrierBreak', 'priority'],
+    fam: ['rune', 'charm'],
+    scenery: { props: ['museumWings', 'reflectingPools', 'holoSigns'], weather: 'snow', ruined: 'frozen' },
+    // (render only: while the rule's eclipse is up the holo exhibits go dark; the warm window and the gates stay lit)
+    look: { blackout: true },
+  }),
+  act2Stage({
+    id: '6-9', name: 'Lecture Tower Ring', mapId: 'vesper_tower_ring',
+    desc: 'Round the ring road between the frozen lecture towers, in along a spoke, across the plaza and out over the ring, where the city\'s broken transit pads still fire. Line Sentries, Lattice Shells, Quartz Slimes and Ember Slimes come first; Halo Drones from wave 4, Goblin Bombers from wave 7, Vesper Wardens from wave 10.',
+    budget: [10, 6000], groups: 3,
+    pool: [
+      P('vesper_line_sentry', 3), P('vesper_lattice_shell', 3), P('slime_crystal', 2), P('slime_ember', 2), P('vesper_halo_drone', 2, 4),
+      P('goblin_bomber', 2, 7), P('vesper_warden', 1, 10),
+    ],
+    fixed: [
+      F(1, 'slime_crystal', 3, 0.6), F(2, 'slime_ember', 3, 0.6), F(3, 'vesper_line_sentry', 2, 2), F(4, 'vesper_halo_drone', 3, 1.2), F(7, 'goblin_bomber', 3, 0.6), F(10, 'vesper_warden', 1),
+      F(20, 'vesper_warden', 2, 3), F(29, 'vesper_warden', 3, 3, 6),
+    ],
+    recommended: ['barrierBreak', 'multiHit', 'armorPen'],
+    fam: ['blade', 'feather'],
+    scenery: { props: ['towerRing', 'transitPads', 'cleaningRobot', 'holoSigns'], weather: 'snow', ruined: 'frozen' },
+  }),
+  act2Stage({
+    id: '6-10', name: 'Gatekeeper Unit 01', mapId: 'vesper_spindle_foot',
+    desc: 'At the foot of the white tower two columns come down from the gate\'s terminal, cross each other twice on light-bridges and meet before the shelter. Line Sentries, the Vesper Aegis, Patrol Orbs, Quartz Slimes and Goblin Sappers come first; Vesper Wardens from wave 12, Rime Wisps from wave 28. On the last wave Gatekeeper Unit 01 wakes.',
+    budget: [6, 700], groups: 3,
+    pool: [
+      P('vesper_line_sentry', 3), P('vesper_aegis', 3), P('vesper_patrol_orb', 2), P('slime_crystal', 2), P('goblin_sapper', 2),
+      P('vesper_warden', 1, 12),
+    ],
+    fixed: [
+      F(12, 'vesper_warden', 1), F(20, 'vesper_warden', 2, 3), F(28, 'rime_wisp', 6, 0.5), F(29, 'rime_wisp', 8, 0.5), F(30, 'rime_wisp', 10, 0.5),
+      F(30, 'vesper_gatekeeper', 1, 2, 6), F(30, 'vesper_warden', 2, 3, 10),
+    ],
+    introduces: ['rime_wisp', 'vesper_gatekeeper'], recommended: ['barrierBreak', 'multiHit', 'priority', 'armorShred'],
+    fam: ['cog', 'rune'],
+    scenery: { props: ['spindleFoot', 'frozenNest', 'warmWindow', 'coldAurora'], weather: 'snow', ruined: 'frozen' },
+  }),
 ];
 
 const byPlayOrder = (a, b) => a.chapter - b.chapter || a.act - b.act || Number(a.id.split('-')[1]) - Number(b.id.split('-')[1]);
 const ACT2_SORTED = CAMPAIGN_ACT2.slice().sort(byPlayOrder);
 for (const ch of CHAPTERS) ch.act2 = ACT2_SORTED.filter((s) => s.chapter === ch.id).map((s) => s.id);
+
+// ---------------------------------------------------------------------------
+// Side stages (Gate Arc §20, STEP6_BUILD_PLAN decision 9) — optional stages beside an act, drawn as a small card after
+// their anchor stage in the chapter's act row. Not campaign stages: never in CAMPAIGN_IDS, so never in co-op
+// (coopStages), the campaign counters, medals and ribbons (campaignShowcase), missions or achievements; no battle modes,
+// no freeplay, no endless; they introduce no enemy and unlock no girl.
+// ---------------------------------------------------------------------------
+
+/** A side stage's HP over its anchor's ACT2_PLAN row (the Starfall Trial: 6-10's 9.04 → 9.94). */
+const SIDE_HP_MUL = 1.1;
+
+/**
+ * Builds a side StageDef from its anchor's Act II plan row: waves, tier, cash and the drop chapter as the anchor, HP ×
+ * SIDE_HP_MUL, `requires` the anchor (its first clear opens it), first clear coins and books without a recruit ticket,
+ * medal gems at the Act II rate.
+ * @param {object} o { id: 'side-<c>-<slug>', anchor: an Act II id, name, mapId, desc, budget, pool, fixed, fam, recommended, scenery, look? }
+ * @returns {object} StageDef (kind 'side')
+ */
+function sideStage(o) {
+  const plan = ACT2_PLAN_MAP[o.anchor];
+  if (!plan) throw new Error(`sideStage ${o.id}: anchor ${o.anchor} is not an Act II stage id`);
+  return {
+    id: o.id,
+    kind: 'side',
+    chapter: plan.chapter,
+    act: 2,
+    anchor: o.anchor,
+    name: o.name,
+    mapId: o.mapId,
+    desc: o.desc,
+    waves: plan.waves,
+    waveGen: {
+      pool: o.pool,
+      budget: { start: o.budget[0], growth: growthFor(o.budget[0], o.budget[1], plan.waves) },
+      spacing: o.spacing ?? 0.8,
+      groups: o.groups ?? 3,
+      fixed: o.fixed || [],
+    },
+    hpScale: round2(plan.hpScale * SIDE_HP_MUL),
+    hpPass: plan.hpPass,
+    cashScale: plan.cashScale,
+    startCash: plan.startCash,
+    lives: 100,
+    introduces: [],
+    recommended: o.recommended || [],
+    unlocks: {},
+    requires: o.anchor,
+    drops: campaignDrops(plan.dropChapter, o.fam, { dice: o.dice ?? (plan.dropChapter >= 3 ? 0.04 : 0) }),
+    firstClear: campaignFirstClear(plan.chapter, false),
+    medalGemMul: plan.medalGemMul,
+    scenery: o.scenery,
+    ...(o.look ? { look: o.look } : {}),
+    tier: plan.tier,
+    rule: stageRule(o.id),
+  };
+}
+
+/** The registered side stages, each after its anchor in play order. */
+export const SIDE_STAGES = [
+  // The Starfall Trial (after 6-10): the academy observatory's broken deck under the cracked dome, at night. Families up to
+  // chapter 6 and the glass machines; no Rime Wisp (the cold wisps stay 6-10's).
+  sideStage({
+    id: 'side-6-starfall', anchor: '6-10', name: 'The Starfall Trial', mapId: 'vesper_starfall',
+    desc: 'The academy observatory\'s broken deck, under a cracked dome where the night-sky watch kept its post. Shards of the star map keep falling. Patrol Orbs, Lattice Shells and Quartz Slimes come first; the Vesper Aegis from wave 3, Phantoms from wave 5, Halo Drones from wave 8, Vesper Wardens from wave 12.',
+    budget: [10, 5000], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 3), P('vesper_lattice_shell', 3), P('slime_crystal', 2), P('vesper_aegis', 2, 3), P('ghost_phantom', 2, 5),
+      P('vesper_halo_drone', 2, 8), P('vesper_warden', 1, 12),
+    ],
+    fixed: [
+      F(1, 'slime_crystal', 3, 0.6), F(2, 'vesper_lattice_shell', 2, 1.2), F(3, 'vesper_aegis', 2, 1.5), F(5, 'ghost_phantom', 3, 1.0), F(8, 'vesper_halo_drone', 3, 1.2),
+      F(12, 'vesper_warden', 1), F(30, 'vesper_warden', 3, 3, 6),
+    ],
+    recommended: ['multiHit', 'barrierBreak'],
+    fam: ['cog', 'feather'],
+    scenery: { props: ['starDome', 'coldAurora', 'holoSigns'], weather: 'snow', night: true, ruined: 'frozen' },
+  }),
+];
+
+/** @returns {object[]} the side stages anchored on `stageId` (drawn after it in its act row) */
+export function sideStagesAfter(stageId) {
+  return SIDE_STAGES.filter((s) => s.anchor === stageId);
+}
 
 // ---------------------------------------------------------------------------
 // Bounty (resource) arenas — 5 arenas × tiers 1-3
@@ -1503,7 +1667,8 @@ const CHALLENGE = {
 // Exports
 // ---------------------------------------------------------------------------
 
-export const STAGES = [...CAMPAIGN, ...ACT2_SORTED, ...BOUNTY, ...BOSSES, CHALLENGE];
+// (side stages last: every other stage keeps its index)
+export const STAGES = [...CAMPAIGN, ...ACT2_SORTED, ...BOUNTY, ...BOSSES, CHALLENGE, ...SIDE_STAGES];
 
 export const STAGE_MAP = Object.fromEntries(STAGES.map((s) => [s.id, s]));
 
@@ -1528,7 +1693,7 @@ export function campaignStages() {
 }
 
 /**
- * @param {'campaign'|'resource'|'boss'|'challenge'} kind
+ * @param {'campaign'|'resource'|'boss'|'challenge'|'side'} kind
  * @returns {object[]} stages of that kind in display order
  */
 export function stagesOfKind(kind) {
@@ -1609,13 +1774,17 @@ export function requirementsMet(stageOrId, isCleared) {
 const CAMPAIGN_ID_RE = /^(\d+)-(\d+)$/;
 
 /**
- * A campaign stage id's play-order key: (chapter, act, n) as one number, so 1-10 comes before 2-1 and 1-5 before 1-6.
+ * A campaign stage id's play-order key: (chapter, act, n) as one number, so 1-10 comes before 2-1 and 1-5 before 1-6;
+ * a side stage sorts just after its anchor (+ 0.5).
  * Works for ids not registered yet (the act then comes from n: 1…5 Act I, 6…10 Act II, 11…15 Act III, reserved).
  * Any other id (Bounty, Total Assault, events, unknown) sorts last: Infinity.
  * @param {string} id
  * @returns {number}
  */
 export function stageOrderKey(id) {
+  // a side stage sorts right after its anchor (side-6-starfall just after 6-10)
+  const side = STAGE_MAP[id];
+  if (side?.kind === 'side') return stageOrderKey(side.anchor) + 0.5;
   const m = CAMPAIGN_ID_RE.exec(typeof id === 'string' ? id : '');
   if (!m) return Infinity;
   const chapter = Number(m[1]);

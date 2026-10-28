@@ -161,6 +161,34 @@ export const STAGE_RULE_SKINS = {
     desc: 'For 6 s in every 16 fireflies rise off the reservoir: every girl deals 25% more damage.',
     toast: 'Fireflies! Every girl +25% damage (6 s)',
   },
+  // Chapter 6 · Act II — Vesperline (docs/specs/gate-arc/STEP6_BUILD_PLAN.md §6) and its side stage
+  '6-6': {
+    rule: 'prism_conduits', name: 'Prism Batteries', short: 'Batteries',
+    desc: 'A girl standing on a charged prism battery gets +0.7 range and +25% damage. One girl per battery.',
+  },
+  '6-7': {
+    rule: 'heat_mirage', name: 'Frost Haze', short: 'Haze', activeWord: 'frost haze',
+    desc: 'Frost haze rolls off the frozen canal (6 s in every 18) and cuts girls\' range by 0.5. Every defeated enemy drops 1 extra coin.',
+    toast: 'Frost haze! Range −0.5 (6 s)',
+  },
+  '6-8': {
+    rule: 'lunar_eclipse', name: 'Dead Grid', short: 'Grid', activeWord: 'dead grid',
+    desc: 'The museum\'s last generator fails for 6 s (every 20 s) and the holo exhibits go dark: Holy deals 50% more damage and spectral enemies move 20% faster.',
+    toast: 'Dead grid! Holy +50%, spirits faster (6 s)',
+  },
+  '6-9': {
+    rule: 'shifting_stars', name: 'Transit Pads', short: 'Pads',
+    desc: 'Each wave one power shines (+50%): Fire, Frost, Lightning, Holy, Mystic in turn. Ordinary enemies slip through a broken transit pad once.',
+  },
+  '6-10': {
+    rule: 'supply_ship', name: 'Last Watch Caches', short: 'Caches',
+    desc: 'The Last Watch\'s cached supplies turn up with 150 battle coins after every 4th wave. Lightning deals 20% more damage.',
+  },
+  'side-6-starfall': {
+    rule: 'forge_vents', name: 'Starfall', short: 'Starfall', activeWord: 'starfall',
+    desc: 'Every 15 s shards of the dome\'s star map fall onto the road for 5 s, burning ground enemies that cross them.',
+    toast: 'Star-map shards fall! (5 s)',
+  },
 };
 
 /**

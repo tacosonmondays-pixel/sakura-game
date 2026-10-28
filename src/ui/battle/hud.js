@@ -34,7 +34,7 @@ export function createHud(ctx) {
   const stageLabel = h(
     'div.bt-stage-label',
     // a Titan Trials battle: the titan's name and her tier (it always plays on Normal rules)
-    h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.titan ? TITAN_MAP[stage.titan.id]?.name || stage.name : stage.name),
+    h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.kind === 'side' ? `Side · ${stage.name}` : stage.titan ? TITAN_MAP[stage.titan.id]?.name || stage.name : stage.name),
     stage.titan
       ? h(`span.bt-diff.bt-diff-${stage.titan.tier === 'mayhem' ? 'nightmare' : stage.titan.tier}`, tierLabel(stage.titan.tier, stage.titan.rank))
       : h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),

@@ -512,3 +512,58 @@ describe('the glass machines on construct and the Reservoir Willow on plant (Gat
     expect(familiesFound(p)).toBe(2);
   });
 });
+
+describe('the rest of the machines on construct and the Rime Wisp on ghost (Gate Arc Step 6)', () => {
+  const mark = (p, ids) => { for (const id of ids) p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false }; };
+  const act2 = (c, ns = [6, 7, 8, 9, 10]) => ns.map((n) => `${c}-${n}`);
+  const found = (p, ids) => { for (const id of ids) p.bestiary[id] = { seen: true, discovered: true, kills: 1 }; };
+  const MACHINES = { vesper_lattice_shell: '6-6', vesper_aegis: '6-7', vesper_warden: '6-8', vesper_gatekeeper: '6-10' };
+
+  it('the machines and the Gatekeeper are Constructs and the Rime Wisp a Ghost (no new family)', async () => {
+    const { enemyFamilies } = await import('../../src/systems/achievementMetrics.js');
+    const fam = enemyFamilies();
+    expect(Object.keys(fam)).toHaveLength(13);
+    for (const id of Object.keys(MACHINES)) expect(fam.construct, id).toContain(id);
+    expect(fam.ghost).toContain('rime_wisp');
+  });
+
+  it('a veteran keeps every family on update day: nothing new is needed while 6-6 … 6-10 are locked', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const { STAGE_MAP } = await import('../../src/data/stages.js');
+    const p = createProfile();
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), ...act2(3), ...act2(4), ...act2(5, [6, 7, 8, 9])]);
+    const before = ENEMIES.filter((e) => e.introducedIn !== 'freeplay' && !(STAGE_MAP[e.introducedIn]?.chapter === 6 && STAGE_MAP[e.introducedIn]?.act === 2));
+    found(p, before.map((e) => e.id));
+    expect(familiesFound(p)).toBe(13);
+    // a co-op guest who met a machine early gains nothing and loses nothing
+    found(p, ['vesper_aegis']);
+    expect(familiesFound(p)).toBe(13);
+  });
+
+  it('each machine is needed once its stage is open; the Rime Wisp and the Gatekeeper once 6-10 is; the side stage needs nothing', async () => {
+    const { familiesFound, familyProgress } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const p = createProfile();
+    const step6 = new Set([...Object.keys(MACHINES), 'rime_wisp']);
+    found(p, ENEMIES.filter((e) => (e.family === 'construct' || e.family === 'ghost') && !step6.has(e.id) && e.introducedIn !== 'freeplay').map((e) => e.id));
+    expect(familiesFound(p)).toBe(2);
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), ...act2(3), ...act2(4), ...act2(5)]);
+    expect(familiesFound(p)).toBe(1); // 6-6 open: construct needs the Lattice Shell
+    expect(familyProgress(p, 'construct').total - familyProgress(p, 'construct').found).toBe(1);
+    found(p, ['vesper_lattice_shell']);
+    mark(p, ['6-6']);
+    expect(familiesFound(p)).toBe(1); // 6-7 open: the Vesper Aegis
+    found(p, ['vesper_aegis']);
+    mark(p, ['6-7']);
+    found(p, ['vesper_warden']);
+    expect(familiesFound(p)).toBe(2);
+    mark(p, ['6-8', '6-9']);
+    expect(familiesFound(p)).toBe(0); // 6-10 open: construct needs the Gatekeeper, ghost the Rime Wisp
+    found(p, ['vesper_gatekeeper', 'rime_wisp']);
+    expect(familiesFound(p)).toBe(2);
+    // clearing 6-10 opens the side stage, which brings no enemy of its own
+    mark(p, ['6-10']);
+    expect(familiesFound(p)).toBe(2);
+  });
+});

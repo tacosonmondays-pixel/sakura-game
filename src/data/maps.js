@@ -2001,6 +2001,178 @@ export const MAPS = [
   }),
 
   // -------------------------------------------------------------------------
+  // Chapter 6 · Act II — Vesperline (`vesper`, frozen: the glass city on the same lake, frozen in the moment it fell;
+  // MAPS.md §1.7, STEP6_BUILD_PLAN §5). Render hints S6a reads: theme 'vesper' (the stage's scenery.ruined 'frozen'; the
+  // vesper theme gives every board the sentry-bay spawn and the light-bridge decks), city { spawnGate: 'vesperGate' } on
+  // 6-10, bridge { skyRail: true } on 6-7 (the box-girder viaduct), and two S6a set pieces as decor: the Doorie statue
+  // in 6-8's rotunda and the Spindle's foot on 6-10. Other decor uses shipped prop types; the rest of the Vesperline set
+  // pieces come from the stages' scenery keywords.
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'vesper_frost_causeway', name: 'Frost Causeway', theme: 'vesper', tier: 'intermediate',
+    desc: 'A causeway across the frozen lake to the gate of a glass city. It is broken in three, and two fold-out light-bridges still span the open leads between its islands. In from the lake on the west, down into two valleys and over one crest, out east at the city gate.',
+    concept: 'Broken causeway W: two valleys and one crest across three islands, light-bridges over two open leads',
+    rows: [
+      '~~~~~.~~......~~....',
+      '~~~~..~~..H...~~..H.',
+      'H..,..~~.....,.~~...',
+      '....R.~~.....,.~~...',
+      '.....~~~.....R~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '~~~~.~~~..,...~~~...',
+      '~~~~.~~~......~~~..H',
+    ],
+    paths: [
+      [[-1, 3.0], L, [1.2, 3.0], [3.6, 5.2], [5.4, 8.2], [7.2, 9.0], [8.8, 7.6], [10.0, 4.8], [11.4, 3.6], [13.0, 4.8], [14.4, 7.6], [16.0, 8.8], [18.0, 8.2], [19.4, 7.0], L, [21, 7.0]],
+    ],
+    decor: [
+      { type: 'statue', x: 18, y: 4 }, { type: 'signpost', x: 0, y: 4 }, { type: 'crystal', x: 11, y: 9 },
+      { type: 'bench', x: 9, y: 1 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_skyrail', name: 'Sky-Rail Viaduct', theme: 'vesper', tier: 'advanced',
+    desc: 'A sky-rail over the frozen ruins. The road climbs onto the rail in the north, snakes along it over the frozen canal, comes down at the broken span, hooks up the east side and runs back west underneath its own viaduct, then out to the south-west. Enemies up on the rail can still be hit.',
+    concept: 'Sky-rail S: up onto a viaduct, an S along it over the canal, down at the broken span, back west underneath',
+    rows: [
+      'HHH........HHH...HHHHH',
+      'H.........,......H..HH',
+      'H....................H',
+      '..HHHHHHH..........,..',
+      '......................',
+      '......................',
+      '...HHHH..~~~~~~~~.....',
+      '...HHHH..~~~~~~~~.....',
+      '...,.....~~~~~~~~.....',
+      '.........~~~~~~~......',
+      '.....~~~~~~~~~~~~~~~~~',
+      '...~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      // UP / DOWN: the viaduct from x ≈ 10 on the rail to the broken span (x ≈ 16); the return along row 4.8 passes
+      // under its flat top at ≈ (13.2, 4.8)
+      [[5.5, -1], L, [5.5, 0.6], [6.4, 1.8], [8, 2.2], L, [10.0, 2.2], UP, L, [10.5, 2.2], [12.4, 3.2], [13.4, 5.2], [14.6, 7.4], [16.4, 8.6], DOWN, L, [18.4, 8.6], [19.8, 7.8], [20.2, 6.4], [19.4, 5.2], [17.8, 4.8], L, [3.8, 4.8], [2.6, 5.6], [2.2, 7.0], L, [2.2, 13]],
+    ],
+    // the sky-rail's box-girder deck, pylons along the raised run, a pod hanging at the broken end
+    bridge: { skyRail: true },
+    decor: [
+      { type: 'signpost', x: 8, y: 8 }, { type: 'crane', x: 20, y: 9 }, { type: 'vendingMachine', x: 3, y: 1 },
+      { type: 'bench', x: 4, y: 9 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_museum', name: 'Museum of Noon', theme: 'vesper', tier: 'advanced',
+    desc: 'The museum of a city that is not there any more. In from the forecourt on the south-east, through the east gallery wing, half round the rotunda and the statue in its reflecting pools, through the west wing and out across the frozen garden. The column vanishes inside each wing.',
+    concept: 'Wings and rotunda: through one gallery wing, half round a rotunda, through the other wing, out in a small S',
+    rows: [
+      'HHHH....HHHH....HHHH',
+      'H..................H',
+      'H..,...............H',
+      '...................H',
+      '..........,........H',
+      'H.......~~.~........',
+      'H.......~~.~........',
+      'H..HHH..~~.~..HHHH.H',
+      '....................',
+      '.......,............',
+      '...HHH....,...HHHH..',
+      '...~~~~~........HHHH',
+    ],
+    paths: [
+      [[21, 9.0], L, [17.8, 9.0], IN, L, [14.6, 9.0], OUT, [13.4, 8.4], ...arc(10, 6.0, 3.4, 30, -210, 30).slice(1, -1), [6.6, 8.2], [5.8, 9.0], IN, L, [3.4, 9.0], OUT, [2.2, 9.6], [1.1, 10.6], L, [-1, 10.6]],
+    ],
+    decor: [
+      { type: 'doorieStatue', x: 10, y: 6, s: 1 }, { type: 'signpost', x: 16, y: 6 }, { type: 'bookshelf', x: 4, y: 6 },
+      { type: 'fountain', x: 2, y: 3 }, { type: 'fountain', x: 15, y: 3 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_tower_ring', name: 'Lecture Tower Ring', theme: 'vesper', tier: 'expert',
+    desc: 'The ring road round four frozen lecture towers. In from the south-west, up the north spoke through the plaza, a full lap of the ring, then east along the other spoke across the plaza and out over the ring on a light-bridge. The ring rides over the way in on the other light-bridge.',
+    concept: 'Phi: a spoke up through a ring, a full lap, then the cross spoke over the ring and out',
+    rows: [
+      'HH................HH',
+      'H..........,.....~~.',
+      '...HH..HH.....,..~~.',
+      '...HH..HH...HHH..~~.',
+      '............HHH.....',
+      '....................',
+      '....................',
+      '...H........HH..~~..',
+      '...........HH...~~..',
+      '...............~~~.H',
+      '....,.........~~~...',
+      'H...~~~~~~~~~~~~~..H',
+    ],
+    crossings: ['bridge', 'flat', 'bridge'],
+    paths: [
+      [[3.0, 13], L, [3.0, 10.6], [3.8, 9.2], [6.0, 8.6], [8.6, 8.4], [10.6, 7.4], [11.0, 6.0], L, [11.0, 3.6], [11.8, 1.8], [13.6, 1.2], [15.4, 2.0], [16.0, 4.0], [15.6, 6.4], [14.4, 8.6], [12.6, 9.8], [10.0, 10.2], [7.2, 9.6], [6.0, 8.0], [6.4, 6.6], [7.8, 5.8], L, [17.0, 5.8], [18.4, 5.5], [19.4, 4.9], [21, 4.6]],
+    ],
+    decor: [
+      { type: 'statue', x: 1, y: 7 }, { type: 'signpost', x: 18, y: 10 }, { type: 'bench', x: 7, y: 1 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_spindle_foot', name: 'The Spindle\'s Foot', theme: 'vesper', tier: 'expert',
+    desc: 'The foot of the white tower. Two columns come down from the gate\'s terminal in the north, cross on a light-bridge north of the tower\'s foot, go round opposite sides of it, cross again south of it and meet before the shelter door on the south edge.',
+    concept: 'Double helix: two lanes cross north of a tower foot, wind round opposite sides, cross again and merge',
+    rows: [
+      'HHH...............HHHH',
+      'H...................HH',
+      '..H...............H..H',
+      '.....,..........,.....',
+      '...~~....~~~~....~~...',
+      '...~~...~~HH~~...~~...',
+      '...~~...~~HH~....~~...',
+      '...~~....~.......~~...',
+      '..H...................',
+      'HH....................',
+      'H.........,,,.........',
+      'HH..................HH',
+    ],
+    crossings: ['bridge', 'bridgeUnder'],
+    paths: [
+      [[4.5, -1], L, [4.5, 0.2], [5.6, 1.2], [8.4, 1.6], [11, 2.6], [13.6, 3.7], [15.4, 5.2], [15.0, 6.8], [13.4, 7.6], [11.6, 8.1], [10.7, 9.2], [9.4, 10.2], [7.8, 10.9], [6.4, 11.7], [5.4, 13]],
+      { nodes: [[17.5, -1], L, [17.5, 0.2], [16.4, 1.2], [13.6, 1.6], [11, 2.6], [8.4, 3.7], [6.6, 5.2], [6.6, 7.0], [7.8, 8.4], [9.4, 9.0], [11.2, 9.3], [12.6, 9.1], [14.2, 9.3], [15.2, 10.2], [15.0, 11.3], [13.6, 11.8], [11.6, 11.9], [9.6, 11.9]], join: { path: 0, at: [6.6, 11.6] } },
+    ],
+    decor: [
+      { type: 'spindle', x: 10, y: 5, r: 2, variant: 0 }, { type: 'statue', x: 19, y: 9 }, { type: 'signpost', x: 2, y: 8 },
+      { type: 'lantern', x: 12, y: 10 },
+    ],
+    city: { spawnGate: 'vesperGate' },
+  }),
+  // the side stage's board (side-6-starfall, STEP6_BUILD_PLAN decision 9): the academy observatory's broken deck
+  defineMap({
+    id: 'vesper_starfall', name: 'The Starfall Deck', theme: 'vesper', tier: 'expert',
+    desc: 'The academy observatory\'s broken deck under a cracked dome. In from the west, three quarters of the way round the outer ring, a quarter-turn inward over the star-map pool on a light-bridge, three quarters round the inner ring, and out along a spur that tunnels under the outer ring to the south edge.',
+    concept: 'Orrery: an outer ring, a spiral turn inward over a pool, an inner ring, a spur tunnelling out under the outer one',
+    rows: [
+      'HHHH................',
+      'H.........~~~~......',
+      '.........~~~~~~.....',
+      '........~~~~~~~~....',
+      '........~~~~~~~~....',
+      '.......~~~~~~~~~~...',
+      '.......~~~~~~~~~~...',
+      '........~~~~~~~~....',
+      '........~~~~~~~~....',
+      '.......~~~~~~~~.....',
+      '..HH.,...~..........',
+      'HHHH.....HH..HH...HH',
+    ],
+    paths: [
+      [[-1, 9.4], L, [4.4, 9.4], [6.4, 8.6], ...arc(12.0, 5.8, 4.6, 180, 450, 30), ...spiral(12.0, 5.8, 4.6, 2.0, 450, 540, 30).slice(1), ...arc(12.0, 5.8, 2.0, 540, 790, 30).slice(1), [11.0, 8.6], [10.6, 9.2], IN, L, [10.6, 11.8], OUT, L, [10.6, 13]],
+    ],
+    decor: [
+      { type: 'statue', x: 1, y: 6 }, { type: 'crystal', x: 18, y: 1 }, { type: 'bench', x: 17, y: 10 },
+    ],
+  }),
+
+  // -------------------------------------------------------------------------
   // Bounty (resource) arenas
   // -------------------------------------------------------------------------
   defineMap({

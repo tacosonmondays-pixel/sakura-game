@@ -30,3 +30,8 @@
   .ma-act-head { margin-bottom: 6px; min-height: 26px; padding: 2px 10px 2px 8px; }
   .ma-act-title { font-size: 0.86rem; }
 }
+/* a side stage's card (Gate Arc Step 6: the Starfall Trial after 6-10): a smaller card with a dashed frame and a violet
+   "Side" chip, drawn right after its anchor's card in the act's grid */
+.ma-stage-card.ma-side-card { border-style: dashed; margin: 6px 8px 0 0; }
+.ma-stage-card.ma-side-card .ma-sc-id { background: #5b4bb7; color: #fff; }
+.ma-stage-card.ma-side-card .ma-sc-name { font-size: 0.9em; }

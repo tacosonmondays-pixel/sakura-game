@@ -1,6 +1,6 @@
 // Gate Arc Step 5 review: a stage description's "<enemies> from wave N" must match the waves the generator really
-// makes (the first wave each named enemy appears on). Act II stages from chapter 5 on (earlier acts were checked by
-// hand in their own reviews).
+// makes (the first wave each named enemy appears on). Act II stages from chapter 5 on and the side stages (earlier acts
+// were checked by hand in their own reviews).
 import { describe, it, expect } from 'vitest';
 import { STAGES } from '../../src/data/stages.js';
 import { ENEMIES } from '../../src/data/enemies.js';
@@ -54,9 +54,13 @@ function claims(desc) {
   return out;
 }
 
-describe('stage descriptions match the waves (Act II, chapter 5 on)', () => {
-  const stages = STAGES.filter((s) => s.act === 2 && Number(s.id.split('-')[0]) >= 5);
-  it('covers the chapter-5 Act II stages', () => expect(stages.map((s) => s.id)).toEqual(expect.arrayContaining(['5-6', '5-7', '5-8', '5-9', '5-10'])));
+describe('stage descriptions match the waves (Act II, chapter 5 on, and the side stages)', () => {
+  // (by `chapter`, not the id: a side stage's id is 'side-<c>-<slug>')
+  const stages = STAGES.filter((s) => s.act === 2 && s.chapter >= 5);
+  it('covers the chapter-5 and chapter-6 Act II stages and the Starfall Trial', () => {
+    expect(stages.map((s) => s.id)).toEqual(expect.arrayContaining(['5-6', '5-7', '5-8', '5-9', '5-10', '6-6', '6-7', '6-8', '6-9', '6-10', 'side-6-starfall']));
+    expect(stages.filter((s) => s.kind === 'side').map((s) => s.id)).toEqual(['side-6-starfall']);
+  });
   for (const st of stages) {
     it(`${st.id}: every "from wave N" names enemies that first come on wave N`, () => {
       const first = firstWaves(st);

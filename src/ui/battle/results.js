@@ -287,7 +287,7 @@ export function createResults(ctx) {
     const card = h(
       'div.bt-sheet.bt-result.bt-win',
       h('div.bt-result-ribbon', 'VICTORY!'),
-      h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
+      h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : stage.kind === 'side' ? 'Side · ' : ''}${stage.name} — ${diff.name}`),
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
@@ -322,7 +322,7 @@ export function createResults(ctx) {
     const card = h(
       'div.bt-sheet.bt-result.bt-lose',
       h('div.bt-result-ribbon', ctx.endedRun ? 'RUN OVER' : 'DEFEAT'),
-      h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — wave ${sim.wave}`),
+      h('div.bt-result-stage', `${stage.kind === 'campaign' ? `${stage.id} · ` : stage.kind === 'side' ? 'Side · ' : ''}${stage.name} — wave ${sim.wave}`),
       out.practice ? practiceNote(out) : null,
       saveFailedNote(out),
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
@@ -427,7 +427,7 @@ export function createResults(ctx) {
         h('div.bt-free-meta',
           h('b', `Cleared wave ${r.wavesCleared} / ${sim.totalWaves}`),
           h('span', subline),
-          h('small', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name} · Freeplay ${table.name}`))),
+          h('small', `${stage.kind === 'campaign' ? `${stage.id} · ` : stage.kind === 'side' ? 'Side · ' : ''}${stage.name} — ${diff.name} · Freeplay ${table.name}`))),
       fp.newBest
         ? h('div.bt-free-best', { 'data-testid': 'freeplay-best' }, `New best on ${stage.id} (${table.name})!`)
         : fp.best ? h('div.bt-free-best.old', `Your best on ${stage.id} (${table.name}): ${fp.best}/${sim.totalWaves}`) : null,

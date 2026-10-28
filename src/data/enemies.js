@@ -1,6 +1,6 @@
 // Sakura Sentinels — the bestiary (owner: world). See CONTRACTS.md §4 and docs/BESTIARY.md.
 //
-// 13 families, 87 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
+// 13 families, 92 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
 // that break open into bosses when they fall). Readability rules (CONTRACTS §12):
 // * Ordinary enemies have exactly ONE rule — one trait, or none for plain fodder (their armor
 //   class is their only quirk). Flat armor counts as the 'armored' rule.
@@ -38,7 +38,7 @@ export const FAMILIES = {
   },
   ghost: {
     id: 'ghost', name: 'Ghosts', color: '#a8e6ff',
-    desc: 'Lost lantern-lights of the Moonveil Shrine.',
+    desc: 'Lost lantern-lights of the Moonveil Shrine, and cold violet wisps that frost cannot slow.',
     behavior: 'Spectral bodies shrug off blades and arrows. Some vanish behind veils, some phase out of reality.',
   },
   ghoul: {
@@ -59,7 +59,7 @@ export const FAMILIES = {
   construct: {
     id: 'construct', name: 'Constructs', color: '#8a94a6',
     desc: 'Clockwork and crystal machines from the Foundry, and glass machines out of a cold gate.',
-    behavior: 'Heavy bodies with crystal shells (cap damage per hit) or barriers (break with blast). The glass machines blink ahead or wear plate.',
+    behavior: 'Heavy bodies with crystal shells (cap damage per hit) or barriers (break with blast). The glass machines blink ahead, wear plate, raise barriers or grow glass lattices.',
   },
   beast: {
     id: 'beast', name: 'Beasts', color: '#c08552',
@@ -428,6 +428,17 @@ const GHOSTS = [
     counters: 'Spectral: pierce and slash do half damage. Holy (Hikari) and mystic (Yuki) work well.',
     introducedIn: '3-1',
   }),
+  // Gate Arc Step 6 (STEP6_BUILD_PLAN decision 2): the Rime Wisp, a cold violet wisp out of 6-10's gate on the last three
+  // waves. The shipped ghost wisp in violet-black with a pale rime outline and no prop (the ghost GLB has no crystals);
+  // frost-warded, budgeted like the Shrine Wisp
+  enemy({
+    id: 'rime_wisp', name: 'Rime Wisp', family: 'ghost', hp: 14, speed: 1.25, armorClass: 'spectral',
+    bounty: 2, threat: 1.2, size: 0.62, color: '#3d2f6b', accent: '#b9a8ff', line: '#e8e4ff', variant: 'wisp', props: [],
+    traits: { ward: 'frost' },
+    lore: 'A cold violet light that drifted out of the gate. Frost cannot slow it, and it flinches back from anything warm.',
+    counters: 'Frost-warded: frost slows and freezes slide off, and frost hits do half. Spectral: holy and mystic work well.',
+    introducedIn: '6-10',
+  }),
   enemy({
     id: 'ghost_veilwraith', name: 'Veil Wraith', family: 'ghost', hp: 24, speed: 1.0, armorClass: 'spectral',
     bounty: 4, threat: 3, size: 0.85, color: '#bde0fe', accent: '#4361ee', variant: 'wraith', props: ['hood'],
@@ -714,6 +725,50 @@ const CONSTRUCTS = [
     lore: 'Its last order was "hold the line". It is still holding it, wherever the line has gone.',
     counters: 'Armoured (4): armour pierce and shred, or big blast shells.',
     introducedIn: '5-8',
+  }),
+  // Gate Arc Step 6 (STEP6_BUILD_PLAN decisions 1-4): the rest of Vesperline's machines (6-6 … 6-8), one per stage,
+  // data on the shipped construct GLB in white and ice-blue glass with cyan and a dark outline, each budgeted like the
+  // def it stands in for (the Shellback, the Aegis Automaton, the Prism Warden). Greyscale: on a shared body variant
+  // they sit ≥ 50 apart in luma from every def they can meet (Lattice Shell 231 vs Shellback 177 and Tortoise 110,
+  // Vesper Aegis 209 vs the Aegis Automaton 139, Vesper Warden 244 vs Shieldline 57, Badger 76, Prism Warden 44).
+  enemy({
+    id: 'vesper_lattice_shell', name: 'Lattice Shell', family: 'construct', hp: 50, speed: 0.8, armorClass: 'heavy',
+    bounty: 18, threat: 4.5, size: 1.0, color: '#dbe9f2', accent: '#5fe1f2', line: '#1f3b4d', variant: 'beetle', props: ['crystals'],
+    traits: { crystal: { cap: 5, hits: 10 } },
+    lore: 'A cleaning machine that grew a coat of glass lattice in the cold. It still polishes the road as it walks.',
+    counters: 'Crystal Shell (max 5 per hit for 10 hits): rapid hitters shatter the lattice, then heavy hitters finish.',
+    introducedIn: '6-6',
+  }),
+  enemy({
+    id: 'vesper_aegis', name: 'Vesper Aegis', family: 'construct', hp: 50, speed: 0.8, armorClass: 'heavy',
+    bounty: 18, threat: 5, size: 1.0, color: '#b9d6e6', accent: '#7ff0ff', line: '#14303f', variant: 'automaton', props: ['shield', 'gears'],
+    traits: { barrier: { hp: 60, regenDelay: 4 } },
+    lore: 'A glass guard that raises a pale barrier over itself and anything behind it. It was built to stand in a doorway.',
+    counters: 'Barrier: blast deals +50% to it. Keep the pressure on so it cannot recharge.',
+    introducedIn: '6-7',
+  }),
+  enemy({
+    id: 'vesper_warden', name: 'Vesper Warden', family: 'construct', tier: 'elite', hp: 300, speed: 0.6, armorClass: 'heavy',
+    bounty: 110, threat: 24, size: 1.45, color: '#eef5fa', accent: '#3fd0e8', line: '#1f3b4d', variant: 'warden', props: ['crystals', 'shield'],
+    traits: { barrier: { hp: 200, regenDelay: 5 }, crystal: { cap: 8, hits: 14 } },
+    lore: 'A tall white glass warden with a barrier on the outside and a crystal lattice under it. It walks the same round, over and over, and lets nobody past.',
+    counters: 'Barrier then shell: blast first, then many quick hits.',
+    introducedIn: '6-8',
+  }),
+  // Gate Arc Act II miniboss (6-10, STEP6_BUILD_PLAN decision 6): Gatekeeper Unit 01 on the Iron Colossus's GLB at
+  // miniboss size in white glass with an amber heater (the one warm thing on the board: it is still heating an empty
+  // shelter); a glass shell over plate, two Line Sentries at 66 %, a thicker shell at 33 %; no crown, no lines
+  enemy({
+    id: 'vesper_gatekeeper', name: 'Gatekeeper Unit 01', family: 'construct', tier: 'miniboss', hp: 3950, speed: 0.4, armorClass: 'heavy', armor: 5,
+    bounty: 400, threat: 200, size: 2.5, color: '#dfe8ee', accent: '#ffb347', line: '#1f3b4d', variant: 'colossus', props: ['crystals', 'gears', 'chimney'],
+    traits: { crystal: { cap: 12, hits: 24 } },
+    phases: [
+      { atHp: 0.66, announce: 'HOLD THE LINE. Gatekeeper Unit 01 calls the line to its side!', set: { traits: { crystal: { cap: 12, hits: 24 }, summoner: { spawn: 'vesper_line_sentry', count: 2, every: 9 } } } },
+      { atHp: 0.33, announce: 'Its heater core glows. The glass shell grows back thicker!', set: { armor: 7, speed: 0.34, traits: { crystal: { cap: 8, hits: 30 }, summoner: { spawn: 'vesper_line_sentry', count: 2, every: 9 } } } },
+    ],
+    lore: 'The gate\'s last guardian. Its orders were to hold the line, and it has held it for a very long time, alone, with its heater on.',
+    counters: 'A glass shell (max 12 per hit, later 8) over plate (armour 5, then 7): rapid hitters break the shell, armour pierce and shred for the plate, splash for the Line Sentries it calls.',
+    introducedIn: '6-10',
   }),
   enemy({
     id: 'iron_colossus', name: 'Iron Colossus', family: 'construct', tier: 'boss', hp: 14000, speed: 0.35, armorClass: 'heavy', armor: 6,

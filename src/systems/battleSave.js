@@ -145,7 +145,7 @@ export function clearBattleSave(profile, slot, runId = null) {
   return true;
 }
 
-const KIND_NAME = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge' };
+const KIND_NAME = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', side: 'Side' };
 
 /**
  * Name of a saved battle's stage: "Mission 1-3", "Endless 2-4", "Library Courtyard II", "Grave
