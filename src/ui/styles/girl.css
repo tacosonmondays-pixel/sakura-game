@@ -94,6 +94,7 @@
 /* ---------- Info ---------- */
 .gp-info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); align-items: stretch; }
 @media (min-height: 481px) { .gp-info { gap: var(--sp-3); } }
+@media (max-width: 599px) { .gp-info { grid-template-columns: minmax(0, 1fr); } } /* a phone held upright: Matchup and Potential each a full row (half width cut their labels) */
 .gp-role-card, .gp-profile-card { grid-column: 1 / -1; }
 .gp-caps-card { display: none; }
 @media (min-height: 481px) {
