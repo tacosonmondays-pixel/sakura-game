@@ -1018,6 +1018,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
     },
+    /** Extra: a placed girl's model (e2e / debug: GLB or procedural, detail, hand props such as Tenka's coilgun). */
+    towerModel(uid) {
+      return actors.towers.get(uid)?.model ?? null;
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
       return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null };

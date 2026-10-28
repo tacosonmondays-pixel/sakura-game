@@ -836,6 +836,27 @@
   "lodSize": 215120,
   "lodVertices": 3117
  },
+ "tenka": {
+  "file": "tenka.glb",
+  "size": 1329992,
+  "animations": [
+   "attack_rifle",
+   "cheer",
+   "hurt",
+   "idle",
+   "walk"
+  ],
+  "vertices": 18834,
+  "triangles": 19985,
+  "source": "meshy",
+  "lod": "tenka.lod.glb",
+  "lodSize": 644692,
+  "lodVertices": 9947,
+  "lodTriangles": 8984,
+  "props": [
+   "tenka-coilgun.glb"
+  ]
+ },
  "umeko": {
   "file": "umeko.glb",
   "size": 417292,

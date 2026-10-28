@@ -57,6 +57,11 @@ export function characterUrl(id, detail = 'full') {
   return `${baseUrl()}models/characters/${id}${detail === 'lod' ? '.lod' : ''}.glb${assetExt()}`;
 }
 
+/** URL of a prop GLB a figure lists in asset.extras.props (e.g. 'tenka-coilgun.glb'). */
+export function propUrl(file) {
+  return `${baseUrl()}models/characters/${file}${assetExt()}`;
+}
+
 export function canLoadCharacters() {
   return typeof window !== 'undefined' && typeof document !== 'undefined' && typeof fetch === 'function';
 }
@@ -94,8 +99,8 @@ export function loadCharacter(id, detail = 'full') {
   if (!canLoadCharacters()) return Promise.resolve(null);
   const p = loader()
     .then((l) => l.loadAsync(characterUrl(id, detail)))
-    .then((gltf) => {
-      const asset = prepareAsset(id, detail, gltf);
+    .then((gltf) => loadProps(prepareAsset(id, detail, gltf)))
+    .then((asset) => {
       assets.set(key, asset);
       if (detail === 'lod') assets.set(`${id}|lod`, asset);
       return asset;
@@ -192,6 +197,91 @@ function prepareAsset(id, detail, gltf) {
   };
 }
 
+const propCache = new Map(); // file -> Promise<prop|null>, shared by both detail levels
+
+/**
+ * Hand props kept in their own GLB (Tenka's coilgun): asset.extras.props = [{ socket, bone, file }].
+ * Each file is loaded once; its mesh hangs under the figure's socket node (an empty on the hand
+ * bone that places and scales the prop's frame, so the clips move it). A prop that fails to load
+ * is left out with a console warning; the figure still shows (empty-handed).
+ */
+function loadProps(asset) {
+  const list = (asset.extras.props || []).filter((p) => p?.socket && p?.file);
+  asset.props = [];
+  if (!list.length) return Promise.resolve(asset);
+  return Promise.all(list.map((p) => {
+    if (!propCache.has(p.file)) {
+      propCache.set(p.file, loader()
+        .then((l) => l.loadAsync(propUrl(p.file)))
+        .then((gltf) => prepareProp(gltf))
+        .catch((e) => {
+          console.warn(`[models] prop ${p.file} unavailable`, e?.message || e);
+          return null;
+        }));
+    }
+    return propCache.get(p.file).then((prop) => (prop ? { ...prop, socket: p.socket } : null));
+  })).then((props) => {
+    asset.props = props.filter(Boolean);
+    return asset;
+  });
+}
+
+function prepareProp(gltf) {
+  let mesh = null;
+  gltf.scene.traverse((o) => {
+    if (o.isMesh && !mesh) mesh = o;
+  });
+  if (!mesh?.material?.map) return null;
+  const m = mesh.material;
+  const maps = { map: m.map, mrMap: m.metalnessMap || m.roughnessMap || null, normalMap: m.normalMap || null, normalScale: m.normalScale?.clone() };
+  maps.map.colorSpace = THREE.SRGBColorSpace;
+  for (const t of [maps.map, maps.mrMap, maps.normalMap]) {
+    if (!t) continue;
+    t.userData.shared = true;
+    t.anisotropy = 4;
+  }
+  const geometry = mesh.geometry;
+  geometry.userData.shared = true;
+  addOutlineNormals(geometry);
+  geometry.computeBoundingBox();
+  const size = geometry.boundingBox.getSize(new THREE.Vector3());
+  // outline as wide as the figure's (the prop is ~1/4 of her height) but pushed back only 12 % of
+  // the prop's length, so the white gun keeps its line in front of her white coat. The hull
+  // material is cached per (map, height), so this prop owns it.
+  const length = Math.max(size.x, size.y, size.z);
+  const outline = figurineOutlineMaterial(maps.map, length / 0.25);
+  outline.userData.uniforms.outlineZ.value = 0.12 * length;
+  return { geometry, material: figurineMaterial(maps), hlMaterial: figurineMaterial(maps, { highlight: true }), outline };
+}
+
+/**
+ * Hangs the asset's props under their socket nodes of one instance (shared geometry and materials).
+ * @returns {Array<{ mesh: THREE.Mesh, prop: object }>} for the selection highlight
+ */
+function attachProps(asset, root, quality) {
+  const out = [];
+  for (const p of asset.props || []) {
+    const socket = root.getObjectByName(p.socket);
+    if (!socket) continue;
+    const m = new THREE.Mesh(p.geometry, p.material);
+    m.name = 'prop';
+    m.castShadow = true;
+    m.frustumCulled = false;
+    socket.add(m);
+    out.push({ mesh: m, prop: p });
+    if (quality !== 'low') {
+      const ol = new THREE.Mesh(p.geometry, p.outline);
+      ol.name = 'outline';
+      ol.userData.isOutline = true;
+      ol.onBeforeRender = outlineBeforeRender;
+      ol.castShadow = false;
+      ol.frustumCulled = false;
+      socket.add(ol);
+    }
+  }
+  return out;
+}
+
 /** Figurine body material of a textured asset (shared by its instances, one per eye state). */
 function texturedMaterial(asset, highlight = false, eyeMode = 0) {
   const mode = asset.eyes ? eyeMode : 0;
@@ -282,6 +372,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
       o.parent.add(ol);
     }
   }
+  const propMeshes = attachProps(asset, root, quality);
   group.add(root);
   // painted face: blink / happy / hurt swap the body to that eye state's material
   const look = { hl: false, eyes: 0 };
@@ -313,6 +404,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
       if (!bodyMesh) return;
       look.hl = on;
       bodyMesh.material = texturedMaterial(asset, look.hl, look.eyes);
+      for (const pm of propMeshes) pm.mesh.material = on ? pm.prop.hlMaterial : pm.prop.material;
       return;
     }
     if (bodyMesh) {

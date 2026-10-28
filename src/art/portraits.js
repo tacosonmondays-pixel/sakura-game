@@ -93,7 +93,7 @@ export const PORTRAIT_DATA = {
   ouka: { face: [49, 33], cut: 0.356 },
   chigusa: { face: [45, 32], cut: 0.363 },
   marumi: { face: [58, 19], cut: 0.432 },
-  // Tenka's drawn art (the ultimates release; her battle figure stays the procedural stand-in, src/models/standins.js)
+  // Tenka's drawn art (the ultimates release; her battle figure is the Oct 20 Meshy GLB since it was wired in)
   tenka: { face: [49, 18], cut: 0.383 },
 };
 
