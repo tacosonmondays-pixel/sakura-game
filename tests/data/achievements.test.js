@@ -25,19 +25,19 @@ const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('144 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II; 116 live at launch + 2 with social + 11 Codex = 129', () => {
+  it('144 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 = 130', () => {
     expect(ACHIEVEMENTS).toHaveLength(144);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
     expect(PRE).toHaveLength(102);
     expect(ACT2.map((a) => a.id)).toEqual(ACT2_IDS);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(129);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(130);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex')).toHaveLength(11);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex').every((a) => achievementLive(a))).toBe(true);
     // still waiting for their feature (a_hero_25 counts heroMax from v0.1.45 on, but stays hidden) or for their
-    // stages (every Act II row: no Act II stage is registered in this build yet)
-    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual([...ACT2_IDS, 'a_units_30', 'a_hero_25', 'a_bond_10']);
+    // stages (every Act II row but chapter 1's: Gate Arc Step 1 registers 1-6 … 1-10 only)
+    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual([...ACT2_IDS.slice(1), 'a_units_30', 'a_hero_25', 'a_bond_10']);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'social').map((a) => a.id)).toEqual(['a_donate_1', 'a_donate_10']);
     // clan donations are materials asked for in Clan Requests (never gear): the texts say so, like the patch note
     for (const a of ACHIEVEMENTS.filter((x) => x.wave === 'social')) {
@@ -163,19 +163,20 @@ describe('Act II rows wait for their stages (Gate Arc; docs/CAMPAIGN.md "Act II"
     for (const a of ACHIEVEMENTS) if (a.wave !== 'act2') expect(a.needs, a.id).toBeUndefined();
   });
 
-  it('a_ch1_act2 and the rest are hidden in this build (no 1-6 yet); a row lights up once all its stages exist', () => {
-    for (const a of ACT2) {
+  it('a_ch1_act2 is live (1-6 … 1-10 exist), the rest hidden; a row lights up once all its stages exist', () => {
+    expect(achievementLive(ACHIEVEMENT_MAP.a_ch1_act2)).toBe(true);
+    expect(achievementLive(ACHIEVEMENT_MAP.a_ch1_act2, false)).toBe(false); // the expansion switch still rules
+    for (const a of ACT2.filter((x) => x.id !== 'a_ch1_act2')) {
       expect(achievementLive(a), a.id).toBe(false);
       expect(achievementStagesExist(a), a.id).toBe(false);
     }
-    const ch1 = ACHIEVEMENT_MAP.a_ch1_act2;
-    const ids = ch1.needs;
+    const ch2 = ACHIEVEMENT_MAP.a_ch2_act2;
+    const ids = ch2.needs;
     try {
       for (const id of ids) STAGE_MAP[id] = { id };
-      expect(achievementLive(ch1)).toBe(true);
-      expect(achievementLive(ACHIEVEMENT_MAP.a_ch2_act2)).toBe(false);
+      expect(achievementLive(ch2)).toBe(true);
+      expect(achievementLive(ACHIEVEMENT_MAP.a_ch3_act2)).toBe(false);
       expect(achievementLive(ACHIEVEMENT_MAP.a_clear_80)).toBe(false);
-      expect(achievementLive(ch1, false)).toBe(false); // the expansion switch still rules
     } finally {
       for (const id of ids) delete STAGE_MAP[id];
     }

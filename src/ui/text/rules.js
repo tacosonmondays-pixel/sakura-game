@@ -37,9 +37,34 @@ export const SKIN_FIELDS = ['name', 'short', 'desc', 'toast', 'activeWord'];
  * { rule, name?, short?, desc?, toast?, activeWord? }. A skin applies only to the rule it names.
  * Display text only: the sim reads src/data/rules.js, so skins sit outside the sim id and the co-op
  * data hash, and the numbers stay the rule's own (every number in the rule's description must appear
- * in the skin's: tests/ui/ruleSkins.test.js). The Act 1 skins arrive with their stages.
+ * in the skin's: tests/ui/ruleSkins.test.js).
  */
-export const STAGE_RULE_SKINS = {};
+export const STAGE_RULE_SKINS = {
+  // Chapter 1 · Act II — Rush Hour (docs/specs/gate-arc/MAPS.md §1.2)
+  '1-6': {
+    rule: 'petal_sanctuary', name: 'Rush-hour Evacuation', short: 'Evacuation',
+    desc: 'Commuters file out to the shelters: 3 hearts come back after every cleared wave.',
+  },
+  '1-7': {
+    rule: 'tailwind', name: 'Rush Hour', short: 'Rush hour', activeWord: 'surge',
+    desc: 'The crowd surges (6 s in every 16): enemies hurry 25% faster, and Pierce, Slash and Blast hit them 25% harder in the crush.',
+    toast: 'Rush hour! Enemies faster; Pierce, Slash, Blast +25% (6 s)',
+  },
+  '1-8': {
+    rule: 'firefly_chorus', name: 'Time Sale', short: 'Sale', activeWord: 'time sale',
+    desc: 'For 6 s in every 16 the store announces a time sale: every girl deals 25% more damage.',
+    toast: 'Time sale! Every girl +25% damage (6 s)',
+  },
+  '1-9': {
+    rule: 'changing_tides', name: 'Lock Cycle', short: 'Lock', activeWord: 'lock filling',
+    desc: 'The canal lock fills (7 s in every 18): slimes wade 35% slower and Lightning hits 35% harder.',
+    toast: 'The lock fills! Slimes slowed, Lightning +35% (7 s)',
+  },
+  '1-10': {
+    rule: 'supply_ship', name: 'Brigade Airdrop', short: 'Airdrop',
+    desc: 'Brigade crates parachute in after every 4th wave: 150 battle coins. Rain boosts Lightning by 20%.',
+  },
+};
 
 /**
  * A stage's rule text: RULE_TEXT[ruleId] with the stage's skin over it (the icon, cycle and marks

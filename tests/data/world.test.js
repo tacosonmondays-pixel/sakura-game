@@ -151,7 +151,7 @@ const isCrossing = (map) => (map.crossings || []).length;
 // ---------------------------------------------------------------------------
 
 describe('enemies', () => {
-  it('has 12 families and 60-75 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
+  it('has 12 families and 60-110 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_IDS].sort());
     expect([...FAMILY_ORDER].sort()).toEqual([...FAMILY_IDS].sort());
     for (const [id, f] of Object.entries(FAMILIES)) {
@@ -159,7 +159,8 @@ describe('enemies', () => {
       for (const k of ['name', 'color', 'desc', 'behavior']) expect(f[k], `${id}.${k}`).toBeTruthy();
     }
     expect(CAMPAIGN_ENEMIES.length).toBeGreaterThanOrEqual(60);
-    expect(CAMPAIGN_ENEMIES.length).toBeLessThanOrEqual(75);
+    // (Gate Arc raises the cap from 75 to 110: eight Act II bosses and the new factions, GATE_ARC §18)
+    expect(CAMPAIGN_ENEMIES.length).toBeLessThanOrEqual(110);
     expect(ENEMIES.filter(FREEPLAY_ONLY).map((e) => e.id).sort()).toEqual(['fp_eclipse_wyrm', 'fp_foundry_titan', 'fp_gloom_regent', 'fp_hyakki_daimyo']);
     expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(ENEMIES.length);
     expect(Object.keys(ENEMY_MAP).length).toBe(ENEMIES.length);
@@ -295,9 +296,10 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 4 minibosses and 3 bosses with announced phases', () => {
+  it('has the 5 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
-    expect(minis).toEqual(['goblin_machine', 'oni_champion', 'orc_general', 'slime_prince']);
+    // (the Frostbitten Heir, 1-10: the Slime Prince's model in frost colours, Gate Arc)
+    expect(minis).toEqual(['goblin_machine', 'oni_champion', 'orc_general', 'slime_frost_heir', 'slime_prince']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -322,6 +324,10 @@ describe('enemies', () => {
     }
     // Specific phase mechanics from the design.
     expect(getEnemy('slime_prince').traits.splitter).toBeTruthy();
+    expect(getEnemy('slime_frost_heir').traits.splitter.spawn).toBe('slime_courtier');
+    expect(getEnemy('slime_frost_heir').model).toEqual(getEnemy('slime_prince').model);
+    expect(getEnemy('slime_frost_heir').hp).toBeGreaterThan(getEnemy('slime_prince').hp);
+    expect(getEnemy('slime_frost_heir').threat).toBeGreaterThan(getEnemy('slime_prince').threat);
     expect(getEnemy('orc_general').phases.some((p) => p.set.armor >= 10)).toBe(true);
     expect(getEnemy('orc_general').phases.some((p) => p.set.traits?.guardian === null)).toBe(true);
     expect(enemyTraits('goblin_machine')).toEqual(expect.arrayContaining(['barrier', 'summoner']));
@@ -743,7 +749,13 @@ describe('stages', () => {
       if (s.kind === 'challenge') expect(s.waves).toBe(Infinity);
       else expect(Number.isInteger(s.waves) && s.waves >= 12 && s.waves <= 30, s.id).toBe(true);
       const wg = s.waveGen;
-      expect(Object.keys(wg).sort()).toEqual(['budget', 'fixed', 'groups', 'pool', 'spacing']);
+      expect(Object.keys(wg).filter((k) => k !== 'laneCycle').sort()).toEqual(['budget', 'fixed', 'groups', 'pool', 'spacing']);
+      // a lane schedule (Gate Arc) only on a map with at least two lanes, each entry naming real lanes
+      if (wg.laneCycle) {
+        const lanes = getMap(s.mapId).paths.length;
+        expect(lanes, `${s.id} laneCycle on a one-lane map`).toBeGreaterThanOrEqual(2);
+        for (const e of wg.laneCycle) expect(e.length > 0 && e.every((l) => Number.isInteger(l) && l >= 0 && l < lanes), `${s.id} laneCycle`).toBe(true);
+      }
       expect(wg.budget.start).toBeGreaterThan(0);
       expect(wg.budget.growth).toBeGreaterThan(1);
       expect(wg.spacing).toBeGreaterThan(0);
@@ -867,12 +879,14 @@ describe('stages', () => {
   it('minibosses and bosses are scripted where the campaign says, with crown drops', () => {
     const fixedHas = (sid, eid) => getStage(sid).waveGen.fixed.some((f) => f.enemy === eid && f.wave === getStage(sid).waves);
     expect(fixedHas('1-5', 'slime_prince')).toBe(true);
+    expect(fixedHas('1-10', 'slime_frost_heir')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);
     expect(fixedHas('8-5', 'dragon_ashwing')).toBe(true);
     const drops = (sid) => getStage(sid).drops.map((d) => d.item);
     expect(drops('1-5')).toContain('crown_slime');
+    expect(drops('1-10')).toContain('crown_slime');
     expect(drops('4-5')).toContain('crown_iron');
     expect(drops('6-5')).toContain('crown_cog');
     expect(drops('7-5')).toContain('crown_oni');

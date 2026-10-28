@@ -245,6 +245,20 @@ const SLIMES = [
     counters: 'Pile damage on him early. When he pops he becomes three Royal Guards — keep a cleaver or splash near the exit.',
     introducedIn: '1-5',
   }),
+  // Gate Arc, chapter 1 Act II: the Slime Prince's model (royal variant, crown and cape) in frost colours, no new GLB
+  enemy({
+    id: 'slime_frost_heir', name: 'The Frostbitten Heir', family: 'slime', tier: 'miniboss', hp: 3400, speed: 0.5,
+    armorClass: 'light', bounty: 320, leak: 25, threat: 150, size: 2.3, color: '#cfe9f7', accent: '#9fd3ff',
+    variant: 'royal', props: ['crown', 'cape'],
+    traits: { splitter: { spawn: 'slime_courtier', count: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Frostbitten Heir shivers. Gold Slimes spill out of its frosty cape!', set: { traits: { summoner: { spawn: 'slime_gold', count: 2, every: 5 } } } },
+      { atHp: 0.33, announce: 'The Heir breaks into a shivering sprint!', set: { speed: 0.7, traits: { hasty: { mul: 1.8, every: 5, duration: 1.5 } } } },
+    ],
+    lore: 'A huge slime that came through the crack from somewhere very cold. It sat in the dry fountain because it was the only throne it could find. When it pops, it goes home through the crack.',
+    counters: 'Like the Prince, only colder: pile damage on it early, and keep splash or a cleaver near the exit for its three Royal Guards.',
+    introducedIn: '1-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------

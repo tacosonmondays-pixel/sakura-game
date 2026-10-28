@@ -37,7 +37,7 @@ const CASH = {
 const MEANS = { 1: 1.69, 2: 1.77, 3: 1.4, 4: 2.15, 5: 1.92, 6: 1.77, 7: 2.19, 8: 1.25 };
 
 describe('ACT2_PLAN', () => {
-  it('has 40 rows, c-6 … c-10 for chapters 1-8, in (chapter, n) order, none registered yet', () => {
+  it('has 40 rows, c-6 … c-10 for chapters 1-8, in (chapter, n) order; chapter 1\'s five registered (Step 1)', () => {
     expect(ACT2_PLAN).toHaveLength(40);
     expect(ACT2_PLAN.map((r) => r.id)).toEqual(CHAPTERS.flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c.id}-${n}`)));
     for (const r of ACT2_PLAN) {
@@ -45,9 +45,10 @@ describe('ACT2_PLAN', () => {
       expect(r.n).toBe(5 + r.k);
       expect(Object.isFrozen(r)).toBe(true);
     }
-    // S1a: the plan exists, no Act II stage is registered (the game plays as before)
-    for (const r of ACT2_PLAN) expect(STAGE_MAP[r.id], r.id).toBeUndefined();
-    expect(CAMPAIGN_IDS).toHaveLength(40);
+    // Gate Arc Step 1 registers chapter 1's Act II (1-6 … 1-10) only, appended after Act I
+    for (const r of ACT2_PLAN) expect(!!STAGE_MAP[r.id], r.id).toBe(r.chapter === 1);
+    expect(CAMPAIGN_IDS).toHaveLength(45);
+    expect(CAMPAIGN_IDS.slice(40)).toEqual(['1-6', '1-7', '1-8', '1-9', '1-10']);
   });
 
   it('chapter means of the hero-rework HP pass are 1.69 / 1.77 / 1.4 / 2.15 / 1.92 / 1.77 / 2.19 / 1.25', () => {

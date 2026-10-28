@@ -56,7 +56,7 @@ describe('stageRequires and requirementsMet', () => {
   });
 });
 
-describe('old saves keep every unlock (S1a: no Act II stage registered)', () => {
+describe('old saves keep every unlock (Act I as before; Act II opens after 1-5)', () => {
   it('Act I is CAMPAIGN_IDS\'s head, in the same order; campaign stages carry act 1 and their finale', () => {
     expect(CAMPAIGN_IDS.slice(0, 40)).toEqual(ACT1);
     expect(campaignStages().slice(0, 40).map((s) => s.id)).toEqual(ACT1);
@@ -90,8 +90,10 @@ describe('old saves keep every unlock (S1a: no Act II stage registered)', () => 
     for (const c of CHAPTERS) {
       expect(chapterProgress(p, c.id)).toEqual(chapterProgress(p, c.id, 1));
       expect(chapterProgress(p, c.id).total).toBe(5);
-      expect(chapterProgress(p, c.id, 2)).toEqual({ cleared: 0, total: 0, medals: { easy: 0, normal: 0, hard: 0, nightmare: 0 } });
-      expect(chapterRibbons(p, c.id, 2)).toEqual({ have: 0, total: 0 });
+      // Act II: chapter 1's five (Gate Arc Step 1), none of them cleared by a veteran of the old build
+      const n2 = c.id === 1 ? 5 : 0;
+      expect(chapterProgress(p, c.id, 2)).toEqual({ cleared: 0, total: n2, medals: { easy: 0, normal: 0, hard: 0, nightmare: 0 } });
+      expect(chapterRibbons(p, c.id, 2)).toEqual({ have: 0, total: n2 * 20 });
       expect(chapterRibbons(p, c.id).total).toBe(100);
     }
   });
@@ -116,12 +118,12 @@ describe('play order and the Next button', () => {
     for (let i = 0; i < ACT1.length - 1; i++) expect(nextInAct(ACT1[i])).toBe(ACT1[i + 1]);
   });
 
-  it('actStages: Act I is chapter.stages, Act II chapter.act2 (empty until it ships)', () => {
+  it('actStages: Act I is chapter.stages, Act II chapter.act2 (chapter 1 only so far; empty until it ships)', () => {
     for (const c of CHAPTERS) {
       expect(actStages(c.id, 1)).toEqual(c.stages);
       expect(actStages(String(c.id), '1')).toEqual(c.stages);
-      expect(actStages(c.id, 2)).toEqual([]);
-      expect(c.act2).toEqual([]);
+      expect(actStages(c.id, 2)).toEqual(c.act2);
+      expect(c.act2).toEqual(c.id === 1 ? ['1-6', '1-7', '1-8', '1-9', '1-10'] : []);
     }
     expect(actStages(9, 1)).toEqual([]);
     expect(actStages(1, 3)).toEqual([]);
@@ -129,11 +131,11 @@ describe('play order and the Next button', () => {
 });
 
 describe('a two-key x-6 (fixture stage injected into STAGE_MAP for the test)', () => {
-  const FIX = ['2-6', '1-10'];
+  // (1-10 is a real stage since Step 1; only 2-6 is a fixture)
+  const FIX = ['2-6'];
   afterEach(() => { for (const id of FIX) delete STAGE_MAP[id]; });
   const inject = () => {
     const base = { name: 'Fixture', mapId: 'sakura_court', desc: 'x', budget: [8, 200], pool: [{ enemy: 'slime_green', weight: 1, from: 1 }], fam: ['charm', 'rune'], scenery: { props: ['x'] } };
-    STAGE_MAP['1-10'] = act2Stage({ ...base, id: '1-10' });
     STAGE_MAP['2-6'] = act2Stage({ ...base, id: '2-6' });
   };
 

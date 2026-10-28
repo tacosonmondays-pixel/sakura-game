@@ -58,8 +58,9 @@ describe('rule skins', () => {
     expect(ruleTextFor({ id: '9-7' }, null, FIXTURE)).toBe(null);
     expect(ruleTextFor(null)).toBe(null);
     expect(ruleTextFor({ id: 'x', rule: { id: 'nope' } })).toBe(null);
-    // every shipped stage with a rule reads exactly its RULE_TEXT entry (no skin yet)
-    for (const s of STAGES) if (s.rule) expect(ruleTextFor(s), s.id).toBe(RULE_TEXT[s.rule.id]);
+    // every stage with a rule and no skin (all of Act I) reads exactly its RULE_TEXT entry
+    for (const s of STAGES) if (s.rule && !STAGE_RULE_SKINS[s.id]) expect(ruleTextFor(s), s.id).toBe(RULE_TEXT[s.rule.id]);
+    for (const s of STAGES) if (s.act === 1) expect(STAGE_RULE_SKINS[s.id], s.id).toBeUndefined();
   });
 
   it('the numbers check catches a skin that changed or dropped a number', () => {
@@ -107,5 +108,17 @@ describe('the rule card stays readable on a phone', () => {
     }
     expect(sizes.length).toBeGreaterThan(3);
     for (const [sel, px] of sizes) expect(px, sel).toBeGreaterThanOrEqual(12);
+  });
+});
+
+describe('Chapter 1 · Act II skins (Rush Hour)', () => {
+  it('every Act II stage of chapter 1 shows its rule under its modern name, with the base name kept', () => {
+    const names = { '1-6': 'Rush-hour Evacuation', '1-7': 'Rush Hour', '1-8': 'Time Sale', '1-9': 'Lock Cycle', '1-10': 'Brigade Airdrop' };
+    for (const [id, name] of Object.entries(names)) {
+      const t = ruleTextFor(STAGE_MAP[id]);
+      expect(t.name, id).toBe(name);
+      expect(t.baseName, id).toBe(RULE_TEXT[STAGE_MAP[id].rule.id].name);
+      expect(t.icon, id).toBe(RULE_TEXT[STAGE_MAP[id].rule.id].icon);
+    }
   });
 });

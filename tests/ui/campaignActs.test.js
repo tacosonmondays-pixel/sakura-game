@@ -1,14 +1,14 @@
 // The campaign screen's act rows (src/ui/screens/campaignActs.js; docs/CAMPAIGN.md "Act II"), pure helpers only (no
 // DOM): a chapter with one act draws one row with no header (the screen as before); a chapter with an Act II draws two,
-// with headers, the two-key lock text and a NEW flag while Act II is open and untouched. Act II stages are fixtures built
-// with stages.js act2Stage and injected into STAGE_MAP for the test (none is registered in this build yet).
+// with headers, the two-key lock text and a NEW flag while Act II is open and untouched. Chapter 1's Act II is real
+// (Gate Arc Step 1); chapter 2's is a fixture built with stages.js act2Stage and injected into STAGE_MAP for the test.
 import { describe, it, expect, afterEach } from 'vitest';
 import { CHAPTERS, STAGE_MAP, act2Stage } from '../../src/data/stages.js';
 import { createProfile } from '../../src/systems/save.js';
 import { actRows, actIsNew, chapterHasNewAct, actTitle, actIds } from '../../src/ui/screens/campaignActs.js';
 
 const ACT1 = CHAPTERS.flatMap((c) => c.stages);
-const FIXTURE_IDS = ['1-6', '1-7', '1-8', '1-9', '1-10', '2-6', '2-7', '2-8', '2-9', '2-10'];
+const FIXTURE_IDS = ['2-6', '2-7', '2-8', '2-9', '2-10'];
 const base = { name: 'Fixture', mapId: 'sakura_court', desc: 'x', budget: [8, 200], pool: [{ enemy: 'slime_green', weight: 1, from: 1 }], fam: ['charm', 'rune'], scenery: { props: ['x'] } };
 const inject = () => { for (const id of FIXTURE_IDS) STAGE_MAP[id] = act2Stage({ ...base, id }); };
 const mark = (p, ids) => {
@@ -20,19 +20,30 @@ const withAct2 = (c, name = 'Rush Hour') => ({ ...CHAPTERS[c - 1], act2: [6, 7, 
 
 afterEach(() => { for (const id of FIXTURE_IDS) delete STAGE_MAP[id]; });
 
-describe('one act (every chapter in this build)', () => {
+describe('one act (chapters 2-8 in this build)', () => {
   it('one row, no header, the chapter\'s five stages; never NEW', () => {
     const p = mark(createProfile(), ACT1.slice(0, 7));
-    for (const c of CHAPTERS) {
+    for (const c of CHAPTERS.slice(1)) {
       const rows = actRows(p, c);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ act: 1, ids: c.stages, header: null, isNew: false, total: 5 });
       expect(chapterHasNewAct(p, c)).toBe(false);
       expect(actIds(c, 2)).toEqual([]);
     }
-    expect(actRows(p, CHAPTERS[0])[0]).toMatchObject({ unlocked: true, lockText: null, cleared: 5 });
     expect(actRows(p, CHAPTERS[1])[0]).toMatchObject({ unlocked: true, cleared: 2 });
     expect(actRows(p, CHAPTERS[2])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 2-5 first', cleared: 0 });
+  });
+});
+
+describe('chapter 1: Act I and Act II · Rush Hour (registered)', () => {
+  it('two rows with headers; Act II opens on 1-5 with NEW, as on the screen', () => {
+    const p = mark(createProfile(), ACT1.slice(0, 7));
+    const rows = actRows(p, CHAPTERS[0]);
+    expect(rows.map((r) => r.header)).toEqual(['Act I · The Morning', 'Act II · Rush Hour']);
+    expect(rows[0]).toMatchObject({ act: 1, unlocked: true, lockText: null, cleared: 5 });
+    expect(rows[1]).toMatchObject({ act: 2, ids: ['1-6', '1-7', '1-8', '1-9', '1-10'], unlocked: true, isNew: true, cleared: 0, total: 5 });
+    expect(chapterHasNewAct(p, CHAPTERS[0])).toBe(true);
+    expect(actIds(CHAPTERS[0], 2)).toEqual(['1-6', '1-7', '1-8', '1-9', '1-10']);
   });
 });
 

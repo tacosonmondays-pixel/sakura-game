@@ -80,9 +80,9 @@ describe('campaign and bounty', () => {
     expect(value(p, 'a_chapter_1')).toBe(0);
     for (const id of ['1-1', '1-2', '1-3']) stage(p, id, { normal: true });
     expect(value(p, 'a_chapter_1')).toBe(3);
-    expect(value(p, 'a_ch1_act2')).toBe(0); // no Act II stage is registered in this build
-    // stagesCleared and the medal counts read CAMPAIGN_IDS: ids that are not stages yet never count
-    expect(value(p, 'a_clear_10')).toBe(3);
+    expect(value(p, 'a_ch1_act2')).toBe(5); // chapter 1's Act II (registered in Gate Arc Step 1)
+    // stagesCleared and the medal counts read CAMPAIGN_IDS: every registered stage counts, Act II included
+    expect(value(p, 'a_clear_10')).toBe(8);
   });
 
   it('chapterActClear counts the registered stages of that act (chapter 1 Act II as S1d will register it)', () => {
@@ -115,7 +115,7 @@ describe('bestiary', () => {
   it('familyFound / familiesFound over discoverable members; familyKills and enemyKills', () => {
     const fam = enemyFamilies();
     expect(Object.keys(fam).length).toBe(12);
-    expect(fam.slime).toHaveLength(15);
+    expect(fam.slime).toHaveLength(16); // + the Frostbitten Heir (1-10)
     expect(fam.dragon).toHaveLength(4);
     const p = createProfile();
     for (const id of fam.dragon) p.bestiary[id] = { seen: true, discovered: true, kills: 10 };
@@ -335,7 +335,7 @@ describe('Codex modes (mode ribbons and map-rule Gold medals)', () => {
     for (const id of CAMPAIGN_IDS) {
       p.progress.stages[id] = { easy: true, normal: true, hard: true, nightmare: true, clears: 30, modes: Object.fromEntries(DIFFS.flatMap((d) => MODES.map((m) => [`${d}:${m}`, true]))) };
     }
-    expect(value(p, 'a_mr_800')).toBe(800);
+    expect(value(p, 'a_mr_800')).toBe(CAMPAIGN_IDS.length * 20); // 45 stages × 20 ribbons (Act II counts too)
     const list = achievementList(p).filter((a) => a.cat === 'codex');
     expect(list.map((a) => a.id)).toEqual(CODEX);
     expect(list.every((a) => a.claimable)).toBe(true);

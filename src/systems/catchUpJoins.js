@@ -3,6 +3,9 @@
 // since v0.1.40 Azami joins on a 2-2 win, Yuzuha on a 4-2 win and Wakaba on a 6-5 win (the three new
 // academy girls with a stage unlock, src/data/stages.js; the other four of the seven are Recruit only).
 // A player who cleared those stages earlier would otherwise have to win them again to meet her.
+// Gate Arc: Yuzuha now joins on a 1-7 win (chapter 1's Act II, where the story meets her); 4-2 stays
+// her legacy stage (LEGACY_JOIN_STAGES), so a save that cleared 4-2 but never met her still gets her
+// once, with the letter naming the stage it cleared. Her 'join:' mark is the same one as before.
 //
 // At app start (main.js, next to the other one-time letters) and on the lobby (after a reset or an
 // import), each girl listed here who is not owned while her stage has a clear medal (any difficulty)
@@ -28,23 +31,39 @@ import { deliverMail } from './mail.js';
 export const JOIN_PREFIX = 'join:';
 /**
  * Free girls added after their stage could already be cleared: Noa and Hana (v0.1.39), Azami, Yuzuha
- * and Wakaba (v0.1.40). In campaign order of their stage (2-2, 4-2, 6-2, 6-5, 7-5), so the letters and
- * the lobby toast name them in the order a player meets them.
+ * and Wakaba (v0.1.40). In play order of their stage (1-7, 2-2, 6-2, 6-5, 7-5: chapter, act, stage), so
+ * the letters and the lobby toast name them in the order a player meets them.
  */
-export const CATCH_UP_UNITS = Object.freeze(['azami', 'yuzuha', 'noa', 'wakaba', 'hana']);
+export const CATCH_UP_UNITS = Object.freeze(['yuzuha', 'azami', 'noa', 'wakaba', 'hana']);
+
+/**
+ * Stages that granted a girl in an earlier version, before her join moved (Gate Arc: Yuzuha joined on a
+ * 4-2 win from v0.1.40; she now joins on 1-7). A clear of one of them settles her catch-up too.
+ */
+export const LEGACY_JOIN_STAGES = Object.freeze({ yuzuha: Object.freeze(['4-2']) });
 
 /** The stage whose win grants her (its `unlocks.units` lists her), or null. */
 export function joinStageOf(unitId) {
   return STAGES.find((s) => (s.unlocks?.units || []).includes(unitId)) || null;
 }
 
+/** The cleared stage that settles her catch-up: her join stage, else a legacy one; null when none is cleared. */
+export function clearedJoinStageOf(profile, unitId) {
+  const ids = [joinStageOf(unitId)?.id, ...(LEGACY_JOIN_STAGES[unitId] || [])].filter(Boolean);
+  const id = ids.find((sid) => isStageCleared(profile, sid));
+  return id ? STAGES.find((s) => s.id === id) || null : null;
+}
+
 /** Her letter's id (the Mailbox never delivers an id twice). */
 export const joinLetterId = (unitId) => `joined-${unitId}-1`;
 
-/** The letter that tells her arrival ("Noa joined your academy!"). No rewards: she is the reward. */
-export function joinLetter(unitId) {
+/**
+ * The letter that tells her arrival ("Noa joined your academy!"). No rewards: she is the reward.
+ * @param {string} unitId
+ * @param {object} [stage] the stage the save cleared (default: her join stage)
+ */
+export function joinLetter(unitId, stage = joinStageOf(unitId)) {
   const def = UNIT_MAP[unitId];
-  const stage = joinStageOf(unitId);
   if (!def || !stage) return null;
   return {
     id: joinLetterId(unitId),
@@ -80,6 +99,7 @@ export function joinToastText(unitIds) {
  */
 export function ensureCatchUpJoins(profile, now = Date.now()) {
   const joined = [];
+  const via = new Map();
   if (!profile?.units) return joined;
   const counters = ((profile.missions ||= {}).counters ||= {});
   for (const id of CATCH_UP_UNITS) {
@@ -89,16 +109,17 @@ export function ensureCatchUpJoins(profile, now = Date.now()) {
       counters[key] = 1; // joined the usual way (a stage win, a recruit): nothing to catch up
       continue;
     }
-    const stage = joinStageOf(id);
-    if (!stage || !isStageCleared(profile, stage.id)) continue; // her stage win will grant her
+    const stage = clearedJoinStageOf(profile, id);
+    if (!stage) continue; // her stage win will grant her
     grantUnit(profile, id, now);
     counters[key] = 1;
     joined.push(id);
+    via.set(id, stage);
   }
   // a letter each; the Mailbox lists the newest first, so the last girl goes in first and the
-  // Mailbox reads top to bottom in campaign order (Azami, Yuzuha, Noa, …)
+  // Mailbox reads top to bottom in play order (Yuzuha, Azami, Noa, …)
   for (const id of [...joined].reverse()) {
-    const letter = joinLetter(id);
+    const letter = joinLetter(id, via.get(id));
     if (letter) deliverMail(profile, letter, now);
   }
   return joined;

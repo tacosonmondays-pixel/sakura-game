@@ -180,7 +180,8 @@ export const CHAPTERS = [
     desc: 'The academy gardens are overrun by slimes and greedy goblins. Learn the basics under the cherry blossoms.',
     mechanic: 'Basics: placing girls, upgrading, runners and hasty sprinters. Finale: the Slime Prince splits.',
     stages: ['1-1', '1-2', '1-3', '1-4', '1-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'Rush Hour', act2Theme: 'city',
+    act2Desc: 'The sky splits over the academy wall, and on the other side is Itomachi at rush hour: buses, a station, a canal, and slimes tumbling through a crack in the street.',
   },
   {
     id: 2, name: 'Moonlit Lakeshore', theme: 'lake', tier: 'intermediate',
@@ -460,7 +461,6 @@ const CAMPAIGN = [
     ],
     fixed: [F(2, 'beast_wolf', 6, 0.5)],
     introduces: ['beast_wolf', 'orc_berserker', 'beast_bear', 'enrage'], recommended: ['armorPen', 'slow'],
-    unlocks: ['yuzuha'],
     fam: ['feather', 'rime'],
     scenery: { props: ['ropeBridge', 'pines', 'wolfDens', 'snowdrifts'], weather: 'snow' },
   }),
@@ -879,6 +879,8 @@ export function act2Stage(o) {
       spacing: o.spacing ?? 0.8,
       groups: o.groups ?? 3,
       fixed: o.fixed || [],
+      // the lane schedule (Gate Arc: a level crossing closes a lane on some waves; src/sim/waves.js openLanes)
+      ...(o.laneCycle ? { laneCycle: o.laneCycle } : {}),
     },
     hpScale: plan.hpScale,
     hpPass: plan.hpPass,
@@ -903,7 +905,67 @@ export function act2Stage(o) {
  * The registered Act II stages, chapter by chapter as each act ships (Gate Arc Step 1: chapter 1's five). Empty until
  * then: the game plays exactly as before.
  */
-const CAMPAIGN_ACT2 = [];
+const CAMPAIGN_ACT2 = [
+  // ----- Chapter 1 · Act II — Rush Hour (Itomachi downtown by day; docs/specs/gate-arc/MAPS.md §1.2) -----
+  // Chapter-1 families only (the Brigade is dressing until Act 3); budgets start from the same slot of chapter 2.
+  act2Stage({
+    id: '1-6', name: 'Rush Hour', mapId: 'noon_station_plaza',
+    desc: 'Slimes tumble out of a crack in the bus lane in front of Itomachi Station. Catch them on the hairpin, then again where they come up out of the underpass.',
+    budget: [7, 180], groups: 3,
+    pool: [P('slime_green', 5), P('goblin_runner', 3, 2), P('slime_gold', 3, 5)],
+    fixed: [F(6, 'goblin_runner', 6, 0.4), F(18, 'slime_gold', 6, 0.6)],
+    recommended: ['multiHit'],
+    fam: ['rime', 'feather'],
+    scenery: { props: ['busStops', 'vendingMachines', 'streetLamps', 'trafficLights', 'billboards'], weather: 'petals' },
+  }),
+  act2Stage({
+    id: '1-7', name: 'The Covered Arcade', mapId: 'noon_covered_arcade',
+    desc: 'Goblins raid the shopping arcade for hand warmers and steamed buns, darting down the side alleys. A girl on a shop roof covers two alleys at once.',
+    budget: [7, 300], groups: 3,
+    pool: [P('goblin_runner', 5), P('slime_green', 3), P('goblin_dasher', 4, 3)],
+    fixed: [F(4, 'goblin_dasher', 4, 0.7), F(20, 'goblin_dasher', 10, 0.45)],
+    recommended: ['slow', 'multiHit'],
+    unlocks: ['yuzuha'],
+    fam: ['blade', 'charm'],
+    scenery: { props: ['vendingMachines', 'streetLamps', 'strays', 'streetBits'], weather: 'petals' },
+  }),
+  act2Stage({
+    id: '1-8', name: 'Time Sale', mapId: 'noon_corner_store',
+    desc: 'Gold slimes and dashers sprint round the convenience store and back over the scramble crossing. Every enemy passes the corner twice.',
+    budget: [7, 328], groups: 3,
+    pool: [P('slime_green', 4), P('slime_gold', 4), P('goblin_dasher', 3, 2), P('orc_grunt', 1, 8)],
+    fixed: [F(5, 'slime_gold', 5, 0.6), F(14, 'orc_grunt', 2, 2)],
+    recommended: ['slow'],
+    fam: ['rune', 'cog'],
+    scenery: { props: ['trafficLights', 'vendingMachines', 'parkedCars', 'busStops', 'goblinSacks'] },
+  }),
+  act2Stage({
+    id: '1-9', name: 'Canal Crossing', mapId: 'noon_canal_crossing',
+    desc: 'Orc grunts and boars march down to the railway. When the barrier comes down the column takes the long way round the canal basin.',
+    budget: [7, 62], groups: 3,
+    pool: [P('slime_green', 3), P('goblin_runner', 3), P('orc_grunt', 4, 2), P('beast_boar', 3, 4), P('slime_gold', 2, 6)],
+    fixed: [F(3, 'orc_grunt', 2, 2), F(22, 'beast_boar', 6, 1)],
+    // odd waves use both lanes; on even waves the crossing is shut and the column takes the long D
+    laneCycle: [[0, 1], [1]],
+    recommended: ['slow', 'water'],
+    fam: ['ember', 'rime'],
+    scenery: { props: ['powerLines', 'streetLamps', 'parkedCars', 'roadWorks'] },
+  }),
+  act2Stage({
+    id: '1-10', name: 'The Frostbitten Heir', mapId: 'noon_dry_fountain',
+    desc: 'A huge frostbitten slime has made the dry fountain its throne. When it pops, its Royal Guards march on, and they split too. Brigade crates parachute in after every 4th wave.',
+    budget: [7, 294], groups: 3,
+    pool: [
+      P('slime_green', 4), P('goblin_runner', 3), P('goblin_dasher', 2), P('slime_gold', 3),
+      P('orc_grunt', 2), P('beast_boar', 2), P('slime_courtier', 1, 10),
+    ],
+    fixed: [F(9, 'slime_courtier', 2, 2), F(22, 'slime_frost_heir', 1, 2, 6)],
+    introduces: ['slime_frost_heir'], recommended: ['slow', 'multiHit'],
+    fam: ['feather', 'charm'],
+    crown: { id: 'crown_slime', chance: 0.35, tokens: 1 },
+    scenery: { props: ['strays', 'streetLamps', 'vendingMachines', 'slimePuddles', 'billboards'], weather: 'petals' },
+  }),
+];
 
 const byPlayOrder = (a, b) => a.chapter - b.chapter || a.act - b.act || Number(a.id.split('-')[1]) - Number(b.id.split('-')[1]);
 const ACT2_SORTED = CAMPAIGN_ACT2.slice().sort(byPlayOrder);

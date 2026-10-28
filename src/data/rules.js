@@ -77,6 +77,12 @@ export const STAGE_RULES = Object.freeze({
   '8-3': { id: 'heat_mirage' },
   '8-4': { id: 'shifting_stars' },
   '8-5': { id: 'tailwind' },
+  // Chapter 1 · Act II — Rush Hour (shown under their stage skins, src/ui/text/rules.js STAGE_RULE_SKINS)
+  '1-6': { id: 'petal_sanctuary' },
+  '1-7': { id: 'tailwind' },
+  '1-8': { id: 'firefly_chorus' },
+  '1-9': { id: 'changing_tides' },
+  '1-10': { id: 'supply_ship' },
 });
 
 /** The stage's rule (MAP_RULES entry + its zones and pads), or null. */
