@@ -201,6 +201,7 @@
 .pf-plaque .tx { min-width: 0; max-width: 100%; line-height: 1.15; }
 .pf-plaque .tx b { display: block; font-weight: 900; font-size: max(0.78rem, var(--fs-label)); color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-plaque .tx span { display: block; font-size: var(--fs-label); font-weight: 800; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-plaque .tx span.nw { display: inline; }
 .pf-plaque .pin { position: absolute; left: 50%; margin-left: -6px; top: -5px; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9fc2, #e0336c); box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
 .pf-honors { display: flex; align-items: center; gap: 10px; margin-top: 9px; padding: 5px 12px; min-height: 36px; border: none; border-radius: 9px; background: linear-gradient(90deg, #1b2a52, #2a3a6e); color: #fff; text-align: left; box-shadow: 0 2px 6px rgba(20,30,70,0.25); width: 100%; }
@@ -493,6 +494,10 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .pf-show-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .pf-grid2 { grid-template-columns: minmax(0, 1fr); }
   .pf-mstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* a small phone on its side (667x375): narrow but short, so the showcase keeps one row of eight, as on 844x390 */
+@media (max-width: 700px) and (max-height: 480px) {
+  .pf-show-row { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
 /* A phone held upright (the fallback when the rotate overlay is dismissed; UI M5 merge review): the avatar fits its
    70 px column (at 104 px it covered the name), the Showcase header keeps Edit in view (the "Auto" chip goes, as on

@@ -95,7 +95,7 @@ export function render(root, params = {}) {
     clear(body);
     const wrap = h('div.jn');
     const list = h('div.jn-list', { role: 'listbox', 'aria-label': 'Lessons' });
-    rows.forEach((r) => list.appendChild(card(r)));
+    rows.forEach((r, i) => list.appendChild(card(r, i)));
     wrap.appendChild(h('section.ui-panel.jn-listp', list));
     wrap.appendChild(detail(rows.find((r) => r.id === active) || rows[0], rows));
     body.appendChild(wrap);
@@ -107,8 +107,8 @@ export function render(root, params = {}) {
     }
   }
 
-  /** One lesson as a kit row: its icon, its title (or ???), the unlock rule while locked, NEW and a red dot for a reward. */
-  function card(r) {
+  /** One lesson as a kit row: its icon, its number and title (or ???), the unlock rule while locked, NEW and a red dot for a reward. */
+  function card(r, i) {
     const fresh = storyOf(store.profile).lessons[r.id];
     const isNew = r.unlocked && !fresh?.read;
     const on = r.id === active;
@@ -118,6 +118,7 @@ export function render(root, params = {}) {
       type: 'button', role: 'option', 'aria-selected': String(on), 'data-testid': `journal-lesson-${r.id}`, 'data-probe': 'tile',
       onclick: () => select(r.id),
     },
+    h('span.jn-card-n', String(i + 1).padStart(2, '0')),
     h('span.jn-card-ico', svgEl(lessonIcon(r.icon, r.id))),
     h('span.jn-card-text', h('b.jn-card-title', title), state),
     h('span.jn-chips',

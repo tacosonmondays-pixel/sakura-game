@@ -79,7 +79,7 @@ export function openPinPicker({ pin: want = null } = {}) {
       kitBtn('ghost', '', { 'data-testid': 'pin-auto', onclick: () => { pins = []; draw(); } }, h('span', 'Use my best medals')),
       h('span.es-spacer'),
       kitBtn('sec', '', { onclick: () => frame.close() }, h('span', 'Cancel')),
-      kitBtn('pri', '', { 'data-testid': 'pin-save', onclick: save }, h('span', 'Save pins'))),
+      kitBtn('pri', '', { 'data-testid': 'pin-save', onclick: save }, h('span', 'Save', h('span.pf-long', ' pins')))),
   });
   draw();
   return frame;

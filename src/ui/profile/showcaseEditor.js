@@ -176,7 +176,7 @@ export function openShowcaseEditor({ slot = null } = {}) {
       kitBtn('ghost', '', { 'data-testid': 'showcase-autofill', onclick: () => { const auto = autoShowcase(p); for (let i = 0; i < SHOWCASE_MAX; i++) picked[i] = auto[i] || null; selected = null; draw(); } }, h('span', 'Auto-fill by power')),
       h('span.es-spacer'),
       kitBtn('sec', '', { 'data-testid': 'showcase-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
-      kitBtn('pri', '', { 'data-testid': 'showcase-save', onclick: save }, h('span', 'Save showcase'))),
+      kitBtn('pri', '', { 'data-testid': 'showcase-save', onclick: save }, h('span', 'Save', h('span.pf-long', ' showcase')))),
     onClose: () => { for (const off of detach.splice(0)) off(); },
   });
   draw();

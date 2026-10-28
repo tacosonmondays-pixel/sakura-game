@@ -75,7 +75,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 
 /* the list panel: rows on one hairline each, the open one marked with a sakura bar (a selection: 4.2) */
 /* (the list shows whole rows only: its height rounds down to a row, 61 px with its hairline, so the last row in view is
-   never a sliver of a tap; the rows keep that height, a title wraps to three lines at most) */
+   never a sliver of a tap; the rows keep that height, a title clamps to two lines, a locked one to one) */
 :is(.ui-day) .jn-listp { --jn-row: 61px; min-height: 0; display: flex; flex-direction: column; padding: 4px 0; }
 :is(.ui-day) .jn-list { flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 0 6px 0 8px; scrollbar-width: thin;
   max-height: round(down, calc(100dvh - var(--topbar-h) - var(--safe-top, 0px) - var(--safe-bottom) - 32px), var(--jn-row)); }
@@ -93,9 +93,13 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .jn-card-ico svg { width: 100%; height: 100%; }
 :is(.ui-day) .jn-card.locked .jn-card-ico { filter: grayscale(1) opacity(0.5); }
 :is(.ui-day) .jn-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-:is(.ui-day) .jn-card-title { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); overflow-wrap: break-word; }
+:is(.ui-day) .jn-card-title { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); overflow-wrap: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+:is(.ui-day) .jn-card.locked .jn-card-title { -webkit-line-clamp: 1; line-clamp: 1; }
+:is(.ui-day) .jn-card-n { flex: none; min-width: 2ch; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted); text-align: right; }
 :is(.ui-day) .jn-card.locked .jn-card-title { color: var(--muted); letter-spacing: 0.15em; }
 :is(.ui-day) .jn-card-state { display: flex; align-items: center; gap: 4px; min-width: 0; font: 600 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+:is(.ui-day) .jn-card-state > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :is(.ui-day) .jn-card-state .jn-ico { width: 14px; height: 14px; }
 :is(.ui-day) .jn-chips { flex: none; display: flex; align-items: center; gap: 8px; }
 :is(.ui-day) .jn-chips .ui-dot { margin-right: 2px; }
@@ -140,6 +144,12 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 @media (max-aspect-ratio: 1/1) {
   :is(.ui-day) .jn { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   :is(.ui-day) .jn-list { max-height: round(down, 30dvh, var(--jn-row)); }
+}
+/* a small landscape phone: the list column widens so a title keeps to two lines */
+@media (max-width: 700px) and (min-aspect-ratio: 1/1) {
+  :is(.ui-day) .jn { grid-template-columns: minmax(0, 46%) minmax(0, 1fr); gap: 10px; }
+  :is(.ui-day) .jn-card { gap: 8px; padding-left: 8px; }
+  :is(.ui-day) .jn-card-ico { width: 34px; height: 34px; }
 }
 /* narrow: Tutorial is its glyph alone (its name stays in aria-label), so the title keeps its words */
 @media (max-width: 560px) {
@@ -496,6 +506,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .pf-plaque { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
 /* (a plaque's words wrap rather than end in "…" on a narrow shelf) */
 :is(.ui-day) .pf-plaque .tx :is(b, span) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+:is(.ui-day) .pf-plaque .tx span.nw { display: inline; white-space: nowrap; }
 :is(.ui-day) .pf-plaque .pin { top: 4px; background: var(--plate); box-shadow: inset 0 0 0 1.5px var(--line-lo); }
 :is(.ui-day) .pf-plaque.honor-special::before { border-radius: 0; }
 :is(.ui-day) .pf-honors { border-radius: 0; background: var(--plate); box-shadow: none; min-height: var(--tap); }
@@ -684,6 +695,17 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   :is(.ui-day) .ep-main { grid-template-columns: auto minmax(0, 1fr); }
   :is(.ui-day) .ep-prev { display: none; }
   :is(.ui-day) .ep-nav.ui-srail { --rail-w: 132px; }
-  :is(.ui-day) .es-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   :is(.ui-day) :is(.pf-foot-why, .pf-sheet-extra .es-tip, .pf-sheet-extra .pp-note) { display: none; }
+}
+/* narrow and tall (a phone upright): the eight slots take two rows of four; a short one (667x375) keeps one row */
+@media (max-width: 700px) and (min-height: 481px) {
+  :is(.ui-day) .es-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+/* a narrow phone: the ghost action takes its own row above Cancel / Save, Save says just "Save", the bar notes go */
+@media (max-width: 559px) {
+  :is(.ui-day) .pf-sheet-foot { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+  :is(.ui-day) .pf-sheet-foot > :first-child { margin-right: auto; }
+  :is(.ui-day) .pf-sheet-foot > .es-spacer { flex: 0 0 100%; height: 0; }
+  :is(.ui-day) .pf-sheet-foot .pf-long, :is(.ui-day) .es-bar .es-note { display: none; }
+  :is(.ui-day) .es-bar { flex-wrap: wrap; row-gap: 6px; }
 }

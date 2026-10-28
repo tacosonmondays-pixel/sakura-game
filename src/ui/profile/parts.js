@@ -162,14 +162,20 @@ export function plaqueEl(pin, { size = phone() ? 36 : 40 } = {}) {
     // "Last Petal" · "Nightmare 7-3", in the difficulty's colours with the mode's badge
     cls = MEDAL_CLS[info.diff] || 'gold';
     art = svgEl(modeIcon(info.mode), 'pf-pl-art');
-    return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', modeText(info.mode).name), h('span', info.sub)));
+    return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', modeText(info.mode).name), h('span', plaqueSub(info.sub))));
   } else if (info.kind === 'perfect' && !info.unknown) {
     cls = 'violet';
     art = svgEl(trophySVG(), 'pf-pl-art');
   } else {
     art = svgEl(trophySVG({ unknown: true }), 'pf-pl-art');
   }
-  return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', info.title), h('span', info.sub)));
+  return h(`div.pf-plaque.${cls}`, { 'data-pin': pin, 'data-testid': 'profile-plaque' }, h('span.pin'), art, h('span.tx', h('b', info.title), h('span', plaqueSub(info.sub))));
+}
+
+/** A plaque's second line with its stage number ("4-3") kept whole, so a narrow plaque wraps before it, never at the dash. */
+function plaqueSub(sub) {
+  const m = /^(.*\s)(\S+-\S+)$/.exec(sub || '');
+  return m ? [m[1], h('span.nw', m[2])] : sub;
 }
 
 /** Ribbon counts per battle mode (reverse, rush, ironclad, frugal, laststand), each out of the campaign's 40 × 4. */
