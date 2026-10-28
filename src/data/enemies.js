@@ -438,6 +438,20 @@ const GHOSTS = [
     counters: 'Armored and phasing: holy damage ignores the phase and hits spirits ×2.',
     introducedIn: '3-5',
   }),
+  // Gate Arc Act II miniboss (3-10): the Hollow Samurai's GLB at miniboss scale, charred, embers in its seams
+  enemy({
+    id: 'ghost_ashen_warden', name: 'The Ashen Warden', family: 'ghost', tier: 'miniboss', hp: 3950, speed: 0.45,
+    armorClass: 'spectral', armor: 3, bounty: 380, leak: 25, threat: 190, size: 2.3, color: '#4a4440', accent: '#ffb347',
+    variant: 'samurai', props: ['helmet', 'sword', 'mask'],
+    traits: { phasing: { every: 5, duration: 1.5 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Warden plants its blade. Lantern Bearers answer the bell!', set: { traits: { phasing: { every: 5, duration: 1.5 }, summoner: { spawn: 'ghost_lanternbearer', count: 1, every: 8 } } } },
+      { atHp: 0.33, announce: 'Ash falls from the empty armour. It will not bow.', set: { armor: 5, traits: { phasing: { every: 4, duration: 1.5 }, summoner: { spawn: 'ghost_lanternbearer', count: 1, every: 8 } } } },
+    ],
+    lore: 'An empty armour that kept the watch at the Lakeside Shrine. When the bell rings over the ash, it rests.',
+    counters: 'Phasing and armoured like the Hollow Samurai, only bigger: holy damage ignores the phase, and keep a girl free for the Lantern Bearers it calls.',
+    introducedIn: '3-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -621,6 +635,16 @@ const CONSTRUCTS = [
     lore: 'A wind-up helper that wandered off the assembly line.',
     counters: 'Heavy body: blast and mystic deal extra; slash bounces off.',
     introducedIn: '6-1',
+  }),
+  // Gate Arc: the Gate Response Brigade's spotter drone (3-9), on the Cogling's GLB in Brigade navy and amber until the
+  // Brigade's own model arrives with the enemy rebuild (STEP3_BUILD_PLAN, builder's override: no 13th family yet)
+  enemy({
+    id: 'brigade_gnat', name: 'Gnat Spotter', family: 'construct', hp: 12, speed: 1.6, armorClass: 'light',
+    bounty: 1, threat: 1.2, size: 0.6, color: '#2b3a5c', accent: '#f4a62a', variant: 'cogling', props: ['gears'],
+    traits: { hasty: { mul: 2.2, every: 3.5, duration: 1 } },
+    lore: 'A little Brigade drone that flies ahead of the column and reports everything it sees. It is very good at its job.',
+    counters: 'Fast and fragile, and it comes in a group: splash or a quick shooter near the start.',
+    introducedIn: '3-9',
   }),
   enemy({
     id: 'construct_shellback', name: 'Shellback', family: 'construct', hp: 50, speed: 0.8, armorClass: 'heavy',

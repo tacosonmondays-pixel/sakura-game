@@ -75,7 +75,7 @@ describe('event data (EV-1…EV-7)', () => {
   });
 
   it('EV-4 STAGES / ENEMIES unchanged; the lookup maps include the event; the boss is in its stage', () => {
-    expect(STAGES.length).toBe(69); // 59 + chapters 1 and 2's Act II (Gate Arc Steps 1-2)
+    expect(STAGES.length).toBe(74); // 59 + chapters 1-3's Act II (Gate Arc Steps 1-3)
     expect(STAGES.some((s) => s.kind === 'event')).toBe(false);
     expect(STAGE_MAP['ev-halloween-1'].kind).toBe('event');
     expect(ENEMY_MAP.construct_gourdlight.tier).toBe('boss');

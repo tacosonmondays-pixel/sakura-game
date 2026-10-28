@@ -1629,6 +1629,34 @@ export const MAPS = [
     ],
   }),
   defineMap({
+    id: 'noon_shrine_steps', name: 'The Lake Steps', theme: 'city', tier: 'advanced',
+    desc: 'Two fronts in the lake fog. The town road comes in from the west to the foot of the shrine steps; a second column wades out of the lake on the old jetty and joins it there. Then one climb: east along the lower terrace, back west along the upper one, and up through the precinct gate.',
+    concept: 'Two fronts, one climb: a town road and a lake lane meet at the foot of the steps, then a Z up two terraces to the gate',
+    rows: [
+      'HHHHHHHHHHH.HHHHHHHH',
+      'H..................H',
+      'H.......,..........H',
+      'H..................H',
+      'H...HHH.........,..H',
+      'H..,...............H',
+      'H..................H',
+      'H........,.........H',
+      'H.........~~~~~~~~~~',
+      '..........~~~~~~~~~~',
+      'H..,.....~~~~~~~~~~~',
+      'HHHHHHH~~~~~~~~~~~~~',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[-1, 9.5], [6.0, 9.5], [6.0, 6.0], [16.0, 6.0], [16.0, 3.0], [11.5, 3.0], [11.5, -1]], { r: 1.5 }),
+      // the rift lane: out of the lake on the old jetty (Step 3 S3a moves its start into the lake: `inside`)
+      { nodes: [[21, 10.5], L, [10.0, 10.5], [8.3, 10.3], [7.1, 9.6], [6.4, 8.6]], join: { path: 0, at: [6.0, 7.8] } },
+    ],
+    decor: [
+      { type: 'torii', x: 14, y: 1 }, { type: 'stoneLantern', x: 9, y: 1 }, { type: 'stoneLantern', x: 16, y: 1 },
+    ],
+  }),
+  defineMap({
     id: 'noon_old_town_burning', name: 'Old Town, Burning', theme: 'city', district: 'oldtown', tier: 'advanced',
     desc: 'The same lanes, the night it burns. Two blocks have fallen into the street, so the column takes one long S from the west round the rubble and out north, under the smoke. Hoses run down to the mill race.',
     concept: 'Broken fret: one long S round two fallen blocks of Old Town, the mill race along the south',

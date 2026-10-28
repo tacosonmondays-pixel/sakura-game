@@ -89,6 +89,12 @@ export const STAGE_RULES = Object.freeze({
   '2-8': { id: 'prism_conduits', pads: [pad(5.5, 2.5), pad(9.5, 5.5), pad(16.5, 8.5)] },
   '2-9': { id: 'firefly_chorus' },
   '2-10': { id: 'changing_tides' },
+  // Chapter 3 · Act II — The Bell Festival
+  '3-6': { id: 'moonlit_blessing' },
+  '3-7': { id: 'forge_vents', zones: [v(3.5, 5.0), v(11.0, 5.9)] },
+  '3-8': { id: 'alchemists_mist' },
+  '3-9': { id: 'heat_mirage' },
+  '3-10': { id: 'lunar_eclipse' },
 });
 
 /** The stage's rule (MAP_RULES entry + its zones and pads), or null. */

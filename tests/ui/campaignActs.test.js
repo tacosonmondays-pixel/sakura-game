@@ -20,10 +20,10 @@ const withAct2 = (c, name = 'Rush Hour') => ({ ...CHAPTERS[c - 1], act2: [6, 7, 
 
 afterEach(() => { for (const id of FIXTURE_IDS) delete STAGE_MAP[id]; });
 
-describe('one act (chapters 3-8 in this build)', () => {
+describe('one act (chapters 4-8 in this build)', () => {
   it('one row, no header, the chapter\'s five stages; never NEW', () => {
     const p = mark(createProfile(), ACT1.slice(0, 7));
-    for (const c of CHAPTERS.slice(2)) {
+    for (const c of CHAPTERS.slice(3)) {
       const rows = actRows(p, c);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ act: 1, ids: c.stages, header: null, isNew: false, total: 5 });
@@ -31,7 +31,7 @@ describe('one act (chapters 3-8 in this build)', () => {
       expect(actIds(c, 2)).toEqual([]);
     }
     expect(actRows(p, CHAPTERS[1])[0]).toMatchObject({ unlocked: true, cleared: 2 });
-    expect(actRows(p, CHAPTERS[2])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 2-5 first', cleared: 0 });
+    expect(actRows(p, CHAPTERS[3])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 3-5 first', cleared: 0 });
   });
 });
 

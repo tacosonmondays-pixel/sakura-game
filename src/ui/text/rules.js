@@ -88,6 +88,31 @@ export const STAGE_RULE_SKINS = {
     desc: 'The lake swells over the breakwater (7 s in every 18): slimes wade 35% slower and Lightning hits 35% harder.',
     toast: 'The lake swells! Slimes slowed, Lightning +35% (7 s)',
   },
+  // Chapter 3 · Act II — The Bell Festival (docs/specs/gate-arc/STEP3_BUILD_PLAN.md §5)
+  '3-6': {
+    rule: 'moonlit_blessing', name: 'Bell Festival', short: 'Festival', activeWord: 'the bells',
+    desc: 'During the bright half of each 18 s moon cycle the shrine bell rings over the festival: Holy attacks deal 30% more damage.',
+    toast: 'The bells ring! Holy +30% (9 s)',
+  },
+  '3-7': {
+    rule: 'forge_vents', name: 'Hot Griddles', short: 'Griddles', activeWord: 'griddles',
+    desc: 'Every 15 s the takoyaki griddles flare for 5 s, burning ground enemies that cross them.',
+    toast: 'The griddles flare! (5 s)',
+  },
+  '3-8': {
+    rule: 'alchemists_mist', name: 'Lake Fog', short: 'Fog',
+    desc: 'In the lake fog Poison deals 40% more damage, and heavy enemies wade 15% slower.',
+  },
+  '3-9': {
+    rule: 'heat_mirage', name: "HAMMER's Smoke", short: 'Smoke', activeWord: 'smoke',
+    desc: 'Smoke rolls over the lanes (6 s in every 18) and cuts girls\' range by 0.5. Every defeated enemy drops 1 extra coin.',
+    toast: 'Smoke! Range −0.5 (6 s)',
+  },
+  '3-10': {
+    rule: 'lunar_eclipse', name: 'The Tear', short: 'Tear', activeWord: 'the tear',
+    desc: 'The tear over the shrine opens for 6 s (every 20 s): Holy deals 50% more damage and spectral enemies move 20% faster.',
+    toast: 'The tear opens! Holy +50%, spirits faster (6 s)',
+  },
 };
 
 /**

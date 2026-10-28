@@ -196,7 +196,8 @@ export const CHAPTERS = [
     desc: 'Ghosts and smoke-throwing goblins drift through the shrine in a fog of incense.',
     mechanic: 'Veiled enemies need Veil Sight (Kage, Hikari, Umeko\'s aura); spectral bodies and phasing favour holy and mystic.',
     stages: ['3-1', '3-2', '3-3', '3-4', '3-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'The Bell Festival', act2Theme: 'city',
+    act2Desc: 'The Old Town festival, the night the Brigade comes. Lanterns, takoyaki and a bell on the lake, then smoke over the lanes and a tear in the sky above the shrine.',
   },
   {
     id: 4, name: 'Ironhold Pass', theme: 'mountain', tier: 'advanced',
@@ -1026,6 +1027,65 @@ const CAMPAIGN_ACT2 = [
     introduces: ['lizard_lamp_hugger'], recommended: ['water', 'armorShred'],
     fam: ['cog', 'feather'],
     scenery: { props: ['lakeLamps', 'rowingClub', 'fireflies'], night: true },
+  }),
+
+  // ----- Chapter 3 · Act II — The Bell Festival (Old Town at night; STEP3_BUILD_PLAN §4-5) -----
+  // Chapter-3 families (and earlier); budgets start from the same slot of chapter 4. 3-9 and 3-10 burn.
+  act2Stage({
+    id: '3-6', name: 'Old Town Lanes', mapId: 'noon_old_town',
+    desc: 'Festival night in the Old Town. Wisps drift through the lantern strings and down the hooked lanes between the old houses; stand on the flat roofs inside the hooks.',
+    budget: [7, 330], groups: 3,
+    pool: [P('ghost_wisp', 5), P('ghost_veilwraith', 2, 2), P('slime_pearl', 3, 3), P('lizard_skink', 3, 5)],
+    fixed: [F(5, 'ghost_veilwraith', 4, 1), F(20, 'lizard_hunter', 4, 1)],
+    recommended: ['detection', 'multiHit'],
+    fam: ['charm', 'rune'],
+    scenery: { props: ['streetLamps', 'strays', 'vendingMachines'], night: true },
+  }),
+  act2Stage({
+    id: '3-7', name: 'Takoyaki Row', mapId: 'noon_takoyaki_row',
+    desc: 'Down the festival street past the stalls, twice across the takoyaki griddles. Phantoms and smoke goblins love a crowd.',
+    budget: [7, 400], groups: 3,
+    pool: [P('ghost_wisp', 3), P('ghost_phantom', 3, 3), P('goblin_smoke', 3), P('goblin_dasher', 2), P('slime_violet', 2), P('slime_gold', 2, 6)],
+    fixed: [F(4, 'goblin_smoke', 5, 0.6), F(18, 'ghost_phantom', 4, 1.2)],
+    recommended: ['detection', 'silence'],
+    fam: ['feather', 'rime'],
+    scenery: { props: ['streetLamps', 'vendingMachines', 'billboards'], night: true },
+  }),
+  act2Stage({
+    id: '3-8', name: 'The Lake Steps', mapId: 'noon_shrine_steps',
+    desc: 'Fog on the lake. The town road and a second column out of the water meet at the foot of the shrine steps, then climb together.',
+    budget: [7, 525], groups: 3,
+    pool: [
+      P('ghost_veilwraith', 4), P('ghost_phantom', 3), P('ghost_lanternbearer', 1, 10), P('slime_violet', 2),
+      P('lizard_hunter', 2), P('orc_grunt', 2, 4),
+    ],
+    fixed: [F(6, 'ghost_phantom', 4, 1), F(16, 'ghost_lanternbearer', 1)],
+    recommended: ['detection', 'water'],
+    fam: ['rune', 'charm'],
+    scenery: { props: ['streetLamps', 'strays'], fog: true, night: true },
+  }),
+  act2Stage({
+    id: '3-9', name: 'Old Town, Burning', mapId: 'noon_old_town_burning',
+    desc: 'The Brigade has come, and the Old Town is burning. Ghosts drift through the smoke, and little Brigade drones fly ahead of everything, watching.',
+    budget: [7, 220], groups: 3,
+    pool: [P('ghost_phantom', 4), P('ghost_lanternbearer', 1, 8), P('ghost_veilwraith', 3), P('goblin_smoke', 3)],
+    fixed: [F(6, 'brigade_gnat', 5, 0.35), F(12, 'brigade_gnat', 5, 0.35), F(18, 'brigade_gnat', 5, 0.35), F(24, 'brigade_gnat', 5, 0.35)],
+    introduces: ['brigade_gnat'], recommended: ['detection', 'multiHit'],
+    fam: ['blade', 'ember'],
+    scenery: { props: ['streetLamps', 'strays'], night: true, ruined: 'burning' },
+  }),
+  act2Stage({
+    id: '3-10', name: 'The Ashen Warden', mapId: 'noon_lakeside_shrine',
+    desc: 'The Lakeside Shrine on the night of the fire, and a tear in the sky above it. An empty armour stands its last watch on the steps.',
+    budget: [7, 115], groups: 3,
+    pool: [
+      P('ghost_hollowknight', 1, 10), P('ghost_lanternbearer', 2), P('ghost_phantom', 3), P('ghost_wisp', 3),
+      P('goblin_smoke', 2), P('slime_violet', 2), P('lizard_hunter', 2),
+    ],
+    fixed: [F(8, 'ghost_hollowknight', 1), F(26, 'ghost_ashen_warden', 1, 2, 6)],
+    introduces: ['ghost_ashen_warden'], recommended: ['detection', 'priority'],
+    fam: ['cog', 'feather'],
+    scenery: { props: ['streetLamps'], night: true, ruined: 'burning' },
   }),
 ];
 
