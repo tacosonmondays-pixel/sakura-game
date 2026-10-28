@@ -309,7 +309,7 @@ GLBs, the non-vacuous family rule; `docs/CAMPAIGN.md` Checkpoint table; HANDOFF 
 9. **Grim tone on 4-8/4-9**: the fades, barks and scenes must stay within "loss by absence"; the story-safety review is
    strict here.
 
-## 9. Owner questions (defaults taken)
+## 9. Owner questions (defaults taken) — **owner: defaults (Oct 28 ~22:40 UTC)**
 
 - **Brigade look without a model:** the Response/Shieldline Troopers, Tortoise and Badger ship on construct models
   (sentry, warden, beetle) in navy/amber/white; the real Brigade kit waits for the enemy rebuild. OK, or hold the Brigade

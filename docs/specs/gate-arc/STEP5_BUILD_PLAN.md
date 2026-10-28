@@ -311,7 +311,7 @@ balance rows, docs (`CONTRACTS.md`: `THEMES.drowned`, `district: 'park'`, an ins
    unweaving and Mori's rescue sit on the absence line (strict story-safety review); every counter re-pin is justified
    by the five stages, never a regression.
 
-## 9. Owner questions (defaults taken)
+## 9. Owner questions (defaults taken) — **owner: defaults (Oct 28 ~22:40 UTC)**
 
 - **Vesperline machines without a new model:** Patrol Orb, Halo Drone and Line Sentry ship on construct bodies (cogling,
   sentry) in white glass and cyan with outlines; the Halo Drone's own floating-ring body (`halo` variant) waits for the
