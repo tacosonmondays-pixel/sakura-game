@@ -393,6 +393,13 @@ const CARDS = {
     c('One more drone, and drone hits crack armor for the team.', 'DRONES +1', 'ARMOR -1'),
     c('A faster Throttle Up, and her tune-up links another girl.', 'THROTTLE +75%', 'LINKS +1'),
   ],
+  tenka: [
+    c('Her bolts punch through one more point of armor.', 'ARMOR PEN +1'),
+    c('Her coilgun finds weak points more often.', 'CRIT +4%'),
+    c('Every 10th bolt is a Coil Resonance burst.', 'EVERY 10TH', 'RESONANCE'),
+    c('Every bolt passes through one more enemy.', 'PIERCE +1'),
+    c('Resonance comes sooner, hits harder and leaves Brittle.', 'EVERY 8TH', 'BRITTLE +10%'),
+  ],
   hikari: [
     c('Every 6th sweep is a Sunrise that hits harder.', 'SUNRISE +50%'),
     c('Celestial Bloom recharges faster.', 'RECHARGE +10%'),

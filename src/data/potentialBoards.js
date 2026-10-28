@@ -21,7 +21,7 @@ export const HERO_FAMILY = 'crest';
 
 /** A tower girl's default family by class (UI_V2_MENUS.md section 6, the family table; mortar and prism added). */
 export const CLASS_FAMILY = Object.freeze({
-  marksman: 'spear', sniper: 'spear', duelist: 'spear', skirmisher: 'spear', cleaver: 'spear', falconer: 'spear', prism: 'spear',
+  marksman: 'spear', sniper: 'spear', powerhouse: 'spear', duelist: 'spear', skirmisher: 'spear', cleaver: 'spear', falconer: 'spear', prism: 'spear',
   bombardment: 'burst', artillery: 'burst', chain: 'burst', alchemist: 'burst', trapper: 'burst', spiker: 'burst', bowler: 'burst',
   mirror: 'burst', mortar: 'burst',
   support: 'ring', enchanter: 'ring', exorcist: 'ring', controller: 'ring', displacement: 'ring', purifier: 'ring', hexer: 'ring',
@@ -34,7 +34,7 @@ export const CLASS_EMBLEM = Object.freeze({
   // heroes
   vanguard: 'shield', mystic: 'moon', tideguard: 'waves', champion: 'trophy', puppeteer: 'users', stormrider: 'zap',
   // spear
-  marksman: 'target', sniper: 'pierce', duelist: 'sword', skirmisher: 'gauge', cleaver: 'swords', falconer: 'feather', prism: 'search',
+  marksman: 'target', sniper: 'pierce', powerhouse: 'zap', duelist: 'sword', skirmisher: 'gauge', cleaver: 'swords', falconer: 'feather', prism: 'search',
   // burst
   bombardment: 'sparkles', artillery: 'armorbreak', chain: 'zap', alchemist: 'cube', trapper: 'bell', spiker: 'hash', bowler: 'timer',
   mirror: 'image', mortar: 'castle',
@@ -65,7 +65,7 @@ export const LR_UNITS = Object.freeze([]);
 
 const row = (family, variant, mirror, hue, emblem) => Object.freeze({ family, variant, mirror, hue, emblem });
 
-/** The 35 girls (card colour = the raw sample before the lift, kept for the record). */
+/** Every girl (card colour = the raw sample before the lift, kept for the record). */
 export const POTENTIAL_BOARDS = Object.freeze({
   hikari: row('crest', 1, false, '#d85a7f', 'shield'), // vanguard · card #a6526b
   luna: row('crest', 0, false, '#6e7bdd', 'moon'), // mystic · card #3d4374
@@ -86,6 +86,7 @@ export const POTENTIAL_BOARDS = Object.freeze({
   hotaru: row('ring', 1, false, '#d68251', 'lantern'), // exorcist · card #ca7747
   kaede: row('spear', 2, false, '#d66251', 'sword'), // duelist · card #98382b
   chika: row('circuit', 2, true, '#d68351', 'settings'), // engineer · card #b96d40
+  tenka: row('spear', 0, true, '#5e80d9', 'zap'), // powerhouse (v0.1.57) · card #435c9c
   kanna: row('crest', 0, true, '#d85b5a', 'trophy'), // champion · card #8e2827
   yoriko: row('crest', 1, true, '#986edd', 'users'), // puppeteer · card #654a91
   seiran: row('crest', 0, true, '#5199d6', 'zap'), // stormrider · card #6290b6
