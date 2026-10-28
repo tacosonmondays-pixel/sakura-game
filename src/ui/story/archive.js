@@ -1,23 +1,29 @@
 // Story archive (owner: story; STORY_SPEC §1.5). Route: #/story?ch=<n>
-// Academy menu layout: the painted academy (soft), Hikari's drawn stand bottom-left, a strip of chapter
-// tabs (Opening, Ch 1 … Ch 8 with names from CHAPTERS) and the chapter's episode cards on the right. A card shows
-// its background thumb with the cast's heads, "Episode n", the title and its state: NEW (unlocked, unread, with
-// the first-read gems), read (✓), or locked with the requirement ("Clear 2-5"). Tapping a card plays it in the
+// Academy menu layout: the painted academy (soft), Hikari's drawn stand bottom-left, the chapter rail (Opening,
+// Ch 1 … Ch 8: each chapter's emblem and number) and the chapter's episode cards beside her. A card shows its
+// background thumb with the lead girl, "Episode n", the title, the cast's faces and its state: NEW (unlocked, unread,
+// with the first-read gems), read (✓), or locked with the requirement ("Clear 2-5"). Tapping a card plays it in the
 // scene player and returns here on the same tab. Replays never grant anything.
+// [ui-v2 M7a] Ink & Paper (docs/specs/UI_V2_MENUS.md M7a; styles/v2-records.css): a kit list screen. The chapters
+// are one row of kit options that fits (two rows on a phone held upright), never a sideways strip; the cards are
+// kit tiles; NEW is the kit's ink chip (pink marks a selection only).
 import '../styles/meta-a.css'; // hub backdrop + drawn stand (shared with the missions hub)
 import '../styles/story.css';
-import { h, clear, screen, svgEl, glyph, toast } from '../components.js';
+import '../styles/v2-records.css';
+import { h, clear, screen, toast } from '../components.js';
+import { ico, curArt } from '../kit.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { hubBackdrop, hubStand } from '../hubArt.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { CHAPTERS } from '../../data/stages.js';
-import { uiIcon } from '../../art/icons.js';
 import { resolveText } from '../../data/story/tokens.js';
 import { isCgBackground } from '../../data/story/backgrounds.js';
 import { tutorialRoute } from '../../systems/story.js';
 import { episodeList } from '../../systems/storyTriggers.js';
+import { emblemSvg, chapterEmblem, lineGlyph } from '../lineGlyphs.js';
+import { stagger, tabSwap, noteTabPick } from '../motion.js';
 import { resolveBackground } from './backdrop.js';
 import { hasUnit } from './play.js';
 
@@ -47,6 +53,7 @@ export function render(root, params = {}) {
   let disposed = false;
   let idx = null;
   let active = params.ch != null && CHAPTER_IDS.includes(Number(params.ch)) ? Number(params.ch) : null;
+  let first = true;
 
   const draw = () => {
     if (disposed || !idx) return;
@@ -56,52 +63,66 @@ export function render(root, params = {}) {
     body.appendChild(build(rows));
   };
 
+  const pick = (id) => {
+    if (id === active) return;
+    const shown = CHAPTER_IDS.filter((c) => body.querySelector(`[data-testid="story-tab-${c}"]`));
+    noteTabPick(shown.indexOf(active), shown.indexOf(id));
+    active = id;
+    draw();
+    tabSwap(body.querySelector('.sa-list'));
+    history.replaceState(null, '', `#/story?ch=${id}`);
+  };
+
   function build(rows) {
     const wrap = h('div.sa');
     wrap.appendChild(hubStand(UNIT_MAP.hikari, { cls: 'sa-char' }));
-    const main = h('div.sa-main');
 
-    // chapter tabs
+    // the chapter rail: one kit option per chapter (its emblem and number; the name is in the head below)
     const strip = h('nav.sa-tabs', { role: 'tablist', 'aria-label': 'Chapters' });
     for (const id of CHAPTER_IDS) {
       const list = rows.filter((r) => r.chapter === id);
       if (!list.length) continue;
       const label = chapterLabel(id);
-      const read = list.filter((r) => r.seen).length;
       const anyOpen = list.some((r) => r.unlocked);
-      const tab = h(`button.sa-tab${id === active ? '.on' : ''}${anyOpen ? '' : '.locked'}`, {
-        role: 'tab', 'aria-selected': String(id === active), 'data-testid': `story-tab-${id}`, type: 'button',
-        onclick: () => { active = id; draw(); history.replaceState(null, '', `#/story?ch=${id}`); },
+      const on = id === active;
+      const tab = h(`button.ui-opt.sa-tab${on ? '.on' : ''}${anyOpen ? '' : '.locked'}`, {
+        role: 'tab', 'aria-selected': String(on), 'data-testid': `story-tab-${id}`, type: 'button', 'data-probe': 'tile',
+        'aria-label': `${id === 0 ? label.short : `Chapter ${id}`}: ${label.name}${anyOpen ? '' : ' (locked)'}`, title: label.name,
+        onclick: () => pick(id),
       },
-      h('span.sa-tab-short', label.short),
-      h('span.sa-tab-name', label.name),
-      h('span.sa-tab-count', `${read}/${list.length}`),
-      list.some((r) => r.isNew) ? h('span.notif-dot') : null);
+      h('span.sa-tab-emb', { 'aria-hidden': 'true', html: id === 0 ? lineGlyph('booktext', 's') : emblemSvg(chapterEmblem(id)) }),
+      id === 0 ? null : h('span.num.sa-tab-n', String(id)),
+      list.some((r) => r.isNew) ? h('i.ui-dot.sa-tab-dot', { 'aria-hidden': 'true' }) : null);
       strip.appendChild(tab);
     }
-    main.appendChild(strip);
 
-    // chapter header
+    // the chapter's head: kicker, name, what was read; the tutorial replay as a secondary
     const label = chapterLabel(active);
     const chapterRows = rows.filter((r) => r.chapter === active);
-    main.appendChild(h('div.sa-head',
+    const read = chapterRows.filter((r) => r.seen).length;
+    const head = h('div.sa-head',
       h('div.sa-head-text',
-        h('span.sa-kicker', active === 0 ? 'Prologue' : `Chapter ${active}`),
+        h('span.lbl.sa-kicker', active === 0 ? 'Prologue' : `Chapter ${active}`),
         h('b.sa-head-title', label.name)),
-      h('button.sa-head-btn', {
-        type: 'button', 'data-testid': 'story-replay-tutorial',
+      read ? h('span.sa-read', { title: `${read} of ${chapterRows.length} read` }, ico('check', 'rk-ico'), h('span.num', `${read}/${chapterRows.length}`)) : null,
+      // (a kit button on its own hit, ink.css .ui-hit: the tapped <button> never transforms under a finger)
+      h('button.ui-hit.rk-hit.sa-head-btn', {
+        type: 'button', 'data-testid': 'story-replay-tutorial', 'aria-label': 'Replay battle tutorial', title: 'Replay battle tutorial',
         onclick: () => { const r = tutorialRoute(); navigate(r.name, r.params); },
-      }, svgEl(uiIcon('play'), 'sa-ico'), h('span.sa-head-btn-label', 'Replay battle tutorial'))));
+      }, h('span.ui-btn.sec', ico('play', 'rk-ico'), h('span.sa-head-btn-label', 'Tutorial'))));
 
     // episode cards
-    const list = h('div.sa-list', { role: 'tabpanel' });
-    chapterRows.forEach((r, i) => list.appendChild(card(r, i)));
-    main.appendChild(list);
-    wrap.appendChild(main);
+    const list = h('div.sa-list', { role: 'tabpanel', 'aria-label': label.name });
+    const cards = chapterRows.map((r) => card(r));
+    list.append(...cards);
+    if (first) stagger(cards, 'up');
+    first = false;
+
+    wrap.appendChild(h('section.ui-panel.sa-main', strip, head, list));
     return wrap;
   }
 
-  function card(r, i) {
+  function card(r) {
     const bg = resolveBackground(r.scene.bg === 'black' ? 'academy-day' : r.scene.bg, r.chapter);
     const thumbUrl = bg.thumb || bg.url || null;
     const cg = isCgBackground(r.scene.bg);
@@ -114,15 +135,16 @@ export function render(root, params = {}) {
       h('span.sa-ep', `Episode ${r.episode}`));
     let state;
     if (!r.unlocked) {
-      state = h('span.sa-state.locked', svgEl(uiIcon('lock'), 'sa-ico'), h('span', r.requirement ? resolveText(r.requirement) : 'Locked'));
+      state = h('span.sa-state.locked', ico('lock', 'rk-ico'), h('span', r.requirement ? resolveText(r.requirement) : 'Locked'));
     } else if (r.seen) {
-      state = h('span.sa-state.read', svgEl(glyph('check'), 'sa-ico'), h('span', 'Read'));
+      state = h('span.sa-state.read', ico('check', 'rk-ico'), h('span', 'Read'));
     } else {
       const gems = r.firstReward.filter((x) => x.id === 'gems').reduce((n, x) => n + x.count, 0);
-      state = h('span.sa-state.new', h('b.sa-new', 'NEW'), gems ? h('span', `First read: ${gems} gems`) : null);
+      state = h('span.sa-state.new', h('b.ui-bdg.new', 'NEW'),
+        gems ? h('span.sa-gems', { title: `First read: ${gems} gems`, 'aria-label': `First read: ${gems} gems` }, curArt('gems'), h('span.num', String(gems))) : null);
     }
     return h(`button.sa-card${r.unlocked ? '' : '.locked'}${r.isNew ? '.new' : ''}${r.seen ? '.read' : ''}`, {
-      type: 'button', 'data-testid': `story-ep-${r.id}`, style: { animationDelay: `${i * 50}ms` },
+      type: 'button', 'data-testid': `story-ep-${r.id}`, 'data-probe': 'tile',
       onclick: () => {
         if (!r.unlocked) return toast(r.requirement ? `${resolveText(r.requirement)} to unlock this episode.` : 'Locked', 'info');
         navigate('scene', { id: r.id, next: 'story', ch: r.chapter });
@@ -131,7 +153,7 @@ export function render(root, params = {}) {
     thumb,
     h('div.sa-info',
       h('b.sa-title', resolveText(r.title)),
-      h('div.sa-cast', cast.map((id) => h('span.sa-face', { title: UNIT_MAP[id].name, html: portraitHTML(UNIT_MAP[id], 'thumb', { alt: UNIT_MAP[id].name, eager: true }) }))),
+      cast.length ? h('div.sa-cast', cast.map((id) => h('span.sa-face', { title: UNIT_MAP[id].name, html: portraitHTML(UNIT_MAP[id], 'thumb', { alt: UNIT_MAP[id].name, eager: true }) }))) : null,
       state));
   }
 
