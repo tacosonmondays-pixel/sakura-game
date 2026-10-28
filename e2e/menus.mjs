@@ -75,6 +75,8 @@ const metrics = (r) => ({
   covered: r.v2?.coveredCount ?? null,
   overflow: !!(r.overflowX || r.scrollers.length),
   ellipsis: r.ellipsis.length,
+  heads: r.v2?.headsCount ?? null,
+  clipped: r.v2?.clippedCount ?? null,
   content: r.content,
   host: r.hostShare != null ? Math.round(r.hostShare * 100) : null,
 });
@@ -95,7 +97,7 @@ const beforeFile = (m) => join(here, 'shots', 'before', `${m}.json`);
 const before = {};
 for (const m of ids) if (existsSync(beforeFile(m))) Object.assign(before, JSON.parse(readFileSync(beforeFile(m), 'utf8')));
 const fmtM = (x) => (x == null ? '–' : x === true ? 'yes' : x === false ? 'no' : typeof x === 'number' ? String(Math.round(x * 100) / 100) : String(x));
-const KEYS = ['text', 'numbers', 'tapMin', 'under44', 'yellow', 'pinkStray', 'covered', 'radius', 'overflow', 'ellipsis', 'content', 'host'];
+const KEYS = ['text', 'numbers', 'tapMin', 'under44', 'yellow', 'pinkStray', 'covered', 'radius', 'overflow', 'ellipsis', 'heads', 'clipped', 'content', 'host'];
 
 const results = {};
 let failing = 0;
@@ -111,7 +113,8 @@ for (const vp of viewports) {
   for (const name of names) {
     const r = probes[name];
     if (!r) {
-      console.log(`  ${name}: not shot`);
+      console.log(`  FAIL ${name}: not shot (it did not open, or its screen is missing)`);
+      failing++;
       continue;
     }
     const m = metrics(r);
@@ -128,9 +131,9 @@ for (const s of failedShots) console.log(`  FAILED shot ${s}`);
 
 if (record) {
   for (const m of ids) {
-    // (with --screens, the shots taken join the file's others)
-    const kept = only && existsSync(beforeFile(m)) ? JSON.parse(readFileSync(beforeFile(m), 'utf8')) : {};
-    const mine = { ...kept, ...Object.fromEntries(MILESTONES[m].filter((n) => results[n]).map((n) => [n, results[n]])) };
+    // (the sizes and shots taken join what the file already holds)
+    const mine = existsSync(beforeFile(m)) ? JSON.parse(readFileSync(beforeFile(m), 'utf8')) : {};
+    for (const n of MILESTONES[m]) if (results[n]) mine[n] = { ...mine[n], ...results[n] };
     mkdirSync(dirname(beforeFile(m)), { recursive: true });
     writeFileSync(beforeFile(m), `${JSON.stringify(mine, null, 1)}\n`);
     console.log(`recorded ${beforeFile(m)}`);

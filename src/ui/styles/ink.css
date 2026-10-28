@@ -1158,3 +1158,6 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 :is(.ui-day, .ui-night) .ui-sheet.full { border-radius: 0; box-shadow: inset 1px 0 0 var(--line-ink), inset -1px 0 0 var(--line-ink); background: var(--panel-w); }
 :is(.ui-day, .ui-night) .ui-sheet > .ui-head { padding-right: calc(var(--sp-1) + var(--cut) * 0.5); }
 :is(.ui-day, .ui-night) .ui-close { border-radius: 50%; }
+/* [M0] the round close button's hit area is its whole 44 px square (a circle's own hit test loses the corners) */
+:is(.ui-day, .ui-night) .ui-close { position: relative; }
+:is(.ui-day, .ui-night) .ui-close::before { content: ''; position: absolute; inset: 0; }

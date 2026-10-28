@@ -14,3 +14,5 @@ export const shots = {
   wiki: { hash: '#/wiki', ready: isScreen('wiki') },
 };
 export const list = Object.keys(shots);
+/** The plan's own budget (section 5 M7b): the Notice 12 outside its version rows. */
+export const gate = { notice: { limit: 12 } };

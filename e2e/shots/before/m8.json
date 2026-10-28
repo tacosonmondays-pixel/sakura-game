@@ -482,5 +482,55 @@
    "content": 796,
    "host": null
   }
+ },
+ "player-card": {
+  "844x390": {
+   "text": 10.56,
+   "numbers": 4,
+   "tapMin": 32.5,
+   "under44": 7,
+   "yellow": 1,
+   "pinkStray": 2,
+   "radius": 6,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "heads": 0,
+   "clipped": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 10.56,
+   "numbers": 4,
+   "tapMin": 32.5,
+   "under44": 7,
+   "yellow": 1,
+   "pinkStray": 2,
+   "radius": 6,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "heads": 0,
+   "clipped": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 10.56,
+   "numbers": 4,
+   "tapMin": 32.5,
+   "under44": 7,
+   "yellow": 1,
+   "pinkStray": 2,
+   "radius": 4,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "heads": 0,
+   "clipped": 0,
+   "content": 796,
+   "host": null
+  }
  }
 }

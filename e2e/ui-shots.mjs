@@ -30,7 +30,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { probe, judge, summary } from './probe.mjs';
-import { SHOT_DEFS, MILESTONES } from './shots/index.mjs';
+import { SHOT_DEFS, MILESTONES, GATE } from './shots/index.mjs';
 import { tabJunction, ringContinuity, contrastOnPixels } from './pixels.mjs';
 import { seedUiSave, seedInkSave, inkRandomInit, seedOnlineInvite, seedOnlineHub, goOffline, SHOT_NOW, INK_NOW, INK_RANDOM_SEED, MORE_FRIENDS } from './uiSeed.mjs';
 
@@ -372,6 +372,8 @@ const closeModals = (page) => page.evaluate(() => {
   document.querySelectorAll('.modal-overlay').forEach((o) => o.remove());
   // ([ui-ink] V2: the home's menu sheet closes through its own X, so the home's UI comes back)
   document.querySelector('[data-testid="menu-sheet-close"]')?.click();
+  // ([ui-v2-menus] the kit sheets too: a shot on the same hash as the one before finds them still open)
+  return import('/src/ui/sheet.js').then((m) => m.closeSheets?.()).catch(() => {});
 });
 
 async function go(page, hash, ready, settleMs = 900) {
@@ -566,7 +568,7 @@ for (const vp of viewports) {
       }
       await shot(page, name, vp);
       if (withProbe) {
-        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true, dense: s.dense?.join(', ') || null });
+        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true, dense: (GATE[name]?.dense ?? s.dense)?.join(', ') || null });
         probes[name] = r;
         console.log(`    probe: ${summary(r)}`);
         const fails = judged ? judge(r, { only: judged, v2: true }) : [];

@@ -5,15 +5,18 @@
 //   dense    selectors of rows the milestone names as dense: their taps may be 40 px instead of 44
 //   rebuilt  the screen's surfaces are rebuilt in v2 (the radius check, S5, applies)
 
+/** A layer that really opened: a kit sheet or a modal (never the hidden rotate prompt, which is a role=dialog too). */
+export const LAYER = '.ui-layer .ui-sheet, .ui-sheet.on, .modal-overlay:not(.rotate-overlay) .modal';
+
 /** A ready test for a screen id (`#app[data-screen]`). */
 export const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 
 /** Clicks `sel` and waits for `waitFor` (default: the same selector's sheet or dialog, any). */
-export const clickOpen = (sel, waitFor = '.ui-sheet, .modal, .modal-overlay, [role="dialog"]', { force = false } = {}) => async (page) => {
+export const clickOpen = (sel, waitFor = LAYER, { force = false } = {}) => async (page) => {
   // (force: the element's own click(), whatever paints over it: an earlier shot's sheet left open)
   if (force) await page.$eval(sel, (el) => el.click());
   else await page.click(sel, { timeout: 10000 });
-  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'attached' });
+  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'visible' });
 };
 
 /** Clicks each selector in turn (a tab, then a row), waiting a beat between. */
@@ -35,12 +38,15 @@ export const scrollBody = (to = 'end', sel = '#app .screen-body') => (page) => p
 }, [to, sel]);
 
 /** The game's hold gesture (450 ms) on the first `sel`. */
-export const holdOn = (sel, waitFor = '.ui-sheet, .modal, .modal-overlay, [role="dialog"]') => async (page) => {
-  const box = await page.locator(sel).first().boundingBox();
+export const holdOn = (sel, waitFor = LAYER) => async (page) => {
+  const target = page.locator(sel).first();
+  // (the same hash as the shot before keeps its scroll: bring the target into view first)
+  await target.scrollIntoViewIfNeeded({ timeout: 10000 });
+  const box = await target.boundingBox();
   if (!box) throw new Error(`nothing to hold: ${sel}`);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(800);
   await page.mouse.up();
-  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'attached' });
+  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'visible' });
 };
