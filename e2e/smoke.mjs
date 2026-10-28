@@ -372,7 +372,8 @@ async function runViewport(vp) {
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   await page.evaluate(() => { location.hash = '#/mall?tab=general'; });
-  await page.waitForTimeout(900);
+  // (waits for the offer itself, not a fixed 900 ms: a slow machine draws the Mall later)
+  await page.waitForSelector('[data-testid="buy-gen_book_common"]', { timeout: 30000 }).catch(() => null);
   const coins0 = await page.evaluate(() => window.__sakura.store.profile.currencies.coins);
   const books0 = await page.evaluate(() => window.__sakura.store.profile.items.book_common || 0);
   const buy = await page.$('[data-testid="buy-gen_book_common"]');

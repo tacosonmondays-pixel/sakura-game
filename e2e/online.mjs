@@ -263,7 +263,8 @@ try {
     await tap(A, '[data-testid="clan-back"]');
     const ranked = await A.waitForFunction(() => document.querySelectorAll('.ol-board-list li').length === 1 && /Aiko/.test(document.querySelector('.ol-board-list')?.innerText || ''), null, { timeout: 10000 }).then(() => true).catch(() => false);
     check(ranked, 'clan boss: back in the clan, the ranking lists the attempt');
-    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').innerText().catch(() => '')), 'clan boss: one of three daily attempts used');
+    // (textContent: the ink buttons set their labels in capitals with CSS, which innerText reports)
+    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').textContent().catch(() => '')), 'clan boss: one of three daily attempts used');
     await shot(A, 'clan-boss-ranked');
   }
 
@@ -364,7 +365,7 @@ try {
   // 2. The guest leaves: the host is told and offered a new room (a guest coming back from
   //    another browser or device might find the seat still taken)
   await tap(B, '[data-testid="coop-leave"]');
-  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.textContent()).catch(() => '');
   check(/Bea left the room/.test(goneText) && /New room/.test(goneText), `co-op: when the guest leaves, the host sees "Bea left the room" with a New room button (${goneText.replace(/\s+/g, ' ').slice(0, 80)})`);
   await shot(A, 'coop-ally-gone-host');
 

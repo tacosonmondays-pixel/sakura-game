@@ -22,7 +22,8 @@ import { LEGEND_UNITS } from '../data/recruitFeature.js';
  */
 export async function offerSelectTicket({ lead = '' } = {}) {
   if (itemCount(store.profile, SSR_SELECT_TICKET) <= 0) return;
-  const text = `${lead ? `${lead} ` : ''}Your gifts include an SSR Select Ticket: choose any SSR student you like — now, or later from the Backpack.`;
+  const except = LEGEND_UNITS.length ? ` (but ${LEGEND_UNITS.map((id) => UNIT_MAP[id]?.name || id).join(' and ')})` : '';
+  const text = `${lead ? `${lead} ` : ''}Your gifts include an SSR Select Ticket: choose any SSR student you like${except} — now, or later from the Backpack.`;
   const ok = await confirmDialog(text, { title: lead ? 'Gifts received!' : 'SSR Select Ticket', ok: 'Choose now', cancel: 'Later', okKind: 'yellow' });
   if (ok) openSelectTicket();
 }
