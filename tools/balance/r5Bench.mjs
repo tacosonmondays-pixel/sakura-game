@@ -2,7 +2,7 @@
 // drawer's live meter shows: damage the sim credits her a second, src/ui/battle/dpsView.js) on her ruler.
 //
 //   node --import ./tools/simLoader.mjs tools/balance/r5Bench.mjs [girls…] [--support um|none] [--targets boss,crowd]
-//        [--builds best|all|p0t5,…] [--stage 4-5] [--seed 9] [--warm 15] [--run 40] [--no-resonance] [--json]
+//        [--builds best|all|p0t5,…] [--stage 4-5] [--seed 9] [--seeds 9,1,2] [--warm 15] [--run 40] [--no-resonance] [--json]
 //
 // Fully maxed (the profile a player reaches): L85, ★5, 10 gates, P6, three UR +12 Taiko pieces at average rolls
 // (crit damage / crit chance / attack speed mains, ATK and crit subs), through the game's own unitBattleStats, with
@@ -22,7 +22,7 @@ import { unitBattleStats } from '../../src/systems/progression.js';
 import { mainStatRange, substatRange, subGrowth } from '../../src/systems/gear.js';
 
 const argv = process.argv.slice(2);
-const VALUED = ['--crowd-every', '--boss-hp', '--crowd-hp', '--support', '--targets', '--builds', '--stage', '--seed', '--warm', '--run'];
+const VALUED = ['--seeds', '--crowd-every', '--boss-hp', '--crowd-hp', '--support', '--targets', '--builds', '--stage', '--seed', '--warm', '--run'];
 const opt = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
 const names = argv.filter((a, i) => !a.startsWith('--') && !VALUED.includes(argv[i - 1]));
 
@@ -151,7 +151,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const unitId of girls) {
     for (const target of targets) {
       const builds = buildsOpt === 'best' || buildsOpt === 'all' ? ['p0t5', 'p1t5', 'p2t5'] : buildsOpt.split(',');
-      const rows = builds.map((b) => ({ b, ...measure({ ...common, unitId, build: parseBuild(b), target }) }));
+      // --seeds 9,1,2: each build's mean over the seeds (a kit's rolls and the stream's timing move a run by a few %)
+      const seeds = opt('seeds', String(common.seed)).split(',').map(Number);
+      const rows = builds.map((b) => {
+        const rs = seeds.map((seed) => measure({ ...common, seed, unitId, build: parseBuild(b), target }));
+        const bad = rs.find((r) => r.error);
+        return bad ? { b, ...bad } : { b, ...rs[0], dps: Math.round(rs.reduce((a, r) => a + r.dps, 0) / rs.length) };
+      });
       const ok = rows.filter((r) => !r.error);
       const best = ok.reduce((a, r) => (!a || r.dps > a.dps ? r : a), null);
       const row = { unitId, target, support, best: best?.b ?? null, dps: best?.dps ?? 0, tiers: best?.tiers, all: Object.fromEntries(rows.map((r) => [r.b, r.error ?? r.dps])) };
