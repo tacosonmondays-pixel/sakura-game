@@ -12,7 +12,7 @@ import { formatNumber } from '../../core/util.js';
 import { ARMOR_CLASSES, TRAITS, CAPABILITIES, ELEMENTS } from '../../data/types.js';
 import { FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, enemiesByFamily, enemyTraits } from '../../data/enemies.js';
 import { STAGE_MAP } from '../../data/stages.js';
-import { discoverableEnemies, bestiaryPercent } from '../../systems/missions.js';
+import { discoverableEnemies, bestiaryPercent, familyProgress } from '../../systems/missions.js';
 import { traitIcon, armorClassIcon, uiIcon } from '../../art/icons.js';
 import { buildEnemy, preloadEnemies, makeSilhouette, createModelViewer, drawnBox, disposeObject } from '../../models/index.js';
 import { put, cssVars } from './backpack.js';
@@ -230,9 +230,13 @@ export function render(root, params = {}) {
 
   function renderTabs() {
     clear(tabsEl);
+    // a family tab counts what "Family Portrait" counts (members of a stage the save cannot open yet aside)
     const famStats = (f) => {
-      const list = f === 'all' ? ENEMIES : enemiesByFamily(f);
-      return `${list.filter((e) => entry(e.id).discovered).length}/${list.length}`;
+      if (f !== 'all') {
+        const { found, total } = familyProgress(profile, f);
+        return `${found}/${total}`;
+      }
+      return `${ENEMIES.filter((e) => entry(e.id).discovered).length}/${ENEMIES.length}`;
     };
     for (const f of ['all', ...FAMILY_ORDER.filter((x) => FAMILIES[x])]) {
       tabsEl.appendChild(h(`button.mb-tab${view.family === f ? '.active' : ''}`, {

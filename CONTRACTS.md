@@ -401,7 +401,7 @@ EnemyDef = {
   id, name, family, tier: 'normal'|'elite'|'miniboss'|'boss',
   hp, speed /*tiles/s, normal ≈ 1.0*/, armorClass, armor /*flat per-hit reduction*/,
   bounty /*coins on kill*/, leak /*lives lost; bosses = all*/, threat /*wave budget cost*/,
-  size /*model scale 0.6-3*/, color, accent,
+  size /*model scale 0.6-3*/, color, accent, line? /*outline colour; default a deep shade of color*/,
   model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this; `base` is the family
                                    // itself, except for a family without a GLB of its own (Gate Arc Step 4: every
                                    // `brigade` def wears a shipped `construct` model in Brigade navy/amber until the

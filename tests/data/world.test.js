@@ -26,7 +26,7 @@ const ENEMY_KEYS = [
   'id', 'name', 'family', 'tier', 'hp', 'speed', 'armorClass', 'armor', 'bounty', 'leak', 'threat',
   'size', 'color', 'accent', 'model', 'traits', 'lore', 'counters', 'introducedIn',
 ];
-const ENEMY_OPTIONAL = ['phases'];
+const ENEMY_OPTIONAL = ['phases', 'line'];
 /** Co-op freeplay's giants (src/data/freeplay.js): bosses outside the campaign, never in a stage. */
 const FREEPLAY_ONLY = (e) => e.introducedIn === 'freeplay';
 const CAMPAIGN_ENEMIES = ENEMIES.filter((e) => !FREEPLAY_ONLY(e));
@@ -190,6 +190,7 @@ describe('enemies', () => {
       else expect(Number.isInteger(e.leak) && e.leak >= 0, `${e.id}.leak`).toBe(true);
       expect(e.color).toMatch(/^#[0-9a-f]{6}$/i);
       expect(e.accent).toMatch(/^#[0-9a-f]{6}$/i);
+      if (e.line !== undefined) expect(e.line).toMatch(/^#[0-9a-f]{6}$/i);
       expect(e.model.base).toBe(BORROWED_MODEL[e.family] || e.family);
       expect(typeof e.model.variant).toBe('string');
       expect(Array.isArray(e.model.props)).toBe(true);

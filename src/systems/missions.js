@@ -210,7 +210,7 @@ export function claimLogin(profile, now = new Date()) {
 // Achievements (docs/specs/ACHIEVEMENTS.md §3, §5). Metrics: src/systems/achievementMetrics.js.
 // ---------------------------------------------------------------------------
 
-export { discoverableEnemies, bestiaryPercent } from './achievementMetrics.js';
+export { discoverableEnemies, bestiaryPercent, familyProgress } from './achievementMetrics.js';
 
 /** Reward ids that wait for a feature gate (§3.3): boxes until Equipment opens, crowns until Awakening does. */
 export function achievementGate(profile, a) {

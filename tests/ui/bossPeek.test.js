@@ -25,7 +25,7 @@ describe('the boss bar never hides its boss', () => {
     expect(PEEK_EVERY).toBeGreaterThanOrEqual(0.1);
     expect(PEEK_EVERY).toBeLessThanOrEqual(0.3);
     expect(src('ui/battle/bossBar.js')).toMatch(/classList\.toggle\('bt-boss-peek', under\)/);
-    expect(src('ui/styles/battle.css')).toMatch(/\.bt-boss\.bt-boss-peek \{ opacity: 0\.2\d?; \}/);
+    expect(src('ui/styles/battle.css')).toMatch(/\.bt-boss\.bt-boss-peek \{ background: rgba\(20, 24, 44, 0\.18\); box-shadow: none; \}\n\.bt-boss\.bt-boss-peek > \* \{ opacity: 0\.62; \}/);
   });
 
   it('on a short screen the boss and phase banners leave within 1.4 s and let the board show through', () => {

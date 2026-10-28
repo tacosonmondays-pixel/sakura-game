@@ -436,6 +436,20 @@ describe('familiesFound is never vacuous; the Brigade family and the Frost Vangu
     expect(familiesFound(p)).toBe(1);
   });
 
+  it('the bestiary tab counts what Family Portrait counts: a full tab exactly when the family is found', async () => {
+    const { familiesFound, familyProgress } = await import('../../src/systems/achievementMetrics.js');
+    const p = createProfile();
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), '3-6', '3-7', '3-8']);
+    expect(familyProgress(p, 'brigade')).toEqual({ found: 0, total: 1 }); // 3-9 open: only the Gnat is needed
+    // a co-op guest met three troopers early: they count, the Badger (4-9 not open) does not
+    found(p, ['brigade_gnat', 'brigade_trooper', 'brigade_shieldline', 'brigade_tortoise']);
+    expect(familyProgress(p, 'brigade')).toEqual({ found: 4, total: 4 });
+    expect(familiesFound(p)).toBe(1);
+    mark(p, [...act2(3), '4-6', '4-7', '4-8']);
+    expect(familyProgress(p, 'brigade')).toEqual({ found: 4, total: 5 });
+    expect(familiesFound(p)).toBe(0);
+  });
+
   it('orc stays complete for a veteran while 4-10 is locked, and needs the Frost Vanguard once it opens', async () => {
     const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
     const { ENEMIES } = await import('../../src/data/enemies.js');

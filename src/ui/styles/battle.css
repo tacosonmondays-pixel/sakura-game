@@ -240,7 +240,9 @@
 }
 /* its own boss under the bar (a spawn gate near the top edge): the bar turns see-through (bossBar.js) */
 .bt-boss { transition: opacity 0.25s; }
-.bt-boss.bt-boss-peek { opacity: 0.22; }
+/* the panel goes see-through but the HP fill and name stay readable */
+.bt-boss.bt-boss-peek { background: rgba(20, 24, 44, 0.18); box-shadow: none; }
+.bt-boss.bt-boss-peek > * { opacity: 0.62; }
 .bt-boss-main { flex: 1; min-width: 0; }
 .bt-boss-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .bt-boss-tag { font-size: 0.62rem; font-weight: 900; letter-spacing: 0.08em; padding: 1px 7px; border-radius: 4px; background: linear-gradient(90deg, #c9184a, #ff4d6d); }

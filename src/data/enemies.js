@@ -116,6 +116,7 @@ function enemy(o) {
     size: o.size ?? 0.8,
     color: o.color,
     accent: o.accent,
+    ...(o.line ? { line: o.line } : {}),
     // (a family without a model of its own names the shipped family GLB it wears: `base`, e.g. the Brigade on construct)
     model: { base: o.base || o.family, variant: o.variant || 'basic', props: o.props || [] },
     traits: o.traits || {},
@@ -878,7 +879,8 @@ const DRAGONS = [
 // ---------------------------------------------------------------------------
 // The Gate Response Brigade (Gate Arc Step 4, STEP4_BUILD_PLAN decisions 1-3): our own city's people and machines.
 // They are never monsters: the troopers wear the Iron Sentry and Prism Warden's models, the vans the Shellback's,
-// all in Brigade navy (#2b3a5c) with amber and a white visor, until the Brigade's own model arrives with the
+// all in Brigade navy (#2b3a5c; the van in steel navy, the Badger with an amber rim) with amber, a white visor and a pale
+// outline (`line`) so a column reads on grey roads, until the Brigade's own model arrives with the
 // enemy rebuild. A beaten trooper falls and fades (src/render/fallStyles.js); nobody is ever shown hurt.
 // ---------------------------------------------------------------------------
 
@@ -886,7 +888,7 @@ const BRIGADE = [
   // the spotter drone (3-9), on the Cogling's GLB (Step 3 kept it on the construct family; Step 4 moves it here)
   enemy({
     id: 'brigade_gnat', name: 'Gnat Spotter', family: 'brigade', base: 'construct', hp: 12, speed: 1.6, armorClass: 'light',
-    bounty: 1, threat: 1.2, size: 0.72, color: '#2b3a5c', accent: '#f4a62a', variant: 'cogling', props: ['gears'],
+    bounty: 1, threat: 1.2, size: 0.72, color: '#2b3a5c', accent: '#f4a62a', line: '#e8edf4', variant: 'cogling', props: ['gears'],
     traits: { hasty: { mul: 2.2, every: 3.5, duration: 1 } },
     lore: 'A little Brigade drone that flies ahead of the column and reports everything it sees. It is very good at its job.',
     counters: 'Fast and fragile, and it comes in a group: splash or a quick shooter near the start.',
@@ -894,14 +896,14 @@ const BRIGADE = [
   }),
   enemy({
     id: 'brigade_trooper', name: 'Response Trooper', family: 'brigade', base: 'construct', hp: 40, speed: 0.85, armorClass: 'light', armor: 1,
-    bounty: 4, threat: 3.5, size: 0.95, color: '#2b3a5c', accent: '#eef3f8', variant: 'sentry', props: ['helmet'],
+    bounty: 4, threat: 3.5, size: 0.95, color: '#2b3a5c', accent: '#eef3f8', line: '#e8edf4', variant: 'sentry', props: ['helmet'],
     lore: 'Signed up for floods and fires. Got a gate instead. Still says sorry.',
     counters: 'Light plate (armour 1): anything quick wears it down; splash for a squad.',
     introducedIn: '4-8',
   }),
   enemy({
     id: 'brigade_shieldline', name: 'Shieldline Trooper', family: 'brigade', base: 'construct', hp: 60, speed: 0.75, armorClass: 'light',
-    bounty: 7, threat: 6, size: 1.1, color: '#2b3a5c', accent: '#f4a62a', variant: 'warden', props: ['shield', 'helmet'],
+    bounty: 7, threat: 6, size: 1.1, color: '#2b3a5c', accent: '#f4a62a', line: '#e8edf4', variant: 'warden', props: ['shield', 'helmet'],
     traits: { guardian: { radius: 1.6, reduction: 0.3 } },
     lore: 'Carries the riot shield in front of the squad, because somebody has to. Hums while it walks.',
     counters: 'Guardian: troopers near it take 30% less, except from blast. Shell the line or pick off the shield first.',
@@ -909,7 +911,7 @@ const BRIGADE = [
   }),
   enemy({
     id: 'brigade_tortoise', name: 'Tortoise', family: 'brigade', base: 'construct', tier: 'elite', hp: 240, speed: 0.6, armorClass: 'heavy', armor: 3,
-    bounty: 50, threat: 16, size: 1.35, color: '#2b3a5c', accent: '#f4a62a', variant: 'beetle', props: ['shell'],
+    bounty: 50, threat: 16, size: 1.35, color: '#5a7096', accent: '#ffb627', line: '#e8edf4', variant: 'beetle', props: ['shell'],
     traits: { splitter: { spawn: 'brigade_trooper', count: 3 } },
     lore: 'An armoured van with a hatch at the back. When it breaks down, the crew climbs out and keeps walking.',
     counters: 'Armoured (3), and three troopers climb out when it stops: break it with armour pierce, keep splash for the crew.',
@@ -917,7 +919,7 @@ const BRIGADE = [
   }),
   enemy({
     id: 'brigade_badger', name: 'Badger', family: 'brigade', base: 'construct', tier: 'elite', hp: 400, speed: 0.5, armorClass: 'heavy', armor: 6,
-    bounty: 90, threat: 22, size: 1.55, color: '#2b3a5c', accent: '#f4a62a', variant: 'warden', props: ['helmet'],
+    bounty: 90, threat: 22, size: 1.7, color: '#3a4d72', accent: '#ff9f1c', line: '#ffcf70', variant: 'warden', props: ['helmet'],
     lore: 'The Brigade\'s little tank. Its crew named it, painted a badger on the side and never once called it little.',
     counters: 'Armour 6: chip damage does almost nothing. Armour pierce and shred (Shiro, Sango), or big blast shells.',
     introducedIn: '4-9',
