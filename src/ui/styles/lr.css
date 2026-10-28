@@ -11,12 +11,16 @@
   box-shadow: inset 0 0 0 2px rgba(14, 25, 48, 0.55);
 }
 .lr-crest {
+  display: none; /* only big frames carry the crest (on small ones it covered names) */
   position: absolute; top: -8px; left: 50%; width: 26px; height: 14px; transform: translateX(-50%);
   border: 1.5px solid var(--lr-gold, #ffd27a); border-radius: 999px; background:
     radial-gradient(circle at 34% 50%, var(--lr-gold, #ffd27a) 0 3.5px, transparent 4.5px),
     radial-gradient(circle at 66% 50%, #fff 0 3.5px, transparent 4.5px),
     var(--lr-edge, #0e1930);
 }
+/* the crest on the big frames: her page, the tall cards, the big students grid */
+.mb-show-stage > .lr-frame > .lr-crest, .unit-card-tall > .lr-frame > .lr-crest, .unit-card.mb-tall > .lr-frame > .lr-crest, .pf-slot > .lr-frame > .lr-crest { display: block; }
+
 /* the comet: a short gold streak that laps the frame (transform only) */
 .mb-show-stage.is-lr > .lr-frame::after, .unit-card-tall.is-lr > .lr-frame::after {
   content: ''; position: absolute; top: -2px; left: 0; width: 18%; height: 3px; border-radius: 3px;
@@ -36,7 +40,9 @@
   font-weight: 900; font-style: italic; font-size: 0.78rem; line-height: 1.2;
 }
 .lr-text { background: linear-gradient(180deg, #fff 15%, var(--lr-gold, #ffd27a) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.unit-card-rarity.unit-card-lr { background: transparent; }
+.unit-card-rarity.unit-card-lr { left: 5px; top: 5px; background: transparent; color: inherit; text-shadow: none; z-index: 4; }
+.unit-card-tall .unit-card-rarity.unit-card-lr { left: 7px; top: 7px; }
+.lr-badge, .lr-text { text-shadow: none; }
 
 /* the Limit Break panel on her page */
 .lb-panel { background: linear-gradient(160deg, #1a2a4d, #0e1930); color: #ffefcf; border: 2px solid var(--lr-gold, #ffd27a); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }

@@ -5,7 +5,7 @@ import { fmtNum } from '../format.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon, currencyIcon } from '../../art/icons.js';
-import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
+import { isUR, rarityColor, urBadge, rankBadge, displayRarity, applyUrFrame } from '../rarity.js';
 
 const DRAG_START_PX = 12;
 
@@ -47,7 +47,7 @@ export function createTowerBar(ctx) {
       def.placement === 'amphibious' ? h('span.bt-card-water.bt-amphi', { title: 'Amphibious: land or water' }, svgEl(uiIcon('water'), 'bt-card-water-ico')) : null,
       isHero ? h('span.bt-card-herotag', 'HERO') : null,
       friend ? h('span.bt-card-herotag.bt-card-friendtag', { 'data-testid': 'card-support' }, 'FRIEND') : null,
-      ur ? h('span.bt-card-ur', urBadge()) : null,
+      ur ? h('span.bt-card-ur', rankBadge(displayRarity(def, profile))) : null,
       h('span.bt-card-name', def.name),
       h('span.bt-card-cost', svgEl(currencyIcon('coins'), 'bt-card-coin'), cost),
       isHero ? h('span.bt-card-deployed', { 'data-testid': 'hero-card-deployed' }, 'Deployed') : null,

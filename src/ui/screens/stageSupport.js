@@ -63,7 +63,7 @@ export function supportPanel(stage, state) {
       },
       unitCard(card.id, { variant: 'square', level: card.lv, profile: supportMiniProfile(card) }),
       h('span.sp-friend', c.online ? h('i.sp-online', { title: 'Online' }) : null, c.name),
-      brought ? h('span.sp-tag.sp-tag-brought', 'In formation') : c.paidToday ? h('span.sp-tag', 'FP paid today') : h('span.sp-tag.sp-tag-fp', '+10 FP'));
+      brought ? h('span.sp-tag.sp-tag-brought', 'Brought') : c.paidToday ? h('span.sp-tag', 'FP paid today') : h('span.sp-tag.sp-tag-fp', '+10 FP'));
       grid.appendChild(tile);
     }
     const chosen = supportPick();

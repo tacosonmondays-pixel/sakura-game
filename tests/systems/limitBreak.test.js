@@ -1,5 +1,5 @@
 // LR units, Limit Break and the UR / LR stat boosts (docs/specs/BANNERS.md §C.2-§C.3, J6, J7).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createProfile, migrateProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { unitBattleStats, unitPower } from '../../src/systems/progression.js';
@@ -7,8 +7,9 @@ import { applyBattleResult } from '../../src/systems/rewards.js';
 import { createRng } from '../../src/core/rng.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import {
-  limitBreakState, payLimitBreak, creditLimitBreak, isLR, rankBoost, limitBreakFee, UR_RESONANCE, LR_BOOST, LR_TRIALS,
+  limitBreakState, payLimitBreak, creditLimitBreak, isLR, rankBoost, limitBreakFee, UR_RESONANCE, LR_BOOST, LR_TRIALS, RESONANCE_FROM_DAY,
 } from '../../src/systems/limitBreak.js';
+import { gameDayStart } from '../../src/core/reset.js';
 
 const DUO = 'kohaku_tsubaki';
 const hasDuo = !!UNIT_MAP[DUO];
@@ -34,6 +35,16 @@ const clearAll = (p) => {
 };
 
 describe('UR Resonance and the LR boost (§C.3)', () => {
+  // the boosts count from their first weekly reset (RESONANCE_FROM_DAY)
+  beforeAll(() => { vi.useFakeTimers(); vi.setSystemTime(gameDayStart(RESONANCE_FROM_DAY) + 3600_000); });
+  afterAll(() => vi.useRealTimers());
+  it('switch on only from the first weekly reset after release (a Titan week is never split)', () => {
+    const p = createProfile();
+    maxed(p, 'kaede');
+    const on = gameDayStart(RESONANCE_FROM_DAY) + 3600_000;
+    expect(rankBoost(p, 'kaede', null, on - 8 * 86400_000)).toMatchObject({ ur: true, damage: 1, rate: 1 });
+    expect(rankBoost(p, 'kaede', null, on).damage).toBe(UR_RESONANCE.damage);
+  });
   it('a ★5 SSR gets ×1.10 damage and ×1.04 speed on top; a ★4 does not; R and SR never do', () => {
     const p = createProfile();
     maxed(p, 'kaede', { stars: 4 });

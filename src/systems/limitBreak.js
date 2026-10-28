@@ -11,6 +11,7 @@ import { UNIT_MAP } from '../data/units.js';
 import { isLegendUnit } from '../data/banners.js';
 import { materialId, zenithId } from '../data/items.js';
 import { consumeItems, itemCount } from './inventory.js';
+import { gameWeekNumber, gameDayStart } from '../core/reset.js';
 
 /** Level and gates "max out" means (J6: level 60 with all 5 gates, one copy reaches it). */
 export const LB_LEVEL = 60;
@@ -111,6 +112,14 @@ export function creditLimitBreak(profile, result, difficulty) {
 // The stat boosts (§C.3): UR Resonance (every SSR at ★5) and Limit Break (LR), along her own Potential axis
 // ---------------------------------------------------------------------------
 
+/**
+ * The boosts switch on at the first weekly reset after their release (BANNERS §C.3), so a Titan board week is never
+ * split between boosted and unboosted runs. A game-day key inside the first week they count (set at ship: the
+ * Monday-keyed day after the release's first Sunday 7 PM Central).
+ */
+export const RESONANCE_FROM_DAY = '2026-11-16';
+export const resonanceOn = (now = Date.now()) => gameWeekNumber(+now) >= gameWeekNumber(gameDayStart(RESONANCE_FROM_DAY));
+
 /** UR Resonance: damage ×1.10 and attack speed ×1.04; an aura girl's aura bonus ×1.10 (J7, first pass). */
 export const UR_RESONANCE = Object.freeze({ damage: 1.1, rate: 1.04, aura: 1.1 });
 /** Limit Break (LR), on top: damage ×1.15 and attack speed ×1.05; an aura girl's aura bonus ×1.15. */
@@ -121,12 +130,14 @@ export const LR_BOOST = Object.freeze({ damage: 1.15, rate: 1.05, aura: 1.15 });
  * track: 'aura' girls get the aura factor and their own shots' speed; everyone else damage and speed (the
  * coins track has no battle-coin stat in the loadout yet, so it takes the attacker factors: owner question).
  */
-export function rankBoost(profile, unitId, track = null) {
+export function rankBoost(profile, unitId, track = null, now = Date.now()) {
   const def = UNIT_MAP[unitId];
   const st = profile?.units?.[unitId];
   const ur = !!def && def.rarity === 'SSR' && (Number(st?.awaken) || 0) >= LB_STARS;
   const lr = ur && isLR(profile, unitId);
-  const f = (k) => (ur ? UR_RESONANCE[k] : 1) * (lr ? LR_BOOST[k] : 1);
+  // (her LR form, `lr`, is not a stat boost: it stays on from Limit Break; the factors wait for their week)
+  const on = resonanceOn(now);
+  const f = (k) => (on && ur ? UR_RESONANCE[k] : 1) * (on && lr ? LR_BOOST[k] : 1);
   const aura = track === 'aura';
   return { ur, lr, damage: aura ? 1 : f('damage'), rate: f('rate'), aura: aura ? f('aura') : 1 };
 }

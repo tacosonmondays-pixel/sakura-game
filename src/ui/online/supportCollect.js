@@ -34,11 +34,11 @@ export function supportCollectRow() {
   const show = (st) => {
     const n = Number(st?.uncollected) || 0;
     row.hidden = false;
-    row.replaceChildren(
+    row.replaceChildren(...[
       h('span', n ? h('span', 'Friends earned you ', h('b', `${n} FP`)) : h('span.muted', `Lent today: ${st?.lentToday || 0} / ${st?.lendCap || 100} FP`)),
       n ? button(`Collect ${n} FP`, { kind: 'yellow', small: true, testid: 'fp-collect-btn', onClick: collect }) : null,
       h('span.muted.sp-foot', 'Uncollected FP expires after 7 days.'),
-    );
+    ].filter(Boolean)); // (replaceChildren writes a null child as the text "null")
   };
   async function collect() {
     try {
