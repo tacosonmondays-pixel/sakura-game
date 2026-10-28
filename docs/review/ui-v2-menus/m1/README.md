@@ -48,7 +48,8 @@ milestone's base build, `cb8f395` (the same old stage screen, shot with the same
 3. **FIRST**: an ink sticker beside the first-clear reward (the icon is whole), a hairline before the drops.
 4. **Mode chip**: with Freeplay on it names the tier with the freeplay glyph ("✦ Crimson Moon ▾"); the chip is never
    clipped (the rule sentence wraps, or the chip takes its own line).
-5. **Sheets**: under 480 px of height they take the screen's height (less 16 px); the sheet is "Mode & Freeplay" with
+5. **Sheets**: under 480 px of height they take the screen's height less 16 px and the safe areas (with
+   `--safe-bottom: 21px` at 844x390 the sheet's top is at 8 px, its X whole); the sheet is "Mode & Freeplay" with
    Freeplay first. The "i" sheet shows the enemies before the map rule.
 6. **Empty formation**: the sweeps stay; "Add a girl to your formation to start" takes the rule sentence's place
    (a locked difficulty's note does the same).
@@ -68,7 +69,8 @@ milestone's base build, `cb8f395` (the same old stage screen, shot with the same
 
 `node e2e/menus.mjs --milestone m1`: 18 shots x 3 sizes (844x390, 1280x720, 390x844), 0 failing (campaign-ch4 at
 1280x720 once hit a 30 s screenshot timeout on the loaded machine; re-run alone: ok). The same 18 at 667x375 and
-1024x768 (looked at, not part of the gate): 0 failing. New shots: stage-prep-sweep, -sweep-save, -sweep-fp (Nightmare +
+1024x768 (looked at, not part of the gate): 0 failing (campaign-ch4 at 1024x768 from the run before the
+last, the last one timed out on its screenshot; campaign.js did not change between them). New shots: stage-prep-sweep, -sweep-save, -sweep-fp (Nightmare +
 Crimson Moon), -sweep-fp-save, -empty (empty formation) and -event-boss (FIRST on the event's candy).
 
 ## For the owner to decide

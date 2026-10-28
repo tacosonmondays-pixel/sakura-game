@@ -272,7 +272,7 @@
 :is(.ui-day) .stp-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
 /* landscape phones: the sheet takes the height (the kit's leaves ~160 px of body there) */
 @media (max-height: 480px) {
-  :is(.ui-day) .ui-sheet.stp-sheet:not(.full):not(.side) { max-height: calc(100dvh - 16px); }
+  :is(.ui-day) .ui-sheet.stp-sheet:not(.full):not(.side) { max-height: calc(100dvh - 16px - var(--safe-top, 0px) - var(--safe-bottom, 0px)); }
 }
 :is(.ui-day) .stp-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 :is(.ui-day) .stp-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
