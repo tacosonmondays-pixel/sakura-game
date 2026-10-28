@@ -17,6 +17,7 @@ S5a (render only) must leave both unchanged; its budget rows on the five real ma
 ### S5b maps (scratch `mapcheck.mjs`: overlay, IoU against all 74 maps, turning signature, meander)
 
 | Stage | Map | Size · lanes | Turning signature | Top-3 silhouette IoU (limit 0.65) | Road tiles · land · water | Notes |
+| **Step 5 verify (Oct 28)** | 2ba54cb0 | **04df91a11220** | **0652c02a** | 10 | Logic review: NOT OK (1 medium: descriptions vs waves) → fixed → OK. Visual review: NOT OK (2 mediums: 5-10's island, the Halo Drone vs the Gnat) → fixed → OK. On the merged head (main v0.1.57): `npx vitest run` 5095 passed / 11 skipped; e2e engines, story, gate-arc pass; `vite build` OK; smoke: only the touch-drag placement check, the flake that also fails on Step 3's head; Easy gate passes; the five balance rows above are identical on the merged head. PENDING_BUMP { 10: '04df91a11220' } |
 |---|---|---|---|---|---|---|
 | 5-6 | `noon_flooded_platform` | 20×12 · 1 (`inside`) | +180 | Rowing Jetty 0.63, Covered Arcade 0.50, Azami's Checkpoint 0.50 | 57 · 47 · 31 | length 35.3, tunnel [0.1, 2.8] under the portal block; deck over the flooded track bed (rows 6-8) |
 | 5-7 | `noon_line2_tunnels` | 20×12 · 1 | +68 −121 +61 | Gloomfen Boardwalk 0.50, Witchroot Tangle 0.45, Old Town Lanes 0.44 | 52 · 81 · 34 | length 26.9, four tunnels 13.5 tiles (open cuttings 3.2 / 3.7 / 3.0) |
