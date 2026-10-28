@@ -126,6 +126,47 @@ describe('Kaze on Kaze\'s Swoop: never across the map', () => {
     expect(Math.max(a.far, b.far)).toBeLessThan(1e-6);
   });
 
+  test('her plain shots at high attack speed: he swoops at the enemy she shot, one at a time, the next after a rest; never a blur', async () => {
+    const { hana, c, enemies, kaze, swoop } = await board();
+    const reach = diveReach(hana.eff.range);
+    // a walker and a flyer by her; she shoots every 0.08 s, the flyer every fourth shot
+    enemies.set(31, { x: hana.x + 2, y: 0.1, z: hana.y + 0.5, height: 0.5, airborne: false });
+    enemies.set(32, { x: hana.x - 1.5, y: 1, z: hana.y + 1, height: 0.5, airborne: true });
+    const shoot = (uid) => c.handle({ type: 'attack', towerUid: hana.uid, targetUid: uid });
+    const flights = [];
+    let far = 0;
+    let step = 0;
+    let last = kaze().group.position.clone();
+    let wasBusy = false;
+    let shot = 0;
+    for (let t = 0, next = 0; t < 6; t += 1 / 60) {
+      if (t >= next) {
+        next += 0.08;
+        shoot(++shot % 4 === 0 ? 32 : 31);
+      }
+      c.update(1 / 60);
+      const a = kaze();
+      if (a.sortie.busy && !wasBusy) flights.push(a.sortie.uid);
+      wasBusy = a.sortie.busy;
+      far = Math.max(far, Math.hypot(a.group.position.x - a.home.x, a.group.position.z - a.home.z));
+      step = Math.max(step, a.group.position.distanceTo(last));
+      last = a.group.position.clone();
+    }
+    // 75 shots, about five swoops (one second each and a rest), every one at an enemy she shot, the flyer kept
+    expect(shot).toBeGreaterThan(70);
+    expect(flights.length).toBeGreaterThanOrEqual(4);
+    expect(flights.length).toBeLessThanOrEqual(6);
+    expect(flights[0]).toBe(31);
+    for (const u of flights.slice(1)) expect(u).toBe(32);
+    expect(far).toBeLessThanOrEqual(reach + 1e-6);
+    expect(step).toBeLessThan(0.5);
+    // her ⚡ takes over: the waiting swoop is dropped, and her shots wait until the dives are done
+    swoop([31]);
+    expect(kaze().perch.next).toBe(null);
+    shoot(32);
+    expect(kaze().perch.next).toBe(null);
+  });
+
   test('a near target that walks away mid-dive: he still turns back at her reach', async () => {
     const { hana, enemies, fly, swoop } = await board();
     const reach = diveReach(hana.eff.range);

@@ -202,9 +202,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
   }
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
-  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
+  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, camera, reduceMotion });
   // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
-  const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion });
+  const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion, fx, batches, atlas, camera });
   actors.companions = companions;
   roster.companions = companions;
   // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
@@ -1012,6 +1012,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: companion actors (Kon, Kaze, the doll) for e2e / debug (allocates). */
     companionsProbe() {
       return companions.probe();
+    },
+
+    /** Test / e2e probe: the sky dragon meshes drawn this frame ({ heads, beads, tails }). */
+    rosterProbe() {
+      return roster.probe();
     },
 
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
