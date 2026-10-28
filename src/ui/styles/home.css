@@ -22,7 +22,7 @@
 .ui-night .home .ui-scene { position: absolute; inset: 0; }
 .home .home-scene-layer { position: absolute; inset: 0; overflow: hidden; }
 /* the baked painting under its own layer (the kit's .ui-scene > img rules, one level down) */
-/* every picture on the home in its own colours, sharp, under one light grade (--home-grade; owner, v0.1.56: the old night
+/* every picture on the home in its own colours, sharp, under one light grade (--home-grade; owner, Oct 28: the old night
    grade, saturate 0.68 brightness 0.76 and a 1.5 px blur, "looks a little dead … bland"). The words over the scene keep
    their contrast from the scrims behind the UI rows and the plates, not from dimming the whole picture. */
 .ui-night .home { --home-grade: none; }

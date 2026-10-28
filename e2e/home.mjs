@@ -3,7 +3,7 @@
 // seedInkSave), at 844x390, 1280x720 and 390x844, in headless Chrome (one browser):
 //   1. the probe in v2 mode: at most 10 numbers counting the top bar, one yellow (the Battle plate's play edge), no pink
 //      at rest, no control painted over, the bar whole, every tap 44 px; at most 13 controls on a landscape screen (the
-//      study's count: the avatar, the gems' "+", chat, mail, menu, the news chip, four icons, the plate, CO-OP; and Clan since v0.1.56)
+//      study's count: the avatar, the gems' "+", chat, mail, menu, the news chip, four icons, the plate, CO-OP; and Clan since Oct 28)
 //   2. Ruri (with Kon) as the secretary: her art 8 px clear of every control (pixels.mjs artClearance), her face box
 //      clear of every control, her bubble on a tap only (2.4 s), never over a control
 //   3. the menu sheet: it opens from the menu button (from the right; from the bottom on a phone held upright), closes by
@@ -137,7 +137,7 @@ async function staticChecks(vp) {
       const pieces = new Set(zones.map((e) => e.closest('.home-news, .home-plate') || e));
       return { zones: zones.length, controls: pieces.size };
     });
-    if (W > H) check(count.controls <= 13, `${vp} the quiet home: ${count.controls} controls (${count.zones} hit zones), at most 13 (12 + the Clan button the owner asked for, v0.1.56)`);
+    if (W > H) check(count.controls <= 13, `${vp} the quiet home: ${count.controls} controls (${count.zones} hit zones), at most 13 (12 + the Clan button the owner asked for, Oct 28)`);
     // 2. her art and her face box clear of every control
     const art = await artClearance(page, '#app [data-testid="secretary-art"]', UI, { min: 8 });
     check(art.fails === 0, `${vp} Ruri's art (and Kon) 8 px clear of every control: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);

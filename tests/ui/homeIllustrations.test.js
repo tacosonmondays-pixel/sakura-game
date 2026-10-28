@@ -13,7 +13,7 @@ describe('the home pictures', () => {
     for (const name of HOME_BAKED) expect(existsSync(`public/art/lobby/${homeArt(name)}`), name).toBe(true);
   });
 
-  it('her stand: every picture in its own colours (no baked night copy since v0.1.56), graded lightly in CSS', () => {
+  it('her stand: every picture in its own colours (no baked night copy since Oct 28), graded lightly in CSS', () => {
     expect(HOME_BAKED).toEqual([]);
     expect(homeBackdropArt('academy.webp')).toMatchObject({ baked: false });
     expect(homeBackdropArt('academy.webp').src).toMatch(/lobby\/academy\.webp$/);
