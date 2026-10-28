@@ -224,19 +224,19 @@ const FUU = {
   personality: 'Breezy, carefree and impossible to pin down; hums while she fights and never walks when she can twirl.',
   quote: 'Back you go~ Again! And again!',
   tips: [
-    'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.5 seconds.',
+    'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.2 seconds.',
     'Gathering Dance pulls the enemies ahead of her target back into a clump for splash girls.',
     'Bosses barely move: pair her with damage, not instead of it.',
     '⚡ Returning Gale tier 3 teaches Backdraft Fan: one great sweep that blows a whole crowd back up the road.',
   ],
-  base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.45, canHitAir: true }),
+  base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.6, canHitAir: true }),
   paths: [
     path('gale', 'Returning Gale', 'Push-back', [
-      tier('Brisk Fans', 90, 'Gusts push 0.1 tiles further.', { knockback: 0.1 }),
+      tier('Brisk Fans', 90, 'Gusts push 0.15 tiles further.', { knockback: 0.15 }),
       tier('Twin Gusts', 240, 'One more gust per sweep.', { projectiles: 1 }),
-      tier('Gale Wall', 700, 'Push +0.15 tiles; gusts slow by 25% for 1s.', { knockback: 0.15, status: [S.slow(0.25, 1)] }),
-      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.2 tiles, +6 damage.', { projectiles: 2, knockback: 0.2, damage: 6 }),
-      tier('Heaven\'s Gate Wind', 14000, 'Two more gusts, push +0.3 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.3, damage: 14, rateMul: 1.4 }),
+      tier('Gale Wall', 700, 'Push +0.2 tiles; gusts slow by 25% for 1s.', { knockback: 0.2, status: [S.slow(0.25, 1)] }),
+      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.25 tiles, +6 damage.', { projectiles: 2, knockback: 0.25, damage: 6 }),
+      tier('Heaven\'s Gate Wind', 14000, 'Two more gusts, push +0.4 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.4, damage: 14, rateMul: 1.4 }),
     ]),
     path('gather', 'Gathering Dance', 'Clump the wave', [
       tier('Light Steps', 80, '+0.4 range.', { range: 0.4 }),
@@ -253,7 +253,7 @@ const FUU = {
       tier('Sky Sweeper', 15000, '×1.4 against flyers, +18 damage, two more gusts, +30% attack speed.', { airMul: 1.4, damage: 18, projectiles: 2, rateMul: 1.3 }),
     ]),
   ],
-  awakenPassive: { name: 'Tailwind', desc: 'Gusts push 0.05 tiles further and +0.2 range.', mods: { knockback: 0.05, range: 0.2 } },
+  awakenPassive: { name: 'Tailwind', desc: 'Gusts push 0.1 tiles further and +0.2 range.', mods: { knockback: 0.1, range: 0.2 } },
 };
 
 const HANA = {

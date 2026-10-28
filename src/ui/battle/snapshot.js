@@ -128,6 +128,8 @@ export class StaleSaveError extends Error {
 export const KNOWN_SIM_KEYS = Object.freeze({
   data: 'config', stage: 'config', stageId: 'config', map: 'config', difficulty: 'config', diff: 'config', options: 'config',
   seed: 'config', pathData: 'config', paths: 'config', pathTiles: 'config', placement: 'config', loadout: 'config',
+  // balance round 5 is off in a titan battle (src/data/balance.js TITAN_POWER): set from the stage
+  _powerOff: 'config',
   heroConfigs: 'config', _heroConfig: 'config', endless: 'config', totalWaves: 'config', maxLives: 'config', cashScale: 'config', grid: 'config',
   rng: 'stream', _statusCtx: 'stream',
   lives: 'snap', cash: 'snap', state: 'snap', wave: 'snap', wavesCleared: 'snap', time: 'snap', towers: 'snap', traps: 'snap',

@@ -6,6 +6,7 @@ import { ROLES, ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, CAPABILITIES,
 import { ROLE_SUBCLASS } from '../data/wiki.js';
 import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
+import { POWER, HERO_POWER } from '../data/balance.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
 import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
@@ -154,6 +155,27 @@ export function buffOf(b) {
 }
 
 /**
+ * Balance round 5's boost on her in battle (src/data/balance.js POWER), for the Base stats footnote: the girl page
+ * shows her kit's numbers (level, gear, awakening and Potential; the headline and the Base stats table alike) and
+ * battle adds this on top. A hero's boost is her level curve (HERO_POWER), one multiplier per hero level on top of
+ * her 25-level track: the footnote names it at Lv 1, 10 and 25. Null when she has none.
+ * @param {object} unit UnitDef
+ * @returns {string|null}
+ */
+export function battleBoostText(unit) {
+  const curve = HERO_POWER[unit?.id];
+  if (curve) {
+    const at = (lv) => `×${+curve[lv - 1].toFixed(2)} at Lv ${lv}`;
+    return `In battle her level boost multiplies her damage on top of her level track: ${at(1)}, ${at(10)}, ${at(25)}.`;
+  }
+  const row = POWER[unit?.id];
+  const bits = [];
+  if ((row?.dmg ?? 1) > 1) bits.push(`damage ×${+row.dmg.toFixed(2)}`);
+  if ((row?.boss ?? 1) > 1) bits.push(`×${+row.boss.toFixed(2)} vs bosses`);
+  return bits.length ? `In battle the balance boost adds ${bits.join(', ')}.` : null;
+}
+
+/**
  * Her role's three headline stats, as she fights at tier 0 (level, gear, awakening and Potential: the same
  * numbers as the Base stats sheet's "Yours" column).
  * @param {object} unit UnitDef
@@ -162,7 +184,9 @@ export function buffOf(b) {
  */
 export function headlineStats(unit, profile) {
   const battle = unitBattleStats(profile, unit.id);
-  const y = resolveStats(unit, { unitStats: battle });
+  // her kit's numbers: balance round 5's row stays in battle (src/data/balance.js), so the headline compares kits,
+  // not rows (the Base stats table reads her the same way; battleBoostText names the row)
+  const y = resolveStats(unit, { unitStats: battle, noPower: true });
   const b = unit.base || {};
   const dmg = { key: 'dmg', label: 'DMG', value: stat1(y.damage || 0), unit: null, title: `Damage per hit ${stat1(y.damage || 0)}` };
   const rate = { key: 'rate', label: 'RATE', value: stat1(y.rate || 0), unit: '/s', title: `${stat1(y.rate || 0)} attacks per second` };

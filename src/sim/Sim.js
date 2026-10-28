@@ -2,6 +2,7 @@
 // sequence of player actions, fixed 1/60 s internal timestep.
 
 import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
+import { TITAN_POWER } from '../data/balance.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
@@ -9,7 +10,7 @@ import {
   INCOME_INTEREST_MAX,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KITS, WIND_LOCK, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -96,6 +97,8 @@ export class Sim {
     this.map = ds.map;
     this.difficulty = DIFFICULTIES[difficulty] ? difficulty : 'normal';
     this.diff = DIFFICULTIES[this.difficulty];
+    // Titan Trials keep today's numbers (src/data/balance.js TITAN_POWER): no power row and no hero curve
+    this._powerOff = !TITAN_POWER && this.stage?.kind === 'titan';
     // Tryout Day (src/sim/tryout): its config is read once here and never kept in options (a snapshot stores options)
     const { tryout: tryoutCfg = null, ...opts } = options;
     this.options = { endless: false, autoStart: false, ...opts };
@@ -503,6 +506,15 @@ export class Sim {
    *   leak?: number, mods?: object, parent?: object }} o
    * @returns {object|null} EnemyRT
    */
+  /**
+   * Enemy HP from the stage and the difficulty: the stage's hpScale × the difficulty's hpMul × balance round 5's
+   * campaign multiplier for this difficulty (stage.powerHp: campaign battles only, never Freeplay, events, modes or
+   * titans; src/data/stages.js).
+   */
+  enemyHpBase() {
+    return (this.stage.hpScale ?? 1) * this.diff.hpMul * (this.stage.powerHp?.[this.difficulty] ?? 1);
+  }
+
   spawnEnemy(enemyId, o = {}) {
     const def = this.data.enemy(enemyId);
     if (!def) {
@@ -510,7 +522,7 @@ export class Sim {
       return null;
     }
     const pathIndex = ((o.pathIndex ?? 0) % this.pathData.length + this.pathData.length) % this.pathData.length;
-    const base = (this.stage.hpScale ?? 1) * this.diff.hpMul;
+    const base = this.enemyHpBase();
     const hpMul = o.hpMul ?? base * (o.waveHpMul ?? this._waveHpMul);
     const childHpMul = o.childHpMul ?? o.hpMul ?? base * this._waveHpMul;
     const e = createEnemy(def, {
@@ -617,14 +629,21 @@ export class Sim {
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
+      // (Fuu's wind, WIND_KITS: its own shorter lock and half the Freeplay Resolve cost; balance round 5)
+      const wind = locks && WIND_KITS.includes(tower?.unitId);
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
-        if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
+        if (e.kbLeft != null) {
+          const cost = wind ? WIND_KB_COST : 1;
+          amt = Math.min(amt, e.kbLeft / cost);
+          e.kbLeft -= amt * cost;
+        }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
+          else if (wind) e.pushLock = WIND_LOCK[e.tier] ?? WIND_LOCK.normal;
           else if (locks) e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
         }
       }
@@ -996,8 +1015,9 @@ export class Sim {
   // -------------------------------------------------------------------------
 
   _unitStats(unitId) {
-    if (this.heroConfig && unitId === this.heroConfig.unitId) return this.heroConfig.stats;
-    return this.loadout.get(unitId) || null;
+    const us = this.heroConfig && unitId === this.heroConfig.unitId ? this.heroConfig.stats : this.loadout.get(unitId) || null;
+    // a titan battle: her stats without balance round 5 (src/sim/mods.js resolveStats reads `powerOff`)
+    return this._powerOff ? { ...(us || DEFAULT_UNIT_STATS), powerOff: true } : us;
   }
 
   /**

@@ -8,8 +8,9 @@
 //     vine.bedDmg, each enemy at most once, for vine.bedTtl s of wave time.
 //   - Bloom Rush: her attack speed rises by vine.bloomPer for each second she keeps attacking, up to
 //     +vine.bloom; vine.bloomIdle s without an attack resets it (src/sim/towers.js updateTower).
-//   - Harvest lives: vine.lives back at each wave clear (never above the starting lives, never where
-//     hearts cannot come back or with no income, at most vine.livesCap a battle across her copies).
+//   - Harvest lives: vine.lives back at each wave clear, her copies' harvests together, at most
+//     vine.livesCap at one wave clear (HARVEST_LIVES_PER_WAVE) and no cap for the whole battle (never above
+//     the starting lives, never where hearts cannot come back or with no income).
 //
 // State: t.vineCd (s to the next vine), t.vineHold { uid, left, tick } (the enemy her vine holds),
 // t.beds [{ uid, x, y, hits, ttl, hitUids }], t.bloomT / t.bloomIdle (Bloom Rush). All of it resets at
@@ -145,11 +146,12 @@ function bedsStep(sim, t, dt) {
 
 /**
  * Wave clear (Sim._checkWaveEnd): beds, holds and Bloom Rush end, the vine timer starts over; Herb
- * Garden and up give lives back (the best harvest among her copies, once).
+ * Garden and up give lives back (her copies' harvests add up, at most livesCap at this clear).
  */
 export function endVineWave(sim) {
   let lives = 0;
   let cap = 0;
+  let best = 0;
   let src = null;
   for (const t of sim.towers) {
     const v = t.stats?.vine;
@@ -161,15 +163,18 @@ export function endVineWave(sim) {
       t.bloomT = 0;
       t.bloomIdle = 0;
     }
-    if (!t.removed && v.lives > lives) {
-      lives = v.lives;
-      cap = v.livesCap;
-      src = t;
+    if (!t.removed && v.lives > 0) {
+      lives += Math.floor(v.lives);
+      cap = Math.max(cap, v.livesCap);
+      if (v.lives > best) {
+        best = v.lives;
+        src = t;
+      }
     }
   }
   if (!src || !sim.canHeal() || sim.mode?.oneLife || sim.diff.noIncome) return;
   const given = sim.stats.harvestLives || 0;
-  const n = Math.min(Math.floor(lives), cap - given, sim.maxLives - sim.lives);
+  const n = Math.min(lives, cap, sim.maxLives - sim.lives);
   if (n <= 0) return;
   sim.lives += n;
   sim.stats.harvestLives = given + n;

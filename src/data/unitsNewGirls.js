@@ -392,7 +392,7 @@ const CHIGUSA = {
     path('harvest', 'Harvest', 'Coins and lives', [
       tier('Compost', 100, '+0.4 range.', { range: 0.4 }),
       tier('Vegetable Patch', 260, '+25 coins per wave.', { income: { perWave: 25 } }),
-      tier('Herb Garden', 900, '+1 life for every wave cleared (at most 30 a battle, never above your starting lives); seeds poison 1 a second for 2s, so enemies stop healing.', { vine: { lives: 1 }, status: [S.poison(1, 2)] }),
+      tier('Herb Garden', 900, '+1 life for every wave cleared (her copies add up, at most 5 a wave, never above your starting lives); seeds poison 1 a second for 2s, so enemies stop healing.', { vine: { lives: 1 }, status: [S.poison(1, 2)] }),
       tier('Bumper Crop', 2800, '120 coins and 2 lives per wave.', { income: { perWave: 95 }, vine: { lives: 1 } }),
       tier('Golden Fields', 16000, '400 coins and 3 lives per wave; girls within 2 tiles deal 10% more damage.', { income: { perWave: 280 }, vine: { lives: 1 }, aura: { range: 2, dmgMul: 1.1 } }),
     ]),

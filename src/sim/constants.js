@@ -367,3 +367,14 @@ export const RELEASE_SLOW_TIME = 3;
 export const DETOUR_NO_FORK_MUL = 1.5;
 /** Bright Sash: a held enemy is revealed for this long, refreshed every step it is held (s). */
 export const HELD_REVEAL = 0.25;
+
+// Balance round 5 (src/data/balance.js; players' request "stronger wind push-back for Fuu"): the girls whose pushes
+// are wind (Fuu only). Her wind locks a normal or elite enemy for WIND_LOCK instead of PUSH_LOCK and spends
+// WIND_KB_COST of a tile of a Freeplay enemy's knockback budget (Resolve, src/sim/freeplay.js) per tile, so her gusts
+// still move late Freeplay walkers. Every other push (Marumi's ball blast, Giant Strike, gathers, heroes) is unchanged.
+export const WIND_KITS = Object.freeze(['fuu']);
+export const WIND_LOCK = Object.freeze({ normal: 1.2, elite: 1.2, miniboss: 3.0, boss: 3.0 });
+export const WIND_KB_COST = 0.5;
+// Harvest lives (Chigusa, src/sim/vines.js; players' request): the most lives her copies give back at one wave clear,
+// together (no cap for the whole battle; never above the starting lives).
+export const HARVEST_LIVES_PER_WAVE = 5;

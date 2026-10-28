@@ -26,6 +26,7 @@ import { MATERIAL_FAMILIES, ATTACK_TYPES } from '../../data/types.js';
 import { ITEMS, zenithId } from '../../data/items.js';
 import { TITANS, TITAN_MAP, TITAN_TIERS, tierLabel, tierStep, titanPoolHp, MAX_RANK } from '../../data/titans.js';
 import { getMap } from '../../data/maps.js';
+import { TITAN_POWER } from '../../data/balance.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, itemIcon } from '../../art/icons.js';
 import { enemyToken } from '../battle/util.js';
@@ -130,6 +131,8 @@ export function render(root, params = {}) {
         h('p.tt-line', shining.length ? `Your girls: ${shining.join(' · ')}` : 'None of your girls hits her weakness yet.'),
         h('p.tt-line.muted', t.blurb),
         h('p.tt-line', 'Bronze 25% · Silver 50% · Gold 75% of her HP pay part of the rewards; a win adds the Victory Chest.'),
+        // balance round 5's boost stays out of titan battles (src/data/balance.js TITAN_POWER)
+        TITAN_POWER ? null : h('p.tt-line.muted', { 'data-testid': 'titan-power-note' }, 'Titan battles use damage without the balance boost, so weekly ranks stay where they were.'),
         h('p.tt-line.muted', `The Rainbow Meter opens at Mayhem: a Rainbow Gear Box at the latest on the ${RAINBOW_METER}th Mayhem win.`),
       ),
     });
