@@ -469,6 +469,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-path-tier { font: 600 var(--fs-label)/1.15 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate); }
 .bt-path-tier b { font-weight: 700; color: var(--blue-on-plate); }
 .bt-pips { display: flex; gap: 2px; flex: none; margin-left: auto; }
+/* tap 1 on any drawer: the open row's tier sentence takes the line and the pips step away, so its tier name never
+   breaks around them (the M4 review, round r3: look-r3-1, "T3 · STEEL / BROADHEADS" at 1024 and 1280) */
+.bt-path.armed .bt-pips { display: none; }
 .bt-pip { width: 11px; height: 6px; background: rgba(255, 255, 255, 0.16); transform: skewX(var(--skew)); }
 .bt-pip.on { background: var(--path); box-shadow: 0 0 5px color-mix(in srgb, var(--path) 55%, transparent); }
 .bt-pip.next { background: transparent; box-shadow: inset 0 0 0 1.5px var(--yellow); }
@@ -759,8 +762,11 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
      Sell and MORE at its foot), so each stays the dense tap size */
   .bt-panel .bt-x::after { translate: -50% calc(-50% + 2px); }
   .bt-panel .bt-panel-tree::after { translate: 0 calc(-50% + 2px); }
-  .bt-panel-foot .bt-sell::after { translate: 0 calc(-50% - 3px); }
-  .bt-panel-foot .bt-dw-more::after { translate: -50% calc(-50% - 3px); }
+  /* Sell and MORE: their hit areas fill the footer's own height and never reach above it, so a tap on the last path
+     row (its lock "i", its price) can never land on Sell (the M4 review, round r3: two quick taps on that "i" sold
+     her). The footer is 36 px tall here: 3 px padding over and under the 30 px Sell. */
+  .bt-panel-foot .bt-sell::after { top: -3px; bottom: calc(-3px - var(--safe-bottom)); height: auto; translate: none; }
+  .bt-panel-foot .bt-dw-more::after { top: calc(50% - 15px); bottom: auto; height: 30px; translate: -50% 0; }
   .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
   /* (her open row's Auto keeps its own face: FIRE's and her name's hit areas reach 6 px down over it; the M4 review,
      round r2 measured Auto at 35 px) */
