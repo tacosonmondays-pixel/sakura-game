@@ -218,6 +218,28 @@ export const ABILITIES = deepFreeze({
     },
   },
 
+  // the staff heroes of the banners wave (BANNERS §D.3, §D.4; src/data/unitsStaff.js)
+  kogane: {
+    skill: {
+      // the strongest enemies within her range × 1.3: each a blast of 4× her hit (splash 0.4 tiles, the full hit),
+      // ignoring 3 more armor
+      unlockLevel: 7, id: 'kogane.podSalvo', kind: 'strike', scope: 'local', cooldown: 28, duration: 0,
+      effect: { pick: 'strong', count: 4, reachMul: 1.3, dmgMul: 4, splash: 0.4, armorPen: 3 },
+      auto: { when: 'enemies', min: 4, orElite: true },
+      ranks: [{ level: 17, cooldown: 24, effect: { count: 6, dmgMul: 5 } }],
+    },
+  },
+  norika: {
+    skill: {
+      // the lead walkers in her range × 1.3 (her target mode; ground only: flyers are never picked) stop (the `hold`
+      // status: minibosses for half as long, bosses take the damage only) and take 3× her hit
+      unlockLevel: 7, id: 'norika.whistleStop', kind: 'strike', scope: 'local', cooldown: 26, duration: 0,
+      effect: { pick: 'mode', count: 5, reachMul: 1.3, dmgMul: 3, hitsAir: false, status: [S.hold(1.2)] },
+      auto: { when: 'enemies', min: 5, orElite: true },
+      ranks: [{ level: 17, cooldown: 22, effect: { count: 8, dmgMul: 4, status: [S.hold(1.6)] } }],
+    },
+  },
+
   // ----- towers: tier 3 of the ⚡ path, upgraded at tier 5 -----
   aoi: [{
     path: 'volley', unlockTier: 3, id: 'aoi.skyfall', kind: 'strike', scope: 'local', cooldown: 35, duration: 0,

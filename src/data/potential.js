@@ -47,9 +47,11 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'blade.shareMul',
   // the duo (DUO_LR §1.5): Kohaku's beam, the shards, and the capstone's full split
   'duo.beamDmg', 'duo.beamPierce', 'duo.shardShare', 'duo.shardAdd', 'duo.fullEvery',
+  // the staff heroes (BANNERS §D): Kogane's Move downtime and Overdrive; Norika's barricades and her skill's count
+  'moveDowntime', 'overdrive', 'barricade.budgetMul', 'barricade.rebuildCut', 'barricade.count', 'barricade.held', 'skillCount',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
-export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
+export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul', 'overdrive']);
 
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -60,7 +62,7 @@ function deepFreeze(o) {
 }
 
 /** One-girl keys (data test): projScale / tempo → kage, classMul → hotaru (spectral only), bossMul → kaede. */
-export const POTENTIAL_GIRL_ONLY = deepFreeze({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'] });
+export const POTENTIAL_GIRL_ONLY = deepFreeze({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'], moveDowntime: ['kogane'], overdrive: ['kogane'], skillCount: ['norika'] });
 
 export const POTENTIAL_LADDERS = deepFreeze({
   // kind per step P2..P6; 'kit' = stat + kit; 'cap' = stat + capstone. Heroes (Nami too) use SSR kinds.
@@ -414,6 +416,24 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Open Plan', 'kit', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.2 } }),
     p5: step('Corridor Notices', 'kit', { incomeMul: 1.04 }, { hub: { cutAdd: 0.02 } }),
     p6: step('Council Seal', 'cap', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.3, cutAdd: 0.03 } }),
+  },
+  // Kogane, SSR hero (BANNERS §D.3): every 6th volley fires 2 more rivets (N3 with `projectiles`), a shorter
+  // Move downtime, a longer and quicker plow, and the capstone: +30% attack speed for 6 s after each Move in a wave
+  kogane: {
+    p2: step('Spare Rivets', 'kit', { damageMul: 1.05 }, { proc: { name: 'Spare Rivets', every: 6, projectiles: 2 } }),
+    p3: step('Quick Clutch', 'kit', { rateMul: 1.07 }, { moveDowntime: 1 }),
+    p4: step('Wide Blade', 'kit', { damageMul: 1.07 }, { ult: { length: 2 } }),
+    p5: step('Hydraulics', 'kit', { rateMul: 1.08 }, { ult: { haste: 0.1 } }),
+    p6: step('Big Yellow Overdrive', 'cap', { damageMul: 1.09 }, { overdrive: { rateMul: 1.3, time: 6 } }),
+  },
+  // Norika, SR hero (BANNERS §D.4; the SR stat track, kit steps from P2 like every hero): sturdier and quicker
+  // barricades, a longer Hold the Line, a louder Whistle Stop, and the capstone: one more barricade, held enemies +10%
+  norika: {
+    p2: step('Sturdy Cones', 'kit', { damageMul: 1.04 }, { barricade: { budgetMul: 1.25 } }),
+    p3: step('Quick Rebuild', 'kit', { rateMul: 1.05 }, { barricade: { rebuildCut: 1 } }),
+    p4: step('Longer Line', 'kit', { damageMul: 1.05 }, { ult: { duration: 4 } }),
+    p5: step('Loud Whistle', 'kit', { rateMul: 1.06 }, { skillCount: 2 }),
+    p6: step('Safety Week', 'cap', { damageMul: 1.07 }, { barricade: { count: 1, held: 0.1 } }),
   },
 });
 

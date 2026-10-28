@@ -213,6 +213,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // Kogane's Big Yellow Overdrive (Potential P6, src/sim/hero.js): faster for a while after a Move in a wave
+  if (t.overdriveLeft > 0 && s.overdrive) t.eff.rate *= s.overdrive.rateMul;
   // a rally's extra pierce (Ouka's Assembly Bell; absent otherwise)
   if (b.pierceAdd > 0) t.eff.pierce += b.pierceAdd;
   // Ouka's rules (src/sim/hubs.js): anti-air and a type-chart floor for the girls she covers

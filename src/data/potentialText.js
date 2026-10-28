@@ -275,6 +275,21 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('CUT+2%', 'Her discounts are 4% deeper, and upgrades in her radius cost 2% less on top.', 1.08, 'rim'),
     t('SEAL', 'Her discounts are 4% deeper, her office radius is 0.3 tiles wider, and upgrades in it cost 3% less on top.', 1.12, 'rim'),
   ),
+  // the staff heroes (BANNERS §D)
+  kogane: row(
+    t('RIVET 1/6', '+5% damage. Every 6th volley fires 2 more rivets.', 1.10, 'rim'),
+    t('CLUTCH', '+7% attack speed. A Move during a wave stops her attacks for 1 s less (3 → 2 s).', 1.08, 'rim'),
+    t('BLADE+2', '+7% damage. Clear the Road plows 2 tiles further.', 1.08, 'rim'),
+    t('HYDRAULIC', '+8% attack speed; Clear the Road recharges 10% faster.', 1.10, 'rim'),
+    t('OVERDRIVE', '+9% damage. After each Move during a wave she attacks 30% faster for 6 s.', 1.14, 'rim'),
+  ),
+  norika: row(
+    t('CONES+25%', '+4% damage. Her barricades hold 25% more.', 1.06, 'rim'),
+    t('REBUILD-1', '+5% attack speed. A broken barricade is rebuilt 1 s sooner.', 1.06, 'rim'),
+    t('LINE+4s', '+5% damage. Hold the Line lasts 4 s longer.', 1.06, 'rim'),
+    t('WHISTLE+2', '+6% attack speed. Whistle Stop stops 2 more enemies.', 1.08, 'rim'),
+    t('SAFETY', '+7% damage. One more barricade; held enemies take 10% more damage.', 1.14, 'rim'),
+  ),
 });
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */
