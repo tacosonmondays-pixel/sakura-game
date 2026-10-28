@@ -1,12 +1,13 @@
 // Code-drawn event decor (no image files).
 
-/** A string of paper lanterns (code-drawn SVG). */
-export function lanternString(n = 7, width = 600) {
+/** A string of paper lanterns (code-drawn SVG). sag: how deep it dips (1 = the full string; a shorter one dips less). */
+export function lanternString(n = 7, width = 600, sag = 1) {
   const step = width / (n + 1);
-  let out = `<svg viewBox="0 0 ${width} 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 8 Q ${width / 2} 40 ${width} 8" fill="none" stroke="#3a2a4a" stroke-width="2"/>`;
+  const dip = 32 * sag;
+  let out = `<svg viewBox="0 0 ${width} 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 8 Q ${width / 2} ${8 + dip} ${width} 8" fill="none" stroke="#3a2a4a" stroke-width="2"/>`;
   for (let i = 1; i <= n; i++) {
     const x = step * i;
-    const y = 8 + 32 * (1 - ((x - width / 2) / (width / 2)) ** 2) * 0.62;
+    const y = 8 + dip * (1 - ((x - width / 2) / (width / 2)) ** 2) * 0.62;
     const c = i % 2 ? '#f28c28' : '#ffb347';
     out += `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><line x1="0" y1="0" x2="0" y2="6" stroke="#3a2a4a" stroke-width="1.5"/>`
       + `<rect x="-5" y="5" width="10" height="3" rx="1" fill="#3a2a4a"/><ellipse cx="0" cy="17" rx="10" ry="11" fill="${c}"/>`

@@ -395,7 +395,9 @@ New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gat
 (`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
 Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
 Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
-`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
+`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }` (a fixed flight) or
+`runner { …, toStart: true, time, minSpeed, … }` (the whole road back to START: at most `time` s, never slower
+than `minSpeed` tiles/s; Seiran's Dragonflight); any ult may add
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
@@ -1463,6 +1465,8 @@ aimMode(t)                                   // towers.js: 'mortar' | 'mirror' |
 relayOrigin(samples, x, y, relay, aim?), updateRelayOrigin(sim, t)  // t.origin, t.ox, t.oy; 'relay' event; samples from _pathsFwd
 sim.shells                                   // mortar shells: 'mortarWarn' / 'shellLand'; end at the wave clear
 sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
+  // r.end: the head dist where it ends (0; a toStart runner: -(segments-1)·gap, so the tail clears START)
+  // runnerEntry(sim, aim): an aim on a stretch several roads share takes the road with more enemies ahead
 sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
 sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
 PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
@@ -1585,7 +1589,7 @@ r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, posi
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
-r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
+r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace) and rosterFx (a wave-clear sky dragon reaches START before an Auto start); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 ```
 
@@ -1742,20 +1746,26 @@ Owner: "people won't even bother giving the game a shot if it looks ugly right a
 **Portraits — `src/art/portraits.js`** (pure, strings only). Every roster girl (all 19) has six files in
 `public/art/portraits/`: `<id>-full.webp` 768×1024 3:4 illustration, `<id>-card.webp` 300×500 tall card
 (head top ~8 %, bottom at the hips — one framing rule for every girl), `<id>-bust.webp` 512², `<id>-thumb.webp`
-160², `<id>-cut.webp` transparent **full-figure** stand 1000 px tall, `<id>-cut-s.webp` the same at 360 px.
+160², `<id>-cut.webp` transparent stand 1000 px tall, `<id>-cut-s.webp` the same at 360 px.
 ```js
-export const PORTRAIT_BASE, PORTRAIT_DATA /* { [id]: { face:[x%,y%], cut: w/h, edges?: 'lrb' } } */, PORTRAIT_KINDS
+export const PORTRAIT_BASE, PORTRAIT_DATA /* { [id]: { face:[x%,y%], cut: w/h, edges?: 'lrb', fig?: 0-1 } } */, PORTRAIT_KINDS
 export function hasPortrait(unitOrId), portraitUrl(unitOrId, kind = 'bust') /* null → caller falls back */
 export function portraitHTML(unitDef, kind, { eager, awaken, cls, alt }) // <img class="pt-img pt-<kind>" data-unit data-svg …> or the SVG
-export function portraitFace(unitOrId), portraitEdges(unitOrId), portraitFiles(unitOrId), artUrl(path) // public/art/<path>
+export function portraitFace(unitOrId), portraitEdges(unitOrId), portraitFig(unitOrId), portraitFiles(unitOrId), artUrl(path) // public/art/<path>
 ```
 Rules: every girl picture in the UI goes through `portraitHTML`/`portraitUrl` (student list/detail,
 formation, recruit banner/results/SSR splash, SSR Select picker, missions hub, lobby, title, battle
 bar + deploy name tag, victory MVP, mall exchange, wiki). URLs are `BASE_URL`-relative (Pages-safe).
 A broken `<img>` is swapped for its SVG by the UI (`data-svg`). Stands are full figures (head to shoes);
-the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a full-figure
-redraw of the same design for their stand. `edges` fades a frame-cut side only for future half-body art.
-Adding a girl = add her 6 files + one `PORTRAIT_DATA` row (tests check every unit has all files).
+the seven half-body illustrations (hikari, kaede, suzu, chika, umeko, sango, nami) got a full-figure redraw of
+the same design for their stand. The seven academy girls' full / card / bust / thumb are their v2 scene portraits
+(v0.1.47), and their stands (`-cut`, `-cut-s`) are the clean full-body stands from v0.1.46 (ccdd278, byte for byte):
+v0.1.47's stands were cut out of the scene art and looked wrong over the academy backdrop (props cut by the frame),
+so those two files went back (Oct 23). `edges` fades a frame-cut side (Ena's and Ruri's paintings end at the shin;
+future half-body art). `fig` (optional) is for a future stand that is not head-to-shoes: it becomes `--fig` on her
+stand's `<img>` and the screens that size every stand by height (the story player, the lobby secretary) scale her
+by it; no girl has one today. Adding a girl = add her 6 files + one `PORTRAIT_DATA` row (tests check every unit has
+all files).
 
 **Title / load-up screen — `src/ui/screens/title.js`, route `#/title`.** `main.js` opens it on a cold
 start (no route in the URL) once per browser session (`sessionStorage['sakura-title-seen']`,
@@ -1769,13 +1779,23 @@ no zoom / pulse / petals.
 
 **Lobby art + bond model — `src/data/lobbyArt.js` (pure) + `src/ui/lobby/artStage.js` + `src/ui/lobby/bgPicker.js`.**
 The "memorial lobby": every background belongs to one girl; choosing it makes her the
-secretary. Kinds: `scene` (full landscape illustration with her in it, `public/art/lobby/<id>.webp`:
-hikari, aoi, sango), `stand` (her drawn stand over the painted academy, tint `day`/`sunset`/`night`,
-one each per girl), `bond` (two wholesome date memories per girl — café, festival night, sunset walk,
-study session, picnic, stargazing, aquarium — unlocked at **bond 5 and bond 10**).
+secretary. Two categories (owner, Oct 23: "There are two categories, like the character with the castle backdrop
+as a default and everyone will have a full illustration alt"): **Backdrops** = kind `stand` (her drawn stand over
+the painted academy, tint `day`/`sunset`/`night`, with her speech bubble; every girl has the three and **her day
+stand is every girl's default**), and **Full illustrations** = kind `full` (one picture that IS the whole lobby, no
+stand, no speech bubble, no academy: the table below) then kind `bond` (two wholesome date memories per girl — café,
+festival night, sunset walk, study session, picnic, stargazing, aquarium — unlocked at **bond 5 and bond 10**, not
+painted yet).
 ```js
 export const BOND_MAX = 10, BOND_LEVELS = [5, 10], BACKDROP, TINTS, BOND_THEMES, LOBBY_BACKGROUNDS, LOBBY_BG_MAP
-export function lobbyBackgrounds(girlId)              // scene, 3 stands, 2 bond memories
+export const BG_CATEGORIES                            // [{ id: 'backdrop', name: 'Backdrops' }, { id: 'full', name: 'Full illustrations' }]
+export function lobbyBackgrounds(girlId)              // her 3 stands, her full illustrations, 2 bond memories
+export function lobbyBackgroundGroups(girlId)         // [{ id, name, items }] in BG_CATEGORIES order (the picker)
+export function categoryOf(bg)                        // 'backdrop' (stand) | 'full' (full illustration, bond memory)
+export function stageModeOf(bg)                       // 'full' | 'stand' | 'bond': how the stage draws it
+export function showsBubble(bg)                       // false for a full illustration
+export function stageArtUrls(bg, { portrait })        // the pictures the stage loads (the title preloads them)
+export function bgArtUrl(bg, 'file'|'thumb')          // a full illustration's own file, else public/art/lobby/
 export function bondLevel(profile, girlId)            // profile.bond[id] clamped 0..BOND_MAX (0 until the City exists)
 export function isBackgroundUnlocked(profile, bg)     // owned girl (+ bond level for bond memories)
 export function hasArt(bg), isBackgroundSelectable(profile, bg) // bond memories have no file yet → shown locked
@@ -1783,14 +1803,48 @@ export function unlockText(bg, profile?)              // "Recruit X to unlock" /
 export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId)
 export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
 // src/ui/lobby/artStage.js
-export function createArtStage(host, { reduceMotion, onTap }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
+export function createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
 // src/ui/lobby/bgPicker.js
-export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button
+export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button;
+                                                      // her tiles (thumbnails) under "Backdrops" and "Full illustrations"
 ```
 Profile: `lobbyBg: { [girlId]: bgId }`, `bond: { [girlId]: 0..10 }` (save.js migrates both). **The future
 City dating / gift system only has to raise `profile.bond[id]` and paint the bond files** — add `file`
 /`thumb` to the bond entries and they become selectable; nothing else changes. Content rule: the
 academy girls are students; bond scenes are cosy date moments, fully clothed, never suggestive.
+
+**Full illustrations — `src/data/lobbyIllustrations.js` (pure, the one table) + `src/ui/lobby/sceneLayout.js`
+(pure).** Owner (Oct 23): "you dont need the speech bubbles for these full illustration ones", and for Yoriko's
+picture "just the entire lobby background instead of the castle backdrop", "the entire background as is". Choosing a
+full illustration fills the whole lobby with it: full bleed, **no stand, no speech bubble, no academy backdrop**.
+Today's rows: the seven academy girls' wide scenes (`public/art/scenes/<id>-scene.webp`, about 2.16:1, 1688-1920 px,
+webp q90; `tall: true`, so a portrait screen shows her 3:4 `<id>-full.webp`, the scene's own middle at 1:1), the
+three older landscape scenes (`public/art/lobby/hikari|aoi|sango.webp`, 1376×768; their shipped ids
+`hikari-rampart`, `aoi-archery`, `sango-harbour` kept) and **Summer Breeze**, the owner's own picture of Yoriko as
+made (`public/art/scenes/yoriko-summer-breeze.webp`, 1216×832, a byte copy; never edit it). Each has a 480 px thumb
+of the same aspect (`thumbs/`: picker tile and the blurred first paint). The picker names a tile "<her name>:
+<title>".
+```js
+export const FULL_ILLUSTRATIONS /* [{ id, girl, title, desc, file, thumb, w, h, faceX, faceY, headR?, tall? }] */, FULL_ILLUSTRATION_MAP, HEAD_R
+export function fullIllustrationsOf(girlId), illustrationUrl(row, 'file'|'thumb')            // file / thumb: paths under public/art/
+export function fullArt(rowOrId, { portrait }) // { variant: 'wide'|'tall', src, w, h, fx, fy, headR } | null
+// src/ui/lobby/sceneLayout.js
+export function coverFit(fw, fh, iw, ih), splitObstacles(obstacles, W, H), freeBand(blocks, y0, y1, W)
+export function anchorFace({ W, H, frame, iw, ih, fx, fy, obstacles, prefer, headR }) // { posX, posY, face, r, clear }
+export function headHit(x, y, face, r)
+// src/ui/events/lobby.js
+export function eventLobbyBackdrop()                    // { file, thumb } | null: the event's painted backdrop behind her stand
+```
+The stage crops the picture (`object-fit: cover`) at the designed 60 % / 30 % (on a portrait screen: her face across
+the middle) and moves it only as far as needed to keep her face clear of the lobby's menus (`obstacles()` from
+lobby.js: layout boxes of the HUD; bars = top bar, dock). The crop moves her face down
+only as far as the picture overflows top/bottom: on a screen with the picture's own aspect (the 16:9 scenes on a
+16:9 phone) her eyes stay under the top bar and her brow touches it. `stage.say()` does nothing over a full
+illustration (no greeting, no tap lines); a tap on her head gives hearts at her real face (±1.1 head radii across,
+1.4 up, 1.0 down). During an event with a painted backdrop (`eventLobbyBackdrop`), her stand stands in it with no day/sunset/night tint; the old lantern string and pumpkin stickers overlay is gone (owner, Oct 24). The
+image's size and crop are set before it loads (no layout shift). Reduce motion or Low graphics (`quality: 'low'`):
+no breathing and no parallax. **Adding a full illustration = its picture + thumb and one `FULL_ILLUSTRATIONS` row**
+(tests check the files, sizes and face; the picker tile, the save and the stage follow from the row).
 
 **Hub art — `src/ui/hubArt.js`:** `hubBackdrop()` (dimmed painted academy) and `hubSecretary(profile)`
 / `hubStand(u)` (drawn stand) for the missions hub and Bounty; the missions hub tiles are painted
@@ -2049,7 +2103,7 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 8 (`version.js`; 8 is v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  `COOP_PROTOCOL` 9 (`version.js`; 9 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
   v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in

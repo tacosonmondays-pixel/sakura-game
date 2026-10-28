@@ -128,6 +128,13 @@
   --lr-edge: var(--plate);
   --lr-gold: #ffd27a;
   --lr-comet: 6s;
+
+  /* UI M5 hub kit (UI_DIRECTION §5.9, §5.10): badges, hosts */
+  --badge-red: #d4183b; /* red dots and counts; white numbers on it 5.26:1 */
+  --host-hub-w: 35vw; /* a hub's host girl (E1) */
+  --host-list-w: 30vw; /* a list screen's host, on the right (26% on phones) */
+  --host-chip: 96px; /* her bust chip (the collapse rule) */
+  --bubble-r: 24px;
 }
 
 /* Landscape phones (the breakpoint the stylesheets already use): the phone half of the type and size scale. */
@@ -152,6 +159,7 @@
     --drawer-w: 288px;
     --hud-top-h: 44px;
     --cut: 12px;
+    --host-list-w: 26vw;
   }
 }
 
@@ -514,6 +522,10 @@ p { margin: 0 0 8px; line-height: 1.45; }
   mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0%)), linear-gradient(to left, transparent 0, #000 var(--fr, 0%)), linear-gradient(to top, transparent 0, #000 var(--fb, 0%));
   -webkit-mask-composite: source-in; mask-composite: intersect;
 }
+/* a stand that is not head-to-shoes (portraits.js fig, --fig): the lobby secretary is sized by height, so she is
+   scaled to bring her head near the cast's size, never below 0.62 (her figure still runs past the lobby's bottom
+   edge); the story player scales her by fig itself (story.css) */
+.lb-art-girl img.pt-img { height: calc(100% * max(var(--fig, 1), 0.62)); }
 .unit-card-art .pt-img { position: absolute; inset: 0; }
 .unit-card.locked .unit-card-art .pt-img { filter: none; }
 .unit-card-rarity { position: absolute; left: 6px; top: 4px; font-weight: 900; font-style: italic; color: var(--rarity); text-shadow: 0 1px 2px #000; font-size: 0.85rem; }

@@ -43,10 +43,12 @@ export function artUrl(path) {
  * Girls with drawn art. face = her face centre in the full 3:4 illustration (% x, % y);
  * cut = width / height of her transparent stand. Every stand is a full figure (head to shoes):
  * the seven girls whose illustration is half-body (hikari, kaede, suzu, chika, umeko, sango,
- * nami) got a full-figure redraw of the same design for their stand (round 2), so no stand is
- * cut by a picture frame. edges (optional, 'l' 'r' 'b') still marks a stand that IS cut by its
- * frame — portraitHTML fades those sides — for half-body art or a painting that runs off its
- * bottom edge (Ena's standing foot). placeholder (optional, true) marks a coming-soon signboard set.
+ * nami) got a full-figure redraw of the same design for their stand (round 2), and the seven
+ * academy girls keep their clean full-body stands under their newer scene portraits. edges
+ * (optional, 'l' 'r' 'b') marks a stand that IS cut by its frame — portraitHTML fades those sides —
+ * for half-body art or a painting that runs off its bottom edge (Ena's standing foot). fig
+ * (optional, 0-1) is for a future stand that is not head-to-shoes (portraitFig; none today).
+ * placeholder (optional, true) marks a coming-soon signboard set.
  */
 export const PORTRAIT_DATA = {
   hikari: { face: [48, 20], cut: 0.564 },
@@ -79,16 +81,20 @@ export const PORTRAIT_DATA = {
   ruri: { face: [53, 19], cut: 0.732, edges: 'b' },
   seiran: { face: [50, 19], cut: 0.732 },
   yoriko: { face: [51, 22], cut: 0.639 },
-  // the seven academy girls (UNIT_GAPS §5): Clean Cel cards (Oct 2026) in place of their construction-sign
-  // placeholders; face / cut measured on the shipped crops (one 1024² card each, the bust and thumb from a
-  // crisp redraw of its bust)
-  azami: { face: [48, 19], cut: 0.423 },
-  kinu: { face: [44, 18], cut: 0.469 },
-  wakaba: { face: [53, 18], cut: 0.449 },
-  yuzuha: { face: [51, 19], cut: 0.294 },
-  ouka: { face: [48, 17], cut: 0.356 },
-  chigusa: { face: [46, 19], cut: 0.363 },
-  marumi: { face: [51, 18], cut: 0.432 },
+  // the seven academy girls (UNIT_GAPS §5): their v2 scene portraits (Oct 23 2026, dynamic camera, a real scene)
+  // are the full / card / bust / thumb; face = between the eyes in that 3:4 master. Their stands (-cut, -cut-s) are
+  // the clean full-body Clean Cel stands from v0.1.46: v0.1.47 had cut stands out of the scene art, and over the
+  // academy backdrop the frame cut her props with straight edges (owner, Oct 23), so those files went back. cut is
+  // the restored stand's aspect.
+  azami: { face: [40, 24], cut: 0.423 },
+  kinu: { face: [44, 21], cut: 0.469 },
+  wakaba: { face: [52, 31], cut: 0.449 },
+  yuzuha: { face: [60, 26], cut: 0.294 },
+  ouka: { face: [49, 33], cut: 0.356 },
+  chigusa: { face: [45, 32], cut: 0.363 },
+  marumi: { face: [58, 19], cut: 0.432 },
+  // Tenka's drawn art (the ultimates release; her battle figure stays the procedural stand-in, src/models/standins.js)
+  tenka: { face: [49, 18], cut: 0.383 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */
@@ -138,6 +144,12 @@ export function portraitEdges(unitOrId) {
   return PORTRAIT_DATA[idOf(unitOrId)]?.edges || '';
 }
 
+/** @returns {number} her stand's height as a share of a head-to-shoes stand at the same head size (1: a full figure) */
+export function portraitFig(unitOrId) {
+  const f = PORTRAIT_DATA[idOf(unitOrId)]?.fig;
+  return typeof f === 'number' && f > 0 && f < 1 ? f : 1;
+}
+
 /** Face position (% of the full illustration) for object-position / bubbles. */
 export function portraitFace(unitOrId) {
   return PORTRAIT_DATA[idOf(unitOrId)]?.face || [50, 22];
@@ -166,6 +178,9 @@ export function portraitHTML(unitDef, kind = 'bust', { eager = false, awaken = 0
   // half-body stands: fade the sides the original frame cut (no hard line mid-screen)
   const edges = kind === 'cut' || kind === 'cutS' ? portraitEdges(id) : '';
   for (const e of edges) styles.push(EDGE_FADE[e]);
+  // a stand that is not head-to-shoes: its scale for screens that size stands by height (story.css; the lobby: base.css)
+  const fig = kind === 'cut' || kind === 'cutS' ? portraitFig(id) : 1;
+  if (fig < 1) styles.push(`--fig:${fig}`);
   const style = styles.length ? ` style="${styles.join(';')}"` : '';
   const size = k.w ? ` width="${k.w}" height="${k.h}"` : '';
   return `<img class="pt-img pt-${kind}${edges ? ' pt-edge' : ''}${cls ? ` ${esc(cls)}` : ''}" src="${url}" alt="${esc(alt ?? unitDef?.name ?? id)}"${size} loading="${eager ? 'eager' : 'lazy'}" decoding="async" draggable="false" data-unit="${esc(id)}" data-svg="${k.svg}"${style}>`;

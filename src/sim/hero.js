@@ -419,7 +419,8 @@ export function activateUlt(sim) {
       if (effect.slow) applyStatus(e, { type: 'slow', amount: effect.slow, duration: effect.duration ?? 3 }, ctx);
     }
   } else if (effect.type === 'runner') {
-    // a sky dragon that flies back along the road from her aim point (else a busy path's exit)
+    // a sky dragon that flies back along the road from her aim point (else a busy path's exit);
+    // `toStart`: all the way to that road's START (src/sim/runners.js)
     const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
     const r = startRunner(sim, h, effect, spec, h.aim);
     if (!r) return false;

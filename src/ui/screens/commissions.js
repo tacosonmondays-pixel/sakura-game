@@ -1,11 +1,25 @@
 // Commissions (owner: meta-a). Route: #/commissions?tab=daily|weekly|login|achievements|codes
 // Daily / weekly commissions with progress, claim and "Go" shortcuts, the 7-day login
 // calendar, one-time achievements and redemption codes.
+// UI M5b (docs/specs/UI_DIRECTION.md §5.10): a hub with a host. Miko stands in the left 35% on Daily, Weekly, Login
+// and Codes with a line for the state (hostLines.js); Achievements takes the whole width without her (notes Q9).
+// The staff room behind (E6, the academy with a warm tint for now), the list under an ink plate header (E2), one
+// yellow Claim all (data-primary) with an ink Claim per row (P2), the reset as a countdown chip (§5.9), and a
+// "complete!" stamp on the login days already claimed (display only). The five tabs stay on top, where they never move.
+// The M5b review: the tabs are the §5.3 rail (an icon and a CAPS word, the open one an ink plate with a yellow bar;
+// narrow portrait screens show the open tab's word only); under 800 px of width Miko is a chip in the list's plate
+// header and the list takes the whole width (the collapse rule, host.js); a reward's count sits under its tile.
 import '../styles/meta-a.css';
-import { h, clear, screen, svgEl, toast, button, tabs } from '../components.js';
+import '../styles/hubs.css';
+import { h, clear, screen, svgEl, toast, button } from '../components.js';
+import { countdownChip, plateHead, inkBtn, kbdHint, iconBtn, rail, btnCount } from '../kit.js';
+import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
+import { hubBackdrop } from '../hubArt.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
+import { commissionsState, loginState } from '../hubStates.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
-import { formatNumber, dayKey } from '../../core/util.js';
+import { formatNumber } from '../../core/util.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS } from '../../data/missions.js';
 import { uiIcon } from '../../art/icons.js';
 import {
@@ -13,9 +27,11 @@ import {
   achievementNotice, redeemCode,
 } from '../../systems/missions.js';
 import { achievementsView } from './achievements/list.js';
-import { rewardTiles, showRewardsModal, ask, rememberParams } from './stage.js';
+import { tile, showRewardsModal, ask, rememberParams } from './stage.js';
 
 const TAB_IDS = ['daily', 'weekly', 'login', 'achievements', 'codes'];
+/** The rail's icons (§5.3: an icon and one word per tab). */
+const TAB_ICON = { daily: 'mission', weekly: 'calendar', login: 'gift', achievements: 'trophy', codes: 'sparkle' };
 
 /** Where to go to make progress on a mission, from its tracked events. */
 const EVENT_ROUTE = {
@@ -33,36 +49,26 @@ const EVENT_ROUTE = {
 };
 const MISSION_EVENTS = Object.fromEntries([...DAILY_MISSIONS, ...WEEKLY_MISSIONS].map((m) => [m.id, m.events]));
 
-function msUntil(kind) {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(24, 0, 0, 0);
-  if (kind === 'weekly') {
-    const day = now.getDay() || 7; // Monday = 1
-    next.setDate(next.getDate() + (7 - day));
-  }
-  return next - now;
-}
-
-function formatDuration(ms) {
-  const m = Math.max(0, Math.floor(ms / 60000));
-  const d = Math.floor(m / 1440);
-  const hh = Math.floor((m % 1440) / 60);
-  const mm = m % 60;
-  return d ? `${d}d ${hh}h` : `${hh}h ${String(mm).padStart(2, '0')}m`;
-}
+/** Time to the next daily (local midnight) or weekly (Monday) reset. */
+const msUntil = (kind) => (kind === 'weekly' ? msToLocalWeekEnd() : msToLocalMidnight());
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Commissions', { cls: 'ma-commissions-screen' });
+  const { el, body } = screen('Commissions', { cls: 'ma-commissions-screen hb-screen' });
+  el.insertBefore(hubBackdrop('commissions'), el.firstChild);
   root.appendChild(el);
   // Midnight rollover while the game stayed open (idempotent).
-  const reset = onAppStart(store.profile);
-  if (reset.dailyReset || reset.weeklyReset) store.commit('missions');
+  const rollover = () => {
+    const reset = onAppStart(store.profile);
+    if (reset.dailyReset || reset.weeklyReset) store.commit('missions');
+  };
+  rollover();
 
   let active = TAB_IDS.includes(params.tab) ? params.tab : 'daily';
-  const tabHost = h('div');
-  const content = h('div.ma-comm-content.ma-tab-body');
-  body.append(h('div.ma-wrap', tabHost, content));
+  const tabHost = h('div.cm-tabs');
+  const content = h('div.ma-comm-content.cm-panel');
+  const main = h('div.hb-main', content);
+  const hub = h('div.hb.cm-hb', main);
+  body.append(h('div.cm-wrap', tabHost, hub));
 
   const badges = () => {
     const p = store.profile;
@@ -80,13 +86,33 @@ export function render(root, params = {}) {
   const drawTabs = () => {
     clear(tabHost);
     const b = badges();
-    const bar = tabs(TAB_IDS.map((id) => ({ id, label: labels[id], badge: b[id] })), active, (id) => {
+    // [ui-m5] the §5.3 rail: an icon and a CAPS word; a red dot only; the tab ids and test ids are the old ones
+    const bar = rail(TAB_IDS.map((id) => ({ id, label: labels[id], icon: TAB_ICON[id], dot: b[id], dotTitle: 'something to claim' })), active, (id) => {
       active = id;
       rememberParams('commissions', { tab: id, cat: null, view: null, highlight: null });
       draw();
-    });
-    bar.classList.add('ma-tabs');
+    }, { label: 'Commissions', cls: 'cm-rail' });
+    // (each word in its own span: a narrow portrait screen shows the open tab's word only; the tab's name stays in
+    // its aria-label)
+    for (const sp of bar.querySelectorAll('.ui-tab > span')) {
+      for (const n of [...sp.childNodes]) if (n.nodeType === 3 && n.nodeValue.trim()) sp.replaceChild(h('span.cm-tab-word', n.nodeValue), n);
+    }
     tabHost.appendChild(bar);
+  };
+
+  // [ui-m5] Miko on every tab but Achievements (the long list needs the width): her stand in the left column, or (the
+  // collapse rule) her chip at the start of the list's plate header, with no column
+  let drawn = null; // the host mode on screen
+  const drawHost = (panelEl) => {
+    hub.querySelector(':scope > .ui-host')?.remove();
+    drawn = hubMode(viewport());
+    if (active === 'achievements') {
+      hub.classList.add('no-host');
+      return;
+    }
+    const p = store.profile;
+    const host = active === 'login' ? hubHost('login', p, { state: loginState(p), mode: drawn }) : hubHost('commissions', p, { state: commissionsState(p), mode: drawn });
+    placeHost(host, drawn, { hb: hub, slot: panelEl.querySelector('.ui-plate-head') });
   };
 
   let achView = null;
@@ -95,73 +121,110 @@ export function render(root, params = {}) {
     achView?.cleanup?.();
     achView = null;
     clear(content);
-    // the achievements tab fills the screen (its list scrolls inside, beside the category rail)
+    // the achievements tab fills the screen (its list scrolls inside)
     el.classList.toggle('ach-mode', active === 'achievements');
+    content.dataset.tab = active;
     const panelEl = h('div.ma-comm-panel');
-    if (active === 'daily' || active === 'weekly') panelEl.appendChild(missionsView(active, draw));
-    else if (active === 'login') panelEl.appendChild(loginView(draw));
+    // [ui-m5] a reset chip that reaches zero on screen rolls the day (or week) over and redraws
+    const onReset = () => {
+      if (!el.isConnected) return;
+      rollover();
+      draw();
+    };
+    if (active === 'daily' || active === 'weekly') panelEl.appendChild(missionsView(active, draw, onReset));
+    else if (active === 'login') panelEl.appendChild(loginView(draw, onReset));
     else if (active === 'achievements') panelEl.appendChild((achView = achievementsView({ params: first ? params : {}, onChange: drawTabs })));
     else panelEl.appendChild(codesView());
     first = false;
     content.appendChild(panelEl);
+    drawHost(panelEl);
   };
   let first = true;
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
+  // a resize that flips the collapse rule (a phone turned, a window resized) draws Miko in her other place
+  const offResize = watchHostMode(el, () => (active === 'achievements' ? hubMode(viewport()) : drawn), () => hubMode(viewport()), draw);
   return () => {
     off();
+    offResize();
     achView?.cleanup?.();
   };
 }
+
+/**
+ * A row's rewards on M3's item tile, each count in its tile's corner like every other tile in the game (the tile form
+ * fmtItemCount: "x3000", "x10K"; never "x1", P7; UI_DIRECTION §5.7, owner #108). The tile is M3's, untouched: this
+ * screen only sets its width (hubs.css: 62 px wherever the text floor is 13 px, so the count reads at M3's 13 px).
+ */
+function rewardStack(rewards, size) {
+  return h('div.reward-row.cm-rwds', rewards.map((r) => h('div.cm-rwd', tile(r.id, r.count > 1 ? r.count : null, { size }))));
+}
+
+/** A plate title that shrinks to one word on narrow screens ("Daily commissions" → "Daily"). */
+const plateTitle = (long, short) => [h('span.cm-title-long', long), h('span.cm-title-short', short)];
 
 function progressBar(progress, goal) {
   const pct = goal ? Math.min(100, Math.round((progress / goal) * 100)) : 0;
   return h(`div.ma-progress${progress >= goal ? '.done' : ''}`, h('i', { style: { width: `${pct}%` } }));
 }
 
-function missionsView(kind, redraw) {
+/**
+ * The one yellow button of a tab (data-primary: Space presses it on desktop), with its key hint. `count`: how many it
+ * claims, in the one count pill every Claim all wears (kit.js btnCount; Achievements' is the same).
+ */
+function primary(label, o, count = null) {
+  const b = button(label, { kind: 'yellow', ...o });
+  if (count != null) b.appendChild(btnCount(count));
+  if (!o.disabled) {
+    b.setAttribute('data-primary', '');
+    b.appendChild(kbdHint('Space'));
+  }
+  return b;
+}
+
+function missionsView(kind, redraw, onReset = null) {
   const profile = store.profile;
   const list = missionList(profile)[kind];
   const claimable = list.filter((m) => m.claimable).length;
-  const done = list.filter((m) => m.claimed).length;
-  const gemsTotal = list.reduce((a, m) => a + m.rewards.filter((r) => r.id === 'gems').reduce((x, r) => x + r.count, 0), 0);
-  const wrap = h('div');
-  wrap.appendChild(h('div.ma-comm-head',
-    h('div', h('h3.ma-section-title', kind === 'daily' ? 'Daily commissions' : 'Weekly commissions'),
-      h('div.muted', `${done}/${list.length} claimed · ${gemsTotal} gems in total · resets in ${formatDuration(msUntil(kind))}`)),
-    button(claimable ? `Claim all (${claimable})` : 'Claim all', {
-      kind: 'yellow',
-      icon: 'gift',
-      disabled: !claimable,
-      testid: 'claim-all',
-      onClick: () => {
-        const r = claimAllMissions(profile, kind);
-        if (!r.ok) return;
-        store.commit('missions');
-        showRewardsModal({ title: 'Commission rewards', rewards: r.rewards });
-        redraw();
-      },
-    }),
-  ));
+  const wrap = h('div.cm-list');
+  // [ui-m5] E2: the list's ink plate header: the title, the reset chip (a recurring cycle, never red; at zero the
+  // list rolls over) and the one yellow Claim all
+  wrap.appendChild(plateHead(kind === 'daily' ? plateTitle('Daily commissions', 'Daily') : plateTitle('Weekly commissions', 'Weekly'), {
+    testid: `comm-head-${kind}`,
+    right: [
+      countdownChip(msUntil(kind), { label: 'Resets in', cls: 's', urgent: false, doneText: 'Reset!', onDone: onReset, testid: `comm-reset-${kind}` }),
+      claimable ? primary('Claim all', {
+        icon: 'gift',
+        testid: 'claim-all',
+        onClick: () => {
+          const r = claimAllMissions(profile, kind);
+          if (!r.ok) return;
+          store.commit('missions');
+          showRewardsModal({ title: 'Commission rewards', rewards: r.rewards });
+          redraw();
+        },
+      }, claimable) : null,
+    ],
+  }));
   const sorted = [...list].sort((a, b) => Number(b.claimable) - Number(a.claimable) || Number(a.claimed) - Number(b.claimed));
   const rows = h('div.ma-mission-list');
   sorted.forEach((m, i) => {
     const events = MISSION_EVENTS[m.id] || [];
     const go = events.map((e) => EVENT_ROUTE[e]).find(Boolean);
+    // a ready row shows a full bar and Claim, never "1/1" (P7); a claimed row says so once
+    const count = !m.claimable && !m.claimed ? h('span.ma-mission-count', `${formatNumber(m.progress)}/${formatNumber(m.goal)}`) : null;
     const row = h(`div.ma-mission${m.claimable ? '.ready' : ''}${m.claimed ? '.claimed' : ''}`,
       h('div.ma-mission-main',
         h('div.ma-mission-name', m.name),
         h('div.muted.ma-mission-desc', m.desc),
-        h('div.ma-mission-prog', progressBar(m.progress, m.goal), h('span.ma-mission-count', `${formatNumber(m.progress)}/${formatNumber(m.goal)}`)),
+        h('div.ma-mission-prog', progressBar(m.progress, m.goal), count),
       ),
-      h('div.ma-mission-rewards', rewardTiles(m.rewards, { size: 46 })),
+      h('div.ma-mission-rewards', rewardStack(m.rewards, 46)),
       h('div.ma-mission-act',
         m.claimed
           ? h('span.ma-claimed', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Claimed')
           : m.claimable
-            ? button('Claim', {
-              kind: 'yellow',
-              small: true,
+            ? inkBtn('Claim', {
               testid: `claim-${m.id}`,
               onClick: () => {
                 const r = claimMission(profile, kind, m.id);
@@ -183,38 +246,44 @@ function missionsView(kind, redraw) {
   return wrap;
 }
 
-function loginView(redraw) {
+function loginView(redraw, onReset = null) {
   const profile = store.profile;
   const cal = loginCalendar(profile);
-  const wrap = h('div');
-  wrap.appendChild(h('div.ma-comm-head',
-    h('div', h('h3.ma-section-title', 'Login calendar'), h('div.muted', `7-day cycle · ${cal.streak} total check-ins · missed days never reset your progress`)),
-    button(cal.claimable ? 'Claim today' : 'Come back tomorrow', {
-      kind: 'yellow',
-      icon: 'gift',
-      disabled: !cal.claimable,
-      testid: 'login-claim-btn',
-      onClick: () => {
-        const r = claimLogin(profile);
-        if (!r.ok) return;
-        store.commit('login');
-        showRewardsModal({ title: `Day ${r.day} reward`, rewards: r.rewards });
-        redraw();
-      },
-    }),
-  ));
-  const grid = h('div.ma-calendar');
+  const wrap = h('div.cm-login');
+  // the rule sentence lives behind "i" (P1); after today's claim the plate shows when the next gift comes
+  const rule = iconBtn('info', { label: 'How the login calendar works', cls: 'small.cm-info', testid: 'login-info', onClick: () => toast('A 7-day cycle: one gift a day. Missed days never reset your progress.', 'info', 4200) });
+  wrap.appendChild(plateHead(plateTitle('Login calendar', 'Login'), {
+    testid: 'login-head',
+    right: [
+      rule,
+      cal.claimable
+        ? primary('Claim today', {
+          icon: 'gift',
+          testid: 'login-claim-btn',
+          onClick: () => {
+            const r = claimLogin(profile);
+            if (!r.ok) return;
+            store.commit('login');
+            showRewardsModal({ title: `Day ${r.day} reward`, rewards: r.rewards });
+            redraw();
+          },
+        })
+        // [ui-m5] a recurring cycle, never red; at midnight the calendar rolls over and the new gift is claimable
+        : countdownChip(msUntil('daily'), { label: 'Next gift', cls: 's', urgent: false, doneText: 'Ready!', onDone: onReset, testid: 'login-reset' }),
+    ],
+  }));
+  const grid = h('div.ma-calendar.cm-calendar');
   cal.days.forEach((d) => {
     const isToday = d.today && cal.claimable;
-    grid.appendChild(h(`div.ma-cal-day${d.claimed ? '.claimed' : ''}${isToday ? '.today' : ''}${d.day === 7 ? '.big' : ''}`,
+    grid.appendChild(h(`div.ma-cal-day${d.claimed ? '.claimed' : ''}${isToday ? '.today' : ''}${d.day === 7 ? '.big' : ''}`, { 'data-testid': `login-day-${d.day}` },
       h('div.ma-cal-num', `Day ${d.day}`),
-      rewardTiles(d.rewards, { size: d.day === 7 ? 56 : 48 }),
-      d.claimed ? h('div.ma-cal-stamp', svgEl(uiIcon('check'))) : null,
+      rewardStack(d.rewards, d.day === 7 ? 52 : 46),
+      // [ui-m5] a claimed day wears the "complete!" stamp (display only)
+      d.claimed ? h('div.cm-stamp', { 'data-testid': `login-stamp-${d.day}`, 'aria-label': `Day ${d.day} claimed` }, h('span', 'complete!')) : null,
       isToday ? h('div.ma-cal-today', 'Today') : null,
     ));
   });
   wrap.appendChild(grid);
-  wrap.appendChild(h('p.muted.ma-hint', `Next reset in ${formatDuration(msUntil('daily'))} (local midnight, ${dayKey()}).`));
   return wrap;
 }
 
@@ -269,9 +338,9 @@ function codesView() {
   };
   paintRedeemed();
   return h('div.ma-codes',
-    h('h3.ma-section-title', 'Redemption codes'),
-    h('p.muted', 'Codes are shared in update notes and events. Each code works once per account.'),
-    h('div.ma-code-row', input, button('Redeem', { kind: 'yellow', icon: 'gift', testid: 'code-redeem', onClick: submit })),
+    plateHead('Redemption codes', { testid: 'codes-head' }),
+    h('p.muted.cm-codes-line', 'Codes come with update notes and events. Each works once.'),
+    h('div.ma-code-row', input, primary('Redeem', { icon: 'gift', testid: 'code-redeem', onClick: submit })),
     status,
     redeemedHost,
   );

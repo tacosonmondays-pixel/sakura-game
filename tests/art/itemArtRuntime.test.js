@@ -148,7 +148,9 @@ describe('item art while loading and on error', () => {
     };
     walk(join(ROOT, 'src/ui'));
     expect(offenders).toEqual([]);
-    expect(readFileSync(join(ROOT, 'src/ui/screens/achievements/list.js'), 'utf8')).toMatch(/itemIcon\(id, \{ px: 14 \}\)/);
+    // (the achievements ladder: since UI M5b a sheet of whole item tiles, M3's tile itself, with no small icon taken
+    // out of a tile at all)
+    expect(readFileSync(join(ROOT, 'src/ui/screens/achievements/list.js'), 'utf8')).not.toMatch(/querySelector\(['"]svg['"]\)/);
   });
 
   it('preloadSmallItemArt starts each small cut once (the HUD and pills on every screen)', () => {
@@ -196,7 +198,7 @@ describe('display only: the battle sim is untouched', () => {
     const PENDING_BUMP = { 8: 'c22b2587f4b7' };
     // feature/tryout-day only: Tryout Day changes the sim on top of the abilities work and ships later with its own
     // bump (docs/specs/TRYOUT_DAY.md §16); this branch's in-progress id, refreshed at each checkpoint
-    const TRYOUT_PENDING = { 8: '92a100c58959' };
+    const TRYOUT_PENDING = { 8: 'c83840d353ee' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id || TRYOUT_PENDING[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

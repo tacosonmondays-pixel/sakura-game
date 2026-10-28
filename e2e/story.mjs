@@ -399,9 +399,10 @@ async function runViewport(vp) {
     });
     check(mail.welcome === 'mailed' && mail.letters === 1 && mail.t10 === 0, `welcome: exactly one letter mailed, not yet claimed (${JSON.stringify(mail)})`);
     await page.click('[data-testid="top-mail"]', { force: true });
-    await page.waitForSelector('.mbx-modal', { timeout: 5000 }).catch(() => null);
+    // (UI M5c: the Mailroom screen; the Mail modal before it)
+    await page.waitForSelector('.mbx-screen, .mbx-modal', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(300);
-    check(await page.evaluate(() => /Ten new possibilities/.test(document.querySelector('.mbx-modal')?.textContent || '')), 'welcome: the letter from Hikari is in the Mail');
+    check(await page.evaluate(() => /Ten new possibilities/.test(document.querySelector('.mbx-screen, .mbx-modal')?.textContent || '')), 'welcome: the letter from Hikari is in the Mail');
     await shot(page, 'welcome-mail');
     await page.evaluate(() => document.querySelector('[data-testid="mail-close"]')?.click());
     await page.waitForTimeout(600);

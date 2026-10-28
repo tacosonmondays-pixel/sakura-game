@@ -1343,15 +1343,15 @@ const TENKA = {
   pathCapabilities: ['armorPen', 'detection', 'slow'],
   acquisition: GACHA_ONLY,
   palette: {
-    // platinum hair (not Shiro's silver-white), cyan eyes, a violet coil glow
-    hair: '#e9e3cf', hairShade: '#c2b99c', eyes: '#5ec8ff', skin: '#fde9dd',
-    outfit: '#8d93a3', outfitShade: '#646a7a', accent: '#7a5cff', halo: '#9fe8ff', weapon: '#3d4a63',
+    // as drawn: deep blue hair with cyan streaks, amber eyes, a white lab coat over a grey vest, a violet coil glow
+    hair: '#2c4fc4', hairShade: '#1d3590', eyes: '#e3a432', skin: '#fde9dd',
+    outfit: '#eef1f6', outfitShade: '#b9c0cc', accent: '#7a5cff', halo: '#9fe8ff', weapon: '#3d4a63',
   },
   look: {
     hairStyle: 'ponytail', bangs: 'swept', accessory: 'goggles', outfit: 'coat', weapon: 'rifle',
     halo: 'bolt', eyeStyle: 'sharp', expression: 'smug',
   },
-  bio: 'The physics club\'s resident genius, who built a hand-held coilgun for the science fair and never stopped improving it. Platinum hair in a high ponytail with a coil-shaped tie, safety goggles pushed up, a short lab coat over her grey academy blazer with an atom patch, a plaid skirt, black tights and sneakers. Her bolts hum before they fly.',
+  bio: 'The physics club\'s resident genius, who built a hand-held coilgun for the science fair and never stopped improving it. Blue hair with cyan streaks in a high ponytail with a coil-shaped tie, safety goggles pushed up, a white lab coat with an atom patch over her grey academy vest and a teal bow, a plaid skirt, black tights and sneakers. Her bolts hum before they fly.',
   personality: 'A confident genius who explains everything with equations, and is usually right.',
   quote: 'Relax. I already did the math.',
   tips: [

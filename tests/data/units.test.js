@@ -871,7 +871,9 @@ describe('hero definitions', () => {
         expect(isPos(e.damage) && ['strongest', 'first'].includes(e.target) && (e.splash ?? 0) >= 0).toBe(true);
         if (e.splash) expect(e.splashMul > 0 && e.splashMul <= 1).toBe(true);
       } else if (e.type === 'runner') {
-        expect(isPos(e.damage) && isPos(e.length) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
+        expect(isPos(e.damage) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
+        // a fixed flight (`length` tiles) or the whole road back to START (`toStart`, never slower than `minSpeed`)
+        expect(e.toStart ? e.toStart === true && isPos(e.minSpeed) && e.length === undefined : isPos(e.length)).toBe(true);
         expect(e.center === undefined || e.center === 'aim').toBe(true);
       } else {
         expect(isPos(e.damage) && isPos(e.pushback) && e.slow > 0 && e.slow < 1 && isPos(e.duration)).toBe(true);
