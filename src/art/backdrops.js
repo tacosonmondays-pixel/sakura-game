@@ -219,7 +219,8 @@ const THEME_SKY = {
 
 /**
  * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
- * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10).
+ * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10; city:
+ * 'oldtown' / 'burning' (Act 3), 'highway' / 'highwaySnow' (Act 4's mountain highway, its tunnel mouth in snow)).
  */
 /**
  * Old Town by night (Gate Arc S3a, the Bell Festival): a night sky, the shrine's bell tower on the
@@ -267,6 +268,65 @@ function oldTownScene(rnd, id, W, H, burning) {
   } else {
     s += lanternString(W, 160, 14, ['#ff6a4d', '#ffc46b', '#f7f2e6']);
     s += `<circle cx="300" cy="200" r="120" fill="url(#${id}-glow)" opacity="0.18"/>`;
+  }
+  return s;
+}
+
+/**
+ * The mountain highway (Gate Arc S4a, Act 4 "The Checkpoint"; story backgrounds of 4-6…4-8): a pass
+ * between snow-capped peaks, pines, a concrete flyover striding across on its piers, the pale
+ * concrete road in front with its hard shoulder and crash barrier, a sign gantry over it, a toll
+ * canopy with booths and a lit price board, the Brigade's checkpoint barrier arm (amber and white)
+ * and two of its navy vans parked by the sound wall. `snow` (the tunnel mouth, 4-8): a grey morning,
+ * snow on everything, the mountain face in front with the two bores lit inside, snow blowing out.
+ * No people.
+ */
+function highwayScene(rnd, id, W, H, snow) {
+  let s = '';
+  if (snow) s += `<rect width="${W}" height="${H}" fill="#dfe6ee" opacity="0.55"/>`;
+  else s += cloud(260, 70, 0.9) + cloud(820, 96, 0.7);
+  s += peaks(rnd, W, 210, 150, H, snow ? '#b8c4d2' : '#8da2bb', 6, '#ffffff');
+  s += peaks(rnd, W, 260, 90, H, snow ? '#a4b0bf' : '#6f8aa0', 8, snow ? '#f4f8fc' : null);
+  for (let x = -10; x < W + 20; x += 34 + rnd() * 20) s += pine(x, 292 - rnd() * 14, 0.55 + rnd() * 0.3, snow ? '#4a6f62' : '#3d6b52', snow);
+  // the flyover: a concrete deck on tall piers, parapets, a lamp now and then
+  const fy = snow ? 150 : 162;
+  for (let x = 60; x < W; x += 180) s += `<rect x="${x - 9}" y="${fy + 22}" width="18" height="${n(300 - fy - 22)}" fill="${snow ? '#b4b6b8' : '#a9a69e'}"/><rect x="${x - 26}" y="${fy + 16}" width="52" height="10" fill="#8e8b84"/>`;
+  s += `<rect y="${fy}" width="${W}" height="20" fill="#cfccc4"/><rect y="${fy + 18}" width="${W}" height="6" fill="#8e8b84"/><rect y="${fy - 7}" width="${W}" height="7" fill="#e4e2dc"/>`;
+  for (let x = 140; x < W; x += 260) s += `<rect x="${x}" y="${fy - 40}" width="4" height="34" fill="#6d737b"/><rect x="${x - 6}" y="${fy - 44}" width="20" height="6" fill="#6d737b"/><circle cx="${x + 10}" cy="${fy - 38}" r="9" fill="#ffc46b" opacity="0.5"/>`;
+  if (snow) {
+    // the mountain face with the two bores: concrete headwalls, the hazard band, sodium lamps inside
+    s += '<path d="M0 300L0 210Q200 170 420 200T840 190T1100 214V300Z" fill="#9aa0a8"/><path d="M0 214Q200 176 420 206T840 196T1100 218V232Q860 214 600 226T0 240Z" fill="#f4f8fc"/>';
+    for (const x of [330, 690]) {
+      s += `<rect x="${x - 80}" y="210" width="160" height="92" fill="#cbc8c0"/><rect x="${x - 56}" y="236" width="112" height="66" fill="#1b1e26"/><rect x="${x - 56}" y="230" width="112" height="6" fill="#f4a62a"/>`;
+      s += `<rect x="${x - 90}" y="204" width="180" height="8" fill="#e4e8ee"/><rect x="${x - 26}" y="214" width="52" height="12" fill="#2f6f52"/>`;
+      for (const k of [-34, 0, 34]) s += `<circle cx="${x + k}" cy="252" r="4" fill="#ffc46b"/><circle cx="${x + k}" cy="252" r="12" fill="#ffc46b" opacity="0.25"/>`;
+      for (let i = 0; i < 14; i++) s += `<circle cx="${n(x - 50 + rnd() * 100 + i * 4)}" cy="${n(280 + rnd() * 70)}" r="${n(2 + rnd() * 3)}" fill="#ffffff" opacity="0.9"/>`;
+    }
+  } else {
+    // the sound wall behind the plaza, two Brigade vans parked by it (a ticket under each wiper)
+    s += `<rect y="252" width="${W}" height="48" fill="#7a9a8c"/><path d="M0 252H1100" stroke="#a9a69e" stroke-width="5"/>`;
+    for (let x = 0; x < W; x += 60) s += `<rect x="${x}" y="252" width="5" height="48" fill="#a9a69e"/>`;
+    for (const x of [800, 920]) s += `<rect x="${x}" y="262" width="96" height="40" rx="6" fill="#2b3a5c"/><rect x="${x}" y="280" width="96" height="6" fill="#f4a62a"/><rect x="${x + 70}" y="266" width="22" height="14" fill="#2e3a4c"/><rect x="${x + 70}" y="264" width="22" height="3" fill="#eef3f8"/><rect x="${x + 74}" y="276" width="8" height="5" fill="#fff8e6"/>`;
+    // the toll canopy: a white slab with an amber fascia on pillars, three booths, the price board
+    s += '<rect x="120" y="214" width="420" height="16" fill="#e4e2dc"/><rect x="120" y="230" width="420" height="7" fill="#f4a62a"/>';
+    for (const x of [140, 290, 440, 520]) s += `<rect x="${x}" y="237" width="8" height="66" fill="#b9bfc6"/>`;
+    for (const x of [180, 330, 470]) s += `<rect x="${x}" y="262" width="40" height="40" fill="#eef3f8"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#fff2cf"/><rect x="${x - 6}" y="298" width="52" height="8" fill="#a9a69e"/>`;
+    s += '<rect x="560" y="226" width="54" height="34" fill="#1f2733"/><rect x="566" y="234" width="42" height="5" fill="#ffc46b"/><rect x="566" y="244" width="34" height="5" fill="#7fe0a8"/><rect x="584" y="260" width="5" height="46" fill="#6d737b"/>';
+  }
+  // the road: pale concrete, its expansion joints and edge lines, the dark hard shoulder, the rail
+  s += `<rect y="300" width="${W}" height="14" fill="${snow ? '#9aa2ab' : '#77797e'}"/><rect y="314" width="${W}" height="86" fill="${snow ? '#d9dde2' : '#dcdad3'}"/>`;
+  for (let x = 0; x < W; x += 70) s += `<path d="M${x} 314V400" stroke="${snow ? '#bfc4ca' : '#bdbab2'}" stroke-width="2"/>`;
+  s += '<path d="M0 322H1100M0 392H1100" stroke="#f7f6f2" stroke-width="3"/><path d="M0 357H1100" stroke="#f7f6f2" stroke-width="3" stroke-dasharray="40 30" opacity="0.8"/>';
+  s += '<path d="M0 306H1100" stroke="#d3d8de" stroke-width="5"/>';
+  for (let x = 20; x < W; x += 50) s += `<rect x="${x}" y="300" width="4" height="12" fill="#6d737b"/>`;
+  if (!snow) {
+    // a sign gantry over the road and the checkpoint barrier arm across it (amber and white)
+    s += '<rect x="640" y="150" width="8" height="160" fill="#b9bfc6"/><rect x="1040" y="150" width="8" height="160" fill="#b9bfc6"/><rect x="636" y="150" width="416" height="8" fill="#b9bfc6"/>';
+    for (const [x, w] of [[680, 160], [880, 140]]) s += `<rect x="${x}" y="158" width="${w}" height="46" fill="#2f6f52"/><rect x="${x + 12}" y="168" width="${w * 0.6}" height="7" fill="#eef3f0"/><rect x="${x + 12}" y="184" width="${w * 0.4}" height="6" fill="#eef3f0"/>`;
+    s += '<rect x="84" y="318" width="22" height="50" fill="#2b3a5c"/><rect x="84" y="336" width="22" height="6" fill="#f4a62a"/><circle cx="95" cy="314" r="6" fill="#f4a62a"/>';
+    for (let i = 0; i < 9; i++) s += `<rect x="${106 + i * 30}" y="336" width="30" height="7" fill="${i % 2 ? '#f4a62a' : '#f7f4ee'}"/>`;
+  } else {
+    for (let i = 0; i < 70; i++) s += `<circle cx="${n(rnd() * W)}" cy="${n(rnd() * H)}" r="${n(1.2 + rnd() * 2.2)}" fill="#ffffff" opacity="0.85"/>`;
   }
   return s;
 }
@@ -366,6 +426,10 @@ export function themeBackdropSVG(theme, { variant = null } = {}) {
     case 'city': {
       if (variant === 'oldtown' || variant === 'burning') {
         s += oldTownScene(rnd, id, W, H, variant === 'burning');
+        break;
+      }
+      if (variant === 'highway' || variant === 'highwaySnow') {
+        s += highwayScene(rnd, id, W, H, variant === 'highwaySnow');
         break;
       }
       // Itomachi by day: a warm skyline (offices, flats, a clock tower), utility poles and wires,

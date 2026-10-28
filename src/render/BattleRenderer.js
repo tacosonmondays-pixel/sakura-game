@@ -176,7 +176,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const fx = new FxSystem({ atlas, batches, camera });
   if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
-  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
+  // (the far north's relay pads are village hearths: warm, scenery keyword 'villageHearths')
+  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx, warm: scenery.keywords.includes('villageHearths') }) : null;
   // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
   // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
   const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });
@@ -1067,6 +1068,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return {
         quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null,
         district: look.district || null, ruined: look.ruined || null, tear: tear.enabled ? tear.level : null, barks: { left: barks.sides.left?.text ?? null, right: barks.sides.right?.text ?? null },
+        // Gate Arc S4a: the dusk / frost looks, and each checkpoint barrier's arm ('down' while its lane is shut)
+        dusk: !!look.dusk, frost: !!look.frost, barriers: terrain.barriers.map((b) => (b.target === 0 ? 'down' : 'up')),
       };
     },
     dispose() {

@@ -201,6 +201,30 @@ export const SCENERY = {
   burntCars: { prop: 'burntCar', slot: 'skirt', n: 3 },
   fallenPoles: { prop: 'fallenPole', slot: 'skirt', n: 2, variant: 0 },
   debrisScatter: { prop: 'debris', slot: 'grass', n: 4 },
+  // the highway (Gate Arc S4a, `district: 'highway'`, src/render/city/highwayProps.js), the Brigade's
+  // dressing (src/render/city/brigadeProps.js) and the far north (src/render/northProps.js). `also`
+  // dresses the board with more keywords; `look` keywords only re-dress the look (themes.js) or are
+  // drawn by code here. Slots of their own: 'span' (across a straight on-ground road: the gantries),
+  // 'pad' (the stage rule's relay pads), 'deckside' (the water beside a deck, along the river),
+  // 'gateside' / 'goalside' (beside the road just inside a spawn / goal gate), 'north' (the snowy rows).
+  tollPlaza: { prop: 'tollBooth', slot: 'pathside', n: 4, s: 0.9, also: ['signGantries', 'restStops'] },
+  signGantries: { prop: 'signGantry', slot: 'span', n: 2 },
+  restStops: { prop: 'restStop', slot: 'skirt', n: 2, face: true },
+  jerseyBarriers: { prop: 'jerseyBarrier', slot: 'pathside', n: 8, s: 0.9 },
+  checkpoint: { prop: 'citationStand', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0, also: ['jerseyBarriers', 'brigadeCamp'] },
+  brigadeCamp: { props: ['brigadeTent', 'tortoiseVan', 'searchlightTower', 'brigadeTent', 'droneDock', 'tortoiseVan'], slot: 'skirt', n: 6, face: true },
+  tunnelPortals: { prop: 'stoppedLorry', slot: 'skirt', n: 1, face: true },
+  frost: { look: true },
+  snowCover: { prop: 'snowdrift', slot: 'north', n: 6 },
+  frozenVillage: { prop: 'frozenHut', slot: 'skirt', n: 5, face: true, also: ['villageBits'] },
+  villageBits: { props: ['sled', 'dyingFire', 'sled'], slot: 'grass', alt: 'skirt', n: 3, face: true },
+  villageHearths: { prop: 'villageHearth', slot: 'pad', n: 3, variant: 0 },
+  beachhead: { props: ['sandbagPit', 'searchlightTower', 'sandbagPit'], variants: [0, 1, 1], slot: 'gateside', n: 3 },
+  gateSandbags: { prop: 'sandbagPit', slot: 'goalside', n: 2, variant: 1 },
+  hostBanners: { prop: 'warBanner', slot: 'pathside', n: 4, s: 0.8 },
+  passCairn: { prop: 'passCairn', slot: 'grass', alt: 'skirt', n: 1, variant: 0 },
+  snowBridge: { prop: 'stoneBridgePier', slot: 'deckside', n: 4 },
+  vastShadow: { ambient: 'vastShadow' },
 };
 
 /** Prop types whose glows (sprites and glow geometry) a blackout never dims: the gates stay readable. */
@@ -246,7 +270,9 @@ export function resolveScenery(stage, familyOf = () => null) {
     if (kw && !keywords.includes(kw) && !derived.includes(kw)) derived.push(kw);
   }
   keywords.push(...derived.slice(0, 2));
-  return { keywords, fog, night: !!sc.night, weather: sc.weather, ruined: sc.ruined || null };
+  // (the stage rule's relay pads: the far north's village hearths stand round them, slot 'pad')
+  const pads = (stage?.rule?.pads || []).map((p) => ({ x: p.x, y: p.y, r: p.r }));
+  return { keywords, fog, night: !!sc.night, weather: sc.weather, ruined: sc.ruined || null, pads };
 }
 
 /**
@@ -348,8 +374,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const px = quality === 'low' ? 20 : quality === 'medium' ? 26 : 32;
   const painted = paintGround({
     look, x0: X0, y0: Y0, w: EW, h: EH, charAt, isPath, isWater, roads, px, seed: hash(map.id, 'paint') % 100000,
-    // the city kit paints planted verges and plazas on top (src/render/city/cityGround.js)
-    extra: look.city ? cityGroundPainter(map, look, charAt, isPath) : null,
+    // the city kit paints planted verges and plazas on top (src/render/city/cityGround.js); snow
+    // cover (Gate Arc 4-8) is painted over the north rows last
+    extra: chainPainters(look.city ? cityGroundPainter(map, look, charAt, isPath) : null, look.snowCover ? snowCoverPainter(map, look, roads) : null),
   });
   disposables.push(painted.texture);
   const groundGeo = new THREE.PlaneGeometry(EW, EH, EW, EH);
@@ -642,7 +669,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           // the city kit picks the building: shops on the street, homes and offices behind (the
           // campus: classroom wings, the gym, club huts; Old Town: wooden houses; burning: shells)
           const b = cityBuildingFor(map, x, y, isPath, look.city.kit, look);
-          place(b.type, cx, 0, cz, facePath(x, y), 1, b.variant);
+          place(b.type, cx, 0, cz, b.ry ?? facePath(x, y), b.s ?? 1, b.variant, null, b.lod || 'near');
         } else {
           place(look.building, cx, 0, cz, facePath(x, y), 1, h % 3);
         }
@@ -668,6 +695,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     roofStats = buildRoofs(map, roofAcc, { quality, kit: look.city?.kit, district: look.district, ruined: look.ruined });
     const rg = roofAcc.build();
     if (rg) facadeParts.push(rg);
+    // (the highway's toll canopies light their price boards)
+    for (const gl of roofStats.glows || []) glows.push(gl);
   }
   const isRoofTile = (x, y) => inMap(x, y) && rows[y][x] === 'U';
 
@@ -832,9 +861,17 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   // ----- scenery keywords --------------------------------------------------------------
   const slots = buildSlots();
-  for (const kw of scenery.keywords || []) {
+  // a keyword may dress the board with more keywords (`also`), each once
+  const dressing = [];
+  const addKeyword = (kw) => {
+    if (dressing.includes(kw)) return;
+    dressing.push(kw);
+    for (const a of SCENERY[kw]?.also || []) addKeyword(a);
+  };
+  for (const kw of scenery.keywords || []) addKeyword(kw);
+  for (const kw of dressing) {
     const rec = SCENERY[kw];
-    if (!rec) continue;
+    if (!rec || rec.look) continue;
     if (rec.ambient) {
       ambient.add(rec.ambient);
       continue;
@@ -852,14 +889,114 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
         const s = (rec.s ?? 1) * (spot.s ?? 1);
         const ry = rec.face ? (r() - 0.5) * 0.7 : spot.ry ?? r() * 6.28;
-        place(rec.props ? rec.props[n % rec.props.length] : rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variant ?? Math.floor(r() * 4));
+        place(rec.props ? rec.props[n % rec.props.length] : rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variants ? rec.variants[n % rec.variants.length] : rec.variant ?? Math.floor(r() * 4));
         n++;
       }
     }
   }
 
+  // the highway bores breathe snow out over the board (scenery keyword 'tunnelPortals', Gate Arc 4-8)
+  if (dressing.includes('tunnelPortals')) {
+    for (const p of tunnels.portals) {
+      if (p.end !== 'out') continue;
+      emitters.push({ kind: 'snowGust', x: p.x + p.dir[0] * 0.2, y: 0.32, z: p.z + p.dir[1] * 0.2, dx: p.dir[0], dz: p.dir[1] });
+    }
+  }
+
   function buildSlots() {
-    const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [], roof: [] };
+    const out = {
+      pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [], roof: [],
+      span: [], pad: [], deckside: [], gateside: [], goalside: [], north: [],
+    };
+    // pad: the stage rule's relay pads (the far north's village hearths ring them)
+    for (const p of scenery.pads || []) out.pad.push({ x: p.x, z: p.y, y: 0, ry: 0, s: 1 });
+    // span: across a straight stretch of road on the ground, clear of every other road, fork, join,
+    // gate, tunnel mouth and crossing (a sign gantry's posts stand either side of it)
+    const spanClear = (x, z, r, i) => {
+      if (!inMap(Math.floor(x), Math.floor(z))) return false;
+      if ((plan.links || []).some((l) => Math.hypot(l.x - x, l.y - z) < 2.0)) return false;
+      if (gates.some((g) => Math.hypot(g.x - x, g.z - z) < 2.2)) return false;
+      if (tunnels.portals.some((p) => Math.hypot(p.x - x, p.z - z) < 2.0)) return false;
+      if ((map.crossings || []).some((c) => Math.hypot(c.x - x, c.y - z) < 2.0)) return false;
+      for (const o of plan.roads) {
+        for (let k = 0; k < o.pts.length; k += 2) {
+          if (o === r && Math.abs(k - i) < 30) continue;
+          if (Math.hypot(o.pts[k][0] - x, o.pts[k][1] - z) < 1.4) return false;
+        }
+      }
+      return true;
+    };
+    for (const r of plan.roads) {
+      let acc = 0;
+      for (let i = 6; i < r.pts.length - 6; i++) {
+        acc += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+        if (acc < 1.5) continue;
+        if (r.tunnel[i] || r.elev[i] > 0.01 || r.lift[i] || r.tunnel[i - 5] || r.tunnel[i + 5]) continue;
+        const a = r.pts[i - 5];
+        const b = r.pts[i + 5];
+        const [x, z] = r.pts[i];
+        const ax = x - a[0];
+        const az = z - a[1];
+        const bx = b[0] - x;
+        const bz = b[1] - z;
+        const turn = Math.acos(Math.max(-1, Math.min(1, (ax * bx + az * bz) / ((Math.hypot(ax, az) * Math.hypot(bx, bz)) || 1))));
+        if (turn > 0.12 || !spanClear(x, z, r, i)) continue;
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const nx = -(b[1] - a[1]) / l;
+        const nz = (b[0] - a[0]) / l;
+        // (its posts stand on open ground: never in the water, on a roof or in a building)
+        const blocked = (s) => {
+          const tx = Math.floor(x + nx * s);
+          const tz = Math.floor(z + nz * s);
+          return isWater(tx, tz) || isRoofTile(tx, tz) || (inMap(tx, tz) && rows[tz][tx] === 'H');
+        };
+        if (blocked(-0.86) || blocked(0.86)) continue;
+        acc = 0;
+        out.span.push({ x, z, y: 0, ry: Math.atan2(-nz, nx), s: 1 });
+      }
+    }
+    // deckside: the water either side of a deck, along the river (the old bridge's piers, 4-10)
+    for (const r of plan.roads) {
+      let acc = 0;
+      for (let i = 1; i < r.pts.length - 1; i++) {
+        acc += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+        if (acc < 1.8 || !decks.waterSections.has(`${r.index}:${i}`)) continue;
+        const [x, z] = r.pts[i];
+        if (!isWater(Math.floor(x), Math.floor(z))) continue;
+        acc = 0;
+        const a = r.pts[i - 1];
+        const b = r.pts[i + 1];
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const nx = -(b[1] - a[1]) / l;
+        const nz = (b[0] - a[0]) / l;
+        for (const sd of [-1, 1]) {
+          const px = x + nx * sd * 1.35;
+          const pz = z + nz * sd * 1.35;
+          if (!isWater(Math.floor(px), Math.floor(pz)) || isPath(Math.floor(px), Math.floor(pz))) continue;
+          if (plan.roads.some((o) => o !== r && o.pts.some(([qx, qz]) => Math.hypot(qx - px, qz - pz) < 1.0))) continue;
+          out.deckside.push({ x: px, z: pz, y: WATER_Y, ry: Math.atan2(nx, nz), s: 1 });
+        }
+      }
+    }
+    // gateside / goalside: beside the road just inside a spawn / goal gate, facing the road
+    for (const [list, sign] of [[entrances, 1], [exits, -1]]) {
+      for (const e of list) {
+        const gi = gates.find((g) => Math.hypot(g.x - e.x, g.z - e.z) < 1.2) || { x: e.x, z: e.z };
+        const [dx, dz] = e.dir;
+        const nx = -dz;
+        const nz = dx;
+        for (const along of [1.0, 2.1]) {
+          for (const sd of [-1, 1]) {
+            const px = gi.x + dx * sign * along + nx * sd * 1.2;
+            const pz = gi.z + dz * sign * along + nz * sd * 1.2;
+            const tx = Math.floor(px);
+            const tz = Math.floor(pz);
+            if (isPath(tx, tz) || isWater(tx, tz) || isRoofTile(tx, tz)) continue;
+            (sign > 0 ? out.gateside : out.goalside).push({ x: px, z: pz, y: 0, ry: Math.atan2(-nx * sd, -nz * sd), s: 1 });
+          }
+        }
+      }
+    }
     // roof: the outer front corner of a rooftop, on its parapet (a cat dozing there, Old Town)
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -932,6 +1069,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           const ox = (hash(x, y, 'g') % 2 ? 0.33 : -0.33);
           const oz = (hash(y, x, 'g') % 2 ? 0.33 : -0.33);
           out.grass.push({ x: cx + ox, z: cz + oz, s: 0.6 });
+        }
+        // north: the snowy rows of a snow-covered board (board corners and the far skirt)
+        if (look.snowCover && cz < (Number.isFinite(map.city?.snowRows) ? map.city.snowRows : look.snowCover.rows) - 0.6) {
+          if (inMap(x, y) ? rows[y][x] === '.' : d > 1.3 && d < 3.4 && outsideFree(x, y)) out.north.push({ x: cx + (hash(x, y, 'sn') % 2 ? 0.3 : -0.3), z: cz, s: inMap(x, y) ? 0.7 : 1 });
         }
       }
     }
@@ -1055,7 +1196,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     roofs: roofStats,
     /** Height a girl stands at on the board point (x, y): ROOF_Y on a rooftop tile, else 0. */
     roofAt: (x, y) => (isRoofTile(Math.floor(x), Math.floor(y)) ? ROOF_Y : 0),
-    /** The lane schedule's open lanes (Sim.openLanes(); null = every lane): the city's level crossings follow it. */
+    /** The city's checkpoint barriers (map.city.barriers; tests and previews): { lane, lanes, x, z, angle, target }. */
+    barriers: city ? city.barriers : [],
+    /** The lane schedule's open lanes (Sim.openLanes(); null = every lane): the city's level crossings and checkpoint barriers follow it. */
     setLanes(open) {
       city?.setLanes(open);
     },
@@ -1075,6 +1218,80 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       city?.dispose();
       group.clear();
     },
+  };
+}
+
+/** Runs ground painters (textures.paintGround `extra`) in order; null when there are none. */
+function chainPainters(...fns) {
+  const list = fns.filter(Boolean);
+  if (!list.length) return null;
+  if (list.length === 1) return list[0];
+  return (g, toPx, px, rnd) => {
+    for (const fn of list) fn(g, toPx, px, rnd);
+  };
+}
+
+/**
+ * Snow over a highway board's north rows (scenery keyword 'snowCover', Gate Arc 4-8; themes
+ * SNOW_COVER): a snow field from the far edge down to `map.city.snowRows` (default SNOW_COVER.rows)
+ * with a ragged, drifting southern edge and wind streaks, its colour kept under the road's tone; by
+ * the road it turns to grey slush, so the hard shoulder and the road stay the clearest band.
+ */
+function snowCoverPainter(map, look, roads) {
+  const S = look.snowCover;
+  const rows = Number.isFinite(map.city?.snowRows) ? map.city.snowRows : S.rows;
+  return (g, toPx, px, rnd) => {
+    const x0 = -MARGIN - 1;
+    const x1 = map.width + MARGIN + 1;
+    const edge = [];
+    for (let x = x0; x <= x1; x += 0.5) edge.push([x, rows + Math.sin(x * 0.9) * 0.35 + Math.sin(x * 2.3 + 1) * 0.18 + (rnd() - 0.5) * 0.2]);
+    const area = () => {
+      g.beginPath();
+      const [ax, ay] = toPx(x0, -MARGIN - 1);
+      g.moveTo(ax, ay);
+      for (const [x, z] of edge) {
+        const [sx, sy] = toPx(x, z);
+        g.lineTo(sx, sy);
+      }
+      const [bx, by] = toPx(x1, -MARGIN - 1);
+      g.lineTo(bx, by);
+      g.closePath();
+    };
+    g.save();
+    area();
+    g.fillStyle = S.color;
+    g.globalAlpha = 0.92;
+    g.fill();
+    g.globalAlpha = 1;
+    area();
+    g.clip();
+    // wind streaks and drifts
+    for (let i = 0; i < 70; i++) {
+      const [sx, sy] = toPx(x0 + rnd() * (x1 - x0), -MARGIN + rnd() * (rows + MARGIN));
+      g.fillStyle = rnd() > 0.5 ? '#ffffff' : S.shade;
+      g.globalAlpha = 0.35;
+      g.beginPath();
+      g.ellipse(sx, sy, px * (0.3 + rnd() * 0.5), px * (0.06 + rnd() * 0.08), -0.2 + rnd() * 0.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+    // grey slush by the road: the shoulder band again, in wet tones
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (const [w, col] of [[px * 1.6, '#9aa2ab'], [px * 1.1, '#6f757d']]) {
+      g.strokeStyle = col;
+      g.lineWidth = w;
+      for (const road of roads) {
+        g.beginPath();
+        road.forEach(([x, z], i) => {
+          const [sx, sy] = toPx(x, z);
+          if (i === 0) g.moveTo(sx, sy);
+          else g.lineTo(sx, sy);
+        });
+        g.stroke();
+      }
+    }
+    g.restore();
   };
 }
 

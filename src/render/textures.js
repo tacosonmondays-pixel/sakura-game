@@ -1006,6 +1006,9 @@ const GROUND_STYLES = {
   // Old Town (Gate Arc S3a): plaster-pale ground of big irregular stones, a stone gutter band along
   // every lane (the `kerb` band in the district's gutter colours), moss in a few joints
   stone: { mottle: 0.2, patch: 0.9, patchAmt: 0.4, cloverScale: 0.6, cloverAmt: 0.12, flowers: 0, wet: 0.08, stones: 1, kerb: 1 },
+  // the highway district (Gate Arc S4a): gravel verges with tufts of scrub grass, a dark hard
+  // shoulder band along every road (the `kerb` band in the district's shoulder colours)
+  gravel: { mottle: 0.34, patch: 1.1, patchAmt: 0.55, cloverScale: 0.7, cloverAmt: 0.3, flowers: 0, wet: 0, kerb: 1 },
 };
 
 /**
@@ -1539,6 +1542,15 @@ export function detailTexture(style = 'grass', seed = 7) {
         g.fillRect(0, 0, size, size);
       });
     }
+  } else if (style === 'gravel') {
+    // the highway's verges (Gate Arc S4a): packed gravel, small stones with a light top
+    for (let i = 0; i < 1400; i++) {
+      const v = rnd() > 0.5 ? 255 : 178;
+      g.fillStyle = `rgba(${v},${v},${v},${0.25 + rnd() * 0.3})`;
+      g.beginPath();
+      g.ellipse(rnd() * size, rnd() * size, 1 + rnd() * 1.6, 0.8 + rnd() * 1.2, rnd() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
   } else if (style === 'metal') {
     g.strokeStyle = 'rgba(255,255,255,0.22)';
     g.lineWidth = 1;
@@ -1571,7 +1583,7 @@ export function grassTexture(seed = 7) {
  * Tileable road surface (greyscale around 1.0, tinted by vertex colour). u runs along the
  * road, v across it; one repeat = 1 tile of road.
  * style: flagstone | cobble | planks | metal | dirt | brick | sand | asphalt (coloured: the city) |
- * setts (coloured: Old Town's stone setts) |
+ * setts (coloured: Old Town's stone setts) | concrete (coloured: the highway's pale slabs) |
  * track (coloured: the campus running track; one repeat = TRACK_TILES tiles, see trackRepeat)
  * @param {{ tone?: number }} [o] asphalt: brightness of the surface (1 = the city's; the campus
  *   road is paler so it stays the lightest band at night)
@@ -1693,6 +1705,39 @@ export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
         g.fillRect(x, y, 2, edge);
       }
     }
+    return finishTileTex(c);
+  } else if (style === 'concrete') {
+    // the highway district's road (Gate Arc S4a): like `asphalt` and `setts` this style carries its
+    // own colour (LINEAR values; the theme tints it white), u along the road, v across it. Pale
+    // concrete slabs with an expansion joint across the lane every half tile, a faint seam down its
+    // middle, a faded white edge line along each side and a little aggregate speck. The band
+    // v 0.2-0.4 stays plain for flat junction boxes (terrain.js buildRibbon `plain`). `tone` scales it.
+    const tone = o.tone ?? 1;
+    const T = (v) => Math.min(255, Math.round(v * tone));
+    g.fillStyle = `rgb(${T(206)},${T(204)},${T(196)})`;
+    g.fillRect(0, 0, size, size);
+    // slabs: a slightly different shade per half tile
+    for (let k = 0; k < 2; k++) {
+      const s = 0.97 + rnd() * 0.05;
+      g.fillStyle = `rgb(${T(206 * s)},${T(204 * s)},${T(196 * s)})`;
+      g.fillRect(k * size / 2 + 2, 0, size / 2 - 4, size);
+    }
+    for (let i = 0; i < 900; i++) {
+      const k = rnd() > 0.5 ? 1.06 : 0.86;
+      g.fillStyle = `rgba(${T(206 * k)},${T(204 * k)},${T(196 * k)},0.55)`;
+      g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
+    }
+    // expansion joints across the lane, a faint seam along it (outside the plain band)
+    g.fillStyle = `rgb(${T(150)},${T(148)},${T(142)})`;
+    for (const x of [0, size / 2]) {
+      g.fillRect(x, 0, 2, size * 0.2);
+      g.fillRect(x, size * 0.4, 2, size * 0.6);
+    }
+    g.fillRect(0, size * 0.5 - 1, size, 2);
+    // faded edge lines
+    g.fillStyle = `rgba(${T(250)},${T(250)},${T(246)},0.75)`;
+    g.fillRect(0, size * 0.07, size, size * 0.03);
+    g.fillRect(0, size * 0.9, size, size * 0.03);
     return finishTileTex(c);
   } else if (style === 'cobble') {
     g.fillStyle = 'rgb(150,150,150)';

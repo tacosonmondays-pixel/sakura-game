@@ -252,7 +252,8 @@ describe('scenery keywords', () => {
 
   it('every keyword in the table resolves to real props (a `props` list cycles through several)', () => {
     for (const [kw, rec] of Object.entries(SCENERY)) {
-      if (rec.ambient) continue;
+      // (ambient keywords start ambient life; look keywords re-dress the look: themes.resolveLook)
+      if (rec.ambient || rec.look) continue;
       const list = rec.props || [rec.prop];
       expect(list.length, kw).toBeGreaterThan(0);
       for (const p of list) if (p !== 'puddle') expect(hasProp(p), `${kw} → ${p}`).toBe(true);

@@ -27,6 +27,17 @@
 //                ground, road and building set, merged by resolveLook when the map is given
 //   BURNING      the `ruined: 'burning'` table (StageDef.scenery.ruined), resolved last: an ash-dusted
 //                board under a dark sky, the road kept the lightest band, amber the one accent
+//
+// Gate Arc Step 4 (S4a):
+//   DISTRICTS.highway  the mountain highway (MapDef.district 'highway' on `city`): gravel verges, a
+//                pale `concrete` road with a dark hard shoulder, roadside embankments and depots,
+//                sound walls on the border, crash barriers instead of kerbs, highway lamps, the
+//                `highway` tunnel style (concrete portals, jet fans, sodium lamps), a concrete flyover
+//   DUSK         StageDef.look.dusk: a warm low sun under a violet sky (4-7), never night
+//   FROST        scenery keyword 'frost': a cold wash on the ground, frost on the rails, flurries
+//   BRIDGE_LAYER scenery keyword 'snowBridge': the Brigade's folding military deck (navy steel,
+//                amber hazard rails) over the water instead of the theme's planks (4-10)
+//   'snowCover'  scenery keyword: snow on the board's north rows (terrain.js paints it), flurries
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -487,6 +498,86 @@ export const DISTRICTS = {
 };
 
 /**
+ * The mountain highway (Gate Arc S4a, `MapDef.district: 'highway'` on `city` maps of Act 4,
+ * GATE_ARC §18.1): gravel verges with scrub grass, a pale concrete road (the lightest band: its own
+ * colour, textures.pathTexture 'concrete') with a dark hard shoulder painted along it, steel crash
+ * barriers instead of raised kerbs, roadside embankments, rock cuts and depots on the board
+ * (highwayProps.js roadsideBlock), sound walls on the border, highway lamps instead of utility
+ * poles, pines and a concrete flyover in the skirt, concrete tunnel portals with jet fans.
+ */
+const HIGHWAY = {
+  ground: ['#8f8a80', '#878278'],
+  groundSpeck: '#a29d93',
+  groundShade: '#6f6a62',
+  clover: '#7f8b5e',
+  wet: '#7b7b78',
+  dirt: '#9b958b',
+  pebble: '#a49e93',
+  groundStyle: 'gravel',
+  shore: '#9e998f',
+  bank: '#807b73',
+  bankDark: '#635f59',
+  // concrete slabs carry their own colour (textures.pathTexture 'concrete'): the theme's tint is white
+  path: { style: 'concrete', color: '#ffffff', curb: '#e8e6e0', side: '#7a7c80', base: '#64666b', crisp: true, plainJunction: true },
+  // a concrete flyover: pale deck, pale parapet rails, grey piers
+  bridge: { deck: '#c4c1b9', rail: '#dfe2e5', post: '#8b8882', overpass: '#cdcac2', girder: '#76746f', overRail: '#e4e6e8', grating: false, shadow: 0.32 },
+  // the highway bores (trackMesh.buildTunnels style 'highway'): a rock ridge over the bore, a
+  // concrete headwall with the Brigade-amber hazard band, jet fans and sodium lamps in the mouth
+  tunnel: { style: 'highway', top: '#8c8f94', side: '#74767b', portal: '#cbc8c0', dark: '#1b1e26', stripe: '#f4a62a', hall: '#bdb9b0', roof: '#686b70', lamp: '#ffc46b' },
+  trees: ['pine', 'pine', 'cedar'],
+  scatter: ['pine', 'pine', 'cliff', 'boulder', 'pine', 'cedar'],
+  scatterDensity: 0.45,
+  treeColors: { leaf: '#3d7f5a', leaf2: '#2e6a4b', trunk: '#6a4a36' },
+  rocks: ['jerseyBarrier', 'boulder'],
+  rock: '#9fa3ab',
+  building: 'roadsideBlock',
+  wall: 'soundWall',
+  frame: ['crashBarrier', 'crashBarrier', 'jerseyBarrier', 'crashBarrier', 'pineSmall'],
+  detail: 'pebbles',
+  detailDensity: 0.12,
+  weather: null,
+  life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
+  city: {
+    district: 'highway', kerbs: false,
+    // the painted hard shoulder (textures.paintGround kerb band) and its dark seam by the road
+    sidewalk: '#77797e', kerb: '#55575c', kerbSide: '#55575c', lawn: '#7f8b5e', plaza: ['#a8a59e', '#9c9992'],
+  },
+};
+DISTRICTS.highway = HIGHWAY;
+
+/**
+ * `stage.look.dusk` (Gate Arc 4-7, Azami's checkpoint): the sun low and warm under a violet sky.
+ * Not night (no lit windows, no fireflies); the board stays readable, the road the lightest band.
+ */
+export const DUSK = {
+  light: { sky: '#ffd2b4', ground: '#5d5068', hemi: 0.98, key: '#ffb682', keyI: 1.4, fill: '#8f88ea', fillI: 0.36 },
+  bg: '#d69a8c',
+  fogColor: '#b88e96',
+  groundTint: '#d8a07e',
+  groundAmt: 0.07,
+};
+
+/**
+ * Scenery keyword 'frost' (Gate Arc 4-6, 4-8): a cold wash over the ground (it stays under the road's
+ * tone), cooler light, frost on the rails (props read look.frost), snow flurries.
+ */
+export const FROST = {
+  tint: '#d2dce6',
+  amount: 0.3,
+  key: '#eef3ff',
+  weather: 'snow',
+};
+
+/**
+ * Scenery keyword 'snowBridge' (Gate Arc 4-10): the Brigade's bridge-layer deck over the ravine
+ * (trackMesh.buildDecks `layer`): navy steel treadway in folding sections, amber hazard rails.
+ */
+export const BRIDGE_LAYER = { deck: '#66707f', rail: '#f4a62a', post: '#2b3a5c', overpass: '#66707f', girder: '#2b3a5c', overRail: '#f4a62a', lacquer: false, grating: false, boardwalk: false, layer: true };
+
+/** Snow over the north rows (scenery keyword 'snowCover'): its colour stays under the road's tone. */
+export const SNOW_COVER = { color: '#c9d1db', shade: '#b3bdc9', rows: 6 };
+
+/**
  * `stage.scenery.ruined === 'burning'` (Gate Arc 3-9, 3-10; GATE_ARC §18.1, §18.6): the city after
  * HAMMER's barrage. The sky goes dark, not the board: an ash-dusted, desaturated ground, a low warm
  * key light ≥ 1.2, the road an ash-grey kept lighter than the ground (asphalt paler, setts dimmed a
@@ -529,10 +620,11 @@ export const BURNING = {
  * Resolves the final look for a map + stage scenery: merged theme, night/fog flags,
  * weather and lighting.
  * @param {string} themeId
- * @param {{ night?: boolean, fog?: boolean, weather?: string|null, ruined?: string|null }} scenery
- *   ruined 'burning' = the burning table (BURNING; implies a dark sky)
- * @param {{ night?: string, costumes?: boolean }|null} [stageLook] the stage's render-only
- *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night)
+ * @param {{ night?: boolean, fog?: boolean, weather?: string|null, ruined?: string|null, keywords?: string[] }} scenery
+ *   ruined 'burning' = the burning table (BURNING; implies a dark sky); keywords 'frost', 'snowCover'
+ *   and 'snowBridge' re-dress the look (FROST, SNOW_COVER, BRIDGE_LAYER)
+ * @param {{ night?: string, costumes?: boolean, dusk?: boolean }|null} [stageLook] the stage's render-only
+ *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night); dusk = DUSK
  * @param {{ district?: string }|null} [map] the MapDef (its `district`, e.g. 'oldtown')
  */
 export function resolveLook(themeId, scenery = {}, stageLook = null, map = null) {
@@ -554,12 +646,18 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
   // a map's district (Old Town on a city map): its ground, road, buildings and kit hints
   const dist = DISTRICTS[map?.district] || null;
   if (dist) {
-    const { path, city, nightGround, nightCity, ...rest } = dist;
+    const { path, city, nightGround, nightCity, bridge, tunnel, treeColors, life, ...rest } = dist;
     Object.assign(look, rest);
     look.path = { ...look.path, ...path };
+    if (bridge) look.bridge = { ...look.bridge, ...bridge };
+    if (tunnel) look.tunnel = { ...look.tunnel, ...tunnel };
+    if (treeColors) look.treeColors = { ...look.treeColors, ...treeColors };
+    if (life) look.life = { ...look.life, ...life };
     if (look.city) look.city = { ...look.city, ...city };
     look.district = map.district;
   }
+  // Gate Arc S4a scenery keywords that re-dress the look (frost, the bridge-layer deck, snow cover)
+  const kw = scenery.keywords || [];
   const ruined = scenery.ruined === 'burning' ? 'burning' : null;
   const lantern = stageLook?.night === 'lantern';
   look.lantern = lantern;
@@ -621,8 +719,43 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
     look.life = { ...B.life };
     if (scenery.weather === undefined) look.weather = B.weather;
   }
+  // dusk (stage.look.dusk, Gate Arc 4-7): a warm low sun, never on a night stage
+  const dusk = !!stageLook?.dusk && !look.night;
+  if (dusk) {
+    const D = DUSK;
+    look.dusk = true;
+    look.light = { ...D.light };
+    look.bg = D.bg;
+    look.ground = look.ground.map((g) => mixBg(g, D.groundTint, D.groundAmt));
+    look.groundShade = mixBg(look.groundShade, D.groundTint, D.groundAmt);
+    look.life = { ...look.life, butterflies: false };
+  }
+  // frost (scenery keyword 'frost', Gate Arc 4-6 / 4-8): a cold wash, cooler key light, flurries
+  if (kw.includes('frost')) {
+    const F = FROST;
+    look.frost = true;
+    look.ground = look.ground.map((g) => mixBg(g, F.tint, F.amount));
+    look.groundSpeck = mixBg(look.groundSpeck, '#ffffff', F.amount);
+    look.groundShade = mixBg(look.groundShade, F.tint, F.amount * 0.6);
+    look.clover = mixBg(look.clover, F.tint, F.amount);
+    if (!look.night && !dusk) look.light = { ...look.light, key: mixBg(look.light.key, F.key, 0.6) };
+    look.life = { ...look.life, butterflies: false };
+    if (scenery.weather === undefined) look.weather = F.weather;
+  }
+  // snow over the north rows (scenery keyword 'snowCover', Gate Arc 4-8): terrain.js paints it
+  if (kw.includes('snowCover')) {
+    look.snowCover = { ...SNOW_COVER };
+    // (the ridges over the bores sit in the snowy north rows)
+    look.tunnel = { ...look.tunnel, top: SNOW_COVER.color };
+    if (scenery.weather === undefined) look.weather = 'snow';
+  }
+  // the frozen villages (scenery keyword 'frozenVillage', Gate Arc 4-9): the board's houses are the
+  // villagers' huts, gone cold (northProps.js frozenHut)
+  if (kw.includes('frozenVillage')) look.building = 'frozenHut';
+  // the Brigade's bridge-layer deck over the water (scenery keyword 'snowBridge', Gate Arc 4-10)
+  if (kw.includes('snowBridge')) look.bridge = { ...look.bridge, ...BRIDGE_LAYER };
   if (look.fog) {
-    look.fogColor = ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
+    look.fogColor = ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : dusk ? DUSK.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
   }
   return look;
 }

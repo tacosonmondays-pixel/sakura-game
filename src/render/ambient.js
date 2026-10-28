@@ -10,6 +10,8 @@
 // smoke columns rising from the skirt that fade out within 2 tiles of height (emitter
 // 'smokeColumn'), amber embers over the fires, scorch marks on the ground. HAMMER's tear: its glow
 // sprites and crackling sparks ('tearSparks') follow `tear` (src/render/tear.js: 0 rest … 1 pulse).
+// Gate Arc S4a: snow blowing out of the highway bores ('snowGust', one reused spawn description) and
+// the far north's vast shadow crossing the board once a minute (terrain ambient 'vastShadow').
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { SMOKE_PUFF } from './city/ruinProps.js';
@@ -63,6 +65,11 @@ export class AmbientSystem {
     this.rippleTimer = 1;
     this.gust = { t: 3 + this.rand() * 4, phase: 99, strength: 1, value: 0 };
     this._c = new THREE.Color();
+    // the far north's vast shadow (terrain ambient 'vastShadow', Gate Arc 4-9): something huge
+    // passing high over the valley once a minute, as a cloud shadow would (never shown, never named)
+    this.vastShadow = this.terrain.ambient?.has?.('vastShadow') ? { period: 60, cross: 14, t0: 20 } : null;
+    /** one reused spawn description for the snow gusts out of the highway bores (no allocation per puff) */
+    this._gust = { batch: 'bbN', uv: this.R.snow, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: -0.15, drag: 0.6, s0: 0.07, s1: 0.04, life: 1.6, color: new THREE.Color('#ffffff'), a0: 0.85, a1: 0, rot: 0, vrot: 1.5 };
     this._gateColors = new Map();
     /** a wave walks the other way than the terrain's gates show (Rear Ambush's even waves) */
     this.gatesReversed = false;
@@ -255,6 +262,20 @@ export class AmbientSystem {
         const y = f.y + Math.sin(t * 1.7 + f.ph) * 0.2;
         const a = Math.max(0, Math.sin(t * 1.3 + f.ph * 3));
         bbA.push(x, y, z, 0.16, 0.16, R.glow, fc.r, fc.g, fc.b, a);
+      }
+      // the vast shadow: one long soft dark shape crossing the board from west to east, once a minute
+      if (this.vastShadow) {
+        const vs = this.vastShadow;
+        const k = ((t + vs.t0) % vs.period) / vs.cross;
+        if (k < 1) {
+          const span = x1 - x0 + 16;
+          const x = x0 - 8 + span * k;
+          const z = (z0 + z1) / 2 + Math.sin(k * 3) * 1.2;
+          const a = 0.2 * Math.sin(k * Math.PI);
+          gN.push(x, 0.016, z, 13, 6.5, R.smoke, 0.02, 0.03, 0.08, a, 0.25);
+          gN.push(x - 3.5, 0.017, z + 1.4, 7, 3.2, R.smoke, 0.02, 0.03, 0.08, a * 0.8, -0.4);
+          gN.push(x + 3.2, 0.017, z - 1.6, 7, 3.0, R.smoke, 0.02, 0.03, 0.08, a * 0.8, 0.6);
+        }
       }
       // cloud shadows drifting across the board
       for (const c of this.clouds) {
@@ -609,6 +630,24 @@ export class AmbientSystem {
           const a = r() * TAU;
           const rad = (e.r || 0.6) * r();
           fx.spawn({ batch: 'bbA', uv: R.glow, x: e.x + Math.cos(a) * rad, y: e.y + Math.sin(a) * rad, z: e.z, vx: (r() - 0.5) * 0.2, vy: -0.12, vz: 0.2 + r() * 0.2, drag: 0.3, s0: 0.08, s1: 0.03, life: 1.6, color: '#d8f2ff' });
+        }
+        break;
+      case 'snowGust':
+        // snow blowing out of a highway bore along the road (Gate Arc 4-8): one reused description
+        e.timer = 0.12;
+        {
+          const P = this._gust;
+          const sp = 0.9 + r() * 0.7;
+          const side = (r() - 0.5) * 0.8;
+          P.x = e.x - (e.dz || 0) * side;
+          P.y = e.y + r() * 0.3;
+          P.z = e.z + (e.dx || 0) * side;
+          P.vx = (e.dx || 0) * sp + (r() - 0.5) * 0.2 + this.gust.value * 0.3;
+          P.vy = 0.05 + r() * 0.15;
+          P.vz = (e.dz || 0) * sp + (r() - 0.5) * 0.2;
+          P.s0 = 0.05 + r() * 0.05;
+          P.rot = r() * TAU;
+          fx.spawn(P);
         }
         break;
       case 'goal':
