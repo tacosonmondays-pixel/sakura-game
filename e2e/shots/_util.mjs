@@ -41,6 +41,8 @@ export const scrollBody = (to = 'end', sel = '#app .screen-body') => (page) => p
 export const holdOn = (sel, waitFor = LAYER) => async (page) => {
   const target = page.locator(sel).first();
   for (let attempt = 0; attempt < 2; attempt++) {
+    // (a slow first hold may open just after its wait: never hold again over an open layer)
+    if (attempt && waitFor && await page.$(waitFor)) return;
     // (the same hash as the shot before keeps its scroll: bring the target into view, let the layout settle)
     await target.scrollIntoViewIfNeeded({ timeout: 10000 });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
