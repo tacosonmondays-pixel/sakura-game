@@ -36,10 +36,11 @@ describe('ACT_SCENE_IDS (Gate Arc episodes per act, kept apart so Story Time nev
     // every Act II scene in the chunk is indexed
     const indexed = new Set(Object.values(ACT_SCENE_IDS).flat());
     for (const s of SCENE_LIST.filter((x) => (x.act ?? 1) > 1 && !x.ifUnit)) expect(indexed.has(s.id), s.id).toBe(true);
-    expect(Object.keys(ACT_SCENE_IDS)).toEqual(['1:2', '2:2', '3:2', '4:2']);
+    expect(Object.keys(ACT_SCENE_IDS)).toEqual(['1:2', '2:2', '3:2', '4:2', '5:2']);
     expect(ACT_SCENE_IDS['2:2']).toHaveLength(11);
     expect(ACT_SCENE_IDS['3:2']).toHaveLength(9);
     expect(ACT_SCENE_IDS['4:2']).toHaveLength(7);
+    expect(ACT_SCENE_IDS['5:2']).toHaveLength(9);
   });
 
   it('an ifOwned episode is listed (it always exists in code; only its playback waits for an owned girl)', () => {
