@@ -86,8 +86,21 @@ before chapter 2.
 ## Act II (the Gate Arc, docs/specs/GATE_ARC.md)
 
 Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "the Noon", a modern city era); `c-1` …
-`c-5` are Act I ("the Morning") and never change, and `c-11` … `c-15` are reserved. Status: the plumbing is in
-(Gate Arc Step 1, milestone S1a); **no Act II stage is registered yet**, so the game plays exactly as before.
+`c-5` are Act I ("the Morning") and never change, and `c-11` … `c-15` are reserved. Status (Gate Arc Step 1, on
+`feature/gate-arc`, not shipped): the plumbing (S1a) and **chapter 1's Act II, "Rush Hour" (1-6 … 1-10)**, are in.
+
+* **Chapter 1 · Act II · Rush Hour** (Itomachi downtown by day, theme `city`; docs/specs/gate-arc/MAPS.md §1.2):
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 1-6 Rush Hour | `noon_station_plaza` | the station underpass (the hall drawn over it) | petal_sanctuary (Rush-hour Evacuation) | slime, goblin runner; scene `g1.pro` (content note) before, `g1.mahiru` after |
+  | 1-7 The Covered Arcade | `noon_covered_arcade` (22×12) | shop rooftops ('U') between the alleys | tailwind (Rush Hour) | goblins; **Yuzuha joins** (`g1.yuzuha`) |
+  | 1-8 Time Sale | `noon_corner_store` | a flat scramble crossing passed twice | firefly_chorus (Time Sale) | gold slimes, dashers, a few orc grunts |
+  | 1-9 Canal Crossing | `noon_canal_crossing` | a level crossing shut on even waves (`laneCycle [[0,1],[1]]`) | changing_tides (Lock Cycle) | orc grunts, boars |
+  | 1-10 The Frostbitten Heir | `noon_dry_fountain` (echo of `sakura_court`) | the boss in the dry fountain | supply_ship (Brigade Airdrop) | `slime_frost_heir` (the Slime Prince's model in frost), crown drop |
+
+  Only chapter-1 families; the Brigade is dressing only (drones overhead). 1-7 now grants Yuzuha (4-2 no longer does;
+  a save that clears 4-2 before meeting her still gets her once through the lobby's catch-up, `LEGACY_JOIN_STAGES`).
 
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:

@@ -472,7 +472,8 @@ MapDef = {
              fork?, join?, forkD, joinD }],
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
-  decor?: [{ type, x, y, rot? }],  // optional composed set pieces for the renderer
+  decor?: [{ type, x, y, rot?, r? }],  // optional composed set pieces for the renderer; `r` (Gate Arc): the set
+                                   // piece draws the building tiles within r of it itself (1-10's dry fountain)
   bridge?, path?, tunnel?: {...},  // optional per-map looks merged over the theme's (e.g. a steel-
                                    // grating overpass, conveyor-belt road, ice-cave tunnel)
   ground?: [{ type: 'vat', x, y, w, h }      // machined tank rim, square water / lava mask
