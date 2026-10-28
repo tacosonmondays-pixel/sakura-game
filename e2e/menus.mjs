@@ -128,7 +128,9 @@ for (const s of failedShots) console.log(`  FAILED shot ${s}`);
 
 if (record) {
   for (const m of ids) {
-    const mine = Object.fromEntries(MILESTONES[m].filter((n) => results[n]).map((n) => [n, results[n]]));
+    // (with --screens, the shots taken join the file's others)
+    const kept = only && existsSync(beforeFile(m)) ? JSON.parse(readFileSync(beforeFile(m), 'utf8')) : {};
+    const mine = { ...kept, ...Object.fromEntries(MILESTONES[m].filter((n) => results[n]).map((n) => [n, results[n]])) };
     mkdirSync(dirname(beforeFile(m)), { recursive: true });
     writeFileSync(beforeFile(m), `${JSON.stringify(mine, null, 1)}\n`);
     console.log(`recorded ${beforeFile(m)}`);

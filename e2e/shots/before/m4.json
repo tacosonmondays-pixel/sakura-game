@@ -1,0 +1,90 @@
+{
+ "girl-info-ruri": {
+  "844x390": {
+   "text": 12,
+   "numbers": 10,
+   "tapMin": 21.75,
+   "under44": 7,
+   "yellow": 0,
+   "pinkStray": 0,
+   "radius": 3,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 13,
+   "numbers": 9,
+   "tapMin": 22.75,
+   "under44": 2,
+   "yellow": 0,
+   "pinkStray": 1,
+   "radius": 4,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 13,
+   "numbers": 9,
+   "tapMin": 22.75,
+   "under44": 1,
+   "yellow": 0,
+   "pinkStray": 0,
+   "radius": 3,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
+ },
+ "girl-potential": {
+  "844x390": {
+   "text": 12,
+   "numbers": 41,
+   "tapMin": 43.25,
+   "under44": 1,
+   "yellow": 0,
+   "pinkStray": 1,
+   "radius": 11,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 12.48,
+   "numbers": 52,
+   "tapMin": 47.25,
+   "under44": 0,
+   "yellow": 0,
+   "pinkStray": 4,
+   "radius": 15,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 12.16,
+   "numbers": 51,
+   "tapMin": 47.25,
+   "under44": 0,
+   "yellow": 0,
+   "pinkStray": 3,
+   "radius": 14,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 4,
+   "content": 796,
+   "host": null
+  }
+ }
+}
