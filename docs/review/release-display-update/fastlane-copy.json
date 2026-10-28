@@ -1,0 +1,35 @@
+{
+  "review": "fast lane: go/no-go copy fixes",
+  "commit": "dde3c322",
+  "verdict": "OK",
+  "summary": "The copy fixes for go/no-go M1, M2, L1 and L2 (git diff e7e5935c dde3c322) are correct, read naturally and fit on screen at 844x390 and 1280x720. M1: lesson 1 'Welcome home, Sensei' (Journal card) and Hikari's line in the lesson.home scene now say 'Open the Menu and tap Background...'. The Quiet Home's Menu head really has a BACKGROUND tool (testid lobby-bg, aria 'Background and secretary'), and it opens the Lobby Background picker, where you choose both the secretary and the background. M2: a locked bond tile's tooltip and toast now say 'Bond Lv 10 with Luna (now 0) — spend time with her and give gifts in the City to unlock'. Its caption says 'Spend time with her & give gifts in the City'. The follow-up commit renames the bond theme 'Café Date' to 'Café Afternoon', and the locked tile shows the new name. No player-facing romantic 'date' or 'dating' wording is left in src. The only remaining 'Café Date' is a historical note in docs/STORY_SPEC.md that records the rename. L1/L2: the v0.1.54 patch note now says 'Every chapter of the story now plays in its own painted places', adds the top-bar currency change, and moves the full-illustration line to its own bullet. It reads accurately and friendly in the Notice. The diff changes no sim code, the sim id is unchanged and the targeted tests pass. No page errors.",
+  "findings": [
+    {
+      "id": "N1",
+      "severity": "note",
+      "title": "The patch note does not mention the 'Café Afternoon' rename",
+      "detail": "The rename shows only on locked, unpainted bond tiles, so leaving it out of the patch note is fine. One optional 'Changed' bullet could mention it. Not required.",
+      "evidence": "src/data/patchNotes.js v0.1.54; src/data/lobbyArt.js BOND_THEMES.cafe"
+    },
+    {
+      "id": "N2",
+      "severity": "note",
+      "title": "Lesson 1's 'Show me' opens the login gift, not the background picker",
+      "detail": "This was already there before this change and is still sensible: the lesson's second line is about the Login gift. Players reach the Background tool from the Menu, as the new copy says. Nothing to change for this release.",
+      "evidence": "src/data/story/lessons.js: home.action routes to commissions, tab login"
+    }
+  ],
+  "checks_passed": [
+    "Scope: git diff e7e5935c dde3c322 touches src/data/lobbyArt.js, src/data/patchNotes.js, src/data/story/lessons.js, src/data/story/scenes/lessons.js, src/systems/unlocks.js (comment), src/ui/lobby/bgPicker.js (comment) and docs/STORY_SPEC.md. Copy and comments only.",
+    "The Menu head's BACKGROUND tool exists (lobby-bg, src/ui/screens/lobby.js:513) and opens the Lobby Background picker (secretary list plus backdrops and full illustrations), seen at both viewports",
+    "Journal lesson 1 card at 844x390 and 1280x720: new text, wraps cleanly, nothing clipped",
+    "lesson.home scene, Hikari's line: 'Open the Menu and tap Background to choose who keeps you company, and the view behind her.' It fits on one line at both viewports.",
+    "Picker: Luna's locked Café Afternoon tile shows 'Café Afternoon' with a Bond 10 caption. Its tooltip and toast read 'spend time with her and give gifts in the City to unlock', and the toast fits at both viewports.",
+    "grep of src: no player-facing 'date'/'dating'/'romance' wording. The 'I don't mind' head-pat line flagged in STORY_SPEC is no longer in src.",
+    "Notice > Patch notes shows v0.1.54 'Quiet Home' on top with the new wording at both viewports",
+    "npx vitest run tests/story tests/data tests/systems/patchGifts.test.js tests/integration/missionCounters.test.js: 27 files, 843 tests passed (at 5d2c9b33 and again at dde3c322)",
+    "sim id 92e2e22527cf",
+    "0 page errors in the Playwright run",
+    "No other games' or anime names in the diff"
+  ]
+}
