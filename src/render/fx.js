@@ -213,9 +213,10 @@ export class FxSystem {
    * creature going home; `homeward: false` (a Brigade trooper's fall-and-fade, src/render/fallStyles.js)
    * leaves them out: the poof and the bits only, nothing stays on the road.
    */
-  death(x, y, z, size, color, { homeward = true } = {}) {
+  death(x, y, z, size, color, { homeward = true, puff = null } = {}) {
     const s = Math.max(0.6, size);
-    this.puff(x, y + 0.2, z, homeward ? '#ffffff' : '#c9c6c2', 6 + s * 2, 0.4 * s, 0.38 * s);
+    // (puff: a fall of its own colour, the Night's touched fading in violet: fallStyles RIME_TINT)
+    this.puff(x, y + 0.2, z, puff || (homeward ? '#ffffff' : '#c9c6c2'), 6 + s * 2, 0.4 * s, 0.38 * s);
     if (homeward) this.spawn({ batch: 'bbA', uv: this.R.glow, x, y: y + 0.3, z, s0: 0.6 * s, s1: 1.1 * s, life: 0.2, color: '#ffffff', a0: 0.8 });
     const k = this.n(5);
     for (let i = 0; i < k; i++) {

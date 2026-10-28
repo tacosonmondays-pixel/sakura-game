@@ -19,7 +19,7 @@ import { detailTexture, pathTexture, maskTexture, paintGround } from './textures
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
 import { buildCity, cityBuildingFor, cityWallVariant, buildRoofs } from './city/cityKit.js';
-import { riftPlacement, noonGatePlacement, ROOF_Y } from './city/cityProps.js';
+import { riftPlacement, noonGatePlacement, vesperGatePlacement, ROOF_Y } from './city/cityProps.js';
 import { cityGroundPainter, cityIslePainter } from './city/cityGround.js';
 import { burningLayer } from './city/ruinProps.js';
 import { TEAR_REST } from './tear.js';
@@ -246,10 +246,43 @@ export const SCENERY = {
   reservoirCrown: { prop: 'greatWillow', slot: 'skirt', n: 1, s: 1.1, variant: 0 },
   reservoirWillow: { prop: 'damWall', slot: 'skirt', n: 2, face: true, variant: 0, s: 1.5, also: ['parkBoats', 'rescueBuoys', 'fireflies'] },
   searchBoats: { prop: 'searchBoat', slot: 'water', n: 2, variant: 0, sweep: true },
+  // Vesperline (Gate Arc S6a, src/render/city/vesperProps.js; frozen with themes.FROZEN). Slots of their own:
+  // 'railEnd' (beside the far end of every viaduct span, Gate Arc S6v `track.viaducts`: where the old rail broke
+  // off, a pod left hanging), 'spire' (the back skirt behind the Spindle's foot: the decor `spindle`, else the
+  // board's middle). Look keywords drawn by code: 'cleaningRobot' (the city kit's one mover), 'warmWindow' (the
+  // shelter's one warm window glows brighter: the only warm light on the board)
+  frostCauseway: { prop: 'doorieBus', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0, also: ['gateStatues', 'skyRailRuins'] },
+  gateStatues: { prop: 'haloStatue', slot: 'goalside', n: 2, variant: 0 },
+  skyRailRuins: { props: ['skyRailPod', 'skyRailPod'], variants: [0, 1], slot: 'skirt', n: 2, face: true },
+  prismBatteries: { prop: 'prismBattery', slot: 'pad', n: 3, variant: 0 },
+  skyRailViaduct: { look: true, also: ['brokenSpan', 'railPods', 'stationCanopy', 'deadHolo'] },
+  brokenSpan: { prop: 'skyRailPod', slot: 'railEnd', n: 2, variant: 0 },
+  railPods: { props: ['skyRailPod', 'skyRailPod'], variants: [0, 1], slot: 'skirt', n: 2, face: true },
+  stationCanopy: { prop: 'stationCanopy', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  deadHolo: { prop: 'holoSign', slot: 'pathside', n: 3, variant: 3 },
+  frozenCanal: { prop: 'glassShards', slot: 'water', n: 3, variant: 2 },
+  museumWings: { look: true, also: ['museumBits'] },
+  museumBits: { props: ['frozenFountain', 'haloStatue', 'frozenFountain'], variants: [0, 0, 1], slot: 'grass', alt: 'skirt', n: 3, face: true },
+  doorieStatue: { prop: 'doorieStatue', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  reflectingPools: { ambient: 'sparkles' },
+  towerRing: { props: ['podium', 'haloStatue', 'podium'], variants: [0, 0, 1], slot: 'grass', alt: 'skirt', n: 3, face: true, also: ['holoSigns'] },
+  transitPads: { props: ['transitPad', 'transitPad'], variants: [0, 1], slot: 'skirt', n: 2 },
+  cleaningRobot: { look: true },
+  spindleFoot: { prop: 'spindle', slot: 'spire', n: 1, variant: 1, also: ['vesperTerminal'] },
+  vesperTerminal: { prop: 'vesperTerminal', slot: 'gateside', n: 2, variant: 1, also: ['terminalHall'] },
+  terminalHall: { prop: 'vesperTerminal', slot: 'skirt', n: 2, face: true, variant: 0 },
+  frozenNest: { prop: 'frozenNest', slot: 'skirt', n: 1, variant: 0, also: ['greyWool'] },
+  greyWool: { prop: 'greyWool', slot: 'grass', n: 1, variant: 0 },
+  warmWindow: { look: true },
+  starDome: { props: ['starDome', 'starDome', 'starDome'], variants: [0, 2, 0], slot: 'skirt', n: 3, face: true, also: ['starShards'] },
+  starShards: { prop: 'starDome', slot: 'grass', n: 3, variant: 1 },
+  coldAurora: { ambient: 'aurora' },
+  holoSigns: { props: ['holoSign', 'holoSign', 'holoSign'], variants: [1, 2, 1], slot: 'pathside', n: 4 },
+  frostHaze: { ambient: 'frostHaze' },
 };
 
 /** Prop types whose glows (sprites and glow geometry) a blackout never dims: the gates stay readable. */
-const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate', 'noonGate', 'subwayMouth']);
+const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate', 'noonGate', 'subwayMouth', 'sentryBay', 'vesperGate', 'vesperShelter']);
 /** Prop types whose glow geometry pulses with the rule (the tear over 3-10's sanctum: terrain.setTear). */
 const TEAR_TYPES = new Set(['hammerTear']);
 
@@ -724,7 +757,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         } else {
           const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine' || deco.type === 'greatWillow';
           // (a big tree takes the decor's own scale when it gives one: the Reservoir Willow, Gate Arc 5-10)
-          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? (deco.s ?? 1.3) : (deco.s ?? 1), h % 4);
+          // (a decor may pick its variant: the Spindle's foot, Gate Arc S6a)
+          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? (deco.s ?? 1.3) : (deco.s ?? 1), deco.variant ?? h % 4);
         }
         occupied.add(key);
         continue;
@@ -788,6 +822,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
 
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
+  if (decks.glow) {
+    // the light-bridge's cyan edge glow (unlit; it stays lit in a blackout: the road reads in the dark)
+    if (glowDim) decks.glow.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(decks.glow.attributes.position.count), 1));
+    glowParts.push(decks.glow);
+  }
   if (decks.shadow) {
     // the city keeps every terrain mesh out of the sorted transparent pass (phone budget): its
     // overpass shadow multiplies the frame buffer instead (the same darkening as black at the
@@ -872,14 +911,14 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     const type = e.mouth ? 'subwayMouth' : !e.inside && scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
     // the city's rift (and the Noon Gate) lean their disc toward the camera whichever edge they stand on
     // (cityProps.riftPlacement)
-    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : type === 'noonGate' ? noonGatePlacement(gi.dir) : null;
+    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : type === 'noonGate' ? noonGatePlacement(gi.dir) : type === 'vesperGate' ? vesperGatePlacement(gi.dir) : null;
     if (rift && !e.inside) {
       gi.x += gi.dir[0] * rift.inset;
       gi.z += gi.dir[1] * rift.inset;
     }
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
     place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, rift ? rift.variant : 0);
-    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn, ...(e.inside ? { inside: true, onWater } : {}), ...(e.mouth ? { mouth: true } : {}), ...(type === 'noonGate' ? { noon: true } : {}) });
+    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn, ...(e.inside ? { inside: true, onWater } : {}), ...(e.mouth ? { mouth: true } : {}), ...(type === 'noonGate' ? { noon: true } : {}), ...(type === 'vesperGate' ? { vesper: true } : {}) });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
@@ -891,6 +930,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- the city kit: kerbs, crossings, street furniture, skyline, railway, movers --------
   const city = look.city ? buildCity({
     map, look, plan, isPath, isWater, occupied, gates, portals: tunnels.portals, place, facadeParts, quality, margin: MARGIN, facadeMaterial: mats.facade,
+    keywords: scenery.keywords || [],
   }) : null;
   if (city) {
     for (const m of city.meshes) group.add(m);
@@ -976,7 +1016,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       for (const spot of list) {
         if (n >= rec.n) break;
         if (spot.used) continue;
-        if (city && city.furniture.some(([fx, fz]) => Math.hypot(fx - spot.x, fz - spot.z) < 0.75)) continue;
+        if (!spot.free && city && city.furniture.some(([fx, fz]) => Math.hypot(fx - spot.x, fz - spot.z) < 0.75)) continue;
         spot.used = true;
         for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
         const s = (rec.s ?? 1) * (spot.s ?? 1);
@@ -998,6 +1038,15 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
   // the reservoir park at night: fireflies over the water (as the campus lakeshore's)
   if (look.district === 'park' && look.night) ambient.add('fireflies');
+  // Vesperline frozen: the cold aurora over the back skirt (themes.FROZEN look.aurora)
+  if (look.aurora) ambient.add('aurora');
+  // the shelter's one warm window glows a little brighter (scenery 'warmWindow', 6-10): the only warm light
+  if (dressing.includes('warmWindow')) {
+    for (const g of gates) {
+      if (g.kind !== 'goal') continue;
+      glows.push({ x: g.x - g.dir[0] * 0.1 - g.dir[1] * 0.62, y: 0.4, z: g.z - g.dir[1] * 0.1 + g.dir[0] * 0.62, color: new THREE.Color('#ffb347'), size: 1.1, flicker: 0.04, phase: 0, keep: true });
+    }
+  }
 
   // the highway bores breathe snow out over the board (scenery keyword 'tunnelPortals', Gate Arc 4-8)
   if (dressing.includes('tunnelPortals')) {
@@ -1010,8 +1059,35 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   function buildSlots() {
     const out = {
       pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [], roof: [],
-      span: [], pad: [], deckside: [], gateside: [], goalside: [], north: [], vent: [],
+      span: [], pad: [], deckside: [], gateside: [], goalside: [], north: [], vent: [], railEnd: [], spire: [],
     };
+    // railEnd: beside the far end of every viaduct span (trackMesh.buildDecks viaductEnds), 1.2-1.8 tiles out to
+    // one side (off every road and building; its pylon may stand in the water), facing along the road: where the
+    // old sky-rail broke off (Gate Arc S6a)
+    for (const ve of decks.viaductEnds || []) {
+      const nx = -ve.dz;
+      const nz = ve.dx;
+      let spot = null;
+      for (const off of [1.2, 1.5, 1.8]) {
+        for (const sd of [1, -1]) {
+          if (spot) break;
+          const px = ve.x + nx * sd * off - ve.dx * 0.6;
+          const pz = ve.z + nz * sd * off - ve.dz * 0.6;
+          const tx = Math.floor(px);
+          const tz = Math.floor(pz);
+          if (isPath(tx, tz) || isRoofTile(tx, tz) || (inMap(tx, tz) && rows[tz][tx] === 'H')) continue;
+          if (plan.roads.some((r) => r.pts.some(([qx, qz], i) => !r.tunnel[i] && Math.hypot(qx - px, qz - pz) < 0.9))) continue;
+          spot = { x: px, z: pz, y: isWater(tx, tz) ? WATER_Y : 0, ry: Math.atan2(ve.dx, ve.dz), s: 1, free: true };
+        }
+      }
+      if (spot) out.railEnd.push(spot);
+    }
+    // spire: the back skirt behind the Spindle's foot (the decor 'spindle', else the board's middle), where
+    // its shaft rises clear of the board (Gate Arc S6a)
+    {
+      const foot = (map.decor || []).find((d) => d.type === 'spindle');
+      out.spire.push({ x: foot ? foot.x + 0.5 : W / 2, z: -3.4, y: 0, ry: 0, s: 1 });
+    }
     // vent: beside each of the stage rule's vent zones, just off the road (the Drowned Line's steam
     // valves, 5-8): the first of eight directions round the zone whose spot is dry land on the board,
     // clear of the city kit's furniture (one spot per zone)

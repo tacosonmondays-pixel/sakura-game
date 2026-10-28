@@ -180,8 +180,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   // (the far north's relay pads are village hearths: warm, scenery keyword 'villageHearths'; the
-  // Drowned Line's vents are relief valves: steam)
-  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx, warm: scenery.keywords.includes('villageHearths'), steam: look.city?.kit === 'drowned' || scenery.keywords.includes('steamValves') }) : null;
+  // Drowned Line's vents are relief valves: steam; Vesperline's rift points are transit pads)
+  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx, warm: scenery.keywords.includes('villageHearths'), steam: look.city?.kit === 'drowned' || scenery.keywords.includes('steamValves'), transit: look.theme === 'vesper' || scenery.keywords.includes('transitPads') }) : null;
   // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
   // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
   const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });

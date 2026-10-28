@@ -48,6 +48,19 @@
 //   DISTRICTS.park  the reservoir park (MapDef.district 'park' on `city`): mown lawns with paved bands,
 //                park lamps, the dam wall on its H tiles, willows, the reservoir (parkProps.js)
 //   'noonGateFrost'  scenery keyword: rime on the pipes round the Noon Gate (look.frost) without snow
+//
+// Gate Arc Step 6 (S6a):
+//   THEMES.vesper  Vesperline (MapDef.theme 'vesper'), the city of glass on the lake (GATE_ARC §18.1): the
+//                city kit with its own set (`city.kit: 'vesper'`, src/render/city/vesperProps.js), the `glass`
+//                ground (frosted panels), the `glassway` road (white panels, a cyan guide line: the lightest
+//                band), lecture halls and podiums, frosted glass panes on the border, holo signs along the
+//                lanes, the `gallery` tunnel style (museum wings), the glass light-bridge deck, the sentry bay
+//                spawn and the shelter with one warm window. The theme itself is the LIVING city (white, sky
+//                blue, cherry trees in glass courtyards, a bright morning): a preview look until Arc 2
+//   FROZEN       the `ruined: 'frozen'` table (StageDef.scenery.ruined, on `vesper` only: any other theme
+//                ignores it), resolved like BURNING: frosted blue-grey glass, snow drifts and cyan cracks, the
+//                white glassway kept the lightest band, open leads near-black blue (the darkest band: ice and
+//                islands lighter than the water), an eclipse dusk (look.dusk: the lamps on), snow, a cold aurora
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -515,6 +528,63 @@ export const THEMES = {
       glass: { glassA: '#3c5a66', glassB: '#7fa2ae', warm: '#ffe2b0' },
     },
   },
+  // ----- Gate Arc · Evening: Vesperline, the city of glass on the same lake (src/render/city/vesperProps.js) ----
+  // The LIVING city (Arc 2; a preview fixture until then): white glass panels underfoot, the white glassway
+  // with its cyan guide line (the lightest band), lecture halls and podiums along the lanes, holo signs,
+  // cherry trees in glass courtyards, sky-blue pools, glass towers in the skirt, a bright morning. Every
+  // Step 6 stage wears the FROZEN table over it (`scenery.ruined: 'frozen'`, resolveLook). The column walks
+  // out of a sentry bay (hangar shutter, red status lights); the goal is the shelter with one warm window.
+  vesper: {
+    ground: ['#b6c6d5', '#afbfcf'],
+    groundSpeck: '#c5d3e0',
+    groundShade: '#93a6b8',
+    clover: '#8fb87c',
+    wet: '#a2b7c8',
+    dirt: '#bccad7',
+    pebble: '#aab9c7',
+    groundStyle: 'glass',
+    // (the courtyards: a little green between the panels)
+    groundPaint: { cloverAmt: 0.25 },
+    flowers: ['#ffd1e3', '#ffffff', '#bfe8ff'],
+    bank: '#8b9eb0',
+    bankDark: '#6a7c8e',
+    shore: '#a5b8c9',
+    // the glassway carries its own colour (textures.pathTexture 'glassway'): the theme's tint is white
+    path: { style: 'glassway', color: '#ffffff', curb: '#eef6fb', side: '#7f93a6', base: '#788b9e', crisp: true, plainJunction: true },
+    // the fold-out light-bridge (trackMesh `glass`): an opaque pale glass deck with a cyan edge glow, on
+    // water decks and overpasses alike; a map may ask for the sky-rail girder instead (map.bridge.skyRail)
+    bridge: { deck: '#cfe2ec', rail: '#e6f3f9', post: '#7f97aa', lacquer: false, overpass: '#d4e6ef', girder: '#5a7084', overRail: '#e6f3f9', grating: false, glass: true, edge: '#5fe1f2', shadow: 0.32 },
+    // the museum's wings (trackMesh `gallery`): white halls with a glass roof strip and a pale gold band
+    tunnel: { style: 'gallery', top: '#dde7ee', side: '#c1cfda', portal: '#f1f5f8', dark: '#121826', stripe: '#d9b45a', hall: '#e6edf2', roof: '#93a8ba', glass: '#bfe4f0' },
+    water: { deep: '#2f74a2', shallow: '#5e9fc4', foam: '#f2fbff', glow: 0.04, caustic: 0.4, foamAmt: 0.6 },
+    trees: ['courtyardTree'],
+    scatter: ['courtyardTree', 'courtyardTree', 'frostedPane', 'haloStatue'],
+    scatterDensity: 0.32,
+    treeColors: { leaf: '#ffb3cf', leaf2: '#ff8fb8', trunk: '#6f5a52' },
+    rocks: ['frostedPane', 'frozenFountain'],
+    rock: '#b4c2ce',
+    building: 'lectureHall',
+    wall: 'frostedPane',
+    frame: ['frostedPane', 'frostedPane', 'courtyardTree', 'frostedPane', 'frostedPane'],
+    detail: 'pebbles',
+    detailDensity: 0.04,
+    life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
+    // the sentry bay's red status lights; the shelter's one warm window
+    gate: { spawn: '#ff5a6a', goal: '#ffb347' },
+    spawnGate: 'sentryBay',
+    goalGate: 'vesperShelter',
+    weather: 'petals',
+    weatherColors: ['#ffd1e3', '#ffffff', '#ffe4ef', '#e8f4ff'],
+    light: { sky: '#f4fbff', ground: '#b4c2ce', hemi: 1.1, key: '#fff6ea', keyI: 1.5, fill: '#cfe6ff', fillI: 0.36 },
+    nightLight: { sky: '#9fb6e6', ground: '#28304a', hemi: 0.85, key: '#cfdcff', keyI: 1.05, fill: '#7fe9ff', fillI: 0.36 },
+    bg: '#d3e6f3',
+    city: {
+      kit: 'vesper', drones: false, kerbs: false,
+      // the frosted band along every lane (textures.paintGround kerb band) and its pale edge, both under the road
+      sidewalk: '#a4b5c5', kerb: '#c3d1dd', kerbSide: '#7d8fa1', lawn: '#9fcf8a', plaza: ['#b2c2d1', '#aabbca'],
+      glass: { glassA: '#9fd0e6', glassB: '#eaf6fb', warm: '#ffe2b0' },
+    },
+  },
 };
 
 /**
@@ -754,11 +824,50 @@ export const BURNING = {
 };
 
 /**
+ * `stage.scenery.ruined === 'frozen'` on `vesper` (Gate Arc S6a, GATE_ARC §18.1): Vesperline frozen in the
+ * moment it fell. Frosted blue-grey glass underfoot with snow drifts and cyan cracks in the ice, the white
+ * glassway kept the lightest band (its own colour), the open leads and moats near-black blue (the darkest
+ * band: the ice, the causeway islands and the snow lighter than the water), an eclipse dusk (a violet-teal
+ * sky, a cool key light ≥ 1.2: the board stays readable; look.dusk: the holo signs and lamps on with their
+ * pools), snow falling, frost on the rails (look.frost), a cold aurora over the back skirt (look.aurora), the
+ * cherry trees frosted white (look.frozen). `nightLight` / `nightBg`: the same frozen city at night (the
+ * Starfall Deck). Any other theme ignores `ruined: 'frozen'`.
+ */
+export const FROZEN = {
+  light: { sky: '#bcb8ee', ground: '#30365a', hemi: 1.0, key: '#dce8ff', keyI: 1.4, fill: '#8a70f0', fillI: 0.4, keyY: 8 },
+  nightLight: { sky: '#8f9fe0', ground: '#1e2440', hemi: 0.85, key: '#c8d6ff', keyI: 1.1, fill: '#6fe0ff', fillI: 0.38 },
+  bg: '#1b2033',
+  nightBg: '#0e1426',
+  fogColor: '#5c6688',
+  ground: ['#8496a8', '#7d8fa1'],
+  groundSpeck: '#b7c5d4',
+  groundShade: '#64768a',
+  clover: '#98a9bb',
+  wet: '#6f8297',
+  dirt: '#a1b0c0',
+  pebble: '#91a1b2',
+  shore: '#a6b6c6',
+  bank: '#7b8d9f',
+  bankDark: '#58687a',
+  /** the cyan cracks in the ice (textures.paintGround `rime`), muted so they never outshine the road */
+  crack: '#57c9df',
+  water: { deep: '#06101d', shallow: '#122339', foam: '#9cc2da', glow: 0.05, caustic: 0.1, foamAmt: 0.4 },
+  groundPaint: { cloverAmt: 0.2, rime: 1, drifts: 0.55 },
+  pathSide: '#55677a',
+  city: { sidewalk: '#98a9ba', kerb: '#b2c1cf', kerbSide: '#5e7083', lawn: '#8798aa', plaza: ['#8b9cae', '#8395a6'] },
+  scatter: ['courtyardTree', 'frostedPane', 'courtyardTree', 'haloStatue'],
+  scatterDensity: 0.3,
+  weather: 'snow',
+  life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: true },
+};
+
+/**
  * Resolves the final look for a map + stage scenery: merged theme, night/fog flags,
  * weather and lighting.
  * @param {string} themeId
  * @param {{ night?: boolean, fog?: boolean, weather?: string|null, ruined?: string|null, keywords?: string[] }} scenery
- *   ruined 'burning' = the burning table (BURNING; implies a dark sky); keywords 'frost', 'snowCover'
+ *   ruined 'burning' = the burning table (BURNING; implies a dark sky); ruined 'frozen' on `vesper` = the
+ *   frozen table (FROZEN: an eclipse dusk, look.frozen; other themes ignore it); keywords 'frost', 'snowCover'
  *   and 'snowBridge' re-dress the look (FROST, SNOW_COVER, BRIDGE_LAYER)
  * @param {{ night?: string, costumes?: boolean, dusk?: boolean }|null} [stageLook] the stage's render-only
  *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night); dusk = DUSK
@@ -796,6 +905,8 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
   // Gate Arc S4a scenery keywords that re-dress the look (frost, the bridge-layer deck, snow cover)
   const kw = scenery.keywords || [];
   const ruined = scenery.ruined === 'burning' ? 'burning' : null;
+  // Vesperline frozen (FROZEN, Gate Arc S6a): only the vesper theme knows it
+  const frozen = scenery.ruined === 'frozen' && look.theme === 'vesper';
   const lantern = stageLook?.night === 'lantern';
   look.lantern = lantern;
   look.night = !!(scenery.night || t.forceNight || lantern || ruined);
@@ -810,6 +921,22 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
   look.blackout = !!stageLook?.blackout;
   look.fog = !!scenery.fog;
   look.weather = scenery.weather !== undefined ? scenery.weather : look.weather;
+  if (frozen) {
+    // the frozen city (FROZEN): its own ground, ice and water (the night block below may still tint it)
+    const Z = FROZEN;
+    look.frozen = true;
+    look.frost = true;
+    Object.assign(look, {
+      ground: [Z.ground[0], mixBg(Z.ground[1], Z.ground[0], 0.35)], groundSpeck: Z.groundSpeck, groundShade: Z.groundShade,
+      clover: Z.clover, wet: Z.wet, dirt: Z.dirt, pebble: Z.pebble, shore: Z.shore, bank: Z.bank, bankDark: Z.bankDark, crack: Z.crack,
+      groundPaint: { ...(look.groundPaint || {}), ...Z.groundPaint }, scatter: [...Z.scatter], scatterDensity: Z.scatterDensity,
+    });
+    look.water = { ...look.water, ...Z.water };
+    look.path = { ...look.path, side: Z.pathSide };
+    if (look.city) look.city = { ...look.city, ...Z.city };
+    look.life = { ...Z.life };
+    if (scenery.weather === undefined) look.weather = Z.weather;
+  }
   if (look.night) {
     // a theme may bring its own night (the city's warm neon night); otherwise the moonlit preset
     look.light = t.nightLight ? { ...t.nightLight } : {
@@ -856,6 +983,13 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
     look.life = { ...B.life };
     if (scenery.weather === undefined) look.weather = B.weather;
   }
+  if (frozen) {
+    // the eclipse dusk over the frozen city (its lamps and holo signs on), or its night
+    look.light = { ...(look.night ? FROZEN.nightLight : FROZEN.light) };
+    look.bg = look.night ? FROZEN.nightBg : FROZEN.bg;
+    if (!look.night) look.dusk = true;
+    look.aurora = true;
+  }
   // dusk (stage.look.dusk, Gate Arc 4-7): a warm low sun, never on a night stage
   const dusk = !!stageLook?.dusk && !look.night;
   if (dusk) {
@@ -899,7 +1033,7 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
     look.groundShade = mixBg(look.groundShade, FROST.tint, 0.08);
   }
   if (look.fog) {
-    look.fogColor = ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : dusk ? DUSK.fogColor : look.night ? (t.nightFog || '#4a5378') : (t.fogTint || '#dfe7ef');
+    look.fogColor = frozen ? FROZEN.fogColor : ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : dusk ? DUSK.fogColor : look.night ? (t.nightFog || '#4a5378') : (t.fogTint || '#dfe7ef');
   }
   return look;
 }

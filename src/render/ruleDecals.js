@@ -6,18 +6,26 @@
 // Gate Arc S5a: on the Drowned Line the vents are relief valves (`steam`): a pale steel ring on the road
 // instead of the orange cracked one, and white steam bursting up while ACTIVE (the steam valves beside
 // them are props: drownedProps.js steamValve).
+// Gate Arc S6a: on Vesperline the shifting_stars rift points are the city's broken transit pads (`transit`): a
+// glowing cyan floor ring at `at` and its twin at `at + jump` (TRANSIT_PAD.d ≥ 1.5 tiles across), a light
+// pulsing inward, instead of the purple star rifts; the jump flashes cyan.
 import * as THREE from 'three';
 import { PATH_H } from './terrain.js';
 import { pointAt } from '../sim/path.js';
+
+/** A transit pad's floor ring (Vesperline, Gate Arc S6a): its diameter in tiles (≥ 1.5, so it reads at 844×390). */
+export const TRANSIT_PAD = Object.freeze({ d: 1.6, color: '#5fe1f2' });
 
 export class RuleDecals {
   /**
    * @param {{ sim: object, batches: object, atlas: object, fx: import('./fx.js').FxSystem, warm?: boolean }} o
    *   warm: the pads are the far north's village hearths (Gate Arc 4-9): ember amber, not crystal cyan;
-   *   steam: the vents are the Drowned Line's relief valves (Gate Arc 5-8): pale steel and white steam
+   *   steam: the vents are the Drowned Line's relief valves (Gate Arc 5-8): pale steel and white steam;
+   *   transit: the rift points are Vesperline's transit pads (Gate Arc 6-9): cyan floor rings, not star rifts
    */
-  constructor({ sim, batches, atlas, fx, warm = false, steam = false }) {
+  constructor({ sim, batches, atlas, fx, warm = false, steam = false, transit = false }) {
     this.sim = sim;
+    this._transit = !!transit;
     // vent colours (disc, ring, glow) and the burst: the forge's orange, or the valves' steam
     this._steam = !!steam;
     this._ventCol = steam
@@ -111,7 +119,17 @@ export class RuleDecals {
       }
     } else this._ember = 0;
     // star rifts
-    if (info.portals) {
+    if (info.portals && this._transit) {
+      // Vesperline's transit pads: a dark disc on the road, a cyan ring, its light pulsing inward
+      const D = TRANSIT_PAD.d;
+      for (const r of this._riftPoints()) {
+        const k = ((t * 0.7 * slow + r.x * 0.3) % 1 + 1) % 1;
+        gN.push(r.x, PATH_H + 0.014, r.z, D, D, R.disc, 0.06, 0.16, 0.22, 0.55);
+        gA.push(r.x, PATH_H + 0.02, r.z, D, D, R.ringThick, 0.37, 0.88, 0.95, 0.85);
+        gA.push(r.x, PATH_H + 0.024, r.z, D * (1 - k * 0.7), D * (1 - k * 0.7), R.ringSoft, 0.5, 0.95, 1, 0.6 * (1 - k));
+        gA.push(r.x, PATH_H + 0.026, r.z, D * 0.5, D * 0.5, R.glow, 0.45, 0.92, 1, 0.35);
+      }
+    } else if (info.portals) {
       for (const r of this._riftPoints()) {
         gA.push(r.x, PATH_H + 0.02, r.z, 1.1, 1.1, R.rune, 0.7, 0.45, 1, 0.55, -t * 0.8 * slow);
         gA.push(r.x, PATH_H + 0.024, r.z, 0.7, 0.7, R.ringSoft, 0.8, 0.55, 1, 0.45);
@@ -121,7 +139,11 @@ export class RuleDecals {
 
   /** Effects for rule events (render only). */
   handle(ev) {
-    if (ev.type === 'rift') {
+    if (ev.type === 'rift' && this._transit) {
+      this.fx.puff(ev.x, 0.3, ev.y, '#bff4ff', 6, 0.35, 0.3);
+      this.fx.puff(ev.x2, 0.3, ev.y2, '#e6fbff', 6, 0.35, 0.3);
+      this.fx.ring(ev.x2, ev.y2, 0.1, TRANSIT_PAD.d * 0.6, 0.4, TRANSIT_PAD.color);
+    } else if (ev.type === 'rift') {
       this.fx.puff(ev.x, 0.3, ev.y, '#b48cff', 6, 0.35, 0.3);
       this.fx.puff(ev.x2, 0.3, ev.y2, '#d9c2ff', 6, 0.35, 0.3);
       this.fx.ring(ev.x2, ev.y2, 0.1, 0.8, 0.4, '#b48cff');

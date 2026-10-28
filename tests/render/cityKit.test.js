@@ -37,6 +37,8 @@ const CAPS = {
   lockGate: 140, arcadeRibs: 300, roofBlock: 120, dryFountain: 560, petalRift: 640, shelterDoor: 360,
   // Gate Arc S5a: the Noon Gate (the board's brightest set piece, once a map) and the subway mouth's seam
   noonGate: 560, subwayMouth: 200,
+  // Gate Arc S6a: Vesperline's sentry bay, the Vesper Gate (6-10's brightest set piece), the shelter with one warm window
+  sentryBay: 420, vesperGate: 1000, vesperShelter: 360,
 };
 /** Far LOD caps where TECH gives one (the skyline: cityTower 24-60 × 1.25). */
 const FAR_CAPS = { cityTower: 75, streetTree: 160 };

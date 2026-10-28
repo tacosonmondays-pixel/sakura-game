@@ -17,12 +17,30 @@
 // with `pulse`: slow by day, quick and strong while a blackout dims everything else; they keep their
 // light), the reservoir's search boats sweeping their beams (terrain.searchlights, as the campus's),
 // fireflies over the reservoir at night (terrain ambient 'fireflies'). All on reused spawn descriptions.
+// Gate Arc S6a (Vesperline): dark snow falling out of the Vesper Gate ('darkSnow', one reused description), a
+// cold aurora over the back skirt (terrain ambient 'aurora': a few soft additive bands, built once), frost haze
+// creeping low over the board (terrain ambient 'frostHaze': pale wisps, built per density); the holo signs'
+// flicker is their sprites' own (vesperProps.js). Snow is the shipped weather.
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { SMOKE_PUFF } from './city/ruinProps.js';
 import { GROUND } from './fx.js';
 
 const TAU = Math.PI * 2;
+
+/**
+ * Vesperline's cold aurora (Gate Arc S6a, terrain ambient 'aurora'): soft additive bands high over the back skirt
+ * (fx across the board's width, z behind its far edge), teal, green and violet, swaying slowly. Five quads.
+ */
+export const AURORA = Object.freeze({
+  bands: Object.freeze([
+    { fx: 0.15, y: 3.4, z: -4.6, w: 7.5, h: 1.3, rot: 0.08, color: '#5fe8d0', a: 0.16 },
+    { fx: 0.4, y: 3.8, z: -5.2, w: 8.5, h: 1.1, rot: -0.05, color: '#7fe9a8', a: 0.14 },
+    { fx: 0.62, y: 3.5, z: -4.8, w: 7.0, h: 1.4, rot: 0.06, color: '#9a7fff', a: 0.15 },
+    { fx: 0.85, y: 3.9, z: -5.4, w: 8.0, h: 1.0, rot: -0.07, color: '#5fd6ea', a: 0.13 },
+    { fx: 0.5, y: 4.3, z: -6.0, w: 12, h: 0.9, rot: 0, color: '#b9a8ff', a: 0.1 },
+  ]),
+});
 const BUTTERFLY_COLORS = ['#ffffff', '#ffe066', '#9fd8ff', '#ffb3cf', '#c4a6ff', '#ffa94d'];
 
 export class AmbientSystem {
@@ -81,6 +99,9 @@ export class AmbientSystem {
     this._drop = { batch: 'bbN', uv: this.R.dot, x: 0, y: 0, z: 0, vx: 0, vy: -0.2, vz: 0, g: -6, s0: 0.05, s1: 0.04, life: 0.3, color: new THREE.Color('#d6ecf4'), a0: 0.9, a1: 0.7 };
     this._ripple = { batch: 'groundN', uv: this.R.ring, x: 0, y: 0, z: 0, s0: 0.06, s1: 0.7, life: 0.9, color: new THREE.Color('#e8f4f8'), a0: 0.45, a1: 0, fadeIn: 0.28, flags: GROUND };
     this._column = { batch: 'bbN', uv: this.R.smoke, x: 0, y: 0, z: 0, vx: 0, vy: 0.95, vz: 0, drag: 0.35, s0: 0.24, s1: 0.95, life: 1.6, color: new THREE.Color('#f2f6f8'), a0: 0.55, a1: 0, fadeIn: 0.2, rot: 0, vrot: 0.4 };
+    // Vesperline: a flake of the Vesper Gate's dark snow (reused); the aurora's bands (built once)
+    this._darkSnow = { batch: 'bbN', uv: this.R.snow, x: 0, y: 0, z: 0, vx: 0, vy: -0.3, vz: 0, g: -0.05, drag: 0.4, s0: 0.08, s1: 0.06, life: 2.2, color: new THREE.Color('#2a2140'), a0: 0.95, a1: 0, rot: 0, vrot: 1.2 };
+    this.aurora = this.terrain.ambient?.has?.('aurora') ? AURORA.bands.map((b, i) => ({ ...b, x: map.width * b.fx, color: new THREE.Color(b.color), ph: i * 1.7 })) : [];
     this._gateColors = new Map();
     /** a wave walks the other way than the terrain's gates show (Rear Ambush's even waves) */
     this.gatesReversed = false;
@@ -145,6 +166,14 @@ export class AmbientSystem {
       const n = Math.max(5, Math.round(11 * this.density));
       for (let i = 0; i < n; i++) {
         this.mist.push({ x: x0 + r() * (x1 - x0), z: z0 + r() * (z1 - z0), y: 0.25 + r() * 0.5, s: 3 + r() * 3.5, v: 0.12 + r() * 0.15, ph: r() * TAU, rot: r() * TAU });
+      }
+    }
+    // frost haze creeping low over the board (Vesperline, terrain ambient 'frostHaze')
+    this.haze = [];
+    if (this.terrain.ambient?.has?.('frostHaze')) {
+      const n = Math.max(4, Math.round(10 * this.density));
+      for (let i = 0; i < n; i++) {
+        this.haze.push({ x: x0 + r() * (x1 - x0), z: z0 + 1 + r() * (z1 - z0 - 2), y: 0.12 + r() * 0.18, s: 1.6 + r() * 1.8, v: 0.08 + r() * 0.1, ph: r() * TAU, rot: r() * TAU });
       }
     }
     // fireflies at night (not in hot / industrial places)
@@ -264,6 +293,19 @@ export class AmbientSystem {
         const a = 0.075 + 0.035 * Math.sin(t * 0.4 + m.ph);
         const c = this._c.set(this.look.fogColor || '#e8eef4');
         bbN.push(m.x, m.y, m.z, m.s * 1.6, m.s, R.smoke, c.r, c.g, c.b, a, m.rot);
+      }
+      for (const hz of this.haze) {
+        hz.x += hz.v * dt;
+        if (hz.x - hz.s > x1) hz.x = x0 - hz.s;
+        const a = 0.07 + 0.04 * Math.sin(t * 0.5 + hz.ph);
+        bbN.push(hz.x, hz.y, hz.z, hz.s * 1.8, hz.s * 0.7, R.smoke, 0.88, 0.93, 0.98, a, hz.rot);
+      }
+      // the cold aurora over the back skirt: soft bands swaying slowly, never over the board
+      for (const au of this.aurora) {
+        const sway = Math.sin(t * 0.13 + au.ph);
+        const a = au.a * (0.65 + 0.35 * Math.sin(t * 0.21 + au.ph * 2));
+        const c = au.color;
+        bbA.push(au.x + sway * 0.8, au.y + Math.sin(t * 0.17 + au.ph) * 0.15, au.z, au.w, au.h, R.soft, c.r, c.g, c.b, a, au.rot + sway * 0.05);
       }
       // (lantern nights: warm orange lantern sparks drifting a little higher)
       const fc = this.flyColor;
@@ -696,6 +738,23 @@ export class AmbientSystem {
           C.vx = 0.06 + this.gust.value * 0.3;
           C.rot = r() * TAU;
           fx.spawn(C);
+        }
+        break;
+      case 'darkSnow':
+        // the Vesper Gate's dark snow: violet-black flakes drifting out of the disc onto the road
+        e.timer = 0.14;
+        {
+          const P = this._darkSnow;
+          const a = r() * TAU;
+          const rad = (e.r || 0.6) * r();
+          P.x = e.x + Math.cos(a) * rad;
+          P.y = e.y + Math.sin(a) * rad * 0.6;
+          P.z = e.z + (r() - 0.2) * 0.3;
+          P.vx = (r() - 0.5) * 0.3 + this.gust.value * 0.2;
+          P.vz = 0.15 + r() * 0.25;
+          P.s0 = 0.06 + r() * 0.05;
+          P.rot = r() * TAU;
+          fx.spawn(P);
         }
         break;
       case 'goal':

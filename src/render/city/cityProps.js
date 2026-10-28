@@ -29,6 +29,8 @@ export const CITY_VARIANTS = {
   dryFountain: 1,
   // gates (Gate Arc S5a: the Noon Gate, the subway mouth, the Line 2 station exit as shelterDoor 3)
   petalRift: 2, shelterDoor: 4, noonGate: 2, subwayMouth: 1,
+  // Gate Arc S6a: Vesperline's sentry bay (spawn), the Vesper Gate (6-10's spawn), the shelter with one warm window
+  sentryBay: 1, vesperGate: 2, vesperShelter: 1,
 };
 
 /** Height of a rooftop ('U' tile, src/sim/placement.js): girls stand on it, so it stays low (≤ 0.6) and readable. */
@@ -88,6 +90,33 @@ export function noonGateLean(variant, out = new THREE.Matrix4()) {
   const F = NOON_GATE.foot;
   const lean = NOON_GATE.leans[variant % NOON_GATE.leans.length];
   return out.makeTranslation(0, F, 0).multiply(new THREE.Matrix4().makeRotationX(-lean)).multiply(new THREE.Matrix4().makeTranslation(0, -F, 0));
+}
+
+/**
+ * Vesperline's sentry bay (Gate Arc S6a, THEMES.vesper.spawnGate): w across (≥ 2 tiles, so it reads at
+ * 844×390), d deep beyond the board edge, h high (low enough to keep the HUD band clear), door: the open bay.
+ */
+export const SENTRY_BAY = Object.freeze({ w: 2.1, d: 1.4, h: 0.86, door: 1.12 });
+
+/**
+ * The Vesper Gate (Gate Arc S6a, 6-10's spawn: map.city.spawnGate 'vesperGate', GATE_ARC §18.4): R the ring's
+ * radius (2R ≥ 2 tiles across), cy its centre's height before the lean (the Noon Gate's lean and foot), glow
+ * the size of its biggest sprite: the largest on its board (the brightest thing on 6-10).
+ */
+export const VESPER_GATE = Object.freeze({ R: 1.08, cy: 1.2, glow: 2.6 });
+const VG = {
+  red: '#ff5a6a', glass: '#e4eff5', frame: '#f2f6f9', roof: '#9db3c2', steel: '#8a9cab', steelDark: '#2e3844', cyan: '#5fe1f2',
+  violetDark: '#2a1f4a', violet: '#6a54b8', black: '#0e0a1a', whiteGold: '#fff1c4', gold: '#ffd27a', warm: '#ffd9a0', amber: '#ffb347',
+};
+
+/**
+ * Where the Vesper Gate stands for a spawn gate walking in along `dir`: the Noon Gate's placement (the same
+ * lean variants; on the far edge it stands further in still, 2 tiles, so its whole ring reads under the battle's HUD band).
+ * @param {number[]} dir [dx, dz] unit walk direction at the gate
+ */
+export function vesperGatePlacement(dir) {
+  const p = noonGatePlacement(dir);
+  return dir[1] > 0.7 ? { ...p, inset: 2.0 } : p;
 }
 
 /** One glass shard of the Noon Gate's ring (opaque white glass, a cyan core), its long axis along +x. */
@@ -722,6 +751,101 @@ export const CITY_BUILDERS = {
     glowPoint(c, 0, 0.06, 0.5, RIFT.pink, 1.1, 0.1);
     c.emitters.push({ kind: 'portal', x: 0, y: 0.08, z: 0.3, color: col });
     c.emitters.push({ kind: 'riftPetals', x: 0, y: 0.24, z: 0.1 });
+  },
+
+  sentryBay(c) {
+    // Vesperline's spawn (Gate Arc S6a, THEMES.vesper.spawnGate; GATE_ARC §18.4): a sentry hangar on the board
+    // edge, ≥ 2 tiles across (SENTRY_BAY.w), its shutter rolled up over a dark bay the column walks out of
+    // (local +z), red status lights either side of the door and over it (glow geometry and sprites: they stay
+    // lit in a blackout, terrain.js KEEP_LIT), hazard chevrons on the door frame, a white glass roof with the
+    // city's cyan band, snow on it when frozen. The block stands beyond the edge (-z), deep enough to hide
+    // most of the road's run-out behind it.
+    const { w, d, h, door } = SENTRY_BAY;
+    const F = c.facade;
+    const red = c.look.gate?.spawn || VG.red;
+    const side = (w - door) / 2;
+    for (const s of [-1, 1]) F.box(s * (door / 2 + side / 2), 0, -d / 2, side, h, d, { color: VG.glass, side: FK.office, top: VG.roof });
+    F.box(0, h - 0.2, -d / 2, door, 0.2, d, { color: VG.glass, top: VG.roof });
+    // the dark bay inside, the rolled-up shutter under the lintel
+    F.box(0, 0, -d + 0.04, door, h - 0.2, 0.04, { color: '#141a24', noTop: true });
+    F.box(0, h - 0.27, -0.06, door - 0.04, 0.07, 0.1, { color: VG.steel, side: FK.shutter });
+    // the roof: a white rim and the cyan band along the front
+    F.box(0, h, -d / 2, w + 0.06, 0.05, d + 0.06, { color: VG.frame });
+    F.box(0, h - 0.06, 0.004, w, 0.05, 0.012, { color: VG.cyan, noTop: true });
+    if (c.look.frozen) c.solid.box(w, 0.03, d, { y: h + 0.05, z: -d / 2, color: '#f1f5f9' });
+    // hazard chevrons up the door jambs (red and white)
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) c.solid.box(0.05, 0.1, 0.02, { x: s * (door / 2 + 0.03), y: 0.04 + i * 0.14, z: 0.012, color: i % 2 ? '#f4f6f8' : '#d9473f' });
+    // the status lights: one each side of the door and one over it
+    for (const [x, y] of [[-(door / 2 + 0.16), 0.5], [door / 2 + 0.16, 0.5], [0, h - 0.1]]) {
+      c.glow.box(0.1, 0.08, 0.02, { x, y, z: 0.02, color: red });
+      glowPoint(c, x, y + 0.04, 0.1, red, 0.7, 0.25);
+    }
+    glowPoint(c, 0, 0.2, 0.5, red, 1.0, 0.15);
+    c.emitters.push({ kind: 'portal', x: 0, y: 0.15, z: 0.25, color: red });
+  },
+
+  vesperGate(c) {
+    // the Vesper Gate (Gate Arc S6a, 6-10's spawn: map.city.spawnGate 'vesperGate'; GATE_ARC §18.4): a ring of
+    // white-gold glass round a black-violet disc, standing on the board edge and leaning like the Petal
+    // Gate's rift (variant: riftPlacement), dark snow falling out of it onto the road. The brightest thing on
+    // its board: the ring is unlit glow geometry and its sprites are the largest on the board (VESPER_GATE).
+    // Local +z = the way the column walks out.
+    const { R, cy } = VESPER_GATE;
+    const T = noonGateLean(v(c, 'vesperGate'));
+    const disc = (r, z, color) => {
+      c.glow.add(new THREE.CircleGeometry(r, 20), { y: cy, z, color, matrix: T });
+      c.glow.add(new THREE.CircleGeometry(r, 20), { y: cy, z: -z, ry: Math.PI, color, matrix: T });
+    };
+    disc(R * 0.9, 0.004, VG.violetDark);
+    disc(R * 0.6, 0.01, VG.black);
+    // faint violet eddies in the dark
+    for (const [r, a] of [[0.7, 0.2], [0.45, 1.4]]) c.glow.torus(R * r, 0.012, 3, 16, { y: cy, z: 0.014, rz: a, arc: Math.PI * 1.2, color: VG.violet, matrix: T });
+    // the white-gold ring: a glowing band and glass blocks set in it
+    c.glow.torus(R * 0.94, 0.06, 4, 22, { y: cy, color: VG.whiteGold, matrix: T });
+    c.glow.torus(R * 1.02, 0.025, 3, 22, { y: cy, color: VG.gold, matrix: T });
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      c.solid.box(0.16, 0.13, 0.12, { x: Math.cos(a) * R, y: cy + Math.sin(a) * R - 0.065, rz: a, color: i % 2 ? VG.glass : VG.frame, matrix: T });
+    }
+    // the cradle and its two struts
+    c.solid.torus(R + 0.1, 0.06, 4, 16, { y: cy, arc: Math.PI, rz: Math.PI, color: VG.steelDark, matrix: T });
+    for (const s of [-1, 1]) c.solid.box(0.12, cy - R * 0.66, 0.12, { x: s * (R * 0.72), color: VG.steelDark, matrix: T });
+    // dark snow on the road at its foot
+    c.solid.cyl(0.95, 0.95, 0.01, 16, { y: 0.008, z: 0.35, color: '#3a3150' });
+    const mid = new THREE.Vector3(0, cy, 0.05).applyMatrix4(T);
+    const top = new THREE.Vector3(0, cy + R, 0.05).applyMatrix4(T);
+    // (the biggest sprite pools white-gold light on the road at its foot, so the disc itself stays black-violet;
+    // a violet halo round the disc, gold at the ring's crown)
+    glowPoint(c, 0, 0.15, 0.65, VG.whiteGold, VESPER_GATE.glow, 0.05);
+    glowPoint(c, mid.x, mid.y, mid.z, VG.violet, 1.5, 0.08);
+    glowPoint(c, top.x, top.y, top.z, VG.gold, 1.2, 0.06);
+    c.emitters.push({ kind: 'darkSnow', x: mid.x, y: mid.y, z: mid.z + 0.1, r: R });
+    c.emitters.push({ kind: 'darkSnow', x: 0, y: 0.5, z: 0.5, r: 0.5 });
+  },
+
+  vesperShelter(c) {
+    // Vesperline's goal (Gate Arc S6a, THEMES.vesper.goalGate): the shelter at the foot of the white tower,
+    // a frosted white block over the end of the road, its door open, and ONE warm window still lit beside it
+    // (amber glow geometry and sprite: it stays lit in a blackout). The shipped heart sign over the door and
+    // a glowing heart on the roof (what the camera sees from above), as every shelter has.
+    const F = c.facade;
+    const pink = '#ff7aa2';
+    const depth = 0.95;
+    const H = 0.64;
+    for (const s of [-1, 1]) F.box(s * 0.62, 0, depth / 2, 0.3, H, depth, { color: VG.glass, side: FK.office });
+    F.box(0, H - 0.18, depth / 2, 0.94, 0.18, depth, { color: VG.glass });
+    F.box(0, 0, depth - 0.04, 0.94, H - 0.18, 0.04, { color: '#1c2230', noTop: true });
+    F.box(0, H, depth / 2, 1.6, 0.05, depth + 0.1, { color: VG.roof });
+    F.box(0, H + 0.05, depth / 2, 1.4, 0.012, depth - 0.1, { color: VG.frame });
+    if (c.look.frozen) c.solid.box(1.5, 0.03, depth, { y: H + 0.062, z: depth / 2, color: '#f1f5f9' });
+    // the one warm window, on the face toward the board, beside the door
+    c.solid.box(0.2, 0.18, 0.02, { x: -0.62, y: 0.26, z: -0.006, color: '#3a3026' });
+    c.glow.box(0.16, 0.14, 0.012, { x: -0.62, y: 0.28, z: -0.014, color: VG.warm });
+    glowPoint(c, -0.62, 0.36, -0.12, VG.amber, 0.8, 0.04);
+    c.glow.add(heartGeometry(0.2), { y: H + 0.068, z: depth / 2, rx: -Math.PI / 2, color: pink });
+    c.glow.add(heartGeometry(0.11), { y: H - 0.08, z: -0.03, color: pink });
+    glowPoint(c, 0, H + 0.12, depth / 2, pink, 0.9, 0.06);
+    c.emitters.push({ kind: 'goal', x: 0, y: H, z: depth / 2, color: pink });
   },
 };
 

@@ -489,6 +489,9 @@ MapDef = {
         // (+ 'drowned', the Drowned Line (Gate Arc Step 5, Act 5 underground): the city kit with the
         //  drowned set, src/render/city/drownedProps.js; see "Drowned Line" below. `city.spawnGate:
         //  'noonGate'` (5-8) stands the Noon Gate as a map's spawn gate on any city-kit theme)
+        // (+ 'vesper', Vesperline (Gate Arc Step 6, Act 6): the city kit with the vesper set,
+        //  src/render/city/vesperProps.js; see "Vesperline" below. `city.spawnGate: 'vesperGate'` (6-10)
+        //  stands the Vesper Gate; `bridge: { skyRail: true }` the sky-rail girder on raised runs)
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
@@ -1857,6 +1860,66 @@ docs/specs/gate-arc/STEP5_BUILD_PLAN.md §2-3; preview boards in previews/drowne
   `themeBackdropSVG('city', { variant: 'reservoir'|'willow', time })`; `PLACE_VARIANT` (src/ui/story/backdrop.js,
   exported) maps `noon_flooded_platform`, `noon_line2_tunnels`, `noon_pump_station`, `noon_reservoir_park`,
   `noon_reservoir_willow`; thumbnail palettes `drowned`, `park`.
+
+Gate Arc Step 6 render hooks (S6a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP6_BUILD_PLAN.md §2-3; preview boards in previews/vesperMaps.js):
+- **Vesperline** — `MapDef.theme: 'vesper'`: `themes.THEMES.vesper` on the city kit (`city.kit: 'vesper'`, no drones,
+  no raised kerbs): the LIVING city by itself (white glass panels, `groundStyle: 'glass'`; the `glassway` road: white
+  panels with a cyan guide line, `textures.GLASSWAY`, the lightest band; sky-blue pools; cherry trees in glass
+  courtyards; a bright morning). `lectureHall` / `podium` on the board (≤ BOARD_MAX_H), `frostedPane` on the border,
+  holo lane lamps (`holoSign` 0) along the lanes instead of poles (no signals, wires, subway signs or painted
+  crossings, no cracked road at a spawn), glass towers / lecture halls / courtyard trees round the board, the
+  `gallery` tunnel style (the museum's wings: white halls, a glass roof strip, a pale gold band, pedimented
+  portals), the glass light-bridge on water decks and overpasses (`bridge.glass`: a pale deck, a cyan edge glow in
+  unlit glow geometry, `buildDecks().glow`), spawn `sentryBay` (a hangar ≥ 2 tiles across, red status lights kept
+  lit), goal `vesperShelter` (one warm window kept lit). Music family 'ironclock'.
+- **Frozen** — `StageDef.scenery.ruined: 'frozen'` on a `vesper` map (any other theme ignores it): `themes.FROZEN`,
+  resolved in `resolveLook` (sets `look.frozen`, `look.frost`, `look.aurora`; `look.dusk` unless the stage is at
+  night): frosted blue-grey glass with cyan cracks (`groundPaint.rime`) and snow drifts (`drifts`), the glassway kept
+  the lightest band, near-black open water (the darkest band; ice, islands and shores lighter), an eclipse dusk
+  (key ≥ 1.2, the lamps and holo signs on with their pools), snow, a cold aurora over the back skirt (ambient
+  'aurora'), the holo signs flickering hard (some lane lamps dead), snow and icicles on every ledge, the cherry
+  crowns frosted; at night `FROZEN.nightLight` / `nightBg`. The prop cache keys on `look.frozen`.
+- **Sky-rail and viaducts** — `MapDef.bridge: { skyRail: true }`: raised runs are a box girder (a pale running deck
+  whose kerb strips frame the glassway, so the road stays the lightest band on top; a deep fascia; a parapet post
+  every ≈ 1.6 tiles) on single white pylons. Piers stand all along a long raised run — every `PYLON_STEP` (2.0) on
+  any road with S6v's `track.viaducts` (carried by `planRoads` as `road.viaducts`) or under the sky-rail look —
+  besides the shipped pairs at crossings, always clear of the lower road (`buildDecks().piers` lists them). The
+  far end of every viaduct span is `buildDecks().viaductEnds`: SCENERY 'brokenSpan' (slot 'railEnd') hangs a pod
+  there (`skyRailPod` 0) beside the road. The deck's shadow is the shipped overpass shadow. Shipped maps (no
+  viaducts, no sky-rail) are unchanged (terrainGolden).
+- **Vesper Gate** — `MapDef.city.spawnGate: 'vesperGate'`: a white-gold glass ring round a black-violet disc on the
+  board edge, leaning like the rift (`vesperGatePlacement`: 2 tiles in on the far edge, clear of the HUD band),
+  `VESPER_GATE.R` 1.08 (≥ 2 tiles across), the largest glow sprite on the board (`VESPER_GATE.glow` 2.6, pooling on
+  the road at its foot so the disc stays dark), dark snow falling out (emitter 'darkSnow'). `gates[i].vesper`.
+- **Transit pads** — `RuleDecals({ transit })` (BattleRenderer: a `vesper` board or the keyword 'transitPads'): the
+  shifting_stars rift points (`portals.at`, `at + jump`) draw as cyan floor rings `TRANSIT_PAD.d` (1.6) across with
+  a light pulsing inward; the jump flashes cyan.
+- **Decor** — a decor may give its `variant` (`{ type: 'spindle', x, y, r: 2, variant: 0 }`: the Spindle's foot on
+  the board, drawing its own tiles within `r`); any vesperProps type may be decor (`doorieStatue` in the rotunda).
+- **Dressing keywords** (src/render/terrain.js SCENERY): 'frostCauseway' (a Doorie bus + 'gateStatues' halo statues
+  inside the goal + 'skyRailRuins' pods in the skirt), 'prismBatteries' (slot 'pad': a `prismBattery` ring round each
+  relay pad, the middle clear), 'skyRailViaduct' (look + 'brokenSpan', 'railPods', 'stationCanopy', 'deadHolo'),
+  'frozenCanal' (glass shards on the water), 'museumWings' (look + 'museumBits': frozen fountains, a halo statue),
+  'doorieStatue', 'reflectingPools' (sparkles on the water), 'towerRing' (podiums and halo statues + 'holoSigns'),
+  'transitPads' (transit pad rings in the skirt; the decals are the rule's), 'cleaningRobot' (look: the kit's one
+  mover, a cleaning robot circling the paving of the west skirt; `buildCity({ keywords })`), 'spindleFoot' (slot
+  'spire': the Spindle's shaft in the back skirt behind its foot + 'vesperTerminal' consoles inside the spawn gates +
+  'terminalHall' bays in the skirt), 'frozenNest' (the nest in the skirt + 'greyWool' on the board), 'warmWindow'
+  (look: the shelter's window glows brighter), 'starDome' (dome ribs and orrery rings in the skirt + 'starShards' on
+  the board), 'coldAurora' (ambient 'aurora'), 'holoSigns' (billboards and arrow kiosks along the lanes), 'frostHaze'
+  (ambient: pale wisps creeping low over the board).
+- **Blackout on vesper** — as Step 2's: the holo signs and exhibits dim; the gates (`sentryBay`, `vesperGate`,
+  `vesperShelter` in KEEP_LIT), the warm window and the light-bridge's edge glow keep their light.
+- **Falls** — `fallStyleOf`: `vesper_lattice_shell` 'sparkFall', `vesper_aegis` / `vesper_warden` /
+  `vesper_gatekeeper` 'breakdown' (the def's accent: the Gatekeeper's amber); any `rime_*` id 'fade' with
+  `fallTintOf` → `RIME_TINT` (violet motes and puff), never the homeward sparkle even with `def.fall: 'sparkle'`.
+  `fx.death(…, { homeward, puff })`.
+- **Story places** — `themeBackdropSVG('vesper', { variant, time })` with `VESPER_PLACES` 'causeway' (default),
+  'skyrail', 'museum', 'towers', 'spindle', 'starfall' (a night place); every one takes `dusk` / `dawn` / `night`;
+  the eclipse stays inside the 16:9 crop. `PLACE_VARIANT` maps `vesper_frost_causeway`, `vesper_skyrail`,
+  `vesper_museum`, `vesper_tower_ring`, `vesper_spindle_foot`, `vesper_starfall`; thumbnail palettes `vesper`
+  (living) and `frozen` (`stageThumbSVG(map, { ruined: 'frozen' })`).
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 

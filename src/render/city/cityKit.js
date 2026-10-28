@@ -64,7 +64,13 @@
 //     painted crossings), willows and cherries round the board, the bandstand, the city beyond,
 //   • the Noon Gate's ring (Gate Arc S5a, map.city.spawnGate 'noonGate'): its glass shards turning round
 //     the gate's disc, one instanced mover (cityProps NOON_GATE, ≤ 24 shards in all), unlit so the gate
-//     stays the brightest thing on the board.
+//     stays the brightest thing on the board,
+//   • Vesperline (Gate Arc S6a, look.city.kit 'vesper', themes.THEMES.vesper; frozen with FROZEN): lecture
+//     halls and podiums on the board (vesperProps.js), holo lane lamps along the lanes (now and then a dead
+//     one when frozen; no signals, wires, subway signs or painted crossings), frosted panes on the border,
+//     courtyard trees and panes in front, lecture halls at the sides, glass towers behind (far LOD); no
+//     drones: with the scenery keyword 'cleaningRobot' the drones' pool carries one cleaning robot circling
+//     on the paving in front of the board (`o.keywords`).
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -78,6 +84,7 @@ import { prim } from './buildings.js';
 import { OLD, LANTERN_STRINGS } from './oldTownProps.js';
 import { RUIN_ON_BOARD } from './ruinProps.js';
 import { BARRIER_ARM, HW, barrierArmBoxes } from './highwayProps.js';
+import { VESPER_VARIANTS, cleaningRobotGeometry } from './vesperProps.js';
 
 export { ROOF_Y };
 import { crosswalkMarks } from '../groundFeatures.js';
@@ -320,6 +327,13 @@ export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
     // the valve tower or the spillway chute (parkProps DAM_KINDS, all ≤ BOARD_MAX_H)
     return { type: 'damWall', variant: roll < 55 ? 0 : roll < 74 ? 1 : roll < 88 ? 2 : 3 };
   }
+  if (kit === 'vesper') {
+    // Vesperline: lecture halls, entrance halls and the library along the lanes, now and then a podium in
+    // its courtyard; one row back the library, the observatory annex and podiums (vesperProps HALL_KINDS,
+    // all ≤ BOARD_MAX_H)
+    if (d <= 1) return roll < 18 ? { type: 'podium', variant: (h >>> 8) % VESPER_VARIANTS.podium } : { type: 'lectureHall', variant: roll < 52 ? 0 : roll < 78 ? 1 : 2 };
+    return roll < 22 ? { type: 'podium', variant: (h >>> 8) % VESPER_VARIANTS.podium } : { type: 'lectureHall', variant: roll < 55 ? 2 : roll < 80 ? 3 : 0 };
+  }
   if (kit === 'campus') {
     // the school: classroom wings along the roads, now and then a club hut or a bay of the gym;
     // one row back the gym and the wings (every one of them low: campusProps SCHOOL_ON_BOARD)
@@ -345,6 +359,8 @@ export function cityWallVariant(map, x, y, kit = null) {
   const h = hash(map.id, 'wall', x, y);
   // (the campus and the reservoir park: no construction fence)
   if (kit === 'campus' || kit === 'park') return h % 2 ? 2 : 0;
+  // (Vesperline's border: its frosted panes, vesperProps.frostedPane)
+  if (kit === 'vesper') return h % VESPER_VARIANTS.frostedPane;
   return h % CITY_VARIANTS.cityWall;
 }
 
@@ -364,6 +380,7 @@ const WALL_TOP = [0.27, null, 0.375];
  * @param {Set<string>} o.occupied tiles with a prop (the kit adds its own)
  * @param {object[]} o.gates terrain gate markers ({ kind, x, z, dir })
  * @param {object[]} o.portals tunnel portals ({ x, z, dir, end })
+ * @param {string[]} [o.keywords] the stage's scenery keywords (Vesperline's 'cleaningRobot')
  * @param {Function} o.place terrain prop placer (type, x, y, z, ry, s, variant, target, lod)
  * @param {THREE.BufferGeometry[]} o.facadeParts the terrain's facade parts (merged into one mesh)
  * @param {string} [o.quality]
@@ -388,7 +405,9 @@ export function buildCity(o) {
   // signals, wires or painted crossings
   const drowned = cfg.kit === 'drowned';
   const park = look.district === 'park';
-  const plainLanes = oldtown || highway || drowned || park;
+  // Vesperline (kit 'vesper', Gate Arc S6a): holo lane lamps, no signals, wires or painted crossings
+  const vesper = cfg.kit === 'vesper';
+  const plainLanes = oldtown || highway || drowned || park || vesper;
   const ruined = !!look.ruined;
   const rand = makeRand(hash(map.id, 'city'));
   const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
@@ -659,7 +678,7 @@ export function buildCity(o) {
   for (const g of gates) {
     // (a rift standing on the water, a mid-board lane's start on a jetty: no cracked road under it;
     // nor at a subway mouth or the Noon Gate, whose rifts are not in the street)
-    if (g.kind !== 'spawn' || g.onWater || g.mouth || g.noon) continue;
+    if (g.kind !== 'spawn' || g.onWater || g.mouth || g.noon || vesper) continue;
     marks.push({ kind: 'cracks', x: g.x + g.dir[0] * 0.55, z: g.z + g.dir[1] * 0.55, rot: Math.atan2(-g.dir[1], g.dir[0]), color: look.gate?.spawn || '#b46cff' });
   }
 
@@ -688,7 +707,7 @@ export function buildCity(o) {
     const side = hash(map.id, 'poles', r.index) % 2 ? 1 : -1;
     for (let i = 1; i < r.pts.length - 1; i++) {
       dist += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
-      if (dist < (campus || drowned ? 3.4 : highway ? 3.8 : park ? 3.2 : 3.0)) continue;
+      if (dist < (campus || drowned || vesper ? 3.4 : highway ? 3.8 : park ? 3.2 : 3.0)) continue;
       const [x, z] = r.pts[i];
       const breakRun = () => {
         if (run.length) {
@@ -701,7 +720,7 @@ export function buildCity(o) {
         continue;
       }
       const [nx, nz] = normalAt(r, i);
-      const off = highway ? 0.88 : drowned ? 0.8 : 0.72;
+      const off = highway ? 0.88 : drowned || vesper ? 0.8 : 0.72;
       const px = x + nx * side * off;
       const pz = z + nz * side * off;
       if (!walkOk(r, i, side) || nearGate(px, pz, 1.5) || nearBarrier(px, pz, 1.3) || nearCrossing(px, pz, 1.3) || nearPortal(px, pz, 0.9) || !freeSpot(px, pz, 1.0)
@@ -734,8 +753,10 @@ export function buildCity(o) {
       run.push([px, pz, ry]);
       // (the campus: a lamp post with its arm over the road, no wires; the Drowned Line: a work lamp
       // with a red emergency lamp on its post; the park: a park lamp)
-      const lampType = campus ? 'streetLamp' : highway ? 'highwayLamp' : drowned ? 'emergencyLight' : park ? 'parkLamp' : 'powerPole';
-      place(lampType, px, quality === 'low' || highway || drowned || park ? 0 : SW_Y, pz, ry, 1, drowned ? 2 : 0);
+      // (Vesperline: a holo lane lamp; the frozen city's lamps now and then dead)
+      const lampType = campus ? 'streetLamp' : highway ? 'highwayLamp' : drowned ? 'emergencyLight' : park ? 'parkLamp' : vesper ? 'holoSign' : 'powerPole';
+      const lampVariant = drowned ? 2 : vesper && look.frozen && run.length % 4 === 3 ? 3 : 0;
+      place(lampType, px, quality === 'low' || highway || drowned || park || vesper ? 0 : SW_Y, pz, ry, 1, lampVariant);
       dist = 0;
     }
   }
@@ -778,7 +799,7 @@ export function buildCity(o) {
         if (top != null) walls.push([x, y, top]);
       }
     }
-    if (walls.length && !highway && !drowned) {
+    if (walls.length && !highway && !drowned && !vesper) {
       const [x, y, top] = walls[hash(map.id, 'cat') % walls.length];
       const alongX = y === 0 || y === H - 1;
       place('catOnWall', x + 0.5, top, y + 0.5, alongX ? 0 : Math.PI / 2, 1, hash(map.id, 'catv') % 2);
@@ -808,7 +829,7 @@ export function buildCity(o) {
   }
 
   // ----- subway signs at the tunnel mouths ------------------------------------------------
-  for (const p of campus || highway ? [] : portals) {
+  for (const p of campus || highway || vesper ? [] : portals) {
     const [dx, dz] = p.dir;
     const nx = -dz;
     const nz = dx;
@@ -900,6 +921,31 @@ export function buildCity(o) {
       }
       const hall = back || h % 3 === 0;
       place(hall ? 'pumpHall' : 'stationBox', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, hall ? 1.0 : 1.5, hall ? h % 2 : [0, 1, 5, 4][h % 4], null, lod);
+      claim();
+      return;
+    }
+    if (vesper) {
+      // Vesperline round the board: courtyard trees and low frosted panes in front (near the camera), lecture
+      // halls and the terminal's bays at the sides and along the back, glass towers further back (far LOD)
+      const claim = () => {
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+      };
+      if (front) {
+        place(h % 3 ? 'courtyardTree' : 'frostedPane', cx, 0, cz, h % 3 ? (h % 628) / 100 : 0, 1.2, h % 4, null, 'far');
+        return;
+      }
+      if (back && depth >= 2) {
+        place('glassTower', cx, 0, cz, (h % 4) * 0.1 - 0.15, 1, h % 4, null, 'far');
+        claim();
+        return;
+      }
+      if (h % 5 === 0) {
+        place('courtyardTree', cx, 0, cz, (h % 628) / 100, 1.3, h % 3, null, 'far');
+        return;
+      }
+      const ry = back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2;
+      if (!back && depth >= 2) place('glassTower', cx, 0, cz, ry, 0.85, [0, 3, 2][h % 3], null, 'far');
+      else place('lectureHall', cx, 0, cz, ry, 1.5, [0, 2, 1, 3][h % 4], null, lod);
       claim();
       return;
     }
@@ -1093,17 +1139,20 @@ export function buildCity(o) {
   }
 
   // ----- Brigade patrol drones holding station over the side skirts (dressing only) --------
-  const nDrones = cfg.drones === false ? 0 : quality === 'high' ? 4 : quality === 'medium' ? 3 : 2;
+  // (Vesperline: no drones; the cleaning robot that still circles the plaza rides this pool instead, one
+  // instance, on the ground: scenery 'cleaningRobot')
+  const robot = vesper && (o.keywords || []).includes('cleaningRobot');
+  const nDrones = robot ? 1 : cfg.drones === false ? 0 : quality === 'high' ? 4 : quality === 'medium' ? 3 : 2;
   let drones = null;
   const flights = [];
   /** Where each drone is now ({ x, y, z }): the actor layer drops a soft shadow under each, which
    * is what tells the near top-down camera that they fly high (without one they read as standing). */
   const flyers = [];
   if (nDrones > 0) {
-    const geo = droneGeometry(new CityAcc());
+    const geo = robot ? cleaningRobotGeometry(new CityAcc()) : droneGeometry(new CityAcc());
     disposables.push(geo);
     drones = new THREE.InstancedMesh(geo, getFacade(), nDrones);
-    drones.name = 'cityDrones';
+    drones.name = robot ? 'cleaningRobot' : 'cityDrones';
     drones.frustumCulled = false;
     drones.userData.cast = false;
     meshes.push(drones);
@@ -1116,7 +1165,24 @@ export function buildCity(o) {
     // camera turns and that lift carries it toward the board from the east side.
     const LIFT = 0.9;
     const R = 0.45;
-    for (let i = 0; i < nDrones; i++) {
+    if (robot) {
+      // the cleaning robot's round: a slow circle on the paving of the west skirt, beside the board (never on
+      // the board, where it would read as one of the column; never under the HUD or the tower bar), clear of
+      // the roads that leave that edge
+      const roadsHere = gates.filter((g) => g.x < 0.5).map((g) => g.z);
+      let az = H / 2;
+      let best = -1;
+      for (const c of [H / 2, H * 0.3, H * 0.7]) {
+        const dd = roadsHere.length ? Math.min(...roadsHere.map((z) => Math.abs(z - c))) : 99;
+        if (dd > best + 0.5) {
+          best = dd;
+          az = c;
+        }
+      }
+      flights.push({ cx: -1.7, cz: az, y: 0.01, r: 0.75, w: 0.32, ph: dr() * 6.28, ground: true });
+      flyers.push({ x: 0, y: 0, z: 0 });
+    }
+    for (let i = robot ? nDrones : 0; i < nDrones; i++) {
       const west = i % 2 === 0;
       const off = west ? 1.8 + dr() * 1.0 : 4.0 + dr() * 0.8;
       const y = 3.3 + dr() * 0.6;
@@ -1399,9 +1465,9 @@ export function buildCity(o) {
         const a = time * f.w + f.ph;
         const x = f.cx + Math.cos(a) * f.r;
         const z = f.cz + Math.sin(a) * f.r;
-        const y = f.y + Math.sin(time * 1.9 + f.ph) * 0.05;
-        // nose along the circle
-        eu.set(0.08, Math.atan2(-Math.sin(a) * f.w, Math.cos(a) * f.w), Math.sin(time * 1.4 + i) * 0.05);
+        const y = f.ground ? f.y : f.y + Math.sin(time * 1.9 + f.ph) * 0.05;
+        // nose along the circle (the cleaning robot rolls flat)
+        eu.set(f.ground ? 0 : 0.08, Math.atan2(-Math.sin(a) * f.w, Math.cos(a) * f.w), f.ground ? 0 : Math.sin(time * 1.4 + i) * 0.05);
         q.setFromEuler(eu);
         m4.compose(pv.set(x, y, z), q, sc);
         drones.setMatrixAt(i, m4);
@@ -1438,7 +1504,7 @@ export function buildCity(o) {
     stats: {
       corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
       kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones, crossings: levelCrossings.length,
-      kit: campus ? 'campus' : drowned ? 'drowned' : 'city', searchlights: searchlights.length, noonShards: ring.length, pieces: (cfg.pieces || []).length,
+      kit: campus ? 'campus' : drowned ? 'drowned' : vesper ? 'vesper' : 'city', robot, searchlights: searchlights.length, noonShards: ring.length, pieces: (cfg.pieces || []).length,
       district: look.district || null, ruined: look.ruined || null, lanterns, barriers: barriers.length, railTris, flyovers,
     },
   };
