@@ -86,5 +86,49 @@
    "content": 796,
    "host": null
   }
+ },
+ "notice": {
+  "844x390": {
+   "text": 12,
+   "numbers": 17,
+   "tapMin": 32.75,
+   "under44": 3,
+   "yellow": 3,
+   "pinkStray": 0,
+   "radius": 11,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": null,
+   "host": null
+  },
+  "1280x720": {
+   "text": 12.48,
+   "numbers": 20,
+   "tapMin": 32.75,
+   "under44": 4,
+   "yellow": 4,
+   "pinkStray": 0,
+   "radius": 15,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": null,
+   "host": null
+  },
+  "390x844": {
+   "text": 12.48,
+   "numbers": 17,
+   "tapMin": 32.75,
+   "under44": 3,
+   "yellow": 3,
+   "pinkStray": 0,
+   "radius": 11,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": null,
+   "host": null
+  }
  }
 }

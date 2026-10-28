@@ -790,5 +790,93 @@
    "content": 796,
    "host": null
   }
+ },
+ "girl-gear-picker": {
+  "844x390": {
+   "text": 12,
+   "numbers": 13,
+   "tapMin": 23.75,
+   "under44": 8,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 14,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 13,
+   "numbers": 13,
+   "tapMin": 27.75,
+   "under44": 2,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 15,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 13,
+   "numbers": 13,
+   "tapMin": 27.75,
+   "under44": 2,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 15,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
+ },
+ "girl-gear-totals": {
+  "844x390": {
+   "text": 12,
+   "numbers": 19,
+   "tapMin": 43.25,
+   "under44": 1,
+   "yellow": 0,
+   "pinkStray": 0,
+   "radius": 15,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 13,
+   "numbers": 22,
+   "tapMin": 47.75,
+   "under44": 0,
+   "yellow": 0,
+   "pinkStray": 0,
+   "radius": 16,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 13,
+   "numbers": 22,
+   "tapMin": 47.75,
+   "under44": 0,
+   "yellow": 0,
+   "pinkStray": 0,
+   "radius": 16,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
  }
 }

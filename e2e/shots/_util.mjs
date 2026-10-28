@@ -10,7 +10,9 @@ export const isScreen = (id) => `() => document.querySelector('#app')?.dataset.s
 
 /** Clicks `sel` and waits for `waitFor` (default: the same selector's sheet or dialog, any). */
 export const clickOpen = (sel, waitFor = '.ui-sheet, .modal, .modal-overlay, [role="dialog"]', { force = false } = {}) => async (page) => {
-  await page.click(sel, { timeout: 10000, force });
+  // (force: the element's own click(), whatever paints over it: an earlier shot's sheet left open)
+  if (force) await page.$eval(sel, (el) => el.click());
+  else await page.click(sel, { timeout: 10000 });
   if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'attached' });
 };
 
