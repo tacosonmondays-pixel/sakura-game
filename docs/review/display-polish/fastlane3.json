@@ -1,0 +1,40 @@
+{
+  "review": "fast lane: Events button (fifth shortcut) and hero widget",
+  "commit": "37277dd4",
+  "verdict": "OK",
+  "summary": "Reviewed da254ae8 (the Events button as the fifth shortcut, eventHomeButton, the hero widget's lift, the v0.1.58 note) and then the shipped default at 37277dd4 (HOME_EVENTS 'plate': the Events tab beside CO-OP on the Battle plate). eventHomeButton routes, dots and time left are right in every case tried (no event, an event the save has not unlocked, active, exchange, after the event). Both placements read cleanly: labels whole, at least 12 px, taps at least 44 px, the dot and the time-left sticker never overlap, nothing near her face, and Marumi's living scene still runs at 844x390, 1280x720 and 1366x768. The hero widget rises once and stays put (no jitter), stays below the top bar and leaves no road end under it at 844x390 and 667x375 on 2-4. Sim id is 2c3c74708a2c. Three lows, no blocker or medium.",
+  "findings": [
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "667x375 (icon-only Events tab): the tab runs 24 px over CO-OP's box, so the two read as one split bar",
+      "detail": "On landscape phones narrower than 760 px the Events label is hidden, but the tab stays 112 px wide. The rule `.ui-night .home .home-coop { min-width: 112px }` in the phone media block comes after `.home-evt { min-width: 0 }` and wins over it. The tab starts at x 539 while CO-OP ends at x 563. Events is drawn on top, so CO-OP's slanted right end and the gap between the tabs disappear, and the right ~22 px of CO-OP's box now open Events. CO-OP still has about 90 px of tap width and both tabs are legible, so this only looks off. Fix: add `min-width: 0` to the phone `.home-evt` rule, and maybe a narrower padding when the label is hidden. At 844x390, 1280x720, 390x844 and 768x1024 the tabs keep a clear gap (16 to 150 px).",
+      "evidence": "Measured at 37277dd4, 667x375: coop x 451-563, events tab x 539-651 (w 112, h 46). An elementFromPoint sweep finds Events (not CO-OP) at x 545-561 across CO-OP's height. A 3x crop shows one joined bar with a slanted divider. At 844x390: coop 588-700, tab 716-828."
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "keepGoalsClear caps the lift at 64 px below the shell top, but the battle HUD is 100 px tall at 667x375",
+      "detail": "heroWidget.js says it keeps the widget out of the top bar by assuming the bar is 64 px (`top - rootTop - 64`). At 667x375 the HUD header (with its NEXT row) measures 0-100. A road end sitting high, near the widget's column, could therefore lift the widget into the NEXT row. This did not happen on 2-4, where the lift was only 24 px and the widget top was at 181. Reading the HUD's real bottom (header.bt-hud getBoundingClientRect().bottom + 8) would close the gap.",
+      "evidence": "667x375, 2-4 easy, hero placed at wave 0: hud [0,0,667,100], widget [12,181,280,247], --herow-lift 24px; at 844x390: hud bottom 46, widget top 236, lift 12px."
+    },
+    {
+      "id": "L3",
+      "severity": "low",
+      "title": "Patch note does not mention the hero widget rising off a road's goal",
+      "detail": "The v0.1.58 note is accurate and friendly: 'right beside Co-op' matches what ships at 37277dd4, and the three changed lines describe this branch's earlier work. A player who saw Lv 3 / LV UP cover the goal on Gate Arc 4-6 might like a line such as 'In battle, the hero's level buttons step up out of the way when a road's gate would be under them on a phone.' Optional.",
+      "evidence": "src/data/patchNotes.js v0.1.58 at 37277dd4"
+    }
+  ],
+  "checks_passed": [
+    "Sim id 2c3c74708a2c (at da254ae8 and 37277dd4)",
+    "npx vitest run tests/systems/eventHomeButton.test.js tests/ui: 684/684 at da254ae8. At 37277dd4: 683 passed plus hostMode 'Missions and Titan Trials' timing out at 5 s while e2e ran alongside; it passed 6/6 when rerun with a longer timeout (code unrelated)",
+    "eventHomeButton edge cases (fresh save that has not cleared 1-5): before the event and after it, route 'rewards' with no dot and no sticker. While active (msLeft 630000000) and in exchange, route 'event' with no dot. markEventLogin sends no letter to a save that has not unlocked the event. Clicking it on a locked save goes to the event page, which shows its lock text.",
+    "Fifth shortcut (da254ae8) at 844x390, 667x375, 740x360, 932x430, 1024x768, 1280x720, 1920x1080, 390x844, 360x800 and 768x1024: labels whole (12 px at 64 px cells, 13 px elsewhere), cells at least 62x56. The '10d' sticker sits in the cell's top-left and the dot at the glyph's top right, never overlapping (they nearly touch at 360x800). Three by two on landscape phones; 64 px cells and 12 px caps where the home folds for Marumi at 1280x720.",
+    "Plate tab (37277dd4) at 844x390, 667x375 (icon only), 1280x720, 1366x768, 390x844 and 768x1024: 112x46 / 127x60 taps, labels 13/15 px, sticker 12 px, dot and sticker apart, the tab clear of the plate, her face box (placement().face) and CO-OP everywhere except 667x375 (L1). The dock is back to four.",
+    "Marumi's living scene: live at 844x390, 1280x720 and 1366x768 with the plate default; live at 844x390, 932x430 and 1280x720 with the fifth shortcut. Still portrait at 667x375 and 740x360 (why 'fit'), as before.",
+    "The Events button opens #/event/halloween-2026 at every size. When no event runs, it opens Happening Now (home.mjs out-of-season check).",
+    "Hero widget on 2-4 easy (hero placed by tapping grass at wave 0): over about 5 s, one widget top and one --herow-lift value were seen (no jitter). The widget stays below the top HUD, and no road start or goal lies under it at 844x390 or 667x375. HUD, bar and cards intact (667x375 screenshot read).",
+    "node e2e/home.mjs at 37277dd4: 236 ok, 0 failed (incl. 14 controls, the Events dot and sticker match the save, opens the event, out of season no dot or sticker and Happening Now, Marumi live at 844x390 and 1280x720). The first run at da254ae8 passed its 118 checks to that point (844x390, incl. the Events checks), then stopped on a 30 s screenshot timeout at 1280x720 while another e2e loaded the machine"
+  ]
+}
