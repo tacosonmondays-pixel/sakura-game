@@ -321,8 +321,6 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-fslot .unit-card-art { position: absolute; inset: 0; }
 .mb-fslot-name { position: absolute; left: 0; right: 0; bottom: 0; font-size: 0.7rem; font-weight: 900; color: #fff; background: linear-gradient(0deg, rgba(10, 20, 40, 0.85), transparent); padding: 10px 4px 3px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mb-fslot-x { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; background: rgba(255, 77, 109, 0.92); color: #fff; font-size: 0.8rem; display: grid; place-items: center; line-height: 1; }
-.mb-fslot-caps { position: absolute; left: 3px; top: 3px; display: flex; flex-direction: column; gap: 2px; }
-.mb-fslot-caps .svg-icon { width: 18px; height: 18px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4)); }
 .mb-fslot.flash { animation: mb-pulse 480ms var(--mb-ease); }
 .mb-squad-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .mb-saved { font-size: 0.8rem; font-weight: 800; color: var(--good); display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity var(--mb-panel); }
@@ -343,16 +341,13 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-rec-units { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
 .mb-rec-add { border: none; padding: 2px; background: none; position: relative; min-width: 40px; min-height: 40px; display: grid; place-items: center; }
 .mb-rec-add::after { content: '+'; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--yellow-deep); color: var(--navy); font-size: 0.75rem; font-weight: 900; display: grid; place-items: center; line-height: 1; box-shadow: 0 0 0 2px #fff; }
-.mb-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+/* (girl tiles since UI v2 M3: 104 px and up keeps her name and LV whole in the caption) */
+.mb-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
 .mb-pick { position: relative; }
 .mb-pick .unit-card { width: 100%; }
 .mb-pick.in .unit-card { outline: 3px solid var(--yellow); outline-offset: 1px; }
 .mb-pick-check { position: absolute; top: 22px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: var(--yellow); color: var(--navy); display: grid; place-items: center; padding: 3px; z-index: 2; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
 .mb-pick-check .svg-icon { width: 100%; height: 100%; }
-.mb-pick-need { position: absolute; left: 3px; bottom: 22px; display: flex; gap: 2px; z-index: 2; }
-.mb-pick-need .svg-icon { width: 18px; height: 18px; filter: drop-shadow(0 0 2px #fff); }
-.mb-pick-glow .unit-card { box-shadow: 0 0 0 2px #7bd389, 0 0 14px rgba(123, 211, 137, 0.8); }
-.mb-pick-cost { position: absolute; right: 4px; bottom: 22px; font-size: 0.66rem; font-weight: 900; color: #ffe066; text-shadow: 0 1px 2px #000; z-index: 2; }
 /* Landscape and up: the squad is one strip across the top (hero + 8), then recommendations
    beside the picker — like a unit formation line-up. */
 @media (min-width: 700px) {
@@ -374,7 +369,7 @@ button.mb-gear:active { transform: scale(0.98); }
   .mb-squad-foot { margin-top: 4px; font-size: 0.8rem; }
   .mb-squad-foot .muted { font-size: 0.78rem; }
   .mb-actions { margin-top: 6px; }
-  .mb-pick-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+  .mb-pick-grid { gap: 6px; }
 }
 
 /* ---------- Bestiary ---------- */

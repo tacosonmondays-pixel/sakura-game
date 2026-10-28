@@ -196,9 +196,10 @@ try {
     check(cards.rei === null, `${tag} students: no pill at P1 (Rei)`);
     const kCard = await rectOf(page, '.unit-card[data-unit="kaede"]');
     const kPill = await rectOf(page, '.unit-card[data-unit="kaede"] [data-testid="card-pot"]');
-    const kBadges = await rectOf(page, '.unit-card[data-unit="kaede"] .mb-card-badges');
-    const kLevel = await rectOf(page, '.unit-card[data-unit="kaede"] .unit-card-level');
-    check(inside(kPill, kCard) && overlap(kPill, kBadges) === 0 && overlap(kPill, kLevel) === 0, `${tag} students: the pill sits inside the card, under "Lv.30", clear of the badges ${JSON.stringify({ kCard, kPill, kBadges, kLevel })}`);
+    // (a girl tile, UI v2 M3: the pill in the status corner, the role mark top right, LV in the caption)
+    const kBadges = await rectOf(page, '.unit-card[data-unit="kaede"] :is(.mb-card-badges, .role)');
+    const kLevel = await rectOf(page, '.unit-card[data-unit="kaede"] :is(.unit-card-level, [data-testid="card-lv"])');
+    check(inside(kPill, kCard) && kBadges && kLevel && overlap(kPill, kBadges) === 0 && overlap(kPill, kLevel) === 0, `${tag} students: the pill sits inside the card, clear of the role mark and "LV 30" ${JSON.stringify({ kCard, kPill, kBadges, kLevel })}`);
     await page.selectOption('.mb-sort select', 'potential');
     await page.waitForTimeout(400);
     const order = await page.evaluate(() => [...document.querySelectorAll('.mb-student-grid .unit-card')].map((c) => c.dataset.unit));
