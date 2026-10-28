@@ -2,9 +2,20 @@
 //
 // Tsubaki's star shells are the main behaviour (the mortar, src/sim/towers.js attackMortar). Kohaku's prism
 // beam is the PARTNER weapon: its own timer in whole ticks (t.duoCd), ticked after the main weapon in the
-// same step (updateTower), firing the beam behaviour with the partner spec (t.beamSpec, built from her
-// stats.duo and her buffs in refreshEffective). Generic on purpose: any unit whose stats carry a partner
-// spec gets the same timer (Tenka's planned extra attack, GAPS P-13, can share it).
+// same step (updateTower), with the partner spec (t.beamSpec, built from her stats.duo and her buffs in
+// refreshEffective).
+//
+// Her beam is a constant beam: while she has a target in reach, every beam she fires (spec.projectiles) holds
+// its own enemy (t.prismBeams: one { e, held } per beam; a beam keeps its enemy while it stays among her
+// targets, a target no beam holds goes to the first free one) and pierces the line through it as before.
+// Every PRISM_BEAM_TICK steps each held beam deals one damage tick: the share PRISM_BEAM_TICK / beamTicks(rate)
+// of one old flash (t.beamTickSpec: damage, flat armour, the 1-damage floor, the crystal shell's cap and its
+// hit count all × that share, src/sim/combat.js computeHit), so her DPS is the old flash beam's at every tier.
+// Resonant Light ramps with the time a beam has held the same enemy, at the old rate (+per for every old flash
+// interval, up to +max), and starts over when the beam switches. Grand Spectrum's silence lands when a beam
+// locks on and again every PRISM_SILENCE_TICKS steps it holds, on everything on its line, not on every tick.
+// A lock-on is the beam's `attack` event (Kohaku's clip and sound); the display draws the held beams from
+// t.prismBeams (src/render/attackFx/styles/kohaku_tsubaki.js) and never writes to them.
 //
 // Refraction: t.prismN counts her shells since the last split (an integer, saved in the battle save as `du`).
 // Every `every`th shell splits (base 4; Cut Facets 3, Refraction 2, Constellation Lattice 1): the shell lands
@@ -14,9 +25,9 @@
 //
 // Determinism (co-op lockstep): integer counters and tick timers, fixed tables, + − × ÷ and Math.round only.
 
-import { STEP, MORTAR_DELAY, PRISM_SHARDS } from './constants.js';
+import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, BEAM_HALF_WIDTH } from './constants.js';
 
-/** Ticks from one beam to the next at `rate` attacks a second (at least 1). */
+/** Ticks of one old flash interval at `rate` attacks a second (at least 1): a damage tick's share is PRISM_BEAM_TICK / this. */
 export function beamTicks(rate) {
   return Math.max(1, Math.round(1 / (Math.max(0.05, rate) * STEP)));
 }
@@ -32,6 +43,7 @@ export function buildPartnerSpec(t) {
   const e = t.eff;
   if (!d) {
     t.beamSpec = null;
+    t.beamTickSpec = null;
     return;
   }
   const dmgK = s.damage > 0 ? e.damage / s.damage : 1;
@@ -65,14 +77,21 @@ export function buildPartnerSpec(t) {
     knockback: 0,
     gather: 0,
   };
+  // one damage tick of a held beam: the share of one old flash (src/sim/combat.js computeHit reads `share`);
+  // her silence lands on lock-on and every PRISM_SILENCE_TICKS (prismBeam), never through a tick
+  const share = PRISM_BEAM_TICK / beamTicks(t.beamSpec.rate);
+  t.beamTickSpec = { ...t.beamSpec, damage: t.beamSpec.damage * share, share, ramp: null, silence: 0, tick: true };
+  if (!t.prismBeams) t.prismBeams = []; // her beams' holds (prismBeam fills one per beam on her first target)
 }
 
 /**
  * One step of the partner weapon (after the main weapon; never while she is sabotaged or moving: updateTower
- * returns before both). `fire(sim, t)` is the beam behaviour, called with t.eff swapped to the partner spec.
- * A step with no target keeps the timer at 0 (she fires the moment one comes into reach).
+ * returns before both, and a sabotage lets go of her beams, partnerOff). Every PRISM_BEAM_TICK steps while
+ * she has a target: one damage tick of her constant beam (prismBeam), with t.eff swapped to the partner spec.
+ * A step with no target keeps the timer at 0 (her beam comes on the moment one comes into reach).
+ * `h`: the targeting helpers of src/sim/towers.js ({ selectTargets, linePierce, face }).
  */
-export function partnerTick(sim, t, fire) {
+export function partnerTick(sim, t, h) {
   const spec = t.beamSpec;
   if (!spec) return;
   if (t.duoCd > 0) t.duoCd--;
@@ -81,11 +100,100 @@ export function partnerTick(sim, t, fire) {
   t.eff = spec;
   let ok = false;
   try {
-    ok = fire(sim, t);
+    ok = prismBeam(sim, t, spec, h);
   } finally {
     if (t.eff === spec) t.eff = main;
   }
-  t.duoCd = ok ? beamTicks(spec.rate) : 0;
+  t.duoCd = ok ? PRISM_BEAM_TICK : 0;
+}
+
+/** Her beams let go (no target, or she is sabotaged): every beam free, its hold back to 0. */
+export function partnerOff(t) {
+  const L = t.prismBeams;
+  if (!L) return;
+  for (let i = 0; i < L.length; i++) {
+    L[i].e = null;
+    L[i].held = 0;
+  }
+}
+
+/**
+ * Her Resonant Light on a beam that has held its enemy for `held` damage ticks: 1 + per for every old flash
+ * interval held (per × held × share), up to 1 + max.
+ */
+export function prismRamp(spec, tick, held) {
+  const ramp = spec.ramp;
+  return ramp ? 1 + Math.min(ramp.per * held * tick.share, ramp.max) : 1;
+}
+
+/** One damage tick of her constant beam. @returns {boolean} whether she had a target */
+function prismBeam(sim, t, spec, h) {
+  const n = spec.projectiles;
+  const targets = h.selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n);
+  if (!targets.length) {
+    partnerOff(t);
+    return false;
+  }
+  let L = t.prismBeams;
+  if (!L) L = t.prismBeams = [];
+  while (L.length < n) L.push({ e: null, held: 0 });
+  // a beam keeps its enemy while it stays among her targets; the others let go
+  for (let i = 0; i < L.length; i++) {
+    const b = L[i];
+    if (b.e && (i >= n || !targets.includes(b.e))) {
+      b.e = null;
+      b.held = 0;
+    }
+  }
+  // a target no beam holds goes to the first free beam (a new lock)
+  let locked = null;
+  for (let k = 0; k < targets.length; k++) {
+    const e = targets[k];
+    let free = -1;
+    let held = false;
+    for (let i = 0; i < n; i++) {
+      if (L[i].e === e) {
+        held = true;
+        break;
+      }
+      if (free < 0 && !L[i].e) free = i;
+    }
+    if (held || free < 0) continue;
+    L[free].e = e;
+    L[free].held = 0;
+    if (!locked) locked = e;
+    if (k === 0) h.face(t, e);
+  }
+  const tick = t.beamTickSpec;
+  const sil = spec.silence > 0 ? spec.silence : 0;
+  for (let i = 0; i < n; i++) {
+    const b = L[i];
+    const e = b.e;
+    if (!e || e.dead) continue; // (an earlier beam's tick finished it: the next tick lets go)
+    const scale = prismRamp(spec, tick, b.held);
+    const silence = sil > 0 && (b.held * PRISM_BEAM_TICK) % PRISM_SILENCE_TICKS === 0;
+    const { hits } = h.linePierce(sim, t, tick, e, spec.range, BEAM_HALF_WIDTH, spec.pierce);
+    for (let j = 0; j < hits.length; j++) {
+      const v = hits[j];
+      if (v.dead) continue;
+      sim._hit(v, t, tick, scale);
+      if (silence && !v.dead) silenceOn(sim, t, v, sil);
+    }
+    b.held++;
+  }
+  if (locked) sim._emit('attack', { towerUid: t.uid, targetUid: locked.uid, kind: 'beam' });
+  return true;
+}
+
+/** Grand Spectrum's silence on one enemy on a beam's line (the on-hit status path, src/sim/Sim.js _onHitEffects). */
+function silenceOn(sim, t, e, duration) {
+  const ctx = sim._statusCtx;
+  ctx.element = null;
+  ctx.attackType = 'mystic';
+  ctx.sourceUid = t.uid;
+  ctx.hitDamage = 0;
+  ctx.curseDepth = 0;
+  sim._applyStatusEvent(e, { type: 'silence', duration }, ctx);
 }
 
 /** The shard hit spec of one volley: a share of the shell's hit (snap), mystic, hits flyers, the shard statuses. */

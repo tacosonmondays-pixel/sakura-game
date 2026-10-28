@@ -502,13 +502,20 @@ export class Sim {
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
     const hpBefore = e.hp;
-    const flags = applyHitResult(e, res);
+    const flags = applyHitResult(e, res, spec.share);
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     e.flash = 1;
     e.lastDamageAt = this.time;
-    this._emit('hit', {
-      uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
-    });
+    // (`tick`: a constant beam's damage tick, src/sim/duo.js: the display sums those instead of popping each)
+    if (spec.tick) {
+      this._emit('hit', {
+        uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
+      });
+    } else {
+      this._emit('hit', {
+        uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
+      });
+    }
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);

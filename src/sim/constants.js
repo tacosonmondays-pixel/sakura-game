@@ -333,6 +333,14 @@ export const PRISM_SHARDS = Object.freeze([
   [0, -0.7], [0.6, 0.35], [-0.6, 0.35], [0, 0.7], [0.6, -0.35], [-0.6, -0.35], [0.35, 0], [-0.35, 0],
 ].map((p) => Object.freeze(p)));
 
+/**
+ * Kohaku's constant beam (src/sim/duo.js): every beam that holds an enemy deals one damage tick every
+ * PRISM_BEAM_TICK steps (0.1 s), each tick the share PRISM_BEAM_TICK / beamTicks(rate) of one old flash.
+ */
+export const PRISM_BEAM_TICK = 6;
+/** Grand Spectrum's silence: when a beam locks on, then again every PRISM_SILENCE_TICKS steps (2 s) it holds the same enemy. */
+export const PRISM_SILENCE_TICKS = 120;
+
 // ---------------------------------------------------------------------------
 // The staff heroes (BANNERS §D): Kogane's Move, Norika's barricades (src/sim/barricades.js)
 // ---------------------------------------------------------------------------

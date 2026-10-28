@@ -105,22 +105,25 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
     }
   }
 
+  // a damage tick that is a share of one hit (Kohaku's constant beam, src/sim/duo.js): flat armour, the
+  // 1-damage floor, the crystal shell's cap and its hit count, and an execution's HP share all × that share
+  const sh = hit.share > 0 ? hit.share : 1;
   let shellHit = false;
   let toHp = 0;
   if (dmg > 0) {
     if (enemy.crystalHits > 0) {
       shellHit = true;
-      if (dmg > enemy.crystalCap) dmg = enemy.crystalCap;
+      if (dmg > enemy.crystalCap * sh) dmg = enemy.crystalCap * sh;
     }
-    toHp = dmg - effectiveArmor(enemy, hit.armorPen || 0);
+    toHp = dmg - effectiveArmor(enemy, hit.armorPen || 0) * sh;
     // freeplay armor floor: armor never removes more than (1 − floor) of a hit
     if (enemy.armorFloor && !shellHit) toHp = Math.max(toHp, dmg * enemy.armorFloor);
-    toHp = shellHit ? Math.max(0, toHp) : Math.max(1, toHp);
+    toHp = shellHit ? Math.max(0, toHp) : Math.max(sh, toHp);
     // execution shot: + a share of the enemy's current HP (bosses a smaller one), at most cap × the hit
     const hp = hit.hpPct;
     if (hp && !shellHit && toHp > 0) {
       const boss = enemy.tier === 'boss' || enemy.tier === 'miniboss';
-      toHp += Math.min((boss ? hp.boss : hp.pct) * Math.max(0, enemy.hp), hp.cap * toHp);
+      toHp += Math.min((boss ? hp.boss : hp.pct) * Math.max(0, enemy.hp) * sh, hp.cap * toHp);
     }
   }
 
@@ -135,9 +138,9 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
 }
 
 /**
- * Applies a computeHit result. @returns {number} bit flags BARRIER_BROKE | SHELL_BROKE
+ * Applies a computeHit result (`share`: the hit spec's, for a damage tick that is a share of one hit). @returns {number} bit flags BARRIER_BROKE | SHELL_BROKE
  */
-export function applyHitResult(enemy, res) {
+export function applyHitResult(enemy, res, share = 1) {
   let flags = 0;
   if (res.toBarrier > 0 && enemy.barrier > 0) {
     enemy.barrier -= res.toBarrier;
@@ -147,8 +150,9 @@ export function applyHitResult(enemy, res) {
     }
   }
   if (res.shellHit && enemy.crystalHits > 0) {
-    enemy.crystalHits -= 1;
-    if (enemy.crystalHits <= 0) {
+    // (a damage tick, computeHit's `share`: that share of one hit off the shell's count)
+    enemy.crystalHits -= share > 0 ? share : 1;
+    if (enemy.crystalHits <= 1e-9) {
       enemy.crystalHits = 0;
       flags |= SHELL_BROKE;
     }

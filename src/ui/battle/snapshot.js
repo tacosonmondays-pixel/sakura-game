@@ -45,7 +45,7 @@
 // Wells and Last Line zones end at every wave clear (nothing to save). A save without these fields restores
 // her tiers with no lab team and fresh timers.
 //
-// The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam timer (`du`).
+// The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam tick timer (`du`).
 // A save without it restores her with fresh counters.
 //
 // The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
@@ -61,7 +61,7 @@
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
-import { FLIGHT_MODES } from '../../sim/constants.js';
+import { FLIGHT_MODES, PRISM_BEAM_TICK } from '../../sim/constants.js';
 import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -242,8 +242,10 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // Line timers count wave time only, so they run on across calm points and travel (`zc`).
   lab: 'snap', labAtk: 'derived', wellCd: 'snap', lastLineCd: 'snap',
   // the duo (src/sim/duo.js): her Refraction counter, her volley count (Potential's full split) and Kohaku's beam
-  // timer travel (`du`); the beam's spec follows her stats and buffs (refreshEffective)
-  prismN: 'snap', duoVolley: 'snap', duoCd: 'snap', beamSpec: 'derived',
+  // tick timer travel (`du`); the beam's spec and its damage tick follow her stats and buffs (refreshEffective);
+  // her constant beams' holds (enemy and time held) have no enemy to hold at a calm point (a beam that held the
+  // last one lets go on its next tick, exactly as a fresh one)
+  prismN: 'snap', duoVolley: 'snap', duoCd: 'snap', beamSpec: 'derived', beamTickSpec: 'derived', prismBeams: 'calm',
   // the staff heroes (BANNERS §D.6): Norika's own barricades travel (`br`); Hold the Line and One-Way Street's
   // count end at the wave clear; Kogane's Overdrive ends with the wave
   bars: 'snap', lines: 'calm', oneWayN: 'calm', overdriveLeft: 'calm',
@@ -578,7 +580,8 @@ export function restoreSim(rec, profile = null) {
       const whole = (v) => Math.max(0, Math.floor(r(v)));
       if (o.du[0] >= 0) t.prismN = Math.min(whole(o.du[0]), Math.max(0, t.stats.duo.every - 1));
       if (o.du[1] >= 0) t.duoVolley = Math.min(whole(o.du[1]), Math.max(0, t.stats.duo.fullEvery - 1));
-      if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), 600);
+      // (a save from the flash beam's days can hold a whole flash interval: her constant beam ticks every PRISM_BEAM_TICK)
+      if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), PRISM_BEAM_TICK);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);

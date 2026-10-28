@@ -30,7 +30,7 @@ import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
-import { buildPartnerSpec, partnerTick, beginVolley, refract } from './duo.js';
+import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -739,6 +739,9 @@ function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
   if (hits.length > pierce) hits.length = pierce;
   return { hits, ex, ey };
 }
+
+/** The targeting helpers Kohaku's constant beam uses (src/sim/duo.js partnerTick). */
+const PRISM_HELP = Object.freeze({ selectTargets, linePierce, face });
 
 /**
  * Potential N13 (Kage): projectiles × (1 + f) through an integer carry: k = round(f × 100) hundredths
@@ -1892,6 +1895,7 @@ export function updateTower(sim, t, dt) {
   }
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
+    if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)
     return;
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
@@ -1925,8 +1929,8 @@ export function updateTower(sim, t, dt) {
     if (s.vine?.bloom > 0) t.bloomIdle = 0;
     t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
-  // the duo's partner weapon (Kohaku's beam, src/sim/duo.js): its own tick timer, after the main weapon
-  if (s.duo) partnerTick(sim, t, attackBeam);
+  // the duo's partner weapon (Kohaku's constant beam, src/sim/duo.js): its own tick timer, after the main weapon
+  if (s.duo) partnerTick(sim, t, PRISM_HELP);
 }
 
 // ---------------------------------------------------------------------------

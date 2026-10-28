@@ -25,7 +25,7 @@ This is a design note. Nothing in any repo was changed. Every number is a first 
 
 > [!summary] On one screen
 > - **One unit, two girls:** "Kohaku & Tsubaki", title **Prism Battery**. SSR tower. Both girls stand on one round base and cost one slot.
-> - **How she plays:** Tsubaki drops aimed star shells anywhere on the map, on the ground only. Kohaku guards the sky up close with a beam that pierces enemies and hits flyers. **Together:** Kohaku's prism splits some of Tsubaki's shells into shards of light that land around the target.
+> - **How she plays:** Tsubaki drops aimed star shells anywhere on the map, on the ground only. Kohaku guards the sky up close with a constant beam that pierces enemies and hits flyers. **Together:** Kohaku's prism splits some of Tsubaki's shells into shards of light that land around the target.
 > - **Three paths:** Starfall Battery (Tsubaki leads), Prism Corridor (Kohaku leads) and **Refraction ⚡** (the two together). The ⚡ ability is **Prismfall**: a barrage of split shells on a spot you pick.
 > - **Getting her:** SSR recruit pool, spark and the SSR Select Ticket, like Tenka. Base price **850 coins**; today's SSR towers cost 600–650 and Tenka 1,800.
 > - **LR, recommended path:** first reach **UR** (★5 awakening, as today), then finish her 5-step bond story, **"Starfall Promise"**. Free players can get there; it needs no extra duplicates.
@@ -48,7 +48,7 @@ This is a design note. Nothing in any repo was changed. Every number is a first 
 | Part | What it does | Numbers |
 |---|---|---|
 | **Tsubaki's star shells** (main weapon) | She fires at her aim point. A warning ring appears, and the shell lands 1 s later. Without an aim point she aims ahead of her current target. | 12 damage, a volley every ~2.9 s (rate 0.35), splash 1.1, whole map, **ground only**, blast |
-| **Kohaku's prism beam** (second weapon) | A line beam that pierces enemies in a row. | 5 damage, rate 0.7, range 3.6, pierces 4, **hits flyers**, mystic |
+| **Kohaku's prism beam** (second weapon) | A constant line beam that pierces enemies in a row: it stays on while she has a target in reach and deals a damage tick every 6 steps (0.1 s), each tick 6 / beamTicks(rate) of one flash, so the DPS is the flash beam's (`src/sim/duo.js`, Oct 28). Each beam holds its own enemy. | 5 damage, rate 0.7, range 3.6, pierces 4, **hits flyers**, mystic |
 | **Refraction** (the duo trick) | Every **4th** shell passes through Kohaku's prism and splits into **3 shards**. The shards land in a small fixed triangle around the spot. | each shard 40% of a shell, splash 0.6, mystic, also hits flyers |
 
 The shards are light, so the duo deals **two damage types** (blast and mystic). That suits the Foundry Titan, which is weak to both (ASCENSION §C.1).
@@ -60,7 +60,7 @@ The usual rule holds: only one path can go above tier 2 (`src/sim/mods.js` cross
 | Path | Who leads | T1 | T2 | T3 | T4 | T5 |
 |---|---|---|---|---|---|---|
 | **Starfall Battery** (more and bigger shells; elites and bosses) | Tsubaki | Packed Charges 180: +2 damage | Quick Reload 400: +15% speed | Starfall Battery 1,300: +1 shell per volley, +0.2 splash | Falling Star 4,200: +10 damage, ×1.3 vs elites, breaks barriers | Thousand Star Bombardment 26,000: +2 shells, +30 damage, ×1.4 vs bosses, short stun |
-| **Prism Corridor** (beam, flyers, armour) | Kohaku | Polished Lens 170: +1 pierce | Long Focus 380: +0.3 range | Prism Corridor 1,250: +1 beam, ignores 2 armour, ×1.3 vs flyers | Resonant Light 4,000: the beam grows +8% per hit on the same enemy (up to +60%) | Grand Spectrum 24,000: +2 beams, +16 damage, pierces 8, silences |
+| **Prism Corridor** (beam, flyers, armour) | Kohaku | Polished Lens 170: +1 pierce | Long Focus 380: +0.3 range | Prism Corridor 1,250: +1 beam, ignores 2 armour, ×1.3 vs flyers | Resonant Light 4,000: a beam grows stronger the longer it holds the same enemy (+8% for every old flash interval, up to +60%; a switch starts over) | Grand Spectrum 24,000: +2 beams, +16 damage, pierces 8, silences 1 s on lock-on and every 2 s held |
 | **Refraction ⚡** (the two together) | Both | Cut Facets 160: every **3rd** shell splits | Twin Timing 400: shards slow 20% for 1 s | **⚡ Refraction 1,350:** every **2nd** shell splits into 4 shards; **unlocks Prismfall** | Shatterlight 4,300: shards crack armour (−2) and make enemies Brittle (+12%) | **⚡+ Constellation Lattice 28,000:** **every** shell splits into 5 shards, shards +20 damage; **upgrades Prismfall** |
 
 **Awakening passive (★3): Twin Star Bond.** Every split shell makes 1 more shard, and she deals +6% damage.
