@@ -53,9 +53,10 @@ const isQuietAct = (sc) => /^g2\./.test(sc.id);
  * Act 3 (The Bell Festival) is the turn, and every loss in it is told by absence only (STEP3_BUILD_PLAN decision 13,
  * STORY.md §14): no body, wound or blood words, and not even the Arc 1 death words. Ms. Hazuki is a name that gets no
  * answer; the old oni is an empty place at a cold brazier. Act 4 (The Checkpoint) keeps the same rule (STEP4_BUILD_PLAN
- * §6): a fallen trooper is "down" or an empty helmet, and the General "doesn't come back".
+ * §6): a fallen trooper is "down" or an empty helmet, and the General "doesn't come back". So does Act 5 (The Drowned
+ * Line, STEP5_BUILD_PLAN §6): the Register says "the reservoir, tonight", never how, and Toki is simply not there.
  */
-const isAbsenceAct = (sc) => /^g[34]\./.test(sc.id);
+const isAbsenceAct = (sc) => /^g[345]\./.test(sc.id);
 const ABSENCE_BANNED = [
   'body', 'bodies', 'corpse', 'corpses', 'wound', 'wounds', 'wounded', 'bleed', 'bleeding', 'bled', 'blood', 'bloody',
   'injury', 'injuries', 'injured', 'bone', 'bones', 'gore', 'burns', 'scar', 'scars', 'grave', 'funeral', 'killed', 'kill',
@@ -72,14 +73,18 @@ const ARC1_MAIN = {
   g3: ['g3.pro', 'g3.mid', 'g3.hammer', 'g3.boss', 'g3.after', 'g3.epi'],
   // Act 4 has no `mid`: Azami's join carries the parley, so the join is a main episode (STORY.md §11)
   g4: ['g4.pro', 'g4.azami', 'g4.cross', 'g4.boss', 'g4.after', 'g4.epi'],
+  // Act 5 has no join (no free girl in Act 5, STEP5_BUILD_PLAN decision 11); Hikari is on Channel 9 in g5.raid
+  g5: ['g5.pro', 'g5.mid', 'g5.raid', 'g5.boss', 'g5.after', 'g5.epi'],
 };
 
 /**
  * Planned girls who speak as story NPCs (`unknown` + a `{name:id}` plate) before their unit exists. Their token falls
- * back to the capitalised id (tokens.js resolveText), and follows the unit's name once it lands. Kohaku is story-only
- * until the Kohaku & Tsubaki duo after Act 5 (STORY.md §8.7, §13).
+ * back to the capitalised id (tokens.js resolveText), and follows the unit's name once it lands. Kohaku and Tsubaki
+ * (from g5.mid) are story-only until the Kohaku & Tsubaki duo unit (STORY.md §8.7, §13).
  */
-const NPC_FIRST = ['kohaku'];
+const NPC_FIRST = ['kohaku', 'tsubaki'];
+/** Act 5's plain-plate speakers: the Last Watch (Evening survivors) and Kohaku. None of them is a unit in Act 5. */
+const G5_PLATES = ['Tenka', 'Toki', '{name:tsubaki}', '{name:kohaku}'];
 const AGE_RE = /\b(\d+\s*(years?|yrs?)\s*old|aged?\s+\d+)\b/i;
 
 /** Every string a player can read in a scene: lines, replies, choice options, title and plate overrides. */
@@ -162,8 +167,9 @@ describe('story registry', () => {
     expect(SCENE_LIST.length + LESSON_SCENES.length).toBe(ALL.length);
     // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
     // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*) and Act 2
-    // (eleven episodes, g2.*) and Act 3 (nine episodes, g3.*) and Act 4 (seven episodes, g4.*)
-    expect(SCENE_LIST.length).toBe(66);
+    // (eleven episodes, g2.*) and Act 3 (nine episodes, g3.*) and Act 4 (seven episodes, g4.*) and Act 5 (nine
+    // episodes, g5.*)
+    expect(SCENE_LIST.length).toBe(75);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });
@@ -286,6 +292,59 @@ describe('story registry', () => {
     for (const s of g4) expect(titles.filter((t) => t === s.title.toLowerCase()), s.id).toHaveLength(1);
   });
 
+  it('Act II of chapter 5 (The Drowned Line): six main episodes and three side scenes, no join, in play order', () => {
+    const g5 = SCENE_LIST.filter((s) => s.id.startsWith('g5.'));
+    expect(g5.map((s) => s.id)).toEqual([
+      'g5.pro', 'g5.embers', 'g5.mid', 'g5.raid', 'g5.whiteboard', 'g5.boss', 'g5.after', 'g5.epi', 'g5.board',
+    ]);
+    for (const s of g5) expect([s.chapter, s.act, s.kind, storyRewardFor(s.kind)], s.id).toEqual([5, 2, 'event', []]);
+    const triggers = Object.fromEntries(g5.map((s) => [s.id, s.trigger]));
+    expect(triggers).toEqual({
+      'g5.pro': { before: '5-6' },
+      'g5.embers': { after: '5-7' },
+      'g5.mid': { before: '5-8' },
+      'g5.raid': { after: '5-8' },
+      'g5.whiteboard': { after: '5-9' },
+      'g5.boss': { before: '5-10' },
+      'g5.after': { after: '5-10' },
+      'g5.epi': { after: '5-10' },
+      'g5.board': { after: '5-10' },
+    });
+    // six cutscenes and no join: the spec's join slots are 1-7, 4-7 and 7-7 only, so 5-7 recruits nobody
+    expect(ARC1_MAIN.g5).toHaveLength(6);
+    for (const s of g5) expect([s.ifOwned, s.ifUnit], s.id).toEqual([undefined, undefined]);
+    expect(freeUnlocksByStage()['5-7']).toBeUndefined();
+    // chapter 5's Act II files right after chapter 5's own episodes, before chapter 6; the three after-5-10 scenes in order
+    const ids = SCENE_LIST.map((s) => s.id);
+    expect(ids.indexOf('g5.pro')).toBe(ids.indexOf('ch5.epi') + 1);
+    expect(ids.indexOf('ch6.pro')).toBe(ids.indexOf('g5.board') + 1);
+    expect(scenesWithTrigger('after', '5-10').map((s) => s.id)).toEqual(['g5.after', 'g5.epi', 'g5.board']);
+    // titles: none repeats another archive title, none carries the reserved upgrade-step name
+    const titles = SCENE_LIST.map((s) => s.title.toLowerCase());
+    for (const s of g5) {
+      expect(s.title.toLowerCase(), s.id).not.toContain('roll call');
+      expect(titles.filter((t) => t === s.title.toLowerCase()), s.id).toHaveLength(1);
+    }
+  });
+
+  it('nobody joins in Act 5: Tenka, Tsubaki and Toki are story characters with plates, never units or recruits', () => {
+    const g5 = ALL.filter((s) => s.id.startsWith('g5.'));
+    for (const sc of g5) {
+      for (const l of sayLines(sc.lines)) {
+        if (G5_PLATES.includes(l.name)) expect(l.who, `${sc.id}: ${l.name} speaks as unknown`).toBe('unknown');
+        expect(['tenka', 'toki', 'tsubaki', 'kohaku', 'mori', 'mahiru', 'kagari'], sc.id).not.toContain(l.who);
+      }
+      // no portrait for any of them: the only stands in Act 5 are girls the player already has
+      for (const c of sc.cast) expect(['hikari', 'luna', 'kage', 'midori', 'azami'], `${sc.id} cast ${c}`).toContain(c);
+      for (const { where, text } of textsOf(sc)) {
+        expect(/\b(joins?|joined|joining|recruits?|recruited|new member)\b/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+      }
+    }
+    // the Last Watch first speak when they walk out of the Noon Gate (g5.mid)
+    const firstSpeaks = (name) => g5.find((sc) => sayLines(sc.lines).some((l) => l.name === name))?.id;
+    for (const name of ['Tenka', 'Toki', '{name:tsubaki}']) expect(firstSpeaks(name), name).toBe('g5.mid');
+  });
+
   it('Azami joins the line after 4-7 in g4.azami: a meeting or a reunion reads the same, and it carries the parley', () => {
     const join = sceneById('g4.azami');
     const text = textsOf(join).map((t) => t.text).join(' ');
@@ -314,7 +373,7 @@ describe('story registry', () => {
     for (const l of boiler) expect(l.at, 'Hikari on Channel 9').toBe('off');
   });
 
-  it('only the side scenes wait for a girl the player owns (g2.class; g3.iroha, g3.noa, g3.fuu; none in Act 4)', () => {
+  it('only the side scenes wait for a girl the player owns (g2.class; g3.iroha, g3.noa, g3.fuu; none in Acts 4 and 5)', () => {
     const gated = ALL.filter((s) => s.ifOwned);
     expect(gated.map((s) => [s.id, [...s.ifOwned]])).toEqual([
       ['g2.class', ['ruri', 'iroha', 'ena', 'fuu']],
@@ -494,8 +553,8 @@ describe('story text (T-content-3, T-content-4)', () => {
   it('content lint: no banned words, no ages (the war words only in Arc 1 episodes, never in quiet Act 2)', () => {
     const banned = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'i');
     const arc0 = new RegExp(`\\b(${BANNED_ARC0.join('|')})\\b`, 'i');
-    // the scope: every gN.* episode is Arc 1 (Acts 1 to 3 so far), nothing else is
-    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3', 'g4']);
+    // the scope: every gN.* episode is Arc 1 (Acts 1 to 5 so far), nothing else is
+    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3', 'g4', 'g5']);
     for (const sc of ALL) {
       for (const { where, text } of textsOf(sc)) {
         expect(text.match(banned)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
@@ -545,6 +604,103 @@ describe('story text (T-content-3, T-content-4)', () => {
     const sorry = sayLines(sceneById('g4.after').lines).find((l) => l.text.includes('Sorry about the guns.'));
     expect([sorry.who, sorry.name]).toEqual(['unknown', 'Trooper']);
     expect(has('g4.after', "I'm sorry about mine.")).toBe(true);
+  });
+
+  it('loss by absence in Act 5: no body, wound, blood or death words in g5; the Register says "tonight", never how', () => {
+    const absence = new RegExp(`\\b(${ABSENCE_BANNED.join('|')})\\b`, 'i');
+    // never how: nobody drowns on screen, and nobody "vanishes", "fades away" or is "gone for good"
+    const how = /\b(drown\w*|gone for good|vanish\w*|fades? away|faded|unwoven|erased)\b/i;
+    const g5 = ALL.filter((s) => s.id.startsWith('g5.'));
+    expect(g5.length).toBe(9);
+    expect(g5.every(isAbsenceAct)).toBe(true);
+    for (const sc of g5) {
+      for (const { where, text } of textsOf(sc)) {
+        expect(text.match(absence)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+        expect(text.match(how)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+      }
+    }
+    const has = (id, needle) => textsOf(sceneById(id)).some((t) => t.text.includes(needle));
+    // the entry is a name, a place and a time
+    expect(has('g5.boss', '"Lt. Mori. The reservoir. Tonight."')).toBe(true);
+    expect(has('g5.after', 'Then we unwrite it.')).toBe(true);
+    // Mori comes out of the water alive, joking about his boots
+    expect(has('g5.after', 'They come up with Lt. Mori between them, coughing')).toBe(true);
+    expect(sayLines(sceneById('g5.after').lines).some((l) => l.name === 'Lt. Mori' && l.text.includes('boots'))).toBe(true);
+    // the small sleeping thing is an empty pipe, a scarf and a label
+    expect(has('g5.raid', 'On the warmest pipe there is only the grey knitted scarf')).toBe(true);
+    // two cups, not three; then a third, for the one Sensei remembers
+    expect(has('g5.epi', 'There were always two of us.')).toBe(true);
+    expect(has('g5.epi', 'Two cups. She does not reach for a third.')).toBe(true);
+    expect(has('g5.epi', 'Tenka takes a third cup down from the shelf')).toBe(true);
+  });
+
+  it('Toki is not there between one line and the next: she never speaks again, and only Sensei notices', () => {
+    const after = sceneById('g5.after');
+    const { lines } = after;
+    const last = lines.map((l) => l.t === 'say' && l.name === 'Toki').lastIndexOf(true);
+    expect(last).toBeGreaterThan(0);
+    expect(lines[last].text).toContain('You promised.');
+    // she is whistling her four notes beside Tenka just before it
+    expect(lines.slice(0, last).some((l) => l.t === 'narrate' && /\bToki\b.*whistling four notes/.test(l.text))).toBe(true);
+    // no fade, no exit, no word for it: the very next line is Tenka's, then Sensei looks, and nobody else does
+    const rest = lines.slice(last + 1);
+    expect(rest[0]).toMatchObject({ t: 'say', who: 'unknown', name: 'Tenka' });
+    const restText = textsOf({ title: '', lines: rest }).map((t) => t.text);
+    for (const t of restText) expect(/\bToki\b/.test(t), `g5.after after her last line: "${t}"`).toBe(false);
+    expect(restText).toContain('Sensei looks at the causeway beside Tenka. There is nobody there. Only the fog, the rail and the water.');
+    expect(restText.some((t) => t.startsWith('Nobody else looks round.'))).toBe(true);
+    // nowhere later in Act 5: no line and no plate of hers; only Sensei's telling in g5.epi says her name
+    const later = SCENE_LIST.slice(SCENE_LIST.indexOf(after) + 1).filter((s) => s.id.startsWith('g5.'));
+    expect(later.map((s) => s.id)).toEqual(['g5.epi', 'g5.board']);
+    for (const sc of later) {
+      expect(sayLines(sc.lines).some((l) => l.name === 'Toki'), sc.id).toBe(false);
+      for (const t of textsOf(sc).filter((x) => /\bToki\b/.test(x.text))) expect([sc.id, t.line?.t], t.text).toEqual(['g5.epi', 'narrate']);
+    }
+    expect(textsOf(sceneById('g5.epi')).some((t) => t.text.startsWith('So Sensei tells them. About a small runner called Toki'))).toBe(true);
+    // the tune and the promise are planted when she walks out of the gate
+    expect(textsOf(sceneById('g5.mid')).some((t) => t.text === "I made that up. Senpai, promise you won't forget it?")).toBe(true);
+  });
+
+  it('the mystery holds in Act 5: no dragon or egg, "specimen" only on the crate label, no Vesperline before the Register', () => {
+    const g5 = SCENE_LIST.filter((s) => s.id.startsWith('g5.'));
+    const species = /\b(dragons?|wyverns?|wyrms?|drakes?|hatchlings?|eggs?|chicks?|matriarch|lizard|reptile)\b/i;
+    const specimen = [];
+    const wings = [];
+    for (const sc of g5) {
+      for (const { where, text } of textsOf(sc)) {
+        expect(text.match(species)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+        if (/specimen/i.test(text) && where !== 'title') specimen.push([sc.id, text]);
+        if (/\b(wings?|winged)\b/i.test(text)) wings.push([sc.id, text]);
+      }
+      // the only enemy who speaks in Act 5 is Wobble (the Reservoir Willow does not speak)
+      for (const l of sayLines(sc.lines)) if (ENEMY_SPEAKERS.includes(l.who)) expect([l.who, l.name], sc.id).toEqual(['slime_droplet', 'Wobble']);
+    }
+    expect(specimen).toEqual([['g5.raid', 'On the floor lies a torn crate label, stencilled in Brigade amber: GRB · SPECIMEN 0.']]);
+    // "grey wings" is as far as Hikari goes
+    expect(wings).toEqual([['g5.epi', 'Grey wings. Follows warm things. …I made someone a promise about that little one.']]);
+    // no "Vesperline" or "future" before the slate is read in g5.boss
+    const reveal = g5.findIndex((s) => s.id === 'g5.boss');
+    for (const sc of g5.slice(0, reveal)) {
+      for (const { where, text } of textsOf(sc)) expect(/vesperline|future/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+    }
+    const boss = textsOf(sceneById('g5.boss')).map((t) => t.text).join(' ');
+    expect(boss).toContain('Vesperline.');
+    expect(boss).toContain('Four hundred lived because a student held the door.');
+    expect(boss).toContain('"Prior life: Itomachi."');
+    expect(boss).toContain("No prior life. No thread. You're not in here at all.");
+  });
+
+  it("Kage's Door Girl list names every girl in Shelter 3 but one: never Mahiru", () => {
+    const board = textsOf(sceneById('g5.board'));
+    const text = board.map((t) => t.text).join(' ');
+    expect(text).toContain('WHO IS THE DOOR GIRL?');
+    expect(text).toContain('I will take that as a compliment.');
+    const list = board.find((t) => t.text.startsWith('A long list in red:'));
+    for (const id of ['azami', 'yuzuha', 'aoi', 'kohaku', 'kinu']) expect(list.text).toContain(`{name:${id}}`);
+    // the board, the list and the detective never name her (she only brings the tea)
+    for (const t of board) {
+      if (t.line?.who === 'kage' || t === list || /DOOR GIRL|Suspect Board|register/.test(t.text)) expect(/mahiru/i.test(t.text), `g5.board: "${t.text}"`).toBe(false);
+    }
   });
 
   it('Kagari speaks in full formal sentences: never a contraction', () => {
@@ -659,6 +815,24 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g4.epi', 'HAMMER MAKES GATES??')).toBe(true);
     expect(has('g4.epi', "the General's helmet")).toBe(true);
     expect(has('g4.epi', 'Citation: Commander Kuroe.')).toBe(true);
+    // Gate Arc Act 5 (STORY.md §11, Act 5; clues 16-20 and the mid-arc reveal)
+    expect(has('g5.pro', "Lost already, little dawn? You're a long way from the moon.")).toBe(true);
+    expect(has('g5.pro', 'rice balls')).toBe(true);
+    expect(has('g5.pro', 'Channel 9. Keep it open.')).toBe(true);
+    expect(has('g5.pro', 'I dream of a city burning at noon. And a door.')).toBe(true);
+    expect(has('g5.pro', 'She says nothing more.')).toBe(true);
+    expect(has('g5.embers', 'You bring back what your guns did not take. Why?')).toBe(true);
+    expect(has('g5.embers', "Because they're cold.")).toBe(true);
+    expect(has('g5.mid', "You're upstream of us, that's all. This lake is ours, later.")).toBe(true);
+    expect(has('g5.mid', "They followed us. They don't know the city's gone.")).toBe(true);
+    expect(has('g5.mid', '{name:tsubaki} goes white')).toBe(true);
+    expect(has('g5.raid', 'GRB · SPECIMEN 0')).toBe(true);
+    expect(has('g5.raid', "Mahiru? Hold on. We're coming up.")).toBe(true);
+    expect(has('g5.raid', 'She taps twice over her heart.')).toBe(true);
+    expect(has('g5.whiteboard', 'seventy percent!')).toBe(true);
+    expect(has('g5.whiteboard', 'Seventy-three point one.')).toBe(true);
+    expect(has('g5.after', 'First light')).toBe(true);
+    expect(has('g5.epi', 'Stand with me means tell me. Always.')).toBe(true);
   });
 });
 

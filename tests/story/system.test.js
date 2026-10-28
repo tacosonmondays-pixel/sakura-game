@@ -493,6 +493,36 @@ describe('ifOwned episodes wait for a girl the player owns (g2.class: Ruri, Iroh
     run(false);
   });
 
+  it('Act 5 plays g5.pro before 5-6 (once 5-5 and 4-10 are clear), g5.mid before 5-8, g5.boss before 5-10', () => {
+    // before-triggers need the stages registered (src/data/stages.js, 5-6 … 5-10 with the two-key 5-6)
+    const clear = (p, id) => { p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false }; };
+    const early = clearUpTo(createProfile(), '5-5');
+    expect(beforeSceneFor(early, '5-6', SCENE_LIST, hasUnit)).toBeNull(); // 4-10 is still missing
+    const p = clearUpTo(createProfile(), '4-10');
+    expect(beforeSceneFor(p, '5-6', SCENE_LIST, hasUnit)?.id).toBe('g5.pro');
+    for (const st of ['5-6', '5-7']) clear(p, st);
+    expect(beforeSceneFor(p, '5-8', SCENE_LIST, hasUnit)?.id).toBe('g5.mid');
+    for (const st of ['5-8', '5-9']) clear(p, st);
+    expect(beforeSceneFor(p, '5-10', SCENE_LIST, hasUnit)?.id).toBe('g5.boss');
+    expect(requirementFor(sceneById('g5.pro'))).toBe('Clear 5-5 {stage:5-5} and 4-10 {stage:4-10}');
+  });
+
+  it('Act 5 queues in order after 5-7, 5-8, 5-9 and 5-10; the three after-5-10 scenes play after, epi, board', () => {
+    // after-triggers read progress only, so this needs no stage data
+    const p = createProfile();
+    for (const st of ['5-7', '5-8', '5-9', '5-10']) p.progress.stages[st] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(queueAfterClears(p, ['5-10', '5-9', '5-8', '5-7'], SCENE_LIST, hasUnit)).toEqual([
+      'g5.embers', 'g5.raid', 'g5.whiteboard', 'g5.after', 'g5.epi', 'g5.board',
+    ]);
+    const played = [];
+    for (let sc = nextQueued(p, SCENE_LIST, hasUnit); sc; sc = nextQueued(p, SCENE_LIST, hasUnit)) {
+      played.push(sc.id);
+      expect(markSeen(p, sc), sc.id).toEqual({ first: true, rewards: [] });
+    }
+    expect(played).toEqual(['g5.embers', 'g5.raid', 'g5.whiteboard', 'g5.after', 'g5.epi', 'g5.board']);
+    expect(queueAfterClears(p, ['5-10'], SCENE_LIST, hasUnit)).toEqual([]);
+  });
+
   it('a before-scene with ifOwned is offered only once a listed girl is owned; requirement text for one or many', () => {
     const p = clearUpTo(createProfile(), '1-1');
     for (const id of CLASS) delete p.units[id];

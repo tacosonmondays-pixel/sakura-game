@@ -169,6 +169,34 @@ describe('story backdrops', () => {
     expect(epiCues).toEqual(['stage:4-5', 'stage:4-7@night']);
   });
 
+  it("Act 5's places fit place and time: the drowned line underground, the reservoir after dark, Hilltop's night skyline", () => {
+    const bgs = Object.fromEntries(ALL.filter((s) => s.id.startsWith('g5.')).map((s) => [s.id, sceneBackgrounds(s)]));
+    expect(bgs).toEqual({
+      'g5.pro': ['stage:5-6'], // the flooded platform (drowned)
+      'g5.embers': ['stage:4-9@night'], // the far north, the keeper's camp at night
+      'g5.mid': ['stage:5-8'], // the dark pump hall and the Noon Gate (drowned)
+      'g5.raid': ['stage:2-6'], // Hilltop the same night (the campus skyline is drawn at night)
+      'g5.whiteboard': ['shelter'], // the next morning (daylit)
+      'g5.boss': ['stage:5-10@night'], // the reservoir at night
+      'g5.after': ['stage:5-10@night'],
+      'g5.epi': ['stage:2-6'], // Hilltop, late that night
+      'g5.board': ['shelter'], // the morning after (daylit)
+    });
+    // nothing in Act 5 sits on the academy painting or a bright noon backdrop under a night scene
+    for (const ids of Object.values(bgs)) for (const id of ids) expect(id.startsWith('academy'), id).toBe(false);
+    expect(resolveBackground('stage:4-9@night', 5).html).toBe(themeBackdropSVG('snow', { variant: 'north', time: 'night' }));
+    expect(resolveBackground('stage:2-6', 5).html).toBe(themeBackdropSVG('campus'));
+    // the Act 5 stages draw their own skylines (S5a's drowned and park variants by map, PLACE_VARIANT), never a painting
+    for (const st of ['5-6', '5-8', '5-10']) {
+      expect(STAGE_PLACE[st], st).toBeUndefined();
+      expect(STAGE_MAP[st]?.act, `${st} is an Act II stage`).toBe(2);
+      expect(resolveBackground(`stage:${st}`, 5).kind, st).toBe('svg');
+    }
+    const night = resolveBackground('stage:5-10@night', 5);
+    expect([night.kind, night.time]).toEqual(['svg', 'night']);
+    expect(night.html).not.toBe(resolveBackground('stage:5-10', 5).html);
+  });
+
   it('spares are real backgrounds', () => {
     for (const id of SPARE_BACKGROUNDS) expect(BACKGROUNDS[id], id).toBeTruthy();
   });
