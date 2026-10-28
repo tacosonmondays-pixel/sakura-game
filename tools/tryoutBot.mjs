@@ -11,11 +11,14 @@ import { createCoopSim } from '../src/online/coop/commands.js';
 import { snapshotDigest } from '../src/sim/snapshot.js';
 import { DEFAULT_UNIT_STATS } from '../src/sim/constants.js';
 import { TRYOUT_STUDENTS } from '../src/data/tryout.js';
+import { autoPlan } from '../src/sim/headless.js';
+import { crosspathBlock } from '../src/sim/mods.js';
+import { finalTierOf, findFinalHolder } from '../src/sim/finalTier.js';
 
 const Q = 1024;
 const SAMPLE = 0.5;
 
-/** Legal-ish spots by how much road lies within 3 tiles (best first), on a half-tile lattice. */
+/** Legal-ish land spots by how much road lies within 3 tiles (best first), on a half-tile lattice (the tests' spots). */
 export function spotsFor(sim) {
   const pts = [];
   for (const p of sim._pathsFwd) for (const pt of p.points) pts.push(pt);
@@ -54,8 +57,8 @@ function pointAt(pts, d) {
 
 /**
  * One player's calm-point decisions as commands ({ k, a }), against a Sim showing that player's view.
- * Picks: `random` (a seeded random legal choice) or `first`; places her squad, upgrades, moves one girl onto
- * a free seat at a break.
+ * Picks: `random` (a seeded random legal choice) or `first`; places her squad and spends her coins (spend), moves
+ * one girl onto a free seat at a break.
  */
 export function decide(sim, slot, bot) {
   const ty = sim.tryout;
@@ -88,37 +91,193 @@ export function decide(sim, slot, bot) {
     cmds.push({ k: 'tr', a: ['snack'] }, { k: 'tr', a: ['ready'] });
     return cmds;
   }
-  // place: the hero first, then each squad girl once, then more copies of the first two
-  const spots = bot.spots || (bot.spots = spotsFor(sim));
-  const want = [];
-  const hc = sim.heroConfigs[slot];
-  if (hc && !sim.heroes[slot]) want.push(hc.unitId);
-  const have = new Set(sim.towers.filter((t) => (t.owner ?? 0) === slot).map((t) => t.unitId));
-  for (const id of p.squad) if (!have.has(id)) want.push(id);
-  if (sim.wave > 6) for (const id of p.squad.slice(0, 2)) want.push(id);
-  let cash = sim.cash;
-  for (const id of want) {
-    const cost = sim.placeCost(id);
-    if (cost > cash) continue;
-    const s = spots.find((o) => !sim.placementReason(id, o.x, o.y) && !bot.taken?.has(`${o.x},${o.y}`));
-    if (!s) continue;
-    (bot.taken || (bot.taken = new Set())).add(`${s.x},${s.y}`);
-    cmds.push({ k: 'place', a: [id, Math.round(s.x * Q) + ((Math.round(s.x * Q) % Q === 0 && Math.round(s.y * Q) % Q === 0) ? 1 : 0), Math.round(s.y * Q)] });
-    cash -= cost;
-  }
-  for (const t of sim.towers) {
-    if (t.isHero || (t.owner ?? 0) !== slot) continue;
-    for (const path of [0, 2, 1]) {
-      const st = sim.upgradeStatus(t.uid, path);
-      if (!st.locked && st.cost <= cash) {
-        cmds.push({ k: 'upg', a: [t.uid, path] });
-        cash -= st.cost;
-        break;
-      }
-    }
-  }
+  // place and upgrade (see spend below), then start the next wave
+  // income: her coins now minus what she kept at the last calm point
+  const income = Math.max(0, sim.cash - (bot.kept ?? sim.cash));
+  const bought = spend(sim, slot, bot, income);
+  for (const c of bought) cmds.push(c);
+  bot.kept = bot.left;
   cmds.push({ k: 'wave', a: [] });
   return cmds;
+}
+
+// ---------------------------------------------------------------------------
+// Battle play: where and what to buy
+// ---------------------------------------------------------------------------
+
+/** Share of coins a reasonable player puts into tiers rather than more girls (upgrade coins : placement coins). */
+const UPGRADE_RATIO = 2;
+/** The tier order of each girl: her main path to 3, her side path to 2, then her main path on to 5. */
+const STEPS = [['main', 3], ['sub', 2], ['main', 5]];
+
+/**
+ * A girl's play plan on this run's stage, from headless.autoPlan (it reads the stage's flyers and veiled foes):
+ * `main` and `sub` are her first two upgrade paths; `copy` whether the plan ever places a second one (support
+ * girls such as aura, drink and hub girls are placed once).
+ */
+function playPlan(sim, bot, id) {
+  const cache = bot.plans || (bot.plans = new Map());
+  if (!cache.has(id)) {
+    let plan = [];
+    try {
+      plan = autoPlan(sim.stage.id, [id], { data: { stage: sim.stage } });
+    } catch {
+      plan = [];
+    }
+    const paths = [];
+    for (const a of plan) if (a.action === 'upgrade' && !paths.includes(a.path)) paths.push(a.path);
+    const main = paths[0] ?? 0;
+    const sub = paths[1] ?? [0, 1, 2].find((p) => p !== main);
+    cache.set(id, { main, sub, copy: plan.filter((a) => a.action === 'place').length > 1 });
+  }
+  return cache.get(id);
+}
+
+/**
+ * Candidate spots for a girl of range `r` (land and water alike, best road coverage within her range first), on a
+ * half-tile lattice; computed once per run for a few range buckets.
+ */
+function rangeSpots(sim, bot, r) {
+  const R = Math.max(2, Math.min(5, Math.round(r || 3)));
+  const cache = bot.rspots || (bot.rspots = new Map());
+  if (!cache.has(R)) {
+    const road = [];
+    for (const s of sim._pathsFwd) for (let d = 0; d <= s.length; d += 0.5) road.push(pointAt(s.points, d));
+    const out = [];
+    for (let y = 0.25; y < sim.map.height; y += SAMPLE) {
+      for (let x = 0.25; x < sim.map.width; x += SAMPLE) {
+        let w = 0;
+        for (const q of road) if ((q[0] - x) ** 2 + (q[1] - y) ** 2 <= R * R) w++;
+        if (w > 0) out.push({ x, y, w });
+      }
+    }
+    out.sort((a, b) => b.w - a.w || a.y - b.y || a.x - b.x);
+    cache.set(R, out);
+  }
+  return cache.get(R);
+}
+
+/** A placement command's quantised coordinates (never exactly on a tile corner: those are tile calls). */
+function placeCmd(id, s) {
+  const x = Math.round(s.x * Q);
+  const y = Math.round(s.y * Q);
+  return { k: 'place', a: [id, x + (x % Q === 0 && y % Q === 0 ? 1 : 0), y] };
+}
+
+/**
+ * One calm point's buying for a player: the hero, then every squad girl once (saving up for the next one), then
+ * whichever side of the upgrade : placement split (UPGRADE_RATIO) is behind. Upgrades follow STEPS on each girl's
+ * plan, the most invested girl first (a carry pushed deep), skipping tiers beyond her coins plus a wave of income;
+ * new girls are copies of the squad's damage dealers, fewest copies first, each on the free spot that sees the most
+ * road within her range. Saves when the chosen buy is out of reach. Reads the Sim and returns commands; `bot` keeps
+ * only caches and what she kept last time (her income).
+ */
+function spend(sim, slot, bot, income) {
+  const cmds = [];
+  let cash = sim.cash;
+  const done = () => {
+    bot.left = cash;
+    return cmds;
+  };
+  const pending = []; // spots claimed this calm point
+  const p = sim.tryout.players[slot];
+  const mine = sim.towers.filter((t) => !t.isHero && !t.removed && (t.owner ?? 0) === slot);
+  const spotFor = (id) => {
+    const def = sim.data.unit(id);
+    const r = def?.base?.range || 3;
+    return rangeSpots(sim, bot, r).find((o) => !sim.placementReason(id, o.x, o.y)
+      && pending.every((q) => (q.x - o.x) ** 2 + (q.y - o.y) ** 2 >= 1.0));
+  };
+  const place = (id) => {
+    // one of each girl per calm point (a voucher prices only her first copy free)
+    if (pending.some((q) => q.id === id)) return 'spot';
+    const cost = sim.placeCost(id);
+    if (cost > cash) return 'cash';
+    const s = spotFor(id);
+    if (!s) return 'spot';
+    pending.push({ ...s, id });
+    cmds.push(placeCmd(id, s));
+    cash -= cost;
+    return 'ok';
+  };
+
+  // the hero, then every squad girl once
+  const hc = sim.heroConfigs[slot];
+  if (hc && !sim.heroes[slot]) place(hc.unitId);
+  const have = new Set(mine.map((t) => t.unitId));
+  for (const id of p.squad) {
+    if (have.has(id)) continue;
+    if (place(id) === 'cash') return done(); // save up for her
+  }
+
+  // the split: virtual tiers so several tiers of one girl can be bought at one calm point
+  const tiers = new Map(mine.map((t) => [t.uid, t.tiers.slice()]));
+  const bought = new Map(); // uid -> coins put into her this calm point
+  const finals = new Set(); // `${unitId}:${path}` finals bought this calm point
+  let upg = 0;
+  let plc = 0;
+  for (const t of mine) {
+    const base = sim.placeCost(t.unitId);
+    plc += base;
+    upg += Math.max(0, t.spent - base);
+  }
+  const nextTier = (t) => {
+    const plan = playPlan(sim, bot, t.unitId);
+    const vt = tiers.get(t.uid);
+    for (const [which, cap] of STEPS) {
+      const path = plan[which];
+      const defs = t.def.paths?.[path]?.tiers || [];
+      const top = Math.min(cap, 5, defs.length);
+      if (vt[path] >= top) continue;
+      if (crosspathBlock(vt, path, Math.min(5, defs.length))) continue;
+      const tier = vt[path];
+      if (tier + 1 >= finalTierOf(t.def, path)) {
+        if (finals.has(`${t.unitId}:${path}`) || findFinalHolder(sim.towers, t.unitId, t.owner ?? 0, path, t.uid)) continue;
+      }
+      return { t, path, cost: sim._upgradeCost(t, defs[tier], tier) };
+    }
+    return null;
+  };
+  const copyOf = () => {
+    let best = null;
+    let bestN = Infinity;
+    for (const id of p.squad) {
+      if (!playPlan(sim, bot, id).copy || pending.some((q) => q.id === id)) continue;
+      const n = mine.filter((t) => t.unitId === id).length;
+      if (n < bestN) {
+        bestN = n;
+        best = id;
+      }
+    }
+    return best;
+  };
+  // what she saves toward: a tier within her coins plus about one wave of income
+  const horizon = cash + income;
+  for (let guard = 0; guard < 200; guard++) {
+    // the most invested girl's next tier within reach (push a carry deep, as a player does)
+    let up = null;
+    for (const t of mine) {
+      const n = nextTier(t);
+      if (!n || n.cost > horizon) continue;
+      const spent = t.spent + (bought.get(t.uid) || 0);
+      if (!up || spent > up.spent) up = { ...n, spent };
+    }
+    const copy = copyOf();
+    if (up && (!copy || upg < UPGRADE_RATIO * plc)) {
+      if (up.cost > cash) break; // save up for it
+      cmds.push({ k: 'upg', a: [up.t.uid, up.path] });
+      tiers.get(up.t.uid)[up.path]++;
+      if (tiers.get(up.t.uid)[up.path] >= finalTierOf(up.t.def, up.path)) finals.add(`${up.t.unitId}:${up.path}`);
+      bought.set(up.t.uid, (bought.get(up.t.uid) || 0) + up.cost);
+      cash -= up.cost;
+      upg += up.cost;
+    } else if (copy) {
+      const cost = sim.placeCost(copy);
+      if (place(copy) !== 'ok') break;
+      plc += cost;
+    } else break;
+  }
+  return done();
 }
 
 /** Runs one solo command against a Sim (the same shapes as co-op's). */
