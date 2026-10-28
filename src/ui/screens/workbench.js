@@ -23,7 +23,7 @@ import { rememberParams } from '../router.js';
 const CLOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.4V12l3.2 2"/></svg>';
 const REASON = {
   slot: 'No free slot', busy: 'That slot is busy', missing: 'Not enough materials or coins', weekly: 'Weekly limit reached',
-  offWeek: 'Back next week', family: 'Pick a family', recipe: 'Unknown recipe',
+  offWeek: 'Back next week', family: 'Pick a family', recipe: 'Unknown recipe', ready: 'It is ready: collect it',
 };
 
 /** The family picked for the next craft (kept while the game is open). */
@@ -85,6 +85,7 @@ export function render(root, params = {}) {
     const r = fn();
     if (!r.ok) {
       toast(REASON[r.reason] || 'Cannot do that right now.', 'bad');
+      draw();
       return r;
     }
     store.commit('workbench');
@@ -165,7 +166,7 @@ export function render(root, params = {}) {
       button('Cancel', {
         kind: 'ghost', small: true, testid: `wb-cancel-${s.slot}`,
         onClick: async () => {
-          if (!(await confirmDialog(`Cancel ${outName(s.recipe)}? You get back every material and coin.`, { title: 'Cancel craft', ok: 'Cancel craft' }))) return;
+          if (!(await confirmDialog(`Cancel ${outName(s.recipe)}? You get back every material and coin.`, { title: 'Cancel craft', ok: 'Cancel craft', cancel: 'Keep crafting' }))) return;
           act(() => cancelCraft(store.profile, s.slot, Date.now()), () => 'Craft cancelled: everything refunded');
         },
       }));

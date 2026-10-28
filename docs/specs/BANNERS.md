@@ -154,8 +154,8 @@ The rates page prints this table from `ratesTable(bannerId, day)`; a test checks
   that day until real time catches up. `serverOffset` comes from any RPC reply that carries `serverNow` (`donation_state`,
   `support_state`, `use_support`); offline it is 0 (the device clock, as energy and missions, ENERGY A10). When online, a
   debut or spark window the server says has ended is refused.
-- **Index.** `mod = (a, n) => ((a % n) + n) % n`; for a list version, `i = max(0, d − dayNumber(version.since))`, so a device
-  clock before the release day shows the release-day banner instead of `undefined`.
+- **Index.** `mod = (a, n) => ((a % n) + n) % n`; for a list version, `i = d − dayNumber(version.since)` (negative before it),
+  and every pick uses `mod`, so days before the release day keep cycling into list[0] on the release day (built: review r1 M4).
 - **Lists** live in `src/data/banners.js` as **versions** `{ since, list }`. A new version's `since` must be (a) at least
   **3 game days after** the patch-note date of the release that adds it and (b) a day on which the old version's cycle ends
   (`i_old mod n_old = 0`). Each version counts from its own `since`, so the 2-day look-ahead players were shown never changes.

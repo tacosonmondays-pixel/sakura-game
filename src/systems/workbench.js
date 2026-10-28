@@ -149,8 +149,10 @@ export function slotState(profile, slot, now = Date.now()) {
   if (!isNum(rid)) return { slot, open, empty: true, known: true, recipe: null, recipeId: null, family: null, start: 0, end: 0, left: 0, ready: false };
   const recipe = WB_RECIPE_MAP[rid] || null;
   const fam = WB_FAMILIES[c[K.n(slot)]] || null;
-  const known = !!recipe && !!fam;
-  const t = slotTimes(c, slot, now, rolledBack(profile, now), lastKnown(c)) || [+now, +now];
+  // a slot with a recipe but no times (only a damaged save) is unknown: "Update to collect", never paid out
+  const times = slotTimes(c, slot, now, rolledBack(profile, now), lastKnown(c));
+  const known = !!recipe && !!fam && !!times;
+  const t = times || [+now, +now];
   const left = Math.max(0, t[1] - +now);
   return { slot, open: true, empty: false, known, recipe: known ? recipe : null, recipeId: rid, family: fam, start: t[0], end: t[1], left, ready: known && left <= 0 };
 }

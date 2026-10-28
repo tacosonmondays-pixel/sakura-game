@@ -77,7 +77,9 @@
 .wb-recipe-meta { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-label); color: var(--muted); flex-wrap: wrap; }
 .wb-time { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: var(--ink); }
 .wb-time-ico { width: 14px; height: 14px; }
-.wb-cap.out { color: var(--bad); font-weight: 800; }
+.wb-cap.out { color: var(--bad-text); font-weight: 800; }
+/* a recipe that cannot start says why on its button: readable, never faded (UI_DIRECTION §5.5) */
+.wb-recipe .btn:disabled { opacity: 1; color: var(--muted); }
 .wb-costs { display: flex; gap: 4px; }
 .wb-cost { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 2px 7px 2px 3px; border-radius: 999px; background: var(--blue-soft); font: 600 var(--fs-label)/1 var(--font-num); color: var(--ink); white-space: nowrap; }
 .wb-cost b { font-weight: 800; }

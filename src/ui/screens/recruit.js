@@ -411,7 +411,7 @@ function pullButton(count, doPull, b) {
     return h(`button.ma-pull.ma-pull-${count}${ok ? '' : '.short'}`, { onclick: () => doPull(count), 'data-testid': `pull-${count}` },
       h('span.ma-pull-label', `Recruit ×${count}`),
       h('span.ma-pull-cost', coin ? h(`span.ma-pay${have >= price ? '' : '.short'}`, svgEl(currencyIcon('coins'), 'ma-pay-icon'), formatNumber(price)) : h('span.ma-pay', `${formatNumber(price)} FP`)),
-      h('span.ma-pull-note', capped ? 'Weekly limit reached' : coin ? `Coins after: ${formatNumber(Math.max(0, have - price))}` : count === 10 ? 'SR or better guaranteed' : null));
+      h('span.ma-pull-note', capped ? 'Weekly limit reached' : coin ? (have >= price ? `Coins after: ${formatNumber(have - price)}` : `Need ${formatNumber(price - have)} more`) : count === 10 ? 'SR or better guaranteed' : null));
   }
   const cost = pullCost(profile, count);
   const payment = cost.items.length

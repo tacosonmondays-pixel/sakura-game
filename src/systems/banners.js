@@ -69,15 +69,15 @@ export function noteBannerDay(profile, now = Date.now()) {
 // Lists, versions and pins
 // ---------------------------------------------------------------------------
 
-/** The live version of a list on day d: its released ids and its index i (never negative). */
+/** The live version of a list on day d: its released ids and its index i (negative before `since`; picks use mod). */
 export function listAt(name, d) {
   const versions = LISTS[name] || [];
   let v = versions[0];
   for (const x of versions) if (keyNumber(x.since) <= d) v = x;
   if (!v) return { list: [], i: 0, since: d };
   const since = keyNumber(v.since);
-  // before `since` the cycle simply runs backwards (picks use mod), so the release day still shows list[0] and
-  // a device clock set early never stalls on one girl
+  // before `since` the index is negative and the picks use mod, so the days before the release day keep cycling
+  // into list[0] on the release day, and a device clock set early never stalls on one girl
   return { list: v.list.filter(exists), i: d - since, since };
 }
 
