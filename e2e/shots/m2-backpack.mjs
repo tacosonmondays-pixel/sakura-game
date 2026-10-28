@@ -52,6 +52,16 @@ export const shots = {
     prepare: giveItems([{ id: 'mat_feather_legendary', count: 6 }]),
     open: clickOpen('#app [data-item="mat_feather_legendary"]', '[data-testid="item-sheet"]'),
   }),
+  // a place with a long note (a sentence, on its own line under the place) and an item with many places (the list
+  // scrolls in whole rows with "N more")
+  'backpack-item-longnote': bp('all', {
+    prepare: giveItems([{ id: 'book_legendary', count: 2 }]),
+    open: clickOpen('#app [data-item="book_legendary"]', '[data-testid="item-sheet"]'),
+  }),
+  'backpack-item-places': bp('all', {
+    prepare: giveItems([{ id: 'dice_reroll', count: 4 }]),
+    open: clickOpen('#app [data-item="dice_reroll"]', '[data-testid="item-sheet"]'),
+  }),
   'backpack-craft': bp('enhancement', {
     prepare: giveItems([{ id: 'mat_feather_legendary', count: 6 }]),
     open: async (page) => {
@@ -65,4 +75,4 @@ export const shots = {
 export const gate = { 'backpack-equipment': { rebuilt: true }, 'backpack-salvage': { rebuilt: true } };
 export const list = ['backpack-all', 'backpack-enhancement', 'backpack-awakening', 'backpack-tickets', 'backpack-tokens', 'backpack-equipment',
   'backpack-equipment-end', 'backpack-item-sheet', 'backpack-salvage', 'backpack-gear30', 'backpack-gear30-end', 'backpack-supplies', 'backpack-filter',
-  'backpack-sort', 'backpack-salvage-picks', 'backpack-sst', 'backpack-item-material', 'backpack-craft'];
+  'backpack-sort', 'backpack-salvage-picks', 'backpack-sst', 'backpack-item-material', 'backpack-item-longnote', 'backpack-item-places', 'backpack-craft'];

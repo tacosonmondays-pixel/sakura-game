@@ -26,6 +26,7 @@ body.ui-day .bp-rail .bp-tab-word { white-space: nowrap; }
 }
 
 /* the toolbar: secondary buttons at 44 px; Salvage (danger) at the end; the capacity only near full */
+body.ui-day .bp-tools:empty { display: none; }
 body.ui-day .bp-tools { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; min-height: var(--tap); }
 body.ui-day .bp-tools .btn { min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-body); }
 @media (min-height: 481px) { body.ui-day .bp-tools .btn { font-size: var(--fs-name); padding: 0 18px; } }
@@ -150,9 +151,14 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 :is(body.ui-day, body.ui-night) .bp-gfsheet .gf-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 560px) { :is(body.ui-day, body.ui-night) .bp-gfsheet .gf-row { grid-template-columns: minmax(0, 1fr); } }
 
+/* (the sheet stands on calc(8px + --safe-bottom), ink.css: its height leaves the safe areas free, or a notched phone in
+   landscape would push its head off the top) a taller screen: more than the kit's 60dvh, up to 640 px */
+@media (min-height: 481px) {
+  :is(body.ui-day, body.ui-night) .ui-sheet.bp-sheet:not(.full):not(.side) { max-height: min(calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom)), 640px); }
+}
 /* a landscape phone: the sheet takes the height it needs (the kit's 60dvh showed one row and hid the actions) */
 @media (max-height: 480px) {
-  :is(body.ui-day, body.ui-night) .ui-sheet.bp-sheet:not(.full):not(.side) { max-height: calc(100dvh - 16px); }
+  :is(body.ui-day, body.ui-night) .ui-sheet.bp-sheet:not(.full):not(.side) { max-height: calc(100dvh - 16px - var(--safe-top) - var(--safe-bottom)); }
   :is(body.ui-day, body.ui-night) .bp-sheet .ui-body { padding-top: 10px; padding-bottom: 10px; }
   :is(body.ui-day, body.ui-night) .bp-sheet .bp-kick { margin-bottom: 4px; }
   :is(body.ui-day, body.ui-night) .bp-ssec + .bp-ssec, :is(body.ui-day, body.ui-night) .bp-ssec + .gf-bar { margin-top: 8px; }
@@ -203,9 +209,17 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 /* (more places than the sheet can show: the list scrolls on its own, sized to whole rows; itemSheet.js fitRows) */
 :is(body.ui-day, body.ui-night) .bp-srcs.fit { overflow: hidden auto; overscroll-behavior: contain; padding-right: 8px; box-shadow: inset 0 -1px 0 var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-srcs.fit > .bp-src { flex: none; }
+/* more places below: the last whole row fades out a little and "N more" sits under the list */
+:is(body.ui-day, body.ui-night) .bp-srcs.fit.more { -webkit-mask: linear-gradient(#000 calc(100% - 18px), rgba(0, 0, 0, 0.35)); mask: linear-gradient(#000 calc(100% - 18px), rgba(0, 0, 0, 0.35)); }
+:is(body.ui-day, body.ui-night) .bp-more-places { display: flex; margin: 2px auto 0; min-height: calc(var(--tap) + 2px); font: 600 var(--fs-label)/1 var(--font-num);
+  letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--cyan-text); }
+:is(body.ui-day, body.ui-night) .bp-more-places[hidden] { display: none; }
+:is(body.ui-day, body.ui-night) .bp-ihead-acts { margin-left: auto; padding-top: 0; }
 :is(body.ui-day, body.ui-night) .bp-src { display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-src:last-child { border-bottom: 0; }
 :is(body.ui-day, body.ui-night) .bp-src-t { flex: 1 1 auto; min-width: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-src-t.two { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+:is(body.ui-day, body.ui-night) .bp-src-note { font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted); overflow-wrap: anywhere; }
 :is(body.ui-day, body.ui-night) .bp-src-t > .bp-chance { margin-left: 6px; font: 600 var(--fs-label)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
 :is(body.ui-day, body.ui-night) .bp-src .btn.bp-go { flex: none; min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-body); }
 :is(body.ui-day, body.ui-night) .bp-acts { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
@@ -223,6 +237,13 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
   :is(body.ui-day, body.ui-night) .bp-sst-grid { grid-template-columns: repeat(auto-fill, 80px); justify-content: center; gap: 10px; max-height: none; overflow: visible; }
   :is(body.ui-day, body.ui-night) .bp-sst-grid .ui-rar.sst-rarity { display: none; }
   :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap { height: 24px; padding-left: 6px; }
+}
+/* a shorter landscape phone (667x375): 72 px tiles, the intro on one line, so both rows stay whole */
+@media (max-height: 400px) {
+  :is(body.ui-day, body.ui-night) .bp-sst-grid { grid-template-columns: repeat(auto-fill, 72px); gap: 8px; padding-top: 2px; padding-bottom: 2px; }
+  :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap { height: 22px; }
+  :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap .nm { font-size: var(--fs-label); }
+  :is(body.ui-day, body.ui-night) .bp-sst > .bp-desc .bp-sst-more { display: none; }
 }
 :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile { --gw: 100%; width: 100%; height: auto; aspect-ratio: 1 / 1.3; }
 :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap { height: 28px; }

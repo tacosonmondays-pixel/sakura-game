@@ -40,7 +40,7 @@ export function openSelectTicket() {
     title: 'SSR Select Ticket',
     wide: true,
     cls: 'sst-modal bp-sst-modal',
-    body: h('div.bp-sst', h('p.bp-desc', `Choose any SSR student (tickets: ${have}). One you already have gains 1 Essence for her next Potential step.`), grid),
+    body: h('div.bp-sst', h('p.bp-desc', `Choose any SSR student (tickets: ${have}).`, h('span.bp-sst-more', ' One you already have gains 1 Essence for her next Potential step.')), grid),
     actions: [{ label: 'Cancel', kind: 'ghost' }],
   });
   for (const id of POOL.SSR) {
