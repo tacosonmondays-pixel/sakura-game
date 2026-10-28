@@ -4,7 +4,10 @@
 // pool and run hero ride in hello / ready, and the start message both clients build the run from.
 import { describe, it, expect } from 'vitest';
 import { openSession, LOBBY, tryoutSetting, sameTryout, draftReady, roomNote } from '../../src/online/coop/session.js';
-import { clampStart, clampPlayer, clampPool, clampDraft, clampTryout, LOADOUT_MAX } from '../../src/online/coop/statLimits.js';
+import { clampStart, clampPlayer, clampPool, clampDraft, clampTryout, LOADOUT_MAX, UNIT_STAT_LIMITS } from '../../src/online/coop/statLimits.js';
+
+// the co-op damage ceiling (10 before the banners release; 15 since UR Resonance and LR)
+const DMG_MAX = UNIT_STAT_LIMITS.damageMul.hi;
 import { TRYOUT_STUDENTS } from '../../src/data/tryout.js';
 import { createProfile } from '../../src/systems/save.js';
 import { frozenPool, draftOf } from '../../src/systems/tryoutRuns.js';
@@ -147,7 +150,7 @@ describe('the clamp: a run\'s pool, draft and settings', () => {
     expect(Object.keys(out)).toEqual(TRYOUT_STUDENTS.filter((id) => !['aoi', 'rei', 'yuki'].includes(id)));
     expect(Object.keys(out).length).toBeGreaterThan(LOADOUT_MAX);
     expect(Object.keys(out).length).toBeLessThanOrEqual(29);
-    for (const st of Object.values(out)) expect(st).toEqual({ damageMul: 10, rateMul: 1, potential: 6 });
+    for (const st of Object.values(out)) expect(st).toEqual({ damageMul: DMG_MAX, rateMul: 1, potential: 6 });
     for (const bad of [null, undefined, 5, 'aoi', ['aoi']]) expect(clampPool(bad)).toEqual({});
     expect(clampPool(out)).toEqual(out);
   });
@@ -181,8 +184,8 @@ describe('the clamp: a run\'s pool, draft and settings', () => {
     const once = clampStart(raw);
     expect(once.tryout).toEqual({ seed: 4294967291, grade: 12, length: 'full', mapId: 'lake_shore' });
     expect(once.players[0].draft).toEqual(['aoi', 'kage', 'yuki']);
-    expect(once.players[0].pool).toEqual({ aoi: { damageMul: 10 } });
-    expect(once.players[0].hero.stats.damageMul).toBe(10);
+    expect(once.players[0].pool).toEqual({ aoi: { damageMul: DMG_MAX } });
+    expect(once.players[0].hero.stats.damageMul).toBe(DMG_MAX);
     expect(once.players[1].draft).toEqual([]);
     expect(once.players[1].pool).toEqual({});
     expect(clampStart(once)).toEqual(once);

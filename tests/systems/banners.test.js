@@ -212,8 +212,8 @@ describe('held units', () => {
 
 describe('dates', () => {
   it('each rotation list version starts at least 3 game days after the patch note of the release that adds it', () => {
-    // (the first version came with the "Banners" release)
-    const note = PATCH_NOTES.find((n) => n.title === 'Banners');
+    // (the first version came with the banners release, which shipped together with Tryout Day as "Banners and Tryout Day")
+    const note = PATCH_NOTES.find((n) => /^Banners\b/.test(n.title));
     expect(note).toBeTruthy();
     for (const versions of Object.values(LISTS)) {
       expect(B.keyNumber(versions[0].since) - B.keyNumber(note.date), versions[0].since).toBeGreaterThanOrEqual(3);

@@ -19,10 +19,11 @@
 
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
-  // (the banners release: its number is set when it merges, after any smaller release that goes first)
   {
-    id: 'v0.1.58', version: '0.1.58', date: '2026-10-29', title: 'Banners',
+    id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
     added: [
+      'Tryout Day, a new run mode: play one long school day of waves, pick a Pep Talk after every period, and watch new girls try out for your squad. Play it solo or with a friend in co-op, from Grade 1 up to Grade 12 (it opens after you clear 2-5).',
+      'In Tryout Day, clear assignments to raise the rarity of your next pick, take a Double Dare for a better one and choose the next class between periods. At Recess the Window Seats move: spend Hall Passes to reseat your girls. Earn Marbles for the Marble Jar, fill the Yearbook and try the Weekly Timetable.',
       'Recruit has daily banners! The Student Spotlight and the Guardian Spotlight each feature one SSR and three SRs and change every day at 7 PM Central; on Standard you pick the featured SSR yourself, and your first 10× there always brings an SSR. One pity counter is shared by them all.',
       'Two LR Banners premiere today, side by side: Tenka\'s Physics Club Premiere (0.7% until Nov 5, 7 PM Central; your Legend Promise count carries over) and Kohaku & Tsubaki\'s Starfall Premiere, the Prism Battery: two friends, one tower (0.7% until Nov 4, 7 PM Central). Afterwards they take turns on the LR tab at 0.5%.',
       'Limit Break: Kohaku & Tsubaki at level 60 with all 5 gates and ★5 can pay the Limit Break fee and win the Starfall Trial (8-5 Nightmare) to become LR, with a new frame and stronger stats. Tenka\'s LR form comes later.',
