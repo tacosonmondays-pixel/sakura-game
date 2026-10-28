@@ -15,7 +15,7 @@ import { STAGES } from '../../src/data/stages.js';
 import { getEnemy } from '../../src/data/enemies.js';
 
 const HEX = /^#[0-9a-f]{6}$/i;
-const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal', 'paved'];
+const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal', 'paved', 'tile'];
 // (the campus paints on 'grass', with the painter's kerb bands: THEMES.campus.groundPaint)
 
 describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', () => {

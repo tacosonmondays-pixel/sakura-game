@@ -28,6 +28,10 @@ export const MAP_THEMES = {
   // Gate Arc S3a · the burning look (StageDef.scenery.ruined 'burning'): ash ground, an ash-grey road kept lightest, rubble, amber embers
   // Gate Arc S4a · the mountain highway (MapDef.district 'highway'): gravel verges, the pale concrete road (the lightest band) with its dark shoulder, sound walls, pines
   highway: { ground: '#8f8a80', alt: '#878278', edge: '#5f5b55', path: '#e2e0d9', pathEdge: '#6f7176', water: '#3f86b4', tree: '#3d7f5a', treeDark: '#2e6a4b', rock: '#8d9097', roof: '#cfccc4', wall: '#7a9a8c', flower: ['#f4a62a', '#eef3f8', '#7f8b5e'], voidc: '#3a3a3c' },
+  // Gate Arc S5a · the Drowned Line (theme 'drowned'): wet slate tiles, the pale grating road (the lightest band), dark teal flood water, the line's blue
+  drowned: { ground: '#5e6f72', alt: '#58686b', edge: '#3a464b', path: '#c9ced1', pathEdge: '#e7c64a', water: '#1d5660', tree: '#5f7a72', treeDark: '#475c56', rock: '#7d8584', roof: '#3f8fbf', wall: '#c4c9c3', flower: ['#ff4d5a', '#e7c64a', '#7ff0ff'], voidc: '#11191d' },
+  // Gate Arc S5a · the reservoir park (MapDef.district 'park'): mown lawns, the pale park road, the reservoir, willows, the dam's concrete
+  park: { ground: '#7cb068', alt: '#73a760', edge: '#4f7a46', path: '#d6d3cb', pathEdge: '#b5afa2', water: '#2f6f8a', tree: '#7fa88a', treeDark: '#5f8a6c', rock: '#b9b6ad', roof: '#3f7a5a', wall: '#b9b6ad', flower: ['#ffd98f', '#ff7a2a', '#ffffff'], voidc: '#2a3a34' },
   burning: { ground: '#5f5955', alt: '#58524e', edge: '#3d3936', path: '#bdb8b0', pathEdge: '#8f8981', water: '#26384a', tree: '#3a3330', treeDark: '#241f1d', rock: '#6f6963', roof: '#3d3734', wall: '#6e675e', flower: ['#ffb347', '#ffd27a', '#6d6862'], voidc: '#2b2624' },
 };
 

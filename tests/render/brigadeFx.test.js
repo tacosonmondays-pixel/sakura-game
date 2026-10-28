@@ -75,7 +75,8 @@ describe('fall styles', () => {
 
   it('the battle renderer plays the def\'s fall style on a death (no more fixed sparkle)', () => {
     const src = readFileSync(new URL('../../src/render/BattleRenderer.js', import.meta.url), 'utf8');
-    expect(src).toMatch(/playFall\(fx, fallStyleOf\(enemyDef\(ev\.id\)\), p\)/);
+    // (the def goes along so a Noon machine breaks apart in its own tint, Gate Arc S5a)
+    expect(src).toMatch(/const def = enemyDef\(ev\.id\);\s*playFall\(fx, fallStyleOf\(def\), p, def\)/);
     expect(src).not.toMatch(/fx\.death\(p\.x, p\.y, p\.z, p\.size, p\.color\)/);
   });
 

@@ -3,6 +3,9 @@
 // (an orange cracked ring on the road: dim embers while resting, a bright glow and ember bursts
 // while ACTIVE), star rifts (two purple swirls per path at 40 % and 52 % of its length, a puff at
 // both ends of every jump). Reads sim.ruleInfo() and the live paths; never writes to the sim.
+// Gate Arc S5a: on the Drowned Line the vents are relief valves (`steam`): a pale steel ring on the road
+// instead of the orange cracked one, and white steam bursting up while ACTIVE (the steam valves beside
+// them are props: drownedProps.js steamValve).
 import * as THREE from 'three';
 import { PATH_H } from './terrain.js';
 import { pointAt } from '../sim/path.js';
@@ -10,10 +13,16 @@ import { pointAt } from '../sim/path.js';
 export class RuleDecals {
   /**
    * @param {{ sim: object, batches: object, atlas: object, fx: import('./fx.js').FxSystem, warm?: boolean }} o
-   *   warm: the pads are the far north's village hearths (Gate Arc 4-9): ember amber, not crystal cyan
+   *   warm: the pads are the far north's village hearths (Gate Arc 4-9): ember amber, not crystal cyan;
+   *   steam: the vents are the Drowned Line's relief valves (Gate Arc 5-8): pale steel and white steam
    */
-  constructor({ sim, batches, atlas, fx, warm = false }) {
+  constructor({ sim, batches, atlas, fx, warm = false, steam = false }) {
     this.sim = sim;
+    // vent colours (disc, ring, glow) and the burst: the forge's orange, or the valves' steam
+    this._steam = !!steam;
+    this._ventCol = steam
+      ? [[0.1, 0.16, 0.2], [0.82, 0.94, 1], [0.9, 0.97, 1]]
+      : [[0.35, 0.08, 0.02], [1, 0.48, 0.12], [1, 0.45, 0.1]];
     // pad colours (disc, rune, ring, gem): crystal cyan, or the hearths' ember amber
     this._padCol = warm
       ? [[1, 0.58, 0.22], [1, 0.7, 0.34], [1, 0.78, 0.4], [1, 0.86, 0.5]]
@@ -80,18 +89,25 @@ export class RuleDecals {
     }
     // forge vents
     const on = info.active && info.inWave && !info.neutral;
+    const vc = this._ventCol;
+    const v0 = vc[0];
+    const v1 = vc[1];
+    const v2 = vc[2];
     for (const z of info.zones) {
       const D = z.r * 2;
       const flick = 0.75 + 0.25 * Math.sin(t * 9 * slow + z.x);
-      gN.push(z.x, PATH_H + 0.014, z.y, D, D, R.disc, 0.35, 0.08, 0.02, on ? 0.5 : 0.3);
-      gA.push(z.x, PATH_H + 0.02, z.y, D, D, R.ringDashed, 1, 0.48, 0.12, on ? 0.95 * flick : 0.35, t * 0.1 * slow);
-      gA.push(z.x, PATH_H + 0.024, z.y, D * 0.7, D * 0.7, R.glow, 1, 0.45, 0.1, on ? 0.75 * flick : 0.12);
+      gN.push(z.x, PATH_H + 0.014, z.y, D, D, R.disc, v0[0], v0[1], v0[2], on ? 0.5 : 0.3);
+      gA.push(z.x, PATH_H + 0.02, z.y, D, D, R.ringDashed, v1[0], v1[1], v1[2], on ? 0.95 * flick : 0.35, t * 0.1 * slow);
+      gA.push(z.x, PATH_H + 0.024, z.y, D * 0.7, D * 0.7, R.glow, v2[0], v2[1], v2[2], on ? (this._steam ? 0.5 : 0.75) * flick : 0.12);
     }
     if (on && info.zones.length) {
       this._ember -= dt;
       if (this._ember <= 0) {
-        this._ember = 0.5;
-        for (const z of info.zones) this.fx.puff(z.x, 0.25, z.y, '#ff7a1f', this.reduceMotion ? 3 : 7, z.r * 0.6, 0.3);
+        this._ember = this._steam ? 0.35 : 0.5;
+        for (const z of info.zones) {
+          if (this._steam) this.fx.puff(z.x, 0.3, z.y, '#f2f6f8', this.reduceMotion ? 3 : 8, z.r * 0.5, 0.6);
+          else this.fx.puff(z.x, 0.25, z.y, '#ff7a1f', this.reduceMotion ? 3 : 7, z.r * 0.6, 0.3);
+        }
       }
     } else this._ember = 0;
     // star rifts
@@ -111,7 +127,7 @@ export class RuleDecals {
       this.fx.ring(ev.x2, ev.y2, 0.1, 0.8, 0.4, '#b48cff');
     } else if (ev.type === 'ruleState' && ev.active) {
       const info = this.sim.ruleInfo?.();
-      for (const z of info?.zones || []) this.fx.ring(z.x, z.y, 0.3, z.r * 1.3, 0.6, '#ff7a1f');
+      for (const z of info?.zones || []) this.fx.ring(z.x, z.y, 0.3, z.r * 1.3, 0.6, this._steam ? '#dff2ff' : '#ff7a1f');
     }
   }
 }

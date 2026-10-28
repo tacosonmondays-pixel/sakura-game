@@ -177,8 +177,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const fx = new FxSystem({ atlas, batches, camera });
   if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
-  // (the far north's relay pads are village hearths: warm, scenery keyword 'villageHearths')
-  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx, warm: scenery.keywords.includes('villageHearths') }) : null;
+  // (the far north's relay pads are village hearths: warm, scenery keyword 'villageHearths'; the
+  // Drowned Line's vents are relief valves: steam)
+  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx, warm: scenery.keywords.includes('villageHearths'), steam: look.city?.kit === 'drowned' || scenery.keywords.includes('steamValves') }) : null;
   // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
   // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
   const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });
@@ -442,8 +443,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const p = actors.enemyPos(ev.uid) || { x: ev.x, y: 0, z: ev.y, size: 1, color: '#ffffff' };
           actors.markDying(ev.uid);
           // how it leaves: the shipped poof and homeward sparkle, or a Brigade unit's own fall
-          // (no sparkle; the Gnat's spark spray) — src/render/fallStyles.js
-          playFall(fx, fallStyleOf(enemyDef(ev.id)), p);
+          // (no sparkle; the Gnat's spark spray), a Noon machine's cyan break-apart — src/render/fallStyles.js
+          const def = enemyDef(ev.id);
+          playFall(fx, fallStyleOf(def), p, def);
           if (ev.bounty > 0) fx.coin(p.x, p.y, p.z, ev.bounty);
           bark(ev);
           break;

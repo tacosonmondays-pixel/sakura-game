@@ -9,7 +9,8 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
 /** Particle flags */
-const GROUND = 1;
+/** Particle flag: lies on the ground plane (ground batches). */
+export const GROUND = 1;
 const SPIN_X = 2; // coin flip: width oscillates
 
 export class FxSystem {
@@ -236,17 +237,20 @@ export class FxSystem {
    * apart in a spray of amber sparks (the sparkle's sparks, falling instead of rising), a wisp of
    * grey smoke; no homeward sparkle, and every particle is gone within a second: nothing on the road.
    */
-  sparkFall(x, y, z, size = 0.6) {
+  sparkFall(x, y, z, size = 0.6, tint = null) {
     const s = Math.max(0.5, size);
-    this.flash(x, y + 0.25, z, '#ffd27a', 0.5 * s, 0.12);
-    this.puff(x, y + 0.2, z, '#8a8580', 3, 0.25 * s, 0.24 * s);
+    // (a Noon machine: its accent's sparks with white glints; fallStyles.fallTintOf)
+    const sparkA = tint ? tint.spark : '#ffb347';
+    const sparkB = tint ? tint.glint : '#ffd27a';
+    this.flash(x, y + 0.25, z, tint ? tint.flash : '#ffd27a', 0.5 * s, 0.12);
+    this.puff(x, y + 0.2, z, tint ? tint.smoke : '#8a8580', 3, 0.25 * s, 0.24 * s);
     const k = this.n(12);
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
       const sp = 0.8 + this.rand() * 1.6;
       this.spawn({
         batch: 'bbA', uv: this.R.spark, x, y: y + 0.25, z, vx: Math.cos(a) * sp, vy: 0.6 + this.rand() * 1.4, vz: Math.sin(a) * sp,
-        g: -7, drag: 0.6, s0: 0.12, s1: 0.03, life: 0.45 + this.rand() * 0.35, color: i % 3 ? '#ffb347' : '#ffd27a', rot: this.rand() * TAU, vrot: 8,
+        g: -7, drag: 0.6, s0: 0.12, s1: 0.03, life: 0.45 + this.rand() * 0.35, color: i % 3 ? sparkA : sparkB, rot: this.rand() * TAU, vrot: 8,
       });
     }
   }
@@ -256,21 +260,22 @@ export class FxSystem {
    * steps, covered by a fixture test): steam puffing out, sparks, dark scrap shards that fade with
    * the body. No homeward sparkle, nothing left on the road.
    */
-  breakdown(x, y, z, size = 1) {
+  breakdown(x, y, z, size = 1, tint = null) {
     const s = Math.max(0.6, size);
+    // (a Noon machine: white glass scrap and its accent's sparks; fallStyles.fallTintOf)
     this.puff(x, y + 0.3, z, '#e8ecef', 7, 0.45 * s, 0.42 * s);
-    this.puff(x, y + 0.2, z, '#55524f', 4, 0.35 * s, 0.36 * s);
+    this.puff(x, y + 0.2, z, tint ? tint.smoke : '#55524f', 4, 0.35 * s, 0.36 * s);
     const k = this.n(8);
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
       const sp = 1 + this.rand() * 1.5;
       this.spawn({
         batch: 'bbN', uv: this.R.shard, x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 1.2 + this.rand() * 1.2, vz: Math.sin(a) * sp, g: -8,
-        s0: 0.12, s1: 0.06, life: 0.6, color: i % 2 ? '#4b4d52' : '#6a3f2c', a0: 1, a1: 0, rot: this.rand() * TAU, vrot: 7,
+        s0: 0.12, s1: 0.06, life: 0.6, color: tint ? (i % 2 ? tint.shard : tint.shard2) : i % 2 ? '#4b4d52' : '#6a3f2c', a0: 1, a1: 0, rot: this.rand() * TAU, vrot: 7,
       });
       this.spawn({
         batch: 'bbA', uv: this.R.spark, x, y: y + 0.35, z, vx: Math.cos(a) * sp * 0.6, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp * 0.6, g: -6,
-        s0: 0.1, s1: 0.03, life: 0.4, color: '#ffc46b', rot: this.rand() * TAU, vrot: 8,
+        s0: 0.1, s1: 0.03, life: 0.4, color: tint ? tint.spark : '#ffc46b', rot: this.rand() * TAU, vrot: 8,
       });
     }
   }

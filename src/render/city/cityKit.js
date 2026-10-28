@@ -53,7 +53,18 @@
 //   • checkpoint barriers (Gate Arc S4a, map.city.barriers: [{ lane, at? }]): a barrier arm across one
 //     lane past its fork (Azami's checkpoint, 4-7), on two Brigade posts, lowered by the lane schedule
 //     exactly like a level crossing's arms (setLanes), its amber beacons blinking while it is down,
-//     a checkpoint hut beside it. No train runs for a barrier.
+//     a checkpoint hut beside it. No train runs for a barrier,
+//   • the Drowned Line (Gate Arc S5a, look.city.kit 'drowned', themes.THEMES.drowned): station blocks
+//     on the board (drownedProps.js stationBox), the painted platform band along the lanes (no raised
+//     kerbs, signals, wires or painted crossings), work lamps with a red emergency lamp along the lanes
+//     instead of utility poles, a red emergency lamp at every tunnel mouth, the lake mosaic, station
+//     blocks and pump halls round the board, pipe runs in front; no drones,
+//   • the reservoir park (Gate Arc S5a, MapDef.district 'park', themes.DISTRICTS.park): the dam wall on
+//     the board's H tiles (parkProps.js damWall), park lamps along the paths (no poles, wires, signals or
+//     painted crossings), willows and cherries round the board, the bandstand, the city beyond,
+//   • the Noon Gate's ring (Gate Arc S5a, map.city.spawnGate 'noonGate'): its glass shards turning round
+//     the gate's disc, one instanced mover (cityProps NOON_GATE, ≤ 24 shards in all), unlit so the gate
+//     stays the brightest thing on the board.
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -61,7 +72,7 @@
 import * as THREE from 'three';
 import { makeRand, hash } from '../geo.js';
 import { CityAcc, FK, createFacadeMaterial } from './cityMaterials.js';
-import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry, ROOF_Y, CROSSING_ARM } from './cityProps.js';
+import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry, ROOF_Y, CROSSING_ARM, NOON_GATE, noonGateLean, noonShardGeometry, riftPlacement } from './cityProps.js';
 import { CAMPUS } from './campusProps.js';
 import { prim } from './buildings.js';
 import { OLD, LANTERN_STRINGS } from './oldTownProps.js';
@@ -298,6 +309,17 @@ export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
     if (d <= 1) return { type: 'roadsideBlock', variant: roll < 46 ? 0 : roll < 78 ? 1 : roll < 90 ? 4 : 5 };
     return { type: 'roadsideBlock', variant: roll < 40 ? 1 : roll < 62 ? 2 : roll < 80 ? 3 : 0 };
   }
+  if (kit === 'drowned') {
+    // the Drowned Line: the platform office, the ticket hall, kiosks and stair heads along the lanes;
+    // one row back the vent shafts and the control room (drownedProps STATION_KINDS, all ≤ BOARD_MAX_H)
+    if (d <= 1) return { type: 'stationBox', variant: roll < 34 ? 0 : roll < 56 ? 1 : roll < 76 ? 2 : roll < 90 ? 3 : 5 };
+    return { type: 'stationBox', variant: roll < 40 ? 4 : roll < 70 ? 5 : roll < 85 ? 0 : 1 };
+  }
+  if (look?.district === 'park') {
+    // the reservoir park: its H tiles are the dam, its face to the road, now and then a sluice gate,
+    // the valve tower or the spillway chute (parkProps DAM_KINDS, all ≤ BOARD_MAX_H)
+    return { type: 'damWall', variant: roll < 55 ? 0 : roll < 74 ? 1 : roll < 88 ? 2 : 3 };
+  }
   if (kit === 'campus') {
     // the school: classroom wings along the roads, now and then a club hut or a bay of the gym;
     // one row back the gym and the wings (every one of them low: campusProps SCHOOL_ON_BOARD)
@@ -321,7 +343,8 @@ export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
 /** Which cityWall a border H tile gets (retaining wall + hedge, construction fence, brick wall; the campus: no construction fence). */
 export function cityWallVariant(map, x, y, kit = null) {
   const h = hash(map.id, 'wall', x, y);
-  if (kit === 'campus') return h % 2 ? 2 : 0;
+  // (the campus and the reservoir park: no construction fence)
+  if (kit === 'campus' || kit === 'park') return h % 2 ? 2 : 0;
   return h % CITY_VARIANTS.cityWall;
 }
 
@@ -361,6 +384,11 @@ export function buildCity(o) {
   const oldtown = look.district === 'oldtown';
   // the highway (look.district 'highway'): crash barriers, highway lamps, no signals or crossings
   const highway = look.district === 'highway';
+  // the Drowned Line (kit 'drowned') and the reservoir park (district 'park'): lamps of their own, no
+  // signals, wires or painted crossings
+  const drowned = cfg.kit === 'drowned';
+  const park = look.district === 'park';
+  const plainLanes = oldtown || highway || drowned || park;
   const ruined = !!look.ruined;
   const rand = makeRand(hash(map.id, 'city'));
   const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
@@ -607,10 +635,10 @@ export function buildCity(o) {
 
   // ----- crosswalks: on every flat junction's arms, and beside a few corners -----------------
   // (Old Town's stone lanes and the highway carry no painted crossings)
-  if (!oldtown && !highway) for (const m of crosswalkMarks(map)) marks.push(m);
+  if (!plainLanes) for (const m of crosswalkMarks(map)) marks.push(m);
   let cornerWalks = 0;
   for (const c of corners) {
-    if (oldtown || highway || cornerWalks >= 6) break;
+    if (plainLanes || cornerWalks >= 6) break;
     const r = c.road;
     for (const dir of [-1, 1]) {
       const k = c.i + dir * 9;
@@ -629,15 +657,16 @@ export function buildCity(o) {
   }
   // the rift's cracks on the road at every spawn gate
   for (const g of gates) {
-    // (a rift standing on the water, a mid-board lane's start on a jetty: no cracked road under it)
-    if (g.kind !== 'spawn' || g.onWater) continue;
+    // (a rift standing on the water, a mid-board lane's start on a jetty: no cracked road under it;
+    // nor at a subway mouth or the Noon Gate, whose rifts are not in the street)
+    if (g.kind !== 'spawn' || g.onWater || g.mouth || g.noon) continue;
     marks.push({ kind: 'cracks', x: g.x + g.dir[0] * 0.55, z: g.z + g.dir[1] * 0.55, rot: Math.atan2(-g.dir[1], g.dir[0]), color: look.gate?.spawn || '#b46cff' });
   }
 
   // ----- traffic signals at the corners --------------------------------------------------
   let signals = 0;
   for (const c of corners) {
-    if (campus || oldtown || highway || signals >= 6) break;
+    if (campus || plainLanes || signals >= 6) break;
     const x = c.x + c.ox * 0.78;
     const z = c.z + c.oz * 0.78;
     if (!inMap(x, z) && outsideDist(x, z) > 1.5) continue;
@@ -659,7 +688,7 @@ export function buildCity(o) {
     const side = hash(map.id, 'poles', r.index) % 2 ? 1 : -1;
     for (let i = 1; i < r.pts.length - 1; i++) {
       dist += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
-      if (dist < (campus ? 3.4 : highway ? 3.8 : 3.0)) continue;
+      if (dist < (campus || drowned ? 3.4 : highway ? 3.8 : park ? 3.2 : 3.0)) continue;
       const [x, z] = r.pts[i];
       const breakRun = () => {
         if (run.length) {
@@ -672,8 +701,9 @@ export function buildCity(o) {
         continue;
       }
       const [nx, nz] = normalAt(r, i);
-      const px = x + nx * side * (highway ? 0.88 : 0.72);
-      const pz = z + nz * side * (highway ? 0.88 : 0.72);
+      const off = highway ? 0.88 : drowned ? 0.8 : 0.72;
+      const px = x + nx * side * off;
+      const pz = z + nz * side * off;
       if (!walkOk(r, i, side) || nearGate(px, pz, 1.5) || nearBarrier(px, pz, 1.3) || nearCrossing(px, pz, 1.3) || nearPortal(px, pz, 0.9) || !freeSpot(px, pz, 1.0)
         || marks.some((m) => m.kind === 'zebra' && Math.hypot(m.x - px, m.z - pz) < 0.9)) {
         breakRun();
@@ -702,14 +732,16 @@ export function buildCity(o) {
       }
       furniture.push([px, pz]);
       run.push([px, pz, ry]);
-      // (the campus: a lamp post with its arm over the road, no wires)
-      place(campus ? 'streetLamp' : highway ? 'highwayLamp' : 'powerPole', px, quality === 'low' || highway ? 0 : SW_Y, pz, ry, 1, 0);
+      // (the campus: a lamp post with its arm over the road, no wires; the Drowned Line: a work lamp
+      // with a red emergency lamp on its post; the park: a park lamp)
+      const lampType = campus ? 'streetLamp' : highway ? 'highwayLamp' : drowned ? 'emergencyLight' : park ? 'parkLamp' : 'powerPole';
+      place(lampType, px, quality === 'low' || highway || drowned || park ? 0 : SW_Y, pz, ry, 1, drowned ? 2 : 0);
       dist = 0;
     }
   }
   const cWire = '#45424a';
   let spans = 0;
-  for (const run of campus || oldtown || highway ? [] : runs) {
+  for (const run of campus || plainLanes ? [] : runs) {
     for (let k = 1; k < run.length; k++) {
       const [ax, az, ar] = run[k - 1];
       const [bx, bz, br] = run[k];
@@ -746,7 +778,7 @@ export function buildCity(o) {
         if (top != null) walls.push([x, y, top]);
       }
     }
-    if (walls.length && !highway) {
+    if (walls.length && !highway && !drowned) {
       const [x, y, top] = walls[hash(map.id, 'cat') % walls.length];
       const alongX = y === 0 || y === H - 1;
       place('catOnWall', x + 0.5, top, y + 0.5, alongX ? 0 : Math.PI / 2, 1, hash(map.id, 'catv') % 2);
@@ -759,6 +791,20 @@ export function buildCity(o) {
     const out = p.end === 'in' ? -1 : 1;
     place('tunnelPortal', p.x, 0, p.z, Math.atan2(dx * out, dz * out), 1, 0);
     furniture.push([p.x, p.z]);
+  }
+
+  // ----- the Drowned Line's red emergency lamp beside every tunnel mouth -----------------------------
+  for (const p of drowned ? portals : []) {
+    const [dx, dz] = p.dir;
+    const sgn = p.end === 'in' ? -1 : 1;
+    for (const sd of [1, -1]) {
+      const x = p.x - dz * sd * 0.82 + dx * sgn * 0.22;
+      const z = p.z + dx * sd * 0.82 + dz * sgn * 0.22;
+      if (roadDist(x, z) < 0.55 || wet(x, z) || !freeSpot(x, z, 0.5)) continue;
+      place('emergencyLight', x, 0, z, Math.atan2(dx * sgn, dz * sgn), 1, 0);
+      furniture.push([x, z]);
+      break;
+    }
   }
 
   // ----- subway signs at the tunnel mouths ------------------------------------------------
@@ -834,6 +880,42 @@ export function buildCity(o) {
       const variant = back ? [1, 1, 0, 2][h % 4] : [0, 2, 3, 1][h % 4];
       place('roadsideBlock', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, 1.5, variant, null, lod);
       claim();
+      return;
+    }
+    if (drowned) {
+      // the Drowned Line round the board: pipe runs and carts in front (near the camera, low), the
+      // lake mosaic and station blocks along the back wall, the pump halls further back and at the sides
+      const claim = () => {
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+      };
+      if (front) {
+        place(h % 3 ? 'pipeRun' : 'maintenanceCart', cx, 0, cz, h % 2 ? 0 : Math.PI / 2, 1.2, h % 2, null, 'far');
+        return;
+      }
+      if (back && depth < 2) {
+        if (h % 3 !== 2) place('mosaicWall', cx, 0, cz, 0, 1.1, h % 4 === 0 ? 1 : 0, null, lod);
+        else place('stationBox', cx, 0, cz, 0, 1.5, [0, 5, 3][h % 3], null, lod);
+        claim();
+        return;
+      }
+      const hall = back || h % 3 === 0;
+      place(hall ? 'pumpHall' : 'stationBox', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, hall ? 1.0 : 1.5, hall ? h % 2 : [0, 1, 5, 4][h % 4], null, lod);
+      claim();
+      return;
+    }
+    if (park) {
+      // the reservoir park round the board: willows, cherries and round trees in front and at the
+      // sides, the bandstand now and then, the city's towers beyond the trees at the back
+      if (back && depth >= 2) {
+        place('cityTower', cx, 0, cz, 0, 1, [0, 1, 2, 4][h % 4], null, lod);
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+        return;
+      }
+      if (!front && h % 7 === 0) {
+        place('bandstand', cx, 0, cz, (h % 628) / 100, 1.1, 0, null, lod);
+        return;
+      }
+      place(['willow', 'round', 'sakura', 'willow'][h % 4], cx, 0, cz, (h % 628) / 100, 1.25, h % 4, null, 'far');
       return;
     }
     if (campus) {
@@ -1055,6 +1137,41 @@ export function buildCity(o) {
     }
   }
 
+  // ----- the Noon Gate's ring of glass shards (map.city.spawnGate 'noonGate'): one instanced mover ------
+  // Each spawn gate on the board edge that is a Noon Gate gets its share of the shards (≤ 24 in all),
+  // turning slowly round the gate's disc in its leaning plane (cityProps NOON_GATE, noonGateLean).
+  // Unlit (MeshBasic, no tone mapping), opaque: the brightest thing on the board after the disc.
+  let shards = null;
+  /** Per gate: its base matrix (board → the ring's centre in its leaning plane). */
+  const ringBases = [];
+  /** Per shard: { gate, a (rad), r, w (spin rad/s), ph }. */
+  const ring = [];
+  if ((cfg.spawnGate || look.spawnGate) === 'noonGate') {
+    const noonGates = gates.filter((g) => g.kind === 'spawn' && g.noon);
+    const per = noonGates.length ? Math.max(4, Math.floor(Math.min(24, NOON_GATE.shards * noonGates.length) / noonGates.length)) : 0;
+    noonGates.forEach((g, gi) => {
+      const B = new THREE.Matrix4().makeTranslation(g.x, 0, g.z)
+        .multiply(new THREE.Matrix4().makeRotationY(Math.atan2(g.dir[0], g.dir[1])))
+        .multiply(noonGateLean(riftPlacement(g.dir).variant))
+        .multiply(new THREE.Matrix4().makeTranslation(0, NOON_GATE.cy, 0));
+      ringBases.push(B);
+      for (let i = 0; i < per; i++) {
+        const k = hash(map.id, 'shard', gi, i);
+        ring.push({ gate: gi, a: (i / per) * Math.PI * 2 + ((k % 100) / 100 - 0.5) * 0.18, r: NOON_GATE.R + ((k >>> 7) % 5) * 0.025, w: 0.6 + ((k >>> 11) % 10) / 10, ph: (k % 628) / 100, s: 0.85 + ((k >>> 15) % 4) * 0.1 });
+      }
+    });
+    if (ring.length) {
+      const geo = noonShardGeometry(new CityAcc());
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+      disposables.push(geo, mat);
+      shards = new THREE.InstancedMesh(geo, mat, ring.length);
+      shards.name = 'noonGateShards';
+      shards.frustumCulled = false;
+      shards.userData.cast = false;
+      meshes.push(shards);
+    }
+  }
+
   // ----- the barrier arms (facade geometry of their own, appended last to the facade mesh) ----------
   // Built at the up pose; bindFacade() points them at the merged mesh, then update() re-poses only
   // the arms that swing (their vertex range alone is uploaded).
@@ -1153,6 +1270,8 @@ export function buildCity(o) {
   const eu = new THREE.Euler();
   const sc = new THREE.Vector3(1, 1, 1);
   const pv = new THREE.Vector3();
+  const mA = new THREE.Matrix4();
+  const mB = new THREE.Matrix4();
   // ----- the lane schedule: which crossings are shut ------------------------------------------
   let lastTime = 0;
   let lanesKey = '';
@@ -1262,6 +1381,19 @@ export function buildCity(o) {
       boat.setMatrixAt(0, m4);
       boat.instanceMatrix.needsUpdate = true;
     }
+    if (shards) {
+      // each shard turns round the ring, spinning on its own long axis as it goes
+      for (let i = 0; i < ring.length; i++) {
+        const sh = ring[i];
+        m4.copy(ringBases[sh.gate]);
+        m4.multiply(mA.makeRotationZ(sh.a + time * NOON_GATE.speed));
+        m4.multiply(mB.makeTranslation(sh.r, 0, 0));
+        m4.multiply(mA.makeRotationX(time * sh.w + sh.ph));
+        m4.multiply(mB.makeScale(sh.s, sh.s, sh.s));
+        shards.setMatrixAt(i, m4);
+      }
+      shards.instanceMatrix.needsUpdate = true;
+    }
     if (drones) {
       flights.forEach((f, i) => {
         const a = time * f.w + f.ph;
@@ -1306,7 +1438,7 @@ export function buildCity(o) {
     stats: {
       corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
       kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones, crossings: levelCrossings.length,
-      kit: campus ? 'campus' : 'city', searchlights: searchlights.length, pieces: (cfg.pieces || []).length,
+      kit: campus ? 'campus' : drowned ? 'drowned' : 'city', searchlights: searchlights.length, noonShards: ring.length, pieces: (cfg.pieces || []).length,
       district: look.district || null, ruined: look.ruined || null, lanterns, barriers: barriers.length, railTris, flyovers,
     },
   };

@@ -19,7 +19,7 @@ import { detailTexture, pathTexture, maskTexture, paintGround } from './textures
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
 import { buildCity, cityBuildingFor, cityWallVariant, buildRoofs } from './city/cityKit.js';
-import { riftPlacement, ROOF_Y } from './city/cityProps.js';
+import { riftPlacement, noonGatePlacement, ROOF_Y } from './city/cityProps.js';
 import { cityGroundPainter } from './city/cityGround.js';
 import { burningLayer } from './city/ruinProps.js';
 import { TEAR_REST } from './tear.js';
@@ -226,10 +226,30 @@ export const SCENERY = {
   // (the old bridge's piers in one row beside the deck, in order: one broken off)
   snowBridge: { prop: 'stoneBridgePier', slot: 'deckside', n: 4, ordered: true, variants: [0, 0, 1, 0] },
   vastShadow: { ambient: 'vastShadow' },
+  // the Drowned Line and the reservoir park (Gate Arc S5a, src/render/city/drownedProps.js,
+  // src/render/city/parkProps.js). Slots of their own: 'vent' (beside each of the stage rule's vent
+  // zones, off the road: the steam valves); `sweep` (a search boat's searchlight beam the ambient layer
+  // turns over the water, as the campus searchlight's: 0 draw calls)
+  floodedPlatform: { props: ['mosaicWall', 'stationStairs', 'mosaicWall'], slot: 'skirt', n: 3, face: true, also: ['sunkenTrain', 'emergencyLights', 'litVending'] },
+  sunkenTrain: { prop: 'sunkenTrain', slot: 'water', n: 1, variant: 0 },
+  litVending: { prop: 'vendingMachine', slot: 'pathside', n: 1, s: 0.9 },
+  emergencyLights: { props: ['emergencyLight', 'emergencyLight'], variants: [0, 1], slot: 'pathside', n: 6, s: 1 },
+  line2Cuttings: { props: ['signalLamp', 'maintenanceCart', 'signalLamp', 'stationStairs'], variants: [0, 0, 1, 0], slot: 'pathside', alt: 'skirt', n: 4, also: ['shardWater', 'emergencyLights'] },
+  shardWater: { prop: 'glassShards', slot: 'water', n: 4, variant: 0 },
+  pumpStation: { props: ['pumpUnit', 'pipeRun', 'pumpUnit', 'pipeRun', 'pumpUnit'], variants: [0, 1, 1, 0, 2], slot: 'skirt', n: 5, face: true, also: ['steamValves'] },
+  steamValves: { prop: 'steamValve', slot: 'vent', n: 4, variants: [0, 1], ordered: true },
+  noonGateFrost: { look: true, also: ['gateShards'] },
+  gateShards: { prop: 'glassShards', slot: 'gateside', n: 4, variants: [1, 2, 0, 2] },
+  reservoirDam: { prop: 'bandstand', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0, also: ['parkBoats', 'rescueBuoys', 'reservoirCrown'] },
+  parkBoats: { prop: 'chainedBoats', slot: 'shore', n: 2 },
+  rescueBuoys: { prop: 'rescueBuoy', slot: 'pathside', n: 3, s: 0.95 },
+  reservoirCrown: { prop: 'greatWillow', slot: 'skirt', n: 1, s: 1.1, variant: 0 },
+  reservoirWillow: { prop: 'damWall', slot: 'skirt', n: 2, face: true, variant: 0, s: 1.5, also: ['parkBoats', 'rescueBuoys', 'fireflies'] },
+  searchBoats: { prop: 'searchBoat', slot: 'water', n: 2, variant: 0, sweep: true },
 };
 
 /** Prop types whose glows (sprites and glow geometry) a blackout never dims: the gates stay readable. */
-const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate']);
+const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate', 'noonGate', 'subwayMouth']);
 /** Prop types whose glow geometry pulses with the rule (the tear over 3-10's sanctum: terrain.setTear). */
 const TEAR_TYPES = new Set(['hammerTear']);
 
@@ -328,9 +348,11 @@ export function resolveScenery(stage, familyOf = () => null) {
     if (kw && !keywords.includes(kw) && !derived.includes(kw)) derived.push(kw);
   }
   keywords.push(...derived.slice(0, 2));
-  // (the stage rule's relay pads: the far north's village hearths stand round them, slot 'pad')
+  // (the stage rule's relay pads: the far north's village hearths stand round them, slot 'pad'; its
+  // vent zones: the Drowned Line's steam valves stand beside them, slot 'vent')
   const pads = (stage?.rule?.pads || []).map((p) => ({ x: p.x, y: p.y, r: p.r }));
-  return { keywords, fog, night: !!sc.night, weather: sc.weather, ruined: sc.ruined || null, pads };
+  const zones = (stage?.rule?.zones || []).map((z) => ({ x: z.x, y: z.y, r: z.r }));
+  return { keywords, fog, night: !!sc.night, weather: sc.weather, ruined: sc.ruined || null, pads, zones };
 }
 
 /**
@@ -632,8 +654,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       push(p.foliage, foliageParts);
       push(p.glow, glowParts);
       if (glowDim && p.glow) {
+        // (a gate, or a prop that stays lit: the drowned kit's red emergency lamp)
         const g = glowParts[glowParts.length - 1];
-        g.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(KEEP_LIT.has(type) ? 0 : 1), 1));
+        g.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(KEEP_LIT.has(type) || p.keepLit ? 0 : 1), 1));
       }
       if (TEAR_TYPES.has(type) && p.glow) {
         const g = glowParts[glowParts.length - 1];
@@ -642,10 +665,12 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       }
       push(p.facade, facadeParts);
     }
-    const keep = KEEP_LIT.has(type);
+    const keepType = KEEP_LIT.has(type);
     for (const gl of p.glows) {
       v3.set(gl.x, gl.y, gl.z).applyMatrix4(m4);
-      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}), ...(gl.tear ? { tear: true } : {}) });
+      // (a glow that stays lit in a blackout: a gate's, or a red emergency lamp's, which also pulses)
+      const keep = keepType || !!gl.keep;
+      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}), ...(gl.tear ? { tear: true } : {}), ...(gl.pulse ? { pulse: gl.pulse } : {}) });
     }
     for (const em of p.emitters) {
       v3.set(em.x, em.y, em.z).applyMatrix4(m4);
@@ -695,8 +720,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           place(deco.type, cx, floatY, cz, deco.rot ?? r01 * 0.6 - 0.3, 1, h % 3, list);
           waterDecor.set(key, list);
         } else {
-          const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine';
-          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : (deco.s ?? 1), h % 4);
+          const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine' || deco.type === 'greatWillow';
+          // (a big tree takes the decor's own scale when it gives one: the Reservoir Willow, Gate Arc 5-10)
+          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? (deco.s ?? 1.3) : (deco.s ?? 1), h % 4);
         }
         occupied.add(key);
         continue;
@@ -837,18 +863,21 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   for (const e of entrances) {
     // a lane that starts inside the board (a mid-board rift, Gate Arc 3-8) gets its gate where the
     // lane begins: the Petal Gate's rift on a city board (standing on the water when the lane starts
-    // on a jetty over it), the theme's spawn gate elsewhere
+    // on a jetty over it), the theme's spawn gate elsewhere; a lane that opens in a tunnel (the subway
+    // spawn, Gate Arc 5-6: trackMesh headTunnel) gets the glowing seam at the bore's OUT mouth instead,
+    // where the column first comes into view, and no run-out
     const gi = e.inside ? { x: e.x, z: e.z, dir: e.dir, ry: Math.atan2(e.dir[0], e.dir[1]) } : gateInfo(e, false);
-    const type = !e.inside && scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
-    // the city's rift leans its disc toward the camera whichever edge it stands on (cityProps.riftPlacement)
-    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : null;
+    const type = e.mouth ? 'subwayMouth' : !e.inside && scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
+    // the city's rift (and the Noon Gate) lean their disc toward the camera whichever edge they stand on
+    // (cityProps.riftPlacement)
+    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : type === 'noonGate' ? noonGatePlacement(gi.dir) : null;
     if (rift && !e.inside) {
       gi.x += gi.dir[0] * rift.inset;
       gi.z += gi.dir[1] * rift.inset;
     }
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
     place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, rift ? rift.variant : 0);
-    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn, ...(e.inside ? { inside: true, onWater } : {}) });
+    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn, ...(e.inside ? { inside: true, onWater } : {}), ...(e.mouth ? { mouth: true } : {}), ...(type === 'noonGate' ? { noon: true } : {}) });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
@@ -918,6 +947,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
 
   // ----- scenery keywords --------------------------------------------------------------
+  /** Search boats' searchlights (scenery 'searchBoats'): swept like the campus searchlight's beam. */
+  const sweeps = [];
   const slots = buildSlots();
   // a keyword may dress the board with more keywords (`also`), each once
   const dressing = [];
@@ -949,10 +980,22 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         const s = (rec.s ?? 1) * (spot.s ?? 1);
         const ry = rec.face ? (r() - 0.5) * 0.7 : spot.ry ?? r() * 6.28;
         place(rec.props ? rec.props[n % rec.props.length] : rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variants ? rec.variants[n % rec.variants.length] : rec.variant ?? Math.floor(r() * 4));
+        // a search boat's searchlight: its beam sweeps the water toward the board's middle
+        if (rec.sweep) {
+          const aim = Math.atan2(W / 2 - spot.x, H / 2 - spot.z);
+          sweeps.push({ x: spot.x, y: 0.36, z: spot.z, a0: aim - 0.6, a1: aim + 0.6, period: 11 + n * 3, reach: 3.6, phase: (hash(map.id, 'boat', n) % 628) / 100 });
+        }
         n++;
       }
     }
   }
+
+  // the Drowned Line: water drips from the lintel of every tunnel's OUT mouth (Gate Arc S5a)
+  if (look.city?.kit === 'drowned') {
+    for (const p of tunnels.portals) if (p.end === 'out') emitters.push({ kind: 'drip', x: p.x + p.dir[0] * 0.12, y: 0.48, z: p.z + p.dir[1] * 0.12 });
+  }
+  // the reservoir park at night: fireflies over the water (as the campus lakeshore's)
+  if (look.district === 'park' && look.night) ambient.add('fireflies');
 
   // the highway bores breathe snow out over the board (scenery keyword 'tunnelPortals', Gate Arc 4-8)
   if (dressing.includes('tunnelPortals')) {
@@ -965,8 +1008,30 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   function buildSlots() {
     const out = {
       pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [], roof: [],
-      span: [], pad: [], deckside: [], gateside: [], goalside: [], north: [],
+      span: [], pad: [], deckside: [], gateside: [], goalside: [], north: [], vent: [],
     };
+    // vent: beside each of the stage rule's vent zones, just off the road (the Drowned Line's steam
+    // valves, 5-8): the first of eight directions round the zone whose spot is dry land on the board,
+    // clear of the city kit's furniture (one spot per zone)
+    const roadClear = (x, z, d) => plan.roads.every((r) => r.pts.every(([px, pz], i) => r.tunnel[i] || Math.abs(px - x) > d || Math.abs(pz - z) > d || Math.hypot(px - x, pz - z) >= d));
+    for (const z of scenery.zones || []) {
+      let spot = null;
+      for (const d of [1.3, 1.6, 1.9]) {
+        for (let k = 0; k < 12 && !spot; k++) {
+          const a = (k / 12) * Math.PI * 2 + 0.3;
+          const x = z.x + Math.cos(a) * d;
+          const zz = z.y + Math.sin(a) * d;
+          const tx = Math.floor(x);
+          const tz = Math.floor(zz);
+          if (!inMap(tx, tz) || isPath(tx, tz) || isWater(tx, tz) || isRoofTile(tx, tz) || rows[tz][tx] === 'H') continue;
+          if (!roadClear(x, zz, 1.0)) continue;
+          if (city && city.furniture.some(([fx, fz]) => Math.hypot(fx - x, fz - zz) < 0.8)) continue;
+          spot = { x, z: zz, y: 0, ry: Math.atan2(z.x - x, z.y - zz), s: 1 };
+        }
+        if (spot) break;
+      }
+      if (spot) out.vent.push(spot);
+    }
     // pad: the stage rule's relay pads (the far north's village hearths ring them)
     for (const p of scenery.pads || []) out.pad.push({ x: p.x, z: p.y, y: 0, ry: 0, s: 1 });
     // span: across a straight stretch of road on the ground, clear of every other road, fork, join,
@@ -1204,8 +1269,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     city: city ? city.stats : null,
     /** Live positions of the city's patrol drones ({ x, y, z }, updated by update(); empty elsewhere): the actor layer shadows them. */
     flyers: city ? city.flyers : [],
-    /** The campus searchlights (map.city.searchlight): { x, y, z, a0, a1, period, reach, phase }; the ambient layer sweeps their beams. */
-    searchlights: city ? city.searchlights : [],
+    /** The campus searchlights (map.city.searchlight) and the park's search boats (scenery 'searchBoats'): { x, y, z, a0, a1, period, reach, phase }; the ambient layer sweeps their beams. */
+    searchlights: sweeps.length ? [...(city ? city.searchlights : []), ...sweeps] : city ? city.searchlights : [],
     /**
      * Blackout dimming (look.blackout stages only, src/render/blackout.js): scales the glow geometry
      * (the gates excepted) and the lit windows by k (1 = normal). Uniforms only: no draw call, no

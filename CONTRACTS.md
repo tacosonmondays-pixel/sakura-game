@@ -463,6 +463,9 @@ MapDef = {
         //  src/render/city/campusProps.js; extra `city` hints: road?: 'track' (the running track),
         //  searchlight?: { x, z, rot?, sweep?, reach?, period?, variant? } (its beam sweeps the water),
         //  pieces?: [{ type, x, z, rot?, variant?, s? }] (free-standing set pieces))
+        // (+ 'drowned', the Drowned Line (Gate Arc Step 5, Act 5 underground): the city kit with the
+        //  drowned set, src/render/city/drownedProps.js; see "Drowned Line" below. `city.spawnGate:
+        //  'noonGate'` (5-8) stands the Noon Gate as a map's spawn gate on any city-kit theme)
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
@@ -498,6 +501,7 @@ MapDef = {
                                    // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
                                    // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
                                    // as always, the renderer stands the rift gate there with no run-out.
+                                   // Step 5: district 'park' (Act 5's reservoir park, 5-9 / 5-10; see "Reservoir park");
                                    // Step 5 (5-6): an inside lane may open in a tunnel (`street(..., { tunnel: [from, to] })`
                                    // with `from` 0.1 behind the first point, so tunnels[0][0] ≈ 0.1): the subway spawn; the
                                    // column stays hidden until the OUT mouth, where the renderer stands the gate
@@ -1666,6 +1670,57 @@ docs/specs/gate-arc/STEP4_BUILD_PLAN.md §2-3; preview boards in previews/highwa
   far north stays the shipped `snow` theme (no city kit); its spawn gate can be the city's rift through `map.city.
   spawnGate: 'petalRift'` (already read on any theme). Brigade props: src/render/city/brigadeProps.js; far north:
   src/render/northProps.js.
+
+Gate Arc Step 5 render hooks (S5a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP5_BUILD_PLAN.md §2-3; preview boards in previews/drownedMaps.js):
+- **Drowned Line** — `MapDef.theme: 'drowned'`: `themes.THEMES.drowned` on the city kit (`city.kit: 'drowned'`, no
+  drones, no raised kerbs): wet station tiles (`groundStyle: 'tile'`), the pale galvanised `grating` road with a
+  yellow platform edge (the lightest band), the painted platform band along every lane, `stationBox` blocks on the
+  board (platform office, ticket hall, kiosk, stair head, vent shaft, control room; all ≤ BOARD_MAX_H),
+  `retainingWall` on the border, the `subway` tunnel style, dark teal flood water; lit underground (`forceNight`
+  with its own light, `nightFog` in fog; `look.bg` keeps its own dark). The kit draws work lamps with a red
+  emergency lamp on their posts along the lanes instead of utility poles (`emergencyLight` 2), a red emergency
+  lamp beside every tunnel mouth, no signals, wires or painted crossings; the lake mosaic, station blocks and pump
+  halls round the board. Water drips from the OUT mouths (emitter 'drip'). Decks over water are platform slabs
+  (`bridge.platform`: a yellow edge, no rails), overpasses the pipe gantry (`bridge.pipes`). The goal is the Line
+  2 station exit (`shelterDoor` variant 3, `goalVariant: 3`). Music family 'lantern'.
+- **Subway spawn** — an inside lane that opens in a tunnel (trackMesh `headTunnel`: `startsInside` and its first
+  tunnel starts within `HEAD_TUNNEL` = 0.5 of d = 0): no run-out, no portal behind its start, its entrance (and
+  spawn gate, `gates[i].mouth`) at the tunnel's OUT mouth facing along the lane: the `subwayMouth` seam (glow
+  geometry and sprites kept lit, petals and motes), no cracked road. The sim is untouched (it spawns at the first
+  point, hidden in the bore by the shipped tunnel rule).
+- **Noon Gate** — `MapDef.city.spawnGate: 'noonGate'`: a disc of cyan-white light on the board edge leaning like the
+  rift, `noonGatePlacement` (1.7 tiles in on the far edge so it reads whole under the HUD), `NOON_GATE.R` 1.08 (≥ 2
+  tiles across), unlit seams, the largest glow sprite on the board, frost at its foot; its ring of glass shards is
+  the city kit's one instanced mover (`noonGateShards`, 20, ≤ 24 in all, MeshBasic, opaque). `gates[i].noon`.
+- **Steam valves** — stage rule zones reach the scenery (`resolveScenery(...).zones`); keyword 'steamValves' (slot
+  'vent': one spot per zone, off the road, clear of the kit's furniture) stands a `steamValve` (red wheel, a
+  'steamColumn' emitter per stack); `RuleDecals({ steam })` (BattleRenderer: the drowned kit or 'steamValves')
+  draws the vents as pale steel rings with white steam bursts while ACTIVE.
+- **Blackout on drowned** — `StageDef.look.blackout` as Step 2's; the red emergency lamps keep their light: a
+  builder's glow sprite may carry `keep` and `pulse` (ambient: a slow pulse, quick and strong while dimmed), a prop
+  `keepLit` (its glow geometry never dims).
+- **Reservoir park** — `MapDef.district: 'park'` on a `city` map: `themes.DISTRICTS.park` (`city.kit: 'park'`): mown
+  lawns with paved bands, a pale park road (asphalt tone 2.5, the lightest band by day, in fog and at night; deep
+  green lawns at night), `damWall` on the board's H tiles, park lamps instead of poles and wires, no signals or
+  painted crossings, no construction fence, willows and cherries round the board with the bandstand and the city's
+  towers beyond; fireflies over the water at night. A big tree decor (`sakura`, `willow`, `pine`, `greatWillow`)
+  takes the decor's own `s` when given (`{ type: 'greatWillow', x, y, s }`: the willow on its island, 5-10).
+- **Dressing keywords** (src/render/terrain.js SCENERY): 'floodedPlatform' (the lake mosaic and stair entrances in
+  the skirt + 'sunkenTrain' in the water + 'emergencyLights' + 'litVending'), 'line2Cuttings' (signal lamps, a
+  maintenance cart, a stair entrance + 'shardWater' glass shards in the water + 'emergencyLights'), 'pumpStation'
+  (giant pumps and pipe runs in the skirt + 'steamValves'), 'noonGateFrost' (look: `look.frost`, rime on pipes and
+  the gantry, a light cold wash, no snow + 'gateShards' beside the gate), 'reservoirDam' (the bandstand +
+  'parkBoats', 'rescueBuoys', 'reservoirCrown': the great willow far off in the skirt), 'reservoirWillow' (dam walls
+  in the skirt + boats, buoys, 'fireflies'), 'searchBoats' (Brigade search boats on the water whose searchlight
+  beams the ambient layer sweeps: `terrain.searchlights`, 0 draw calls).
+- **Noon machines' fall** — `fallStyleOf`: `vesper_patrol_orb` / `vesper_halo_drone` (and any other `vesper_*`)
+  'sparkFall', `vesper_line_sentry` 'breakdown'; `playFall(fx, style, p, def)` passes `fallTintOf(def)` (the def's
+  accent for the sparks, white glass scrap; null for every other def), never the homeward sparkle.
+- **Story places** — `themeBackdropSVG('drowned', { variant: 'platform'|'tunnels'|'noonGate', time })` and
+  `themeBackdropSVG('city', { variant: 'reservoir'|'willow', time })`; `PLACE_VARIANT` (src/ui/story/backdrop.js,
+  exported) maps `noon_flooded_platform`, `noon_line2_tunnels`, `noon_pump_station`, `noon_reservoir_park`,
+  `noon_reservoir_willow`; thumbnail palettes `drowned`, `park`.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
