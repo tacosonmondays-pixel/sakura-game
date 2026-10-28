@@ -13,7 +13,7 @@ import { levelCapAt, potentialLevelCap, unitBattleStats, MAX_AWAKEN } from './pr
 import { isOwned } from './unlocks.js';
 import { cleanShowcase } from './senseiSave.js';
 import { autoShowcase } from './profileTrophies.js';
-import { LR_TRIALS, isLR } from './limitBreak.js';
+import { LR_TRIALS, isLR, rankBoost } from './limitBreak.js';
 import { FP_WALLET_CAP, LEND, LEND_DEFAULT } from '../online/supportRules.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
@@ -81,7 +81,7 @@ export function borrowerRange(p) {
   const level = units.reduce((mx, [, u]) => Math.max(mx, Math.floor(Number(u?.level) || 1)), 1);
   const stars = units.reduce((mx, [, u]) => Math.max(mx, Math.min(MAX_AWAKEN, Math.floor(Number(u?.awaken) || 0))), 0);
   // UR Resonance (an SSR at ★5) only when the borrower has a UR girl themselves
-  const ur = units.some(([id, u]) => UNIT_MAP[id].rarity === 'SSR' && (Number(u?.awaken) || 0) >= MAX_AWAKEN);
+  const ur = units.some(([id]) => rankBoost(p, id).ur);
   return { level, stars, ur };
 }
 
@@ -97,7 +97,8 @@ export function clampSupportUnit(unit, borrower) {
   const r = borrowerRange(borrower);
   const p = Math.min(SUPPORT_MAX_P, v.p);
   let aw = Math.min(v.aw, MAX_AWAKEN, r.stars);
-  if (aw >= MAX_AWAKEN && UNIT_MAP[v.id].rarity === 'SSR' && !r.ur) aw = MAX_AWAKEN - 1;
+  // (rankBoost's UR rule: a girl whose ★5 is UR Resonance)
+  if (aw >= MAX_AWAKEN && !r.ur && rankBoost({ units: { [v.id]: { awaken: MAX_AWAKEN } } }, v.id).ur) aw = MAX_AWAKEN - 1;
   const bt = Math.min(CARD_GATES, v.bt);
   const cap = bt < CARD_GATES ? levelCapAt(bt, p) : potentialLevelCap(p);
   const lv = Math.max(1, Math.min(v.lv, cap, r.level + SUPPORT_LEVEL_LEAD));
