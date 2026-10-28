@@ -2002,10 +2002,11 @@ export const MAPS = [
 
   // -------------------------------------------------------------------------
   // Chapter 6 · Act II — Vesperline (`vesper`, frozen: the glass city on the same lake, frozen in the moment it fell;
-  // MAPS.md §1.7, STEP6_BUILD_PLAN §5). Render hints S6a reads: theme 'vesper' (the stage's scenery.ruined 'frozen'),
-  // city { kit: 'vesper', spawnGate: 'sentryBay' | 'vesperGate' }, bridge { glass: true } (light-bridges: water decks and
-  // overpasses) or { skyRail: true } (6-7's box-girder viaduct), tunnel { style: 'gallery' } (6-8's museum wings).
-  // Decor uses shipped prop types only; the Vesperline set pieces come from the stages' scenery keywords.
+  // MAPS.md §1.7, STEP6_BUILD_PLAN §5). Render hints S6a reads: theme 'vesper' (the stage's scenery.ruined 'frozen'; the
+  // vesper theme gives every board the sentry-bay spawn and the light-bridge decks), city { spawnGate: 'vesperGate' } on
+  // 6-10, bridge { skyRail: true } on 6-7 (the box-girder viaduct), and two S6a set pieces as decor: the Doorie statue
+  // in 6-8's rotunda and the Spindle's foot on 6-10. Other decor uses shipped prop types; the rest of the Vesperline set
+  // pieces come from the stages' scenery keywords.
   // -------------------------------------------------------------------------
   defineMap({
     id: 'vesper_frost_causeway', name: 'Frost Causeway', theme: 'vesper', tier: 'intermediate',
@@ -2028,13 +2029,10 @@ export const MAPS = [
     paths: [
       [[-1, 3.0], L, [1.2, 3.0], [3.6, 5.2], [5.4, 8.2], [7.2, 9.0], [8.8, 7.6], [10.0, 4.8], [11.4, 3.6], [13.0, 4.8], [14.4, 7.6], [16.0, 8.8], [18.0, 8.2], [19.4, 7.0], L, [21, 7.0]],
     ],
-    // the two light-bridges over the open leads (water decks in glass)
-    bridge: { glass: true },
     decor: [
       { type: 'statue', x: 18, y: 4 }, { type: 'signpost', x: 0, y: 4 }, { type: 'crystal', x: 11, y: 9 },
       { type: 'bench', x: 9, y: 1 },
     ],
-    city: { kit: 'vesper', spawnGate: 'sentryBay' },
   }),
   defineMap({
     id: 'vesper_skyrail', name: 'Sky-Rail Viaduct', theme: 'vesper', tier: 'advanced',
@@ -2065,7 +2063,6 @@ export const MAPS = [
       { type: 'signpost', x: 8, y: 8 }, { type: 'crane', x: 20, y: 9 }, { type: 'vendingMachine', x: 3, y: 1 },
       { type: 'bench', x: 4, y: 9 },
     ],
-    city: { kit: 'vesper', spawnGate: 'sentryBay' },
   }),
   defineMap({
     id: 'vesper_museum', name: 'Museum of Noon', theme: 'vesper', tier: 'advanced',
@@ -2088,13 +2085,10 @@ export const MAPS = [
     paths: [
       [[21, 9.0], L, [17.8, 9.0], IN, L, [14.6, 9.0], OUT, [13.4, 8.4], ...arc(10, 6.0, 3.4, 30, -210, 30).slice(1, -1), [6.6, 8.2], [5.8, 9.0], IN, L, [3.4, 9.0], OUT, [2.2, 9.6], [1.1, 10.6], L, [-1, 10.6]],
     ],
-    // the gallery wings' portals (S6a)
-    tunnel: { style: 'gallery' },
     decor: [
-      { type: 'statue', x: 10, y: 6 }, { type: 'signpost', x: 16, y: 6 }, { type: 'bookshelf', x: 4, y: 6 },
+      { type: 'doorieStatue', x: 10, y: 6, s: 1 }, { type: 'signpost', x: 16, y: 6 }, { type: 'bookshelf', x: 4, y: 6 },
       { type: 'fountain', x: 2, y: 3 }, { type: 'fountain', x: 15, y: 3 },
     ],
-    city: { kit: 'vesper', spawnGate: 'sentryBay' },
   }),
   defineMap({
     id: 'vesper_tower_ring', name: 'Lecture Tower Ring', theme: 'vesper', tier: 'expert',
@@ -2118,11 +2112,9 @@ export const MAPS = [
     paths: [
       [[3.0, 13], L, [3.0, 10.6], [3.8, 9.2], [6.0, 8.6], [8.6, 8.4], [10.6, 7.4], [11.0, 6.0], L, [11.0, 3.6], [11.8, 1.8], [13.6, 1.2], [15.4, 2.0], [16.0, 4.0], [15.6, 6.4], [14.4, 8.6], [12.6, 9.8], [10.0, 10.2], [7.2, 9.6], [6.0, 8.0], [6.4, 6.6], [7.8, 5.8], L, [17.0, 5.8], [18.4, 5.5], [19.4, 4.9], [21, 4.6]],
     ],
-    bridge: { glass: true },
     decor: [
       { type: 'statue', x: 1, y: 7 }, { type: 'signpost', x: 18, y: 10 }, { type: 'bench', x: 7, y: 1 },
     ],
-    city: { kit: 'vesper', spawnGate: 'sentryBay' },
   }),
   defineMap({
     id: 'vesper_spindle_foot', name: 'The Spindle\'s Foot', theme: 'vesper', tier: 'expert',
@@ -2147,11 +2139,11 @@ export const MAPS = [
       [[4.5, -1], L, [4.5, 0.2], [5.6, 1.2], [8.4, 1.6], [11, 2.6], [13.6, 3.7], [15.4, 5.2], [15.0, 6.8], [13.4, 7.6], [11.6, 8.1], [10.7, 9.2], [9.4, 10.2], [7.8, 10.9], [6.4, 11.7], [5.4, 13]],
       { nodes: [[17.5, -1], L, [17.5, 0.2], [16.4, 1.2], [13.6, 1.6], [11, 2.6], [8.4, 3.7], [6.6, 5.2], [6.6, 7.0], [7.8, 8.4], [9.4, 9.0], [11.2, 9.3], [12.6, 9.1], [14.2, 9.3], [15.2, 10.2], [15.0, 11.3], [13.6, 11.8], [11.6, 11.9], [9.6, 11.9]], join: { path: 0, at: [6.6, 11.6] } },
     ],
-    bridge: { glass: true },
     decor: [
-      { type: 'statue', x: 19, y: 9 }, { type: 'signpost', x: 2, y: 8 }, { type: 'lantern', x: 12, y: 10 },
+      { type: 'spindle', x: 10, y: 5, r: 2, variant: 0 }, { type: 'statue', x: 19, y: 9 }, { type: 'signpost', x: 2, y: 8 },
+      { type: 'lantern', x: 12, y: 10 },
     ],
-    city: { kit: 'vesper', spawnGate: 'vesperGate' },
+    city: { spawnGate: 'vesperGate' },
   }),
   // the side stage's board (side-6-starfall, STEP6_BUILD_PLAN decision 9): the academy observatory's broken deck
   defineMap({
@@ -2160,27 +2152,24 @@ export const MAPS = [
     concept: 'Orrery: an outer ring, a spiral turn inward over a pool, an inner ring, a spur tunnelling out under the outer one',
     rows: [
       'HHHH................',
-      'H...................',
-      '...........~~.......',
-      '...........~~.......',
-      '.........~....~.....',
-      '.........~.~~.~~....',
-      '........~~.~..~.....',
-      '........~.~..~......',
-      '........~...........',
-      '.......~~...........',
+      'H.........~~~~......',
+      '.........~~~~~~.....',
+      '........~~~~~~~~....',
+      '........~~~~~~~~....',
+      '.......~~~~~~~~~~...',
+      '.......~~~~~~~~~~...',
+      '........~~~~~~~~....',
+      '........~~~~~~~~....',
+      '.......~~~~~~~~.....',
       '..HH.,...~..........',
       'HHHH.....HH..HH...HH',
     ],
     paths: [
       [[-1, 9.4], L, [4.4, 9.4], [6.4, 8.6], ...arc(12.0, 5.8, 4.6, 180, 450, 30), ...spiral(12.0, 5.8, 4.6, 2.0, 450, 540, 30).slice(1), ...arc(12.0, 5.8, 2.0, 540, 790, 30).slice(1), [11.0, 8.6], [10.6, 9.2], IN, L, [10.6, 11.8], OUT, L, [10.6, 13]],
     ],
-    // the light-bridge over the star-map pool
-    bridge: { glass: true },
     decor: [
       { type: 'statue', x: 1, y: 6 }, { type: 'crystal', x: 18, y: 1 }, { type: 'bench', x: 17, y: 10 },
     ],
-    city: { kit: 'vesper', spawnGate: 'sentryBay' },
   }),
 
   // -------------------------------------------------------------------------
