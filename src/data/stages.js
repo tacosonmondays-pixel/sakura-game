@@ -1035,8 +1035,9 @@ const CAMPAIGN_ACT2 = [
     id: '3-6', name: 'Old Town Lanes', mapId: 'noon_old_town',
     desc: 'Festival night in the Old Town. Wisps drift through the lantern strings and down the hooked lanes between the old houses; stand on the flat roofs inside the hooks.',
     budget: [7, 330], groups: 3,
-    pool: [P('ghost_wisp', 5), P('ghost_veilwraith', 2, 2), P('slime_pearl', 3, 3), P('lizard_skink', 3, 5)],
-    fixed: [F(5, 'ghost_veilwraith', 4, 1), F(20, 'lizard_hunter', 4, 1)],
+    // (veiled wraiths only as two small taught groups: in the pool they made the opener the campaign's hardest stage)
+    pool: [P('ghost_wisp', 5), P('ghost_phantom', 2, 8), P('slime_pearl', 3, 3), P('lizard_skink', 3, 5)],
+    fixed: [F(6, 'ghost_veilwraith', 2, 1.4), F(16, 'ghost_veilwraith', 2, 1.4), F(20, 'lizard_hunter', 4, 1)],
     recommended: ['detection', 'multiHit'],
     fam: ['charm', 'rune'],
     scenery: { props: ['streetLamps', 'strays', 'vendingMachines'], night: true },

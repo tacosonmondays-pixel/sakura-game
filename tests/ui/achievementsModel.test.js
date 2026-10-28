@@ -7,7 +7,7 @@ import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeT
 import { veteran } from '../fixtures/veterans.js';
 
 describe('achievement rows', () => {
-  it('132 defs → 79 rows: 27 series rows + 52 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch2_act2)', () => {
+  it('132 defs → 79 rows: 27 series rows + 52 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch3_act2)', () => {
     const rows = buildRows(achievementList(createProfile()));
     expect(rows).toHaveLength(79);
     expect(rows.filter((r) => r.steps)).toHaveLength(27);

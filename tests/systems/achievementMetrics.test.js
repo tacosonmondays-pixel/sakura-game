@@ -368,3 +368,23 @@ describe('familiesFound and Act II members (Gate Arc)', () => {
     expect(familiesFound(p)).toBe(1);
   });
 });
+
+describe('familiesFound and Step 3 members (the Gnat on construct, the Ashen Warden on ghost)', () => {
+  const mark = (p, ids) => { for (const id of ids) p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false }; };
+  it('a veteran keeps construct and ghost while 3-9 / 3-10 are locked; each needs its new member once its stage opens', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const p = createProfile();
+    for (const e of ENEMIES.filter((x) => (x.family === 'construct' && x.id !== 'brigade_gnat') || (x.family === 'ghost' && x.id !== 'ghost_ashen_warden'))) {
+      p.bestiary[e.id] = { seen: true, discovered: true, kills: 1 };
+    }
+    expect(familiesFound(p)).toBe(2);
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...CHAPTERS.slice(0, 2).flatMap((c) => c.act2), '3-6', '3-7', '3-8']);
+    expect(familiesFound(p)).toBe(1); // 3-9 open: construct needs the Gnat; 3-10 still locked: ghost complete
+    mark(p, ['3-9']);
+    expect(familiesFound(p)).toBe(0); // 3-10 open too
+    p.bestiary.brigade_gnat = { seen: true, discovered: true, kills: 1 };
+    p.bestiary.ghost_ashen_warden = { seen: true, discovered: true, kills: 1 };
+    expect(familiesFound(p)).toBe(2);
+  });
+});
