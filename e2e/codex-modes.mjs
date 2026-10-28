@@ -74,6 +74,17 @@ const go = async (page, hash) => {
   await page.waitForTimeout(500);
 };
 const text = (page, sel) => page.evaluate((s) => document.querySelector(s)?.textContent?.trim() ?? null, sel);
+/** UI v2 M1: stage prep keeps the battle modes in its Mode sheet and the map rule in its "i" sheet. */
+const openPrepSheet = async (page, testid) => {
+  await closePrepSheet(page);
+  await page.click(`#app [data-testid=${testid}]`);
+  await page.waitForSelector('.ui-layer .ui-sheet', { timeout: 10000 }).catch(() => null);
+  await page.waitForTimeout(300);
+};
+const closePrepSheet = async (page) => {
+  await page.evaluate(() => document.querySelectorAll('.ui-layer .ui-close').forEach((b) => b.click()));
+  await page.waitForTimeout(300);
+};
 const shot = (page, vp, name) => page.screenshot({ path: join(shotsDir, `${vp}-${name}.png`) });
 
 async function waitBattle(page, mode = null) {
@@ -129,26 +140,32 @@ for (const vp of viewports) {
     log('(1) fresh profile, 1-4 prep');
     await grant(page, '1-4');
     await go(page, '#/stage/1-4?difficulty=normal');
+    await openPrepSheet(page, 'prep-mode');
     check(!!(await page.$('[data-testid=modes-locked]')), 'modes locked: "Clear this stage once…"');
     check((await text(page, '[data-testid=modes-locked]'))?.includes('Clear this stage once to unlock battle modes.'), 'locked text');
+    await openPrepSheet(page, 'prep-info');
     check((await text(page, '[data-testid=rule-panel]'))?.includes('Petal Sanctuary'), 'Map rule: Petal Sanctuary');
     await shot(page, vp, 'prep-locked');
+    await closePrepSheet(page);
 
     log('(2) 1-4 cleared on Normal: the mode grid');
     await grant(page, '1-4', { '1-4': { normal: true, clears: 1 } });
     await go(page, '#/campaign');
     await go(page, '#/stage/1-4?difficulty=normal');
-    const cards = await page.$$('[data-testid^=mode-]:not([data-testid=mode-selected-text]):not([data-testid=mode-reward-line])');
+    await openPrepSheet(page, 'prep-mode');
+    const cards = await page.$$('[data-testid^=mode-]:not([data-testid=mode-selected-text]):not([data-testid=mode-reward-line]):not([data-testid=mode-sheet]):not([data-testid=mode-sheet-close])');
     check(cards.length === 6, `six mode cards (${cards.length})`);
     await page.click('[data-testid=mode-rush]');
     await page.waitForTimeout(300);
     const start = await text(page, '[data-testid=stage-start]');
     check(/Start · Normal · Goblin Rush/i.test(start || ''), `Start reads "${start}"`);
     check((await page.evaluate(() => location.hash)).includes('mode=rush'), 'URL has mode=rush');
+    await closePrepSheet(page);
     await page.click('[data-testid=diff-hard]');
     await page.waitForTimeout(300);
     const corner = await text(page, '[data-testid=diff-hard] .ma-ribbon-corner');
     check(corner === 'Ribbon' && !(await page.$('[data-testid=diff-hard] .ma-diff-gems')), `Hard button shows "Ribbon", no +60 (${corner})`);
+    await openPrepSheet(page, 'prep-mode');
     check((await page.evaluate(() => document.body.textContent)).includes('Battle modes earn ribbons, not medals or medal gems.'), 'first clear note');
     check((await text(page, '[data-testid=mode-reward-line]'))?.includes('Drops as Normal: beat Hard in Standard here for Hard drops.'), 'reward line with Hard selected');
     await shot(page, vp, 'prep-rush-hard');
@@ -159,12 +176,17 @@ for (const vp of viewports) {
     await shot(page, vp, 'prep-laststand');
 
     log('(6) Nightmare: Last Petal is merged');
+    await closePrepSheet(page);
     await page.click('[data-testid=diff-nightmare]');
     await page.waitForTimeout(300);
+    await openPrepSheet(page, 'prep-mode');
     check(await page.$eval('[data-testid=mode-laststand]', (b) => b.disabled), 'Last Petal card disabled on Nightmare');
     check((await text(page, '[data-testid=mode-laststand]'))?.includes('Same as Nightmare'), 'merge text');
+    await closePrepSheet(page);
     await page.click('[data-testid=diff-normal]');
+    await openPrepSheet(page, 'prep-mode');
     await page.click('[data-testid=mode-standard]');
+    await closePrepSheet(page);
 
     // campaign card chips
     await go(page, '#/campaign?chapter=6');
@@ -262,6 +284,7 @@ for (const vp of viewports) {
     check(/Win in Standard for the Hard medal\./i.test(body), 'results: "Win in Standard for the Hard medal."');
     await shot(page, vp, 'results-ribbon');
     await go(page, '#/stage/1-1?difficulty=hard&mode=rush');
+    await openPrepSheet(page, 'prep-mode');
     check((await text(page, '[data-testid=mode-rush]'))?.includes('Ribbon ✓'), 'prep: Rush card "Ribbon ✓"');
     await go(page, '#/campaign?chapter=1');
     check((await text(page, '[data-testid=ribbons-1-1]')) === 'Ribbons 1/20', `stage card "${await text(page, '[data-testid=ribbons-1-1]')}"`);

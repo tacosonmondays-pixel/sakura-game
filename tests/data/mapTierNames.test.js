@@ -48,11 +48,14 @@ describe('map tier names', () => {
   });
 
   it('screens colour tier words with the text colour and keep the fill colour for fills', () => {
-    // UI M5b: the campaign's tier names sit on plates: the tier's fill behind navy letters (.ma-tier-badge below)
+    // UI M5b: the campaign's tier names sit on plates: the tier's fill behind navy letters (.ma-tier-badge below).
+    // UI v2 M1: the plates are .cp-tier (v2-stage.css: background var(--tier), color var(--plate)), the fill passed as --tier
     const campaign = readFileSync(join(ROOT, 'src', 'ui', 'screens', 'campaign.js'), 'utf8');
-    expect(campaign).toMatch(/h\('span\.ma-tier-badge\.ma-tier-plate', \{ style: \{ background: MAP_TIER_VIEW\[tier\]\.color \} \}/);
-    expect(campaign).toMatch(/h\('span\.ma-tier-badge\.ma-sc-tier', \{ style: \{ background: tier\.color \} \}/);
-    expect(campaign).not.toMatch(/style: \{ color: (MAP_TIER_VIEW\[tier\]|tier)\.color \}/);
+    expect(campaign).toMatch(/h\('span\.cp-tier', \{ style: \{ '--tier': view\.color \} \}/);
+    expect(campaign).toMatch(/h\('span\.cp-tier\.s', \{ style: \{ '--tier': tier\.color \} \}/);
+    expect(campaign).not.toMatch(/style: \{ color: (MAP_TIER_VIEW\[tier\]|tier|view)\.color \}/);
+    const v2 = readFileSync(join(ROOT, 'src', 'ui', 'styles', 'v2-stage.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(v2).toMatch(/\.cp-tier, \.sp-tier\) \{[^}]*background: var\(--tier[^}]*color: var\(--plate\)/);
     const wiki = readFileSync(join(ROOT, 'src', 'data', 'wiki.js'), 'utf8');
     expect(wiki).not.toMatch(/color: MAP_TIER_VIEW\.\w+\.color/);
     const css = readFileSync(join(ROOT, 'src', 'ui', 'styles', 'meta-a.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
