@@ -39,15 +39,17 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
   const item = getItem(itemId);
   const profile = store.profile;
   const owned = itemCount(profile, itemId);
-  // up to eight places, as before; each row shows its drop chance as a small muted suffix (a repeated row: P3 budgets
-  // it per row, data-probe="tile")
+  // up to eight places, as before; each row shows its drop chance (a repeated row: P3 budgets it per row,
+  // data-probe="tile"): a short chance ("90%", "Hard+ 6%") as a muted suffix, a longer note on its own wrapping line
   const sources = itemSources(itemId).slice(0, 8);
   let sheet = null;
   const go = (fn) => () => { sheet?.close(); fn(); };
 
   const users = item?.category === 'material' && item.family ? UNITS.filter((u) => u.materialFamily === item.family) : [];
   const rows = sources.map((s, i) => h('li.bp-src', { 'data-probe': 'tile' },
-    h('span.bp-src-t', s.label, s.note ? h('span.bp-chance', s.note) : null),
+    s.note && s.note.length > NOTE_INLINE
+      ? h('span.bp-src-t.two', h('span.bp-src-l', s.label), h('span.bp-src-note', s.note))
+      : h('span.bp-src-t', s.label, s.note ? h('span.bp-chance', s.note) : null),
     s.stageId
       ? secondaryBtn('Go', { testid: `teleport-${s.stageId}`, title: `Go to ${s.label}`, cls: 'bp-go', onClick: go(() => navigate('stage', { id: s.stageId })) })
       : s.route ? secondaryBtn('Go', { testid: `item-go-${i}`, title: `Go to ${s.label}`, cls: 'bp-go', onClick: go(() => navigate(s.route, s.params || {})) }) : null));
@@ -65,20 +67,20 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
   if (item?.category === 'material' && item.family) {
     acts.push(secondaryBtn('Craft Room', { icon: 'swap', testid: 'item-craft', onClick: go(() => import('./craftRoom.js').then((m) => m.openCraftRoom(itemId, onChange))) }));
   }
-  const actRow = h('div.bp-acts', acts);
 
   const body = h('div.bp-isheet', { 'data-testid': 'item-info' },
     h('div.bp-ihead',
       itemTile(itemId, null, { size: globalThis.matchMedia?.('(max-height: 480px)').matches ? 56 : 72, onClick: () => {} }),
       h('div.bp-ihead-txt',
-        h('div.bp-ihead-row', itemRarityTag(item?.rarity), h('span.bp-owned', lbl('Owned'), num(fmtNum(owned, 'count', { detail: true }), 's'))),
+        // the girls who use a material and the actions sit in the owned row, beside the facts (two rows less, so more
+        // places show on a landscape phone; the row wraps on a narrow screen)
+        h('div.bp-ihead-row', itemRarityTag(item?.rarity), h('span.bp-owned', lbl('Owned'), num(fmtNum(owned, 'count', { detail: true }), 's')),
+          users.length ? h('div.bp-users', { title: `Used by the ${MATERIAL_FAMILIES[item.family]?.name || ''} students` }, lbl('Used by'),
+            h('div.bp-faces', users.map((u) => h('span.bp-face', { title: u.name, html: portraitHTML(u, 'thumb', { alt: u.name }) })))) : null,
+          acts.length ? h('div.bp-acts.bp-ihead-acts', acts) : null),
         item?.desc ? h('p.bp-desc', item.desc) : null)),
-    users.length ? h('div.bp-users', lbl(`Used by · ${MATERIAL_FAMILIES[item.family]?.name || ''}`),
-      h('div.bp-faces', users.map((u) => h('span.bp-face', { title: u.name, html: portraitHTML(u, 'thumb', { alt: u.name }) })))) : null,
-    // the actions first, under the item (a landscape phone sees them without scrolling), then where to get more
-    acts.length ? actRow : null,
     h('div.bp-where',
-      h('h3.bp-kick', 'Where to get'),
+      h('h3.bp-kick', h('span', rows.length ? `Where to get · ${rows.length}` : 'Where to get'), h('span.bp-kick-more', { 'aria-live': 'polite' })),
       rows.length ? h('ul.bp-srcs', rows) : h('p.bp-desc', 'Not obtainable yet.')));
 
   // a Kindred Essence nobody can use: release it for a spare (a ghost action, one line saying why)
@@ -99,14 +101,46 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
   }
   sheet = openSheet({ title: item?.name || itemId, body, testid: 'item-sheet', cls: 'bp-sheet' });
   // when the sheet cannot show every place, the list scrolls on its own, sized to whole rows: no Go button is cut in half
-  // by the sheet's edge, and the item and its actions stay in view
-  requestAnimationFrame(() => fitRows(sheet.body, body.querySelector('.bp-srcs')));
+  // by the sheet's edge, and the item and its actions stay in view. Again (on the next frame) whenever the sheet's size
+  // changes: web fonts and portraits land after the first frame.
+  const list = body.querySelector('.bp-srcs');
+  const cue = body.querySelector('.bp-kick-more');
+  let queued = 0;
+  const refit = () => {
+    if (queued) return;
+    queued = requestAnimationFrame(() => {
+      queued = 0;
+      if (body.isConnected) fitRows(sheet.body, list, cue);
+    });
+  };
+  refit();
+  if (list && typeof ResizeObserver === 'function') {
+    let last = '';
+    const ro = new ResizeObserver(() => {
+      if (!body.isConnected) { ro.disconnect(); return; }
+      const key = `${sheet.body.clientWidth}x${sheet.body.clientHeight}:${body.querySelector('.bp-ihead')?.offsetHeight}`;
+      if (key !== last) { last = key; refit(); }
+    });
+    ro.observe(sheet.body);
+    ro.observe(body.querySelector('.bp-ihead'));
+  }
   return sheet;
 }
 
-/** Caps a list inside a scrolling sheet body to the whole rows that fit, and lets the list scroll instead. */
-function fitRows(scroller, list) {
+/** A note longer than this goes on its own line under the place (a sentence would run under Go on a phone). */
+const NOTE_INLINE = 16;
+
+/**
+ * Caps a list inside a scrolling sheet body to the whole rows that fit, and lets the list scroll instead. While places
+ * are hidden below, the heading says how many ("6 more ▾", `cue`) and the last whole row fades out a little.
+ */
+function fitRows(scroller, list, cue) {
   if (!scroller || !list?.children.length) return;
+  // (from scratch each time: the list at full height, no cue)
+  if (list.onFitScroll) list.removeEventListener('scroll', list.onFitScroll);
+  list.style.maxHeight = '';
+  list.classList.remove('fit', 'more');
+  if (cue) cue.textContent = '';
   const over = scroller.scrollHeight - scroller.clientHeight;
   if (over <= 1) return;
   const room = list.getBoundingClientRect().height - over;
@@ -120,4 +154,13 @@ function fitRows(scroller, list) {
   if (used <= 0) return;
   list.style.maxHeight = `${Math.ceil(used)}px`;
   list.classList.add('fit');
+  const update = () => {
+    const bottom = list.getBoundingClientRect().bottom;
+    const hidden = [...list.children].filter((r) => r.getBoundingClientRect().bottom > bottom + 1).length;
+    list.classList.toggle('more', hidden > 0);
+    if (cue) cue.textContent = hidden ? `${hidden} more ▾` : '';
+  };
+  list.onFitScroll = update;
+  list.addEventListener('scroll', update, { passive: true });
+  update();
 }
