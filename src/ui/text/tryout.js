@@ -31,7 +31,7 @@ export const CARD_TEXT = {
   B02: { name: 'Spare Change', line: (m, u, r) => `Every foe gives +${PEP_CARDS.B02.bounty[r]} coin${PEP_CARDS.B02.bounty[r] > 1 ? 's' : ''} (the whole team)` },
   B03: { name: "Nurse's Office", line: (m, u, r) => `Heal ${PEP_CARDS.B03.heal[r]} hearts; max hearts +${PEP_CARDS.B03.maxHearts[r]}` },
   B04: { name: 'Sunny Window', line: (m, u, r) => `Window Seats give +${pct(PEP_CARDS.B04.seatDmg[r])} damage and +${PEP_CARDS.B04.seatReach[r]} reach${PEP_CARDS.B04.seatAdd[r] ? '; one more seat' : ''} (the whole team)` },
-  B05: { name: 'Spare Pass', line: () => '+1 Hall Pass now and at every later break' },
+  B05: { name: 'Spare Pass', line: () => '+1 Hall Pass at every break from now on (the whole team)' },
   B06: { name: 'Rainy-Day Fund', line: () => 'At every period end, +10% of your unspent coins (at most 300 × the coin rate)' },
 };
 

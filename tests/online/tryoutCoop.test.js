@@ -5,6 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { createCoopSim, isValidCmd } from '../../src/online/coop/commands.js';
 import { runCoop, coopStart } from '../../tools/tryoutBot.mjs';
 import { TRYOUT } from '../../src/data/tryout.js';
+import { openBreak } from '../../src/sim/tryout/breaks.js';
+import { cardOk } from '../../src/sim/tryout/offers.js';
 
 /** Steps a co-op view until its first pick opens. */
 function toFirstPick(coop) {
@@ -89,7 +91,12 @@ describe('tryout co-op', () => {
     ty.players[0].seq = 99;
     expect(coop.apply({ t: coop.tick, p: 0, s: 1, k: 'tr', a: ['take', 99, 0] }).ok).toBe(true);
     expect(ty.players.map((p) => p.passBonus)).toEqual([1, 1]);
-    expect(ty.players.map((p) => p.passes)).toEqual([1, 1]);
+    // the next break gives each player the Grade's passes + 1 (never counted twice); a second Spare Pass is never offered
+    for (const i of [0, 1]) ty.players[i].win = null;
+    ty.period = 3;
+    for (const i of [0, 1]) openBreak(coop.sim, i);
+    expect(ty.players.map((p) => p.passes)).toEqual([TRYOUT.grades[1].passes + 1, TRYOUT.grades[1].passes + 1]);
+    expect(cardOk(coop.sim, 1, { id: 'B05', r: 1 }, 3)).toBe(false);
   });
 
   it('validates run commands: shape, offer sequence, owner, personal coins', () => {

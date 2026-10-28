@@ -457,7 +457,7 @@ Auras: "only the strongest aura per stat counts" still holds (HANDOFF §10). Bac
 | B02 | **Spare Change** | R / SR | foes give +1 / +2 coins (`bountyAdd` in the merged rule) | team-wide in co-op; not in the last 2 picks | ✔ |
 | B03 | **Nurse's Office** | R / SR / SSR | heal 15 / 25 / 40 hearts; max hearts +5 / +8 / +12 | refused at Grade 12 (no healing) | ✔ |
 | B04 | **Sunny Window** | SR / SSR | the seat bonus rises from +25 % to +35 % / +40 % damage and from +0.7 to +0.85 / +1.0 reach; SSR adds 1 seat | **one of a kind**; team-wide; inside the seat cap (§4.4) | ✔ |
-| B05 | **Spare Pass** | SR | +1 Hall Pass now and at every later break | one of a kind; team-wide in co-op (every player gets the pass) | ✔ |
+| B05 | **Spare Pass** | SR | +1 Hall Pass at every break from now on (passes are spent only in breaks) | one of a kind; team-wide in co-op (every player gets the pass) | ✔ |
 | B06 | **Rainy-Day Fund** | SR | at every period end, +10 % of your unspent coins (at most 300 × `cashScale`) | one of a kind; **solo only** (it reads the wallet) | ✔ |
 | B07 | **Multiple Choice** | UR | every later pick shows 4 cards (a second Wild) and +1 Eraser; **drawback: Hand it in later pays no coins** | one of a kind; never at the last pick | ✔ |
 | B08 | **Extra Desk** | UR | +1 squad spot and your next pick is a Tryout pick; **drawback: max hearts −10** | one of a kind; never at the last pick | ✔ |
