@@ -9,6 +9,8 @@ New rules: `src/ui/styles/v2-records.css` (all under the menus' surface mode).
 - `m7a-board-2.jpg`: the Halloween event page: Story, Missions, Exchange, Daily Gifts (before / after).
 - `m7a-board-3.jpg`: new states, after only: Edit Showcase, Pin trophies, the Profile Preview, the Operations tab (the
   M0 shot list opened the Story tab for "operations": the tab's id is `stages`, fixed in this list).
+- `m7a-board-4.jpg`, `m7a-board-5.jpg`: the review round 1 fixes at the sizes the review found them (before = the
+  reviewed build, after = now; the visit shots are new).
 
 ## What changed
 
@@ -47,8 +49,10 @@ New rules: `src/ui/styles/v2-records.css` (all under the menus' surface mode).
 
 Numbers with the top bar: 3-6 on every shot (the profile Preview 10), the repeated rows and tiles budgeted per row.
 1280x720: text 13 everywhere. 390x844: no sideways scroll (the event tabs and the Story rail scrolled before).
-`node e2e/menus.mjs --milestone m7a`: 14 shots × 3 sizes, 0 failing (the new shots: profile-showcase, profile-pins,
-profile-preview, story-ch2, journal-entry).
+`node e2e/menus.mjs --milestone m7a` (with the side-cut check): 16 shots × 3 sizes, 0 failing (the new shots:
+profile-showcase, profile-pins, profile-preview, profile-visit, profile-visit-more, story-mixed, journal-entry).
+At 667x375, 915x412 and 1024x768 (read by eye): one probe note left, Edit Showcase at 667x375, whose student picker
+scrolls under the slots: the row cut by the scroller's edge reads as 41 px taps.
 
 ## Review round 1 fixes (`m7a-board-4.jpg`, `m7a-board-5.jpg`)
 
