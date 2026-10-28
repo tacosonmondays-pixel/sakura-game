@@ -31,6 +31,7 @@ import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
+import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
 import { fmtNum } from '../ui/format.js';
@@ -214,6 +215,25 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     console.warn('[companions] disabled after an error', err);
   }
+  // the staff heroes: Norika's barricades, Kogane's plow and Big Yellow (src/render/staffFx.js); decoration,
+  // so an error switches them off for this battle
+  const staff = new StaffFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
+  let staffBroken = false;
+  function staffSafe(fn) {
+    if (staffBroken) return null;
+    try {
+      return fn();
+    } catch (err) {
+      staffBroken = true;
+      try {
+        staff.dispose();
+      } catch {
+        /* leave what is drawn */
+      }
+      console.warn('[staff fx] disabled after an error', err);
+      return null;
+    }
+  }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
 
@@ -280,6 +300,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
+    staff.setQuality(q);
     companions.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
@@ -355,6 +376,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           compFail(err);
         }
       }
+      // the staff heroes' props observe only too
+      staffSafe(() => staff.handle(ev));
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
       if (abilityFx.handle(ev)) continue;
@@ -574,9 +597,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
         }
         case 'ult': {
-          const col = ULT_COLORS[ev.effect] || '#ffffff';
-          // one struck enemy / the sky dragon: drawn by rosterFx, no map-wide ring or flash on everyone
-          const local = ev.effect === 'strike' || ev.effect === 'runner';
+          const col = staffSafe(() => staff.ultColor(ev)) || ULT_COLORS[ev.effect] || '#ffffff';
+          // one struck enemy / the sky dragon / the plow (rosterFx, staffFx) and Hold the Line (staffFx): no
+          // map-wide ring or flash on everyone
+          const local = ev.effect === 'strike' || ev.effect === 'runner' || ev.effect === 'barricade';
           screenFlash(col, local ? 0.45 : 0.85, local ? 2.4 : 1.8);
           shake(local ? 0.06 : 0.09);
           if (local) break;
@@ -645,6 +669,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
     roster.update(d);
+    staffSafe(() => staff.update(d));
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -1021,6 +1046,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       overlays.dispose();
       attackFx?.dispose();
       roster.dispose();
+      staff.dispose();
       companions.dispose();
       actors.dispose();
       terrain.dispose();
