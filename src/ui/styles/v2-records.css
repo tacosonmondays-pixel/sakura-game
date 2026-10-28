@@ -373,6 +373,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ev-gift-next { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; background: var(--plate); color: var(--on-ink);
   font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
 :is(.ui-day) .ev-gift.got .ev-rw { filter: grayscale(0.7); }
+:is(.ui-day) .ev-gift .item-tile { pointer-events: none; }
 @media (max-width: 520px) { :is(.ui-day) .ev-op.boss { grid-column: auto; } }
 
 /* ==========================================================================================================

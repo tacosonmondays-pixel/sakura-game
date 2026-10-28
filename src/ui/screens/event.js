@@ -436,7 +436,10 @@ function startBuy(ev, o, name, refresh) {
 function giftsTab(ev) {
   const rows = loginRows(store.profile, ev);
   return sec('Daily festival gifts',
-    h('div.ev-gifts', rows.map((r) => h(`div.ev-gift${r.got ? '.got' : ''}${r.next ? '.next' : ''}`, { 'data-testid': `event-gift-${r.day}`, 'data-probe': 'tile' },
+    // (a day card is a calendar entry, not a control: its reward tiles show what the day brings, its name in the title)
+    h('div.ev-gifts', rows.map((r) => h(`div.ev-gift${r.got ? '.got' : ''}${r.next ? '.next' : ''}`, {
+      'data-testid': `event-gift-${r.day}`, 'data-probe': 'tile', title: `Day ${r.day}: ${rewardText(r.rewards)}`,
+    },
       h('div.ev-gift-head', h('span.lbl.ev-gift-day', `Day ${r.day}`),
         r.got ? h('span.ev-gift-got', { title: 'Sent to your Mailbox', 'aria-label': 'Sent' }, glyphIco('check')) : r.next ? h('span.ev-gift-next', 'Next') : null),
       rewardRow(r.rewards)))),
