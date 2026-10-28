@@ -114,10 +114,12 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 10 (the ultimates; Gate Arc Acts 1–2 was 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -9 builds are refused, and the battle data hash covers the freeplay table', () => {
-    expect(COOP_PROTOCOL).toBe(10);
+  it('protocol 11 (the banners; the ultimates was 10, Gate Arc Acts 1–2 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -10 builds are refused, and the battle data hash covers the freeplay table', () => {
+    expect(COOP_PROTOCOL).toBe(11);
     const v = coopVersion();
-    expect(v.proto).toBe(10);
+    expect(v.proto).toBe(11);
+    expect(sameVersion(v, { ...v, proto: 10 })).toBe(false);
+    expect(sameVersion({ ...v, proto: 10 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 9 })).toBe(false);
     expect(sameVersion({ ...v, proto: 9 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 8 })).toBe(false);

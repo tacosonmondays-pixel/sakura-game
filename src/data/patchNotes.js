@@ -19,6 +19,26 @@
 
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
+  // (the banners release: its number is set when it merges, after any smaller release that goes first)
+  {
+    id: 'v0.1.58', version: '0.1.58', date: '2026-10-29', title: 'Banners',
+    added: [
+      'Recruit has daily banners! The Student Spotlight and the Guardian Spotlight each feature one SSR and three SRs and change every day at 7 PM Central; on Standard you pick the featured SSR yourself, and your first 10× there always brings an SSR. One pity counter is shared by them all.',
+      'The LR Banner: Tenka\'s spotlight becomes her Physics Club Premiere (0.7%), and your Legend Promise count carries over. Then meet Kohaku & Tsubaki, the Prism Battery: two friends, one tower, debuting from Nov 5 in the Starfall Premiere.',
+      'Limit Break: a girl from the LR Banner at level 60, ★5 and every gate can break her limit and become LR, with a new frame and stronger stats.',
+      'New guardians: Kogane, the Facilities Crew Chief, and Norika, the Traffic Safety Officer. They put barricades on the road, Hold the Line and Clear the Road.',
+      'After 6-5, the Coin banner: 20 recruits a week paid in coins. The Club Lab adds a Workbench that crafts while you play.',
+      'Friend Support: borrow a friend\'s girl for a battle and earn Friend Points for the Friendship banner.',
+    ],
+    changed: [
+      'UR Resonance: from Nov 2, every SSR girl at ★5 deals 10% more damage and attacks 4% faster (support auras grow 10%).',
+      'Every girl now faces the camera in battle and turns toward her target\'s side.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Long names no longer run off the edge of a girl\'s name plate.',
+    ],
+  },
   {
     id: 'v0.1.57', version: '0.1.57', date: '2026-10-28', title: 'Ultimates',
     added: [

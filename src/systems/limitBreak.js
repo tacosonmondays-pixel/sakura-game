@@ -117,7 +117,7 @@ export function creditLimitBreak(profile, result, difficulty) {
  * split between boosted and unboosted runs. A game-day key inside the first week they count (set at ship: the
  * Monday-keyed day after the release's first Sunday 7 PM Central).
  */
-export const RESONANCE_FROM_DAY = '2026-11-16';
+export const RESONANCE_FROM_DAY = '2026-11-02';
 export const resonanceOn = (now = Date.now()) => gameWeekNumber(+now) >= gameWeekNumber(gameDayStart(RESONANCE_FROM_DAY));
 
 /** UR Resonance: damage ×1.10 and attack speed ×1.04; an aura girl's aura bonus ×1.10 (J7, first pass). */

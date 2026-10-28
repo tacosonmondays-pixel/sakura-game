@@ -191,7 +191,7 @@ describe('pulls on banners (§A.1)', () => {
   });
   it('one pity shared by every gem banner; on an LR Banner the pity pull is the LR unit by her share', () => {
     const p = rich(createProfile());
-    const now = at('2026-11-10');
+    const now = at('2026-11-01'); // Tenka's debut week (PINS)
     const tower = B.bannerOfSlot(p, 'tower', now);
     for (let i = 0; i < 89; i++) pull(p, 1, stub(0.99), { bannerId: tower.id, now });
     expect(p.gacha.pity).toBe(89);
@@ -209,7 +209,7 @@ describe('pulls on banners (§A.1)', () => {
   });
   it('the Legend Promise: the 300th pull on her LR Banners is her, and it resets when she arrives', () => {
     const p = rich(createProfile());
-    const now = at('2026-11-10');
+    const now = at('2026-11-01'); // Tenka's debut week (PINS)
     const lr = B.bannerOfSlot(p, 'legend', now);
     p.missions.counters['gl:tenka'] = LEGEND_PROMISE - 1;
     p.gacha.pity = 10;

@@ -41,7 +41,7 @@ export const GRACE_DAYS = 30;
  * version's `since` must be at least 3 game days after the patch note of the release that adds it and a day
  * on which the old version's cycle ends (tests/systems/banners.test.js checks both).
  */
-export const BANNER_EPOCH = '2026-11-09';
+export const BANNER_EPOCH = '2026-11-02';
 
 export const LISTS = Object.freeze({
   /** Student Spotlight select SSR (towers; premium and standard alternate, J12). */
@@ -65,11 +65,11 @@ export const LISTS = Object.freeze({
  */
 export const PINS = Object.freeze([
   {
-    slot: 'legend', unit: 'tenka', start: '2026-11-08T19:00:00-06:00', days: 7, rate: 7000,
+    slot: 'legend', unit: 'tenka', start: '2026-10-29T19:00:00-05:00', days: 7, rate: 7000,
     sr: ['miko', 'umeko', 'raika'], name: 'Physics Club Premiere', debut: true,
   },
   {
-    slot: 'legend', unit: 'kohaku_tsubaki', start: '2026-11-15T19:00:00-06:00', days: 7, rate: 7000,
+    slot: 'legend', unit: 'kohaku_tsubaki', start: '2026-11-05T19:00:00-06:00', days: 7, rate: 7000,
     sr: ['akane', 'sango', 'shiro'], name: 'Starfall Premiere', debut: true, hold: true,
   },
 ]);
