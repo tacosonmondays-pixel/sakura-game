@@ -16,8 +16,9 @@
 // words and a small plate's padding are picked by measuring the tile (fitTiles).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
-import { h, clear, screen, svgEl, toast } from '../components.js';
-import { countdownChip, kbdHint } from '../kit.js';
+import '../styles/v2-hubs.css';
+import { h, clear, screen, toast } from '../components.js';
+import { countdownChip, kbdHint, hubTile, ico } from '../kit.js';
 import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
 import { missionsState } from '../hubStates.js';
 import { dot, inProgress, openSticker, openModes, markOpenSeen } from '../badges.js';
@@ -32,7 +33,6 @@ import { MAP_MAP } from '../../data/maps.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { hubBackdrop } from '../hubArt.js';
-import { uiIcon } from '../../art/icons.js';
 import { isStageUnlocked } from '../../systems/unlocks.js';
 import { currentEvent } from '../../systems/missions.js';
 import { titansUnlocked, TIER_STAGE } from '../../systems/titans.js';
@@ -62,7 +62,7 @@ export function missionsHostMode({ vw, vh } = viewport()) {
 }
 
 export function render(root) {
-  const { el, body } = screen('Missions', { cls: 'ma-hub-screen' });
+  const { el, body } = screen('Missions', { cls: 'ma-hub-screen v2h' });
   el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
@@ -88,11 +88,9 @@ export function render(root) {
 }
 
 /**
- * UI M5 final review (M5-3): each tile's words fit the tile it really has (her stand narrows the tiles at any width,
- * so a viewport breakpoint cut "2× drops in Rune Ga…" at 915x412, 932x430 and 1180x820). Measured on the tile:
- * - a subtitle with a short form ("2× drops this week", "Co-op") shows the long one only when it fits on one line;
- * - a small tile's name plate whose words still run past it (Story's "Episodes" at 844x390) takes slimmer padding.
- * Measured again when the grid changes size (ResizeObserver: a resize, the host's place) and once the fonts are in.
+ * UI M5 final review (M5-3): a line's long words show only where they fit its tile on one line (her stand narrows the
+ * tiles at any width, so a viewport breakpoint cut "2× drops in Rune Ga…"); else its short words, which wrap rather
+ * than end in "…" (P6). Measured on the tile, again when the grid changes size (ResizeObserver) and once the fonts are in.
  * @param {HTMLElement|null} grid
  * @returns {{ disconnect(): void }}
  */
@@ -106,11 +104,6 @@ export function fitTiles(grid) {
       sub.classList.remove('fit-short');
       if (!sub.clientWidth) continue;
       if (sub.scrollWidth > sub.clientWidth + 1 || long.getClientRects().length > 1) sub.classList.add('fit-short');
-    }
-    for (const plate of grid.querySelectorAll(SMALL_PLATES)) {
-      plate.classList.remove('fit-tight');
-      if (!plate.clientWidth) continue;
-      if ([...plate.children].some((c) => c.scrollWidth > c.clientWidth + 1)) plate.classList.add('fit-tight');
     }
   };
   fit();
@@ -141,6 +134,8 @@ function build(redraw, mode = 'stand') {
   if (strip) wrap.appendChild(strip);
   placeHost(host, mode, { hb: wrap, slot: strip });
 
+  // [ui-v2 M5] the Mission tile: the chapter on its kicker, the next stage on its line, the chapter's progress in the
+  // corner, In Progress on its caption and Quick start (the screen's one yellow) over the art
   const mission = tile({
     id: 'mission',
     title: 'Mission',
@@ -148,13 +143,20 @@ function build(redraw, mode = 'stand') {
     kicker: complete ? 'All chapters cleared' : `Chapter ${chapter?.id} · ${chapter?.name}`,
     sub: nextDef ? `Next: ${nextDef.id} ${nextDef.name}` : 'Chase Sakura medals',
     meta: prog ? `${prog.cleared}/${prog.total}` : null,
+    sticker: complete ? null : inProgress({ cls: 'ma-hub-inprog', testid: 'hub-mission-inprog' }),
     onClick: () => navigate('campaign', nextDef ? { chapter: nextDef.chapter } : {}),
   });
   if (next) {
-    mission.appendChild(h('span.ma-hub-go', { role: 'button', tabindex: 0, 'data-testid': 'hub-quick-start', 'data-primary': '', onclick: (e) => { e.stopPropagation(); navigate('stage', { id: next }); } }, svgEl(uiIcon('play'), 'ma-inline-icon'), 'Quick start', kbdHint('Space')));
+    const start = (e) => {
+      e.stopPropagation();
+      navigate('stage', { id: next });
+    };
+    mission.appendChild(h('span.ma-hub-go', {
+      role: 'button', tabindex: 0, 'data-testid': 'hub-quick-start', 'data-primary': '', 'aria-label': `Quick start ${next}`,
+      onclick: start,
+      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(e); } },
+    }, h('span.ui-btn.pri', ico('play'), 'Quick start', kbdHint('Space'))));
   }
-  // [ui-m5] the badge vocabulary: the campaign in progress, "Open!" on a mode that opened since the last look
-  if (!complete) mission.appendChild(inProgress({ cls: 'ma-hub-inprog', testid: 'hub-mission-inprog' }));
   const locks = {
     bounty: lockFor('res-books-1'),
     assault: lockFor('boss-lych'),
@@ -171,18 +173,18 @@ function build(redraw, mode = 'stand') {
 
   const grid = h('div.ma-hub-grid',
     mission,
-    tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: locks.bounty, timer: msToLocalWeekEnd(), onTimer: redraw, onClick: () => navigate('bounty') }),
-    tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: locks.assault, open: fresh.has('assault'), onClick: go('assault') }),
+    tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), kicker: 'Weekly guest', sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: locks.bounty, timer: msToLocalWeekEnd(), onTimer: redraw, onClick: () => navigate('bounty') }),
+    tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), kicker: 'Boss rush', sub: 'Bosses drop crowns', lockText: locks.assault, open: fresh.has('assault'), onClick: go('assault') }),
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
     tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), onTimer: redraw, open: fresh.has('titans'), onClick: go('titans') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: locks.challenge, open: fresh.has('challenge'), onClick: go('challenge') }),
     // [online] the Multiplayer hub (UI M5d, owner #79/#108): co-op, friends, the clan boss; PvP coming soon. The tile
     // keeps its id (hub-coop) and its place
     // (a soft hyphen: on a narrow tile the word breaks "Multi-player" over two lines instead of being cut)
-    tile({ id: 'coop', title: 'Multi­player', art: scene('festival'), sub: 'Co-op & friends', short: 'Co-op', ribbon: 'Online', onClick: () => navigate('multiplayer') }),
+    tile({ id: 'coop', title: 'Multi\u00adplayer', art: scene('festival'), sub: 'Co-op & friends', short: 'Online', onClick: () => navigate('multiplayer') }),
     // solo test range: any map, any girl, spawn controls, no rewards (opens after 7 campaign clears)
     tile({ id: 'sandbox', title: 'Sandbox', art: scene('snow'), sub: 'No rewards', lockText: locks.sandbox, lockHint: sandboxLockText(profile), open: fresh.has('sandbox'), onClick: go('sandbox') }),
-    tile({ id: 'story', title: 'Story', art: scene('shrine'), sub: 'Episodes', short: 'Episodes', onClick: () => navigate('story') }), // [story]
+    tile({ id: 'story', title: 'Story', art: scene('shrine'), sub: 'Episodes', onClick: () => navigate('story') }), // [story]
   );
   storyDot(grid.querySelector('[data-testid="hub-story"]'), profile); // [story] NEW dot for unread episodes
   wrap.appendChild(grid);
@@ -195,7 +197,11 @@ function storyDot(tileEl, profile) {
   Promise.all([import('../../data/story/index.js'), import('../../systems/storyTriggers.js'), import('../../data/units.js')])
     .then(([idx, trig, units]) => {
       const n = trig.unseenEpisodeCount(profile, idx.SCENE_LIST, (id) => !!units.UNIT_MAP[id]);
-      if (n > 0 && tileEl.isConnected && !tileEl.querySelector('.notif-dot')) tileEl.appendChild(dot('claim', { cls: 'notif-dot', testid: 'hub-story-dot' }));
+      if (n <= 0 || !tileEl.isConnected || tileEl.querySelector('.notif-dot')) return;
+      // (the kit tile's top-right corner: made when the tile has none)
+      let tr = tileEl.querySelector(':scope > .tr');
+      if (!tr) tileEl.insertBefore((tr = h('span.tr')), tileEl.querySelector(':scope > .cap'));
+      tr.appendChild(dot('claim', { cls: 'notif-dot', testid: 'hub-story-dot' }));
     })
     .catch((e) => console.warn('[missions] story dot failed', e));
 }
@@ -205,42 +211,37 @@ function bestWaveLine(profile) {
   return best ? `Best wave ${formatNumber(best)}` : 'Endless waves';
 }
 
-/** Bottom-row tiles: full-colour scenery with a name plate at the bottom. */
+/** The small bottom-row tiles: a two-line caption (the kit's .sm), no kicker. */
 const SMALL_TILES = new Set(['challenge', 'coop', 'sandbox', 'story', 'titans']);
-/** Their name plates (fitTiles). */
-const SMALL_PLATES = [...SMALL_TILES].map((id) => `.ma-hub-${id} > .ma-hub-text`).join(', ');
 
 /**
- * One slanted hub tile. sub/short: the subtitle, and a shorter one for a tile too narrow for it (fitTiles picks).
- * Small tiles show a locked state as a lock line in their name plate; big tiles as a chip.
- * lockHint: a longer line for the tap toast (default: lockText).
+ * [ui-v2 M5] One hub tile (kit.js hubTile, V4): the mode's painted scene above an ink caption band (kicker, name, one
+ * line). sub/short: the line, and a shorter one for a tile too narrow for it (fitTiles picks). A locked tile keeps its
+ * scene (greyed by the kit) and says what opens it in its caption; a tap explains (lockHint: a longer line for the
+ * toast, default lockText). A weekly mode's chip (a recurring cycle, never red) or "Open!" (a mode new since the last
+ * look) takes the top-right corner; a small tile has room for one: "Open!" until the first visit, then the week's chip.
  */
-function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, lockHint = null, ribbon = null, dot: hasDot = false, soon = false, timer = null, onTimer = null, open = false, onClick }) {
+function tile({ id, title, art, kicker = null, sub = null, short = null, meta = null, lockText = null, lockHint = null, sticker = null, timer = null, onTimer = null, open = false, onClick }) {
   const locked = !!lockText;
   const small = SMALL_TILES.has(id);
-  let subEl = sub ? h('span.ma-hub-sub', short ? [h('span.ma-sub-long', sub), h('span.ma-sub-short', short)] : sub) : null;
-  // small tiles: the lock is a line in the name plate (no chip over the art)
-  if (locked && small) subEl = h('span.ma-hub-sub.ma-hub-lockline', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText));
-  const el = h(
-    `button.ma-hub-tile.ma-hub-${id}${locked ? '.locked' : ''}${soon ? '.soon' : ''}`,
-    { onclick: () => (locked ? toast(lockHint || lockText, 'info') : onClick()), 'data-testid': `hub-${id}`, title: locked ? lockHint || lockText : null },
-    art?.svg
-      ? h(`div.ma-hub-art.scene.scene-${art.theme}`, { html: art.svg, 'aria-hidden': 'true' })
-      : h(`div.ma-hub-art.${art?.kind || 'paint'}`, art?.src ? h('img', { src: art.src, alt: '', loading: 'lazy', decoding: 'async', draggable: false }) : null),
-    h('div.ma-hub-shade'),
-    h('div.ma-hub-text',
-      kicker ? h('span.ma-hub-kicker', kicker) : null,
-      h('span.ma-hub-title', title),
-      subEl,
-    ),
-    meta ? h('span.ma-hub-meta', meta) : null,
-    ribbon ? h('span.tag-ribbon.ma-hub-ribbon', h('span', ribbon)) : null,
-    hasDot ? dot('claim', { cls: 'notif-dot' }) : null,
-    // [ui-m5] a weekly mode's time left (the countdown chip: a recurring cycle, never red) and the "Open!" sticker,
-    // top corners; at zero the hub redraws with the new week
-    timer != null && !locked ? countdownChip(timer, { cls: 's.ma-hub-timer', urgent: false, doneText: 'New week!', onDone: onTimer, testid: `hub-${id}-time` }) : null,
-    open && !locked ? openSticker({ cls: 'ma-hub-open', testid: `hub-${id}-open` }) : null,
-    locked && !small ? h('div.ma-hub-lock', { title: lockText }, svgEl(uiIcon('lock'), 'ma-inline-icon'), h('span', lockText)) : null,
-  );
-  return el;
+  const line = !locked && sub ? h('span.ma-hub-sub', short ? [h('span.ma-sub-long', sub), h('span.ma-sub-short', short)] : sub) : null;
+  const artEl = art?.svg
+    ? h(`div.ma-hub-art.scene.scene-${art.theme}`, { html: art.svg })
+    : h('div.ma-hub-art.paint', h('img', { src: art?.src, alt: '', loading: 'lazy', decoding: 'async', draggable: false }));
+  const openEl = open && !locked ? openSticker({ cls: 'ma-hub-open', testid: `hub-${id}-open` }) : null;
+  const timerEl = timer != null && !locked && !(small && openEl)
+    ? countdownChip(timer, { cls: 's.ma-hub-timer', urgent: false, doneText: 'New week!', onDone: onTimer, testid: `hub-${id}-time` }) : null;
+  return hubTile({
+    title,
+    kicker: small ? null : kicker,
+    line,
+    art: artEl,
+    corner: [openEl, timerEl, meta ? h('span.ui-chip.ink.ma-hub-meta', { title: 'Stages cleared in this chapter' }, h('span.num', meta)) : null],
+    sticker,
+    lock: lockText,
+    sm: small,
+    testid: `hub-${id}`,
+    cls: `ma-hub-tile.ma-hub-${id}`,
+    onClick: () => (locked ? toast(lockHint || lockText, 'info') : onClick()),
+  });
 }

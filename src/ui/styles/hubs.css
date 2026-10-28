@@ -10,12 +10,7 @@
    home draws a full illustration and the event backdrop itself, src/ui/lobby/artStage.js) */
 
 /* ---------- Missions: a weekly mode's chip (top right), "Open!" (top left), the campaign in progress ---------- */
-.ma-hub-tile > .ma-hub-timer { position: absolute; top: 8px; right: 10px; z-index: 3; }
-.ma-hub-tile > .ma-hub-open { position: absolute; top: 8px; left: 10px; z-index: 3; transform: skewX(calc(var(--skew) * -1)) rotate(var(--sticker-tilt)); }
 /* a small tile has room for one: "Open!" until the first visit, then the week's chip */
-.ma-hub-titans:has(> .ma-hub-open) > .ma-hub-timer { display: none; }
-.ma-hub-assault > .ma-hub-open { left: auto; right: 12px; }
-.ma-hub-tile > .ma-hub-inprog { position: absolute; left: 16px; bottom: 12px; z-index: 2; }
 
 /* ---------- Commissions: the reset chip after the claim count ---------- */
 .ma-comm-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
@@ -98,23 +93,16 @@
   .ma-hub-screen .ma-hub.no-host > .ma-hub-grid > .ma-hub-mission { margin-left: max(8px, calc(4.8vh - 18px)); }
 }
 /* Quick start: the screen's one primary (a 40 px tap at least); its desktop key hint rides inside it */
-.ma-hub-screen .ma-hub-go { min-height: var(--tap-dense); font-size: var(--fs-body); } /* (0.8rem read 12.8 px in portrait, under the 13 px floor) */
-.ma-hub-go > .ui-kbd { margin-left: 8px; }
 /* the small tiles' name plates: the subtitle (12 px) wraps rather than ending in "…" (P6) */
 .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
-.ma-hub-screen .ma-hub-lockline > span { overflow: visible; text-overflow: clip; white-space: normal; }
 /* a subtitle's short words when its long ones do not fit its tile on one line, and slimmer padding on a small tile's
    plate that its words still run past: measured on the tile (missions.js fitTiles), never by the viewport's width
    (the UI M5 final review, M5-3: "2× drops in Rune Ga…" beside her stand at 915x412, 932x430 and 1180x820; Story's
    "Episodes" past its plate at 844x390) */
-.ma-hub-screen .ma-hub-sub.fit-short > .ma-sub-long { display: none; }
-.ma-hub-screen .ma-hub-sub.fit-short > .ma-sub-short { display: inline; }
 .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) > .ma-hub-text.fit-tight {
   left: 4px; max-width: calc(100% - 8px); padding-left: 4px; padding-right: 4px;
 }
-.ma-hub-screen .ma-hub-lock > span { overflow: visible; text-overflow: clip; }
 @media (max-height: 480px) {
-  .ma-hub-screen .ma-hub-tile { margin: 0 4px; }
   .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-text { left: 5px; max-width: calc(100% - 10px); padding: 3px 6px 4px; }
   .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-title { font-size: var(--fs-body); }
 }
@@ -748,4 +736,3 @@ button.mp-more:active { transform: scale(0.98); }
 .mb-formation-screen .mb-actions .btn-small { min-height: var(--tap-dense); }
 
 /* (Missions: the Multiplayer tile (hub-coop) breaks its title at its soft hyphen on a narrow tile, never cut) */
-.ma-hub-screen .ma-hub-coop .ma-hub-title { white-space: normal; overflow-wrap: normal; hyphens: manual; }

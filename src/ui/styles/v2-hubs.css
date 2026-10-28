@@ -1,0 +1,73 @@
+/* ==========================================================================================================
+   [ui-v2 M5] Hubs and hosts: the Ink & Paper look (V4, docs/specs/UI_V2_MENUS.md M5) on the Missions hub,
+   Commissions (Daily, Weekly, Login, Codes), Achievements, Bounty, Total Assault, Titan Trials, Tactical Challenge,
+   Sandbox, Happening Now, the Mailroom and the Multiplayer hub. Imported by those screens' own modules.
+
+   THE SCOPE FENCE (src/ui/styles/ink.css): every rule sits under :is(.ui-day) (the menus' surface mode on <body>),
+   so nothing here reaches the battle, the title or the story scene player. Nothing here is under 12 px (cssFloor):
+   sizes come from the type tokens only (--fs-label 12/13, --fs-body 13/15, --fs-name 16/19, --fs-num 22/28).
+   Shapes follow S1-S5: kit panels and tiles are chamfered (clip-path), controls slanted, border-radius only on
+   circles and stadiums. One yellow per screen (the primary); pink only for a selection, In Progress and heroes.
+   .v2h is the M5 screens' own class (screen(..., { cls })): the hub-wide rules (44 px taps) stay on these screens.
+   Kit pieces drawn here (candidates for ink.css later): the hub tile's drawn art, line and lock (kit.js hubTile), a
+   single-cut white card with one hairline ring (.v2h-card, as M7a's .rk-card), the kit button on its own hit.
+   ========================================================================================================== */
+
+/* ---------- the hub tile's parts kit.js hubTile() draws beyond ink.css: drawn art, its line, its lock ---------- */
+:is(.ui-day) .ui-hubtile { min-width: 0; min-height: 0; }
+:is(.ui-day) .ui-hubtile > .ui-hubtile-art { position: relative; flex: 1 1 0; min-height: 0; display: block; overflow: hidden; line-height: 0; filter: saturate(0.85); }
+:is(.ui-day) .ui-hubtile > .ui-hubtile-art > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+:is(.ui-day) .ui-hubtile > .ui-hubtile-art :is(svg, img) { display: block; width: 100%; height: 100%; object-fit: cover; }
+:is(.ui-day) .ui-hubtile.locked > .ui-hubtile-art { filter: saturate(0.25) brightness(0.7); }
+:is(.ui-day) .ui-hubtile > .cap > .name { color: var(--on-ink); overflow-wrap: break-word; hyphens: manual; }
+:is(.ui-day) .ui-hubtile > .cap > .lbl { color: var(--on-ink-dim); white-space: normal; }
+:is(.ui-day) .ui-hubtile-line { font: 600 var(--fs-label)/1.2 var(--font); color: var(--on-ink); text-wrap: pretty; }
+:is(.ui-day) .ui-hubtile-lock { display: flex; align-items: center; gap: 4px; font: 700 var(--fs-label)/1.2 var(--font); color: var(--on-ink); }
+:is(.ui-day) .ui-hubtile-lock > .ui-ico { display: inline-flex; flex: none; width: 14px; height: 14px; color: var(--on-ink-dim); }
+:is(.ui-day) .ui-hubtile-lock > .ui-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .ui-hubtile > .tr .ui-dot { --dot-ring: var(--plate); }
+:is(.ui-day) .ui-hubtile:focus-visible { outline: none; --edge: var(--cyan); --rw: 2px; }
+
+/* ---------- every M5 hub: a control is a 44 px tap at least (2 px over, as the kit's bar squares) ---------- */
+:is(.ui-day) .v2h .btn { min-height: calc(var(--tap) + 2px); }
+:is(.ui-day) .v2h .ui-cost.dense { height: calc(var(--tap) + 2px); min-width: calc(var(--tap) + 2px); }
+:is(.ui-day) .v2h .ui-host-bubble { min-height: calc(var(--tap) + 2px); }
+:is(.ui-day) .v2h .ui-ibtn { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+
+/* ==========================================================================================================
+   MISSIONS (#/missions): the secretary hosts; the modes as hub tiles (V4), Quick start the one yellow
+   ========================================================================================================== */
+:is(.ui-day) .ma-hub-screen .ma-hub-grid { gap: 8px; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.08fr); }
+:is(.ui-day) .ma-hub-grid > .ui-hubtile { width: auto; height: auto; }
+:is(.ui-day) .ma-hub-grid .ma-hub-art { position: absolute; inset: 0; }
+:is(.ui-day) .ma-hub-grid .ma-hub-art > :is(svg, img) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; }
+:is(.ui-day) .ma-hub-grid > .ui-hubtile > .cap { padding: 6px 10px 8px; gap: 2px; }
+:is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap { min-height: 0; justify-content: flex-start; padding: 5px 8px 7px; }
+:is(.ui-day) .ma-hub-grid > .ui-hubtile > .tr { top: 6px; right: calc(var(--c) + 4px); }
+/* the Mission tile: the biggest name, Quick start over the art's bottom-right (the art, the button, then the caption) */
+:is(.ui-day) .ma-hub-mission > .ui-hubtile-art { order: 0; }
+:is(.ui-day) .ma-hub-mission > .ma-hub-go { order: 1; }
+:is(.ui-day) .ma-hub-mission > .cap { order: 2; }
+:is(.ui-day) .ma-hub-mission > .cap > .name { font-size: calc(var(--fs-name) * 1.5); line-height: 1; }
+:is(.ui-day) .ma-hub-mission > .cap > .ui-bdg.inprog { margin-bottom: 2px; }
+:is(.ui-day) .ma-hub-go { position: relative; z-index: 3; align-self: flex-end; display: inline-flex; margin: calc(-1 * (var(--tap) + 12px)) 10px 10px 0; cursor: pointer; }
+:is(.ui-day) .ma-hub-go > .ui-btn { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); }
+:is(.ui-day) .ma-hub-go > .ui-btn .ui-ico { display: inline-flex; width: var(--icon-s); height: var(--icon-s); }
+:is(.ui-day) .ma-hub-go > .ui-btn .ui-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .ma-hub-go:focus-visible { outline: none; }
+:is(.ui-day) .ma-hub-go:focus-visible > .ui-btn { --edge: var(--cyan-ink); --rw: 2px; }
+:is(.ui-day) .ma-hub-go:active > .ui-btn { filter: brightness(0.92); }
+:is(.ui-day) .ma-hub-go .ui-kbd { margin-left: 4px; }
+/* a line's short words when its long ones do not fit (missions.js fitTiles) */
+:is(.ui-day) .ma-hub-sub .ma-sub-short { display: none; }
+:is(.ui-day) .ma-hub-sub.fit-short > .ma-sub-long { display: none; }
+:is(.ui-day) .ma-hub-sub.fit-short > .ma-sub-short { display: inline; }
+:is(.ui-day) .ma-hub-sub { display: block; }
+:is(.ui-day) .ma-hub-meta .num { color: var(--on-ink); }
+@media (max-height: 480px) {
+  :is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap .ui-hubtile-line { line-height: 1.15; }
+}
+@media (min-height: 481px) {
+  :is(.ui-day) .ma-hub-grid > .ui-hubtile > .cap { padding: 8px 14px 10px; gap: 3px; }
+  :is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap { padding: 7px 10px 9px; }
+}

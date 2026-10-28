@@ -631,14 +631,9 @@
 
 /* ------------------------------------------------------------------ missions hub (V2) */
 .ma-hub-screen { background: #cfe8ff; }
-.ma-hub-bg { position: absolute; inset: 0; z-index: 0; line-height: 0; pointer-events: none; }
-.ma-hub-bg svg { width: 100%; height: 100%; display: block; }
-.ma-hub-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(29,78,137,0.42), rgba(29,78,137,0.3) 40%, rgba(90,140,200,0.35)); backdrop-filter: blur(2px); }
 .ma-hub-screen .topbar { position: relative; z-index: 5; }
 .ma-hub-screen .screen-body { position: relative; z-index: 1; display: flex; padding-top: 8px; padding-bottom: 0; overflow: hidden; }
 .ma-hub { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; align-items: stretch; }
-.ma-hub-char { position: absolute; left: -10px; top: 0; bottom: -8px; width: 232px; line-height: 0; filter: drop-shadow(0 12px 24px rgba(10,30,60,0.45)); animation: ma-from-left var(--t-screen) var(--ease) both; pointer-events: none; }
-.ma-hub-char svg { width: 100%; height: 100%; display: block; }
 .ma-hub-grid {
   grid-column: 2; display: grid; gap: 8px; min-height: 0; height: 100%; padding-bottom: 8px;
   grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(120px, 1.9fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -647,52 +642,12 @@
 .ma-hub-coop { grid-area: coop; } /* [online] real-time co-op */
 .ma-hub-mission { grid-area: mission; } .ma-hub-story { grid-area: story; } .ma-hub-bounty { grid-area: bounty; } .ma-hub-assault { grid-area: assault; }
 .ma-hub-challenge { grid-area: challenge; } .ma-hub-sandbox { grid-area: sandbox; } /* solo test range */
-.ma-hub-tile {
-  position: relative; overflow: hidden; border: 2px solid rgba(255,255,255,0.95); border-radius: 12px; padding: 0; text-align: left; min-height: 60px;
-  background: rgba(255,255,255,0.9); box-shadow: 0 8px 22px rgba(10,30,60,0.22); transform: skewX(var(--skew)); margin: 0 6px;
-  animation: ma-from-right var(--t-screen) var(--ease) both; transition: transform var(--t-press) var(--ease), box-shadow var(--t-panel), background var(--t-panel);
-}
-.ma-hub-tile > * { transform: skewX(calc(var(--skew) * -1)); }
-.ma-hub-tile:nth-child(2) { animation-delay: 50ms; } .ma-hub-tile:nth-child(3) { animation-delay: 100ms; } .ma-hub-tile:nth-child(4) { animation-delay: 150ms; }
-.ma-hub-tile:nth-child(5) { animation-delay: 200ms; } .ma-hub-tile:nth-child(6) { animation-delay: 250ms; } .ma-hub-tile:nth-child(7) { animation-delay: 300ms; } .ma-hub-tile:nth-child(8) { animation-delay: 350ms; }
-.ma-hub-tile:hover { background: #fff; box-shadow: 0 10px 26px rgba(10,30,60,0.3); }
-.ma-hub-tile:active { transform: skewX(var(--skew)) scale(0.97); }
-.ma-hub-art { position: absolute; inset: -4px -20px; line-height: 0; }
-.ma-hub-art > svg { width: 100%; height: 100%; display: block; }
-.ma-hub-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.9) 42%, rgba(255,255,255,0.15) 100%); }
-.ma-hub-mission .ma-hub-shade, .ma-hub-story .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 36%, rgba(255,255,255,0.05) 100%); }
-.ma-hub-text { position: absolute; left: 14px; top: 8px; right: 10px; display: flex; flex-direction: column; gap: 2px; z-index: 1; }
-.ma-hub-title { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.15rem; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-hub-mission .ma-hub-title, .ma-hub-story .ma-hub-title { font-size: 2rem; }
-.ma-hub-kicker { align-self: flex-start; background: var(--navy); color: var(--yellow); font-weight: 900; font-style: italic; font-size: var(--fs-label); padding: 1px 9px; border-radius: 4px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.ma-hub-sub { font-size: var(--fs-label); font-weight: 800; color: var(--blue-deep); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-hub-mission .ma-hub-sub { font-size: 0.82rem; }
-.ma-hub-meta { position: absolute; right: 12px; top: 8px; z-index: 1; font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--blue-deep); font-size: 0.9rem; background: rgba(255,255,255,0.9); padding: 1px 9px; border-radius: 999px; }
-.ma-hub-go { position: absolute; right: 12px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; background: linear-gradient(180deg, #fff07a, var(--yellow)); color: var(--navy); font-weight: 900; font-style: italic; font-size: 0.8rem; padding: 6px 14px; border-radius: 8px; box-shadow: var(--shadow); }
-.ma-hub-ribbon { position: absolute; right: 10px; bottom: 8px; z-index: 2; font-size: var(--fs-label); }
-.ma-hub-challenge .ma-hub-title { white-space: normal; }
-.ma-hub-tile .notif-dot { top: 6px; right: 6px; z-index: 3; }
-.ma-hub-tile.locked .ma-hub-art { filter: grayscale(0.8); }
-.ma-hub-tile.locked .ma-hub-title { color: #7b8aa5; }
-.ma-hub-lock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: rgba(34,56,92,0.8); color: #fff; font-size: var(--fs-label); font-weight: 800; padding: 3px 14px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-hub-tile.soon .ma-hub-kicker { background: linear-gradient(90deg, #ff7aa8, #ff5c8a); color: #fff; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .ma-hub { grid-template-columns: 380px minmax(0, 1fr); gap: 20px; }
-  .ma-hub-char { width: 380px; left: 0; bottom: -12px; }
   .ma-hub-grid { gap: 12px; grid-template-rows: minmax(180px, 1.8fr) minmax(0, 1fr) minmax(0, 1fr); padding-bottom: 12px; }
-  .ma-hub-tile { margin: 0 8px; }
-  .ma-hub-text { left: 20px; top: 12px; }
-  .ma-hub-title { font-size: 1.5rem; }
-  .ma-hub-mission .ma-hub-title, .ma-hub-story .ma-hub-title { font-size: 2.8rem; }
-  .ma-hub-kicker { font-size: var(--fs-label); }
-  .ma-hub-sub { font-size: 0.86rem; }
-  .ma-hub-mission .ma-hub-sub { font-size: 1rem; }
-  .ma-hub-go { font-size: 0.95rem; padding: 8px 18px; }
-  .ma-hub-lock { font-size: 0.78rem; }
 }
 @media (max-aspect-ratio: 1/1) {
   .ma-hub { grid-template-columns: minmax(0, 1fr); }
-  .ma-hub-char { display: none; }
   .ma-hub-screen .screen-body { overflow-y: auto; }
   .ma-hub-grid { grid-template-rows: 150px 90px 90px; }
 }
@@ -751,7 +706,6 @@
 }
 @media (max-aspect-ratio: 1/1) {
   .ma-bounty.ma-hub { grid-template-columns: minmax(0, 1fr); }
-  .ma-bounty .ma-hub-char { display: none; }
   .ma-loc-col { grid-column: 1; }
   .ma-loc { grid-template-columns: 72px minmax(0, 1fr) 20px; }
   .ma-loc-thumb { width: 72px; }
@@ -916,7 +870,6 @@
 .hub-stand-name { position: absolute; left: 46px; bottom: 26px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; z-index: 2; line-height: 1.3; }
 .hub-stand-name b { display: inline-block; font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.25rem; color: #fff; background: rgba(29,54,96,0.92); padding: 1px 16px; transform: skewX(var(--skew)); border-radius: 6px; box-shadow: var(--shadow); }
 .hub-stand-name span { display: inline-block; font-size: 0.66rem; font-weight: 900; color: var(--navy); background: var(--yellow); padding: 1px 10px; transform: skewX(var(--skew)); border-radius: 4px; margin-left: 6px; }
-.ma-hub-bg { display: none; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .hub-stand { width: 470px; left: -40px; }
   .hub-stand-name { left: 60px; bottom: 44px; }
@@ -925,9 +878,8 @@
 }
 @media (max-aspect-ratio: 1/1) { .hub-stand { display: none; } }
 
-/* ---- missions hub v3: drawn tiles, academy layout ---- */
+/* ---- missions hub v3: the academy layout (the tiles: kit.js hubTile, v2-hubs.css) ---- */
 .ma-hub { grid-template-columns: 200px minmax(0, 1fr); }
-.ma-hub-char.hub-stand { width: 290px; }
 .ma-hub-grid {
   grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.92fr);
   grid-template-areas: 'mission mission mission mission mission mission mission bounty bounty bounty bounty bounty'
@@ -935,72 +887,12 @@
                        'challenge challenge challenge titans titans coop coop sandbox sandbox sandbox story story';
 }
 .ma-hub-titans { grid-area: titans; } /* [ascension] Titan Trials */
-.ma-hub-tile { background: #fff; }
-.ma-hub-art { inset: 0; }
-.ma-hub-art > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; transform: skewX(calc(var(--skew) * -1)) scale(1.08); transition: transform 600ms var(--ease); }
-.ma-hub-art.girl > img { object-position: 50% 16%; }
-.ma-hub-art.girl.bust > img { object-position: 50% 28%; }
-.ma-hub-tile:hover .ma-hub-art > img { transform: skewX(calc(var(--skew) * -1)) scale(1.13); }
-.ma-hub-art.scene > svg { width: 100%; height: 100%; display: block; transform: skewX(calc(var(--skew) * -1)) scale(1.12); transition: transform 600ms var(--ease); }
-.ma-hub-tile:hover .ma-hub-art.scene > svg { transform: skewX(calc(var(--skew) * -1)) scale(1.17); }
-.ma-hub-shade, .ma-hub-mission .ma-hub-shade { background: linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.72) 28%, rgba(255,255,255,0.08) 54%, rgba(255,255,255,0) 70%); }
-.ma-hub-mission .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.7) 26%, rgba(255,255,255,0.06) 52%, rgba(255,255,255,0) 100%); }
-/* small bottom-row tiles: the text runs the full width, so the wash runs top-down and titles may wrap */
-.ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.74) 34%, rgba(255,255,255,0.06) 72%, rgba(255,255,255,0) 100%); }
-.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { right: 8px; }
-.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { white-space: normal; overflow-wrap: anywhere; font-size: 1.02rem; line-height: 1.02; }
-.ma-hub-text { right: 34%; }
-.ma-hub-mission .ma-hub-text { right: 12px; }
-.ma-hub-title { text-shadow: 0 1px 0 #fff, 0 0 10px rgba(255,255,255,0.8); }
-.ma-hub-sub { text-shadow: 0 0 8px #fff; }
-.ma-hub-story .ma-hub-title { font-size: 1.05rem; }
-.ma-hub-story .ma-hub-art > img { filter: saturate(0.85); }
-.ma-hub-story .ma-hub-shade { background: linear-gradient(100deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.6) 36%, rgba(255,255,255,0.04) 64%); }
-/* locked: art stays in colour, a small lock chip instead of a dark bar */
-.ma-hub-tile.locked .ma-hub-art { filter: none; }
-.ma-hub-challenge .ma-hub-lock, .ma-hub-sandbox .ma-hub-lock, .ma-hub-coop .ma-hub-lock { left: 8px; right: 8px; max-width: none; justify-content: center; }
-.ma-hub-tile.locked .ma-hub-title { color: var(--navy); }
-.ma-hub-lock { left: auto; right: 10px; bottom: 8px; max-width: 64%; padding: 2px 10px 2px 6px; gap: 3px; border-radius: 999px; background: rgba(29,54,96,0.88); font-size: var(--fs-label); box-shadow: 0 2px 6px rgba(10,24,50,0.3); }
-.ma-hub-lock > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ma-hub-lock .ma-inline-icon { width: 13px; height: 13px; flex: none; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .ma-hub { grid-template-columns: 330px minmax(0, 1fr); }
-  .ma-hub-char.hub-stand { width: 470px; }
-  .ma-hub-story .ma-hub-title { font-size: 1.3rem; }
-  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { font-size: 1.32rem; }
-  .ma-hub-lock { font-size: var(--fs-label); }
-}
-@media (max-height: 480px) {
-  .ma-hub-title { font-size: 1.02rem; }
-  .ma-hub-mission .ma-hub-title { font-size: 1.8rem; }
-  .ma-hub-text { top: 6px; left: 12px; }
-  .ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title { font-size: 0.9rem; }
-  .ma-hub-challenge .ma-hub-sub, .ma-hub-sandbox .ma-hub-sub, .ma-hub-coop .ma-hub-sub, .ma-hub-titans .ma-hub-sub { font-size: var(--fs-label); }
 }
 @media (max-aspect-ratio: 1/1) {
   .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'challenge challenge challenge challenge titans titans titans titans coop coop coop coop' 'sandbox sandbox sandbox sandbox sandbox sandbox story story story story story story'; }
 }
-/* r2: small bottom-row tiles — her bust in full colour (no white veil), a white name plate at the
-   bottom (title + subtitle or lock line), ribbon top-left; phones get the short subtitles */
-.ma-hub-challenge .ma-hub-shade, .ma-hub-sandbox .ma-hub-shade, .ma-hub-coop .ma-hub-shade, .ma-hub-story .ma-hub-shade, .ma-hub-titans .ma-hub-shade { background: linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(16,34,72,0.28) 100%); }
-.ma-hub-challenge .ma-hub-art > img, .ma-hub-sandbox .ma-hub-art > img, .ma-hub-coop .ma-hub-art > img, .ma-hub-story .ma-hub-art > img, .ma-hub-titans .ma-hub-art > img { object-position: 50% 20%; filter: none; }
-.ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { top: auto; bottom: 7px; left: 8px; right: auto; max-width: calc(100% - 16px); gap: 1px; padding: 3px 10px 4px; border-radius: 7px; background: rgba(255,255,255,0.94); box-shadow: 0 3px 10px rgba(10,30,60,0.28); }
-.ma-hub-challenge .ma-hub-title, .ma-hub-sandbox .ma-hub-title, .ma-hub-coop .ma-hub-title, .ma-hub-titans .ma-hub-title, .ma-hub-story .ma-hub-title, .ma-hub-titans .ma-hub-title { text-shadow: none; }
-.ma-hub-lockline { display: inline-flex; align-items: center; gap: 3px; color: #c2347a; }
-.ma-hub-lockline .ma-inline-icon { width: 11px; height: 11px; flex: none; }
-.ma-hub-lockline > span { overflow: hidden; text-overflow: ellipsis; }
-.ma-hub-coop .ma-hub-ribbon { top: 6px; left: 8px; right: auto; bottom: auto; }
-.ma-hub-story .ma-hub-kicker { margin-bottom: 1px; }
-.ma-sub-short { display: none; }
-/* (the short subtitle shows when the long one does not fit its tile, measured: missions.js fitTiles, hubs.css .fit-short) */
-@media (max-height: 480px) {
-  .ma-hub-challenge .ma-hub-text, .ma-hub-sandbox .ma-hub-text, .ma-hub-coop .ma-hub-text, .ma-hub-story .ma-hub-text, .ma-hub-titans .ma-hub-text { bottom: 5px; left: 6px; max-width: calc(100% - 12px); padding: 2px 7px 3px; }
-  .ma-hub-story .ma-hub-title { font-size: 0.95rem; }
-}
-
-/* bounty: the stand behind the location list */
-.ma-bounty .hub-stand { width: 280px; }
-@media (min-width: 1000px) and (min-height: 600px) { .ma-bounty .hub-stand { width: 430px; } }
 
 /* ---- Lobby Background picker ---- */
 .bgp-modal { width: min(920px, calc(100vw - 24px)); max-width: none; }
