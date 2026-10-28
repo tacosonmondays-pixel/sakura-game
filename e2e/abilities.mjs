@@ -117,8 +117,8 @@ for (const vp of viewports) {
     await page.evaluate(() => window.__battle.ui.select(null));
     await settle(page);
     await tap('[data-testid="ability-slot-0"]');
-    await settle(page, 150);
-    check((await page.evaluate(() => __ab.toasts())).some((t) => t === 'Abilities work during waves.'), `${vp} a tap before the wave: "Abilities work during waves."`);
+    // (the toast, read as soon as it shows: a software-rendered 1280x720 draws a few frames a second)
+    check(await until(page, () => __ab.toasts().some((t) => t === 'Abilities work during waves.'), null, 5000), `${vp} a tap before the wave: "Abilities work during waves."`);
     check((await page.evaluate((u) => __ab.abil(u).n, aoi)) === 0, `${vp} nothing was spent`);
     await shot('e2e-prep');
     if (!touch) {
@@ -144,6 +144,12 @@ for (const vp of viewports) {
     await shot('e2e-charging');
     // (speed it along: the last few seconds of the charge)
     await page.evaluate((u) => __ab.ready(u, { cd: 60 * 100 }), aoi);
+    // (and the walk: step the sim until an enemy is in her reach, as e2e/gate-arc.mjs does; a software-rendered
+    // 1280x720 draws a few frames a second, and the game clock moves per frame, so a real-time walk took minutes)
+    await page.evaluate((u) => {
+      const { sim } = window.__battle;
+      for (let i = 0; i < 60 * 40 && sim.state === 'wave' && __ab.inReach(u) < 1; i++) sim.update(1 / 60);
+    }, aoi);
     check(await until(page, (u) => document.querySelector('[data-testid="ability-slot-0"]')?.dataset.state === 'ready' && __ab.inReach(u) >= 1, aoi, 40000), `${vp} the slot is ready with enemies in reach`);
     const before = await page.evaluate(() => window.__abilEv.length);
     // (sturdier enemies for this check, so the volley's pin can be seen on survivors)
@@ -388,6 +394,12 @@ for (const vp of viewports) {
     check(sizes.length > 0 && sizes.every(([w, h]) => w >= 44 && h >= 44), `${vp} slots ≥ 44 px (${JSON.stringify(sizes)})`);
     await page.evaluate((u) => window.__battle.ui.select(u), aoi);
     await settle(page, 450);
+    // (the drawer slides in and the bar moves aside, 0.22 s each: on a slow frame rate wait until both have landed)
+    await until(page, () => {
+      const b = document.querySelector('[data-testid="ability-bar"]')?.getBoundingClientRect();
+      const p = document.querySelector('[data-testid="tower-panel"]')?.getBoundingClientRect();
+      return !b || !p || b.right <= p.left || b.bottom <= p.top;
+    }, null, 5000);
     probes.panel = await uiProbe(page, { boxes: BATTLE_BOXES });
     console.log(`  probe (panel): ${formatProbe(probes.panel)}`);
     const panelBar = probes.panel.overlaps.filter((o) => o.a === 'bar' || o.b === 'bar');
