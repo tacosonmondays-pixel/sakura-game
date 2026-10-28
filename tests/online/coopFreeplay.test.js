@@ -114,7 +114,7 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 9 (v0.1.54; v0.1.41 was 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -8 builds are refused, and the battle data hash covers the freeplay table', () => {
+  it('protocol 9 (v0.1.55; v0.1.41 was 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -8 builds are refused, and the battle data hash covers the freeplay table', () => {
     expect(COOP_PROTOCOL).toBe(9);
     const v = coopVersion();
     expect(v.proto).toBe(9);

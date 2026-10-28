@@ -317,8 +317,9 @@ for (const [W, H] of viewports) {
   // the lobby chip after a relaunch
   await A.evaluate(() => { location.hash = '#/lobby'; });
   await onScreen(A, 'lobby');
-  const chip = await A.waitForSelector('[data-testid="lobby-continue"]', { timeout: 20000 }).catch(() => null);
-  check(!!chip && /1-1/.test(await chip.innerText()) && /Wave 3/.test(await chip.innerText()), `12: the lobby shows "${chip ? (await chip.innerText()).replace(/\s+/g, ' ') : 'no chip'}"`);
+  // ([ui-ink] V2: a saved battle is the home objective's first choice; its play tile keeps the old chip's hook)
+  const chip = await A.waitForSelector('[data-testid="lobby-objective"]:has([data-testid="lobby-continue"])', { timeout: 20000 }).catch(() => null);
+  check(!!chip && /1-1/.test(await chip.innerText()) && /Wave 3/.test(await chip.innerText()), `12: the lobby's objective shows "${chip ? (await chip.innerText()).replace(/\s+/g, ' ') : 'no objective'}"`);
   await shot(A, 'lobby-continue');
   if (chip) {
     await tap(A, '[data-testid="lobby-continue"]');

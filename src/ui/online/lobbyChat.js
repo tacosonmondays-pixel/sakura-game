@@ -9,7 +9,7 @@ import { ensureOnline, storedName, CHAT_GLYPH } from './common.js';
 import { openChatDrawer, lastSeen } from './chatPanel.js';
 import { hub } from './socialHub.js';
 
-/** @returns {HTMLButtonElement} */
+/** @returns {HTMLButtonElement & { release: () => void }} release: stop its listeners (the home's teardown) */
 export function chatButton() {
   const dot = h('span.ol-unread', { hidden: true, 'data-testid': 'chat-unread' });
   // [social] unread private messages + friend requests: a pink number (the red dot stays for chat)
@@ -25,6 +25,7 @@ export function chatButton() {
   const btn = h('button.lb-tr-btn.ol-top-chat', { title: 'Chat', 'aria-label': 'Chat', 'data-testid': 'top-chat', onclick: () => { dot.hidden = true; openChatDrawer(); } },
     svgEl(CHAT_GLYPH, 'lb-glyph'), dot, count);
   let unsub = null;
+  let released = false;
   const stop = () => {
     unsub?.();
     unsub = null;
@@ -35,6 +36,7 @@ export function chatButton() {
     (async () => {
       try {
         const backend = await ensureOnline({ ask: false });
+        if (released) return;
         if (!btn.isConnected && !document.body.contains(btn)) {
           // the lobby may still be mounting: give it one frame
           await new Promise((r) => requestAnimationFrame(r));
@@ -49,6 +51,7 @@ export function chatButton() {
           dot.hidden = false;
         };
         const last = (await backend.history('global', 1)).at(-1);
+        if (released) return;
         if (last && last.id > lastSeen() && counts(last)) light(last);
         offHub.push(hub.on('blocked', () => {
           if (litBy && !counts(litBy)) dot.hidden = true;
@@ -62,7 +65,9 @@ export function chatButton() {
       }
     })();
   }
-  // drop the realtime subscription with the lobby
+  // drop the realtime subscription and the hub listeners with the lobby: the home calls release() when it goes (it makes
+  // one button per visit and puts the same one back on every redraw of its bar); the watch is the fallback for a button
+  // that leaves the page some other way
   let seen = false;
   const mo = new MutationObserver(() => {
     if (btn.isConnected) seen = true;
@@ -71,7 +76,12 @@ export function chatButton() {
       mo.disconnect();
     }
   });
-  queueMicrotask(() => mo.observe(document.body, { childList: true, subtree: true }));
+  queueMicrotask(() => { if (!released) mo.observe(document.body, { childList: true, subtree: true }); });
+  btn.release = () => {
+    released = true;
+    stop();
+    mo.disconnect();
+  };
   btn.dataset.mode = getBackend().status.mode;
   return btn;
 }

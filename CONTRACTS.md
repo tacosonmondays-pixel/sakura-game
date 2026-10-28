@@ -1741,8 +1741,13 @@ export function hasArt(bg), isBackgroundSelectable(profile, bg) // bond memories
 export function unlockText(bg, profile?)              // "Recruit X to unlock" / "Bond Lv 5 with X (now 0) — date her and give gifts in the City to unlock"
 export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId)
 export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
-// src/ui/lobby/artStage.js
-export function createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
+// src/ui/lobby/artStage.js ([ui-ink] UI v2 V2's night home, feature/ui-v2; live main still has the M5 stage above:
+// createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout, backdrop }) → { show, react, say, look, hideBubble, dispose })
+export function createArtStage(host, { reduceMotion, onTap, boxes, backdrop }) // { show(unitDef,{background}), relayout, say, hideBubble,
+                                                      //   setLive, setLivePlacement, liveHost, isLive, isIllustration, placement, current, dispose }
+export const HOME_BAKED                               // the lobby paintings with a baked night copy (<name>-home.webp)
+export function homeBackdropArt(file), homeFullArt(id, { portrait }) // the home's picture: the baked copy, else the CSS night grade
+export function placeFull(W, H, art, boxes)           // a full illustration: her face on the spot (placeScene), lower when a control is over her hair
 // src/ui/lobby/bgPicker.js
 export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button;
                                                       // her tiles (thumbnails) under "Backdrops" and "Full illustrations"
@@ -1858,9 +1863,12 @@ in-game result, relevant tests, and evidence against the original request."
   and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
   a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
   cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu, out then in and all in
-  place (the old body fades out where it is in 90 ms, then the new one slides in over 220 ms; nothing is
-  copied or moved in the DOM; the top bar stays and only its title crossfades) and **slide-back** for
-  the arrow, the back gesture, Home and parents, a **crossfade** for the same screen with new params
+  place (the old body fades out where it is in 80 ms, then the new one slides in from the right over
+  200 ms; UI v2, Oct 27: a short slanted ink wipe sweeps across behind the screens for the change's
+  280 ms; nothing is copied or moved in the DOM; the top bar stays and only its title crossfades) and
+  **slide-back** for the arrow, the back gesture, Home and parents (60 + 160 = 220 ms, the wipe the
+  other way; a screen with its own entrance, `data-mo-own`: the home, only fades in and plays its
+  pieces itself, `src/ui/motion.js`), a **crossfade** for the same screen with new params
   (70 + 150 ms), and the **boot** hold on the first screen. A screen's own entrance animations (panels,
   staggered cards) jump to their end when a slide brings it in. Loaders (owner: "just black or
   colored ... it saying loading is enough"): the full loader (`#ld`, in index.html from the first

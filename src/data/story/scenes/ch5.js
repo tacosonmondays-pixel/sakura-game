@@ -57,7 +57,7 @@ export default [
     say('luna', 'Five stones. Five scales. Every light leaning toward one mountain. You already know where this ends.', { at: 'left' }),
     say('hikari', 'Ashwing Peaks. The Hearthstone.'),
     say('luna', "Then don't run there tonight. The road goes through the city first. It always does."),
-    cue({ bg: 'academy-sunset', music: 'home', sfx: 'bells', exit: ['luna'] }),
+    cue({ bg: 'academy-courtyard-sunset', music: 'home', sfx: 'bells', exit: ['luna'] }),
     narrate('Back at the academy, every warning bell starts ringing at once.'),
     say('suzu', 'Bells! All the bells! Sorry, all of them is the correct number for this!', { at: 'left', face: 'surprise', fx: 'slide-in' }),
     say('hikari', "{name:suzu}? What's happening?"),

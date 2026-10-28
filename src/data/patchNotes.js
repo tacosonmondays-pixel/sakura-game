@@ -20,7 +20,7 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.54', version: '0.1.54', date: '2026-10-28', title: 'Rush Hour',
+    id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Rush Hour',
     added: [
       'Chapter 1 Act II, "Rush Hour": five new city stages (1-6 to 1-10) open once you clear 1-5, with seven new story scenes. This arc deals with war and loss; a short note says so before it starts.',
       'A new boss waits at the end of 1-10: the Frostbitten Heir.',
@@ -30,6 +30,17 @@ export const PATCH_NOTES = [
       'Yuzuha now joins after stage 1-7. If she is already on your team nothing changes, and clearing 4-2 still brings her.',
       'Act II stages give half the medal gems of Act I stages.',
       'Co-op needs this version on both sides: if your partner sees a version message, they just refresh the page.',
+    ],
+  },
+  {
+    id: 'v0.1.54', version: '0.1.54', date: '2026-10-28', title: 'Quiet Home',
+    added: [
+      'A calmer new home: your secretary takes centre stage, with one news card, four shortcuts and a big Battle button. Everything else lives in the new Menu.',
+      'Every story scene now plays in its own painted place, from the shrine steps to the festival square with its great drum.',
+    ],
+    changed: [
+      'Coins and gems keep their colour icons, and screens slide and fade smoothly as you move between them.',
+      'The menus have a fresh ink-and-paper look, and full illustrations on the home always show the whole picture.',
     ],
   },
   {

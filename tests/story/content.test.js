@@ -12,7 +12,7 @@ import {
   LIMITS, NPCS, ENEMY_SPEAKERS, PLAIN_SPEAKERS, FACE_IDS, isNpc, forEachLine, playableLines, spokenCount, tokensIn,
 } from '../../src/data/story/format.js';
 import {
-  BACKGROUNDS, stageOfBackground, isBackgroundId, isCgBackground, CHAPTER_FALLBACK_BG,
+  BACKGROUNDS, stageOfBackground, isBackgroundId, isCgBackground, CHAPTER_FALLBACK_BG, STAGE_PLACE, SPARE_BACKGROUNDS,
 } from '../../src/data/story/backgrounds.js';
 import { STORY_MUSIC, STORY_SFX } from '../../src/data/story/music.js';
 import { STORY_REWARDS, storyRewardFor } from '../../src/data/story/lessons.js';
@@ -280,7 +280,15 @@ describe('story speakers, backgrounds and music (T-content-1, T-content-2)', () 
     }
     const used = new Set();
     for (const sc of ALL) { used.add(sc.bg); forEachLine(sc, (l) => { if (l.bg) used.add(l.bg); }); }
-    for (const id of Object.keys(BACKGROUNDS)) expect(used.has(id), `background ${id} is used`).toBe(true);
+    // a background is used by a scene, a stage's place or a chapter fallback, or is a listed spare (and then unused)
+    const reached = new Set([...used, ...Object.values(STAGE_PLACE), ...Object.values(CHAPTER_FALLBACK_BG)]);
+    for (const id of Object.keys(BACKGROUNDS)) {
+      expect(reached.has(id) || SPARE_BACKGROUNDS.includes(id), `background ${id} is used or listed as a spare`).toBe(true);
+    }
+    for (const id of SPARE_BACKGROUNDS) {
+      expect(BACKGROUNDS[id], `spare ${id} exists`).toBeTruthy();
+      expect(reached.has(id), `spare ${id} is in use: take it off SPARE_BACKGROUNDS`).toBe(false);
+    }
   });
 });
 

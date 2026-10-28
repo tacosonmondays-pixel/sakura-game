@@ -32,6 +32,7 @@ import { recoverFromStaleBuild } from '../core/updates.js';
 import { parentRoute, isTransient, sameScreen } from './nav.js';
 import { transitionFor } from './transitions/kind.js';
 import { beginScreenChange } from './transitions/index.js';
+import { applySurfaceMode } from './surfaceMode.js';
 
 const routes = new Map();
 /** The screen being opened or on show ({name, params}): currentRoute(), and the check for a superseded show. */
@@ -350,6 +351,9 @@ async function show(name, params, dir = 0) {
   retire();
   tx.swap(root, name);
   root.dataset.screen = name;
+  // [ui-ink] the surface mode (src/ui/surfaceMode.js): ui-day / ui-night on <body> before the screen builds, none for
+  // the battle, the title and a story scene (the UI v2 rules live under those classes only)
+  applySurfaceMode(globalThis.document?.body, name);
   try {
     liveCleanup = mod.render(root, params) || null;
   } catch (e) {
@@ -388,6 +392,7 @@ export function startRouter(rootEl) {
 function showLoadFailure(name, params) {
   clear(root);
   root.dataset.screen = name;
+  applySurfaceMode(globalThis.document?.body, name);
   root.inert = false;
   const box = document.createElement('div');
   box.className = 'panel load-fail';

@@ -14,6 +14,11 @@ describe('contrast table', () => {
     const bad = contrastTable().filter((r) => !r.ok).map((r) => `${r.text} on ${r.bg}: ${r.ratio}`);
     expect(bad).toEqual([]);
   });
+  it('[ui-ink] every UI v2 pair is measured: its tokens are all in base.css', () => {
+    const missing = contrastTable().filter((r) => r.missing).map((r) => `${r.where}: ${r.missing.join(', ')}`);
+    expect(missing).toEqual([]);
+    expect(PAIRS.filter(([, , where]) => where.startsWith('v2:')).length).toBeGreaterThanOrEqual(30);
+  });
   it('the "Medal owned" tag (results screen) uses the fill the table checks, at 4.5:1+ (M0-3)', () => {
     const css = readFileSync(new URL('../../src/ui/styles/battle.css', import.meta.url), 'utf8');
     const rule = css.match(/\.bt-medal-tag\.old\s*\{([^}]*)\}/)[1];
