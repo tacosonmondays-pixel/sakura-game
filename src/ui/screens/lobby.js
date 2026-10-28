@@ -277,6 +277,8 @@ export function render(root) {
     const core = { x0: sc.faceX - 0.85 * r - 4, x1: sc.faceX + 0.85 * r + 4, y0: sc.faceY - 0.6 * r - 4, y1: sc.faceY + 0.95 * r + 4 };
     const b = chip.getBoundingClientRect();
     if (b.right > core.x0 && b.left < core.x1 && b.bottom > core.y0 && b.top < core.y1) {
+      // (above the icons as they stand now: one row, or two by two on a narrow screen)
+      el.style.setProperty('--dock-h', `${Math.round(dock.getBoundingClientRect().height)}px`);
       el.classList.add('news-down');
       stage.relayout();
     }

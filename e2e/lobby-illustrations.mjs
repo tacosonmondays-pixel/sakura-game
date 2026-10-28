@@ -445,6 +445,12 @@ async function sizePass(size, { now, full = true }) {
       check(!m.bubbleShown, `${tag}: no speech bubble at rest`);
       check(!!m.sceneAttrs?.[0] && !!m.sceneAttrs?.[1] && m.sceneStyle.every(Boolean) && m.cls < 0.01, `${tag}: size and place set up front, no layout shift while it loads (${m.sceneAttrs?.join('x')}, shift ${m.cls.toFixed(4)})`);
       fullLayoutChecks(tag, m, W, H);
+      // every home control still takes a tap at its centre over this picture (the chip may move down for her face)
+      const cov = await page.evaluate(() => [...document.querySelectorAll('#app .home button, #app .home [role="button"], #app .home a[href]')]
+        .filter((n) => n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden' && !n.closest('[aria-hidden="true"], .ghost') && !n.hidden)
+        .map((n) => { const r = n.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { id: n.dataset.testid || n.className.toString().slice(0, 20), ok: !!e && (e === n || n.contains(e)), by: e ? (e.dataset?.testid || e.className.toString().slice(0, 20)) : 'nothing', w: r.width } })
+        .filter((c) => c.w >= 2 && !c.ok));
+      check(!cov.length, `${tag}: every home control takes a tap at its centre${cov.length ? `: ${cov.map((c) => `${c.id} under ${c.by}`).join(' | ')}` : ''}`);
       await shot(page, `${tagSize}-full-${row.id}`);
     }
     if (!full) return;

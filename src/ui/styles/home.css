@@ -127,7 +127,7 @@
 .home .home-news-host { --news-tall: 68px; --news-up: 0; position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); top: 84px; width: 320px; }
 /* a full illustration whose face the picture cannot pan away from the chip (lobby.js lowerNews): the chip moves down,
    above the four icons (it grows upward when its words take two lines) */
-.home.news-down .home-news-host { --news-up: 1; top: auto; bottom: calc(24px + var(--ico-h, 80px) + 20px + env(safe-area-inset-bottom, 0px)); }
+.home.news-down .home-news-host { --news-up: 1; top: auto; bottom: calc(24px + var(--dock-h, 80px) + 20px + env(safe-area-inset-bottom, 0px)); }
 .home.news-wait .home-news-host { visibility: hidden; }
 .ui-night .home .home-news { width: 100%; height: 56px; gap: 0; overflow: hidden; }
 .ui-night .home .home-news.two { height: var(--news-tall); }

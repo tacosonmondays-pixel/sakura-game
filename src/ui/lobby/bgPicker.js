@@ -82,7 +82,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
     head.append(...[
       h('div.bgp-head-name', h('b', u.name), h('span', u.title)),
       mine ? null : h('span.bgp-unowned-tag', 'Not recruited yet'),
-      h('div.bgp-bond', { title: 'Bond level — raised by dates and gifts in the City (coming soon)' },
+      h('div.bgp-bond', { title: 'Bond level — raised by time together and gifts in the City (coming soon)' },
         svgEl(glyph('heart'), 'bgp-bond-ico'), h('span', `Bond ${bondLevel(p, current)}/${BOND_MAX}`)),
       isSec ? h('span.bgp-sec-tag', 'Secretary') : null,
     ].filter(Boolean));
