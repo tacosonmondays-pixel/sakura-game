@@ -4,14 +4,14 @@ import { isScreen, clickOpen, clicks, scrollBody, holdOn } from './_util.mjs';
 export const milestone = 'm3';
 const girl = (id, tab, extra = {}) => ({ hash: `#/student/${id}?tab=${tab}`, ready: isScreen('student'), kind: 'detail', ...extra });
 export const shots = {
-  'students-hold': { hash: '#/students', ready: isScreen('students'), kind: 'list', open: holdOn('#app [data-testid="card-aoi"]') },
+  'students-hold': { hash: '#/students', ready: isScreen('students'), kind: 'list', open: holdOn('#app .unit-card[data-unit="aoi"]') },
   'girl-aoi-info': girl('aoi', 'info'),
   'girl-info-scroll': girl('ruri', 'info', { open: scrollBody('end') }),
   'girl-level': girl('ruri', 'level'),
   'girl-level-manual': girl('ruri', 'level', { open: clicks('#app [data-testid="level-manual"]') }),
   'girl-awaken': girl('ruri', 'awaken'),
   'girl-gear-sheet': girl('ruri', 'gear', { open: clickOpen('#app [data-testid="slot-charm"]', '[data-testid="gear-sheet"]') }),
-  'girl-gear-totals': girl('ruri', 'gear', { open: clickOpen('#app [data-testid="gear-more"]', '[data-testid="gear-totals-sheet"]') }),
+  'girl-gear-totals': girl('ruri', 'gear', { open: clickOpen('#app [data-testid="gear-more"]', '[data-testid="gear-totals-sheet"]', { force: true }) }),
   'girl-tree': girl('ruri', 'tree'),
   'girl-tree-hero': girl('hikari', 'tree'),
   'girl-outfit': girl('ruri', 'info', { open: clickOpen('#app [data-testid="outfit-open"]') }),

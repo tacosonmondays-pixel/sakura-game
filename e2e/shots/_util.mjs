@@ -9,9 +9,9 @@
 export const isScreen = (id) => `() => document.querySelector('#app')?.dataset.screen === '${id}'`;
 
 /** Clicks `sel` and waits for `waitFor` (default: the same selector's sheet or dialog, any). */
-export const clickOpen = (sel, waitFor = '.ui-sheet, .modal, [role="dialog"]', { force = false } = {}) => async (page) => {
+export const clickOpen = (sel, waitFor = '.ui-sheet, .modal, .modal-overlay, [role="dialog"]', { force = false } = {}) => async (page) => {
   await page.click(sel, { timeout: 10000, force });
-  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000 });
+  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'attached' });
 };
 
 /** Clicks each selector in turn (a tab, then a row), waiting a beat between. */
@@ -33,12 +33,12 @@ export const scrollBody = (to = 'end', sel = '#app .screen-body') => (page) => p
 }, [to, sel]);
 
 /** The game's hold gesture (450 ms) on the first `sel`. */
-export const holdOn = (sel, waitFor = '.ui-sheet, .modal, [role="dialog"]') => async (page) => {
+export const holdOn = (sel, waitFor = '.ui-sheet, .modal, .modal-overlay, [role="dialog"]') => async (page) => {
   const box = await page.locator(sel).first().boundingBox();
   if (!box) throw new Error(`nothing to hold: ${sel}`);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(800);
   await page.mouse.up();
-  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000 });
+  if (waitFor) await page.waitForSelector(waitFor, { timeout: 10000, state: 'attached' });
 };

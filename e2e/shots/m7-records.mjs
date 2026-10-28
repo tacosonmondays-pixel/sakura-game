@@ -10,7 +10,7 @@ const eventTab = (tab) => async (page) => page.evaluate(async (t) => {
 }, tab);
 const ev = (tab) => ({ hash: '#/lobby', resolve: eventTab(tab), ready: isScreen('event') });
 export const shots = {
-  'profile-edit': { hash: '#/profile', ready: isScreen('profile'), kind: 'detail', open: clickOpen('#app [data-testid="edit-profile"]') },
+  'profile-edit': { hash: '#/profile', ready: isScreen('profile'), kind: 'detail', open: clickOpen('#app [data-testid="profile-edit"]') },
   story: { hash: '#/story', ready: isScreen('story') },
   journal: { hash: '#/journal', ready: isScreen('journal') },
   'event-story': ev('story'),
