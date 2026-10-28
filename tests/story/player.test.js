@@ -126,5 +126,13 @@ describe('Act II stage backgrounds', () => {
     }
     expect(resolveBackground('stage:1-5', 1).kind).toBe('paint');
   });
+
+  it('2-7 and 2-10 show their own places (the jetty, the old lamp) over the campus night', () => {
+    const plain = resolveBackground('stage:2-6', 2).html;
+    const jetty = resolveBackground('stage:2-7', 2).html;
+    const lamp = resolveBackground('stage:2-10', 2).html;
+    expect(plain).toMatch(/aria-label="campus scenery"/);
+    expect(new Set([plain, jetty, lamp]).size).toBe(3);
+  });
 });
 

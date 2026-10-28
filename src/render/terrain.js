@@ -557,7 +557,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           waterDecor.set(key, list);
         } else {
           const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine';
-          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : 1, h % 4);
+          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : (deco.s ?? 1), h % 4);
         }
         occupied.add(key);
         continue;

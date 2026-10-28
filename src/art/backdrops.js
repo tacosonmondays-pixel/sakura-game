@@ -217,14 +217,17 @@ const THEME_SKY = {
   campus: ['#16244a', '#3f5d96'],
 };
 
-/** Banner scene for a chapter / map theme (2.75:1). */
-export function themeBackdropSVG(theme) {
+/**
+ * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
+ * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10).
+ */
+export function themeBackdropSVG(theme, { variant = null } = {}) {
   const key = THEME_SKY[theme] ? theme : 'sakura';
   const W = 1100;
   const H = 400;
   const rnd = seeded(`theme-${key}`);
   const [top, bottom] = THEME_SKY[key];
-  const id = `tb-${key}`;
+  const id = `tb-${key}${variant ? `-${variant}` : ''}`;
   let s = `<defs>${linGrad(`${id}-sky`, [[0, top], [1, bottom]])}${radGrad(`${id}-glow`, [[0, '#ffffff', 0.9], [1, '#ffffff', 0]])}</defs>`;
   s += `<rect width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
   switch (key) {
@@ -362,6 +365,20 @@ export function themeBackdropSVG(theme) {
       for (const [x, y] of [[620, 330], [700, 352], [840, 320], [300, 340], [210, 360]]) s += `<path d="M${x - 20} ${y}h40" stroke="#ffd98f" stroke-width="3" opacity="0.5" stroke-linecap="round"/>`;
       s += sakuraTree(40, 270, 0.8) + sakuraTree(1060, 268, 0.9);
       for (let i = 0; i < 22; i++) s += `<circle cx="${n(rnd() * W)}" cy="${n(240 + rnd() * 140)}" r="2.6" fill="#e9ffb0" opacity="0.85"/>`;
+      if (variant === 'jetty') {
+        // the rowing club's jetty running out into the lake, a rowing eight moored beside it, a lantern on a post
+        s += '<path d="M250 400L470 300H560L520 400Z" fill="#7d5a3c"/>';
+        for (let k = 0; k < 7; k++) s += `<path d="M${n(262 + k * 34)} ${n(396 - k * 14)}H${n(522 - k * 6)}" stroke="#5e4330" stroke-width="3"/>`;
+        s += '<path d="M600 352q130 -10 260 0q-130 14 -260 0z" fill="#e8e1d4"/><path d="M620 352H840" stroke="#3d5a8a" stroke-width="3"/>';
+        s += '<rect x="548" y="250" width="8" height="64" fill="#3a3d46"/><rect x="540" y="236" width="24" height="18" rx="3" fill="#ffd98f"/>';
+        s += `<circle cx="552" cy="245" r="40" fill="url(#${id}-glow)" opacity="0.4"/>`;
+      } else if (variant === 'lamp') {
+        // the stone breakwater out into the lake and, at its head, the old iron lamp: tall, dark and cold
+        s += '<path d="M120 400L560 296H650L660 400Z" fill="#8f8679"/><path d="M560 296H650" stroke="#bdb4a4" stroke-width="5"/>';
+        s += '<ellipse cx="610" cy="300" rx="58" ry="12" fill="#a69d8d"/><rect x="600" y="140" width="16" height="158" fill="#3a3d46"/>';
+        s += '<path d="M586 140h44l-8 -42h-28z" fill="none" stroke="#3a3d46" stroke-width="6"/><path d="M584 98h48l-24 -20z" fill="#3a3d46"/>';
+        s += '<path d="M598 104h20l-4 30h-12z" fill="#2a3442"/><circle cx="608" cy="120" r="5" fill="#8fa3bf" opacity="0.7"/>';
+      }
       break;
     }
     default:

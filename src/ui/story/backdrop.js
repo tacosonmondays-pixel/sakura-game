@@ -28,6 +28,10 @@ export function setStageStillProvider(fn) {
   stillCache.clear();
 }
 
+
+/** Act II stage maps whose story background shows a place of its own (src/art/backdrops.js themeBackdropSVG variant). */
+const PLACE_VARIANT = { noon_rowing_jetty: 'jetty', noon_boathouse_lamp: 'lamp' };
+
 /**
  * What a background id draws. Stage backgrounds resolve to their chapter's academy tint (with the stage id
  * kept, so a still can replace it).
@@ -41,7 +45,7 @@ export function resolveBackground(id, chapter = 0) {
     // an Act II stage (Gate Arc: the Noon city, not the academy) falls back to its map theme's painted skyline
     const st = STAGE_MAP[stageId];
     const theme = st?.act === 2 ? MAP_MAP[st.mapId]?.theme : null;
-    if (theme) return { id, kind: 'svg', html: themeBackdropSVG(theme), stageId, fallback: true };
+    if (theme) return { id, kind: 'svg', html: themeBackdropSVG(theme, { variant: PLACE_VARIANT[st.mapId] ?? null }), stageId, fallback: true };
     const ch = st?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);
     return { ...fb, id, stageId, fallback: true };
