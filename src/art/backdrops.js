@@ -391,9 +391,9 @@ function vesperScene(rnd, id, W, H, variant, time) {
     s += '<rect y="300" width="1100" height="100" fill="#8496a8"/><path d="M60 330Q550 270 1040 330V350H60Z" fill="#dfe8ee"/>';
     for (let k = 0; k < 8; k++) s += `<path d="M${120 + k * 110} 340a30 30 0 0 1 60 0" fill="#2c3550" stroke="#eef3f7" stroke-width="4"/>`;
     // the Vesper Gate on the left: white-gold round black-violet, dark snow falling out
-    s += '<circle cx="250" cy="230" r="58" fill="#120e22"/><circle cx="250" cy="230" r="40" fill="#2a1f4a"/>';
-    lights += '<circle cx="250" cy="230" r="58" fill="none" stroke="#fff1c4" stroke-width="7"/><circle cx="250" cy="230" r="64" fill="none" stroke="#ffd27a" stroke-width="2" opacity="0.7"/>' + lamp(250, 230, 0, '#fff1c4', 110, 0.3);
-    for (let i = 0; i < 18; i++) s += `<circle cx="${n2(210 + rnd() * 120)}" cy="${n2(250 + rnd() * 110)}" r="${n2(1.5 + rnd() * 2)}" fill="#2a2140" opacity="0.85"/>`;
+    s += '<circle cx="310" cy="230" r="58" fill="#120e22"/><circle cx="310" cy="230" r="40" fill="#2a1f4a"/>';
+    lights += '<circle cx="310" cy="230" r="58" fill="none" stroke="#fff1c4" stroke-width="7"/><circle cx="310" cy="230" r="64" fill="none" stroke="#ffd27a" stroke-width="2" opacity="0.7"/>' + lamp(310, 230, 0, '#fff1c4', 110, 0.3);
+    for (let i = 0; i < 18; i++) s += `<circle cx="${n2(270 + rnd() * 120)}" cy="${n2(250 + rnd() * 110)}" r="${n2(1.5 + rnd() * 2)}" fill="#2a2140" opacity="0.85"/>`;
     // the shelter on the right with its one warm window
     s += '<rect x="800" y="264" width="160" height="66" fill="#e4eff5"/><rect x="792" y="256" width="176" height="10" fill="#9db3c2"/><rect x="866" y="290" width="30" height="40" fill="#1c2230"/><rect x="822" y="282" width="24" height="20" fill="#3a3026"/>';
     lights += '<rect x="825" y="285" width="18" height="14" fill="#ffd9a0"/>' + lamp(834, 292, 0, '#ffb347', 40, 0.45);
