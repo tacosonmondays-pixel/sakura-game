@@ -38,6 +38,12 @@
 // rallies, queued shells) end at every wave clear, so a calm point has none; the tier replay unlocks
 // each ability (with its first charge) before `ak` puts the saved state back. A save without them
 // restores every ability at its first charge, Auto from the setting.
+// Tenka (src/sim/lab.js, zones.js; same formats, additive): her lab team's record (`lb`: rounds, members and
+// coins per class, the joiners' income, who joined, their interest rates) and her well / Last Line timers
+// (`zc`). The tier replay runs with { restoring: true }, which never absorbs, so the girls placed after her
+// Joint Research stay on the field and the record comes back as saved; her lab weapons follow from it.
+// Wells and Last Line zones end at every wave clear (nothing to save). A save without these fields restores
+// her tiers with no lab team and fresh timers.
 //
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
@@ -55,6 +61,7 @@ import { unitBattleStats } from '../../systems/progression.js';
 import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { modeId } from '../../data/modes.js';
+import { LAB_CLASSES, emptyLab } from '../../sim/lab.js';
 
 /**
  * Leak groups a snapshot keeps (the most recent ones): stats.leakLog is stored grouped by
@@ -154,6 +161,13 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // team damage multiplier follows the saved buffs ('db')
   shells: 'calm', _curseQueue: 'calm', _flushingCurses: 'calm', _curseCtx: 'scratch', _scratch3: 'scratch',
   _relaySamples: 'scratch', globalDmgMul: 'derived', runners: 'calm', _curseBudget: 'calm', _leadPt: 'scratch',
+  // Tenka's lab team (src/sim/lab.js): how many girls have one follows their restored records (`lb`)
+  _labOn: 'derived',
+  // Tenka's wells and Last Line (src/sim/zones.js): every zone ends at the wave clear (the tier replay
+  // makes the list again, empty), and the near-exit count follows the girls with Last Line. (Both are
+  // created lazily and never deleted: after her sale they stay [] / 0, where a restore has none, which
+  // runs the same.)
+  zones: 'calm', _nearExitOn: 'derived',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -210,6 +224,11 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   vineCd: 'calm', vineHold: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
   // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
   balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
+  // Tenka: her lab team's record travels (`lb`; the girls who joined are not on the field, and the tier
+  // replay never absorbs); her frag / field weapons follow from it and her stats (syncLab; both timers are 0
+  // at every wave clear, so a calm point's labAtk is exactly what the restore builds). Her well and Last
+  // Line timers count wave time only, so they run on across calm points and travel (`zc`).
+  lab: 'snap', labAtk: 'derived', wellCd: 'snap', lastLineCd: 'snap',
 });
 
 /**
@@ -320,7 +339,32 @@ function packTower(sim, t) {
   packGear(t, o);
   // Kaede's blade-art count (src/sim/towers.js bladeArts): her next Maple Cleave lands on the same strike
   if (t.bladeN != null) o.kb = t.bladeN;
+  // Tenka's lab team (never a hero's row, whose `lb` is her levels bought): rounds, members and coins per
+  // class (LAB_CLASSES order), the joiners' wave income, who joined, the joiners' interest rates
+  const lab = t.lab;
+  if (lab && !t.isHero) o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
+  // Tenka's well and Last Line timers (wave-time ticks; -1: she has none yet)
+  if (t.wellCd != null || t.lastLineCd != null) o.zc = [t.wellCd ?? -1, t.lastLineCd ?? -1];
   return o;
+}
+
+/**
+ * packTower's `lb` row back as a lab record (numbers only), or null. `rounds` is at most what her tiers give
+ * (`maxRounds`): a lab record never claims an absorb her tiers do not have.
+ */
+function unpackLab(row, maxRounds) {
+  if (!Array.isArray(row)) return null;
+  const lab = emptyLab();
+  const whole = (v) => Math.max(0, Math.floor(r(v)));
+  lab.rounds = Math.min(whole(row[0]), maxRounds);
+  LAB_CLASSES.forEach((k, i) => {
+    lab.members[k] = whole(Array.isArray(row[1]) ? row[1][i] : 0);
+    lab.coins[k] = Math.max(0, r(Array.isArray(row[2]) ? row[2][i] : 0));
+  });
+  lab.income = Math.max(0, r(row[3]));
+  lab.uids = Array.isArray(row[4]) ? row[4].filter((v) => Number.isInteger(v)) : [];
+  lab.interest = Array.isArray(row[5]) ? row[5].filter((v) => typeof v === 'number' && v > 0 && v < 1) : [];
+  return lab;
 }
 
 /** The fields format 3 adds on a girl's row (packPotential). */
@@ -491,6 +535,21 @@ export function restoreSim(rec, profile = null) {
         drop(o);
         continue;
       }
+    }
+    // Tenka's lab team as it was (the tier replay above never absorbs: { restoring: true }), only on a girl
+    // whose restored tiers really give her a lab (T2 review saves-4: an edited row, or one on a girl whose
+    // tiers did not come back, never hands her lab weapons); then her weapons and the lab count follow
+    const labTier = !t.isHero && t.stats.lab?.rounds > 0 ? t.stats.lab.rounds : 0;
+    const lab = labTier ? unpackLab(o.lb, labTier) : null;
+    if (lab) {
+      t.lab = lab;
+      sim._refreshTower(t);
+    }
+    // her well and Last Line timers (wave time), only for a girl whose tiers give her that one
+    if (Array.isArray(o.zc)) {
+      const whole = (v) => Math.max(0, Math.floor(r(v)));
+      if (t.stats.well && Number.isFinite(o.zc[0]) && o.zc[0] >= 0) t.wellCd = whole(o.zc[0]);
+      if (t.stats.lastLine && Number.isFinite(o.zc[1]) && o.zc[1] >= 0) t.lastLineCd = whole(o.zc[1]);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);

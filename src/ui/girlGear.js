@@ -108,7 +108,8 @@ function slotCard(unit, slot, onChange, mode = 'compact') {
 
 /**
  * Her club set at a glance: the emblem, its name, three pips and the bonus that is on (the 2-piece stat, or the
- * 3-piece trick's name); tap: both lines and Rainbow Resonance in Details.
+ * 3-piece trick's name); tap: both lines and Rainbow Resonance in Details. A full set whose trick does nothing for her
+ * (First Bell without a hasted ability: setView's `trick.idle`) is flat grey with its one calm line, never "on".
  */
 function setChip(set, unit) {
   if (!set.club) {
@@ -116,15 +117,17 @@ function setChip(set, unit) {
       h('span.gk-set-dot.rainbow', { 'aria-hidden': 'true' }), h('span', 'Resonance'));
   }
   const c = set.club;
-  const state = set.trick.on ? `${set.trick.name} on` : set.two.on ? '2-piece bonus on' : `${c.pieces} of 3 pieces`;
-  return h(`button.gk-set${set.two.on ? '.on' : ''}`, {
+  const idle = set.trick.idleText;
+  const state = set.trick.on ? `${set.trick.name} on` : idle ? idle.long : set.two.on ? '2-piece bonus on' : `${c.pieces} of 3 pieces`;
+  return h(`button.gk-set${idle ? '.idle' : set.two.on ? '.on' : ''}`, {
     type: 'button', 'data-testid': 'gear-set', style: { '--club': c.color }, 'aria-label': `${c.name}: ${state}. Open`, title: `${c.name}: ${state}`,
     onclick: () => openGearTotals(unit, { focus: 'set' }),
   },
   h('span.gk-set-dot', { 'aria-hidden': 'true' }), h('span', c.short),
   h('span.gk-pips', { 'aria-hidden': 'true' }, [1, 2, 3].map((i) => h(`i${i <= c.pieces ? '.on' : ''}`))),
   set.trick.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.trick.name)
-    : set.two.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.two.short) : null);
+    : idle ? h('span.gk-set-idle', { 'data-testid': 'gear-set-idle' }, idle.short)
+      : set.two.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.two.short) : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -440,7 +443,10 @@ export function openGearTotals(unit, { focus = null } = {}) {
     h('div.ui-kicker', 'Club set'),
     set.club ? h('div.gk-set-head', clubTag(set.club.id), h('span.gk-pips', [1, 2, 3].map((i) => h(`i${i <= set.club.pieces ? '.on' : ''}`))), h('span.gp-sub', `${set.club.pieces} of 3 pieces`)) : null,
     set.club ? h(`p.gk-setline${set.two.on ? '.on' : ''}`, { 'data-testid': set.two.on ? 'club-bonus-on' : null }, sticker('2', set.two.on ? 'y' : ''), ` ${set.two.text}`) : null,
-    set.club ? h(`p.gk-setline${set.trick.on ? '.on' : ''}`, { 'data-testid': set.trick.on ? 'club-trick-on' : null }, sticker('3', set.trick.on ? 'y' : ''), ` ${set.trick.name}: ${set.trick.text}`) : null,
+    set.club ? (set.trick.idleText
+      // (a trick that does nothing for her kit: flat grey, one calm line; the card sentence stays in the tooltip)
+      ? h('p.gk-setline.idle', { 'data-testid': 'club-trick-idle', title: `${set.trick.name}: ${set.trick.text}` }, sticker('3', 'off'), ` ${set.trick.idleText.long}`)
+      : h(`p.gk-setline${set.trick.on ? '.on' : ''}`, { 'data-testid': set.trick.on ? 'club-trick-on' : null }, sticker('3', set.trick.on ? 'y' : ''), ` ${set.trick.name}: ${set.trick.text}`)) : null,
     set.resonance ? h('p.gk-setline.on', sticker('UR', 'y'), ` ${set.resonance.text} (${set.resonance.pieces} rainbow pieces)`) : null) : null;
   const sheet = openSheet({
     title: `${unit.name} · Gear totals`, testid: 'gear-totals-sheet', cls: 'gp-details.gk-sheet', full: true,

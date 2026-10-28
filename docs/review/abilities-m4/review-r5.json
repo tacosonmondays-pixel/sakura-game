@@ -1,0 +1,55 @@
+{
+ "verdict": "OK",
+ "round": "r5",
+ "commit": "6af0e7cc8d7ca3d5d74c078c17e433161952d7ab (feature/abilities). Compared against its parent d74be86c. Reviewed in private detached worktrees, which were removed afterwards. No tracked file was changed, committed or pushed.",
+ "summary": "r4-1 is fixed. In real CDP touches at 844x390 and 667x375, no single tap or quick pair of taps above the footer's top edge armed Sell, sold her or opened MORE. That held for Iroha, Midori and Chika 3-2-0 and Sango 0-3-2, with the ability row closed and open, at finger radius 1, 6 and 12. Chromium still moves those taps onto Sell or MORE: in 50-90% of them the click landed on a footer control, and the guard refused it. Chromium never moved the pointerdown's clientX/Y (0 of 576 pairs), so the fix rests on a sound premise. Taps on Sell itself still arm it, and a second tap confirms and sells. MORE opens and closes, including at the footer's top +1 and bottom -1 px. The same holds for mouse clicks at 1280 and the keyboard: Tab to Sell, then Enter or Space twice, sells; Escape never does. r4-2 is fixed: the ally footer is the own footer's height at 844 (36 px) and at 1280 (56 px), with MORE's hit area inside it, and m4-drawer-ally / -230 pass. r4-3 is fixed (the comment). The own drawer's footer is unchanged at 1024 and 1280 (the same 57 px box and the same look). All 22 M4 scenes pass at 844x390 and 1280x720. m4-sell-edge failed once at 844 on a heavily loaded machine and passed on a clean re-run. Two lows remain, and neither blocks the round: r5-1, the guard also refuses near-miss taps just below or right of the footer box, which used to arm Sell; and r5-2, the hero drawer's Move is not guarded, so taps over its last row start a move.",
+ "findings": [
+  {
+   "id": "r5-1",
+   "severity": "low",
+   "title": "Phones: Sell now ignores finger taps just below or right of the footer box (the screen's edge) that it used to take",
+   "detail": "The guard accepts a press only inside the footer's own rect on all four sides. Only the top edge borders other controls. At 844x390 the drawer ends at y 384 and 6 px of map lie below it, to the screen's bottom edge. Chromium moves a finger tap there onto Sell: its pointerdown and its click both target Sell. On the parent d74be86c, 12 of 12 taps at y 384.5-389.5 (radius 1, 6 and 12, under Sell) armed Sell. On 6af0e7cc, 0 of 12 do, with no feedback. A radius-12 tap 0.5 px right of the drawer at Sell's height is refused the same way. This is safe, since nothing is sold and a second tap on Sell works. But a near miss at the screen's bottom edge that someone aimed at Sell now silently does nothing. With a real safe-area inset the footer reaches lower, so this matters mostly on devices without one. Evidence: r5rev/out844.log vs r5rev/outbase844.log.",
+   "suggested_fix": "Guard only the side that has other content: accept a press with e.clientY >= f.top (and x inside the drawer, or no x test), or extend the accepted box to the viewport's bottom and right edges. Keep the top edge strict."
+  },
+  {
+   "id": "r5-2",
+   "severity": "low",
+   "title": "Hero drawer: Move is not guarded, and finger taps up to 6-9 px above its footer start a move",
+   "detail": "r5 guards Sell and MORE only. In the hero drawer, the last body item is her locked ability row, which is not a tap target, so Chromium moves taps over it onto Move. At 844x390, CDP touches over Move's centre 1, 3 and 6 px above the footer started the move at radius 1, 6 and 12, and at 9 px with radius 12. The drawer closes and the hint 'Tap open ground to move Hikari · free · Cancel' shows. MORE in the same footer refused the same taps. This is not destructive: the move is free, can be cancelled, and needs a second tap on open ground. It is the same class of problem as r4-1, though, and it closes the drawer by surprise. Evidence: r5rev/hero.mjs output and f844.log 'hero: band taps'.",
+   "suggested_fix": "Give Move's onclick the same check: (e.detail === 0 || downInFoot)."
+  }
+ ],
+ "earlier_findings": [
+  {
+   "id": "r4-1",
+   "status": "fixed",
+   "evidence": "rev5.mjs (CDP Input.dispatchTouchEvent, one tap then a second about 100 ms later, CONFIRM window stretched in the page so the load cannot hide a sale). Points over Sell's centre, Sell's right edge -3 px and MORE's centre, 0.5, 1, 2, 3, 5 and 8 px above the footer. At 844x390 with radius 1, 6 and 12: 8 drawers (Iroha, Midori, Chika 3-2-0 and Sango 0-3-2, ability row closed and open) x 54 pairs, 0 armed, sold or MORE opened. 25-51 per drawer had their click moved onto Sell or MORE and refused. At 667x375 with radius 6: 8 x 18 pairs, 0 bad. The r4 reviewer's probe-r4.mjs at 844 and 667 (radius 1 and 12, single and double taps, mouse double-clicks, the lock 'i' and the band to 9.5 px): 0 problems, and the 'easy' taps on Sell and MORE (centre, footer top +1, bottom -1) all hit. edge-r4.mjs at 844 (Midori 3-2-0, Sango 0-3-2, ability row open): every tap and click from 0.5 to 10 px above the footer did nothing (66 of 66), while at the footer top, +0.5 and +1 they arm Sell or open MORE. At r4, 1-5 px above armed Sell. The pointerdown clientY always equalled the dispatched y."
+  },
+  {
+   "id": "r4-2",
+   "status": "fixed",
+   "evidence": "Ally footer 348-384 (36 px) at 844 and 656-712 (56 px) at 1280, the same as the own drawer's. MORE's hit area is inside it. m4-drawer-ally and m4-drawer-ally-230 pass the foot check at 844 and 1280. In the 844 probe with a stubbed co-op ally, MORE opens and closes at its centre and at footer top +1 (radius 1, 6, 12), and taps 1-6 px above do not open it. PNGs checked by eye: d844/m4-drawer-ally-844x390.png and d1280/m4-drawer-ally-1280x720.png beside the own drawer. The footer line is the same height and MORE sits in the same place."
+  },
+  {
+   "id": "r4-3",
+   "status": "fixed",
+   "evidence": "The phone CSS comment now says MORE's hit area is 30 px."
+  },
+  {
+   "id": "r4-0",
+   "status": "fixed earlier (0b9ab2b4), not touched by this commit",
+   "evidence": "No node_modules entry in the diff."
+  }
+ ],
+ "checks": {
+  "touch_band": "844x390 radius 1/6/12 and 667x375 radius 6 (rev5.mjs), plus probe-r4.mjs at both sizes with radius 1/12 and edge-r4.mjs at 844: no tap or quick pair above the footer arms or sells. Logs: r5rev/f844.log, f667.log, p844.log, p667.log, e844.log.",
+  "on_target": "Touch on Sell (centre, footer top +1, bottom -1; radius 1/6/12; 844 and 667): one tap arms, a second confirms and sells. MORE opens and Back closes. Chika's Sell, armed then confirmed: sold.",
+  "mouse_keyboard_1280": "Mouse: two clicks on Sell sell her, and MORE opens. Keyboard after a mouse press on a row: Tab to Sell (14 tabs), Enter twice sells, Space twice sells. Enter, then Escape, then Escape: the drawer closes and she is never sold. Tab to MORE, then Enter, opens it. A mouse click at the footer top +1 / bottom -1 over Sell's centre does not arm it at 1280, because that point is footer padding outside Sell's 44 px face (the same on the parent; not guard-related).",
+  "guard_edges": "Press on Sell and drag 60 px out: no arm (touch and mouse). Mouse press on Sell, out and back, release on Sell: arms (a normal button). Press 8 px above the footer, release on Sell: no arm (touch and mouse). Press on Sell while a cash change redraws the drawer mid-press: arms. Hybrid device: a touch on the band (refused), then a mouse click on Sell (arms), then a touch on Sell (sells); a touch arms Sell, then a mouse click 3 px above: no sale. Sell tapped 30/80/150 ms after the drawer opens with Reduce motion off: arms. Sell with MORE open and its sheet scrolled to the bottom: arms. Hero drawer: MORE works and is guarded; Move is not (r5-2). Ally drawer: MORE works and is guarded. Stale flag: pointerdowns outside the drawer that Chromium moves onto Sell still pass through the drawer's capture listener and reset the flag, and a confirm by a tap just right of the drawer was refused. No path was found by which a click on Sell or MORE runs on an old 'press began in the footer' flag. The only footer is .bt-panel-foot (one per drawer). No capture pointerdown handler calls stopPropagation. The rect is read at pointerdown in the same layout and transform the hit test uses.",
+  "outside_box": "r5-1: taps below or right of the footer box are refused (r5rev/out844.log vs outbase844.log). Inside the footer, taps in the 16 px gap between MORE and Sell can be moved onto either control. That is by design and never sells on a pair.",
+  "footer_wide": "wide-r4.mjs on 6af0e7cc and on its parent at 1024x768 and 1280x720 (Iroha 3-2-0, Sango 0-3-2): the own drawer's footer box is 57 px (703-760 at 1024, 655-712 at 1280) in both, with identical text. The PNGs side by side (r5rev/wide-foot-compare.png) look the same. The new min-height only affects a footer without Sell (border-box: 44 + 12 + 1 > 56, 30 + 6 + 1 > 36).",
+  "m4_scenes": "All 22 M4_SCENES. ui-shots.mjs timed out on screenshots twice under machine load (load average 8-13, other jobs' browsers), so the scenes were run through r5rev/m4drive.mjs: the same runM4Scenes and page options, with a 240 s screenshot timeout. 1280x720: 0 failures. 844x390: one failure, 'm4-sell-edge: chika 3-2-0: a touch on Sell itself did not arm it'. The page clock was seconds behind at the time (an arm rendered 5 s after its tap in a parallel probe). m4-sell-edge alone re-run at 844: passes for Iroha, Midori and Chika (1, 3, 5 and 8 px: no / no; on Sell: armed). Every other M4 scene passed.",
+  "sim": "No sim, data or online file changed (towerPanel.js display, CSS, e2e, review notes). COOP_PROTOCOL untouched.",
+  "rules": "No other games' or anime names in the diff. No secrets. No patch note is needed on a feature branch. The ally scene's partner names are harness test data."
+ }
+}

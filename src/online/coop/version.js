@@ -50,7 +50,11 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    girls on rooftops (`U` tiles) and the lane schedule (a level crossing closes a lane for some waves); a client on
 //    8 resolves the same loadout to different battles (or does not know the stage).
 //    (No version number here: this file is part of the sim id, and the ship order sets the version.)
-export const COOP_PROTOCOL = 9;
+// 10: the ultimates release (co-op update #7, set once for it): tower abilities and hero skills cast in battle
+//    (the ability bar, the 'cast' commands, Auto casting, aimed abilities), Tenka (her coil bolts, lab team,
+//    gravity wells and Last Line), the returning girls' abilities and Seiran's Dragonflight flying all the way back
+//    to START; a client on 9 resolves the same loadout to different battles (or does not know the girl at all).
+export const COOP_PROTOCOL = 10;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

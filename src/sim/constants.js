@@ -126,6 +126,49 @@ export const ABILITY_SCATTER = Object.freeze([
   [-0.54, -0.31], [0.7, 0.35], [-0.7, 0.35], [0, -0.78], [0.36, 0.7], [-0.36, -0.7],
 ].map((p) => Object.freeze(p)));
 
+/**
+ * Zones (src/sim/zones.js; GAPS P-4, caps GAPS 7.2): most open at once per player and per sim (a new one
+ * closes the oldest first). A well refreshes its slow and Brittle on everything inside every
+ * ZONE_STATUS_TICKS ticks, for ZONE_STATUS_TIME s (so they hold while an enemy stays inside); with no
+ * enemy near any spot in her range she looks again after WELL_RETRY_TICKS. Its pull reaches enemies
+ * within WELL_PULL_REACH × its radius of the centre by path distance; anchors are path samples every
+ * ZONE_ANCHOR_STEP tiles.
+ */
+export const ZONE_CAP_PLAYER = 12;
+export const ZONE_CAP_SIM = 24;
+export const ZONE_STATUS_TICKS = 15;
+export const ZONE_STATUS_TIME = 0.3;
+export const WELL_RETRY_TICKS = 15;
+export const WELL_PULL_REACH = 2;
+export const ZONE_ANCHOR_STEP = 0.25;
+/** Last Line (GAPS P-14): the near-exit hook fires NEAR_EXIT tiles (path distance) before the exit; one swallow per LAST_LINE_EVERY ticks. */
+export const NEAR_EXIT = 1;
+export const LAST_LINE_EVERY = 16;
+/**
+ * Joint Research (src/sim/lab.js; GAPS 5.10): each lab weapon is the table's at LAB_REF_COINS coins of girls
+ * in its class (power 1), × √(coins / LAB_REF_COINS) × her lab power. dps: +LAB_BOLTS bolts (at most
+ * LAB_BOLTS_MAX more); support: a +LAB_AURA_DMG damage aura of LAB_AURA_RANGE (at most +LAB_AURA_MAX); frag:
+ * a grenade every LAB_FRAG_TICKS of her bolt damage × LAB_FRAG_MUL, radius LAB_FRAG_SPLASH; control: a
+ * LAB_SLOW slow (at most LAB_SLOW_MAX) within LAB_FIELD_RANGE, refreshed every LAB_FIELD_TICKS; economy:
+ * LAB_ECON_SHARE of every joiner's wave income and interest, whatever her class (owner decision #146).
+ */
+export const LAB_REF_COINS = 2000;
+export const LAB_BOLTS = 2;
+export const LAB_BOLTS_MAX = 12;
+export const LAB_AURA_RANGE = 3;
+export const LAB_AURA_DMG = 0.15;
+export const LAB_AURA_MAX = 0.6;
+export const LAB_FRAG_TICKS = 120;
+export const LAB_FRAG_MUL = 6;
+export const LAB_FRAG_SPLASH = 1.2;
+export const LAB_FIELD_RANGE = 2;
+export const LAB_FIELD_TICKS = 15;
+export const LAB_SLOW = 0.2;
+export const LAB_SLOW_MAX = 0.5;
+export const LAB_ECON_SHARE = 0.3;
+/** A girl's interest at a wave clear (stats.income.interest × coins) pays at most this many coins (Momo). */
+export const INCOME_INTEREST_MAX = 150;
+
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;
 /** How often tower aura buffs are recomputed (also recomputed on any change). */

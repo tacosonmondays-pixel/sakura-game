@@ -14,6 +14,13 @@
 // Crits (the strong preset's 25 %) draw from the battle's one random stream, so a girl's extra attacks
 // shift her partner's rolls: a partner gain within ±5 % of 1 for a girl without a rally is that noise.
 //
+//   node --import ./tools/simLoader.mjs tools/abilityBench.mjs --girl tenka [--vs chika:5-0-2] [--curve-time 60] [--max-coins 10000]
+//
+// --girl <id> runs that girl's rows and, for a powerhouse (Tenka, BUILD_PLAN 6.2), the comparison with
+// the SSR bar (Chika 5-0-2 unless --vs says otherwise): single-target DPS on the boss alone (no partner),
+// Auto Off and On, raw and at equal total coins (DPS per coin), plus the best build of each girl within
+// every budget up to --max-coins (the plan's "never more than Chika in the first 10k coins").
+//
 // Per row: own damage Off / On and the gain (On / Off), the partner's gain (rallies), casts, coins
 // (econ), and the control share (enemy-steps frozen, stunned or shocked, Off / On). Gates (§11, owner:
 // the balance pass comes LAST, so they may be red today): crowd and single-target gain ≤ 1.35×
@@ -29,9 +36,11 @@ import { xpToReach, gainHeroXp } from '../src/sim/hero.js';
 import { abilityPathOf } from '../src/sim/abilities.js';
 
 const args = process.argv.slice(2);
-const VALUED = ['--targets', '--preset', '--seed', '--time', '--out', '--stage', '--hp'];
+const VALUED = ['--targets', '--preset', '--seed', '--time', '--out', '--stage', '--hp', '--girl', '--vs', '--curve-time', '--max-coins'];
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
 const names = args.filter((a, i) => !a.startsWith('--') && !VALUED.includes(args[i - 1]));
+const GIRL = opt('girl', null);
+if (GIRL) names.push(GIRL);
 const STAGE = opt('stage', '4-5');
 const SEED = Number(opt('seed', 9));
 const TIME = Number(opt('time', 120));
@@ -181,6 +190,116 @@ for (const id of girls) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// --girl: a powerhouse against the SSR bar (single-target DPS, no partner)
+// ---------------------------------------------------------------------------
+
+/** Coins a build costs (placement + every tier bought; data prices, no discounts). */
+function coinsOf(u, tiers) {
+  let c = u.base.cost || 0;
+  tiers.forEach((n, p) => { for (let k = 0; k < n; k++) c += u.paths[p].tiers[k].cost; });
+  return c;
+}
+
+/** Every crosspath-legal build: at most two paths bought, only one past tier 2. */
+function legalBuilds() {
+  const out = [];
+  for (let a = 0; a <= 5; a++) for (let b = 0; b <= 5; b++) for (let c = 0; c <= 5; c++) {
+    const t = [a, b, c];
+    if (t.filter((x) => x > 0).length <= 2 && t.filter((x) => x > 2).length <= 1) out.push(t);
+  }
+  return out;
+}
+
+/** Her damage a second on the lone boss (1e9 HP, pinned in her reach), alone on the map. */
+function soloDps(unitId, tiers, auto, time) {
+  const u = d.units[unitId];
+  const sim = new Sim({ stageId: STAGE, loadout: [{ unitId, stats: STATS }], hero: null, seed: SEED, options: { autoAbilities: auto } });
+  sim.cash = 1e15;
+  sim.lives = 1e15;
+  const samples = sim.pathData.flatMap((p) => samplePath(p, 0.5)).filter((x) => !x.hidden);
+  const lattice = [];
+  for (let y = 0.3; y < sim.map.height; y += 0.25) for (let x = 0.3; x < sim.map.width; x += 0.25) lattice.push({ x: x + 0.013, y: y + 0.007 });
+  const cov = (c, r) => samples.reduce((a, x) => a + ((x.x - c.x) * (x.x - c.x) + (x.y - c.y) * (x.y - c.y) <= r * r ? 1 : 0), 0);
+  const r0 = Math.min(4, u.base.range || 3);
+  const spot = lattice.map((c) => ({ ...c, cov: cov(c, r0) })).sort((a, b) => b.cov - a.cov).find((c) => sim.canPlace(unitId, c.x, c.y).ok);
+  const t = sim.placeTower(unitId, spot.x, spot.y);
+  for (const p of [0, 1, 2].sort((a, b) => tiers[b] - tiers[a])) for (let k = 0; k < tiers[p]; k++) sim.upgradeTower(t.uid, p);
+  const near = samples.filter((x) => x.pathIndex === 0).reduce((b, x) => {
+    const dd = (x.x - spot.x) * (x.x - spot.x) + (x.y - spot.y) * (x.y - spot.y);
+    return dd < b.dd ? { dd, s: x } : b;
+  }, { dd: Infinity }).s;
+  sim.state = 'wave';
+  sim.wave = Math.max(1, sim.wave);
+  sim._spawnQueue = [];
+  sim._spawnIndex = 0;
+  const id = 'dragon_ashwing';
+  const boss = sim.spawnEnemy(id, { pathIndex: 0, dist: Math.max(0.1, near.d), hpMul: HP_BOSS / (d.enemies[id]?.hp || 1) });
+  boss.baseSpeed = 0;
+  const anchor = boss.dist;
+  const path = sim.pathData[0];
+  const dmg0 = t.damageDealt;
+  for (let step = 0; step < time * 60; step++) {
+    sim.update(1 / 60);
+    sim.drainEvents();
+    for (const e of sim.enemies) if (e !== boss) e.dead = true;
+    boss.hp = boss.maxHp;
+    if (boss.dist !== anchor) {
+      boss.dist = anchor;
+      placeOnPath(boss, path);
+    }
+    if (sim.state !== 'wave') sim.state = 'wave';
+  }
+  return { dps: (t.damageDealt - dmg0) / time, casts: sim.stats.abilitiesUsed || 0, tiers: t.tiers.join('-') };
+}
+
+function powerhouseReport(girlId) {
+  const u = d.units[girlId];
+  const [vsId, vsTiers] = (opt('vs', 'chika:5-0-2')).split(':');
+  const vsBuild = vsTiers.split('-').map(Number);
+  const v = d.units[vsId];
+  const time = Number(opt('curve-time', 60));
+  const maxCoins = Number(opt('max-coins', 10000));
+  const rails = abilityPathOf(u);
+  const main = [0, 0, 0];
+  main[rails] = 5;
+  main[CROSS[rails]] = 2;
+  const out = { girl: girlId, vs: `${vsId} ${vsBuild.join('-')}`, preset: PRESET, time: TIME, rows: [], curve: [] };
+  for (const auto of [false, true]) {
+    const a = soloDps(girlId, main, auto, TIME);
+    const b = soloDps(vsId, vsBuild, auto, TIME);
+    const ca = coinsOf(u, main);
+    const cb = coinsOf(v, vsBuild);
+    out.rows.push({
+      auto, girl: a.tiers, girlDps: Math.round(a.dps), girlCoins: ca, girlCasts: a.casts, vs: b.tiers, vsDps: Math.round(b.dps), vsCoins: cb,
+      raw: r2(a.dps / b.dps), perCoin: r2((a.dps / ca) / (b.dps / cb)),
+    });
+  }
+  // the best build of each girl within every budget (Auto On: her ability counts)
+  const builds = legalBuilds();
+  const measured = new Map();
+  const best = (id, budget) => {
+    let top = null;
+    for (const t of builds) {
+      const c = coinsOf(d.units[id], t);
+      if (c > budget) continue;
+      const k = `${id}|${t.join('-')}`;
+      if (!measured.has(k)) measured.set(k, soloDps(id, t, true, time).dps);
+      const dps = measured.get(k);
+      if (!top || dps > top.dps) top = { dps, tiers: t.join('-'), coins: c };
+    }
+    return top;
+  };
+  for (let budget = 2000; budget <= maxCoins; budget += 1000) {
+    const a = best(girlId, budget);
+    const b = best(vsId, budget);
+    out.curve.push({ budget, girl: a ? a.tiers : '–', girlDps: a ? Math.round(a.dps) : 0, vs: b ? b.tiers : '–', vsDps: b ? Math.round(b.dps) : 0, ratio: a && b ? r2(a.dps / b.dps) : null });
+  }
+  return out;
+}
+
+const PH = GIRL && d.units[GIRL]?.role === 'powerhouse' ? powerhouseReport(GIRL) : null;
+
 const out = opt('out', null);
 if (out) writeFileSync(out, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`);
 if (!args.includes('--json')) {
@@ -198,4 +317,18 @@ if (!args.includes('--json')) {
     console.log(`| ${r.unitId} | ${r.id} | ${r.build} ${r.tiers} | ${r.target} | ${r.dmgOff} → ${r.dmgOn} | ${r.gain ?? '–'}× | ${r.partnerGain ?? '–'}× | ${r.casts} | ${r.coins} | ${Math.round(r.heldOff * 100)}% → ${Math.round(r.heldOn * 100)}% | ${gate} |`);
   }
   console.log(`\nToday's best control share with Auto off on this bench: ${Math.round(bestHeld * 100)}%.`);
+  if (PH) {
+    console.log(`\n### ${PH.girl} vs ${PH.vs} (single target: the lone boss, no partner, ${PH.time} s, preset ${PH.preset})\n`);
+    console.log('| Auto | Her build | DPS | Coins | Casts | Bar build | DPS | Coins | Raw ratio | At equal coins (DPS/coin ratio) | Target 1.1–1.3× |');
+    console.log('|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const r of PH.rows) {
+      const ok = r.perCoin >= 1.1 && r.perCoin <= 1.3 ? 'ok' : 'RED';
+      console.log(`| ${r.auto ? 'On' : 'Off'} | ${r.girl} | ${r.girlDps} | ${r.girlCoins} | ${r.girlCasts} | ${r.vs} | ${r.vsDps} | ${r.vsCoins} | ${r.raw}× | ${r.perCoin}× | ${ok} |`);
+    }
+    console.log(`\nBest build within each budget (Auto On; never above the bar within ${opt('max-coins', 10000)} coins):\n`);
+    console.log('| Budget | Her best | DPS | Bar best | DPS | Ratio | Gate ≤ 1× |');
+    console.log('|---|---|---|---|---|---|---|');
+    for (const c of PH.curve) console.log(`| ${c.budget} | ${c.girl} | ${c.girlDps} | ${c.vs} | ${c.vsDps} | ${c.ratio ?? '–'}× | ${c.ratio != null && c.ratio <= 1 ? 'ok' : 'RED'} |`);
+  }
 }
+if (PH && args.includes('--json')) console.log(JSON.stringify(PH));

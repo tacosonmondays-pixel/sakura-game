@@ -50,6 +50,7 @@ export function createFlightControl(ctx) {
     }
     ctx.placement?.cancel?.();
     ctx.cancelPick?.(); // a brew / tune-up pick in progress ends: one board tap mode at a time
+    if (ctx.aim?.active) ctx.aim.cancel(); // (an ability aim or Set aim too: the aim gets the board tap first)
     picking = { uid, mode, step: 0, a: null };
     preview();
   }

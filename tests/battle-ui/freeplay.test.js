@@ -1,26 +1,31 @@
 // Co-op freeplay battle UI helpers: big-number formatting (boss bar, results) and the scout's
 // pressure chip (what the coming freeplay wave carries).
 import { describe, it, expect } from 'vitest';
-import { fmtBig } from '../../src/ui/battle/util.js';
+import { fmtNum } from '../../src/ui/format.js';
 import {
-  freeplayPressureInfo, pressureText, fmtArmor, freeplayBossTelegraph, telegraphText, eliteName, ELITE_MOD_TEXT, BOSS_COUNTER,
+  freeplayPressureInfo, pressureText, fmtArmor, fmtMulShort, freeplayBossTelegraph, telegraphText, eliteName, ELITE_MOD_TEXT, BOSS_COUNTER,
 } from '../../src/ui/battle/scout.js';
 import { createCoopSim } from '../../src/online/coop/commands.js';
 
-describe('fmtBig', () => {
-  it('k / M / B / T with three significant digits, plain below 100,000', () => {
-    expect(fmtBig(0)).toBe('0');
-    expect(fmtBig(99999)).toBe('99,999');
-    expect(fmtBig(100000)).toBe('100k');
-    expect(fmtBig(130000)).toBe('130k');
-    expect(fmtBig(568000)).toBe('568k');
-    expect(fmtBig(1250000)).toBe('1.25M');
-    expect(fmtBig(132300000)).toBe('132M');
-    expect(fmtBig(13230000)).toBe('13.2M');
-    expect(fmtBig(24.9e9)).toBe('24.9B');
-    expect(fmtBig(7.6e12)).toBe('7.6T');
-    expect(fmtBig(3e9)).toBe('3B');
-    expect(fmtBig(NaN)).toBe('0');
+describe('big numbers (boss bar, telegraph, results): the one number style', () => {
+  it('k / M / B / T with one decimal at most, plain below 10,000', () => {
+    expect(fmtNum(0)).toBe('0');
+    expect(fmtNum(9999)).toBe('9,999');
+    expect(fmtNum(99999)).toBe('100k');
+    expect(fmtNum(130000)).toBe('130k');
+    expect(fmtNum(1250000)).toBe('1.3M');
+    expect(fmtNum(132300000)).toBe('132.3M');
+    expect(fmtNum(24.9e9)).toBe('24.9B');
+    expect(fmtNum(7.6e12)).toBe('7.6T');
+    expect(fmtNum(3e9)).toBe('3B');
+    expect(fmtNum(NaN)).toBe('–');
+  });
+
+  it('the pressure chip\'s multiplier: "×2.5" below 10, then a count ("×353", "×16.2k", "×2.2M")', () => {
+    expect(fmtMulShort(2.5)).toBe('×2.5');
+    expect(fmtMulShort(353.2)).toBe('×353');
+    expect(fmtMulShort(16234)).toBe('×16.2k');
+    expect(fmtMulShort(2.19e6)).toBe('×2.2M');
   });
 });
 

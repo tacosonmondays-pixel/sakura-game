@@ -8,6 +8,7 @@ import { STEP, ROAD_OBJECTS_PER_PLAYER, ROAD_OBJECTS_PER_SIM, STRIP_SPACING, STR
 import { defaultData } from '../../src/sim/data.js';
 import { addStrip, roadSpots, endStripWave, spikeRain } from '../../src/sim/strips.js';
 import { aimMode } from '../../src/sim/towers.js';
+import { potentialFold } from '../../src/data/potential.js';
 import { MAP, MAP2, STAGE, ENEMIES } from './fixtures.js';
 
 const units = defaultData().units;
@@ -309,12 +310,128 @@ describe('Spike Rain (Checkpoint Duty tier 3) and Total Lockdown', () => {
   });
 });
 
-describe('determinism', () => {
-  test('two copies of a battle with strips stay identical (no rng drawn by her laying)', () => {
+/** A battle like setup(), with her unit stats (gear, level, stars) given. */
+function setupWith(stats, opts = {}) {
+  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'azami', stats }], seed: opts.seed ?? 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+  sim.cash = 1e9;
+  const t = sim.placeTower('azami', opts.x ?? 6.5, opts.y ?? 5.5);
+  for (const p of [0, 1, 2]) for (let k = 0; k < (opts.tiers || [0, 0, 0])[p]; k++) expect(sim.upgradeTower(t.uid, p)).toBe(true);
+  sim.state = 'wave';
+  sim.wave = 1;
+  sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+  sim._spawnIndex = 0;
+  return { sim, t };
+}
+/**
+ * Records every hit with the spec that dealt it: { dmg (the spec's damage), crit, amount }; `out.draws` counts the
+ * sim.rng draws made inside hits (the crit rolls: one per hit with a crit chance, none without).
+ */
+function recordHits(sim) {
+  const out = [];
+  out.draws = 0;
+  const hit = sim._hit.bind(sim);
+  const emit = sim._emit.bind(sim);
+  const next = sim.rng.next;
+  let cur = null;
+  sim.rng.next = () => {
+    if (cur) out.draws++;
+    return next();
+  };
+  sim._emit = (type, p) => {
+    if (type === 'hit' && cur) out.push({ dmg: cur.damage, crit: !!p.crit, amount: p.amount });
+    return emit(type, p);
+  };
+  sim._hit = (e, tower, spec, ...rest) => {
+    const prev = cur;
+    cur = spec;
+    try {
+      return hit(e, tower, spec, ...rest);
+    } finally {
+      cur = prev;
+    }
+  };
+  return out;
+}
+
+describe('her blasts scale with her, and strips can crit', () => {
+  test('+50% ATK: Charged Strips\' blast ×1.5 exactly; Detonation Line\'s 300 × her damage multiplier', () => {
+    const base = setupWith({}, { tiers: [4, 0, 0] });
+    const atk = setupWith({ damageMul: 1.5 }, { tiers: [4, 0, 0] });
+    expect(base.t.stats.strip.boom).toBe(40);
+    expect(atk.t.stats.strip.boom).toBe(60);
+    expect(atk.t.stripBoomSpec.damage).toBe(base.t.stripBoomSpec.damage * 1.5);
+    // her strips scaled before; they still do, the same way
+    expect(atk.t.trapSpec.damage).toBe(base.t.trapSpec.damage * 1.5);
+    for (const mul of [1, 1.5, 2.37, 4.1]) {
+      const d = setupWith({ damageMul: mul }, { tiers: [5, 0, 0] });
+      expect(d.t.stats.strip.boom, `×${mul}`).toBe(300 * mul);
+      expect(d.t.stripBoomSpec.damage).toBe(300 * mul);
+    }
+    // Potential's whole-girl damage step reaches the blast like it reaches her strips (the same multiplier)
+    const pot = setupWith({ potential: 6 }, { tiers: [5, 0, 0] });
+    const pmul = potentialFold(units.azami, 6).damageMul;
+    expect(pmul).toBeGreaterThan(1);
+    expect(pot.t.stats.strip.boom).toBeCloseTo(300 * pmul, 9);
+    expect(pot.t.stats.trap.damage).toBeCloseTo(setupWith({}, { tiers: [5, 0, 0] }).t.stats.trap.damage * pmul, 9);
+    // the stripless girls are untouched: Suzu's trap block has no blast
+    expect(units.suzu.base.strip).toBeUndefined();
+  });
+
+  test('the blast really hits harder: an enemy beside an expiring Charged strip loses 1.5× as much at +50% ATK', () => {
+    const lost = (stats) => {
+      const { sim } = setupWith(stats, { tiers: [4, 0, 0] });
+      const b = firstStrip(sim);
+      const near = parkAt(sim, 'tank', b.x + 0.8, b.y);
+      near.maxHp = near.hp = 1e9;
+      near.armor = 0; // (flat armor would bend the ratio)
+      const hp = near.hp;
+      for (let i = 0; i < 31 * 60 && sim.traps.includes(b); i++) sim._step(STEP);
+      return hp - near.hp;
+    };
+    expect(lost({ damageMul: 1.5 })).toBeCloseTo(lost({}) * 1.5, 6);
+  });
+
+  test('crit chance 1: every strip hit, flyer hit and blast crits at her crit multiplier; 0: none, and no rng is drawn', () => {
+    const run1 = (stats, tiers) => {
+      const { sim, t } = setupWith(stats, { tiers });
+      const hits = recordHits(sim);
+      const s = firstStrip(sim);
+      run(sim, 0.4);
+      for (let k = 0; k < 4; k++) {
+        const e = parkAt(sim, 'tank', s.x, s.y);
+        e.hp = e.maxHp = 1e9;
+      }
+      run(sim, 0.2);
+      // 4 of its 6 hits used: it expires after its 30 s and blasts the tanks on it (Charged Strips)
+      for (let i = 0; i < 31 * 60 && sim.traps.includes(s); i++) sim._step(STEP);
+      expect(sim.traps.includes(s)).toBe(false);
+      return { t, hits, draws: hits.draws };
+    };
+    const on = run1({ critChance: 1, critMul: 1.2 }, [4, 0, 0]);
+    expect(on.t.trapSpec).toMatchObject({ critChance: 1, critMul: on.t.eff.critMul });
+    expect(on.t.stripBoomSpec).toMatchObject({ critChance: 1, critMul: on.t.eff.critMul });
+    expect(on.t.eff.critMul).toBeCloseTo(1.5 * 1.2, 9);
+    const strip = on.hits.filter((x) => x.dmg === on.t.trapSpec.damage);
+    const boom = on.hits.filter((x) => x.dmg === on.t.stripBoomSpec.damage);
+    expect(strip.length).toBeGreaterThanOrEqual(4);
+    expect(boom.length).toBeGreaterThan(0);
+    expect(on.hits.every((x) => x.crit)).toBe(true);
+    expect(on.draws).toBe(on.hits.length); // one roll per hit, in the hit order
+    const off = run1({}, [4, 0, 0]);
+    expect(off.t.trapSpec.critChance).toBe(0);
+    expect(off.hits.length).toBeGreaterThan(0);
+    expect(off.hits.some((x) => x.crit)).toBe(false);
+    expect(off.draws).toBe(0);
+    // Tall Barbs' flyer hit takes her crit too
+    const air = setupWith({ critChance: 1 }, { tiers: [0, 0, 4] });
+    expect(air.t.stripAirSpec).toMatchObject({ critChance: 1, canHitAir: true });
+  });
+
+  test('her crit gear counts on strips: crit chance 0.5 gives some crits, the same ones for the same seed', () => {
     const play = () => {
-      const { sim, t } = setup({ tiers: [3, 2, 0] });
-      sim.setTargetMode(t.uid, 'last');
-      const rng0 = JSON.stringify(sim.rng);
+      const { sim } = setupWith({ critChance: 0.5 }, { tiers: [3, 2, 0] });
+      sim.setTargetMode(sim.towers[0].uid, 'last');
+      const hits = recordHits(sim);
       for (let k = 0; k < 40; k++) {
         if (k % 4 === 0) {
           const e = sim.spawnEnemy('orc', { pathIndex: 0, dist: 0 });
@@ -322,7 +439,31 @@ describe('determinism', () => {
         }
         run(sim, 0.5);
       }
-      return { traps: JSON.stringify(strips(sim).map(({ owner, ...s }) => s)), dealt: t.damageDealt, rng: JSON.stringify(sim.rng) === rng0 };
+      return { crits: hits.map((x) => (x.crit ? 1 : 0)).join(''), rng: sim.rng.getState(), draws: hits.draws, n: hits.length };
+    };
+    const a = play();
+    expect(play()).toEqual(a);
+    expect(a.crits).toContain('1');
+    expect(a.crits).toContain('0');
+    expect(a.draws).toBe(a.n);
+  });
+});
+
+describe('determinism', () => {
+  test('two copies of a battle with strips stay identical (no rng drawn by her strips without crit chance)', () => {
+    const play = () => {
+      const { sim, t } = setup({ tiers: [3, 2, 0] });
+      sim.setTargetMode(t.uid, 'last');
+      // (the old check compared JSON.stringify(sim.rng), which never changes: it counts draws inside her hits now)
+      const rec = recordHits(sim);
+      for (let k = 0; k < 40; k++) {
+        if (k % 4 === 0) {
+          const e = sim.spawnEnemy('orc', { pathIndex: 0, dist: 0 });
+          e.hp = e.maxHp = 400;
+        }
+        run(sim, 0.5);
+      }
+      return { traps: JSON.stringify(strips(sim).map(({ owner, ...s }) => s)), dealt: t.damageDealt, rng: rec.length > 0 && rec.draws === 0 };
     };
     const a = play();
     expect(play()).toEqual(a);

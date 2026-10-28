@@ -14,6 +14,7 @@ import { isUR, urBadge, applyUrFrame } from './rarity.js';
 import { MAX_POTENTIAL, potentialLevel, potentialNext, dupePastMaxPay } from '../systems/potential.js';
 import { essenceBalance, essenceCap } from '../systems/essence.js';
 import { spareText } from './potential.js';
+import { LEGEND_UNITS } from '../data/recruitFeature.js';
 
 /**
  * After a claim: "Choose your SSR now?"
@@ -39,7 +40,7 @@ export function openSelectTicket() {
     title: 'SSR Select Ticket',
     wide: true,
     cls: 'sst-modal',
-    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay({ rarity: 'SSR' })}).`), grid),
+    body: h('div.sst', h('p.muted', `Choose any SSR student${LEGEND_UNITS.length ? ` but ${LEGEND_UNITS.map((id) => UNIT_MAP[id]?.name || id).join(' and ')}, who comes only from her Recruit spotlight` : ''} (tickets: ${have}). Already in your academy? She gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay({ rarity: 'SSR' })}).`), grid),
     actions: [{ label: 'Cancel', kind: 'ghost' }],
   });
   for (const id of POOL.SSR) {

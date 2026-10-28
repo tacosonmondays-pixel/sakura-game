@@ -65,6 +65,12 @@ export const DEFAULT_SETTINGS = {
   /** Buff icons over the girls: 'all', 'selected' (the selected girl and her links) or 'off'. */
   buffIcons: 'all',
   /**
+   * Battle → Auto-cast abilities (ABILITIES_SPEC §8.6, owner decision #53: Off by default): every girl's ⚡ ability
+   * fires by itself at a decent moment. Solo battles pass it as the Sim's options.autoAbilities, co-op sends it in
+   * the hello (autoAbil). Additive: no save version bump (older saves get Off).
+   */
+  autoCastAbilities: false,
+  /**
    * The loading screen's look (Settings → Loading screen; src/ui/loading/mochi.js): Mochi, the
    * loading slime, 'mint' (mint jelly + sakura petal) or 'sakura' (sakura-pink jelly + mint leaf), and
    * the background, 'black' or 'colour' (night navy with a soft glow). index.html's inline script
@@ -314,6 +320,8 @@ function cleanSettings(raw) {
     camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
     // older saves have no buff icon setting: every buffed girl shows hers
     buffIcons: BUFF_ICON_MODES.includes(s.buffIcons) ? s.buffIcons : d.buffIcons,
+    // older saves have no Auto-cast setting: Off
+    autoCastAbilities: bool(s.autoCastAbilities, d.autoCastAbilities),
     // older saves have no loading screen look: the mint Mochi on black
     loadingMochi: LOADING_MOCHI_LOOKS.includes(s.loadingMochi) ? s.loadingMochi : d.loadingMochi,
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,

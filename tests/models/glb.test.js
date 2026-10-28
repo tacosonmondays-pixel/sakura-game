@@ -1,8 +1,8 @@
 // Checks the generated character GLBs (public/models/characters) without WebGL: parses the
 // GLB JSON header in node and verifies every unit ships the actions, bones, materials and
 // face atlas the runtime relies on, within the size budget. The stand-ins (src/models/standins.js:
-// the returning girls without approved art) are procedural on purpose: they must NOT ship a GLB or
-// a manifest entry (tests/models/standins.test.js checks they build procedurally instead).
+// girls whose art is not approved yet) are procedural on purpose: they must NOT ship a GLB or a
+// manifest entry (tests/models/standins.test.js checks they build procedurally instead).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';

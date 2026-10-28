@@ -1,5 +1,6 @@
 // Boss / miniboss HP bar under the HUD with barrier overlay and phase tick marks.
-import { h, enemyToken, setVar, fmtBig } from './util.js';
+import { h, enemyToken, setVar } from './util.js';
+import { fmtNum } from '../format.js';
 
 export function createBossBar(ctx) {
   const { sim } = ctx;
@@ -60,8 +61,9 @@ export function createBossBar(ctx) {
     const bfrac = e.maxBarrier > 0 ? Math.max(0, Math.min(1, e.barrier / e.maxBarrier)) : 0;
     barrier.style.width = `${(bfrac * 100).toFixed(2)}%`;
     setVar(el, '--boss-color', e.def?.color || '#ff4d6d');
-    // fmtBig: freeplay bosses reach billions ("132.3M / 132.3M", not "132300k")
-    const txt = `${fmtBig(Math.ceil(e.hp))} / ${fmtBig(Math.ceil(e.maxHp))}${bfrac > 0 ? ` · Barrier ${fmtBig(Math.ceil(e.barrier))}` : ''}`;
+    // the one number style: freeplay bosses reach billions and trillions ("132.3M / 132.3M", "7.6T"); the HP left
+    // rounds up first, so a boss with a sliver left never reads 0
+    const txt = `${fmtNum(Math.ceil(e.hp))} / ${fmtNum(e.maxHp)}${bfrac > 0 ? ` · Barrier ${fmtNum(Math.ceil(e.barrier))}` : ''}`;
     if (hpText.textContent !== txt) hpText.textContent = txt;
   }
 

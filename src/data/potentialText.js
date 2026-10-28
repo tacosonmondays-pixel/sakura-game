@@ -133,6 +133,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('+1 DRONE', '+8% attack speed. One more drone (3 → 4 with Mk-II; Mecha-Fortress 10 → 11), and drone hits crack 1 armor for 3 s (stacks ×3, for every girl).', 1.21, 'chika.wing'),
     t('UPLINK', '+9% damage. Throttle Up every 20 s, with drones firing 75% faster; her tune-up links 1 more girl (Signal Tower 1 → 2, Grand Workshop 2 → 3).', 1.17, 'chika.uplink'),
   ),
+  tenka: row(
+    t('PEN+1', '+5% attack speed. Her bolts ignore 1 more armor (Plasma Rails 3 → 4).', 1.10, 'rim'),
+    t('CRIT+4%', '+7% damage; +4% crit chance (0 → 4% at tier 0).', 1.11, 'rim'),
+    t('RESONANCE', '+7% attack speed. Every 10th bolt is a Coil Resonance: twice as hard, in a 0.5-tile burst.', 1.15, 'tenka.resonance'),
+    t('PIERCE+1', '+8% damage. Every bolt passes through 1 more enemy (1 → 2 at tier 0; Capacitor Bank 3 → 4).', 1.18, 'tenka.pierce'),
+    t('CASCADE', '+9% attack speed. Coil Resonance comes every 8th bolt and hits 3× as hard, leaving its targets Brittle +10% for 3 s.', 1.24, 'tenka.cascade'),
+  ),
   hikari: row(
     t('SUNRISE', '+5% damage. Every 6th sweep is a Sunrise: 50% harder.', 1.14, 'hikari.sunrise'),
     t('BLOOM+10%', '+7% damage; Celestial Bloom recharges 10% faster.', 1.07, 'rim'),
