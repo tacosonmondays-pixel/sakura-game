@@ -92,6 +92,8 @@ for (const vp of viewports) {
   const [W, H] = vp.split('x').map(Number);
   const touch = W < 1000;
   const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce', deviceScaleFactor: 1 });
+  // (a busy shared machine can take longer than Playwright's 30 s to load even about:blank; the M4 review, round r3)
+  page.setDefaultNavigationTimeout(120000);
   page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`));
   console.log(`viewport ${vp}`);
   if (m1Wanted.length) {

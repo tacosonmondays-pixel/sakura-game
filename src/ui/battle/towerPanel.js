@@ -37,7 +37,7 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, gearPierce, pierces, BUY_ARM_MS,
-  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX, TARGET_EXTRA,
+  allyNoteText, holderParts, contentBelow, rowAir, SCROLL_CUE_PX, TARGET_EXTRA,
 } from './drawerView.js';
 
 function statusLabel(s) {
@@ -61,6 +61,12 @@ const isWide = () => !isPhone();
  * §5.8). One lock toast at a time: a tap on another row's "i" swaps the words in place instead of being throttled away.
  */
 const LOCK_TOAST = { key: 'path-lock', ms: 2600, replace: true };
+/**
+ * A tap on a stat says what it is (its title, in the feed: a phone has no hover; players tap labels to learn them), one
+ * toast at a time. The stat row takes its own taps, so the browser's touch adjustment never moves a tap on DMG or RATE
+ * onto a chip above or a price below (the M4 review, round r2: a tap 4 px into the row changed her target).
+ */
+const STAT_TOAST = { key: 'stat-why', ms: 2600, replace: true };
 
 /** The target row's overflow chip: three dots (a font's "⋯" is a few pixels in Barlow, and missing in some). */
 const MORE_SVG = '<svg viewBox="0 0 18 4" aria-hidden="true"><circle cx="2" cy="2" r="2" fill="currentColor"/><circle cx="9" cy="2" r="2" fill="currentColor"/><circle cx="16" cy="2" r="2" fill="currentColor"/></svg>';
@@ -316,7 +322,17 @@ export function createTowerPanel(ctx) {
    */
   function statRow(t, st, opts) {
     const cells = drawerStats(t, st, opts());
-    const row = h('div.bt-dw-stats', { 'data-testid': 'drawer-stats', role: 'group', 'aria-label': cells.map((c) => c.title).join(', ') });
+    const row = h('div.bt-dw-stats', {
+      'data-testid': 'drawer-stats', role: 'group', 'aria-label': cells.map((c) => c.title).join(', '),
+      onclick: (e) => {
+        // (a tap on the row's own top or bottom rule names the cell above or below it, by its x)
+        const cell = e.target.closest?.('.bt-dw-stat') || [...row.children].find((c) => {
+          const r = c.getBoundingClientRect();
+          return e.clientX >= r.left && e.clientX < r.right;
+        });
+        if (cell?.title) ctx.feed?.push(cell.title, 'info', STAT_TOAST);
+      },
+    });
     const nodes = cells.map((c) => {
       const value = document.createTextNode(c.value);
       const cell = h(`div.bt-dw-stat${c.accent ? '.acc' : ''}`, { 'data-key': c.key, title: c.title },
@@ -394,7 +410,7 @@ export function createTowerPanel(ctx) {
     ) : null;
     // (the toast is the rule's one line; the full sentence is the title, and the 1280 drawer shows it in the row)
     const why = show ? h('button.bt-dw-info.bt-lock-why', {
-      type: 'button', 'aria-label': 'Why is this tier locked?', title: reason,
+      type: 'button', 'data-testid': `final-why-${i}`, 'aria-label': 'Why is this tier locked?', title: reason,
       onclick: () => ctx.feed?.push(onePerPathWhy(t.def.name, p.name), 'info', LOCK_TOAST),
     }, 'i') : null;
     // (the row's rule is one line, "Tier V: one Sango at a time": the path is the row's name; the whole sentence with
@@ -440,7 +456,7 @@ export function createTowerPanel(ctx) {
       const names = t.def.paths.map((x) => x.name);
       extra = h('div.bt-path-lock', { 'data-testid': `path-lock-${i}` }, icon('lock', 'bt-ico-sm'), h('span', v.lock),
         h('button.bt-dw-info', {
-          type: 'button', 'aria-label': 'Why is this path locked?', title: `${crosspathReason(t.tiers, i, names)} ${CROSSPATH_RULE}`,
+          type: 'button', 'data-testid': `path-why-${i}`, 'aria-label': 'Why is this path locked?', title: `${crosspathReason(t.tiers, i, names)} ${CROSSPATH_RULE}`,
           onclick: () => ctx.feed?.push(crosspathWhy(t.tiers, i, names), 'info', LOCK_TOAST),
         }, 'i'));
     } else if (v.state === 'final') {
@@ -824,7 +840,7 @@ export function createTowerPanel(ctx) {
     const held = targets.filter((r) => r.kinds.some((k) => LIMITED_KINDS.has(k)));
     const faces = targets.slice(0, 8).map((r) => {
       const o = sim.getTower(r.uid);
-      return o ? h('button.bt-buffing-face', { type: 'button', title: whoName(o), onclick: () => ctx.select(o.uid) }, svgEl(portraitHTML(o.def, 'thumb', { eager: true }), 'bt-buff-face')) : null;
+      return o ? h('button.bt-buffing-face', { type: 'button', 'data-uid': o.uid, title: whoName(o), onclick: () => ctx.select(o.uid) }, svgEl(portraitHTML(o.def, 'thumb', { eager: true }), 'bt-buff-face')) : null;
     });
     const what = lim === 'brew' ? 'Brew' : 'Tune-up';
     return h(
@@ -957,6 +973,7 @@ export function createTowerPanel(ctx) {
     fitHolder();
     fitPaths();
     abRow.fit();
+    fitRowAir();
     paintScrollCue();
   }
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => fitAll()) : null;
@@ -1024,13 +1041,14 @@ export function createTowerPanel(ctx) {
   }
 
   /**
-   * Phones: each path row's name line stays ONE line (the M4 review: a long name pushed its ⚡ chip, then the pips, onto
-   * lines of their own). Whole pieces move or step away, never cut: the pips move to the tier line; then on the open row
-   * the ⚡ chip folds (its open line says what the tier does); last, a name that still would not fit takes the smaller
-   * name size. Looked at again on a resize and when a web font arrives (fitAll), from the row's first layout.
+   * Each path row's name line stays ONE line, on a phone and on the wide drawer (the M4 review: a long name pushed its ⚡
+   * chip, then the pips, onto lines of their own; round r2: at 1024 and 1280 Sango's "Wide Fragmentation" took two
+   * lines and its ⚡ a third). Whole pieces move or step away, never cut: the pips move to the tier line; then on the open
+   * row the ⚡ chip folds (its open line says what the tier does); then a name that still would not fit takes the smaller
+   * name size; last it wraps beside its ⚡ (no name needs that with the game's fonts). Looked at again on a resize and
+   * when a web font arrives (fitAll), from the row's first layout.
    */
   function fitPaths() {
-    const phone = !isWide();
     for (const row of el.querySelectorAll('.bt-path')) {
       const top = row.querySelector('.bt-path-top');
       const name = top?.querySelector('.bt-path-name');
@@ -1038,10 +1056,10 @@ export function createTowerPanel(ctx) {
       if (!name || !pips) continue;
       if (row.classList.contains('bt-pips-low')) top.append(pips);
       row.classList.remove('bt-pips-low');
-      name.classList.remove('bt-path-name-s');
+      name.classList.remove('bt-path-name-s', 'bt-path-name-2l');
       top.querySelector('.bt-path-bolt')?.classList.remove('bt-fold');
       const over = () => top.scrollWidth > top.clientWidth + 1;
-      if (!phone || !over()) continue;
+      if (el.hidden || !over()) continue;
       const tier = row.querySelector('.bt-path-main > .bt-path-tier');
       if (tier && tier.getClientRects().length) {
         tier.append(pips);
@@ -1049,7 +1067,40 @@ export function createTowerPanel(ctx) {
       }
       if (over() && row.classList.contains('armed')) top.querySelector('.bt-path-bolt')?.classList.add('bt-fold');
       if (over()) name.classList.add('bt-path-name-s');
+      if (over()) name.classList.add('bt-path-name-2l');
     }
+  }
+
+  let air = { uid: '', px: [] }; // the chip rows' air the drawer opened with (fitRowAir)
+  /**
+   * Phones: the room the drawer has to spare under its last path row widens its chip rows' bands (drawerView.rowAir),
+   * each up to the dense tap size; a band holds its chips' hit areas (battle.css clips them to it), so they never reach
+   * the stat row, another row's label or her ⚡ row (the M4 review, round r2). Worked out again whenever the layout
+   * changes (her ⚡ row opened or closed too), but kept while a path row is open (tap 1), so tap 1 never moves the row
+   * under the finger: the body scrolls instead.
+   */
+  function fitRowAir() {
+    const sc = el.querySelector('.bt-panel-scroll');
+    if (!sc) return;
+    const rows = [...sc.querySelectorAll(':scope > .bt-dw-row, :scope > .bt-dr-flight > .bt-dw-row')];
+    const put = (px) => rows.forEach((r, i) => r.style.setProperty('--bt-row-air', `${px[i] || 0}px`));
+    if (isWide() || more || el.hidden || !rows.length) {
+      put([]);
+      air = { uid: '', px: [] };
+      return;
+    }
+    const uid = el.dataset.uid || '';
+    const held = !!el.querySelector('.bt-path.armed');
+    if (held && air.uid === uid && air.px.length === rows.length) {
+      put(air.px);
+      return;
+    }
+    put([]);
+    const port = sc.getBoundingClientRect().top + sc.clientTop + sc.clientHeight;
+    const spare = -contentBelow(port, [...sc.children].map((k) => k.getBoundingClientRect().bottom)) - sc.scrollTop;
+    const tap = parseFloat(getComputedStyle(el).getPropertyValue('--tap-dense')) || 40;
+    air = { uid, px: rowAir(spare, rows.map((r) => r.getBoundingClientRect().height), tap) };
+    put(air.px);
   }
 
   let shownArm = ''; // the open row the last render scrolled into view
@@ -1111,14 +1162,20 @@ export function createTowerPanel(ctx) {
     if (!node || node === el || !el.contains(node)) return [];
     const id = node.getAttribute?.('data-testid');
     const rowOf = (path) => [`.bt-path[data-path="${path}"] .bt-path-main[tabindex]`, `.bt-path[data-path="${path}"] .bt-dw-max`, `.bt-path[data-path="${path}"] button`];
+    // (any control in a path row, its lock "i" or a holder's Show › too, goes on to that row's controls when it is gone;
+    // the M4 review, round r2: the "i" had no key and its focus fell to the page on any redraw)
+    const path = node.closest?.('.bt-path[data-path]')?.dataset.path;
+    const inRow = path != null ? rowOf(path) : [];
     if (id === 'target-more') return [`[data-testid="${id}"]`, ...TARGET_EXTRA.map((m) => `.bt-target .bt-tchip[data-mode="${m}"]`)];
     const buy = /^buy-(\d)$/.exec(id || '');
     if (buy) return [`[data-testid="${id}"]`, ...rowOf(buy[1])];
-    if (id) return [`[data-testid="${id}"]`];
-    const row = node.classList?.contains('bt-path-main') ? node.closest('[data-path]') : null;
-    if (row) return [`.bt-path[data-path="${row.dataset.path}"] .bt-path-main`, ...rowOf(row.dataset.path)];
+    if (id) return [`[data-testid="${id}"]`, ...inRow];
+    if (path != null && node.classList?.contains('bt-path-main')) return [`.bt-path[data-path="${path}"] .bt-path-main`, ...inRow];
+    // (a Buffing face: the same girl's, else the first face, else MORE's Back)
+    const face = node.classList?.contains('bt-buffing-face') ? node.getAttribute('data-uid') : null;
+    if (face != null) return [`.bt-buffing-face[data-uid="${face}"]`, '.bt-buffing-face', '[data-testid="panel-more"]'];
     const mode = node.getAttribute?.('data-mode');
-    return mode ? [`.bt-target .bt-tchip[data-mode="${mode}"]`] : [];
+    return mode ? [`.bt-target .bt-tchip[data-mode="${mode}"]`, ...inRow] : inRow;
   }
 
   function updateLive(t, st = null) {

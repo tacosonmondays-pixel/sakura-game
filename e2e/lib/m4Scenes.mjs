@@ -43,6 +43,12 @@
 //                        her name on a phone): never cut, to the subpixel (with its ▾), Auto on the live line, never beside
 //                        the name; again with a wide fallback font (a web font not yet arrived); at 1280 the name is one
 //                        line; still m4-abname-sango-open
+// M4 review round r2 (fix-r3): every drawer still is hit tested (uiProbe drawerHits): no point of the stat row or of a
+//   chip row's label reaches a control (the target chips' hit areas reached 14 px over DMG · RATE on a phone), no chip,
+//   FIRE or ability name has a point of its own face that reaches another control, and every path name line is one line
+//   with its ⚡ beside it, on the wide drawer too (Sango 0-3-2's "Wide Fragmentation" in m4-drawer-fit); m4-keys: the
+//   focus on a lock "i" stays on it across a redraw; m4-abname: a forced no-⚡ name keeps its fallback frames later;
+//   m4-stat-tap (in m4-drawer-aoi): real taps on the stat row's edges reach no control and say what the stat is
 //   every still: a card the tower bar's edge cuts shows no price, and the cue on that edge says more cards sit there;
 //   the ally's path rows are no buttons (no role, no tab stop); m4-lock-why also checks each toast's size (≥ 12 px on a
 //   phone) and a long tip toast (it wraps, never cut)
@@ -55,7 +61,7 @@
 // children, never scrollHeight), the open row one line; the drawer's smallest text ≥ 12 px at 844 and ≥ 13 px at
 // 1280; nothing cut by an ellipsis.
 import { openApp, seedSave, openBattle, settle, until } from './battleKit.mjs';
-import { uiProbe, formatProbe, drawerPathsInView, BATTLE_BOXES } from './uiProbe.mjs';
+import { uiProbe, formatProbe, drawerPathsInView, drawerHits, BATTLE_BOXES } from './uiProbe.mjs';
 
 export const M4_SCENES = [
   'm4-drawer-aoi', 'm4-drawer-armed', 'm4-drawer-locked', 'm4-drawer-azami', 'm4-drawer-chika', 'm4-drawer-chika-more', 'm4-drawer-more', 'm4-hero-drawer', 'm4-reduce-motion',
@@ -68,7 +74,8 @@ const SQUAD = ['aoi', 'azami', 'chika', 'miko', 'momo', 'midori', 'iroha'];
 const BOXES = BATTLE_BOXES;
 
 const clearToasts = (page) => page.evaluate(() => document.querySelectorAll('[data-testid="battle-feed"] .bt-toast').forEach((t) => t.remove()));
-const panelOpen = (page) => page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden; }, null, { timeout: 15000 });
+// (60 s: on a busy shared machine the drawer's first open can take longer than 15 s; the M4 review, round r3)
+const panelOpen = (page) => page.waitForFunction(() => { const el = document.querySelector('[data-testid="tower-panel"]'); return el && !el.hidden; }, null, { timeout: 60000 });
 
 /** The tower bar's edges: cards the strip's port cuts, any of their prices still shown, and the ‹ / › cues. */
 const barEdges = (page) => page.evaluate(() => {
@@ -159,15 +166,23 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     await settle(page, 250);
     // (the rows first: an open row closes 2.6 s after tap 1, and the whole-page probe can take a second on a busy PC)
     const paths = await drawerPathsInView(page);
+    const hits = await drawerHits(page);
     const facts = await drawerFacts(page);
     const probe = await uiProbe(page, { boxes: BOXES });
     // the drawer on its own (its smallest text, truncation, numbers): the HUD and the card strip are M5's
     const drawer = await uiProbe(page, { root: '[data-testid="tower-panel"]' });
-    out[name] = { facts, probe, drawer, paths };
+    out[name] = { facts, probe, drawer, paths, hits };
     log(`  ${name}: ${JSON.stringify(facts)}`);
     log(`  probe ${name}: ${formatProbe(probe)}`);
     log(`  drawer probe ${name}: numbers ${drawer.numbers} · smallest ${drawer.smallest ? `${drawer.smallest.px}px (${drawer.smallest.text})` : '–'} · ${drawer.truncated.length} truncated`);
     log(`  paths ${name}: ${JSON.stringify(paths)}`);
+    if (hits) log(`  hits ${name}: dead ${JSON.stringify(hits.dead)} · faces ${JSON.stringify(hits.faces)} · chips ${hits.chips.map((c) => `${c.chip} ${c.hitW}x${c.hitH}`).join(', ') || '–'} · names ${hits.names.map((r) => `${r.name} ${r.px}px${r.lines > 1 ? ` ${r.lines} lines` : ''}${r.boltOwnLine ? ' +bolt line' : ''}`).join(' / ')}`);
+    // (what a tap reaches, the M4 review round r2: no point of the stat row or of a chip row's label reaches a control,
+    // and no control's own face reaches another one; each path name line is one line, its ⚡ beside it, on every drawer)
+    if (hits?.dead.length) fail(name, `a tap on a part that takes none reaches a control: ${JSON.stringify(hits.dead)}`);
+    if (hits?.faces.length) fail(name, `a control's own face reaches another control: ${JSON.stringify(hits.faces)}`);
+    const wrapped = (hits?.names || []).filter((r) => r.lines > 1 || r.boltOwnLine);
+    if (wrapped.length) fail(name, `a path name line takes more than one line: ${JSON.stringify(wrapped)}`);
     if (drawer.smallest && drawer.smallest.px < floor) fail(name, `drawer text under ${floor} px: ${drawer.smallest.px}px "${drawer.smallest.text}" (${drawer.smallest.sel})`);
     if (drawer.truncated.length) fail(name, `drawer text cut by an ellipsis: ${JSON.stringify(drawer.truncated)}`);
     // (the girl drawer: ≤ 13 numbers, her ⚡ row's live seconds the one extra; UI_DIRECTION M2 done-when)
@@ -214,7 +229,60 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     await page.evaluate((x) => window.__battle.ui.select(x.aoi), u);
     await panelOpen(page);
     await settle(page, 700);
-    if (has('m4-drawer-aoi')) await still('m4-drawer-aoi');
+    if (has('m4-drawer-aoi')) {
+      await still('m4-drawer-aoi');
+      // real taps on the stat row (the M4 review, round r2: a touch tap 4 px into it, over RATE, changed her target): at
+      // its top edge, 4 px in and 2 px above its foot, over each cell. Her target, her tiers and her rows stay as they
+      // were (the row takes its own taps, so the browser's touch adjustment never moves one onto a chip above or a
+      // price below), and each tap says what that stat is, in the feed
+      const was = await page.evaluate((x) => { const t = window.__battle.sim.getTower(x.aoi); return { mode: t.targetMode, tiers: t.tiers.join('-') }; }, u);
+      const pts = await page.evaluate(() => {
+        const row = document.querySelector('[data-testid="tower-panel"] [data-testid="drawer-stats"]');
+        const r = row.getBoundingClientRect();
+        return [...row.querySelectorAll('.bt-dw-stat')].flatMap((c) => {
+          const b = c.getBoundingClientRect();
+          return [1, 4, Math.floor(r.height) - 2].map((dy) => ({ key: c.dataset.key, dy, x: Math.round(b.left + b.width / 2), y: Math.round(r.top + dy) }));
+        });
+      });
+      const taps = [];
+      // (what each tap says is read from the feed's own push, recorded: on a busy machine a 2.6 s toast can come and go
+      // between two of Playwright's polls, as m4-lock-why found)
+      await page.evaluate(() => {
+        window.__m4StatClicks = 0;
+        document.addEventListener('click', (e) => { if (e.target.closest?.('[data-testid="drawer-stats"]')) window.__m4StatClicks++; }, true);
+        const f = window.__battle.ui.feed;
+        const push = f.push;
+        window.__m4StatSaid = [];
+        window.__m4StatPush = push;
+        f.push = (content, kind, o = {}) => {
+          window.__m4StatSaid.push({ key: o.key || null, text: typeof content === 'string' ? content : content?.textContent });
+          return push(content, kind, o);
+        };
+      });
+      for (const pt of pts) {
+        await clearToasts(page);
+        const [clicks, said] = await page.evaluate(() => [window.__m4StatClicks, window.__m4StatSaid.length]);
+        if (phone) await page.touchscreen.tap(pt.x, pt.y);
+        else await page.mouse.click(pt.x, pt.y);
+        // (a busy machine can take seconds to turn the tap into its click and its words: wait for both, 15 s at most)
+        await page.waitForFunction(([n, m]) => window.__m4StatClicks > n && window.__m4StatSaid.length > m, [clicks, said], { timeout: 15000, polling: 100 }).catch(() => {});
+        await settle(page, 100);
+        taps.push({ ...pt, clicked: (await page.evaluate(() => window.__m4StatClicks)) > clicks, ...(await page.evaluate(([x, key, m]) => {
+          const t = window.__battle.sim.getTower(x.aoi);
+          const cell = document.querySelector(`[data-testid="tower-panel"] [data-testid="drawer-stats"] .bt-dw-stat[data-key="${key}"]`);
+          const words = window.__m4StatSaid.slice(m);
+          return { mode: t.targetMode, tiers: t.tiers.join('-'), armed: !!document.querySelector('[data-testid="tower-panel"] .bt-path.armed'), told: !!cell?.title && words.some((w) => w.key === 'stat-why' && w.text === cell.title), words };
+        }, [u, pt.key, said])) });
+      }
+      await page.evaluate(() => { window.__battle.ui.feed.push = window.__m4StatPush; });
+      const reached = taps.filter((x) => x.mode !== was.mode || x.tiers !== was.tiers || x.armed);
+      const silent = taps.filter((x) => !x.told);
+      out['m4-stat-tap'] = { was, taps };
+      log(`  m4-stat-tap: ${taps.length} taps · reached a control ${reached.length} · said nothing ${silent.length} · ${JSON.stringify(taps.slice(0, 3))}`);
+      if (reached.length) fail('m4-stat-tap', `a tap on the stat row reached a control: ${JSON.stringify(reached)}`);
+      if (silent.length) fail('m4-stat-tap', `a tap on a stat did not say what it is: ${JSON.stringify(silent.slice(0, 3))}`);
+      await clearToasts(page);
+    }
     if (has('m4-drawer-armed')) {
       await page.locator('[data-testid="tower-panel"] [data-testid="buy-0"]').click({ force: true });
       await settle(page, 200);
@@ -358,12 +426,50 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       q('[data-testid="buy-0"]').click();
       return { sellArmed: armedText, after: { sell: q('[data-testid="sell"]')?.textContent, armed: !!q('.bt-path.armed[data-path="0"]') } };
     });
+    // the focus on a lock "i" stays on it across a redraw (the M4 review, round r2: the "i" had no key, its focus fell to
+    // the page when the coins changed what she can afford, and the next Space started the wave): Aoi 3-0-1, the "i" on
+    // her crosspath-locked second row
+    const iw = await page.evaluate((x) => {
+      const { sim, ui } = window.__battle;
+      ui.select(null);
+      sim.sellTower(x.t);
+      sim.cash = 1e7;
+      const t = __ab.place('aoi', { near: x.aoi, min: 3 });
+      __ab.up(t, 0, 3);
+      __ab.up(t, 2, 1);
+      sim.cash = 1e6;
+      ui.select(t);
+      return { t, tiers: sim.getTower(t).tiers.join('-') };
+    }, k);
+    k.t = iw.t;
+    await panelOpen(page);
+    await settle(page, 400);
+    await page.keyboard.press('Tab');
+    const iFocus = await page.evaluate(() => {
+      const p = document.querySelector('[data-testid="tower-panel"]');
+      const i = p.querySelector('[data-testid="path-why-1"]');
+      i?.focus();
+      window.__m4Renders = 0;
+      window.__m4Obs?.disconnect();
+      window.__m4Obs = new MutationObserver((ms) => { for (const m of ms) if (m.target === p && m.type === 'childList') window.__m4Renders++; });
+      window.__m4Obs.observe(p, { childList: true });
+      return { found: !!i, focused: !!i && document.activeElement === i };
+    });
+    // (a redraw: with 1 coin no price is in reach)
+    await page.evaluate(() => { window.__battle.sim.cash = 1; });
+    await settle(page, 500);
+    const iAfter = { ...(await focusOn()), renders: await page.evaluate(() => window.__m4Renders) };
+    await page.evaluate(() => window.__m4Obs?.disconnect());
+    await page.keyboard.press('Space');
+    await settle(page, 200);
+    const iSpace = await focusOn();
     await page.evaluate((x) => {
       window.__battle.ui.startWave = window.__m4Wave.real;
       window.__battle.ui.select(null);
       window.__battle.sim.sellTower(x.t);
+      window.__battle.sim.cash = 1e6;
     }, k);
-    out['m4-keys'] = { k, more, moreSpace, max, tiers, maxSpace, sellArmed, after };
+    out['m4-keys'] = { k, more, moreSpace, max, tiers, maxSpace, sellArmed, after, iw, iFocus, iAfter, iSpace };
     log(`  m4-keys: ${JSON.stringify(out['m4-keys'])}`);
     if (!more.inDrawer || more.mode !== 'elite') fail('m4-keys', `after Enter on "⋯" the focus is on ${JSON.stringify(more)} (PRIORITY)`);
     if (moreSpace.calls) fail('m4-keys', 'a Space after "⋯" started the wave');
@@ -372,6 +478,10 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
     if (maxSpace.calls) fail('m4-keys', 'a Space after the keyboard buy to MAX started the wave');
     if (!/CONFIRM/.test(sellArmed || '')) fail('m4-keys', `Sell did not arm ("${sellArmed}")`);
     if (/CONFIRM/.test(after.sell || '') || !after.armed) fail('m4-keys', `a tap on a price left Sell armed or the row closed (${JSON.stringify(after)})`);
+    if (!iFocus.focused) fail('m4-keys', `her crosspath "i" did not take the focus (${JSON.stringify({ iw, iFocus })})`);
+    else if (!iAfter.renders) fail('m4-keys', 'the coins changed and the drawer did not redraw: the "i" check proves nothing');
+    else if (!iAfter.inDrawer || iAfter.testid !== 'path-why-1') fail('m4-keys', `after a redraw the focus on the "i" is on ${JSON.stringify(iAfter)}`);
+    if (iSpace.calls > maxSpace.calls) fail('m4-keys', 'a Space after the redraw (the focus on the "i") started the wave');
     await settle(page, 300);
   }
 
@@ -1118,6 +1228,10 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         await page.locator('[data-testid="tower-panel"] [data-testid="ability-row-name"]').click({ force: true });
         await settle(page, 300);
         opened = await nameFacts();
+        // (with her ⚡ row opened the body grows: still no chip over the stat row, no chip cut by its band)
+        const oh = await drawerHits(page);
+        if (oh?.dead.length) fail('m4-abname', `${g} open: a tap on a part that takes none reaches a control: ${JSON.stringify(oh.dead)}`);
+        if (oh?.faces.length) fail('m4-abname', `${g} open: a control's own face reaches another control: ${JSON.stringify(oh.faces)}`);
       }
       const probe = await uiProbe(page, { root: '[data-testid="ability-row"]' });
       // a wide fallback font (before the web font arrives): the row fits again (its ResizeObserver), still never cut
@@ -1133,6 +1247,37 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
       await settle(page, 300);
       const back = await nameFacts();
       R[g] = { closed, opened, fallback, back, truncated: probe.truncated };
+      if (g === 'sango') {
+        // a name whose longest word would not fit even its two-line box (forced: wide letter-spacing, then a web font's
+        // arrival runs the fit): the ⚡ steps away and stays away on the frames after (the M4 review, round r2: the next
+        // frame's update() rebuilt the row's classes and dropped it); once the name fits again the ⚡ is back
+        const boltState = () => page.evaluate(() => {
+          const row = document.querySelector('[data-testid="tower-panel"] [data-testid="ability-row"]');
+          const bolt = row?.querySelector('.bt-abrow-bolt');
+          return { noBolt: !!row?.classList.contains('bt-abrow-nobolt'), bolt: bolt ? getComputedStyle(bolt).display : null };
+        });
+        await page.evaluate(() => {
+          const st = document.createElement('style');
+          st.id = '__m4wide';
+          st.textContent = '[data-testid="ability-row"] .bt-abrow-name { letter-spacing: 1.5em !important; }';
+          document.head.append(st);
+          document.fonts.dispatchEvent(new Event('loadingdone'));
+        });
+        const at = await boltState();
+        await settle(page, 500);
+        const later = await boltState();
+        await page.evaluate(() => {
+          document.getElementById('__m4wide')?.remove();
+          document.fonts.dispatchEvent(new Event('loadingdone'));
+        });
+        await settle(page, 300);
+        const fits = await boltState();
+        R.noBolt = { at, later, fits };
+        log(`  m4-abname no-⚡ fallback: ${JSON.stringify(R.noBolt)}`);
+        if (!at.noBolt) fail('m4-abname', `a name whose longest word cannot fit did not take the no-⚡ fallback (${JSON.stringify(at)})`);
+        else if (!later.noBolt || later.bolt !== 'none') fail('m4-abname', `the no-⚡ fallback was gone frames later (${JSON.stringify(later)})`);
+        if (fits.noBolt) fail('m4-abname', 'the ⚡ stayed away once her name fit again');
+      }
       log(`  m4-abname ${g}: ${JSON.stringify(R[g])}`);
       for (const [when, f] of [['closed', closed], ['open', opened], ['with a fallback font', fallback], ['after the fallback', back]]) {
         if (!f) {

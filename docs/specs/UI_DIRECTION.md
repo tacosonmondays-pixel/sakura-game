@@ -769,7 +769,7 @@ the reward amount) over 4 rows.
 
 | Stays visible | Behind tap | Details (MORE) | Merged | Removed |
 |---|---|---|---|---|
-| name, role and type icons, tier code, target, 3 paths with pips and next price, Sell | the next tier's name and chips (row tap); the lock reason | the stats grid, Kills and Damage, Invested, P level, the discount | "role · type" text → 2 icons; focus line + tier name + tag + description → one expandable line | the struck-through old price (the price shown is the real one), the 3-line lock note, the second scroll page |
+| name, role and type icons, tier code, target, 3 paths with pips and next price, Sell | the next tier's name and chips (row tap); the lock reason; what a stat is (a tap on it, M4) | the stats grid, Kills and Damage, Invested, P level, the discount | "role · type" text → 2 icons; focus line + tier name + tag + description → one expandable line | the struck-through old price (the price shown is the real one), the 3-line lock note, the second scroll page |
 
 **After: hero drawer:** header (portrait, the full name, UR tag, **LV 1**) · the XP bar (no numbers on it) · **Level up · 145**
 (cost button) · one line "Next: Steady Guard · +1 DMG" · the ult icon with "Unlocks at LV 3" (or its rank) · Move · MORE (the
