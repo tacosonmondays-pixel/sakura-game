@@ -428,7 +428,7 @@ export class AmbientSystem {
         gA.push(m.x, PATH_H + 0.022, m.z, 1.42, 1.42, R.cracks, c.r, c.g, c.b, 0.3 + 0.3 * pulse, m.rot);
       } else if (m.kind === 'scorch') {
         // the burning look: a burnt blotch on the ground (never on the road: ruinProps.burningLayer)
-        gN.push(m.x, 0.02, m.z, 1.25, 1.25, R.scorch, 0.1, 0.08, 0.08, 0.62, m.rot);
+        gN.push(m.x, 0.02, m.z, 1.15, 1.15, R.scorch, 0.012, 0.01, 0.01, 0.72, m.rot);
       } else if (m.kind === 'chevron') {
         // a soft pulse runs along the road in its travel direction
         const rv = this.chevronsReversed;

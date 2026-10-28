@@ -122,6 +122,7 @@ async function main() {
   btn.onclick = () => tearOn(!pulsing);
   if (params.get('tear') === '1') tearOn(true);
 
+  let pendingFall = null;
   // a Gnat group: five spotters skimming in from the first gate; two are beaten moments later
   // (the spark fall, LINK LOST), the rest fly on
   const gnats = () => {
@@ -130,9 +131,8 @@ async function main() {
       const e = sim.spawnEnemy('brigade_gnat', { dist: 2.2 + i * 0.35, pathIndex: 0 });
       if (e) spawned.push(e);
     }
-    setTimeout(() => {
-      for (const e of spawned.slice(0, 2)) if (sim.enemies.includes(e)) sim._killEnemy(e, null);
-    }, 1900);
+    // (in game time, once the spawn bark's chip has gone: one chip per side at a time)
+    pendingFall = { at: sim.time + 2.2, list: spawned.slice(0, 2) };
     return spawned.length;
   };
   window.__gnats = gnats;
@@ -187,6 +187,10 @@ async function main() {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     if (!freeze && !empty) sim.update(dt);
+    if (pendingFall && sim.time >= pendingFall.at) {
+      for (const e of pendingFall.list) if (sim.enemies.includes(e)) sim._killEnemy(e, null);
+      pendingFall = null;
+    }
     r.update(dt);
     frames++;
     fpsT += dt;

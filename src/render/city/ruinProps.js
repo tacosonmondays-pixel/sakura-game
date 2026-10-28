@@ -156,8 +156,10 @@ export const RUIN_BUILDERS = {
   },
   rubble(c) {
     const k = v(c, 'rubble');
-    heap(c, 0.42, 12 + k * 3, { cols: k === 1 ? [RU.brick, '#7a5444', RU.stoneDark] : [RU.stone, RU.stoneDark, RU.plasterDark, RU.soot] });
+    const far = c.lod === 'far';
+    heap(c, 0.42, far ? 5 + k : 12 + k * 3, { cols: k === 1 ? [RU.brick, '#7a5444', RU.stoneDark] : [RU.stone, RU.stoneDark, RU.plasterDark, RU.soot] });
     c.solid.rock(0.16, { y: 0.06, sy: 0.6, color: RU.stoneDark, jitter: 0.05, rand: c.rand });
+    if (far) return;
     beam(c, 0.05, 0.08, 0.1, 0.62, 0.25, 0.7 + k);
     if (k === 2) {
       // a slab of wall lying in the heap

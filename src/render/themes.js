@@ -495,7 +495,7 @@ export const DISTRICTS = {
  * scatter rubble and wrecks, trees charred (ruinProps.js); the burning layer adds fire and smoke.
  */
 export const BURNING = {
-  light: { sky: '#d9a074', ground: '#3a2c2c', hemi: 0.82, key: '#ffc890', keyI: 1.3, fill: '#8a6aa8', fillI: 0.3 },
+  light: { sky: '#c4a294', ground: '#3a3030', hemi: 0.82, key: '#ffd6b0', keyI: 1.3, fill: '#7c6c9c', fillI: 0.3 },
   bg: '#2a1e22',
   fogColor: '#4d3a3a',
   ground: ['#6b6560', '#635d58'],

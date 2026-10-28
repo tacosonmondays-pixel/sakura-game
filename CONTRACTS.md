@@ -1571,6 +1571,37 @@ hide the model, its shadow and its HP bar. Flat junctions get painted travel che
 `bridge` / `path` / `tunnel` looks and `ground` features (vat, icefall, runeRing) override the
 theme. The entrance / exit arrows follow the road's first / last tangent.
 
+Gate Arc Step 3 render hooks (S3a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP3_BUILD_PLAN.md §2-3):
+- **Mid-board rift** — a path spec `{ nodes, inside: true, join?, fork? }` whose first node lies inside
+  the board; `defineMap` copies the flag onto the built track (`MapDef.tracks[i].inside === true`;
+  `buildTrack` itself ignores unknown keys, so maps.js does `if (spec.inside) tracks[i].inside = true`).
+  `trackMesh.startsInside(track, W, H)` (the flag, or a non-fork first point ≥ 0.25 tiles inside every
+  edge) drops that lane's head run-out; its entrance (`inside: true`) sits on the first point facing
+  along the lane, and terrain.js stands the spawn gate there (the city's `petalRift`, at `PATH_H` on
+  water / a jetty: gate marker `{ inside: true, onWater }`, no road cracks under it). The sim needs
+  nothing: enemies already spawn at a track's first point. The edge-spawn test exempts flagged tracks
+  only (`if (!t.fork && !t.inside)`).
+- **District** — `MapDef.district: 'oldtown'` on a `city` map: `resolveLook(theme, scenery, stageLook,
+  map)` merges `themes.DISTRICTS.oldtown` (stone ground, `setts` road, `oldHouse` buildings, stone
+  gutters instead of raised kerbs, lantern strings on bamboo posts instead of utility poles, tiled
+  timber blocks under 'U' roofs, no signals or painted crossings; src/render/city/oldTownProps.js).
+- **Burning** — `StageDef.scenery.ruined: 'burning'` (resolveScenery passes `ruined`): the
+  `themes.BURNING` table (dark sky, key ≥ 1.2, ash ground under the road's tone, `ruinBlock` shells,
+  rubble / wrecks / charred trees, ash weather) and the burning layer (ruinProps.burningLayer: ≤ 12
+  amber fire glows on H / X tiles ≥ 1.5 from every centreline, ≤ 6 smoke columns in the skirt, scorch
+  marks off the road, a stray cat). On a city map 'X' tiles are rubble heaps, never lava.
+- **The tear** — decor `{ type: 'hammerTear', x, y }`: a black-violet seam of glow geometry over the
+  tile; it pulses with the map rule (`ruleState` → src/render/tear.js → `terrain.setTear(k)` uniform +
+  `ambient.tear` level), as the blackout does; `terrain.tear` says a board has one.
+- **Brigade falls and barks** — `fallStyleOf(def)` (src/render/fallStyles.js): an explicit `def.fall`,
+  else `brigade_gnat*` → `sparkFall` (amber sparks, `fx.sparkFall`), `brigade_tortoise|badger|strider|
+  hammer*` → `breakdown`, any other `brigade_*` id or a `brigade` family → `fade` (the shipped poof
+  without the homeward sparkle); every shipped monster keeps `sparkle`. Barks (src/ui/text/barks.js
+  table by unit id and event, src/ui/battle/barks.js chips): ≤ 6 words, one chip per board side at a
+  time, ≤ 1.6 s, over a group on spawn and over a unit when beaten (the Gnat: "Gnats up!" / "Channel 9,
+  moving up!", LINK LOST). `r.info` adds `district`, `ruined`, `tear` (level or null) and `barks`.
+
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
 Route `#/battle?stage=1-1&difficulty=normal[&mode=rush][&freeplay=<tier>][&endless=1][&resume=<run id>][&evict=<run id>]`
