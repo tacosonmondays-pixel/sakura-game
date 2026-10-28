@@ -905,9 +905,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setPanelCover(c = {}) {
       panelCover = { right: Math.max(0, c.right || 0), bottom: Math.max(0, c.bottom || 0) };
     },
-    /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
+    /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies, and a wave-clear sky dragon reaches START before an Auto start. */
     setTimeScale(s) {
       attackFx?.setTimeScale(s);
+      roster.setTimeScale(s);
     },
     /** Extra: buff icons over the girls — 'all' | 'selected' | 'off' (settings.buffIcons). */
     setBuffIcons(mode) {

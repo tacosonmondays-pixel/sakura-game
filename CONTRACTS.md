@@ -395,7 +395,9 @@ New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gat
 (`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
 Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
 Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
-`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
+`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }` (a fixed flight) or
+`runner { …, toStart: true, time, minSpeed, … }` (the whole road back to START: at most `time` s, never slower
+than `minSpeed` tiles/s; Seiran's Dragonflight); any ult may add
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
@@ -1463,6 +1465,8 @@ aimMode(t)                                   // towers.js: 'mortar' | 'mirror' |
 relayOrigin(samples, x, y, relay, aim?), updateRelayOrigin(sim, t)  // t.origin, t.ox, t.oy; 'relay' event; samples from _pathsFwd
 sim.shells                                   // mortar shells: 'mortarWarn' / 'shellLand'; end at the wave clear
 sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
+  // r.end: the head dist where it ends (0; a toStart runner: -(segments-1)·gap, so the tail clears START)
+  // runnerEntry(sim, aim): an aim on a stretch several roads share takes the road with more enemies ahead
 sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
 sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
 PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
@@ -1585,7 +1589,7 @@ r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, posi
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
-r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
+r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace) and rosterFx (a wave-clear sky dragon reaches START before an Auto start); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 ```
 
