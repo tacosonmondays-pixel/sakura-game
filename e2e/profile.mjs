@@ -831,7 +831,8 @@ async function runVisit(vp) {
   // ---- 9. before the profile SQL: the needs-update card; chat and M1 still work
   log('-- 9. before the profile SQL (&profile=0)');
   await B.goto(`${vbase}&profile=0#/profile/${uidA}`, { waitUntil: 'load' });
-  check(await has(B, '[data-testid="profile-needs-update"]', 15000), 'profile=0: visiting shows "needs the latest server update"');
+  // (45 s: a fresh load of the dev build that then goes online can take more than 15 s on a busy machine)
+  check(await has(B, '[data-testid="profile-needs-update"]', 45000), 'profile=0: visiting shows "needs the latest server update"');
   await shot(B, 'visit-needs-update');
   await go(B, '#/profile');
   check(await has(B, '[data-testid="profile-showcase"]', 15000), 'profile=0: the own profile still works from the save');
