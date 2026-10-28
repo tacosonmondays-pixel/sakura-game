@@ -87,7 +87,8 @@ before chapter 2.
 
 Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "the Noon", a modern city era); `c-1` …
 `c-5` are Act I ("the Morning") and never change, and `c-11` … `c-15` are reserved. Status (Gate Arc Step 1, on
-`feature/gate-arc`, not shipped): the plumbing (S1a) and **chapter 1's Act II, "Rush Hour" (1-6 … 1-10)**, are in.
+`feature/gate-arc`, not shipped): the plumbing (S1a), **chapter 1's Act II, "Rush Hour" (1-6 … 1-10)** and **chapter 2's Act II,
+"Hilltop After Dark" (2-6 … 2-10)** are in.
 
 * **Chapter 1 · Act II · Rush Hour** (Itomachi downtown by day, theme `city`; docs/specs/gate-arc/MAPS.md §1.2):
 
@@ -101,6 +102,17 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
 
   Only chapter-1 families; the Brigade is dressing only (drones overhead). 1-7 now grants Yuzuha (4-2 no longer does;
   a save that clears 4-2 before meeting her still gets her once through the lobby's catch-up, `LEGACY_JOIN_STAGES`).
+
+* **Chapter 2 · Act II · Hilltop After Dark** (Itomachi Hilltop High at night, lakeside, theme `campus`; MAPS.md §1.3).
+  Every board is a night board with ≥ 60 buildable water tiles. 2-6 is the first live two-key stage (2-5 **and** 1-10).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 2-6 Shelter 3 | `noon_school_gate` | the corridor tunnel under the main building; a classroom-wing roof ('U') beside it | petal_sanctuary (Shelter Intake) | skinks, slimes, pearls; scene `g2.pro` before |
+  | 2-7 Lights Out | `noon_rowing_jetty` | two lanes up twin jetties over the lake, merging at the boat ramp | lunar_eclipse (Lights Out), `look.blackout` dims the board while it is dark | hunters, droplets |
+  | 2-8 Club Huts | `noon_footbridges` | a staircase of footbridges over three mill canals | prism_conduits (Sensor Masts, 3 pads) | sunscales, prism slimes |
+  | 2-9 The Running Track | `noon_running_track` | an infield straight, then one lap that crosses its own entry on a footbridge | firefly_chorus (Starting Pistol) | dashers, boars |
+  | 2-10 The Boathouse Lamp | `noon_boathouse_lamp` | a breakwater, a 270° curl round the old lamp, a flat crossing on the breakwater head | changing_tides (Lake Swell) | `lizard_lamp_hugger` (Old Lamp-Hugger, the Bog Basilisk's model at miniboss scale) |
 
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
