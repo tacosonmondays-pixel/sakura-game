@@ -367,6 +367,44 @@ export function createBattleRenderer(container, sim, opts = {}) {
     companionDives: (uid) => (compBroken ? null : companions.swoopTargets(uid)),
   });
 
+  // A constant beam's damage ticks (Kohaku's, src/sim/duo.js: `tick` hits, ten a second on everything on its line)
+  // never spark or flash the enemy one by one (no strobe: the beam itself shows the hit); their damage is summed
+  // per enemy and shown as one number every TICK_SUM_S (game time, so a paused battle holds it). Entries are
+  // pooled: no allocation per tick.
+  const TICK_SUM_S = 0.45;
+  const tickSums = new Map();
+  const tickFree = [];
+  function tickHit(ev) {
+    let e = tickSums.get(ev.uid);
+    if (!e) {
+      e = tickFree.pop() || { amt: 0, t: 0, crit: false, x: 0, y: 0 };
+      e.amt = 0;
+      e.t = time;
+      e.crit = false;
+      tickSums.set(ev.uid, e);
+    }
+    e.amt += ev.amount || 0;
+    if (ev.crit) e.crit = true;
+    e.x = ev.x;
+    e.y = ev.y;
+  }
+  function flushTickSums(numbers) {
+    for (const [uid, e] of tickSums) {
+      const p = actors.enemyPos(uid);
+      if (p && time - e.t < TICK_SUM_S) continue;
+      if (fx.numbers && numbers < MAX_NUMBERS_PER_FRAME && e.amt >= 1) {
+        numbers++;
+        const x = p ? p.x : e.x;
+        const z = p ? p.z : e.y;
+        const y = p ? p.y + p.height * 0.55 : 0.35;
+        fx.text(e.crit ? `${fmt(e.amt)}!` : fmt(e.amt), x, y + 0.25, z, e.crit ? '#ff9a3d' : '#e6dcff', e.crit ? 0.22 : 0.17, 0.65, 0.45);
+      }
+      tickSums.delete(uid);
+      tickFree.push(e);
+    }
+    return numbers;
+  }
+
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
@@ -388,6 +426,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
       if (abilityFx.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
+          if (ev.tick) {
+            tickHit(ev);
+            break;
+          }
           actors.hitFlash(ev.uid);
           if (hitFx++ > MAX_HIT_FX_PER_FRAME) break;
           const p = actors.enemyPos(ev.uid);
@@ -644,6 +686,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
       }
     }
+    flushTickSums(numbers);
   }
 
   // ----- frame ----------------------------------------------------------------------------
