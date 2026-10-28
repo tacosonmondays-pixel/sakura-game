@@ -5,8 +5,8 @@
    under body.ui-day (the menus' surface mode); the night nameplate is the kit's .ui-np, a night surface on the day page.
    Nothing here is under 12 px. Shapes follow ink.css S1-S5: chamfers, -8 degree controls, one ring, folder tabs, radius
    only on circles. The girl tile itself is the kit's (girlTile(), ink.css "THE GIRL TILE").
-   Parts: STUDENTS · FILTER SHEET · GIRL PAGE FRAME · INFO · LEVEL · AWAKEN · GEAR · SHEETS · TREE · OUTFITS ·
-   HOLD SHEET · FORMATION.
+   Parts: STUDENTS · FILTER SHEET · GIRL PAGE FRAME · INFO · LEVEL · AWAKEN · GEAR · TREE · SHEETS · HOLD SHEET ·
+   OUTFITS · FORMATION.
    ========================================================================================================== */
 
 /* ---------- STUDENTS: one 44 px row (show · sort · direction · Filter), the count, the grid of girl tiles ---------- */
@@ -26,6 +26,7 @@ body.ui-day .st-sort > .ui-ico:first-child { left: calc(12px + var(--s)); }
 body.ui-day .st-sort > .st-sort-chev { right: calc(8px + var(--s)); }
 body.ui-day .st-sort:focus-within { --edge: var(--m-cy-stroke); --rw: 2px; }
 body.ui-day .ui-opt.st-dir { padding: 0 calc(12px + var(--s)); }
+body.ui-day .st-arrow { font: 700 var(--fs-name)/1 var(--font-num); }
 body.ui-day .st-filter > .ui-dot { position: absolute; top: 7px; right: calc(var(--s) + 6px); z-index: 2; }
 body.ui-day .st-summary { display: flex; align-items: baseline; gap: 6px; margin: 0 2px 10px; min-height: 18px; }
 body.ui-day .st-summary .num { font-size: var(--fs-num-s); color: var(--ink); }
@@ -331,6 +332,8 @@ body.ui-day .gp-details .gk-delta { border-radius: 0; }
 body.ui-day .gp-details .gk-clubline { border-radius: 0; }
 body.ui-day .gp-details .mb-aw-node { border-radius: 0; }
 body.ui-day .gp-details .mb-card { border-radius: 0; }
+/* Base stats and the other Details rows: square (S5; only circles and stadiums stay round) */
+body.ui-day .gp-details :is(.mb-good-bad > div, .mb-eff, .mb-cap, .mb-passive, .mb-ult, .mb-ult-badge, .mb-howto, .mb-crosspath, .mb-cp-pip) { border-radius: 0; }
 /* her Profile sheet: the quote on a paper wash with an ink rule (pink stays for what is picked), cyan bullets */
 body.ui-day .gp-details .mb-quote { border: 0; border-radius: 0; background: var(--sky-1); box-shadow: inset 3px 0 0 var(--cyan-ink); color: var(--ink); }
 body.ui-day .gp-details .mb-tips li::marker { color: var(--cyan-ink); }
@@ -386,7 +389,6 @@ body.ui-day .gs-tree .ugp { border-radius: 0; background: var(--sky-1); box-shad
 body.ui-day .gs-tree .ug-hit { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
 body.ui-day .gs-tree .ug-why::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
 @media (max-width: 599px) { body.ui-day .gs-top { flex-wrap: nowrap; padding-right: 0; } body.ui-day .gs-top .ui-ghost { padding: 0 4px; } }
-body.ui-day .st-arrow { font: 700 var(--fs-name)/1 var(--font-num); }
 
 /* ---------- OUTFITS (the outfit sheet, a kit day sheet): her outfits as girl tiles (the one she wears selected, a
    3D sticker on the 3D ones), each with Try on and an ink Wear ---------- */
