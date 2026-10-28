@@ -383,6 +383,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       }
       // the staff heroes' props observe only too
       staffSafe(() => staff.handle(ev));
+      // a duo's two girls move by whose weapon fired, and cheer on her cast (observe only, src/models/duo.js)
+      actors.duoEvent(ev);
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
       if (abilityFx.handle(ev)) continue;
@@ -1046,15 +1048,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     /**
      * Extra: what a placed girl's figure is (e2e / debug): a duo's members, whether every part is a GLB or a
-     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js).
+     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js); a duo's FX anchors
+     * (world [x, y, z]: Kohaku's lens, Tsubaki's muzzle, src/models/duo.js).
      */
     towerModelInfo(uid) {
       const v = actors.towers.get(uid);
       const ud = v?.model.userData;
       if (!ud) return null;
+      const at = (p) => (p ? [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null);
       return {
         duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null,
         standIn: ud.duo ? !!ud.isStandIn?.() : !!ud.standIn, facing: v.facing, faceCam: !!v.faceCam, cameraYaw: rig.yaw,
+        ...(ud.anchors ? { anchors: { lens: at(ud.anchors.lens), muzzle: at(ud.anchors.muzzle) } } : null),
       };
     },
     /** Extra: read-only info for debugging / previews. */
