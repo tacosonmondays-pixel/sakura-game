@@ -33,6 +33,9 @@ describe('tryout co-op', () => {
     expect(r.players[1].picks.length).toBeGreaterThan(0);
     // the run's class choices and Double Dares ran through lockstep too (the bots send them; §2.4, §8.3)
     expect(r.periods.slice(1).every((p) => typeof p.subject === 'string')).toBe(true);
+    // (the bots pick the second Subject when floor(period / 2) is odd: those periods prove the command landed)
+    const subjects = views[0].sim.tryout.subjects;
+    for (const p of r.periods.slice(1)) if (Math.floor(p.period / 2) % 2 === 1) expect(p.subject).toBe(subjects[p.period][1]);
     expect(r.periods.some((p) => p.dare)).toBe(true);
   }, 120000);
 

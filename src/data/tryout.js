@@ -267,7 +267,7 @@ export const PEP_CARDS = deepFreeze({
   T_sango: { group: 'talent', unit: 'sango', rar: [2, 3], mods: { knockback: 0.3, canHitAir: true } },
   T_kage: { group: 'talent', unit: 'kage', rar: [2, 3], mods: { projectiles: 2, pierce: 1 }, ship: true },
   T_umeko: { group: 'talent', unit: 'umeko', rar: [2, 3], mods: { aura: { rangeAdd: 1.5, rateMul: 1.08, detection: true } } },
-  T_shiro: { group: 'talent', unit: 'shiro', rar: [2, 3], mods: { pierce: 2 }, ship: true }, // (her shots never chain: M2 bench)
+  T_shiro: { group: 'talent', unit: 'shiro', rar: [2, 3], mods: { pierce: 1 }, ship: true }, // (her shots never chain: M2 bench)
   T_midori: { group: 'talent', unit: 'midori', rar: [2, 3], mods: { splash: 0.4, status: [{ type: 'shred', amount: 1, duration: 3 }] } },
   T_suzu: { group: 'talent', unit: 'suzu', rar: [2, 3], mods: { trap: { max: 3 }, trapMul: 0.3 }, draft: true },
   T_raika: { group: 'talent', unit: 'raika', rar: [2, 3], mods: { chain: 3, status: [{ type: 'stun', duration: 0.3 }] }, ship: true },

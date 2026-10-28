@@ -196,6 +196,7 @@ export function tryoutGone(sim, owner, gone = true) {
   if (!p) return;
   p.gone = !!gone;
   if (p.gone) {
+    p.dare = false; // (a gone player's tap no longer counts: the Dare needs everyone's, §8.3)
     autoResolve(sim, owner);
     maybeClose(sim);
   }

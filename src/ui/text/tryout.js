@@ -60,7 +60,7 @@ export const CARD_TEXT = {
   T_yuki: { name: 'Snowball Fight', line: (m, u) => `25% of ${u}'s snowballs freeze for 0.5 s; splash +0.3 tiles` },
   T_akane: { name: 'Sparkler Rain', line: (m, u) => `${u} throws 3 fireballs at 55% each, spread wide` },
   T_kage: { name: 'Ambidextrous', line: (m, u) => `${u} +2 shuriken per throw, +1 pierce` },
-  T_shiro: { name: 'Piercing Round', line: (m, u) => `${u}'s shots pass through 2 more foes` },
+  T_shiro: { name: 'Piercing Round', line: (m, u) => `${u}'s shots pass through 1 more foe` },
   T_raika: { name: 'Lightning Round', line: (m, u) => `${u} +3 jumps; shock 0.3 s` },
   T_hotaru: { name: 'Parade of Lights', line: (m, u) => `${u} +4 targets, +0.5 tiles reach` },
   T_kaede: { name: 'Focused Mind', line: (m, u) => `${u} keeps 60% of her focus when her target falls; can hit flyers` },
@@ -86,7 +86,9 @@ export function cardText(inst) {
   // The battle's own numbers (scaling cards × SCALE[r]; talents, build cards and capstones as written).
   const m = cardMods(c, inst.r) || {};
   const who = inst.unit ? UNIT_MAP[inst.unit]?.name || inst.unit : '';
-  return { name: t.name, line: t.line(m, who, inst.r) };
+  // a Hidden Talent at UR also adds +20 % damage (pep.js familySums): the card says so
+  const ur = c.group === 'talent' && inst.r >= 3 ? '; UR: +20% damage' : '';
+  return { name: t.name, line: t.line(m, who, inst.r) + ur };
 }
 
 /** Slot names on the pick sheet. */

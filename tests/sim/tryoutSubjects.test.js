@@ -169,6 +169,17 @@ describe('tryout: Double Dare', () => {
     if (o) expect(o.credits).toBeGreaterThanOrEqual(1);
   }, 60000);
 
+  it('a gone partner\'s earlier tap no longer counts', async () => {
+    const { createCoopSim } = await import('../../src/online/coop/commands.js');
+    const { coopStart } = await import('../../tools/tryoutBot.mjs');
+    const { tryoutGone } = await import('../../src/sim/tryout/index.js');
+    const coop = createCoopSim(coopStart({ seed: 23 }), { mySlot: 0 });
+    const ty = coop.sim.tryout;
+    ty.players[1].dare = true;
+    tryoutGone(coop.sim, 1);
+    expect(ty.players[1].dare).toBe(false);
+  });
+
   it('no tap, no Dare', () => {
     const sim = makeSim(23);
     finishPeriod(sim);
