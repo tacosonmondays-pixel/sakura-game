@@ -467,10 +467,15 @@ export function warmBattle() {
 /** A UI v2 line glyph the kit's ico() has no alias for yet (chevD, waves) as an inline icon. */
 const lineIco = (name, cls = 'ui-ico') => ico(lineGlyph(name, '', { kitSize: false }), cls);
 
-/** The top bar's title: the stage's id for a mission (its name is on the map's plate), else the kind. */
+/**
+ * The top bar's title (UI_DIRECTION 6.3 mock: "Campaign" over the map's "4-3 Shield Wall" plate): where the stage
+ * lives (Campaign, Bounty, Total Assault, Tactical Challenge, the event's own name); the id and name are on the plate.
+ */
 function prepTitle(stage, endless) {
-  const t = stage.kind === 'campaign' ? `${KIND_LABEL.campaign} ${stage.id}` : KIND_LABEL[stage.kind] || stage.name;
-  return endless ? `Freeplay · ${stage.kind === 'campaign' ? stage.id : t}` : t;
+  if (endless) return 'Freeplay';
+  if (stage.kind === 'campaign') return 'Campaign';
+  if (stage.kind === 'event') return eventOfStage(stage.id)?.name || KIND_LABEL.event;
+  return KIND_LABEL[stage.kind] || stage.name;
 }
 
 export function render(root, params = {}) {
@@ -509,6 +514,7 @@ export function render(root, params = {}) {
   const draw = () => {
     clear(body);
     body.appendChild(buildPrep(stage, state, ctx));
+    fitFooter(body);
     // an open sheet follows the screen (a mode picked in it, a girl added from it, a sweep)
     if (state.sheet) fillIn(state.sheet.api.body, sheetBody(stage, state, ctx, state.sheet.kind));
   };
@@ -522,12 +528,17 @@ export function render(root, params = {}) {
     state.sheet = { kind, api };
   };
   draw();
+  const onResize = () => fitFooter(body);
+  window.addEventListener('resize', onResize);
+  // (the web fonts can widen the labels after the first draw)
+  document.fonts?.ready?.then(() => { if (body.isConnected) fitFooter(body); });
   const off = store.on('change', (e) => {
     // 'sweep' adds clears, 'formation' an Add from the Counters sheet, 'battle-save' a New game: redraw in place
     if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace' || e?.reason === 'battle-save') draw();
   });
   return () => {
     off();
+    window.removeEventListener('resize', onResize);
     closeSheets();
   };
 }
@@ -607,7 +618,7 @@ function mapBand(stage, state, ctx, f) {
   ].filter(Boolean);
   const mapEl = h('div.ui-panel.stp-map', thumb,
     tags.length ? h('div.stp-map-tags', tags) : null,
-    h('div.stp-plate', h('span.stp-plate-name', stage.name)));
+    h('div.stp-plate', stage.kind === 'campaign' ? h('span.num.stp-plate-id', stage.id) : null, h('span.stp-plate-name', stage.name)));
 
   const lives = f.fpOn || f.isEndless ? DIFFICULTIES[state.difficulty].lives : livesFor(state.difficulty, state.mode);
   const strip = h('div.ui-strip.stp-strip.ma-facts', { role: 'group', 'aria-label': 'Stage' },
@@ -623,6 +634,7 @@ function mapBand(stage, state, ctx, f) {
   return h('section.stp-band',
     mapEl,
     strip,
+    h('div.stp-sweepslot', { hidden: true }),
     f.evStatus ? eventLine(stage, state) : null,
     h('div.stp-line', line, infoBtn));
 }
@@ -654,25 +666,27 @@ function eventLine(stage, state) {
   const clock = phase === 'active' ? countdownChip(w.endAt - now, { label: 'Ends', cls: 's', now: eventNow, testid: 'event-phase-chip' })
     : h('span.lbl', phaseLabel(ev, phase, now));
   return h('div.stp-event.ev-prep', { 'data-testid': 'event-prep' },
-    h('div.stp-event-head', h('b.stp-event-name', ev.name), clock),
+    h('div.stp-event-head', h('span.lbl.stp-event-k', 'Event'), clock),
     phase === 'active'
       ? h('div.stp-event-candy', h('span.stp-event-ico', staticTile(ev.currency.id, 28)), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
       : h('p.stp-event-candy', 'The operations have ended: your rewards are yours to keep.'));
 }
 
 /**
- * "Saved · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team. Three whole pieces (each wraps as one): the
- * run, where it stands, when it was played.
+ * A saved battle in two lines: "Saved · Hard" (+ its mode) with three faces of the frozen team beside it, then
+ * "Wave 12 of 25 · ♥ 63 · 2 h ago". Separators sit inside a line, never at its ends.
  */
 function savedLine(rec) {
   const sum = saveSummary(rec);
-  const head = sum.endless ? ['Saved run'] : ['Saved', DIFFICULTIES[sum.difficulty].name, savedModeName(rec)].filter(Boolean);
-  const where = sum.endless ? `wave ${sum.next} · ♥ ${sum.lives}` : `wave ${sum.next} of ${sum.of} · ♥ ${sum.lives}`;
+  const head = sum.endless ? 'Saved run' : ['Saved', DIFFICULTIES[sum.difficulty].name, savedModeName(rec)].filter(Boolean).join(' · ');
+  const where = [sum.endless ? `Wave ${sum.next}` : `Wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago];
   const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
   const note = 'Continues with the team you started with.';
   return h('div.stp-saved', { 'data-testid': 'stage-saved', title: note },
-    h('span.stp-saved-text', h('span.stp-seg', head.join(' · ')), ' · ', h('span.stp-seg', where), ' · ', h('span.stp-seg', sum.ago)),
-    h('span.stp-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 4).map((id) => h('span.stp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))));
+    h('div.stp-saved-top', h('b.stp-saved-head', head),
+      h('span.stp-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 3).map((id) => h('span.stp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') })))),
+    // (the dots between the parts are drawn by v2-stage.css, so a part that wraps never leaves one at a line's end)
+    h('div.stp-saved-where', { 'aria-label': where.join(', ') }, where.map((t) => h('span', t))));
 }
 
 /** The battle mode a saved run plays ("Goblin Rush"), or null for Standard (and saves from before modes). */
@@ -707,7 +721,16 @@ function difficultyPanel(stage, state, ctx, f) {
   const order = stage.difficulties || DIFFICULTY_ORDER;
   grid.dataset.n = String(order.length);
   for (const d of order) grid.appendChild(diffButton(stage, state, ctx, f, d));
-  return h('section.ui-panel.stp-diff', grid, h('div.stp-ruleline', ruleSentence(stage, state, f), modeChip(stage, state, ctx, f)));
+  return h('section.ui-panel.stp-diff', grid, h('div.stp-ruleline', startBlock(state, f) || ruleSentence(stage, state, f), modeChip(stage, state, ctx, f)));
+}
+
+/** Why Start is off, in the rule sentence's place: a difficulty still locked, or an empty formation (null: it is not). */
+function startBlock(state, f) {
+  if (!f.unlocked) return null;
+  if (!f.diffGate.ok) return h('p.stp-rule.stp-note.ma-locked-note', { 'data-testid': 'diff-locked-note' }, ico('lock'), `${DIFFICULTIES[state.difficulty].name}: ${f.diffGate.text}`);
+  if (formationIds(f.profile).length) return null;
+  return h('p.stp-rule.stp-note.ma-locked-note', { 'data-testid': 'formation-note' }, ico('lock'),
+    f.rec ? `${f.fpOn ? 'Freeplay' : 'New game'} needs a girl in your formation` : 'Add a girl to your formation to start');
 }
 
 function diffButton(stage, state, ctx, f, d) {
@@ -758,9 +781,9 @@ function ruleSentence(stage, state, f) {
 /** The Mode chip: "Standard ▾", "Goblin Rush ▾", "Freeplay · Blossom ▾" (opens the Mode sheet). */
 function modeChip(stage, state, ctx, f) {
   if (!f.hasMode && !(f.endless && f.fpOk)) return null;
-  const name = f.fpOn ? `Freeplay · ${f.fpName}` : modeText(state.mode).name;
-  const icon = f.fpOn ? null : svgEl(modeIcon(state.mode), 'stp-mode-ico');
-  return h('button.ui-hit.stp-modechip', { type: 'button', 'data-testid': 'prep-mode', 'aria-label': `Battle mode: ${name}. Change`, onclick: () => ctx.openSheetOf('mode') },
+  const name = f.fpOn ? f.fpName : modeText(state.mode).name;
+  const icon = f.fpOn ? ico('sparkles', 'ui-ico.stp-mode-ico') : svgEl(modeIcon(state.mode), 'stp-mode-ico');
+  return h('button.ui-hit.stp-modechip', { type: 'button', 'data-testid': 'prep-mode', 'aria-label': `${f.fpOn ? 'Freeplay' : 'Battle mode'}: ${name}. Change`, onclick: () => ctx.openSheetOf('mode') },
     h('span.ui-btn.sec.dense', icon, h('span.stp-mode-name', name), lineIco('chevD')));
 }
 
@@ -802,11 +825,16 @@ function dropIcons(stage, state, f) {
 function dropsRow(stage, state, ctx, f) {
   const icons = dropIcons(stage, state, f);
   const unlocks = DIFFICULTY_ORDER.some((d) => f.medals[d]) ? [] : (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
+  // the first clear's reward (a girl who joins, else the first-clear item) in its own group with FIRST beside it
+  const firstPic = unlocks.length
+    ? h('span.stp-drop.stp-drop-girl', { title: `${UNIT_MAP[unlocks[0]].name} joins on the first clear` }, h('span.stp-face', { html: portraitHTML(UNIT_MAP[unlocks[0]], 'thumb') }))
+    : icons[0]?.first ? h('span.stp-drop', staticTile(icons[0].id, 40)) : null;
+  const rest = icons.filter((x) => !x.first).slice(0, firstPic ? 3 : 5);
   return h('button.stp-row.stp-drops', { type: 'button', 'data-testid': 'prep-drops', 'aria-label': 'Drops: chances and amounts', onclick: () => ctx.openSheetOf('drops') },
     h('span.lbl.stp-row-k', stage.kind === 'challenge' ? 'Rewards' : 'Drops'),
     h('span.stp-drop-list', { 'aria-hidden': 'true' },
-      unlocks.slice(0, 1).map((id) => h('span.stp-drop.stp-drop-girl', { title: `${UNIT_MAP[id].name} joins on the first clear` }, h('span.stp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), h('span.ui-sticker.stp-first', 'First'))),
-      icons.slice(0, 5 - Math.min(1, unlocks.length)).map((x, i) => h('span.stp-drop', staticTile(x.id, 40), x.first && i === 0 && !unlocks.length ? h('span.ui-sticker.stp-first', 'First') : null))),
+      firstPic ? h('span.stp-firstgrp', h('span.ui-sticker.stp-first', 'First'), firstPic) : null,
+      rest.map((x) => h('span.stp-drop', staticTile(x.id, 40)))),
     ico('chevR', 'ui-ico.stp-chev'));
 }
 
@@ -817,7 +845,6 @@ function footer(stage, state, ctx, f) {
   const left = h('div.stp-foot-l');
   const right = h('div.stp-foot-r');
   const formationOk = formationIds(profile).length > 0;
-  const diffLock = f.diffGate.ok ? null : h('span.stp-note.ma-locked-note', { 'data-testid': 'diff-locked-note' }, ico('lock'), `${DIFFICULTIES[state.difficulty].name}: ${f.diffGate.text}`);
 
   if (!f.unlocked) {
     left.appendChild(h('span.stp-note.ma-locked-note', ico('lock'), f.req));
@@ -850,10 +877,10 @@ function footer(stage, state, ctx, f) {
   };
   const newDiff = DIFFICULTIES[state.difficulty].name;
 
-  // the left: why Start is off, else Sweep (secondary), else the one line saying how sweep opens
-  if (diffLock) left.appendChild(diffLock);
-  else if (!formationOk) left.appendChild(h('span.stp-note.ma-locked-note', ico('lock'), rec ? `${f.fpOn ? 'Freeplay' : 'New game'} needs a girl in your formation` : 'Add a girl to your formation'));
-  else if (!f.isEndless) left.append(...sweepControls(stage, state, { compact: !!rec }));
+  // the left: Sweep (secondary) or the one line saying how sweep opens (why Start is off: the rule line, startBlock).
+  // fitFooter() makes the sweeps compact, or moves them under the strip, when the actions leave them no room.
+  // (beside a saved battle's two actions, Sweep ×10 alone: ×1 makes room for New game and Continue)
+  if (!f.isEndless) left.append(...sweepControls(stage, state, { many: !f.rec }));
 
   if (rec) {
     // Continue works without a formation: the team is the one frozen in the save. Continue always plays the saved run as
@@ -862,8 +889,8 @@ function footer(stage, state, ctx, f) {
     const savedDiff = DIFFICULTIES[sum.difficulty].name;
     let other;
     if (f.fpOn) {
-      // a freeplay run is never saved: it starts beside the saved battle and leaves it as it is
-      other = secondaryBtn(`Freeplay · ${f.fpName}`, {
+      // a freeplay run is never saved: it starts beside the saved battle and leaves it as it is (the chip says Freeplay)
+      other = secondaryBtn(f.fpName, {
         icon: 'play', testid: 'stage-start', disabled: !formationOk,
         title: `Start · ${newDiff} · ${f.fpName} freeplay (your saved battle stays)`,
         onClick: () => navigate('battle', battleParams()),
@@ -916,7 +943,7 @@ function primary(label, { testid, onClick, disabled = false, title = null, icon 
     ico(icon), h('span.btn-label', label));
 }
 
-function sweepControls(stage, state, { compact = false } = {}) {
+function sweepControls(stage, state, { many = true } = {}) {
   const profile = store.profile;
   const allowed = canSweep(profile, stage.id, eventNow());
   const medals = stageMedals(profile, stage.id);
@@ -924,7 +951,7 @@ function sweepControls(stage, state, { compact = false } = {}) {
   const okDiff = DIFFICULTY_ORDER.indexOf(state.difficulty) <= best;
   if (!allowed) {
     const lockText = stage.kind !== 'event' ? 'Sweep: clear on Hard' : stage.boss ? 'The boss cannot be swept' : 'Sweep: clear it once';
-    return compact ? [] : [h('span.stp-note.stp-sweep-lock', ico('lock'), lockText)];
+    return [h('span.stp-note.stp-sweep-lock', ico('lock'), lockText)];
   }
   // [events] the event's daily sweeps (all its stages together): what's left is on the button; none → refill time
   const refill = `Sweeps refill at ${RESET.label}`;
@@ -954,9 +981,57 @@ function sweepControls(stage, state, { compact = false } = {}) {
   const lockTitle = out ? refillTitle() : okDiff ? undefined : `Clear ${DIFFICULTIES[state.difficulty].name} to sweep it`;
   const manyLabel = left == null ? `Sweep ×${MAX_SWEEPS}` : out ? refill : `Sweep ×${Math.min(MAX_SWEEPS, left)} · ${left} left today`;
   const btns = [];
-  if (!compact && (left == null || left > 1)) btns.push(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle, testid: 'sweep-1', onClick: () => doSweep(1), cls: 'stp-sweep' }));
-  btns.push(secondaryBtn(manyLabel, { icon: 'ff2', disabled: !okDiff || out, title: lockTitle, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS), cls: 'stp-sweep' }));
-  return btns;
+  if (many && (left == null || left > 1)) btns.push(sweepLabel(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle || 'Sweep ×1', testid: 'sweep-1', onClick: () => doSweep(1), cls: 'stp-sweep' })));
+  btns.push(sweepLabel(secondaryBtn(manyLabel, { icon: 'ff2', disabled: !okDiff || out, title: lockTitle || manyLabel, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS), cls: 'stp-sweep' })));
+  return [h('div.stp-sweeps', { role: 'group', 'aria-label': 'Sweep' }, btns)];
+}
+
+/**
+ * Splits a sweep button's label so its compact form ("×10") can fold the word and the daily count away; the text
+ * stays whole for screen readers and tests ("Sweep ×10 · 10 left today").
+ */
+function sweepLabel(btn) {
+  const b = btn.matches?.('button') ? btn : btn.querySelector('button');
+  const lab = b?.querySelector('.btn-label');
+  const m = /^Sweep (×\d+)(.*)$/.exec(lab?.textContent || '');
+  if (m) {
+    lab.replaceChildren(...[h('span.stp-sw-word', 'Sweep '), m[1], m[2] ? h('span.stp-sw-more', m[2]) : null].filter(Boolean));
+    b.setAttribute('aria-label', `Sweep ${m[1]}${m[2]}`);
+  }
+  return btn;
+}
+
+/**
+ * The footer never lets the sweeps run under Start. Folds, in order, until the left side fits: both sweeps with their
+ * words; Sweep ×10 alone (×1 folds away first); "×10" alone; then the sweeps (or the line saying how sweep opens) move
+ * under the stage strip, where the map gives up the height. Run after every draw and on resize.
+ */
+function fitFooter(scope) {
+  const home = scope.querySelector('.stp-foot-l');
+  const slot = scope.querySelector('.stp-sweepslot');
+  const item = scope.querySelector('.stp-sweeps, .stp-sweep-lock');
+  if (!item || !home || !slot) return;
+  item.classList.remove('solo', 'compact');
+  if (item.parentElement !== home) home.prepend(item);
+  slot.hidden = true;
+  // (by layout widths: a skewed button's corners poke a few px past its box, which is no overflow)
+  const fits = () => {
+    const kids = item.matches('.stp-sweeps') ? [...item.children].filter((k) => k.offsetWidth) : [item];
+    const need = kids.reduce((a, k) => a + k.offsetWidth, 0) + 6 * (kids.length - 1);
+    return need <= home.clientWidth + 1;
+  };
+  if (fits()) return;
+  if (item.matches('.stp-sweeps')) {
+    if (item.querySelector('[data-testid="sweep-1"]')) {
+      item.classList.add('solo');
+      if (fits()) return;
+    }
+    item.classList.add('compact');
+    if (fits()) return;
+    item.classList.remove('compact');
+  }
+  slot.append(item);
+  slot.hidden = false;
 }
 
 // ----- the four sheets ---------------------------------------------------------------------------------------------
@@ -964,7 +1039,7 @@ function sweepControls(stage, state, { compact = false } = {}) {
 const SHEETS = {
   counters: { testid: 'counters-sheet', title: () => 'Counters' },
   drops: { testid: 'drops-sheet', title: (stage) => (stage.kind === 'challenge' ? 'Rewards per run' : 'Drops') },
-  mode: { testid: 'mode-sheet', title: () => 'Battle mode' },
+  mode: { testid: 'mode-sheet', title: (stage) => (stage.kind === 'campaign' ? 'Mode & Freeplay' : 'Freeplay') },
   info: { testid: 'info-sheet', title: (stage) => stage.name },
 };
 
@@ -1068,6 +1143,8 @@ function dropsSheet(stage, state, f) {
 
 function modeSheet(stage, state, ctx, f) {
   const out = [];
+  // Freeplay first: on a short landscape screen the battle modes would push it out of sight
+  if (f.fpOk || f.hasMode) out.push(freeplaySec(stage, state, { endless: f.endless, redraw: ctx.redraw, saved: f.rec }));
   if (f.hasMode && !f.endless) {
     out.push(modePanel(f.profile, stage, state, (m) => {
       state.mode = m;
@@ -1080,7 +1157,6 @@ function modeSheet(stage, state, ctx, f) {
       ctx.redraw();
     }));
   }
-  if (f.fpOk || f.hasMode) out.push(freeplaySec(stage, state, { endless: f.endless, redraw: ctx.redraw, saved: f.rec }));
   return out;
 }
 
@@ -1088,16 +1164,11 @@ function infoSheet(stage, state, f) {
   const map = safeMap(stage.mapId);
   const chapter = stage.chapter && stage.kind === 'campaign' ? CHAPTERS.find((c) => c.id === stage.chapter) : null;
   const out = [];
+  // the mission, then who comes (scouting comes before the details), the map rule, the map and the clears
   out.push(sec(stage.kind === 'campaign' ? 'Mission' : stageLabel(stage),
     h('p.stp-p', stage.desc),
     f.played.variant ? h('p.stp-p.stp-variant', h('b', `${DIFFICULTIES[f.played.variant.difficulty].name}: ${f.played.variant.name}`), ` ${f.played.variant.desc}`) : null,
-    chapter ? h('p.stp-p.desc.stp-mech', ico('info'), chapter.mechanic) : null,
-    h('dl.stp-facts.ma-facts',
-      infoFact('Map', map?.name || stage.mapId),
-      f.isEndless && f.entry?.bestWave ? infoFact('Best wave', String(f.entry.bestWave)) : null,
-      !f.isEndless && f.entry?.clears ? infoFact('Clears', String(f.entry.clears)) : null)));
-  const rule = rulePanel(stage);
-  if (rule) out.push(rule);
+    chapter ? h('p.stp-p.desc.stp-mech', ico('info'), chapter.mechanic) : null));
   // the enemies (scouting): tap one for HP, traits and counters
   const introduces = new Set(stage.introduces || []);
   const ids = stageEnemies(f.played).filter((id) => ENEMY_MAP[id]);
@@ -1107,6 +1178,12 @@ function infoSheet(stage, state, f) {
     newTraits.length ? h('div.stp-newmech', newTraits.map((t) => h('p.stp-p', svgEl(traitIcon(t), 'ma-trait'), h('b', ` ${TRAITS[t].name}`), h('span.desc', ` · new: ${TRAITS[t].desc}`)))) : null,
     h('div.stp-enemies.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: f.played.hpScale * DIFFICULTIES[state.difficulty].hpMul }))),
     h('p.stp-p.desc', 'Tap an enemy for HP, traits and counters.')));
+  const rule = rulePanel(stage);
+  if (rule) out.push(rule);
+  out.push(h('dl.stp-facts.ma-facts',
+    infoFact('Map', map?.name || stage.mapId),
+    f.isEndless && f.entry?.bestWave ? infoFact('Best wave', String(f.entry.bestWave)) : null,
+    !f.isEndless && f.entry?.clears ? infoFact('Clears', String(f.entry.clears)) : null));
   return out;
 }
 

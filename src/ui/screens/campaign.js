@@ -146,13 +146,14 @@ function stageCard(profile, stageId, { isNext }) {
     h('span.cp-id.num', stage.id),
     unlocked
       ? (savedBadge(profile, stageId) || (isNext ? h('span.ui-bdg.open.cp-next', 'Next') : null))
-      : h('span.cp-lock', ico('lock'), h('span', requirementText(profile, stageId)))),
+      : h('span.cp-lock', ico('lock'), h('span', requirementText(profile, stageId))),
+    // the medals on the map's corner plate, so the caption keeps one line of tags at every width
+    h('span.cp-medals', { title: order.map((d) => `${DIFFICULTIES[d].name}: ${medals[d] ? 'cleared' : '—'}`).join(' · ') },
+      order.map((d) => svgEl(medalIcon(d, { earned: medals[d] }), `cp-medal${medals[d] ? '.on' : ''}`)))),
   h('span.cp-card-cap',
     h('span.cp-name', stage.name),
     h('span.cp-meta',
       tier ? h('span.cp-tier.s', { style: { '--tier': tier.color } }, tier.name) : null,
       isFinale ? h('span.ui-chip.ink.cp-boss', 'Boss') : null,
-      unlocks.map((id) => h('span.cp-unlock', { title: `${UNIT_MAP[id].name} joins on the first clear` }, h('span.cp-unlock-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), h('span', `+${UNIT_MAP[id].name}`))),
-      h('span.cp-medals', { title: order.map((d) => `${DIFFICULTIES[d].name}: ${medals[d] ? 'cleared' : '—'}`).join(' · ') },
-        order.map((d) => svgEl(medalIcon(d, { earned: medals[d] }), `cp-medal${medals[d] ? '.on' : ''}`))))));
+      unlocks.map((id) => h('span.cp-unlock', { title: `${UNIT_MAP[id].name} joins on the first clear` }, h('span.cp-unlock-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), h('span', `+${UNIT_MAP[id].name}`))))));
 }

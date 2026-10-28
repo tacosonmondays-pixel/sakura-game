@@ -52,6 +52,8 @@
 /* the stage name plate: an ink plate on the map's straight left edge, a "/" right end */
 :is(.ui-day) .stp-plate { position: absolute; left: 0; bottom: 14px; z-index: 2; max-width: calc(100% - 24px); display: flex; align-items: center; min-height: 32px;
   padding: 4px 22px 4px 12px; background: var(--plate); color: var(--on-ink); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+:is(.ui-day) .stp-plate { gap: 8px; }
+:is(.ui-day) .stp-plate-id { flex: none; font-size: var(--fs-num-s); color: var(--cyan); }
 :is(.ui-day) .stp-plate-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--on-ink); }
 
 /* the stage ink strip: WAVES · ♥ LIVES · START */
@@ -66,10 +68,15 @@
 :is(.ui-day) .stp-mission { flex: 1; min-width: 0; margin: 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--ink); text-wrap: pretty; }
 :is(.ui-day) .stp-ibtn { color: var(--cyan-text); }
 :is(.ui-day) .stp-mission-k { color: var(--muted); font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; text-align: right; }
-:is(.ui-day) .stp-saved { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-:is(.ui-day) .stp-saved-text { flex: 1; min-width: 0; font: 700 var(--fs-body)/1.3 var(--font); color: var(--ink); }
+/* a saved battle: two fixed lines; the faces beside the first, never over the words */
+:is(.ui-day) .stp-saved { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:is(.ui-day) .stp-saved-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+:is(.ui-day) .stp-saved-head { flex: 1 1 auto; min-width: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
 :is(.ui-day) .stp-saved-team { display: flex; flex: none; }
-:is(.ui-day) .stp-seg { white-space: nowrap; }
+/* the second line's parts: a part that wraps starts its line, its dot falls outside the box (no "·" at a line's end) */
+:is(.ui-day) .stp-saved-where { display: flex; flex-wrap: wrap; column-gap: 14px; overflow: hidden; font: 600 var(--fs-body)/1.25 var(--font-num); color: var(--muted); }
+:is(.ui-day) .stp-saved-where > span { position: relative; white-space: nowrap; }
+:is(.ui-day) .stp-saved-where > span::before { content: '·'; position: absolute; left: -10px; width: 6px; text-align: center; }
 :is(.ui-day) .stp-face { display: block; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; line-height: 0; background: var(--sky-1); box-shadow: 0 0 0 2px var(--panel-w); }
 :is(.ui-day) .stp-saved-team .stp-face + .stp-face { margin-left: -6px; }
 :is(.ui-day) .stp-face :is(img, svg) { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -77,7 +84,7 @@
 /* [events] the event line under the strip: an ink kicker, the event, its countdown; the candy per win */
 :is(.ui-day) .stp-event { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
 :is(.ui-day) .stp-event-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-:is(.ui-day) .stp-event-name { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+:is(.ui-day) .stp-event-k { color: var(--muted); }
 :is(.ui-day) .stp-event-candy { display: flex; align-items: center; gap: 6px; margin: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
 :is(.ui-day) .stp-event-ico { display: inline-flex; flex: none; }
 
@@ -114,12 +121,14 @@
 :is(.ui-day) .stp-d.earned .stp-d-saved { margin-left: auto; }
 
 /* the selected difficulty's one sentence, and the Mode chip beside it */
-:is(.ui-day) .stp-ruleline { display: flex; align-items: center; gap: 8px; min-height: var(--tap); margin-top: 2px; }
-:is(.ui-day) .stp-rule { flex: 1; min-width: 0; margin: 0; font: 500 var(--fs-body)/1.25 var(--font); color: var(--ink); text-wrap: pretty; }
+:is(.ui-day) .stp-ruleline { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 8px; min-height: var(--tap); margin-top: 2px; }
+:is(.ui-day) .stp-rule { flex: 1 1 150px; min-width: 0; margin: 0; font: 500 var(--fs-body)/1.25 var(--font); color: var(--ink); text-wrap: pretty; }
 :is(.ui-day) .stp-rule b { font-weight: 700; }
-:is(.ui-day) .stp-modechip { flex: none; max-width: 60%; }
-:is(.ui-day) .stp-modechip > .ui-btn { gap: 6px; max-width: 100%; }
-:is(.ui-day) .stp-modechip .stp-mode-name { min-width: 0; overflow: hidden; white-space: nowrap; }
+:is(.ui-day) .stp-modechip { flex: none; }
+:is(.ui-day) .stp-modechip > .ui-btn { gap: 6px; }
+:is(.ui-day) .stp-modechip .stp-mode-name { white-space: nowrap; }
+:is(.ui-day) .stp-rule.stp-note { align-items: flex-start; }
+:is(.ui-day) .stp-rule.stp-note > .ui-ico { margin-top: 2px; }
 :is(.ui-day) .stp-modechip :is(.stp-mode-ico, .ui-ico) { width: 18px; height: 18px; flex: none; display: inline-flex; }
 :is(.ui-day) .stp-modechip :is(.stp-mode-ico, .ui-ico) svg { width: 100%; height: 100%; }
 
@@ -156,17 +165,28 @@
 :is(.ui-day) .stp-drop { position: relative; display: inline-flex; flex: none; line-height: 0; }
 :is(.ui-day) .stp-drop .item-tile { pointer-events: none; }
 :is(.ui-day) .stp-drop-girl .stp-face { width: 40px; height: 40px; border-radius: 50%; }
-/* FIRST: the first-clear reward (an ink sticker over the tile's top-left corner, inside the row) */
-:is(.ui-day) .stp-first { position: absolute; left: -2px; top: 0; z-index: 2; padding: 2px 4px; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em;
-  text-transform: uppercase; line-height: 1; }
+/* FIRST: the first-clear reward with its ink sticker beside it (the icon stays whole), a hairline before the drops */
+:is(.ui-day) .stp-firstgrp { display: inline-flex; align-items: center; gap: 4px; flex: none; padding-right: 8px; box-shadow: inset -1px 0 0 var(--line-ink-soft); }
+:is(.ui-day) .stp-first { padding: 3px 4px; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; }
 
 /* the footer: Sweep (secondary) or one line, then Start · <Difficulty> (the one yellow) */
-:is(.ui-day) .stp-foot { margin-top: auto; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; }
-:is(.ui-day) .stp-foot-l { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 1 auto; }
-:is(.ui-day) .stp-foot-r { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
-:is(.ui-day) .stp-foot .btn.ui-sec { min-height: calc(var(--tap) + 2px); padding: 0 12px; gap: 6px; font-size: var(--fs-name); white-space: nowrap; }
-:is(.ui-day) .stp-foot .btn.ui-sec .ui-ico { width: 18px; height: 18px; display: inline-flex; }
-:is(.ui-day) .stp-foot .btn.ui-sec .ui-ico svg { width: 100%; height: 100%; }
+/* a grid: the actions take their width, the left what is left (fitFooter() folds the sweeps when it is too little) */
+:is(.ui-day) .stp-foot { margin-top: auto; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 48px; }
+:is(.ui-day) .stp-foot-l { display: flex; align-items: center; gap: 6px; min-width: 0; }
+:is(.ui-day) .stp-foot-r { display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
+:is(.ui-day) .stp-sweeps { display: flex; align-items: center; gap: 6px; flex: none; }
+:is(.ui-day) .stp-sweeps.solo > :is([data-testid="sweep-1"], :has([data-testid="sweep-1"])) { display: none; }
+:is(.ui-day) .stp-sweeps.compact .btn.ui-sec { padding: 0 10px; }
+:is(.ui-day) .stp-sweeps.compact :is(.stp-sw-word, .stp-sw-more) { display: none; }
+:is(.ui-day) .stp-foot-l .stp-sweep-lock { flex: none; white-space: nowrap; }
+/* no room even compact: the sweeps under the stage strip */
+:is(.ui-day) .stp-sweepslot { flex: none; display: flex; align-items: center; gap: 6px; }
+:is(.ui-day) .stp-sweepslot[hidden] { display: none; }
+:is(.ui-day) .stp-sweepslot .stp-sweeps { flex: 1; }
+:is(.ui-day) .stp-sweepslot .stp-sweeps .btn.ui-sec { flex: 1; justify-content: center; min-height: calc(var(--tap) + 2px); }
+:is(.ui-day) :is(.stp-foot, .stp-sweepslot) .btn.ui-sec { min-height: calc(var(--tap) + 2px); padding: 0 12px; gap: 6px; font-size: var(--fs-name); white-space: nowrap; }
+:is(.ui-day) :is(.stp-foot, .stp-sweepslot) .btn.ui-sec .ui-ico { width: 18px; height: 18px; display: inline-flex; }
+:is(.ui-day) :is(.stp-foot, .stp-sweepslot) .btn.ui-sec .ui-ico svg { width: 100%; height: 100%; }
 :is(.ui-day) .stp-start { --h: 48px; padding: 0 calc(18px + var(--s)); gap: 8px; }
 :is(.ui-day) .stp-start .ui-ico { width: 18px; height: 18px; display: inline-flex; }
 :is(.ui-day) .stp-start .ui-ico svg { width: 100%; height: 100%; }
@@ -203,6 +223,8 @@
   :is(.ui-day) .stp-drop .item-tile { width: 64px !important; }
   :is(.ui-day) .stp-drop-girl .stp-face { width: 64px; height: 64px; }
   :is(.ui-day) .stp-need-ico { width: 30px; height: 30px; }
+  /* Start beside the difficulty choice: the footer right under the rows, not at the column's foot */
+  :is(.ui-day) .stp-foot { margin-top: 4px; }
 }
 /* wide screens: the counters row names its needs (UI_DIRECTION §6.3 "at 1280x720") */
 @media (min-height: 481px) and (min-width: 1000px) {
@@ -219,7 +241,8 @@
   :is(.ui-day) .stp-rows { gap: 8px; }
   :is(.ui-day) .stp-row { min-height: calc(var(--tap) + 2px); }
   :is(.ui-day) .stp-drops { min-height: 58px; }
-  :is(.ui-day) .stp-foot { flex-wrap: wrap; row-gap: 8px; }
+  :is(.ui-day) .stp-foot { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  :is(.ui-day) .stp-foot-l:empty { display: none; }
   :is(.ui-day) .stp-start { --h: 50px; }
   :is(.ui-day) .stp-d { --h: 58px; }
 }
@@ -235,6 +258,8 @@
 }
 @media (max-width: 440px) {
   :is(.ui-day) .stp-foot-r { width: 100%; }
+  :is(.ui-day) .stp-foot-l .stp-sweeps { flex: 1; }
+  :is(.ui-day) .stp-foot-l .stp-sweeps .btn.ui-sec { flex: 1; justify-content: center; }
   :is(.ui-day) .stp-foot-r > * { flex: 1 1 auto; min-width: 0; }
   :is(.ui-day) .stp-foot-r :is(.stp-start, .btn.ui-sec) { font-size: var(--fs-body); padding-left: calc(10px + var(--s)); padding-right: calc(10px + var(--s)); }
 }
@@ -245,6 +270,10 @@
    phones (the kit's close measures 43 there: see the M1 report) */
 :is(.ui-day) .stp-sheet > .ui-head { min-height: calc(var(--tap) + 4px); }
 :is(.ui-day) .stp-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+/* landscape phones: the sheet takes the height (the kit's leaves ~160 px of body there) */
+@media (max-height: 480px) {
+  :is(.ui-day) .ui-sheet.stp-sheet:not(.full):not(.side) { max-height: calc(100dvh - 16px - var(--safe-top, 0px) - var(--safe-bottom, 0px)); }
+}
 :is(.ui-day) .stp-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 :is(.ui-day) .stp-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 :is(.ui-day) .stp-sec-k { margin: 0; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted);
@@ -438,7 +467,9 @@
 :is(.ui-day) .cp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: auto; }
 :is(.ui-day) .cp-tier.s { height: 20px; padding: 0 7px 0 5px; }
 :is(.ui-day) .cp-boss { height: 20px; }
-:is(.ui-day) .cp-medals { display: inline-flex; gap: 1px; margin-left: auto; }
+/* the medals: a white plate on the map's bottom-right corner, its left end cut "/" */
+:is(.ui-day) .cp-medals { position: absolute; right: 0; bottom: 0; z-index: 2; display: inline-flex; gap: 1px; padding: 3px 6px 3px 12px; background: var(--panel-w);
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%); }
 :is(.ui-day) .cp-medals .cp-medal { width: 16px; height: 16px; }
 :is(.ui-day) .cp-unlock { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); }
 :is(.ui-day) .cp-unlock-face { width: 20px; height: 20px; border-radius: 50%; overflow: hidden; line-height: 0; display: inline-flex; background: var(--sky-1); }
@@ -457,9 +488,10 @@
   :is(.ui-day) .cp-chapter { grid-template-columns: minmax(0, 1fr); }
   :is(.ui-day) .cp-ch-side { min-height: 64px; }
   :is(.ui-day) .cp-rail { flex-wrap: wrap; gap: 8px 10px; }
-  :is(.ui-day) .cp-group { flex: var(--n, 1) 1 calc(var(--n, 1) * 56px); }
+  /* every tab the same width; a tier that does not fit the row starts the next one at the left */
+  :is(.ui-day) .cp-group { flex: none; }
   :is(.ui-day) .cp-tabs { gap: 4px; }
-  :is(.ui-day) .cp-tab { padding: 0 calc(var(--s) + 2px); gap: 4px; }
+  :is(.ui-day) .cp-tab { flex: none; width: 54px; padding: 0 calc(var(--s) + 2px); gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.ui-day) :is(.cp-card, .stp-row, .stp-mcard) { transition: none; }
