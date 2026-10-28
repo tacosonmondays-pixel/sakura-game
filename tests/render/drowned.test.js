@@ -252,6 +252,17 @@ describe('the drowned theme and its look', () => {
 });
 
 describe('the subway spawn: an inside lane that opens in a tunnel', () => {
+  it('5-6: walkers stay out of sight until the bore takes them (no pop behind the mouth; the actors hide d < the tunnel start)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const m = MAPS.find((x) => x.id === 'noon_flooded_platform');
+    const lane = m.tracks.find((t) => t.inside);
+    const head = headTunnel(lane, m.width, m.height);
+    expect(head[0]).toBeGreaterThan(0); // the sim spawns at d 0, a step behind the bore: the actors must hide it
+    const src = readFileSync(new URL('../../src/render/actors.js', import.meta.url), 'utf8');
+    expect(src).toMatch(/headTunnel\(t, map\.width \|\| 0, map\.height \|\| 0\)\?\.\[0\] \?\? 0/);
+    expect(src).toMatch(/e\.dist < \(this\.headHide\[e\.pathIndex\] \|\| 0\)/);
+  });
+
   const map = DROWNED_FIXTURES.platform;
 
   it('headTunnel finds the bore the lane opens in; edge lanes and later tunnels are not one', () => {

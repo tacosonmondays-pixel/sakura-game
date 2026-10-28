@@ -1179,7 +1179,7 @@ const CAMPAIGN_ACT2 = [
   }),
   act2Stage({
     id: '5-7', name: 'Line 2 Tunnels', mapId: 'noon_line2_tunnels',
-    desc: 'The flooded Line 2 tunnels, and the lights keep failing. Fog Skulkers blink between the bores from wave 2, Seed Pods burst in the cuttings from wave 5 and Phantoms drift through the dark from wave 8. Hold the three open cuttings.',
+    desc: 'The flooded Line 2 tunnels, and the lights keep failing. Fog Skulkers blink between the bores from wave 3, Seed Pods burst in the cuttings from wave 5 and Phantoms drift through the dark from wave 8. Hold the three open cuttings.',
     budget: [3, 75], groups: 3,
     pool: [
       P('ghoul_skulker', 4, 2), P('ghoul_shambler', 2), P('ghoul_bonewalker', 2), P('plant_sprout', 2), P('plant_seedpod', 2, 5),
@@ -1194,7 +1194,7 @@ const CAMPAIGN_ACT2 = [
   }),
   act2Stage({
     id: '5-8', name: 'Pump Station', mapId: 'noon_pump_station',
-    desc: 'The old pump station, and a cold gate breathing frost on its north wall. Thornroots, Mosslings and Leech Ghouls come first; then glass machines walk out of the gate: Patrol Orbs from wave 3, Halo Drones from wave 6, Line Sentries from wave 10.',
+    desc: 'The old pump station, and a cold gate breathing frost on its north wall. Thornroots come first; then glass machines walk out of the gate: Patrol Orbs (with Mosslings) from wave 3, Halo Drones and Leech Ghouls from wave 6, Line Sentries from wave 10.',
     budget: [33, 600], groups: 3,
     pool: [
       P('vesper_patrol_orb', 4, 3), P('vesper_halo_drone', 3, 6), P('vesper_line_sentry', 2, 10), P('plant_thornroot', 3),
@@ -1220,7 +1220,7 @@ const CAMPAIGN_ACT2 = [
   }),
   act2Stage({
     id: '5-10', name: 'The Reservoir Willow', mapId: 'noon_reservoir_willow',
-    desc: 'Night on the reservoir, fireflies over the water, and a great willow on its island. Plants, Leech Ghouls and Rose Slimes come off both dam walls, Grave Priests from wave 12 and Elder Treants from wave 14; on the last wave the Reservoir Willow itself walks.',
+    desc: 'Night on the reservoir, fireflies over the water, and a great willow on its island. Plants, Leech Ghouls and Rose Slimes come off both dam walls, Grave Priests from wave 20 and Elder Treants from wave 14; on the last wave the Reservoir Willow itself walks.',
     budget: [6, 320], groups: 3,
     pool: [
       P('plant_thornroot', 3), P('plant_seedpod', 2), P('plant_sprout', 2), P('ghoul_leech', 2), P('slime_rose', 2),
