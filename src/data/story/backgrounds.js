@@ -55,7 +55,7 @@ export const BACKGROUNDS = {
   foundry: place('foundry', '50% 60%'),
   'sakura-sanctuary': place('sakura-sanctuary', '45% 80%'),
   'festival-street': place('festival-street', '50% 55%'),
-  'festival-drum': place('festival-drum', '45% 40%'),
+  'festival-drum': place('festival-drum', '54% 40%'),
   'base-camp': place('base-camp', '50% 75%'),
   'summit-nest': place('summit-nest', '50% 75%'),
   // Gate Arc, Act 1 (its scenes and stages 1-6 to 1-10 are not written yet)

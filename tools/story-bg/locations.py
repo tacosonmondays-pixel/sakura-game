@@ -132,8 +132,11 @@ ALT = {
                 "windows, cheerful steampunk"),
     "workshop": ("indoor-soft", "school robotics club workshop interior, workbenches with tools and brass gears, small cute robots and "
                  "little quadcopter drones on shelves, pegboard with wrenches, cables, big windows, tidy and cheerful"),
-    "festival-drum": ("night", "open festival square at night, a large taiko drum on a tall wooden tower stage wrapped in plain red and "
-                      "white cloth, strings of glowing red paper lanterns, stone paving, colorful fireworks in the night sky, no signboards"),
+    # Oct 28 re-roll: the old wording ("stage wrapped in cloth") painted a blank white sheet and no drum
+    "festival-drum": ("night", "open festival square at night, a raised wooden festival stage in the center with one huge "
+                      "taiko drum on a wooden stand, the drum seen at a three-quarter angle, cream hide drum head, dark lacquered "
+                      "wooden barrel body with rows of brass studs, thick red and white rope tassels on the stand, strings of glowing red paper lanterns on both sides, "
+                      "wooden festival halls with lit paper windows, stone paving, colorful fireworks in the night sky"),
     "base-camp": ("dawn", "busy mountain base camp in an alpine meadow, many canvas tents in rows, stacked wooden supply crates, a small "
                   "campfire with a tea kettle, plain colored pennant flags, a tall dark volcanic peak in the distance with a thin plume "
                   "of white smoke from the summit"),
