@@ -489,14 +489,21 @@ MapDef = {
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
   city?: {...},                    // the city kit's render hints (see `theme` above)
-  district?: 'oldtown'|'highway',  // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District");
-                                   // Step 4: 'highway' (Act 4's mountain highway, 4-6…4-8; see "Highway")
+  district?: 'oldtown'|'highway'|'park',  // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District");
+                                   // Step 4: 'highway' (Act 4's mountain highway, 4-6…4-8; see "Highway");
+                                   // Step 5: 'park' (the reservoir park, 5-9 / 5-10: lawns, the dam, the willow)
                                    // Step 4 `city` hints (render only): barriers?: [{ lane: number, at?: [x, y] }] (a checkpoint
                                    // barrier arm across `lane`, lowered by the lane schedule; 4-7), snowRows?: number
                                    // (how far south the 'snowCover' keyword's snow reaches; default 6; 4-8)
                                    // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
                                    // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
-                                   // as always, the renderer stands the rift gate there with no run-out
+                                   // as always, the renderer stands the rift gate there with no run-out.
+                                   // Step 5 (5-6): an inside lane may open in a tunnel (`street(..., { tunnel: [from, to] })`
+                                   // with `from` 0.1 behind the first point, so tunnels[0][0] ≈ 0.1): the subway spawn; the
+                                   // column stays hidden until the OUT mouth, where the renderer stands the gate
+                                   // Step 5 `city` hint: spawnGate: 'noonGate' (5-8: the Noon Gate on the north edge)
+                                   // Step 5 theme 'drowned' (5-6…5-8: the flooded Line 2 under the city, its own THEMES
+                                   // entry sharing the city kit)
   echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
                                    // Gate Arc echo: the same place as an Act I map in another era, its
                                    // rows / paths / crossings / tunnels literal except the tiles echoDiff

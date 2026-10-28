@@ -101,6 +101,12 @@ export const STAGE_RULES = Object.freeze({
   '4-8': { id: 'rear_ambush' },
   '4-9': { id: 'prism_conduits', pads: [pad(7.5, 4.5), pad(12.5, 4.5), pad(10, 9)] },
   '4-10': { id: 'snowbell_blizzard' },
+  // Chapter 5 · Act II — The Drowned Line (5-8's vents are the pump station's two relief valves on the road)
+  '5-6': { id: 'changing_tides' },
+  '5-7': { id: 'lunar_eclipse' },
+  '5-8': { id: 'forge_vents', zones: [v(9.5, 6.5), v(13.0, 9.5)] },
+  '5-9': { id: 'alchemists_mist' },
+  '5-10': { id: 'firefly_chorus' },
 });
 
 /** The stage's rule (MAP_RULES entry + its zones and pads), or null. */

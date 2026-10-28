@@ -306,16 +306,16 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(p.missions.counters.heroMax).toBe(12);
   });
 
-  it('the F2P one-time Achievements row equals the sum of the live defs (133 with social, Codex and a_ch1_act2 … a_ch4_act2)', () => {
+  it('the F2P one-time Achievements row equals the sum of the live defs (134 with social, Codex and a_ch1_act2 … a_ch5_act2)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
-    expect(live).toHaveLength(133);
+    expect(live).toHaveLength(134);
     expect(row.gems).toBe(sum('gems'));
-    expect(row.gems).toBe(13994); // + 670 from the Codex rows, + 62 / 75 / 87 / 100 from Chapters 1-4 · Act II (Gate Arc)
+    expect(row.gems).toBe(14106); // + 670 from the Codex rows, + 62 / 75 / 87 / 100 / 112 from Chapters 1-5 · Act II (Gate Arc)
     expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
     expect(row.tickets).toBe(24); // + Every Ribbon, Every Stage's ticket
-    expect(row.note).toBe('133 achievements');
+    expect(row.note).toBe('134 achievements');
   });
 });
 

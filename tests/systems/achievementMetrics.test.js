@@ -462,3 +462,53 @@ describe('familiesFound is never vacuous; the Brigade family and the Frost Vangu
     expect(familiesFound(p)).toBe(1);
   });
 });
+
+describe('the glass machines on construct and the Reservoir Willow on plant (Gate Arc Step 5)', () => {
+  const mark = (p, ids) => { for (const id of ids) p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false }; };
+  const act2 = (c, ns = [6, 7, 8, 9, 10]) => ns.map((n) => `${c}-${n}`);
+  const found = (p, ids) => { for (const id of ids) p.bestiary[id] = { seen: true, discovered: true, kills: 1 }; };
+  const MACHINES = ['vesper_halo_drone', 'vesper_line_sentry', 'vesper_patrol_orb'];
+
+  it('the machines are Constructs (no new family) and the Willow a Plant', async () => {
+    const { enemyFamilies } = await import('../../src/systems/achievementMetrics.js');
+    const fam = enemyFamilies();
+    expect(Object.keys(fam)).toHaveLength(13);
+    for (const id of MACHINES) expect(fam.construct, id).toContain(id);
+    expect(fam.plant).toContain('plant_reservoir_willow');
+  });
+
+  it('a veteran keeps every family on update day: construct and plant need nothing new while 5-8 / 5-10 are locked', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const { STAGE_MAP } = await import('../../src/data/stages.js');
+    const p = createProfile();
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), ...act2(3), ...act2(4)]);
+    const before = ENEMIES.filter((e) => e.introducedIn !== 'freeplay' && !(STAGE_MAP[e.introducedIn]?.chapter === 5 && STAGE_MAP[e.introducedIn]?.act === 2));
+    found(p, before.map((e) => e.id));
+    expect(familiesFound(p)).toBe(13); // every family, the Brigade included (all of 4-x cleared)
+    // 5-6 … 5-7 open: still nothing new needed (the machines arrive on 5-8)
+    mark(p, ['5-6']);
+    expect(familiesFound(p)).toBe(13);
+    // a co-op guest who met a machine early gains nothing either
+    found(p, ['vesper_patrol_orb']);
+    expect(familiesFound(p)).toBe(13);
+  });
+
+  it('once 5-8 is open construct needs the three machines; once 5-10 is open plant needs the Willow', async () => {
+    const { familiesFound, familyProgress } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const p = createProfile();
+    found(p, ENEMIES.filter((e) => e.family === 'construct' && !e.id.startsWith('vesper_') && e.introducedIn !== 'freeplay').map((e) => e.id));
+    found(p, ENEMIES.filter((e) => e.family === 'plant' && e.id !== 'plant_reservoir_willow').map((e) => e.id));
+    expect(familiesFound(p)).toBe(2);
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), ...act2(3), ...act2(4), '5-6', '5-7']);
+    expect(familiesFound(p)).toBe(1); // 5-8 open: construct needs the machines
+    expect(familyProgress(p, 'construct').total - familyProgress(p, 'construct').found).toBe(3);
+    found(p, MACHINES);
+    expect(familiesFound(p)).toBe(2);
+    mark(p, ['5-8', '5-9']);
+    expect(familiesFound(p)).toBe(1); // 5-10 open: plant needs the Willow
+    found(p, ['plant_reservoir_willow']);
+    expect(familiesFound(p)).toBe(2);
+  });
+});

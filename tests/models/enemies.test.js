@@ -125,6 +125,35 @@ describe('enemy family GLBs', () => {
     }
   });
 
+  it('Gate Arc Step 5: the glass machines and the Reservoir Willow wear shipped bodies (no new GLB, no new variant)', () => {
+    const byId = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));
+    const want = {
+      vesper_patrol_orb: ['construct', 'cogling', ['gears']],
+      vesper_halo_drone: ['construct', 'cogling', ['crystals']],
+      vesper_line_sentry: ['construct', 'sentry', ['gears']],
+      plant_reservoir_willow: ['plant', 'treant', ['leaves', 'moss']],
+    };
+    for (const [id, [base, variant, props]] of Object.entries(want)) {
+      expect(byId[id].model, id).toEqual({ base, variant, props });
+      expect(manifest[base].variants, id).toContain(variant);
+    }
+    // the Line Sentry wears no helmet, so it never reads as the Brigade's Response Trooper (sentry + helmet)
+    expect(byId.vesper_line_sentry.model.props).not.toContain('helmet');
+    // the Halo Drone's own ring body is deferred art: no `halo` variant anywhere, and the GLB families stay 12
+    expect(manifest.construct.variants).not.toContain('halo');
+    expect(GLB_FAMILIES).toHaveLength(12);
+    // greyscale (Rec. 709 luma): body and outline sit far apart, so each reads on the pale grating road and in the fog
+    const luma = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    for (const id of Object.keys(want)) {
+      const e = byId[id];
+      expect(e.line, id).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(Math.abs(luma(e.color) - luma(e.line)), `${id} body vs outline`).toBeGreaterThanOrEqual(80);
+    }
+  });
+
   it('variant pieces and hide tables match the defs that use them', () => {
     for (const fam of GLB_FAMILIES) {
       const { json } = readGlbHeader(path.join(dir, `${fam}.glb`));

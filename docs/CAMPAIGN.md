@@ -138,6 +138,19 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   | 4-9 The Frozen Villages | `north_frozen_villages` (`snow`) | a straight climb up the sled run, a wide horseshoe over the village square, a hook out north-east | prism_conduits (Village Hearths, 3 pads inside the horseshoe) | the Brigade leads (troopers, shieldlines, Gnats, Tortoises from wave 8), wolves and bears; `brigade_badger` on each of the last three waves |
   | 4-10 The Frost Vanguard | `north_snow_bridge` (`snow`) | two columns meet at the bridgehead, then one long deck over the ravine (8 'B' tiles) | snowbell_blizzard (Blizzard) | `orc_frost_vanguard` (the Orc Warlord's model at miniboss scale in frost iron, 3,950 HP, summons Alpha Wolves) |
 
+* **Chapter 5 · Act II · The Drowned Line** (the flooded Line 2 under Itomachi on the new `drowned` theme, then the
+  reservoir park, theme `city` with `district: 'park'`; STEP5_BUILD_PLAN). 5-6 needs 5-5 **and** 4-10. Fog on every
+  stage. The first glass machines walk out of the Noon Gate on 5-8; they stay in the Constructs family (data on the
+  shipped construct model, white glass and cyan with outlines). No girl joins in Act 5.
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 5-6 Flooded Platform | `noon_flooded_platform` (`drowned`) | out of a bore mid-board (an `inside` lane that opens in a tunnel: the subway spawn), west along a deck over the flooded tracks, up the stairs, back east along the street | changing_tides (Rising Water) | ghouls (Leech Ghouls from wave 3), skinks, slimes; scene `g5.pro` before (S5d) |
+  | 5-7 Line 2 Tunnels | `noon_line2_tunnels` (`drowned`) | one gentle sag with four bores and three open vent cuttings (≈ 55 % hidden) | lunar_eclipse (Emergency Lights) | `look.blackout`; Fog Skulkers from wave 2, Seed Pods from 5, Phantoms from 8; no join |
+  | 5-8 Pump Station | `noon_pump_station` (`drowned`, `city.spawnGate: 'noonGate'`) | a loop south, east, north through the pump hall (a tunnel) and west over its own first leg on a grating gantry, then out west | forge_vents (Steam Valves, 2 zones on the road) | `vesper_patrol_orb` from wave 3, `vesper_halo_drone` (blink) from 6, `vesper_line_sentry` (armour 4) from 10 |
+  | 5-9 Reservoir Park | `noon_reservoir_park` (`district: 'park'`) | east along the dam crest, down the spillway steps, west across the bowl, north through the dam's service tunnel under its own first leg | alchemists_mist (Reservoir Fog) | ghouls and plants, a few Line Sentries from 8, a Grave Priest from 10, an Elder Treant from 14; two of each added on the last wave |
+  | 5-10 The Reservoir Willow | `noon_reservoir_willow` (`district: 'park'`, night) | two S-shaped causeways round the willow island that never cross | firefly_chorus (Reservoir Fireflies) | `plant_reservoir_willow` (the Elder Treant's model at miniboss scale, 3,950 HP, seed pods at 66 %, armour 7 at 33 %) on the longer lane |
+
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
   Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with

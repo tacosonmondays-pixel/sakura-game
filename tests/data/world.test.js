@@ -37,7 +37,7 @@ const STAGE_KEYS = [
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
 const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus', 'drowned'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
 const ERA_BY_THEME = {
@@ -299,12 +299,12 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 8 minibosses and 3 bosses with announced phases', () => {
+  it('has the 9 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
     // (Gate Arc: the Frostbitten Heir, 1-10, on the Slime Prince's model in frost colours; Old Lamp-Hugger, 2-10, on
     // the Bog Basilisk's model at miniboss scale; the Ashen Warden, 3-10, on the Hollow Samurai's; the Frost Vanguard,
-    // 4-10, on the Orc Warlord's)
-    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_frost_vanguard', 'orc_general', 'slime_frost_heir', 'slime_prince']);
+    // 4-10, on the Orc Warlord's; the Reservoir Willow, 5-10, on the Elder Treant's)
+    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_frost_vanguard', 'orc_general', 'plant_reservoir_willow', 'slime_frost_heir', 'slime_prince']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -422,7 +422,7 @@ describe('maps', () => {
         // spawn / exit off the board (or on its edge) unless the path forks off / joins another one
         // (a lane flagged `inside` starts at a rift inside the board: 3-8's lake lane, Gate Arc Step 3)
         if (!t.fork && !t.inside) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
-        if (t.inside) expect(m.id, `${m.id} path ${ti}: only declared rift lanes start inside`).toBe('noon_shrine_steps');
+        if (t.inside) expect(['noon_shrine_steps', 'noon_flooded_platform'], `${m.id} path ${ti}: only declared rift and subway lanes start inside`).toContain(m.id);
         if (!t.join) expect(offOrOnEdge(p[p.length - 1]), `${m.id} path ${ti} exit on the edge`).toBe(true);
         // tunnels sit inside the path, in order, at least a tile long
         let prev = 0;
@@ -667,6 +667,19 @@ describe('maps', () => {
     }
   });
 
+  it('districts re-dress the city only: Old Town, the highway and the reservoir park (Gate Arc Steps 3-5)', () => {
+    for (const m of MAPS.filter((x) => x.district)) {
+      expect(['oldtown', 'highway', 'park'], m.id).toContain(m.district);
+      expect(m.theme, m.id).toBe('city');
+    }
+    expect(MAPS.filter((m) => m.district === 'park').map((m) => m.id)).toEqual(['noon_reservoir_park', 'noon_reservoir_willow']);
+    // the drowned line (Step 5): three maps of its own theme, and the one subway lane that opens inside a bore
+    expect(MAPS.filter((m) => m.theme === 'drowned').map((m) => m.id)).toEqual(['noon_flooded_platform', 'noon_line2_tunnels', 'noon_pump_station']);
+    const sub = getMap('noon_flooded_platform').tracks[0];
+    expect(sub.inside).toBe(true);
+    expect(sub.tunnels[0][0]).toBeLessThan(0.5);
+  });
+
   it('has map variety: multi-lane, crossings and water maps', () => {
     expect(MAPS.filter((m) => m.paths.length >= 2).length).toBeGreaterThanOrEqual(6);
     expect(MAPS.filter((m) => m.paths.length >= 3).length).toBeGreaterThanOrEqual(1);
@@ -890,6 +903,7 @@ describe('stages', () => {
     expect(fixedHas('2-10', 'lizard_lamp_hugger')).toBe(true);
     expect(fixedHas('3-10', 'ghost_ashen_warden')).toBe(true);
     expect(fixedHas('4-10', 'orc_frost_vanguard')).toBe(true);
+    expect(fixedHas('5-10', 'plant_reservoir_willow')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);
@@ -901,6 +915,8 @@ describe('stages', () => {
     expect(drops('6-5')).toContain('crown_cog');
     expect(drops('7-5')).toContain('crown_oni');
     expect(drops('8-5')).toContain('crown_dragon');
+    // the Act II finales from 3-10 on carry no crown (each family's crown belongs to its Act I boss)
+    for (const sid of ['3-10', '4-10', '5-10']) expect(drops(sid).some((i) => i.startsWith('crown_')), sid).toBe(false);
     expect(fixedHas('boss-lych', 'grave_lych')).toBe(true);
     expect(fixedHas('boss-colossus', 'iron_colossus')).toBe(true);
     expect(fixedHas('boss-ashwing', 'dragon_ashwing')).toBe(true);

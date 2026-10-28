@@ -5,6 +5,7 @@ export const ACT2_MECHANIC = {
   2: 'Hilltop After Dark: a night campus by the lake, water everywhere, the lights going out. Finale: Old Lamp-Hugger.',
   3: 'The Bell Festival: Old Town roofs, hot griddles, a rift on the lake, the street on fire. Finale: the Ashen Warden.',
   4: 'The Checkpoint: booth roofs, Azami\'s barrier, the Brigade on the road, the village hearths. Finale: the Frost Vanguard.',
+  5: 'The Drowned Line: a lane out of a flooded bore, tunnels in the dark, steam valves, glass machines, the reservoir fog. Finale: the Reservoir Willow.',
 };
 
 export function mechanicFor(chapter, stage) {

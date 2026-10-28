@@ -212,7 +212,8 @@ export const CHAPTERS = [
     desc: 'The marsh dead rise and the fen itself starts walking.',
     mechanic: 'Siphon and regeneration (poison stops healing), blinking ghouls, brood plants that burst into sprouts.',
     stages: ['5-1', '5-2', '5-3', '5-4', '5-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'The Drowned Line', act2Theme: 'drowned',
+    act2Desc: 'Under Itomachi the old Line 2 lies flooded and dark. Down through the platforms and the tunnels to the pump station, where something cold is breathing in the dark, then up to the reservoir and its shivering willow.',
   },
   {
     id: 6, name: 'Clockwork Foundry', theme: 'foundry', tier: 'advanced',
@@ -1158,6 +1159,77 @@ const CAMPAIGN_ACT2 = [
     introduces: ['orc_frost_vanguard'], recommended: ['armorPen', 'armorShred', 'priority'],
     fam: ['cog', 'blade'],
     scenery: { props: ['snowBridge', 'gateSandbags', 'hostBanners', 'passCairn', 'vastShadow'], weather: 'snow' },
+  }),
+
+  // ----- Chapter 5 · Act II — The Drowned Line (the flooded Line 2, then the reservoir park; STEP5_BUILD_PLAN §5) -----
+  // Chapter-5 families (and earlier) and the first glass machines (5-8); budgets start from the same slot of chapter 6,
+  // with Step 4's lessons. Fog on every stage. No girl joins in Act 5 (decision 11).
+  act2Stage({
+    id: '5-6', name: 'Flooded Platform', mapId: 'noon_flooded_platform',
+    desc: 'The flooded platforms of the old Line 2. Bonewalkers and Bog Shamblers wade out of the dark bore in the middle of the board, Leech Ghouls among them from wave 3, with Reed Skinks and slimes for company.',
+    budget: [7, 400], groups: 3,
+    pool: [
+      P('ghoul_bonewalker', 3), P('ghoul_leech', 3, 3), P('ghoul_shambler', 2), P('slime_rose', 2, 6), P('slime_pearl', 2, 4),
+      P('lizard_skink', 2),
+    ],
+    fixed: [F(3, 'ghoul_leech', 3, 1.2)],
+    recommended: ['antiHeal', 'priority'],
+    fam: ['rime', 'charm'],
+    scenery: { props: ['floodedPlatform', 'emergencyLights', 'vendingMachines'], fog: true },
+  }),
+  act2Stage({
+    id: '5-7', name: 'Line 2 Tunnels', mapId: 'noon_line2_tunnels',
+    desc: 'The flooded Line 2 tunnels, and the lights keep failing. Fog Skulkers blink between the bores from wave 2, Seed Pods burst in the cuttings from wave 5 and Phantoms drift through the dark from wave 8. Hold the three open cuttings.',
+    budget: [3, 75], groups: 3,
+    pool: [
+      P('ghoul_skulker', 4, 2), P('ghoul_shambler', 2), P('ghoul_bonewalker', 2), P('plant_sprout', 2), P('plant_seedpod', 2, 5),
+      P('ghost_phantom', 2, 8),
+    ],
+    fixed: [F(3, 'ghoul_skulker', 3, 1.5), F(5, 'plant_seedpod', 3, 1.5)],
+    recommended: ['antiHeal', 'slow'],
+    fam: ['rune', 'ember'],
+    scenery: { props: ['line2Cuttings', 'emergencyLights'], fog: true },
+    // (render only: while the rule's eclipse is up the tunnel lamps dim and only the red emergency lamps glow)
+    look: { blackout: true },
+  }),
+  act2Stage({
+    id: '5-8', name: 'Pump Station', mapId: 'noon_pump_station',
+    desc: 'The old pump station, and a cold gate breathing frost on its north wall. Thornroots, Mosslings and Leech Ghouls come first; then glass machines walk out of the gate: Patrol Orbs from wave 3, Halo Drones from wave 6, Line Sentries from wave 10.',
+    budget: [33, 600], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 4, 3), P('vesper_halo_drone', 3, 6), P('vesper_line_sentry', 2, 10), P('plant_thornroot', 3),
+      P('plant_mossling', 2), P('ghoul_leech', 2),
+    ],
+    fixed: [F(3, 'vesper_patrol_orb', 4, 1.0), F(6, 'vesper_halo_drone', 3, 1.5), F(10, 'vesper_line_sentry', 2, 2)],
+    introduces: ['vesper_patrol_orb', 'vesper_halo_drone', 'vesper_line_sentry'], recommended: ['armorPen', 'slow'],
+    fam: ['cog', 'rune'],
+    scenery: { props: ['pumpStation', 'noonGateFrost', 'emergencyLights'], fog: true },
+  }),
+  act2Stage({
+    id: '5-9', name: 'Reservoir Park', mapId: 'noon_reservoir_park',
+    desc: 'Fog over the reservoir park. Fog Skulkers, Leech Ghouls, Thornroots and Mosslings come along the dam crest, a few Line Sentries from wave 8, a Grave Priest from wave 10 and an Elder Treant from wave 14. The last wave adds two Grave Priests and two Elder Treants.',
+    budget: [6, 360], groups: 3,
+    pool: [
+      P('ghoul_skulker', 3), P('ghoul_leech', 2), P('plant_thornroot', 3), P('plant_mossling', 2), P('vesper_line_sentry', 1, 8),
+      P('ghoul_gravepriest', 1, 10), P('plant_treant', 1, 14),
+    ],
+    fixed: [F(10, 'ghoul_gravepriest', 1), F(14, 'plant_treant', 1), F(28, 'ghoul_gravepriest', 2, 3, 3), F(28, 'plant_treant', 2, 3, 9)],
+    recommended: ['antiHeal', 'priority', 'armorPen'],
+    fam: ['charm', 'blade'],
+    scenery: { props: ['reservoirDam', 'searchBoats', 'streetLamps'], fog: true },
+  }),
+  act2Stage({
+    id: '5-10', name: 'The Reservoir Willow', mapId: 'noon_reservoir_willow',
+    desc: 'Night on the reservoir, fireflies over the water, and a great willow on its island. Plants, Leech Ghouls and Rose Slimes come off both dam walls, Grave Priests from wave 12 and Elder Treants from wave 14; on the last wave the Reservoir Willow itself walks.',
+    budget: [6, 320], groups: 3,
+    pool: [
+      P('plant_thornroot', 3), P('plant_seedpod', 2), P('plant_sprout', 2), P('ghoul_leech', 2), P('slime_rose', 2),
+      P('ghoul_gravepriest', 1, 12), P('plant_treant', 1, 14),
+    ],
+    fixed: [F(14, 'plant_treant', 1), F(20, 'ghoul_gravepriest', 2, 3), F(28, 'plant_reservoir_willow', 1, 2, 6), F(28, 'ghoul_gravepriest', 2, 3, 10)],
+    introduces: ['plant_reservoir_willow'], recommended: ['antiHeal', 'priority', 'armorShred'],
+    fam: ['feather', 'cog'],
+    scenery: { props: ['reservoirWillow', 'reservoirDam', 'searchBoats', 'fireflies'], fog: true, night: true },
   }),
 ];
 
