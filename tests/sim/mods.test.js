@@ -199,6 +199,13 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
 // Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
 // and each kind of step lands where the spec says (docs/specs/POTENTIAL.md v3 §5, §13.2).
 import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
+import { POWER } from '../../src/data/balance.js';
+
+// balance round 5 (src/data/balance.js): her damage row, and `buff` on the bonus part of an aura
+const pdmg = (id) => POWER[id]?.dmg ?? 1;
+const pbuff = (id) => POWER[id]?.buff ?? 1;
+const grow = (v, id) => 1 + (v - 1) * pbuff(id);
+const ungrow = (v, id) => 1 + (v - 1) / pbuff(id);
 
 describe('Potential in resolveStats', () => {
   test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
@@ -232,7 +239,12 @@ describe('Potential in resolveStats', () => {
     // now also widens an aura's radius; nothing else in these resolutions moved.
     // '456:055ce472' before Kaede's AoE rework (her `blade` block and new tiers, Crimson Eternity ×1.6 vs
     // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:bd28cc90');
+    // '456:bd28cc90' before balance round 5 (src/data/balance.js: per-girl damage, boss, aura and control
+    // rows and the heroes' level curves); '456:cafba5a0' in its round 1 (round 2 re-sized the rows on the fixed
+    // bench and gave every hero one multiplier per level); '456:ecb03b31' in round 2 (round 3: Option C, Kinu's full
+    // row, Aoi / Marumi / Suzu / Azami to the two-support window, hero curves whose hit rises at every level);
+    // '456:35148c95' in round 4 (round 5: re-sized on the v0.1.59 base, no Options A/B, hero curves floored at ×1)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:cb8a6f92');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
@@ -290,7 +302,7 @@ describe('Potential in resolveStats', () => {
 
   test('Potential multiplies on top of level and gear (one product with damageMul)', () => {
     const s = resolveStats(REAL.aoi, { unitStats: { damageMul: 1.5, potential: 2 } });
-    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.04, 12);
+    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.04 * pdmg('aoi'), 12);
   });
 
   test('Chika P6: drones +1, 0.3 tiles more reach, damage and speed from her track, overclock merged, armor crack, +1 linked girl', () => {
@@ -330,15 +342,16 @@ describe('Potential in resolveStats', () => {
   test('auras: Miko ×1.03⁵ damage, +1 pen, 0.4 tiles wider, enemy Brittle; Umeko tier-0 speed aura 1 → 1.03⁵, wider, pen and crit', () => {
     const m1 = resolveStats(REAL.miko, { unitStats: { potential: 1 } }).aura;
     const m6 = resolveStats(REAL.miko, { unitStats: { potential: 6 } }).aura;
-    expect(m6.dmgMul).toBeCloseTo(m1.dmgMul * 1.03 ** 5, 12);
+    expect(m6.dmgMul).toBeCloseTo(grow(ungrow(m1.dmgMul, 'miko') * 1.03 ** 5, 'miko'), 12);
     expect(m6.range).toBeCloseTo(m1.range + 0.4, 12);
-    expect(m6.armorPen).toBe(m1.armorPen + 1);
-    expect(m6.foeVuln).toBe(0.06);
+    expect(m6.armorPen).toBeCloseTo(m1.armorPen + 1 * pbuff('miko'), 12);
+    expect(m6.foeVuln).toBeCloseTo(0.06 * pbuff('miko'), 12);
     expect(resolveStats(REAL.umeko, { unitStats: { potential: 1 } }).aura.rateMul).toBe(1);
     const u6 = resolveStats(REAL.umeko, { unitStats: { potential: 6 } }).aura;
-    expect(u6.rateMul).toBeCloseTo(1.03 ** 5, 12);
+    expect(u6.rateMul).toBeCloseTo(grow(1.03 ** 5, 'umeko'), 12);
     expect(u6.range).toBeCloseTo(resolveStats(REAL.umeko).aura.range + 0.7, 12);
-    expect([u6.armorPen, u6.critChance]).toEqual([1, 0.06]);
+    expect(u6.armorPen).toBeCloseTo(1 * pbuff('umeko'), 12);
+    expect(u6.critChance).toBeCloseTo(0.06 * pbuff('umeko'), 12);
   });
 
   test('Hotaru: holy ×1.2 vs spectral, 1 more target, a firefly aura; Kaede: kept focus, +2 % focus, +30 points cap, bosses ×1.2; heroes\' ultimates', () => {
@@ -346,7 +359,7 @@ describe('Potential in resolveStats', () => {
     expect(d('hotaru', 6, (s) => s.classMul)).toEqual({ spectral: 1.2 });
     expect(d('hotaru', 6, (s) => s.maxTargets) - d('hotaru', 2, (s) => s.maxTargets)).toBe(1);
     expect(d('hotaru', 6, (s) => s.aura)).toMatchObject({ range: 2.6 });
-    expect(d('hotaru', 6, (s) => s.aura.dmgMul)).toBeCloseTo(1.06 * 1.06, 12);
+    expect(d('hotaru', 6, (s) => s.aura.dmgMul)).toBeCloseTo(grow(1.06 * 1.06, 'hotaru'), 12);
     expect(d('kaede', 6, (s) => s.keepRamp)).toBe(0.5);
     expect(d('kaede', 6, (s) => s.ramp.per) - d('kaede', 1, (s) => s.ramp.per)).toBeCloseTo(0.02, 12);
     expect(d('kaede', 6, (s) => s.ramp.max) - d('kaede', 1, (s) => s.ramp.max)).toBeCloseTo(0.3, 12);

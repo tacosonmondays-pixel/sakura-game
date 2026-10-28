@@ -2,6 +2,7 @@
 // (src/ui/girlView.js abilityInfoView), the one "runs today" rule (abilityRuns, src/data/abilities.js; it replaced M1's
 // UI helper) pinned to the sim's own teaser rule for every girl, the ⚡ sticker on the Tree tab's path (treeModel /
 // treeGrid), and the hero track's Lv 7 / Lv 17 skill lines.
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { abilityInfoView } from '../../src/ui/girlView.js';
@@ -47,7 +48,7 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
   it('Aoi: the chip, her numbers on Rapid Volley at tier 3, the recharge and the tier-5 upgrade', () => {
     const v = abilityInfoView(UNIT_MAP.aoi);
     expect(v.chip).toBe('⚡ Skyfall Volley · Rapid Volley T3');
-    expect(v.desc).toBe('Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 24 damage each and a 0.5s pin.');
+    expect(v.desc).toBe(`Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: ${Math.round(24 * POWER.aoi.dmg)} damage each and a 0.5s pin.`);
     expect(v.cooldown).toBe('Recharges in 35s of wave time');
     expect(v.unlock).toBe('Unlocks at Rapid Volley tier 3');
     expect(v.up.at).toBe('Rapid Volley T5');

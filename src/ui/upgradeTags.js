@@ -8,6 +8,7 @@
 // Midori's brews and Chika's tune-up links are Allies (a few picked girls, `limited`), an
 // execution shot (hpPct) is Self, aura armor pen / crit are Allies.
 import { ATTACK_TYPES, ELEMENTS, STATUSES } from '../data/types.js';
+import { POWER } from '../data/balance.js';
 
 /** @typedef {'self'|'allies'|'enemies'|'coins'} TagId */
 /**
@@ -621,6 +622,9 @@ export function auraTotals(unit, path, tier) {
     }
     if (any) out.tiers++;
   }
+  // balance round 5 (src/data/balance.js): her `buff` grows the bonus part, as in battle (src/sim/mods.js)
+  const b = POWER[unit?.id]?.buff ?? 1;
+  if (b !== 1) for (const [key] of AURA_MULS) if (out[key] > 1) out[key] = 1 + (out[key] - 1) * b;
   return out;
 }
 
