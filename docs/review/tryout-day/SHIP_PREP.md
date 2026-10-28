@@ -61,7 +61,8 @@ message's `tryout` / `draft` / `pool`), so a client without it resolves a Tryout
 the next protocol number once:
 
 1. `src/online/coop/version.js`: `COOP_PROTOCOL` from the then-current number to the next. The ultimates take 10
-   (v0.1.56), so Tryout Day's is most likely **11**; the number is picked at its ship. With a comment in the list's
+   (v0.1.56), so Tryout Day's is most likely **11**; the banners release also wants the slot after the ultimates, so the number
+   goes to whichever ships first and is picked at ship time. With a comment in the list's
    style:
    `// 11: Tryout Day (co-op update #7, set once for it): the run mode in co-op (the 'tr' and 'mv' commands, the run
    //     state in snapshots and the hash, each player's draft and frozen pool in the start message); a client on 10
