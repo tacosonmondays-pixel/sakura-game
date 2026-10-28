@@ -710,6 +710,14 @@ holder chips, Snack and Brush Up cards, and **Back to class**. The hero widget's
 
 ## 7. Difficulty: Grades and content windows
 
+> **M2 tuning (bot sweeps, `tools/tryoutBot.mjs --sweep`):** the run table now has hearts 60 at Grades 1-9 (Grade 10: 55;
+> 11-12 as below), spring hpScale 3.3, summer 7.0 and hpMul 1 / 1.2 / 1.1 / 1.25 / 1.4 / 1.4 / 1.4 / 1.5 / 1.5 / 1.5 / 1.5 / 1.52;
+> `src/data/tryout.js` is the source of truth where the Hearts column below differs. Normal waves barely leak, so runs are
+> decided by the minibosses and the boss: with 100 hearts a run could not be lost. Measured (solo, Half Day, random
+> picks): Grade 1 new account 60 %, average 96 %, Grade 6 average 48 %, Grade 12 maxed 8 %. The average player's ~75 % at
+> Grade 1 cannot be met together with the new account's ~60 %: the band puts a new account at the floor and an average
+> one at the cap (~1.7-2× the damage), and that gap is a §9.2 design call (owner question, M2 PR).
+
 Grades 1-12 are one ladder; clearing Grade N (either length) opens N + 1. Each Grade keeps the twists below it. Content
 windows match campaign progress, so the mode can open early without meeting chapter 8 bosses on day one.
 

@@ -69,7 +69,7 @@
 .ty-subject, .ty-dare { font-size: 12px; padding: 3px 8px; text-align: left; }
 .ty-subject.on, .ty-dare.on { outline: 2px solid var(--navy); background: #ffe9b8; }
 .ty-paths { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
-.ty-path { font-size: 11px; padding: 2px 6px; }
+.ty-path { font-size: 12px; padding: 2px 6px; }
 .ty-break-title { font-size: 14px; }
 .ty-break-hint { font-size: 12px; color: #4a5578; margin-top: 2px; }
 
@@ -86,7 +86,7 @@
 
 @media (max-width: 700px), (max-height: 430px) {
   .ty-tracker { max-width: 44vw; padding: 4px 6px; }
-  .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 11px; }
+  .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 12px; }
   .ty-class .ty-dim { display: none; }
   .ty-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .ty-card { min-height: 0; padding: 6px; }
