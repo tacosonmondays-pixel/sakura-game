@@ -14,7 +14,7 @@ import { FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, enemiesByFamily, enemyTrait
 import { STAGE_MAP } from '../../data/stages.js';
 import { discoverableEnemies, bestiaryPercent } from '../../systems/missions.js';
 import { traitIcon, armorClassIcon, uiIcon } from '../../art/icons.js';
-import { buildEnemy, preloadEnemies, makeSilhouette, createModelViewer, disposeObject } from '../../models/index.js';
+import { buildEnemy, preloadEnemies, makeSilhouette, createModelViewer, drawnBox, disposeObject } from '../../models/index.js';
 import { put, cssVars } from './backpack.js';
 
 const view = { family: 'all', selected: null };
@@ -70,7 +70,7 @@ function renderThumb(def, silhouette) {
   if (silhouette) makeSilhouette(model);
   model.rotation.y = 0.55;
   scene.add(model);
-  const box = new THREE.Box3().setFromObject(model);
+  const box = drawnBox(model);
   const sz = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   const span = Math.max(sz.x, sz.y, sz.z) * 1.12;

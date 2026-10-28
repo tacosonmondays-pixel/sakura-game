@@ -1,7 +1,7 @@
 // Builds the Sim configuration from the player's profile (formation + unitBattleStats).
 import { Sim } from '../../sim/Sim.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
+import { STAGE_MAP, nextInAct } from '../../data/stages.js';
 import { DIFFICULTIES, BATTLE } from '../../data/types.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { isOwned, isPracticeRun, canPlayEndless, modesUnlocked } from '../../systems/unlocks.js';
@@ -195,10 +195,12 @@ function createSandboxSim(req, seed, profile = null) {
   return { sim, towers, hero, seed, cfg: null };
 }
 
-/** The campaign stage after `stageId` (null for the last stage / non-campaign stages). */
+/**
+ * The campaign stage after `stageId` in the same act, for the results screen's Next button (stages.js nextInAct):
+ * Act I 1-5 → 2-1 and 8-5 → null (never 1-6); Act II x-10 → (c+1)-6 when it exists. Null for non-campaign stages.
+ */
 export function followingStage(stageId) {
-  const i = CAMPAIGN_IDS.indexOf(stageId);
-  return i >= 0 && i < CAMPAIGN_IDS.length - 1 ? CAMPAIGN_IDS[i + 1] : null;
+  return nextInAct(stageId);
 }
 
 /** Route that "Back to map" leads to for a stage kind (shared with the back arrow: src/ui/nav.js). */

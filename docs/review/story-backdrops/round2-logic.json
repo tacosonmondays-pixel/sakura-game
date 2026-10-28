@@ -1,0 +1,46 @@
+{
+  "review": "feature/story-backdrops logic review, round 2",
+  "commit": "e1f80f9",
+  "reviewer": "independent (did not build it)",
+  "date": "2026-10-28",
+  "verdict": "OK",
+  "summary": "The round-1 M1 fix is correct. In src/ui/story/backdrop.js, swap() now removes old layers only beneath the topmost layer that covers the screen (layersToDrop). A layer covers once it has faded in (its own opacity transitionend, or FADE_FALLBACK_MS = 670 ms after 'on' is added) and its picture has decoded. I drove the real createBackdrop and story.css in Chromium and measured background coverage on every frame. I ran 11 cases: rapid swaps every 80 ms, a 400 ms main-thread stall right after a swap (the round-1 case), a 6x CPU throttle with stalls, a 4 s picture (past the 2.5 s cap), a slow picture with a fast swap over it, a failed picture, an instant swap mid-fade, a solid black mid-fade, dispose mid-fade, no transitionend at all, and reduced motion. Coverage never dropped below 1.000. Every case settled to exactly one layer, with the newest background on top. Dispose left 0 children and raised no errors. Data is sound. All 35 story scenes and the 3 Halloween scenes resolve: every scene bg and all 13 cue bgs go to an existing background. All 40 campaign stages have a STAGE_PLACE whose file exists. STAGE_PLACE has no stray ids. All 31 places are 1280x876 and all 31 thumbs are 320x219. The pictures live in public/ and are fetched by URL: no image is bundled, index.html preloads none, and the backgrounds data sits in an 11.7 kB chunk. A scene loads its own background and one cue ahead. Choices hold only say/narrate lines, so the cue list used for preloading is complete. The sim id stays 92e2e22527cf and COOP_PROTOCOL stays 8. No save, sim, online or stage file changed. tools/story-bg sends no Authorization header and holds no key. Its prompts name no other game, anime or artist. No raw PNGs, manifests or request files are committed, and no WebP carries prompt or metadata strings. All test runs pass. Three low findings remain, none blocking.",
+  "findings": [
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "Each swap leaves short timers running, and dispose() does not cancel them",
+      "detail": "Each swap() starts a BG_READY_CAP_MS (2500 ms) setTimeout for the race against decode. It is never cleared, even when the decode wins at once. dispose() (el.replaceChildren()) also does not cancel pending requestAnimationFrame callbacks or a pending fadedIn fallback timer (670 ms) and its listener, which sits on the detached layer. All of them resolve by themselves within 2.5 s. Their callbacks do nothing for a detached layer, because Promise.all(...).then checks layer.isConnected. No listener is ever added to window or document. So nothing piles up past 2.5 s after teardown and no behaviour leaks; the only cost is that the closures stay alive for a moment. If you want it tidy, keep the cap timer's id and clear it when decode resolves, and let dispose() bump a flag that the rAF callback checks before it adds 'on'.",
+      "evidence": "backdrop.js lines 194 (race timer), 198-203 (rAF and fadedIn), 242-245 (dispose). Browser harness case 'dispose mid-fade (Skip / scene end)': 0 children 3.5 s later, no page or console errors. player.js finish() calls backdrop.dispose(), and it removes the window keydown, keyup and blur listeners as before."
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "story-bg generator writes into the repo by default (story-bg-out/ is not gitignored)",
+      "detail": "gen.py and webp.py default STORY_BG_OUT to os.path.join(os.getcwd(), 'story-bg-out'). The README's command is run from the repo root, so if the export line is skipped, raw PNGs, _raw/<id>.req.json (full prompts), _manifest.jsonl and _rejected/ land in the working tree. One 'git add -A' would then commit raw art and generator manifests, which the repo rules keep out. The docstrings also still say 'backgrounds/<id>.png' and 'backgrounds/webp/'. The fix is to default to a path outside the repo, or to refuse to run without STORY_BG_OUT, or to add story-bg-out/ to .gitignore.",
+      "evidence": "tools/story-bg/gen.py line 14 and docstring line 5; tools/story-bg/webp.py lines 1 and 6; grep for 'story-bg' in .gitignore finds nothing. Nothing like this is committed now: the diff names only .webp, .js, .mjs, .md, .json and .py files, and git status is clean."
+    },
+    {
+      "id": "L3",
+      "severity": "low",
+      "title": "The swap orchestration itself has no automated test",
+      "detail": "tests/story/backdrops.test.js covers the pure parts: layersToDrop, fadedIn and imageDecoded. Nothing tests createBackdrop().show() end to end. e2e/story.mjs plays scenes but does not sample coverage during a background change. So a later change that, for example, adds a layer to covering before its fade has finished, or drops the isConnected guard, would pass CI. The browser harness from this review (scratchpad rev-story-logic/swap.mjs) could become an e2e check: per-frame coverage at 1.0 and one layer after settle, across rapid swaps, a stall, a slow picture and a failed one.",
+      "evidence": "grep for createBackdrop in tests/ finds only the import in player.test.js and no call. Harness results are in the summary."
+    }
+  ],
+  "checks_passed": [
+    "Swap logic in a real browser, sampling coverage every frame across 11 cases: rapid swaps every 80 ms (min cover 1.000, peak 6 layers, settles to 1), a 400 ms + 300 ms main-thread stall after a swap (1.000), a 6x CPU throttle with stalls (1.000), a 4 s slow picture (old layer kept, 2 layers at 1.5 s, settles to the new one), a slow picture with a fast swap over it (settles to the fast one; the slow one, finishing later, is gone because it was disconnected), a failed picture (old picture kept underneath at cover 1.000, cleared by the next swap), an instant swap mid-fade, a solid black mid-fade then a place, dispose mid-fade (0 children), transition:none so no transitionend (the fallback timer prunes), and prefers-reduced-motion. No page or console errors",
+    "Reading the code: layersToDrop clears only beneath the topmost covering layer, so a late-finishing older layer can never remove a newer one. Covering needs decoded === true, so a failed picture never removes the layer under it. A hidden tab (rAF paused) holds layers until the tab is visible again and never shows black. The 'on' class is added only after two frames, and the fallback timer starts with it",
+    "Data: 35 story scenes and 3 Halloween scenes, scene bg and 13 cue bgs all resolve (no fallback to an unknown id). All 40 campaign stages have STAGE_PLACE entries whose files exist, and no entry names a stage that does not exist. 31 places at 1280x876 and 31 thumbs at 320x219 (read from the WebP headers). The Halloween scenes use academy-night and stage:3-1 (now shrine-steps)",
+    "Lazy loading: npx vite build passes. No image goes into assets/, index.html preloads none, and the backgrounds data (the tokens chunk) is 11.7 kB. The player preloads its first background before sp-ready and each cue background one ahead. dist was removed afterwards",
+    "npx vitest run tests/story tests/data: 25 files, 825 tests passed",
+    "node e2e/story.mjs: exit 0, 148 ok (archive plays and pays once, journal, overlays, reduced motion)",
+    "node e2e/smoke.mjs: exit 0, 471 ok",
+    "node e2e/halloween.mjs: exit 0, 109 ok (event Episode 1 opens and reads)",
+    "Sim id 92e2e22527cf; COOP_PROTOCOL 8 in src/online/coop/version.js; no change under src/online, the sim, the save code or stages/maps",
+    "tools/story-bg: no Authorization or Bearer header, no key or token; the NovelAI key is injected by the proxy. Prompts are scenery only, with a no-people negative, and name no other game, anime or artist. 'Itomachi' appears once, in a code comment (the game's own Gate Arc city), not in any prompt",
+    "No stray files: the diff adds only 62 WebPs plus code, docs and tests. No PNG, manifest or request JSON. No WebP contains prompt, novelai, EXIF or XMP strings. Commit trailers are present",
+    "scripts/names-check.mjs does not exist; tests/data/otherNames.test.js passed inside tests/data, and a keyword scan of the non-art diff found no names",
+    "Patch note: none on the branch, which is correct, since HANDOFF section 7 adds it at the release merge"
+  ]
+}

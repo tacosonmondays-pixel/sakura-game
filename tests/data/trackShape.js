@@ -153,3 +153,12 @@ export function isMeander(sig) {
 
 /** Total number of lobes over all tracks. */
 export const lobeCount = (sig) => sig.reduce((a, l) => a + l.length, 0);
+
+/**
+ * A declared echo pair (Gate Arc): one map names the other in `echoOf` (the same place in another
+ * era, a literal re-skin). Only such pairs are exempt from the silhouette and turning-signature
+ * tests; an undeclared copy still fails them.
+ */
+export function isDeclaredEcho(a, b) {
+  return !!a && !!b && ((!!a.echoOf && a.echoOf === b.id) || (!!b.echoOf && b.echoOf === a.id));
+}

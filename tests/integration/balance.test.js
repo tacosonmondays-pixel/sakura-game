@@ -23,6 +23,7 @@ import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { towers as towerDefs, heroes as heroDefs } from '../../src/data/units.js';
 import { HERO_LEVEL_PRICES } from '../../src/data/heroTracks.js';
 import { headroom, geoMean } from '../../tools/balance/headroom.js';
+import { freeUnitsBefore } from '../sim/modesBot.js';
 import { benchDps, towerBest, median } from '../../tools/balance/bench.js';
 
 const ready = hasRealData();
@@ -35,20 +36,12 @@ const FPGUARD = process.env.BALANCE === 'fpguard';
 /** Expected F2P account level per chapter (books from first clears, bounty and commissions). */
 export const EXPECTED_LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
 
-function freeUnitsBefore(d, stageId) {
-  const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
-  const order = new Map(campaign.map((s, i) => [s.id, i]));
-  const idx = order.get(stageId);
-  const avail = Object.values(d.units).filter((u) => {
-    const a = u.acquisition || {};
-    if (a.type === 'starter') return true;
-    return a.type === 'free' && order.has(a.afterStage) && order.get(a.afterStage) < idx;
-  });
-  const recency = (u) => (u.acquisition?.type === 'free' ? order.get(u.acquisition.afterStage) : -1);
-  const towers = avail.filter((u) => u.kind === 'tower').sort((a, b) => recency(b) - recency(a)).slice(0, 8);
-  const hero = avail.filter((u) => u.kind === 'hero').sort((a, b) => recency(b) - recency(a))[0] || null;
-  return { towers: towers.map((u) => u.id), hero: hero?.id || null };
+/** The expected level for a stage: its chapter's, and Act II of chapter c plays at chapter c+1's (it opens with it). */
+export function expectedLevel(s) {
+  return EXPECTED_LEVEL[s.act === 2 ? Math.min(8, s.chapter + 1) : s.chapter] || 1;
 }
+
+// the F2P roster before a stage (unlock ancestors; Yuzuha from 1-7 or her legacy 4-2): tests/sim/modesBot.js
 
 function statsAtLevel(unitId, level) {
   const breakthrough = Math.max(0, Math.ceil((level - 10) / 10));
@@ -80,8 +73,8 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     const lost = [];
     const rows = [];
     for (const s of campaign) {
-      const r = runStage(s.id, 'easy', EXPECTED_LEVEL[s.chapter] || 1);
-      rows.push(`${s.id.padEnd(4)} easy L${String(EXPECTED_LEVEL[s.chapter]).padEnd(2)} ${r.won ? 'WON ' : 'LOST'} wave ${r.wave}/${r.total} lives ${r.lives}/${r.maxLives}`);
+      const r = runStage(s.id, 'easy', expectedLevel(s));
+      rows.push(`${s.id.padEnd(4)} easy L${String(expectedLevel(s)).padEnd(2)} ${r.won ? 'WON ' : 'LOST'} wave ${r.wave}/${r.total} lives ${r.lives}/${r.maxLives}`);
       if (!r.won) lost.push(s.id);
     }
     console.log(`[balance] easy sweep:\n${rows.join('\n')}`);
@@ -96,7 +89,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     const wins = Object.fromEntries(diffs.map((k) => [k, 0]));
     const rows = ['| Stage | Lv | Easy | Normal | Hard | Nightmare | Free units |', '|---|---|---|---|---|---|---|'];
     for (const s of campaign) {
-      const lv = EXPECTED_LEVEL[s.chapter] || 1;
+      const lv = expectedLevel(s);
       const cells = [];
       let units = [];
       for (const k of diffs) {
@@ -128,7 +121,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
       hearts[k] = Object.fromEntries(modes.map((m) => [m, 0]));
       const rows = [`### ${k}`, '', '| Stage | Rule | Standard | Reverse | Rush | Ironclad | Half Income | Last Petal |', '|---|---|---|---|---|---|---|---|'];
       for (const s of campaign) {
-        const lv = EXPECTED_LEVEL[s.chapter] || 1;
+        const lv = expectedLevel(s);
         const cells = modes.map((m) => {
           const r = runStage(s.id, k, lv, 1, { mode: m });
           if (r.won) {
@@ -175,7 +168,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
     const rows = ['| Stage | Rule | Easy off → on | Normal off → on | Hard off → on |', '|---|---|---|---|---|'];
     const flips = [];
     for (const s of campaign) {
-      const lv = EXPECTED_LEVEL[s.chapter] || 1;
+      const lv = expectedLevel(s);
       const cells = diffs.map((k) => {
         const off = runStage(s.id, k, lv, 1, { rule: null });
         const on = runStage(s.id, k, lv, 1);
@@ -253,7 +246,7 @@ describe.skipIf(!ready)('campaign balance (autoPlan, free units only)', () => {
 // ---------------------------------------------------------------------------
 describe.runIf(ready && HERO)('hero rework balance (BALANCE=hero)', () => {
   const STAGES10 = ['1-1', '1-3', '1-5', '2-5', '3-5', '4-5', '5-5', '6-5', '7-5', '8-5'];
-  const level = (id) => EXPECTED_LEVEL[defaultData().stages[id].chapter] || 1;
+  const level = (id) => expectedLevel(defaultData().stages[id]);
 
   test('headroom (Normal, F2P bot, cap 16) and the pace guard (no buying)', () => {
     const rows = ['| Stage | Hero | Headroom | Won at ×1 | End level |', '|---|---|---|---|---|'];

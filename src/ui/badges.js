@@ -10,8 +10,13 @@
 //   ink lock "Coming soon" / "Soon"  a mode that is not out yet   soonSticker() (kit.js lockedTile wears it)
 // Tabs carry a red dot only, never a count (P7). Styles: components.css "M5" (.ui-bdg). `cls` keeps a screen's
 // own positioning class (and the old class its e2e tests look for).
+// [ui-ink] UI v2 "Ink & Paper" (src/ui/styles/ink.css) restyles these in place on the menus, with the same function
+// names, classes and test ids: NEW is an ink chip (a cyan hairline chip on ink), Open! the cyan OPEN chip, the yellow
+// dot the red dot (one dot colour), "Coming soon" a one-cut chip with the line lock, In Progress a flat -8° slant.
 import { h } from './dom.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
+import { inkSurface } from './surfaceMode.js';
+import { lineGlyph } from './lineGlyphs.js';
 
 const props = (testid, title) => ({ 'data-testid': testid || null, title: title || null });
 const kids = (cls) => (cls ? `.${String(cls).split(/[\s.]+/).filter(Boolean).join('.')}` : '');
@@ -62,7 +67,7 @@ export function openSticker({ cls = '', testid = null } = {}) {
  */
 export function soonSticker({ text = 'Coming soon', cls = '', testid = null } = {}) {
   const lock = h('span.ui-ico', { 'aria-hidden': 'true' });
-  lock.innerHTML = glyphSVG('lock');
+  lock.innerHTML = inkSurface() ? lineGlyph('lock', '', { kitSize: false }) : glyphSVG('lock');
   return h(`span.ui-bdg.soon.ui-sticker.ink${kids(cls)}`, props(testid), lock, text);
 }
 

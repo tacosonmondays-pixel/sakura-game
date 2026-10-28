@@ -7,10 +7,14 @@
 //   * no other girl's footprint overlaps: dist >= r + r2          (else 'occupied')
 //   * the footprint stays off the path band: dist(path) >= PATH_HALF_WIDTH + r   (else 'path')
 //   * it clears map obstacles: trees (discs), rocks / buildings / void (tile squares)  (else 'blocked')
-//   * the terrain under the CENTRE matches her placement type ('~' / 'B' water, '.' / ',' land)
+//   * the terrain under the CENTRE matches her placement type ('~' / 'B' water, '.' / ',' / 'U' land)
 //     (else 'needsWater' / 'needsLand'; amphibious girls take either)
 // Bridges are path tiles: the band excludes the road itself, and the open water of a 'B' tile
 // the curved road only grazes still takes water girls.
+// Rooftops ('U', Gate Arc): a flat roof is land. A girl whose centre is on a roof stands on it and
+// needs her whole footprint on roof tiles (every other tile, and the board's edge, is the roof's
+// edge: else 'blocked'); for a girl on the ground a roof tile blocks like a building. Water girls
+// cannot stand on a roof ('needsWater'); amphibious girls can. A roof gives no range bonus.
 
 import { segDistSq } from './path.js';
 import { BAND_HALF_WIDTH } from '../core/track.js';
@@ -24,8 +28,10 @@ export const PATH_HALF_WIDTH = BAND_HALF_WIDTH; // 0.55
 /** Trees block a disc of this radius around their tile centre. */
 export const TREE_RADIUS = 0.45;
 
-/** Terrain characters that block placement as a full tile square. */
-const SQUARE_BLOCKERS = { R: true, H: true, X: true };
+/** Terrain characters that block placement as a full tile square (for a girl on the ground). */
+const SQUARE_BLOCKERS = { R: true, H: true, X: true, U: true };
+/** Rooftop tile: land a girl may stand on, her whole footprint on the roof (Gate Arc). */
+export const ROOF_TILE = 'U';
 
 /**
  * Footprint radius for a unit definition.
@@ -105,13 +111,27 @@ export function createPlacementRules(map, pathData) {
   };
 
   /**
-   * Distance from a point to the nearest obstacle surface (0 when inside one). Only tiles
-   * inside the map count — the board edge is handled by 'outOfBounds'.
+   * Distance from a point to the nearest obstacle surface (0 when inside one). On the ground only
+   * tiles inside the map count (the board edge is handled by 'outOfBounds') and a roof tile is an
+   * obstacle. A point on a roof measures to the roof's edge instead: every tile that is not roof,
+   * the board's outside included.
    */
   const obstacleDistance = (x, y) => {
     const cx = Math.floor(x);
     const cy = Math.floor(y);
     let best = Infinity;
+    if (charAt(cx, cy) === ROOF_TILE) {
+      for (let ty = cy - 1; ty <= cy + 1; ty++) {
+        for (let tx = cx - 1; tx <= cx + 1; tx++) {
+          if (charAt(tx, ty) === ROOF_TILE) continue;
+          const dx = Math.max(tx - x, 0, x - (tx + 1));
+          const dy = Math.max(ty - y, 0, y - (ty + 1));
+          const d = Math.hypot(dx, dy);
+          if (d < best) best = d;
+        }
+      }
+      return Math.max(0, best);
+    }
     for (let ty = cy - 1; ty <= cy + 1; ty++) {
       if (ty < 0 || ty >= H) continue;
       for (let tx = cx - 1; tx <= cx + 1; tx++) {
@@ -132,6 +152,8 @@ export function createPlacementRules(map, pathData) {
 
   const terrainAt = (x, y) => charAt(Math.floor(x), Math.floor(y));
   const inBounds = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
+  /** A point on a rooftop tile (a girl centred there stands on the roof). */
+  const isRoof = (x, y) => inBounds(x, y) && terrainAt(x, y) === ROOF_TILE;
 
   /**
    * Geometry-only check (no cash / loadout / hero rules).
@@ -155,7 +177,7 @@ export function createPlacementRules(map, pathData) {
     const ch = terrainAt(x, y);
     // 'B' = a water tile the road crosses or grazes: off the band it is still open water
     const water = ch === '~' || ch === 'B';
-    const land = ch === '.' || ch === ',';
+    const land = ch === '.' || ch === ',' || ch === ROOF_TILE;
     if (!water && !land) return 'blocked';
     const placement = def?.placement || 'land';
     if (placement === 'water' && !water) return 'needsWater';
@@ -163,7 +185,7 @@ export function createPlacementRules(map, pathData) {
     return null;
   };
 
-  return { width: W, height: H, segments: segs, charAt, pathDistance, obstacleDistance, terrainAt, inBounds, check };
+  return { width: W, height: H, segments: segs, charAt, pathDistance, obstacleDistance, terrainAt, inBounds, isRoof, check };
 }
 
 /**

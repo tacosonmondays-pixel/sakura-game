@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Ink kit</title>
+<!-- [ui-ink] The UI v2 "Ink & Paper" kit in the repo (src/ui/styles/ink.css, src/ui/lineGlyphs.js), board by board as
+     the approved specimen draws it (notes/ui-v2/kit/specimen.html and specimen-844x390.png / -1280x720.png), for
+     e2e/ink-kit.mjs, the probe and the pixel probes (e2e/pixels.mjs), and the reviewers' 3x crops. Dev server only
+     (http://127.0.0.1:<port>/e2e/fixtures/ink-kit.html): never part of the build (vite builds index.html only).
+     Board 6 shows the game's own tiles instead of the mock-up's E5 tile (plan C1: the shipped slanted plate): an item
+     tile and a gear tile selected (medium 3: the rarity frame stays, a pink check chip and a 3 px pink bottom bar)
+     beside a Mythic one, and the girl tile as .ui-girltile (plan C2). -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Nunito:ital,wght@0,700;0,900;1,800;1,900&display=block" rel="stylesheet" />
+<style>
+  /* fixture only: boards are framed 844 x 390 screens; fixed-position kit parts become absolute inside them */
+  html, body { height: auto !important; overflow: visible !important; }
+  body.spec { margin: 0; background: #c9d3df; color: var(--ink); padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+  .cap-h { font: 600 13px/1 var(--font-num); letter-spacing: .14em; text-transform: uppercase; color: #36435c; margin: 0 0 6px; }
+  .board { position: relative; width: 844px; height: 390px; overflow: hidden; isolation: isolate; }
+  .board.day { background: var(--paper-a); color: var(--ink); }
+  .board.night { background: var(--plate); color: var(--on-ink); }
+  .board.tall { height: auto; min-height: 390px; padding: 16px; }
+  /* (!important: ink.css loads after this sheet, and its fixed layers would cover the whole page) */
+  .board :is(.ui-field, .ui-scene, .ui-scrim, .ui-topbar, .ui-host, .ui-sheet.side, .ui-confetti) { position: absolute !important; }
+  /* (two classes: the game's components.css loads after this sheet and sets .ui-panel { display: block }) */
+  .board .row-f, .row-f.row-f { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .board .col-f, .col-f.col-f { display: flex; flex-direction: column; gap: 10px; }
+  .kit-err { margin: 24px; padding: 16px; background: #fff; font: 700 15px/1.4 sans-serif; }
+</style>
+</head>
+<body class="spec ui-day" data-probe="content">
+<main id="kit" data-probe-list></main>
+<script type="module">
+  import '/src/ui/styles/base.css';
+  import '/src/ui/styles/components.css';
+
+  const root = document.getElementById('kit');
+  // (module paths in variables: a checkout without the kit fails here at run time, not in the dev server)
+  const load = (p) => import(/* @vite-ignore */ p);
+  const A = { lobby: '/art/lobby/', pt: '/art/portraits/', items: '/art/items/' };
+  try {
+    await load('/src/ui/styles/ink.css');
+    const glyphs = await load('/src/ui/lineGlyphs.js');
+    const { itemTile } = await load('/src/ui/components.js');
+    const { gearTile } = await load('/src/ui/gearTile.js');
+    const { rollGear } = await load('/src/systems/gear.js');
+    const { createRng } = await load('/src/core/rng.js');
+
+    const tabs = (active) => ['info:Info', 'level:Level', 'star:Awaken', 'shirt:Gear', 'tree:Tree'].map((x, i) => {
+      const [g, w] = x.split(':');
+      return `<a class="ui-tab${i === active ? ' on' : ''}" role="tab"${i === active ? ' aria-selected="true"' : ''}>${i === active ? '<span class="mark"></span>' : ''}<i data-g="${g}" class="s"></i><span>${w}</span>${i === 1 ? '<i class="ui-dot"></i>' : ''}</a>`;
+    }).join('');
+    const tprobe = (a, text) => `<div class="ui-tabbed tprobe" data-active="${a}" style="height:150px"><nav class="ui-tabs" role="tablist">${tabs(a)}</nav><div class="ui-tabbed-body"><p class="desc">${text}</p></div></div>`;
+
+    root.innerHTML = `
+<section>
+  <p class="cap-h">1 · Folder tabs: each tab active in turn (S4). Probe: no ink at the panel's corner, slants only between tabs, no seam</p>
+  <div class="board day tall" style="display:grid;grid-template-columns:repeat(2,376px);gap:16px;align-content:start">
+    <div class="ui-field"><img src="${A.lobby}academy.webp" alt=""></div>
+    ${tprobe(0, 'First tab active: its left edge is the panel\'s straight edge.')}
+    ${tprobe(1, 'A middle tab: "/" slants on both sides.')}
+    ${tprobe(2, 'Middle.')}
+    ${tprobe(3, 'Middle.')}
+    ${tprobe(4, 'Last tab active: the panel\'s chamfer cuts it.')}
+    <div class="ui-panel pad cprobe" style="height:150px"><span class="lbl">Chamfer pair + ring</span><p class="desc" style="margin-top:6px">One ring, drawn over the children, cut from the clip polygon.</p></div>
+  </div>
+</section>
+
+<section>
+  <p class="cap-h">2 · Day list screen: ink top bar, E3 rail, host, list panel with an inset plate head, one yellow bottom-right</p>
+  <div class="board day">
+    <div class="ui-field"><img src="${A.lobby}academy.webp" alt=""></div>
+    <header class="ui-topbar"><a class="ui-back" aria-label="Back"><i data-g="back"></i></a><span class="tb-title">Commissions</span><span class="ui-spacer"></span>
+      <a class="ui-ibtn" aria-label="Settings"><i data-g="settings"></i></a><a class="ui-ibtn" aria-label="Home"><i data-g="house"></i></a></header>
+    <nav class="ui-srail" style="position:absolute;left:0;top:56px">
+      <a class="ui-stab on"><i data-g="daily"></i><span>Daily</span><i class="ui-dot"></i></a>
+      <a class="ui-stab"><i data-g="weekly"></i><span>Weekly</span></a>
+      <a class="ui-stab"><i data-g="gift"></i><span>Login</span><i class="ui-dot"></i></a>
+      <a class="ui-stab"><i data-g="trophy"></i><span>Achievements</span></a>
+      <a class="ui-stab"><i data-g="key"></i><span>Codes</span></a>
+    </nav>
+    <div class="ui-host" style="left:172px;top:48px;width:216px;height:468px"><img src="${A.pt}miko-cut.webp" alt="Miko"></div>
+    <div class="ui-bubble" style="left:180px;top:318px;width:204px">A commission is ready!</div>
+    <section class="ui-panel" style="position:absolute;left:396px;top:48px;width:432px;height:270px;display:flex;flex-direction:column">
+      <div class="ui-plate-head"><span class="name">Daily commissions</span><span class="ui-cd s"><i data-g="clock"></i><span class="t">RESETS 12h</span></span></div>
+      <div style="padding:0 12px 0 14px">
+        <div class="ui-row"><span class="ui-emb live"><i data-g="bell"></i></span><span class="txt"><span class="t">Morning Roll Call</span><span class="desc">Open the game today.</span></span>
+          <span class="rew" data-tiles="gems:20,coins:3000"></span>
+          <span class="act"><button class="ui-btn ink dense">Claim</button></span></div>
+        <div class="ui-row"><span class="ui-emb"><i data-g="swords"></i></span><span class="txt"><span class="t">Patrol Duty</span><span class="row-f" style="gap:8px"><span class="ui-bar" style="width:96px;--v:33%"><i></i></span><span class="num" style="font-size:12px">1/3</span></span></span>
+          <span class="rew" data-tiles="gems:30,book_rare:2"></span>
+          <span class="act"><button class="ui-btn sec dense">Go</button></span></div>
+        <div class="ui-row done"><span class="ui-emb done"><i data-g="check"></i></span><span class="txt"><span class="t">Study Session</span><span class="desc">Level up any student once.</span></span>
+          <span class="rew" data-tiles="gems:15"></span>
+          <span class="act"><span class="claimed lbl"><i data-g="check" class="xs"></i>Claimed</span></span></div>
+      </div>
+    </section>
+    <div style="position:absolute;right:16px;top:326px"><button class="ui-btn pri">Claim all <span class="ui-btn-n">1</span></button></div>
+  </div>
+</section>
+
+<section>
+  <p class="cap-h">3 · Girl page: night nameplate on a day screen, folder-tabbed panel (Info active), one yellow</p>
+  <div class="board day">
+    <div class="ui-field"><img src="${A.lobby}academy.webp" alt=""></div>
+    <header class="ui-topbar"><a class="ui-back" aria-label="Back"><i data-g="back"></i></a><span class="tb-title">Students</span><span class="ui-spacer"></span>
+      <span class="ui-cur" aria-label="Coins"><i data-cur="coins"></i><span class="num">284,650</span></span><span class="ui-slash"></span>
+      <span class="ui-cur" aria-label="Gems"><i data-cur="gems"></i><span class="num">16,570</span><a class="ui-plus" aria-label="Buy gems"><i data-g="plus"></i></a></span>
+      <span class="ui-vr"></span><a class="ui-ibtn" aria-label="Settings"><i data-g="settings"></i></a><a class="ui-ibtn" aria-label="Home"><i data-g="house"></i></a></header>
+    <div class="ui-host" style="left:96px;top:44px;width:300px;height:420px"><img src="${A.pt}ruri-cut.webp" alt="Ruri"></div>
+    <section class="ui-np" style="position:absolute;left:16px;bottom:16px;width:304px">
+      <div class="row-f" style="gap:8px;flex-wrap:nowrap"><span class="ui-rar sr">SR</span><span class="np-name">Ruri</span><span style="flex:1"></span>
+        <a class="ui-ibtn" aria-label="Previous girl"><i data-g="chevL" class="s"></i></a><a class="ui-ibtn" aria-label="Next girl"><i data-g="chevR" class="s"></i></a></div>
+      <span class="lbl">Holo-Summoner · Library Club</span>
+      <div class="row-f" style="gap:8px;flex-wrap:nowrap"><span class="lbl">LV</span><span class="num">24<small>/40</small></span>
+        <span class="ui-seg" style="--n:10;flex:1"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></span>
+        <span class="ui-chip"><span class="num">P4</span></span><span class="row-f" style="gap:3px"><i data-g="swords" class="xs"></i><span class="num">934</span></span></div>
+    </section>
+    <section class="ui-tabbed" style="position:absolute;left:452px;top:46px;width:376px;bottom:4px">
+      <nav class="ui-tabs" role="tablist">${tabs(0)}</nav>
+      <div class="ui-tabbed-body">
+        <div class="row-f" style="gap:10px;flex-wrap:nowrap"><span class="ui-emb"><i data-g="paw"></i></span>
+          <span class="col-f" style="gap:4px"><span class="lbl ink" style="font-weight:700">Summoner</span><span class="row-f" style="gap:4px"><span class="ui-chip ink">Mystic</span><span class="ui-chip">Hits air</span><span class="ui-chip">Familiar</span></span></span>
+          <span style="flex:1"></span><button class="ui-btn ghost">Details <i data-g="chevR" class="xs"></i></button></div>
+        <p class="desc" style="margin-top:6px">Kon, her holo fox, casts from the lane's edge.</p>
+        <div class="ui-strip" style="margin-top:8px"><div><span class="lbl">Dmg</span><span class="num">7</span></div><div><span class="lbl">Rate</span><span class="num">0.9<small>/s</small></span></div><div><span class="lbl">Range</span><span class="num">2.4</span></div></div>
+        <div class="ui-sect" style="margin-top:10px"><span class="ui-band"><span class="lbl">Paths</span></span><span class="ui-rule"></span></div>
+        <div class="col-f" style="gap:0">
+          <div class="row-f" style="height:28px;gap:8px;flex-wrap:nowrap;border-bottom:1px solid var(--line-ink-soft)"><i style="width:3px;height:16px;background:var(--path-1)"></i><i data-g="moon" class="s"></i><span class="name">Moonhound</span><span class="lbl">Ground familiar</span><span style="flex:1"></span><span class="ui-chip">Shreds armor</span></div>
+          <div class="row-f" style="height:28px;gap:8px;flex-wrap:nowrap;border-bottom:1px solid var(--line-ink-soft)"><i style="width:3px;height:16px;background:var(--path-2)"></i><i data-g="feather" class="s"></i><span class="name">Star Falcon</span><span class="lbl">Air familiar</span><span style="flex:1"></span><span class="ui-chip">Strong vs air</span></div>
+          <div class="row-f" style="height:28px;gap:8px;flex-wrap:nowrap"><i style="width:3px;height:16px;background:var(--path-3)"></i><i data-g="waves" class="s"></i><span class="name">Tide Otter</span><span class="lbl">Reach and water</span><span style="flex:1"></span><span class="ui-chip">Slows</span></div>
+        </div>
+        <div class="row-f" style="margin:auto -12px 0;padding:0 12px;height:52px;gap:8px;flex-wrap:nowrap;border-top:1px solid var(--line-ink-soft)">
+          <span class="lbl">Next LV</span><span data-tiles="book_rare:3,mat_rune_rare:2" class="row-f" style="gap:6px;flex-wrap:nowrap"></span>
+          <span style="flex:1"></span><a class="ui-ibtn" aria-label="Formation"><i data-g="shield"></i></a><button class="ui-btn pri"><i data-g="level"></i>Level up</button></div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<section>
+  <p class="cap-h">4 · Night home: graded scene, scrims, floating top bar, text rail (BATTLE pressed), right stack, chapter entry</p>
+  <div class="board night ui-night-zone">
+    <div class="ui-scene" style="--hx:52%;--hy:44%"><img src="${A.lobby}academy.webp" alt=""><div class="grade"></div><div class="lift"></div></div>
+    <div class="ui-scrim l"></div><div class="ui-scrim t"></div><div class="ui-scrim r"></div>
+    <div class="ui-host" style="left:252px;top:53px;width:310px;height:424px"><img src="${A.pt}ruri-cut.webp" alt="Ruri, the secretary"></div>
+    <div class="ui-scrim b"></div>
+    <header class="ui-topbar float" style="top:10px;height:32px;padding:0 16px">
+      <span class="row-f" style="gap:10px"><span style="width:32px;height:32px;border-radius:50%;background:#2a3a5c;box-shadow:inset 0 0 0 1px var(--line-hi)"></span>
+        <span class="col-f" style="gap:3px"><span class="body" style="line-height:1">Sensei</span><span class="row-f" style="gap:4px"><span class="lbl">LV</span><span class="num">8</span></span></span><span class="serial" aria-hidden="true">SNT-HQ</span></span>
+      <span class="ui-spacer"></span>
+      <span class="ui-pill"><i data-g="ticket"></i><span class="num">12</span><a class="ui-plus" aria-label="Buy tickets"><i data-g="plus"></i></a></span>
+      <span class="ui-pill np"><i data-cur="coins"></i><span class="num">284,650</span></span>
+      <span class="ui-pill"><i data-cur="gems"></i><span class="num">16,570</span><a class="ui-plus" aria-label="Buy gems"><i data-g="plus"></i></a></span>
+      <span class="ui-vr" style="margin:6px 4px"></span>
+      <a class="ui-ibtn" aria-label="Chat"><i data-g="chat"></i></a><a class="ui-ibtn" aria-label="Mail, 1 unread"><i data-g="mail"></i><span class="ui-count">1</span></a><a class="ui-ibtn" aria-label="Menu"><i data-g="grid"></i><i class="ui-dot"></i></a>
+    </header>
+    <nav class="ui-hrail ui-z" style="left:16px;top:50px;width:184px">
+      <a class="ui-hrow press"><i data-g="swords"></i><span class="menu-lbl">Battle</span></a>
+      <a class="ui-hrow"><i data-g="cap"></i><span class="menu-lbl">Students</span></a>
+      <a class="ui-hrow"><i data-g="sparkles"></i><span class="menu-lbl">Recruit</span><span class="ui-chip cy">Free pull</span></a>
+      <a class="ui-hrow"><i data-g="clipboard"></i><span class="menu-lbl">Commissions</span><i class="ui-dot"></i></a>
+      <a class="ui-hrow"><i data-g="flag"></i><span class="menu-lbl">Clan</span></a>
+      <a class="ui-hrow"><i data-g="bag"></i><span class="menu-lbl">Mall</span></a>
+      <a class="ui-hrow"><i data-g="users"></i><span class="menu-lbl">Multiplayer</span><span class="ui-count">2</span></a>
+    </nav>
+    <button class="ui-obj ui-z" style="right:16px;top:50px;width:272px"><span class="lbl cy">Next</span><span class="body">Clear 4-4 Howl of the Alpha</span><span class="ui-play"><i data-g="play"></i></span></button>
+    <button class="ui-news ui-z" style="right:16px;top:102px;width:272px"><span class="ui-thumb"><img src="${A.items}evt_halloween_candy-128.webp" alt=""></span>
+      <span class="col"><span class="k"><span class="lbl">Event</span><span class="ui-cd s"><i data-g="clock"></i><span class="t">10d 4h</span></span></span><span class="body">Pumpkin Lantern Night</span></span>
+      <span class="pager" aria-label="Next card, 1 of 3"><span class="ui-pips"><i class="on"></i><i></i><i></i></span></span></button>
+    <button class="ui-chap ui-z" style="right:16px;top:200px"><i data-emblem="gate"></i>
+      <span class="txt"><span class="lbl cy">Campaign · Chapter 4</span><span class="ui-rule"></span><span class="title">Ironhold Pass</span>
+        <span class="prog"><span class="ui-seg"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="num">3/5</span><i data-g="chevR"></i></span></span></button>
+    <div class="row-f ui-z" style="right:16px;top:322px;gap:8px;color:var(--on-ink);opacity:.86"><a class="ui-ibtn" aria-label="Hide UI"><i data-g="eyeoff"></i></a><a class="ui-ibtn" aria-label="Background and host"><i data-g="image"></i></a></div>
+  </div>
+</section>
+
+<section>
+  <p class="cap-h">5 · Controls, chips, badges and timers on paper (left) and ink (right)</p>
+  <div class="board day tall" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;width:844px">
+    <div class="col-f">
+      <div class="row-f"><button class="ui-btn pri">Start · Normal</button><button class="ui-btn sec">Go</button><button class="ui-btn ink dense">Claim</button></div>
+      <div class="row-f"><button class="ui-btn cost dense"><img src="${A.items}coins-128.webp" alt=""><span class="num">2,500</span></button><button class="ui-btn cost dense poor"><i data-g="lock"></i><img src="${A.items}coins-128.webp" alt=""><span class="num">40,000</span></button><button class="ui-btn danger dense">Sell</button></div>
+      <div class="row-f"><button class="ui-btn off dense"><i data-g="lock"></i>Sweep</button><span class="lbl">Clear on Hard</span><button class="ui-btn ghost">Where to get <i data-g="chevR" class="xs"></i></button></div>
+      <div class="row-f"><span class="ui-opt">Easy</span><span class="ui-opt on">Normal</span><span class="ui-opt">Hard</span><span class="ui-opt">Nightmare</span></div>
+      <div class="row-f"><span class="ui-chip rprobe">Shreds armor</span><span class="ui-chip ink">Mystic</span><span class="ui-chip cy">Open</span><span class="ui-chip on">SSR</span><span class="ui-rar r">R</span><span class="ui-rar sr">SR</span><span class="ui-rar ssr">SSR</span><span class="ui-rar ur">UR</span></div>
+      <div class="row-f"><i class="ui-dot"></i><span class="ui-count">3</span><span class="ui-bdg inprog">In Progress</span><span class="ui-bdg new">New</span><span class="ui-bdg soon"><i data-g="lock"></i>Coming soon</span><span class="ui-cd"><i data-g="clock"></i><span class="t">6d 4h</span></span><span class="ui-cd urgent"><i data-g="clock"></i><span class="t">11h</span></span></div>
+      <div class="row-f"><span class="ui-plate-head" style="margin:0;width:260px"><span class="name">Daily commissions</span></span><span class="ui-sect" style="width:160px"><span class="ui-band"><span class="lbl">Paths</span></span><span class="ui-rule"></span></span></div>
+      <div class="row-f"><span class="ui-seg" style="width:120px"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="ui-bar" style="width:120px;--v:40%"><i></i></span></div>
+    </div>
+    <div class="ui-panel ink solid pad col-f">
+      <div class="row-f"><button class="ui-btn sec">Join</button><button class="ui-btn ghost">Details <i data-g="chevR" class="xs"></i></button></div>
+      <div class="row-f"><span class="ui-opt dense on">First</span><span class="ui-opt dense">Last</span><span class="ui-opt dense">Strong</span><span class="ui-opt dense">Close</span></div>
+      <div class="row-f"><span class="ui-chip">Marksman</span><span class="ui-chip cy">Free pull</span><span class="ui-chip on">Owned</span><span class="ui-rar sr">SR</span></div>
+      <div class="row-f"><i class="ui-dot"></i><span class="ui-count">2</span><span class="ui-bdg new">New</span><span class="ui-bdg soon"><i data-g="lock"></i>Soon</span><span class="ui-cd"><i data-g="clock"></i><span class="t">5d 8h</span></span></div>
+      <div class="ui-strip"><div><span class="lbl">Dmg</span><span class="num">5</span></div><div><span class="lbl">Rate</span><span class="num">1.4<small>/s</small></span></div><div><span class="lbl">Range</span><span class="num">4.0</span></div></div>
+      <div class="row-f"><span class="ui-seg" style="width:120px"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span><span class="ui-emb live"><i data-g="users"></i></span><span class="ui-emb"><i data-g="timer"></i></span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="cap-h">6 · Tiles: the game's item tiles (the shipped slanted plate, C1) and gear tiles, a selected one beside a Mythic one (medium 3: the frame stays, a pink check chip and a 3 px pink bottom bar); girl tiles on the 5.6 ladder (.ui-girltile, C2); hub tiles; a day sheet</p>
+  <div class="board day tall" style="width:844px">
+    <div class="row-f" id="kit-items" data-probe="tile"></div>
+    <div class="row-f" id="kit-gear" style="margin-top:14px"></div>
+    <div class="row-f" style="margin-top:14px">
+      <span class="ui-girltile" data-face-top="0.3" data-face-bottom="0.62"><img class="card" src="${A.pt}aoi-card.webp" alt=""><span class="st"><span class="ui-chip ink" aria-hidden="true"><i data-g="check"></i></span></span><span class="role"><i data-g="target"></i></span><span class="cap"><span class="nm">Aoi</span><span class="lbl">LV</span><span class="num">48</span></span></span>
+      <span class="ui-girltile sr" data-face-top="0.3" data-face-bottom="0.62"><img class="card" src="${A.pt}ruri-card.webp" alt=""><span class="st"><span class="ui-bdg new">New</span></span><span class="role"><i data-g="paw"></i></span><span class="cap"><span class="nm">Ruri</span><span class="lbl">LV</span><span class="num">24</span></span></span>
+      <span class="ui-girltile ssr sel" data-face-top="0.3" data-face-bottom="0.62"><img class="card" src="${A.pt}miko-card.webp" alt=""><span class="glow" aria-hidden="true"></span><span class="st"><span class="ui-chip pick" aria-hidden="true"><i data-g="check"></i></span></span><span class="role"><i data-g="sparkle"></i></span><span class="cap"><span class="nm">Miko</span><span class="ui-rar ssr">SSR</span></span></span>
+      <span class="ui-girltile ur"><img class="card" src="${A.pt}aoi-card.webp" alt=""><span class="cap"><span class="nm">Aoi</span><span class="lbl">LV</span><span class="num">60</span></span></span>
+      <span class="ui-girltile sr locked"><img class="card" src="${A.pt}ruri-card.webp" alt=""><span class="role"><i data-g="paw"></i></span><span class="cap"><i data-g="lock"></i><span class="lbl">Clear 4-5</span></span></span>
+    </div>
+    <div class="row-f" style="margin-top:14px">
+      <a class="ui-hubtile" style="width:300px;height:150px"><img src="${A.lobby}academy.webp" alt=""><span class="tr"><span class="ui-cd s"><i data-g="clock"></i><span class="t">5d 13h</span></span></span><span class="cap"><span class="lbl">Weekly guest</span><span class="name">Bounty</span></span></a>
+      <a class="ui-hubtile locked" style="width:200px;height:150px"><img src="${A.lobby}academy.webp" alt=""><span class="cap"><span class="ui-bdg soon"><i data-g="lock"></i>Coming soon</span><span class="name">PvP · Rival Run</span></span></a>
+      <div class="ui-ksheet" style="width:280px;height:150px"><div class="ui-plate-head bleed"><span class="name">Buy · Study Guide</span><a class="ui-ibtn" aria-label="Close"><i data-g="x" class="s"></i></a></div><div style="padding:12px" class="row-f"><span data-tiles="book_rare:2"></span><button class="ui-btn pri dense"><img src="${A.items}coins-128.webp" alt=""><span class="num">6,000</span></button></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="cap-h">7 · Glyphs: 16 / 20 / 24 px on ink and on paper; selected = cyan</p>
+  <div class="board night tall ui-night-zone" id="gink" style="width:844px"></div>
+  <div class="board day tall" id="gpaper" style="width:844px"></div>
+</section>`;
+
+    // the game's item tiles where the mock-up drew its E5 tile (C1)
+    for (const host of root.querySelectorAll('[data-tiles]')) {
+      for (const part of host.dataset.tiles.split(',')) {
+        const [id, n] = part.split(':');
+        host.append(itemTile(id, Number(n), { size: 40, onClick: () => {} }));
+      }
+    }
+    // board 6, row 1: item tiles common → legendary, a Mythic one, and a selected ticket beside it (medium 3)
+    const items = document.getElementById('kit-items');
+    const row = [['coins', 5000], ['book_rare', 3], ['book_superRare', 2], ['book_mythic', 1], ['book_legendary', 1]];
+    for (const [id, n] of row) items.append(itemTile(id, n, { size: 56, onClick: () => {} }));
+    const selTicket = itemTile('ticket_recruit', 1, { size: 56, onClick: () => {}, selected: true });
+    selTicket.dataset.testid = 'kit-item-selected';
+    items.append(selTicket);
+    // board 6, row 2: gear tiles, the selected one beside an unselected Mythic one (medium 3)
+    const gearRow = document.getElementById('kit-gear');
+    const roll = (slot, rarity, level, seed) => ({ ...rollGear(createRng(seed), { slot, rarity, level }), uid: `kit-${seed}` });
+    const gears = [roll('charm', 'common', 0, 1), roll('ribbon', 'rare', 2, 2), roll('shoes', 'superRare', 4, 3), roll('charm', 'mythic', 3, 4), roll('charm', 'legendary', 8, 5)];
+    for (const g of gears) gearRow.append(gearTile(g, { mainIcon: true, onClick: () => {}, testid: `kit-gear-${g.rarity}` }));
+    gearRow.append(gearTile(roll('ribbon', 'rare', 1, 6), { mainIcon: true, onClick: () => {}, selected: true, testid: 'kit-gear-selected' }));
+    gearRow.append(gearTile(roll('shoes', 'mythic', 0, 7), { mainIcon: true, onClick: () => {}, testid: 'kit-gear-mythic-2' }));
+
+    // board 7: the glyph sheet
+    for (const id of ['gink', 'gpaper']) {
+      const el = document.getElementById(id);
+      el.innerHTML = Object.entries(glyphs.GLYPH_GROUPS).map(([grp, names]) => `<p class="lbl" style="margin:6px 0 8px">${grp}</p><div style="display:flex;flex-wrap:wrap;gap:6px 10px">`
+        + names.map((n, i) => `<span title="${n}" style="display:flex;align-items:center;gap:4px;padding:3px 4px;min-width:96px${i === 0 && grp === 'Home rail' ? `;color:${id === 'gink' ? 'var(--cyan)' : 'var(--cyan-ink)'}` : ''}">${glyphs.lineGlyph(n, 'xs').replace('class="g lg xs"', 'class="g lg" style="width:16px;height:16px;--stroke:1.25"')}${glyphs.lineGlyph(n).replace('class="g lg"', 'class="g lg" style="width:20px;height:20px"')}${glyphs.lineGlyph(n).replace('class="g lg"', 'class="g lg" style="width:24px;height:24px"')}<span class="lbl" style="font-size:12px;letter-spacing:.04em;text-transform:none">${n}</span></span>`).join('') + '</div>').join('')
+        + `<div style="display:flex;gap:16px;align-items:center;margin-top:12px">${glyphs.emblemSvg('gate', { size: 64 })}${glyphs.emblemSvg('gate', { size: 88 })}${glyphs.emblemSvg('petal', { size: 64 })}${glyphs.emblemSvg('gate', { size: 40 })}<span class="lbl">Chapter emblems: 4 Ironhold Pass (64 / 88), 1 Sakura Gardens, row size 40</span></div>`;
+    }
+    glyphs.hydrateGlyphs(root);
+    // coins and gems wear their colour art (kit.js curArt; owner, Oct 27), every other glyph its line drawing
+    const { curArt } = await load('/src/ui/kit.js');
+    for (const el of root.querySelectorAll('i[data-cur]')) el.replaceWith(curArt(el.dataset.cur));
+    await document.fonts.ready;
+    // wait for the images (the item art is lazy: load it now), so a screenshot never catches a half-loaded board
+    for (const im of document.images) im.loading = 'eager';
+    const loaded = Promise.all([...document.images].map((im) => (im.complete ? null : new Promise((r) => { im.addEventListener('load', r); im.addEventListener('error', r); }))));
+    await Promise.race([loaded, new Promise((r) => setTimeout(r, 8000))]);
+    document.body.dataset.kitReady = '1';
+  } catch (e) {
+    console.error(e);
+    root.append(Object.assign(document.createElement('p'), { className: 'kit-err', textContent: `The ink kit is not built in this checkout yet (${e.message}).` }));
+    document.body.dataset.kitError = String(e.message);
+    document.body.dataset.kitReady = '1';
+  }
+</script>
+</body>
+</html>

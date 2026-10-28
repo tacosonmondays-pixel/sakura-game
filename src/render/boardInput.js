@@ -9,6 +9,40 @@
 //   const input = attachBoardInput(canvas, { rig, pick, gestures, onTap, onLongPress });
 //   input.dispose();
 
+/**
+ * The board point under a pointer ray, rooftops included (Gate Arc 'U' tiles). A roof's top stands
+ * `roofY` above the ground, so a ray that meets that height over a rooftop tile lands on the roof
+ * (at the 48° battle camera a 0.56 roof moves the ground hit about half a tile); one that crosses
+ * it beside a roof and then enters a block through its wall lands at that wall (a spot on the
+ * roof's edge, which placement refuses); anything else lands on the ground. Pure, for node tests.
+ * @param {{ origin: { x: number, y: number, z: number }, direction: { x: number, y: number, z: number } }} ray
+ * @param {((x: number, z: number) => number)|null} roofAt rooftop height at a board point (0 off the roofs)
+ * @param {number} roofY the roofs' height
+ * @returns {{ x: number, y: number, roof: boolean, wall: boolean }|null} board coords (y = world z), null when the ray misses the board's plane
+ */
+export function boardPoint(ray, roofAt, roofY) {
+  const o = ray.origin;
+  const d = ray.direction;
+  if (!(Math.abs(d.y) > 1e-9)) return null;
+  const tg = -o.y / d.y;
+  if (tg < 0) return null;
+  if (roofAt && roofY > 0 && o.y > roofY) {
+    const tr = (roofY - o.y) / d.y;
+    const rx = o.x + d.x * tr;
+    const rz = o.z + d.z * tr;
+    if (roofAt(rx, rz) > 0) return { x: rx, y: rz, roof: true, wall: false };
+    // below the roofs' height and above the ground: the first point inside a block is its wall
+    const N = 16;
+    for (let k = 1; k < N; k++) {
+      const t = tr + ((tg - tr) * k) / N;
+      const x = o.x + d.x * t;
+      const z = o.z + d.z * t;
+      if (roofAt(x, z) > 0) return { x, y: z, roof: false, wall: true };
+    }
+  }
+  return { x: o.x + d.x * tg, y: o.z + d.z * tg, roof: false, wall: false };
+}
+
 /** A still press this long (ms) is a long press. */
 export const LONG_PRESS_MS = 520;
 /** A long-press timer this late (ms past its deadline) waits one more task for a queued release. */

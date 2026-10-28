@@ -27,6 +27,7 @@ import {
   achievementNotice, redeemCode,
 } from '../../systems/missions.js';
 import { achievementsView } from './achievements/list.js';
+import { tabSwap } from '../motion.js';
 import { tile, showRewardsModal, ask, rememberParams } from './stage.js';
 
 const TAB_IDS = ['daily', 'weekly', 'login', 'achievements', 'codes'];
@@ -91,6 +92,7 @@ export function render(root, params = {}) {
       active = id;
       rememberParams('commissions', { tab: id, cat: null, view: null, highlight: null });
       draw();
+      tabSwap(content.firstElementChild); // (the new tab's list: a crossfade and a 12 px shift, motion.js)
     }, { label: 'Commissions', cls: 'cm-rail' });
     // (each word in its own span: a narrow portrait screen shows the open tab's word only; the tab's name stays in
     // its aria-label)

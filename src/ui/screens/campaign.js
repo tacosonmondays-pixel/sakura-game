@@ -5,6 +5,9 @@
 // UI M5b (docs/specs/UI_DIRECTION.md §7 M5, P3): the tier names sit on plates (the tier's fill with navy letters,
 // like the banner's), and a stage card holds at most 2 numbers: its id, its name, its medals, its tier and what it
 // unlocks. The waves, the ribbon count, the map rule and the new mechanic leave the card: stage prep shows them all.
+// Gate Arc (docs/CAMPAIGN.md "Act II"): a chapter draws one row per act (src/ui/screens/campaignActs.js); a chapter
+// with Act I alone draws the plain grid with no header, exactly as before. A chapter whose Act II is open and
+// untouched wears a yellow dot on its tab (something new inside) and a NEW sticker on the act's header.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, screen, svgEl } from '../components.js';
@@ -23,6 +26,7 @@ import { uiIcon, medalIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isStageUnlocked, chapterProgress, nextStage, stageMedals } from '../../systems/unlocks.js';
 import { medalRow, requirementText, cssVar, rememberParams, savedBadge } from './stage.js';
+import { actRows, actRowHeader, chapterHasNewAct, actNewDot, echoGhost } from './campaignActs.js';
 
 const TIER_KEYS = Object.keys(MAP_TIER_VIEW);
 
@@ -59,9 +63,11 @@ export function render(root, params = {}) {
         const prog = chapterProgress(profile, c.id);
         const locked = !isStageUnlocked(profile, c.stages[0]);
         const active = c.id === chapterId;
+        const newAct = !locked && chapterHasNewAct(profile, c);
         const tab = h(
-          `button.ma-chapter-tab${active ? '.active' : ''}${locked ? '.locked' : ''}`,
+          `button.ma-chapter-tab${active ? '.active' : ''}${locked ? '.locked' : ''}${newAct ? '.has-new-act' : ''}`,
           { role: 'tab', 'aria-selected': active ? 'true' : 'false', 'data-testid': `chapter-${c.id}`, onclick: () => select(c.id) },
+          newAct ? actNewDot({ testid: `chapter-new-act-${c.id}` }) : null,
           h('span.ma-ct-num', `${c.id}`),
           // [ui-m5] say it once (P7): a cleared chapter shows its medal, a started one "n/m", an untouched one "New"
           h('span.ma-ct-text', h('span.ma-ct-name', c.name), h('span.ma-ct-prog', locked ? 'Locked' : prog.cleared === prog.total ? 'Cleared' : prog.cleared ? `${prog.cleared}/${prog.total} cleared` : 'New')),
@@ -81,13 +87,20 @@ export function render(root, params = {}) {
     clear(content);
     const chapter = CHAPTERS.find((c) => c.id === chapterId);
     content.appendChild(chapterBanner(profile, chapter));
-    const grid = h('div.ma-stage-grid');
-    chapter.stages.forEach((id, i) => {
-      const card = stageCard(profile, id, { isNext: id === next });
-      card.style.animationDelay = `${i * 45}ms`;
-      grid.appendChild(card);
-    });
-    content.appendChild(grid);
+    const rows = actRows(profile, chapter);
+    let n = 0;
+    const grid = (ids) => {
+      const g = h('div.ma-stage-grid');
+      ids.forEach((id) => {
+        const card = stageCard(profile, id, { isNext: id === next });
+        card.style.animationDelay = `${n++ * 45}ms`;
+        g.appendChild(card);
+      });
+      return g;
+    };
+    // one act: the plain grid, no header (the screen as it always was); two: a header above each act's grid
+    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages));
+    else for (const row of rows) content.appendChild(h(`section.ma-act-row.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids)));
   };
 
   drawTabs();
@@ -149,13 +162,15 @@ function stageCard(profile, stageId, { isNext }) {
   const cleared = DIFFICULTY_ORDER.some((d) => medals[d]);
   const tier = MAP_TIER_VIEW[stage.tier];
   const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
-  const isFinale = stage.id.endsWith('-5');
+  const isFinale = !!stage.finale;
 
   const card = h(
     `button.ma-stage-card${unlocked ? '' : '.locked'}${isNext ? '.next' : ''}${cleared ? '.cleared' : ''}${isFinale ? '.finale' : ''}`,
     { 'data-testid': `stage-${stageId}`, onclick: () => navigate('stage', { id: stageId }) },
     h('div.ma-sc-top',
       h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
+      // an echo stage (Gate Arc 1-10): the stage it echoes shows through faintly
+      map?.echoOf ? echoGhost(map) : null,
       h('span.ma-sc-id', stage.id),
       isNext ? h('span.ma-sc-next', 'NEXT') : null,
       medalRow(profile, stageId, { size: 22, cls: 'ma-sc-medals' }),
