@@ -1,0 +1,113 @@
+/* The club lab hub: Workbench (timed) + Craft Room (instant). docs/specs/BANNERS.md §G, UI_DIRECTION E3 / §5.9.
+   Sizes come from the type tokens only (nothing under 12 px: tools/cssFloor.mjs). */
+
+.wb-wrap { display: flex; gap: var(--sp-3); align-items: flex-start; min-height: 100%; }
+.wb-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* E3 left section rail: a vertical stack of the kit's slanted tabs */
+.ui-rail.wb-rail { flex-direction: column; height: auto; width: 170px; gap: var(--sp-2); position: sticky; top: 0; padding: 4px 6px 0 2px; }
+.wb-rail .ui-tab { flex: none; height: auto; min-height: 48px; justify-content: flex-start; }
+.wb-rail .ui-tab.on::after { left: auto; right: -2px; top: 10px; bottom: 10px; width: 3px; height: auto; }
+.wb-rail .ui-tab > span { color: inherit; }
+.wb-rail .ui-tab.on > span { color: var(--yellow); font-style: italic; }
+
+.wb-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.wb-head-text { min-width: 0; }
+.wb-title { margin: 0; font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.wb-sub { margin: 2px 0 0; font-size: var(--fs-label); color: var(--muted); }
+.wb-reset { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); font-weight: 700; color: var(--muted); }
+
+/* §5.9 countdown chip: a plate pill, clock + time; red under an hour */
+.wb-cd {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  min-height: 24px; padding: 2px 9px 2px 6px; border-radius: 999px;
+  background: var(--plate); color: var(--on-plate);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.02em; white-space: nowrap; text-transform: none;
+}
+.wb-cd.soon { color: #ff9fb0; }
+.wb-cd-ico { width: 14px; height: 14px; }
+
+/* slots */
+.wb-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.wb-slot {
+  display: flex; flex-direction: column; gap: 6px; min-height: 132px; padding: var(--sp-2) 10px;
+  border-radius: var(--radius); background: var(--panel); border: 1px solid var(--panel-border);
+  box-shadow: 0 2px 8px rgba(29, 78, 137, 0.12); text-align: left; color: var(--ink); font: inherit;
+}
+.wb-slot-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; font: 700 var(--fs-label)/1.2 var(--font-num); text-transform: uppercase; letter-spacing: 0.04em; }
+.wb-slot-body { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.wb-slot-text { display: flex; flex-direction: column; min-width: 0; }
+.wb-slot-text b { font-size: var(--fs-body); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; }
+.wb-slot-fam { font-size: var(--fs-label); color: var(--muted); }
+.wb-slot-note { margin: 0; font-size: var(--fs-body); font-weight: 700; color: var(--muted); }
+.wb-slot-hint { margin: 0; font-size: var(--fs-label); color: var(--muted); }
+.wb-slot .btn { margin-top: auto; align-self: stretch; }
+.wb-slot.empty { cursor: pointer; border-style: dashed; border-color: rgba(43, 127, 255, 0.45); background: rgba(255, 255, 255, 0.6); justify-content: center; }
+.wb-slot.empty.target { border: 2px solid var(--blue); background: var(--blue-soft); }
+.wb-slot.empty.target .wb-slot-note { color: var(--blue-deep, #1d4e89); }
+.wb-slot.locked { background: rgba(255, 255, 255, 0.45); justify-content: center; }
+.wb-slot.ready { border: 2px solid var(--yellow); box-shadow: 0 0 0 3px rgba(255, 221, 74, 0.35), 0 2px 8px rgba(29, 78, 137, 0.12); }
+.wb-slot.unknown { border: 2px dashed var(--muted); }
+.wb-ready-tag { padding: 2px 8px; border-radius: 999px; background: var(--yellow); color: var(--ink); font: 800 var(--fs-label)/1.2 var(--font-num); }
+.wb-bar { height: 6px; border-radius: 3px; background: rgba(43, 127, 255, 0.15); overflow: hidden; }
+.wb-bar-fill { display: block; height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.6s; }
+
+/* recipes */
+.wb-panel { padding: var(--sp-2) 10px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--panel-border); box-shadow: 0 2px 8px rgba(29, 78, 137, 0.1); }
+.wb-fams { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-bottom: var(--sp-2); border-bottom: 1px solid rgba(43, 127, 255, 0.15); }
+.wb-fams-lbl { font: 700 var(--fs-label)/1 var(--font-num); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-right: 2px; }
+.wb-fams-name { font-size: var(--fs-label); font-weight: 800; color: var(--ink); margin-left: 4px; }
+.wb-fam {
+  width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  border-radius: 10px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 -3px 0 var(--fam, #ccc);
+}
+.wb-fam.on { border-color: var(--plate); background: #fff; box-shadow: inset 0 -3px 0 var(--fam, #ccc), 0 0 0 2px var(--yellow); }
+.wb-fam-ico { width: 30px; height: 30px; }
+
+.wb-recipes { display: flex; flex-direction: column; }
+.wb-recipe {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-2);
+  padding: 6px 2px; border-bottom: 1px solid rgba(43, 127, 255, 0.1);
+}
+.wb-recipe:last-child { border-bottom: 0; }
+.wb-recipe-tile { display: flex; }
+.wb-recipe-text { display: flex; flex-direction: column; min-width: 0; }
+.wb-recipe-text b { font-size: var(--fs-body); line-height: 1.2; }
+.wb-recipe-meta { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-label); color: var(--muted); flex-wrap: wrap; }
+.wb-time { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: var(--ink); }
+.wb-time-ico { width: 14px; height: 14px; }
+.wb-cap.out { color: var(--bad); font-weight: 800; }
+.wb-costs { display: flex; gap: 4px; }
+.wb-cost { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 2px 7px 2px 3px; border-radius: 999px; background: var(--blue-soft); font: 600 var(--fs-label)/1 var(--font-num); color: var(--ink); white-space: nowrap; }
+.wb-cost b { font-weight: 800; }
+.wb-cost.short { background: #ffe1e7; color: #b0213c; }
+.wb-cost-ico { width: 22px; height: 22px; }
+.wb-recipe .btn { min-width: 92px; }
+
+/* Craft Room section */
+.wb-craft { display: flex; flex-direction: column; gap: var(--sp-2); }
+.wb-craft-group { display: flex; align-items: center; gap: var(--sp-2); padding-left: 8px; border-left: 4px solid var(--fam, #ccc); }
+.wb-craft-name { width: 110px; flex: none; font-size: var(--fs-label); font-weight: 800; color: var(--ink); }
+.wb-craft-tiles { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-empty { margin: 0; font-size: var(--fs-body); color: var(--muted); }
+
+/* landscape phones (844 × 390): a narrower rail, shorter slots, costs under the name */
+@media (max-height: 480px) {
+  .wb-wrap { gap: var(--sp-2); }
+  .ui-rail.wb-rail { width: 132px; }
+  .wb-rail .ui-tab { min-height: 44px; padding: 0 var(--sp-2); }
+  .wb-slot { min-height: 108px; padding: 6px 8px; gap: 4px; }
+  .wb-sub { display: none; }
+  .wb-recipe { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 4px; }
+  .wb-recipe .wb-costs { grid-column: 2 / 3; grid-row: 2; }
+  .wb-recipe .btn { grid-column: 3; grid-row: 1 / 3; min-width: 84px; }
+  .wb-recipe-tile { grid-row: 1 / 3; }
+  .wb-craft-name { width: 90px; }
+}
+@media (max-width: 640px) {
+  .wb-wrap { flex-direction: column; }
+  .ui-rail.wb-rail { flex-direction: row; width: 100%; position: static; }
+  .wb-rail .ui-tab { flex: 1 1 0; }
+  .wb-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
