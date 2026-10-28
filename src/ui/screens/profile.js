@@ -213,7 +213,7 @@ function profileView(m, ctx) {
 
   // ---- top bar
   const acts = preview
-    ? [h('span.pf-preview-tag', ico('eye'), preview.onlyMe ? 'Preview · only you can see your profile' : 'Preview · what other Senseis see'), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
+    ? [h('span.pf-preview-tag', ico('eye'), h('span.rk-wide', preview.onlyMe ? 'Preview · only you can see your profile' : 'Preview · what other Senseis see'), h('span.rk-narrow', 'Preview')), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
     // (Edit profile is the cyan-edged one: the sheet it opens holds the one yellow, Save)
     : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('edit', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
       : visit ? visit.acts : null;

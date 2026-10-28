@@ -60,11 +60,6 @@ function sec(title, ...children) {
     ...children);
 }
 
-/** The kit's ink row button (Claim on a row: never a second yellow). */
-const inkButton = (label, { onClick, disabled = false, testid = null, icon = null } = {}) => h('button.ui-btn.ink.ev-act', {
-  type: 'button', 'data-testid': testid, disabled, onclick: onClick,
-}, icon ? glyphIco(icon) : null, h('span', label));
-
 /** Reward tiles at a tap's size (the shipped item tile, 50 px: 46 px tall). */
 const rewardRow = (rewards) => h('div.ev-rw', rewards.map((r) => itemTile(r.id, r.count, { size: 50 })));
 
@@ -335,19 +330,19 @@ function missionsTab(ev, phase, now, refresh) {
   const profile = store.profile;
   if (phase !== 'active') return sec('Missions', h('p.desc', { 'data-testid': 'event-missions-closed' }, 'Missions are over — unclaimed rewards were sent to your Mail.'));
   const rows = missionRows(profile, ev, now);
+  // one control a row (P2): the Claim carries its reward (the colour icon and the count); a claimed row says so
   const row = (m) => h(`div.ev-mis${m.claimed ? '.claimed' : m.done ? '.done' : ''}`, { 'data-testid': `event-mission-${m.id}`, 'data-probe': 'tile' },
     h('div.ev-mis-text', h('b', m.name), h('span.desc', m.desc),
       m.claimed ? null : h('div.ev-mis-prog',
         h('span.ui-bar', { style: { '--v': `${Math.min(100, Math.round((m.progress / m.goal) * 100))}%` } }, h('i')),
         h('span.num', `${formatNumber(m.progress)}/${formatNumber(m.goal)}`))),
-    h('div.ev-mis-rw', rewardRow(m.rewards)),
-    h('div.ev-mis-act', m.claimed ? h('span.ev-claimed', glyphIco('check'), h('span', 'Claimed')) : inkButton('Claim', {
-      disabled: !m.claimable, testid: `claim-${m.id}`,
-      onClick: () => {
+    h('div.ev-mis-act', m.claimed ? h('span.ev-claimed', glyphIco('check'), h('span', 'Claimed')) : h('button.ui-btn.ink.ev-act', {
+      type: 'button', 'data-testid': `claim-${m.id}`, disabled: !m.claimable, title: rewardText(m.rewards), 'aria-label': `Claim ${rewardText(m.rewards)}`,
+      onclick: () => {
         const r = claimEventMission(store.profile, ev.id, m.id, eventNow());
         if (r.ok) { store.commit('event'); toast(`Claimed: ${rewardText(r.rewards)}`, 'good'); refresh(); }
       },
-    })));
+    }, m.rewards.map((x) => h('span.ev-act-rw', svgEl(itemIcon(x.id, { px: 22 }), 'ev-mini'), h('span.num', `×${formatNumber(x.count)}`))), h('span.sep', { 'aria-hidden': 'true' }), h('span', 'Claim'))));
   const any = [...rows.daily, ...rows.total].some((m) => m.claimable);
   return h('div.ev-missions',
     // [ui-m5] the event's daily reset: a recurring cycle (never red); at zero the new day's missions show

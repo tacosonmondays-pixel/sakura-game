@@ -130,7 +130,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 /* a phone held upright: the list on top (it scrolls down, never sideways), the open lesson under it */
 @media (max-aspect-ratio: 1/1) {
   :is(.ui-day) .jn { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  :is(.ui-day) .jn-list { max-height: round(down, 36dvh, var(--jn-row)); }
+  :is(.ui-day) .jn-list { max-height: round(down, 30dvh, var(--jn-row)); }
 }
 /* narrow: Tutorial is its glyph alone (its name stays in aria-label), so the title keeps its words */
 @media (max-width: 560px) {
@@ -329,7 +329,10 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 /* Missions: kit rows (one ink Claim each), Claim all the page's one yellow beside the daily reset */
 :is(.ui-day) .ev-mis-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 :is(.ui-day) .ev-claim-all.ui-btn { --h: calc(var(--tap) + 2px); }
-:is(.ui-day) .ev-mis { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 14px; min-height: 64px; padding: 8px 0; border-bottom: 1px solid var(--line-ink-soft); }
+:is(.ui-day) .ev-mis { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 14px; min-height: 64px; padding: 8px 0; border-bottom: 1px solid var(--line-ink-soft); }
+:is(.ui-day) .ev-act-rw { display: inline-flex; align-items: center; gap: 3px; }
+:is(.ui-day) .ev-act .num { font-size: var(--fs-num-s); }
+:is(.ui-day) .ev-act .ev-mini { width: 22px; height: 22px; }
 :is(.ui-day) .ev-mis:last-child { border-bottom: 0; }
 :is(.ui-day) .ev-mis-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 :is(.ui-day) .ev-mis-text > b { font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
@@ -338,7 +341,8 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ev-mis-prog .ui-bar { width: min(180px, 40%); flex: none; }
 :is(.ui-day) .ev-mis-prog .num { font-size: var(--fs-label); color: var(--ink); }
 :is(.ui-day) .ev-rw { display: flex; gap: 6px; }
-:is(.ui-day) .ev-mis.claimed .ev-rw { filter: grayscale(0.7); }
+/* (a 64 px tile on desktop: its count at the 13 px floor; the inline 50 px is the phone's) */
+@media (min-height: 481px) { :is(.ui-day) .ev-rw .item-tile { width: 64px !important; } :is(.ui-day) .ev-gifts { grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); } }
 :is(.ui-day) .ev-mis-act { min-width: 96px; display: flex; justify-content: flex-end; }
 :is(.ui-day) .ev-act.ui-btn { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); }
 :is(.ui-day) .ev-claimed { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
@@ -369,7 +373,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ev-gift-next { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; background: var(--plate); color: var(--on-ink);
   font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
 :is(.ui-day) .ev-gift.got .ev-rw { filter: grayscale(0.7); }
-@media (max-width: 520px) { :is(.ui-day) .ev-op.boss { grid-column: auto; } :is(.ui-day) .ev-mis { grid-template-columns: minmax(0, 1fr) auto; } :is(.ui-day) .ev-mis-rw { grid-column: 1; } }
+@media (max-width: 520px) { :is(.ui-day) .ev-op.boss { grid-column: auto; } }
 
 /* ==========================================================================================================
    SENSEI PROFILE (#/profile, a visit #/profile/<id>, Preview): the ink bar over the banner, her night nameplate,
@@ -384,6 +388,17 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .pf-preview-tag { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 0; background: var(--plate-2); color: var(--on-ink);
   box-shadow: inset 0 0 0 1px var(--line-lo); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
 :is(.ui-day) .pf-preview-tag .pf-ico { width: 14px; height: 14px; color: var(--on-ink-dim); }
+:is(.ui-day) .rk-narrow { display: none; }
+/* a phone held upright: the bar's buttons are their glyphs (names in aria-label), the Preview tag one word */
+@media (max-width: 560px) {
+  :is(.ui-day) .rk-wide { display: none; }
+  :is(.ui-day) .rk-narrow { display: inline; }
+}
+@media (max-width: 440px) {
+  :is(.ui-day) .pf-top-acts { gap: 4px; }
+  :is(.ui-day) .pf-top-acts .rk-topbtn:not([data-testid="profile-preview-close"]) > span:not(.pf-ico) { display: none; }
+  :is(.ui-day) .pf-top-acts .rk-topbtn:not([data-testid="profile-preview-close"]) { width: var(--tap); justify-content: center; padding: 0; }
+}
 /* the banner's button: dark glass on the painting, its tap square inside the scroller and clear of the bar's
    (they hang 6 px under the band) */
 :is(.ui-day) .pf-onart.pf-banner-edit { top: 16px; height: 30px; padding: 0 12px 0 9px; border-radius: 0; background: rgba(14, 25, 48, 0.72); box-shadow: inset 0 0 0 1px var(--line-hi);
@@ -460,6 +475,8 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .pf-tc b { font: 700 var(--fs-num-s)/1 var(--font-num); }
 :is(.ui-day) .pf-shelf-empty { border-radius: 0; border: 1px dashed var(--line-ink); }
 :is(.ui-day) .pf-plaque { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+/* (a plaque's words wrap rather than end in "…" on a narrow shelf) */
+:is(.ui-day) .pf-plaque .tx :is(b, span) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
 :is(.ui-day) .pf-plaque .pin { top: 4px; background: var(--plate); box-shadow: inset 0 0 0 1.5px var(--line-lo); }
 :is(.ui-day) .pf-plaque.honor-special::before { border-radius: 0; }
 :is(.ui-day) .pf-honors { border-radius: 0; background: var(--plate); box-shadow: none; min-height: var(--tap); }
@@ -641,5 +658,5 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   :is(.ui-day) .ep-prev { display: none; }
   :is(.ui-day) .ep-nav.ui-srail { --rail-w: 132px; }
   :is(.ui-day) .es-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  :is(.ui-day) .pf-foot-why { display: none; }
+  :is(.ui-day) :is(.pf-foot-why, .pf-sheet-extra .es-tip, .pf-sheet-extra .pp-note) { display: none; }
 }
