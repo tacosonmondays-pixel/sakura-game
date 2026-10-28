@@ -25,7 +25,10 @@ const POP_TIME = 0.4;
 /** Hold the Line barricades shrink away over their last this-many seconds. */
 const FADE_TIME = 0.5;
 /** Big Yellow's size beside her (the chibi stands in front of it) and on the road (the plow). */
-const WALKER_SCALE = 1.25;
+const WALKER_SCALE = 1.75;
+/** Big Yellow's spot beside her, in tiles: behind her and to one side. */
+const WALKER_BACK = 0.3;
+const WALKER_SIDE = 0.34;
 const PLOW_SCALE = 1.45;
 
 const COL = {
@@ -346,7 +349,7 @@ export class StaffFx {
     const lean = worn * 0.12 + (this.reduceMotion || worn === 0 ? 0 : Math.sin(this.time * 18 + b.uid) * 0.025 * worn);
     _e.set(lean, s.yaw, 0, 'YXZ');
     _q.setFromEuler(_e);
-    const size = line ? 1.15 : 1.05;
+    const size = line ? 1.3 : 1.25;
     _p.set(b.x, 0.03, b.y);
     _s.set(size * sc, size * sc, size * sc);
     _m.compose(_p, _q, _s);
@@ -465,8 +468,9 @@ export class StaffFx {
     }
     const k = back != null && !this.reduceMotion ? pop(back / 0.4) : 1;
     const f = v.facing || 0;
-    const x = m.position.x - Math.sin(f) * 0.32;
-    const z = m.position.z - Math.cos(f) * 0.32;
+    // behind her and to her left, so both read from the high battle camera
+    const x = m.position.x - Math.sin(f) * WALKER_BACK + Math.cos(f) * WALKER_SIDE;
+    const z = m.position.z - Math.cos(f) * WALKER_BACK - Math.sin(f) * WALKER_SIDE;
     const bob = this.reduceMotion ? 0 : Math.sin(this.time * 2.2 + h.uid) * 0.012;
     const sc = WALKER_SCALE * heroK * k;
     _e.set(0, f, 0, 'YXZ');
