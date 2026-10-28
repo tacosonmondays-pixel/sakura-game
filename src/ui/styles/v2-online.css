@@ -229,7 +229,9 @@
 :is(.ui-day) .ol-coop-foot { justify-content: space-between; align-items: center; gap: 8px; }
 :is(.ui-day) .ol-seg-btn { min-width: calc(var(--tap) + 2px + var(--s)); }
 @media (max-height: 480px) {
-  :is(.ui-day) .ol-coop-cols { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  /* (two columns only where the page is wide enough: under 700 px the panels stack, as before, so the hub's foot never
+     sits under the bottom-centre "Open in another tab" banner) */
+  @media (min-width: 701px) { :is(.ui-day) .ol-coop-cols { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
   :is(.ui-day) .ol-coop-cols > .panel, :is(.ui-day) .ol-coop-right > .panel { padding: 8px 12px 10px; }
   :is(.ui-day) .ol-coop-cols .panel-title { margin: -8px -12px 8px; }
   :is(.ui-day) .ol-stage-thumb { width: 132px; }
