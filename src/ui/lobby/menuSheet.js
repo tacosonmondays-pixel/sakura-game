@@ -78,7 +78,7 @@ export function openMenuSheet({ dots = {}, go, onClose = null, reduced = false }
   };
   const closeBtn = h('button.ui-ibtn', { type: 'button', 'aria-label': 'Close the menu', title: 'Close', 'data-testid': 'menu-sheet-close', onclick: () => close() }, svg('x'));
   const sheet = h(`aside.ui-sheet.side.home-menu${reduced ? '.ui-fade' : '.home-menu-in'}`, { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Menu', 'data-testid': 'menu-sheet' },
-    h('div.m-head', h('span.lbl.ink', 'Menu'), h('span.sp'), h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Esc'), closeBtn),
+    h('div.m-head', h('span.lbl.ink', 'Menu'), h('span.ui-spacer'), h('span.ui-kbd', { 'aria-hidden': 'true' }, 'Esc'), closeBtn),
     ...MENU_GROUPS.flatMap((g) => [
       h('div.ui-sect.m-k', h('span.lbl', g.label), h('span.ui-rule')),
       h('div.m-grid', { 'data-group': g.id }, g.rows.map(row)),

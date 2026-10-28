@@ -132,7 +132,7 @@
 .home-menu.home-menu-in { animation: home-menu-in 220ms var(--ease) both; }
 @keyframes home-menu-in { from { opacity: 0; transform: translateX(16px); } }
 .home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 12px; }
-.home-menu .m-head .sp { flex: 1; }
+.home-menu .m-head .ui-spacer { flex: 1; }
 .home-menu .m-k { flex: none; margin-top: 16px; display: flex; align-items: center; gap: 8px; }
 .home-menu .m-k .ui-rule { flex: 1; }
 .home-menu .m-k + .m-grid { margin-top: 8px; }
@@ -196,7 +196,7 @@ html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms line
 @media (max-width: 700px) and (min-height: 481px) {
   .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
   .home .home-top .who { height: 44px; order: 0; }
-  .home .home-top .sp { order: 1; }
+  .home .home-top .ui-spacer { order: 1; }
   .home .home-top > .ui-ibtn, .home .home-top > .ol-top-chat { order: 2; }
   .home .home-top .ui-vr { order: 3; flex-basis: 100%; height: 0; margin: 0; background: none; }
   .home .home-top .ui-pill { order: 4; }
