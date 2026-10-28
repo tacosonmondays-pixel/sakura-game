@@ -20,6 +20,20 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Ultimates',
+    added: [
+      'Tower abilities are here! Upgrade a girl along her ability path and her ultimate joins the ability bar: tap it to cast, or hold it (right-click on PC) and switch on Auto. Heroes get their skill button too.',
+      'Meet Tenka, the Coilgun Physicist and the ultimate tower: her Critical Mass blast ignores armor. Find her in the "New: Tenka" spotlight in Recruit, and your 300th recruit without her is always her.',
+    ],
+    changed: [
+      'Tap a placed girl to open the new tactical drawer: her stats, her three paths, her targeting and her ability in one place. Tap a price twice to buy.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Seiran’s Dragonflight now flies all the way back to the start of the road.',
+    ],
+  },
+  {
     id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
     added: [
       'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',
