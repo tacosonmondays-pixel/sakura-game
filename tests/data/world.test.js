@@ -41,7 +41,7 @@ const STAGE_KEYS = [
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
 const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus', 'drowned'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus', 'drowned', 'vesper'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
 const ERA_BY_THEME = {
@@ -738,6 +738,44 @@ describe('maps', () => {
     const sub = getMap('noon_flooded_platform').tracks[0];
     expect(sub.inside).toBe(true);
     expect(sub.tunnels[0][0]).toBeLessThan(0.5);
+  });
+
+  it('Vesperline (Gate Arc Step 6): six maps on the vesper theme, and 6-7 raises the first viaduct', () => {
+    expect(MAPS.length).toBe(80);
+    const vesper = MAPS.filter((m) => m.theme === 'vesper');
+    expect(vesper.map((m) => m.id)).toEqual([
+      'vesper_frost_causeway', 'vesper_skyrail', 'vesper_museum', 'vesper_tower_ring', 'vesper_spindle_foot', 'vesper_starfall',
+    ]);
+    for (const m of vesper) {
+      expect(m.city?.kit, m.id).toBe('vesper');
+      expect(m.city?.spawnGate, m.id).toBe(m.id === 'vesper_spindle_foot' ? 'vesperGate' : 'sentryBay');
+      expect(m.district, m.id).toBeUndefined();
+      // edge spawns only (no `inside` lane in Step 6)
+      for (const t of m.tracks) expect(t.inside, m.id).toBeUndefined();
+    }
+    // the only viaduct on the shipped boards: 6-7's sky-rail, ≈ 8-10 tiles foot to foot, over its own return
+    const withViaduct = MAPS.filter((m) => m.tracks.some((t) => t.viaducts));
+    expect(withViaduct.map((m) => m.id)).toEqual(['vesper_skyrail']);
+    const rail = getMap('vesper_skyrail');
+    expect(rail.bridge).toEqual({ skyRail: true });
+    const [[a, b]] = rail.tracks[0].viaducts;
+    expect(b - a).toBeGreaterThanOrEqual(8);
+    expect(b - a).toBeLessThanOrEqual(10.5);
+    expect(rail.crossings.length).toBe(1);
+    const [c] = rail.crossings;
+    expect(c.mode).toBe('bridge');
+    expect(viaductAt(rail.tracks[0], c[c.over].d)).toBeTruthy();
+    expect(Math.min(c[c.over].d - a, b - c[c.over].d)).toBeGreaterThanOrEqual(2.1);
+    // light-bridges (glass decks) on the causeway, the ring, the helix and the orrery; gallery portals in the museum
+    for (const id of ['vesper_frost_causeway', 'vesper_tower_ring', 'vesper_spindle_foot', 'vesper_starfall']) expect(getMap(id).bridge, id).toEqual({ glass: true });
+    expect(getMap('vesper_museum').tunnel).toEqual({ style: 'gallery' });
+    // 6-10's helix: the Gatekeeper's lane is the longer one, and the merge sits ≥ 2.2 tiles past the south crossing's ramp
+    const helix = getMap('vesper_spindle_foot');
+    expect(helix.tracks[1].length).toBeGreaterThan(helix.tracks[0].length);
+    const lane0 = helix.tracks[0];
+    let rampEnd = 0;
+    lane0.elev.forEach((e, i) => { if (e > 0) rampEnd = lane0.cum[i]; });
+    expect(helix.tracks[1].join.d - rampEnd).toBeGreaterThanOrEqual(2.2);
   });
 
   it('has map variety: multi-lane, crossings and water maps', () => {
