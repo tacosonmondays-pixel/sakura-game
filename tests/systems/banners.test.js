@@ -11,6 +11,7 @@ import { PINS, LISTS, STANDARD_SSR, UNIT_CLASS, PLANNED, LEGEND_PROMISE, GRACE_U
 import { gameDayStart, gameDayNumber } from '../../src/core/reset.js';
 import { SHOP_OFFERS } from '../../src/data/shop.js';
 import { simId } from '../../tools/simId.mjs';
+import { PATCH_NOTES } from '../../src/data/patchNotes.js';
 import { rollFor } from '../fixtures/gachaRng.js';
 
 const at = (key, hour = 12) => gameDayStart(key) + hour * 3600000; // inside game day `key`
@@ -174,6 +175,17 @@ describe('rotation (§A.4)', () => {
     expect(B.legendBanner(B.pinStartDay(tenka) - 1)).toMatchObject({ legend: 'tenka', debut: false, legendRate: 5000 });
     // a brand-new LR unit's debut pin holds her off the everyday tab until her debut (`hold`)
     expect(PINS.filter((p) => p.hold).every((p) => p.unit !== 'tenka')).toBe(true);
+  });
+});
+
+describe('dates', () => {
+  it('each rotation list version starts at least 3 game days after the patch note of the release that adds it', () => {
+    // (the first version came with the "Banners" release)
+    const note = PATCH_NOTES.find((n) => n.title === 'Banners');
+    expect(note).toBeTruthy();
+    for (const versions of Object.values(LISTS)) {
+      expect(B.keyNumber(versions[0].since) - B.keyNumber(note.date), versions[0].since).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

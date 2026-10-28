@@ -65,7 +65,7 @@ export const LISTS = Object.freeze({
  */
 export const PINS = Object.freeze([
   {
-    slot: 'legend', unit: 'tenka', start: '2026-10-29T19:00:00-05:00', days: 7, rate: 7000,
+    slot: 'legend', unit: 'tenka', start: '2026-10-28T19:00:00-05:00', days: 8, rate: 7000,
     sr: ['miko', 'umeko', 'raika'], name: 'Physics Club Premiere', debut: true,
   },
   {

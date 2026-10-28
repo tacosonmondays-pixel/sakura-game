@@ -84,8 +84,9 @@
 .bn-banner.k-legend .bn-next { background: rgba(14,25,48,0.72); color: #ffefcf; }
 .bn-promise { border: 2px solid #ffd27a; }
 .ma-progress.bn-gold i { background: linear-gradient(90deg, #ffe7b0, #ffd27a, #e8a93a); }
-.bn-coming { font-size: 0.8rem; background: #0e1930; color: #ffefcf; border: 2px solid #ffd27a; }
-.bn-coming b { color: #ffd27a; }
+.bn-coming { font-size: 0.8rem; color: var(--ink, #1f2a44); border: 2px solid #ffd27a; }
+/* (on the paper panel: dark ink, the name in a deep amber that keeps 4.5:1 on white) */
+.bn-coming b { color: #8a4b00; }
 
 /* ---- rates page, history, spark grid ---- */
 .ma-unit-rates tr.bn-up td { font-weight: 900; }

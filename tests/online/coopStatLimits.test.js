@@ -1,7 +1,7 @@
 // The co-op plausibility clamp (src/online/coop/statLimits.js; gear-awaken spec §9.1, Potential v3
 // §2.2 / §4.7 / §13.2): an honest loadout passes through unchanged, an absurd one is clamped the
 // same way on both clients, `potential` is an integer 1–6 and every unit-stat key has a rule.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { clampUnitStats, clampPlayer, clampStart, UNIT_STAT_LIMITS, LOADOUT_MAX } from '../../src/online/coop/statLimits.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath } from '../../src/online/coop/detMath.js';
@@ -13,6 +13,12 @@ import { potentialState } from '../../src/systems/potential.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 import { UNITS } from '../../src/data/units.js';
+import { RESONANCE_FROM_DAY } from '../../src/systems/limitBreak.js';
+import { gameDayStart } from '../../src/core/reset.js';
+
+// (on a day UR Resonance and the LR boost count, so the honest top includes them)
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(gameDayStart(RESONANCE_FROM_DAY) + 3600_000); });
+afterAll(() => { vi.useRealTimers(); });
 
 /** Every girl at L85 ★5, gate 5, P6, in strong legendary gear (the honest top of this build). */
 function maxedProfile() {

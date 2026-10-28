@@ -30,10 +30,12 @@ export function installWorkbenchWatch(store) {
     if (!ready.length) return;
     const route = currentRoute().name;
     if (route === 'lobby') {
-      const btn = document.querySelector('[data-testid="dock-backpack"]');
-      if (btn && !btn.querySelector('.lb-dot')) {
-        const dot = document.createElement('span');
-        dot.className = 'lb-dot';
+      // the home's Menu button wears the dot (its Backpack row does too, once the menu opens)
+      const btn = document.querySelector('[data-testid="top-menu"]');
+      if (btn && !btn.querySelector('.ui-dot')) {
+        const dot = document.createElement('i');
+        dot.className = 'ui-dot';
+        dot.dataset.testid = 'top-menu-dot';
         btn.appendChild(dot);
       }
     }

@@ -471,7 +471,7 @@ function gachaArticle() {
     sec('Costs',
       table(['Recruit', 'Gems', 'Ticket'], [['Single', fmt(GACHA.costSingle), itemName('ticket_recruit')], ['10×', fmt(GACHA.costTen), itemName('ticket_recruit10')]]),
       tip('Tickets are always used before gems.', 'info'),
-      p('Every Standard girl (every R and SR, free recruits and heroes included, and the five original SSRs) is in every gem banner\'s pool, so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).')),
+      p('Every Standard girl (every R and SR, free recruits and heroes included, and the five original SSRs) is in the Standard and LR Banner pools (the Student Spotlight leaves out the heroes, the Guardian Spotlight the Standard tower SSRs), so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).')),
     sec('Banners',
       list([
         'Student Spotlight (towers) and Guardian Spotlight (heroes) change every day at 7 PM Central: one featured SSR at 1.0% and three SR rate-ups at 3.0% each.',

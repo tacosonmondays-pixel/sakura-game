@@ -316,7 +316,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     // a girl whose join moved (Gate Arc: Yuzuha 4-2 → 1-7) still joins on a win of her old stage when she has not
     // met the squad yet: the same grant and results card; her 'join:' mark settles the lobby catch-up
     const counters = ((profile.missions ||= {}).counters ||= {});
-    for (const [unitId, ids] of Object.entries(LEGACY_JOIN_STAGES)) {
+    for (const [unitId, ids] of Object.entries(medalOk ? LEGACY_JOIN_STAGES : {})) { // (a support win on Hard+ joins no one)
       if (!ids.includes(stage.id) || isOwned(profile, unitId) || counters[JOIN_PREFIX + unitId] > 0) continue;
       grantUnit(profile, unitId);
       counters[JOIN_PREFIX + unitId] = 1;

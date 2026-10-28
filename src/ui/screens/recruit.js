@@ -330,7 +330,7 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
       h(`div.ma-progress${canSpark(profile) ? '.done' : ''}`, h('i', { style: { width: `${Math.min(100, Math.round(((g.recruitPoints || 0) / GACHA.sparkCost) * 100))}%` } })),
       h('div.ma-spark-row', h('span.muted', sparkHint(profile, b)), button('Spark', { kind: canSpark(profile) ? 'yellow' : 'ghost', small: true, icon: 'sparkle', onClick: openSpark, testid: 'spark' })),
     ),
-    debutSoon ? h('div.bn-coming.panel', { 'data-testid': 'debut-coming' }, h('b', `${UNIT_MAP[debutSoon.unit].name} is coming`), ` ${dayName(debutSoon.startDay - 1)} 7 PM Central · save gems for her debut week`) : null,
+    debutSoon ? h('div.bn-coming.panel', { 'data-testid': 'debut-coming' }, h('b', `${UNIT_MAP[debutSoon.unit].name} ${UNIT_MAP[debutSoon.unit].duo ? 'are' : 'is'} coming`), ` ${dayName(debutSoon.startDay - 1)} 7 PM Central · save gems for ${UNIT_MAP[debutSoon.unit].duo ? 'their' : 'her'} debut week`) : null,
     h('div.ma-tickets',
       ticketPill('ticket_recruit', itemCount(profile, 'ticket_recruit')),
       ticketPill('ticket_recruit10', itemCount(profile, 'ticket_recruit10')),
