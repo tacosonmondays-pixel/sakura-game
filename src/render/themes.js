@@ -15,7 +15,12 @@
 //   rocks        [single, cluster] props for 'R' tiles (default rock / boulder)
 //   nightLight   this theme's own night lighting (default: the shared moonlit preset)
 //   weatherColors petal-weather particle colours (the city mixes in paper litter)
-//   city         the city kit's config: sidewalk / kerb colours, lawn, glass tints (cityKit.js)
+//   city         the city kit's config: sidewalk / kerb colours, lawn, glass tints (cityKit.js);
+//                `kit: 'campus'` picks the school set (campusProps.js), `drones: false` no drones
+//   goalVariant  the goalGate prop's variant (a map's city.goalVariant wins)
+//   groundPaint  overrides of the ground painter's style flags (textures.paintGround, e.g. kerb bands on grass)
+//   nightGround  ground colours used at night instead (the campus lawns go dark green);
+//   nightCity    city kit colours used at night instead (the campus beds and sidewalk bands)
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -355,6 +360,70 @@ export const THEMES = {
       glass: { glassA: '#86b9d6', glassB: '#e2f1f8', warm: '#ffe6bf' },
     },
   },
+  // ----- Gate Arc · Noon: Itomachi Hilltop High, Sensei's old school on the hill by the lake --------
+  // The city kit with a campus set (kit 'campus', src/render/city/campusProps.js): mown lawns with
+  // paved bands along a pale campus road (a red running track where a map asks: map.city.road),
+  // classroom wings with big framed windows, the gym, club huts, bike sheds, a flagpole, cherry
+  // trees and a lakeshore with boat racks. Every Act 2 stage is a night stage: its own cool blue
+  // night, warm windows, fireflies over the reeds and a searchlight sweeping the water
+  // (map.city.searchlight). The lawns go deep green at night so the road stays the lightest band.
+  campus: {
+    ground: ['#93c97c', '#88bf72'],
+    groundSpeck: '#b4dc98',
+    groundShade: '#6ca85c',
+    clover: '#5f9d52',
+    wet: '#7fa08a',
+    dirt: '#c9c2b4',
+    pebble: '#b9b2a4',
+    groundStyle: 'grass',
+    // the painter's sidewalk bands along every road (the city's kerb flag) on mown lawn
+    groundPaint: { kerb: 1, flowers: 0.35, cloverAmt: 0.45 },
+    // lawns at night: deep green, well under the road's tone (resolveLook)
+    nightGround: { ground: ['#4d7a5f', '#467257'], groundSpeck: '#5a876a', groundShade: '#3a5f4c', clover: '#416b54' },
+    // … and the kit's painted beds and bands with them
+    nightCity: { lawn: '#4f8a5c', sidewalk: '#8f8c84' },
+    flowers: ['#ffffff', '#ffd1e3', '#ffe680', '#ff9ec4'],
+    bank: '#9a968c',
+    bankDark: '#76726a',
+    shore: '#b8b2a4',
+    // a pale campus road (its texture tone: textures.pathTexture asphalt `tone`), white edge lines
+    path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#9a9da6', base: '#6d727c', crisp: true, plainJunction: true, tone: 1.95 },
+    bridge: { deck: '#b9a283', rail: '#eef0f2', post: '#7d6a55', lacquer: false, overpass: '#c9c3b8', girder: '#6f6a62', overRail: '#e9ecef', grating: false, shadow: 0.32 },
+    // the corridor under the main building: the composed hall (school cream, navy band, a pale roof)
+    tunnel: { style: 'subway', top: '#d9d2c4', side: '#c4bcae', portal: '#f2efe8', dark: '#1f2430', stripe: '#3d5a8a', hall: '#efe6d6', roof: '#7d8a9a', glass: '#a8c8dc' },
+    // the lake at night: deep and calm (a soft caustic web) so the road stays the lightest band
+    water: { deep: '#245f8c', shallow: '#4c90ae', foam: '#dfeefa', glow: 0.03, caustic: 0.45, foamAmt: 0.7 },
+    trees: ['streetTree', 'sakura'],
+    scatter: ['sakura', 'streetTree', 'round'],
+    scatterDensity: 0.45,
+    treeColors: { leaf: '#ffb3cf', leaf2: '#ff8fb8', trunk: '#7d5240' },
+    rocks: ['planterBox', 'flowerBoxes'],
+    rock: '#a9a49a',
+    building: 'schoolBlock',
+    wall: 'cityWall',
+    frame: ['planterBox', 'guardRail', 'hedge', 'planterBox', 'hedge'],
+    detail: 'tuft',
+    detailDensity: 0.12,
+    life: { butterflies: false, birds: false, koi: false, clouds: true, fireflies: true, sparkle: false },
+    gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    spawnGate: 'petalRift',
+    goalGate: 'shelterDoor',
+    /** shelterDoor variant: the school's main entrance (cityProps SHELTER_KINDS) */
+    goalVariant: 1,
+    weather: 'petals',
+    weatherColors: ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ffffff'],
+    light: { sky: '#fff8ee', ground: '#a8b89c', hemi: 1.08, key: '#fff0dc', keyI: 1.45, fill: '#d6e4ff', fillI: 0.34 },
+    // a cool blue lakeside night; the warm fill is the classroom windows
+    nightLight: { sky: '#a6bcff', ground: '#2e3a56', hemi: 0.9, key: '#d2dcff', keyI: 1.1, fill: '#ffc89a', fillI: 0.32 },
+    bg: '#cfe4ef',
+    city: {
+      kit: 'campus',
+      sidewalk: '#a7a399', kerb: '#eeebe4', kerbSide: '#8f8b82', lawn: '#7fb86c', plaza: ['#cfc8ba', '#c4bdae'],
+      glass: { glassA: '#8fb9cf', glassB: '#e2eef4', warm: '#ffe2b0' },
+      // no Brigade drones over the school (dressing stays the city's)
+      drones: false,
+    },
+  },
 };
 
 /**
@@ -399,10 +468,16 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     ...(t.city ? { city: { ...t.city } } : {}),
     theme: THEMES[themeId] ? themeId : 'sakura',
   };
-  look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
   const lantern = stageLook?.night === 'lantern';
   look.lantern = lantern;
   look.night = !!(scenery.night || t.forceNight || lantern);
+  // a theme whose lawns go dark at night (the campus: the road stays the lightest band)
+  if (look.night && t.nightGround) Object.assign(look, t.nightGround);
+  if (look.night && t.nightCity && look.city) look.city = { ...look.city, ...t.nightCity };
+  look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
+  // blackout dimming (StageDef.look.blackout, Gate Arc): the renderer dims the lamps and windows
+  // while the stage's rule is active (src/render/blackout.js)
+  look.blackout = !!stageLook?.blackout;
   look.fog = !!scenery.fog;
   look.weather = scenery.weather !== undefined ? scenery.weather : look.weather;
   if (look.night) {
