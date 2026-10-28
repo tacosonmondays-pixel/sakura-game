@@ -9,9 +9,8 @@
 import './styles/v2-backpack.css';
 import { h } from './dom.js';
 import { button, itemTile, toast } from './components.js';
-import { secondaryBtn, ghostBtn, lbl, num } from './kit.js';
+import { secondaryBtn, lbl, num } from './kit.js';
 import { openSheet } from './sheet.js';
-import { lineGlyph } from './lineGlyphs.js';
 import { navigate } from './router.js';
 import { store } from '../core/store.js';
 import { fmtNum } from './format.js';
@@ -73,14 +72,15 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
     h('div.bp-ihead',
       itemTile(itemId, null, { size: globalThis.matchMedia?.('(max-height: 480px)').matches ? 56 : 72, onClick: () => {} }),
       h('div.bp-ihead-txt',
-        // the actions sit in the owned row, beside the facts (one row less, so more places show on a landscape phone)
+        // the girls who use a material and the actions sit in the owned row, beside the facts (two rows less, so more
+        // places show on a landscape phone; the row wraps on a narrow screen)
         h('div.bp-ihead-row', itemRarityTag(item?.rarity), h('span.bp-owned', lbl('Owned'), num(fmtNum(owned, 'count', { detail: true }), 's')),
+          users.length ? h('div.bp-users', { title: `Used by the ${MATERIAL_FAMILIES[item.family]?.name || ''} students` }, lbl('Used by'),
+            h('div.bp-faces', users.map((u) => h('span.bp-face', { title: u.name, html: portraitHTML(u, 'thumb', { alt: u.name }) })))) : null,
           acts.length ? h('div.bp-acts.bp-ihead-acts', acts) : null),
         item?.desc ? h('p.bp-desc', item.desc) : null)),
-    users.length ? h('div.bp-users', lbl(`Used by · ${MATERIAL_FAMILIES[item.family]?.name || ''}`),
-      h('div.bp-faces', users.map((u) => h('span.bp-face', { title: u.name, html: portraitHTML(u, 'thumb', { alt: u.name }) })))) : null,
     h('div.bp-where',
-      h('h3.bp-kick', rows.length ? `Where to get · ${rows.length}` : 'Where to get'),
+      h('h3.bp-kick', h('span', rows.length ? `Where to get · ${rows.length}` : 'Where to get'), h('span.bp-kick-more', { 'aria-live': 'polite' })),
       rows.length ? h('ul.bp-srcs', rows) : h('p.bp-desc', 'Not obtainable yet.')));
 
   // a Kindred Essence nobody can use: release it for a spare (a ghost action, one line saying why)
@@ -101,8 +101,29 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
   }
   sheet = openSheet({ title: item?.name || itemId, body, testid: 'item-sheet', cls: 'bp-sheet' });
   // when the sheet cannot show every place, the list scrolls on its own, sized to whole rows: no Go button is cut in half
-  // by the sheet's edge, and the item and its actions stay in view
-  requestAnimationFrame(() => fitRows(sheet.body, body.querySelector('.bp-srcs')));
+  // by the sheet's edge, and the item and its actions stay in view. Again (on the next frame) whenever the sheet's size
+  // changes: web fonts and portraits land after the first frame.
+  const list = body.querySelector('.bp-srcs');
+  const cue = body.querySelector('.bp-kick-more');
+  let queued = 0;
+  const refit = () => {
+    if (queued) return;
+    queued = requestAnimationFrame(() => {
+      queued = 0;
+      if (body.isConnected) fitRows(sheet.body, list, cue);
+    });
+  };
+  refit();
+  if (list && typeof ResizeObserver === 'function') {
+    let last = '';
+    const ro = new ResizeObserver(() => {
+      if (!body.isConnected) { ro.disconnect(); return; }
+      const key = `${sheet.body.clientWidth}x${sheet.body.clientHeight}:${body.querySelector('.bp-ihead')?.offsetHeight}`;
+      if (key !== last) { last = key; refit(); }
+    });
+    ro.observe(sheet.body);
+    ro.observe(body.querySelector('.bp-ihead'));
+  }
   return sheet;
 }
 
@@ -110,16 +131,18 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
 const NOTE_INLINE = 16;
 
 /**
- * Caps a list inside a scrolling sheet body to the whole rows that fit, and lets the list scroll instead, with an
- * "N more" ghost button under it (and a soft fade on its last row) while places are hidden below.
+ * Caps a list inside a scrolling sheet body to the whole rows that fit, and lets the list scroll instead. While places
+ * are hidden below, the heading says how many ("6 more ▾", `cue`) and the last whole row fades out a little.
  */
-function fitRows(scroller, list) {
+function fitRows(scroller, list, cue) {
   if (!scroller || !list?.children.length) return;
-  if (scroller.scrollHeight - scroller.clientHeight <= 1) return;
-  const more = ghostBtn('More', { icon: lineGlyph('chevD', '', { kitSize: false }), testid: 'item-more-places', onClick: () => list.scrollBy({ top: Math.max(48, list.clientHeight - 24), behavior: 'smooth' }) });
-  more.classList.add('bp-more-places');
-  list.after(more);
+  // (from scratch each time: the list at full height, no cue)
+  if (list.onFitScroll) list.removeEventListener('scroll', list.onFitScroll);
+  list.style.maxHeight = '';
+  list.classList.remove('fit', 'more');
+  if (cue) cue.textContent = '';
   const over = scroller.scrollHeight - scroller.clientHeight;
+  if (over <= 1) return;
   const room = list.getBoundingClientRect().height - over;
   let used = 0;
   for (const row of list.children) {
@@ -128,21 +151,16 @@ function fitRows(scroller, list) {
     used += rh;
   }
   // (at least one whole row; a screen too short for even that keeps the sheet's own scroll)
-  if (used <= 0) {
-    more.remove();
-    return;
-  }
+  if (used <= 0) return;
   list.style.maxHeight = `${Math.ceil(used)}px`;
   list.classList.add('fit');
-  const label = more.firstChild;
   const update = () => {
     const bottom = list.getBoundingClientRect().bottom;
     const hidden = [...list.children].filter((r) => r.getBoundingClientRect().bottom > bottom + 1).length;
-    more.hidden = hidden === 0;
     list.classList.toggle('more', hidden > 0);
-    label.nodeValue = `${hidden} more`;
-    more.setAttribute('aria-label', `${hidden} more place${hidden === 1 ? '' : 's'} to get it`);
+    if (cue) cue.textContent = hidden ? `${hidden} more ▾` : '';
   };
+  list.onFitScroll = update;
   list.addEventListener('scroll', update, { passive: true });
   update();
 }

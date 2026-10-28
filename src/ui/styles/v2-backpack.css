@@ -201,9 +201,9 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
   letter-spacing: var(--track-caps); text-transform: uppercase; background: var(--plate); }
 :is(body.ui-day, body.ui-night) .bp-owned { display: inline-flex; align-items: baseline; gap: 6px; color: var(--ink); }
 :is(body.ui-day, body.ui-night) .bp-owned .num { font-size: var(--fs-num-s); }
-:is(body.ui-day, body.ui-night) .bp-users { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-:is(body.ui-day, body.ui-night) .bp-faces { display: flex; gap: 4px; flex-wrap: wrap; }
-:is(body.ui-day, body.ui-night) .bp-face { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-users { display: flex; align-items: center; gap: 8px; }
+:is(body.ui-day, body.ui-night) .bp-faces { display: flex; gap: 2px; flex-wrap: wrap; }
+:is(body.ui-day, body.ui-night) .bp-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-face > img, :is(body.ui-day, body.ui-night) .bp-face > svg { width: 100%; height: 100%; object-fit: cover; display: block; }
 :is(body.ui-day, body.ui-night) .bp-srcs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 /* (more places than the sheet can show: the list scrolls on its own, sized to whole rows; itemSheet.js fitRows) */
@@ -211,9 +211,9 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 :is(body.ui-day, body.ui-night) .bp-srcs.fit > .bp-src { flex: none; }
 /* more places below: the last whole row fades out a little and "N more" sits under the list */
 :is(body.ui-day, body.ui-night) .bp-srcs.fit.more { -webkit-mask: linear-gradient(#000 calc(100% - 18px), rgba(0, 0, 0, 0.35)); mask: linear-gradient(#000 calc(100% - 18px), rgba(0, 0, 0, 0.35)); }
-:is(body.ui-day, body.ui-night) .bp-more-places { display: flex; margin: 2px auto 0; min-height: calc(var(--tap) + 2px); font: 600 var(--fs-label)/1 var(--font-num);
-  letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--cyan-text); }
-:is(body.ui-day, body.ui-night) .bp-more-places[hidden] { display: none; }
+:is(body.ui-day, body.ui-night) .bp-where .bp-kick::after { order: 2; }
+:is(body.ui-day, body.ui-night) .bp-kick-more { order: 3; color: var(--cyan-text); white-space: nowrap; }
+:is(body.ui-day, body.ui-night) .bp-kick-more:empty { display: none; }
 :is(body.ui-day, body.ui-night) .bp-ihead-acts { margin-left: auto; padding-top: 0; }
 :is(body.ui-day, body.ui-night) .bp-src { display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-src:last-child { border-bottom: 0; }
