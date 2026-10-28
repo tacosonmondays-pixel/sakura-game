@@ -745,3 +745,9 @@
 @media (min-width: 1100px) { :is(.ui-day) .sc-msg { --list-w: 360px; } }
 /* "Open in another tab" (src/ui/staleBanner.js) sits at the bottom centre: the online screens scroll their foot above it */
 body.has-save-stale:is(.ui-day) .ol-screen .screen-body { padding-bottom: calc(66px + var(--safe-bottom, 0px)); }
+/* a narrow room head (under 700 px): the code and the stage on one row, the invite / leave actions on their own row */
+@media (max-width: 700px) {
+  :is(.ui-day) .ol-room-head { flex-wrap: wrap; align-items: flex-start; row-gap: 8px; }
+  :is(.ui-day) .ol-room-head > .ol-room-stage { flex: 1 1 300px; min-width: 0; }
+  :is(.ui-day) .ol-room-head > .ol-room-acts { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+}
