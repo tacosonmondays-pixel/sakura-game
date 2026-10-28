@@ -7,6 +7,7 @@
 | S1b (Oct 27) | a138e76c (feature/gate-arc; eaba0d0a, 0cca91d3, a138e76c) | 2e1d8ba1b1b0 | d81ed395 | 8 | City look v1, render only: hashes identical to S1a. Budget below |
 | S1b fix (Oct 27) | 2fe80863 (feature/gate-arc; 10365191, 2fe80863) | 2e1d8ba1b1b0 | d81ed395 | 8 | S1b review fixes (gates on the edge, battle framing preview, opt-in railway, drones over the skirts, canal quays, terrain golden test): render, previews and tests only, hashes identical to S1a |
 | S1c (Oct 27) | 721d1309 (feature/gate-arc; 09368710, 20f60c21, 721d1309) | e6099d38b101 | d81ed395 | 8 | Rooftops (U), lane schedule (waveGen.laneCycle, waveStart lanes, sim.openLanes), echo exemption (test only), rule skins (display only). Sim changed: PENDING_BUMP { 8: 'e6099d38b101' } in itemArtRuntime test; data hash unchanged (no new MAPS/STAGES). The bundled Gate Arc release bumps COOP_PROTOCOL once and adds its KNOWN sim line |
+| S1d (Oct 28) | 8487e2ba (feature/gate-arc; S1c lows d2ab0a7, maps, stages, scenes, tests, review fixes 8487e2ba) | 9a102fd5d514 | 592fe986 | 8 | Chapter 1 Act II "Rush Hour" (5 maps, 5 stages, the Frostbitten Heir, 7 scenes, Yuzuha after 1-7 or 4-2). Sim and data hash both moved (MAPS/STAGES/ENEMIES/UNITS). PENDING_BUMP { 8: '9a102fd5d514' }; the bundled release bumps COOP_PROTOCOL |
 
 ### S1b terrain budget (previews/city.html, terrain meshes only)
 
