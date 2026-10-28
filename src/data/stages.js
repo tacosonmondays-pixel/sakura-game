@@ -1096,9 +1096,9 @@ const CAMPAIGN_ACT2 = [
   act2Stage({
     id: '4-6', name: 'Toll Plaza', mapId: 'noon_toll_plaza',
     desc: 'The iron column comes down the mountain highway to the toll plaza, fans out through the three toll lanes and closes up again past the barrier. Stand on the booth roofs. A Brigade convoy drops off coins every few waves.',
-    budget: [6.5, 315], groups: 3,
-    pool: [P('orc_grunt', 4), P('orc_ironhide', 3, 2), P('orc_berserker', 2, 5), P('beast_wolf', 3, 3), P('slime_iron', 2)],
-    fixed: [F(3, 'orc_ironhide', 3, 1.5), F(16, 'beast_wolf', 8, 0.5)],
+    budget: [6.5, 210], groups: 3,
+    pool: [P('orc_grunt', 4), P('orc_ironhide', 3, 2), P('orc_berserker', 1, 8), P('beast_wolf', 2, 3), P('slime_iron', 2)],
+    fixed: [F(3, 'orc_ironhide', 3, 1.5), F(16, 'beast_wolf', 6, 0.6)],
     recommended: ['armorPen', 'armorShred'],
     fam: ['blade', 'rime'],
     scenery: { props: ['streetLamps', 'billboards', 'vendingMachines', 'snowdrifts'] },
@@ -1121,13 +1121,13 @@ const CAMPAIGN_ACT2 = [
   act2Stage({
     id: '4-8', name: 'Tunnel Mouth', mapId: 'noon_tunnel_mouth',
     desc: 'Snow blows out of the highway tunnels. Orcs and wolves come through the bores on odd waves; on even waves the Brigade\'s strike column comes up the carriageways from the city behind you.',
-    budget: [6.5, 172], groups: 3,
-    pool: [P('orc_ironhide', 4), P('orc_berserker', 3), P('beast_wolf', 4)],
+    budget: [4.5, 36], groups: 3,
+    pool: [P('orc_grunt', 3), P('orc_ironhide', 3), P('orc_berserker', 2, 4), P('beast_wolf', 2)],
     fixed: [
-      ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26].map((w) => F(w, 'brigade_trooper', 3 + Math.floor(w / 6), 0.7)),
-      ...[4, 8, 12, 16, 20, 24].map((w) => F(w, 'brigade_shieldline', 1 + Math.floor(w / 10), 1.2, 1)),
-      ...[4, 8, 12, 16, 20, 24].map((w) => F(w, 'brigade_gnat', 4, 0.35, 2)),
-      ...[14, 18, 22, 26].map((w) => F(w, 'brigade_tortoise', 1, 1, 3)),
+      ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26].map((w) => F(w, 'brigade_trooper', 2 + Math.floor(w / 10), 0.8)),
+      ...[4, 8, 12, 16, 20, 24].map((w) => F(w, 'brigade_shieldline', 1 + Math.floor(w / 14), 1.4, 1)),
+      ...[8, 16, 24].map((w) => F(w, 'brigade_gnat', 3, 0.4, 2)),
+      ...[14, 22].map((w) => F(w, 'brigade_tortoise', 1, 1, 3)),
     ],
     introduces: ['brigade_trooper', 'brigade_shieldline', 'brigade_tortoise'], recommended: ['armorPen', 'multiHit'],
     fam: ['ember', 'charm'],
@@ -1149,7 +1149,7 @@ const CAMPAIGN_ACT2 = [
   act2Stage({
     id: '4-10', name: 'The Frost Vanguard', mapId: 'north_snow_bridge',
     desc: 'Two columns of the far north\'s rearguard meet at the bridgehead in a blizzard and cross the ravine on the Brigade\'s long folding bridge. The Frost Vanguard holds the far end.',
-    budget: [6.5, 115], groups: 3,
+    budget: [6.5, 290], groups: 3,
     pool: [
       P('orc_shieldbearer', 3), P('orc_ironhide', 3), P('beast_wolf', 3), P('beast_bear', 2),
       P('beast_alpha', 1, 10), P('orc_warlord', 1, 16),

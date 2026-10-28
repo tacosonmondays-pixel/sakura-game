@@ -1,5 +1,21 @@
 // Boss / miniboss HP bar under the HUD with barrier overlay and phase tick marks.
+// The bar never hides its own boss: while the boss walks under it (a spawn gate near the top edge on a landscape
+// phone, e.g. 3-10's Ashen Warden coming out of the tear), the bar turns see-through ('bt-boss-peek').
 import { h, enemyToken, setVar, fmtBig } from './util.js';
+
+/** How often (s) the bar checks whether its boss is under it (a projection and two rect reads). */
+export const PEEK_EVERY = 0.2;
+
+/**
+ * Is a screen point under (or just beside) the bar's rectangle? The margin covers a big body around its feet.
+ * @param {{ left: number, right: number, top: number, bottom: number }} r the bar (client px)
+ * @param {{ clientX: number, clientY: number, visible?: boolean }|null} p the boss's feet (client px)
+ * @param {number} [pad]
+ */
+export function underRect(r, p, pad = 28) {
+  if (!r || !p || p.visible === false) return false;
+  return p.clientX > r.left - pad && p.clientX < r.right + pad && p.clientY > r.top - pad && p.clientY < r.bottom + pad * 2;
+}
 
 export function createBossBar(ctx) {
   const { sim } = ctx;
@@ -18,6 +34,24 @@ export function createBossBar(ctx) {
 
   let currentUid = null;
   let lagFrac = 1;
+  let peekIn = 0;
+  let peeking = false;
+  /** See-through while the boss is under the bar (checked every PEEK_EVERY s, not every frame). */
+  function peek(e, dt) {
+    peekIn -= dt;
+    if (peekIn > 0) return;
+    peekIn = PEEK_EVERY;
+    let under = false;
+    try {
+      under = underRect(el.getBoundingClientRect(), ctx.renderer?.worldToScreen?.(e.x, e.y, 0) || null);
+    } catch {
+      under = false;
+    }
+    if (under !== peeking) {
+      peeking = under;
+      el.classList.toggle('bt-boss-peek', under);
+    }
+  }
 
   function pickBoss() {
     let best = null;
@@ -38,6 +72,7 @@ export function createBossBar(ctx) {
       currentUid = null;
       return;
     }
+    peek(e, dt);
     if (e.uid !== currentUid) {
       currentUid = e.uid;
       lagFrac = 1;

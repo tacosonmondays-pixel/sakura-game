@@ -238,6 +238,9 @@
   display: flex; align-items: center; gap: 8px; padding: 6px 12px 8px 8px; border-radius: 10px; background: rgba(20, 24, 44, 0.82); color: #fff;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3); animation: bt-drop 0.3s var(--bt-ease); pointer-events: none;
 }
+/* its own boss under the bar (a spawn gate near the top edge): the bar turns see-through (bossBar.js) */
+.bt-boss { transition: opacity 0.25s; }
+.bt-boss.bt-boss-peek { opacity: 0.22; }
 .bt-boss-main { flex: 1; min-width: 0; }
 .bt-boss-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .bt-boss-tag { font-size: 0.62rem; font-weight: 900; letter-spacing: 0.08em; padding: 1px 7px; border-radius: 4px; background: linear-gradient(90deg, #c9184a, #ff4d6d); }
@@ -298,6 +301,12 @@
 .bt-banner-boss, .bt-banner-bad { background: linear-gradient(90deg, transparent, rgba(138,21,56,0.94) 18%, rgba(255,77,109,0.94) 82%, transparent); }
 .bt-banner-phase { background: linear-gradient(90deg, transparent, rgba(110,40,160,0.94) 18%, rgba(255,122,168,0.94) 82%, transparent); }
 .bt-banner-good { background: linear-gradient(90deg, transparent, rgba(197,138,0,0.94) 18%, rgba(255,221,74,0.96) 82%, transparent); color: var(--navy); }
+/* landscape phones: the boss banner is slimmer and lets the board show through (the boss walks in under it; feed.js
+   also takes it down sooner there) */
+@media (max-height: 500px) {
+  .bt-banner.bt-banner-boss, .bt-banner.bt-banner-phase { opacity: 0.86; padding-top: 6px; padding-bottom: 8px; }
+  .bt-banner.bt-banner-boss.out, .bt-banner.bt-banner-phase.out { opacity: 0; }
+}
 @keyframes bt-banner-in { from { opacity: 0; transform: skewX(var(--skew)) translateX(-80px); } }
 /* freeplay titans and twin bosses: the run is ramping up — a darker, bigger ribbon than BOSS INCOMING */
 .bt-banner-titan { padding: 14px 84px 16px; background: linear-gradient(90deg, transparent, rgba(18,0,6,0.96) 12%, rgba(120,8,40,0.96) 50%, rgba(18,0,6,0.96) 88%, transparent); }
