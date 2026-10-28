@@ -76,7 +76,7 @@ export default [
     say('hikari', "It goes in my journal with the first one. We'll figure it out, one petal at a time."),
     say('nami', "You don't have to carry the whole lake by yourself, Sunshine. That's what crews are for."),
     say('hikari', "I know, I know! …Come on, everyone. Let's get you all home and warm.", { face: 'sweat' }),
-    cue({ bg: 'academy-night', exit: ['sango'] }),
+    cue({ bg: 'academy-gate-night', exit: ['sango'] }),
     narrate('On the path up Academy Hill, a tree rustles. Then it clears its throat.'),
     cue({ enter: [{ who: 'kage', at: 'left', fx: 'jolt' }], shake: true }),
     say('kage', 'Fear not! {name:kage}, courier club! The shadows bring tidings!', { face: 'determined' }),

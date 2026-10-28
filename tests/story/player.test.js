@@ -70,12 +70,25 @@ describe('backgrounds', () => {
     expect(resolveBackground('cg:aoi-archery').cg).toBe(true);
   });
 
-  it('stage stills fall back to their chapter academy tint (still provider optional)', () => {
+  it('stage backgrounds show their painted place; a stage without one keeps its chapter academy tint', () => {
     const spec = resolveBackground('stage:2-1', 2);
-    expect(spec).toMatchObject({ stageId: '2-1', fallback: true, kind: 'paint', tint: BACKGROUNDS[CHAPTER_FALLBACK_BG[2]].tint });
-    expect(resolveBackground('stage:8-5').tint).toBe(BACKGROUNDS[CHAPTER_FALLBACK_BG[8]].tint);
-    expect(backgroundUrls('stage:1-5', 1)[0]).toMatch(/academy\.webp$/);
+    expect(spec).toMatchObject({ stageId: '2-1', place: 'lakeshore', fallback: true, kind: 'paint', tint: 'day', focus: BACKGROUNDS.lakeshore.focus });
+    expect(spec.url).toMatch(/art\/lobby\/story\/lakeshore\.webp$/);
+    expect(spec.thumb).toMatch(/art\/lobby\/story\/thumbs\/lakeshore\.webp$/);
+    expect(resolveBackground('stage:8-5').place).toBe('summit-nest');
+    expect(backgroundUrls('stage:1-5', 1)[0]).toMatch(/story\/blossom-court\.webp$/);
+    // no STAGE_PLACE entry (no such stage): the chapter's academy tint, stage id kept for a still
+    const fb = resolveBackground('stage:9-9', 2);
+    expect(fb).toMatchObject({ stageId: '9-9', fallback: true, kind: 'paint', tint: BACKGROUNDS[CHAPTER_FALLBACK_BG[2]].tint });
+    expect(fb.place).toBeUndefined();
+    expect(fb.url).toMatch(/art\/lobby\/academy\.webp$/);
     expect(backgroundUrls('black')).toEqual([]);
+  });
+
+  it('a story place carries its focal point; the old academy looks keep the CSS default', () => {
+    expect(resolveBackground('moon-pier').focus).toBe(BACKGROUNDS['moon-pier'].focus);
+    expect(resolveBackground('academy-day').focus).toBeNull();
+    expect(resolveBackground('cg:aoi-archery').focus).toBeNull();
   });
 
   it('every background any scene uses resolves', () => {
