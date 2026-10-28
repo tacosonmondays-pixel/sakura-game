@@ -7,7 +7,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import {
   drawerStats, pierces, targetView, aimView, pathRowView, createBuyArm, footerView, heroNextLine, heroDrawerView,
   crosspathShort, shortTeaser, hitDamage, PATH_COLORS, TARGET_CHIPS, BUY_ARM_MS, SECTION_NUMBERS,
-  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
+  allyNoteText, holderParts, contentBelow, rowAir, SCROLL_CUE_PX,
 } from '../../src/ui/battle/drawerView.js';
 import { fmtNum } from '../../src/ui/format.js';
 import { pathAbilityTeaser } from '../../src/ui/battle/abilityRow.js';
@@ -615,5 +615,88 @@ describe('the drawer after the M4 review, round r1', () => {
     expect(row).toMatch(/tabindex: pressable \? '0' : null/);
     expect(row).toMatch(/'aria-expanded': pressable \?/);
     expect(row).toMatch(/disarmSell\(\);\s+if \(arm\.toggle/);
+  });
+});
+
+// The M4 review, round r2: on a phone the target chips' hit areas reached 14 px down over the stat row (a tap on DMG or
+// RATE changed her target) and over Iroha's MIRROR label; a lock "i" lost the keyboard's focus on any redraw; the no-⚡
+// fallback of her ability's name was undone the next frame; at 1280 Sango's "Wide Fragmentation" took two lines. The
+// browser checks (every still hit tested, the "i" focus, the forced no-⚡ name) are in e2e/lib/m4Scenes.mjs.
+describe('the drawer\'s tap areas, focus keys and name lines (the M4 review, round r2)', () => {
+  const css = readFileSync(new URL('../../src/ui/styles/battle.css', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+  const abrow = readFileSync(new URL('../../src/ui/battle/abilityRow.js', import.meta.url), 'utf8');
+
+  it('the spare room under the last path row widens the chip rows\' bands, each up to the dense tap size', () => {
+    // Aoi 3-0-1 at 844: one 24 px target row, 70 px to spare → 8 px of air above and below (40 px)
+    expect(rowAir(70.4, [24], 40)).toEqual([8]);
+    // Chika 3-2-0 at 844: Flight and target rows, 6.2 px to spare → 1 px each side (26 px), never more than the room
+    expect(rowAir(6.2, [24, 24], 40)).toEqual([1, 1]);
+    // a two-line pick row (32 px) stops at the tap size; the room it leaves goes to the other row
+    expect(rowAir(40, [24, 32], 40)).toEqual([8, 4]);
+    // no room, or an overflowing body: no air
+    expect(rowAir(1, [24, 24], 40)).toEqual([0, 0]);
+    expect(rowAir(-12, [24], 40)).toEqual([0]);
+    expect(rowAir(NaN, [24], 40)).toEqual([0]);
+    expect(rowAir(30, [], 40)).toEqual([]);
+    // whole pixels, and the sum never passes the room
+    for (const spare of [3, 7.9, 13, 21.5, 33, 50]) {
+      const a = rowAir(spare, [24, 24, 26], 40);
+      expect(a.every((x) => Number.isInteger(x) && x >= 0)).toBe(true);
+      expect(a.reduce((s, x) => s + 2 * x, 0)).toBeLessThanOrEqual(spare);
+    }
+  });
+
+  it('a phone\'s chip row clips its chips\' hit areas to its band; the stat row sits over every hit area', () => {
+    // (a band never shrinks under its chips when the body overflows: its clip would cut them)
+    expect(css).toMatch(/\.bt-panel \.bt-dw-row \{ flex-shrink: 0; min-height: 24px; padding-block: var\(--bt-row-air, 0px\); overflow: hidden; overflow: clip; \}/);
+    // (the r2 rule that started a chip's hit area at its top and reached it down over the stat row is gone)
+    expect(css).not.toMatch(/\.bt-panel \.bt-tchip::after \{ top: 0; translate: none; \}/);
+    expect(css).toMatch(/\.bt-dw-stats \{ position: relative; z-index: 1;/);
+    // (the footer, the scroll cue's home, stays over the stat row's layer)
+    expect(css).toMatch(/\.bt-panel-foot \{ position: relative; z-index: 2; \}/);
+    const fit = panel.slice(panel.indexOf('function fitRowAir()'), panel.indexOf("let shownArm = ''"));
+    expect(fit).toMatch(/rowAir\(spare, rows\.map/);
+    expect(fit).toMatch(/--bt-row-air/);
+    // (kept while a path row is open: tap 1 never moves the row under the finger)
+    expect(fit).toMatch(/const held = !!el\.querySelector\('\.bt-path\.armed'\);/);
+    const all = panel.slice(panel.indexOf('function fitAll()'), panel.indexOf('const ro = '));
+    expect(all.indexOf('fitRowAir()')).toBeGreaterThan(all.indexOf('abRow.fit()'));
+    expect(all.indexOf('fitRowAir()')).toBeLessThan(all.indexOf('paintScrollCue()'));
+  });
+
+  it('a tap on a stat says what it is: the stat row takes its own taps (never moved onto a chip by touch adjustment)', () => {
+    const row = panel.slice(panel.indexOf('function statRow('), panel.indexOf('function paintStats('));
+    expect(row).toMatch(/onclick: \(e\) => \{[^}]*const cell = e\.target\.closest\?\.\('\.bt-dw-stat'\) \|\| \[\.\.\.row\.children\]\.find\(/);
+    // (a tap on the row's own top or bottom rule still names a cell: the one under its x)
+    expect(row).toMatch(/e\.clientX >= r\.left && e\.clientX < r\.right/);
+    expect(row).toMatch(/if \(cell\?\.title\) ctx\.feed\?\.push\(cell\.title, 'info', STAT_TOAST\);/);
+    expect(panel).toMatch(/const STAT_TOAST = \{ key: 'stat-why', ms: 2600, replace: true \};/);
+  });
+
+  it('a lock "i" and a Buffing face keep the keyboard\'s focus across a redraw (or hand it to their row)', () => {
+    expect(panel).toMatch(/'data-testid': `path-why-\$\{i\}`/);
+    expect(panel).toMatch(/'data-testid': `final-why-\$\{i\}`/);
+    expect(panel).toMatch(/h\('button\.bt-buffing-face', \{ type: 'button', 'data-uid': o\.uid,/);
+    const fk = panel.slice(panel.indexOf('function focusKeyOf('), panel.indexOf('function updateLive('));
+    expect(fk).toMatch(/if \(id\) return \[`\[data-testid="\$\{id\}"\]`, \.\.\.inRow\];/);
+    expect(fk).toMatch(/\.bt-buffing-face\[data-uid=/);
+  });
+
+  it('her ability\'s no-⚡ fallback holds on the frames after fit() (update() keeps it)', () => {
+    const upd = abrow.slice(abrow.indexOf('function update(tower)'), abrow.indexOf('return el;\n  }'));
+    expect(upd).toMatch(/\$\{noBolt \? ' bt-abrow-nobolt' : ''\}/);
+    const fit = abrow.slice(abrow.indexOf('function fit()'), abrow.indexOf('function overflows('));
+    expect(fit).toMatch(/noBolt = false;/);
+    expect(fit).toMatch(/noBolt = true;/);
+  });
+
+  it('every drawer keeps a path name line to one line: the fit runs on the wide drawer too', () => {
+    const fit = panel.slice(panel.indexOf('function fitPaths()'), panel.indexOf('let air = '));
+    expect(fit).not.toMatch(/isWide\(\)|const phone/);
+    expect(fit).toMatch(/name\.classList\.add\('bt-path-name-s'\)/);
+    expect(fit).toMatch(/name\.classList\.add\('bt-path-name-2l'\)/);
+    expect(css).toMatch(/\.bt-path-top \{ display: flex; align-items: center; flex-wrap: nowrap;/);
+    expect(css).toMatch(/^\.bt-pips-low \.bt-path-tier \{ display: flex;/m);
   });
 });

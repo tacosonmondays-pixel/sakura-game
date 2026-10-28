@@ -1,0 +1,114 @@
+{
+ "verdict": "NOT_OK",
+ "summary": "I reviewed A3 M4 at HEAD a2a20fe and changed no tracked files. It is not ready: 6 medium findings block it, and there are no high ones.\n\nWhat passes:\n- The sim id is c22b2587f4b7 at both e07e5e9 and HEAD, and COOP_PROTOCOL is still 8. Co-op stays display only.\n- tests/battle-ui, contrast.test.js and format.test.js pass (469 tests).\n- At 844, 1024 and 1280 the drawer matches the mock: navy ink plate, one chamfer with its hairline, Barlow Condensed tabular numbers (no mono), yellow price buttons.\n- Drawer width is 288 px at 844 and 340 px at 1024/1280.\n- Smallest drawer text is 12 px at 844 and 13 px at 1280. Contrast pairs pass.\n- The ability bar stays left of the drawer: right edges 538/664/920 against drawer left edges 548/676/932.\n- Two-tap buy, Sell confirm, target chips, the poor-row \"Need N more coins.\" toast, the hero drawer, the ally drawer and the hero widget all behave correctly.\n\nWhat fails:\n- Space on a focused path row also starts the next wave.\n- The PIERCE cell appears for girls whose gear Pierce does not add targets.\n- At 667x375 the drawer becomes a full-width bottom sheet.\n- Path rows fall below the fold or wrap for Chika 3-2-0 and Sango 0-3-2 at 844.\n- The drawer goes over 13 numbers.\n\nHarness notes:\n- All \"armed\" failures and the lock-why \"need\" failure in the run logs come from probes taking longer than the 2.6 s arm window on this 4-CPU box. When I armed a row and screenshotted at once, it opened correctly.\n- The 667x375 run applies the 1280 rules, because phone mode is only switched on for the exact 844x390 viewport.\n\nScreenshots are in /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/review-r0/:\n- the per-viewport runs: 844/, 1280x720/, 667x375/, 1024x768/ (with their run-*.log files)\n- my own checks: extra/ and armed/\n- 3x and 2x crops: crops/\n\nThe scripts behind extra/ and armed/ are /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/tools/review-extra.mjs and /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/tools/armed.mjs.",
+ "findings": [
+  {
+   "id": "logic-1",
+   "severity": "medium",
+   "lens": "logic",
+   "title": "Space on a focused path row (or drawer button) also starts the next wave",
+   "where": "src/ui/battle/towerPanel.js:428-432 (row onkeydown) + src/ui/battle/controller.js:770 via battleKeyAction (src/ui/battle/abilityBar.js:421)",
+   "evidence": "In tools/review-extra.mjs at 844x390 I focused Aoi's row 3 (.bt-path-main) between waves and pressed Space. Before: sim {state:'prep', wave:0}. After: {state:'wave', wave:1}, and the row was armed. The row handler calls preventDefault and click() but does not stop propagation, so the window onKey maps ' ' to {do:'wave'} and calls ctx.startWave(). The 'typing' guard only skips input/select/textarea. Result in extra/x-facts-844x390.json.",
+   "fix": "In the row's onkeydown, call e.stopPropagation() as well. Better: make the global battle key handler ignore Space and Enter when e.defaultPrevented is set or e.target.closest('button,[role=\"button\"],[tabindex]') is inside the drawer. That also covers price, Sell and chip buttons. Add an e2e step that presses Space on a focused row and checks the wave did not start."
+  },
+  {
+   "id": "logic-2",
+   "severity": "medium",
+   "lens": "logic",
+   "title": "PIERCE cell shown for girls whose gear Pierce adds no targets (trappers, duelists without a blade, blasts, pulses, chains)",
+   "where": "src/ui/battle/drawerView.js:63-65 (pierces), 139-142 (cell and title); tests/battle-ui/drawerView.test.js:67-68 pins it",
+   "evidence": "With unitStats.pierceK=46, Suzu 2-0-0 (trap) shows 'PIERCE 1 | Pierces 1 enemies, +46% chance of one more', and so does Kaede 0-1-0 (duel). The sim says otherwise: towers.js:615-627 skips gear Pierce for traps and gives duels without a blade gearK 0. mods.js applyGearReach widens blast and trap radius instead, pulses get +2 hits, chains get one more jump. So the cell claims extra targets she never gets. When st.pierce is unset the title also reads 'Pierces undefined enemies'. Stills: extra/x-suzu-gearpierce-844x390.png, crops/sheet-extra.png.",
+   "fix": "Count gear Pierce in pierces() only for kits that turn it into extra targets: projectile or hitscan shots without splash, beams, drones, and Kaede's blade. Never for trap, strip, duel without a blade, splash blasts, pulse or chain. Build the title from Math.max(1, st.pierce || 1) and write 'enemy' for 1. Update the test that pins 'gear Pierce alone counts'."
+  },
+  {
+   "id": "look-1",
+   "severity": "medium",
+   "lens": "look",
+   "title": "667x375 (a phone in landscape): the drawer is a 667 px full-width bottom sheet; path rows fall below the fold",
+   "where": "src/ui/styles/battle.css:843-844 (@media (max-width:700px) .bt-panel{left:0;right:0;width:auto;max-height:64%}); 667x375",
+   "evidence": "Every 667x375 still measures the drawer at 667x240. It covers the whole lower board, under a two-row HUD. Aoi 2-0-1: the Sky Hunter row and its price are cut under the footer. Chika 2-1-0 and 3-2-0: no path row is fully in view, only the header, Flight, target and stats rows, then the scroll cue. The lock toast's bottom edge runs 6 px under the sheet. This misses done-when 'the drawer is \u2264 300 px on phones' and \u00a76.6 'all 3 visible without scrolling'. Stills: 667x375/m4-drawer-aoi-667x375.png, crops/sheet-667.png.",
+   "fix": "Limit the bottom-sheet rule to portrait, e.g. @media (max-width:700px) and (orientation:portrait). Landscape phones under 701 px wide then get the 288 px side drawer and the max-height:480 density rules. In m4Scenes, decide phone mode from innerHeight \u2264 480 instead of vp==='844x390', so 667x375 is checked against the phone rules."
+  },
+  {
+   "id": "look-2",
+   "severity": "medium",
+   "lens": "look",
+   "title": "Chika 3-2-0 at 844: the two-line 'Drone Surge / Comes in a later update' row pushes the third path row under the fold",
+   "where": "src/ui/styles/battle.css:707-711 (.bt-panel .bt-abrow.s-later name white-space:normal); 844x390",
+   "evidence": "The harness fails it: 'm4-fit-chika-320: a path row or its price is out of the scroll body at 844' (path 2 row:false). The later-ability name wraps to two lines and so does its note. Tesla Engineering's lock line sits under the cue fade ('Two paths already\u25beupgraded'). Still: 844/m4-fit-chika-320-844x390.png, crops/sheet-fit1.png.",
+   "fix": "On phones keep the s-later ability name on one line (nowrap). Shorten the note to 'Later update' with the full sentence in the title, or drop the note on phones. Then re-run m4-drawer-fit at 844."
+  },
+  {
+   "id": "look-3",
+   "severity": "medium",
+   "lens": "look",
+   "title": "Sango 0-3-2 at 844: ability name cut by an ellipsis, and the Wide Fragmentation name line wraps (bolt alone on its own line)",
+   "where": "ability row name (.bt-abrow-name, battle.css:1539 / :705) and the path row top line (.bt-path-top); 844x390",
+   "evidence": "The harness fails it: 'drawer text cut by an ellipsis: Tidebreaker Shell [data-testid=ability-row-name]'. P6 allows an ellipsis only on player-written text. Closed, the Wide Fragmentation row is 54 px tall: the name, then the bolt chip on its own line, then the pips. After tap 1 the name line is 32 px (harness: 'the open row's name line wraps', confirmed in armed/a-facts-844x390.json topH 32). Stills: 844/m4-fit-sango-032-844x390.png, crops/sheet-armed844.png.",
+   "fix": "Let the ability name use the room taken by the AUTO/WAVE label, or wrap it to two 12 px lines; never truncate it. On phones keep the path name and bolt on one nowrap line. Move the pips to the tier line when the name is long (or fold the bolt as fitOpenRow already does), so the row stays one name line both closed and open."
+  },
+  {
+   "id": "logic-3",
+   "severity": "medium",
+   "lens": "logic",
+   "title": "Girl drawer shows more than 13 numbers",
+   "where": "src/ui/battle/towerPanel.js:215 (Potential pill in the header), pathRowView chips (drawerView.js:221-229), the '+N' target chip",
+   "evidence": "The m4 run's own counts at 844: m4-drawer-armed total 14 (Aoi 2-0-1 after tap 1: 2-0-1, +2, 11.4, 1.7, 4.3, 3, T3, 650, +2 dmg, 2 armor, T2, 200, 600, +420). m4-drawer-ability total 14. Kaede with gear Pierce: 14 closed. Aoi at P4: the header gains a 'P4' pill, a 15th number with the open row. \u00a76.6 places P level only in MORE, and MORE repeats it ('Potential P4'), which also breaks P7 (each fact once). Done-when: \u2264 13 numbers. Only the cooling-ability +1 is allowed.",
+   "fix": "Drop the Potential pill from the header; it stays in MORE. Write the target overflow without a digit ('+' or '\u00b7\u00b7\u00b7'), or count it inside the target section's budget. When the drawer would pass 13, limit the open row to one numeric chip. Add a scene that asserts a drawer total \u2264 13 (+1 per cooling ability) after tap 1."
+  },
+  {
+   "id": "logic-4",
+   "severity": "low",
+   "lens": "logic",
+   "title": "Dead or duplicated view logic",
+   "where": "src/ui/battle/drawerView.js:69-82 (buffCell), :318-337 (heroDrawerView rank); src/ui/girlView.js:140-151 (buffOf)",
+   "evidence": "buffCell's 'Brew' branch can never run: headlineKind only returns 'support' for aura, hub or drink, so Midori (brew) gets DMG \u00b7 RATE \u00b7 RANGE. buffCell repeats girlView.buffOf with different wording ('Girls' vs 'Allies'). heroDrawerView recomputes the ult rank instead of reading st.ultRank (sim hero.js ultRank).",
+   "fix": "Share one buff-cell helper between girlView and drawerView and remove the unreachable branch (or let brew girls be 'support' on purpose). Pass st.ultRank into heroDrawerView."
+  },
+  {
+   "id": "logic-5",
+   "severity": "low",
+   "lens": "logic",
+   "title": "The \u22644-numbers-per-section rule is tested on a parallel model, not on what the drawer renders",
+   "where": "src/ui/battle/drawerView.js drawerSections/sectionNumbers/SECTION_NUMBERS (test-only exports)",
+   "evidence": "No src module imports drawerSections, sectionNumbers or SECTION_NUMBERS; only tests do. The unit test can pass while towerPanel renders extra numbers (the ability row, the P pill, the '+N' chip).",
+   "fix": "Move these helpers into the test, or count numbers on the rendered DOM in the e2e probe only (it already does)."
+  },
+  {
+   "id": "logic-6",
+   "severity": "low",
+   "lens": "logic",
+   "title": "Layout read 4\u00d7 a second while the drawer is open",
+   "where": "src/ui/battle/towerPanel.js:965-975 (updateLive calls fitHeader/fitHolder/paintScrollCue every 250 ms)",
+   "evidence": "Each call removes a class and then reads offsetTop, scrollWidth or getBoundingClientRect. That forces a style and layout pass four times a second on phones, even when nothing changed.",
+   "fix": "Run these on render, on resize (ResizeObserver on the scroll body) and once on document.fonts.ready, not on a timer."
+  },
+  {
+   "id": "logic-7",
+   "severity": "low",
+   "lens": "logic",
+   "title": "The phone threshold differs between code paths (480 vs 500 px)",
+   "where": "src/ui/battle/towerPanel.js:60 (isWide: innerHeight > 480) vs :114 and :722 (short: innerHeight <= 500)",
+   "evidence": "A window 481-500 px tall gets the wide drawer and full ally sentence, but the phone's 'Show all (N)' Buffed-by list. The CSS uses both max-height:480px and max-height:500px blocks.",
+   "fix": "Use one PHONE_H constant for both the JS and the CSS media queries."
+  },
+  {
+   "id": "look-4",
+   "severity": "low",
+   "lens": "look",
+   "title": "Small consistency nits",
+   "where": "drawer stat row vs MORE; the MORE button; the hero ally note",
+   "evidence": "RANGE reads '3.0' in the stat row but '3' in Details. MORE uses the yellow price fill, though the spec keeps yellow for prices. The hero's ally note stays the full sentence on phones, while the girl's ally note was shortened in round 2.",
+   "fix": "Use { fixed: true } for range in Details too. Give MORE the ink chip style. Use the short phone note for the hero's ally note."
+  },
+  {
+   "id": "logic-8",
+   "severity": "low",
+   "lens": "logic",
+   "title": "The m4 scene harness gives false failures on a slow machine and treats non-844 viewports as 1280",
+   "where": "e2e/lib/m4Scenes.mjs:104-106 (phone = vp==='844x390'), still() armed checks, the lock-why 'need' check",
+   "evidence": "On this 4-CPU box every armed check at 1280 and 667, and several at 844, failed with armed:false. The probe took longer than the 2.6 s arm window. My immediate tap-and-screenshot shows the rows open correctly (armed/a-facts-*.json). The 'need' toast was missed at 844, 1280 and 1024 even though it appears ('Need 640 more coins.', extra/x-facts-844x390.json). The 667x375 run fails the 13-px floor and the ally wording because it is checked as 1280.",
+   "fix": "Freeze the arm timer in scenes (stub performance.now or expose a BUY_ARM_MS override). Read the toast right after the tap. Decide phone mode from innerHeight \u2264 480."
+  }
+ ]
+}

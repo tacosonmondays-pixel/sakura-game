@@ -15,6 +15,7 @@
 //   allyNoteText(owner, o)         the ally note (a girl's or a hero's): the full sentence at 1280, one short line on a phone
 //   holderParts(line)              "Held by Aoi 5-0-0" and " · top right" (a phone's holder line drops the place to stay one line)
 //   contentBelow(port, bottoms)    how far the body's content reaches below the fold (the scroll cue's rule)
+//   rowAir(spare, heights, tap)    a phone's spare room shared out to its chip rows' bands (each up to the dense tap size)
 import { fmtNum } from '../format.js';
 import { headlineKind, buffOf } from '../girlView.js';
 import { effectParts, tierTags, UPGRADE_TAGS, TRANSFORM_TAG } from '../upgradeTags.js';
@@ -406,4 +407,32 @@ export function contentBelow(portBottom, childBottoms) {
   let low = -Infinity;
   for (const b of childBottoms || []) if (Number.isFinite(b) && b > low) low = b;
   return low === -Infinity ? 0 : low - portBottom;
+}
+
+/**
+ * Phones: the room the drawer has to spare under its last path row, shared out to its chip rows (target, strips, aim,
+ * pick, Flight) as air above and below their chips, so each row's band (which holds its chips' hit areas, clipped to it)
+ * grows towards the dense tap size (the M4 review, round r2: the chips' hit areas reached over the stat row's labels).
+ * Equal air for every row that has not reached the tap size, in whole pixels; never more than the room there is.
+ * @param {number} spare px between the body's last content and the fold (0 or less: none)
+ * @param {number[]} heights each chip row's height with no air
+ * @param {number} tap the dense tap size (px)
+ * @returns {number[]} each row's air, per side (px)
+ */
+export function rowAir(spare, heights, tap) {
+  const hs = heights || [];
+  const out = hs.map(() => 0);
+  const caps = hs.map((h) => Math.max(0, Math.floor((tap - h) / 2)));
+  let left = Number.isFinite(spare) ? Math.floor(spare) : 0;
+  for (;;) {
+    const open = out.map((_, i) => i).filter((i) => out[i] < caps[i]);
+    const step = open.length ? Math.floor(left / (2 * open.length)) : 0;
+    if (step < 1) break;
+    for (const i of open) {
+      const add = Math.min(step, caps[i] - out[i]);
+      out[i] += add;
+      left -= 2 * add;
+    }
+  }
+  return out;
 }

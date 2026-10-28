@@ -165,6 +165,92 @@ export async function drawerPathsInView(page) {
   });
 }
 
+/**
+ * What a tap on each part of the girl drawer reaches (the M4 review, round r2: on a phone the target chips' hit areas
+ * reached 14 px down over the stat row, so a tap on DMG or RATE changed her target, and over Iroha's MIRROR label). Hit
+ * tested in the page (document.elementFromPoint) on a 2 px grid, inside the scroll body's port:
+ *   dead   the stat row and the chip rows' labels (TARGET, STRIPS, MIRROR, BREW and her pick, FLIGHT): points that reach
+ *          a control (none may)
+ *   faces  every chip, FIRE and her ability's name: points of the control's own face that reach anything else (none may)
+ *   chips  each chip's hit height and width, hit tested out from its centre
+ * Also each path row's name line: its lines and whether its ⚡ chip sits on a line of its own.
+ */
+export async function drawerHits(page) {
+  return page.evaluate(() => {
+    const p = document.querySelector('[data-testid="tower-panel"]');
+    const sc = p?.querySelector('.bt-panel-scroll');
+    if (!p || p.hidden || !sc) return null;
+    const port = sc.getBoundingClientRect();
+    const CTL = 'button, [role="button"], [role="switch"], a[href], input';
+    const ctlAt = (x, y) => {
+      const n = document.elementFromPoint(x, y);
+      const c = n?.closest?.(CTL);
+      return { n, c: c && p.contains(c) ? c : null };
+    };
+    const name = (e) => (e ? e.getAttribute('data-testid') || e.getAttribute('data-mode') || String(e.className?.baseVal ?? e.className).split(' ')[0] : '-');
+    const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden';
+    // a box clipped to the scroll port (a part scrolled out of view takes no tap)
+    const clip = (r) => ({ left: Math.max(r.left, port.left), right: Math.min(r.right, port.right), top: Math.max(r.top, port.top), bottom: Math.min(r.bottom, port.bottom) });
+    const grid = (r, fn) => {
+      for (let y = r.top + 0.5; y < r.bottom; y += 2) for (let x = r.left + 0.5; x < r.right; x += 2) fn(x, y);
+    };
+    const dead = [];
+    const zones = [['stats', p.querySelector('[data-testid="drawer-stats"]')], ...[...sc.querySelectorAll('.bt-dw-row > .bt-dw-k, .bt-dw-row > .bt-buff-pick-now')].map((e) => [`label "${e.textContent.trim()}"`, e])];
+    for (const [label, e] of zones) {
+      if (!shown(e)) continue;
+      const hits = {};
+      grid(clip(e.getBoundingClientRect()), (x, y) => {
+        const { c } = ctlAt(x, y);
+        if (c) hits[name(c)] = (hits[name(c)] || 0) + 1;
+      });
+      if (Object.keys(hits).length) dead.push({ zone: label, hits });
+    }
+    const faces = [];
+    for (const e of p.querySelectorAll('.bt-tchip, [data-testid="ability-fire"], [data-testid="ability-row-name"]')) {
+      if (!shown(e)) continue;
+      const r = e.getBoundingClientRect();
+      const box = clip({ left: r.left + 1, right: r.right - 1, top: r.top + 1, bottom: r.bottom - 1 });
+      const other = {};
+      grid(box, (x, y) => {
+        const { n } = ctlAt(x, y);
+        if (!n || (n !== e && !e.contains(n))) {
+          const k = name(n?.closest?.(CTL) || n);
+          other[k] = (other[k] || 0) + 1;
+        }
+      });
+      if (Object.keys(other).length) faces.push({ face: `${name(e)} "${e.textContent.trim().slice(0, 16)}"`, covered: other });
+    }
+    const chips = [...p.querySelectorAll('.bt-tchip')].filter(shown).map((e) => {
+      const r = e.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const on = (x, y) => { const n = document.elementFromPoint(x, y); return !!n && (n === e || e.contains(n)); };
+      let up = 0; while (up < 30 && on(cx, cy - up - 1)) up++;
+      let dn = 0; while (dn < 30 && on(cx, cy + dn + 1)) dn++;
+      let lf = 0; while (lf < 60 && on(cx - lf - 1, cy)) lf++;
+      let rt = 0; while (rt < 60 && on(cx + rt + 1, cy)) rt++;
+      return { chip: e.textContent.trim() || name(e), h: Math.round(r.height), hitH: up + dn + 1, hitW: lf + rt + 1 };
+    });
+    const lines = (e) => {
+      const rg = document.createRange();
+      rg.selectNodeContents(e);
+      const rs = [...rg.getClientRects()].filter((q) => q.width > 0.5).sort((a, b) => a.top - b.top);
+      let n = 0;
+      let lb = -1e9;
+      for (const q of rs) if (q.top >= lb - 3) { n++; lb = q.bottom; } else lb = Math.max(lb, q.bottom);
+      return n;
+    };
+    const names = [...p.querySelectorAll('.bt-path')].map((row) => {
+      const nm = row.querySelector('.bt-path-name');
+      const bolt = row.querySelector('.bt-path-bolt');
+      const nr = nm.getBoundingClientRect();
+      const br = shown(bolt) ? bolt.getBoundingClientRect() : null;
+      return { path: Number(row.dataset.path), name: nm.textContent.trim(), lines: lines(nm), px: parseFloat(getComputedStyle(nm).fontSize), boltOwnLine: br ? br.top >= nr.bottom - 3 : false, rowH: Math.round(row.getBoundingClientRect().height) };
+    });
+    return { dead, faces, chips, minChipH: chips.length ? Math.min(...chips.map((c) => c.hitH)) : null, names };
+  });
+}
+
 /** One line for a log: "numbers 9 · smallest 12px · 0 truncated · no sideways scroll · overlaps none". */
 export function formatProbe(p) {
   const ov = p.overlaps.length ? p.overlaps.map((o) => `${o.a}×${o.b} ${o.area}px²`).join(', ') : 'none';

@@ -393,12 +393,17 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-panel .bt-ally-note { margin: 0; padding: 6px 8px; border-radius: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); background: var(--dw-fill); border-left: 3px solid var(--ally, #ff8fab); }
 .bt-panel .bt-ally-note .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--on-plate-dim); }
 /* the scroll cue (phones hide thin scrollbars): a fade at the foot of the body and a ▾, while content sits below */
-.bt-panel-foot { position: relative; }
+.bt-panel-foot { position: relative; z-index: 2; } /* (over the stat row's layer: the cue and Sell's hit area stay on top) */
 .bt-scroll-cue {
   display: none; position: absolute; left: 0; right: 0; bottom: 100%; height: 22px; pointer-events: none; place-items: end center;
   background: linear-gradient(rgba(14, 25, 48, 0), rgba(14, 25, 48, 0.94));
 }
-.bt-scroll-cue span { font: 700 var(--fs-name)/1 var(--font-num); color: var(--on-plate); padding-bottom: 1px; }
+/* (the ▾ on its own small ink pill: it lands on whatever text sits at the fold, and its glyph never mixes with that
+   text's letters; the M4 review, round r2: "ca▾n pass T2") */
+.bt-scroll-cue span {
+  margin-bottom: 1px; padding: 2px 9px 1px; border-radius: 999px; background: var(--plate); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
+  font: 700 var(--fs-label)/1 var(--font-num); color: var(--on-plate);
+}
 .bt-panel.bt-scroll-more .bt-scroll-cue { display: grid; }
 
 /* ---- rows of ink chips: target, strips, aim, flight */
@@ -421,11 +426,16 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-tchip-more-ico { display: inline-flex; width: 18px; height: 4px; line-height: 0; }
 .bt-tchip-more-ico svg { width: 100%; height: 100%; display: block; }
 .bt-tchip:active:not(:disabled) { transform: scale(0.96); }
+/* (the keyboard's ring inside the chip: a phone's chip row clips what reaches past its band) */
+.bt-tchip:focus-visible { outline: 2px solid var(--on-plate); outline-offset: -3px; }
 .bt-buff-pick-now { flex: 1 1 auto; min-width: 0; font: 500 var(--fs-body)/1.25 var(--font); color: var(--on-plate-dim); }
 .bt-buff-pick-now b { color: var(--on-plate); font-weight: 700; }
 
-/* ---- the stat row: caps labels over big numbers (the first in the plate accent) */
-.bt-dw-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border-top: 1px solid var(--dw-line); border-bottom: 1px solid var(--dw-line); }
+/* ---- the stat row: caps labels over big numbers (the first in the plate accent). It sits over every hit area that
+   reaches into it (a chip's above, the first path row's price and "i" below), so a tap on a label never changes her
+   target or buys (the M4 review, round r2); it takes its own taps instead: a tap on a stat says what it is (towerPanel
+   statRow) */
+.bt-dw-stats { position: relative; z-index: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border-top: 1px solid var(--dw-line); border-bottom: 1px solid var(--dw-line); }
 .bt-dw-stat { display: flex; flex-direction: column; gap: 3px; padding: 5px 6px 6px 8px; min-width: 0; }
 .bt-dw-stat + .bt-dw-stat { border-left: 1px solid var(--dw-line); }
 .bt-dw-lbl { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate-dim); white-space: nowrap; }
@@ -445,8 +455,17 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-path-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .bt-path-main[role='button'] { cursor: pointer; }
 .bt-path-main:focus-visible { outline: 2px solid var(--blue-on-plate); outline-offset: 2px; }
-.bt-path-top { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; min-width: 0; }
-.bt-path-name { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); }
+.bt-path-top { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px 6px; min-width: 0; }
+.bt-path-name { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); white-space: nowrap; }
+/* the name line stays one line on every drawer (towerPanel fitPaths; the M4 review, round r2: at 1024 and 1280 Sango's
+   "Wide Fragmentation" took two lines and its ⚡ a third): the pips move to the tier line, then the open row's ⚡ chip
+   folds (its open line says what the tier does), then the name takes the smaller size; last, a name that still would
+   not fit wraps beside its ⚡, never cut */
+.bt-pips-low .bt-path-tier { display: flex; align-items: center; gap: 6px; }
+.bt-pips-low .bt-path-tier .bt-pips { margin-left: auto; }
+.bt-path-name.bt-path-name-s { font-size: var(--fs-body); }
+.bt-path-name.bt-path-name-2l { min-width: 0; white-space: normal; }
+.bt-path.armed .bt-path-bolt.bt-fold { display: none; }
 .bt-path-tier { font: 600 var(--fs-label)/1.15 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate); }
 .bt-path-tier b { font-weight: 700; color: var(--blue-on-plate); }
 .bt-pips { display: flex; gap: 2px; flex: none; margin-left: auto; }
@@ -670,14 +689,16 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-dw-chips-icons .bt-dw-type { padding: 3px 5px; }
   .bt-dw-chips-icons .bt-dw-type .bt-dw-tag-word { display: none; }
   .bt-panel-scroll { padding: 2px 8px; gap: 2px; }
-  .bt-dw-row { min-height: 24px; }
+  /* a chip row's band holds its chips' hit areas (the centred dense tap size, clipped to the band), so a chip never
+     takes a tap on the stat row, on another row's label or on her ⚡ row's FIRE and name (the M4 review, round r2: the
+     target chips reached 14 px down over DMG · RATE · RANGE and over Iroha's MIRROR). The room the drawer has to spare
+     under its last path row widens the bands, up to the dense tap size (towerPanel fitRowAir: --bt-row-air). A band
+     never shrinks under its chips when the body overflows (its clip would cut them): the body scrolls instead */
+  .bt-panel .bt-dw-row { flex-shrink: 0; min-height: 24px; padding-block: var(--bt-row-air, 0px); overflow: hidden; overflow: clip; }
   /* each chip the dense tap size wide at least (the M4 review, round r1: LAST was 38 px, "+" 20 px); the target row's
      TARGET label steps away for the room (FIRST · LAST · STRONG · CLOSE say what they are; the row's group label keeps
      the word), as UPGRADES does below */
   .bt-tchip { min-height: 24px; padding: 0 7px; min-width: var(--tap-dense); }
-  /* (a chip's hit area starts at its top and reaches down, where the stat row takes no taps, so it never takes the
-     bottom of her ⚡ row's FIRE or name above it; the M4 review, round r1 measured those at 34 and 25 px) */
-  .bt-panel .bt-tchip::after { top: 0; translate: none; }
   .bt-panel [data-testid="target-row"] > .bt-dw-k { display: none; }
   .bt-dw-stat { padding: 2px 4px 1px 6px; gap: 0; }
   /* (the phone type scale: 12 · 13 · 16 · 22, UI_DIRECTION P6) */
@@ -708,20 +729,15 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-lock-held-ico { display: inline-flex; flex: none; width: 13px; height: 13px; color: var(--bad-on-plate); }
   .bt-path-main { gap: 1px; }
   /* the name, its ⚡ chip and the pips share the first line (a longer name used to push the pips onto a line of their
-     own) */
-  .bt-path-top { flex-wrap: nowrap; gap: 2px 5px; }
-  .bt-path-name { font-size: var(--fs-name); line-height: 1; white-space: nowrap; }
-  /* the name line stays one line (towerPanel fitPaths): the pips move to the tier line, then the open row's ⚡ chip
-     folds, last the name takes the smaller size */
-  .bt-pips-low .bt-path-tier { display: flex; align-items: center; gap: 6px; }
-  .bt-pips-low .bt-path-tier .bt-pips { margin-left: auto; }
-  .bt-path-name.bt-path-name-s { font-size: var(--fs-body); }
+     own; the fit steps are above) */
+  .bt-path-top { gap: 2px 5px; }
+  .bt-path-name { font-size: var(--fs-name); line-height: 1; }
   .bt-path-bolt { height: 16px; padding: 0 3px; }
   .bt-pips { gap: 2px; }
   .bt-pip { width: 8px; height: 5px; }
   /* tap 1 widens the price ("Buy · 100", its words say coins): for that moment the open line says what the tier does
      and the pips step away */
-  .bt-path.armed .bt-pips, .bt-path .bt-buy.armed:not(.poor) .bt-buy-coin, .bt-path.armed .bt-path-bolt.bt-fold { display: none; }
+  .bt-path.armed .bt-pips, .bt-path .bt-buy.armed:not(.poor) .bt-buy-coin { display: none; }
   .bt-path .bt-buy, .bt-dw-price { min-height: 30px; }
   .bt-path .bt-buy::after, .bt-panel-foot .bt-sell::after, .bt-panel .bt-abrow-fire::after {
     content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%;
@@ -746,6 +762,9 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-panel-foot .bt-sell::after { translate: 0 calc(-50% - 3px); }
   .bt-panel-foot .bt-dw-more::after { translate: -50% calc(-50% - 3px); }
   .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
+  /* (her open row's Auto keeps its own face: FIRE's and her name's hit areas reach 6 px down over it; the M4 review,
+     round r2 measured Auto at 35 px) */
+  .bt-panel .bt-abrow-auto { position: relative; }
   /* an ability that comes later: its name on one line, the short note ("Later update", abilityRow.js) beside it, so the
      row stays one line (the M4 review: two two-line pieces pushed the third path row under the fold) */
   .bt-panel .bt-abrow.s-later { display: flex; align-items: center; gap: 8px; }
