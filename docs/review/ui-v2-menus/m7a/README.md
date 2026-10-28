@@ -47,6 +47,15 @@ New rules: `src/ui/styles/v2-records.css` (all under the menus' surface mode).
 
 Numbers with the top bar: 3-6 on every shot (the profile Preview 10), the repeated rows and tiles budgeted per row.
 1280x720: text 13 everywhere. 390x844: no sideways scroll (the event tabs and the Story rail scrolled before).
+`node e2e/menus.mjs --milestone m7a`: 14 shots × 3 sizes, 0 failing (the new shots: profile-showcase, profile-pins,
+profile-preview, story-ch2, journal-entry).
+
+## Notes for the kit
+
+- The M7a buttons sit on the kit's `.ui-hit` with no press scale: a `.ui-btn` that scales under a finger on `:active`
+  lost a touch tap's click right after a touch drag (Edit Showcase's Save in `e2e/profile.mjs`). Worth a look in
+  ink.css (`.ui-btn:active`, `.ui-hit:active > .ui-btn`).
+- New here, candidates for the kit: the day card (a single-cut white tile with one ring), the side sheet on paper.
 
 ## For the owner
 
