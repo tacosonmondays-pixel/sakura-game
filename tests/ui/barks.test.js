@@ -2,6 +2,7 @@
 // wound or body words, the Gnat's lines as STORY §7.3 has them, one chip per side at a time (a
 // second bark on a busy side is dropped, never stacked), one spawn bark per group, ≤ 1.6 s.
 import { describe, it, expect } from 'vitest';
+import { ENEMIES } from '../../src/data/enemies.js';
 import { BARKS, BARK_MAX_WORDS, BARK_SECONDS, BRIGADE_LORE, barkFor, barkUnit } from '../../src/ui/text/barks.js';
 import { createBarkQueue, createBarkChips, BARK_FONT_PX, GROUP_GAP } from '../../src/ui/battle/barks.js';
 
@@ -33,6 +34,22 @@ describe('the bark table', () => {
     expect(barkFor('goblin_runner', 'spawn')).toBe(null);
     expect(barkUnit('ghost_wisp')).toBe(null);
     expect(BRIGADE_LORE.brigade_gnat).toBe('Watches everything. Understands nothing. Reports both.');
+  });
+
+  it('Step 4: the troopers, the Tortoise and the Badger say what STEP4_BUILD_PLAN decision 4 has them say', () => {
+    expect(barkFor('brigade_trooper', 'spawn')).toBe('Contact front!');
+    expect(barkFor('brigade_trooper', 'beaten')).toBe('Trooper down!');
+    expect(barkFor('brigade_shieldline', 'spawn')).toBe('Shields! Form a line!');
+    expect(barkFor('brigade_shieldline', 'beaten')).toBe('Close up! Close up!');
+    expect(barkFor('brigade_tortoise', 'spawn')).toBe('Tortoise rolling!');
+    expect(barkFor('brigade_tortoise', 'beaten')).toBe('Crew out! Crew out!');
+    expect(barkFor('brigade_badger', 'spawn')).toBe(null);
+    expect(barkFor('brigade_badger', 'beaten')).toBe('Fall back! Fall back!');
+    // every Brigade def in the bestiary has its lines and its lore line
+    for (const e of ENEMIES.filter((x) => x.family === 'brigade')) {
+      expect(BARKS[e.id], e.id).toBeTruthy();
+      expect(BRIGADE_LORE[e.id], e.id).toBeTruthy();
+    }
   });
 });
 

@@ -113,6 +113,29 @@ export const STAGE_RULE_SKINS = {
     desc: 'The tear over the shrine opens for 6 s (every 20 s): Holy deals 50% more damage and spectral enemies move 20% faster.',
     toast: 'The tear opens! Holy +50%, spirits faster (6 s)',
   },
+  // Chapter 4 · Act II — The Checkpoint (docs/specs/gate-arc/STEP4_BUILD_PLAN.md §5)
+  '4-6': {
+    rule: 'supply_ship', name: 'Brigade Convoy', short: 'Convoy',
+    desc: 'A Brigade convoy drops 150 battle coins after every 4th wave. Sleet boosts Lightning by 20%.',
+  },
+  '4-7': {
+    rule: 'heat_mirage', name: 'Flare Smoke', short: 'Flares', activeWord: 'flare smoke',
+    desc: 'The Brigade\'s smoke flares drift over the checkpoint (6 s in every 18) and cut girls\' range by 0.5. Every defeated enemy drops 1 extra coin.',
+    toast: 'Flare smoke! Range −0.5 (6 s)',
+  },
+  '4-8': {
+    rule: 'rear_ambush', name: 'Wrong Way', short: 'Wrong way',
+    desc: 'Every even wave comes up the carriageways from the city behind you, through the goal gate. Cover both ends.',
+  },
+  '4-9': {
+    rule: 'prism_conduits', name: 'Village Hearths', short: 'Hearths',
+    desc: 'A girl standing by one of the village\'s three last warm hearths gets +0.7 range and +25% damage. One girl per hearth.',
+  },
+  '4-10': {
+    rule: 'snowbell_blizzard', name: 'Blizzard', short: 'Blizzard', activeWord: 'blizzard',
+    desc: 'Blizzards sweep the ravine (7 s in every 20): every enemy slows by 30%, but girls\' range drops by 15%.',
+    toast: 'Blizzard! Enemies 30% slower, range −15% (7 s)',
+  },
 };
 
 /**
@@ -148,7 +171,7 @@ export function ruleHasMarks(rule) {
 export const LANE_CLOSED_LINE = 'Crossing closed: long way round';
 
 /** Per-stage wording of that line (stage id → text; e.g. a checkpoint gate instead of a crossing). */
-export const STAGE_LANE_TEXT = {};
+export const STAGE_LANE_TEXT = { '4-7': 'Barrier down: long way round' };
 
 /** The banner line for `stage` when a lane is closed. */
 export function laneClosedText(stage) {
