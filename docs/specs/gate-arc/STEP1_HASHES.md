@@ -45,3 +45,39 @@ All within the limits.
 | downtown / canal | all | unchanged from the S1b fix table | | | | | |
 
 The barrier arms ride in the merged facade mesh (0 extra draw calls; only their vertex range is re-uploaded while they swing).
+
+### S1d terrain budget (node measurement on the five real maps, terrain meshes only)
+
+| Stage · map | Quality | Draw calls | Instanced movers | Triangles | Glow sprites | Emitters | Sorted transparent |
+|---|---|---|---|---|---|---|---|
+| 1-6 · noon_station_plaza | high | 8 | 2 | 22,780 | 32 | 6 | 0 |
+| 1-6 · noon_station_plaza | medium | 8 | 2 | 21,764 | 32 | 6 | 0 |
+| 1-6 · noon_station_plaza | low | 8 | 2 | 19,716 | 32 | 6 | 0 |
+| 1-7 · noon_covered_arcade | high | 7 | 1 | 25,404 | 36 | 6 | 0 |
+| 1-7 · noon_covered_arcade | medium | 7 | 1 | 24,220 | 36 | 6 | 0 |
+| 1-7 · noon_covered_arcade | low | 7 | 1 | 20,292 | 36 | 6 | 0 |
+| 1-8 · noon_corner_store | high | 7 | 1 | 30,676 | 26 | 6 | 0 |
+| 1-8 · noon_corner_store | medium | 7 | 1 | 29,378 | 26 | 6 | 0 |
+| 1-8 · noon_corner_store | low | 7 | 1 | 25,934 | 26 | 6 | 0 |
+| 1-9 · noon_canal_crossing | high | 9 | 3 | 26,812 | 32 | 5 | 0 |
+| 1-9 · noon_canal_crossing | medium | 9 | 3 | 25,090 | 32 | 5 | 0 |
+| 1-9 · noon_canal_crossing | low | 9 | 3 | 21,910 | 32 | 5 | 0 |
+| 1-10 · noon_dry_fountain | high | 7 | 1 | 37,414 | 37 | 5 | 0 |
+| 1-10 · noon_dry_fountain | medium | 7 | 1 | 36,224 | 37 | 5 | 0 |
+| 1-10 · noon_dry_fountain | low | 7 | 1 | 31,780 | 37 | 5 | 0 |
+
+All within the S1b limits (≤ 10 draw calls, ≤ 3 instanced movers, ≤ 90k triangles high / 65k low, ≤ 250 glow sprites,
+≤ 40 emitters, 0 sorted transparent meshes).
+
+### S1d balance rows (tests/integration/balance.test.js bot, free girls by unlock ancestors, Act II at chapter 2's level)
+
+The Easy gate wins all 45 campaign stages. Hard and Nightmare are recorded for the later balance pass (not tuned here).
+
+| Stage | Lv | Easy | Normal | Hard | Nightmare | Free units |
+|---|---|---|---|---|---|---|
+| 1-6 | 8 | won (150/150) | won (100/100) | won (50/50) | lost w1/18 | sango, yuki, aoi, rei, nami |
+| 1-7 | 8 | won (147/150) | won (96/100) | lost w17/20 | lost w1/20 | sango, yuki, aoi, rei, nami |
+| 1-8 | 8 | won (150/150) | won (100/100) | won (50/50) | lost w5/20 | yuzuha, sango, yuki, aoi, rei, nami |
+| 1-9 | 8 | won (149/150) | won (94/100) | won (11/50) | lost w1/22 | yuzuha, sango, yuki, aoi, rei, nami |
+| 1-10 | 8 | won (123/150) | won (75/100) | won (15/50) | lost w2/22 | yuzuha, sango, yuki, aoi, rei, nami |
+
