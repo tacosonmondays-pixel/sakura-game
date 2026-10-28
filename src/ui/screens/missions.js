@@ -151,7 +151,8 @@ function build(redraw, mode = 'stand') {
       e.stopPropagation();
       navigate('stage', { id: next });
     };
-    mission.appendChild(h('span.ma-hub-go', {
+    // (in the caption band's right side: the tile's middle stays the tile's own tap, the campaign)
+    mission.querySelector(':scope > .cap').appendChild(h('span.ma-hub-go', {
       role: 'button', tabindex: 0, 'data-testid': 'hub-quick-start', 'data-primary': '', 'aria-label': `Quick start ${next}`,
       onclick: start,
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(e); } },
