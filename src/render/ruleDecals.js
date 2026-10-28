@@ -62,7 +62,12 @@ export class RuleDecals {
       const taken = p.ownerUid != null;
       const pulse = taken ? 1 : 0.55 + 0.45 * Math.sin(t * 2.4 * slow + p.x);
       const D = p.r * 2;
-      const [c0, c1, c2, c3] = this._padCol;
+      // (indexed, not destructured: no iterator per pad per frame)
+      const pc = this._padCol;
+      const c0 = pc[0];
+      const c1 = pc[1];
+      const c2 = pc[2];
+      const c3 = pc[3];
       gN.push(p.x, PATH_H + 0.012, p.y, D, D, R.disc, c0[0], c0[1], c0[2], 0.42);
       gA.push(p.x, PATH_H + 0.018, p.y, D * 0.95, D * 0.95, R.rune, c1[0], c1[1], c1[2], 0.35 + 0.35 * pulse, t * 0.25 * slow);
       gA.push(p.x, PATH_H + 0.022, p.y, D * 1.05, D * 1.05, R.ringThick, c2[0], c2[1], c2[2], taken ? 0.75 : 0.3 + 0.3 * pulse);

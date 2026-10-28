@@ -11,7 +11,7 @@
 // (CONTRACTS.md §4, §9):
 //   district: 'highway'                      MapDef: the highway district on a `city` map
 //   city.barriers: [{ lane, at? }]           MapDef: a checkpoint barrier arm across `lane` (4-7)
-//   city.snowRows                            MapDef: how many north rows the snow covers (default 5)
+//   city.snowRows                            MapDef: how many north rows the snow covers (default 6)
 //   look: { dusk: true }                     StageDef: the dusk light (4-7)
 //   scenery.props: 'frost', 'snowCover', 'tollPlaza', 'checkpoint', 'tunnelPortals', 'beachhead',
 //     'frozenVillage', 'villageHearths', 'snowBridge', 'vastShadow', …   (src/render/terrain.js SCENERY)

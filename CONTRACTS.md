@@ -486,7 +486,11 @@ MapDef = {
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
   city?: {...},                    // the city kit's render hints (see `theme` above)
-  district?: 'oldtown',            // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District")
+  district?: 'oldtown'|'highway',  // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District");
+                                   // Step 4: 'highway' (Act 4's mountain highway, 4-6…4-8; see "Highway")
+                                   // Step 4 `city` hints (render only): barriers?: [{ lane: number, at?: [x, y] }] (a checkpoint
+                                   // barrier arm across `lane`, lowered by the lane schedule; 4-7), snowRows?: number
+                                   // (how far south the 'snowCover' keyword's snow reaches; default 6; 4-8)
                                    // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
                                    // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
                                    // as always, the renderer stands the rift gate there with no run-out
@@ -604,6 +608,11 @@ StageDef = {
   drops: [{ item, chance, min, max, difficulty? /*min difficulty*/ }],
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
+                                       // (Gate Arc: ruined?: 'burning'; keywords in props, e.g. Step 4's 'frost',
+                                       // 'snowCover', 'tollPlaza', 'checkpoint', … : src/render/terrain.js SCENERY)
+  look?: { night?: 'lantern', costumes?: boolean, blackout?: boolean, dusk?: boolean },
+                                       // render only (outside the sim; in the data hash like every StageDef field):
+                                       // Step 4 dusk = the warm low sun of 4-7 (themes.DUSK; ignored on a night stage)
   tier: MapTierKey,
   rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
@@ -1605,6 +1614,40 @@ docs/specs/gate-arc/STEP3_BUILD_PLAN.md §2-3):
   table by unit id and event, src/ui/battle/barks.js chips): ≤ 6 words, one chip per board side at a
   time, ≤ 1.6 s, over a group on spawn and over a unit when beaten (the Gnat: "Gnats up!" / "Channel 9,
   moving up!", LINK LOST). `r.info` adds `district`, `ruined`, `tear` (level or null) and `barks`.
+
+Gate Arc Step 4 render hooks (S4a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP4_BUILD_PLAN.md §2-3; preview boards in previews/highwayMaps.js):
+- **Highway** — `MapDef.district: 'highway'` on a `city` map: `themes.DISTRICTS.highway` (gravel ground, the pale
+  `concrete` road with a dark hard shoulder painted along it, kept the lightest band; `roadsideBlock` buildings:
+  embankments with sound walls, rock cuts, a depot, a salt dome, a control hut, a rest stop, all ≤ BOARD_MAX_H, rock
+  inside a big block of H (the mountain); `soundWall` on the border; a concrete flyover deck look; the `highway`
+  tunnel style). The city kit then draws steel crash barriers along every road on the ground instead of raised
+  kerbs, highway lamps instead of utility poles and wires, no signals or painted crossings, toll canopies under 'U'
+  roofs (the booth islands girls stand on, ROOF_Y, lit price boards), the bore dressing (`tunnelPortal`: hood, jet
+  fans, sodium lamps) at every tunnel mouth, a flyover on its piers down one side skirt (src/render/city/highwayProps.js).
+- **Checkpoint barrier** — `MapDef.city.barriers: [{ lane, at? }]`: an arm across lane `lane` on two Brigade posts
+  (amber beacons), by default at the first point of that lane's road on the board ≥ 1.4 tiles from every other road
+  and clear of forks, joins, gates, tunnel mouths and crossings (or the point nearest `at`); a checkpoint hut beside
+  it. `setLanes(open)` lowers it while every lane through it is closed, exactly as a level crossing's arms (one
+  shared arms part in the facade mesh, re-posed only while it swings), but no train runs for it. `terrain.barriers`
+  and `r.info.barriers` ('down' / 'up') for tests and previews. 4-7: `waveGen.laneCycle: [[1], [0, 1]]` + `city:
+  { barriers: [{ lane: 0 }] }`.
+- **Looks** — `StageDef.look.dusk` (themes.DUSK); scenery keywords 'frost' (themes.FROST: a cold wash under the road's
+  tone, rime on rails and barriers, flurries), 'snowCover' (themes.SNOW_COVER: snow painted over the north rows down
+  to `map.city.snowRows`, slush by the road, snowdrifts, a snowy top on the bores' ridges), 'snowBridge'
+  (themes.BRIDGE_LAYER: the Brigade's folding deck over the water, no piles, plus `stoneBridgePier`s beside it).
+  `r.info` adds `dusk`, `frost`.
+- **Dressing keywords** (src/render/terrain.js SCENERY; `also` dresses further keywords): 'tollPlaza' (booths beside
+  the road + 'signGantries' across a straight + 'restStops'), 'checkpoint' (Azami's citation stand + 'jerseyBarriers'
+  + 'brigadeCamp'), 'brigadeCamp' (tents, vans with a ticket under each wiper, searchlight towers, a drone dock),
+  'tunnelPortals' (snow blowing out of the bores' mouths, emitter 'snowGust'; a stopped lorry), 'frozenVillage' (the
+  board's houses become `frozenHut`, huts in the skirt + 'villageBits': sleds, a fire going out), 'villageHearths'
+  (a `villageHearth` round each of the stage rule's relay pads, `resolveScenery(...).pads`; the pad decals turn
+  ember-warm), 'beachhead' (sandbag pits and a searchlight beside the spawn gate), 'gateSandbags' (by the goal),
+  'hostBanners', 'passCairn', 'vastShadow' (a huge soft shadow crossing the board once a minute, never named). The
+  far north stays the shipped `snow` theme (no city kit); its spawn gate can be the city's rift through `map.city.
+  spawnGate: 'petalRift'` (already read on any theme). Brigade props: src/render/city/brigadeProps.js; far north:
+  src/render/northProps.js.
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
