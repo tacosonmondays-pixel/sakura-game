@@ -1698,6 +1698,150 @@ export const MAPS = [
   })),
 
   // -------------------------------------------------------------------------
+  // Chapter 4 · Act II — The Checkpoint (city, the highway district, then the far north on `snow`; MAPS.md §1.5,
+  // STEP4_BUILD_PLAN §4)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_toll_plaza', name: 'Toll Plaza', theme: 'city', district: 'highway', tier: 'intermediate',
+    desc: 'Down off the mountain pass from the north-east to the toll plaza, where the highway fans out into three toll lanes through the booths and closes up again past the barrier, then leaves down the off-ramp to the south-west. The booth roofs are a good place to stand.',
+    concept: 'Three-booth lens: one road splits into three toll lanes round two booth islands and closes up again, then the off-ramp',
+    rows: [
+      '~~~~~~~~~~~~~~~~HHHHHH',
+      'H.....,...............',
+      'H....................H',
+      'H.........UU.........H',
+      'H.........UU.........H',
+      'H....................H',
+      'H.........UU.........H',
+      'H.........UU.........H',
+      'H....................H',
+      'H..,.........~~~~....H',
+      '............~~~~~....H',
+      'HHHHHHHHHHHH~~~~~HHHHH',
+    ],
+    paths: [
+      street([[23, 1.5], [20.0, 1.5], [20.0, 5.5], [2.5, 5.5], [2.5, 10.5], [-1, 10.5]], { r: [1.8, 1.8, 1.5, 1.5] }),
+      { fork: { path: 0, at: [17.6, 5.5] }, nodes: [[15.8, 4.4], [14.0, 2.2], L, [9.6, 2.2], [7.8, 4.4]], join: { path: 0, at: [6.4, 5.5] } },
+      { fork: { path: 0, at: [15.6, 5.5] }, nodes: [[13.8, 6.6], [12.0, 8.8], L, [8.0, 8.8], [6.2, 6.6]], join: { path: 0, at: [4.4, 5.5] } },
+    ],
+    decor: [
+      { type: 'vendingMachine', x: 4, y: 2, rot: Math.PI }, { type: 'vendingMachine', x: 5, y: 2, rot: Math.PI },
+      { type: 'signpost', x: 17, y: 3 }, { type: 'lantern', x: 16, y: 7 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_checkpoint', name: 'Azami\'s Checkpoint', theme: 'city', district: 'highway', tier: 'advanced',
+    desc: 'Down the pass road from the north to the Brigade\'s barricade line. The short lane runs straight through the checkpoint gate; the long lane swings west round the barricade blocks and comes back to rejoin it below. When Azami\'s barrier is down, the column takes the long way.',
+    concept: 'Barrier chicane: one lane dead straight through the gate, the other a wide hook west round the barricades, rejoining below',
+    rows: [
+      'HHHHHHHHHHHHHH.HH~~H',
+      'H.....,.......,..~~H',
+      'H................~~H',
+      'H................~~H',
+      'H........HH......~~H',
+      'H..,.....HH......~~H',
+      'H................~~H',
+      'H................~~H',
+      'H.~~~......,.....~~H',
+      'H.~~~............~~H',
+      'H.~~~..,.........~~H',
+      'HHHHHHHHHHHHHH.HH~~H',
+    ],
+    paths: [
+      [[14.5, -1], L, [14.5, 13]],
+      {
+        fork: { path: 0, at: [14.5, 1.2] },
+        nodes: [[13.4, 2.6], [11.0, 3.1], L, [7.6, 3.1], [5.8, 3.9], [5.2, 5.4], [6.0, 6.7], [7.8, 7.3], L, [10.6, 7.3], [12.6, 7.9]],
+        join: { path: 0, at: [14.5, 10.2] },
+      },
+    ],
+    decor: [
+      { type: 'tent', x: 3, y: 1 }, { type: 'tent', x: 2, y: 6 }, { type: 'lantern', x: 16, y: 4 },
+      { type: 'parkedCar', x: 8, y: 9, rot: 0 }, { type: 'parkedCar', x: 11, y: 9, rot: 0 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_tunnel_mouth', name: 'Tunnel Mouth', theme: 'city', district: 'highway', tier: 'advanced',
+    desc: 'Two carriageways come out of two bores in the mountain wall and run south side by side, swinging east together round the reservoir and out by two exits. The central reservation between them covers both.',
+    concept: 'Dual carriageway: two parallel lanes out of two tunnel bores, one shared S east, two exits',
+    rows: [
+      'HHHHHH.HHHHH.HHHHHHH',
+      'HHHHHH.HHHHH.HHHHHHH',
+      'HHHHHH.HHHHH.HHHHHHH',
+      'HHHHHH.HHHHH.HHHHHHH',
+      'H..................H',
+      'H.......,..........H',
+      'H~~~~..............H',
+      'H~~~~......,.....~~H',
+      'H~~~~............~~H',
+      'H~~~~............~~H',
+      'H~~~~............~~H',
+      'HHHHHHHHHH.HHHHH.HHH',
+    ],
+    paths: [
+      [[6.5, -1], L, [6.5, 0.4], IN, L, [6.5, 4.4], OUT, L, [6.5, 5.2], [7.2, 6.6], [8.8, 7.9], [9.5, 9.4], L, [9.5, 13]],
+      [[12.5, -1], L, [12.5, 0.4], IN, L, [12.5, 4.4], OUT, L, [12.5, 5.2], [13.2, 6.6], [14.8, 7.9], [15.5, 9.4], L, [15.5, 13]],
+    ],
+    decor: [
+      { type: 'lantern', x: 5, y: 4 }, { type: 'lantern', x: 14, y: 4 }, { type: 'parkedCar', x: 18, y: 5, rot: Math.PI / 2 },
+    ],
+  }),
+  defineMap({
+    id: 'north_frozen_villages', name: 'The Frozen Villages', theme: 'snow', tier: 'advanced',
+    desc: 'Out of the Petal Gate\'s north mouth, past the Brigade\'s sandbags, straight up the old sled run, round the frozen village square in one wide horseshoe and out north-east past the cairn, on the road to the camp where the children are.',
+    concept: 'Climb and horseshoe: a straight climb up the sled run, a wide clockwise horseshoe over the village square, a hook out north-east',
+    rows: [
+      'TTTTTTTTTTTTTTTTTT.T',
+      'T..................T',
+      'T..................T',
+      'T........~~........T',
+      'T........~~........T',
+      'T~~................T',
+      'T~~......,.........T',
+      'T~~................T',
+      'T~~................T',
+      'T~~................T',
+      'T~~................T',
+      'TTTT.TTTTTTTTTTTTTTT',
+    ],
+    paths: [
+      [[4.5, 13], L, [4.5, 5.5], ...curve((t) => [10.0 - 5.5 * DM.cos(t), 5.5 - 4.5 * DM.sin(t)], 0, Math.PI, 30), L, [15.5, 8.5], [16.0, 9.6], [17.0, 10.0], [18.0, 9.6], [18.5, 8.5], L, [18.5, -1]],
+    ],
+    decor: [
+      { type: 'campfire', x: 10, y: 7 }, { type: 'tent', x: 16, y: 3 }, { type: 'pine', x: 1, y: 2 },
+      { type: 'flag', x: 6, y: 10 },
+    ],
+  }),
+  defineMap({
+    id: 'north_snow_bridge', name: 'The Snow Bridge', theme: 'snow', tier: 'expert',
+    desc: 'Two columns of the Host, one along the gorge rim from the west and one down the frozen riverbed from the north-east, meet at the bridgehead and cross the ravine as one on the Brigade\'s long folding bridge, south to the gate.',
+    concept: 'Two columns, one bridge: two lanes meet at the bridgehead, then one long straight deck over the ravine',
+    rows: [
+      'TTTTTTTTTTTTTTTTTTTTTT',
+      '......................',
+      'T.....................',
+      'T....................T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'TTTTT~~~~~~~~~~~~~TTTT',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[-1, 1.5], [11.5, 1.5], [11.5, 13]], { r: 2.0 }),
+      { nodes: [[23, 1.2], L, [15.0, 1.2], [13.0, 1.9]], join: { path: 0, at: [11.5, 3.9] } },
+    ],
+    decor: [
+      { type: 'banner', x: 8, y: 3 }, { type: 'tent', x: 19, y: 9 }, { type: 'tent', x: 2, y: 9 },
+      { type: 'pine', x: 2, y: 5 }, { type: 'flag', x: 20, y: 6 },
+    ],
+  }),
+
+  // -------------------------------------------------------------------------
   // Bounty (resource) arenas
   // -------------------------------------------------------------------------
   defineMap({
