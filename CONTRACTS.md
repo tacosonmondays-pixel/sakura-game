@@ -2220,7 +2220,8 @@ costumes, `src/render/costumes.js`; never bosses / minibosses, never over armour
 keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look. `look.blackout: true` (Gate Arc, render only,
 `src/render/blackout.js`): while the stage's map rule is ACTIVE (`ruleState` events) the lamps, lit windows, glow
 sprites and light pools ease to 25 % and the hemisphere light to 60 % (0.4 s); enemies, girls, the road, the gates
-and the HUD are never dimmed.
+and the HUD get no dimming of their own (only the shared hemisphere light; the road stays the lightest band). Set
+pieces built as separate objects (water set pieces) keep their glow geometry lit: none stands on a blackout stage yet.
 
 **Tests** — `tests/core/resetBounds.test.js`, `tests/data/events.test.js`, `tests/systems/events*.test.js`,
 `tests/integration/event-balance.test.js`, `tests/render/halloween.test.js`, `node e2e/halloween.mjs`.

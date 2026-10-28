@@ -5,8 +5,9 @@
 // BLACKOUT.floor over BLACKOUT.ease seconds and back up after: the battle renderer applies it to
 // the terrain's glow geometry and lit windows (terrain.setDim), the glow sprites and the warm
 // light pools (AmbientSystem.dim) and the hemisphere light (hemiScale: ≈ 60 % at the floor).
-// Enemies, girls, the road, the gates and the HUD are never touched, so the column, the road (the
-// lightest band) and every gate stay readable in the dark. Stages without the flag never dim (the
+// Enemies, girls, the road, the gates and the HUD get no dimming of their own (only the shared
+// hemisphere light, which darkens every lit material a little), so the column, the road (the
+// lightest band, checked by the greyscale shots) and every gate stay readable in the dark. Stages without the flag never dim (the
 // Act I lunar_eclipse stages look exactly as before). Scalars only: no allocation per frame.
 
 export const BLACKOUT = Object.freeze({

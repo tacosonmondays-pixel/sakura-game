@@ -7,7 +7,7 @@
 // the max of the solo stat and the kill counter that co-op also feeds).
 
 import { ACHIEVEMENT_MAP, ACHIEVEMENT_METRICS, achievementLive } from '../data/achievements.js';
-import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies, actStages } from '../data/stages.js';
+import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies, actStages, requirementsMet } from '../data/stages.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { UNIT_MAP } from '../data/units.js';
 import { DIFFICULTY_ORDER, ITEM_RARITY_ORDER } from '../data/types.js';
@@ -80,9 +80,21 @@ export function familyFound(p, family) {
   return (enemyFamilies()[family] || []).filter((id) => p?.bestiary?.[id]?.discovered).length;
 }
 
-/** Families with every discoverable member discovered. */
+/**
+ * A member a family needs before it counts as complete: every enemy, except one introduced in an Act II stage the
+ * save cannot open yet (Gate Arc: the Frostbitten Heir, Old Lamp-Hugger). A veteran who had found every lizard keeps
+ * "Family Portrait" on update day; once the new member's stage is open, the family needs it again.
+ */
+function familyNeeds(p, id) {
+  const intro = STAGE_MAP[ENEMY_MAP[id]?.introducedIn];
+  if (!intro || intro.act !== 2) return true;
+  const cleared = (sid) => !!p?.progress?.stages?.[sid]?.clears;
+  return requirementsMet(intro, cleared);
+}
+
+/** Families with every discoverable member discovered (members of an Act II stage the save cannot open yet aside). */
 export function familiesFound(p) {
-  return Object.values(enemyFamilies()).filter((ids) => ids.every((id) => p?.bestiary?.[id]?.discovered)).length;
+  return Object.values(enemyFamilies()).filter((ids) => ids.every((id) => !familyNeeds(p, id) || p?.bestiary?.[id]?.discovered)).length;
 }
 
 /** Sum of a counter family over rarities at or above `rarity`: gear:<r> / gear10:<r>. */

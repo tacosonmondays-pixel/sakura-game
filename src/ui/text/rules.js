@@ -75,8 +75,8 @@ export const STAGE_RULE_SKINS = {
     toast: 'Lights out! Holy +50%, spirits faster (6 s)',
   },
   '2-8': {
-    rule: 'prism_conduits', name: 'Sensor Masts', short: 'Masts',
-    desc: 'A girl standing at a Brigade sensor mast gets +0.7 range and +25% damage. One girl per mast.',
+    rule: 'prism_conduits', name: 'Sensor Pads', short: 'Sensors',
+    desc: 'A girl standing on a glowing Brigade sensor pad gets +0.7 range and +25% damage. One girl per pad.',
   },
   '2-9': {
     rule: 'firefly_chorus', name: 'Starting Pistol', short: 'Pistol', activeWord: 'race on',

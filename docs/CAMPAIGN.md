@@ -110,7 +110,7 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   |---|---|---|---|---|
   | 2-6 Shelter 3 | `noon_school_gate` | the corridor tunnel under the main building; a classroom-wing roof ('U') beside it | petal_sanctuary (Shelter Intake) | skinks, slimes, pearls; scene `g2.pro` before |
   | 2-7 Lights Out | `noon_rowing_jetty` | two lanes up twin jetties over the lake, merging at the boat ramp | lunar_eclipse (Lights Out), `look.blackout` dims the board while it is dark | hunters, droplets |
-  | 2-8 Club Huts | `noon_footbridges` | a staircase of footbridges over three mill canals | prism_conduits (Sensor Masts, 3 pads) | sunscales, prism slimes |
+  | 2-8 Club Huts | `noon_footbridges` | a staircase of footbridges over three mill canals | prism_conduits (Sensor Pads, 3 pads) | sunscales, prism slimes |
   | 2-9 The Running Track | `noon_running_track` | an infield straight, then one lap that crosses its own entry on a footbridge | firefly_chorus (Starting Pistol) | dashers, boars |
   | 2-10 The Boathouse Lamp | `noon_boathouse_lamp` | a breakwater, a 270° curl round the old lamp, a flat crossing on the breakwater head | changing_tides (Lake Swell) | `lizard_lamp_hugger` (Old Lamp-Hugger, the Bog Basilisk's model at miniboss scale) |
 
