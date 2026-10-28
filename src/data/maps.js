@@ -165,6 +165,8 @@ export function defineMap(o) {
     ...(o.ground ? { ground: o.ground } : {}),
     // Gate Arc (see the header): the city kit's render hints and a declared echo of an Act I map
     ...(o.city ? { city: o.city } : {}),
+    // Gate Arc Step 3: a district of its theme ('oldtown' on city maps: the old-house block set, STEP3_BUILD_PLAN §2.5)
+    ...(o.district ? { district: o.district } : {}),
     ...(o.echoOf ? { echoOf: o.echoOf, echoDiff: o.echoDiff || [] } : {}),
     desc: o.desc,
     concept: o.concept || '',
@@ -196,6 +198,35 @@ const BLOSSOM_COURT = {
   decor: [
     { type: 'fountain', x: 9, y: 6 }, { type: 'sakura', x: 0, y: 3 }, { type: 'sakura', x: 19, y: 8 },
     { type: 'stoneLantern', x: 6, y: 6 }, { type: 'bench', x: 15, y: 6 },
+  ],
+};
+
+/** Inner Sanctum (3-5): its own map, and the ground the Lakeside Shrine (3-10) echoes. */
+const SHRINE_SANCTUM = {
+  id: 'shrine_sanctum', name: 'Inner Sanctum', theme: 'shrine', tier: 'advanced',
+  desc: 'Two pilgrim roads sweep in past the mirror ponds, meet before the sanctum doors, pass beneath the sanctum itself and wind down past the bell garden.',
+  concept: 'Y + sanctum tunnel: two roads merge, then run under the sanctum',
+  rows: [
+    'TTTTT,TTTTTTTTT,TTTT',
+    '...............,...T',
+    'T.,..~~~.,......~~.T',
+    'T...~~~~~.......~~.T',
+    'T..,.~~~....HHH.,..T',
+    'T...........HHH....T',
+    'T..,.......HHHHH....',
+    'T...........HHH....T',
+    'T.,..~~~....HHH....T',
+    'T...~~~~~.......,..T',
+    '.....~~~.......,...T',
+    'TTTTT,TTTTTTTTT,TTTT',
+  ],
+  paths: [
+    [[-1, 1.0], L, [0.6, 1.0], [2.3, 1.8], [3.0, 3.6], [4.3, 5.3], [6.4, 6.3], [8.0, 6.6], L, [12.3, 6.6], IN, L, [14.7, 6.6], OUT, L, [15.4, 6.6], [17.0, 7.3], [17.6, 8.9], [16.4, 10.1], [14.2, 9.8], [12.2, 9.7], [10.9, 10.4], [10.5, 11.6], L, [10.5, 13]],
+    { nodes: [[-1, 11.2], L, [0.6, 11.2], [2.3, 10.4], [3.0, 8.6], [4.3, 7.6], [6.4, 6.9]], join: { path: 0, at: [8.6, 6.6] } },
+  ],
+  decor: [
+    { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
+    { type: 'stoneLantern', x: 1, y: 5 }, { type: 'sakura', x: 18, y: 1 },
   ],
 };
 
@@ -549,33 +580,7 @@ export const MAPS = [
       { type: 'sakura', x: 13, y: 6 }, { type: 'shrine', x: 5, y: 6 },
     ],
   }),
-  defineMap({
-    id: 'shrine_sanctum', name: 'Inner Sanctum', theme: 'shrine', tier: 'advanced',
-    desc: 'Two pilgrim roads sweep in past the mirror ponds, meet before the sanctum doors, pass beneath the sanctum itself and wind down past the bell garden.',
-    concept: 'Y + sanctum tunnel: two roads merge, then run under the sanctum',
-    rows: [
-      'TTTTT,TTTTTTTTT,TTTT',
-      '...............,...T',
-      'T.,..~~~.,......~~.T',
-      'T...~~~~~.......~~.T',
-      'T..,.~~~....HHH.,..T',
-      'T...........HHH....T',
-      'T..,.......HHHHH....',
-      'T...........HHH....T',
-      'T.,..~~~....HHH....T',
-      'T...~~~~~.......,..T',
-      '.....~~~.......,...T',
-      'TTTTT,TTTTTTTTT,TTTT',
-    ],
-    paths: [
-      [[-1, 1.0], L, [0.6, 1.0], [2.3, 1.8], [3.0, 3.6], [4.3, 5.3], [6.4, 6.3], [8.0, 6.6], L, [12.3, 6.6], IN, L, [14.7, 6.6], OUT, L, [15.4, 6.6], [17.0, 7.3], [17.6, 8.9], [16.4, 10.1], [14.2, 9.8], [12.2, 9.7], [10.9, 10.4], [10.5, 11.6], L, [10.5, 13]],
-      { nodes: [[-1, 11.2], L, [0.6, 11.2], [2.3, 10.4], [3.0, 8.6], [4.3, 7.6], [6.4, 6.9]], join: { path: 0, at: [8.6, 6.6] } },
-    ],
-    decor: [
-      { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
-      { type: 'stoneLantern', x: 1, y: 5 }, { type: 'sakura', x: 18, y: 1 },
-    ],
-  }),
+  defineMap(SHRINE_SANCTUM),
 
   // -------------------------------------------------------------------------
   // Chapter 4 — Ironhold Pass (mountain)
@@ -1569,6 +1574,95 @@ export const MAPS = [
       searchlight: { x: 18.5, z: 4.6, rot: Math.PI - 0.3, sweep: 1.3, reach: 3.4, period: 14 },
     },
   }),
+
+  // -------------------------------------------------------------------------
+  // Chapter 3 · Act II — The Bell Festival (city, the Old Town district at night; MAPS.md, STEP3_BUILD_PLAN §4)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_old_town', name: 'Old Town Lanes', theme: 'city', district: 'oldtown', tier: 'intermediate',
+    desc: 'In from the west through the Old Town lanes: up and round one block of old houses, down and round the next, up and round a third, and out east to the festival street. The flat roofs inside each loop are the place to stand.',
+    concept: 'Alternating keys: three hooked lanes round blocks of old houses, north, south, north, with flat roofs inside the hooks',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H.........,........H',
+      'H..................H',
+      'H.........,........H',
+      'H..........H........',
+      'H..UU..........UU..H',
+      'H..UU..........UU..H',
+      '...................H',
+      'H.,................H',
+      'H.............~~~..H',
+      'H.............~~~..H',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      street([[-1, 7.0], [2.5, 7.0], [2.5, 2.5], [5.5, 2.5], [5.5, 7.0], [8.5, 7.0], [8.5, 10.5], [11.5, 10.5], [11.5, 7.0], [14.5, 7.0], [14.5, 2.5], [18.0, 2.5], [18.0, 5.5], [21, 5.5]], { r: 1.5 }),
+    ],
+    decor: [
+      { type: 'lantern', x: 9, y: 2 }, { type: 'lantern', x: 12, y: 4 }, { type: 'bench', x: 1, y: 9 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_takoyaki_row', name: 'Takoyaki Row', theme: 'city', district: 'oldtown', tier: 'intermediate',
+    desc: 'Down the festival street from the north-west in one long diagonal past the stalls, a wide turn by the ring toss, back up another diagonal to the bowing-contest stage, round again and down to the south-east gate. The road crosses the stall rows twice; mind the griddles.',
+    concept: 'Lantern N: three long diagonals joined by two wide reversals, crossing the two stall rows',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      '...................H',
+      'H..................H',
+      'H.....,........,...H',
+      '~~.................H',
+      '~~.......,.........H',
+      '~~.................H',
+      '~~~....,......,....H',
+      '~~~................H',
+      '~~~................H',
+      '~~~..........,......',
+      '~~~HHHHHHHHHHHHHHHHH',
+    ],
+    paths: [
+      [[-1, 1.5], L, [0.5, 1.5], [1.7, 2.2], L, [5.3, 7.9], [6.2, 9.4], [7.6, 10.1], [9.0, 9.5], [9.8, 8.2], L, [12.2, 3.6], [13.1, 2.4], [14.5, 2.0], [15.8, 2.7], [16.5, 4.0], L, [18.8, 9.2], [19.6, 10.3], L, [21, 10.5]],
+    ],
+    decor: [
+      { type: 'lantern', x: 4, y: 2 }, { type: 'lantern', x: 11, y: 7 }, { type: 'bench', x: 16, y: 7 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_old_town_burning', name: 'Old Town, Burning', theme: 'city', district: 'oldtown', tier: 'advanced',
+    desc: 'The same lanes, the night it burns. Two blocks have fallen into the street, so the column takes one long S from the west round the rubble and out north, under the smoke. Hoses run down to the mill race.',
+    concept: 'Broken fret: one long S round two fallen blocks of Old Town, the mill race along the south',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H.........,.........',
+      'H..................H',
+      'H..XXX.............H',
+      'H..XXXX............H',
+      'H...XX.............H',
+      'H..................H',
+      'H..................H',
+      'H.,......UU..XXX...H',
+      '.........UU.XXXX,..H',
+      'H............XX....H',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      [[-1, 9.5], L, [1.5, 9.5], [4.0, 9.2], [6.5, 8.3], [8.6, 6.8], [10.6, 5.7], [13.0, 5.6], [15.4, 6.2], [16.9, 5.4], [17.8, 4.0], [18.1, 2.4], L, [18.2, -1]],
+    ],
+    decor: [
+      { type: 'lantern', x: 7, y: 10 }, { type: 'bench', x: 12, y: 9 },
+    ],
+  }),
+  defineMap(echoMap(SHRINE_SANCTUM, {
+    id: 'noon_lakeside_shrine', name: 'The Lakeside Shrine', theme: 'city', tier: 'advanced',
+    desc: 'The old shrine on the lake, the night of the fire. The two pilgrim roads still sweep in past the mirror ponds, meet before the sanctum and pass beneath it, while the sky above the roof tears open.',
+    concept: 'Echo of Inner Sanctum: the same Y and sanctum tunnel, a thousand years later, burning, under the tear',
+    echoDiff: [],
+    decor: [
+      { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
+      { type: 'stoneLantern', x: 1, y: 5 }, { type: 'stoneLantern', x: 18, y: 1 },
+    ],
+  })),
 
   // -------------------------------------------------------------------------
   // Bounty (resource) arenas
