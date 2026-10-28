@@ -28,4 +28,8 @@ export const ACT_SCENE_IDS = Object.freeze({
     'g2.pro', 'g2.kohaku', 'g2.thirtyone', 'g2.lunch', 'g2.mid', 'g2.boiler', 'g2.class', 'g2.roof', 'g2.boss', 'g2.after',
     'g2.epi',
   ]),
+  // Act 3 (nine episodes): the six main ones and the three `ifOwned` side scenes (Iroha, Noa, Fuu), listed like g2.class
+  '3:2': Object.freeze([
+    'g3.pro', 'g3.iroha', 'g3.mid', 'g3.hammer', 'g3.noa', 'g3.boss', 'g3.after', 'g3.fuu', 'g3.epi',
+  ]),
 });

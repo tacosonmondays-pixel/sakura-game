@@ -49,6 +49,17 @@ const BANNED_ARC0 = ['kill', 'killed', 'kills', 'die', 'dies', 'died', 'dying', 
 const isArc1 = (sc) => /^g[0-9]+\./.test(sc.id);
 /** Act 2 (Hilltop After Dark) is "quiet, not grim" (STORY.md §15): even the Arc 1 war words stay out of it. */
 const isQuietAct = (sc) => /^g2\./.test(sc.id);
+/**
+ * Act 3 (The Bell Festival) is the turn, and every loss in it is told by absence only (STEP3_BUILD_PLAN decision 13,
+ * STORY.md §14): no body, wound or blood words, and not even the Arc 1 death words. Ms. Hazuki is a name that gets no
+ * answer; the old oni is an empty place at a cold brazier.
+ */
+const isAbsenceAct = (sc) => /^g3\./.test(sc.id);
+const ABSENCE_BANNED = [
+  'body', 'bodies', 'corpse', 'corpses', 'wound', 'wounds', 'wounded', 'bleed', 'bleeding', 'bled', 'blood', 'bloody',
+  'injury', 'injuries', 'injured', 'bone', 'bones', 'gore', 'burns', 'scar', 'scars', 'grave', 'funeral', 'killed', 'kill',
+  'die', 'died', 'dies', 'dying', 'dead', 'death', 'deaths', 'casualty', 'casualties',
+];
 
 /**
  * Main episodes of each Gate Arc act (the rest are side scenes); Hikari speaks in every one, in person or on Channel 9
@@ -57,6 +68,7 @@ const isQuietAct = (sc) => /^g2\./.test(sc.id);
 const ARC1_MAIN = {
   g1: ['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.boss', 'g1.epi'],
   g2: ['g2.pro', 'g2.mid', 'g2.boiler', 'g2.boss', 'g2.after', 'g2.epi'],
+  g3: ['g3.pro', 'g3.mid', 'g3.hammer', 'g3.boss', 'g3.after', 'g3.epi'],
 };
 
 /**
@@ -147,8 +159,8 @@ describe('story registry', () => {
     expect(SCENE_LIST.length + LESSON_SCENES.length).toBe(ALL.length);
     // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
     // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*) and Act 2
-    // (eleven episodes, g2.*)
-    expect(SCENE_LIST.length).toBe(50);
+    // (eleven episodes, g2.*) and Act 3 (nine episodes, g3.*)
+    expect(SCENE_LIST.length).toBe(59);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });
@@ -211,6 +223,36 @@ describe('story registry', () => {
     expect(ENEMY_SPEAKERS).toContain('lizard_lamp_hugger');
   });
 
+  it('Act II of chapter 3 (The Bell Festival): an opener before 3-6, a boss intro before 3-10, a closer after 3-10, six main scenes', () => {
+    const g3 = SCENE_LIST.filter((s) => s.id.startsWith('g3.'));
+    expect(g3.map((s) => s.id)).toEqual([
+      'g3.pro', 'g3.iroha', 'g3.mid', 'g3.hammer', 'g3.noa', 'g3.boss', 'g3.after', 'g3.fuu', 'g3.epi',
+    ]);
+    for (const s of g3) expect([s.chapter, s.act, s.kind, storyRewardFor(s.kind)], s.id).toEqual([3, 2, 'event', []]);
+    const triggers = Object.fromEntries(g3.map((s) => [s.id, s.trigger]));
+    expect(triggers).toEqual({
+      'g3.pro': { before: '3-6' },
+      'g3.iroha': { after: '3-7' },
+      'g3.mid': { before: '3-8' },
+      'g3.hammer': { after: '3-8' },
+      'g3.noa': { after: '3-9' },
+      'g3.boss': { before: '3-10' },
+      'g3.after': { after: '3-10' },
+      'g3.fuu': { after: '3-10' },
+      'g3.epi': { after: '3-10' },
+    });
+    expect(ARC1_MAIN.g3).toHaveLength(6);
+    for (const id of ARC1_MAIN.g3) expect(sceneById(id).ifOwned, `${id} is a main episode`).toBeUndefined();
+    // chapter 3's Act II files right after chapter 3's own episodes, before chapter 4; the act closes on the morning
+    const ids = SCENE_LIST.map((s) => s.id);
+    expect(ids.indexOf('g3.pro')).toBe(ids.indexOf('ch3.epi') + 1);
+    expect(ids.indexOf('ch4.pro')).toBe(ids.indexOf('g3.epi') + 1);
+    expect(sceneById('g3.boss').lines.some((l) => l.t === 'say' && l.who === 'ghost_ashen_warden')).toBe(true);
+    expect(ENEMY_SPEAKERS).toContain('ghost_ashen_warden');
+    // titles stay clear of the reserved upgrade-step name (tests/data/potential.test.js)
+    for (const s of g3) expect(s.title.toLowerCase(), s.id).not.toContain('roll call');
+  });
+
   it('Hikari speaks in every main Gate Arc episode, in person or on Channel 9', () => {
     for (const ids of Object.values(ARC1_MAIN)) {
       for (const id of ids) expect(sayLines(sceneById(id).lines).some((l) => l.who === 'hikari'), `${id}: Hikari speaks`).toBe(true);
@@ -221,9 +263,16 @@ describe('story registry', () => {
     for (const l of boiler) expect(l.at, 'Hikari on Channel 9').toBe('off');
   });
 
-  it('only g2.class waits for a girl the player owns (ifOwned: Ruri, Iroha, Ena or Fuu)', () => {
+  it('only the side scenes wait for a girl the player owns (g2.class; g3.iroha, g3.noa, g3.fuu)', () => {
     const gated = ALL.filter((s) => s.ifOwned);
-    expect(gated.map((s) => [s.id, [...s.ifOwned]])).toEqual([['g2.class', ['ruri', 'iroha', 'ena', 'fuu']]]);
+    expect(gated.map((s) => [s.id, [...s.ifOwned]])).toEqual([
+      ['g2.class', ['ruri', 'iroha', 'ena', 'fuu']],
+      ['g3.iroha', ['iroha']],
+      ['g3.noa', ['noa']],
+      ['g3.fuu', ['fuu']],
+    ]);
+    // a gated side scene is about its girl: she has a portrait in it
+    for (const s of gated.filter((x) => x.ifOwned.length === 1)) expect(s.cast, s.id).toContain(s.ifOwned[0]);
     for (const s of gated) {
       for (const id of s.ifOwned) expect(UNIT_MAP[id], `${s.id} ifOwned ${id}`).toBeTruthy();
       expect(s.ifUnit, `${s.id}: ifOwned replaces a scene-level ifUnit`).toBeUndefined();
@@ -386,8 +435,8 @@ describe('story text (T-content-3, T-content-4)', () => {
   it('content lint: no banned words, no ages (the war words only in Arc 1 episodes, never in quiet Act 2)', () => {
     const banned = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'i');
     const arc0 = new RegExp(`\\b(${BANNED_ARC0.join('|')})\\b`, 'i');
-    // the scope: every gN.* episode is Arc 1 (Acts 1 and 2 so far), nothing else is
-    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2']);
+    // the scope: every gN.* episode is Arc 1 (Acts 1 to 3 so far), nothing else is
+    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3']);
     for (const sc of ALL) {
       for (const { where, text } of textsOf(sc)) {
         expect(text.match(banned)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
@@ -395,6 +444,24 @@ describe('story text (T-content-3, T-content-4)', () => {
         expect(AGE_RE.test(text), `${sc.id} ${where}: age in "${text}"`).toBe(false);
       }
     }
+  });
+
+  it('loss by absence in Act 3: no body, wound, blood or death words anywhere in g3; Ms. Hazuki gets no answer', () => {
+    const absence = new RegExp(`\\b(${ABSENCE_BANNED.join('|')})\\b`, 'i');
+    const g3 = ALL.filter(isAbsenceAct);
+    expect(g3.length).toBe(9);
+    for (const sc of g3) {
+      for (const { where, text } of textsOf(sc)) expect(text.match(absence)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+    }
+    // her fate is a name with no answer, a register read by Sensei and a lunch on her desk; nothing more is said
+    const has = (id, needle) => textsOf(sceneById(id)).some((t) => t.text.includes(needle));
+    expect(has('g3.after', 'She does not answer.')).toBe(true);
+    expect(has('g3.epi', 'Present.')).toBe(true);
+    expect(has('g3.epi', 'lunch on the empty desk')).toBe(true);
+    // the old oni is an empty place at the brazier
+    expect(has('g3.epi', 'It is empty.')).toBe(true);
+    // the small winged one from g2.boiler does not appear in Act 3
+    for (const sc of g3) for (const { text } of textsOf(sc)) expect(/winged|scarf/i.test(text), sc.id).toBe(false);
   });
 
   it('the mystery holds: no "dragon" or "Matriarch" before the oni tell Momo (ch7.epi)', () => {
@@ -451,6 +518,23 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g2.epi', 'small Captain')).toBe(true);
     expect(has('g2.pro', 'Forty-two stitches.')).toBe(true);
     expect(has('g2.boss', 'Lamp. Mine. Handsome.')).toBe(true);
+    // Gate Arc Act 3 (STORY.md §11, Act 3)
+    expect(has('g3.pro', "Now we're even.")).toBe(true);
+    expect(has('g3.mid', 'The tide says… wait. It has never said wait like that.')).toBe(true);
+    expect(has('g3.mid', 'Little ones. Warm hands. Hold on.')).toBe(true);
+    expect(has('g3.mid', "They're not angry. They're freezing.")).toBe(true);
+    expect(has('g3.hammer', 'Protocol HAMMER. Saturate the gate zone.')).toBe(true);
+    expect(has('g3.hammer', 'there are people on both shores!')).toBe(true);
+    expect(has('g3.hammer', 'black-violet')).toBe(true);
+    expect(has('g3.hammer', "Mahiru's still at the stalls.")).toBe(true);
+    expect(has('g3.hammer', "Those drones are HAMMER's eyes. Ground them.")).toBe(true);
+    expect(has('g3.boss', 'Halt. The shrine… fell.')).toBe(true);
+    expect(has('g3.boss', "It isn't lonely. It's grieving.")).toBe(true);
+    expect(has('g3.boss', "We'll keep the watch.")).toBe(true);
+    expect(has('g3.after', 'First light')).toBe(true);
+    expect(has('g3.after', 'Why would she come back for me?')).toBe(true);
+    expect(has('g3.epi', 'Hazuki-sensei.')).toBe(true);
+    expect(has('g3.epi', 'We came for warmth. You answered with fire.')).toBe(true);
   });
 });
 
