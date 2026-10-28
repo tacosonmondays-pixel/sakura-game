@@ -119,6 +119,17 @@ for (const [W, H] of viewports) {
   await page.waitForSelector(`[data-testid="card-${girl}"]`, { timeout: 30000 }).catch(() => {});
   check(girl && await page.locator(`[data-testid="card-${girl}"]`).count() === 1, `the Tryout girl (${girl}) joins the bar`);
 
+  // 3b. between periods: the class choice and Double Dare
+  await page.waitForSelector('[data-testid="ty-class"]:not([hidden])', { timeout: 30000 }).catch(() => {});
+  check(await page.locator('[data-testid^="ty-subject-"]').count() === 2, 'the class choice shows two Subjects');
+  await page.click('[data-testid="ty-subject-1"]');
+  await page.click('[data-testid="ty-dare"]');
+  await page.waitForTimeout(200);
+  const cls = await page.evaluate(() => { const t = window.__battle.sim.tryout; return { next: t.nextSubject, pair: t.subjects[2], dare: t.players[0].dare }; });
+  check(cls.next === cls.pair[1] && cls.dare === true, `a Subject and the Dare are chosen (${JSON.stringify(cls)})`);
+  await shot('ty-class');
+  await page.click('[data-testid="ty-dare"]'); // (off again: the rest of the run plays without the curse)
+
   // 4. to Recess
   for (let k = 0; k < 3; k++) {
     st = await playToWindow();
@@ -154,7 +165,26 @@ for (const [W, H] of viewports) {
   await page.click('[data-testid="ty-ready"]');
   check(await page.evaluate(() => window.__battle.sim.tryout.players[0].win === null), 'Back to class closes the break');
 
-  // 6. reload mid-wave: the Make-up Test
+  // 5b. out of hearts: the Make-up Test replaces the defeat sheet and replays the wave
+  await page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    ui.startWave();
+    for (let i = 0; i < 240 && !sim.enemies.length; i++) sim.update(1 / 60);
+    ui.saver.tick();
+    sim.lives = 1;
+    sim._leak(sim.enemies[0]);
+  });
+  const mk = await page.waitForSelector('[data-testid="ty-makeup"]', { timeout: 30000 }).then(() => true).catch(() => false);
+  check(mk, 'the Make-up Test sheet shows at 0 hearts');
+  await shot('ty-makeup');
+  const wave0 = await page.evaluate(() => window.__battle.sim.wave);
+  await page.click('[data-testid="ty-makeup-go"]');
+  await page.waitForFunction(() => window.__battle?.sim.state !== 'lost', null, { timeout: 30000 }).catch(() => {});
+  check(await battleReady(), 'the Make-up Test reopens the battle');
+  const mu = await page.evaluate(() => ({ wave: window.__battle.sim.wave, state: window.__battle.sim.state, resumed: window.__battle.sim.tryout.assign.resumed, lives: window.__battle.sim.lives }));
+  check(mu.wave === wave0 - 1 && mu.state !== 'wave' && mu.resumed === true && mu.lives > 0, `the wave replays from its start with the hearts of then (${JSON.stringify(mu)})`);
+
+  // 6. reload mid-wave after the Make-up Test: practice
   await page.evaluate(() => {
     const { sim, ui } = window.__battle;
     ui.startWave();
@@ -163,8 +193,8 @@ for (const [W, H] of viewports) {
   });
   await page.goto(`${base}#/tryout`);
   await screenIs('tryout');
-  const band = await page.locator('[data-testid="tryout-continue"]').textContent().catch(() => '');
-  check(/Make-up Test/.test(band), 'Continue says it uses the Make-up Test');
+  const band = await page.locator('[data-testid="tryout-continue"]').textContent({ timeout: 5000 }).catch(async () => `NONE ${await page.locator('main, body').first().innerText().catch(() => '')}`.slice(0, 300));
+  check(/practice/.test(band), 'Continue says the run goes on as practice');
   await shot('ty-hub-continue');
   await page.click('[data-testid="tryout-go-continue"]');
   check(await battleReady(), 'Continue after a mid-wave leave');

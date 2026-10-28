@@ -117,6 +117,9 @@ export const SUBJECT_TEXT = {
   subj_art: { name: 'Art Class', line: '+1 Window Seat this period' },
 };
 
+/** Double Dare curses, short (the toggle's label). */
+export const DARE_SHORT = { swift: 'swift foes', regen: 'regenerating foes', armored: 'armoured foes', shielded: 'shielded foes' };
+
 /** Double Dare curses (§8.3). */
 export const DARE_TEXT = {
   swift: 'foes ×1.2 speed',

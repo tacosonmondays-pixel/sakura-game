@@ -21,7 +21,12 @@ import { MODE_NAME } from '../text/tryout.js';
 /** Before Class's choices survive a redraw and a re-render (not a reload: a new seed then). */
 let pending = null;
 
-export function render(root) {
+export function render(root, params = {}) {
+  // the Make-up Test from the defeat sheet: straight back into the open run (the Continue spends it)
+  if (params.makeup && getTryoutRun(store.profile)?.id === params.makeup) {
+    queueMicrotask(() => navigate('battle', { tryout: params.makeup }, { replace: true }));
+    return () => {};
+  }
   const { el, body } = screen(MODE_NAME, { cls: 'ty-screen' });
   root.appendChild(el);
   const profile = () => store.profile;

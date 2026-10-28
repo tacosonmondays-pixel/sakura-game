@@ -12,7 +12,7 @@ import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor } from '../../sim/tryout/offers.js';
 import { lengthOf, periodWaves } from '../../sim/tryout/plan.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT } from '../text/tryout.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT } from '../text/tryout.js';
 import '../styles/tryout.css';
 
 const Q = 1024;
@@ -175,7 +175,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         }, h('b', SUBJECT_TEXT[id]?.name || id), h('span.ty-dim', ` ${SUBJECT_TEXT[id]?.line || ''}`)))) : null,
       h('div.ty-class-row',
         h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
-          `Double Dare: ${me().dare ? 'on' : 'off'}`),
+          `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`),
         h('span.ty-dim', ` ${DARE_TEXT[dare.id] || dare.id} · +1 credit, Period Score ×1.1${t.coop ? ' · both must tap' : ''}`),
         partner ? h('span.ty-dim', ` · Partner: ${partner.dare ? 'on' : 'off'}`) : null));
     cls.hidden = false;

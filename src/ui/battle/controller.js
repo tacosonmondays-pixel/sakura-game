@@ -1076,10 +1076,12 @@ export function mountBattle(root, params, hooks) {
         // (the record keeps the calm snapshot before it and the open wave: the Continue spends the Make-up Test)
         if (!ls && !won && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
           ctx.saver?.close();
+          ctx.makeUpOffered = true;
           later(() => ctx.tryoutUi?.showMakeUp({
             wave: sim.wave,
-            retry: () => navigate('battle', { tryout: tryRec.id, makeup: sim.wave }, { replace: true }),
+            retry: () => navigate('tryout', { makeup: tryRec.id }), // (the hub opens it as Continue does)
             giveUp: () => {
+              ctx.makeUpOffered = false;
               results.apply(); // (pays nothing yet and closes the run record: saver.finish)
               ctx.tryoutUi?.showPhoto({ practice: !!req.practice });
             },
@@ -1551,7 +1553,8 @@ export function mountBattle(root, params, hooks) {
       // (a co-op resync rebuild is not leaving: the rebuilt screen ends that battle itself)
       if (!remounting) ctx.settleFinished?.();
       // a finished battle always pays out, even if the player leaves before the modal
-      if (ctx.ended && ctx.results && !ctx.results.outcome) ctx.results.apply();
+      // (a Make-up Test still offered keeps the run: its Continue spends it)
+      if (ctx.ended && ctx.results && !ctx.results.outcome && !ctx.makeUpOffered) ctx.results.apply();
       else if (!ctx.ended) {
         // a freeplay run (co-op or solo: never saved) left after its goal pays its freeplay part
         // (a resync rebuild is not leaving)
