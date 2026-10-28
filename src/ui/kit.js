@@ -351,6 +351,41 @@ export function btnCount(n, { cls = '' } = {}) {
 }
 
 /**
+ * [ui-v2 M5] A hub tile (V4: the kit's .ui-hubtile, ink.css): painted art above a solid ink caption band; the tile IS
+ * the action (P2: no button on it). The caption holds an optional caps kicker, the title (display italics) and one
+ * line; the top-right corner holds a countdown chip (countdownChip, never red for a weekly cycle) or a badge; a sticker
+ * ("Open!", "Coming soon", In Progress) sits at the top of the caption. A locked tile keeps its art (greyed by the kit)
+ * and says what opens it in the caption, after a lock glyph; a tap on it explains (the screen's onClick), it never
+ * starts anything. Words wrap, never end in "…" (P6).
+ * @param {{ title: string, kicker?: string|null, line?: string|null, art?: string|HTMLElement|null, corner?: any,
+ *   sticker?: HTMLElement|null, lock?: string|null, dot?: boolean, sm?: boolean, onClick?: Function|null,
+ *   testid?: string|null, cls?: string, label?: string|null }} o
+ *   art: an image URL (the painted location) or an element (a drawn scene, wrapped in .ui-hubtile-art);
+ *   corner: the top-right children (a countdown chip, a badge); lock: the unlock rule ("Clear 5-5 first");
+ *   dot: a red claim dot at the top-right; sm: the small tile (a two-line caption); label: the accessible name when
+ *   the words alone do not say it
+ * @returns {HTMLButtonElement}
+ */
+export function hubTile({ title, kicker = null, line = null, art = null, corner = null, sticker = null, lock = null, dot = false, sm = false, onClick = null, testid = null, cls = '', label = null }) {
+  const locked = !!lock;
+  const artEl = typeof art === 'string'
+    ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', draggable: false })
+    : art ? h('span.ui-hubtile-art', { 'aria-hidden': 'true' }, art) : null;
+  const tr = [corner, dot ? h('i.ui-dot', { 'aria-hidden': 'true' }) : null].flat(Infinity).filter(Boolean);
+  return h(`button.ui-hubtile${sm ? '.sm' : ''}${locked ? '.locked' : ''}${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, 'data-locked': locked ? 'lock' : null, 'aria-label': label, title: lock, onclick: onClick,
+  },
+  artEl,
+  tr.length ? h('span.tr', tr) : null,
+  h('span.cap',
+    sticker,
+    kicker ? h('span.lbl', kicker) : null,
+    h('span.name', title),
+    line ? h('span.ui-hubtile-line', line) : null,
+    locked ? h('span.ui-hubtile-lock', ico('lock'), h('span', lock)) : null));
+}
+
+/**
  * A mode that is not out yet, as a hub tile (§5.4: a designed locked state, never a faded one; owner #108: the
  * Multiplayer hub's PvP "Coming soon" with Rival Run inside, Titan Co-op "Soon"). Glass (or the mode's art under a
  * glass veil), the ink "Coming soon" sticker at the top-left, the title and one line on what is inside. One lock: the
