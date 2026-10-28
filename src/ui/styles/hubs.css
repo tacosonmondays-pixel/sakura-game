@@ -170,10 +170,7 @@
   .cm-title-long { display: none; }
   .cm-title-short { display: inline; }
 }
-.cm-panel {
-  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  padding: 0 0 12px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.9); box-shadow: var(--shadow);
-}
+.cm-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 12px; }
 .cm-panel > .ma-comm-panel { min-height: 100%; }
 /* the plate header stays in view while the list scrolls under it */
 .cm-panel .ui-plate-head { position: sticky; top: 0; z-index: 2; min-height: 48px; padding-right: var(--sp-3); }
@@ -187,15 +184,12 @@
 .cm-list .ma-mission-name { font-size: var(--fs-body); }
 .cm-list .ma-mission-act { min-width: 84px; }
 .cm-list .ma-mission-act .btn { min-height: var(--tap-dense); }
-.cm-list .ma-mission.claimed { opacity: 1; background: #f4f8fd; }
 .cm-list .ma-mission.claimed .ma-mission-rewards { opacity: 0.45; }
 .cm-list .ma-claimed { font-size: var(--fs-label); color: var(--good-text); }
 /* the login calendar: four days a row, day 7 the wide one */
 .cm-login .cm-calendar { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: var(--sp-3); }
 .cm-login .cm-calendar .ma-cal-day.big { grid-column: span 2; }
 .cm-login .cm-calendar .ma-cal-day { gap: 6px; padding: 8px 6px 10px; min-height: 96px; }
-.cm-login .cm-calendar .ma-cal-num { background: var(--plate); color: var(--on-plate); }
-.cm-login .cm-calendar .ma-cal-day.big .ma-cal-num { background: var(--pink); color: var(--plate); }
 .cm-login .cm-calendar .ma-cal-day.claimed > .reward-row { opacity: 0.35; filter: grayscale(0.6); }
 .cm-login .cm-calendar .ma-cal-day .reward-row { gap: 10px; }
 @media (min-width: 1000px) and (min-height: 600px) {
@@ -213,9 +207,9 @@
 .cm-login .cm-calendar .ma-cal-day .item-tile { width: 62px !important; }
 .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 68px !important; }
 @media (max-height: 480px) {
-  .cm-list .ma-mission-rewards .item-tile { width: 46px !important; }
-  .cm-login .cm-calendar .ma-cal-day .item-tile { width: 46px !important; }
-  .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 52px !important; }
+  .cm-list .ma-mission-rewards .item-tile { width: 50px !important; }
+  .cm-login .cm-calendar .ma-cal-day .item-tile { width: 50px !important; }
+  .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 56px !important; }
 }
 /* portrait: two days a row (two 62 px tiles a day), day 7 across */
 @media (max-width: 560px) {

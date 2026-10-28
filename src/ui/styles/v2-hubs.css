@@ -74,6 +74,95 @@
   :is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap { padding: 7px 10px 9px; }
 }
 
+/* ---------- shared: a kit progress bar (the kit's .ui-bar: a flat −8° bar, cyan on its pale track) ---------- */
+:is(.ui-day) .v2h .ma-progress { height: 6px; border-radius: 0; background: var(--m-seg-off); transform: skewX(var(--skew)); box-shadow: none; }
+:is(.ui-day) .v2h .ma-progress > i { border-radius: 0; background: var(--cyan-ink); }
+:is(.ui-day) .v2h .ma-progress.done > i { background: var(--good); }
+
+/* ---------- shared: a list panel that scrolls, as a kit panel: its fill cut by the chamfer pair; its one ring drawn on
+   the column that holds it (a ring on the scroller itself would scroll away with the rows) ---------- */
+:is(.ui-day) .v2h :is(.cm-panel) {
+  --c: var(--cut); border: 0; border-radius: 0; box-shadow: none; background: var(--panel-w);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day) .v2h .cm-hb > .hb-main { position: relative; }
+:is(.ui-day) .v2h .cm-hb > .hb-main::after {
+  --c: var(--cut); --rw: 1px;
+  content: ''; position: absolute; inset: 0 0 8px; z-index: 3; pointer-events: none; background: var(--line-ink);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142), calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw));
+}
+/* the inset plate head (E2) of the list, as the kit's list screens draw it */
+:is(.ui-day) .v2h .cm-panel .ui-plate-head:not(.has-host) { margin: 8px 8px 0; }
+:is(.ui-day) .v2h .cm-panel .ui-plate-head { --h: 48px; min-height: calc(var(--tap) + 8px); border-radius: 0; padding-right: calc(var(--sp-3) + var(--s)); }
+:is(.ui-day) .v2h .cm-panel .ui-plate-head .ui-cd { box-shadow: none; }
+
+/* ==========================================================================================================
+   COMMISSIONS (#/commissions): Miko hosts; Daily and Weekly as kit rows (one ink Claim each, Claim all the one
+   yellow); the login calendar as day cards; the code in a kit input
+   ========================================================================================================== */
+:is(.ui-day) .cm-list .ma-mission-list { padding: 2px 14px 0 16px; gap: 0; }
+:is(.ui-day) .cm-list .ma-mission {
+  grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; min-height: 64px; padding: 8px 0;
+  border: 0; border-bottom: 1px solid var(--line-ink-soft); border-radius: 0; background: none; box-shadow: none; animation: none; opacity: 1;
+}
+:is(.ui-day) .cm-list .ma-mission:last-child { border-bottom: 0; }
+:is(.ui-day) .cm-list .ma-mission-name { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+:is(.ui-day) .cm-list .ma-mission-desc { margin: 2px 0 4px; font: 500 var(--fs-label)/1.3 var(--font); color: var(--muted); }
+:is(.ui-day) .cm-list .ma-mission-prog { gap: 8px; }
+:is(.ui-day) .cm-list .ma-mission-prog .ma-progress { max-width: 180px; }
+:is(.ui-day) .cm-list .ma-mission-count { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.02em; color: var(--ink); }
+:is(.ui-day) .cm-list .ma-mission.claimed .ma-mission-name { color: var(--muted); }
+:is(.ui-day) .cm-list .ma-mission.claimed .ma-mission-rewards { opacity: 1; filter: grayscale(0.8); }
+:is(.ui-day) .cm-list .ma-claimed { gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .cm-list .ma-claimed .ma-inline-icon { width: 14px; height: 14px; }
+:is(.ui-day) .cm-list .ma-mission-act { min-width: 88px; }
+:is(.ui-day) .cm-list .ma-mission-act > .muted { font: 600 var(--fs-label)/1.2 var(--font); }
+/* the login calendar: day cards (a one-cut white card, one hairline ring), the day on an ink tag, today with a cyan ring
+   and an ink "Today" chip; a claimed day greys its gifts under the stamp */
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-day {
+  --c: var(--cut-s); --rw: 1px; --edge: var(--line-ink); position: relative; isolation: isolate; overflow: visible;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--panel-w); animation: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-day::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw));
+}
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-day.big { background: var(--panel-w); }
+/* (the whole week in view on a phone: a day's two gifts side by side, 4 px apart) */
+@media (max-height: 480px) {
+  :is(.ui-day) .cm-login .cm-calendar { gap: 6px; padding: 10px; }
+  :is(.ui-day) .cm-login .cm-calendar .ma-cal-day { gap: 6px; min-height: 0; padding: 6px 4px 8px; }
+  :is(.ui-day) .cm-login .cm-calendar .ma-cal-day .reward-row { gap: 4px; flex-wrap: nowrap; }
+}
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-day.today { --edge: var(--cyan-ink); --rw: 2px; }
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-num {
+  align-self: flex-start; margin-left: 2px; padding: 2px 10px; border-radius: 0; transform: skewX(var(--skew));
+  background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase;
+}
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-today { position: absolute; top: 6px; right: 10px; z-index: 4; transform: none; padding: 0 7px; }
+:is(.ui-day) .cm-login .cm-calendar .ma-cal-day.claimed > .reward-row { opacity: 0.45; filter: grayscale(0.8); }
+:is(.ui-day) .cm-stamp { border-radius: 0; outline: 0; border-width: 2px; background: var(--panel-w); }
+/* the code: a kit input with Redeem beside it */
+:is(.ui-day) .cm-panel .ma-code-row { gap: 10px; }
+:is(.ui-day) .cm-code { height: calc(var(--tap) + 2px); }
+:is(.ui-day) .cm-code > .cm-code-input { font-size: var(--fs-name); letter-spacing: 0.12em; }
+:is(.ui-day) .cm-code.shake { animation: ma-shake 0.32s; --edge: var(--bad); }
+:is(.ui-day) .cm-codes-line { font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+:is(.ui-day) .cm-panel .ma-code-status { font: 700 var(--fs-body)/1.3 var(--font); }
+:is(.ui-day) .cm-panel .ma-code-status.bad { color: var(--bad-text); }
+:is(.ui-day) .cm-panel .ma-code-status.good { color: var(--good-text); }
+:is(.ui-day) .cm-panel .ma-redeemed { display: flex; flex-direction: column; gap: 6px; }
+:is(.ui-day) .cm-panel .ma-redeemed > .row { display: flex; flex-wrap: wrap; gap: 6px; }
+:is(.ui-day) .cm-redeemed { --fill: var(--sky-1); gap: 4px; height: var(--chip-h); padding: 0 10px; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em; }
+:is(.ui-day) .cm-redeemed .ma-inline-icon { width: 14px; height: 14px; color: var(--good-text); }
+
 /* ==========================================================================================================
    MULTIPLAYER (#/multiplayer): Momo hosts; the Co-op card (a kit panel under its plate head, invites as kit rows, the
    room code in a kit input); the four modes as hub tiles (the two not out yet: the kit's locked tile, drawn the same)

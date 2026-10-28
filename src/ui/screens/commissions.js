@@ -11,6 +11,7 @@
 // header and the list takes the whole width (the collapse rule, host.js); a reward's count sits under its tile.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
+import '../styles/v2-hubs.css';
 import { h, clear, screen, svgEl, toast, button } from '../components.js';
 import { countdownChip, plateHead, inkBtn, kbdHint, iconBtn, rail, btnCount } from '../kit.js';
 import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
@@ -54,7 +55,7 @@ const MISSION_EVENTS = Object.fromEntries([...DAILY_MISSIONS, ...WEEKLY_MISSIONS
 const msUntil = (kind) => (kind === 'weekly' ? msToLocalWeekEnd() : msToLocalMidnight());
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Commissions', { cls: 'ma-commissions-screen hb-screen' });
+  const { el, body } = screen('Commissions', { cls: 'ma-commissions-screen hb-screen v2h' });
   el.insertBefore(hubBackdrop('commissions'), el.firstChild);
   root.appendChild(el);
   // Midnight rollover while the game stayed open (idempotent).
@@ -221,7 +222,7 @@ function missionsView(kind, redraw, onReset = null) {
         h('div.muted.ma-mission-desc', m.desc),
         h('div.ma-mission-prog', progressBar(m.progress, m.goal), count),
       ),
-      h('div.ma-mission-rewards', rewardStack(m.rewards, 46)),
+      h('div.ma-mission-rewards', rewardStack(m.rewards, 50)),
       h('div.ma-mission-act',
         m.claimed
           ? h('span.ma-claimed', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Claimed')
@@ -279,10 +280,10 @@ function loginView(redraw, onReset = null) {
     const isToday = d.today && cal.claimable;
     grid.appendChild(h(`div.ma-cal-day${d.claimed ? '.claimed' : ''}${isToday ? '.today' : ''}${d.day === 7 ? '.big' : ''}`, { 'data-testid': `login-day-${d.day}` },
       h('div.ma-cal-num', `Day ${d.day}`),
-      rewardStack(d.rewards, d.day === 7 ? 52 : 46),
+      rewardStack(d.rewards, d.day === 7 ? 56 : 50),
       // [ui-m5] a claimed day wears the "complete!" stamp (display only)
       d.claimed ? h('div.cm-stamp', { 'data-testid': `login-stamp-${d.day}`, 'aria-label': `Day ${d.day} claimed` }, h('span', 'complete!')) : null,
-      isToday ? h('div.ma-cal-today', 'Today') : null,
+      isToday ? h('span.ui-bdg.new.ma-cal-today', 'Today') : null,
     ));
   });
   wrap.appendChild(grid);
@@ -290,7 +291,7 @@ function loginView(redraw, onReset = null) {
 }
 
 function codesView() {
-  const input = h('input.ma-input', { type: 'text', placeholder: 'Enter a code', autocomplete: 'off', autocapitalize: 'characters', spellcheck: false, 'data-testid': 'code-input', maxlength: 32 });
+  const input = h('input.cm-code-input', { type: 'text', placeholder: 'Enter a code', autocomplete: 'off', autocapitalize: 'characters', spellcheck: false, 'data-testid': 'code-input', maxlength: 32 });
   const status = h('div.ma-code-status');
   const submit = async () => {
     const code = input.value.trim();
@@ -304,9 +305,9 @@ function codesView() {
     if (!r.ok) {
       status.classList.add('bad');
       status.textContent = r.error === 'redeemed' ? 'You already redeemed this code.' : 'That code is not valid. Codes ignore spaces and capitals.';
-      input.classList.remove('shake');
+      input.parentElement?.classList.remove('shake');
       void input.offsetWidth;
-      input.classList.add('shake');
+      input.parentElement?.classList.add('shake');
       return;
     }
     if (r.action === 'resetProgress') {
@@ -336,13 +337,14 @@ function codesView() {
   const paintRedeemed = () => {
     const redeemed = store.profile.redeemed || [];
     clear(redeemedHost);
-    if (redeemed.length) redeemedHost.appendChild(h('div.ma-redeemed', h('div.ma-sub', 'Redeemed'), h('div.row', redeemed.map((c) => h('span.chip', svgEl(uiIcon('check'), 'ma-inline-icon'), c)))));
+    if (redeemed.length) redeemedHost.appendChild(h('div.ma-redeemed', h('div.lbl', 'Redeemed'), h('div.row', redeemed.map((c) => h('span.ui-chip.cm-redeemed', svgEl(uiIcon('check'), 'ma-inline-icon'), h('span', c))))));
   };
   paintRedeemed();
   return h('div.ma-codes',
     plateHead('Redemption codes', { testid: 'codes-head' }),
     h('p.muted.cm-codes-line', 'Codes come with update notes and events. Each works once.'),
-    h('div.ma-code-row', input, primary('Redeem', { icon: 'gift', testid: 'code-redeem', onClick: submit })),
+    // [ui-v2 M5] the code in a kit input (a one-cut white field with its ring; the ring turns cyan on focus)
+    h('div.ma-code-row', h('label.ui-input.cm-code', input), primary('Redeem', { icon: 'gift', testid: 'code-redeem', onClick: submit })),
     status,
     redeemedHost,
   );
