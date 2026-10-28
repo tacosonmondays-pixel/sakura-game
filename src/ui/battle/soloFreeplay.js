@@ -36,10 +36,8 @@ export function continueIntoFreeplay(sim, tier) {
   if (sim.freeplay || sim.state !== 'won' || sim.wavesCleared !== sim.totalWaves) return false;
   const stage = soloFreeplayStage(sim.stageId, tier);
   if (!stage) return false;
-  // keep the difficulty / data overrides the battle was built with; only the table is new, and the
-  // campaign-only HP of balance round 5 (stage.powerHp) stays behind with the campaign waves, so the
-  // freeplay waves have the HP of a run built as freeplay
-  sim.stage = { ...sim.stage, freeplay: stage.freeplay, powerHp: null };
+  // keep the difficulty / data overrides the battle was built with; only the table is new
+  sim.stage = { ...sim.stage, freeplay: stage.freeplay };
   if (sim.data && 'stage' in sim.data) sim.data.stage = sim.stage;
   sim.options.freeplay = true;
   sim.freeplay = true;

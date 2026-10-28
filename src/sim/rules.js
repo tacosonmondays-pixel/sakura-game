@@ -217,7 +217,7 @@ export function ruleWaveStart(sim) {
   const aff = r.def.always.affinity || r.def.active.affinity;
   r.affinity = aff && aff.length ? aff[(sim.wave - 1) % aff.length] : null;
   const dps = r.def.active.zoneDps || r.def.always.zoneDps || 0;
-  r.zoneDps = dps * sim.enemyHpBase() * sim._waveHpMul;
+  r.zoneDps = dps * (sim.stage.hpScale ?? 1) * sim.diff.hpMul * sim._waveHpMul;
   rebuildRuleTables(sim);
   sim._buffsDirty = true;
   if (was !== r.active) sim._emit('ruleState', { id: r.id, active: r.active });

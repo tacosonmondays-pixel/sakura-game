@@ -506,15 +506,6 @@ export class Sim {
    *   leak?: number, mods?: object, parent?: object }} o
    * @returns {object|null} EnemyRT
    */
-  /**
-   * Enemy HP from the stage and the difficulty: the stage's hpScale × the difficulty's hpMul × balance round 5's
-   * campaign multiplier for this difficulty (stage.powerHp: campaign battles only, never Freeplay, events, modes or
-   * titans; src/data/stages.js).
-   */
-  enemyHpBase() {
-    return (this.stage.hpScale ?? 1) * this.diff.hpMul * (this.stage.powerHp?.[this.difficulty] ?? 1);
-  }
-
   spawnEnemy(enemyId, o = {}) {
     const def = this.data.enemy(enemyId);
     if (!def) {
@@ -522,7 +513,7 @@ export class Sim {
       return null;
     }
     const pathIndex = ((o.pathIndex ?? 0) % this.pathData.length + this.pathData.length) % this.pathData.length;
-    const base = this.enemyHpBase();
+    const base = (this.stage.hpScale ?? 1) * this.diff.hpMul;
     const hpMul = o.hpMul ?? base * (o.waveHpMul ?? this._waveHpMul);
     const childHpMul = o.childHpMul ?? o.hpMul ?? base * this._waveHpMul;
     const e = createEnemy(def, {

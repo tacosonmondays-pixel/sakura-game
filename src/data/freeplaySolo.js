@@ -21,6 +21,5 @@ export function hasSoloFreeplay(stageId) {
 export function soloFreeplayStage(stageId, tierId) {
   const table = freeplayTable(tierId);
   if (!table || !hasSoloFreeplay(stageId)) return null;
-  // (balance round 5's campaign HP, stage.powerHp, stays in the campaign: Freeplay keeps its own curve)
-  return { ...STAGE_MAP[stageId], powerHp: null, freeplay: table };
+  return { ...STAGE_MAP[stageId], freeplay: table };
 }

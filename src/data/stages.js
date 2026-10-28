@@ -61,20 +61,6 @@ export const HERO_HP_PASS = Object.freeze({
   '7-1': 1.55, '7-2': 2.4, '7-3': 2.2, '7-4': 2.4, '7-5': 2.4,
   '8-1': 1.3, '8-2': 1.25, '8-3': 1.3, '8-4': 1.3, '8-5': 1.1,
 });
-// Balance round 5 (src/data/balance.js): the strikers rose toward Kage, so campaign enemy HP rises per chapter with
-// the measured kill speed of the teams players field there (tools/balance/r5Finales.mjs: the free roster and a common
-// gacha team), and never so far that a finale an ordinary team wins today is lost (docs/BALANCE.md "Balance round 5").
-// Campaign battles only (solo and co-op): it sits in `powerHp`, read by the sim (Sim#enemyHpBase), never in hpScale, so
-// Freeplay after a stage, events, Total Assault, Bounty, Challenge and Titan Trials keep their HP, and cashScale (coins
-// per wave) does not move. One number per chapter and difficulty.
-export const POWER_HP_PASS = Object.freeze({
-  // POWER_HP_PLACEHOLDER
-});
-/** A campaign chapter's round-5 HP multiplier per difficulty (Sim#enemyHpBase); null when nothing changes. */
-export function powerHpFor(chapter) {
-  const row = POWER_HP_PASS[chapter];
-  return row ? Object.freeze({ ...row }) : null;
-}
 // Economy scale (kill bounties + wave-clear bonus, applied by the sim) grows with enemy HP so
 // late chapters can afford tier 4–5 upgrades: hpScale^0.6 (1.0 at 1-1 → ≈3.1 at 8-5).
 const cashScaleFor = (hpScale) => Math.round(hpScale ** 0.6 * 100) / 100;
@@ -164,8 +150,6 @@ function campaign(o) {
     hpScale: Math.round((o.hpScale ?? hpScaleAt(index)) * (HERO_HP_PASS[o.id] ?? 1) * 100) / 100,
     // the hero-rework HP multiplier inside hpScale (co-op freeplay divides it back out: its HP bands
     // were calibrated on the pre-pass ramp; the train-C combined pass re-checks them)
-    // balance round 5, campaign battles only (POWER_HP_PASS above; Freeplay drops it)
-    powerHp: powerHpFor(chapter),
     hpPass: HERO_HP_PASS[o.id] ?? 1,
     cashScale: o.cashScale ?? cashScaleFor(o.hpScale ?? hpScaleAt(index)),
     startCash: o.startCash ?? startCashAt(index),
@@ -901,8 +885,6 @@ export function act2Stage(o) {
     },
     hpScale: plan.hpScale,
     hpPass: plan.hpPass,
-    // balance round 5: Act II plays at the next chapter's strength (its drops' chapter)
-    powerHp: powerHpFor(plan.dropChapter),
     cashScale: plan.cashScale,
     startCash: plan.startCash,
     lives: 100,

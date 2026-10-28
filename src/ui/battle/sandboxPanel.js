@@ -212,7 +212,7 @@ export function createSandboxDriver(sim, { unlimitedLives = () => true } = {}) {
       if (sim.state !== 'wave') return false;
       sim.wave++;
       const w = sim._getWave(sim.wave);
-      const hpMul = sim.enemyHpBase() * w.hpMul;
+      const hpMul = (sim.stage.hpScale ?? 1) * sim.diff.hpMul * w.hpMul;
       push(w.spawns.map((s) => ({ at: sim.time + s.t, enemyId: s.enemyId, pathIndex: s.pathIndex, mods: null, hpMul })));
       sim._emit('waveStart', { wave: sim.wave });
       return true;
