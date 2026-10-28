@@ -390,9 +390,6 @@
 .ma-buy-unit { display: flex; justify-content: center; margin-top: 10px; }
 
 /* ------------------------------------------------------------------ commissions */
-.ma-comm-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.ma-comm-head .ma-section-title { margin-bottom: 2px; }
-.ma-comm-head .muted { font-size: 0.78rem; }
 .ma-mission-list { display: flex; flex-direction: column; gap: 8px; }
 .ma-mission {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 10px 12px; background: #fff;
@@ -409,13 +406,9 @@
 .ma-mission-rewards .reward-row { gap: 4px; flex-wrap: nowrap; }
 .ma-mission-act { min-width: 84px; display: flex; justify-content: flex-end; }
 .ma-claimed { display: inline-flex; align-items: center; color: var(--ma-ok); font-weight: 900; font-size: 0.82rem; }
-.ma-ach-icon { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #ffe066, #f2b705); color: #fff; padding: 8px; display: inline-flex; }
-.ma-mission.claimed .ma-ach-icon { background: linear-gradient(135deg, #8ee3b5, var(--ma-ok)); }
-.ma-mission:not(.ready):not(.claimed) .ma-ach-icon { background: linear-gradient(135deg, #c9d8ec, #9fb3cf); }
 @media (max-width: 640px) {
   .ma-mission { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'main act' 'rew rew'; gap: 8px; }
   .ma-mission.ach { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon main act' 'rew rew rew'; }
-  .ma-ach-icon { grid-area: icon; width: 34px; height: 34px; padding: 6px; }
   .ma-mission-main { grid-area: main; }
   .ma-mission-act { grid-area: act; min-width: 0; }
   .ma-mission-rewards { grid-area: rew; }
@@ -432,8 +425,6 @@
 @keyframes ma-glow-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(255,221,74,0.35), var(--shadow); } 50% { box-shadow: 0 0 0 6px rgba(255,221,74,0.6), var(--shadow-strong); } }
 .ma-cal-today { position: absolute; top: 6px; right: -22px; transform: rotate(35deg); background: var(--yellow); color: var(--navy); font-size: var(--fs-label); font-weight: 900; padding: 1px 24px; }
 .ma-cal-day.claimed > .reward-row { opacity: 0.35; filter: grayscale(0.6); }
-.ma-cal-stamp { position: absolute; inset: 32px 0 0; display: grid; place-items: center; color: var(--ma-ok); pointer-events: none; }
-.ma-cal-stamp .svg-icon { width: 46px; height: 46px; background: rgba(255,255,255,0.85); border-radius: 50%; padding: 8px; box-shadow: 0 0 0 3px var(--ma-ok); transform: rotate(-12deg); }
 .ma-codes { max-width: 560px; }
 .ma-code-row { display: flex; gap: 10px; align-items: center; }
 .ma-input { flex: 1; min-width: 0; min-height: 46px; border-radius: 10px; border: 2px solid var(--line); padding: 8px 14px; font: inherit; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy); background: #fff; user-select: text; transition: border-color var(--ma-small); }
@@ -653,10 +644,6 @@
 }
 
 /* ------------------------------------------------------------------ bounty V2 (location select) */
-.ma-char-screen { background: #cfe8ff; }
-.ma-char-screen .topbar { position: relative; z-index: 5; }
-.ma-char-screen .screen-body { position: relative; z-index: 1; display: flex; padding-top: 8px; padding-bottom: 0; overflow: hidden; }
-.ma-loc-col { grid-column: 2; min-height: 0; display: flex; flex-direction: column; padding-bottom: 8px; }
 .ma-loc-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; padding-bottom: 8px; animation: ma-from-right var(--t-screen) var(--ease) both; }
 .ma-loc-panel .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 1.1rem; }
 .ma-loc-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 4px; scrollbar-width: thin; }
@@ -692,10 +679,6 @@
 .ma-loc-detail .ma-drops.compact { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
 .ma-loc-enemies .ma-enemy { font-size: var(--fs-label); padding: 3px 8px 3px 5px; }
 .ma-loc-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
-.ma-loc-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); margin-top: 6px; }
-.ma-loc-balance { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px 4px 6px; font-weight: 900; color: var(--navy); }
-.ma-loc-balance-icon { width: 24px; height: 24px; display: inline-flex; }
-.ma-loc-balance-val { font-family: var(--font-head); font-style: italic; font-size: 1.1rem; }
 @media (min-width: 1000px) and (min-height: 600px) {
   .ma-loc { grid-template-columns: 136px minmax(0, 1fr) 28px; padding: 8px 12px 8px 8px; gap: 14px; }
   .ma-loc-thumb { width: 136px; }
@@ -705,8 +688,6 @@
   .ma-loc-detail-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
 }
 @media (max-aspect-ratio: 1/1) {
-  .ma-bounty.ma-hub { grid-template-columns: minmax(0, 1fr); }
-  .ma-loc-col { grid-column: 1; }
   .ma-loc { grid-template-columns: 72px minmax(0, 1fr) 20px; }
   .ma-loc-thumb { width: 72px; }
   .ma-loc-detail-grid { grid-template-columns: minmax(0, 1fr); }
@@ -809,8 +790,6 @@
   .ma-offer-name { min-height: 2.3em; font-size: 0.78rem; }
   .ma-offer-buy { min-height: 36px; margin-top: 2px; font-size: 0.9rem; }
   /* commissions */
-  .ma-comm-head { margin-bottom: 8px; }
-  .ma-comm-head .ma-section-title { font-size: 1rem; }
   .ma-mission { padding: 8px 10px; gap: 10px; }
   .ma-mission-desc { font-size: var(--fs-label); margin-bottom: 2px; }
   .ma-calendar { gap: 6px; }

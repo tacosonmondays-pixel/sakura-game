@@ -13,8 +13,6 @@
 /* a small tile has room for one: "Open!" until the first visit, then the week's chip */
 
 /* ---------- Commissions: the reset chip after the claim count ---------- */
-.ma-comm-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
-.ma-comm-sub > .ui-cd { margin: -4px 0; } /* (the chip rides on the text line: the list below does not move) */
 
 /* (the Mall's restock, the mail expiry and the old Events page's chips: M5c's list screens, at the end of this file) */
 
