@@ -1,7 +1,7 @@
 // Item art check: the baked 3D-flat item icons (public/art/items, src/art/itemArt.js) and the slanted item tile on
 // every screen that shows items: the lobby pills, the mailbox, the backpack (every tab) and its item detail, the
-// rewards pop-up, the login calendar and the income overview, the achievements list with an expanded tier ladder
-// (its 14 px reward icons), every Mall tab, the Halloween exchange and operations, stage prep drops, the recruit
+// rewards pop-up, the login calendar and the income overview, the achievements rows and a row's ladder sheet (whole
+// item tiles since UI M5b), every Mall tab, the Halloween exchange and operations, stage prep drops, the recruit
 // page and a 10-pull's results, and (dev) a slow first open of the backpack with every item image held back. The save
 // is seeded the same way every run (every item at a spread of counts, a fixed clock), so a run on the old build and
 // one on the new build differ only where the builds differ: use it for before/after screenshots.
@@ -189,11 +189,11 @@ for (const vp of viewports) {
     await go('#/lobby', 'lobby');
     await shot('lobby');
 
-    // mailbox: the beta gift letter's reward tiles
+    // mailbox: the beta gift letter's reward tiles (since UI M5c the Mailroom screen, #/mail; before it the Mail modal)
     const mail = await page.$('[data-testid="top-mail"]');
     if (mail) {
       await mail.click();
-      await page.waitForSelector('.mbx-modal', { timeout: 8000 }).catch(() => null);
+      await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'mail' || !!document.querySelector('.mbx-modal'), null, { timeout: 8000 }).catch(() => null);
       await settle(page);
       await shot('mail');
       await closeModals(page);
@@ -236,45 +236,38 @@ for (const vp of viewports) {
     await page.evaluate(() => document.querySelector('#app .ma-stat')?.scrollIntoView({ block: 'center' }));
     await shot('rewards-income');
 
-    // achievements: the list's reward tiles and an expanded tier ladder, whose 14 px gem and gear-box icons must be
-    // the baked art in a 14 px .ia box (the small cut for gems), never a drawing pulled out of a tile
+    // achievements (condensed in UI M5b): a row shows ONE reward picture (an item tile) and its tap opens the ladder
+    // sheet, every tier's rewards as whole item tiles (M3's tile itself: no small icon is taken out of a tile any more).
+    // The rows' pictures and the sheet's tiles must be the baked art on the 1.09:1 plate, never the drawing
     await go('#/commissions?tab=achievements', 'commissions');
-    await page.waitForSelector('[data-testid="ach-tab"]', { timeout: 8000 }).catch(() => null);
-    if (!(await page.$('#app .ach-ladder'))) {
-      await page.evaluate(() => {
-        const rows = [...document.querySelectorAll('#app .ach-rowwrap')];
-        const withGems = rows.find((r) => r.querySelector('.ach-series') && r.querySelector('.ach-rewards [data-item="gems"]'));
-        (withGems || rows.find((r) => r.querySelector('.ach-series')))?.querySelector('.ach-series')?.click();
-      });
-      await settle(page, 300);
-    }
-    await page.evaluate(() => document.querySelector('#app .ach-ladder')?.scrollIntoView({ block: 'center' }));
+    await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 8000 }).catch(() => null);
+    await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('#app .ach-row')];
+      (rows.find((r) => r.querySelector('.ach-rimg [data-item="gems"]')) || rows.find((r) => r.querySelector('.ach-rimg .item-tile')) || rows[0])?.click();
+    });
+    await page.waitForSelector('[data-testid="ach-ladder-sheet"] .item-tile', { timeout: 8000 }).catch(() => null);
+    await settle(page, 300);
     await shot('achievements-ladder');
-    const lad = await page.evaluate(() => [...document.querySelectorAll('#app .ach-ladder .ach-step-ico')].map((s) => {
-      const r = s.getBoundingClientRect();
-      const ia = s.querySelector(':scope > .ia');
+    const lad = await page.evaluate(() => [...document.querySelectorAll('[data-testid="ach-ladder-sheet"] .item-tile, #app .ach-rimg > .item-tile')].map((t) => {
+      const ia = t.querySelector('.ia');
       const img = ia?.querySelector('img.item-art');
-      const ir = ia?.getBoundingClientRect();
+      const r = t.getBoundingClientRect();
       return {
-        art: ia?.dataset.art || null,
+        art: ia?.dataset.art || t.dataset.item || null,
+        inSheet: !!t.closest('[data-testid="ach-ladder-sheet"]'),
         baked: !!img && img.complete && img.naturalWidth > 0,
-        bareSvg: !!s.querySelector(':scope > svg'),
         drawnVisible: !!ia && getComputedStyle(ia.querySelector('svg')).visibility === 'visible',
-        box: [Math.round(r.width), Math.round(r.height)],
-        ia: ir ? [Math.round(ir.width), Math.round(ir.height)] : null,
-        small: !!img && /-small\.webp/.test(img.currentSrc),
+        ratio: r.height ? Math.round((r.width / r.height) * 1000) / 1000 : 0,
       };
     }));
-    report[`achievements-ladder-icons-${tag}`] = lad;
-    console.log(`  ladder icons: ${lad.length} (${lad.filter((x) => x.baked).length} baked, ${lad.filter((x) => x.bareSvg).length} bare drawings)`);
+    report[`achievements-ladder-tiles-${tag}`] = lad;
+    const inSheet = lad.filter((x) => x.inSheet).length;
+    console.log(`  ladder sheet: ${inSheet} tiles, rows: ${lad.length - inSheet} reward pictures (${lad.filter((x) => x.baked).length} baked)`);
     if (expectArt) {
-      const bad = lad.filter((x) => !x.art || !x.baked || x.bareSvg || x.drawnVisible);
-      check(lad.length > 0 && !bad.length, `${tag} achievements: every tier-ladder reward icon is the baked art (${lad.length} icons${bad.length ? `, bad ${JSON.stringify(bad.slice(0, 3))}` : ''})`);
-      const off = lad.filter((x) => !x.ia || x.box[0] !== 14 || x.box[1] !== 14 || x.ia[0] !== 14 || x.ia[1] !== 14);
-      check(lad.length > 0 && !off.length, `${tag} achievements: .ach-step-ico sizes its .ia box to 14 x 14 px${off.length ? ` (${JSON.stringify(off.slice(0, 3))})` : ''}`);
-      const gems = lad.filter((x) => x.art === 'gems');
-      if (gems.length) check(gems.every((x) => x.small), `${tag} achievements: the ladder's gem icons use the small cut (${gems.length} gems)`);
+      const bad = lad.filter((x) => !x.baked || x.drawnVisible || Math.abs(x.ratio - 1.09) > 0.03);
+      check(inSheet > 0 && lad.length > inSheet && !bad.length, `${tag} achievements: the ladder sheet's reward tiles (${inSheet}) and the rows' reward pictures (${lad.length - inSheet}) are the baked art on the 1.09:1 plate${bad.length ? ` (bad ${JSON.stringify(bad.slice(0, 3))})` : ''}`);
     }
+    await page.evaluate(() => document.querySelectorAll('.ui-layer').forEach((o) => o.remove()));
 
     // the Mall: every tab (prod: the tabs the shop shows today)
     const mallTabs = prod

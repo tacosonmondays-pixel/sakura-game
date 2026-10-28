@@ -5,6 +5,7 @@
 // (tab id 'donate': material requests + donations) · Clan Boss · Applicants (leaders/officers;
 // tab id 'requests' — the old join-requests tab keeps its id for old links) · Supply Bot (dev clan).
 import { h, screen, button, toast, confirmDialog, tabs as tabBar } from '../components.js';
+import { countdownChip } from '../kit.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -401,15 +402,9 @@ function bossTab(backend, clan, pane) {
       if (!alive) return;
       const pct = s.maxHp ? s.hp / s.maxHp : 0;
       const left = BOSS_HITS_PER_DAY - s.myHitsToday;
-      const reset = h('span');
-      const paintReset = () => {
-        const ms = msToWeekReset();
-        const d = Math.floor(ms / 86400000);
-        const hh = Math.floor((ms % 86400000) / 3600000);
-        reset.textContent = `Resets in ${d}d ${hh}h`;
-      };
-      paintReset();
-      timer = setInterval(paintReset, 60000);
+      // [ui-m5] the week's reset is the countdown chip (UI_DIRECTION §5.9); the shared ticker keeps it current. A
+      // recurring cycle (never red); at zero the new week's boss loads
+      const reset = countdownChip(msToWeekReset(), { label: 'Resets in', cls: 's', urgent: false, doneText: 'Reset!', onDone: () => { if (alive) bossTab(backend, clan, pane); }, testid: 'boss-reset' });
       const fight = button(s.defeated ? 'Defeated!' : left > 0 ? `Fight (${left}/${BOSS_HITS_PER_DAY} left)` : 'Attempts recharge within 24 h', {
         kind: 'yellow', icon: 'sword', testid: 'boss-fight', disabled: s.defeated || left <= 0,
         onClick: async () => {

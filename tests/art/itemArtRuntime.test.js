@@ -148,7 +148,9 @@ describe('item art while loading and on error', () => {
     };
     walk(join(ROOT, 'src/ui'));
     expect(offenders).toEqual([]);
-    expect(readFileSync(join(ROOT, 'src/ui/screens/achievements/list.js'), 'utf8')).toMatch(/itemIcon\(id, \{ px: 14 \}\)/);
+    // (the achievements ladder: since UI M5b a sheet of whole item tiles, M3's tile itself, with no small icon taken
+    // out of a tile at all)
+    expect(readFileSync(join(ROOT, 'src/ui/screens/achievements/list.js'), 'utf8')).not.toMatch(/querySelector\(['"]svg['"]\)/);
   });
 
   it('preloadSmallItemArt starts each small cut once (the HUD and pills on every screen)', () => {

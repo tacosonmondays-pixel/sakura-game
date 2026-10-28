@@ -1,7 +1,7 @@
 // fmtNum, the one number style (docs/specs/UI_DIRECTION.md §2): the short form, money kept exact longer, the
 // rounding direction per kind (balances down, prices up, stats nearest), signs and units.
 import { describe, it, expect } from 'vitest';
-import { fmtNum, fmtItemCount, MINUS } from '../../src/ui/format.js';
+import { fmtNum, fmtItemCount, MINUS, isUrgent } from '../../src/ui/format.js';
 
 describe('fmtNum: counts, rewards, damage, HP', () => {
   it('exact with separators below 10,000', () => {
@@ -118,6 +118,37 @@ describe('fmtNum: time, level, progress', () => {
   it('cooldowns in whole seconds', () => {
     expect(fmtNum(0.3, 'time', { whole: true })).toBe('1s');
     expect(fmtNum(4.01, 'time', { whole: true })).toBe('5s');
+  });
+  it('time left on a countdown chip (UI M5, §5.9): "6d 4h", "6d", "11h", "12:05", rounded up', () => {
+    const H = 3600;
+    const D = 24 * H;
+    expect(fmtNum(6 * D + 4 * H, 'time')).toBe('6d 4h');
+    expect(fmtNum(6 * D + 3 * H + 1, 'time')).toBe('6d 4h'); // up: an hour started counts
+    expect(fmtNum(6 * D, 'time')).toBe('6d');
+    expect(fmtNum(6 * D - 1, 'time')).toBe('6d'); // 5d 23h 59m 59s rounds up to the next whole day
+    expect(fmtNum(D, 'time')).toBe('1d');
+    expect(fmtNum(D + 1, 'time')).toBe('1d 1h');
+    expect(fmtNum(11 * H, 'time')).toBe('11h');
+    expect(fmtNum(10 * H + 1, 'time')).toBe('11h');
+    expect(fmtNum(D - 1, 'time')).toBe('24h'); // under a day it stays in hours (never "1d" while urgent)
+    expect(fmtNum(H, 'time')).toBe('1h');
+    expect(fmtNum(H - 0.4, 'time')).toBe('1h'); // 59:59.6 rounds up into the hour
+    expect(fmtNum(12 * 60 + 5, 'time')).toBe('12:05');
+    expect(fmtNum(8000, 'time')).toBe('3h'); // was "133:20"
+    expect(fmtNum(45, 'time')).toBe('45s');
+  });
+  it('never "0s" while a countdown still runs', () => {
+    expect(fmtNum(0.0001, 'time')).not.toBe('0s');
+    expect(fmtNum(0.4, 'time', { whole: true })).toBe('1s');
+  });
+  it('isUrgent: under 24 h, and only while it runs', () => {
+    expect(isUrgent(23 * 3600)).toBe(true);
+    expect(isUrgent(24 * 3600 - 1)).toBe(true);
+    expect(isUrgent(24 * 3600)).toBe(false);
+    expect(isUrgent(6 * 86400)).toBe(false);
+    expect(isUrgent(0)).toBe(false);
+    expect(isUrgent(-5)).toBe(false);
+    expect(isUrgent(NaN)).toBe(false);
   });
   it('level: LV 48, or LV 48/50 where the cap matters', () => {
     expect(fmtNum(48, 'level')).toBe('LV 48');

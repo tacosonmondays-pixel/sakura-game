@@ -79,6 +79,8 @@
 .sp-fig { height: var(--sp-fig-h); transform-origin: 50% 30%; transition: transform 120ms ease, filter 120ms ease; }
 .sp-fig > img, .sp-fig > svg { height: 100%; width: auto; display: block; pointer-events: none; filter: drop-shadow(0 6px 14px rgba(20, 30, 60, 0.28)); }
 .sp-fig > svg { width: calc(var(--sp-fig-h) * 0.6); }
+/* a stand that is not head-to-shoes (portraits.js fig): scaled so her head matches the cast's */
+.sp-fig > img.pt-img { height: calc(100% * var(--fig, 1)); }
 .sp-actor.sp-dim .sp-fig { filter: brightness(0.55) saturate(0.85); transform: scale(0.98); }
 .sp-actor.sp-speaking { z-index: 2; }
 .sp-actor.sp-exit { opacity: 0; }

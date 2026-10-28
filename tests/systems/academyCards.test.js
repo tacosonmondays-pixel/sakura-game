@@ -65,8 +65,9 @@ describe("academy girls' drawn cards", () => {
       expect(d.placeholder, id).toBeUndefined();
       expect(d.face, id).not.toEqual(SIGN.face);
       expect(d.cut, id).not.toBe(SIGN.cut);
-      // a drawn full figure: her face high in the 3:4 illustration (the sign's mascot sat at 31 %)
-      expect(d.face[1], id).toBeLessThan(25);
+      // her drawn face high in the 3:4 illustration: the v2 scene portraits put it at 19-33 % down (the sign's
+      // mascot sat at 49 % across, 31 % down, so the face line differs from the sign's in either coordinate)
+      expect(d.face[1], id).toBeLessThan(35);
       for (const kind of Object.keys(PORTRAIT_KINDS)) {
         const f = `${id}-${PORTRAIT_KINDS[kind].suffix}.webp`;
         expect(SIGN_BLOBS[f], f).toBeTruthy();

@@ -113,9 +113,23 @@ async function runViewport(vp) {
   let { page, errors } = await openWith(context, lateSave(), '#/commissions?tab=achievements');
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 30000 });
   await page.waitForTimeout(900);
-  check(await page.evaluate(() => [...document.querySelectorAll('.tab')].some((t) => /Achievements/.test(t.textContent) && t.querySelector('.tab-badge'))), '1: the Achievements tab shows its dot');
-  const cats = await page.$$eval('[data-testid^="ach-cat-"]', (els) => els.map((e) => e.dataset.testid));
+  // (the M5b review: the Commissions tabs are the §5.3 rail, a red dot only)
+  check(await page.evaluate(() => !!document.querySelector('[data-testid="tab-achievements"] .ui-dot')), '1: the Achievements tab shows its dot');
+  // UI M5b (UI_DIRECTION §6.5): the categories moved from a rail / chip row into a sheet behind one category chip
+  // ("All ▾", test id ach-category); the category buttons keep their ach-cat-<id> test ids inside it
+  const pickCat = async (id) => {
+    await page.click('[data-testid="ach-category"]');
+    await page.waitForSelector(`[data-testid="ach-cat-sheet"] [data-testid="ach-cat-${id}"]`, { timeout: 10000 });
+    await page.click(`[data-testid="ach-cat-sheet"] [data-testid="ach-cat-${id}"]`);
+    await page.waitForSelector('[data-testid="ach-cat-sheet"]', { state: 'detached', timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(250);
+  };
+  await page.click('[data-testid="ach-category"]');
+  await page.waitForSelector('[data-testid="ach-cat-sheet"]', { timeout: 10000 });
+  const cats = await page.$$eval('[data-testid="ach-cat-sheet"] [data-testid^="ach-cat-"]', (els) => els.map((e) => e.dataset.testid).filter((t) => t !== 'ach-cat-sheet-close'));
   check(cats.length === 12 && cats.includes('ach-cat-secret') && cats.includes('ach-cat-codex'), `1: 12 categories (All + 11, Codex since v0.1.45): ${cats.length}`);
+  await page.click('[data-testid="ach-cat-sheet"] [data-testid="ach-cat-all"]');
+  await page.waitForSelector('[data-testid="ach-cat-sheet"]', { state: 'detached', timeout: 10000 }).catch(() => {});
   // the PC rail: 12 rows and the Honor Ribbon Case card fit (at 1280x720 the 12th row once pushed the card's count and
   // Open › under the fold, behind a hidden scrollbar)
   const rail = await page.evaluate(() => {
@@ -129,7 +143,7 @@ async function runViewport(vp) {
   if (rail) {
     check(rail.card && rail.count && rail.open, `1: the Honor Ribbon Case card, its count and Open › sit inside the rail (${JSON.stringify(rail)})`);
     check(rail.scroll <= rail.client + 1, `1: the 12 categories and the case card fit the rail without scrolling (${rail.scroll} ≤ ${rail.client})`);
-  } else log('  (phone: category chips, no rail)');
+  } else log('  (no rail: one category chip and its sheet at every size, UI_DIRECTION §6.5)');
   check(await page.$('[data-testid="ach-claim-a_ur_1"]') != null, '1: Rainbow Bright is ready to claim');
   const b1 = await budget(page);
   check(b1.live <= 3 && b1.live >= 1, `8: list live specials ≤ 3 (${b1.live})`);
@@ -145,29 +159,47 @@ async function runViewport(vp) {
   check(rm.live === 0 && rm.infinite === 0, `8: Reduce Motion: 0 live, 0 infinite animations (${rm.live}, ${rm.infinite})`);
   await page.evaluate(() => document.documentElement.removeAttribute('data-reduce-motion'));
 
-  // the Codex rows: every title chip reads whole (it wraps on a phone rather than ending in "…")
-  const catBefore = await page.evaluate(() => document.querySelector('[data-testid^="ach-cat-"].on')?.dataset.testid || null);
-  await page.click('[data-testid="ach-cat-codex"]');
+  // the Codex rows: every title chip reads whole (it wraps on a phone rather than ending in "…"). UI M5b: a row shows
+  // one reward, and its titles live in the row's ladder sheet (every tier), so the chips are read sheet by sheet
+  await pickCat('codex');
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 10000 });
   await page.waitForTimeout(300);
-  // (a series row shows only its current step's rewards, so 5 of the 7 Codex titles are on screen)
-  const codexChips = await page.evaluate(() => [...document.querySelectorAll('.ach-chip-title')].map((chip) => {
-    const t = chip.querySelector('.tp-text');
-    const c = chip.getBoundingClientRect();
-    const p = chip.querySelector('.tp').getBoundingClientRect();
-    return { text: t.textContent, cut: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1 || p.bottom > c.bottom + 0.5 || p.top < c.top - 0.5 };
-  }));
-  check(codexChips.length >= 5 && codexChips.some((c) => /Wrong-Way Warden/.test(c.text)) && codexChips.every((c) => !c.cut),
-    `1: Codex: ${codexChips.length} title chips (Wrong-Way Warden among them), none cut short (${codexChips.filter((c) => c.cut).map((c) => c.text).join(' | ') || 'none'})`);
-  await page.evaluate(() => [...document.querySelectorAll('.ach-chip-title')].find((c) => /Wrong-Way/.test(c.textContent))?.scrollIntoView({ block: 'center' }));
-  await page.waitForTimeout(300);
-  await shot(page, 'codex');
-  if (catBefore) await page.click(`[data-testid="${catBefore}"]`);
-  await page.waitForTimeout(300);
+  const codexRows = await page.$$eval('[data-testid="ach-tab"] .ach-row', (els) => els.map((e) => e.dataset.testid));
+  const codexChips = [];
+  for (const row of codexRows) {
+    await page.click(`[data-testid="${row}"] .ach-title`);
+    const sheet = await page.waitForSelector('[data-testid="ach-ladder-sheet"]', { timeout: 10000 }).catch(() => null);
+    if (!sheet) continue;
+    await page.waitForTimeout(250);
+    codexChips.push(...await page.evaluate(() => [...document.querySelectorAll('[data-testid="ach-ladder-sheet"] .ach-chip-title')].map((chip) => {
+      const t = chip.querySelector('.tp-text');
+      const c = chip.getBoundingClientRect();
+      const p = chip.querySelector('.tp').getBoundingClientRect();
+      return { text: t.textContent, cut: t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1 || p.bottom > c.bottom + 0.5 || p.top < c.top - 0.5 };
+    })));
+    if (codexChips.some((c) => /Wrong-Way/.test(c.text)) && !(await page.$('.ach-codex-shot'))) {
+      await page.evaluate(() => document.body.classList.add('ach-codex-shot'));
+      await shot(page, 'codex');
+    }
+    await page.click('[data-testid="ach-ladder-sheet-close"]');
+    await page.waitForSelector('[data-testid="ach-ladder-sheet"]', { state: 'detached', timeout: 10000 }).catch(() => {});
+  }
+  await page.evaluate(() => document.body.classList.remove('ach-codex-shot'));
+  const titles = [...new Set(codexChips.map((c) => c.text))];
+  check(titles.length >= 5 && titles.some((t) => /Wrong-Way Warden/.test(t)) && codexChips.every((c) => !c.cut),
+    `1: Codex: ${titles.length} titles in the ladder sheets (Wrong-Way Warden among them), none cut short (${codexChips.filter((c) => c.cut).map((c) => c.text).join(' | ') || 'none'})`);
+  await pickCat('all');
 
   // ---- 2. Claim all → the fanfare → Skip → the modal's strips ----
+  // (the M5b review: the tab counts rows ready, one unit everywhere: Claim all's pill is the Ready header's number)
   await page.evaluate(() => { document.querySelector('.ach-list').scrollTop = 0; });
-  const before = await page.evaluate(() => ({ n: Number(document.querySelector('[data-testid="ach-claim-all"] .ach-claimall-n')?.textContent || 0), had: Object.keys(window.__sakura.store.profile.missions.achievements).length }));
+  const before = await page.evaluate(() => ({
+    n: Number(document.querySelector('[data-testid="ach-claim-all"] .ach-claimall-n')?.textContent || 0),
+    readyN: Number(document.querySelector('[data-testid="ach-ready-n"]')?.textContent || 0),
+    rows: document.querySelectorAll('.ach-list .ach-row.ready').length,
+    had: Object.keys(window.__sakura.store.profile.missions.achievements).length,
+  }));
+  check(before.n > 0 && before.n === before.readyN && before.n === before.rows, `2: Claim all's pill, the Ready header and the ready rows agree (${before.n}, ${before.readyN}, ${before.rows})`);
   await page.click('[data-testid="ach-claim-all"]');
   const ff = await page.waitForSelector('[data-testid="ach-fanfare"]', { timeout: 10000 }).catch(() => null);
   check(!!ff, '2: Claim all opens the special fanfare first');
@@ -183,7 +215,9 @@ async function runViewport(vp) {
   check(strips.every(Boolean), `2: the modal shows New Honor Ribbons, New Titles and Rewards (${strips})`);
   const claimed = await page.evaluate(() => Object.keys(window.__sakura.store.profile.missions.achievements).length);
   check(claimed > 70, `2: the claims are in the save (${claimed})`);
-  check(before.n === claimed - before.had, `2: the Claim all number is what it claims (${before.n} shown, ${claimed - before.had} claimed)`);
+  // its window counts rows too: every ready row, plus any Achiever row the same tap completed (never fewer)
+  const claimedRows = await page.evaluate(() => Number((/· (\d+) claimed/.exec([...document.querySelectorAll('.modal-overlay:not(.closing) .modal-title')].pop()?.textContent || '') || [])[1] || 0));
+  check(claimedRows >= before.n && claimed - before.had >= claimedRows, `2: the window says the rows it claimed (${claimedRows} rows for ${before.n} on the pill; ${claimed - before.had} tiers)`);
   await page.waitForTimeout(500);
   await shot(page, 'claimall');
 
@@ -205,8 +239,9 @@ async function runViewport(vp) {
   await page.waitForTimeout(400);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('[data-testid="ach-tab"] .ach-row', { timeout: 30000 });
-  const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, disabled: document.querySelector('[data-testid="ach-claim-all"]')?.disabled }));
-  check(after.n === claimed && after.disabled === true, `4: after a reload the claims stay (${after.n}) and Claim all is disabled (${after.disabled})`);
+  // (the M5b review: Claim all is gone when nothing is ready, rather than a disabled yellow)
+  const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, button: !!document.querySelector('[data-testid="ach-claim-all"]') }));
+  check(after.n === claimed && after.button === false, `4: after a reload the claims stay (${after.n}) and Claim all is gone (${after.button})`);
 
   // ---- 5. the Case: 34 cells, the detail ----
   await page.click('[data-testid="ach-case"]');
@@ -236,8 +271,7 @@ async function runViewport(vp) {
   const lockedState = await page.evaluate(() => ({ claim: !!document.querySelector('[data-testid="ach-claim-a_slime_1000"]'), all: document.querySelector('[data-testid="ach-claim-all"]')?.textContent || '' }));
   check(!lockedState.claim, '6: the locked row has no Claim button (Claim all skips it)');
   await shot(page, 'new-save');
-  await page.click('[data-testid="ach-cat-secret"]');
-  await page.waitForTimeout(300);
+  await pickCat('secret');
   const hint = await page.textContent('[data-testid="ach-row-a_close_call"]').catch(() => '');
   check(/Secret achievement/.test(hint) && /Hint/.test(hint), '6: a secret row shows its hint');
   await shot(page, 'secrets');
@@ -327,8 +361,28 @@ async function runViewport(vp) {
     s.commit('missions');
   });
   const lobbyToast = await page.waitForSelector('[data-testid="ach-toast"]', { timeout: 5000 }).catch(() => null);
-  // she talks while the toast is up (a tap on her)
-  await page.click('[data-testid="secretary-art"]', { position: { x: 60, y: 200 }, force: true }).catch(() => {});
+  // she talks while the toast is up (a tap on her): on a spot of her art that nothing covers. Since UI M5d the
+  // lobby's sticker row and tray sit over parts of the art (a fixed point at 1280×720 hit the "2× DROPS" sticker and
+  // opened Happening Now), so the spot is found: the centre first, then outward, the first point her art receives
+  const spot = await page.evaluate(() => {
+    const art = document.querySelector('[data-testid="secretary-art"]');
+    if (!art) return null;
+    const r = art.getBoundingClientRect();
+    for (const fy of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+      for (const fx of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+        const x = r.left + r.width * fx;
+        const y = r.top + r.height * fy;
+        if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+        const hit = document.elementFromPoint(x, y);
+        if (hit && art.contains(hit)) return { x: Math.round(x - r.left), y: Math.round(y - r.top) };
+      }
+    }
+    return null;
+  });
+  check(!!spot, `10: a spot on her art that nothing covers, to tap (${JSON.stringify(spot)})`);
+  const hash0 = await page.evaluate(() => location.hash);
+  await page.click('[data-testid="secretary-art"]', { position: spot || { x: 60, y: 200 }, timeout: 5000 }).catch(() => {});
+  check(await page.evaluate((h0) => location.hash === h0, hash0), `10: the tap stays in the lobby (${await page.evaluate(() => location.hash)})`);
   await page.waitForTimeout(700);
   const cover = () => page.evaluate(() => {
     const bub = document.querySelector('[data-testid="secretary-bubble"]');
@@ -342,9 +396,11 @@ async function runViewport(vp) {
     const a = bub.getBoundingClientRect();
     const c = t?.getBoundingClientRect();
     const overlap = !!c && visible && !(a.right <= c.left || c.right <= a.left || a.bottom <= c.top || c.bottom <= a.top);
-    return { shown: true, visible, overlap };
+    const box = (b) => (b ? [b.left, b.top, b.right, b.bottom].map(Math.round) : null);
+    return { shown: true, visible, overlap, bubble: box(a), toast: box(c) };
   });
   const withToast = await cover();
+  await shot(page, 'lobby-toast');
   check(!!lobbyToast && withToast.shown && !withToast.overlap, `10: the toast and her speech bubble never overlap (${JSON.stringify(withToast)})`);
   await page.waitForSelector('.toast-ach', { state: 'detached', timeout: 6000 }).catch(() => null);
   await page.waitForTimeout(500);

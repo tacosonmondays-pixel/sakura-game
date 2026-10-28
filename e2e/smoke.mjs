@@ -94,6 +94,8 @@ const ROUTES = [
   ['mall', '#/mall'],
   ['commissions', '#/commissions'],
   ['rewards', '#/rewards'],
+  ['mail', '#/mail'], // [ui-m5] the Mailroom
+  ['multiplayer', '#/multiplayer'], // [ui-m5] the Multiplayer hub (never signs in: before the online screens below)
   ['bestiary', '#/bestiary'],
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
@@ -280,12 +282,15 @@ async function runViewport(vp) {
   // Tracking stays live on the screen (playtester: it only updated after leaving and coming back):
   // the pity line and gem pill must match the profile after Close, and after "Recruit again" is
   // cancelled at the gem confirm.
+  // (UI M5c: the pity shows once, as the pulls left and its bar; the bar's label carries "n of 90")
   const recruitLive = () => page.evaluate(() => {
     const g = window.__sakura.store.profile.gacha;
-    const foot = document.querySelector('#app .ma-pity-foot')?.textContent || '';
+    const left = Number(document.querySelector('#app [data-testid="pity-left"]')?.textContent || NaN);
+    const bar = document.querySelector('#app [data-testid="pity"] .ma-progress')?.getAttribute('aria-label') || '';
+    const [, since, of] = bar.match(/^(\d+) of (\d+)/) || [];
     const gemsPill = Number((document.querySelector('#app .ma-tickets .ma-ticket-pill:last-child b')?.textContent || '').replace(/\D/g, ''));
-    const ok = foot.startsWith(`${g.pity}/`) && foot.includes(`· ${g.totalPulls.toLocaleString('en-US')} recruits`) && gemsPill === window.__sakura.store.profile.currencies.gems;
-    return { ok, text: `"${foot}", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
+    const ok = Number(since) === g.pity && left === Number(of) - g.pity && gemsPill === window.__sakura.store.profile.currencies.gems;
+    return { ok, text: `${left} left, "${bar}", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
   });
   let live = await recruitLive();
   check(live.ok, `recruit: page updated after Close without leaving — ${live.text}`);

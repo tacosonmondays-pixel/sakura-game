@@ -242,7 +242,8 @@ try {
     await go(page, '#/mall?tab=memento', '[data-testid="buy-mem_ticket"]');
     await shot(page, `${tag}-4c-memento-exchange`);
     check(await noHScroll(page), `${tag} Memento Exchange: no horizontal scroll`);
-    const wallets = await page.evaluate(() => [...document.querySelectorAll('.ma-balance-val')].map((e) => e.textContent));
+    // (UI M5c: both balances sit in the one wallet chip of the plate header; the old balance panel's class before it)
+    const wallets = await page.evaluate(() => [...document.querySelectorAll('.ma-wallet-val, .ma-balance-val')].map((e) => e.textContent));
     check(wallets.length === 2, `${tag} Memento Exchange shows two wallets (${wallets.join(' / ')})`);
     await page.click('[data-testid="buy-mem_ticket"]');
     await page.click('[data-testid="buy-confirm"]');

@@ -31,7 +31,9 @@ export default {
   window: { opens: '2026-10-20', lastDay: '2026-11-01', exchangeLastDay: '2026-11-08' },
   teaseDays: 3,
   unlock: { stage: '1-5' },
-  theme: { color: '#f28c28', accent: '#9d4edd', fallbackArt: 'academy.webp', fallbackTint: 'night', hosts: ['hikari', 'aoi', 'yuki'] },
+  // lobbyBackdrop: painted behind every girl's stand while the event runs (public/art/lobby/, + thumbs/); owner, Oct 24:
+  // the menus in front, a spooky tree with shrubs and pumpkins in the mid ground, a Halloween academy behind
+  theme: { color: '#f28c28', accent: '#9d4edd', fallbackArt: 'academy.webp', fallbackTint: 'night', lobbyBackdrop: 'halloween.webp', hosts: ['hikari', 'aoi', 'yuki'] },
   music: 'battle_lantern',
   currency: {
     id: CANDY, name: 'Pumpkin Candy', plural: 'Pumpkin Candy',

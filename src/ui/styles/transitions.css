@@ -26,8 +26,10 @@ html[data-loader-bg="colour"] .tx-cut {
 /* (slides need no styles of their own: they animate a screen's few layers in place, from JS) */
 
 /* ---------- corner chip: a menu screen's code still on its way (the old screen stays) ---------- */
+/* UI M5 (UI_DIRECTION §5.10 E7): the corner is the bottom LEFT, so the chip never covers a primary button (they sit on
+   the right) or the lobby's bottom-right cluster (Total Assault + Campaign); on the lobby it rises above the EVENT card */
 .ld-chip {
-  position: fixed; z-index: 365; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  position: fixed; z-index: 365; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   display: flex; align-items: flex-end; gap: 2px; padding: 4px 14px 6px 10px; border-radius: 8px;
   background: rgba(8, 10, 16, 0.86); color: #f3f6ff; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
   transform: skewX(-12deg); visibility: hidden; opacity: 0; pointer-events: none;
@@ -42,6 +44,9 @@ html[data-loader-bg="colour"] .ld-chip { background: rgba(11, 22, 48, 0.9); }
 .ld-chip .ld-label { font-size: 12px; padding-bottom: 6px; }
 .ld-chip .ld-dots i { width: 3px; height: 3px; }
 .ld-chip:not(.on) .mochi *, .ld-chip:not(.on) .ld-dots i { animation: none !important; }
+/* the lobby: in the free band above the EVENT card (below the shortcuts), so it covers no card either */
+body:has(#app .lb) .ld-chip { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+@media (min-height: 481px) { body:has(#app .lb) .ld-chip { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); } }
 
 /* ---------- inline: inside a panel that is fetching (chat, clan, profile, co-op) ---------- */
 .ld-inline { display: flex; align-items: flex-end; justify-content: center; gap: 4px; color: var(--navy, #22385c); padding: 14px 0 6px; animation: ld-inline-in 160ms ease-out 150ms both; }

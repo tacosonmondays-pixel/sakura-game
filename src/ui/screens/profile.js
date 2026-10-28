@@ -40,6 +40,7 @@ import { loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, ribbonTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
+import { profileZero, isFreeplayTitle } from '../profile/zero.js';
 
 const PETALS = [[8, 18, 20], [78, 12, -30], [86, 46, 60], [14, 62, -10], [70, 74, 35], [30, 8, 80]];
 
@@ -199,6 +200,8 @@ const topBtn = (kind, icon, label, testid, onClick, short = null) => h(`button.b
 function profileView(m, ctx) {
   const { actions = {}, detach, preview = null, visit = null } = ctx;
   const own = m.own;
+  // [ui-m5] what the profile shows, minus its zero states (P7): profile/zero.js
+  const z = profileZero(m);
   const holdOpen = (entry) => (el) => {
     if (own) openSheetFor(entry.id, { tab: 'build', origin: el });
     else openSheetFor(entry.id, entry.prof ? { tab: 'build', profile: entry.prof, owner: { name: m.name, avatar: m.avatar }, origin: el } : { tab: 'info', profile: { units: {}, gear: {} }, owner: { name: m.name, avatar: m.avatar }, origin: el });
@@ -230,14 +233,19 @@ function profileView(m, ctx) {
     favWrap, plate);
 
   // ---- identity panel
-  const tags = h('div.pf-tags', titlePlate(m.title),
+  // [ui-m5] "All titles n/m" sits by the title (it opens the title picker), not in the Freeplay panel (UI M5d review)
+  const allTitles = own && m.earnedTitles.length
+    ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length}/${m.titleTotal} ›`)
+    : null;
+  const tags = h('div.pf-tags', titlePlate(m.title), allTitles,
     m.clan ? h('span.pf-clan', { 'data-testid': 'profile-clan' }, h('i', m.clan.tag), m.clan.name) : null,
     m.since ? h('span.pf-since', { 'data-testid': 'profile-since' }, sinceText(m.since)) : null);
   const hidden = own && m.server?.bioHidden && m.bio;
-  const bio = m.bio
+  // (an empty bio is a button only while it can be written: online; offline the foot note says why)
+  const bio = z.bio === 'text'
     ? h(`div.pf-bio${hidden ? '.hidden' : ''}`, { 'data-testid': 'profile-bio' }, m.bio,
       own ? h('button.pf-bio-edit', { type: 'button', title: 'Edit bio', 'aria-label': 'Edit bio', 'data-testid': 'profile-bio-edit', onclick: () => actions.editProfile('bio') }, ico('edit', 'pf-ico-fill')) : null)
-    : own ? h('button.pf-bio.empty', { type: 'button', 'data-testid': 'profile-bio', onclick: () => actions.editProfile('bio') }, m.online === 'ready' ? 'No bio yet · tap to write one' : m.online === 'needs_update' ? 'Your bio opens with the next server update.' : 'Connect to write your bio.') : null;
+    : z.bio === 'button' && !preview ? h('button.pf-bio.empty', { type: 'button', 'data-testid': 'profile-bio', onclick: () => actions.editProfile('bio') }, 'No bio yet · tap to write one') : null;
   const bioNote = !own || preview ? null
     : hidden ? h('p.pf-bio-note', { 'data-testid': 'profile-bio-note' }, 'Your bio is hidden while it\'s checked.')
       : m.server?.bioLockedUntil ? h('p.pf-bio-note', `You can change your bio again on ${new Date(m.server.bioLockedUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`)
@@ -258,7 +266,7 @@ function profileView(m, ctx) {
       bioNote,
       // a visit: why Message / Invite to co-op (or Add friend) are off, said on the page (the player card's line)
       visit?.why || null),
-    h('div.pf-stats', statTiles(m.st)));
+    z.stats.length ? h('div.pf-stats', statTiles(m.st, { keys: z.stats })) : null);
 
   // ---- showcase
   const slots = m.showcase.map((entry, i) => {
@@ -277,7 +285,7 @@ function profileView(m, ctx) {
   const showPanel = h('section.panel.pf-show', { 'data-testid': 'profile-showcase', 'data-auto': m.auto ? '1' : '0' },
     h('div.panel-title.pf-ph',
       h('span', 'Showcase'),
-      h('span.pf-count', `${m.showcase.length} / ${SHOWCASE_MAX}`),
+      h('span.pf-count', `${m.showcase.length}/${SHOWCASE_MAX}`),
       m.auto && own ? h('span.pf-auto', 'Auto · tap Edit to choose') : null,
       h('span.pf-hint', ico('hold'), own ? 'Tap to swap · hold for build' : 'Hold a girl to see her build'),
       own ? h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'profile-showcase-edit', onclick: () => actions.editShowcase(null) }, h('span', 'Edit')) : null),
@@ -288,7 +296,7 @@ function profileView(m, ctx) {
   const shelf = m.pins.length
     ? h('div.pf-shelf', { 'data-testid': 'profile-pins' }, m.pins.map(plaqueEl))
     : own ? h('p.pf-shelf-empty', 'Clear stages to earn medals') : null;
-  const honors = m.honors
+  const honors = z.honors
     ? own
       ? h('button.pf-honors', { type: 'button', 'data-testid': 'profile-honors', onclick: () => navigate('commissions', { tab: 'achievements' }) },
         h('span.pf-honors-k', 'Honor Ribbons'), h('b', String(m.honors.count), h('small', ` / ${m.honors.total}`)),
@@ -296,33 +304,35 @@ function profileView(m, ctx) {
         h('span.pf-honors-go', 'All achievements ›'))
       : h('div.pf-honors', { 'data-testid': 'profile-honors' }, h('span.pf-honors-k', 'Honor Ribbons'), h('b', String(m.honors.count)))
     : null;
-  const trophyPanel = h('section.panel.pf-trophy', { 'data-testid': 'profile-trophies' },
+  // [ui-m5] the medal count is said once (the tally's label); a difficulty without a medal, ribbons before the first one
+  // and Honor Ribbons before the first one stay out (P7)
+  const trophyPanel = z.trophies ? h('section.panel.pf-trophy', { 'data-testid': 'profile-trophies' },
     h('div.panel-title.pf-ph',
       h('span', 'Medals & Ribbons'),
-      h('span.pf-hint', ico('trophy'), `${totalMedals} medals`),
       own ? h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'profile-pin', onclick: () => actions.pinPicker() }, h('span', 'Pin')) : null),
-    h('div.pf-tally', h('div.pf-tally-grp',
-      h('div.pf-tally-lbl', 'Medals', h('b', `${totalMedals} / ${STAGE_COUNT * 4}`)),
-      medalTallyRow(m.medals))),
+    z.medals.length ? h('div.pf-tally', h('div.pf-tally-grp',
+      h('div.pf-tally-lbl', 'Medals', h('b', `${totalMedals}/${STAGE_COUNT * 4}`)),
+      medalTallyRow(m.medals, { only: z.medals }))) : null,
     // battle-mode ribbons (a card from a build before the modes has none: the row stays out)
-    Array.isArray(m.ribbons) ? h('div.pf-tally', h('div.pf-tally-grp',
-      h('div.pf-tally-lbl', 'Ribbons', h('b', `${m.ribbons.reduce((a, b) => a + (b || 0), 0)} / ${CAMPAIGN_IDS.length * RIBBONS_PER_STAGE}`)),
+    z.ribbons ? h('div.pf-tally', h('div.pf-tally-grp',
+      h('div.pf-tally-lbl', 'Ribbons', h('b', `${m.ribbons.reduce((a, b) => a + (b || 0), 0)}/${CAMPAIGN_IDS.length * RIBBONS_PER_STAGE}`)),
       ribbonTallyRow(m.ribbons, CAMPAIGN_IDS.length * DIFFICULTY_ORDER.length))) : null,
     shelf,
-    honors);
+    honors) : null;
 
   // ---- freeplay records
-  const earned = own && (m.earnedTitles.length || m.earnedFrames.length)
-    ? h('div.pf-fp-earned',
-      m.earnedTitles.filter((id) => id.startsWith('fp_')).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
-      m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })),
-      m.earnedTitles.length ? h('button.pf-chip-all', { type: 'button', 'data-testid': 'profile-all-titles', onclick: () => actions.editProfile('title') }, `All titles ${m.earnedTitles.length} / ${m.titleTotal} ›`) : null)
-    : !own && (m.title || m.frame)
-      ? h('div.pf-fp-earned', m.title ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null)
-      : null;
-  const fpPanel = h('section.panel.pf-fprec', { 'data-testid': 'profile-freeplay' },
+  // [ui-m5] what the panel lists, and nothing else: the freeplay titles (fp_) and the frames (profile/zero.js); an
+  // achievement or tag title alone brings no panel (UI M5d review)
+  const earned = !z.earned ? null
+    : own
+      ? h('div.pf-fp-earned',
+        m.earnedTitles.filter(isFreeplayTitle).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
+        m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })))
+      : h('div.pf-fp-earned', isFreeplayTitle(m.title) ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null);
+  // [ui-m5] only the tiers played ("Not played yet" went); no records and nothing earned: no panel
+  const fpPanel = z.freeplay.length || earned ? h('section.panel.pf-fprec', { 'data-testid': 'profile-freeplay' },
     h('div.panel-title.pf-ph', h('span', 'Freeplay Records')),
-    h('div.pf-fp', freeplayRows(m.fp), earned));
+    h('div.pf-fp', freeplayRows(m.fp, { only: z.freeplay }), earned)) : null;
 
   // ---- notes (PROFILE.md §1.11): who sees it, or why nobody does yet
   const noteText = !own || preview ? null
@@ -332,8 +342,10 @@ function profileView(m, ctx) {
   const note = noteText ? h('p.pf-foot-note', { 'data-testid': 'profile-server-note', 'data-online': m.online }, ico('info'), noteText) : null;
 
   const bannerBtn = own && !preview ? h('button.pf-onart.pf-banner-edit', { type: 'button', 'data-testid': 'profile-banner-edit', onclick: () => actions.editProfile('banner') }, ico('edit'), 'Banner') : null;
-  const main = h('main.pf-main', bannerBtn, idPanel, showPanel, h('div.pf-grid2', trophyPanel, fpPanel),
-    h('section.panel.pf-records', h('div.panel-title.pf-ph', h('span', 'Records')), h('div.pf-mstats', statTiles(m.st))), note);
+  const pair = [trophyPanel, fpPanel].filter(Boolean);
+  const main = h('main.pf-main', bannerBtn, idPanel, showPanel,
+    pair.length ? h(`div.pf-grid2${pair.length === 1 ? '.solo' : ''}`, pair) : null,
+    z.stats.length ? h('section.panel.pf-records', h('div.panel-title.pf-ph', h('span', 'Records')), h('div.pf-mstats', statTiles(m.st, { keys: z.stats }))) : null, note);
 
   return h(`div.screen.pf${preview ? '.pf-is-preview' : ''}`, { 'data-hold-info': 'off', 'data-testid': preview ? 'profile-preview-view' : visit ? 'profile-visit' : 'profile' },
     h('div.pf-banner', bannerArt(m.banner)),
