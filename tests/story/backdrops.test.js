@@ -178,7 +178,7 @@ describe('story backdrops', () => {
       'g5.raid': ['stage:2-6'], // Hilltop the same night (the campus skyline is drawn at night)
       'g5.whiteboard': ['shelter'], // the next morning (daylit)
       'g5.boss': ['stage:5-10@night'], // the reservoir at night
-      'g5.after': ['stage:5-10@night'],
+      'g5.after': ['stage:5-10@night', 'stage:5-10@dawn'], // "…First light.": the willow at dawn
       'g5.epi': ['stage:2-6'], // Hilltop, late that night
       'g5.board': ['shelter'], // the morning after (daylit)
     });

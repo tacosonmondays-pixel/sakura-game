@@ -52,7 +52,7 @@ export const PLACE_VARIANT = {
 };
 
 /** A painted place's own picture for a time of day (`<place>-sunset` / `<place>-night`), when one is listed. */
-const PLACE_TIME_SUFFIX = { dusk: 'sunset', night: 'night' };
+const PLACE_TIME_SUFFIX = { dusk: 'sunset', dawn: 'sunset', night: 'night' };
 
 /**
  * What a background id draws. Stage backgrounds resolve to their painted place (STAGE_PLACE), or to their

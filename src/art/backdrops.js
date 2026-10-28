@@ -295,7 +295,7 @@ function oldTownScene(rnd, id, W, H, burning) {
  * canopy with booths and a lit price board, the Brigade's checkpoint barrier arm (amber and white)
  * and two of its navy vans parked by the sound wall. `snow` (the tunnel mouth, 4-8): a grey morning,
  * snow on everything, the mountain face in front with the two bores lit inside, snow blowing out.
- * `time` ('dusk' / 'night', TIME_OF_DAY): a low sun and pink clouds, or stars and a moon; the lamps,
+ * `time` ('dusk' / 'dawn' / 'night', TIME_OF_DAY): a low sun and pink clouds, or stars and a moon; the lamps,
  * booth windows, price board, van lights and the bores' sodium lamps go into `lights`, drawn over the
  * time-of-day wash so they stay bright. No people.
  * @returns {{ s: string, lights: string }}
@@ -306,7 +306,7 @@ function highwayScene(rnd, id, W, H, snow, time) {
   const lit = !!time;
   const night = time === 'night';
   if (snow) s += `<rect width="${W}" height="${H}" fill="#dfe6ee" opacity="0.55"/>`;
-  else if (time === 'dusk') {
+  else if (time === 'dusk' || time === 'dawn') {
     // the sun going down behind the pass, pink-lit clouds
     s += '<circle cx="860" cy="200" r="130" fill="#ffd6a0" opacity="0.35"/><circle cx="860" cy="200" r="44" fill="#ffd08a"/>';
     s += cloud(260, 70, 0.9, '#ffc4b4', 0.9) + cloud(820, 96, 0.7, '#ffb4a6', 0.85);
@@ -638,7 +638,7 @@ function reservoirScene(rnd, id, W, H, willow, time) {
     // (the moon clear of the willow's crown, inside the 16:9 crop)
     const [mx, my] = willow ? [730, 22] : [560, 40];
     lights += stars(sky, W, 150, 50) + `<path d="M${mx} ${my}a30 30 0 1 0 24 48 24 24 0 1 1-24-48z" fill="#fff6c4"/>`;
-  } else if (time === 'dusk') s += '<circle cx="420" cy="150" r="90" fill="#ffd6a0" opacity="0.3"/><circle cx="420" cy="150" r="30" fill="#ffd08a"/>';
+  } else if (time === 'dusk' || time === 'dawn') s += '<circle cx="420" cy="150" r="90" fill="#ffd6a0" opacity="0.3"/><circle cx="420" cy="150" r="30" fill="#ffd08a"/>';
   const strands = (x, y, w, h, n) => {
     let d = '';
     for (let i = 0; i < n; i++) {
@@ -725,6 +725,8 @@ function reservoirScene(rnd, id, W, H, willow, time) {
 export const TIME_OF_DAY = {
   dusk: { sky: ['#5a4a8e', '#ffa070'], wash: '#5b3c82', washOp: 0.24 },
   night: { sky: ['#0a1430', '#2a3c68'], wash: '#0b1634', washOp: 0.52 },
+  // first light: a cold blue sky warming to rose at the rim, a thin wash (the lamps still on)
+  dawn: { sky: ['#5f78b0', '#ffc6a8'], wash: '#6a6aa0', washOp: 0.16 },
 };
 
 /** A variant's own sky (the far north is overcast, the bridge in a blizzard). */

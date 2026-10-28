@@ -8,7 +8,7 @@
 //   cg     a painted lobby scene with a girl already in it; the player hides portraits while it is up
 //   stage  `stage:<stageId>` — that stage's painted place (STAGE_PLACE below); a stage without one falls back to
 //          its chapter's academy tint (CHAPTER_FALLBACK_BG). Not listed here: any campaign stage id works (the
-//          content test checks it exists). `stage:<stageId>@dusk` / `@night` asks for that time of day (STAGE_TIMES):
+//          content test checks it exists). `stage:<stageId>@dusk` / `@dawn` / `@night` asks for that time of day (STAGE_TIMES):
 //          a drawn skyline is re-lit (src/art/backdrops.js TIME_OF_DAY); a painted place shows its `-sunset` /
 //          `-night` picture when one is listed, else the place as painted
 //   solid  a flat colour for fades and title cards
@@ -17,7 +17,7 @@
 
 export const STAGE_BG_PREFIX = 'stage:';
 /** Times of day a `stage:<id>@<time>` background may ask for. */
-export const STAGE_TIMES = ['dusk', 'night'];
+export const STAGE_TIMES = ['dusk', 'dawn', 'night'];
 const STAGE_BG_RE = new RegExp(`^([0-9]+-[0-9]+)(?:@(${STAGE_TIMES.join('|')}))?$`);
 
 /** A story place: public/art/lobby/story/<id>.webp, its 320 px archive thumb, and its focal point. */

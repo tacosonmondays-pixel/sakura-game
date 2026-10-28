@@ -175,6 +175,7 @@ export default [
   }, [
     narrate('The willow has stopped walking. Its roots are wrapped tight round an old stone at the edge of the water.'),
     say('hikari', 'Sensei, the stone in its roots is still warm. Hold the lantern. …First light.', { at: 'center', fx: 'nod' }),
+    cue({ bg: 'stage:5-10@dawn' }),
     cue({ flash: 'gold', sfx: 'firstLight' }),
     narrate('Gold runs down the roots and out across the water. The great willow sighs, folds its branches, and sleeps.'),
     cue({ exit: ['hikari'] }),
