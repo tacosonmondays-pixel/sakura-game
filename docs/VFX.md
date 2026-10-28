@@ -21,6 +21,19 @@ Ground rules for all VFX work (they hold for every milestone):
 - **Shake only for big hits**, and only as a sideways shift, never a rotation.
 - **Readability.** Enemies, the road and health bars stay readable.
 
+## For later: new attack shapes (owner request, Oct 28)
+
+The owner wants attacks that are not only straight shots or blasts: true 360° bursts, turning spirals,
+held flame streams, real vines along the road, and more. The plan is `docs/specs/ATTACK_SHAPES.md` (on
+`claude/sakura-sentinels`, and on `main` from the next deploy): ten shapes, the shared sim pieces they need
+and how the work is staged, starting with an owner board of animated mock-ups.
+- A shape decides who is hit and when, so the shapes are **sim work**: one `COOP_PROTOCOL` bump per batch.
+  They are not VFX, and the ground rules above keep them out of this track.
+- This track draws them. Their polished look is built from the flipbooks (M2) and the mesh shapes and
+  ribbon trails (M4); see §7.3 there.
+- A few render-only quick wins can land on this track at any time (§7.4 there): Chigusa's grab drawn as a
+  real vine, Kinu's pins and heat ring.
+
 ## The visual clock (`src/render/vfx/clock.js`)
 
 Each battle renderer owns one `VisualClock`, ticked once per frame at the top of
