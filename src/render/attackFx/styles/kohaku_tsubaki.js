@@ -61,10 +61,12 @@ export const kohaku_tsubaki = {
     if (!v) return;
     const m = v.model.position;
     const sc = v.model.scale?.x ?? (v.scale || 1.22);
-    // her prism: Kohaku stands on the left of the pair (src/models/duo.js keeps the pair across the screen)
-    const px = m.x - DUO_SPREAD * sc;
-    const ph = m.y + 0.5 * sc;
-    const pz = m.z;
+    // her prism: the model's lens anchor when it has one (the duo's GLB models: a world-space point, read and copied),
+    // else Kohaku's spot on the left of the pair (src/models/duo.js keeps the pair across the screen)
+    const lens = v.model.userData?.anchors?.lens;
+    const px = lens ? lens.x : m.x - DUO_SPREAD * sc;
+    const ph = lens ? lens.y : m.y + 0.5 * sc;
+    const pz = lens ? lens.z : m.z;
     const many = spec.projectiles >= 3;
     const swellT = ctx.time * SWELL_HZ * Math.PI * 2;
     const tick = t.beamTickSpec;

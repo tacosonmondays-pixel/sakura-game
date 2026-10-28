@@ -6,7 +6,7 @@
 // her battle stats carry `lr: true`), auto-cast, a co-op checkpoint and determinism.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS } from '../../src/sim/constants.js';
+import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { resolveStats } from '../../src/sim/mods.js';
 import { footprintRadius } from '../../src/sim/placement.js';
@@ -109,13 +109,15 @@ describe('the duo: shells, beam and refraction', () => {
     expect(t.beamTickSpec.share).toBeCloseTo(share, 15);
     expect(t.beamTickSpec.damage).toBeCloseTo(t.beamSpec.damage * share, 12);
     expect(t.beamTickSpec.silence).toBe(0);
-    // 3 s held: one tick every PRISM_BEAM_TICK steps, all on the same lock, no new `attack`
+    // 3 s held: one tick every PRISM_BEAM_TICK steps, all on the same lock; her `attack` again every 1.5 s held
     events.length = 0;
     run(sim, 3);
     const ticks = events.filter((v) => v.type === 'hit' && v.uid === bat.uid);
     expect(ticks).toHaveLength(Math.round(3 / STEP / PRISM_BEAM_TICK));
     expect(ticks.every((v) => v.tick === true)).toBe(true);
-    expect(events.filter((v) => v.type === 'attack' && v.kind === 'beam')).toHaveLength(0);
+    const again = events.filter((v) => v.type === 'attack' && v.kind === 'beam');
+    expect(again).toHaveLength(Math.floor(3 / (STEP * PRISM_BEAM_TICK * PRISM_CLIP_TICKS)));
+    expect(again.every((v) => v.targetUid === bat.uid)).toBe(true);
     expect(t.prismBeams[0].e).toBe(bat);
     expect(Number.isInteger(t.duoCd) && Number.isInteger(t.prismBeams[0].held)).toBe(true);
     // a flyer alone: no shell is ever fired (ground only)

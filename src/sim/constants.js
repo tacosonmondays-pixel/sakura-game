@@ -340,6 +340,8 @@ export const PRISM_SHARDS = Object.freeze([
 export const PRISM_BEAM_TICK = 6;
 /** Grand Spectrum's silence: when a beam locks on, then again every PRISM_SILENCE_TICKS steps (2 s) it holds the same enemy. */
 export const PRISM_SILENCE_TICKS = 120;
+/** Kohaku's clip and sound: her beam's `attack` event on a lock-on, and again every PRISM_CLIP_TICKS damage ticks (1.5 s) a beam holds. */
+export const PRISM_CLIP_TICKS = 15;
 
 // ---------------------------------------------------------------------------
 // The staff heroes (BANNERS §D): Kogane's Move, Norika's barricades (src/sim/barricades.js)

@@ -14,7 +14,8 @@
 // Resonant Light ramps with the time a beam has held the same enemy, at the old rate (+per for every old flash
 // interval, up to +max), and starts over when the beam switches. Grand Spectrum's silence lands when a beam
 // locks on and again every PRISM_SILENCE_TICKS steps it holds, on everything on its line, not on every tick.
-// A lock-on is the beam's `attack` event (Kohaku's clip and sound); the display draws the held beams from
+// A lock-on is the beam's `attack` event (Kohaku's clip and sound), sent again every PRISM_CLIP_TICKS ticks (1.5 s)
+// while a beam stays on; the display draws the held beams from
 // t.prismBeams (src/render/attackFx/styles/kohaku_tsubaki.js) and never writes to them.
 //
 // Refraction: t.prismN counts her shells since the last split (an integer, saved in the battle save as `du`).
@@ -25,7 +26,7 @@
 //
 // Determinism (co-op lockstep): integer counters and tick timers, fixed tables, + − × ÷ and Math.round only.
 
-import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, BEAM_HALF_WIDTH } from './constants.js';
+import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS, BEAM_HALF_WIDTH } from './constants.js';
 
 /** Ticks of one old flash interval at `rate` attacks a second (at least 1): a damage tick's share is PRISM_BEAM_TICK / this. */
 export function beamTicks(rate) {
@@ -180,6 +181,16 @@ function prismBeam(sim, t, spec, h) {
       if (silence && !v.dead) silenceOn(sim, t, v, sil);
     }
     b.held++;
+  }
+  // Kohaku's clip and sound: on a lock-on, and every PRISM_CLIP_TICKS ticks her first held beam stays on (from its
+  // own hold count: no extra state)
+  if (!locked) {
+    for (let i = 0; i < n; i++) {
+      const b = L[i];
+      if (!b.e || b.e.dead) continue;
+      if (b.held % PRISM_CLIP_TICKS === 0) locked = b.e;
+      break;
+    }
   }
   if (locked) sim._emit('attack', { towerUid: t.uid, targetUid: locked.uid, kind: 'beam' });
   return true;

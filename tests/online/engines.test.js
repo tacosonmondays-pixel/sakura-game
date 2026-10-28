@@ -302,10 +302,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runDuoBattle().final).toBe(r.final);
     // pinned when the battle was added (the duo build, Oct 28). Change only with a deliberate sim / data change, and say why.
     // Re-pinned Oct 28 for Kohaku's constant beam (src/sim/duo.js: damage ticks every 6 steps instead of a flash every
-    // ~1.4 s, beams that hold their enemy, `beams` now counts lock-ons): ticks 44632 → 44656, final 3327486567 → 1485318803,
-    // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/541/…
+    // ~1.4 s, beams that hold their enemy, `beams` now counts lock-ons and a repeat every 1.5 s held): ticks 44632 → 44656, final 3327486567 → 1485318803,
+    // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/616/… (a lock-on and every 1.5 s held: Kohaku's clip)
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 44656, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3302/3717', final: 1485318803, hashes: 'baad978d', duo: '274/1266/541/26/11/1' });
+      .toEqual({ ticks: 44656, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3302/3717', final: 1485318803, hashes: 'baad978d', duo: '274/1266/616/26/11/1' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {
