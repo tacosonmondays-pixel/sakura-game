@@ -105,10 +105,11 @@ export function render(root, params = {}) {
         h('span.lbl.sa-kicker', active === 0 ? 'Prologue' : `Chapter ${active}`),
         h('b.sa-head-title', label.name)),
       read ? h('span.sa-read', { title: `${read} of ${chapterRows.length} read` }, ico('check', 'rk-ico'), h('span.num', `${read}/${chapterRows.length}`)) : null,
-      h('button.ui-btn.sec.sa-head-btn', {
+      // (a kit button on its own hit, ink.css .ui-hit: the tapped <button> never transforms under a finger)
+      h('button.ui-hit.rk-hit.sa-head-btn', {
         type: 'button', 'data-testid': 'story-replay-tutorial', 'aria-label': 'Replay battle tutorial', title: 'Replay battle tutorial',
         onclick: () => { const r = tutorialRoute(); navigate(r.name, r.params); },
-      }, ico('play', 'rk-ico'), h('span.sa-head-btn-label', 'Tutorial')));
+      }, h('span.ui-btn.sec', ico('play', 'rk-ico'), h('span.sa-head-btn-label', 'Tutorial'))));
 
     // episode cards
     const list = h('div.sa-list', { role: 'tabpanel', 'aria-label': label.name });

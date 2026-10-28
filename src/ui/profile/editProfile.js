@@ -17,7 +17,7 @@ import { errorText, toOnlineError } from '../../online/errors.js';
 import { ownOnline, setOwnState, refreshOwnOnline } from './online.js';
 import { storedName, askName } from '../online/common.js';
 import { displayRarity, rarityInfo } from '../rarity.js';
-import { ico, bannerArt, avatarEl, titlePlate, openSheetFrame } from './parts.js';
+import { ico, bannerArt, avatarEl, titlePlate, openSheetFrame, kitBtn } from './parts.js';
 import { sideRail } from '../kit.js';
 import { tabSwap } from '../motion.js';
 
@@ -108,7 +108,7 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
         h('div.ep-sec', label('Quick lines', 'Tap one to use it'), h('div.ep-chips', { 'data-testid': 'edit-quick-lines' }, QUICK_LINES.map((q) => h('button', { type: 'button', disabled: !canEdit, onclick: () => { draft.bio = q; bioErr = ''; draw(); } }, q)))),
       h('div.ep-sec', label('Name', 'Your online name · 3 changes a day'),
         h('div.ep-card-row', h('span.ep-namechip', storedName() || 'Not chosen yet'),
-          h('button.ui-btn.sec', { type: 'button', 'data-testid': 'edit-change-name', onclick: () => { frame.close(); askName({ title: 'Change your name', current: storedName() }).then(() => store.commit('identity')).catch(() => {}); } }, h('span', storedName() ? 'Change name' : 'Pick a name')))),
+          kitBtn('sec', '', { 'data-testid': 'edit-change-name', onclick: () => { frame.close(); askName({ title: 'Change your name', current: storedName() }).then(() => store.commit('identity')).catch(() => {}); } }, h('span', storedName() ? 'Change name' : 'Pick a name')))),
       ];
     },
     picture: () => [
@@ -241,8 +241,8 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       h('div.ep-col', body, h('div.ep-foot.pf-sheet-foot',
         h('span.desc.pf-foot-why', live() ? 'Saved to your game and your online profile.' : 'Saved to your game. Your bio and privacy save when you\'re online.'),
         h('span.es-spacer'),
-        h('button.ui-btn.sec', { type: 'button', 'data-testid': 'edit-profile-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
-        h('button.ui-btn.pri', { type: 'button', 'data-testid': 'edit-profile-save', onclick: save }, h('span', 'Save')))),
+        kitBtn('sec', '', { 'data-testid': 'edit-profile-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
+        kitBtn('pri', '', { 'data-testid': 'edit-profile-save', onclick: save }, h('span', 'Save')))),
       h('aside.ep-prev', h('span.ep-prev-t', 'Preview'), prev, h('span.ep-help', 'Others see this once profiles go online. Your gems, pulls, mail, friend code and saves are never shown.'))),
   });
   draw();

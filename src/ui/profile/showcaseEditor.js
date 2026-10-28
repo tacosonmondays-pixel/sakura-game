@@ -11,7 +11,7 @@ import { setSensei } from '../../systems/senseiSave.js';
 import { SHOWCASE_MAX } from '../../online/profileRules.js';
 import { openSheetFor } from '../hold.js';
 import { displayRarity, rarityInfo, DISPLAY_RARITY_RANK } from '../rarity.js';
-import { ico, attachHold, openSheetFrame } from './parts.js';
+import { ico, attachHold, openSheetFrame, kitBtn } from './parts.js';
 
 const SORTS = [['power', 'Power'], ['rarity', 'Rarity'], ['level', 'Level']];
 const DRAG_PX = 8;
@@ -173,10 +173,10 @@ export function openShowcaseEditor({ slot = null } = {}) {
     head: [count, h('span.es-tip', ico('hold'), 'Drag to reorder · × to remove · tap a girl to add · hold for her build')],
     body: h('div.es-body', row, h('div.es-bar', h('span.es-bar-t', 'Your students'), sortBar, h('span.es-note', 'Only girls you own · the picture is taken when you save')), grid),
     foot: h('div.es-foot.pf-sheet-foot',
-      h('button.ui-btn.ghost', { type: 'button', 'data-testid': 'showcase-autofill', onclick: () => { const auto = autoShowcase(p); for (let i = 0; i < SHOWCASE_MAX; i++) picked[i] = auto[i] || null; selected = null; draw(); } }, h('span', 'Auto-fill by power')),
+      kitBtn('ghost', '', { 'data-testid': 'showcase-autofill', onclick: () => { const auto = autoShowcase(p); for (let i = 0; i < SHOWCASE_MAX; i++) picked[i] = auto[i] || null; selected = null; draw(); } }, h('span', 'Auto-fill by power')),
       h('span.es-spacer'),
-      h('button.ui-btn.sec', { type: 'button', 'data-testid': 'showcase-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
-      h('button.ui-btn.pri', { type: 'button', 'data-testid': 'showcase-save', onclick: save }, h('span', 'Save showcase'))),
+      kitBtn('sec', '', { 'data-testid': 'showcase-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
+      kitBtn('pri', '', { 'data-testid': 'showcase-save', onclick: save }, h('span', 'Save showcase'))),
     onClose: () => { for (const off of detach.splice(0)) off(); },
   });
   draw();

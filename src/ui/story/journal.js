@@ -27,6 +27,12 @@ import {
 const LOBBY_ICONS = new Set(LOBBY_ICON_NAMES);
 /** A chrome glyph (the line glyph on the menus). */
 const ico = (name) => kitIco(name, 'jn-ico');
+/**
+ * A kit button on its own hit (ink.css .ui-hit): the plain <button> takes the tap and the slanted .ui-btn inside it
+ * presses, so the tapped element never transforms under a finger (a pressed .ui-btn tapped by touch could lose its click).
+ * @param {string} kind pri | sec | ink | cost | ghost; @param {string} cls the button's own classes ('a.b')
+ */
+const kitBtn = (kind, cls, props, ...kids) => h(`button.ui-hit.rk-hit${cls ? `.${cls}` : ''}`, { type: 'button', ...props }, h(`span.ui-btn.${kind}`, ...kids));
 
 /** A lesson's icon: the illustrated lobby set first, the flat UI glyphs otherwise. */
 function lessonIcon(name, key) {
@@ -158,13 +164,13 @@ export function render(root, params = {}) {
       const actions = h('div.jn-actions');
       const route = actionRoute(r, profile);
       if (r.mailOnly && welcomeLetter(profile) && !welcomeLetter(profile).claimed) {
-        actions.appendChild(h('button.ui-btn.pri.jn-btn.jn-btn-yellow', {
-          type: 'button', 'data-testid': 'journal-open-mail',
+        actions.appendChild(kitBtn('pri', 'jn-btn.jn-btn-yellow', {
+          'data-testid': 'journal-open-mail',
           onclick: () => import('../lobby/mailbox.js').then((m) => m.openMailbox()), // a claim commits 'mail' → redraw
         }, ico('mail'), h('span', 'Open Mail')));
       } else if (r.claimable) {
-        actions.appendChild(h('button.ui-btn.pri.jn-btn.jn-btn-yellow', {
-          type: 'button', 'data-testid': 'journal-claim',
+        actions.appendChild(kitBtn('pri', 'jn-btn.jn-btn-yellow', {
+          'data-testid': 'journal-claim',
           onclick: () => {
             const res = claimLesson(store.profile, r.id);
             if (!res.ok) return draw();
@@ -175,13 +181,13 @@ export function render(root, params = {}) {
         }, ico('gift'), h('span', JOURNAL_TEXT.claim)));
       }
       if (route) {
-        actions.appendChild(h('button.ui-btn.sec.jn-btn', {
-          type: 'button', 'data-testid': 'journal-show-me', onclick: () => navigate(route.name, route.params),
+        actions.appendChild(kitBtn('sec', 'jn-btn', {
+          'data-testid': 'journal-show-me', onclick: () => navigate(route.name, route.params),
         }, h('span', r.action.label || JOURNAL_TEXT.showMe), ico('chevR')));
       }
       if (r.scene) {
-        actions.appendChild(h('button.ui-btn.sec.jn-btn.jn-btn-ghost', {
-          type: 'button', 'data-testid': 'journal-explains',
+        actions.appendChild(kitBtn('sec', 'jn-btn.jn-btn-ghost', {
+          'data-testid': 'journal-explains',
           onclick: () => navigate('scene', { id: r.scene, next: 'journal', lesson: r.id }),
         }, ico('play'), h('span', resolveText(JOURNAL_TEXT.explains))));
       }

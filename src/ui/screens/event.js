@@ -60,6 +60,13 @@ function sec(title, ...children) {
     ...children);
 }
 
+/**
+ * A kit button on its own hit (ink.css .ui-hit): the plain <button> takes the tap and the slanted .ui-btn inside it
+ * presses, so the tapped element never transforms under a finger (a pressed .ui-btn tapped by touch could lose its click).
+ * @param {string} kind pri | sec | ink | cost(.poor) | ghost; @param {string} cls the button's own classes ('a.b')
+ */
+const kitBtn = (kind, cls, props, ...kids) => h(`button.ui-hit.rk-hit${cls ? `.${cls}` : ''}`, { type: 'button', ...props }, h(`span.ui-btn.${kind}`, ...kids));
+
 /** Reward tiles at a tap's size (the shipped item tile, 50 px: 46 px tall). */
 const rewardRow = (rewards) => h('div.ev-rw', rewards.map((r) => itemTile(r.id, r.count, { size: 50 })));
 
@@ -68,7 +75,7 @@ export function render(root, params = {}) {
   if (!ev || eventPhase(ev, eventNow(), store.profile) === 'hidden') {
     const { el, body } = screen('Event', { cls: 'ev-screen' });
     body.appendChild(h('div.ev-gone.ui-panel', h('p.desc', 'This event is not open.'),
-      h('button.ui-btn.sec', { type: 'button', onclick: () => navigate('rewards') }, h('span', 'Happening Now'))));
+      kitBtn('sec', '', { onclick: () => navigate('rewards') }, h('span', 'Happening Now'))));
     root.appendChild(el);
     return;
   }
@@ -156,7 +163,7 @@ export function render(root, params = {}) {
     }
     if (!eventUnlocked(store.profile, ev) && phase === 'active') {
       content.appendChild(sec('Join the festival', h('p.desc', { 'data-testid': 'event-locked' }, `Clear ${ev.unlock.stage} to join the festival.`),
-        h('div.ev-foot', h('button.ui-btn.pri', { type: 'button', onclick: () => navigate('missions') }, glyphIco('map'), h('span', 'Go to Missions')))));
+        h('div.ev-foot', kitBtn('pri', '', { onclick: () => navigate('missions') }, glyphIco('map'), h('span', 'Go to Missions')))));
       return;
     }
     if (phase === 'ended') content.appendChild(endedBand(ev, now)); // [ui-m5] E9
@@ -336,8 +343,8 @@ function missionsTab(ev, phase, now, refresh) {
       m.claimed ? null : h('div.ev-mis-prog',
         h('span.ui-bar', { style: { '--v': `${Math.min(100, Math.round((m.progress / m.goal) * 100))}%` } }, h('i')),
         h('span.num', `${formatNumber(m.progress)}/${formatNumber(m.goal)}`))),
-    h('div.ev-mis-act', m.claimed ? h('span.ev-claimed', glyphIco('check'), h('span', 'Claimed')) : h('button.ui-btn.ink.ev-act', {
-      type: 'button', 'data-testid': `claim-${m.id}`, disabled: !m.claimable, title: rewardText(m.rewards), 'aria-label': `Claim ${rewardText(m.rewards)}`,
+    h('div.ev-mis-act', m.claimed ? h('span.ev-claimed', glyphIco('check'), h('span', 'Claimed')) : kitBtn('ink', 'ev-act', {
+      'data-testid': `claim-${m.id}`, disabled: !m.claimable, title: rewardText(m.rewards), 'aria-label': `Claim ${rewardText(m.rewards)}`,
       onclick: () => {
         const r = claimEventMission(store.profile, ev.id, m.id, eventNow());
         if (r.ok) { store.commit('event'); toast(`Claimed: ${rewardText(r.rewards)}`, 'good'); refresh(); }
@@ -348,8 +355,8 @@ function missionsTab(ev, phase, now, refresh) {
     // [ui-m5] the event's daily reset: a recurring cycle (never red); at zero the new day's missions show
     h('div.ev-mis-head',
       countdownChip(rows.resetsAt - now, { label: 'Daily resets in', cls: 's', now: eventNow, urgent: false, doneText: 'Reset!', onDone: refresh, testid: 'event-daily-reset' }),
-      h('button.ui-btn.pri.ev-claim-all', {
-        type: 'button', 'data-testid': 'event-claim-all', disabled: !any,
+      kitBtn('pri', 'ev-claim-all', {
+        'data-testid': 'event-claim-all', disabled: !any,
         onclick: () => {
           const r = claimAllEventMissions(store.profile, ev.id, eventNow());
           if (r.ok) { store.commit('event'); toast(`Claimed ${r.count}: ${rewardText(r.rewards)}`, 'good', 3000); refresh(); }
@@ -378,8 +385,7 @@ function exchangeTab(ev, phase, now, refresh) {
       h('div.ev-offer-art', o.cosmetic ? h('div.ev-cos-art', { html: cosmeticArt(o.cosmetic) }) : itemTile(o.item, o.count > 1 ? o.count : null, { size: 64 })),
       h('div.ev-offer-name', name),
       h('div.ev-offer-stock', stock),
-      h(`button.ui-btn.cost.ev-buy${o.affordable ? '' : '.poor'}`, {
-        type: 'button',
+      kitBtn(`cost${o.affordable ? '' : '.poor'}`, 'ev-buy', {
         disabled: o.soldOut || !o.open,
         'data-testid': `event-buy-${o.id}`,
         'aria-label': `Buy ${name} for ${formatNumber(o.price)} ${ev.currency.name}`,
@@ -445,6 +451,6 @@ function giftsTab(ev) {
       rewardRow(r.rewards)))),
     h('div.ev-foot',
       h('p.desc.ev-hint', 'One gift a day for every day you visit while the festival runs. Gifts arrive in your Mailbox and keep until the Exchange closes.'),
-      h('button.ui-btn.sec.ev-mailbtn', { type: 'button', 'data-testid': 'event-open-mail', onclick: () => openMailbox() }, glyphIco('mail'), h('span', 'Open Mailbox'))),
+      kitBtn('sec', 'ev-mailbtn', { 'data-testid': 'event-open-mail', onclick: () => openMailbox() }, glyphIco('mail'), h('span', 'Open Mailbox'))),
   );
 }

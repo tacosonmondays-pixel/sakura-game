@@ -32,6 +32,10 @@
 @media (prefers-reduced-motion: reduce) { :is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op):active { transform: none; } }
 html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op):active { transform: none; }
 
+/* a kit button on its own hit (ink.css .ui-hit; the modules' kitBtn): the hit takes the tap, the slanted button inside
+   presses; 2 px over the tap, as the kit's bar squares, so no sub-pixel place reads it under 44 */
+:is(.ui-day) .ui-hit.rk-hit > .ui-btn { --h: calc(var(--tap) + 2px); }
+
 /* a chrome glyph in a line of words */
 :is(.ui-day) :is(.jn-ico, .rk-ico) { display: inline-flex; flex: none; width: 16px; height: 16px; line-height: 0; }
 :is(.ui-day) :is(.jn-ico, .rk-ico) svg { width: 100%; height: 100%; }
@@ -174,7 +178,6 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .sa-head-title { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
 :is(.ui-day) .sa-read { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 :is(.ui-day) .sa-read .num { font-size: var(--fs-num-s); color: var(--ink); }
-:is(.ui-day) .sa-head-btn.ui-btn { --h: calc(var(--tap) + 2px); }
 /* the episode cards: kit tiles in two columns, the list scrolls down inside the panel */
 :is(.ui-day) .sa-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px; padding: 10px 0 12px; align-content: start; scrollbar-width: thin; }
@@ -329,7 +332,6 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 
 /* Missions: kit rows (one ink Claim each), Claim all the page's one yellow beside the daily reset */
 :is(.ui-day) .ev-mis-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-:is(.ui-day) .ev-claim-all.ui-btn { --h: calc(var(--tap) + 2px); }
 :is(.ui-day) .ev-mis { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 14px; min-height: 64px; padding: 8px 0; border-bottom: 1px solid var(--line-ink-soft); }
 :is(.ui-day) .ev-act-rw { display: inline-flex; align-items: center; gap: 3px; }
 :is(.ui-day) .ev-act .num { font-size: var(--fs-num-s); }
@@ -345,7 +347,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 /* (a 64 px tile on desktop: its count at the 13 px floor; the inline 50 px is the phone's) */
 @media (min-height: 481px) { :is(.ui-day) .ev-rw .item-tile { width: 64px !important; } :is(.ui-day) .ev-gifts { grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); } }
 :is(.ui-day) .ev-mis-act { min-width: 96px; display: flex; justify-content: flex-end; }
-:is(.ui-day) .ev-act.ui-btn { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); }
+:is(.ui-day) .ev-act > .ui-btn { padding: 0 calc(14px + var(--s)); }
 :is(.ui-day) .ev-claimed { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
 :is(.ui-day) .ev-claimed .rk-ico { width: 14px; height: 14px; }
 
@@ -359,7 +361,8 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ev-cos-art svg { width: 100%; height: 100%; }
 :is(.ui-day) .ev-offer-name { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
 :is(.ui-day) .ev-offer-stock { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
-:is(.ui-day) .ev-buy.ui-btn { --h: calc(var(--tap) + 2px); width: 100%; margin-top: auto; gap: 6px; }
+:is(.ui-day) .ev-buy { width: 100%; margin-top: auto; }
+:is(.ui-day) .ev-buy > .ui-btn { width: 100%; gap: 6px; }
 :is(.ui-day) .ev-buy .num { font-size: var(--fs-num-s); }
 :is(.ui-day) .ev-offer.sold .ev-offer-art { filter: grayscale(0.85); }
 

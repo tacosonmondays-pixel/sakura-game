@@ -27,6 +27,14 @@ import '../styles/v2-records.css';
 
 export const ico = (name, cls = 'pf-ico') => svgEl(glyph(name), cls);
 
+/**
+ * [ui-v2 M7a] A kit button on its own hit (ink.css .ui-hit): the plain <button> takes the tap and the slanted .ui-btn
+ * inside it presses, so the tapped element never transforms under a finger (a pressed .ui-btn tapped by touch right
+ * after a drag lost its click: the showcase editor's Save).
+ * @param {string} kind pri | sec | ink | cost | ghost; @param {string} cls the button's own classes ('a.b')
+ */
+export const kitBtn = (kind, cls, props, ...kids) => h(`button.ui-hit.rk-hit${cls ? `.${cls}` : ''}`, { type: 'button', ...props }, h(`span.ui-btn.${kind}`, ...kids));
+
 // ---------------------------------------------------------------------------
 // Banner, picture, title
 // ---------------------------------------------------------------------------
