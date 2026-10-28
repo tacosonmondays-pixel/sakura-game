@@ -133,6 +133,8 @@ async function main() {
   const heroFocus = mode === 'focus' && UNIT_MAP[unit].kind === 'hero' && params.has('level');
   for (const id of ORDER) if (UNIT_MAP[id].kind === 'hero' && !heroFocus) units[id] = { ...UNIT_MAP[id], kind: 'tower' };
   const loadout = ORDER.filter((id) => !(heroFocus && id === unit)).map((unitId) => ({ unitId }));
+  // focus on a girl outside the gallery roster (the academy girls): she joins the loadout
+  if (mode === 'focus' && !ORDER.includes(unit)) loadout.push({ unitId: unit });
   const sim = new Sim({
     stageId: 'fx-gallery', difficulty: 'normal', seed, loadout, hero: heroFocus ? { unitId: unit } : null,
     options: { autoStart: true }, data: { stage, map, units },
