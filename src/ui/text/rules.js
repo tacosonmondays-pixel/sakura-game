@@ -136,6 +136,31 @@ export const STAGE_RULE_SKINS = {
     desc: 'Blizzards sweep the ravine (7 s in every 20): every enemy slows by 30%, but girls\' range drops by 15%.',
     toast: 'Blizzard! Enemies 30% slower, range −15% (7 s)',
   },
+  // Chapter 5 · Act II — The Drowned Line (docs/specs/gate-arc/STEP5_BUILD_PLAN.md §5)
+  '5-6': {
+    rule: 'changing_tides', name: 'Rising Water', short: 'Flood', activeWord: 'flood water',
+    desc: 'The flood water rises over the platform edge (7 s in every 18): slimes wade 35% slower and Lightning hits 35% harder.',
+    toast: 'The water rises! Slimes slowed, Lightning +35% (7 s)',
+  },
+  '5-7': {
+    rule: 'lunar_eclipse', name: 'Emergency Lights', short: 'Lights', activeWord: 'emergency lights',
+    desc: 'The tunnel lights fail for 6 s (every 20 s) and only the red lamps glow: Holy deals 50% more damage and spectral enemies move 20% faster.',
+    toast: 'Emergency lights! Holy +50%, spirits faster (6 s)',
+  },
+  '5-8': {
+    rule: 'forge_vents', name: 'Steam Valves', short: 'Valves', activeWord: 'steam',
+    desc: 'Every 15 s the two relief valves on the road blow steam for 5 s, burning ground enemies that cross them.',
+    toast: 'The valves blow steam! (5 s)',
+  },
+  '5-9': {
+    rule: 'alchemists_mist', name: 'Reservoir Fog', short: 'Fog',
+    desc: 'In the reservoir fog Poison deals 40% more damage, and heavy enemies wade 15% slower.',
+  },
+  '5-10': {
+    rule: 'firefly_chorus', name: 'Reservoir Fireflies', short: 'Fireflies', activeWord: 'fireflies',
+    desc: 'For 6 s in every 16 fireflies rise off the reservoir: every girl deals 25% more damage.',
+    toast: 'Fireflies! Every girl +25% damage (6 s)',
+  },
 };
 
 /**
