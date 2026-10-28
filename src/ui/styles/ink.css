@@ -500,6 +500,9 @@
   font: 600 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase; white-space: nowrap; --dot-ring: #fff;
   transition: none; }
 :where(.ui-day, .ui-night) .ui-stab-in { display: flex; align-items: center; gap: inherit; min-width: 0; transform: none; font: inherit; letter-spacing: inherit; }
+/* a tab's count (sideRail { count }, e.g. "1/4"): at the far end, in the tab's own colour */
+:where(.ui-day, .ui-night) .ui-stab-in:has(> .ui-stab-count) { flex: 1; }
+:where(.ui-day, .ui-night) .ui-stab-count { margin-left: auto; flex: none; font: 700 var(--fs-body)/1 var(--font-num); color: inherit; letter-spacing: 0; }
 :where(.ui-day, .ui-night) .ui-stab :is(svg.g, .ui-ico) { width: var(--icon-s); height: var(--icon-s); flex: none; }
 :where(.ui-day, .ui-night) .ui-stab.on { --fill: var(--plate); --edge: transparent; color: var(--on-ink); width: calc(100% + 10px); --dot-ring: var(--plate); box-shadow: none; }
 :where(.ui-day, .ui-night) .ui-stab.on::before { content: ''; position: absolute; z-index: 2; top: 0; bottom: 0; width: 3px; right: calc(var(--s) / 2 + 7px); background: var(--pink);

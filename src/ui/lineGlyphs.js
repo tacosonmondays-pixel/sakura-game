@@ -249,7 +249,13 @@ export const LINE_ALIASES = Object.freeze({
   volume: 'volume', monitor: 'monitor', idcard: 'idcard', daily: 'daily', weekly: 'weekly', swap: 'swap', help: 'help', percent: 'percent',
   hash: 'hash', login: 'login', castle: 'castle', userplus: 'userplus', sakura: 'sakura', eyeoff: 'eyeoff', megaphone: 'megaphone',
   grid: 'grid', bag: 'bag', cap: 'cap', sparkles: 'sparkles', clipboard: 'clipboard', flag: 'flag', house: 'house', x: 'x',
+  // Tryout Day's own glyphs (appended to LINE_GLYPHS on its branch; until they are there, lineFor() says null and ico()
+  // keeps its old drawing)
+  marble: 'marble', eraser: 'eraser', 'hall-pass': 'hall-pass', hallpass: 'hall-pass', desk: 'desk', stamp: 'stamp', chalk: 'chalk',
 });
+
+/** Tryout Day's glyph names its aliases point at before its branch draws them (lineFor() says null for these until then). */
+export const PENDING_GLYPHS = Object.freeze(['marble', 'eraser', 'hall-pass', 'desk', 'stamp', 'chalk']);
 
 /** True when `name` is a line glyph. */
 export const hasLineGlyph = (name) => Object.prototype.hasOwnProperty.call(LINE_GLYPHS, name);

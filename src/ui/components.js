@@ -19,7 +19,7 @@ import { hasPotentialNew } from '../systems/potential.js';
 import { pickMarks } from './pickMarks.js';
 import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
-import { walletsFor, walletDef } from './wallets.js';
+import { walletsFor, walletDef, walletValue } from './wallets.js';
 import { curArt, ico } from './kit.js';
 import { countTo } from './motion.js';
 import { faceAnchor } from './faceAnchors.js';
@@ -250,7 +250,7 @@ function inkWallets({ plus = true, wallets = null } = {}) {
   };
   // (a balance that changed since it was last on show, here or on the home, counts there: motion.js countTo)
   const refresh = () => {
-    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, walletDef(id).item), { key: id });
+    for (const id of ids) if (vals[id]) countTo(vals[id], walletValue(id, store.profile, itemCount), { key: id });
   };
   const draw = (next) => {
     ids = (next || []).filter((id) => walletDef(id));
@@ -567,12 +567,13 @@ export function joinRule(unit) {
  * repeated tiles), `data-unit`, `data-rarity` (the shown rarity), the test ids `card-pot` and `card-potnew`.
  * @param {string} unitId
  * @param {{ onClick?: Function|null, owned?: boolean, level?: number|null, selected?: boolean, profile?: object,
- *   potential?: number, rule?: string|null, testid?: string|null, cls?: string }} [o]
+ *   potential?: number, rule?: string|null, tag?: string|null, testid?: string|null, cls?: string }} [o]
  *   level: her level in the caption (null: none); potential: her P from the caller (0 hides the chip; default the
- *   profile's); rule: a girl not met yet: how she joins (default joinRule)
+ *   profile's); rule: a girl not met yet: how she joins (default joinRule); tag: a short ink chip above the caption on
+ *   an owned girl (e.g. a trial's "Trial"; null: none)
  * @returns {HTMLButtonElement}
  */
-export function girlTile(unitId, { onClick = null, owned = true, level = null, selected = false, profile = store.profile, potential, rule = null, testid = null, cls = '' } = {}) {
+export function girlTile(unitId, { onClick = null, owned = true, level = null, selected = false, profile = store.profile, potential, rule = null, tag = null, testid = null, cls = '' } = {}) {
   const u = getUnit(unitId);
   const shown = owned ? displayRarity(u, profile) : u.rarity;
   const step = GIRL_STEP[shown] ?? '';
@@ -581,9 +582,11 @@ export function girlTile(unitId, { onClick = null, owned = true, level = null, s
   const fam = hero ? 'hero' : ROLES[u.role]?.category || 'dps';
   const isNew = pot >= 2 && profile === store.profile && hasPotentialNew(profile, unitId);
   const join = owned ? null : rule || joinRule(u);
+  // a screen's own short status on an owned tile (Tryout Day: "Yours · band cap", "Loaner"): the join chip's place
+  const tagText = owned && tag ? String(tag) : null;
   const f = tileFrame(u.id);
   const name = `${u.name}${hero ? ', hero' : ''}`;
-  const aria = owned ? `${name}, ${shown}${level != null ? `, level ${level}` : ''}${pot >= 2 ? `, Potential ${pot}` : ''}${selected ? ', selected' : ''}`
+  const aria = owned ? `${name}, ${shown}${level != null ? `, level ${level}` : ''}${pot >= 2 ? `, Potential ${pot}` : ''}${tagText ? `, ${tagText}` : ''}${selected ? ', selected' : ''}`
     : `${name}, ${shown}, not recruited: ${join}`;
   const el = h(`button.ui-girltile.unit-card${step ? `.${step}` : ''}${owned ? '' : '.locked'}${selected ? '.sel' : ''}${cls ? `.${cls}` : ''}`, {
     type: 'button', 'data-unit': unitId, 'data-rarity': shown, 'data-hero': hero ? '' : null, 'data-testid': testid, 'aria-label': aria,
@@ -600,6 +603,7 @@ export function girlTile(unitId, { onClick = null, owned = true, level = null, s
   h(`span.role${hero ? '.hero' : ''}`, { 'aria-hidden': 'true', title: hero ? 'Hero' : ROLES[u.role]?.name || null },
     h('span.ui-ico', { html: lineGlyph(ROLE_GLYPH[fam] || 'sword', '', { kitSize: false }) })),
   join ? h('span.ui-chip.ink.dup.gt-join', { 'data-testid': 'card-join' }, join) : null,
+  tagText ? h('span.ui-chip.ink.dup.gt-join.gt-tag', { 'data-testid': 'card-tag' }, tagText) : null,
   h('span.cap',
     owned ? null : ico('lock'),
     h('span.nm', u.name),

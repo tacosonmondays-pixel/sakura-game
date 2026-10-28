@@ -284,10 +284,16 @@ export function countdownChip(msLeft, { label = null, testid = null, now = () =>
 /** The chip's text and urgency for a time left, without a chip (tests, aria text). */
 export const countdownText = (msLeft) => countdownState(msLeft);
 
+/** A side rail tab's accessible name: its word, its count ("Shelves, 1/4") and its dot. */
+export function stabLabel(t) {
+  return `${t.label}${t.count != null && t.count !== '' ? `, ${t.count}` : ''}${t.dot ? ` (${t.dotTitle || 'something new'})` : ''}`;
+}
+
 /**
  * The left section rail (E3) for list screens with 2-5 sections: vertical, active = an ink slab with yellow italic
  * text at −8°, inactive = white glass with ink text, ≥ 44 px, red dots only. The vertical sibling of rail(): the
- * same `tabs` shape and the same `tab-<id>` test ids.
+ * same `tabs` shape and the same `tab-<id>` test ids. A tab may carry a `count` (a number or "1/4": page progress),
+ * shown after its word.
  * @returns {HTMLElement & { setActive(id: string): void }}
  */
 export function sideRail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
@@ -298,9 +304,10 @@ export function sideRail(tabs, active, onPick, { testidPrefix = 'tab-', label = 
   for (const t of tabs) {
     const b = h('button.ui-stab', {
       type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
-      'aria-label': `${t.label}${t.dot ? ` (${t.dotTitle || 'something new'})` : ''}`,
+      'aria-label': stabLabel(t),
       onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); }, // (down the rail: the content comes up)
-    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label)), badge(t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null, `stab:${testidPrefix}${t.id}`));
+    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label),
+      t.count != null && t.count !== '' ? h('span.ui-stab-count.num', String(t.count)) : null), badge(t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null, `stab:${testidPrefix}${t.id}`));
     btns.set(t.id, b);
     el.append(b);
   }
@@ -362,6 +369,24 @@ export function secondaryBtn(label, { icon = null, onClick = null, testid = null
     type: 'button', 'data-testid': testid, title: title || (disabled ? reason : null), disabled, onclick: onClick,
     'aria-label': disabled && reason ? `${label}: ${reason}` : null,
   }, disabled ? ico('lock', 'ui-ico.ui-sec-ico') : icon ? ico(icon, 'ui-ico.ui-sec-ico') : null, h('span.btn-label', label));
+  if (!disabled || !reason) return b;
+  return h('span.ui-sec-wrap', b, h('span.ui-sec-why', { 'aria-hidden': 'true' }, reason));
+}
+
+/**
+ * The screen's one yellow (§5.5, P2): a slanted yellow button with an ink verb, an optional glyph before it and room for
+ * a count or a cost after it (`after`). Disabled: the kit's pale fill and muted words, never opacity; `reason` puts the
+ * one line that says why beside it (as secondaryBtn does).
+ * @param {string} label a verb of at most two words ("Start · Normal")
+ * @param {{ icon?: string|null, after?: any, onClick?: Function|null, testid?: string|null, title?: string|null,
+ *   disabled?: boolean, reason?: string|null, cls?: string }} [o]
+ * @returns {HTMLElement} the button; with `disabled` and `reason`, a span holding the button and its reason line
+ */
+export function primaryBtn(label, { icon = null, after = null, onClick = null, testid = null, title = null, disabled = false, reason = null, cls = '' } = {}) {
+  const b = h(`button.ui-btn.pri${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, title: title || (disabled ? reason : null), disabled, onclick: onClick,
+    'aria-label': disabled && reason ? `${label}: ${reason}` : null,
+  }, disabled && reason ? ico('lock') : icon ? ico(icon) : null, h('span.btn-label', label), after);
   if (!disabled || !reason) return b;
   return h('span.ui-sec-wrap', b, h('span.ui-sec-why', { 'aria-hidden': 'true' }, reason));
 }
