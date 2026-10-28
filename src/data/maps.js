@@ -41,15 +41,21 @@
 
 import {
   buildMapTracks, stampTracks, mapTracks, BAND_HALF_WIDTH, arc, spiral, curve, loopNodes, LINE, TUNNEL_IN, TUNNEL_OUT,
+  RAISE, LOWER,
 } from '../core/track.js';
 // engine-independent trig (core/detMath.js): map geometry must be bit-identical on every device
 import { DET_MATH as DM } from '../core/detMath.js';
 
 // Track authoring shorthands (src/core/track.js): L = the next section is an exact straight,
-// IN / OUT = a tunnel starts / ends at the previous control point.
+// IN / OUT = a tunnel starts / ends at the previous control point, UP / DOWN = a viaduct starts /
+// ends at the previous control point (Gate Arc Step 6: a long overpass at the deck height; a road
+// crossing under its flat top always passes under it).
 const L = LINE;
 const IN = TUNNEL_IN;
 const OUT = TUNNEL_OUT;
+// (no shipped map raises a viaduct yet: 6-7 is the first)
+const UP = RAISE; // eslint-disable-line no-unused-vars
+const DOWN = LOWER; // eslint-disable-line no-unused-vars
 
 /**
  * Track nodes for a city street (Gate Arc): straight runs between the corner points, each corner
@@ -124,7 +130,14 @@ export function defineMap(o) {
   const grid = o.rows.map((r) => r.split(''));
   const height = grid.length;
   const width = grid[0].length;
-  const { tracks, crossings, tiles: onPath } = buildMapTracks(o.paths, o.crossings ?? 'bridge');
+  let built;
+  try {
+    built = buildMapTracks(o.paths, o.crossings ?? 'bridge');
+  } catch (err) {
+    // authoring errors (tunnels, viaducts, crossings) name the map they come from
+    throw new Error(`map ${o.id}: ${err.message}`);
+  }
+  const { tracks, crossings, tiles: onPath } = built;
   // Gate Arc Step 3: a lane that starts inside the board (a rift on the lake, 3-8). The sim spawns at a track's first
   // point anyway (track.js ignores the key); the renderer drops the head run-out and stands the rift gate there.
   (o.paths || []).forEach((spec, i) => { if (spec && !Array.isArray(spec) && spec.inside) tracks[i].inside = true; });
