@@ -245,6 +245,20 @@ const SLIMES = [
     counters: 'Pile damage on him early. When he pops he becomes three Royal Guards — keep a cleaver or splash near the exit.',
     introducedIn: '1-5',
   }),
+  // Gate Arc, chapter 1 Act II: the Slime Prince's model (royal variant, crown and cape) in frost colours, no new GLB
+  enemy({
+    id: 'slime_frost_heir', name: 'The Frostbitten Heir', family: 'slime', tier: 'miniboss', hp: 3400, speed: 0.5,
+    armorClass: 'light', bounty: 320, leak: 25, threat: 150, size: 2.3, color: '#cfe9f7', accent: '#9fd3ff',
+    variant: 'royal', props: ['crown', 'cape'],
+    traits: { splitter: { spawn: 'slime_courtier', count: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Frostbitten Heir shivers. Gold Slimes spill out of its frosty cape!', set: { traits: { summoner: { spawn: 'slime_gold', count: 2, every: 5 } } } },
+      { atHp: 0.33, announce: 'The Heir breaks into a shivering sprint!', set: { speed: 0.7, traits: { hasty: { mul: 1.8, every: 5, duration: 1.5 } } } },
+    ],
+    lore: 'A huge slime that came through the crack from somewhere very cold. It sat in the dry fountain because it was the only throne it could find. When it pops, it goes home through the crack.',
+    counters: 'Like the Prince, only colder: pile damage on it early, and keep splash or a cleaver near the exit for its three Royal Guards.',
+    introducedIn: '1-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -578,6 +592,21 @@ const LIZARDS = [
     lore: 'An ancient lake beast with stone-hard scales that slowly regrow.',
     counters: 'Armored and regenerating: Sango\'s shells crack the scales; keep it under constant fire.',
     introducedIn: '2-5',
+  }),
+  // Gate Arc Act II miniboss (2-10): the Bog Basilisk's GLB at miniboss scale, curled round the school's old lamp
+  enemy({
+    id: 'lizard_lamp_hugger', name: 'Old Lamp-Hugger', family: 'lizard', tier: 'miniboss', hp: 3900, speed: 0.45,
+    armorClass: 'scaled', armor: 4, bounty: 360, leak: 25, threat: 170, size: 2.4, color: '#8a7a3e', accent: '#ffd08a',
+    // warm lamplight scales (the Bog Basilisk is mossy green); the lizard GLB carries no lantern prop
+    variant: 'basilisk', props: ['tail', 'crystals'],
+    traits: { regen: { pct: 0.025, delay: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'Old Lamp-Hugger thumps its tail. Marsh Hunters wade in from the lake!', set: { traits: { regen: { pct: 0.025, delay: 3 }, summoner: { spawn: 'lizard_hunter', count: 2, every: 6 } } } },
+      { atHp: 0.33, announce: 'Old Lamp-Hugger curls up tight round its lamp: scales harden, steps slow!', set: { armor: 7, speed: 0.32 } },
+    ],
+    lore: 'A great old lake lizard that came through the crack looking for somewhere warm, and found the school\'s old iron lamp. It will not let go of it. When the lamp lights, it lets go and goes home.',
+    counters: 'Regrows like the Bog Basilisk and hardens late: shred its scales early, keep it under fire, and save splash for the Marsh Hunters it calls.',
+    introducedIn: '2-10',
   }),
 ];
 

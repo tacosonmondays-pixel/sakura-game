@@ -33,6 +33,9 @@ describe('title cards and plates', () => {
     expect(c.kicker).toBe('Chapter 2 · Moonlit Lakeshore');
     expect(c.sub).toBe('Episode 1');
     expect(titleCardText(sceneById('lesson.home')).kicker).toBe("Captain's Journal");
+    // a Gate Arc (Act II) episode names its act, not "Event Story"
+    expect(titleCardText(sceneById('g1.pro'), 1)).toEqual({ kicker: 'Chapter 1 · Rush Hour', title: 'Two Sunrises', sub: 'Episode 1' });
+    expect(titleCardText({ ...sceneById('g1.pro'), act: undefined }).kicker).toBe('Event Story');
   });
 
   it('plates come from data: girls by unit id, monsters by enemy id, plain speakers and overrides', () => {
@@ -70,12 +73,25 @@ describe('backgrounds', () => {
     expect(resolveBackground('cg:aoi-archery').cg).toBe(true);
   });
 
-  it('stage stills fall back to their chapter academy tint (still provider optional)', () => {
+  it('stage backgrounds show their painted place; a stage without one keeps its chapter academy tint', () => {
     const spec = resolveBackground('stage:2-1', 2);
-    expect(spec).toMatchObject({ stageId: '2-1', fallback: true, kind: 'paint', tint: BACKGROUNDS[CHAPTER_FALLBACK_BG[2]].tint });
-    expect(resolveBackground('stage:8-5').tint).toBe(BACKGROUNDS[CHAPTER_FALLBACK_BG[8]].tint);
-    expect(backgroundUrls('stage:1-5', 1)[0]).toMatch(/academy\.webp$/);
+    expect(spec).toMatchObject({ stageId: '2-1', place: 'lakeshore', fallback: true, kind: 'paint', tint: 'day', focus: BACKGROUNDS.lakeshore.focus });
+    expect(spec.url).toMatch(/art\/lobby\/story\/lakeshore\.webp$/);
+    expect(spec.thumb).toMatch(/art\/lobby\/story\/thumbs\/lakeshore\.webp$/);
+    expect(resolveBackground('stage:8-5').place).toBe('summit-nest');
+    expect(backgroundUrls('stage:1-5', 1)[0]).toMatch(/story\/blossom-court\.webp$/);
+    // no STAGE_PLACE entry (no such stage): the chapter's academy tint, stage id kept for a still
+    const fb = resolveBackground('stage:9-9', 2);
+    expect(fb).toMatchObject({ stageId: '9-9', fallback: true, kind: 'paint', tint: BACKGROUNDS[CHAPTER_FALLBACK_BG[2]].tint });
+    expect(fb.place).toBeUndefined();
+    expect(fb.url).toMatch(/art\/lobby\/academy\.webp$/);
     expect(backgroundUrls('black')).toEqual([]);
+  });
+
+  it('a story place carries its focal point; the old academy looks keep the CSS default', () => {
+    expect(resolveBackground('moon-pier').focus).toBe(BACKGROUNDS['moon-pier'].focus);
+    expect(resolveBackground('academy-day').focus).toBeNull();
+    expect(resolveBackground('cg:aoi-archery').focus).toBeNull();
   });
 
   it('every background any scene uses resolves', () => {
@@ -84,7 +100,7 @@ describe('backgrounds', () => {
       ids.add(sc.bg);
       for (const l of sc.lines) if (l.t === 'cue' && l.bg) ids.add(l.bg);
     }
-    for (const id of ids) expect(resolveBackground(id, 1).kind, id).toMatch(/paint|cg|solid/);
+    for (const id of ids) expect(resolveBackground(id, 1).kind, id).toMatch(/paint|cg|solid|svg/);
   });
 
   it('stand nudges only name roster girls', () => {
@@ -112,3 +128,25 @@ describe('story music hook', () => {
     expect(stemMix(null)).toBeNull();
   });
 });
+
+describe('Act II stage backgrounds', () => {
+  it('a stage:1-6 … 1-10 background is its painted city place (STAGE_PLACE), not the academy; Act I keeps its own', () => {
+    const want = { '1-6': 'station-plaza', '1-7': 'covered-arcade', '1-8': 'corner-store', '1-9': 'station-plaza', '1-10': 'dry-fountain' };
+    for (const [id, place] of Object.entries(want)) {
+      const b = resolveBackground(`stage:${id}`, 1);
+      expect(b.kind, id).toBe('paint');
+      expect(b.place, id).toBe(place);
+      expect(backgroundUrls(`stage:${id}`, 1).length, id).toBe(1);
+    }
+    expect(resolveBackground('stage:1-5', 1).place).toBe('blossom-court');
+  });
+
+  it('2-7 and 2-10 show their own places (the jetty, the old lamp) over the campus night', () => {
+    const plain = resolveBackground('stage:2-6', 2).html;
+    const jetty = resolveBackground('stage:2-7', 2).html;
+    const lamp = resolveBackground('stage:2-10', 2).html;
+    expect(plain).toMatch(/aria-label="campus scenery"/);
+    expect(new Set([plain, jetty, lamp]).size).toBe(3);
+  });
+});
+

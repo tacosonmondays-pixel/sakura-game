@@ -135,7 +135,8 @@ describe('geometry + props', () => {
     const types = new Set(MAPS.flatMap((m) => (m.decor || []).map((d) => d.type)));
     for (const t of [...types, 'sakura', 'pine', 'snowPine', 'willow', 'house', 'shrine', 'stall', 'machine', 'lantern', 'torii']) {
       const p = buildProp(t, look, 1);
-      expect(p.solid || p.foliage || p.glow, t).toBeTruthy();
+      // (a city prop may be all facade: the water-bus)
+      expect(p.solid || p.foliage || p.glow || p.facade, t).toBeTruthy();
     }
   });
 });

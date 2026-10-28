@@ -5,8 +5,9 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   ACHIEVEMENTS, ACHIEVEMENT_MAP, ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_METRICS, ACHIEVEMENT_WAVES, NO_COSMETIC, FREEPLAY_TITLES,
-  achievementLive, ACH_V2_LIVE,
+  achievementLive, ACH_V2_LIVE, achievementStagesExist,
 } from '../../src/data/achievements.js';
+import { STAGE_MAP, ACT2_PLAN } from '../../src/data/stages.js';
 import { ACHIEVEMENTS as REEXPORTED, DAILY_MISSIONS, WEEKLY_MISSIONS } from '../../src/data/missions.js';
 import { ITEMS } from '../../src/data/items.js';
 
@@ -14,28 +15,34 @@ const NEW = ACHIEVEMENTS.filter((a) => !a.shipped);
 const LAUNCH = NEW.filter((a) => a.wave === 'launch');
 // Tryout Day's 12 rows (docs/specs/TRYOUT_DAY.md §10.2): 360 gems once, counted apart from the expansion's caps
 const TRYOUT_ROWS = ACHIEVEMENTS.filter((a) => a.wave === 'tryout');
-const NEW_CORE = NEW.filter((a) => a.wave !== 'tryout');
+/** The Gate Arc's Act II rows (wave act2): live chapter by chapter as their stages ship. */
+const ACT2 = NEW.filter((a) => a.wave === 'act2');
+/** Every new row before the Gate Arc (and apart from Tryout Day's): its caps and counts are frozen as they shipped. */
+const PRE = NEW.filter((a) => a.wave !== 'act2' && a.wave !== 'tryout');
+const ACT2_IDS = ['a_ch1_act2', 'a_ch2_act2', 'a_ch3_act2', 'a_ch4_act2', 'a_ch5_act2', 'a_ch6_act2', 'a_ch7_act2', 'a_ch8_act2',
+  'a_clear_80', 'a_gold_80', 'a_sakura_80', 'a_quad_80'];
 const sum = (rows, id) => rows.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
 const gemsOf = (a) => sum([a], 'gems');
 const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r) => r.id);
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('144 rows: the shipped 30 (first, in their order) + 102 new + 12 Tryout Day; 116 live at launch + 2 with social + 11 Codex + 12 Tryout Day = 141', () => {
-    expect(ACHIEVEMENTS).toHaveLength(144);
+  it('156 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II + 12 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 + a_ch2_act2 + 12 Tryout Day = 143', () => {
+    expect(ACHIEVEMENTS).toHaveLength(156);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
-    expect(NEW).toHaveLength(114);
-    expect(NEW_CORE).toHaveLength(102);
+    expect(PRE).toHaveLength(102);
+    expect(ACT2.map((a) => a.id)).toEqual(ACT2_IDS);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(141);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(143);
     expect(TRYOUT_ROWS.map((a) => a.id)).toEqual(['a_try_half', 'a_try_full', 'a_try_spotless', 'a_try_ticked', 'a_try_dare', 'a_try_seen', 'a_try_lr',
       'a_try_window', 'a_try_moves', 'a_try_g4', 'a_try_g8', 'a_try_g12']);
     expect(TRYOUT_ROWS.every((a) => achievementLive(a) && a.cat === 'tryout' && a.metric === 'counter' && a.param.startsWith('ty:'))).toBe(true);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex')).toHaveLength(11);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex').every((a) => achievementLive(a))).toBe(true);
-    // still waiting for their feature (a_hero_25 counts heroMax from v0.1.45 on, but stays hidden)
-    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual(['a_units_30', 'a_hero_25', 'a_bond_10']);
+    // still waiting for their feature (a_hero_25 counts heroMax from v0.1.45 on, but stays hidden) or for their
+    // stages (every Act II row but chapters 1 and 2's: Gate Arc Steps 1-2 register 1-6 … 1-10 and 2-6 … 2-10)
+    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual([...ACT2_IDS.slice(2), 'a_units_30', 'a_hero_25', 'a_bond_10']);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'social').map((a) => a.id)).toEqual(['a_donate_1', 'a_donate_10']);
     // clan donations are materials asked for in Clan Requests (never gear): the texts say so, like the patch note
     for (const a of ACHIEVEMENTS.filter((x) => x.wave === 'social')) {
@@ -44,7 +51,7 @@ describe('ids and names', () => {
     }
     expect(REEXPORTED).toBe(ACHIEVEMENTS);
     expect(ACH_V2_LIVE).toBe(true);
-    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, tryout: true, later: false });
+    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, tryout: true, later: false, act2: true });
   });
 
   it('ids are unique, ^a_[a-z0-9_]+$ and at most 24 characters (valid title ids and ach: pins)', () => {
@@ -69,7 +76,7 @@ describe('ids and names', () => {
     for (const a of ACHIEVEMENTS) {
       expect(cats.has(a.cat), a.id).toBe(true);
       expect(ACHIEVEMENT_METRICS, a.id).toContain(a.metric);
-      expect(['launch', 'social', 'codex', 'tryout', 'later'], a.id).toContain(a.wave);
+      expect(['launch', 'social', 'codex', 'tryout', 'later', 'act2'], a.id).toContain(a.wave);
       expect(Number.isInteger(a.goal) && a.goal > 0, a.id).toBe(true);
       expect(ACHIEVEMENT_MAP[a.id]).toBe(a);
       if (a.hidden) expect(a.hint?.length, a.id).toBeGreaterThan(5);
@@ -111,25 +118,88 @@ describe('rewards', () => {
     }
   });
 
-  it('caps: launch gems ≤ 6,000 (5,930); all new ≤ 7,000 (6,780); tickets 6; Celestial 5; Radiant 20; Tryout Day 360 gems apart', () => {
+  it('caps: launch gems ≤ 6,000 (5,930); all new before the Gate Arc ≤ 7,000 (6,780); tickets 6; Celestial 5; Radiant 20; Tryout Day 360 gems apart', () => {
     expect(sum(LAUNCH, 'gems')).toBe(5930);
-    expect(sum(NEW_CORE, 'gems')).toBe(6780);
+    expect(sum(PRE, 'gems')).toBe(6780);
+    expect(sum(PRE, 'ticket_recruit')).toBe(6);
     // Tryout Day: 360 gems once (= 3 recruits), gems only, counted as its own one-time source (TRYOUT_DAY.md §10.2)
     expect(sum(TRYOUT_ROWS, 'gems')).toBe(360);
     expect(TRYOUT_ROWS.every((a) => a.rewards.every((r) => r.id === 'gems'))).toBe(true);
-    expect(sum(NEW, 'ticket_recruit')).toBe(6);
     expect(sum(LAUNCH, 'ticket_recruit')).toBe(5);
-    expect(sum(NEW, 'gearbox_legendary')).toBe(5);
-    expect(sum(NEW, 'gearbox_mythic')).toBe(20);
-    expect(sum(NEW, 'gearbox_superRare')).toBe(84);
-    expect(sum(NEW, 'gearbox_rare')).toBe(8);
-    expect(NEW.filter((a) => boxes(a).length)).toHaveLength(85);
-    expect(NEW.filter((a) => boxes(a).length && gemsOf(a))).toHaveLength(67);
+    expect(sum(PRE, 'gearbox_legendary')).toBe(5);
+    expect(sum(PRE, 'gearbox_mythic')).toBe(20);
+    expect(sum(PRE, 'gearbox_superRare')).toBe(84);
+    expect(sum(PRE, 'gearbox_rare')).toBe(8);
+    expect(PRE.filter((a) => boxes(a).length)).toHaveLength(85);
+    expect(PRE.filter((a) => boxes(a).length && gemsOf(a))).toHaveLength(67);
+  });
+
+  it('Act II caps (GATE_ARC §19: ≈ 850 gems): chapter rows at half the chapter row (848), the 80 rows items and titles only', () => {
+    expect(sum(ACT2, 'gems')).toBe(848);
+    for (let c = 1; c <= 8; c++) {
+      const half = ACHIEVEMENT_MAP[`a_ch${c}_act2`];
+      expect(gemsOf(half)).toBe(Math.floor(gemsOf(ACHIEVEMENT_MAP[`a_chapter_${c}`]) / 2));
+      expect(half).toMatchObject({ metric: 'chapterActClear', param: `${c}:2`, goal: 5, cat: 'campaign', series: 'act2' });
+      expect(half.rewards.every((r) => r.id === 'gems')).toBe(true);
+    }
+    for (const id of ['a_clear_80', 'a_gold_80', 'a_sakura_80', 'a_quad_80']) {
+      const a = ACHIEVEMENT_MAP[id];
+      expect(a.goal, id).toBe(80);
+      expect(a.tier, id).toBe(0);
+      expect(gemsOf(a), id).toBe(0);
+      expect(a.title, id).toBeTruthy();
+    }
+    expect(sum(ACT2, 'ticket_recruit')).toBe(0);
+    expect(sum(ACT2, 'gearbox_legendary')).toBe(0);
+    expect(sum(ACT2, 'gearbox_mythic')).toBe(5);
+    expect(sum(ACT2, 'gearbox_superRare')).toBe(4);
+    expect(ACT2.every((a) => !a.honor)).toBe(true);
   });
 
   it('box and crown rows that a fast player meets before 2-1 are the ones the spec names', () => {
     const t1Boxes = NEW.filter((a) => a.tier === 1 && boxes(a).length).map((a) => a.id);
     for (const id of ['a_bounty_5', 'a_kills_5k', 'a_slime_1000', 'a_ults_100', 'a_daily_10']) expect(t1Boxes).toContain(id);
+  });
+});
+
+describe('Act II rows wait for their stages (Gate Arc; docs/CAMPAIGN.md "Act II")', () => {
+  it('each needs exactly its planned stages: a chapter row its five, an 80 row all forty', () => {
+    for (let c = 1; c <= 8; c++) {
+      expect(ACHIEVEMENT_MAP[`a_ch${c}_act2`].needs).toEqual(ACT2_PLAN.filter((r) => r.chapter === c).map((r) => r.id));
+    }
+    for (const id of ['a_clear_80', 'a_gold_80', 'a_sakura_80', 'a_quad_80']) expect(ACHIEVEMENT_MAP[id].needs).toEqual(ACT2_PLAN.map((r) => r.id));
+    for (const a of ACHIEVEMENTS) if (a.wave !== 'act2') expect(a.needs, a.id).toBeUndefined();
+  });
+
+  it('a_ch1_act2 and a_ch2_act2 are live (1-6 … 1-10, 2-6 … 2-10 exist), the rest hidden; a row lights up once all its stages exist', () => {
+    for (const id of ['a_ch1_act2', 'a_ch2_act2']) {
+      expect(achievementLive(ACHIEVEMENT_MAP[id]), id).toBe(true);
+      expect(achievementLive(ACHIEVEMENT_MAP[id], false), id).toBe(false); // the expansion switch still rules
+    }
+    for (const a of ACT2.filter((x) => !['a_ch1_act2', 'a_ch2_act2'].includes(x.id))) {
+      expect(achievementLive(a), a.id).toBe(false);
+      expect(achievementStagesExist(a), a.id).toBe(false);
+    }
+    const ch3 = ACHIEVEMENT_MAP.a_ch3_act2;
+    const ids = ch3.needs;
+    try {
+      for (const id of ids) STAGE_MAP[id] = { id };
+      expect(achievementLive(ch3)).toBe(true);
+      expect(achievementLive(ACHIEVEMENT_MAP.a_ch4_act2)).toBe(false);
+      expect(achievementLive(ACHIEVEMENT_MAP.a_clear_80)).toBe(false);
+    } finally {
+      for (const id of ids) delete STAGE_MAP[id];
+    }
+  });
+
+  it('the "all 40" goals now read "on 40 campaign stages" (and the ribbon capstone "800 … ribbons"); ids, goals, rewards unchanged', () => {
+    expect(ACHIEVEMENT_MAP.a_gold_40.desc).toBe('Earn Gold medals on 40 campaign stages.');
+    expect(ACHIEVEMENT_MAP.a_sakura_40.desc).toBe('Earn Sakura medals on 40 campaign stages.');
+    expect(ACHIEVEMENT_MAP.a_quad_40.desc).toBe('Earn all four medals on 40 campaign stages.');
+    expect(ACHIEVEMENT_MAP.a_mr_800.desc).toBe('Earn 800 campaign mode ribbons.');
+    for (const id of ['a_gold_40', 'a_sakura_40', 'a_quad_40']) expect(ACHIEVEMENT_MAP[id].goal).toBe(40);
+    expect(ACHIEVEMENT_MAP.a_mr_800.goal).toBe(800);
+    for (const a of ACHIEVEMENTS) expect(/\ball \d+ campaign/i.test(a.desc), a.id).toBe(false);
   });
 });
 
@@ -184,8 +254,9 @@ describe('cosmetics', () => {
 
   it('titles: ≤ 24 characters, unique (with the freeplay titles), on std / gold / prism plates', () => {
     const texts = [...titles.map((a) => a.title.text), ...Object.values(FREEPLAY_TITLES).map((t) => t.text)];
-    expect(texts).toHaveLength(47);
-    expect(new Set(texts.map((t) => t.toLowerCase())).size).toBe(47);
+    // 45 in this build + the 4 titles of the hidden 80-stage rows + Tryout Day's 2 (Head Scout, Grade 12 Sensei)
+    expect(texts).toHaveLength(51);
+    expect(new Set(texts.map((t) => t.toLowerCase())).size).toBe(51);
     for (const a of titles) {
       expect(a.title.text.length, a.id).toBeLessThanOrEqual(24);
       expect(['std', 'gold', 'prism']).toContain(a.title.tier);

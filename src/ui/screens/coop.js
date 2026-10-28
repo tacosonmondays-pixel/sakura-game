@@ -27,7 +27,7 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked, modesUnlocked, isOwned } from '../../systems/unlocks.js';
 import { MODE_ORDER, modeId } from '../../data/modes.js';
 import { MODE_TEXT } from '../text/modes.js';
-import { RULE_TEXT } from '../text/rules.js';
+import { ruleTextFor } from '../text/rules.js';
 import { modeIcon } from '../../art/icons.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { miniMochi } from '../loading/loader.js';
@@ -660,6 +660,7 @@ export function render(root, params = {}) {
     function fieldPanel(s) {
       const st = STAGE_MAP[s.stageId];
       if (!st) return null;
+      const rule = ruleTextFor(st); // the map rule, in the stage's own words when it has a skin
       let foes = [];
       try {
         foes = stageEnemies(st).map((id) => ENEMY_MAP[id]).filter((e) => e && e.tier !== 'normal').slice(0, 5);
@@ -674,7 +675,7 @@ export function render(root, params = {}) {
           h('div.ol-field-info',
             h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode, { testid: 'coop-field-mode' })),
             st.desc ? h('p.ol-field-desc', st.desc) : null,
-            st.rule && RULE_TEXT[st.rule.id] ? h('p.ol-field-rule', { 'data-testid': 'coop-field-rule' }, 'Map rule: ', h('b', RULE_TEXT[st.rule.id].name), `: ${RULE_TEXT[st.rule.id].desc}`) : null,
+            rule ? h('p.ol-field-rule', { 'data-testid': 'coop-field-rule' }, 'Map rule: ', h('b', rule.name), `: ${rule.desc}`) : null,
             h('div.ol-field-stats',
               h('span', h('b', String(st.waves ?? '—')), ' waves'),
               h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),

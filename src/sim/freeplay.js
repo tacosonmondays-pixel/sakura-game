@@ -5,7 +5,7 @@
 // functions (tests/sim/freeplay.test.js greps for them) — so V8, JavaScriptCore and SpiderMonkey
 // build bit-identical waves. stage.freeplay is the tier's table (src/data/freeplay.js).
 import { createRng, hashString } from '../core/rng.js';
-import { powInt, groupSpacing } from './waves.js';
+import { powInt, groupSpacing, openLanes, laneFor, longestLane } from './waves.js';
 import { WAVE_HP_RAMP, GROUP_OVERLAP, DEFAULT_SPACING, FREEPLAY_ARMOR_FLOOR } from './constants.js';
 
 /**
@@ -256,6 +256,8 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
   const d = wave - G;
   const rng = createRng(hashString(`${stage.id}|freeplay|${wave}`));
   const gen = stage.waveGen || {};
+  // the stage's lane schedule runs on in freeplay (waves.js openLanes; null = every lane open)
+  const lanes = openLanes(stage, wave, pathCount);
   const start = gen.budget?.start ?? 10;
   const growth = gen.budget?.growth ?? 1.1;
   const budget = start * powInt(growth, G - 1) * (1 + fp.countSlope * d);
@@ -379,7 +381,8 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
 
   const bossHpMul = [];
   if (bossWave) {
-    const longest = pathLengths?.length > 1 ? pathLengths.indexOf(Math.max(...pathLengths)) : null;
+    // the longest open lane (the longest lane when every lane is open)
+    const longest = pathLengths?.length > 1 ? longestLane(pathLengths, lanes) : null;
     let bt = 2 + regularEnd * 0.35;
     for (const id of bossWave.bosses) {
       const def = lookupEnemy(id);
@@ -401,7 +404,7 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
   let counter = 0;
   groups.forEach((g, gi) => {
     for (let k = 0; k < g.count; k++) {
-      const pathIndex = g.path != null ? g.path % Math.max(1, pathCount) : (gi + counter) % Math.max(1, pathCount);
+      const pathIndex = laneFor(g, gi + counter, pathCount, lanes, pathLengths);
       counter++;
       const s = { t: g.start + k * g.spacing, enemyId: g.enemyId, pathIndex, hpMul: g.hpMul, speedMul: g.speedMul };
       if (g.leak != null) s.leak = g.leak;
@@ -417,6 +420,7 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
     hpMul: ramp,
     duration: spawns.length ? spawns[spawns.length - 1].t : 0,
     budget,
+    ...(lanes ? { lanes } : {}),
     freeplay: {
       tier: fp.id, depth: d, rotation: info.rotation, chapterCap: info.chapterCap, visitors: vis,
       affix: info.affix?.id ?? null, boss: bossWave, speed, pressure: info.pressure,

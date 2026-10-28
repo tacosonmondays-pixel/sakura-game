@@ -2,7 +2,7 @@
 // See CONTRACTS.md §5.
 
 import { UNIT_MAP, UNITS, hasCapability } from '../data/units.js';
-import { STAGE_MAP, CAMPAIGN_IDS, CHAPTERS } from '../data/stages.js';
+import { STAGE_MAP, CAMPAIGN_IDS, requirementsMet, actStages } from '../data/stages.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
 import { RIBBON_MODES, MODE_ORDER } from '../data/modes.js';
 import { newUnitState } from './save.js';
@@ -35,7 +35,7 @@ export function grantUnit(profile, unitId, now = Date.now()) {
   if (!def) throw new Error(`Unknown unit: ${unitId}`);
   if (!profile.units[unitId]) {
     profile.units[unitId] = newUnitState(now);
-    // bond (affection) starts at 0; the future City dating / gift system raises it
+    // bond (affection) starts at 0; the future City time-together / gift system raises it
     profile.bond ||= {};
     profile.bond[unitId] ??= 0;
     shadowPotential(profile, unitId, now);
@@ -97,12 +97,16 @@ export function ribbonCount(profile, stageId) {
   return { have: keys.filter((k) => r[k]).length, total: keys.length };
 }
 
-/** @returns {{ have: number, total: number }} over the chapter's stages */
-export function chapterRibbons(profile, chapterId) {
-  const chapter = CHAPTERS.find((c) => c.id === Number(chapterId));
+/**
+ * @param {object} profile
+ * @param {number|string} chapterId
+ * @param {number} [act] 1 (the chapter's Act I, the default) or 2 (its Act II)
+ * @returns {{ have: number, total: number }} over the act's stages
+ */
+export function chapterRibbons(profile, chapterId, act = 1) {
   let have = 0;
   let total = 0;
-  for (const id of chapter ? chapter.stages : []) {
+  for (const id of actStages(chapterId, act)) {
     const c = ribbonCount(profile, id);
     have += c.have;
     total += c.total;
@@ -152,11 +156,11 @@ export function campaignShowcase(profile) {
   return { stages, medals: sum('medals'), ribbons: sum('ribbons') };
 }
 
-/** @returns {boolean} the stage's `requires` is cleared (or it has none) */
+/** @returns {boolean} every stage in the stage's `requires` is cleared (or it has none; stages.js requirementsMet) */
 export function isStageUnlocked(profile, stageId) {
   const stage = STAGE_MAP[stageId];
   if (!stage) return false;
-  return !stage.requires || isStageCleared(profile, stage.requires);
+  return requirementsMet(stage, (id) => isStageCleared(profile, id));
 }
 
 /**
@@ -181,11 +185,13 @@ export function canPlayEndless(profile, stageId) {
 }
 
 /**
+ * @param {object} profile
+ * @param {number|string} chapterId
+ * @param {number} [act] 1 (the chapter's Act I, the default) or 2 (its Act II)
  * @returns {{ cleared: number, total: number, medals: { easy: number, normal: number, hard: number, nightmare: number } }}
  */
-export function chapterProgress(profile, chapterId) {
-  const chapter = CHAPTERS.find((c) => c.id === Number(chapterId));
-  const ids = chapter ? chapter.stages : [];
+export function chapterProgress(profile, chapterId, act = 1) {
+  const ids = actStages(chapterId, act);
   const medals = Object.fromEntries(DIFFICULTY_ORDER.map((d) => [d, 0]));
   let clearedCount = 0;
   for (const id of ids) {
@@ -196,7 +202,10 @@ export function chapterProgress(profile, chapterId) {
   return { cleared: clearedCount, total: ids.length, medals };
 }
 
-/** @returns {string|null} first uncleared campaign stage (null when the campaign is done) */
+/**
+ * @returns {string|null} the first uncleared campaign stage in CAMPAIGN_IDS (null when the campaign is done): Act I
+ * first, so a veteran is never pulled back to 1-6; Act II is found through the campaign screen's act rows
+ */
 export function nextStage(profile) {
   return CAMPAIGN_IDS.find((id) => !isStageCleared(profile, id)) || null;
 }

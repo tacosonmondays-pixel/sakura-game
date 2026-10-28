@@ -6,7 +6,7 @@ import '../styles/battle-modes.css';
 import { h, icon } from './util.js';
 import { svgEl } from '../components.js';
 import { MODE_TEXT, modeText, ironcladArmor } from '../text/modes.js';
-import { RULE_TEXT, AFFINITY_NAMES, PAST_GOAL_LINE } from '../text/rules.js';
+import { ruleTextFor, AFFINITY_NAMES, PAST_GOAL_LINE, laneClosedText } from '../text/rules.js';
 import { SUBJECT_TEXT } from '../text/tryout.js';
 import { ruleIcon, ruleColor, elementIcon, attackTypeIcon } from '../../art/icons.js';
 import { ATTACK_TYPES, ELEMENTS } from '../../data/types.js';
@@ -106,9 +106,10 @@ export function createModesBattle(ctx) {
   const mode = sim.mode?.id || 'standard';
   const mt = MODE_TEXT[mode];
   // the rule can change mid-battle: Tryout Day installs each period's Subject rule (src/sim/tryout/index.js
-  // installRule), so the pill follows sim.rule.id (syncRule, a cheap check in update)
+  // installRule), so the pill follows sim.rule.id (syncRule, a cheap check in update); the rule's text is in the
+  // stage's own words when it has a skin (src/ui/text/rules.js)
   let ruleId = sim.rule?.id || null;
-  let rt = ruleId ? RULE_TEXT[ruleId] : null;
+  let rt = ruleId ? ruleTextFor(sim.stage, ruleId) : null;
   /** The pill's name: in a Tryout Day period, its Subject (Science), else the rule's. */
   const ruleName = () => (sim.tryout?.subject && SUBJECT_TEXT[sim.tryout.subject]?.name) || rt?.name || '';
 
@@ -134,7 +135,7 @@ export function createModesBattle(ctx) {
     pillKey = key;
     if (ctx.shell && ruleId && ctx.shell.dataset.ruleOn === ruleId) delete ctx.shell.dataset.ruleOn;
     ruleId = id;
-    rt = id ? RULE_TEXT[id] || null : null;
+    rt = id ? ruleTextFor(sim.stage, id) || null : null;
     last = { active: null, s: null, inWave: null, wave: null };
     if (!pill) return true;
     pill.hidden = !rt;
@@ -263,6 +264,8 @@ export function createModesBattle(ctx) {
   /** The wave banner's sub line, when a mode or rule changes it (null = the usual one). */
   function waveSub(ev) {
     if (ev.flipped) return 'REAR AMBUSH: in through the goal gate!';
+    // a lane schedule closed a lane this wave (Gate Arc: the crossing's barrier is down)
+    if (Array.isArray(ev.lanes) && ev.lanes.length < (sim.pathData?.length ?? 0)) return laneClosedText(sim.stage);
     if (mode === 'reverse' && ev.wave === 1 && Number.isFinite(sim.totalWaves)) return `of ${sim.totalWaves} · Reverse Route`;
     return null;
   }

@@ -35,10 +35,11 @@ describe('the tables (stable interface for the profile)', () => {
     for (const f of fx) expect(EFFECT_LINES[f].length).toBeGreaterThan(10);
   });
 
-  it('TITLES: 50 titles on 3 plates, id = the achievement id, a freeplay title or a player-tag title', () => {
-    expect(TITLES).toHaveLength(50);
+  it('TITLES: 54 titles on 3 plates (48 + the 4 standard titles of the hidden Act II rows + Tryout Day\'s Head Scout and Grade 12 Sensei), id = the achievement id, a freeplay title or a player-tag title', () => {
+    expect(TITLES).toHaveLength(54);
     const by = (pl) => TITLES.filter((t) => t.plate === pl).length;
-    expect([by('prism'), by('gold'), by('standard')]).toEqual([10, 18, 22]); // + Grade 12 Sensei (prism) and Head Scout
+    expect([by('prism'), by('gold'), by('standard')]).toEqual([10, 18, 26]);
+    expect(TITLES.filter((t) => t.wave === 'act2').map((t) => t.id)).toEqual(['a_clear_80', 'a_gold_80', 'a_sakura_80', 'a_quad_80']);
     // the three player-tag titles (src/data/playerTags.js): Developer + Alpha Tester on prism, Beta Tester on gold
     expect(TITLES.filter((t) => t.tag).map((t) => [t.id, t.name, t.plate])).toEqual([
       ['tag_dev', 'Developer', 'prism'], ['tag_alpha', 'Alpha Tester', 'prism'], ['tag_beta', 'Beta Tester', 'gold'],
@@ -172,7 +173,7 @@ describe('titleTier and titleTable', () => {
     const t = titleTable();
     expect(t.a_sakura_40).toEqual({ text: 'Thousand-Petal Sentinel', tier: 'prism' });
     expect(t.a_first_win).toEqual({ text: 'Rookie Sentinel', tier: 'std' });
-    expect(Object.keys(t)).toHaveLength(50); // 47 + the three player-tag titles (a lookup, never a count)
+    expect(Object.keys(t)).toHaveLength(54); // 45 + 4 hidden Act II + Tryout Day's 2 + the three player-tag titles (a lookup, never a count)
     expect(t.tag_alpha).toEqual({ text: 'Alpha Tester', tier: 'prism' });
   });
 });

@@ -9,12 +9,13 @@
 .ma-rule-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .ma-rule-name { color: var(--navy); font-style: italic; font-weight: 900; }
 .ma-rule-chip {
-  display: inline-block; font-size: 0.7rem; font-weight: 900; padding: 2px 8px; border-radius: 999px;
+  display: inline-block; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 999px;
   background: #fff3c4; color: #8a5a00; border: 1px solid #ffd666; white-space: nowrap;
 }
 .ma-rule-chip.always { background: #eaf4ff; color: #2b5d9e; border-color: #b9d8ff; }
 .ma-rule-desc { margin: 4px 0 0; font-size: 0.86rem; line-height: 1.3; }
-.ma-rule-hint { margin: 3px 0 0; font-size: 0.78rem; }
+/* every line on the rule card stays >= 12 px (the hint is also .muted, which would shrink it to 0.9em) */
+.ma-rule .ma-rule-hint { margin: 3px 0 0; font-size: 12.5px; }
 .ma-rule-more { display: none; }
 
 /* ---------- Battle mode panel ---------- */
@@ -86,12 +87,12 @@
   .ma-mode-check { width: 13px; height: 13px; bottom: 3px; right: 4px; }
   .ma-mode-sel { display: block; }
   .ma-rule-icon { width: 28px; height: 28px; }
-  .ma-rule-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.8rem; }
+  .ma-rule-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
   .ma-rule.open .ma-rule-desc { display: block; -webkit-line-clamp: unset; }
   .ma-rule-hint { display: none; }
   .ma-rule.open .ma-rule-hint { display: block; }
   .ma-rule-more {
-    display: inline-block; margin: 2px 0 0 38px; border: 0; background: none; padding: 0; font-size: 0.74rem; font-weight: 900; color: #2b7fff;
+    display: inline-block; margin: 2px 0 0 38px; border: 0; background: none; padding: 0; font-size: 12px; font-weight: 900; color: #2b7fff;
   }
 }
 @media (prefers-reduced-motion: reduce) {

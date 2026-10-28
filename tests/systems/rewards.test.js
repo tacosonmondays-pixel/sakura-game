@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createProfile } from '../../src/systems/save.js';
-import { rollStageDrops, applyBattleResult, sweep, canSweep } from '../../src/systems/rewards.js';
+import { rollStageDrops, applyBattleResult, sweep, canSweep, medalGems } from '../../src/systems/rewards.js';
 import { ownedUnits, isStageUnlocked, stageMedals, chapterProgress, nextStage, recommendedFor, grantUnit, isPracticeRun, canPlayEndless } from '../../src/systems/unlocks.js';
 import { createRng } from '../../src/core/rng.js';
 import { getStage, stageEnemies, STAGES } from '../../src/data/stages.js';
@@ -216,5 +216,34 @@ describe('unlocks', () => {
     // duplicates are counted as her Essence history (src/systems/essence.js)
     expect(p.units.kaede.dupes).toBe(1);
     expect(p.units.shiro.dupes).toBe(1);
+  });
+});
+
+describe('medal gems × medalGemMul (Act II pays half)', () => {
+  it('medalGems: 20 / 40 / 60 / 100 on every Act I and side stage; 10 / 20 / 30 / 50 at medalGemMul 0.5 (Act II)', () => {
+    for (const s of STAGES) {
+      for (const d of ['easy', 'normal', 'hard', 'nightmare']) {
+        expect(medalGems(s, d), `${s.id} ${d}`).toBe(s.act === 2 ? DIFFICULTIES[d].firstClearGems / 2 : DIFFICULTIES[d].firstClearGems);
+      }
+    }
+    const half = { medalGemMul: 0.5 };
+    expect(['easy', 'normal', 'hard', 'nightmare'].map((d) => medalGems(half, d))).toEqual([10, 20, 30, 50]);
+    expect(medalGems({ medalGemMul: 0 }, 'normal')).toBe(0);
+    expect(medalGems({ medalGemMul: 'x' }, 'normal')).toBe(40);
+    expect(medalGems(null, 'hard')).toBe(60);
+    expect(medalGems({}, 'nope')).toBe(0);
+  });
+
+  it('a won battle on a medalGemMul 0.5 stage pays 10 / 20 / 30 / 50 (1-6, Rush Hour)', () => {
+    {
+      const p = createProfile();
+      for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5']) p.progress.stages[id] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
+      expect(isStageUnlocked(p, '1-6')).toBe(true);
+      const now = NOT_EVENT('1-6');
+      const firstClearGems = (getStage('1-6').firstClear.find((x) => x.id === 'gems')?.count || 0);
+      expect(firstClearGems).toBe(0); // only x-10 pays first-clear gems in Act II
+      const paid = ['easy', 'normal', 'hard', 'nightmare'].map((d, i) => applyBattleResult(p, battle('1-6', d, true), createRng(10 + i), { now }).gemsEarned);
+      expect(paid).toEqual([10, 20, 30, 50]);
+    }
   });
 });

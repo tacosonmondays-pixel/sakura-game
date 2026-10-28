@@ -5,7 +5,7 @@
 import { Sim } from './Sim.js';
 import { createDataSource } from './data.js';
 import { buildPaths, samplePath } from './path.js';
-import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH } from './placement.js';
+import { createPlacementRules, footprintRadius, PATH_HALF_WIDTH, ROOF_TILE } from './placement.js';
 import { resolveStats, crosspathBlock } from './mods.js';
 import { finalTierOf } from './finalTier.js';
 import { DEFAULT_UNIT_STATS } from './constants.js';
@@ -16,8 +16,9 @@ import { TRANSIENT_REFUSALS, abilityPathOf } from './abilities.js';
  * `tx`/`ty` (tile) are still accepted for old plans and resolve to the tile centre.
  * `ability` fires the girl's ability (by `uid` or her spot; `group`: the best ready copy): it waits
  * while the refusal is one a later moment can lift (cooldown, no wave, no target …) and fails otherwise.
+ * `roof` (autoPlan, information only) marks a place action on a rooftop tile.
  * @typedef {{ at?: number, action: 'place'|'upgrade'|'sell'|'heroLevel'|'ability', unitId?: string, x?: number, y?: number,
- *   tx?: number, ty?: number, uid?: number, path?: number, group?: boolean }} PlanAction
+ *   tx?: number, ty?: number, uid?: number, path?: number, group?: boolean, roof?: boolean }} PlanAction
  */
 
 /** Position of a plan action as (x, y) arguments for the Sim (continuous wins over tile). */
@@ -263,12 +264,16 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
       if (!rules.inBounds(x, y)) continue;
       const ch = rules.terrainAt(x, y);
       const water = ch === '~' || ch === 'B';
-      const land = ch === '.' || ch === ',';
+      // a rooftop ('U') is land; its clearance below is the distance to the roof's edge
+      const roof = ch === ROOF_TILE;
+      const land = ch === '.' || ch === ',' || roof;
       if (!water && !land) continue;
       const pathClear = rules.pathDistance(x, y) - PATH_HALF_WIDTH;
       const obstacleClear = rules.obstacleDistance(x, y);
       if (Math.min(pathClear, obstacleClear) < 0.42 - 1e-9) continue; // useless for any girl
-      cands.push({ x, y, water, land, clear: Math.min(pathClear, obstacleClear), tx: Math.floor(x), ty: Math.floor(y) });
+      const c = { x, y, water, land, clear: Math.min(pathClear, obstacleClear), tx: Math.floor(x), ty: Math.floor(y) };
+      if (roof) c.roof = true;
+      cands.push(c);
     }
   }
   const covCache = new Map();
@@ -371,7 +376,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
   const place = (info) => {
     const c = bestSpot(info);
     if (!c) return null;
-    plan.push({ at: 1, action: 'place', unitId: info.def.id, x: c.x, y: c.y, tx: c.tx, ty: c.ty });
+    plan.push({ at: 1, action: 'place', unitId: info.def.id, x: c.x, y: c.y, tx: c.tx, ty: c.ty, ...(c.roof ? { roof: true } : {}) });
     const rec = {
       info, def: info.def, role: info.role, x: c.x, y: c.y, tx: c.tx, ty: c.ty, radius: footprintRadius(info.def),
       tiers: [0, 0, 0], main: info.main, sub: info.sub,
@@ -401,7 +406,7 @@ export function autoPlan(stageId, unitIds, { data = undefined, maxCopies = 3, fo
     const hInfo = { def: heroDef, stats: resolveStats(heroDef, { heroLevel: 1 }), role: 'dps' };
     const c = bestSpot(hInfo);
     if (c) {
-      plan.push({ at: 1, action: 'place', unitId: heroDef.id, x: c.x, y: c.y, tx: c.tx, ty: c.ty });
+      plan.push({ at: 1, action: 'place', unitId: heroDef.id, x: c.x, y: c.y, tx: c.tx, ty: c.ty, ...(c.roof ? { roof: true } : {}) });
       placed.push({ info: hInfo, def: heroDef, role: 'hero', x: c.x, y: c.y, tx: c.tx, ty: c.ty, radius: footprintRadius(heroDef), tiers: [0, 0, 0], main: 0, sub: 1 });
     }
   }

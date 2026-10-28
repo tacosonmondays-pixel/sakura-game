@@ -1,0 +1,99 @@
+{
+ "review": "home layout B 'Quiet Home' round 1, LOGIC lens",
+ "branch": "concept/home-b",
+ "commit": "bc8c8793f214f74fb3864b84398b09bb7f6ebe5d",
+ "base_compared": "feature/ui-v2 5edb7b4c",
+ "verdict": "NOT_OK",
+ "gates": {
+  "sim_id": "92e2e22527cf (tools/simId.mjs simId() on the worktree); COOP_PROTOCOL 8; no diff vs 5edb7b4c in src/sim, src/data, src/online",
+  "npm_test": "NOT GREEN ON THIS MACHINE, not attributed to the branch. Load average 30-61 from other workflows the whole time. Run 1 killed by my 25-min cap; balance.test.js easy sweep 40/40 WON but over its 600 s limit (1,188,964 ms). Run 2 without balance: 41 files / 62 tests failed of 266 / 4130, nearly all at 5-7 s timeouts or perf budgets. Rerun of those 39 files with --testTimeout 600000: 34 pass, 5 fail, all timing-bound in files the branch does not touch (perf.test 6.0 ms/step vs 4 ms; perf.freeplay own 240 s timeout; smoke.test campaign sweep own 300 s timeout; lockstep 'rebuild in slices' 426 ms vs 359 ms; otherNames own 60 s timeout, and the same check run standalone (scripts/names-check.mjs) finds 0 hits in 1227 files). The four tests/ui files the branch changed pass; tests/ui/hostMode passes on rerun. Needs one clean run on a quiet machine before merge.",
+  "vite_build": "exit 0 in 27.6 s, dist 86 MB, version.json build bc8c8793f214 sim 92e2e22527cf; dist removed",
+  "cssFloor": "exit 0: 375 declarations under 12 px = baseline 375; home.css not listed",
+  "contrast_tool": "exit 0: 168/168 pairs pass",
+  "e2e_home": "844x390: 69 ok, 0 FAIL, exit 0. 390x844 (rampart 667x375, 1024x768): 55 ok, 0 FAIL, exit 0. 1280x720: 3 ok, then page.screenshot 30 s timeout inside pixels.mjs artClearance, twice (the machine's compositor stall). The first full run with --shots: 48 ok, 0 FAIL before the same screenshot timeout. The e2e checks only the ui-hidden class for Hide UI and only the hash after the opening scene, so it cannot see B1.",
+  "e2e_smoke": "1280x720: 203 ok, 0 FAIL, then crashed (scrollIntoViewIfNeeded never 'stable' in the battle drag step). 844x390: 185 ok, 2 FAIL in screens the branch does not touch (wiki measured while the screen was still bestiary; recruit counter), then a click timeout. Its first-run part checks the hash only ('after the opening: the lobby opens' passes over the black home of B1). Not attributed; needs a quiet machine.",
+  "e2e_hubs": "branch (default 10 viewports x 2 saves): stopped by me after 8 of 20 sections (844x390, 1280x720, 667x375, 740x360, 390x844, 915x412 both saves; 932x430 shots in progress): 1964 ok, 25 FAIL, all in hub screens the branch does not touch: missions / titans 'no word cut short' and ellipsis ('2x drops this week', 'Bosses drop crowns'), bounty / assault Hard+ labels, commissions-login next line, assault bubble two lines, titans / achievements click timeouts. Base 5edb7b4c at 844x390 and 1280x720 (shots save) shows the same FAILs, so they are not this branch (fallback fonts: Google Fonts blocked with ERR_CERT_AUTHORITY_INVALID, plus load)."
+ },
+ "passes": [
+  "Every destination lands on the right route and comes back by its own back arrow to exactly one .home with entrance=return and no menu layer left: Battle plate -> #/missions (Assault, Titans, Bounty, Challenge, Co-op, Sandbox, Story tiles there); chapter band -> #/campaign?chapter=4 (ch.1 fresh, ch.8 max); CO-OP -> #/multiplayer; Students, Recruit, Commissions, Mall -> their routes; gems + -> #/mall?tab=gems; avatar and menu Profile -> #/profile; mail -> #/mail (mail-close); menu Formation, Backpack, Bestiary, Journal, Wiki, Clan (dock-clan), Settings, Story -> their routes; chip pages: event -> #/event/halloween-2026, daily gift (login-claim) claims in place (+50 gems, 'Login Day 1'), Titan Trials -> #/titans; Achievements via Commissions tab -> #/commissions?tab=achievements; Notice and Background picker open from the menu; chat opens its drawer (named) or the name prompt; Hide UI from the menu and by a 600 ms long press both toggle and restore, a short tap does nothing (r2/nav3-mid-844x390.json, r2/extras-mid-844x390-chip.json, r2/extras-mid-844x390.json).",
+  "No visible double entrance: on every return each piece ran exactly one entrance animation (nav3 sampler); window/document listeners flat across 19 visits (+3 only when the Clan screen brings the online hub up); no console or page errors in any run.",
+  "Red dots and counts match the save model at 7 steps (mail count, menu dot = notice|journal|box|donations, Commissions dot = login|missions|achievements, FREE sticker iff tickets, CO-OP red 1 with an invite, chat count 1) (r2/badges-mid.json).",
+  "Layout at 844x390, 1280x720, 390x844, 667x375, 740x360, 915x412, 932x430, 1024x768, 1366x768, 1920x1080, 360x800, 768x1024 (mid) and 844x390 / 1280x720 / 390x844 (fresh, max): no sideways overflow, every control inside the screen, no control overlaps, text >= 12 px (13 upright), taps >= 44.5 px, text contrast on the real pixels >= 5.06:1 (r2/layout-mid.json, r2/layout-freshmax.json, r2/layout/).",
+  "Keyboard: all 14 home controls show a visible focus change; Enter opens icons; Space on the focused plate and the bare Space shortcut open Missions; Space does not fire with the Notice, the Background picker or a modal open.",
+  "Upright 390x844: dock across the bottom, plate above, chip above the plate, menu as a bottom sheet (364 px, no scroll); nav to Missions, Students, gems +, menu Formation and Settings all return cleanly (r2/layout/home-mid-390x844.png, r2/layout/menu-mid-390x844.png).",
+  "Fresh save (onboarding skipped) and maxed save homes lay out and route correctly ('Campaign \u00b7 All clear', 160 medals, 99,999,999 coins fit) (r2/layout/home-fresh-844x390.png, r2/layout/home-max-844x390.png)."
+ ],
+ "findings": [
+  {
+   "id": "B1",
+   "severity": "blocker",
+   "title": "After Story, Journal or the first-time opening scene the home is a black screen and every tap is swallowed",
+   "detail": "src/ui/styles/story.css:9 defines a global `.sp { position: fixed; inset: 0; z-index: 300; background: #05060a }` (the scene player's root). It loads with src/ui/story/player.js, journal.js and archive.js. The home's top-bar spacer is h('span.sp') (src/ui/screens/lobby.js:653) and the menu head has another (src/ui/lobby/menuSheet.js:95), so once any story module has loaded, the spacer becomes a full-screen black layer above the whole home, inside .home-top. A first-time player goes title -> opening scene (story CSS loads) -> tutorial -> home, so the very first home they see is black (the beta-gift modal floats over black; after 'Later' only black). It stays until a reload. The same spacer is on feature/ui-v2 5edb7b4c (same result there), so it is inherited, but it ships with this home and its top bar. Live main has no span.sp. ink.css `.ui-topbar .sp` (other v2 top bars) has the same exposure. Fix: give the spacer an unclashing class (for example .ui-spacer) in lobby.js, menuSheet.js and ink.css, or scope story.css's root rule to the player (for example .sp[data-testid=\"story-player\"]). Add an e2e step: open #/story or #/journal, come back, assert elementFromPoint(centre) is inside .home and the Battle plate takes a click.",
+   "evidence": "branch, 844x390, mid save: #/story then its back arrow -> elementFromPoint(centre) and the plate centre both = span.sp pos=fixed z=300 bg rgb(5,6,10), box 0,0 844x390; page.click(tile-mission) -> '<span class=\"sp\"> from <header ... home-top> subtree intercepts pointer events' (r2/story-black/branch-story-844x390-2-home-after.png). Journal at 1280x720 same, box 1280x720 (r2/story-black/branch-journal-1280x720-2-home-after.png). Fresh save, the real first run (title -> opening Skip -> tutorial Skip -> #/lobby): r2/firstrun/branch-844x390-3-home.png (gift modal over black), r2/firstrun/branch-844x390-4-home-nogift.png (all black); Battle tap timed out. Base 5edb7b4c on port 5198: identical (r2/story-black/base-story-844x390-2-home-after.png). nav3: Wiki, Clan and Settings could not be clicked after Journal (logs-r2/nav3-mid-844.log)."
+  },
+  {
+   "id": "M1",
+   "severity": "medium",
+   "title": "Every top-bar redraw leaks a body-wide MutationObserver and two hub listeners; this home redraws the bar on every hub 'badges' event too",
+   "detail": "buildTop() rebuilds the whole bar on each store change and, new in this layout, on every hub 'badges' event (lobby.js hub.on('badges', ...buildTop), the hub refreshes every 5 min and after any social change). Each build calls chatButton() (src/ui/online/lobbyChat.js), which registers hub.on('badges'), hub.on('status') and a MutationObserver on document.body (subtree). They are released only if that observer once saw the button connected; when the bar is rebuilt in the same task the old button never 'was seen', so its observer and listeners live forever and run on every DOM change anywhere (battle included). The mechanism is pre-existing (base leaks too); this home adds a new redraw trigger. Fix: build the chat button once per home render and update its counts in place, or give buildTop a cleanup that calls the old button's stop(); the lobby's teardown should release it too.",
+   "evidence": "scripts/leak.mjs at 844x390, mid: start mos=0 hub net {}; after 30 store commits 60 ms apart: mos=28, hub badges 28 / status 28; after 30 more in one task: mos=58, badges 58 / status 58; window/document listeners flat at 48; 6 Students visits add none. Base 5edb7b4c: 14 then 44 (same mechanism)."
+  },
+  {
+   "id": "M2",
+   "severity": "medium",
+   "title": "Keyboard focus is thrown to <body> whenever the home redraws: the news pager cannot be pressed twice",
+   "detail": "pageNews() rebuilds the chip and drawAll() rebuilds every control on each store change, so the focused element is removed. Pressing Enter on the pager turns 1/3 -> 2/3 and focus lands on BODY; a second Enter does nothing, the next Tab starts again at the first control. A store commit while a dock icon has focus also drops focus (and the hub's 5-minute badges redraw drops focus on the bar's buttons). Fix: after a rebuild, focus the new element with the same data-testid when the old one had focus (one helper around buildNews/drawAll/buildTop), or update in place.",
+   "evidence": "keys1 1280x720 (r2/keys-mid-1280x720.json): pager '1/3 -> 2/3; focus after: BODY', second Enter -> 2/3. keys2 (r2/keys2-1280x720.json): pager focus BODY, secondEnter 2/3; focus on dock-mall + store.commit -> focus BODY."
+  },
+  {
+   "id": "M3",
+   "severity": "medium",
+   "title": "The menu sheet (aria-modal dialog) lets Tab escape to the hidden home behind it, drops focus on close, and its rows ignore Space",
+   "detail": "Now that Clan, Notice, Hide UI and Background live only in the menu, its keyboard path matters more. (1) No focus containment: Tab after Settings goes to BODY and then into the home controls behind the scrim (chip, pager, icons, CO-OP, Battle, chapter), which are opacity 0 / pointer-events none but still focusable, so a keyboard user can activate an invisible Battle. (2) On close by X, Esc or a tap outside, focus goes to BODY instead of back to the menu button. (3) The rows are <a role=\"button\"> handled by click only, so Space (expected for a button) does nothing; Enter works. Fix: trap Tab inside the sheet while open (or make the rest inert), return focus to top-menu on close, use <button> rows or handle Space.",
+   "evidence": "keys1 1280x720: menu first focus menu-sheet-close; Tab sequence ... dock-clan, settings, BODY(outside), lobby-objective(BEHIND hidden), lobby-news-next(BEHIND), dock-students(BEHIND) ... tile-mission(BEHIND), lobby-chapter(BEHIND); Space on menu-formation -> still lobby, sheet open; Enter on menu-bestiary -> bestiary; Esc -> focus BODY. keys2: close by x / esc / outside -> focus BODY, next Tab event-card; spaceOnMenuRow {screen: lobby, sheet: true}."
+  },
+  {
+   "id": "L1",
+   "severity": "low",
+   "title": "Escape does not close the Notice, the Background picker or the login-gift rewards modal on the home",
+   "detail": "keys.js only handles Escape on screens that opt in ([data-primary] or data-keys=\"on\"); the home does neither, so these dismissable modals stay open on Esc while the menu sheet that opened them closes on Esc. Same on base. Opt the home in with data-keys=\"on\" on its root (its own Space handler already exists) or give these modals onEscape.",
+   "evidence": "extras 844x390 (r2/extras-mid-844x390.json): Notice closedByEsc=false, Background picker closedByEsc=false, 'Login Day 1' rewards modal closed by Escape: false; keys2 1280x720: esc_notice false, esc_bgpicker false."
+  },
+  {
+   "id": "L2",
+   "severity": "low",
+   "title": "Space fires Battle while the chat drawer is open",
+   "detail": "The home's Space handler skips the menu sheet, .modal-overlay and .ui-layer but not the chat drawer (.ol-drawer). With the drawer open and focus on its plain area, Space navigates to Missions. Base had the same guard (it pressed the objective). Add .ol-drawer (or any open drawer) to the guard.",
+   "evidence": "scripts/space-drawer.mjs 1280x720, named player: drawer open at x 880 w 400, click at 886,6 (focus BODY), Space -> #/missions, drawer gone (r2/space-with-chat-drawer-1280x720.png)."
+  },
+  {
+   "id": "L3",
+   "severity": "low",
+   "title": "Tab order visits the top bar last",
+   "detail": "DOM order puts .home-ui (chip, icons, CO-OP, plate) before .home-top, so Tab goes chip > pager > 4 icons > CO-OP > Battle > chapter > avatar > gems + > chat > mail > menu, while the eye reads the bar first. Move .home-top before .home-ui in the DOM (z-index already decides the stacking).",
+   "evidence": "keys1 1280x720 TAB ORDER: event-card > lobby-news-next > dock-students > dock-recruit > dock-commissions > dock-mall > lobby-multiplayer > tile-mission > lobby-chapter > account-level > gems-plus > top-chat > top-mail > top-menu. Every one shows a visible focus change."
+  },
+  {
+   "id": "L4",
+   "severity": "low",
+   "title": "With the menu open the avatar block under the scrim reads 3.05-4.05:1",
+   "detail": "The sheet fades the home's controls but keeps the avatar block (name, LV, SNT-HQ) under its scrim; LV and the serial drop below 4.5:1 there. It is inert background text, so low; either fade it with the rest or keep it at 4.5:1.",
+   "evidence": "layout2 --menu (logs-r2/layout-mid.log): 740x360 SNT-HQ 3.05:1, LV 3.49:1; 667x375 3.32 / 3.49; 844x390 3.58 / 3.9; 1280x720 3.72 / 3.93; 390x844 LV 4.05:1. Home itself (menu closed) min 5.06-5.23:1 at all 12 sizes."
+  },
+  {
+   "id": "L5",
+   "severity": "low",
+   "title": "Small layout nits: upright menu-head words at 12 px, SNT-HQ wraps at 768 px wide",
+   "detail": "At 390x844 and 360x800 the menu head's 'Hide UI' / 'Background' are 12 px (passes the 12 px floor, but the repo probe flags it because it treats heights over 480 as desktop with a 13 px floor). At 768x1024 the bar's SNT-HQ serial breaks onto two lines.",
+   "evidence": "logs-r2/layout-mid.log: 390x844 / 360x800 menu probe 'text 12px < 13px (2: Hide UI; Background)'; r2/layout/home-mid-768x1024.png."
+  },
+  {
+   "id": "L6",
+   "severity": "low",
+   "title": "Gates could not be completed green on this machine; they need one clean run on a quiet machine before merge",
+   "detail": "npm test, e2e/home.mjs at 1280x720, e2e/smoke.mjs and e2e/hubs.mjs were all disturbed by a load average of 25-61 from other workflows (timeouts, perf budgets, screenshot and 'stable' timeouts, fallback fonts). Nothing failing points at the branch: the failures are in files and screens it does not touch, hubs fails the same on the base, and the branch's own UI tests and e2e/home.mjs at 844x390 (69/69) and 390x844 (55/55) pass. A clean run of the four on a quiet machine is still owed before merge. Note: neither home.mjs nor smoke.mjs can see B1 (they check the ui-hidden class and the hash, not pixels).",
+   "evidence": "logs-r2/vitest2.log, logs-r2/vitest3-rerun.log, logs-r2/e2e-home3-844x390.log, logs-r2/e2e-home3-390x844.log, logs-r2/e2e-home4-1280x720.log, logs-r2/e2e-smoke.log, logs-r2/e2e-smoke-844.log, logs-r2/e2e-hubs.log, logs-r2/e2e-hubs-base-844-1280-shots.log"
+  }
+ ],
+ "environment": "Shared machine, load average 47-61 from other workflows' Chromium and sims for the whole run; root disk 1.3 GB free (worktree in /dev/shm). Under that load the page's CSS animations stay pending; screenshots of motion states are not evidence."
+}

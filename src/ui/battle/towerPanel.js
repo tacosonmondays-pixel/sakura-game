@@ -211,7 +211,9 @@ export function createTowerPanel(ctx) {
   // never arm or confirm Sell (the M4 review, round r4: taps 1-9 px above the footer armed it, two sold her)
   el.addEventListener('pointerdown', (e) => {
     const f = el.querySelector('.bt-panel-foot')?.getBoundingClientRect();
-    downInFoot = !!f && e.clientY >= f.top && e.clientY <= f.bottom && e.clientX >= f.left && e.clientX <= f.right;
+    // (only the footer's top and left edges border other controls, the rows and the board: a near miss below or to
+    // the right, at the screen's edge, still counts; the M4 review, round r5)
+    downInFoot = !!f && e.clientY >= f.top && e.clientX >= f.left;
   }, true);
   el.addEventListener('click', (e) => {
     if (arm.armedPath(uid) == null) return;
@@ -876,7 +878,7 @@ export function createTowerPanel(ctx) {
     if (t.isHero) {
       const mv = ctx.heroLevels?.moveState(t) || { label: 'Move', disabled: true };
       const own = !ctx.coop || ctx.coop.isMine(t.uid);
-      const moveBtn = own ? h('button.bt-sell.bt-move', { type: 'button', 'data-testid': 'hero-move', disabled: mv.disabled, onclick: () => ctx.startHeroMove?.() }, icon('target', 'bt-ico-sm'), mv.label) : null;
+      const moveBtn = own ? h('button.bt-sell.bt-move', { type: 'button', 'data-testid': 'hero-move', disabled: mv.disabled, onclick: (e) => { if (e.detail === 0 || downInFoot) ctx.startHeroMove?.(); } }, icon('target', 'bt-ico-sm'), mv.label) : null;
       return h('div.bt-panel-foot', moveBtn || h('span'), moreBtn);
     }
     const f = footerView(t.spent, sim.sellValue(t.uid), { armed: !!sellArmed });

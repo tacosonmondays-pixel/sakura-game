@@ -55,6 +55,26 @@ tunnel and both levels of an overpass. Tunnels change coverage, not placement: `
 ignores road samples inside tunnels when it scores a spot (towers cannot see there), and traps
 are never laid inside one.
 
+### Rooftops (Gate Arc, tile `U`)
+
+A flat roof is land a girl can stand on. The rules (`src/sim/placement.js`):
+
+- A girl whose centre is on a roof needs her whole footprint on roof tiles. Every other tile, and the
+  board's outside, is the roof's edge, so a footprint straddling it is `'blocked'`. Inside one region
+  the tile seams are no edge.
+- For a girl on the ground a roof tile blocks like a building (a square obstacle).
+- Water girls cannot stand on a roof (`'needsWater'`); amphibious girls can.
+- The path band still applies, and a road never runs over a roof (the world test refuses it).
+- A roof adds no range or damage: it is a place to stand between two roads.
+- `autoPlan` takes roof lattice points as land, with the distance to the roof's edge as their clearance,
+  and marks such place actions `roof: true`.
+
+The renderer draws one block `ROOF_Y` (0.56) tall under each connected roof region (walls and a low
+parapet on its outline only, an AC unit, a water tank on bigger roofs) and stands roof girls, their
+shadows, rings and companions on it. A tap or a drag over a roof lands on the roof's top first
+(`boardInput.js` `boardPoint`); range circles stay on the ground, where the enemies walk. While a girl
+is being placed, each roof's outline glows so players can see where they may stand.
+
 ### API (CONTRACTS.md §6)
 
 ```js
