@@ -56,7 +56,7 @@ export function render(root, params = {}) {
   const model0 = mailroomModel(mailList(store.profile));
 
   const ls = listScreen({
-    title: 'Mailroom', cls: 'mbx-screen v2h', location: 'mail', host: 'mail', state: mailHostState(model0),
+    title: 'Mailroom', cls: 'mbx-screen v2h', wholeTaps: true, location: 'mail', host: 'mail', state: mailHostState(model0),
     sections: sectionsFor(model0), active: tab, railLabel: 'Mail sections', headTestid: 'mail-head',
     onPick: (id) => {
       if (id === tab) return;

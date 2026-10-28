@@ -42,7 +42,7 @@ export function render(root, params = {}) {
   let tab = HAPPENING_SECTIONS.includes(params.tab) ? params.tab : 'now';
   const model0 = modelNow();
   const ls = listScreen({
-    title: 'Happening Now', cls: 'ma-rewards-screen hn-screen v2h', location: 'happening', host: 'happening', state: happeningHostState(model0),
+    title: 'Happening Now', cls: 'ma-rewards-screen hn-screen v2h', wholeTaps: true, location: 'happening', host: 'happening', state: happeningHostState(model0),
     sections: sections(), active: tab, railLabel: 'Happening Now sections', headTestid: 'happening-head',
     onPick: (id) => {
       if (id === tab) return;

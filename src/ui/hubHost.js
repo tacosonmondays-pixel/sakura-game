@@ -42,9 +42,9 @@ export function listMode({ vw, vh }) {
 
 /**
  * [ui-v2 M5] A scrolling list at rest never cuts a control across its middle (P6: a tap is 44 px): when an edge of the
- * list crosses a button with the button's middle still in view, the list scrolls back by the hidden part (at the top)
- * or past its middle (at the bottom), so the button shows whole or its middle leaves the view. Runs once now and after
- * every scroll that comes to rest. Returns the stop function.
+ * list crosses a button with the button's middle still in view, the list moves to the nearest place (up or down, at
+ * most 66 px) where every button shows whole or has its middle out of view. Runs once now and after every scroll that
+ * comes to rest, like a soft scroll snap. Returns the stop function.
  * @param {HTMLElement} list the scroller
  * @returns {() => void}
  */
@@ -54,16 +54,27 @@ export function keepWholeTaps(list) {
   const settle = () => {
     if (!list.isConnected || list.scrollHeight <= list.clientHeight + 1) return;
     const box = list.getBoundingClientRect();
-    let up = 0;
-    for (const c of list.querySelectorAll(CONTROLS)) {
-      const r = c.getBoundingClientRect();
-      if (!r.height) continue;
-      const mid = (r.top + r.bottom) / 2;
-      // cut at the top with its middle in view: show it whole; cut at the bottom with its middle in view: push it out
-      if (r.top < box.top - 0.5 && r.bottom > box.top && mid >= box.top) up = Math.max(up, box.top - r.top + 1);
-      else if (r.bottom > box.bottom + 0.5 && r.top < box.bottom && mid <= box.bottom) up = Math.max(up, box.bottom - mid + 1);
+    const rects = [...list.querySelectorAll(CONTROLS)].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
+    // (a control is fine whole in view, wholly out of it, or cut with its middle out of view)
+    const clean = (d) => rects.every((r) => {
+      const top = r.top - d;
+      const bottom = r.bottom - d;
+      const mid = (top + bottom) / 2;
+      if (top >= box.top - 0.5 && bottom <= box.bottom + 0.5) return true;
+      if (bottom <= box.top || top >= box.bottom) return true;
+      return mid < box.top || mid > box.bottom;
+    });
+    const s = list.scrollTop;
+    const max = list.scrollHeight - list.clientHeight;
+    // the nearest resting place, up or down, by at most one tap and a half
+    for (let k = 0; k <= 66; k++) {
+      for (const d of k ? [-k, k] : [0]) {
+        if (s + d < 0 || s + d > max) continue;
+        if (!clean(d)) continue;
+        if (d) list.scrollTop = s + d;
+        return;
+      }
     }
-    if (up > 0) list.scrollTop = Math.max(0, list.scrollTop - Math.ceil(up));
   };
   let t = null;
   const later = () => {

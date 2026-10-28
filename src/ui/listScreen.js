@@ -10,7 +10,7 @@ import { h } from './dom.js';
 import { screen } from './components.js';
 import { sideRail, plateHead } from './kit.js';
 import { hubBackdrop } from './hubArt.js';
-import { listHost, listMode, placeHost, viewport, watchHostMode } from './hubHost.js';
+import { listHost, listMode, placeHost, viewport, watchHostMode, keepWholeTaps } from './hubHost.js';
 import { linesFor } from './hostLines.js';
 import { store } from '../core/store.js';
 import { tabSwap } from './motion.js';
@@ -21,12 +21,13 @@ import { tabSwap } from './motion.js';
  *   onPick: (id: string) => void, railLabel?: string, headTestid?: string|null, panel?: boolean }} o
  *   location: a hubArt.js HUB_LOCATIONS key, or null for the plain sky; host: the hosts.js screen key ('mail', 'mall',
  *   'happening'), or null for no host (Settings); panel: false leaves the list without its glass panel and plate
- *   header (Settings: each section brings its own)
+ *   header (Settings: each section brings its own); wholeTaps: [ui-v2 M5] the list at rest never cuts a control across
+ *   its middle (hubHost.js keepWholeTaps: the Mailroom, Happening Now)
  * @returns {{ el: HTMLElement, body: HTMLElement, ls: HTMLElement, rail: ReturnType<typeof sideRail>, head: HTMLElement,
  *   list: HTMLElement, host: HTMLElement|null, setHead: (title: string, right?: any[]) => void,
  *   setLines: (state: object) => void, setSections: (sections: object[], active: string) => void, cleanup: () => void }}
  */
-export function listScreen({ title, cls = '', location = 'academy', host: hostKey = null, state = {}, sections, active, onPick, railLabel = 'Sections', headTestid = null, panel = true }) {
+export function listScreen({ title, cls = '', location = 'academy', host: hostKey = null, state = {}, sections, active, onPick, railLabel = 'Sections', headTestid = null, panel = true, wholeTaps = false }) {
   const { el, body } = screen(title, { cls: `ls-screen${cls ? ` ${cls}` : ''}` });
   if (location) el.insertBefore(hubBackdrop(location), el.firstChild);
   el.dataset.keys = 'on'; // (E8: Esc goes back here even when the screen has no yellow for Space to press)
@@ -59,6 +60,8 @@ export function listScreen({ title, cls = '', location = 'academy', host: hostKe
     });
   }
 
+  const offWhole = wholeTaps ? keepWholeTaps(list) : () => {};
+
   return {
     el,
     body,
@@ -86,6 +89,7 @@ export function listScreen({ title, cls = '', location = 'academy', host: hostKe
     },
     cleanup() {
       offResize();
+      offWhole();
     },
   };
 }
