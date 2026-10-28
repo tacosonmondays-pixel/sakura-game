@@ -151,6 +151,9 @@ export const GLYPHS = {
   champion: '<ellipse cx="12" cy="10" rx="7.5" ry="3"/><path d="M4.5 10v5.5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V10"/><path d="M5.5 2.5l4.5 4.5M18.5 2.5L14 7" stroke-width="2.2"/>',
   puppeteer: '<path d="M4 4h16M12 2v4.5"/><path d="M6 4v8.5M18 4v8.5M12 6.5v4.2" stroke-width="1.2"/><circle cx="12" cy="12.8" r="2.1"/><path d="M12 14.9v3.4M9 16.6l3-1.2 3 1.2M10 21.5l2-3.2 2 3.2"/>',
   stormrider: '<path d="M3.5 20.5L16.5 7.5"/><path d="M14.5 3.5l6 .5.5 6z" fill="currentColor"/><path d="M8.5 3.5L5.5 8.5h3L7 13" stroke-width="1.6"/>',
+  // the staff heroes of the banners wave (BANNERS §D): a walker's arm with a rivet; an A-frame barricade
+  pilot: '<rect x="4" y="6" width="9" height="7" rx="1.5"/><path d="M6.5 13l-1.5 7M10.5 13l1.5 7M3.5 20.5h4M10 20.5h4M13 9.5h5l2.5-2"/><circle cx="20.5" cy="7.5" r="1.2" fill="currentColor"/>',
+  blocker: '<path d="M3 9h18v4.5H3z"/><path d="M7 9l2 4.5M12 9l2 4.5M17 9l2 4.5" stroke-width="1.4"/><path d="M5.5 13.5l-1.5 7M18.5 13.5l1.5 7M5.5 9l1-4.5M18.5 9l-1-4.5"/>',
   // the new girls (UNIT_GAPS §5)
   bowler: '<circle cx="10" cy="14" r="6.5"/><circle cx="8" cy="12" r=".9" fill="currentColor"/><circle cx="11" cy="11.2" r=".9" fill="currentColor"/><circle cx="9.6" cy="14.3" r=".9" fill="currentColor"/><path d="M14.5 9.5l3-3M17 4.5l1.2 1.2M19.5 6l1.5-.5" stroke-width="1.5"/>',
   botanist: '<path d="M12 21.5V11"/><path d="M12 13c-4 0-6.5-2.5-6.5-6.5 4 0 6.5 2.5 6.5 6.5zM12 11c0-3.5 2.2-6 6-6 0 3.8-2.5 6-6 6z" fill="currentColor" fill-opacity=".3"/><path d="M7 21.5h10" stroke-width="1.6"/>',

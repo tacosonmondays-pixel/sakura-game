@@ -166,6 +166,9 @@ const KIT_FIT = Object.freeze({
   // the duo (DUO_LR §1): no aura; her shells are a mortar and Kohaku's beam fires outside the gear wrap, so gear
   // Pierce reaches neither yet and fills in too (Prismfall is hasted)
   kohaku_tsubaki: { fill: [...DEAD_TOWER, 'piercePct'] },
+  // the staff heroes (BANNERS §D): as Hikari and Nami (no aura anywhere on their kits)
+  kogane: { fill: ['auraPct'] },
+  norika: { fill: ['auraPct'] },
 });
 export const GEAR_FIT = Object.freeze(Object.fromEntries(Object.entries(KIT_FIT).map(([id, row]) => [
   id,

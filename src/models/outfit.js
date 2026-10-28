@@ -36,6 +36,10 @@ export function outfitSpec(unit, pal, look) {
     case 'blazer':
       set(pal.outfit, pal.outfit, pal.outfit, pal.outfitShade, TIGHTS_DARK, TIGHTS_DARK, '#241c22');
       break;
+    case 'sash':
+      // a staff blazer over slacks and rain boots (Norika, BANNERS §D.4)
+      set(pal.outfit, pal.outfit, '#f7f7fb', pal.outfit, pal.outfit, pal.outfit, '#20242e');
+      break;
     case 'miko':
       set(pal.outfit, pal.outfit, pal.outfit, pal.accent, pal.accent, pal.accent, '#f4f1ec');
       break;
@@ -341,6 +345,28 @@ export function buildOutfit(ctx) {
       }
       add(buttons(ctx, [-0.08], [1.08, 0.96], 0.17, acc));
       add(band(ctx, 0.96, 0.18, 0.62, 0.4, o, BONES.hips));
+      add(cuff(ctx, 1, 0.68, 0.13, 0.04, white));
+      add(cuff(ctx, -1, 0.68, 0.13, 0.04, white));
+      break;
+    }
+    case 'sash': {
+      // Norika's staff blazer: shirt collar and tie, lapels, a reflective high-visibility sash from shoulder to hip
+      // with silver stripes, a whistle on its lanyard; white gloves (her forearms' region) and navy slacks.
+      add(shirtCollar(ctx, white));
+      add(necktie(ctx, os));
+      for (const side of [-1, 1]) {
+        const pts = smoothPath([[side * 0.2, 1.6, 0.06], [side * 0.18, 1.42, 0.13], [side * 0.06, 1.18, 0.17]], 6);
+        add(part(strand(pts, (t) => [0.07 + 0.03 * Math.sin(t * Math.PI), 0.025], { radial: 6, up: () => new THREE.Vector3(0, 0.3, 1).normalize() }), { color: o.clone().multiplyScalar(0.8), bone: BONES.chest }));
+      }
+      const sashPts = smoothPath([[0.34, 1.66, -0.02], [0.2, 1.42, 0.2], [-0.12, 1.12, 0.22], [-0.42, 0.98, 0.06]], 10);
+      add(part(strand(sashPts, () => [0.11, 0.025], { radial: 6, up: () => new THREE.Vector3(0, 0, 1) }), {
+        color: (p) => (Math.abs(Math.sin((p.x + p.y) * 18)) > 0.86 ? col('#e8eef2') : acc), bone: BONES.chest,
+      }));
+      const lanyard = smoothPath([[-0.16, 1.6, 0.1], [-0.12, 1.4, 0.2], [-0.02, 1.3, 0.22]], 6);
+      add(part(strand(lanyard, () => [0.015, 0.015], { radial: 4, up: () => new THREE.Vector3(0, 0, 1) }), { color: col('#d94a4a'), bone: BONES.chest }));
+      add(part(cyl(0.04, 0.05, 0.12, 8), { pos: [-0.02, 1.27, 0.24], rot: [0, 0, 1.4], color: col('#d9dde6'), bone: BONES.chest }));
+      add(buttons(ctx, [-0.08], [1.08, 0.96], 0.17, col('#d9a93c')));
+      add(band(ctx, 0.96, 0.14, 0.62, 0.4, os, BONES.hips));
       add(cuff(ctx, 1, 0.68, 0.13, 0.04, white));
       add(cuff(ctx, -1, 0.68, 0.13, 0.04, white));
       break;

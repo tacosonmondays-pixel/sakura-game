@@ -74,6 +74,8 @@ const HERO_SKILL = {
   hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'],
   // §5.2 the returning heroes
   kanna: ['Heavy Beat', 'boost'], yoriko: ['Puppet Hex', 'debuff'], seiran: ['Storm Lance', 'strike'],
+  // BANNERS §D the staff heroes
+  kogane: ['Pod Salvo', 'strike'], norika: ['Whistle Stop', 'strike'],
 };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
 const MULTI_PATH = { ruri: 3 };
@@ -356,6 +358,20 @@ const SPEC_HEROES = {
     auto: { when: 'enemies', min: 4 }, // (not in the spec)
     ranks: [{ level: 17, cooldown: 25, effect: { count: 12, dmgMul: 4 } }],
   },
+  // BANNERS §D.3, §D.4: the staff heroes (auto rules: ours, not the spec's)
+  kogane: {
+    id: 'kogane.podSalvo', kind: 'strike', scope: 'local', cooldown: 28, duration: 0,
+    effect: { pick: 'strong', count: 4, reachMul: 1.3, dmgMul: 4, splash: 0.4, armorPen: 3 },
+    auto: { when: 'enemies', min: 4, orElite: true },
+    ranks: [{ level: 17, cooldown: 24, effect: { count: 6, dmgMul: 5 } }],
+  },
+  norika: {
+    // (ground only: hitsAir false; minibosses hold half as long and bosses not at all, the `hold` status's own rule)
+    id: 'norika.whistleStop', kind: 'strike', scope: 'local', cooldown: 26, duration: 0,
+    effect: { pick: 'mode', count: 5, reachMul: 1.3, dmgMul: 3, hitsAir: false, status: [{ type: 'hold', duration: 1.2 }] },
+    auto: { when: 'enemies', min: 5, orElite: true },
+    ranks: [{ level: 17, cooldown: 22, effect: { count: 8, dmgMul: 4, status: [{ type: 'hold', duration: 1.6 }] } }],
+  },
 };
 
 /** The spec's upgrade column applied to its base row: named values replace, the rest carry over. */
@@ -368,7 +384,9 @@ const STATUS_LIST = ['status'];
 const EFFECT_KEYS = {
   strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', 'after',
     // (A3 M3: Kaze's Swoop's fallback pick, Moon Pounce's reach on top of her range from Kon's spot and its hold bosses shrug off)
-    'fallback', 'reachAdd', 'fromOrigin', 'noBossStatus', ...STATUS_LIST],
+    'fallback', 'reachAdd', 'fromOrigin', 'noBossStatus',
+    // (Whistle Stop: ground only)
+    'hitsAir', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST,
     // (Prismfall: its shards and the LR Twin Star)
     'shards', 'shardMul', 'shardRadius', 'finale'],

@@ -43,6 +43,16 @@ export const ABILITY_TEXT = Object.freeze({
     'a thrown lance that chains through a crowd',
     'Storm Lance chains through {count} enemies at {dmgMul}× her hit and recharges in {cd}s.'),
 
+  // the staff heroes
+  'kogane.podSalvo': t('Pod Salvo', 'blast',
+    'Big Yellow\'s missile pods fire at the {count} strongest enemies within {reach} tiles: a blast of {dmg} damage on each (splash {splash} tiles) that ignores {armorPen} more armor.',
+    'a missile salvo at the strongest enemies near her',
+    'Pod Salvo fires at {count} enemies at {dmgMul}× her hit and recharges in {cd}s.'),
+  'norika.whistleStop': t('Whistle Stop', 'stun',
+    'One long whistle: the {count} lead walkers within {reach} tiles stop for {hold}s (minibosses for half as long, bosses not at all) and take {dmg} damage.',
+    'a whistle that stops the lead walkers in their tracks',
+    'Whistle Stop stops {count} walkers for {hold}s at {dmgMul}× her hit and recharges in {cd}s.'),
+
   // towers (tier 3 of the ⚡ path, upgraded at tier 5)
   'aoi.skyfall': t('Skyfall Volley', 'pierce',
     'Rains arrows on up to {count} enemies within {reach} tiles, picked by her target mode: {dmg} damage each and a {stun}s pin.',

@@ -58,6 +58,9 @@ const ROSTER = [
   ['marumi', 'tower', 'SR', 'bowler', 'blast', null, 'land', 'cog', 'gacha'],
   // the duo unit (docs/specs/DUO_LR.md, src/data/unitsDuo.js)
   ['kohaku_tsubaki', 'tower', 'SSR', 'battery', 'blast', null, 'land', 'ember', 'gacha'],
+  // the staff heroes of the banners wave (BANNERS §D, src/data/unitsStaff.js)
+  ['kogane', 'hero', 'SSR', 'pilot', 'pierce', null, 'land', 'blade', 'gacha'],
+  ['norika', 'hero', 'SR', 'blocker', 'blast', null, 'land', 'rime', 'gacha'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -70,12 +73,18 @@ const PALETTE_KEYS = ['hair', 'hairShade', 'eyes', 'skin', 'outfit', 'outfitShad
 const LOOK_ENUMS = {
   hairStyle: ['twintails', 'ponytail', 'long', 'bob', 'braid', 'buns', 'short', 'side', 'hime', 'wavy'],
   bangs: ['straight', 'swept', 'split', 'hime', 'messy'],
-  accessory: ['ribbon', 'bunnyEars', 'catEars', 'foxEars', 'hairpin', 'beret', 'witchHat', 'horns', 'flower', 'goggles', 'hood', 'headband', 'crown', 'cap', 'none'],
-  outfit: ['sailor', 'blazer', 'miko', 'kimono', 'hoodie', 'dress', 'armor', 'coat', 'apron', 'jumpsuit', 'robe'],
+  accessory: ['ribbon', 'bunnyEars', 'catEars', 'foxEars', 'hairpin', 'beret', 'witchHat', 'horns', 'flower', 'goggles', 'hood', 'headband', 'crown', 'cap', 'none',
+    // the staff heroes (BANNERS §D.3)
+    'hardhat'],
+  outfit: ['sailor', 'blazer', 'miko', 'kimono', 'hoodie', 'dress', 'armor', 'coat', 'apron', 'jumpsuit', 'robe',
+    // the staff heroes (BANNERS §D.4: a staff blazer with a safety sash, over slacks)
+    'sash'],
   weapon: ['bow', 'katana', 'staff', 'cannon', 'rifle', 'shuriken', 'tome', 'bell', 'wrench', 'lantern', 'flask', 'parasol', 'trident', 'fan', 'rapier', 'gohei', 'coinPurse', 'sword',
     'mic', 'shield', 'mirror', 'spear', 'mallet', 'puppet', 'cards',
     // the new girls' props (UNIT_GAPS §5)
-    'strip', 'needle', 'tablet', 'banner', 'wateringCan', 'ball'],
+    'strip', 'needle', 'tablet', 'banner', 'wateringCan', 'ball',
+    // the staff heroes (BANNERS §D.4: Norika's STOP paddle)
+    'sign'],
   halo: ['ring', 'star', 'petal', 'gear', 'moon', 'flame', 'wave', 'crown', 'snow', 'bolt', 'leaf', 'eye'],
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
@@ -92,7 +101,9 @@ const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'sile
   // Kaede's blade arts (src/sim/towers.js bladeArts)
   'blade',
   // the duo's partner beam and prism (src/sim/duo.js)
-  'duo'];
+  'duo',
+  // Norika's barricades (src/sim/barricades.js)
+  'barricade'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -230,6 +241,9 @@ function modSetErrors(mods, where) {
     ball: (k, v, w) => ballErrors(v, w),
     blade: (k, v, w) => objErrors(v, BLADE_NUMS, w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
+    // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
+    moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),
+    barricade: (k, v, w) => barricadeErrors(v, w),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -264,6 +278,13 @@ const SENTRY_NUMS = ['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 
 const SENTRY_FLAGS = ['kits', 'netElite', 'netBoss'];
 function sentryErrors(v, w) {
   return objErrors(v, [...SENTRY_NUMS, ...SENTRY_FLAGS], w, (kk, vv, ww) => (SENTRY_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
+}
+
+// Norika's barricades (src/sim/mods.js normBarricade): numbers add, flags are `true`.
+const BARRICADE_NUMS = ['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'bounce', 'breakSlow', 'releaseSlow', 'oneWay', 'lineAdd'];
+const BARRICADE_FLAGS = ['reveal', 'miniHalf', 'detour'];
+function barricadeErrors(v, w) {
+  return objErrors(v, [...BARRICADE_NUMS, ...BARRICADE_FLAGS], w, (kk, vv, ww) => (BARRICADE_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
 // The bowler (src/sim/mods.js normBall): numbers add, flags are `true`.
@@ -309,6 +330,7 @@ function baseErrors(b, where) {
   }
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
   if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
+  if (b.barricade) errs.push(...barricadeErrors(b.barricade, `${where}.barricade`));
   if (b.vine) errs.push(...objErrors(b.vine, VINE_NUMS, `${where}.vine`, numCheck));
   if (b.duo) {
     errs.push(...objErrors(b.duo, DUO_NUMS, `${where}.duo`, numCheck));
@@ -806,7 +828,7 @@ describe('design requirements', () => {
 });
 
 describe('hero definitions', () => {
-  const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide', kanna: 'strike', yoriko: 'tide', seiran: 'runner' };
+  const ULT = { hikari: 'nova', luna: 'timeWarp', nami: 'tide', kanna: 'strike', yoriko: 'tide', seiran: 'runner', kogane: 'runner', norika: 'barricade' };
   // Every old upgrade tier and level milestone, frozen: the 25-level track must carry each exactly once.
   const OLD_REFS = {
     hikari: ['radiant', 'sanctuary', 'lightbringer'],
@@ -815,6 +837,8 @@ describe('hero definitions', () => {
     kanna: ['rhythm', 'oni', 'dance'],
     yoriko: ['threads', 'theatre', 'nightmare'],
     seiran: ['tempest', 'skyguard', 'rain'],
+    kogane: ['drill', 'dozer', 'pods'],
+    norika: ['barrier', 'guard', 'detour'],
   };
   // Live (pre-rework) price of the cheapest path source of each capability (tiers 1..n summed);
   // 'T5' = only a tier 5 granted it (exempt from rule 5, it stays on its tier-5 level).
@@ -826,6 +850,9 @@ describe('hero definitions', () => {
     kanna: { stun: 1470, armorPen: 140, barrierBreak: 1540, antiAir: 1400, reveal: 4300, slow: 'T5' },
     yoriko: { stun: 1380, buff: 140, silence: 1440, armorPen: 1400 },
     seiran: { stun: 1570, grounding: 1440, armorPen: 'T5', buff: 420, slow: 1420 },
+    // the staff heroes: their old tower paths (UNIT_GAPS §5.11, §5.12 prices; BANNERS §D.3, §D.4 tiers), never live
+    kogane: { antiAir: 1370, detection: 1430, stun: 430, barrierBreak: 4630, armorShred: 4960 },
+    norika: { antiAir: 120, detection: 390, slow: 1340 },
   };
   const priceTo = (level) => HERO_LEVEL_PRICES.slice(0, level - 1).reduce((a, b) => a + b, 0);
 
@@ -891,6 +918,9 @@ describe('hero definitions', () => {
       } else if (e.type === 'strike') {
         expect(isPos(e.damage) && ['strongest', 'first'].includes(e.target) && (e.splash ?? 0) >= 0).toBe(true);
         if (e.splash) expect(e.splashMul > 0 && e.splashMul <= 1).toBe(true);
+      } else if (e.type === 'barricade') {
+        // Hold the Line: count barricades of `budget` for `duration` s, +held damage on the enemies they hold
+        expect(Number.isInteger(e.count) && e.count >= 1 && isPos(e.budget) && isPos(e.duration) && e.held >= 0 && typeof e.mini === 'boolean').toBe(true);
       } else if (e.type === 'runner') {
         expect(isPos(e.damage) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
         // a fixed flight (`length` tiles) or the whole road back to START (`toStart`, never slower than `minSpeed`)

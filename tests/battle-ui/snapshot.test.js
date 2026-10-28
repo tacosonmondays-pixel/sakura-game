@@ -1554,6 +1554,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const k of fields(tenkaLabRun().sim)) keys.add(k);
     // (and Tenka's wells and Last Line: the zone list and the near-exit count)
     for (const k of fields(tenkaWellRun().sim)) keys.add(k);
+    // (and Norika's barricades: the blocker count)
+    for (const k of fields(staffRun('norika', 25).sim)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_SIM_KEYS).sort());
   });
 
@@ -1612,6 +1614,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of tenkaWellRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the duo: her Refraction and volley counts, Kohaku's beam timer and spec)
     for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the staff heroes: Norika's barricades, Hold the Line and One-Way Street; Kogane's Overdrive)
+    for (const id of ['norika', 'kogane']) for (const t of staffRun(id, 25).sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 
@@ -1816,5 +1820,103 @@ describe('the duo in a battle save (src/sim/duo.js)', SLOW, () => {
     expect(held.prismN).toBe(1); // every 2nd shell: at most 1 since the last split
     expect(held.duoVolley ?? 0).toBe(0); // (not a number: left fresh)
     expect(held.duoCd).toBe(600);
+  });
+});
+
+/**
+ * A staff hero (BANNERS §D) with Aoi on 2-5 at P6, levelled to `level`, through one wave: Norika casts Hold the
+ * Line whenever it is ready; Kogane Moves mid-wave (Overdrive) and plows.
+ */
+function staffRun(hero, level) {
+  const c = { stageId: '2-5', difficulty: 'normal', towers: ['aoi'], hero, stats: { damageMul: 2, potential: 6 }, seed: 3315 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan(c.stageId, ['aoi', hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const h = sim.heroes[0];
+  expect(h?.unitId).toBe(hero);
+  for (let i = 0; i < 30 && h.level < level; i++) sim.buyHeroLevel();
+  sim.startNextWave();
+  let moved = false;
+  let lines = 0;
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    sim.drainEvents();
+    if (h.ultUnlocked && h.ultCooldown <= 0 && sim.enemies.length) sim.activateUlt();
+    if (h.lines?.length) lines = Math.max(lines, h.lines.length);
+    if (!moved && hero === 'kogane' && sim.enemies.length > 0) {
+      for (let y = 0.5; y < sim.map.height && !moved; y += 0.5) {
+        for (let x = 0.5; x < sim.map.width && !moved; x += 0.5) {
+          if (Math.hypot(x - h.x, y - h.y) > 2 && sim.canMoveHero(x, y).ok) moved = sim.moveHero(x, y).ok;
+        }
+      }
+    }
+  }
+  // (a rivet still in flight when the last enemy fell fizzles: a calm point holds no projectile)
+  for (let i = 0; i < 120 && sim.projectiles.length; i++) sim.update(STEP);
+  sim.drainEvents();
+  return { c, sim, h, moved, lines };
+}
+
+describe('the staff heroes in a battle save (BANNERS §D.6)', SLOW, () => {
+  it('every field of theirs is classified (KNOWN_TOWER_KEYS / KNOWN_SIM_KEYS)', () => {
+    for (const [id, lv] of [['norika', 25], ['kogane', 25]]) {
+      const { sim } = staffRun(id, lv);
+      for (const t of sim.towers) for (const k of Object.keys(t)) expect(KNOWN_TOWER_KEYS, `${id}: ${k}`).toHaveProperty(k);
+      for (const k of Object.keys(sim).filter((x) => typeof sim[x] !== 'function')) expect(KNOWN_SIM_KEYS, `${id}: sim.${k}`).toHaveProperty(k);
+    }
+  });
+
+  it.each([['norika', 25], ['kogane', 20]])('%s: Quit → migrateProfile → Continue restores her state and plays on exactly', async (hero, level) => {
+    const { createProfile, migrateProfile } = await import('../../src/systems/save.js');
+    const { c, sim, h, moved, lines } = staffRun(hero, level);
+    if (hero === 'norika') {
+      expect(lines).toBeGreaterThan(0); // Hold the Line stood during the wave …
+      expect(h.lines).toEqual([]); // … and ended with it
+      expect(h.bars.length).toBeGreaterThan(0);
+      expect(h.bars.every((b) => b.hp === b.max && b.down === 0)).toBe(true); // the wave clear refilled them
+    } else {
+      expect(moved).toBe(true);
+      expect(h.overdriveLeft).toBe(0); // Overdrive ended with the wave
+    }
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === hero);
+    if (hero === 'norika') expect(row.br).toHaveLength(h.bars.length);
+    else expect(row.br).toBeUndefined();
+    // Quit: the record goes into the profile; the next load migrates it
+    const p = createProfile();
+    const rec = recordOf(c, snap);
+    p.battleSaves = { [rec.slot]: rec };
+    const loaded = migrateProfile(JSON.parse(JSON.stringify(p)));
+    const back = loaded.battleSaves[rec.slot];
+    expect(back).toBeTruthy();
+    const { sim: cont, dropped } = restoreSim(back, { settings: { autoStart: false } });
+    expect(dropped).toEqual([]);
+    const bh = cont.heroes[0];
+    expect(bh.unitId).toBe(hero);
+    expect(bh.moveCd).toBe(h.moveCd);
+    if (hero === 'norika') expect(bh.bars).toEqual(h.bars);
+    expect(JSON.stringify(snapshotSim(cont))).toBe(JSON.stringify(snap));
+    expect(diffPaths(digest(cont, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    // Continue: the next wave plays the same on both
+    wrapWaves(cont, c.seed);
+    for (const s of [sim, cont]) expect(s.startNextWave()).toBeTruthy();
+    for (let i = 0; i < 60 * 600 && (sim.state === 'wave' || cont.state === 'wave'); i++) {
+      for (const s of [sim, cont]) {
+        if (s.state === 'wave') s.update(STEP);
+        s.drainEvents();
+      }
+    }
+    expect(bh.damageDealt).toBe(h.damageDealt);
+    expect(diffPaths(digest(cont, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    if (hero === 'norika') {
+      // an older save (no `br`): her barricades come back at the spots her restored range picks, on the first step
+      const old = JSON.parse(JSON.stringify(snap));
+      delete old.towers.find((t) => t.u === 'norika').br;
+      const fresh = restoreSim(recordOf(c, old)).sim;
+      expect(fresh.heroes[0].bars).toEqual([]);
+      fresh.update(STEP);
+      expect(fresh.heroes[0].bars.length).toBeGreaterThan(0);
+    }
   });
 });

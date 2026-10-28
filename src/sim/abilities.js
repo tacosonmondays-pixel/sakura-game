@@ -704,7 +704,8 @@ function chainTargets(sim, t, x, y, reach, spec, count) {
 function strikeTargets(sim, t, def, spec) {
   const e = def.effect;
   const reach = abilityReach(t, def);
-  const count = e.count ?? Infinity;
+  // (a hero's Potential may add targets to her skill: Norika's Loud Whistle; absent on everyone else)
+  const count = (e.count ?? Infinity) + (t.isHero && t.stats.skillCount > 0 ? t.stats.skillCount : 0);
   const { x, y } = castFrom(t, def, FROM);
   if (e.pick === 'poisoned') {
     const all = gatherTargets(sim, x, y, reach, spec, []);

@@ -47,11 +47,11 @@ export const LISTS = Object.freeze({
   /** Student Spotlight select SSR (towers; premium and standard alternate, J12). */
   tower: [{ since: BANNER_EPOCH, list: ['iroha', 'hotaru', 'ena', 'kaede', 'chika'] }],
   /** Guardian Spotlight select SSR (heroes; Hikari is the starter and never featured). */
-  hero: [{ since: BANNER_EPOCH, list: ['kanna', 'luna', 'yoriko', 'seiran'] }],
+  hero: [{ since: BANNER_EPOCH, list: ['kanna', 'luna', 'yoriko', 'seiran', 'kogane'] }],
   /** SR towers, gacha-only girls first (the rate-up order). */
   srTower: [{ since: BANNER_EPOCH, list: ['akane', 'ruri', 'raika', 'miko', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'noa', 'yuzuha', 'ouka', 'marumi', 'chigusa'] }],
   /** SR heroes (one is the Guardian Spotlight's hero SR rate-up). */
-  srHero: [{ since: BANNER_EPOCH, list: ['nami'] }],
+  srHero: [{ since: BANNER_EPOCH, list: ['nami', 'norika'] }],
   /** LR units in the daily LR tab (after their debut weeks). */
   legend: [{ since: BANNER_EPOCH, list: ['tenka', 'kohaku_tsubaki'] }],
 });
@@ -121,6 +121,7 @@ export const SPOTLIGHT_TITLES = Object.freeze({
   luna: 'Moonlit Study Hall',
   yoriko: 'Strings and Stages',
   seiran: 'Stormwatch',
+  kogane: 'Clear the Road',
 });
 
 /**

@@ -13,6 +13,7 @@ import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
 import { BREW_TARGETS_MAX } from './constants.js';
 import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
+import { BARRICADES_PER_HERO } from './constants.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
 const MUL_KEYS = ['rateMul', 'eliteMul', 'bossMul', 'barrierMul', 'airMul'];
@@ -293,6 +294,38 @@ function normDuo(t = {}) {
     fullEvery: t.fullEvery ?? 0,
   };
 }
+/**
+ * Norika's barricades (BANNERS §D.4; src/sim/barricades.js): only a hero whose base declares `barricade`
+ * carries this block, so every other girl resolves exactly as before it existed. Numbers add (budgetMul
+ * multiplies; rebuild: the shortest wins), flags OR.
+ *   count     her own barricades on the road (at most BARRICADES_PER_HERO)
+ *   budget    hold budget of each (× budgetMul)                rebuild / rebuildCut  seconds to rebuild a broken one
+ *   held      held enemies take +held damage (also Hold the Line's on top)   reveal  held enemies are revealed
+ *   bounce    tiles an enemy reaching a full barricade is knocked back, once   breakSlow  a breaking barricade's slow
+ *   releaseSlow  enemies a breaking barricade releases are slowed    miniHalf  minibosses drain at half rate
+ *   detour    Detour Sign (forks: her waves send enemies down the longer branch; no forks: +50% budget)
+ *   oneWay    once per wave, the first N enemies to reach her barricades are sent back      lineAdd  Hold the Line +N
+ */
+function normBarricade(t = {}) {
+  return {
+    count: t.count ?? 1,
+    budget: t.budget ?? 120,
+    budgetMul: t.budgetMul ?? 1,
+    rebuild: t.rebuild ?? 3,
+    rebuildCut: t.rebuildCut ?? 0,
+    held: t.held ?? 0,
+    reveal: !!t.reveal,
+    bounce: t.bounce ?? 0,
+    breakSlow: t.breakSlow ?? 0,
+    releaseSlow: t.releaseSlow ?? 0,
+    miniHalf: !!t.miniHalf,
+    detour: !!t.detour,
+    oneWay: t.oneWay ?? 0,
+    lineAdd: t.lineAdd ?? 0,
+  };
+}
+const BARRICADE_ADDS = ['count', 'budget', 'rebuildCut', 'held', 'bounce', 'breakSlow', 'releaseSlow', 'oneWay', 'lineAdd'];
+const BARRICADE_FLAGS = ['reveal', 'miniHalf', 'detour'];
 const DUO_ADDS = ['beamDmg', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'rampPer', 'rampMax', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardShred', 'shardVuln'];
 const DUO_MULS = ['beamRate', 'beamAir', 'beamMul'];
 const DUO_MAX = ['shards', 'beamSilence', 'shardSlow', 'slowTime', 'vulnTime'];
@@ -444,6 +477,8 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.ball ? { ball: normBall(b.ball) } : null),
     ...(b.blade ? { blade: normBlade(b.blade) } : null),
     ...(b.duo ? { duo: normDuo(b.duo) } : null),
+    // Norika's barricades (only a hero whose base declares them)
+    ...(b.barricade ? { barricade: normBarricade(b.barricade) } : null),
     // Tenka's keys only when the base has them (no girl does today: no null defaults, see normLab)
     ...(b.lab ? { lab: normLab(b.lab) } : null),
     ...(b.well ? { well: normWell(b.well) } : null),
@@ -501,6 +536,8 @@ function mergeProc(cur, v) {
 function mergeUlt(cur, v) {
   const u = cur || { haste: 0, radius: 0, duration: 0, buffDuration: 0, rateBuff: 0, damageMul: 1, status: [], statusAdd: [] };
   for (const k of ['haste', 'radius', 'duration', 'buffDuration', 'rateBuff']) if (typeof v[k] === 'number') u[k] += v[k];
+  // (a runner ult's length: Kogane's Wide Blade; absent on every other step)
+  if (typeof v.length === 'number') u.length = (u.length || 0) + v.length;
   if (typeof v.damageMul === 'number') u.damageMul *= v.damageMul;
   for (const x of v.status || []) u.status.push({ ...x });
   for (const x of v.statusAdd || []) u.statusAdd.push({ ...x });
@@ -607,6 +644,21 @@ export function applyModSet(s, mods, acc) {
       for (const k of DUO_MULS) if (v[k] != null) d[k] *= v[k];
       for (const k of DUO_MAX) if (v[k] != null) d[k] = Math.max(d[k], v[k]);
       for (const k of DUO_MIN) if (v[k] > 0) d[k] = d[k] > 0 ? Math.min(d[k], v[k]) : v[k];
+    } else if (key === 'barricade') {
+      // only Norika's barricades change (src/sim/barricades.js)
+      if (!s.barricade) continue;
+      const br = s.barricade;
+      for (const k of BARRICADE_ADDS) if (v[k] != null) br[k] += v[k];
+      for (const k of BARRICADE_FLAGS) if (v[k]) br[k] = true;
+      if (v.budgetMul != null) br.budgetMul *= v.budgetMul;
+      if (v.rebuild != null) br.rebuild = Math.min(br.rebuild, v.rebuild);
+    } else if (key === 'moveCd' || key === 'moveDowntime' || key === 'skillCount') {
+      // a hero's Move: seconds off its recharge / its mid-wave downtime (src/sim/hero.js); a hero's skill: more
+      // targets (src/sim/abilities.js strikeTargets). Absent unless a level, awakening or Potential step sets it.
+      s[key] = (s[key] || 0) + v;
+    } else if (key === 'overdrive') {
+      // Kogane's Potential capstone: after each Move during a wave, × rateMul attack speed for `time` s (hero.js)
+      s.overdrive = { rateMul: v.rateMul ?? 1, time: v.time ?? 0 };
     } else if (key === 'vine') {
       // only a vine girl's vines change (src/sim/vines.js)
       if (!s.vine) continue;
@@ -875,6 +927,12 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
     s.range = h.radius;
   }
   if (s.turret) s.turret.max = Math.max(0, Math.round(s.turret.max));
+  if (s.barricade) {
+    const br = s.barricade;
+    br.count = Math.max(0, Math.min(BARRICADES_PER_HERO, Math.round(br.count)));
+    br.oneWay = Math.max(0, Math.round(br.oneWay));
+    br.lineAdd = Math.max(0, Math.round(br.lineAdd));
+  }
   return s;
 }
 

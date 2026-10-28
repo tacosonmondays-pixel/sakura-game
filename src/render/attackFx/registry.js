@@ -42,6 +42,9 @@ import { chigusa } from './styles/chigusa.js';
 import { marumi } from './styles/marumi.js';
 // the duo (docs/specs/DUO_LR.md, src/data/unitsDuo.js)
 import { kohaku_tsubaki } from './styles/kohaku_tsubaki.js'; // eslint-disable-line camelcase
+// the staff heroes (BANNERS §D; stand-ins until their FX)
+import { kogane } from './styles/kogane.js';
+import { norika } from './styles/norika.js';
 
 export const STYLE_BY_UNIT = {
   tenka,
@@ -49,6 +52,7 @@ export const STYLE_BY_UNIT = {
   kanna, yoriko, seiran, fuu, hana, ruri, noa, iroha, ena,
   azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi,
   kohaku_tsubaki,
+  kogane, norika,
 };
 
 /** Fallback per sim behaviour (any turret owner gets drones). */

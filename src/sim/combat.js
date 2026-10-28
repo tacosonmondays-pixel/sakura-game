@@ -46,7 +46,8 @@ export function effectiveArmor(enemy, armorPen = 0) {
 /** Bonus multiplier from mark + vulnerable (additive with each other). */
 export function damageTakenBonus(enemy) {
   const st = enemy.statuses;
-  return 1 + (st.mark ? st.mark.bonus || 0 : 0) + (st.vulnerable ? st.vulnerable.bonus || 0 : 0);
+  // (heldBonus: held at one of Norika's barricades, src/sim/barricades.js; absent on every other enemy)
+  return 1 + (st.mark ? st.mark.bonus || 0 : 0) + (st.vulnerable ? st.vulnerable.bonus || 0 : 0) + (enemy.heldBonus || 0);
 }
 
 /** eliteMul / bossMul for this enemy tier. */

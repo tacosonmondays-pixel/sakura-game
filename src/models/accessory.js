@@ -1,5 +1,5 @@
 // Head accessories: ribbon, bunny/cat/fox ears, hairpin, beret, witch hat, horns, flower,
-// goggles, hood, headband, crown, cap.
+// goggles, hood, headband, crown, cap, hardhat.
 import * as THREE from 'three';
 import { BONES, LM } from './body.js';
 import {
@@ -7,6 +7,9 @@ import {
 } from './geom.js';
 import { col } from './toon.js';
 import { onHead, dirFrom } from './hair.js';
+
+/** A box (three.js BoxGeometry) for the hard hat's ridge. */
+const box3 = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 import { bow } from './outfit.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -260,6 +263,27 @@ export function buildAccessory(ctx) {
       add(part(cyl(0.87, 0.87, 0.12, s * 2), { pos: [top.x, top.y - 0.08, top.z - 0.04], rot: [-0.15, 0, 0], color: dark, bone: BONES.head }));
       add(part(ellipsoid(0.62, 0.05, 0.42, s, 6), { pos: [top.x, top.y - 0.16, top.z + 0.62], rot: [0.12, 0, 0], color: dark, bone: BONES.head }));
       add(part(sphere(0.1, 8, 6), { pos: [top.x, top.y + 0.06, top.z + 0.8], color: col('#ffd45e'), bone: BONES.head }));
+      break;
+    }
+    case 'hardhat': {
+      // A work hard hat (Kogane, BANNERS §D.3): a ribbed dome in her outfit colour, a short front peak, a sakura
+      // sticker in her accent and goggles resting on the brim.
+      const top = onHead(ctx, 0.06 * Math.PI, 0, 0.12);
+      const shell = col(pal.outfit);
+      const rim = shell.clone().multiplyScalar(0.82);
+      const domeG = lathe([[0.0, 0.62], [0.42, 0.58], [0.78, 0.42], [0.98, 0.16], [1.02, 0.0], [0.0, 0.0]], s * 2);
+      add(part(domeG, { pos: [top.x, top.y - 0.2, top.z - 0.04], rot: [-0.12, 0, 0], color: shell, bone: BONES.head }));
+      add(part(cyl(1.06, 1.08, 0.06, s * 2), { pos: [top.x, top.y - 0.2, top.z - 0.04], rot: [-0.12, 0, 0], color: rim, bone: BONES.head }));
+      add(part(ellipsoid(0.56, 0.05, 0.36, s, 6), { pos: [top.x, top.y - 0.22, top.z + 0.86], rot: [0.16, 0, 0], color: rim, bone: BONES.head }));
+      add(part(box3(0.08, 0.5, 0.9), { pos: [top.x, top.y + 0.3, top.z - 0.04], rot: [-0.12, 0, 0], color: rim, bone: BONES.head }));
+      // the sakura sticker on the side
+      const st = extrude(star(5, 0.15, 0.08), 0.03);
+      add(part(st, { pos: [top.x - 0.66, top.y + 0.02, top.z + 0.42], rot: [0, -0.9, 0], color: col(pal.accent), bone: BONES.head }));
+      // goggles resting on the brim
+      for (const side of [-1, 1]) {
+        add(part(cyl(0.16, 0.17, 0.1, s), { pos: [top.x + side * 0.24, top.y - 0.12, top.z + 0.96], rot: [1.25, 0, 0], color: col('#5d6470'), bone: BONES.head }));
+        add(part(cyl(0.12, 0.12, 0.11, s), { pos: [top.x + side * 0.24, top.y - 0.115, top.z + 0.965], rot: [1.25, 0, 0], color: col('#9be7ff'), bone: BONES.head }));
+      }
       break;
     }
     case 'crown': {
