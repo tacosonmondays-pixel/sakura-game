@@ -518,8 +518,9 @@ describe('the Step 6 machines break apart; the Rime Wisp fades, never home', () 
     for (const def of Object.values(F)) expect(homeward(fallStyleOf(def)), def.id).toBe(false);
     expect(fallTintOf(F.vesper_gatekeeper).spark).toBe('#ffb347');
     expect(fallTintOf(F.rime_wisp)).toBe(RIME_TINT);
-    // shipped defs unchanged: monsters keep the sparkle (rime_ ids are not shipped yet; 'r…' ids fail fast)
-    for (const e of ENEMIES) if (!e.id.startsWith('vesper_') && !e.id.startsWith('brigade_') && e.family !== 'brigade' && !e.fall) expect(fallStyleOf(e), e.id).toBe('sparkle');
+    // shipped defs unchanged: monsters keep the sparkle; the real Step 6 Rime Wisp (S6c) fades like its fixture
+    for (const e of ENEMIES) if (!e.id.startsWith('vesper_') && !e.id.startsWith('brigade_') && !e.id.startsWith('rime_') && e.family !== 'brigade' && !e.fall) expect(fallStyleOf(e), e.id).toBe('sparkle');
+    for (const e of ENEMIES.filter((x) => x.id.startsWith('rime_'))) expect(fallStyleOf(e), e.id).toBe('fade');
     expect(fallStyleOf({ id: 'raven_x', family: 'beast' })).toBe('sparkle');
     // the Rime Wisp's fade: violet motes and puff, no stars
     const fx = fxStub();
