@@ -37,6 +37,31 @@ const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/?onboarding=0`;
 const { browser } = await launchChromium();
 
+/** The featured stand (s1) of the shown banner: its picture loaded (complete, naturalWidth > 0, a 200) and on top
+ * at its centre (not covered by the rate-up stands s0/s2). The stands take no taps, so they are probed with
+ * pointer events on for a moment. */
+async function standCheck(page, label, check) {
+  await page.waitForFunction(() => {
+    const img = document.querySelector('.ma-banner-stand.s1 img');
+    return !!img && img.complete && img.naturalWidth > 0;
+  }, null, { timeout: 15000 }).catch(() => {});
+  const r = await page.evaluate(() => {
+    const st = document.querySelector('.ma-banner-stand.s1');
+    const img = st?.querySelector('img');
+    if (!st || !img) return { ok: false, why: 'no s1 img' };
+    const box = st.getBoundingClientRect();
+    const all = [...document.querySelectorAll('.ma-banner-stands, .ma-banner-stand')];
+    const old = all.map((e) => e.style.pointerEvents);
+    all.forEach((e) => { e.style.pointerEvents = 'auto'; });
+    const at = document.elementFromPoint(box.x + box.width / 2, box.y + box.height * 0.35);
+    all.forEach((e, i) => { e.style.pointerEvents = old[i]; });
+    const res = performance.getEntriesByName(img.currentSrc || img.src)[0];
+    return { ok: img.complete && img.naturalWidth > 0, src: (img.currentSrc || img.src).split('/').pop(), w: img.naturalWidth,
+      status: res?.responseStatus ?? null, onTop: !!at && st.contains(at), at: at?.className || at?.tagName || null };
+  });
+  check(r.ok && r.status !== 404 && r.onTop, `${label}: the featured stand's picture loaded and shows on top (${JSON.stringify(r)})`);
+}
+
 async function run(vp) {
   const [w, hh] = vp.split('x').map(Number);
   log(`\n=== ${vp} ===`);
@@ -47,7 +72,7 @@ async function run(vp) {
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: AT });
-  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 60000, animations: 'disabled' }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`)); };
+  const shot = async (name) => { if (shotsDir) await page.waitForFunction(() => [...document.querySelectorAll('.ma-banner-stand img')].every((i) => i.complete && i.naturalWidth > 0), null, { timeout: 10000 }).catch(() => {}); if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 60000, animations: 'disabled' }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`)); };
   const tap = async (sel) => (touch ? page.tap(sel) : page.click(sel));
   const closeModal = async () => {
     const btn = page.locator('.modal .btn, .modal button').filter({ hasText: /^(Close|Cancel)$/ }).last();
@@ -93,10 +118,12 @@ async function run(vp) {
   const title = await page.textContent('[data-testid="banner-title"]');
   check(/Physics Club/.test(title), `LR tab is Tenka's debut banner (${title})`);
   check(/0\s*\/ 300|0\/ 300|300/.test(await page.textContent('[data-testid="promise"]')), 'Legend Promise bar shows /300');
+  await standCheck(page, 'LR tab (Tenka)', check);
   await shot('3-lr');
   if (lrTabs.includes('banner-tab-legend-kohaku_tsubaki')) {
     await tap('[data-testid="banner-tab-legend-kohaku_tsubaki"]');
     await page.waitForTimeout(300);
+    await standCheck(page, "LR tab (the duo's premiere)", check);
     const t2 = await page.textContent('[data-testid="banner-title"]');
     check(/Starfall Premiere/.test(t2) && /0\.7%/.test(await page.textContent('.bn-banner, .ma-banner')), `the duo's LR tab is their Starfall Premiere at 0.7% (${t2})`);
     await shot('3b-lr-duo');
