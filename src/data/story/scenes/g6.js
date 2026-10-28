@@ -187,7 +187,7 @@ export default [
     say('hikari', "Don't mind me. Just passing. With a tray. Not listening.", { at: 'left', face: 'smile' }),
     say('tenka', 'Captain. You were listening.', { face: 'deadpan' }),
     say('hikari', "A little. Lucky bag, Mahiru. Now come on, both of you, the toast's going cold."),
-    narrate('On the way out Mahiru holds the door for everyone behind her, as she always does, until the last one is in.'),
+    narrate('Mahiru hurries off after them, the little keychain swinging on her bag.'),
   ]),
 
   scene('g6.star1', {

@@ -472,8 +472,10 @@ export function render(root, params = {}) {
       const isHost = params.host === '1';
       const card = profileCard(profile);
       const { loadout, hero } = pickLoadout(resolveFormation(profile), isHost, (id) => unitBattleStats(profile, id));
-      // a room link may name any campaign stage, never an event stage (EVENT_SPEC E11)
-      const stageId = isHost && STAGE_MAP[params.stage] && STAGE_MAP[params.stage].kind !== 'event' ? params.stage : defaultStage(profile);
+      // a room link may name any campaign stage, never an event stage (EVENT_SPEC E11) nor a solo side stage
+      // (Gate Arc's side-6-starfall is single-player)
+      const linked = STAGE_MAP[params.stage];
+      const stageId = isHost && linked && linked.kind !== 'event' && linked.kind !== 'side' ? params.stage : defaultStage(profile);
       const difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
       // the host's freeplay setting ("Your last room" reopens a freeplay room as one; a guest takes the host's)
       const freeplay = isHost ? freeplayTier(params.freeplay) : null;
