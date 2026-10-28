@@ -154,6 +154,43 @@ describe('enemy family GLBs', () => {
     }
   });
 
+  it('Gate Arc Step 6: the rest of the machines, Gatekeeper Unit 01 and the Rime Wisp wear shipped bodies, apart in greyscale', () => {
+    const byId = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));
+    const want = {
+      vesper_lattice_shell: ['construct', 'beetle', ['crystals']],
+      vesper_aegis: ['construct', 'automaton', ['shield', 'gears']],
+      vesper_warden: ['construct', 'warden', ['crystals', 'shield']],
+      vesper_gatekeeper: ['construct', 'colossus', ['crystals', 'gears', 'chimney']],
+      rime_wisp: ['ghost', 'wisp', []],
+    };
+    for (const [id, [base, variant, props]] of Object.entries(want)) {
+      expect(byId[id].model, id).toEqual({ base, variant, props });
+      expect(manifest[base].variants, id).toContain(variant);
+      for (const p of props) expect(manifest[base].props, `${id} ${p}`).toContain(p);
+    }
+    // the Lattice Shell wears no `shell` (that dome is the Brigade Tortoise's); no new variant or GLB; the ghost body has
+    // no crystals, so the Rime Wisp has no prop
+    expect(byId.vesper_lattice_shell.model.props).not.toContain('shell');
+    expect(manifest.construct.variants).not.toContain('halo');
+    expect(manifest.ghost.props).not.toContain('crystals');
+    expect(GLB_FAMILIES).toHaveLength(12);
+    const luma = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    for (const id of Object.keys(want)) {
+      const e = byId[id];
+      expect(e.line, id).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(Math.abs(luma(e.color) - luma(e.line)), `${id} body vs outline`).toBeGreaterThanOrEqual(80);
+      // decision 4: ≥ 50 apart in luma from every other def on the same body variant (the Brigade's included), so two
+      // machines that share a body never read as one in greyscale
+      for (const o of ENEMIES) {
+        if (o.id === id || o.model.base !== e.model.base || o.model.variant !== e.model.variant) continue;
+        expect(Math.abs(luma(e.color) - luma(o.color)), `${id} vs ${o.id} (${e.model.variant})`).toBeGreaterThanOrEqual(50);
+      }
+    }
+  });
+
   it('variant pieces and hide tables match the defs that use them', () => {
     for (const fam of GLB_FAMILIES) {
       const { json } = readGlbHeader(path.join(dir, `${fam}.glb`));
