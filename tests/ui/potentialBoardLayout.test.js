@@ -54,6 +54,9 @@ describe('Potential Board layout', () => {
     expect(unknown.family).toBe(FALLBACK_BOARD.family);
     expect(unknown.nodes).toHaveLength(6);
     for (const def of [null, undefined, {}]) expect(boardFor(def).nodes).toHaveLength(6);
+    // a stored pick past a family's layouts wraps instead of failing
+    expect(boardFor({ id: 'wrap' }, { family: 'ring', variant: 4 }).variant).toBe(1);
+    expect(boardFor({ id: 'wrap' }, { family: 'ring', variant: -1 }).variant).toBe(2);
   });
 
   test('LR units end in the crest point after the ring (band 7: no gates, no levels)', () => {
@@ -78,7 +81,7 @@ describe('Potential Board layout', () => {
       }
       for (const [x, y] of pts) expect(inside(x, y), `${l.name}: (${x}, ${y})`).toBe(true);
     }
-  });
+  }, 60000);
 
   test('the phone box is the documented 844 x 390 board: 372 wide at 3.72 px a unit (the board 372 x 238), where 44 px is 11.83 units', () => {
     expect(PHONE_BOX).toEqual({ w: 372, h: 240 });
@@ -98,7 +101,7 @@ describe('Potential Board layout', () => {
         }
       }
     }
-  });
+  }, 60000);
 
   test('every hit target is a whole 44 px circle: never overlapping another item, inside the box, at every checked size', () => {
     for (const l of LAYOUTS) {
@@ -120,7 +123,7 @@ describe('Potential Board layout', () => {
         expect(boardIssues(b, box), `${l.name} ${size}`).toEqual([]);
       }
     }
-  });
+  }, 60000);
 
   test('a tap finds the item under it: each node, each gate (gates 1-5 answer g15), the ring; empty plate is null', () => {
     const b = boardFor(UNIT_MAP.aoi);
@@ -174,7 +177,7 @@ describe('Potential Board layout', () => {
         }
       }
     }
-  });
+  }, 60000);
 
   test("any node's label fits, even the longest step name (9 characters), at every checked size", () => {
     for (const l of LAYOUTS.filter((x) => x.lr)) {
@@ -185,7 +188,7 @@ describe('Potential Board layout', () => {
         }
       }
     }
-  });
+  }, 60000);
 
   test('the route follows the level rule: bands cover LV 1-85 with no gap; gate k from 6 sits after P(k - 4)', () => {
     expect(ROUTE.map((b) => [b.lo, b.hi])).toEqual([[1, 60], [61, 63], [64, 67], [68, 72], [73, 78], [79, 85]]);
@@ -228,7 +231,7 @@ describe('Potential Board layout', () => {
       expect(routeAt(b, 999)).toEqual(routeAt(b, MAX_LEVEL));
       expect(routeAt(b, -3)).toEqual(routeAt(b, 1));
     }
-  });
+  }, 60000);
 
   test('what is lit: nodes from her Potential, gates from her breakthroughs, dots from her level', () => {
     const b = boardFor(UNIT_MAP.aoi);

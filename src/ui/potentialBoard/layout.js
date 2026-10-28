@@ -142,8 +142,13 @@ function measure(pts) {
   const len = cum[cum.length - 1];
   const at = (s) => {
     const t = Math.max(0, Math.min(len, s));
-    let i = 1;
-    while (i < cum.length - 1 && cum[i] < t) i++;
+    // the first vertex at or past t (binary search; the scans below ask thousands of times)
+    let [lo, i] = [1, cum.length - 1];
+    while (lo < i) {
+      const mid = (lo + i) >> 1;
+      if (cum[mid] < t) lo = mid + 1;
+      else i = mid;
+    }
     const seg = cum[i] - cum[i - 1] || 1;
     const f = (t - cum[i - 1]) / seg;
     const [a, b] = [pts[i - 1], pts[i]];
@@ -592,7 +597,9 @@ export function boardFor(def, o = {}) {
   const row = boardRow(def);
   const pick = boardPick(row.id);
   const family = FAMILIES.includes(o.family) ? o.family : row.family;
-  const variant = Number.isInteger(o.variant) ? ((o.variant % VARIANTS) + VARIANTS) % VARIANTS : (o.family ? pick.variant : row.variant ?? pick.variant);
+  const n = GEOMETRY[family].length;
+  const asked = Number.isInteger(o.variant) ? o.variant : o.family ? pick.variant : row.variant ?? pick.variant;
+  const variant = ((Math.floor(Number(asked) || 0) % n) + n) % n; // a stored pick past a family's layouts wraps
   const mirror = typeof o.mirror === 'boolean' ? o.mirror : (o.family ? pick.mirror : row.mirror ?? pick.mirror);
   const lr = typeof o.lr === 'boolean' ? o.lr : hasLrStep(def);
   const raw = GEOMETRY[family][variant]();
@@ -725,29 +732,41 @@ export function metrics(scale) {
   };
 }
 
+/** boardPixels results, per board and box size. */
+const PX_CACHE = new WeakMap();
+
 /**
- * Her Board in px for a render box: every station, gate and dot with its radius, plus the fit and the sizes.
+ * Her Board in px for a render box: every station, gate and dot with its radius, plus the fit and the sizes. Frozen
+ * and kept per board and box size (the same board and box always give the same pixels).
  * @param {object} board boardFor()
  * @param {{ w: number, h: number }} box
  */
 export function boardPixels(board, box) {
+  // the same board and box always give the same pixels: kept per board (frozen), since placing labels and the
+  // token asks for them many times
+  const key = `${box.w}x${box.h}`;
+  let cached = PX_CACHE.get(board);
+  if (!cached) PX_CACHE.set(board, (cached = new Map()));
+  if (cached.has(key)) return cached.get(key);
   const f = fitBox(box);
   const m = metrics(f.scale);
   const X = (x) => f.ox + x * f.scale;
   const Y = (y) => f.oy + y * f.scale;
-  const pt = (o, r, extra = {}) => ({ ...extra, x: X(o.x), y: Y(o.y), r });
-  return {
-    fit: f,
-    m,
+  const pt = (o, r, extra = {}) => Object.freeze({ ...extra, x: X(o.x), y: Y(o.y), r });
+  const px = Object.freeze({
+    fit: Object.freeze(f),
+    m: Object.freeze(m),
     X,
     Y,
-    nodes: board.nodes.map((n) => pt(n, n.step === 6 ? m.p6 : m.node, { sel: n.sel, step: n.step })),
+    nodes: Object.freeze(board.nodes.map((n) => pt(n, n.step === 6 ? m.p6 : m.node, { sel: n.sel, step: n.step }))),
     end: pt(board.end, m.end, { sel: 'end' }),
     crest: board.crest ? pt(board.crest, m.crest, { sel: 'lr' }) : null,
     socket: board.socket.on ? null : pt(board.socket, m.socket, { sel: 'socket' }),
-    gates: board.gates.map((g) => pt(g, m.gate, { sel: g.sel, gate: g.gate, angle: g.angle })),
-    dots: board.dots.map((d) => pt(d, m.dot, { band: d.band, level: d.level })),
-  };
+    gates: Object.freeze(board.gates.map((g) => pt(g, m.gate, { sel: g.sel, gate: g.gate, angle: g.angle }))),
+    dots: Object.freeze(board.dots.map((d) => pt(d, m.dot, { band: d.band, level: d.level }))),
+  });
+  cached.set(key, px);
+  return px;
 }
 
 /** The hit circles (px): one per node, gate, the ring and the crest; gates 1-5 all answer `g15`. */
