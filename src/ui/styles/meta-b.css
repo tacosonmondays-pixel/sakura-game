@@ -178,31 +178,9 @@ button.mb-gear:active { transform: scale(0.98); }
 .mb-unit-mini { display: inline-block; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); background: var(--navy); flex: none; }
 .mb-unit-mini-art, .mb-unit-mini-art svg { width: 100%; height: 100%; display: block; }
 
-/* ---------- Students list ---------- */
-.mb-filterbar { position: sticky; top: -10px; z-index: 3; background: linear-gradient(180deg, var(--sky-1) 72%, rgba(234, 246, 255, 0)); margin: -10px calc(var(--gutter) * -1) 0; padding: 10px var(--gutter) 6px; }
-.mb-filter-top { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-.mb-sort { display: flex; gap: 6px; align-items: center; }
-.mb-filter-body { display: none; flex-direction: column; gap: 6px; margin-top: 8px; background: rgba(255, 255, 255, 0.92); border-radius: 12px; padding: 10px; box-shadow: var(--shadow); animation: mb-fade-in var(--mb-panel) var(--mb-ease); }
-.mb-filter-body.open { display: flex; }
-.mb-filter-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.mb-filter-label { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: var(--muted); width: 48px; flex: none; }
-.mb-filter-row .mb-chips { flex: 1; }
-/* first impressions: the filter panel starts folded on every screen size (the funnel button opens it) so the girls lead */
-.mb-summary { font-weight: 800; font-size: 0.85rem; margin: 6px 2px 10px; color: var(--navy); }
-.mb-student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px 10px; }
-@media (min-width: 900px) { .mb-student-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; } }
-.mb-student-grid > * { animation: mb-pop 300ms var(--mb-ease) both; animation-delay: calc(var(--i, 0) * 18ms); }
-.unit-card.mb-tall { width: 100%; transform: skewX(0); transition: transform var(--mb-press) var(--mb-ease), box-shadow var(--mb-panel); }
-.unit-card.mb-tall:active { transform: scale(0.96); }
-@media (hover: hover) { .unit-card.mb-tall:hover { box-shadow: var(--shadow-strong); transform: translateY(-2px); } }
-.mb-card-badges { position: absolute; right: 4px; top: 24px; display: flex; flex-direction: column; gap: 3px; }
-.mb-card-badge { width: 24px; height: 24px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)); }
-.mb-card-water { width: 24px; height: 24px; border-radius: 50%; background: #4cc9f0; color: #fff; padding: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); display: grid; }
-.mb-card-water .svg-icon { width: 100%; height: 100%; }
-.mb-card-hero { position: absolute; left: 6px; top: 22px; background: #8b5cf6; color: #fff; font-size: 0.6rem; font-weight: 900; font-style: italic; padding: 1px 6px; border-radius: 3px; transform: skewX(var(--skew)); }
-.mb-tall .unit-card-stars { left: auto; right: 6px; bottom: 24px; font-size: 0.66rem; letter-spacing: -1px; }
-.mb-card-role { position: absolute; left: 6px; bottom: 23px; font-size: 0.66rem; font-weight: 800; color: #dfe9ff; text-shadow: 0 1px 2px #000; }
-.mb-card-how { position: absolute; left: 6px; right: 6px; bottom: 26px; background: rgba(255, 221, 74, 0.95); color: var(--navy); font-size: 0.68rem; font-weight: 900; text-align: center; border-radius: 4px; padding: 2px 4px; z-index: 1; }
+/* ---------- Students list ----------
+   (UI v2 menus M3: the roster is kit girl tiles, src/ui/styles/v2-roster.css "STUDENTS"; the square card's lock stays
+   for stage prep's unlock rows) */
 .unit-card.locked .unit-card-lock { align-items: center; padding-bottom: 30px; }
 
 /* ---------- Student detail ----------

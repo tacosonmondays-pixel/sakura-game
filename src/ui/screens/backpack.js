@@ -44,6 +44,7 @@ import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
 import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.js';
+import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
 /** Gear tiles drawn per page in the Equipment tab. */
@@ -230,42 +231,9 @@ function openSortSheet(options, active, onPick, prefix) {
 }
 
 function openGearModal(gear, rerender) {
-  const profile = store.profile;
-  // spare pieces can be enhanced, awakened, stitched, rerolled and clubbed here too (gear-awaken R21). (The gear
-  // piece sheet of the girl page takes this over with M3: the Backpack only opens it.)
-  let m = null;
-  const bodyEl = h('div.mb-gear-modal');
-  const draw = () => {
-    const g = profile.gear[gear.uid];
-    clear(bodyEl);
-    if (!g) return;
-    put(bodyEl,
-      gearCard(g),
-      gearActions(g, { onChange: () => { draw(); rerender(); } }),
-      g.equippedBy ? null : h('div.mb-salvage-preview', h('div.mb-sub-title', 'Salvage returns'), h('div.reward-row', salvageRewards(g, profile).map((r) => rarityTile(r.id, r.count, { size: 48 })))));
-  };
-  draw();
-  const actions = [];
-  if (gear.equippedBy) actions.push({ label: `Open ${UNIT_MAP[gear.equippedBy]?.name || 'owner'}`, kind: 'primary', onClick: (close) => { close(); navigate('student', { id: gear.equippedBy, tab: 'gear' }); } });
-  else {
-    actions.push({
-      label: 'Salvage', kind: 'danger', onClick: async (close) => {
-        const g = profile.gear[gear.uid];
-        if (!g) { close(); return; }
-        if (g.locked) { toast('Unlock this gear before salvaging it.', 'bad'); return; }
-        close();
-        if (!(await confirmDialog(`Salvage ${g.name}? This cannot be undone.`, { title: 'Salvage gear', ok: 'Salvage' }))) return;
-        const res = salvageGear(profile, g.uid);
-        if (!res.ok) { toast(res.error === 'locked' ? 'Gear is locked.' : 'Cannot salvage equipped gear.', 'bad'); return; }
-        store.commit('gear-salvage');
-        toast(`Salvaged: ${res.rewards.map((r) => `${getItem(r.id)?.name} ×${formatNumber(r.count)}`).join(', ')}`, 'good');
-        rerender();
-      },
-    });
-  }
-  actions.push({ label: 'Close', kind: 'ghost', testid: 'gear-modal-close' });
-  m = modal({ title: 'Gear', body: bodyEl, actions, wide: true });
-  return m;
+  // [ui-ink] UI v2 M3: the girl page's piece sheet in its spare mode (src/ui/girlGear.js openPieceSheet): enhance, awaken,
+  // stitch, reroll, club, lock and salvage, or open the girl who wears it; the Backpack only opens it
+  return openPieceSheet(gear, { onChange: rerender });
 }
 
 /** Open `n` boxes; `after` redraws whatever is open (the Supplies sheet, the grid). */

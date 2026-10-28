@@ -10,6 +10,7 @@
 // try-on.
 import '../styles/meta-b.css';
 import '../styles/journal.css'; // [story] feature locks
+import '../styles/v2-roster.css'; // [ui-ink] V3: the folder-tabbed panel, the night nameplate
 import { h, clear, screen, svgEl, button, modal, toast, showItemInfo } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
@@ -47,7 +48,7 @@ import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../sys
 import { potentialSection, crown } from '../potential.js';
 import { potentialNext, MAX_POTENTIAL } from '../../systems/potential.js';
 import { essenceBalance, canRaisePotential } from '../../systems/essence.js';
-import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG } from '../kit.js';
+import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, folderTabs, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG } from '../kit.js';
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
@@ -1072,7 +1073,7 @@ export function render(root, params = {}) {
     openPotential(unit, { profile: store.profile, onChange: refreshAll });
   };
   const band = buildBand(unit, cycle, goPotential);
-  const tabHost = h('div.mb-tab-host.gp-host');
+  const tabHost = h('div.ui-tabbed-body.mb-tab-host.gp-host');
   // the girl page's look (Settings → Display → Girl page): Detailed opens Level Up's steppers too
   let mode = girlPageMode(store.profile);
   // (a Manual toggle keeps while she cycles through the girls in one look)
@@ -1097,13 +1098,14 @@ export function render(root, params = {}) {
   });
   let tabBar = null;
   const buildRail = () => {
-    const next = rail(tabDefs(), tab, (id) => {
+    // [ui-ink] V3: folder tabs on the content panel (S4), the rail's API and test ids
+    const next = folderTabs(tabDefs(), tab, (id) => {
       if (tab === id) return;
       tab = id;
       history.replaceState(history.state, '', `#/student/${unit.id}?tab=${tab}`);
       tabBar.setActive(tab);
       renderTab(true);
-    }, { label: `${unit.name}'s page`, cls: 'gp-rail' });
+    }, { label: `${unit.name}'s page`, cls: 'gp-tabs' });
     if (tabBar) tabBar.replaceWith(next);
     tabBar = next;
   };
@@ -1135,7 +1137,7 @@ export function render(root, params = {}) {
     } else tabHost.scrollTop = scroll;
   }
 
-  body.appendChild(h('div.gp', band.el, h('div.gp-right', tabBar, tabHost)));
+  body.appendChild(h('div.gp', band.el, h('section.ui-tabbed.gp-right', tabBar, tabHost)));
   // the rail is rebuilt in place when a dot or a lock changes (a Seed bought, a feature opened)
   const railHost = tabBar.parentElement;
   renderTab(true);
