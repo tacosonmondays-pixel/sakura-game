@@ -1676,7 +1676,7 @@ export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
         if (b - a < 4) continue;
         const k = 0.9 + rnd() * 0.18;
         const x0 = r * rw + 2;
-        g.fillStyle = `rgb(${T(172 * k)},${T(164 * k)},${T(148 * k)})`;
+        g.fillStyle = `rgb(${T(186 * k)},${T(178 * k)},${T(160 * k)})`;
         g.beginPath();
         g.roundRect(x0, a, rw - 4, b - a, 5);
         g.fill();

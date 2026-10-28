@@ -221,6 +221,56 @@ const THEME_SKY = {
  * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
  * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10).
  */
+/**
+ * Old Town by night (Gate Arc S3a, the Bell Festival): a night sky, the shrine's bell tower on the
+ * hill, rows of wooden houses with tiled roofs and warm paper windows, lantern strings across the
+ * lane, stone setts. `burning`: the same street after the barrage: a dark sky with smoke, shells
+ * with empty windows, amber fire glows behind them, ash falling, the lanterns dark. No people.
+ */
+function oldTownScene(rnd, id, W, H, burning) {
+  let s = `<rect width="${W}" height="${H}" fill="${burning ? '#2a1e22' : '#16213f'}"/>`;
+  s += burning
+    ? `<rect y="160" width="${W}" height="160" fill="#4a2e26" opacity="0.55"/>`
+    : stars(rnd, W, 190, 60) + '<path d="M940 60a38 38 0 1 0 30 60 30 30 0 1 1-30-60z" fill="#fff6c4"/>';
+  // the hill with the shrine's bell tower
+  s += hills(rnd, W, 220, 40, 300, burning ? '#2c2224' : '#1d2b4a');
+  s += `<rect x="520" y="120" width="40" height="80" fill="${burning ? '#3a2e2a' : '#5e3c28'}"/><path d="M500 124h80l-40-34z" fill="${burning ? '#2b2624' : '#434b57'}"/><circle cx="540" cy="150" r="12" fill="${burning ? '#5a4a3a' : '#e3b04a'}"/>`;
+  if (burning) {
+    // smoke columns rising off the skyline, fire glow behind the shells
+    for (const [x, w] of [[120, 90], [380, 70], [760, 110], [1000, 80]]) {
+      s += `<ellipse cx="${x}" cy="150" rx="${w * 0.6}" ry="120" fill="#3b3638" opacity="0.6"/><circle cx="${x}" cy="250" r="${w}" fill="#ffb347" opacity="0.22"/>`;
+    }
+  }
+  // the houses: timber walls, tiled roofs, paper windows (dark shells when burning)
+  let x = -20;
+  while (x < W) {
+    const w = 90 + rnd() * 50;
+    const h = 70 + rnd() * 40;
+    const y = 300 - h;
+    if (burning) {
+      const top = rnd() * 30;
+      s += `<path d="M${n(x)} 300V${n(y + top)}l${n(w * 0.3)} ${n(-top * 0.6)}l${n(w * 0.25)} ${n(top * 0.9)}l${n(w * 0.45 - 6)} ${n(-top * 0.5)}V300z" fill="#3d3734"/>`;
+      for (let wx = x + 14; wx < x + w - 24; wx += 30) s += `<rect x="${n(wx)}" y="${n(y + 30)}" width="16" height="16" fill="${rnd() < 0.25 ? '#ffb347' : '#1c1816'}"/>`;
+    } else {
+      s += `<rect x="${n(x)}" y="${n(y)}" width="${n(w - 6)}" height="${n(h)}" fill="#6e4a32"/><path d="M${n(x - 10)} ${n(y + 4)}L${n(x + (w - 6) / 2)} ${n(y - 30)}L${n(x + w + 4)} ${n(y + 4)}z" fill="#434b57"/>`;
+      for (let wx = x + 12; wx < x + w - 24; wx += 28) s += `<rect x="${n(wx)}" y="${n(y + 22)}" width="18" height="20" fill="${rnd() < 0.7 ? '#ffd98f' : '#8a6a4a'}"/>`;
+      s += `<rect x="${n(x + 12)}" y="${n(300 - 28)}" width="${n(Math.min(60, w - 30))}" height="20" fill="${rnd() < 0.5 ? '#2f4a73' : '#d9473f'}"/>`;
+    }
+    x += w + 6;
+  }
+  // the lane: stone setts
+  s += `<rect y="300" width="${W}" height="${H - 300}" fill="${burning ? '#8f8981' : '#c9bfae'}"/>`;
+  for (let k = 0; k < 4; k++) s += `<path d="M0 ${312 + k * 22}H${W}" stroke="${burning ? '#6f6a64' : '#a99e8b'}" stroke-width="2" stroke-dasharray="26 6" opacity="0.8"/>`;
+  if (burning) {
+    for (let i = 0; i < 50; i++) s += `<circle cx="${n(rnd() * W)}" cy="${n(rnd() * H)}" r="${n(1.2 + rnd() * 2)}" fill="${rnd() < 0.2 ? '#ffc46b' : '#9a948e'}" opacity="0.85"/>`;
+    s += '<path d="M60 170Q300 210 560 170T1060 170" stroke="#2b2624" stroke-width="2" fill="none"/>';
+  } else {
+    s += lanternString(W, 160, 14, ['#ff6a4d', '#ffc46b', '#f7f2e6']);
+    s += `<circle cx="300" cy="200" r="120" fill="url(#${id}-glow)" opacity="0.18"/>`;
+  }
+  return s;
+}
+
 export function themeBackdropSVG(theme, { variant = null } = {}) {
   const key = THEME_SKY[theme] ? theme : 'sakura';
   const W = 1100;
@@ -314,6 +364,10 @@ export function themeBackdropSVG(theme, { variant = null } = {}) {
       s += `<rect y="340" width="${W}" height="60" fill="#f2e2bb"/>`;
       break;
     case 'city': {
+      if (variant === 'oldtown' || variant === 'burning') {
+        s += oldTownScene(rnd, id, W, H, variant === 'burning');
+        break;
+      }
       // Itomachi by day: a warm skyline (offices, flats, a clock tower), utility poles and wires,
       // a row of shop awnings and the dark street in front
       s += cloud(240, 80, 1) + cloud(820, 60, 0.8);

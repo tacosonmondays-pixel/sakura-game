@@ -446,10 +446,11 @@ export function buildCity(o) {
   }
 
   // ----- crosswalks: on every flat junction's arms, and beside a few corners -----------------
-  for (const m of crosswalkMarks(map)) marks.push(m);
+  // (Old Town's stone lanes carry no painted crossings)
+  if (!oldtown) for (const m of crosswalkMarks(map)) marks.push(m);
   let cornerWalks = 0;
   for (const c of corners) {
-    if (cornerWalks >= 6) break;
+    if (oldtown || cornerWalks >= 6) break;
     const r = c.road;
     for (const dir of [-1, 1]) {
       const k = c.i + dir * 9;

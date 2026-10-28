@@ -459,9 +459,9 @@ export const LANTERN_NIGHT = {
  */
 export const DISTRICTS = {
   oldtown: {
-    ground: ['#d3c7b1', '#cabda6'],
-    groundSpeck: '#e0d6c3',
-    groundShade: '#ad9f88',
+    ground: ['#b8ad98', '#b0a48f'],
+    groundSpeck: '#c6bca8',
+    groundShade: '#978a74',
     clover: '#8fae6a',
     wet: '#a9aeb0',
     dirt: '#cfc2ab',

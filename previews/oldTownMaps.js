@@ -32,7 +32,7 @@ export function defineStep3Fixture(o) {
 
 // ---------------------------------------------------------------------------
 // (a) Old Town lanes by night: a fret of alternating keys (north, south, north) through the
-// festival quarter, tiled roofs ('U') inside the keys, the mill race along the south edge, a stone
+// festival quarter, tiled roofs ('U') inside the keys, the mill race along the south lane, a stone
 // basin, stalls and a shrine hall one row back. The keys alternate so the road is not a meander.
 // ---------------------------------------------------------------------------
 const LANES_ROWS = [
@@ -46,8 +46,8 @@ const LANES_ROWS = [
   'HHH......UUU....H...',
   'H.T.HH....U.....H.TH',
   'H.....,............H',
-  'H.HH.HH.....,.HHH..H',
-  '~~~~~~~~~~~~~~~~~~~~',
+  'H..~~~~~~~~~~~~~~..H',
+  'HHHHHHHHHHHHHHHHHHHH',
 ];
 const LANES_PATH = street([[-1, 6.5], [1.5, 6.5], [1.5, 2.5], [6.5, 2.5], [6.5, 6.5], [8.5, 6.5], [8.5, 9.5], [12.5, 9.5], [12.5, 6.5], [14.5, 6.5], [14.5, 2.5], [18.5, 2.5], [18.5, 5.5], [21, 5.5]], { r: 1 });
 
