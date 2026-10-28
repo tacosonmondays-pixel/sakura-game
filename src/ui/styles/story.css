@@ -230,6 +230,7 @@
   gap: clamp(6px, 2vh, 14px); padding: 16px var(--sp-side); text-align: center; background: rgba(10, 16, 32, 0.9); color: #fff;
 }
 .sp-note[hidden] { display: none; }
+.sp.sp-noting .sp-box, .sp.sp-noting .sp-choices { visibility: hidden; } /* the empty text box waits behind the note */
 .sp-note-kicker { font-size: clamp(12px, 3vh, 14px); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #9cc4ff; }
 .sp-note-text { margin: 0; max-width: 34em; font-size: clamp(15px, 4.6vh, 22px); font-weight: 700; line-height: 1.35; }
 .sp-note-go {

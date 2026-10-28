@@ -622,9 +622,11 @@ export function playScene(scene, opts = {}) {
     } catch { /* no window */ }
     if (noteEl) {
       noteEl.hidden = false;
+      root.classList.add('sp-noting');
       noteBtn.focus({ preventScroll: true });
       await new Promise((resolve) => { noteGo = resolve; });
       noteEl.remove();
+      root.classList.remove('sp-noting');
       if (finished) return;
       root.focus({ preventScroll: true });
     }
