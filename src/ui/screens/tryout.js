@@ -112,7 +112,7 @@ export function render(root, params = {}) {
 
 function renderHub(root) {
   const { el, body } = screen(MODE_NAME, { cls: 'ty-screen ty-hub-screen hb-screen' });
-  el.insertBefore(hubBackdrop('academy'), el.firstChild);
+  el.insertBefore(hubBackdrop('tryout'), el.firstChild);
   root.appendChild(el);
   const offPill = paintMarblesPill(el);
 
