@@ -717,28 +717,27 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
       }
     }
   });
-  // a shared section is one road: it has its parent's elevation, and the seam where a lane leaves or
-  // merges is on the ground (also where that elevation is itself inherited, or comes from the
-  // lane's own overpass ramps reaching back over the seam)
+  // a shared section is one road: it keeps its parent's elevation (the lane's own overpass ramps
+  // may not reach back over the seam onto it), and the seam where the lane leaves or merges is on
+  // the ground, also where the parent's elevation there is itself inherited (nested forks / joins)
   tracks.forEach((t, ti) => {
     for (const [link, from, to] of [[t.fork, 0, t.forkD], [t.join, t.joinD, t.length]]) {
       if (!link) continue;
       const p = tracks[link.path];
-      const verb = link === t.fork ? 'forks from' : 'joins';
+      const what = link === t.fork ? 'fork' : 'join';
+      const at = `path ${ti} ${link === t.fork ? 'forks from' : 'joins'} path ${link.path}`;
       const off = link === t.fork ? 0 : link.d - t.joinD;
-      const seamD = link === t.fork ? t.forkD : t.joinD;
-      const seam = Math.max(elevationAt(p, link.d), elevationAt(t, seamD));
-      if (seam > SEAM_TOL) {
-        throw new Error(`path ${ti} ${verb} path ${link.path} at elevation ${seam.toFixed(3)} (d ${link.d.toFixed(2)} on path ${link.path}): move the ${link === t.fork ? 'fork' : 'join'} off the raised road`);
-      }
-      if (!t.elev) continue;
-      for (let i = 0; i < t.points.length; i++) {
+      for (let i = 0; t.elev && i < t.points.length; i++) {
         const d = t.cum[i];
         if (d < from - 1e-6 || d > to + 1e-6) continue;
         const want = elevationAt(p, d + off);
         if (Math.abs(t.elev[i] - want) > SEAM_TOL) {
-          throw new Error(`path ${ti} ${verb} path ${link.path}: their shared road is at elevation ${t.elev[i].toFixed(3)} on path ${ti} but ${want.toFixed(3)} on path ${link.path} (d ${d.toFixed(2)}; an overpass ramp reaches over the ${link === t.fork ? 'fork' : 'join'}): move the crossing or the ${link === t.fork ? 'fork' : 'join'}`);
+          throw new Error(`${at}: their shared road is at elevation ${t.elev[i].toFixed(3)} on path ${ti} but ${want.toFixed(3)} on path ${link.path} (d ${d.toFixed(2)}): an overpass ramp reaches over the ${what} (move the crossing or the ${what})`);
         }
+      }
+      const seam = Math.max(elevationAt(p, link.d), elevationAt(t, link === t.fork ? t.forkD : t.joinD));
+      if (seam > SEAM_TOL) {
+        throw new Error(`${at} at elevation ${seam.toFixed(3)} (d ${link.d.toFixed(2)} on path ${link.path}): a ${what} must be on the ground (move it off the raised road)`);
       }
     }
   });
