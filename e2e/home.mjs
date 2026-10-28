@@ -215,6 +215,37 @@ async function staticChecks(vp) {
     await page.click('[data-testid="lobby-bg"]');
     check(!!(await page.waitForSelector('[data-testid="bgp-done"]', { timeout: 5000 }).catch(() => null)), `${vp} the background tool opens the background and secretary picker`);
     await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    // after the story screens have loaded the scene player's styles, the home is still the home: nothing black on top,
+    // its pixels are the wallpaper, the Battle plate takes a real tap (the story root's .sp once caught the top bar's spacer)
+    for (const [hash, screen] of [['#/story', 'story'], ['#/journal', 'journal']]) {
+      await go(page, hash, screen);
+      await go(page, '#/lobby', 'lobby');
+      const top = await page.evaluate(() => {
+        const css = [...document.styleSheets].some((s) => { try { return [...s.cssRules].some((r) => r.selectorText === '.sp-bg'); } catch { return false; } });
+        const at = (x, y) => { const e = document.elementFromPoint(x, y); return { home: !!e?.closest('#app .home'), name: e ? `${e.tagName.toLowerCase()}.${[...e.classList].join('.')}` : 'none' }; };
+        const plate = document.querySelector('[data-testid="tile-mission"]').getBoundingClientRect();
+        const covers = [...document.querySelectorAll('#app .home *')].filter((e) => { const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return s.position === 'fixed' && r.width >= innerWidth - 1 && r.height >= innerHeight - 1 && s.backgroundColor === 'rgb(5, 6, 10)'; }).length;
+        return { css, centre: at(innerWidth / 2, innerHeight / 2), plate: at(plate.x + plate.width / 2, plate.y + plate.height / 2), covers };
+      });
+      const b64 = (await page.screenshot({ type: 'png' })).toString('base64');
+      const dark = await page.evaluate(async (src) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${src}`;
+        await img.decode();
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        const g = c.getContext('2d');
+        g.drawImage(img, 0, 0);
+        const d = g.getImageData(0, 0, c.width, c.height).data;
+        let n = 0, black = 0;
+        for (let y = 0; y < c.height; y += 7) for (let x = 0; x < c.width; x += 7) { const i = (y * c.width + x) * 4; n++; if (d[i] < 12 && d[i + 1] < 12 && d[i + 2] < 16) black++; }
+        return black / n;
+      }, b64);
+      check(top.css && top.centre.home && top.plate.home && !top.covers && dark < 0.5, `${vp} back from ${screen} (story styles loaded: ${top.css}): the home on top (centre ${top.centre.name}, Battle ${top.plate.name}, black covers ${top.covers}, near-black pixels ${Math.round(dark * 100)} %)`);
+      await page.click('[data-testid="tile-mission"]', { timeout: 8000 }).catch(() => {});
+      await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'missions', null, { timeout: 10000 }).catch(() => {});
+      check(await screenIs(page) === 'missions', `${vp} … and the Battle plate takes a tap (${await screenIs(page)})`);
+    }
     // Marumi as the secretary under the system's Reduce motion: her still portrait, no canvas
     await homeWith(page, { secretary: 'marumi', settings: { quality: 'high', reduceMotion: false } });
     await page.waitForTimeout(800);

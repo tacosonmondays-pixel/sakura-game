@@ -533,7 +533,7 @@ function buildTop(host, { onMenu }) {
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   host.append(
     who,
-    h('span.sp'),
+    h('span.ui-spacer'),
     pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets', onPlus: () => navigate('mall', { tab: 'general' }), plusLabel: 'Get tickets' }),
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins', np: true }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
