@@ -218,7 +218,8 @@
 .bt-wavectl-running .bt-auto { opacity: 0.85; }
 
 /* ---------- Hero widget ---------- */
-.bt-herow { position: absolute; left: 12px; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px); z-index: 5; display: flex; align-items: flex-end; gap: 8px; }
+/* (--herow-lift: raised over a road's goal or start that would lie under it, heroWidget.js keepGoalsClear) */
+.bt-herow { position: absolute; left: 12px; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px + var(--herow-lift, 0px)); z-index: 5; display: flex; align-items: flex-end; gap: 8px; }
 .bt-herow-portrait {
   position: relative; width: 66px; height: 66px; border-radius: 50%; padding: 0; border: 3px solid #fff; overflow: visible;
   background: #22385c; box-shadow: 0 0 0 2px #c79bff, 0 4px 12px rgba(120,60,200,0.4);
@@ -1592,7 +1593,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 }
 .bt-has-panel .bt-abcard { right: var(--bt-abar-panel-r); }
 .bt-abcard.side-l {
-  left: calc(12px + var(--safe-left)); right: auto; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-herow-top) + 8px);
+  left: calc(12px + var(--safe-left)); right: auto; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-herow-top) + var(--herow-lift, 0px) + 8px);
   max-height: calc(100dvh - var(--bt-hud-h) - var(--safe-top) - var(--bt-bar-h) - var(--safe-bottom) - var(--ab-herow-top) - 20px);
 }
 .bt-abcard-head { display: flex; align-items: center; gap: 8px; }

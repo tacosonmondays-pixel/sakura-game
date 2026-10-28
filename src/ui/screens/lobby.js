@@ -73,7 +73,7 @@ import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon } from '../../art/icons.js';
 import { nextStage, chapterProgress, isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { missionList, loginCalendar, achievementNotice, claimLogin, currentEvent } from '../../systems/missions.js';
-import { featuredEvent, eventWindow } from '../../systems/events.js';
+import { featuredEvent, eventWindow, eventHomeButton } from '../../systems/events.js';
 import { itemCount } from '../../systems/inventory.js';
 import { canSpark } from '../../systems/gacha.js';
 import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSave.js';
@@ -784,11 +784,12 @@ function buildTop(host, { onMenu, chat }) {
   av, h('span.who-t', h('span.body.who-name', name), h('span.lv', h('span.lbl', 'LV'), h('span.num', String(a.level)))), h('span.serial', { 'aria-hidden': 'true' }, 'SNT-HQ'));
   const mail = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-mail', title: 'Mail', 'aria-label': mailCount ? `Mail, ${mailCount} unread` : 'Mail', onclick: () => openMailbox() },
     g('mail'), badge(mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null, 'home:mail'));
-  // (Clan lives in the menu on this home: its donations ready light the menu's dot too)
-  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || hub.badges.donationsReady > 0;
+  // (the menu's Clan row lights the menu's dot too, by the same rule as the Clan button: donations ready or an invite)
+  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || clanDot();
   const menu = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-menu', title: 'Menu', 'aria-label': newInside ? 'Menu, something new inside' : 'Menu', 'aria-haspopup': 'dialog', onclick: onMenu },
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   const clan = HOME_CLAN === 'top' ? clanButton(h('button.ui-ibtn', { type: 'button', title: 'Clan' }), g('flag')) : null;
+  const events = HOME_EVENTS === 'top' ? eventsButton(eventHomeButton(profile, eventNow())) : null;
   host.append(
     who,
     // (the spacer is .ui-spacer, never .sp: that is the story scene player's root, a fixed full-screen layer, story.css)
@@ -797,7 +798,7 @@ function buildTop(host, { onMenu, chat }) {
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins' }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
-    ...[chat, clan, mail, menu].filter(Boolean),
+    ...[events, chat, clan, mail, menu].filter(Boolean),
   );
 }
 
@@ -815,6 +816,34 @@ function clanButton(btn, glyph) {
   btn.setAttribute('aria-label', dot ? 'Clan, something new' : 'Clan');
   btn.addEventListener('click', () => navigate('clan'));
   btn.append(...[glyph, badge(dot ? h('i.ui-dot', { 'data-testid': 'home-clan-dot' }) : null, 'home:clan')].filter(Boolean));
+  return btn;
+}
+
+/**
+ * The Events button (owner, Oct 28: "add an events button at the bottom? or somewhere?"): the lantern glyph; it opens the
+ * live event's page, or Happening Now when no event (or more than one) runs (src/systems/events.js eventHomeButton); a
+ * red dot when something waits in it; while an event runs, a small sticker with the time left ("4d"). Where it stands:
+ * 'plate' a tab on the Battle plate's top-right corner, CO-OP's twin (shipped: the owner was shown it, Oct 28; the four
+ * shortcuts keep their row), 'dock' a fifth shortcut EVENTS after MALL (ready: three by two on a landscape phone, 64 px
+ * cells where the home folds for a girl), or 'top' an icon button in the top right cluster.
+ */
+export const HOME_EVENTS = 'plate';
+/** "4d" / "7h" / "<1h": the time left on the Events sticker. */
+export function shortLeft(msLeft) {
+  if (msLeft == null || !Number.isFinite(msLeft)) return null;
+  const hrs = Math.floor(msLeft / 3600e3);
+  return hrs >= 24 ? `${Math.floor(hrs / 24)}d` : hrs >= 1 ? `${hrs}h` : '<1h';
+}
+const eventsGo = (ev) => () => (ev.route === 'event' ? navigate('event', { id: ev.id }) : navigate('rewards'));
+const eventsAria = (ev) => `Events${ev.route === 'event' ? `, ${ev.phase === 'exchange' ? 'exchange' : 'ends in'} ${shortLeft(ev.msLeft) || ''}` : ''}${ev.dot ? ', something waiting' : ''}`;
+function eventsItem(ev) {
+  const left = ev.route === 'event' ? shortLeft(ev.msLeft) : null;
+  return { id: 'events', label: 'Events', glyph: 'lantern', testid: 'home-events', dot: ev.dot, aria: eventsAria(ev), go: eventsGo(ev),
+    sticker: left ? { cls: 'left', testid: 'home-events-left', title: ev.phase === 'exchange' ? `Exchange closes in ${left}` : `Ends in ${left}`, text: left } : null };
+}
+function eventsButton(ev) {
+  const btn = h('button.ui-ibtn', { type: 'button', title: 'Events', 'data-testid': 'home-events', 'aria-label': eventsAria(ev), onclick: eventsGo(ev) }, g('lantern'));
+  if (ev.dot) btn.append(badge(h('i.ui-dot', { 'data-testid': 'home-events-dot' }), 'home:events'));
   return btn;
 }
 
@@ -836,14 +865,17 @@ function buildDock(host) {
       go: () => navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {}) },
     { id: 'mall', label: 'Mall', glyph: 'bag', testid: 'dock-mall', go: () => navigate('mall') },
   ];
+  const ev = eventHomeButton(profile, eventNow());
+  if (HOME_EVENTS === 'dock') items.push(eventsItem(ev));
   if (HOME_CLAN === 'dock') items.push({ id: 'clan', label: 'Clan', glyph: 'flag', testid: 'home-clan', dot: clanDot(), aria: clanDot() ? 'Clan, something new' : 'Clan', go: () => navigate('clan') });
+  host.classList.toggle('five', items.length > 4);
   clear(host);
   for (const r of items) {
     host.appendChild(h('button.home-ico', { type: 'button', 'data-testid': r.testid, 'data-dock': r.id, 'aria-label': r.aria || r.label, onclick: r.go },
-      h('span.ico', g(r.glyph), badge(r.dot ? h('i.ui-dot') : null, `home:dock:${r.id}`)),
+      h('span.ico', g(r.glyph), badge(r.dot ? h('i.ui-dot', { 'data-testid': `${r.testid}-dot` }) : null, `home:dock:${r.id}`)),
       h('span.lbl', r.label),
       // (the sticker sits in the cell's own top right corner, never across the hairline into the next cell)
-      badge(r.sticker ? h('span.ui-bdg.new.home-free', { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)));
+      badge(r.sticker ? h(`span.ui-bdg.new.home-free${r.sticker.cls ? `.${r.sticker.cls}` : ''}`, { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)));
   }
 }
 
@@ -879,7 +911,17 @@ function buildBattle(host) {
       onclick: () => navigate('campaign', { chapter: chapter.id }) },
     h('span.txt', h('span.body.chap-name', chapter.name), h('span.prog', segs, h('span.num', complete ? `${medals} medals` : `${prog.cleared}/${prog.total}`))), g('chevR')));
   }
-  host.append(coop, plate);
+  const evTab = HOME_EVENTS === 'plate' ? eventsTab(eventHomeButton(profile, eventNow())) : null;
+  host.append(...[coop, evTab, plate].filter(Boolean));
+}
+
+/** The Events tab on the plate's top-right corner, CO-OP's twin ('plate'): the lantern, EVENTS, its dot and sticker. */
+function eventsTab(ev) {
+  const left = ev.route === 'event' ? shortLeft(ev.msLeft) : null;
+  return h('button.home-coop.home-evt', { type: 'button', 'data-testid': 'home-events', 'aria-label': eventsAria(ev), onclick: eventsGo(ev) },
+    g('lantern'), h('span.lbl', 'Events'),
+    badge(ev.dot ? h('i.ui-dot', { 'data-testid': 'home-events-dot' }) : null, 'home:events'),
+    badge(left ? h('span.ui-bdg.new.home-free.home-evt-left', { 'data-testid': 'home-events-left', title: ev.phase === 'exchange' ? `Exchange closes in ${left}` : `Ends in ${left}`, 'aria-hidden': 'true' }, left) : null, 'home:events:left'));
 }
 
 /** CO-OP's red number, in place (a new invite, one that ended). */
