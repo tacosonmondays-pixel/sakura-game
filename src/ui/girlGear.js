@@ -331,6 +331,19 @@ export function openPieceSheet(g, { onChange = () => {} } = {}) {
         hint.lastChild.textContent = on ? `▲ / ▼ against ${rival.label}` : `Hold the strip to compare with ${rival.label}`;
       });
     }
+    // her page for a worn piece, Salvage (a second tap) for a spare: on the primary's row, at its far end
+    const foot = wearer
+      ? secondaryBtn(`Open ${wearer.name}`, { icon: 'students', testid: 'gear-open-wearer', onClick: () => { sheet?.close(); navigate('student', { id: wearer.id, tab: 'gear' }); } })
+      : rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: () => {
+        if (!armed) { armed = true; draw(); return; }
+        const res = salvageGear(profile, x.uid);
+        if (!res.ok) { toast('Cannot salvage this piece.', 'bad'); return; }
+        store.commit('gear-salvage');
+        toast(`Salvaged: ${res.rewards.map((r) => `${getItem(r.id)?.name} ×${fmtNum(r.count, 'count', { detail: true })}`).join(', ')}`, 'good');
+        sheet?.close();
+        onChange();
+      } })) : null;
+    foot?.classList.add('gk-piece-foot');
     fillIn(body,
       h('div.gk-item-top',
         gearTile(x, { slot: x.slot, cls: 'gk-item-tile' }),
@@ -341,19 +354,7 @@ export function openPieceSheet(g, { onChange = () => {} } = {}) {
           wearer ? h('span.gk-flag', `Worn by ${wearer.name}`) : null)),
       strip,
       hint,
-      pieceActions(x, { unitId: x.equippedBy || null, onChange: changed }),
-      h('div.gk-acts-main.gk-piece-foot',
-        wearer
-          ? secondaryBtn(`Open ${wearer.name}`, { icon: 'students', testid: 'gear-open-wearer', onClick: () => { sheet?.close(); navigate('student', { id: wearer.id, tab: 'gear' }); } })
-          : rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: () => {
-            if (!armed) { armed = true; draw(); return; }
-            const res = salvageGear(profile, x.uid);
-            if (!res.ok) { toast('Cannot salvage this piece.', 'bad'); return; }
-            store.commit('gear-salvage');
-            toast(`Salvaged: ${res.rewards.map((r) => `${getItem(r.id)?.name} ×${fmtNum(r.count, 'count', { detail: true })}`).join(', ')}`, 'good');
-            sheet?.close();
-            onChange();
-          } })) : null),
+      pieceActions(x, { unitId: x.equippedBy || null, onChange: changed, extra: foot }),
       rewards && armed ? h('p.gk-salvage', `For ${rewards.map((r) => `${getItem(r.id)?.name} ×${fmtNum(r.count, 'count', { detail: true })}`).join(', ')}.`) : null,
       x.locked && !x.equippedBy ? h('p.gp-sub', 'Locked pieces cannot be salvaged.') : null);
   };

@@ -47,15 +47,14 @@ export function namePlate(unit, profile, { onPotential = null, potTestid = 'show
   const st = profile?.units?.[unit.id] || null;
   const shown = displayRarity(unit, profile);
   const tag = rarityTag(shown, { testid: 'rarity-tag', ring: shown === 'UR' ? urRing() : null, title: shown === 'UR' ? 'UR — every awaken star' : rarityInfo(shown).name });
-  // [ui-ink] V3: the night nameplate (.ui-np, a night surface on the day page): her name in the display italics, the
-  // level with its cap in small figures
+  // [ui-ink] V3: the night nameplate (.ui-np, a night surface on the day page): her name in the display italics
   return h('div.ui-np.gp-plate', { 'data-testid': 'girl-plate' },
     h('div.gp-np1', tag, h(`span.np-name.gp-name.mb-show-name${unit.name.length > 9 ? '.long' : ''}`, unit.name)),
     h('div.gp-np2', lbl(unit.title || ROLES[unit.role]?.name || ''),
       st ? h('span.gp-pwr.ui-pair', { title: 'Power' }, ico('sword'), num(fmtNum(unitPower(profile, unit.id)), 's')) : null),
     st
       ? h('div.gp-np3',
-        h('span.gp-lv.us-level', { title: `Level ${st.level} of ${levelCap(st)}` }, lbl('LV'), h('b.num', String(st.level), h('small', `/${levelCap(st)}`))),
+        h('span.gp-lv.us-level', { title: `Level ${st.level} of ${levelCap(st)}` }, lbl('LV'), h('b.num', `${st.level}/${levelCap(st)}`)),
         starRow(st.awaken || 0, MAX_AWAKEN),
         potSticker(unit, st, { onClick: onPotential, testid: potTestid }))
       : h('div.gp-np3.locked', ico('lock'), h('span', howShort(unit))));

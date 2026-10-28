@@ -107,7 +107,6 @@ body.ui-day .gp-plate .gp-pwr .ui-ico { width: 14px; height: 14px; color: var(--
 body.ui-day .gp-plate .gp-pwr .num { font-size: var(--fs-num-s); }
 body.ui-day .gp-plate .gp-lv .lbl { color: var(--on-ink-dim); }
 body.ui-day .gp-plate .gp-lv .num { font-size: var(--fs-num-s); color: var(--on-ink); }
-body.ui-day .gp-plate .gp-lv .num small { font: 600 var(--fs-label)/1 var(--font-num); color: var(--on-ink-dim); letter-spacing: 0.02em; margin-left: 1px; }
 body.ui-day .gp-plate .ui-stars .ui-star { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.22); }
 body.ui-day .gp-plate .ui-stars .ui-star.on { color: #ffc94d; }
 /* the P sticker on ink: a hairline chip with white figures (the kit's chip on ink); P6 pale sakura with the plum crown */
@@ -117,18 +116,21 @@ body.ui-day .gp-plate .ui-sticker.gp-p.p6 { background: #ffd9e7; color: var(--po
 
 /* the content panel: folder tabs over one window (the kit's .ui-tabbed); only the window scrolls */
 body.ui-day .gp-right.ui-tabbed { min-height: 0; }
+/* the tabs a full tap tall at every height (the kit's 40 px short tab hangs its hit 4 px into the window, over the
+   window's first row of controls) */
+body.ui-day .gp-tabs.ui-tabs { --h: max(var(--tab-h), calc(var(--tap) + 2px)); }
 body.ui-day .gp-tabs > .ui-tab { min-width: 0; }
 body.ui-day .gp-tabs > .ui-tab > .ui-tab-word { font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); }
 body.ui-day .gp-tabs > .ui-tab > .ui-dot.ur-dot { margin: 0 0 0 -3px; background: conic-gradient(var(--ur-rainbow)); }
-body.ui-day .gp-host.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: block; padding: 12px 12px calc(14px + var(--safe-bottom)); }
-@media (min-height: 481px) { body.ui-day .gp-host.ui-tabbed-body { padding: 16px 18px calc(18px + var(--safe-bottom)); } }
+body.ui-day .gp-host.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: block; padding: 12px 8px calc(14px + var(--safe-bottom)); }
+@media (min-height: 481px) { body.ui-day .gp-host.ui-tabbed-body { padding: 16px 14px calc(18px + var(--safe-bottom)); } }
 @media (max-width: 599px) { body.ui-day .gp-band { --np-h: 104px; } }
 
 /* ---------- the tabs' sections in the folder body: flat, the folder panel is the one panel (5.4: one level deep). A
    kicker heads a section; a hairline parts two. ---------- */
 body.ui-day .gp-host .ui-panel { --fill: transparent; --edge: transparent; clip-path: none; background: none; }
 body.ui-day .gp-host .ui-panel::after { display: none; }
-body.ui-day .gp-host .ui-panel > .ui-panel-in { padding: 0; }
+body.ui-day .gp-host .ui-panel > .ui-panel-in { padding: 0 4px; }
 body.ui-day .gp-host .ui-panel-head { min-height: 20px; margin-bottom: 8px; }
 body.ui-day .gp-host .ui-kicker { color: var(--ink); }
 
@@ -173,12 +175,26 @@ body.ui-day :is(.gp-host, .gp-details) .gk-bar > i.pv { background: repeating-li
 /* ---------- LEVEL: the level, its bar and the EXP line; Manual · Auto select · Level up on one row; the next gate ---------- */
 body.ui-day .gk-level { gap: 0; }
 body.ui-day .gk-level > .ui-panel + .ui-panel, body.ui-day .gk-level > .gk-bt-host { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line-ink-soft); }
+body.ui-day .gp-host .gk-lv > .ui-panel-in { padding-top: 4px; }
 body.ui-day .gk-lv .mb-lv-big > .num { font-size: var(--fs-num); }
 body.ui-day .gk-lv .gk-acts-main { gap: 8px; }
 body.ui-day .ui-chip.gk-toggle { --h: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px 0 10px; font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
 body.ui-day .ui-chip.gk-toggle.on { --fill: var(--plate); color: var(--on-ink); }
+/* a landscape phone: the EXP line rides beside the level on its row (the cap stays right), so Manual's five books fit
+   under the bar without a scroll */
+@media (max-height: 480px) and (min-width: 600px) {
+  body.ui-day .gp-host .gk-lv > .ui-panel-in { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; }
+  body.ui-day .gp-host .gk-lv > .ui-panel-in > * { grid-column: 1 / -1; }
+  body.ui-day .gp-host .gk-lv-head { display: contents; }
+  body.ui-day .gp-host .gk-lv-head > .mb-lv-big { grid-column: 1; grid-row: 1; }
+  body.ui-day .gp-host .gk-lv > .ui-panel-in > .mb-lv-exp { grid-column: 2; grid-row: 1; }
+  body.ui-day .gp-host .gk-lv-head > .mb-lv-cap { grid-column: 3; grid-row: 1; }
+}
 /* the Manual steppers: a row a book, 44 px steppers (ink squares), the chosen book on a pale wash */
-body.ui-day .mb-book { border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); grid-template-columns: 52px minmax(0, 1fr) auto; }
+body.ui-day .mb-book { border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); grid-template-columns: 50px minmax(0, 1fr) auto;
+  padding: 2px 2px 2px 4px; }
+/* the book's tile (a tap adds one) a full tap tall: 50 px wide on the tile's 1.09 aspect (itemTile sets 44 inline) */
+body.ui-day .mb-book > .item-tile { width: 50px !important; }
 body.ui-day .mb-book.on { background: var(--cyan-wash); box-shadow: inset 0 0 0 1px var(--cyan-ink); }
 body.ui-day .mb-stepper { gap: 2px; }
 body.ui-day .mb-step { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-name)/1 var(--font-num);
@@ -196,6 +212,15 @@ body.ui-day .gk-req { height: calc(var(--tap) + 2px); border: 0; border-radius: 
 body.ui-day .gk-req.short { background: #fff6f8; box-shadow: inset 0 0 0 1px #e9a3b3; }
 body.ui-day .gk-req .gk-req-go { color: var(--cyan-ink); }
 body.ui-day .gk-where .ui-ghost { min-height: var(--tap); }
+/* a landscape phone: the gate's title beside its pips, its requirement chips beside Break through (Where to get, an
+   Ascension gate's, under them), so the tab fits its window without a scroll */
+@media (max-height: 480px) and (min-width: 600px) {
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; align-items: center; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > * { grid-column: 1 / -1; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > :is(.gk-gate-title, .gk-reqs) { grid-column: 1; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > :is(.mb-bt-gates, .gk-acts-main) { grid-column: 2; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > .gk-where { order: 1; }
+}
 
 /* ---------- AWAKEN: the star row, the next star, her passive, then the cost and Awaken ---------- */
 body.ui-day .gk-awaken { gap: 0; }
@@ -280,8 +305,7 @@ body.ui-day .gk-hint { min-height: 24px; }
 body.ui-day .gk-piece { display: flex; flex-direction: column; gap: 10px; }
 body.ui-day .gk-piece .ui-strip:not(.comparing) .ui-delta { display: none; }
 body.ui-day .gk-piece .ui-strip { touch-action: none; -webkit-user-select: none; user-select: none; }
-body.ui-day .gk-piece-foot { justify-content: flex-end; }
-body.ui-day .gk-piece-foot:empty { display: none; }
+body.ui-day .gk-acts-main > .gk-piece-foot { margin-left: auto; }
 /* Details: a piece's lines, every total, the stars, the club line, as flat kit rows */
 body.ui-day .gp-details .gk-line { border-radius: 0; background: none; box-shadow: inset 0 -1px 0 var(--line-ink-soft); min-height: 40px; }
 body.ui-day .gp-details .gk-line.main { background: var(--plate); box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
@@ -315,17 +339,15 @@ body.ui-day .gs-art .gp-plate.ui-np { padding: 8px 10px; gap: 4px; background: v
 body.ui-day .gs-art .np-name { font-size: var(--fs-num); }
 body.ui-day .gs-art .gp-np2 > .lbl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media (min-height: 481px) { body.ui-day .gs-art .gp-plate.ui-np { padding: 12px 14px; gap: 6px; } body.ui-day .gs-art .np-name { font-size: var(--fs-title); } }
-/* the right: the folder panel; its ink strip carries the tabs, Full page ▸ and ✕ (their hits hang to 44 px) */
+/* the right: the folder panel; its ink strip (a full tap tall) carries the tabs, Full page ▸ and ✕ */
 body.ui-day .gs-right.ui-tabbed { gap: 0; min-height: 0; }
-body.ui-day .gs-top { flex: none; height: var(--tab-h); min-height: 0; gap: 0; padding: 0 calc(var(--cut) * 0.6) 0 0; background: var(--plate); }
-body.ui-day .gs-top > .ui-tabs { flex: 1 1 auto; min-width: 0; height: 100%; background: none; }
+body.ui-day .gs-top { --h: max(var(--tab-h), calc(var(--tap) + 2px)); flex: none; height: var(--h); min-height: 0; gap: 0; padding: 0 calc(var(--cut) * 0.6) 0 0; background: var(--plate); }
+body.ui-day .gs-top > .ui-tabs { --h: max(var(--tab-h), calc(var(--tap) + 2px)); flex: 1 1 auto; min-width: 0; height: 100%; background: none; }
 body.ui-day .gs-top > .ui-tabs > .ui-tab { padding: 0 6px; }
 body.ui-day .gs-top > .ui-tabs > .ui-tab > .ui-tab-word { font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); }
 body.ui-day .gs-top .ui-ghost { position: relative; flex: none; height: 100%; padding: 0 8px; color: var(--cyan); }
-body.ui-day .gs-top .ui-ghost::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--tap) + 2px); }
 body.ui-day .gs-top .us-owner { margin: 0 6px; }
 body.ui-day .gs-close { position: relative; flex: none; width: calc(var(--tap) + 2px); height: 100%; border-radius: 0; background: none; color: var(--on-ink); }
-body.ui-day .gs-close::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--tap) + 2px); }
 body.ui-day .gs-close .ui-ico { width: var(--icon-s); height: var(--icon-s); }
 body.ui-day .gs-body.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
 body.ui-day .gs-slots { gap: 10px; padding: 6px 6px 8px 0; }

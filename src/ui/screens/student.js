@@ -428,7 +428,7 @@ function openOutfits(unit, showcase) {
     body: h('div.mb-outfit-body.gt-outfits',
       h('div.mb-outfit-grid.gt-outfit-grid', choices.map(card)),
       h('p.gt-outfit-note', owned
-        ? 'Outfits dress her 3D chibi in battle and here; her drawn portraits keep her main look.'
+        ? 'Outfits dress her chibi model in battle and here; her drawn portraits keep her main look.'
         : `Recruit ${unit.name} to wear her outfits — you can still try them on.`)),
   });
 }
@@ -821,7 +821,7 @@ function breakthroughPanel(unit, ctx, rerender) {
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
     potLock ? h('div.gk-note', h('span', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} · 1 Essence + coins per step`),
       ghostBtn('Raise ▸', { testid: 'gate-raise', onClick: () => openPotential(unit, { profile, onChange: () => { ctx.refreshShowcase(); rerender(); } }) }))
-      : atCap ? null : h('p.gk-note', `Reach LV ${levelCap(st)} first — you can gather materials now.`),
+      : atCap ? null : h('p.gk-note', 'Reach her level cap first — you can gather materials now.'),
     reqChips(cost, { onWhere: showItemInfo }),
     where,
     h('div.gk-acts-main',
@@ -897,7 +897,7 @@ function awakenTab(unit, ctx) {
   }
   return h('div.mb-tab-body.gk-awaken', top,
     h('section.ui-panel.gk-aw-cost', h('div.ui-panel-in',
-      h('div.ui-panel-head', h('span.ui-kicker', `Awaken to ★${next}`)),
+      h('div.ui-panel-head', h('span.ui-kicker', 'Cost')),
       reqChips(cost, { onWhere: showItemInfo }),
       h('div.gk-acts-main',
         button(`Awaken${coins ? ` · ${fmtNum(coins, 'money', { round: 'up' })}` : ''}`, {
