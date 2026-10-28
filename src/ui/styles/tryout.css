@@ -87,6 +87,10 @@
 .ty-photo { text-align: left; }
 /* the Class Photo scrolls on short screens: its buttons stay in view at the bottom (M4 review) */
 .ty-photo > .ty-actions { position: sticky; bottom: -12px; margin: 8px -14px -12px; padding: 8px 14px; background: #fffaf0; border-top: 1px solid #e3d9c4; }
+@media (max-width: 700px), (max-height: 430px) {
+  /* (the sheet's phone padding is 8px 10px: the row matches it, so the sheet never scrolls sideways) */
+  .ty-photo > .ty-actions { bottom: -8px; margin: 6px -10px -8px; padding: 6px 10px; }
+}
 .ty-squad { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .ty-squad-art { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; display: block; }
 .ty-score-big { font-family: var(--font-head); font-weight: 900; font-size: 20px; }

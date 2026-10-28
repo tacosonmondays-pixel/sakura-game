@@ -25,6 +25,11 @@ export function tryoutUnlocked(profile) {
 
 export { TRYOUT_GRADES };
 
+/** Has this player cleared a Half Day (the Full Day opens then, §2.2)? */
+export function halfCleared(profile) {
+  return (Number(profile?.missions?.counters?.[TRYOUT_META.keys.half]) || 0) > 0;
+}
+
 /** The highest Grade cleared (0: none): profile.tryoutGrade, or its mirror 'ty:grade' an older build cannot drop. */
 export function gradeCleared(profile) {
   return Math.min(12, Math.max(whole(profile?.tryoutGrade), whole(profile?.missions?.counters?.[GRADE_KEY])));
