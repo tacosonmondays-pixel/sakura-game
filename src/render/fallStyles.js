@@ -11,6 +11,11 @@
 // machines of our own city. The style keys on the enemy def: an explicit `def.fall` wins; otherwise
 // the Brigade's ids (`brigade_*`; in Step 3 the Gnat is a construct-family def, so the id is what
 // marks it) or a future `brigade` family. Everything else keeps the shipped sparkle.
+//
+// Gate Arc S5a: the machines out of the Noon Gate (`vesper_*` ids on the construct family, STEP5
+// decision 4) break apart too, never going home: the Patrol Orb and the Halo Drone in a spark spray,
+// the Line Sentry breaking down, their sparks in the def's own accent (cyan, not the Gnat's amber) and
+// their scrap white glass (fallTintOf: the tint is built once per def, then reused).
 
 export const FALL_STYLES = Object.freeze(['sparkle', 'fade', 'sparkFall', 'breakdown']);
 
@@ -23,6 +28,16 @@ const BRIGADE_FALL = {
   brigade_hammer: 'breakdown',
 };
 
+/** Vesperline machine id → style (any other `vesper_*` machine sparks apart). */
+const VESPER_FALL = {
+  vesper_patrol_orb: 'sparkFall',
+  vesper_halo_drone: 'sparkFall',
+  vesper_line_sentry: 'breakdown',
+};
+
+/** Is this a machine out of the Noon Gate? (one char test first: every shipped id fails it at once) */
+const isVesper = (id) => id.charCodeAt(0) === 118 && id.startsWith('vesper_');
+
 /**
  * @param {object|null} def EnemyDef ({ id, family, fall? })
  * @returns {'sparkle'|'fade'|'sparkFall'|'breakdown'}
@@ -32,10 +47,34 @@ export function fallStyleOf(def) {
   if (FALL_STYLES.includes(def.fall)) return def.fall;
   const id = def.id || '';
   if (BRIGADE_FALL[id]) return BRIGADE_FALL[id];
+  if (VESPER_FALL[id]) return VESPER_FALL[id];
   // every shipped monster leaves here, before any loop (this runs on every defeat)
-  if (!id.startsWith('brigade_')) return def.family === 'brigade' ? 'fade' : 'sparkle';
+  if (!id.startsWith('brigade_')) return isVesper(id) ? 'sparkFall' : def.family === 'brigade' ? 'fade' : 'sparkle';
   for (const key in BRIGADE_FALL) if (id.startsWith(`${key}_`)) return BRIGADE_FALL[key];
   return 'fade';
+}
+
+/** The Noon machines' default accent (cyan) when a def gives none. */
+export const VESPER_CYAN = '#3fd0e8';
+const tints = new Map();
+
+/**
+ * The colours a machine breaks apart in (null: the style's own, the Gnat's amber): for a `vesper_*`
+ * def its accent for the sparks with white glass glints, white-glass scrap, a cool grey puff. Built
+ * once per def id, then reused (no allocation per defeat).
+ * @param {object|null} def EnemyDef ({ id, accent?, color? })
+ * @returns {{ spark: string, glint: string, shard: string, shard2: string, smoke: string, flash: string }|null}
+ */
+export function fallTintOf(def) {
+  const id = def?.id || '';
+  if (!isVesper(id)) return null;
+  let t = tints.get(id);
+  if (!t) {
+    const accent = def.accent || VESPER_CYAN;
+    t = Object.freeze({ spark: accent, glint: '#e9fbff', shard: def.color || '#f2f7fb', shard2: '#bfeff8', smoke: '#9fb4bf', flash: '#c9f6ff' });
+    tints.set(id, t);
+  }
+  return t;
 }
 
 /** Does this style send the creature home (the rising sparkle)? Only the shipped monsters' does. */
@@ -43,18 +82,20 @@ export function homeward(style) {
   return style === 'sparkle';
 }
 
+const HOME = Object.freeze({ homeward: true });
+const NO_HOME = Object.freeze({ homeward: false });
+
 /**
  * Plays the fall FX for one beaten enemy.
  * @param {import('./fx.js').FxSystem} fx
  * @param {string} style fallStyleOf()
  * @param {{ x: number, y: number, z: number, size?: number, color?: string }} p where it fell
+ * @param {object|null} [def] its EnemyDef: a Noon machine's sparks and scrap take its tint (fallTintOf)
  */
-const HOME = Object.freeze({ homeward: true });
-const NO_HOME = Object.freeze({ homeward: false });
-
-export function playFall(fx, style, p) {
+export function playFall(fx, style, p, def = null) {
   const size = p.size ?? 1;
-  if (style === 'sparkFall') fx.sparkFall(p.x, p.y, p.z, size);
-  else if (style === 'breakdown') fx.breakdown(p.x, p.y, p.z, size);
+  const tint = def ? fallTintOf(def) : null;
+  if (style === 'sparkFall') fx.sparkFall(p.x, p.y, p.z, size, tint);
+  else if (style === 'breakdown') fx.breakdown(p.x, p.y, p.z, size, tint);
   else fx.death(p.x, p.y, p.z, size, p.color || '#ffffff', homeward(style) ? HOME : NO_HOME);
 }
