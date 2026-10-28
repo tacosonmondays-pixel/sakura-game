@@ -595,12 +595,14 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     cue('gacha.showcase', { unitId: r.unitId }); // [audio]
     const u = UNIT_MAP[r.unitId];
     const full = portraitUrl(u, 'full');
-    const sc = h('div.ma-showcase', { onclick: () => { sc.remove(); showcase(i + 1); } },
+    const lr = unitClass(r.unitId) === 'legend';
+    const sc = h(`div.ma-showcase${lr ? '.is-lr-reveal' : ''}`, { onclick: () => { sc.remove(); showcase(i + 1); } },
       full ? h('div.ma-showcase-paint', { style: { backgroundImage: `url("${full}")` } }) : null,
       h('div.ma-showcase-rays'),
       h(`div.ma-showcase-card${full ? '.drawn' : ''}`, { html: portraitHTML(u, full ? 'cut' : 'full', { eager: true }) }),
       h('div.ma-showcase-text',
         h('div.ma-showcase-kicker', { 'data-testid': 'showcase-kicker' }, showcaseKicker(r)),
+        lr ? h('div.bn-lr-reveal', { 'data-testid': 'lr-reveal' }, h('i.bn-lr-crest.unlit'), 'LR unit · Limit Break to awaken her LR form') : null,
         h('div.ma-showcase-name', u.name),
         h('div.ma-showcase-title', u.title),
         h('div.ma-showcase-quote', `“${u.quote}”`),
@@ -688,8 +690,10 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
 
 /** SSR showcase kicker: SSR · pity · Potential 4 ▲ / P6 · MAX. */
 function showcaseKicker(r) {
-  const parts = ['SSR'];
+  const parts = [unitClass(r.unitId) === 'legend' ? 'LR unit' : 'SSR'];
   if (r.pity) parts.push('pity');
+  if (r.promise) parts.push('Legend Promise');
+  if (r.welcome) parts.push('first 10×');
   if (!r.isNew && r.readyStep) parts.push(`+1 Essence · P${r.readyStep} ready!`);
   else if (!r.isNew && r.essence) parts.push('+1 Essence');
   else if (!r.isNew && r.spare) parts.push(`Spare → ${spareText(r.spare)}`);

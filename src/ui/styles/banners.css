@@ -127,3 +127,10 @@
   .bn-srs { display: none; }
 }
 .bn-page .ma-pull-label { white-space: nowrap; }
+
+/* an LR unit's reveal: the Nightglass showcase with the crest still unlit (it lights at Limit Break) */
+.ma-showcase.is-lr-reveal .ma-showcase-paint { filter: saturate(0.85) brightness(0.8); }
+.ma-showcase.is-lr-reveal { background: radial-gradient(circle at 60% 40%, #2e4677, #0e1930 70%); }
+.bn-lr-reveal { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 12px; border-radius: 8px; background: #0e1930; color: #ffefcf; border: 2px solid #ffd27a; font-weight: 800; font-size: 0.85rem; }
+.bn-lr-reveal .bn-lr-crest { position: static; transform: none; flex: 0 0 auto; }
+.bn-lr-crest.unlit { filter: grayscale(1) brightness(0.7); }
