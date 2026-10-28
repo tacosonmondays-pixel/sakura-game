@@ -25,6 +25,8 @@ act's easiest on Normal).
 
 Azami's move, Act I Normal/Hard with and without her in the bot's roster (stages after 2-2): Normal holds everywhere
 (within ± 9 lives; 8-5 Normal was already lost before); two Hard rows that were narrow wins flip: 2-3 (won 5/50 →
-lost at wave 15) and 4-5 (won 3/50 → lost at wave 26); 4-4 Hard loses at wave 17 instead of 22.
+lost at wave 15) and 4-5 (won 3/50 → lost at wave 26); 4-4 Hard loses at wave 17 instead of 22. The bot goldens re-pin with her out of the
+Act I free team: tests/sim/modesGolden.test.js 2-3 … 6-3 and the gacha rows (no outcome changes; 2-3 … 4-2 equal
+BASE_GOLDEN again), tests/sim/abilitiesGolden.test.js 4-5 Hard (W26/2 → L26/0, as the base team without the new girls).
 
 Checks at this row: `tools/simId.mjs` → 6fb950042e09, `coopVersion().data` → c9f7473c, COOP_PROTOCOL 9.

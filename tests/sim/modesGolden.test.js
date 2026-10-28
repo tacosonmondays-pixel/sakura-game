@@ -24,18 +24,18 @@ export const GOLDEN_STAGES = ['1-1', '2-3', '3-3', '4-2', '5-4', '6-1', '6-3', '
 const GOLDEN = {
   '1-1:easy': 'W12/150/22173/685/507e1bb3',
   '1-1:hard': 'W12/50/21986/990/823b741',
-  '2-3:easy': 'W20/150/52556/445/6554b5ba',
-  '2-3:hard': 'L15/0/36561/261/e8d0ee58',
-  '3-3:easy': 'W24/150/99512/396/2756335a',
-  '3-3:hard': 'W24/8/119530/318/90ca4978',
-  '4-2:easy': 'W25/143/69632/464/3c2df04',
-  '4-2:hard': 'W25/13/85160/643/1b23e508',
-  '5-4:easy': 'W27/139/71072/2536/59e896f8',
-  '5-4:hard': 'W27/38/89849/1245/509cb7c2',
-  '6-1:easy': 'W26/150/61889/3972/d3799d2e',
-  '6-1:hard': 'W26/44/69321/1382/e727f835',
-  '6-3:easy': 'W27/145/35703/702/886a8506',
-  '6-3:hard': 'W27/15/54200/566/cddb8fc5',
+  '2-3:easy': 'W20/150/52003/335/71666e2e',
+  '2-3:hard': 'L15/0/36864/609/77ed47fa',
+  '3-3:easy': 'W24/150/98421/441/94f02a6a',
+  '3-3:hard': 'W24/17/120010/326/3886db15',
+  '4-2:easy': 'W25/143/69602/589/aa0a3689',
+  '4-2:hard': 'W25/7/85509/445/d66194a8',
+  '5-4:easy': 'W27/141/70867/3596/ed7b168a',
+  '5-4:hard': 'W27/33/92623/1101/fb69f2c8',
+  '6-1:easy': 'W26/150/55541/4542/668e0cfc',
+  '6-1:hard': 'W26/42/65859/493/6cfbbe12',
+  '6-3:easy': 'W27/147/31852/1119/fe750057',
+  '6-3:hard': 'W27/39/44348/803/616d3dba',
   '7-3:easy': 'W29/138/89954/20132/e24ed9f3',
   '7-3:hard': 'L15/0/52357/342/f5eb7b58',
   '8-4:easy': 'W30/150/44957/14820/ab26977',
@@ -113,17 +113,17 @@ describe.skipIf(!hasRealData())('the base roster plays exactly as before the new
 // each gets her own pinned battles, the free team plus her (seed 1). (4-2 Hard, a 4-life win for the
 // free team, is lost by the bot with any ninth girl it adds, Kinu or Ouka: its plan, not theirs.)
 const GACHA_GOLDEN = {
-  'kinu:5-4:hard': 'W27/20/102364/624/bcbf48d4',
-  'kinu:6-1:hard': 'W26/40/68511/1183/8028cf00',
-  'ouka:5-4:hard': 'W27/38/90695/575/208fad97',
+  'kinu:5-4:hard': 'W27/12/101477/1651/d53c8bf1',
+  'kinu:6-1:hard': 'W26/40/66433/703/3642addf',
+  'ouka:5-4:hard': 'W27/33/93051/1227/7d2e511b',
   'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
-  'chigusa:5-4:hard': 'W27/36/90183/930/cf2018c6',
+  'chigusa:5-4:hard': 'W27/34/93158/774/e2b016f0',
   'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
   // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
   // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives). Re-pinned for v0.1.41 (was
   // 'W27/38/100632/1471/ac3188a3' / 'W30/40/53939/1579/6c70e78'): her lob is flyers only (it also hit
   // walkers on other lanes) and the Heavy Ball share tune; lives and waves unchanged
-  'marumi:5-4:hard': 'W27/38/101296/1471/68090dec',
+  'marumi:5-4:hard': 'W27/33/100733/1105/c42bd58e',
   'marumi:8-4:hard': 'W30/40/54145/1579/d9583b83',
 };
 
