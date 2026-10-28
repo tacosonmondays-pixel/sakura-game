@@ -207,6 +207,8 @@ try {
   }
   check(konModes.includes('travel'), `Kon runs (${konModes.join(' ')})`);
   // (a 1.5-tile run at his pace: about a second on screen, a hop and a dust puff per stride)
+  const runFx = (await probe()).fx;
+  check(runFx.spawned > 0 && runFx.ribbons > 0, `his run leaves dust, paw marks and a holo streak (${JSON.stringify(runFx)})`);
   check(konModes.filter((m) => m === 'travel').length >= 5, `his run lasts long enough to read (${konModes.filter((m) => m === 'travel').length} frames of 0.14 s)`);
   for (let i = 0; i < 20 && (await actor('kon'))?.mode !== 'spot'; i++) await step(0.2);
   const kon1 = await actor('kon');

@@ -97,6 +97,8 @@ export class Companions {
     this.zoom = 1;
     this.detail = 'lod';
     this.requested = new Set(); // `${cid}|${detail}` loads asked for
+    /** what their moves drew so far (probe): particles spawned / refused (the FX pool full), ribbon quads */
+    this.stats = { spawned: 0, refused: 0, ribbons: 0 };
     this._make = (t, cid) => {
       const a = this._create(t, cid);
       return a ? this._kit(a) : null;
@@ -171,7 +173,7 @@ export class Companions {
         dives: a.dives?.length ?? 0, diving: !!a.diving, pounce: a.pounce?.busy ? (a.pounce.uid ?? null) : null,
       });
     }
-    return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows };
+    return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows, fx: { ...this.stats } };
   }
 
   // ---- events --------------------------------------------------------------------------------
@@ -595,7 +597,10 @@ export class Companions {
 
   /** One particle from the shared spawn record (`_sp`, filled by the caller). */
   _spawn() {
-    return this.fx.spawn(_sp);
+    const p = this.fx.spawn(_sp);
+    if (p) this.stats.spawned++;
+    else this.stats.refused++;
+    return p;
   }
 
   _setSp(batch, uv, x, y, z, s0, s1, life, color, a0 = 1) {
@@ -753,7 +758,7 @@ export class Companions {
     const dy = _lb.y - _la.y;
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 0.005) return;
-    B.push((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, len, w, this.R.beam || this.R.glow, c.r, c.g, c.b, alpha, Math.atan2(dy, dx));
+    if (B.push((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, len, w, this.R.beam || this.R.glow, c.r, c.g, c.b, alpha, Math.atan2(dy, dx))) this.stats.ribbons++;
   }
 
   dispose() {
