@@ -1666,7 +1666,7 @@ const POTENTIAL_BOSS_UPGRADES = Object.freeze([
  * by Hotaru / Kaede at P6).
  * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, onFrame = null } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -1780,6 +1780,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
       else if (ev.type === 'tempo') mech.tempo++;
     }
     if (kage && carry0 != null && kage.projCarry < carry0) mech.carry++;
+    // (an optional observer of both clients after each frame, e.g. a rejoin check: it never queues anything)
+    onFrame?.(A, B);
     for (const c of clients) c.sim.events.length = 0;
   }
   for (let f = 0; f < 30; f++) {
@@ -2073,7 +2075,74 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
+/**
+ * The attack shapes S1 "Wheels" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/
+ * ATTACK_SHAPES.md §7.2 step 5b; 2-4 Hard): the host's Momo to the Coin Wheel and Kage to the Blade Cyclone, the
+ * guest's Hotaru to the Firefly Halo and a second Kage. Once the wave-3 checkpoint exists, the first frame
+ * 5 s into a wave with a spin index and a halo memory live is rebuilt by a third client from that
+ * checkpoint and the log (a rejoin), which must land on the same hash and snapshot.
+ */
+const SHAPES_STATS = { costMul: 0.15, damageMul: 1, rateMul: 1 };
+export const SHAPES_START = Object.freeze({
+  seed: 242424,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'momo', stats: SHAPES_STATS }, { unitId: 'kage', stats: SHAPES_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'hotaru', stats: SHAPES_STATS }, { unitId: 'kage', stats: SHAPES_STATS }], hero: null },
+  ],
+});
+const SHAPES_UPGRADES = Object.freeze([
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0], [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0], [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0],
+]);
+
+/**
+ * SHAPES_START to the end (or 12 minutes): the runPotentialBattle fields plus `shapes` (wheel / spin
+ * attack events and halo cuts, counted on the host's copy) and the mid-wave rejoin (`rejoinTick`,
+ * `rejoinSame`).
+ */
+export function runShapesBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { wheel: 0, spin: 0, halo: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (tower && spec && spec === tower.haloSpec && e && !e.dead) n.halo++;
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const onFrame = (A) => {
+    for (const ev of A.sim.events) if (ev.type === 'attack' && (ev.kind === 'wheel' || ev.kind === 'spin')) n[ev.kind]++;
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!A.sim.towers.some((t) => t.spinK != null) || !A.sim.towers.some((t) => t.haloHits)) return;
+    const copy = new Lockstep({ start: SHAPES_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(SHAPES_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  const r = runPotentialBattle({ start: SHAPES_START, upgrades: SHAPES_UPGRADES, spotsFirst: ['momo', 'hotaru', 'kage'], maxFrames, probe, onFrame });
+  r.shapes = `${n.wheel}/${n.spin}/${n.halo}`;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the attack shapes S1, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2087,5 +2156,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
 }

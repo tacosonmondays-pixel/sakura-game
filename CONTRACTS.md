@@ -1485,7 +1485,7 @@ immune; `isHeld`).
 
 ```js
 strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, endStripWave   // traps with strip: true
-rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
+rings.js:    ringDir (= dirs.js dir), spawnStraight (+ scale), straightRoom, attackRing, ringTick, scissorPos, endRingWave
 drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
 sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
 balls.js:    addBall, rollBall, ballTick, endBallWave                        // t.balls [{ uid, pathIndex, dist, left, through, hit, stuck }]
@@ -1517,6 +1517,37 @@ Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 pe
 Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
 `nt` nets, `bn` Ouka's banners (replaces `am` for her); everything else of theirs ends at the wave clear
 (UNIT_GAPS §7.3).
+
+### Attack shapes S1 "Wheels" (`docs/specs/ATTACK_SHAPES.md` §4, §5.1, §5.2, §5.5, addendum; branch `feature/attack-shapes`)
+
+```js
+dirs.js:   DIR_X, DIR_Y (Float64Array[RING_DIRS], k 0 = +y, clockwise, built once with DET_MATH), wrapDir(k), dir(k) -> [x, y],
+           nearestDir(dx, dy) -> k (arg-max dot product, ties to the lower index; (0,0) -> 0; replaces atan2 for aiming),
+           turnToward(k, kTarget, maxSteps) (the short way round; a half turn goes clockwise)
+shapes.js: hitRadius(e) (moved from towers.js, which re-exports it), inDisc(cx, cy, r, ex, ey, hr), onLine(ex, ey, dx, dy, len, halfWidth, hr)
+wheels.js: attackWheel(sim, t, spec, target, extraPierce)  // behaviour 'wheel' (Blossom Wheel)
+           attackSpin(sim, t, spec, extraPierce)           // behaviour 'spin'  (Pinwheel Stream), an attack at her own rate
+           haloPos(t, j, n, step, reach), wheelTick(sim, t) (Petal Halo, kit `halo`, from updateTower), endWheelWave(sim)
+```
+Stats blocks (`mods.js` SHAPE_NORM), unlike the kits above created by the first ModSet that names them (a path that turns
+into a shape); counts add, the rest is stated per tier (replaced): `wheel { spokes +, lead, mul }`, `spin { arms +, mul, fold,
+turn (SPIN_TURN), lock (SPIN_LOCK) }`, `halo { pieces +, reach +, mul }`. Behaviours `wheel`, `spin` (tier 4+, like every
+transformation). Shots are straight projectiles (spawnStraight, `p.straight`) with `p.scale` = sim._hit's scale (absent = 1;
+projectileStep passes `p.scale ?? 1`), under STRAIGHT_PER_GIRL/PLAYER/SIM (oldest first), ended by endRingWave.
+- wheel: `spokes` shots at nearestDir(target − origin) + floor(i × 240 / spokes), flying her range; spoke 0 pierce 1 × `lead`,
+  the rest her pierce (+ gear Pierce) × `mul`; event `attack { towerUid, targetUid, kind: 'wheel', k, spokes }`.
+- spin: one eligible enemy in range → one shot along k = turnToward(k, nearestDir(…), SPIN_FOLD_TURN) carrying projectiles ×
+  (1 + projScale) × `fold`; more → one shot per arm at k + floor(a × 240 / arms) carrying that × `mul` / arms, then k += `turn`
+  (`lock` while an arm has an enemy onLine within SPIN_HALF_WIDTH); `t.spinK` (integer); event `attack { …, kind: 'spin', k, arms }`.
+- halo: piece j at dir(step × HALO_STEPS + floor(j × 240 / n)) × (HALO_REACH + reach) from her spot; cuts what inDisc(HALO_RADIUS)
+  touches for damage × rate × `mul` with `t.haloSpec` (her eff without statuses, procStatus, mark, silence, reveal, knockback,
+  gather, crits); per piece a flat [uid, step, …] memory in `t.haloHits` (≤ HALO_HITS pairs, oldest dropped, gap HALO_GAP steps).
+- `t.spinK` and `t.haloHits` end at the wave clear (null); `hashSim` folds them only while present; battle saves carry none.
+- Renderer: straight shots draw as her projectile kind; halo pieces from sim state each frame (`actors.js`, a plain glow).
+- Units (one path each, the rest of each girl unchanged): Momo Encore Toss T4-5 (Coin Wheel 12 / 16 spokes), Kage Storm of
+  Steel T4-5 (Blade Cyclone 3 / 4 arms), Hotaru Lantern Light T3-5 (Firefly Halo 4 / 6 / 8, her pulse × 0.7, × 1.4 vs elites).
+- Constants (appended block): WHEEL_SPEED, SPIN_TURN, SPIN_LOCK, SPIN_HALF_WIDTH, SPIN_SPEED, SPIN_FOLD_TURN, HALO_STEPS,
+  HALO_REACH, HALO_RADIUS, HALO_GAP, HALO_HITS, HALO_MAX.
 
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 

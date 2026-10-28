@@ -218,6 +218,23 @@ for (const { name, r } of results) {
   if (!(bounced > 0 && finales > 0)) failures.push(`the Glow Bowl battle: no bounce or no finale (${g.bowl})`);
 }
 
+// the attack shapes S1 (SHAPES_START): Coin Wheel, Blade Cyclone, Firefly Halo, and a mid-wave rejoin
+log('\nScripted co-op SHAPES battle (2-4 Hard, SHAPES_START: Momo\'s Coin Wheel, two Kages\' Blade Cyclone, Hotaru\'s Firefly Halo):');
+for (const { name, r } of results) {
+  const g = r.shapes;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · wheel/spin/halo ${g.shapes} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · rejoin w${g.ckWave} → tick ${g.rejoinTick} ${g.rejoinSame ? '= the run' : '≠ THE RUN'} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two shapes clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} shapes command(s) refused: ${g.refused}`);
+  if (!g.rejoinSame) failures.push(`${name}: the shapes battle's mid-wave rejoin from the wave-${g.ckWave} checkpoint did not land on the run`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'shapes', 'dealt', 'rejoinTick']) if (g[k] !== ref.shapes[k]) failures.push(`${name}: shapes ${k} ${g[k]} ≠ ${ref.shapes[k]} (${results[0].name})`);
+}
+{
+  const g = ref.shapes;
+  const [wheel, spin, halo] = g.shapes.split('/').map(Number);
+  if (!(wheel > 0 && spin > 0 && halo > 0)) failures.push(`the shapes battle: a shape never fired (wheel/spin/halo ${g.shapes})`);
+  if (!(g.rejoinTick > 0)) failures.push('the shapes battle: no mid-wave rejoin with the shapes live');
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');

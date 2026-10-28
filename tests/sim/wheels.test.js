@@ -17,6 +17,7 @@ import { roadSpots } from '../../src/sim/strips.js';
 import { samplePath } from '../../src/sim/path.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { withDetMath } from '../../src/core/detMath.js';
+import { readFileSync } from 'node:fs';
 import { MAP, STAGE, ENEMIES } from './fixtures.js';
 
 const units = defaultData().units;
@@ -341,5 +342,15 @@ describe('determinism', () => {
     }
     const all = realBattle(false);
     expect(realBattle(true).out).toEqual(all.out);
+  });
+});
+
+describe('determinism: the source', () => {
+  test('the new sim files use no Math.random, no runtime trig or hypot and no ** (comments aside)', () => {
+    for (const f of ['src/sim/wheels.js', 'src/sim/dirs.js', 'src/sim/shapes.js']) {
+      const code = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(code, f).not.toMatch(/Math\.(random|sin|cos|tan|atan2?|asin|acos|hypot|pow|exp|log)\b/);
+      expect(code, f).not.toMatch(/\*\*/);
+    }
   });
 });
