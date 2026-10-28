@@ -52,6 +52,7 @@ export function createTowerBar(ctx) {
       h('span.bt-card-cost', svgEl(currencyIcon('coins'), 'bt-card-coin'), cost),
       isHero ? h('span.bt-card-deployed', { 'data-testid': 'hero-card-deployed' }, 'Deployed') : null,
     );
+    if (friend) card.classList.add('bt-card-friend');
     setVar(card, '--rarity', rarityColor(def, own));
     if (ur) applyUrFrame(card, def, own);
     bindCard(card, unitId);
