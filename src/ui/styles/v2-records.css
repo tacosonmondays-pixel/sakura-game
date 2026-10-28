@@ -274,6 +274,12 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ev-dev { padding: 2px 6px; background: var(--bad-text); color: #fff; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); }
 :is(.ui-day) .ev-head .ev-phase { border-radius: 0; background: var(--plate-2); box-shadow: inset 0 0 0 1px var(--line-lo); }
 @media (min-height: 481px) { :is(.ui-day) .ev-head > .ev-head-body { padding: 14px 22px 16px; gap: 6px; } :is(.ui-day) .ev-head > .ev-lanterns { height: 46px; } }
+/* the host: her bust (framed on her face) in a square window at the band's right end, its left side fading into the band */
+:is(.ui-day) .ev-head > .ev-head-host { position: absolute; right: 0; top: 0; bottom: 0; z-index: 0; aspect-ratio: 1; line-height: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 40%); mask-image: linear-gradient(90deg, transparent 0%, #000 40%); }
+:is(.ui-day) .ev-head-host img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+/* (a narrow phone: the kicker runs most of the band's width, so the host and the lantern string go rather than paint over its words) */
+@media (max-width: 559px) { :is(.ui-day) .ev-head > :is(.ev-lanterns, .ev-head-host) { display: none; } }
 
 /* the folder tabs: the strip is ink, the open tab a hole of the panel's white (S4); one word each, a glyph on wide screens */
 :is(.ui-day) .ev-tabbed { flex: 1; min-height: 0; }

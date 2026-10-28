@@ -23,6 +23,8 @@ import { eventById } from '../../data/events/index.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { getItem } from '../../data/items.js';
+import { UNIT_MAP } from '../../data/units.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { itemIcon, medalIcon } from '../../art/icons.js';
@@ -138,10 +140,13 @@ export function render(root, params = {}) {
     const now = eventNow();
     const phase = eventPhase(ev, now, store.profile);
     const w = windowText(ev);
+    const host = UNIT_MAP[(ev.theme.hosts || []).find((id) => UNIT_MAP[id])];
     balance.textContent = formatNumber(itemCount(store.profile, ev.currency.id));
     header.append(
       h('div.ev-head-art', { 'aria-hidden': 'true' }, h('img', { src: lobbyArtUrl(ev.theme.fallbackArt || 'academy.webp'), alt: '', draggable: false, decoding: 'async' })),
       h('div.ev-head-shade', { 'aria-hidden': 'true' }),
+      // the event's host: her bust in a window at the band's right end, face in view (hidden on a narrow phone)
+      host ? h('div.ev-head-host', { 'aria-hidden': 'true', html: portraitHTML(host, 'bust', { alt: '' }) }) : '',
       h('div.ev-lanterns', { 'aria-hidden': 'true', html: lanternString(7) }),
       h('div.ev-head-body',
         h('div.ev-kicker.lbl', `Limited event · ${ev.subtitle}`),
