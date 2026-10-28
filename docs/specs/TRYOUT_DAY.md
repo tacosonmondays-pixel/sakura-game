@@ -221,7 +221,7 @@ map's route choice without leaving the board. Subjects are the map-independent c
   definition, `tryoutRuleDef(sim)`: the Subject's `cycle` and `active` keys, its `always` keys merged with the run's
   (`bountyAdd` from Spare Change), and `pads` = this block's Window Seats. Multiplying keys multiply; adding keys
   (`bountyAdd`, `livesPerWave`, `rangeAdd`) add. **`padDmgMul` and `padRangeAdd` are written once, by the run only:**
-  `padDmgMul = 1 + min(0.50, seat bonus)` and `padRangeAdd = min(1.0, seat reach)`. No Subject carries them, which
+  `padDmgMul = 1 + min(0.50, seat bonus)` and `padRangeAdd = min(0.7, seat reach)`. No Subject carries them, which
   matches today's code: `rebuildRuleTables` keeps the last value it meets (`padDmg = s.padDmgMul`, `rules.js:113`) and
   never multiplies. Then
   `createRuleRuntime` + `_bountyAdd = ruleBountyAdd(…)` + `rebuildRuleTables` + `assignPads` run once
@@ -456,7 +456,7 @@ Auras: "only the strongest aura per stat counts" still holds (HANDOFF §10). Bac
 | B01 | **Snack Fund** | R / SR | +200 / +350 coins now and +30 / +50 at each of the next 8 wave clears (× `cashScale`; co-op: to your wallet) | not in the last 2 picks | ✔ |
 | B02 | **Spare Change** | R / SR | foes give +1 / +2 coins (`bountyAdd` in the merged rule) | team-wide in co-op; not in the last 2 picks | ✔ |
 | B03 | **Nurse's Office** | R / SR / SSR | heal 15 / 25 / 40 hearts; max hearts +5 / +8 / +12 | refused at Grade 12 (no healing) | ✔ |
-| B04 | **Sunny Window** | SR / SSR | the seat bonus rises from +25 % to +35 % / +40 % damage and from +0.7 to +0.85 / +1.0 reach; SSR adds 1 seat | **one of a kind**; team-wide; inside the seat cap (§4.4) | ✔ |
+| B04 | **Sunny Window** | SR / SSR | the seat bonus rises from +25 % to +35 % / +40 % damage (reach stays +0.7: M2); SSR adds 1 seat | **one of a kind**; team-wide; inside the seat cap (§4.4) | ✔ |
 | B05 | **Spare Pass** | SR | +1 Hall Pass at every break from now on (passes are spent only in breaks) | one of a kind; team-wide in co-op (every player gets the pass) | ✔ |
 | B06 | **Rainy-Day Fund** | SR | at every period end, +10 % of your unspent coins (at most 300 × `cashScale`) | one of a kind; **solo only** (it reads the wallet) | ✔ |
 | B07 | **Multiple Choice** | UR | every later pick shows 4 cards (a second Wild) and +1 Eraser; **drawback: Hand it in later pays no coins** | one of a kind; never at the last pick | ✔ |
@@ -526,7 +526,7 @@ as content updates, each with its bench check (§9.3).
 |---|---|---|---|---|
 | X01 | **Hundred Points** | everyone +35 % damage, +20 % attack speed | **foes +10 % HP for the rest of the run** | ✔ |
 | X02 | **Whole Class Turns Up** | take 2 of 4 girls, both with the SSR arrival package; +1 squad spot (offered only with at least 1 open spot, never at the last pick) | **your next pick is skipped** | ✔ |
-| X03 | **Golden Chalk** | Window Seats +1 and the seat bonus to its cap: +50 % damage, +1.0 reach | **−1 Hall Pass at every later break** | ✔ |
+| X03 | **Golden Chalk** | Window Seats +1 and the seat bonus to its cap: +50 % damage | **−1 Hall Pass at every later break** | ✔ |
 | X04 | **Final Bell** | the last wave of every period: all girls +40 % attack speed and +20 % damage | **the first wave of every period: −10 % damage** | ✔ |
 
 **Count:** 8 Everyone + 8 Group + 6 Personal + 8 Board + 2 Placement + 29 Hidden Talents + 5 UR + 4 LR = **70**; the first
@@ -544,13 +544,13 @@ always bites, even on a girl at her cap: `min(cap, Σ bonus) − Σ drawback`.
 |---|---|
 | Damage | **+100 %** |
 | Attack speed | **+50 %** |
-| Reach | +1.0 tile |
-| Crit chance / crit damage | +20 points / +0.5 |
-| Pierce / projectiles / chain jumps | +2 / +2 / +3 |
-| Splash | +0.5 tiles |
-| Each "vs" bonus (air, heavy and scaled, elite and boss, barrier, warded) | +30 % (and inside the ×2.5 run damage, below) |
+| Reach | +0.5 tile (M2 ceiling gate; was +1.0) |
+| Crit chance / crit damage | +10 points / +0.25 (M2; card crit's expected gain also counts inside the ×2.5 below) |
+| Pierce / projectiles / chain jumps | +1 / +1 / +2 (M2) |
+| Splash | +0.25 tiles (M2) |
+| Each "vs" bonus (air, heavy and scaled, elite and boss, barrier, warded) | +30 %, and only the room left under the ×2.5 run damage (M2: a vs card never costs damage against ordinary foes) |
 | Cost cuts (placing and upgrading) | −30 % |
-| Window Seat bonus (one team-wide value) | +50 % damage, +1.0 tile reach |
+| Window Seat bonus (one team-wide value) | +50 % damage; reach stays +0.7 (Prism's: M2) |
 | **Run damage, cards × seat together** | **×2.5 per girl** |
 
 - - **The "vs" bonuses count inside the run-damage cap** (M0 review: E06 gives elite and boss together, ×1.3 × ×1.3 against

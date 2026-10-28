@@ -6,7 +6,7 @@
 //        [--strength new|mid|maxed|none] [--grade N] [--runs N] [--sweep] (see the CLI at the end)
 import { Sim } from '../src/sim/Sim.js';
 import { createRng } from '../src/core/rng.js';
-import { buildTryoutPlan, buildTryoutStage } from '../src/sim/tryout/index.js';
+import { buildTryoutPlan, buildTryoutStage, chooserOf } from '../src/sim/tryout/index.js';
 import { createCoopSim } from '../src/online/coop/commands.js';
 import { snapshotDigest } from '../src/sim/snapshot.js';
 import { DEFAULT_UNIT_STATS } from '../src/sim/constants.js';
@@ -64,12 +64,21 @@ export function decide(sim, slot, bot) {
   const ty = sim.tryout;
   const p = ty.players[slot];
   const cmds = [];
+  // between periods (first, while a pick still holds the wave): the chooser picks the coming Subject, and everyone
+  // takes the Double Dare every third period (both players tap it, so co-op runs the Dare too); once per period
+  const next = ty.period + (ty.started >= ty.period ? 1 : 0);
+  if (!ty.base && !ty.done && ty.subjects?.[next] && bot.classFor !== next) {
+    bot.classFor = next;
+    if (chooserOf(ty, next) === slot) cmds.push({ k: 'tr', a: ['subject', Math.floor(next / 2) % 2] });
+    if (next % 3 === 0) cmds.push({ k: 'tr', a: ['dare', 1] });
+  }
   if (p.win === 'pick' && p.offer) {
     const o = p.offer;
     if (bot.policy === 'hand' || (bot.policy === 'random' && bot.rng.next() < 0.1)) cmds.push({ k: 'tr', a: ['hand', o.seq] });
     else {
       const i = bot.policy === 'first' ? 0 : Math.floor(bot.rng.next() * o.cards.length);
-      cmds.push({ k: 'tr', a: ['take', o.seq, i] });
+      // a girl's arrival path varies with the pick (no rng draw: the random policy's stream stays as it was)
+      cmds.push({ k: 'tr', a: ['take', o.seq, i, (o.seq + slot) % 3] });
     }
     return cmds;
   }

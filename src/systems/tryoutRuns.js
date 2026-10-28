@@ -33,9 +33,12 @@ export function gradeOpen(profile, g) {
   return { open: true, why: null };
 }
 
-/** A won run (not practice) clears its Grade. @returns {boolean} a new Grade opened */
+/**
+ * A won run (not practice) clears its Grade, when it was this player's own next step: a co-op win at the host's
+ * Grade never skips rungs of the guest's ladder (M2 review). @returns {boolean} a new Grade opened
+ */
 export function recordGradeClear(profile, grade) {
-  if (!Number.isInteger(grade) || grade <= gradeCleared(profile)) return false;
+  if (!Number.isInteger(grade) || grade <= gradeCleared(profile) || grade > gradeCleared(profile) + 1) return false;
   profile.tryoutGrade = Math.min(12, grade);
   return true;
 }

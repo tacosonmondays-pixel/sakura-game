@@ -31,6 +31,9 @@ describe('tryout co-op', () => {
     expect(r.players).toHaveLength(2);
     expect(r.players[0].picks.length).toBeGreaterThan(0);
     expect(r.players[1].picks.length).toBeGreaterThan(0);
+    // the run's class choices and Double Dares ran through lockstep too (the bots send them; §2.4, §8.3)
+    expect(r.periods.slice(1).every((p) => typeof p.subject === 'string')).toBe(true);
+    expect(r.periods.some((p) => p.dare)).toBe(true);
   }, 120000);
 
   it('a client rejoining from a checkpoint after a mid-run join stays in lockstep', () => {

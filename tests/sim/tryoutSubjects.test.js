@@ -163,5 +163,8 @@ describe('tryout: the Grade ladder', () => {
     expect(recordGradeClear(p, 1)).toBe(false);
     expect(recordGradeClear(p, 2)).toBe(true);
     expect(p.tryoutGrade).toBe(2);
+    // a co-op win at a Grade above the next rung (the host's) does not skip the ladder
+    expect(recordGradeClear(p, 6)).toBe(false);
+    expect(p.tryoutGrade).toBe(2);
   });
 });

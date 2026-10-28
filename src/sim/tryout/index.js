@@ -463,9 +463,9 @@ export function tryoutWaveStart(sim) {
   ty.nextSubject = null;
   if (ty.assignOptions && ty.subject && ty.assignOptions[ty.subject]) ty.assign = ty.assignOptions[ty.subject];
   ty.assignOptions = null;
-  // Double Dare (§8.3): on only when every player still here tapped it (solo: the player); its curse is the stream's
-  const present = ty.players.filter((x) => !x.gone);
-  const dared = present.length > 0 && present.every((x) => x.dare);
+  // Double Dare (§8.3): on only when every player tapped it (solo: the player; a gone partner never taps, so it stays
+  // off); its curse is the stream's
+  const dared = ty.players.every((x) => x.dare);
   ty.dare = dared ? dareOf(ty, p) : null;
   for (const x of ty.players) x.dare = false;
   // the Seat Change takes effect, and the rule is rebuilt for the period (its Subject, the seats)

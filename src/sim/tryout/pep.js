@@ -268,7 +268,7 @@ export function seatBonus(sim) {
       const c = PEP_CARDS[inst.id];
       if (inst.id === 'B04') {
         dmg = Math.max(dmg, c.seatDmg[inst.r] ?? dmg);
-        reach = Math.max(reach, c.seatReach[inst.r] ?? reach);
+        reach = Math.max(reach, c.seatReach?.[inst.r] ?? reach);
         add += c.seatAdd[inst.r] || 0;
       }
       if (inst.id === 'X03') {

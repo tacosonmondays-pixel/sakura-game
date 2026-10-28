@@ -73,17 +73,23 @@ function pointOn(pts, d) {
   return pts[0] ? [pts[0][0], pts[0][1]] : [0, 0];
 }
 
-/** How many seats are in play now (the Grade's, one more in co-op, Sunny Window SSR). */
-export function seatCount(sim) {
+/** How many seats are in play (the Grade's, one more in co-op, Sunny Window SSR, Art Class) under `subject`. */
+export function seatCount(sim, subject = sim.tryout.subject) {
   const ty = sim.tryout;
   const g = TRYOUT.grades[ty.grade];
-  return Math.min(SEATS_DRAWN, g.seats + (ty.coop ? 1 : 0) + seatBonus(sim).add + (TRYOUT.subjects[ty.subject]?.seatAdd || 0));
+  return Math.min(SEATS_DRAWN, g.seats + (ty.coop ? 1 : 0) + seatBonus(sim).add + (TRYOUT.subjects[subject]?.seatAdd || 0));
 }
 
-/** The seats of block b in play. */
-export function seatsOf(sim, b) {
+/** The seats of block b in play (under `subject`: the coming period's for a break's preview). */
+export function seatsOf(sim, b, subject = sim.tryout.subject) {
   const list = sim.tryout.seats.blocks[b] || [];
-  return list.slice(0, seatCount(sim));
+  return list.slice(0, seatCount(sim, subject));
+}
+
+/** The coming period's Subject as things stand: the chosen one, else the first of its pair (as tryoutWaveStart). */
+function comingSubject(ty, p) {
+  const pair = ty.subjects[p] || null;
+  return pair ? (pair.includes(ty.nextSubject) ? ty.nextSubject : pair[0]) : null;
 }
 
 const inside = (t, p) => (t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y) <= p.r * p.r;
@@ -283,7 +289,10 @@ export function nextSeats(sim) {
   const ty = sim.tryout;
   if (!ty.players.some((p) => p.win === 'break')) return [];
   const len = lengthOf(ty.length);
-  const b = blockOf(len, Math.min(len.periods, ty.period + 1));
-  if (b === ty.seats.block) return [];
-  return seatsOf(sim, b).map((p) => ({ x: p.x, y: p.y, r: p.r }));
+  const next = Math.min(len.periods, ty.period + 1);
+  const b = blockOf(len, next);
+  // (the coming period's seat count: an Art Class there adds its seat, one here does not carry over; M2 review)
+  const sub = comingSubject(ty, next);
+  if (b === ty.seats.block && seatCount(sim, sub) === seatCount(sim)) return [];
+  return seatsOf(sim, b, sub).map((p) => ({ x: p.x, y: p.y, r: p.r }));
 }
