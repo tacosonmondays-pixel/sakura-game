@@ -99,6 +99,48 @@ export function imageDecoded(img) {
   });
 }
 
+/** Safety net after the 'on' class: a layer counts as faded in even if its transitionend never comes. */
+export const FADE_FALLBACK_MS = FADE_MS + 250;
+
+/**
+ * The layers that can go: every layer beneath the topmost one that fully covers the screen (faded in and its
+ * picture decoded). Nothing goes while no layer covers, so the screen always has a layer at full opacity, and a
+ * second swap that arrives mid-fade just becomes the new top: whichever layer finishes first only clears what is
+ * beneath it, never a layer above it.
+ * @template T
+ * @param {T[]} layers bottom to top (DOM order)
+ * @param {(layer: T) => boolean} covers
+ * @returns {T[]}
+ */
+export function layersToDrop(layers, covers) {
+  for (let i = layers.length - 1; i >= 0; i--) if (covers(layers[i])) return layers.slice(0, i);
+  return [];
+}
+
+/**
+ * Resolves once `layer` has finished its opacity fade: its own transitionend for opacity (not a child's, not
+ * another property), or `fallbackMs` later if that event never comes (tab hidden, transition cancelled). Call it
+ * when the 'on' class is added, so the fallback counts from the start of the fade.
+ * @param {{ addEventListener: Function, removeEventListener: Function }} layer
+ * @param {{ fallbackMs?: number, setTimer?: Function, clearTimer?: Function }} [o]
+ * @returns {Promise<void>}
+ */
+export function fadedIn(layer, { fallbackMs = FADE_FALLBACK_MS, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  return new Promise((resolve) => {
+    let timer = null;
+    const done = () => {
+      layer.removeEventListener('transitionend', onEnd);
+      clearTimer(timer);
+      resolve();
+    };
+    const onEnd = (e) => {
+      if (e.target === layer && e.propertyName === 'opacity') done();
+    };
+    layer.addEventListener('transitionend', onEnd);
+    timer = setTimer(done, fallbackMs);
+  });
+}
+
 function stillFor(stageId) {
   if (!stillProvider || !stageId) return Promise.resolve(null);
   if (!stillCache.has(stageId)) {
@@ -130,22 +172,42 @@ export function createBackdrop(el, { chapter = 0 } = {}) {
   let current = null;
   let token = 0;
 
+  /** Layers that are fully in (faded in and decoded): the ones that may cover what is beneath them. */
+  const covering = new WeakSet();
+  function prune() {
+    for (const o of layersToDrop([...el.children], (l) => covering.has(l))) o.remove();
+  }
+
   function swap(layer, instant) {
-    const old = [...el.children];
     layer.classList.add('sp-bg-in');
     if (instant) layer.classList.add('sp-bg-instant');
     el.appendChild(layer);
     // every place is its own picture now. The new layer fades in once its picture has decoded, or after
-    // BG_READY_CAP_MS so a slow picture never holds the scene up; the old layers stay underneath until the new
-    // picture has really decoded (no cap), so a slow phone never shows black between two backgrounds. A picture
+    // BG_READY_CAP_MS so a slow picture never holds the scene up. The layers beneath it go only once it has really
+    // faded in (its opacity transitionend, or FADE_FALLBACK_MS after 'on') and its picture has decoded, so the
+    // screen always has a layer at full opacity and a slow frame never shows black between two places. A picture
     // that fails keeps the old one under it (the next swap clears both).
     const decoded = imageDecoded(layer.querySelector('img'));
-    Promise.race([decoded, new Promise((r) => setTimeout(r, BG_READY_CAP_MS))]).then(() => {
-      // two frames so the opacity transition runs
-      requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('on')));
-    });
-    decoded.then((ok) => {
-      if (ok) setTimeout(() => old.forEach((o) => o.remove()), instant ? 0 : FADE_MS + 60);
+    let faded;
+    if (instant) faded = Promise.resolve();
+    else {
+      faded = Promise.race([decoded, new Promise((r) => setTimeout(r, BG_READY_CAP_MS))]).then(
+        () =>
+          new Promise((resolve) => {
+            // two frames so the opacity transition runs; the fallback timer starts with the fade, not before
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => {
+                layer.classList.add('on');
+                fadedIn(layer).then(resolve);
+              }),
+            );
+          }),
+      );
+    }
+    Promise.all([decoded, faded]).then(([ok]) => {
+      if (!ok || !layer.isConnected) return;
+      covering.add(layer);
+      prune();
     });
   }
 

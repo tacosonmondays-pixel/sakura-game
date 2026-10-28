@@ -10,7 +10,7 @@ import { forEachLine } from '../../src/data/story/format.js';
 import {
   BACKGROUNDS, STAGE_PLACE, CHAPTER_FALLBACK_BG, SPARE_BACKGROUNDS, placeOfStage, stageOfBackground,
 } from '../../src/data/story/backgrounds.js';
-import { resolveBackground, backgroundUrls, imageDecoded } from '../../src/ui/story/backdrop.js';
+import { resolveBackground, backgroundUrls, imageDecoded, layersToDrop, fadedIn, FADE_FALLBACK_MS } from '../../src/ui/story/backdrop.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../src/data/stages.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -147,5 +147,87 @@ describe('imageDecoded (when the old background may go)', () => {
     expect(await imageDecoded(listening('error'))).toBe(false);
     expect(await imageDecoded(fakeImg({ complete: true, naturalWidth: 640 }))).toBe(true);
     expect(await imageDecoded(fakeImg({ complete: true, naturalWidth: 0 }))).toBe(false);
+  });
+});
+
+// A background change drops the old layers only once the new one has really faded in (M1, Oct 28): the decision
+// (layersToDrop) and the fade-end signal (fadedIn) are pure, so they are tested here without a DOM.
+describe('background crossfade: the old layers go only beneath a layer that covers', () => {
+  const L = (name, covers = false) => ({ name, covers });
+  const drop = (layers) => layersToDrop(layers, (l) => l.covers).map((l) => l.name);
+
+  it('nothing goes while the new layer is still fading in (or its picture is not decoded)', () => {
+    expect(drop([L('old', true), L('new')])).toEqual([]);
+    expect(drop([L('old'), L('new')])).toEqual([]);
+    expect(drop([])).toEqual([]);
+  });
+
+  it('once the new layer covers, every layer beneath it goes', () => {
+    expect(drop([L('old', true), L('new', true)])).toEqual(['old']);
+    expect(drop([L('a', true), L('b'), L('c', true)])).toEqual(['a', 'b']);
+  });
+
+  it('a second swap mid-fade: the first new layer finishing only clears what is beneath it, never the newer one', () => {
+    // old (covering) <- A (finished first) <- B (still fading)
+    expect(drop([L('old', true), L('A', true), L('B')])).toEqual(['old']);
+    // B finishes before A: both A and old go
+    expect(drop([L('old', true), L('A'), L('B', true)])).toEqual(['old', 'A']);
+  });
+
+  it('the topmost covering layer always stays (never zero coverage)', () => {
+    for (const stack of [[L('a', true)], [L('a', true), L('b')], [L('a', true), L('b', true), L('c')]]) {
+      const gone = new Set(drop(stack));
+      const left = stack.filter((l) => !gone.has(l.name));
+      expect(left.some((l) => l.covers), JSON.stringify(stack)).toBe(true);
+    }
+  });
+});
+
+describe('fadedIn (when a layer has finished its fade)', () => {
+  const fakeLayer = () => {
+    const handlers = new Set();
+    return {
+      addEventListener: (t, fn) => t === 'transitionend' && handlers.add(fn),
+      removeEventListener: (t, fn) => handlers.delete(fn),
+      fire(e) { for (const fn of [...handlers]) fn(e); },
+      get listeners() { return handlers.size; },
+    };
+  };
+  const fakeTimers = () => {
+    const t = { pending: null, cleared: false, ms: null };
+    t.setTimer = (fn, ms) => { t.pending = fn; t.ms = ms; return 1; };
+    t.clearTimer = () => { t.cleared = true; };
+    return t;
+  };
+  const settledAfter = async (p) => {
+    let done = false;
+    p.then(() => { done = true; });
+    await new Promise((r) => setTimeout(r, 0));
+    return done;
+  };
+
+  it("resolves on the layer's own opacity transitionend, and cleans up", async () => {
+    const layer = fakeLayer();
+    const t = fakeTimers();
+    const p = fadedIn(layer, t);
+    layer.fire({ target: {}, propertyName: 'opacity' }); // a child's transition bubbling up
+    layer.fire({ target: layer, propertyName: 'transform' }); // another property
+    expect(await settledAfter(p)).toBe(false);
+    layer.fire({ target: layer, propertyName: 'opacity' });
+    expect(await settledAfter(p)).toBe(true);
+    expect(t.cleared).toBe(true);
+    expect(layer.listeners).toBe(0);
+  });
+
+  it('falls back after FADE_FALLBACK_MS when transitionend never comes', async () => {
+    const layer = fakeLayer();
+    const t = fakeTimers();
+    const p = fadedIn(layer, t);
+    expect(t.ms).toBe(FADE_FALLBACK_MS);
+    expect(FADE_FALLBACK_MS).toBeGreaterThan(420);
+    expect(await settledAfter(p)).toBe(false);
+    t.pending();
+    expect(await settledAfter(p)).toBe(true);
+    expect(layer.listeners).toBe(0);
   });
 });

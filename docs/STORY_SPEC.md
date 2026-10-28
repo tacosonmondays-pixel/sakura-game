@@ -157,7 +157,7 @@ roster does.
 #### 1.2.4 Backgrounds (`BACKGROUNDS`)
 | id | kind | source | use |
 |---|---|---|---|
-| `academy-day`, `academy-sunset`, `academy-night` | paint | `public/art/lobby/academy.webp` + the lobby's CSS tints | the stage fallback (`CHAPTER_FALLBACK_BG`); no scene uses them since Oct 27 |
+| `academy-day`, `academy-sunset`, `academy-night` | paint | `public/art/lobby/academy.webp` + the lobby's CSS tints | the stage fallback (`CHAPTER_FALLBACK_BG`); no campaign scene uses them since Oct 27, but the Halloween event scenes (`src/data/events/scenes/halloween.js`) still open on `academy-night` |
 | `academy-soft` | paint | same, blurred (8 px) + dimmed | spare |
 | story places (31: `academy-courtyard[-sunset/-night]`, `academy-gate[-sunset/-night]`, `common-room`, `workshop`, `blossom-court[-sunset/-night]`, `library-garden`, `lakeshore`, `moon-pier`, `shrine-steps`, `shrine-bell`, `mountain-pass`, `beacon-gate`, `marsh`, `drowned-willow`, `foundry`, `sakura-sanctuary`, `festival-street`, `festival-drum`, `base-camp`, `summit-nest`, and the Gate Arc's `station-plaza`, `covered-arcade`, `corner-store`, `dry-fountain`, `shelter`) | paint | `public/art/lobby/story/<id>.webp` (1280x876) + `story/thumbs/<id>.webp` (320 px, archive cards); time of day painted in (`tint: 'day'`), `focus` = the picture's object-position | where each scene takes place |
 | `cg:hikari-rampart` | cg | `public/art/lobby/hikari.webp` | Hikari's reveal in the opening; ch8 ending |
@@ -175,8 +175,10 @@ opens and each cue's background one cue ahead; nothing loads at boot. Each place
 open band above the text box on a landscape phone (844x390) and its middle on a portrait one. `SPARE_BACKGROUNDS`
 lists the pictures no scene uses yet (the Gate Arc places wait for their scenes and stages 1-6 to 1-10). A new
 background fades in once its picture has decoded (or after 2.5 s, `BG_READY_CAP_MS`, so it never holds the scene
-up), and the old one stays underneath until the new picture has really decoded, so a slow phone never shows black
-between two places.
+up). The old layers stay underneath until the new one has really faded in: its own opacity `transitionend`, or a
+safety timer (`FADE_FALLBACK_MS`, 670 ms) that starts when the fade starts, and its picture has decoded. Layers go
+only from beneath the topmost layer that is fully in (`layersToDrop`), so a second change that arrives mid-fade can
+never remove a newer layer, and a slow phone or a busy frame never shows black between two places.
 
 **Stage stills** (not built; the hook `setStageStillProvider()` in `backdrop.js` stays, nothing registers a
 provider, and a registered still would crossfade over the stage's place). The original plan: build a headless `Sim` for the stage (`new Sim({ stageId })`, prep state, no
