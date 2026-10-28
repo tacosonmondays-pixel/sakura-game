@@ -197,6 +197,10 @@ describe('display only: the battle sim is untouched', () => {
     // Tryout Day in co-op, in one release)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '5987025a6141' };
     if (!KNOWN[COOP_PROTOCOL]) return;
+    // balance round 5 (feature/balance-r5) changes the sim; it ships with its own COOP_PROTOCOL bump, which the
+    // coordinator assigns at ship: until then its sim id is pinned here (drop this line at the bump)
+    const PENDING_BUMP = { 11: 'a1076e6d148d' };
+    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });
