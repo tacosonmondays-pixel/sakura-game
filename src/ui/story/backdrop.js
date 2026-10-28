@@ -35,7 +35,7 @@ export function setStageStillProvider(fn) {
 
 
 /** Act II stage maps whose story background shows a place of its own (src/art/backdrops.js themeBackdropSVG variant). */
-const PLACE_VARIANT = {
+export const PLACE_VARIANT = {
   noon_rowing_jetty: 'jetty', noon_boathouse_lamp: 'lamp',
   // Act 3 (the Bell Festival): Old Town at night, then the night it burns
   noon_old_town: 'oldtown', noon_takoyaki_row: 'oldtown', noon_shrine_steps: 'oldtown',
@@ -44,6 +44,11 @@ const PLACE_VARIANT = {
   // villages, and the snow bridge over the ravine in a blizzard
   noon_toll_plaza: 'highway', noon_checkpoint: 'highway', noon_tunnel_mouth: 'highwaySnow',
   north_frozen_villages: 'north', north_snow_bridge: 'northBridge',
+  // Act 5 (the Drowned Line, Gate Arc Step 5; the maps arrive with S5b): the flooded platform, the Line 2
+  // tunnels and the Noon Gate's pump hall underground (`drowned`), then the reservoir park in fog and the
+  // willow on its island (`city`, district 'park'; `stage:5-10@night` re-lights it)
+  noon_flooded_platform: 'platform', noon_line2_tunnels: 'tunnels', noon_pump_station: 'noonGate',
+  noon_reservoir_park: 'reservoir', noon_reservoir_willow: 'willow',
 };
 
 /** A painted place's own picture for a time of day (`<place>-sunset` / `<place>-night`), when one is listed. */

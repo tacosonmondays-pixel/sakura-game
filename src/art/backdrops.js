@@ -233,6 +233,8 @@ const THEME_SKY = {
   snow: ['#a9d6ff', '#f4fbff'], night: ['#0f1d3d', '#3d5a9a'], arena: ['#7cc4ff', '#ffe8b8'],
   city: ['#8ec5ec', '#fde9d6'],
   campus: ['#16244a', '#3f5d96'],
+  // (the Drowned Line is underground: its scenes cover the sky with the station's ceiling)
+  drowned: ['#0b1418', '#1d3640'],
 };
 
 
@@ -450,6 +452,273 @@ function northScene(rnd, id, W, H, bridge) {
 }
 
 /**
+ * The Drowned Line (Gate Arc S5a, Act 5 "The Drowned Line"; story backgrounds of 5-6…5-8; the `drowned`
+ * theme's variants). Underground: no sky, the station's own lamps. `platform` (5-6): the flooded Line 2
+ * platform: dead strip lights under a dark ceiling, white tiles with the line's blue band, the lake
+ * mosaic on the back wall, platform signs, the flooded track bed, a train half sunk at the far end, one
+ * vending machine still lit, red emergency lamps. `tunnels` (5-7): a bore in perspective, its rings
+ * going into the dark, the flood over the rails, signal lamps, a maintenance cart, daylight falling
+ * through a vent cutting, glass shards glinting in the water. `noonGate` (5-8): the pump hall, giant
+ * pumps and frosted pipes either side and in the middle the Noon Gate: a ring of glass shards round a
+ * cold cyan-white disc, frost breathing off it onto the wet floor, red status lamps behind. The lamps,
+ * lit windows and the gate's light go into `lights` (drawn over a time-of-day wash). No people.
+ * @returns {{ s: string, lights: string }}
+ */
+function drownedScene(rnd, id, W, H, variant) {
+  let s = '';
+  let lights = '';
+  const tiles = (x0, y0, x1, y1, step, col) => {
+    let d = '';
+    for (let x = x0; x <= x1; x += step) d += `M${x} ${y0}V${y1}`;
+    for (let y = y0; y <= y1; y += step) d += `M${x0} ${y}H${x1}`;
+    return `<path d="${d}" stroke="${col}" stroke-width="1"/>`;
+  };
+  const stains = (x0, x1, y0, y1, n, col) => {
+    let d = '';
+    for (let i = 0; i < n; i++) {
+      const x = x0 + rnd() * (x1 - x0);
+      d += `M${n2(x)} ${y0}v${n2((y1 - y0) * (0.3 + rnd() * 0.7))}`;
+    }
+    return `<path d="${d}" stroke="${col}" stroke-width="5" opacity="0.35" stroke-linecap="round"/>`;
+  };
+  const n2 = (v) => Math.round(v * 10) / 10;
+  const roundel = (x, y, r) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#3f8fbf"/><circle cx="${x}" cy="${y}" r="${n2(r * 0.62)}" fill="#f4f6f2"/><circle cx="${x}" cy="${y}" r="${n2(r * 0.36)}" fill="#3f8fbf"/>`;
+  if (variant === 'tunnels') {
+    // the bore: concentric rings toward the vanishing point, darker as they go
+    const vx = 560;
+    const vy = 200;
+    s += `<rect width="${W}" height="${H}" fill="#121a1f"/>`;
+    for (let k = 0; k < 7; k++) {
+      const t = 1 - k / 7;
+      const rx = 40 + 600 * t * t;
+      const ry = 30 + 330 * t * t;
+      const col = ['#3a464d', '#323d44', '#2b353b', '#242d33', '#1e262b', '#192024', '#14191d'][k];
+      s += `<ellipse cx="${vx}" cy="${n2(vy + ry * 0.35)}" rx="${n2(rx)}" ry="${n2(ry)}" fill="${col}"/>`;
+      s += `<ellipse cx="${vx}" cy="${n2(vy + ry * 0.35)}" rx="${n2(rx)}" ry="${n2(ry)}" fill="none" stroke="#56626a" stroke-width="${n2(1 + 4 * t)}" opacity="0.6"/>`;
+    }
+    s += `<ellipse cx="${vx}" cy="${vy + 12}" rx="34" ry="24" fill="#05080a"/>`;
+    // cable trays along both walls, converging
+    for (const sd of [-1, 1]) s += `<path d="M${vx + sd * 640} 150L${vx + sd * 30} ${vy - 4}M${vx + sd * 640} 172L${vx + sd * 30} ${vy}" stroke="#5a6066" stroke-width="5" opacity="0.7"/>`;
+    // daylight down through a vent cutting (upper right), a pale shaft onto the water
+    s += `<path d="M700 0H860L760 330H560Z" fill="#dfeaf0" opacity="0.13"/><path d="M730 0H820L730 330H640Z" fill="#eef4f7" opacity="0.12"/>`;
+    // the flood over the track bed, the rails under it converging
+    s += `<path d="M0 300Q560 270 1100 300V400H0Z" fill="#103038"/><path d="M0 312Q560 284 1100 312" stroke="#2f6670" stroke-width="2" opacity="0.6" fill="none"/>`;
+    s += `<path d="M380 400L${vx - 14} ${vy + 30}M740 400L${vx + 14} ${vy + 30}" stroke="#6f7c84" stroke-width="5" opacity="0.4"/>`;
+    for (let i = 0; i < 6; i++) s += `<path d="M${n2(80 + rnd() * 940)} ${n2(320 + rnd() * 70)}h${n2(40 + rnd() * 70)}" stroke="#4f8a94" stroke-width="2" opacity="0.5" stroke-linecap="round"/>`;
+    // the maintenance cart on the left, its beacon
+    s += '<rect x="90" y="300" width="150" height="26" fill="#e7c64a"/><rect x="90" y="326" width="150" height="8" fill="#5a4a20"/><rect x="120" y="282" width="56" height="20" fill="#c94a3a"/><rect x="226" y="262" width="8" height="40" fill="#555c63"/>';
+    for (const x of [110, 220]) s += `<circle cx="${x}" cy="336" r="10" fill="#1c2126"/>`;
+    lights += lamp(230, 258, 4, '#ffb347', 18, 0.45);
+    // signal lamps on the left wall (red over green) and red emergency lamps down both walls
+    s += '<rect x="300" y="150" width="30" height="64" rx="5" fill="#1c2126"/><rect x="312" y="214" width="6" height="90" fill="#555c63"/>';
+    lights += lamp(315, 168, 7, '#ff5a5a', 26, 0.5) + '<circle cx="315" cy="196" r="7" fill="#2a3a30"/>';
+    for (const [x, y, r] of [[90, 120, 6], [1010, 120, 6], [250, 150, 4], [870, 150, 4], [400, 176, 3], [720, 176, 3]]) lights += lamp(x, y, r, '#ff4d5a', r * 4, 0.45);
+    // glass shards out of the Noon Gate standing in the water, glinting cyan
+    for (const [x, y, h] of [[620, 352, 34], [660, 362, 22], [900, 340, 28], [460, 372, 18]]) {
+      s += `<path d="M${x - 8} ${y}L${x + 2} ${y - h}L${x + 9} ${y}Z" fill="#e9f4f8"/>`;
+      lights += `<path d="M${x - 2} ${y}L${x + 2} ${y - h + 4}L${x + 3} ${y}Z" fill="#7ff0ff"/>`;
+    }
+    lights += '<ellipse cx="640" cy="356" rx="60" ry="10" fill="#7ff0ff" opacity="0.18"/>';
+    return { s, lights };
+  }
+  if (variant === 'noonGate') {
+    // the pump hall: a dark ceiling with girders, a concrete back wall with high dark windows
+    s += `<rect width="${W}" height="${H}" fill="#151d22"/>`;
+    s += '<rect y="60" width="1100" height="230" fill="#3a4449"/>';
+    for (let x = 40; x < W; x += 140) s += `<rect x="${x}" y="80" width="70" height="60" fill="#1b2328"/><path d="M${x + 35} 80V140M${x} 110H${x + 70}" stroke="#3a4449" stroke-width="4"/>`;
+    for (let x = 0; x < W; x += 110) s += `<path d="M${x} 0L${x + 55} 56L${x + 110} 0" stroke="#2c363c" stroke-width="6" fill="none"/>`;
+    s += '<rect y="52" width="1100" height="10" fill="#2c363c"/>';
+    s += stains(0, W, 140, 290, 14, '#1f292e');
+    // the giant pumps either side: volutes, motors on top, pipes, rime on their tops
+    for (const [x, flip] of [[270, 1], [830, -1]]) {
+      s += `<rect x="${x - 90}" y="300" width="180" height="24" fill="#2c363c"/>`;
+      s += `<ellipse cx="${x}" cy="250" rx="80" ry="62" fill="#5f7a72"/><ellipse cx="${x}" cy="250" rx="80" ry="62" fill="none" stroke="#475c56" stroke-width="8"/>`;
+      s += `<rect x="${x - 40}" y="150" width="80" height="54" fill="#3d5a8a"/><rect x="${x - 44}" y="146" width="88" height="8" fill="#eef5fa"/>`;
+      s += `<rect x="${flip > 0 ? 0 : x + 70}" y="226" width="${flip > 0 ? x - 70 : W - x - 70}" height="30" fill="#5f7a72"/><rect x="${flip > 0 ? 0 : x + 70}" y="222" width="${flip > 0 ? x - 70 : W - x - 70}" height="6" fill="#eef5fa"/>`;
+      s += `<rect x="${x - 30}" y="96" width="24" height="54" fill="#8a5a3a"/><rect x="${x - 34}" y="92" width="32" height="6" fill="#eef5fa"/>`;
+      // red status lamps on the pumps (blinking awake behind the gate)
+      lights += lamp(x + flip * 40, 170, 4, '#ff4d5a', 16, 0.5) + lamp(x - flip * 20, 270, 3, '#ff4d5a', 12, 0.45);
+    }
+    // the wet floor
+    s += '<rect y="290" width="1100" height="110" fill="#2a3438"/><path d="M0 300H1100" stroke="#e7c64a" stroke-width="4" opacity="0.7"/>';
+    for (let i = 0; i < 7; i++) s += `<ellipse cx="${n2(rnd() * W)}" cy="${n2(330 + rnd() * 60)}" rx="${n2(40 + rnd() * 70)}" ry="6" fill="#3f4c52" opacity="0.7"/>`;
+    // the Noon Gate: its cold light on the floor, the disc, the seams, the ring of glass shards, frost
+    const cx = 550;
+    const cy = 180;
+    const R = 112;
+    lights += `<defs>${radGrad(`${id}-noon`, [[0, '#ffffff', 1], [0.35, '#e9fbff', 0.95], [0.7, '#7ff0ff', 0.7], [1, '#7ff0ff', 0]])}${radGrad(`${id}-noonfloor`, [[0, '#bff6ff', 0.5], [1, '#7ff0ff', 0]])}</defs>`;
+    lights += `<ellipse cx="${cx}" cy="340" rx="260" ry="46" fill="url(#${id}-noonfloor)"/>`;
+    lights += `<circle cx="${cx}" cy="${cy}" r="${R * 1.6}" fill="url(#${id}-noon)" opacity="0.55"/>`;
+    lights += `<circle cx="${cx}" cy="${cy}" r="${R * 0.86}" fill="#7ff0ff"/><circle cx="${cx}" cy="${cy}" r="${R * 0.58}" fill="#e9fbff"/><circle cx="${cx}" cy="${cy}" r="${R * 0.24}" fill="#ffffff"/>`;
+    let seams = '';
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + 0.3 * ((i % 3) - 1);
+      seams += `M${cx} ${cy}L${n2(cx + Math.cos(a) * R * 0.84)} ${n2(cy + Math.sin(a) * R * 0.84)}`;
+    }
+    lights += `<path d="${seams}" stroke="#ffffff" stroke-width="3" opacity="0.9"/>`;
+    for (let i = 0; i < 20; i++) {
+      const a = (i / 20) * Math.PI * 2 + rnd() * 0.12;
+      const r = R + 8 + rnd() * 10;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      const len = 18 + rnd() * 12;
+      const tx = Math.cos(a + 1.4) * len;
+      const ty = Math.sin(a + 1.4) * len;
+      lights += `<path d="M${n2(x - tx)} ${n2(y - ty)}L${n2(x + Math.cos(a) * 6)} ${n2(y + Math.sin(a) * 6)}L${n2(x + tx)} ${n2(y + ty)}L${n2(x - Math.cos(a) * 6)} ${n2(y - Math.sin(a) * 6)}Z" fill="#eaf6fa" stroke="#7ff0ff" stroke-width="1.5"/>`;
+    }
+    // frost breathing off it, rime on the floor at its foot
+    for (let i = 0; i < 6; i++) lights += `<ellipse cx="${n2(cx - 160 + rnd() * 320)}" cy="${n2(280 + rnd() * 40)}" rx="${n2(50 + rnd() * 60)}" ry="${n2(10 + rnd() * 8)}" fill="#e2f2fa" opacity="0.25"/>`;
+    s += `<path d="M${cx - 200} 300Q${cx} 286 ${cx + 200} 300L${cx + 240} 320H${cx - 240}Z" fill="#cfe4ee" opacity="0.5"/>`;
+    return { s, lights };
+  }
+  // the platform: a dark ceiling with strip lights (most dead), white tiles, the line's band
+  s += `<rect width="${W}" height="${H}" fill="#161f24"/>`;
+  s += '<rect y="70" width="1100" height="200" fill="#c4c9c3"/>';
+  s += tiles(0, 70, 1100, 270, 20, '#a9afaa');
+  s += '<rect y="96" width="1100" height="14" fill="#3f8fbf"/><rect y="250" width="1100" height="8" fill="#3f8fbf"/>';
+  s += stains(0, W, 110, 250, 16, '#5f6a66');
+  for (let x = 60; x < W; x += 200) {
+    s += `<rect x="${x}" y="28" width="120" height="10" fill="#4a545a"/>`;
+    if (x === 260 || x === 860) lights += `<rect x="${x + 6}" y="36" width="108" height="5" fill="#e2f2ff"/>${lamp(x + 60, 40, 0, '#cfe6ff', 70, 0.22)}`;
+  }
+  // the lake mosaic on the back wall: the lake in blues, the hills, the sun, a willow on the shore
+  s += '<rect x="360" y="122" width="380" height="118" fill="#e6e8e0"/><rect x="360" y="122" width="380" height="118" fill="none" stroke="#3f8fbf" stroke-width="6"/>';
+  s += '<rect x="370" y="198" width="360" height="34" fill="#2f6f9e"/><rect x="370" y="182" width="360" height="16" fill="#4f8fbf"/><rect x="370" y="174" width="360" height="8" fill="#8fc4e0"/>';
+  s += '<path d="M370 174Q420 150 480 168T600 160L730 172V176H370Z" fill="#6f9f7a"/><circle cx="520" cy="148" r="16" fill="#f2c94c"/>';
+  s += '<rect x="642" y="150" width="8" height="70" fill="#6a4a36"/><ellipse cx="646" cy="152" rx="40" ry="20" fill="#5f9a55"/>';
+  for (let i = 0; i < 8; i++) s += `<path d="M${612 + i * 10} 158v${30 + (i % 3) * 10}" stroke="${i % 2 ? '#4f8a4a' : '#6aaa5f'}" stroke-width="5"/>`;
+  s += tiles(360, 122, 740, 240, 12, '#d6d8d0');
+  // platform signs hanging from the ceiling, the roundel on each
+  for (const x of [300, 800]) s += `<rect x="${x - 2}" y="38" width="4" height="22" fill="#4a545a"/><rect x="${x - 70}" y="58" width="140" height="30" rx="4" fill="#1f2a30"/>${roundel(x - 46, 73, 11)}<rect x="${x - 28}" y="68" width="80" height="9" fill="#e6ecef"/>`;
+  // red emergency lamps on the wall
+  for (const x of [230, 330, 770, 870]) {
+    s += `<rect x="${x - 7}" y="118" width="14" height="10" fill="#3a3f46"/>`;
+    lights += lamp(x, 126, 4, '#ff4d5a', 22, 0.5);
+  }
+  // the vending machine still lit, on the far platform
+  s += '<rect x="230" y="186" width="44" height="74" fill="#d9604a"/><rect x="236" y="194" width="32" height="40" fill="#fff0c8"/>';
+  lights += '<rect x="236" y="194" width="32" height="40" fill="#fff4d6"/>' + lamp(252, 214, 0, '#fff0c8', 46, 0.35);
+  // the far platform's edge, the flooded track bed, the rails under it
+  s += '<rect y="258" width="1100" height="18" fill="#8f9490"/><rect y="270" width="1100" height="5" fill="#e7c64a"/>';
+  s += '<rect y="276" width="1100" height="70" fill="#123c44"/>';
+  for (let i = 0; i < 10; i++) s += `<path d="M${n2(rnd() * W)} ${n2(286 + rnd() * 52)}h${n2(30 + rnd() * 60)}" stroke="#3f7a84" stroke-width="2" opacity="0.6" stroke-linecap="round"/>`;
+  // the train half sunk at the far end, nose down into the flood, one marker lamp still on
+  s += '<path d="M800 300L1100 214V330L840 346Z" fill="#ece6d6"/><path d="M800 300L1100 214V226L806 312Z" fill="#3f8fbf"/>';
+  for (let k = 0; k < 5; k++) s += `<path d="M${850 + k * 50} ${n2(298 - k * 14)}l36 -10v22l-36 10Z" fill="#26313a"/>`;
+  s += '<path d="M800 300L840 346H800Z" fill="#123c44"/>';
+  lights += lamp(820, 312, 3, '#ffb347', 16, 0.5);
+  // the near platform with its yellow edge and the tactile strip
+  s += '<rect y="346" width="1100" height="54" fill="#9a9f9a"/><rect y="346" width="1100" height="7" fill="#e7c64a"/><rect y="356" width="1100" height="6" fill="#c9b046" opacity="0.6"/>';
+  s += tiles(0, 362, 1100, 400, 28, '#8a8f8a');
+  // water dripping from the ceiling
+  for (const x of [420, 690, 940]) s += `<path d="M${x} 62v14" stroke="#b9d6df" stroke-width="2" opacity="0.7"/><circle cx="${x}" cy="84" r="2" fill="#b9d6df" opacity="0.7"/>`;
+  return { s, lights };
+}
+
+/**
+ * The reservoir park (Gate Arc S5a, the `city` theme's variants for 5-9 / 5-10; `time` re-lights them).
+ * `reservoir` (5-9): the dam across the frame with its spillway steps and white water, the reservoir
+ * above it and the far shore in fog, the lawn bowl below with the pale park path, park lamps, the
+ * bandstand, a rescue buoy, the Brigade's search boats on the water, the willow's crown over the far
+ * dam. `willow` (5-10, at night in g5.boss / g5.after): the great willow on its island in the middle of
+ * the reservoir, its weeping strands down to the water, a pale stone in its roots, both dam walls
+ * running in from the sides, rescue boats with lamps, fireflies round the willow. Fog banks over both.
+ * The lamps, the boats' lights and beams, the fireflies go into `lights`. No people.
+ * @returns {{ s: string, lights: string }}
+ */
+function reservoirScene(rnd, id, W, H, willow, time) {
+  let s = '';
+  let lights = '';
+  const lit = !!time;
+  const night = time === 'night';
+  const n2 = (v) => Math.round(v * 10) / 10;
+  const fog = (y, h, op) => `<rect y="${y}" width="${W}" height="${h}" fill="${night ? '#5a6a86' : '#eef2f4'}" opacity="${op}"/>`;
+  if (night) {
+    const sky = seeded(`${id}-sky`);
+    // (the moon clear of the willow's crown, inside the 16:9 crop)
+    const [mx, my] = willow ? [730, 22] : [560, 40];
+    lights += stars(sky, W, 150, 50) + `<path d="M${mx} ${my}a30 30 0 1 0 24 48 24 24 0 1 1-24-48z" fill="#fff6c4"/>`;
+  } else if (time === 'dusk') s += '<circle cx="420" cy="150" r="90" fill="#ffd6a0" opacity="0.3"/><circle cx="420" cy="150" r="30" fill="#ffd08a"/>';
+  const strands = (x, y, w, h, n) => {
+    let d = '';
+    for (let i = 0; i < n; i++) {
+      const sx = x - w / 2 + (w * i) / (n - 1);
+      const len = h * (0.6 + 0.4 * Math.sin((i / (n - 1)) * Math.PI));
+      d += `M${n2(sx)} ${y}q${n2((rnd() - 0.5) * 10)} ${n2(len * 0.5)} ${n2((rnd() - 0.5) * 6)} ${n2(len)}`;
+    }
+    return d;
+  };
+  if (!willow) {
+    // the far shore in fog, the reservoir, the willow's crown far off over it
+    s += hills(rnd, W, 120, 30, 170, '#9aaab4');
+    s += '<rect y="150" width="1100" height="90" fill="#4a7f94"/>';
+    for (let i = 0; i < 8; i++) s += `<path d="M${n2(rnd() * W)} ${n2(162 + rnd() * 70)}h${n2(30 + rnd() * 70)}" stroke="#a9c9d6" stroke-width="2" opacity="0.6" stroke-linecap="round"/>`;
+    s += '<rect x="754" y="112" width="10" height="40" fill="#4a3a2e"/><ellipse cx="760" cy="112" rx="70" ry="30" fill="#6f9a7c"/>';
+    s += `<path d="${strands(760, 112, 130, 40, 14)}" stroke="#6f9a7c" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    s += fog(110, 70, night ? 0.25 : 0.45);
+    // the Brigade's search boats on the water, their searchlights
+    for (const [x, y] of [[240, 196], [660, 214]]) {
+      s += `<path d="M${x - 34} ${y}h68l-8 10h-52z" fill="#2b3a5c"/><rect x="${x - 34}" y="${y - 2}" width="68" height="4" fill="#f4a62a"/><rect x="${x - 12}" y="${y - 14}" width="22" height="12" fill="#eef3f8"/>`;
+      if (lit) lights += `<path d="M${x + 10} ${y - 12}L${x + 150} ${y + 24}L${x + 130} ${y + 40}Z" fill="#eaf2ff" opacity="0.22"/>` + lamp(x + 10, y - 12, 3, '#eaf2ff', 14, 0.5);
+    }
+    // the dam across the frame: its crest walk with a railing, the face, the spillway steps
+    s += '<rect y="236" width="1100" height="16" fill="#cfccc4"/><path d="M0 236H1100" stroke="#2f4a3c" stroke-width="3"/>';
+    for (let x = 10; x < W; x += 40) s += `<rect x="${x}" y="226" width="3" height="12" fill="#2f4a3c"/>`;
+    s += '<path d="M0 252H1100V292H0Z" fill="#b9b6ad"/><path d="M0 292H1100" stroke="#8f8c84" stroke-width="4"/>';
+    for (let k = 0; k < 4; k++) s += `<rect x="${470 - k * 8}" y="${252 + k * 10}" width="${160 + k * 16}" height="10" fill="${k % 2 ? '#8f8c84' : '#a3a097'}"/><rect x="${478 - k * 8}" y="${252 + k * 10}" width="${144 + k * 16}" height="3" fill="#eef6f8"/>`;
+    s += '<ellipse cx="550" cy="300" rx="110" ry="10" fill="#eef6f8" opacity="0.8"/>';
+    // the lawn bowl, the pale park path, the bandstand, the lamps, a rescue buoy
+    s += '<rect y="292" width="1100" height="108" fill="#6fa25e"/><path d="M0 352Q550 322 1100 356V380Q550 346 0 376Z" fill="#d6d3cb"/>';
+    s += '<rect x="240" y="300" width="150" height="30" fill="#e9e3d4"/>';
+    for (const x of [250, 290, 330, 370]) s += `<rect x="${x}" y="300" width="4" height="30" fill="#2f4a3c"/>`;
+    s += '<path d="M220 300L315 262L410 300Z" fill="#3f7a5a"/><rect x="238" y="330" width="154" height="10" fill="#b9b6ad"/>';
+    for (const x of [470, 640, 860]) {
+      s += `<rect x="${x - 2}" y="300" width="4" height="46" fill="#2f4a3c"/><rect x="${x - 6}" y="292" width="12" height="10" fill="#2f4a3c"/>`;
+      if (lit) lights += lamp(x, 297, 4, '#ffd98f', night ? 30 : 22, night ? 0.45 : 0.35);
+      else s += `<circle cx="${x}" cy="297" r="4" fill="#ffd98f"/>`;
+    }
+    s += '<rect x="780" y="316" width="5" height="40" fill="#6a4f36"/><circle cx="782" cy="322" r="12" fill="none" stroke="#ff7a2a" stroke-width="6"/>';
+    s += fog(300, 100, night ? 0.12 : 0.22) + fog(140, 40, 0.2);
+    if (night) for (let i = 0; i < 16; i++) lights += `<circle cx="${n2(rnd() * W)}" cy="${n2(260 + rnd() * 120)}" r="2.4" fill="#e9ffb0" opacity="0.85"/>`;
+    return { s, lights };
+  }
+  // the great willow on its island in the middle of the reservoir, both dams running in from the sides
+  s += hills(rnd, W, 140, 24, 190, night ? '#2a3550' : '#9aaab4');
+  s += `<rect y="180" width="1100" height="220" fill="${night ? '#1d3a50' : '#4a7f94'}"/>`;
+  for (let i = 0; i < 14; i++) s += `<path d="M${n2(rnd() * W)} ${n2(200 + rnd() * 190)}h${n2(30 + rnd() * 80)}" stroke="${night ? '#5f86a4' : '#a9c9d6'}" stroke-width="2" opacity="0.55" stroke-linecap="round"/>`;
+  for (const [x0, x1, y0, y1] of [[0, 300, 236, 262], [1100, 800, 262, 292]]) {
+    s += `<path d="M${x0} ${y0 - 8}L${x1} ${y0}V${y0 + 12}L${x0} ${y1}Z" fill="#b9b6ad"/><path d="M${x0} ${y0 - 8}L${x1} ${y0}" stroke="#2f4a3c" stroke-width="3"/>`;
+    s += `<path d="M${x0} ${y1}L${x1} ${y0 + 12}V${y0 + 20}L${x0} ${y1 + 16}Z" fill="#8f8c84"/>`;
+  }
+  // the island and the willow: a trunk on spreading roots, a broad low crown, long strands to the water
+  s += '<ellipse cx="550" cy="300" rx="150" ry="24" fill="#3f5a48"/><ellipse cx="550" cy="296" rx="130" ry="16" fill="#4f6f58"/>';
+  s += '<path d="M534 300Q540 230 528 170H572Q560 230 566 300Z" fill="#4a3a2e"/><path d="M528 300q-40 -2 -60 6M570 300q40 -2 64 8M540 300q-14 6 -30 14" stroke="#4a3a2e" stroke-width="8" fill="none" stroke-linecap="round"/>';
+  // the stone in its roots: pale, faintly cold
+  s += '<ellipse cx="582" cy="300" rx="16" ry="9" fill="#d9e4ea"/>';
+  lights += lamp(582, 298, 0, '#d8f0ff', 22, night ? 0.35 : 0.2);
+  const crown = night ? ['#4f6f5c', '#5f8270', '#6f927e'] : ['#6f9a7c', '#7fa88a', '#93b99d'];
+  s += `<ellipse cx="550" cy="150" rx="210" ry="74" fill="${crown[0]}"/><ellipse cx="520" cy="128" rx="150" ry="52" fill="${crown[1]}"/><ellipse cx="590" cy="112" rx="96" ry="36" fill="${crown[2]}"/>`;
+  s += `<path d="${strands(550, 170, 400, 130, 30)}" stroke="${crown[0]}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
+  s += `<path d="${strands(550, 180, 320, 110, 22)}" stroke="${crown[2]}" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>`;
+  // rescue boats with lamps, a search boat's beam across the water
+  for (const [x, y] of [[250, 330], [850, 350]]) {
+    s += `<path d="M${x - 40} ${y}h80l-10 12h-60z" fill="#eef3f8"/><rect x="${x - 40}" y="${y - 3}" width="80" height="5" fill="#ff7a2a"/>`;
+    lights += lamp(x + 30, y - 10, 3, '#ffd98f', 18, 0.45);
+  }
+  s += '<path d="M940 280h60l-6 8h-48z" fill="#2b3a5c"/><rect x="940" y="277" width="60" height="4" fill="#f4a62a"/>';
+  lights += '<path d="M960 276L760 330L800 350Z" fill="#eaf2ff" opacity="0.18"/>' + lamp(960, 276, 3, '#eaf2ff', 14, 0.5);
+  s += fog(200, 60, night ? 0.18 : 0.35) + fog(320, 80, night ? 0.12 : 0.22);
+  // fireflies round the willow (night), a few by day in the fog
+  const flies = night ? 26 : 8;
+  for (let i = 0; i < flies; i++) {
+    const a = rnd() * Math.PI * 2;
+    const r = 90 + rnd() * 200;
+    lights += `<circle cx="${n2(550 + Math.cos(a) * r)}" cy="${n2(210 + Math.sin(a) * r * 0.45)}" r="2.6" fill="#e9ffb0" opacity="${night ? 0.9 : 0.5}"/>`;
+  }
+  return { s, lights };
+}
+
+/**
  * Time of day for a story backdrop (themeBackdropSVG `time`): its sky, then a wash over the whole
  * scene; the scene's `lights` (lamps, lit windows, embers) are drawn after the wash so they stay bright.
  */
@@ -462,14 +731,19 @@ export const TIME_OF_DAY = {
 const VARIANT_SKY = {
   north: ['#7d93b4', '#dde5ee'],
   northBridge: ['#8e9cae', '#e2e8ee'],
+  // the reservoir in fog (5-9), the willow's reservoir under an overcast sky (5-10 by day)
+  reservoir: ['#a9bccb', '#e6ecef'],
+  willow: ['#8fa4b4', '#dfe7ec'],
 };
 
 /**
  * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
  * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10; city:
  * 'oldtown' / 'burning' (Act 3), 'highway' / 'highwaySnow' (Act 4's mountain highway, its tunnel mouth in snow);
- * snow: 'north' / 'northBridge' (Act 4's frozen villages, the snow bridge in a blizzard)). `time` ('dusk' /
- * 'night', TIME_OF_DAY) re-lights it for a story scene: the sky, a wash, and the scene's lamps lit over it.
+ * snow: 'north' / 'northBridge' (Act 4's frozen villages, the snow bridge in a blizzard); drowned: 'platform' (the
+ * default), 'tunnels', 'noonGate' (Act 5 underground); city: 'reservoir' / 'willow' (Act 5's reservoir park in fog,
+ * the willow on its island)). `time` ('dusk' / 'night', TIME_OF_DAY) re-lights it for a story scene: the sky, a
+ * wash, and the scene's lamps lit over it.
  */
 export function themeBackdropSVG(theme, { variant = null, time = null } = {}) {
   const key = THEME_SKY[theme] ? theme : 'sakura';
@@ -583,6 +857,12 @@ export function themeBackdropSVG(theme, { variant = null, time = null } = {}) {
         lights += hw.lights;
         break;
       }
+      if (variant === 'reservoir' || variant === 'willow') {
+        const rv = reservoirScene(rnd, id, W, H, variant === 'willow', tod ? time : null);
+        s += rv.s;
+        lights += rv.lights;
+        break;
+      }
       // Itomachi by day: a warm skyline (offices, flats, a clock tower), utility poles and wires,
       // a row of shop awnings and the dark street in front
       s += cloud(240, 80, 1) + cloud(820, 60, 0.8);
@@ -648,6 +928,13 @@ export function themeBackdropSVG(theme, { variant = null, time = null } = {}) {
         s += '<path d="M586 140h44l-8 -42h-28z" fill="none" stroke="#3a3d46" stroke-width="6"/><path d="M584 98h48l-24 -20z" fill="#3a3d46"/>';
         s += '<path d="M598 104h20l-4 30h-12z" fill="#2a3442"/><circle cx="608" cy="120" r="5" fill="#8fa3bf" opacity="0.7"/>';
       }
+      break;
+    }
+    case 'drowned': {
+      // the Drowned Line underground: the flooded platform (default), the tunnels, the Noon Gate's pump hall
+      const dr = drownedScene(rnd, id, W, H, variant === 'tunnels' || variant === 'noonGate' ? variant : 'platform');
+      s += dr.s;
+      lights += dr.lights;
       break;
     }
     default:
