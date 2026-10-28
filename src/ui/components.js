@@ -597,7 +597,8 @@ export function girlTile(unitId, { onClick = null, owned = true, level = null, s
     pot >= 2 ? h('span.gt-p', { 'data-testid': 'card-pot' }, potPill(pot, { def: u })) : null,
     // one-time NEW: a girl who was P2+ when Potential v3 arrived, until her Info tab is opened
     isNew ? h('span.ui-bdg.new', { 'data-testid': 'card-potnew', title: 'New Potential steps — see her Info tab' }, 'New') : null) : null,
-  h(`span.role${hero ? '.hero' : ''}`, { 'aria-hidden': 'true', title: hero ? 'Hero' : ROLES[u.role]?.name || null }, ico(ROLE_GLYPH[fam] || 'sword')),
+  h(`span.role${hero ? '.hero' : ''}`, { 'aria-hidden': 'true', title: hero ? 'Hero' : ROLES[u.role]?.name || null },
+    h('span.ui-ico', { html: lineGlyph(ROLE_GLYPH[fam] || 'sword', '', { kitSize: false }) })),
   join ? h('span.ui-chip.ink.dup.gt-join', { 'data-testid': 'card-join' }, join) : null,
   h('span.cap',
     owned ? null : ico('lock'),
