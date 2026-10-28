@@ -99,7 +99,7 @@ describe('the engine (src/ui/lobby/live/engine.js)', () => {
 });
 
 describe('her files (public/art/live/marumi/)', () => {
-  it('the plate baked with the home grade, her figure, the flame, the blink patch and wipe, seven masks: about 440 KB', async () => {
+  it('the plate in its own colours, her figure, the flame, the blink patch and wipe, seven masks: about 440 KB', async () => {
     const { default: def } = await LIVE_SCENES.marumi.load();
     const want = [def.FILES.plate, def.FILES.girl, def.FILES.halo, def.FILES.eyes, def.FILES.wipe, ...Object.values(def.FILES.masks)];
     const have = readdirSync('public/art/live/marumi');

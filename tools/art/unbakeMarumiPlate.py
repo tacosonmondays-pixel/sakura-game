@@ -1,9 +1,9 @@
-# Usage, from the repo root: python3 tools/art/unbakeMarumiPlate.py   (Pillow and numpy; reads plate-home.webp, writes plate.webp)
+# Usage, from the repo root: python3 tools/art/unbakeMarumiPlate.py   (Pillow and numpy; reads tools/art/src/marumi-plate-home.webp, writes plate.webp)
 # Rebuild Marumi's ungraded living-scene plate: the full-colour scene where she is not, and the baked plate mapped back
 # to full colour (a colour table fitted on the pixels both share, its correction smoothed) where she was painted out.
 import sys, numpy as np
 from PIL import Image, ImageFilter
-plate = np.asarray(Image.open('public/art/live/marumi/plate-home.webp').convert('RGB')).astype(np.float32)
+plate = np.asarray(Image.open('tools/art/src/marumi-plate-home.webp').convert('RGB')).astype(np.float32)
 scene = np.asarray(Image.open('public/art/scenes/marumi-scene.webp').convert('RGB')).astype(np.float32)
 H, W = plate.shape[:2]
 a = np.asarray(Image.open('public/art/live/marumi/girl.webp').split()[-1].crop((0, 0, W, H)))
