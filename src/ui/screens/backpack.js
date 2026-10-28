@@ -15,6 +15,7 @@ import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } 
 import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
+import { workbenchReady } from '../../systems/workbench.js';
 import { gearList, salvageGear, salvageRewards, openGearBox, GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
@@ -432,7 +433,9 @@ export function render(root, params = {}) {
       h('div.mb-toolbar-row',
         chipRow(rarityOpts, state.rarity, (id) => { state.rarity = id; rerender(); }, '.mb-chips-rarity'),
         h('label.mb-select', svgEl(uiIcon('sort'), 'mb-select-icon'),
-          h('select', { onchange: (e) => { state.sort = e.target.value; rerender(); } }, Object.entries(SORTS).map(([id, label]) => h('option', { value: id, selected: id === state.sort }, label))))),
+          h('select', { onchange: (e) => { state.sort = e.target.value; rerender(); } }, Object.entries(SORTS).map(([id, label]) => h('option', { value: id, selected: id === state.sort }, label)))),
+        // [workbench] the club lab: timed Workbench + instant Craft Room (BANNERS §G); a dot when a craft is ready
+        h('button.mb-chip.mb-wb-btn', { type: 'button', 'data-testid': 'backpack-workbench', onclick: () => navigate('workbench') }, 'Workbench', workbenchReady(profile) ? h('span.ui-dot', { 'aria-label': 'a craft is ready' }) : null)),
     );
 
     clear(content);

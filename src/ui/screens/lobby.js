@@ -42,6 +42,7 @@ import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek, TIER_STAGE } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
 import { shownTips } from '../../data/unitTips.js';
+import { workbenchReady } from '../../systems/workbench.js'; // [workbench]
 
 /** Anything claimable in Commissions? */
 export function commissionsNotice(profile) {
@@ -382,6 +383,7 @@ function buildTop(host, { openSecretaryPicker }) {
         // [online]
         { icon: 'students', label: 'Clan', testid: 'menu-clan', badge: hub.badges.donationsReady > 0, go: () => navigate('clan') },
         { icon: 'wiki', label: 'Wiki', testid: 'menu-wiki', go: () => navigate('wiki') },
+        { icon: 'items', label: 'Workbench', testid: 'menu-workbench', dot: workbenchReady(profile), go: () => navigate('workbench') }, // [workbench] club lab
         { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
         { icon: 'chat', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
         // [social] private messages (shown once the server has the social update)
@@ -597,7 +599,7 @@ function buildDock(host) {
   const items = [
     { id: 'students', label: 'Students', icon: 'students' },
     { id: 'formation', label: 'Formation', icon: 'formation' },
-    { id: 'backpack', label: 'Backpack', icon: 'backpack' },
+    { id: 'backpack', label: 'Backpack', icon: 'backpack', dot: workbenchReady(profile) }, // [workbench] a craft is ready (BANNERS §G)
     { id: 'bestiary', label: 'Bestiary', icon: 'bestiary' },
     // [online] Clan took the Wiki's place (owner, 2026-10-15); the Wiki moved into the Menu
     { id: 'clan', label: 'Clan', icon: 'clan', dot: hub.badges.donationsReady > 0 },

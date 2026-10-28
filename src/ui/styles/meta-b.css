@@ -66,6 +66,8 @@ html[data-reduce-motion] .mb-card, html[data-reduce-motion] .mb-student-grid > *
 }
 .mb-chip.on { background: var(--chip); border-color: var(--chip); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2); box-shadow: 0 3px 8px color-mix(in srgb, var(--chip) 40%, transparent); }
 .mb-chip-icon { width: 18px; height: 18px; }
+.mb-wb-btn { position: relative; flex: none; font-weight: 800; border-color: var(--plate); } /* [workbench] the club lab entry */
+.mb-wb-btn > .ui-dot { position: absolute; top: -3px; right: -3px; }
 .mb-chip.mb-clear { color: var(--bad); }
 .mb-chip-static { background: #fff; }
 .mb-chip-dim { opacity: 0.75; border-style: dashed; }
