@@ -129,12 +129,17 @@ body:has(.jn-toast:not(.out)) .toast-host { top: calc(128px + var(--safe-top, 0p
   body:has(#app .home) .jn-toast { left: calc(24px + env(safe-area-inset-left, 0px)); top: calc(160px + var(--safe-top, 0px)); transform: none;
     max-width: min(380px, calc(45vw - 24px)); border-radius: 28px; animation-name: jn-toast-in-home; }
   body:has(#app .home) .jn-toast.out { transform: translateY(-10px); }
+  /* (and the other toasts, which make way under the pill, go below it there: its top plus its two lines and a gap) */
+  body:has(#app .home):has(.jn-toast:not(.out)) .toast-host { top: calc(236px + var(--safe-top, 0px)); }
 }
 @media (min-aspect-ratio: 1/1) and (max-height: 480px) {
   body:has(#app .home) .jn-toast { left: calc(16px + env(safe-area-inset-left, 0px)); top: calc(120px + var(--safe-top, 0px)); }
+  body:has(#app .home):has(.jn-toast:not(.out)) .toast-host { top: calc(184px + var(--safe-top, 0px)); }
 }
 @media (max-aspect-ratio: 1/1) {
-  body:has(#app .home) .jn-toast { top: auto; bottom: calc(312px + env(safe-area-inset-bottom, 0px)); border-radius: 28px; }
+  body:has(#app .home) .jn-toast { top: auto; bottom: calc(312px + env(safe-area-inset-bottom, 0px)); border-radius: 28px;
+    left: 16px; right: 16px; width: fit-content; margin-inline: auto; transform: none; animation-name: jn-toast-in-home; }
+  body:has(#app .home) .jn-toast.out { transform: translateY(-10px); }
 }
 html[data-reduce-motion] .jn-toast { animation: none; }
 html[data-tx="cut"] .jn-toast, html[data-tx="boot"] .jn-toast { pointer-events: none; }
