@@ -14,14 +14,16 @@ player who has an expensive girl standing nearby.
 
 1. **On tap 1 of the lab path's Joint Research or Unified Theory price** (the row armed, `arm.armedPath(uid)` is the
    lab path and the next tier has `lab.rounds`): every own non-hero girl the sim would take is marked on the board.
-   - The list comes from the sim's own rule (the same selection `lab` uses at purchase: own girls, not heroes, in her
-     range at that moment), exposed as a read-only query (e.g. `sim.labCandidates(uid)`), so the preview can never
-     disagree with the buy. It is not part of the co-op hash: a read, no state.
+   - The list comes from the sim's own rule (`absorbInto` in the lab code, run once at purchase: own girls, not heroes,
+     never another Tenka or any girl with a lab of her own, in her range at that moment), exposed as a read-only query
+     (e.g. `sim.labCandidates(uid)`) that copies `absorbInto`'s filter exactly, so the preview can never disagree with
+     the buy. It is not part of the co-op hash: a read, no state.
    - The mark: a dashed ring in Tenka's violet under each girl's base plus a small "lab" icon over her head (the buff
      icon layer, `src/render/buffIcons.js`, already draws per-girl icons for the selected girl's buff targets: reuse it).
    - Reduce motion: no pulse; the ring and icon still show.
 2. **In the open row**, one line under the tier sentence: "Joins her lab team: Aoi, Akane, Yuki" (names, up to three,
-   then "+N"), or "No girl in her range yet" (the buy still works and lends nothing until someone stands in range).
+   then "+N"), or "No girl in her range: this round takes nobody" (the girls join only at the purchase itself; with
+   nobody in range the round is spent and a girl placed later never joins).
    On a phone it replaces the effect chips for that moment (the open row stays one line high plus this line).
 3. **Disarm** (2.6 s, another tap, Sell, closing the drawer): the marks go.
 4. **Co-op:** only the owner's girls are taken today; the preview shows only the owner's girls (an ally's girls in
