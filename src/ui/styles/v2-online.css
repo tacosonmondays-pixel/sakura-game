@@ -1,0 +1,228 @@
+/* ==========================================================================================================
+   [ui-v2 M8] The online menus: the Ink & Paper look (docs/specs/UI_V2_MENUS.md M8, online half) on the Co-op room
+   (#/coop and a room's lobby), Messages (#/messages: the lists and a conversation), Chat (#/chat), Clan (#/clan: find /
+   create and the six tabs), the player card, the report dialog, the social pop-ups and the needs-update card.
+   Imported by src/ui/online/common.js, which every online screen and dialog loads.
+
+   THE SCOPE FENCE (src/ui/styles/ink.css): every rule sits under :is(.ui-day) (the menus' surface mode on <body>), so
+   the co-op battle HUD, the battle, the title and the night home (its chat drawer) keep exactly their looks; online.css
+   and social.css stay as they are under them. Nothing here is under 12 px (cssFloor): sizes come from the type tokens
+   only (--fs-label 12/13, --fs-body 13/15, --fs-name 16/19, --fs-num-s 16/19, --fs-num 22/28).
+   Shapes follow S1-S5: panels chamfered (the kit's .panel adoption), controls -8 degree parallelograms (the kit's
+   .btn adoption and .ui-opt), one hairline ring, border-radius only on circles and stadiums (avatars, dots, the day
+   label). One yellow per screen (Create room / Rejoin, Add, Invite to co-op, Fight, Create clan); pink only for a
+   selection (the folder tab's mark, a picked option) and the co-op partner.
+   Kit pieces copied here (candidates for ink.css later): the option look on the old segmented buttons (.ol-seg-btn),
+   the field look on the old inputs (.ol-input: the kit's .ui-input wraps its <input>, these are bare), a 44 px floor
+   for the old small buttons (.btn-small) inside these screens, the single-cut white card (as M7a's .rk-card).
+   ========================================================================================================== */
+
+/* ---------- shared: buttons, fields, options, chips ---------- */
+/* the old small buttons reach the tap floor here (2 px over it, as the kit's bar squares: a sub-pixel place never reads
+   them under 44); their words stay the kit's caps */
+:is(.ui-day) :is(.ol-screen, .sc-card-modal, .sc-report, .sc-menu, .ol-name-modal, .sc-toast-host, .sc-cands) .btn { min-height: calc(var(--tap) + 2px); }
+:is(.ui-day) :is(.ol-screen, .sc-card-modal, .sc-report, .sc-menu, .sc-toast-host, .sc-cands) .btn-small { min-height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-label); letter-spacing: var(--track-caps); }
+:is(.ui-day) :is(.ol-screen, .sc-card-modal, .sc-report, .sc-menu) .btn-small > .btn-icon { width: 16px; height: 16px; }
+
+/* a field: white, one hairline ring, square (the kit's .ui-input on a bare <input>); focus = the 2 px cyan ring */
+:is(.ui-day) .ol-input {
+  min-height: calc(var(--tap) + 2px); padding: 0 12px; border: 0; border-radius: 0; background: var(--panel-w); color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line-ink); font: 700 var(--fs-body)/1.2 var(--font); transition: box-shadow var(--t-press) var(--ease);
+}
+:is(.ui-day) .ol-input:focus { outline: none; border: 0; box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+:is(.ui-day) .ol-input::placeholder { color: var(--muted); font-weight: 600; }
+:is(.ui-day) textarea.ol-input { padding: 10px 12px; line-height: 1.35; }
+:is(.ui-day) .ol-code-input, :is(.ui-day) .sc-code-in { font: 700 var(--fs-num-s)/1 var(--font-num); letter-spacing: 0.2em; text-transform: uppercase; }
+:is(.ui-day) :is(.ol-code-input, .sc-code-in)::placeholder { letter-spacing: var(--track-menu); font-weight: 600; }
+
+/* the old segmented controls as the kit's options: a row of -8 degree parallelograms with a hairline ring; selected =
+   the ink fill and a sakura bar (ink.css .ui-opt) */
+:is(.ui-day) .ol-seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 0; border-radius: 0; background: none; }
+:is(.ui-day) .ol-seg-btn {
+  --h: calc(var(--tap) + 2px); --s: calc(var(--h) * var(--tan8)); --fill: var(--panel-w); --edge: var(--line-ink); --rw: 1px;
+  position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 0 1 auto; min-width: 0;
+  height: var(--h); min-height: var(--h); padding: 0 calc(10px + var(--s)); border: 0; border-radius: 0; box-shadow: none; transform: none;
+  background: var(--fill); color: var(--ink); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; white-space: nowrap;
+  clip-path: polygon(var(--s) 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%); cursor: pointer;
+}
+:is(.ui-day) .ol-seg-btn > * { position: relative; }
+:is(.ui-day) .ol-seg-btn::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    var(--s) 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%, var(--s) 0,
+    calc(var(--s) + var(--rw) * 0.87) var(--rw), calc(100% - var(--rw) * 1.15) var(--rw),
+    calc(100% - var(--s) - var(--rw) * 0.87) calc(100% - var(--rw)), calc(var(--rw) * 1.15) calc(100% - var(--rw)),
+    calc(var(--s) + var(--rw) * 0.87) var(--rw));
+}
+:is(.ui-day) .ol-seg-btn:active { transform: none; --fill: var(--cyan-wash); }
+:is(.ui-day) .ol-seg-btn.on, :is(.ui-day) .ol-fp-seg .ol-fp-btn.on { --fill: var(--plate); --edge: transparent; background: var(--fill); color: var(--on-ink); box-shadow: none; }
+:is(.ui-day) .ol-seg-btn.on::before { content: ''; position: absolute; z-index: 2; left: calc(var(--s) - 2px); right: calc(var(--s) + 6px); bottom: 0; height: 3px; background: var(--pink); }
+:is(.ui-day) .ol-seg-btn:disabled { --fill: var(--sky-1); --edge: var(--line-ink-soft); color: var(--muted); opacity: 1; cursor: default; }
+:is(.ui-day) .ol-seg-btn:focus-visible { outline: none; --edge: var(--cyan-ink); --rw: 2px; }
+
+/* the level chip: a small ink chip (one cut), Barlow caps; the tag chips (DEV · ALPHA · BETA) at the 12 px floor */
+:is(.ui-day) .ol-lv {
+  height: 20px; padding: 0 6px; border-radius: 0; transform: none; background: var(--plate); color: var(--on-ink);
+  font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: 0.02em; white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+:is(.ui-day) .tg-chip, :is(.ui-day) .tg-md .tg-chip, :is(.ui-day) .tg-lg .tg-chip { height: 20px; padding: 0 7px; font: 900 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em; text-shadow: none; }
+:is(.ui-day) .ol-tag { font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); color: var(--cyan-text); }
+:is(.ui-day) .ol-online-dot { color: var(--good-text); font-weight: 700; }
+:is(.ui-day) .ol-avatar { box-shadow: 0 0 0 1px var(--line-ink); }
+:is(.ui-day) .ol-error { font: 700 var(--fs-label)/1.3 var(--font); color: var(--bad-text); }
+:is(.ui-day) .ol-label { margin: 8px 0 4px; font: 600 var(--fs-label)/1.1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .ol-empty { padding: 18px 12px; gap: 6px; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+:is(.ui-day) .ol-empty b { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ol-empty p { margin: 0; }
+:is(.ui-day) .ol-screen .muted, :is(.ui-day) .ol-screen small.muted { font-size: max(var(--fs-label), 1em); }
+
+/* banners: flat, square, one hairline; the room's warnings keep their colour words */
+:is(.ui-day) .ol-banner { border-radius: 0; padding: 8px 12px; background: var(--panel-w); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-ink); font: 700 var(--fs-body)/1.35 var(--font); }
+:is(.ui-day) .ol-banner.warn { box-shadow: inset 3px 0 0 var(--yellow-deep), inset 0 0 0 1px var(--line-ink); }
+:is(.ui-day) .ol-banner.bad { color: var(--bad-text); box-shadow: inset 3px 0 0 var(--bad), inset 0 0 0 1px var(--line-ink); }
+
+/* the "only tabs of this browser" line: said once (the top bar's status pill says "offline"), a quiet line, no stripes */
+:is(.ui-day) .ol-local-note {
+  display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 2px; border: 0; border-radius: 0; background: none;
+  font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted);
+}
+:is(.ui-day) .ol-local-note .ol-pill-dot { width: 8px; height: 8px; background: var(--yellow-deep); box-shadow: none; }
+:is(.ui-day) .ol-screen .ol-local-why { display: none; }
+:is(.ui-day) .ol-screen .ol-local-what { display: inline-block; }
+:is(.ui-day) .ol-screen .ol-local-what::first-letter { text-transform: uppercase; }
+
+/* ---------- the top bar: the online status pill and the Messages envelope ---------- */
+:is(.ui-day) .topbar .sc-head-extra { gap: 4px; }
+:is(.ui-day) .topbar .ol-pill {
+  position: relative; height: 28px; padding: 0 10px 0 8px; gap: 6px; border: 0; border-radius: 0; transform: none; background: var(--glass-ink-1);
+  box-shadow: inset 0 0 0 1px var(--line-hi); color: var(--on-ink); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase;
+}
+:is(.ui-day) .topbar .ol-pill > * { transform: none; }
+:is(.ui-day) .topbar .ol-pill-off { color: var(--on-ink); }
+:is(.ui-day) .topbar .ol-pill .ol-pill-dot { box-shadow: none; }
+:is(.ui-day) .topbar .ol-pill-off .ol-pill-dot { background: #ff6b81; }
+@media (max-width: 640px) { :is(.ui-day) .topbar .ol-pill { width: 28px; padding: 0; justify-content: center; } }
+/* the envelope: a bar icon like Settings and Home (46 px hit hanging from the band's top), its red count */
+:is(.ui-day) .topbar .sc-head-extra .icon-btn { position: relative; width: calc(var(--tap) + 2px); height: 36px; padding: 8px 13px; }
+:is(.ui-day) .topbar .sc-head-extra .icon-btn::before { content: ''; position: absolute; left: 50%; top: calc(50% - var(--topbar-h) / 2); width: calc(var(--tap) + 2px); height: max(calc(var(--tap) + 2px), var(--topbar-h)); transform: translateX(-50%); }
+:is(.ui-day) .topbar .sc-head-extra .icon-btn .svg-icon { width: var(--icon-s); height: var(--icon-s); }
+:is(.ui-day) .topbar .sc-head-extra .icon-btn-badge { top: 2px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--badge-red); color: #fff;
+  font: 700 var(--fs-label)/18px var(--font-num); box-shadow: 0 0 0 1.5px var(--plate); }
+
+/* ---------- the kit's folder tabs on the online screens (common.js folderTabs): the strip is ink, the open tab a hole
+   of the panel's white; the panel under it is the .ui-tabbed's own ---------- */
+:is(.ui-day) .ol-ftabs > .ui-tab { padding: 0 6px; }
+:is(.ui-day) .ol-ftabs > .ui-tab > .hit { height: max(100%, calc(var(--tap) + 2px)); }
+:is(.ui-day) .ol-ftabs > .ui-tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+:is(.ui-day) .ol-ftab-l { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+:is(.ui-day) .ol-ftabs > .ui-tab > .ui-bdg.dot { position: relative; top: auto; right: auto; transform: translateY(-7px); margin-left: -2px; }
+:is(.ui-day) .ol-tabbed { min-height: 0; }
+
+/* ==========================================================================================================
+   CO-OP (#/coop): Host a room on the left (the stage, freeplay, Create room), Join with a code and the invites on the
+   right; the room's lobby (#/coop/<CODE>)
+   ========================================================================================================== */
+:is(.ui-day) .ol-coop-hub { display: flex; flex-direction: column; gap: 8px; }
+:is(.ui-day) .ol-coop-hub > .panel, :is(.ui-day) .ol-coop-cols .panel { margin: 0; }
+:is(.ui-day) .ol-coop-cols { gap: 10px; align-items: stretch; }
+:is(.ui-day) .ol-coop-right { gap: 10px; }
+:is(.ui-day) .ol-coop-create { display: flex; flex-direction: column; }
+:is(.ui-day) .ol-coop-create > .ol-row-end { margin-top: auto; padding-top: 10px; }
+:is(.ui-day) .ol-coop-intro-body p { font: 500 var(--fs-body)/1.4 var(--font); }
+:is(.ui-day) .ol-coop-big-ico { border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink);
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+/* the stage: its map (one cut), its name, the difficulty as an ink chip, the facts as lines */
+:is(.ui-day) .ol-coop-stage { gap: 10px 12px; }
+:is(.ui-day) :is(.ol-stage-thumb, .ol-room-thumb, .ol-field-thumb, .ol-stage-opt-thumb) { border-radius: 0; box-shadow: none; outline: 1px solid var(--line-ink); outline-offset: -1px;
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+:is(.ui-day) .ol-coop-stage-info { gap: 6px; }
+:is(.ui-day) .ol-coop-stage-name b { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) :is(.ol-chip-diff, .ol-chip-mode, .ol-chip-fp) {
+  display: inline-flex; align-items: center; height: 22px; margin-left: 0; padding: 0 7px; border-radius: 0; transform: none; box-shadow: none;
+  font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); text-transform: uppercase; white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+:is(.ui-day) .ol-chip-diff { background: var(--plate); color: var(--on-ink); }
+:is(.ui-day) .ol-coop-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; font: 600 var(--fs-label)/1.3 var(--font); color: var(--ink); }
+:is(.ui-day) .ol-coop-facts li { position: relative; padding-left: 12px; }
+:is(.ui-day) .ol-coop-facts li::before { content: ''; position: absolute; left: 0; top: 0.5em; width: 5px; height: 5px; background: var(--cyan-ink); transform: skewX(var(--skew)); }
+/* freeplay: its label in caps, the four kit options, the hint under them */
+:is(.ui-day) .ol-fp-row { gap: 6px 8px; }
+:is(.ui-day) .ol-fp-label { font: 600 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .ol-fp-hint { font: 500 var(--fs-label)/1.35 var(--font); color: var(--muted); }
+:is(.ui-day) :is(.ol-fp-pips, .ol-fp-mul) { font: 700 var(--fs-label)/1 var(--font-num); text-shadow: none; opacity: 1; }
+:is(.ui-day) .ol-fp-pips { color: #b07a00; letter-spacing: 0; }
+:is(.ui-day) .ol-fp-btn.on .ol-fp-pips { color: var(--yellow); }
+:is(.ui-day) .ol-fp-seg .ol-fp-btn.on { background: var(--fill); }
+:is(.ui-day) .ol-fp-row-room .ol-seg-btn { min-height: var(--h); padding: 0 calc(8px + var(--s)); font-size: var(--fs-label); }
+:is(.ui-day) .ol-mode-btn { font-size: var(--fs-label); padding: 0 calc(8px + var(--s)); }
+:is(.ui-day) .ol-mode-ico { width: 16px; height: 16px; }
+/* "Your last room": the code in big caps and Rejoin */
+:is(.ui-day) .ol-coop-last { border: 0; }
+:is(.ui-day) .ol-last-code { font: 700 var(--fs-num)/1 var(--font-num); font-style: normal; letter-spacing: 0.14em; color: var(--ink); }
+:is(.ui-day) .ol-last-room small { font: 500 var(--fs-label)/1.3 var(--font); white-space: normal; }
+/* Join with a code: the field and a secondary Join of the same height */
+:is(.ui-day) .ol-coop-join .ol-form-row { gap: 8px; }
+/* the invites: kit rows (one hairline each), the friend, the stage, a secondary Join */
+:is(.ui-day) .ol-invites { gap: 0; }
+:is(.ui-day) .ol-invite-row { gap: 10px; min-height: 56px; padding: 4px 0; border-radius: 0; background: none; border-bottom: 1px solid var(--line-ink-soft); }
+:is(.ui-day) .ol-invite-row:last-child { border-bottom: 0; }
+:is(.ui-day) .ol-invite-row > div { display: flex; flex-direction: column; gap: 2px; }
+:is(.ui-day) .ol-invite-row b { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ol-invite-row small { font: 500 var(--fs-label)/1.3 var(--font); }
+:is(.ui-day) .ol-invites > p { margin: 0 0 8px; font: 500 var(--fs-body)/1.35 var(--font); }
+/* the stage picker (a dialog): kit tiles, the picked one ringed in ink */
+:is(.ui-day) .ol-pick > p { font: 500 var(--fs-body)/1.4 var(--font); }
+:is(.ui-day) .ol-stage-opt { border: 0; border-radius: 0; padding: 4px; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); color: var(--ink); font: 600 var(--fs-label)/1.25 var(--font); }
+:is(.ui-day) .ol-stage-opt:active { transform: none; background: var(--sky-1); }
+:is(.ui-day) .ol-stage-opt.on { box-shadow: inset 0 0 0 2px var(--plate), inset 0 -4px 0 var(--pink); }
+
+/* the room's lobby: the code plate, the stage, the two players, Start / Ready */
+:is(.ui-day) .ol-room-code { border-radius: 0; transform: none; box-shadow: none; background: var(--plate); padding: 6px 14px;
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+:is(.ui-day) .ol-room-code > * { transform: none; }
+:is(.ui-day) .ol-room-code small { font: 600 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); color: var(--on-ink-dim); }
+:is(.ui-day) .ol-room-code b { font: 700 var(--fs-num)/1.1 var(--font-num); font-style: normal; letter-spacing: 0.16em; }
+:is(.ui-day) .ol-copy { position: relative; min-height: 28px; margin-top: 4px; padding: 0 12px; border-radius: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--line-hi);
+  color: var(--on-ink); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .ol-copy::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, calc(var(--tap) + 2px)); height: calc(var(--tap) + 2px); transform: translate(-50%, -50%); }
+:is(.ui-day) .ol-room-stage-info small { font: 500 var(--fs-label)/1.3 var(--font); }
+:is(.ui-day) .ol-room-acts { gap: 6px; }
+:is(.ui-day) .ol-vs { font: italic 900 var(--fs-num)/1 var(--font-head); color: var(--ink); text-shadow: none; }
+:is(.ui-day) .ol-vs small { font: 600 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .ol-pcard { border-radius: 0; border: 0; box-shadow: inset 0 0 0 1px var(--line-ink); background: var(--panel-w); animation: none;
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))); }
+:is(.ui-day) .ol-pcard.me { box-shadow: inset 0 0 0 1px var(--line-ink); }
+:is(.ui-day) .ol-pcard.empty { border: 0; background: rgba(255, 255, 255, 0.7); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .ol-pcard-wait p { font: 500 var(--fs-label)/1.35 var(--font); }
+:is(.ui-day) .ol-pcard-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ol-pcard-role { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; filter: none; color: var(--muted); }
+:is(.ui-day) .ol-ready { border-radius: 0; transform: none; box-shadow: none; padding: 0 8px; height: 24px; display: inline-flex; align-items: center;
+  font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); background: var(--sky-1); color: var(--muted);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day) .ol-ready.on { background: var(--good-text); color: #fff; box-shadow: none; }
+:is(.ui-day) .ol-unit { width: 56px; }
+:is(.ui-day) .ol-unit small { font: 600 var(--fs-label)/1.1 var(--font); color: var(--ink); text-overflow: clip; }
+:is(.ui-day) .ol-room-foot p { font: 500 var(--fs-label)/1.35 var(--font); }
+:is(.ui-day) .ver-line { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: 0.02em; color: var(--muted); }
+:is(.ui-day) .ol-field-desc, :is(.ui-day) .ol-field-rule { font: 500 var(--fs-body)/1.4 var(--font); }
+:is(.ui-day) .ol-field-stats span { border-radius: 0; background: none; padding: 0; font: 600 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+:is(.ui-day) .ol-field-stats b { font: 700 var(--fs-num-s)/1 var(--font-num); font-style: normal; color: var(--ink); }
+:is(.ui-day) .ol-field-stats { gap: 4px 14px; }
+:is(.ui-day) .ol-foe { border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line-ink-soft); background: var(--panel-w); }
+:is(.ui-day) .ol-foe small { font: 600 var(--fs-label)/1 var(--font); color: var(--ink); }
+:is(.ui-day) .ol-field-fp { border-radius: 0; font: 500 var(--fs-label)/1.4 var(--font); }
+:is(.ui-day) .ol-tips b { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ol-tips small { font: 500 var(--fs-label)/1.35 var(--font); color: var(--muted); }
+:is(.ui-day) .ol-tip-n { border-radius: 0; transform: none; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1 var(--font-num); font-style: normal;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day) .sc-invited-chip { border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line-ink-soft); font: 600 var(--fs-label)/1.2 var(--font); color: var(--ink); }
+:is(.ui-day) .sc-invited-chip small { color: var(--muted); font-size: var(--fs-label); }
+:is(.ui-day) .sc-invited small.muted { font-size: var(--fs-label); }
+:is(.ui-day) .ol-version-diag { font-size: var(--fs-label); }
+@media (max-height: 480px) {
+  :is(.ui-day) .ol-unit small { font-size: var(--fs-label); }
+  :is(.ui-day) .ol-room-foot p { font-size: var(--fs-label); }
+  :is(.ui-day) .ol-tips small { font-size: var(--fs-label); }
+}

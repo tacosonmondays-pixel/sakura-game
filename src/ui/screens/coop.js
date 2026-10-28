@@ -218,7 +218,7 @@ function updateNotice() {
     if (!info) return;
     box.replaceChildren(h('div.ol-banner.ol-banner-row',
       h('span', `A new version${info.version ? ` (${versionLabel(info.version)})` : ''} is out. Update before you play so you and your ally match.`),
-      button('Update', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
+      button('Update', { kind: 'primary', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
   };
   paint(updateAvailable());
   checkForUpdate({ force: true }).then(paint).catch(() => {});
@@ -343,8 +343,10 @@ export function render(root, params = {}) {
     };
     paintStage();
 
+    // [ui-v2 M8] one yellow: Rejoin when there is a last room to go back to, else Create room
+    const hasLast = !!lastRoom(backend.uid);
     const create = button('Create room', {
-      kind: 'yellow', icon: 'plus', testid: 'coop-create',
+      kind: hasLast ? 'primary' : 'yellow', icon: 'plus', testid: 'coop-create',
       onClick: () => {
         writePref({ stageId, difficulty, freeplay, mode });
         navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty, ...(freeplay ? { freeplay } : {}), ...(mode !== 'standard' ? { mode } : {}) });
@@ -406,7 +408,7 @@ export function render(root, params = {}) {
             }
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room, 'data-testid': 'invite-row-dm' }, avatar(m.avatar, 34),
               h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)} · private invite`)),
-              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
+              button('Join', { kind: 'primary', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
           }
         }
         const mine = await backend.myClan();
@@ -416,7 +418,7 @@ export function render(root, params = {}) {
           const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && !social.isBlocked(m.userId) && Date.now() - m.createdAt < 15 * 60000).reverse();
           for (const m of msgs.slice(0, 4)) {
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room }, avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
-              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
+              button('Join', { kind: 'primary', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
           }
         }
         if (destroyed) return;
