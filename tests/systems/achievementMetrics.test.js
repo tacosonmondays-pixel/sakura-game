@@ -388,3 +388,29 @@ describe('familiesFound and Step 3 members (the Gnat on construct, the Ashen War
     expect(familiesFound(p)).toBe(2);
   });
 });
+
+describe('familiesFound is never vacuous (Gate Arc Step 4)', () => {
+  it('a family whose every member waits for an Act II stage the save cannot open yet is not found', async () => {
+    const { familiesFound, enemyFamilies } = await import('../../src/systems/achievementMetrics.js');
+    const fam = enemyFamilies();
+    const p = createProfile();
+    expect(familiesFound(p)).toBe(0);
+    // a fixture family of one Act II member (the Gnat, 3-9): nothing to find while 3-9 is locked, so it is not counted
+    fam.fixture_act2 = ['brigade_gnat'];
+    try {
+      expect(familiesFound(p)).toBe(0);
+      // a co-op guest may have met it early: still nothing the save needs, so still not counted
+      p.bestiary.brigade_gnat = { seen: true, discovered: true, kills: 1 };
+      expect(familiesFound(p)).toBe(0);
+      // 3-9 opens: now the family needs the Gnat, and it is found
+      for (const id of [...CHAPTERS.flatMap((c) => c.stages), ...CHAPTERS.slice(0, 2).flatMap((c) => c.act2), '3-6', '3-7', '3-8']) {
+        p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false };
+      }
+      expect(familiesFound(p)).toBe(1);
+      delete p.bestiary.brigade_gnat;
+      expect(familiesFound(p)).toBe(0);
+    } finally {
+      delete fam.fixture_act2;
+    }
+  });
+});
