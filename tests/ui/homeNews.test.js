@@ -45,6 +45,15 @@ describe('the home news card', () => {
     expect(homeNews({ ...FULL, bosses: { titans: { open: false }, assault: { open: false } } }).map((p) => p.id)).toEqual(['event', 'recruit']);
   });
 
+  it('a long kicker has a short form for a phone\'s chip, where the long one would wrap beside its countdown', () => {
+    expect(homeNews(FULL)[2]).toMatchObject({ kicker: 'Weekly bosses', short: 'Bosses' });
+    expect(homeNews({ ...FULL, bosses: { titans: { open: false }, assault: { open: true }, msLeft: DAY } })[2]).toMatchObject({ kicker: 'Weekly boss', short: 'Boss' });
+    expect(homeNews({ ...FULL, limited: null })[0]).toMatchObject({ kicker: 'Event · 2× drops', short: '2× drops' });
+    for (const p of homeNews(FULL)) if (p.short) expect(p.short.length).toBeLessThan(p.kicker.length);
+    const src = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(src).toContain("card.classList.add('kshort')");
+  });
+
   it('nothing to show: no pages (the card is not drawn)', () => {
     expect(homeNews({})).toEqual([]);
   });

@@ -58,7 +58,7 @@ export default [
     say('momo', 'The Champion asked me to tell you something. The oni left the mountains because the Ashwing Matriarch woke.'),
     say('momo', 'He said she woke too early, in the cold. And now the peaks are smoking.', { face: 'sad' }),
     say('hikari', "…Thank you, {name:momo}. Go on, your encore's waiting."),
-    cue({ bg: 'academy-night', music: 'wish', exit: ['momo'], enter: [{ who: 'luna', at: 'left' }, { who: 'nami', at: 'right' }] }),
+    cue({ bg: 'academy-courtyard-night', music: 'wish', exit: ['momo'], enter: [{ who: 'luna', at: 'left' }, { who: 'nami', at: 'right' }] }),
     narrate('Later, on the academy steps, the last fireworks fade over the city.'),
     say('luna', 'Seven stones. Seven scales. A dragon who woke in the cold. The riddle is nearly answered, little dawn.'),
     say('hikari', 'Can I tell you both something? The stones started dimming the week I got the Dawnblade.', { face: 'sad' }),
@@ -74,7 +74,7 @@ export default [
   ]),
 
   scene('ch7.hana', {
-    title: 'A Falcon at Dawn', chapter: 7, kind: 'join', trigger: { after: '7-5' }, bg: 'academy-day', music: 'home', ifUnit: 'hana',
+    title: 'A Falcon at Dawn', chapter: 7, kind: 'join', trigger: { after: '7-5' }, bg: 'academy-courtyard', music: 'home', ifUnit: 'hana',
   }, [
     narrate('Dawn, the morning after the festival. A small white falcon circles the academy, calling.'),
     say('aoi', "Captain, look! A falcon! It's coming straight for us!", { at: 'left', face: 'surprise' }),

@@ -82,7 +82,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
     head.append(...[
       h('div.bgp-head-name', h('b', u.name), h('span', u.title)),
       mine ? null : h('span.bgp-unowned-tag', 'Not recruited yet'),
-      h('div.bgp-bond', { title: 'Bond level — raised by dates and gifts in the City (coming soon)' },
+      h('div.bgp-bond', { title: 'Bond level — raised by time together and gifts in the City (coming soon)' },
         svgEl(glyph('heart'), 'bgp-bond-ico'), h('span', `Bond ${bondLevel(p, current)}/${BOND_MAX}`)),
       isSec ? h('span.bgp-sec-tag', 'Secretary') : null,
     ].filter(Boolean));
@@ -129,7 +129,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
 function lockLines(bg, unlocked, owned = true) {
   if (unlocked) return [h('b', 'Coming soon')];
   if (!owned) return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`), bg.unlock.type === 'bond' ? h('small', `then Bond Lv ${bg.unlock.level}`) : null];
-  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Date her & give gifts in the City')];
+  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Spend time with her & give gifts in the City')];
   return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`)];
 }
 

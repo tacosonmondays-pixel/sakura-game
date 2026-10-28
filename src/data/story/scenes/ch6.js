@@ -24,7 +24,7 @@ export default [
   ]),
 
   scene('ch6.noa', {
-    title: 'A Circle of Petals', chapter: 6, kind: 'join', trigger: { after: '6-2' }, bg: 'academy-sunset', music: 'calm', ifUnit: 'noa',
+    title: 'A Circle of Petals', chapter: 6, kind: 'join', trigger: { after: '6-2' }, bg: 'sakura-sanctuary', music: 'calm', ifUnit: 'noa',
   }, [
     narrate('Between the foundry and the gardens, a ring of petals circles a small, quiet shrine.'),
     say('noa', 'Oh! You found my sanctuary. Sit down, everyone. Plasters first, questions after.', { at: 'right', fx: 'slide-in' }),
@@ -92,7 +92,7 @@ export default [
     say('hikari', 'Hear that, everyone? Nobody sleeps cold this spring. Not even goblins.', { face: 'smile' }),
     narrate('The goblins cheer, bow, and hurry home. One of them drops a bright paper flyer.'),
     say('suzu', '"Summer Lantern Festival, tonight!" …And somebody wrote "OGRES??" on the back.'),
-    cue({ bg: 'academy-day', music: 'matsuri', exit: ['suzu'], enter: [{ who: 'momo', at: 'right', fx: 'hop' }] }),
+    cue({ bg: 'academy-courtyard', music: 'matsuri', exit: ['suzu'], enter: [{ who: 'momo', at: 'right', fx: 'hop' }] }),
     say('momo', "Not ogres, oni! I'm {name:momo}, idol club, and tonight is MY concert! Sensei, Captain, you have to come!"),
     say('momo', 'I wrote a new song about our adventure! "The Ballad of the Six Grey Scales"!', { face: 'sparkle' }),
     say('chika', "That's not a ballad. That's a list.", { face: 'deadpan' }),

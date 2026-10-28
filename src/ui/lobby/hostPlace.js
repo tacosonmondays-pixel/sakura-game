@@ -14,14 +14,21 @@
 // A painted scene with her inside it (the three scene backgrounds) cannot slide her alone: placeScene() zooms and pans
 // the whole painting so her face lands on the spot, never leaving a gap at an edge.
 
-/** The home's face spot and her size, per screen shape (12.1; desktop at 1280x720, phones at 844x390). */
+/**
+ * The home's face spot and her size, per screen shape (12.1; desktop at 1280x720, phones at 844x390). Home layout B
+ * "Quiet Home" (the Oct 27 layout study): her face in the middle of the screen (x 0.50 W: 422 at 844, 640 at 1280), the
+ * controls in the corners around her; her eye line and her size as V2's. A screen narrower than those (a small phone
+ * at 667x375, a 4:3 tablet) draws her a little smaller, as its corners leave her legs less room between them: by the
+ * width-to-height ratio, from 2.0 down on a phone (to 85 % at most) and from 1.7 down on a bigger screen (to 78 %).
+ */
 export function homeTarget(W, H) {
   if (W < H) {
     // a phone held upright (no mock-up: the rotate prompt covers it; the fallback after "Continue in portrait")
     return { x: W * 0.5, y: H * 0.235, base: H * 0.62, shiftMax: W * 0.06 };
   }
-  if (H <= 480) return { x: W * 0.485, y: H * 0.29, base: H * 1.087, shiftMax: W * 0.04 };
-  return { x: W * 0.47, y: H * 0.29, base: H * 1.111, shiftMax: W * 0.04 };
+  const a = W / H;
+  if (H <= 480) return { x: W * 0.5, y: H * 0.29, base: H * 1.087 * Math.min(1, Math.max(0.85, a / 2)), shiftMax: W * 0.04 };
+  return { x: W * 0.5, y: H * 0.29, base: H * 1.111 * Math.min(1, Math.max(0.78, a / 1.7)), shiftMax: W * 0.04 };
 }
 
 /** Ruri's face height (brow to chin) in her -cut: the size every girl's face is evened out to. */

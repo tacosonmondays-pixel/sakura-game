@@ -22,7 +22,9 @@
 :is(.ui-day, .ui-night) [data-mo="right"] { --mo-k: mo-right; }
 :is(.ui-day, .ui-night) [data-mo="up"] { --mo-k: mo-up; }
 :is(.ui-day, .ui-night) [data-mo="fade"] { --mo-k: mo-fade; --mo-e: linear; }
-/* the wallpaper settles: in over its first 35 %, scale 1.03 → 1 over the whole (the owner's "about 1 s") */
+/* the wallpaper settles: in over its first 35 %, scale 1.03 → 1 over the whole (the owner's "about 1 s"). A return
+   (--mo-o: 1, motion.js homeEntrance) only settles: the screen change already fades the home in, and a second fade
+   from 0 dipped to navy on every way back */
 :is(.ui-day, .ui-night) [data-mo="scene"] { --mo-k: mo-scene; --mo-t: 1000ms; --mo-e: cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: 50% 55%; }
 :is(.ui-day, .ui-night) [data-mo="girl"] { --mo-k: mo-girl; --mo-t: 360ms; --mo-e: cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes mo-top { from { opacity: 0; translate: 0 -12px; } }
@@ -30,7 +32,7 @@
 @keyframes mo-right { from { opacity: 0; translate: 16px 0; } }
 @keyframes mo-up { from { opacity: 0; translate: 0 8px; } }
 @keyframes mo-fade { from { opacity: 0; } }
-@keyframes mo-scene { 0% { opacity: 0; scale: var(--mo-s, 1.03); } 35% { opacity: 1; } 100% { opacity: 1; scale: 1; } }
+@keyframes mo-scene { 0% { opacity: var(--mo-o, 0); scale: var(--mo-s, 1.03); } 35% { opacity: 1; } 100% { opacity: 1; scale: 1; } }
 @keyframes mo-girl { from { opacity: 0; translate: 0 8px; } }
 /* while a cover still hides the screen (the boot loader, a battle's cut), every piece waits at its first frame; it
    plays from the moment the reveal starts (transitions/index.js sets html[data-reveal]) */
