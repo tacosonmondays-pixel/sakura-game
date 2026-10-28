@@ -1,0 +1,78 @@
+{
+ "verdict": "NOT_OK",
+ "round": "r4",
+ "commit": "c0383e914014ad2043f7d8c2cd11d2d106b18251 plus follow-up 0b9ab2b4 (feature/abilities tip; release/ultimates b1187aef merges it). Reviewed in private detached worktrees (c0383e9, c0383e9~1 for comparison, and c0383e9 with only battle.css reverted). No tracked file was changed or committed.",
+ "summary": "logic-r3-1 is fixed as reported. On phones Sell's and MORE's hit areas now stop at the footer's top edge. Hit-testing every px of the scroll body found nothing that reaches a footer control (Iroha, Midori, Chika 3-2-0 and Sango 0-3-2, with her ability row closed and open, at 844x390 and 667x375). No tap, finger tap, double tap or mouse double-click on the last row's lock \"i\" ever arms Sell. The new drawerHits foot check is real: with only battle.css reverted it fails 19 M4 drawers at 844.\n\nThe round is still NOT_OK on one medium, r4-1. In Chromium a finger tap is moved onto the nearest tap target, and the last row's lock line is not a tap target. So a touch tap 1 to 5 px above the footer, on that row's words over Sell's columns, still arms Sell, and two quick ones sold Midori, Chika, Iroha and Sango in the probe. Over empty body space under the last row (Sango 0-3-2) this reaches 6 to 10 px. Mouse clicks there never do it, and the hit-area harness cannot see it.\n\nLow: r4-2. The co-op ally drawer has no Sell, so its footer is shorter than MORE's hit area. MORE reaches about 2 px over the last row there, and the new foot check fails m4-drawer-ally and m4-drawer-ally-230 at both 844 and 1280, so the M4 suite exits 1. r4-3: on phones MORE's hit area is now 30 px tall, not the footer's 37 the commit says.\n\nlook-r3-1 is fixed. At 1024 and 1280, tap 1 keeps \"T<n> · <tier name>\" on one line for 11 builds, and the price no longer moves on tap 1 (it moved 4.9 px at r3). Phones are unchanged. logic-r3-2 / look-r3-2 are fixed: m4-abname passes. The stray tracked node_modules symlink in c0383e9 (r4-0, high while it was live) is fixed by 0b9ab2b.",
+ "findings": [
+  {
+   "id": "r4-0",
+   "severity": "high",
+   "status": "fixed in follow-up 0b9ab2b4 (not counted against the verdict)",
+   "title": "c0383e9 tracked a node_modules symlink to an absolute path. Merging it deleted the main checkout's node_modules folder",
+   "detail": "c0383e9 adds node_modules as a mode 120000 symlink to /home/user/sakura-game/node_modules. The .gitignore rule 'node_modules/' only matches a folder, and the commit was made with git add -A. Git treats an ignored folder as expendable. So the 07:18:02 merge into release/ultimates (e892129) in the main checkout replaced the real node_modules folder with a link to itself. Both branches were pushed with it, and any fresh clone or CI checkout would get a dangling link. Verified fix: 0b9ab2b4 runs git rm --cached node_modules and changes .gitignore to 'node_modules'. git ls-tree shows no node_modules on origin/feature/abilities or origin/release/ultimates (b1187aef). check-ignore now matches a node_modules link. The main checkout's node_modules is a real folder again with vite. origin/main never had it. The commit stays in history (no rewrite): checking out c0383e9 or e892129 itself over a real node_modules folder will still delete it."
+  },
+  {
+   "id": "r4-1",
+   "severity": "medium",
+   "title": "Phones, real touch: a finger tap on the last path row just above the footer still lands on Sell (Chromium touch adjustment). Two quick taps sell the girl",
+   "detail": "The CSS fix ends Sell's hit area exactly at the footer's top (hit test: Sell 36.5 px tall, from footer top +0.5 to its bottom; zero scroll-body points reach a footer control). But Chromium moves a touch tap that lands on no tap target onto the nearest tap target its contact area touches. The last row's lock line ('Two paths already upgraded', .bt-path-lock) and the row body under it are not tap targets. The r2 fix made the stat row take its own taps for the same reason; nothing does that for the last row. CDP touch taps at Sell's x (edge-844.log, Midori 3-2-0 with her ability row open, 844x390, one tap each, footer top 347): at 1, 2, 3 and 5 px above the footer, the point is on row 1's lock line and the tap armed Sell's CONFIRM. At 8 and 10 px it did not. Mouse clicks on the same points never did. The same holds for Sango 0-3-2 at 1 to 2 px. In probe-r4 (finger radius 12 and the minimum, single and double taps 120 ms apart): two quick taps SOLD the girl at 3 px above the footer for Midori 3-2-0 closed and with her ability row open, Chika 3-2-0 and Iroha 3-2-0 at 667. With empty body space under the last row (Sango 0-3-2 closed at 844), taps armed Sell up to 9.5 px above the footer and two taps sold her at 6 px. Taps on the lock \"i\" itself and its edges never armed Sell (0 of 40+ fold-control inputs at 844 and 667), so logic-r3-1's own repro is fixed. A player who taps the bottom words of the last row near the fold can still arm Sell, or sell her with a quick second tap. The uiProbe foot check uses elementFromPoint, so it cannot see this.",
+   "repro": "S=/tmp/claude-0/-home-user-sakura-game/04ab3366-db6f-5d4b-be67-e05dc5319e56/scratchpad; node $S/rev-r4-scripts/edge-r4.mjs <worktree at c0383e9> 844x390 midori:3-2-0 (per-px single taps vs mouse clicks); node $S/rev-r4-scripts/probe-r4.mjs <worktree> 844x390 out.json midori:3-2-0,sango:0-3-2 --quick. Logs: $S/rev-r4-scripts/edge-844.log, r4-844.log/.json, r4-667.log/.json.",
+   "suggested_fix": "Make the scroll body's lower part take its own taps, as the stat row does: give the path rows (at least the lock line and the row body) and .bt-panel-scroll a click listener that does nothing or shows the lock reason. Chromium then keeps a tap that lands there instead of moving it to Sell. Or keep a few px of non-target footer padding above Sell's hit area (footer padding-top about 6 px, Sell's ::after starting at its own top), so a finger's contact area must travel further. Add a touch check to the harness (CDP dispatchTouchEvent at the footer's top -1, -3 and -6 px over Sell: Sell must not arm), because elementFromPoint cannot see touch adjustment."
+  },
+  {
+   "id": "r4-2",
+   "severity": "low",
+   "title": "Ally drawer (co-op, no Sell): MORE's hit area reaches about 2 px over the last row, and the new foot check fails m4-drawer-ally and m4-drawer-ally-230 at 844 and 1280 (the M4 suite exits 1)",
+   "detail": "With no 30 px Sell in it, the ally footer is only about 27 px tall at 844, and MORE's new 30 px centred hit area reaches above it: drawerHits foot {\"panel-more\":21} at 844. At 1280 the unchanged base rule makes MORE's hit area 44 px in a footer of about 37 px: {\"panel-more\":71}. A tap on the bottom of the ally drawer's last row ('Two paths already upgraded') over MORE opens her Details. That is harmless, since the ally drawer is view only, but the commit's own check is red. Every other M4 scene passes at both sizes, m4-abname included.",
+   "suggested_fix": "Give the phone footer a min-height equal to the hit area (36 px), or clamp MORE's ::after to the footer box. Fix the wide ally footer too, or scope the foot check to Sell only on ally drawers if MORE's reach is accepted."
+  },
+  {
+   "id": "r4-3",
+   "severity": "low",
+   "title": "Phones: MORE's hit area is now 30 px tall (it was 40), short of the footer's 37 px the commit says both fill",
+   "detail": "Measured at 844 and 667: Sell hit 36.5 x 98 px (fills the footer), MORE hit 31.5 x 55.5 px (3 px of footer above and below it take no tap). Touch adjustment still sends taps in those strips to MORE, so this is minor, but the CSS comment and the commit message overstate it. Sell and MORE still take taps at their centres and at the footer's top +1 and bottom -1 px (finger taps at 844 and 667)."
+  }
+ ],
+ "earlier_findings": [
+  {
+   "id": "logic-r3-1",
+   "status": "fixed as reported (hit areas); residual touch-adjustment path raised as r4-1",
+   "evidence": "844x390 and 667x375, Iroha, Midori, Chika 3-2-0 and Sango 0-3-2, closed and with the ability row open: elementFromPoint finds 0 points in the scroll body or in the 10 px band above the footer that reach Sell or MORE. At r3 (c0383e9~1) the same scan found 490-882 points. Touch taps (radius 1 and 12), double taps and mouse double-clicks on the lock \"i\"'s bottom edge and corners: 0 arm or sell (at c0383e9~1 the same probe sold Iroha on a double tap and a mouse double-click). Taps in the band: see r4-1."
+  },
+  {
+   "id": "logic-r3-2",
+   "status": "fixed",
+   "evidence": "m4-abname now sends fonts 'loadingdone' after the style swap. It passed in the full M4 run at 844 and 1280 (no m4-abname FAIL)."
+  },
+  {
+   "id": "logic-r3-3",
+   "status": "not changed (documented trade-off)",
+   "evidence": "No change in the diff. Chip hit sizes at 844 match r3 (drawerHits chips 40-52 x 40 on the standard drawers)."
+  },
+  {
+   "id": "look-r3-1",
+   "status": "fixed",
+   "evidence": "Tap 1 at 1024x768 and 1280x720 on 11 builds (Aoi 2-0-1 rows 0 and 2, Sango 3-2-0 and 0-3-2, Tenka, Iroha, Midori, Chika 3-2-0, Azami 0-3-2, Raika 2-0-3, Aoi 0-3-2): the armed row's tier is one line ('T3 · STEEL BROADHEADS' included), the pips hidden, the price never moves (dx 0, dy 0). At c0383e9~1, Aoi 2-0-1 wrapped to 2 lines and its price moved 4.9 px. PNGs checked by eye: wide-aoi-201-p0-1024x768/1280x720, wide-midori-320-p0-1024x768, wide-sango-032-p1-1280x720, m4-drawer-armed-1280x720, m4-drawer-ability-armed-1280x720. Phones unchanged (the same rule already applied there; m4-drawer-ability-armed-844x390)."
+  },
+  {
+   "id": "look-r3-2",
+   "status": "fixed",
+   "evidence": "Same as logic-r3-2."
+  },
+  {
+   "id": "look-r3-3",
+   "status": "not changed (as stated)",
+   "evidence": "m4-drawer-ability-armed-1280x720: tier 0's armed row reads 'LONG BOW' without 'T1 ·'."
+  }
+ ],
+ "checks": {
+  "touch_and_mouse_probe_phones": "probe-r4.mjs (CDP touch radius 1 and 12, double taps 120 ms apart, mouse double-clicks) at 844x390 (8 drawers) and 667x375 (6 drawers). Lock \"i\": 0 bad. Band above footer: see r4-1. Sell and MORE: hit at centre, footer top +1 and bottom -1 (all 6 per size).",
+  "per_px_edge_probe": "edge-r4.mjs at 844 on Midori 3-2-0 and Sango 0-3-2 with the ability row open: single touch taps vs mouse clicks at the footer top from +1 to -10 px.",
+  "footer_wide": "1024x768 and 1280x720, r4 vs c0383e9~1, Iroha 3-2-0 and Sango 0-3-2 closed and open: footer, Sell face (44 px) and hit (44.5 x 108), MORE hit (45.5 x 58.5), all inside the footer and identical to r3. No band or body points reach the footer. Unchanged.",
+  "foot_check_catches_bug": "Worktree at c0383e9 with only battle.css reverted to c0383e9~1: m4-drawer-iroha, m4-drawer-midori and m4-drawer-fit at 844 fail 19 checks, all 'a tap on the drawer's rows reaches a footer control' (Sell 86-147 points, MORE 61-69). Restored afterwards.",
+  "m4_scenes": "All 21 M4_SCENES at 844x390 and 1280x720 (the first attempt timed out on screenshots under machine load and was re-run): exit 1. Only failures: m4-drawer-ally and m4-drawer-ally-230 at both sizes on the foot check (r4-2). Everything else passes, m4-abname included.",
+  "sim": "No sim, data or online file changed (CSS and e2e only). COOP_PROTOCOL untouched (9).",
+  "node_modules_followup": "0b9ab2b4 verified (see r4-0).",
+  "rules": "No other games' or anime names in the diff. No secrets. The ally scene's partner name is harness test data."
+ }
+}
