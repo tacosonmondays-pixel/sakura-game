@@ -170,6 +170,69 @@ export const DARE_TEXT = {
   shielded: 'foes carry a 30 % barrier',
 };
 
+// ---- M3 battle pieces (src/ui/battle/tryout.js, src/ui/battle/tryout/timetable.js) ----------------------------
+
+/** A Subject in a timetable cell (§13.4): a few letters. */
+export const SUBJECT_ABBR = {
+  subj_science: 'Sci', subj_pe: 'P.E.', subj_music: 'Music', subj_festival: 'Fest', subj_shop: 'Shop', subj_homeec: 'H.Ec',
+  subj_night: 'Night', subj_lit: 'Lit', subj_geo: 'Geo', subj_winter: 'Winter', subj_history: 'Hist', subj_art: 'Art',
+};
+
+/** A break in a timetable cell. */
+export const BREAK_SHORT = { recess: 'Recess', lunch: 'Lunch', cleaning: 'Cleaning' };
+
+/** The timetable strip and its thin battle band (§13.4). */
+export const TIMETABLE_TEXT = {
+  label: 'Timetable',
+  final: 'Final',
+  cell: (p) => `P${p}`,
+  backGate: 'History: the Back Gate opens',
+  affix: (t) => `Grade twist: ${t}`,
+  dare: 'Double Dare',
+  next: 'Next',
+  stamp: 'stamped',
+  strike: 'missed',
+  open: 'in play',
+  resumed: 'resumed',
+};
+
+/** The Class Photo and the Make-up sheet (§13.9). */
+export const PHOTO_TEXT = {
+  title: 'Class Photo',
+  defeat: 'Early Dismissal',
+  practice: 'Practice',
+  teacher: 'Teacher',
+  loaner: 'Loaner',
+  varsity: 'Varsity',
+  allPeriods: (n, hearts) => `All ${n} periods · ${hearts} ♥ left`,
+  reached: (p) => `Reached period ${p}`,
+  score: 'Run Score',
+  stamps: 'Assignments',
+  picks: 'Picks',
+  handed: 'handed in',
+  again: 'Again',
+  hub: 'Tryout Day',
+  best: 'New best score!',
+  bestIs: (n) => `Best ${n}`,
+  makeupTitle: 'Out of hearts',
+  makeupLine: (w) => `The Make-up Test replays wave ${w} from its start, with the hearts and coins you had then. Once a run; that period's assignments won't count.`,
+  makeupGo: 'Make-up Test',
+  makeupNo: 'Early Dismissal',
+};
+
+/** A girl card in a pick (§13.7). */
+export const GIRL_CARD_TEXT = {
+  yours: 'Yours · plays in the band',
+  loaner: (lv) => `Loaner · Run Level ${lv}`,
+  joins: 'Joins the squad',
+  freeAt: (tier) => `first copy free at tier ${tier}`,
+  free: 'first copy free',
+  varsity: 'Varsity',
+  talent: 'her Hidden Talent',
+  againTitle: 'Tries out again',
+  againLine: (dmg, rate, cut) => `Varsity: +${dmg}% damage, +${rate}% attack speed, copies ${cut}% cheaper`,
+};
+
 // ---------------------------------------------------------------------------
 // Meta (§10): Marbles, the Lunchbox, the Marble Jar, the Yearbook, the Weekly Timetable, share codes
 // ---------------------------------------------------------------------------
@@ -258,4 +321,134 @@ export const YEARBOOK_TEXT = {
   records: 'Best scores',
   pencil: 'pencil sketch: she tried out as a Loaner',
   none: 'Nothing here yet: play a run.',
+};
+
+// ---------------------------------------------------------------------------
+// M3 menus (§13.2, §13.3, §13.10): the hub's tiles, Before Class, the Jar and the Yearbook screens
+// ---------------------------------------------------------------------------
+
+/** The hub's tiles and its Continue band. */
+export const HUB_TEXT = {
+  locked: (stage) => `Clear ${stage} to open`,
+  lockedWhy: (stage) => `Clear ${stage} in the campaign to open ${MODE_NAME}.`,
+  pitch: 'One school day of defense: Pep Talks after every period, girls who try out, and a Seat Change at Recess.',
+  start: 'Start',
+  startLine: 'Pick 3 girls, a hero and a map',
+  startKicker: (len, grade) => `${len} · Grade ${grade}`,
+  weeklyLocked: 'Clear Grade 4 first',
+  weeklyOpen: 'Grade 5 rules, everyone at the floor',
+  weeklyDone: (best) => `Cleared this week${best ? ` · best ${fmtNum(best, 'count', { detail: true })}` : ''}`,
+  weeklyResets: 'New in',
+  jar: 'Marble Jar',
+  jarLine: (week, cap) => `${week} / ${cap} Marbles this week`,
+  yearbook: 'Yearbook',
+  yearbookLine: (girls, total, stamps) => `${girls} / ${total} students · ${stamps} stamps`,
+  records: 'Records',
+  recordsLine: (grade, best) => (grade ? `Grade ${grade} cleared${best ? ` · best ${fmtNum(best, 'count', { detail: true })}` : ''}` : 'No Grade cleared yet'),
+  runOpen: 'Your run is still open: continue it or give it up first.',
+  continueTitle: 'Class in session',
+  continueLine: (period, wave, hearts) => `Period ${period} · wave ${wave} · ♥ ${hearts}`,
+  continueGo: 'Continue',
+  giveUp: 'Give up',
+  giveUpAsk: 'Give up this run? It ends here, and the periods you finished are paid.',
+  makeup: 'uses your Make-up Test',
+  makeupLine: 'You left during a wave: continuing replays that wave once, and that period\'s assignments no longer count.',
+  practice: 'continues as practice',
+  stale: 'closed by an update',
+  staleLine: 'An update changed the run rules: this run can only be given up (the periods you finished are paid).',
+  codeGo: 'Go',
+};
+
+/** Before Class (§13.3). */
+export const CLASS_TEXT = {
+  title: 'Before Class',
+  maps: 'Map',
+  roads: (n) => `${n} road${n === 1 ? '' : 's'}`,
+  squad: (n, of) => `Squad · ${n} / ${of}`,
+  hero: 'Hero',
+  grade: 'Grade',
+  length: 'Length',
+  yours: 'Yours · band cap',
+  loaner: 'Loaner',
+  floor: 'At the floor',
+  heroYours: 'Yours',
+  heroFree: 'Free hero',
+  redraw: (n) => `Redraw (${n})`,
+  redrawn: 'Redrawn',
+  start: 'Start class',
+  pickMore: (n) => `Pick ${n} more girl${n === 1 ? '' : 's'} to start.`,
+  full: 'Clear a Half Day first',
+  normal: 'Normal run',
+  perks: (names) => `Desk Supplies: ${names.join(', ')}`,
+  facts: (g, len, erasers) => `${g.hearts} hearts · ${g.seats} Window Seats · ${erasers} Eraser${erasers === 1 ? '' : 's'} · ${len.periods} periods of ${len.wavesPerPeriod} waves`,
+  loanerNote: 'Loaners are girls you do not own yet: they play at the run\'s floor.',
+};
+
+const TERM_NAMES = { spring: 'Spring Term', summer: 'Summer Term', autumn: 'Autumn Term' };
+const span = (list) => (list.length > 1 ? `${list[0]}-${list[list.length - 1]}` : String(list[0] ?? ''));
+
+/**
+ * What a Grade adds to the one below it, in one line, from the run table itself (so a tuning change never makes the
+ * line wrong): a new content window, the hearts, seats, Erasers, passes, foe HP and the rules of Grades 7-12.
+ * @param {object[]} grades TRYOUT.grades @param {object} windows TRYOUT.windows @param {number} n
+ */
+export function gradeTwist(grades, windows, n) {
+  const g = grades[n];
+  if (!g) return '';
+  const p = grades[n - 1] || null;
+  const out = [];
+  const term = !p || p.window !== g.window;
+  if (term) out.push(`${TERM_NAMES[g.window] || g.window}: the maps and foes of chapters ${span(windows[g.window]?.chapters || [])}`);
+  // (a new window brings its own foe HP: the Grade's multiplier starts over from it)
+  else if (g.hpMul !== p.hpMul) out.push(`foes +${Math.round((g.hpMul - 1) * 100)}% HP`);
+  if (p && g.hearts !== p.hearts) out.push(`${g.hearts} hearts`);
+  if (p && g.seats !== p.seats) out.push(`${g.seats} Window Seats`);
+  if (p && g.erasers !== p.erasers) out.push(`${g.erasers} Eraser${g.erasers === 1 ? '' : 's'}`);
+  if (p && g.passes !== p.passes) out.push(`${g.passes} Hall Passes a break`);
+  if (p && g.bossLeak !== p.bossLeak) out.push(`a leaking boss costs ${g.bossLeak} hearts`);
+  if (g.aceBar && !p?.aceBar) out.push(`Ace the Test needs ${g.aceBar}%`);
+  if (g.affixFrom && !p?.affixFrom) out.push(`a foe affix each period from P${g.affixFrom}`);
+  if (g.strict && !p?.strict) out.push(`targets ${g.strict}% stricter`);
+  if (g.snackHalf && !p?.snackHalf) out.push('Snack heals half');
+  if (g.arrivalDown && !p?.arrivalDown) out.push('arrival packages one step lower');
+  if (g.escort && !p?.escort) out.push('a second boss escort group');
+  if (g.noHeal && !p?.noHeal) out.push('no healing');
+  const line = out.join('; ');
+  return line ? `${n === 1 ? '' : `New at Grade ${n}: `}${line.charAt(0).toUpperCase()}${line.slice(1)}` : '';
+}
+
+/** Why a Grade is locked (gradeOpen's `why`), for the line under the Grade row. */
+export function gradeWhy(why, n, unlockStage) {
+  if (why === 'window') return `Grade ${n} needs ${unlockStage} cleared in the campaign.`;
+  if (why === 'ladder') return `Clear Grade ${n - 1} to open Grade ${n}.`;
+  return `Grade ${n} comes in a later update.`;
+}
+
+/** The Marble Jar screen. */
+export const JAR_SCREEN = {
+  title: 'Marble Jar',
+  rail: { desk: 'Supplies', cosmetic: 'Cosmetics', material: 'Materials' },
+  buy: (price) => `Buy · ${price}`,
+  on: 'On',
+  off: 'Off',
+  use: 'Use',
+  inUse: 'In use',
+  yours: 'Yours',
+  left: (n, of) => `${n} of ${of} left this week`,
+  soldOut: 'Sold out this week',
+  short: (n) => `${n} more Marbles needed`,
+  family: 'Family',
+  bought: (name) => `${name}: yours!`,
+};
+
+/** The Yearbook screen. */
+export const YEARBOOK_SCREEN = {
+  sections: { girls: 'Students', cards: 'Pep Talks', bosses: 'Bosses', records: 'Records' },
+  pencilRule: 'Not in your class yet',
+  blankRule: 'Not tried out yet',
+  colourLine: 'Tried out and in your class: her page is in colour.',
+  pencilLine: 'Tried out as a Loaner: her page is a pencil sketch until she joins your class.',
+  blankLine: 'She has not tried out yet: her page fills in the first time she does.',
+  fullPage: 'Her page ›',
+  unseen: '?',
 };
