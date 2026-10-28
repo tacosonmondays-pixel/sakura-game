@@ -1759,6 +1759,7 @@ export const MAPS = [
       { type: 'tent', x: 3, y: 1 }, { type: 'tent', x: 2, y: 6 }, { type: 'lantern', x: 16, y: 4 },
       { type: 'parkedCar', x: 8, y: 9, rot: 0 }, { type: 'parkedCar', x: 11, y: 9, rot: 0 },
     ],
+    city: { barriers: [{ lane: 0 }] },
   }),
   defineMap({
     id: 'noon_tunnel_mouth', name: 'Tunnel Mouth', theme: 'city', district: 'highway', tier: 'advanced',
@@ -1786,6 +1787,7 @@ export const MAPS = [
     decor: [
       { type: 'lantern', x: 4, y: 4 }, { type: 'lantern', x: 7, y: 4 }, { type: 'parkedCar', x: 17, y: 4, rot: 0 },
     ],
+    city: { snowRows: 6 },
   }),
   defineMap({
     id: 'north_frozen_villages', name: 'The Frozen Villages', theme: 'snow', tier: 'advanced',
@@ -1812,6 +1814,7 @@ export const MAPS = [
       { type: 'campfire', x: 10, y: 7 }, { type: 'tent', x: 16, y: 3 }, { type: 'pine', x: 1, y: 2 },
       { type: 'flag', x: 6, y: 10 },
     ],
+    city: { spawnGate: 'petalRift' },
   }),
   defineMap({
     id: 'north_snow_bridge', name: 'The Snow Bridge', theme: 'snow', tier: 'expert',
@@ -1840,6 +1843,7 @@ export const MAPS = [
       { type: 'banner', x: 8, y: 3 }, { type: 'tent', x: 19, y: 9 }, { type: 'tent', x: 2, y: 9 },
       { type: 'pine', x: 2, y: 5 }, { type: 'flag', x: 20, y: 6 },
     ],
+    city: { spawnGate: 'petalRift' },
   }),
 
   // -------------------------------------------------------------------------

@@ -1101,7 +1101,7 @@ const CAMPAIGN_ACT2 = [
     fixed: [F(3, 'orc_ironhide', 3, 1.5), F(16, 'beast_wolf', 6, 0.6)],
     recommended: ['armorPen', 'armorShred'],
     fam: ['blade', 'rime'],
-    scenery: { props: ['streetLamps', 'billboards', 'vendingMachines', 'snowdrifts'] },
+    scenery: { props: ['tollPlaza', 'frost', 'streetLamps', 'billboards'] },
   }),
   act2Stage({
     id: '4-7', name: 'Azami\'s Checkpoint', mapId: 'noon_checkpoint',
@@ -1114,7 +1114,7 @@ const CAMPAIGN_ACT2 = [
     recommended: ['armorShred', 'slow'],
     unlocks: ['azami'],
     fam: ['feather', 'cog'],
-    scenery: { props: ['streetLamps', 'parkedCars', 'roadWorks', 'warCamp'] },
+    scenery: { props: ['checkpoint', 'jerseyBarriers', 'brigadeCamp', 'streetLamps'] },
     // (render only: S4a's dusk light on the checkpoint)
     look: { dusk: true },
   }),
@@ -1131,7 +1131,7 @@ const CAMPAIGN_ACT2 = [
     ],
     introduces: ['brigade_trooper', 'brigade_shieldline', 'brigade_tortoise'], recommended: ['armorPen', 'multiHit'],
     fam: ['ember', 'charm'],
-    scenery: { props: ['streetLamps', 'parkedCars', 'snowdrifts', 'icicles'], weather: 'snow' },
+    scenery: { props: ['tunnelPortals', 'snowCover', 'frost', 'streetLamps'], weather: 'snow' },
   }),
   act2Stage({
     id: '4-9', name: 'The Frozen Villages', mapId: 'north_frozen_villages',
@@ -1144,7 +1144,7 @@ const CAMPAIGN_ACT2 = [
     fixed: [F(25, 'brigade_badger', 1), F(26, 'brigade_badger', 1), F(27, 'brigade_badger', 1)],
     introduces: ['brigade_badger'], recommended: ['armorPen', 'armorShred'],
     fam: ['rune', 'feather'],
-    scenery: { props: ['snowPines', 'snowdrifts', 'hotSprings', 'campfire'], weather: 'snow' },
+    scenery: { props: ['beachhead', 'frozenVillage', 'villageHearths', 'snowPines'], weather: 'snow' },
   }),
   act2Stage({
     id: '4-10', name: 'The Frost Vanguard', mapId: 'north_snow_bridge',
@@ -1157,7 +1157,7 @@ const CAMPAIGN_ACT2 = [
     fixed: [F(10, 'beast_alpha', 1), F(20, 'orc_warlord', 1), F(28, 'orc_frost_vanguard', 1, 2, 6)],
     introduces: ['orc_frost_vanguard'], recommended: ['armorPen', 'armorShred', 'priority'],
     fam: ['cog', 'blade'],
-    scenery: { props: ['snowPines', 'warBanners', 'warCamp', 'icicles'], weather: 'snow' },
+    scenery: { props: ['snowBridge', 'gateSandbags', 'hostBanners', 'passCairn', 'vastShadow'], weather: 'snow' },
   }),
 ];
 

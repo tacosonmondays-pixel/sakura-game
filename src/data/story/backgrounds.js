@@ -81,6 +81,8 @@ export const STAGE_PLACE = {
   '2-1': 'lakeshore', '2-2': 'lakeshore', '2-3': 'lakeshore', '2-4': 'moon-pier', '2-5': 'moon-pier',
   '3-1': 'shrine-steps', '3-2': 'shrine-steps', '3-3': 'shrine-steps', '3-4': 'shrine-bell', '3-5': 'shrine-bell',
   '4-1': 'mountain-pass', '4-2': 'mountain-pass', '4-3': 'beacon-gate', '4-4': 'mountain-pass', '4-5': 'beacon-gate',
+  // Gate Arc Act 4 (4-6…4-8 draw the highway skyline variants: src/ui/story/backdrop.js PLACE_VARIANT)
+  '4-9': 'base-camp', '4-10': 'mountain-pass',
   '5-1': 'marsh', '5-2': 'marsh', '5-3': 'marsh', '5-4': 'drowned-willow', '5-5': 'drowned-willow',
   '6-1': 'foundry', '6-2': 'foundry', '6-3': 'foundry', '6-4': 'foundry', '6-5': 'foundry',
   '7-1': 'festival-street', '7-2': 'festival-drum', '7-3': 'festival-street', '7-4': 'festival-drum', '7-5': 'festival-drum',
