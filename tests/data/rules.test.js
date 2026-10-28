@@ -15,13 +15,16 @@ const VOCAB = new Set(['dmgMul', 'typeMul', 'elementMul', 'enemySpeed', 'familyS
   'bountyAdd', 'livesPerWave', 'bonusEvery', 'zoneDps', 'padDmgMul', 'padRangeAdd', 'reverseEvenWaves', 'affinity', 'affinityMul', 'portals']);
 
 describe('map rule placement', () => {
-  it('one rule on every campaign stage from 1-4, none elsewhere', () => {
-    for (const id of Object.keys(STAGE_RULES)) expect(STAGE_MAP[id]?.kind, id).toBe('campaign');
+  it('one rule on every campaign stage from 1-4 and on every side stage (Gate Arc Step 6), none elsewhere', () => {
+    const ruled = (st) => (st.kind === 'campaign' && !['1-1', '1-2', '1-3'].includes(st.id)) || st.kind === 'side';
+    for (const id of Object.keys(STAGE_RULES)) expect(['campaign', 'side'], id).toContain(STAGE_MAP[id]?.kind);
     for (const s of STAGES) {
-      if (s.kind !== 'campaign' || ['1-1', '1-2', '1-3'].includes(s.id)) expect(s.rule ?? null, s.id).toBeNull();
+      if (!ruled(s)) expect(s.rule ?? null, s.id).toBeNull();
       else expect(s.rule?.id, s.id).toBe(STAGE_RULES[s.id].id);
     }
-    expect(Object.keys(STAGE_RULES).length).toBe(CAMPAIGN_IDS.length - 3);
+    const sides = STAGES.filter((s) => s.kind === 'side').length;
+    expect(sides).toBe(1);
+    expect(Object.keys(STAGE_RULES).length).toBe(CAMPAIGN_IDS.length - 3 + sides);
   });
 
   it('uses all 15 rules, each with text and a glyph', () => {

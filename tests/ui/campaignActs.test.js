@@ -3,9 +3,11 @@
 // with headers, the two-key lock text and a NEW flag while Act II is open and untouched. Chapters 1 and 2's Act II are
 // real (Gate Arc Steps 1-2), so the "fixture" rows below run on live stages (no fixture ids are injected any more).
 import { describe, it, expect, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { CHAPTERS, STAGE_MAP, act2Stage } from '../../src/data/stages.js';
 import { createProfile } from '../../src/systems/save.js';
-import { actRows, actIsNew, chapterHasNewAct, actTitle, actIds } from '../../src/ui/screens/campaignActs.js';
+import { actRows, actIsNew, chapterHasNewAct, actTitle, actIds, sideCards } from '../../src/ui/screens/campaignActs.js';
+import { coopStages } from '../../src/data/coop.js';
 
 const ACT1 = CHAPTERS.flatMap((c) => c.stages);
 const FIXTURE_IDS = []; // (2-6 … 2-10 were fixtures until Step 2 registered them)
@@ -20,10 +22,10 @@ const withAct2 = (c, name = 'Rush Hour') => ({ ...CHAPTERS[c - 1], act2: [6, 7, 
 
 afterEach(() => { for (const id of FIXTURE_IDS) delete STAGE_MAP[id]; });
 
-describe('one act (chapters 6-8 in this build)', () => {
+describe('one act (chapters 7-8 in this build)', () => {
   it('one row, no header, the chapter\'s five stages; never NEW', () => {
     const p = mark(createProfile(), ACT1.slice(0, 7));
-    for (const c of CHAPTERS.slice(5)) {
+    for (const c of CHAPTERS.slice(6)) {
       const rows = actRows(p, c);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ act: 1, ids: c.stages, header: null, isNew: false, total: 5 });
@@ -31,7 +33,7 @@ describe('one act (chapters 6-8 in this build)', () => {
       expect(actIds(c, 2)).toEqual([]);
     }
     expect(actRows(p, CHAPTERS[1])[0]).toMatchObject({ unlocked: true, cleared: 2 });
-    expect(actRows(p, CHAPTERS[5])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 5-5 first', cleared: 0 });
+    expect(actRows(p, CHAPTERS[6])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 6-5 first', cleared: 0 });
   });
 });
 
@@ -119,5 +121,46 @@ describe('an echo stage (1-10 echoes 1-5)', () => {
     expect(src.stageId).toBe('1-5');
     expect(src.map.id).toBe('sakura_court');
     expect(echoSource(getMap('noon_station_plaza'))).toBe(null);
+  });
+});
+
+describe('chapter 6: Act II · Vesperline (registered, Step 6) and its side stage', () => {
+  it('locked until both 6-5 and 5-10 are cleared, then NEW; the banner theme is vesper', () => {
+    const p = mark(createProfile(), ACT1.slice(0, 30)); // through 6-5, chapter 5's Act II not played
+    const rows = actRows(p, CHAPTERS[5]);
+    expect(rows.map((r) => r.header)).toEqual(['Act I · The Morning', 'Act II · Vesperline']);
+    expect(rows[1]).toMatchObject({ ids: ['6-6', '6-7', '6-8', '6-9', '6-10'], unlocked: false, isNew: false, lockText: 'Clear 5-10 first', total: 5 });
+    mark(p, ['5-10']);
+    expect(actRows(p, CHAPTERS[5])[1]).toMatchObject({ unlocked: true, isNew: true });
+    expect(CHAPTERS[5].act2Theme).toBe('vesper');
+  });
+
+  it('the Starfall Trial is a small side card after 6-10, locked until 6-10 is cleared, outside the act\'s progress', () => {
+    const p = mark(createProfile(), [...ACT1.slice(0, 30), '5-10', '6-6', '6-7', '6-8', '6-9']);
+    let row = actRows(p, CHAPTERS[5])[1];
+    expect(row.sides).toEqual([{ id: 'side-6-starfall', anchor: '6-10', unlocked: false, cleared: false, lockText: 'Clear 6-10' }]);
+    expect(row.ids).not.toContain('side-6-starfall');
+    // only Act II's row of chapter 6 has one
+    expect(actRows(p, CHAPTERS[5])[0].sides).toEqual([]);
+    for (const c of CHAPTERS.filter((x) => x.id !== 6)) for (const r of actRows(p, c)) expect(r.sides, `chapter ${c.id}`).toEqual([]);
+    mark(p, ['6-10']);
+    row = actRows(p, CHAPTERS[5])[1];
+    expect(row.sides[0]).toMatchObject({ unlocked: true, lockText: null, cleared: false });
+    expect(row).toMatchObject({ cleared: 5, total: 5 });
+    mark(p, ['side-6-starfall']);
+    expect(sideCards(p, row.ids)[0].cleared).toBe(true);
+    expect(actRows(p, CHAPTERS[5])[1]).toMatchObject({ cleared: 5, total: 5 });
+  });
+
+  it('the side stage is never in co-op, even when every campaign stage is open', () => {
+    expect(coopStages().map((s) => s.id)).not.toContain('side-6-starfall');
+    expect(coopStages(() => true).every((s) => s.kind === 'campaign')).toBe(true);
+  });
+
+  it('the side card opens the stage screen with the side stage as params.id (so its before-scene plays)', () => {
+    const src = readFileSync(new URL('../../src/ui/screens/campaign.js', import.meta.url), 'utf8');
+    const fn = src.slice(src.indexOf('function sideCard('), src.indexOf('function stageCard('));
+    expect(fn).toMatch(/navigate\('stage', \{ id: side\.id \}\)/);
+    expect(fn).toMatch(/data-testid': `side-\$\{side\.id\}`/);
   });
 });

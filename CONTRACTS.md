@@ -534,6 +534,12 @@ MapDef = {
                                    // Step 5 `city` hint: spawnGate: 'noonGate' (5-8: the Noon Gate on the north edge)
                                    // Step 5 theme 'drowned' (5-6…5-8: the flooded Line 2 under the city, its own THEMES
                                    // entry sharing the city kit)
+                                   // Step 6 (S6b) theme 'vesper' on the six Vesperline maps (6-6…6-10 + the side map
+                                   // vesper_starfall; their stages carry scenery.ruined 'frozen'; the theme gives the
+                                   // sentry-bay spawn and light-bridge decks), `city: { spawnGate: 'vesperGate' }` on 6-10's
+                                   // vesper_spindle_foot, `bridge: { skyRail: true }` (6-7's sky-rail viaduct: the first map
+                                   // with UP / DOWN), decor `doorieStatue` (6-8) and `spindle` { r: 2, variant: 0 } (6-10);
+                                   // S6a draws them
   echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
                                    // Gate Arc echo: the same place as an Act I map in another era, its
                                    // rows / paths / crossings / tunnels literal except the tiles echoDiff
@@ -617,6 +623,7 @@ run, the deck's shadow) read `track.viaducts` (Gate Arc Step 6 S6a).
 export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] /*Act I*/,
   act2: ['1-6',...] /*registered Act II ids, [] until that act ships*/, act2Name, act2Theme, act2Desc /*null until then*/ }] // 8 chapters × 5 (+5)
 export const STAGES = [StageDef...]   // campaign (40 Act I + registered Act II) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
+                                      // + side (Gate Arc Step 6: optional stages after an anchor, last in the list)
 export const STAGE_MAP
 export const CAMPAIGN_IDS             // Act I (1-1 … 8-5) first, then Act II by (chapter, n); never a play-order index
 export function getStage(id)
@@ -631,11 +638,22 @@ export function stageRequires(stageOrId)            // -> string[]: the ONLY rea
 export function requirementsMet(stageOrId, isCleared) // every requirement cleared (the unlock rule)
 export function stageOrderKey(id)     // (chapter, act, n) as a number; non-campaign ids → Infinity
 export function actStages(chapterId, act = 1)       // chapter.stages (act 1) / chapter.act2 (act 2)
-export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null)
+export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null; a side stage → null)
+export const SIDE_STAGES              // Gate Arc Step 6: the registered side stages (side-6-starfall, anchor 6-10)
+export function sideStagesAfter(id)   // the side stages anchored on a stage (drawn after it in its act row)
 
 StageDef = {
-  id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge'*/, kind: 'campaign'|'resource'|'boss'|'challenge',
-  chapter?, act? /*campaign: 1 | 2*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
+  id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge' | 'side-6-starfall'*/, kind: 'campaign'|'resource'|'boss'|'challenge'|'side',
+  chapter?, act? /*campaign: 1 | 2; side: its anchor's*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
+  anchor?: stageId,                    // kind 'side' only (Gate Arc Step 6): the Act II stage it is drawn after and
+                                       // opens with (requires = the anchor). A side stage takes its anchor's ACT2_PLAN
+                                       // numbers with HP × 1.1, medal gems at 0.5, coins and books on the first clear
+                                       // (no recruit ticket); it is NOT in CAMPAIGN_IDS, so never in co-op (coopStages),
+                                       // campaign counters, medals / ribbons (campaignShowcase), missions, achievements
+                                       // or profile trophies (profileTrophies STAGE_COUNT); no battle modes, freeplay or
+                                       // endless; it introduces no enemy. stageOrderKey sorts it just after its anchor;
+                                       // labels read "Side · <name>". The campaign screen draws it as a small card after
+                                       // its anchor (campaignActs.js sideCards) that opens route `stage` { id }.
   waves /*count; challenge = Infinity*/,
   waveGen: {
     pool: [{ enemy, weight, from /*wave idx, 1-based*/, to? }],
@@ -669,7 +687,7 @@ StageDef = {
                                        // render only (outside the sim; in the data hash like every StageDef field):
                                        // Step 4 dusk = the warm low sun of 4-7 (themes.DUSK; ignored on a night stage)
   tier: MapTierKey,
-  rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
+  rule?: MapRule|null,                 // campaign (and side) only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
 ```
 
@@ -679,8 +697,8 @@ reverse, rush, ironclad, frugal, laststand; numbers and ids only), `MODE_ORDER`,
 active: {...}, always: {...}, pastGoal: 'combat'|'off' }` in a fixed effect vocabulary (dmgMul, typeMul, elementMul,
 enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € livesPerWave, € bonusEvery, zoneDps + zones,
 padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
-zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
-1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
+zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules) and on every
+side stage; none on 1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
 (`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`). Screens read a stage's rule text through
 `ruleTextFor(stage, ruleId?)`: Gate Arc stages may tell a shipped rule in their own words
 (`STAGE_RULE_SKINS[stageId] = { rule, name?, short?, desc?, toast?, activeWord? }`, applied only to the rule it
