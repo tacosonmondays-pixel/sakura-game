@@ -304,6 +304,40 @@ export function buildAccessory(ctx) {
       add(part(ellipsoid(0.08, 0.1, 0.05, 8, 6), { pos: [base.x, base.y + 0.06, base.z + 0.02], color: col('#7fd6ff'), bone: BONES.head }));
       break;
     }
+    case 'councilBand': {
+      // Kohaku (the duo, src/models/duo.js): a thin gold headband with a lilac crystal clip, and a gold monocle
+      // with a short chain over her left eye (as drawn).
+      const gold = col('#e6bf5c');
+      const band = torus(1.0, 0.055, 6, s * 3);
+      band.rotateX(Math.PI / 2);
+      band.scale(1.13, 1, 1.1);
+      band.rotateX(-0.45);
+      add(part(band, { pos: [C.x, C.y + 0.5, C.z + 0.05], color: gold, bone: BONES.head }));
+      const gem = new THREE.OctahedronGeometry(0.13, 0);
+      gem.scale(0.8, 1.25, 0.6);
+      const clip = onHead(ctx, 0.3 * Math.PI, 0.55, 0.1);
+      add(part(gem, { pos: [clip.x, clip.y, clip.z], rot: [0, 0.55, -0.3], color: col(pal.weapon), bone: BONES.head }));
+      const x = 0.43;
+      add(part(torus(0.2, 0.032, 6, s + 4), { pos: [x, LM.eyeY + 0.01, LM.faceZ + 0.1], color: gold, bone: BONES.head }));
+      const chain = smoothPath([[x + 0.17, LM.eyeY - 0.1, LM.faceZ + 0.07], [x + 0.27, LM.eyeY - 0.36, LM.faceZ - 0.04], [x + 0.33, LM.eyeY - 0.58, LM.faceZ - 0.28]], 6);
+      add(part(strand(chain, () => [0.011, 0.011], { radial: 4 }), { color: gold, bone: BONES.head }));
+      break;
+    }
+    case 'cadetCap': {
+      // Tsubaki (the duo): a peaked cadet cap in her uniform's navy with a gold band, a dark visor and a gold star.
+      const top = onHead(ctx, 0.06 * Math.PI, 0, 0.12);
+      const navy = col(pal.outfit);
+      const gold = col(pal.accent);
+      const dark = navy.clone().multiplyScalar(0.62);
+      const crownG = lathe([[0.0, 0.38], [0.98, 0.36], [1.06, 0.27], [0.88, 0.06], [0.86, 0.0], [0.0, 0.0]], s * 2);
+      add(part(crownG, { pos: [top.x, top.y - 0.12, top.z - 0.04], rot: [-0.15, 0, 0], color: navy, bone: BONES.head }));
+      add(part(cyl(0.89, 0.89, 0.13, s * 2), { pos: [top.x, top.y - 0.08, top.z - 0.04], rot: [-0.15, 0, 0], color: dark, bone: BONES.head }));
+      add(part(torus(0.9, 0.025, 4, s * 2), { pos: [top.x, top.y - 0.03, top.z - 0.04], rot: [Math.PI / 2 - 0.15, 0, 0], color: gold, bone: BONES.head }));
+      add(part(ellipsoid(0.64, 0.05, 0.44, s, 6), { pos: [top.x, top.y - 0.16, top.z + 0.64], rot: [0.12, 0, 0], color: dark, bone: BONES.head }));
+      const st = extrude(star(5, 0.16, 0.07), 0.04);
+      add(part(st, { pos: [top.x, top.y + 0.08, top.z + 0.84], rot: [-0.25, 0, 0], color: gold, bone: BONES.head }));
+      break;
+    }
     default:
       break;
   }

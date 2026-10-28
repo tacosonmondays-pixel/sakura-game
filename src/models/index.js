@@ -41,7 +41,7 @@ let preloaded = null;
  */
 export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) {
   // model files (manifest keys) for the units; stand-ins have none (procedural on purpose)
-  // (a duo unit loads both members' models: src/models/duo.js)
+  // (a duo unit has none either: her members are stand-ins, src/models/duo.js)
   ids = (ids || UNIT_IDS).flatMap((id) => {
     const def = UNIT_MAP[id];
     return def?.duo ? modelIds(def) : [resolveSkin(id, skins?.[id]).asset];
@@ -78,8 +78,8 @@ export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) 
  *   beside the GLB figure in its home pose. The battle draws companions itself (src/render/companions.js).
  */
 export function buildChibi(unitDef, opts = {}) {
-  // a duo unit: both girls on one base, each her own chibi (src/models/duo.js)
-  if (unitDef?.duo?.members?.length) return tagSkin(buildDuo(unitDef, opts, buildChibi), resolveSkin(unitDef.id, opts.skin));
+  // a duo unit: both girls on one base, each a procedural stand-in in her drawn colours (src/models/duo.js)
+  if (unitDef?.duo?.members?.length) return tagSkin(buildDuo(unitDef, opts, buildStandIn), resolveSkin(unitDef.id, opts.skin));
   const quality = opts.quality || 'high';
   const detail = opts.detail || detailFor(quality);
   const skin = resolveSkin(unitDef.id, opts.skin);
@@ -109,6 +109,13 @@ export function buildChibi(unitDef, opts = {}) {
       withCompanion(group, unitDef, opts);
     }).catch(() => {});
   }
+  return markDisposed(group);
+}
+
+/** A procedural stand-in (final, nothing to fetch or upgrade) in the def's own palette / look. */
+function buildStandIn(def, opts) {
+  const group = buildChibiProc(def, opts);
+  group.userData.standIn = true;
   return markDisposed(group);
 }
 
