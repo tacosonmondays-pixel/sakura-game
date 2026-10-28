@@ -45,7 +45,10 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    flyers on every path, her damage band, her own lane on a shared road) and Kaede's maple blade arts
 //    (cleave, crescents, storm, shockwave; Pierce on her blade arts); a client on 7 resolves the same
 //    loadout to different battles.
-export const COOP_PROTOCOL = 8;
+// 9: v0.1.54 (co-op update #6, set once for it): Gate Arc Step 1, chapter 1's Act II "Rush Hour" (stages 1-6…1-10
+//    and the Frostbitten Heir), girls on rooftops (`U` tiles) and the lane schedule (a level crossing closes a lane
+//    for some waves); a client on 8 resolves the same loadout to different battles (or does not know the stage).
+export const COOP_PROTOCOL = 9;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.54', version: '0.1.54', date: '2026-10-28', title: 'Rush Hour',
+    added: [
+      'Chapter 1 Act II, "Rush Hour": five new city stages (1-6 to 1-10) open once you clear 1-5, with seven new story scenes. This arc deals with war and loss; a short note says so before it starts.',
+      'A new boss waits at the end of 1-10: the Frostbitten Heir.',
+      'Rooftops: on some city stages your girls can stand on the roofs, and a level crossing closes a lane for a few waves.',
+    ],
+    changed: [
+      'Yuzuha now joins after stage 1-7. If she is already on your team nothing changes, and clearing 4-2 still brings her.',
+      'Act II stages give half the medal gems of Act I stages.',
+      'Co-op needs this version on both sides: if your partner sees a version message, they just refresh the page.',
+    ],
+  },
+  {
     id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
     added: [
       'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',
