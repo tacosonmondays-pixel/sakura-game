@@ -243,7 +243,8 @@ export function render(root, params = {}) {
       }
     }
 
-    function paintTab() {
+    /** `refresh`: a clan event repaints the open tab (the boss tab keeps its panel, Fight included, until the new state is in). */
+    function paintTab({ refresh = false } = {}) {
       paneCleanup?.();
       paneCleanup = null;
       paneRefresh = null;
@@ -258,7 +259,7 @@ export function render(root, params = {}) {
         pane.replaceChildren(chat.el);
         paneCleanup = () => chat.destroy();
       } else if (tab === 'boss') {
-        paneCleanup = bossTab(backend, clan, pane);
+        paneCleanup = bossTab(backend, clan, pane, { quiet: refresh });
       } else if (tab === 'requests') {
         paneCleanup = requestsTab(backend, clan, pane);
       } else if (tab === 'supply' && clan.isDev) {
@@ -289,7 +290,7 @@ export function render(root, params = {}) {
           paintHeader();
           tabsEl.setActive(tab);
           if (tab === 'donate') paneRefresh?.();
-          else if (tab === 'members' || tab === 'requests' || tab === 'boss') paintTab();
+          else if (tab === 'members' || tab === 'requests' || tab === 'boss') paintTab({ refresh: true });
         } catch {
           /* keep showing what we have */
         }
@@ -391,11 +392,15 @@ function requestsTab(backend, clan, pane) {
   };
 }
 
-function bossTab(backend, clan, pane) {
+function bossTab(backend, clan, pane, { quiet = false } = {}) {
   let alive = true;
-  const wait = h('div.ol-empty', inlineLoader('Loading the boss'));
-  pane.replaceChildren(wait);
-  holdInline(pane, wait);
+  // [ui-v2 M8] a refresh (a clan event: a member joined, a chat line) keeps the boss panel and its Fight on screen
+  // until the new state is in; only the first draw shows Mochi (a busy machine kept Fight away for seconds)
+  if (!(quiet && pane.querySelector('[data-testid="boss-panel"]'))) {
+    const wait = h('div.ol-empty', inlineLoader('Loading the boss'));
+    pane.replaceChildren(wait);
+    holdInline(pane, wait);
+  }
   let timer = 0;
   (async () => {
     try {
