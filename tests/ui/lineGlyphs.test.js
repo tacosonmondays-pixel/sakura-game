@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  LINE_GLYPHS, GLYPH_GROUPS, CORE_GLYPHS, FRAME_GLYPHS, LINE_ALIASES, EMBLEM_GLYPHS, CHAPTER_EMBLEMS, chapterEmblem, lineGlyph, lineFor, hasLineGlyph, emblemSvg,
+  LINE_GLYPHS, GLYPH_GROUPS, CORE_GLYPHS, FRAME_GLYPHS, LINE_ALIASES, PENDING_GLYPHS, EMBLEM_GLYPHS, CHAPTER_EMBLEMS, chapterEmblem, lineGlyph, lineFor, hasLineGlyph, emblemSvg,
 } from '../../src/ui/lineGlyphs.js';
 
 /** The glyph names the kit fixture (the approved specimen's boards) draws with <i data-g="…">. */
@@ -88,8 +88,13 @@ describe('line glyphs', () => {
     }
   });
   it('the game icon names chrome uses map onto line glyphs; game-data icons do not', () => {
-    for (const [from, to] of Object.entries(LINE_ALIASES)) expect(hasLineGlyph(to), `${from} → ${to}`).toBe(true);
+    for (const [from, to] of Object.entries(LINE_ALIASES)) if (!PENDING_GLYPHS.includes(to)) expect(hasLineGlyph(to), `${from} → ${to}`).toBe(true);
     expect(lineFor('home')).toBe('house');
+    // Tryout Day's aliases: drawn once its glyphs exist, null (ico keeps its old drawing) until then
+    for (const a of ['marble', 'eraser', 'hall-pass', 'hallpass', 'desk', 'stamp', 'chalk']) {
+      expect(LINE_ALIASES[a], a).toBeTruthy();
+      expect(lineFor(a), a).toBe(hasLineGlyph(LINE_ALIASES[a]) ? LINE_ALIASES[a] : null);
+    }
     expect(lineFor('close')).toBe('x');
     expect(lineFor('settings')).toBe('settings');
     expect(lineFor('calendar')).toBe('daily');
