@@ -402,7 +402,10 @@ EnemyDef = {
   hp, speed /*tiles/s, normal ≈ 1.0*/, armorClass, armor /*flat per-hit reduction*/,
   bounty /*coins on kill*/, leak /*lives lost; bosses = all*/, threat /*wave budget cost*/,
   size /*model scale 0.6-3*/, color, accent,
-  model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this
+  model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this; `base` is the family
+                                   // itself, except for a family without a GLB of its own (Gate Arc Step 4: every
+                                   // `brigade` def wears a shipped `construct` model in Brigade navy/amber until the
+                                   // enemy rebuild; tests/models/enemies.test.js GLB_FAMILIES). Loaders read model.base
   traits: {
     barrier?: { hp, regenDelay? },
     crystal?: { cap /*max dmg per hit*/, hits /*hits to shatter*/ },
@@ -486,7 +489,8 @@ MapDef = {
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
   city?: {...},                    // the city kit's render hints (see `theme` above)
-  district?: 'oldtown',            // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District")
+  district?: 'oldtown'|'highway',  // Gate Arc: a district of a `city` map (Step 3 the Old Town block set, see "District";
+                                   // Step 4 'highway' on 4-6…4-8: S4a draws it, an unknown district renders as plain city)
                                    // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
                                    // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
                                    // as always, the renderer stands the rift gate there with no run-out
@@ -604,6 +608,7 @@ StageDef = {
   drops: [{ item, chance, min, max, difficulty? /*min difficulty*/ }],
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
+  look?: { night?, costumes?, blackout?, dusk? },  // render-only stage look (dusk: Gate Arc Step 4, 4-7, drawn by S4a)
   tier: MapTierKey,
   rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
@@ -1590,6 +1595,14 @@ docs/specs/gate-arc/STEP3_BUILD_PLAN.md §2-3):
   map)` merges `themes.DISTRICTS.oldtown` (stone ground, `setts` road, `oldHouse` buildings, stone
   gutters instead of raised kerbs, lantern strings on bamboo posts instead of utility poles, tiled
   timber blocks under 'U' roofs, no signals or painted crossings; src/render/city/oldTownProps.js).
+- **Families found** (Gate Arc Step 4, `src/systems/achievementMetrics.js` `familiesFound`): a family counts only
+  when the save needs at least one member (introduced in Act I, or in an Act II stage the save can open) and every
+  needed member is discovered. Never vacuous: the Brigade (every member an Act II one) counts for nobody until 3-9
+  opens, and a veteran's count never rises with it.
+- **Join moves** (`src/systems/catchUpJoins.js`): `LEGACY_JOIN_STAGES` (Yuzuha's 4-2: a win there still grants her to
+  a player who has not met her; the balance bot counts it) and `PRE_UPDATE_JOIN_STAGES` (Azami's 2-2: only a clear made
+  before Step 4, read once by the first catch-up run of this build, mark `missions.counters['joinWindow:azami']`; never
+  a win's grant, never the bot's roster). Azami joins on a 4-7 win.
 - **Burning** — `StageDef.scenery.ruined: 'burning'` (resolveScenery passes `ruined`): the
   `themes.BURNING` table (dark sky, key ≥ 1.2, ash ground under the road's tone, `ruinBlock` shells,
   rubble / wrecks / charred trees, ash weather) and the burning layer (ruinProps.burningLayer: ≤ 12

@@ -125,6 +125,19 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   | 3-9 Old Town, Burning | `noon_old_town_burning` | one long S round two fallen blocks of 3-6's ground | heat_mirage (HAMMER's Smoke) | `brigade_gnat` (Gnat Spotter, construct family on the Cogling model) in fixed groups every 6th wave |
   | 3-10 The Ashen Warden | `noon_lakeside_shrine` (echo of `shrine_sanctum`) | the sanctum tunnel under the tear | lunar_eclipse (The Tear) | `ghost_ashen_warden` (the Hollow Samurai's model at miniboss scale, charred) |
 
+* **Chapter 4 · Act II · The Checkpoint** (the mountain highway, theme `city` with `district: 'highway'`, then the far
+  north on the shipped `snow` theme; STEP4_BUILD_PLAN). 4-6 needs 4-5 **and** 3-10. The Gate Response Brigade is a
+  bestiary family now (`brigade`: the Gnat moves in from construct; its units wear shipped construct models in navy
+  and amber). Azami joins after 4-7 (a 2-2 clear from before this build still brings her once).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 4-6 Toll Plaza | `noon_toll_plaza` | a three-booth lens: one road splits into three toll lanes round two booth islands ('U' roofs) and closes up again, then the off-ramp | supply_ship (Brigade Convoy) | the iron column: grunts, ironhides, wolves |
+  | 4-7 Azami's Checkpoint | `noon_checkpoint` | a straight lane through the checkpoint gate and a wide hook west round the barricades | heat_mirage (Flare Smoke) | `laneCycle [[1], [0, 1]]`: the gate is shut on odd waves ("Barrier down: long way round"); dusk (`look.dusk`); **Azami joins** |
+  | 4-8 Tunnel Mouth | `noon_tunnel_mouth` (22×13) | a dual carriageway: two lanes out of two bores, nested steps south-east, two exits | rear_ambush (Wrong Way) | orcs and wolves; the Brigade (`brigade_trooper`, `brigade_shieldline`, Gnats, a `brigade_tortoise` on 14 and 22) as fixed groups on even waves, which come in from the goal end |
+  | 4-9 The Frozen Villages | `north_frozen_villages` (`snow`) | a straight climb up the sled run, a wide horseshoe over the village square, a hook out north-east | prism_conduits (Village Hearths, 3 pads inside the horseshoe) | the Brigade leads (troopers, shieldlines, Gnats, Tortoises from wave 8), wolves and bears; `brigade_badger` on each of the last three waves |
+  | 4-10 The Frost Vanguard | `north_snow_bridge` (`snow`) | two columns meet at the bridgehead, then one long deck over the ravine (8 'B' tiles) | snowbell_blizzard (Blizzard) | `orc_frost_vanguard` (the Orc Warlord's model at miniboss scale in frost iron, 3,950 HP, summons Alpha Wolves) |
+
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
   Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with
