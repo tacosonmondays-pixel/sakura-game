@@ -40,7 +40,7 @@ import {
 import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon, modeIcon } from '../../art/icons.js';
-import { ico, curArt, iconBtn, secondaryBtn, inkBtn, countdownChip } from '../kit.js';
+import { ico, curArt, iconBtn, secondaryBtn, inkBtn, countdownChip, fillIn } from '../kit.js';
 import { openSheet, closeSheets } from '../sheet.js';
 import { fmtNum } from '../format.js';
 import { lineGlyph } from '../lineGlyphs.js';
@@ -510,7 +510,7 @@ export function render(root, params = {}) {
     clear(body);
     body.appendChild(buildPrep(stage, state, ctx));
     // an open sheet follows the screen (a mode picked in it, a girl added from it, a sweep)
-    if (state.sheet) state.sheet.api.body.replaceChildren(sheetBody(stage, state, ctx, state.sheet.kind));
+    if (state.sheet) fillIn(state.sheet.api.body, sheetBody(stage, state, ctx, state.sheet.kind));
   };
   ctx.redraw = draw;
   ctx.openSheetOf = (kind) => {
@@ -618,7 +618,8 @@ function mapBand(stage, state, ctx, f) {
   const infoBtn = iconBtn('info', { label: 'Mission, map rule and enemies', testid: 'prep-info', cls: 'sp-ibtn', onClick: () => ctx.openSheetOf('info') });
   // a saved battle takes the mission line's place (the "i" keeps the mission); an event its line above it
   const save = f.rec || eventSaveOf(stage, f);
-  const line = save ? savedLine(save) : h('p.sp-mission', missionLine(stage));
+  // ([events] the event line is the band's sentence there: the mission waits behind the "i" with the enemies)
+  const line = save ? savedLine(save) : f.evStatus ? h('p.sp-mission.sp-mission-k', 'Mission, map and enemies') : h('p.sp-mission', missionLine(stage));
   return h('section.sp-band',
     mapEl,
     strip,
@@ -653,7 +654,7 @@ function eventLine(stage, state) {
   const clock = phase === 'active' ? countdownChip(w.endAt - now, { label: 'Ends', cls: 's', now: eventNow, testid: 'event-phase-chip' })
     : h('span.lbl', phaseLabel(ev, phase, now));
   return h('div.sp-event.ev-prep', { 'data-testid': 'event-prep' },
-    h('div.sp-event-head', h('span.ui-chip.ink.sp-event-kicker', 'Event'), h('b.sp-event-name', ev.name), clock),
+    h('div.sp-event-head', h('b.sp-event-name', ev.name), clock),
     phase === 'active'
       ? h('div.sp-event-candy', h('span.sp-event-ico', staticTile(ev.currency.id, 28)), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
       : h('p.sp-event-candy', 'The operations have ended: your rewards are yours to keep.'));
@@ -963,7 +964,7 @@ const SHEETS = {
   counters: { testid: 'counters-sheet', title: () => 'Counters' },
   drops: { testid: 'drops-sheet', title: (stage) => (stage.kind === 'challenge' ? 'Rewards per run' : 'Drops') },
   mode: { testid: 'mode-sheet', title: () => 'Battle mode' },
-  info: { testid: 'info-sheet', title: (stage) => `${stageLabel(stage)} · ${stage.name}` },
+  info: { testid: 'info-sheet', title: (stage) => stage.name },
 };
 
 function sheetBody(stage, state, ctx, kind) {
@@ -1051,7 +1052,7 @@ function dropsSheet(stage, state, f) {
     const order = stage.kind === 'event' && stage.difficulties ? stage.difficulties : DIFFICULTY_ORDER;
     const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
     out.push(sec('First clear',
-      cleared ? h('p.sp-p.desc', 'Claimed.') : h('div.sp-fc', rewardTiles(stage.firstClear || [], { size: 56 }), h('span.desc', 'Any difficulty, once.')),
+      cleared ? h('p.sp-p.desc', 'Claimed.') : h('div.sp-fc', rewardTiles(stage.firstClear || [], { size: 64 }), h('span.desc', 'Any difficulty, once.')),
       !cleared && unlocks.length ? h('div.sp-unlocks', unlocks.map((id) => h('div.sp-unlock', girlFace(id, { onClick: () => navigate('student', { id }) }),
         h('div', h('b', `${UNIT_MAP[id].name} joins for free`), h('span.desc', UNIT_MAP[id].acquisition?.note || `Clear this stage to recruit ${UNIT_MAP[id].name}.`))))) : null));
     out.push(sec('Medal gems · once per difficulty',
