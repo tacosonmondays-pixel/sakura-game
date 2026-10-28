@@ -318,3 +318,26 @@ export const PIN_REACH = 2;
 export const BOUNCE_SPEED = 9;
 export const BOUNCE_MAX_T = 1;
 export const FINALE_RADIUS = 1.5;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S1 "Wheels" (docs/specs/ATTACK_SHAPES.md §5.1, §5.2, §5.5; src/sim/wheels.js).
+// Every timer is an integer of sim steps; their straight shots share Kinu's caps (STRAIGHT_PER_*).
+// ---------------------------------------------------------------------------
+/** Blossom Wheel: spoke flight speed (tiles/s); a spoke flies her range. */
+export const WHEEL_SPEED = 12;
+/** Pinwheel Stream: a shot per arm every attack; the arms turn SPIN_TURN table steps an attack (18°: one
+ *  turn in 20 attacks), only SPIN_LOCK while an arm has an enemy within SPIN_HALF_WIDTH of its line. */
+export const SPIN_TURN = 12;
+export const SPIN_LOCK = 1;
+export const SPIN_HALF_WIDTH = 0.3;
+export const SPIN_SPEED = 10;
+/** Pinwheel Stream with a single enemy in range: the folded stream turns at most this many table steps a shot. */
+export const SPIN_FOLD_TURN = 20;
+/** Petal Halo: table steps per sim step (one turn in 2 s), orbit radius, contact radius (tiles), the
+ *  re-hit gap per piece (steps), a piece's memory (entries, oldest dropped) and pieces per girl at most. */
+export const HALO_STEPS = 2;
+export const HALO_REACH = 1.2;
+export const HALO_RADIUS = 0.35;
+export const HALO_GAP = 15;
+export const HALO_HITS = 32;
+export const HALO_MAX = 16;

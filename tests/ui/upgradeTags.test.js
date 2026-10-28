@@ -19,7 +19,7 @@ import {
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 218, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka)
+  self: 217, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; -1: Kage's Blade Cyclone)
   'enemies* + self': 35,
   'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
@@ -32,9 +32,10 @@ const COMBOS = {
   'allies + enemies*': 6,
   'enemies*': 7,
   'allies + enemies* + self': 4,
-  'self+X': 3,
+  'self+X': 4, // (+1: Kage's Blade Rain turns into the Blade Cyclone, attack shapes S1)
   'allies + coins': 2,
-  'coins + self': 2,
+  'coins + self': 1,
+  'coins + self+X': 1, // (Momo's Jackpot turns into the Coin Wheel, attack shapes S1)
   'enemies + self+X': 3,
   'enemies* + self+X': 1,
   'allies + enemies': 2,

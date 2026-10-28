@@ -71,6 +71,8 @@ export const MOD_TAGS = {
   sentry: 'drones',
   // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
   blade: 'self',
+  // the attack shapes S1 (src/sim/wheels.js): Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's fireflies
+  wheel: 'self', spin: 'self', halo: 'self',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -98,6 +100,9 @@ const SUB_KEYS = {
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  wheel: new Set(['spokes', 'lead', 'mul']),
+  spin: new Set(['arms', 'mul', 'fold', 'turn', 'lock']),
+  halo: new Set(['pieces', 'reach', 'mul']),
   blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 

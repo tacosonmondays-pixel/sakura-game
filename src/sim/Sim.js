@@ -52,6 +52,7 @@ import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js'
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
+import { endWheelWave } from './wheels.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -850,6 +851,8 @@ export class Sim {
     if (this.traps.length) endStripWave(this);
     // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
     endRingWave(this);
+    // the wheel shapes' spin index and halo memory end (src/sim/wheels.js)
+    endWheelWave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)

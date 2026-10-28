@@ -5,8 +5,8 @@
 // boost, src/sim/abilities.js) adds a turning spiral of blades on top.
 //
 // Determinism:
-//   - directions come from DIRS, a 240-step table of unit vectors built once at load with the
-//     deterministic sin / cos (src/core/detMath.js), so every engine flies the same pins; 240 holds
+//   - directions come from the shared 240-step table of unit vectors (src/sim/dirs.js), built once at
+//     load with the deterministic sin / cos, so every engine flies the same pins; 240 holds
 //     the 8, 10, 16 and 24-pin rings, the 16-step turn and the 16-step spiral exactly;
 //   - the scissors' orbit and the spiral are read from the step number (no state to save);
 //   - the heat ring grows by speed × dt and hits each enemy between the last and the new radius
@@ -14,27 +14,15 @@
 // Caps (UNIT_GAPS §7.2): straight shots per girl (KINU_SHOTS), per player and per sim, the oldest
 // shot (lowest uid) removed first. Everything here ends at the wave clear (§7.3).
 
-import { DET_MATH } from '../core/detMath.js';
+import { dir } from './dirs.js';
 import { isEligible } from './combat.js';
 import {
   STEP, PROJECTILE_Z, RING_DIRS, RING_PIN_SPEED, HEAT_RING_SPEED, SCISSOR_RADIUS, SCISSOR_REACH, SCISSOR_STEPS,
   SCISSOR_EVERY, SPIRAL_EVERY, STRAIGHT_PER_GIRL, STRAIGHT_PER_PLAYER, STRAIGHT_PER_SIM, SPARKS_PER_STEP,
 } from './constants.js';
 
-/** Unit vectors for RING_DIRS directions, k = 0 pointing +y (the sim's facing convention), clockwise. */
-const DX = new Float64Array(RING_DIRS);
-const DY = new Float64Array(RING_DIRS);
-for (let k = 0; k < RING_DIRS; k++) {
-  const a = (2 * Math.PI * k) / RING_DIRS;
-  DX[k] = DET_MATH.sin(a);
-  DY[k] = DET_MATH.cos(a);
-}
-
-/** Direction k of the table (wrapped). @returns {[number, number]} */
-export function ringDir(k) {
-  const i = ((k % RING_DIRS) + RING_DIRS) % RING_DIRS;
-  return [DX[i], DY[i]];
-}
+/** Direction k of the table (wrapped): the shared table of src/sim/dirs.js. @returns {[number, number]} */
+export const ringDir = dir;
 
 const stepNo = (sim) => Math.round(sim.time / STEP);
 
@@ -43,7 +31,7 @@ const stepNo = (sim) => Math.round(sim.time / STEP);
  * oldest shot first (the projectile list is in uid order). Evicted shots are marked dead and leave
  * at the next compaction.
  */
-function straightRoom(sim, t, n) {
+export function straightRoom(sim, t, n) {
   const owner = t.owner ?? 0;
   let mine = 0;
   let player = 0;
@@ -73,9 +61,11 @@ function straightRoom(sim, t, n) {
 /**
  * A straight shot from (x, y) along direction k, `travel` tiles long: the same projectile record as a
  * targeted shot (src/sim/towers.js spawnProjectile) with no target, so projectileStep flies it
- * straight with swept collision and pierce until it has travelled `travel`.
+ * straight with swept collision and pierce until it has travelled `travel`. `scale` multiplies each of
+ * its hits (sim._hit's scale; the attack shapes' per-shot damage, src/sim/wheels.js); a shot without
+ * one hits at 1.
  */
-export function spawnStraight(sim, t, spec, x, y, k, travel, { pierce = spec.pierce, kind = 'needle', speed = RING_PIN_SPEED } = {}) {
+export function spawnStraight(sim, t, spec, x, y, k, travel, { pierce = spec.pierce, kind = 'needle', speed = RING_PIN_SPEED, scale = 0 } = {}) {
   const [dx, dy] = ringDir(k);
   const p = {
     uid: sim._nextUid(),
@@ -108,6 +98,7 @@ export function spawnStraight(sim, t, spec, x, y, k, travel, { pierce = spec.pie
     dead: false,
     straight: true,
   };
+  if (scale > 0) p.scale = scale;
   sim.projectiles.push(p);
   return p;
 }
