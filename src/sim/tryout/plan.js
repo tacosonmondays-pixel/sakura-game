@@ -11,6 +11,9 @@ export function stream(seed, label) {
   return createRng(hashString(`${seed >>> 0}|tryout|${label}`));
 }
 
+/** Grades in this build (the first ship plays 1-6; §16). */
+export const TRYOUT_GRADES = 6;
+
 export function lengthOf(length) {
   return TRYOUT.lengths[length] || TRYOUT.lengths.half;
 }

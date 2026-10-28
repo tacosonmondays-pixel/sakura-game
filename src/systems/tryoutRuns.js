@@ -6,7 +6,7 @@ import { UNIT_MAP } from '../data/units.js';
 import { ROLES } from '../data/types.js';
 import { isOwned, isStageCleared } from './unlocks.js';
 import { unitBattleStats } from './progression.js';
-import { stream, mapChoices } from '../sim/tryout/plan.js';
+import { stream, mapChoices, TRYOUT_GRADES } from '../sim/tryout/plan.js';
 
 /** The campaign stage that opens the mode (Spring Term). */
 export const TRYOUT_UNLOCK = TRYOUT.windows.spring.unlock;
@@ -15,8 +15,7 @@ export function tryoutUnlocked(profile) {
   return isStageCleared(profile, TRYOUT_UNLOCK);
 }
 
-/** Grades in this build (the first ship plays 1-6; §16). */
-export const TRYOUT_GRADES = 6;
+export { TRYOUT_GRADES };
 
 /** The highest Grade cleared (0: none). */
 export function gradeCleared(profile) {

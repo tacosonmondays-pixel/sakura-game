@@ -66,8 +66,7 @@ import { modeId } from '../../data/modes.js';
 import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
 import { clampStart, clampTryout, clampDraft, DRAFT_MAX } from './statLimits.js';
-import { mapChoices } from '../../sim/tryout/plan.js';
-import { TRYOUT_GRADES } from '../../systems/tryoutRuns.js';
+import { mapChoices, TRYOUT_GRADES } from '../../sim/tryout/plan.js';
 
 let current = null;
 
