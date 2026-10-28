@@ -467,6 +467,32 @@ describe('ifOwned episodes wait for a girl the player owns (g2.class: Ruri, Iroh
     for (const id of Object.keys(SIDES)) expect(markSeen(p, sceneById(id))).toEqual({ first: false, rewards: [] });
   });
 
+  it('Act 4 plays in order after 4-7, 4-8 and 4-10; Azami\'s join plays once, whether or not the save already has her', () => {
+    // after-triggers read progress only, so this needs no stage data
+    const run = (ownsAzami) => {
+      const p = createProfile();
+      if (ownsAzami) grantUnit(p, 'azami'); // a save that met her at 2-2 (the legacy grant or the catch-up letter)
+      else delete p.units.azami;
+      for (const st of ['4-7', '4-8', '4-10']) p.progress.stages[st] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+      expect(queueAfterClears(p, ['4-10', '4-8', '4-7'], SCENE_LIST, hasUnit)).toEqual([
+        'g4.azami', 'g4.cross', 'g4.logs', 'g4.after', 'g4.epi',
+      ]);
+      const played = [];
+      for (let sc = nextQueued(p, SCENE_LIST, hasUnit); sc; sc = nextQueued(p, SCENE_LIST, hasUnit)) {
+        played.push(sc.id);
+        expect(markSeen(p, sc).first, sc.id).toBe(true);
+      }
+      expect(played).toEqual(['g4.azami', 'g4.cross', 'g4.logs', 'g4.after', 'g4.epi']);
+      // never twice: a second clear queues nothing, a repeat mark grants nothing
+      expect(queueAfterClears(p, ['4-7'], SCENE_LIST, hasUnit)).toEqual([]);
+      expect(markSeen(p, sceneById('g4.azami'))).toEqual({ first: false, rewards: [] });
+      const row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g4.azami');
+      expect(row).toMatchObject({ unlocked: true, seen: true, isNew: false, requirement: null });
+    };
+    run(true);
+    run(false);
+  });
+
   it('a before-scene with ifOwned is offered only once a listed girl is owned; requirement text for one or many', () => {
     const p = clearUpTo(createProfile(), '1-1');
     for (const id of CLASS) delete p.units[id];

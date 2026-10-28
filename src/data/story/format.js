@@ -63,7 +63,7 @@ export const PLAIN_SPEAKERS = ['narrator', 'sensei', 'unknown'];
 export const ENEMY_SPEAKERS = [
   'slime_prince', 'slime_frost_heir', 'slime_droplet', 'lizard_basilisk', 'ghost_hollowknight', 'orc_general', 'plant_treant',
   'goblin_machine', 'goblin_chief', 'oni_champion', 'dragon_ashwing', 'lizard_lamp_hugger',
-  'ghost_ashen_warden',
+  'ghost_ashen_warden', 'orc_frost_vanguard',
 ];
 export const NPCS = [...PLAIN_SPEAKERS, ...ENEMY_SPEAKERS];
 

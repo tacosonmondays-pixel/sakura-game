@@ -14,6 +14,7 @@ import g2 from './scenes/g2.js';
 import ch3 from './scenes/ch3.js';
 import g3 from './scenes/g3.js';
 import ch4 from './scenes/ch4.js';
+import g4 from './scenes/g4.js';
 import ch5 from './scenes/ch5.js';
 import ch6 from './scenes/ch6.js';
 import ch7 from './scenes/ch7.js';
@@ -22,7 +23,7 @@ import lessonScenes from './scenes/lessons.js';
 
 // Gate Arc episodes (gN, chapter N's Act II) are filed right after chapter N's own: the archive tab stays by chapter
 // and the mystery lint reads them in play order
-const ALL = [...opening, ...ch1, ...g1, ...ch2, ...g2, ...ch3, ...g3, ...ch4, ...ch5, ...ch6, ...ch7, ...ch8, ...lessonScenes];
+const ALL = [...opening, ...ch1, ...g1, ...ch2, ...g2, ...ch3, ...g3, ...ch4, ...g4, ...ch5, ...ch6, ...ch7, ...ch8, ...lessonScenes];
 
 export const SCENES = {};
 for (const s of ALL) {
