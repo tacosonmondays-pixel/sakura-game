@@ -1,11 +1,11 @@
-// The owner's band (src/data/balance.js; PROPOSAL): one switch. Option C (committed) is the honest panel with no cap:
+// The owner's band (src/data/balance.js; PROPOSAL): one switch. Option C (committed) is the kit-fair panel with no cap:
 // supports stack exactly as today. Option B, the alternative, is a soft cap on the supports' combined damage ×
 // attack-speed multiplier on one girl: full value up to the knee, diminishing returns past it, never above
 // knee + span. Plain arithmetic, so every engine and co-op peer computes the same bits.
 import { describe, test, expect } from 'vitest';
 import { makeSim, startEmptyWave, TOWER_IDS } from './fixtures.js';
 import { refreshEffective } from '../../src/sim/towers.js';
-import { BAND, BAND_OPTION, BANDS, HONEST_PANEL, UNIT_SCALE, supportCapFactor } from '../../src/data/balance.js';
+import { BAND, BAND_OPTION, BANDS, KIT_PANEL, UNIT_SCALE, supportCapFactor } from '../../src/data/balance.js';
 
 const place = (s, id) => {
   for (let y = 2.5; y < s.map.height; y += 0.25) for (let x = 2; x < s.map.width; x += 0.25) if (s.canPlace(id, x, y).ok) return s.placeTower(id, x, y);
@@ -13,19 +13,19 @@ const place = (s, id) => {
 };
 
 describe('the band switch', () => {
-  test('the committed option is C (the recommendation): the honest panel, no cap, no number scale', () => {
+  test('the committed option is C (the recommendation): the kit-fair panel, no cap, no number scale', () => {
     expect(BAND_OPTION).toBe('C');
     expect(BAND).toBe(BANDS.C);
     expect(BANDS.C.cap).toBe(null);
     expect(BANDS.C.scale).toBe(1);
-    expect(HONEST_PANEL).toBe(true);
+    expect(KIT_PANEL).toBe(true);
     expect(UNIT_SCALE).toBe(1);
     // the alternatives: A has a number scale and no cap, B a cap and no scale; both keep the paper panel
     expect(BANDS.A.cap).toBe(null);
     expect(BANDS.A.scale).toBeGreaterThan(1);
     expect(BANDS.B.scale).toBe(1);
     expect(BANDS.B.cap).not.toBe(null);
-    expect(BANDS.A.honestPanel || BANDS.B.honestPanel).toBe(false);
+    expect(BANDS.A.kitPanel || BANDS.B.kitPanel).toBe(false);
   });
 
   test('under C the factor is exactly 1 for any stack', () => {

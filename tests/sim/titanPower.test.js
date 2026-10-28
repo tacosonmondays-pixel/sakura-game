@@ -1,6 +1,7 @@
 // Titan Trials keep today's numbers (src/data/balance.js TITAN_POWER = false; PROPOSAL, the owner's titan question):
 // in a titan battle no girl reads her Oct 27 power row and no hero reads her level curve, so every team's titan rank,
-// weekly pay and titan board damage stay where they are. Every other battle reads both.
+// weekly pay and titan board damage stay where they are. Every other battle reads both. (The band's Options A and B
+// in a titan battle: tests/sim/titanBandOptions.test.js.)
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { titanBattle } from '../../src/data/titans.js';

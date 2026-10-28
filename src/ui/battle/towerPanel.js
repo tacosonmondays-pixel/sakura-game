@@ -39,9 +39,9 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, BUY_ARM_MS,
-  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX, liveDps, LIVE_DPS_TITLE,
+  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX, liveDps, LIVE_DPS_TITLE, kitDps, kitDpsTitle,
 } from './drawerView.js';
-import { HONEST_PANEL } from '../../data/balance.js';
+import { KIT_PANEL, heroPowerAt } from '../../data/balance.js';
 
 function statusLabel(s) {
   const name = STATUSES[s.type]?.name || s.type;
@@ -546,6 +546,10 @@ export function createTowerPanel(ctx) {
     const xpLine = !xp ? null : xp.next == null ? 'Max level' : `${fmtNum(xp.xp - xp.current)} of ${fmtNum(xp.next - xp.current)} XP to ${fmtNum(t.level + 1, 'level')}`;
     const bonus = [];
     if (t.level > 1) bonus.push(`+${Math.round((def.hero?.growth ?? HERO_GROWTH).damage * (t.level - 1) * 100)}% damage from her level`);
+    // her level boost (the Oct 27 power pass, src/data/balance.js HERO_POWER: one multiplier per hero level, on top of
+    // her track; none in a titan battle while TITAN_POWER is false, Sim.js powerOff)
+    const boost = sim._powerOff ? 1 : heroPowerAt(def.id, t.level);
+    if (boost !== 1) bonus.push(`level boost ×${+boost.toFixed(2)}`);
     if (t.mastery > 0) bonus.push(`Mastery ${fmtNum(t.mastery, 'pct')} damage`);
     if ((t.unitStats?.costMul ?? 1) < 1) bonus.push(`level prices ${fmtNum(-(1 - t.unitStats.costMul), 'pct')}`);
     return [
@@ -578,13 +582,21 @@ export function createTowerPanel(ctx) {
     // so the DPS row is hers. An anchored drone kit (none in the roster today) keeps the summed row.
     const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
     const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
-    if (HONEST_PANEL && (dps > 0 || t.damageDealt > 0)) {
-      // the honest panel (src/data/balance.js, Option C): her real damage per second, live (drawerView.js liveDps)
-      const b = h('b', fmtNum(liveDps(ctx.rates, t), 'stat'));
-      live.dps = b;
-      const c = h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'stat-dps', title: LIVE_DPS_TITLE }, h('span', 'DPS'), b);
+    const kit = KIT_PANEL ? kitDps(st) : null;
+    if (KIT_PANEL && (kit != null || t.damageDealt > 0)) {
+      // Option C of the owner's band (src/data/balance.js KIT_PANEL): the DPS cell is her steady kit-fair number from
+      // her current stats and buffs (drawerView.js kitDps), and Dealing what she actually dealt over the last 5 s
+      // (drawerView.js liveDps); both refresh live (updateLive)
+      const k = h('b', fmtNum(kit, 'stat'));
+      live.kit = k;
+      const c = h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'stat-dps', title: kitDpsTitle(t.unitId) }, h('span', 'DPS'), k);
       rows.push(c);
       keyed.dps = c;
+      const b = h('b', fmtNum(liveDps(ctx.rates, t), 'stat'));
+      live.dps = b;
+      const d = h('div.bt-stat-cell', { 'data-testid': 'stat-dealing', title: LIVE_DPS_TITLE }, h('span', 'Dealing'), b);
+      rows.push(d);
+      keyed.dealing = d;
     } else if (dps > 0) add('DPS', stat(dps), '.bt-stat-main', 'dps');
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 'time')}`);
@@ -669,7 +681,7 @@ export function createTowerPanel(ctx) {
     const roleLine = h('p.bt-dt-line', svgEl(roleIcon(t.def.role), 'bt-dw-tag-ico'), ` ${ROLES[t.def.role]?.name || t.def.role}`, st.element ? [' · ', svgEl(elementIcon(st.element), 'bt-dw-tag-ico'), ` ${ELEMENTS[st.element]?.name}`] : null, ` · ${ROLES[t.def.role]?.desc || ''}`);
     if (hasDroneTabs(st)) {
       // a drone owner: the split bar and the Overall / Chika / Drones tabs (her "Buffed by" / "Buffing" sit on her own tab)
-      const rest = rows.filter((c) => c !== keyed.dps && c !== keyed.turret);
+      const rest = rows.filter((c) => c !== keyed.dps && c !== keyed.dealing && c !== keyed.turret);
       const own = [];
       for (const s0 of st.status || []) own.push(h('span.bt-cap.bt-cap-status', statusLabel(s0)));
       if (st.canHitAir) own.push(h('span.bt-cap', svgEl(capabilityIcon('antiAir'), 'bt-cap-ico'), 'Hits air'));
@@ -836,7 +848,7 @@ export function createTowerPanel(ctx) {
     const mine = !ctx.coop || ctx.coop.isMine(t.uid);
     const ally = !mine;
     const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
-    live = { dps: null, kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null };
+    live = { kit: null, dps: null, kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
@@ -980,6 +992,8 @@ export function createTowerPanel(ctx) {
       fitHeader();
       fitHolder();
       paintScrollCue();
+      // Option C's DPS cell follows her buffs (a brew, a link, a hero's ultimate) a few times a second
+      if (live.kit) live.kit.textContent = fmtNum(kitDps(st || sim.towerStats(t.uid)), 'stat');
     }
     if (live.dps) live.dps.textContent = fmtNum(liveDps(ctx.rates, t), 'stat');
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);

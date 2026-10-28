@@ -9,6 +9,8 @@ import { h, icon, enemyDef } from './util.js';
 import { fmtNum } from '../format.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
+import { KIT_PANEL } from '../../data/balance.js';
+import { kitDps, kitDpsTitle } from './drawerView.js';
 
 /** MORE's tabs for a drone owner (her paths are on the drawer's Glance). */
 export const DRONE_TABS = ['overall', 'chika', 'drones'];
@@ -196,9 +198,14 @@ export function createDronePanel(ctx, { rerender }) {
     const tu = st.turret;
     // her own grid (damage, rate, range, crit, aura, …) between the totals and the drone lines
     const fly = tu.flight === 'pursuit' ? 'Whole map' : `${tiles(tu.leash)} (+${fmtNum(tu.range, 'range')} gun)`;
+    // Option C of the owner's band (src/data/balance.js KIT_PANEL): her DPS is every girl's kit-fair steady number
+    // (drawerView.js kitDps: her bolt plus the full wing, × her crit and her measured kit factor), live with her buffs
+    const main = KIT_PANEL
+      ? h('div.bt-stat-cell.bt-stat-main.bt-stat-wide2', { 'data-testid': 'stat-dps', title: kitDpsTitle(t.unitId) }, h('span', dps.label), liveB(() => stat(kitDps(sim.towerStats(t.uid)))))
+      : cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2');
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
-      cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
+      main,
       cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
@@ -209,7 +216,8 @@ export function createDronePanel(ctx, { rerender }) {
 
   function chikaTab(t, st, cells) {
     const rows = [
-      cell('DPS', stat(st.own.dps), '.bt-stat-main'),
+      // (her bolt's paper hits a second: the Overall tab's DPS is her whole kit, so this one is named for the bolt)
+      cell('Bolt DPS', stat(st.own.dps), '.bt-stat-main'),
       cell('Damage', stat(st.damage)),
       cell('Attacks/s', rate(st.rate)),
       cell('Range', fmtNum(st.range, 'range')),

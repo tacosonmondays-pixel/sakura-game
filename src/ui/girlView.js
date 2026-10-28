@@ -6,7 +6,7 @@ import { ROLES, ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, CAPABILITIES,
 import { ROLE_SUBCLASS } from '../data/wiki.js';
 import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
-import { POWER, UNIT_SCALE } from '../data/balance.js';
+import { POWER, UNIT_SCALE, HERO_POWER } from '../data/balance.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
 import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
@@ -154,11 +154,17 @@ function buffOf(b) {
 /**
  * The Oct 27 balance boost on her in battle (src/data/balance.js POWER), for the Base stats footnote: the girl page
  * shows her kit's numbers (level, gear, awakening and Potential; the headline and the Base stats table alike) and
- * battle adds this on top. Null when she has none.
+ * battle adds this on top. A hero's boost is her level curve (HERO_POWER), one multiplier per hero level on top of her
+ * 25-level track: the footnote names it at Lv 1, 10 and 25. Null when she has none.
  * @param {object} unit UnitDef
  * @returns {string|null}
  */
 export function battleBoostText(unit) {
+  const curve = HERO_POWER[unit?.id];
+  if (curve) {
+    const at = (lv) => `×${+(curve[lv - 1] * UNIT_SCALE).toFixed(2)} at Lv ${lv}`;
+    return `In battle her level boost multiplies her damage on top of her level track: ${at(1)}, ${at(10)}, ${at(25)}.`;
+  }
   const row = POWER[unit?.id];
   const dmg = (row?.dmg ?? 1) * UNIT_SCALE;
   const boss = row?.boss ?? 1;

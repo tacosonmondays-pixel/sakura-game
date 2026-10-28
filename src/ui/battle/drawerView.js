@@ -19,6 +19,8 @@ import { fmtNum } from '../format.js';
 import { headlineKind } from '../girlView.js';
 import { effectParts, tierTags, UPGRADE_TAGS, TRANSFORM_TAG } from '../upgradeTags.js';
 import { TARGET_MODES } from '../../data/types.js';
+import { PANEL_KIT, PANEL_RULER } from '../../data/powerKit.js';
+import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
 import { pathCap } from './rules.js';
 
 /** The upgrade paths' edge colours (VAULT_BRIEF §2.4: 1 #ff5d7a, 2 #3b8cff, 3 #9b6bff). */
@@ -82,11 +84,12 @@ function buffCell(st, def) {
 }
 
 /**
- * The battle panel's DPS under the honest panel (src/data/balance.js HONEST_PANEL, Option C of the owner's band): her
- * real damage per second over the last 5 s of game time (the controller's rate meter, util.js createRateMeter, fed
- * every 0.25 s by chikaPanel.js sampleDamageRates), read from the damage she has dealt, the number the results screen
- * totals. Crits, marks, the boss bonus, ramps, traps, strips, burns, curses and her drones all count, and an ability
- * or a hero ultimate shows while it runs. Null until she has a second of samples (the cell reads "–").
+ * The battle panel's "Dealing" cell under Option C (src/data/balance.js KIT_PANEL): what she actually dealt a second
+ * over the last 5 s of game time (the controller's rate meter, util.js createRateMeter, fed every 0.25 s by
+ * chikaPanel.js sampleDamageRates), read from the damage she has dealt, the number the results screen totals. The
+ * sim counts only HP really removed, so enemy HP, overkill, the kills other girls take and the gaps between waves
+ * all cap it: 0 when nothing is in reach, near the DPS cell only against a target that lasts. Null until she has a
+ * second of samples (the cell reads "–").
  * @param {{ rate: (key: string) => number|null }|null} rates
  * @param {{ uid: number }} t TowerRT
  * @returns {number|null}
@@ -96,8 +99,58 @@ export function liveDps(rates, t) {
   return r == null || !Number.isFinite(r) ? null : r;
 }
 
-/** The DPS cell's tooltip under the honest panel. */
-export const LIVE_DPS_TITLE = 'Her real damage per second over the last 5 seconds: crits, marks, boss bonus, traps, burns and drones included';
+/** The "Dealing" cell's tooltip. */
+export const LIVE_DPS_TITLE = 'What she actually dealt a second over the last 5 seconds. Enemy HP, overkill and kills other girls take cap it, so it reads 0 when nothing is in reach';
+
+/**
+ * The paper number her kit factor multiplies (Option C's DPS cell): her hits a second as the panel counts them
+ * (damage × attacks a second × projectiles, Sim.towerStats dps); a trapper's or spiker's trap hit × traps a second; a
+ * drone owner's bolt plus her full wing (the Overall tab's paper number, chikaPanel.js wingNumbers).
+ * @param {object} st Sim.towerStats
+ * @returns {number}
+ */
+export function kitPaper(st) {
+  if (!st) return 0;
+  const tu = st.turret;
+  if (tu && tu.leash > 0) {
+    const each = (tu.damage || 0) * (tu.rate || 0) * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1);
+    return (st.own?.dps || 0) + each * (tu.max || 0);
+  }
+  if (TRAPPERS.has(st.behavior)) return hitDamage(st) * (st.rate || 0);
+  return st.dps || 0;
+}
+
+/**
+ * Her crit as she hits: her own crit chance plus what an aura, brew or link adds (at most 100%), at her crit
+ * multiplier. A trapper's traps never crit (src/sim/towers.js deployCrits), so hers is 1.
+ */
+export function critExpect(st) {
+  if (st?.behavior === 'trap') return 1;
+  const chance = Math.min(1, (st?.crit?.chance || 0) + (st?.buff?.critChance || 0));
+  return 1 + chance * Math.max(0, (st?.crit?.mul || 1) - 1);
+}
+
+/**
+ * The battle panel's DPS cell under Option C (src/data/balance.js KIT_PANEL): a steady number from her current stats,
+ * kitPaper × critExpect × her kit's measured factor (src/data/powerKit.js PANEL_KIT), so it reads about what she
+ * deals a second on her job (a boss for single-target girls, a late crowd for splash girls) with her kit counted:
+ * multi-hits, ramps, executions, the boss bonus, traps, strips, sentries and drones. It moves with her tiers, gear and
+ * the buffs on her (auras, brews, links, drinks, a hero's ultimate), never with the enemies in front of her; the
+ * Brittle and marks other girls put on enemies are not in it (Dealing shows them). Null when she has no hits.
+ * @param {object} st Sim.towerStats
+ * @returns {number|null}
+ */
+export function kitDps(st) {
+  const p = kitPaper(st);
+  if (!(p > 0)) return null;
+  return p * critExpect(st) * (PANEL_KIT[st.unitId] ?? 1);
+}
+
+/** The DPS cell's tooltip under Option C (her ruler: a boss or a late crowd). */
+export function kitDpsTitle(unitId) {
+  const on = PANEL_RULER[unitId] === 'crowd' ? 'a big late-game crowd' : 'a boss';
+  return `About what she deals a second against ${on} with her current stats and buffs: crits, her kit, traps and drones counted (measured per girl). Dealing shows what she actually dealt in the last 5 seconds`;
+}
 
 /**
  * The drawer's stat row: caps labels over big numbers, the role's three headline stats (UI_DIRECTION §5.2 roles:

@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { resolveStats } from '../../src/sim/mods.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { POWER_KIT } from '../../src/data/powerKit.js';
-import { POWER } from '../../src/data/balance.js';
+import { POWER, HERO_POWER } from '../../src/data/balance.js';
 import { REAL } from './powerKitReal.js';
 
 // the bench's FULL MAX profile: L85, 5 stars, 10 gates, P6, 3 UR +12 Taiko pieces with average rolls
@@ -103,5 +103,16 @@ describe('the girl page agrees with itself (the critic\'s D-M2)', () => {
     expect(battleBoostText(UNIT_MAP.akane)).toBe(`In battle the balance boost adds ×${+POWER.akane.boss.toFixed(2)} vs bosses.`);
     expect(battleBoostText(UNIT_MAP.momo)).toBe(null);
     expect(battleBoostText(UNIT_MAP.miko)).toBe(null); // (a support's row is her buff, not her damage)
+  });
+
+  it('a hero\'s footnote names her level boost at Lv 1, 10 and 25, and her battle drawer names it at her level (D3-L2)', () => {
+    for (const id of Object.keys(HERO_POWER)) {
+      const at = (lv) => `×${+HERO_POWER[id][lv - 1].toFixed(2)} at Lv ${lv}`;
+      expect(battleBoostText(UNIT_MAP[id]), id).toBe(`In battle her level boost multiplies her damage on top of her level track: ${at(1)}, ${at(10)}, ${at(25)}.`);
+    }
+    expect(battleBoostText(UNIT_MAP.hikari)).toMatch(/×4\.21 at Lv 1/);
+    const panel = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+    expect(panel).toMatch(/const boost = sim\._powerOff \? 1 : heroPowerAt\(def\.id, t\.level\);/);
+    expect(panel).toMatch(/bonus\.push\(`level boost ×\$\{\+boost\.toFixed\(2\)\}`\)/);
   });
 });

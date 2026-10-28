@@ -829,8 +829,9 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   const acc = { damageAdd: 0, damageMul: 1 };
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
   // the Oct 27 power pass (src/data/balance.js): her damage row folds in like level and gear ATK (`noPower`: the
-  // menus' kit numbers, src/ui/girlView.js, read her without it; `unitStats.powerOff`: a titan battle, TITAN_POWER)
-  const pw = noPower || us.powerOff ? null : powerFor(def, heroLevel);
+  // menus' kit numbers, src/ui/girlView.js, read her without it; `unitStats.powerOff`: a titan battle while TITAN_POWER
+  // is false reads no row and no hero curve, only Option A's number scale, which the titan's HP carries too)
+  const pw = noPower ? null : powerFor(def, heroLevel, { rows: !us.powerOff });
   if (pw && pw.dmg !== 1) us.damageMul *= pw.dmg;
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
   // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)
