@@ -1,0 +1,61 @@
+{
+  "review": "release go/no-go v0.1.54 (2)",
+  "commit": "dde3c322",
+  "branch": "release/next",
+  "reviewer": "independent",
+  "date": "2026-10-28",
+  "verdict": "GO",
+  "summary": "GO. Both blockers from the first go/no-go (e7e5935c) are fixed, and every gate passes on dde3c322. M1: lesson 1 'Welcome home, Sensei' and Hikari's line in its scene now say 'Open the Menu and tap Background…'. The Menu sheet's head really has a BACKGROUND button, and it opens the Lobby Background picker, where you choose both who keeps you company and the backdrop. No '‹ ›' is left anywhere in src. M2: a locked bond tile's tooltip and toast now say 'spend time with her and give gifts in the City to unlock', and the bond theme 'Café Date' is now 'Café Afternoon'. There is no player-facing romantic 'date'/'dating' wording left in src. The patch note picked up both low notes (L1 'every chapter', L2 top-bar currencies). The delta e7e5935c..dde3c322 is 7 files, +15/-14, copy, comments and one docs note only. The full test suite, sim id, COOP_PROTOCOL, build, secret scan and the smoke, home and Halloween e2e all pass. A 29-screen spot check on a fresh save and a mid save at 844x390 and 1280x720 had 0 console errors, 0 page errors and 0 failed local requests. Only low notes remain, none blocking.",
+  "gates": {
+    "delta_scope": "PASS: git diff e7e5935c dde3c322 covers 7 files (+15/-14), in 5 commits (2 copy, 1 patch note, 2 merges). Player copy: src/data/story/lessons.js:25 and src/data/story/scenes/lessons.js:14 (M1), src/data/lobbyArt.js unlockText (M2) and BOND_THEMES.cafe name 'Café Date' -> 'Café Afternoon'. Patch note: src/data/patchNotes.js v0.1.54. Comments only: src/data/lobbyArt.js header and JSDoc, src/systems/unlocks.js:38, src/ui/lobby/bgPicker.js:11. Docs: docs/STORY_SPEC.md:843 records the rename. No logic, data shape, id, sim, online or save code changed. origin/release/next is dde3c322, and origin/main (f4cf107b, live 0.1.53) is its ancestor.",
+    "copy_grep": "PASS: in src there is no player-facing 'date her/him/with', 'dating', 'romance/romantic', 'girlfriend', 'kiss', 'flirt', 'crush' or 'confess' wording. The only matches left are: format.js:42 ('never romantic', a rule comment); ch7.js:3 ('Heart: Hikari's confession', a design comment; the scene is Hikari admitting a worry about the Dawnblade, not romantic, and it is unchanged and live); and the owner's quoted words in the header comments of lobbyArt.js:1-3 and bgPicker.js:1-3 (see L1). 'Café Date' is gone from src, tests, e2e and tools. No '‹ ›' remains in src.",
+    "other_names": "PASS: tests/data/otherNames.test.js passed in the full suite. The diff and the 5 commit messages name no other game or anime ('[a reference game]' in the existing owner-quote comments is a placeholder).",
+    "npm_test": "PASS: 267 files passed, 2 skipped (269); 4158 tests passed, 11 skipped (4169); exit 0 in 282 s. The same counts as at e7e5935c.",
+    "sim_id": "PASS: 92e2e22527cf, the same as live version.json (0.1.53, build f4cf107b8c19, sim 92e2e22527cf)",
+    "coop_protocol": "PASS: 8 in src/online/coop/version.js:48, the same as origin/main",
+    "vite_build": "PASS: nice npx vite build exit 0 (2.8 s), no warnings, dist 90 MB, dist/version.json build dde3c322938c sim 92e2e22527cf (version 0.1.dev locally; CI sets 0.1.<run number>)",
+    "secret_scan": "PASS: grep -rlE 'sb_secret_|service_role|SUPABASE_SERVICE' dist found only dist/assets/dist-Dwa9yvX6.js, the bundled @supabase/auth-js key-prefix check (e.startsWith(`sb_publishable_`)||e.startsWith(`sb_secret_`)), which is the known false positive. dist removed.",
+    "e2e_smoke": "PASS: node e2e/smoke.mjs, ALL SMOKE CHECKS PASSED (678 ok), exit 0",
+    "e2e_home": "PASS: node e2e/home.mjs 215 ok, 0 failed, HOME PASS, exit 0",
+    "e2e_halloween": "PASS: node e2e/halloween.mjs, all halloween checks passed (109 ok, no page errors), exit 0. The three e2e scripts were run one at a time, after the test suite had finished.",
+    "patch_note": "PASS: v0.1.54 / 0.1.54, 2026-10-28, 'Quiet Home', at the top of PATCH_NOTES. The last Pages run was #53 (success, live 0.1.53), so the next run is #54. 'Every chapter of the story now plays in its own painted places' is accurate: chapters 1-8 have their own places, and the Halloween event episodes are not chapters. 'Each top bar now shows only the currencies that screen uses' matches src/ui/wallets.js. The full-illustration line now has its own bullet. Five short, friendly bullets written for players, with no internal work and no names. The Notice renders it cleanly at both sizes (CLAIM 100, 52 gem gifts).",
+    "console_errors": "PASS: 0 console errors, 0 page errors, 0 failed local requests and 0 local HTTP 4xx/5xx across the spot check (fresh and mid saves at 844x390 and 1280x720)"
+  },
+  "screens_checked": {
+    "how": "A Playwright script in headless Chromium (SwiftShader) on the Vite dev server with the real clock (Halloween live). Errors were collected per context, and every screenshot was looked at.",
+    "fresh": "A cleared save: title, TAP TO START, opening scene ('#/scene/opening?next=tutorial'), the skip confirm, the coached 1-1 tutorial ('Meet your first defender!'), Skip tutorial and its confirm (tutorial = skipped), the first home with the beta gift modal and the lesson toast 'Hikari has a new lesson ♡ — Welcome home, Sensei' (seen at both sizes), the home, then the Captain's Journal on lesson 1 with the new text, wrapping cleanly with nothing clipped.",
+    "mid": "e2e/uiSeed.mjs seedInkSave (Ruri secretary, ch 1-3 plus 4-1 to 4-3): home, the Menu sheet (MENU · HIDE UI · BACKGROUND head), the Lobby Background picker, Luna's locked bond tiles 'Stargazing' (Bond 5) and 'Café Afternoon' (Bond 10) with captions 'Spend time with her & give gifts in the City', the tooltip and the tap toast 'Bond Lv 5 with Luna (now 0) — spend time with her and give gifts in the City to unlock' (fits at both sizes), Notice > Patch notes with v0.1.54 on top, then home again.",
+    "total": "29 screenshots taken (16 at 844x390, 13 at 1280x720). 3 more at 1280x720 (the home under the beta modal, the home with the toast, home again) hit the 60 s page.screenshot timeout (L2). The toast text for those was still read from the DOM, and the same home at 1280x720 was captured in the f08 shot."
+  },
+  "findings": [
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "Header comments in lobbyArt.js and bgPicker.js still quote 'date a girl … more intimate background', and one mentions the old picture button",
+      "detail": "src/data/lobbyArt.js:1-3 and src/ui/lobby/bgPicker.js:1-3 open with the owner's original words: 'eventually when you date a girl and gift her stuff in the city … you'll get a more intimate background'. bgPicker.js:3 also says the picker is 'Opened from the Menu Tab and the small picture button on the lobby'; the Quiet Home has no picture button. These are comments, never shown to players, and the minified build strips them. They are unchanged since before v0.1.53, so they do not block. But the release's own commit says design comments 'steer future writers', and these two steer the opposite way to HANDOFF §6. A later tidy could paraphrase the quote ('as her bond grows through time together and gifts, more of her memories unlock') and say 'Opened from Menu › Background'.",
+      "evidence": "sed -n 1,3p src/data/lobbyArt.js; sed -n 1,6p src/ui/lobby/bgPicker.js; neither file's lines 1-3 are in git diff e7e5935c dde3c322"
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "Headless screenshots of the 1280x720 home still time out now and then (test harness, not the product)",
+      "detail": "3 of the 32 screenshots in the spot check (the 1280x720 home with the beta modal, the home with the lesson toast and home again) hit Playwright's 60 s page.screenshot timeout under SwiftShader. There were no errors, the DOM checks on those screens passed, and home.mjs (215 checks, many at 1280x720) passed in full. This is the same harness load issue as L3 in the first go/no-go. Nothing to fix for this release.",
+      "evidence": "Spot-check report notes: '1280x720 f07-beta-gift / f06-home-lesson-toast / m07-home-again screenshot failed: page.screenshot: Timeout 60000ms exceeded'; e2e/home.mjs '215 ok, 0 failed'"
+    },
+    {
+      "id": "N1",
+      "severity": "note",
+      "title": "'Open the Menu' points at an icon-only button",
+      "detail": "The top bar's menu button is a four-square grid icon with no label, though the sheet it opens is headed 'MENU' and the lesson toast and journal sit right after the first home. Players will find it; a future lesson card could show the icon or highlight the button. No change needed now.",
+      "evidence": "844x390-f06-home-lesson-toast.png and 844x390-m02-menu.png in the reviewer's scratch folder"
+    }
+  ],
+  "previous_findings": {
+    "M1": "FIXED: lessons.js:25 and scenes/lessons.js:14 now point to Menu > Background. Checked in the Journal at both sizes; the Menu head has BACKGROUND, and it opens the picker with the secretary list.",
+    "M2": "FIXED: lobbyArt.js unlockText now says 'spend time with her and give gifts in the City to unlock'. Checked in the tile tooltip and the toast at both sizes. Also 'Café Date' -> 'Café Afternoon'.",
+    "L1_patch_note_every_story_scene": "FIXED: now 'Every chapter of the story…'",
+    "L2_patch_note_top_bars": "FIXED: 'each top bar now shows only the currencies that screen uses'",
+    "L3_e2e_flakes": "Unchanged (harness only); smoke, home and halloween all passed first time this round"
+  },
+  "notes_for_owner": "Good to ship. The two wording fixes from last time are in and look right on screen. Hikari's first lesson now says to open the Menu and tap Background, and that button is really there. A locked memory in the background picker now says 'spend time with her and give gifts in the City', and the café memory is called 'Café Afternoon'. Nothing else changed since the last check apart from the patch note, which now says 'every chapter of the story' and mentions that top bars show only the currencies each screen uses. All the tests pass, battles and co-op are unchanged (same sim id, same co-op version), the build is clean with no secrets in it, and I saw no errors on new or mid-game saves at phone or desktop size. One small optional tidy for later: two code comments still quote the original 'date a girl' idea. Players never see them, but rewording them would keep future writers on the friendly-teacher track."
+}
