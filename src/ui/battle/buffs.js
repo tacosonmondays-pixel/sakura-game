@@ -1,7 +1,10 @@
 // Buff visibility (pure, no DOM): what the icon row over a girl shows, the rim tint of every source
-// girl, and the text of the panel's "Buffed by" / "Buffing" sections. Reads the Sim's read-only
-// buff API (sim.buffSources / buffTargets / aurasCovering, src/sim/buffs.js); decides nothing.
+// girl, and the text of the panel's "Buffed by" / "Buffing" sections (and its rule cells: Office,
+// Council rules, Club). Reads the Sim's read-only buff API (sim.buffSources / buffTargets /
+// aurasCovering, src/sim/buffs.js); decides nothing.
 // The renderer (src/render/buffIcons.js) and the tower panel share it.
+import { CLUBS } from '../../data/clubs.js';
+import { trickIdle } from '../../data/gearStats.js';
 
 /** Buff keys in the order their icons are drawn (one icon per key). */
 export const BUFF_KEYS = ['dmg', 'rate', 'pen', 'crit', 'range', 'det', 'cost', 'cleanse'];
@@ -11,8 +14,11 @@ export const BUFF_ICON = {
   dmg: 'bf_dmg', rate: 'bf_rate', pen: 'bf_pen', crit: 'bf_crit', range: 'bf_range', det: 'bf_det', cost: 'bf_cost', cleanse: 'bf_cleanse',
 };
 
-/** Badge sprite of a limited / special source kind (top-right of the icon). */
-export const BUFF_BADGE = { brew: 'bfb_brew', link: 'bfb_link', overclock: 'bfb_oc', ult: 'bfb_ult', map: 'bfb_map' };
+/** Badge sprite of a limited / special source kind (top-right of the icon). An ability's rally (a timed team buff, like
+ * the hero ult's) wears the ult's crown. */
+export const BUFF_BADGE = { brew: 'bfb_brew', link: 'bfb_link', overclock: 'bfb_oc', ult: 'bfb_ult', map: 'bfb_map', rally: 'bfb_ult' };
+/** Timed or map-wide sources that are neither an aura nor a limited buff (src/sim/buffs.js buffSources kinds). */
+const SPECIAL_KINDS = new Set(['ult', 'map', 'rally']);
 
 /** What each key means, for the panel ("+43 % damage"). */
 export const BUFF_LABEL = {
@@ -84,8 +90,9 @@ export function iconRow(rows, defOf = () => null) {
     if (!mine.length) continue;
     const lim = mine.find((r) => LIMITED_KINDS.has(r.kind));
     const aura = mine.find((r) => r.kind === 'aura');
-    const special = mine.find((r) => r.kind === 'ult' || r.kind === 'map');
-    const main = lim || aura || special;
+    const special = mine.find((r) => SPECIAL_KINDS.has(r.kind));
+    // (any other kind a later sim adds still draws, in its source girl's tint)
+    const main = lim || aura || special || mine[0];
     const tintFor = (r) => (r.kind === 'map' ? MAP_TINT : tintOf(r.unitId, r.unitId ? defOf(r.unitId) : null));
     const other = lim ? aura || special : aura && special ? special : null;
     out.push({
@@ -134,6 +141,7 @@ export function kindLabel(kind, left = null) {
     case 'link': return 'tune-up link';
     case 'overclock': return `overclock${s}`;
     case 'ult': return `ultimate${s}`;
+    case 'rally': return `ability${s}`;
     case 'map': return 'map rule';
     default: return 'aura';
   }
@@ -153,7 +161,7 @@ export function buffedByRows(rows) {
     g.keys.push(r.key);
     g.texts.push(buffText(r.key, r.value));
   }
-  const rank = (g) => (g.limited ? 0 : g.kind === 'aura' ? 1 : g.kind === 'ult' ? 2 : 3);
+  const rank = (g) => (g.limited ? 0 : g.kind === 'aura' ? 1 : g.kind === 'ult' || g.kind === 'rally' ? 2 : 3);
   return [...by.values()].sort((a, b) => rank(a) - rank(b));
 }
 
@@ -192,6 +200,61 @@ export const PICK_REFUSED = {
   noBuff: 'She has no brew or tune-up yet.',
   invalid: 'That is not a girl.',
 };
+
+const pct = (x) => Math.round(x * 100);
+const freeTiersText = (n) => `${n === 1 ? '1st tier' : `first ${n} tiers`} free`;
+
+/**
+ * Ouka's Office cell (the tower panel; src/sim/hubs.js, towerStats().hub): what her office gives the girls it covers,
+ * each fact once — the radius is her RANGE cell. Copy rules: a minus sign (U+2212), the recharge in the tier card's
+ * words, "hits flyers" as on the covered girl's line.
+ */
+export function officeText(hb) {
+  if (!hb) return '';
+  const bits = [`−${pct(hb.costCut || 0)}% upgrades`, `sell ${pct(hb.sellMul || 0)}%`];
+  if (hb.freeTiers > 0) bits.push(freeTiersText(hb.freeTiers));
+  if (hb.killBounty > 0) bits.push(`+${Math.round(hb.killBounty)} coins/kill`);
+  if (hb.cdCut > 0) bits.push(`abilities recharge ${pct(hb.cdCut)}% faster`);
+  if (hb.rateMul > 1) bits.push(`+${pct(hb.rateMul - 1)}% speed`);
+  if (hb.rangeMul > 1) bits.push(`+${pct(hb.rangeMul - 1)}% range`);
+  if (hb.dmgMul > 1) bits.push(`+${pct(hb.dmgMul - 1)}% dmg`);
+  if (hb.detection) bits.push('Veil Sight');
+  if (hb.airGrant) bits.push('hits flyers');
+  if (hb.cleanse) bits.push('Cleanse');
+  if (hb.typeFloor > 0) bits.push('type floor ×1');
+  return bits.join(', ');
+}
+
+/**
+ * A girl inside Ouka's office or by her banner: the rules not already shown as buffs ('' when none). The recharge
+ * shows only on a girl with a running, unlocked ability (t.abil): never promise a button that is not there (owner
+ * default Q3; Kage, Suzu and Chika wait for their deploys, and a girl below her ⚡ tier 3 has none yet).
+ */
+export function councilRulesText(t) {
+  const ru = t?.rules;
+  if (!ru) return '';
+  const bits = [];
+  if (ru.freeTiers > 0) bits.push(freeTiersText(ru.freeTiers));
+  if (ru.sellMul > 0) bits.push(`sells for ${pct(ru.sellMul)}%`);
+  if (ru.cdCut > 0 && t.abil) bits.push(`ability recharges ${pct(ru.cdCut)}% faster`);
+  if (ru.airGrant) bits.push('hits flyers');
+  if (ru.typeFloor > 0) bits.push('type floor ×1');
+  return bits.join(', ');
+}
+
+/**
+ * Her Academy Club cell ("Taiko ●●● · trick on"; '' below 2 pieces). "trick on" only while the 3-piece trick does
+ * something for her now: the dead-trick rule (src/data/gearStats.js trickIdle) with her running ability, t.abil, so
+ * First Bell says nothing before her ⚡ tier 3 / Lv 7, on a rally or a debuff, or on an ability that comes later.
+ * @param {{ unitId: string, unitStats?: { club?: string, clubN?: number }, abil?: object|null }} t a Sim tower
+ */
+export function clubCellText(t) {
+  const us = t?.unitStats;
+  if (!us?.club || !(us.clubN >= 2)) return '';
+  const name = CLUBS[us.club]?.name.replace(' Club', '') || us.club;
+  const on = us.clubN >= 3 && !trickIdle(us.club, t.unitId, t.abil || null);
+  return `${name} ${'●'.repeat(us.clubN)}${on ? ' · trick on' : ''}`;
+}
 
 /** The three settings of the icons (settings.buffIcons). */
 export const BUFF_ICON_MODES = ['all', 'selected', 'off'];

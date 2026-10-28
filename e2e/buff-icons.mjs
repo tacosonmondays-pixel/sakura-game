@@ -155,6 +155,9 @@ try {
   log('\n--- Kage selected: Buffed by + links ---');
   await page.evaluate((k) => window.__battle.ui.select(k), u.kage);
   await settle(500);
+  // (A3 M4: "Buffed by" is in her drawer's MORE)
+  await page.locator('[data-testid="tower-panel"] [data-testid="panel-more"]').click({ timeout: 20000 });
+  await settle(300);
   const by = await page.evaluate(() => [...document.querySelectorAll('[data-testid="buffed-by"] .bt-buff-row')].map((r) => r.textContent));
   log(`    rows: ${by.join(' | ')}`);
   check(by.length >= 2, '"Buffed by" lists her sources');
@@ -169,7 +172,13 @@ try {
   log('\n--- Midori: Buffing + Pick a girl → tap Aoi ---');
   await page.evaluate((m) => window.__battle.ui.select(m), u.midori);
   await settle(500);
-  check(await page.evaluate(() => !!document.querySelector('[data-testid="buffing"]')), 'Midori shows "Buffing"');
+  // (A3 M4: her pick control is on the drawer's Glance; "Buffing" with its faces is in MORE)
+  check(await page.evaluate(() => !!document.querySelector('[data-testid="tower-panel"] [data-testid="buff-pick-row"]')), 'Midori\'s pick control is on her drawer');
+  await page.locator('[data-testid="tower-panel"] [data-testid="panel-more"]').click({ timeout: 20000 });
+  await settle(300);
+  check(await page.evaluate(() => !!document.querySelector('[data-testid="buffing"]')), 'Midori shows "Buffing" (MORE)');
+  await page.locator('[data-testid="tower-panel"] [data-testid="panel-more"]').click({ timeout: 20000 });
+  await settle(300);
   await page.evaluate(() => document.querySelector('[data-testid="buff-pick"]')?.scrollIntoView({ block: 'nearest' }));
   await page.locator('[data-testid="buff-pick"]').click({ timeout: 20000 });
   await settle(400);
@@ -188,6 +197,8 @@ try {
   check(await page.evaluate((x) => window.__battle.sim.getTower(x.aoi).limIn?.brew === x.midori, u), 'the brew moved to Aoi');
   await page.evaluate((m) => window.__battle.ui.select(m), u.midori);
   await settle(400);
+  await page.locator('[data-testid="tower-panel"] [data-testid="panel-more"]').click({ timeout: 20000 });
+  await settle(300);
   await snapAll('midori-buffing', () => page.evaluate(() => document.querySelector('[data-testid="buffing"]')?.scrollIntoView({ block: 'nearest' })));
 
   log('\n--- the setting ---');

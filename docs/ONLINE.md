@@ -1218,7 +1218,10 @@ Settings → Online, and a fourth tab with `&social=0` (the server before the ow
 
 `e2e/engines.mjs` bundles `e2e/engines/scriptedBattle.js` once and runs it in Node, Bun, and Playwright's
 Chromium, Firefox and WebKit (whichever are installed; at least two engines must run, `--require-all`
-needs all). Install the extra browsers with `npx playwright install --with-deps firefox webkit`.
+needs all). Without Playwright's own browsers it uses the system Chrome or Edge and the system Firefox
+(`e2e/browser.mjs` `launchAttempts`; Firefox runs on a throwaway profile, apart from one the user has
+open), so a PC with Firefox installed checks SpiderMonkey with no download. JavaScriptCore still needs
+Bun or `npx playwright install --with-deps webkit`.
 
 ## Troubleshooting
 

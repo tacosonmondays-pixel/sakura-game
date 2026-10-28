@@ -37,6 +37,8 @@ void main() {
 /** Roam ring (how far a girl's drones may fly) and signal ring (where flight points may go). */
 const ROAM_COLOR = '#4cc9f0';
 const SIGNAL_COLOR = '#ffb703';
+/** An ability's reach ring (the ability bar's yellow). */
+const ABILITY_COLOR = '#ffdd4a';
 
 /** "She is here" pulse ring duration (s). */
 const PULSE_T = 1.2;
@@ -85,7 +87,12 @@ export class Overlays {
     this.roamRing.material.uniforms.uColor.value.set(ROAM_COLOR);
     this.roamRing.material.uniforms.uAlpha.value = 0.85;
     this.signalRing.material.uniforms.uColor.value.set(SIGNAL_COLOR);
-    this.root.add(this.selRange, this.ghostRange, this.roamRing, this.signalRing);
+    // an ability's reach (the ability bar's hold card, Yuzuha's aim mode): still dashes, no spin
+    this.abilRing = rangeCircle();
+    this.abilRing.material.uniforms.uColor.value.set(ABILITY_COLOR);
+    this.abilRing.material.uniforms.uAlpha.value = 0.9;
+    this.abilityReach = null;
+    this.root.add(this.selRange, this.ghostRange, this.roamRing, this.signalRing, this.abilRing);
     this.selectedUid = null;
     this.selectedDrone = null;
     this.flightPreview = null; // { uid, mode, a } while Hold / Patrol points are picked
@@ -101,6 +108,19 @@ export class Overlays {
   /** A 1.2 s pulse ring on a girl (e.g. "Show ›" on a locked final tier). */
   pulseTower(uid) {
     if (uid != null) this.pulses.set(uid, PULSE_T);
+  }
+
+  /** An ability's reach ring: { x, y, r } in tiles, or null to hide it. */
+  setAbilityReach(o) {
+    const ok = !!o && Number.isFinite(o.x) && Number.isFinite(o.y) && o.r > 0 && Number.isFinite(o.r);
+    this.abilityReach = ok ? { x: o.x, y: o.y, r: o.r } : null;
+    const ring = this.abilRing;
+    ring.visible = ok;
+    if (!ok) return;
+    ring.position.set(o.x, (this._waterAt(o.x, o.y) ? WATER_Y : PATH_H) + 0.045, o.y);
+    ring.scale.setScalar(o.r);
+    ring.material.uniforms.uRadius.value = o.r;
+    ring.material.uniforms.uTime.value = 0;
   }
 
   setQuality(q) {
@@ -366,7 +386,7 @@ export class Overlays {
 
   dispose() {
     this._clearGhostModel();
-    for (const r of [this.selRange, this.ghostRange, this.roamRing, this.signalRing]) {
+    for (const r of [this.selRange, this.ghostRange, this.roamRing, this.signalRing, this.abilRing]) {
       r.geometry.dispose();
       r.material.dispose();
     }

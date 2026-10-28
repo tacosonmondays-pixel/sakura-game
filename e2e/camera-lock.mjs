@@ -479,6 +479,9 @@ async function runViewport(vp) {
     check(opened, 'locked: tapping her opens her upgrade panel');
     if (opened) {
       const tier0 = await page.evaluate((id) => window.__battle.sim.getTower(id).tiers[0], lockedUid);
+      // (the drawer's two-tap buy: tap 1 arms the price, tap 2 buys)
+      await tapEl('[data-testid="tower-panel"] [data-testid="buy-0"]');
+      await page.waitForFunction(() => /Buy/.test(document.querySelector('[data-testid="tower-panel"] [data-testid="buy-0"]')?.textContent || ''), null, { timeout: 5000 }).catch(() => null);
       await tapEl('[data-testid="tower-panel"] [data-testid="buy-0"]');
       const tier1 = await page.waitForFunction(([id, t0]) => window.__battle.sim.getTower(id).tiers[0] > t0 && window.__battle.sim.getTower(id).tiers[0], [lockedUid, tier0], { timeout: 10000 }).then((hd) => hd.jsonValue(), () => tier0);
       check(tier1 === tier0 + 1, `locked: the panel's upgrade button buys a tier (path 1: T${tier0} → T${tier1})`);

@@ -2,8 +2,10 @@
 // writes, so they are unit-tested in node (tests/render/companions.test.js). Positions are world units
 // on the board: x = sim x, z = sim y, y = height.
 //
-//   Kon (Ruri):  home (sits by her) → travel (runs along the ground) → spot (sits at her relay origin)
-//   Kaze (Hana): a swoop = out to the target and back in a short arc; one in flight at a time
+//   Kon (Ruri):  home (sits by her) → travel (runs along the ground) → spot (sits at her relay origin);
+//                Moon Pounce: a leap from where he is to the target and back (a sortie of his own)
+//   Kaze (Hana): a swoop = out to the target and back in a short arc; one in flight at a time;
+//                Kaze's Swoop: a queue of quick dives, one per target within her reach (none on Reduce motion)
 //   doll (Yoriko): a dash = the same out-and-back, short and low, stopping short of the target
 
 /** Kon's running speed (tiles / s). */
@@ -18,6 +20,38 @@ export const DASH_TIME = 0.67;
 export const DASH_REACH = 1.3;
 export const DASH_STOP = 0.35;
 export const DASH_LIFT = 0.12;
+/** Kaze's Swoop (Hana's ⚡): one quick dive per target, in strike order (seconds out and back), at most MAX_DIVES. */
+export const DIVE_TIME = 0.55;
+export const MAX_DIVES = 8;
+/**
+ * How far past her own range a dive may go (tiles): Kaze dives only as far as his plain swoops (her reach), never
+ * across the map — a target beyond it takes abilityFx's feather strike from the sky. The dive's flight is capped there.
+ */
+export const DIVE_SLACK = 0.5;
+/** Kon's Moon Pounce (Ruri's ⚡): seconds out and back, how short of the target he lands, the leap's height. */
+export const POUNCE_TIME = 0.6;
+export const POUNCE_STOP = 0.22;
+export const POUNCE_LIFT = 0.55;
+
+/**
+ * The dives a Swoop queues: its targets within her reach (`inReach`), in strike order (the sim's `ability` event
+ * lists them), at most MAX_DIVES. A Swoop is map-wide, but Kaze never crosses the map for it: the far targets take
+ * abilityFx's feather strike from the sky. Reduce motion: none at all — he stays on her shoulder and calls the strike
+ * (his attack clip), the strikes are still fades on the targets (the owner is motion-sensitive; Kon stays put for
+ * Moon Pounce the same way).
+ * @param {number[]} targets enemy uids
+ * @param {{ reduceMotion?: boolean, inReach?: ((uid: number) => boolean)|null }} [o]
+ */
+export function swoopDives(targets, { reduceMotion = false, inReach = null } = {}) {
+  if (reduceMotion) return [];
+  const list = Array.isArray(targets) ? targets.filter((u) => u != null && (!inReach || inReach(u))) : [];
+  return list.slice(0, MAX_DIVES);
+}
+
+/** How far Kaze's dives go for a Hana of range `range` (her reach + DIVE_SLACK): the queue's filter and the flight cap. */
+export function diveReach(range) {
+  return Math.max(0, range || 0) + DIVE_SLACK;
+}
 
 /** @returns {{ mode: 'home'|'travel'|'spot', x: number, z: number, tx: number, tz: number, hold: number, placed: boolean, dx: number, dz: number }} */
 export function konState() {

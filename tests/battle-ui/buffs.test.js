@@ -100,3 +100,20 @@ describe('setting', () => {
     expect(migrateProfile({ ...old, settings: { ...old.settings, buffIcons: 'loud' } }).settings.buffIcons).toBe('all');
   });
 });
+
+describe('an ability rally (Shrine Chorus, Morning Rally, Time Out!)', () => {
+  it('draws in its caster\'s tint with the crown badge, alone or beside an aura; the panel says "ability 6 s"', () => {
+    const alone = iconRow([{ key: 'rate', value: 0.2, kind: 'rally', src: 9, unitId: 'hikari', left: 5.2 }], defOf);
+    expect(alone).toEqual([expect.objectContaining({ key: 'rate', tint: SOURCE_TINT.hikari, tint2: null, badge: 'bfb_ult', limited: false })]);
+    const both = iconRow([
+      { key: 'dmg', value: 0.1, kind: 'aura', src: 3, unitId: 'miko', left: null },
+      { key: 'dmg', value: 0.25, kind: 'rally', src: 4, unitId: 'miko', left: 7 },
+    ], defOf);
+    expect(both[0]).toMatchObject({ tint: SOURCE_TINT.miko, tint2: SOURCE_TINT.miko, badge: null, kinds: ['aura', 'rally'] });
+    // a kind this UI does not know yet never breaks the row
+    expect(iconRow([{ key: 'range', value: 0.1, kind: 'somethingNew', src: 2, unitId: 'aoi', left: null }], defOf)[0].key).toBe('range');
+    expect(kindLabel('rally', 5.2)).toBe('ability 6 s');
+    const rows = buffedByRows([{ key: 'rate', value: 0.2, kind: 'rally', src: 9, unitId: 'hikari', left: 5 }, { key: 'dmg', value: 0.1, kind: 'aura', src: 3, unitId: 'miko', left: null }]);
+    expect(rows.map((r) => r.kind)).toEqual(['aura', 'rally']);
+  });
+});

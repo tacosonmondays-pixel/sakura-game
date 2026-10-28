@@ -769,7 +769,7 @@ the reward amount) over 4 rows.
 
 | Stays visible | Behind tap | Details (MORE) | Merged | Removed |
 |---|---|---|---|---|
-| name, role and type icons, tier code, target, 3 paths with pips and next price, Sell | the next tier's name and chips (row tap); the lock reason | the stats grid, Kills and Damage, Invested, P level, the discount | "role · type" text → 2 icons; focus line + tier name + tag + description → one expandable line | the struck-through old price (the price shown is the real one), the 3-line lock note, the second scroll page |
+| name, role and type icons, tier code, target, 3 paths with pips and next price, Sell | the next tier's name and chips (row tap); the lock reason; what a stat is (a tap on it, M4) | the stats grid, Kills and Damage, Invested, P level, the discount | "role · type" text → 2 icons; focus line + tier name + tag + description → one expandable line | the struck-through old price (the price shown is the real one), the 3-line lock note, the second scroll page |
 
 **After: hero drawer:** header (portrait, the full name, UR tag, **LV 1**) · the XP bar (no numbers on it) · **Level up · 145**
 (cost button) · one line "Next: Steady Guard · +1 DMG" · the ult icon with "Unlocks at LV 3" (or its rank) · Move · MORE (the
@@ -877,6 +877,11 @@ touches, and an owner check on a real phone. The owner approved this direction o
   - the HUD shows ≤ 4 numbers + card costs (+ cooling abilities);
   - the drawer is ≤ 300 px on phones;
   - the girl drawer shows ≤ 13 numbers with HUD, and the tree ≤ 8;
+    - *Reading in use (the abilities branch's drawer, A3 M4; the owner has not ruled on it yet):* the 13 count the drawer
+      itself, a cooling ability's seconds the one extra. The HUD and the card strip keep the first line's budget (≤ 4
+      numbers + card costs, M5's work). With all three in view an 844 screen shows about 25–28 numbers, as the approved
+      tactical mock-up does; the drawer's own required content (the stat row, tier codes, prices, Invested, Sell) cannot
+      fit 13 together with the HUD. Ask the owner before M5 calls this line met;
   - nothing covers the centre 50% of the map for more than 1.2 s;
   - co-op runs unchanged (display only).
 

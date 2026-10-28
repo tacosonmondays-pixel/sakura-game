@@ -387,7 +387,7 @@ export function secretaryLines(profile) {
   lines.push(u.quote);
   if (next) lines.push(`Next mission: ${next} ${STAGE_MAP[next].name}. Shall we go?`);
   lines.push(`This week is ${event.name}! ${event.arenaName} Bounty drops are doubled.`);
-  lines.push(...shownTips(u).slice(0, 2)); // (no ⚡ tips until the ability bar ships)
+  lines.push(...shownTips(u).slice(0, 2)); // (a ⚡ tip only when her ability runs: src/data/unitTips.js)
   return lines;
 }
 

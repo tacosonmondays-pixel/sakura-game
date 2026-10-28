@@ -92,6 +92,7 @@ Roster (ids fixed — other areas rely on them):
 | hotaru | tower | SSR | exorcist | holy | – | land | charm | gacha |
 | kaede | tower | SSR | duelist | slash | – | land | blade | gacha |
 | chika | tower | SSR | engineer | pierce | lightning | land | cog | gacha |
+| tenka | tower | SSR | powerhouse | mystic | – | land | cog | gacha |
 
 Every unit (free ones too) is also in the gacha pool of its rarity (duplicates → Star Fragments).
 
@@ -145,6 +146,12 @@ BaseStats = {
   brew?: { targets, dmgMul?, rateMul?, armorPen?, critChance? },  // limited buff (Midori): a few girls in her range, src/sim/buffs.js
   link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
   hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
+  // Tenka (BUILD_PLAN 6.1). On the stats only once a tier sets them (no null default: every other girl
+  // resolves as before). well and lastLine run in src/sim/zones.js (T1, §6 Zones); lab in src/sim/lab.js
+  // (T2, §6 Joint Research).
+  lab?: { rounds, power },     // Joint Research: absorbs `rounds` times (on purchase), lab weapons × power
+  well?: { every, time, radius, pull, slow, vuln },  // Gravity Well: every s a well for `time` s (P-4 zones)
+  lastLine?: { radius, max, time, cooldown },        // Last Line: a near-exit well that swallows up to `max` (P-14)
   income?: { perWave, interest? },  // coins at wave end (interest = fraction of current cash, capped 150)
   trap?: { max, damage, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] }, // placed on path tiles within range, 1 per attack
   turret?: { max, damage, rate, range, leash?, speed?, build?, attackType?, status? },
@@ -185,11 +192,22 @@ SkillDef   = { unlockLevel: 7, id, kind, scope, cooldown, duration, effect, auto
                ranks: [{ level /* 17 */, cooldown?, duration?, effect? }] }   // skillAtLevel
 ABILITIES  = { [id | 'id@kitStyle']: AbilityDef[] /* towers: one per ⚡ path */ | { skill: SkillDef } /* heroes */ }
 ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6,
-                  econCapPerWave: 2, densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'] }
+                  econCapPerWave: 2, densestCap: 60, girlAimRadius: 0.6 }
+                  // Skill Haste on abilities: ONE rule, src/sim/gearRules.js abilityChargePerTick (half rate,
+                  // cap 0.5, never rally / debuff: NOT_HASTED_KINDS); First Bell: firstBellCharge at wave start
 ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
+abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a boost needs effect.mods), deploys
+                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries'), runners ABILITY_RUNNERS_RUN ('giantBall');
+                               // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
-AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready
+AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready | flyers | sabotage
+            // flyers: a flyer in the sky (map scope: anywhere) or ≥ min enemies; sabotage: a girl in the rally's radius
+            // is sabotaged, or ≥ min enemies in it (A3 M3: Kaze's Swoop, First Aid Call)
 ABILITY_TEXT = { [abilityId]: { name, icon /* a glyph key */, desc, short, up } }   // abilityValues + fillAbilityText
+// A3 M3 effect fields: strike pick 'air' (+ fallback) / 'chain', reachAdd, fromOrigin (her relay origin t.ox/t.oy),
+// noBossStatus; rally stunImmune, lifeEvery / lifeRadius / lifeMax (lives from kills near her while it runs:
+// abilityKill in Sim._killEnemy, a `lifeRestored` event with the ability id); debuff reachAdd; a status's curse bursts
+// for burstMul × her current hit. Ruri carries one entry per familiar path (only the one she raises past tier 2 unlocks).
 ```
 
 Rules (tests/data/abilities.test.js): one ⚡ path per tower (the spec's), the kind mix of §5.1, Momo has
@@ -218,6 +236,9 @@ her ⚡ path and her ability.
 | aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse, armorPen (add), critChance (add)} | strongest of each key wins per girl (never stacks) |
 | brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
 | hpPct: {pct, boss, cap} (max) | % of current HP per hit |
+| lab: {rounds (max), power (max)} | Tenka's Joint Research (§6 Joint Research, src/sim/lab.js) |
+| well: {every (min: a period), time, radius, pull, slow, vuln (max each)} | Tenka's Gravity Well (§6 Zones) |
+| lastLine: {radius, max, time, cooldown} (replace) | Tenka's Last Line (§6 Zones) |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
 | turret: {max, damage, range, leash, speed (add); rate (mul)} | unit rangeMul scales range and leash; rateMul divides build |
@@ -366,7 +387,7 @@ article. `tests/data/legacy.test.js` checks all 19 have one and that no current 
 ```js
 export const EXPANSION_UNITS  // [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, IROHA, ENA]; units.js appends them to UNITS
 export const EXPANSION_IDS    // their ids (the 19 originals are everything else)
-export const RETURNING_ABILITIES // { [id]: AbilityData[] } towers, { [id]: { skill } } heroes — ABILITIES.md §6.1 shape, data only
+// (their ⚡ abilities live in src/data/abilities.js ABILITIES like everyone's since A3 M3; RETURNING_ABILITIES is gone)
 unitKit.js: S (+ ground, curse, mark, hex), stats, tier, path, free, STARTER, GACHA_ONLY   // copies of units.js's builders
 heroTracksReturning.js: RETURNING_HERO_TRACKS { kanna, yoriko, seiran }                     // HERO_TRACKS spreads them in
 ```
@@ -374,7 +395,9 @@ New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gat
 (`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
 Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
 Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
-`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
+`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }` (a fixed flight) or
+`runner { …, toStart: true, time, minSpeed, … }` (the whole road back to START: at most `time` s, never slower
+than `minSpeed` tiles/s; Seiran's Dragonflight); any ult may add
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
@@ -1018,7 +1041,12 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 * Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
 * Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 12000–36000 (one girl
   per path holds it, so it is priced and tuned as a one-of-a-kind centrepiece). Heroes have no tiers:
-  they buy levels on their track (hero rework).
+  they buy levels on their track (hero rework). Tower base costs: 150–900.
+* **Named price bands** (`PRICE_BANDS` in tests/data/units.test.js). A role may sit outside the windows
+  above only through a named band, and only that role may use it. Today there is one:
+  `powerhouse` (Tenka, BUILD_PLAN 6.2: a deliberate late-game investment unit). Its windows are base
+  1500–2000, tier 1 80–450 (the live window), tier 2 450–900, tier 3 2000–3500, tier 4 6000–10000 and
+  tier 5 20000–36000. Tenka's tier 5 is re-checked at the balance pass (owner: balance LAST).
 * Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
@@ -1209,17 +1237,33 @@ Suzu, Chika) stays locked until A4 (`abilityStatus` → `later: true`). Rules: c
 fresh ability starts with 1/3 of its cooldown left, econ empty; casting only in a wave; refusals (none spends
 the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `moving`, `active`, `cooldown`, `cap`
 (econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
-(`sim.abilGroups`, key "owner|id"). Ability hits never crit and their statuses are certain (no rng draw); a
+(`sim.abilGroups`, key "owner|id"). A strike with `effect.splash` (any pick but `poisoned`, which detonates
+instead) is a blast: every eligible enemy within `splash` of where the struck one stood (also when the hit
+kills it, and also outside her own range) takes the same hit (with `fullRamp`, at 1 + ramp.max) × `splashShare`
+(default 1), in grid order (row by row, cell by cell, spawn order inside a cell), and one `explode` event marks it
+(`{ x, y, radius: splash, element, attackType }`, the strike's element (or null) and attack type, which the FX
+colours it by; also when no neighbour was there to hit); `effect.after: { mods, duration }` is a boost tail
+(Tenka's Zero Point; any strike pick, Catalyst's too): that ModSet rides on her (`abilMods`) for `duration` s
+after each cast (`active` counts it down: the longer of the ability's own `duration` and the tail's, never their
+sum, and the tail rides until it runs out; the wave clear and a sale end it; a co-op checkpoint carries it). A telegraphed strike's tail (`delay`) starts with the
+cast, not when its shots land. Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies
 fold into `t.buff` after the limited buffs (strongest per key, both players' girls, never the caster). Coins go to
 the caster's owner: `sim._gainCashFor(owner, n)` (solo: cash; co-op: `sim.ownerCash[owner]`, moved into that
-player's wallet by the command layer, A2). Auto-cast (per girl, default Off; `sim.abilityAutoDefault[owner]` for
-later unlocks) runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds.
+player's wallet by the command layer after every command and step, A2). Auto-cast (per girl, default Off;
+`sim.abilityAutoDefault[owner]` for later unlocks; co-op: the start message's `players[i].autoAbil` and `acast`)
+runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds. **Girl-target rule**
+(spec §7.2): an ability on one girl (a rally with `effect.target: 'girl'`, no radius) takes the cast's `aim`: the
+girl nearest it within `ABILITY_RULES.girlAimRadius` (0.6 tiles; any player's, never the caster; ties: the lower
+uid), else the girl in the caster's range who dealt the most damage (ties: the lower uid); none: `noTarget`
+(`rallyGirl(sim, t, aim)` resolves it; a malformed aim, not two finite numbers, counts as none). The rally record
+carries `to: uid` and reaches only her while her caster stands; the `ability` event is at her, radius 0 (no ring),
+`targets: [uid]`. `placeTower(unitId, x, y, { owner })` sets her player before her ability syncs.
 ```js
 t.abil              // { id, kind, scope, cdMax, cd /*charge points*/, rate /*points a tick*/, active /*ticks*/, auto, t5, n /*casts*/ }
-sim.castAbility(uid, { group?, owner?, auto? })  // -> { ok, reason, casterUid }; group: the selected copy if ready, else her
+sim.castAbility(uid, { group?, owner?, auto?, aim? })  // -> { ok, reason, casterUid }; aim [x, y] (girl-target rule); group: the selected copy if ready, else her
                     //   player's ready copy with the most enemies in reach (ties: lower uid), even while the selected
                     //   copy is locked; none ready: the selected copy's refusal (locked: her first copy that has it)
 sim.abilityStatus(uid)   // -> null | { id, kind, scope, unlocked, ready, reason, later, path, unlockTier, unlockLevel, cooldown (s),
@@ -1231,6 +1275,76 @@ sim.result().stats       // + abilitiesUsed, abilityByTower {uid: n} — created
 Headless: `runHeadless({ …, autoAbilities })`, plan action `{ action: 'ability', uid | x, y, group? }` (waits on a
 refusal a later moment can lift), `autoPlan(stageId, units, { ability: true })` (every girl's main path = her ⚡ path).
 Bench: `tools/abilityBench.mjs` (spec §11).
+
+**Zones** (`src/sim/zones.js`; GAPS P-4 zones and P-14 the near-exit hook; Tenka's Singularity, BUILD_PLAN 6.4).
+Road patches with a radius, a lifetime in ticks and an effect every step, run right after `updateTraps`. Lazy:
+`sim.zones` and `sim._nearExitOn` exist only once a girl with `well` / `lastLine` was placed or upgraded, so
+other battles run as before. **Gravity Well**: every `well.every` s of wave time (`t.wellCd`, ticks) she opens
+one for `time` s at the trap spot in her range with the most enemies within `radius` (ties: nearest the exit;
+none: she looks again after `WELL_RETRY_TICKS`); it pulls the enemies inside toward its centre by path distance
+(`pull` tiles/s × `KNOCKBACK_RESIST[tier]`: bosses stand firm, never past the centre, only within
+`WELL_PULL_REACH` × radius of it along the road; a pull back spends the freeplay `kbLeft` budget) and refreshes a
+`slow` and a Brittle (`vulnerable`, `vuln`) status every `ZONE_STATUS_TICKS` for `ZONE_STATUS_TIME` s. **Last
+Line**: `updateEnemy` calls `sim._nearExit(e)` once per enemy (`e.nearExit`) when it comes within `NEAR_EXIT`
+tiles (path distance) of its exit, only while `sim._nearExitOn` (placed girls with Last Line) > 0. A normal or
+elite enemy outside any open Last Line sets it off: the lowest-uid girl whose Last Line is ready and who is not
+sabotaged opens a zone at that exit and rests `cooldown` s of wave time (`t.lastLineCd`, ticks). The zone
+swallows the lowest-uid normal / elite enemy inside it every `LAST_LINE_EVERY` ticks (the first at once), up to
+`max`, for `time` s; a swallow is her kill through `_killEnemy` (bounty paid, no life lost). Zones touch every
+live enemy outside tunnels (no sight needed). Caps: `ZONE_CAP_PLAYER` (12) per player, `ZONE_CAP_SIM` (24) per
+sim, the oldest (lowest uid) first. Every zone ends at the wave clear and on her sale.
+```js
+sim.zones          // [{ uid, src, owner, kind: 'well'|'lastLine', x, y, r, r2, left /*ticks*/, anchors: [{ pathIndex, dist }],
+                   //    pull, slow, vuln, max, eaten, next }]   (absent in a battle without a well / Last Line girl)
+// events: zoneOpen { uid, kind, towerUid, owner, x, y, radius, time }, zoneEnd { uid, kind, towerUid,
+//   reason: 'time'|'full'|'cap'|'wave'|'sold' }, swallow { zoneUid, towerUid, uid, id, x, y } (then the death)
+sim.result().stats // + wells, lastLines, swallowed — created by the first one
+```
+
+**Joint Research** (`src/sim/lab.js`; GAPS 5.10 / P-13 the offering, P-16 owner coins; Tenka T2). A tier that
+raises her `lab.rounds` (Joint Research tier 3; Unified Theory tier 5: a second round) has her owner's girls in her
+range join her lab team: `t.owner` equal to hers, never a hero, never another Tenka (or any girl with a lab), centre
+within her effective range, in uid order. Never under `{ restoring: true }`. No refund. Each one leaves through
+`Sim._removeTower` exactly like a sale (traps / strips, zones, shells, drones, ability effects, drinks; `removed`
+so projectiles and runners fizzle; the final tier is free again; brews / links / pins fall away next step);
+`sellTower` = refund + `_removeTower`. Story: they join her lab team; nothing happens to them; they are back after
+the battle. Selling her refunds 70 % of her own `spent` (never the lab's coins); the team does not come back.
+Weapons by class (`ROLES[role].category`; another category counts as dps), each at strength
+`k = lab.power × √(coins of that class / LAB_REF_COINS)`: dps `projectiles + 2k` (≤ `LAB_BOLTS_MAX`), support an
+aura `{ range 3, dmgMul 1 + 0.15k }` (≤ +60 %) — both resolve in `towerResolvedStats` (`labMods`, before a running
+boost), so a checkpoint's `rederiveStats` agrees; frag a blast grenade every `LAB_FRAG_TICKS` (her bolt damage ×
+`LAB_FRAG_MUL` × k, radius `LAB_FRAG_SPLASH`) at her best target; control a slow field (`0.2k` ≤ `LAB_SLOW_MAX`)
+within `LAB_FIELD_RANGE` of her, refreshed every `LAB_FIELD_TICKS` — both on `t.labAtk`, only during waves and not
+while sabotaged. Economy (owner decision #146): EVERY girl who joins feeds it with her wave income, whatever her
+class (a Harvest Chigusa lends the slow field and her income), Momo's interest included: at each wave clear,
+after the girls' own income, `LAB_ECON_SHARE` × power × (Σ joiners' `perWave` × `diff.cashMul` + Σ per joiner
+with interest `min(INCOME_INTEREST_MAX, rate × sim.cash)`) × `incomeMul`, through `_gainCashFor(t.owner)` (none
+on a `noIncome` difficulty or while she is sabotaged). The interest reads the coins as a girl's own interest
+does at that clear (solo: the wallet; co-op: the step's pooled coins). Potential's Golden Harvest is not carried.
+```js
+t.lab      // { rounds, members: { dps, frag, control, support, economy }, coins: {…same}, income, interest: [rate…], uids }
+           //   (in the generic snapshot; the battle save's `lb` row)
+t.labAtk   // { frag /*k*/, slow, fragCd, fieldCd /*ticks; 0 at every wave clear*/ } (derived by syncLab)
+sim._labOn // girls with a lab (absent until the first absorb: the step skips the lab)
+// who joined in an upgradeTower: the new tail of her t.lab.uids (length before vs after; also labJoin.uids).
+// No Sim field holds them: a battle save's restore never absorbs, so nothing may outlive the command.
+// Co-op (T3, §13): the `upg` handler reports them (`absorbed`) and forgets them as owners, like a sale; only
+// her own player's girls ever join (t.owner), whoever is gone. Her lab coins go to her owner's wallet
+// (ownerCash), also while her owner is gone (kept for the rejoin).
+// Hash (simHash.js): her lab (rounds, member count and uids, members / coins per class, income, interest,
+// labAtk timers) only on a girl with one; her wellCd / lastLineCd only on a girl with one; sim.zones only
+// while non-empty. Battles without Tenka keep their digests.
+// Battle save (src/ui/battle/snapshot.js): `lb` = [rounds, members[5], coins[5], income, uids, interest]
+// (LAB_CLASSES order), restored only on a girl whose restored tiers give her a lab (rounds held to them);
+// `zc` = [wellCd, lastLineCd] (-1: none); zones 'calm', _nearExitOn / _labOn / labAtk 'derived'.
+// events: labJoin { towerUid, owner, round, uids, members }, labFrag { towerUid, x, y, radius } (then the explode),
+//   cash { amount, reason: 'lab', towerUid }
+// Display: a joiner gets no `sell` event (no sell puff or coin), but every layer that draws a girl's extras
+// reconciles with sim.towers each frame (src/render/companions.js Kon / Kaze / the doll, rosterFx relay props,
+// actors), so her companion and props go exactly as a sold girl's do (tests/render/companionsLab.test.js).
+// Yoriko is a hero and never joins, so her doll stays.
+sim.result().stats // + labJoined — created by the first absorb
+```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
 checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is
@@ -1327,14 +1441,16 @@ hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner
   (strongest wins with the auras) and its rule keys into t.rules { src, freeTiers, sellMul, cdCut,
   airGrant, typeFloor } (absent on a girl no hub covers); Sim._upgradeCost(t, tier, index) is 0 for a
   free tier; sellValue uses max(sellRefund, rules.sellMul); _killEnemy pays killBounty to the hub's owner
-  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut));
+  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut)), and a map-scope
+  abilGroups entry round(g.rate × (1 + the largest cdCut among that player's living copies)); abilityStatus'
+  cooldown / cooldownLeft are seconds at those same rates;
   refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
 aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
   setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
 abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
-  (effect.target 'girl'; rally record `to`) or the whole map (effect.radius 'map', scope 'map'; record
+  (effect.target 'girl'; rally record `to`; the girl-target rule above, Wakaba's Time Out!) or the whole map (effect.radius 'map', scope 'map'; record
   `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
-  castAbility(sim, t, { aim }) passes the aim to the kind
+  castAbility(sim, t, { aim }) passes the aim to the kind (Yuzuha's sentries land at the edge spots nearest it)
 Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 per player/sim, oldest first
 ```
 Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
@@ -1349,6 +1465,8 @@ aimMode(t)                                   // towers.js: 'mortar' | 'mirror' |
 relayOrigin(samples, x, y, relay, aim?), updateRelayOrigin(sim, t)  // t.origin, t.ox, t.oy; 'relay' event; samples from _pathsFwd
 sim.shells                                   // mortar shells: 'mortarWarn' / 'shellLand'; end at the wave clear
 sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
+  // r.end: the head dist where it ends (0; a toStart runner: -(segments-1)·gap, so the tail clears START)
+  // runnerEntry(sim, aim): an aim on a stretch several roads share takes the road with more enemies ahead
 sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
 sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
 PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
@@ -1471,7 +1589,7 @@ r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, posi
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
-r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
+r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace) and rosterFx (a wave-clear sky dragon reaches START before an Auto start); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 ```
 
@@ -1966,13 +2084,26 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
   with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never
   does); two tier-5 orders in one tick resolve in command order on every client; `pick` (Midori / Chika's
-  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`,
+  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`;
+  **abilities** (A2): `abil[uid, group 0|1, qx, qy]` fires her own girl's or hero's ⚡ ability (`qx, qy` an aim in
+  1/1024 tiles, or -1, -1 for none; `abilArgs(uid, { group, aim })` builds it) → `{ ok: true, casterUid }` or
+  `{ ok: false, reason, casterUid? }` with `'invalid'|'notYours'` or the sim's reason at the command's tick (a tap
+  behind an auto-cast is `'cooldown'`, one after the clear `'notWave'`; nothing is spent); `acast[uid, on 0|1]` sets
+  her Auto switch (`uid` 0: every girl she owns and her default, `sim.setAbilityAutoAll`); `start.players[i].autoAbil`
+  (only `true`; the lobby sends it only when on) is her Auto-cast setting from tick 0; owner-credited coins
+  (`sim.ownerCash`, an econ cast auto or manual) go into their owner's wallet after every command and step, never
+  into the pooled split; the kill coins of a manual cast (an instant strike or burst kills inside the `abil`
+  command) are pooled and split evenly like a step's (`splitIncome`, the odd coin taking turns), as an auto-cast's
+  are, never the caster's alone (spec §7.1); `hashSim` folds a girl's ability (cd, active, auto, casts) only once she cast or is on Auto,
+  and `abilGroups`, rallies / queued shots, the Auto defaults and the econ counts only while non-empty, so battles
+  that never cast keep their hash. `COOP_PROTOCOL` stays 5: the sim id and the data hash already keep apart builds
+  that differ;
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 8 (`version.js`; 8 is v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  `COOP_PROTOCOL` 9 (`version.js`; 9 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
   v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in

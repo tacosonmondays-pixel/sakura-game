@@ -5,7 +5,8 @@
 // overflow pill "147/15", how it ended, a new best, the bosses beaten, the clear (banked at the
 // goal) and the freeplay bonus. A Sandbox run gets one line and the way back (nothing earned or saved).
 import { resultBand } from '../transitions/index.js';
-import { h, icon, setVar, enemyToken, enemyDef, fmtCoins, fmtBig, fmtTime } from './util.js';
+import { h, icon, setVar, enemyToken, enemyDef } from './util.js';
+import { fmtNum } from '../format.js';
 import { svgEl, itemTile, toast } from '../components.js';
 import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -19,6 +20,8 @@ import { getUnit } from '../../data/units.js';
 import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/types.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
+import { abilityResultLine } from './abilityBar.js';
+import { boltText } from '../kit.js';
 import { fellTo } from './freeplay.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { FREEPLAY_REWARDS, freeplayTomeLine } from '../../online/coop/rewards.js';
@@ -241,14 +244,17 @@ export function createResults(ctx) {
     const items = [
       ['Waves', Number.isFinite(sim.totalWaves) ? `${r.wavesCleared}/${sim.totalWaves}` : `${r.wavesCleared}`],
       ['Lives', `${r.livesLeft}/${r.maxLives}`],
-      ['Defeated', fmtBig(Object.values(r.kills).reduce((a, b) => a + b, 0))],
-      ['Time', fmtTime(r.stats.time)],
+      ['Defeated', fmtNum(Object.values(r.kills).reduce((a, b) => a + b, 0))],
+      ['Time', fmtNum(r.stats.time, 'time', { whole: true })],
     ];
     // your own hero only (co-op: her own counters, never the ally's)
     const mine = sim.hero;
     const hr = mine ? r.heroes?.[mine.heroIndex] : null;
     const heroLine = hr ? h('p.bt-sum-hero', { 'data-testid': 'result-hero' }, `${mine.def.name} reached Lv ${hr.level}${hr.levelsBought ? ` (${hr.levelsBought} level${hr.levelsBought === 1 ? '' : 's'} bought)` : ''}`) : null;
-    return h('div.bt-summary-wrap', h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v)))), heroLine);
+    // abilities (hidden when none was used: P7): the total and the girls who cast the most
+    const ab = abilityResultLine(r.stats, (uid) => sim.data.unit(sim.stats.towerUnits?.[uid])?.name);
+    const abLine = ab ? h('p.bt-sum-abil', { 'data-testid': 'result-abilities' }, ab) : null;
+    return h('div.bt-summary-wrap', h('div.bt-summary', items.map(([k, v], i) => h(`div.bt-sum${over && i === 0 ? '.bt-sum-over' : ''}`, h('span', k), h('b', v)))), heroLine, abLine);
   }
 
   function mvp() {
@@ -267,7 +273,8 @@ export function createResults(ctx) {
       } catch {
         art = h('span.bt-mvp-art');
       }
-      return h(`div.bt-mvp-row${i === 0 ? '.top' : ''}`, art, h('div.bt-mvp-info', h('b', `${i === 0 ? 'MVP · ' : ''}${row.name}`), h('span.bt-mvp-bar', h('span', { style: { width: `${Math.round(row.share * 100)}%` } })), h('small', `${fmtCoins(row.damage)} dmg · ${Math.round(row.share * 100)}%`)));
+      const casts = sim.stats?.abilityByTower?.[row.uid] || 0;
+      return h(`div.bt-mvp-row${i === 0 ? '.top' : ''}`, art, h('div.bt-mvp-info', h('b', `${i === 0 ? 'MVP · ' : ''}${row.name}`), h('span.bt-mvp-bar', h('span', { style: { width: `${Math.round(row.share * 100)}%` } })), h('small', boltText(`${fmtNum(row.damage)} dmg · ${Math.round(row.share * 100)}%${casts ? ` · ⚡ ${casts}` : ''}`))));
     }));
   }
 
@@ -401,8 +408,8 @@ export function createResults(ctx) {
     const tiles = (list) => (list.length ? h('div.bt-tiles', list.map((x) => rewardTile(x.id, x.count, 56))) : h('p.muted.bt-empty', 'Nothing this time.'));
     const bonusLines = [
       !fp.waves ? 'No freeplay waves cleared yet.'
-        : fp.waveCoins != null ? `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(fp.waveCoins)} coins (${table.name} on ${stage.id})`
-          : `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtCoins(40)} coins${table.rewardMul !== 1 ? ` × ${table.rewardMul} (${table.name})` : ''}`,
+        : fp.waveCoins != null ? `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtNum(fp.waveCoins, 'money')} coins (${table.name} on ${stage.id})`
+          : `${fp.waves} freeplay wave${fp.waves === 1 ? '' : 's'} × ${fmtNum(40, 'money')} coins${table.rewardMul !== 1 ? ` × ${table.rewardMul} (${table.name})` : ''}`,
       fp.caches ? `${fp.caches} freeplay cache${fp.caches === 1 ? '' : 's'} (one every ${FREEPLAY_REWARDS.cacheEvery} waves)` : null,
       // a cache's Akashic Tome, or why none came (the week's limit, solo and co-op together)
       freeplayTomeLine(store.profile, fp),

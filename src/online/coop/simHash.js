@@ -1,5 +1,6 @@
 // FNV-1a hash over the quantized, gameplay-relevant state of a co-op battle. Both clients
 // compare it every COOP.hashEvery ticks to detect a desync.
+import { LAB_CLASSES } from '../../sim/lab.js';
 
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
@@ -59,6 +60,54 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       for (const d of t.turrets) h.int(d.uid).int(d.x * 256).int(d.y * 256);
       if (t.flight) h.str(t.flight.mode).int(t.flight.cx * 256).int(t.flight.cy * 256);
     }
+    // her ⚡ ability only once it was cast or switched to Auto (integers: charge points, ticks): a battle
+    // that never casts keeps its digest (modesGolden pins bot battles with tier-3 girls)
+    const a = t.abil;
+    if (a && (a.n > 0 || a.auto)) h.int(a.cd).int(a.active).int(a.auto ? 1 : 0).int(a.n);
+    // Tenka's lab team (src/sim/lab.js) only on a girl who has one (battles without a lab keep their digest):
+    // rounds, the member count and who joined, members and coins per class, the economy weapon's income and
+    // interest rates (in 1/10000), and her grenade / field timers (ticks)
+    const lab = t.lab;
+    if (lab) {
+      h.int(lab.rounds).int(lab.uids.length);
+      for (const u of lab.uids) h.int(u);
+      for (const k of LAB_CLASSES) h.int(lab.members[k]).int(lab.coins[k]);
+      h.int(lab.income);
+      const ir = lab.interest;
+      h.int(ir ? ir.length : 0);
+      if (ir) for (const v of ir) h.int(v * 10000);
+      const la = t.labAtk;
+      if (la) h.int(la.fragCd).int(la.fieldCd);
+    }
+    // Tenka's well and Last Line timers (src/sim/zones.js), only on a girl who has one of them (ticks)
+    if (t.wellCd != null || t.lastLineCd != null) h.int(t.wellCd ?? -1).int(t.lastLineCd ?? -1);
   }
+  // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
+  const zs = sim.zones;
+  if (zs && zs.length) {
+    h.int(zs.length);
+    for (const z of zs) h.int(z.uid).int(z.src).str(z.kind).int(z.x * 256).int(z.y * 256).int(z.left).int(z.eaten).int(z.next);
+  }
+  // the rest of the ability state, each part only while it holds something (src/sim/abilities.js)
+  if (sim.abilGroups?.size) {
+    h.int(sim.abilGroups.size);
+    for (const k of [...sim.abilGroups.keys()].sort()) h.str(k).int(sim.abilGroups.get(k).cd);
+  }
+  const rallies = sim._rallies;
+  const queue = sim._abilQueue;
+  if (rallies?.length || queue?.length) {
+    h.int(rallies.length);
+    for (const r of rallies) {
+      h.int(r.src).int(r.left).int(r.to ?? -1);
+      // a rally that brings lives back: its kill counter and the lives it gave (only on such a rally: Noa's)
+      if (r.life) h.int(r.life.kills).int(r.life.given);
+    }
+    h.int(queue.length);
+    for (const it of queue) h.int(it.src).int(it.left);
+  }
+  const ad = sim.abilityAutoDefault;
+  if (ad && (ad[0] || ad[1])) h.int(ad[0] ? 1 : 0).int(ad[1] ? 1 : 0);
+  const uses = sim.abilUses;
+  if (uses && (uses[0] || uses[1])) h.int(uses[0]).int(uses[1]);
   return h.value;
 }

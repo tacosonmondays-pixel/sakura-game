@@ -296,12 +296,16 @@ export function ralliesOn(sim, t) {
   return out;
 }
 
-/** Does rally `r` reach girl `t`? Never its caster; within its radius of her (squared), or anywhere for a map rally. */
+/**
+ * Does rally `r` reach girl `t`? Never its caster, and nobody once its caster is gone; a girl-target rally
+ * (`to`: Wakaba's Time Out!) only its one girl; else within its radius of her (squared), or anywhere for a
+ * map rally.
+ */
 function rallyReaches(sim, r, t) {
-  if (r.to != null) return r.to === t.uid; // a rally on one girl (Wakaba's Time Out!)
   if (r.src === t.uid) return false;
   const c = sim.getTower(r.src);
   if (!c || c.removed) return false;
+  if (r.to != null) return r.to === t.uid;
   if (r.map) return true;
   const dx = c.x - t.x;
   const dy = c.y - t.y;

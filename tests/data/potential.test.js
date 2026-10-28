@@ -114,7 +114,7 @@ describe('Potential v3 data: rows', () => {
     }
     // no row for a girl who does not exist (a kit variant is `id@kitStyle`)
     for (const id of Object.keys(POTENTIAL_GIRLS)) expect(UNIT_MAP[id.split('@')[0]], id).toBeTruthy();
-    expect(Object.keys(POTENTIAL_GIRLS).length).toBe(UNITS.length);
+    expect(Object.keys(POTENTIAL_GIRLS).length).toBe(UNITS.length); // one row per girl (no kit-variant rows yet)
   });
 
   test('kind per step matches the rarity table (heroes, Nami included, use the SSR kinds)', () => {
@@ -136,7 +136,7 @@ describe('Potential v3 data: rows', () => {
 
   test('step names are unique and clash with no other name in the game', () => {
     const names = Object.values(POTENTIAL_GIRLS).flatMap((row) => STEPS.map((k) => row[k].name));
-    expect(names.length).toBe(UNITS.length * 5); // every girl, five steps each
+    expect(names.length).toBe(UNITS.length * STEPS.length); // five steps per girl
     expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length);
     const taken = new Set();
     const add = (n) => { if (typeof n === 'string' && n) taken.add(n.toLowerCase()); };

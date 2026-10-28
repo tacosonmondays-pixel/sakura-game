@@ -97,7 +97,7 @@ After the big update, roughly in order:
 3. **Energy** (rewards cost energy, replays are free, tickets for bounties; `docs/specs/ENERGY_RESET.md`) with UI M4 stage prep; then UI M3 backpack and M5.
 4. **Map editor** behind a code. The unlock code lives server-side only, never in the repo or the bundle.
 5. **Banners** (owner page "Banners and Legends", defaults accepted unless the owner says otherwise).
-6. Hana's bio text says Kaze only swoops for flyers; fix it with the next sim release.
+6. Hana's bio (Kaze only swooped for flyers) is fixed on `feature/abilities` (`d7abcb4`, `src/data/unitsExpansion.js`, a hashed file): Kaze swoops at every enemy she shoots, flyers first. It ships with that sim release; nothing left to do.
 7. Later: gate arc story (owner answers pending), item icons family by family, the beach event after Halloween (after Nov 8), school-uniform forms for older girls, 2–4 player co-op, PvP hub.
 
 ## 5. Owner's standing decisions

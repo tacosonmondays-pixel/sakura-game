@@ -47,11 +47,11 @@ import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../sys
 import { potentialSection, crown } from '../potential.js';
 import { potentialNext, MAX_POTENTIAL } from '../../systems/potential.js';
 import { essenceBalance, canRaisePotential } from '../../systems/essence.js';
-import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG } from '../kit.js';
+import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG, boltText } from '../kit.js';
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
-import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows } from '../girlView.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows, abilityInfoView } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
 import { buildTreeModel } from '../treeModel.js';
@@ -482,6 +482,7 @@ export function infoTab(unit, { profile = store.profile, label = 'yours', onChan
         shown.map((t) => kitChip({ icon: traitIcon(t), text: t.name, title: `${t.name}${t.desc ? `: ${t.desc}` : ''}`, cls: [t.kind === 'cap' ? 'cap' : '', t.later ? 'later' : ''].filter(Boolean).join('.') })),
         rest > 0 ? moreChip(rest, { onClick: () => openTraits(unit), title: `${rest} more traits`, testid: 'info-traits-more' }) : null)),
     h('p.gp-one', roleSentence(unit)),
+    abilityChip(unit),
     statStrip(headlineStats(unit, profile), { onMore: () => openBaseStats(unit, { profile, label }), testid: 'info-strip', moreTestid: 'info-more' }),
     // Detailed (Settings → Girl page): every stat with base and hers, as the MORE sheet shows it, on the page
     iv.stats ? h('div.gp-stats-inline', { 'data-testid': 'info-stats' }, statsTable(unit, unitBattleStats(profile, unit.id), { owned: !!st, label })) : null);
@@ -508,6 +509,45 @@ export function infoTab(unit, { profile = store.profile, label = 'yours', onChan
     h('div.gp-quote', svgEl(portraitHTML(unit, 'thumb', { alt: '' }), 'gp-qface'), h('div.gp-bubble', `“${unit.quote}”`))) : null;
 
   return h(`div.mb-tab-body.gp-info${iv.stats ? '.detailed' : ''}`, roleCard, matchCard, potCard, capsCard, quote);
+}
+
+/**
+ * Her ⚡ ability on the Info tab (ABILITIES_SPEC §10): one line ("⚡ Skyfall Volley · Rapid Volley T3") that opens its
+ * Details sheet. A kind this build does not run yet carries a "Later" sticker. Null when she has none.
+ */
+function abilityChip(unit) {
+  const v = abilityInfoView(unit);
+  if (!v) return null;
+  return h(`button.gp-abil${v.live ? '' : '.later'}`, {
+    type: 'button', 'data-testid': 'info-ability', 'aria-label': `${v.name}: her ability. Open its details`,
+    onclick: () => openAbility(unit),
+  }, h('span.gp-abil-text', boltText(v.chip)), v.live ? null : sticker('Later', '', { title: v.later }), ico(KIT_SVG.chevR, 'ui-ico.gp-chev'));
+}
+
+/** Her ability's Details: the description at her base numbers, how it unlocks, the cooldown, the upgrade. */
+function openAbility(unit) {
+  const v = abilityInfoView(unit);
+  if (!v) return null;
+  const fact = (k, t) => h('li', lbl(k), ' ', t);
+  // one section per ability (Ruri: one per familiar path, each headed by its path; the ones that wait say so)
+  const form = (f) => [
+    v.multi ? h('h3.gp-abil-form', { 'data-testid': `ability-form-${f.id}` }, ico(KIT_SVG.bolt, 'kit-bolt'), ` ${f.name}`, h('span.gp-abil-path', ` · ${f.pathName}`)) : null,
+    f.later ? h('p.gp-abil-later', { 'data-testid': v.multi ? `ability-later-${f.id}` : 'ability-later' }, ico('lock'), ` ${f.later}.`) : null,
+    h('p', f.desc),
+    // (one that waits: only where it is planned — abilityInfoView facts)
+    h('ul.gp-effects', ...f.facts.map((x) => fact(x.k, x.t))),
+  ];
+  // how to fire it, only for what runs today (none: no sentence; Ruri: names Moon Pounce)
+  const how = v.howTo;
+  return openSheet({
+    title: v.multi ? `${unit.name} · Abilities` : `${unit.name} · ${v.name}`, testid: 'ability-sheet', cls: 'gp-details',
+    body: h('div.gp-sheet-body',
+      v.multi ? h('p.gp-sub', 'She learns the ability of the path she raises to tier 3 (only one path can pass tier 2).') : null,
+      ...v.forms.flatMap(form),
+      how ? h('p.gp-sub', { 'data-testid': 'ability-howto' }, how.hero
+        ? ['In battle, tap the ', ico(KIT_SVG.bolt, 'kit-bolt'), ' button by her portrait at the bottom left (E on a keyboard). It recharges only while a wave runs.']
+        : `In battle, tap her portrait at the bottom right to fire ${how.name || 'it'} (1–9 on a keyboard). It recharges only while a wave runs; copies of her share one button. Hold it to switch on Auto.`) : null),
+  });
 }
 
 /** A glass panel (§5.4): white glass, one chamfer, a caps kicker with an optional head control. */
@@ -585,7 +625,7 @@ function openMatchup(unit) {
 /** The Profile sheet: her quote, bio, personality, Codex kit, tips and how to get her. */
 function openProfile(unit, { owned = true } = {}) {
   const how = howToGet(unit);
-  const tips = profileTips(unit); // no ⚡ ability tips while abilities are dormant
+  const tips = profileTips(unit); // a ⚡ tip only when her ability runs (src/data/unitTips.js); its ⚡ drawn as the kit bolt
   return openSheet({
     title: `${unit.name} · Profile`, testid: 'profile-sheet', cls: 'gp-details', full: true,
     body: h('div.gp-sheet-body',
@@ -594,7 +634,7 @@ function openProfile(unit, { owned = true } = {}) {
       unit.personality ? h('p.gp-sub', unit.personality) : null,
       codexLine(unit),
       tips.length ? h('div.ui-kicker.gp-kick', 'Tips') : null,
-      tips.length ? h('ul.mb-tips', { 'data-testid': 'profile-tips' }, tips.map((t) => h('li', t))) : null,
+      tips.length ? h('ul.mb-tips', { 'data-testid': 'profile-tips' }, tips.map((t) => h('li', boltText(t)))) : null,
       owned ? null : h('div.mb-howto', svgEl(uiIcon('lock'), 'mb-howto-icon'), h('div', h('b', 'How to get: '), how.long))),
   });
 }

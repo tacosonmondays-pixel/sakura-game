@@ -210,7 +210,7 @@ describe('attack FX over a real sim', { timeout: 180000 }, () => {
             maxQuads = Math.max(maxQuads, h.fxa.stats().quads);
           },
         });
-        expect(sim.placedIds.length, 'all 19 girls placed').toBe(ORDER.length);
+        expect(sim.placedIds.length, 'every girl placed').toBe(ORDER.length);
         const budget = q === 'high' ? 900 : 250;
         // core cues (drones, shadows, projectiles' reticles, tracers) are never shed; the rest is
         expect(maxQuads, `${name} ${q}`).toBeLessThanOrEqual(budget + 200);

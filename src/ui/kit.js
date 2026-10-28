@@ -23,11 +23,32 @@ export const KIT_SVG = {
   cube: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l8 4.4v9.6l-8 4.4-8-4.4V7.2z"/><path d="M4 7.2l8 4.4 8-4.4M12 11.6v9.6"/></svg>',
   card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="5" y="2.8" width="14" height="18.4" rx="2.4"/><circle cx="12" cy="9.6" r="2.8"/><path d="M7.6 18c.8-2.6 2.4-3.9 4.4-3.9s3.6 1.3 4.4 3.9"/></svg>',
   starFill: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 16.8 6.2 20.1l1.4-6.4L2.7 9.3l6.5-.7z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  // the ⚡ ability mark (a path that teaches an ability, an ability button)
+  bolt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.6 2.4 5.2 13.3h5.6l-1.4 8.3 8.4-10.9h-5.6z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
   blossom: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor">'
     + [0, 72, 144, 216, 288].map((a) => `<ellipse cx="12" cy="6.6" rx="3.6" ry="5.2" transform="rotate(${a} 12 12)"/>`).join('')
     + '</g><circle cx="12" cy="12" r="2.4" fill="#ffd23f"/></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.4V12l3.2 2"/></svg>',
 };
+
+/**
+ * Words with every ⚡ drawn as the kit bolt (`.kit-bolt`: yellow, the same mark as the ability row, the path chip and
+ * the hero's skill button). The ⚡ character is a colour emoji that ignores `color` and looks different on every
+ * phone, so it is only ever a marker in the game's text data. Returns h() children (strings and icons).
+ * @param {string} text
+ * @param {string} [cls]
+ */
+export function boltText(text, cls = 'kit-bolt') {
+  const out = [];
+  String(text ?? '').split('⚡').forEach((part, i) => {
+    if (i) out.push(ico(KIT_SVG.bolt, cls));
+    if (part) out.push(part);
+  });
+  return out;
+}
+
+/** The same words for a title or an aria-label (no emoji): "⚡ T3 Hawk Eye — …" → "T3 Hawk Eye — …". */
+export const plainBolt = (text) => String(text ?? '').replace(/⚡\+?\s*/g, '').trim();
 
 /** Replaces an element's children, skipping null / false (a plain replaceChildren() would print "null"). */
 export function fillIn(el, ...kids) {

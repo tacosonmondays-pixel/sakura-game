@@ -199,14 +199,17 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
 // Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
 // and each kind of step lands where the spec says (docs/specs/POTENTIAL.md v3 §5, §13.2).
 import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
-import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
-import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 describe('Potential in resolveStats', () => {
   test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
     const TIERS = [[0, 0, 0], [5, 0, 2], [2, 5, 0], [0, 2, 5]];
     const out = [];
-    for (const u of REAL_UNITS.filter((d) => !EXPANSION_IDS.includes(d.id) && !NEW_GIRL_IDS.includes(d.id))) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
+    // the 19 girls the hash was taken on: a new girl (Tenka, the returning girls) never moves it, and
+    // every key she brings appears on her own stats only (src/sim/mods.js), so these resolve as before
+    const PINNED = ['hikari', 'luna', 'nami', 'aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'kage', 'umeko', 'shiro',
+      'midori', 'suzu', 'raika', 'miko', 'hotaru', 'kaede', 'chika'];
+    expect(PINNED.every((id) => REAL[id])).toBe(true);
+    for (const u of REAL_UNITS.filter((d) => PINNED.includes(d.id))) for (const tiers of TIERS) for (const heroLevel of [0, 1, 10]) {
       for (const us of [null, { damageMul: 1.3, rateMul: 1.1, rangeMul: 1.05, critChance: 0.1, awakenPassive: true, potential: 1 }]) {
         const st = resolveStats(u, { tiers, heroLevel: u.kind === 'hero' ? heroLevel : 0, unitStats: us });
         // the roster merge's neutral keys (airMul 1, gather 0, relay null) are not part of the pinned hash
