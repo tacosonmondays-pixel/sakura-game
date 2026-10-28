@@ -823,10 +823,11 @@ function clanButton(btn, glyph) {
  * The Events button (owner, Oct 28: "add an events button at the bottom? or somewhere?"): the lantern glyph; it opens the
  * live event's page, or Happening Now when no event (or more than one) runs (src/systems/events.js eventHomeButton); a
  * red dot when something waits in it; while an event runs, a small sticker with the time left ("4d"). Where it stands:
- * 'dock' a fifth shortcut EVENTS after MALL (the owner's pick, Oct 28: "yes"), 'plate' a tab on the Battle plate's
- * top-right corner, CO-OP's twin, or 'top' an icon button in the top right cluster.
+ * 'plate' a tab on the Battle plate's top-right corner, CO-OP's twin (shipped: the owner was shown it, Oct 28; the four
+ * shortcuts keep their row), 'dock' a fifth shortcut EVENTS after MALL (ready: three by two on a landscape phone, 64 px
+ * cells where the home folds for a girl), or 'top' an icon button in the top right cluster.
  */
-export const HOME_EVENTS = 'dock';
+export const HOME_EVENTS = 'plate';
 /** "4d" / "7h" / "<1h": the time left on the Events sticker. */
 export function shortLeft(msLeft) {
   if (msLeft == null || !Number.isFinite(msLeft)) return null;
