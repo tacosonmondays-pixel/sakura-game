@@ -127,7 +127,7 @@ export function drawableFor(sim, id, slot, period, owner = null, content = CONTE
     case 'a_guest': {
       // the team's heroes dealt ≥ lastShare % of last period's damage
       const L = ty.lastDmg;
-      return !!L && L.total > 0 && L.hero.reduce((x, y) => x + y, 0) * 100 >= a.lastShare * L.total;
+      return !!L && L.total > 0 && L.heroes.reduce((x, y) => x + y, 0) * 100 >= a.lastShare * L.total;
     }
     case 'a_star':
       return starCandidates(sim, o).length > 0;
@@ -278,7 +278,7 @@ export function foeEvent(sim, e, kind) {
 
 /**
  * The period's damage so far, one row per girl (float sums in uid order, deterministic):
- * { uid, d, owner (-1: unknown, co-op only), unit, hero }.
+ * { uid, d, owner (-1: unknown, co-op only), unit, isHero }.
  */
 function periodDamage(sim) {
   const b = sim.tryout.base;
@@ -289,7 +289,7 @@ function periodDamage(sim) {
     if (!(d > 0)) continue;
     const t = sim.getTower(+k);
     const owner = t ? t.owner ?? 0 : b.owners?.[k] ?? (sim.tryout.coop ? -1 : 0);
-    rows.push({ uid: +k, d, owner, unit: t ? t.unitId : sim.stats.towerUnits[k], hero: !!t?.isHero });
+    rows.push({ uid: +k, d, owner, unit: t ? t.unitId : sim.stats.towerUnits[k], isHero: !!t?.isHero });
   }
   return rows;
 }
@@ -300,13 +300,13 @@ const sumD = (rows) => rows.reduce((x, r) => x + r.d, 0);
 function lastDamage(sim) {
   const rows = periodDamage(sim);
   const n = sim.tryout.players.length;
-  const out = { total: sumD(rows), own: [], hero: [], units: [] };
+  const out = { total: sumD(rows), own: [], heroes: [], units: [] };
   for (let o = 0; o < n; o++) {
     const mine = rows.filter((r) => r.owner === o);
     out.own.push(sumD(mine));
-    out.hero.push(sumD(mine.filter((r) => r.hero)));
+    out.heroes.push(sumD(mine.filter((r) => r.isHero)));
     const units = {};
-    for (const r of mine) if (!r.hero && r.unit) units[r.unit] = (units[r.unit] || 0) + r.d;
+    for (const r of mine) if (!r.isHero && r.unit) units[r.unit] = (units[r.unit] || 0) + r.d;
     out.units.push(units);
   }
   return out;
@@ -430,7 +430,7 @@ export function judge(sim, id, owner, final = false) {
     case 'a_guest': {
       // a team assignment: every player's hero against the team's damage (solo: hers against all)
       const rows = periodDamage(sim);
-      const hero = sumD(rows.filter((r) => r.hero));
+      const hero = sumD(rows.filter((r) => r.isHero));
       const total = sumD(rows);
       return { st: fin(shareOk(hero, total, A.a_guest.share)), cur: pctOf(hero, total), goal: A.a_guest.share };
     }
@@ -444,7 +444,7 @@ export function judge(sim, id, owner, final = false) {
     case 'a_star': {
       const unit = entryOf(ty, id, owner)?.unit ?? null;
       const mine = periodDamage(sim).filter((r) => r.owner === owner);
-      const her = sumD(mine.filter((r) => !r.hero && r.unit === unit));
+      const her = sumD(mine.filter((r) => !r.isHero && r.unit === unit));
       const total = sumD(mine);
       return { st: fin(!!unit && shareOk(her, total, A.a_star.share)), cur: pctOf(her, total), goal: A.a_star.share, unit };
     }
@@ -468,7 +468,7 @@ export function judge(sim, id, owner, final = false) {
       const mine = periodDamage(sim).filter((r) => r.owner === owner);
       const total = sumD(mine);
       const by = {};
-      for (const r of mine) if (!r.hero && r.unit) by[r.unit] = (by[r.unit] || 0) + r.d;
+      for (const r of mine) if (!r.isHero && r.unit) by[r.unit] = (by[r.unit] || 0) + r.d;
       const n = Object.keys(by).filter((u) => shareOk(by[u], total, A.a_team.share)).length;
       return { st: fin(n >= A.a_team.types), cur: n, goal: A.a_team.types };
     }

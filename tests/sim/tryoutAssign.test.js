@@ -137,7 +137,7 @@ describe('Guest Lecture', () => {
     sim._credit(aoi, 88);
     evaluatePeriod(sim);
     expect(drawableFor(sim, 'a_guest', 2, 2, null, 'ship')).toBe(true);
-    sim.tryout.lastDmg.hero[0] = 11;
+    sim.tryout.lastDmg.heroes[0] = 11;
     expect(drawableFor(sim, 'a_guest', 2, 2, null, 'ship')).toBe(false);
   });
 });
