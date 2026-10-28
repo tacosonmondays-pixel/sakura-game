@@ -250,7 +250,9 @@ body.ui-day .mb-ur-panel { display: flex; align-items: center; gap: 12px; }
 /* ---------- GEAR: three slot columns (the gear tile of the Backpack's grid: square, the 5.6 ladder), the totals strip ---------- */
 body.ui-day .gk-gear { min-height: 0; height: auto; }
 body.ui-day .gk-panel > .ui-panel-in { gap: 12px; }
-body.ui-day .gk-slot { border: 0; border-radius: 0; background: none; padding: 4px 6px 8px; box-shadow: inset -1px 0 0 var(--line-ink-soft); }
+body.ui-day .gk-slot { gap: 8px; border: 0; border-radius: 0; background: none; padding: 4px 6px 8px; box-shadow: inset -1px 0 0 var(--line-ink-soft); }
+/* (the slot's kicker stays in the column's flow at every height: a flat column has no frame to hang it in) */
+body.ui-day .gk-slot > .ui-kicker { position: static; align-self: flex-start; }
 body.ui-day .gk-slot:last-child { box-shadow: none; }
 body.ui-day .gk-slot:active { transform: none; background: var(--cyan-wash); }
 body.ui-day .gk-slot.is-ur { box-shadow: inset -1px 0 0 var(--line-ink-soft); }
@@ -415,7 +417,7 @@ body.ui-day .fm-acts { display: flex; align-items: center; gap: 8px; flex-wrap: 
 body.ui-day .fm-acts .btn { min-height: calc(var(--tap) + 2px); font-size: var(--fs-body); padding: 0 14px; }
 @media (min-height: 481px) { body.ui-day .fm-acts .btn { font-size: var(--fs-name); padding: 0 18px; } }
 /* the squad row: the hero's column, then eight; the tiles are girl tiles (name only) */
-body.ui-day .fm-row.mb-squad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8fr); gap: 10px; align-items: end; }
+body.ui-day .fm-row.mb-squad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8fr); gap: 10px; align-items: start; }
 body.ui-day .fm-row .mb-slot-label { display: flex; align-items: baseline; gap: 4px; margin: 0 0 6px; color: var(--muted); }
 body.ui-day .fm-row .mb-slot-label .num { font-size: var(--fs-num-s); color: var(--ink); }
 body.ui-day .fm-hero { width: auto; }
@@ -463,7 +465,7 @@ body.ui-day .fm-cover { position: absolute; left: 0; bottom: 25px; z-index: 2; d
   clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
 body.ui-day .fm-cover-ic { width: 20px; height: 20px; display: inline-grid; }
 body.ui-day .fm-cover-ic > svg { width: 100%; height: 100%; }
-@media (max-width: 699px) {
+@media (max-width: 699px) and (min-height: 481px) {
   body.ui-day .fm-slots.mb-tower-slots { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   body.ui-day .fm-row.mb-squad { grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); }
 }
