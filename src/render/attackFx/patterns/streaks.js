@@ -79,12 +79,12 @@ void main() {
   // the tail thins away, the head stays sharp
   float fade = smoothstep(0.0, 0.45, along) * (1.0 - smoothstep(0.97, 1.0, along) * 0.4);
   // across: a thin hot line near the outer edge, a soft fill toward the inside
-  float d = (v - 0.62) / 0.2;
+  float d = (v - 0.7) / 0.15;
   float core = exp(-d * d);
-  float fill = clamp((v + 1.0) * 0.5, 0.0, 1.0);
-  fill = fill * fill * 0.6 * (1.0 - smoothstep(0.85, 1.0, v));
+  float fill = smoothstep(-1.0, 0.55, v);
+  fill = fill * 0.95 * (1.0 - smoothstep(0.8, 1.0, v));
   float a = (core * vAnim.w + fill) * fade * vAnim.z;
-  vec3 c = mix(vCol, vec3(1.0), clamp(core * vAnim.w, 0.0, 1.0));
+  vec3 c = mix(vCol, vec3(1.0), clamp(core * core * vAnim.w, 0.0, 1.0));
   gl_FragColor = vec4(c, clamp(a, 0.0, 1.0));
 }
 `;

@@ -232,7 +232,7 @@ describe('dash afterimages', () => {
     const g0 = parent.children[0];
     const meshes = [];
     g0.traverse((o) => o.isMesh && meshes.push(o));
-    expect(meshes.filter((m) => m.visible && m.material.type === 'MeshBasicMaterial' && m.material.blending === THREE.AdditiveBlending).length).toBe(2);
+    expect(meshes.filter((m) => m.visible && m.material.type === 'MeshBasicMaterial' && m.material.transparent && m.material.depthWrite === false).length).toBe(2);
     expect(meshes.some((m) => m.visible && m.geometry !== geo)).toBe(false);
     // a second dash inside the gap is ignored (fast swings do not stack ghosts)
     expect(G.dash(5, cols)).toBe(false);

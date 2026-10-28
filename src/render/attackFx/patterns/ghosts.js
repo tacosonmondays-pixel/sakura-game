@@ -2,7 +2,7 @@
 //
 // Each girl gets a small set of ghost figures the first time she dashes: copies of her actor model
 // (same geometry, shared with the live figure and never disposed here; her outlines, halo and any
-// sprites hidden) wearing one flat additive material each. A ghost is a SNAPSHOT: when it spawns it
+// sprites hidden) wearing one flat translucent material each. A ghost is a SNAPSHOT: when it spawns it
 // copies the live figure's transform and every node's pose (bones included), then only fades.
 // Nothing is allocated per dash: slots are reused oldest-first, the materials only change opacity.
 //
@@ -146,7 +146,7 @@ export class GhostLayer {
     return set;
   }
 
-  /** One ghost figure: a pose-only copy of `src` in one additive material. */
+  /** One ghost figure: a pose-only copy of `src` in one translucent material. */
   _build(src, srcNodes) {
     // three's clone deep-copies userData through JSON; her animator lives there, so hide it for the copy
     const stash = this._stash;
@@ -169,7 +169,7 @@ export class GhostLayer {
     root.traverse((o) => nodes.push(o));
     if (nodes.length !== srcNodes.length) return null;
     const mat = new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false,
+      color: 0xffffff, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, fog: false, toneMapped: false,
     });
     const skeletons = new Set();
     for (let i = 0; i < nodes.length; i++) {
