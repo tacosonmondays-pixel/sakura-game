@@ -96,13 +96,12 @@ export const STAGE_PLACE = {
 };
 
 /**
- * Listed but not used by any scene yet: the old academy looks (kept for scenes that want the lobby painting), the
- * day gate and night fountain variants, and the Gate Arc's shelter (daylit; Hilltop's scenes are at night). The
- * content test keeps this list honest.
+ * Listed but not used by any scene yet: the old academy looks (kept for scenes that want the lobby picture) and the
+ * day gate and night fountain variants. (The Gate Arc's daylit shelter left the list in Act 5: g5.whiteboard and
+ * g5.board play there in the morning.) The content test keeps this list honest.
  */
 export const SPARE_BACKGROUNDS = [
   'academy-soft', 'academy-gate', 'blossom-court-night',
-  'shelter',
 ];
 
 /** Academy tint shown for a stage background whose stage has no STAGE_PLACE (and no still). */

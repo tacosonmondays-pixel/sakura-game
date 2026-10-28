@@ -34,4 +34,9 @@ export const ACT_SCENE_IDS = Object.freeze({
   ]),
   // Act 4 (seven episodes): the six cutscenes (Azami's join after 4-7 carries the parley) and the side g4.logs
   '4:2': Object.freeze(['g4.pro', 'g4.azami', 'g4.cross', 'g4.logs', 'g4.boss', 'g4.after', 'g4.epi']),
+  // Act 5 (nine episodes): six cutscenes and no join (no free girl in Act 5), and the side scenes g5.embers,
+  // g5.whiteboard and g5.board
+  '5:2': Object.freeze([
+    'g5.pro', 'g5.embers', 'g5.mid', 'g5.raid', 'g5.whiteboard', 'g5.boss', 'g5.after', 'g5.epi', 'g5.board',
+  ]),
 });
