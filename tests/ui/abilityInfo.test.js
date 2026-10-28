@@ -151,7 +151,8 @@ describe('the Tree tab ⚡ sticker', () => {
     expect(v.rows[1].ability.title).toBe('Ability Skyfall Volley: unlocks at tier 3');
     expect(v.rows[0].ability).toBeNull();
     const k = treeGridView(buildTreeModel({ def: UNIT_MAP.kage }));
-    expect(k.rows.find((r) => r.ability).ability.title).toMatch(/comes in a later update/);
+    // (one that waits never promises a tier: no "unlocks at tier 3" beside "later")
+    expect(k.rows.find((r) => r.ability).ability.title).toBe('Ability Shadow Doubles: comes in a later update');
   });
 });
 
