@@ -43,9 +43,9 @@
 //   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
 
-import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
+import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
 import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
-import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from './constants.js';
+import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext } from './towers.js';
 import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
@@ -76,12 +76,26 @@ export const TRANSIENT_REFUSALS = Object.freeze(['notWave', 'disabled', 'moving'
 const T5_CACHE = new WeakMap();
 const RANK_CACHE = new WeakMap();
 
-function mergedTower(entry, tier) {
-  if (!(tier >= 5) || !entry.t5) return entry;
-  let m = T5_CACHE.get(entry);
-  if (!m) T5_CACHE.set(entry, (m = Object.freeze(abilityAtTier(entry, 5))));
-  return m;
+const LR_CACHE = new WeakMap();
+
+/**
+ * A ⚡ path entry at a tier, with its LR form (`entry.lr`) on top when `lr` (her battle stats carry `lr: true`:
+ * DUO_LR §2.4 Twin Star). Frozen and cached, so a girl's def is the same object from step to step.
+ */
+function mergedTower(entry, tier, lr = false) {
+  let m = entry;
+  if (tier >= 5 && entry.t5) {
+    m = T5_CACHE.get(entry);
+    if (!m) T5_CACHE.set(entry, (m = Object.freeze(abilityAtTier(entry, 5))));
+  }
+  if (!lr || !entry.lr) return m;
+  let c = LR_CACHE.get(m);
+  if (!c) LR_CACHE.set(m, (c = Object.freeze(abilityWithLr(m, entry, true))));
+  return c;
 }
+
+/** Does her loadout entry carry the LR flag (src/systems/progression.js unitBattleStats sets it, G6)? */
+export const isLr = (t) => t?.unitStats?.lr === true;
 
 function mergedSkill(skill, level) {
   let n = 0;
@@ -127,7 +141,7 @@ export function abilityPathOf(def) {
 export function abilityDef(t) {
   const src = abilitySource(t);
   if (!src || !src.unlocked) return null;
-  return t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
+  return t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier, isLr(t));
 }
 
 /**
@@ -180,11 +194,12 @@ function groupRate(sim, key, g) {
 export function syncAbility(sim, t) {
   const src = abilitySource(t);
   if (!src || !src.unlocked) return;
-  const def = t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier);
+  const def = t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier, isLr(t));
   if (!handlerOf(def)) return;
   const cdMax = points(def.cooldown);
   const rate = chargeRate(t, def.kind);
-  const up = def !== src.entry;
+  // (the tier-5 / rank upgrade; never the LR form, which is not an upgrade the panel marks)
+  const up = t.isHero ? def !== src.entry : src.tier >= 5 && !!src.entry.t5;
   const a = t.abil;
   if (!a) {
     t.abil = {
@@ -445,7 +460,7 @@ function boostTail(sim, t, e, fx) {
 const activeTicks = (def) => Math.max(ticks(def.duration), ticks(def.effect?.after?.duration));
 
 /** One area hit (a burst's shell): damage and knockback through _hit, then the statuses. */
-function shellAt(sim, t, def, spec, x, y, r, step) {
+function shellAt(sim, t, def, spec, x, y, r, step, finale = false, shard = false) {
   const victims = sim.grid.query(x, y, r, []);
   const dmg = spec.damage > 0;
   const status = def.effect.status;
@@ -456,9 +471,28 @@ function shellAt(sim, t, def, spec, x, y, r, step) {
     if (dmg) sim._hit(v, t, spec, 1);
     applyStatuses(sim, v, t, status, spec, step);
   }
-  sim._emit('abilityShell', { towerUid: t.uid, id: def.id, x, y, radius: r, hits: n });
+  sim._emit('abilityShell', { towerUid: t.uid, id: def.id, x, y, radius: r, hits: n, ...(finale ? { finale: true } : null), ...(shard ? { shard: true } : null) });
   if (dmg) sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType });
   return n;
+}
+
+/** Prismfall's shard spec: x her current hit, mystic, hits flyers (a burst's own hit spec otherwise). */
+function prismSpec(spec, t, mul) {
+  return { ...spec, damage: mul * t.eff.damage, attackType: 'mystic', element: null, canHitAir: true };
+}
+
+/**
+ * One burst shell lands at (x, y) (shellAt), then its shards (Prismfall) at the fixed PRISM_SHARDS table, each a
+ * small area hit with the ability's statuses; a finale shell says so on its event (the LR Twin Star).
+ */
+function landShell(sim, t, def, it, x, y, step) {
+  shellAt(sim, t, def, it.spec, x, y, it.r, step, it.finale);
+  const sh = it.shards;
+  if (!sh) return;
+  for (let k = 0; k < sh.n; k++) {
+    const off = PRISM_SHARDS[k % PRISM_SHARDS.length];
+    shellAt(sim, t, def, sh.spec, x + off[0], y + off[1], sh.r, step, false, true);
+  }
 }
 
 /** Midori's Catalyst Burst: every poisoned target takes its remaining poison at once (× poisonMul) and the poison ends. */
@@ -739,7 +773,7 @@ const KINDS = {
   },
 
   burst: {
-    cast(sim, t, def, step) {
+    cast(sim, t, def, step, aim) {
       const e = def.effect;
       const spec = abilitySpec(t, def);
       const r = burstRadius(t, e);
@@ -747,6 +781,12 @@ const KINDS = {
       if (e.at === 'self') {
         if (!gatherTargets(sim, t.x, t.y, r, spec, []).length) return null;
         p = { x: t.x, y: t.y };
+      } else if (e.at === 'aim' && aim) {
+        // the cast's aim point (Prismfall): refused with nothing there to hit (nothing spent)
+        if (!gatherTargets(sim, aim[0], aim[1], r, spec, []).length) return null;
+        p = { x: aim[0], y: aim[1] };
+      } else if (e.at === 'aim' && t.aim && gatherTargets(sim, t.aim.x, t.aim.y, r, spec, []).length) {
+        p = { x: t.aim.x, y: t.aim.y }; // her mortar's aim point, while something stands there
       } else {
         p = densestPoint(sim, t.x, t.y, abilityReach(t, def), spec, r);
         if (!p) return null;
@@ -756,14 +796,21 @@ const KINDS = {
       const delay = ticks(e.delay);
       const every = ticks(e.every);
       const scatter = shells > 1 && !e.reaim;
+      // Prismfall's prism: each shell splits into shards of light (mystic, they hit flyers), and the LR finale
+      const shards = e.shards > 0 ? { n: Math.round(e.shards), r: e.shardRadius || 0.6, spec: prismSpec(spec, t, e.shardMul ?? 1) } : null;
       if (delay > 0 || shells > 1) sim._emit('abilityWarn', { towerUid: t.uid, id: def.id, x: p.x, y: p.y, radius: r, delay: e.delay || 0, shells });
       for (let i = 0; i < shells; i++) {
         const off = scatter ? ABILITY_SCATTER[i % ABILITY_SCATTER.length] : ABILITY_SCATTER[0];
-        const x = p.x + off[0];
-        const y = p.y + off[1];
-        const left = delay + i * every;
-        if (left > 0) sim._abilQueue.push({ left, src: t.uid, id: def.id, kind: 'shell', x, y, r, spec, reaim: !!e.reaim && i > 0 });
-        else shellAt(sim, t, def, spec, x, y, r, step);
+        const it = { left: delay + i * every, src: t.uid, id: def.id, kind: 'shell', x: p.x + off[0], y: p.y + off[1], r, spec, reaim: !!e.reaim && i > 0, shards };
+        if (it.left > 0) sim._abilQueue.push(it);
+        else landShell(sim, t, def, it, it.x, it.y, step);
+      }
+      if (e.finale) {
+        // the LR Twin Star: one more shell on the spot itself, `every` after the last
+        const f = e.finale;
+        const it = { left: delay + shells * every, src: t.uid, id: def.id, kind: 'shell', x: p.x, y: p.y, r: f.radius || r, spec: { ...spec, damage: (f.dmgMul || 0) * t.eff.damage }, reaim: false, shards: null, finale: true };
+        if (it.left > 0) sim._abilQueue.push(it);
+        else landShell(sim, t, def, it, it.x, it.y, step);
       }
       return fx;
     },
@@ -1076,6 +1123,7 @@ export function autoWants(sim, t, def) {
     return n >= (au.min ?? 1);
   }
   const reach = abilityReach(t, def);
+  if (when === 'cluster') return autoCluster(sim, t, def, au, reach);
   // 'sabotage' (Noa's First Aid Call): a girl inside her radius is sabotaged, whatever the enemies are doing
   if (when === 'sabotage' && sabotagedIn(sim, t, reach)) return true;
   // a life rally (First Aid Call) standing inside another girl's running one (a copy, or the partner's Noa): the kills
@@ -1131,6 +1179,16 @@ export function autoWants(sim, t, def) {
   }
 }
 
+/**
+ * Auto 'cluster' (Prismfall): `min` enemies her ability can hit stand within `radius` of one of them
+ * (densestPoint, map reach for a map-scope ability), or (`orBoss`) a boss is on the road outside the tunnels.
+ */
+function autoCluster(sim, t, def, au, reach) {
+  if (au.orBoss) for (const e of sim.enemies) if (!e.dead && !e.hidden && e.tier === 'boss') return true;
+  const p = densestPoint(sim, t.x, t.y, reach, abilitySpec(t, def), au.radius ?? 1.5);
+  return !!p && p.n >= (au.min ?? 1);
+}
+
 /** Is a girl (any player's, not her) within `r` of her sabotaged now? (auto 'sabotage'; no allocation) */
 function sabotagedIn(sim, t, r) {
   const r2 = r * r;
@@ -1177,7 +1235,7 @@ function fireQueued(sim, it, step) {
     x = p.x;
     y = p.y;
   }
-  shellAt(sim, t, def, it.spec, x, y, it.r, step);
+  landShell(sim, t, def, it, x, y, step);
 }
 
 /** tickAbilities' due hits and shells (module level: emptied before and after each use, never held between steps). */
@@ -1372,7 +1430,7 @@ export function abilityStatus(sim, t) {
   if (!src) return null;
   const a = t.abil;
   if (!a) {
-    const def = src.unlocked ? (t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier)) : src.entry;
+    const def = src.unlocked ? (t.isHero ? mergedSkill(src.entry, t.level) : mergedTower(src.entry, src.tier, isLr(t))) : src.entry;
     return {
       id: def.id, kind: def.kind, scope: def.scope, unlocked: false, ready: false, reason: 'locked', later: !handlerOf(def),
       path: src.path, unlockTier: t.isHero ? null : src.unlockAt, unlockLevel: t.isHero ? src.unlockAt : null,

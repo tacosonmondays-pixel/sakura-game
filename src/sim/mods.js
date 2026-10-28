@@ -255,6 +255,48 @@ function normBall(t = {}) {
     finish: t.finish ?? 0,
   };
 }
+/**
+ * The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js): Kohaku's prism beam (the partner weapon)
+ * and Refraction (Tsubaki's shells that split into shards). Only a unit whose base declares `duo` carries it.
+ *   beamDmg · beamRate (attacks a second, ×) · beamRange · beamPierce · beams (beams per attack) · beamPen
+ *   (armour ignored) · beamAir (× vs flyers) · beamMul (× beam damage) · rampPer / rampMax (Resonant Light) ·
+ *   beamSilence (s)
+ *   every (every Nth shell splits; the smallest wins, 0 never) · shards (per split shell; the largest wins) ·
+ *   shardAdd (more shards on top) · shardShare (× of the shell hit) · shardDmg (flat on top) · shardSplash ·
+ *   shardSlow / slowTime · shardShred · shardVuln (Brittle for vulnTime s) · fullEvery (every Nth volley
+ *   splits completely; 0 never; the smallest wins: Potential P6)
+ */
+function normDuo(t = {}) {
+  return {
+    beamDmg: t.beamDmg ?? 0,
+    beamRate: t.beamRate ?? 1,
+    beamRange: t.beamRange ?? 3,
+    beamPierce: t.beamPierce ?? 1,
+    beams: t.beams ?? 1,
+    beamPen: t.beamPen ?? 0,
+    beamAir: t.beamAir ?? 1,
+    beamMul: t.beamMul ?? 1,
+    rampPer: t.rampPer ?? 0,
+    rampMax: t.rampMax ?? 0,
+    beamSilence: t.beamSilence ?? 0,
+    every: t.every ?? 0,
+    shards: t.shards ?? 0,
+    shardAdd: t.shardAdd ?? 0,
+    shardShare: t.shardShare ?? 0.4,
+    shardDmg: t.shardDmg ?? 0,
+    shardSplash: t.shardSplash ?? 0.6,
+    shardSlow: t.shardSlow ?? 0,
+    slowTime: t.slowTime ?? 0,
+    shardShred: t.shardShred ?? 0,
+    shardVuln: t.shardVuln ?? 0,
+    vulnTime: t.vulnTime ?? 3,
+    fullEvery: t.fullEvery ?? 0,
+  };
+}
+const DUO_ADDS = ['beamDmg', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'rampPer', 'rampMax', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardShred', 'shardVuln'];
+const DUO_MULS = ['beamRate', 'beamAir', 'beamMul'];
+const DUO_MAX = ['shards', 'beamSilence', 'shardSlow', 'slowTime', 'vulnTime'];
+const DUO_MIN = ['every', 'fullEvery'];
 const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
 const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
@@ -401,6 +443,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     ...(b.vine ? { vine: normVine(b.vine) } : null),
     ...(b.ball ? { ball: normBall(b.ball) } : null),
     ...(b.blade ? { blade: normBlade(b.blade) } : null),
+    ...(b.duo ? { duo: normDuo(b.duo) } : null),
     // Tenka's keys only when the base has them (no girl does today: no null defaults, see normLab)
     ...(b.lab ? { lab: normLab(b.lab) } : null),
     ...(b.well ? { well: normWell(b.well) } : null),
@@ -556,6 +599,14 @@ export function applyModSet(s, mods, acc) {
       if (!s.ball) continue;
       for (const k of BALL_ADDS) if (v[k] != null) s.ball[k] += v[k];
       for (const k of BALL_FLAGS) if (v[k]) s.ball[k] = true;
+    } else if (key === 'duo') {
+      // only the duo's beam and prism change (src/sim/duo.js)
+      if (!s.duo) continue;
+      const d = s.duo;
+      for (const k of DUO_ADDS) if (v[k] != null) d[k] += v[k];
+      for (const k of DUO_MULS) if (v[k] != null) d[k] *= v[k];
+      for (const k of DUO_MAX) if (v[k] != null) d[k] = Math.max(d[k], v[k]);
+      for (const k of DUO_MIN) if (v[k] > 0) d[k] = d[k] > 0 ? Math.min(d[k], v[k]) : v[k];
     } else if (key === 'vine') {
       // only a vine girl's vines change (src/sim/vines.js)
       if (!s.vine) continue;
@@ -686,6 +737,8 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   if (s.ring) s.ring.scissorDmg *= u.damageMul;
   if (s.drink) s.drink.towelDmg *= u.damageMul;
   if (s.ball) s.ball.pinDmg *= u.damageMul;
+  // the duo: Kohaku's beam follows her level, gear and Potential like the shells (her shards are a share of a shell)
+  if (s.duo) s.duo = { ...s.duo, beamDmg: s.duo.beamDmg * u.damageMul, shardDmg: s.duo.shardDmg * u.damageMul, beamRate: s.duo.beamRate * u.rateMul, beamRange: s.duo.beamRange * u.rangeMul };
   if (s.vine) {
     s.vine.dps *= u.damageMul;
     s.vine.bedDmg *= u.damageMul;
@@ -796,6 +849,15 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
     s.ball.bounce = Math.max(0, Math.round(s.ball.bounce));
     s.ball.reach = Math.max(0, s.ball.reach);
     s.ball.share = Math.min(1, Math.max(0, s.ball.share));
+  }
+  if (s.duo) {
+    const d = s.duo;
+    d.beamPierce = Math.max(1, Math.round(d.beamPierce));
+    d.beams = Math.max(1, Math.round(d.beams));
+    d.every = Math.max(0, Math.round(d.every));
+    d.fullEvery = Math.max(0, Math.round(d.fullEvery));
+    d.shards = Math.max(0, Math.round(d.shards + d.shardAdd));
+    d.shardAdd = 0;
   }
   if (s.vine) {
     s.vine.every = Math.max(1, s.vine.every);
