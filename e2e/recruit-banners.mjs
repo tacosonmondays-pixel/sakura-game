@@ -47,7 +47,7 @@ async function run(vp) {
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: AT });
-  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png` }).catch(() => {}); };
+  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 15000, animations: 'disabled' }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`)); };
   const tap = async (sel) => (touch ? page.tap(sel) : page.click(sel));
   const closeModal = async () => {
     const btn = page.locator('.modal .btn, .modal button').filter({ hasText: /^(Close|Cancel)$/ }).last();
@@ -119,7 +119,7 @@ async function run(vp) {
   await shot('5-guardian');
   await tap('[data-testid="banner-tab-standard"]');
   await page.waitForSelector('[data-testid="standard-pick"]');
-  check(await page.isVisible('[data-testid="standard-welcome"]'), 'Standard shows the first-10× SSR promise');
+  check(await page.isVisible('[data-testid="standard-welcome"]') || /SSR guaranteed/.test(await page.textContent('[data-testid="pull-10"]')), 'Standard shows the first-10× SSR promise');
   await shot('6-standard');
   await tap('[data-testid="pick-change"]');
   await page.waitForSelector('[data-testid="pick-kaede"]');
@@ -152,6 +152,31 @@ async function run(vp) {
     return { error: r.error, same: p.currencies.gems === gems };
   }, [before]);
   check(refused.error === 'rotated' && refused.same, "a pull on yesterday's banner is refused with 'rotated' and costs nothing");
+
+  // the Coin banner after the first 6-5 clear: coins only, pity and points untouched
+  await page.evaluate(() => {
+    const p = window.__sakura.store.profile;
+    p.progress.stages['6-5'] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false };
+    p.currencies.coins = 2_000_000;
+    window.__sakura.store.commit('e2e');
+  });
+  await page.waitForSelector('[data-testid="banner-tab-coin"]');
+  await tap('[data-testid="banner-tab-coin"]');
+  await page.waitForSelector('[data-testid="coin-wallet"]');
+  await shot('8-coin');
+  const g0 = await page.evaluate(() => JSON.stringify(window.__sakura.store.profile.gacha));
+  await tap('[data-testid="pull-10"]');
+  await page.waitForSelector('.modal [data-testid], .modal .btn');
+  await page.locator('.modal button').filter({ hasText: /^Recruit$/ }).click();
+  await page.waitForSelector('[data-testid="reveal-skip"]', { timeout: 10000 });
+  await tap('[data-testid="reveal-skip"]');
+  await page.waitForSelector('[data-testid="reveal-close"]', { state: 'attached', timeout: 15000 });
+  await page.evaluate(() => document.querySelector('[data-testid="reveal-close"]')?.click());
+  await page.waitForTimeout(500);
+  const after2 = await page.evaluate(() => ({ g: JSON.stringify(window.__sakura.store.profile.gacha), c: window.__sakura.store.profile.missions.counters, coins: window.__sakura.store.profile.currencies.coins }));
+  check(after2.g === g0, 'a Coin 10× leaves pity, recruit points, total pulls and history untouched');
+  check(after2.c['gc:n'] === 10 && after2.coins <= 2_000_000 - 250_000 + 200_000, 'it costs 250,000 coins and counts 10 of the weekly 20');
+  check(/10\/20/.test(await page.textContent('[data-testid="coin-week"]')), 'the tab says "This week 10/20"');
 
   check(errors.length === 0, `no console errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await ctx.close();

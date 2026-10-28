@@ -19,11 +19,11 @@ import { BANNER_KINDS, STANDARD_SSR } from '../../data/banners.js';
 import { portraitHTML, portraitUrl, artUrl, hasPortrait } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
-import { pull, pullCost, canSpark, spark } from '../../systems/gacha.js';
+import { pull, pullCost, canSpark, spark, pullFixed, fixedCost, fpBalance } from '../../systems/gacha.js';
 import {
   activeBanners, bannerOfSlot, bannerDay, noteBannerDay, bannerRates, lookAhead, upcomingDebuts, sparkRule, sparkPool,
   unitClass, promiseCount, LEGEND_PROMISE, setStandardPick, canChangePick, bannerEndsIn, numberKey, dayStartMs,
-  towerBanner, heroBanner, legendBanner, standardBanner,
+  towerBanner, heroBanner, legendBanner, standardBanner, coinPullsLeft, COIN,
 } from '../../systems/banners.js';
 import { formatCountdown } from '../../core/reset.js';
 import { itemCount } from '../../systems/inventory.js';
@@ -34,7 +34,8 @@ import { revealTag, revealRibbon, showPotentialUp, spareText } from '../potentia
 import { spareFifths } from '../../systems/essence.js';
 
 /** Rail order (§A.5): LR, Student, Guardian, Standard (Coin and Friendship join with G4 / G5). */
-const SLOTS = ['legend', 'tower', 'hero', 'standard'];
+const SLOTS = ['legend', 'tower', 'hero', 'standard', 'coin', 'friend'];
+const isFixed = (b) => b.slot === 'coin' || b.slot === 'friend';
 const SLOT_ICON = { legend: 'star', tower: 'students', hero: 'shield', standard: 'gacha' };
 const TAB_KEY = 'sakura-recruit-tab';
 const CLASS_LABEL = { standard: 'Standard', premium: 'Premium', legend: 'LR unit' };
@@ -83,6 +84,7 @@ export function render(root, params = {}) {
     const profile = store.profile;
     const b = current();
     if (rolled()) { toast('The banners just changed (7 PM Central). Here are today\'s.', 'info'); draw(); return; }
+    if (isFixed(b)) return doFixedPull(b, count);
     const cost = pullCost(profile, count);
     if (!cost.ok) {
       showNoGems(cost.gems);
@@ -108,6 +110,34 @@ export function render(root, params = {}) {
       onAgain: () => { overlay = null; busy = false; draw(); doPull(count); },
       onClose: () => { overlay = null; busy = false; draw(); },
       againLabel: `Recruit ×${count} again`,
+    });
+  }
+
+  /** Coin / Friendship: coins or Friend Points, no pity, no points (§A.1b). */
+  async function doFixedPull(b, count) {
+    const profile = store.profile;
+    const price = fixedCost(b.slot, count);
+    const coin = b.slot === 'coin';
+    if (coin && coinPullsLeft(profile) < count) return toast(`This week's ${COIN.weeklyCap} Coin pulls are used. More after Sunday 7 PM Central.`, 'info');
+    const have = coin ? itemCount(profile, 'coins') : fpBalance(profile);
+    if (have < price) return toast(coin ? 'Not enough coins.' : 'Not enough Friend Points.', 'bad');
+    const ok = await confirmDialog(`${formatNumber(price)} ${coin ? 'coins' : 'Friend Points'} for ${count} recruit${count > 1 ? 's' : ''}. ${coin ? 'Coins' : 'Friend Points'} after this: ${formatNumber(have - price)}.`, { title: `${BANNER_KINDS[b.slot].label} ×${count}`, ok: 'Recruit', okKind: 'yellow' });
+    if (!ok) return;
+    busy = true;
+    const r = pullFixed(profile, b.slot, count, uiRng(), { bannerId: b.id });
+    if (!r.ok) {
+      busy = false;
+      toast({ cap: 'Weekly limit reached.', funds: 'Not enough to pay.', rotated: 'The weekly picks just changed. Nothing was spent.', locked: 'Not open yet.' }[r.error] || 'Recruitment failed', 'bad');
+      draw();
+      return;
+    }
+    store.commit('pull');
+    store.saveNow();
+    overlay = playReveal(r.results, {
+      onAgain: () => { overlay = null; busy = false; draw(); doPull(count); },
+      onClose: () => { overlay = null; busy = false; draw(); },
+      againLabel: `Recruit ×${count} again`,
+      fixed: true,
     });
   }
 
@@ -203,22 +233,24 @@ function countdown(b) {
 function featuredLine(b) {
   const u = UNIT_MAP[b.select];
   const cls = unitClass(b.select);
-  const rate = b.legend ? b.legendRate / 10000 : 1;
+  const rate = b.legend ? b.legendRate / 10000 : isFixed(b) ? b.rates.select / 10000 : 1;
   return h('div.bn-feat', { 'data-testid': 'banner-featured' },
     h('span.bn-feat-k', b.legend ? 'LR unit' : 'Featured SSR'),
     h('b.bn-feat-name', u.name),
-    h('span.bn-feat-rate', `${rate.toFixed(1)}%`),
+    h('span.bn-feat-rate', `${rate.toFixed(rate < 0.5 ? 2 : 1)}%`),
     h('span.bn-class', { 'data-cls': cls }, cls === 'legend' ? 'No spark' : CLASS_LABEL[cls]));
 }
 
 function srLine(b) {
   return h('div.bn-srs', h('span.bn-feat-k', 'Rate-up SR'),
     b.srUps.map((id) => h('span.ma-feat-chip', { 'data-testid': `sr-up-${id}` }, svgEl(roleIcon(UNIT_MAP[id].role), 'ma-trait'), UNIT_MAP[id].name)),
-    h('span.bn-feat-rate', '3.0% each'));
+    h('span.bn-feat-rate', isFixed(b) ? '2.5% each' : '3.0% each'));
 }
 
 function nextLine(b) {
   if (b.slot === 'standard') return null;
+  if (b.slot === 'coin') return h('div.bn-next', { 'data-testid': 'coin-week' }, `This week ${COIN.weeklyCap - coinPullsLeft(store.profile)}/${COIN.weeklyCap} · resets Sunday 7 PM Central`);
+  if (b.slot === 'friend') return h('div.bn-next', 'Earn Friend Points when friends team up with your Support Student');
   if (b.slot === 'legend') {
     if (b.debut) return h('div.bn-next', `Debut week · ends ${dayName(b.day + Math.round((b.endsAt - Date.now()) / 86400000))} 7 PM Central`);
     return h('div.bn-next', 'LR Banners switch daily at 7 PM Central');
@@ -229,6 +261,8 @@ function nextLine(b) {
 }
 
 function bannerDesc(b) {
+  if (b.slot === 'coin') return 'Paid with coins: mostly R and SR copies for Potential, a tiny Standard SSR chance. No pity and no Recruit Points; spare copies pay coins.';
+  if (b.slot === 'friend') return 'Paid with Friend Points: Standard girls only. No pity and no Recruit Points; spare copies pay coins.';
   if (b.slot === 'legend') return 'An LR unit starts in SSR form, becomes UR at ★5 and LR through Limit Break. She cannot be sparked, but pulls here still earn Recruit Points for other girls.';
   if (b.slot === 'standard') return 'Standard students and guardians only. You choose its featured SSR.';
   if (b.slot === 'hero') return 'Guardians: the featured SSR hero, plus every Standard SR and R.';
@@ -273,7 +307,7 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
   const pityPct = (g.pity || 0) / GACHA.pity;
   const promise = b.legend ? promiseCount(profile, b.legend) : 0;
   const debutSoon = b.slot !== 'legend' ? upcomingDebuts(b.day, 7)[0] : null;
-  const side = h('section.ma-recruit-side',
+  const side = isFixed(b) ? fixedSide(b) : h('section.ma-recruit-side',
     h('div.ma-pity.panel', { 'data-testid': 'pity' },
       h('div.ma-pity-head', h('span.ma-sub', 'SSR pity'), h('b.ma-pity-left', { 'data-testid': 'pity-left' }, `${left}`), h('span.muted', left === 1 ? 'pull to a guaranteed SSR' : 'pulls to a guaranteed SSR')),
       h('div.ma-progress', { role: 'img', 'aria-label': `${g.pity || 0} of ${GACHA.pity} pulls since your last SSR` }, h('i', { style: { width: `${Math.round(pityPct * 100)}%` } })),
@@ -301,6 +335,21 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
   const bar = h('section.ma-pull-bar', pullButton(1, doPull, b), pullButton(10, doPull, b));
   wrap.appendChild(bar);
   return wrap;
+}
+
+/** Coin / Friendship side: the wallet and the week (no pity, no points: they never touch them). */
+function fixedSide(b) {
+  const profile = store.profile;
+  const coin = b.slot === 'coin';
+  const left = coin ? coinPullsLeft(profile) : null;
+  return h('section.ma-recruit-side',
+    h('div.ma-pity.panel', { 'data-testid': coin ? 'coin-wallet' : 'fp-wallet' },
+      h('div.ma-pity-head', h('span.ma-sub', coin ? 'Coins' : 'Friend Points'), h('b.ma-pity-left', formatNumber(coin ? itemCount(profile, 'coins') : fpBalance(profile))), h('span.muted', coin ? `${formatNumber(COIN.single)} a pull` : '100 a pull')),
+      coin ? h('div.ma-progress', h('i', { style: { width: `${Math.round(((COIN.weeklyCap - left) / COIN.weeklyCap) * 100)}%` } })) : null,
+      h('div.ma-pity-foot.muted', coin ? `${left} of ${COIN.weeklyCap} pulls left this week` : 'Wallet holds up to 5,000'),
+    ),
+    h('div.ma-pity.panel', h('div.ma-pity-foot', 'These pulls never move your pity or Recruit Points.')),
+  );
 }
 
 function sparkHint(profile, b) {
@@ -347,6 +396,17 @@ function ticketPill(id, count) {
 
 function pullButton(count, doPull, b) {
   const profile = store.profile;
+  if (isFixed(b)) {
+    const price = fixedCost(b.slot, count);
+    const coin = b.slot === 'coin';
+    const have = coin ? itemCount(profile, 'coins') : fpBalance(profile);
+    const capped = coin && coinPullsLeft(profile) < count;
+    const ok = have >= price && !capped;
+    return h(`button.ma-pull.ma-pull-${count}${ok ? '' : '.short'}`, { onclick: () => doPull(count), 'data-testid': `pull-${count}` },
+      h('span.ma-pull-label', `Recruit ×${count}`),
+      h('span.ma-pull-cost', coin ? h(`span.ma-pay${have >= price ? '' : '.short'}`, svgEl(currencyIcon('coins'), 'ma-pay-icon'), formatNumber(price)) : h('span.ma-pay', `${formatNumber(price)} FP`)),
+      h('span.ma-pull-note', capped ? 'Weekly limit reached' : coin ? `Coins after: ${formatNumber(Math.max(0, have - price))}` : count === 10 ? 'SR or better guaranteed' : null));
+  }
   const cost = pullCost(profile, count);
   const payment = cost.items.length
     ? cost.items.map((it) => h('span.ma-pay', svgEl(itemIcon(it.id, { px: 22 }), 'ma-pay-icon'), `×${it.count}`))
@@ -418,15 +478,18 @@ function showRates(b) {
     body: h('div.ma-rates', { 'data-testid': 'rates-page' },
       h('table.ma-table', h('thead', h('tr', h('th', 'Rarity'), h('th', 'Rate'), h('th', 'Pool'))), h('tbody', ['SSR', 'SR', 'R'].map(rarityRow))),
       h('ul.ma-rate-rules',
-        b.legend ? h('li', h('b', 'LR unit: '), `${name} is ${pct(b.legendRate / 10000, 2)}, taken out of the 1.5% SSR line${b.debut ? ' (debut week)' : ''}. She cannot be sparked or chosen with a Select Ticket.`) : h('li', h('b', 'Featured SSR: '), `${name} is 1.0% of the 1.5% SSR line.`),
-        h('li', h('b', 'Rate-up SR: '), `${b.srUps.map((id) => UNIT_MAP[id].name).join(', ')}: 3.0% each.`),
-        h('li', h('b', 'Pity: '), `the ${GACHA.pity}th recruit without an SSR is always an SSR. One counter for every gem banner; any SSR resets it.${b.legend ? ` On this banner that SSR is ${name} ${Math.round(t.legendShare * 100)}% of the time.` : ''}`),
-        b.legend ? h('li', h('b', 'Legend Promise: '), `the ${LEGEND_PROMISE}th pull counted on ${name}'s LR Banners is ${name}. The count restarts when she joins you.`) : null,
-        h('li', h('b', 'Consolidated SSR rate: '), 'about 2.02% per recruit including pity, on every gem banner.'),
-        h('li', h('b', '10× guarantee: '), `every 10× recruit contains at least one SR or better.${b.slot === 'standard' && b.firstTen ? ' Your first Standard 10× also guarantees a Standard SSR.' : ''}`),
-        h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${GACHA.sparkCost} points spark a Standard SSR any day, or a Premium SSR on her Spotlight day. LR units cannot be sparked.`),
+        isFixed(b) ? h('li', h('b', 'Fixed banner: '), `${b.slot === 'coin' ? 'Coins' : 'Friend Points'} only. No pity, no Recruit Points, no spark; spare copies pay coins (R 1,000 · SR 5,000 · SSR 20,000). The featured SSR is ${pct(t.units[0].pct, 3)}; SR rate-ups 2.5% each.`) : null,
+        isFixed(b) ? null : b.legend ? h('li', h('b', 'LR unit: '), `${name} is ${pct(b.legendRate / 10000, 2)}, taken out of the 1.5% SSR line${b.debut ? ' (debut week)' : ''}. She cannot be sparked or chosen with a Select Ticket.`) : h('li', h('b', 'Featured SSR: '), `${name} is 1.0% of the 1.5% SSR line.`),
+        ...(isFixed(b) ? [] : [
+          h('li', h('b', 'Rate-up SR: '), `${b.srUps.map((id) => UNIT_MAP[id].name).join(', ')}: 3.0% each.`),
+          h('li', h('b', 'Pity: '), `the ${GACHA.pity}th recruit without an SSR is always an SSR. One counter for every gem banner; any SSR resets it.${b.legend ? ` On this banner that SSR is ${name} ${Math.round(t.legendShare * 100)}% of the time.` : ''}`),
+          b.legend ? h('li', h('b', 'Legend Promise: '), `the ${LEGEND_PROMISE}th pull counted on ${name}'s LR Banners is ${name}. The count restarts when she joins you.`) : null,
+          h('li', h('b', 'Consolidated SSR rate: '), 'about 2.02% per recruit including pity, on every gem banner.'),
+          h('li', h('b', '10× guarantee: '), `every 10× recruit contains at least one SR or better.${b.slot === 'standard' && b.firstTen ? ' Your first Standard 10× also guarantees a Standard SSR.' : ''}`),
+          h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${GACHA.sparkCost} points spark a Standard SSR any day, or a Premium SSR on her Spotlight day. LR units cannot be sparked.`),
+        ]),
         h('li', h('b', 'Duplicates: '), potentialDupesRule()),
-        h('li', h('b', 'Tickets first: '), 'Recruit tickets work on every gem banner and are always used before gems.'),
+        isFixed(b) ? null : h('li', h('b', 'Tickets first: '), 'Recruit tickets work on every gem banner and are always used before gems.'),
       ),
       h('h4', 'Per-unit rates'),
       h('table.ma-table.ma-unit-rates', h('thead', h('tr', h('th', 'Unit'), h('th', 'Role'), h('th', 'Rate'))), h('tbody', unitRows)),
@@ -476,7 +539,7 @@ const RANK = { R: 0, SR: 1, SSR: 2 };
  * sequence → SSR showcase → readable results. Skip jumps straight to the results.
  * @returns {HTMLElement} the overlay
  */
-function playReveal(results, { onClose, onAgain = null, againLabel = '', skipIntro = false } = {}) {
+function playReveal(results, { onClose, onAgain = null, againLabel = '', skipIntro = false, fixed = false } = {}) {
   const best = results.reduce((b, r) => (RANK[r.rarity] > RANK[b] ? r.rarity : b), 'R');
   const reduce = !!store.profile.settings?.reduceMotion;
   const timers = [];
@@ -584,7 +647,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
         mementos ? h('span.ma-sum-frag', { 'data-testid': 'reveal-sum-mementos' }, svgEl(itemIcon('memento', { px: 22 }), 'ma-pay-icon'), `+${mementos}`) : null,
         moonpearls ? h('span.ma-sum-frag', svgEl(itemIcon('moonpearl', { px: 22 }), 'ma-pay-icon'), `+${moonpearls}`) : null,
         spares.some((r) => r.spare.fifths === 1) ? h('span.ma-sum-pips', { title: 'R spares: 5 make 1 recruit point' }, [0, 1, 2, 3, 4].map((i) => h(`span.ma-pip${i < spareFifths(store.profile) ? '.on' : ''}`))) : null,
-        h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`),
+        fixed ? null : h('span', `Pity ${store.profile.gacha?.pity || 0}/${GACHA.pity}`), // (Coin / Friendship never move it)
       ),
       h('div.ma-gacha-actions',
         // not `onClick: close`: the click event would arrive as `silent` and skip onClose
@@ -656,6 +719,7 @@ function revealCard(r, i) {
         h('span.ma-gc-name', u.name, revealRibbon(r, u)),
         // "Kage's Essence +1 · P5 ready!" (a spare: its Mementos / Moonpearls)
         r.isNew ? h('span.ma-gc-new', 'NEW')
+          : r.spare?.coins ? h('span.ma-gc-frag', { title: `Spare → ${spareText(r.spare)}` }, svgEl(currencyIcon('coins'), 'ma-gc-frag-icon'), `+${formatNumber(r.spare.coins)}`)
           : r.spare ? h('span.ma-gc-frag', { title: `Spare → ${spareText(r.spare)}` }, svgEl(itemIcon(r.spare.moonpearls ? 'moonpearl' : 'memento', { px: 16 }), 'ma-gc-frag-icon'), `+${r.spare.moonpearls || r.spare.mementos}`)
             : h('span.ma-gc-frag', { title: r.readyStep ? `${u.name}'s Essence +1 · P${r.readyStep} ready!` : `${u.name}'s Essence +1` }, svgEl(itemIcon('kindred_sr', { px: 16 }), 'ma-gc-frag-icon'), '+1'),
         revealTag(r),

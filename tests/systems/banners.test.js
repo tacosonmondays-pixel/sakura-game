@@ -328,3 +328,88 @@ describe('saves (§I.3)', () => {
     expect(B.drawWeighted(B.bannerWeights(B.standardBanner(gameDayNumber())), stub(rollFor('aoi'))).unitId).toBe('aoi');
   });
 });
+
+describe('G0 housekeeping', () => {
+  it('an old save with the Beta letter shows the amended text after migrateProfile', async () => {
+    const { BETA_GIFT_ID } = await import('../../src/systems/mail.js');
+    const p = createProfile();
+    p.mail.letters = [{ id: BETA_GIFT_ID, from: 'Sakura Academy Staff', title: 'Thank you, beta Sensei!', body: 'please accept ... an SSR Select Ticket (choose ANY SSR student you like), a big bundle', rewards: [{ id: 'gems', count: 3000 }], sentAt: 1, expiresAt: null, claimed: false }];
+    p.mail.delivered = [BETA_GIFT_ID];
+    const back = migrateProfile(JSON.parse(JSON.stringify(p)));
+    const l = back.mail.letters.find((x) => x.id === BETA_GIFT_ID);
+    expect(l.body).not.toContain('ANY SSR');
+    expect(l.body).toContain('LR units arrive only through their LR Banners');
+    expect(l.rewards).toEqual([{ id: 'gems', count: 3000 }]);
+    expect(migrateProfile(JSON.parse(JSON.stringify(back))).mail.letters[0].body).toBe(l.body);
+  });
+  it('the banner counter prefixes never collide with the existing namespaces', () => {
+    const mine = ['gl:', 'gs:', 'gb:', 'gc:', 'frp:', 'wb:', 'lr:', 'lbt:'];
+    const existing = ['ach:', 'bt:', 'clan:', 'craft:', 'evb:', 'evm:', 'evo:', 'evp:', 'evr:', 'evs:', 'evsw:', 'evswd:', 'evt:', 'fpm:', 'fpu:', 'gear:', 'inv:', 'join:', 'lv:', 'own:', 'pfs:', 'pg:', 'pl:', 'pot:', 'sl:', 'ss:', 'tag:', 'tagt:', 'tbest:', 'essB:', 'essU:', 'essX:', 'spk:'];
+    for (const a of mine) for (const b of existing) expect(a.startsWith(b) || b.startsWith(a)).toBe(false);
+  });
+});
+
+describe('Coin banner (§A.1b, §A.2)', async () => {
+  const { pullFixed, fpBalance } = await import('../../src/systems/gacha.js');
+  const { COIN_SPARE } = await import('../../src/systems/essence.js');
+  const cleared = (p) => { p.progress.stages['6-5'] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false }; return p; };
+  const maxed = () => {
+    const p = cleared(createProfile());
+    for (const u of UNITS) if (B.unitClass(u.id) === 'standard') p.units[u.id] ||= { ...p.units.hikari, dupes: 50 };
+    p.currencies.coins = 1e9;
+    return p;
+  };
+  it('opens after the first 6-5 clear', () => {
+    const p = createProfile();
+    p.currencies.coins = 1e9;
+    expect(pullFixed(p, 'coin', 1, createRng(1))).toMatchObject({ ok: false, error: 'locked' });
+    expect(B.activeBanners(p).some((b) => b.slot === 'coin')).toBe(false);
+    cleared(p);
+    expect(B.activeBanners(p).some((b) => b.slot === 'coin')).toBe(true);
+    expect(pullFixed(p, 'coin', 1, createRng(1)).ok).toBe(true);
+  });
+  it('coin pulls never touch pity, recruit points, history, spk:r, Mementos or Moonpearls (spares pay coins)', () => {
+    const p = maxed();
+    p.gacha.pity = 33;
+    const before = JSON.stringify({ g: p.gacha, spk: p.missions.counters['spk:r'] || 0, m: p.items.memento || 0, mp: p.items.moonpearl || 0, pulls: p.stats.pulls });
+    const now = at('2026-11-10');
+    let coinsBack = 0;
+    for (const w of ['2026-11-10', '2026-11-17', '2026-11-24', '2026-12-01', '2026-12-08']) {
+      for (let k = 0; k < 2; k++) {
+        const r = pullFixed(p, 'coin', 10, createRng(`${w}-${k}`), { now: at(w) });
+        expect(r.ok).toBe(true);
+        expect(r.results.some((x) => x.rarity !== 'R')).toBe(true);
+        coinsBack += r.results.reduce((a, x) => a + (x.spare?.coins || 0), 0);
+        for (const x of r.results) if (x.spare) expect(x.spare).toMatchObject({ mementos: 0, moonpearls: 0, points: 0 });
+      }
+    }
+    expect(coinsBack).toBeGreaterThan(0);
+    expect(JSON.stringify({ g: p.gacha, spk: p.missions.counters['spk:r'] || 0, m: p.items.memento || 0, mp: p.items.moonpearl || 0, pulls: p.stats.pulls })).toBe(before);
+    expect(p.missions.counters['gc:t']).toBe(100);
+    void now; void COIN_SPARE;
+  });
+  it('20 pulls a game week, forward-only', () => {
+    const p = maxed();
+    const now = at('2026-11-10');
+    expect(pullFixed(p, 'coin', 10, createRng(1), { now }).ok).toBe(true);
+    expect(pullFixed(p, 'coin', 10, createRng(2), { now }).ok).toBe(true);
+    expect(pullFixed(p, 'coin', 1, createRng(3), { now })).toMatchObject({ ok: false, error: 'cap' });
+    expect(B.coinPullsLeft(p, now)).toBe(0);
+    // the next game week (Sunday 7 PM Central) refills it; a clock set back does not
+    expect(B.coinPullsLeft(p, at('2026-11-16'))).toBe(20);
+    expect(pullFixed(p, 'coin', 1, createRng(4), { now: at('2026-11-16') }).ok).toBe(true);
+    expect(B.coinPullsLeft(p, now)).toBe(19);
+  });
+  it('Coin and Friendship tables: tiny standard-only SSR line, select 2/3 of it, SR rate-ups 2.5%', () => {
+    const d = B.keyNumber('2026-11-10');
+    for (const b of [B.coinBanner(d), B.friendBanner(d)]) {
+      const w = B.bannerWeights(b);
+      expect(w.reduce((a, e) => a + e.ppm, 0)).toBe(1_000_000);
+      for (const e of w) expect(B.unitClass(e.unitId)).toBe('standard');
+      expect(w.filter((e) => e.tag === 'up').map((e) => e.ppm)).toEqual([25000, 25000, 25000]);
+    }
+    expect(B.bannerWeights(B.coinBanner(d)).filter((e) => e.rarity === 'SSR').reduce((a, e) => a + e.ppm, 0)).toBe(2500);
+    expect(B.bannerWeights(B.friendBanner(d)).filter((e) => e.rarity === 'SSR').reduce((a, e) => a + e.ppm, 0)).toBe(3000);
+    expect(fpBalance(createProfile())).toBe(0);
+  });
+});

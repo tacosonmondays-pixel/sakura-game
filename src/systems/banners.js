@@ -15,7 +15,7 @@ import {
   STANDARD_SSR, LISTS, PINS, RATES, LEGEND_PROMISE, LEGEND_SR, LEGEND_NAMES, BANNER_KINDS, SPOTLIGHT_TITLES,
   GRACE_UNITS, GRACE_DAYS, unitClass, isLegendUnit,
 } from '../data/banners.js';
-import { gameDayNumber, gameDayStart, gameWeekNumber, nextDailyReset } from '../core/reset.js';
+import { gameDayNumber, gameDayStart, gameWeekNumber, nextDailyReset, nextWeeklyReset } from '../core/reset.js';
 
 export { unitClass, isLegendUnit };
 
@@ -237,10 +237,58 @@ export function setStandardPick(profile, unitId, now = Date.now()) {
 /** Can the Standard pick be changed today? */
 export const canChangePick = (profile, now = Date.now()) => !(cnt(profile, 'gs:pickDay') >= bannerDay(profile, now));
 
-/** Every live gem banner today, in rail order: LR, Student, Guardian, Standard. */
+// ---------------------------------------------------------------------------
+// Coin and Friendship (§A.1b, §A.2): weekly picks, their own tiny tables, never pity or points
+// ---------------------------------------------------------------------------
+
+/** The game week of banner day d. */
+export const weekOfDay = (d) => gameWeekNumber(dayStartMs(d) + 1);
+
+export const COIN = Object.freeze({ single: 25000, ten: 250000, weeklyCap: 20, unlockStage: '6-5' });
+export const FRIEND = Object.freeze({ single: 100, ten: 1000, walletCap: 5000 });
+
+function fixedBanner(slot, d, offSR, offSel, rates) {
+  const pool = standardPool();
+  const w = weekOfDay(d);
+  const select = pool.SSR[mod(w + offSel, pool.SSR.length)];
+  return {
+    slot, kind: slot, day: d, week: w, id: `${slot}:${w}`, currency: slot === 'coin' ? 'coins' : 'friendPoints', rates,
+    name: BANNER_KINDS[slot].label, title: slot === 'coin' ? 'Coin Recruit' : 'Friendship Recruit',
+    select, srUps: weeklySR(w, offSR),
+    pool: { SSR: [select, ...pool.SSR.filter((x) => x !== select)], SR: pool.SR, R: pool.R },
+    endsAt: nextWeeklyReset(dayStartMs(d) + 1),
+  };
+}
+/** The Coin banner of day d's game week (standard units only; select and SR rate-ups weekly). */
+export const coinBanner = (d) => fixedBanner('coin', d, 4, 0, RATES.coin);
+/** The Friendship banner of day d's game week. */
+export const friendBanner = (d) => fixedBanner('friend', d, 8, 2, RATES.friend);
+
+/** The Coin banner opens after the first clear of 6-5 (§A.2: Titan Trials Hard opens, coin income rises). */
+export function coinUnlocked(profile) {
+  const e = profile?.progress?.stages?.[COIN.unlockStage];
+  return !!e && ['easy', 'normal', 'hard', 'nightmare'].some((k) => e[k]);
+}
+/** Coin pulls left this game week (the cap is forward-only, like craft:wk). */
+export function coinPullsLeft(profile, now = Date.now()) {
+  const w = weekOfDay(bannerDay(profile, now));
+  const c = profile?.missions?.counters || {};
+  return c['gc:wk'] === w ? Math.max(0, COIN.weeklyCap - (Number(c['gc:n']) || 0)) : COIN.weeklyCap;
+}
+
+/** Friend Support (G5) switches the Friendship tab on. */
+let friendshipLive = false;
+export const setFriendshipLive = (on) => { friendshipLive = !!on; };
+export const isFriendshipLive = () => friendshipLive;
+
+/** Every live banner today, in rail order: LR, Student, Guardian, Standard, Coin (after 6-5), Friendship. */
 export function activeBanners(profile, now = Date.now()) {
   const d = bannerDay(profile, now);
-  return [legendBanner(d), towerBanner(d), heroBanner(d), standardBanner(d, profile)].filter(Boolean);
+  return [
+    legendBanner(d), towerBanner(d), heroBanner(d), standardBanner(d, profile),
+    coinUnlocked(profile) ? coinBanner(d) : null,
+    friendshipLive ? friendBanner(d) : null,
+  ].filter(Boolean);
 }
 
 /** The live banner with this id, or null if it rotated away. */

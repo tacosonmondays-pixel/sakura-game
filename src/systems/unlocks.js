@@ -30,7 +30,7 @@ export function isOwned(profile, unitId) {
  * @returns {{ isNew: boolean, essence: 0|1, spare: null|{ mementos: number, moonpearls: number, points: number, fifths: number },
  *   potential: number, essenceHeld: number, readyStep: number|null, potentialUp: false }}
  */
-export function grantUnit(profile, unitId, now = Date.now()) {
+export function grantUnit(profile, unitId, now = Date.now(), { source = null } = {}) {
   const def = UNIT_MAP[unitId];
   if (!def) throw new Error(`Unknown unit: ${unitId}`);
   if (!profile.units[unitId]) {
@@ -46,7 +46,7 @@ export function grantUnit(profile, unitId, now = Date.now()) {
   const st = profile.units[unitId];
   st.dupes = Math.max(0, Math.floor(Number(st.dupes) || 0)) + 1;
   shadowPotential(profile, unitId, now);
-  return { isNew: false, ...receiveDuplicate(profile, unitId), potentialUp: false };
+  return { isNew: false, ...receiveDuplicate(profile, unitId, { source }), potentialUp: false };
 }
 
 /** @returns {{ easy: boolean, normal: boolean, hard: boolean, nightmare: boolean }} */

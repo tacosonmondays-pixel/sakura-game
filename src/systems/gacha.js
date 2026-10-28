@@ -15,6 +15,7 @@ import { track } from './missions.js';
 import {
   activeBanners, liveBanner, standardBanner, bannerDay, noteBannerDay, bannerWeights, drawWeighted, sparkRule,
   selectTicketAllowed, promiseKey, LEGEND_PROMISE, standardPool, unitClass,
+  coinBanner, friendBanner, coinUnlocked, coinPullsLeft, weekOfDay, isFriendshipLive, COIN, FRIEND,
 } from './banners.js';
 
 const HISTORY_LIMIT = 100;
@@ -150,6 +151,68 @@ export function pull(profile, count, rng, { useTickets = true, bannerId = null, 
   profile.stats.pulls = (profile.stats.pulls || 0) + n;
   track(profile, 'pull', n);
   return { ok: true, banner, results, spent: { gems: cost.gems, tickets: cost.tickets, items: cost.items } };
+}
+
+// ---------------------------------------------------------------------------
+// Coin and Friendship pulls (§A.1b): their own roll, never pity, recruit points, totalPulls or history
+// ---------------------------------------------------------------------------
+
+/** Friend Points wallet (missions.counters 'frp:bal', clamp 0–5,000; G5 fills it). */
+export const fpBalance = (profile) => Math.max(0, Math.min(FRIEND.walletCap, Number(profile?.missions?.counters?.['frp:bal']) || 0));
+
+/** One roll on a fixed table: reads and writes no profile.gacha state. */
+export function rollFixed(table, rng, { minRarity = null } = {}) {
+  let e = drawWeighted(table, rng);
+  if (minRarity === 'SR' && e.rarity === 'R') e = drawWeighted(table, rng, 'SR');
+  return e;
+}
+
+/** Price of a Coin or Friendship pull. */
+export function fixedCost(kind, count) {
+  const c = kind === 'coin' ? COIN : FRIEND;
+  return count === 10 ? c.ten : c.single * count;
+}
+
+/**
+ * Recruit 1 or 10 times on the Coin or Friendship banner. Coin: 25,000 coins a pull, 20 pulls a game week, opens
+ * after 6-5. Friendship: 100 Friend Points a pull. Spares pay coins only; no pity, no recruit points, no history,
+ * no pull achievements (counted in 'gc:t' / 'frp:t').
+ * @returns {{ ok: boolean, error?: 'count'|'locked'|'cap'|'funds'|'rotated', banner?: object, results: object[], spent?: number }}
+ */
+export function pullFixed(profile, kind, count, rng, { bannerId = null, now = Date.now() } = {}) {
+  const n = count === 10 ? 10 : count === 1 ? 1 : 0;
+  if (!n) return { ok: false, error: 'count', results: [] };
+  const d = bannerDay(profile, now);
+  if (kind === 'coin' && !coinUnlocked(profile)) return { ok: false, error: 'locked', results: [] };
+  if (kind === 'friend' && !isFriendshipLive()) return { ok: false, error: 'locked', results: [] };
+  const banner = kind === 'coin' ? coinBanner(d) : friendBanner(d);
+  if (bannerId && bannerId !== banner.id) return { ok: false, error: 'rotated', results: [] };
+  profile.missions ||= {};
+  const c = (profile.missions.counters ||= {});
+  if (kind === 'coin' && coinPullsLeft(profile, now) < n) return { ok: false, error: 'cap', results: [] };
+  const price = fixedCost(kind, n);
+  if (kind === 'coin') {
+    if (!consumeItems(profile, [{ id: 'coins', count: price }])) return { ok: false, error: 'funds', results: [] };
+    const w = weekOfDay(d);
+    if (c['gc:wk'] !== w) { c['gc:wk'] = w; c['gc:n'] = 0; }
+    c['gc:n'] = (Number(c['gc:n']) || 0) + n;
+    track(profile, 'spendCoins', price);
+  } else {
+    if (fpBalance(profile) < price) return { ok: false, error: 'funds', results: [] };
+    c['frp:bal'] = fpBalance(profile) - price;
+  }
+  noteBannerDay(profile, now);
+  const key = kind === 'coin' ? 'gc:t' : 'frp:t';
+  c[key] = (Number(c[key]) || 0) + n;
+  const table = bannerWeights(banner);
+  const results = [];
+  for (let i = 0; i < n; i++) {
+    const needSR = n === 10 && i === n - 1 && results.every((r) => r.rarity === 'R');
+    const e = rollFixed(table, rng, { minRarity: needSR ? 'SR' : null });
+    const grant = grantUnit(profile, e.unitId, now, { source: kind });
+    results.push({ unitId: e.unitId, rarity: e.rarity, isNew: grant.isNew, essence: grant.essence, spare: grant.spare, readyStep: grant.readyStep, essenceHeld: grant.essenceHeld, potential: grant.potential, potentialUp: grant.potentialUp });
+  }
+  return { ok: true, banner, results, spent: price };
 }
 
 /** @returns {boolean} enough recruit points to spark */

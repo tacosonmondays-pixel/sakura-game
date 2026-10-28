@@ -30,6 +30,10 @@
 .bn-tab.k-tower { --k: #ff7aa8; }
 .bn-tab.k-hero { --k: #d99a2b; }
 .bn-tab.k-standard { --k: #5b8de8; }
+.bn-tab.k-coin { --k: #c9824a; }
+.bn-tab.k-friend { --k: #3fae86; }
+.bn-banner.k-coin .ma-banner-kicker { background: #8a4f1c; }
+.bn-banner.k-friend .ma-banner-kicker { background: #1f7a5a; }
 
 /* ---- the banner panel ---- */
 .bn-banner { border-color: #fff; box-shadow: 0 0 0 3px var(--bn-k, #5b8de8), var(--shadow-strong); }
@@ -122,3 +126,4 @@
   .bn-tab { width: 56px; }
   .bn-srs { display: none; }
 }
+.bn-page .ma-pull-label { white-space: nowrap; }
