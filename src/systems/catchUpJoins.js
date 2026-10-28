@@ -4,8 +4,9 @@
 // academy girls with a stage unlock, src/data/stages.js; the other four of the seven are Recruit only).
 // A player who cleared those stages earlier would otherwise have to win them again to meet her.
 // Gate Arc: Yuzuha now joins on a 1-7 win (chapter 1's Act II, where the story meets her); 4-2 stays
-// her legacy stage (LEGACY_JOIN_STAGES), so a save that cleared 4-2 but never met her still gets her
-// once, with the letter naming the stage it cleared. Her 'join:' mark is the same one as before.
+// her legacy stage (LEGACY_JOIN_STAGES), so any save that cleared 4-2 but never met her (an old save, or
+// a player who reaches 4-2 before 1-7) still gets her once, on the next lobby, with the letter naming the
+// stage it cleared: Act I keeps its anti-air girl where it always had her. Her 'join:' mark is unchanged.
 //
 // At app start (main.js, next to the other one-time letters) and on the lobby (after a reset or an
 // import), each girl listed here who is not owned while her stage has a clear medal (any difficulty)
@@ -38,7 +39,8 @@ export const CATCH_UP_UNITS = Object.freeze(['yuzuha', 'azami', 'noa', 'wakaba',
 
 /**
  * Stages that granted a girl in an earlier version, before her join moved (Gate Arc: Yuzuha joined on a
- * 4-2 win from v0.1.40; she now joins on 1-7). A clear of one of them settles her catch-up too.
+ * 4-2 win from v0.1.40; she now joins on 1-7). A clear of one of them settles her catch-up too, for any
+ * save (tests/integration/balance.test.js counts her from either stage).
  */
 export const LEGACY_JOIN_STAGES = Object.freeze({ yuzuha: Object.freeze(['4-2']) });
 
