@@ -1,6 +1,8 @@
 // Tracks v3 — how the renderer draws the canonical centrelines (MapDef.tracks, src/core/track.js).
 // The road ribbon follows exactly the points the sim walks (no re-smoothing), plus:
-//   • off-board run-outs at real spawns / exits (so the road leaves the frame),
+//   • off-board run-outs at real spawns / exits (so the road leaves the frame); a lane that starts
+//     inside the board (a mid-board rift, Gate Arc 3-8: the track's `inside` flag) has none: the
+//     road begins at the rift,
 //   • flat junctions: the later pass is lifted a hair and drops its side bevels, so the two
 //     road tops merge into one clean crossing,
 //   • overpasses: the later pass rises on its elevation profile; railings and pillars,
@@ -30,13 +32,31 @@ export const WATER_CLEAR = 0.74;
 const SHADOW_DIR = [0.5, -0.58];
 
 /**
+ * Does this track start inside the board (a mid-board rift, Gate Arc S3a)? True when the map flags
+ * it (`track.inside`, from the path spec `{ nodes, inside: true }`) or when its first point lies
+ * clearly inside the board (≥ 0.25 tiles from every edge). A fork never does: it starts on its
+ * parent. Shipped maps all start on or past an edge (tests/data/world.test.js), so they never do.
+ * @param {object} t Track
+ * @param {number} W board width
+ * @param {number} H board height
+ */
+export function startsInside(t, W, H) {
+  if (!t || t.fork) return false;
+  if (t.inside === true) return true;
+  const [x, y] = t.points[0];
+  const m = 0.25;
+  return x >= m && y >= m && x <= W - m && y <= H - m;
+}
+
+/**
  * Pure drawing plan for a map's roads.
  * @param {object} map MapDef
  * @param {{ margin?: number, step?: number }} [o] off-board run-out length, section spacing
  * @returns {{ roads: object[], entrances: object[], exits: object[], extraTiles: Set<string>, crossings: object[] }}
  *   road = { index, pts: [[x, z]], d: number[] (distance along the track; < 0 / > length on run-outs),
  *            elev: number[], tunnel: boolean[], lift: number[], noSide: boolean[] }
- *   entrance / exit = { track, x, z (where the centreline crosses the board edge), tx, ty (edge tile), dir: [dx, dz] (unit, travel) }
+ *   entrance / exit = { track, x, z (where the centreline crosses the board edge), tx, ty (edge tile), dir: [dx, dz] (unit, travel) };
+ *   an entrance inside the board (startsInside) sits on the track's first point and carries `inside: true`
  */
 export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
   const W = map.width;
@@ -54,8 +74,10 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
     const L = t.length;
     const from = t.fork ? Math.max(0, t.forkD - 0.3) : 0;
     const to = t.join ? Math.min(L, t.joinD + 0.3) : L;
+    // a lane that starts at a mid-board rift has no run-out behind it
+    const mid = startsInside(t, W, H);
     const ds = [];
-    if (!t.fork) for (let k = margin + 2; k > 0; k -= step) ds.push(-k);
+    if (!t.fork && !mid) for (let k = margin + 2; k > 0; k -= step) ds.push(-k);
     const n = Math.max(1, Math.round((to - from) / step));
     for (let k = 0; k <= n; k++) ds.push(from + ((to - from) * k) / n);
     if (!t.join) for (let k = step; k <= margin + 2 + 1e-9; k += step) ds.push(L + k);
@@ -116,7 +138,8 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
       links.push({ x: tmp.x, y: tmp.y });
     }
     // entrance: where the centreline first enters the board; exit: where it last leaves
-    if (!t.fork) {
+    if (mid) entrances.push(insidePoint(t, ti, W, H));
+    else if (!t.fork) {
       const i = t.points.findIndex(([x, y]) => inside(x, y));
       if (i >= 0) entrances.push(edgePoint(t, i, true, ti, W, H));
     }
@@ -130,6 +153,16 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
     }
   });
   return { roads, entrances, exits, extraTiles, crossings, links };
+}
+
+/** The entrance of a lane that starts inside the board: its first point, facing along the lane. */
+function insidePoint(t, ti, W, H) {
+  const [x, y] = t.points[0];
+  const [bx, by] = t.points[Math.min(t.points.length - 1, 2)];
+  const len = Math.hypot(bx - x, by - y) || 1;
+  const tx = Math.max(0, Math.min(W - 1, Math.floor(x)));
+  const ty = Math.max(0, Math.min(H - 1, Math.floor(y)));
+  return { track: ti, x, z: y, tx, ty, dir: [(bx - x) / len, (by - y) / len], inside: true };
 }
 
 /** Board-edge crossing near point i (entering: between i-1 and i; leaving: between i and i+1). */

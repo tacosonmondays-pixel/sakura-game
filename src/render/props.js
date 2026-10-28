@@ -7,6 +7,8 @@ import { GeoBuilder, makeRand, hash } from './geo.js';
 import { addPumpkin, PUMPKIN_COLORS } from './pumpkin.js';
 import { CITY_BUILDERS } from './city/cityProps.js';
 import { CAMPUS_BUILDERS } from './city/campusProps.js';
+import { OLD_TOWN_BUILDERS } from './city/oldTownProps.js';
+import { RUIN_BUILDERS } from './city/ruinProps.js';
 import { CityAcc } from './city/cityMaterials.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
@@ -22,7 +24,8 @@ const cache = new Map();
  *   facade: city buildings (src/render/city/: shader windows), null for every other prop
  */
 export function buildProp(type, look, variant = 0, lod = 'near') {
-  const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${variant}|${lod}`;
+  // (a district or a ruined look may recolour shared builders: trees, walls)
+  const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${look.district || ''}|${look.ruined || ''}|${variant}|${lod}`;
   let p = cache.get(key);
   if (p) return p;
   const ctx = {
@@ -1028,4 +1031,4 @@ const BUILDERS = {
 };
 
 // the city kit (Gate Arc, Noon `city` theme): street furniture, Act 1 set pieces, the city gates
-Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS);
+Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS, OLD_TOWN_BUILDERS, RUIN_BUILDERS);

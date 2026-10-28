@@ -21,6 +21,8 @@ import { buildGroundFeatures } from './groundFeatures.js';
 import { buildCity, cityBuildingFor, cityWallVariant, buildRoofs } from './city/cityKit.js';
 import { riftPlacement, ROOF_Y } from './city/cityProps.js';
 import { cityGroundPainter } from './city/cityGround.js';
+import { burningLayer } from './city/ruinProps.js';
+import { TEAR_REST } from './tear.js';
 import { createFacadeMaterial, CityAcc } from './city/cityMaterials.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
@@ -178,10 +180,33 @@ export const SCENERY = {
   sportsField: { props: ['goalPosts', 'scoreboard', 'stands'], slot: 'skirt', n: 3, face: true },
   lakeLamps: { prop: 'streetLamp', slot: 'pathside', n: 6 },
   fireflies: { ambient: 'fireflies' },
+  // Old Town (Gate Arc S3a, `district: 'oldtown'`, src/render/city/oldTownProps.js): the Bell
+  // Festival's stalls and dressing; the lantern strings hang on the poles (the kit), cats sit on the
+  // tiled roofs ('roof' slot: the outer corner of a rooftop, on its parapet)
+  festivalStalls: { prop: 'griddleStall', slot: 'grass', alt: 'skirt', n: 3, face: true },
+  ringToss: { prop: 'ringToss', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  bowStage: { prop: 'bowStage', slot: 'skirt', n: 1, face: true, variant: 0 },
+  shopCurtains: { prop: 'shopCurtain', slot: 'pathside', n: 4, variant: 0 },
+  stoneBasins: { prop: 'stoneBasin', slot: 'grass', alt: 'skirt', n: 2, face: true, variant: 0 },
+  festivalPoster: { prop: 'festivalPoster', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  easel: { prop: 'easel', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  roofCats: { prop: 'catOnWall', slot: 'roof', n: 2 },
+  // the same streets burning (`scenery.ruined: 'burning'`, src/render/city/ruinProps.js): what is
+  // left of what people loved, never anyone
+  scorchedCurtains: { prop: 'shopCurtain', slot: 'pathside', n: 3, variant: 2 },
+  posterFaceDown: { prop: 'festivalPoster', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 1 },
+  easelFallen: { prop: 'easel', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 1 },
+  dryBasins: { prop: 'stoneBasin', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 1 },
+  rubbleHeaps: { prop: 'rubble', slot: 'grass', alt: 'skirt', n: 4 },
+  burntCars: { prop: 'burntCar', slot: 'skirt', n: 3 },
+  fallenPoles: { prop: 'fallenPole', slot: 'skirt', n: 2, variant: 0 },
+  debrisScatter: { prop: 'debris', slot: 'grass', n: 4 },
 };
 
 /** Prop types whose glows (sprites and glow geometry) a blackout never dims: the gates stay readable. */
 const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate']);
+/** Prop types whose glow geometry pulses with the rule (the tear over 3-10's sanctum: terrain.setTear). */
+const TEAR_TYPES = new Set(['hammerTear']);
 
 /** Per-map road surfaces (MapDef.city.road): the campus running track. */
 const ROAD_STYLES = {
@@ -221,7 +246,7 @@ export function resolveScenery(stage, familyOf = () => null) {
     if (kw && !keywords.includes(kw) && !derived.includes(kw)) derived.push(kw);
   }
   keywords.push(...derived.slice(0, 2));
-  return { keywords, fog, night: !!sc.night, weather: sc.weather };
+  return { keywords, fog, night: !!sc.night, weather: sc.weather, ruined: sc.ruined || null };
 }
 
 /**
@@ -416,7 +441,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     disposables.push(waterMat);
   }
   let hasLava = false;
-  for (let y = 0; y < H && !hasLava; y++) for (let x = 0; x < W; x++) if (rows[y][x] === 'X') { hasLava = true; break; }
+  // (a city's 'X' tiles are collapsed houses, not lava: rubble heaps, placed with the props)
+  for (let y = 0; y < H && !hasLava && !look.city; y++) for (let x = 0; x < W; x++) if (rows[y][x] === 'X') { hasLava = true; break; }
   if (hasLava) {
     const sharp = features.sharp.filter((r) => r.kind === 'lava').map((r) => ({ x: r.x + 1, y: r.y + 1, w: r.w, h: r.h }));
     const mask = maskTexture(W + 2, H + 2, (gx, gy) => isLava(gx - 1, gy - 1), { px: 16, blur: 5, sharp });
@@ -454,14 +480,37 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // blackout stages (look.blackout): the glow geometry carries a per-vertex `dimk` (1 = dims with
   // the lights, 0 = a gate: stays lit) and the glow material scales by uDim (setDim, 0 calls)
   const glowDim = look.blackout ? { value: 1 } : null;
-  if (glowDim) {
+  // the tear (hammerTear, Gate Arc S3a): its glow geometry carries `tearK` = 1 and the glow material
+  // scales it by uTear (setTear, 0 calls); only a board with a tear gets the attribute at all
+  const tearPulse = { value: TEAR_REST };
+  let tearParts = 0;
+  /** Patches the glow material for the blackout's `dimk` and / or the tear's `tearK` (once the props are placed). */
+  const patchGlow = (dim, tear) => {
+    if (!dim && !tear) return;
     mats.glow.onBeforeCompile = (shader) => {
-      shader.uniforms.uDim = glowDim;
-      shader.vertexShader = `attribute float dimk;\nvarying float vDimk;\n${shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vDimk = dimk;')}`;
-      shader.fragmentShader = `uniform float uDim;\nvarying float vDimk;\n${shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= mix(1.0, uDim, vDimk);')}`;
+      let vh = '';
+      let vb = '';
+      let fh = '';
+      let fb = '';
+      if (dim) {
+        shader.uniforms.uDim = glowDim;
+        vh += 'attribute float dimk;\nvarying float vDimk;\n';
+        vb += '\n  vDimk = dimk;';
+        fh += 'uniform float uDim;\nvarying float vDimk;\n';
+        fb += '\n  diffuseColor.rgb *= mix(1.0, uDim, vDimk);';
+      }
+      if (tear) {
+        shader.uniforms.uTear = tearPulse;
+        vh += 'attribute float tearK;\nvarying float vTearK;\n';
+        vb += '\n  vTearK = tearK;';
+        fh += 'uniform float uTear;\nvarying float vTearK;\n';
+        fb += '\n  diffuseColor.rgb *= mix(1.0, uTear, vTearK);';
+      }
+      shader.vertexShader = vh + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>${vb}`);
+      shader.fragmentShader = fh + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>${fb}`);
     };
-    mats.glow.customProgramCacheKey = () => 'glowDim';
-  }
+    mats.glow.customProgramCacheKey = () => (dim && tear ? 'glowDimTear' : dim ? 'glowDim' : 'glowTear');
+  };
   // city buildings: one opaque facade material (shader windows), shared with the kit's movers
   mats.facade = look.city ? createFacadeMaterial({ ...(look.city.glass || {}), night: look.night }) : null;
   if (mats.facade) disposables.push(mats.facade);
@@ -501,12 +550,17 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         const g = glowParts[glowParts.length - 1];
         g.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(KEEP_LIT.has(type) ? 0 : 1), 1));
       }
+      if (TEAR_TYPES.has(type) && p.glow) {
+        const g = glowParts[glowParts.length - 1];
+        g.setAttribute('tearK', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(1), 1));
+        tearParts++;
+      }
       push(p.facade, facadeParts);
     }
     const keep = KEEP_LIT.has(type);
     for (const gl of p.glows) {
       v3.set(gl.x, gl.y, gl.z).applyMatrix4(m4);
-      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}) });
+      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}), ...(gl.tear ? { tear: true } : {}) });
     }
     for (const em of p.emitters) {
       v3.set(em.x, em.y, em.z).applyMatrix4(m4);
@@ -586,8 +640,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           place(look.wall, cx, 0, cz, alongX ? (y === 0 ? Math.PI : 0) : (x === 0 ? Math.PI / 2 : -Math.PI / 2), 1, look.city ? cityWallVariant(map, x, y, look.city.kit) : h % 4);
         } else if (look.city) {
           // the city kit picks the building: shops on the street, homes and offices behind (the
-          // campus: classroom wings, the gym, club huts)
-          const b = cityBuildingFor(map, x, y, isPath, look.city.kit);
+          // campus: classroom wings, the gym, club huts; Old Town: wooden houses; burning: shells)
+          const b = cityBuildingFor(map, x, y, isPath, look.city.kit, look);
           place(b.type, cx, 0, cz, facePath(x, y), 1, b.variant);
         } else {
           place(look.building, cx, 0, cz, facePath(x, y), 1, h % 3);
@@ -599,6 +653,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       } else if (c === 'U') {
         // a rooftop: its block is built per region below; nothing else stands on the tile
         occupied.add(key);
+      } else if (c === 'X' && look.city) {
+        // a collapsed house (Gate Arc 3-9): a rubble heap where it stood
+        place('rubble', cx, 0, cz, r01 * 6.28, 1.05, h % 3);
+        occupied.add(key);
       }
     }
   }
@@ -607,7 +665,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   let roofStats = null;
   if (rows.some((r) => r.includes('U'))) {
     const roofAcc = new CityAcc();
-    roofStats = buildRoofs(map, roofAcc, { quality, kit: look.city?.kit });
+    roofStats = buildRoofs(map, roofAcc, { quality, kit: look.city?.kit, district: look.district, ruined: look.ruined });
     const rg = roofAcc.build();
     if (rg) facadeParts.push(rg);
   }
@@ -690,17 +748,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     return { x: gx, z: gz, dir: [dx, dy], ry: Math.atan2(dx, dy) };
   };
   for (const e of entrances) {
-    const gi = gateInfo(e, false);
-    const type = scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
+    // a lane that starts inside the board (a mid-board rift, Gate Arc 3-8) gets its gate where the
+    // lane begins: the Petal Gate's rift on a city board (standing on the water when the lane starts
+    // on a jetty over it), the theme's spawn gate elsewhere
+    const gi = e.inside ? { x: e.x, z: e.z, dir: e.dir, ry: Math.atan2(e.dir[0], e.dir[1]) } : gateInfo(e, false);
+    const type = !e.inside && scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
     // the city's rift leans its disc toward the camera whichever edge it stands on (cityProps.riftPlacement)
     const rift = type === 'petalRift' ? riftPlacement(gi.dir) : null;
-    if (rift) {
+    if (rift && !e.inside) {
       gi.x += gi.dir[0] * rift.inset;
       gi.z += gi.dir[1] * rift.inset;
     }
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
     place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, rift ? rift.variant : 0);
-    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn });
+    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn, ...(e.inside ? { inside: true, onWater } : {}) });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
@@ -716,6 +777,15 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   if (city) {
     for (const m of city.meshes) group.add(m);
     for (const gl of city.glows) glows.push(gl);
+  }
+
+  // ----- the burning layer (scenery.ruined 'burning', Gate Arc S3a): fire on the ruins away from
+  // the road, smoke from the skirt, scorch marks, the stray cat in the rubble ----------------------
+  const burning = look.ruined === 'burning' ? burningLayer({ map, plan, isPath, isWater, occupied, quality }) : null;
+  if (burning) {
+    for (const gl of burning.glows) glows.push(gl);
+    for (const em of burning.emitters) emitters.push(em);
+    if (burning.cat) place('catOnWall', burning.cat.x, 0.06, burning.cat.z + 0.28, 0.4, 1, hash(map.id, 'stray') % 2);
   }
 
   // ----- outside scatter (frames the board) ------------------------------------------
@@ -789,7 +859,17 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
 
   function buildSlots() {
-    const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [] };
+    const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [], roof: [] };
+    // roof: the outer front corner of a rooftop, on its parapet (a cat dozing there, Old Town)
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!isRoofTile(x, y) || isRoofTile(x, y + 1)) continue;
+        const west = !isRoofTile(x - 1, y);
+        const east = !isRoofTile(x + 1, y);
+        if (!west && !east) continue;
+        out.roof.push({ x: x + (west ? 0.16 : 0.84), z: y + 0.97, y: ROOF_Y + 0.05, ry: west ? 0 : Math.PI, s: 1 });
+      }
+    }
     // pathside: just beside the road, every ~1.6 tiles along the centreline, both sides
     for (const r of plan.roads) {
       let acc = 0;
@@ -875,6 +955,13 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
 
   // ----- merge prop groups -------------------------------------------------------------
+  // (merging needs one attribute set: with a tear, every other glow part gets tearK = 0)
+  if (tearParts) {
+    for (const g of glowParts) {
+      if (!g.attributes.tearK) g.setAttribute('tearK', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1));
+    }
+  }
+  patchGlow(!!glowDim, tearParts > 0);
   const solidGeo = solidParts.length ? mergeGeometries(solidParts) : null;
   const foliageGeo = foliageParts.length ? mergeGeometries(foliageParts) : null;
   const glowGeo = glowParts.length ? mergeGeometries(glowParts) : null;
@@ -933,7 +1020,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     /** Gate markers (1 tile outside the board): { kind: 'spawn'|'goal', x, z, dir, color }. */
     gates,
     /** Painted ground marks drawn by the ambient batches: rune circles, junction chevrons, city crossings. */
-    marks: city ? [...features.marks, ...city.marks] : features.marks,
+    marks: burning ? [...features.marks, ...(city ? city.marks : []), ...burning.marks] : city ? [...features.marks, ...city.marks] : features.marks,
     /** City kit layout counts (null on other themes). */
     city: city ? city.stats : null,
     /** Live positions of the city's patrol drones ({ x, y, z }, updated by update(); empty elsewhere): the actor layer shadows them. */
@@ -952,6 +1039,18 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       const u = mats.facade?.userData.uniforms;
       if (u?.uLit) u.uLit.value = k;
     },
+    /** Does this board carry HAMMER's tear (a hammerTear prop)? Its glow pulses through setTear. */
+    tear: tearParts > 0,
+    /**
+     * The tear's pulse (src/render/tear.js): scales the tear's glow geometry by k (TEAR_REST at rest,
+     * brighter while the rule pulses). A uniform only: no draw call, no allocation.
+     * @param {number} k
+     */
+    setTear(k) {
+      if (tearParts) tearPulse.value = k;
+    },
+    /** The burning layer's fires and smoke columns ({ x, z }; tests and previews; null when not burning). */
+    burning: burning ? { fires: burning.fires.map((f) => ({ x: f.x, z: f.z })), smoke: burning.emitters.filter((e) => e.kind === 'smokeColumn').map((e) => ({ x: e.x, z: e.z })) } : null,
     /** Rooftop layout ({ regions, tiles }, null without 'U' tiles). */
     roofs: roofStats,
     /** Height a girl stands at on the board point (x, y): ROOF_Y on a rooftop tile, else 0. */

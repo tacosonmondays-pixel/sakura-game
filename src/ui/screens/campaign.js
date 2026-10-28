@@ -168,7 +168,7 @@ function stageCard(profile, stageId, { isNext }) {
     `button.ma-stage-card${unlocked ? '' : '.locked'}${isNext ? '.next' : ''}${cleared ? '.cleared' : ''}${isFinale ? '.finale' : ''}`,
     { 'data-testid': `stage-${stageId}`, onclick: () => navigate('stage', { id: stageId }) },
     h('div.ma-sc-top',
-      h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
+      h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200, ruined: stage.scenery?.ruined }), map, stage.rule, 320, 200) : '' }),
       // an echo stage (Gate Arc 1-10): the stage it echoes shows through faintly
       map?.echoOf ? echoGhost(map) : null,
       h('span.ma-sc-id', stage.id),

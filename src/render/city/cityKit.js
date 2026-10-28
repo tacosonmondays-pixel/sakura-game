@@ -35,7 +35,15 @@
 //     classrooms under the rooftops with flower boxes on them; and two map hints:
 //     map.city.pieces (free-standing set pieces: a finish gantry, a clock tower behind the far edge)
 //     and map.city.searchlight (a searchlight on the shore whose beam the ambient layer sweeps over
-//     the water: 0 draw calls).
+//     the water: 0 draw calls),
+//   • Old Town (Gate Arc S3a, MapDef.district 'oldtown', themes.DISTRICTS): wooden houses with tiled
+//     roofs on the board (oldTownProps.js oldHouse), stone gutters instead of raised kerbs, no
+//     traffic signals, and paper lantern strings on bamboo posts along the lanes where the city
+//     would stand its utility poles (glow geometry; every fourth lantern a sprite); tiled timber
+//     blocks under the rooftops,
+//   • the burning look (Gate Arc S3a, look.ruined 'burning'): burnt shells on the board and broken
+//     towers in the skirt (ruinProps.js), rubble in front, a charred lantern string at every other
+//     spot; terrain.js adds the fire, the smoke and the scorch (ruinProps.burningLayer).
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -46,6 +54,8 @@ import { CityAcc, FK, createFacadeMaterial } from './cityMaterials.js';
 import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry, ROOF_Y, CROSSING_ARM } from './cityProps.js';
 import { CAMPUS } from './campusProps.js';
 import { prim } from './buildings.js';
+import { OLD, LANTERN_STRINGS } from './oldTownProps.js';
+import { RUIN_ON_BOARD } from './ruinProps.js';
 
 export { ROOF_Y };
 import { crosswalkMarks } from '../groundFeatures.js';
@@ -110,10 +120,13 @@ export function roofRegions(map) {
  * @param {{ quality?: string }} [o]
  * @returns {{ regions: number, tiles: number }}
  */
-export function buildRoofs(map, acc, { quality = 'high', kit = null } = {}) {
+export function buildRoofs(map, acc, { quality = 'high', kit = null, district = null, ruined = null } = {}) {
   const regions = roofRegions(map);
   // the campus: classrooms under the roofs (school windows, cream walls) and flower boxes on them
   const campus = kit === 'campus';
+  // Old Town: timber blocks with a tiled terrace and a tiled pent eave round the outline (charred
+  // when the street burns)
+  const oldtown = district === 'oldtown';
   const isRoof = (x, y) => map.rows[y]?.[x] === 'U';
   const T = 0.035;
   const PH = 0.05;
@@ -121,33 +134,37 @@ export function buildRoofs(map, acc, { quality = 'high', kit = null } = {}) {
   regions.forEach((reg, ri) => {
     const h = hash(map.id, 'roof', reg.tiles[0][0], reg.tiles[0][1]);
     const flats = h % 2 === 1;
-    const side = campus ? FK.school : flats ? FK.flats : FK.shop;
-    const wall = campus ? CAMPUS.wall : flats ? '#efe7da' : '#e9d9bf';
-    const top = ['#cfc8bb', '#c9c2b6', '#d3cdc2'][h % 3];
+    const side = campus ? FK.school : oldtown ? (ruined ? FK.plain : FK.wood) : flats ? FK.flats : FK.shop;
+    const wall = campus ? CAMPUS.wall : oldtown ? (ruined ? '#4a4240' : h % 2 ? OLD.timber : OLD.timberPale) : flats ? '#efe7da' : '#e9d9bf';
+    const top = oldtown ? (ruined ? '#5a5450' : ['#6a7380', '#646d7a', '#707986'][h % 3]) : ['#cfc8bb', '#c9c2b6', '#d3cdc2'][h % 3];
+    const parapetCol = oldtown ? (ruined ? '#3d3734' : OLD.tileDark) : PAL_PARAPET;
     for (const [x, y] of reg.tiles) {
       tiles++;
       // the roof surface
-      acc.quad([x, ROOF_Y, y + 1], [x + 1, ROOF_Y, y + 1], [x + 1, ROOF_Y, y], [x, ROOF_Y, y], top, 0);
+      if (oldtown) acc.quad([x, ROOF_Y, y + 1], [x + 1, ROOF_Y, y + 1], [x + 1, ROOF_Y, y], [x, ROOF_Y, y], top, FK.roofTile, [[x, y + 1], [x + 1, y + 1], [x + 1, y], [x, y]]);
+      else acc.quad([x, ROOF_Y, y + 1], [x + 1, ROOF_Y, y + 1], [x + 1, ROOF_Y, y], [x, ROOF_Y, y], top, 0);
       const H = ROOF_Y;
       // walls and parapet on the outline: north (-z), south (+z), west (-x), east (+x)
       if (!isRoof(x, y - 1)) {
         acc.quad([x + 1, 0, y], [x, 0, y], [x, H, y], [x + 1, H, y], wall, side, [[x + 1, 0], [x, 0], [x, H], [x + 1, H]]);
-        acc.box(x + 0.5, H, y + T / 2, 1, PH, T, { color: PAL_PARAPET });
+        acc.box(x + 0.5, H, y + T / 2, 1, PH, T, { color: parapetCol });
       }
       if (!isRoof(x, y + 1)) {
         acc.quad([x, 0, y + 1], [x + 1, 0, y + 1], [x + 1, H, y + 1], [x, H, y + 1], wall, side, [[x, 0], [x + 1, 0], [x + 1, H], [x, H]]);
-        acc.box(x + 0.5, H, y + 1 - T / 2, 1, PH, T, { color: PAL_PARAPET });
+        acc.box(x + 0.5, H, y + 1 - T / 2, 1, PH, T, { color: parapetCol });
+        // Old Town: a tiled pent eave over the street side, between the floors
+        if (oldtown && !ruined) acc.quad([x, 0.28, y + 1.14], [x + 1, 0.28, y + 1.14], [x + 1, 0.34, y + 1], [x, 0.34, y + 1], OLD.tile, FK.roofTile, [[0, 0], [1, 0], [1, 0.15], [0, 0.15]]);
       }
       if (!isRoof(x - 1, y)) {
         acc.quad([x, 0, y], [x, 0, y + 1], [x, H, y + 1], [x, H, y], wall, side, [[y, 0], [y + 1, 0], [y + 1, H], [y, H]]);
-        acc.box(x + T / 2, H, y + 0.5, T, PH, 1, { color: PAL_PARAPET });
+        acc.box(x + T / 2, H, y + 0.5, T, PH, 1, { color: parapetCol });
       }
       if (!isRoof(x + 1, y)) {
         acc.quad([x + 1, 0, y + 1], [x + 1, 0, y], [x + 1, H, y], [x + 1, H, y + 1], wall, side, [[y + 1, 0], [y, 0], [y, H], [y + 1, H]]);
-        acc.box(x + 1 - T / 2, H, y + 0.5, T, PH, 1, { color: PAL_PARAPET });
+        acc.box(x + 1 - T / 2, H, y + 0.5, T, PH, 1, { color: parapetCol });
       }
     }
-    if (quality === 'low') return;
+    if (quality === 'low' || oldtown) return;
     if (campus) {
       // flower boxes along the parapet facing the camera (+z), tucked against it: a terracotta
       // trough with a green top and blossom dots, low (0.08) so a girl standing by it stays clear
@@ -186,7 +203,7 @@ const PAL_PARAPET = '#f1ede4';
  * @param {(x: number, y: number) => boolean} isPath
  * @returns {{ type: string, variant: number }}
  */
-export function cityBuildingFor(map, x, y, isPath, kit = null) {
+export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
   let d = 9;
   for (let r = 1; r <= 3 && d === 9; r++) {
     for (let dy = -r; dy <= r && d === 9; dy++) {
@@ -200,6 +217,17 @@ export function cityBuildingFor(map, x, y, isPath, kit = null) {
   }
   const h = hash(map.id, 'block', x, y);
   const roll = h % 100;
+  if (look?.ruined) {
+    // the street burnt: shells of every kind (the timber frames in Old Town), all low
+    if (look.district === 'oldtown' && roll < 45) return { type: 'ruinBlock', variant: 2 };
+    return { type: 'ruinBlock', variant: RUIN_ON_BOARD[(h >>> 8) % RUIN_ON_BOARD.length] };
+  }
+  if (look?.district === 'oldtown') {
+    // Old Town: shop houses, lantern shops and merchant houses on the lane; storehouses, a shrine
+    // hall and the bathhouse one row back (oldTownProps OLD_HOUSE_KINDS, every one ≤ BOARD_MAX_H)
+    if (d <= 1) return { type: 'oldHouse', variant: roll < 50 ? 0 : roll < 72 ? 4 : 1 };
+    return { type: 'oldHouse', variant: roll < 45 ? 2 : roll < 70 ? 1 : roll < 88 ? 5 : 3 };
+  }
   if (kit === 'campus') {
     // the school: classroom wings along the roads, now and then a club hut or a bay of the gym;
     // one row back the gym and the wings (every one of them low: campusProps SCHOOL_ON_BOARD)
@@ -259,6 +287,9 @@ export function buildCity(o) {
   const cfg = { ...(look.city || {}), ...(map.city || {}) };
   // the campus set (Hilltop High): lamp posts, no signals / wires / subway signs, a school skyline
   const campus = cfg.kit === 'campus';
+  // Old Town (look.district 'oldtown'): stone gutters (no raised kerbs), no signals, lantern strings
+  const oldtown = look.district === 'oldtown';
+  const ruined = !!look.ruined;
   const rand = makeRand(hash(map.id, 'city'));
   const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
   const outsideDist = (x, z) => Math.hypot(Math.max(0, -x, x - W), Math.max(0, -z, z - H));
@@ -367,7 +398,7 @@ export function buildCity(o) {
     return true;
   };
   let kerbTris = 0;
-  if (quality !== 'low') {
+  if (quality !== 'low' && cfg.kerbs !== false) {
     const cWalk = look.city?.sidewalk || '#e6dccb';
     const cKerb = look.city?.kerb || '#f4f1ea';
     const cKerbSide = look.city?.kerbSide || '#c9c1b2';
@@ -415,10 +446,11 @@ export function buildCity(o) {
   }
 
   // ----- crosswalks: on every flat junction's arms, and beside a few corners -----------------
-  for (const m of crosswalkMarks(map)) marks.push(m);
+  // (Old Town's stone lanes carry no painted crossings)
+  if (!oldtown) for (const m of crosswalkMarks(map)) marks.push(m);
   let cornerWalks = 0;
   for (const c of corners) {
-    if (cornerWalks >= 6) break;
+    if (oldtown || cornerWalks >= 6) break;
     const r = c.road;
     for (const dir of [-1, 1]) {
       const k = c.i + dir * 9;
@@ -437,14 +469,15 @@ export function buildCity(o) {
   }
   // the rift's cracks on the road at every spawn gate
   for (const g of gates) {
-    if (g.kind !== 'spawn') continue;
+    // (a rift standing on the water, a mid-board lane's start on a jetty: no cracked road under it)
+    if (g.kind !== 'spawn' || g.onWater) continue;
     marks.push({ kind: 'cracks', x: g.x + g.dir[0] * 0.55, z: g.z + g.dir[1] * 0.55, rot: Math.atan2(-g.dir[1], g.dir[0]), color: look.gate?.spawn || '#b46cff' });
   }
 
   // ----- traffic signals at the corners --------------------------------------------------
   let signals = 0;
   for (const c of corners) {
-    if (campus || signals >= 6) break;
+    if (campus || oldtown || signals >= 6) break;
     const x = c.x + c.ox * 0.78;
     const z = c.z + c.oz * 0.78;
     if (!inMap(x, z) && outsideDist(x, z) > 1.5) continue;
@@ -455,7 +488,10 @@ export function buildCity(o) {
   }
 
   // ----- utility poles with a lamp arm along the roads, wires between them --------------------
+  // (Old Town: lantern strings on bamboo posts instead, see below)
   const runs = [];
+  let lanterns = 0;
+  let lanternSpots = 0;
   for (const r of plan.roads) {
     let dist = 1.4;
     let run = [];
@@ -485,8 +521,26 @@ export function buildCity(o) {
       }
       const last = run[run.length - 1];
       if (last && Math.hypot(last[0] - px, last[1] - pz) > 4.0) breakRun();
-      furniture.push([px, pz]);
       const ry = Math.atan2(-nx * side, -nz * side);
+      if (oldtown) {
+        // Old Town: a lantern string on two bamboo posts along the lane instead of a pole (burning:
+        // a charred one at every other spot); both ends must stand clear like the pole would
+        const [, , tx, tz] = normalAt(r, i);
+        const L = LANTERN_STRINGS[1][0];
+        const ends = [[px - tx * L / 2, pz - tz * L / 2], [px + tx * L / 2, pz + tz * L / 2]];
+        if (ends.some(([ex, ez]) => !freeSpot(ex, ez, 0.6) || roadDist(ex, ez) < 0.6 || nearGate(ex, ez, 1.5) || nearPortal(ex, ez, 0.9))) {
+          breakRun();
+          continue;
+        }
+        dist = 0;
+        if (ruined && lanternSpots++ % 2 === 1) continue;
+        for (const e of ends) furniture.push(e);
+        furniture.push([px, pz]);
+        place('lanternString', px, quality === 'low' ? 0 : SW_Y, pz, Math.atan2(-tz, tx), 1, ruined ? 4 : 1);
+        lanterns++;
+        continue;
+      }
+      furniture.push([px, pz]);
       run.push([px, pz, ry]);
       // (the campus: a lamp post with its arm over the road, no wires)
       place(campus ? 'streetLamp' : 'powerPole', px, quality === 'low' ? 0 : SW_Y, pz, ry, 1, 0);
@@ -495,7 +549,7 @@ export function buildCity(o) {
   }
   const cWire = '#45424a';
   let spans = 0;
-  for (const run of campus ? [] : runs) {
+  for (const run of campus || oldtown ? [] : runs) {
     for (let k = 1; k < run.length; k++) {
       const [ax, az, ar] = run[k - 1];
       const [bx, bz, br] = run[k];
@@ -595,6 +649,28 @@ export function buildCity(o) {
       }
       const variant = k === towerLot ? 3 : back ? [5, 5, 2, 0][h % 4] : [2, 5, 0, 1][h % 4];
       place('schoolBlock', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, 1.5, variant, null, lod);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+      return;
+    }
+    if (ruined) {
+      // the city burnt: broken towers behind, burnt shells at the sides, rubble in front
+      if (front) {
+        place(h % 3 ? 'rubble' : 'burntCar', cx, 0, cz, (h % 628) / 100, 1.3, h % 3, null, 'far');
+        return;
+      }
+      if (back && depth >= 2) place('ruinBlock', cx, 0, cz, (h % 4) * 0.2 - 0.3, 1.0, 5, null, lod);
+      else place('ruinBlock', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, 1.5, RUIN_ON_BOARD[h % RUIN_ON_BOARD.length], null, lod);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+      return;
+    }
+    if (oldtown && (front || depth < 2)) {
+      // Old Town round the board: wooden houses with tiled roofs (cherry trees in front); the
+      // modern city's towers only further back
+      if (front && h % 3 === 0) {
+        place('sakura', cx, 0, cz, (h % 628) / 100, 1.15, h % 4, null, 'far');
+        return;
+      }
+      place('oldHouse', cx, 0, cz, back ? 0 : front ? Math.PI : cx < 0 ? Math.PI / 2 : -Math.PI / 2, 1.6, [0, 1, 2, 5, 3, 4][h % 6], null, lod);
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
       return;
     }
@@ -976,6 +1052,7 @@ export function buildCity(o) {
       corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
       kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones, crossings: levelCrossings.length,
       kit: campus ? 'campus' : 'city', searchlights: searchlights.length, pieces: (cfg.pieces || []).length,
+      district: look.district || null, ruined: look.ruined || null, lanterns,
     },
   };
 }

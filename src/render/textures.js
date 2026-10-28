@@ -820,6 +820,34 @@ export function createAtlas(extra = []) {
     ctx.arc(cx, cy, w * 0.07, 0, Math.PI * 2);
     ctx.fill();
   });
+  // scorch (Gate Arc S3a, the burning look): a soft burnt blotch with streaks blown out from it
+  add('scorch', 96, 96, (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    let seed = 11;
+    const rr = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, w / 2);
+    gr.addColorStop(0, 'rgba(255,255,255,0.95)');
+    gr.addColorStop(0.45, 'rgba(255,255,255,0.7)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2 + rr() * 0.4;
+      const r0 = w * 0.18;
+      const r1 = w * (0.34 + rr() * 0.13);
+      ctx.lineWidth = 2 + rr() * 3;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+      ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+  });
 
   // Glyphs: bold white with a navy outline (tint multiplies the fill; outline stays dark).
   const glyphW = 40;
@@ -975,6 +1003,9 @@ const GROUND_STYLES = {
   // the city (Gate Arc): warm paving slabs (half-tile seams), a painted sidewalk with a kerb along
   // every road instead of worn dirt and pebbles, no clover or flower drifts on plain tiles
   paved: { mottle: 0.16, patch: 1.0, patchAmt: 0.35, cloverScale: 0.5, cloverAmt: 0, flowers: 0, wet: 0.05, slabs: 1, kerb: 1 },
+  // Old Town (Gate Arc S3a): plaster-pale ground of big irregular stones, a stone gutter band along
+  // every lane (the `kerb` band in the district's gutter colours), moss in a few joints
+  stone: { mottle: 0.2, patch: 0.9, patchAmt: 0.4, cloverScale: 0.6, cloverAmt: 0.12, flowers: 0, wet: 0.08, stones: 1, kerb: 1 },
 };
 
 /**
@@ -1063,6 +1094,17 @@ export function paintGround(o) {
         col = mix3(col, cShade, seam * 0.75);
         const slab = noise.at(Math.floor(wx * 2) * 3.1 + 900, Math.floor(wz * 2) * 3.1 + 900);
         col = mix3(col, cLight, smooth(0.7, 0.85, slab) * 0.45);
+      }
+      if (style.stones) {
+        // big flagstones in staggered courses (two thirds of a tile long), dark joints
+        const row = Math.floor(wz * 1.5);
+        const sx = wx * 1.5 + (row % 2) * 0.5;
+        const gx = Math.abs((sx % 1 + 1) % 1 - 0.5) * 2;
+        const gz = Math.abs(((wz * 1.5) % 1 + 1) % 1 - 0.5) * 2;
+        const joint = smooth(0.9, 0.97, Math.max(gx, gz));
+        col = mix3(col, cShade, joint * 0.8);
+        const stone = noise.at(Math.floor(sx) * 2.3 + 500, row * 2.3 + 500);
+        col = mix3(col, cLight, smooth(0.62, 0.8, stone) * 0.4);
       }
       if (style.plates) {
         // concrete slabs: a faint seam grid every 2 tiles with rust bleeding along it
@@ -1338,6 +1380,23 @@ export function paintGround(o) {
   // --- 5. a theme painter on top (city kit: verges and plazas) ----------------------------
   if (o.extra) o.extra(g, toPx, px, rnd);
 
+  // --- 6. ruined looks (Gate Arc S3a): ash dusting and soot drifts off the roads ---------------
+  if (look.ruined) {
+    for (let i = 0; i < w * h * 0.9; i++) {
+      const wx = x0 + rnd() * w;
+      const wz = y0 + rnd() * h;
+      if (isWater(Math.floor(wx), Math.floor(wz)) || isPath(Math.floor(wx), Math.floor(wz))) continue;
+      const [sx, sy] = toPx(wx, wz);
+      const r = px * (0.18 + rnd() * 0.4);
+      const gr = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+      const soot = rnd() > 0.55;
+      gr.addColorStop(0, soot ? 'rgba(34,30,30,0.32)' : 'rgba(150,144,138,0.28)');
+      gr.addColorStop(1, soot ? 'rgba(34,30,30,0)' : 'rgba(150,144,138,0)');
+      g.fillStyle = gr;
+      g.fillRect(sx - r, sy - r, r * 2, r * 2);
+    }
+  }
+
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -1365,7 +1424,7 @@ function makeRnd(seed) {
 
 /**
  * Tileable greyscale detail (around 1.0, multiplies the painted ground). One repeat = 1 tile.
- * style: grass | moss | sand | snow | ash | metal | paved
+ * style: grass | moss | sand | snow | ash | metal | paved | stone
  */
 export function detailTexture(style = 'grass', seed = 7) {
   const size = 256;
@@ -1461,8 +1520,8 @@ export function detailTexture(style = 'grass', seed = 7) {
       g.fillStyle = `rgba(${v},${v},${v},0.35)`;
       g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
     }
-  } else if (style === 'paved') {
-    // fine concrete speckle and a few faint stains
+  } else if (style === 'paved' || style === 'stone') {
+    // fine concrete speckle and a few faint stains (Old Town's stone ground too)
     for (let i = 0; i < 900; i++) {
       const v = rnd() > 0.5 ? 255 : 196;
       g.fillStyle = `rgba(${v},${v},${v},${0.18 + rnd() * 0.22})`;
@@ -1512,6 +1571,7 @@ export function grassTexture(seed = 7) {
  * Tileable road surface (greyscale around 1.0, tinted by vertex colour). u runs along the
  * road, v across it; one repeat = 1 tile of road.
  * style: flagstone | cobble | planks | metal | dirt | brick | sand | asphalt (coloured: the city) |
+ * setts (coloured: Old Town's stone setts) |
  * track (coloured: the campus running track; one repeat = TRACK_TILES tiles, see trackRepeat)
  * @param {{ tone?: number }} [o] asphalt: brightness of the surface (1 = the city's; the campus
  *   road is paler so it stays the lightest band at night)
@@ -1590,6 +1650,49 @@ export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
     g.fillRect(0, size * 0.065, size, size * 0.035);
     g.fillRect(0, size * 0.9, size, size * 0.035);
     g.fillRect(size * 0.04, size * 0.48, size * 0.46, size * 0.04);
+    return finishTileTex(c);
+  } else if (style === 'setts') {
+    // Old Town stone setts (Gate Arc S3a): like `asphalt` this style carries its own colour (LINEAR
+    // values: the road texture has no colour space; the theme tints it white) and u runs along the
+    // road, v across it. Rows of small dressed stones laid across the lane (five rows per tile),
+    // staggered joints, a darker mortar, a granite edging band along each side. `tone` scales it
+    // (the burning look dims it a little: it stays the lightest band).
+    const tone = o.tone ?? 1;
+    const T = (v) => Math.min(255, Math.round(v * tone));
+    g.fillStyle = `rgb(${T(104)},${T(98)},${T(88)})`;
+    g.fillRect(0, 0, size, size);
+    const rows = 5;
+    const rw = size / rows;
+    const edge = size * 0.09;
+    for (let r = 0; r < rows; r++) {
+      const per = 4;
+      const sw = (size - edge * 2) / per;
+      const off = r % 2 ? sw / 2 : 0;
+      for (let q = -1; q <= per; q++) {
+        const y0 = edge + q * sw + off;
+        const y1 = y0 + sw;
+        const a = Math.max(edge, y0) + 2;
+        const b = Math.min(size - edge, y1) - 2;
+        if (b - a < 4) continue;
+        const k = 0.9 + rnd() * 0.18;
+        const x0 = r * rw + 2;
+        g.fillStyle = `rgb(${T(186 * k)},${T(178 * k)},${T(160 * k)})`;
+        g.beginPath();
+        g.roundRect(x0, a, rw - 4, b - a, 5);
+        g.fill();
+        g.fillStyle = `rgba(${T(255)},${T(250)},${T(238)},0.18)`;
+        g.fillRect(x0 + 3, a + 2, rw - 10, 3);
+      }
+    }
+    // granite edging bands along both sides of the lane
+    for (const y of [0, size - edge]) {
+      g.fillStyle = `rgb(${T(150)},${T(146)},${T(138)})`;
+      g.fillRect(0, y + 1, size, edge - 2);
+      for (let x = 0; x < size; x += size / 2) {
+        g.fillStyle = `rgb(${T(104)},${T(98)},${T(88)})`;
+        g.fillRect(x, y, 2, edge);
+      }
+    }
     return finishTileTex(c);
   } else if (style === 'cobble') {
     g.fillStyle = 'rgb(150,150,150)';
