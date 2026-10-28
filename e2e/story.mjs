@@ -251,6 +251,56 @@ async function runViewport(vp) {
     await context.close();
   }
 
+  // ---------------------------------------------------------------- background change never shows black
+  // ch1.yuki opens on a CG (instant) and its first cue changes to library-garden. Every frame through that change
+  // (CPU throttled 4x) must keep a layer at full opacity: the old layer goes only once the new one has faded in.
+  {
+    const { context, page, errors } = await newPage({ save: seeded({ upTo: '1-2' }) });
+    const cdp = await context.newCDPSession(page).catch(() => null);
+    await page.goto(`${base}#/scene/ch1.yuki?next=story&ch=1`, { waitUntil: 'load' });
+    await page.waitForSelector('[data-testid="story-player"].sp-ready', { timeout: 15000 }).catch(() => null);
+    await page.evaluate(() => {
+      const rec = (window.__bgFrames = []);
+      const tick = () => {
+        const layers = [...document.querySelectorAll('.sp-bg .sp-bg-layer')];
+        const ops = layers.map((l) => Number(getComputedStyle(l).opacity));
+        rec.push({ n: layers.length, covered: ops.some((o) => o >= 0.999), ops: ops.map((o) => o.toFixed(2)).join('/'), img: layers.at(-1)?.querySelector('img')?.src.split('/').pop() || '' });
+        if (!window.__bgStop) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      // a busy main thread right after the new picture decodes (stands entering, music changing): a 700 ms stall.
+      // A removal on a fixed timer fires straight after it, before the new layer's fade has even started.
+      const decode = HTMLImageElement.prototype.decode;
+      HTMLImageElement.prototype.decode = function () {
+        const p = decode.call(this);
+        if (this.closest?.('.sp-bg') && this.src.includes('library-garden')) {
+          p.then(() => setTimeout(() => { const t = performance.now(); while (performance.now() - t < 700); }, 0), () => {});
+        }
+        return p;
+      };
+    });
+    if (cdp) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 }).catch(() => {});
+    for (let i = 0; i < 6; i++) {
+      if (await page.evaluate(() => document.querySelector('.sp-bg .sp-bg-layer:last-child img')?.src.includes('library-garden'))) break;
+      await page.waitForSelector('.sp-box.sp-full', { timeout: 8000 }).catch(() => null);
+      await tapNext(page);
+    }
+    // wait until the new place stands alone and fully in
+    await page.waitForFunction(() => {
+      const ls = document.querySelectorAll('.sp-bg .sp-bg-layer');
+      return ls.length === 1 && ls[0].querySelector('img')?.src.includes('library-garden') && Number(getComputedStyle(ls[0]).opacity) >= 0.999;
+    }, null, { timeout: 10000 }).catch(() => null);
+    await page.evaluate(() => new Promise((r) => setTimeout(r, 200)));
+    if (cdp) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 }).catch(() => {});
+    const frames = await page.evaluate(() => { window.__bgStop = true; return window.__bgFrames; });
+    const changed = frames.some((f) => f.n >= 2) && frames.at(-1)?.img.includes('library-garden');
+    const bare = frames.filter((f) => !f.covered);
+    check(changed, `background change: the CG gives way to library-garden (${frames.length} frames, last ${JSON.stringify(frames.at(-1))})`);
+    check(frames.length > 10 && !bare.length, `background change: every frame keeps a layer at full opacity (${bare.length} of ${frames.length} bare${bare.length ? `: ${JSON.stringify(bare.slice(0, 3))}` : ''})`);
+    check(!errors.length, `background change: no errors${errors.length ? `\n       ${errors.slice(0, 5).join('\n       ')}` : ''}`);
+    await context.close();
+  }
+
   // ---------------------------------------------------------------- archive
   {
     const { context, page, errors } = await newPage({ save: seeded({ upTo: '1-5' }) });
@@ -342,12 +392,13 @@ async function runViewport(vp) {
     const toastText = toastEl ? await toastEl.textContent() : '';
     check(!!toastEl && /new lessons/i.test(toastText), `journal: Hikari's toast announces the new lessons ("${toastText}")`);
     await shot(page, 'journal-toast');
-    check(await page.evaluate(() => !!document.querySelector('[data-testid="journal-dot"]')), 'journal: the lobby Menu button has a dot');
+    // ([ui-ink] V2: the home's menu button and the menu sheet's Journal row carry the dot)
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="top-menu"] [data-testid="top-menu-dot"]')), 'journal: the lobby Menu button has a dot');
     const s0 = await story(page);
     check(['home', 'bestiary', 'formation'].every((id) => s0.lessons[id]) && !s0.lessons.recruit && s0.welcome === 'pending', `journal: lessons 1–3 unlocked at 1-2, welcome still pending (${Object.keys(s0.lessons).join(',')})`);
     await page.click('[data-testid="top-menu"]', { force: true });
-    await page.waitForSelector('[data-testid="menu-journal"] .notif-dot', { timeout: 5000 }).catch(() => null);
-    check(await page.evaluate(() => !!document.querySelector('[data-testid="menu-journal"] .notif-dot')), 'journal: the Menu Tab entry has a dot');
+    await page.waitForSelector('[data-testid="menu-journal"] [data-testid="menu-journal-dot"]', { timeout: 5000 }).catch(() => null);
+    check(await page.evaluate(() => !!document.querySelector('[data-testid="menu-journal"] [data-testid="menu-journal-dot"]')), 'journal: the menu sheet\'s Journal row has a dot');
     await page.click('[data-testid="menu-journal"]', { force: true });
     await page.waitForSelector('[data-testid="journal-detail"]', { timeout: 8000 }).catch(() => null);
     const j = await page.evaluate(() => ({

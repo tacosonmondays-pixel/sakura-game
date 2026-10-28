@@ -1,0 +1,95 @@
+{
+  "review": "home layout B 'Quiet Home', round 1, LOOK lens (independent reviewer)",
+  "branch": "concept/home-b",
+  "commit": "bc8c8793f214f74fb3864b84398b09bb7f6ebe5d",
+  "verdict": "NOT_OK",
+  "summary": "Calm, art-first home that keeps the Ink & Paper kit (night navy plates, thin line glyphs, colour coin and gem). The wallpaper and the girl lead at every size. Her face box is clear of every control in all 10 cases at 844x390, 667x375, 915x412, 1024x768, 1280x720 and 390x844 (0 hits; the 667x375 menu sheet slides her stage 60 px aside as designed). Text floor is 12 px. The probe's tap scan gives a minimum of 44.5 px on phones. There is no sideways overflow, Reduce Motion is 120 ms fades only, and the stepped entrance finishes within the 1.2 s budget without blocking taps. Every destination on the live home is still reachable. One medium finding blocks an OK: at 667x375, Marumi's living scene overlaps the news chip and all four dock icons, and the placement itself reports fits:false. The rest are low polish items, plus one low item that predates this branch (the day-style background picker).",
+  "environment_note": "4 CPUs at load average 30-58 from other agents. Real-time screencasts starved: 12 frames in 30 s, and CSS animations stalled for more than 1 s. So the entrance was studied frame by frame: animations were paused at their first frame and stepped by currentTime (40-60 ms steps). The real-time behaviour was checked through hit tests and the code timings. Static shots finish finite animations before capture. The probe and the contrast pass were skipped at 1024/1280 (too slow here). Marumi was not shot at 1024/1280 (live WebGL screenshots timed out); e2e/home.mjs covers her at 1280.",
+  "evidence_dirs": {
+    "shots": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/ui-v2/home-concepts/review-r1-look/shots/",
+    "entrance_frames": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/ui-v2/home-concepts/review-r1-look/entrance-steps-844x390/",
+    "entrance_video": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/ui-v2/home-concepts/review-r1-look/entrance-844x390-stepped.mp4",
+    "zooms": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/ui-v2/home-concepts/review-r1-look/zoom/",
+    "measurements": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/ui-v2/home-concepts/review-r1-look/detail-667x375_915x412_844x390.json and shots/metrics-*.json"
+  },
+  "findings": [
+    {
+      "id": "L1",
+      "severity": "medium",
+      "title": "667x375: Marumi's living scene runs into the news chip and all four dock icons",
+      "detail": "On a small landscape phone (667x375, High graphics, motion allowed) the living scene draws Marumi's outstretched hand up to the bottom edge of the news chip, and her bowling ball and arm reach into the folded 2x2 icon block. The design rule (5.5) and e2e/home.mjs require her art to stay 8 px clear of every control. e2e only checks the live scene at 844x390, 1280x720 and 390x844, so this size is not covered. live.placement() itself returns fits:false here (rel 1), so the layout knows she does not fit and shows her anyway. At 844x390 and 915x412 the same check passes with 0 failures. Her face is clear. Fix direction: when the live placement does not fit after the fold, step her down in scale (rel < 1, the C5 floor is 80 %) or fall back to her still portrait, which fits.",
+      "evidence": "artClearance (e2e/pixels.mjs, girl hidden and shown via live.setGirlVisible, renderAt(0)) at 667x375: lobby-news 0.0 px away (336 device px inside the 8 px margin); dock-recruit 0.0 px (3122 px); dock-mall 0.0 px (701 px); dock-students 0.0 px (204 px); dock-commissions 0.0 px (71 px); a wallet pill 0.0 px (548 px); placement {fits:false, rel:1}. 844x390 and 915x412: 0 failures. Files: shots/look-c02-marumi-667x375.png, zoom/z-marumi-667-chip.png, detail-667x375_915x412_844x390.json"
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "RECRUIT's FREE sticker crosses the hairline into the COMMISSIONS cell",
+      "detail": "In the one-row dock (844x390, 915x412, 1280x720) the FREE sticker hangs off the right of RECRUIT's glyph, crosses the 1 px hairline between RECRUIT and COMMISSIONS and ends about 10 px inside the COMMISSIONS cell. It reads as crowded next to that cell's red dot. Anchor it inside the RECRUIT cell, for example top-right of the glyph, clamped to the cell.",
+      "evidence": "844x390 DOM: sticker x 126-161.8, y 317.5-335.5; hairline x 149.5; COMMISSIONS cell starts at x 152. Files: zoom/z-dock-844.png, shots/look-c01-default-1280x720.png"
+    },
+    {
+      "id": "L3",
+      "severity": "low",
+      "title": "Uneven dock rhythm: the COMMISSIONS caps nearly touch both hairlines",
+      "detail": "The four icons sit in equal 64 px cells, so the long COMMISSIONS label (60 px at 12 px) sits 3.5-4.5 px from the hairlines on both sides. STUDENTS, RECRUIT and MALL have 9-20 px. The row looks unevenly spaced. Size cells to their labels, or drop the hairlines in favour of an even gap.",
+      "evidence": "844x390: COMMISSIONS label x 154-214, hairlines at x 149.5 and ~217.5; STUDENTS label x 25-70.9 in cell 16-80. File: zoom/z-dock-844.png"
+    },
+    {
+      "id": "L4",
+      "severity": "low",
+      "title": "News chip page 3: the 'WEEKLY BOSSES' kicker wraps to two lines",
+      "detail": "On phones (chip 236 px wide) the bosses page puts a two-line kicker beside its countdown chip, above a two-line title. That is four lines in the 60 px chip, about 3 px from its top and bottom borders. It looks cramped next to pages 1 and 2. fitTexts only measures the body. Keep the kicker to one word (BOSSES) or nowrap it.",
+      "evidence": "Files: shots/look-c08-chip-p3-bosses-844x390.png, zoom/z-chip-p3-844.png (compare zoom/z-chip-p2-844.png)"
+    },
+    {
+      "id": "L5",
+      "severity": "low",
+      "title": "Full illustrations: the Battle plate, CO-OP tab and chip sit over her body on smaller screens",
+      "detail": "With the corners locked (Battle bottom right) and the picture panned toward the middle, Hikari's rampart at 667x375, 1024x768 and 1280x720 has the plate and CO-OP tab over her sword arm and waist, and the news chip over her hair. Her face and hair core are clear, as the e2e asserts. This is the owner-chosen trade-off, so it is low. If the art allows, a little more pan or zoom, or a slimmer plate on full illustrations, would keep more of her clear.",
+      "evidence": "Files: shots/look-c04-rampart-667x375.png, shots/look-c04-rampart-1024x768.png, shots/look-c04-rampart-1280x720.png, zoom/grid-667-a.png"
+    },
+    {
+      "id": "L6",
+      "severity": "low",
+      "title": "Every return to the home dips to navy before the wallpaper fades back",
+      "detail": "The return entrance restarts the wallpaper from opacity 0 (mo-scene, 500 ms, opaque at 35 % = 175 ms), so the stepped frames show a fully navy frame at t=0. Coming back from Students therefore blinks through navy even though the same wallpaper was on screen before. Separately, on a starved renderer (seen in this environment) the CSS entrance never advances and everything stays at opacity 0 until .static ends the window (about 0.8 s after the cover left), then pops in at once. Consider starting the scene's return entrance at opacity 1 (scale only), and the first entrance's scene at a non-zero opacity.",
+      "evidence": "Files: entrance-steps-844x390/sheet-return.png (t=0 frame), entrance-844x390/timeline.json (scene, host and pieces all opacity 0.00 from +0 to +2015 ms after the lobby mounted; pop at +2143 with .static)"
+    },
+    {
+      "id": "L7",
+      "severity": "low",
+      "title": "Background picker (opened from the menu head) is still the day-style modal (predates this branch)",
+      "detail": "The picker opened from the new Background tool is the older white Academy modal: girl names at 11.52 px, lock lines at 8.64 px, 38.5 px tall girl buttons, bottom tile titles cut off ('Study', 'Stargazing'), and several yellow fills including DONE. It clashes with the night home. bgPicker.js is not in this branch's diff, so this is not a regression of layout B; track it for the all-menus build.",
+      "evidence": "probe at 844x390: 'text 8.64px < 12px', 'tap 38.50 px < 44 px (6 girl buttons)', '6 yellow fills'; contrast 'Suzu' 1.45:1 (navy on navy). Files: shots/look-c09-bgpicker-667x375.png, shots/look-c09-bgpicker-390x844.png, shots/look-c09-bgpicker-1024x768.png"
+    },
+    {
+      "id": "L8",
+      "severity": "low",
+      "title": "Left edge: chip and avatar at x 16, first dock glyph at x 36",
+      "detail": "The avatar and the news chip share the 16 px gutter, but the dock's first label and glyph start at x 25 and x 36 because they are centred in 64 px cells. The bottom-left block looks indented against the column above it. Purely cosmetic.",
+      "evidence": "844x390 DOM: chip x 16, avatar x 16, STUDENTS label x 25, glyph x 36. File: shots/look-c01-default-844x390.png"
+    },
+    {
+      "id": "L9",
+      "severity": "low",
+      "title": "On a 4:3 tablet the menu sheet's content fills only the top half",
+      "detail": "At 1024x768 the side sheet runs the full height, but its groups end around y 390. The lower half is an empty navy panel. Vertically centring the groups, or a bottom-anchored Settings row, would balance it.",
+      "evidence": "File: shots/look-c08-event-menu-1024x768.png, zoom/grid-desk-b.png"
+    },
+    {
+      "id": "L10",
+      "severity": "low",
+      "title": "SNT-HQ serial at 4.48:1 over Yuzuha's workshop scene",
+      "detail": "The decorative serial (aria-hidden) measured just under 4.5:1 on one bright full illustration at 844x390, against the most common background colour in its box. The value is borderline and the method is coarse. All other 24 measured texts per shot passed.",
+      "evidence": "shots/metrics-844-run1.json c12-academy-scene: '\"SNT-HQ\" 4.48:1 (min 4.5) fg rgb(169,188,220) bg rgb(68,76,92) 12px'; file shots/look-c12-academy-scene-844x390.png"
+    }
+  ],
+  "checks_passed": {
+    "face_clear": "Face box vs every control: 0 hits in all home cases at 6 sizes (secretary, Marumi, academy stand and scene, rampart, both adult heroes, Reduce Motion, event, hidden). The open menu sheet keeps clear because the stage slides aside (667x375: about 60 px). The tap bubble shows under the face box (844x390: bubble top 154, face bottom 145).",
+    "style": "Night navy glass plates, thin line glyphs, colour coin and gem art in the wallets, one yellow (Battle play edge), cyan kickers. Consistent across sizes.",
+    "text_and_taps": "Smallest home text 12 px (dock caps, chip kicker, chapter n/5, FREE, serial). Probe tap minimum 44.5 px on phones, with no control painted over. No sideways overflow at any size.",
+    "reduce_motion": "With the setting on, the entrance runs only mo-fade 120 ms on the scene, host, chip, icons, CO-OP, plate and bar. Nothing moves. The static layout is the same as the default.",
+    "entrance": "Stepped first entrance from the reveal: scene in by 350 ms (settles at 1000 ms), girl 80-440 ms, bar 100-340 ms, chip 160-400 ms, icons 200-560 ms, CO-OP and plate by 640 ms, badges pop 520-760 ms; whole entrance within 1.0 s (budget 1.2 s). The title's cut adds about 460 ms before the reveal. Return entrance done by about 440 ms. Menu sheet in 240 ms, rows staggered 60-200 ms, done by 400 ms; closing is a 150 ms fade. Taps: from just before the reveal on, a hit test at Battle's centre always returns tile-mission (only the loader catches taps while loading), and a real tap opened Missions.",
+    "reachability_vs_live": "Live home destinations and where they are now: Profile = avatar; tickets/coins = display (Mall is 1 tap); gems + = Mall gems tab; Chat, Mail, Menu = top bar; Settings and Fullscreen (Settings > Display) = Menu > Settings; Background and Hide UI = Menu head (and a long press); Notice = Menu (and a chip page when free); Tasks/Commissions and Login gift = Commissions icon and the chip's objective page; Event = chip page 1; Titans/Assault = chip page 3 and Battle > Missions hub; 2x drops/Bounty = Battle > Missions hub; Recruit banner = Recruit icon; Multiplayer = CO-OP tab; Campaign (Next 4-4) = chapter band (and Missions > Quick start); Students, Recruit, Commissions, Mall = icons; Formation, Backpack, Bestiary, Clan = Menu. Nothing is lost; Bounty, Formation, Backpack, Bestiary, Clan and Settings now take one more tap."
+  }
+}

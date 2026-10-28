@@ -20,6 +20,18 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.54', version: '0.1.54', date: '2026-10-28', title: 'Quiet Home',
+    added: [
+      'A calmer new home: your secretary takes centre stage, with one news card, four shortcuts and a big Battle button. Everything else lives in the new Menu.',
+      'Every chapter of the story now plays in its own painted places, from the shrine steps to the festival square with its great drum.',
+    ],
+    changed: [
+      'Coins and gems keep their colour icons, and screens slide and fade smoothly as you move between them.',
+      'The menus have a fresh ink-and-paper look, and each top bar now shows only the currencies that screen uses.',
+      'Full illustrations on the home always show the whole picture.',
+    ],
+  },
+  {
     id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
     added: [
       'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',

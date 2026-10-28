@@ -1,5 +1,7 @@
 import './ui/styles/base.css';
 import './ui/styles/components.css'; // UI condense shared components (docs/specs/UI_DIRECTION.md §5)
+import './ui/styles/ink.css'; // [ui-ink] UI v2 "Ink & Paper": the menus and the home only (body.ui-day / ui-night), never the battle
+import './ui/styles/motion.css'; // [ui-ink] the UI v2 motion layer (src/ui/motion.js): the same scope
 import { registerRoute, startRouter, currentRoute, prefetchRoutes } from './ui/router.js';
 import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
