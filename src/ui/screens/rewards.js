@@ -128,7 +128,7 @@ function freeSection() {
   const sparkDays = Math.max(1, Math.round((GACHA.sparkCost / Math.max(1, s.totals.pulls)) * s.periodDays));
   return h('div.hn-free', { 'data-testid': 'happening-free' },
     statStrip([
-      { label: `Recruits / ${s.periodDays}d`, value: formatNumber(s.totals.pulls), title: `${formatNumber(s.totals.pulls)} free recruits every ${s.periodDays} days` },
+      { label: `Per ${s.periodDays}d`, value: formatNumber(s.totals.pulls), title: `${formatNumber(s.totals.pulls)} free recruits every ${s.periodDays} days` },
       { label: 'SSRs', value: (s.totals.pulls * ssrRate).toFixed(1), title: `${(s.totals.pulls * ssrRate).toFixed(1)} SSRs expected every ${s.periodDays} days (${(ssrRate * 100).toFixed(2)}% with pity)` },
       { label: 'Spark in', value: `${sparkDays}d`, title: `${sparkDays} days to a guaranteed spark (${GACHA.sparkCost} points)` },
     ], { onMore: () => freeDetails(s, ssrRate), testid: 'free-strip', moreTestid: 'free-more' }),
