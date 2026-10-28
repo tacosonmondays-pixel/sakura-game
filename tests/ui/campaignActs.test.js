@@ -20,10 +20,10 @@ const withAct2 = (c, name = 'Rush Hour') => ({ ...CHAPTERS[c - 1], act2: [6, 7, 
 
 afterEach(() => { for (const id of FIXTURE_IDS) delete STAGE_MAP[id]; });
 
-describe('one act (chapters 5-8 in this build)', () => {
+describe('one act (chapters 6-8 in this build)', () => {
   it('one row, no header, the chapter\'s five stages; never NEW', () => {
     const p = mark(createProfile(), ACT1.slice(0, 7));
-    for (const c of CHAPTERS.slice(4)) {
+    for (const c of CHAPTERS.slice(5)) {
       const rows = actRows(p, c);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ act: 1, ids: c.stages, header: null, isNew: false, total: 5 });
@@ -31,7 +31,7 @@ describe('one act (chapters 5-8 in this build)', () => {
       expect(actIds(c, 2)).toEqual([]);
     }
     expect(actRows(p, CHAPTERS[1])[0]).toMatchObject({ unlocked: true, cleared: 2 });
-    expect(actRows(p, CHAPTERS[4])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 4-5 first', cleared: 0 });
+    expect(actRows(p, CHAPTERS[5])[0]).toMatchObject({ unlocked: false, lockText: 'Clear 5-5 first', cleared: 0 });
   });
 });
 
@@ -44,6 +44,18 @@ describe('chapter 2: Act II · Hilltop After Dark (registered, the first live tw
     mark(p, ['1-6', '1-7', '1-8', '1-9', '1-10']);
     expect(actRows(p, CHAPTERS[1])[1]).toMatchObject({ unlocked: true, isNew: true });
     expect(chapterHasNewAct(p, CHAPTERS[1])).toBe(true);
+  });
+});
+
+describe('chapter 5: Act II · The Drowned Line (registered, Step 5)', () => {
+  it('locked until both 5-5 and 4-10 are cleared, then NEW; the banner theme is drowned', () => {
+    const p = mark(createProfile(), ACT1.slice(0, 25)); // through 5-5, chapter 4's Act II not played
+    const rows = actRows(p, CHAPTERS[4]);
+    expect(rows.map((r) => r.header)).toEqual(['Act I · The Morning', 'Act II · The Drowned Line']);
+    expect(rows[1]).toMatchObject({ ids: ['5-6', '5-7', '5-8', '5-9', '5-10'], unlocked: false, isNew: false, lockText: 'Clear 4-10 first' });
+    mark(p, ['4-10']);
+    expect(actRows(p, CHAPTERS[4])[1]).toMatchObject({ unlocked: true, isNew: true });
+    expect(CHAPTERS[4].act2Theme).toBe('drowned');
   });
 });
 

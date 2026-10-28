@@ -37,7 +37,7 @@ const CASH = {
 const MEANS = { 1: 1.69, 2: 1.77, 3: 1.4, 4: 2.15, 5: 1.92, 6: 1.77, 7: 2.19, 8: 1.25 };
 
 describe('ACT2_PLAN', () => {
-  it('has 40 rows, c-6 … c-10 for chapters 1-8, in (chapter, n) order; chapters 1-4 registered (Steps 1-4)', () => {
+  it('has 40 rows, c-6 … c-10 for chapters 1-8, in (chapter, n) order; chapters 1-5 registered (Steps 1-5)', () => {
     expect(ACT2_PLAN).toHaveLength(40);
     expect(ACT2_PLAN.map((r) => r.id)).toEqual(CHAPTERS.flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c.id}-${n}`)));
     for (const r of ACT2_PLAN) {
@@ -45,10 +45,10 @@ describe('ACT2_PLAN', () => {
       expect(r.n).toBe(5 + r.k);
       expect(Object.isFrozen(r)).toBe(true);
     }
-    // Gate Arc Steps 1-4 register chapters 1-4's Act II (c-6 … c-10), appended after Act I
-    for (const r of ACT2_PLAN) expect(!!STAGE_MAP[r.id], r.id).toBe(r.chapter <= 4);
-    expect(CAMPAIGN_IDS).toHaveLength(60);
-    expect(CAMPAIGN_IDS.slice(40)).toEqual([1, 2, 3, 4].flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c}-${n}`)));
+    // Gate Arc Steps 1-5 register chapters 1-5's Act II (c-6 … c-10), appended after Act I
+    for (const r of ACT2_PLAN) expect(!!STAGE_MAP[r.id], r.id).toBe(r.chapter <= 5);
+    expect(CAMPAIGN_IDS).toHaveLength(65);
+    expect(CAMPAIGN_IDS.slice(40)).toEqual([1, 2, 3, 4, 5].flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c}-${n}`)));
   });
 
   it('chapter means of the hero-rework HP pass are 1.69 / 1.77 / 1.4 / 2.15 / 1.92 / 1.77 / 2.19 / 1.25', () => {

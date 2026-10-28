@@ -299,12 +299,12 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 8 minibosses and 3 bosses with announced phases', () => {
+  it('has the 9 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
     // (Gate Arc: the Frostbitten Heir, 1-10, on the Slime Prince's model in frost colours; Old Lamp-Hugger, 2-10, on
     // the Bog Basilisk's model at miniboss scale; the Ashen Warden, 3-10, on the Hollow Samurai's; the Frost Vanguard,
-    // 4-10, on the Orc Warlord's)
-    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_frost_vanguard', 'orc_general', 'slime_frost_heir', 'slime_prince']);
+    // 4-10, on the Orc Warlord's; the Reservoir Willow, 5-10, on the Elder Treant's)
+    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_frost_vanguard', 'orc_general', 'plant_reservoir_willow', 'slime_frost_heir', 'slime_prince']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -903,6 +903,7 @@ describe('stages', () => {
     expect(fixedHas('2-10', 'lizard_lamp_hugger')).toBe(true);
     expect(fixedHas('3-10', 'ghost_ashen_warden')).toBe(true);
     expect(fixedHas('4-10', 'orc_frost_vanguard')).toBe(true);
+    expect(fixedHas('5-10', 'plant_reservoir_willow')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);
@@ -914,6 +915,8 @@ describe('stages', () => {
     expect(drops('6-5')).toContain('crown_cog');
     expect(drops('7-5')).toContain('crown_oni');
     expect(drops('8-5')).toContain('crown_dragon');
+    // the Act II finales from 3-10 on carry no crown (each family's crown belongs to its Act I boss)
+    for (const sid of ['3-10', '4-10', '5-10']) expect(drops(sid).some((i) => i.startsWith('crown_')), sid).toBe(false);
     expect(fixedHas('boss-lych', 'grave_lych')).toBe(true);
     expect(fixedHas('boss-colossus', 'iron_colossus')).toBe(true);
     expect(fixedHas('boss-ashwing', 'dragon_ashwing')).toBe(true);
