@@ -97,12 +97,14 @@ on protocol 9). Every milestone: independent reviewer OK (≤ 3 fix rounds), has
    level-crossing arm on a lane schedule (render prop `barrierArm`, S4a), at the fork, never across the chicane.
 7. **Azami joins after 4-7** (GATE_ARC §17, Q-list "free-girl join slots move to 1-7, 4-7, 7-7"). Today 2-2 grants
    her (`stages.js` 2-2 `unlocks: ['azami']`, catch-up list `CATCH_UP_UNITS`). As Step 1 did for Yuzuha: 4-7 `unlocks:
-   ['azami']`; 2-2 loses it; `LEGACY_JOIN_STAGES.azami = ['2-2']` (a 2-2 win still grants her to a player who has not
-   met her, through `rewards.js`; a save that cleared 2-2 before this build gets her once via the lobby catch-up letter
-   naming 2-2); her `free('2-2', …)` acquisition text moves to "Joins after 4-7 (or 2-2, whichever comes first)". The
-   balance bot already counts legacy stages as ancestors (`tests/sim/modesBot.js`), so Act I balance rows hold.
-   Note the gameplay change: a brand-new player meets Azami later than today (she stays obtainable from 2-2 through
-   the legacy grant, so in practice nothing is lost). *Owner question with this default.*
+   ['azami']`; 2-2 loses it; `LEGACY_JOIN_STAGES.azami = ['2-2']` and `PRE_UPDATE_JOIN_STAGES` (built): 2-2 counts
+   **only for clears made before this build**. A save that cleared 2-2 before the update gets her once via the lobby
+   catch-up letter naming 2-2 (the `joinWindow:azami` counter closes the window on the first catch-up run); a 2-2 win
+   after the update no longer grants her. Her acquisition text reads "Joins after 4-7". `ch2.azami` still plays after
+   2-2 (kind `join`) but she stays at her post ("When you need a gate held, come and find me."). The balance bot
+   counts legacy stages as ancestors (`tests/sim/modesBot.js`); without Azami, 2-3 and 4-5 Hard flip in the balance
+   rows (Easy and Normal hold). Gameplay change: a brand-new player meets Azami after 4-7, not 2-2.
+   *Owner question with this default.*
 8. **Highway is a district** (`MapDef.district: 'highway'` on `city` maps, as `oldtown`): concrete road style
    (`concrete`), gravel verges, sound walls, sign gantries, toll booths, jersey barriers; dusk on 4-7 (`scenery.dusk`
    or the stage `look`), frost on 4-6/4-8 (`scenery.props: ['frost']`), `snowCover` only on 4-8's north portals (a
@@ -312,8 +314,9 @@ GLBs, the non-vacuous family rule; `docs/CAMPAIGN.md` Checkpoint table; HANDOFF 
   (sentry, warden, beetle) in navy/amber/white; the real Brigade kit waits for the enemy rebuild. OK, or hold the Brigade
   back and field only orcs and beasts until then (4-8 and 4-9 would lose their story beat)?
 - **A `brigade` bestiary family now** (five members, the Gnat moves out of Constructs), with the non-vacuous family rule.
-- **Azami joins after 4-7** (a 2-2 win still brings her; saves that cleared 2-2 keep her).
+- **Azami joins after 4-7** (new players meet her there; saves that cleared 2-2 before the update keep her or get her once by letter; a 2-2 win after the update no longer brings her).
 - 4-9/4-10 story places reuse the painted `base-camp` / `mountain-pass`; 4-6…4-8 use a drawn highway skyline. Painted
   "toll-plaza", "frozen-village" and "snow-bridge" pictures could replace them.
 - Hana's `g4.cross` line plays for everyone (`ifUnit`, she exists); a per-line ownership gate is a later feature.
 - Deferred art: the Brigade GLB family (`brigade.glb`, faces, clips), portraits for Kagari, Kuroe and Kohaku.
+- Deferred: the 4-9 bark "Sorry! Sorry!" for a group's last trooper (it needs a "last of its group" trigger in the barks queue); the Badger has no spawn bark.

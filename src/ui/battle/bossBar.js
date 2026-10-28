@@ -36,6 +36,12 @@ export function createBossBar(ctx) {
   let lagFrac = 1;
   let peekIn = 0;
   let peeking = false;
+  /** Back to solid with a fresh check on the next frame (a new boss, or the bar hidden). */
+  function resetPeek() {
+    peekIn = 0;
+    peeking = false;
+    el.classList.remove('bt-boss-peek');
+  }
   /** See-through while the boss is under the bar (checked every PEEK_EVERY s, not every frame). */
   function peek(e, dt) {
     peekIn -= dt;
@@ -68,13 +74,14 @@ export function createBossBar(ctx) {
       if (!el.hidden) {
         el.hidden = true;
         ctx.shell?.classList.remove('bt-has-boss');
+        resetPeek();
       }
       currentUid = null;
       return;
     }
-    peek(e, dt);
     if (e.uid !== currentUid) {
       currentUid = e.uid;
+      resetPeek();
       lagFrac = 1;
       el.hidden = false;
       ctx.shell?.classList.add('bt-has-boss');
@@ -88,6 +95,7 @@ export function createBossBar(ctx) {
         return t;
       }));
     }
+    peek(e, dt);
     const frac = Math.max(0, Math.min(1, e.hp / Math.max(1, e.maxHp)));
     lagFrac = Math.max(frac, lagFrac - dt * 0.35);
     fill.style.width = `${(frac * 100).toFixed(2)}%`;

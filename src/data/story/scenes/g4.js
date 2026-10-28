@@ -12,8 +12,8 @@
 // Frost Vanguard and the Orc General speak as themselves (ENEMY_SPEAKERS). Hana's line in g4.cross is an off-stage
 // `ifUnit` cameo (it plays for everyone once she exists).
 // Main episodes: pro, azami (the join, which carries the parley), cross, boss, after, epi. Side: logs (after 4-8).
-// Azami joins after 4-7, but nearly every save has met her at 2-2 (the legacy grant), so g4.azami reads as her joining
-// the line at her own checkpoint: a reunion or a first meeting reads the same. Stone relit: the tunnel's old beacon lamp.
+// Azami joins after 4-7 (a 2-2 clear only grants her on saves from before the update, the legacy window), so g4.azami
+// reads as her joining the line at her own checkpoint: a reunion or a first meeting reads the same. Stone relit: the tunnel's old beacon lamp.
 
 import { scene, say, narrate, cue, choice } from '../format.js';
 
@@ -183,7 +183,7 @@ export default [
     say('kage', 'Two question marks. One for the Commander. One for us.'),
     narrate('The chart goes up the line to Commander Kuroe. It comes back unread.'),
     cue({ music: 'silence' }),
-    narrate("At sundown Channel 9 opens. The Commander reads the strike squad's roll himself, name by name."),
+    narrate("At sundown Channel 9 opens. Commander Kuroe reads the strike squad's roll himself, name by name."),
     narrate('Not every name answers. After each silence he waits, and then reads the next one.'),
     narrate('The Captain turns the radio down. Then she turns it back up, and listens to the end.'),
     cue({ bg: 'stage:4-5', music: 'calm', exit: 'all' }),

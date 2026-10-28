@@ -1096,7 +1096,7 @@ const CAMPAIGN_ACT2 = [
   act2Stage({
     id: '4-6', name: 'Toll Plaza', mapId: 'noon_toll_plaza',
     desc: 'The iron column comes down the mountain highway to the toll plaza, fans out through the three toll lanes and closes up again past the barrier. Stand on the booth roofs. A Brigade convoy drops off coins every few waves.',
-    budget: [6.5, 210], groups: 3,
+    budget: [6.5, 160], groups: 3,
     pool: [P('orc_grunt', 4), P('orc_ironhide', 3, 2), P('orc_berserker', 1, 8), P('beast_wolf', 2, 3), P('slime_iron', 2)],
     fixed: [F(3, 'orc_ironhide', 3, 1.5), F(16, 'beast_wolf', 6, 0.6)],
     recommended: ['armorPen', 'armorShred'],
@@ -1120,7 +1120,7 @@ const CAMPAIGN_ACT2 = [
   }),
   act2Stage({
     id: '4-8', name: 'Tunnel Mouth', mapId: 'noon_tunnel_mouth',
-    desc: 'Snow blows out of the highway tunnels. Orcs and wolves come through the bores on odd waves; on even waves the Brigade\'s strike column comes up the carriageways from the city behind you.',
+    desc: 'Snow blows out of the highway tunnels. Orcs and wolves come through the bores on odd waves; on even waves they come up the carriageways behind you with the Brigade\'s strike column.',
     budget: [4.5, 36], groups: 3,
     pool: [P('orc_grunt', 3), P('orc_ironhide', 3), P('orc_berserker', 2, 4), P('beast_wolf', 2)],
     fixed: [
@@ -1136,7 +1136,7 @@ const CAMPAIGN_ACT2 = [
   act2Stage({
     id: '4-9', name: 'The Frozen Villages', mapId: 'north_frozen_villages',
     desc: 'Out of the Petal Gate\'s north mouth and into the far north. The Brigade has crossed ahead of you, and wolves and bears stampede up the valley before the guns. Hold the village\'s three last warm hearths.',
-    budget: [6.5, 300], groups: 3,
+    budget: [6.5, 360], groups: 3,
     pool: [
       P('brigade_trooper', 4), P('brigade_shieldline', 2, 3), P('brigade_gnat', 2), P('brigade_tortoise', 1, 8),
       P('beast_wolf', 3), P('beast_bear', 2, 4),
