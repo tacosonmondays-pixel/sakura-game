@@ -555,6 +555,27 @@ const CARDS = {
     c('Her pins hit harder.', 'PINS +2 DMG'),
     c('Her balls roll further, and her pins hit harder.', 'ROLL +1 TILE', 'PINS +2 DMG'),
   ],
+  kohaku_tsubaki: [
+    c("Kohaku's beam hits a little harder.", 'BEAM DMG +1'),
+    c("Her shards carry more of each shell's hit.", 'SHARD HIT 45%'),
+    c("Kohaku's beam pierces one more enemy.", 'PIERCE +1'),
+    c('Every split shell makes one more shard.', 'SHARDS +1'),
+    c('Every 8th volley splits completely into shards.', 'EVERY 8TH'),
+  ],
+  kogane: [
+    c('Every 6th volley fires extra rivets.', 'RIVETS +2'),
+    c('A Move during a wave stalls her attacks for less time.', 'STALL -1 S'),
+    c('Clear the Road plows further.', 'PLOW +2 TILES'),
+    c('Clear the Road recharges faster.', 'RECHARGE +10%'),
+    c('After each Move during a wave, she attacks faster.', 'SPEED +30%', 'LASTS 6 S'),
+  ],
+  norika: [
+    c('Her barricades hold more.', 'BARRICADE +25%'),
+    c('A broken barricade is rebuilt sooner.', 'REBUILD -1 S'),
+    c('Hold the Line lasts longer.', 'LINE +4 S'),
+    c('Whistle Stop stops more enemies.', 'WHISTLE +2'),
+    c('One more barricade, and held enemies take more damage.', 'BARRICADES +1', 'HELD DMG +10%'),
+  ],
 };
 
 /** Every girl's text: her rows with their card lines merged in (frozen). */

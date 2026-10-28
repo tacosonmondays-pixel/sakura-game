@@ -604,7 +604,7 @@ export function girlTile(unitId, { onClick = null, owned = true, level = null, s
     owned ? null : ico('lock'),
     h('span.nm', u.name),
     owned && level != null ? h('span.gt-lv', { 'data-testid': 'card-lv' }, h('span.lbl', 'LV'), h('span.num', String(level))) : null));
-  if (shown === 'UR') applyUrFrame(el, u, profile);
+  if (shown === 'UR' || shown === 'LR') applyUrFrame(el, u, profile);
   return el;
 }
 

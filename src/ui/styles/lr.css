@@ -19,7 +19,17 @@
     var(--lr-edge, #0e1930);
 }
 /* the crest on the big frames: her page, the tall cards, the big students grid */
-.mb-show-stage > .lr-frame > .lr-crest, .unit-card-tall > .lr-frame > .lr-crest, .unit-card.mb-tall > .lr-frame > .lr-crest, .pf-slot > .lr-frame > .lr-crest { display: block; }
+.mb-show-stage > .lr-frame > .lr-crest, .unit-card-tall > .lr-frame > .lr-crest, .unit-card.mb-tall > .lr-frame > .lr-crest, .pf-slot > .lr-frame > .lr-crest,
+.ui-girltile > .lr-frame > .lr-crest { display: block; }
+
+/* the kit's girl tile (components.js girlTile: Students grid, Formation, Tryout): its edge is the kit's clip-path ring
+   (ink.css .ui-girltile::after, coloured by --edge), so the Nightglass gold goes through --edge like UR's rainbow
+   (ink.css .ui-girltile.ur); the .is-lr box-shadow would be cut off by the tile's clip-path. The ring stays on (no
+   ::after to hide: unlike UR's sweep, LR draws none on the card). The crest sits just inside the top edge, since the
+   clip-path cuts anything above the tile. */
+:where(.ui-day, .ui-night) .ui-girltile.lr { --rw: 3px; --ins: 7px; --edge: var(--lr-gold, #ffd27a); }
+:where(.ui-day, .ui-night) .ui-girltile.lr > .lr-frame { inset: var(--rw); }
+:where(.ui-day, .ui-night) .ui-girltile > .lr-frame > .lr-crest { top: -1px; }
 
 /* the comet: a short gold streak that laps the frame (transform only) */
 .mb-show-stage.is-lr > .lr-frame::after, .unit-card-tall.is-lr > .lr-frame::after {

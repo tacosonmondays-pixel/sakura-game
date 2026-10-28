@@ -629,10 +629,10 @@ function supportRow(stage, state, ctx) {
 function buildPrep(stage, state, ctx) {
   const f = prepFacts(stage, state, ctx);
   const right = rightColumn(stage, state, ctx, f);
-  // [friend support] friends' Support Students (campaign, Bounty and solo Freeplay): a row under Counters and Drops
+  // [friend support] friends' Support Students (campaign, Bounty and solo Freeplay): a row at the foot of the map band,
+  // whose map shrinks to make room (the right column is all flex: none and would push Start off a 390 px-tall phone)
   const sup = f.unlocked ? supportRow(stage, state, ctx) : null;
-  if (sup) right.find((el) => el.classList?.contains('stp-rows'))?.appendChild(sup);
-  return h('div.stp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f), h('div.stp-right', right));
+  return h('div.stp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f, sup), h('div.stp-right', right));
 }
 
 function safeMap(id) {
@@ -645,7 +645,7 @@ function safeMap(id) {
 
 // ----- the map band ------------------------------------------------------------------------------------------------
 
-function mapBand(stage, state, ctx, f) {
+function mapBand(stage, state, ctx, f, supportEl = null) {
   const map = safeMap(stage.mapId);
   const tier = MAP_TIER_VIEW[f.played.tier];
   const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
@@ -677,7 +677,8 @@ function mapBand(stage, state, ctx, f) {
     strip,
     h('div.stp-sweepslot', { hidden: true }),
     f.evStatus ? eventLine(stage, state) : null,
-    h('div.stp-line', line, infoBtn));
+    h('div.stp-line', line, infoBtn),
+    supportEl);
 }
 
 function stripCell(label, value, icon) {

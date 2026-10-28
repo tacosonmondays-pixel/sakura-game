@@ -22,21 +22,14 @@ export const PATCH_NOTES = [
   {
     id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
     added: [
-      'Tryout Day, a new run mode: play one long school day of waves, pick a Pep Talk after every period, and watch new girls try out for your squad. Play it solo or with a friend in co-op, from Grade 1 up to Grade 12 (it opens after you clear 2-5).',
-      'In Tryout Day, clear assignments to raise the rarity of your next pick, take a Double Dare for a better one and choose the next class between periods. At Recess the Window Seats move: spend Hall Passes to reseat your girls. Earn Marbles for the Marble Jar, fill the Yearbook and try the Weekly Timetable.',
-      'Recruit has daily banners! The Student Spotlight and the Guardian Spotlight each feature one SSR and three SRs and change every day at 7 PM Central; on Standard you pick the featured SSR yourself, and your first 10× there always brings an SSR. One pity counter is shared by them all.',
-      'Two LR Banners premiere today, side by side: Tenka\'s Physics Club Premiere (0.7% until Nov 5, 7 PM Central; your Legend Promise count carries over) and Kohaku & Tsubaki\'s Starfall Premiere, the Prism Battery: two friends, one tower (0.7% until Nov 4, 7 PM Central). Afterwards they take turns on the LR tab at 0.5%.',
-      'Limit Break: Kohaku & Tsubaki at level 60 with all 5 gates and ★5 can pay the Limit Break fee and win the Starfall Trial (8-5 Nightmare) to become LR, with a new frame and stronger stats. Tenka\'s LR form comes later.',
-      'After 6-5, the Coin banner: 20 recruits a week paid in coins. The Club Lab adds a Workbench that crafts while you play. Friend Support: borrow a friend\'s girl for a battle and earn Friend Points for the Friendship banner.',
+      'Tryout Day, a new run mode (opens after 2-5): play one school day of waves solo or in co-op, pick a Pep Talk after every period and watch new girls try out for your squad, from Grade 1 to Grade 12.',
+      'Daily Spotlights in Recruit: one SSR and three SRs, new every day at 7 PM Central, with one shared pity. Kanna, Yoriko, Seiran, Iroha and Ena now come from their Spotlight days.',
+      'Two LR Banners premiere side by side: Tenka (until Nov 5) and Kohaku & Tsubaki, two friends in one tower (until Nov 4). Win the Starfall Trial to make the duo LR.',
+      'After 6-5, a Coin banner paid in coins. The Club Lab adds a Workbench that crafts while you play, and Friend Support lets you borrow a friend\'s girl and earn Friend Points.',
     ],
     changed: [
-      'Kanna, Yoriko, Seiran, Iroha and Ena now come from their Spotlight days. For your first 30 days with banners you can still spark them on any day.',
-      'UR Resonance: from Nov 1, 7 PM Central, every SSR girl at ★5 deals 10% more damage and attacks 4% faster (support girls: 10% stronger auras and 4% faster).',
-      'Every girl now faces the camera in battle and turns toward her target\'s side.',
+      'UR Resonance from Nov 1, 7 PM Central: every SSR girl at ★5 deals 10% more damage and attacks 4% faster.',
       'Co-op partners need this update too before you can play together.',
-    ],
-    fixed: [
-      'Long names no longer run off the edge of a girl\'s name plate.',
     ],
   },
   {
