@@ -21,6 +21,12 @@
 //   groundPaint  overrides of the ground painter's style flags (textures.paintGround, e.g. kerb bands on grass)
 //   nightGround  ground colours used at night instead (the campus lawns go dark green);
 //   nightCity    city kit colours used at night instead (the campus beds and sidewalk bands)
+//
+// Gate Arc Step 3 (S3a):
+//   DISTRICTS    a map's district on a theme (MapDef.district, e.g. 'oldtown' on `city`): its own
+//                ground, road and building set, merged by resolveLook when the map is given
+//   BURNING      the `ruined: 'burning'` table (StageDef.scenery.ruined), resolved last: an ash-dusted
+//                board under a dark sky, the road kept the lightest band, amber the one accent
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -445,14 +451,89 @@ export const LANTERN_NIGHT = {
 };
 
 /**
+ * Map districts (Gate Arc, `MapDef.district`): a district re-dresses its theme's board. Old Town
+ * (`city` maps of the Bell Festival, GATE_ARC §18.1): plaster and stone ground with a stone gutter
+ * along every lane (no raised kerbs), pale stone setts on the road (the lightest band, by day and
+ * by night), wooden houses with tiled roofs (oldTownProps.js), cherry trees, lantern strings on
+ * the poles instead of bare wires. Keys merge over the theme (path / city merge field by field).
+ */
+export const DISTRICTS = {
+  oldtown: {
+    ground: ['#d3c7b1', '#cabda6'],
+    groundSpeck: '#e0d6c3',
+    groundShade: '#ad9f88',
+    clover: '#8fae6a',
+    wet: '#a9aeb0',
+    dirt: '#cfc2ab',
+    pebble: '#b3a690',
+    groundStyle: 'stone',
+    shore: '#c4b8a2',
+    bank: '#9a8f7e',
+    bankDark: '#776d5f',
+    // stone setts carry their own colour (textures.pathTexture 'setts'): the theme's tint is white
+    path: { style: 'setts', color: '#ffffff', curb: '#efe6d2', side: '#8f8474', base: '#837867', crisp: true, plainJunction: false },
+    trees: ['sakura', 'streetTree'],
+    scatter: ['sakura', 'streetTree'],
+    building: 'oldHouse',
+    frame: ['planterBox', 'bollard', 'planterBox', 'guardRail', 'bollard'],
+    // the stone ground darkens at night under the setts' tone (the road stays the lightest band)
+    nightGround: { ground: ['#9a917f', '#928a78'], groundSpeck: '#a59c8a', groundShade: '#7b7364', clover: '#5f7a52' },
+    nightCity: { sidewalk: '#8a8170', kerb: '#766e60', lawn: '#56784c' },
+    city: {
+      district: 'oldtown', kerbs: false, lanterns: true,
+      sidewalk: '#b9ad97', kerb: '#9f937e', kerbSide: '#8a7f6c', lawn: '#8fb46e', plaza: ['#d9cdb6', '#cdbfa6'],
+    },
+  },
+};
+
+/**
+ * `stage.scenery.ruined === 'burning'` (Gate Arc 3-9, 3-10; GATE_ARC §18.1, §18.6): the city after
+ * HAMMER's barrage. The sky goes dark, not the board: an ash-dusted, desaturated ground, a low warm
+ * key light ≥ 1.2, the road an ash-grey kept lighter than the ground (asphalt paler, setts dimmed a
+ * little), amber the one accent (fire glows, embers; never an oni's red), ash falling, the gates
+ * untouched (the brightest things on the board). Buildings become ruinBlock shells, the skirt's
+ * scatter rubble and wrecks, trees charred (ruinProps.js); the burning layer adds fire and smoke.
+ */
+export const BURNING = {
+  light: { sky: '#d9a074', ground: '#3a2c2c', hemi: 0.82, key: '#ffc890', keyI: 1.3, fill: '#8a6aa8', fillI: 0.3 },
+  bg: '#2a1e22',
+  fogColor: '#4d3a3a',
+  ground: ['#6b6560', '#635d58'],
+  groundSpeck: '#7a746d',
+  groundShade: '#4f4a46',
+  clover: '#57544a',
+  wet: '#4a4846',
+  dirt: '#6d6862',
+  pebble: '#6a645e',
+  shore: '#5b5550',
+  bank: '#55504a',
+  bankDark: '#3f3b37',
+  water: { deep: '#1d2736', shallow: '#3a4858', glow: 0.12 },
+  /** asphalt brightened to ash-grey, setts dimmed a little: both stay well over the ground */
+  pathTone: { asphalt: 1.55, setts: 0.9 },
+  pathSide: '#55504b',
+  city: { sidewalk: '#7a746c', kerb: '#8f8981', kerbSide: '#5d5852', lawn: '#59574a', plaza: ['#716b64', '#69635c'] },
+  trees: ['charred'],
+  scatter: ['rubble', 'debris', 'burntCar', 'rubble', 'fallenPole'],
+  scatterDensity: 0.32,
+  building: 'ruinBlock',
+  frame: ['barricade', 'guardRail', 'debris', 'barricade', 'bollard'],
+  weather: 'ash',
+  emberColor: '#ffc46b',
+  life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: false },
+};
+
+/**
  * Resolves the final look for a map + stage scenery: merged theme, night/fog flags,
  * weather and lighting.
  * @param {string} themeId
- * @param {{ night?: boolean, fog?: boolean, weather?: string|null }} scenery
+ * @param {{ night?: boolean, fog?: boolean, weather?: string|null, ruined?: string|null }} scenery
+ *   ruined 'burning' = the burning table (BURNING; implies a dark sky)
  * @param {{ night?: string, costumes?: boolean }|null} [stageLook] the stage's render-only
  *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night)
+ * @param {{ district?: string }|null} [map] the MapDef (its `district`, e.g. 'oldtown')
  */
-export function resolveLook(themeId, scenery = {}, stageLook = null) {
+export function resolveLook(themeId, scenery = {}, stageLook = null, map = null) {
   const t = THEMES[themeId] || THEMES.sakura;
   const look = {
     ...BASE,
@@ -468,12 +549,24 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     ...(t.city ? { city: { ...t.city } } : {}),
     theme: THEMES[themeId] ? themeId : 'sakura',
   };
+  // a map's district (Old Town on a city map): its ground, road, buildings and kit hints
+  const dist = DISTRICTS[map?.district] || null;
+  if (dist) {
+    const { path, city, nightGround, nightCity, ...rest } = dist;
+    Object.assign(look, rest);
+    look.path = { ...look.path, ...path };
+    if (look.city) look.city = { ...look.city, ...city };
+    look.district = map.district;
+  }
+  const ruined = scenery.ruined === 'burning' ? 'burning' : null;
   const lantern = stageLook?.night === 'lantern';
   look.lantern = lantern;
-  look.night = !!(scenery.night || t.forceNight || lantern);
+  look.night = !!(scenery.night || t.forceNight || lantern || ruined);
   // a theme whose lawns go dark at night (the campus: the road stays the lightest band)
-  if (look.night && t.nightGround) Object.assign(look, t.nightGround);
-  if (look.night && t.nightCity && look.city) look.city = { ...look.city, ...t.nightCity };
+  const nightGround = dist?.nightGround || t.nightGround;
+  const nightCity = dist?.nightCity || t.nightCity;
+  if (look.night && nightGround) Object.assign(look, nightGround);
+  if (look.night && nightCity && look.city) look.city = { ...look.city, ...nightCity };
   look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
   // blackout dimming (StageDef.look.blackout, Gate Arc): the renderer dims the lamps and windows
   // while the stage's rule is active (src/render/blackout.js)
@@ -507,8 +600,26 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     look.fireflyColor = L.firefly;
     look.life = { ...look.life, fireflies: true };
   }
+  if (ruined) {
+    // the city burning (BURNING): ash ground, dark sky, warm low key, the road kept the lightest band
+    const B = BURNING;
+    look.ruined = ruined;
+    look.light = { ...B.light };
+    look.bg = B.bg;
+    Object.assign(look, {
+      ground: [...B.ground], groundSpeck: B.groundSpeck, groundShade: B.groundShade, clover: B.clover, wet: B.wet,
+      dirt: B.dirt, pebble: B.pebble, shore: B.shore, bank: B.bank, bankDark: B.bankDark,
+      trees: [...B.trees], scatter: [...B.scatter], scatterDensity: B.scatterDensity, building: B.building, frame: [...B.frame],
+      emberColor: B.emberColor, flowers: ['#6d6862', '#77716a'],
+    });
+    look.water = { ...look.water, ...B.water };
+    look.path = { ...look.path, side: B.pathSide, tone: B.pathTone[look.path.style] ?? look.path.tone };
+    if (look.city) look.city = { ...look.city, ...B.city };
+    look.life = { ...B.life };
+    if (scenery.weather === undefined) look.weather = B.weather;
+  }
   if (look.fog) {
-    look.fogColor = lantern ? LANTERN_NIGHT.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
+    look.fogColor = ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
   }
   return look;
 }

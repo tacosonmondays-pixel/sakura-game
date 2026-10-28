@@ -15,6 +15,8 @@ import * as THREE from 'three';
 export const FK = {
   plain: 0, glass: 1, office: 2, school: 3, shop: 4, flats: 5, awning: 6, solar: 7, lobby: 8, gym: 9, paving: 10,
   brick: 11, shutter: 12, sleepers: 13,
+  // Old Town (Gate Arc S3a): timber boards with paper lattice windows, and tiled roofs
+  wood: 14, roofTile: 15,
 };
 
 // ---------------------------------------------------------------------------
@@ -148,6 +150,22 @@ const FACADE_FRAG_BODY = /* glsl */`
     // railway sleepers across the ballast (top face: u runs along the line)
     float s = band(fract(f.x / 0.3), 0.0, 0.38) * band(abs(f.y), 0.0, 0.3);
     col = mix(base, vec3(0.42, 0.33, 0.26), s);
+  } else if (k == 14.0) {
+    // Old Town timber: vertical boards, paper lattice windows on every floor (warm at night)
+    float bd = band(fract(f.x / 0.075), 0.0, 0.12);
+    col = base * (1.0 - bd * 0.22);
+    vec2 g = vec2(f.x / 0.28, f.y / 0.3);
+    float win = band(fract(g.y), 0.36, 0.8) * band(fract(g.x), 0.18, 0.82) * step(0.1, f.y);
+    float lat = 1.0 - pane(vec2(f.x / 0.045, f.y / 0.045), vec2(0.1));
+    vec3 paper = mix(vec3(0.93, 0.89, 0.8), uWarm * 1.05, uNight * uLit);
+    col = mix(col, mix(paper, base * 0.5, lat * 0.85), win);
+    glow = win * (1.0 - lat) * (0.08 + 0.75 * uNight * uLit);
+  } else if (k == 15.0) {
+    // tiled roof: rows of round tiles (u along the eaves, v up the slope), a seam every tile
+    float r = fract(f.y / 0.05);
+    float ridge = smoothstep(0.0, 0.3, r) * (1.0 - smoothstep(0.65, 1.0, r));
+    float seam = band(fract(f.x / 0.06), 0.44, 0.56);
+    col = base * (0.8 + 0.26 * ridge) * (1.0 - seam * 0.14);
   }
   diffuseColor.rgb = col;
   facadeGlow = col * glow;
@@ -179,7 +197,7 @@ export function createFacadeMaterial(o = {}) {
       .replace('#include <color_fragment>', `#include <color_fragment>\n  vec3 facadeGlow = vec3(0.0);\n${FACADE_FRAG_BODY}`)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += facadeGlow;');
   };
-  mat.customProgramCacheKey = () => 'cityFacade4';
+  mat.customProgramCacheKey = () => 'cityFacade5';
   return mat;
 }
 

@@ -6,8 +6,13 @@
 // the searchlights' beams sweeping the lake (terrain.searchlights, ground quads: 0 draw calls) and
 // fireflies over the reeds. `dim` (blackout dimming, src/render/blackout.js) scales the prop glows,
 // light pools and beams; the gates' glows (`keep`) and the fireflies stay.
+// The burning look (Gate Arc S3a, look.ruined): ash falling with a few amber embers (weather 'ash'),
+// smoke columns rising from the skirt that fade out within 2 tiles of height (emitter
+// 'smokeColumn'), amber embers over the fires, scorch marks on the ground. HAMMER's tear: its glow
+// sprites and crackling sparks ('tearSparks') follow `tear` (src/render/tear.js: 0 rest … 1 pulse).
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
+import { SMOKE_PUFF } from './city/ruinProps.js';
 
 const TAU = Math.PI * 2;
 const BUTTERFLY_COLORS = ['#ffffff', '#ffe066', '#9fd8ff', '#ffb3cf', '#c4a6ff', '#ffa94d'];
@@ -41,6 +46,10 @@ export class AmbientSystem {
     this.searchlights = terrain.searchlights || [];
     /** Blackout dim level (1 = lit; the battle renderer eases it while a blackout rule is active). */
     this.dim = 1;
+    /** The tear's pulse level (0 at rest … 1 while the rule pulses; src/render/tear.js). */
+    this.tear = 0;
+    // embers: the burning look's amber (never an oni's red), else the shipped orange
+    this._ember = look.emberColor ? new THREE.Color(look.emberColor) : new THREE.Color().setRGB(1, 0.45, 0.12);
     this._beam = new THREE.Color('#eaf2ff');
     this.gates = terrain.gates || [];
     this.marks = terrain.marks || [];
@@ -101,6 +110,15 @@ export class AmbientSystem {
     if (w === 'embers') {
       for (let i = 0; i < count(50); i++) {
         this.particles.push({ kind: 'ember', x: x0 + r() * (x1 - x0), y: r() * 3, z: z0 + r() * (z1 - z0), vy: 0.25 + r() * 0.35, ph: r() * TAU, s: 0.04 + r() * 0.05 });
+      }
+    }
+    if (w === 'ash') {
+      // ash drifting down over the burning city, and a few amber embers rising through it
+      for (let i = 0; i < count(90); i++) {
+        this.particles.push({ kind: 'ash', x: x0 + r() * (x1 - x0), y: r() * 4, z: z0 + r() * (z1 - z0), vy: -(0.18 + r() * 0.16), ph: r() * TAU, s: 0.04 + r() * 0.04, k: 0.75 + r() * 0.3 });
+      }
+      for (let i = 0; i < count(18); i++) {
+        this.particles.push({ kind: 'ember', x: x0 + r() * (x1 - x0), y: r() * 3, z: z0 + r() * (z1 - z0), vy: 0.25 + r() * 0.35, ph: r() * TAU, s: 0.035 + r() * 0.035 });
       }
     }
     // fog banks
@@ -211,7 +229,13 @@ export class AmbientSystem {
             p.z = z0 + this.rand() * (z1 - z0);
           }
           const fl = 0.55 + 0.45 * Math.sin(t * 7 + p.ph);
-          bbA.push(p.x, p.y, p.z, p.s, p.s, R.glow, 1, 0.45, 0.12, fl * Math.min(1, (3.2 - p.y)));
+          const ec = this._ember;
+          bbA.push(p.x, p.y, p.z, p.s, p.s, R.glow, ec.r, ec.g, ec.b, fl * Math.min(1, (3.2 - p.y)));
+        } else if (p.kind === 'ash') {
+          p.x += (Math.sin(t * 0.6 + p.ph) * 0.18 + wind * 0.2) * dt;
+          p.z += Math.cos(t * 0.5 + p.ph) * 0.08 * dt;
+          if (p.y < 0.02) this._respawnTop(p, 4);
+          bbN.push(p.x, p.y, p.z, p.s, p.s * 0.8, R.snow, 0.6 * p.k, 0.58 * p.k, 0.56 * p.k, 0.8, t * 0.5 + p.ph);
         }
         if (p.x > x1) p.x = x0;
         if (p.x < x0) p.x = x1;
@@ -324,8 +348,13 @@ export class AmbientSystem {
       if (g.owner && !g.owner.visible) continue;
       // a traffic signal: the lit lamp steps through its colours (city kit)
       if (g.cycle) g.color = this._cycleColor(g.cycle, t + (g.phase || 0));
-      const fl = (1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2))) * (g.keep ? 1 : this.dim);
-      const s = g.size * (night ? 1.1 : 0.8);
+      let fl = (1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2))) * (g.keep ? 1 : this.dim);
+      let s = g.size * (night ? 1.1 : 0.8);
+      // the tear's glow swells while the rule pulses
+      if (g.tear) {
+        s *= 0.75 + 0.55 * this.tear;
+        fl *= 0.6 + 0.5 * this.tear;
+      }
       bbA.push(g.x, g.y, g.z, s, s, R.glow, g.color.r, g.color.g, g.color.b, ga * fl);
       if (night && g.y < 1.6 && g.size >= 0.4) gA.push(g.x, 0.02, g.z, s * 2.2, s * 2.2, R.soft, g.color.r, g.color.g, g.color.b, 0.16 * fl);
     }
@@ -397,6 +426,9 @@ export class AmbientSystem {
         const pulse = 0.5 + 0.5 * Math.sin(t * 1.4 + m.x);
         gN.push(m.x, PATH_H + 0.016, m.z, 1.5, 1.5, R.cracks, 0.12, 0.08, 0.16, 0.8, m.rot);
         gA.push(m.x, PATH_H + 0.022, m.z, 1.42, 1.42, R.cracks, c.r, c.g, c.b, 0.3 + 0.3 * pulse, m.rot);
+      } else if (m.kind === 'scorch') {
+        // the burning look: a burnt blotch on the ground (never on the road: ruinProps.burningLayer)
+        gN.push(m.x, 0.02, m.z, 1.25, 1.25, R.scorch, 0.1, 0.08, 0.08, 0.62, m.rot);
       } else if (m.kind === 'chevron') {
         // a soft pulse runs along the road in its travel direction
         const rv = this.chevronsReversed;
@@ -510,7 +542,22 @@ export class AmbientSystem {
         break;
       case 'embers':
         e.timer = 0.18;
-        fx.spawn({ batch: 'bbA', uv: R.glow, x: e.x + (r() - 0.5) * 0.25, y: e.y, z: e.z + (r() - 0.5) * 0.25, vx: (r() - 0.5) * 0.3, vy: 0.8 + r() * 0.8, drag: 0.5, s0: 0.08, s1: 0.02, life: 1.2, color: r() > 0.5 ? '#ff7a33' : '#ffc46b' });
+        fx.spawn({ batch: 'bbA', uv: R.glow, x: e.x + (r() - 0.5) * 0.25, y: e.y, z: e.z + (r() - 0.5) * 0.25, vx: (r() - 0.5) * 0.3, vy: 0.8 + r() * 0.8, drag: 0.5, s0: 0.08, s1: 0.02, life: 1.2, color: e.color ? (r() > 0.5 ? e.color : '#ffd27a') : r() > 0.5 ? '#ff7a33' : '#ffc46b' });
+        break;
+      case 'smokeColumn':
+        // the burning city's smoke from the skirt: dark puffs widening as they rise, gone within
+        // 2 tiles of height (vy · life with the drag stays under 2), leaning away from the board
+        e.timer = 0.32;
+        fx.spawn({ batch: 'bbN', uv: R.smoke, x: e.x + (r() - 0.5) * 0.3, y: SMOKE_PUFF.y, z: e.z + (r() - 0.5) * 0.3, vx: 0.08 + this.gust.value * 0.15, vy: SMOKE_PUFF.vy, vz: -0.06, drag: SMOKE_PUFF.drag, s0: 0.45, s1: 1.5, life: SMOKE_PUFF.life, color: r() > 0.5 ? '#3b3638' : '#4a4446', a0: 0.6, a1: 0, fadeIn: 0.35, rot: r() * TAU, vrot: 0.25 });
+        break;
+      case 'tearSparks':
+        // sparks crackling off the tear: a few at rest, a burst while the rule pulses
+        e.timer = 0.5 / (0.35 + this.tear * 1.6);
+        {
+          const a = r() * TAU;
+          const rad = (e.r || 0.6) * (0.2 + r() * 0.8);
+          fx.spawn({ batch: 'bbA', uv: R.spark, x: e.x + Math.cos(a) * rad * 0.35, y: e.y + Math.sin(a) * rad, z: e.z, vx: Math.cos(a) * 0.6, vy: Math.sin(a) * 0.6 - 0.2, drag: 1.4, s0: 0.12, s1: 0.03, life: 0.45, color: e.color || '#c9a2ff', rot: r() * TAU, vrot: 6 });
+        }
         break;
       case 'wisp':
         e.timer = 0.6;
