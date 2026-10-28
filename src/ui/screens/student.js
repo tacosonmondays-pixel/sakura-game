@@ -915,7 +915,7 @@ function awakenTab(unit, ctx) {
   // Detailed (Settings → Girl page): every star's bonus, the next one highlighted
   const stars = ctx.mode === 'detailed' ? awakenStars(unit, star, 'detailed') : null;
   const top = h('section.ui-panel.gk-aw', { 'data-testid': 'awaken-panel' }, h('div.ui-panel-in',
-    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? urBadge() : null,
+    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? (limitBreakState(profile, unit.id).lr ? lrBadge() : urBadge()) : null,
       h('span.gk-aw-more', moreSticker(() => openAwakenDetails(unit), { testid: 'awaken-more', label: 'Every star and her passive' }))),
     stars
       ? h('ol.gk-aw-list', { 'data-testid': 'awaken-stars' }, stars.map((s) => h(`li.gk-aw-star.${s.state}`, { 'data-testid': s.state === 'next' ? 'awaken-next' : null },
@@ -929,10 +929,16 @@ function awakenTab(unit, ctx) {
       h('div', h('b', unit.awakenPassive.name), h('span.gp-sub', ` ${unit.awakenPassive.desc}`)),
       sticker(passiveOn ? 'Active' : 'At ★3', passiveOn ? 'y' : ''))));
   if (!next) {
-    return h('div.mb-tab-body.gk-awaken', top,
-      ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`), h('p.gp-line', { 'data-testid': 'ur-resonance' }, resonanceText(unit))), urRing())))
-        : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`))),
-      limitBreakPanel(unit, ctx));
+    // an LR unit's climb comes first (on a phone the panel below the fold went unseen)
+    const lb = limitBreakPanel(unit, ctx);
+    const lrNow = limitBreakState(profile, unit.id).lr;
+    const they = unit.duo ? 'their' : 'her';
+    const urPanel = ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, lrNow ? lrBadge() : urBadge(),
+      h('div', h('b', lrNow ? 'Limit Break: LR' : 'Ascended to UR'),
+        h('p', lrNow ? `${unit.name} broke the limit: ${they} card wears the Nightglass frame everywhere.` : `${unit.name} shines with all five stars — ${they} card wears the rainbow frame everywhere.`),
+        h('p.gp-line', { 'data-testid': 'ur-resonance' }, resonanceText(unit))), lrNow ? null : urRing())))
+      : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`)));
+    return h('div.mb-tab-body.gk-awaken', top, lb, urPanel);
   }
   return h('div.mb-tab-body.gk-awaken', top,
     next === MAX_AWAKEN && unit.rarity === 'SSR' ? h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', { 'data-testid': 'ur-preview' }, `★5 → UR: +5% damage and UR Resonance (${resonanceText(unit, true)}).`))) : null,
