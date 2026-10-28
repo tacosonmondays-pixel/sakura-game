@@ -5,11 +5,13 @@ import { seedGearMany } from '../uiSeed.mjs';
 export const milestone = 'm2';
 const bp = (tab, extra = {}) => ({ hash: `#/backpack?tab=${tab}`, ready: isScreen('backpack'), kind: 'list', rebuilt: true, ...extra });
 
-/** Gives the save items (a prepare step: it runs on another screen before the Backpack is drawn). */
+/** Sets the save's count of items (a prepare step: it runs on another screen before the Backpack is drawn). It sets,
+ * never adds, so a shot taken at three sizes in one save shows the same counts at each. */
 const giveItems = (items) => (page) => page.evaluate(async (list) => {
   const { store } = window.__sakura;
-  const inv = await import('/src/systems/inventory.js');
-  inv.addItems(store.profile, list);
+  const p = store.profile;
+  p.items ||= {};
+  for (const { id, count } of list) p.items[id] = count;
   store.commit('e2e');
   store.saveNow?.();
 }, items);

@@ -193,10 +193,18 @@ function boxReady(profile) {
 }
 
 /** A kit tool button (secondary, 44 px), with an optional red dot and an "on" state (a filter is set). */
-function toolBtn(label, { icon = null, testid = null, onClick, dot = false, on = false, title = null, cls = '' } = {}) {
-  const b = secondaryBtn(label, { icon, testid, onClick, title, cls: `bp-tool${on ? '.on' : ''}${cls ? `.${cls}` : ''}` });
+function toolBtn(label, { icon = null, testid = null, onClick, dot = false, on = false, title = null, cls = '', narrow = false } = {}) {
+  const b = secondaryBtn(label, { icon, testid, onClick, title, cls: `bp-tool${on ? '.on' : ''}${narrow ? '.bp-icon-narrow' : ''}${cls ? `.${cls}` : ''}` });
   if (dot) b.append(h('i.ui-dot.bp-tool-dot', { 'aria-hidden': 'true' }));
-  if (dot) b.setAttribute('aria-label', `${label} (a box can be opened)`);
+  // narrow: an upright phone shows the glyph only (v2-backpack.css), so the word is its accessible name
+  if (dot || narrow) b.setAttribute('aria-label', dot ? `${label} (a box can be opened)` : `${title && title !== label ? `${title}: ` : ''}${label}`);
+  return b;
+}
+
+/** Salvage on an upright phone: its glyph only (§6.4 "Salvage (icon, danger)"), the word in its aria-label. */
+function narrowed(b) {
+  b.classList.add('bp-icon-narrow');
+  b.setAttribute('aria-label', b.textContent.trim());
   return b;
 }
 
@@ -384,7 +392,7 @@ function renderGear(tools, host, rerender) {
     for (const uid of pick) if (!shown.has(uid)) pick.delete(uid);
   }
   const filtersOn = activeGearFilters({ ...filter, rarity: null }) + (state.rarity ? 1 : 0) + (state.gearSlot ? 1 : 0);
-  const filterBtn = toolBtn('Filter', { icon: 'filter', testid: 'bp-filter', on: filtersOn > 0, title: filtersOn ? 'Filters are on' : null, onClick: () => openGearFilter(rerender) });
+  const filterBtn = toolBtn('Filter', { icon: 'filter', testid: 'bp-filter', narrow: true, on: filtersOn > 0, title: filtersOn ? 'Filters are on' : null, onClick: () => openGearFilter(rerender) });
   const total = gearCount(profile);
 
   const tiles = new Map();
@@ -451,10 +459,10 @@ function renderGear(tools, host, rerender) {
     put(tools,
       toolBtn('Supplies', { icon: 'box', testid: 'supplies-open', dot: boxReady(profile), onClick: () => openSupplies(rerender), cls: 'bp-supplies-btn' }),
       filterBtn,
-      toolBtn(GEAR_SORTS[fsort] || 'Sort', { icon: 'sort', testid: 'bp-sort', title: 'Sort', onClick: () => openSortSheet(GEAR_SORTS, fsort, (id) => { saveGearFilter('backpack', { ...loadGearFilter('backpack'), sort: id }); rerender(); }, 'gear-sort') }),
+      toolBtn(GEAR_SORTS[fsort] || 'Sort', { icon: 'sort', testid: 'bp-sort', title: 'Sort', narrow: true, onClick: () => openSortSheet(GEAR_SORTS, fsort, (id) => { saveGearFilter('backpack', { ...loadGearFilter('backpack'), sort: id }); rerender(); }, 'gear-sort') }),
       h('span.bp-gap'),
       total >= GEAR_BAG_MAX * CAP_SHOW ? h('span.bp-cap', { 'data-testid': 'gear-capacity', title: 'Gear bag' }, lbl('Bag'), num(`${total}/${GEAR_BAG_MAX}`, 's')) : null,
-      canSalvage ? button('Salvage', { kind: 'danger', icon: 'sell', testid: 'salvage-mode', onClick: () => { state.pick = new Set(); rerender(); } }) : null);
+      canSalvage ? narrowed(button('Salvage', { kind: 'danger', icon: 'sell', testid: 'salvage-mode', onClick: () => { state.pick = new Set(); rerender(); } })) : null);
   }
 
   const moreBtn = more > 0
@@ -578,9 +586,10 @@ export function render(root, params = {}) {
       renderGear(toolbar, content, rerender);
     } else {
       const rarityOn = !!state.rarity;
-      put(toolbar,
-        toolBtn(rarityOn ? ITEM_RARITIES[state.rarity].name : 'Filter', { icon: 'filter', testid: 'bp-filter', on: rarityOn, title: rarityOn ? 'Rarity filter is on' : 'Filter by rarity', onClick: () => openItemFilter(rerender) }),
-        toolBtn(SORTS[state.sort], { icon: 'sort', testid: 'bp-sort', title: 'Sort', onClick: () => openSortSheet(SORTS, state.sort, (id) => { state.sort = id; rerender(); }, 'item-sort') }));
+      // (an empty or one-item tab has nothing to filter or sort; a rarity filter that emptied it keeps its button)
+      if (rarityOn || ownedItems(state.tab).length > 1) put(toolbar,
+        toolBtn(rarityOn ? ITEM_RARITIES[state.rarity].name : 'Filter', { icon: 'filter', testid: 'bp-filter', narrow: true, on: rarityOn, title: rarityOn ? 'Rarity filter is on' : 'Filter by rarity', onClick: () => openItemFilter(rerender) }),
+        toolBtn(SORTS[state.sort], { icon: 'sort', testid: 'bp-sort', title: 'Sort', narrow: true, onClick: () => openSortSheet(SORTS, state.sort, (id) => { state.sort = id; rerender(); }, 'item-sort') }));
       renderItems(content, rerender);
     }
     body.scrollTop = scrollTop;

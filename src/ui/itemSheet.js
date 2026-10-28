@@ -39,15 +39,15 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
   const item = getItem(itemId);
   const profile = store.profile;
   const owned = itemCount(profile, itemId);
-  // the five best places (a Tap layer keeps to its number budget): the drop chance rides in the row's title, not as a
-  // second number on every row
-  const sources = itemSources(itemId).slice(0, 5);
+  // up to eight places, as before; each row shows its drop chance as a small muted suffix (a repeated row: P3 budgets
+  // it per row, data-probe="tile")
+  const sources = itemSources(itemId).slice(0, 8);
   let sheet = null;
   const go = (fn) => () => { sheet?.close(); fn(); };
 
   const users = item?.category === 'material' && item.family ? UNITS.filter((u) => u.materialFamily === item.family) : [];
-  const rows = sources.map((s, i) => h('li.bp-src', { title: s.note ? `${s.label} · ${s.note}` : s.label },
-    h('span.bp-src-t', s.label),
+  const rows = sources.map((s, i) => h('li.bp-src', { 'data-probe': 'tile' },
+    h('span.bp-src-t', s.label, s.note ? h('span.bp-chance', s.note) : null),
     s.stageId
       ? secondaryBtn('Go', { testid: `teleport-${s.stageId}`, title: `Go to ${s.label}`, cls: 'bp-go', onClick: go(() => navigate('stage', { id: s.stageId })) })
       : s.route ? secondaryBtn('Go', { testid: `item-go-${i}`, title: `Go to ${s.label}`, cls: 'bp-go', onClick: go(() => navigate(s.route, s.params || {})) }) : null));
@@ -69,22 +69,23 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
 
   const body = h('div.bp-isheet', { 'data-testid': 'item-info' },
     h('div.bp-ihead',
-      itemTile(itemId, null, { size: 72, onClick: () => {} }),
+      itemTile(itemId, null, { size: globalThis.matchMedia?.('(max-height: 480px)').matches ? 56 : 72, onClick: () => {} }),
       h('div.bp-ihead-txt',
         h('div.bp-ihead-row', itemRarityTag(item?.rarity), h('span.bp-owned', lbl('Owned'), num(fmtNum(owned, 'count', { detail: true }), 's'))),
         item?.desc ? h('p.bp-desc', item.desc) : null)),
     users.length ? h('div.bp-users', lbl(`Used by · ${MATERIAL_FAMILIES[item.family]?.name || ''}`),
       h('div.bp-faces', users.map((u) => h('span.bp-face', { title: u.name, html: portraitHTML(u, 'thumb', { alt: u.name }) })))) : null,
+    // the actions first, under the item (a landscape phone sees them without scrolling), then where to get more
+    acts.length ? actRow : null,
     h('div.bp-where',
       h('h3.bp-kick', 'Where to get'),
-      rows.length ? h('ul.bp-srcs', rows) : h('p.bp-desc', 'Not obtainable yet.')),
-    acts.length ? actRow : null);
+      rows.length ? h('ul.bp-srcs', rows) : h('p.bp-desc', 'Not obtainable yet.')));
 
   // a Kindred Essence nobody can use: release it for a spare (a ghost action, one line saying why)
   if (item?.kindred && owned > 0) {
     import('../systems/essence.js').then((ess) => {
       if (ess.kindredUseful(store.profile, itemId) || !sheet) return;
-      body.append(h('div.bp-acts.bp-release',
+      body.insertBefore(h('div.bp-acts.bp-release',
         h('span.bp-desc', 'No girl can use this Essence right now.'),
         button('Release for Mementos', { kind: 'ghost', small: true, testid: 'kindred-release', onClick: () => {
           const r = ess.releaseKindred(store.profile, itemId);
@@ -93,7 +94,7 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
           sheet?.close();
           onChange?.();
           toast(`Released: +${r.pay.mementos} Mementos${r.pay.moonpearls ? ` · +${r.pay.moonpearls} Moonpearls` : ''}`, 'good');
-        } })));
+        } })), body.querySelector('.bp-where'));
     }).catch(() => {});
   }
   sheet = openSheet({ title: item?.name || itemId, body, testid: 'item-sheet', cls: 'bp-sheet' });

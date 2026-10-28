@@ -1,11 +1,11 @@
 /* Equipment filter bar (src/ui/gearFilterBar.js): rarity chips + compact dropdowns (main stat, substat, show and,
    on the girl page, sort). The Backpack shows it in its Filter sheet (UI v2 M2), the girl page in a slot's sheet.
    Phones (≤ 560 px wide or short landscape): the dropdowns wrap two per row. */
-.gf-bar { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; padding: 10px 12px; background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); }
+.gf-bar { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); }
 .gf-rarities { display: flex; gap: 6px; flex-wrap: wrap; }
 .gf-rarity {
   --gf: var(--navy);
-  min-height: 32px; padding: 4px 12px; border: 2px solid color-mix(in srgb, var(--gf) 45%, #fff);
+  min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--gf) 45%, #fff);
   background: #fff; color: color-mix(in srgb, var(--gf) 80%, #000); font: inherit; font-weight: 800; font-size: 0.82rem;
 }
 .gf-rarity.on { background: var(--gf); border-color: var(--gf); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25); }
@@ -14,7 +14,7 @@
 .gf-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .gf-label { font-size: var(--fs-label, 12px); font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .gf-select {
-  width: 100%; min-height: 36px; padding: 4px 8px; border: 2px solid var(--line); background: #fff;
+  width: 100%; min-height: 36px; padding: 4px 8px; border-radius: 9px; border: 2px solid var(--line); background: #fff;
   color: var(--navy); font: inherit; font-weight: 700; font-size: 0.85rem;
 }
 .gf-select:focus { outline: none; border-color: var(--blue); }
@@ -28,6 +28,7 @@
 /* [UI v2 M2] the Ink & Paper look on the menus: a white field with one hairline, square fields (S5) at 46 px with an
    ink hairline, caps labels at 12 px, the rarity chips as flat kit chips (the open one ink with the pink bar), Clear
    as a red caps link with a 46 px tap. (M3 restyles the girl page's picker around it.) */
+body.ui-day :is(.gf-bar, .gf-rarity, .gf-select) { border-radius: 0; }
 body.ui-day .gf-bar { border: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
 body.ui-day .gf-rarity { min-height: 46px; padding: 0 14px; border: 0; background: var(--panel-w); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-ink-soft);
   font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; text-shadow: none; }
