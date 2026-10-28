@@ -68,8 +68,9 @@ describe('the Office cell (her own panel)', () => {
       rows[tiers.join('-')] = officeText(st.hub);
     }
     expect(rows['0-0-0']).toBe('−5% upgrades, sell 80%');
-    expect(rows['0-3-0']).toBe('−5% upgrades, sell 80%, abilities recharge 15% faster, +15% speed');
-    expect(rows['0-5-2']).toBe('−5% upgrades, sell 80%, abilities recharge 25% faster, +25% speed, +15% range, Veil Sight, hits flyers');
+    // (Ouka's balance round 5 row, src/data/balance.js: +5% on the bonus part: +15% → +16%, +25% → +26%)
+    expect(rows['0-3-0']).toBe('−5% upgrades, sell 80%, abilities recharge 15% faster, +16% speed');
+    expect(rows['0-5-2']).toBe('−5% upgrades, sell 80%, abilities recharge 25% faster, +26% speed, +16% range, Veil Sight, hits flyers');
     for (const [k, line] of Object.entries(rows)) {
       expect(line, k).not.toMatch(/tiles/);
       expect(line, k).not.toMatch(/(^|[\s(])-\d/); // a minus sign (U+2212), never the hyphen

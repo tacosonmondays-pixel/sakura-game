@@ -269,8 +269,9 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
 
   it('Marumi mid-wave (UNIT_GAPS §5.9): balls on the road, a Giant Strike rolling', () => {
     const team = ['marumi', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
-    const stats = { costMul: 0.3 };
-    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3333, options: { autoStart: true, autoAbilities: true } };
+    // (power-neutral, `powerOff`: balance round 5's rows and hero curve stay out, so the waves last long enough to compare)
+    const stats = { costMul: 0.3, powerOff: true };
+    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari', stats: { powerOff: true } }, seed: 3333, options: { autoStart: true, autoAbilities: true } };
     const sim = fresh(args);
     const bot = makeAbilityBot('1-5', [...team, 'hikari']);
     sim.cash += 20000;
@@ -297,8 +298,9 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
 
   it('Chigusa mid-wave (UNIT_GAPS §5.7): a vine hold, thorn beds, Bloom Rush and Overgrowth running', () => {
     const team = ['chigusa', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
-    const stats = { costMul: 0.3 };
-    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3232, options: { autoStart: true, autoAbilities: true } };
+    // (power-neutral, `powerOff`: balance round 5's rows and hero curve stay out, so the waves last long enough to compare)
+    const stats = { costMul: 0.3, powerOff: true };
+    const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari', stats: { powerOff: true } }, seed: 3232, options: { autoStart: true, autoAbilities: true } };
     const sim = fresh(args);
     const bot = makeAbilityBot('1-5', [...team, 'hikari']);
     sim.cash += 20000;

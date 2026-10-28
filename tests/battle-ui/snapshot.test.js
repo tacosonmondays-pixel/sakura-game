@@ -778,7 +778,8 @@ function nearPath(sim, units) {
 }
 
 /** Potential v3 test team: every girl at P6 by the path on 4-5 Hard (a blizzard rule, a kept focus). */
-const POT = { stageId: '4-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'momo', 'suzu', 'chika', 'akane'], hero: 'luna', stats: { damageMul: 1.5, rateMul: 1.2, potential: 6 }, seed: 4545 };
+// (power-neutral, `powerOff`: balance round 5's rows stay out, so Kage's tempo and carry are still caught mid-run)
+const POT = { stageId: '4-5', difficulty: 'hard', towers: ['kage', 'rei', 'kaede', 'momo', 'suzu', 'chika', 'akane'], hero: 'luna', stats: { damageMul: 1.5, rateMul: 1.2, potential: 6, powerOff: true }, seed: 4545 };
 /** The team on spots by the path, tier 2 on path 0, the waves' own streams (as the controller). */
 function potBuild() {
   const sim = makeSim(POT);
@@ -1575,7 +1576,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     // (and Ouka's banners and the rules she gives)
     for (const t of oukaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Chigusa mid-wave: a held enemy, thorn beds, Bloom Rush; all of it ends at the wave clear)
-    const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: {}, seed: 12 });
+    // (power-neutral: balance round 5's rows off, so a walker lives long enough for a vine, beds and Bloom Rush)
+    const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: { powerOff: true }, seed: 12 });
     cg.cash = 1e6;
     for (const a of autoPlan('1-1', ['chigusa', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') cg.placeTower(a.unitId, a.x, a.y);
     const ch = cg.towers.find((t) => t.unitId === 'chigusa');
@@ -1724,7 +1726,8 @@ describe('battle save and co-op freeplay: a solo save never carries freeplay sta
 
 describe('Marumi\'s ricochet and the battle save', () => {
   it('a ball mid-bounce ends at the wave clear: the save round-trips with no ball and replays no blast', () => {
-    const c = { stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 2110 };
+    // (power-neutral: balance round 5's rows off, so a ball is still bouncing when the wave is checked)
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: { powerOff: true }, seed: 2110 };
     const sim = makeSim(c);
     sim.cash = 1e6;
     for (const a of autoPlan('1-1', c.towers, { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
