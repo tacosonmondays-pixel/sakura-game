@@ -555,7 +555,7 @@
 .ma-col-lock { background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 999px; }
 .ma-col-best { position: relative; z-index: 1; text-align: center; padding: 14px 22px; margin-right: 18px; background: rgba(29,78,137,0.9); color: #fff; border-radius: 14px; transform: skewX(var(--skew)); box-shadow: var(--shadow-strong); }
 .ma-col-best > * { transform: skewX(calc(var(--skew) * -1)); }
-.ma-col-best-label { font-size: 0.72rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+.ma-col-best-label { font-size: var(--fs-label); font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
 .ma-col-best-val { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 3rem; line-height: 1; color: var(--yellow); }
 .ma-col-best-sub { font-size: 0.75rem; font-weight: 800; }
 .ma-col-map { display: none; }
@@ -575,7 +575,7 @@
 .ma-ec-thumb svg { width: 100%; height: 100%; }
 .ma-endless-card.locked .ma-ec-thumb { filter: grayscale(1) brightness(0.7); }
 .ma-ec-id { position: absolute; left: -3px; top: 6px; background: var(--yellow); color: var(--navy); font-weight: 900; font-style: italic; font-size: 0.8rem; padding: 0 10px; transform: skewX(var(--skew)); }
-.ma-ec-best { position: absolute; right: 6px; top: 6px; display: inline-flex; align-items: center; gap: 2px; background: rgba(29,78,137,0.92); color: #fff; font-weight: 900; font-size: 0.72rem; padding: 1px 8px 1px 2px; border-radius: 999px; }
+.ma-ec-best { position: absolute; right: 6px; top: 6px; display: inline-flex; align-items: center; gap: 2px; background: rgba(29,78,137,0.92); color: #fff; font-weight: 900; font-size: var(--fs-label); padding: 1px 8px 1px 2px; border-radius: 999px; }
 .ma-ec-medal { width: 18px; height: 18px; }
 .ma-ec-info { display: flex; flex-direction: column; padding: 6px 8px 8px; font-size: 0.82rem; }
 .ma-ec-info b { color: var(--navy); font-style: italic; }
