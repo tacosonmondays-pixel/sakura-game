@@ -318,6 +318,10 @@ GLBs, the non-vacuous family rule; `docs/CAMPAIGN.md` Checkpoint table; HANDOFF 
 - **Azami joins after 4-7** (new players meet her there; saves that cleared 2-2 before the update keep her or get her once by letter; a 2-2 win after the update no longer brings her).
 - 4-6…4-10 story places are drawn skylines (highway, then the snowy north, with dusk and night versions). Painted
   "toll-plaza", "frozen-village" and "snow-bridge" pictures could replace them.
+- 4-9 opens with five Gnats on wave 1 (5 lives on every difficulty before towers are up). Default: keep; starting
+  them at wave 2 (`P('brigade_gnat', 2, 2)`) is one line but moves the sim id and the balance rows.
+- On a phone, 4-6's goal sits half under the hero widget's LV UP button. Default: keep (moving the exit moves the sim);
+  the hero widget fading over a goal is a shared-UI change for later.
 - Hana's `g4.cross` line plays for everyone (`ifUnit`, she exists); a per-line ownership gate is a later feature.
 - Deferred art: the Brigade GLB family (`brigade.glb`, faces, clips), portraits for Kagari, Kuroe and Kohaku.
 - Deferred: the 4-9 bark "Sorry! Sorry!" for a group's last trooper (it needs a "last of its group" trigger in the barks queue); the Badger has no spawn bark.
