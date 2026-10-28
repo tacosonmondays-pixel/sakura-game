@@ -1,0 +1,358 @@
+/* Tryout Day in battle (src/ui/battle/tryout.js; docs/specs/TRYOUT_DAY.md §13.1, §13.4-§13.9; M3 Ink & Paper on the
+   battle HUD). Every rule sits under .ty-layer, so nothing here reaches the menus (their rules: tryout.css under
+   .ui-day). The sheets carry .ui-day so the kit's girl tile and rarity tag draw inside them (ink.css).
+   12 px minimum text (cssFloor: this file has none under it). A missed assignment is grey ink, never red: failing is
+   not danger. Rarity colour only on frames and labels, never on names or numbers. */
+
+/* ---------- the Stationery ladder (§13.1): the Pep Talk card frames. Girls keep their own unit frames. ---------- */
+.ty-layer {
+  /* R flat, SR tinted, SSR glow: the shared rarity tokens; UR gold foil; LR Pressed Blossom (never rainbow, never
+     Nightglass: those stay the girls') */
+  --pep-r: var(--rar-r);
+  --pep-sr: var(--rar-sr);
+  --pep-ssr: var(--rar-ssr);
+  --pep-ur: linear-gradient(135deg, #9c6a1c 0%, #f3d98a 22%, #c99a2e 42%, #fff1b8 58%, #b8862b 78%, #e9c46a 100%);
+  --pep-lr: var(--rar-lr);
+  --pep-ur-face: linear-gradient(135deg, #fffaf0 0%, #f8ecc6 45%, #fffaf0 70%, #f5e6b8 100%);
+  --pep-lr-face: linear-gradient(115deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 38%), linear-gradient(160deg, #1f3566 0%, #14254a 45%, var(--plate) 100%);
+  --ty-glass: rgba(255, 255, 255, 0.94);
+  --ty-strike: #8a90a4;
+  position: absolute; inset: 0; pointer-events: none; z-index: 6;
+}
+/* an open pick sheet sits above the wave and boss banners (M1 review: they covered a card) */
+.ty-layer.ty-open { z-index: 10; }
+.ty-layer.ty-open .ty-tracker { z-index: 1; }
+.ty-layer [hidden] { display: none !important; }
+.ty-layer .ty-mute { color: var(--muted); font-weight: 600; }
+
+/* a Pep Talk card: the girl tile's recipe (ink.css): one cut top-right, one ring drawn over the children by ::after */
+.ty-layer .ty-stn {
+  --rc: var(--pep-r); --rw: var(--frame-w); --c: var(--cut-s); --edge: var(--rc); --fill: var(--panel-w);
+  position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; gap: 3px 8px;
+  margin: 0; padding: 8px 10px 10px; border: 0; border-radius: 0; text-align: left; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer;
+  background: var(--fill); box-shadow: none; min-width: 0;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+  transition: transform 0.12s ease-out;
+}
+.ty-layer .ty-stn > * { position: relative; z-index: 1; grid-column: 1 / -1; min-width: 0; }
+.ty-layer .ty-stn::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw));
+}
+.ty-layer .ty-stn:hover, .ty-layer .ty-stn:focus-visible { transform: translateY(-2px); }
+.ty-layer .ty-stn:focus-visible { outline: none; --edge: var(--cyan-ink); }
+/* step 2, SR: tinted, 3 px */
+.ty-layer .ty-stn.sr { --rc: var(--pep-sr); --rw: var(--frame-w-strong); --fill: color-mix(in srgb, var(--pep-sr) 12%, #fff); }
+/* step 3, SSR: the glow, an inner white line and an 8 px glow inside the ring */
+.ty-layer .ty-stn.ssr {
+  --rc: var(--pep-ssr); --rw: var(--frame-w-strong); --fill: color-mix(in srgb, var(--pep-ssr) 12%, #fff);
+  box-shadow: inset 0 0 0 calc(var(--rw) + 1px) #fff, inset 0 0 8px calc(var(--rw) + 2px) color-mix(in srgb, var(--pep-ssr) 50%, transparent);
+}
+/* step 4, UR: gold foil, one glint on reveal (held still under Reduce Motion) */
+.ty-layer .ty-stn.ur { --rw: var(--frame-w-strong); --edge: var(--pep-ur); --fill: var(--pep-ur-face); }
+.ty-layer .ty-stn > .ty-glint {
+  /* (under the print: the foil shines, the words stay legible) */
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.9) 49%, rgba(255, 255, 255, 0) 60%) no-repeat;
+  background-size: 260% 100%; background-position: 130% 0;
+  animation: ty-glint 1.1s ease-out 0.25s 1 both;
+}
+@keyframes ty-glint { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+/* step 5, LR "Pressed Blossom": a laminated navy face, a pressed sakura, a gold-leaf corner */
+.ty-layer .ty-stn.lr { --rw: var(--frame-w-strong); --rc: var(--pep-lr); --fill: var(--pep-lr-face); color: var(--on-ink); }
+.ty-layer .ty-stn.lr > .ty-blossom {
+  position: absolute; z-index: 0; right: -8px; bottom: -10px; width: 68px; height: 68px; pointer-events: none; opacity: 0.6; transform: rotate(-18deg);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23ffd0e2' stroke='%23e98ab0' stroke-width='0.35' stroke-linejoin='round'%3E%3Cpath transform='rotate(0 12 12)' d='M12 11.4c-2.6-1.5-4-3.6-3.6-6 .3-1.7 1.6-2.7 2.6-2.4l1 1.4 1-1.4c1-.3 2.3.7 2.6 2.4.4 2.4-1 4.5-3.6 6z'/%3E%3Cpath transform='rotate(72 12 12)' d='M12 11.4c-2.6-1.5-4-3.6-3.6-6 .3-1.7 1.6-2.7 2.6-2.4l1 1.4 1-1.4c1-.3 2.3.7 2.6 2.4.4 2.4-1 4.5-3.6 6z'/%3E%3Cpath transform='rotate(144 12 12)' d='M12 11.4c-2.6-1.5-4-3.6-3.6-6 .3-1.7 1.6-2.7 2.6-2.4l1 1.4 1-1.4c1-.3 2.3.7 2.6 2.4.4 2.4-1 4.5-3.6 6z'/%3E%3Cpath transform='rotate(216 12 12)' d='M12 11.4c-2.6-1.5-4-3.6-3.6-6 .3-1.7 1.6-2.7 2.6-2.4l1 1.4 1-1.4c1-.3 2.3.7 2.6 2.4.4 2.4-1 4.5-3.6 6z'/%3E%3Cpath transform='rotate(288 12 12)' d='M12 11.4c-2.6-1.5-4-3.6-3.6-6 .3-1.7 1.6-2.7 2.6-2.4l1 1.4 1-1.4c1-.3 2.3.7 2.6 2.4.4 2.4-1 4.5-3.6 6z'/%3E%3C/g%3E%3Cg stroke='%23e98ab0' stroke-width='0.3' stroke-linecap='round'%3E%3Cpath d='M12 12v-4.6M12 12l4.4-1.4M12 12l2.7 3.7M12 12l-2.7 3.7M12 12l-4.4-1.4'/%3E%3C/g%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%23f3cf72'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.ty-layer .ty-stn.lr::before {
+  content: ''; position: absolute; z-index: 2; left: 0; bottom: 0; width: 24px; height: 24px; pointer-events: none;
+  background: linear-gradient(45deg, #c9952a 0%, #fff0b3 38%, #e3b94f 62%, #f6dd8f 100%);
+  clip-path: polygon(0 0, 0 100%, 100% 100%, 86% 90%, 74% 84%, 62% 68%, 46% 58%, 34% 40%, 18% 28%, 10% 12%);
+}
+.ty-layer .ty-stn.lr :is(.ty-slot, .ty-mute) { color: var(--on-ink-dim); }
+.ty-layer .ty-stn.lr .ty-card-ln { color: var(--on-ink); }
+/* the card's parts */
+.ty-layer .ty-stn-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-right: 4px; }
+.ty-layer .ty-stn.art > .ty-card-nm { grid-column: 1; grid-row: 2; align-self: center; }
+.ty-layer .ty-stn-art { grid-column: 2; grid-row: 2; width: 44px; height: 44px; overflow: hidden; display: block; border-radius: 50%; box-shadow: 0 0 0 2px var(--panel-w); }
+.ty-layer .ty-stn-art :is(img, svg) { width: 100%; height: 100%; object-fit: cover; }
+.ty-layer .ty-slot { font: 600 12px/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.ty-layer .ty-card-nm { font: italic 900 15px/1.15 var(--font-head); color: inherit; }
+.ty-layer .ty-card-ln { font-size: 12px; line-height: 1.3; color: var(--ink); }
+.ty-layer .ty-card-ln b { font-family: var(--font-num); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
+/* rarity labels: the kit's navy plate pill; on a card a UR tag keeps flat letters (no rainbow on a card) */
+.ty-layer .ui-rtag { flex: none; }
+.ty-layer .ui-rtag.ur > span { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--rar-ur); -webkit-text-fill-color: currentColor; animation: none; }
+
+/* a girl card in the pick (§13.7): a plain paper card; her tile carries her own unit frame */
+.ty-layer .ty-gcard {
+  --c: var(--cut-s);
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; min-width: 0;
+  margin: 0; padding: 8px; border: 0; border-radius: 0; text-align: left; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer;
+  background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+  transition: transform 0.12s ease-out;
+}
+.ty-layer .ty-gcard:hover, .ty-layer .ty-gcard:focus-visible { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--cyan-ink); outline: none; }
+.ty-layer .ty-gcard .ui-girltile { --gw: 78px; pointer-events: none; }
+.ty-layer .ty-gcard-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ty-layer .ty-gcard-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.ty-layer .ty-tag {
+  display: inline-block; padding: 2px 6px; font: 600 12px/1.1 var(--font-num); letter-spacing: 0.04em; white-space: nowrap;
+  background: var(--plate); color: var(--on-ink); clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+.ty-layer .ty-tag.own { background: var(--cyan-wash); color: var(--cyan-text); }
+.ty-layer .ty-pennant {
+  position: absolute; z-index: 4; top: 4px; left: 4px; padding: 2px 10px 2px 5px; font: 700 12px/1.1 var(--font-num); letter-spacing: 0.04em;
+  text-transform: uppercase; background: var(--pink-ink); color: #fff; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%);
+}
+.ty-layer .ty-paths { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.ty-layer .ty-paths .ty-path { font-size: 12px; padding: 2px 8px; min-height: 30px; white-space: nowrap; }
+
+/* ---------- sheets: the pick, the Make-up Test, the Class Photo ---------- */
+.ty-layer .ty-sheet-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--scrim); pointer-events: auto; padding: 12px; }
+.ty-layer .ty-sheet {
+  --c: 12px; --paper-img: linear-gradient(var(--panel-w), var(--panel-w));
+  position: relative; width: 100%; max-width: 780px; max-height: calc(100% - 8px); overflow: auto; padding: 12px 14px;
+  color: var(--ink); font-size: 13px; border: 2px solid var(--plate); border-radius: 0;
+  /* the two cut corners keep the ring: a 2 px line on each diagonal, painted on the box (the sheet scrolls under it) */
+  background:
+    linear-gradient(45deg, transparent calc(50% - 2.8px), var(--plate) calc(50% - 2.8px), var(--plate) 50%, transparent 50%) right top / var(--c) var(--c) no-repeat border-box,
+    linear-gradient(45deg, transparent 50%, var(--plate) 50%, var(--plate) calc(50% + 2.8px), transparent calc(50% + 2.8px)) left bottom / var(--c) var(--c) no-repeat border-box,
+    var(--paper-img) border-box;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+  scrollbar-width: thin;
+}
+.ty-layer .ty-shead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding-right: 10px; }
+.ty-layer .ty-stitle { font: italic 900 20px/1.1 var(--font-head); color: var(--ink); position: relative; padding-bottom: 3px; }
+.ty-layer .ty-stitle::after { content: ''; position: absolute; left: 0; bottom: 0; width: 34px; height: 3px; background: var(--yellow); }
+.ty-layer .ty-credits { display: inline-flex; align-items: center; gap: 4px; font: 600 13px/1 var(--font-num); letter-spacing: 0.04em; color: var(--ink); }
+.ty-layer .ty-note { font-size: 12px; font-weight: 700; color: var(--pink-text); }
+.ty-layer .ty-reasons { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--ink); }
+.ty-layer .ty-why { display: inline-flex; align-items: center; gap: 4px; }
+.ty-layer .ty-deck { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.ty-layer .ty-deck.n1 { grid-template-columns: minmax(0, 260px); }
+.ty-layer .ty-deck.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ty-layer .ty-deck.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ty-layer .ty-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.ty-layer .ty-acts .bt-btn, .ty-layer .ty-acts .bt-cta { font-size: 13px; }
+.ty-layer .ty-brushup { font: inherit; font-size: 13px; padding: 6px; border-radius: 0; border: 1px solid var(--line-ink); background: var(--panel-w); color: var(--ink); }
+
+/* ---------- assignment marks (§13.5): open ring · sakura stamp · grey ink strike; an empty ring for a period not reached ---------- */
+.ty-layer .ty-mk { flex: none; display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; font-style: normal; }
+.ty-layer .ty-mk.o { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+.ty-layer .ty-mk.st { color: var(--pink-ink); }
+.ty-layer .ty-mk.st svg { width: 15px; height: 15px; display: block; }
+.ty-layer .ty-mk.x { background: linear-gradient(transparent calc(50% - 1px), var(--ty-strike) calc(50% - 1px), var(--ty-strike) calc(50% + 1px), transparent calc(50% + 1px)) center / 100% 100% no-repeat, #e7eaf0; border-radius: 3px; }
+.ty-layer .ty-mk.e { border: 1px dashed var(--line-ink); }
+
+/* ---------- the timetable strip (§13.4) ---------- */
+.ty-layer .ty-tt { display: flex; gap: 3px; margin: 8px 0 2px; min-width: 0; }
+.ty-layer .ty-tt-cell {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 3px 5px 4px; border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--line-ink); color: var(--muted); background: transparent; font-size: 12px; line-height: 1.15;
+}
+.ty-layer .ty-tt-cell.done { background: var(--paper-a); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+.ty-layer .ty-tt-cell.current { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 2px var(--yellow); }
+.ty-layer .ty-tt-top { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ty-layer .ty-tt-p { font: 700 12px/1 var(--font-num); letter-spacing: 0.04em; }
+.ty-layer .ty-tt-gate { font-weight: 900; }
+.ty-layer .ty-tt-affix { width: 7px; height: 7px; border-radius: 50%; background: var(--tier-advanced); flex: none; }
+.ty-layer .ty-tt-dare { font-weight: 900; color: var(--pink-text); }
+.ty-layer .ty-tt-cell.current .ty-tt-dare { color: var(--pink-on-ink); }
+.ty-layer .ty-tt-subj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.ty-layer .ty-tt-marks { display: flex; gap: 2px; }
+.ty-layer .ty-tt-marks .ty-mk { width: 12px; height: 12px; }
+.ty-layer .ty-tt-marks .ty-mk.st svg { width: 13px; height: 13px; }
+.ty-layer .ty-tt-brk {
+  flex: 0 0 auto; display: grid; place-items: center; padding: 0 4px; font: 600 12px/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--line-ink); background: repeating-linear-gradient(135deg, transparent 0 4px, var(--line-ink-soft) 4px 5px);
+  writing-mode: vertical-rl; transform: rotate(180deg); min-height: 34px;
+}
+.ty-layer .ty-tt-brk.done { color: var(--ink); background: var(--paper-a); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+.ty-layer .ty-tt-brk.current { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 2px var(--yellow); }
+/* the thin band's tiny cells (the tracker head) */
+.ty-layer .ty-tt-mini { display: flex; align-items: center; gap: 2px; height: 6px; margin: 3px 0 2px; }
+.ty-layer .ty-tt-mini > i { display: block; height: 5px; flex: 1 1 0; background: var(--line-ink-soft); box-shadow: inset 0 0 0 1px var(--line-ink); }
+.ty-layer .ty-tt-mini > i.b { flex: 0 0 3px; background: transparent; box-shadow: none; }
+.ty-layer .ty-tt-mini > i.p.done { background: var(--navy); box-shadow: none; }
+.ty-layer .ty-tt-mini > i.p.current { height: 6px; background: var(--yellow); box-shadow: inset 0 0 0 1px var(--plate); }
+.ty-layer .ty-tt-mini > i.p.dare { box-shadow: inset 0 -2px 0 var(--pink-ink); }
+
+/* ---------- the tracker (battle HUD, §13.5) ---------- */
+.ty-layer .ty-tracker {
+  position: absolute; left: 8px; top: calc(var(--bt-hud-h) + 10px + var(--safe-top, 0px)); width: max-content; max-width: min(340px, 46vw);
+  background: var(--ty-glass); border-radius: 6px; padding: 6px 8px; box-shadow: inset 0 0 0 1px var(--line-ink-soft), 0 2px 8px rgba(29, 78, 137, 0.18);
+  color: var(--ink); font-size: 12px; line-height: 1.35; pointer-events: auto;
+}
+.ty-layer .ty-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
+.ty-layer .ty-band { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ty-layer .ty-band-p { font: 700 14px/1 var(--font-num); letter-spacing: 0.04em; }
+.ty-layer .ty-band-next { font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ty-layer .ty-head-subj { font-weight: 800; }
+.ty-layer .ty-head-dare { color: var(--pink-text); font-weight: 900; }
+.ty-layer .ty-score { flex: none; font: 700 13px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; }
+.ty-layer .ty-chips { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.ty-layer .ty-chip { display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; min-height: 18px; }
+.ty-layer .ty-chip-name { font-weight: 800; }
+.ty-layer .ty-chip-live { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.ty-layer .ty-chip.ty-st1 .ty-chip-live { color: var(--pink-text); }
+.ty-layer .ty-chip.ty-st-1 :is(.ty-chip-name, .ty-chip-live) { color: var(--muted); }
+.ty-layer .ty-chip.ty-st-1 .ty-chip-name { text-decoration: line-through; text-decoration-color: var(--ty-strike); text-decoration-thickness: 2px; }
+.ty-layer .ty-chip-tag { padding: 1px 6px; font: 600 12px/1.1 var(--font-num); letter-spacing: 0.04em; background: var(--paper-b); color: var(--muted); }
+.ty-layer .ty-odds { margin-top: 3px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------- the class bar (between periods: the Subject and Double Dare) ---------- */
+.ty-layer .ty-class {
+  position: absolute; right: 8px; top: calc(var(--bt-hud-h) + 10px + var(--safe-top, 0px)); max-width: min(420px, 48vw);
+  background: var(--ty-glass); border-radius: 6px; padding: 6px 8px; box-shadow: inset 0 0 0 1px var(--line-ink-soft), 0 2px 8px rgba(29, 78, 137, 0.18);
+  color: var(--ink); font-size: 12px; line-height: 1.35; pointer-events: auto; display: flex; flex-direction: column; gap: 4px;
+}
+.ty-layer .ty-class-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ty-layer .ty-class-q { font: 600 12px/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ty-layer .ty-subject, .ty-layer .ty-dare { font-size: 12px; padding: 3px 8px; text-align: left; min-height: 32px; }
+.ty-layer .ty-subject.on, .ty-layer .ty-dare.on { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 2px var(--yellow); }
+.ty-layer .ty-subject.on :is(.ty-mute, .ty-short) { color: var(--on-ink-dim); }
+/* co-op: the Subject I suggested to the chooser (a room note, not a choice) */
+.ty-layer .ty-subject.sug { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+.ty-layer .ty-suggest { font-size: 12px; font-weight: 700; color: var(--ink); }
+.ty-layer .ty-affix b { color: var(--ink); }
+.ty-layer .ty-partner-dare { color: var(--muted); font-weight: 600; }
+/* the phone lines (short twist, Dare reward) show only on small screens; the long ones elsewhere */
+.ty-layer .ty-short { display: none; }
+
+/* ---------- the break bar (§13.8) ---------- */
+.ty-layer .ty-break {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--bt-bar-h) + 10px); width: min(620px, calc(100% - 24px));
+  background: var(--ty-glass); border-radius: 6px; padding: 8px 12px; pointer-events: auto; color: var(--ink); font-size: 13px;
+  box-shadow: inset 0 0 0 2px var(--plate), 0 2px 10px rgba(29, 78, 137, 0.2);
+}
+.ty-layer .ty-break-title { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: 13px; font-weight: 700; }
+.ty-layer .ty-break-name { padding: 2px 8px; font: 700 13px/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; background: var(--plate); color: var(--yellow); }
+.ty-layer .ty-passes { display: inline-flex; gap: 3px; margin-left: 2px; }
+.ty-layer .ty-pass { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+.ty-layer .ty-pass.on { background: var(--cyan-ink); }
+.ty-layer .ty-break-hint { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 3px; }
+
+/* ---------- the Class Photo and the Make-up sheet (§13.9) ---------- */
+.ty-layer .ty-photo { text-align: left; }
+.ty-layer .ty-photo-main { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; margin-top: 8px; align-items: start; }
+.ty-layer .ty-photo-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ty-layer .ty-photo-right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ty-layer .ty-pose { display: flex; align-items: flex-end; gap: 10px; padding: 8px; background: linear-gradient(180deg, var(--paper-a), var(--paper-b)); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+.ty-layer .ty-pose-rows { display: flex; flex-direction: column; gap: 4px; }
+.ty-layer .ty-pose-row { display: flex; gap: 4px; justify-content: center; align-items: flex-start; }
+.ty-layer .ty-pose-girl { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ty-layer .ty-pose-row.front { padding-left: 18px; }
+.ty-layer .ty-pose .ui-girltile { --gw: 64px; pointer-events: none; }
+.ty-layer .ty-pose-teacher { display: flex; flex-direction: column; align-items: center; gap: 3px; padding-left: 10px; box-shadow: inset 1px 0 0 var(--line-ink-soft); }
+.ty-layer .ty-pose-teacher .ui-girltile { --gw: 72px; }
+.ty-layer .ty-pose-tag { padding: 1px 5px; }
+.ty-layer .ty-pose .ty-pennant { top: 3px; left: 3px; }
+.ty-layer .ty-score-big { display: flex; align-items: baseline; gap: 8px; }
+.ty-layer .ty-score-big .lbl { font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ty-layer .ty-score-big .num { font: 700 26px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink); }
+.ty-layer .ty-best { font-size: 12px; font-weight: 800; color: var(--pink-text); }
+.ty-layer .ty-grid { display: grid; gap: 2px; font-size: 12px; }
+.ty-layer .ty-grid-row { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+.ty-layer .ty-grid-p { min-width: 34px; font: 700 12px/1 var(--font-num); letter-spacing: 0.04em; }
+.ty-layer .ty-grid-marks { display: inline-flex; gap: 3px; }
+.ty-layer .ty-grid-score { min-width: 52px; text-align: right; font: 700 13px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.ty-layer .ty-grid-row .ui-rtag { height: 18px; }
+.ty-layer .ty-grid-row.absent { color: var(--muted); }
+.ty-layer .ty-picks { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.ty-layer .ty-pickchip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink); }
+.ty-layer .ty-pickchip .ui-rtag { height: 18px; }
+.ty-layer .ty-rewards {
+  display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; font-size: 13px; font-weight: 700; color: var(--ink);
+  background: var(--panel-w); box-shadow: inset 3px 0 0 var(--yellow-deep), inset 0 0 0 1px var(--line-ink-soft);
+}
+.ty-layer .ty-reward { overflow-wrap: anywhere; }
+.ty-layer .ty-code { font-size: 12px; }
+.ty-layer .ty-code b { letter-spacing: 0.06em; font: 700 13px/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink); }
+.ty-layer .ty-makeup-line { margin: 8px 0 4px; font-size: 13px; line-height: 1.4; max-width: 60ch; }
+/* a run that turned into practice: a small ribbon, and no rewards */
+.ty-layer .ty-ribbon {
+  position: absolute; z-index: 5; top: 0; right: 26px; padding: 3px 8px 8px; font: 700 12px/1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; background: var(--muted); color: #fff; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%);
+}
+.ty-layer .ty-photo .ty-ribbon + .ty-shead { padding-right: 96px; }
+/* the Class Photo scrolls on short screens: its buttons stay in view at the bottom (M4 review); the row's margins
+   match the sheet's padding, so the sheet never scrolls sideways */
+.ty-layer .ty-photo > .ty-photo-acts {
+  position: sticky; z-index: 6; bottom: -12px; margin: 10px -14px -12px; padding: 8px 14px; background: var(--panel-w); border-top: 1px solid var(--line-ink-soft);
+}
+/* the Marble Jar's backdrops behind the photo (a cosmetic) */
+.ty-layer .ty-sheet.ty-bd-classroom { --paper-img: linear-gradient(180deg, #fffaf0, #f3ead6); }
+.ty-layer .ty-sheet.ty-bd-rooftop { --paper-img: linear-gradient(180deg, #e6f3ff, #fffaf0 60%); }
+.ty-layer .ty-sheet.ty-bd-gate { --paper-img: linear-gradient(180deg, #ffe8f1, #fffaf0 60%); }
+.ty-layer .ty-sheet.ty-bd-festival { --paper-img: linear-gradient(180deg, #e9e4ff, #fff3e0 70%); }
+
+/* ---------- phones (844 x 390 and narrower) ---------- */
+@media (max-width: 700px), (max-height: 430px) {
+  .ty-layer .ty-tracker { max-width: 44vw; padding: 4px 6px; }
+  .ty-layer .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 12px; gap: 3px; }
+  /* touch screens have no tooltips: each Subject shows its twist in one short line under its name, and the
+     Dare its reward (the long lines stay on bigger screens) */
+  .ty-layer .ty-class .ty-long { display: none; }
+  .ty-layer .ty-class .ty-short { display: inline; color: var(--ink); font-weight: 600; }
+  .ty-layer .ty-class .ty-subject.on .ty-short { color: var(--on-ink-dim); }
+  .ty-layer .ty-class-q { flex: 1 0 100%; }
+  .ty-layer .ty-class .ty-subject { flex: 1 1 100%; min-width: 0; padding: 2px 8px; display: flex; flex-direction: column; align-items: flex-start; }
+  .ty-layer .ty-class .ty-subject .ty-short { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ty-layer .ty-class .ty-subject, .ty-layer .ty-class .ty-dare { min-height: 30px; }
+  .ty-layer .ty-class .ty-dare { padding: 2px 8px; }
+  .ty-layer .ty-sheet { padding: 8px 10px; --c: 10px; }
+  .ty-layer .ty-stitle { font-size: 17px; }
+  .ty-layer .ty-deck { gap: 6px; margin: 6px 0; }
+  .ty-layer .ty-stn { padding: 6px 8px 8px; gap: 2px 6px; }
+  .ty-layer .ty-stn-art { width: 36px; height: 36px; }
+  .ty-layer .ty-card-nm { font-size: 14px; }
+  /* a girl card on a phone: her tile beside the words, so the path buttons, Eraser and Hand it in stay above the
+     fold at 844 x 390 */
+  .ty-layer .ty-gcard { padding: 6px; gap: 6px; }
+  .ty-layer .ty-gcard .ui-girltile { --gw: 56px; }
+  .ty-layer .ty-gcard .ty-tag { white-space: normal; }
+  .ty-layer .ty-paths .ty-path { padding: 2px 6px; min-height: 30px; }
+  .ty-layer .ty-acts .bt-btn, .ty-layer .ty-acts .bt-cta { min-height: 36px; padding: 6px 12px; }
+  /* the pick sheet's full strip folds away on short screens (the tracker's band says where the run is) */
+  .ty-layer .ty-pick-sheet .ty-tt-sheet { display: none; }
+  .ty-layer .ty-photo > .ty-photo-acts { bottom: -8px; margin: 6px -10px -8px; padding: 6px 10px; }
+  .ty-layer .ty-photo-main { gap: 8px 12px; margin-top: 6px; }
+  .ty-layer .ty-pose { padding: 6px; gap: 8px; }
+  .ty-layer .ty-pose .ui-girltile { --gw: 52px; }
+  .ty-layer .ty-pose-teacher .ui-girltile { --gw: 58px; }
+  .ty-layer .ty-pose-row.front { padding-left: 14px; }
+  .ty-layer .ty-score-big .num { font-size: 22px; }
+}
+@media (max-width: 560px) {
+  .ty-layer .ty-photo-main { grid-template-columns: minmax(0, 1fr); }
+  .ty-layer .ty-deck { grid-template-columns: minmax(0, 1fr); }
+}
+/* short screens (phones in landscape): the break bar is one compact strip docked bottom-left, so the board above it
+   (seats and girls to move) stays visible and tappable (M1 review, M2) */
+@media (max-height: 430px) {
+  .ty-layer .ty-break {
+    left: 8px; transform: none; width: min(470px, 58vw); bottom: calc(var(--bt-bar-h) + 4px); padding: 4px 8px;
+    font-size: 12px; box-shadow: inset 0 0 0 1px var(--plate), 0 2px 8px rgba(29, 78, 137, 0.2);
+  }
+  .ty-layer .ty-break-title { font-size: 12px; }
+  .ty-layer .ty-break-name { font-size: 12px; padding: 1px 6px; }
+  .ty-layer .ty-break-hint { display: none; }
+  .ty-layer .ty-break .ty-acts { gap: 4px; margin-top: 3px; }
+  .ty-layer .ty-break .ty-acts .bt-btn, .ty-layer .ty-break .ty-acts .bt-cta { font-size: 12px; padding: 4px 8px; min-height: 0; }
+  .ty-layer .ty-brushup { font-size: 12px; padding: 3px; max-width: 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ty-layer :is(.ty-stn, .ty-gcard) { transition: none; }
+  .ty-layer :is(.ty-stn, .ty-gcard):hover, .ty-layer :is(.ty-stn, .ty-gcard):focus-visible { transform: none; }
+  /* the UR glint held still: a resting sheen, no sweep */
+  .ty-layer .ty-stn > .ty-glint { animation: none; background-position: 70% 0; opacity: 0.5; }
+}
