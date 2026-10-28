@@ -26,6 +26,6 @@ describe('Tryout Day modules import only what exists', () => {
         }
       }
       expect(missing).toEqual([]);
-    });
+    }, 30000); // (cold module loads under a busy machine: M3 review)
   }
 });

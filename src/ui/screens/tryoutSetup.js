@@ -79,7 +79,7 @@ export function renderSetup(root, params = {}) {
     if (!c) toast(SHARE_TEXT.bad, 'warn');
     else if (!st.open && st.why !== 'ladder') toast(SHARE_TEXT.locked, 'warn');
     else pending = fresh(p0, 'practice', c);
-  } else if (pending && pending.mode !== 'normal' && params.again) pending = null;
+  } else if (pending && pending.mode !== 'normal') pending = null; // (Start never reopens a Weekly or practice draft: M3 review)
   // a Desk Supply bought or switched in the Jar since: a normal run's Before Class starts over with it
   if (pending?.mode === 'normal' && JSON.stringify(pending.perks) !== JSON.stringify(activePerks(p0))) pending = null;
   if (!pending) pending = fresh(p0, 'normal');
@@ -183,7 +183,11 @@ export function renderSetup(root, params = {}) {
         },
       });
       t.setAttribute('aria-pressed', picked ? 'true' : 'false');
-      t.append(h('span.ui-chip.ink.dup.ty-tag', { 'data-testid': 'tryout-draft-tag' }, mode === 'weekly' ? CLASS_TEXT.floor : mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner));
+      {
+        const full = mode === 'weekly' ? CLASS_TEXT.floor : mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner;
+        const short = mode === 'weekly' ? CLASS_TEXT.floorShort : mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner;
+        t.append(h('span.ui-chip.ink.dup.ty-tag', { 'data-testid': 'tryout-draft-tag', title: full, 'aria-label': full }, short));
+      }
       return t;
     });
     const left = start - pending.pick.length;
@@ -254,7 +258,8 @@ export function renderSetup(root, params = {}) {
   const line = h('p.ty-bc-twist', { 'data-testid': 'tryout-grade-line', 'aria-live': 'polite' });
   function paintLine() {
     line.classList.toggle('why', !!why);
-    line.replaceChildren(why ? ico('lock') : null, h('span', why || gradeTwist(TRYOUT.grades, TRYOUT.windows, pending.grade)));
+    // (replaceChildren prints a null child as the text "null": only real nodes go in)
+    line.replaceChildren(...[why ? ico('lock') : null, h('span', why || gradeTwist(TRYOUT.grades, TRYOUT.windows, pending.grade))].filter(Boolean));
   }
 
   draw();

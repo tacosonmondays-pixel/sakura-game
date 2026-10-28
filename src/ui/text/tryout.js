@@ -1,6 +1,7 @@
 // Tryout Day display text (docs/specs/TRYOUT_DAY.md): every name and description, outside the hashed run table
 // (src/data/tryout.js), so a wording fix never forces a co-op update. Players are "they".
 import { PEP_CARDS, RARITIES } from '../../data/tryout.js';
+import { TRYOUT_META } from '../../data/tryoutMeta.js';
 import { cardMods } from '../../sim/tryout/pep.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { fmtNum } from '../format.js';
@@ -335,8 +336,8 @@ export const HUB_TEXT = {
   start: 'Start',
   startLine: 'Pick 3 girls, a hero and a map',
   startKicker: (len, grade) => `${len} · Grade ${grade}`,
-  weeklyLocked: 'Clear Grade 4 first',
-  weeklyOpen: 'Grade 5 rules, everyone at the floor',
+  weeklyLocked: `Clear Grade ${TRYOUT_META.weekly.unlockGrade} first`,
+  weeklyOpen: `Grade ${TRYOUT_META.weekly.grade} rules, everyone at the floor`,
   weeklyDone: (best) => `Cleared this week${best ? ` · best ${fmtNum(best, 'count', { detail: true })}` : ''}`,
   weeklyResets: 'New in',
   jar: 'Marble Jar',
@@ -371,6 +372,9 @@ export const CLASS_TEXT = {
   yours: 'Yours · band cap',
   loaner: 'Loaner',
   floor: 'At the floor',
+  // one-line chips for small girl tiles (the full words go in the tooltip): never over her face (M3 review)
+  yoursShort: 'Yours',
+  floorShort: 'Floor',
   heroYours: 'Yours',
   heroFree: 'Free hero',
   redraw: (n) => `Redraw (${n})`,
@@ -444,8 +448,8 @@ export const JAR_SCREEN = {
 /** The Yearbook screen. */
 export const YEARBOOK_SCREEN = {
   sections: { girls: 'Students', cards: 'Pep Talks', bosses: 'Bosses', records: 'Records' },
-  pencilRule: 'Not in your class yet',
-  blankRule: 'Not tried out yet',
+  pencilRule: 'Not yours yet', // (one line on the tile: a longer rule wrapped over her face, M3 review)
+  blankRule: 'Not met yet',
   colourLine: 'Tried out and in your class: her page is in colour.',
   pencilLine: 'Tried out as a Loaner: her page is a pencil sketch until she joins your class.',
   blankLine: 'She has not tried out yet: her page fills in the first time she does.',

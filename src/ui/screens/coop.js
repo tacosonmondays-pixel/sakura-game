@@ -866,7 +866,7 @@ export function render(root, params = {}) {
         const mine = ownedNow(id);
         const t = girlTile(id, { owned: true, selected: on, potential: mine ? undefined : 0, testid: 'coop-run-girl', cls: 'ty-draft', onClick: () => toggle(id) });
         t.setAttribute('aria-pressed', String(on));
-        t.append(h('span.ui-chip.ink.dup.ty-tag', mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner));
+        t.append(h('span.ui-chip.ink.dup.ty-tag', { title: mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner }, mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner));
         return t;
       };
       const heroes = heroChoices(store.profile);

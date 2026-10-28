@@ -252,6 +252,9 @@
 .ty-layer .ty-pose-girl { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .ty-layer .ty-pose-row.front { padding-left: 18px; }
 .ty-layer .ty-pose .ui-girltile { --gw: 64px; pointer-events: none; }
+/* (the kit's role mark and the hero crown sit over a small tile's face: the photo leaves them out; long names end in …) */
+.ty-layer .ty-pose .ui-girltile > .role { display: none; }
+.ty-layer .ty-pose .ui-girltile .nm { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ty-layer .ty-pose-teacher { display: flex; flex-direction: column; align-items: center; gap: 3px; padding-left: 10px; box-shadow: inset 1px 0 0 var(--line-ink-soft); }
 .ty-layer .ty-pose-teacher .ui-girltile { --gw: 72px; }
 .ty-layer .ty-pose-tag { padding: 1px 5px; }
@@ -356,3 +359,7 @@
   /* the UR glint held still: a resting sheen, no sweep */
   .ty-layer .ty-stn > .ty-glint { animation: none; background-position: 70% 0; opacity: 0.5; }
 }
+/* the in-app Reduce Motion setting too (html[data-reduce-motion]), not only the system one (M3 review) */
+html[data-reduce-motion] .ty-layer :is(.ty-stn, .ty-gcard) { transition: none; }
+html[data-reduce-motion] .ty-layer :is(.ty-stn, .ty-gcard):hover, html[data-reduce-motion] .ty-layer :is(.ty-stn, .ty-gcard):focus-visible { transform: none; }
+html[data-reduce-motion] .ty-layer .ty-stn > .ty-glint { animation: none; background-position: 70% 0; opacity: 0.5; }

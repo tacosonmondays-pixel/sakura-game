@@ -110,11 +110,13 @@ for (const [W, H] of viewports) {
   check(await page.locator('[data-testid^="tryout-draft-"]:not([data-testid="tryout-draft-tag"])').count() === 6, 'six drafted girls');
   check(await page.locator('.ty-bc-six > .ui-girltile').count() === 6, 'the six are girl tiles');
   const tags = await page.locator('[data-testid="tryout-draft-tag"]').allTextContents();
-  check(tags.length === 6 && tags.every((t) => /^(Yours · band cap|Loaner)$/i.test(t.trim())), `each girl wears Yours · band cap or Loaner (${tags})`);
+  check(tags.length === 6 && tags.every((t) => /^(Yours|Loaner)$/i.test(t.trim())), `each girl wears a one-line Yours or Loaner chip (${tags})`);
   check(await page.locator('[data-testid="tryout-start"]').isDisabled(), 'Start waits for 3 girls');
   check(/Pick 3 more/.test(await page.locator('[data-testid="tryout-start-why"]').textContent().catch(() => '')), 'the disabled Start says why');
   // the Grade row: 12 Grades, a locked one says why
   check(await page.locator('[data-testid^="tryout-grade-"]:not([data-testid="tryout-grade-line"])').count() === 12, 'Grades 1-12 in one row');
+  const twist = (await page.locator('[data-testid="tryout-grade-line"]').textContent().catch(() => '')).trim();
+  check(twist.length > 0 && !/null|undefined/.test(twist), `the Grade line reads as words (${twist})`);
   check(await page.locator('[data-testid="tryout-grade-1"]').getAttribute('aria-checked') === 'true', 'Grade 1 is chosen');
   await page.click('[data-testid="tryout-grade-2"]');
   const why = await page.locator('[data-testid="tryout-grade-line"]').textContent();
@@ -367,8 +369,8 @@ for (const [W, H] of viewports) {
   await page.goto(`${base}#/tryout/yearbook?tab=girls`);
   await page.waitForSelector(`[data-testid="yb-girl-${blank}"][data-page="pencil"]`, { timeout: 10000 }).catch(() => {});
   const pencil = page.locator(`[data-testid="yb-girl-${blank}"]`);
-  check(blank && await pencil.getAttribute('data-page') === 'pencil' && /Not in your class yet/i.test(await pencil.textContent()) && await pencil.evaluate((e) => e.classList.contains('locked')),
-    `a Loaner's page is a pencil tile: "Not in your class yet" (${blank})`);
+  check(blank && await pencil.getAttribute('data-page') === 'pencil' && /Not yours yet/i.test(await pencil.textContent()) && await pencil.evaluate((e) => e.classList.contains('locked')),
+    `a Loaner's page is a pencil tile: "Not yours yet" (${blank})`);
   check(await noHScroll(), 'no horizontal scroll in the Yearbook');
   await shot('ty-yearbook');
   await pencil.click();
@@ -398,7 +400,7 @@ for (const [W, H] of viewports) {
   await screenIs('tryout');
   await page.click('[data-testid="tryout-tile-start"]');
   await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
-  if (await page.locator('[data-testid="tryout-normal"]').isVisible().catch(() => false)) await page.click('[data-testid="tryout-normal"]');
+  check(!(await page.locator('[data-testid="tryout-normal"]').isVisible().catch(() => false)), 'Start opens a normal day (no Weekly or practice draft left over)');
   check(/Pencil Money/.test(await page.locator('[data-testid="tryout-perks"]').textContent().catch(() => '')), 'Before Class lists the Desk Supply');
   // Marbles only on the Tryout routes
   await page.goto(`${base}#/students`);
