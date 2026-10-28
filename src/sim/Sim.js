@@ -52,7 +52,7 @@ import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js'
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
-import { endWheelWave } from './wheels.js';
+import { endWheelWave, shapeDps } from './wheels.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -1438,6 +1438,8 @@ export class Sim {
       const blasts = 1 + ball.bounce + (ball.finish > 0 && ball.bounce > 0 ? ball.finish - 1 : 0);
       dps = e.rate * (e.damage * blasts + ball.pins * (t.pinSpec?.damage ?? 0));
     }
+    // the attack shapes (src/sim/wheels.js): a wheel's lead coin, a spin's folded stream, a halo's cuts
+    if (t.stats.wheel || t.stats.spin || t.stats.halo) dps = shapeDps(t, e, dps);
     if (dps > 0 && e.tempo) dps *= 1 + e.tempo.per * (t.tempoStacks || 0);
     const echo = e.proc && e.proc.of !== 'trap' && e.proc.every > 0 ? (e.proc.echo === true ? 1 : typeof e.proc.echo === 'number' ? e.proc.echo : 0) : 0;
     if (dps > 0 && echo > 0) dps *= 1 + echo / e.proc.every;

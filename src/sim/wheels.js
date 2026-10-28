@@ -10,7 +10,8 @@
 //   - Petal Halo (kit `halo`, beside her own attack): `halo.pieces` pieces orbit her at HALO_REACH; each
 //     cuts the enemies it touches, each enemy at most once per piece every HALO_GAP steps (a re-hit list
 //     per piece, §4.4), for damage × rate × halo.mul. The pieces only cut: t.haloSpec (src/sim/towers.js)
-//     drops her statuses, marks, pushes and crits, which stay on her own attack.
+//     drops her statuses, marks, pushes and crits, which stay on her own attack. Her attack type's own
+//     on-hit rules still apply (a holy cut ends phasing and silences field casters, like any holy hit).
 //
 // Determinism (§2.4): directions from the shared table (src/sim/dirs.js; aiming by nearestDir, no
 // atan2); the orbit read from the step number; squared distances; integer step timers; no rng of our
@@ -73,14 +74,15 @@ const SPIN_SCRATCH = [];
 /**
  * The 'spin' behaviour (Pinwheel Stream), one attack at her own rate (so her attack speed, tempo,
  * rhythm echoes, gear tricks and drinks work as for any attack). `spec` is her attack spec for this
- * attack, `extraPierce` her gear Pierce. One attack's damage is her volley's: damage × projectiles
+ * attack, `extraPierce()` her gear Pierce (asked only once she shoots: it advances a carry). One
+ * attack's damage is her volley's: damage × projectiles
  * (× 1 + projScale, Potential's extra shuriken). With exactly one eligible enemy in range the arms fold
  * into one shot along a stream that turns toward it (turnToward to nearestDir, SPIN_FOLD_TURN a shot)
  * carrying the whole volley × spin.fold; otherwise each arm shoots along its direction carrying
  * volley × spin.mul / arms, and the arms turn spin.turn table steps, only spin.lock while an arm has an
  * enemy on its line.
  */
-export function attackSpin(sim, t, spec, extraPierce = 0) {
+export function attackSpin(sim, t, spec, extraPierce = () => 0) {
   const sp = t.stats.spin;
   if (!sp) return false;
   const near = sim.grid.query(t.ox, t.oy, spec.range, SPIN_SCRATCH);
@@ -98,7 +100,7 @@ export function attackSpin(sim, t, spec, extraPierce = 0) {
   }
   const arms = Math.max(1, sp.arms);
   const volley = Math.max(1, spec.projectiles) * (1 + (spec.projScale || 0));
-  const pierce = spec.pierce + extraPierce;
+  const pierce = spec.pierce + extraPierce();
   let k = t.spinK ?? 0;
   if (count === 1) {
     k = turnToward(k, nearestDir(first.x - t.ox, first.y - t.oy), SPIN_FOLD_TURN);
@@ -177,6 +179,24 @@ function stepHalo(sim, t, step) {
     }
     HALO_SCRATCH.length = 0;
   }
+}
+
+/**
+ * Her paper DPS on one target with a wheel-batch shape, from `perTarget` (damage × rate × projectiles, as
+ * the panel computes it for a volley; × (1 + projScale) for a spin): a wheel's lead spoke (× lead, one shot
+ * an attack), a spin's folded stream (× fold), plus a halo's cuts on an enemy on its ring (each piece passes
+ * it once a turn: pieces × HALO_STEPS × 60 / 240 cuts a second, × damage × rate × mul). Unchanged otherwise.
+ */
+export function shapeDps(t, e, perTarget) {
+  let d = perTarget;
+  if (e.behavior === 'wheel' && t.stats.wheel) d = e.damage * e.rate * t.stats.wheel.lead;
+  else if (e.behavior === 'spin' && t.stats.spin) d = perTarget * t.stats.spin.fold;
+  const h = t.stats.halo;
+  if (h?.pieces > 0) {
+    const hs = t.haloSpec || e;
+    d += (hs.damage * e.rate * h.mul * Math.min(HALO_MAX, h.pieces) * HALO_STEPS) / STEP / RING_DIRS;
+  }
+  return d;
 }
 
 /** Every step of a girl with a Petal Halo (src/sim/towers.js updateTower). */

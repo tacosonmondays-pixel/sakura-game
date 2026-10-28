@@ -68,7 +68,7 @@ const TABS = [
   { id: 'gear', label: 'Gear', icon: 'shield' },
   { id: 'tree', label: 'Tree', icon: 'sparkle' },
 ];
-const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
+const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Wheel of shots', spin: 'Turning stream' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
 // manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
 const view = { mode: 'card', skin: null, manual: false, manualFor: null };
@@ -109,7 +109,7 @@ export function describeMods(mods = {}) {
   const out = [];
   const add = (cond, text) => { if (cond) out.push(text); };
   add(mods.damage, `${mods.damage > 0 ? '+' : ''}${n1(mods.damage)} damage`);
-  add(mods.damageMul && mods.damageMul !== 1, `+${pctOf(mods.damageMul)} damage`);
+  add(mods.damageMul && mods.damageMul !== 1, mods.damageMul < 1 ? `−${pctOf(2 - mods.damageMul)} damage` : `+${pctOf(mods.damageMul)} damage`);
   add(mods.rateMul && mods.rateMul !== 1, mods.rateMul >= 2 ? `×${n1(mods.rateMul)} attack speed` : `+${pctOf(mods.rateMul)} attack speed`);
   add(mods.range, `+${n1(mods.range)} range`);
   add(mods.projectiles, `+${mods.projectiles} ${mods.projectiles === 1 ? 'projectile' : 'projectiles'}`);

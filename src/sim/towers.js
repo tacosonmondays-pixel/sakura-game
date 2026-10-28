@@ -318,10 +318,10 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     t.ringTurn = 0; // Twin Spools: sixteenths turned
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
-  // Petal Halo (src/sim/wheels.js): the pieces only cut (her own attack keeps its statuses, marks, pushes and
-  // crits), so a ring of fast cuts never stun-locks a crowd
-  if (s.halo) t.haloSpec = { ...t.eff, status: [], procStatus: null, mark: null, silence: 0, reveal: 0, knockback: 0, gather: 0, critChance: 0 };
   applyBuffExtras(t, b);
+  // Petal Halo (src/sim/wheels.js): the pieces only cut (her own attack keeps its statuses, marks, pushes and
+  // crits), so a ring of fast cuts never stun-locks a crowd; built after her buff extras (aura armor pen)
+  if (s.halo) t.haloSpec = { ...t.eff, status: [], procStatus: null, mark: null, silence: 0, reveal: 0, knockback: 0, gather: 0, critChance: 0 };
   if (s.strip || s.sentry) deployCrits(t);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -1405,7 +1405,7 @@ const BEHAVIORS = {
     const target = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, 1)[0];
     return attackWheel(sim, t, spec, target, target ? shotPierce(t) : 0);
   },
-  spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), shotPierce(t)),
+  spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t)),
   drink: throwDrink,
   roll: rollBall,
 };

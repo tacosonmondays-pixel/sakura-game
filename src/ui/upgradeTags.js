@@ -288,7 +288,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {
@@ -383,7 +383,7 @@ const SHORT_ORDER = [
   ['canHitAir', () => 'Hits flyers'],
   ['detection', () => 'Veil Sight'],
   ['damage', (m) => `+${round1(m.damage)} dmg`],
-  ['damageMul', (m) => `+${pct(m.damageMul)} dmg`],
+  ['damageMul', (m) => `${m.damageMul < 1 ? '−' : '+'}${pct(m.damageMul < 1 ? 2 - m.damageMul : m.damageMul)} dmg`],
   ['crit', (m) => `${Math.round((m.crit.chance || 0) * 100)}% crits ×${round1(m.crit.mul || 1.5)}`],
   ['splash', (m) => `+${round1(m.splash)} splash`],
   ['chain', (m) => `+${m.chain} ${m.chain === 1 ? 'jump' : 'jumps'}`],
