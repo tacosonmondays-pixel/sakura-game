@@ -124,6 +124,9 @@ export function openShowcaseEditor({ slot = null } = {}) {
       window.addEventListener('pointerup', onUp, true);
       window.addEventListener('pointercancel', onUp, true);
     });
+    // [ui-v2 M7a] a drag's touchmoves are ours: without this a quick drag that lifts while moving leaves Chromium a
+    // fling, and the next tap (Save) only stops that fling and sends no click (its tap-after-fling suppression)
+    el.addEventListener('touchmove', (e) => { if (start && e.cancelable) e.preventDefault(); }, { passive: false });
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tapSlot(i); } });
     // [ui-v2 M7a] the slot answers taps itself (its tap is the pointerup above): a node with a click handler is a tap
     // target to the browser's touch adjustment, so a finger on the slot's face is never moved onto the 44 px × beside it

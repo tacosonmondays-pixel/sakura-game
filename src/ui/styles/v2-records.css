@@ -35,11 +35,6 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 /* a kit button on its own hit (ink.css .ui-hit; the modules' kitBtn): the hit takes the tap, the slanted button inside
    presses; 2 px over the tap, as the kit's bar squares, so no sub-pixel place reads it under 44 */
 :is(.ui-day) .ui-hit.rk-hit > .ui-btn { --h: calc(var(--tap) + 2px); }
-/* (no press scale on these: the button under a finger that scaled on :active lost the touch tap's click right after a
-   touch drag (Edit Showcase's Save, e2e/profile.mjs); the press reads as the kit's fill change alone. A kit question:
-   ink.css .ui-btn:active / .ui-hit:active > .ui-btn) */
-:is(.ui-day) .ui-hit.rk-hit:active > .ui-btn { transform: none; }
-:is(.ui-day) .ui-hit.rk-hit:active > .ui-btn:is(.pri, .ink, .cost) { filter: brightness(0.92); }
 
 /* a chrome glyph in a line of words */
 :is(.ui-day) :is(.jn-ico, .rk-ico) { display: inline-flex; flex: none; width: 16px; height: 16px; line-height: 0; }
