@@ -10,7 +10,7 @@
 //             lobby: no stand, no speech bubble ("you dont need the speech bubbles for these full illustration
 //             ones"), no academy behind it.
 //             kind bond: a warm, wholesome date memory (café, festival night, sunset walk, study session…)
-//             unlocked by her bond level — the future City dating / gift system raises
+//             unlocked by her bond level — the future City time-together / gift system raises
 //             profile.bond[id]. Their art is not painted yet: the picker shows a soft silhouette,
 //             a lock and the requirement. Painted, they are full illustrations too.
 // Content rule: the academy girls are students — bond scenes are cosy date moments, never
@@ -182,7 +182,7 @@ export function lobbyBackgroundGroups(girlId) {
   return BG_CATEGORIES.map((c) => ({ ...c, items: list.filter((b) => categoryOf(b) === c.id) }));
 }
 
-/** @returns {number} bond level 0..BOND_MAX (0 until the City dating system exists) */
+/** @returns {number} bond level 0..BOND_MAX (0 until the City time-together system exists) */
 export function bondLevel(profile, girlId) {
   const n = Math.floor(Number(profile?.bond?.[girlId]) || 0);
   return Math.max(0, Math.min(BOND_MAX, n));
@@ -218,7 +218,7 @@ export function unlockText(bgOrId, profile = null) {
   if (bg.unlock.type === 'owned') return `Recruit ${name} to unlock`;
   if (bg.unlock.type === 'bond') {
     const have = profile ? bondLevel(profile, bg.girl) : 0;
-    return `Bond Lv ${bg.unlock.level} with ${name} (now ${have}) — date her and give gifts in the City to unlock`;
+    return `Bond Lv ${bg.unlock.level} with ${name} (now ${have}) — spend time with her and give gifts in the City to unlock`;
   }
   return '';
 }

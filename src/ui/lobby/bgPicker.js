@@ -8,7 +8,7 @@
 //   Backdrops           her stand over the academy (day / sunset / night), with her speech bubble; day is her default
 //   Full illustrations  her pictures that fill the whole lobby with no stand and no bubble (src/data/lobbyIllustrations.js),
 //                       then her Bond memories, which stay locked (soft silhouette + lock + requirement) until the City
-//                       dating / gift system raises her bond level
+//                       time-together / gift system raises her bond level
 // Every tile is a thumbnail. The choice is saved in profile.lobbyBg + secretary.
 import { h, clear } from '../dom.js';
 import { modal, svgEl, glyph, toast } from '../components.js';
