@@ -768,7 +768,7 @@ async function runVisit(vp) {
   await wait(B, '[data-testid="profile-more-sheet"]', { timeout: 6000 });
   const styled = await B.evaluate(() => ({
     foot: getComputedStyle(document.querySelector('[data-testid="profile-more-sheet"] .sc-card-foot')).display,
-    width: document.querySelector('.modal.sc-card-modal')?.getBoundingClientRect().width || 0,
+    width: document.querySelector('[data-testid="profile-more-sheet"]')?.closest('.ui-sheet')?.getBoundingClientRect().width || 0,
   }));
   check(styled.foot === 'flex' && styled.width > 0 && styled.width <= 641, `visitor after a reload: the ⋯ sheet is styled (${JSON.stringify(styled)})`);
   await B.keyboard.press('Escape').catch(() => {});

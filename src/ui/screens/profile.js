@@ -10,7 +10,7 @@
 // Freeplay Records. Preview renders the visitor layout from the card this save would publish.
 // The root carries data-hold-info="off": each card wires its own hold (PROFILE.md R17).
 import '../styles/profile.css';
-import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference, modal, button } from '../components.js';
+import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference, button } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate, back } from '../router.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -27,6 +27,7 @@ import { CAMPAIGN_IDS } from '../../data/stages.js';
 import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
 import { ribbonArt, liveHonors } from '../honorFx.js';
 import { openSheetFor, onEscape } from '../hold.js';
+import { openSheet } from '../sheet.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName, ensureOnline } from '../online/common.js';
 import { inlineLoader, holdInline } from '../loading/loader.js';
@@ -462,8 +463,9 @@ function renderVisit(root, userId) {
         // fresh pieces: the top bar keeps its own (one element can't sit in two places). The friend control
         // and the why line are on the page already: the sheet holds only what the top bar does not.
         const x = playerActions(view, { context: 'profile', close: closeSheet, ...actionHooks(closeSheet) });
-        const mm = modal({
-          title: view.name, actions: [], cls: 'sc-card-modal',
+        // [ui-v2 M7a] the kit's bottom sheet (sheet.js): its ink head with the name and a 44 px close, the actions on paper
+        const mm = openSheet({
+          title: view.name, cls: 'pf-more-sheet', testid: 'profile-more-frame',
           body: h('div.pf-more-body', { 'data-testid': 'profile-more-sheet' }, x.clanInvite, h('div.sc-card-foot', x.block, x.report)),
           onClose: () => { if (sheet === mm) sheet = null; },
         });

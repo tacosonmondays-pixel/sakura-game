@@ -424,6 +424,9 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   :is(.ui-day) .rk-wide { display: none; }
   :is(.ui-day) .rk-narrow { display: inline; }
 }
+/* a visit's More sheet (the kit's bottom sheet): a short one, the player card's actions on paper */
+:is(.ui-day) .ui-sheet.pf-more-sheet { width: min(calc(100% - 32px), 480px); }
+:is(.ui-day) .pf-more-sheet .pf-more-body { padding: 14px 16px 16px; gap: 12px; }
 @media (max-width: 440px) {
   :is(.ui-day) .pf-top-acts { gap: 4px; }
   :is(.ui-day) .pf-top-acts .rk-topbtn:not([data-testid="profile-preview-close"]) > span:not(.pf-ico) { display: none; }
