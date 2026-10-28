@@ -54,9 +54,11 @@ export function openCraftRoom(itemId, onDone = null) {
       b.disabled = !p.ok;
       return b;
     };
+    // (desktop: tiles big enough for the 13 px count floor; an item tile's count scales with it)
+    const tile = globalThis.matchMedia?.('(min-height: 481px)').matches ? 72 : 52;
     const line = (p, label, kind, testid) => h(`div.craft-row.bp-crow${p.ok ? '' : '.no'}`,
       h('div.craft-flow',
-        itemTile(p.in.id, p.in.count || null, { size: 52, onClick: () => {} }), h('span.bp-arrow', { 'aria-hidden': 'true' }, '→'), itemTile(p.out.id, p.out.count || null, { size: 52, onClick: () => {} })),
+        itemTile(p.in.id, p.in.count || null, { size: tile, onClick: () => {} }), h('span.bp-arrow', { 'aria-hidden': 'true' }, '→'), itemTile(p.out.id, p.out.count || null, { size: tile, onClick: () => {} })),
       h('div.craft-meta',
         h('b.bp-crow-t', label),
         h('span.bp-price', curArt('coins'), num(fmtNum(p.coins, 'money', { round: 'up' }), 's'), Number.isFinite(p.left) ? h('span.bp-left', `${p.left} left this week`) : null),

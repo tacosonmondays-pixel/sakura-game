@@ -293,7 +293,7 @@ function openSupplies(rerender) {
   const bodyEl = h('div.bp-supplies');
   let sheet = null;
   const row = (it, { line = null, acts = [], testid = null } = {}) => h('div.bp-srow', { 'data-testid': testid },
-    rarityTile(it.id, itemCount(profile, it.id), { size: 56, onClick: () => openItemSheet(it.id, { onChange: () => { draw(); rerender(); } }) }),
+    rarityTile(it.id, itemCount(profile, it.id), { size: bigTiles() ? 72 : 56, onClick: () => openItemSheet(it.id, { onChange: () => { draw(); rerender(); } }) }),
     h('div.bp-srow-txt', h('b.bp-srow-name', it.name), line ? h('span.bp-srow-line', line) : null),
     acts.length ? h('div.bp-srow-acts', acts) : null);
   const draw = () => {
@@ -330,6 +330,9 @@ function openSupplies(rerender) {
   sheet = openSheet({ title: 'Supplies', body: bodyEl, testid: 'supplies-sheet', cls: 'bp-sheet' });
   return sheet;
 }
+
+/** Desktop and tablets: tiles big enough for the 13 px count floor (an item tile's count scales with it). */
+const bigTiles = () => !!globalThis.matchMedia?.('(min-height: 481px)').matches;
 
 /** The first sentence of an item's text (the Supplies sheet's one line). */
 function oneLine(text) {

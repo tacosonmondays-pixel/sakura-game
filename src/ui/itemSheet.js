@@ -39,14 +39,15 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
   const item = getItem(itemId);
   const profile = store.profile;
   const owned = itemCount(profile, itemId);
-  const sources = itemSources(itemId).slice(0, 8);
+  // the five best places (a Tap layer keeps to its number budget): the drop chance rides in the row's title, not as a
+  // second number on every row
+  const sources = itemSources(itemId).slice(0, 5);
   let sheet = null;
   const go = (fn) => () => { sheet?.close(); fn(); };
 
   const users = item?.category === 'material' && item.family ? UNITS.filter((u) => u.materialFamily === item.family) : [];
-  const rows = sources.map((s, i) => h('li.bp-src',
+  const rows = sources.map((s, i) => h('li.bp-src', { title: s.note ? `${s.label} · ${s.note}` : s.label },
     h('span.bp-src-t', s.label),
-    s.note ? h('span.bp-src-note', s.note) : null,
     s.stageId
       ? secondaryBtn('Go', { testid: `teleport-${s.stageId}`, title: `Go to ${s.label}`, cls: 'bp-go', onClick: go(() => navigate('stage', { id: s.stageId })) })
       : s.route ? secondaryBtn('Go', { testid: `item-go-${i}`, title: `Go to ${s.label}`, cls: 'bp-go', onClick: go(() => navigate(s.route, s.params || {})) }) : null));

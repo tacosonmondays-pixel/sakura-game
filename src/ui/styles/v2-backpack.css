@@ -180,7 +180,6 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 :is(body.ui-day, body.ui-night) .bp-src { display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-src:last-child { border-bottom: 0; }
 :is(body.ui-day, body.ui-night) .bp-src-t { flex: 1 1 auto; min-width: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
-:is(body.ui-day, body.ui-night) .bp-src-note { flex: none; font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--muted); }
 :is(body.ui-day, body.ui-night) .bp-src .btn.bp-go { flex: none; min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-body); }
 :is(body.ui-day, body.ui-night) .bp-acts { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
 :is(body.ui-day, body.ui-night) .bp-acts .btn { min-height: calc(var(--tap) + 2px); }
