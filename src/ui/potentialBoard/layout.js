@@ -27,10 +27,20 @@ export const VARIANTS = 3;
 /**
  * The Board's drawing box at the phone size, 844 x 390: it opens as a sheet over the tabs and the content window (about
  * x 244-836, y 44-390: 592 x 346 px; the art band and nameplate stay), less 8 px padding, a 196 px card column with an
- * 8 px gap and a 36 px header: 372 x 294, which the 100 x 64 box fills at 372 x 238 (3.72 px a unit).
+ * 8 px gap and a 36 px header: 372 x 294. The 100 x 64 board fills its width at 3.72 px a unit (372 x 238); the box
+ * counts 240 px high so rounding never pulls the scale under 3.72.
  */
-export const PHONE_BOX = Object.freeze({ w: 372, h: 238 });
-/** px a unit below which a 44 px target no longer fits between neighbours: smaller screens give the board more room. */
+export const PHONE_BOX = Object.freeze({ w: 372, h: 240 });
+/**
+ * Reference boxes for the other checked sizes: 1280 x 720 (the sheet beside a 28 % art band, less a 300 px card
+ * column) and the upright 390 x 844 fallback (the board across the sheet's full width, the card below it).
+ */
+export const DESKTOP_BOX = Object.freeze({ w: 570, h: 365 });
+export const UPRIGHT_BOX = Object.freeze({ w: 374, h: 239 });
+/**
+ * px a unit below which a 44 px target no longer fits between neighbours. A narrower screen (667 x 375) gives the board
+ * more room instead: the card overlays the board's right side rather than taking a column beside it.
+ */
 export const MIN_SCALE = 3.72;
 /** px: every hit target is a circle of at least this radius (44 px across). */
 export const HIT_R = 22;
@@ -633,13 +643,14 @@ export function boardFor(def, o = {}) {
 }
 
 /**
- * Where a level sits on her route (units): band 1-6 and the point; LV 85 is the ring. Her token goes beside it.
- * @returns {{ band: number, x: number, y: number, angle: number }}
+ * Where a level sits on her route (units): band 1-6, the arc position `s` along that band and the point; LV 85 is the
+ * ring. Her token goes beside it. `board` is the object boardFor() returned (its route lives on it, not enumerable).
+ * @returns {{ band: number, s: number, x: number, y: number, angle: number }}
  */
 export function routeAt(board, level) {
   const lv = Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(level) || 1)));
   const band = bandOfLevel(lv);
-  if (lv >= MAX_LEVEL) return { band, x: board.end.x, y: board.end.y, angle: 0 };
+  if (lv >= MAX_LEVEL) return { band, s: r2(board.route[band].len), x: board.end.x, y: board.end.y, angle: 0 };
   const r = board.route[band];
   const a = r.anchors;
   let s = a[0][1];
@@ -657,7 +668,30 @@ export function routeAt(board, level) {
     s = a[i][1];
   }
   const p = r.at(s);
-  return { band, x: r2(p.x), y: r2(p.y), angle: r2(p.angle) };
+  return { band, s: r2(s), x: r2(p.x), y: r2(p.y), angle: r2(p.angle) };
+}
+
+/**
+ * What is lit for her state (display only): nodes from her Potential, gates from her breakthroughs, dots from her
+ * level, a band's path once the node it leads to is hers, the ring at LV 85 with all ten gates, the crest once her LR
+ * step is done. `next`: the node Raise ignites next (null at P6). "P4 but behind on gates" is P4's nodes lit with
+ * gates 6 and 7 dark.
+ * @param {object} board boardFor()
+ * @param {{ p?: number, gates?: number, level?: number, lrDone?: boolean }} s
+ */
+export function boardLights(board, { p = 1, gates = 0, level = 1, lrDone = false } = {}) {
+  const pp = Math.max(1, Math.min(6, Math.floor(Number(p) || 1)));
+  const gg = Math.max(0, Math.min(MAX_BREAKTHROUGH, Math.floor(Number(gates) || 0)));
+  const lv = Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(level) || 1)));
+  return {
+    nodes: Object.fromEntries(board.nodes.map((n) => [n.sel, n.step <= pp])),
+    gates: Object.fromEntries(board.gates.map((g) => [g.gate, g.gate <= gg])),
+    dots: board.dots.map((d) => lv >= d.hi),
+    bands: Object.fromEntries(board.bands.map((b) => [b.band, b.band === 7 ? lrDone : b.band < 6 ? pp > b.band : lv >= MAX_LEVEL && gg >= MAX_BREAKTHROUGH])),
+    end: lv >= MAX_LEVEL && gg >= MAX_BREAKTHROUGH,
+    lr: !!board.crest && lrDone,
+    next: pp < 6 ? `p${pp + 1}` : null,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -824,13 +858,13 @@ export function placeToken(board, box, { level = 1, labels = [] } = {}) {
     && labels.every((l) => rectDist(c, l) >= r + CLEAR_PX);
   const nx = -Math.sin(rad(p.angle));
   const ny = Math.cos(rad(p.angle));
-  for (let k = 1; k <= 6; k++) {
+  for (let k = 1; k <= 12; k++) {
     const d = r + 3 + (k - 1) * 6;
     const tries = [[nx, ny], [-nx, -ny]];
-    for (let a = 30; a < 360; a += 30) tries.push([Math.cos(rad(p.angle + 90 + a)), Math.sin(rad(p.angle + 90 + a))]);
+    for (let a = 15; a < 360; a += 15) if (a !== 180) tries.push([Math.cos(rad(p.angle + 90 + a)), Math.sin(rad(p.angle + 90 + a))]);
     for (const [ux, uy] of tries) {
-      const c = { x: at.x + ux * d, y: at.y + uy * d };
-      if (free(c)) return { x: Math.round(c.x), y: Math.round(c.y), r, at, band: p.band };
+      const c = { x: Math.round(at.x + ux * d), y: Math.round(at.y + uy * d) };
+      if (free(c)) return { x: c.x, y: c.y, r, at, band: p.band };
     }
   }
   return { x: Math.round(at.x), y: Math.round(at.y), r, at, band: p.band, crowded: true };
