@@ -178,11 +178,14 @@ describe('abilityBarView: slots', () => {
 
   it('only the abilities whose cast reads an aim are aimed (Time Out! a girl, Emergency Deploy a point)', () => {
     const aimed = Object.keys(ABILITY_TEXT).filter((id) => abilityAim(id));
-    expect(aimed.sort()).toEqual(['wakaba.timeOut', 'yuzuha.emergencyDeploy']);
+    // (Prismfall: a point, else her mortar's aim, else the densest crowd: DUO_LR §1.4)
+    expect(aimed.sort()).toEqual(['kohaku_tsubaki.prismfall', 'wakaba.timeOut', 'yuzuha.emergencyDeploy']);
+    expect(abilityAim('kohaku_tsubaki.prismfall')).toBe('point');
     const all = Object.values(ABILITIES).flatMap((r) => (Array.isArray(r) ? r : [r.skill]));
     const def = (id) => all.find((d) => d.id === id);
     expect(def('wakaba.timeOut').effect.target).toBe('girl');
     expect(def('yuzuha.emergencyDeploy').effect.deploy).toBe('sentries');
+    expect(def('kohaku_tsubaki.prismfall').effect.at).toBe('aim');
   });
 
   it('never an ally\'s girl, never a hero (her skill lives in the hero widget)', () => {

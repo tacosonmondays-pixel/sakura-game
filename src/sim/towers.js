@@ -30,6 +30,7 @@ import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
+import { buildPartnerSpec, partnerTick, beginVolley, refract } from './duo.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -319,6 +320,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  // the duo (src/sim/duo.js): Kohaku's beam, the partner weapon, follows the same buffs
+  if (s.duo) buildPartnerSpec(t);
   if (s.strip || s.sentry) deployCrits(t);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -1247,6 +1250,8 @@ function attackMortar(sim, t) {
   const snap = { ...spec }; // later upgrades / buffs do not change shells in flight
   const n = Math.max(1, spec.projectiles);
   const radius = spec.splash;
+  // the duo's prism (src/sim/duo.js): some shells split into shards of light that land with them
+  const prism = t.stats.duo ? beginVolley(t) : null;
   for (let i = 0; i < n; i++) {
     const off = MORTAR_SCATTER[i % MORTAR_SCATTER.length];
     const sh = {
@@ -1269,6 +1274,7 @@ function attackMortar(sim, t) {
     };
     sim.shells.push(sh);
     sim._emit('mortarWarn', { uid: sh.uid, x: sh.x, y: sh.y, radius, delay: MORTAR_DELAY, towerUid: t.uid });
+    if (prism) refract(sim, t, prism, snap, sh.x, sh.y);
   }
   sim._emit('attack', { towerUid: t.uid, targetUid, kind: 'mortar' });
   return true;
@@ -1917,6 +1923,8 @@ export function updateTower(sim, t, dt) {
     if (s.vine?.bloom > 0) t.bloomIdle = 0;
     t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
+  // the duo's partner weapon (Kohaku's beam, src/sim/duo.js): its own tick timer, after the main weapon
+  if (s.duo) partnerTick(sim, t, attackBeam);
 }
 
 // ---------------------------------------------------------------------------

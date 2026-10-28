@@ -15,8 +15,9 @@ import {
 } from './glbChibi.js';
 import { isStandIn } from './standins.js';
 import { attachCompanionFigure } from './companions.js';
+import { buildDuo, modelIds } from './duo.js';
 import { resolveSkin } from '../data/skins.js';
-import { UNIT_IDS } from '../data/units.js';
+import { UNIT_IDS, UNIT_MAP } from '../data/units.js';
 
 export { CHIBI_HEIGHT } from './chibi.js';
 export { buildEnemy, preloadEnemies, enemyUrl } from './enemies.js';
@@ -40,7 +41,11 @@ let preloaded = null;
  */
 export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) {
   // model files (manifest keys) for the units; stand-ins have none (procedural on purpose)
-  ids = (ids || UNIT_IDS).map((id) => resolveSkin(id, skins?.[id]).asset).filter((key) => !isStandIn(key));
+  // (a duo unit loads both members' models: src/models/duo.js)
+  ids = (ids || UNIT_IDS).flatMap((id) => {
+    const def = UNIT_MAP[id];
+    return def?.duo ? modelIds(def) : [resolveSkin(id, skins?.[id]).asset];
+  }).filter((key) => !isStandIn(key));
   if (!preloaded) {
     preloaded = (async () => {
       if (!canLoadCharacters()) return false;
@@ -73,6 +78,8 @@ export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) 
  *   beside the GLB figure in its home pose. The battle draws companions itself (src/render/companions.js).
  */
 export function buildChibi(unitDef, opts = {}) {
+  // a duo unit: both girls on one base, each her own chibi (src/models/duo.js)
+  if (unitDef?.duo?.members?.length) return tagSkin(buildDuo(unitDef, opts, buildChibi), resolveSkin(unitDef.id, opts.skin));
   const quality = opts.quality || 'high';
   const detail = opts.detail || detailFor(quality);
   const skin = resolveSkin(unitDef.id, opts.skin);

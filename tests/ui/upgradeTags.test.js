@@ -19,9 +19,9 @@ import {
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 218, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka)
+  self: 232, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki)
   'enemies* + self': 35,
-  'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
+  'enemies + self': 52, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
   coins: 8,

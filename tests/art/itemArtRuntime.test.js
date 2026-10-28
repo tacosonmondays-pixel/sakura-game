@@ -195,7 +195,8 @@ describe('display only: the battle sim is untouched', () => {
     const KNOWN = { 8: '92e2e22527cf' };
     // feature/abilities only: the abilities work changes the sim on protocol 8 and bumps it to 9 once, at its release
     // (A3 plan M7, which adds `9: '<id>'` above and removes this line). Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 8: 'c22b2587f4b7' };
+    // (wip/duo-unit: the duo Kohaku & Tsubaki moves the in-progress id from c22b2587f4b7; the coordinator bumps once)
+    const PENDING_BUMP = { 8: 'c871d96ae6db' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

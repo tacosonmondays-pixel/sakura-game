@@ -261,6 +261,13 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('VINE-0.5', '+6% attack speed. Her vine comes 0.5 s sooner.', 1.12, 'rim'),
     t('EVERGREEN', '+7% damage. Seeds pierce 1 more; her vine holds 0.3 s longer and comes 0.5 s sooner.', 1.18, 'rim'),
   ),
+  kohaku_tsubaki: row(
+    t('BEAM+1', '+5% damage. Kohaku\'s beam deals 1 more damage.', 1.10, 'rim'),
+    t('SHARDS+', '+7% attack speed. Shards carry 0.05 more of a shell\'s hit (40% → 45%).', 1.12, 'rim'),
+    t('PIERCE+1', '+7% damage. Kohaku\'s beam pierces 1 more enemy.', 1.12, 'rim'),
+    t('SHARD+1', '+8% attack speed. Every split shell makes 1 more shard.', 1.15, 'rim'),
+    t('ALL SPLIT', '+9% damage. Every 8th volley splits completely: every shell in it sends out its shards.', 1.22, 'rim'),
+  ),
   ouka: row(
     t('CUT ×1.03', 'Her upgrade discounts are 3% deeper (5% off → 5.15% off).', 1.03, 'rim'),
     t('CUT+2%', 'Her discounts are 3% deeper, and upgrades in her radius cost 2% less on top.', 1.06, 'rim'),

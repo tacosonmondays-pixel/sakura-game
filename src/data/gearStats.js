@@ -163,6 +163,9 @@ const KIT_FIT = Object.freeze({
   marumi: { fill: DEAD_TOWER },
   // Tenka (BUILD_PLAN 6.1): an attacking student like the live towers (no aura; her Critical Mass is hasted)
   tenka: { fill: DEAD_TOWER },
+  // the duo (DUO_LR §1): no aura; her shells are a mortar and Kohaku's beam fires outside the gear wrap, so gear
+  // Pierce reaches neither yet and fills in too (Prismfall is hasted)
+  kohaku_tsubaki: { fill: [...DEAD_TOWER, 'piercePct'] },
 });
 export const GEAR_FIT = Object.freeze(Object.fromEntries(Object.entries(KIT_FIT).map(([id, row]) => [
   id,

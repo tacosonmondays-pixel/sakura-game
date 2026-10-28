@@ -40,12 +40,15 @@ import { yuzuha } from './styles/yuzuha.js';
 import { ouka } from './styles/ouka.js';
 import { chigusa } from './styles/chigusa.js';
 import { marumi } from './styles/marumi.js';
+// the duo (docs/specs/DUO_LR.md, src/data/unitsDuo.js)
+import { kohaku_tsubaki } from './styles/kohaku_tsubaki.js'; // eslint-disable-line camelcase
 
 export const STYLE_BY_UNIT = {
   tenka,
   chika, hikari, luna, nami, aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede,
   kanna, yoriko, seiran, fuu, hana, ruri, noa, iroha, ena,
   azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi,
+  kohaku_tsubaki,
 };
 
 /** Fallback per sim behaviour (any turret owner gets drones). */

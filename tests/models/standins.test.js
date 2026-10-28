@@ -42,7 +42,7 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !ART_PENDING.includes(u.id));
-    expect(others).toHaveLength(35); // 36 units minus Tenka
+    expect(others).toHaveLength(36); // 37 units minus Tenka (the duo's members are GLB girls too: tests/models/glb.test.js)
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });

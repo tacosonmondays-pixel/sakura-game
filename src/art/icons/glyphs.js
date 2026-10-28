@@ -158,6 +158,7 @@ export const GLYPHS = {
   builder: '<path d="M5 20.5l3-6h8l3 6"/><rect x="8" y="9" width="8" height="5.5" rx="1"/><path d="M16 11.5h4.5M12 9V5.5M9.5 5.5h5"/>',
   manager: '<path d="M9 3.5h6v3l2 3v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 20.5v-11l2-3z"/><path d="M7.5 13h9" stroke-width="1.6"/><path d="M19 4.5l1.5-1.5M20 8h2" stroke-width="1.4"/>',
   ring: '<circle cx="12" cy="12" r="2.6"/><path d="M12 7V2.5M12 17v4.5M7 12H2.5M17 12h4.5M8.5 8.5L5.3 5.3M15.5 15.5l3.2 3.2M15.5 8.5l3.2-3.2M8.5 15.5l-3.2 3.2" stroke-width="1.6"/>',
+  battery: '<path d="M3.5 20.5h9"/><rect x="4.5" y="12" width="8" height="4.5" rx="1.4" transform="rotate(-40 8.5 14.2)"/><path d="M13.5 4.5l5 9h-10z"/><path d="M16 9l5.5-2M17 11l5 1" stroke-width="1.4"/>',
   spiker: '<path d="M2.5 16.5h19v3h-19z"/><path d="M4.5 16.5l1.5-4 1.5 4M9.5 16.5l1.5-4 1.5 4M14.5 16.5l1.5-4 1.5 4" stroke-width="1.6"/><circle cx="17.5" cy="5.5" r="2.5"/><path d="M15 5.5H9.5" stroke-width="1.6"/>',
 
   // capabilities

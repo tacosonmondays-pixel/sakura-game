@@ -95,6 +95,9 @@ export const PORTRAIT_DATA = {
   marumi: { face: [58, 19], cut: 0.432 },
   // Tenka's drawn art (the ultimates release; her battle figure stays the procedural stand-in, src/models/standins.js)
   tenka: { face: [49, 18], cut: 0.383 },
+  // the duo (DUO_LR §1.6): one pair illustration, Kohaku on the left and Tsubaki on the right; `face` is the
+  // point between their two faces
+  kohaku_tsubaki: { face: [51, 31], cut: 0.65 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

@@ -45,6 +45,8 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'sentry.max', 'sentry.damage', 'sentry.ttl',
   // Kaede's blade arts (her AoE rework): Maple Gale sharpens every shape
   'blade.shareMul',
+  // the duo (DUO_LR §1.5): Kohaku's beam, the shards, and the capstone's full split
+  'duo.beamDmg', 'duo.beamPierce', 'duo.shardShare', 'duo.shardAdd', 'duo.fullEvery',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
 export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
@@ -394,6 +396,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Sharp Thorns', 'kit', { damageMul: 1.05 }, { vine: { bedDmg: 1 } }),
     p5: step('Quick Sprouts', 'kit', { rateMul: 1.06 }, { vine: { every: -0.5 } }),
     p6: step('Evergreen', 'cap', { damageMul: 1.07 }, { pierce: 1, vine: { hold: 0.3, every: -0.5 } }),
+  },
+  // Kohaku & Tsubaki, SSR duo (DUO_LR §1.5: SSR track, kit steps from P2): a harder beam, brighter shards,
+  // one more shard, and the capstone: every 8th volley splits completely (every shell in it)
+  kohaku_tsubaki: {
+    p2: step('Steady Lens', 'kit', { damageMul: 1.05 }, { duo: { beamDmg: 1 } }),
+    p3: step('Brighter Facets', 'kit', { rateMul: 1.07 }, { duo: { shardShare: 0.05 } }),
+    p4: step('Clear Corridor', 'kit', { damageMul: 1.07 }, { duo: { beamPierce: 1 } }),
+    p5: step('Extra Facet', 'kit', { rateMul: 1.08 }, { duo: { shardAdd: 1 } }),
+    p6: step('Full Spectrum', 'cap', { damageMul: 1.09 }, { duo: { fullEvery: 8 } }),
   },
   // Ouka, SR campus hub (the coins track, like Momo: she deals no damage, and her coins are the
   // discount; incomeMul deepens it. Her kit steps widen her office and add to the discount)

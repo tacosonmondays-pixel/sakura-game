@@ -45,6 +45,9 @@
 // Wells and Last Line zones end at every wave clear (nothing to save). A save without these fields restores
 // her tiers with no lab team and fresh timers.
 //
+// The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam timer (`du`).
+// A save without it restores her with fresh counters.
+//
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
 // every field the Sim has, and tests/battle-ui/snapshot.test.js fails when a new one appears that
@@ -229,6 +232,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // at every wave clear, so a calm point's labAtk is exactly what the restore builds). Her well and Last
   // Line timers count wave time only, so they run on across calm points and travel (`zc`).
   lab: 'snap', labAtk: 'derived', wellCd: 'snap', lastLineCd: 'snap',
+  // the duo (src/sim/duo.js): her Refraction counter, her volley count (Potential's full split) and Kohaku's beam
+  // timer travel (`du`); the beam's spec follows her stats and buffs (refreshEffective)
+  prismN: 'snap', duoVolley: 'snap', duoCd: 'snap', beamSpec: 'derived',
 });
 
 /**
@@ -345,6 +351,8 @@ function packTower(sim, t) {
   if (lab && !t.isHero) o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
   // Tenka's well and Last Line timers (wave-time ticks; -1: she has none yet)
   if (t.wellCd != null || t.lastLineCd != null) o.zc = [t.wellCd ?? -1, t.lastLineCd ?? -1];
+  // the duo: shells since the last split, volleys since the last full split, Kohaku's beam timer (ticks)
+  if (t.prismN != null || t.duoVolley != null || t.duoCd != null) o.du = [t.prismN ?? -1, t.duoVolley ?? -1, t.duoCd ?? -1];
   return o;
 }
 
@@ -550,6 +558,13 @@ export function restoreSim(rec, profile = null) {
       const whole = (v) => Math.max(0, Math.floor(r(v)));
       if (t.stats.well && Number.isFinite(o.zc[0]) && o.zc[0] >= 0) t.wellCd = whole(o.zc[0]);
       if (t.stats.lastLine && Number.isFinite(o.zc[1]) && o.zc[1] >= 0) t.lastLineCd = whole(o.zc[1]);
+    }
+    // the duo's counters, only on a girl whose stats carry the duo block (a whole number each; -1: none yet)
+    if (Array.isArray(o.du) && t.stats.duo) {
+      const whole = (v) => Math.max(0, Math.floor(r(v)));
+      if (o.du[0] >= 0) t.prismN = Math.min(whole(o.du[0]), Math.max(0, t.stats.duo.every - 1));
+      if (o.du[1] >= 0) t.duoVolley = Math.min(whole(o.du[1]), Math.max(0, t.stats.duo.fullEvery - 1));
+      if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), 600);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);

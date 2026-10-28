@@ -131,6 +131,8 @@ export const ROLES = {
   manager: { name: 'Team Manager', category: 'support', goodAgainst: 'Making the team\'s best girl even better', limitation: 'No attack of her own', desc: 'Throws sports drinks that speed up the girls she picks.' },
   ring: { name: 'Burst Emitter', category: 'dps', goodAgainst: 'Crowds that wrap around her', limitation: 'Very short reach', desc: 'Fires a ring of pins in every direction at once.' },
   spiker: { name: 'Spike Layer', category: 'control', goodAgainst: 'Ground crowds and leaks near the exit', limitation: 'Flyers fly over her strips', desc: 'Lays spike strips that hit everything that walks over them.' },
+  // the duo unit (docs/specs/DUO_LR.md §1): two girls on one base, a map-wide mortar and a short-range beam
+  battery: { name: 'Prism Battery', category: 'frag', goodAgainst: 'Clumps anywhere on the map, and flyers close to them', limitation: 'Shells miss flyers and fast foes; the beam is short', desc: 'Two girls on one base: aimed star shells across the map, a piercing beam for the sky, and shells that split into light.' },
   stormrider: { name: 'Storm Rider', category: 'hero', goodAgainst: 'Flyers and spread-out waves', limitation: 'Halved by warded oni and fae', desc: 'Amphibious lightning hero with an aimed storm.' },
 };
 

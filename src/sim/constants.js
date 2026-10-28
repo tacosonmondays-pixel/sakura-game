@@ -318,3 +318,15 @@ export const PIN_REACH = 2;
 export const BOUNCE_SPEED = 9;
 export const BOUNCE_MAX_T = 1;
 export const FINALE_RADIUS = 1.5;
+
+// ---------------------------------------------------------------------------
+// The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * Where a split shell's shards land, in tiles from the shell's spot: shard k uses entry k % 8. A small fixed
+ * triangle first (3 shards), then the points between. Fixed table, no rng, no trig.
+ */
+export const PRISM_SHARDS = Object.freeze([
+  [0, -0.7], [0.6, 0.35], [-0.6, 0.35], [0, 0.7], [0.6, -0.35], [-0.6, -0.35], [0.35, 0], [-0.35, 0],
+].map((p) => Object.freeze(p)));

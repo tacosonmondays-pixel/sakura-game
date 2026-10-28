@@ -155,7 +155,17 @@ describe('rotation (§A.4)', () => {
     const tenka = PINS.find((x) => x.unit === 'tenka');
     const d = B.pinStartDay(tenka);
     for (let k = 0; k < tenka.days; k++) expect(B.legendBanner(d + k)).toMatchObject({ legend: 'tenka', debut: true });
-    expect(B.legendBanner(d + tenka.days).debut).toBe(false);
+    const after = B.legendBanner(d + tenka.days);
+    expect(after.legend === 'tenka' && after.debut).toBe(false);
+    // the duo (a new LR unit, `hold`): never on the LR tab before her debut, then her debut week, then daily with Tenka
+    const duo = PINS.find((x) => x.unit === 'kohaku_tsubaki');
+    if (UNIT_MAP.kohaku_tsubaki) {
+      const s0 = B.pinStartDay(duo);
+      for (let k = 1; k <= 20; k++) expect(B.legendBanner(s0 - k)?.legend).not.toBe('kohaku_tsubaki');
+      for (let k = 0; k < duo.days; k++) expect(B.legendBanner(s0 + k)).toMatchObject({ legend: 'kohaku_tsubaki', debut: true, legendRate: 7000 });
+      const later = new Set([0, 1, 2, 3].map((k) => B.legendBanner(s0 + duo.days + k).legend));
+      expect([...later].sort()).toEqual(['kohaku_tsubaki', 'tenka']);
+    }
   });
   it('look-ahead shows the next two days; Tenka (out before banners) is on the everyday LR tab before her debut', () => {
     const la = B.lookAhead('tower', D0, 2);
