@@ -4,6 +4,10 @@
 //   '.' grass/stone (buildable)   ',' flowers / decor (buildable)   '~' water (water units only)
 //   'T' tree   'R' rock   'H' building / shrine / machinery   'X' void, lava or furnace (blocked)
 //   'B' bridge: a water tile the road crosses or grazes (stamped automatically from the paths)
+//   'U' rooftop (Gate Arc): a low flat roof girls stand on, their whole footprint on the roof; a wall
+//       for a girl on the ground (src/sim/placement.js). Like void it is never cleared under a road:
+//       tests fail if a path runs over a roof. A map drops its roofs (the rollout's fallback) by
+//       turning its 'U' tiles into '.' (open yards): data only, the route stays the same.
 //
 // Tracks v3: every path is authored as a smooth curve in WORLD coordinates (tile (x, y) covers
 // [x, x+1) × [y, y+1); its centre is (x + 0.5, y + 0.5)) — control points the centreline passes
@@ -28,6 +32,12 @@
 // bench, fountain, bookshelf, vent, campfire, flag, bridgeLantern, candle.
 //
 // `concept` names each map's track silhouette (Tracks v3 plan: no two maps share one).
+//
+// Gate Arc fields (optional): `city` carries the city kit's render hints (src/render/city/cityKit.js);
+// `echoOf` names the Act I map an echo map re-skins (the same place in another era: its rows, paths,
+// crossings and tunnels stay literal, so the silhouette tests exempt the declared pair only) and
+// `echoDiff` lists the tiles whose terrain the story changed ([{ x, y, from, to }], e.g. the dry
+// fountain basin '~' → '.').
 
 import {
   buildMapTracks, stampTracks, mapTracks, BAND_HALF_WIDTH, arc, spiral, curve, loopNodes, LINE, TUNNEL_IN, TUNNEL_OUT,
@@ -41,6 +51,63 @@ const L = LINE;
 const IN = TUNNEL_IN;
 const OUT = TUNNEL_OUT;
 
+/**
+ * Track nodes for a city street (Gate Arc): straight runs between the corner points, each corner
+ * rounded with radius `r` (a quarter circle for a right angle; a list gives one radius per corner).
+ * `tunnel` = [from, to], two points on one straight where an underpass starts and ends.
+ * @param {number[][]} corners [start, corner…, end]
+ * @param {{ r?: number|number[], tunnel?: number[][]|null }} [o]
+ */
+function street(corners, { r = 1.8, tunnel = null } = {}) {
+  const out = [corners[0]];
+  const unit = (a, b) => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const l = DM.hypot(dx, dy) || 1;
+    return [dx / l, dy / l];
+  };
+  const onRun = (a, b, p) => {
+    const u = unit(a, b);
+    const t = (p[0] - a[0]) * u[0] + (p[1] - a[1]) * u[1];
+    const len = DM.hypot(b[0] - a[0], b[1] - a[1]);
+    const off = Math.abs((p[0] - a[0]) * u[1] - (p[1] - a[1]) * u[0]);
+    return off < 1e-6 && t > 0 && t < len;
+  };
+  for (let i = 1; i < corners.length; i++) {
+    const a = corners[i - 1];
+    const c = corners[i];
+    const u = unit(a, c);
+    const rr = Array.isArray(r) ? r[i - 1] : r;
+    out.push(L);
+    if (tunnel && onRun(a, c, tunnel[0]) && onRun(a, c, tunnel[1])) out.push(tunnel[0], IN, L, tunnel[1], OUT, L);
+    if (i === corners.length - 1) {
+      out.push(c);
+      break;
+    }
+    const v = unit(c, corners[i + 1]);
+    const A = [c[0] - u[0] * rr, c[1] - u[1] * rr];
+    const B = [c[0] + v[0] * rr, c[1] + v[1] * rr];
+    const O = [A[0] + v[0] * rr, A[1] + v[1] * rr];
+    const k = rr / Math.SQRT2;
+    const M = [O[0] + (u[0] - v[0]) * k, O[1] + (u[1] - v[1]) * k];
+    out.push(A, M, B);
+  }
+  return out.map((p) => (Array.isArray(p) ? [Math.round(p[0] * 1e4) / 1e4, Math.round(p[1] * 1e4) / 1e4] : p));
+}
+
+/**
+ * A declared echo (Gate Arc): the Act I map `spec` in another era. The rows stay literal except
+ * the tiles `echoDiff` lists ([{ x, y, w?, h?, from, to }], written in place here), the paths and
+ * crossings are the original's own objects, and the rest (theme, decor, words, city hints) is new.
+ */
+function echoMap(spec, o) {
+  const rows = spec.rows.map((r) => r.split(''));
+  for (const d of o.echoDiff) {
+    for (let y = d.y; y < d.y + (d.h ?? 1); y++) for (let x = d.x; x < d.x + (d.w ?? 1); x++) rows[y][x] = d.to;
+  }
+  return { ...o, echoOf: spec.id, rows: rows.map((r) => r.join('')), paths: spec.paths, crossings: spec.crossings };
+}
+
 /** Footprint radius of an ordinary girl (sim/placement.js TOWER_RADIUS) — for buildable-tile counts. */
 const TOWER_R = 0.42;
 
@@ -53,7 +120,7 @@ const TOWER_R = 0.42;
  * @param {object} o map fields; `rows` are the unstamped terrain rows, `paths` the path specs
  * @returns {object} MapDef
  */
-function defineMap(o) {
+export function defineMap(o) {
   const grid = o.rows.map((r) => r.split(''));
   const height = grid.length;
   const width = grid[0].length;
@@ -64,6 +131,7 @@ function defineMap(o) {
     const ch = grid[y][x];
     if (ch === '~') grid[y][x] = 'B';
     else if (ch === 'T' || ch === 'R' || ch === 'H' || ch === ',') grid[y][x] = '.';
+    // void ('X') and rooftops ('U') stay: a road may not run through either (tests)
   }
   // Set pieces on land occupy their tile (drawn instead of a generic building).
   for (const d of o.decor || []) {
@@ -95,10 +163,41 @@ function defineMap(o) {
     // optional composed ground features (src/render/groundFeatures.js): { type: 'vat', x, y, w, h }
     // machined tank rim, { type: 'icefall', x0, x1, y } frozen falls, { type: 'runeRing', x, y, r }
     ...(o.ground ? { ground: o.ground } : {}),
+    // Gate Arc (see the header): the city kit's render hints and a declared echo of an Act I map
+    ...(o.city ? { city: o.city } : {}),
+    ...(o.echoOf ? { echoOf: o.echoOf, echoDiff: o.echoDiff || [] } : {}),
     desc: o.desc,
     concept: o.concept || '',
   };
 }
+
+/** Blossom Court (1-5): its own map, and the ground the Dry Fountain (1-10) echoes. */
+const BLOSSOM_COURT = {
+  id: 'sakura_court', name: 'Blossom Court', theme: 'sakura', tier: 'intermediate',
+  desc: 'The academy\'s grand courtyard. The road spirals in around the fountain, bridges over its own outer ring and leaves under the arcade.',
+  concept: 'Fountain spiral, bridge over the outer ring, arcade tunnel',
+  rows: [
+    'TTTTT,,TTTTTT,,TTTTT',
+    'T.....,......,.....T',
+    'T..................T',
+    'T.,...,....,....,..T',
+    'T........,.........T',
+    'T.......~~~........T',
+    '.......~~~~~.....,.T',
+    'T.......~~~........T',
+    'T..,...........,...T',
+    'T..................T',
+    'T.,....,.....,...,.T',
+    'TTTTTTTTHHHHHTTTTTTT',
+  ],
+  paths: [
+    [[-1, 2.5], L, [1.0, 2.5], [4.2, 1.6], [8.0, 1.3], [12.0, 1.4], [15.4, 2.0], [17.2, 4.0], [17.2, 7.2], [15.6, 9.4], [12.4, 10.1], [8.4, 10.1], [5.0, 9.4], [3.2, 7.6], [3.4, 5.2], [5.2, 3.7], [8.2, 3.3], [11.4, 3.5], [13.6, 4.6], [14.0, 6.6], [12.4, 8.0], [10.6, 8.3], [10.0, 9.2], IN, [10.0, 11.2], OUT, L, [10.0, 13.0]],
+  ],
+  decor: [
+    { type: 'fountain', x: 9, y: 6 }, { type: 'sakura', x: 0, y: 3 }, { type: 'sakura', x: 19, y: 8 },
+    { type: 'stoneLantern', x: 6, y: 6 }, { type: 'bench', x: 15, y: 6 },
+  ],
+};
 
 export const MAPS = [
   // -------------------------------------------------------------------------
@@ -205,32 +304,7 @@ export const MAPS = [
       { type: 'stoneLantern', x: 5, y: 5 }, { type: 'bench', x: 15, y: 5 },
     ],
   }),
-  defineMap({
-    id: 'sakura_court', name: 'Blossom Court', theme: 'sakura', tier: 'intermediate',
-    desc: 'The academy\'s grand courtyard. The road spirals in around the fountain, bridges over its own outer ring and leaves under the arcade.',
-    concept: 'Fountain spiral, bridge over the outer ring, arcade tunnel',
-    rows: [
-      'TTTTT,,TTTTTT,,TTTTT',
-      'T.....,......,.....T',
-      'T..................T',
-      'T.,...,....,....,..T',
-      'T........,.........T',
-      'T.......~~~........T',
-      '.......~~~~~.....,.T',
-      'T.......~~~........T',
-      'T..,...........,...T',
-      'T..................T',
-      'T.,....,.....,...,.T',
-      'TTTTTTTTHHHHHTTTTTTT',
-    ],
-    paths: [
-      [[-1, 2.5], L, [1.0, 2.5], [4.2, 1.6], [8.0, 1.3], [12.0, 1.4], [15.4, 2.0], [17.2, 4.0], [17.2, 7.2], [15.6, 9.4], [12.4, 10.1], [8.4, 10.1], [5.0, 9.4], [3.2, 7.6], [3.4, 5.2], [5.2, 3.7], [8.2, 3.3], [11.4, 3.5], [13.6, 4.6], [14.0, 6.6], [12.4, 8.0], [10.6, 8.3], [10.0, 9.2], IN, [10.0, 11.2], OUT, L, [10.0, 13.0]],
-    ],
-    decor: [
-      { type: 'fountain', x: 9, y: 6 }, { type: 'sakura', x: 0, y: 3 }, { type: 'sakura', x: 19, y: 8 },
-      { type: 'stoneLantern', x: 6, y: 6 }, { type: 'bench', x: 15, y: 6 },
-    ],
-  }),
+  defineMap(BLOSSOM_COURT),
 
   // -------------------------------------------------------------------------
   // Chapter 2 — Moonlit Lakeshore (lake) — lots of water
@@ -1191,6 +1265,312 @@ export const MAPS = [
   }),
 
   // -------------------------------------------------------------------------
+  // Chapter 1 · Act II — Rush Hour (city: Itomachi downtown by day; Gate Arc, docs/specs/gate-arc/MAPS.md §1.2)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_station_plaza', name: 'Station Plaza', theme: 'city', tier: 'beginner',
+    desc: 'In from the bus lanes on the west, one wide hairpin round the taxi rank, then back under the station concourse and out north through the ticket gates. The far mouth of the underpass is the place to stand.',
+    concept: 'Taxi-rank hairpin: east along the bus lane, one wide hairpin, back west under the station concourse, out north',
+    rows: [
+      'HHHH.,HHHHHHHHTTHHHH',
+      'H...,.,....,..T.HHHH',
+      'H.HH...HHHHHH.....HH',
+      'H.HH..............,H',
+      'H.,....HHHHH......HH',
+      'H.HH..,,.T.,.......H',
+      'H.HH..,...........HH',
+      'H......T.,......,.HH',
+      '...................H',
+      'H.HHH..HHH..,HHH.HHH',
+      '.,..T..,....,....,..',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      street([[-1, 8.5], [15.5, 8.5], [15.5, 3.5], [4.5, 3.5], [4.5, -1]], { r: [2.5, 2.5, 1.8, 1.8], tunnel: [[11.5, 3.5], [8.5, 3.5]] }),
+    ],
+    decor: [
+      { type: 'ticketGates', x: 6, y: 1, rot: 0 }, { type: 'clockTower', x: 17, y: 2, rot: 0 },
+      { type: 'missingPoster', x: 6, y: 4, rot: Math.PI }, { type: 'busStop', x: 2, y: 7, rot: 0 },
+      { type: 'parkedCar', x: 12, y: 6, rot: Math.PI / 2 }, { type: 'waterBus', x: 5, y: 11, rot: Math.PI / 2 },
+    ],
+    city: {
+      areas: [{ type: 'plaza', x: 5.2, y: 0.3, w: 3.6, h: 1.5 }, { type: 'lawn', x: 11.2, y: 5.2, w: 2.6, h: 1.6 }],
+      waterBus: { z: 11.5, x0: -6, x1: 26, period: 34 },
+    },
+  }),
+  defineMap({
+    id: 'noon_covered_arcade', name: 'The Covered Arcade', theme: 'city', tier: 'intermediate',
+    desc: 'In from the station end of the shopping arcade, three narrow side alleys dropping south and climbing back, out at the far end. Two flat shop roofs stand between the alleys: a girl up there covers both.',
+    concept: 'Comb: the arcade street along the north, three deep narrow U-teeth hanging off it, in and out by the north edge',
+    rows: [
+      'H.HHHHHHHHHHHHHHHHHH.H',
+      'H....,.......,.......H',
+      'H....................H',
+      'H.....,.......,......H',
+      'H.....H........H.....H',
+      'H.....H.UU..H.UU.....H',
+      'H.....H.UU..H.UU.....H',
+      'H.,...H.UU..H.UU...,.H',
+      'H.......UU....UU.....H',
+      'H....................H',
+      'H~~~~~~~~~...~~~~~~~~H',
+      'HHHHHHHHHHHHHHHHHHHHHH',
+    ],
+    paths: [
+      street([[1.0, -1], [1.0, 2.5], [4.0, 2.5], [4.0, 8], [7.0, 8], [7.0, 2.5], [10.5, 2.5], [10.5, 8], [13.5, 8], [13.5, 2.5], [17.0, 2.5], [17.0, 8], [20.0, 8], [20.0, -1]], { r: 1.5 }),
+    ],
+    decor: [
+      { type: 'arcadeRibs', x: 9, y: 1, rot: 0 }, { type: 'arcadeRibs', x: 15, y: 1, rot: 0 },
+      { type: 'bunSteamer', x: 12, y: 4, rot: Math.PI }, { type: 'lantern', x: 5, y: 4 }, { type: 'lantern', x: 18, y: 4 },
+      { type: 'catOnWall', x: 12, y: 5, rot: 0 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_corner_store', name: 'Convenience Corner', theme: 'city', tier: 'intermediate',
+    desc: 'Up the avenue from the south, round the convenience store\'s block, and back across its own approach at the scramble crossing in front of the store, out west over the canal. Every enemy passes the corner twice.',
+    concept: 'Alpha at the scramble: up the avenue, round the block, back across its own approach at a flat four-way crossing',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      '~~H.T...,..........H',
+      '~~H....,..........HH',
+      '~~H.,.........,...HH',
+      '~~H..HH......~~,..HH',
+      '~~H..HH..HHH.~~...HH',
+      '~~H......HHH,.....HH',
+      '~~.................H',
+      '~~H.,.HH.....HH.,..H',
+      '~~H.T.HH..,..HH..HHH',
+      '~~H..,.....,.....HHH',
+      'HHHHHHHH..HHHHHHHHHH',
+    ],
+    crossings: 'flat',
+    paths: [
+      street([[8.5, 13], [8.5, 1.5], [17.0, 1.5], [17.0, 7.5], [-1, 7.5]], { r: 1.8 }),
+    ],
+    decor: [
+      { type: 'trafficLight', x: 7, y: 6, rot: Math.PI / 2 }, { type: 'trafficLight', x: 9, y: 8, rot: -Math.PI / 2 },
+      { type: 'vendingMachine', x: 12, y: 6, rot: 0 }, { type: 'bikeRack', x: 9, y: 9, rot: 0 },
+      { type: 'trashBin', x: 7, y: 2, rot: 0 },
+    ],
+    city: {
+      areas: [{ type: 'lawn', x: 12.2, y: 3.2, w: 3.8, h: 2.6 }],
+    },
+  }),
+  defineMap({
+    id: 'noon_canal_crossing', name: 'Canal Crossing', theme: 'city', tier: 'intermediate',
+    desc: 'Down from the north to the railway, where the road forks: the short lane runs straight over the level crossing, the long lane swings east round the canal basin, under the line and back over the canal bridge. When the barrier is down, the column takes the long way.',
+    concept: 'Level-crossing bypass: one lane dead straight over the railway, the other a wide D round the canal basin, rejoining at the south exit',
+    rows: [
+      'HHHHH.HHHHHHHHHHHHHH',
+      'H...,.......,......H',
+      'H.HH...........,...H',
+      'H.HH...HHH...HHH...H',
+      '....................',
+      'H.HH...~~~~~~~~~...H',
+      'H..,...~~~~~~~~~...H',
+      'H......~~~~~~~~~...H',
+      'H.HH...~~~~~~~...,.H',
+      'H..........~~......H',
+      'H..,.....~~~~~~~...H',
+      'HHHHH.HHHHH~~HHHHHHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      [[5.5, -1], L, [5.5, 13]],
+      {
+        fork: { path: 0, at: [5.5, 1.4] },
+        nodes: [[7.0, 2.4], [10.0, 2.5], L, [15.0, 2.5], [16.9, 3.1], [17.5, 4.0], IN, L, [17.5, 5.2], OUT, L, [17.5, 7.6], [16.9, 9.0], [15.0, 9.5], L, [7.6, 9.5], [6.1, 10.1]],
+        join: { path: 0, at: [5.5, 11.4] },
+      },
+    ],
+    decor: [
+      { type: 'lockGate', x: 13, y: 10, rot: Math.PI / 2 }, { type: 'waterBus', x: 9, y: 6, rot: Math.PI / 2 },
+      { type: 'busStop', x: 4, y: 7, rot: Math.PI / 2 }, { type: 'vendingMachine', x: 18, y: 1, rot: 0 },
+    ],
+    city: {
+      railway: { z: 4.5 },
+      waterBus: { z: 7.5, x0: 8.2, x1: 14.8, period: 30 },
+    },
+  }),
+  defineMap(echoMap(BLOSSOM_COURT, {
+    id: 'noon_dry_fountain', name: 'The Dry Fountain', theme: 'city', tier: 'advanced',
+    desc: 'The old plaza in the middle of town. The road spirals in round the dry fountain, crosses its own outer ring on the pedestrian deck and leaves through the shopping-arcade underpass. Something dark sits in the basin.',
+    concept: 'Echo of Blossom Court: the fountain spiral round a dry basin, the pedestrian deck over the outer ring, the arcade underpass',
+    // the fountain's water is long gone: its basin is a blocked stone hollow (the dryFountain set
+    // piece draws it) and the road's edge of it is dry paving
+    echoDiff: [
+      { x: 8, y: 5, w: 3, h: 1, from: '~', to: 'H' },
+      { x: 7, y: 6, w: 5, h: 1, from: '~', to: 'H' },
+      { x: 8, y: 7, w: 2, h: 1, from: '~', to: 'H' },
+      { x: 10, y: 7, from: 'B', to: '.' },
+    ],
+    decor: [
+      { type: 'dryFountain', x: 9, y: 6, r: 2.6 }, { type: 'pigeonGroup', x: 6, y: 6, rot: 0 },
+      { type: 'vendingMachine', x: 15, y: 6, rot: -Math.PI / 2 },
+    ],
+    city: {
+      areas: [{ type: 'plaza', x: 5.6, y: 4.6, w: 8.8, h: 3.8 }],
+    },
+  })),
+
+  // -------------------------------------------------------------------------
+  // Chapter 2 · Act II — Hilltop After Dark (campus: Itomachi Hilltop High at night, lakeside; MAPS.md §1.3)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_school_gate', name: 'School Gate', theme: 'campus', tier: 'intermediate',
+    desc: 'Up the hill road from the south, an S round the front-court flowerbeds, then through the corridor under the main building and out at Shelter 3\'s door. The classroom wing beside the corridor has a flat roof a girl can stand on.',
+    concept: 'Hill-road chicane: up from the south, two flat S-bends round the front court, the corridor tunnel north under the main building',
+    rows: [
+      'HHHHHH.HHHHHH~~~~~~~',
+      'H.,..H.H.UU.,~~~~~~~',
+      'H.T..H.H.UU..~~~~~~~',
+      'H....H.H.UU.,~~~~~~~',
+      'H.,..H.H......~~~~~~',
+      'H............~~~~~~~',
+      'H.T...........~~~~~~',
+      'H.....,......~~~~~~~',
+      'H.,..T..,.....~~~~~~',
+      'H............~~~~~~~',
+      'H.............~~~~~~',
+      'HHHH.HHHHHHHH~~~~~~~',
+    ],
+    paths: [
+      street([[4.5, 13], [4.5, 10.5], [11.5, 10.5], [11.5, 6.5], [6.5, 6.5], [6.5, -1]], { r: 1.6, tunnel: [[6.5, 4.5], [6.5, 0.5]] }),
+    ],
+    decor: [
+      { type: 'flagpole', x: 2, y: 5, rot: 0 }, { type: 'bikeShed', x: 1, y: 8, rot: Math.PI / 2 },
+      { type: 'lantern', x: 9, y: 8 }, { type: 'lantern', x: 12, y: 4 },
+    ],
+    city: {
+      searchlight: { x: 12.8, z: 8.6, rot: -0.2, sweep: 1.4, reach: 3.6, period: 13 },
+      // the main building's clock tower over the corridor, in the strip past the north edge
+      pieces: [{ type: 'schoolBlock', variant: 3, x: 6.5, z: -1.7, s: 1.4 }],
+    },
+  }),
+  defineMap({
+    id: 'noon_rowing_jetty', name: 'Rowing Jetty', theme: 'campus', tier: 'intermediate',
+    desc: 'Two columns climb out of the lake on the rowing club\'s twin jetties and meet at the boat ramp. From there one road runs east along the shore, doubles back past the boathouse and leaves north. The water between the jetties is the place for swimmers.',
+    concept: 'Twin jetties: two lanes up parallel decks over the lake, merging at the boat ramp, then a Z of one hairpin and one bend out north',
+    rows: [
+      'HHH.HHHHHHHHHHHHHHHH',
+      'H.....,......,.....H',
+      'H.T.....HHH........H',
+      'H..................H',
+      'H...,....HHH....,..H',
+      'H.................HH',
+      'H..................H',
+      'H.,......,.........H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[5.5, 13], [5.5, 6.5], [16.5, 6.5], [16.5, 3.5], [3.5, 3.5], [3.5, -1]], { r: 1.5 }),
+      { nodes: [[9.5, 13], L, [9.5, 8.8], [9.8, 7.6], [10.6, 6.8]], join: { path: 0, at: [12.0, 6.5] } },
+    ],
+    decor: [
+      { type: 'boatRack', x: 1, y: 6, rot: Math.PI / 2 }, { type: 'boatRack', x: 13, y: 7, rot: 0 },
+      { type: 'lantern', x: 12, y: 5 }, { type: 'bench', x: 14, y: 2 },
+    ],
+    city: {
+      searchlight: { x: 17.6, z: 7.6, rot: Math.PI / 2 + 0.3, sweep: 1.5, reach: 3.6, period: 14, variant: 1 },
+    },
+  }),
+  defineMap({
+    id: 'noon_footbridges', name: 'Canal Footbridges', theme: 'campus', tier: 'intermediate',
+    desc: 'Down the club-hut lanes from the north-west, a staircase of short runs, each drop crossing a mill canal on a little footbridge, and a last run over the boiler-house cut to the south gate.',
+    concept: 'Staircase of footbridges: a stepped diagonal from north-west to south-east, every step down crossing a canal',
+    rows: [
+      'HHHHHHHHHHHHH~~HHHHH',
+      '..........,..~~...,H',
+      'H.T..........~~....H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'H...,.......,~~....H',
+      'H.......,....~~.T..H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'H..,.........~~..,.H',
+      'H......T.....~~....H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'H...,........~~....H',
+      'HHHHHHHHHHHHH~~..HHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[-1, 1.5], [3.5, 1.5], [3.5, 4.5], [7.5, 4.5], [7.5, 7.5], [11.5, 7.5], [11.5, 10.5], [15.5, 10.5], [15.5, 13]], { r: 1.5 }),
+    ],
+    decor: [
+      { type: 'clubHut', x: 9, y: 1, rot: Math.PI }, { type: 'clubHut', x: 2, y: 5, rot: 0 },
+      { type: 'clubHut', x: 17, y: 8, rot: -Math.PI / 2 }, { type: 'lantern', x: 6, y: 2 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_running_track', name: 'The Running Track', theme: 'campus', tier: 'advanced',
+    desc: 'In through the marathon gate under the grandstand, straight across the infield, then one lap of the running track: down the home bend, along the back straight, over its own entry on the grandstand footbridge, and out north past the finish gantry.',
+    concept: 'One lap: an infield straight, then a clockwise lap of the oval that crosses its own entry on a footbridge and leaves north',
+    rows: [
+      '~~~~~~~~~~~~~~~~.~~~',
+      '~~~~~~~~~~~~~~~~.~~~',
+      'HH.................H',
+      'H..................H',
+      'H........~~~~~.....H',
+      'HHH......~~~~~.....H',
+      '..................HH',
+      'HHH......~~~~~.....H',
+      'H........~~~~~.....H',
+      '~~~~~..............H',
+      '~~~~~..............H',
+      'HHHHHHHHHHHHHHHHHHHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      [[-1, 6.5], L, [0.2, 6.5], IN, L, [2.4, 6.5], OUT, L, [15.0, 6.5], [17.1, 7.3], [18.1, 8.6], [17.5, 10.0], [15.5, 10.4], L, [10.0, 10.4], [8.0, 9.9], [7.0, 8.5], [6.9, 6.5], [7.2, 4.5], [8.2, 3.4], [10.0, 2.9], L, [14.5, 2.9], [16.0, 2.4], [16.6, 1.3], L, [16.7, -1]],
+    ],
+    decor: [
+      { type: 'lantern', x: 17, y: 3 }, { type: 'bench', x: 3, y: 3 },
+    ],
+    city: {
+      road: 'track',
+      pieces: [
+        { type: 'finishGantry', x: 12.5, z: 10.4, rot: Math.PI / 2 },
+        { type: 'scoreboard', x: 2.2, z: 1.0, rot: 0.4 },
+      ],
+      searchlight: { x: 18.6, z: 1.6, rot: Math.PI + 0.5, sweep: 1.2, reach: 3.0, period: 15, variant: 1 },
+    },
+  }),
+  defineMap({
+    id: 'noon_boathouse_lamp', name: 'The Boathouse Lamp', theme: 'campus', tier: 'advanced',
+    desc: 'Along the shore road from the east, out along the stone breakwater, once round the old iron lamp at its end, back across the breakwater head and up the timber pier into the boathouse, out west. The lizardfolk curl round the lamp like cats on a stove.',
+    concept: 'Breakwater curl: out along a breakwater, a 270° curl round the old lamp, back across the breakwater head, a diagonal pier into the boathouse tunnel',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H...,......,........',
+      'H.T.....,...........',
+      '........HHH........H',
+      'H...HHH.~~~~~..~~~~~',
+      'H.,.....~~~~~.....~~',
+      'H.....~~~~~~.......~',
+      'H...~~~~~~~~.......~',
+      'H..~~~~~~~~~.......~',
+      'H.~~~~~~~~~~.......~',
+      '~~~~~~~~~~~~.......~',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    crossings: 'flat',
+    paths: [
+      [[21, 2.5], L, [15.0, 2.5], [13.9, 3.0], [13.5, 4.0], L, [13.5, 7.6], [13.9, 9.1], [15.5, 10.0], [17.1, 9.1], [17.5, 7.8], [17.1, 6.6], [15.5, 6.0], L, [12.4, 6.0], [11.2, 5.6], L, [8.6, 3.8], [7.8, 3.5], L, [7.4, 3.5], IN, L, [3.6, 3.5], OUT, L, [-1, 3.5]],
+    ],
+    decor: [
+      { type: 'oldLamp', x: 15, y: 8, rot: 0, s: 1.7 }, { type: 'boatRack', x: 2, y: 5, rot: Math.PI / 2 },
+      { type: 'lantern', x: 3, y: 1 }, { type: 'bench', x: 10, y: 1 },
+    ],
+    city: {
+      searchlight: { x: 18.5, z: 4.6, rot: Math.PI - 0.3, sweep: 1.3, reach: 3.4, period: 14 },
+    },
+  }),
+
+  // -------------------------------------------------------------------------
   // Bounty (resource) arenas
   // -------------------------------------------------------------------------
   defineMap({
@@ -1483,7 +1863,8 @@ function centrelineDistance(tracks, x, y) {
 
 /**
  * Buildable tile counts for UI badges / recommendations: tiles whose CENTRE is a legal spot
- * for an ordinary girl as far as the road band goes (free placement), by terrain.
+ * for an ordinary girl as far as the road band goes (free placement), by terrain. A rooftop
+ * ('U') counts as land.
  * @param {object} map MapDef
  * @returns {{ land: number, water: number }}
  */
@@ -1495,7 +1876,7 @@ export function buildableTiles(map) {
   map.rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      const isLand = ch === '.' || ch === ',';
+      const isLand = ch === '.' || ch === ',' || ch === 'U';
       const isWater = ch === '~' || ch === 'B';
       if (!isLand && !isWater) continue;
       if (centrelineDistance(tracks, x + 0.5, y + 0.5) < clear) continue;

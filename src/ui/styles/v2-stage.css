@@ -474,6 +474,29 @@
 :is(.ui-day) .cp-unlock { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); }
 :is(.ui-day) .cp-unlock-face { width: 20px; height: 20px; border-radius: 50%; overflow: hidden; line-height: 0; display: inline-flex; background: var(--sky-1); }
 :is(.ui-day) .cp-unlock-face :is(img, svg) { width: 100%; height: 100%; object-fit: cover; }
+/* [Gate Arc] act rows (src/ui/screens/campaignActs.js, drawn only when a chapter has two acts): an ink kicker over
+   each act's grid ("Act II · Rush Hour"), its count, the lock on an ink plate or the NEW sticker; no card, no radius */
+:is(.ui-day) .cp-act { margin: 0 0 12px; }
+:is(.ui-day) .cp-act:last-child { margin-bottom: 0; }
+:is(.ui-day) .cp-act > .ma-act-head { display: flex; align-items: center; gap: 10px; min-height: 30px; margin: 0 0 8px; padding: 0 0 4px; border: 0; border-radius: 0;
+  background: none; box-shadow: inset 0 -1px 0 var(--line-ink-soft); }
+:is(.ui-day) .cp-act > .ma-act-head::before { content: ''; flex: none; width: 4px; align-self: stretch; margin: 2px 0; background: var(--cyan-ink); transform: skewX(var(--skew)); }
+:is(.ui-day) .cp-act.act-2 > .ma-act-head::before { background: var(--plate); }
+:is(.ui-day) .cp-act .ma-act-title { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .cp-act .ma-act-prog { margin-left: auto; font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--ink); }
+:is(.ui-day) .cp-act .ma-act-lock { margin-left: auto; padding: 4px 8px; border-radius: 0; background: var(--plate); color: var(--on-ink);
+  font: 600 var(--fs-label)/1.15 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; }
+:is(.ui-day) .cp-act .ma-act-head.locked .ma-act-title { color: var(--muted); }
+:is(.ui-day) .cp-act .ma-act-new { position: static; }
+/* the chapter tab's "new act inside" dot, inside the tab's top-right corner (the tab's shape would cut it outside) */
+:is(.ui-day) .cp-tab.has-new-act { position: relative; }
+:is(.ui-day) .cp-tab.has-new-act > .ma-act-newdot { position: absolute; right: calc(var(--s) + 6px); top: 5px; }
+/* [Gate Arc] an echo stage's card (1-10): the echoed stage shows through faintly; its chip under the id plate */
+:is(.ui-day) .cp-card-map > .ma-sc-ghost { position: absolute; inset: 0; z-index: 1; line-height: 0; opacity: 0.24; pointer-events: none; filter: saturate(0.7); mix-blend-mode: multiply; aspect-ratio: auto; }
+:is(.ui-day) .cp-card-map > .ma-sc-ghost svg { width: 100%; height: 100%; display: block; }
+:is(.ui-day) .cp-card-map > .ma-sc-echo { position: absolute; left: 0; right: auto; top: 34px; bottom: auto; z-index: 2; padding: 3px 12px 3px 8px; border-radius: 0;
+  background: var(--panel-w); color: var(--ink); font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 @media (min-height: 481px) {
   :is(.ui-day) .cp-rail { margin-bottom: 12px; }
   :is(.ui-day) .cp-chapter { margin-bottom: 12px; }

@@ -36,7 +36,7 @@ import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
   damageXp, heroLevelStatus, buyHeroLevel, canMoveHero, moveHero, ultRank,
 } from './hero.js';
-import { generateWave, summarizeWave } from './waves.js';
+import { generateWave, summarizeWave, openLanes } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
@@ -64,6 +64,9 @@ const MAX_EVENT_BACKLOG = 20000;
 export function roundCost(c) {
   return Math.max(5, Math.round(c / 5) * 5);
 }
+
+/** Sim → the last openLanes() answer (render-side cache; outside the Sim's fields and its snapshots). */
+const LANE_MEMO = new WeakMap();
 
 export class Sim {
   /**
@@ -771,9 +774,30 @@ export class Sim {
       this._waveTick = 0;
       ruleWaveStart(this);
     }
-    this._emit('waveStart', { wave: this.wave, reversed: this.routeReversed, flipped: routeFlippedFor(this, this.wave) });
+    // a lane schedule (Gate Arc): which lanes this wave walks (absent on stages without one)
+    this._emit('waveStart', { wave: this.wave, reversed: this.routeReversed, flipped: routeFlippedFor(this, this.wave), ...(w.lanes ? { lanes: w.lanes } : {}) });
     this._spawnTick(0);
     return true;
+  }
+
+  /**
+   * The lanes open on wave `n` under the stage's lane schedule (waves.js openLanes; a pure function
+   * of the stage and the wave, so a restored battle reads the same): by default the wave running
+   * now, or the next one between waves (a level crossing's barrier shows it before the column
+   * arrives). null = every lane open (no schedule).
+   * @param {number} [n]
+   * @returns {number[]|null}
+   */
+  openLanes(n = this.state === 'wave' ? this.wave : this.wave + 1) {
+    if (!this.stage.waveGen?.laneCycle) return null;
+    const w = Math.max(1, n);
+    // (asked every frame by the renderer: the last answer is kept beside the Sim, never on it, so a
+    // snapshot, which copies the Sim's own fields, stays exactly as before)
+    const memo = LANE_MEMO.get(this);
+    if (memo?.w === w) return memo.lanes;
+    const lanes = openLanes(this.stage, w, this._pathsFwd.length);
+    LANE_MEMO.set(this, { w, lanes });
+    return lanes;
   }
 
   _checkWaveEnd() {

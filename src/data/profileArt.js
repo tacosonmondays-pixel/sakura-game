@@ -31,7 +31,7 @@ export const FRAMES = Object.freeze({
   ur: { name: 'UR Rainbow', how: 'Fully awaken an SSR student (UR).', ships: true },
   eclipse: { name: 'Eclipse', how: 'Defeat the Eclipse Wyrm in Freeplay.', ships: true },
   sakura: { name: 'Sakura', how: 'Earn Sakura medals on 10 campaign stages.', ships: false },
-  laurel: { name: 'Laurel', how: 'Earn Gold medals on all 40 campaign stages.', ships: false },
+  laurel: { name: 'Laurel', how: 'Earn Gold medals on 40 campaign stages.', ships: false },
   rosette: { name: 'Rosette', how: 'Earn all 20 ribbons on one stage.', ships: false },
   ...Object.fromEntries(EVENT_COSMETICS.filter((c) => c.kind === 'frame').map((c) => [c.id, { name: c.name, how: c.how, ships: true, event: true }])),
 });

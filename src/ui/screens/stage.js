@@ -29,7 +29,7 @@ import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
-import { STAGE_MAP, CHAPTERS, stageEnemies } from '../../data/stages.js';
+import { STAGE_MAP, CHAPTERS, stageEnemies, stageRequires } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
 import { UNIT_MAP, unitsWithCapability, hasCapability } from '../../data/units.js';
@@ -44,8 +44,8 @@ import { ico, curArt, iconBtn, secondaryBtn, inkBtn, countdownChip, fillIn } fro
 import { openSheet, closeSheets } from '../sheet.js';
 import { fmtNum } from '../format.js';
 import { lineGlyph } from '../lineGlyphs.js';
-import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
-import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
+import { stageMedals, isStageUnlocked, isStageCleared, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
+import { canSweep, sweep, MAX_SWEEPS, medalGems as medalGemsFor } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
 import {
@@ -59,6 +59,7 @@ import { lastSoloTier, rememberSoloTier } from '../battle/soloFreeplay.js';
 import { rarityInfo } from '../rarity.js';
 import { modeId } from '../../data/modes.js';
 import { modeText } from '../text/modes.js';
+import { mechanicFor } from '../text/acts.js';
 import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES, runStartedAt,
 } from '../../systems/battleSave.js';
@@ -189,7 +190,16 @@ export function savedBadge(profile, stageId, endless = false) {
   return h('span.ma-saved-badge', { 'data-testid': 'saved-badge', title: `Saved battle: ${savedDetail(rec)}. Continue it from the stage screen.` }, svgEl(uiIcon('play'), 'ma-saved-badge-ico'), `Saved · W${saveSummary(rec).next}`);
 }
 
-/** "Clear 1-4 first" style requirement text (null when unlocked). */
+/**
+ * The stages still blocking a locked stage, in its `requires` order (an Act II x-6 can need two); [] when it has none
+ * left. Unknown ids are skipped.
+ * @returns {object[]} StageDefs
+ */
+export function missingRequirements(profile, stageId) {
+  return stageRequires(stageId).filter((id) => !isStageCleared(profile, id)).map((id) => STAGE_MAP[id]).filter(Boolean);
+}
+
+/** "Clear 1-4 first" style requirement text (null when unlocked); a two-key stage names what is still missing. */
 export function requirementText(profile, stageId) {
   const stage = STAGE_MAP[stageId];
   if (stage?.kind === 'event') {
@@ -197,8 +207,8 @@ export function requirementText(profile, stageId) {
     return st.ok ? null : st.text;
   }
   if (!stage || isStageUnlocked(profile, stageId)) return null;
-  const req = STAGE_MAP[stage.requires];
-  return req ? `Clear ${req.kind === 'campaign' ? req.id : req.name} first` : 'Locked';
+  const missing = missingRequirements(profile, stageId);
+  return missing.length ? `Clear ${missing.map((r) => (r.kind === 'campaign' ? r.id : r.name)).join(' and ')} first` : 'Locked';
 }
 
 /** Row of the four difficulty medals (earned ones in colour). */
@@ -746,7 +756,7 @@ function diffButton(stage, state, ctx, f, d) {
   const corner = locked
     ? null
     : ribbonCorner(f.profile, stage.id, d, state.mode)
-      ?? (earned ? null : h('span.ma-diff-gems.stp-d-gems', { title: `First ${def.name} clear: ${def.firstClearGems} gems` }, curArt('gems'), h('span.num', String(def.firstClearGems))));
+      ?? (earned ? null : h('span.ma-diff-gems.stp-d-gems', { title: `First ${def.name} clear: ${medalGemsFor(stage, d)} gems` }, curArt('gems'), h('span.num', String(medalGemsFor(stage, d)))));
   const savedHere = f.rec && f.rec.difficulty === d;
   return h(`button.ui-opt.ma-diff.stp-d.diff-${d}${on ? '.on.active' : ''}${locked ? '.locked' : ''}${earned ? '.earned' : ''}`, {
     type: 'button',
@@ -856,7 +866,7 @@ function footer(stage, state, ctx, f) {
         onClick: () => navigate('battle', { stage: stage.id, difficulty: evSave.difficulty, resume: evSave.id }),
       }));
     }
-    const reqStage = STAGE_MAP[stage.requires];
+    const reqStage = missingRequirements(profile, stage.id)[0] || null; // (the first one still to clear)
     const go = f.evStatus
       ? { label: 'Back to the event', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: f.evStatus.reason === 'episode' ? 'story' : 'stages' }) }
       : reqStage ? { label: `Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, testid: 'stage-go-req', onClick: () => navigate('stage', { id: reqStage.id }) } : null;
@@ -1135,7 +1145,7 @@ function dropsSheet(stage, state, f) {
       h('div.stp-medalgems', order.map((d) => h(`div.stp-mg${f.medals[d] ? '.done' : ''}`, { 'data-probe': 'tile' },
         svgEl(medalIcon(d, { earned: f.medals[d] }), 'stp-mg-medal'),
         h('span.stp-mg-name', DIFFICULTIES[d].name),
-        f.medals[d] ? h('span.stp-mg-got', ico('check'), 'Claimed') : h('span.stp-mg-gems', curArt('gems'), h('span.num', String(DIFFICULTIES[d].firstClearGems)))))),
+        f.medals[d] ? h('span.stp-mg-got', ico('check'), 'Claimed') : h('span.stp-mg-gems', curArt('gems'), h('span.num', String(medalGemsFor(stage, d))))))),
       firstClearNote(state.mode)));
   }
   return out;
@@ -1168,7 +1178,7 @@ function infoSheet(stage, state, f) {
   out.push(sec(stage.kind === 'campaign' ? 'Mission' : stageLabel(stage),
     h('p.stp-p', stage.desc),
     f.played.variant ? h('p.stp-p.stp-variant', h('b', `${DIFFICULTIES[f.played.variant.difficulty].name}: ${f.played.variant.name}`), ` ${f.played.variant.desc}`) : null,
-    chapter ? h('p.stp-p.desc.stp-mech', ico('info'), chapter.mechanic) : null));
+    mechanicFor(chapter, stage) ? h('p.stp-p.desc.stp-mech', ico('info'), mechanicFor(chapter, stage)) : null));
   // the enemies (scouting): tap one for HP, traits and counters
   const introduces = new Set(stage.introduces || []);
   const ids = stageEnemies(f.played).filter((id) => ENEMY_MAP[id]);

@@ -6,7 +6,7 @@ import { h, svgEl } from '../components.js';
 import { MODE_ORDER, modeId } from '../../data/modes.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { MODE_TEXT, modeText, modeDesc } from '../text/modes.js';
-import { RULE_TEXT, ruleCycleLabel, ruleHasMarks } from '../text/rules.js';
+import { ruleTextFor, ruleCycleLabel, ruleHasMarks } from '../text/rules.js';
 import { modeIcon, ruleIcon, ruleColor, uiIcon } from '../../art/icons.js';
 import { stageMedals, modeRibbons, modesUnlocked, ribbonCount, bestDifficulty } from '../../systems/unlocks.js';
 
@@ -67,7 +67,7 @@ export function rewardLine(profile, stage, difficulty, mode) {
 /** The map rule as a section of the "i" sheet (null on stages without a rule): icon, name, when it runs, what it does. */
 export function rulePanel(stage) {
   const rule = stage.rule;
-  const t = rule && RULE_TEXT[rule.id];
+  const t = rule && ruleTextFor(stage);
   if (!t) return null;
   const icon = svgEl(ruleIcon(rule.id), 'stp-rule-icon');
   icon.style.setProperty('--rule', ruleColor(rule.id));
@@ -76,8 +76,10 @@ export function rulePanel(stage) {
     h('div.stp-rulebox',
       icon,
       h('div.stp-rule-text',
-        h('div.stp-rule-name-row', h('b.stp-rule-name', t.name), h(`span.ui-chip.stp-rule-when${rule.cycle ? '.cycle' : ''}`, ruleCycleLabel(rule))),
+        h('div.stp-rule-name-row', h('b.stp-rule-name.ma-rule-name', t.name), h(`span.ui-chip.stp-rule-when${rule.cycle ? '.cycle' : ''}`, ruleCycleLabel(rule))),
         h('p.stp-p', t.desc),
+        // a stage skin renamed the rule: say which shipped rule it is
+        t.baseName ? h('p.stp-p.desc', { 'data-testid': 'rule-base-name' }, `The ${t.baseName} rule.`) : null,
         ruleHasMarks(rule) ? h('p.stp-p.desc', 'Glowing marks on the map show where.') : null)));
 }
 
@@ -152,7 +154,7 @@ export function modePanel(profile, stage, state, onPick) {
 
 /** Campaign stage card chips: the rule chip (icon + name; icon only on phones) and "Ribbons n/20". */
 export function stageCardRuleChip(stage) {
-  const t = stage.rule && RULE_TEXT[stage.rule.id];
+  const t = stage.rule && ruleTextFor(stage);
   if (!t) return null;
   const chip = h('span.ma-sc-rule', { title: `Map rule: ${t.name}`, 'data-testid': `rule-chip-${stage.id}` }, svgEl(ruleIcon(stage.rule.id), 'ma-sc-rule-icon'), h('span.ma-sc-rule-name', t.name));
   chip.style.setProperty('--rule', ruleColor(stage.rule.id));

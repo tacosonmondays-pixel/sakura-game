@@ -1,6 +1,7 @@
-// Story backdrops (Oct 27 set): every background a scene shows resolves to a real picture, every campaign stage
-// has its painted place, no scene is left on the old academy painting where the stage -> place table names a
-// place, and every file under public/art/lobby/story/ is listed (no orphan art ships).
+// Story backdrops (Oct 27 set): every background a scene shows resolves to a real picture, every Act I campaign
+// stage has its painted place (an Act II stage without one shows its map theme's night skyline, never the academy),
+// no scene is left on the old academy painting where the stage -> place table names a place, and every file under
+// public/art/lobby/story/ is listed (no orphan art ships).
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +38,13 @@ describe('story backdrops', () => {
           expect(spec.color, `${sc.id}: ${id}`).toBeTruthy();
           continue;
         }
+        if (spec.kind === 'svg') {
+          // an Act II stage without a painted place: its map theme's skyline, drawn in place (no file to load)
+          expect(STAGE_MAP[spec.stageId]?.act, `${sc.id}: ${id} is an Act II stage`).toBe(2);
+          expect(spec.html, `${sc.id}: ${id}`).toMatch(/<svg/);
+          expect(backgroundUrls(id, sc.chapter)).toEqual([]);
+          continue;
+        }
         expect(existsSync(join(LOBBY_ART, fileOf(spec.url))), `${sc.id}: ${id} -> ${spec.url}`).toBe(true);
         expect(existsSync(join(LOBBY_ART, fileOf(spec.thumb))), `${sc.id}: ${id} thumb -> ${spec.thumb}`).toBe(true);
         expect(backgroundUrls(id, sc.chapter)).toEqual([spec.url]);
@@ -49,8 +57,12 @@ describe('story backdrops', () => {
       for (const id of sceneBackgrounds(sc)) {
         const stage = stageOfBackground(id);
         if (!stage) continue;
-        expect(STAGE_PLACE[stage], `${sc.id}: ${id} has a place`).toBeTruthy();
         const spec = resolveBackground(id, sc.chapter);
+        if (!STAGE_PLACE[stage] && STAGE_MAP[stage]?.act === 2) {
+          expect(spec.kind, `${sc.id}: ${id} shows its theme skyline`).toBe('svg');
+          continue;
+        }
+        expect(STAGE_PLACE[stage], `${sc.id}: ${id} has a place`).toBeTruthy();
         expect(spec.place, `${sc.id}: ${id}`).toBe(STAGE_PLACE[stage]);
         expect(fileOf(spec.url), `${sc.id}: ${id}`).toBe(`story/${STAGE_PLACE[stage]}.webp`);
       }
@@ -66,14 +78,18 @@ describe('story backdrops', () => {
     }
   });
 
-  it('STAGE_PLACE: every stage exists, every campaign stage has a place, every place is a story picture', () => {
+  it('STAGE_PLACE: every stage exists, every Act I campaign stage has a place, every place is a story picture', () => {
     for (const [stage, place] of Object.entries(STAGE_PLACE)) {
       expect(STAGE_MAP[stage], `stage ${stage} exists`).toBeTruthy();
       expect(STAGE_MAP[stage].kind, `stage ${stage}`).toBe('campaign');
       expect(BACKGROUNDS[place]?.file, `${stage} -> ${place}`).toBe(`story/${place}.webp`);
       expect(placeOfStage(stage)).toBe(place);
     }
-    for (const id of CAMPAIGN_IDS) expect(STAGE_PLACE[id], `campaign stage ${id} has a place`).toBeTruthy();
+    for (const id of CAMPAIGN_IDS) {
+      if (STAGE_PLACE[id]) continue;
+      expect(STAGE_MAP[id].act, `campaign stage ${id} has a place (only an Act II stage may go without)`).toBe(2);
+      expect(resolveBackground(`stage:${id}`, STAGE_MAP[id].chapter).kind, `stage ${id} shows its theme skyline`).toBe('svg');
+    }
   });
 
   it('the chapter fallback stays the academy painting for a stage without a place', () => {

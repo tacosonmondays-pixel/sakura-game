@@ -1,5 +1,11 @@
 import { describe, test, expect } from 'vitest';
-import { generateWave, summarizeWave } from '../../src/sim/waves.js';
+import { generateWave, summarizeWave, openLanes, longestLane } from '../../src/sim/waves.js';
+import { generateFreeplayWave } from '../../src/sim/freeplay.js';
+import { buildPaths } from '../../src/sim/path.js';
+import { STAGE_MAP, CAMPAIGN_IDS } from '../../src/data/stages.js';
+import { getMap } from '../../src/data/maps.js';
+import { ENEMY_MAP } from '../../src/data/enemies.js';
+import { coopStage } from '../../src/data/coop.js';
 import { MAX_SPAWNS_PER_WAVE } from '../../src/sim/constants.js';
 import { ENEMIES, STAGE, MAP2, makeSim, run } from './fixtures.js';
 
@@ -137,4 +143,161 @@ describe('integration additions', () => {
     expect(rich.gain).toBeCloseTo(base.gain * 2, 0);
     expect(base.gain).toBeGreaterThan(0);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Lane schedule (Gate Arc: a level crossing or a checkpoint closes a lane on a wave schedule).
+// waveGen.laneCycle [[0, 1], [1]]: odd waves walk both lanes, even waves lane 1 only.
+// ---------------------------------------------------------------------------
+
+/** FNV-1a over a string → 8 hex digits (the campaignGolden digest). */
+function fnv(text, h = 0x811c9dc5) {
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+const hex = (h) => h.toString(16).padStart(8, '0');
+
+const CYCLE = [[0, 1], [1]];
+const lanesStage = (stage, cycle = CYCLE) => ({ ...stage, waveGen: { ...stage.waveGen, laneCycle: cycle } });
+const TWO = { pathCount: 2, pathLengths: [20, 35] };
+
+describe('lane schedule', () => {
+  test('openLanes reads the cycle by wave; no schedule, one lane or an empty entry = every lane open', () => {
+    const st = lanesStage(STAGE_BIG);
+    expect(openLanes(st, 1, 2)).toEqual([0, 1]);
+    expect(openLanes(st, 2, 2)).toEqual([1]);
+    expect(openLanes(st, 3, 2)).toEqual([0, 1]);
+    expect(openLanes(st, 20, 2)).toEqual([1]);
+    expect(openLanes(STAGE_BIG, 2, 2)).toBe(null);
+    expect(openLanes(st, 2, 1)).toBe(null);
+    expect(openLanes(lanesStage(STAGE_BIG, [[0, 1], [5]]), 2, 2)).toBe(null);
+    expect(openLanes(lanesStage(STAGE_BIG, [[2, 0, 0]]), 1, 3)).toEqual([0, 2]);
+    expect(longestLane([27, 30, 14])).toBe(1);
+    expect(longestLane([27, 30, 14], [0, 2])).toBe(0);
+    expect(longestLane([30, 30], [0, 1])).toBe(0);
+    expect(longestLane(null, [1])).toBe(1);
+  });
+
+  test('odd waves use both lanes, even waves lane 1 only; odd waves equal the unscheduled waves', () => {
+    const st = lanesStage(STAGE_BIG);
+    for (let w = 1; w <= 20; w++) {
+      const wd = generateWave(st, w, lookup, TWO);
+      const used = new Set(wd.spawns.map((s) => s.pathIndex));
+      if (w % 2 === 0) {
+        expect(wd.lanes, `wave ${w}`).toEqual([1]);
+        expect([...used], `wave ${w}`).toEqual([1]);
+      } else {
+        expect(wd.lanes, `wave ${w}`).toEqual([0, 1]);
+        if (wd.spawns.length >= 2) expect(used, `wave ${w}`).toEqual(new Set([0, 1]));
+        const { lanes, ...rest } = wd;
+        expect(rest).toEqual(generateWave(STAGE_BIG, w, lookup, TWO));
+      }
+      // the schedule picks lanes only: the same enemies at the same times
+      const plain = generateWave(STAGE_BIG, w, lookup, TWO);
+      expect(wd.spawns.map((s) => [s.t, s.enemyId])).toEqual(plain.spawns.map((s) => [s.t, s.enemyId]));
+      expect(wd.groups).toEqual(plain.groups);
+    }
+  });
+
+  test('no spawn on a closed lane: a pinned group moves to the first open lane, a boss to the longest open one', () => {
+    const fixed = [
+      { wave: 4, enemy: 'slime', count: 3, path: 0 }, // closed on even waves of the two-lane cycle → lane 1
+      { wave: 10, enemy: 'boss', count: 1, delay: 5 }, // no lane given → the longest open lane
+      { wave: 11, enemy: 'boss', count: 1, path: 1 }, // pinned: stays when open, else the longest open lane
+    ];
+    // three lanes, lane 1 (the longest) closed on even waves
+    const st = { ...STAGE_BIG, waveGen: { ...STAGE_BIG.waveGen, fixed, laneCycle: [[0, 1, 2], [0, 2]] } };
+    const three = { pathCount: 3, pathLengths: [27, 30, 14] };
+    for (let w = 1; w <= 20; w++) {
+      const wd = generateWave(st, w, lookup, three);
+      for (const sp of wd.spawns) expect(wd.lanes, `wave ${w} ${sp.enemyId}`).toContain(sp.pathIndex);
+    }
+    // wave 10 (lanes 0 and 2): the boss takes lane 0 (27 tiles) instead of the closed lane 1 (30)
+    expect(generateWave(st, 10, lookup, three).lanes).toEqual([0, 2]);
+    expect(generateWave(st, 10, lookup, three).spawns.find((s) => s.enemyId === 'boss').pathIndex).toBe(0);
+    // ... and without the schedule it takes lane 1, the longest
+    expect(generateWave({ ...st, waveGen: { ...st.waveGen, laneCycle: undefined } }, 10, lookup, three).spawns.find((s) => s.enemyId === 'boss').pathIndex).toBe(1);
+    // wave 11 (every lane open): the pinned lane stands
+    expect(generateWave(st, 11, lookup, three).spawns.find((s) => s.enemyId === 'boss').pathIndex).toBe(1);
+    // with odd waves closed to lane 1 the pinned boss moves to the longest open lane
+    const st2 = { ...st, waveGen: { ...st.waveGen, laneCycle: [[0, 2], [0, 1, 2]] } };
+    expect(generateWave(st2, 11, lookup, three).spawns.find((s) => s.enemyId === 'boss').pathIndex).toBe(0);
+    // the two-lane cycle: the pinned slimes of wave 4 walk lane 1
+    const st3 = { ...STAGE_BIG, waveGen: { ...STAGE_BIG.waveGen, fixed, laneCycle: CYCLE } };
+    const w4 = generateWave(st3, 4, lookup, TWO).spawns;
+    expect(w4.filter((s) => s.enemyId === 'slime').length).toBeGreaterThanOrEqual(3);
+    expect(new Set(w4.map((s) => s.pathIndex))).toEqual(new Set([1]));
+  });
+
+  test('freeplay waves follow the same cycle (bosses and escorts included)', () => {
+    const cs = lanesStage(coopStage('1-3', { freeplay: 'blossom' }));
+    const look = (id) => ENEMY_MAP[id] || null;
+    let bosses = 0;
+    for (let w = cs.waves + 1; w <= cs.waves + 30; w++) {
+      const wd = generateFreeplayWave(cs, w, look, TWO);
+      const used = new Set(wd.spawns.map((s) => s.pathIndex));
+      if (w % 2 === 0) {
+        expect(wd.lanes, `wave ${w}`).toEqual([1]);
+        expect([...used], `wave ${w}`).toEqual([1]);
+      } else if (wd.spawns.length >= 2) expect(used, `wave ${w}`).toEqual(new Set([0, 1]));
+      if (wd.freeplay.boss) bosses++;
+    }
+    expect(bosses).toBeGreaterThan(0);
+  });
+
+  test('Sim: waveStart carries the lanes; between waves openLanes() shows the next wave; spawns walk open lanes', () => {
+    const stage = lanesStage({ ...STAGE_BIG, waves: 6, waveGen: { ...STAGE_BIG.waveGen, fixed: [] } });
+    const sim = makeSim({ map: { ...MAP2, id: 'test-map' }, stage, options: { autoStart: false } });
+    expect(sim.openLanes()).toEqual([0, 1]); // prep: wave 1 is next
+    expect(sim.openLanes(2)).toEqual([1]);
+    const seen = [];
+    for (let w = 1; w <= 4; w++) {
+      sim.startNextWave();
+      const ev = sim.drainEvents().find((e) => e.type === 'waveStart');
+      expect(ev.lanes).toEqual(w % 2 ? [0, 1] : [1]);
+      expect(sim.openLanes()).toEqual(ev.lanes);
+      const lanes = new Set();
+      for (let i = 0; i < 2400 && sim.state === 'wave'; i++) {
+        sim.update(1 / 20);
+        for (const e of sim.drainEvents()) if (e.type === 'spawn' && e.parentUid == null) lanes.add(e.pathIndex);
+        // clear the board so the wave ends
+        for (const en of sim.enemies) en.hp = 0;
+      }
+      seen.push([...lanes].sort());
+      expect(sim.openLanes()).toEqual(w % 2 ? [1] : [0, 1]); // the next wave's
+    }
+    expect(seen[1]).toEqual([1]);
+    expect(seen[3]).toEqual([1]);
+    // a stage without a schedule: no lanes on the event, openLanes() null
+    const plain = makeSim({ map: { ...MAP2, id: 'test-map' } });
+    plain.startNextWave();
+    expect(plain.drainEvents().find((e) => e.type === 'waveStart')).not.toHaveProperty('lanes');
+    expect(plain.openLanes()).toBe(null);
+  });
+
+  test('without a laneCycle every Act I campaign wave and freeplay wave is byte-identical to before the schedule', () => {
+    // digests taken on feature/gate-arc 2fe80863 (before the lane schedule), real path counts and lengths
+    const look = (id) => ENEMY_MAP[id] || null;
+    let h = 0x811c9dc5;
+    let n = 0;
+    let fh = 0x811c9dc5;
+    let fn = 0;
+    // (Act I: Gate Arc's Act II stages come after it and carry their own schedule where they need one)
+    const ACT1 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 1);
+    expect(ACT1).toHaveLength(40);
+    for (const id of ACT1) {
+      const st = STAGE_MAP[id];
+      expect(st.waveGen.laneCycle, id).toBeUndefined();
+      const paths = buildPaths(getMap(st.mapId));
+      const opts = { pathCount: paths.length, pathLengths: paths.map((p) => p.length), spacingMul: 1 };
+      for (let w = 1; w <= st.waves + 10; w++, n++) h = fnv(JSON.stringify(generateWave(st, w, look, opts)), h);
+      const cs = coopStage(id, { freeplay: 'blossom' });
+      for (let w = cs.waves + 1; w <= cs.waves + 40; w++, fn++) fh = fnv(JSON.stringify(generateFreeplayWave(cs, w, look, opts)), fh);
+    }
+    expect(`${n}:${hex(h)}`).toBe('1378:1bb53ead');
+    expect(`${fn}:${hex(fh)}`).toBe('1600:a8547d26');
+  }, 60000);
 });

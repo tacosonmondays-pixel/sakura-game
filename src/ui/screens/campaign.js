@@ -9,6 +9,10 @@
 //     with its requirement, a saved battle's badge, then the name, the tier on its plate, the four medals and what the
 //     first clear unlocks. At most 2 numbers a card (P3): the waves, ribbons, map rule and new mechanic are stage
 //     prep's. No yellow on this screen: the card is itself the action (P2).
+// Gate Arc (docs/CAMPAIGN.md "Act II"): a chapter draws one row per act (src/ui/screens/campaignActs.js); a chapter
+// with Act I alone draws the plain grid with no header, exactly as before. A chapter whose Act II is open and
+// untouched wears a yellow dot on its tab (something new inside) and a NEW sticker on the act's header. An echo
+// stage's card (1-10) shows the stage it echoes faintly through its map, with a chip naming it.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import '../styles/v2-stage.css';
@@ -28,6 +32,7 @@ import { portraitHTML } from '../../art/portraits.js';
 import { isStageUnlocked, chapterProgress, nextStage, stageMedals } from '../../systems/unlocks.js';
 import { ico } from '../kit.js';
 import { requirementText, rememberParams, savedBadge } from './stage.js';
+import { actRows, actRowHeader, chapterHasNewAct, actNewDot, echoGhost } from './campaignActs.js';
 
 const TIER_KEYS = Object.keys(MAP_TIER_VIEW);
 
@@ -64,16 +69,17 @@ export function render(root, params = {}) {
         const locked = !isStageUnlocked(profile, c.stages[0]);
         const done = prog.cleared === prog.total;
         const active = c.id === chapterId;
+        const newAct = !locked && chapterHasNewAct(profile, c);
         // say it once (P7): a cleared chapter shows its best medal, a started or new one its pips, a locked one a lock
         const state = locked ? ico('lock', 'ui-ico.cp-tab-lock')
           : done ? svgEl(medalIcon(bestChapterMedal(prog)), 'cp-tab-medal')
             : h('span.cp-pips', { 'aria-hidden': 'true' }, Array.from({ length: prog.total }, (_, i) => h(`i${i < prog.cleared ? '.on' : ''}`)));
-        tabs.appendChild(h(`button.ui-opt.ma-chapter-tab.cp-tab${active ? '.on.active' : ''}${locked ? '.locked' : ''}`, {
+        tabs.appendChild(h(`button.ui-opt.ma-chapter-tab.cp-tab${active ? '.on.active' : ''}${locked ? '.locked' : ''}${newAct ? '.has-new-act' : ''}`, {
           type: 'button', role: 'tab', 'aria-selected': active ? 'true' : 'false', 'data-testid': `chapter-${c.id}`,
-          'aria-label': `Chapter ${c.id}, ${c.name}: ${locked ? 'locked' : done ? 'cleared' : prog.cleared ? `${prog.cleared} of ${prog.total} cleared` : 'new'}`,
+          'aria-label': `Chapter ${c.id}, ${c.name}: ${locked ? 'locked' : done ? 'cleared' : prog.cleared ? `${prog.cleared} of ${prog.total} cleared` : 'new'}${newAct ? ', a new act is open' : ''}`,
           title: `${c.id} · ${c.name}`,
           onclick: () => select(c.id),
-        }, h('span.num.cp-tab-n', String(c.id)), state));
+        }, newAct ? actNewDot({ testid: `chapter-new-act-${c.id}` }) : null, h('span.num.cp-tab-n', String(c.id)), state));
       }
       const group = h('div.cp-group', { style: { '--n': String(chapters.length) } },
         h('span.cp-tier', { style: { '--tier': view.color } }, view.name), tabs);
@@ -86,9 +92,11 @@ export function render(root, params = {}) {
     clear(content);
     const chapter = CHAPTERS.find((c) => c.id === chapterId);
     content.appendChild(chapterPanel(profile, chapter));
-    const grid = h('div.cp-grid');
-    chapter.stages.forEach((id) => grid.appendChild(stageCard(profile, id, { isNext: id === next })));
-    content.appendChild(grid);
+    const grid = (ids) => h('div.cp-grid', ids.map((id) => stageCard(profile, id, { isNext: id === next })));
+    // one act: the plain grid, no header; two: a header above each act's grid
+    const rows = actRows(profile, chapter);
+    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages));
+    else for (const row of rows) content.appendChild(h(`section.ma-act-row.cp-act.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids)));
   };
 
   drawRail();
@@ -134,7 +142,7 @@ function stageCard(profile, stageId, { isNext }) {
   const cleared = DIFFICULTY_ORDER.some((d) => medals[d]);
   const tier = MAP_TIER_VIEW[stage.tier];
   const unlocks = cleared ? [] : (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
-  const isFinale = stage.id.endsWith('-5');
+  const isFinale = !!stage.finale;
   const order = stage.difficulties || DIFFICULTY_ORDER;
 
   return h(`button.ma-stage-card.cp-card${unlocked ? '' : '.locked'}${isNext ? '.next' : ''}${cleared ? '.cleared' : ''}${isFinale ? '.finale' : ''}`, {
@@ -143,6 +151,8 @@ function stageCard(profile, stageId, { isNext }) {
   },
   h('span.cp-card-map',
     h('span.cp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
+    // an echo stage (Gate Arc 1-10): the stage it echoes shows through faintly, a chip names it
+    map?.echoOf ? echoGhost(map) : null,
     h('span.cp-id.num', stage.id),
     unlocked
       ? (savedBadge(profile, stageId) || (isNext ? h('span.ui-bdg.open.cp-next', 'Next') : null))

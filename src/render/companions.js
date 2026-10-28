@@ -264,6 +264,9 @@ export class Companions {
     const tx = Math.floor(x);
     const tz = Math.floor(z);
     if (tr?.isWater?.(tx, tz) && !tr.isPath?.(tx, tz)) return WATER_Y + 0.03;
+    // a rooftop ('U'): beside a girl standing on it
+    const roof = tr?.roofAt?.(x, z) || 0;
+    if (roof) return roof + 0.05;
     return tr?.isPath?.(tx, tz) ? PATH_H : 0.05;
   }
 
