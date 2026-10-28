@@ -1,0 +1,466 @@
+/* ==========================================================================================================
+   UI v2 menus M1: the stage flow in the Ink & Paper kit (docs/specs/UI_V2_MENUS.md §5 M1; UI_DIRECTION.md §6.3).
+   Stage prep (src/ui/screens/stage.js, .stp-*) and the Campaign map (src/ui/screens/campaign.js, .cp-*), imported by
+   those screen modules. Every rule sits under body.ui-day (the menus' surface mode), so nothing reaches the battle,
+   the title or the story. The shapes follow ink.css S1-S5: chamfered surfaces (the kit's .ui-panel where a screen
+   uses it), -8 degree controls (.ui-opt, .ui-btn), one ring drawn by ::after, border-radius only on circles.
+   Nothing here is under 12 px (tools/cssFloor.mjs).
+   ========================================================================================================== */
+
+/* ---------- shared: the small single-cut shape with its one ring (S1, S3) for the tiles this sheet draws ---------- */
+:is(.ui-day) :is(.cp-card, .stp-girl, .stp-mcard, .cp-tier, .stp-tier, .stp-mg) {
+  --c: var(--cut-s); --rw: 1px; position: relative; isolation: isolate;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+:is(.ui-day) :is(.cp-card, .stp-girl, .stp-mcard, .stp-mg)::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge, var(--line-ink));
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw));
+}
+/* the tier on its plate: the tier's fill, navy letters (5.4:1 and up, tools/contrast.mjs) */
+:is(.ui-day) :is(.cp-tier, .stp-tier) {
+  --c: 4px; display: inline-flex; align-items: center; height: 22px; padding: 0 9px 0 7px; flex: none; width: max-content;
+  background: var(--tier, var(--tier-advanced)); color: var(--plate); font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; white-space: nowrap;
+}
+
+/* ==========================================================================================================
+   STAGE PREP
+   ========================================================================================================== */
+:is(.ui-day) .stp-screen .screen-body { display: flex; flex-direction: column; }
+:is(.ui-day) .stp { flex: 1 1 auto; min-height: 0; width: 100%; max-width: 1200px; margin: 0 auto; display: grid;
+  grid-template-columns: minmax(0, clamp(220px, 34%, 460px)) minmax(0, 1fr); gap: 12px; }
+:is(.ui-day) .stp-band, :is(.ui-day) .stp-right { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* landscape phones and up: the whole decision on one screen, nothing scrolls */
+@media (min-aspect-ratio: 1/1) {
+  :is(.ui-day) .stp-screen .screen-body { overflow: hidden; }
+}
+
+/* ---------- the map band ---------- */
+:is(.ui-day) .stp-map { --edge: var(--line-ink); flex: 1 1 auto; min-height: 72px; overflow: hidden; background: #8fd16a; }
+:is(.ui-day) .stp-thumb { position: absolute; inset: 0; line-height: 0; }
+:is(.ui-day) .stp-thumb svg { display: block; width: 100%; height: 100%; }
+:is(.ui-day) .stp-map-tags { position: absolute; left: 8px; top: 8px; right: 18px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; }
+:is(.ui-day) .stp-tag { height: 22px; }
+/* the stage name plate: an ink plate on the map's straight left edge, a "/" right end */
+:is(.ui-day) .stp-plate { position: absolute; left: 0; bottom: 14px; z-index: 2; max-width: calc(100% - 24px); display: flex; align-items: center; min-height: 32px;
+  padding: 4px 22px 4px 12px; background: var(--plate); color: var(--on-ink); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+:is(.ui-day) .stp-plate-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--on-ink); }
+
+/* the stage ink strip: WAVES · ♥ LIVES · START */
+:is(.ui-day) .stp-strip { flex: none; }
+:is(.ui-day) .stp-strip .lbl { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+:is(.ui-day) .stp-strip .lbl > :is(.ui-ico, .ui-cur-art) { width: 14px; height: 14px; flex: none; display: inline-flex; }
+:is(.ui-day) .stp-strip .lbl > .ui-ico svg, :is(.ui-day) .stp-strip .lbl > .ui-cur-art svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-strip .num { color: var(--on-ink); }
+
+/* one mission sentence + "i" (a saved battle's line in its place) */
+:is(.ui-day) .stp-line { flex: none; display: flex; align-items: center; gap: 6px; min-height: var(--tap); }
+:is(.ui-day) .stp-mission { flex: 1; min-width: 0; margin: 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--ink); text-wrap: pretty; }
+:is(.ui-day) .stp-ibtn { color: var(--cyan-text); }
+:is(.ui-day) .stp-mission-k { color: var(--muted); font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; text-align: right; }
+:is(.ui-day) .stp-saved { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+:is(.ui-day) .stp-saved-text { flex: 1; min-width: 0; font: 700 var(--fs-body)/1.3 var(--font); color: var(--ink); }
+:is(.ui-day) .stp-saved-team { display: flex; flex: none; }
+:is(.ui-day) .stp-seg { white-space: nowrap; }
+:is(.ui-day) .stp-face { display: block; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; line-height: 0; background: var(--sky-1); box-shadow: 0 0 0 2px var(--panel-w); }
+:is(.ui-day) .stp-saved-team .stp-face + .stp-face { margin-left: -6px; }
+:is(.ui-day) .stp-face :is(img, svg) { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* [events] the event line under the strip: an ink kicker, the event, its countdown; the candy per win */
+:is(.ui-day) .stp-event { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .stp-event-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+:is(.ui-day) .stp-event-name { font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+:is(.ui-day) .stp-event-candy { display: flex; align-items: center; gap: 6px; margin: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+:is(.ui-day) .stp-event-ico { display: inline-flex; flex: none; }
+
+/* ---------- the right column ---------- */
+:is(.ui-day) .stp-diff { flex: none; padding: 10px 10px 2px; }
+:is(.ui-day) .stp-diffs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+/* a difficulty: the medal, the name, the reward still to earn (or the lock, or the ribbon state under a mode) */
+:is(.ui-day) .stp-d { --h: 46px; justify-content: flex-start; gap: 8px; width: 100%; min-width: 0; padding: 0 calc(var(--s) + 10px) 0 calc(var(--s) + 6px);
+  font: 700 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase; cursor: pointer; }
+:is(.ui-day) .stp-d-medal { width: 30px; height: 30px; flex: none; display: inline-flex; line-height: 0; }
+:is(.ui-day) .stp-d-medal svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-d-name { min-width: 0; white-space: nowrap; }
+:is(.ui-day) .stp-d-gems { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; flex: none; }
+:is(.ui-day) .stp-d-gems .ui-cur-art { width: 18px; height: 18px; display: inline-flex; }
+:is(.ui-day) .stp-d-gems .ui-cur-art svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-d-gems .num { font-size: var(--fs-num-s); }
+:is(.ui-day) .stp-d-text { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
+:is(.ui-day) .stp-d-lock { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1.1 var(--font-num);
+  letter-spacing: var(--track-caps); color: var(--bad-text); white-space: nowrap; }
+:is(.ui-day) .stp-d-lock > .ui-ico { width: 14px; height: 14px; display: inline-flex; }
+:is(.ui-day) .stp-d.on .stp-d-lock { color: var(--bad-on-plate); }
+:is(.ui-day) .stp-d.locked:not(.on) { color: var(--muted); }
+:is(.ui-day) .stp-d.locked .stp-d-medal { opacity: 0.55; }
+:is(.ui-day) .stp-d-ribbon { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; flex: none; font: 600 var(--fs-label)/1 var(--font-num);
+  letter-spacing: var(--track-caps); color: var(--cyan-text); }
+:is(.ui-day) .stp-d-ribbon.on { color: var(--good-text); }
+:is(.ui-day) .stp-d-ribbon-ico { width: 14px; height: 14px; display: inline-flex; }
+:is(.ui-day) .stp-d-ribbon-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-d.on .stp-d-ribbon { color: var(--cyan); }
+:is(.ui-day) .stp-d.on .stp-d-ribbon.on { color: var(--good-on-plate); }
+:is(.ui-day) .stp-d-saved { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; flex: none; background: var(--cyan-wash); color: var(--cyan-text);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); }
+:is(.ui-day) .stp-d-gems + .stp-d-saved, :is(.ui-day) .stp-d-saved:last-child { margin-left: 6px; }
+:is(.ui-day) .stp-d.earned .stp-d-saved { margin-left: auto; }
+
+/* the selected difficulty's one sentence, and the Mode chip beside it */
+:is(.ui-day) .stp-ruleline { display: flex; align-items: center; gap: 8px; min-height: var(--tap); margin-top: 2px; }
+:is(.ui-day) .stp-rule { flex: 1; min-width: 0; margin: 0; font: 500 var(--fs-body)/1.25 var(--font); color: var(--ink); text-wrap: pretty; }
+:is(.ui-day) .stp-rule b { font-weight: 700; }
+:is(.ui-day) .stp-modechip { flex: none; max-width: 60%; }
+:is(.ui-day) .stp-modechip > .ui-btn { gap: 6px; max-width: 100%; }
+:is(.ui-day) .stp-modechip .stp-mode-name { min-width: 0; overflow: hidden; white-space: nowrap; }
+:is(.ui-day) .stp-modechip :is(.stp-mode-ico, .ui-ico) { width: 18px; height: 18px; flex: none; display: inline-flex; }
+:is(.ui-day) .stp-modechip :is(.stp-mode-ico, .ui-ico) svg { width: 100%; height: 100%; }
+
+/* the Counters and Drops rows: white chamfered rows, each one button */
+:is(.ui-day) .stp-rows { flex: none; display: flex; flex-direction: column; gap: 6px; }
+:is(.ui-day) .stp-row { --c: var(--cut-s); --fill: var(--panel-w); --edge: var(--line-ink); position: relative; isolation: isolate; display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: calc(var(--tap) + 2px); padding: 0 10px 0 12px; border: 0; color: var(--ink); text-align: left; cursor: pointer; background: var(--fill);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%); transition: transform var(--t-press) var(--ease); }
+:is(.ui-day) .stp-row::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    1px 1px, 1px calc(100% - 1px), calc(100% - 1px) calc(100% - 1px), calc(100% - 1px) calc(var(--c) + 0.4142px), calc(100% - var(--c) - 0.4142px) 1px, 1px 1px);
+}
+:is(.ui-day) .stp-row:active { transform: scale(0.985); }
+:is(.ui-day) .stp-row:focus-visible { outline: none; --edge: var(--cyan-ink); }
+:is(.ui-day) .stp-row-k { flex: none; width: 66px; color: var(--muted); }
+:is(.ui-day) .stp-needs { display: flex; align-items: center; gap: 10px; min-width: 0; }
+:is(.ui-day) .stp-need { position: relative; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+:is(.ui-day) .stp-need-ico { width: 26px; height: 26px; display: inline-flex; flex: none; }
+:is(.ui-day) .stp-need-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-need:not(.ok) .stp-need-ico { opacity: 0.5; }
+:is(.ui-day) .stp-need-name { display: none; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; white-space: nowrap; }
+:is(.ui-day) .stp-cover { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--ink); }
+:is(.ui-day) .stp-cover .num { font-size: var(--fs-num-s); }
+:is(.ui-day) .stp-cover.none { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .stp-cover-ico { width: 18px; height: 18px; display: inline-flex; color: var(--bad-text); }
+:is(.ui-day) .stp-cover-ico.ok { color: var(--good-text); }
+:is(.ui-day) .stp-cover-ico svg, :is(.ui-day) .stp-chev svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-chev { width: 16px; height: 16px; flex: none; display: inline-flex; color: var(--cyan-text); }
+:is(.ui-day) .stp-drops .stp-chev { margin-left: auto; }
+:is(.ui-day) .stp-drops { min-height: 54px; }
+:is(.ui-day) .stp-drop-list { display: flex; align-items: center; gap: 8px; min-width: 0; }
+:is(.ui-day) .stp-drop { position: relative; display: inline-flex; flex: none; line-height: 0; }
+:is(.ui-day) .stp-drop .item-tile { pointer-events: none; }
+:is(.ui-day) .stp-drop-girl .stp-face { width: 40px; height: 40px; border-radius: 50%; }
+/* FIRST: the first-clear reward (an ink sticker over the tile's top-left corner, inside the row) */
+:is(.ui-day) .stp-first { position: absolute; left: -2px; top: 0; z-index: 2; padding: 2px 4px; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em;
+  text-transform: uppercase; line-height: 1; }
+
+/* the footer: Sweep (secondary) or one line, then Start · <Difficulty> (the one yellow) */
+:is(.ui-day) .stp-foot { margin-top: auto; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; }
+:is(.ui-day) .stp-foot-l { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 1 auto; }
+:is(.ui-day) .stp-foot-r { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+:is(.ui-day) .stp-foot .btn.ui-sec { min-height: calc(var(--tap) + 2px); padding: 0 12px; gap: 6px; font-size: var(--fs-name); white-space: nowrap; }
+:is(.ui-day) .stp-foot .btn.ui-sec .ui-ico { width: 18px; height: 18px; display: inline-flex; }
+:is(.ui-day) .stp-foot .btn.ui-sec .ui-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-start { --h: 48px; padding: 0 calc(18px + var(--s)); gap: 8px; }
+:is(.ui-day) .stp-start .ui-ico { width: 18px; height: 18px; display: inline-flex; }
+:is(.ui-day) .stp-start .ui-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-note { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--muted); }
+:is(.ui-day) .stp-note.ma-locked-note { color: var(--bad-text); }
+:is(.ui-day) .stp-note > .ui-ico { width: 16px; height: 16px; flex: none; display: inline-flex; }
+:is(.ui-day) .stp-note > .ui-ico svg { width: 100%; height: 100%; }
+
+/* desktop and tablets: the same layout, roomier */
+@media (min-height: 481px) {
+  :is(.ui-day) .stp { gap: 16px; }
+  :is(.ui-day) .stp-band, :is(.ui-day) .stp-right { gap: 12px; }
+  :is(.ui-day) .stp-diff { padding: 14px 14px 4px; }
+  :is(.ui-day) .stp-diffs { gap: 10px 14px; }
+  :is(.ui-day) .stp-d { --h: 60px; }
+  :is(.ui-day) .stp-d-medal { width: 38px; height: 38px; }
+  :is(.ui-day) .stp-rows { gap: 10px; }
+  :is(.ui-day) .stp-row { min-height: 56px; padding: 0 14px 0 16px; }
+  :is(.ui-day) .stp-drops { min-height: 68px; }
+  :is(.ui-day) .stp-start { --h: 56px; }
+  :is(.ui-day) .stp-face { width: 32px; height: 32px; }
+  :is(.ui-day) .stp-drop-girl .stp-face { width: 48px; height: 48px; }
+}
+/* tall screens (1280x720, tablets): the same pieces, bigger, so the column fills its height calmly */
+@media (min-height: 600px) and (min-aspect-ratio: 1/1) {
+  :is(.ui-day) .stp-d { --h: 76px; gap: 12px; }
+  :is(.ui-day) .stp-d-medal { width: 46px; height: 46px; }
+  :is(.ui-day) .stp-diffs { gap: 12px 16px; }
+  :is(.ui-day) .stp-ruleline { min-height: 56px; }
+  :is(.ui-day) .stp-rows { gap: 12px; }
+  :is(.ui-day) .stp-row { min-height: 68px; }
+  :is(.ui-day) .stp-drops { min-height: 92px; }
+  :is(.ui-day) .stp-drop-list { gap: 12px; }
+  :is(.ui-day) .stp-drop .item-tile { width: 64px !important; }
+  :is(.ui-day) .stp-drop-girl .stp-face { width: 64px; height: 64px; }
+  :is(.ui-day) .stp-need-ico { width: 30px; height: 30px; }
+}
+/* wide screens: the counters row names its needs (UI_DIRECTION §6.3 "at 1280x720") */
+@media (min-height: 481px) and (min-width: 1000px) {
+  :is(.ui-day) .stp-need-name { display: inline; }
+}
+/* upright phones (the fallback): one column; the map band a little shorter so Start stays on the first screen */
+@media (max-aspect-ratio: 1/1) {
+  :is(.ui-day) .stp { grid-template-columns: minmax(0, 1fr); flex: none; gap: 12px; }
+  :is(.ui-day) .stp-band, :is(.ui-day) .stp-right { gap: 10px; }
+  :is(.ui-day) .stp-map { flex: none; aspect-ratio: 2 / 1; }
+  :is(.ui-day) .stp-strip { --strip-h: 52px; }
+  :is(.ui-day) .stp-diff { padding: 10px 10px 2px; }
+  :is(.ui-day) .stp-diffs { gap: 8px 10px; }
+  :is(.ui-day) .stp-rows { gap: 8px; }
+  :is(.ui-day) .stp-row { min-height: calc(var(--tap) + 2px); }
+  :is(.ui-day) .stp-drops { min-height: 58px; }
+  :is(.ui-day) .stp-foot { flex-wrap: wrap; row-gap: 8px; }
+  :is(.ui-day) .stp-start { --h: 50px; }
+  :is(.ui-day) .stp-d { --h: 58px; }
+}
+/* a narrow difficulty grid (a small landscape phone, an upright one): the medal beside two lines, the name over the
+   reward (or the lock, the ribbon state, Saved), so a long name never meets its reward */
+:is(.ui-day) .stp-diffs { container-type: inline-size; }
+@container (max-width: 440px) {
+  :is(.ui-day) .stp-d { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: row; align-content: center; justify-items: start;
+    column-gap: 8px; row-gap: 3px; padding: 0 calc(var(--s) + 6px) 0 calc(var(--s) + 4px); font-size: var(--fs-body); }
+  :is(.ui-day) .stp-d > .stp-d-medal { grid-row: 1 / span 2; width: 28px; height: 28px; }
+  :is(.ui-day) .stp-d > :not(.stp-d-medal) { grid-column: 2; margin-left: 0; }
+  :is(.ui-day) .stp-d-lock { white-space: normal; }
+}
+@media (max-width: 440px) {
+  :is(.ui-day) .stp-foot-r { width: 100%; }
+  :is(.ui-day) .stp-foot-r > * { flex: 1 1 auto; min-width: 0; }
+  :is(.ui-day) .stp-foot-r :is(.stp-start, .btn.ui-sec) { font-size: var(--fs-body); padding-left: calc(10px + var(--s)); padding-right: calc(10px + var(--s)); }
+}
+
+/* ---------- the four sheets ---------- */
+:is(.ui-day) .stp-sheet .ui-body { display: flex; flex-direction: column; gap: 14px; }
+/* the head 4 px taller than the kit's, so its 44 px close keeps a whole tap clear of the sheet's chamfer and top edge on
+   phones (the kit's close measures 43 there: see the M1 report) */
+:is(.ui-day) .stp-sheet > .ui-head { min-height: calc(var(--tap) + 4px); }
+:is(.ui-day) .stp-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+:is(.ui-day) .stp-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+:is(.ui-day) .stp-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:is(.ui-day) .stp-sec-k { margin: 0; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted);
+  padding-bottom: 4px; box-shadow: inset 0 -1px 0 var(--line-ink-soft); }
+:is(.ui-day) .stp-sec-head > .stp-sec-k { flex: 1; }
+:is(.ui-day) .stp-p { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--ink); text-wrap: pretty; }
+:is(.ui-day) .stp-p b { font-weight: 700; }
+:is(.ui-day) .stp-p.desc, :is(.ui-day) .stp-sheet .desc { color: var(--muted); }
+:is(.ui-day) .stp-lockline { display: flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 700; }
+:is(.ui-day) .stp-lock-ico { width: 16px; height: 16px; flex: none; display: inline-flex; }
+:is(.ui-day) .stp-lock-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-sec-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:is(.ui-day) .stp-sheet .ui-btn.ghost .ui-ico { width: 14px; height: 14px; display: inline-flex; }
+:is(.ui-day) .stp-sheet .ui-btn.ghost .ui-ico svg { width: 100%; height: 100%; }
+
+/* Counters: each need, the girls who cover it, Add; the formation */
+:is(.ui-day) .stp-needlist { display: flex; flex-direction: column; gap: 10px; }
+:is(.ui-day) .stp-needrow { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; box-shadow: inset 0 -1px 0 var(--line-ink-soft); }
+:is(.ui-day) .stp-needrow:last-child { box-shadow: none; padding-bottom: 0; }
+:is(.ui-day) .stp-needhead { display: flex; align-items: center; gap: 10px; }
+:is(.ui-day) .stp-needhead > .stp-need-ico { width: 30px; height: 30px; }
+:is(.ui-day) .stp-needtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--ink); }
+:is(.ui-day) .stp-status { flex: none; }
+:is(.ui-day) .stp-status.ok { --edge: var(--good-text); color: var(--good-text); }
+:is(.ui-day) .stp-status.warn, :is(.ui-day) .stp-status.bad { --edge: var(--bad-text); color: var(--bad-text); }
+:is(.ui-day) .stp-girls { display: flex; flex-wrap: wrap; gap: 10px; }
+:is(.ui-day) .stp-cu { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 76px; }
+:is(.ui-day) .stp-cu-in { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; color: var(--good-text); }
+:is(.ui-day) .stp-cu-in .ui-ico { width: 14px; height: 14px; display: inline-flex; }
+:is(.ui-day) .stp-add { min-height: calc(var(--tap) + 2px); width: 100%; justify-content: center; }
+:is(.ui-day) .stp-cands { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+:is(.ui-day) .stp-cand { height: calc(var(--tap) + 2px); gap: 6px; }
+:is(.ui-day) .stp-cand-how { color: var(--muted); }
+/* a girl's face tile (today's portrait; M3's girl tile takes over): white, one cut, her name under the face */
+:is(.ui-day) .stp-girl { --edge: var(--line-ink); display: flex; flex-direction: column; width: 76px; padding: 0; border: 0; background: var(--panel-w); color: var(--ink); text-align: left; cursor: pointer; }
+:is(.ui-day) .stp-girl-art { display: block; width: 100%; aspect-ratio: 1; overflow: hidden; line-height: 0; background: var(--sky-1); }
+:is(.ui-day) .stp-girl-art :is(img, svg) { width: 100%; height: 100%; object-fit: cover; display: block; }
+:is(.ui-day) .stp-girl-cap { display: flex; flex-direction: column; gap: 1px; padding: 3px 5px 4px; }
+:is(.ui-day) .stp-girl-name { font: italic 900 var(--fs-label)/1.15 var(--font-head); white-space: nowrap; overflow: hidden; }
+:is(.ui-day) .stp-girl-lv { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); color: var(--muted); }
+:is(.ui-day) .stp-girl-tag { font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--cyan-text); }
+:is(.ui-day) .stp-girl.sel { --edge: var(--plate); }
+:is(.ui-day) .stp-girl.sel::before, :is(.ui-day) .stp-girl.hero::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 4; background: var(--pink-ink); }
+:is(.ui-day) .stp-girl.empty { align-items: center; justify-content: center; aspect-ratio: 1 / 1.3; color: var(--muted); background: var(--sky-1); }
+:is(.ui-day) .stp-girl.empty .ui-ico { width: 20px; height: 20px; display: inline-flex; }
+:is(.ui-day) .stp-formation { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+:is(.ui-day) .stp-formation .stp-girl { width: 100%; }
+
+/* Drops: the stage's drop grid (shared with Bounty), the first clear, the medal gems */
+:is(.ui-day) .stp-fc { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+:is(.ui-day) .stp-unlocks, :is(.ui-day) .stp-unlock { display: flex; gap: 10px; align-items: center; }
+:is(.ui-day) .stp-unlock > div { display: flex; flex-direction: column; gap: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--ink); }
+:is(.ui-day) .stp-medalgems { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+:is(.ui-day) .stp-mg { --edge: var(--line-ink-soft); display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; background: var(--panel-w); color: var(--ink); }
+:is(.ui-day) .stp-mg-medal { width: 28px; height: 28px; display: inline-flex; flex: none; }
+:is(.ui-day) .stp-mg-medal svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-mg-name { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .stp-mg-gems, :is(.ui-day) .stp-mg-got { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+:is(.ui-day) .stp-mg-gems .ui-cur-art { width: 18px; height: 18px; display: inline-flex; }
+:is(.ui-day) .stp-mg-gems .ui-cur-art svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-mg-gems .num { font-size: var(--fs-num-s); }
+:is(.ui-day) .stp-mg-got { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--good-text); }
+:is(.ui-day) .stp-mg-got .ui-ico { width: 14px; height: 14px; display: inline-flex; }
+:is(.ui-day) .stp-sheet .ma-drop-chance { font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--ink); }
+:is(.ui-day) .stp-sheet .ma-drop-range { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
+:is(.ui-day) .stp-sheet .ma-drop.gated { opacity: 1; filter: none; }
+:is(.ui-day) .stp-sheet .ma-drop.gated .item-tile { filter: grayscale(0.7); opacity: 0.6; }
+:is(.ui-day) .stp-sheet .ma-drop.gated .ma-drop-chance { font: 600 var(--fs-label)/1 var(--font-num); color: var(--muted); }
+:is(.ui-day) .stp-sheet .ma-event-note { display: flex; align-items: center; gap: 8px; }
+
+/* Mode: the battle modes, then Freeplay */
+:is(.ui-day) .stp-ribbons { flex: none; }
+:is(.ui-day) .stp-mcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+:is(.ui-day) .stp-mcard { --edge: var(--line-ink); display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border: 0; background: var(--panel-w); color: var(--ink);
+  text-align: left; cursor: pointer; transition: transform var(--t-press) var(--ease); }
+:is(.ui-day) .stp-mcard:active:not(:disabled) { transform: scale(0.98); }
+:is(.ui-day) .stp-mcard-head { display: flex; align-items: center; gap: 6px; }
+:is(.ui-day) .stp-mcard-icon { width: 24px; height: 24px; flex: none; display: inline-flex; }
+:is(.ui-day) .stp-mcard-icon svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-mcard-name { font: italic 900 var(--fs-name)/1.1 var(--font-head); }
+:is(.ui-day) .stp-mcard-desc { font: 500 var(--fs-body)/1.3 var(--font); color: var(--muted); }
+:is(.ui-day) .stp-mcard-status { margin-top: auto; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .stp-mcard-status.ok { color: var(--good-text); }
+/* selected: the inverse fill and the sakura bar (the kit's selected option) */
+:is(.ui-day) .stp-mcard.on { --edge: transparent; background: var(--plate); color: var(--on-ink); }
+:is(.ui-day) .stp-mcard.on::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: 0; height: 3px; z-index: 4; background: var(--pink); }
+:is(.ui-day) .stp-mcard.on :is(.stp-mcard-desc, .stp-mcard-status) { color: var(--on-ink-dim); }
+:is(.ui-day) .stp-mcard.on .stp-mcard-status.ok { color: var(--good-on-plate); }
+:is(.ui-day) .stp-mcard:disabled { opacity: 1; cursor: default; background: var(--sky-1); --edge: var(--line-ink-soft); }
+:is(.ui-day) .stp-mode-reward { display: flex; align-items: flex-start; gap: 6px; padding: 8px 10px; background: var(--sky-1); }
+:is(.ui-day) .stp-fp-seg { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+:is(.ui-day) .stp-fp-opt { --h: calc(var(--tap) + 2px); font: 700 var(--fs-name)/1 var(--font-num); letter-spacing: var(--track-menu); cursor: pointer; }
+:is(.ui-day) .stp-fp-info { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: var(--sky-1); }
+:is(.ui-day) .stp-warn { color: var(--bad-text); font-weight: 700; }
+:is(.ui-day) .stp-fp-bests { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* "i": the mission, the map rule, the enemies, map name and clears */
+:is(.ui-day) .stp-mech { display: flex; align-items: flex-start; gap: 6px; }
+:is(.ui-day) .stp-mech .ui-ico { width: 16px; height: 16px; flex: none; display: inline-flex; margin-top: 1px; }
+:is(.ui-day) .stp-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; }
+:is(.ui-day) .stp-fact { display: flex; align-items: baseline; gap: 6px; }
+:is(.ui-day) .stp-fact > dt { margin: 0; }
+:is(.ui-day) .stp-fact-v { margin: 0; font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+:is(.ui-day) .stp-rulebox { display: flex; gap: 10px; align-items: flex-start; }
+:is(.ui-day) .stp-rule-icon { width: 34px; height: 34px; flex: none; display: inline-flex; }
+:is(.ui-day) .stp-rule-icon svg { width: 100%; height: 100%; }
+:is(.ui-day) .stp-rule-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+:is(.ui-day) .stp-rule-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+:is(.ui-day) .stp-rule-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .stp-newmech { display: flex; flex-direction: column; gap: 4px; }
+:is(.ui-day) .stp-newmech .ma-trait { width: 20px; height: 20px; vertical-align: -4px; }
+:is(.ui-day) .stp-enemies { display: flex; flex-wrap: wrap; gap: 6px; }
+:is(.ui-day) .stp-enemies .ma-enemy { min-height: calc(var(--tap) + 2px); box-shadow: none; font-size: var(--fs-body); }
+:is(.ui-day) .stp-enemies .ma-enemy-tier { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em; border-radius: 0; padding: 3px 5px; }
+:is(.ui-day) .stp-enemies .badge-new { font-size: var(--fs-label); }
+:is(.ui-day) .stp-variant b { font-weight: 700; }
+@media (max-width: 560px) {
+  :is(.ui-day) .stp-mcards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ==========================================================================================================
+   CAMPAIGN
+   ========================================================================================================== */
+:is(.ui-day) .cp-screen .screen-body { padding-top: 8px; }
+:is(.ui-day) .cp-rail-host, :is(.ui-day) .cp-content { width: 100%; max-width: 1200px; margin: 0 auto; }
+/* the chapter rail: the tier plates over their chapters' tabs; it fits the width, never scrolls sideways */
+:is(.ui-day) .cp-rail { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 8px; min-width: 0; }
+:is(.ui-day) .cp-group { flex: var(--n, 1) 1 0; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+:is(.ui-day) .cp-group > .cp-tier { height: 20px; }
+:is(.ui-day) .cp-tabs { display: flex; gap: 6px; min-width: 0; }
+:is(.ui-day) .cp-tab { --h: calc(var(--tap) + 2px); flex: 1 1 0; min-width: var(--tap); gap: 6px; padding: 0 calc(var(--s) + 4px); cursor: pointer; }
+:is(.ui-day) .cp-tab-n { font: 700 var(--fs-num-s)/1 var(--font-num); letter-spacing: 0; }
+:is(.ui-day) .cp-tab.locked:not(.on) { color: var(--muted); background: transparent; }
+:is(.ui-day) .cp-tab-lock { width: 14px; height: 14px; display: inline-flex; }
+:is(.ui-day) .cp-tab-lock svg { width: 100%; height: 100%; }
+:is(.ui-day) .cp-tab-medal { width: 20px; height: 20px; display: inline-flex; line-height: 0; }
+:is(.ui-day) .cp-tab-medal svg { width: 100%; height: 100%; }
+:is(.ui-day) .cp-pips { display: inline-flex; gap: 2px; }
+:is(.ui-day) .cp-pips > i { display: block; width: 4px; height: 10px; background: var(--m-seg-off); transform: skewX(var(--skew)); }
+:is(.ui-day) .cp-pips > i.on { background: var(--cyan-ink); }
+:is(.ui-day) .cp-tab.on .cp-pips > i { background: rgba(255, 255, 255, 0.22); }
+:is(.ui-day) .cp-tab.on .cp-pips > i.on { background: var(--cyan); }
+
+/* the chapter panel: words on white, the chapter's painting at the right with the progress on an ink plate */
+:is(.ui-day) .cp-chapter { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 34%); margin-bottom: 8px; overflow: hidden; }
+:is(.ui-day) .cp-ch-text { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 8px 14px 10px; min-width: 0; }
+:is(.ui-day) .cp-ch-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+:is(.ui-day) .cp-ch-name { margin: 0 0 0 4px; font: italic 900 var(--fs-num)/1.1 var(--font-head); color: var(--ink); }
+:is(.ui-day) .cp-ch-mech { margin: 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--muted); text-wrap: pretty; }
+:is(.ui-day) .cp-ch-side { position: relative; min-height: 76px; overflow: hidden; }
+:is(.ui-day) .cp-ch-art { position: absolute; inset: 0; line-height: 0; }
+:is(.ui-day) .cp-ch-art svg { width: 100%; height: 100%; display: block; }
+:is(.ui-day) .cp-ch-prog { position: absolute; left: 0; bottom: 10px; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 6px 18px 6px 10px;
+  background: var(--plate); color: var(--on-ink); clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+:is(.ui-day) .cp-ch-count { display: inline-flex; align-items: baseline; gap: 6px; }
+:is(.ui-day) .cp-ch-count .num { font-size: var(--fs-num); color: var(--on-ink); }
+:is(.ui-day) .cp-ch-count .lbl { color: var(--on-ink-dim); }
+:is(.ui-day) .cp-ch-medals { display: inline-flex; gap: 4px; }
+:is(.ui-day) .cp-ch-lock { display: inline-flex; align-items: center; gap: 6px; font: 700 var(--fs-body)/1.2 var(--font); color: var(--on-ink); }
+:is(.ui-day) .cp-ch-lock .ui-ico { width: 16px; height: 16px; display: inline-flex; }
+:is(.ui-day) .cp-medal { width: 18px; height: 18px; display: inline-flex; line-height: 0; flex: none; }
+:is(.ui-day) .cp-medal svg { width: 100%; height: 100%; }
+
+/* stage cards as kit tiles */
+:is(.ui-day) .cp-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+:is(.ui-day) .cp-card { --edge: var(--line-ink); display: flex; flex-direction: column; padding: 0; border: 0; background: var(--panel-w); color: var(--ink); text-align: left;
+  cursor: pointer; transition: transform var(--t-press) var(--ease); }
+:is(.ui-day) .cp-card:active { transform: scale(0.97); }
+:is(.ui-day) .cp-card:focus-visible { outline: none; --edge: var(--cyan-ink); --rw: 2px; }
+/* the next stage: an ink ring of two, the cyan NEXT */
+:is(.ui-day) .cp-card.next { --edge: var(--plate); --rw: 2px; }
+:is(.ui-day) .cp-card-map { position: relative; display: block; aspect-ratio: 2 / 1; overflow: hidden; background: #8fd16a; }
+:is(.ui-day) .cp-thumb { position: absolute; inset: 0; line-height: 0; }
+:is(.ui-day) .cp-thumb svg { width: 100%; height: 100%; display: block; }
+:is(.ui-day) .cp-card.locked .cp-thumb { filter: saturate(0.5) brightness(0.97); }
+:is(.ui-day) .cp-id { position: absolute; left: 0; top: 8px; z-index: 2; padding: 3px 14px 3px 8px; background: var(--plate); color: var(--on-ink);
+  font-size: var(--fs-num-s); line-height: 1; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+:is(.ui-day) .cp-next { position: absolute; right: 8px; top: 8px; z-index: 2; }
+:is(.ui-day) .cp-lock { position: absolute; right: 8px; top: 8px; left: 52px; z-index: 2; display: flex; justify-content: flex-end; }
+:is(.ui-day) .cp-lock { pointer-events: none; }
+:is(.ui-day) .cp-lock { font: 600 var(--fs-label)/1.15 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-ink); }
+:is(.ui-day) .cp-lock > * { background: var(--plate); }
+:is(.ui-day) .cp-lock > .ui-ico { width: 22px; min-height: 20px; padding: 3px 0 3px 6px; display: inline-flex; align-items: center; flex: none; }
+:is(.ui-day) .cp-lock > .ui-ico svg { width: 14px; height: 14px; }
+:is(.ui-day) .cp-lock > span:last-child { padding: 4px 7px 3px 4px; text-align: left; }
+:is(.ui-day) .cp-card .ma-saved-badge { position: absolute; right: 8px; top: 8px; z-index: 2; border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink);
+  font: 600 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: 0.04em; padding: 4px 7px; }
+:is(.ui-day) .cp-card-cap { display: flex; flex-direction: column; gap: 4px; padding: 5px 8px 7px; flex: 1; }
+:is(.ui-day) .cp-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .cp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: auto; }
+:is(.ui-day) .cp-tier.s { height: 20px; padding: 0 7px 0 5px; }
+:is(.ui-day) .cp-boss { height: 20px; }
+:is(.ui-day) .cp-medals { display: inline-flex; gap: 1px; margin-left: auto; }
+:is(.ui-day) .cp-medals .cp-medal { width: 16px; height: 16px; }
+:is(.ui-day) .cp-unlock { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); }
+:is(.ui-day) .cp-unlock-face { width: 20px; height: 20px; border-radius: 50%; overflow: hidden; line-height: 0; display: inline-flex; background: var(--sky-1); }
+:is(.ui-day) .cp-unlock-face :is(img, svg) { width: 100%; height: 100%; object-fit: cover; }
+@media (min-height: 481px) {
+  :is(.ui-day) .cp-rail { margin-bottom: 12px; }
+  :is(.ui-day) .cp-chapter { margin-bottom: 12px; }
+  :is(.ui-day) .cp-grid { gap: 14px; }
+  :is(.ui-day) .cp-ch-text { padding: 14px 18px 16px; gap: 8px; }
+  :is(.ui-day) .cp-card-map { aspect-ratio: 16 / 10; }
+  :is(.ui-day) .cp-ch-side { min-height: 110px; }
+  :is(.ui-day) .cp-medals .cp-medal { width: 20px; height: 20px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  :is(.ui-day) .cp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :is(.ui-day) .cp-chapter { grid-template-columns: minmax(0, 1fr); }
+  :is(.ui-day) .cp-ch-side { min-height: 64px; }
+  :is(.ui-day) .cp-rail { flex-wrap: wrap; gap: 8px 10px; }
+  :is(.ui-day) .cp-group { flex: var(--n, 1) 1 calc(var(--n, 1) * 56px); }
+  :is(.ui-day) .cp-tabs { gap: 4px; }
+  :is(.ui-day) .cp-tab { padding: 0 calc(var(--s) + 2px); gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-day) :is(.cp-card, .stp-row, .stp-mcard) { transition: none; }
+}
