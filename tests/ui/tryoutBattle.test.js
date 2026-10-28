@@ -114,7 +114,8 @@ describe('tryoutBattle.css: the Stationery ladder and the scope fence (§13.1)',
       }
       return out.map((x) => x.trim());
     };
-    const bad = sels.flatMap(split).filter((x) => x && !x.startsWith('.ty-layer'));
+    // (the in-app Reduce Motion switch on <html> may come first: html[data-reduce-motion] .ty-layer …)
+    const bad = sels.flatMap(split).filter((x) => x && !x.replace(/^html\[data-reduce-motion\]\s+/, '').startsWith('.ty-layer'));
     expect(bad).toEqual([]);
   });
   it('a new stylesheet: no declaration under 12 px', () => {

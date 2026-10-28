@@ -431,9 +431,9 @@ export function mountBattle(root, params, hooks) {
       ctx.applyResult = (prof, result, rng) => (ls
         ? applyCoopTryoutResult(prof, result, { slot: ls.mySlot, seed: ls.start.seed, rng })
         : applyTryoutResult(prof, result, { rec: req.tryout, rng }));
-      ctx.tryoutAgain = ls ? () => ctx.quit() : () => navigate('tryout', { again: 1 });
+      ctx.tryoutAgain = ls ? () => ctx.quit() : () => navigate('tryout', { id: 'class', again: 1 }); // (Back: the hub)
       // Replay this seed: a practice run of the same seed, Grade, length and map (§10.4); solo only
-      ctx.tryoutReplay = ls ? null : (code) => navigate('tryout', { code });
+      ctx.tryoutReplay = ls ? null : (code) => navigate('tryout', { id: 'class', code });
       const send = ls
         ? (kind, args) => {
           ls.queue(kind, args);
