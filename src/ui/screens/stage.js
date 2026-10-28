@@ -879,7 +879,8 @@ function footer(stage, state, ctx, f) {
 
   // the left: Sweep (secondary) or the one line saying how sweep opens (why Start is off: the rule line, startBlock).
   // fitFooter() makes the sweeps compact, or moves them under the strip, when the actions leave them no room.
-  if (!f.isEndless) left.append(...sweepControls(stage, state));
+  // (beside a saved battle's two actions, Sweep ×10 alone: ×1 makes room for New game and Continue)
+  if (!f.isEndless) left.append(...sweepControls(stage, state, { many: !f.rec }));
 
   if (rec) {
     // Continue works without a formation: the team is the one frozen in the save. Continue always plays the saved run as
@@ -942,7 +943,7 @@ function primary(label, { testid, onClick, disabled = false, title = null, icon 
     ico(icon), h('span.btn-label', label));
 }
 
-function sweepControls(stage, state) {
+function sweepControls(stage, state, { many = true } = {}) {
   const profile = store.profile;
   const allowed = canSweep(profile, stage.id, eventNow());
   const medals = stageMedals(profile, stage.id);
@@ -980,7 +981,7 @@ function sweepControls(stage, state) {
   const lockTitle = out ? refillTitle() : okDiff ? undefined : `Clear ${DIFFICULTIES[state.difficulty].name} to sweep it`;
   const manyLabel = left == null ? `Sweep ×${MAX_SWEEPS}` : out ? refill : `Sweep ×${Math.min(MAX_SWEEPS, left)} · ${left} left today`;
   const btns = [];
-  if (left == null || left > 1) btns.push(sweepLabel(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle || 'Sweep ×1', testid: 'sweep-1', onClick: () => doSweep(1), cls: 'stp-sweep' })));
+  if (many && (left == null || left > 1)) btns.push(sweepLabel(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle || 'Sweep ×1', testid: 'sweep-1', onClick: () => doSweep(1), cls: 'stp-sweep' })));
   btns.push(sweepLabel(secondaryBtn(manyLabel, { icon: 'ff2', disabled: !okDiff || out, title: lockTitle || manyLabel, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS), cls: 'stp-sweep' })));
   return [h('div.stp-sweeps', { role: 'group', 'aria-label': 'Sweep' }, btns)];
 }
@@ -1013,7 +1014,12 @@ function fitFooter(scope) {
   item.classList.remove('solo', 'compact');
   if (item.parentElement !== home) home.prepend(item);
   slot.hidden = true;
-  const fits = () => home.scrollWidth <= home.clientWidth + 1;
+  // (by layout widths: a skewed button's corners poke a few px past its box, which is no overflow)
+  const fits = () => {
+    const kids = item.matches('.stp-sweeps') ? [...item.children].filter((k) => k.offsetWidth) : [item];
+    const need = kids.reduce((a, k) => a + k.offsetWidth, 0) + 6 * (kids.length - 1);
+    return need <= home.clientWidth + 1;
+  };
   if (fits()) return;
   if (item.matches('.stp-sweeps')) {
     if (item.querySelector('[data-testid="sweep-1"]')) {

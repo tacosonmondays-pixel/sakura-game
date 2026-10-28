@@ -178,7 +178,7 @@
 :is(.ui-day) .stp-sweeps.solo > :is([data-testid="sweep-1"], :has([data-testid="sweep-1"])) { display: none; }
 :is(.ui-day) .stp-sweeps.compact .btn.ui-sec { padding: 0 10px; }
 :is(.ui-day) .stp-sweeps.compact :is(.stp-sw-word, .stp-sw-more) { display: none; }
-:is(.ui-day) .stp-foot-l .stp-sweep-lock { white-space: nowrap; }
+:is(.ui-day) .stp-foot-l .stp-sweep-lock { flex: none; white-space: nowrap; }
 /* no room even compact: the sweeps under the stage strip */
 :is(.ui-day) .stp-sweepslot { flex: none; display: flex; align-items: center; gap: 6px; }
 :is(.ui-day) .stp-sweepslot[hidden] { display: none; }

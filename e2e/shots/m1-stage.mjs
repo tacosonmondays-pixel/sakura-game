@@ -101,7 +101,7 @@ export const shots = {
   // Sweep unlocked (2-3's Hard medal): alone, beside a saved battle's New game, beside a freeplay tier's Start (the
   // footer folds the sweeps when the actions leave them no room), and with an empty formation (the sweeps stay)
   'stage-prep-sweep': prep('#/stage/2-3?difficulty=hard', { prepare: sweepState(), after: restore }),
-  // (a saved battle's line and Continue name its wave, lives and age: one number over a detail's 11)
+  // (a saved battle's line and Continue name its wave, lives and age: one number over a detail's 11; Sweep ×10 alone)
   'stage-prep-sweep-save': prep('#/stage/2-3?difficulty=hard', { prepare: sweepState({ save: true }), after: restore, limit: 12 }),
   'stage-prep-sweep-fp': prep('#/stage/2-3?difficulty=nightmare&freeplay=crimson', { prepare: sweepState(), after: restore }),
   'stage-prep-sweep-fp-save': prep('#/stage/2-3?difficulty=hard&freeplay=crimson', { prepare: sweepState({ save: true }), after: restore, limit: 12 }),
