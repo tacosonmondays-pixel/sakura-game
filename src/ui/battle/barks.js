@@ -13,6 +13,8 @@ import { BARK_SECONDS, barkFor, barkUnit } from '../text/barks.js';
 export const BARK_FONT_PX = 12;
 /** A group's spawn bark again only after this many seconds (one bark per group, not per unit). */
 export const GROUP_GAP = 4;
+/** The two sides, hoisted so the per-frame update / draw allocate nothing. */
+const SIDES = Object.freeze(['left', 'right']);
 
 /**
  * The bark logic: which chip shows what, per side.
@@ -64,7 +66,7 @@ export function createBarkQueue({ seconds = BARK_SECONDS } = {}) {
     /** Advances the clock and retires chips that have been up long enough. */
     update(dt) {
       now += Math.max(0, dt || 0);
-      for (const k of ['left', 'right']) if (sides[k] && now - sides[k].t0 >= seconds) sides[k] = null;
+      for (const k of SIDES) if (sides[k] && now - sides[k].t0 >= seconds) sides[k] = null;
     },
     /** How far through its time a side's chip is (0…1), or -1 when none. */
     progress(side) {
@@ -111,7 +113,7 @@ export function createBarkChips(layer, { document: doc = globalThis.document } =
      * @param {(c: object) => { x: number, y: number }|null} where screen point of a chip (null: hide)
      */
     draw(queue, where) {
-      for (const side of ['left', 'right']) {
+      for (const side of SIDES) {
         const el = els[side];
         const c = queue.sides[side];
         const p = c ? where(c) : null;

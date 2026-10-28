@@ -30,10 +30,12 @@ const BRIGADE_FALL = {
 export function fallStyleOf(def) {
   if (!def) return 'sparkle';
   if (FALL_STYLES.includes(def.fall)) return def.fall;
-  const id = String(def.id || '');
-  for (const [key, style] of Object.entries(BRIGADE_FALL)) if (id === key || id.startsWith(`${key}_`)) return style;
-  if (id.startsWith('brigade_') || def.family === 'brigade') return 'fade';
-  return 'sparkle';
+  const id = def.id || '';
+  if (BRIGADE_FALL[id]) return BRIGADE_FALL[id];
+  // every shipped monster leaves here, before any loop (this runs on every defeat)
+  if (!id.startsWith('brigade_')) return def.family === 'brigade' ? 'fade' : 'sparkle';
+  for (const key in BRIGADE_FALL) if (id.startsWith(`${key}_`)) return BRIGADE_FALL[key];
+  return 'fade';
 }
 
 /** Does this style send the creature home (the rising sparkle)? Only the shipped monsters' does. */
@@ -47,9 +49,12 @@ export function homeward(style) {
  * @param {string} style fallStyleOf()
  * @param {{ x: number, y: number, z: number, size?: number, color?: string }} p where it fell
  */
+const HOME = Object.freeze({ homeward: true });
+const NO_HOME = Object.freeze({ homeward: false });
+
 export function playFall(fx, style, p) {
   const size = p.size ?? 1;
   if (style === 'sparkFall') fx.sparkFall(p.x, p.y, p.z, size);
   else if (style === 'breakdown') fx.breakdown(p.x, p.y, p.z, size);
-  else fx.death(p.x, p.y, p.z, size, p.color || '#ffffff', { homeward: homeward(style) });
+  else fx.death(p.x, p.y, p.z, size, p.color || '#ffffff', homeward(style) ? HOME : NO_HOME);
 }

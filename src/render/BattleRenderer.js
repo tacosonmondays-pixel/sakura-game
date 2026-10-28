@@ -672,7 +672,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
       ambient.tear = tear.level;
     }
     barks.update(d);
-    if (barkChips) barkChips.draw(barks, barkPoint);
+    if (barkChips) {
+      // one layout read per frame, and only while a chip is up (barkPoint writes into a reused point)
+      if (barks.sides.left || barks.sides.right) barkRect = canvas.getBoundingClientRect();
+      barkChips.draw(barks, barkPoint);
+    }
     actors.sync(d);
     if (!compBroken) {
       try {
@@ -719,10 +723,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   /** Where a bark chip stands: over its unit while it walks (the chip follows it), else where it was. */
+  let barkRect = null;
+  const barkPt = { x: 0, y: 0, visible: false };
   function barkPoint(c) {
     const p = c.uid != null ? actors.enemyPos(c.uid) : null;
-    const pt = p ? projectPx(p.x, p.z, p.y + (p.height || 0.5) + 0.25) : projectPx(c.x, c.z, 0.8);
-    return pt.visible ? pt : null;
+    if (p) projectInto(barkPt, p.x, p.z, p.y + (p.height || 0.5) + 0.25, barkRect);
+    else projectInto(barkPt, c.x, c.z, 0.8, barkRect);
+    return barkPt.visible ? barkPt : null;
   }
 
   // ----- picking -------------------------------------------------------------------------
@@ -816,8 +823,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   function projectPx(x, y, z, rect = canvas.getBoundingClientRect()) {
+    return projectInto({ x: 0, y: 0, visible: false }, x, y, z, rect);
+  }
+
+  /** projectPx into a caller's point object (per-frame callers reuse one). */
+  function projectInto(out, x, y, z, rect = canvas.getBoundingClientRect()) {
     tmpV.set(x, z, y).project(camera);
-    return { x: (tmpV.x + 1) / 2 * rect.width, y: (1 - tmpV.y) / 2 * rect.height, visible: tmpV.z > -1 && tmpV.z < 1 };
+    out.x = (tmpV.x + 1) / 2 * rect.width;
+    out.y = (1 - tmpV.y) / 2 * rect.height;
+    out.visible = tmpV.z > -1 && tmpV.z < 1;
+    return out;
   }
 
   /**

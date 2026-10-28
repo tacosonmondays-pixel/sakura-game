@@ -28,9 +28,10 @@ export const BRIGADE_LORE = Object.freeze({
 
 /** The unit whose lines an enemy id uses (its own, or its base unit's for a variant id), or null. */
 export function barkUnit(enemyId) {
-  const id = String(enemyId || '');
+  const id = enemyId || '';
   if (BARKS[id]) return id;
-  for (const key of Object.keys(BARKS)) if (id.startsWith(`${key}_`)) return key;
+  if (!id.startsWith('brigade_')) return null; // every shipped monster leaves here (this runs on every spawn / defeat)
+  for (const key in BARKS) if (id.startsWith(`${key}_`)) return key;
   return null;
 }
 
