@@ -944,7 +944,13 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
         const nx = -(b[1] - a[1]) / l;
         const nz = (b[0] - a[0]) / l;
-        if ([-0.86, 0.86].some((s) => isWater(Math.floor(x + nx * s), Math.floor(z + nz * s)) || isRoofTile(Math.floor(x + nx * s), Math.floor(z + nz * s)))) continue;
+        // (its posts stand on open ground: never in the water, on a roof or in a building)
+        const blocked = (s) => {
+          const tx = Math.floor(x + nx * s);
+          const tz = Math.floor(z + nz * s);
+          return isWater(tx, tz) || isRoofTile(tx, tz) || (inMap(tx, tz) && rows[tz][tx] === 'H');
+        };
+        if (blocked(-0.86) || blocked(0.86)) continue;
         acc = 0;
         out.span.push({ x, z, y: 0, ry: Math.atan2(-nz, nx), s: 1 });
       }
