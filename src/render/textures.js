@@ -34,7 +34,8 @@ class Packer {
   }
 }
 
-const GLYPHS = '0123456789+-!x%ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+// (the one number style's short forms need '.', ',' and the lowercase 'k': "2,600", "12.3k", "1.2M")
+const GLYPHS = '0123456789+-!x%.,kABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /**
  * Builds the sprite atlas. Returns { texture, regions: {name: [u0,v0,u1,v1]}, glyph(ch), glyphAspect }.

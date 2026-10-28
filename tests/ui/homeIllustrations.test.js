@@ -2,7 +2,7 @@
 // (src/data/lobbyIllustrations.js) is the whole scene, her face placed on the face spot and kept clear of the
 // controls; her stand stands over the baked night academy, or over an event's painted backdrop (CSS night grade).
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homeArt, homeBackdropArt, homeFullArt, placeFull, HOME_BAKED } from '../../src/ui/lobby/artStage.js';
 import { FULL_ILLUSTRATIONS } from '../../src/data/lobbyIllustrations.js';
 
@@ -13,14 +13,18 @@ describe('the home pictures', () => {
     for (const name of HOME_BAKED) expect(existsSync(`public/art/lobby/${homeArt(name)}`), name).toBe(true);
   });
 
-  it('her stand: the baked academy at night; an event backdrop (no copy) is graded in CSS', () => {
-    expect(homeBackdropArt('academy.webp')).toMatchObject({ baked: true });
-    expect(homeBackdropArt('academy.webp').src).toMatch(/lobby\/academy-home\.webp$/);
+  it('her stand: every picture in its own colours (no baked night copy since Oct 28), graded lightly in CSS', () => {
+    expect(HOME_BAKED).toEqual([]);
+    expect(homeBackdropArt('academy.webp')).toMatchObject({ baked: false });
+    expect(homeBackdropArt('academy.webp').src).toMatch(/lobby\/academy\.webp$/);
     expect(homeBackdropArt('halloween.webp')).toMatchObject({ baked: false });
     expect(homeBackdropArt('halloween.webp').src).toMatch(/lobby\/halloween\.webp$/);
+    const css = readFileSync('src/ui/styles/home.css', 'utf8');
+    expect(css).not.toMatch(/saturate\(0\.68\) brightness\(0\.76\)/);
+    expect(css).toMatch(/img\.graded \{[^}]*filter: var\(--home-grade\)/);
   });
 
-  it('every full illustration resolves to a picture on disk, the three older scenes to their baked copies', () => {
+  it('every full illustration resolves to a picture on disk, in its own colours', () => {
     for (const row of FULL_ILLUSTRATIONS) {
       for (const portrait of [false, true]) {
         const art = homeFullArt(row.id, { portrait });
@@ -30,7 +34,7 @@ describe('the home pictures', () => {
         expect(art.fy).toBeGreaterThan(0);
       }
     }
-    for (const id of ['hikari-rampart', 'aoi-archery', 'sango-harbour']) expect(homeFullArt(id).baked, id).toBe(true);
+    for (const id of ['hikari-rampart', 'aoi-archery', 'sango-harbour']) expect(homeFullArt(id).baked, id).toBe(false);
     expect(homeFullArt('yoriko-summer-breeze').baked).toBe(false);
     // a tall row on an upright screen: her 3:4 full art
     expect(homeFullArt('azami-scene', { portrait: true })).toMatchObject({ variant: 'tall', baked: false });

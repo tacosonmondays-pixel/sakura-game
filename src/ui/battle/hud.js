@@ -3,7 +3,8 @@
 // slam on every new wave — the owner's "cool text effect going past like 16/15" (spec §10.3).
 // Solo freeplay shows the same counter.
 import { TITAN_MAP, tierLabel } from '../../data/titans.js';
-import { h, icon, fmtCoins } from './util.js';
+import { h, icon } from './util.js';
+import { fmtNum } from '../format.js';
 import { createScout } from './scout.js';
 import { svgEl } from '../components.js';
 import { currencyIcon } from '../../art/icons.js';
@@ -79,7 +80,7 @@ export function createHud(ctx) {
         void livesBox.offsetWidth;
         livesBox.classList.add('bt-hit');
       }
-      livesVal.textContent = inf ? '∞' : String(Math.max(0, sim.lives));
+      livesVal.textContent = inf ? '∞' : fmtNum(Math.max(0, sim.lives), 'count');
       livesBox.classList.toggle('bt-low', sim.lives <= sim.maxLives * 0.25);
       last.lives = sim.lives;
     }
@@ -90,7 +91,8 @@ export function createHud(ctx) {
         void cashBox.offsetWidth;
         cashBox.classList.add('bt-gain');
       }
-      cashVal.textContent = fmtCoins(cash);
+      // a balance: exact up to 999,999 so it compares honestly with the prices beside it (rounded down)
+      cashVal.textContent = fmtNum(cash, 'money');
       last.cash = cash;
     }
     if (sim.wave !== last.wave) {
@@ -99,7 +101,7 @@ export function createHud(ctx) {
       const fp = fpOf();
       const over = !!fp && sim.wave > sim.totalWaves;
       if (over) {
-        waveVal.replaceChildren(h('b.bt-wave-n', String(sim.wave)), h('span.bt-wave-goal', `/${total}`));
+        waveVal.replaceChildren(h('b.bt-wave-n', fmtNum(sim.wave, 'count')), h('span.bt-wave-goal', `/${fmtNum(total, 'count')}`));
         const overtime = sim.wave > (fp.finale?.wave ?? Infinity);
         labelWide.textContent = overtime ? 'OVERTIME' : 'BEYOND';
         waveBox.classList.add('bt-wave-over');
@@ -112,7 +114,7 @@ export function createHud(ctx) {
           waveBox.classList.add('bt-wave-bump');
         }
       } else {
-        waveVal.textContent = `${Math.max(sim.wave, 0)}/${total}`;
+        waveVal.textContent = Number.isFinite(sim.totalWaves) ? fmtNum(Math.max(sim.wave, 0), 'progress', { of: total }) : `${fmtNum(Math.max(sim.wave, 0), 'count')}/∞`;
         labelWide.textContent = 'WAVE';
         waveBox.classList.remove('bt-wave-over', 'bt-wave-overtime', 'bt-wave-bump');
         delete waveBox.dataset.tier;
@@ -120,7 +122,7 @@ export function createHud(ctx) {
       last.wave = sim.wave;
     }
     if (ctx.speed !== last.speed) {
-      speedBtn.replaceChildren(icon(SPEED_ICONS[ctx.speed] || 'play'), h('span.bt-speed-x', `${ctx.speed}×`));
+      speedBtn.replaceChildren(icon(SPEED_ICONS[ctx.speed] || 'play'), h('span.bt-speed-x', `${fmtNum(ctx.speed, 'count')}×`));
       speedBtn.dataset.speed = String(ctx.speed);
       last.speed = ctx.speed;
     }

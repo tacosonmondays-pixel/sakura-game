@@ -1,5 +1,6 @@
 // Finds Playwright and a Chromium to drive, without machine-specific install paths. Shared by
-// e2e/smoke.mjs and e2e/shot.mjs.
+// e2e/smoke.mjs, e2e/shot.mjs and the other browser scripts; e2e/engines.mjs also finds Firefox and
+// WebKit here (launchAttempts).
 //
 //   Playwright: PLAYWRIGHT_MODULE=<package folder or its index.mjs> if set, else the `playwright`
 //               or `playwright-core` package (node_modules, or a folder listed in NODE_PATH).
@@ -48,6 +49,31 @@ export async function loadPlaywright() {
 }
 
 /**
+ * How to launch one browser engine, in order: [launch options, label] pairs.
+ *   chromium  CHROME_PATH or PLAYWRIGHT_CHANNEL if set, else Playwright's Chromium, the system Chrome, Edge
+ *   firefox   Playwright's Firefox, else the system Firefox (Playwright drives a stock Firefox through
+ *             WebDriver BiDi, channel 'moz-firefox': no download). It gets a throwaway profile and never
+ *             reaches a Firefox the user has open (-no-remote); on Windows -wait-for-browser keeps its
+ *             launcher process alive, or Playwright loses the browser and a stray Firefox can stay open.
+ *   webkit    Playwright's WebKit only
+ * @param {'chromium' | 'firefox' | 'webkit'} type
+ * @returns {Array<[object, string]>}
+ */
+export function launchAttempts(type, env = process.env, platform = process.platform) {
+  if (type === 'chromium') {
+    if (env.CHROME_PATH) return [[{ executablePath: env.CHROME_PATH }, `CHROME_PATH=${env.CHROME_PATH}`]];
+    if (env.PLAYWRIGHT_CHANNEL) return [[{ channel: env.PLAYWRIGHT_CHANNEL }, `channel ${env.PLAYWRIGHT_CHANNEL}`]];
+    return [[{}, 'Playwright Chromium'], [{ channel: 'chrome' }, 'system Chrome'], [{ channel: 'msedge' }, 'system Edge']];
+  }
+  if (type === 'firefox') {
+    const args = platform === 'win32' ? ['-no-remote', '-wait-for-browser'] : ['-no-remote'];
+    // (no slow-script prompt: the engine checks run one long script)
+    return [[{}, 'Playwright Firefox'], [{ channel: 'moz-firefox', args, firefoxUserPrefs: { 'dom.max_script_run_time': 0 } }, 'system Firefox']];
+  }
+  return [[{}, 'Playwright WebKit']];
+}
+
+/**
  * Launches a headless Chromium with SwiftShader WebGL (or the GPU with SAKURA_E2E_GL=gpu). Always headless.
  * @param {{ args?: string[] }} [options]
  * @returns {Promise<{ browser: import('playwright').Browser, label: string }>}
@@ -55,13 +81,7 @@ export async function loadPlaywright() {
 export async function launchChromium({ args = [] } = {}) {
   const { chromium } = await loadPlaywright();
   const base = { headless: true, args: [...GL_ARGS, ...args] };
-  const exe = process.env.CHROME_PATH;
-  const channel = process.env.PLAYWRIGHT_CHANNEL;
-  const attempts = exe
-    ? [[{ executablePath: exe }, `CHROME_PATH=${exe}`]]
-    : channel
-      ? [[{ channel }, `channel ${channel}`]]
-      : [[{}, 'Playwright Chromium'], [{ channel: 'chrome' }, 'system Chrome'], [{ channel: 'msedge' }, 'system Edge']];
+  const attempts = launchAttempts('chromium');
   const errors = [];
   for (const [how, label] of attempts) {
     try {

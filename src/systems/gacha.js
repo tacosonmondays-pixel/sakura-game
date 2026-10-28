@@ -10,15 +10,30 @@ import { GACHA } from '../data/types.js';
 import { grantUnit } from './unlocks.js';
 import { consumeItems, itemCount } from './inventory.js';
 import { track } from './missions.js';
+import { RECRUIT_FEATURE, isLegendUnit } from '../data/recruitFeature.js';
 
 const HISTORY_LIMIT = 100;
 
-/** Unit ids by rarity — every unit (free ones and heroes too) is in the pool. */
+/**
+ * Unit ids by rarity — every unit (free ones and heroes too) is in the pool, except LR units (src/data/recruitFeature.js):
+ * they come only from their spotlight, so the spark and the Select Ticket (which read POOL.SSR) never offer them.
+ */
 export const POOL = {
   R: UNITS.filter((u) => u.rarity === 'R').map((u) => u.id),
   SR: UNITS.filter((u) => u.rarity === 'SR').map((u) => u.id),
-  SSR: UNITS.filter((u) => u.rarity === 'SSR').map((u) => u.id),
+  SSR: UNITS.filter((u) => u.rarity === 'SSR' && !isLegendUnit(u.id)).map((u) => u.id),
 };
+
+/** The Recruit spotlight on show (its unit exists), or null. */
+export function recruitFeature() {
+  return RECRUIT_FEATURE && UNIT_MAP[RECRUIT_FEATURE.unit] ? RECRUIT_FEATURE : null;
+}
+
+/** Counted pulls toward the spotlight's Legend Promise (0 without one). */
+export function promiseCount(profile) {
+  const f = recruitFeature();
+  return f ? profile.missions?.counters?.[f.counter] || 0 : 0;
+}
 
 function ensureState(state) {
   state.pity = state.pity || 0;
@@ -32,14 +47,22 @@ function ensureState(state) {
  * One recruitment roll. Updates pity, total pulls and recruit points (not history/units).
  * @param {object} state profile.gacha
  * @param {object} rng createRng() instance
- * @param {{ minRarity?: 'SR'|null }} [opts] used for the ten-pull guarantee
- * @returns {{ unitId: string, rarity: 'R'|'SR'|'SSR', pity: boolean }}
+ * @param {{ minRarity?: 'SR'|null, promised?: boolean }} [opts] minRarity: the ten-pull guarantee; promised: this pull
+ *   is the spotlight's Legend Promise (her, whatever the roll)
+ * @returns {{ unitId: string, rarity: 'R'|'SR'|'SSR', pity: boolean, promise?: boolean }}
  */
-export function rollOnce(state, rng, { minRarity = null } = {}) {
+export function rollOnce(state, rng, { minRarity = null, promised = false } = {}) {
   ensureState(state);
   const roll = rng.next();
   let rarity;
   const pityHit = state.pity + 1 >= GACHA.pity;
+  const feature = recruitFeature();
+  if (promised && feature) {
+    state.pity = 0;
+    state.totalPulls += 1;
+    state.recruitPoints += 1;
+    return { unitId: feature.unit, rarity: 'SSR', pity: false, promise: true };
+  }
   if (pityHit || roll < GACHA.rates.SSR) rarity = 'SSR';
   else if (roll < GACHA.rates.SSR + GACHA.rates.SR) rarity = 'SR';
   else rarity = 'R';
@@ -47,7 +70,8 @@ export function rollOnce(state, rng, { minRarity = null } = {}) {
   state.pity = rarity === 'SSR' ? 0 : state.pity + 1;
   state.totalPulls += 1;
   state.recruitPoints += 1;
-  const unitId = rng.pick(POOL[rarity]);
+  // the spotlight's unit takes her share of every SSR (0.7% of the 1.5%), the other SSRs share the rest
+  const unitId = rarity === 'SSR' && feature && rng.chance(feature.share) ? feature.unit : rng.pick(POOL[rarity]);
   return { unitId, rarity, pity: rarity === 'SSR' && pityHit && roll >= GACHA.rates.SSR };
 }
 
@@ -91,11 +115,17 @@ export function pull(profile, count, rng, { useTickets = true } = {}) {
   const state = ensureState(profile.gacha ||= {});
   const now = Date.now();
   const results = [];
+  const feature = recruitFeature();
+  const counters = feature ? ((profile.missions ||= {}).counters ||= {}) : null;
   for (let i = 0; i < n; i++) {
     const needSR = n === 10 && GACHA.tenPullGuaranteeSR && i === n - 1 && results.every((r) => r.rarity === 'R');
-    const roll = rollOnce(state, rng, { minRarity: needSR ? 'SR' : null });
+    const promised = !!feature && (counters[feature.counter] || 0) + 1 >= feature.promise;
+    const roll = rollOnce(state, rng, { minRarity: needSR ? 'SR' : null, promised });
+    // the Legend Promise counts every pull without her, and starts over when she joins (today the spotlight is her
+    // only source)
+    if (feature) counters[feature.counter] = roll.unitId === feature.unit ? 0 : (counters[feature.counter] || 0) + 1;
     const grant = grantUnit(profile, roll.unitId, now);
-    results.push({ unitId: roll.unitId, rarity: roll.rarity, isNew: grant.isNew, essence: grant.essence, spare: grant.spare, readyStep: grant.readyStep, essenceHeld: grant.essenceHeld, pity: roll.pity, potential: grant.potential, potentialUp: grant.potentialUp });
+    results.push({ unitId: roll.unitId, rarity: roll.rarity, isNew: grant.isNew, essence: grant.essence, spare: grant.spare, readyStep: grant.readyStep, essenceHeld: grant.essenceHeld, pity: roll.pity, potential: grant.potential, potentialUp: grant.potentialUp, ...(roll.promise ? { promise: true } : {}) });
     state.history.push({ unitId: roll.unitId, rarity: roll.rarity, at: now });
   }
   if (state.history.length > HISTORY_LIMIT) state.history.splice(0, state.history.length - HISTORY_LIMIT);
@@ -164,6 +194,13 @@ export function ratesTable() {
     consolidatedSSR: ssr,
     pity: GACHA.pity,
     sparkCost: GACHA.sparkCost,
-    perUnit: Object.fromEntries(Object.entries(POOL).map(([r, ids]) => [r, ids.map((id) => ({ unitId: id, rate: GACHA.rates[r] / ids.length }))])),
+    perUnit: Object.fromEntries(Object.entries(POOL).map(([r, ids]) => {
+      // the spotlight's unit heads the SSR list with her share; the other SSRs split the rest
+      const f = r === 'SSR' ? recruitFeature() : null;
+      const rest = GACHA.rates[r] * (f ? 1 - f.share : 1);
+      const rows = ids.map((id) => ({ unitId: id, rate: rest / ids.length }));
+      return [r, f ? [{ unitId: f.unit, rate: GACHA.rates.SSR * f.share, featured: true }, ...rows] : rows];
+    })),
+    feature: recruitFeature(),
   };
 }

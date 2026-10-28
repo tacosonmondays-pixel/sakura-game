@@ -89,6 +89,8 @@
 .ui-sticker.y { background: var(--yellow); }
 .ui-sticker.p { background: var(--pink); }
 .ui-sticker.ink { background: var(--plate); color: var(--on-plate); border-color: #fff; box-shadow: 0 2px 0 rgba(14, 25, 48, 0.5); }
+/* idle / does nothing here: flat grey, never opacity (VAULT_BRIEF §2.4) */
+.ui-sticker.off { background: #d8dbda; }
 /* MORE ▸: always opens Details and looks the same everywhere; an invisible 44 px hit box keeps it tappable */
 .ui-more {
   position: relative; cursor: pointer;
@@ -405,6 +407,10 @@ button.ui-gtile:active { transform: scale(0.96); }
 
 /* ---------- Layers (P1): a dialog opened from a sheet sits above that sheet ---------- */
 .ui-layer ~ .modal-overlay { z-index: 190; }
+
+/* ---------- The ability bolt (kit.js boltText / KIT_SVG.bolt): one yellow mark everywhere, never the ⚡ emoji ---------- */
+.kit-bolt { display: inline-block; width: 1.05em; height: 1.05em; margin: 0 0.08em; vertical-align: -0.17em; line-height: 0; color: var(--yellow); }
+.kit-bolt svg { display: block; width: 100%; height: 100%; }
 
 /* ==========================================================================================================
    M5: hub extensions (UI_DIRECTION §5.9, §5.10; owner #69). Additive: new classes only, plus the tab dot joins

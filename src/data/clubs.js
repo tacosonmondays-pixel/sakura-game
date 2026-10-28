@@ -4,8 +4,11 @@
 
 /** Club ids by their save index (1…15, append-only: the `gcl:` mirror stores the index). */
 export const CLUB_IDS = Object.freeze(['archery', 'fencing', 'taiko', 'pyro', 'tea', 'bell']);
-/** Clubs a new Mythic+ piece can roll into today. Bell joins with the tower abilities. */
-export const LIVE_CLUBS = Object.freeze(['archery', 'fencing', 'taiko', 'pyro', 'tea']);
+/**
+ * Clubs a new Mythic+ piece can roll into, and the Club Armband's choices (save index order). Bell joined with the
+ * tower abilities (its First Bell charges them; owner default Q12: each club now rolls at 1/6).
+ */
+export const LIVE_CLUBS = Object.freeze(['archery', 'fencing', 'taiko', 'pyro', 'tea', 'bell']);
 /** Rarities that can belong to a club (UR pieces are Legendary with the `ur` flag). */
 export const CLUB_RARITIES = Object.freeze(['mythic', 'legendary']);
 
@@ -18,8 +21,10 @@ export const CLUBS = Object.freeze({
   fencing: { id: 'fencing', name: 'Fencing Club', emblem: 'foil', color: '#7fa8ff', fav: ['critChance', 'critDmg', 'armorPen'], two: { stat: 'critChance', value: 0.03 }, trick: { name: 'Finishing Thrust', text: 'Every 25th attack deals double damage and ignores armor.' } },
   taiko: { id: 'taiko', name: 'Taiko Club', emblem: 'drum', color: '#ff8a5c', fav: ['atkPct', 'ratePct', 'rangePct'], two: { stat: 'ratePct', value: 0.05 }, trick: { name: 'Big Beat', text: 'Every 10th attack hits 50% harder.' } },
   pyro: { id: 'pyro', name: 'Pyrotechnics Club', emblem: 'firework', color: '#ff5a8a', fav: ['atkPct', 'piercePct', 'rangePct'], two: { stat: 'atkPct', value: 0.05 }, trick: { name: 'Finale Pop', text: 'Enemies she defeats burst for 25% of her hit.' } },
-  tea: { id: 'tea', name: 'Tea Club', emblem: 'teacup', color: '#c9a36b', fav: ['auraPct', 'rangePct', 'costCut'], two: { stat: 'auraPct', value: 0.06 }, trick: { name: 'Second Cup', text: 'Girls in her aura attack 2% faster.' } },
-  bell: { id: 'bell', name: 'Bell Club', emblem: 'bell', color: '#ffd166', fav: ['ultHaste', 'ratePct', 'rangePct'], two: { stat: 'ultHaste', value: 0.08 }, trick: { name: 'First Bell', text: 'When a wave starts, her abilities gain 10% charge.' } },
+  // (a Tea girl without an aura serves the 2 girls nearest her, within 2 tiles: src/sim/towers.js secondCupTargets)
+  tea: { id: 'tea', name: 'Tea Club', emblem: 'teacup', color: '#c9a36b', fav: ['auraPct', 'rangePct', 'costCut'], two: { stat: 'auraPct', value: 0.06 }, trick: { name: 'Second Cup', text: 'Girls in her aura (no aura: the 2 nearest) attack 2% faster.' } },
+  // (teal, never a second yellow beside the one primary: VAULT_BRIEF "one yellow per screen"; M2 review look-4)
+  bell: { id: 'bell', name: 'Bell Club', emblem: 'bell', color: '#2bb8ad', fav: ['ultHaste', 'ratePct', 'rangePct'], two: { stat: 'ultHaste', value: 0.08 }, trick: { name: 'First Bell', text: 'When a wave starts, her ability gains 10% charge (not team rallies or debuffs).' } },
 });
 
 /** Club index for the `gcl:` mirror (1-based; 0 = no club). */

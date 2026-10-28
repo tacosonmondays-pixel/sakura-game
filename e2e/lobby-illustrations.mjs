@@ -4,7 +4,7 @@
 // src/ui/lobby/artStage.js), in the real game at phone, tablet and PC sizes, on the mock-ups' sample save
 // (uiSeed.mjs seedInkSave, plus the girls with a full illustration the seed does not own: Yoriko and the seven academy
 // girls), under the system's Reduce motion (so Marumi shows her still stand, not her living scene):
-//   - the default for every girl (Marumi, Rei, Hikari) is her stand over the academy backdrop (its baked night copy);
+//   - the default for every girl (Marumi, Rei, Hikari) is her stand over the academy backdrop (in its own colours since Oct 28);
 //     no bubble at rest (the new home has no greeting), her bubble on a tap, a head pat line on a tap on her face; her
 //     art 8 px clear of every control (pixels.mjs artClearance) and her face box clear of every control;
 //   - every full illustration (src/data/lobbyIllustrations.js) fills the home: no stand, no backdrop, and no speech
@@ -16,7 +16,7 @@
 //   - the picker (the menu sheet's Background tool, lobby-bg) shows a thumbnail per entry under "Backdrops" and "Full
 //     illustrations", picking one there changes the home, and the choice survives a reload;
 //   - during the Halloween window (event dev clock pinned) her stand has the event's painted backdrop (graded in CSS, no
-//     tint) and no overlay lanterns or pumpkins anywhere; one more pass checks the home after the event (the baked
+//     tint) and no overlay lanterns or pumpkins anywhere; one more pass checks the home after the event (the
 //     academy); a full illustration holds still (no running animation in the stage, no canvas, its box fixed) with
 //     motion allowed, under Reduce motion and on Low graphics;
 //   - every home control takes a tap at its centre (elementFromPoint is the control or inside it) at every size, and a
@@ -400,10 +400,10 @@ async function sizePass(size, { now, full = true }) {
       check(m.bg === `${girl}-day` && !m.full && !m.illustration && m.stand && !m.face && m.canvases === 0, `${tag}: her stand over the backdrop (${m.bg}, canvas ${m.canvases})`);
       check(new RegExp(`portraits/${girl}-cut\\.webp`).test(m.figSrc) && m.figNat?.[0] > 0, `${tag}: her stand file (${m.figSrc.split('/').pop()} ${m.figNat?.join('x')})`);
       if (girl === 'marumi') check(m.figNat && Math.abs(m.figNat[0] / m.figNat[1] - 0.432) < 0.004, `${tag}: the restored full-body stand (${m.figNat?.join('x')}, aspect 0.432)`);
-      // during Halloween her stand stands in the event's painted backdrop (graded in CSS, no tint); after it, the academy's
-      // baked night copy again
+      // during Halloween her stand stands in the event's painted backdrop (graded in CSS, no tint); after it, the
+      // academy in its own colours again
       if (event) check(/lobby\/halloween\.webp/.test(m.sceneSrc) && /graded/.test(m.sceneCls) && !m.tint, `${tag}: the Halloween backdrop, no tint (${m.sceneSrc.split('/').pop()} .${m.sceneCls})`);
-      else check(/lobby\/academy-home\.webp/.test(m.sceneSrc) && /baked/.test(m.sceneCls), `${tag}: the academy's night copy after the event (${m.sceneSrc.split('/').pop()} .${m.sceneCls})`);
+      else check(/lobby\/academy\.webp/.test(m.sceneSrc) && /graded/.test(m.sceneCls), `${tag}: the academy in its own colours after the event (${m.sceneSrc.split('/').pop()} .${m.sceneCls})`);
       check(!m.bubbleShown, `${tag}: no bubble at rest (the quiet home has no greeting)`);
       const fhit = m.pl?.face ? m.ui.filter((b) => overlaps(m.pl.face, b)) : [];
       check(!!m.pl?.face && !fhit.length, `${tag}: her face box clear of every control${fhit.length ? `; under ${fhit.map((b) => b.name).join(', ')}` : ''}`);

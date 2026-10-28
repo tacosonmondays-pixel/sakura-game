@@ -1239,6 +1239,305 @@ describe('the new girls in a battle save: Ouka\'s banners (UNIT_GAPS §7.3)', SL
   });
 });
 
+/** The legal spot for `unitId` nearest girl `o` (a 0.25-tile scan of the map), or null. */
+function spotNear(sim, unitId, o) {
+  let best = null;
+  for (let y = 0.5; y < sim.map.height; y += 0.25) {
+    for (let x = 0.5; x < sim.map.width; x += 0.25) {
+      if (!sim.canPlace(unitId, x, y).ok) continue;
+      const d2 = (x - o.x) ** 2 + (y - o.y) ** 2;
+      if (!best || d2 < best[0]) best = [d2, x, y];
+    }
+  }
+  return best ? [best[1], best[2]] : null;
+}
+
+/**
+ * Tenka with a lab team (src/sim/lab.js): Aoi and Momo (Piggy Bank: 2% interest) join her at Joint Research,
+ * then a wave is played (her dps weapon and Momo's income and interest share run; the record crosses the calm
+ * point).
+ */
+function tenkaLabRun() {
+  const c = { stageId: '3-3', difficulty: 'normal', towers: ['tenka', 'aoi', 'momo', 'rei'], hero: 'hikari', stats: { damageMul: 2 }, seed: 3313 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan(c.stageId, ['aoi', 'rei', c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const aoi = sim.towers.find((t) => t.unitId === 'aoi');
+  const tk = sim.placeTower('tenka', ...spotNear(sim, 'tenka', aoi));
+  const momo = sim.placeTower('momo', ...spotNear(sim, 'momo', tk));
+  expect(sim.upgradeTower(momo.uid, 1)).toBe(true); // Merch Table: Piggy Bank
+  for (let k = 0; k < 3; k++) expect(sim.upgradeTower(tk.uid, 0)).toBe(true);
+  expect(tk.lab.uids).toEqual(expect.arrayContaining([aoi.uid, momo.uid]));
+  expect(tk.lab.interest).toEqual([momo.stats.income.interest]);
+  sim.startNextWave();
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    sim.drainEvents();
+  }
+  return { c, sim, tk };
+}
+
+describe('Tenka\'s lab team in a battle save (src/sim/lab.js)', SLOW, () => {
+  it('her lab record travels (`lb`) and comes back as it was; the tier replay never absorbs', () => {
+    const { c, sim, tk } = tenkaLabRun();
+    // a girl placed after Joint Research, in her range: the replay of her tiers must not take her
+    const late = sim.placeTower('rei', ...spotNear(sim, 'rei', tk));
+    expect(late).toBeTruthy();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'tenka');
+    expect(row.lb[0]).toBe(1);
+    expect(row.lb[4]).toEqual(tk.lab.uids);
+    expect(row.lb[5]).toEqual(tk.lab.interest); // Momo's interest rate (owner decision #146)
+    expect(tk.lab.income).toBeGreaterThan(0);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bt = back.towers.find((t) => t.unitId === 'tenka');
+    expect(bt.lab).toEqual(tk.lab);
+    expect(bt.labAtk).toEqual(tk.labAtk);
+    expect(JSON.stringify(bt.stats)).toBe(JSON.stringify(tk.stats));
+    expect(back.getTower(late.uid)).toBeTruthy();
+    expect(back.towers.length).toBe(sim.towers.length);
+    expect(back._labOn).toBe(1);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    // the generic calm-point digest (every own Sim field, as the SCEN round trips compare): an absorb may
+    // leave nothing on the Sim that the restore, which never absorbs, cannot rebuild (T2 review saves-3)
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+
+  it('Continue plays on like the original: her lab weapons and income, then Unified Theory absorbs a second time', () => {
+    const { c, sim, tk } = tenkaLabRun();
+    const { sim: back } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snapshotSim(sim)))), { settings: { autoStart: false } });
+    const bt = back.getTower(tk.uid);
+    // the same next wave on both (the battle controller's per-wave stream), then Unified Theory on both
+    wrapWaves(back, c.seed);
+    for (const s of [sim, back]) expect(s.startNextWave()).toBeTruthy();
+    const cash = (s) => {
+      let n = 0;
+      while (s.state === 'wave') {
+        s.update(STEP);
+        for (const ev of s.drainEvents()) if (ev.type === 'cash' && ev.reason === 'lab') n += ev.amount;
+      }
+      return n;
+    };
+    const lab1 = cash(sim);
+    expect(cash(back)).toBe(lab1);
+    expect(lab1).toBeGreaterThan(0);
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    for (const [s, t] of [[sim, tk], [back, bt]]) {
+      s.placeTower('rei', ...spotNear(s, 'rei', t));
+      expect(s.upgradeTower(t.uid, 0)).toBe(true); // Grand Lab
+      expect(s.upgradeTower(t.uid, 0)).toBe(true); // Unified Theory
+    }
+    expect(bt.lab).toEqual(tk.lab);
+    expect(tk.lab.rounds).toBe(2);
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+  });
+
+  it('a lab row comes back only on a girl whose tiers give her a lab (T2 review saves-4), and only as numbers', () => {
+    const { c, sim, tk } = tenkaLabRun();
+    const rei = sim.placeTower('rei', ...spotNear(sim, 'rei', tk)); // placed after Joint Research: she stays
+    expect(rei).toBeTruthy();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'tenka');
+    const restore = (edit) => {
+      const s = JSON.parse(JSON.stringify(snap));
+      edit(s, s.towers.find((t) => t.u === 'tenka'));
+      return restoreSim(recordOf(c, s)).sim;
+    };
+    // the same record on a girl with no lab tier (Rei): ignored; Tenka's own comes back
+    let back = restore((s) => { s.towers.find((t) => t.uid === rei.uid).lb = row.lb; });
+    expect(back.getTower(rei.uid).lab).toBeUndefined();
+    expect(back.getTower(tk.uid).lab).toEqual(tk.lab);
+    expect(back._labOn).toBe(1);
+    // her tiers edited below Joint Research: no lab, no weapons, no lab count
+    back = restore((s, r) => { r.tiers = [2, 0, 0]; });
+    const bt = back.getTower(tk.uid);
+    expect(bt.tiers).toEqual([2, 0, 0]);
+    expect(bt.lab).toBeUndefined();
+    expect(bt.labAtk).toBeUndefined();
+    expect(back._labOn).toBeUndefined();
+    // a record claiming more rounds than her tiers give is held to them; non-numbers never reach the sim
+    back = restore((s, r) => { r.lb = [7, ['x', -2, 1.5, 2, 1], [100, 'y', -5, 50, 9], 'z', [3, 'a', 4.5, null], ['q', -0.5, 2, 0.03]]; });
+    expect(back.getTower(tk.uid).lab).toEqual({
+      rounds: 1,
+      members: { dps: 0, frag: 0, control: 1, support: 2, economy: 1 },
+      coins: { dps: 100, frag: 0, control: 0, support: 50, economy: 9 },
+      income: 0,
+      interest: [0.03],
+      uids: [3],
+    });
+    expect(back._labOn).toBe(1);
+  });
+});
+
+/**
+ * Tenka 0-2-5 (Singularity to Last Line) by the road, nearly harmless (her damage ×0.05), so wave 1 brings
+ * enemies near the exit: her wells open, Last Line opens at the exit and swallows, and both her timers run
+ * on past the clear (wave time only).
+ */
+function tenkaWellRun() {
+  const c = { stageId: '3-3', difficulty: 'normal', towers: ['tenka', 'aoi'], hero: null, stats: { damageMul: 0.05 }, seed: 3315 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  const tk = sim.placeTower('tenka', ...nearPath(sim, ['tenka']).tenka);
+  for (let k = 0; k < 5; k++) expect(sim.upgradeTower(tk.uid, 2)).toBe(true);
+  for (let k = 0; k < 2; k++) expect(sim.upgradeTower(tk.uid, 1)).toBe(true);
+  const seen = { zoneOpen: 0, swallow: 0 };
+  sim.startNextWave();
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    for (const ev of sim.drainEvents()) if (ev.type in seen) seen[ev.type]++;
+  }
+  for (let k = 0; k < 600 && sim.projectiles.length; k++) sim.update(STEP);
+  sim.drainEvents();
+  return { c, sim, tk, seen };
+}
+
+describe('Tenka\'s wells and Last Line in a battle save (src/sim/zones.js)', SLOW, () => {
+  it('her well and Last Line timers travel (`zc`); the zones end at the clear; Continue plays on like the original', () => {
+    const { c, sim, tk, seen } = tenkaWellRun();
+    expect(sim.state).toBe('between');
+    expect(seen.zoneOpen).toBeGreaterThan(1);
+    expect(seen.swallow).toBeGreaterThan(0);
+    expect(sim.zones).toEqual([]);
+    expect(sim._nearExitOn).toBe(1);
+    expect(tk.lastLineCd).toBeGreaterThan(0);
+    expect(tk.wellCd).toBeGreaterThanOrEqual(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    expect(snap.towers.find((t) => t.u === 'tenka').zc).toEqual([tk.wellCd, tk.lastLineCd]);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bt = back.getTower(tk.uid);
+    expect([bt.wellCd, bt.lastLineCd]).toEqual([tk.wellCd, tk.lastLineCd]);
+    expect(back.zones).toEqual([]);
+    expect(back._nearExitOn).toBe(1);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    expect(hashSim(back)).toBe(hashSim(sim));
+    // the next wave alike on both (Last Line still resting where the first wave left it)
+    wrapWaves(back, c.seed);
+    autoplay(sim, sim.wave + 1);
+    autoplay(back, back.wave + 1);
+    expect(diffPaths(digest(back), digest(sim))).toEqual([]);
+  });
+
+  it('a save without `zc` restores fresh timers; an edited row cannot set a timer she has no tier for', () => {
+    const { c, sim, tk } = tenkaWellRun();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'tenka');
+    delete row.zc;
+    let back = restoreSim(recordOf(c, snap)).sim;
+    expect(back.getTower(tk.uid).wellCd).toBeUndefined();
+    expect(back.getTower(tk.uid).lastLineCd).toBeUndefined();
+    row.zc = [50, 'x'];
+    row.tiers = [0, 2, 2]; // Field Coils: no well yet, no Last Line
+    back = restoreSim(recordOf(c, snap)).sim;
+    expect(back.getTower(tk.uid).tiers).toEqual([0, 2, 2]);
+    expect(back.getTower(tk.uid).wellCd).toBeUndefined();
+    expect(back.getTower(tk.uid).lastLineCd).toBeUndefined();
+  });
+});
+
+/**
+ * Tenka 0-5-0 (Zero Point) alone by the road on 3-3, her damage ×0.05 (her blast leaves some of a crowd
+ * standing), wave 1 played (a calm save at every wave start, as the battle saver writes them). In wave 2 her
+ * first cast at a crowd of 5 comes about 3 s before the wave clears, so its 6 s tail is cut by the clear.
+ */
+function zeroPointBuild() {
+  const c = { stageId: '3-3', difficulty: 'normal', towers: ['tenka'], hero: null, stats: { damageMul: 0.05 }, seed: 3316 };
+  const sim = makeSim(c);
+  const saves = [];
+  wrapWaves(sim, c.seed, () => saves.push(JSON.stringify(snapshotSim(sim))));
+  sim.cash = 1e6;
+  const tk = sim.placeTower('tenka', ...nearPath(sim, ['tenka']).tenka);
+  for (let k = 0; k < 5; k++) expect(sim.upgradeTower(tk.uid, 1)).toBe(true);
+  expect(tk.abil?.t5).toBe(true);
+  sim.startNextWave();
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    sim.drainEvents();
+  }
+  expect(tk.abil.n).toBe(0);
+  return { c, sim, tk, saves };
+}
+/**
+ * Steps a wave; once 5 enemies are on the field Tenka's Critical Mass (Zero Point) is tapped after every step
+ * until it goes off, then `tail` more steps run into her 6 s boost tail (or the wave ends first).
+ * @returns {{ at: number, ends: object[] }} the step it went off at (-1: never) and her abilityEnd events
+ */
+function castZeroPoint(sim, uid, tail = 120) {
+  let at = -1;
+  const ends = [];
+  for (let i = 0; i < 60 * 300 && sim.state === 'wave'; i++) {
+    sim.update(STEP);
+    for (const ev of sim.drainEvents()) if (ev.type === 'abilityEnd' && ev.towerUid === uid) ends.push(ev);
+    if (at < 0 && sim.enemies.length >= 5 && sim.castAbility(uid).ok) at = i;
+    if (at >= 0 && i >= at + tail) break;
+  }
+  return { at, ends };
+}
+
+describe('Zero Point\'s boost tail and a battle save (abilities `after`; ABILITIES §9)', SLOW, () => {
+  it('leaving mid-tail continues from the wave start: the same cast at the same step gives the same tail', () => {
+    const { c, sim, tk, saves } = zeroPointBuild();
+    sim.startNextWave();
+    expect(saves).toHaveLength(2);
+    const { at, ends } = castZeroPoint(sim, tk.uid);
+    expect(at).toBeGreaterThanOrEqual(0);
+    // mid-tail: her bolts ×2 for 6 s (rateMul on her stats), still running
+    expect(ends).toEqual([]);
+    expect(sim.state).toBe('wave');
+    expect(tk.abilMods).toEqual({ rateMul: 2 });
+    expect(tk.abil.active).toBeGreaterThan(0);
+    // Save & quit now writes nothing new: Continue starts from the wave-2 save, before the cast
+    const { sim: back } = restoreSim(recordOf(c, JSON.parse(saves[1])));
+    const bt = back.getTower(tk.uid);
+    expect(bt.abil.cd).toBe(JSON.parse(saves[1]).towers.find((t) => t.u === 'tenka').ak[0]);
+    expect(bt.abilMods).toBe(null);
+    wrapWaves(back, c.seed);
+    expect(back.startNextWave()).toBe(true);
+    expect(castZeroPoint(back, tk.uid).at).toBe(at);
+    expect(bt.abilMods).toEqual(tk.abilMods);
+    expect(bt.abil).toEqual(tk.abil);
+    expect(JSON.stringify(bt.stats)).toBe(JSON.stringify(tk.stats));
+    expect(diffPaths(digest(back), digest(sim))).toEqual([]);
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+
+  it('a wave that clears mid-tail ends the tail; the save at that calm point holds none, and the next wave and its cast play alike', () => {
+    const { c, sim, tk } = zeroPointBuild();
+    sim.startNextWave();
+    // the cast, then on to the clear: the wave ends while her tail runs, and the clear ends it
+    const { at, ends } = castZeroPoint(sim, tk.uid, Infinity);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(sim.state).toBe('between');
+    expect(ends.map((e) => e.wave)).toEqual([true]);
+    expect(tk.abilMods).toBe(null);
+    expect(tk.abil.active).toBe(0);
+    expect(tk.abil.cd).toBeLessThan(tk.abil.cdMax);
+    for (let k = 0; k < 600 && sim.projectiles.length; k++) sim.update(STEP);
+    sim.drainEvents();
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    const bt = back.getTower(tk.uid);
+    expect(bt.abil).toEqual(tk.abil);
+    expect(bt.abilMods).toBe(null);
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    // the next waves alike on both: the same taps at the same steps
+    wrapWaves(back, c.seed);
+    for (let w = 0; w < 2; w++) {
+      for (const s of [sim, back]) expect(s.startNextWave()).toBe(true);
+      const a = castZeroPoint(sim, tk.uid, Infinity);
+      expect(castZeroPoint(back, tk.uid, Infinity)).toEqual(a);
+      expect(diffPaths(digest(back), digest(sim))).toEqual([]);
+    }
+    expect(bt.abil).toEqual(tk.abil);
+  });
+});
+
 describe('battle save guards (new Sim state must be classified in snapshot.js)', SLOW, () => {
   it('every own Sim field is classified in KNOWN_SIM_KEYS (and nothing else is)', () => {
     // (own functions are instance wrappers: the controller's startNextWave, this test's step counter)
@@ -1249,6 +1548,10 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
       sim.waveWarnings(sim.wave + 1); // fills the scouting cache too
       for (const k of fields(sim)) keys.add(k);
     }
+    // (and Tenka's lab team: the count of girls with one; T2 review saves-2)
+    for (const k of fields(tenkaLabRun().sim)) keys.add(k);
+    // (and Tenka's wells and Last Line: the zone list and the near-exit count)
+    for (const k of fields(tenkaWellRun().sim)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_SIM_KEYS).sort());
   });
 
@@ -1301,6 +1604,10 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and an Archery trap girl: Follow-Through's trap count)
     for (const t of ftTrapRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Tenka with a lab team: her record and her frag / field weapons; T2 review saves-2)
+    for (const t of tenkaLabRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Tenka with wells and Last Line: both timers)
+    for (const t of tenkaWellRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

@@ -5,6 +5,15 @@
 // names the holder (`finals`).
 import { pathCap, onePerPathReason, ONE_PER_PATH_RULE } from './battle/rules.js';
 import { tierTags, shortEffect, tierIcon, pathSummary, tierNote, tierDesc, modsTags, ultTags, passiveTags } from './upgradeTags.js';
+import { abilityText } from '../data/abilityText.js';
+import { abilityRuns } from '../data/abilities.js';
+
+/** A path's ⚡ ability for the grid's sticker: { id, name, unlockTier, live } or null (live: abilityRuns, the one rule). */
+export function pathAbility(path) {
+  const a = path?.ability;
+  if (!a) return null;
+  return { id: a.id, name: abilityText(a.id)?.name || a.id, unlockTier: a.unlockTier ?? 3, live: abilityRuns(a) };
+}
 
 export const RULE_TEXT = `Pick one path up to T5 and one other up to T2 — the third path locks. ${ONE_PER_PATH_RULE}`;
 
@@ -77,7 +86,7 @@ export function buildTreeModel({
       };
     });
     const finalHeld = held && cells[last]?.holder ? held : null;
-    return { index: pi, id: p.id, name: p.name, focus: p.focus || '', cap, current, reason, finalHeld, summary: pathSummary(def, pi), cells };
+    return { index: pi, id: p.id, name: p.name, focus: p.focus || '', cap, current, reason, finalHeld, summary: pathSummary(def, pi), ability: pathAbility(p), cells };
   });
   const hero = def.hero
     ? {

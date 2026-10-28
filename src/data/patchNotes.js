@@ -20,6 +20,29 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.57', version: '0.1.57', date: '2026-10-28', title: 'Ultimates',
+    added: [
+      'Tower abilities are here! Upgrade a girl along her ability path and her ultimate joins the ability bar: tap it to cast, or hold it (right-click on PC) and switch on Auto. Heroes get their skill button too.',
+      'Meet Tenka, the Coilgun Physicist and the ultimate tower: her Critical Mass blast ignores armor. Find her in the "New: Tenka" spotlight in Recruit, and your 300th recruit without her is always her.',
+    ],
+    changed: [
+      'Tap a placed girl to open the new tactical drawer: her stats, her three paths, her targeting and her ability in one place. Tap a price twice to buy.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Seiran’s Dragonflight now flies all the way back to the start of the road.',
+    ],
+  },
+  {
+    id: 'v0.1.56', version: '0.1.56', date: '2026-10-28', title: 'Brighter Home',
+    changed: [
+      'The home background shows in its full colours again: brighter, sharper and much less gloomy.',
+    ],
+    added: [
+      'A Clan button on the home, next to chat and mail, with a red dot when donations or an invite wait for you.',
+    ],
+  },
+  {
     id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Rush Hour and Hilltop After Dark',
     added: [
       'The Gate Arc begins: chapters 1 and 2 each get an Act II of five new stages. "Rush Hour" (1-6 to 1-10) opens once you clear 1-5, and "Hilltop After Dark" (2-6 to 2-10) once you clear both 2-5 and 1-10.',

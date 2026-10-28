@@ -2,6 +2,7 @@
 // slashes, death puffs, coin pops, floating numbers, upgrade sparkles. Everything is drawn
 // through the shared quad batches (a handful of draw calls in total).
 import * as THREE from 'three';
+import { fmtNum } from '../ui/format.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color();
@@ -229,7 +230,7 @@ export class FxSystem {
   /** Coin pop with "+N". */
   coin(x, y, z, amount) {
     this.spawn({ batch: 'bbN', uv: this.R.coin, x, y: y + 0.4, z, vy: 1.6, g: -2.2, s0: 0.26, s1: 0.22, life: 0.75, color: '#ffffff', a0: 1, a1: 0, flags: SPIN_X });
-    if (amount > 0 && this.numbers) this.text(`+${amount}`, x + 0.18, y + 0.62, z, '#ffd43b', 0.2, 0.8, 0.7);
+    if (amount > 0 && this.numbers) this.text(`+${fmtNum(amount, 'money')}`, x + 0.18, y + 0.62, z, '#ffd43b', 0.2, 0.8, 0.7);
   }
 
   /** Upgrade / level-up celebration. */

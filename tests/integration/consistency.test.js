@@ -22,6 +22,7 @@ import { createBattleSim, resolveFormation, parseBattleParams, followingStage } 
 import { hasItemIcon } from '../../src/art/icons.js';
 import { cardArtSVG } from '../../src/art/cardArt.js';
 import { stageThumbSVG } from '../../src/art/stageThumb.js';
+import { LEGEND_UNITS } from '../../src/data/recruitFeature.js';
 
 const ROUTES = [...readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8').matchAll(/registerRoute\('([a-z]+)'/g)].map((m) => m[1]);
 
@@ -90,9 +91,12 @@ describe('ids line up across modules', () => {
     for (const rewards of lists) for (const r of [].concat(rewards)) expect(ITEMS[r.id], `reward ${r.id}`).toBeTruthy();
   });
 
-  test('gacha pool covers the whole roster under the right rarity', () => {
-    for (const u of UNITS) expect(POOL[u.rarity], u.id).toContain(u.id);
-    expect(Object.values(POOL).flat().length).toBe(UNITS.length);
+  test('gacha pool covers the whole roster under the right rarity (LR units only through their spotlight)', () => {
+    for (const u of UNITS) {
+      if (LEGEND_UNITS.includes(u.id)) expect(POOL[u.rarity], u.id).not.toContain(u.id);
+      else expect(POOL[u.rarity], u.id).toContain(u.id);
+    }
+    expect(Object.values(POOL).flat().length).toBe(UNITS.length - LEGEND_UNITS.length);
   });
 
   test('card art and stage thumbs render for every unit and map without bad values', () => {

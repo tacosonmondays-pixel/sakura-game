@@ -46,6 +46,7 @@ import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
 import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
+import { isLegendUnit, RECRUIT_FEATURE } from '../../data/recruitFeature.js';
 
 /** Gear tiles drawn per page in the Equipment tab. */
 const GEAR_PAGE = 200;
@@ -92,6 +93,7 @@ export function howToGet(unit) {
   const a = unit.acquisition || {};
   if (a.type === 'starter') return { short: 'Starter', long: 'Part of your starting team.' };
   if (a.type === 'free') return { short: `Free after ${a.afterStage}`, long: a.note || `Joins for free after clearing stage ${a.afterStage}.`, stageId: a.afterStage };
+  if (isLegendUnit(unit.id)) return { short: 'Recruit', long: RECRUIT_FEATURE?.unit === unit.id ? `Recruit her on the ${RECRUIT_FEATURE.kicker} spotlight (${(1.5 * RECRUIT_FEATURE.share).toFixed(1)}%; your ${RECRUIT_FEATURE.promise}th recruit without her is her). She can't be sparked.` : 'Recruit her on her own banner. She can\'t be sparked.' };
   return { short: 'Recruit', long: unit.rarity === 'SSR' ? 'Recruit (1.5%, pity at 90) or spark her with 200 Recruit Points.' : 'Recruit her in the gacha.' };
 }
 

@@ -235,6 +235,10 @@
 .ma-spark-meta { display: flex; flex-direction: column; font-size: 0.8rem; }
 .ma-r-badge { display: inline-block; min-width: 34px; text-align: center; color: #fff; font-weight: 900; font-style: italic; font-size: var(--fs-label); padding: 1px 6px; border-radius: 4px; text-shadow: 0 1px 1px rgba(0,0,0,0.25); }
 .ma-hero-tag { margin-left: 6px; font-size: var(--fs-label); font-weight: 900; color: #fff; background: #c77dff; padding: 0 5px; border-radius: 4px; }
+/* the Recruit spotlight (src/data/recruitFeature.js): a yellow NEW kicker, her chip and her rates row in yellow */
+.ma-hero-tag.new { background: var(--yellow); color: var(--ink); }
+.ma-banner-kicker.new { background: var(--yellow); color: var(--ink); }
+.ma-feat-chip.feat { background: var(--yellow); color: var(--ink); }
 .ma-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 .ma-table th { text-align: left; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 6px; border-bottom: 2px solid var(--line); }
 .ma-table td { padding: 6px; border-bottom: 1px solid var(--line); }

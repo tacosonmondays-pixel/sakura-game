@@ -7,6 +7,7 @@ import { HERO_TRACKS, HERO_XP_STEPS, HERO_LEVEL_PRICES } from '../../src/data/he
 import { BATTLE } from '../../src/data/types.js';
 import { resolveStats } from '../../src/sim/mods.js';
 import { statsCapabilities } from '../../src/sim/report.js';
+import { ROLE_TARGET_MODE } from '../../src/sim/constants.js';
 import {
   ATTACK_TYPES, ELEMENTS, STATUSES, ROLES, CAPABILITIES, PLACEMENT, UNIT_RARITIES, MATERIAL_FAMILIES,
 } from '../../src/data/types.js';
@@ -35,6 +36,8 @@ const ROSTER = [
   ['hotaru', 'tower', 'SSR', 'exorcist', 'holy', null, 'land', 'charm', 'gacha'],
   ['kaede', 'tower', 'SSR', 'duelist', 'slash', null, 'land', 'blade', 'gacha'],
   ['chika', 'tower', 'SSR', 'engineer', 'pierce', 'lightning', 'land', 'cog', 'gacha'],
+  // the new girls (BUILD_PLAN 6.1: Tenka first)
+  ['tenka', 'tower', 'SSR', 'powerhouse', 'mystic', null, 'land', 'cog', 'gacha'],
   // the returning girls (roster wave, src/data/unitsExpansion.js)
   ['kanna', 'hero', 'SSR', 'champion', 'slash', null, 'land', 'blade', 'gacha'],
   ['yoriko', 'hero', 'SSR', 'puppeteer', 'mystic', null, 'land', 'rune', 'gacha'],
@@ -96,6 +99,13 @@ const TIER_COST = [[80, 450], [80, 450], [500, 1400], [1800, 4500], [12000, 3600
 // heroes are exempt from the one-per-path rule and keep their prices (their paths become a level track
 // in the hero rework)
 const HERO_TIER5_COST = [7000, 16000];
+// Named price-band exceptions (CONTRACTS.md §5b): a role allowed outside the live base and tier windows.
+// Only the powerhouse uses one (Tenka, BUILD_PLAN 6.2: a deliberate late-game investment, base 1800);
+// her T5 is re-checked at the balance pass. Tier 1 keeps the live window.
+const PRICE_BANDS = {
+  powerhouse: { base: [1500, 2000], tiers: [[80, 450], [450, 900], [2000, 3500], [6000, 10000], [20000, 36000]] },
+};
+const LIVE_BASE_COST = [150, 900];
 
 // ---------------------------------------------------------------------------
 // Validators
@@ -186,6 +196,22 @@ function modSetErrors(mods, where) {
     brew: (k, v, w) => objErrors(v, LIMITED_KEYS.filter((x) => x !== 'overclock'), w, numCheck),
     link: (k, v, w) => objErrors(v, LIMITED_KEYS, w, (kk, vv, ww) => (kk === 'overclock' ? objErrors(vv, ['every', 'time', 'rateMul'], ww, numCheck) : numCheck(kk, vv, ww))),
     hpPct: (k, v, w) => objErrors(v, ['pct', 'boss', 'cap'], w, numCheck),
+    // Tenka (BUILD_PLAN 6.1): Joint Research, Gravity Well, Last Line
+    lab: (k, v, w) => objErrors(v, ['rounds', 'power'], w, (kk, vv, ww) => {
+      if (kk === 'rounds') return Number.isInteger(vv) && vv > 0 ? [] : [`${ww} must be a whole number > 0`];
+      return isNum(vv) && vv >= 1 ? [] : [`${ww} must be >= 1`];
+    }),
+    well: (k, v, w) => objErrors(v, ['every', 'time', 'radius', 'pull', 'slow', 'vuln'], w, (kk, vv, ww) => {
+      if (kk === 'slow' || kk === 'vuln') return isPos(vv) && vv < 1 ? [] : [`${ww} must be in (0, 1)`];
+      return isPos(vv) ? [] : [`${ww} must be > 0`];
+    }),
+    lastLine: (k, v, w) => [
+      ...objErrors(v, ['radius', 'max', 'time', 'cooldown'], w, (kk, vv, ww) => {
+        if (kk === 'max') return Number.isInteger(vv) && vv > 0 ? [] : [`${ww} must be a whole number > 0`];
+        return isPos(vv) ? [] : [`${ww} must be > 0`];
+      }),
+      ...['radius', 'max', 'time', 'cooldown'].filter((f) => !(f in (v || {}))).map((f) => `${w} needs ${f}`),
+    ],
     // roster B3
     airMul: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),
     gather: numCheck,
@@ -378,7 +404,7 @@ const allTiers = (u) => u.paths.flatMap((p, pi) => p.tiers.map((t, ti) => ({ ...
 // ---------------------------------------------------------------------------
 
 describe('roster matches the contract table', () => {
-  it('has exactly the contract ids in order (19 + the nine returning girls + the new girls)', () => {
+  it('has exactly the contract ids in order (19, Tenka, the nine returning girls, the new girls)', () => {
     expect(UNITS.map((u) => u.id)).toEqual(ROSTER.map((r) => r[0]));
     expect(UNIT_IDS).toEqual(ROSTER.map((r) => r[0]));
     expect(new Set(UNIT_IDS).size).toBe(ROSTER.length);
@@ -480,16 +506,35 @@ describe('upgrade paths', () => {
   });
 
   it.each(UNITS.map((u) => [u.id, u]))('%s tier costs increase and sit inside the balance windows', (id, u) => {
+    const band = PRICE_BANDS[u.role]?.tiers;
     for (const p of u.paths) {
       const costs = p.tiers.map((t) => t.cost);
       for (let i = 0; i < 5; i++) {
         expect(Number.isInteger(costs[i]), `${id}.${p.id} t${i + 1}`).toBe(true);
-        const win = i === 4 && u.kind === 'hero' ? HERO_TIER5_COST : TIER_COST[i];
+        const win = i === 4 && u.kind === 'hero' ? HERO_TIER5_COST : band ? band[i] : TIER_COST[i];
         expect(costs[i], `${id}.${p.id} t${i + 1} min`).toBeGreaterThanOrEqual(win[0]);
         expect(costs[i], `${id}.${p.id} t${i + 1} max`).toBeLessThanOrEqual(win[1]);
         if (i > 0) expect(costs[i], `${id}.${p.id} t${i + 1} increases`).toBeGreaterThan(costs[i - 1]);
       }
     }
+  });
+
+  it('named price bands (CONTRACTS §5b): only the powerhouse role has one, and only a girl priced outside the live windows needs it', () => {
+    expect(Object.keys(PRICE_BANDS)).toEqual(['powerhouse']);
+    for (const role of Object.keys(PRICE_BANDS)) expect(ROLES[role], role).toBeTruthy();
+    // the powerhouse is a damage dealer (CONTRACTS §3, T0): the Students role filter, the role badge colour
+    // and the card theme all read this category
+    expect(ROLES.powerhouse).toMatchObject({ name: 'Powerhouse', category: 'dps' });
+    for (const u of towers()) {
+      const live = u.base.cost >= LIVE_BASE_COST[0] && u.base.cost <= LIVE_BASE_COST[1]
+        && u.paths.every((p) => p.tiers.every((t, i) => t.cost >= TIER_COST[i][0] && t.cost <= TIER_COST[i][1]));
+      if (!live) expect(PRICE_BANDS[u.role], `${u.id} is priced outside the live windows without a named band`).toBeTruthy();
+    }
+    // the powerhouse band really is the exception: Tenka sits outside the live windows, inside her band
+    const tenka = getUnit('tenka');
+    expect(tenka.role).toBe('powerhouse');
+    expect(tenka.base.cost).toBeGreaterThan(LIVE_BASE_COST[1]);
+    expect(tenka.paths.some((p) => p.tiers[2].cost > TIER_COST[2][1])).toBe(true);
   });
 
   it('transformations (behavior/attackType/element) only appear at tier 4-5', () => {
@@ -504,13 +549,22 @@ describe('upgrade paths', () => {
 
   it('every tier 3+ changes behaviour, not just numbers', () => {
     const PLAIN = ['damage', 'damageMul', 'rateMul', 'range', 'projectileSpeed'];
+    const viaAbility = [];
     for (const u of UNITS) {
       for (const t of allTiers(u)) {
         if (t.tierNumber < 3) continue;
         const keys = Object.keys(t.mods);
-        expect(keys.some((k) => !PLAIN.includes(k)), `${u.id}.${t.pathId} t${t.tierNumber} only tweaks numbers`).toBe(true);
+        if (keys.some((k) => !PLAIN.includes(k))) continue;
+        // a plain-numbers tier passes only as the ⚡ path's tier 5 whose ⚡+ brings an effect field her
+        // ability did not have (a new mechanic, not bigger numbers): Tenka's Zero Point boost tail
+        const a = u.paths[t.pathIndex].ability;
+        const added = t.tierNumber === 5 && a?.t5 ? Object.keys(a.t5.effect || {}).filter((k) => !(k in (a.effect || {}))) : [];
+        expect(added.length > 0, `${u.id}.${t.pathId} t${t.tierNumber} only tweaks numbers`).toBe(true);
+        viaAbility.push(`${u.id}.${t.pathId}`);
       }
     }
+    // and only where it was agreed (BUILD_PLAN 6.1): another girl's plain tier 5 needs a deliberate entry here
+    expect(viaAbility).toEqual(['tenka.rails']);
   });
 
   it('objects introduced by upgrades arrive complete (aura range, ramp per+max, mark bonus+duration)', () => {
@@ -530,7 +584,33 @@ describe('upgrade paths', () => {
           if (t.mods.income) expect(!!u.base.income || !!u.base.vine, `${where} income mods need an income unit`).toBe(true);
           if (t.mods.relay) expect(!!u.base.relay, `${where} relay mods need a familiar / mirror unit`).toBe(true);
         }
+        // Tenka's keys: a well arrives with its cadence, size and duration; Last Line whole (the validator)
+        let hasWell = false;
+        let hasLab = false;
+        for (const [i, t] of p.tiers.entries()) {
+          const where = `${u.id}.${p.id}.t${i + 1}`;
+          if (t.mods.well && !hasWell) { expect(isPos(t.mods.well.every) && isPos(t.mods.well.time) && isPos(t.mods.well.radius), `${where} well`).toBe(true); hasWell = true; }
+          if (t.mods.lab && !hasLab) { expect(t.mods.lab.rounds > 0, `${where} lab.rounds`).toBe(true); hasLab = true; }
+        }
       }
+    }
+  });
+
+  it('lab, well and lastLine are Tenka\'s alone until their behaviour lands (BUILD_PLAN 6.9: T1 wells, T2 the lab)', () => {
+    const users = new Set();
+    for (const u of UNITS) for (const t of allTiers(u)) if (t.mods.lab || t.mods.well || t.mods.lastLine) users.add(u.id);
+    expect([...users]).toEqual(['tenka']);
+    // they resolve onto her stats (normalised), and onto nobody else's
+    const lab = resolveStats(getUnit('tenka'), { tiers: [5, 2, 0] });
+    expect(lab.lab).toEqual({ rounds: 2, power: 3 });
+    expect('well' in lab || 'lastLine' in lab).toBe(false);
+    const sing = resolveStats(getUnit('tenka'), { tiers: [0, 2, 5] });
+    expect(sing.well).toEqual({ every: 8, time: 6, radius: 2, pull: 1.2, slow: 0.3, vuln: 0.2 });
+    expect(sing.lastLine).toEqual({ radius: 1.5, max: 30, time: 8, cooldown: 120 });
+    expect('lab' in sing).toBe(false);
+    for (const u of UNITS.filter((x) => x.id !== 'tenka')) {
+      const st = resolveStats(u, { tiers: [5, 2, 0] });
+      expect('lab' in st || 'well' in st || 'lastLine' in st, u.id).toBe(false);
     }
   });
 
@@ -650,14 +730,37 @@ describe('design requirements', () => {
       expect(u.bio, `${id} bio has no fantasy outfit words`).not.toMatch(/kimono|hanfu|robe|armou?red|witch|habit|miko/i);
     }
     for (const id of ['kanna', 'yoriko', 'seiran']) expect(getUnit(id).bio, `${id} is staff`).toMatch(/adult/);
+    // Hana's bio matches the sim and her companion (M2): Kaze swoops out on every enemy she shoots (src/render/
+    // companions.js: a swoop on each of her attacks), flyers first (her default target mode, Air: ROLE_TARGET_MODE)
+    const hana = getUnit('hana').bio;
+    expect(hana).not.toMatch(/until a flyer shows up/);
+    expect(hana).toMatch(/Kaze[^.]*swoops out at every enemy she shoots, flyers first/);
+    expect(ROLE_TARGET_MODE[getUnit('hana').role]).toBe('air');
+  });
+
+  it('Ouka\'s Club Mentors / Festival of Clubs say both: the speed since v0.1.40 and the ability recharge (owner default Q1)', () => {
+    const tiers = getUnit('ouka').paths.find((p) => p.id === 'assembly').tiers;
+    const mentors = tiers.find((t) => t.name === 'Club Mentors');
+    const festival = tiers.find((t) => t.name === 'Festival of Clubs');
+    expect(mentors.mods.hub).toEqual({ rateMul: 1.15, cdCut: 0.15 });
+    expect(festival.mods.hub).toEqual({ rateMul: 1.25, rangeMul: 1.15, cdCut: 0.25 });
+    expect(mentors.desc).toBe('Girls in her radius attack 15% faster, and their abilities recharge 15% faster.');
+    expect(festival.desc).toBe('Girls in her radius attack 25% faster and reach 15% further; their abilities recharge 25% faster.');
+    // every number the text says is one her mods carry
+    for (const t of [mentors, festival]) {
+      const pcts = [...t.desc.matchAll(/(\d+)%/g)].map((m) => Number(m[1]) / 100);
+      const mods = Object.values(t.mods.hub).map((v) => Math.round((v > 1 ? v - 1 : v) * 100) / 100);
+      for (const x of pcts) expect(mods, `${t.name} ${x}`).toContain(x);
+    }
   });
 
   it('respects the balance anchors', () => {
     const aoi = getUnit('aoi').base;
     expect([aoi.cost, aoi.damage, aoi.rate, aoi.range]).toEqual([200, 4, 1.4, 3.2]);
     for (const u of towers()) {
-      expect(u.base.cost, u.id).toBeGreaterThanOrEqual(150);
-      expect(u.base.cost, u.id).toBeLessThanOrEqual(900);
+      const [lo, hi] = PRICE_BANDS[u.role]?.base ?? LIVE_BASE_COST;
+      expect(u.base.cost, u.id).toBeGreaterThanOrEqual(lo);
+      expect(u.base.cost, u.id).toBeLessThanOrEqual(hi);
     }
     for (const u of heroes()) expect(u.base.cost, u.id).toBe(0); // heroes deploy for free
     const shiro = getUnit('shiro').base.range;
@@ -722,9 +825,10 @@ describe('hero definitions', () => {
     const h = u.hero;
     expect(u.base.cost).toBe(0);
     expect(u.paths).toEqual([]);
-    // `skill`: the Lv 7 skill, attached from src/data/abilities.js (tests/data/abilities.test.js)
-    // (a returning hero gets hers when the ability track attaches RETURNING_ABILITIES)
-    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', ...(h.skill ? ['skill'] : []), 'ult']);
+    // `skill`: the Lv 7 skill, attached from src/data/abilities.js (tests/data/abilities.test.js); every hero has one
+    // since A3 M3 attached the returning heroes' too
+    expect(h.skill, id).toBeTruthy();
+    expect(Object.keys(h).sort()).toEqual(['levels', 'pathKeys', 'skill', 'ult']);
     expect(h.levels).toBe(HERO_TRACKS[id].levels);
     expect(h.pathKeys).toEqual(OLD_REFS[id]);
     expect(h.levels.map((l) => l.level)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
@@ -767,7 +871,9 @@ describe('hero definitions', () => {
         expect(isPos(e.damage) && ['strongest', 'first'].includes(e.target) && (e.splash ?? 0) >= 0).toBe(true);
         if (e.splash) expect(e.splashMul > 0 && e.splashMul <= 1).toBe(true);
       } else if (e.type === 'runner') {
-        expect(isPos(e.damage) && isPos(e.length) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
+        expect(isPos(e.damage) && isPos(e.time) && Number.isInteger(e.segments) && e.segments >= 1 && isPos(e.gap)).toBe(true);
+        // a fixed flight (`length` tiles) or the whole road back to START (`toStart`, never slower than `minSpeed`)
+        expect(e.toStart ? e.toStart === true && isPos(e.minSpeed) && e.length === undefined : isPos(e.length)).toBe(true);
         expect(e.center === undefined || e.center === 'aim').toBe(true);
       } else {
         expect(isPos(e.damage) && isPos(e.pushback) && e.slow > 0 && e.slow < 1 && isPos(e.duration)).toBe(true);
@@ -816,15 +922,23 @@ describe('helpers', () => {
     expect(() => getUnit('nobody')).toThrow(/Unknown unit/);
   });
 
+  // counts come from the contract table, so a new girl is one ROSTER row (no number to bump)
+  const rosterIds = (pred) => ROSTER.filter(pred).map((r) => r[0]);
+
   it('towers() and heroes() split the roster', () => {
-    expect(towers()).toHaveLength(ROSTER.filter((r) => r[1] === 'tower').length);
-    expect(heroes().map((u) => u.id)).toEqual(['hikari', 'luna', 'nami', 'kanna', 'yoriko', 'seiran']);
+    expect(towers().map((u) => u.id)).toEqual(rosterIds((r) => r[1] === 'tower'));
+    expect(heroes().map((u) => u.id)).toEqual(rosterIds((r) => r[1] === 'hero'));
+    expect(towers().length + heroes().length).toBe(UNITS.length);
+    expect(heroes().slice(0, 3).map((u) => u.id)).toEqual(['hikari', 'luna', 'nami']);
   });
 
   it('unitsByRarity builds the gacha pools', () => {
-    expect(unitsByRarity('R').map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo', 'fuu', 'hana', 'azami', 'kinu', 'wakaba']);
-    expect(unitsByRarity('SSR').map((u) => u.id)).toEqual(['hikari', 'luna', 'hotaru', 'kaede', 'chika', 'kanna', 'yoriko', 'seiran', 'iroha', 'ena']);
-    expect(unitsByRarity('SSR', { kind: 'tower' }).map((u) => u.id)).toEqual(['hotaru', 'kaede', 'chika', 'iroha', 'ena']);
+    for (const rarity of ['R', 'SR', 'SSR']) {
+      expect(unitsByRarity(rarity).map((u) => u.id), rarity).toEqual(rosterIds((r) => r[2] === rarity));
+      expect(unitsByRarity(rarity, { kind: 'tower' }).map((u) => u.id), rarity).toEqual(rosterIds((r) => r[2] === rarity && r[1] === 'tower'));
+    }
+    expect(unitsByRarity('R').slice(0, 4).map((u) => u.id)).toEqual(['aoi', 'rei', 'yuki', 'momo']);
+    expect(unitsByRarity('SSR', { kind: 'tower' }).map((u) => u.id)).toContain('tenka');
     const total = ['R', 'SR', 'SSR'].reduce((n, r) => n + unitsByRarity(r).length, 0);
     expect(total).toBe(ROSTER.length);
   });
