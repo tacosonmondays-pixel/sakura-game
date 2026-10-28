@@ -1,7 +1,7 @@
 # Brighter home and a Clan button (owner, Oct 28): the board
 
-- `01-home-background.jpg`: the live home vs two brighter levels at 844x390 (Halloween backdrop, an academy day stand,
-  a full illustration). Recommended: **full colour** (shipped as the default, `--home-grade: none` in home.css). The
+- `01-home-background.jpg`: the live home vs two brighter levels: Yoriko's Summer Breeze at 844x390 and 1280x720 first,
+  then an academy day stand and the Halloween backdrop at 844x390. Full illustrations and backdrops share the grade. Recommended: **full colour** (shipped as the default, `--home-grade: none` in home.css). The
   words stay readable through the existing scrims and plates; e2e/home.mjs measures the shortcut labels at 5.3:1 or
   more over the brightest picture.
 - `02-clan-button.jpg`: the two places for the Clan button at 844x390 and 1280x720, with zoomed crops of the top bar
