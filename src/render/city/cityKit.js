@@ -21,7 +21,9 @@
 //   • the lane schedule (Gate Arc S1c): each level crossing guards the lane whose road crosses the
 //     line (an underpass or a deck has none); setLanes(open) lowers the barrier arms of closed
 //     lanes, blinks their lamps and runs the train through while one is closed (on a line with
-//     crossings the train only runs then). The arms live in the facade mesh (armsPart, appended
+//     crossings and a schedule the train only runs then; without a schedule it keeps the commuter
+//     timetable and the arms dip for each pass). A fork's shared trunk gets one crossing for all
+//     its lanes, shut only when all of them are closed. The arms live in the facade mesh (armsPart, appended
 //     last by terrain.js) and are re-posed on the CPU only while they swing: 0 extra draw calls,
 //   • rooftops (Gate Arc S1c): buildRoofs draws one flat-roofed block ROOF_Y tall under each
 //     connected region of 'U' tiles (walls and a parapet on its outline only, a little dressing),
@@ -563,7 +565,7 @@ export function buildCity(o) {
 
   // ----- the railway (when the map places one), level crossings, the commuter train ---------------
   let train = null;
-  /** Level crossings: { lane, posts: [{ x, z, ry, glow }], angle, target, base } (the lane schedule drives them). */
+  /** Level crossings: { lane, lanes, posts: [{ x, z, ry, glow }], angle, target, base } (the lane schedule drives them; `lanes`: every lane on that road, `lane` the first). */
   const levelCrossings = [];
   if (rail?.z != null) {
     const rz = rail.z;
@@ -582,6 +584,13 @@ export function buildCity(o) {
         // a road that passes under the line (an underpass) or over it on a deck has no level crossing
         if (r.tunnel[i - 1] || r.tunnel[i] || r.elev[i - 1] > 0.01 || r.elev[i] > 0.01) continue;
         const cx = ax + ((rz - az) / (bz - az)) * (bx - ax);
+        // a fork's shared trunk crosses the line once for every lane drawn along it: one crossing
+        // guards them all (it shuts only when every lane on it is closed)
+        const same = levelCrossings.find((c) => Math.abs(c.x - cx) < 0.6);
+        if (same) {
+          if (!same.lanes.includes(r.index)) same.lanes.push(r.index);
+          continue;
+        }
         acc.box(cx, PATH_H - 0.01, rz, 1.0, 0.03, 0.8, { color: '#7f7a75' });
         for (const s of [-1, 1]) acc.box(cx, 0.06, rz + s * 0.19, 1.0, 0.012, 0.035, { color: '#c7ccd2' });
         // the posts (variant 2: without their arm, which the kit swings) on either side of the road
@@ -593,7 +602,7 @@ export function buildCity(o) {
           glows.push(glow);
           return { x, z, ry, glow };
         });
-        levelCrossings.push({ lane: r.index, x: cx, z: rz, posts, angle: ARM_UP, target: ARM_UP, base: 0 });
+        levelCrossings.push({ lane: r.index, lanes: [r.index], x: cx, z: rz, posts, angle: ARM_UP, target: ARM_UP, base: 0 });
       }
     }
     const geo = trainCarGeometry(new CityAcc());
@@ -760,19 +769,23 @@ export function buildCity(o) {
    * and blinks its lamps, and the train runs through while one is shut; an open lane's rises again.
    * @param {number[]|null} open
    */
+  /** Has a lane schedule ever spoken? Until one does, a line with crossings keeps the commuter timetable. */
+  let scheduled = false;
+  const shutCrossing = (c, shut) => {
+    c.target = shut ? 0 : ARM_UP;
+    for (const p of c.posts) {
+      p.glow.size = shut ? 0.5 : 0.16;
+      p.glow.flicker = shut ? 0.9 : 0;
+    }
+  };
   function setLanes(open) {
     const key = open ? open.join(',') : '*';
     if (key === lanesKey) return;
     lanesKey = key;
+    if (open) scheduled = true;
+    if (!scheduled) return;
     const wasShut = anyShut();
-    for (const c of levelCrossings) {
-      const shut = !!open && !open.includes(c.lane);
-      c.target = shut ? 0 : ARM_UP;
-      for (const p of c.posts) {
-        p.glow.size = shut ? 0.5 : 0.16;
-        p.glow.flicker = shut ? 0.9 : 0;
-      }
-    }
+    for (const c of levelCrossings) shutCrossing(c, !!open && c.lanes.every((l) => !open.includes(l)));
     if (anyShut() && !wasShut) nextPass = Math.min(nextPass, lastTime + BUSY.lead);
     if (!anyShut()) nextPass = Infinity;
   }
@@ -805,10 +818,15 @@ export function buildCity(o) {
       armBind.pos.needsUpdate = true;
       armBind.nor.needsUpdate = true;
     }
-    if (train && !levelCrossings.length) {
-      // a line with no crossing: the commuter timetable (every 40 s)
+    if (train && (!levelCrossings.length || !scheduled)) {
+      // a line with no crossing, or no lane schedule: the commuter timetable (every 40 s); its
+      // crossings come down just before the train and rise once it has passed (display only)
       const u = train.userData;
       const k = (time % TRAIN.period) / TRAIN.period;
+      if (levelCrossings.length) {
+        const down = k < TRAIN.run || k > 1 - BUSY.lead / TRAIN.period;
+        for (const c of levelCrossings) if ((c.target === 0) !== down) shutCrossing(c, down);
+      }
       // glide across in the first part of the period, then wait off screen
       const t = Math.min(1, k / TRAIN.run);
       placeTrain(u.x0 + (u.x1 - u.x0) * (t * t * (3 - 2 * t) * 0.25 + t * 0.75), u.z);

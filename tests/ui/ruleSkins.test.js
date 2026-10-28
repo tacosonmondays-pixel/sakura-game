@@ -97,3 +97,15 @@ describe('rule skins', () => {
     }
   });
 });
+
+describe('the rule card stays readable on a phone', () => {
+  it('every font size on the rule card (.ma-rule*) is at least 12 px', () => {
+    const css = readFileSync(new URL('../../src/ui/styles/modes.css', import.meta.url), 'utf8');
+    const sizes = [];
+    for (const m of css.matchAll(/([^{}]*\.ma-rule[^{}]*)\{([^}]*)\}/g)) {
+      for (const f of m[2].matchAll(/font-size:\s*([\d.]+)(px|rem)/g)) sizes.push([m[1].trim(), Number(f[1]) * (f[2] === 'rem' ? 16 : 1)]);
+    }
+    expect(sizes.length).toBeGreaterThan(3);
+    for (const [sel, px] of sizes) expect(px, sel).toBeGreaterThanOrEqual(12);
+  });
+});

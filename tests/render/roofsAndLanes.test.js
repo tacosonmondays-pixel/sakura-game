@@ -202,4 +202,42 @@ describe('the level crossing follows the lane schedule', () => {
     expect(lamp.flicker).toBe(0);
     city.dispose();
   });
+
+  it('a shared trunk (after the join) crosses the line once: one crossing for both lanes, shut only when both are', () => {
+    const map = { ...crossing, city: { railway: { z: 10.6 } } };
+    const { city } = kit(map);
+    expect(city.levelCrossings.length).toBe(1);
+    expect(city.levelCrossings[0].lanes).toEqual([0, 1]);
+    city.setLanes([1]);
+    expect(city.levelCrossings[0].target).not.toBe(0);
+    city.setLanes([0]);
+    expect(city.levelCrossings[0].target).not.toBe(0);
+    city.dispose();
+  });
+
+  it('a line with a crossing but no lane schedule keeps the commuter timetable, the arms dipping for each pass', () => {
+    const { city } = kit(crossing);
+    const train = city.meshes.find((m) => m.name === 'cityTrain');
+    const trainX = () => {
+      const m = new THREE.Matrix4();
+      train.getMatrixAt(0, m);
+      return new THREE.Vector3().setFromMatrixPosition(m).x;
+    };
+    const c = city.levelCrossings[0];
+    const xs = [];
+    let downDuringPass = false;
+    let upBetween = false;
+    for (let t = 0.1; t < 40; t += 0.1) {
+      city.setLanes(null); // what the battle sends every frame without a laneCycle
+      city.update(t);
+      const x = trainX();
+      xs.push(x);
+      if (x > 0 && x < crossing.width) downDuringPass ||= c.target === 0;
+      if (t > 20 && t < 30) upBetween ||= c.target !== 0;
+    }
+    expect(xs.some((x) => x > 0 && x < crossing.width)).toBe(true);
+    expect(downDuringPass).toBe(true);
+    expect(upBetween).toBe(true);
+    city.dispose();
+  });
 });

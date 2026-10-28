@@ -168,6 +168,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const terrain = buildTerrain(map, look, scenery, { shadows: false, quality, reverse: !!sim.mode?.reverse });
   scene.add(terrain.group);
   const fx = new FxSystem({ atlas, batches, camera });
+  if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
@@ -499,8 +500,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const v = actors.towerView(ev.towerUid);
           if (v) {
             const m = v.model.position;
-            fx.shards(m.x, 0.6, m.z, '#ffcc33', 6);
-            fx.puff(m.x, 0.5, m.z, '#4a4a55', 5, 0.3, 0.35);
+            fx.shards(m.x, m.y + 0.55, m.z, '#ffcc33', 6);
+            fx.puff(m.x, m.y + 0.45, m.z, '#4a4a55', 5, 0.3, 0.35);
           }
           break;
         }
@@ -525,7 +526,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (!t) break;
           const col = PATH_COLORS[ev.path] || '#ffd84d';
           fx.sparkle(t.x, t.y, col, { count: 10 + ev.tier * 4, height: 0.8 + ev.tier * 0.2 });
-          if (ev.tier >= 3) fx.flash(t.x, 0.6, t.y, col, 1.4 + ev.tier * 0.2, 0.3);
+          if (ev.tier >= 3) fx.flash(t.x, 0.6 + fx.lift(t.x, t.y), t.y, col, 1.4 + ev.tier * 0.2, 0.3);
           if (ev.tier >= 5) {
             shake(0.05);
             screenFlash(col, 0.25, 3);
@@ -536,8 +537,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const v = actors.towerView(ev.towerUid);
           if (v) {
             const m = v.model.position;
-            fx.puff(m.x, 0.3, m.z, '#ffffff', 6, 0.4, 0.35);
-            fx.coin(m.x, 0.2, m.z, ev.refund);
+            fx.puff(m.x, m.y + 0.25, m.z, '#ffffff', 6, 0.4, 0.35);
+            fx.coin(m.x, m.y + 0.15, m.z, ev.refund);
           }
           overlays.refreshHints();
           break;
@@ -557,7 +558,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (v) {
             const m = v.model.position;
             fx.sparkle(m.x, m.z, '#ffd84d', { count: 16, height: 1.2 });
-            fx.text(`LV${ev.level}`, m.x, 1.2, m.z, '#ffd84d', 0.24, 1.2, 0.5);
+            fx.text(`LV${ev.level}`, m.x, 1.15 + m.y, m.z, '#ffd84d', 0.24, 1.2, 0.5);
           }
           break;
         }

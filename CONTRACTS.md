@@ -1086,7 +1086,9 @@ the road itself is excluded by the band —, '.' / ',' / 'U' land). Rooftops ('U
 whose centre is on a roof needs her whole footprint on roof tiles (every other tile, and the board's
 outside, is the roof's edge: else 'blocked'); for a girl on the ground a roof tile blocks like a
 building; water girls get 'needsWater' there, amphibious girls may stand there; a roof adds no range.
-`sim.placement.isRoof(x, y)` answers it; the renderer (terrain `roofAt`) stands roof girls ROOF_Y (0.56) higher; autoPlan
+`sim.placement.isRoof(x, y)` answers it; the renderer (terrain `roofAt`) stands roof girls ROOF_Y (0.56) higher, and their
+shots, hand flashes, beams, first chain links, sparkles and pick rings start up there too (display only: a projectile
+blends down to the sim's own height by f′ 0.6; `fx.liftAt`, attack-FX `ctx.lift(t)`); autoPlan
 takes roofs as land and marks such place actions `roof: true`. Path distance is measured to the dense
 Tracks v3 centrelines (segments bucketed per tile, so the hundreds of short segments stay cheap).
 Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
@@ -1205,6 +1207,8 @@ SimEvent = { type, ...payload } with types:
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
                lanes? /*the open lane indices, only on a stage with waveGen.laneCycle*/ }
   sim.openLanes(n?) → number[]|null   // lanes open on wave n (default: this wave, or the next between waves); null = all
+                                      // (city kit: one level crossing per road crossing; a fork's shared trunk guards all its lanes
+                                      //  and shuts only when every one is closed; a line with no schedule keeps the 40 s timetable)
   'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
   'rift' {uid, x, y, x2, y2} (Shifting Stars)   'won' {finished: true} (freeplay Finish)
 ```
