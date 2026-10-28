@@ -797,7 +797,7 @@ function buildTop(host, { onMenu, chat }) {
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins' }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
-    chat, clan, mail, menu,
+    ...[chat, clan, mail, menu].filter(Boolean),
   );
 }
 
