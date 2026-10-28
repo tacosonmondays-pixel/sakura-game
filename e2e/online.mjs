@@ -760,6 +760,8 @@ try {
   // (the guest searches from the opposite corner and after the host's hero stands, so the two
   // orders never race for the same spot)
   async function placeHero(page, fromEnd) {
+    // (a frame-starved page is dropped and re-admitted by design: while it rebuilds there is no window.__battle)
+    await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.act, null, { timeout: 120000, polling: 250 }).catch(() => null);
     return page.evaluate((rev) => {
       const { sim, ui } = window.__battle;
       const id = sim.heroConfig?.unitId;
