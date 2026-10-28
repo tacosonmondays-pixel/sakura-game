@@ -45,7 +45,11 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    flyers on every path, her damage band, her own lane on a shared road) and Kaede's maple blade arts
 //    (cleave, crescents, storm, shockwave; Pierce on her blade arts); a client on 7 resolves the same
 //    loadout to different battles.
-export const COOP_PROTOCOL = 8;
+// 9: the ultimates release (co-op update #6, set once for it): tower abilities and hero skills cast in battle
+//    (the ability bar, the 'cast' commands, Auto casting, aimed abilities), Tenka (her coil bolts, lab team,
+//    gravity wells and Last Line), the returning girls' abilities and Seiran's Dragonflight flying all the way back
+//    to START; a client on 8 resolves the same loadout to different battles (or does not know the girl at all).
+export const COOP_PROTOCOL = 9;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */
