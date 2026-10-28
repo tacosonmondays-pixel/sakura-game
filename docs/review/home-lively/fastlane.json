@@ -1,0 +1,35 @@
+{
+  "review": "fast lane: brighter home and Clan button",
+  "commit": "cb53e18e",
+  "verdict": "OK",
+  "summary": "Display-only change, checked independently in headless Chrome on the sample save. Every home picture shows in its own colours with no grade and no blur: the academy stand (lobby/academy.webp), the Halloween backdrop (dev clock 2026-10-24), Yoriko's Summer Breeze, Azami's Gate Duty and Hikari's Rampart, with computed filter none. All dock labels, the serial, the name and LV are 4.5:1 or more against the pixels behind them; the lowest is the serial over Azami at 844x390 (4.68). The Clan button uses the same flag glyph as the menu's Clan row. It is a 44 px tap target (the probe's tap min is 44.5 at 844x390; the box is 44x44 at 1280x720), opens #/clan, and shows its red dot with clan invites alone and with donations alone. The menu's Clan row shows the same dot. No null or undefined text, no sideways overflow, and no control off screen at 844x390, 1280x720, 768x1024, 390x844, 820x1180, 701x900, 899x700 and 667x375. The bar fits on upright tablets with the serial hidden. Six redraws leave one Clan button, and there are no page or console errors. The menu sheet opens and closes (X, Esc, tap outside). Tests pass, the sim id is unchanged and COOP_PROTOCOL stays 9. Two low findings, neither blocking.",
+  "findings": [
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "The menu button's dot ignores clan invites while the menu's Clan row now shows one",
+      "detail": "buildTop's newInside (src/ui/screens/lobby.js ~line 788) still lights the menu button for hub.badges.donationsReady only. The menu sheet's Clan row now uses clanDot(), which also counts clanInvites. So an invite alone puts a dot on the Clan row inside the menu but not on the menu button that opens it. The new Clan button and the chat count already show the invite, so the player still sees it. Fix: use clanDot() in newInside. The comment above it ('Clan lives in the menu on this home') is also stale now.",
+      "evidence": "Code read. src/ui/screens/lobby.js newInside vs const clanDot = () => hub.badges.donationsReady > 0 || hub.badges.clanInvites > 0"
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "The SNT-HQ serial is close to the floor over Azami's Gate Duty at 844x390",
+      "detail": "With the grade gone, the decorative serial measures 4.68:1 (10th percentile of glyph pixels) over Azami's bright sky at 844x390, and 5.14 at 1280x720. It passes 4.5:1 with little margin. e2e/home.mjs only measures it over Hikari's rampart (8.1 to 8.3). It is worth adding a brighter scene to that check, or giving the serial a touch more halo, if more pale-sky illustrations arrive.",
+      "evidence": "glyphContrast at 844x390 over azami-scene: SNT-HQ 4.68, Sensei 6.26, LV9 6.03, Students 10.89, Mall 7.30. Default academy: SNT-HQ 5.30; Halloween: 7.34; Yoriko: 6.82"
+    }
+  ],
+  "checks_passed": [
+    "npx vitest run tests/ui tests/data: 72 files, 1334 tests passed",
+    "node e2e/home.mjs: 218 ok, 0 failed (HOME PASS); probe tap min 44.50, 13 controls, menu sheet opens and closes by X, Esc and tap outside",
+    "sim id 4d7b235077a8; COOP_PROTOCOL 9 unchanged; the diff touches no sim, data or save code",
+    "colours: computed filter none and no blur on the academy stand, Halloween, Yoriko Summer Breeze, Azami Gate Duty and Hikari Rampart at 844x390 and 1280x720; screenshots read",
+    "contrast 4.5:1 or more for the dock labels, serial, name and LV on every scene measured (minimum 4.68)",
+    "Clan button: flag glyph same path as the menu's Clan row; 44 px tap; opens #/clan; dot and 'Clan, something new' label with clanInvites=2 and with donationsReady=3; the menu's Clan row shows the same dot",
+    "no 'null' or 'undefined' text; scrollWidth equals clientWidth and no top-bar piece off screen or overlapping at 844x390, 1280x720, 768x1024, 390x844, 820x1180, 701x900, 899x700 and 667x375",
+    "701-899 px upright: gaps close and the serial is hidden; the bar fits on one row at 768x1024 and 701x900 and on two rows at 390x844",
+    "redraws: 1 Clan button before and after 6 lobby re-entries; no page or console errors in any pass",
+    "Daily gift 'day\\u00a0N' no-break space; patch note v0.1.56 'Brighter Home' at the top of patchNotes.js, with no player or other-game names",
+    "board docs/review/home-lively/ present: README and 3 jpgs, all the game's own art"
+  ]
+}
