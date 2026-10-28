@@ -11,7 +11,7 @@ export default [
   }, [
     narrate("The Sentinels' common room, after classes. A teapot, a sofa, and a very full notice board."),
     say('hikari', 'Welcome home, Sensei! Every mission starts here, and every mission ends here.', { at: 'center', face: 'smile' }),
-    say('hikari', 'Tap ‹ › to choose who keeps you company. The picture button changes the view.'),
+    say('hikari', 'Open the Menu and tap Background to choose who keeps you company, and the view behind her.'),
     say('aoi', "Captain! Can I be the one who greets Sensei in the mornings? I'll practise my wave!", { at: 'left', fx: 'slide-in' }),
     say('hikari', "You'll have to take turns. Everyone has asked.", { face: 'laugh' }),
     say('aoi', 'Is that your journal? …Why is there a little star in a hat on every page?', { face: 'question' }),
