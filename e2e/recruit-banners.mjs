@@ -47,7 +47,7 @@ async function run(vp) {
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: AT });
-  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 15000, animations: 'disabled' }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`)); };
+  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 60000, animations: 'disabled' }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`)); };
   const tap = async (sel) => (touch ? page.tap(sel) : page.click(sel));
   const closeModal = async () => {
     const btn = page.locator('.modal .btn, .modal button').filter({ hasText: /^(Close|Cancel)$/ }).last();
@@ -62,6 +62,8 @@ async function run(vp) {
     p.currencies.gems = 50000;
     window.__sakura.store.commit('e2e');
   });
+  // screenshots for the owner boards: no toasts or lesson pop-ups over the banner (checks are unaffected)
+  if (shotsDir) await page.addStyleTag({ content: '.toast-host, .jn-toast { display: none !important; }' });
   await page.evaluate(() => { location.hash = '#/recruit'; });
   await page.waitForSelector('.bn-rail', { timeout: 20000 });
   await page.waitForTimeout(600);
