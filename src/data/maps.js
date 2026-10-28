@@ -1438,9 +1438,14 @@ export const MAPS = [
       street([[4.5, 13], [4.5, 10.5], [11.5, 10.5], [11.5, 6.5], [6.5, 6.5], [6.5, -1]], { r: 1.6, tunnel: [[6.5, 4.5], [6.5, 0.5]] }),
     ],
     decor: [
-      { type: 'clockTower', x: 3, y: 1, rot: 0 }, { type: 'bikeRack', x: 2, y: 9, rot: 0 },
+      { type: 'flagpole', x: 2, y: 5, rot: 0 }, { type: 'bikeShed', x: 1, y: 8, rot: Math.PI / 2 },
       { type: 'lantern', x: 9, y: 8 }, { type: 'lantern', x: 12, y: 4 },
     ],
+    city: {
+      searchlight: { x: 12.8, z: 8.6, rot: -0.2, sweep: 1.4, reach: 3.6, period: 13 },
+      // the main building's clock tower over the corridor, in the strip past the north edge
+      pieces: [{ type: 'schoolBlock', variant: 3, x: 6.5, z: -1.7, s: 1.4 }],
+    },
   }),
   defineMap({
     id: 'noon_rowing_jetty', name: 'Rowing Jetty', theme: 'campus', tier: 'intermediate',
@@ -1466,8 +1471,12 @@ export const MAPS = [
       { nodes: [[9.5, 13], L, [9.5, 8.8], [9.8, 7.6], [10.6, 6.8]], join: { path: 0, at: [12.0, 6.5] } },
     ],
     decor: [
+      { type: 'boatRack', x: 1, y: 6, rot: Math.PI / 2 }, { type: 'boatRack', x: 13, y: 7, rot: 0 },
       { type: 'lantern', x: 12, y: 5 }, { type: 'bench', x: 14, y: 2 },
     ],
+    city: {
+      searchlight: { x: 17.6, z: 7.6, rot: Math.PI / 2 + 0.3, sweep: 1.5, reach: 3.6, period: 14, variant: 1 },
+    },
   }),
   defineMap({
     id: 'noon_footbridges', name: 'Canal Footbridges', theme: 'campus', tier: 'intermediate',
@@ -1492,7 +1501,8 @@ export const MAPS = [
       street([[-1, 1.5], [3.5, 1.5], [3.5, 4.5], [7.5, 4.5], [7.5, 7.5], [11.5, 7.5], [11.5, 10.5], [15.5, 10.5], [15.5, 13]], { r: 1.5 }),
     ],
     decor: [
-      { type: 'lantern', x: 6, y: 2 }, { type: 'bench', x: 17, y: 5 },
+      { type: 'clubHut', x: 9, y: 1, rot: Math.PI }, { type: 'clubHut', x: 2, y: 5, rot: 0 },
+      { type: 'clubHut', x: 17, y: 8, rot: -Math.PI / 2 }, { type: 'lantern', x: 6, y: 2 },
     ],
   }),
   defineMap({
@@ -1520,6 +1530,14 @@ export const MAPS = [
     decor: [
       { type: 'lantern', x: 17, y: 3 }, { type: 'bench', x: 3, y: 3 },
     ],
+    city: {
+      road: 'track',
+      pieces: [
+        { type: 'finishGantry', x: 12.5, z: 10.4, rot: Math.PI / 2 },
+        { type: 'scoreboard', x: 2.2, z: 1.0, rot: 0.4 },
+      ],
+      searchlight: { x: 18.6, z: 1.6, rot: Math.PI + 0.5, sweep: 1.2, reach: 3.0, period: 15, variant: 1 },
+    },
   }),
   defineMap({
     id: 'noon_boathouse_lamp', name: 'The Boathouse Lamp', theme: 'campus', tier: 'advanced',
@@ -1544,8 +1562,12 @@ export const MAPS = [
       [[21, 2.5], L, [15.0, 2.5], [13.9, 3.0], [13.5, 4.0], L, [13.5, 7.6], [13.9, 9.1], [15.5, 10.0], [17.1, 9.1], [17.5, 7.8], [17.1, 6.6], [15.5, 6.0], L, [12.4, 6.0], [11.2, 5.6], L, [8.6, 3.8], [7.8, 3.5], L, [7.4, 3.5], IN, L, [3.6, 3.5], OUT, L, [-1, 3.5]],
     ],
     decor: [
+      { type: 'oldLamp', x: 15, y: 8, rot: 0 }, { type: 'boatRack', x: 2, y: 5, rot: Math.PI / 2 },
       { type: 'lantern', x: 3, y: 1 }, { type: 'bench', x: 10, y: 1 },
     ],
+    city: {
+      searchlight: { x: 18.5, z: 4.6, rot: Math.PI - 0.3, sweep: 1.3, reach: 3.4, period: 14 },
+    },
   }),
 
   // -------------------------------------------------------------------------
