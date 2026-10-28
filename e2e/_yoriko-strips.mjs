@@ -47,11 +47,20 @@ const frame = (dt = 1 / 60) => page.evaluate((d) => { const b = window.__battle;
 const snapNow = () => page.evaluate(() => { const b = window.__battle; b.renderer.update(0); const c = document.querySelector('canvas'); const r = c.getBoundingClientRect(); return { url: c.toDataURL('image/png'), x: r.left, y: r.top, w: c.width, cw: r.width }; });
 
 try {
-  await page.goto(base, { waitUntil: 'load', timeout: 90000 });
-  await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 90000 });
-  await page.evaluate(() => { const { store } = window.__sakura; store.profile.battleSaves = {}; store.commit('formation'); });
-  await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
-  await page.waitForFunction(() => window.__battle?.ui?.act && window.__battle.sim.heroConfig?.unitId === 'yoriko', null, { timeout: 90000 });
+  for (let tries = 0; ; tries++) {
+    try {
+      await page.goto(base, { waitUntil: 'load', timeout: 180000 });
+      await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 180000 });
+      await settle(1500);
+      await page.evaluate(() => { const { store } = window.__sakura; store.profile.battleSaves = {}; store.commit('formation'); });
+      await page.evaluate(() => { location.hash = '#/battle?stage=1-1&difficulty=normal'; });
+      await page.waitForFunction(() => window.__battle?.ui?.act && window.__battle.sim.heroConfig?.unitId === 'yoriko', null, { timeout: 180000 });
+      break;
+    } catch (e) {
+      if (tries >= 2) throw e;
+      log('retry after', String(e.message).split('\n')[0]);
+    }
+  }
   await settle(800);
   const yori = await page.evaluate(() => {
     const { sim, ui, renderer } = window.__battle;
