@@ -101,6 +101,7 @@ export function createTowerPanel(ctx) {
   let sig = '';
   let live = null; // nodes updated every frame
   let sellArmed = 0;
+  let downInFoot = false;
   let sellTimer = 0;
   let more = false; // MORE: the Details sheet is open in the drawer
   let targetsOpen = false; // the target row's "⋯" is open
@@ -204,6 +205,14 @@ export function createTowerPanel(ctx) {
    * way up, after the tapped control has acted: a redraw on pointerdown would replace the control under the finger
    * and swallow its click.
    */
+  // Where the last press began: a phone moves a finger tap that lands on no tap target onto the nearest one (touch
+  // adjustment), its pointerdown's target and its click included, but the press keeps the finger's real point. Sell
+  // acts only on a press whose point is inside the footer, so a tap on the last row's lock line just above it can
+  // never arm or confirm Sell (the M4 review, round r4: taps 1-9 px above the footer armed it, two sold her)
+  el.addEventListener('pointerdown', (e) => {
+    const f = el.querySelector('.bt-panel-foot')?.getBoundingClientRect();
+    downInFoot = !!f && e.clientY >= f.top && e.clientY <= f.bottom && e.clientX >= f.left && e.clientX <= f.right;
+  }, true);
   el.addEventListener('click', (e) => {
     if (arm.armedPath(uid) == null) return;
     if (e.target.closest?.('.bt-buy, .bt-path-main, .bt-path-open')) return;
@@ -860,7 +869,9 @@ export function createTowerPanel(ctx) {
   function footer(t, { ally }) {
     const moreBtn = h(`button.bt-dw-more${more ? '.open' : ''}`, {
       type: 'button', 'data-testid': 'panel-more', 'aria-expanded': more ? 'true' : 'false',
-      'aria-label': more ? 'Back to her drawer' : 'More details', onclick: () => setMore(!more),
+      'aria-label': more ? 'Back to her drawer' : 'More details',
+      // (like Sell: only a press inside the footer, or the keyboard; the M4 review, round r4)
+      onclick: (e) => { if (e.detail === 0 || downInFoot) setMore(!more); },
     }, more ? '‹ Back' : 'More ▸');
     if (t.isHero) {
       const mv = ctx.heroLevels?.moveState(t) || { label: 'Move', disabled: true };
@@ -871,7 +882,11 @@ export function createTowerPanel(ctx) {
     const f = footerView(t.spent, sim.sellValue(t.uid), { armed: !!sellArmed });
     const sell = ally ? null : h(
       `button.bt-sell${sellArmed ? '.armed' : ''}`,
-      { type: 'button', 'data-testid': 'sell', 'aria-label': sellArmed ? `Confirm: sell her for ${f.sellValue} coins` : `Sell for ${f.sellValue} coins`, onclick: () => onSell(t) },
+      {
+        type: 'button', 'data-testid': 'sell', 'aria-label': sellArmed ? `Confirm: sell her for ${f.sellValue} coins` : `Sell for ${f.sellValue} coins`,
+        // (a keyboard press has no pointer, detail 0; a pointer's click counts only when its press began in the footer)
+        onclick: (e) => { if (e.detail === 0 || downInFoot) onSell(t); },
+      },
       h('span.bt-sell-lbl', f.sellLabel), h('b', f.sellValue),
     );
     return h('div.bt-panel-foot', h('span.bt-spent', h('span.bt-dw-k', 'INVESTED'), ' ', h('b', f.invested)), moreBtn, sell || h('span'));
