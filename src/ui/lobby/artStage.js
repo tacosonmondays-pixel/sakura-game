@@ -7,6 +7,7 @@
 //   const stage = createArtStage(host, { reduceMotion, onTap, boxes, backdrop })
 //   await stage.show(unitDef, { background })   her picture (her stand over a painting, or a full illustration)
 //   stage.relayout()                            placed again (a resize, the UI drawn again)
+//   a tap on her: hearts rise where she was tapped (3 on her head, 1 on her body; none under Reduce motion)
 //   stage.say(text) / stage.hideBubble()        her bubble: on a tap only, 2.4 s, under her face, never over a control
 //   stage.liveHost()                            the slot her living scene's canvas goes in (src/ui/lobby/live/)
 //   stage.setLive(on)                           the canvas shown in place of the painting and her still picture
@@ -159,7 +160,8 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   const frame = h('div.home-host', { 'data-testid': 'secretary-art' });
   const bottom = h('div.ui-scrim.b');
   const bubble = h('div.ui-bubble.home-bubble', { role: 'status', 'aria-live': 'polite', 'data-testid': 'secretary-bubble' }, h('span.home-bubble-text'));
-  host.append(scene, live, ...scrims, frame, bottom, bubble);
+  const fx = h('div.home-fx', { 'aria-hidden': 'true' });
+  host.append(scene, live, ...scrims, frame, bottom, fx, bubble);
 
   let disposed = false;
   let current = null; // { u, bg, kind: 'stand'|'full', sceneImg, fig, aspect, art, anchor, extents }
@@ -278,8 +280,25 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   frame.addEventListener('click', (e) => {
     if (!placed) return;
     const head = placed.face && e.clientY <= placed.face.y + placed.face.h && Math.abs(e.clientX - placed.faceX) <= placed.face.w / 2;
+    hearts(head ? 3 : 1, e);
     onTap?.(head ? 'head' : 'body');
   });
+
+  /** She reacts to a tap with hearts rising where she was tapped (3 for a head pat, 1 for her body); none under Reduce
+   * motion (the setting or the system's). Stand and full illustration alike. */
+  function hearts(n, e) {
+    if (disposed || reduceMotion || globalThis.document?.documentElement?.hasAttribute('data-reduce-motion')
+      || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const r = host.getBoundingClientRect();
+    const size = Math.max(22, Math.min(34, (placed.face?.w || 120) * 0.22));
+    for (let i = 0; i < n; i++) {
+      const heart = h('i.home-heart', { 'aria-hidden': 'true' }, '♥');
+      Object.assign(heart.style, { left: `${Math.round(e.clientX - r.left + (i - (n - 1) / 2) * size * 0.9)}px`, top: `${Math.round(e.clientY - r.top - size * 0.6)}px`,
+        fontSize: `${Math.round(size)}px`, animationDelay: `${i * 90}ms` });
+      fx.append(heart);
+      setTimeout(() => heart.remove(), 1300);
+    }
+  }
 
   /** Under her face box, centred on her face, inside the free band between the controls on her left and on her right. */
   function fitBubble() {
