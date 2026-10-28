@@ -143,11 +143,13 @@ try {
     check(sHot?.ringAnim === 'ur-spin', `${tag} students: the rainbow turns (ring ${sHot?.ringAnim})`);
     const edge = await page.evaluate(() => {
       const c = document.querySelector('.unit-card[data-unit="hotaru"]');
-      const nameGap = (id) => { const e = document.querySelector(`.unit-card[data-unit="${id}"] :is(.unit-card-name, .cap > .nm)`); const r = document.createRange(); r.selectNodeContents(e); return Math.round(e.closest('.unit-card').getBoundingClientRect().bottom - r.getBoundingClientRect().bottom); };
+      const nameGap = (id) => { const e = document.querySelector(`.unit-card[data-unit="${id}"] :is(.unit-card-name, .cap > .nm)`); const r = document.createRange(); r.selectNodeContents(e); return Math.round((e.closest('.unit-card').getBoundingClientRect().bottom - r.getBoundingClientRect().bottom) * 10) / 10; };
       const glints = [...c.querySelectorAll(':scope > .ur-sparkles i')];
       return { border: getComputedStyle(c).borderBottomWidth, gapUr: nameGap('hotaru'), gapSsr: nameGap('kaede'), glints: glints.length, glintAnim: glints[0] ? getComputedStyle(glints[0]).animationName : null, shown: getComputedStyle(c.querySelector(':scope > .ur-sparkles')).display };
     });
-    check(edge.border === '0px' && edge.gapUr === edge.gapSsr, `${tag} students: the rainbow runs to the card's bottom edge (no rarity strip under it: border ${edge.border}), her name sits where Kaede's does (${edge.gapUr} / ${edge.gapSsr} px)`);
+    // (a girl tile's caption centres its words in the band its frame leaves: the rainbow ring and the SSR Glow differ by
+    // a fraction of a pixel, so within 1 px)
+    check(edge.border === '0px' && Math.abs(edge.gapUr - edge.gapSsr) <= 1, `${tag} students: the rainbow runs to the card's bottom edge (no rarity strip under it: border ${edge.border}), her name sits where Kaede's does (${edge.gapUr} / ${edge.gapSsr} px)`);
     check(edge.glints === 3 && edge.shown === 'block' && edge.glintAnim === 'ur-glint', `${tag} students: three glints twinkle on her frame (${edge.glints}, ${edge.glintAnim})`);
     for (const [id, label] of [['kaede', 'SSR'], ['akane', 'SR'], ['aoi', 'R']]) {
       const f = await frameInfo(page, `.unit-card[data-unit="${id}"]`);

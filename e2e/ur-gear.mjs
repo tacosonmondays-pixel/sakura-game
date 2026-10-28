@@ -243,6 +243,8 @@ try {
     await tap(page, `.mb-gear[data-gear="${ids.spare}"]`);
     await page.waitForSelector('[data-testid="gear-piece-sheet"] [data-testid="gear-awaken"]');
     check(true, `${tag} the Backpack's piece sheet offers Awaken on a spare gold +10`);
+    // (the kit sheet rises into place: measure it once it stands still)
+    await page.waitForFunction(() => !document.querySelector('[data-testid="gear-piece-sheet"]')?.getAnimations().some((a) => a.playState === 'running'), null, { timeout: T }).catch(() => {});
     check((await layout(page)).fits, `${tag} the Backpack's piece sheet fits the screen`);
     await shot(page, `${tag}-backpack-modal`);
     await closeModals(page);
