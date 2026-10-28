@@ -702,9 +702,9 @@ const CONSTRUCTS = [
   }),
   enemy({
     id: 'vesper_halo_drone', name: 'Halo Drone', family: 'construct', hp: 30, speed: 1.0, armorClass: 'heavy',
-    bounty: 10, threat: 4, size: 0.72, color: '#17607a', accent: '#7ff0ff', line: '#e9fbff', variant: 'cogling', props: ['crystals'],
+    bounty: 10, threat: 4, size: 0.72, color: '#2a9fb8', accent: '#7ff0ff', line: '#0b2a35', variant: 'cogling', props: ['crystals'],
     traits: { blink: { every: 5, distance: 3 } },
-    lore: 'A dark glass drone with one cyan lens. When its lens flickers it is already three tiles further on.',
+    lore: 'A teal glass drone with one cyan lens. When its lens flickers it is already three tiles further on.',
     counters: 'Blink: a slow, stun or silence during the warning cancels the jump. Heavy body: blast and mystic deal extra.',
     introducedIn: '5-8',
   }),

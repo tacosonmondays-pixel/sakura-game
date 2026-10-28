@@ -72,7 +72,7 @@ Every milestone: independent reviewer OK (≤ 3 fix rounds), hash log `docs/spec
    | Id · name | Body (GLB · variant · props) | hp · speed · class · armour | Rule | threat · bounty | Colours (body / accent / `line`) · size | First |
    |---|---|---|---|---|---|---|
    | `vesper_patrol_orb` · Patrol Orb | construct · `cogling` · gears | 35 · 1.05 · heavy · 0 | none (fodder) | 2.5 · 13 (as the Cogling) | white glass `#f2f7fb` / cyan `#3fd0e8` / dark slate `#1f3b4d` · 0.75 | 5-8 |
-   | `vesper_halo_drone` · Halo Drone | construct · `cogling` · crystals | 30 · 1.0 · heavy · 0 | `blink { every: 5, distance: 3 }` (slows, stuns and silences interrupt it, as the Fog Skulker) | 4 · 10 (as the Skulker) | deep glass teal `#17607a` / `#7ff0ff` / near-white `#e9fbff` · 0.72 | 5-8 |
+   | `vesper_halo_drone` · Halo Drone | construct · `cogling` · crystals | 30 · 1.0 · heavy · 0 | `blink { every: 5, distance: 3 }` (slows, stuns and silences interrupt it, as the Fog Skulker) | 4 · 10 (as the Skulker) | mid glass teal `#2a9fb8` / `#7ff0ff` / dark teal line `#0b2a35` · 0.72 (visual round 1: the Orb light, the Drone mid, the Gnat Spotter dark in greyscale) | 5-8 |
    | `vesper_line_sentry` · Line Sentry | construct · `sentry` · gears (no helmet) | 70 · 0.7 · heavy · 4 | armour 4 | 5.5 · 25 (as the Iron Sentry) | white glass `#e9f1f6` / `#2ec4e6` / `#1f3b4d` · 1.05 | 5-8 |
 
    Readability (Step 4 lesson): in greyscale at 844×390 the Orb is light with a dark rim, the Drone dark with a light
