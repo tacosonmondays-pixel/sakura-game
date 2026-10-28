@@ -338,6 +338,8 @@ row). Push after each.
 
 ## 9. Owner questions (defaults taken)
 
+> **owner: default (Oct 28)** — the owner confirmed every Step 3 default below ("yes ultimates and default all"): the Gnat on the Cogling model under Constructs, 3-7…3-9 borrowing the 6-3 / 5-1 / 6-2 rules, "Names Read Aloud", Ms. Hazuki told only through absence, no extra content note.
+
 - **The Brigade's look (no new model now):** the Gnat ships on the construct GLB's `cogling`, navy and amber, as a
   13th family `brigade` in the bestiary; the real Brigade kit (§18.9: trooper, Gnat with rotors and a LINK LOST screen,
   Tortoise, Badger, Strider, HAMMER) waits for the enemy rebuild. OK, or hold the Gnat back until then (3-9 would field
