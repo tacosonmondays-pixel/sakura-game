@@ -247,7 +247,9 @@ try {
     await shot(page, `${tag}-backpack-modal`);
     await closeModals(page);
 
-    // ---- Backpack: the Rainbow Gear Box opens only through its slot picker, into rainbow UR gear at +0
+    // ---- Backpack: the Rainbow Gear Box opens only through its slot picker, into rainbow UR gear at +0 (UI v2 M2: the
+    // boxes live in the Supplies sheet, opened from the toolbar)
+    await tap(page, '#app [data-testid="supplies-open"]');
     await page.waitForSelector('[data-testid="box-gearbox_rainbow"] [data-testid="rainbow-box-open"]');
     const gear0 = await page.evaluate(() => Object.keys(window.__sakura.store.profile.gear));
     const seeds0 = await count(page, 'seed_rainbow');
@@ -278,11 +280,16 @@ try {
     await tap(page, '[data-testid="gear-ascend-ok"]');
     await page.waitForSelector('[data-testid="gear-ascend"]', { state: 'detached' });
     await page.waitForTimeout(300);
+    // (the box row: in the Supplies sheet, opened again)
+    await tap(page, '#app [data-testid="supplies-open"]');
+    await page.waitForSelector('[data-testid="supplies-sheet"]');
     const card = await page.evaluate((uid) => {
       const el = document.querySelector(`.mb-gear[data-gear="${uid}"]`);
       return { card: !!el, ur: !!el?.classList.contains('is-ur'), box: !!document.querySelector('[data-testid="box-gearbox_rainbow"]') };
     }, born.uid);
     check(card.card && card.ur && !card.box, `${tag} the Backpack lists the new rainbow piece and the box row is gone (${JSON.stringify(card)})`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="supplies-sheet"]', { state: 'detached' }).catch(() => {});
     const blay = await layout(page);
     check(blay.over <= 1, `${tag} no horizontal overflow in the Backpack (${blay.over}px)`);
 

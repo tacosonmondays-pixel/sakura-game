@@ -1,0 +1,230 @@
+/* ==========================================================================================================
+   UI v2 menus M2: the Backpack and the gear grid in the Ink & Paper kit (docs/specs/UI_V2_MENUS.md §5 M2,
+   docs/specs/UI_DIRECTION.md §6.4). Imported by src/ui/screens/backpack.js, src/ui/itemSheet.js, src/ui/selectTicket.js
+   and src/ui/craftRoom.js. Every rule sits under body.ui-day (the menus' surface mode; the item sheet and the SSR Select
+   Ticket can also open over the night home, so their rules take body.ui-night too). Nothing here is under 12 px.
+   Shapes follow ink.css S1-S5: no radius off a circle or a stadium, -8 degree controls, one ring.
+   Parts: SCREEN (rail, toolbar) · GEAR GRID (the tile in the Backpack, salvage mode and its bar) · ITEM GRID ·
+   SHEETS (Filter, Sort, Supplies) · ITEM SHEET · SSR SELECT TICKET · CRAFT ROOM.
+   ========================================================================================================== */
+
+/* ---------- SCREEN ---------- */
+body.ui-day .bp-screen .screen-body { padding-top: 10px; }
+body.ui-day .bp { display: flex; flex-direction: column; min-height: 100%; }
+/* the rail: six one-word tabs that share the width (it never scrolls sideways); its 44 px hit area hangs 6 px under
+   it on phones (ink.css M0), so the toolbar keeps 10 px off it */
+body.ui-day .bp-railhost { flex: none; margin-bottom: 12px; }
+body.ui-day .bp-rail { gap: 6px; }
+body.ui-day .bp-rail > .ui-tab { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+body.ui-day .bp-rail > .ui-tab > .ui-dot { top: -3px; right: 6px; }
+body.ui-day .bp-rail .bp-tab-word { white-space: nowrap; }
+/* an upright phone: the open tab keeps its word, the others their glyph (the name stays in each tab's aria-label) */
+@media (max-width: 560px) {
+  body.ui-day .bp-rail > .ui-tab { flex: 0 0 auto; padding: 0 12px; }
+  body.ui-day .bp-rail > .ui-tab.on { flex: 1 1 auto; }
+  body.ui-day .bp-rail > .ui-tab:not(.on) .bp-tab-word { display: none; }
+}
+
+/* the toolbar: secondary buttons at 44 px; Salvage (danger) at the end; the capacity only near full */
+body.ui-day .bp-tools { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; min-height: var(--tap); }
+body.ui-day .bp-tools .btn { min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-body); }
+@media (min-height: 481px) { body.ui-day .bp-tools .btn { font-size: var(--fs-name); padding: 0 18px; } }
+body.ui-day .bp-tools .btn .ui-ico, body.ui-day .bp-tools .btn .btn-icon { width: var(--icon-s); height: var(--icon-s); }
+body.ui-day .bp-gap { flex: 1 1 0; min-width: 0; }
+body.ui-day .bp-tools .btn.ui-sec.bp-tool.on { background: var(--plate); color: var(--on-ink); box-shadow: none; }
+body.ui-day .bp-tools .btn.ui-sec.bp-tool.on > .ui-sec-ico { color: var(--on-ink); }
+body.ui-day .bp-tools .btn.ui-sec.bp-tool { position: relative; overflow: visible; }
+body.ui-day .bp-tool > .bp-tool-dot { position: absolute; top: -4px; right: 2px; }
+body.ui-day .bp-cap { display: inline-flex; align-items: baseline; gap: 6px; color: var(--ink); white-space: nowrap; }
+body.ui-day .bp-cap .num { font-size: var(--fs-num-s); }
+body.ui-day .bp-picktools { display: flex; align-items: center; gap: 8px; min-width: 0; }
+body.ui-day .bp-hint { font: 600 var(--fs-body)/1.2 var(--font); color: var(--muted); white-space: nowrap; }
+@media (max-width: 720px) { body.ui-day .bp-hint { display: none; } }
+
+/* ---------- GEAR GRID: ~96 px tiles, 7 to a row at 844 (10 at 1280), one number a tile ---------- */
+body.ui-day .bp { --bpt: 96px; --bpg: 12px; }
+@media (min-height: 481px) { body.ui-day .bp { --bpt: 104px; --bpg: 16px; } }
+body.ui-day .bp .mb-gear-grid.bp-ggrid {
+  display: grid; grid-template-columns: repeat(auto-fill, var(--bpt)); justify-content: space-between; gap: 14px var(--bpg);
+  padding: 6px 6px 8px; margin: 0 -6px;
+}
+/* the tile in the Backpack: square corners (S5), the frame of the 5.6 ladder through two variables, so ink.css's rule
+   for the old salvage cards (.mb-gear.selected) and meta-b.css's card (.mb-gear) never repaint it */
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear { --bp-fill: #fff; --bp-glow: none; }
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear.superRare { --bp-fill: color-mix(in srgb, var(--gear-super) 12%, #fff); }
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear.mythic {
+  --bp-fill: color-mix(in srgb, var(--gear-mythic) 12%, #fff);
+  --bp-glow: inset 0 0 0 1px #fff, 0 0 8px color-mix(in srgb, var(--gear-mythic) 50%, transparent);
+}
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear.legendary {
+  --bp-fill: linear-gradient(color-mix(in srgb, var(--gear-legendary) 14%, #fff), color-mix(in srgb, var(--gear-legendary) 14%, #fff)) padding-box,
+    linear-gradient(135deg, #fff6d0 0%, var(--gear-legendary) 40%, var(--yellow-deep) 70%, #fff1b8 100%) border-box;
+  --bp-glow: 0 0 10px color-mix(in srgb, var(--gear-legendary) 45%, transparent);
+}
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear.is-ur { --bp-fill: linear-gradient(135deg, #fff5fa, #f1efff); --bp-glow: var(--ur-glow); }
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear,
+body.ui-day .bp-ggrid.picking > .ui-gtile.mb-gear.selected {
+  display: grid; place-items: center; flex-direction: row; gap: 0; width: var(--bpt); height: var(--bpt); padding: 0; margin: 0;
+  border-radius: 0; outline: none; text-align: center; background: var(--bp-fill); box-shadow: var(--bp-glow);
+}
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear > .ur-ring { border-radius: 0; }
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear .ui-gtile-lv { right: -6px; bottom: -6px; }
+body.ui-day .bp-ggrid > .ui-gtile.mb-gear .k-face { width: 30px; height: 30px; }
+/* salvage mode: protected pieces keep their frame, their art goes grey and a locked one shows its lock; the selected
+   tile is the kit's (frame kept, the pink check chip and the 3 px pink bar) */
+body.ui-day .bp-ggrid.picking > .ui-gtile.mb-gear.blocked { opacity: 1; filter: none; cursor: not-allowed; }
+body.ui-day .bp-ggrid.picking > .ui-gtile.mb-gear.blocked > .ui-gtile-ic { opacity: 0.4; filter: grayscale(1); }
+body.ui-day .bp-lockb { position: absolute; z-index: 4; left: 50%; top: 50%; width: 32px; height: 32px; margin: -16px 0 0 -16px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--plate); color: var(--on-ink); pointer-events: none; }
+body.ui-day .bp-lockb .ui-ico { width: 18px; height: 18px; }
+body.ui-day .bp-more { display: flex; justify-content: center; margin: 12px 0 4px; }
+/* salvage mode: the rail steps aside, the toolbar stays, the grid scrolls in its own window and the bar sits under it */
+body.ui-day .bp-screen.bp-picking .screen-body { overflow: hidden; display: flex; flex-direction: column; }
+body.ui-day .bp-screen.bp-picking .bp { flex: 1 1 auto; min-height: 0; }
+body.ui-day .bp-screen.bp-picking .bp-railhost { display: none; }
+body.ui-day .bp-screen.bp-picking .bp-tools { margin-bottom: 6px; }
+body.ui-day .bp-screen.bp-picking .bp-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+body.ui-day .bp-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -6px; padding: 0 6px; }
+body.ui-day .bp .bp-scroll > .mb-gear-grid.bp-ggrid { margin: 0 -6px; }
+
+/* the salvage bar: an ink plate (the chamfer pair, S1) that stays at the bottom while the grid scrolls */
+body.ui-day .bp .mb-salvage-bar.bp-svbar {
+  --c: var(--cut);
+  position: relative; bottom: auto; z-index: 5; flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: nowrap;
+  margin: 8px 0 0; padding: 8px 12px 8px 16px; min-height: 60px; border: 0; border-radius: 0; box-shadow: none;
+  background: var(--plate); color: var(--on-ink);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+body.ui-day .bp-svbar .mb-sv-count { font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--on-ink); white-space: nowrap; }
+body.ui-day .bp-svbar .mb-sv-rewards { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; order: 0; flex-basis: auto; }
+body.ui-day .bp-svbar .mb-sv-reward { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px 0 4px; border-radius: 0; background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-lo); color: var(--on-ink); font-size: var(--fs-num-s); }
+body.ui-day .bp-svbar .mb-sv-reward .num { font-size: var(--fs-num-s); }
+body.ui-day .bp-svbar .btn { flex: none; min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+body.ui-day .bp-svbar .btn:disabled { background: transparent; color: var(--on-ink-dim); box-shadow: inset 0 0 0 1px var(--line-lo); }
+@media (max-width: 560px) {
+  body.ui-day .bp .mb-salvage-bar.bp-svbar { flex-wrap: wrap; row-gap: 6px; }
+  body.ui-day .bp-svbar .mb-sv-rewards { order: 3; flex-basis: 100%; }
+}
+
+/* ---------- ITEM GRID: one kicker per category, tiles with their names (12 px), a usable item's ink Use ---------- */
+body.ui-day .bp-kick { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; color: var(--muted); }
+body.ui-day .bp-kick::before { content: ''; width: 3px; height: 12px; background: var(--plate); transform: skewX(var(--skew)); flex: none; }
+body.ui-day .bp-kick::after { content: ''; flex: 1; height: 1px; background: var(--line-ink-soft); }
+body.ui-day .bp-group { margin-bottom: 14px; }
+body.ui-day .bp .mb-item-grid.bp-igrid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 12px 8px; margin-bottom: 4px; }
+body.ui-day .bp .bp-icell { animation: none; gap: 6px; }
+body.ui-day .bp .bp-icell .mb-item-name { max-width: 100px; padding: 0; border: 0; font: 700 var(--fs-label)/1.2 var(--font); color: var(--ink); text-wrap: balance; }
+@media (min-height: 481px) { body.ui-day .bp .bp-icell .mb-item-name { font-size: var(--fs-body); } }
+body.ui-day .bp .bp-icell .ui-cost.ui-ink { height: calc(var(--tap) + 2px); min-width: 84px; }
+
+/* the empty state: a kit panel (white, the chamfer pair, one hairline ring) with a line glyph and the one action */
+body.ui-day .bp-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 16px; text-align: center;
+  background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+body.ui-day .bp-empty .bp-empty-ic { width: 40px; height: 40px; color: var(--muted); }
+body.ui-day .bp-empty-t { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+body.ui-day .bp-empty .bp-desc { max-width: 420px; }
+body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
+
+/* ---------- SHEETS: Filter, Sort, Supplies (the kit's floating day sheet) ---------- */
+:is(body.ui-day, body.ui-night) .bp-desc { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+:is(body.ui-day, body.ui-night) .bp-sheet .bp-kick { margin-bottom: 8px; }
+:is(body.ui-day, body.ui-night) .bp-ssec + .bp-ssec, :is(body.ui-day, body.ui-night) .bp-ssec + .gf-bar { margin-top: 14px; }
+:is(body.ui-day, body.ui-night) .bp-opts { display: flex; flex-wrap: wrap; gap: 8px 6px; }
+:is(body.ui-day, body.ui-night) .bp-opt.ui-opt { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; white-space: nowrap; }
+:is(body.ui-day, body.ui-night) .bp-opt-ic { display: inline-grid; width: 22px; height: 22px; }
+:is(body.ui-day, body.ui-night) .bp-opt-ic > svg { width: 100%; height: 100%; display: block; }
+/* the four dropdowns in the Filter sheet: no box of their own, three across (Sort has its own sheet) */
+:is(body.ui-day, body.ui-night) .bp-gfsheet .gf-bar { margin: 14px 0 0; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+:is(body.ui-day, body.ui-night) .bp-gfsheet .gf-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) { :is(body.ui-day, body.ui-night) .bp-gfsheet .gf-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* the Supplies sheet: one row a box or tool: its tile, its name (and one line), its actions */
+:is(body.ui-day, body.ui-night) .bp-srows { display: flex; flex-direction: column; }
+:is(body.ui-day, body.ui-night) .bp-srow { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px 0; border-bottom: 1px solid var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-srow:last-child { border-bottom: 0; }
+:is(body.ui-day, body.ui-night) .bp-srow > .item-tile { flex: none; }
+:is(body.ui-day, body.ui-night) .bp-srow-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+:is(body.ui-day, body.ui-night) .bp-srow-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-srow-line { font: 500 var(--fs-body)/1.3 var(--font); color: var(--muted); }
+:is(body.ui-day, body.ui-night) .bp-srow-acts { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+:is(body.ui-day, body.ui-night) .bp-sheet .btn { min-height: calc(var(--tap) + 2px); }
+/* (the sheet's close at 48 px: a 44 px box measures 43 in the floating sheet's head) */
+:is(body.ui-day, body.ui-night) .ui-sheet.bp-sheet .ui-close { width: calc(var(--tap) + 4px); height: calc(var(--tap) + 4px); }
+:is(body.ui-day, body.ui-night) .bp-sheet .btn-small { padding: 0 14px; }
+:is(body.ui-day, body.ui-night) .bp-sheet .ui-cost.ui-ink { height: calc(var(--tap) + 2px); }
+@media (max-width: 560px) {
+  :is(body.ui-day, body.ui-night) .bp-srow { flex-wrap: wrap; }
+  :is(body.ui-day, body.ui-night) .bp-srow-acts { flex-basis: 100%; justify-content: flex-start; }
+}
+
+/* ---------- ITEM SHEET (src/ui/itemSheet.js) ---------- */
+:is(body.ui-day, body.ui-night) .bp-isheet { display: flex; flex-direction: column; gap: 12px; }
+:is(body.ui-day, body.ui-night) .bp-ihead { display: flex; align-items: flex-start; gap: 14px; }
+:is(body.ui-day, body.ui-night) .bp-ihead > .item-tile { flex: none; }
+:is(body.ui-day, body.ui-night) .bp-ihead-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+:is(body.ui-day, body.ui-night) .bp-ihead-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+:is(body.ui-day, body.ui-night) .bp-rtag { height: 24px; padding: 0 9px; display: inline-flex; align-items: center; font: 700 var(--fs-label)/1 var(--font-num);
+  letter-spacing: var(--track-caps); text-transform: uppercase; background: var(--plate); }
+:is(body.ui-day, body.ui-night) .bp-owned { display: inline-flex; align-items: baseline; gap: 6px; color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-owned .num { font-size: var(--fs-num-s); }
+:is(body.ui-day, body.ui-night) .bp-users { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+:is(body.ui-day, body.ui-night) .bp-faces { display: flex; gap: 4px; flex-wrap: wrap; }
+:is(body.ui-day, body.ui-night) .bp-face { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-face > img, :is(body.ui-day, body.ui-night) .bp-face > svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+:is(body.ui-day, body.ui-night) .bp-srcs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+:is(body.ui-day, body.ui-night) .bp-src { display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-src:last-child { border-bottom: 0; }
+:is(body.ui-day, body.ui-night) .bp-src-t { flex: 1 1 auto; min-width: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-src-note { flex: none; font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--muted); }
+:is(body.ui-day, body.ui-night) .bp-src .btn.bp-go { flex: none; min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-body); }
+:is(body.ui-day, body.ui-night) .bp-acts { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+:is(body.ui-day, body.ui-night) .bp-acts .btn { min-height: calc(var(--tap) + 2px); }
+:is(body.ui-day, body.ui-night) .bp-release { justify-content: space-between; }
+
+/* ---------- SSR SELECT TICKET (src/ui/selectTicket.js): kit girl tiles in the kit dialog (it can open over the night
+   home too, right after the beta gift) ---------- */
+:is(body.ui-day, body.ui-night) .bp-sst { display: flex; flex-direction: column; gap: 10px; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; max-height: min(56vh, 480px);
+  overflow-y: auto; overscroll-behavior: contain; padding: 4px 2px; }
+@media (max-height: 480px) { :is(body.ui-day, body.ui-night) .bp-sst-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); max-height: calc(100vh - 176px); } }
+:is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile { --gw: 100%; width: 100%; height: auto; aspect-ratio: 1 / 1.3; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap { height: 28px; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile.is-ur > .ur-ring { border-radius: 0; --ur-w: 3px; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile.is-ur { box-shadow: none; border: 0; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile:active { transform: scale(0.97); }
+/* the caption's rarity tag sits in the caption, not over her art (meta-a.css placed the old card's on the art) */
+:is(body.ui-day, body.ui-night) .bp-sst-grid .sst-rarity { position: relative; left: auto; top: auto; z-index: auto; flex: none; text-shadow: none; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid .sst-rarity.ui-rar { color: var(--rc); font-style: normal; font-weight: 700; }
+:is(body.ui-day, body.ui-night) .bp-sst-modal .modal-actions .btn { min-height: calc(var(--tap) + 2px); }
+:is(body.ui-day, body.ui-night) .bp-sst-grid .bp-sst-ur .ur-badge { font-size: var(--fs-label); padding: 2px 6px; }
+:is(body.ui-day, body.ui-night) .bp-sst-grid .bp-sst-owned { --fill: var(--plate); --edge: transparent; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; color: var(--on-ink); }
+:is(body.ui-day, body.ui-night) .bp-sst-grid .bp-sst-owned .ui-ico { width: 16px; height: 16px; }
+
+/* ---------- CRAFT ROOM (src/ui/craftRoom.js): one row a recipe, kit options for the quantity and the family ---------- */
+:is(body.ui-day, body.ui-night) .bp-craft { display: flex; flex-direction: column; gap: 10px; }
+:is(body.ui-day, body.ui-night) .bp-craft-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+:is(body.ui-day, body.ui-night) .bp-qty { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); }
+:is(body.ui-day, body.ui-night) .bp-qty > .num { min-width: 28px; text-align: center; font-size: var(--fs-num-s); }
+:is(body.ui-day, body.ui-night) .bp-step.ui-opt { --h: calc(var(--tap) + 2px); width: calc(var(--tap) + 10px); justify-content: center; font: 700 var(--fs-name)/1 var(--font-num); }
+:is(body.ui-day, body.ui-night) .bp-craft .craft-row.bp-crow { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-radius: 0; background: none;
+  border-bottom: 1px solid var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-craft .craft-flow { flex: none; display: flex; align-items: center; gap: 6px; }
+:is(body.ui-day, body.ui-night) .bp-arrow { font: 700 var(--fs-name)/1 var(--font-num); color: var(--muted); }
+:is(body.ui-day, body.ui-night) .bp-craft .craft-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-body); }
+:is(body.ui-day, body.ui-night) .bp-crow-t { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-price { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-price .num { font-size: var(--fs-num-s); }
+:is(body.ui-day, body.ui-night) .bp-left { font: 500 var(--fs-body)/1.2 var(--font); color: var(--muted); }
+:is(body.ui-day, body.ui-night) .bp-craft .craft-why { font: 700 var(--fs-body)/1.2 var(--font); color: var(--bad-text); }
+:is(body.ui-day, body.ui-night) .bp-craft .ui-cost.ui-ink { flex: none; height: calc(var(--tap) + 2px); }
+:is(body.ui-day, body.ui-night) .bp-craft .ui-cost.ui-ink:disabled { background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-craft .ui-cost.ui-ink:disabled > .ui-cost-lbl { color: var(--muted); }
+:is(body.ui-day, body.ui-night) .bp-craft .bp-kick { margin: 4px 0 0; }
+:is(body.ui-day, body.ui-night) .bp-fam.ui-opt { --h: calc(var(--tap) + 2px); width: calc(var(--tap) + 14px); justify-content: center; padding: 0; }
+:is(body.ui-day, body.ui-night) .bp-fam .bp-opt-ic { width: 28px; height: 28px; }
+@media (max-width: 560px) {
+  :is(body.ui-day, body.ui-night) .bp-craft .craft-row.bp-crow { flex-wrap: wrap; }
+}

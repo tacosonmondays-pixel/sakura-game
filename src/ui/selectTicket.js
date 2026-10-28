@@ -1,12 +1,13 @@
-// SSR Select Ticket (Beta Tester Thank-You gift): pick ANY SSR student. New girls join the
+// SSR Select Ticket (Beta Tester Thank-You gift): pick ANY SSR student (UI v2 M2: kit girl tiles in the kit dialog). New girls join the
 // academy; owned girls count as a duplicate (1 Essence of her, or a spare past her hold cap). Opened from the item's
 // "Use" button (Backpack / item info) and right after the beta gift is claimed.
+import './styles/v2-backpack.css';
 import { h } from './dom.js';
+import { ico } from './kit.js';
 import { modal, toast, confirmDialog } from './components.js';
 import { navigate } from './router.js';
 import { store } from '../core/store.js';
 import { UNIT_MAP } from '../data/units.js';
-import { UNIT_RARITIES, ROLES } from '../data/types.js';
 import { portraitHTML } from '../art/portraits.js';
 import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
 import { itemCount } from '../systems/inventory.js';
@@ -26,7 +27,7 @@ export async function offerSelectTicket({ lead = '' } = {}) {
   if (ok) openSelectTicket();
 }
 
-/** The picker: every SSR girl as a tall drawn card. */
+/** The picker: every SSR girl as a kit girl tile (UI v2 M2: `.ui-girltile` on the 5.6 ladder, SSR Glow, UR rainbow). */
 export function openSelectTicket() {
   const profile = store.profile;
   const have = itemCount(profile, SSR_SELECT_TICKET);
@@ -34,19 +35,24 @@ export function openSelectTicket() {
     toast('You have no SSR Select Ticket.', 'info');
     return null;
   }
-  const grid = h('div.sst-grid');
+  const grid = h('div.bp-sst-grid');
   const m = modal({
     title: 'SSR Select Ticket',
     wide: true,
-    cls: 'sst-modal',
-    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay({ rarity: 'SSR' })}).`), grid),
+    cls: 'sst-modal bp-sst-modal',
+    body: h('div.bp-sst', h('p.bp-desc', 'Choose any SSR student. One you already have gains 1 Essence for her next Potential step.'), grid),
     actions: [{ label: 'Cancel', kind: 'ghost' }],
   });
   for (const id of POOL.SSR) {
     const u = UNIT_MAP[id];
     const owned = !!profile.units[id];
-    const cell = h(`button.sst-cell${owned ? '.owned' : ''}`, {
+    const ur = isUR(u, profile);
+    const cell = h(`button.ui-girltile.${ur ? 'ur' : 'ssr'}.bp-sst-tile${owned ? '.owned' : ''}`, {
+      type: 'button',
       'data-testid': `sst-${id}`,
+      'aria-label': `${u.name}, ${ur ? 'UR' : 'SSR'}${owned ? ', already in your academy' : ''}`,
+      title: u.title,
+      html: portraitHTML(u, 'card', { cls: 'card', alt: '' }),
       onclick: async () => {
         const st = store.profile.units[id];
         const p = owned ? potentialLevel(st) : 0;
@@ -64,12 +70,11 @@ export function openSelectTicket() {
         showJoined(u, r);
       },
     },
-    h('span.sst-art', { html: portraitHTML(u, 'card') }),
+    ur ? null : h('span.glow', { 'aria-hidden': 'true' }),
+    // already hers: the ink check chip in the status corner (one mark, no words over her art)
+    owned ? h('span.st', { title: 'Already in your academy' }, h('span.ui-chip.ink.bp-sst-owned', { 'aria-hidden': 'true' }, ico('check'))) : null,
     // the ticket recruits an SSR; a girl you already ascended keeps her UR frame here
-    isUR(u, profile) ? h('span.sst-rarity.sst-ur', urBadge()) : h('span.sst-rarity', 'SSR'),
-    owned ? h('span.sst-owned', 'Owned') : null,
-    h('span.sst-name', h('b', u.name), h('small', ROLES[u.role]?.name || u.title)),
-    );
+    h('span.cap', h('span.nm', u.name), ur ? h('span.sst-rarity.sst-ur.bp-sst-ur', urBadge()) : h('span.ui-rar.ssr.sst-rarity', 'SSR')));
     applyUrFrame(cell, u, profile);
     grid.appendChild(cell);
   }
