@@ -67,6 +67,7 @@ import {
   tryoutMove, windowOpen,
 } from './tryout/index.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
+import { hasCards, refreshRunMods } from './tryout/pep.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -266,6 +267,8 @@ export class Sim {
 
   /** The run's seat assigner (rules.js assignPads hands runs over to it). */
   tryoutSeats() {
+    // placement cards (Desk Partners, Quiet Corner) read where the girls stand: re-folded on every placement, sale and move
+    if (hasCards(this, (c) => c?.group === 'placement')) refreshRunMods(this);
     assignSeats(this);
   }
 

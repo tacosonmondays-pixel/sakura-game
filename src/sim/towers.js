@@ -149,7 +149,7 @@ export function towerResolvedStats(t) {
   // Tryout Day's Pep Talks (`runMods`, src/sim/tryout/pep.js) come after a running boost; a girl without
   // them resolves exactly as before
   const run = t.runMods || null;
-  const tail = (m) => (run ? (m ? [m, run] : run) : m);
+  const tail = (m) => (run ? [].concat(m || [], run) : m);
   const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: tail(t.abilMods || null) };
   const s = resolveStats(t.def, o);
   // Tenka's lab team (src/sim/lab.js): her dps and support weapons from her lab record and her lab power,

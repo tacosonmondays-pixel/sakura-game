@@ -9,10 +9,10 @@ import { AUTO_START_DELAY } from '../constants.js';
 import { createRuleRuntime, rebuildRuleTables, ruleBountyAdd } from '../rules.js';
 import { lengthOf, periodWaves, blockOf, buildTryoutPlan } from './plan.js';
 import { runLevelOf, bandStats } from './power.js';
-import { openOffer, eraseOffer, squadRoom } from './offers.js';
-import { refreshRunMods, runModsFor, applyBoardCard, boardWaveClear, boardPeriodEnd, seatBonus, spareChange, costCutFor } from './pep.js';
+import { openOffer, eraseOffer, squadRoom, classOffer } from './offers.js';
+import { refreshRunMods, runModsFor, hasCards, applyBoardCard, boardWaveClear, boardPeriodEnd, seatBonus, spareChange, costCutFor } from './pep.js';
 import {
-  drawAssignments, storeBaseline, waveEndCheck, evaluatePeriod, killPoints, pointsOf, bossSpawned, bossGone,
+  drawAssignments, storeBaseline, waveEndCheck, evaluatePeriod, killPoints, pointsOf, bossSpawned, bossGone, foeEvent,
 } from './assign.js';
 import { drawSeats, seatsOf, assignSeats, openBreak, moveGirl, undoMove, snack, brushUp } from './breaks.js';
 
@@ -109,6 +109,7 @@ export function createTryout(sim, cfg) {
       squad: (p.squad || []).filter((id) => sim.data.unit(id)),
       cards: [],
       vouchers: {},
+      varsity: {},
       refills: {},
       bank: 0,
       erasers: g.erasers,
@@ -204,30 +205,79 @@ function updatePity(p, offer, tookGirl) {
 }
 
 /** A girl joins a player's squad at the current Run Level, with a voucher for her first copy (§5). */
-function joinSquad(sim, owner, id) {
+/**
+ * A girl joins a player's squad at the current Run Level with her arrival package (§5): a voucher for her first copy
+ * at the pick's tier on the path she chose (R tier 0, SR 2, SSR 3, UR 3 + Varsity, LR 4 + Varsity + her Hidden Talent).
+ */
+function joinSquad(sim, owner, id, rarity = 0, path = 0) {
   const ty = sim.tryout;
   const p = ty.players[owner];
   if (p.squad.includes(id) || squadRoom(sim, owner) <= 0) return false;
   p.squad.push(id);
   const pool = sim._tryoutCfg.pools[owner] || {};
   sim._loadouts[owner].set(id, bandStats(pool[id] || null, ty.level));
-  p.vouchers[id] = (p.vouchers[id] || 0) + 1;
-  sim._emit('tryoutJoin', { owner, unitId: id, loaner: !pool[id] });
+  const pack = arrivalOf(ty, rarity);
+  const paths = sim.data.unit(id)?.paths || [];
+  const pp = Number.isInteger(path) && path >= 0 && path < paths.length ? path : 0;
+  (p.vouchers[id] || (p.vouchers[id] = [])).push({ tier: pack.tier, path: pp });
+  if (pack.varsity) p.varsity[id] = true;
+  if (pack.talent) {
+    const t = Object.entries(PEP_CARDS).find(([, c]) => c.group === 'talent' && c.unit === id && c.ship && !c.draft);
+    if (t && !p.cards.some((x) => x.id === t[0])) p.cards.push({ id: t[0], unit: id, r: 2 });
+  }
+  sim._emit('tryoutJoin', { owner, unitId: id, loaner: !pool[id], tier: pack.tier });
   return true;
+}
+
+/** The arrival package of a pick's rarity (Grade 10+ one step lower, at least R). */
+function arrivalOf(ty, rarity) {
+  const down = TRYOUT.grades[ty.grade]?.arrivalDown || 0;
+  return TRYOUT.arrival[Math.max(0, Math.min(4, rarity - down))];
+}
+
+/** Closes a player's pick: the break after it, or nothing. */
+function closePick(sim, owner, pick) {
+  const p = sim.tryout.players[owner];
+  const len = lengthOf(sim.tryout.length);
+  p.offer = null;
+  refreshRunMods(sim, owner);
+  installRule(sim);
+  if (len.breaks[pick]) openBreak(sim, owner);
+  else p.win = null;
+  if (p.gone) autoResolve(sim, owner);
 }
 
 /**
  * Resolves a player's open pick: index ≥ 0 takes that card, -1 hands the pick in (Hand it in later: coins to
  * their wallet and +1 credit on the next pick, coins only at the last pick).
  */
-function resolvePick(sim, owner, index) {
+function resolvePick(sim, owner, index, path = 0) {
   const ty = sim.tryout;
   const p = ty.players[owner];
   const o = p.offer;
   const len = lengthOf(ty.length);
   const last = o.pick === len.picks.length;
   let tookGirl = false;
-  let rule = false;
+  if (o.follow) {
+    // Whole Class Turns Up's girls: take `multi` of them (a timeout or hand-in takes the first ones)
+    const take = index >= 0 ? [index] : o.cards.map((_, i) => i).slice(0, o.multi);
+    for (const i of take.sort((a, b) => b - a)) {
+      const c = o.cards[i];
+      if (c && c.girl && joinSquad(sim, owner, c.girl, o.rarity, path)) {
+        p.picks.push({ pick: o.pick, rarity: o.rarity, girl: c.girl, class: true });
+        o.cards.splice(i, 1);
+        o.multi--;
+      }
+    }
+    if (o.multi > 0 && index >= 0 && o.cards.length && squadRoom(sim, owner) > 0) {
+      p.seq++;
+      o.seq = p.seq;
+      refreshRunMods(sim, owner);
+      return;
+    }
+    closePick(sim, owner, o.pick);
+    return;
+  }
   if (index < 0) {
     const coins = (TRYOUT.handIn.base + TRYOUT.handIn.perPeriod * ty.period) * sim.cashScale;
     const noPay = p.cards.some((x) => PEP_CARDS[x.id]?.draw?.handInCoins === 0);
@@ -237,9 +287,13 @@ function resolvePick(sim, owner, index) {
   } else {
     const c = o.cards[index];
     if (c.girl) {
-      tookGirl = joinSquad(sim, owner, c.girl);
+      tookGirl = joinSquad(sim, owner, c.girl, o.rarity, path);
       p.declined = null;
       p.picks.push({ pick: o.pick, rarity: o.rarity, girl: c.girl });
+    } else if (c.varsityGirl) {
+      // a squad girl who tries out again: Varsity (§5)
+      p.varsity[c.varsityGirl] = true;
+      p.picks.push({ pick: o.pick, rarity: o.rarity, varsity: c.varsityGirl });
     } else {
       let inst = { id: c.id, r: c.r, ...(c.unit ? { unit: c.unit } : null) };
       // a team-wide one-of-a-kind card the partner took earlier on this tick: Big Breakfast instead (§11)
@@ -247,8 +301,19 @@ function resolvePick(sim, owner, index) {
       p.cards.push(inst);
       const card = PEP_CARDS[inst.id];
       if (inst.id === 'P06') p.refills[inst.unit] = (p.refills[inst.unit] || 0) + card.refills[inst.r];
-      if (card.group === 'board') rule = applyBoardCard(sim, owner, inst);
+      applyBoardCard(sim, owner, inst);
+      if (card.draw?.nextCards) p.nextCards = card.draw.nextCards; // the Varsity Letter: the next pick shows 2 cards
       p.picks.push({ pick: o.pick, rarity: o.rarity, card: inst.id, unit: inst.unit || null });
+      if (inst.id === 'X02') {
+        // Whole Class Turns Up: one more squad spot, the next pick skipped, then 2 of 4 girls right now
+        p.squadAdd += PEP_CARDS.X02.squad;
+        p.skipNext = true;
+        if (o.rarity === 4) p.lr++;
+        updatePity(p, o, true);
+        classOffer(sim, owner, o.pick);
+        refreshRunMods(sim, owner);
+        return;
+      }
     }
     // a girl the player passed over is skipped once at the next pick
     const passed = o.cards.find((x, i) => i !== index && x.girl);
@@ -258,19 +323,12 @@ function resolvePick(sim, owner, index) {
   // an LR roll counts toward the LR cap however the pick was resolved (§3.4)
   if (o.rarity === 4) p.lr++;
   updatePity(p, o, tookGirl);
-  p.offer = null;
-  refreshRunMods(sim, owner);
-  if (rule) installRule(sim);
-  else assignSeats(sim);
-  const brk = len.breaks[o.pick] ? true : false;
-  if (brk) openBreak(sim, owner);
-  else p.win = null;
-  if (p.gone) autoResolve(sim, owner);
+  closePick(sim, owner, o.pick);
 }
 
 /**
  * One run command for player `slot` (solo: 0). Ops (co-op `tr[op, a, b, c]`):
- *   take [seq, index]   take a card of the open offer      erase [seq]   Eraser      hand [seq]   Hand it in later
+ *   take [seq, index, path?]   take a card of the open offer (a girl: the path her arrival tiers go on)      erase [seq]   Eraser      hand [seq]   Hand it in later
  *   snack []            Snack (break)                       brush [index]   Brush Up a card (break)
  *   undo []             undo the last Hall Pass move        ready []    Back to class (closes the break)
  * Never throws; a stale or invalid op is a no-op with a reason.
@@ -281,7 +339,7 @@ export function tryoutCommand(sim, slot, op, args = []) {
   const p = ty?.players[slot];
   if (!p) return { ok: false, reason: 'slot' };
   if (sim.state === 'won' || sim.state === 'lost') return { ok: false, reason: 'ended' };
-  const [a, b] = args;
+  const [a, b, c] = args;
   switch (op) {
     case 'take':
     case 'hand':
@@ -296,7 +354,8 @@ export function tryoutCommand(sim, slot, op, args = []) {
       }
       if (!Number.isInteger(b) || b < 0 || b >= p.offer.cards.length) return { ok: false, reason: 'invalid' };
       if (p.offer.cards[b].girl && squadRoom(sim, slot) <= 0) return { ok: false, reason: 'squadFull' };
-      resolvePick(sim, slot, b);
+      if (c != null && !(Number.isInteger(c) && c >= 0 && c <= 2)) return { ok: false, reason: 'invalid' };
+      resolvePick(sim, slot, b, c ?? 0);
       maybeClose(sim);
       return { ok: true, reason: null };
     }
@@ -340,6 +399,13 @@ export function tryoutCanStart(sim) {
 export function tryoutWaveStart(sim) {
   const ty = sim.tryout;
   const len = lengthOf(ty.length);
+  // Final Bell (X04): the first and the last wave of every period have their own numbers
+  const k = (sim.wave - 1) % len.wavesPerPeriod;
+  const bell = k === len.wavesPerPeriod - 1 ? 1 : k === 0 ? -1 : 0;
+  if (bell !== (ty.bell || 0) && hasCards(sim, (c) => c === PEP_CARDS.X04)) {
+    ty.bell = bell;
+    refreshRunMods(sim);
+  } else ty.bell = bell;
   const p = Math.ceil(sim.wave / len.wavesPerPeriod);
   if (p === ty.started) return;
   ty.started = p;
@@ -366,19 +432,27 @@ export function tryoutWaveStart(sim) {
 /** A foe spawned (Quick Answer's clock). */
 export function tryoutSpawn(sim, e) {
   if (e.tier === 'boss' && e.parentUid == null) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
+  // Hundred Points' drawback: foes +10 % HP for the rest of the run
+  if (hasCards(sim, (c) => c === PEP_CARDS.X01)) {
+    e.maxHp *= 1 + PEP_CARDS.X01.draw.foeHp;
+    e.hp = e.maxHp;
+  }
   if (sim.tryout.base) bossSpawned(sim, e);
+  foeEvent(sim, e, 0);
 }
 
 /** A foe fell: the score. */
 export function tryoutKill(sim, e) {
   sim.tryout.periodScore += killPoints(sim, e);
   bossGone(sim, e, false);
+  foeEvent(sim, e, 1);
 }
 
 /** A foe leaked: −2 × its points. */
 export function tryoutLeak(sim, e) {
   sim.tryout.periodScore -= TRYOUT.score.leakMul * pointsOf(e);
   bossGone(sim, e, true);
+  foeEvent(sim, e, 2);
 }
 
 /** A per-owner counter (placed, spent, upgrades, sells, ults). */
@@ -391,7 +465,7 @@ export function tryoutCount(sim, owner, key, n = 1) {
 export function tryoutPlaceCost(sim, owner, unitId) {
   const p = sim.tryout.players[owner ?? 0];
   if (!p) return { free: false, cut: 0 };
-  return { free: (p.vouchers[unitId] || 0) > 0, cut: costCutFor(sim, owner ?? 0, unitId) };
+  return { free: (p.vouchers[unitId]?.length || 0) > 0, cut: costCutFor(sim, owner ?? 0, unitId) };
 }
 
 /** A girl's run ModSet as she is placed (before her stats resolve). */
@@ -402,9 +476,17 @@ export function tryoutTowerMods(sim, t) {
 /** A girl was placed: her voucher is used up if she was free; the counters. */
 export function tryoutPlaced(sim, owner, t, cost) {
   const p = sim.tryout.players[owner ?? 0];
-  if (!t.isHero && cost === 0 && p && (p.vouchers[t.unitId] || 0) > 0) {
-    p.vouchers[t.unitId]--;
+  const v = !t.isHero && cost === 0 && p ? p.vouchers[t.unitId]?.shift() : null;
+  if (v) {
+    // her arrival package: the free copy starts at its tiers on the chosen path (never a final tier; §5)
     t.gift = 1;
+    if (v.tier > 0) {
+      const max = Math.min(v.tier, (t.def.paths?.[v.path]?.tiers?.length || 0) - 1);
+      if (max > 0) {
+        t.tiers[v.path] = max;
+        sim._refreshTower(t);
+      }
+    }
   }
   if (!t.isHero) tryoutCount(sim, owner, 'placed');
   tryoutCount(sim, owner, 'spent', cost);
@@ -435,6 +517,10 @@ export function tryoutWaveEnd(sim) {
   const ty = sim.tryout;
   const len = lengthOf(ty.length);
   boardWaveClear(sim);
+  if (ty.bell) {
+    ty.bell = 0;
+    if (hasCards(sim, (c) => c === PEP_CARDS.X04)) refreshRunMods(sim);
+  }
   if (!ty.base) return;
   waveEndCheck(sim);
   const [, last] = periodWaves(len, ty.period);
@@ -468,6 +554,12 @@ export function tryoutWaveEnd(sim) {
   if (pick > 0) {
     ty.pickNo = pick;
     ty.players.forEach((pl, i) => {
+      if (pl.skipNext) {
+        // Whole Class Turns Up's drawback: this pick is skipped (a break after it still opens)
+        pl.skipNext = false;
+        if (len.breaks[p]) openBreak(sim, i);
+        return;
+      }
       const credits = cleared[i] + pl.bank;
       pl.bank = 0;
       openOffer(sim, i, pick, credits);

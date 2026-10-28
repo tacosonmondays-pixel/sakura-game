@@ -397,10 +397,10 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
         }
         // ---- Tryout Day (docs/specs/TRYOUT_DAY.md §11) ------------------------------------------------
         case 'tr': {
-          const [op, x, y] = a;
+          const [op, x, y, z] = a;
           if (!sim.tryout) res = { ok: false, reason: 'noRun' };
           else if (typeof op !== 'string' || a.slice(1).some((v) => v != null && !Number.isInteger(v))) res = { ok: false, reason: 'invalid' };
-          else res = sim.tryoutCommand(slot, op, [x, y]);
+          else res = sim.tryoutCommand(slot, op, [x, y, z]);
           break;
         }
         case 'mv': {

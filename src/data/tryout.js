@@ -159,7 +159,7 @@ export const TRYOUT = deepFreeze({
   // ---- Pep Talk caps per girl type (§4.4); fractions, points and tiles ------------------------------
   caps: {
     damageMul: 1.0, rateMul: 0.5, range: 1.0, critChance: 0.2, critMul: 0.5, pierce: 2, projectiles: 2, chain: 3, splash: 0.5,
-    vs: 0.3, costCut: 0.3, runDamage: 2.5,
+    vs: 0.3, costCut: 0.3, runDamage: 2.5, reveal: 3, auraPoints: 0.1,
   },
 
   // ---- Window Seats and Hall Passes (§6) -----------------------------------------------------------
