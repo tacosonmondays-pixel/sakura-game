@@ -69,6 +69,10 @@
 @media (max-height: 480px) {
   :is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap .ui-hubtile-line { line-height: 1.15; }
 }
+/* portrait: each tile tall enough for its art above its caption */
+@media (max-aspect-ratio: 1/1) {
+  :is(.ui-day) .ma-hub-screen .ma-hub-grid { height: auto; grid-template-rows: 230px 150px 150px 124px 124px; }
+}
 @media (min-height: 481px) {
   :is(.ui-day) .ma-hub-grid > .ui-hubtile > .cap { padding: 8px 14px 10px; gap: 3px; }
   :is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap { padding: 7px 10px 9px; }
@@ -437,6 +441,7 @@
 @media (min-height: 481px) {
   :is(.ui-day) .mp-tiles > :is(.ui-hubtile, .ui-ltile) { min-height: 140px; }
   :is(.ui-day) .mp-tiles > .ui-ltile > .ui-ltile-title { font-size: var(--fs-name); }
+  :is(.ui-day) .mp-tiles > .ui-hubtile.sm > .cap .name { font-size: var(--fs-name); }
 }
 @media (max-aspect-ratio: 1/1) {
   :is(.ui-day) .mp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
