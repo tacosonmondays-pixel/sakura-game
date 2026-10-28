@@ -16,6 +16,7 @@ import { betaNoticeState } from '../../systems/mail.js';
 import { store } from '../../core/store.js';
 import { PATCH_NOTES } from '../../data/patchNotes.js';
 import { PATCH_GIFT_GEMS, unclaimedPatchGifts, isPatchGiftClaimed, claimPatchGift, claimAllPatchGifts } from '../../systems/patchGifts.js';
+import { LEGEND_UNITS } from '../../data/recruitFeature.js';
 
 /** Bump when the notice list gains a new article (shows the red dot again). */
 export const NOTICE_VERSION = 'patch-notes-1';
@@ -146,8 +147,8 @@ function articles() {
     {
       id: 'recruit', tag: 'Recruit', icon: 'recruit', title: 'Standard recruitment', date: 'Now',
       body: [
-        `Every student is in the pool — this banner's poster girls are ${featured.join(', ')}.`,
-        `An SSR is guaranteed within ${GACHA.pity} recruits, and every recruit gives a Recruit Point — ${GACHA.sparkCost} points let you choose any SSR you like.`,
+        `Every student is in the pool${legendExcept()} — this banner's poster girls are ${featured.join(', ')}.`,
+        `An SSR is guaranteed within ${GACHA.pity} recruits, and every recruit gives a Recruit Point — ${GACHA.sparkCost} points let you choose any SSR you like${legendExcept()}.`,
       ],
       cta: { label: 'Recruit', go: () => navigate('recruit') },
     },
@@ -213,4 +214,9 @@ export function showNoticeModal() {
   // waiting patch gifts are what lights the red dot, so open straight onto them
   open((unclaimedPatchGifts(store.profile).length && list.find((a) => a.id === 'patch')) || list[0]);
   return m;
+}
+
+/** " but Tenka" (the LR units: only on their own spotlight, never sparked), or "" with none. */
+function legendExcept() {
+  return LEGEND_UNITS.length ? ` but ${LEGEND_UNITS.map((id) => UNIT_MAP[id]?.name || id).join(' and ')}` : '';
 }
