@@ -23,6 +23,8 @@ export const THEME_FAMILY = {
   campus: 'moonlit',
   // the Drowned Line (Act 5, Gate Arc S5a): marsh's family until a Noon cue is written
   drowned: 'lantern',
+  // Vesperline (Act 6, Gate Arc S6a): the Foundry's machine family until a Vesperline cue is written
+  vesper: 'ironclock',
 };
 export const FAMILIES = ['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri'];
 

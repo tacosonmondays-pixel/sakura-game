@@ -11,6 +11,11 @@
 //     are hidden by the sim and the renderer). An inside lane that opens in a tunnel (Gate Arc 5-6:
 //     the subway spawn, `{ inside: true, nodes: [start, IN, …, OUT, …] }`) has no portal behind its
 //     start (the bore runs on into the dark) and its entrance stands at the OUT mouth (`mouth`).
+//   • Vesperline (Gate Arc S6a): the light-bridge (`look.bridge.glass`: a pale glass deck with a cyan edge
+//     glow in unlit glow geometry, `glow`), the sky-rail (`look.bridge.skyRail`: a box girder with a pale
+//     running deck on single pylons), piers all along a long raised run (a viaduct, `road.viaducts` from
+//     S6v's `track.viaducts`), every PYLON_STEP, kept clear of the lower road; the `gallery` tunnel style
+//     (the museum's wings).
 // `planRoads` is pure (testable in Node); the mesh builders return BufferGeometries.
 import * as THREE from 'three';
 import { mapTracks, pointAtDistance, elevationAt, inTunnel, stampBand, DECK_HALF } from '../core/track.js';
@@ -23,6 +28,8 @@ const CROSS_CLEAR = 0.95;
 export const OVER_HALF = 0.56;
 /** Drawn half-width of a plank deck over water. */
 const WATER_DECK_HALF = 0.54;
+/** Pier spacing along a long raised run (a viaduct, the sky-rail look; Gate Arc S6a), tiles. */
+export const PYLON_STEP = 2.0;
 /** A wet run needs this much centreline over water (tiles) to become a deck; less is a graze. */
 const MIN_CROSS = 0.6;
 /** Water stays this far from the centreline of a road on the ground (road 0.46 + bevel + bank). */
@@ -74,7 +81,7 @@ export function headTunnel(t, W, H) {
  * @param {{ margin?: number, step?: number }} [o] off-board run-out length, section spacing
  * @returns {{ roads: object[], entrances: object[], exits: object[], extraTiles: Set<string>, crossings: object[] }}
  *   road = { index, pts: [[x, z]], d: number[] (distance along the track; < 0 / > length on run-outs),
- *            elev: number[], tunnel: boolean[], lift: number[], noSide: boolean[] }
+ *            elev: number[], tunnel: boolean[], lift: number[], noSide: boolean[], viaducts?: [a, b][] }
  *   entrance / exit = { track, x, z (where the centreline crosses the board edge), tx, ty (edge tile), dir: [dx, dz] (unit, travel) };
  *   an entrance inside the board (startsInside) sits on the track's first point and carries `inside: true`;
  *   one whose lane opens in a tunnel (headTunnel) sits at that tunnel's OUT mouth and carries `mouth: true`
@@ -148,7 +155,9 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
     // run-out tiles join the path set (frame gaps, no props on the road off the board)
     if (head.length) stampBand([...head, [s0.x, s0.y]], 0.5, extraTiles);
     if (tail.length) stampBand([[s1.x, s1.y], ...tail], 0.5, extraTiles);
-    roads.push({ index: ti, pts, d: ds, elev, tunnel, lift, noSide });
+    // (a viaduct's spans, Gate Arc S6v `track.viaducts`: the deck look puts piers along them; the key is
+    // only there when the track has one)
+    roads.push({ index: ti, pts, d: ds, elev, tunnel, lift, noSide, ...(t.viaducts?.length ? { viaducts: t.viaducts.map(([a, b]) => [a, b]) } : {}) });
     // where lanes fork off / merge in (no rails or posts across the seam)
     if (t.fork) {
       pointAtDistance(t.points, t.cum, t.forkD, tmp);
@@ -349,7 +358,7 @@ const tangentAt = (pts, i) => {
  * @param {(x: number, z: number) => boolean} isWaterAt world point over a water tile
  * @param {object} look theme look (look.bridge colours)
  * @param {{ pathH: number, waterY: number, crossings: object[] }} o
- * @returns {{ geometry: THREE.BufferGeometry|null, glows: object[], waterSections: Set<string> }}
+ * @returns {{ geometry: THREE.BufferGeometry|null, glows: object[], waterSections: Set<string>, shadow, glow: THREE.BufferGeometry|null, viaductEnds: object[] }}
  *   waterSections: "road:index" keys of sections drawn as decks (the ribbon skips them)
  */
 export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = [], links = [] }) {
@@ -369,6 +378,18 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
   const platformEdge = new THREE.Color(look.bridge.rail);
   const pipeA = new THREE.Color(look.frost ? '#dfeaf0' : '#6f8a84');
   const pipeB = new THREE.Color(look.frost ? '#cfdde6' : '#8a6a4f');
+  // (Vesperline, Gate Arc S6a: the light-bridge's cyan edge glow goes into unlit glow geometry; the sky-rail's
+  // box girder has a pale running deck and a deep fascia, on single pylons)
+  const glass = !!look.bridge.glass;
+  const skyRail = !!look.bridge.skyRail;
+  const glowAcc = new Acc();
+  const edgeGlow = new THREE.Color(look.bridge.edge || '#5fe1f2');
+  const railDeck = new THREE.Color(look.bridge.railDeck || '#d9e2e9');
+  const railFascia = new THREE.Color(look.bridge.railFascia || '#8ea3b5');
+  /** Viaduct ends (the far end of every `viaducts` span): where the old rail broke off (terrain: slot 'railEnd'). */
+  const viaductEnds = [];
+  /** Where each pier stands ({ x, z, road }): the tests check they keep off the lower road. */
+  const piers = [];
   const nearCrossing = (x, z, r = CROSS_CLEAR) => crossings.some((c) => Math.hypot(c.x - x, c.y - z) < r);
   const nearLink = (x, z) => links.some((c) => Math.hypot(c.x - x, c.y - z) < 1.3);
   // lower passes: the railings run on under an overpass deck (low enough to pass beneath it,
@@ -419,6 +440,38 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
           for (let i = 0; i < n; i++) if (k < 0 || Math.abs(r.d[i] - want) < Math.abs(r.d[k] - want)) k = i;
           if (k >= 0 && Math.abs(r.d[k] - want) < 0.15) pierAt.add(k);
         }
+      }
+    }
+    // a long raised run (a viaduct, Gate Arc S6v `road.viaducts`; or any raised run under the sky-rail
+    // look) stands on piers all along it, about every PYLON_STEP, not only beside the crossings it spans
+    // (each pier still kept clear of a lower road: pierClear below)
+    if (r.viaducts || skyRail) {
+      for (let i = 0; i < n; ) {
+        if (tunnel[i] || elev[i] < 0.3) {
+          i++;
+          continue;
+        }
+        let j = i;
+        while (j + 1 < n && !tunnel[j + 1] && elev[j + 1] >= 0.3) j++;
+        const len = r.d[j] - r.d[i];
+        if (len >= 1.6) {
+          const count = Math.max(1, Math.round(len / PYLON_STEP));
+          for (let c = 0; c < count; c++) {
+            const want = r.d[i] + (len * (c + 0.5)) / count;
+            let k = i;
+            for (let q = i; q <= j; q++) if (Math.abs(r.d[q] - want) < Math.abs(r.d[k] - want)) k = q;
+            let near = false;
+            for (const p of pierAt) if (Math.abs(r.d[p] - r.d[k]) < 0.9) near = true;
+            if (!near) pierAt.add(k);
+          }
+        }
+        i = j + 1;
+      }
+      for (const [, b] of r.viaducts || []) {
+        let k = 0;
+        for (let q = 0; q < n; q++) if (Math.abs(r.d[q] - b) < Math.abs(r.d[k] - b)) k = q;
+        const [ux, uz] = tangentAt(pts, k);
+        viaductEnds.push({ road: r.index, d: b, x: pts[k][0], z: pts[k][1], dx: ux, dz: uz });
       }
     }
     // Water decks are ONE continuous ribbon over the whole wet span: a section is wet when the
@@ -523,7 +576,9 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
         // railings wide, with a dark girder fascia that deepens with its height (so it reads as
         // lifted above whatever passes under it)
         const W = raised ? OVER_HALF : WATER_DECK_HALF;
-        const fd = raised ? Math.max(0.03, Math.min(0.2, e * 0.36)) : 0.07;
+        // (the sky-rail: a deep box girder under the running deck)
+        const girderDeck = raised && skyRail;
+        const fd = girderDeck ? Math.max(0.06, Math.min(0.28, e * 0.45)) : raised ? Math.max(0.03, Math.min(0.2, e * 0.36)) : 0.07;
         const top = raised ? y + 0.016 : y - 0.004;
         const sec = {
           tl: [x + nx * W, top, z + nz * W], tr: [x - nx * W, top, z - nz * W],
@@ -540,9 +595,20 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
           // the Drowned Line's platform slab over the flooded track bed (look.bridge.platform, Gate Arc
           // S5a): plain concrete with a joint every two tiles
           else if (look.bridge.platform && !raised) plank.copy(base).multiplyScalar(i % 10 === 0 ? 0.86 : 1.0);
+          // the sky-rail's running deck (Gate Arc S6a): pale, a seam every tile
+          else if (girderDeck) plank.copy(railDeck).multiplyScalar(i % 5 === 0 ? 0.9 : 1.0);
+          // the light-bridge (Gate Arc S6a): one smooth pale glass deck, a faint seam every tile
+          else if (glass) plank.copy(base).multiplyScalar(i % 5 === 0 ? 0.94 : 1.0);
           else plank.copy(base).multiplyScalar(0.88 + (((i * 7) % 5) / 5) * 0.16);
-          const side = asOver ? girder : post;
-          acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
+          const side = girderDeck ? railFascia : asOver ? girder : post;
+          if (raised && (girderDeck || glass)) {
+            // (Vesperline's raised decks: only the kerb strips on top, so the glassway itself, the lightest
+            // band with its cyan guide line, runs along the sky-rail and over a light-bridge overpass)
+            const k = 0.16;
+            const at = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1], a[2] + (b[2] - a[2]) * t];
+            acc.quad(P.tl, sec.tl, at(sec.tl, sec.tr, k), at(P.tl, P.tr, k), plank);
+            acc.quad(at(P.tl, P.tr, 1 - k), at(sec.tl, sec.tr, 1 - k), sec.tr, P.tr, plank);
+          } else acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
           acc.quad(P.tl, P.bl, sec.bl, sec.tl, side);
           acc.quad(P.tr, sec.tr, sec.br, P.br, side);
           acc.quad(P.bl, P.br, sec.br, sec.bl, side);
@@ -552,6 +618,13 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
             const at = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + 0.003, a[2] + (b[2] - a[2]) * t];
             acc.quad(at(P.tl, P.tr, 0), at(sec.tl, sec.tr, 0), at(sec.tl, sec.tr, k), at(P.tl, P.tr, k), platformEdge);
             acc.quad(at(P.tl, P.tr, 1 - k), at(sec.tl, sec.tr, 1 - k), at(sec.tl, sec.tr, 1), at(P.tl, P.tr, 1), platformEdge);
+          }
+          if (glass && !girderDeck) {
+            // the light-bridge's cyan edge glow along both sides, a hair over the deck (unlit glow geometry)
+            const k = 0.06 / (2 * W);
+            const at = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + 0.004, a[2] + (b[2] - a[2]) * t];
+            glowAcc.quad(at(P.tl, P.tr, 0), at(sec.tl, sec.tr, 0), at(sec.tl, sec.tr, k), at(P.tl, P.tr, k), edgeGlow);
+            glowAcc.quad(at(P.tl, P.tr, 1 - k), at(sec.tl, sec.tr, 1 - k), at(sec.tl, sec.tr, 1), at(P.tl, P.tr, 1), edgeGlow);
           }
           if (look.bridge.pipes && raised && asOver) {
             // the pipe gantry (look.bridge.pipes): a pipe along each side under the deck edge
@@ -598,7 +671,8 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
             acc.box((ax + bx) / 2, (py + y) / 2 + 0.12, (az + bz) / 2, len + 0.01, 0.015, 0.02, dx, dz, railC);
           }
         }
-        if ((railAcc > 0.55 || !prevRailed) && !underAt(i)) {
+        // (the sky-rail's parapet: a post only every ~1.6 tiles, so the girder reads clean from above)
+        if ((railAcc > (skyRail && raised ? 1.6 : 0.55) || !prevRailed) && !underAt(i)) {
           railAcc = 0;
           for (const s of [-RS, RS]) {
             acc.post(x + nx * s, y - 0.04, y + 0.3, z + nz * s, 0.035, postC);
@@ -610,12 +684,23 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       // pairs flush with the deck edges — so their faces show below the deck — and a cap beam
       if (e > 0.3 && pierAt.has(i) && !nearCrossing(x, z, 0.9) && !nearLink(x, z)) {
         const foot = water ? waterY - 0.25 : 0;
-        const topY = y - Math.min(0.2, e * 0.36);
+        const topY = y - (skyRail ? Math.min(0.28, e * 0.45) : Math.min(0.2, e * 0.36));
         const hh = (topY - foot) / 2;
+        if (skyRail) {
+          // the sky-rail's pylon: one white column under the girder's middle, a cap beam across (clear of a
+          // lower road like every pier)
+          if (pierClear(x, z) && pierClear(x + nx * 0.3, z + nz * 0.3) && pierClear(x - nx * 0.3, z - nz * 0.3)) {
+            acc.post(x, foot, topY - 0.05, z, 0.1, railDeck);
+            acc.box(x, topY - 0.04, z, 0.1, 0.045, OVER_HALF - 0.08, dx, dz, railFascia);
+            piers.push({ x, z, road: r.index });
+          }
+          continue;
+        }
         // both legs or none: a lone leg seen from above reads as a stray dark block
         const legs = [-(OVER_HALF - 0.07), OVER_HALF - 0.07].map((s) => [x + nx * s, z + nz * s]);
         if (legs.every(([px, pz]) => pierClear(px, pz))) {
           for (const [px, pz] of legs) acc.box(px, foot + hh, pz, 0.08, hh, 0.07, dx, dz, girder);
+          piers.push({ x, z, road: r.index });
           acc.box(x, topY - 0.03, z, 0.09, 0.035, OVER_HALF - 0.02, dx, dz, girder);
         }
       }
@@ -647,7 +732,7 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
       prev = { L, R };
     }
   }
-  return { geometry: acc.build(), glows, waterSections, shadow: sh.build() };
+  return { geometry: acc.build(), glows, waterSections, shadow: sh.build(), glow: glowAcc.build(), viaductEnds, piers };
 }
 
 /**
@@ -679,7 +764,10 @@ export function buildTunnels(map, look) {
   const cRoof = new THREE.Color(tl.roof || '#8a4b3c');
   // the city's subway (Gate Arc `city` theme): square portals with a canopy, a low station block
   // over the buried road, or a station hall when the tunnel runs under buildings
-  const subway = tl.style === 'subway';
+  // (Vesperline's museum wings, Gate Arc S6a `gallery`: the subway's composition in white and glass, a pale
+  // gold band, taller portals with a pediment; trackMesh's own colours from look.tunnel)
+  const gallery = tl.style === 'gallery';
+  const subway = tl.style === 'subway' || gallery;
   // the highway's bores (Gate Arc S4a, `highway` style): a rock ridge over the buried road (never a
   // hall, even under buildings: the mountain), a concrete headwall with a dark square mouth and an
   // amber hazard band on its lintel (the city kit hangs the jet fans and lamps: tunnelPortal)
@@ -875,8 +963,8 @@ export function buildTunnels(map, look) {
         if (subway) {
           // square mouth: a dark opening, a pale frame, the line's band on the lintel and a
           // canopy reaching out over the road
-          const w = 0.5;
-          const top = 0.46;
+          const w = gallery ? 0.52 : 0.5;
+          const top = gallery ? 0.56 : 0.46;
           const a0 = [px + nx * w, 0.03, pz + nz * w];
           const a1 = [px - nx * w, 0.03, pz - nz * w];
           const b1 = [px - nx * w, top, pz - nz * w];
@@ -885,6 +973,18 @@ export function buildTunnels(map, look) {
           acc.tri(a0, b1, b0, cDark);
           acc.tri(a0, b1, a1, cDark);
           acc.tri(a0, b0, b1, cDark);
+          if (gallery) {
+            // the museum wing's portal: square white columns, a deep lintel with the gold band, a low
+            // pediment, a glass canopy out over the road
+            for (const sd of [-1, 1]) acc.box(px + nx * sd * 0.6, 0.3, pz + nz * sd * 0.6, 0.08, 0.3, 0.09, dx, dy, cPortal);
+            acc.box(px, 0.62, pz, 0.09, 0.06, 0.7, dx, dy, cPortal);
+            acc.box(px + dx * sgn * 0.012, 0.6, pz + dy * sgn * 0.012, 0.092, 0.016, 0.66, dx, dy, cStripe);
+            acc.box(px, 0.72, pz, 0.08, 0.04, 0.5, dx, dy, cPortal);
+            const gx = px + dx * sgn * 0.2;
+            const gz = pz + dy * sgn * 0.2;
+            acc.box(gx, 0.66, gz, 0.2, 0.012, 0.66, dx, dy, cGlass);
+            continue;
+          }
           for (const sd of [-1, 1]) acc.box(px + nx * sd * 0.56, 0.25, pz + nz * sd * 0.56, 0.06, 0.25, 0.07, dx, dy, cPortal);
           acc.box(px, 0.5, pz, 0.07, 0.04, 0.63, dx, dy, cPortal);
           acc.box(px + dx * sgn * 0.01, 0.47, pz + dy * sgn * 0.01, 0.075, 0.014, 0.6, dx, dy, cStripe);

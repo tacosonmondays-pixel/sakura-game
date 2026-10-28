@@ -31,7 +31,8 @@ function looks() {
     // (the Gate Arc looks are still being tuned: the city, and the campus from Step 2; and every Act II
     // stage, so the far north's boards on the shipped `snow` theme (Step 4: 4-9, 4-10) are not goldens)
     // (Step 5: the Drowned Line's `drowned` theme too)
-    if (!map || map.theme === 'city' || map.theme === 'campus' || map.theme === 'drowned' || st.act === 2) continue;
+    // (Step 6: Vesperline's `vesper` theme too)
+    if (!map || map.theme === 'city' || map.theme === 'campus' || map.theme === 'drowned' || map.theme === 'vesper' || st.act === 2) continue;
     const key = `${st.mapId}|${JSON.stringify(st.scenery || {})}|${JSON.stringify(st.look || null)}|${(st.introduces || []).join(',')}`;
     if (seen.has(key)) continue;
     seen.add(key);

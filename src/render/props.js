@@ -14,6 +14,7 @@ import { BRIGADE_BUILDERS } from './city/brigadeProps.js';
 import { NORTH_BUILDERS } from './northProps.js';
 import { DROWNED_BUILDERS } from './city/drownedProps.js';
 import { PARK_BUILDERS } from './city/parkProps.js';
+import { VESPER_BUILDERS } from './city/vesperProps.js';
 import { CityAcc } from './city/cityMaterials.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
@@ -32,7 +33,7 @@ const cache = new Map();
 export function buildProp(type, look, variant = 0, lod = 'near') {
   // (a district or a ruined look may recolour shared builders: trees, walls)
   // (… and frost puts rime on the highway's rails and the Brigade's roofs)
-  const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${look.district || ''}|${look.ruined || ''}|${look.frost ? 'f' : ''}|${variant}|${lod}`;
+  const key = `${type}|${look.theme}|${look.night ? 'n' : 'd'}|${look.district || ''}|${look.ruined || ''}|${look.frost ? 'f' : ''}${look.frozen ? 'z' : ''}|${variant}|${lod}`;
   let p = cache.get(key);
   if (p) return p;
   const ctx = {
@@ -1039,4 +1040,4 @@ const BUILDERS = {
 };
 
 // the city kit (Gate Arc, Noon `city` theme): street furniture, Act 1 set pieces, the city gates
-Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS, OLD_TOWN_BUILDERS, RUIN_BUILDERS, HIGHWAY_BUILDERS, BRIGADE_BUILDERS, NORTH_BUILDERS, DROWNED_BUILDERS, PARK_BUILDERS);
+Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS, OLD_TOWN_BUILDERS, RUIN_BUILDERS, HIGHWAY_BUILDERS, BRIGADE_BUILDERS, NORTH_BUILDERS, DROWNED_BUILDERS, PARK_BUILDERS, VESPER_BUILDERS);
