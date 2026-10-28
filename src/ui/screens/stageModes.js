@@ -47,12 +47,12 @@ export function modeSubLine(base, difficulty, mode) {
 export function ribbonCorner(profile, stageId, difficulty, mode) {
   if (!mode || mode === 'standard') return null;
   const got = modeRibbons(profile, stageId)[`${difficulty}:${mode}`];
-  return h(`span.ma-ribbon-corner.sp-d-ribbon${got ? '.on' : ''}`, { title: got ? 'Ribbon earned' : 'No ribbon yet' }, svgEl(uiIcon(got ? 'check' : 'star'), 'sp-d-ribbon-ico'), got ? '' : 'Ribbon');
+  return h(`span.ma-ribbon-corner.stp-d-ribbon${got ? '.on' : ''}`, { title: got ? 'Ribbon earned' : 'No ribbon yet' }, svgEl(uiIcon(got ? 'check' : 'star'), 'stp-d-ribbon-ico'), got ? '' : 'Ribbon');
 }
 
 /** Muted note under the medal gems while a mode is selected. */
 export function firstClearNote(mode) {
-  return mode && mode !== 'standard' ? h('p.sp-p.desc.ma-mode-fc-note', 'Battle modes earn ribbons, not medals or medal gems.') : null;
+  return mode && mode !== 'standard' ? h('p.stp-p.desc.ma-mode-fc-note', 'Battle modes earn ribbons, not medals or medal gems.') : null;
 }
 
 /** Reward line: shown when a mode is selected above your best Standard medal here. */
@@ -60,7 +60,7 @@ export function rewardLine(profile, stage, difficulty, mode) {
   if (!mode || mode === 'standard' || modeMerged(difficulty, mode)) return null;
   const best = bestDifficulty(profile, stage.id) ?? 'easy';
   if (DIFFICULTY_ORDER.indexOf(difficulty) <= DIFFICULTY_ORDER.indexOf(best)) return null;
-  return h('p.sp-p.sp-mode-reward.ma-mode-reward', { 'data-testid': 'mode-reward-line' }, svgEl(uiIcon('info'), 'sp-lock-ico'),
+  return h('p.stp-p.stp-mode-reward.ma-mode-reward', { 'data-testid': 'mode-reward-line' }, svgEl(uiIcon('info'), 'stp-lock-ico'),
     `Drops as ${DIFFICULTIES[best].name}: beat ${DIFFICULTIES[difficulty].name} in Standard here for ${DIFFICULTIES[difficulty].name} drops.`);
 }
 
@@ -69,16 +69,16 @@ export function rulePanel(stage) {
   const rule = stage.rule;
   const t = rule && RULE_TEXT[rule.id];
   if (!t) return null;
-  const icon = svgEl(ruleIcon(rule.id), 'sp-rule-icon');
+  const icon = svgEl(ruleIcon(rule.id), 'stp-rule-icon');
   icon.style.setProperty('--rule', ruleColor(rule.id));
-  return h('section.sp-sec.ma-rule-panel', { 'data-testid': 'rule-panel' },
-    h('h3.sp-sec-k', 'Map rule'),
-    h('div.sp-rulebox',
+  return h('section.stp-sec.ma-rule-panel', { 'data-testid': 'rule-panel' },
+    h('h3.stp-sec-k', 'Map rule'),
+    h('div.stp-rulebox',
       icon,
-      h('div.sp-rule-text',
-        h('div.sp-rule-name-row', h('b.sp-rule-name', t.name), h(`span.ui-chip.sp-rule-when${rule.cycle ? '.cycle' : ''}`, ruleCycleLabel(rule))),
-        h('p.sp-p', t.desc),
-        ruleHasMarks(rule) ? h('p.sp-p.desc', 'Glowing marks on the map show where.') : null)));
+      h('div.stp-rule-text',
+        h('div.stp-rule-name-row', h('b.stp-rule-name', t.name), h(`span.ui-chip.stp-rule-when${rule.cycle ? '.cycle' : ''}`, ruleCycleLabel(rule))),
+        h('p.stp-p', t.desc),
+        ruleHasMarks(rule) ? h('p.stp-p.desc', 'Glowing marks on the map show where.') : null)));
 }
 
 /** Vents and pads drawn over the stage thumb (same fit as stageThumbSVG). */
@@ -109,15 +109,15 @@ export function withRuleMarks(svg, map, rule, width, height) {
 export function modePanel(profile, stage, state, onPick) {
   const unlocked = modesUnlocked(profile, stage.id);
   const count = ribbonCount(profile, stage.id);
-  const head = h('div.sp-sec-head', h('h3.sp-sec-k', 'Battle modes'),
-    count.have || unlocked ? h('span.ui-chip.sp-ribbons', { 'data-testid': 'ribbon-count' }, `Ribbons ${count.have}/${count.total}`) : null);
+  const head = h('div.stp-sec-head', h('h3.stp-sec-k', 'Battle modes'),
+    count.have || unlocked ? h('span.ui-chip.stp-ribbons', { 'data-testid': 'ribbon-count' }, `Ribbons ${count.have}/${count.total}`) : null);
   if (!unlocked) {
-    return h('section.sp-sec.ma-mode-panel', head, h('p.sp-p.sp-lockline', { 'data-testid': 'modes-locked' }, svgEl(uiIcon('lock'), 'sp-lock-ico'), 'Clear this stage once to unlock battle modes.'));
+    return h('section.stp-sec.ma-mode-panel', head, h('p.stp-p.stp-lockline', { 'data-testid': 'modes-locked' }, svgEl(uiIcon('lock'), 'stp-lock-ico'), 'Clear this stage once to unlock battle modes.'));
   }
   const medals = stageMedals(profile, stage.id);
   const ribbons = modeRibbons(profile, stage.id);
   const d = state.difficulty;
-  const grid = h('div.sp-mcards', { role: 'radiogroup', 'aria-label': 'Battle mode' });
+  const grid = h('div.stp-mcards', { role: 'radiogroup', 'aria-label': 'Battle mode' });
   for (const id of MODE_ORDER) {
     const t = MODE_TEXT[id];
     const merged = modeMerged(d, id);
@@ -126,9 +126,9 @@ export function modePanel(profile, stage, state, onPick) {
       : id === 'standard' ? (earned ? `${DIFFICULTIES[d].name} medal ✓` : `${DIFFICULTIES[d].name} medal: not yet`)
         : earned ? 'Ribbon ✓' : 'No ribbon yet';
     const sel = state.mode === id;
-    const icon = svgEl(modeIcon(id), 'sp-mcard-icon');
+    const icon = svgEl(modeIcon(id), 'stp-mcard-icon');
     icon.style.setProperty('--mode', t.color);
-    grid.appendChild(h(`button.sp-mcard.ma-mode${sel ? '.on' : ''}${merged ? '.merged' : ''}${earned ? '.earned' : ''}`, {
+    grid.appendChild(h(`button.stp-mcard.ma-mode${sel ? '.on' : ''}${merged ? '.merged' : ''}${earned ? '.earned' : ''}`, {
       type: 'button',
       role: 'radio',
       'aria-checked': sel ? 'true' : 'false',
@@ -137,15 +137,15 @@ export function modePanel(profile, stage, state, onPick) {
       title: merged ? status : t.name,
       onclick: () => onPick(id),
     },
-    h('span.sp-mcard-head', icon, h('b.sp-mcard-name', t.name)),
-    h('span.sp-mcard-desc', modeDesc(id, stage, d)),
-    h(`span.sp-mcard-status${earned ? '.ok' : ''}`, status)));
+    h('span.stp-mcard-head', icon, h('b.stp-mcard-name', t.name)),
+    h('span.stp-mcard-desc', modeDesc(id, stage, d)),
+    h(`span.stp-mcard-status${earned ? '.ok' : ''}`, status)));
   }
   const selText = modeText(state.mode);
-  return h('section.sp-sec.ma-mode-panel',
+  return h('section.stp-sec.ma-mode-panel',
     head,
     grid,
-    h('p.sp-p.sp-mode-sel', { 'data-testid': 'mode-selected-text' }, h('b', `${selText.name}: `), modeDesc(state.mode, stage, d)),
+    h('p.stp-p.stp-mode-sel', { 'data-testid': 'mode-selected-text' }, h('b', `${selText.name}: `), modeDesc(state.mode, stage, d)),
     rewardLine(profile, stage, d, state.mode),
     firstClearNote(state.mode));
 }

@@ -1,5 +1,5 @@
 /* Battle modes and map rules on stage prep and the campaign map (docs/specs/CODEX_MODES.md §8.1, §8.2).
    UI v2 M1: stage prep's Mode sheet (the six mode cards, the ribbon count, the reward line), the difficulty buttons'
-   ribbon corners and the "i" sheet's map rule are drawn in the Ink & Paper kit by v2-stage.css (.sp-mcard, .sp-d-ribbon,
-   .sp-rulebox), which src/ui/screens/stage.js imports. The campaign cards no longer carry the rule chip or the ribbon
+   ribbon corners and the "i" sheet's map rule are drawn in the Ink & Paper kit by v2-stage.css (.stp-mcard, .stp-d-ribbon,
+   .stp-rulebox), which src/ui/screens/stage.js imports. The campaign cards no longer carry the rule chip or the ribbon
    count (stage prep shows both). Nothing is left here; the file stays as stageModes.js's own stylesheet. */

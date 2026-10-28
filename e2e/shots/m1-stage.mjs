@@ -55,7 +55,7 @@ export const shots = {
   // the four sheets (Details layers: the screen behind counts too)
   'stage-prep-counters': prep('#/stage/4-4', { open: sheet('prep-counters', 'counters-sheet'), after: closeSheet, limit: 20 }),
   // (the drop grid scrolls in the sheet: a tile its bottom edge cuts measures only its visible part, so it is judged as dense)
-  'stage-prep-drops': prep('#/stage/4-4', { open: sheet('prep-drops', 'drops-sheet'), after: closeSheet, limit: 20, dense: ['.sp-sheet .ma-drop'] }),
+  'stage-prep-drops': prep('#/stage/4-4', { open: sheet('prep-drops', 'drops-sheet'), after: closeSheet, limit: 20, dense: ['.stp-sheet .ma-drop'] }),
   'stage-prep-mode': prep('#/stage/2-3', { open: sheet('prep-mode', 'mode-sheet'), after: closeSheet, limit: 20 }),
   'stage-prep-info': prep('#/stage/4-4', { open: sheet('prep-info', 'info-sheet'), after: closeSheet, limit: 20 }),
   // a Freeplay tier picked in the Mode sheet: the chip and Start name it

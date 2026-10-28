@@ -486,7 +486,7 @@ export function render(root, params = {}) {
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === true;
   const fpOk = hasSoloFreeplay(stage.id) && canPlayEndless(store.profile, stage.id);
   const endless = wantsEndless && fpOk; // Tactical Challenge's map cards: freeplay prep, never Off
-  const { el, body } = screen(prepTitle(stage, endless), { cls: 'ma-stage-screen sp-screen' });
+  const { el, body } = screen(prepTitle(stage, endless), { cls: 'ma-stage-screen stp-screen' });
   root.appendChild(el);
 
   const state = {
@@ -516,7 +516,7 @@ export function render(root, params = {}) {
   ctx.openSheetOf = (kind) => {
     const def = SHEETS[kind];
     const api = openSheet({
-      title: def.title(stage, state), body: sheetBody(stage, state, ctx, kind), testid: def.testid, cls: `sp-sheet.sp-sheet-${kind}`,
+      title: def.title(stage, state), body: sheetBody(stage, state, ctx, kind), testid: def.testid, cls: `stp-sheet.stp-sheet-${kind}`,
       onClose: () => { if (state.sheet?.api === api) state.sheet = null; },
     });
     state.sheet = { kind, api };
@@ -580,7 +580,7 @@ function prepFacts(stage, state, { endless }) {
 
 function buildPrep(stage, state, ctx) {
   const f = prepFacts(stage, state, ctx);
-  return h('div.sp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f), h('div.sp-right', rightColumn(stage, state, ctx, f)));
+  return h('div.stp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f), h('div.stp-right', rightColumn(stage, state, ctx, f)));
 }
 
 function safeMap(id) {
@@ -596,35 +596,35 @@ function safeMap(id) {
 function mapBand(stage, state, ctx, f) {
   const map = safeMap(stage.mapId);
   const tier = MAP_TIER_VIEW[f.played.tier];
-  const thumb = h('div.sp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
+  const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
   // the band's height is the screen's; the map fills it edge to edge
   thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   const tags = [
-    tier ? h('span.sp-tier', { style: { '--tier': tier.color }, title: `Map tier: ${tier.name}` }, tier.name) : null,
-    f.dropMul > 1 ? h('span.ui-chip.cy.sp-tag', `${f.dropMul}× drops`) : null,
-    f.isEndless ? h('span.ui-chip.ink.sp-tag', 'Endless') : null,
-    f.fpOn ? h(`span.ui-chip.ink.sp-tag.sp-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${f.fpName}`) : null,
+    tier ? h('span.stp-tier', { style: { '--tier': tier.color }, title: `Map tier: ${tier.name}` }, tier.name) : null,
+    f.dropMul > 1 ? h('span.ui-chip.cy.stp-tag', `${f.dropMul}× drops`) : null,
+    f.isEndless ? h('span.ui-chip.ink.stp-tag', 'Endless') : null,
+    f.fpOn ? h(`span.ui-chip.ink.stp-tag.stp-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${f.fpName}`) : null,
   ].filter(Boolean);
-  const mapEl = h('div.ui-panel.sp-map', thumb,
-    tags.length ? h('div.sp-map-tags', tags) : null,
-    h('div.sp-plate', h('span.sp-plate-name', stage.name)));
+  const mapEl = h('div.ui-panel.stp-map', thumb,
+    tags.length ? h('div.stp-map-tags', tags) : null,
+    h('div.stp-plate', h('span.stp-plate-name', stage.name)));
 
   const lives = f.fpOn || f.isEndless ? DIFFICULTIES[state.difficulty].lives : livesFor(state.difficulty, state.mode);
-  const strip = h('div.ui-strip.sp-strip.ma-facts', { role: 'group', 'aria-label': 'Stage' },
+  const strip = h('div.ui-strip.stp-strip.ma-facts', { role: 'group', 'aria-label': 'Stage' },
     stripCell('Waves', f.isEndless ? '∞' : f.fpOn ? `${stage.waves}+∞` : String(f.played.waves), lineIco('waves')),
     stripCell('Lives', String(lives), ico('heart')),
     stripCell('Start', fmtNum(Math.round(f.played.startCash), 'money'), curArt('coins')));
 
-  const infoBtn = iconBtn('info', { label: 'Mission, map rule and enemies', testid: 'prep-info', cls: 'sp-ibtn', onClick: () => ctx.openSheetOf('info') });
+  const infoBtn = iconBtn('info', { label: 'Mission, map rule and enemies', testid: 'prep-info', cls: 'stp-ibtn', onClick: () => ctx.openSheetOf('info') });
   // a saved battle takes the mission line's place (the "i" keeps the mission); an event its line above it
   const save = f.rec || eventSaveOf(stage, f);
   // ([events] the event line is the band's sentence there: the mission waits behind the "i" with the enemies)
-  const line = save ? savedLine(save) : f.evStatus ? h('p.sp-mission.sp-mission-k', 'Mission, map and enemies') : h('p.sp-mission', missionLine(stage));
-  return h('section.sp-band',
+  const line = save ? savedLine(save) : f.evStatus ? h('p.stp-mission.stp-mission-k', 'Mission, map and enemies') : h('p.stp-mission', missionLine(stage));
+  return h('section.stp-band',
     mapEl,
     strip,
     f.evStatus ? eventLine(stage, state) : null,
-    h('div.sp-line', line, infoBtn));
+    h('div.stp-line', line, infoBtn));
 }
 
 function stripCell(label, value, icon) {
@@ -653,11 +653,11 @@ function eventLine(stage, state) {
   const w = eventWindow(ev);
   const clock = phase === 'active' ? countdownChip(w.endAt - now, { label: 'Ends', cls: 's', now: eventNow, testid: 'event-phase-chip' })
     : h('span.lbl', phaseLabel(ev, phase, now));
-  return h('div.sp-event.ev-prep', { 'data-testid': 'event-prep' },
-    h('div.sp-event-head', h('b.sp-event-name', ev.name), clock),
+  return h('div.stp-event.ev-prep', { 'data-testid': 'event-prep' },
+    h('div.stp-event-head', h('b.stp-event-name', ev.name), clock),
     phase === 'active'
-      ? h('div.sp-event-candy', h('span.sp-event-ico', staticTile(ev.currency.id, 28)), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
-      : h('p.sp-event-candy', 'The operations have ended: your rewards are yours to keep.'));
+      ? h('div.stp-event-candy', h('span.stp-event-ico', staticTile(ev.currency.id, 28)), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
+      : h('p.stp-event-candy', 'The operations have ended: your rewards are yours to keep.'));
 }
 
 /**
@@ -670,9 +670,9 @@ function savedLine(rec) {
   const where = sum.endless ? `wave ${sum.next} · ♥ ${sum.lives}` : `wave ${sum.next} of ${sum.of} · ♥ ${sum.lives}`;
   const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
   const note = 'Continues with the team you started with.';
-  return h('div.sp-saved', { 'data-testid': 'stage-saved', title: note },
-    h('span.sp-saved-text', h('span.sp-seg', head.join(' · ')), ' · ', h('span.sp-seg', where), ' · ', h('span.sp-seg', sum.ago)),
-    h('span.sp-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 4).map((id) => h('span.sp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))));
+  return h('div.stp-saved', { 'data-testid': 'stage-saved', title: note },
+    h('span.stp-saved-text', h('span.stp-seg', head.join(' · ')), ' · ', h('span.stp-seg', where), ' · ', h('span.stp-seg', sum.ago)),
+    h('span.stp-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 4).map((id) => h('span.stp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))));
 }
 
 /** The battle mode a saved run plays ("Goblin Rush"), or null for Standard (and saves from before modes). */
@@ -697,17 +697,17 @@ function staticTile(itemId, size) {
 function rightColumn(stage, state, ctx, f) {
   const out = [];
   if (!f.isEndless) out.push(difficultyPanel(stage, state, ctx, f));
-  out.push(h('div.sp-rows', countersRow(stage, ctx), dropsRow(stage, state, ctx, f)));
+  out.push(h('div.stp-rows', countersRow(stage, ctx), dropsRow(stage, state, ctx, f)));
   out.push(footer(stage, state, ctx, f));
   return out;
 }
 
 function difficultyPanel(stage, state, ctx, f) {
-  const grid = h('div.sp-diffs', { role: 'radiogroup', 'aria-label': 'Difficulty' });
+  const grid = h('div.stp-diffs', { role: 'radiogroup', 'aria-label': 'Difficulty' });
   const order = stage.difficulties || DIFFICULTY_ORDER;
   grid.dataset.n = String(order.length);
   for (const d of order) grid.appendChild(diffButton(stage, state, ctx, f, d));
-  return h('section.ui-panel.sp-diff', grid, h('div.sp-ruleline', ruleSentence(stage, state, f), modeChip(stage, state, ctx, f)));
+  return h('section.ui-panel.stp-diff', grid, h('div.stp-ruleline', ruleSentence(stage, state, f), modeChip(stage, state, ctx, f)));
 }
 
 function diffButton(stage, state, ctx, f, d) {
@@ -719,13 +719,13 @@ function diffButton(stage, state, ctx, f, d) {
   const earned = !!f.medals[d];
   // the corner: the lock, the ribbon state under a battle mode, or the medal gems while not earned (P7: an earned
   // reward is not shown again; the medal says it)
-  const lockLine = locked ? h('span.ma-diff-sub.sp-d-lock', { 'data-testid': `diff-lock-${d}` }, ico('lock'), gate.text) : null;
+  const lockLine = locked ? h('span.ma-diff-sub.stp-d-lock', { 'data-testid': `diff-lock-${d}` }, ico('lock'), gate.text) : null;
   const corner = locked
     ? null
     : ribbonCorner(f.profile, stage.id, d, state.mode)
-      ?? (earned ? null : h('span.ma-diff-gems.sp-d-gems', { title: `First ${def.name} clear: ${def.firstClearGems} gems` }, curArt('gems'), h('span.num', String(def.firstClearGems))));
+      ?? (earned ? null : h('span.ma-diff-gems.stp-d-gems', { title: `First ${def.name} clear: ${def.firstClearGems} gems` }, curArt('gems'), h('span.num', String(def.firstClearGems))));
   const savedHere = f.rec && f.rec.difficulty === d;
-  return h(`button.ui-opt.ma-diff.sp-d.diff-${d}${on ? '.on.active' : ''}${locked ? '.locked' : ''}${earned ? '.earned' : ''}`, {
+  return h(`button.ui-opt.ma-diff.stp-d.diff-${d}${on ? '.on.active' : ''}${locked ? '.locked' : ''}${earned ? '.earned' : ''}`, {
     type: 'button',
     role: 'radio',
     'aria-checked': on ? 'true' : 'false',
@@ -735,10 +735,10 @@ function diffButton(stage, state, ctx, f, d) {
     // in the URL too: after a battle (Quit, the back gesture, Retry → Quit) prep comes back on it
     onclick: () => { state.difficulty = d; rememberParams('stage', { difficulty: d }); ctx.redraw(); },
   },
-  svgEl(medalIcon(d, { earned }), 'sp-d-medal'),
-  h('span.sp-d-text', h('span.sp-d-name', def.name), lockLine),
+  svgEl(medalIcon(d, { earned }), 'stp-d-medal'),
+  h('span.stp-d-text', h('span.stp-d-name', def.name), lockLine),
   corner,
-  savedHere ? h('span.ma-diff-saved.sp-d-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null);
+  savedHere ? h('span.ma-diff-saved.stp-d-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null);
 }
 
 /** The selected difficulty's one sentence ([events] its own name and line when it has its own waves). */
@@ -746,22 +746,22 @@ function ruleSentence(stage, state, f) {
   const d = state.difficulty;
   const variant = stage.kind === 'event' ? f.played.variant : null;
   if (variant) {
-    return h('p.sp-rule', { 'data-testid': 'event-variant', title: variant.desc },
+    return h('p.stp-rule', { 'data-testid': 'event-variant', title: variant.desc },
       h('b', `${DIFFICULTIES[variant.difficulty].name}: ${variant.name}`), variant.sub ? ` · ${variant.sub}` : '');
   }
   if (f.fpOn) {
-    return h('p.sp-rule', { 'data-testid': 'diff-rule' }, h('b', DIFFICULTIES[d].name), ` · ${d === 'nightmare' ? '1 life: the first leak ends freeplay' : DIFF_RULE[d]}`);
+    return h('p.stp-rule', { 'data-testid': 'diff-rule' }, h('b', DIFFICULTIES[d].name), ` · ${d === 'nightmare' ? '1 life: the first leak ends freeplay' : DIFF_RULE[d]}`);
   }
-  return h('p.sp-rule', { 'data-testid': 'diff-rule' }, h('b', DIFFICULTIES[d].name), ` · ${modeSubLine(DIFF_RULE[d], d, state.mode)}`);
+  return h('p.stp-rule', { 'data-testid': 'diff-rule' }, h('b', DIFFICULTIES[d].name), ` · ${modeSubLine(DIFF_RULE[d], d, state.mode)}`);
 }
 
 /** The Mode chip: "Standard ▾", "Goblin Rush ▾", "Freeplay · Blossom ▾" (opens the Mode sheet). */
 function modeChip(stage, state, ctx, f) {
   if (!f.hasMode && !(f.endless && f.fpOk)) return null;
   const name = f.fpOn ? `Freeplay · ${f.fpName}` : modeText(state.mode).name;
-  const icon = f.fpOn ? null : svgEl(modeIcon(state.mode), 'sp-mode-ico');
-  return h('button.ui-hit.sp-modechip', { type: 'button', 'data-testid': 'prep-mode', 'aria-label': `Battle mode: ${name}. Change`, onclick: () => ctx.openSheetOf('mode') },
-    h('span.ui-btn.sec.dense', icon, h('span.sp-mode-name', name), lineIco('chevD')));
+  const icon = f.fpOn ? null : svgEl(modeIcon(state.mode), 'stp-mode-ico');
+  return h('button.ui-hit.stp-modechip', { type: 'button', 'data-testid': 'prep-mode', 'aria-label': `Battle mode: ${name}. Change`, onclick: () => ctx.openSheetOf('mode') },
+    h('span.ui-btn.sec.dense', icon, h('span.stp-mode-name', name), lineIco('chevD')));
 }
 
 function countersRow(stage, ctx) {
@@ -770,17 +770,17 @@ function countersRow(stage, ctx) {
   const inForm = new Set(formationIds(profile));
   const covered = rec.needs.filter((cap) => (rec.ownedCounters[cap] || []).some((id) => inForm.has(id))).length;
   const all = covered === rec.needs.length;
-  return h(`button.sp-row.sp-counters${all ? '.ok' : '.short'}`, {
+  return h(`button.stp-row.stp-counters${all ? '.ok' : '.short'}`, {
     type: 'button', 'data-testid': 'prep-counters', onclick: () => ctx.openSheetOf('counters'),
     'aria-label': rec.needs.length ? `Counters: ${covered} of ${rec.needs.length} covered by your formation` : 'Counters: none needed',
   },
-  h('span.lbl.sp-row-k', 'Counters'),
-  h('span.sp-needs', rec.needs.slice(0, 3).map((cap) => h(`span.sp-need${(rec.ownedCounters[cap] || []).some((id) => inForm.has(id)) ? '.ok' : ''}`, { title: CAPABILITIES[cap]?.name || cap },
-    svgEl(capabilityIcon(cap), 'sp-need-ico'), h('span.sp-need-name', CAPABILITIES[cap]?.name || cap)))),
+  h('span.lbl.stp-row-k', 'Counters'),
+  h('span.stp-needs', rec.needs.slice(0, 3).map((cap) => h(`span.stp-need${(rec.ownedCounters[cap] || []).some((id) => inForm.has(id)) ? '.ok' : ''}`, { title: CAPABILITIES[cap]?.name || cap },
+    svgEl(capabilityIcon(cap), 'stp-need-ico'), h('span.stp-need-name', CAPABILITIES[cap]?.name || cap)))),
   rec.needs.length
-    ? h('span.sp-cover', h('span.num', `${covered}/${rec.needs.length}`), ico(all ? 'check' : 'info', `ui-ico.sp-cover-ico${all ? '.ok' : ''}`))
-    : h('span.sp-cover.none', 'Any team'),
-  ico('chevR', 'ui-ico.sp-chev'));
+    ? h('span.stp-cover', h('span.num', `${covered}/${rec.needs.length}`), ico(all ? 'check' : 'info', `ui-ico.stp-cover-ico${all ? '.ok' : ''}`))
+    : h('span.stp-cover.none', 'Any team'),
+  ico('chevR', 'ui-ico.stp-chev'));
 }
 
 /** The drop icons the row shows: the first-clear reward first (FIRST), then the stage's drops, at most 5. */
@@ -802,25 +802,25 @@ function dropIcons(stage, state, f) {
 function dropsRow(stage, state, ctx, f) {
   const icons = dropIcons(stage, state, f);
   const unlocks = DIFFICULTY_ORDER.some((d) => f.medals[d]) ? [] : (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
-  return h('button.sp-row.sp-drops', { type: 'button', 'data-testid': 'prep-drops', 'aria-label': 'Drops: chances and amounts', onclick: () => ctx.openSheetOf('drops') },
-    h('span.lbl.sp-row-k', stage.kind === 'challenge' ? 'Rewards' : 'Drops'),
-    h('span.sp-drop-list', { 'aria-hidden': 'true' },
-      unlocks.slice(0, 1).map((id) => h('span.sp-drop.sp-drop-girl', { title: `${UNIT_MAP[id].name} joins on the first clear` }, h('span.sp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), h('span.ui-sticker.sp-first', 'First'))),
-      icons.slice(0, 5 - Math.min(1, unlocks.length)).map((x, i) => h('span.sp-drop', staticTile(x.id, 40), x.first && i === 0 && !unlocks.length ? h('span.ui-sticker.sp-first', 'First') : null))),
-    ico('chevR', 'ui-ico.sp-chev'));
+  return h('button.stp-row.stp-drops', { type: 'button', 'data-testid': 'prep-drops', 'aria-label': 'Drops: chances and amounts', onclick: () => ctx.openSheetOf('drops') },
+    h('span.lbl.stp-row-k', stage.kind === 'challenge' ? 'Rewards' : 'Drops'),
+    h('span.stp-drop-list', { 'aria-hidden': 'true' },
+      unlocks.slice(0, 1).map((id) => h('span.stp-drop.stp-drop-girl', { title: `${UNIT_MAP[id].name} joins on the first clear` }, h('span.stp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), h('span.ui-sticker.stp-first', 'First'))),
+      icons.slice(0, 5 - Math.min(1, unlocks.length)).map((x, i) => h('span.stp-drop', staticTile(x.id, 40), x.first && i === 0 && !unlocks.length ? h('span.ui-sticker.stp-first', 'First') : null))),
+    ico('chevR', 'ui-ico.stp-chev'));
 }
 
 // ----- the footer: Sweep (secondary) · Start (the one yellow) ------------------------------------------------------
 
 function footer(stage, state, ctx, f) {
   const profile = f.profile;
-  const left = h('div.sp-foot-l');
-  const right = h('div.sp-foot-r');
+  const left = h('div.stp-foot-l');
+  const right = h('div.stp-foot-r');
   const formationOk = formationIds(profile).length > 0;
-  const diffLock = f.diffGate.ok ? null : h('span.sp-note.ma-locked-note', { 'data-testid': 'diff-locked-note' }, ico('lock'), `${DIFFICULTIES[state.difficulty].name}: ${f.diffGate.text}`);
+  const diffLock = f.diffGate.ok ? null : h('span.stp-note.ma-locked-note', { 'data-testid': 'diff-locked-note' }, ico('lock'), `${DIFFICULTIES[state.difficulty].name}: ${f.diffGate.text}`);
 
   if (!f.unlocked) {
-    left.appendChild(h('span.sp-note.ma-locked-note', ico('lock'), f.req));
+    left.appendChild(h('span.stp-note.ma-locked-note', ico('lock'), f.req));
     const evSave = eventSaveOf(stage, f);
     if (evSave) {
       const sum = saveSummary(evSave);
@@ -834,7 +834,7 @@ function footer(stage, state, ctx, f) {
       ? { label: 'Back to the event', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: f.evStatus.reason === 'episode' ? 'story' : 'stages' }) }
       : reqStage ? { label: `Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, testid: 'stage-go-req', onClick: () => navigate('stage', { id: reqStage.id }) } : null;
     if (go) right.appendChild(evSave ? secondaryBtn(go.label, { icon: 'teleport', testid: go.testid, onClick: go.onClick }) : primary(go.label, { icon: 'teleport', testid: go.testid, onClick: go.onClick }));
-    return h('div.sp-foot', left, right);
+    return h('div.stp-foot', left, right);
   }
 
   const rec = f.rec;
@@ -852,7 +852,7 @@ function footer(stage, state, ctx, f) {
 
   // the left: why Start is off, else Sweep (secondary), else the one line saying how sweep opens
   if (diffLock) left.appendChild(diffLock);
-  else if (!formationOk) left.appendChild(h('span.sp-note.ma-locked-note', ico('lock'), rec ? `${f.fpOn ? 'Freeplay' : 'New game'} needs a girl in your formation` : 'Add a girl to your formation'));
+  else if (!formationOk) left.appendChild(h('span.stp-note.ma-locked-note', ico('lock'), rec ? `${f.fpOn ? 'Freeplay' : 'New game'} needs a girl in your formation` : 'Add a girl to your formation'));
   else if (!f.isEndless) left.append(...sweepControls(stage, state, { compact: !!rec }));
 
   if (rec) {
@@ -889,7 +889,7 @@ function footer(stage, state, ctx, f) {
       testid: 'stage-continue',
       onClick: () => navigate('battle', { stage: stage.id, difficulty: rec.difficulty, resume: rec.id }),
     }));
-    return h('div.sp-foot.has-save', left, right);
+    return h('div.stp-foot.has-save', left, right);
   }
 
   right.appendChild(primary(f.isEndless ? 'Start endless' : f.fpOn ? `Start · ${newDiff} · ${f.fpName}` : startLabel(state.difficulty, state.mode), {
@@ -907,12 +907,12 @@ function footer(stage, state, ctx, f) {
       navigate('battle', params);
     },
   }));
-  return h('div.sp-foot', left, right);
+  return h('div.stp-foot', left, right);
 }
 
 /** The screen's one yellow: Start / Continue (a play glyph and the label; room for a cost after it). */
 function primary(label, { testid, onClick, disabled = false, title = null, icon = 'play' }) {
-  return h('button.ui-btn.pri.sp-start.ma-start-btn', { type: 'button', 'data-testid': testid, disabled, title: title || label, onclick: onClick },
+  return h('button.ui-btn.pri.stp-start.ma-start-btn', { type: 'button', 'data-testid': testid, disabled, title: title || label, onclick: onClick },
     ico(icon), h('span.btn-label', label));
 }
 
@@ -924,7 +924,7 @@ function sweepControls(stage, state, { compact = false } = {}) {
   const okDiff = DIFFICULTY_ORDER.indexOf(state.difficulty) <= best;
   if (!allowed) {
     const lockText = stage.kind !== 'event' ? 'Sweep: clear on Hard' : stage.boss ? 'The boss cannot be swept' : 'Sweep: clear it once';
-    return compact ? [] : [h('span.sp-note.sp-sweep-lock', ico('lock'), lockText)];
+    return compact ? [] : [h('span.stp-note.stp-sweep-lock', ico('lock'), lockText)];
   }
   // [events] the event's daily sweeps (all its stages together): what's left is on the button; none → refill time
   const refill = `Sweeps refill at ${RESET.label}`;
@@ -954,8 +954,8 @@ function sweepControls(stage, state, { compact = false } = {}) {
   const lockTitle = out ? refillTitle() : okDiff ? undefined : `Clear ${DIFFICULTIES[state.difficulty].name} to sweep it`;
   const manyLabel = left == null ? `Sweep ×${MAX_SWEEPS}` : out ? refill : `Sweep ×${Math.min(MAX_SWEEPS, left)} · ${left} left today`;
   const btns = [];
-  if (!compact && (left == null || left > 1)) btns.push(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle, testid: 'sweep-1', onClick: () => doSweep(1), cls: 'sp-sweep' }));
-  btns.push(secondaryBtn(manyLabel, { icon: 'ff2', disabled: !okDiff || out, title: lockTitle, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS), cls: 'sp-sweep' }));
+  if (!compact && (left == null || left > 1)) btns.push(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle, testid: 'sweep-1', onClick: () => doSweep(1), cls: 'stp-sweep' }));
+  btns.push(secondaryBtn(manyLabel, { icon: 'ff2', disabled: !okDiff || out, title: lockTitle, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS), cls: 'stp-sweep' }));
   return btns;
 }
 
@@ -977,40 +977,40 @@ function sheetBody(stage, state, ctx, kind) {
 }
 
 /** A section of a sheet: a caps kicker over its body. */
-const sec = (kicker, ...kids) => h('section.sp-sec', kicker ? h('h3.sp-sec-k', kicker) : null, ...kids);
+const sec = (kicker, ...kids) => h('section.stp-sec', kicker ? h('h3.stp-sec-k', kicker) : null, ...kids);
 
 function countersSheet(stage) {
   const profile = store.profile;
   const rec = recommendedFor(profile, stage.id);
   const inForm = new Set(formationIds(profile));
   const out = [];
-  if (!rec.needs.length) out.push(h('p.sp-p', 'No special counters needed: a balanced formation with upgrades will do.'));
+  if (!rec.needs.length) out.push(h('p.stp-p', 'No special counters needed: a balanced formation with upgrades will do.'));
   else {
     const covered = rec.needs.filter((cap) => (rec.ownedCounters[cap] || []).some((id) => inForm.has(id))).length;
-    out.push(h('p.sp-p', h('b.num', `${covered}/${rec.needs.length}`), ' needs covered by your formation'));
+    out.push(h('p.stp-p', h('b.num', `${covered}/${rec.needs.length}`), ' needs covered by your formation'));
   }
-  const list = h('div.sp-needlist');
+  const list = h('div.stp-needlist');
   for (const cap of rec.needs) {
     const owners = rec.ownedCounters[cap] || [];
     const has = owners.some((id) => inForm.has(id));
     const status = has ? 'ok' : owners.length ? 'warn' : 'bad';
     const statusText = has ? 'In formation' : owners.length ? 'Not in formation' : 'No girl yet';
     const girls = owners.length
-      ? h('div.sp-girls', owners.slice(0, 6).map((id) => {
+      ? h('div.stp-girls', owners.slice(0, 6).map((id) => {
         const u = UNIT_MAP[id];
         const inF = inForm.has(id);
         const viaPath = !hasCapability(u, cap, { includePaths: false });
-        return h(`div.sp-cu${inF ? '.in' : ''}`,
+        return h(`div.stp-cu${inF ? '.in' : ''}`,
           girlFace(id, { onClick: () => navigate('student', { id }), sel: inF, tag: viaPath ? 'via upgrade' : null }),
-          inF ? h('span.sp-cu-in', ico('check'), 'Ready') : inkBtn('Add', { testid: `add-${id}`, onClick: () => addToFormation(id), cls: 'sp-add' }));
+          inF ? h('span.stp-cu-in', ico('check'), 'Ready') : inkBtn('Add', { testid: `add-${id}`, onClick: () => addToFormation(id), cls: 'stp-add' }));
       }))
-      : h('div.sp-cands', h('span.lbl', 'Who can help'),
-        unitsWithCapability(cap).slice(0, 4).map((u) => h('button.ui-chip.sp-cand', { type: 'button', onclick: () => navigate('student', { id: u.id }) }, h('span', u.name), h('span.sp-cand-how', acquisitionHint(u)))));
-    list.appendChild(h(`div.sp-needrow.${status}`,
-      h('div.sp-needhead',
-        svgEl(capabilityIcon(cap), 'sp-need-ico'),
-        h('div.sp-needtext', h('b', CAPABILITIES[cap]?.name || cap), h('span.desc', CAPABILITIES[cap]?.desc || '')),
-        h(`span.ui-chip.sp-status.${status}`, statusText)),
+      : h('div.stp-cands', h('span.lbl', 'Who can help'),
+        unitsWithCapability(cap).slice(0, 4).map((u) => h('button.ui-chip.stp-cand', { type: 'button', onclick: () => navigate('student', { id: u.id }) }, h('span', u.name), h('span.stp-cand-how', acquisitionHint(u)))));
+    list.appendChild(h(`div.stp-needrow.${status}`,
+      h('div.stp-needhead',
+        svgEl(capabilityIcon(cap), 'stp-need-ico'),
+        h('div.stp-needtext', h('b', CAPABILITIES[cap]?.name || cap), h('span.desc', CAPABILITIES[cap]?.desc || '')),
+        h(`span.ui-chip.stp-status.${status}`, statusText)),
       girls));
   }
   out.push(list);
@@ -1023,44 +1023,44 @@ function girlFace(id, { onClick = null, sel = false, tag = null, hero = false } 
   const u = UNIT_MAP[id];
   const lv = store.profile.units[id]?.level;
   // (a tile, budgeted on its own: P3)
-  return h(`button.sp-girl${sel ? '.sel' : ''}${hero ? '.hero' : ''}`, { type: 'button', title: tag ? `${u.name} (${tag})` : u.name, 'aria-pressed': sel ? 'true' : null, 'data-probe': 'tile', onclick: onClick },
-    h('span.sp-girl-art', { html: portraitHTML(u, 'thumb') }),
-    h('span.sp-girl-cap', h('span.sp-girl-name', u.name), lv ? h('span.sp-girl-lv', `LV ${lv}`) : null, tag ? h('span.sp-girl-tag', tag) : null));
+  return h(`button.stp-girl${sel ? '.sel' : ''}${hero ? '.hero' : ''}`, { type: 'button', title: tag ? `${u.name} (${tag})` : u.name, 'aria-pressed': sel ? 'true' : null, 'data-probe': 'tile', onclick: onClick },
+    h('span.stp-girl-art', { html: portraitHTML(u, 'thumb') }),
+    h('span.stp-girl-cap', h('span.stp-girl-name', u.name), lv ? h('span.stp-girl-lv', `LV ${lv}`) : null, tag ? h('span.stp-girl-tag', tag) : null));
 }
 
 function formationSec() {
   const profile = store.profile;
   const f = profile.formation || { hero: null, towers: [] };
   const slots = [];
-  slots.push(f.hero ? girlFace(f.hero, { onClick: () => navigate('formation'), hero: true }) : h('button.sp-girl.empty', { type: 'button', onclick: () => navigate('formation') }, h('span.lbl', 'Hero')));
+  slots.push(f.hero ? girlFace(f.hero, { onClick: () => navigate('formation'), hero: true }) : h('button.stp-girl.empty', { type: 'button', onclick: () => navigate('formation') }, h('span.lbl', 'Hero')));
   for (let i = 0; i < BATTLE.maxTowers; i++) {
     const id = f.towers?.[i];
-    slots.push(id ? girlFace(id, { onClick: () => navigate('formation') }) : h('button.sp-girl.empty', { type: 'button', 'aria-label': 'Empty slot', onclick: () => navigate('formation') }, ico('plus')));
+    slots.push(id ? girlFace(id, { onClick: () => navigate('formation') }) : h('button.stp-girl.empty', { type: 'button', 'aria-label': 'Empty slot', onclick: () => navigate('formation') }, ico('plus')));
   }
   return sec('Formation',
-    h('div.sp-formation', slots),
-    h('div.sp-sec-foot', h('span.lbl', `${(f.towers || []).length}/${BATTLE.maxTowers} girls${f.hero ? ' + hero' : ''}`),
-      h('button.ui-btn.ghost.sp-edit', { type: 'button', onclick: () => navigate('formation') }, 'Edit formation', ico('chevR'))));
+    h('div.stp-formation', slots),
+    h('div.stp-sec-foot', h('span.lbl', `${(f.towers || []).length}/${BATTLE.maxTowers} girls${f.hero ? ' + hero' : ''}`),
+      h('button.ui-btn.ghost.stp-edit', { type: 'button', onclick: () => navigate('formation') }, 'Edit formation', ico('chevR'))));
 }
 
 function dropsSheet(stage, state, f) {
   const out = [];
-  if (f.dropMul > 1) out.push(h('p.sp-p.ma-event-note', h('span.ui-chip.cy', `${f.dropMul}×`), ` ${f.event.name}: drop counts doubled this week.`));
+  if (f.dropMul > 1) out.push(h('p.stp-p.ma-event-note', h('span.ui-chip.cy', `${f.dropMul}×`), ` ${f.event.name}: drop counts doubled this week.`));
   out.push(sec(`${DIFFICULTIES[state.difficulty].name}${f.fpOn ? ` · ${f.fpName}` : ''}`, dropGrid(stage, state.difficulty, { dropMul: f.dropMul }),
-    f.fpOn ? h('p.sp-p.desc', 'Freeplay: these drop at the stage clear; past it, coins every wave and a freeplay cache every 25 waves.') : null));
+    f.fpOn ? h('p.stp-p.desc', 'Freeplay: these drop at the stage clear; past it, coins every wave and a freeplay cache every 25 waves.') : null));
   if (!f.isEndless) {
     const cleared = DIFFICULTY_ORDER.some((d) => f.medals[d]);
     const order = stage.kind === 'event' && stage.difficulties ? stage.difficulties : DIFFICULTY_ORDER;
     const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
     out.push(sec('First clear',
-      cleared ? h('p.sp-p.desc', 'Claimed.') : h('div.sp-fc', rewardTiles(stage.firstClear || [], { size: 64 }), h('span.desc', 'Any difficulty, once.')),
-      !cleared && unlocks.length ? h('div.sp-unlocks', unlocks.map((id) => h('div.sp-unlock', girlFace(id, { onClick: () => navigate('student', { id }) }),
+      cleared ? h('p.stp-p.desc', 'Claimed.') : h('div.stp-fc', rewardTiles(stage.firstClear || [], { size: 64 }), h('span.desc', 'Any difficulty, once.')),
+      !cleared && unlocks.length ? h('div.stp-unlocks', unlocks.map((id) => h('div.stp-unlock', girlFace(id, { onClick: () => navigate('student', { id }) }),
         h('div', h('b', `${UNIT_MAP[id].name} joins for free`), h('span.desc', UNIT_MAP[id].acquisition?.note || `Clear this stage to recruit ${UNIT_MAP[id].name}.`))))) : null));
     out.push(sec('Medal gems · once per difficulty',
-      h('div.sp-medalgems', order.map((d) => h(`div.sp-mg${f.medals[d] ? '.done' : ''}`, { 'data-probe': 'tile' },
-        svgEl(medalIcon(d, { earned: f.medals[d] }), 'sp-mg-medal'),
-        h('span.sp-mg-name', DIFFICULTIES[d].name),
-        f.medals[d] ? h('span.sp-mg-got', ico('check'), 'Claimed') : h('span.sp-mg-gems', curArt('gems'), h('span.num', String(DIFFICULTIES[d].firstClearGems)))))),
+      h('div.stp-medalgems', order.map((d) => h(`div.stp-mg${f.medals[d] ? '.done' : ''}`, { 'data-probe': 'tile' },
+        svgEl(medalIcon(d, { earned: f.medals[d] }), 'stp-mg-medal'),
+        h('span.stp-mg-name', DIFFICULTIES[d].name),
+        f.medals[d] ? h('span.stp-mg-got', ico('check'), 'Claimed') : h('span.stp-mg-gems', curArt('gems'), h('span.num', String(DIFFICULTIES[d].firstClearGems)))))),
       firstClearNote(state.mode)));
   }
   return out;
@@ -1089,10 +1089,10 @@ function infoSheet(stage, state, f) {
   const chapter = stage.chapter && stage.kind === 'campaign' ? CHAPTERS.find((c) => c.id === stage.chapter) : null;
   const out = [];
   out.push(sec(stage.kind === 'campaign' ? 'Mission' : stageLabel(stage),
-    h('p.sp-p', stage.desc),
-    f.played.variant ? h('p.sp-p.sp-variant', h('b', `${DIFFICULTIES[f.played.variant.difficulty].name}: ${f.played.variant.name}`), ` ${f.played.variant.desc}`) : null,
-    chapter ? h('p.sp-p.desc.sp-mech', ico('info'), chapter.mechanic) : null,
-    h('dl.sp-facts.ma-facts',
+    h('p.stp-p', stage.desc),
+    f.played.variant ? h('p.stp-p.stp-variant', h('b', `${DIFFICULTIES[f.played.variant.difficulty].name}: ${f.played.variant.name}`), ` ${f.played.variant.desc}`) : null,
+    chapter ? h('p.stp-p.desc.stp-mech', ico('info'), chapter.mechanic) : null,
+    h('dl.stp-facts.ma-facts',
       infoFact('Map', map?.name || stage.mapId),
       f.isEndless && f.entry?.bestWave ? infoFact('Best wave', String(f.entry.bestWave)) : null,
       !f.isEndless && f.entry?.clears ? infoFact('Clears', String(f.entry.clears)) : null)));
@@ -1104,14 +1104,14 @@ function infoSheet(stage, state, f) {
   ids.sort((a, b) => (TIER_ORDER[ENEMY_MAP[a].tier] ?? 3) - (TIER_ORDER[ENEMY_MAP[b].tier] ?? 3) || Number(introduces.has(b)) - Number(introduces.has(a)));
   const newTraits = (stage.introduces || []).filter((k) => TRAITS[k]);
   out.push(sec('Enemies',
-    newTraits.length ? h('div.sp-newmech', newTraits.map((t) => h('p.sp-p', svgEl(traitIcon(t), 'ma-trait'), h('b', ` ${TRAITS[t].name}`), h('span.desc', ` · new: ${TRAITS[t].desc}`)))) : null,
-    h('div.sp-enemies.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: f.played.hpScale * DIFFICULTIES[state.difficulty].hpMul }))),
-    h('p.sp-p.desc', 'Tap an enemy for HP, traits and counters.')));
+    newTraits.length ? h('div.stp-newmech', newTraits.map((t) => h('p.stp-p', svgEl(traitIcon(t), 'ma-trait'), h('b', ` ${TRAITS[t].name}`), h('span.desc', ` · new: ${TRAITS[t].desc}`)))) : null,
+    h('div.stp-enemies.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: f.played.hpScale * DIFFICULTIES[state.difficulty].hpMul }))),
+    h('p.stp-p.desc', 'Tap an enemy for HP, traits and counters.')));
   return out;
 }
 
 function infoFact(label, value) {
-  return h('div.sp-fact.ma-fact', h('dt.lbl', label), h('dd.sp-fact-v', value));
+  return h('div.stp-fact.ma-fact', h('dt.lbl', label), h('dd.stp-fact-v', value));
 }
 
 /** Keeps the freeplay pick in the URL (null removes it), so Retry / Quit come back to it. */
@@ -1129,10 +1129,10 @@ function freeplaySec(stage, state, { endless, redraw, saved = null }) {
   const cleared = canPlayEndless(profile, stage.id) && hasSoloFreeplay(stage.id);
   const bests = soloBestLines(profile, stage.id);
   const bestBox = bests.length
-    ? h('div.sp-fp-bests', { 'data-testid': 'prep-fp-best' }, bests.map((b) => h(`span.ui-chip.sp-fp-best.sp-fp-${b.tier}`, b.text)))
+    ? h('div.stp-fp-bests', { 'data-testid': 'prep-fp-best' }, bests.map((b) => h(`span.ui-chip.stp-fp-best.stp-fp-${b.tier}`, b.text)))
     : null;
   if (!cleared) {
-    return sec('Freeplay', h('p.sp-p.sp-lockline', { 'data-testid': 'prep-fp-locked' }, ico('lock'), `Clear ${stage.id} once to start it in Freeplay, or tap Keep going on the victory screen to go past wave ${stage.waves}.`), bestBox);
+    return sec('Freeplay', h('p.stp-p.stp-lockline', { 'data-testid': 'prep-fp-locked' }, ico('lock'), `Clear ${stage.id} once to start it in Freeplay, or tap Keep going on the victory screen to go past wave ${stage.waves}.`), bestBox);
   }
   const pick = (tier) => {
     state.freeplay = tier;
@@ -1145,21 +1145,21 @@ function freeplaySec(stage, state, { endless, redraw, saved = null }) {
     rememberFreeplay(tier);
     redraw();
   };
-  const opt = (id, label, extra = {}) => h(`button.ui-opt.sp-fp-opt${(state.freeplay || 'off') === id ? '.on' : ''}`, {
+  const opt = (id, label, extra = {}) => h(`button.ui-opt.stp-fp-opt${(state.freeplay || 'off') === id ? '.on' : ''}`, {
     type: 'button', role: 'radio', 'aria-checked': (state.freeplay || 'off') === id ? 'true' : 'false', 'data-tier': id, onclick: () => pick(id === 'off' ? null : id), ...extra,
   }, label);
-  const seg = h('div.sp-fp-seg', { role: 'radiogroup', 'aria-label': 'Freeplay', 'data-testid': 'prep-freeplay' },
+  const seg = h('div.stp-fp-seg', { role: 'radiogroup', 'aria-label': 'Freeplay', 'data-testid': 'prep-freeplay' },
     endless ? null : opt('off', 'Off'),
     ...FREEPLAY_TIERS.map((id) => opt(id, freeplayTable(id).name, { 'data-testid': `prep-fp-${id}`, title: TIER_PITCH[id] })));
   const t = freeplayTable(state.freeplay);
   return sec('Freeplay',
     seg,
     t
-      ? h(`div.sp-fp-info.sp-fp-${t.id}`, { 'data-testid': 'prep-fp-info' },
-        h('p.sp-p', h('b', TIER_PITCH[t.id]), ' ', freeplaySummary(stage.id, t.id) || ''),
-        h('p.sp-p.desc', 'Rewards for the clear are saved at the last stage wave; past it you earn coins every wave, a cache every 25 waves and boss tokens. Finish any time from the pause menu.'),
-        state.difficulty === 'nightmare' ? h('p.sp-p.sp-warn', '1 life: the first leak ends freeplay.') : null,
-        saved ? h('p.sp-p.desc', { 'data-testid': 'prep-fp-save-note' }, 'Freeplay runs aren\'t saved when you quit, so your saved battle here stays as it is.') : null)
-      : h('p.sp-p.desc', `Off: the battle ends at wave ${stage.waves}. You can still Keep going from the victory screen.`),
+      ? h(`div.stp-fp-info.stp-fp-${t.id}`, { 'data-testid': 'prep-fp-info' },
+        h('p.stp-p', h('b', TIER_PITCH[t.id]), ' ', freeplaySummary(stage.id, t.id) || ''),
+        h('p.stp-p.desc', 'Rewards for the clear are saved at the last stage wave; past it you earn coins every wave, a cache every 25 waves and boss tokens. Finish any time from the pause menu.'),
+        state.difficulty === 'nightmare' ? h('p.stp-p.stp-warn', '1 life: the first leak ends freeplay.') : null,
+        saved ? h('p.stp-p.desc', { 'data-testid': 'prep-fp-save-note' }, 'Freeplay runs aren\'t saved when you quit, so your saved battle here stays as it is.') : null)
+      : h('p.stp-p.desc', `Off: the battle ends at wave ${stage.waves}. You can still Keep going from the victory screen.`),
     bestBox);
 }
