@@ -212,8 +212,9 @@ try {
     await go(page, '#/formation', '.mb-fslot.filled[data-unit="kaede"]');
     const fs = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"]');
     const fp = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"] [data-testid="fslot-pot"]');
-    const fx = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"] .mb-fslot-x');
-    check(inside(fp, fs) && overlap(fp, fx) === 0, `${tag} formation: Kaede's squad slot pill is inside the slot, clear of the ×`);
+    // (a girl tile since UI v2 M3: no ×, a tap takes her out; the pill keeps clear of the role mark)
+    const fx = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"] :is(.mb-fslot-x, .role)');
+    check(inside(fp, fs) && fx && overlap(fp, fx) === 0, `${tag} formation: Kaede's squad slot pill is inside the slot, clear of the role mark`);
     await shot(page, `formation-${tag}`);
     await go(page, '#/stage/1-1', '.ma-fslot .unit-card[data-unit="kaede"]');
     const ps = await rectOf(page, '.ma-fslot .unit-card[data-unit="kaede"]');
