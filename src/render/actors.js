@@ -467,8 +467,23 @@ export class Actors {
   }
 
   playAttack(uid, kind = null) {
-    // (`kind`: the attack event's, so a duo knows who moved: the beam is Kohaku's, src/models/duo.js)
-    this.towers.get(uid)?.model.userData.playAttack?.(kind);
+    const ud = this.towers.get(uid)?.model.userData;
+    // (a duo moves from duoEvent, which knows whose weapon fired; the attack FX's clip call carries no kind)
+    if (!ud || ud.duo) return;
+    ud.playAttack?.(kind);
+  }
+
+  /**
+   * A duo's own moves (src/models/duo.js), from the battle's events before the FX layers consume them: each
+   * attack moves the girl whose weapon fired (the beam is Kohaku's `attack_beam`, the shells Tsubaki's
+   * `attack_mortar`), and her ability cast (Prismfall) makes both cheer. Display only.
+   */
+  duoEvent(ev) {
+    if (ev.type !== 'attack' && ev.type !== 'ability') return;
+    const ud = this.towers.get(ev.towerUid)?.model.userData;
+    if (!ud?.duo) return;
+    if (ev.type === 'ability') ud.playCheer?.();
+    else if (ev.turretUid == null) ud.playAttack?.(ev.kind);
   }
 
   setHighlight(uid, on) {

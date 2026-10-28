@@ -206,9 +206,9 @@ describe('character GLBs', () => {
   });
 });
 
-// The duo's members (docs/specs/DUO_LR.md §1.6): Kohaku's and Tsubaki's Oct 20 test-build figures (imported, painted,
-// rigged; no clips and no measured eyes yet: they stand in their rest pose and the attack shows in the FX). Model
-// polish is pushed back (owner); this checks what ships is a loadable textured rigged figure of each member.
+// The duo's members (docs/specs/DUO_LR.md §1.6): Kohaku's and Tsubaki's game-ready Meshy figures (imported, painted,
+// rigged, five clips each). This checks what ships is a loadable textured rigged figure of each member; the full
+// checks (clips, bones, eyes, guards, anchors) are in tests/models/duo-members.test.js.
 describe('duo members', () => {
   for (const u of DUO_UNITS) {
     for (const m of u.duo.members) {
