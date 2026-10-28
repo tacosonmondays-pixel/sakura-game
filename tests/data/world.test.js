@@ -37,7 +37,7 @@ const STAGE_KEYS = [
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
 const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
 const ERA_BY_THEME = {
@@ -488,19 +488,21 @@ describe('maps', () => {
     const basin = [{ x: 8, y: 5, w: 3, h: 1, from: '~', to: '.' }];
     const dryRows = court.rows.map((r, y) => (y === 5 ? `${r.slice(0, 8)}...${r.slice(11)}` : r));
     const echo = { ...court, id: 'noon_fixture_echo', theme: 'city', rows: dryRows, echoOf: 'sakura_court', echoDiff: basin };
+    // (the real echo, 1-10's noon_dry_fountain, steps aside: the fixture plays its part here)
+    const MAPS_ = MAPS.filter((m) => m.echoOf !== 'sakura_court');
     expect(isDeclaredEcho(echo, court)).toBe(true);
     expect(isDeclaredEcho(court, echo)).toBe(true);
     expect(echoProblems(echo, court)).toEqual([]);
-    expect(shapeClashes([...MAPS, echo])).toEqual([]);
+    expect(shapeClashes([...MAPS_, echo])).toEqual([]);
     // the same copy, undeclared: both shape tests catch it
     const copy = { ...echo, id: 'noon_fixture_copy', echoOf: undefined, echoDiff: undefined };
     expect(isDeclaredEcho(copy, court)).toBe(false);
     expect(silhouetteIoU(copy, court)).toBeGreaterThanOrEqual(0.65);
-    const clashes = shapeClashes([...MAPS, copy]);
+    const clashes = shapeClashes([...MAPS_, copy]);
     expect(clashes.some((c) => c.startsWith('silhouette sakura_court vs noon_fixture_copy'))).toBe(true);
     // a declared echo is exempt from its original only, never from a third map
     const third = { ...echo, id: 'noon_fixture_third', echoOf: 'sakura_terrace' };
-    expect(shapeClashes([...MAPS, third]).some((c) => c.includes('sakura_court vs noon_fixture_third'))).toBe(true);
+    expect(shapeClashes([...MAPS_, third]).some((c) => c.includes('sakura_court vs noon_fixture_third'))).toBe(true);
     // what the echo test refuses: the same era, a moved road, a changed tile it does not list,
     // a listed tile that did not change
     expect(echoProblems({ ...echo, theme: 'lake' }, court).join()).toMatch(/another era/);

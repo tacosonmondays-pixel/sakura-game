@@ -34,7 +34,7 @@ const CAPS = {
   manhole: 20, streetTree: 738, powerPole: 75, planterBox: 38, guardRail: 75, catOnWall: 38, pigeonGroup: 38,
   laundryLine: 38, missingPoster: 15, cityBlock: 500, cityWall: 138, cityTower: 150, shopFront: 500,
   bunSteamer: 80, stationHall: 260, ticketGates: 160, clockTower: 360, levelCrossing: 240, waterBus: 80,
-  lockGate: 140, arcadeRibs: 300, roofBlock: 120, petalRift: 640, shelterDoor: 360,
+  lockGate: 140, arcadeRibs: 300, roofBlock: 120, dryFountain: 560, petalRift: 640, shelterDoor: 360,
 };
 /** Far LOD caps where TECH gives one (the skyline: cityTower 24-60 × 1.25). */
 const FAR_CAPS = { cityTower: 75, streetTree: 160 };

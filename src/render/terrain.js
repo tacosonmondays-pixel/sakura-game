@@ -498,6 +498,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     return Math.atan2(best[0], best[1]);
   }
 
+  // a set piece with a radius (decor `r`, e.g. 1-10's dry fountain) draws the building tiles
+  // around it itself: no generic building stands on them
+  const covers = (map.decor || []).filter((d) => d.r > 0);
+  const coveredBy = (x, y) => covers.some((d) => Math.hypot(x - d.x, y - d.y) <= d.r);
+
   // tunnels first: a tunnel under buildings gets one composed hall, so skip those tiles' props
   const tunnels = buildTunnels(map, look);
   for (let y = 0; y < H; y++) {
@@ -520,6 +525,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine';
           place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : 1, h % 4);
         }
+        occupied.add(key);
+        continue;
+      }
+      if (c === 'H' && coveredBy(x, y)) {
+        // a big set piece's own ground (decor r: the dry fountain's basin): it draws these tiles
         occupied.add(key);
         continue;
       }

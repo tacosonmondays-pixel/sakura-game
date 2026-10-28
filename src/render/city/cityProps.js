@@ -26,6 +26,7 @@ export const CITY_VARIANTS = {
   catOnWall: 2, pigeonGroup: 2, missingPoster: 4, manhole: 1, bunSteamer: 1,
   // Act 1 set pieces
   stationHall: 1, ticketGates: 1, clockTower: 1, levelCrossing: 3, waterBus: 1, lockGate: 1, arcadeRibs: 1, roofBlock: 2,
+  dryFountain: 1,
   // gates
   petalRift: 2, shelterDoor: 3,
 };
@@ -487,6 +488,36 @@ export const CITY_BUILDERS = {
     F.box(0.32, H, -0.32, 0.16, 0.1, 0.12, { color: '#e9e6df' });
     if (k) prim(F, new THREE.CylinderGeometry(0.07, 0.07, 0.14, 6), { x: -0.3, y: H + 0.07, z: -0.3 }, '#cfd6dc');
     else c.glow.box(0.22, 0.012, 0.16, { x: -0.2, y: H + 0.01, z: 0.2, color: '#d6f0ff' });
+  },
+
+  dryFountain(c) {
+    // 1-10's plaza fountain, dry for a thousand years: an oval stone rim over the blocked basin
+    // tiles (decor r covers them, terrain.js), a cracked dry floor, frost along the rim, and in the
+    // middle the wardstone, dark and cold (no glow: it wakes only in the story after the battle)
+    const RX = 2.35;
+    const RZ = 1.38;
+    const N = 16;
+    c.solid.cyl(1, 1, 0.03, 16, { y: 0.015, sx: RX - 0.05, sz: RZ - 0.05, color: '#a69d8d' });
+    for (let i = 0; i < N; i++) {
+      const a = ((i + 0.5) / N) * Math.PI * 2;
+      const x = Math.cos(a) * RX;
+      const z = Math.sin(a) * RZ;
+      // tangent of the ellipse at a → the slab's yaw; its length covers the arc to the next slab
+      const tx = -Math.sin(a) * RX;
+      const tz = Math.cos(a) * RZ;
+      const len = (Math.hypot(tx, tz) * Math.PI * 2) / N + 0.04;
+      const ry = -Math.atan2(tz, tx);
+      c.solid.box(len, 0.2, 0.2, { x, z, ry, color: i % 2 ? '#d6cfc2' : '#cbc3b5' });
+      if (i % 3 === 0) c.solid.box(len * 0.8, 0.03, 0.16, { x, y: 0.2, z, ry, color: '#eaf6ff' });
+    }
+    for (const [x, z, ry, l] of [[-1.2, 0.3, 0.5, 0.7], [0.9, -0.5, -0.4, 0.6], [1.3, 0.6, 1.1, 0.5], [-0.5, -0.7, 2.2, 0.5]]) {
+      c.solid.box(l, 0.012, 0.03, { x, y: 0.035, z, ry, color: '#7b7366' });
+    }
+    // the wardstone on its round step: a squat dark eight-sided stone with a slanted cap
+    c.solid.cyl(0.5, 0.56, 0.12, 12, { y: 0.06, color: '#bdb4a4' });
+    c.solid.cyl(0.24, 0.3, 0.62, 8, { y: 0.43, color: '#34303f' });
+    c.solid.cyl(0.02, 0.25, 0.2, 8, { y: 0.84, rz: 0.12, color: '#2a2633' });
+    c.solid.box(0.3, 0.02, 0.05, { y: 0.5, z: 0.27, color: '#dfeefa' });
   },
 
   // ----- gates ------------------------------------------------------------------------
