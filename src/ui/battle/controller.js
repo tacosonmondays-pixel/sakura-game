@@ -683,6 +683,11 @@ export function mountBattle(root, params, hooks) {
         feed.push(sim.state === 'wave' ? `Recharging — ${Math.ceil(st.cooldownLeft)}s` : 'The ultimate only charges during waves.', 'warn', { key: 'ult-cd', ms: 1400 });
         return;
       }
+      // Norika's Hold the Line works only during a wave (src/sim/hero.js): say so instead of a silent tap
+      if (sim.state !== 'wave' && sim.hero?.def?.hero?.ult?.effect?.type === 'barricade') {
+        feed.push(`${sim.hero.def.hero.ult.name} works during a wave.`, 'warn', { key: 'ult-wave', ms: 1600 });
+        return;
+      }
       if (ls) {
         ls.queue('ult', []); // each player fires her own hero's ult
         return;
