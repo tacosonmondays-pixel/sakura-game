@@ -89,18 +89,24 @@ export function render(root, params = {}) {
     content.appendChild(chapterBanner(profile, chapter));
     const rows = actRows(profile, chapter);
     let n = 0;
-    const grid = (ids) => {
+    const grid = (ids, sides = []) => {
       const g = h('div.ma-stage-grid');
       ids.forEach((id) => {
         const card = stageCard(profile, id, { isNext: id === next });
         card.style.animationDelay = `${n++ * 45}ms`;
         g.appendChild(card);
+        // a side stage's small card right after its anchor (Gate Arc Step 6: the Starfall Trial after 6-10)
+        for (const side of sides.filter((x) => x.anchor === id)) {
+          const sc = sideCard(profile, side);
+          sc.style.animationDelay = `${n++ * 45}ms`;
+          g.appendChild(sc);
+        }
       });
       return g;
     };
     // one act: the plain grid, no header (the screen as it always was); two: a header above each act's grid
-    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages));
-    else for (const row of rows) content.appendChild(h(`section.ma-act-row.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids)));
+    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages, rows[0]?.sides));
+    else for (const row of rows) content.appendChild(h(`section.ma-act-row.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids, row.sides)));
   };
 
   drawTabs();
@@ -147,6 +153,34 @@ function chapterBanner(profile, chapter) {
     locked ? h('div.ma-cb-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, chapter.stages[0])) : null,
   );
   return banner;
+}
+
+/**
+ * A side stage's small card (Gate Arc Step 6), drawn right after its anchor's card: its thumbnail, "Side", its name and
+ * medals; locked ("Clear 6-10") until the anchor is cleared. Opens the stage screen like any stage card.
+ * @param {object} profile
+ * @param {{ id: string, unlocked: boolean, cleared: boolean, lockText: string|null }} side campaignActs.js sideCards row
+ */
+function sideCard(profile, side) {
+  const stage = STAGE_MAP[side.id];
+  let map = null;
+  try {
+    map = getMap(stage.mapId);
+  } catch {
+    map = null;
+  }
+  return h(
+    `button.ma-stage-card.ma-side-card${side.unlocked ? '' : '.locked'}${side.cleared ? '.cleared' : ''}`,
+    { 'data-testid': `side-${side.id}`, onclick: () => navigate('stage', { id: side.id }) },
+    h('div.ma-sc-top',
+      h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200, ruined: stage.scenery?.ruined }), map, stage.rule, 320, 200) : '' }),
+      h('span.ma-sc-id', 'Side'),
+      medalRow(profile, side.id, { size: 22, cls: 'ma-sc-medals' }),
+      side.unlocked ? savedBadge(profile, side.id) : null,
+    ),
+    h('div.ma-sc-info', h('div.ma-sc-name', stage.name)),
+    side.unlocked ? null : h('div.ma-sc-lock', svgEl(uiIcon('lock'), 'ma-sc-lock-icon'), h('span', side.lockText)),
+  );
 }
 
 function stageCard(profile, stageId, { isNext }) {

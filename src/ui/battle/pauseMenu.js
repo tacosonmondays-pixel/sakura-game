@@ -80,7 +80,7 @@ export function createPauseMenu(ctx) {
       'div.bt-sheet.bt-pause',
       h('div.bt-sheet-title', ctx.coop ? 'MENU' : 'PAUSED'),
       ctx.coop ? h('p.bt-pause-sub', 'Co-op battles keep running while this menu is open.') : null,
-      h('div.bt-pause-sub', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
+      h('div.bt-pause-sub', `${stage.kind === 'campaign' ? `${stage.id} · ` : stage.kind === 'side' ? 'Side · ' : ''}${stage.name} — ${diff.name}`),
       ctx.modes?.pauseRow() || null,
       h(
         'div.bt-pause-actions',

@@ -6,6 +6,7 @@ export const ACT2_MECHANIC = {
   3: 'The Bell Festival: Old Town roofs, hot griddles, a rift on the lake, the street on fire. Finale: the Ashen Warden.',
   4: 'The Checkpoint: booth roofs, Azami\'s barrier, the Brigade on the road, the village hearths. Finale: the Frost Vanguard.',
   5: 'The Drowned Line: a lane out of a flooded bore, tunnels in the dark, steam valves, glass machines, the reservoir fog. Finale: the Reservoir Willow.',
+  6: 'Glass machines that hold the line: barriers, crystal lattices and plate. On 6-7 the road runs up a sky-rail viaduct, and enemies on it can still be hit.',
 };
 
 export function mechanicFor(chapter, stage) {
