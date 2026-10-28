@@ -33,7 +33,9 @@ const errors = [];
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
 
 async function maybeName(page, name) {
-  const input = await page.waitForSelector('[data-testid="name-input"]', { timeout: 4000 }).catch(() => null);
+  // (the name prompt can come late on a slow phone-size tab: wait for it or for the room, whichever shows first)
+  await page.waitForFunction(() => document.querySelector('[data-testid="name-input"]') || window.__coop, null, { timeout: 30000 }).catch(() => {});
+  const input = await page.$('[data-testid="name-input"]');
   if (!input) return;
   await page.fill('[data-testid="name-input"]', name);
   await page.click('[data-testid="name-save"]', T);
