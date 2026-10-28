@@ -75,9 +75,10 @@ export function resolveBackground(id, chapter = 0) {
       const place = timed && BACKGROUNDS[timed] ? timed : painted;
       return { ...resolveBackground(place, chapter), id, stageId, place, time, fallback: true };
     }
-    // an Act II stage (Gate Arc: the Noon city, not the academy) without a painted place shows its map theme's skyline
+    // an Act II stage (Gate Arc: the Noon city, not the academy) or a side stage (`side-<c>-<slug>`, drawn after its
+    // Act II anchor) without a painted place shows its map theme's skyline
     const st = STAGE_MAP[stageId];
-    const theme = st?.act === 2 ? MAP_MAP[st.mapId]?.theme : null;
+    const theme = st?.act === 2 || st?.kind === 'side' ? MAP_MAP[st.mapId]?.theme : null;
     if (theme) return { id, kind: 'svg', html: themeBackdropSVG(theme, { variant: PLACE_VARIANT[st.mapId] ?? null, time }), stageId, time, fallback: true };
     const ch = st?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);

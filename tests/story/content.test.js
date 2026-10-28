@@ -54,9 +54,11 @@ const isQuietAct = (sc) => /^g2\./.test(sc.id);
  * STORY.md §14): no body, wound or blood words, and not even the Arc 1 death words. Ms. Hazuki is a name that gets no
  * answer; the old oni is an empty place at a cold brazier. Act 4 (The Checkpoint) keeps the same rule (STEP4_BUILD_PLAN
  * §6): a fallen trooper is "down" or an empty helmet, and the General "doesn't come back". So does Act 5 (The Drowned
- * Line, STEP5_BUILD_PLAN §6): the Register says "the reservoir, tonight", never how, and Toki is simply not there.
+ * Line, STEP5_BUILD_PLAN §6): the Register says "the reservoir, tonight", never how, and Toki is simply not there. And
+ * so does Act 6 (Vesperline, STEP6_BUILD_PLAN §7): the city "fell", never how; Kohaku is trapped and comes out unharmed;
+ * Tsubaki flickers and steadies; the Commander is a recording.
  */
-const isAbsenceAct = (sc) => /^g[345]\./.test(sc.id);
+const isAbsenceAct = (sc) => /^g[3-6]\./.test(sc.id);
 const ABSENCE_BANNED = [
   'body', 'bodies', 'corpse', 'corpses', 'wound', 'wounds', 'wounded', 'bleed', 'bleeding', 'bled', 'blood', 'bloody',
   'injury', 'injuries', 'injured', 'bone', 'bones', 'gore', 'burns', 'scar', 'scars', 'grave', 'funeral', 'killed', 'kill',
@@ -75,6 +77,8 @@ const ARC1_MAIN = {
   g4: ['g4.pro', 'g4.azami', 'g4.cross', 'g4.boss', 'g4.after', 'g4.epi'],
   // Act 5 has no join (no free girl in Act 5, STEP5_BUILD_PLAN decision 11); Hikari is on Channel 9 in g5.raid
   g5: ['g5.pro', 'g5.mid', 'g5.raid', 'g5.boss', 'g5.after', 'g5.epi'],
+  // Act 6 has no join either (decision 12): six main episodes; sleep, doorie and the duo's star1 / star2 are side scenes
+  g6: ['g6.pro', 'g6.mid', 'g6.chair', 'g6.boss', 'g6.after', 'g6.epi'],
 };
 
 /**
@@ -88,6 +92,10 @@ const NPC_FIRST = ['kohaku', 'tsubaki'];
  * speaks as herself (her unit and portrait shipped with the ultimates, v0.1.57); she still never joins in the story.
  */
 const G5_PLATES = ['Toki', '{name:tsubaki}', '{name:kohaku}'];
+/** Act 6's plain plates: Tsubaki and Kohaku (story-only until their duo unit), Mahiru, and the Commander's recording. */
+const G6_PLATES = ['{name:tsubaki}', '{name:kohaku}', 'Mahiru', 'Commander Yūhi'];
+/** The side stage the duo's two scenes play around (STEP6_BUILD_PLAN decisions 9-10: kind 'side', anchored after 6-10). */
+const STARFALL = 'side-6-starfall';
 const AGE_RE = /\b(\d+\s*(years?|yrs?)\s*old|aged?\s+\d+)\b/i;
 
 /** Every string a player can read in a scene: lines, replies, choice options, title and plate overrides. */
@@ -171,8 +179,8 @@ describe('story registry', () => {
     // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
     // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*) and Act 2
     // (eleven episodes, g2.*) and Act 3 (nine episodes, g3.*) and Act 4 (seven episodes, g4.*) and Act 5 (nine
-    // episodes, g5.*)
-    expect(SCENE_LIST.length).toBe(75);
+    // episodes, g5.*) and Act 6 (ten episodes, g6.*)
+    expect(SCENE_LIST.length).toBe(85);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });
@@ -330,6 +338,99 @@ describe('story registry', () => {
     }
   });
 
+  it('Act II of chapter 6 (Vesperline): six main episodes, four side scenes (two around the Starfall Trial), no join', () => {
+    const g6 = SCENE_LIST.filter((s) => s.id.startsWith('g6.'));
+    expect(g6.map((s) => s.id)).toEqual([
+      'g6.pro', 'g6.sleep', 'g6.mid', 'g6.chair', 'g6.boss', 'g6.after', 'g6.epi', 'g6.doorie', 'g6.star1', 'g6.star2',
+    ]);
+    for (const s of g6) expect([s.chapter, s.act, s.kind, storyRewardFor(s.kind)], s.id).toEqual([6, 2, 'event', []]);
+    const triggers = Object.fromEntries(g6.map((s) => [s.id, s.trigger]));
+    expect(triggers).toEqual({
+      'g6.pro': { before: '6-6' },
+      'g6.sleep': { after: '6-7' },
+      'g6.mid': { before: '6-8' },
+      'g6.chair': { after: '6-8' },
+      'g6.boss': { before: '6-10' },
+      'g6.after': { after: '6-10' },
+      'g6.epi': { after: '6-10' },
+      'g6.doorie': { after: '6-10' },
+      'g6.star1': { before: STARFALL },
+      'g6.star2': { after: STARFALL },
+    });
+    // six cutscenes and no join: the spec's join slots are 1-7, 4-7 and 7-7 only, so 6-7 recruits nobody
+    expect(ARC1_MAIN.g6).toHaveLength(6);
+    for (const s of g6) expect([s.ifOwned, s.ifUnit], s.id).toEqual([undefined, undefined]);
+    expect(freeUnlocksByStage()['6-7']).toBeUndefined();
+    // chapter 6's Act II files right after chapter 6's own episodes, before chapter 7; the after-6-10 scenes in order
+    const ids = SCENE_LIST.map((s) => s.id);
+    expect(ids.indexOf('g6.pro')).toBe(ids.indexOf('ch6.epi') + 1);
+    expect(ids.indexOf('ch7.pro')).toBe(ids.indexOf('g6.star2') + 1);
+    expect(scenesWithTrigger('after', '6-10').map((s) => s.id)).toEqual(['g6.after', 'g6.epi', 'g6.doorie']);
+    expect(scenesWithTrigger('before', STARFALL).map((s) => s.id)).toEqual(['g6.star1']);
+    expect(scenesWithTrigger('after', STARFALL).map((s) => s.id)).toEqual(['g6.star2']);
+    // titles: none repeats another archive title (g6.doorie is "For the Tea"; "Doorie" is kept for g7.epi), none
+    // carries the reserved upgrade-step name
+    expect(sceneById('g6.doorie').title).toBe('For the Tea');
+    const titles = SCENE_LIST.map((s) => s.title.toLowerCase());
+    for (const s of g6) {
+      expect(s.title.toLowerCase(), s.id).not.toContain('roll call');
+      expect(s.title.toLowerCase(), s.id).not.toBe('doorie');
+      expect(titles.filter((t) => t === s.title.toLowerCase()), s.id).toHaveLength(1);
+    }
+  });
+
+  it('nobody joins in Act 6: Tenka speaks as herself; Tsubaki, Kohaku, Mahiru and the Commander are plates', () => {
+    const g6 = ALL.filter((s) => s.id.startsWith('g6.'));
+    for (const sc of g6) {
+      for (const l of sayLines(sc.lines)) {
+        if (G6_PLATES.includes(l.name)) expect(l.who, `${sc.id}: ${l.name} speaks as unknown`).toBe('unknown');
+        if (l.who === 'unknown') expect(G6_PLATES, `${sc.id}: plate ${l.name}`).toContain(l.name);
+        expect(['toki', 'tsubaki', 'kohaku', 'mori', 'mahiru', 'kagari', 'yuhi'], sc.id).not.toContain(l.who);
+      }
+      // portraits only for girls the player can have: the Sentinels on the trip and Ouka at home
+      for (const c of sc.cast) {
+        expect(['hikari', 'kage', 'yuki', 'tenka', 'yuzuha', 'chika', 'ouka'], `${sc.id} cast ${c}`).toContain(c);
+      }
+      for (const { where, text } of textsOf(sc)) {
+        expect(/\b(joins?|joined|joining|recruits?|recruited|new member)\b/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+      }
+    }
+    // Tenka speaks in person on the crossing, and names the act's one rule in g6.after
+    expect(sayLines(sceneById('g6.pro').lines).some((l) => l.who === 'tenka' && l.text === 'Welcome home. …Mine, I mean.')).toBe(true);
+    const rule = sayLines(sceneById('g6.after').lines).find((l) => l.text.startsWith('Two lives of one soul'));
+    expect([rule?.who, rule?.text]).toEqual(['tenka', 'Two lives of one soul can share an hour. Each keeps her own thread.']);
+    // Iroha's painting line is an off-stage cameo: it plays once she exists, and the scene stands without it
+    const iroha = sayLines(sceneById('g6.mid').lines).find((l) => l.who === 'iroha');
+    expect([iroha.ifUnit, iroha.at, iroha.text]).toEqual(['iroha', 'off', 'I painted that. Last week.']);
+  });
+
+  it('Toki stays unwoven in Act 6: no line, no plate and no name of hers, and nobody counts the Last Watch', () => {
+    const g6 = ALL.filter((s) => s.id.startsWith('g6.'));
+    expect(g6.length).toBe(10);
+    for (const sc of g6) {
+      expect(sayLines(sc.lines).some((l) => l.name === 'Toki' || l.who === 'toki'), sc.id).toBe(false);
+      for (const { where, text } of textsOf(sc)) {
+        expect(/\btoki\b/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+        // no line that the Last Watch was three (or that anyone is missing from it)
+        const counted = /\b(three of (us|you|them)|all three|the three|third (one|cup|cadet)|one of us is missing)\b/i;
+        expect(counted.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+      }
+    }
+  });
+
+  it('faces fit the grim beats: the chair, the recording and the flicker keep to quiet faces and one smile', () => {
+    const quiet = ['determined', 'sad', 'surprise', 'question', 'deadpan'];
+    for (const id of ['g6.chair', 'g6.boss', 'g6.after']) {
+      const faces = sayLines(playableLines(sceneById(id), () => true)).map((l) => l.face).filter((f) => f && f !== 'neutral');
+      for (const f of faces) expect([...quiet, 'smile'], `${id}: face ${f}`).toContain(f);
+      expect(faces.filter((f) => f === 'smile').length, `${id}: smiles`).toBeLessThanOrEqual(1);
+    }
+    // the one smile in the chair is the kindness (the card goes into Sensei's pocket); Kage's verdict is deadpan
+    const chair = sayLines(sceneById('g6.chair').lines);
+    expect(chair.find((l) => l.face === 'smile')?.who).toBe('hikari');
+    expect(chair.find((l) => l.text === 'SUSPICIOUS.')).toMatchObject({ who: 'kage', face: 'deadpan' });
+  });
+
   it('nobody joins in Act 5: Tenka, Tsubaki and Toki are story characters with plates, never units or recruits', () => {
     const g5 = ALL.filter((s) => s.id.startsWith('g5.'));
     for (const sc of g5) {
@@ -403,6 +504,9 @@ describe('story registry', () => {
       const t = s.trigger || {};
       const stage = t.before || t.after;
       if (!stage) return -1;
+      // a side stage opens on its anchor's first clear: its scenes file after the anchor's after-scenes
+      const side = STAGE_MAP[stage]?.kind === 'side' ? STAGE_MAP[stage] : null;
+      if (side) return stageOrderKey(side.anchor) * 2 + 1 + (t.after ? 0.5 : 0.25);
       return stageOrderKey(stage) * 2 + (t.after ? 1 : 0);
     };
     const order = SCENE_LIST.map(pos);
@@ -411,8 +515,10 @@ describe('story registry', () => {
       const t = s.trigger || {};
       const stage = t.before || t.after;
       if (!stage) continue;
-      expect(STAGE_MAP[stage]?.kind, `${s.id} trigger ${stage}`).toBe('campaign');
+      // a campaign stage, or a side stage (kind 'side': the Starfall Trial, anchored after 6-10)
+      expect(['campaign', 'side'], `${s.id} trigger ${stage}`).toContain(STAGE_MAP[stage]?.kind);
       expect(STAGE_MAP[stage].chapter, `${s.id} chapter`).toBe(s.chapter);
+      if (STAGE_MAP[stage].kind === 'side') expect(STAGE_MAP[STAGE_MAP[stage].anchor]?.kind, `${s.id} anchor`).toBe('campaign');
     }
   });
 
@@ -480,7 +586,7 @@ describe('story speakers, backgrounds and music (T-content-1, T-content-2)', () 
       for (const bg of bgs) {
         expect(isBackgroundId(bg), `${sc.id}: ${bg}`).toBe(true);
         const stage = stageOfBackground(bg);
-        if (stage) expect(STAGE_MAP[stage]?.kind, `${sc.id}: ${bg}`).toBe('campaign');
+        if (stage) expect(['campaign', 'side'], `${sc.id}: ${bg}`).toContain(STAGE_MAP[stage]?.kind);
       }
       for (const m of music) expect(STORY_MUSIC[m], `${sc.id}: music ${m}`).toBeTruthy();
       for (const s of sfx) expect(STORY_SFX[s], `${sc.id}: sfx ${s}`).toBeTruthy();
@@ -556,8 +662,8 @@ describe('story text (T-content-3, T-content-4)', () => {
   it('content lint: no banned words, no ages (the war words only in Arc 1 episodes, never in quiet Act 2)', () => {
     const banned = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'i');
     const arc0 = new RegExp(`\\b(${BANNED_ARC0.join('|')})\\b`, 'i');
-    // the scope: every gN.* episode is Arc 1 (Acts 1 to 5 so far), nothing else is
-    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3', 'g4', 'g5']);
+    // the scope: every gN.* episode is Arc 1 (Acts 1 to 6 so far), nothing else is
+    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3', 'g4', 'g5', 'g6']);
     for (const sc of ALL) {
       for (const { where, text } of textsOf(sc)) {
         expect(text.match(banned)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
@@ -635,6 +741,63 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g5.epi', 'There were always two of us.')).toBe(true);
     expect(has('g5.epi', 'Two cups. She does not reach for a third.')).toBe(true);
     expect(has('g5.epi', '{name:tenka} takes a third cup down from the shelf')).toBe(true);
+  });
+
+  it('loss by absence in Act 6: no body, wound or death words in g6; the city fell, Kohaku is trapped and unharmed', () => {
+    const absence = new RegExp(`\\b(${ABSENCE_BANNED.join('|')})\\b`, 'i');
+    // never how: nobody is crushed, pinned or flattened, nobody drowns, and nobody vanishes or fades away
+    const how = /\b(drown\w*|crush\w*|pinned|flatten\w*|gone for good|vanish\w*|fades? away|faded|unwoven|erased)\b/i;
+    const g6 = ALL.filter((s) => s.id.startsWith('g6.'));
+    expect(g6.length).toBe(10);
+    expect(g6.every(isAbsenceAct)).toBe(true);
+    for (const sc of g6) {
+      for (const { where, text } of textsOf(sc)) {
+        expect(text.match(absence)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+        expect(text.match(how)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+      }
+    }
+    const has = (id, needle) => textsOf(sceneById(id)).some((t) => t.text.includes(needle));
+    // the city fell (the card's own words), never how; the Commander is a recording
+    expect(has('g6.chair', '"SENSEI · Faculty Advisor · MISSING since the Fall."')).toBe(true);
+    expect(has('g6.chair', 'Nobody laughs.')).toBe(true);
+    expect(has('g6.chair', "Then she puts it in Sensei's coat pocket, carefully")).toBe(true);
+    expect(has('g6.boss', 'a recording, worn thin')).toBe(true);
+    // Kohaku is trapped and comes out unharmed; Tsubaki flickers like a bad signal and steadies
+    expect(has('g6.after', '{name:kohaku} is trapped')).toBe(true);
+    expect(has('g6.after', '{name:kohaku} scrambles out unharmed')).toBe(true);
+    expect(has('g6.after', 'Her outline breaks up like a bad signal')).toBe(true);
+    expect(has('g6.after', '{name:tsubaki} is steady.')).toBe(true);
+    // the machine that was really a heater: Chika switches it off
+    expect(sayLines(sceneById('g6.after').lines).some((l) => l.who === 'chika' && l.text === 'Real welds. …Goodnight.')).toBe(true);
+    expect(has('g6.after', "It's still heating the shelter. There's nobody in it.")).toBe(true);
+  });
+
+  it('the mystery holds in Act 6: no dragon or egg, the nest and the wool only in g6.epi, no name from the blacked-out entry', () => {
+    const g6 = SCENE_LIST.filter((s) => s.id.startsWith('g6.'));
+    // "far too big for any bird" is the spec's own phrase, so birds are allowed; nothing names what made the nest
+    const species = /\b(dragons?|wyverns?|wyrms?|drakes?|hatchlings?|eggs?|chicks?|matriarch|lizards?|reptiles?|specimen)\b/i;
+    const nest = [];
+    for (const sc of g6) {
+      for (const { where, text } of textsOf(sc)) {
+        expect(text.match(species)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+        if (/\b(nests?|wool|scarf|knitted)\b/i.test(text)) nest.push(sc.id);
+        // the notch is nobody's in particular, and no line ties the Captain, Mahiru and the Commander together
+        expect(/dawnblade/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+      }
+      // no enemy speaks in Act 6 (Gatekeeper Unit 01 does not speak)
+      for (const l of sayLines(sc.lines)) expect(ENEMY_SPEAKERS, sc.id).not.toContain(l.who);
+    }
+    expect([...new Set(nest)]).toEqual(['g6.epi']);
+    const epi = textsOf(sceneById('g6.epi')).map((t) => t.text);
+    expect(epi).toContain('Behind the tower, half sunk in the ice, lies a frozen nest of cable and glass. Far too big for any bird.');
+    expect(epi.some((t) => t.includes('one thread of grey knitted wool'))).toBe(true);
+    // the recording names nobody: no token, no Mahiru, and the entry beside it is blacked out, not read
+    const boss = sceneById('g6.boss');
+    for (const { where, text } of textsOf(boss)) expect(/mahiru/i.test(text), `g6.boss ${where}: "${text}"`).toBe(false);
+    for (const l of sayLines(boss.lines).filter((x) => x.name === 'Commander Yūhi')) expect(tokensIn(l.text), l.text).toEqual([]);
+    expect(textsOf(boss).some((t) => t.text.includes('It has been blacked out.'))).toBe(true);
+    // and Mahiru is only a plate with a teapot in Act 6: never in the museum, the chair or the recording
+    for (const sc of g6) if (textsOf(sc).some((t) => /mahiru/i.test(t.text))) expect(sc.id).toBe('g6.doorie');
   });
 
   it('Toki is not there between one line and the next: she never speaks again, and only Sensei notices', () => {
@@ -836,6 +999,34 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g5.whiteboard', 'Seventy-three point one.')).toBe(true);
     expect(has('g5.after', 'First light')).toBe(true);
     expect(has('g5.epi', 'Stand with me means tell me. Always.')).toBe(true);
+    // Act 6 (STORY.md §11; clues 21-25)
+    expect(has('g6.pro', "Everyone? …{name:kage}, that's a rice cracker.")).toBe(true);
+    expect(has('g6.pro', 'So this is where the cold came from.')).toBe(true);
+    expect(has('g6.pro', 'Welcome home. …Mine, I mean.')).toBe(true);
+    expect(has('g6.sleep', "My turrets don't sleep, so I don't.")).toBe(true);
+    expect(has('g6.mid', 'ITOMACHI, BEFORE.')).toBe(true);
+    expect(has('g6.mid', '"The Quiet Stones"')).toBe(true);
+    expect(has('g6.mid', 'a captain, a mother in the mountains, and a little star in a hat')).toBe(true);
+    expect(has('g6.mid', "…That's us.")).toBe(true);
+    expect(has('g6.mid', 'At her belt, cast in the same stone, hangs a little keychain.')).toBe(true);
+    expect(has('g6.chair', "That's you. In a city you've never been to.")).toBe(true);
+    expect(has('g6.boss', 'To the girl at the door.')).toBe(true);
+    expect(has('g6.boss', 'small notch')).toBe(true);
+    expect(has('g6.boss', 'taps twice over her heart')).toBe(true);
+    expect(has('g6.boss', "I couldn't protect everyone alone. I should have asked.")).toBe(true);
+    expect(has('g6.boss', 'Sensei, if this reaches you: come earlier next time.')).toBe(true);
+    expect(has('g6.boss', 'HOLD THE LINE')).toBe(true);
+    expect(has('g6.epi', "You'll live a long time. In a house by the lake. Too many tea plants. It's the only thing I ever looked up.")).toBe(true);
+    expect(has('g6.epi', 'We keep it. And we keep looking.')).toBe(true);
+    expect(has('g6.epi', 'People need a festival.')).toBe(true);
+    expect(has('g6.epi', 'The Starfall Trial is open.')).toBe(true);
+    expect(has('g6.doorie', 'Doorie. She holds doors. For luck.')).toBe(true);
+    expect(has('g6.doorie', "Oh! Sorry, Doorie. I'll be more careful with you.")).toBe(true);
+    expect(has('g6.star1', '"Night-sky watch: Cadet Commander {name:tsubaki}."')).toBe(true);
+    expect(has('g6.star1', 'Then we guard it. Both academies. Yours and mine.')).toBe(true);
+    expect(has('g6.star1', "The sky's falling, Sentinels. Let's catch it.")).toBe(true);
+    expect(has('g6.star2', "I'm not your past. I'm your friend.")).toBe(true);
+    expect(has('g6.star2', '…Noted. Twenty-one oh four.')).toBe(true);
   });
 });
 

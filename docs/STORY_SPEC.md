@@ -165,6 +165,7 @@ roster does.
 | `cg:sango-harbour` | cg | `public/art/lobby/sango.webp` | the harbour arrival (end of ch1), ch2 |
 | `stage:<stageId>` | stage | that stage's painted place (`STAGE_PLACE` in `backgrounds.js`), else the chapter's academy tint | every chapter location |
 | `stage:<stageId>@dusk` / `@dawn` / `@night` | stage, time of day | the same place at dusk, first light or night (a painted place's `-sunset` / `-night` picture when listed, `-sunset` for dawn; a drawn skyline gets that sky and its lights) | evening, dawn and night scenes |
+| `stage:side-<c>-<slug>[@time]` | stage | a side stage (kind `'side'`, e.g. `side-6-starfall`, the Starfall Deck): its map theme's drawn skyline and `PLACE_VARIANT` place, like an Act II stage (`STORY_STAGE_ID` in `backgrounds.js`) | the duo's scenes around the Starfall Trial (`g6.star1`, `g6.star2`) |
 | `black` | — | solid | fades, title cards |
 
 A CG already has a girl painted in it, so while a `cg:` background is up the player **hides portraits** (lines still
@@ -255,7 +256,11 @@ Layout (same structure at 844×390 and 1280×720; sizes in `story.css` use `vh` 
 | `{ opening: true }` | New save, after TAP TO START, or on any lobby visit while `story.opening === 'pending'` | Route `#/scene/opening?next=tutorial`, replacing history. Forced once. Done or skipped, it never auto-plays again. |
 | `{ tutorial: 'won' }` | On the tutorial victory, over the results sheet | §2.4. |
 | `{ before: stageId }` | First time the player opens **stage prep** (`screenchange` name `stage`, `params.id`) for that stage | Only if the scene is unseen, the stage is **unlocked**, and the stage is **not yet cleared** (legacy players are not shown backlog). Plays as an overlay on stage prep. |
-| `{ after: stageId }` | On that stage's **first clear** | `install.js` diffs the cleared-stage set on store change `battle-result` and pushes onto `story.queue` (persisted). It plays on the next non-battle screen. Several queued scenes play in campaign order, then any pending `before` scene. |
+| `{ after: stageId }` | On that stage's **first clear** | `install.js` diffs the cleared-stage set (`clearedStoryStages`: the campaign plus the side stages) on store change `battle-result` and pushes onto `story.queue` (persisted). It plays on the next non-battle screen. Several queued scenes play in campaign order, then any pending `before` scene. |
+
+`stageId` is a campaign id (`<c>-<n>`) or a side stage's `side-<c>-<slug>` (Gate Arc Step 6: `side-6-starfall`, kind
+`'side'`, anchored after 6-10, not in `CAMPAIGN_IDS`). A side stage's scenes are filed after its anchor's after-scenes
+(`g6.star1` before it, `g6.star2` on its first clear), and a side stage never triggers a chapter scene.
 | `{ lesson: id }` | Optional short Hikari scene behind a journal entry's "Hikari explains" button | Never auto. |
 | `null` | Archive only (side and event stories) | — |
 
@@ -705,6 +710,7 @@ export function restoreStory(raw, counters, delivered) // migrateProfile: cleanS
 export function markStory(profile)             // migrateProfile: (re)writes those marks; claimLesson / markSeen / markAnnounced write them as they happen
 export function storyOf(profile)               // lazy: profile.story ??= legacyStory(); returns it
 export function clearedCampaign(profile)       // Set of campaign stage ids cleared (any difficulty)
+export function clearedStoryStages(profile)    // the same plus the side stages (STORY_TRIGGER_STAGE_IDS): what install.js watches
 export function onboardingRoute(profile)       // { name: 'scene', params: { id: 'opening', next: 'tutorial' } } | null
 export function tutorialRoute()                // { name: 'battle', params: { stage: '1-1', difficulty: 'easy', tutorial: '1' } }
 export function setOpening(profile, 'seen'|'skipped'), setTutorial(profile, 'done'|'skipped')
@@ -860,7 +866,8 @@ the missions hub Story tile (+ NEW dot), a lobby Menu Tab "Story" entry, the bet
 
 Differences from §1–§5 worth knowing:
 * Archive chapter tabs are a horizontal strip above the cards (Hikari's stand keeps the bottom-left), not a left column.
-* Lock texts read "Clear 2-4 Sunscale Ferry" (`Clear <id> {stage:<id>}`); a `before` scene unlocks with its stage.
+* Lock texts read "Clear 2-4 Sunscale Ferry" (`Clear <id> {stage:<id>}`; a side stage by its name alone, "Clear The
+  Starfall Trial"); a `before` scene unlocks with its stage.
 * Text speed (Slow / Normal / Fast / Instant) lives in the Log sheet header; Auto and speed persist in `story.prefs`.
 * `markSeen(profile, scene, { skipped })` takes the scene object (or an id plus `kind`) and also records the opening.
 * The startup bundle grows by about 9 KB raw / 4.6 KB gzip (lessons.js text + story.js); scene text stays in its own chunk.

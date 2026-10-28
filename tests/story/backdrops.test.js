@@ -13,7 +13,9 @@ import {
   isBackgroundId,
 } from '../../src/data/story/backgrounds.js';
 import { themeBackdropSVG } from '../../src/art/backdrops.js';
-import { resolveBackground, backgroundUrls, imageDecoded, layersToDrop, fadedIn, FADE_FALLBACK_MS } from '../../src/ui/story/backdrop.js';
+import {
+  resolveBackground, backgroundUrls, imageDecoded, layersToDrop, fadedIn, FADE_FALLBACK_MS, PLACE_VARIANT,
+} from '../../src/ui/story/backdrop.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../src/data/stages.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -195,6 +197,44 @@ describe('story backdrops', () => {
     const night = resolveBackground('stage:5-10@night', 5);
     expect([night.kind, night.time]).toEqual(['svg', 'night']);
     expect(night.html).not.toBe(resolveBackground('stage:5-10', 5).html);
+  });
+
+  it("Act 6's places fit place and time: the pump hall, then Vesperline under its eclipse, at night and at home", () => {
+    const bgs = Object.fromEntries(ALL.filter((s) => s.id.startsWith('g6.')).map((s) => [s.id, sceneBackgrounds(s)]));
+    expect(bgs).toEqual({
+      'g6.pro': ['stage:5-8', 'stage:6-6'], // the drill in the pump hall, then through the gate onto the causeway
+      'g6.sleep': ['stage:6-7@night'], // four in the morning under the sky-rail station canopy
+      'g6.mid': ['stage:6-8'], // the museum rotunda (the frozen city's eclipse sky)
+      'g6.chair': ['stage:6-9'], // the briefing room high in a lecture tower, over the tower ring
+      'g6.boss': ['stage:6-10'], // the Vesper Gate's terminal at the white tower's foot
+      'g6.after': ['stage:6-10'],
+      'g6.epi': ['stage:6-10', 'shelter'], // the nest behind the tower, then Itomachi the next morning (daylit)
+      'g6.doorie': ['shelter'], // Shelter 3, mid-morning (daylit)
+      'g6.star1': ['stage:side-6-starfall@night'], // the observatory deck under the cracked dome, at night
+      'g6.star2': ['stage:side-6-starfall@night'],
+    });
+    // nothing in Act 6 sits on the academy painting or a bright day backdrop under a night line
+    for (const ids of Object.values(bgs)) for (const id of ids) expect(id.startsWith('academy'), id).toBe(false);
+    // the side stage's id is a stage background, with a time of day
+    expect(stageOfBackground('stage:side-6-starfall@night')).toBe('side-6-starfall');
+    expect(timeOfBackground('stage:side-6-starfall@night')).toBe('night');
+    expect(stageOfBackground('stage:side-6-starfall')).toBe('side-6-starfall');
+    for (const bad of ['stage:side-6', 'stage:side--starfall', 'stage:side-6-Starfall', 'stage:side-6-starfall@noon']) {
+      expect(isBackgroundId(bad), bad).toBe(false);
+    }
+    // the Act 6 stages and the Starfall Deck draw Vesperline's own skylines (S6a's variants by map), never a painting
+    for (const st of ['6-6', '6-7', '6-8', '6-9', '6-10', 'side-6-starfall']) {
+      expect(STAGE_PLACE[st], st).toBeUndefined();
+      expect(STAGE_MAP[st]?.act, `${st} is an Act II stage`).toBe(2);
+      const spec = resolveBackground(`stage:${st}`, 6);
+      expect(spec.kind, st).toBe('svg');
+      expect(spec.html, st).toBe(themeBackdropSVG('vesper', { variant: PLACE_VARIANT[STAGE_MAP[st].mapId] ?? null }));
+    }
+    for (const st of ['6-7', 'side-6-starfall']) {
+      const night = resolveBackground(`stage:${st}@night`, 6);
+      expect([night.kind, night.time], st).toEqual(['svg', 'night']);
+      expect(night.html, st).not.toBe(resolveBackground(`stage:${st}`, 6).html);
+    }
   });
 
   it('spares are real backgrounds', () => {

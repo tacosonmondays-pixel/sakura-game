@@ -161,19 +161,22 @@ export function recordChoice(profile, sceneId, index) {
   return true;
 }
 
+/** "2-5 {stage:2-5}" for a campaign stage; a side stage (`side-6-starfall`) by its name alone: "{stage:side-6-starfall}". */
+const stageLabel = (id) => (/^\d+-\d+$/.test(id) ? `${id} {stage:${id}}` : `{stage:${id}}`);
+
 /**
  * Requirement shown on a locked archive card (tokens resolve through src/data/story/tokens.js). A `before` scene names
  * every stage its stage needs (an Act II x-6 needs two).
  * @returns {string|null} e.g. "Clear 2-5 {stage:2-5}" → "Clear 2-5 Basilisk Moon";
- *   "Clear 2-5 {stage:2-5} and 1-10 {stage:1-10}" for a two-key stage
+ *   "Clear 2-5 {stage:2-5} and 1-10 {stage:1-10}" for a two-key stage; "Clear {stage:side-6-starfall}" after a side stage
  */
 export function requirementFor(scene) {
   const t = scene?.trigger;
   if (!t) return null;
-  if (t.after) return `Clear ${t.after} {stage:${t.after}}`;
+  if (t.after) return `Clear ${stageLabel(t.after)}`;
   if (t.before) {
     const req = stageRequires(t.before);
-    return req.length ? `Clear ${req.map((id) => `${id} {stage:${id}}`).join(' and ')}` : null;
+    return req.length ? `Clear ${req.map(stageLabel).join(' and ')}` : null;
   }
   if (t.lesson) return "Unlocks in the Captain's Journal";
   return null;
