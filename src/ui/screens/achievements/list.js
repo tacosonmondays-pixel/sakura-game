@@ -16,6 +16,7 @@ import { svgEl, button, glyph } from '../../components.js';
 import { inkBtn, kbdHint, fillIn, ico, btnCount } from '../../kit.js';
 import { countBadge, dot } from '../../badges.js';
 import { openSheet } from '../../sheet.js';
+import { keepWholeTaps } from '../../hubHost.js';
 import { fmtNum } from '../../format.js';
 import { uiIcon } from '../../../art/icons.js';
 import { navigate, rememberParams } from '../../router.js';
@@ -168,6 +169,7 @@ function ladderSheet(row, { onClaim }) {
       actions.childElementCount ? actions : null),
   });
   liveHonors(sheet.el, { budget: 1, ignoreOverlays: true });
+  keepWholeTaps(sheet.body); // [ui-v2 M5] (at rest no tier's tap is cut across its middle)
   return sheet;
 }
 
@@ -187,6 +189,7 @@ function categorySheet({ cats, ready, current, onPick }) {
       h('span.ach-cat-name', c.label),
       countBadge(ready[c.id] || 0, { cls: 'ach-cat-n', title: `${ready[c.id] || 0} ready to claim` })))),
   });
+  keepWholeTaps(sheet.body); // [ui-v2 M5] (at rest no category's tap is cut across its middle)
   return sheet;
 }
 
@@ -205,6 +208,7 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
     highlight: params.highlight || null,
   };
   let stopFx = null;
+  let stopWhole = () => {};
   let listScroll = 0;
 
   const redraw = () => {
@@ -337,8 +341,13 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
       }
     });
     stopFx = liveHonors(scroller, { budget: 3 });
+    stopWhole();
+    stopWhole = keepWholeTaps(scroller); // [ui-v2 M5] (at rest no row's Claim is cut across its middle)
   }
   draw();
-  root.cleanup = () => stopFx?.();
+  root.cleanup = () => {
+    stopFx?.();
+    stopWhole();
+  };
   return root;
 }

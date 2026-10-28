@@ -81,7 +81,7 @@ function build() {
     wrap.appendChild(h('section.panel',
       h('h3.panel-title', 'Rewards per run'),
       dropGrid(stage, 'normal', { compact: true }),
-      h('p.muted.ma-hint', 'Minibosses join every 10 waves (Slime Prince at 10, Orc General at 20 … the Ashwing Matriarch at 70). Losing still pays coins for every wave you held.'),
+      h('p.muted.ma-hint', 'Minibosses join every 10 waves (Slime Prince at 10, Orc General at 20, up to the Ashwing Matriarch at 70). Losing still pays coins for every wave you held.'),
     ));
   }
 
@@ -113,7 +113,7 @@ function build() {
   }
   wrap.appendChild(h('section',
     h('h3.ma-section-title', 'Freeplay on campaign maps'),
-    h('p.muted', 'Every map you clear can be played in Freeplay: past its last wave (16/15 …) visitors from every chapter, bosses on a schedule and the Ashwing Matriarch at wave 200. Pick Blossom, Tempest or Crimson Moon in the prep; your best wave per tier is recorded.'),
+    h('p.muted', 'Every map you clear can be played in Freeplay: past its last wave (16/15 and on) visitors from every chapter, bosses on a schedule and the Ashwing Matriarch at wave 200. Pick Blossom, Tempest or Crimson Moon in the prep; your best wave per tier is recorded.'),
     any ? grid : h('div.ma-empty-state', svgEl(uiIcon('map')), h('p', 'Clear your first campaign stage to unlock Freeplay on its map.')),
   ));
   return wrap;

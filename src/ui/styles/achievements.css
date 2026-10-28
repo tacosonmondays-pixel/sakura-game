@@ -117,6 +117,8 @@
 .ach-ls-text > span { font-size: var(--fs-label); color: var(--ink); }
 .ach-ls-rew { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .ach-ls-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+/* (a 62 px tile where the floor is 13 px: its count reads at 13) */
+@media (min-height: 481px) { .ach-ls-rew .item-tile { width: 62px !important; } }
 .ach-ls .btn { min-height: calc(var(--tap) + 2px); }
 .ach-ls .ui-cost.dense { height: calc(var(--tap) + 2px); }
 .ach-ls-note { margin: 0; font-size: var(--fs-label); color: var(--muted); }
@@ -212,7 +214,7 @@
 .ach-legend { border-top: 1px solid #e3ebf5; padding-top: 8px; }
 .ach-legend-k { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--blue-deep); margin-bottom: 6px; }
 .ach-legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; }
-.ach-legend-item { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border: 0; border-radius: 0; background: none; font: 800 var(--fs-label)/1.1 var(--font); color: var(--navy); cursor: pointer; text-align: left; }
+.ach-legend-item { display: flex; align-items: center; gap: 6px; min-height: calc(var(--tap) + 2px); padding: 3px 4px; border: 0; border-radius: 0; background: none; font: 800 var(--fs-label)/1.1 var(--font); color: var(--navy); cursor: pointer; text-align: left; }
 .ach-legend-item.on { background: var(--pink-soft); }
 .ach-legend-item.not { color: var(--muted); }
 
@@ -268,7 +270,7 @@
    sheet's title chips, the Case's detail, the Titles sheet (the UI M5b review) */
 /* (a title plate on the tab's surfaces: square corners, S5) */
 :is(.ach-ls, .ach-detail, .ach-titles, .ach-modal, .ach-fanfare) .tp { border-radius: 0; }
-.ach-chip-title .tp.sm, .ach-detail .tp.sm, .ach-detail-modal .tp.sm, .ach-titles .tp.sm { font-size: var(--fs-label); line-height: 1.35; }
+.ach-modal .tp, .ach-chip-title .tp.sm, .ach-detail .tp.sm, .ach-detail-modal .tp.sm, .ach-titles .tp.sm { font-size: var(--fs-label); line-height: 1.35; }
 .ach-titles-lock { position: absolute; top: -4px; left: -4px; width: 12px; height: 12px; color: #9fb0c8; }
 
 /* gear summary (shared with the Backpack's Open all) */
