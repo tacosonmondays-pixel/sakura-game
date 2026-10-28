@@ -9,7 +9,8 @@
 import { describe, it, expect } from 'vitest';
 import { unitPower, unitBattleStats } from '../../src/systems/progression.js';
 import { mainStatRange, substatRange, subGrowth } from '../../src/systems/gear.js';
-import { headlineStats } from '../../src/ui/girlView.js';
+import { headlineStats, battleBoostText } from '../../src/ui/girlView.js';
+import { readFileSync } from 'node:fs';
 import { resolveStats } from '../../src/sim/mods.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { POWER_KIT } from '../../src/data/powerKit.js';
@@ -86,5 +87,21 @@ describe('the girl page headline reads her kit, not the pass\'s row (M4)', () =>
     // the headline ratio is the kit's ratio (before the pass), not ×POWER.ena.dmg / POWER.kage.dmg
     expect(head('ena') / head('kage')).toBeCloseTo(raw('ena') / raw('kage'), 1);
     expect(head('ena') / head('kage')).toBeLessThan((raw('ena') / raw('kage')) * 1.05);
+  });
+});
+
+describe('the girl page agrees with itself (the critic\'s D-M2)', () => {
+  it('its Base stats table reads her the same way as the headline strip: her kit, no row', () => {
+    const src = readFileSync(new URL('../../src/ui/screens/student.js', import.meta.url), 'utf8');
+    expect(src).toMatch(/const y = resolveStats\(unit, \{ unitStats: battle, noPower: true \}\);/);
+    expect(src).toMatch(/battleBoostText\(unit\)/);
+  });
+
+  it('the footnote names her battle boost (and only when she has one)', () => {
+    expect(battleBoostText(UNIT_MAP.ena)).toBe(`In battle the balance boost adds damage ×${+POWER.ena.dmg.toFixed(2)}.`);
+    expect(battleBoostText(UNIT_MAP.azami)).toBe(`In battle the balance boost adds damage ×${+POWER.azami.dmg.toFixed(2)}, ×${+POWER.azami.boss.toFixed(2)} vs bosses.`);
+    expect(battleBoostText(UNIT_MAP.akane)).toBe(`In battle the balance boost adds ×${+POWER.akane.boss.toFixed(2)} vs bosses.`);
+    expect(battleBoostText(UNIT_MAP.momo)).toBe(null);
+    expect(battleBoostText(UNIT_MAP.miko)).toBe(null); // (a support's row is her buff, not her damage)
   });
 });

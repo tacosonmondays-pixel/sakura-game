@@ -2,7 +2,7 @@
 // sequence of player actions, fixed 1/60 s internal timestep.
 
 import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
-import { UNIT_SCALE } from '../data/balance.js';
+import { UNIT_SCALE, TITAN_POWER } from '../data/balance.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
@@ -86,6 +86,8 @@ export class Sim {
     this.map = ds.map;
     this.difficulty = DIFFICULTIES[difficulty] ? difficulty : 'normal';
     this.diff = DIFFICULTIES[this.difficulty];
+    // Titan Trials keep today's numbers (src/data/balance.js TITAN_POWER): no power row and no hero curve
+    this._powerOff = !TITAN_POWER && this.stage?.kind === 'titan';
     this.options = { endless: false, autoStart: false, ...options };
     this.seed = seed;
     this.rng = createRng(seed);
@@ -440,7 +442,7 @@ export class Sim {
   /**
    * Enemy HP from the stage and the difficulty: the stage's hpScale × the difficulty's hpMul × the Oct 27 power
    * pass's campaign multiplier for this difficulty (stage.powerHp: campaign battles only, never Freeplay, events,
-   * modes or titans; src/data/stages.js) × Option A's number scale (src/data/balance.js; 1 under Option B).
+   * modes or titans; src/data/stages.js) × Option A's number scale (src/data/balance.js; 1 under Options B and C).
    */
   enemyHpBase() {
     return (this.stage.hpScale ?? 1) * this.diff.hpMul * (this.stage.powerHp?.[this.difficulty] ?? 1) * UNIT_SCALE;
@@ -917,8 +919,9 @@ export class Sim {
   // -------------------------------------------------------------------------
 
   _unitStats(unitId) {
-    if (this.heroConfig && unitId === this.heroConfig.unitId) return this.heroConfig.stats;
-    return this.loadout.get(unitId) || null;
+    const us = this.heroConfig && unitId === this.heroConfig.unitId ? this.heroConfig.stats : this.loadout.get(unitId) || null;
+    // a titan battle: her stats without the Oct 27 power pass (src/sim/mods.js resolveStats reads `powerOff`)
+    return this._powerOff ? { ...(us || DEFAULT_UNIT_STATS), powerOff: true } : us;
   }
 
   /**

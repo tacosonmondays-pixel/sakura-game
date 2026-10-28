@@ -6,6 +6,7 @@ import { ROLES, ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, CAPABILITIES,
 import { ROLE_SUBCLASS } from '../data/wiki.js';
 import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
+import { POWER, UNIT_SCALE } from '../data/balance.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
 import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
@@ -151,8 +152,25 @@ function buffOf(b) {
 }
 
 /**
+ * The Oct 27 balance boost on her in battle (src/data/balance.js POWER), for the Base stats footnote: the girl page
+ * shows her kit's numbers (level, gear, awakening and Potential; the headline and the Base stats table alike) and
+ * battle adds this on top. Null when she has none.
+ * @param {object} unit UnitDef
+ * @returns {string|null}
+ */
+export function battleBoostText(unit) {
+  const row = POWER[unit?.id];
+  const dmg = (row?.dmg ?? 1) * UNIT_SCALE;
+  const boss = row?.boss ?? 1;
+  const bits = [];
+  if (dmg > 1) bits.push(`damage ×${+dmg.toFixed(2)}`);
+  if (boss > 1) bits.push(`×${+boss.toFixed(2)} vs bosses`);
+  return bits.length ? `In battle the balance boost adds ${bits.join(', ')}.` : null;
+}
+
+/**
  * Her role's three headline stats, as she fights at tier 0 (level, gear, awakening and Potential: the same
- * numbers as the Base stats sheet's "Yours" column).
+ * numbers as the Base stats sheet's "Yours" column; her battle boost is the sheet's footnote, battleBoostText).
  * @param {object} unit UnitDef
  * @param {object} profile whose girl (the save, or a snapshot's mini profile)
  * @returns {{ key: string, label: string, value: string, unit: string|null, title: string }[]} always 3
@@ -160,7 +178,7 @@ function buffOf(b) {
 export function headlineStats(unit, profile) {
   const battle = unitBattleStats(profile, unit.id);
   // her kit's numbers: the Oct 27 power pass's damage row stays in battle (src/data/balance.js), so the headline
-  // compares kits, not rows
+  // compares kits, not rows (the Base stats table reads her the same way)
   const y = resolveStats(unit, { unitStats: battle, noPower: true });
   const b = unit.base || {};
   const dmg = { key: 'dmg', label: 'DMG', value: stat1(y.damage || 0), unit: null, title: `Damage per hit ${stat1(y.damage || 0)}` };

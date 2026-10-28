@@ -59,11 +59,11 @@ describe('abilityLine', () => {
     expect(line, where).not.toMatch(/[{}]|NaN|undefined|Infinity/);
   });
 
-  it('reads like the spec (Aoi 0-3-0: 6 targets, 24 damage × her Oct 27 power row = 35; Market Day: its coins at the difficulty rate)', () => {
+  it('reads like the spec (Aoi 0-3-0: 6 targets, 24 damage × her Oct 27 power row = 37; Market Day: its coins at the difficulty rate)', () => {
     const u = UNIT_MAP.aoi;
     const e = u.paths[1].ability;
     const line = abilityLine(e, abilityValues(e, resolveStats(u, { tiers: [0, 3, 0] })));
-    expect(line).toBe('6 targets · 35 dmg · pin 0.5s');
+    expect(line).toBe('6 targets · 37 dmg · pin 0.5s');
     const m = UNIT_MAP.momo.paths[0].ability;
     expect(abilityLine(m, abilityValues(m, null), { coinMul: 1.5 })).toBe('+150 coins · twice per wave');
   });
@@ -91,7 +91,7 @@ describe('abilityLine', () => {
     expect(at('ena', 'bloom', 3)).toBe('bursts 266 · 4.8 tiles');
     expect(at('iroha', 'hall', 3)).toBe('1 mirror · 8s');
     expect(hero('yoriko', 7)).toBe('1 target · hex 1.5%/s · slow 30%');
-    expect(hero('seiran', 17)).toBe('12 targets · 74 dmg · ground 3s'); // (91 before the Oct 27 power pass: her Lv 17 multiplier 0.816, a lower top)
+    expect(hero('seiran', 17)).toBe('12 targets · 108 dmg · ground 3s'); // (91 before the Oct 27 power pass: her Lv 17 multiplier 1.183)
   });
 });
 

@@ -205,8 +205,9 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   const env = envMul !== 1 || envAdd !== 0;
   // Wakaba's drink (src/sim/drinks.js), read here for the band's soft cap and applied below
   const hy = t.hydrated;
-  // the owner's band, Option B (src/data/balance.js supportCapFactor): the supports' combined damage × attack-speed
-  // multiplier on her keeps its full value up to the knee and has diminishing returns past it (exactly 1 below it)
+  // the owner's band, Option B only (src/data/balance.js supportCapFactor): the supports' combined damage × attack-speed
+  // multiplier on her keeps its full value up to the knee and has diminishing returns past it (exactly 1 below it and
+  // under Options A and C)
   const cap = supportCapFactor(b.dmgMul * b.rateMul * (b.tea || 1) * (hy ? hy.dmgMul * hy.rateMul : 1));
   const dmgMul = b.dmgMul * globalDmgMul * cap;
   t.eff = {

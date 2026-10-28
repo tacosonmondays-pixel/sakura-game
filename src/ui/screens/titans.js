@@ -14,7 +14,7 @@ import { MATERIAL_FAMILIES, ATTACK_TYPES } from '../../data/types.js';
 import { ITEMS, zenithId } from '../../data/items.js';
 import { TITANS, TITAN_MAP, TITAN_TIERS, tierLabel, tierStep, titanPoolHp, MAX_RANK } from '../../data/titans.js';
 import { getMap } from '../../data/maps.js';
-import { UNIT_SCALE } from '../../data/balance.js';
+import { UNIT_SCALE, TITAN_POWER } from '../../data/balance.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { uiIcon, itemIcon } from '../../art/icons.js';
 import { enemyToken } from '../battle/util.js';
@@ -165,6 +165,8 @@ export function render(root, params = {}) {
       chips, needLine, tierRow,
       h('p.tt-line', { 'data-testid': 'titan-hp' }, h('b', `HP ${big(pool)}`), s.best ? ` · Best ${s.best.label}` : '', open ? '' : h('span.tt-lock', ` · ${lock}`)),
       h('p.tt-line.muted', 'Bronze 25% · Silver 50% · Gold 75% of her HP pay part of the rewards; a win adds the Victory Chest.'),
+      // the Oct 27 balance boost stays out of titan battles (src/data/balance.js TITAN_POWER)
+      TITAN_POWER ? null : h('p.tt-line.muted', { 'data-testid': 'titan-power-note' }, 'Titan battles use damage without the balance boost, so weekly ranks stay where they were.'),
       chest ? h('p.tt-line', { 'data-testid': 'titan-chest' }, h('b', 'Victory Chest: '), chest) : null,
       fc ? h('p.tt-line.muted', fcDone ? 'First clear: done' : `First clear: ${[fc.gems ? `${fc.gems} gems` : null, ...fc.items.map(([iid, n]) => fcLine(iid, n))].filter(Boolean).join(', ')}`) : null,
       meter,

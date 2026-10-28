@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { droneName, DRONE_NAMES } from '../../src/data/droneNames.js';
 import { createRateMeter } from '../../src/ui/battle/util.js';
-import { hasDroneTabs, wingNumbers, sampleDroneRates, wingDpsCells, DRONE_TABS } from '../../src/ui/battle/chikaPanel.js';
+import { hasDroneTabs, wingNumbers, sampleDamageRates, wingDpsCells, DRONE_TABS } from '../../src/ui/battle/chikaPanel.js';
 import { createBattleSim } from '../../src/ui/battle/setup.js';
 import { createProfile } from '../../src/systems/save.js';
 import { FLIGHT_PURSUIT_RATE_MUL, STEP } from '../../src/sim/constants.js';
@@ -46,13 +46,13 @@ describe('createRateMeter', () => {
     expect(m.rate('nope')).toBe(null);
   });
 
-  it('sampleDroneRates feeds her total, her drones and each drone every 0.25 s of game time', () => {
+  it('sampleDamageRates feeds her total, her drones and each drone every 0.25 s of game time', () => {
     const { sim, t } = chikaBattle();
     const rates = createRateMeter(5);
     sim.startNextWave();
     for (let i = 0; i < 60 * 12; i++) {
       sim.update(STEP);
-      sampleDroneRates(sim, rates);
+      sampleDamageRates(sim, rates);
     }
     expect(t.turrets.length).toBeGreaterThan(0);
     expect(rates.rate(`t${t.uid}`)).not.toBe(null);

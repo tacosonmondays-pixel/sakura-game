@@ -725,8 +725,8 @@ describe('numbers', () => {
 
   test('ability hits scale with her hit at the ⚡ tier-3 build (spec §5.1 examples)', () => {
     const at3 = (id) => { const u = UNIT_MAP[id]; const [, d, s] = states(u)[0]; return abilityValues(d, s); };
-    // (× her Oct 27 power row, src/data/balance.js: Aoi ×1.465, Shiro ×1.05, Hana ×7.584, Ena ×7.381; Tenka's row is bosses only)
-    expect(at3('aoi').dmg).toBe(35); // 6 × 4 at 0-3-0 (24 before the power pass)
+    // (× her Oct 27 power row, src/data/balance.js: Aoi ×1.555, Shiro ×1.05, Hana ×7.584, Ena ×7.381; Tenka's row is bosses only)
+    expect(at3('aoi').dmg).toBe(37); // 6 × 4 at 0-3-0 (24 before the power pass)
     expect(at3('shiro').dmg).toBe(310); // 5 × 59 at 3-0-0 × 1.05 (295 before the power pass)
     expect(at3('aoi').reach).toBe(5.4); // 1.5 × 3.6 tiles
     expect(at3('tenka').dmg).toBe(320); // 40 × (3 + 5) at 0-3-0
@@ -822,10 +822,10 @@ describe('text (src/data/abilityText.js, UI only)', () => {
     expect(fill('ruri')).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites of \d+ damage, then he holds it for 1\.5s/);
   });
 
-  test('Aoi at 0-3-0 reads like the spec example (24 damage × her power row = 35, 5.4 tiles)', () => {
+  test('Aoi at 0-3-0 reads like the spec example (24 damage × her power row = 37, 5.4 tiles)', () => {
     const [, d, s] = states(UNIT_MAP.aoi)[0];
     expect(fillAbilityText(abilityText(d.id).desc, abilityValues(d, s))).toBe(
-      'Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 35 damage each and a 0.5s pin.',
+      'Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 37 damage each and a 0.5s pin.',
     );
   });
 

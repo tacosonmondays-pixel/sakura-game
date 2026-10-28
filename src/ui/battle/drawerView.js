@@ -82,6 +82,24 @@ function buffCell(st, def) {
 }
 
 /**
+ * The battle panel's DPS under the honest panel (src/data/balance.js HONEST_PANEL, Option C of the owner's band): her
+ * real damage per second over the last 5 s of game time (the controller's rate meter, util.js createRateMeter, fed
+ * every 0.25 s by chikaPanel.js sampleDamageRates), read from the damage she has dealt, the number the results screen
+ * totals. Crits, marks, the boss bonus, ramps, traps, strips, burns, curses and her drones all count, and an ability
+ * or a hero ultimate shows while it runs. Null until she has a second of samples (the cell reads "–").
+ * @param {{ rate: (key: string) => number|null }|null} rates
+ * @param {{ uid: number }} t TowerRT
+ * @returns {number|null}
+ */
+export function liveDps(rates, t) {
+  const r = rates?.rate?.(`t${t.uid}`);
+  return r == null || !Number.isFinite(r) ? null : r;
+}
+
+/** The DPS cell's tooltip under the honest panel. */
+export const LIVE_DPS_TITLE = 'Her real damage per second over the last 5 seconds: crits, marks, boss bonus, traps, burns and drones included';
+
+/**
  * The drawer's stat row: caps labels over big numbers, the role's three headline stats (UI_DIRECTION §5.2 roles:
  * shooter DMG · RATE · RANGE, support BUFF · RANGE · AFFECTS, income COINS/WAVE · RANGE · COST, hero DMG · RATE · ULT)
  * plus PIERCE where she pierces. Only the first number takes the plate accent.

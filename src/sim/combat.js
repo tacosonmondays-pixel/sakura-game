@@ -41,7 +41,7 @@ export function shredAmount(enemy) {
 
 /**
  * Armor after pen and shred (never negative). Option A of the owner's band (src/data/balance.js) scales flat armor
- * with enemy HP (UNIT_SCALE; the girls' pen and shred are scaled in src/sim/mods.js); 1 under Option B.
+ * with enemy HP (UNIT_SCALE; the girls' pen and shred are scaled in src/sim/mods.js); 1 under Options B and C.
  */
 export function effectiveArmor(enemy, armorPen = 0) {
   return Math.max(0, (enemy.armor || 0) * UNIT_SCALE - armorPen - shredAmount(enemy));

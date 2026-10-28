@@ -144,19 +144,21 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 // endless c754a97f, coopSim 57814410). Same outcomes except 4-2 Hard, now lost on wave 19 instead of 13; the wave
 // tables did not move. Round 2 of the pass (rows re-sized on the fixed bench, heroes one multiplier a level, the
 // support soft cap; round-1 digests 4c3674a2 / 5013044f wave 19 / 6edd97a4, e2673499, e7ff3630, 1653977433): the
-// same outcomes, 4-2 Hard lost on wave 16.
+// same outcomes, 4-2 Hard lost on wave 16. Round 3 (Option C without the cap, Kinu's full row, Aoi / Marumi / Suzu /
+// Azami raised, hero curves whose hit rises at every level; round-2 digests 9b5e32e1 / 76a0f0bc wave 16 / 74220bfc,
+// 2e1ebbba, 113b8b14, 1530477280): the same outcomes, 4-2 Hard lost on wave 17.
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '9b5e32e1', wave: 15, won: true },
-    '4-2': { digest: '76a0f0bc', wave: 16, won: false },
-    '8-5': { digest: '74220bfc', wave: 30, won: false },
+    '1-3': { digest: '8e1382e8', wave: 15, won: true },
+    '4-2': { digest: 'a32ed481', wave: 17, won: false },
+    '8-5': { digest: 'bccb6259', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: '2e1ebbba', wave: 22, won: true },
-    endless: { digest: '113b8b14', wave: 25, won: false },
+    coop: { digest: 'eea7fa03', wave: 22, won: true },
+    endless: { digest: '9536a3d3', wave: 25, won: false },
   },
-  coopSim: { hash: 1530477280, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 3436964394, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
@@ -165,11 +167,12 @@ const GOLDEN = {
 // Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
 // the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
 // Re-pinned for the Oct 27 power pass (was 15a8e76f / 15f8aba0 / 61fe353d / 3341544735): same outcomes; and for its
-// round 2 (was 7f9338bf / 6128b238 / d6900eb7 / 712170708): same outcomes.
+// round 2 (was 7f9338bf / 6128b238 / d6900eb7 / 712170708): same outcomes; and for its round 3 (was 4b677e91 /
+// 1d68cc23 / ae15151d): same outcomes.
 const HEROLESS = {
-  '1-3': ['4b677e91', 15, true],
-  '4-5': ['1d68cc23', 13, false],
-  '8-5': ['ae15151d', 30, false],
+  '1-3': ['979a3437', 15, true],
+  '4-5': ['6f8a87e7', 13, false],
+  '8-5': ['12f17cb9', 30, false],
   coop: [1679962126, 3],
 };
 
@@ -179,9 +182,10 @@ const HEROLESS = {
 // tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
 // Re-pinned for the Oct 27 power pass (was 887447f2 wave 12 / a1fc2ade / b8a73060): 4-2 Hard now falls on wave 20;
-// round 2 of the pass (was 1134d1fd wave 20 / 795857fc / 2366c104): 4-2 Hard falls on wave 16.
+// round 2 of the pass (was 1134d1fd wave 20 / 795857fc / 2366c104): 4-2 Hard falls on wave 16; round 3 (was
+// 09126e7f / 8cb443e1 / dcdf517d): the same outcomes.
 const RULED = {
-  '4-2': { digest: '09126e7f', wave: 16, won: false },
-  '8-5': { digest: '8cb443e1', wave: 30, won: false },
-  coop: { digest: 'dcdf517d', wave: 22, won: true },
+  '4-2': { digest: 'ecda6ccf', wave: 16, won: false },
+  '8-5': { digest: '3b979071', wave: 30, won: false },
+  coop: { digest: 'b4a52325', wave: 22, won: true },
 };

@@ -39,8 +39,9 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, BUY_ARM_MS,
-  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX,
+  allyNoteText, holderParts, contentBelow, SCROLL_CUE_PX, liveDps, LIVE_DPS_TITLE,
 } from './drawerView.js';
+import { HONEST_PANEL } from '../../data/balance.js';
 
 function statusLabel(s) {
   const name = STATUSES[s.type]?.name || s.type;
@@ -577,7 +578,14 @@ export function createTowerPanel(ctx) {
     // so the DPS row is hers. An anchored drone kit (none in the roster today) keeps the summed row.
     const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
     const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
-    if (dps > 0) add('DPS', stat(dps), '.bt-stat-main', 'dps');
+    if (HONEST_PANEL && (dps > 0 || t.damageDealt > 0)) {
+      // the honest panel (src/data/balance.js, Option C): her real damage per second, live (drawerView.js liveDps)
+      const b = h('b', fmtNum(liveDps(ctx.rates, t), 'stat'));
+      live.dps = b;
+      const c = h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'stat-dps', title: LIVE_DPS_TITLE }, h('span', 'DPS'), b);
+      rows.push(c);
+      keyed.dps = c;
+    } else if (dps > 0) add('DPS', stat(dps), '.bt-stat-main', 'dps');
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 'time')}`);
     } else {
@@ -828,7 +836,7 @@ export function createTowerPanel(ctx) {
     const mine = !ctx.coop || ctx.coop.isMine(t.uid);
     const ally = !mine;
     const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
-    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null };
+    live = { dps: null, kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
@@ -973,6 +981,7 @@ export function createTowerPanel(ctx) {
       fitHolder();
       paintScrollCue();
     }
+    if (live.dps) live.dps.textContent = fmtNum(liveDps(ctx.rates, t), 'stat');
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));
     if (more) drones.updateLive();

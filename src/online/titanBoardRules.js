@@ -30,7 +30,7 @@ export function boardReward(rank, bronze) {
 /**
  * The arguments of submit_titan_best for one battle (null when it cannot count: under 10 s). The server clamps damage
  * to the tier's pool in today's units, so Option A of the owner's band (src/data/balance.js: every battle number
- * ×UNIT_SCALE; 1 under Option B) sends the battle's damage divided back by its scale.
+ * ×UNIT_SCALE; 1 under Options B and C) sends the battle's damage divided back by its scale.
  */
 export function boardSubmission({ titanId, tier, rank = 0, damage, seconds, coop = false }) {
   if (!(seconds >= MIN_BOARD_SECONDS)) return null;

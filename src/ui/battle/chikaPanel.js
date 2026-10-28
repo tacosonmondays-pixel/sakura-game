@@ -404,16 +404,17 @@ export function createDronePanel(ctx, { rerender }) {
 }
 
 /**
- * Feeds the live rate meter every 0.25 s of game time: each drone owner's total damage (`t<uid>`),
- * her drones' (`d<uid>`) and every drone's (`u<drone uid>`), so rates are ready when a panel opens.
+ * Feeds the live rate meter every 0.25 s of game time: every girl's total damage (`t<uid>`: the battle panel's DPS
+ * under the honest panel, drawerView.js liveDps, and a drone owner's "Dealing"), and for a drone owner her drones'
+ * (`d<uid>`) and every drone's (`u<drone uid>`), so rates are ready when a panel opens.
  */
-export function sampleDroneRates(sim, rates) {
+export function sampleDamageRates(sim, rates) {
   if (!rates) return;
   if (rates.last != null && sim.time >= rates.last && sim.time - rates.last < 0.25) return;
   rates.last = sim.time;
   for (const t of sim.towers) {
-    if (!(t.turretSpec?.leash > 0)) continue;
     rates.sample(sim.time, `t${t.uid}`, t.damageDealt);
+    if (!(t.turretSpec?.leash > 0)) continue;
     rates.sample(sim.time, `d${t.uid}`, t.droneDmg);
     for (const d of t.turrets) rates.sample(sim.time, `u${d.uid}`, d.dmg);
   }

@@ -12,6 +12,10 @@
 //        wins. Same build as the design bench (docs/specs/HALLOWEEN_2026.md "Nightmare").
 //   EB-4 an operation's Nightmare is the campaign's: Op 4 (the farm) is won by a smart level-40 team
 //        and lost by the free roster of its tuneLike stage at that chapter's level.
+// The Oct 27 power pass (src/data/balance.js; PROPOSAL) ships after Halloween 2026's battles close (Nov 1, 7 PM
+// Central), so EB-2 and EB-3 check the Golem as players fight it: every girl and hero without the pass
+// (unitStats.powerOff; bit-identical to the tree before the pass). EB-5 pins what the pass does to the same battles:
+// the Golem gets easier, so re-tune it before the event returns.
 import { describe, test, expect } from 'vitest';
 import '../../src/data/events/wire.js';
 import { eventBattleStage } from '../../src/data/events/wire.js';
@@ -40,14 +44,17 @@ function freeUnitsBefore(d, stageId) {
 
 const statsAt = (id, level) => unitBattleStats({ units: { [id]: { level, breakthrough: Math.max(0, Math.ceil((level - 10) / 10)), awaken: 0, gear: {} } }, gear: {} }, id);
 
-function run(stageId, difficulty, rosterAt, level, seed) {
+/** `asPlayed`: without the Oct 27 power pass, as the event is fought until it closes (see the header). */
+const played = (stats, asPlayed) => (asPlayed ? { ...stats, powerOff: true } : stats);
+
+function run(stageId, difficulty, rosterAt, level, seed, { asPlayed = false } = {}) {
   const d = defaultData();
   const f = freeUnitsBefore(d, rosterAt);
   const r = runHeadless({
     stageId, difficulty, seed, maxTime: 7200,
     plan: autoPlan(stageId, [...f.towers, f.hero]),
-    loadout: f.towers.map((id) => ({ unitId: id, stats: statsAt(id, level) })),
-    hero: { unitId: f.hero, stats: statsAt(f.hero, level) },
+    loadout: f.towers.map((id) => ({ unitId: id, stats: played(statsAt(id, level), asPlayed) })),
+    hero: { unitId: f.hero, stats: played(statsAt(f.hero, level), asPlayed) },
   });
   return { won: r.won, text: `${stageId} ${difficulty} roster<${rosterAt} L${level} seed ${seed}: ${r.won ? 'won' : 'lost'} w${r.wave} lives ${r.lives}` };
 }
@@ -58,15 +65,15 @@ const SEEDS = [1, 2, 3];
 const BUILD_A = { towers: ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'], hero: 'hikari' };
 
 /** One battle with BUILD_A on the stage a difficulty plays (the variant when it has one, as createBattleSim passes it). */
-function runBuild(stageId, difficulty, statsOf, seed) {
+function runBuild(stageId, difficulty, statsOf, seed, { asPlayed = false } = {}) {
   const stage = eventBattleStage(stageId, difficulty);
   const data = stage ? { stage } : undefined;
   const ids = [...BUILD_A.towers, BUILD_A.hero];
   const r = withDetMath(() => runHeadless({
     stageId, difficulty, seed, maxTime: 9000, data,
     plan: autoPlan(stageId, ids, { data }),
-    loadout: BUILD_A.towers.map((id) => ({ unitId: id, stats: statsOf(id) })),
-    hero: { unitId: BUILD_A.hero, stats: statsOf(BUILD_A.hero) },
+    loadout: BUILD_A.towers.map((id) => ({ unitId: id, stats: played(statsOf(id), asPlayed) })),
+    hero: { unitId: BUILD_A.hero, stats: played(statsOf(BUILD_A.hero), asPlayed) },
   }));
   return { won: r.won, wave: r.wave, text: `${stageId} ${difficulty} seed ${seed}: ${r.won ? 'won' : 'lost'} w${r.wave}/${stage?.waves ?? r.sim?.totalWaves}` };
 }
@@ -87,17 +94,19 @@ describe.skipIf(!hasRealData())('event balance (autoPlan, free units only)', () 
   }, 600000);
 
   test('EB-2 the Gourdlight Golem: Normal for a mid free team, Hard a challenge', () => {
-    for (const seed of SEEDS) expect(run('ev-halloween-boss', 'normal', '4-1', 20, seed).won).toBe(true);
-    expect(run('ev-halloween-boss', 'hard', '4-1', 20, 1).won).toBe(false);
-    expect(run('ev-halloween-boss', 'hard', '8-1', 50, 1).won).toBe(true);
+    const asPlayed = { asPlayed: true };
+    for (const seed of SEEDS) expect(run('ev-halloween-boss', 'normal', '4-1', 20, seed, asPlayed).won).toBe(true);
+    expect(run('ev-halloween-boss', 'hard', '4-1', 20, 1, asPlayed).won).toBe(false);
+    expect(run('ev-halloween-boss', 'hard', '8-1', 50, 1, asPlayed).won).toBe(true);
   }, 600000);
 
   test('EB-3 the Golem\'s Nightmare is really hard: mid and level-60 P1 teams lose, the late free-player profile wins', () => {
     const results = [];
     for (const seed of SEEDS) {
-      const mid = runBuild('ev-halloween-boss', 'nightmare', (id) => statsAt(id, 40), seed);
-      const p1 = runBuild('ev-halloween-boss', 'nightmare', atProfile('p1'), seed);
-      const late = runBuild('ev-halloween-boss', 'nightmare', atProfile('f2p-late'), seed);
+      const asPlayed = { asPlayed: true };
+      const mid = runBuild('ev-halloween-boss', 'nightmare', (id) => statsAt(id, 40), seed, asPlayed);
+      const p1 = runBuild('ev-halloween-boss', 'nightmare', atProfile('p1'), seed, asPlayed);
+      const late = runBuild('ev-halloween-boss', 'nightmare', atProfile('f2p-late'), seed, asPlayed);
       results.push(mid.text, p1.text, late.text);
       expect(mid.won, mid.text).toBe(false);
       expect(mid.wave, mid.text).toBeLessThanOrEqual(10);
@@ -115,5 +124,21 @@ describe.skipIf(!hasRealData())('event balance (autoPlan, free units only)', () 
     }
     const like = defaultData().stages['ev-halloween-4'].tuneLike;
     expect(run('ev-halloween-4', 'nightmare', like, EXPECTED_LEVEL[defaultData().stages[like].chapter], 1).won).toBe(false);
+  }, 600000);
+
+  test('EB-5 with the Oct 27 power pass the Golem is easier (pinned: re-tune it before the event returns)', () => {
+    // EB-2's and EB-3's battles with every girl's power row and the heroes' level curve on
+    const got = [];
+    for (const seed of SEEDS) got.push(run('ev-halloween-boss', 'normal', '4-1', 20, seed).won);
+    got.push(run('ev-halloween-boss', 'hard', '4-1', 20, 1).won, run('ev-halloween-boss', 'hard', '8-1', 50, 1).won);
+    for (const seed of SEEDS) {
+      got.push(runBuild('ev-halloween-boss', 'nightmare', (id) => statsAt(id, 40), seed).won);
+      got.push(runBuild('ev-halloween-boss', 'nightmare', atProfile('p1'), seed).won);
+      got.push(runBuild('ev-halloween-boss', 'nightmare', atProfile('f2p-late'), seed).won);
+    }
+    // Normal: won on every seed. Hard: the mid free team now WINS (as played it loses), the late team wins.
+    // Nightmare: the level-40 team still falls on wave 1, the level-60 P1 team now wins on seed 3 (it loses on seeds
+    // 1 and 2, and on every seed as played), the late profile wins.
+    expect(got).toEqual([true, true, true, true, true, false, false, true, false, false, true, false, true, true]);
   }, 600000);
 });

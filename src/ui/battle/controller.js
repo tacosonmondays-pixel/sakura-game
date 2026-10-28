@@ -54,7 +54,7 @@ import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
 import { createAimControl } from './aimControl.js';
-import { sampleDroneRates } from './chikaPanel.js';
+import { sampleDamageRates } from './chikaPanel.js';
 import { createRateMeter, buildErrorContext } from './util.js';
 import { createModesBattle } from './modes.js';
 import { COOP } from '../../data/coop.js';
@@ -254,7 +254,7 @@ export function mountBattle(root, params, hooks) {
     // [story] the coached first battle: no hold-to-view tree there (src/ui/battle/upgradeTree.js)
     tutorial: params.tutorial === '1',
     selectedDrone: null,
-    rates: createRateMeter(5), // live damage rates of drone owners (chikaPanel.js)
+    rates: createRateMeter(5), // live damage rates: every girl's DPS on the honest panel, drone owners' lines (chikaPanel.js)
   };
 
   // a battle-save warning raised before the feed exists (the first write can come before build())
@@ -1086,7 +1086,7 @@ export function mountBattle(root, params, hooks) {
       titanTracker?.consume(events, sim);
       handle(events);
       fpBattle?.update();
-      sampleDroneRates(sim, ctx.rates);
+      sampleDamageRates(sim, ctx.rates);
       ctx.flight.update();
       ctx.modes?.update();
       hud.update();
@@ -1425,7 +1425,7 @@ export function mountBattle(root, params, hooks) {
    */
   function submitClanBoss() {
     // (Option A of the owner's band, src/data/balance.js, scales every battle number ×UNIT_SCALE; the server's hit caps
-    // and the clan's shared HP pool are in today's units, so the battle's damage goes up divided back; 1 under Option B)
+    // and the clan's shared HP pool are in today's units, so the battle's damage goes up divided back; 1 under Options B and C)
     const dmg = Math.round(Object.values(sim.stats.damageByTower || {}).reduce((a, b) => a + b, 0) / UNIT_SCALE);
     ctx.clanBossDamage = dmg;
     import('../../online/backend.js').then(({ getBackend }) => {

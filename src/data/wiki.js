@@ -754,7 +754,7 @@ function returningArticle() {
     sec('Flyers and grounding',
       p('Grounded flyers drop out of the sky for a moment, and ground-only girls such as Rei, Akane and Sango can hit them. Hana, Fuu (Grounding Breeze), Ruri (Star Falcon) and Seiran ground flyers. Bosses stay down a quarter as long. The Air target mode shoots flyers first.')),
     sec('Push-back and gathering',
-      p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so pushers cannot stall a lane forever; Fuu\'s wind every 1.2 seconds. Bosses never move. A hero\'s own push-back has its own shorter lock.')),
+      p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so most pushers cannot stall a lane forever. Fuu\'s wind moves an enemy every 1.2 seconds and, at full strength, can hold a lone walker in place (late Freeplay enemies resist it). Bosses never move. A hero\'s own push-back has its own shorter lock.')),
     sec('Curses and hexes',
       p('Ena\'s curses burst when the enemy falls: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
   ]);
