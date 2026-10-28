@@ -8,9 +8,16 @@ import { PATH_H } from './terrain.js';
 import { pointAt } from '../sim/path.js';
 
 export class RuleDecals {
-  /** @param {{ sim: object, batches: object, atlas: object, fx: import('./fx.js').FxSystem }} o */
-  constructor({ sim, batches, atlas, fx }) {
+  /**
+   * @param {{ sim: object, batches: object, atlas: object, fx: import('./fx.js').FxSystem, warm?: boolean }} o
+   *   warm: the pads are the far north's village hearths (Gate Arc 4-9): ember amber, not crystal cyan
+   */
+  constructor({ sim, batches, atlas, fx, warm = false }) {
     this.sim = sim;
+    // pad colours (disc, rune, ring, gem): crystal cyan, or the hearths' ember amber
+    this._padCol = warm
+      ? [[1, 0.58, 0.22], [1, 0.7, 0.34], [1, 0.78, 0.4], [1, 0.86, 0.5]]
+      : [[0.25, 0.85, 1], [0.35, 0.92, 1], [0.4, 0.95, 1], [0.55, 1, 1]];
     this.b = batches;
     this.R = atlas.regions;
     this.fx = fx;
@@ -55,15 +62,16 @@ export class RuleDecals {
       const taken = p.ownerUid != null;
       const pulse = taken ? 1 : 0.55 + 0.45 * Math.sin(t * 2.4 * slow + p.x);
       const D = p.r * 2;
-      gN.push(p.x, PATH_H + 0.012, p.y, D, D, R.disc, 0.25, 0.85, 1, 0.42);
-      gA.push(p.x, PATH_H + 0.018, p.y, D * 0.95, D * 0.95, R.rune, 0.35, 0.92, 1, 0.35 + 0.35 * pulse, t * 0.25 * slow);
-      gA.push(p.x, PATH_H + 0.022, p.y, D * 1.05, D * 1.05, R.ringThick, 0.4, 0.95, 1, taken ? 0.75 : 0.3 + 0.3 * pulse);
+      const [c0, c1, c2, c3] = this._padCol;
+      gN.push(p.x, PATH_H + 0.012, p.y, D, D, R.disc, c0[0], c0[1], c0[2], 0.42);
+      gA.push(p.x, PATH_H + 0.018, p.y, D * 0.95, D * 0.95, R.rune, c1[0], c1[1], c1[2], 0.35 + 0.35 * pulse, t * 0.25 * slow);
+      gA.push(p.x, PATH_H + 0.022, p.y, D * 1.05, D * 1.05, R.ringThick, c2[0], c2[1], c2[2], taken ? 0.75 : 0.3 + 0.3 * pulse);
       // a small gem: hovering over a free pad, orbiting its girl on a taken one
       const a = t * (taken ? 1.6 : 0.8) * slow;
       const gx = taken ? p.x + Math.cos(a) * 0.55 : p.x;
       const gz = taken ? p.y + Math.sin(a) * 0.55 : p.y;
       const gy = (taken ? 1.15 : 0.55) + Math.sin(t * 2 * slow) * 0.08;
-      bbA.push(gx, gy, gz, 0.22, 0.22, R.star, 0.55, 1, 1, 0.9, t * slow);
+      bbA.push(gx, gy, gz, 0.22, 0.22, R.star, c3[0], c3[1], c3[2], 0.9, t * slow);
     }
     // forge vents
     const on = info.active && info.inWave && !info.neutral;

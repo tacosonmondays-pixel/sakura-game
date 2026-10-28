@@ -43,7 +43,17 @@
 //     blocks under the rooftops,
 //   • the burning look (Gate Arc S3a, look.ruined 'burning'): burnt shells on the board and broken
 //     towers in the skirt (ruinProps.js), rubble in front, a charred lantern string at every other
-//     spot; terrain.js adds the fire, the smoke and the scorch (ruinProps.burningLayer).
+//     spot; terrain.js adds the fire, the smoke and the scorch (ruinProps.burningLayer),
+//   • the mountain highway (Gate Arc S4a, MapDef.district 'highway', themes.DISTRICTS): embankments,
+//     rock cuts and depots on the board (highwayProps.js roadsideBlock), steel crash barriers along
+//     the roads instead of raised kerbs, highway lamps instead of utility poles and wires, no signals
+//     or painted crossings, the bore dressing (tunnelPortal) at every highway tunnel mouth, toll
+//     canopies under 'U' roofs (the booth islands girls stand on), a concrete flyover on its piers
+//     down one side skirt, rock cuts, depots and pines round the rest,
+//   • checkpoint barriers (Gate Arc S4a, map.city.barriers: [{ lane, at? }]): a barrier arm across one
+//     lane past its fork (Azami's checkpoint, 4-7), on two Brigade posts, lowered by the lane schedule
+//     exactly like a level crossing's arms (setLanes), its amber beacons blinking while it is down,
+//     a checkpoint hut beside it. No train runs for a barrier.
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -56,6 +66,7 @@ import { CAMPUS } from './campusProps.js';
 import { prim } from './buildings.js';
 import { OLD, LANTERN_STRINGS } from './oldTownProps.js';
 import { RUIN_ON_BOARD } from './ruinProps.js';
+import { BARRIER_ARM, HW } from './highwayProps.js';
 
 export { ROOF_Y };
 import { crosswalkMarks } from '../groundFeatures.js';
@@ -131,6 +142,7 @@ export function buildRoofs(map, acc, { quality = 'high', kit = null, district = 
   const T = 0.035;
   const PH = 0.05;
   let tiles = 0;
+  if (district === 'highway') return buildTollCanopies(map, regions, acc, isRoof);
   regions.forEach((reg, ri) => {
     const h = hash(map.id, 'roof', reg.tiles[0][0], reg.tiles[0][1]);
     const flats = h % 2 === 1;
@@ -195,6 +207,52 @@ export function buildRoofs(map, acc, { quality = 'high', kit = null, district = 
 const PAL_PARAPET = '#f1ede4';
 
 /**
+ * The highway's booth islands (Gate Arc 4-6, 'U' tiles on a `district: 'highway'` map): per region a
+ * toll canopy whose flat top is the roof girls stand on (ROOF_Y), an amber fascia round it, pillars
+ * at its outer corners, a booth on its island under every tile, and a lit price board on the front
+ * edge (its glow sprite comes back in `glows`). Facade geometry into `acc`; deterministic per map.
+ */
+function buildTollCanopies(map, regions, acc, isRoof) {
+  const glows = [];
+  let tiles = 0;
+  const Y = ROOF_Y;
+  regions.forEach((reg) => {
+    let maxZ = -Infinity;
+    let sx = 0;
+    for (const [x, y] of reg.tiles) {
+      tiles++;
+      maxZ = Math.max(maxZ, y + 1);
+      sx += x + 0.5;
+      acc.quad([x, Y, y + 1], [x + 1, Y, y + 1], [x + 1, Y, y], [x, Y, y], '#e4e2dc', 0);
+      // the slab's edge on the outline: an amber fascia under a white lip
+      const edge = (a, b) => {
+        acc.quad([a[0], Y - 0.07, a[1]], [b[0], Y - 0.07, b[1]], [b[0], Y, b[1]], [a[0], Y, a[1]], HW.amber);
+      };
+      if (!isRoof(x, y - 1)) edge([x + 1, y], [x, y]);
+      if (!isRoof(x, y + 1)) edge([x, y + 1], [x + 1, y + 1]);
+      if (!isRoof(x - 1, y)) edge([x, y], [x, y + 1]);
+      if (!isRoof(x + 1, y)) edge([x + 1, y + 1], [x + 1, y]);
+      // pillars at the outer corners
+      for (const [cx, cy, dx, dy] of [[x, y, -1, -1], [x + 1, y, 1, -1], [x, y + 1, -1, 1], [x + 1, y + 1, 1, 1]]) {
+        if (isRoof(x + dx, y) || isRoof(x, y + dy)) continue;
+        acc.box(cx - dx * 0.12, 0, cy - dy * 0.12, 0.06, Y - 0.07, 0.06, { color: HW.steel });
+      }
+      // the island under it (striped nose to the front) and its booth
+      acc.box(x + 0.5, 0, y + 0.5, 0.36, 0.05, 0.86, { color: HW.concreteDark });
+      for (let i = 0; i < 3; i++) acc.box(x + 0.5, 0.001, y + 0.87 - i * 0.1, 0.362, 0.05, 0.05, { color: i % 2 ? '#2b2b2b' : '#ffd84d' });
+      acc.box(x + 0.5, 0.05, y + 0.45, 0.26, 0.3, 0.34, { color: HW.white, side: FK.plain, top: HW.navy });
+      acc.box(x + 0.5, 0.2, y + 0.45, 0.265, 0.08, 0.345, { color: HW.glassDark, noTop: true });
+    }
+    // the price board on the front edge, hung under the fascia
+    const cx = sx / reg.tiles.length;
+    acc.box(cx, Y - 0.2, maxZ + 0.02, 0.36, 0.13, 0.03, { color: '#1f2733' });
+    for (let i = 0; i < 2; i++) acc.box(cx, Y - 0.18 + i * 0.05, maxZ + 0.037, 0.26 - i * 0.06, 0.025, 0.004, { color: i ? '#7fe0a8' : HW.sodium });
+    glows.push({ x: cx, y: Y - 0.13, z: maxZ + 0.08, color: new THREE.Color('#9ff0c0'), size: 0.4, flicker: 0.03, phase: (hash(map.id, 'toll', cx) % 628) / 100 });
+  });
+  return { regions: regions.length, tiles, glows };
+}
+
+/**
  * Which building stands on an interior H tile: shops along the street (shopFront, the shop-row
  * and corner kinds of cityBlock), homes and offices one row back. Every kind is ≤ BOARD_MAX_H.
  * @param {object} map MapDef
@@ -227,6 +285,13 @@ export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
     // hall and the bathhouse one row back (oldTownProps OLD_HOUSE_KINDS, every one ≤ BOARD_MAX_H)
     if (d <= 1) return { type: 'oldHouse', variant: roll < 50 ? 0 : roll < 72 ? 4 : 1 };
     return { type: 'oldHouse', variant: roll < 45 ? 2 : roll < 70 ? 1 : roll < 88 ? 5 : 3 };
+  }
+  if (look?.district === 'highway') {
+    // the highway: embankments with sound walls and rock cuts along the road, now and then the
+    // control hut or the rest stop; one row back the depot, the salt dome, more rock (highwayProps
+    // ROADSIDE_KINDS, every one ≤ BOARD_MAX_H)
+    if (d <= 1) return { type: 'roadsideBlock', variant: roll < 46 ? 0 : roll < 78 ? 1 : roll < 90 ? 4 : 5 };
+    return { type: 'roadsideBlock', variant: roll < 40 ? 1 : roll < 62 ? 2 : roll < 80 ? 3 : 0 };
   }
   if (kit === 'campus') {
     // the school: classroom wings along the roads, now and then a club hut or a bay of the gym;
@@ -289,6 +354,8 @@ export function buildCity(o) {
   const campus = cfg.kit === 'campus';
   // Old Town (look.district 'oldtown'): stone gutters (no raised kerbs), no signals, lantern strings
   const oldtown = look.district === 'oldtown';
+  // the highway (look.district 'highway'): crash barriers, highway lamps, no signals or crossings
+  const highway = look.district === 'highway';
   const ruined = !!look.ruined;
   const rand = makeRand(hash(map.id, 'city'));
   const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
@@ -445,12 +512,100 @@ export function buildCity(o) {
     kerbTris = (acc.pos.length - before) / 9;
   }
 
+  // ----- checkpoint barriers (map.city.barriers: Azami's checkpoint, 4-7) ----------------------
+  // Each guards one lane past its fork: by default the first point of that lane's road on the
+  // ground, on the board, ≥ 1.4 tiles from every other road and clear of forks, joins, gates and
+  // tunnel mouths (or the point of the lane nearest `at`). Its `lanes` are every lane whose road
+  // passes through it (a shared trunk), so it shuts only when all of them are closed.
+  const links = plan.links || [];
+  const barrierSpots = [];
+  for (const b of cfg.barriers || []) {
+    const r = plan.roads.find((o) => o.index === b.lane);
+    if (!r) continue;
+    const clearOf = (i) => {
+      const [x, z] = r.pts[i];
+      if (!inMap(x, z) || r.tunnel[i] || r.elev[i] > 0.01 || r.lift[i] || r.d[i] < 0) return false;
+      if (links.some((l) => Math.hypot(l.x - x, l.y - z) < 1.6) || nearGate(x, z, 1.8) || nearPortal(x, z, 1.4) || nearCrossing(x, z, 1.8)) return false;
+      return roadDist(x, z, r.index, i, 99999) >= 1.4;
+    };
+    let k = -1;
+    if (Array.isArray(b.at)) {
+      for (let i = 0; i < r.pts.length; i++) if (k < 0 || Math.hypot(r.pts[i][0] - b.at[0], r.pts[i][1] - b.at[1]) < Math.hypot(r.pts[k][0] - b.at[0], r.pts[k][1] - b.at[1])) k = i;
+    } else {
+      for (let i = 1; i < r.pts.length - 1 && k < 0; i++) if (clearOf(i)) k = Math.min(r.pts.length - 2, i + 2);
+    }
+    if (k < 1) continue;
+    const [x, z] = r.pts[k];
+    const [nx, nz, tx, tz] = normalAt(r, k);
+    const lanes = plan.roads.filter((o) => o.pts.some(([px, pz], i) => !o.tunnel[i] && Math.hypot(px - x, pz - z) < 0.35)).map((o) => o.index);
+    if (!lanes.includes(r.index)) lanes.push(r.index);
+    barrierSpots.push({ lane: r.index, lanes, x, z, nx, nz, tx, tz });
+  }
+  const nearBarrier = (x, z, d) => barrierSpots.some((b) => Math.hypot(b.x - x, b.z - z) < d);
+
+  // ----- the highway's crash barriers: a steel W-beam on posts along both sides of every road on the
+  // ground (instead of raised kerbs), broken at forks, joins, gates, tunnel mouths and checkpoints ----
+  let railTris = 0;
+  if (highway) {
+    const before = acc.pos.length;
+    const OFF = 0.64;
+    const RY = 0.17;
+    const cRail = HW.rail;
+    const cPost = HW.steelDark;
+    const cTop = look.frost ? HW.rime : HW.steel;
+    for (const r of plan.roads) {
+      const P = r.pts;
+      const idx = [];
+      for (let i = 0; i < P.length; i += 2) idx.push(i);
+      for (const side of [-1, 1]) {
+        const ok = idx.map((i) => {
+          const [x, z] = P[i];
+          return walkOk(r, i, side) && outsideDist(x, z) < 4.5 && !links.some((l) => Math.hypot(l.x - x, l.y - z) < 1.3)
+            && !nearGate(x, z, 1.3) && !nearPortal(x, z, 1.1) && !nearBarrier(x, z, 1.3) && !nearCrossing(x, z, 1.5);
+        });
+        let run = 0;
+        for (let k = 1; k < idx.length; k++) {
+          if (!ok[k] || !ok[k - 1]) {
+            run = 0;
+            continue;
+          }
+          const a = idx[k - 1];
+          const b = idx[k];
+          const [anx, anz] = normalAt(r, a);
+          const [bnx, bnz] = normalAt(r, b);
+          const A = [P[a][0] + anx * side * OFF, P[a][1] + anz * side * OFF];
+          const B = [P[b][0] + bnx * side * OFF, P[b][1] + bnz * side * OFF];
+          // the beam: its face toward the road, its back, a top strip (rime on a frost stage)
+          const f0 = [A[0], RY - 0.07, A[1]];
+          const f1 = [B[0], RY - 0.07, B[1]];
+          const f2 = [B[0], RY, B[1]];
+          const f3 = [A[0], RY, A[1]];
+          if (side > 0) {
+            acc.quad(f0, f3, f2, f1, cRail);
+            acc.quad(f0, f1, f2, f3, HW.steel);
+          } else {
+            acc.quad(f0, f1, f2, f3, cRail);
+            acc.quad(f0, f3, f2, f1, HW.steel);
+          }
+          const t0 = [A[0], RY, A[1]];
+          const t1 = [B[0], RY, B[1]];
+          const t2 = [B[0] + bnx * side * 0.03, RY, B[1] + bnz * side * 0.03];
+          const t3 = [A[0] + anx * side * 0.03, RY, A[1] + anz * side * 0.03];
+          if (side > 0) acc.quad(t0, t3, t2, t1, cTop);
+          else acc.quad(t0, t1, t2, t3, cTop);
+          if (run++ % 3 === 0) acc.box(A[0] + anx * side * 0.03, 0, A[1] + anz * side * 0.03, 0.035, RY, 0.035, { color: cPost });
+        }
+      }
+    }
+    railTris = (acc.pos.length - before) / 9;
+  }
+
   // ----- crosswalks: on every flat junction's arms, and beside a few corners -----------------
-  // (Old Town's stone lanes carry no painted crossings)
-  if (!oldtown) for (const m of crosswalkMarks(map)) marks.push(m);
+  // (Old Town's stone lanes and the highway carry no painted crossings)
+  if (!oldtown && !highway) for (const m of crosswalkMarks(map)) marks.push(m);
   let cornerWalks = 0;
   for (const c of corners) {
-    if (oldtown || cornerWalks >= 6) break;
+    if (oldtown || highway || cornerWalks >= 6) break;
     const r = c.road;
     for (const dir of [-1, 1]) {
       const k = c.i + dir * 9;
@@ -477,7 +632,7 @@ export function buildCity(o) {
   // ----- traffic signals at the corners --------------------------------------------------
   let signals = 0;
   for (const c of corners) {
-    if (campus || oldtown || signals >= 6) break;
+    if (campus || oldtown || highway || signals >= 6) break;
     const x = c.x + c.ox * 0.78;
     const z = c.z + c.oz * 0.78;
     if (!inMap(x, z) && outsideDist(x, z) > 1.5) continue;
@@ -499,7 +654,7 @@ export function buildCity(o) {
     const side = hash(map.id, 'poles', r.index) % 2 ? 1 : -1;
     for (let i = 1; i < r.pts.length - 1; i++) {
       dist += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
-      if (dist < (campus ? 3.4 : 3.0)) continue;
+      if (dist < (campus ? 3.4 : highway ? 3.8 : 3.0)) continue;
       const [x, z] = r.pts[i];
       const breakRun = () => {
         if (run.length) {
@@ -512,9 +667,9 @@ export function buildCity(o) {
         continue;
       }
       const [nx, nz] = normalAt(r, i);
-      const px = x + nx * side * 0.72;
-      const pz = z + nz * side * 0.72;
-      if (!walkOk(r, i, side) || nearGate(px, pz, 1.5) || nearCrossing(px, pz, 1.3) || nearPortal(px, pz, 0.9) || !freeSpot(px, pz, 1.0)
+      const px = x + nx * side * (highway ? 0.88 : 0.72);
+      const pz = z + nz * side * (highway ? 0.88 : 0.72);
+      if (!walkOk(r, i, side) || nearGate(px, pz, 1.5) || nearBarrier(px, pz, 1.3) || nearCrossing(px, pz, 1.3) || nearPortal(px, pz, 0.9) || !freeSpot(px, pz, 1.0)
         || marks.some((m) => m.kind === 'zebra' && Math.hypot(m.x - px, m.z - pz) < 0.9)) {
         breakRun();
         continue;
@@ -543,13 +698,13 @@ export function buildCity(o) {
       furniture.push([px, pz]);
       run.push([px, pz, ry]);
       // (the campus: a lamp post with its arm over the road, no wires)
-      place(campus ? 'streetLamp' : 'powerPole', px, quality === 'low' ? 0 : SW_Y, pz, ry, 1, 0);
+      place(campus ? 'streetLamp' : highway ? 'highwayLamp' : 'powerPole', px, quality === 'low' || highway ? 0 : SW_Y, pz, ry, 1, 0);
       dist = 0;
     }
   }
   const cWire = '#45424a';
   let spans = 0;
-  for (const run of campus || oldtown ? [] : runs) {
+  for (const run of campus || oldtown || highway ? [] : runs) {
     for (let k = 1; k < run.length; k++) {
       const [ax, az, ar] = run[k - 1];
       const [bx, bz, br] = run[k];
@@ -586,15 +741,23 @@ export function buildCity(o) {
         if (top != null) walls.push([x, y, top]);
       }
     }
-    if (walls.length) {
+    if (walls.length && !highway) {
       const [x, y, top] = walls[hash(map.id, 'cat') % walls.length];
       const alongX = y === 0 || y === H - 1;
       place('catOnWall', x + 0.5, top, y + 0.5, alongX ? 0 : Math.PI / 2, 1, hash(map.id, 'catv') % 2);
     }
   }
 
+  // ----- the highway bores' dressing (jet fans, sodium lamps, a lane sign) at every tunnel mouth -----
+  for (const p of highway ? portals : []) {
+    const [dx, dz] = p.dir;
+    const out = p.end === 'in' ? -1 : 1;
+    place('tunnelPortal', p.x, 0, p.z, Math.atan2(dx * out, dz * out), 1, 0);
+    furniture.push([p.x, p.z]);
+  }
+
   // ----- subway signs at the tunnel mouths ------------------------------------------------
-  for (const p of campus ? [] : portals) {
+  for (const p of campus || highway ? [] : portals) {
     const [dx, dz] = p.dir;
     const nx = -dz;
     const nz = dx;
@@ -634,12 +797,40 @@ export function buildCity(o) {
   const towerLot = campus && !(cfg.pieces || []).some((p) => p.type === 'schoolBlock' && p.variant === 3)
     ? lots.reduce((best, [cx, cz], k) => (cz < 0 && (best < 0 || Math.abs(cx - W / 2) + Math.abs(cz + 2.5) < Math.abs(lots[best][0] - W / 2) + Math.abs(lots[best][1] + 2.5)) ? k : best), -1)
     : -1;
+  // the highway: a concrete flyover on its piers down the first column of one side skirt (the lots
+  // chain into one elevated road), rock cuts, depots and pines round the rest
+  const flyWest = hash(map.id, 'flyover') % 2 === 0;
+  const flyX = highway ? lots.reduce((best, [cx]) => (flyWest ? (cx < -2.0 && (best == null || cx > best) ? cx : best) : (cx > W + 2.0 && (best == null || cx < best) ? cx : best)), null) : null;
+  let flyovers = 0;
   lots.forEach(([cx, cz], k) => {
     const h = hash(map.id, 'lot', k);
     const back = cz < 0;
     const front = cz > H;
     const depth = back ? Math.round(-cz / STEP) : Math.round(Math.max(-cx, cx - W) / STEP);
     const lod = quality === 'high' && outsideDist(cx, cz) < 3 ? 'near' : 'far';
+    if (highway) {
+      const claim = () => {
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+      };
+      if (flyX != null && Math.abs(cx - flyX) < 0.01 && cz > -2.6 && cz < H + 0.6) {
+        place('flyover', cx, 0, cz, Math.PI / 2, 1, flyovers++ % 3 === 2 ? 1 : 0, null, lod);
+        claim();
+        return;
+      }
+      if (front) {
+        // in front of the board (near the camera): pines and boulders only, low
+        place(h % 4 === 0 ? 'boulder' : 'pine', cx, 0, cz, (h % 628) / 100, 1.05, h % 4, null, 'far');
+        return;
+      }
+      if (h % 3 === 0) {
+        place(back && depth >= 2 ? 'cliff' : 'pine', cx, 0, cz, (h % 628) / 100, 1.2, h % 4, null, 'far');
+        return;
+      }
+      const variant = back ? [1, 1, 0, 2][h % 4] : [0, 2, 3, 1][h % 4];
+      place('roadsideBlock', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, 1.5, variant, null, lod);
+      claim();
+      return;
+    }
     if (campus) {
       // the school round the board: cherry trees and hedges in front (near the camera), tall
       // classroom wings and the gym behind and at the sides, the clock tower over the back
@@ -762,6 +953,35 @@ export function buildCity(o) {
     meshes.push(train);
   }
 
+  // ----- checkpoint barrier posts (their arms swing with the crossings' below) ---------------------
+  /** Checkpoint barriers: { lane, lanes, x, z, posts, angle, target, base, barrier: true } (setLanes drives them; no train). */
+  const barriers = [];
+  for (const b of barrierSpots) {
+    // two Brigade posts staggered either side of the lane, each arm reaching past the middle
+    const posts = [[-1, -0.25], [1, 0.25]].map(([s, along]) => {
+      const x = b.x + b.nx * s * 0.72 + b.tx * along;
+      const z = b.z + b.nz * s * 0.72 + b.tz * along;
+      // the arm (local +x) points across the lane, toward its middle
+      const ry = Math.atan2(b.nz * s, -b.nx * s);
+      place('barrierArm', x, 0, z, ry, 1, 0);
+      furniture.push([x, z]);
+      occupied.add(`${Math.floor(x)},${Math.floor(z)}`);
+      // its amber beacon: dim while the lane is open, blinking while the arm is down
+      const glow = { x, y: 0.47, z, color: new THREE.Color(HW.amber), size: 0.16, flicker: 0, phase: s > 0 ? Math.PI : 0 };
+      glows.push(glow);
+      return { x, z, ry, glow };
+    });
+    barriers.push({ lane: b.lane, lanes: b.lanes, x: b.x, z: b.z, posts, angle: ARM_UP, target: ARM_UP, base: 0, barrier: true });
+    // the checkpoint hut beside the first post, where it stands clear of every road
+    const hx = b.x - b.nx * 1.45;
+    const hz = b.z - b.nz * 1.45;
+    if (roadDist(hx, hz) > 0.85 && freeSpot(hx, hz, 0.6) && inMap(hx, hz)) {
+      place('checkpointHut', hx, 0, hz, Math.atan2(b.nx, b.nz), 1, 0);
+      furniture.push([hx, hz]);
+      occupied.add(`${Math.floor(hx)},${Math.floor(hz)}`);
+    }
+  }
+
   // ----- the water-bus on the canal --------------------------------------------------------
   let boat = null;
   const wb = cfg.waterBus;
@@ -840,6 +1060,21 @@ export function buildCity(o) {
   }
   const tplGeo = armTpl.build();
   disposables.push(tplGeo);
+  // the checkpoint's arm: the same shape striped white and Brigade amber (highwayProps BARRIER_ARM)
+  const barrierCols = new Float32Array(tplGeo.attributes.color.array.length);
+  {
+    const ca = new THREE.Color(BARRIER_ARM.colors[0]);
+    const cb = new THREE.Color(BARRIER_ARM.colors[1]);
+    const per = barrierCols.length / 3 / ARM.segs;
+    for (let v = 0; v < barrierCols.length / 3; v++) {
+      const c = Math.floor(v / per) % 2 ? cb : ca;
+      barrierCols[v * 3] = c.r;
+      barrierCols[v * 3 + 1] = c.g;
+      barrierCols[v * 3 + 2] = c.b;
+    }
+  }
+  /** Every swinging arm: the level crossings', then the checkpoint barriers'. */
+  const arms = levelCrossings.concat(barriers);
   const tplPos = tplGeo.attributes.position.array;
   const tplNor = tplGeo.attributes.normal.array;
   const armVerts = tplGeo.attributes.position.count;
@@ -872,15 +1107,15 @@ export function buildCity(o) {
       }
     });
   };
-  if (levelCrossings.length) {
-    const n = levelCrossings.length * 2 * armVerts;
+  if (arms.length) {
+    const n = arms.length * 2 * armVerts;
     const pos = new Float32Array(n * 3);
     const nor = new Float32Array(n * 3);
     const col = new Float32Array(n * 3);
-    levelCrossings.forEach((c, i) => {
+    arms.forEach((c, i) => {
       c.base = i * 2 * armVerts;
       poseArms(c, pos, nor, c.base);
-      for (let k = 0; k < 2; k++) col.set(tplGeo.attributes.color.array, (c.base + k * armVerts) * 3);
+      for (let k = 0; k < 2; k++) col.set(c.barrier ? barrierCols : tplGeo.attributes.color.array, (c.base + k * armVerts) * 3);
     });
     armsPart = new THREE.BufferGeometry();
     armsPart.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -926,14 +1161,19 @@ export function buildCity(o) {
       p.glow.flicker = shut ? 0.9 : 0;
     }
   };
+  /** The last `open` array seen (the Sim hands the same one back all wave: no key string per frame). */
+  let lastOpen;
   function setLanes(open) {
+    if (open === lastOpen) return;
+    lastOpen = open;
     const key = open ? open.join(',') : '*';
     if (key === lanesKey) return;
     lanesKey = key;
     if (open) scheduled = true;
     if (!scheduled) return;
     const wasShut = anyShut();
-    for (const c of levelCrossings) shutCrossing(c, !!open && c.lanes.every((l) => !open.includes(l)));
+    // (a checkpoint barrier shuts the same way, but no train runs for it)
+    for (const c of arms) shutCrossing(c, !!open && c.lanes.every((l) => !open.includes(l)));
     if (anyShut() && !wasShut) nextPass = Math.min(nextPass, lastTime + BUSY.lead);
     if (!anyShut()) nextPass = Infinity;
   }
@@ -954,7 +1194,7 @@ export function buildCity(o) {
     const dt = Math.max(0, Math.min(0.1, time - lastTime));
     lastTime = time;
     // the barrier arms swing toward their target; only a swinging crossing's vertices are uploaded
-    for (const c of levelCrossings) {
+    for (const c of arms) {
       if (c.angle === c.target) continue;
       const step = ARM_SPEED * dt;
       c.angle = Math.abs(c.target - c.angle) <= step ? c.target : c.angle + Math.sign(c.target - c.angle) * step;
@@ -1044,6 +1284,8 @@ export function buildCity(o) {
     bindFacade,
     /** Level crossings for tests and previews: { lane, x, z, angle, target }. */
     levelCrossings,
+    /** Checkpoint barriers (map.city.barriers) for tests and previews: { lane, lanes, x, z, angle, target, posts }. */
+    barriers,
     getFacadeMaterial: getFacade,
     dispose() {
       for (const d of disposables) d.dispose?.();
@@ -1052,7 +1294,7 @@ export function buildCity(o) {
       corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
       kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones, crossings: levelCrossings.length,
       kit: campus ? 'campus' : 'city', searchlights: searchlights.length, pieces: (cfg.pieces || []).length,
-      district: look.district || null, ruined: look.ruined || null, lanterns,
+      district: look.district || null, ruined: look.ruined || null, lanterns, barriers: barriers.length, railTris, flyovers,
     },
   };
 }

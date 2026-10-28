@@ -497,6 +497,9 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
           const asOver = overMat[i] && !(onDeck && look.bridge.lacquer);
           const base = asOver ? over : deck;
           if (asOver && look.bridge.grating) plank.copy(base).multiplyScalar(i % 2 ? 0.8 : 1.02);
+          // the Brigade's bridge-layer deck (look.bridge.layer, Gate Arc 4-10): steel treadway in
+          // two-tile folding sections, a dark hinge seam between them
+          else if (look.bridge.layer) plank.copy(base).multiplyScalar(i % 10 === 0 ? 0.55 : i % 2 ? 0.92 : 1.0);
           else plank.copy(base).multiplyScalar(0.88 + (((i * 7) % 5) / 5) * 0.16);
           const side = asOver ? girder : post;
           acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
@@ -511,7 +514,7 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
         slabPrev = { ...sec, i };
       } else slabPrev = null;
       // piles under low water decks
-      if (onDeck && water && !raised) {
+      if (onDeck && water && !raised && !look.bridge.layer) {
         pileAcc += segLen;
         if (pileAcc > 1.1 && !nearLink(x, z) && !nearCrossing(x, z, 0)) {
           pileAcc = 0;
@@ -622,6 +625,10 @@ export function buildTunnels(map, look) {
   // the city's subway (Gate Arc `city` theme): square portals with a canopy, a low station block
   // over the buried road, or a station hall when the tunnel runs under buildings
   const subway = tl.style === 'subway';
+  // the highway's bores (Gate Arc S4a, `highway` style): a rock ridge over the buried road (never a
+  // hall, even under buildings: the mountain), a concrete headwall with a dark square mouth and an
+  // amber hazard band on its lintel (the city kit hangs the jet fans and lamps: tunnelPortal)
+  const highway = tl.style === 'highway';
   const cStripe = new THREE.Color(tl.stripe || '#4f9a62');
   const cGlass = new THREE.Color(tl.glass || '#9cc4d8');
   tracks.forEach((t) => {
@@ -654,6 +661,9 @@ export function buildTunnels(map, look) {
           acc.box(x, 0.745, y, half, 0.016, 0.3, dx, dy, cGlass);
           acc.box(x, 0.5, y, half, 0.03, 0.96, dx, dy, cStripe);
         }
+      } else if (near.size >= 2 && highway) {
+        // the mountain over a highway bore: its tiles are the ridge (no generic props on them)
+        for (const k of near) hallTiles.add(k);
       } else if (near.size >= 2) {
         for (const k of near) hallTiles.add(k);
         const a = d0 + 0.3;
@@ -682,7 +692,7 @@ export function buildTunnels(map, look) {
         // ridge finials at both gable ends
         for (const [x, z, dx, dz] of [P[0], P[P.length - 1]]) acc.box(x, 1.22, z, 0.08, 0.08, 0.08, dx, dz, cRoof);
       }
-      const hall = near.size >= 2;
+      const hall = near.size >= 2 && !highway;
       if (subway && !hall) {
         // a low station block over the buried road, a glass roof strip and the line's band
         const m = Math.max(2, Math.round((d1 - d0) / 0.3));
@@ -709,10 +719,13 @@ export function buildTunnels(map, look) {
         const edge = Math.min(d - d0, d1 - d) / 0.45;
         const taper = Math.max(0.35, Math.min(1, edge));
         const ring = [];
+        // (a highway bore's ridge is broader and taller: the mountain it cuts through)
+        const rx = highway ? RX * 1.45 : RX;
+        const ry = highway ? RY * 1.4 : RY;
         for (let j = 0; j <= SEG; j++) {
           const a = (j / SEG) * Math.PI;
-          const off = Math.cos(a) * RX;
-          ring.push([x + -dy * off, Math.sin(a) * RY * taper + 0.02, y + dx * off, Math.sin(a)]);
+          const off = Math.cos(a) * rx;
+          ring.push([x + -dy * off, Math.sin(a) * ry * taper + 0.02, y + dx * off, Math.sin(a)]);
         }
         if (prev && !blocked && !prev.blocked) {
           for (let j = 0; j < SEG; j++) {
@@ -760,6 +773,30 @@ export function buildTunnels(map, look) {
         portals.push({ x: px, z: pz, dir: [dx, dy], end });
         const nx = -dy;
         const nz = dx;
+        if (highway) {
+          // a concrete headwall across the mouth: two piers, a lintel with the hazard band, a dark
+          // square opening between them, a coping on top
+          const ow = 0.48;
+          const oh = 0.62;
+          const hw = 0.9;
+          const top = 0.98;
+          acc.box(px + nx * (ow + hw) / 2, top / 2, pz + nz * (ow + hw) / 2, 0.07, top / 2, (hw - ow) / 2, dx, dy, cPortal);
+          acc.box(px - nx * (ow + hw) / 2, top / 2, pz - nz * (ow + hw) / 2, 0.07, top / 2, (hw - ow) / 2, dx, dy, cPortal);
+          acc.box(px, (oh + top) / 2, pz, 0.07, (top - oh) / 2, ow, dx, dy, cPortal);
+          acc.box(px + dx * sgn * 0.072, oh + 0.05, pz + dy * sgn * 0.072, 0.004, 0.035, ow, dx, dy, cStripe);
+          c.copy(cPortal).multiplyScalar(0.82);
+          acc.box(px, top + 0.02, pz, 0.1, 0.02, hw + 0.04, dx, dy, c);
+          const f = sgn * 0.075;
+          const a0 = [px + nx * ow + dx * f, 0.03, pz + nz * ow + dy * f];
+          const a1 = [px - nx * ow + dx * f, 0.03, pz - nz * ow + dy * f];
+          const b1 = [px - nx * ow + dx * f, oh, pz - nz * ow + dy * f];
+          const b0 = [px + nx * ow + dx * f, oh, pz + nz * ow + dy * f];
+          acc.tri(a0, a1, b1, cDark);
+          acc.tri(a0, b1, b0, cDark);
+          acc.tri(a0, b1, a1, cDark);
+          acc.tri(a0, b0, b1, cDark);
+          continue;
+        }
         if (subway) {
           // square mouth: a dark opening, a pale frame, the line's band on the lintel and a
           // canopy reaching out over the road
