@@ -569,39 +569,9 @@ button.mb-gear:active { transform: scale(0.98); }
 .craft-fams .chip.on { background: var(--blue); border-color: var(--blue); }
 .craft-fam-ico { width: 22px; height: 22px; }
 
-/* ---------- Outfits (skins): the outfit sheet (the Outfit button lives on the girl page's art band) ---------- */
-
-.mb-outfit-modal .modal-body { padding-bottom: 6px; }
-.mb-outfit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
-.mb-outfit-card { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: stretch; padding: 8px; border-radius: 12px; background: linear-gradient(180deg, #fff, #f2f8ff); border: 2px solid var(--line); box-shadow: 0 2px 8px rgba(29, 78, 137, 0.1); }
-.mb-outfit-card.equipped { border-color: var(--blue-deep); }
-.mb-outfit-card.previewing:not(.equipped) { border-color: #f2c94c; }
-.mb-outfit-thumb { position: relative; width: 104px; height: 130px; border-radius: 9px; overflow: hidden; background: radial-gradient(circle at 50% 40%, #fff, #d7e9ff 75%); }
-.mb-outfit-art { display: block; width: 100%; height: 100%; object-fit: contain; }
-.mb-outfit-thumb .mb-outfit-art img, .mb-outfit-thumb .mb-outfit-art svg { width: 100%; height: 100%; object-fit: cover; }
-.mb-outfit-kind { position: absolute; left: 5px; top: 5px; background: var(--blue-deep); color: #fff; font-size: var(--fs-label); font-weight: 900; font-style: italic; padding: 1px 6px; border-radius: 3px; transform: skewX(var(--skew)); }
-.mb-outfit-card.locked .mb-outfit-thumb img { filter: saturate(0.7); }
-.mb-outfit-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.mb-outfit-name { font-family: var(--font-head); font-weight: 900; font-style: italic; color: var(--navy); font-size: 1.05rem; line-height: 1.1; }
-.mb-outfit-desc { font-size: var(--fs-label); color: var(--muted); font-weight: 700; line-height: 1.25; }
-.mb-outfit-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 1px; }
-.mb-outfit-chip, .mb-outfit-how { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-label); font-weight: 900; padding: 1px 7px; border-radius: 999px; background: #e7f0fb; color: var(--blue-deep); }
-.mb-outfit-chip.on { background: var(--blue-deep); color: #fff; }
-.mb-outfit-chip.locked { background: #ffe1e7; color: #c0264a; }
-.mb-outfit-chip .svg-icon { width: 11px; height: 11px; }
-.mb-outfit-how { background: #fff4b8; color: var(--navy); }
-.mb-outfit-btns { display: flex; gap: 6px; margin-top: auto; padding-top: 4px; }
-.mb-outfit-btns .btn { flex: 1; min-height: 34px; }
-.mb-outfit-note { margin: 8px 2px 0; font-size: var(--fs-label); }
-@media (max-height: 480px) {
-  .mb-outfit-card { grid-template-columns: 84px minmax(0, 1fr); padding: 6px; }
-  .mb-outfit-thumb { width: 84px; height: 105px; }
-  .mb-outfit-name { font-size: 0.95rem; }
-  .mb-outfit-desc { font-size: var(--fs-label); }
-  .mb-outfit-note { margin-top: 6px; font-size: var(--fs-label); }
-}
-@media (max-width: 420px) { .mb-outfit-grid { grid-template-columns: 1fr; } }
-
+/* ---------- Outfits (skins) ----------
+   (UI v2 menus M3: the outfit sheet is a kit sheet of girl tiles, src/ui/styles/v2-roster.css "OUTFITS"; the hanger
+   marks below are the Formation's) */
 .mb-card-outfit, .mb-fslot-outfit { width: 24px; height: 24px; border-radius: 50%; background: #fff; color: var(--blue-deep); padding: 3px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); display: grid; }
 .mb-card-outfit .svg-icon, .mb-fslot-outfit .svg-icon { width: 100%; height: 100%; }
 .mb-fslot-outfit { position: absolute; right: 3px; bottom: 20px; width: 20px; height: 20px; padding: 2px; }

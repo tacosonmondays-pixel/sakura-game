@@ -129,7 +129,7 @@ export function render(root) {
       h('button.ui-opt.st-opt.st-dir', {
         type: 'button', 'data-testid': 'students-dir', 'aria-label': state.desc ? 'Highest first' : 'Lowest first', title: state.desc ? 'Highest first' : 'Lowest first',
         onclick: () => { state.desc = !state.desc; rerender(); },
-      }, lg(state.desc ? 'chevD' : 'chevU')),
+      }, h('span.st-arrow', { 'aria-hidden': 'true' }, state.desc ? '↓' : '↑')),
       h(`button.ui-opt.st-opt.st-filter${on ? '.on' : ''}`, { type: 'button', 'data-testid': 'students-filter', 'aria-label': on ? `Filter, ${on} on` : 'Filter', onclick: () => openFilter(rerender) },
         ico('filter'), h('span', 'Filter'), on ? h('i.ui-dot', { 'aria-hidden': 'true' }) : null));
 

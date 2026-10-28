@@ -290,3 +290,130 @@ body.ui-day .gp-details .gk-clubline { border-radius: 0; }
 body.ui-day .gp-details .mb-aw-node { border-radius: 0; }
 body.ui-day .gp-details .mb-card { border-radius: 0; }
 body.ui-day .gp-details .gk-acts-main .btn { min-height: calc(var(--tap) + 2px); }
+
+/* ---------- HOLD SHEET (src/ui/unitSheet.js): the kit's day sheet (the white panel, the chamfer pair, one ring) with
+   her art band and the night nameplate, then the content panel: folder tabs (Build · Info · Tree) on an ink strip that
+   also holds Full page ▸ and ✕; only the window scrolls; every hit 44 px ---------- */
+body.ui-day .us-sheet.gs { --c: var(--cut); --rw: 1px; --edge: var(--line-ink); bottom: calc(8px + var(--safe-bottom)); width: min(calc(100% - 32px), 680px);
+  height: min(calc(var(--sheet-max-h) + 24px), calc(100% - 16px)); padding: 8px; gap: 8px; border-radius: 0; background: var(--panel-w); overflow: visible;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); }
+body.ui-day .us-sheet.gs::after { content: ''; position: absolute; inset: 0; z-index: 8; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142), calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+@media (min-height: 481px) { body.ui-day .us-sheet.gs { width: min(calc(100% - 48px), 860px); padding: 12px; gap: 12px; } }
+body.ui-day .gs-art { --c: var(--cut-s); border-radius: 0; box-shadow: none; background: #dde7f2;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%); }
+body.ui-day .gs-art.is-ur > .ur-ring { --rw: 3px; padding: 0; border-radius: 0; -webkit-mask: none; mask: none;
+  clip-path: polygon(evenodd, 0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+body.ui-day .gs-art .gp-plate-host { left: 6px; right: 6px; bottom: 6px; border-radius: 0; overflow: visible; }
+body.ui-day .gs-art .gp-plate.ui-np { padding: 8px 10px; gap: 4px; background: var(--fill); }
+body.ui-day .gs-art .np-name { font-size: var(--fs-num); }
+body.ui-day .gs-art .gp-np2 > .lbl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (min-height: 481px) { body.ui-day .gs-art .gp-plate.ui-np { padding: 12px 14px; gap: 6px; } body.ui-day .gs-art .np-name { font-size: var(--fs-title); } }
+/* the right: the folder panel; its ink strip carries the tabs, Full page ▸ and ✕ (their hits hang to 44 px) */
+body.ui-day .gs-right.ui-tabbed { gap: 0; min-height: 0; }
+body.ui-day .gs-top { flex: none; height: var(--tab-h); min-height: 0; gap: 0; padding: 0 calc(var(--cut) * 0.6) 0 0; background: var(--plate); }
+body.ui-day .gs-top > .ui-tabs { flex: 1 1 auto; min-width: 0; height: 100%; background: none; }
+body.ui-day .gs-top > .ui-tabs > .ui-tab { padding: 0 6px; }
+body.ui-day .gs-top > .ui-tabs > .ui-tab > .ui-tab-word { font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); }
+body.ui-day .gs-top .ui-ghost { position: relative; flex: none; height: 100%; padding: 0 8px; color: var(--cyan); }
+body.ui-day .gs-top .ui-ghost::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--tap) + 2px); }
+body.ui-day .gs-top .us-owner { margin: 0 6px; }
+body.ui-day .gs-close { position: relative; flex: none; width: calc(var(--tap) + 2px); height: 100%; border-radius: 0; background: none; color: var(--on-ink); }
+body.ui-day .gs-close::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--tap) + 2px); }
+body.ui-day .gs-close .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+body.ui-day .gs-body.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
+body.ui-day .gs-slots { gap: 10px; padding: 6px 6px 8px 0; }
+body.ui-day .gs-ult .gp-ult-badge { padding: 4px 8px; }
+body.ui-day .gs-tree .ugp { border-radius: 0; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+body.ui-day .gs-tree .ug-hit { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+body.ui-day .gs-tree .ug-why::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+@media (max-width: 599px) { body.ui-day .gs-top { padding-right: 0; } body.ui-day .gs-top .ui-ghost { padding: 0 4px; } }
+body.ui-day .st-arrow { font: 700 var(--fs-name)/1 var(--font-num); }
+
+/* ---------- OUTFITS (the outfit sheet, a kit day sheet): her outfits as girl tiles (the one she wears selected, a
+   3D sticker on the 3D ones), each with Try on and an ink Wear ---------- */
+body.ui-day .ui-sheet.gp-outfits:not(.full) { width: min(calc(100% - 32px), 720px); max-height: calc(100dvh - 16px - var(--safe-bottom)); }
+body.ui-day .gt-outfits { display: flex; flex-direction: column; gap: 12px; }
+body.ui-day .gt-outfit-grid { display: flex; flex-wrap: wrap; gap: 14px 16px; }
+body.ui-day .gt-outfit { display: flex; flex-direction: column; gap: 6px; width: 124px; }
+body.ui-day .gt-outfit > .ui-girltile { --gw: 124px; }
+body.ui-day .gt-outfit-acts { display: flex; flex-direction: column; gap: 4px; }
+body.ui-day .gt-outfit-acts .btn { width: 100%; min-height: calc(var(--tap) + 2px); padding: 0 8px; font-size: var(--fs-body); }
+body.ui-day .gt-outfit-acts .gt-wear.ui-cost { width: 100%; height: calc(var(--tap) + 2px); justify-content: center; }
+body.ui-day .gt-outfit-acts .gt-wear:disabled { background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+body.ui-day .gt-outfit-acts .gt-wear:disabled > .ui-cost-lbl { color: var(--muted); }
+body.ui-day .gt-outfit .ui-girltile > .dup { bottom: 30px; }
+body.ui-day .gt-outfit-note { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+@media (min-height: 481px) { body.ui-day .gt-outfit { width: 148px; } body.ui-day .gt-outfit > .ui-girltile { --gw: 148px; } }
+
+/* ---------- FORMATION: the squad as a row of girl tiles (hero, then eight), the stage's counter needs as kit rows, the
+   pick grid of girl tiles; one yellow (Go to the stage) ---------- */
+body.ui-day .fm-screen .screen-body { padding-top: 10px; }
+body.ui-day .fm.mb-formation { gap: 12px; }
+body.ui-day .fm > .mb-card { padding: 12px; }
+@media (min-height: 481px) { body.ui-day .fm > .mb-card { padding: 16px; } }
+body.ui-day .fm .mb-card-title { margin: 0; padding: 0; border: 0; font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+body.ui-day .fm-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+body.ui-day .fm-gap { flex: 1 1 0; min-width: 0; }
+body.ui-day .fm-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; }
+body.ui-day .fm-acts .btn { min-height: calc(var(--tap) + 2px); font-size: var(--fs-body); padding: 0 14px; }
+@media (min-height: 481px) { body.ui-day .fm-acts .btn { font-size: var(--fs-name); padding: 0 18px; } }
+/* the squad row: the hero's column, then eight; the tiles are girl tiles (name only) */
+body.ui-day .fm-row.mb-squad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8fr); gap: 10px; align-items: end; }
+body.ui-day .fm-row .mb-slot-label { display: flex; align-items: baseline; gap: 4px; margin: 0 0 6px; color: var(--muted); }
+body.ui-day .fm-row .mb-slot-label .num { font-size: var(--fs-num-s); color: var(--ink); }
+body.ui-day .fm-hero { width: auto; }
+body.ui-day .fm-slots.mb-tower-slots { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+body.ui-day .fm-row .ui-girltile.mb-fslot { --gw: 100%; width: 100%; height: auto; aspect-ratio: 10 / 13; border: 0; border-radius: 0; box-shadow: none; outline: 0; padding: 0;
+  display: block; background: var(--fill); color: inherit; font: inherit; overflow: hidden; }
+body.ui-day .fm-row .ui-girltile.mb-fslot > .cap { height: 24px; padding-left: 6px; }
+body.ui-day .fm-row .ui-girltile.mb-fslot > .cap .nm { font-size: var(--fs-label); }
+body.ui-day .fm-row .fm-empty.mb-fslot { width: 100%; aspect-ratio: 10 / 13; border: 0; border-radius: 0; display: grid; place-items: center; background: var(--sky-1);
+  box-shadow: inset 0 0 0 1px var(--line-ink); color: var(--cyan-ink); cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .fm-row .fm-empty .ui-ico { width: 24px; height: 24px; }
+body.ui-day .fm-foot.mb-squad-foot { margin-top: 8px; }
+body.ui-day .fm-line { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+body.ui-day .fm .mb-saved { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--good-text); }
+body.ui-day .fm .mb-saved .ui-ico { width: 16px; height: 16px; }
+/* the stage and its counter needs: kit rows (an icon, the need, who covers it, the girls who would) */
+body.ui-day .fm-rec-head { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; }
+body.ui-day .fm-thumb { width: 104px; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .fm-rec-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+body.ui-day .fm-rec .mb-rec-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+body.ui-day .fm-desc { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+body.ui-day .fm-needs.mb-rec-list { gap: 0; }
+body.ui-day .fm-need.mb-rec { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; min-height: 52px; padding: 4px 4px 4px 8px; border: 0; border-radius: 0; background: none;
+  box-shadow: inset 0 -1px 0 var(--line-ink-soft), inset 3px 0 0 var(--fm-c, var(--line-ink)); }
+body.ui-day .fm-need.ok { --fm-c: var(--good); }
+body.ui-day .fm-need.bench { --fm-c: #e0a800; }
+body.ui-day .fm-need.missing { --fm-c: var(--bad); }
+body.ui-day .fm-need .mb-rec-icon { width: 28px; height: 28px; }
+body.ui-day .fm-need .mb-rec-cap { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+body.ui-day .fm-need .mb-rec-status { font: 500 var(--fs-label)/1.3 var(--font); }
+body.ui-day .fm-need.ok .mb-rec-status { color: var(--good-text); }
+body.ui-day .fm-need.bench .mb-rec-status { color: #7a5200; }
+body.ui-day .fm-need.missing .mb-rec-status { color: var(--bad-text); }
+body.ui-day .fm-need .mb-rec-add { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+body.ui-day .fm-need .mb-rec-add::after { border-radius: 0; background: var(--plate); color: var(--on-ink); box-shadow: none; clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%); }
+/* the pick grid: girl tiles (104 px and up, so her name and LV stay whole), the squad's own selected */
+body.ui-day .fm-pick-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+body.ui-day .fm-seg { display: flex; gap: 4px; }
+body.ui-day .ui-opt.fm-opt { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; cursor: pointer; }
+body.ui-day .fm-hint { font: 500 var(--fs-body)/1.3 var(--font); color: var(--muted); }
+body.ui-day .fm-grid.mb-pick-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px 8px; }
+body.ui-day .fm-grid > .mb-pick > .ui-girltile { --gw: 100%; width: 100%; }
+body.ui-day .fm-cover { position: absolute; left: 0; bottom: 25px; z-index: 2; display: flex; align-items: center; gap: 2px; height: 26px; padding: 0 8px 0 4px; background: var(--plate);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+body.ui-day .fm-cover-ic { width: 20px; height: 20px; display: inline-grid; }
+body.ui-day .fm-cover-ic > svg { width: 100%; height: 100%; }
+@media (max-width: 699px) {
+  body.ui-day .fm-slots.mb-tower-slots { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.ui-day .fm-row.mb-squad { grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); }
+}

@@ -365,7 +365,11 @@ function buildBand(unit, onCycle, onPotential) {
 
 const choicesCount = (unit) => skinChoices(store.profile, unit.id).length;
 
-/** Outfit sheet: every outfit of the girl with Wear (saved) and Try on (showcase preview). */
+/**
+ * Outfit sheet: every outfit of the girl with Wear (saved) and Try on (showcase preview). [ui-ink] V3: a kit sheet whose
+ * outfits are girl tiles (her frame, the outfit's art, its name in the caption; the one she wears is the selected tile),
+ * each with Try on and an ink Wear (the page keeps its one yellow).
+ */
 function openOutfits(unit, showcase) {
   const profile = store.profile;
   if (!profile.seenIntro.includes(OUTFIT_INTRO)) {
@@ -374,60 +378,58 @@ function openOutfits(unit, showcase) {
     showcase.refresh(); // drop the pill's NEW tag
   }
   const owned = !!profile.units[unit.id];
+  const step = { SR: '.sr', SSR: '.ssr', UR: '.ur' }[displayRarity(unit, profile)] || '';
   let dlg = null;
   const card = (c) => {
     const { skin } = c;
-    const thumb = skin.kind === 'default' || !skin.thumb
-      ? svgEl(portraitHTML(unit, 'bust'), 'mb-outfit-art')
-      : h('img.mb-outfit-art', { src: artUrl(skin.thumb), alt: `${unit.name} — ${skin.name}`, loading: 'lazy', draggable: 'false' });
+    const art = skin.kind === 'default' || !skin.thumb
+      ? portraitHTML(unit, 'card', { cls: 'card', alt: '' })
+      : `<img class="card" src="${artUrl(skin.thumb)}" alt="" loading="lazy" draggable="false">`;
     const previewing = shownSkinId(unit) === skin.id;
     // a girl not recruited yet has every outfit locked (her default included)
     const wearing = c.equipped && c.owned;
-    const state = wearing ? ['Equipped', '.on'] : c.owned ? ['Owned', ''] : ['Locked', '.locked'];
-    return h(`div.mb-outfit-card${c.equipped ? '.equipped' : ''}${c.owned ? '' : '.locked'}${previewing ? '.previewing' : ''}`, { 'data-skin': skin.id },
-      h('div.mb-outfit-thumb', thumb, skin.kind !== 'default' ? h('span.mb-outfit-kind', '3D') : null),
-      h('div.mb-outfit-text',
-        h('div.mb-outfit-name', skin.name),
-        h('div.mb-outfit-desc', skin.kind === 'default' ? `Her main look as the ${skin.desc}.` : skin.desc),
-        h('div.mb-outfit-chips',
-          h(`span.mb-outfit-chip${state[1]}`, state[0] === 'Locked' ? svgEl(uiIcon('lock')) : null, state[0]),
-          c.how.short && skin.kind !== 'default' ? h('span.mb-outfit-how', { title: c.how.long }, c.how.short) : null),
-        h('div.mb-outfit-btns',
-          button(previewing && !c.equipped ? 'Trying on' : 'Try on', {
-            kind: 'ghost', small: true, testid: `outfit-try-${skin.id}`, disabled: previewing && view.mode === '3d',
-            onClick: () => {
-              view.skin = c.equipped ? null : skin.id;
-              dlg?.close();
-              showcase.show3D();
-            },
-          }),
-          button(wearing ? 'Wearing' : 'Wear', {
-            kind: 'yellow', small: true, testid: `outfit-wear-${skin.id}`, disabled: wearing || !c.owned,
-            onClick: () => {
-              const res = setSkin(store.profile, unit.id, skin.id);
-              if (!res.ok) {
-                toast(res.error === 'unitNotOwned' ? `Recruit ${unit.name} first.` : 'This outfit is locked.', 'bad');
-                return;
-              }
-              view.skin = null;
-              store.commit('skin');
-              dlg?.close();
-              toast(`${unit.name} now wears ${skin.name}.`, 'good');
-              showcase.show3D();
-            },
-          }))));
+    const how = !c.owned && skin.kind !== 'default' && c.how.short ? c.how.short : null;
+    return h(`div.mb-outfit-card.gt-outfit${c.equipped ? '.equipped' : ''}${c.owned ? '' : '.locked'}${previewing ? '.previewing' : ''}`, { 'data-skin': skin.id },
+      h(`span.ui-girltile${step}${wearing ? '.sel' : ''}${c.owned ? '' : '.locked'}`, { html: art, title: skin.kind === 'default' ? `Her main look as the ${skin.desc}.` : skin.desc },
+        step === '.ssr' && c.owned ? h('span.glow', { 'aria-hidden': 'true' }) : null,
+        wearing || skin.kind !== 'default' ? h('span.st', wearing ? h('span.ui-chip.pick', { 'aria-hidden': 'true' }, ico('check')) : null,
+          skin.kind !== 'default' ? h('span.ui-chip.ink.gt-3d', '3D') : null) : null,
+        previewing && !c.equipped ? h('span.ui-chip.ink.dup', 'Try-on') : how ? h('span.ui-chip.ink.dup', { title: c.how.long }, how) : null,
+        h('span.cap', c.owned ? null : ico('lock'), h('span.nm', skin.name))),
+      h('div.gt-outfit-acts',
+        button(previewing && !c.equipped ? 'Trying on' : 'Try on', {
+          kind: 'ghost', small: true, testid: `outfit-try-${skin.id}`, disabled: previewing && view.mode === '3d',
+          onClick: () => {
+            view.skin = c.equipped ? null : skin.id;
+            dlg?.close();
+            showcase.show3D();
+          },
+        }),
+        h('button.ui-cost.dense.ui-ink.gt-wear', {
+          type: 'button', 'data-testid': `outfit-wear-${skin.id}`, disabled: wearing || !c.owned,
+          title: wearing ? `${unit.name} wears ${skin.name}` : !c.owned ? 'This outfit is locked' : `Wear ${skin.name}`,
+          onclick: () => {
+            const res = setSkin(store.profile, unit.id, skin.id);
+            if (!res.ok) {
+              toast(res.error === 'unitNotOwned' ? `Recruit ${unit.name} first.` : 'This outfit is locked.', 'bad');
+              return;
+            }
+            view.skin = null;
+            store.commit('skin');
+            dlg?.close();
+            toast(`${unit.name} now wears ${skin.name}.`, 'good');
+            showcase.show3D();
+          },
+        }, h('span.ui-cost-lbl', wearing ? 'Wearing' : 'Wear'))));
   };
   const choices = skinChoices(profile, unit.id);
-  dlg = modal({
-    title: `Outfits · ${unit.name}`,
-    wide: true,
-    cls: 'mb-outfit-modal',
-    body: h('div.mb-outfit-body',
-      h('div.mb-outfit-grid', choices.map(card)),
-      h('p.mb-outfit-note.muted', owned
+  dlg = openSheet({
+    title: `Outfits · ${unit.name}`, testid: 'outfit', cls: 'gp-outfits',
+    body: h('div.mb-outfit-body.gt-outfits',
+      h('div.mb-outfit-grid.gt-outfit-grid', choices.map(card)),
+      h('p.gt-outfit-note', owned
         ? 'Outfits dress her 3D chibi in battle and here; her drawn portraits keep her main look.'
         : `Recruit ${unit.name} to wear her outfits — you can still try them on.`)),
-    actions: [{ label: 'Close', kind: 'ghost', testid: 'outfit-close' }],
   });
 }
 
