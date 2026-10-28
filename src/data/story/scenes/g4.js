@@ -106,7 +106,7 @@ export default [
   scene('g4.logs', {
     title: 'Night Watch Logs', chapter: 4, act: 2, kind: 'event', trigger: { after: '4-8' }, bg: 'stage:4-8', music: 'moonlit',
   }, [
-    narrate('Night at the tunnel mouth. The squad sleeps in shifts under the beacon lamp. One radio is still on.'),
+    narrate('Night at the tunnel mouth. The Sentinels sleep in shifts under the beacon lamp. One radio is still on.'),
     say('hikari', "Sensei, you should be asleep. I've got the watch. …I've had it since sundown.", { at: 'center' }),
     cue({ enter: [{ who: 'yuzuha', at: 'left', fx: 'slide-in' }] }),
     say('yuzuha', 'Not asleep. Supervising. My turret radio picked something up on the old band.', { face: 'sleepy' }),
