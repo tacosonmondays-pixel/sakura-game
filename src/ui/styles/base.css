@@ -135,6 +135,52 @@
   --host-list-w: 30vw; /* a list screen's host, on the right (26% on phones) */
   --host-chip: 96px; /* her bust chip (the collapse rule) */
   --bubble-r: 24px;
+
+  /* ---- [ui-ink] UI v2 "Ink & Paper" tokens (notes/ui-v2/UI_V2_DIRECTION.md section 3). New names only: nothing above
+     changes. Values that differ from the ones above (--cut, --chip-h, --strip-h, --tab-h, --icon, --icon-s) apply only
+     under the surface mode classes body.ui-day / body.ui-night (src/ui/styles/ink.css), so the battle keeps today's
+     sizes (plan C10). tools/contrast.mjs reads these. ---- */
+  /* night: ink (the battle kit's surfaces; --plate above is the base ink) */
+  --plate-2: #15253f; /* raised and pressed ink, the back button */
+  --glass-ink: rgba(14, 25, 48, 0.86); /* night sheets and drawers over art */
+  --glass-ink-1: rgba(14, 25, 48, 0.8); /* pills, objective, news over the home scene */
+  --line-hi: rgba(150, 200, 255, 0.55); /* rings and chamfer edges on ink */
+  --line-lo: rgba(150, 200, 255, 0.22); /* dividers and soft rings on ink */
+  --on-ink: #eaf3ff; /* words and glyphs on ink */
+  --on-ink-dim: #a9bcdc; /* secondary words on ink (= --on-plate-dim) */
+  --cyan: #4cd6ff; /* progress, focus, "go", live (on ink) */
+  --pink-on-ink: #ff9cc0; /* sakura words on ink */
+  /* day: paper */
+  --paper-a: #eef4fa; /* the field, top */
+  --paper-b: #dde9f5; /* the field, bottom */
+  --panel-w: #ffffff; /* the white panel: opaque */
+  --line-ink: rgba(29, 78, 137, 0.35); /* panel rings on paper */
+  --line-ink-soft: rgba(29, 78, 137, 0.14); /* row dividers, soft rings */
+  --cyan-ink: #0b7fb0; /* cyan strokes and fills on paper (Go rings, progress) */
+  --cyan-text: #0a6f9c; /* cyan words on paper (Details, links, ghost buttons) */
+  --cyan-wash: #e2f5fc; /* a pressed Go; the cyan chip */
+  --pink-ink: #d23a74; /* the selection stroke on paper: bars, the pick chip */
+  /* shared (the UR rainbow is ur.css's --ur-rainbow colour list) */
+  --path-1: #ff5d73; /* the 3 px tick of a path row */
+  --path-2: #2b7fff;
+  --path-3: #8b5cf6;
+  --tier-beginner: #7bd389; /* map tier chips (mirrors src/data/types.js MAP_TIERS) */
+  --tier-intermediate: #4cc9f0;
+  --tier-advanced: #ff9f1c;
+  --tier-expert: #ff4d6d;
+  --scrim-l: linear-gradient(90deg, rgba(14, 25, 48, 0.82) 0, rgba(14, 25, 48, 0.58) 26%, rgba(14, 25, 48, 0) 50%);
+  --scrim-t: linear-gradient(180deg, rgba(14, 25, 48, 0.62) 0, rgba(14, 25, 48, 0.5) 48px, rgba(14, 25, 48, 0) 104px);
+  --scrim-r: linear-gradient(270deg, rgba(14, 25, 48, 0.62) 0, rgba(14, 25, 48, 0.5) 28%, rgba(14, 25, 48, 0) 46%);
+  --scrim-b: linear-gradient(0deg, rgba(14, 25, 48, 0.6) 0, rgba(14, 25, 48, 0) 96px);
+  --track-caps: 0.1em; /* 12-13 px caps */
+  --track-menu: 0.08em; /* 16-19 px caps */
+  --g: 24px; /* screen gutter */
+  --cut-s: 8px; /* the single cut of a small surface */
+  --tan8: 0.1405; /* the run of an 8 degree slant per px of height */
+  --rw: 1px; /* ring width (set per shape) */
+  --stroke: 1.5; /* line glyph stroke */
+  --t-snap: 140ms;
+  --ease-snap: cubic-bezier(0.3, 0, 0, 1);
 }
 
 /* Landscape phones (the breakpoint the stylesheets already use): the phone half of the type and size scale. */
@@ -160,6 +206,9 @@
     --hud-top-h: 44px;
     --cut: 12px;
     --host-list-w: 26vw;
+    /* [ui-ink] the phone half of the new UI v2 tokens */
+    --g: 16px;
+    --cut-s: 6px;
   }
 }
 

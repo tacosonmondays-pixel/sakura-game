@@ -5,6 +5,11 @@
 import { h } from './dom.js';
 import { onEscape } from './hold.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
+import { inkSurface } from './surfaceMode.js';
+import { lineGlyph } from './lineGlyphs.js';
+// [ui-ink] On the menus (UI v2, src/ui/styles/ink.css) a sheet floats as a white panel with its bleed ink head and a
+// 2 px blur behind it (low 10); the Details sheet keeps the full height with straight sides. Motion (motion.css): in
+// 240 ms from its edge with the scrim (160), out 160 ms; taps go through from the first frame of closing.
 
 const stack = [];
 const reduced = () => document.documentElement.hasAttribute('data-reduce-motion') || !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -30,11 +35,11 @@ export function openSheet({ title, body, full = false, testid = null, cls = '', 
     if (i >= 0) stack.splice(i, 1);
     layer.classList.add('closing');
     layer.inert = true;
-    setTimeout(() => layer.remove(), reduced() ? 0 : 140);
+    setTimeout(() => layer.remove(), reduced() ? 0 : 160);
     onClose?.();
   };
   const closeBtn = h('button.ui-close', { type: 'button', 'aria-label': 'Close', title: 'Close', 'data-testid': testid ? `${testid}-close` : 'sheet-close', onclick: () => close() });
-  closeBtn.innerHTML = glyphSVG('close');
+  closeBtn.innerHTML = inkSurface() ? lineGlyph('x', '', { kitSize: false }) : glyphSVG('close');
   const header = h('header.ui-head', h('h2.ui-title', title), head, closeBtn);
   const bodyEl = h('div.ui-body', body);
   const sheet = h(`section.ui-sheet${full ? '.full' : ''}${reduced() ? '' : '.enter'}${cls ? `.${cls}` : ''}`, {

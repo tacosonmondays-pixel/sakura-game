@@ -255,7 +255,11 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
     } else if (!shown.length) {
       list = h('div.gk-none', h('p.gp-line', 'No gear matches these filters.'), h('p.gp-sub', 'Try another rarity or stat, or clear the filters.'));
     } else {
-      list = h('div.gk-grid', { 'data-testid': 'gear-picker' }, shown.map((x) => pickTile(x, g)));
+      // [ui-ink] UI v2 medium 3: the piece she wears leads the grid as the selected tile (its rarity frame stays; the
+      // pink check chip and the 3 px pink bar mark it), so what is selected and what could replace it (a Mythic one
+      // too) read apart at a glance; a tap or a hold opens its Details. It follows the filter like the rest.
+      const worn = g && applyGearFilter([g], f).length ? wornTile(g) : null;
+      list = h('div.gk-grid', { 'data-testid': 'gear-picker' }, worn, shown.map((x) => pickTile(x, g)));
     }
     return h('section.gk-pick', head,
       ui.filter && all.length ? gearFilterBar({ place: 'student', slot, shown: shown.length, total: all.length, onChange: draw }) : null,
@@ -266,6 +270,12 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
   const pickTile = (x, cur) => {
     const t = gearTile(x, { slot, mainIcon: true, wearer: true, testid: `pick-${x.uid}`, onClick: () => equip(x) });
     bindHold(t, () => openPieceDetails(x, { unit, slot, onChange: changed, compareTo: cur, onEquip: () => equip(x) }));
+    return t;
+  };
+  const wornTile = (x) => {
+    const details = () => openPieceDetails(x, { unit, slot, onChange: changed });
+    const t = gearTile(x, { slot, mainIcon: true, selected: true, testid: 'pick-worn', onClick: details });
+    bindHold(t, details);
     return t;
   };
 

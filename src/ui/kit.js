@@ -8,11 +8,35 @@ import { h } from './dom.js';
 import { glyphSVG } from '../art/icons/glyphs.js';
 import { countdownState, ticker } from './countdown.js';
 import { soonSticker } from './badges.js';
+import { inkSurface } from './surfaceMode.js';
+import { lineGlyph, lineFor } from './lineGlyphs.js';
+import { currencyIcon } from '../art/icons.js';
+import { COLOUR_CURRENCIES } from './wallets.js';
+import { noteTabPick, badge } from './motion.js';
 
-/** A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. */
+/**
+ * A line glyph (src/art/icons/glyphs.js) or raw svg markup as an inline icon. [ui-ink] On the menus and the home (a
+ * surface mode on <body>) a name with a UI v2 line glyph (src/ui/lineGlyphs.js) draws that one first; game-data icons
+ * and the battle keep their drawings.
+ */
 export function ico(nameOrSvg, cls = 'ui-ico') {
   const span = h(`span.${cls}`, { 'aria-hidden': 'true' });
-  span.innerHTML = nameOrSvg.startsWith('<') ? nameOrSvg : glyphSVG(nameOrSvg);
+  const line = !nameOrSvg.startsWith('<') && inkSurface() ? lineFor(nameOrSvg) : null;
+  span.innerHTML = line ? lineGlyph(line, '', { kitSize: false }) : nameOrSvg.startsWith('<') ? nameOrSvg : glyphSVG(nameOrSvg);
+  return span;
+}
+
+/**
+ * [ui-ink] The colour coin or gem for a balance or a price (owner, Oct 27: "for the coins and premium currency bring
+ * back the color icons"): the baked item art (src/art/icons.js currencyIcon, its 96 px small cut), sized by the kit
+ * (.ui-cur-art: 20 px on a phone, 22 px on desktop; components.css, ink.css). Every other glyph stays a line glyph.
+ * @param {'coins'|'gems'} kind
+ * @param {string} [cls] extra classes ('a.b')
+ */
+export function curArt(kind, cls = '') {
+  const k = COLOUR_CURRENCIES.includes(kind) ? kind : 'coins';
+  const span = h(`span.ui-cur-art${cls ? `.${cls}` : ''}`, { 'aria-hidden': 'true', 'data-cur': k });
+  span.innerHTML = currencyIcon(k, { px: 22 });
   return span;
 }
 
@@ -61,9 +85,12 @@ export function moreChip(n, { onClick, title = null, testid = null } = {}) {
 /** A tilted sticker (MORE, NEW, grades): `kind` '' (white), 'y', 'p' or 'ink'. */
 export const sticker = (text, kind = '', props = {}) => h(`span.ui-sticker${kind ? `.${kind}` : ''}`, props, text);
 
-/** The MORE sticker: opens Details, looks the same everywhere (§5.2). */
+/**
+ * The MORE sticker: opens Details, looks the same everywhere (§5.2). [ui-ink] On the menus it is the cyan ghost
+ * control "Details ›" (UI v2 Q5: one yellow per screen), same place, same job, same test ids.
+ */
 export function moreSticker(onClick, { testid = null, label = 'More details' } = {}) {
-  return h('button.ui-sticker.y.ui-more', { type: 'button', 'data-testid': testid, 'aria-label': label, onclick: onClick }, 'More ▸');
+  return h('button.ui-sticker.y.ui-more', { type: 'button', 'data-testid': testid, 'aria-label': label, onclick: onClick }, inkSurface() ? 'Details ›' : 'More ▸');
 }
 
 /**
@@ -103,16 +130,20 @@ export function rarityTag(rarity, { testid = null, ring = null, title = null } =
 export function rail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
   const el = h(`nav.ui-rail${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label });
   const btns = new Map();
+  const order = tabs.map((t) => t.id);
+  let on = active;
   for (const t of tabs) {
     const b = h(`button.ui-tab${t.locked ? '.locked' : ''}`, {
       type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
       'aria-label': `${t.label}${t.locked ? ' (locked)' : ''}${t.dot ? ` (${t.dotTitle || 'new'})` : ''}`,
-      onclick: () => onPick(t.id),
-    }, h('span', t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, t.label), t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null);
+      onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); }, // (motion.js tabSwap's direction)
+    }, h('span', t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, t.label),
+    badge(t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null, `tab:${testidPrefix}${t.id}`));
     btns.set(t.id, b);
     el.append(b);
   }
   el.setActive = (id) => {
+    on = id;
     for (const [k, b] of btns) {
       b.classList.toggle('on', k === id);
       b.setAttribute('aria-selected', k === id ? 'true' : 'false');
@@ -165,8 +196,9 @@ export function countdownChip(msLeft, { label = null, testid = null, now = () =>
   const endsAt = now() + (Number(msLeft) || 0);
   const done = doneText || (urgent ? 'Ended' : 'Reset!');
   const time = h('span.num.ui-cd-time');
+  // [ui-ink] one countdown chip everywhere (low 12): the line clock on the menus
   const el = h(`span.ui-cd${cls ? `.${cls}` : ''}`, { 'data-testid': testid, 'data-urgent': urgent ? null : 'off' },
-    ico(KIT_SVG.clock), label ? [h('span.lbl.ui-cd-lbl', label), ' '] : null, time);
+    ico(inkSurface() ? 'clock' : KIT_SVG.clock), label ? [h('span.lbl.ui-cd-lbl', label), ' '] : null, time);
   let seen = false;
   let misses = 0;
   let fired = !(Number(msLeft) > 0); // (born at zero: nothing to announce)
@@ -205,16 +237,19 @@ export const countdownText = (msLeft) => countdownState(msLeft);
 export function sideRail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
   const el = h(`nav.ui-srail${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label, 'aria-orientation': 'vertical' });
   const btns = new Map();
+  const order = tabs.map((t) => t.id);
+  let on = active;
   for (const t of tabs) {
     const b = h('button.ui-stab', {
       type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
       'aria-label': `${t.label}${t.dot ? ` (${t.dotTitle || 'something new'})` : ''}`,
-      onclick: () => onPick(t.id),
-    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label)), t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null);
+      onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); }, // (down the rail: the content comes up)
+    }, h('span.ui-stab-in', t.icon ? ico(t.icon) : null, h('span.ui-stab-word', t.label)), badge(t.dot ? h('i.ui-bdg.dot', { 'aria-hidden': 'true' }) : null, `stab:${testidPrefix}${t.id}`));
     btns.set(t.id, b);
     el.append(b);
   }
   el.setActive = (id) => {
+    on = id;
     for (const [k, b] of btns) {
       b.classList.toggle('on', k === id);
       b.setAttribute('aria-selected', k === id ? 'true' : 'false');
