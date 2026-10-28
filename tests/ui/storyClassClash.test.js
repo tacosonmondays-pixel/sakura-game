@@ -22,7 +22,7 @@ describe('the story root class stays the story player\'s', () => {
   });
   it('no stylesheet other than story.css styles a bare .sp', () => {
     const hits = readdirSync('src/ui/styles').filter((n) => n.endsWith('.css') && n !== 'story.css')
-      .filter((n) => /\.sp(?![\w-])/.test(readFileSync(join('src/ui/styles', n), 'utf8')));
+      .filter((n) => /\.sp(?![\w-])/.test(readFileSync(join('src/ui/styles', n), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')));
     expect(hits).toEqual([]);
   });
 });

@@ -94,7 +94,8 @@ export function stagger(els, from = 'up', { base = 0, step = 30, dur = null, max
  * reveal): the wallpaper settles from 1.03 over 1 s, the girl rises in (360 ms, 80 late), the top bar comes down
  * (240, 100 late), the rail's rows come in from the left and the right stack from the right, 40 ms apart from 160 ms,
  * the corner tools fade in last; all still by about 0.7 s (the wallpaper by 1 s). A return from a sub-screen: the same
- * shorter (the wallpaper from 1.015 in 500, the rest 180-200 ms, 30 ms apart from the start). Taps work from the first
+ * shorter (the wallpaper only settles from 1.015 in 500, never fading from 0 again: the screen change fades the home in;
+ * the rest 180-200 ms, 30 ms apart from the start). Taps work from the first
  * frame; Reduce Motion: a 120 ms fade (motion.css). Home layouts pass their own pieces (src/ui/screens/lobby.js).
  * @param {{ first: boolean, scene?: Element|null, live?: Element|null, girl?: Element|null, top?: Element|null,
  *   rail?: Element|null, stack?: Element[], tools?: Element|null }} o
@@ -103,7 +104,13 @@ export function homeEntrance({ first, scene = null, live = null, girl = null, to
   const M = MOTION_UI;
   for (const s of [scene, live]) {
     if (!s) continue;
-    if (!first) s.style.setProperty('--mo-s', '1.015');
+    if (!first) {
+      // a return: the screen change already fades the home in, so the wallpaper only settles from 1.015, never from
+      // opacity 0 again (that dipped to navy on every way back); under Reduce Motion it simply stays
+      if (reduced()) continue;
+      s.style.setProperty('--mo-s', '1.015');
+      s.style.setProperty('--mo-o', '1');
+    }
     enter(s, 'scene', { dur: first ? M.sceneFirst : M.sceneReturn });
   }
   enter(girl, 'girl', { base: first ? M.girlFirstDelay : 0, dur: first ? M.girlFirst : M.girlReturn });
