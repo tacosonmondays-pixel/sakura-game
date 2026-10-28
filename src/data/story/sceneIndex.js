@@ -32,4 +32,6 @@ export const ACT_SCENE_IDS = Object.freeze({
   '3:2': Object.freeze([
     'g3.pro', 'g3.iroha', 'g3.mid', 'g3.hammer', 'g3.noa', 'g3.boss', 'g3.after', 'g3.fuu', 'g3.epi',
   ]),
+  // Act 4 (seven episodes): the six cutscenes (Azami's join after 4-7 carries the parley) and the side g4.logs
+  '4:2': Object.freeze(['g4.pro', 'g4.azami', 'g4.cross', 'g4.logs', 'g4.boss', 'g4.after', 'g4.epi']),
 });

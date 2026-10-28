@@ -52,9 +52,10 @@ const isQuietAct = (sc) => /^g2\./.test(sc.id);
 /**
  * Act 3 (The Bell Festival) is the turn, and every loss in it is told by absence only (STEP3_BUILD_PLAN decision 13,
  * STORY.md §14): no body, wound or blood words, and not even the Arc 1 death words. Ms. Hazuki is a name that gets no
- * answer; the old oni is an empty place at a cold brazier.
+ * answer; the old oni is an empty place at a cold brazier. Act 4 (The Checkpoint) keeps the same rule (STEP4_BUILD_PLAN
+ * §6): a fallen trooper is "down" or an empty helmet, and the General "doesn't come back".
  */
-const isAbsenceAct = (sc) => /^g3\./.test(sc.id);
+const isAbsenceAct = (sc) => /^g[34]\./.test(sc.id);
 const ABSENCE_BANNED = [
   'body', 'bodies', 'corpse', 'corpses', 'wound', 'wounds', 'wounded', 'bleed', 'bleeding', 'bled', 'blood', 'bloody',
   'injury', 'injuries', 'injured', 'bone', 'bones', 'gore', 'burns', 'scar', 'scars', 'grave', 'funeral', 'killed', 'kill',
@@ -69,6 +70,8 @@ const ARC1_MAIN = {
   g1: ['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.boss', 'g1.epi'],
   g2: ['g2.pro', 'g2.mid', 'g2.boiler', 'g2.boss', 'g2.after', 'g2.epi'],
   g3: ['g3.pro', 'g3.mid', 'g3.hammer', 'g3.boss', 'g3.after', 'g3.epi'],
+  // Act 4 has no `mid`: Azami's join carries the parley, so the join is a main episode (STORY.md §11)
+  g4: ['g4.pro', 'g4.azami', 'g4.cross', 'g4.boss', 'g4.after', 'g4.epi'],
 };
 
 /**
@@ -159,8 +162,8 @@ describe('story registry', () => {
     expect(SCENE_LIST.length + LESSON_SCENES.length).toBe(ALL.length);
     // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
     // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*) and Act 2
-    // (eleven episodes, g2.*) and Act 3 (nine episodes, g3.*)
-    expect(SCENE_LIST.length).toBe(59);
+    // (eleven episodes, g2.*) and Act 3 (nine episodes, g3.*) and Act 4 (seven episodes, g4.*)
+    expect(SCENE_LIST.length).toBe(66);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });
@@ -253,6 +256,54 @@ describe('story registry', () => {
     for (const s of g3) expect(s.title.toLowerCase(), s.id).not.toContain('roll call');
   });
 
+  it('Act II of chapter 4 (The Checkpoint): an opener before 4-6, Azami\'s join after 4-7, a boss intro before 4-10, a closer after 4-10', () => {
+    const g4 = SCENE_LIST.filter((s) => s.id.startsWith('g4.'));
+    expect(g4.map((s) => s.id)).toEqual(['g4.pro', 'g4.azami', 'g4.cross', 'g4.logs', 'g4.boss', 'g4.after', 'g4.epi']);
+    for (const s of g4) expect([s.chapter, s.act, s.kind, storyRewardFor(s.kind)], s.id).toEqual([4, 2, 'event', []]);
+    const triggers = Object.fromEntries(g4.map((s) => [s.id, s.trigger]));
+    expect(triggers).toEqual({
+      'g4.pro': { before: '4-6' },
+      'g4.azami': { after: '4-7' },
+      'g4.cross': { after: '4-8' },
+      'g4.logs': { after: '4-8' },
+      'g4.boss': { before: '4-10' },
+      'g4.after': { after: '4-10' },
+      'g4.epi': { after: '4-10' },
+    });
+    // six cutscenes, the join included (the owner's rule); g4.logs is the side scene, and nothing waits for ownership
+    expect(ARC1_MAIN.g4).toHaveLength(6);
+    for (const s of g4) expect(s.ifOwned, s.id).toBeUndefined();
+    // chapter 4's Act II files right after chapter 4's own episodes, before chapter 5; the crossing plays before the logs
+    const ids = SCENE_LIST.map((s) => s.id);
+    expect(ids.indexOf('g4.pro')).toBe(ids.indexOf('ch4.epi') + 1);
+    expect(ids.indexOf('ch5.pro')).toBe(ids.indexOf('g4.epi') + 1);
+    expect(ids.indexOf('g4.logs')).toBe(ids.indexOf('g4.cross') + 1);
+    expect(sceneById('g4.boss').lines.some((l) => l.t === 'say' && l.who === 'orc_frost_vanguard')).toBe(true);
+    expect(ENEMY_SPEAKERS).toContain('orc_frost_vanguard');
+    for (const s of g4) expect(s.title.toLowerCase(), s.id).not.toContain('roll call');
+    // no Act 4 title repeats another archive title (ch2.azami already ships "No Running on My Road")
+    const titles = SCENE_LIST.map((s) => s.title.toLowerCase());
+    for (const s of g4) expect(titles.filter((t) => t === s.title.toLowerCase()), s.id).toHaveLength(1);
+  });
+
+  it('Azami joins the line after 4-7 in g4.azami: a meeting or a reunion reads the same, and it carries the parley', () => {
+    const join = sceneById('g4.azami');
+    const text = textsOf(join).map((t) => t.text).join(' ');
+    expect(text).toContain('{name:azami}');
+    expect(join.cast).toContain('azami');
+    expect(join.ifUnit).toBeUndefined();
+    // old saves already own her (the 2-2 legacy grant): nothing in the scene says she is new, or that she came back
+    expect(/\b(nice to meet|new recruit|first time|welcome back|came back|long time)\b/i.test(text)).toBe(false);
+    expect(text).toContain('No running in the halls — or on my road.');
+    expect(text).toContain('Probably cheese before bed.');
+    expect(text).toContain('fist to brow, then an open hand');
+    expect(text).toContain('My mother asked the winter. The winter did not answer.');
+    expect(text).toContain("We're not the winter.");
+    // the same words, in one breath, from both sides of the barrier
+    const both = sayLines(join.lines).filter((l) => l.text === 'Not one step further. There are children behind me.');
+    expect(both.map((l) => l.name || l.who)).toEqual(['azami', 'Kagari']);
+  });
+
   it('Hikari speaks in every main Gate Arc episode, in person or on Channel 9', () => {
     for (const ids of Object.values(ARC1_MAIN)) {
       for (const id of ids) expect(sayLines(sceneById(id).lines).some((l) => l.who === 'hikari'), `${id}: Hikari speaks`).toBe(true);
@@ -263,7 +314,7 @@ describe('story registry', () => {
     for (const l of boiler) expect(l.at, 'Hikari on Channel 9').toBe('off');
   });
 
-  it('only the side scenes wait for a girl the player owns (g2.class; g3.iroha, g3.noa, g3.fuu)', () => {
+  it('only the side scenes wait for a girl the player owns (g2.class; g3.iroha, g3.noa, g3.fuu; none in Act 4)', () => {
     const gated = ALL.filter((s) => s.ifOwned);
     expect(gated.map((s) => [s.id, [...s.ifOwned]])).toEqual([
       ['g2.class', ['ruri', 'iroha', 'ena', 'fuu']],
@@ -444,7 +495,7 @@ describe('story text (T-content-3, T-content-4)', () => {
     const banned = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'i');
     const arc0 = new RegExp(`\\b(${BANNED_ARC0.join('|')})\\b`, 'i');
     // the scope: every gN.* episode is Arc 1 (Acts 1 to 3 so far), nothing else is
-    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3']);
+    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2', 'g3', 'g4']);
     for (const sc of ALL) {
       for (const { where, text } of textsOf(sc)) {
         expect(text.match(banned)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
@@ -456,7 +507,7 @@ describe('story text (T-content-3, T-content-4)', () => {
 
   it('loss by absence in Act 3: no body, wound, blood or death words anywhere in g3; Ms. Hazuki gets no answer', () => {
     const absence = new RegExp(`\\b(${ABSENCE_BANNED.join('|')})\\b`, 'i');
-    const g3 = ALL.filter(isAbsenceAct);
+    const g3 = ALL.filter((s) => s.id.startsWith('g3.'));
     expect(g3.length).toBe(9);
     for (const sc of g3) {
       for (const { where, text } of textsOf(sc)) expect(text.match(absence)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
@@ -470,6 +521,52 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g3.epi', 'It is empty.')).toBe(true);
     // the small winged one from g2.boiler does not appear in Act 3
     for (const sc of g3) for (const { text } of textsOf(sc)) expect(/winged|scarf/i.test(text), sc.id).toBe(false);
+  });
+
+  it('loss by absence in Act 4: no body, wound, blood or death words anywhere in g4; a helmet, a quiet channel, a bridge', () => {
+    const absence = new RegExp(`\\b(${ABSENCE_BANNED.join('|')})\\b`, 'i');
+    const g4 = ALL.filter((s) => s.id.startsWith('g4.'));
+    expect(g4.length).toBe(7);
+    expect(g4.every(isAbsenceAct)).toBe(true);
+    for (const sc of g4) {
+      for (const { where, text } of textsOf(sc)) expect(text.match(absence)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+    }
+    const has = (id, needle) => textsOf(sceneById(id)).some((t) => t.text.includes(needle));
+    // the fallen trooper is an empty helmet in the snow; first light has nowhere to send him
+    expect(has('g4.cross', 'a white visor helmet')).toBe(true);
+    expect(has('g4.cross', 'He was already home.')).toBe(true);
+    // the squad's losses are a quiet channel and a roll with silences in it
+    expect(has('g4.after', 'Half the channel is quiet.')).toBe(true);
+    expect(has('g4.epi', 'Not every name answers.')).toBe(true);
+    // the General doesn't come back, and nobody is shown falling
+    expect(has('g4.after', "The General doesn't come back.")).toBe(true);
+    expect(has('g4.after', 'Nobody bows back.')).toBe(true);
+    // the trooper who apologises has no name (a plain plate), and is carried across
+    const sorry = sayLines(sceneById('g4.after').lines).find((l) => l.text.includes('Sorry about the guns.'));
+    expect([sorry.who, sorry.name]).toEqual(['unknown', 'Trooper']);
+    expect(has('g4.after', "I'm sorry about mine.")).toBe(true);
+  });
+
+  it('Kagari speaks in full formal sentences: never a contraction', () => {
+    const kagari = ALL.flatMap((sc) => sayLines(sc.lines).filter((l) => l.name === 'Kagari').map((l) => [sc.id, l.text]));
+    expect(kagari.length).toBeGreaterThanOrEqual(5);
+    for (const [id, text] of kagari) expect(/\b\w+['’](t|s|re|ll|ve|d|m)\b/i.test(text), `${id}: "${text}"`).toBe(false);
+  });
+
+  it('the mystery holds in Act 4: the thing calling over the north is never named, and the small winged one stays away', () => {
+    const g4 = ALL.filter((s) => s.id.startsWith('g4.'));
+    const species = /\b(dragons?|wyverns?|wyrms?|drakes?|hatchlings?|eggs?|chicks?|birds?|bats?|matriarch|specimen|lizard|reptile|winged|scarf)\b/i;
+    for (const sc of g4) {
+      for (const { where, text } of textsOf(sc)) expect(text.match(species)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+      // the only enemies who speak are the Frost Vanguard and the Orc General
+      for (const l of sayLines(sc.lines)) if (ENEMY_SPEAKERS.includes(l.who)) expect(['orc_frost_vanguard', 'orc_general'], sc.id).toContain(l.who);
+    }
+    const cross = textsOf(sceneById('g4.cross')).map((t) => t.text).join(' ');
+    expect(cross).toContain('something vast crosses the sky');
+    expect(cross).toContain("Kaze won't fly. Something big is calling.");
+    // Hana's line is an off-stage cameo: it plays once she exists, and the scene stands without it
+    const hana = sayLines(sceneById('g4.cross').lines).find((l) => l.who === 'hana');
+    expect([hana.ifUnit, hana.at]).toEqual(['hana', 'off']);
   });
 
   it('the mystery holds: no "dragon" or "Matriarch" before the oni tell Momo (ch7.epi)', () => {
@@ -543,6 +640,25 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g3.after', 'Why would she come back for me?')).toBe(true);
     expect(has('g3.epi', 'Hazuki-sensei.')).toBe(true);
     expect(has('g3.epi', 'We came for warmth. You answered with fire.')).toBe(true);
+    // Gate Arc Act 4 (STORY.md §11, Act 4; clues 14 and 15)
+    expect(has('g4.pro', 'Citation: standing on public infrastructure.')).toBe(true);
+    expect(has('g4.pro', "It's a very good booth.")).toBe(true);
+    expect(has('g4.pro', 'WHO OPENED THE GATES?')).toBe(true);
+    expect(has('g4.azami', 'All my life I have dreamed of snow')).toBe(true);
+    expect(has('g4.azami', "It is the bow of the Ember's keepers.")).toBe(true);
+    expect(has('g4.cross', 'First light')).toBe(true);
+    expect(has('g4.cross', "The wolves' readings went back through the seam. His… just stopped.")).toBe(true);
+    expect(has('g4.cross', 'I wrote his van a ticket on Tuesday.')).toBe(true);
+    expect(has('g4.cross', 'Hold back wherever you can. Anyone who runs, let them run.')).toBe(true);
+    expect(has('g4.cross', "Then it's mine. Not yours.")).toBe(true);
+    expect(has('g4.logs', 'Somebody should tell her to sleep.')).toBe(true);
+    expect(has('g4.boss', 'NO. MORE. GUNS.')).toBe(true);
+    expect(has('g4.boss', "Then let us through, and we'll take them home.")).toBe(true);
+    expect(has('g4.after', 'HONOUR!')).toBe(true);
+    expect(has('g4.after', 'Protocol HAMMER.')).toBe(true);
+    expect(has('g4.epi', 'HAMMER MAKES GATES??')).toBe(true);
+    expect(has('g4.epi', "the General's helmet")).toBe(true);
+    expect(has('g4.epi', 'Citation: Commander Kuroe.')).toBe(true);
   });
 });
 
