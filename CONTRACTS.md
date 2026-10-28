@@ -2173,7 +2173,7 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 9 (`version.js`; 9 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  `COOP_PROTOCOL` 10 (`version.js`; 10 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 9 was Gate Arc Acts 1–2: the Act II stages, rooftops and the lane schedule; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
   v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in
