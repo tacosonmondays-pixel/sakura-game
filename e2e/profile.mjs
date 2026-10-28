@@ -506,7 +506,7 @@ async function runVisit(vp) {
     o.__pvWrapped = true;
   });
   async function setName(page, name) {
-    await wait(page, '[data-testid="name-input"]', { timeout: 20000 });
+    await wait(page, '[data-testid="name-input"]', { timeout: 60000 }); // (a busy machine: the clan screen's prompt can take a while)
     await page.fill('[data-testid="name-input"]', name);
     await tap(page, '[data-testid="name-save"]');
     await wait(page, '[data-testid="name-input"]', { state: 'detached', timeout: 10000 });
