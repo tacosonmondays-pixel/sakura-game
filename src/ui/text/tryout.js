@@ -1,6 +1,7 @@
 // Tryout Day display text (docs/specs/TRYOUT_DAY.md): every name and description, outside the hashed run table
 // (src/data/tryout.js), so a wording fix never forces a co-op update. Players are "they".
-import { PEP_CARDS, SCALE, RARITIES } from '../../data/tryout.js';
+import { PEP_CARDS, RARITIES } from '../../data/tryout.js';
+import { cardMods } from '../../sim/tryout/pep.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { fmtNum } from '../format.js';
 
@@ -10,6 +11,15 @@ export const RARITY_NAMES = RARITIES;
 
 const pct = (v) => `${Math.round(v * 1000) / 10}%`.replace('.0%', '%');
 const tiles = (v) => `${Math.round(v * 100) / 100} tiles`;
+
+const SET_NAMES = { pierce: 'Pierce', blast: 'Blast', slash: 'Slash', mystic: 'Mystic', holy: 'Holy', control: 'Control', support: 'Support' };
+/** A Group card's set as a word ("Slash"); an element list reads "Elemental". */
+function setName(id) {
+  const set = PEP_CARDS[id]?.set || {};
+  if (Array.isArray(set.element)) return 'Elemental';
+  const k = set.attackType || set.category || set.element || '';
+  return SET_NAMES[k] || k.charAt(0).toUpperCase() + k.slice(1);
+}
 
 /** Card names and one-line effects (`{x}` = the number at that rarity). */
 export const CARD_TEXT = {
@@ -33,6 +43,39 @@ export const CARD_TEXT = {
   B04: { name: 'Sunny Window', line: (m, u, r) => `Window Seats give +${pct(PEP_CARDS.B04.seatDmg[r])} damage and +${PEP_CARDS.B04.seatReach[r]} reach${PEP_CARDS.B04.seatAdd[r] ? '; one more seat' : ''} (the whole team)` },
   B05: { name: 'Spare Pass', line: () => '+1 Hall Pass at every break from now on (the whole team)' },
   B06: { name: 'Rainy-Day Fund', line: () => 'At every period end, +10% of your unspent coins (at most 300 × the coin rate)' },
+  B07: { name: 'Multiple Choice', line: () => `Every later pick shows ${3 + PEP_CARDS.B07.cards} cards and +${PEP_CARDS.B07.erasers} Eraser; Hand it in no longer pays coins` },
+  B08: { name: 'Extra Desk', line: () => `+${PEP_CARDS.B08.squad} squad spot and your next pick is a Tryout pick; max hearts −${-PEP_CARDS.B08.draw.maxHearts}` },
+  G01: { name: 'Sharp Pencils', line: (m) => `${setName('G01')} girls +${pct(m.damageMul)} damage${m.pierce ? `, +${m.pierce} pierce` : ''}` },
+  G02: { name: 'Science Fair', line: (m) => `${setName('G02')} girls +${pct(m.damageMul)} damage, +${tiles(m.splash)} splash` },
+  G03: { name: 'Sword Drills', line: (m) => `${setName('G03')} girls +${pct(m.damageMul)} damage, +${Math.round(m.critChance * 100)} crit points` },
+  G04: { name: 'Library Hour', line: (m) => `${setName('G04')} girls +${pct(m.damageMul)} damage, +${pct(m.classMul.warded)} vs warded` },
+  G05: { name: 'Shrine Visit', line: (m) => `${setName('G05')} girls +${pct(m.damageMul)} damage; hits reveal veiled foes for ${m.reveal} s` },
+  G06: { name: 'Weather Report', line: (m) => `${setName('G06')} girls +${pct(m.damageMul)} damage; burns and poisons +${pct(m.dotMul)}` },
+  G07: { name: 'Crossing Guards', line: (m) => `${setName('G07')} girls +${pct(m.rateMul)} attack speed, +${tiles(m.range)} reach` },
+  G08: { name: 'Backstage Crew', line: (m) => `${setName('G08')} girls: aura and office reach +${tiles(m.auraRange)}, aura bonuses +${Math.round(m.auraPoints * 100)} points` },
+  L01: { name: 'Desk Partners', line: (m) => `+${pct(m.rateMul)} attack speed for girls with another girl within ${tiles(PEP_CARDS.L01.near)}` },
+  L02: { name: 'Quiet Corner', line: (m) => `+${pct(m.damageMul)} damage for girls with no other girl within ${tiles(PEP_CARDS.L02.alone)}` },
+  T_aoi: { name: 'Blessed Arrows', line: (m, u) => `${u}'s arrows become holy (×2 vs spectral) and she gains Veil Sight` },
+  T_rei: { name: 'Flying Slash', line: (m, u) => `${u} can hit flyers; sweep +0.5 tiles` },
+  T_yuki: { name: 'Snowball Fight', line: (m, u) => `25% of ${u}'s snowballs freeze for 0.5 s; splash +0.3 tiles` },
+  T_akane: { name: 'Sparkler Rain', line: (m, u) => `${u} throws 3 fireballs at 55% each, spread wide` },
+  T_kage: { name: 'Ambidextrous', line: (m, u) => `${u} +2 shuriken per throw, +1 pierce` },
+  T_shiro: { name: 'Piercing Round', line: (m, u) => `${u}'s shots pass through 2 more foes` },
+  T_raika: { name: 'Lightning Round', line: (m, u) => `${u} +3 jumps; shock 0.3 s` },
+  T_hotaru: { name: 'Parade of Lights', line: (m, u) => `${u} +4 targets, +0.5 tiles reach` },
+  T_kaede: { name: 'Focused Mind', line: (m, u) => `${u} keeps 60% of her focus when her target falls; can hit flyers` },
+  T_chika: { name: 'Tinker Time', line: (m, u) => `${u} +2 drones` },
+  T_fuu: { name: 'Gather Round', line: (m, u) => `${u}'s gusts gather the wave into a clump for splash girls` },
+  T_marumi: { name: 'Bonus Frame', line: (m, u) => `${u}'s balls ricochet to 2 more walkers` },
+  U01: { name: 'School Spirit', line: (m) => `Everyone +${pct(m.damageMul)} damage, +${pct(m.rateMul)} attack speed, +${tiles(m.range)} reach; −1 Hall Pass at every later break` },
+  U02: { name: 'Fire and Ice', line: () => 'Fire hits leave foes Brittle (+10% damage from everyone for 3 s); frost girls +30% damage; −10% damage for girls who are neither' },
+  U03: { name: 'Thunder and Rain', line: () => 'Water hits Soak for 3 s; lightning girls +1 jump, +30% damage; −10% damage for girls who are neither' },
+  U04: { name: 'Light and Shadow', line: () => 'Holy hits reveal for 3 s; pierce girls +12 crit points; −10% damage for girls who are neither' },
+  U05: { name: 'Varsity Letter', line: (m, u) => `${u || 'A squad girl'} gains Varsity (+15% damage, +10% attack speed, copies 10% cheaper); your next pick shows ${PEP_CARDS.U05.draw.nextCards} cards` },
+  X01: { name: 'Hundred Points', line: (m) => `Everyone +${pct(m.damageMul)} damage, +${pct(m.rateMul)} attack speed; foes +${pct(PEP_CARDS.X01.draw.foeHp)} HP for the rest of the run` },
+  X02: { name: 'Whole Class Turns Up', line: () => `Take ${PEP_CARDS.X02.girls} of ${PEP_CARDS.X02.of} girls, both with the SSR arrival package; +${PEP_CARDS.X02.squad} squad spot; your next pick is skipped` },
+  X03: { name: 'Golden Chalk', line: () => `Window Seats +${PEP_CARDS.X03.seatAdd} and the seat bonus to its cap (+50% damage, +${tiles(1)} reach); −1 Hall Pass at every later break` },
+  X04: { name: 'Final Bell', line: () => `Last wave of every period: all girls +${pct(PEP_CARDS.X04.lastWave.rateMul)} attack speed, +${pct(PEP_CARDS.X04.lastWave.damageMul)} damage; first wave: −${pct(-PEP_CARDS.X04.firstWave.damageMul)} damage` },
 };
 
 /** A card instance's name and effect line. */
@@ -40,15 +83,8 @@ export function cardText(inst) {
   const t = CARD_TEXT[inst.id];
   const c = PEP_CARDS[inst.id];
   if (!t || !c) return { name: inst.id, line: '' };
-  let m = {};
-  if (c.steps) m = c.steps[inst.r] || {};
-  else if (c.mods) {
-    const k = SCALE[inst.r];
-    for (const [key, v] of Object.entries(c.mods)) {
-      if (typeof v === 'number') m[key] = v * k;
-      else if (v && typeof v === 'object') m[key] = Object.fromEntries(Object.entries(v).map(([a, b]) => [a, b * k]));
-    }
-  }
+  // The battle's own numbers (scaling cards × SCALE[r]; talents, build cards and capstones as written).
+  const m = cardMods(c, inst.r) || {};
   const who = inst.unit ? UNIT_MAP[inst.unit]?.name || inst.unit : '';
   return { name: t.name, line: t.line(m, who, inst.r) };
 }

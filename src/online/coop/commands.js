@@ -25,6 +25,7 @@ import { TARGET_MODES } from '../../data/types.js';
 import { hashSim } from './simHash.js';
 import { withDetMath } from './detMath.js';
 import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '../../sim/tryout/index.js';
+import { checkedDraft } from '../../sim/tryout/draft.js';
 
 /**
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
@@ -133,7 +134,8 @@ function tryoutSim(start, stage, units) {
       endless: false, autoStart: false,
       tryout: {
         seed: plan.seed, grade: plan.grade, length: plan.length, mapId: plan.mapId,
-        players: players.map((p) => ({ squad: (Array.isArray(p.draft) ? p.draft : []).filter((id) => typeof id === 'string').slice(0, 3) })),
+        // (each three checked against that player's own six: a forged draft plays the first three of it)
+        players: players.map((p) => ({ squad: checkedDraft(p.draft, p.pool, plan.seed, p.slot) })),
         pools: players.map((p) => (p.pool && typeof p.pool === 'object' ? p.pool : {})),
       },
     },

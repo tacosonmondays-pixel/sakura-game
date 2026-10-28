@@ -392,6 +392,9 @@ describe('co-op: per-player shares', () => {
   it('Star Pupil reads only its player\'s damage; a girl sold mid-period still counts for her player', () => {
     const coop = createCoopSim(coopStart({ seed: 3 }), { mySlot: 0 });
     const sim = coop.sim;
+    // (each squad is that player's checked draft: girls of their own six)
+    const A = sim.tryout.players[0].squad[0];
+    const [B, C] = sim.tryout.players[1].squad.filter((id) => !sim.tryout.players[0].squad.includes(id));
     const spots = spotsFor(sim);
     let s = 0;
     const put = (slot, id) => {
@@ -405,15 +408,15 @@ describe('co-op: per-player shares', () => {
     sim.ownerCash[1] = 1e6;
     coop.apply({ t: coop.tick, p: 0, s: 0, k: 'wave', a: [] });
     expect(sim.tryout.base).toBeTruthy();
-    const a0 = put(0, 'aoi');
-    const r1 = put(1, 'rei');
+    const a0 = put(0, A);
+    const r1 = put(1, B);
     expect(r1.owner).toBe(1);
-    sim.tryout.assign.own[1] = [{ id: 'a_star', st: 0, unit: 'rei' }];
+    sim.tryout.assign.own[1] = [{ id: 'a_star', st: 0, unit: B }];
     sim._credit(a0, 1000);
     sim._credit(r1, 40);
     // a foe event notes her owner, then she is sold
     sim._killEnemy(sim.spawnEnemy('slime_mimic', {}), null);
-    sim._credit(put(1, 'raika'), 60);
+    sim._credit(put(1, C), 60);
     expect(judge(sim, 'a_star', 1, false)).toMatchObject({ cur: 40, st: 0 });
     sim._killEnemy(sim.spawnEnemy('slime_mimic', {}), null);
     coop.apply({ t: coop.tick, p: 1, s: 999, k: 'sell', a: [r1.uid] });

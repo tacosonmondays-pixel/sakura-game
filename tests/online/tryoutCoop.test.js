@@ -7,6 +7,7 @@ import { runCoop, coopStart } from '../../tools/tryoutBot.mjs';
 import { TRYOUT } from '../../src/data/tryout.js';
 import { openBreak } from '../../src/sim/tryout/breaks.js';
 import { cardOk } from '../../src/sim/tryout/offers.js';
+import { checkedDraft, draftOf } from '../../src/sim/tryout/draft.js';
 
 /** Steps a co-op view until its first pick opens. */
 function toFirstPick(coop) {
@@ -124,4 +125,21 @@ describe('tryout co-op', () => {
     const t0 = coop.sim.towers.find((t) => coop.ownerOf(t.uid) === 0);
     if (t0) expect(coop.apply({ t: coop.tick, p: 1, s: 15, k: 'mv', a: [t0.uid, 1024, 1024] }).reason).toBe('notYours');
   }, 60000);
+
+  it('each player\'s three are checked against their own six (either draw); a forged draft plays the first three', () => {
+    const pool = { aoi: {}, kage: {} };
+    const owned = (id) => id in pool;
+    const six = draftOf(owned, 44, 1, 0);
+    const redraw = draftOf(owned, 44, 1, 1);
+    expect(checkedDraft(six.slice(3), pool, 44, 1)).toEqual(six.slice(3));
+    expect(checkedDraft(redraw.slice(0, 3), pool, 44, 1)).toEqual(redraw.slice(0, 3));
+    const forged = ['akane', 'kinu', 'marumi'].filter((id) => !six.includes(id));
+    if (forged.length === 3) expect(checkedDraft(forged, pool, 44, 1)).toEqual(six.slice(0, 3));
+    expect(checkedDraft([six[0], six[0], six[1]], pool, 44, 1)).toEqual(six.slice(0, 3));
+    expect(checkedDraft('x', null, 44, 1)).toEqual(draftOf(() => false, 44, 1, 0).slice(0, 3));
+    // the Sim builds each squad from the checked draft
+    const coop = createCoopSim(coopStart({ seed: 44, drafts: [['akane', 'kinu', 'marumi'], six.slice(0, 3)], pools: [{}, pool] }), { mySlot: 0 });
+    expect(coop.sim.tryout.players[1].squad).toEqual(six.slice(0, 3));
+    expect(coop.sim.tryout.players[0].squad).toEqual(checkedDraft(['akane', 'kinu', 'marumi'], {}, 44, 0));
+  });
 });
