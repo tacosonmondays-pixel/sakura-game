@@ -1,9 +1,14 @@
-// The drawer's honest DPS (MORE › Details; src/ui/battle/dpsView.js): during a wave a splash + poison girl's measured
-// "DPS (live)" is bigger than her per-target hits, a crit striker, Chika, a trapper and a brewer show their numbers,
-// and the poison chip says 0.25%, not 0.3%. Stages Midori 5-0-2 against a crowd and against a boss, Kage, Chika and
-// Suzu on 1-3; the battle is stepped in game time between real frames (the meter samples per frame).
+// The drawer's honest DPS (MORE › Details; src/ui/battle/dpsView.js), for the whole roster.
+//   1. Showcase on 1-3: Midori 5-0-2 against a pack and against a boss (her measured "DPS (live)" beats her per-target
+//      hits; the poison share reads 0.25%, not 0.3%; her Toxic Tonic boost reads as an estimate), then Kage (crits),
+//      Chika (drones), Suzu (traps), Shiro (pierce), Miko (aura) and the hero.
+//   2. Roster: every girl and the hero, 3-0-0, each with her own pack: a sensible non-zero DPS during a wave (a girl
+//      who deals no damage reads "—" or 0), and no NaN / undefined anywhere in her drawer.
+// Packs are plain bears of ~3000 HP (a sturdy late-wave foe), kept alive by refilling their HP each game step (max HP
+// untouched, so a %-of-max-HP poison stays honest) and slowed so they stay in reach. The battle is stepped in game time between real frames
+// (the meter samples per frame).
 //
-//   node e2e/dps-readout.mjs [--viewport 844x390] [--shots <dir>] [--root <checkout>]
+//   node e2e/dps-readout.mjs [--viewport 844x390] [--shots <dir>] [--root <checkout>] [--skip-roster]
 //   (--root another checkout, e.g. live main, for the board's "before" stills: the checks need this build's drawer)
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 on any failure.
 import { createServer } from 'vite';
@@ -11,6 +16,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { openApp, seedSave, openBattle } from './lib/battleKit.mjs';
+import { towers, heroes } from '../src/data/units.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def = null) => {
@@ -21,7 +27,12 @@ const viewports = opt('viewport') ? [opt('viewport')] : ['844x390', '1280x720'];
 const SHOTS = opt('shots');
 const ROOT = opt('root', process.cwd());
 const BEFORE = ROOT !== process.cwd();
+const ROSTER = !BEFORE && !args.includes('--skip-roster');
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
+
+const GIRLS = towers().map((u) => u.id);
+const HERO = 'hikari';
+const ALL = [...GIRLS, ...heroes().map((u) => u.id)];
 
 const server = await createServer({ root: ROOT, server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
@@ -34,6 +45,89 @@ const check = (c, m) => {
   if (!c) fails.push(m);
   return c;
 };
+/** "1.2K" / "57.6k" / "250" / "—" -> a number (null for a dash or nothing). */
+const num = (s) => {
+  const m = /^~?([\d.,]+)\s*([kKmM]?)/.exec(String(s ?? '').trim());
+  if (!m) return null;
+  return Number(m[1].replace(/,/g, '')) * ({ k: 1e3, m: 1e6 }[m[2].toLowerCase()] || 1);
+};
+
+/** window.__dps: road and pack staging (the road point nearest a girl; enemies moved there, kept alive and slow). */
+async function installStaging(page) {
+  await page.evaluate(() => {
+    const { sim } = window.__battle;
+    const segAt = (path, d) => {
+      let seg = 0;
+      while (seg < path.cum.length - 2 && path.cum[seg + 1] <= d) seg++;
+      return seg;
+    };
+    const moveTo = (e, pathIndex, d) => {
+      const path = sim.pathData[pathIndex];
+      const seg = segAt(path, d);
+      const t = d - path.cum[seg];
+      e.pathIndex = pathIndex;
+      e.dist = d;
+      e.seg = seg;
+      e.x = path.points[seg][0] + path.dirs[seg][0] * t;
+      e.y = path.points[seg][1] + path.dirs[seg][1] * t;
+      e.remaining = path.length - d;
+    };
+    const roadNear = (m) => {
+      let best = null;
+      sim.pathData.forEach((path, pi) => {
+        for (let d = 0.5; d <= path.length - 0.5; d += 0.1) {
+          const seg = segAt(path, d);
+          const t = d - path.cum[seg];
+          const r = Math.hypot(path.points[seg][0] + path.dirs[seg][0] * t - m.x, path.points[seg][1] + path.dirs[seg][1] * t - m.y);
+          if (!best || r < best.r) best = { r, pathIndex: pi, d };
+        }
+      });
+      return best;
+    };
+    const slow = (e) => {
+      e.speed = e.baseSpeed = 0.03;
+    };
+    const keep = (e) => {
+      e.__kept = 1;
+      slow(e);
+    };
+    window.__dps = {
+      /** n plain bears (no armor, no traits, ~3000 HP: no single hit ends one) on the road point nearest girl `uid`. */
+      pack(uid, n = 3, id = 'beast_bear', hp = 3000) {
+        const t = sim.getTower(uid);
+        if (!t) return null;
+        const at = roadNear(t);
+        for (let i = 0; i < n; i++) {
+          const e = sim.spawnEnemy(id, { pathIndex: at.pathIndex, dist: at.d, hpMul: hp / (sim.data.enemy(id)?.hp || 1) });
+          if (!e) continue;
+          moveTo(e, at.pathIndex, Math.max(0.3, at.d - 0.15 * i));
+          keep(e);
+        }
+        return Number(at.r.toFixed(2));
+      },
+      /** A boss alone (her own HP, kept full) on the road point nearest girl `uid` (the rest of the field cleared). */
+      boss(uid, id = 'grave_lych') {
+        const at = roadNear(sim.getTower(uid));
+        for (const e of sim.enemies) e.dead = true;
+        const b = sim.spawnEnemy(id, { pathIndex: at.pathIndex, dist: at.d });
+        if (b) {
+          moveTo(b, at.pathIndex, at.d);
+          keep(b);
+        }
+        return b?.tier || null;
+      },
+      /** One game step with the packs kept: HP back to full (max untouched), still slow; the wave's own spawns slowed. */
+      step(dt) {
+        for (const e of sim.enemies) {
+          if (e.dead) continue;
+          if (!e.__kept) slow(e);
+          else e.hp = e.maxHp;
+        }
+        sim.update(dt);
+      },
+    };
+  });
+}
 
 for (const vp of viewports) {
   const [W, H] = vp.split('x').map(Number);
@@ -41,15 +135,18 @@ for (const vp of viewports) {
   console.log(`viewport ${vp}`);
   const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 1 });
   page.setDefaultTimeout(120000);
+  page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message.split('\n')[0]}`));
   const shot = async (name) => {
-    if (SHOTS) await page.screenshot({ path: join(SHOTS, `${name}-${vp}.png`), timeout: 120000 });
+    if (!SHOTS) return;
+    await page.waitForTimeout(900); // (the drawer's slide and cross-fade between girls)
+    await page.screenshot({ path: join(SHOTS, `${name}-${vp}.png`), timeout: 120000 });
   };
   // a real frame between game-time steps, so the drawer's meter samples (it reads sim.time every frame)
   const stepGame = async (sec) => {
     for (let i = 0; i < sec * 2; i++) {
       await page.evaluate(() => {
         const { sim } = window.__battle;
-        for (let k = 0; k < 30 && sim.state === 'wave'; k++) sim.update(1 / 60);
+        for (let k = 0; k < 30 && sim.state === 'wave'; k++) window.__dps.step(1 / 60);
       });
       await page.waitForTimeout(60);
     }
@@ -58,133 +155,140 @@ for (const vp of viewports) {
     await page.evaluate((u) => window.__battle.ui.select(u), uid);
     await page.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="panel-more"]');
     if (!(await page.$('[data-testid="tower-panel"].bt-drawer-more'))) await page.locator('[data-testid="tower-panel"] [data-testid="panel-more"]').click({ force: true });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(400);
+    // (the live cell is painted on the drawer's next frame: a slow software-rendered frame can take a while)
+    await page.waitForFunction(() => {
+      const b = document.querySelector('[data-testid="tower-panel"] [data-testid="drawer-dps-live"]');
+      return !b || b.textContent !== '—' || window.__battle.sim.state !== 'wave';
+    }, null, { timeout: 8000 }).catch(() => {});
     return page.evaluate(() => {
       const p = document.querySelector('[data-testid="tower-panel"]');
-      const cell = (label) => [...p.querySelectorAll('.bt-stat-cell')].find((c) => c.firstChild?.textContent?.trim() === label)?.lastChild?.textContent?.trim() || null;
+      const cells = [...p.querySelectorAll('.bt-stat-cell')];
+      const cell = (re) => cells.find((c) => re.test(c.firstChild?.textContent?.trim() || ''))?.lastChild?.textContent?.trim() ?? null;
       return {
-        live: p.querySelector('[data-testid="drawer-dps-live"]')?.textContent || null,
-        liveLabel: p.querySelector('[data-testid="drawer-dps"] span')?.textContent || null,
-        per: cell('Per target'),
-        boost: p.querySelector('[data-testid="drawer-boost"]')?.textContent || null,
-        oldDps: cell('DPS'),
-        text: p.innerText.replace(/\s+/g, ' ').slice(0, 400),
+        // the drawer's live cell, or Chika's own (her drone panel's "DPS (live)")
+        live: p.querySelector('[data-testid="drawer-dps-live"]')?.textContent ?? cell(/^DPS \((live|last wave)\)$/),
+        liveLabel: p.querySelector('[data-testid="drawer-dps"] span')?.textContent ?? (cell(/^DPS \(live\)$/) != null ? 'DPS (live)' : null),
+        per: cell(/^Per target$/),
+        boost: p.querySelector('[data-testid="drawer-boost"]')?.textContent ?? null,
+        oldDps: cell(/^DPS$/),
+        text: p.textContent.replace(/\s+/g, ' '),
       };
     });
   };
+  const battle = async (squad, stage = '1-3') => {
+    await seedSave(page, { girls: ALL, hero: HERO, towers: squad, cleared: ['1-1', '1-2'] });
+    await openBattle(page, { stage, cash: 1e8 });
+    await installStaging(page);
+  };
+  const place = (id, plan, near = null) =>
+    page.evaluate(([id, plan, near]) => {
+      const u = __ab.place(id, near != null ? { near, min: 1.3 } : {});
+      if (u == null) return null;
+      plan.forEach((n, p) => __ab.up(u, p, n));
+      return u;
+    }, [id, plan, near]);
+  const startWave = () => page.evaluate(() => window.__battle.sim.startNextWave());
+
   try {
     await openApp(page, base);
-    const squad = ['midori', 'kage', 'chika', 'suzu', 'aoi'];
-    await seedSave(page, { girls: ['hikari', ...squad], hero: 'hikari', towers: squad, cleared: ['1-1', '1-2'] });
-    await openBattle(page, { stage: '1-3', cash: 1e7 });
-    const ids = await page.evaluate(() => {
-      const { sim } = window.__battle;
-      sim.cash = 1e7;
-      const put = (id, plan, near) => {
-        const u = __ab.place(id, near != null ? { near, min: 1.3 } : {});
-        if (u == null) return null;
-        plan.forEach((n, p) => __ab.up(u, p, n));
-        return u;
-      };
-      const midori = put('midori', [5, 0, 2]);
-      return {
-        midori,
-        aoi: put('aoi', [0, 3, 0], midori),
-        kage: put('kage', [3, 0, 2], midori),
-        chika: put('chika', [3, 0, 0], midori),
-        suzu: put('suzu', [3, 0, 0], midori),
-        tiers: sim.getTower(midori)?.tiers.join('-'),
-      };
-    });
-    check(ids.midori != null && ids.tiers === '5-0-2', `${vp} Midori placed at 5-0-2 (${ids.tiers})`);
-    // a crowd: the wave's enemies made sturdy and gathered on the road in her cloud's reach
-    await page.evaluate(() => {
-      const { sim } = window.__battle;
-      sim.startNextWave();
-      __ab.keepWave(60);
-    });
+    // 1. showcase
+    const squad = ['midori', 'kage', 'chika', 'suzu', 'shiro', 'miko'];
+    await battle(squad);
+    const ids = { midori: await place('midori', [5, 0, 2]) };
+    ids.kage = await place('kage', [3, 0, 2], ids.midori);
+    ids.chika = await place('chika', [3, 0, 0], ids.midori);
+    ids.suzu = await place('suzu', [3, 0, 0], ids.midori);
+    ids.shiro = await place('shiro', [3, 0, 0], ids.midori);
+    ids.miko = await place('miko', [3, 0, 0], ids.midori);
+    ids.hero = await place(HERO, [], ids.midori);
+    const tiers = await page.evaluate((u) => window.__battle.sim.getTower(u)?.tiers.join('-'), ids.midori);
+    check(ids.midori != null && tiers === '5-0-2', `${vp} Midori placed at 5-0-2 (${tiers})`);
+    await startWave();
     await stepGame(3);
-    await page.evaluate(() => {
-      // the road point nearest a girl, and an enemy moved there (x/y/seg follow dist, as placeOnPath sets them)
-      window.__roadNear = (sim, m) => {
-        let best = null;
-        sim.pathData.forEach((path, pi) => {
-          for (let d = 0; d <= path.length; d += 0.1) {
-            let seg = 0;
-            while (seg < path.cum.length - 2 && path.cum[seg + 1] <= d) seg++;
-            const t = d - path.cum[seg];
-            const x = path.points[seg][0] + path.dirs[seg][0] * t;
-            const y = path.points[seg][1] + path.dirs[seg][1] * t;
-            const r = Math.hypot(x - m.x, y - m.y);
-            if (!best || r < best.r) best = { r, pathIndex: pi, d };
-          }
-        });
-        return best;
-      };
-      window.__moveTo = (sim, e, pathIndex, d) => {
-        const path = sim.pathData[pathIndex];
-        let seg = 0;
-        while (seg < path.cum.length - 2 && path.cum[seg + 1] <= d) seg++;
-        const t = d - path.cum[seg];
-        e.pathIndex = pathIndex;
-        e.dist = d;
-        e.seg = seg;
-        e.x = path.points[seg][0] + path.dirs[seg][0] * t;
-        e.y = path.points[seg][1] + path.dirs[seg][1] * t;
-        e.remaining = path.length - d;
-      };
-    });
-    const gathered = await page.evaluate((u) => {
-      const { sim } = window.__battle;
-      const m = sim.getTower(u);
-      const at = window.__roadNear(sim, m);
-      // eight of them in a pack on the road point nearest her, slowed so they stay in her cloud
-      const live = sim.enemies.filter((e) => !e.dead).slice(0, 8);
-      live.forEach((e, i) => {
-        window.__moveTo(sim, e, at.pathIndex, Math.max(0, at.d - 0.12 * i));
-        e.speed = e.baseSpeed = 0.05;
-      });
-      return { n: live.length, r: Number(at.r.toFixed(2)), range: m.stats?.range };
-    }, ids.midori);
-    console.log(`  pack: ${JSON.stringify(gathered)}`);
+    const n = 8;
+    await page.evaluate((u) => window.__dps.pack(u, 8), ids.midori);
+    for (const k of ['kage', 'chika', 'suzu', 'shiro', 'miko', 'hero']) if (ids[k] != null) await page.evaluate((u) => window.__dps.pack(u, 2), ids[k]);
     await stepGame(7);
     const crowd = await details(ids.midori);
-    console.log(`  midori crowd: ${JSON.stringify(crowd).slice(0, 300)}`);
+    console.log(`  midori vs a pack of ${n}: ${JSON.stringify({ ...crowd, text: undefined })}`);
     await shot('dps-midori-crowd');
     if (!BEFORE) {
-      const live = Number(String(crowd.live).replace(/[^\d.]/g, '')) * (/K$/.test(crowd.live || '') ? 1000 : 1);
-      const hits = Number(/^([\d.]+)/.exec(crowd.per || '')?.[1] || NaN);
+      const live = num(crowd.live);
+      const hits = num(crowd.per);
       check(crowd.liveLabel === 'DPS (live)' && live > 0, `${vp} Midori's Details show her measured DPS during the wave (${crowd.liveLabel} ${crowd.live})`);
       check(Number.isFinite(hits) && live > hits, `${vp} with a pack in her cloud her live DPS (${live}) is above her per-target hits (${hits}): "${crowd.per}"`);
       check(/poison \(\+0\.\d\d?% HP\/s\)/.test(crowd.per || ''), `${vp} the per-target line names her poison with two significant digits ("${crowd.per}")`);
-      check(/^~[\d.,KM]+ DPS · \d girls?$/.test(crowd.boost || '') || crowd.boost === '—', `${vp} her Toxic Tonic boost reads as an estimate ("${crowd.boost}")`);
+      check(/^~[\d.,kKM]+ DPS · \d+ girls?$/.test(crowd.boost || ''), `${vp} her Toxic Tonic boost reads as an estimate ("${crowd.boost}")`);
     }
-    // a boss alone in her cloud: spawned on the road point nearest Midori and slowed
-    await page.evaluate((u) => {
-      const { sim } = window.__battle;
-      const m = sim.getTower(u);
-      const live = sim.enemies.filter((e) => !e.dead);
-      const at = window.__roadNear(sim, m);
-      for (const e of live) e.dead = true;
-      const b = sim.spawnEnemy('grave_lych', { pathIndex: at.pathIndex, dist: at.d });
-      if (!b) return;
-      window.__moveTo(sim, b, at.pathIndex, at.d);
-      // (her poison takes a share of max HP, a tenth on a boss: a padded HP pool would inflate it, so the boss stays as is)
-      b.speed = 0.05;
-      b.baseSpeed = 0.05;
-    }, ids.midori);
-    await stepGame(6);
+    for (const k of ['kage', 'chika', 'suzu', 'shiro', 'miko', 'hero']) {
+      if (ids[k] == null) continue;
+      const d = await details(ids[k]);
+      console.log(`  ${k}: ${JSON.stringify({ ...d, text: undefined })}`);
+      await shot(`dps-${k}`);
+    }
+    // a boss alone in her cloud (her poison's share of max HP is a tenth on a boss: the boss's HP stays as it is)
+    const tier = await page.evaluate((u) => window.__dps.boss(u), ids.midori);
+    await stepGame(7);
     const boss = await details(ids.midori);
-    console.log(`  midori boss: ${JSON.stringify(boss).slice(0, 300)}`);
+    console.log(`  midori vs a ${tier}: ${JSON.stringify({ ...boss, text: undefined })}`);
     await shot('dps-midori-boss');
-    for (const [name, uid] of [['kage', ids.kage], ['chika', ids.chika], ['suzu', ids.suzu]]) {
-      if (uid == null) continue;
-      const d = await details(uid);
-      console.log(`  ${name}: ${JSON.stringify(d).slice(0, 240)}`);
-      await shot(`dps-${name}`);
+    if (!BEFORE) check(num(boss.live) > 0 && num(boss.live) < num(crowd.live), `${vp} against one boss her live DPS (${boss.live}) is below her pack's (${crowd.live})`);
+
+    // 2. the roster: six girls a battle, 3-0-0, each with her own pack
+    if (ROSTER) {
+      const rows = [];
+      // (Tenka on her own: her lab tier takes the girls in her range off the field, src/sim/lab.js)
+      const units = [...GIRLS.filter((id) => id !== 'tenka'), HERO];
+      const batches = [];
+      for (let i = 0; i < units.length; i += 6) batches.push(units.slice(i, i + 6));
+      if (GIRLS.includes('tenka')) batches.push(['tenka']);
+      for (const batch of batches) {
+        // (a real load, and no battle save left: a battle link for a stage with a save opens its prep instead)
+        await page.goto('about:blank');
+        await openApp(page, base);
+        await page.evaluate(() => {
+          const { store } = window.__sakura;
+          store.profile.battleSaves = {};
+          store.commit('e2e');
+        });
+        await battle(batch.filter((id) => id !== HERO), '1-3');
+        const placed = [];
+        for (const id of batch) placed.push([id, await place(id, id === HERO ? [] : [3, 0, 0], placed[0]?.[1] ?? null)]);
+        await startWave();
+        for (const [, uid] of placed) if (uid != null) await page.evaluate((u) => window.__dps.pack(u, 3), uid);
+        await stepGame(8);
+        const gone = await page.evaluate((us) => us.filter((u) => u != null && !window.__battle.sim.getTower(u)), placed.map((p) => p[1]));
+        if (gone.length) console.log(`  (gone from the field: ${placed.filter((p) => gone.includes(p[1])).map((p) => p[0]).join(', ')})`);
+        for (const [id, uid] of placed) {
+          if (uid == null || gone.includes(uid)) {
+            rows.push({ id, placed: false });
+            continue;
+          }
+          const d = await details(uid);
+          const st = await page.evaluate((u) => {
+            const { sim } = window.__battle;
+            const t = sim.getTower(u);
+            return { dealt: Math.round(t.damageDealt || 0), statDps: sim.towerStats(u)?.dps || 0 };
+          }, uid);
+          rows.push({ id, placed: true, ...d, ...st });
+        }
+      }
+      for (const r of rows) {
+        if (!r.placed) {
+          check(false, `${vp} ${r.id} could not be placed`);
+          continue;
+        }
+        const v = num(r.live);
+        const bad = /NaN|undefined|Infinity/.exec(r.text);
+        const dealsDamage = r.dealt > 0 || r.statDps > 0;
+        // a girl who deals no damage (Ouka's council, Wakaba's drinks) has no DPS cell; a damage dealer reads > 0
+        const ok = !bad && (dealsDamage ? r.liveLabel != null && v > 0 : r.liveLabel == null || !(v > 0));
+        check(ok, `${vp} ${r.id}: ${r.liveLabel} ${r.live}${r.per ? ` · per target ${r.per}` : ''}${r.boost ? ` · boost ${r.boost}` : ''} (dealt ${r.dealt}${bad ? `; "${bad[0]}" in her drawer` : ''})`);
+      }
     }
   } catch (e) {
-    check(false, `${vp} threw: ${e.message.split('\n')[0]}`);
+    check(false, `${vp} threw: ${e.message.split('\n')[0]} (at ${page.url()})`);
     await shot('dps-fail').catch(() => {});
   }
   await page.close();

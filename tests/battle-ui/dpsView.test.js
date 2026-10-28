@@ -47,6 +47,19 @@ describe('the boost to allies (an estimate)', () => {
   it('an aura counts its damage and attack-speed parts, nothing else', () => {
     expect(boostEstimate(sim, 4, (u) => dps[u]).value).toBeCloseTo(300 * (1 - 1 / (1.2 * 1.1)), 6);
   });
+  it("a hub's rules and a drink count too", () => {
+    const tw = new Map([
+      [5, { uid: 5, stats: { hub: { dmgMul: 1.15 } } }],
+      [6, { uid: 6, stats: {} }],
+      [7, { uid: 7, stats: {} }],
+      [8, { uid: 8, stats: {}, hydrated: { src: 7, dmgMul: 1.2, rateMul: 1.25 } }],
+    ]);
+    const s2 = { getTower: (u) => tw.get(u), towers: [...tw.values()], buffTargets: (u) => (u === 5 ? [{ uid: 6, kinds: ['aura'], keys: ['dmg'] }] : []) };
+    expect(boostEstimate(s2, 5, () => 100).value).toBeCloseTo(100 * (1 - 1 / 1.15), 6);
+    const drink = boostEstimate(s2, 7, () => 100);
+    expect(drink.girls).toBe(1);
+    expect(drink.value).toBeCloseTo(100 * (1 - 1 / 1.5), 6);
+  });
   it('null when she buffs nobody', () => {
     expect(boostEstimate(sim, 2, () => 100)).toBe(null);
   });

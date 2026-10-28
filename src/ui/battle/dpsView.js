@@ -123,15 +123,17 @@ function buffMul(src, kind, key, target) {
     return (l.dmgMul || 1) * (l.rateMul || 1) * (kind === 'overclock' ? (l.overclock?.rateMul || 1) : 1);
   }
   if (kind === 'aura') {
+    // (an aura girl's own aura, or a hub's rules: Ouka's radius folds into the same buff slots, src/sim/hubs.js)
     const a = s.aura || {};
-    if (key === 'dmg') return a.dmgMul || 1;
-    if (key === 'rate') return a.rateMul || 1;
+    const hub = s.hub || {};
+    if (key === 'dmg') return Math.max(a.dmgMul || 1, hub.dmgMul || 1);
+    if (key === 'rate') return Math.max(a.rateMul || 1, hub.rateMul || 1);
   }
   return 1;
 }
 
 /**
- * A support's boost to her allies, estimated: for every girl she buffs now, that girl's measured DPS × (1 − 1 / the
+ * A support's boost to her allies, estimated: for every girl she buffs now (brew, link, aura, hub, drink), that girl's measured DPS × (1 − 1 / the
  * buff's factor), the share of her damage the buff adds. An estimate (factors stack with other buffs; armor and crits
  * are not split out), so the drawer labels it "~".
  * @param {object} sim the Sim (buffTargets(uid), getTower(uid))
@@ -153,6 +155,16 @@ export function boostEstimate(sim, uid, dpsOf) {
       if (kind === 'aura') for (const k of keys) mul *= buffMul(src, kind, k, o);
       else mul *= buffMul(src, kind, null, o);
     }
+    if (!(mul > 1)) continue;
+    const d = dpsOf(o.uid);
+    girls++;
+    if (d > 0) value += d * (1 - 1 / mul);
+  }
+  // a drink thrower's Hydrated girls (Wakaba, src/sim/drinks.js: t.hydrated = { src, dmgMul, rateMul, ... })
+  for (const o of sim.towers || []) {
+    const hy = o.hydrated;
+    if (!hy || hy.src !== uid || o.uid === uid) continue;
+    const mul = (hy.dmgMul || 1) * (hy.rateMul || 1);
     if (!(mul > 1)) continue;
     const d = dpsOf(o.uid);
     girls++;

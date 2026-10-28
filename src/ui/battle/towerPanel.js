@@ -639,8 +639,10 @@ export function createTowerPanel(ctx) {
     if (t.level > 1) bonus.push(`+${Math.round((def.hero?.growth ?? HERO_GROWTH).damage * (t.level - 1) * 100)}% damage from her level`);
     if (t.mastery > 0) bonus.push(`Mastery ${fmtNum(t.mastery, 'pct')} damage`);
     if ((t.unitStats?.costMul ?? 1) < 1) bonus.push(`level prices ${fmtNum(-(1 - t.unitStats.costMul), 'pct')}`);
+    const dmg = dpsCells(t, st, st.dps);
     return [
       statRow(t, st, statOpts),
+      dmg.length ? h('div.bt-stats-grid', dmg) : null,
       h('div.bt-dt-sec', h('span.bt-dw-k', 'LEVEL'), h('span.bt-dw-rule')),
       xpLine ? h('p.bt-dt-line', { 'data-testid': 'hero-xp-text' }, xpLine) : null,
       bonus.length ? h('p.bt-dt-line', bonus.join(' · ')) : null,
@@ -652,6 +654,33 @@ export function createTowerPanel(ctx) {
       h('div.bt-dt-sec', h('span.bt-dw-k', 'ALL 25 LEVELS'), h('span.bt-dw-rule')),
       h('div.bt-track', { 'data-testid': 'hero-track' }, rows),
     ];
+  }
+
+  /**
+   * The damage cells (girls and heroes): DPS (live), what the sim credits her, measured over the last 5 s of the wave
+   * (splash, poison and burn ticks, crits, drones, traps), or her last wave's average between waves; "Per target", the
+   * paper sum on one enemy (one of her separate targets' share of the hits, plus damage over time), so a splash or
+   * cloud girl's live number is the bigger one; and a support's boost to the girls she buffs, estimated (dpsView.js).
+   */
+  function dpsCells(t, st, dps) {
+    const cells = [];
+    if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
+      const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
+      const label = h('span', 'DPS (live)');
+      cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', title: 'Measured: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.' }, label, value));
+      live.dps = { value, label };
+      const split = (st.behavior === 'projectile' || st.behavior === 'beam') && st.projectiles > 1 ? st.projectiles : 1;
+      const per = perTargetLine(st, dps / split);
+      if (per) cells.push(h('div.bt-stat-cell.bt-stat-wide', h('span', 'Per target'), h('b', per)));
+    }
+    const sup = t.stats || {};
+    const lifts = (b) => !!b && ((b.dmgMul || 1) > 1 || (b.rateMul || 1) > 1);
+    if (sup.brew || sup.link || lifts(sup.aura) || lifts(sup.hub) || st.behavior === 'drink') {
+      const value = h('b', { 'data-testid': 'drawer-boost' }, '—');
+      cells.push(h('div.bt-stat-cell.bt-stat-wide', { title: 'An estimate: each girl she buffs now, her measured DPS times the share the buff adds' }, h('span', 'Boost to allies'), value));
+      live.boost = { value };
+    }
+    return cells;
   }
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -669,27 +698,10 @@ export function createTowerPanel(ctx) {
     // so the DPS row is hers. An anchored drone kit (none in the roster today) keeps the summed row.
     const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
     const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
-    // DPS (live): what the sim credits her, measured over the last 5 s of the wave (splash, poison and burn ticks,
-    // crits, drones, traps), or her last wave's average between waves; "Per target" is the paper sum on one enemy
-    // (hits + damage over time), so a splash or cloud girl's live number is the bigger one (dpsView.js)
-    if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
-      const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
-      const label = h('span', 'DPS (live)');
-      const c = h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', title: 'Measured: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.' }, label, value);
-      rows.push(c);
-      keyed.dps = c;
-      live.dps = { value, label };
-      const per = perTargetLine(st, dps);
-      if (per) add('Per target', per, '.bt-stat-wide', 'perTarget');
-    }
-    // a support's boost to her allies: the damage her brew / link / aura adds to the girls she buffs now, estimated
-    const sup = t.stats || {};
-    if (sup.brew || sup.link || (sup.aura && ((sup.aura.dmgMul || 1) > 1 || (sup.aura.rateMul || 1) > 1))) {
-      const value = h('b', { 'data-testid': 'drawer-boost' }, '—');
-      const c = h('div.bt-stat-cell.bt-stat-wide', { title: 'An estimate: each girl she buffs now, her measured DPS times the share the buff adds' }, h('span', 'Boost to allies'), value);
-      rows.push(c);
-      live.boost = { value };
-    }
+    const dmgCells = dpsCells(t, st, dps);
+    rows.push(...dmgCells);
+    // (a drone owner's tabs show her own measured DPS: chikaPanel.js)
+    keyed.dps = dmgCells.find((c) => c.dataset.testid === 'drawer-dps') || null;
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 'time')}`);
     } else {
