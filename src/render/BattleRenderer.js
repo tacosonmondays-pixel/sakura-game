@@ -382,7 +382,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'attack': {
           const v = actors.towerView(ev.towerUid);
-          if (ev.kind !== 'bullet' || !ev.turretUid) actors.playAttack(ev.towerUid);
+          if (ev.kind !== 'bullet' || !ev.turretUid) actors.playAttack(ev.towerUid, ev.kind);
           if (!v) break;
           const m = v.model.position;
           if (ev.kind === 'slash') {
@@ -999,6 +999,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
+    },
+    /** Extra: what a placed girl's figure is (e2e / debug): a duo's members, and whether every part is a GLB. */
+    towerModelInfo(uid) {
+      const ud = actors.towers.get(uid)?.model.userData;
+      if (!ud) return null;
+      return { duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null };
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {

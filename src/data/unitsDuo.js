@@ -6,8 +6,8 @@
 // timer, ticked after the main one, src/sim/duo.js); Refraction splits every 4th shell into shards of light
 // at a fixed offset table (mystic, they hit flyers). Her ⚡ ability Prismfall lives in src/data/abilities.js.
 //
-// Looks: both are students (adult: false) in academy uniforms; the battle model stands both chibis on one
-// base (src/models/duo.js). Prices sit inside the live windows (DUO_LR §1.3); first-pass numbers, the
+// Looks: both are students (adult: false) in academy uniforms (Kohaku's lilac council blazer, Tsubaki's navy
+// cadet uniform); the battle model stands both chibis on one base (src/models/duo.js). Prices sit inside the live windows (DUO_LR §1.3); first-pass numbers, the
 // balance bench sets the final ones.
 
 import { S, stats, tier, path, GACHA_ONLY } from './unitKit.js';
@@ -28,7 +28,7 @@ const KOHAKU_TSUBAKI = {
   footprint: 0.5,
   duo: { members: ['kohaku', 'tsubaki'] },
   capabilities: ['antiAir'],
-  pathCapabilities: ['armorPen', 'armorShred', 'barrierBreak', 'slow', 'stun', 'silence', 'priority'],
+  pathCapabilities: ['armorPen', 'armorShred', 'barrierBreak', 'slow', 'stun', 'silence'],
   acquisition: GACHA_ONLY,
   palette: {
     // Tsubaki's navy and gold with Kohaku's amber prism light
@@ -39,9 +39,9 @@ const KOHAKU_TSUBAKI = {
     hairStyle: 'side', bangs: 'swept', accessory: 'cap', outfit: 'coat', weapon: 'cannon',
     halo: 'star', eyeStyle: 'sharp', expression: 'determined',
   },
-  bio: 'Two friends from the academy who always work as a pair. Tsubaki, of the security club\'s cadet corps, wears a navy cadet coat over her school uniform and carries a star-studded launcher that drops shells anywhere on the map. Kohaku, the student council\'s science secretary, wears her council blazer under a lab coat and tunes a little prism that bends light into a piercing beam. When Tsubaki\'s shell passes through Kohaku\'s prism, it splits into shards of starlight.',
-  personality: 'Tsubaki is calm, precise and keeps time for both of them; Kohaku is curious, cheerful and always measuring angles. They finish each other\'s plans.',
-  quote: 'Tsubaki: "Mark the spot." Kohaku: "Prism is aligned!"',
+  bio: 'Two friends from the academy who always work as a pair. Tsubaki, of the security club\'s cadet corps, wears a navy cadet cap and uniform with a grey vest and carries binoculars and a star launcher on her shoulder that drops shells anywhere on the map. Kohaku, the student council\'s science secretary, wears a lilac council blazer with a short cape, a plaid skirt and a gold monocle, and tunes a prism crystal that bends light into a piercing beam. When Tsubaki\'s shell passes through Kohaku\'s prism, it splits into shards of starlight.',
+  personality: 'Tsubaki is calm and precise and keeps time for both of them; Kohaku is curious and cheerful and always measuring angles. They finish each other\'s plans.',
+  quote: 'You mark the spot, I\'ll bend the light. Starfall!',
   tips: [
     'Tsubaki\'s shells reach the whole map but only hit the ground; Kohaku\'s beam guards the sky close to them.',
     'Every 4th shell splits into shards of light that hit flyers too: give them an aim point where the road bunches up.',

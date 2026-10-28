@@ -460,8 +460,9 @@ export class Actors {
     this.enemies.get(uid)?.model.userData.hitFlash?.();
   }
 
-  playAttack(uid) {
-    this.towers.get(uid)?.model.userData.playAttack?.();
+  playAttack(uid, kind = null) {
+    // (`kind`: the attack event's, so a duo knows who moved: the beam is Kohaku's, src/models/duo.js)
+    this.towers.get(uid)?.model.userData.playAttack?.(kind);
   }
 
   setHighlight(uid, on) {

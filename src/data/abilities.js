@@ -393,15 +393,16 @@ export const ABILITIES = deepFreeze({
     // map-wide (one cooldown per player): Tsubaki fires `shells` shells at the cast's aim point, her mortar aim
     // point, or the densest ground crowd anywhere; each lands for 3× her shell hit and Kohaku splits it into
     // `shards` shards (1× her hit, mystic, they hit flyers) at the fixed PRISM_SHARDS table; everything hit
-    // turns Brittle. `lr`: the LR form (Twin Star) when her battle stats carry `lr: true` (G6 sets it): one
-    // more shell on the same spot after the last, 6× her hit, splash 1.6
-    path: 'refraction', unlockTier: 3, id: 'kohaku_tsubaki.prismfall', kind: 'burst', scope: 'map', cooldown: 45, duration: 0,
+    // turns Brittle; it lasts until the last shell (and the Twin Star) has landed. `lr`: the LR form (Twin Star)
+    // while her battle stats carry `lr: true` (G6 sets it): one more shell on the same spot after the last, 6× her
+    // hit, splash 1.6
+    path: 'refraction', unlockTier: 3, id: 'kohaku_tsubaki.prismfall', kind: 'burst', scope: 'map', cooldown: 45, duration: 2.25,
     effect: {
       at: 'aim', radius: 1.15, shells: 8, delay: 0.25, every: 0.25, dmgMul: 3, hitsAir: false,
       shards: 2, shardMul: 1, shardRadius: 0.6, status: [S.vulnerable(0.1, 4)],
     },
     auto: { when: 'cluster', min: 6, radius: 1.5, orBoss: true },
-    t5: { cooldown: 38, effect: { shells: 12, dmgMul: 4, shards: 3, status: [S.vulnerable(0.15, 4)] } },
+    t5: { cooldown: 38, duration: 3.25, effect: { shells: 12, dmgMul: 4, shards: 3, status: [S.vulnerable(0.15, 4)] } },
     lr: { effect: { finale: { dmgMul: 6, radius: 1.6 } } },
   }],
 

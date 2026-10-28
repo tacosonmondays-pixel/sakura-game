@@ -56,6 +56,8 @@ const ROSTER = [
   ['ouka', 'tower', 'SR', 'council', 'holy', null, 'land', 'charm', 'gacha'],
   ['chigusa', 'tower', 'SR', 'botanist', 'pierce', null, 'land', 'feather', 'gacha'],
   ['marumi', 'tower', 'SR', 'bowler', 'blast', null, 'land', 'cog', 'gacha'],
+  // the duo unit (docs/specs/DUO_LR.md, src/data/unitsDuo.js)
+  ['kohaku_tsubaki', 'tower', 'SSR', 'battery', 'blast', null, 'land', 'ember', 'gacha'],
 ];
 const RETURNING = ['kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena'];
 
@@ -88,7 +90,9 @@ const BASE_OPTIONAL = ['aura', 'income', 'trap', 'turret', 'ramp', 'mark', 'sile
   // the new girls (UNIT_GAPS §5): spike strips (src/sim/strips.js), the 360° ring (src/sim/rings.js)
   'strip', 'ring', 'drink', 'sentry', 'hub', 'vine', 'ball',
   // Kaede's blade arts (src/sim/towers.js bladeArts)
-  'blade'];
+  'blade',
+  // the duo's partner beam and prism (src/sim/duo.js)
+  'duo'];
 const AURA_KEYS = ['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance'];
 // limited buffs (src/sim/buffs.js): Midori's brew, Chika's tune-up link
 const LIMITED_KEYS = ['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock'];
@@ -225,6 +229,7 @@ function modSetErrors(mods, where) {
     vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
     ball: (k, v, w) => ballErrors(v, w),
     blade: (k, v, w) => objErrors(v, BLADE_NUMS, w, numCheck),
+    duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
   };
   for (const [k, v] of Object.entries(mods)) {
     if (!M[k]) errs.push(`${where}: unknown mod key "${k}"`);
@@ -268,6 +273,10 @@ function ballErrors(v, w) {
   return objErrors(v, [...BALL_NUMS, ...BALL_FLAGS], w, (kk, vv, ww) => (BALL_FLAGS.includes(kk) ? trueCheck(kk, vv, ww) : numCheck(kk, vv, ww)));
 }
 
+// The duo (src/sim/mods.js normDuo): Kohaku's beam and the prism; every field a number.
+const DUO_NUMS = ['beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
+  'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery'];
+
 // The nature caster (src/sim/mods.js normVine): numbers add.
 // Kaede's blade arts (src/sim/mods.js normBlade): numbers add, shareMul multiplies
 const BLADE_NUMS = ['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul'];
@@ -301,6 +310,11 @@ function baseErrors(b, where) {
   if (b.income) errs.push(...objErrors(b.income, ['perWave', 'interest'], `${where}.income`, numCheck));
   if (b.sentry) errs.push(...sentryErrors(b.sentry, `${where}.sentry`));
   if (b.vine) errs.push(...objErrors(b.vine, VINE_NUMS, `${where}.vine`, numCheck));
+  if (b.duo) {
+    errs.push(...objErrors(b.duo, DUO_NUMS, `${where}.duo`, numCheck));
+    if (b.behavior !== 'mortar') errs.push(`${where}: the duo's main weapon is the mortar`);
+    for (const k of ['beamDmg', 'beamRate', 'beamRange', 'beamPierce']) if (!isPos(b.duo[k])) errs.push(`${where}: duo.${k} must be > 0`);
+  }
   if (b.ball) {
     errs.push(...ballErrors(b.ball, `${where}.ball`));
     if (b.behavior !== 'roll') errs.push(`${where}: ball needs the roll behavior`);
@@ -382,6 +396,12 @@ function derivedCaps(m, acc = new Set()) {
   if ((m.hub?.killBounty ?? 0) > 0) acc.add('income');
   // a bowler's lob throws her blast at flyers (Marumi: her base kit)
   if (m.ball?.lob) acc.add('antiAir');
+  // the duo: Kohaku's beam hits flyers (her base kit); its armour pen and silence, the shards' slow and armour crack
+  if ((m.duo?.beamDmg ?? 0) > 0) acc.add('antiAir');
+  if ((m.duo?.beamPen ?? 0) > 0) acc.add('armorPen');
+  if ((m.duo?.beamSilence ?? 0) > 0) acc.add('silence');
+  if ((m.duo?.shardSlow ?? 0) > 0) acc.add('slow');
+  if ((m.duo?.shardShred ?? 0) > 0) acc.add('armorShred');
   const statuses = [...(m.status || []), ...(m.trap?.status || []), ...(m.turret?.status || [])];
   for (const s of statuses) {
     if (s.type === 'slow') acc.add('slow');
@@ -437,7 +457,8 @@ describe('roster matches the contract table', () => {
 
 describe('UnitDef schema', () => {
   it.each(UNITS.map((u) => [u.id, u]))('%s has exactly the contract keys and valid vocabulary', (id, u) => {
-    const expectedKeys = u.kind === 'hero' ? [...UNIT_KEYS, 'hero'] : UNIT_KEYS;
+    // (a duo adds its members and its base's footprint: docs/specs/DUO_LR.md §4)
+    const expectedKeys = u.kind === 'hero' ? [...UNIT_KEYS, 'hero'] : u.duo ? [...UNIT_KEYS, 'duo', 'footprint'] : UNIT_KEYS;
     expect(Object.keys(u).sort()).toEqual([...expectedKeys].sort());
     expect(UNIT_RARITIES[u.rarity]).toBeTruthy();
     expect(ROLES[u.role]).toBeTruthy();

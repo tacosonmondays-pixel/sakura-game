@@ -89,6 +89,9 @@ export const PORTRAIT_DATA = {
   ouka: { face: [48, 17], cut: 0.356 },
   chigusa: { face: [46, 19], cut: 0.363 },
   marumi: { face: [51, 18], cut: 0.432 },
+  // the duo (DUO_LR §1.6): one pair illustration, Kohaku on the left and Tsubaki on the right; `face` is the
+  // point between their two faces
+  kohaku_tsubaki: { face: [51, 31], cut: 0.65 },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */
