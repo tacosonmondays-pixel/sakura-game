@@ -129,7 +129,9 @@ sim id**, and the co-op data hash also changes whenever `STAGES`, `MAPS`, `ENEMI
    `ACT_SCENE_IDS = { '1:2': [7 ids] }` is checked against the scene chunk by the index test.
 7. **Yuzuha's join moves to after 1-7** (spec §12, §21; STORY §13). The spec was written before v0.1.40 shipped her
    join at 4-2. What changes:
-   - `free('1-7')`; 1-7 `unlocks: ['yuzuha']`; 4-2 no longer grants her.
+   - `free('1-7')`; 1-7 `unlocks: ['yuzuha']`; 4-2 drops her `unlocks`. (As built, S1d review: a 4-2 win still grants
+     her to a player who has not met her, via `LEGACY_JOIN_STAGES` in `src/systems/rewards.js`, so Act I keeps its
+     anti-air girl; her card reads "Joins after 1-7 (or 4-2, whichever comes first)".)
    - `catchUpJoins.js` gets `LEGACY_JOIN_STAGES = { yuzuha: ['4-2'] }`. A save that cleared 4-2 but never opened
      v0.1.40 or later still gets her once, with the letter. The `join:` mark is unchanged.
    - The shipped `ch4.yuzuha` scene stays word for word, with the same trigger and reward. `g1.yuzuha` is written so it

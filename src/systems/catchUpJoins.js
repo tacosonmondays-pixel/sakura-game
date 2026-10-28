@@ -4,9 +4,10 @@
 // academy girls with a stage unlock, src/data/stages.js; the other four of the seven are Recruit only).
 // A player who cleared those stages earlier would otherwise have to win them again to meet her.
 // Gate Arc: Yuzuha now joins on a 1-7 win (chapter 1's Act II, where the story meets her); 4-2 stays
-// her legacy stage (LEGACY_JOIN_STAGES), so any save that cleared 4-2 but never met her (an old save, or
-// a player who reaches 4-2 before 1-7) still gets her once, on the next lobby, with the letter naming the
-// stage it cleared: Act I keeps its anti-air girl where it always had her. Her 'join:' mark is unchanged.
+// her legacy stage (LEGACY_JOIN_STAGES): a 4-2 win grants her to a player who has not met her (rewards.js,
+// with the results card), and a save that cleared 4-2 before this build gets her once here, on the next
+// lobby, with the letter naming the stage it cleared. Act I keeps its anti-air girl where it always had
+// her. Her 'join:' mark is unchanged.
 //
 // At app start (main.js, next to the other one-time letters) and on the lobby (after a reset or an
 // import), each girl listed here who is not owned while her stage has a clear medal (any difficulty)
