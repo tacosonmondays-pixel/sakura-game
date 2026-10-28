@@ -98,5 +98,26 @@ export function openItemSheet(itemId, { onChange = null } = {}) {
     }).catch(() => {});
   }
   sheet = openSheet({ title: item?.name || itemId, body, testid: 'item-sheet', cls: 'bp-sheet' });
+  // when the sheet cannot show every place, the list scrolls on its own, sized to whole rows: no Go button is cut in half
+  // by the sheet's edge, and the item and its actions stay in view
+  requestAnimationFrame(() => fitRows(sheet.body, body.querySelector('.bp-srcs')));
   return sheet;
+}
+
+/** Caps a list inside a scrolling sheet body to the whole rows that fit, and lets the list scroll instead. */
+function fitRows(scroller, list) {
+  if (!scroller || !list?.children.length) return;
+  const over = scroller.scrollHeight - scroller.clientHeight;
+  if (over <= 1) return;
+  const room = list.getBoundingClientRect().height - over;
+  let used = 0;
+  for (const row of list.children) {
+    const rh = row.getBoundingClientRect().height;
+    if (used + rh > room) break;
+    used += rh;
+  }
+  // (at least one whole row; a screen too short for even that keeps the sheet's own scroll)
+  if (used <= 0) return;
+  list.style.maxHeight = `${Math.ceil(used)}px`;
+  list.classList.add('fit');
 }
