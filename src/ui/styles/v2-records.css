@@ -350,11 +350,12 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ev-mis-prog .num { font-size: var(--fs-label); color: var(--ink); }
 :is(.ui-day) .ev-rw { display: flex; gap: 6px; }
 /* (a 64 px tile on desktop: its count at the 13 px floor; the inline 50 px is the phone's) */
-@media (min-height: 481px) { :is(.ui-day) .ev-rw .item-tile { width: 64px !important; } :is(.ui-day) .ev-gifts { grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); } }
 :is(.ui-day) .ev-mis-act { min-width: 96px; display: flex; justify-content: flex-end; }
 :is(.ui-day) .ev-act > .ui-btn { padding: 0 calc(14px + var(--s)); }
 :is(.ui-day) .ev-claimed { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
 :is(.ui-day) .ev-claimed .rk-ico { width: 14px; height: 14px; }
+:is(.ui-day) .ev-claimed .ev-act-rw { margin-left: 6px; filter: grayscale(0.6); }
+:is(.ui-day) .ev-claimed .num { font-size: var(--fs-label); color: var(--muted); }
 
 /* Exchange: offer tiles with an ink cost button (the colour candy and a white price) */
 :is(.ui-day) .ev-offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
@@ -383,6 +384,12 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
 :is(.ui-day) .ev-gift.got .ev-rw { filter: grayscale(0.7); }
 :is(.ui-day) .ev-gift .item-tile { pointer-events: none; }
+/* (desktop: 64 px tiles, their counts at the 13 px floor, and day cards wide enough for two of them: after the phone's
+   grid above, so it wins; 2 × 64 + 6 + 16 padding = 150) */
+@media (min-height: 481px) {
+  :is(.ui-day) .ev-rw .item-tile { width: 64px !important; }
+  :is(.ui-day) .ev-gifts { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
+}
 @media (max-width: 520px) { :is(.ui-day) .ev-op.boss { grid-column: auto; } }
 
 /* ==========================================================================================================

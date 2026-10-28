@@ -69,6 +69,12 @@ const kitBtn = (kind, cls, props, ...kids) => h(`button.ui-hit.rk-hit${cls ? `.$
 
 /** Reward tiles at a tap's size (the shipped item tile, 50 px: 46 px tall). */
 const rewardRow = (rewards) => h('div.ev-rw', rewards.map((r) => itemTile(r.id, r.count, { size: 50 })));
+/** A row of reward tiles shown, not tapped (a day card's: the card's label names them): out of the tab order and the tree. */
+function displayOnly(row) {
+  row.setAttribute('aria-hidden', 'true');
+  for (const t of row.querySelectorAll('button')) t.tabIndex = -1;
+  return row;
+}
 
 export function render(root, params = {}) {
   const ev = eventById(params.id);
@@ -343,7 +349,9 @@ function missionsTab(ev, phase, now, refresh) {
       m.claimed ? null : h('div.ev-mis-prog',
         h('span.ui-bar', { style: { '--v': `${Math.min(100, Math.round((m.progress / m.goal) * 100))}%` } }, h('i')),
         h('span.num', `${formatNumber(m.progress)}/${formatNumber(m.goal)}`))),
-    h('div.ev-mis-act', m.claimed ? h('span.ev-claimed', glyphIco('check'), h('span', 'Claimed')) : kitBtn('ink', 'ev-act', {
+    // (a claimed row still says what it paid)
+    h('div.ev-mis-act', m.claimed ? h('span.ev-claimed', { title: rewardText(m.rewards) }, glyphIco('check'), h('span', 'Claimed'),
+      m.rewards.map((x) => h('span.ev-act-rw', svgEl(itemIcon(x.id, { px: 18 }), 'ev-mini'), h('span.num', `×${formatNumber(x.count)}`)))) : kitBtn('ink', 'ev-act', {
       'data-testid': `claim-${m.id}`, disabled: !m.claimable, title: rewardText(m.rewards), 'aria-label': `Claim ${rewardText(m.rewards)}`,
       onclick: () => {
         const r = claimEventMission(store.profile, ev.id, m.id, eventNow());
@@ -445,10 +453,11 @@ function giftsTab(ev) {
     // (a day card is a calendar entry, not a control: its reward tiles show what the day brings, its name in the title)
     h('div.ev-gifts', rows.map((r) => h(`div.ev-gift${r.got ? '.got' : ''}${r.next ? '.next' : ''}`, {
       'data-testid': `event-gift-${r.day}`, 'data-probe': 'tile', title: `Day ${r.day}: ${rewardText(r.rewards)}`,
+      role: 'group', 'aria-label': `Day ${r.day}: ${rewardText(r.rewards)}${r.got ? ', sent' : r.next ? ', next' : ''}`,
     },
       h('div.ev-gift-head', h('span.lbl.ev-gift-day', `Day ${r.day}`),
         r.got ? h('span.ev-gift-got', { title: 'Sent to your Mailbox', 'aria-label': 'Sent' }, glyphIco('check')) : r.next ? h('span.ev-gift-next', 'Next') : null),
-      rewardRow(r.rewards)))),
+      displayOnly(rewardRow(r.rewards))))),
     h('div.ev-foot',
       h('p.desc.ev-hint', 'One gift a day for every day you visit while the festival runs. Gifts arrive in your Mailbox and keep until the Exchange closes.'),
       kitBtn('sec', 'ev-mailbtn', { 'data-testid': 'event-open-mail', onclick: () => openMailbox() }, glyphIco('mail'), h('span', 'Open Mailbox'))),
