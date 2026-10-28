@@ -1,0 +1,92 @@
+{
+  "review": "home layout B 'Quiet Home', round 3, LOOK lens (independent reviewer)",
+  "branch": "concept/home-b",
+  "commit": "9ae8d67",
+  "verdict": "NOT_OK",
+  "summary": "One blocker. On the 768x1024 upright tablet, the new 'chip moves down' layout (.news-down) puts the news chip on top of the first row of icons, and the full illustrations it is there for (Kinu's Sewing Club, Marumi's Strike Lane) are exactly where it fires. At 701-1179 px wide, an upright tablet folds the dock 2x2 (156 px tall: STUDENTS / RECRUIT over COMMISSIONS / MALL). The .news-down rule places the chip one icon row (--ico-h 76 + 20 + 24 px) above the bottom, so it lands at y 844-900. That is right over STUDENTS and RECRUIT. Only their captions peek out below it, and the FREE sticker pokes out above. elementFromPoint at both icon centres hits the chip, not the icon, so neither can be tapped. Everything else in commit 9ae8d67 reads well. Full illustrations are drawn whole, never zoomed: zoom 1 at the cover fit, panned only, in 44 of 44 cases (11 pictures x 360x800, 390x844, 768x1024, 820x1180). Her face core is on screen in 44 of 44. With the new sideways pan of up to 30 %, wide pictures on upright screens sit right of centre with her face whole: rampart, aoi, sango and yoriko pan 28-104 px further at 360x800 and 36-88 px at 768x1024 and 820x1180. A sideways probe on 8 landscape sizes (1024x768, 1180x820, 844x390, 667x375, 740x360, 1280x720, 932x430, 1366x1024) found no .news-down and every control tappable at its centre in 88 of 88. The 810x1080, 834x1112, 1024x1366, 820x1180 and 744x1133 upright probes are clean too. Only 768x1024 Kinu and Marumi switch the chip down. The background-change recording on 768x1024 (Playwright video at 25 fps, plus an rAF trace of the chip's visibility and position) shows the chip hidden (.news-wait) from about 30-50 ms after the change until she is placed, about 45-130 ms. It then appears directly in its new place. No frame shows it at the old place over the new picture, so there is no jump. Regression look at 844x390, 667x375 and 1280x720: default stand, Marumi's living scene (canvas at 844 and 1280, still portrait at 667), Kinu and the rampart, and the menu sheet. All match round 2. The picker's lock line now reads 'Spend time with her & give gifts in the City' on two centred lines inside the tile. Escape from the picker returns focus to the menu button at every size, with a visible ring.",
+  "environment_note": "4 CPUs, load about 3-4 from other agents. SwiftShader WebGL, headless Chromium (Playwright from /opt/node22/lib/node_modules/playwright via PLAYWRIGHT_MODULE). Dev server npx vite --port 5295 --strictPort. Seeded as e2e/lobby-illustrations.mjs: seedInkSave plus the girls with a full illustration, Reduce Motion for the full-illustration pass, motion allowed for the regression and recording, event clock 2026-10-24. Two 'after picker' screenshots (844x390 and 1280x720, the sizes where Marumi's canvas had run earlier in the session) timed out twice at 45 s and succeeded on the third try. This is environment load, not a page error: no pageerrors were logged.",
+  "evidence_dirs": {
+    "full": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look3/full/ (default-<size>.png, <illustration id>-<size>.png for 11 pictures at 360x800, 390x844, 768x1024, 820x1180; metrics-<size>.json with placement, pan, chip/dock/plate boxes, face core and hair hits)",
+    "probe": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look3/probe/ (shots where the chip went down or a control was covered) and probe-landscape.txt (88 landscape cases: news-down false, taps ok)",
+    "regress": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look3/regress/ (default, marumi, kinu-scene, hikari-rampart, menu, picker, after-picker at 844x390, 667x375, 1280x720, 390x844; metrics-<size>.json with lock lines, bond tooltip, focus after the picker)",
+    "record": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look3/record-768x1024/ (page@*.webm, frames/, sheet-swap6..9.png frame strips around each background change, swap-*.png, end-*.png, trace.json rAF trace of the chip)",
+    "zooms": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look3/zoom/ (kinu-768-chip-dock.png, marumi-768-chip-dock.png, sango-360-right.png, *-360-top.png, rampart-768-top.png, azami-768-top.png, sheet-360/390/768/820.png, regress-<size>.png)"
+  },
+  "findings": [
+    {
+      "id": "R3-B1",
+      "severity": "blocker",
+      "title": "768x1024 upright tablet: the chip that moves down (.news-down) covers STUDENTS and RECRUIT, so neither can be tapped",
+      "detail": "src/ui/styles/home.css: '.home.news-down .home-news-host { bottom: calc(24px + var(--ico-h, 80px) + 20px + ...) }' assumes one row of icons. At 701-1179 px wide and taller than 480 px, the dock folds 2x2 (the 369/382 media queries: --ico-h 76px, dock box 24,844 180x156). The chip box is therefore 24,844 320x56, exactly over the top row. Its plate hides the STUDENTS and RECRUIT glyphs, their captions show under its lower edge, and the FREE sticker sticks out over its top edge. elementFromPoint at the dock-students and dock-recruit centres returns the chip (or body), not the icon. This happens on both illustrations that trigger .news-down at that size (kinu-scene and marumi-scene). Ouka does not trigger it, because her face sits low enough. No other probed size triggers it (88 landscape cases; 810x1080, 834x1112, 1024x1366, 820x1180 and 744x1133 upright), but any future 3:4 art on a 3:4 tablet would hit it. Fix: set the down position from the dock's real height, for example a --dock-h variable that is 2 x --ico-h + gap when the dock is folded, or measure the dock in lowerNews and set the host's bottom inline. The chip would then sit about 20 px above STUDENTS / RECRUIT, around y 768-824, beside the CO-OP tab (x 445+), with about 100 px between them, and clear of her face (core y 141-331). Also add a controls-at-their-centre check under a full illustration to e2e/lobby-illustrations.mjs. Today controlsPass only runs on the default stands, so this was not caught.",
+      "evidence": "full/kinu-scene-768x1024.png, full/marumi-scene-768x1024.png, zoom/kinu-768-chip-dock.png, zoom/marumi-768-chip-dock.png, full/metrics-768x1024.json (newsDown true, chip {24,844,320,56}, dock {24,844,180,156}, chipOverlapDock true), probe/kinu-scene-768x1024.png (COVERED dock-students, dock-recruit)"
+    },
+    {
+      "id": "R3-L1",
+      "severity": "low",
+      "title": "360x800: the wallet wraps to two rows, and the sideways pan pushes Sango's face to the right edge",
+      "detail": "At 360 px the gems pill drops to a second row (x 10-143, y 118-155). To clear it, wide pictures pan right: sango-harbour by dx 104 (face core 8 px from the right edge, the right side of her hat and hair cut by the screen), aoi by 80 and rampart by 28. Her face itself is whole and clear in every case, so it reads acceptably, but Sango looks off-balance next to the 390x844 framing, where she is centred. Optional: let the wallet's second row sit on the right (under chat/mail), or allow a little downward pan first on narrow phones.",
+      "evidence": "full/sango-harbour-360x800.png, zoom/sango-360-right.png, full/hikari-rampart-360x800.png, full/metrics-360x800.json"
+    },
+    {
+      "id": "R3-L2",
+      "severity": "low",
+      "title": "(content, predates) The picker's bond chip tooltip still says 'raised by dates and gifts in the City'",
+      "detail": "The lock line is fixed ('Spend time with her & give gifts in the City', checked at 844x390, 667x375, 1280x720 and 390x844). The hover title on the 'Bond n/10' chip, src/ui/lobby/bgPicker.js:85, still reads 'Bond level — raised by dates and gifts in the City (coming soon)'. The header comment on line 11 says 'City dating / gift system'. For the same reason as the lock line, suggest 'raised by spending time with her and gifts in the City'.",
+      "evidence": "regress/metrics-844x390.json bondTitle; regress/picker-844x390.png"
+    },
+    {
+      "id": "R3-L3",
+      "severity": "low",
+      "title": "Upright tablets: the top-left chip touches the top of her hair on a few full illustrations (reads acceptably)",
+      "detail": "At 768x1024 (rampart, azami, yuzuha) and 820x1180 (azami, kinu, marumi), the chip's right end (x 344) meets the crown of her hair or her ribbon. Her face core is 30 px or more clear in every case. This is the same character as N1 (the bar over her hair). No change asked.",
+      "evidence": "zoom/rampart-768-top.png, zoom/azami-768-top.png, zoom/azami-820-top.png, full/kinu-scene-820x1180.png"
+    },
+    {
+      "id": "L5",
+      "severity": "low",
+      "title": "(carried) Full illustrations: the Battle plate, CO-OP tab and chip sit over her body on 4:3 and small screens",
+      "detail": "Unchanged owner trade-off. Upright phones and tablets add the same: the plate sits over her skirt (sheet-768, sheet-820).",
+      "evidence": "zoom/sheet-768.png, zoom/sheet-820.png, regress/hikari-rampart-667x375.png"
+    },
+    {
+      "id": "L7",
+      "severity": "low",
+      "title": "(carried, predates) The background picker is still the white day-style modal",
+      "detail": "Its copy note is fixed: the lock line now says 'Spend time with her & give gifts in the City'. The white modal with yellow fills over the night home remains, for the menus build.",
+      "evidence": "regress/picker-844x390.png, regress/picker-667x375.png, regress/picker-390x844.png"
+    },
+    {
+      "id": "N1",
+      "severity": "low",
+      "title": "(carried) Upright phones: the wallet row passes over the top of her hair on head-high pictures",
+      "detail": "Now seen at 360x800 and 390x844 for rampart, kinu, marumi and azami. The wallet pills cross her crown or halo, and at 360 the gems pill sits beside Kinu's braid. Her eyes and mouth are clear by about 30-40 px. Reads as a portrait behind a status bar.",
+      "evidence": "zoom/kinu-360-top.png, zoom/marumi-360-top.png, zoom/azami-360-top.png, full/marumi-scene-390x844.png"
+    },
+    {
+      "id": "N3",
+      "severity": "low",
+      "title": "(carried, content, owner's picture) 'Summer Breeze' centres the adult hero's bust, now also on upright screens",
+      "detail": "With the sideways pan on upright screens, her face is upper right and the low-cut sundress sits in the middle of the screen at 768x1024, 820x1180, 390x844 and 360x800. The no-zoom rule makes this the painting's own framing. The owner should weigh it against the §6 rule that adult heroes are never framed around their bodies. Not blocking.",
+      "evidence": "full/yoriko-summer-breeze-768x1024.png, full/yoriko-summer-breeze-390x844.png"
+    },
+    {
+      "id": "N2/N4/N5",
+      "severity": "low",
+      "title": "(carried, not re-measured) 1920 chrome scale, the COMMISSIONS caps in the 2x2 fold, and the pale flash on return from day screens",
+      "detail": "Not touched by 9ae8d67. The fold is visible again at 667x375 and on Marumi's living scene at 844x390, unchanged from round 2.",
+      "evidence": "regress/marumi-844x390.png, regress/default-667x375.png"
+    }
+  ],
+  "round2_rechecks": {
+    "R2-M1 (face clear on upright screens)": "Face part fixed: face core on screen and clear of every control in 44 of 44 upright cases. The core box touches the wallet pills only as hair (N1), and those boxes are 'pill' kind by design. The chip-down layout it added is broken on the 2x2 dock: R3-B1.",
+    "R2-L1 (focus back after a menu window)": "Fixed as seen. Escape from the background picker leaves document.activeElement = top-menu at 844x390, 667x375, 1280x720 and 390x844, with the focus ring drawn on the menu button (regress/after-picker-*.png).",
+    "L7 copy": "Fixed: 'Spend time with her & give gifts in the City', two centred lines inside the tile. Tooltip residue: R3-L2."
+  },
+  "checks_passed": {
+    "full_illustrations_whole": "11 pictures x 4 upright sizes: zoom 1, the rendered width equals the cover fit within 1.5 px, and the screen is covered with only x panned (for example 360x800 rampart 1433 wide at -731,0; 768x1024 tall art 768x1024 at 0,0; 820x1180 885 wide at -43..0). 44 of 44.",
+    "sideways_pan": "Wide pictures on upright screens: the extra pan is 28-104 px at 360x800, 0 at 390x844 (centred), 48-88 px at 768x1024 and 36-80 px at 820x1180. In every case the face is whole and sits on the picture's own background, not a cut edge. The tall 3:4 art pans 0-189 px within its own width.",
+    "news_wait_no_jump": "768x1024 recording (6 changes: hikari default > marumi-scene > hikari default > kinu-scene > ouka-scene > hikari-rampart > kinu-scene). trace.json shows visible at the old y, then hidden (.news-wait) from 30-50 ms, then visible at the new y from 45-131 ms. The video frame strips (sheet-swap6..9) show no frame with the chip in its old place over the new picture.",
+    "landscape_unchanged": "88 landscape cases: news-down never set, every dock icon, chip button, plate and CO-OP tab tappable at its centre. The regression shots at 844x390, 667x375 and 1280x720 match round 2: default stand, Marumi live (canvas 1) at 844 and 1280, still (canvas 0) at 667, full illustrations, menu sheet.",
+    "no_page_errors": "No pageerror in any run."
+  }
+}

@@ -35,7 +35,7 @@ export function grantUnit(profile, unitId, now = Date.now()) {
   if (!def) throw new Error(`Unknown unit: ${unitId}`);
   if (!profile.units[unitId]) {
     profile.units[unitId] = newUnitState(now);
-    // bond (affection) starts at 0; the future City dating / gift system raises it
+    // bond (affection) starts at 0; the future City time-together / gift system raises it
     profile.bond ||= {};
     profile.bond[unitId] ??= 0;
     shadowPotential(profile, unitId, now);

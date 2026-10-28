@@ -73,12 +73,25 @@ describe('backgrounds', () => {
     expect(resolveBackground('cg:aoi-archery').cg).toBe(true);
   });
 
-  it('stage stills fall back to their chapter academy tint (still provider optional)', () => {
+  it('stage backgrounds show their painted place; a stage without one keeps its chapter academy tint', () => {
     const spec = resolveBackground('stage:2-1', 2);
-    expect(spec).toMatchObject({ stageId: '2-1', fallback: true, kind: 'paint', tint: BACKGROUNDS[CHAPTER_FALLBACK_BG[2]].tint });
-    expect(resolveBackground('stage:8-5').tint).toBe(BACKGROUNDS[CHAPTER_FALLBACK_BG[8]].tint);
-    expect(backgroundUrls('stage:1-5', 1)[0]).toMatch(/academy\.webp$/);
+    expect(spec).toMatchObject({ stageId: '2-1', place: 'lakeshore', fallback: true, kind: 'paint', tint: 'day', focus: BACKGROUNDS.lakeshore.focus });
+    expect(spec.url).toMatch(/art\/lobby\/story\/lakeshore\.webp$/);
+    expect(spec.thumb).toMatch(/art\/lobby\/story\/thumbs\/lakeshore\.webp$/);
+    expect(resolveBackground('stage:8-5').place).toBe('summit-nest');
+    expect(backgroundUrls('stage:1-5', 1)[0]).toMatch(/story\/blossom-court\.webp$/);
+    // no STAGE_PLACE entry (no such stage): the chapter's academy tint, stage id kept for a still
+    const fb = resolveBackground('stage:9-9', 2);
+    expect(fb).toMatchObject({ stageId: '9-9', fallback: true, kind: 'paint', tint: BACKGROUNDS[CHAPTER_FALLBACK_BG[2]].tint });
+    expect(fb.place).toBeUndefined();
+    expect(fb.url).toMatch(/art\/lobby\/academy\.webp$/);
     expect(backgroundUrls('black')).toEqual([]);
+  });
+
+  it('a story place carries its focal point; the old academy looks keep the CSS default', () => {
+    expect(resolveBackground('moon-pier').focus).toBe(BACKGROUNDS['moon-pier'].focus);
+    expect(resolveBackground('academy-day').focus).toBeNull();
+    expect(resolveBackground('cg:aoi-archery').focus).toBeNull();
   });
 
   it('every background any scene uses resolves', () => {
@@ -117,14 +130,15 @@ describe('story music hook', () => {
 });
 
 describe('Act II stage backgrounds', () => {
-  it('a stage:1-6 … 1-10 background is the city skyline, not the academy; Act I stages keep the academy tint', () => {
-    for (const id of ['1-6', '1-10']) {
+  it('a stage:1-6 … 1-10 background is its painted city place (STAGE_PLACE), not the academy; Act I keeps its own', () => {
+    const want = { '1-6': 'station-plaza', '1-7': 'covered-arcade', '1-8': 'corner-store', '1-9': 'station-plaza', '1-10': 'dry-fountain' };
+    for (const [id, place] of Object.entries(want)) {
       const b = resolveBackground(`stage:${id}`, 1);
-      expect(b.kind, id).toBe('svg');
-      expect(b.html, id).toMatch(/aria-label="city scenery"/);
-      expect(backgroundUrls(`stage:${id}`, 1)).toEqual([]);
+      expect(b.kind, id).toBe('paint');
+      expect(b.place, id).toBe(place);
+      expect(backgroundUrls(`stage:${id}`, 1).length, id).toBe(1);
     }
-    expect(resolveBackground('stage:1-5', 1).kind).toBe('paint');
+    expect(resolveBackground('stage:1-5', 1).place).toBe('blossom-court');
   });
 
   it('2-7 and 2-10 show their own places (the jetty, the old lamp) over the campus night', () => {

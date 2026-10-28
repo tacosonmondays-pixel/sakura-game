@@ -13,6 +13,7 @@ import { hubBackdrop } from './hubArt.js';
 import { listHost, listMode, placeHost, viewport, watchHostMode } from './hubHost.js';
 import { linesFor } from './hostLines.js';
 import { store } from '../core/store.js';
+import { tabSwap } from './motion.js';
 
 /**
  * @param {{ title: string, cls?: string, location?: string|null, host?: string|null, state?: object,
@@ -30,7 +31,12 @@ export function listScreen({ title, cls = '', location = 'academy', host: hostKe
   if (location) el.insertBefore(hubBackdrop(location), el.firstChild);
   el.dataset.keys = 'on'; // (E8: Esc goes back here even when the screen has no yellow for Space to press)
 
-  let rail = sideRail(sections, active, (id) => onPick(id), { label: railLabel, cls: 'ls-rail' });
+  // a section picked on the rail: the list redraws, then comes in (motion.js tabSwap: a crossfade and a 12 px shift)
+  const pick = (id) => {
+    onPick(id);
+    tabSwap(panelEl);
+  };
+  let rail = sideRail(sections, active, pick, { label: railLabel, cls: 'ls-rail' });
   const head = plateHead(title, { right: [], testid: headTestid });
   const titleSpan = head.querySelector('.ui-plate-title > span');
   const right = head.querySelector('.ui-plate-right');
@@ -74,7 +80,7 @@ export function listScreen({ title, cls = '', location = 'academy', host: hostKe
     },
     /** A rail with new dots (after a claim): the same tabs, rebuilt in place. */
     setSections(next, now) {
-      const fresh = sideRail(next, now, (id) => onPick(id), { label: railLabel, cls: 'ls-rail' });
+      const fresh = sideRail(next, now, pick, { label: railLabel, cls: 'ls-rail' });
       rail.replaceWith(fresh);
       rail = fresh;
     },

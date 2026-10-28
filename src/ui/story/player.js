@@ -168,6 +168,13 @@ export function playScene(scene, opts = {}) {
   const snapshot = musicSnapshot();
 
   // ---- state -----------------------------------------------------------------------------------
+  // cue backgrounds load one ahead: the first once the scene's own is up, each next one as its predecessor shows
+  const cueBgs = lines.filter((l) => l.t === 'cue' && l.bg).map((l) => l.bg);
+  let cueBgAt = 0;
+  const preloadNextBg = () => {
+    const id = cueBgs[cueBgAt++];
+    if (id) for (const u of backgroundUrls(id, scene.chapter)) preloadImage(u, PRELOAD_CAP_MS);
+  };
   const actors = new Map(); // who → { el, fig, emote, slot, spoke }
   let clock = 0;
   let typing = null; // { complete() }
@@ -401,6 +408,7 @@ export function playScene(scene, opts = {}) {
     }
     if (c.bg) {
       backdrop.show(c.bg);
+      preloadNextBg();
       petalsEl.classList.remove('on');
       syncCg();
     }
@@ -617,6 +625,7 @@ export function playScene(scene, opts = {}) {
     await Promise.race([Promise.all(urls.map((u) => preloadImage(u, PRELOAD_CAP_MS))), sleep(PRELOAD_CAP_MS)]);
     if (finished) return;
     root.classList.add('sp-ready');
+    preloadNextBg();
     try {
       window.dispatchEvent(new CustomEvent('story-stage-ready', { detail: { id: scene.id } }));
     } catch { /* no window */ }

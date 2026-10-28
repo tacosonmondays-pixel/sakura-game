@@ -113,13 +113,13 @@ export function render(root, params = {}) {
   }
 
   function card(r, i) {
-    const bg = resolveBackground(r.scene.bg === 'black' ? 'academy-day' : r.scene.bg, r.chapter);
+    const bg = resolveBackground(r.scene.bg === 'black' ? 'academy-courtyard' : r.scene.bg, r.chapter);
     const thumbUrl = bg.thumb || bg.url || null;
     const cg = isCgBackground(r.scene.bg);
     const cast = (r.scene.cast || []).filter((id) => UNIT_MAP[id]).slice(0, 4);
     const lead = cast[0];
     const thumb = h(`div.sa-thumb.tint-${bg.tint || 'day'}${cg ? '.cg' : ''}`,
-      thumbUrl ? h('img.sa-thumb-bg', { src: thumbUrl, alt: '', decoding: 'async', draggable: false }) : null,
+      thumbUrl ? h('img.sa-thumb-bg', { src: thumbUrl, alt: '', decoding: 'async', draggable: false, style: bg.focus ? { objectPosition: bg.focus } : null }) : null,
       h('i.sa-thumb-tint'),
       !cg && lead ? h('div.sa-thumb-girl', { html: portraitHTML(UNIT_MAP[lead], 'cutS', { alt: '', eager: true }) }) : null,
       h('span.sa-ep', `Episode ${r.episode}`));

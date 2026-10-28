@@ -14,7 +14,13 @@ import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
 
 // WebGL through SwiftShader, so the 3D views render on machines (and CI) without a GPU.
-export const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+export const SWIFTSHADER_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+// [ui-ink] SAKURA_E2E_GL=gpu: the machine's GPU through ANGLE (D3D11 on Windows), still headless (never a visible
+// window). Faster on a loaded machine and closer to a player's phone; SwiftShader stays the default for CI.
+export const GPU_ARGS = ['--use-gl=angle', '--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
+/** 'gpu' or 'swiftshader': what this run renders WebGL with. */
+export const GL_MODE = String(process.env.SAKURA_E2E_GL || '').toLowerCase() === 'gpu' ? 'gpu' : 'swiftshader';
+export const GL_ARGS = GL_MODE === 'gpu' ? GPU_ARGS : SWIFTSHADER_ARGS;
 
 export async function loadPlaywright() {
   const explicit = process.env.PLAYWRIGHT_MODULE;
@@ -42,13 +48,13 @@ export async function loadPlaywright() {
 }
 
 /**
- * Launches a headless Chromium with SwiftShader WebGL.
+ * Launches a headless Chromium with SwiftShader WebGL (or the GPU with SAKURA_E2E_GL=gpu). Always headless.
  * @param {{ args?: string[] }} [options]
  * @returns {Promise<{ browser: import('playwright').Browser, label: string }>}
  */
 export async function launchChromium({ args = [] } = {}) {
   const { chromium } = await loadPlaywright();
-  const base = { args: [...GL_ARGS, ...args] };
+  const base = { headless: true, args: [...GL_ARGS, ...args] };
   const exe = process.env.CHROME_PATH;
   const channel = process.env.PLAYWRIGHT_CHANNEL;
   const attempts = exe
@@ -60,7 +66,7 @@ export async function launchChromium({ args = [] } = {}) {
   for (const [how, label] of attempts) {
     try {
       const browser = await chromium.launch({ ...base, ...how });
-      return { browser, label: `${label} ${browser.version()}` };
+      return { browser, label: `${label} ${browser.version()} (${GL_MODE})` };
     } catch (e) {
       errors.push(`${label}: ${String(e.message).split('\n')[0]}`);
     }

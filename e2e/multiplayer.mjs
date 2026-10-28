@@ -150,7 +150,7 @@ async function probeBoth(page, name, { kind = 'hub', list = null } = {}) {
   for (const [w, h] of SIZES) {
     await page.setViewportSize({ width: w, height: h });
     await page.evaluate(() => new Promise((r) => setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(r)), 500)));
-    const r = await probe(page, { kind, list, tapSkip: '.topbar, .lb-top, .lb-car-dots' });
+    const r = await probe(page, { kind, list, tapSkip: '.topbar, .home-top' });
     const fails = judge(r, { skip: ['content'] });
     check(!fails.length, `probe ${name} ${w}x${h}: ${summary(r)}${fails.length ? ` — ${fails.join('; ')}` : ''}`);
     if (shotsDir) await page.screenshot({ path: `${shotsDir}/probe-${name}-${w}x${h}.png` }).catch(() => {});
@@ -158,8 +158,8 @@ async function probeBoth(page, name, { kind = 'hub', list = null } = {}) {
   await page.setViewportSize({ width: W, height: H });
 }
 
-/** The lobby secretary's speech bubble stays clear of the tray and the sticker row (probe `apart`). */
-const LOBBY_APART = [['[data-testid="secretary-bubble"]', '.lb-hud > .lb-tray'], ['[data-testid="secretary-bubble"]', '.lb-hud > .lb-stickers']];
+/** The home secretary's speech bubble stays clear of the rail, the right stack and the chapter entry (probe `apart`; [ui-ink] V2). */
+const LOBBY_APART = [['[data-testid="secretary-bubble"]', '#app .home-rail'], ['[data-testid="secretary-bubble"]', '#app .home-stack'], ['[data-testid="secretary-bubble"]', '#app .home-chap-host']];
 
 /**
  * UI M5d review: on the lobby, every line the secretary says (a tap on her, not her head, says the next one) keeps her
@@ -191,7 +191,7 @@ async function bubbleClear(page) {
       said.add(b.text);
       bad.push(...judge(r, { only: ['apart'] }).map((f) => `"${b.text.slice(0, 28)}…" ${f}`));
     }
-    check(said.size >= 3 && !bad.length, `lobby ${w}x${h}: her bubble stays clear of the tray and the stickers on ${said.size} lines${bad.length ? ` — ${bad.slice(0, 3).join('; ')}` : ''}`);
+    check(said.size >= 3 && !bad.length, `lobby ${w}x${h}: her bubble stays clear of the rail, the right stack and the chapter on ${said.size} lines${bad.length ? ` — ${bad.slice(0, 3).join('; ')}` : ''}`);
     if (shotsDir) await page.screenshot({ path: `${shotsDir}/lobby-bubble-${w}x${h}.png` }).catch(() => {});
   }
   await page.setViewportSize({ width: W, height: H });
@@ -332,12 +332,15 @@ try {
   await A.evaluate(() => localStorage.clear());
   await A.goto(`${base}#/lobby`, { waitUntil: 'load' });
   await lobby(A);
-  check(await wait(A, '#app [data-testid="lobby-multiplayer"]'), 'lobby: the Multiplayer button is there');
+  check(await wait(A, '#app [data-testid="lobby-multiplayer"]'), 'lobby: the MULTIPLAYER row is there');
   check(await A.locator('#app [data-testid="lobby-multiplayer-count"]').count() === 0, 'lobby: no number on it while offline');
-  check(await wait(A, '#app [data-testid="lobby-tray"] [data-testid="shortcut-notice"]') && await A.locator('#app [data-testid="shortcut-gems"]').count() === 0,
-    'lobby: Notice, Tasks and Login gift fold into the tray; no Buy gems');
+  // [ui-ink] V2 (C12): the tray folded: Notice is the menu sheet's Notice row, Tasks the COMMISSIONS dot, the login gift the objective
+  check(await A.locator('#app [data-testid="lobby-tray"], #app [data-testid="shortcut-gems"]').count() === 0, 'lobby: no tray and no Buy gems');
+  await tap(A, '[data-testid="top-menu"]');
+  check(await wait(A, '[data-testid="menu-sheet"] [data-testid="shortcut-notice"]'), 'lobby: the menu sheet holds the Notice');
+  await tap(A, '[data-testid="menu-sheet-close"]');
   await tap(A, '#app [data-testid="lobby-multiplayer"]');
-  check(await onScreen(A, 'multiplayer'), `the Multiplayer button opens #/multiplayer (now ${(await where(A)).hash})`);
+  check(await onScreen(A, 'multiplayer'), `the MULTIPLAYER row opens #/multiplayer (now ${(await where(A)).hash})`);
   check(await wait(A, '#app [data-testid="mp-coop"]') && await wait(A, '#app [data-testid="mp-create"][data-primary]'), 'hub: the Co-op card with Create room (the primary)');
   check(await A.locator('#app [data-testid="mp-tiles"] > *').count() === 4, 'hub: four tiles (PvP, Friends, Titan Co-op, Clan Boss)');
   check((await A.locator('#app .ui-host').getAttribute('data-host')) === 'momo', 'hub: Momo hosts');
