@@ -168,7 +168,7 @@ function buildPage({ doPull, openSpark }) {
         : h('h2.ma-banner-title', 'Sakura Academy', h('br'), 'Open Enrollment'),
       // [ui-m5] the pity is said once, in the pity panel (P7)
       feature
-        ? h('p.ma-banner-desc', { 'data-testid': 'feature-desc' }, `${UNIT_MAP[feature.unit].name} ${formatPct(GACHA.rates.SSR * feature.share, 1)} of the ${formatPct(GACHA.rates.SSR, 1)} SSR rate. Legend Promise: `,
+        ? h('p.ma-banner-desc', { 'data-testid': 'feature-desc' }, `${UNIT_MAP[feature.unit].name} is ${formatPct(GACHA.rates.SSR * feature.share, 1)} of the ${formatPct(GACHA.rates.SSR, 1)} SSR rate. Legend Promise: `,
           h('b', { 'data-testid': 'feature-promise' }, `${promiseCount(profile)}/${feature.promise}`), '.')
         : h('p.ma-banner-desc', 'Every student and guardian is in the pool. SSR rate 1.5%.'),
       h('div.ma-banner-featured', chips.map((u) => h(`span.ma-feat-chip${feature?.unit === u.id ? '.feat' : ''}`, svgEl(roleIcon(u.role), 'ma-trait'), u.name))),
