@@ -11,8 +11,8 @@ export function stream(seed, label) {
   return createRng(hashString(`${seed >>> 0}|tryout|${label}`));
 }
 
-/** Grades in this build (the first ship plays 1-6; §16). */
-export const TRYOUT_GRADES = 6;
+/** Grades in this build (§7: the whole ladder, 1-12). */
+export const TRYOUT_GRADES = 12;
 
 export function lengthOf(length) {
   return TRYOUT.lengths[length] || TRYOUT.lengths.half;
@@ -89,7 +89,24 @@ export function buildTryoutPlan({ seed, grade = 1, length = 'half', mapId = null
     seed, grade: g.n, length: length in TRYOUT.lengths ? length : 'half', window: g.window,
     mapId: mapId && win.maps.includes(mapId) ? mapId : maps[0], maps, blocks, minibosses, boss,
     subjects: subjectPairs(seed, len),
+    affixes: periodAffixes(seed, g.n, length),
   };
+}
+
+/**
+ * Grade 8+ (§7): the affix every period from `affixFrom` on carries (a TRYOUT.dares id; index = period, null before),
+ * each from its own stream (`affix:<period>`), so the timetable shows them from Before Class. Below Grade 8: all null.
+ * @returns {(string|null)[]}
+ */
+export function periodAffixes(seed, grade, length) {
+  const g = gradeOf(grade);
+  const len = lengthOf(length);
+  const out = [];
+  for (let p = 0; p <= len.periods; p++) {
+    if (!g.affixFrom || p < g.affixFrom) out.push(null);
+    else out.push(TRYOUT.dares[Math.floor(stream(seed, `affix:${p}`).next() * TRYOUT.dares.length)].id);
+  }
+  return out;
 }
 
 /**
@@ -102,19 +119,29 @@ export function subjectPairs(seed, len) {
   const rng = stream(seed, 'plan:subjects');
   const ids = Object.keys(TRYOUT.subjects);
   const most = len.periods > 7 ? 2 : 1;
-  const used = {};
-  const out = [null, null];
-  for (let p = 2; p <= len.periods; p++) {
-    const near = new Set([...(out[p - 1] || [])]);
-    const pair = [];
-    for (let k = 0; k < 2; k++) {
-      let pool = ids.filter((id) => (used[id] || 0) < most && !near.has(id) && !pair.includes(id));
-      if (!pool.length) pool = ids.filter((id) => !near.has(id) && !pair.includes(id));
-      const id = pool[Math.floor(rng.next() * pool.length)];
-      pair.push(id);
-      used[id] = (used[id] || 0) + 1;
+  // the greedy draw can corner itself near the end (a Full Day's last periods with only neighbours' Subjects left):
+  // then it draws the whole timetable again from the same stream (a draw that never corners keeps its first result)
+  let out = null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const used = {};
+    let cornered = false;
+    out = [null, null];
+    for (let p = 2; p <= len.periods; p++) {
+      const near = new Set([...(out[p - 1] || [])]);
+      const pair = [];
+      for (let k = 0; k < 2; k++) {
+        let pool = ids.filter((id) => (used[id] || 0) < most && !near.has(id) && !pair.includes(id));
+        if (!pool.length) {
+          cornered = true;
+          pool = ids.filter((id) => !near.has(id) && !pair.includes(id));
+        }
+        const id = pool[Math.floor(rng.next() * pool.length)];
+        pair.push(id);
+        used[id] = (used[id] || 0) + 1;
+      }
+      out.push(pair);
     }
-    out.push(pair);
+    if (!cornered) break;
   }
   return out;
 }
@@ -142,6 +169,10 @@ export function buildTryoutStage(plan, { coop = false } = {}) {
   }
   const fixed = len.minibossWaves.map((wave, i) => ({ wave, enemy: plan.minibosses[i], count: 1 }));
   fixed.push({ wave: len.bossWave, enemy: plan.boss, count: 1, delay: 4 });
+  // Grade 11+: the boss's escort pack, a second group on the boss wave (§7)
+  if (g.escort) {
+    for (const [enemy, count] of TRYOUT.escort.packs[plan.boss] || []) fixed.push({ wave: len.bossWave, enemy, count, delay: 4 + TRYOUT.escort.delay });
+  }
   const hp = win.hpScale * g.hpMul * (coop ? TRYOUT.stage.coopHpMul : 1);
   return {
     id: `tryout:${plan.seed.toString(36)}:${plan.grade}:${plan.length}`,

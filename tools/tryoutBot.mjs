@@ -303,15 +303,16 @@ function soloApply(sim, c) {
 }
 
 /**
- * One solo run. `pool`: owned girls' account stats (default: none owned, every girl a Loaner).
+ * One solo run. `pool`: owned girls' account stats (default: none owned, every girl a Loaner); `perks`: Desk Supplies
+ * ({ eraser, draft7, coins, pocket }); `onStep(sim)`: runs each 1/60 s step in place of sim.update (the perf check).
  * @returns {{ sim: Sim, result: object, digests: string[] }}
  */
-export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 'kage', 'yuki'], hero = 'hikari', pool = {}, policy = 'random', maxWaves = Infinity, onCalm = null } = {}) {
+export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 'kage', 'yuki'], hero = 'hikari', pool = {}, policy = 'random', maxWaves = Infinity, onCalm = null, onStep = null, perks = null } = {}) {
   const plan = buildTryoutPlan({ seed, grade, length });
   const stage = buildTryoutStage(plan);
   const sim = new Sim({
     stageId: stage.id, hero: hero ? { unitId: hero, stats: {} } : null, seed: seed ^ 0x5eed, data: { stage },
-    options: { tryout: { seed, grade, length, mapId: plan.mapId, players: [{ squad }], pools: [pool] } },
+    options: { tryout: { seed, grade, length, mapId: plan.mapId, players: [{ squad }], pools: [pool], ...(perks ? { perks } : null) } },
   });
   const bot = { policy, rng: createRng(seed ^ 0xb07) };
   const digests = [];
@@ -322,7 +323,10 @@ export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 
       for (const c of decide(sim, 0, bot)) soloApply(sim, c);
       if (sim.state === 'between' || sim.state === 'prep') if (!sim.tryoutWindowOpen() && sim.state !== 'wave') sim.startNextWave();
     }
-    for (let i = 0; i < 30 && sim.state === 'wave'; i++) sim.update(1 / 60);
+    for (let i = 0; i < 30 && sim.state === 'wave'; i++) {
+      if (onStep) onStep(sim);
+      else sim.update(1 / 60);
+    }
   }
   return { sim, result: sim.result(), digests };
 }

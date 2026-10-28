@@ -3,7 +3,7 @@
 // gone players and the tick timeout resolve windows; personal picks, personal coins and owner checks.
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, isValidCmd } from '../../src/online/coop/commands.js';
-import { runCoop, coopStart } from '../../tools/tryoutBot.mjs';
+import { runCoop, coopStart, poolFor } from '../../tools/tryoutBot.mjs';
 import { TRYOUT } from '../../src/data/tryout.js';
 import { openBreak } from '../../src/sim/tryout/breaks.js';
 import { cardOk } from '../../src/sim/tryout/offers.js';
@@ -37,6 +37,30 @@ describe('tryout co-op', () => {
     const subjects = views[0].sim.tryout.subjects;
     for (const p of r.periods.slice(1)) if (Math.floor(p.period / 2) % 2 === 1) expect(p.subject).toBe(subjects[p.period][1]);
     expect(r.periods.some((p) => p.dare)).toBe(true);
+  }, 120000);
+
+  it('two views stay identical through a whole Full Day (12 periods, 11 picks, 3 breaks)', () => {
+    const { views, digests, hashes } = runCoop({ start: coopStart({ seed: 1201, length: 'full', pools: [poolFor('mid'), poolFor('mid')] }), policy: 'random' });
+    const sim = views[0].sim;
+    expect(sim.tryout.length).toBe('full');
+    expect(sim.state).toMatch(/won|lost/);
+    expect(digests[1]).toEqual(digests[0]);
+    expect(hashes[1]).toEqual(hashes[0]);
+    const r = sim.result().tryout;
+    if (sim.state === 'won') {
+      expect(sim.wave).toBe(48);
+      expect(r.periods).toHaveLength(12);
+      for (const pl of r.players) expect(pl.picks.length).toBe(11);
+    }
+  }, 240000);
+
+  it('a Grade 12 run (affixes, the escort, no healing) stays in lockstep', () => {
+    const { views, digests, hashes } = runCoop({ start: coopStart({ seed: 1212, grade: 12, pools: [poolFor('maxed'), poolFor('maxed')] }), policy: 'random' });
+    expect(views[0].sim.canHeal()).toBe(false);
+    expect(views[0].sim.tryout.affixes[3]).toBeTruthy();
+    expect(digests[0].length).toBeGreaterThan(5);
+    expect(digests[1]).toEqual(digests[0]);
+    expect(hashes[1]).toEqual(hashes[0]);
   }, 120000);
 
   it('a client rejoining from a checkpoint after a mid-run join stays in lockstep', () => {

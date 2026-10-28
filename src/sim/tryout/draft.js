@@ -10,13 +10,17 @@ const isStriker = (id) => category(id) === 'dps' || category(id) === 'frag';
 const hitsAir = (id) => !!UNIT_MAP[id]?.base?.canHitAir;
 const isCtrlSup = (id) => category(id) === 'control' || category(id) === 'support';
 
+/** Before Class with Bigger Draft (a solo Desk Supply, §10.3): 7 girls instead of TRYOUT.squad.draft (6). */
+export const BIGGER_DRAFT = TRYOUT.perks.draft;
+
 /**
  * Before Class's six (§5): 2 strikers, 1 girl who hits flyers at tier 0, 1 Control or Support girl; 4 of the 6
- * are the player's own when they own at least 4 students. Seeded (`draft:<slot>:<redraw>`).
+ * are the player's own when they own at least 4 students. Seeded (`draft:<slot>:<redraw>`). `size`: how many girls
+ * (Bigger Draft: BIGGER_DRAFT); a larger draft is the same draft with more girls after it (its first six never move).
  * @param {(id: string) => boolean} owned
  * @returns {string[]}
  */
-export function draftOf(owned, seed, slot = 0, redraw = 0) {
+export function draftOf(owned, seed, slot = 0, redraw = 0, size = TRYOUT.squad.draft) {
   const rng = stream(seed, `draft:${slot}:${redraw}`);
   const all = TRYOUT_STUDENTS.filter((id) => UNIT_MAP[id]);
   const mine = all.filter(owned);
@@ -37,7 +41,7 @@ export function draftOf(owned, seed, slot = 0, redraw = 0) {
   for (let i = 0; i < TRYOUT.draftNeeds.strikers; i++) from(isStriker);
   for (let i = 0; i < TRYOUT.draftNeeds.antiAir; i++) if (!out.some(hitsAir)) from(hitsAir);
   for (let i = 0; i < TRYOUT.draftNeeds.controlSupport; i++) if (!out.some(isCtrlSup)) from(isCtrlSup);
-  while (out.length < TRYOUT.squad.draft) {
+  while (out.length < size) {
     if (ownedLeft() > 0 && take(mine)) continue;
     if (!take(all.filter((id) => !owned(id)))) take(all);
   }

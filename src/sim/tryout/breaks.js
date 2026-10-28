@@ -148,6 +148,11 @@ export function assignSeats(sim) {
 // Hall Passes (§6.3, §6.4)
 // ---------------------------------------------------------------------------
 
+/** The most Hall Passes a player holds (Extra Pocket, a solo Desk Supply, raises it; §10.3). */
+export function passMax(sim) {
+  return sim.tryout?.perks?.pocket ? TRYOUT.perks.pocket : TRYOUT.passes.max;
+}
+
 /**
  * Can player `owner` move their girl `uid` to (x, y) now? Only during their break, their own student, a pass in
  * hand (moving back to where she stood at the break's start is free), a legal spot.
@@ -203,7 +208,7 @@ export function moveGirl(sim, owner, uid, x, y) {
     p.passes -= 1;
     p.used[uid] = (p.used[uid] || 0) + 1;
   } else {
-    p.passes = Math.min(TRYOUT.passes.max, p.passes - chk.cost);
+    p.passes = Math.min(passMax(sim), p.passes - chk.cost);
     p.used[uid] = 0;
   }
   ty.moves++;
@@ -233,7 +238,7 @@ export function openBreak(sim, owner) {
   const p = ty.players[owner];
   const g = TRYOUT.grades[ty.grade];
   const draw = p.cards.filter((x) => PEP_CARDS[x.id]?.draw?.passes).reduce((a, x) => a + PEP_CARDS[x.id].draw.passes, 0);
-  p.passes = Math.max(0, Math.min(TRYOUT.passes.max, p.passes + g.passes + p.passBonus + draw));
+  p.passes = Math.max(0, Math.min(passMax(sim), p.passes + g.passes + p.passBonus + draw));
   p.win = 'break';
   p.winTicks = 0;
   p.undo = [];
@@ -242,7 +247,10 @@ export function openBreak(sim, owner) {
   p.snack = false;
 }
 
-/** Snack: heal hearts (at full hearts: +5 max; where nothing heals: +1 Hall Pass). Once per break. */
+/**
+ * Snack: heal hearts (at full hearts: +5 max; where nothing heals: +1 Hall Pass). Once per break. Grade 9+ heals half
+ * (rounded down: 7 solo, 4 a player in co-op); the +5 max at full hearts is not a heal and stays.
+ */
 export function snack(sim, owner) {
   const ty = sim.tryout;
   const p = ty.players[owner];
@@ -250,11 +258,12 @@ export function snack(sim, owner) {
   if (p.snack) return { ok: false, reason: 'used' };
   p.snack = true;
   if (!sim.canHeal()) {
-    p.passes = Math.min(TRYOUT.passes.max, p.passes + 1);
+    p.passes = Math.min(passMax(sim), p.passes + 1);
     return { ok: true, reason: null };
   }
   const s = TRYOUT.snack;
-  const heal = ty.coop ? s.coopHeal : s.heal;
+  const full = ty.coop ? s.coopHeal : s.heal;
+  const heal = TRYOUT.grades[ty.grade]?.snackHalf ? Math.floor(full / 2) : full;
   if (sim.lives >= sim.maxLives) {
     const rise = Math.min(s.fullMax, Math.max(0, TRYOUT.heartsMaxRise - ty.heartsAdded));
     ty.heartsAdded += rise;

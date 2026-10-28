@@ -115,6 +115,8 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
   if (ty) {
     h.int(ty.period).int(ty.started).int(ty.score).int(ty.periodScore).int(ty.moves).int(ty.heartsAdded).int(sim.maxLives);
     for (const v of ty.seats.holder) h.int(v ?? -1);
+    // Grade 8+: the period's affix (only in a run that has them, so a lower Grade's digest is as it was)
+    if (ty.affixes?.[ty.period]) h.str(ty.affixes[ty.period]);
     for (const c of ty.ctr) h.int(c.spent).int(c.placed).int(c.upgrades).int(c.sells).int(c.ults);
     for (const p of ty.players) {
       h.str(p.win || '-').int(p.winTicks).int(p.seq).int(p.erasers).int(p.passes).int(p.bank).int(p.cleared).int(p.lr).str(p.squad.join(','));

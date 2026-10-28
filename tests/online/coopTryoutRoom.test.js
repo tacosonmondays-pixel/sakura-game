@@ -8,7 +8,7 @@ import { clampStart, clampPlayer, clampPool, clampDraft, clampTryout, LOADOUT_MA
 import { TRYOUT_STUDENTS } from '../../src/data/tryout.js';
 import { createProfile } from '../../src/systems/save.js';
 import { frozenPool, draftOf } from '../../src/systems/tryoutRuns.js';
-import { mapChoices } from '../../src/sim/tryout/plan.js';
+import { mapChoices, TRYOUT_GRADES } from '../../src/sim/tryout/plan.js';
 
 // ---------------------------------------------------------------------------------------------
 // A small fake room transport with simulated time (the pattern of coopSession.test.js)
@@ -220,7 +220,8 @@ describe('the room\'s Tryout Day setting', () => {
     const [a, b] = mapChoices(42, 1);
     expect(tryoutSetting({ seed: 42, mapId: b, grade: 1, length: 'full' })).toEqual({ seed: 42, grade: 1, length: 'half', mapId: b });
     // the host's Grade rides along, up to the Grades this build plays
-    expect(tryoutSetting({ seed: 42, mapId: b, grade: 9 }).grade).toBe(6);
+    expect(tryoutSetting({ seed: 42, mapId: b, grade: 9 }).grade).toBe(9);
+    expect(tryoutSetting({ seed: 42, mapId: b, grade: 15 }).grade).toBe(TRYOUT_GRADES);
     expect(tryoutSetting({ seed: 42, mapId: 'nowhere' }).mapId).toBe(a);
     expect(tryoutSetting(null)).toBe(null);
     expect(sameTryout(null, undefined)).toBe(true);

@@ -9,6 +9,23 @@ import { enemyTraitKeys } from '../enemies.js';
 
 const A = TRYOUT.assignments;
 
+/**
+ * The Grade's targets for the three timed or scored assignments (§3.1): Ace the Test's bar in % (Grade 7+: aceBar),
+ * Speed Round's and Quick Answer's seconds. Grade 8+ (`strict`) makes all three that many % stricter: the bar
+ * × (100 + strict) / 100, rounded (75 → 86), the seconds × (100 − strict) / 100 (8 → 6.8, 12 → 10.2).
+ * @returns {{ ace: number, speed: number, quick: number }}
+ */
+export function targetsOf(grade) {
+  const g = TRYOUT.grades[grade] || TRYOUT.grades[1];
+  const s = g.strict || 0;
+  const bar = g.aceBar ?? A.a_ace.bar;
+  return {
+    ace: s ? Math.min(100, Math.round((bar * (100 + s)) / 100)) : bar,
+    speed: s ? (A.a_speed.secs * (100 - s)) / 100 : A.a_speed.secs,
+    quick: s ? (A.a_quick.secs * (100 - s)) / 100 : A.a_quick.secs,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Score (§3.3)
 // ---------------------------------------------------------------------------
@@ -339,7 +356,7 @@ export function waveEndCheck(sim) {
   const ty = sim.tryout;
   const q = sim._spawnQueue;
   const last = q.length ? q[q.length - 1].t : 0;
-  if (sim._waveTime - last > A.a_speed.secs + 1e-9) ty.base.slow = true;
+  if (sim._waveTime - last > targetsOf(ty.grade).speed + 1e-9) ty.base.slow = true;
 }
 
 /** A miniboss or boss arrived (not a child): Quick Answer's clock starts. */
@@ -352,7 +369,7 @@ export function bossSpawned(sim, e) {
 /** A miniboss or boss fell or leaked. */
 export function bossGone(sim, e, leaked) {
   if (e.tyAt == null || !sim.tryout.base) return;
-  if (leaked || sim.time - e.tyAt > A.a_quick.secs + 1e-9) sim.tryout.base.bossFail = true;
+  if (leaked || sim.time - e.tyAt > targetsOf(sim.tryout.grade).quick + 1e-9) sim.tryout.base.bossFail = true;
 }
 
 /** Tight Budget's bar for a player: 40 % of last period's income (a co-op player's share), at least 600. */
@@ -380,10 +397,11 @@ export function judge(sim, id, owner, final = false) {
   const b = ty.base;
   // before the period starts (the tracker shows the coming period's assignments): nothing yet, the bars as they will be
   if (!b) {
-    const ace = () => Math.ceil((bestPossible(sim, ty.assign?.period ?? ty.period + 1) * (TRYOUT.grades[ty.grade]?.aceBar ?? A.a_ace.bar)) / 100);
+    const tg = targetsOf(ty.grade);
+    const ace = () => Math.ceil((bestPossible(sim, ty.assign?.period ?? ty.period + 1) * tg.ace) / 100);
     const p = ty.assign?.period ?? ty.period + 1;
     const goal = id === 'a_ace' ? ace() : {
-      a_speed: A.a_speed.secs, a_quick: A.a_quick.secs, a_small: A.a_small.max, a_learner: A.a_learner.tiers, a_budget: budgetOf(sim),
+      a_speed: tg.speed, a_quick: tg.quick, a_small: A.a_small.max, a_learner: A.a_learner.tiers, a_budget: budgetOf(sim),
       a_guest: A.a_guest.share, a_save: A.a_save.share, a_star: A.a_star.share, a_show: showGoal(p), a_window: A.a_window.share,
       a_team: A.a_team.types, a_finish: A.a_finish.ults,
     }[id] ?? 0;
@@ -399,14 +417,13 @@ export function judge(sim, id, owner, final = false) {
       return { st: lost > 0 ? -1 : final ? 1 : 0, cur: lost, goal: 0 };
     }
     case 'a_ace': {
-      const bar = TRYOUT.grades[ty.grade]?.aceBar ?? A.a_ace.bar;
-      const goal = Math.ceil((ty.best * bar) / 100);
+      const goal = Math.ceil((ty.best * targetsOf(ty.grade).ace) / 100);
       return { st: done(ty.periodScore >= goal), cur: ty.periodScore, goal };
     }
     case 'a_speed':
-      return { st: b.slow ? -1 : final ? 1 : 0, cur: 0, goal: A.a_speed.secs };
+      return { st: b.slow ? -1 : final ? 1 : 0, cur: 0, goal: targetsOf(ty.grade).speed };
     case 'a_quick':
-      return { st: b.bossFail ? -1 : final ? (b.bossSeen > 0 ? 1 : -1) : 0, cur: 0, goal: A.a_quick.secs };
+      return { st: b.bossFail ? -1 : final ? (b.bossSeen > 0 ? 1 : -1) : 0, cur: 0, goal: targetsOf(ty.grade).quick };
     case 'a_budget': {
       const spent = delta(sim, owner, 'spent');
       const goal = budgetOf(sim);

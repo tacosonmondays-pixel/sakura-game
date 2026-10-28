@@ -19,10 +19,11 @@ import {
 } from './assign.js';
 import { drawSeats, seatsOf, assignSeats, openBreak, moveGirl, undoMove, snack, brushUp } from './breaks.js';
 
-export { assignProgress } from './assign.js';
+export { assignProgress, targetsOf } from './assign.js';
 export { buildTryoutPlan, buildTryoutStage, mapChoices } from './plan.js';
 export { bandStats, runLevelOf } from './power.js';
-export { canMoveGirl } from './breaks.js';
+export { canMoveGirl, passMax } from './breaks.js';
+export { periodAffixes } from './plan.js';
 
 const newCtr = () => ({ spent: 0, placed: 0, upgrades: 0, sells: 0, ults: 0 });
 
@@ -89,15 +90,29 @@ export function tryoutBackGate(sim) {
   return sim.tryout.subjects.some((pair) => pair?.some((id) => TRYOUT.subjects[id]?.backGate));
 }
 
+/** The Desk Supplies a solo run's config switches on (§10.3), as { eraser, draft7, coins, pocket } booleans; null: none. */
+export function perksOf(perks) {
+  if (!perks || typeof perks !== 'object') return null;
+  const out = { eraser: perks.eraser === true, draft7: perks.draft7 === true, coins: perks.coins === true, pocket: perks.pocket === true };
+  return out.eraser || out.draft7 || out.coins || out.pocket ? out : null;
+}
+
+/** Can hearts come back in this run? (Grade 12: no healing, §7.) Sim.canHeal() asks. */
+export function tryoutCanHeal(sim) {
+  return !TRYOUT.grades[sim.tryout.grade]?.noHeal;
+}
+
 /**
  * Builds sim.tryout from the constructor's config (Sim.js). `cfg`: { seed, grade, length, mapId, players:
- * [{ squad, hero, heroStats }] }; `sim._tryoutCfg.pools[i]` = player i's frozen account stats by girl id.
+ * [{ squad, hero, heroStats }], perks? }; `sim._tryoutCfg.pools[i]` = player i's frozen account stats by girl id.
+ * `perks` (Desk Supplies, §10.3) count in a solo run only: co-op never passes them, and a run of two ignores them.
  */
 export function createTryout(sim, cfg) {
   const len = lengthOf(cfg.length);
   const plan = buildTryoutPlan(cfg);
   const g = TRYOUT.grades[plan.grade];
   const n = cfg.players.length;
+  const perks = n === 1 ? perksOf(cfg.perks) : null;
   sim.tryout = {
     v: 1,
     seed: plan.seed,
@@ -123,6 +138,8 @@ export function createTryout(sim, cfg) {
     assign: null,
     pickNo: 0,
     subjects: plan.subjects,
+    affixes: plan.affixes,
+    perks,
     subject: null,
     nextSubject: null,
     dare: null,
@@ -133,7 +150,7 @@ export function createTryout(sim, cfg) {
       varsity: {},
       refills: {},
       bank: 0,
-      erasers: g.erasers,
+      erasers: perks?.eraser ? Math.min(TRYOUT.erasers.max, g.erasers + TRYOUT.perks.eraser) : g.erasers,
       passes: 0,
       passBonus: 0,
       squadAdd: 0,
@@ -157,6 +174,8 @@ export function createTryout(sim, cfg) {
   };
   sim.maxLives = g.hearts;
   sim.lives = g.hearts;
+  // Pencil Money: flat, as the start coins are (a restore overwrites cash with the saved coins anyway)
+  if (perks?.coins) sim.cash += TRYOUT.perks.coins;
   drawAssignments(sim, 1);
   installRule(sim);
 }
@@ -481,10 +500,21 @@ export function tryoutWaveStart(sim) {
   if (ty.assign?.period !== p) drawAssignments(sim, p);
 }
 
-/** The Double Dare curse of period p (named before anyone taps it: the sheet shows it). */
+/**
+ * The Double Dare curse of period p (named before anyone taps it: the sheet shows it). In a period that already
+ * carries a Grade affix (Grade 8+) the Dare draws one of the other three, so the two always differ and each applies
+ * once (a swift period dared is swift and regen, say; never swift twice).
+ */
 export function dareOf(ty, p) {
-  const list = TRYOUT.dares;
+  const affix = ty.affixes?.[p] || null;
+  const list = affix ? TRYOUT.dares.filter((d) => d.id !== affix) : TRYOUT.dares;
   return { ...list[Math.floor(stream(ty.seed, `dare:${p}`).next() * list.length)] };
+}
+
+/** The Grade affix period p carries (Grade 8+, from its affixFrom period), as its TRYOUT.dares entry; null: none. */
+export function affixOf(ty, p) {
+  const id = ty.affixes?.[p];
+  return id ? TRYOUT.dares.find((d) => d.id === id) || null : null;
 }
 
 /** The Subject chooser of period p in co-op (period number mod 2 → slot); solo: player 0. */
@@ -495,8 +525,12 @@ export function chooserOf(ty, p) {
 /** A foe spawned (Quick Answer's clock). */
 export function tryoutSpawn(sim, e) {
   if (e.tier === 'boss' && e.parentUid == null) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
-  // Double Dare's curse on every foe of the period
-  if (sim.tryout.dare && sim.tryout.base) applySpawnMods(e, sim.tryout.dare);
+  // the Grade affix (Grade 8+) and Double Dare's curse on every foe of the period (never the same one: dareOf)
+  if (sim.tryout.base) {
+    const affix = affixOf(sim.tryout, sim.tryout.period);
+    if (affix) applySpawnMods(e, affix);
+    if (sim.tryout.dare) applySpawnMods(e, sim.tryout.dare);
+  }
   // Hundred Points' drawback: foes +10 % HP for the rest of the run
   if (hasCards(sim, (c) => c === PEP_CARDS.X01)) {
     e.maxHp *= 1 + PEP_CARDS.X01.draw.foeHp;
@@ -659,7 +693,7 @@ export function tryoutResult(sim) {
   const per = TRYOUT.score;
   const runScore = ty.players.map((p) => Math.floor(((ty.score + per.perAssignment * p.cleared + per.perHeart * Math.max(0, sim.lives)) * (9 + ty.grade)) / 10));
   return {
-    seed: ty.seed, grade: ty.grade, length: ty.length, mapId: ty.mapId, periods: ty.periods.map((x) => ({ ...x })),
+    seed: ty.seed, grade: ty.grade, length: ty.length, mapId: ty.mapId, periods: ty.periods.map((x) => ({ ...x })), perks: ty.perks ? { ...ty.perks } : null,
     score: ty.score, runScore, cleared: ty.players.map((p) => p.cleared), moves: ty.moves,
     players: ty.players.map((p) => ({ squad: p.squad.slice(), cards: p.cards.map((c) => ({ ...c })), picks: p.picks.map((c) => ({ ...c })) })),
   };

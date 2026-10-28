@@ -64,7 +64,11 @@ export const TRYOUT = deepFreeze({
   },
 
   // ---- Grades and content windows (§7) -------------------------------------------------------------
-  // hpMul: on top of the window's hpScale; seats / passes / erasers: the Grade's counts.
+  // hpMul: on top of the window's hpScale; seats / passes / erasers: the Grade's counts. Twists from Grade 7 (§7):
+  // aceBar Ace the Test's bar (%); affixFrom: from this period on every period carries one affix (the Double Dare list,
+  // stream `affix:<period>`); strict: Ace the Test, Speed Round and Quick Answer this many % stricter; snackHalf: a
+  // Snack heals half; arrivalDown: arrival packages this many steps lower (at least R); escort: the boss brings its
+  // escort pack (`escort`); noHeal: nothing heals (sim.canHeal() is false, as in Last Petal).
   grades: [
     null,
     { n: 1, window: 'spring', hpMul: 1, hearts: 60, seats: 3, passes: 3, erasers: 2, bossLeak: 40 },
@@ -78,7 +82,7 @@ export const TRYOUT = deepFreeze({
     { n: 9, window: 'autumn', hpMul: 1.5, hearts: 60, seats: 2, passes: 2, erasers: 1, bossLeak: 60, aceBar: 75, affixFrom: 3, strict: 15, snackHalf: true },
     { n: 10, window: 'autumn', hpMul: 1.5, hearts: 55, seats: 2, passes: 2, erasers: 1, bossLeak: 60, aceBar: 75, affixFrom: 3, strict: 15, snackHalf: true, arrivalDown: 1 },
     { n: 11, window: 'autumn', hpMul: 1.5, hearts: 50, seats: 2, passes: 2, erasers: 1, bossLeak: 60, aceBar: 75, affixFrom: 3, strict: 15, snackHalf: true, arrivalDown: 1, escort: true },
-    { n: 12, window: 'autumn', hpMul: 1.52, hearts: 20, seats: 2, passes: 2, erasers: 1, bossLeak: 60, aceBar: 75, affixFrom: 3, strict: 15, snackHalf: true, arrivalDown: 1, escort: true, noHeal: true },
+    { n: 12, window: 'autumn', hpMul: 1.6, hearts: 26, seats: 2, passes: 2, erasers: 1, bossLeak: 60, aceBar: 75, affixFrom: 3, strict: 15, snackHalf: true, arrivalDown: 1, escort: true, noHeal: true },
   ],
   /** Campaign clears that open a window (§7): Spring after 2-5, Summer after 4-5, Autumn after 8-5. */
   windows: {
@@ -104,6 +108,20 @@ export const TRYOUT = deepFreeze({
   },
   /** The generated stage (§2.3): start coins, the period-end bonus, elites from this wave of a block on. */
   stage: { startCash: 700, periodBonus: { base: 100, perPeriod: 50 }, eliteFrom: 3, spacing: 0.8, groups: 3, coopHpMul: 1.6 },
+  // Grade 11+ (§7): the boss arrives with its escort pack (the freeplay escorts, copied here so the run table holds
+  // every number it plays) as a second group on the boss wave, `delay` s after the boss
+  escort: {
+    delay: 3,
+    packs: {
+      grave_lych: [['ghoul_gravepriest', 2]],
+      iron_colossus: [['construct_warden', 2]],
+      dragon_ashwing: [['dragon_wyvern', 6], ['dragon_cinder', 2]],
+      fp_foundry_titan: [['construct_warden', 3]],
+      fp_gloom_regent: [['ghoul_gravepriest', 3]],
+      fp_hyakki_daimyo: [['oni_taiko', 2], ['oni_shield', 3]],
+      fp_eclipse_wyrm: [['dragon_cinder', 4]],
+    },
+  },
 
   // ---- squad, Tryouts and Loaners (§5) ------------------------------------------------------------
   squad: { start: 3, draft: 6, draftOwned: 4, redraws: 1, soloMax: 8, coopMax: 5, girlChance: 30, forceAfter: 3, owned: 1.5, notOwned: 1, varsityWeight: 0.5 },
@@ -165,6 +183,10 @@ export const TRYOUT = deepFreeze({
   // ---- Window Seats and Hall Passes (§6) -----------------------------------------------------------
   seats: { solo: 3, coop: 4, radius: 0.9, dmg: 0.25, reach: 0.7, dmgCap: 0.5, reachCap: 0.7, minDist: 1.2, maxDist: 2.6, spacing: 3 },
   passes: { max: 5 },
+  // Desk Supplies (§10.3; solo only, each switched on by the run's config): Spare Eraser +1 Eraser, Pencil Money +100
+  // start coins (flat, like the 700 start coins: never × cashScale), Extra Pocket holds up to 6 Hall Passes, Bigger
+  // Draft shows 7 girls at Before Class
+  perks: { eraser: 1, coins: 100, pocket: 6, draft: 7 },
   snack: { heal: 15, fullMax: 5, coopHeal: 8 },
   heartsMaxRise: 50,
 

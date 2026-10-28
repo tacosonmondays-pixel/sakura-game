@@ -717,6 +717,9 @@ holder chips, Snack and Brush Up cards, and **Back to class**. The hero widget's
 > picks): Grade 1 new account 60 %, average 96 %, Grade 6 average 48 %, Grade 12 maxed 8 %. The average player's ~75 % at
 > Grade 1 cannot be met together with the new account's ~60 %: the band puts a new account at the floor and an average
 > one at the cap (~1.7-2× the damage), and that gap is a §9.2 design call (owner question, M2 PR).
+>
+> **M4:** with Grades 7-12's twists live in the Sim, Grade 12 is hearts 26 and hpMul 1.6 (it was 20 and 1.52: no maxed
+> run survived its first miniboss). Maxed accounts win 75 % at Grade 6 falling to 13 % at Grade 12 (§16.2).
 
 Grades 1-12 are one ladder; clearing Grade N (either length) opens N + 1. Each Grade keeps the twists below it. Content
 windows match campaign progress, so the mode can open early without meeting chapter 8 bosses on day one.
@@ -1287,7 +1290,7 @@ its own bump) and records the sim id at the end of each milestone.
 | **M1** | **The first fun slice, solo and co-op.** Half Day on the 4 Spring Term maps (Grade 1); the generated stage; 7 periods; Full Hearts + slot 2 from {Ace the Test, Speed Round, Quick Answer} + slot 3 from {Tight Budget, No Returns, Small Class, Quick Learner} (co-op: slot 3 per player); the integer score; the odds table and Teacher's Note; Eraser and Hand it in later; the 20 M1 Pep Talks (Everyone, Personal, Board) through `t.runMods` with caps; the Tryout pick with the band and Loaners (vouchers at tier 0); Recess and Cleaning Time with Window Seats (stored holders, the seat clamp), Seat Change, 3 Hall Passes with Undo, Snack, Ready, and the §6.4 table; offers in run state; per-owner counters. **Co-op in the same slice:** `tr` / `mv`, personal picks (one stream per slot), the 90 s tick timeout, `gone` resolution, the start message with each player's `pool`, the checkpoint envelope's `squads` and `period` and the §12.2 restore order, personal coins through `ownerCash`. **Solo save:** the `tryout` slot, the restore contract and the mid-wave rule. Plain UI on today's HUD (pick sheet, tracker chips, break banner, a Tryout Day card in the co-op room); the headless bot. | two-view lockstep digests; `e2e/engines.mjs`; screenshots 844 × 390 and 1280 × 720 |
 | **M2** | All 53 first-ship cards, 16 assignments, Subjects with the class choice (co-op: alternating chooser, partner suggestion) and the Back Gate, Double Dare (co-op: both tap), the coverage guarantee, arrival packages and Varsity, the Make-up Test (solo), Grades 1-6; the hit-DPS bench gate on every girl and Hidden Talent (`bench.mjs --hit`); bot sweeps at three roster strengths, solo and co-op; a playtest timing the sheets. | bench and bot gates |
 | **M3** | Ink & Paper UI **after the UI v2 menus land** (merge `feature/ui-v2`, build with its kit): hub, Before Class (co-op: a panel per player and the Ready row in the room), timetable strip, period-end sheet (co-op partner chip), tracker states, girl cards, break mode, Class Photo, Stationery frames, text, Reduce Motion. Until UI v2 lands the plain M1 UI stays. | screenshots |
-| **M4** | Meta and **ship prep only**: Marbles and the Marble Jar, Lunchbox, coin cap, Yearbook, the achievement wave (360 gems counted), Grades 7-12, Weekly Timetable, share codes, the Full Day (data + wave-48 perf check), co-op rewards (`src/online/coop/rewards.js`); go/no-go list, patch note draft, the planned `COOP_PROTOCOL` bump written down but not made. **Not shipped**: the mode goes out after the ultimates (COOP 9) and the balance pass, with the owner's yes on screenshots. | full review |
+| **M4** | (Sim side built: Grades 7-12, the Full Day with its wave-48 perf check and the Desk Supplies in the run; notes in §16.2.) Meta and **ship prep only**: Marbles and the Marble Jar, Lunchbox, coin cap, Yearbook, the achievement wave (360 gems counted), Grades 7-12, Weekly Timetable, share codes, the Full Day (data + wave-48 perf check), co-op rewards (`src/online/coop/rewards.js`); go/no-go list, patch note draft, the planned `COOP_PROTOCOL` bump written down but not made. **Not shipped**: the mode goes out after the ultimates (COOP 9) and the balance pass, with the owner's yes on screenshots. | full review |
 
 **Every milestone's review gate:** an independent reviewer (a subagent that did not build it) checks logic and look
 (screenshots at 844 × 390 and 1280 × 720) and determinism (headless two-view lockstep digests and `e2e/engines.mjs`
@@ -1321,6 +1324,44 @@ on the same engine; co-op Continue and the co-op Make-up Test; 3-4 player co-op.
    Sim's step, so the 90 s timeout fires on the same tick on every client.
 7. **Blocks** (seats and enemy families) are the stretches between breaks: Half Day P1-P3, P4-P6, P7.
 8. **M1 vouchers** arrive at tier 0 for every rarity (the R package); the tiered packages are M2 as planned.
+
+### 16.2 M4 notes (Grades 7-12, the Full Day, Desk Supplies in the run)
+
+1. **Grade twists** (all in `src/sim/tryout/*`, read from the Grade row): Grade 7's 75 % bar and 2 passes were already
+   honoured. **Grade 8 affixes** are drawn at the run's start from their own stream per period (`affix:<period>`, the
+   Double Dare list), stored as ids on the plan and on `sim.tryout.affixes` (index = period, null before P3) so the
+   timetable can show them from Before Class; every foe of the period gets it through `applySpawnMods`, children
+   included, as the Dare does. **With a Double Dare** in an affixed period the Dare draws one of the *other* three
+   (`dareOf`), so a dared swift period is swift and something else, never swift twice; below Grade 8 the Dare's draw is
+   unchanged. **"15 % stricter"** (`targetsOf(grade)`): Ace the Test's bar × 1.15, rounded (75 → 86 %); Speed Round's and
+   Quick Answer's seconds × 0.85 (8 → 6.8 s, 12 → 10.2 s). **Grade 9 Snack** heals half, rounded down (15 → 7, co-op
+   8 → 4); the +5 max hearts at full hearts is not a heal and stays. **Grade 11 escort:** the boss brings its escort
+   pack (the freeplay escorts, copied into `TRYOUT.escort.packs`) as a second group on the boss wave, 3 s after it.
+   **Grade 12:** `sim.canHeal()` is false in the run (`tryoutCanHeal`), so healers, Home Ec and Nurse's Office heal
+   nothing (Nurse's Office is not offered) and a Snack gives +1 Hall Pass, as Last Petal does. Home Ec stays in the
+   Subject draw at Grade 12 (taking it out leaves 11 Subjects for a Half Day's 12 slots).
+2. **Retune (Grade 12 only):** with every twist live the bot's maxed account won 0 % at Grade 12: 20 hearts cannot
+   take one miniboss leak (18-20 hearts) and nothing heals. The row is now **hearts 26, hpMul 1.6**. Maxed sweeps
+   (`--strength maxed`, solo Half Day, random picks): Grade 6 75 %, 7 67 %, 8 67 %, 9 50 %, 10 42 % (12 runs each),
+   11 33 %, 12 13 % (48 runs each; the first 12 seeds of Grade 12 alone: 25 %).
+3. **Full Day** plays end to end solo and in two-view co-op (`tests/sim/tryoutGrades.test.js`,
+   `tests/online/tryoutCoop.test.js`): 12 periods, 11 picks (1 and 5 Tryout picks), Recess, Lunch Break and Cleaning
+   Time, minibosses on 12, 28 and 44, the boss on 48. The Subject draw could corner itself in about 0.7 % of Full Days
+   (a Subject a third time); it now redraws from the same stream when it does (a draw that never corners is unchanged,
+   so every Half Day and 99 % of Full Days keep their timetable). The co-op room still offers Half Days only.
+4. **Perf check at wave 48** (Node 22, one core; mean / p95 per 1/60 s step on waves 47-48, the bot's board): Grade 1
+   Full Day, mid account, 42-43 girls: 0.07 / 0.22-0.27 ms; new account, 36-37 girls: 0.05-0.08 / 0.19-0.25 ms; Grade 11
+   maxed, waves 41-48, 36-55 girls, up to 66 foes and 112 shots: 0.09-0.11 / 0.23-0.45 ms. A campaign stage with the
+   autoPlan board (10 girls, mid stats): 8-5 0.022 / 0.047 ms, 7-5 0.021 / 0.049 ms, 5-5 (70 foes) 0.074 / 0.16 ms. The
+   run costs about what its board size predicts (3-4× the girls) and stays far under the 2 ms step budget
+   (`tests/sim/perf.test.js`); nothing to fix. The wave cache holds at most 48 wave tables (not trimmed: the offers and
+   Ace the Test read the coming periods' waves), and the snapshot at wave 48 is 107-150 KB.
+5. **Desk Supplies** (`cfg.perks` = `{ eraser, draft7, coins, pocket }`, solo only; a run of two ignores them, and
+   co-op never sends them): Spare Eraser +1 at the start (never above the 3 held); Pencil Money +100 start coins, flat
+   (the start coins are never × cashScale); Extra Pocket holds up to 6 Hall Passes (`passMax(sim)`); Bigger Draft is
+   draft-side: `draftOf(owned, seed, slot, redraw, BIGGER_DRAFT)` gives 7, whose first six are the plain draft. The
+   switched-on set rides in `sim.tryout.perks` (so in every snapshot) and in `result().tryout.perks`; a Continue
+   rebuilds the Sim from the record's config (perks included) and the snapshot overwrites coins and Erasers.
 
 ---
 

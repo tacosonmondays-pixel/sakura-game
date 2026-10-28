@@ -64,7 +64,7 @@ import {
 import {
   createTryout, tryoutLoadouts, tryoutCanStart, tryoutWaveStart, tryoutWaveEnd, tryoutTick, tryoutSpawn, tryoutKill, tryoutLeak,
   tryoutCount, tryoutPlaceCost, tryoutPlaced, tryoutTowerMods, tryoutUpgradeCost, tryoutUpgraded, tryoutResult, tryoutCommand,
-  tryoutMove, windowOpen, tryoutBackGate,
+  tryoutMove, windowOpen, tryoutBackGate, tryoutCanHeal,
 } from './tryout/index.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
 import { hasCards, refreshRunMods } from './tryout/pep.js';
@@ -1615,9 +1615,9 @@ export class Sim {
     return ruleAffinityFor(this, n);
   }
 
-  /** Can hearts come back? (Not in Last Petal.) */
+  /** Can hearts come back? (Not in Last Petal, nor in a Grade 12 Tryout Day run.) */
   canHeal() {
-    return !this.mode.noHeal;
+    return !this.mode.noHeal && !(this.tryout && !tryoutCanHeal(this));
   }
 
   /**
