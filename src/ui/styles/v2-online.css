@@ -25,28 +25,28 @@
 :is(.ui-day) :is(.ol-screen, .sc-card-modal, .sc-report, .sc-menu) .btn-small > .btn-icon { width: 16px; height: 16px; }
 
 /* a field: white, one hairline ring, square (the kit's .ui-input on a bare <input>); focus = the 2 px cyan ring */
-:is(.ui-day) .ol-input {
+:is(.ui-day) :is(.ol-screen, .modal) .ol-input {
   min-height: calc(var(--tap) + 2px); padding: 0 12px; border: 0; border-radius: 0; background: var(--panel-w); color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--line-ink); font: 700 var(--fs-body)/1.2 var(--font); transition: box-shadow var(--t-press) var(--ease);
 }
-:is(.ui-day) .ol-input:focus { outline: none; border: 0; box-shadow: inset 0 0 0 2px var(--cyan-ink); }
-:is(.ui-day) .ol-input::placeholder { color: var(--muted); font-weight: 600; }
-:is(.ui-day) textarea.ol-input { padding: 10px 12px; line-height: 1.35; }
-:is(.ui-day) .ol-code-input, :is(.ui-day) .sc-code-in { font: 700 var(--fs-num-s)/1 var(--font-num); letter-spacing: 0.2em; text-transform: uppercase; }
-:is(.ui-day) :is(.ol-code-input, .sc-code-in)::placeholder { letter-spacing: var(--track-menu); font-weight: 600; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-input:focus { outline: none; border: 0; box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-input::placeholder { color: var(--muted); font-weight: 600; }
+:is(.ui-day) :is(.ol-screen, .modal) textarea.ol-input { padding: 10px 12px; line-height: 1.35; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-code-input, :is(.ui-day) :is(.ol-screen, .modal) .sc-code-in { font: 700 var(--fs-num-s)/1 var(--font-num); letter-spacing: 0.2em; text-transform: uppercase; }
+:is(.ui-day) :is(.ol-screen, .modal) :is(.ol-code-input, .sc-code-in)::placeholder { letter-spacing: var(--track-menu); font-weight: 600; }
 
 /* the old segmented controls as the kit's options: a row of -8 degree parallelograms with a hairline ring; selected =
    the ink fill and a sakura bar (ink.css .ui-opt) */
-:is(.ui-day) .ol-seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 0; border-radius: 0; background: none; }
-:is(.ui-day) .ol-seg-btn {
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 0; border-radius: 0; background: none; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn {
   --h: calc(var(--tap) + 2px); --s: calc(var(--h) * var(--tan8)); --fill: var(--panel-w); --edge: var(--line-ink); --rw: 1px;
   position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 0 1 auto; min-width: 0;
   height: var(--h); min-height: var(--h); padding: 0 calc(10px + var(--s)); border: 0; border-radius: 0; box-shadow: none; transform: none;
   background: var(--fill); color: var(--ink); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; white-space: nowrap;
   clip-path: polygon(var(--s) 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%); cursor: pointer;
 }
-:is(.ui-day) .ol-seg-btn > * { position: relative; }
-:is(.ui-day) .ol-seg-btn::after {
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn > * { position: relative; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn::after {
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
   clip-path: polygon(evenodd,
     var(--s) 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%, var(--s) 0,
@@ -54,11 +54,11 @@
     calc(100% - var(--s) - var(--rw) * 0.87) calc(100% - var(--rw)), calc(var(--rw) * 1.15) calc(100% - var(--rw)),
     calc(var(--s) + var(--rw) * 0.87) var(--rw));
 }
-:is(.ui-day) .ol-seg-btn:active { transform: none; --fill: var(--cyan-wash); }
-:is(.ui-day) .ol-seg-btn.on, :is(.ui-day) .ol-fp-seg .ol-fp-btn.on { --fill: var(--plate); --edge: transparent; background: var(--fill); color: var(--on-ink); box-shadow: none; }
-:is(.ui-day) .ol-seg-btn.on::before { content: ''; position: absolute; z-index: 2; left: calc(var(--s) - 2px); right: calc(var(--s) + 6px); bottom: 0; height: 3px; background: var(--pink); }
-:is(.ui-day) .ol-seg-btn:disabled { --fill: var(--sky-1); --edge: var(--line-ink-soft); color: var(--muted); opacity: 1; cursor: default; }
-:is(.ui-day) .ol-seg-btn:focus-visible { outline: none; --edge: var(--cyan-ink); --rw: 2px; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn:active { transform: none; --fill: var(--cyan-wash); }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn.on, :is(.ui-day) :is(.ol-screen, .modal) .ol-fp-seg .ol-fp-btn.on { --fill: var(--plate); --edge: transparent; background: var(--fill); color: var(--on-ink); box-shadow: none; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn.on::before { content: ''; position: absolute; z-index: 2; left: calc(var(--s) - 2px); right: calc(var(--s) + 6px); bottom: 0; height: 3px; background: var(--pink); }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn:disabled { --fill: var(--sky-1); --edge: var(--line-ink-soft); color: var(--muted); opacity: 1; cursor: default; }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn:focus-visible { outline: none; --edge: var(--cyan-ink); --rw: 2px; }
 
 /* the level chip: a small ink chip (one cut), Barlow caps; the tag chips (DEV · ALPHA · BETA) at the 12 px floor */
 :is(.ui-day) .ol-lv {
@@ -227,7 +227,7 @@
 }
 /* the hub's foot: Change stage (a ghost) on the left, the one yellow on the right */
 :is(.ui-day) .ol-coop-foot { justify-content: space-between; align-items: center; gap: 8px; }
-:is(.ui-day) .ol-seg-btn { min-width: calc(var(--tap) + 2px + var(--s)); }
+:is(.ui-day) :is(.ol-screen, .modal) .ol-seg-btn { min-width: calc(var(--tap) + 2px + var(--s)); }
 @media (max-height: 480px) {
   /* (two columns only where the page is wide enough: under 700 px the panels stack, as before, so the hub's foot never
      sits under the bottom-centre "Open in another tab" banner) */
@@ -591,13 +591,13 @@
 :is(.ui-day) .sc-card-presence { font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted); }
 :is(.ui-day) .sc-card-presence.on { color: var(--good-text); }
 :is(.ui-day) .sc-card-acts { gap: 8px; }
-:is(.ui-day) .sc-card-row { gap: 8px; flex-wrap: nowrap; }
-:is(.ui-day) .sc-card-row > .btn { flex: 1 1 0; min-width: 0; font-size: var(--fs-label); letter-spacing: var(--track-caps); padding: 0 12px; }
-:is(.ui-day) .sc-card-why, :is(.ui-day) .sc-card-note { border-radius: 0; background: none; padding: 6px 10px; box-shadow: inset 3px 0 0 var(--yellow-deep); color: var(--ink); font: 600 var(--fs-label)/1.35 var(--font); }
-:is(.ui-day) .sc-card-note { box-shadow: inset 3px 0 0 var(--cyan-ink); }
-:is(.ui-day) .sc-card-ask { font: 700 var(--fs-label)/1.3 var(--font); color: var(--ink); }
-:is(.ui-day) .sc-card-foot { gap: 4px; padding-top: 6px; border-top: 1px solid var(--line-ink-soft); }
-:is(.ui-day) .sc-card-foot .btn { background: transparent; color: var(--muted); box-shadow: none; }
+:is(.ui-day) .sc-card-modal .sc-card-row { gap: 8px; flex-wrap: nowrap; }
+:is(.ui-day) .sc-card-modal .sc-card-row > .btn { flex: 1 1 0; min-width: 0; font-size: var(--fs-label); letter-spacing: var(--track-caps); padding: 0 12px; }
+:is(.ui-day) .sc-card-modal .sc-card-why, :is(.ui-day) .sc-card-modal .sc-card-note { border-radius: 0; background: none; padding: 6px 10px; box-shadow: inset 3px 0 0 var(--yellow-deep); color: var(--ink); font: 600 var(--fs-label)/1.35 var(--font); }
+:is(.ui-day) .sc-card-modal .sc-card-note { box-shadow: inset 3px 0 0 var(--cyan-ink); }
+:is(.ui-day) .sc-card-modal .sc-card-ask { font: 700 var(--fs-label)/1.3 var(--font); color: var(--ink); }
+:is(.ui-day) .sc-card-modal .sc-card-foot { gap: 4px; padding-top: 6px; border-top: 1px solid var(--line-ink-soft); }
+:is(.ui-day) .sc-card-modal .sc-card-foot .btn { background: transparent; color: var(--muted); box-shadow: none; }
 :is(.ui-day) .sc-card-code small { font: 600 var(--fs-label)/1.1 var(--font-num); font-style: normal; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
 :is(.ui-day) .sc-card-modal > .modal-body > .sc-card > .sc-card-acts > .btn-ghost:first-child { align-self: flex-start; }
 @media (max-height: 480px) {
