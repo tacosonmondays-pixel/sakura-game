@@ -84,7 +84,9 @@ for (const vp of viewports) {
     // (the bolt is the kit's yellow SVG everywhere: the ⚡ character is a colour emoji that differs per phone)
     check(boltChip === 1 && !/⚡/.test(teaser), `${vp} her panel marks the ability path with the kit bolt before she has it (svg ${boltChip}, no ⚡ emoji)`);
     // (the drawer's two-tap buy: tap 1 arms the price, tap 2 buys; a tap that lands while the drawer redraws after the
-    // last buy is simply tapped again)
+    // last buy is simply tapped again. On a busy machine two Playwright taps can land seconds apart, past the 2.6 s
+    // arm window, so the arm is held for the loop: towerPanel holdArm, as the M4 scenes do)
+    await page.evaluate(() => window.__battle.ui.panel.holdArm(true));
     for (let i = 0; i < 8; i++) {
       const tier = await page.evaluate((u) => window.__battle.sim.getTower(u).tiers[1], aoi);
       if (tier >= 3) break;
@@ -94,6 +96,7 @@ for (const vp of viewports) {
       await page.waitForFunction(([u, n]) => window.__battle.sim.getTower(u).tiers[1] > n, [aoi, tier], { timeout: 2000 }).catch(() => {});
       await settle(page, 120);
     }
+    await page.evaluate(() => window.__battle.ui.panel.holdArm(false));
     const tiers = await page.evaluate((u) => window.__battle.sim.getTower(u).tiers.join('-'), aoi);
     check(tiers === '0-3-0', `${vp} Aoi bought to 0-3-0 through the panel (${tiers})`);
     await page.waitForSelector('[data-testid="ability-slot-0"]', { timeout: 5000 });

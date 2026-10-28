@@ -192,12 +192,9 @@ describe('display only: the battle sim is untouched', () => {
 
   it('the sim id for this co-op protocol is unchanged (a sim change must bump COOP_PROTOCOL)', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
-    const KNOWN = { 8: '92e2e22527cf' };
-    // feature/abilities only: the abilities work changes the sim on protocol 8 and bumps it to 9 once, at its release
-    // (A3 plan M7, which adds `9: '<id>'` above and removes this line). Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 8: 'c22b2587f4b7' };
+    // (9: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START)
+    const KNOWN = { 8: '92e2e22527cf', 9: 'b0436d2dd6a4' };
     if (!KNOWN[COOP_PROTOCOL]) return;
-    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });
