@@ -197,9 +197,13 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.abilityCasts).toBe(0);
     // pinned in A3 M3 from the tree BEFORE the returning girls' rows were attached (fbdf8b3f352b): Ena, Ruri, Hana and
     // Noa reach their ⚡ tier 3 and Seiran / Yoriko Lv 7 here, so their abilities unlock and charge, but nobody casts
-    // and nobody is on Auto: damage, lives, coins and every hash stay exactly what they were
+    // and nobody is on Auto: damage, lives, coins and every hash stay exactly what they were.
+    // Re-pinned once for fix/seiran-dragon (merged in 98a4677; the pin above still held on fea20ee, just before it):
+    // Dragonflight now flies all the way back to START, so the run reaches the same wave sooner (12239 → 11492
+    // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
+    // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 12239, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2796/3575', final: 549528609, hashes: 'd04b0d1b', curseBursts: 60, runners: 2 });
+      .toEqual({ ticks: 11492, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2891/3480', final: 253530618, hashes: 'a90dc673', curseBursts: 61, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
