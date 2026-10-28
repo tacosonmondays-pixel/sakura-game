@@ -77,7 +77,9 @@ export const list = ['students', 'roster-end', 'students-hold', 'students-hold-b
  * rebuilt (the radius check). */
 const REBUILT = { rebuilt: true };
 export const gate = {
-  students: REBUILT, 'roster-end': REBUILT, 'girl-info': REBUILT, 'girl-info-ruri': REBUILT, formation: REBUILT, 'roster-pick': REBUILT,
+  // Info: 10 in the plan, plus the ⚡ ability chip's tier ("T3") that the ultimates (v0.1.57) put in the slot M3 kept for it
+  'girl-aoi-info': { limit: 11 }, 'girl-info-scroll': { limit: 11 },
+  students: REBUILT, 'roster-end': REBUILT, 'girl-info': { ...REBUILT, limit: 11 }, 'girl-info-ruri': { ...REBUILT, limit: 11 }, formation: REBUILT, 'roster-pick': REBUILT,
   'girl-gear': { limit: 12, rebuilt: true }, 'girl-gear-empty': { limit: 12, rebuilt: true }, 'girl-gear-picker': { limit: 12, rebuilt: true },
   'girl-level': { limit: 12 }, 'girl-level-manual': { limit: 22 }, 'girl-awaken': { limit: 12 }, 'girl-tree': { limit: 6 },
   'girl-gear-sheet': { limit: 12 }, 'girl-gear-totals': { limit: 99 }, 'girl-base-stats': { limit: 99 }, 'girl-profile': { limit: 99 },

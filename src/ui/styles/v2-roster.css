@@ -155,7 +155,7 @@ body.ui-day .gp-info.detailed > .gp-pot-card::before { display: none; }
 body.ui-day .gp-role .gp-role-name { color: var(--ink); }
 body.ui-day .gp-one { margin: 8px 0 10px; color: var(--ink); }
 /* the ⚡ ability line (feature/abilities adds it between the sentence and the strip): a kit row, 44 px */
-body.ui-day .gp-host .gp-abil { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); margin: 0 0 10px; padding: 0 8px 0 12px; border: 0; border-radius: 0;
+body.ui-day .gp-host .gp-abil { display: flex; align-items: center; gap: 8px; width: 100%; min-height: calc(var(--tap) + 2px); margin: 0 0 10px; padding: 0 8px 0 12px; border: 0; border-radius: 0;
   background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); color: var(--ink); text-align: left; font: 700 var(--fs-body)/1.2 var(--font); cursor: pointer;
   clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
 body.ui-day .gp-pot-card { color: var(--ink); text-align: left; cursor: pointer; min-height: var(--tap); }
