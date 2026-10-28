@@ -349,6 +349,9 @@ try {
     });
     await go('#/stage/ev-halloween-boss?difficulty=nightmare', '[data-testid="event-prep"]');
     await page.waitForSelector('[data-testid="event-variant"]', { timeout: 10000 }).catch(() => null);
+    // (UI v2 M1: stage prep's enemies are in its "i" sheet and the drop grid in its Drops sheet: both open, two layers)
+    await page.evaluate(() => { document.querySelector('#app [data-testid="prep-info"]')?.click(); document.querySelector('#app [data-testid="prep-drops"]')?.click(); });
+    await page.waitForSelector('[data-testid="drops-sheet"]', { timeout: 10000 }).catch(() => null);
     const nmPrep = await page.evaluate(() => ({
       variant: document.querySelector('[data-testid="event-variant"]')?.textContent || '',
       waves: [...document.querySelectorAll('.ma-fact')].find((f) => /Waves/.test(f.textContent))?.querySelector('.ma-fact-value')?.textContent,
@@ -363,6 +366,8 @@ try {
     check(/×500 per win/.test(nmPrep.candy), 'boss Nightmare prep: Pumpkin Candy ×500 per win');
     check(nmPrep.drop === '×500', `boss Nightmare prep: the Drops grid shows the sure candy as ×500, not a range (${nmPrep.drop})`);
     check(nmPrep.start === false && nmPrep.golem && nmPrep.knight, 'boss Nightmare prep: Start open, its own enemies scouted (Golem, hollow knights)');
+    await page.evaluate(() => document.querySelectorAll('.ui-layer .ui-close').forEach((b) => b.click()));
+    await page.waitForTimeout(300);
     check(await noOverflow(), 'boss Nightmare prep: no horizontal overflow');
     await page.waitForTimeout(800);
     await shot('boss-nightmare-prep');

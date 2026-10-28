@@ -57,12 +57,13 @@ function select(id, label, value, options, onPick) {
 
 /**
  * @param {{ place: string, slot?: string|null, shown: number, total: number, onChange: () => void,
- *   rarity?: string|null, onClearRarity?: () => void }} opts
+ *   rarity?: string|null, onClearRarity?: () => void, sort?: boolean }} opts
  *   slot: when the list is one slot, only that slot's main stats are offered;
  *   rarity / onClearRarity: the screen already has its own rarity chips (Backpack) — the bar
- *   hides its rarity row, counts that rarity as a filter, and Clear also resets it
+ *   hides its rarity row, counts that rarity as a filter, and Clear also resets it;
+ *   sort: false leaves the sort out (the Backpack sorts from its own Sort button, UI v2 M2)
  */
-export function gearFilterBar({ place, slot = null, shown, total, onChange, rarity, onClearRarity = null }) {
+export function gearFilterBar({ place, slot = null, shown, total, onChange, rarity, onClearRarity = null, sort = true }) {
   const external = rarity !== undefined;
   const f = gearFilterFor(place, slot, external ? { rarity: null } : {});
   const set = (patch) => {
@@ -85,7 +86,7 @@ export function gearFilterBar({ place, slot = null, shown, total, onChange, rari
       select('main', 'Main stat', mains.includes(f.main) ? f.main : null, [[null, 'Any'], ...mains.map((s) => [s, statName(s)])], (v) => set({ main: v })),
       select('sub', 'Has substat', f.sub, [[null, 'Any'], ...GEAR_STAT_KEYS.map((s) => [s, statName(s)])], (v) => set({ sub: v })),
       select('status', 'Show', f.status, Object.entries(GEAR_STATUSES), (v) => set({ status: v || 'all' })),
-      select('sort', 'Sort', f.sort, Object.entries(GEAR_SORTS), (v) => set({ sort: v || 'best' }))),
+      sort ? select('sort', 'Sort', f.sort, Object.entries(GEAR_SORTS), (v) => set({ sort: v || 'best' })) : null),
     h('div.gf-foot',
       h('span.gf-count', { 'data-testid': 'gear-filter-count' }, active ? `Showing ${shown} of ${total}` : `${total} piece${total === 1 ? '' : 's'}`),
       active ? h('button.gf-clear', {

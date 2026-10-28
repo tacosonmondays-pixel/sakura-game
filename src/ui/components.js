@@ -11,7 +11,7 @@ import { cardArtSVG } from '../art/cardArt.js';
 import { portraitHTML } from '../art/portraits.js';
 import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
-import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js';
+import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER, ROLES } from '../data/types.js';
 import { itemSources, itemCount } from '../systems/inventory.js';
 import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
 import { potentialOf, potPill } from './potential.js';
@@ -19,9 +19,10 @@ import { hasPotentialNew } from '../systems/potential.js';
 import { pickMarks } from './pickMarks.js';
 import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
-import { walletsFor, WALLET_DEFS } from './wallets.js';
-import { curArt } from './kit.js';
+import { walletsFor, walletDef } from './wallets.js';
+import { curArt, ico } from './kit.js';
 import { countTo } from './motion.js';
+import { faceAnchor } from './faceAnchors.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -240,7 +241,7 @@ function inkWallets({ plus = true, wallets = null } = {}) {
   const el = h('div.topbar-group.cur-pills');
   const line = (name) => svgEl(lineGlyph(name, '', { kitSize: false }));
   const pill = (id) => {
-    const d = WALLET_DEFS[id];
+    const d = walletDef(id);
     vals[id] = h('span.cur-val.num', { 'data-testid': id });
     const more = plus && d.plus
       ? h('button.cur-plus', { type: 'button', onclick: () => navigate(d.plus.route, d.plus.params), title: d.plus.label, 'aria-label': d.plus.label }, line('plus'))
@@ -249,10 +250,10 @@ function inkWallets({ plus = true, wallets = null } = {}) {
   };
   // (a balance that changed since it was last on show, here or on the home, counts there: motion.js countTo)
   const refresh = () => {
-    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, WALLET_DEFS[id].item), { key: id });
+    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, walletDef(id).item), { key: id });
   };
   const draw = (next) => {
-    ids = (next || []).filter((id) => WALLET_DEFS[id]);
+    ids = (next || []).filter((id) => walletDef(id));
     for (const k of Object.keys(vals)) delete vals[k];
     el.replaceChildren(...ids.flatMap((id, i) => [i ? h('span.ui-slash', { 'aria-hidden': 'true' }) : null, pill(id)]).filter(Boolean));
     el.hidden = !ids.length;
@@ -521,11 +522,104 @@ export function showItemInfo(itemId) {
   return m;
 }
 
+/** [ui-ink] V3: a girl tile's role mark, one line glyph per role family (the families the Students filter lists). */
+export const ROLE_GLYPH = Object.freeze({ dps: 'sword', control: 'timer', support: 'sparkle', frag: 'zap', economy: 'coin', hero: 'crown' });
+/** [ui-ink] V3: the 5.6 frame ladder step of a shown rarity (R flat, SR tinted, SSR Glow, UR rainbow, LR Nightglass). */
+export const GIRL_STEP = Object.freeze({ R: '', SR: 'sr', SSR: 'ssr', UR: 'ur', LR: 'lr' });
+/** [ui-ink] V3: where every girl's eye line sits in her tile, from its top (a fraction of the tile's height). */
+export const TILE_EYE = 0.36;
+/** The card art's height in tile heights: a 3:5 picture covering a 10:13 tile, matched by its width. */
+const CARD_K = (500 / 300) / 1.3;
+
 /**
- * Character card thumbnail. variant: 'tall' (tall portrait) | 'square'.
+ * [ui-ink] V3: how a girl tile frames her card art so every eye line sits at one height (TILE_EYE; her -card anchor,
+ * src/ui/faceAnchors.js, read off her drawing): the kit's 1.22 zoom, up to 1.5 for a face drawn high in her card; a
+ * shift up for a face drawn low; her face moved toward the middle across; never a gap at any edge. Pure.
+ * @returns {{ s: number, x: number, y: number }} the zoom, and the shifts in % of the tile (CSS --gs, --gx, --gy)
+ */
+export function tileFrame(unitId) {
+  const a = faceAnchor(unitId, 'card');
+  const s = Math.min(1.5, Math.max(1.22, TILE_EYE / (a.eye * CARD_K)));
+  const y = Math.min(0, Math.max(1 - s * CARD_K, TILE_EYE - s * a.eye * CARD_K));
+  const slack = (s - 1) / 2;
+  const x = Math.min(slack, Math.max(-slack, -s * (a.cx - 0.5)));
+  const pc = (v) => Math.round(v * 1000) / 10 || 0;
+  return { s: Math.round(s * 1000) / 1000, x: pc(x), y: pc(y) };
+}
+
+/** [ui-ink] V3: a girl not met yet: how she joins, short enough for her tile ("Clear 6-5", "Recruit", "Starter"). */
+export function joinRule(unit) {
+  const a = unit?.acquisition || {};
+  if (a.type === 'starter') return 'Starter';
+  if (a.type === 'free' && a.afterStage) return `Clear ${a.afterStage}`;
+  return 'Recruit';
+}
+
+/**
+ * [ui-ink] V3 (UI v2 menus M3): a girl as the kit's girl tile (ink.css "THE GIRL TILE"). Her card art framed so every
+ * eye line sits at one height (tileFrame), in the 5.6 frame ladder: R flat, SR tinted, SSR Glow, UR the turning
+ * rainbow of ur.css (its ring, glints and letters), LR the Nightglass hook (`.lr`, drawn when the duo ships). The
+ * caption: her name and LV; the status corner: the P chip (P2+) and the one-time Potential NEW; her role family's line
+ * glyph at the top-right (pink for a hero: heroes may be pink). At most 2 numbers a tile: LV and P. Selected: the
+ * caption turns white over a 3 px pink bar and the status corner holds the pink check chip (medium 3). A girl not met
+ * yet: the quiet grey frame, her name, and how she joins on an ink chip above the caption (never over her face).
+ * The old card's hooks stay: the class `unit-card` (the hold gesture, the select sound, e2e readers, the probe's
+ * repeated tiles), `data-unit`, `data-rarity` (the shown rarity), the test ids `card-pot` and `card-potnew`.
+ * @param {string} unitId
+ * @param {{ onClick?: Function|null, owned?: boolean, level?: number|null, selected?: boolean, profile?: object,
+ *   potential?: number, rule?: string|null, testid?: string|null, cls?: string }} [o]
+ *   level: her level in the caption (null: none); potential: her P from the caller (0 hides the chip; default the
+ *   profile's); rule: a girl not met yet: how she joins (default joinRule)
+ * @returns {HTMLButtonElement}
+ */
+export function girlTile(unitId, { onClick = null, owned = true, level = null, selected = false, profile = store.profile, potential, rule = null, testid = null, cls = '' } = {}) {
+  const u = getUnit(unitId);
+  const shown = owned ? displayRarity(u, profile) : u.rarity;
+  const step = GIRL_STEP[shown] ?? '';
+  const pot = owned ? (potential ?? potentialOf(profile, unitId)) : 0;
+  const hero = u.kind === 'hero';
+  const fam = hero ? 'hero' : ROLES[u.role]?.category || 'dps';
+  const isNew = pot >= 2 && profile === store.profile && hasPotentialNew(profile, unitId);
+  const join = owned ? null : rule || joinRule(u);
+  const f = tileFrame(u.id);
+  const name = `${u.name}${hero ? ', hero' : ''}`;
+  const aria = owned ? `${name}, ${shown}${level != null ? `, level ${level}` : ''}${pot >= 2 ? `, Potential ${pot}` : ''}${selected ? ', selected' : ''}`
+    : `${name}, ${shown}, not recruited: ${join}`;
+  const el = h(`button.ui-girltile.unit-card${step ? `.${step}` : ''}${owned ? '' : '.locked'}${selected ? '.sel' : ''}${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-unit': unitId, 'data-rarity': shown, 'data-hero': hero ? '' : null, 'data-testid': testid, 'aria-label': aria,
+    'aria-pressed': selected ? 'true' : null, title: u.name, onclick: onClick,
+    style: { '--gs': f.s, '--gx': `${f.x}%`, '--gy': `${f.y}%`, '--rarity': rarityInfo(shown).color },
+    html: portraitHTML(u, 'card', { cls: 'card', alt: '' }),
+  },
+  step === 'ssr' && owned ? h('span.glow', { 'aria-hidden': 'true' }) : null,
+  selected || pot >= 2 || isNew ? h('span.st',
+    selected ? h('span.ui-chip.pick', { 'aria-hidden': 'true' }, ico('check')) : null,
+    pot >= 2 ? h('span.gt-p', { 'data-testid': 'card-pot' }, potPill(pot, { def: u })) : null,
+    // one-time NEW: a girl who was P2+ when Potential v3 arrived, until her Info tab is opened
+    isNew ? h('span.ui-bdg.new', { 'data-testid': 'card-potnew', title: 'New Potential steps — see her Info tab' }, 'New') : null) : null,
+  h(`span.role${hero ? '.hero' : ''}`, { 'aria-hidden': 'true', title: hero ? 'Hero' : ROLES[u.role]?.name || null },
+    h('span.ui-ico', { html: lineGlyph(ROLE_GLYPH[fam] || 'sword', '', { kitSize: false }) })),
+  join ? h('span.ui-chip.ink.dup.gt-join', { 'data-testid': 'card-join' }, join) : null,
+  h('span.cap',
+    owned ? null : ico('lock'),
+    h('span.nm', u.name),
+    owned && level != null ? h('span.gt-lv', { 'data-testid': 'card-lv' }, h('span.lbl', 'LV'), h('span.num', String(level))) : null));
+  if (shown === 'UR') applyUrFrame(el, u, profile);
+  return el;
+}
+
+/**
+ * Character card thumbnail. variant: 'tall' (since UI v2 V3 the girl tile, girlTile()) | 'square' (the small card
+ * stage prep still lays out; lane A adopts girlTile() with its stage prep).
  * An owned SSR at the last awaken star shows as UR (src/ui/rarity.js): rainbow frame + badge.
  */
-export function unitCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'tall', selected = false, profile = store.profile, potential } = {}) {
+export function unitCard(unitId, opts = {}) {
+  if ((opts.variant || 'tall') === 'tall') return girlTile(unitId, opts);
+  return squareCard(unitId, opts);
+}
+
+/** The pre-V3 card, square (stage prep's squad strip, its swap grid, the counters and unlock rows). */
+function squareCard(unitId, { onClick, owned = true, level = null, awaken = 0, variant = 'square', selected = false, profile = store.profile, potential } = {}) {
   const u = getUnit(unitId);
   const shown = owned ? displayRarity(u, profile) : u.rarity;
   // Potential pill (P2+), from the shown profile (a friend's card shows her Potential) unless the

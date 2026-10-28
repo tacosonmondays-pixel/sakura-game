@@ -1,0 +1,178 @@
+{
+ "campaign-ch4": {
+  "844x390": {
+   "text": 12,
+   "numbers": 7,
+   "tapMin": 45.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 1,
+   "radius": 26,
+   "covered": 0,
+   "overflow": true,
+   "ellipsis": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 13,
+   "numbers": 7,
+   "tapMin": 49.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 1,
+   "radius": 36,
+   "covered": 0,
+   "overflow": true,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 13,
+   "numbers": 7,
+   "tapMin": 45.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 0,
+   "radius": 20,
+   "covered": 0,
+   "overflow": true,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
+ },
+ "campaign-ch1": {
+  "844x390": {
+   "text": 12,
+   "numbers": 7,
+   "tapMin": 45.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 1,
+   "radius": 26,
+   "covered": 0,
+   "overflow": true,
+   "ellipsis": 0,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 13,
+   "numbers": 7,
+   "tapMin": 49.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 1,
+   "radius": 34,
+   "covered": 0,
+   "overflow": true,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 13,
+   "numbers": 7,
+   "tapMin": 45.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 0,
+   "radius": 19,
+   "covered": 0,
+   "overflow": true,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
+ },
+ "stage-prep-new": {
+  "844x390": {
+   "text": 9.92,
+   "numbers": 15,
+   "tapMin": 44.25,
+   "under44": 0,
+   "yellow": 2,
+   "pinkStray": 0,
+   "radius": 14,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 3,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 8.8,
+   "numbers": 18,
+   "tapMin": 49.75,
+   "under44": 0,
+   "yellow": 4,
+   "pinkStray": 0,
+   "radius": 21,
+   "covered": 8,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 9.6,
+   "numbers": 8,
+   "tapMin": 33.25,
+   "under44": 1,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 10,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
+ },
+ "stage-prep-cleared": {
+  "844x390": {
+   "text": 9.92,
+   "numbers": 13,
+   "tapMin": 44.25,
+   "under44": 0,
+   "yellow": 2,
+   "pinkStray": 0,
+   "radius": 21,
+   "covered": 3,
+   "overflow": false,
+   "ellipsis": 3,
+   "content": 350,
+   "host": null
+  },
+  "1280x720": {
+   "text": 10.56,
+   "numbers": 18,
+   "tapMin": 35.25,
+   "under44": 4,
+   "yellow": 2,
+   "pinkStray": 0,
+   "radius": 26,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 672,
+   "host": null
+  },
+  "390x844": {
+   "text": 10.4,
+   "numbers": 9,
+   "tapMin": 36.5,
+   "under44": 1,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 10,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": 796,
+   "host": null
+  }
+ }
+}
