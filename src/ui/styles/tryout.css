@@ -1,6 +1,9 @@
 /* Tryout Day, plain M1 battle UI (docs/specs/TRYOUT_DAY.md §13; the Ink & Paper screens replace it in M3).
    12 px minimum text; grey for a missed assignment (never red: failing is not danger). */
 .ty-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+/* an open pick sheet sits above the wave and boss banners (M1 review: they covered a card) */
+.ty-layer.ty-open { z-index: 10; }
+.ty-layer.ty-open .ty-tracker { z-index: 1; }
 .ty-tracker {
   position: absolute; left: 8px; top: calc(var(--bt-hud-h) + 10px + var(--safe-top, 0px)); max-width: min(340px, 46vw);
   background: rgba(255, 255, 255, 0.92); border-radius: 8px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(29, 78, 137, 0.18);

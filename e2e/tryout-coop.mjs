@@ -69,7 +69,13 @@ const B = await ctx.newPage();
 watch(B, 'guest');
 await B.goto(`${url}#/coop/${code}`, { waitUntil: 'load' });
 await maybeName(B, 'Bea');
-await B.waitForFunction(() => window.__coop?.paired, null, T);
+const paired = await B.waitForFunction(() => window.__coop?.paired, null, { timeout: 90000 }).then(() => true).catch(() => false);
+if (!paired) {
+  const dump = async (p) => p.evaluate(() => ({ hash: location.hash, screen: document.querySelector('#app')?.dataset.screen, modal: document.querySelector('.modal-overlay')?.innerText?.slice(0, 120), coop: window.__coop ? { phase: window.__coop.phase, paired: window.__coop.paired, peer: !!window.__coop.peer } : null }));
+  log('    host:', JSON.stringify(await dump(A)));
+  log('    guest:', JSON.stringify(await dump(B)));
+}
+check(paired, 'the guest pairs with the host');
 await clearModal(A);
 await A.click('[data-testid="coop-tryout"] [data-tryout="on"]', T);
 check(await B.waitForFunction(() => !!window.__coop?.tryout, null, T).then(() => true).catch(() => false), 'the guest sees the host\'s run');
