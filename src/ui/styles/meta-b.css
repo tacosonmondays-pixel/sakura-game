@@ -316,35 +316,17 @@ button.mb-gear:active { transform: scale(0.98); }
 }
 
 /* ---------- Backpack ---------- */
-.mb-tab-desc { font-size: 0.85rem; color: var(--muted); font-weight: 700; margin: 0 2px 8px; }
-.mb-toolbar { margin-bottom: 10px; }
-.mb-toolbar-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-.mb-chips-rarity { flex: 1 1 320px; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; }
-.mb-chips-rarity .mb-chip { flex: none; }
+/* (UI v2 M2: the screen's own look is src/ui/styles/v2-backpack.css; these are the item grid's bones and the gear modal) */
 .mb-item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 12px 8px; margin-bottom: 16px; }
 .mb-item-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; animation: mb-pop 280ms var(--mb-ease) both; }
 .mb-item-cell .item-tile { width: 72px !important; }
-.mb-item-name { font-size: 0.72rem; font-weight: 800; text-align: center; line-height: 1.15; max-width: 90px; color: var(--ink); border-bottom: 2px solid var(--rarity); padding-bottom: 1px; }
+.mb-item-name { font-size: 0.75rem; font-weight: 800; text-align: center; line-height: 1.15; max-width: 90px; color: var(--ink); }
 .mb-item-group { margin-bottom: 4px; }
-.mb-item-group-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 2px 10px; padding-left: 10px; border-left: 4px solid var(--grp, var(--blue)); }
-.mb-item-group-head .mb-h { font-size: 0.98rem; }
-.mb-item-group-count { font-size: 0.7rem; font-weight: 900; color: var(--navy); background: rgba(29, 78, 137, 0.1); border-radius: 99px; padding: 1px 8px; }
-.mb-item-group-users { display: flex; align-items: center; gap: 3px; margin-left: auto; font-size: 0.7rem; font-weight: 800; }
-.mb-item-group-users .muted { margin-right: 3px; }
-.mb-box-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.mb-box { display: flex; flex-direction: column; align-items: center; gap: 4px; background: #fff; border-radius: 12px; padding: 8px 10px; box-shadow: var(--shadow); }
-.mb-box-name { font-size: 0.75rem; font-weight: 800; }
-.mb-box .btn-small { min-height: 36px; }
 .mb-gear-modal { display: flex; flex-direction: column; gap: 8px; }
 .mb-salvage-preview .reward-row { gap: 6px; }
 @media (max-height: 480px) {
-  .mb-tab-desc { display: none; }
-  .mb-toolbar { margin-bottom: 6px; }
   .mb-item-grid { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px 6px; margin-bottom: 10px; }
   .mb-item-cell .item-tile { width: 62px !important; }
-  .mb-item-name { font-size: 0.66rem; }
-  .mb-item-group-head { margin: 2px 2px 6px; }
-  .mb-box-row { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 }
 
 /* ---------- Formation ---------- */

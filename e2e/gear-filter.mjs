@@ -37,37 +37,58 @@ for (const [W, H] of [[844, 390], [1280, 720]]) {
     }
     store.commit('test'); store.saveNow?.();
   });
+  // UI v2 M2: the Backpack's filters live in its Filter sheet (rarity and slot chips, then the dropdowns), the sort in
+  // its Sort sheet; the grid shows gear tiles
+  const tiles = () => page.locator('#app .mb-gear-grid .ui-gtile');
+  const openFilter = async () => {
+    await page.locator('#app [data-testid="bp-filter"]').click();
+    await page.waitForSelector('[data-testid="gear-filter-sheet"] [data-testid="gear-filter"]', { timeout: 15000 });
+  };
+  const closeSheet = async () => {
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.ui-layer', { state: 'detached', timeout: 5000 }).catch(() => {});
+  };
   await page.evaluate(() => { location.hash = '#/backpack?tab=equipment'; });
-  await page.waitForSelector('[data-testid="gear-filter"]', { timeout: 15000 });
-  const total = await page.locator('.mb-gear-grid .mb-gear').count();
+  await page.waitForSelector('#app [data-testid="bp-filter"]', { timeout: 15000 });
+  const total = await tiles().count();
   check(total === 20, `${W}x${H} backpack: 20 gear shown (${total})`);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/backpack-all-${W}x${H}.png`, fullPage: false });
-  check(await page.locator('[data-testid^="gear-filter-rarity"]').count() === 0, `${W}x${H} backpack: one rarity row (the page's own chips filter gear)`);
-  await page.locator('.mb-chips-rarity .mb-chip', { hasText: 'Mythic' }).first().click();
+  await openFilter();
+  check(await page.locator('[data-testid^="gear-filter-rarity"]').count() === 0, `${W}x${H} backpack: one rarity row (the sheet's own chips filter gear)`);
+  check(await page.locator('[data-testid="gear-filter-sheet"] [data-testid="gear-filter-sort"]').count() === 0, `${W}x${H} backpack: the sort is not in the Filter sheet (its own Sort button)`);
+  await page.locator('[data-testid="bp-rarity-mythic"]').click();
   await page.waitForTimeout(300);
-  const mythic = await page.locator('.mb-gear-grid .mb-gear').count();
+  const mythic = await tiles().count();
   const countText = await page.locator('[data-testid="gear-filter-count"]').innerText();
   check(mythic === 4 && /Showing 4 of 20/.test(countText), `${W}x${H} rarity Mythic → 4 ("${countText}")`);
-  await page.selectOption('[data-testid="gear-filter-sort"]', 'level');
+  await closeSheet();
+  check(await page.locator('#app [data-testid="bp-filter"].on').count() === 1, `${W}x${H} the Filter button shows that a filter is on`);
+  await page.locator('#app [data-testid="bp-sort"]').click();
+  await page.locator('[data-testid="gear-sort-level"]').click();
   await page.waitForTimeout(300);
-  const levels = await page.locator('.mb-gear-grid .mb-gear-level').allInnerTexts();
+  const levels = await page.evaluate(() => [...document.querySelectorAll('#app .mb-gear-grid .ui-gtile[data-gear]')].map((t) => `+${window.__sakura.store.profile.gear[t.dataset.gear].level}`));
   check(levels.join(',') === '+6,+4,+2,+0', `${W}x${H} sort by level: ${levels.join(',')}`);
+  check(/level/i.test(await page.locator('#app [data-testid="bp-sort"]').innerText()), `${W}x${H} the Sort button names the order`);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/backpack-mythic-${W}x${H}.png` });
+  await openFilter();
   await page.locator('[data-testid="gear-filter-clear"]').click();
   await page.waitForTimeout(300);
-  check(await page.locator('.mb-gear-grid .mb-gear').count() === 20, `${W}x${H} Clear filters → 20 again`);
+  check(await tiles().count() === 20, `${W}x${H} Clear filters → 20 again`);
   // remembered on the next visit
   await page.selectOption('[data-testid="gear-filter-status"]', 'locked');
   await page.waitForTimeout(300);
-  check(await page.locator('.mb-gear-grid .mb-gear').count() === 0 && await page.locator('text=No gear matches these filters').count() === 1, `${W}x${H} no matches → friendly empty state`);
+  check(await tiles().count() === 0 && await page.locator('text=No gear matches these filters').count() === 1, `${W}x${H} no matches → friendly empty state`);
   await page.selectOption('[data-testid="gear-filter-status"]', 'all');
   await page.selectOption('[data-testid="gear-filter-main"]', 'atkPct');
+  await closeSheet();
   await page.evaluate(() => { location.hash = '#/lobby'; });
   await page.waitForTimeout(800);
   await page.evaluate(() => { location.hash = '#/backpack?tab=equipment'; });
-  await page.waitForSelector('[data-testid="gear-filter"]', { timeout: 15000 });
+  await page.waitForSelector('#app [data-testid="bp-filter"]', { timeout: 15000 });
+  await openFilter();
   const remembered = await page.locator('[data-testid="gear-filter-main"]').inputValue();
   check(remembered === 'atkPct', `${W}x${H} filter remembered on the next visit (${remembered})`);
+  await closeSheet();
   // girl's equipment tab: the filter lives in a slot's sheet, behind its Filter button (UI_DIRECTION.md §6.2 M1b)
   await page.evaluate(() => { location.hash = '#/student/hikari?tab=gear'; });
   await page.waitForSelector('[data-testid="slot-charm"]', { timeout: 30000 }).catch(async () => { await page.reload(); await page.waitForSelector('[data-testid="slot-charm"]', { timeout: 30000 }); });
