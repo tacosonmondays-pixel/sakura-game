@@ -97,12 +97,12 @@ on protocol 9). Every milestone: independent reviewer OK (≤ 3 fix rounds), has
    level-crossing arm on a lane schedule (render prop `barrierArm`, S4a), at the fork, never across the chicane.
 7. **Azami joins after 4-7** (GATE_ARC §17, Q-list "free-girl join slots move to 1-7, 4-7, 7-7"). Today 2-2 grants
    her (`stages.js` 2-2 `unlocks: ['azami']`, catch-up list `CATCH_UP_UNITS`). As Step 1 did for Yuzuha: 4-7 `unlocks:
-   ['azami']`; 2-2 loses it; `LEGACY_JOIN_STAGES.azami = ['2-2']` and `PRE_UPDATE_JOIN_STAGES` (built): 2-2 counts
+   ['azami']`; 2-2 loses it; `LEGACY_JOIN_STAGES` stays Yuzuha's and Azami's 2-2 goes in `PRE_UPDATE_JOIN_STAGES` (built): 2-2 counts
    **only for clears made before this build**. A save that cleared 2-2 before the update gets her once via the lobby
    catch-up letter naming 2-2 (the `joinWindow:azami` counter closes the window on the first catch-up run); a 2-2 win
    after the update no longer grants her. Her acquisition text reads "Joins after 4-7". `ch2.azami` still plays after
    2-2 (kind `join`) but she stays at her post ("When you need a gate held, come and find me."). The balance bot
-   counts legacy stages as ancestors (`tests/sim/modesBot.js`); without Azami, 2-3 and 4-5 Hard flip in the balance
+   counts legacy stages as ancestors (`tests/sim/modesBot.js`; Azami is not a legacy stage, so the bot leaves her out of Act I); without Azami, 2-3 and 4-5 Hard flip in the balance
    rows (Easy and Normal hold). Gameplay change: a brand-new player meets Azami after 4-7, not 2-2.
    *Owner question with this default.*
 8. **Highway is a district** (`MapDef.district: 'highway'` on `city` maps, as `oldtown`): concrete road style

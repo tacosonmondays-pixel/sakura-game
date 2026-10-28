@@ -35,7 +35,7 @@ export default [
     say('aoi', 'She lays spike strips on the road. Anything that walks over them gets a very rude surprise.', { at: 'left' }),
     say('azami', 'They are folding strips. Fully regulation. I check every one of them twice.'),
     choice([
-      { text: 'Will you guard our road?', lines: [say('azami', 'I guard this one. Everyone signs the clipboard on the way past. …Fine. You can sign later.')] },
+      { text: 'Will you guard our road?', lines: [say('azami', 'I guard this one. Everyone signs the clipboard on the way past. Yes, Sensei, you too.')] },
       { text: 'Is the whistle regulation too?', lines: [say('azami', 'The whistle is the regulation, Sensei.', { face: 'deadpan' })] },
     ]),
     say('aoi', '…Are first-years allowed to run, if a slime is chasing them?'),
