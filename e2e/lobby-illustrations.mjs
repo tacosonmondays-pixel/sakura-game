@@ -25,6 +25,7 @@
 // from the picker now), the allowed cover of the › chevron below 760 px, and "her face under the top bar" (the quiet
 // home's rule is her face core clear of every control; the floating bar may pass over the top of her hair where the
 // picture has no room to pan, placeFull).
+// Default sizes: 844x390, 1280x720, 667x375, 932x430, 1024x768, 1180x820, 390x844, 360x800, 768x1024.
 // Usage: node e2e/lobby-illustrations.mjs [--shots dir] [--sizes 844x390,1280x720] [--tap-sizes 915x412,740x360]
 //          [--port 5204] [--gpu]
 //   --tap-sizes: more sizes for the home controls check alone (default 915x412 and 740x360 when --sizes is not given;
@@ -43,7 +44,7 @@ const SHOTS = opt('shots', null);
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const isSize = (s) => /^\d+x\d+$/.test(s);
 // (--sizes none: the controls check at --tap-sizes, the after-event pass and the still checks only)
-const SIZES = opt('sizes', '844x390,1280x720,667x375,932x430,1024x768,1180x820,390x844').split(',').filter(isSize);
+const SIZES = opt('sizes', '844x390,1280x720,667x375,932x430,1024x768,1180x820,390x844,360x800,768x1024').split(',').filter(isSize);
 const TAP_SIZES = opt('tap-sizes', args.includes('--sizes') ? '' : '915x412,740x360').split(',').filter((s) => isSize(s) && !SIZES.includes(s));
 const PORT = Number(opt('port', '0'));
 const DEFAULT_GIRLS = ['marumi', 'rei', 'hikari'];

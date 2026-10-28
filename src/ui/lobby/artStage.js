@@ -101,9 +101,9 @@ export function homeFullArt(id, { portrait = false } = {}) {
  * Her head there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit): when a control stands over it
  * (8 px clear) or a wallet's words and icon do, the picture pans a little more, 4 px at a time, down (up to 12 %
  * of the height) and across (up to 8 % of the width) where it has room, the smallest move that clears everything, else
- * the smallest that clears the controls; where the painting has no room left (her head painted at its top edge on a
- * screen of its own shape), she stays as painted: her face itself stays clear of the controls, the bar may pass over
- * the top of her hair. The boxes say what they are (`kind`, lobby.js uiBoxes): 'ctl' (or none) a control, 'soft' a
+ * the smallest that clears the controls (on a screen held upright, up to 30 % of the width across: a wide picture has
+ * its whole width to pan); where the painting has no room left (her head painted at its top edge on a screen of its own
+ * shape), the smallest move that keeps her face itself clear of the controls: the bar may pass over the top of her hair. The boxes say what they are (`kind`, lobby.js uiBoxes): 'ctl' (or none) a control, 'soft' a
  * wallet's words or icon, 'pill' / 'gap' a wallet's plate and the bar's spacer (the plates may pass over her hair).
  * @param {number} W
  * @param {number} H
@@ -123,20 +123,29 @@ export function placeFull(W, H, art, boxes = []) {
     const p = scene(across + dx, y0 + dy);
     const r = art.headR * p.height;
     const f = { x0: p.faceX - 1.1 * r, x1: p.faceX + 1.1 * r, y0: p.faceY - 1.4 * r, y1: p.faceY + r };
-    const clearCtl = apart(ctl, f, 8);
-    return { ...p, r, dx, dy, clearCtl, clear: clearCtl && apart(soft, f, 0) };
+    // her face itself (sceneLayout.js CORE: 0.85 head radii across, 0.6 up, 0.95 down), whole on the screen
+    const core = { x0: p.faceX - 0.85 * r, x1: p.faceX + 0.85 * r, y0: p.faceY - 0.6 * r, y1: p.faceY + 0.95 * r };
+    const onScreen = core.x0 >= 0 && core.x1 <= W && core.y0 >= 0 && core.y1 <= H;
+    const clearCtl = onScreen && apart(ctl, f, 8);
+    return { ...p, r, dx, dy, clearCtl, clear: clearCtl && apart(soft, f, 0), clearCore: onScreen && apart(ctl, core, 4) };
   };
-  // (the moves in order of size, down before across when two are as big)
+  // (the moves in order of size, down before across when two are as big; a screen held upright has a wide picture's
+  // whole width to pan across, so it may go further sideways: up to 30 % of the width)
   const moves = [];
-  for (let dy = 0; dy <= H * 0.12; dy += 4) for (let dx = 0; dx <= W * 0.08; dx += 4) for (const sx of dx ? [-1, 1] : [1]) moves.push([sx * dx, dy]);
+  const maxDx = W * (W > H ? 0.08 : 0.3);
+  for (let dy = 0; dy <= H * 0.12; dy += 4) for (let dx = 0; dx <= maxDx; dx += 4) for (const sx of dx ? [-1, 1] : [1]) moves.push([sx * dx, dy]);
   moves.sort((a, b) => Math.abs(a[0]) + a[1] - (Math.abs(b[0]) + b[1]) || b[1] - a[1]);
+  // the smallest move that clears everything, else the smallest that clears the controls, else the smallest that keeps
+  // her face itself clear of them (the bar passing over her hair), else as painted
   let firstCtl = null;
+  let firstCore = null;
   for (const [dx, dy] of moves) {
     const p = at(dx, dy);
     if (p.clear) return p;
     if (!firstCtl && p.clearCtl) firstCtl = p;
+    if (!firstCore && p.clearCore) firstCore = p;
   }
-  return firstCtl || at(0, 0);
+  return firstCtl || firstCore || at(0, 0);
 }
 
 /** An element's box in viewport px. */

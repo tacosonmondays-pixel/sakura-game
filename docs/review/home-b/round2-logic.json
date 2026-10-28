@@ -1,0 +1,61 @@
+{
+ "review": "home layout B 'Quiet Home' round 2, LOGIC lens",
+ "branch": "concept/home-b",
+ "commit": "7b18b60",
+ "base_compared": "feature/ui-v2 (merged in at 7b18b60); round 1 at bc8c879",
+ "verdict": "NOT_OK",
+ "gates": {
+  "npm_test": "GREEN: 267 files passed, 2 skipped; 4158 tests passed, 11 skipped; 451 s (quiet machine, load 1-11)",
+  "sim_id": "92e2e22527cf; COOP_PROTOCOL 8; no diff vs origin/feature/ui-v2 in src/sim, src/data, src/online",
+  "vite_build": "exit 0 in 2.5 s, dist 90 MB, version.json build 7b18b60223b1 sim 92e2e22527cf; secret scan: only the known bundled-library false positive (dist/assets/dist-*.js); dist removed",
+  "cssFloor": "exit 0: 375 declarations under 12 px = baseline 375",
+  "contrast_tool": "exit 0: 168/168 pairs pass",
+  "e2e_home": "215 ok, 0 FAIL, HOME PASS (default 844x390, 1280x720, 390x844; rampart 667x375/844x390/1024x768; small 667x375). A first run made while vitest was also running hit one page.screenshot 30 s timeout at 1280x720 (--shots); rerun alone it passed whole.",
+  "e2e_lobby_illustrations": "default sizes: LOBBY ILLUSTRATIONS PASS (1269 checks). Extra run --sizes 360x800,768x1024,1920x1080,1366x768,740x360,915x412: 7 FAIL of 1035, all 'her face core clear of every control' at 360x800 and 768x1024 (finding R2-M1); 1920x1080, 1366x768, 740x360 and 915x412 all pass",
+  "e2e_smoke": "678 ok, 0 FAIL, ALL SMOKE CHECKS PASSED (both default viewports)",
+  "e2e_hubs": "--viewport 844x390,1280x720 (both saves, shots and late): 624 ok, 0 FAIL, all hub checks passed",
+  "e2e_story": "148 ok, 0 FAIL, ALL STORY CHECKS PASSED"
+ },
+ "passes": [
+  "B1 FIXED: the spacers are .ui-spacer (lobby.js, menuSheet.js, ink.css); no element outside the player wears .sp (tests/ui/storyClassClash.test.js guards it). The real first run from a fresh save at 844x390: title -> opening scene (painted backdrop /art/lobby/story/academy-courtyard.webp) Skip -> tutorial battle, coach Skip -> #/lobby: the beta gift over a drawn home; after Later the centre and the plate centre are inside .home, no .sp in the DOM, a real click on Battle opens Missions. #/story and #/journal then their back arrow at 1280x720: centre inside .home, Battle opens Missions. After the story scenes ch1.mid and ch1.yuki (new backdrops, Skip) the home takes taps and Battle opens Missions.",
+  "M1 FIXED: one chat button per home render, put back on each bar redraw, released in the home's stop(). Leak count at 1280x720 with the social hub ready (seedOnlineHub): live MutationObservers 5 and hub listeners {badges 2, status 3, invites 2, dm 1, friend_request 1, blocked 2} at start, identical after 30 spaced store commits, 30 commits in one task, 60 hub refresh() 'badges' events and 6 Students visits; one top-chat in the DOM.",
+  "M2 FIXED: keepFocus() gives the focus back after every redraw: news pager Enter 1/3 -> 2/3 -> 3/3 -> 1/3 with focus staying on lobby-news-next; dock-mall + store commit, gems-plus + commit, top-chat + badges event, top-menu + badges event all keep the focus.",
+  "M3 FIXED: the sheet makes the page behind inert (#app, loader, toasts) and restores it on every close path; Tab (20 presses) and Shift+Tab (5) stay inside the sheet; rows are <button>s: Space on Formation opens #/formation; Esc, X and a tap outside give the focus back to top-menu; Hide UI from the head hides and the restore button takes a real click.",
+  "L1 FIXED: Esc closes the Notice and the Background picker on the home (data-keys=on).",
+  "L2 FIXED: Space with the chat drawer open and focus on its plain area does nothing (stays on the lobby, drawer open).",
+  "L3 FIXED: from a fresh load Tab reads account-level, gems-plus, top-chat, top-mail, top-menu, then event-card, pager, the 4 icons, CO-OP, Battle, chapter.",
+  "L4 FIXED (code): .who fades with the rest of the bar while the menu is open (home.css .home-menu-open rule). L5: the menu probe 'text' check passes at 390x844 and 360x800 and SNT-HQ is on one line at 768x1024. L6: every gate green on this quiet machine.",
+  "Badges vs the save: mail count = unclaimedMailCount (3, then 0 after claiming all), Commissions dot = commissionsNotice().any, FREE sticker iff tickets (on at 12, off at 0, on at 3), ticket count = the save (after its count-up), menu dot on.",
+  "Space: bare Space and Space on the focused plate open Missions; Space with the Notice open does nothing.",
+  "Layout (own probe plus the repo probe's covered/v2taps/clipped/overflow/text, the menu open too) at 1280x720, 390x844, 667x375, 740x360, 915x412, 932x430, 1024x768, 1366x768, 1920x1080, 360x800, 768x1024 (mid save; 844x390 via e2e/home.mjs) and 844x390 / 1280x720 / 390x844 fresh and max (99,999,999 coins and gems, 'Ashwing Peaks 105 medals'): no sideways scroll, controls inside the screen, no control overlaps, every control hittable at its centre, tap min >= 44.5 px (expanded ::before hit areas), no probe fails, the menu sheet inside the screen with no scroll.",
+  "Full illustrations drawn whole at the cover fit, zoom 1, at every size tested (both lobby-illustrations runs); the face core and hair rules pass at 844x390, 1280x720, 667x375, 932x430, 1024x768, 1180x820, 390x844, 1920x1080, 1366x768, 740x360 and 915x412.",
+  "Hearts: a tap on her head at 844x390 (touch) adds 3 .home-heart, gone after 1.5 s, with a head pat line; with Reduce motion set, 0 hearts (the line still shows).",
+  "Title preload = what the home draws (homeStageUrls): after the event /art/lobby/academy-home.webp + rei-cut are requested before TAP TO START; during Halloween /art/lobby/halloween.webp + rei-cut at 154 ms (start enabled at 1973 ms); Hikari's rampart its baked /art/lobby/hikari-home.webp at 1821 ms (start at 3050 ms); azami-scene /art/scenes/azami-scene.webp. The home draws exactly those files.",
+  "Marumi at 667x375: her still portrait, no canvas, 8 px clear (e2e/home.mjs section 9 passes).",
+  "No page errors in any probe."
+ ],
+ "findings": [
+  {
+   "id": "R2-M1",
+   "severity": "medium",
+   "title": "Her face core goes under a control on a tall phone (360x800) and on a tablet held upright (768x1024)",
+   "detail": "The rule is that her face core stays clear of every control at every size. The builder's lobby-illustrations sizes (844x390, 1280x720, 667x375, 932x430, 1024x768, 1180x820, 390x844) all pass, but two common portrait sizes fail. At 360x800 the top bar wraps its wallets to a third row and the gems '+' (gems-plus, 112,124 24x24) lands on her eye line for 5 of the full illustrations (hikari-rampart, sango-harbour, azami-scene, kinu-scene, marumi-scene). At 768x1024 the news chip's pager (lobby-news-next, 284,84 60x56) sits over her left eye for hikari-rampart and marumi-scene. In each case placeFull returns clearCtl false (no room to pan: the picture is exactly as tall as the screen, and the 8 % sideways pan is not enough), so the fallback keeps her as painted and the control covers her face itself. Portrait is a supported fallback ('Continue in portrait' on touch; a desktop window shaped 768x1024 never sees the rotate prompt). Fix ideas: in portrait let the sideways search pan further (the 1835 px wide picture has 800+ px of room), keep the wallets on two rows at 360 wide, or move the chip below her face in portrait; then add 360x800 and 768x1024 to the e2e's default sizes.",
+   "evidence": "node e2e/lobby-illustrations.mjs --sizes 360x800,768x1024,1920x1080,1366x768,740x360,915x412: 'LOBBY ILLUSTRATIONS FAIL (7 of 1035)', e.g. '360x800 hikari-rampart: her face core clear of every control; under gems-plus' (core 116,103 128x117) and '768x1024 hikari-rampart: ... under lobby-news-next' (core 302,132 164x149); the other 5 are the same. The reviewer's own probe confirms it with touch and desktop contexts: zoom 1, clearCtl false; screenshots facecore-hikari-rampart-360x800-touch.png and facecore-hikari-rampart-768x1024-desk.png (dashed box = face core) in the reviewer's scratchpad."
+  },
+  {
+   "id": "R2-M2",
+   "severity": "medium",
+   "title": "A machine-specific node_modules symlink is committed (65a6673) and deletes an installed node_modules on checkout or merge",
+   "detail": "The WIP commit 65a6673 added a tracked symlink `node_modules -> /home/user/sakura-game/node_modules` (mode 120000). The .gitignore rule `node_modules/` (trailing slash) only ignores directories, so the link is tracked and would ship to main with this branch. Git treats the ignored files of an existing node_modules directory as expendable: checking this branch out (or merging it) in a checkout with dependencies installed silently deletes that node_modules and puts the absolute link in its place; in /home/user/sakura-game itself the link would then point to itself. On a machine without symlink support (core.symlinks=false, common on Windows) it becomes a plain text file named node_modules. npm ci on Linux removes it ('Removing non-directory'), leaving the tree dirty (typechange) after every install. Fix: `git rm --cached node_modules` on the branch (and optionally make the ignore rule `node_modules` without the slash).",
+   "evidence": "git ls-tree 7b18b60 node_modules -> '120000 blob f4f4700e... node_modules'; git log -- node_modules -> 65a6673 'wip: no-zoom placement and title preload (in progress)'; git diff --stat origin/feature/ui-v2...HEAD lists 'node_modules | 1 +'. Scratch repo repro: main with an installed node_modules/vite/index.js, `git checkout sym` -> node_modules is now a link to /some/abs/node_modules and node_modules/vite is gone. Scratch npm ci repro: 'npm warn reify Removing non-directory .../node_modules'."
+  },
+  {
+   "id": "R2-L1",
+   "severity": "low",
+   "title": "After the Notice or the Background picker (opened from the menu) closes, the focus drops to <body>",
+   "detail": "Rows and head tools close the sheet with close() (not 'dismiss'), so the focus is not given back to top-menu; when the Notice or the Background picker then closes (Esc or its button), the focus is on BODY and the next Tab restarts at the top of the page. Give the focus back to top-menu when a modal opened from the sheet closes.",
+   "evidence": "probe1 at 1280x720: menu -> Notice -> Esc: focus BODY; probe4: menu -> Background -> Esc: focus BODY."
+  }
+ ],
+ "environment": "Quiet machine (4 cores, load 1-11; one e2e at a time, except story alongside hubs). Chromium via the global Playwright 1.63, SwiftShader. Probes and logs stay in the reviewer's scratchpad (rev-home-logic2/: probe1-5.mjs, dbg.mjs, e2e-*.log, vitest.log, screenshots); not committed."
+}

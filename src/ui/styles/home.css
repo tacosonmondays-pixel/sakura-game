@@ -125,6 +125,10 @@
 /* (--news-tall: the chip with two lines; her placement keeps clear of that height on every page, so a page turn never
    brings the chip over her; --news-up: 1 where the chip grows upward) */
 .home .home-news-host { --news-tall: 68px; --news-up: 0; position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); top: 84px; width: 320px; }
+/* a full illustration whose face the picture cannot pan away from the chip (lobby.js lowerNews): the chip moves down,
+   above the four icons (it grows upward when its words take two lines) */
+.home.news-down .home-news-host { --news-up: 1; top: auto; bottom: calc(24px + var(--ico-h, 80px) + 20px + env(safe-area-inset-bottom, 0px)); }
+.home.news-wait .home-news-host { visibility: hidden; }
 .ui-night .home .home-news { width: 100%; height: 56px; gap: 0; overflow: hidden; }
 .ui-night .home .home-news.two { height: var(--news-tall); }
 .home .home-news .go { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 6px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
@@ -404,6 +408,7 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
   .ui-night .home .home-coop .lbl { font-size: 13px; }
   .home .home-news-host { --news-tall: 60px; --news-up: 1; left: 16px; right: 16px; width: auto; top: auto; bottom: 246px; }
+  .home.news-down .home-news-host { bottom: 246px; }
   .ui-night .home .home-news { height: 46px; }
   .ui-night .home .home-news .pager { width: 50px; }
   .ui-night .home .home-restore { right: 16px; bottom: 16px; }

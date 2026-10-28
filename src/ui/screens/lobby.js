@@ -259,6 +259,27 @@ export function render(root) {
       stage.relayout();
       relayoutLive();
     }
+    lowerNews();
+  };
+  /**
+   * A full illustration never zooms (owner: the whole picture as it is), so where the picture cannot pan her face away
+   * from the news chip (a 3:4 picture exactly filling an upright tablet, 768x1024), the chip moves instead: down, above
+   * the four icons (.news-down), and she is placed again.
+   */
+  const lowerNews = () => {
+    const had = el.classList.contains('news-down');
+    el.classList.remove('news-down');
+    if (had) stage.relayout();
+    const sc = !live && stage.placement()?.scene;
+    const chip = newsHost.querySelector('.ui-news');
+    if (!sc || !chip || el.classList.contains('ui-hidden')) return;
+    const r = sc.r;
+    const core = { x0: sc.faceX - 0.85 * r - 4, x1: sc.faceX + 0.85 * r + 4, y0: sc.faceY - 0.6 * r - 4, y1: sc.faceY + 0.95 * r + 4 };
+    const b = chip.getBoundingClientRect();
+    if (b.right > core.x0 && b.left < core.x1 && b.bottom > core.y0 && b.top < core.y1) {
+      el.classList.add('news-down');
+      stage.relayout();
+    }
   };
 
   let currentSec = null;
@@ -271,9 +292,17 @@ export function render(root) {
     currentSec = id;
     currentBg = bg.id;
     lineIndex = 0;
-    await stage.show(getUnit(id), { background: bg });
-    refold();
-    syncLive();
+    // (the chip waits unseen until she is placed, so a chip that moves for her face never jumps: lowerNews)
+    el.classList.add('news-wait');
+    const timer = setTimeout(() => el.classList.remove('news-wait'), 1500);
+    try {
+      await stage.show(getUnit(id), { background: bg });
+      refold();
+      syncLive();
+    } finally {
+      clearTimeout(timer);
+      if (currentBg === bg.id) el.classList.remove('news-wait');
+    }
   };
 
   // ---- the living scene (Marumi): one WebGL context at most, her still portrait otherwise ---------------------
@@ -447,6 +476,24 @@ export function render(root) {
       el.classList.add('menu-shift');
     }
   };
+  /** A window opened from the menu (the Notice, the background picker): once it closes, the keys go back to the menu
+   * button (the sheet closed itself first), unless something else took them meanwhile. */
+  function focusMenuAfterWindow() {
+    let seen = false;
+    const mo = new MutationObserver(() => {
+      const openNow = !!document.querySelector('.modal-overlay:not(.closing)');
+      if (openNow) { seen = true; return; }
+      if (!seen) return;
+      mo.disconnect();
+      const a = document.activeElement;
+      if (alive && (!a || a === document.body)) top.querySelector('[data-testid="top-menu"]')?.focus({ preventScroll: true });
+    });
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    // (never left watching: a window that never opened, or the home gone)
+    setTimeout(() => { if (!seen) mo.disconnect(); }, 2000);
+    offWatch.push(() => mo.disconnect());
+  }
+  const offWatch = [];
   function openMenu() {
     const p = store.profile;
     stage.hideBubble();
@@ -456,13 +503,14 @@ export function render(root) {
       dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread(), clan: hub.badges.donationsReady > 0 },
       tools: [
         { id: 'hide', label: 'Hide UI', aria: 'Hide the menus', glyph: 'eyeoff', testid: 'lobby-hide', go: () => setHidden(true) },
-        { id: 'bg', label: 'Background', aria: 'Background and secretary', glyph: 'image', testid: 'lobby-bg', go: () => openBackgroundPicker() },
+        { id: 'bg', label: 'Background', aria: 'Background and secretary', glyph: 'image', testid: 'lobby-bg', go: () => { openBackgroundPicker(); focusMenuAfterWindow(); } },
       ],
       onClose: () => el.classList.remove('menu-shift'),
       go: (row) => {
         if (row.id === 'notice') {
           showNoticeModal();
           drawAll();
+          focusMenuAfterWindow();
           return;
         }
         navigate(row.route);
@@ -631,6 +679,7 @@ export function render(root) {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('keydown', onKey);
     closeMenuSheet();
+    for (const off of offWatch.splice(0)) off();
     chat.release?.();
     live?.handle.stop();
   };
