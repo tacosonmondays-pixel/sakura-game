@@ -197,7 +197,7 @@ describe('display only: the battle sim is untouched', () => {
     // feature/gate-arc only: Gate Arc Steps 3-5 (Acts 3-5: maps, stages, enemies) change the sim on protocol 10. The
     // next bundled co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only
     // this exact in-progress id passes here.
-    const PENDING_BUMP = { 10: 'ea79ed487b3a' };
+    const PENDING_BUMP = { 10: '04df91a11220' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

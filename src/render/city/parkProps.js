@@ -189,13 +189,19 @@ export const PARK_BUILDERS = {
       blob(0.4, Math.cos(a) * 0.5, 1.2 + (i % 2) * 0.06, Math.sin(a) * 0.5, 0.6, leaf[i % 2 ? 0 : 2], 0);
     }
     blob(0.36, 0.06, 1.48, -0.04, 0.65, leaf[2], 0);
-    // the weeping strands: thin tapered cones hanging tip down round the crown's rim
-    const rings = far ? [[0.9, 12]] : [[0.94, 18], [0.72, 10]];
-    for (const [r, n] of rings) {
+    // the weeping strands: a curtain of long, fine tapered falls from under the crown's rim, each
+    // splayed a little outward so from above they fan out like a skirt (never stand like spikes,
+    // never bend like legs). A fall's +y axis is turned to hang `tilt` off straight down, outward
+    // along its own bearing: rz π + tilt, then ry −bearing.
+    const rings = far ? [[0.84, 14, 0.3]] : [[0.86, 24, 0.3], [0.62, 12, 0.2]];
+    for (const [r, n, tilt] of rings) {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + r;
-        const len = 0.62 + ((i * 7) % 5) * 0.06;
-        c.foliage.cone(0.06, len, 4, { x: Math.cos(a) * r, y: 1.14, z: Math.sin(a) * r, rx: Math.PI, ry: a, color: leaf[(i + Math.round(r * 10)) % 3], attrs: { sway: strandSway } });
+        const len = 0.88 + ((i * 7) % 5) * 0.045;
+        c.foliage.cone(0.03, len, 3, {
+          x: Math.cos(a) * r, y: 1.08, z: Math.sin(a) * r, rz: Math.PI + tilt + ((i * 3) % 4) * 0.03, ry: -a,
+          color: leaf[(i + Math.round(r * 10)) % 3], attrs: { sway: strandSway },
+        });
       }
     }
   },

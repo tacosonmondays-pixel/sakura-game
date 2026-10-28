@@ -20,7 +20,7 @@ import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js
 import { buildGroundFeatures } from './groundFeatures.js';
 import { buildCity, cityBuildingFor, cityWallVariant, buildRoofs } from './city/cityKit.js';
 import { riftPlacement, noonGatePlacement, ROOF_Y } from './city/cityProps.js';
-import { cityGroundPainter } from './city/cityGround.js';
+import { cityGroundPainter, cityIslePainter } from './city/cityGround.js';
 import { burningLayer } from './city/ruinProps.js';
 import { TEAR_REST } from './tear.js';
 import { createFacadeMaterial, CityAcc } from './city/cityMaterials.js';
@@ -457,6 +457,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     // the city kit paints planted verges and plazas on top (src/render/city/cityGround.js); snow
     // cover (Gate Arc 4-8) is painted over the north rows last
     extra: chainPainters(look.city ? cityGroundPainter(map, look, charAt, isPath) : null, look.snowCover ? snowCoverPainter(map, look, roads) : null),
+    // the reservoir park's island lawns go under the shore wash and the sidewalks (Gate Arc 5-10)
+    base: look.city ? cityIslePainter(map, look) : null,
   });
   disposables.push(painted.texture);
   const groundGeo = new THREE.PlaneGeometry(EW, EH, EW, EH);

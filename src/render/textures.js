@@ -1034,6 +1034,9 @@ const GROUND_STYLES = {
  * @param {number} [o.seed=1]
  * @param {(g: CanvasRenderingContext2D, toPx: Function, px: number, rnd: Function) => void} [o.extra]
  *   a theme painter run last (the city kit paints verges and plazas: src/render/city/cityGround.js)
+ * @param {(g: CanvasRenderingContext2D, toPx: Function, px: number) => void} [o.base]
+ *   a theme painter run right on the soft noise, before the shore, the road wear and the sidewalks
+ *   (the reservoir park's island lawn: cityGround.js cityIslePainter), so those still paint over it
  * @returns {{ texture: THREE.CanvasTexture, canvas: HTMLCanvasElement }}
  */
 export function paintGround(o) {
@@ -1151,6 +1154,7 @@ export function paintGround(o) {
   g.drawImage(nc, 0, 0, W, H);
 
   const toPx = (wx, wz) => [(wx - x0) * px, (wz - y0) * px];
+  if (o.base) o.base(g, toPx, px);
 
   // --- 2. wet shore around water -----------------------------------------------------
   let hasWater = false;

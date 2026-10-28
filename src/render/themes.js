@@ -480,8 +480,8 @@ export const THEMES = {
     bridge: { deck: '#a7aaa6', rail: '#e7c64a', post: '#5a6066', lacquer: false, overpass: '#b4b9bd', girder: '#40464c', overRail: '#e7c64a', grating: true, platform: true, pipes: true, shadow: 0.34 },
     // the Line 2 bores: square portals, the line's blue band, red emergency lamps (the kit hangs them)
     tunnel: { style: 'subway', top: '#58626a', side: '#465057', portal: '#c4c2b8', dark: '#0b0f13', stripe: '#3f8fbf', hall: '#7f888c', roof: '#3a434a', glass: '#3c5560', lamp: '#ff4d5a' },
-    // flood water: deep, dark teal, a soft caustic web (darker than the tiles in greyscale)
-    water: { deep: '#0f363e', shallow: '#1d5660', foam: '#8fbcbc', glow: 0.04, caustic: 0.35, foamAmt: 0.45 },
+    // flood water: deep, dark teal, a soft caustic web (a clear step darker than the tiles in greyscale)
+    water: { deep: '#0a2a31', shallow: '#14424b', foam: '#8fbcbc', glow: 0.04, caustic: 0.35, foamAmt: 0.45 },
     trees: ['pumpUnit', 'pipes'],
     scatter: ['pipeRun', 'maintenanceCart', 'pipes', 'crate', 'pumpUnit'],
     scatterDensity: 0.3,
@@ -663,11 +663,18 @@ const PARK = {
   life: { butterflies: true, birds: true, koi: false, clouds: true, fireflies: true, sparkle: false },
   // lawns at night: deep green, well under the road's tone (resolveLook)
   nightGround: { ground: ['#4b785c', '#447055'], groundSpeck: '#588568', groundShade: '#385d4a', clover: '#3f6952' },
-  nightCity: { lawn: '#4d8859', sidewalk: '#8d8a82' },
+  // (the willow's island at night: a moonlit lawn kept lighter than the reservoir round it, under the road)
+  nightCity: {
+    lawn: '#4d8859', sidewalk: '#8d8a82',
+    isle: { lawn: '#5c9c6c', stripe: 'rgba(255,255,255,0.06)', tuft: '#4a8a5c', shore: '#aeab9e', stone: '#cdc8ba', blossoms: ['#ffffff', '#ffd1e3', '#fff2b0'] },
+  },
   city: {
     district: 'park', kit: 'park', kerbs: false,
     // (the paved bands and plazas a notch under the park road's tone)
     sidewalk: '#b5afa2', kerb: '#e9e5dc', kerbSide: '#8f8b82', lawn: '#7fb86c', plaza: ['#b3ad9f', '#aaa496'],
+    // an island the reservoir rings (Gate Arc 5-10: cityGround.js cityIslePainter): a mown lawn, a pale
+    // stone shore band, stepping stones to its willow
+    isle: { lawn: '#86c172', stripe: 'rgba(255,255,255,0.08)', tuft: '#5f9a52', shore: '#d6cfbc', stone: '#ebe5d6', blossoms: ['#ffffff', '#ffc4d9', '#ffe680'] },
   },
 };
 DISTRICTS.park = PARK;

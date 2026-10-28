@@ -282,3 +282,57 @@ describe('outside the battle: the reservoir park', () => {
     expect(svgs[2]).toMatch(/radialGradient id="lampglow-/);
   });
 });
+
+// Gate Arc Step 5 visual round 1: 5-10's island read as a flat slate block at night (darker than the water in
+// greyscale). It is now a mown lawn with a pale stone shore band and stepping stones to the willow, painted under
+// the shore wash and the sidewalks (cityGround.js cityIslePainter, textures.paintGround `base`).
+describe('the reservoir willow\'s island', () => {
+  it('5-10\'s island is found (water all round, off the board edge); the corner lawns are not islands', async () => {
+    const { MAPS } = await import('../../src/data/maps.js');
+    const { findIsles } = await import('../../src/render/city/cityGround.js');
+    const map = MAPS.find((m) => m.id === 'noon_reservoir_willow');
+    const isles = findIsles(map);
+    expect(isles).toHaveLength(1);
+    expect(isles[0]).toMatchObject({ x0: 7, y0: 3, x1: 13, y1: 9, full: true });
+    expect(isles[0].tiles).toHaveLength(36);
+    expect(findIsles(MAPS.find((m) => m.id === 'noon_reservoir_park'))).toHaveLength(0);
+  });
+
+  it('paints a lawn lighter than the reservoir at night (under the pale road), a shore band and stepping stones to the willow', async () => {
+    const { MAPS } = await import('../../src/data/maps.js');
+    const { cityIslePainter } = await import('../../src/render/city/cityGround.js');
+    const map = MAPS.find((m) => m.id === 'noon_reservoir_willow');
+    const isle = nightLook.city.isle;
+    expect(isle).toBeTruthy();
+    expect(isle).not.toEqual(look.city.isle);
+    // the night lawn: lighter than the reservoir's shallows and the night lawns round the board, well under the road's white
+    expect(lin(isle.lawn)).toBeGreaterThan(lin(nightLook.water.shallow));
+    expect(lin(isle.lawn)).toBeGreaterThan(lin(nightLook.ground[0]));
+    expect(lin(isle.shore)).toBeGreaterThan(lin(isle.lawn));
+    const fills = [];
+    let ellipses = 0;
+    let style = null;
+    const g = new Proxy({}, {
+      get: (t, k) => {
+        if (k === 'ellipse') return () => { ellipses++; };
+        if (k === 'fill') return () => fills.push(style);
+        return t[k] ?? (() => {});
+      },
+      set: (t, k, v) => {
+        if (k === 'fillStyle') style = v;
+        t[k] = v;
+        return true;
+      },
+    });
+    const paint = cityIslePainter(map, nightLook);
+    expect(paint).toBeTypeOf('function');
+    paint(g, (x, y) => [x * 32, y * 32], 32);
+    expect(fills).toContain(isle.shore);
+    expect(fills).toContain(isle.lawn);
+    expect(fills).toContain(isle.stone);
+    expect(ellipses).toBeGreaterThanOrEqual(10);
+    // no island, no painter (5-9's park; the plain city look has no isle colours)
+    expect(cityIslePainter(MAPS.find((m) => m.id === 'noon_reservoir_park'), nightLook)).toBeNull();
+    expect(cityIslePainter(map, resolveLook('city', {}, null, null))).toBeNull();
+  });
+});
