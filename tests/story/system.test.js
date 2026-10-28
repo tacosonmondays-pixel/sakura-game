@@ -13,8 +13,11 @@ import {
 } from '../../src/systems/story.js';
 import {
   beforeSceneFor, queueAfterClears, nextQueued, pruneQueue, markSeen, recordChoice, episodeList, sceneUnlocked,
-  requirementFor, unseenEpisodeCount, episodeNumber,
+  requirementFor, unseenEpisodeCount, episodeNumber, ownedReady, ownedRequirementFor,
 } from '../../src/systems/storyTriggers.js';
+import { grantUnit } from '../../src/systems/unlocks.js';
+import { resolveText } from '../../src/data/story/tokens.js';
+import { lockedToast } from '../../src/ui/story/archive.js';
 import { SCENE_LIST, sceneById, LESSON_SCENES } from '../../src/data/story/index.js';
 import { STORY_REWARDS } from '../../src/data/story/lessons.js';
 import { CAMPAIGN_IDS, CHAPTERS, STAGE_MAP, act2Stage } from '../../src/data/stages.js';
@@ -279,8 +282,9 @@ describe('triggers (T-trig-1)', () => {
     expect(requirementFor({ trigger: { before: '1-1' } })).toBeNull();
   });
 
-  it('a fully cleared save can reach every episode of the archive', () => {
+  it('a fully cleared save (with one of the old class owned) can reach every episode of the archive', () => {
     const p = clearUpTo(createProfile(), CAMPAIGN_IDS[CAMPAIGN_IDS.length - 1]);
+    grantUnit(p, 'fuu'); // g2.class waits for Ruri, Iroha, Ena or Fuu (ifOwned)
     const rows = episodeList(p, SCENE_LIST, hasUnit);
     expect(rows.length).toBeGreaterThanOrEqual(27);
     expect(rows.filter((r) => !r.unlocked)).toEqual([]);
@@ -339,6 +343,8 @@ describe('Act II order and two-key requirements (Gate Arc; docs/CAMPAIGN.md "Act
 
   it('requirementFor names both stages of a two-key x-6; a single-key stage reads as before', () => {
     const base = { name: 'Fixture', mapId: 'sakura_court', desc: 'x', budget: [8, 200], pool: [{ enemy: 'slime_green', weight: 1, from: 1 }], fam: ['charm', 'rune'], scenery: { props: ['x'] } };
+    // keep whatever is registered (Act II stages land in stages.js) and put it back afterwards
+    const had = { '2-6': STAGE_MAP['2-6'], '1-6': STAGE_MAP['1-6'] };
     STAGE_MAP['2-6'] = act2Stage({ ...base, id: '2-6' });
     STAGE_MAP['1-6'] = act2Stage({ ...base, id: '1-6' });
     try {
@@ -349,8 +355,88 @@ describe('Act II order and two-key requirements (Gate Arc; docs/CAMPAIGN.md "Act
       expect(sceneUnlocked(p, { trigger: { before: '2-6' } })).toBe(false); // 1-10 is still missing
       expect(sceneUnlocked(p, { trigger: { before: '1-6' } })).toBe(true);
     } finally {
-      delete STAGE_MAP['2-6'];
-      delete STAGE_MAP['1-6'];
+      for (const [id, st] of Object.entries(had)) {
+        if (st) STAGE_MAP[id] = st;
+        else delete STAGE_MAP[id];
+      }
     }
+  });
+});
+
+describe('ifOwned episodes wait for a girl the player owns (g2.class: Ruri, Iroha, Ena or Fuu)', () => {
+  const CLASS = ['ruri', 'iroha', 'ena', 'fuu'];
+  /** A save that cleared 2-9 (an after-trigger reads progress only, so this needs no stage data) and owns none of them. */
+  const at29 = () => {
+    const p = createProfile();
+    for (const id of CLASS) delete p.units[id];
+    p.progress.stages['2-9'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    return p;
+  };
+
+  it('stays queued while none is owned, plays once one is, and never twice', () => {
+    const p = at29();
+    const cls = sceneById('g2.class');
+    expect([...cls.ifOwned]).toEqual(CLASS);
+    expect(ownedReady(p, cls)).toBe(false);
+    expect(queueAfterClears(p, ['2-9'], SCENE_LIST, hasUnit)).toEqual(['g2.class', 'g2.roof']);
+    // the class is skipped, not dropped: the roof plays first
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.roof');
+    markSeen(p, sceneById('g2.roof'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(pruneQueue(p, SCENE_LIST, hasUnit)).toEqual(['g2.class']);
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull(); // still waiting, still queued
+    expect(p.story.queue).toEqual(['g2.class']);
+    // the archive lists it, locked with the girls it needs (never NEW)
+    let row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
+    expect(row).toMatchObject({ unlocked: false, isNew: false, seen: false });
+    expect(row.requirement).toBe('Needs {name:ruri}, {name:iroha}, {name:ena} or {name:fuu}');
+    expect(resolveText(row.requirement)).toBe('Needs Ruri, Iroha, Ena or Fuu');
+    expect(lockedToast(row.requirement)).toBe('Needs Ruri, Iroha, Ena or Fuu. Recruit one of them to unlock this episode.');
+    expect(unseenEpisodeCount(p, SCENE_LIST, hasUnit)).toBe(episodeList(p, SCENE_LIST, hasUnit).filter((r) => r.isNew).length);
+    // one of them joins (any one): it plays next
+    grantUnit(p, 'ena');
+    expect(ownedReady(p, cls)).toBe(true);
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.class');
+    row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
+    expect(row).toMatchObject({ unlocked: true, isNew: true, requirement: null });
+    expect(markSeen(p, cls).first).toBe(true);
+    // never twice: not queued again, not offered again, a repeat mark grants nothing
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(queueAfterClears(p, ['2-9'], SCENE_LIST, hasUnit)).toEqual([]);
+    expect(markSeen(p, cls)).toEqual({ first: false, rewards: [] });
+    expect(episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class')).toMatchObject({ seen: true, isNew: false });
+  });
+
+  it('a waiting scene keeps its place behind later clears and plays in campaign order once owned', () => {
+    const p = at29();
+    queueAfterClears(p, ['2-9'], SCENE_LIST, hasUnit);
+    p.progress.stages['2-10'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    queueAfterClears(p, ['2-10'], SCENE_LIST, hasUnit);
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.roof');
+    markSeen(p, sceneById('g2.roof'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.after'); // the class waits, the act goes on
+    grantUnit(p, 'iroha');
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.class'); // 2-9 plays before 2-10's remaining scenes
+  });
+
+  it('the trigger still comes first: before 2-9 is cleared the card asks for the stage, not the girls', () => {
+    const p = createProfile();
+    grantUnit(p, 'fuu');
+    const row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
+    expect(row.unlocked).toBe(false);
+    expect(row.requirement).toBe('Clear 2-9 {stage:2-9}');
+  });
+
+  it('a before-scene with ifOwned is offered only once a listed girl is owned; requirement text for one or many', () => {
+    const p = clearUpTo(createProfile(), '1-1');
+    for (const id of CLASS) delete p.units[id];
+    const syn = [{ id: 'syn.owned', kind: 'event', chapter: 1, trigger: { before: '1-2' }, ifOwned: ['fuu'] }];
+    expect(beforeSceneFor(p, '1-2', syn, hasUnit)).toBeNull();
+    grantUnit(p, 'fuu');
+    expect(beforeSceneFor(p, '1-2', syn, hasUnit)?.id).toBe('syn.owned');
+    expect(ownedRequirementFor(syn[0])).toBe('Needs {name:fuu}');
+    expect(ownedRequirementFor({ ifOwned: ['ruri', 'ena'] })).toBe('Needs {name:ruri} or {name:ena}');
+    expect(ownedRequirementFor(sceneById('g2.roof'))).toBeNull();
+    expect(ownedReady(p, sceneById('g2.roof'))).toBe(true);
   });
 });
