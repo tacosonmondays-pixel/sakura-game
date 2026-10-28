@@ -240,8 +240,8 @@ export async function goOffline(page) {
 export const POTENTIAL_GIRLS = Object.freeze({ p1: 'momo', p4: 'aoi', p6: 'kaede', hero: 'hikari' });
 
 /**
- * M4: Momo at P1, Aoi at P4 with one Essence and the coins for her Raise, Kaede at P6 (the girls of POTENTIAL_GIRLS;
- * Hikari, the hero, stays as the `ink` save has her). The page has window.__sakura.
+ * M4: Momo at P1, Aoi at P4 with one Essence and the coins for her Raise, Kaede at P6 (her level stays: a cap the game can reach);
+ * Hikari, the hero, stays as the `ink` save has her. The page has window.__sakura.
  * @param {import('playwright').Page} page
  */
 export async function seedPotentialStates(page) {
@@ -253,7 +253,7 @@ export async function seedPotentialStates(page) {
     Object.assign(p.units[g.p4], { pl: 4 });
     // (one Essence: what she was given for the steps she bought, plus one)
     for (let d = 0; d < 12 && ess.essenceBalance(p, g.p4) < 1; d++) p.units[g.p4].dupes = (p.units[g.p4].dupes || 0) + 1;
-    Object.assign(p.units[g.p6], { pl: 6, level: Math.max(p.units[g.p6].level || 1, 70) });
+    Object.assign(p.units[g.p6], { pl: 6 });
     store.commit('e2e');
     store.saveNow?.();
   }, POTENTIAL_GIRLS);

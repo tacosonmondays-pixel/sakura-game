@@ -21,8 +21,9 @@ export const shots = {
 export const list = ['students', 'roster-end', 'students-hold', 'girl-info', 'girl-info-ruri', 'girl-aoi-info', 'girl-info-scroll', 'girl-level',
   'girl-level-manual', 'girl-awaken', 'girl-gear', 'girl-gear-empty', 'girl-gear-sheet', 'girl-gear-picker', 'girl-gear-totals', 'girl-tree',
   'girl-tree-hero', 'girl-outfit', 'formation', 'roster-pick'];
-/** The plan's own budgets (section 5 M3): Gear, Level and Awaken 12; the gear sheet and picker 12; the totals sheet is
- * Details (no budget). */
+/** The plan's own budgets (section 5 M3 done-when): Gear, Level and Awaken 12. Set here, not in the plan: Level with the
+ * Manual steppers open 17 (section 3, "17 with Manual"), the gear sheet and its picker 12 (section 3: "≤ 12 numbers"),
+ * the totals sheet none (section 3: a Details sheet, "no number budget"). */
 export const gate = {
   'girl-gear': { limit: 12 }, 'girl-gear-empty': { limit: 12 }, 'girl-level': { limit: 12 }, 'girl-level-manual': { limit: 17 },
   'girl-awaken': { limit: 12 }, 'girl-gear-sheet': { limit: 12 }, 'girl-gear-picker': { limit: 12 }, 'girl-gear-totals': { limit: 99 },
