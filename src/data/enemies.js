@@ -640,7 +640,7 @@ const CONSTRUCTS = [
   // Brigade's own model arrives with the enemy rebuild (STEP3_BUILD_PLAN, builder's override: no 13th family yet)
   enemy({
     id: 'brigade_gnat', name: 'Gnat Spotter', family: 'construct', hp: 12, speed: 1.6, armorClass: 'light',
-    bounty: 1, threat: 1.2, size: 0.6, color: '#2b3a5c', accent: '#f4a62a', variant: 'cogling', props: ['gears'],
+    bounty: 1, threat: 1.2, size: 0.72, color: '#2b3a5c', accent: '#f4a62a', variant: 'cogling', props: ['gears'],
     traits: { hasty: { mul: 2.2, every: 3.5, duration: 1 } },
     lore: 'A little Brigade drone that flies ahead of the column and reports everything it sees. It is very good at its job.',
     counters: 'Fast and fragile, and it comes in a group: splash or a quick shooter near the start.',

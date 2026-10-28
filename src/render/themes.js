@@ -520,6 +520,8 @@ export const BURNING = {
   frame: ['barricade', 'guardRail', 'debris', 'barricade', 'bollard'],
   weather: 'ash',
   emberColor: '#ffc46b',
+  /** the hall over a tunnel, charred (3-10's sanctum): never lighter than the road */
+  tunnel: { top: '#4f4844', side: '#3d3734', hall: '#5a524c', roof: '#3a3431', portal: '#6b625a', stripe: '#8a3a2a', glass: '#3b2c26' },
   life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: false },
 };
 
@@ -615,6 +617,7 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
     look.water = { ...look.water, ...B.water };
     look.path = { ...look.path, side: B.pathSide, tone: B.pathTone[look.path.style] ?? look.path.tone };
     if (look.city) look.city = { ...look.city, ...B.city };
+    look.tunnel = { ...look.tunnel, ...B.tunnel };
     look.life = { ...B.life };
     if (scenery.weather === undefined) look.weather = B.weather;
   }

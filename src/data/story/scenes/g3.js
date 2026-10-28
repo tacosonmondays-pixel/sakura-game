@@ -93,7 +93,7 @@ export default [
   ]),
 
   scene('g3.hammer', {
-    title: 'Hammer', chapter: 3, act: 2, kind: 'event', trigger: { after: '3-8' }, bg: 'stage:3-8', music: 'danger',
+    title: 'Hammer', chapter: 3, act: 2, kind: 'event', trigger: { after: '3-8' }, bg: 'stage:3-9', music: 'danger',
   }, [
     narrate('The shrine steps hold. Below them the fog is thinning, and the far shore is a quiet ribbon of lanterns.'),
     say('hikari', "Sensei, they've stopped at the water's edge. They're only waiting. We can still talk to them.", { at: 'center' }),
@@ -203,7 +203,7 @@ export default [
   ]),
 
   scene('g3.epi', {
-    title: 'Two Fires', chapter: 3, act: 2, kind: 'event', trigger: { after: '3-10' }, bg: 'stage:2-6', music: 'calm',
+    title: 'Two Fires', chapter: 3, act: 2, kind: 'event', trigger: { after: '3-10' }, bg: 'common-room', music: 'calm',
   }, [
     narrate('Morning. A classroom on the second floor of Hilltop High. The desks smell of smoke, and every seat is taken.'),
     say('hikari', "Sensei, it's Ms. Hazuki's homeroom. They asked for you. Only you.", { at: 'center' }),
