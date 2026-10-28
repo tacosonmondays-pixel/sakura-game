@@ -29,6 +29,7 @@
 .sp-bg-layer { opacity: 0; transition: opacity 420ms ease; overflow: hidden; }
 .sp-bg-layer.on, .sp-bg-layer.sp-bg-instant { opacity: 1; }
 .sp-bg-layer.sp-bg-instant { transition: none; }
+.sp-bg-layer.svg svg { width: 100%; height: 100%; display: block; } /* an Act II stage's skyline (backdrop.js) */
 .sp-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; display: block; }
 .sp-bg-layer.cg .sp-bg-img { object-position: 58% 32%; }
 .sp-bg-layer.soft .sp-bg-img { filter: blur(var(--sp-bg-blur, 8px)) brightness(var(--sp-bg-dim, 0.8)); transform: scale(1.06); }

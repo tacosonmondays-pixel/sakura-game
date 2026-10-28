@@ -9,6 +9,8 @@ import { h } from '../dom.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { BACKGROUNDS, CHAPTER_FALLBACK_BG, stageOfBackground } from '../../data/story/backgrounds.js';
 import { STAGE_MAP } from '../../data/stages.js';
+import { MAP_MAP } from '../../data/maps.js';
+import { themeBackdropSVG } from '../../art/backdrops.js';
 
 const FADE_MS = 420;
 
@@ -36,7 +38,11 @@ export function setStageStillProvider(fn) {
 export function resolveBackground(id, chapter = 0) {
   const stageId = stageOfBackground(id);
   if (stageId) {
-    const ch = STAGE_MAP[stageId]?.chapter ?? chapter;
+    // an Act II stage (Gate Arc: the Noon city, not the academy) falls back to its map theme's painted skyline
+    const st = STAGE_MAP[stageId];
+    const theme = st?.act === 2 ? MAP_MAP[st.mapId]?.theme : null;
+    if (theme) return { id, kind: 'svg', html: themeBackdropSVG(theme), stageId, fallback: true };
+    const ch = st?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);
     return { ...fb, id, stageId, fallback: true };
   }
@@ -87,6 +93,7 @@ function stillFor(stageId) {
 
 function layerFor(spec) {
   if (spec.kind === 'solid') return h('div.sp-bg-layer.solid', { style: { background: spec.color } });
+  if (spec.kind === 'svg') return h('div.sp-bg-layer.svg', { html: spec.html });
   const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async' });
   const cls = spec.kind === 'cg' ? '.cg' : `.paint.tint-${spec.tint || 'day'}${spec.blur ? '.soft' : ''}`;
   const layer = h(`div.sp-bg-layer${cls}`, img, spec.kind === 'cg' ? null : h('div.sp-bg-tint'));

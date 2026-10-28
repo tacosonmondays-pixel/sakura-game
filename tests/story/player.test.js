@@ -87,7 +87,7 @@ describe('backgrounds', () => {
       ids.add(sc.bg);
       for (const l of sc.lines) if (l.t === 'cue' && l.bg) ids.add(l.bg);
     }
-    for (const id of ids) expect(resolveBackground(id, 1).kind, id).toMatch(/paint|cg|solid/);
+    for (const id of ids) expect(resolveBackground(id, 1).kind, id).toMatch(/paint|cg|solid|svg/);
   });
 
   it('stand nudges only name roster girls', () => {
@@ -115,3 +115,16 @@ describe('story music hook', () => {
     expect(stemMix(null)).toBeNull();
   });
 });
+
+describe('Act II stage backgrounds', () => {
+  it('a stage:1-6 … 1-10 background is the city skyline, not the academy; Act I stages keep the academy tint', () => {
+    for (const id of ['1-6', '1-10']) {
+      const b = resolveBackground(`stage:${id}`, 1);
+      expect(b.kind, id).toBe('svg');
+      expect(b.html, id).toMatch(/aria-label="city scenery"/);
+      expect(backgroundUrls(`stage:${id}`, 1)).toEqual([]);
+    }
+    expect(resolveBackground('stage:1-5', 1).kind).toBe('paint');
+  });
+});
+
