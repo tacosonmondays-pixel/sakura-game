@@ -97,6 +97,7 @@ async function runViewport(vp) {
   const touch = Math.min(W, H) < 600;
   log(`\n=== viewport ${vp} (${touch ? 'touch' : 'mouse'}) ===`);
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch });
+  context.setDefaultNavigationTimeout(90000); // (a busy machine: a load of the dev build can take over 30 s)
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => {
@@ -440,6 +441,7 @@ async function runVisit(vp) {
   log(`\n=== visiting · viewport ${vp} (${touch ? 'touch' : 'mouse'}) ===`);
   const vbase = `${base}?online=local&onboarding=0`;
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
+  context.setDefaultNavigationTimeout(90000);
   const errors = [];
   const noErrors = (what) => {
     const errs = errors.splice(0);
