@@ -1,7 +1,9 @@
 // [ui-ink] Marumi's living scene on the home (UI v2 "Ink & Paper" V2; the build plan's step 5, C4 and C5): her rig
 // numbers, her files and where she stands. Her layers are her own art (the living-scene prototype's layers and masks,
-// notes/live2d/proto), copied into public/art/live/marumi/: her bowling-club plate baked with the home's night grade
-// (tools/art/bakeHome.mjs), her figure (1688 x 828, the frame's 780 plus 48 px of skirt below it), the flame emblem,
+// notes/live2d/proto), copied into public/art/live/marumi/: her bowling-club plate in its own colours (plate.webp, owner
+// Oct 28: the home is never dimmed; rebuilt from the full-colour scene by tools/art/unbakeMarumiPlate.py, the old
+// night-graded plate-home.webp is its input), her figure (1688 x 828, the frame's 780 plus 48 px of skirt below it), the
+// flame emblem,
 // the closed-eye patch and its wipe map, and seven masks that say which part of her moves how.
 //
 // Where she stands (C5): her figure is moved and scaled inside the plate so her face lands on the home's face spot and
@@ -38,7 +40,7 @@ export const MESH_X = Object.freeze([500, 1380]);
 
 /** Her files, in public/art/live/marumi/ (about 436 KB, fetched only when she hosts on High or Medium). */
 export const FILES = Object.freeze({
-  plate: 'plate-home.webp', girl: 'girl.webp', halo: 'halo.png', eyes: 'eyes-closed.png', wipe: 'eyes-wipe.png',
+  plate: 'plate.webp', girl: 'girl.webp', halo: 'halo.png', eyes: 'eyes-closed.png', wipe: 'eyes-wipe.png',
   masks: Object.freeze({ breath: 'mask-breath.png', head: 'mask-head.png', hair: 'mask-hair.png', ribbon: 'mask-ribbon.png', skirt: 'mask-skirt.png', ball: 'mask-ball.png', lock: 'mask-lock.png' }),
 });
 

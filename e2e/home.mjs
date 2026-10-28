@@ -452,6 +452,14 @@ async function rampartChecks(vp) {
     const low = c.filter((x) => x.p10 != null && x.p10 < 4.5);
     check(c.length >= 5 && !low.length, `${vp} rampart: the icons' caps and the serial at 4.5:1 or more (${c.map((x) => `${x.text} ${x.p10 == null ? '-' : x.p10.toFixed(2)}`).join(', ')})`);
     await shot(page, 'home-rampart', vp);
+    // a pale sky (Azami's gate): the serial, the name and the icons' caps keep 4.5:1 over it too
+    await page.evaluate(async () => { const { grantUnit } = await import('/src/systems/unlocks.js'); const p = window.__sakura.store.profile; if (!p.units.azami) grantUnit(p, 'azami', 1760000000000); });
+    await homeWith(page, { secretary: 'azami', lobbyBg: { azami: 'azami-scene' } });
+    await page.waitForFunction(() => window.__sakura?.home?.current?.() === 'azami', null, { timeout: 15000 }).catch(() => {});
+    await settle(page, 600);
+    const pale = await glyphContrast(page, '#app .home-ico .lbl, #app .home-top .serial, #app .home-top .who-name');
+    const paleLow = pale.filter((x) => x.p10 != null && x.p10 < 4.5);
+    check(pale.length >= 5 && !paleLow.length, `${vp} Azami's pale sky: the caps, the serial and the name at 4.5:1 or more (${pale.map((x) => `${x.text} ${x.p10 == null ? '-' : x.p10.toFixed(2)}`).join(', ')})`);
     check(!errors.length, `${vp} rampart: no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   } finally {
     await context.close();

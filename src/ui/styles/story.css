@@ -183,7 +183,7 @@
 .sp-plate[hidden] { display: none; }
 .sp-plate > * { transform: skewX(8deg); }
 .sp-plate-name { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: clamp(15px, 4.4vh, 21px); color: var(--navy); line-height: 1.1; }
-.sp-plate-title { font-size: clamp(10px, 2.9vh, 13px); font-weight: 800; color: #4b78b5; overflow: hidden; text-overflow: ellipsis; }
+.sp-plate-title { font-size: clamp(12px, 2.9vh, 13px); font-weight: 800; color: #4b78b5; overflow: hidden; text-overflow: ellipsis; }
 .sp-plate-enemy { background: #fff7ef; }
 .sp-plate-enemy .sp-plate-title { color: #a26a3a; }
 .sp-text { margin: 0; font-size: var(--sp-text); line-height: 1.48; font-weight: 700; color: #1d2c4a; white-space: pre-line; overflow-wrap: anywhere; }

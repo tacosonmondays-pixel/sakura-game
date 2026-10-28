@@ -784,8 +784,8 @@ function buildTop(host, { onMenu, chat }) {
   av, h('span.who-t', h('span.body.who-name', name), h('span.lv', h('span.lbl', 'LV'), h('span.num', String(a.level)))), h('span.serial', { 'aria-hidden': 'true' }, 'SNT-HQ'));
   const mail = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-mail', title: 'Mail', 'aria-label': mailCount ? `Mail, ${mailCount} unread` : 'Mail', onclick: () => openMailbox() },
     g('mail'), badge(mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null, 'home:mail'));
-  // (Clan lives in the menu on this home: its donations ready light the menu's dot too)
-  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || hub.badges.donationsReady > 0;
+  // (the menu's Clan row lights the menu's dot too, by the same rule as the Clan button: donations ready or an invite)
+  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || clanDot();
   const menu = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-menu', title: 'Menu', 'aria-label': newInside ? 'Menu, something new inside' : 'Menu', 'aria-haspopup': 'dialog', onclick: onMenu },
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   const clan = HOME_CLAN === 'top' ? clanButton(h('button.ui-ibtn', { type: 'button', title: 'Clan' }), g('flag')) : null;
