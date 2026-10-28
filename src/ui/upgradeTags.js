@@ -71,6 +71,8 @@ export const MOD_TAGS = {
   sentry: 'drones',
   // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
   blade: 'self',
+  // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
+  duo: 'self',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -98,6 +100,8 @@ const SUB_KEYS = {
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  duo: new Set(['beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
+    'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
   blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 

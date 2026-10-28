@@ -216,6 +216,8 @@ describe('Prismfall', () => {
     expect(tank.statuses.vulnerable).toBeTruthy();
     expect(bat.hp).toBeLessThan(bat.maxHp); // only the shards reach the sky
     // nothing at the aim: refused, nothing spent
+    run(sim, 0.2); // (it stays active until the last shell has landed: 2.25 s)
+    expect(t.abil.active).toBe(0);
     t.abil.cd = 0;
     sim.abilGroups.clear();
     expect(castAbility(sim, t, { aim: [14, 1] })).toMatchObject({ ok: false, reason: 'noTarget' });
