@@ -1,6 +1,6 @@
 // Sakura Sentinels — the bestiary (owner: world). See CONTRACTS.md §4 and docs/BESTIARY.md.
 //
-// 13 families, 83 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
+// 13 families, 87 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
 // that break open into bosses when they fall). Readability rules (CONTRACTS §12):
 // * Ordinary enemies have exactly ONE rule — one trait, or none for plain fodder (their armor
 //   class is their only quirk). Flat armor counts as the 'armored' rule.
@@ -58,8 +58,8 @@ export const FAMILIES = {
   },
   construct: {
     id: 'construct', name: 'Constructs', color: '#8a94a6',
-    desc: 'Clockwork and crystal machines from the Foundry.',
-    behavior: 'Heavy bodies with crystal shells (cap damage per hit) or barriers (break with blast).',
+    desc: 'Clockwork and crystal machines from the Foundry, and glass machines out of a cold gate.',
+    behavior: 'Heavy bodies with crystal shells (cap damage per hit) or barriers (break with blast). The glass machines blink ahead or wear plate.',
   },
   beast: {
     id: 'beast', name: 'Beasts', color: '#c08552',
@@ -689,6 +689,32 @@ const CONSTRUCTS = [
     counters: 'Barrier then shell: blast first, then many quick hits.',
     introducedIn: '6-4',
   }),
+  // Gate Arc Step 5 (STEP5_BUILD_PLAN decisions 1-3): the first glass machines out of the Noon Gate (5-8). Data on the
+  // shipped construct GLB (no new model: the Halo Drone's own ring body waits for the enemy rebuild), in white glass
+  // and cyan with an outline (`line`) so they read on the pale grating road; each budgeted like the def it stands in for
+  // (the Cogling, the Fog Skulker, the Iron Sentry). They break apart when beaten (src/render/fallStyles.js, `vesper_`).
+  enemy({
+    id: 'vesper_patrol_orb', name: 'Patrol Orb', family: 'construct', hp: 35, speed: 1.05, armorClass: 'heavy',
+    bounty: 13, threat: 2.5, size: 0.75, color: '#f2f7fb', accent: '#3fd0e8', line: '#1f3b4d', variant: 'cogling', props: ['gears'],
+    lore: 'A glass orb that drifts along a patrol route nobody has walked for a long time, humming, looking for something it was told to find.',
+    counters: 'Plain heavy fodder: blast and mystic deal extra; slash bounces off.',
+    introducedIn: '5-8',
+  }),
+  enemy({
+    id: 'vesper_halo_drone', name: 'Halo Drone', family: 'construct', hp: 30, speed: 1.0, armorClass: 'heavy',
+    bounty: 10, threat: 4, size: 0.72, color: '#17607a', accent: '#7ff0ff', line: '#e9fbff', variant: 'cogling', props: ['crystals'],
+    traits: { blink: { every: 5, distance: 3 } },
+    lore: 'A dark glass drone with one cyan lens. When its lens flickers it is already three tiles further on.',
+    counters: 'Blink: a slow, stun or silence during the warning cancels the jump. Heavy body: blast and mystic deal extra.',
+    introducedIn: '5-8',
+  }),
+  enemy({
+    id: 'vesper_line_sentry', name: 'Line Sentry', family: 'construct', hp: 70, speed: 0.7, armorClass: 'heavy', armor: 4,
+    bounty: 25, threat: 5.5, size: 1.05, color: '#e9f1f6', accent: '#2ec4e6', line: '#1f3b4d', variant: 'sentry', props: ['gears'],
+    lore: 'Its last order was "hold the line". It is still holding it, wherever the line has gone.',
+    counters: 'Armoured (4): armour pierce and shred, or big blast shells.',
+    introducedIn: '5-8',
+  }),
   enemy({
     id: 'iron_colossus', name: 'Iron Colossus', family: 'construct', tier: 'boss', hp: 14000, speed: 0.35, armorClass: 'heavy', armor: 6,
     bounty: 2500, threat: 420, size: 3, color: '#495057', accent: '#4cc9f0', variant: 'colossus', props: ['crystals', 'gears', 'chimney'],
@@ -829,6 +855,20 @@ const PLANTS = [
     lore: 'The oldest willow in the fen, walking at last. Seed pods fall when it does.',
     counters: 'Armored brood: break the bark, and keep splash behind it for the pods and sprouts.',
     introducedIn: '5-4',
+  }),
+  // Gate Arc Act II miniboss (5-10, STEP5_BUILD_PLAN decision 5): the Elder Treant's GLB at miniboss scale in
+  // frost-silvered sage with a pale outline for the night-and-fog board; no crown (as 4-10) and no lines of its own
+  enemy({
+    id: 'plant_reservoir_willow', name: 'The Reservoir Willow', family: 'plant', tier: 'miniboss', hp: 3950, speed: 0.42, armorClass: 'light', armor: 4,
+    bounty: 380, threat: 190, size: 2.4, color: '#8fae9c', accent: '#e6f4ff', line: '#f2fbf6', variant: 'treant', props: ['leaves', 'moss'],
+    traits: { brood: { spawn: 'plant_seedpod', count: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The willow shivers. Seed pods drop onto the causeways!', set: { traits: { brood: { spawn: 'plant_seedpod', count: 3 }, summoner: { spawn: 'plant_seedpod', count: 2, every: 8 } } } },
+      { atHp: 0.33, announce: 'The willow wraps its roots round the stone. Its bark hardens!', set: { armor: 7, speed: 0.34, traits: { brood: { spawn: 'plant_seedpod', count: 3 }, summoner: { spawn: 'plant_seedpod', count: 2, every: 8 } } } },
+    ],
+    lore: 'A great willow from the frozen fens that walked a long way looking for somewhere warm. When its stone wakes, it sleeps.',
+    counters: 'Bark armour (4, then 7): armour pierce and shred. Keep splash behind it for the seed pods it drops and the sprouts inside them.',
+    introducedIn: '5-10',
   }),
 ];
 
