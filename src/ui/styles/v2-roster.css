@@ -202,12 +202,10 @@ body.ui-day .ui-chip.gk-toggle.on { --fill: var(--plate); color: var(--on-ink); 
 /* the Manual steppers: a row a book, 44 px steppers (ink squares), the chosen book on a pale wash */
 body.ui-day .mb-book { border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); grid-template-columns: 50px minmax(0, 1fr) auto;
   padding: 2px 2px 2px 4px; }
-/* the book's tile (a tap adds one) a full tap tall: 50 px wide on the tile's 1.09 aspect (itemTile sets 44 inline) */
+/* the book's tile (a tap adds one) a full tap tall: 50 px wide on the tile's 1.09 aspect (itemTile sets 44 inline);
+   its count at 13 px, the tall screens' floor (the tile's own clamp gives 12 px at this width) */
 body.ui-day .mb-book > .item-tile { width: 50px !important; }
-@media (min-height: 481px) {
-  body.ui-day .mb-book { grid-template-columns: 64px minmax(0, 1fr) auto; }
-  body.ui-day .mb-book > .item-tile { width: 64px !important; } /* (its count at 13 px, the desktop floor) */
-}
+body.ui-day .mb-book > .item-tile :is(.item-count, .item-count small) { font-size: 13px; }
 body.ui-day .mb-book.on { background: var(--cyan-wash); box-shadow: inset 0 0 0 1px var(--cyan-ink); }
 body.ui-day .mb-stepper { gap: 2px; }
 body.ui-day .mb-step { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-name)/1 var(--font-num);

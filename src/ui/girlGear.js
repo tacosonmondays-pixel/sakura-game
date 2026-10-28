@@ -364,8 +364,9 @@ export function openPieceSheet(g, { onChange = () => {} } = {}) {
 }
 
 /**
- * What a piece from the Backpack compares with: for a spare, the piece of its slot worn by the strongest girl in the
- * squad that wears one ("Ruri's charm"); for a worn piece, the best spare of its slot. Null when there is none.
+ * What a piece from the Backpack compares with: for a spare, the piece of its slot worn by the first girl of the squad
+ * who wears one (the hero, then the squad in order: "Ruri's charm"); for a worn piece, the best spare of its slot (the
+ * highest level). Null when there is none.
  */
 function compareTarget(g) {
   const profile = store.profile;
