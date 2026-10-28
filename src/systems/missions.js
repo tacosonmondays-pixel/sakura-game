@@ -68,12 +68,15 @@ export function onAppStart(profile, now = new Date()) {
  * @param {object} profile
  * @param {string} event
  * @param {number} [amount]
+ * @param {{ lifetime?: boolean }} [opts]
  */
-export function track(profile, event, amount = 1) {
+export function track(profile, event, amount = 1, { lifetime = true } = {}) {
   const n = Number(amount) || 0;
   if (n <= 0) return;
   const m = ensure(profile);
-  m.counters[event] = (m.counters[event] || 0) + n;
+  // lifetime = false: only the commissions move (a Friend Support run: its mission ticks count, the lifetime
+  // counters behind the achievements do not; docs/specs/BANNERS.md §E.1)
+  if (lifetime) m.counters[event] = (m.counters[event] || 0) + n;
   for (const [kind, list] of Object.entries(MISSION_SETS)) {
     const progress = m[kind];
     const claimed = m[`${kind}Claimed`];

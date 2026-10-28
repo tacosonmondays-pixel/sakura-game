@@ -33,6 +33,8 @@ const LIMITED = {
   profileView: 'card', setProfileCard: 'profile', setProfileBio: 'bio', setProfileVisibility: 'settings',
   // [clan invites]
   sendClanInvite: 'clan_invite', postRecruit: 'recruit',
+  // [friend support]
+  setSupport: 'support_set', supportCandidates: 'support_list', useSupport: 'support_use',
 };
 // a wrong code is a counted try on the server too (not undone like other refusals)
 const COUNTED_MISSES = new Set(['not_found', 'expired', 'full', 'name_taken']);
@@ -58,6 +60,11 @@ export const PROFILE_METHODS = ['profileView', 'myProfileCard', 'setProfileCard'
  * each first checks the server has them (invitesStatus) and throws needs_update without a request.
  */
 export const INVITE_METHODS = ['clanInvites', 'sendClanInvite', 'answerClanInvite', 'recruitState', 'postRecruit'];
+/**
+ * [friend support] calls (supabase/migrations/20261028000000_friend_support.sql): needs_update whenever the profile
+ * functions are missing too (the support file builds on them), without a request (supportStatus).
+ */
+export const SUPPORT_METHODS = ['mySupport', 'setSupport', 'supportCandidates', 'useSupport', 'settleSupport', 'supportState', 'claimSupportPoints', 'supportSummary'];
 /** How long a "needs update" answer is trusted before asking the server again. */
 const SOCIAL_RETRY_MS = 5 * 60 * 1000;
 
@@ -74,13 +81,15 @@ export function getBackend() {
   let adapter = null;
   let ready = null;
   let user = null;
-  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null, profile: null, invites: null };
+  const status = { mode: cfg.mode, reason: cfg.reason, connected: false, error: null, social: null, profile: null, invites: null, support: null };
   let socialCache = null; // { status: 'ready'|'needs_update', at }
   let socialProbe = null;
   let profileCache = null; // [profile] the same, for the profile migration
   let profileProbe = null;
   let invitesCache = null; // [clan invites] the same, for 20261018000000_clan_invites.sql
   let invitesProbe = null;
+  let supportCache = null; // [friend support] the same, for 20261028000000_friend_support.sql
+  let supportProbe = null;
 
   async function load() {
     if (cfg.mode === 'supabase') {
@@ -259,6 +268,39 @@ export function getBackend() {
       }
       return invitesProbe;
     },
+    /**
+     * [friend support] 'ready' | 'needs_update' | 'offline' for the friend support SQL (never throws): whatever
+     * profileStatus() says when that is not ready (no request); otherwise probes support_version, cached like
+     * socialStatus. status.support mirrors it.
+     */
+    async supportStatus() {
+      const prof = await api.profileStatus();
+      if (prof !== 'ready') {
+        if (status.support !== prof) setStatus({ support: prof });
+        return prof;
+      }
+      if (supportCache && (supportCache.status === 'ready' || Date.now() - supportCache.at < SOCIAL_RETRY_MS)) return supportCache.status;
+      if (!supportProbe) {
+        supportProbe = (async () => {
+          let st = 'offline';
+          try {
+            st = adapter.supportProbe ? await adapter.supportProbe() : 'needs_update';
+          } catch {
+            st = 'offline';
+          }
+          supportCache = st === 'offline' ? null : { status: st, at: Date.now() };
+          if (status.support !== st) setStatus({ support: st });
+          return st;
+        })().finally(() => {
+          supportProbe = null;
+        });
+      }
+      return supportProbe;
+    },
+    recheckSupport() {
+      supportCache = null;
+      return api.supportStatus();
+    },
     recheckInvites() {
       invitesCache = null;
       return api.invitesStatus();
@@ -336,6 +378,7 @@ export function getBackend() {
       // the functions went missing after all (a reset project): ask again next time
       if (err.code === 'needs_update') {
         if (PROFILE_METHODS.includes(name)) profileCache = { status: 'needs_update', at: Date.now() };
+        else if (SUPPORT_METHODS.includes(name)) supportCache = { status: 'needs_update', at: Date.now() };
         else if (INVITE_METHODS.includes(name)) invitesCache = { status: 'needs_update', at: Date.now() };
         else socialCache = { status: 'needs_update', at: Date.now() };
       }
@@ -387,6 +430,19 @@ export function getBackend() {
     return call(name, args);
   }
   for (const name of INVITE_METHODS) api[name] = (...args) => invitesCall(name, args);
+
+  async function supportCall(name, args) {
+    const st = await api.supportStatus();
+    if (st === 'needs_update') throw new OnlineError('needs_update', 'Needs the latest server update.', { definitive: true });
+    if (st !== 'ready') throw new OnlineError('offline', 'Cannot reach the server.');
+    const action = LIMITED[name];
+    if (action) {
+      const v = limiter.check(action);
+      if (!v.ok) throw new OnlineError('rate_limited', 'Slow down', { retryMs: v.retryMs, definitive: true });
+    }
+    return call(name, args);
+  }
+  for (const name of SUPPORT_METHODS) api[name] = (...args) => supportCall(name, args);
 
   instance = api;
   if (typeof window !== 'undefined') window.__online = api; // e2e / debug hook

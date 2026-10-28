@@ -327,6 +327,8 @@ function cleanSettings(raw) {
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
     // older saves have no girl page look: the compact page
     girlPage: GIRL_PAGE_LOOKS.includes(s.girlPage) ? s.girlPage : d.girlPage,
+    // [friend support] the lent girl (absent: the first girl of the profile showcase; systems/friendSupport.js)
+    ...(typeof s.supportUnit === 'string' && /^[a-z][a-z0-9_]{0,23}$/.test(s.supportUnit) ? { supportUnit: s.supportUnit } : {}),
   };
 }
 
@@ -540,6 +542,8 @@ export function migrateProfile(raw) {
       // a solo run (src/systems/freeplayRewards.js): its best field and capped coins per wave
       if (r.bestKey === 'freeplayBest') runs[seed].bestKey = 'freeplayBest';
       if (r.waveCoins != null) runs[seed].waveCoins = int(r.waveCoins, 0, 0, 1000);
+      // [friend support] a run with a borrowed girl: no best or milestones when it is paid
+      if (r.support === 1 || r.support === true) runs[seed].support = 1;
     }
     if (Object.keys(runs).length) p.progress.freeplayPending = runs;
   }
