@@ -1,6 +1,7 @@
 // Battle rewards: stage drops, medals, first clears, unlocks, bestiary and sweeps
 // (owner: systems). See CONTRACTS.md §5.
 
+import { creditLimitBreak, LB_REWARD } from './limitBreak.js';
 import { STAGE_MAP, getStage } from '../data/stages.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { getItem } from '../data/items.js';
@@ -279,6 +280,9 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
         out.unlockedUnits.push(unitId);
       }
     }
+    // [banners G6] Limit Break: a won trial (or its stand-in) makes an LR unit LR, once, with 300 gems + 1 ticket
+    out.limitBreak = creditLimitBreak(profile, result, difficulty);
+    for (let i = 0; i < out.limitBreak.length; i++) rewards.push(...LB_REWARD);
     const mul = battleEventMul(stage.id, now, eventAt);
     out.eventBonus = mul > 1;
     const drops = rollStageDrops(stage.id, difficulty, rng, { dropMul: mul });

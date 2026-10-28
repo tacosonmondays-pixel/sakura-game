@@ -13,7 +13,7 @@ import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
 import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js';
 import { itemSources, itemCount } from '../systems/inventory.js';
-import { displayRarity, rarityInfo, urBadge, applyUrFrame } from './rarity.js';
+import { displayRarity, rarityInfo, urBadge, rankBadge, applyUrFrame } from './rarity.js';
 import { potentialOf, potPill } from './potential.js';
 import { hasPotentialNew } from '../systems/potential.js';
 
@@ -407,7 +407,7 @@ export function stars(n, max = 5) {
 }
 
 export function rarityBadge(rarity) {
-  if (rarity === 'UR') return urBadge(); // display-only rarity of a fully awakened SSR (rarity.js)
+  if (rarity === 'UR' || rarity === 'LR') return rankBadge(rarity); // display-only ranks (rarity.js)
   const r = UNIT_RARITIES[rarity] || ITEM_RARITIES[rarity];
   return h('span.rarity-badge', { style: { background: r?.color || '#999' } }, r?.name || rarity);
 }
@@ -521,7 +521,7 @@ export function unitCard(unitId, { onClick, owned = true, level = null, awaken =
     `button.unit-card.unit-card-${variant}${owned ? '' : '.locked'}${selected ? '.selected' : ''}`,
     { onclick: onClick, 'data-unit': unitId, 'data-rarity': shown, style: { '--rarity': r.color } },
     art,
-    shown === 'UR' ? h('div.unit-card-rarity.unit-card-ur', urBadge()) : h('div.unit-card-rarity', r.name),
+    shown === 'UR' || shown === 'LR' ? h(`div.unit-card-rarity.unit-card-${shown.toLowerCase()}`, rankBadge(shown)) : h('div.unit-card-rarity', r.name),
     level != null ? h('div.unit-card-level', h('span.unit-card-lv', 'Lv.'), String(level)) : null,
     awaken ? h('div.unit-card-stars', '★'.repeat(awaken)) : null,
     pot >= 2 ? h('div.unit-card-pot', { 'data-testid': 'card-pot' }, potPill(pot, { def: u })) : null,
@@ -532,7 +532,7 @@ export function unitCard(unitId, { onClick, owned = true, level = null, awaken =
   );
   el.style.setProperty('--rarity', r.color);
   if (pot >= 2) el.classList.add('has-pot');
-  if (shown === 'UR') applyUrFrame(el, u, profile);
+  if (shown === 'UR' || shown === 'LR') applyUrFrame(el, u, profile);
   return el;
 }
 

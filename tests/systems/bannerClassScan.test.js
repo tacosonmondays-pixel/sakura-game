@@ -17,6 +17,8 @@ const ALLOW = new Set([
   'src/systems/potential.js', // Potential estimates by rarity track
   'src/systems/profileTrophies.js', // UR trophy (an LR unit at ★5 is UR too)
   'src/systems/shop.js', // Chosen Essence: rarity AND chosenEssenceAllowed
+  'src/systems/limitBreak.js', // UR Resonance: every SSR at ★5 (LR units included)
+  'src/ui/screens/student.js', // the ★5 → UR preview line
   'src/ui/potential.js', // Kindred by rarity (Kindred is allowed on LR units, J14)
   'src/ui/rarity.js', // the UR look
   'src/ui/screens/backpack.js', // the how-to-get line: unitClass first

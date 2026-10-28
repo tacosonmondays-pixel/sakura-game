@@ -17,6 +17,8 @@ import { BATTLE_CAPS } from '../data/gearStats.js';
 export { BATTLE_CAPS };
 import { track } from './missions.js';
 import { potentialLevel, potentialPowerFactor } from './potential.js';
+import { potentialTrack } from '../data/potential.js';
+import { rankBoost } from './limitBreak.js';
 import { mirrorUnit, LEVEL_MIRROR_PREFIX } from './ascensionSave.js';
 import { writeRosterMark } from './rosterSave.js';
 
@@ -483,9 +485,11 @@ export function unitBattleStats(profile, unitId) {
   const gates = unit.breakthrough || 0;
   const r4 = (v) => Math.round(v * 10000) / 10000;
   const C = BATTLE_CAPS;
+  // [banners G3/G6] UR Resonance (★5 SSR) and Limit Break (LR) multiply on top, along her Potential axis
+  const boost = rankBoost(prof, unitId, UNIT_MAP[unitId] ? potentialTrack(UNIT_MAP[unitId]) : null);
   return {
-    damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + gearAtk)),
-    rateMul: r4((1 + PER_LEVEL_RATE * (level - 1)) * (1 + g.ratePct)),
+    damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + gearAtk) * boost.damage),
+    rateMul: r4((1 + PER_LEVEL_RATE * (level - 1)) * (1 + g.ratePct) * boost.rate),
     rangeMul: r4(1 + Math.min(C.rangePct, g.rangePct)),
     critChance: r4(Math.min(C.critChance, g.critChance)),
     critMul: r4(1 + Math.min(C.critDmg, g.critDmg)),
@@ -493,7 +497,7 @@ export function unitBattleStats(profile, unitId) {
     costMul: r4(Math.max(1 - C.costCut, 1 - g.costCut)),
     ultHaste: r4(Math.min(C.ultHaste, g.ultHaste)),
     pierceK: Math.round(100 * Math.min(C.piercePct, g.piercePct)),
-    auraPct: r4(Math.min(C.auraPct, g.auraPct) + auraFill),
+    auraPct: r4((1 + Math.min(C.auraPct, g.auraPct) + auraFill) * boost.aura - 1),
     auraRangeMul: r4(1 + auraFill),
     dotMul: r4(Math.min(GEAR_DOT_CAP, 1 + 0.5 * gearAtk)),
     club: set.club,
