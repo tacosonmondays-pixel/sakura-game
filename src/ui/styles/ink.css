@@ -1188,6 +1188,9 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 /* ---------- sheets: a day sheet floats as a white panel with a bleed ink head; a 2 px blur behind it softens the rows
    it cuts (low 10). The Details sheet (full height, on three screen edges) has no chamfer (S2). ---------- */
 :is(.ui-day, .ui-night) .ui-layer > .ui-scrim { background: var(--scrim); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+/* no blur over WebGL (UI_DIRECTION 4.3): a sheet over a live 3D canvas (the girl page's 3D chibi) keeps the plain scrim;
+   a backdrop blur over the canvas stalls the compositor on software GL (smoke: the outfit sheet's Wear click hung) */
+:is(.ui-day, .ui-night):has(#app canvas) :is(.ui-layer > .ui-scrim, .ui-scrim-full) { backdrop-filter: none; -webkit-backdrop-filter: none; }
 :is(.ui-day, .ui-night) .ui-sheet:not(.full):not(.side) {
   --c: var(--cut); --rw: 1px; --edge: var(--line-ink);
   bottom: calc(8px + var(--safe-bottom)); width: min(calc(100% - 32px), 720px); max-height: calc(var(--sheet-max-h) - 8px);
