@@ -1,0 +1,76 @@
+{
+  "review": "release go/no-go v0.1.54",
+  "commit": "e7e5935cc7fe5cdbc7b8888dfaee6d25a56ccf47",
+  "branch": "release/next",
+  "reviewer": "independent",
+  "date": "2026-10-28",
+  "verdict": "NO-GO",
+  "summary": "Every gate passes. The full test suite passes, the sim id and COOP_PROTOCOL match live, the build works and the secret scan finds only the known library false positive. Smoke, home and Halloween e2e pass (Halloween once a load flake was rerun). The sweep covered 218 screens (fresh, mid and maxed saves at 844x390 and 1280x720) with no console or page errors and no crashes, no clipped text and no broken art. Nothing in the sim, online, systems or save code changed. The patch note is correct in id, version, date and position. Two medium findings block the release, and both are copy-only fixes. (M1) The first lesson a new player gets, 'Welcome home, Sensei', still says 'Tap ‹ › to change who keeps you company, and the picture button to pick a background'. The Quiet Home has neither control: both now sit under Menu > Background. (M2) A locked full illustration in the background picker still shows a toast and tooltip saying 'date her and give gifts in the City to unlock' (src/data/lobbyArt.js:221). That breaks the rule that Sensei is a friendly teacher and never romantic. The text is already live, and this release fixed the same wording in bgPicker.js but missed this line.",
+  "gates": {
+    "npm_test": "PASS: 267 files passed, 2 skipped; 4158 tests passed, 11 skipped; exit 0 (320 s). tests/data/otherNames.test.js is part of the suite and passed.",
+    "sim_id": "PASS: 92e2e22527cf, the same as live version.json (0.1.53, build f4cf107b8c19)",
+    "coop_protocol": "PASS: 8 in src/online/coop/version.js, the same as origin/main",
+    "vite_build": "PASS: nice npx vite build exit 0 in 1.79 s, dist 90 MB, dist/version.json build e7e5935cc7fe sim 92e2e22527cf",
+    "secret_scan": "PASS: grep -rlE 'sb_secret_|service_role|SUPABASE_SERVICE' dist found only dist/assets/dist-Dwa9yvX6.js, the bundled @supabase/auth-js key-prefix check (startsWith(`sb_publishable_`)||startsWith(`sb_secret_`)), which is the known false positive. dist removed.",
+    "diff_scope": "PASS: 214 files changed vs origin/main. Nothing changed under src/sim, src/online, src/systems, src/core or the save code. In src/data only story/backgrounds.js, story/scenes/*.js (bg ids) and patchNotes.js changed. src/main.js adds 2 CSS imports. The router change only adds applySurfaceMode, which is display. .gitignore now ignores a node_modules symlink and story-bg-out/.",
+    "secrets_in_diff": "PASS: no key, token or password in the diff. .env.production is unchanged (Supabase URL plus publishable key only). tools/story-bg/gen.py sends no auth header and uses text prompts only ('no humans, scenery'), with no reference images.",
+    "other_names": "PASS: the otherNames test passed. The same hashes run over the 45 commit messages in origin/main..HEAD (words and bigrams) gave 0 hits. The patch note is clean. Lucide and Feather (icon sets, licence files in public/licenses) are not game or anime names.",
+    "junk": "PASS: no node_modules link, raw generator PNGs, manifests or scratch files. The new PNGs are Marumi's living-scene masks under public/art/live/marumi, which are intended. docs/review adds 28 files (round JSONs, plus the owner board: 15 jpg and one mp4, 8.5 MB, intended).",
+    "patch_note": "PASS with low notes: id and version are v0.1.54/0.1.54, date 2026-10-28, title 'Quiet Home', at the top of PATCH_NOTES. The last Pages run was #53 (live 0.1.53), so the next run, #54, matches. The text is friendly, aimed at players and accurate in the main, but see L1 and L2.",
+    "content_rules": "PASS for the new art: the Marumi living scene, the four home pictures (academy, Hikari, Aoi, Sango) and the 31 story places (scenery, no people) are all clothed and wholesome, with no swimsuits and no body framing. One rule issue in shipped copy: M2.",
+    "e2e_smoke": "PASS: node e2e/smoke.mjs, ALL SMOKE CHECKS PASSED (678 ok at 1280x720, 844x390 and 390x844)",
+    "e2e_home": "PASS: node e2e/home.mjs 215 ok, 0 failed on a run by itself. A first run alongside the screen sweep aborted at 1280x720 on a page.screenshot 30 s timeout (load, see L3).",
+    "e2e_halloween": "PASS: node e2e/halloween.mjs at 844x390 had every check ok. 1280x720 had 1 FAIL on its first run, made while the sweep was also running ('locked Golem Nightmare by link: the HUD says why it is practice', empty feed after the 90 s wait). The rerun of 1280x720 by itself passed all 55 checks, including that one, with no page errors (see L3).",
+    "console_errors": "PASS: 0 console errors, 0 page errors, 0 failed local requests and 0 local HTTP 4xx/5xx across all 218 swept screens. No third-party host failed (none to name)."
+  },
+  "screens_checked": {
+    "how": "A Playwright sweep (headless Chromium, SwiftShader) on the Vite dev server, real clock 2026-10-28, so the Halloween event is live. Errors were collected on every screen and every screenshot was looked at. The e2e/probe.mjs clip, spill and overflow checks also ran on every screen.",
+    "saves": {
+      "fresh": "A cleared save through the real first run: title, TAP TO START, opening scene (lines read, then the skip confirm), the coached 1-1 tutorial battle (coach, then skip tutorial), first home arrival with the beta gift modal, then the home",
+      "mid": "e2e/uiSeed.mjs seedInkSave (Ruri secretary, chapters 1-3 cleared plus 4-1 to 4-3, 284,650 coins, 16,570 gems, 12 tickets)",
+      "maxed": "seedInkSave plus all 35 units at Lv 60 / breakthrough 8 / awaken 5, 987,654,321 coins, 98,765,432 gems, every item x9999, all 40 campaign stages cleared on every difficulty"
+    },
+    "viewports": ["844x390 (touch)", "1280x720"],
+    "screens_per_save": ["home", "menu sheet", "Missions (the Battle plate)", "Multiplayer (CO-OP)", "Students", "Recruit", "Commissions", "Mall", "Mailroom (top-bar mail)", "news chip (the event page)", "Formation", "Backpack", "Bestiary", "Profile", "Story archive", "Captain's Journal", "Notice", "Wiki", "Clan (name prompt, offline)", "Settings", "girl page Info", "girl page Gear", "Campaign", "Stage prep 1-1", "Halloween event page", "Happening Now", "Titan Trials", "Mall Gem Shop", "a story scene and later lines (fresh: opening; mid and maxed: ch2.epi at Moon Pier)", "battle start 1-1", "pause menu", "Save & quit back to prep", "home again"],
+    "total": 218,
+    "also": "Halloween e2e screenshots (lobby with the event backdrop, event Story, Operations, Missions and Exchange, boss Nightmare prep and practice) on the dev clock at both sizes. Wiki and Settings at 1280x720 came from a separate run because the sweep's screenshot timed out under load."
+  },
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "medium",
+      "title": "The first home lesson tells new players to use controls the Quiet Home no longer has",
+      "detail": "Finishing (or skipping) the tutorial unlocks lesson 1, 'Welcome home, Sensei'. On the first home arrival it is announced with the toast 'Hikari has a new lesson ♡ — Welcome home, Sensei', and it heads the Captain's Journal. Its body says 'This is our home base! Tap ‹ › to change who keeps you company, and the picture button to pick a background.' (src/data/story/lessons.js:25). Its 'Hikari explains' scene says 'Tap ‹ › to choose who keeps you company. The picture button changes the view.' (src/data/story/scenes/lessons.js:14). The Quiet Home has no ‹ › chevrons and no picture button. Who keeps you company and the background both live in Menu > Background now (lobby.js header comment, menuSheet tools). So the first thing the release teaches about its headline feature is wrong. Suggested copy, display only and outside the sim hash: 'Open the Menu and tap Background to choose who keeps you company and the view behind her.' The lobby.js comments at lines 4 and 92 still mention the ‹ › chevrons; they could be tidied in the same pass.",
+      "evidence": "Captain's Journal screenshots at 844x390 and 1280x720 for fresh, mid and maxed saves (for example fresh-844x390-23-journal.png and maxed-1280x720-23-journal.png in the reviewer's scratch folder). Home screenshots show no chevrons and no picture button. grep: '‹ ›' appears in player copy only in those two lines."
+    },
+    {
+      "id": "M2",
+      "severity": "medium",
+      "title": "'date her' romantic wording still ships in the background picker's lock toast and tooltip",
+      "detail": "src/data/lobbyArt.js:221 unlockText() returns 'Bond Lv N with <girl> (now n) — date her and give gifts in the City to unlock'. bgPicker.js uses it as the tile title (tooltip, bgPicker.js:107) and as the toast when an owned girl's bond-locked full illustration is tapped (bgPicker.js:110). On a student's tile this frames Sensei romantically, against HANDOFF §6 (Sensei is a friendly teacher, never romantic; bond scenes are wholesome). The text is already live on v0.1.53, so this is not a regression. But the candidate ships it, and this release fixed the two sibling strings in bgPicker.js ('Spend time with her & give gifts in the City', 'raised by time together and gifts') and left this one. Fix: 'spend time with her and give gifts in the City to unlock'. That is data copy outside the sim hash, so the sim id and COOP_PROTOCOL stay as they are.",
+      "evidence": "git diff origin/main...HEAD -- src/ui/lobby/bgPicker.js (the sibling fixes); src/data/lobbyArt.js:221 (unchanged since commit 1e3b54f5, on main); bgPicker.js:107 and :110 call unlockText."
+    },
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "Patch note: 'Every story scene' does not cover the Halloween episodes",
+      "detail": "'Every story scene now plays in its own painted place' is true for the opening, the lessons and chapters 1-8. The Halloween event episodes (src/data/events/scenes/halloween.js, two scenes with bg 'academy-night') still use the tinted academy painting, and they are on show right now. Something like 'Every chapter scene…' would be exact. Optional.",
+      "evidence": "grep bg: in src/data: halloween.js:7 and :38 'academy-night'"
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "Patch note does not mention that most screens' top bars now hide coins and gems",
+      "detail": "src/ui/wallets.js: in the ink kit the top bar shows only the currencies a screen spends. The home shows tickets, coins and gems; the girl page and the Backpack coins and gems; Recruit tickets and gems; the Mall the active shop's. Hubs, lists, the roster, stage prep and the rest show none. Players will notice that the coins and gems they used to see everywhere are gone from Missions, Formation, Commissions, Mail and so on. A short bullet such as 'Top bars show only the currencies that screen uses' would set expectations. Optional.",
+      "evidence": "src/ui/wallets.js SCREEN_WALLETS / MALL_WALLETS. Sweep screenshots: the Missions, Formation and Commissions bars have no wallets."
+    },
+    {
+      "id": "L3",
+      "severity": "low",
+      "title": "Two e2e scripts flake on a loaded machine (not a product fault)",
+      "detail": "halloween.mjs at 1280x720 once got an empty battle feed within its 90 s wait for the practice line. home.mjs once hit a 30 s page.screenshot timeout. Both happened while the 218-screen sweep ran beside them, and both passed in full when run alone. A comparison on one machine shows the Quiet Home is cheaper to capture than the live home (1280x720 screenshot 4.7 s vs 8.5 s; 1 running animation vs 12), so this is not a performance regression. Raising those timeouts or retrying the screenshot would make the gates steadier. Optional.",
+      "evidence": "Reviewer scratch logs halloween.log (1 FAILED) and halloween2.log (all ok), home.log (TimeoutError at home.mjs:336) and home2.log (215 ok); perf comparison of main and release with a seedInkSave home."
+    }
+  ],
+  "notes_for_owner": "Not yet: two small text fixes first. Everything else about the Quiet Home and the painted story places looks good. All the tests pass, nothing about battles, co-op or saves changed, and I found no errors or broken screens across 218 screens on new, mid-game and maxed saves, at phone and desktop sizes. The Halloween event still works. The two blockers are wording only. (1) Hikari's first lesson still says to tap ‹ › and a picture button on the home, but the new home has neither: both are now in Menu > Background. (2) Tapping a locked full illustration in the background picker still says 'date her and give gifts in the City'. That was already live, but it goes against the friendly-teacher rule, and this update fixed the same phrase elsewhere in that window and missed this one. Both are one-line changes that qualify for the fast lane (display only, the sim id stays the same) and then need a fresh go/no-go. If you like, the patch note could also say 'every chapter scene' (the Halloween episodes keep the old academy backdrop) and mention that top bars now show only the currencies each screen uses."
+}
