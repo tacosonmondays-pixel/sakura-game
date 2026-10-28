@@ -251,7 +251,7 @@ export const PEP_CARDS = deepFreeze({
   B02: { group: 'board', rar: [0, 1], bounty: [1, 2], econ: true, ship: true, m1: true },
   B03: { group: 'board', rar: [0, 1, 2], heal: [15, 25, 40], maxHearts: [5, 8, 12], heals: true, ship: true, m1: true },
   B04: { group: 'board', rar: [1, 2], seatDmg: [null, 0.35, 0.4], seatReach: [null, 0.85, 1.0], seatAdd: [0, 0, 1], one: true, team: true, ship: true, m1: true },
-  B05: { group: 'board', rar: [1], passes: 1, one: true, ship: true, m1: true },
+  B05: { group: 'board', rar: [1], passes: 1, one: true, team: true, ship: true, m1: true },
   B06: { group: 'board', rar: [1], share: 10, max: 300, one: true, solo: true, ship: true, m1: true },
   B07: { group: 'board', rar: [3], cards: 1, erasers: 1, one: true, next: true, draw: { handInCoins: 0 }, ship: true },
   B08: { group: 'board', rar: [3], squad: 1, tryoutNext: true, one: true, next: true, draw: { maxHearts: -10 }, ship: true },

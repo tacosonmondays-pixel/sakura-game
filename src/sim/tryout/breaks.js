@@ -143,7 +143,7 @@ export function assignSeats(sim) {
 // ---------------------------------------------------------------------------
 
 /**
- * Can player `owner` move her girl `uid` to (x, y) now? Only during her break, her own student, a pass in
+ * Can player `owner` move their girl `uid` to (x, y) now? Only during their break, their own student, a pass in
  * hand (moving back to where she stood at the break's start is free), a legal spot.
  * @returns {{ ok: boolean, reason: string|null, cost?: number }}
  */
@@ -221,7 +221,7 @@ export function undoMove(sim, owner) {
   return { ok: true, reason: null };
 }
 
-/** A break opens for a player: her passes for this break and a clean Undo stack. */
+/** A break opens for a player: their passes for this break and a clean Undo stack. */
 export function openBreak(sim, owner) {
   const ty = sim.tryout;
   const p = ty.players[owner];
@@ -229,6 +229,7 @@ export function openBreak(sim, owner) {
   const draw = p.cards.filter((x) => PEP_CARDS[x.id]?.draw?.passes).reduce((a, x) => a + PEP_CARDS[x.id].draw.passes, 0);
   p.passes = Math.max(0, Math.min(TRYOUT.passes.max, p.passes + g.passes + p.passBonus + draw));
   p.win = 'break';
+  p.winTicks = 0;
   p.undo = [];
   p.start = {};
   p.used = {};

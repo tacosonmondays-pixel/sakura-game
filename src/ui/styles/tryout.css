@@ -78,6 +78,19 @@
   .ty-sheet { padding: 8px 10px; }
   .ty-sheet-title { font-size: 16px; }
 }
+/* short screens (phones in landscape): the break bar is one compact strip docked bottom-left, so the board above it
+   (seats and girls to move) stays visible and tappable (M1 review, M2) */
+@media (max-height: 430px) {
+  .ty-break {
+    left: 8px; transform: none; width: min(470px, 58vw); bottom: calc(var(--bt-bar-h) + 4px); padding: 4px 8px;
+    font-size: 12px; border-width: 1px;
+  }
+  .ty-break-title { font-size: 12px; }
+  .ty-break-hint { display: none; }
+  .ty-break .ty-actions { gap: 4px; margin-top: 3px; }
+  .ty-break .ty-actions .bt-btn, .ty-break .ty-actions .bt-cta { font-size: 12px; padding: 4px 8px; min-height: 0; }
+  .ty-brush { font-size: 12px; padding: 3px; max-width: 120px; }
+}
 @media (prefers-reduced-motion: reduce) { .ty-card:hover { transform: none; } }
 
 /* the hub / Before Class (plain M1) */

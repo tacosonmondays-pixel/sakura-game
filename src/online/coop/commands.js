@@ -51,7 +51,7 @@ import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '.
  * ones that unlock later (sim.abilityAutoDefault; the start message's players[i].autoAbil sets it first).
  * Tryout Day (docs/specs/TRYOUT_DAY.md §11; only in a run, start.tryout): tr[op, a, b] a run command of this
  * player's (src/sim/tryout/index.js tryoutCommand: take / erase / hand carry the open offer's sequence number,
- * snack, brush, undo, ready); mv[uid, qx, qy] a Hall Pass move of her own girl, in 1/1024 tiles. Both are
+ * snack, brush, undo, ready); mv[uid, qx, qy] a Hall Pass move of one of their own girls, in 1/1024 tiles. Both are
  * validated inside the Sim at their tick; a stale or wrong one is a no-op with a reason.
  */
 export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast', 'tr', 'mv'];
@@ -113,7 +113,7 @@ export function isValidCmd(c, { markers = false } = {}) {
  * @param {{ mySlot?: number, stage?: object, units?: object }} [opts] `stage` / `units`: test fixtures (a
  *   StageDef; extra UnitDefs by id), never from the network
  * A Tryout Day run (`start.tryout` = { seed, grade, length, mapId }, each player's `draft` (3 girl ids) and `pool`
- * (her frozen account stats by girl id)): the stage comes from the run's plan, every player's loadout from her
+ * (their frozen account stats by girl id)): the stage comes from the run's plan, every player's loadout from their
  * squad inside the band (src/sim/tryout).
  */
 export function createCoopSim(start, { mySlot = 0, stage = null, units = null } = {}) {
@@ -164,7 +164,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
   sim.ownerCash = players.map(() => 0);
   players.forEach((p, i) => { sim.abilityAutoDefault[i] = p.autoAbil === true; });
   const views = players.map((p, i) => {
-    // a run: the Sim built each player's loadout from her squad (src/sim/tryout); her view shares that map
+    // a run: the Sim built each player's loadout from their squad (src/sim/tryout); their view shares that map
     if (sim.tryout) return { loadout: sim._loadouts[i], heroConfig: sim.heroConfigs[i] || null };
     const lo = new Map();
     for (const e of p.loadout || []) {
@@ -246,7 +246,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     if (cmd.k === 'gone' || cmd.k === 'join') {
       if (cmd.k === 'gone') gone.add(slot);
       else gone.delete(slot);
-      // a run: her open pick or break resolves at once, and so does every later one while she stays gone
+      // a run: their open pick or break resolves at once, and so does every later one while they stay gone
       if (sim.tryout) withDetMath(() => tryoutGone(sim, slot, cmd.k === 'gone'));
       // the one left can finish alone (her vote may already be in)
       if (cmd.k === 'gone') checkEndVotes();

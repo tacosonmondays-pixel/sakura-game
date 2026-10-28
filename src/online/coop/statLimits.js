@@ -140,7 +140,7 @@ export function clampTryout(t) {
 }
 
 /**
- * A start message's player with her loadout capped at LOADOUT_MAX and every stat clamped; a Tryout Day
+ * A start message's player with their loadout capped at LOADOUT_MAX and every stat clamped; a Tryout Day
  * player's `pool` and `draft` too (only when the message has them: a normal start stays as it was).
  */
 export function clampPlayer(p) {

@@ -54,7 +54,7 @@ export function render(root) {
     const note = kind === 'makeup' ? ' · uses your Make-up Test' : kind === 'practice' ? ' · continues as practice' : kind === 'stale' ? ' · closed by an update' : '';
     return h('section.panel.ty-hub', { 'data-testid': 'tryout-continue' },
       h('b', `Half Day · ${getMap(plan.mapId)?.name || plan.mapId}`),
-      h('p', `Period ${run.period} · wave ${(run.wave || 0) + 1} · ♥ ${run.lives ?? TRYOUT.grades[run.grade].hearts}${note}`),
+      h('p', `Period ${Math.ceil(((run.wave || 0) + 1) / TRYOUT.lengths[run.length || 'half'].wavesPerPeriod)} · wave ${(run.wave || 0) + 1} · ♥ ${run.lives ?? TRYOUT.grades[run.grade].hearts}${note}`),
       h('div.ty-squad', ...run.squad.map((id) => svgEl(portraitHTML(UNIT_MAP[id], 'thumb', { eager: true }), 'ty-squad-art'))),
       kind === 'makeup' ? h('p.muted', 'You left during a wave: continuing replays that wave once, and that period\'s assignments no longer count.') : null,
       h('div.ty-actions',

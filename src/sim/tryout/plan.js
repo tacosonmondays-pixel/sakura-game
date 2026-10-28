@@ -116,7 +116,7 @@ export function buildTryoutStage(plan, { coop = false } = {}) {
     id: `tryout:${plan.seed.toString(36)}:${plan.grade}:${plan.length}`,
     kind: 'tryout',
     chapter: 0,
-    name: 'Tryout Day',
+    name: '', // (display text lives outside hashed files: the battle screen names it)
     mapId: plan.mapId,
     waves: len.periods * per,
     waveGen: { pool, budget: { ...win.budget }, spacing: TRYOUT.stage.spacing, groups: TRYOUT.stage.groups, fixed },

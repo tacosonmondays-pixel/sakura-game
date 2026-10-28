@@ -74,6 +74,15 @@ describe('tryout: the run loop', () => {
     expect(sim.tryout.players[0].bank).toBe(1);
   });
 
+  it('a handed-in LR pick still counts toward the LR cap', () => {
+    const sim = makeSim();
+    playUntilWindow(sim);
+    const p = sim.tryout.players[0];
+    p.offer.rarity = 4;
+    sim.tryoutCommand(0, 'hand', [p.offer.seq]);
+    expect(p.lr).toBe(1);
+  });
+
   it('an Eraser keeps the rarity and changes the cards', () => {
     const sim = makeSim({ seed: 31 });
     playUntilWindow(sim);

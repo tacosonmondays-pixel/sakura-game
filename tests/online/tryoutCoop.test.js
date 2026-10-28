@@ -56,6 +56,42 @@ describe('tryout co-op', () => {
     expect(ty.players[0].picks[0].hand).toBe(true);
   }, 60000);
 
+  it('a pick and the break after it each get the whole timeout; only the window that runs out resolves', () => {
+    const coop = createCoopSim(coopStart({ seed: 6 }), { mySlot: 0 });
+    const ty = coop.sim.tryout;
+    coop.sim.maxLives = 1e6; // (no girls placed: the hearts only have to last to Recess)
+    coop.sim.lives = 1e6;
+    let s = 100;
+    // straight to pick 3 (Recess follows it): both players take a card at picks 1-2
+    for (let pick = 1; pick <= 3; pick++) {
+      toFirstPick(coop);
+      if (pick < 3) for (const i of [0, 1]) coop.apply({ t: coop.tick, p: i, s: s++, k: 'tr', a: ['take', ty.players[i].offer.seq, 0] });
+    }
+    expect(ty.players.every((p) => p.win === 'pick')).toBe(true);
+    coop.apply({ t: coop.tick, p: 1, s: s++, k: 'tr', a: ['take', ty.players[1].offer.seq, 0] });
+    expect(ty.players[1].win).toBe('break');
+    for (let i = 0; i < TRYOUT.coopTimeoutTicks - 100; i++) coop.step();
+    coop.apply({ t: coop.tick, p: 0, s: s++, k: 'tr', a: ['take', ty.players[0].offer.seq, 0] });
+    expect(ty.players[0].win).toBe('break');
+    // player 1's break runs out (its own clock); player 0's just opened and stays open
+    for (let i = 0; i < 200; i++) coop.step();
+    expect(ty.players[1].win).toBe(null);
+    expect(ty.players[0].win).toBe('break');
+    for (let i = 0; i < TRYOUT.coopTimeoutTicks; i++) coop.step();
+    expect(ty.players[0].win).toBe(null);
+  }, 60000);
+
+  it('Spare Pass is team-wide: every player gets +1 now and at every later break', () => {
+    const coop = createCoopSim(coopStart({ seed: 8 }), { mySlot: 0 });
+    const ty = coop.sim.tryout;
+    ty.players[0].offer = { seq: 99, pick: 2, rarity: 1, credits: 0, floor: 0, kind: 'cards', cards: [{ id: 'B05', r: 1 }], erasers: 0 };
+    ty.players[0].win = 'pick';
+    ty.players[0].seq = 99;
+    expect(coop.apply({ t: coop.tick, p: 0, s: 1, k: 'tr', a: ['take', 99, 0] }).ok).toBe(true);
+    expect(ty.players.map((p) => p.passBonus)).toEqual([1, 1]);
+    expect(ty.players.map((p) => p.passes)).toEqual([1, 1]);
+  });
+
   it('validates run commands: shape, offer sequence, owner, personal coins', () => {
     const coop = createCoopSim(coopStart({ seed: 12 }), { mySlot: 0 });
     expect(isValidCmd({ t: 0, p: 0, s: 0, k: 'tr', a: ['take', 1, 0] })).toBe(true);

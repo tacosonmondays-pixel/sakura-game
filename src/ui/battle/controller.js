@@ -17,6 +17,7 @@ import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
 import { createTryoutSaver } from './tryoutSaver.js';
 import { createTryoutBattle } from './tryout.js';
+import { MODE_NAME as TRYOUT_MODE_NAME } from '../text/tryout.js';
 import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
 import { getTryoutRun, markResume, continueKind, clearTryoutRun } from '../../systems/tryoutRuns.js';
 import { SIM_ID as TRYOUT_SIM_ID } from '../../core/buildInfo.js';
@@ -112,10 +113,10 @@ export function mountBattle(root, params, hooks) {
   const tryRec = !ls && params.tryout ? getTryoutRun(profile) : null;
   const tryKind = tryRec && tryRec.id === params.tryout ? continueKind(tryRec, TRYOUT_SIM_ID) : null;
   const req = ls
-    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null, ...(ls.start.tryout ? { stageDef: ls.sim.stage, tryout: ls.start.tryout } : null) }
+    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null, ...(ls.start.tryout ? { stageDef: { ...ls.sim.stage, name: TRYOUT_MODE_NAME }, tryout: ls.start.tryout } : null) }
     : params.tryout
       ? (tryKind && tryKind !== 'stale'
-        ? { stageId: 'tryout', stageDef: buildTryoutStage(buildTryoutPlan(tryRec)), difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: !!tryRec.practice, error: null, tryout: tryRec }
+        ? { stageId: 'tryout', stageDef: { ...buildTryoutStage(buildTryoutPlan(tryRec)), name: TRYOUT_MODE_NAME }, difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: !!tryRec.practice, error: null, tryout: tryRec }
         : { error: tryKind === 'stale' ? 'This Tryout Day run was made by an older version of the game and has been closed.' : 'This Tryout Day run has ended.', tryoutGone: true })
     : params.coop
       ? { error: coopRoom ? `This battle is over (or the page was reloaded). Room ${coopRoom.code} is still open: go back in and play again.` : 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }

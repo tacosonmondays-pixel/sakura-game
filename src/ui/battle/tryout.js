@@ -43,13 +43,16 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const el = h('div.ty-layer', tracker, sheet, brk, photo);
   ctx.layer.append(el);
 
+  /** Credits if every assignment still open clears (locked-in ones, open ones on track, a banked hand-in). */
   function liveCredits() {
     const list = assignProgress(sim, mySlot);
-    return Math.min(TRYOUT.creditsMax, list.filter((a) => a.st === 1).length + (me().bank || 0));
+    return Math.min(TRYOUT.creditsMax, list.filter((a) => a.st !== -1 && !a.resumed).length + (me().bank || 0));
   }
 
+  /** The pick after the period in play (between periods: after the coming one). */
   function nextPickNo() {
-    const p = ty().period;
+    const t = ty();
+    const p = t.base ? t.period : t.assign?.period ?? t.period + 1;
     const i = len.picks.indexOf(p);
     return i >= 0 ? i + 1 : 0;
   }
@@ -61,10 +64,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const [a] = periodWaves(len, p);
     const done = t.base ? Math.max(0, Math.min(len.wavesPerPeriod, sim.wave - a + (sim.state === 'wave' ? 1 : 1))) : 0;
     const name = p >= len.periods ? 'Final Period' : `Period ${p}`;
-    head.replaceChildren(
+    head.replaceChildren(...[
       h('b', t.base ? name : `Next: ${name}`), t.base ? h('span', ` · wave ${done}/${len.wavesPerPeriod}`) : null,
       h('span.ty-score', ` · Score ${fmtNum(t.score + t.periodScore, 'count', { detail: true })}`),
-    );
+    ].filter(Boolean));
     const list = assignProgress(sim, mySlot);
     chips.replaceChildren(...list.map((x) => {
       const txt = ASSIGN_TEXT[x.id];
@@ -77,7 +80,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     if (pick > 0) {
       const p = me();
       const w = rarityWeights(len.bands[pick - 1], liveCredits(), pityFloor(p, pick, len), p.lr >= len.lrCap);
-      odds.textContent = `Next pick: ${oddsLine(w)}`;
+      odds.textContent = `Next pick, if the open ones clear: ${oddsLine(w)}`;
       odds.hidden = false;
     } else odds.hidden = true;
   }
@@ -153,13 +156,15 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     }
     const kind = len.breaks[ty().period] || 'recess';
     const dots = '●'.repeat(p.passes) + '○'.repeat(Math.max(0, TRYOUT.passes.max - p.passes));
-    const scaling = p.cards.map((c, i) => ({ c, i })).filter(({ c }) => PEP_CARDS[c.id]?.rar?.length >= 4 && c.r < 3);
+    // (Brush Up raises a scaling card: one with numbers at every rarity, as breaks.js brushUp checks)
+    const scaling = p.cards.map((c, i) => ({ c, i })).filter(({ c }) => (PEP_CARDS[c.id]?.mods || PEP_CARDS[c.id]?.steps) && PEP_CARDS[c.id].rar.length >= 4 && c.r < 3);
+    const full = sim.lives >= sim.maxLives;
     brk.replaceChildren(
       h('div.ty-break-title', h('b', `${BREAK_NAMES[kind]} · Seat Change`), h('span', ` · Hall Passes ${dots}`)),
       h('div.ty-break-hint', moving ? `Tap where ${sim.getTower(moving)?.def.name || 'she'} should sit.` : 'New Window Seats (dashed) count from the next period. Tap one of your girls to move her.'),
       h('div.ty-actions',
         h('button.bt-btn', { 'data-testid': 'ty-undo', disabled: !p.undo.length, onclick: () => send('tr', ['undo']) }, 'Undo'),
-        h('button.bt-btn', { 'data-testid': 'ty-snack', disabled: p.snack, onclick: () => send('tr', ['snack']) }, sim.canHeal() ? `Snack (+${ty().coop ? TRYOUT.snack.coopHeal : TRYOUT.snack.heal} ♥)` : 'Snack (+1 pass)'),
+        h('button.bt-btn', { 'data-testid': 'ty-snack', disabled: p.snack, onclick: () => send('tr', ['snack']) }, !sim.canHeal() ? 'Snack (+1 pass)' : full ? `Snack (+${TRYOUT.snack.fullMax} max ♥)` : `Snack (+${ty().coop ? TRYOUT.snack.coopHeal : TRYOUT.snack.heal} ♥)`),
         scaling.length && !p.snack ? h('select.ty-brush', { 'data-testid': 'ty-brush', onchange: (e) => { if (e.target.value !== '') send('tr', ['brush', Number(e.target.value)]); } },
           h('option', { value: '' }, 'Brush Up…'), ...scaling.map(({ c, i }) => h('option', { value: String(i) }, `${cardText(c).name} ${RARITIES[c.r]} → ${RARITIES[c.r + 1]}`))) : null,
         h('button.bt-cta', { 'data-testid': 'ty-ready', onclick: () => { moving = null; send('tr', ['ready']); } }, 'Back to class')));

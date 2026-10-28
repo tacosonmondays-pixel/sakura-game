@@ -188,8 +188,11 @@ export function applyBoardCard(sim, owner, inst) {
     case 'B04':
       return true;
     case 'B05':
-      p.passBonus += c.passes;
-      p.passes = Math.min(TRYOUT.passes.max, p.passes + c.passes);
+      // team-wide: every player gets +1 now and at every later break (§11)
+      for (const q of ty.players) {
+        q.passBonus += c.passes;
+        q.passes = Math.min(TRYOUT.passes.max, q.passes + c.passes);
+      }
       return false;
     case 'B06':
       return false;

@@ -113,11 +113,11 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
   // first (offers, cards, credits, counters, seat holders, score; docs/specs/TRYOUT_DAY.md §14.4)
   const ty = sim.tryout;
   if (ty) {
-    h.int(ty.period).int(ty.started).int(ty.score).int(ty.periodScore).int(ty.winTicks).int(ty.moves).int(ty.heartsAdded).int(sim.maxLives);
+    h.int(ty.period).int(ty.started).int(ty.score).int(ty.periodScore).int(ty.moves).int(ty.heartsAdded).int(sim.maxLives);
     for (const v of ty.seats.holder) h.int(v ?? -1);
     for (const c of ty.ctr) h.int(c.spent).int(c.placed).int(c.upgrades).int(c.sells).int(c.ults);
     for (const p of ty.players) {
-      h.str(p.win || '-').int(p.seq).int(p.erasers).int(p.passes).int(p.bank).int(p.cleared).int(p.lr).str(p.squad.join(','));
+      h.str(p.win || '-').int(p.winTicks).int(p.seq).int(p.erasers).int(p.passes).int(p.bank).int(p.cleared).int(p.lr).str(p.squad.join(','));
       for (const c of p.cards) h.str(c.id).int(c.r).str(c.unit || '');
       if (p.offer) for (const c of p.offer.cards) h.str(c.girl || c.id).int(c.r ?? -1).str(c.unit || '');
     }

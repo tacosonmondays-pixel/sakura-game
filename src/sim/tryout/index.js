@@ -92,7 +92,6 @@ export function createTryout(sim, cfg) {
     started: 0,
     level: runLevelOf(plan.length, 1),
     done: false,
-    winTicks: 0,
     moves: 0,
     breakMoves: [],
     heartsAdded: 0,
@@ -121,6 +120,7 @@ export function createTryout(sim, cfg) {
       seq: 0,
       offer: null,
       win: null,
+      winTicks: 0,
       declined: null,
       fund: [],
       undo: [],
@@ -157,7 +157,6 @@ export function windowOpen(sim) {
 function maybeClose(sim) {
   const ty = sim.tryout;
   if (windowOpen(sim)) return;
-  ty.winTicks = 0;
   if (sim.options.autoStart && sim.state === 'between') sim._autoTimer = AUTO_START_DELAY;
 }
 
@@ -168,7 +167,7 @@ function autoResolve(sim, owner) {
   if (p.win === 'break') p.win = null;
 }
 
-/** Co-op: a player left (or came back). Her girls keep fighting; her windows resolve by themselves. */
+/** Co-op: a player left (or came back). Their girls keep fighting; their windows resolve by themselves. */
 export function tryoutGone(sim, owner, gone = true) {
   const p = sim.tryout?.players[owner];
   if (!p) return;
@@ -179,14 +178,23 @@ export function tryoutGone(sim, owner, gone = true) {
   }
 }
 
-/** Every step (co-op only): an open window resolves itself after the timeout, on the same tick everywhere. */
+/**
+ * Every step (co-op only): each player's open window has its own clock (a pick and the break after it each get the
+ * whole timeout); a window that runs out resolves by itself, on the same tick everywhere, and only that window.
+ */
 export function tryoutTick(sim) {
   const ty = sim.tryout;
   if (!ty.coop || !windowOpen(sim)) return;
-  ty.winTicks++;
-  if (ty.winTicks < TRYOUT.coopTimeoutTicks) return;
-  ty.players.forEach((_, i) => autoResolve(sim, i));
-  maybeClose(sim);
+  let closed = false;
+  ty.players.forEach((p, i) => {
+    if (!p.win) return;
+    p.winTicks++;
+    if (p.winTicks < TRYOUT.coopTimeoutTicks) return;
+    if (p.win === 'pick') resolvePick(sim, i, -1);
+    else p.win = null;
+    closed = true;
+  });
+  if (closed) maybeClose(sim);
 }
 
 function updatePity(p, offer, tookGirl) {
@@ -210,7 +218,7 @@ function joinSquad(sim, owner, id) {
 
 /**
  * Resolves a player's open pick: index ≥ 0 takes that card, -1 hands the pick in (Hand it in later: coins to
- * her wallet and +1 credit on the next pick, coins only at the last pick).
+ * their wallet and +1 credit on the next pick, coins only at the last pick).
  */
 function resolvePick(sim, owner, index) {
   const ty = sim.tryout;
@@ -240,7 +248,6 @@ function resolvePick(sim, owner, index) {
       const card = PEP_CARDS[inst.id];
       if (inst.id === 'P06') p.refills[inst.unit] = (p.refills[inst.unit] || 0) + card.refills[inst.r];
       if (card.group === 'board') rule = applyBoardCard(sim, owner, inst);
-      if (inst.r === 4) p.lr++;
       p.picks.push({ pick: o.pick, rarity: o.rarity, card: inst.id, unit: inst.unit || null });
     }
     // a girl the player passed over is skipped once at the next pick
@@ -248,6 +255,8 @@ function resolvePick(sim, owner, index) {
     if (passed && !c.girl) p.declined = passed.girl;
   }
   if (p.tryoutNext && o.kind === 'girls') p.tryoutNext = false;
+  // an LR roll counts toward the LR cap however the pick was resolved (§3.4)
+  if (o.rarity === 4) p.lr++;
   updatePity(p, o, tookGirl);
   p.offer = null;
   refreshRunMods(sim, owner);
@@ -295,7 +304,10 @@ export function tryoutCommand(sim, slot, op, args = []) {
       return snack(sim, slot);
     case 'brush': {
       const r = brushUp(sim, slot, a);
-      if (r.ok) refreshRunMods(sim, slot);
+      if (r.ok) {
+        refreshRunMods(sim, slot);
+        assignSeats(sim);
+      }
       return { ok: r.ok, reason: r.reason };
     }
     case 'undo':
@@ -375,7 +387,7 @@ export function tryoutCount(sim, owner, key, n = 1) {
   if (c) c[key] += n;
 }
 
-/** Placement price parts for player `owner`: a voucher (free) and her cost cut. */
+/** Placement price parts for player `owner`: a voucher (free) and that girl's cost cut. */
 export function tryoutPlaceCost(sim, owner, unitId) {
   const p = sim.tryout.players[owner ?? 0];
   if (!p) return { free: false, cut: 0 };
@@ -460,9 +472,9 @@ export function tryoutWaveEnd(sim) {
       pl.bank = 0;
       openOffer(sim, i, pick, credits);
       pl.win = 'pick';
+      pl.winTicks = 0;
     });
   } else if (len.breaks[p]) ty.players.forEach((_, i) => openBreak(sim, i));
-  ty.winTicks = 0;
   drawAssignments(sim, p + 1);
   ty.players.forEach((pl, i) => { if (pl.gone) autoResolve(sim, i); });
   sim._autoTimer = -1;

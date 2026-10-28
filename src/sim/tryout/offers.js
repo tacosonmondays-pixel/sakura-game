@@ -60,6 +60,14 @@ function capped(sim, owner, inst, targets) {
   const k = c.steps ? 1 : SCALE[inst.r];
   const caps = TRYOUT.caps;
   const capOf = { damageMul: caps.damageMul, rateMul: caps.rateMul, range: caps.range, critChance: caps.critChance, airMul: caps.vs, eliteMul: caps.vs, barrierMul: caps.vs, costCut: caps.costCut };
+  if (mods.classMul) {
+    // a vs-armour card (Can Opener): capped when every class it lifts is within half its value of the vs cap
+    for (const u of targets) {
+      const s = familySums(sim, owner, u.id, u.hero);
+      if (Object.entries(mods.classMul).some(([c, x]) => caps.vs - (s.classMul[c] || 0) >= (x * k) / 2)) return false;
+    }
+    return true;
+  }
   const key = Object.keys(mods).find((x) => x in capOf);
   if (!key) return false;
   const v = mods[key] * k;
