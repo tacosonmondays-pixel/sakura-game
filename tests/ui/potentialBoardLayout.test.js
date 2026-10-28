@@ -279,7 +279,7 @@ describe('Potential Board layout', () => {
     }
   });
 
-  test("no 'sign' or the other forbidden words in the Board's files (code, comments, the spec)", () => {
+  test("none of the Board's forbidden words in its files (code, comments, the spec, these tests)", () => {
     // sha-256 (first 16 hex) of the whole words, and two stems as char codes, so this file never spells them
     const BANNED = new Set(['d66a93cd9ae701f7', 'c34ce311989d8bf0', '5d72436256ada538', '5600ae99b14ef8e5', '8535e86c8118bbbb',
       'b1fabb5fd9d6c42c', '4f164a7a34ecc3d6', 'a57a07cb258093b2', '98ef876771dec922', 'a138f4357b3a2767', '3046f751cdc6f2eb',
