@@ -21,6 +21,8 @@ export const MAP_THEMES = {
   arena: { ground: '#e3cfa0', alt: '#d9c494', edge: '#a88c5c', path: '#f7ead0', pathEdge: '#b08960', water: '#4cc9f0', tree: '#5f9e3f', treeDark: '#3d6e28', rock: '#b0a08a', roof: '#c1121f', wall: '#f4e9d8', flower: ['#ffd166', '#fff', '#ff8fab'], voidc: '#3a2f22' },
   // Gate Arc · Noon: Itomachi's paving, dark asphalt with a pale line, canals, cherry street trees, warm roofs
   city: { ground: '#e3d9c9', alt: '#dbd0bf', edge: '#a99e8c', path: '#5a5f6a', pathEdge: '#f4f1ea', water: '#3f8fbc', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#9aa3ae', roof: '#4f9a62', wall: '#f3e7d0', flower: ['#7cc96a', '#ffd166', '#ff9ec4'], voidc: '#2e3138' },
+  // Gate Arc · Noon: Hilltop High at night: deep green lawns, the pale campus road (the lightest band), the lake, cherry trees, slate-blue roofs
+  campus: { ground: '#3f6b55', alt: '#3a644f', edge: '#2a4a3c', path: '#c9ccd4', pathEdge: '#eeebe4', water: '#2f6f9e', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#c98a6e', roof: '#6f8fa8', wall: '#efe6d6', flower: ['#ffd1e3', '#ffe680', '#ffffff'], voidc: '#1d2433' },
 };
 
 const DECOR_COLORS = {
@@ -33,6 +35,10 @@ const DECOR_COLORS = {
   stationHall: '#f3e7d0', ticketGates: '#9aa3ae', clockTower: '#b8674e', levelCrossing: '#ffd84d', waterBus: '#f7f4ee',
   lockGate: '#7a5a40', arcadeRibs: '#9aa3ae', roofBlock: '#dcc29c', busStop: '#4f9a62', vendingMachine: '#e8473f',
   missingPoster: '#f7f4ee', bunSteamer: '#c9b08a', streetTree: '#ffb3cf',
+  // the campus kit's set pieces (Gate Arc)
+  schoolBlock: '#efe6d6', clubHut: '#f0dcc0', bikeShed: '#5f9a72', flagpole: '#3d5a8a', goalPosts: '#f7f4ee',
+  scoreboard: '#ffe6a0', finishGantry: '#9aa3ae', boatRack: '#d9604a', oldLamp: '#3a3d46', searchlight: '#fff2cc',
+  flowerBoxes: '#ff9ec4',
 };
 
 function treeSym(x, y, t, th) {

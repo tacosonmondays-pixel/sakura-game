@@ -1000,7 +1000,8 @@ const GROUND_STYLES = {
  */
 export function paintGround(o) {
   const { look, x0, y0, w, h, charAt, isPath, isWater, roads = [], px = 32, seed = 1 } = o;
-  const style = GROUND_STYLES[look.groundStyle] || GROUND_STYLES.grass;
+  // a theme may override the style's flags (the campus: sidewalk bands on mown lawn)
+  const style = { ...(GROUND_STYLES[look.groundStyle] || GROUND_STYLES.grass), ...(look.groundPaint || {}) };
   const styleName = GROUND_STYLES[look.groundStyle] ? look.groundStyle : 'grass';
   const W = w * px;
   const H = h * px;
@@ -1510,9 +1511,13 @@ export function grassTexture(seed = 7) {
 /**
  * Tileable road surface (greyscale around 1.0, tinted by vertex colour). u runs along the
  * road, v across it; one repeat = 1 tile of road.
- * style: flagstone | cobble | planks | metal | dirt | brick | sand | asphalt (coloured: the city)
+ * style: flagstone | cobble | planks | metal | dirt | brick | sand | asphalt (coloured: the city) |
+ * track (coloured: the campus running track; one repeat = TRACK_TILES tiles, see trackRepeat)
+ * @param {{ tone?: number }} [o] asphalt: brightness of the surface (1 = the city's; the campus
+ *   road is paler so it stays the lightest band at night)
  */
-export function pathTexture(style = 'flagstone', seed = 3) {
+export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
+  if (style === 'track') return trackTexture(seed);
   const size = 256;
   const c = canvas(size, size);
   const g = c.getContext('2d');
@@ -1567,7 +1572,8 @@ export function pathTexture(style = 'flagstone', seed = 3) {
     // (one repeat per tile), v across it: white edge lines, a dashed white centre line (half a
     // tile on, half off), aggregate speck and a few patched squares. The band v 0.2-0.4 is left
     // plain for flat junction boxes (terrain.js buildRibbon `plain`).
-    const base = [62, 64, 72];
+    const tone = o.tone ?? 1;
+    const base = [62, 64, 72].map((v) => Math.min(255, Math.round(v * tone)));
     g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
     g.fillRect(0, 0, size, size);
     for (let i = 0; i < 1500; i++) {
@@ -1742,6 +1748,55 @@ function roundRect(g, x, y, w, h, r) {
   g.arcTo(x, y + h, x, y, r);
   g.arcTo(x, y, x + w, y, r);
   g.closePath();
+}
+
+/** Tiles of road one repeat of the running-track texture covers (a lane-number block in each). */
+export const TRACK_TILES = 6;
+/** The running track's surface (LINEAR bytes): a light terracotta, so the track stays the lightest band at night. */
+export const TRACK_BASE = [200, 78, 54];
+
+/**
+ * The campus running track (Gate Arc, `map.city.road: 'track'`): red-brown lanes with white lane
+ * lines, a lane number in each lane once per TRACK_TILES tiles, and a fine rubber grain. Like
+ * `asphalt` it carries its own colour (LINEAR values: the road texture has no colour space) and u
+ * runs along the road, v across it; the canvas is TRACK_TILES tiles long, so the texture repeats
+ * at 1 / TRACK_TILES (texture.repeat.x, set here).
+ */
+function trackTexture(seed) {
+  const T = 256;
+  const W = T * TRACK_TILES;
+  const c = canvas(W, T);
+  const g = c.getContext('2d');
+  const rnd = makeRnd(seed);
+  const base = TRACK_BASE;
+  g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
+  g.fillRect(0, 0, W, T);
+  for (let i = 0; i < 2600; i++) {
+    const k = rnd() > 0.5 ? 1.12 : 0.86;
+    g.fillStyle = `rgba(${Math.round(base[0] * k)},${Math.round(base[1] * k)},${Math.round(base[2] * k)},0.7)`;
+    g.fillRect(rnd() * W, rnd() * T, 2, 2);
+  }
+  // white lines: the two edges and three lane lines (four lanes across the road)
+  const lines = [0.075, 0.285, 0.5, 0.715, 0.925];
+  g.fillStyle = 'rgb(232,232,226)';
+  for (const v of lines) g.fillRect(0, T * v - T * 0.014, W, T * 0.028);
+  // a lane number in each lane near the start of the block, read along the road
+  g.font = `bold ${Math.round(T * 0.15)}px sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  for (let k = 0; k < 4; k++) {
+    const v = (lines[k] + lines[k + 1]) / 2;
+    g.save();
+    g.translate(T * 0.55, T * v);
+    g.rotate(Math.PI / 2);
+    g.fillText(String(4 - k), 0, 0);
+    g.restore();
+  }
+  // the start line across all four lanes
+  g.fillRect(T * 0.2, T * lines[0], T * 0.05, T * (lines[4] - lines[0]));
+  const t = finishTileTex(c);
+  t.repeat.set(1 / TRACK_TILES, 1);
+  return t;
 }
 
 function finishTileTex(c) {

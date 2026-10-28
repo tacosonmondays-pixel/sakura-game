@@ -33,6 +33,7 @@ uniform vec3 uGlassA;
 uniform vec3 uGlassB;
 uniform vec3 uWarm;
 uniform float uNight;
+uniform float uLit;
 varying vec2 vFuv;
 varying float vFkind;
 float fhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -56,7 +57,7 @@ vec3 glassCol(vec2 f, vec2 cell) {
   float glint = smoothstep(0.0, 0.05, s) * (1.0 - smoothstep(0.11, 0.2, s));
   g = mix(g, vec3(1.0), glint * 0.55 * (1.0 - uNight) + h * 0.06);
   // at night two windows in three are lit
-  return mix(g, uWarm * (0.85 + 0.3 * h), uNight * step(0.34, h));
+  return mix(g, uWarm * (0.85 + 0.3 * h), uNight * uLit * step(0.34, h));
 }
 `;
 
@@ -67,7 +68,7 @@ const FACADE_FRAG_BODY = /* glsl */`
   vec3 base = diffuseColor.rgb;
   vec3 col = base;
   float glow = 0.0;
-  float lit = 0.18 + 0.7 * uNight;
+  float lit = 0.18 + 0.7 * uNight * uLit;
   if (k == 1.0) {
     // glass curtain wall: tall panes, slim mullions, a thicker spandrel every floor
     vec2 g = vec2(f.x / 0.26, f.y / 0.34);
@@ -102,7 +103,7 @@ const FACADE_FRAG_BODY = /* glsl */`
     float win = band(f.y, 0.04, h) * pane(vec2(g.x, 0.5), vec2(0.05, 0.0));
     vec3 inside = mix(uWarm, glassCol(f, floor(g)), 0.45 + 0.4 * smoothstep(0.0, h, f.y));
     col = mix(base, inside, win);
-    glow = win * (0.35 + 0.5 * uNight);
+    glow = win * (0.35 + 0.5 * uNight * uLit);
   } else if (k == 5.0) {
     // flats: small windows, a pale balcony slab under each floor
     vec2 g = vec2(f.x / 0.3, f.y / 0.3);
@@ -164,6 +165,8 @@ export function createFacadeMaterial(o = {}) {
     uGlassB: { value: new THREE.Color(o.glassB || '#e2f1f8') },
     uWarm: { value: new THREE.Color(o.warm || '#ffe6bf') },
     uNight: { value: o.night ? 1 : 0 },
+    // blackout dimming (terrain setDim): 1 = the windows lit as usual, toward 0 = lights out
+    uLit: { value: 1 },
   };
   mat.userData.uniforms = uniforms;
   mat.onBeforeCompile = (shader) => {
@@ -176,7 +179,7 @@ export function createFacadeMaterial(o = {}) {
       .replace('#include <color_fragment>', `#include <color_fragment>\n  vec3 facadeGlow = vec3(0.0);\n${FACADE_FRAG_BODY}`)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += facadeGlow;');
   };
-  mat.customProgramCacheKey = () => 'cityFacade3';
+  mat.customProgramCacheKey = () => 'cityFacade4';
   return mat;
 }
 

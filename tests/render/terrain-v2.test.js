@@ -1,6 +1,6 @@
 // Node-side checks for the V2 terrain's pure parts: the Tracks v3 road plan, ribbon geometry, theme
 // fields the painters rely on, scenery keywords → existing props, new prop builders.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { THEMES, resolveLook } from '../../src/render/themes.js';
 import { buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
 import * as THREE from 'three';
@@ -8,13 +8,15 @@ import { planRoads, buildDecks, buildTunnels, Acc } from '../../src/render/track
 import { buildGroundFeatures, junctionChevrons } from '../../src/render/groundFeatures.js';
 import { pointAtDistance } from '../../src/core/track.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
-import { Noise2 } from '../../src/render/textures.js';
+import { Noise2, pathTexture, TRACK_TILES } from '../../src/render/textures.js';
+import { recordingDocument } from './terrainHash.js';
 import { MAPS } from '../../src/data/maps.js';
 import { STAGES } from '../../src/data/stages.js';
 import { getEnemy } from '../../src/data/enemies.js';
 
 const HEX = /^#[0-9a-f]{6}$/i;
 const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal', 'paved'];
+// (the campus paints on 'grass', with the painter's kerb bands: THEMES.campus.groundPaint)
 
 describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', () => {
   const close = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -240,7 +242,17 @@ describe('scenery keywords', () => {
         expect(rec, `${st.id}: ${kw}`).toBeTruthy();
         // 'puddle' is a pseudo-prop (flat glossy discs built inside terrain.js)
         if (rec.prop && rec.prop !== 'puddle') expect(hasProp(rec.prop), `${st.id}: ${kw} → ${rec.prop}`).toBe(true);
+        for (const p of rec.props || []) expect(hasProp(p), `${st.id}: ${kw} → ${p}`).toBe(true);
       }
+    }
+  });
+
+  it('every keyword in the table resolves to real props (a `props` list cycles through several)', () => {
+    for (const [kw, rec] of Object.entries(SCENERY)) {
+      if (rec.ambient) continue;
+      const list = rec.props || [rec.prop];
+      expect(list.length, kw).toBeGreaterThan(0);
+      for (const p of list) if (p !== 'puddle') expect(hasProp(p), `${kw} → ${p}`).toBe(true);
     }
   });
 });
@@ -269,6 +281,33 @@ describe('props v2', () => {
     const look = resolveLook('sakura', {});
     expect(buildProp('spawnGate', look, 0).emitters.some((e) => e.kind === 'portal')).toBe(true);
     expect(buildProp('goalGate', look, 0).emitters.some((e) => e.kind === 'goal')).toBe(true);
+  });
+});
+
+describe('road textures', () => {
+  it('builds every road style; asphalt takes a tone; the running track spans TRACK_TILES tiles', () => {
+    const rec = recordingDocument();
+    vi.stubGlobal('document', rec.document);
+    try {
+      for (const style of ['flagstone', 'cobble', 'planks', 'metal', 'dirt', 'brick', 'sand', 'asphalt', 'track']) {
+        const t = pathTexture(style, 7);
+        expect(t.isTexture, style).toBe(true);
+        expect(t.wrapS, style).toBe(THREE.RepeatWrapping);
+        t.dispose();
+      }
+      // the track: TRACK_TILES tiles of road per repeat (a lane-number block in each), 256 px a tile
+      const track = pathTexture('track', 7);
+      expect(TRACK_TILES).toBeGreaterThanOrEqual(4);
+      expect(track.repeat.x).toBeCloseTo(1 / TRACK_TILES, 6);
+      expect(track.image.width).toBe(256 * TRACK_TILES);
+      // a paler asphalt (the campus) paints differently from the city's
+      const a = pathTexture('asphalt', 7);
+      const b = pathTexture('asphalt', 7, { tone: 1.55 });
+      expect(b.image.__rec()).not.toBe(a.image.__rec());
+      expect(pathTexture('asphalt', 7, { tone: 1 }).image.__rec()).toBe(a.image.__rec());
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

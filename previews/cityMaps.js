@@ -60,7 +60,7 @@ export function street(corners, { r = 0.85, tunnel = null } = {}) {
 }
 
 /** The same stamping as src/data/maps.js defineMap (kept in step by hand; preview only). */
-function defineFixtureMap(o) {
+export function defineFixtureMap(o) {
   const grid = o.rows.map((r) => r.split(''));
   const height = grid.length;
   const width = grid[0].length;

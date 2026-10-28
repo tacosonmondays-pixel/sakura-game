@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { GeoBuilder, makeRand, hash } from './geo.js';
 import { addPumpkin, PUMPKIN_COLORS } from './pumpkin.js';
 import { CITY_BUILDERS } from './city/cityProps.js';
+import { CAMPUS_BUILDERS } from './city/campusProps.js';
 import { CityAcc } from './city/cityMaterials.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
@@ -1027,4 +1028,4 @@ const BUILDERS = {
 };
 
 // the city kit (Gate Arc, Noon `city` theme): street furniture, Act 1 set pieces, the city gates
-Object.assign(BUILDERS, CITY_BUILDERS);
+Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS);

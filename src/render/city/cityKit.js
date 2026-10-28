@@ -27,7 +27,15 @@
 //     last by terrain.js) and are re-posed on the CPU only while they swing: 0 extra draw calls,
 //   • rooftops (Gate Arc S1c): buildRoofs draws one flat-roofed block ROOF_Y tall under each
 //     connected region of 'U' tiles (walls and a parapet on its outline only, a little dressing),
-//     into the same facade mesh; terrain.js calls it on every theme.
+//     into the same facade mesh; terrain.js calls it on every theme,
+//   • the campus (Gate Arc S2a, look.city.kit 'campus': Hilltop High by the lake): the same layout
+//     with the school set (campusProps.js): classroom wings, the gym and club huts on the board, a
+//     skyline of tall wings, the gym and one clock tower in the skirt, lamp posts along the roads
+//     instead of utility poles and wires, no traffic signals, subway signs or drones; school
+//     classrooms under the rooftops with flower boxes on them; and two map hints:
+//     map.city.pieces (free-standing set pieces: a finish gantry, a clock tower behind the far edge)
+//     and map.city.searchlight (a searchlight on the shore whose beam the ambient layer sweeps over
+//     the water: 0 draw calls).
 //
 // Static geometry goes into the terrain's shared meshes (props, foliage, glow props and the one
 // facade mesh), so the kit adds one draw call (the facade) plus the movers. Nothing is
@@ -36,6 +44,7 @@ import * as THREE from 'three';
 import { makeRand, hash } from '../geo.js';
 import { CityAcc, FK, createFacadeMaterial } from './cityMaterials.js';
 import { CITY_BUILDERS, CITY_VARIANTS, wire, trainCarGeometry, droneGeometry, ROOF_Y, CROSSING_ARM } from './cityProps.js';
+import { CAMPUS } from './campusProps.js';
 import { prim } from './buildings.js';
 
 export { ROOF_Y };
@@ -101,8 +110,10 @@ export function roofRegions(map) {
  * @param {{ quality?: string }} [o]
  * @returns {{ regions: number, tiles: number }}
  */
-export function buildRoofs(map, acc, { quality = 'high' } = {}) {
+export function buildRoofs(map, acc, { quality = 'high', kit = null } = {}) {
   const regions = roofRegions(map);
+  // the campus: classrooms under the roofs (school windows, cream walls) and flower boxes on them
+  const campus = kit === 'campus';
   const isRoof = (x, y) => map.rows[y]?.[x] === 'U';
   const T = 0.035;
   const PH = 0.05;
@@ -110,8 +121,8 @@ export function buildRoofs(map, acc, { quality = 'high' } = {}) {
   regions.forEach((reg, ri) => {
     const h = hash(map.id, 'roof', reg.tiles[0][0], reg.tiles[0][1]);
     const flats = h % 2 === 1;
-    const side = flats ? FK.flats : FK.shop;
-    const wall = flats ? '#efe7da' : '#e9d9bf';
+    const side = campus ? FK.school : flats ? FK.flats : FK.shop;
+    const wall = campus ? CAMPUS.wall : flats ? '#efe7da' : '#e9d9bf';
     const top = ['#cfc8bb', '#c9c2b6', '#d3cdc2'][h % 3];
     for (const [x, y] of reg.tiles) {
       tiles++;
@@ -137,6 +148,16 @@ export function buildRoofs(map, acc, { quality = 'high' } = {}) {
       }
     }
     if (quality === 'low') return;
+    if (campus) {
+      // flower boxes along the parapet facing the camera (+z), tucked against it: a terracotta
+      // trough with a green top and blossom dots, low (0.08) so a girl standing by it stays clear
+      for (const [x, y] of reg.tiles) {
+        if (isRoof(x, y + 1)) continue;
+        acc.box(x + 0.5, ROOF_Y, y + 1 - T - 0.05, 0.62, 0.07, 0.08, { color: '#c98a6e', top: '#5f8f4f' });
+        for (let k = 0; k < 3; k++) acc.box(x + 0.32 + k * 0.18, ROOF_Y + 0.07, y + 1 - T - 0.05, 0.05, 0.03, 0.05, { color: ['#ff9ec4', '#ffe680', '#ffffff'][(k + x) % 3] });
+      }
+      return;
+    }
     // dressing tucked into the first tile's outer corner (a girl's footprint stays clear of the edge
     // band, so it seldom meets her), and a water tank in the last tile's on a roof of 3+ tiles
     const [ax, ay] = reg.tiles[0];
@@ -165,7 +186,7 @@ const PAL_PARAPET = '#f1ede4';
  * @param {(x: number, y: number) => boolean} isPath
  * @returns {{ type: string, variant: number }}
  */
-export function cityBuildingFor(map, x, y, isPath) {
+export function cityBuildingFor(map, x, y, isPath, kit = null) {
   let d = 9;
   for (let r = 1; r <= 3 && d === 9; r++) {
     for (let dy = -r; dy <= r && d === 9; dy++) {
@@ -179,6 +200,12 @@ export function cityBuildingFor(map, x, y, isPath) {
   }
   const h = hash(map.id, 'block', x, y);
   const roll = h % 100;
+  if (kit === 'campus') {
+    // the school: classroom wings along the roads, now and then a club hut or a bay of the gym;
+    // one row back the gym and the wings (every one of them low: campusProps SCHOOL_ON_BOARD)
+    if (d <= 1) return { type: 'schoolBlock', variant: roll < 44 ? 0 : roll < 74 ? 1 : roll < 88 ? 4 : 2 };
+    return { type: 'schoolBlock', variant: roll < 40 ? 2 : roll < 75 ? 0 : 1 };
+  }
   if (d <= 1) {
     // on the street: mostly shop fronts, now and then a shop row, a convenience store, a clinic,
     // a police box or a small office
@@ -193,9 +220,11 @@ export function cityBuildingFor(map, x, y, isPath) {
   return { type: 'cityBlock', variant: roll < 62 ? 1 : 2 };
 }
 
-/** Which cityWall a border H tile gets (retaining wall + hedge, construction fence, brick wall). */
-export function cityWallVariant(map, x, y) {
-  return hash(map.id, 'wall', x, y) % CITY_VARIANTS.cityWall;
+/** Which cityWall a border H tile gets (retaining wall + hedge, construction fence, brick wall; the campus: no construction fence). */
+export function cityWallVariant(map, x, y, kit = null) {
+  const h = hash(map.id, 'wall', x, y);
+  if (kit === 'campus') return h % 2 ? 2 : 0;
+  return h % CITY_VARIANTS.cityWall;
 }
 
 /** Top of each cityWall variant (where a cat can sit), null when there is no ledge. */
@@ -204,7 +233,8 @@ const WALL_TOP = [0.27, null, 0.375];
 /**
  * Builds the city layer of a `look.city` board.
  * @param {object} o
- * @param {object} o.map MapDef (map.city: optional render hints { railway: { z }, waterBus: { z, x0, x1 }, areas, goalGate, goalVariant };
+ * @param {object} o.map MapDef (map.city: optional render hints { railway: { z }, waterBus: { z, x0, x1 }, areas, goalGate, goalVariant,
+ *   road ('track': terrain.js), pieces: [{ type, x, z, rot?, variant?, s? }], searchlight: { x, z, rot?, sweep?, reach?, period?, variant? } | [...] };
  *   no railway unless the map gives one: z ≈ -1.2…-0.5 is the strip the battle shows past the board's far edge)
  * @param {object} o.look resolved look (look.city)
  * @param {object} o.plan planRoads() result
@@ -218,7 +248,7 @@ const WALL_TOP = [0.27, null, 0.375];
  * @param {string} [o.quality]
  * @param {number} [o.margin] how far the terrain reaches outside the board
  * @param {THREE.Material} [o.facadeMaterial] the terrain's facade material (shared by the movers)
- * @returns {{ meshes: THREE.Mesh[], glows: object[], marks: object[], furniture: number[][], flyers: { x: number, y: number, z: number }[], update(t: number): void, dispose(): void, stats: object }}
+ * @returns {{ meshes: THREE.Mesh[], glows: object[], marks: object[], furniture: number[][], flyers: { x: number, y: number, z: number }[], searchlights: object[], update(t: number): void, dispose(): void, stats: object }}
  */
 export function buildCity(o) {
   const { map, look, plan, isPath, isWater, occupied, gates, portals, place, facadeParts } = o;
@@ -227,6 +257,8 @@ export function buildCity(o) {
   const W = map.width;
   const H = map.height;
   const cfg = { ...(look.city || {}), ...(map.city || {}) };
+  // the campus set (Hilltop High): lamp posts, no signals / wires / subway signs, a school skyline
+  const campus = cfg.kit === 'campus';
   const rand = makeRand(hash(map.id, 'city'));
   const inMap = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
   const outsideDist = (x, z) => Math.hypot(Math.max(0, -x, x - W), Math.max(0, -z, z - H));
@@ -412,7 +444,7 @@ export function buildCity(o) {
   // ----- traffic signals at the corners --------------------------------------------------
   let signals = 0;
   for (const c of corners) {
-    if (signals >= 6) break;
+    if (campus || signals >= 6) break;
     const x = c.x + c.ox * 0.78;
     const z = c.z + c.oz * 0.78;
     if (!inMap(x, z) && outsideDist(x, z) > 1.5) continue;
@@ -431,7 +463,7 @@ export function buildCity(o) {
     const side = hash(map.id, 'poles', r.index) % 2 ? 1 : -1;
     for (let i = 1; i < r.pts.length - 1; i++) {
       dist += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
-      if (dist < 3.0) continue;
+      if (dist < (campus ? 3.4 : 3.0)) continue;
       const [x, z] = r.pts[i];
       const breakRun = () => {
         if (run.length) {
@@ -456,13 +488,14 @@ export function buildCity(o) {
       furniture.push([px, pz]);
       const ry = Math.atan2(-nx * side, -nz * side);
       run.push([px, pz, ry]);
-      place('powerPole', px, quality === 'low' ? 0 : SW_Y, pz, ry, 1, 0);
+      // (the campus: a lamp post with its arm over the road, no wires)
+      place(campus ? 'streetLamp' : 'powerPole', px, quality === 'low' ? 0 : SW_Y, pz, ry, 1, 0);
       dist = 0;
     }
   }
   const cWire = '#45424a';
   let spans = 0;
-  for (const run of runs) {
+  for (const run of campus ? [] : runs) {
     for (let k = 1; k < run.length; k++) {
       const [ax, az, ar] = run[k - 1];
       const [bx, bz, br] = run[k];
@@ -495,7 +528,7 @@ export function buildCity(o) {
       for (let x = 0; x < W; x++) {
         const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
         if (!border || map.rows[y][x] !== 'H' || isPath(x, y)) continue;
-        const top = WALL_TOP[cityWallVariant(map, x, y)];
+        const top = WALL_TOP[cityWallVariant(map, x, y, cfg.kit)];
         if (top != null) walls.push([x, y, top]);
       }
     }
@@ -507,7 +540,7 @@ export function buildCity(o) {
   }
 
   // ----- subway signs at the tunnel mouths ------------------------------------------------
-  for (const p of portals) {
+  for (const p of campus ? [] : portals) {
     const [dx, dz] = p.dir;
     const nx = -dz;
     const nz = dx;
@@ -543,11 +576,28 @@ export function buildCity(o) {
       lots.push([cx, cz]);
     }
   }
+  // the campus skyline: one clock tower on the back lot nearest the board's middle
+  const towerLot = campus && !(cfg.pieces || []).some((p) => p.type === 'schoolBlock' && p.variant === 3)
+    ? lots.reduce((best, [cx, cz], k) => (cz < 0 && (best < 0 || Math.abs(cx - W / 2) + Math.abs(cz + 2.5) < Math.abs(lots[best][0] - W / 2) + Math.abs(lots[best][1] + 2.5)) ? k : best), -1)
+    : -1;
   lots.forEach(([cx, cz], k) => {
     const h = hash(map.id, 'lot', k);
     const back = cz < 0;
     const front = cz > H;
     const depth = back ? Math.round(-cz / STEP) : Math.round(Math.max(-cx, cx - W) / STEP);
+    const lod = quality === 'high' && outsideDist(cx, cz) < 3 ? 'near' : 'far';
+    if (campus) {
+      // the school round the board: cherry trees and hedges in front (near the camera), tall
+      // classroom wings and the gym behind and at the sides, the clock tower over the back
+      if (front || (!back && h % 4 === 0)) {
+        place(h % 3 ? 'sakura' : 'streetTree', cx, 0, cz, (h % 628) / 100, 1.15, h % 4, null, 'far');
+        return;
+      }
+      const variant = k === towerLot ? 3 : back ? [5, 5, 2, 0][h % 4] : [2, 5, 0, 1][h % 4];
+      place('schoolBlock', cx, 0, cz, back ? 0 : cx < 0 ? Math.PI / 2 : -Math.PI / 2, 1.5, variant, null, lod);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
+      return;
+    }
     let variant;
     if (front) {
       // in front of the board (near the camera): low houses and street trees only
@@ -558,10 +608,32 @@ export function buildCity(o) {
       variant = 5;
     } else if (back) variant = depth >= 2 ? [0, 3, 4, 3, 0][h % 5] : [1, 2, 4, 1][h % 4];
     else variant = depth >= 2 ? [0, 1, 2, 4][h % 4] : [1, 2, 5, 2][h % 4];
-    const lod = quality === 'high' && outsideDist(cx, cz) < 3 ? 'near' : 'far';
     place('cityTower', cx, 0, cz, 0, 1, variant, null, lod);
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) occupied.add(`${Math.floor(cx) + dx},${Math.floor(cz) + dz}`);
   });
+
+  // ----- free-standing set pieces (map.city.pieces): a finish gantry over the track, a clock tower… --
+  for (const p of cfg.pieces || []) {
+    place(p.type, p.x, p.y ?? 0, p.z, p.rot ?? 0, p.s ?? 1, p.variant ?? 0, null, quality === 'high' ? 'near' : 'far');
+    furniture.push([p.x, p.z]);
+    occupied.add(`${Math.floor(p.x)},${Math.floor(p.z)}`);
+  }
+
+  // ----- searchlights (map.city.searchlight): the lamp on the shore, its sweep for the ambient layer --
+  /** { x, y, z, a0, a1, period, reach, phase }: the beam turns between yaw a0 and a1 (radians, 0 = +z). */
+  const searchlights = [];
+  for (const sl of [].concat(cfg.searchlight || [])) {
+    const rot = sl.rot ?? 0;
+    const sweep = sl.sweep ?? 1.0;
+    const variant = sl.variant ?? 0;
+    place('searchlight', sl.x, 0, sl.z, rot, 1, variant);
+    furniture.push([sl.x, sl.z]);
+    occupied.add(`${Math.floor(sl.x)},${Math.floor(sl.z)}`);
+    searchlights.push({
+      x: sl.x, y: variant ? 1.02 : 0.58, z: sl.z, a0: rot - sweep / 2, a1: rot + sweep / 2,
+      period: sl.period ?? 14, reach: sl.reach ?? 4.5, phase: (hash(map.id, 'sweep', searchlights.length) % 628) / 100,
+    });
+  }
 
   // ----- the railway (when the map places one), level crossings, the commuter train ---------------
   let train = null;
@@ -888,6 +960,7 @@ export function buildCity(o) {
     marks,
     furniture,
     flyers,
+    searchlights,
     update,
     setLanes,
     /** The barrier arms' facade geometry (null without level crossings): terrain.js appends it last, then calls bindFacade. */
@@ -902,6 +975,7 @@ export function buildCity(o) {
     stats: {
       corners: corners.length, signals, poles: runs.reduce((n, r) => n + r.length, 0), spans, lots: lots.length,
       kerbTris, marks: marks.length, train: !!train, waterBus: !!boat, drones: nDrones, crossings: levelCrossings.length,
+      kit: campus ? 'campus' : 'city', searchlights: searchlights.length, pieces: (cfg.pieces || []).length,
     },
   };
 }
