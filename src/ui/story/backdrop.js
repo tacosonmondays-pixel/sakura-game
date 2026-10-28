@@ -34,7 +34,12 @@ export function setStageStillProvider(fn) {
 
 
 /** Act II stage maps whose story background shows a place of its own (src/art/backdrops.js themeBackdropSVG variant). */
-const PLACE_VARIANT = { noon_rowing_jetty: 'jetty', noon_boathouse_lamp: 'lamp' };
+const PLACE_VARIANT = {
+  noon_rowing_jetty: 'jetty', noon_boathouse_lamp: 'lamp',
+  // Act 3 (the Bell Festival): Old Town at night, then the night it burns
+  noon_old_town: 'oldtown', noon_takoyaki_row: 'oldtown', noon_shrine_steps: 'oldtown',
+  noon_old_town_burning: 'burning', noon_lakeside_shrine: 'burning',
+};
 
 /**
  * What a background id draws. Stage backgrounds resolve to their painted place (STAGE_PLACE), or to their
