@@ -32,6 +32,7 @@ import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { Companions } from './companions.js';
+import { createBlackout } from './blackout.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -171,6 +172,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
+  // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
+  // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
+  const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
@@ -289,7 +293,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function applyLighting() {
     const ex = THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8);
     const w = THREE.MathUtils.clamp(lighting.warmth ?? 0, -1, 1);
-    hemi.intensity = baseLight.hemi * ex;
+    hemi.intensity = baseLight.hemi * ex * blackout.hemiScale();
     key.intensity = baseLight.key * ex;
     fill.intensity = baseLight.fill * ex;
     key.color.copy(baseLight.keyColor).lerp(new THREE.Color(w >= 0 ? '#ffc890' : '#b8d0ff'), Math.abs(w) * 0.45);
@@ -622,6 +626,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
       actors.alpha = 1;
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
+    if (blackout.enabled) {
+      for (const ev of events) blackout.handle(ev);
+      if (blackout.step(d)) {
+        terrain.setDim(blackout.dim);
+        ambient.dim = blackout.dim;
+        hemi.intensity = baseLight.hemi * THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8) * blackout.hemiScale();
+      }
+    }
     actors.sync(d);
     if (!compBroken) {
       try {
@@ -991,7 +1003,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {
-      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
+      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null };
     },
     dispose() {
       if (disposed) return;

@@ -456,6 +456,10 @@ MapDef = {
         //  (no railway unless given; z ≈ -1.2…-0.5 is the strip the battle shows past the far edge),
         //  waterBus: { z, x0, x1 } | { x, z0, z1 }, areas: [{ type: 'plaza'|'lawn', x, y, w, h }],
         //  spawnGate?, goalGate?, goalVariant? })
+        // (+ 'campus', Hilltop High at night (Gate Arc Step 2): the city kit with the school set,
+        //  src/render/city/campusProps.js; extra `city` hints: road?: 'track' (the running track),
+        //  searchlight?: { x, z, rot?, sweep?, reach?, period?, variant? } (its beam sweeps the water),
+        //  pieces?: [{ type, x, z, rot?, variant?, s? }] (free-standing set pieces))
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
@@ -472,8 +476,9 @@ MapDef = {
              fork?, join?, forkD, joinD }],
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
-  decor?: [{ type, x, y, rot?, r? }],  // optional composed set pieces for the renderer; `r` (Gate Arc): the set
-                                   // piece draws the building tiles within r of it itself (1-10's dry fountain)
+  decor?: [{ type, x, y, rot?, r?, s? }],  // optional composed set pieces for the renderer; `r` (Gate Arc): the set
+                                   // piece draws the building tiles within r of it itself (1-10's dry fountain);
+                                   // `s`: a land piece's scale (default 1; 2-10's old lamp stands at 1.7)
   bridge?, path?, tunnel?: {...},  // optional per-map looks merged over the theme's (e.g. a steel-
                                    // grating overpass, conveyor-belt road, ice-cave tunnel)
   ground?: [{ type: 'vat', x, y, w, h }      // machined tank rim, square water / lava mask
@@ -2221,7 +2226,11 @@ production; in dev builds only, `localStorage['sakura-dev-now']` (an ISO instant
 
 **Render** — `stage.look.night === 'lantern'` (warm lantern night) and `look.costumes` (render-only monster
 costumes, `src/render/costumes.js`; never bosses / minibosses, never over armour or ward signs); scenery
-keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look.
+keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look. `look.blackout: true` (Gate Arc, render only,
+`src/render/blackout.js`): while the stage's map rule is ACTIVE (`ruleState` events) the lamps, lit windows, glow
+sprites and light pools ease to 25 % and the hemisphere light to 60 % (0.4 s); enemies, girls, the road, the gates
+and the HUD get no dimming of their own (only the shared hemisphere light; the road stays the lightest band). Set
+pieces built as separate objects (water set pieces) keep their glow geometry lit: none stands on a blackout stage yet.
 
 **Tests** — `tests/core/resetBounds.test.js`, `tests/data/events.test.js`, `tests/systems/events*.test.js`,
 `tests/integration/event-balance.test.js`, `tests/render/halloween.test.js`, `node e2e/halloween.mjs`.

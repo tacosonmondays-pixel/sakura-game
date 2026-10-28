@@ -4,6 +4,11 @@
 //   · stage prep of 1-6 plays "Two Sunrises" as an overlay, opening with the content note card; Continue goes on to
 //     the title card "Chapter 1 · Rush Hour"; the rule panel shows the stage's skin and the base rule's name
 //   · the 1-6 battle opens on the city board (map noon_station_plaza)
+// and Gate Arc Step 2 (docs/specs/gate-arc/STEP2_BUILD_PLAN.md §7):
+//   · chapter 2's Act II "Hilltop After Dark" waits for both keys: with 2-5 cleared but not 1-10 its row says
+//     "Clear 1-10 first"; once 1-10 is cleared the row is open with NEW
+//   · stage prep of 2-6 plays "Exchange Students" (g2.pro) under the "Chapter 2 · Hilltop After Dark" kicker
+//   · the 2-7 battle (Lights Out) opens on the campus board and dims while the eclipse is on (renderer info.blackout)
 //
 //   node e2e/gate-arc.mjs                          # both viewports
 //   node e2e/gate-arc.mjs --viewport 844x390 --shots <dir>
@@ -144,6 +149,66 @@ async function runViewport(vp) {
   check(map.id === 'noon_station_plaza' && map.theme === 'city', `1-6 battle: ${map.id} (${map.theme})`);
   await page.waitForTimeout(2500);
   await shot('battle-1-6');
+
+  // ---- Step 2: chapter 2's Act II, the two-key lock, g2.pro and the 2-7 blackout
+  await page.evaluate(() => {
+    const { store } = window.__sakura;
+    for (const id of ['1-6', '1-7', '1-8', '1-9']) store.profile.progress.stages[id] = { clears: 1, easy: true, normal: true, hard: false, nightmare: false };
+    store.profile.story.seen = [...new Set([...store.profile.story.seen, 'g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.poster', 'g1.boss', 'g1.epi'])];
+    store.profile.story.queue = [];
+    store.commit('e2e');
+    location.hash = '#/campaign';
+  });
+  await page.waitForSelector('[data-testid="chapter-2"]', { timeout: 30000 });
+  await page.click('[data-testid="chapter-2"]', { force: true });
+  await page.waitForSelector('[data-testid="act-row-2-2"]', { timeout: 10000 }).catch(() => null);
+  const lock2 = await page.evaluate(() => ({
+    head: document.querySelector('[data-testid="act-head-2-2"] .ma-act-title')?.textContent?.trim() || '',
+    locked: !!document.querySelector('[data-testid="act-head-2-2"].locked'),
+    text: document.querySelector('[data-testid="act-head-2-2"] .ma-act-lock')?.textContent?.trim() || '',
+  }));
+  check(lock2.head === 'Act II · Hilltop After Dark' && lock2.locked && lock2.text === 'Clear 1-10 first', `chapter 2: Act II waits for 1-10 ("${lock2.head}", "${lock2.text}")`);
+  await shot('campaign-ch2-locked');
+  await page.evaluate(() => {
+    const { store } = window.__sakura;
+    store.profile.progress.stages['1-10'] = { clears: 1, easy: true, normal: true, hard: false, nightmare: false };
+    store.commit('e2e');
+    location.hash = '#/home';
+  });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => { location.hash = '#/campaign'; });
+  await page.waitForSelector('[data-testid="chapter-2"]', { timeout: 30000 });
+  await page.click('[data-testid="chapter-2"]', { force: true });
+  await page.waitForSelector('[data-testid="act-row-2-2"]', { timeout: 10000 }).catch(() => null);
+  const open2 = await page.evaluate(() => ({
+    locked: !!document.querySelector('[data-testid="act-head-2-2"].locked'),
+    isNew: !!document.querySelector('[data-testid="act-new-2-2"]'),
+  }));
+  check(!open2.locked && open2.isNew, 'chapter 2: after 1-10, Act II is open with its NEW sticker');
+  await shot('campaign-ch2-open');
+  await page.evaluate(() => { location.hash = '#/stage/2-6'; });
+  await page.waitForFunction(() => document.querySelector('.sp')?.dataset.scene === 'g2.pro', null, { timeout: 20000 }).catch(() => null);
+  const kicker2 = await page.evaluate(() => ({ scene: document.querySelector('.sp')?.dataset.scene || '', kicker: document.querySelector('.sp-tc-kicker')?.textContent || '' }));
+  check(kicker2.scene === 'g2.pro' && kicker2.kicker === 'Chapter 2 · Hilltop After Dark', `2-6 prep: "${kicker2.scene}" under "${kicker2.kicker}"`);
+  await page.click('[data-testid="story-skip"]').catch(() => {});
+  await page.click('[data-testid="story-skip-confirm"]').catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000 }).catch(() => null);
+  await page.evaluate(() => { location.hash = '#/battle?stage=2-7&difficulty=easy'; });
+  await page.waitForFunction(() => window.__battle?.sim && window.__battle?.renderer, null, { timeout: 90000 }).catch(() => null);
+  const map2 = await page.evaluate(() => ({ id: window.__battle?.sim?.map?.id, theme: window.__battle?.sim?.map?.theme, dim: window.__battle?.renderer?.info?.blackout }));
+  check(map2.id === 'noon_rowing_jetty' && map2.theme === 'campus' && map2.dim === 1, `2-7 battle: ${map2.id} (${map2.theme}), lit before the eclipse (${map2.dim})`);
+  // the eclipse comes 14 s into each 20 s cycle of the wave clock: step the sim there (a slow headless frame rate
+  // would take minutes), then let the renderer ease the lights down
+  await page.evaluate(() => {
+    const { sim } = window.__battle;
+    sim.cash = 1e6;
+    sim.startNextWave();
+    for (let i = 0; i < 1300 && !sim.rule.active && sim.state === 'wave'; i++) sim.update(1 / 60);
+  });
+  await page.waitForFunction(() => window.__battle?.renderer?.info?.blackout < 0.5, null, { timeout: 15000 }).catch(() => null);
+  const dark = await page.evaluate(() => ({ active: !!window.__battle?.sim?.rule?.active, dim: window.__battle?.renderer?.info?.blackout, state: window.__battle?.sim?.state, tick: window.__battle?.sim?._waveTick }));
+  check(dark.active && dark.dim < 0.5, `2-7 battle: lights out while the eclipse is on (active ${dark.active}, dim ${dark.dim}, state ${dark.state}, tick ${dark.tick})`);
+  await shot('battle-2-7-dark');
 
   check(!errors.length, `no errors${errors.length ? `\n       ${errors.slice(0, 6).join('\n       ')}` : ''}`);
   await context.close();

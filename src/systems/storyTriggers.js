@@ -4,6 +4,11 @@
 //
 // Trigger kinds (format.js): { opening: true } | { tutorial: 'won' } | { before: stageId } | { after: stageId }
 // | { lesson: id } | null (archive only).
+//
+// Two roster gates: `ifUnit` (the girl exists in code; until then the scene is never queued or listed) and `ifOwned`
+// (the player owns any one of the listed girls). An `ifOwned` after-scene is queued on its first clear like any other
+// and STAYS queued (never pruned) until one of its girls is owned; then it plays once. The archive lists it, locked
+// with "Needs Ruri, Iroha, Ena or Fuu" while none is owned.
 
 import { stageOrderKey, stageRequires } from '../data/stages.js';
 import { storyRewardFor } from '../data/story/lessons.js';
@@ -16,6 +21,28 @@ import {
 const playOrder = (stageId) => stageOrderKey(stageId);
 
 const availableFor = (hasUnit) => (sc) => !sc.ifUnit || !hasUnit || !!hasUnit(sc.ifUnit);
+
+/**
+ * The scene's `ifOwned` gate is open: it has none, or the player owns any one of its girls.
+ * @returns {boolean}
+ */
+export function ownedReady(profile, scene) {
+  const ids = scene?.ifOwned;
+  if (!ids || !ids.length) return true;
+  return ids.some((id) => !!profile?.units?.[id]);
+}
+
+/**
+ * Locked-card text for an `ifOwned` scene: "Needs {name:ruri}, {name:iroha}, {name:ena} or {name:fuu}" (tokens resolve
+ * through src/data/story/tokens.js). Null for a scene without the gate.
+ * @returns {string|null}
+ */
+export function ownedRequirementFor(scene) {
+  const ids = scene?.ifOwned;
+  if (!ids || !ids.length) return null;
+  const names = ids.map((id) => `{name:${id}}`);
+  return `Needs ${names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : names[0]}`;
+}
 
 /**
  * The trigger is satisfied, so the episode can be played (and replayed) from the archive:
@@ -45,7 +72,8 @@ export function beforeSceneFor(profile, stageId, scenes, hasUnit) {
   if (!stageId || !stageOpen(profile, stageId) || stageCleared(profile, stageId)) return null;
   const s = storyOf(profile);
   const ok = availableFor(hasUnit);
-  return (scenes || []).find((sc) => sc.trigger?.before === stageId && ok(sc) && !s.seen.includes(sc.id)) || null;
+  return (scenes || []).find((sc) => sc.trigger?.before === stageId && ok(sc) && ownedReady(profile, sc)
+    && !s.seen.includes(sc.id)) || null;
 }
 
 /**
@@ -75,7 +103,8 @@ export function queueAfterClears(profile, newlyCleared, scenes, hasUnit) {
 }
 
 /**
- * Drops unknown, seen and unavailable ids from the queue (in place).
+ * Drops unknown, seen and unavailable ids from the queue (in place). An `ifOwned` scene whose girls are not owned yet
+ * is kept: it is waiting, not gone.
  * @returns {string[]} the remaining queue
  */
 export function pruneQueue(profile, scenes, hasUnit) {
@@ -87,7 +116,8 @@ export function pruneQueue(profile, scenes, hasUnit) {
 }
 
 /**
- * The next queued after-scene, in play order (chapter, act, n) of its trigger stage.
+ * The next queued after-scene that can play now, in play order (chapter, act, n) of its trigger stage. An `ifOwned`
+ * scene whose girls are not owned yet is skipped (it stays queued for later).
  * @returns {object|null} scene
  */
 export function nextQueued(profile, scenes, hasUnit) {
@@ -95,7 +125,8 @@ export function nextQueued(profile, scenes, hasUnit) {
   if (!queue.length) return null;
   const byId = new Map((scenes || []).map((sc) => [sc.id, sc]));
   const sorted = [...queue].sort((a, b) => playOrder(byId.get(a)?.trigger?.after) - playOrder(byId.get(b)?.trigger?.after));
-  return byId.get(sorted[0]) || null;
+  const id = sorted.find((q) => ownedReady(profile, byId.get(q)));
+  return id ? byId.get(id) || null : null;
 }
 
 /**
@@ -153,6 +184,8 @@ export function requirementFor(scene) {
  * @param {object} profile
  * @param {object[]} scenes archive list (SCENE_LIST; lesson scenes are skipped)
  * @param {(id: string) => boolean} [hasUnit]
+ * An `ifOwned` episode is unlocked only once its trigger is met AND one of its girls is owned; while the trigger is met
+ * but none is owned, its requirement reads "Needs {name:ruri}, … or {name:fuu}".
  * @returns {Array<{ id, chapter, kind, title, episode, unlocked, seen, isNew, requirement, firstReward, scene }>}
  */
 export function episodeList(profile, scenes, hasUnit) {
@@ -163,7 +196,9 @@ export function episodeList(profile, scenes, hasUnit) {
   for (const sc of scenes || []) {
     if (sc.kind === 'lesson' || !ok(sc)) continue;
     counters[sc.chapter] = (counters[sc.chapter] || 0) + 1;
-    const unlocked = sceneUnlocked(profile, sc);
+    const triggerMet = sceneUnlocked(profile, sc);
+    const owned = ownedReady(profile, sc);
+    const unlocked = triggerMet && owned;
     const seen = s.seen.includes(sc.id);
     rows.push({
       id: sc.id,
@@ -174,7 +209,7 @@ export function episodeList(profile, scenes, hasUnit) {
       unlocked,
       seen,
       isNew: unlocked && !seen,
-      requirement: unlocked ? null : requirementFor(sc),
+      requirement: unlocked ? null : (triggerMet ? ownedRequirementFor(sc) : requirementFor(sc)),
       firstReward: seen ? [] : storyRewardFor(sc.kind),
       scene: sc,
     });

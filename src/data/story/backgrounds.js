@@ -71,11 +71,14 @@ export const BACKGROUND_IDS = Object.keys(BACKGROUNDS);
 /**
  * The painted place a `stage:<id>` background shows (scenes stay written as `stage:<id>`). Every campaign stage
  * has one, the Gate Arc's Act II stages too (chapter 1's Rush Hour: 1-6 and 1-9 station-plaza, 1-7 covered-arcade,
- * 1-8 corner-store, 1-10 dry-fountain). A later Act II stage without one shows its map theme's skyline (backdrop.js).
+ * 1-8 corner-store, 1-10 dry-fountain; chapter 2's Hilltop After Dark: 2-6 the shelter (Hilltop is Shelter 3), 2-7 the
+ * night jetty, 2-8 the club huts' workshop, 2-9 the school ground at night, 2-10 the lake and its old lamp). A later
+ * Act II stage without one shows its map theme's skyline (backdrop.js).
  */
 export const STAGE_PLACE = {
   '1-1': 'blossom-court', '1-2': 'blossom-court', '1-3': 'blossom-court', '1-4': 'blossom-court', '1-5': 'blossom-court',
   '1-6': 'station-plaza', '1-7': 'covered-arcade', '1-8': 'corner-store', '1-9': 'station-plaza', '1-10': 'dry-fountain',
+  '2-6': 'shelter', '2-7': 'moon-pier', '2-8': 'workshop', '2-9': 'academy-courtyard-night', '2-10': 'lakeshore',
   '2-1': 'lakeshore', '2-2': 'lakeshore', '2-3': 'lakeshore', '2-4': 'moon-pier', '2-5': 'moon-pier',
   '3-1': 'shrine-steps', '3-2': 'shrine-steps', '3-3': 'shrine-steps', '3-4': 'shrine-bell', '3-5': 'shrine-bell',
   '4-1': 'mountain-pass', '4-2': 'mountain-pass', '4-3': 'beacon-gate', '4-4': 'mountain-pass', '4-5': 'beacon-gate',
@@ -87,11 +90,10 @@ export const STAGE_PLACE = {
 
 /**
  * Listed but not used by any scene yet: the old academy looks (kept for scenes that want the lobby painting), the
- * day gate and night fountain variants, and the Gate Arc's shelter. The content test keeps this list honest.
+ * day gate and night fountain variants. The content test keeps this list honest.
  */
 export const SPARE_BACKGROUNDS = [
   'academy-soft', 'academy-gate', 'blossom-court-night',
-  'shelter',
 ];
 
 /** Academy tint shown for a stage background whose stage has no STAGE_PLACE (and no still). */

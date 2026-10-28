@@ -29,7 +29,7 @@ describe('buildCard', () => {
     expect(c.units[0].g[0].x).toHaveLength(4);
     expect(c.med.pins).toHaveLength(4);
     // [reverse, rush, ironclad, frugal, laststand]: every Nightmare medal holds its stage's Last Petal ribbon
-    expect(c.med.r).toEqual([0, 0, 0, 0, 45]); // 40 Act I + chapter 1's Act II
+    expect(c.med.r).toEqual([0, 0, 0, 0, 50]); // 40 Act I + chapters 1 and 2's Act II
     expect(c.st.h).toBeGreaterThan(0);
     expect(c.fp.crimson).toEqual({ w: 121, s: '7-3', c: 1 });
   });
@@ -123,9 +123,9 @@ describe('cleanViewedCard', () => {
     const v = cleanViewedCard({ v: 1, fav: 'luna', st: { u: 999, s: 70, b: 101, k: 5, h: 5000 }, newKey: { x: 1 }, med: { a: [99, 1, 2, 3], pins: ['8-5:nightmare', 'ach:a_from_the_future', 'nowhere:hard', 'ach:Bad Text'] } });
     expect(v.fav).toBe('luna');
     expect(v.st.h).toBe(999);
-    expect(v.st.s).toBe(64); // clamped to this build's stage count (59 + chapter 1's Act II)
+    expect(v.st.s).toBe(69); // clamped to this build's stage count (59 + chapters 1 and 2's Act II)
     expect(v.st.b).toBe(100);
-    expect(v.med.a[0]).toBe(64);
+    expect(v.med.a[0]).toBe(69);
     expect(v.med.pins).toEqual(['8-5:nightmare', 'ach:a_from_the_future']); // the unknown ach pin draws the neutral plaque
     expect(cleanViewedCard({ st: {} }).st.h).toBeNull();
     expect(cleanViewedCard(null).units).toEqual([]);

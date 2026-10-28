@@ -28,7 +28,8 @@ function looks() {
   const lowThemes = new Set();
   for (const st of STAGES) {
     const map = MAPS.find((m) => m.id === st.mapId);
-    if (!map || map.theme === 'city') continue;
+    // (the Gate Arc looks are still being tuned: the city, and the campus from Step 2)
+    if (!map || map.theme === 'city' || map.theme === 'campus') continue;
     const key = `${st.mapId}|${JSON.stringify(st.scenery || {})}|${JSON.stringify(st.look || null)}|${(st.introduces || []).join(',')}`;
     if (seen.has(key)) continue;
     seen.add(key);

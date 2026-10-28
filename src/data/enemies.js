@@ -593,6 +593,21 @@ const LIZARDS = [
     counters: 'Armored and regenerating: Sango\'s shells crack the scales; keep it under constant fire.',
     introducedIn: '2-5',
   }),
+  // Gate Arc Act II miniboss (2-10): the Bog Basilisk's GLB at miniboss scale, curled round the school's old lamp
+  enemy({
+    id: 'lizard_lamp_hugger', name: 'Old Lamp-Hugger', family: 'lizard', tier: 'miniboss', hp: 3900, speed: 0.45,
+    armorClass: 'scaled', armor: 4, bounty: 360, leak: 25, threat: 170, size: 2.4, color: '#8a7a3e', accent: '#ffd08a',
+    // warm lamplight scales (the Bog Basilisk is mossy green); the lizard GLB carries no lantern prop
+    variant: 'basilisk', props: ['tail', 'crystals'],
+    traits: { regen: { pct: 0.025, delay: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'Old Lamp-Hugger thumps its tail. Marsh Hunters wade in from the lake!', set: { traits: { regen: { pct: 0.025, delay: 3 }, summoner: { spawn: 'lizard_hunter', count: 2, every: 6 } } } },
+      { atHp: 0.33, announce: 'Old Lamp-Hugger curls up tight round its lamp: scales harden, steps slow!', set: { armor: 7, speed: 0.32 } },
+    ],
+    lore: 'A great old lake lizard that came through the crack looking for somewhere warm, and found the school\'s old iron lamp. It will not let go of it. When the lamp lights, it lets go and goes home.',
+    counters: 'Regrows like the Bog Basilisk and hardens late: shred its scales early, keep it under fire, and save splash for the Marsh Hunters it calls.',
+    introducedIn: '2-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------

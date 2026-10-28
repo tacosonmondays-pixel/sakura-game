@@ -20,11 +20,11 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Rush Hour',
+    id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Rush Hour and Hilltop After Dark',
     added: [
-      'Chapter 1 Act II, "Rush Hour": five new city stages (1-6 to 1-10) open once you clear 1-5, with seven new story scenes. This arc deals with war and loss; a short note says so before it starts.',
-      'A new boss waits at the end of 1-10: the Frostbitten Heir.',
-      'Rooftops: on some city stages your girls can stand on the roofs, and a level crossing closes a lane for a few waves.',
+      'The Gate Arc begins: chapters 1 and 2 each get an Act II. "Rush Hour" (1-6 to 1-10) opens once you clear 1-5 and "Hilltop After Dark" (2-6 to 2-10) once you clear 2-5: ten new stages and eighteen new story scenes. This arc deals with war and loss; a short note says so before it starts.',
+      'Two new bosses: the Frostbitten Heir at the end of 1-10 and the Old Lamp-Hugger at the end of 2-10.',
+      'New ways to play: girls on rooftops, a level crossing that closes a lane for a few waves, and a blackout at 2-7.',
     ],
     changed: [
       'Yuzuha now joins after stage 1-7. If she is already on your team nothing changes, and clearing 4-2 still brings her.',

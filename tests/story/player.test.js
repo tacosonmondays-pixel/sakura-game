@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { autoDelay, titleCardText, plateFor } from '../../src/ui/story/player.js';
 import { EMOTES, emoteSVG } from '../../src/ui/story/emotes.js';
 import { resolveBackground, backgroundUrls } from '../../src/ui/story/backdrop.js';
+import { themeBackdropSVG } from '../../src/art/backdrops.js';
 import { nextRoute } from '../../src/ui/story/scene.js';
 import { FACES } from '../../src/data/story/format.js';
 import { BACKGROUNDS, CHAPTER_FALLBACK_BG, STAND_NUDGE } from '../../src/data/story/backgrounds.js';
@@ -139,6 +140,20 @@ describe('Act II stage backgrounds', () => {
       expect(backgroundUrls(`stage:${id}`, 1).length, id).toBe(1);
     }
     expect(resolveBackground('stage:1-5', 1).place).toBe('blossom-court');
+  });
+
+  it('2-6 … 2-10 show their painted places; the campus skyline keeps its jetty and lamp variants for a stage without one', () => {
+    const want = { '2-6': 'shelter', '2-7': 'moon-pier', '2-8': 'workshop', '2-9': 'academy-courtyard-night', '2-10': 'lakeshore' };
+    for (const [id, place] of Object.entries(want)) {
+      const b = resolveBackground(`stage:${id}`, 2);
+      expect(b.kind, id).toBe('paint');
+      expect(b.place, id).toBe(place);
+    }
+    const plain = themeBackdropSVG('campus');
+    const jetty = themeBackdropSVG('campus', { variant: 'jetty' });
+    const lamp = themeBackdropSVG('campus', { variant: 'lamp' });
+    expect(plain).toMatch(/aria-label="campus scenery"/);
+    expect(new Set([plain, jetty, lamp]).size).toBe(3);
   });
 });
 

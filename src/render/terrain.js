@@ -170,6 +170,22 @@ export const SCENERY = {
   laundry: { prop: 'laundryLine', slot: 'skirt', n: 3, face: true },
   billboards: { prop: 'billboard', slot: 'skirt', n: 3, face: true },
   missingPosters: { prop: 'missingPoster', slot: 'grass', n: 2, face: true },
+  // the campus kit (Gate Arc, Noon `campus` theme, src/render/city/campusProps.js); `props` cycles
+  // through several props for one keyword
+  schoolGrounds: { props: ['bikeShed', 'flagpole', 'bikeShed'], slot: 'skirt', n: 3, face: true },
+  clubHuts: { prop: 'clubHut', slot: 'skirt', n: 3, face: true },
+  rowingClub: { prop: 'boatRack', slot: 'grass', alt: 'skirt', n: 3, face: true },
+  sportsField: { props: ['goalPosts', 'scoreboard', 'stands'], slot: 'skirt', n: 3, face: true },
+  lakeLamps: { prop: 'streetLamp', slot: 'pathside', n: 6 },
+  fireflies: { ambient: 'fireflies' },
+};
+
+/** Prop types whose glows (sprites and glow geometry) a blackout never dims: the gates stay readable. */
+const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate']);
+
+/** Per-map road surfaces (MapDef.city.road): the campus running track. */
+const ROAD_STYLES = {
+  track: { style: 'track', base: '#7a3428', side: '#7d5a50', plainJunction: false },
 };
 
 /** Trait / family → keyword that dresses the stage when that enemy is introduced. */
@@ -221,6 +237,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // … its road surface (e.g. conveyor belts) and its tunnels (e.g. an ice cave)
   if (map.path) look = { ...look, path: { ...look.path, ...map.path } };
   if (map.tunnel) look = { ...look, tunnel: { ...look.tunnel, ...map.tunnel } };
+  // … and a city map may pave its road differently (the campus running track: map.city.road)
+  if (look.city && ROAD_STYLES[map.city?.road]) look = { ...look, path: { ...look.path, ...ROAD_STYLES[map.city.road] } };
   // composed ground features (tanks, icefalls, rune circles) + junction chevrons
   const features = buildGroundFeatures(map);
   const W = map.width;
@@ -329,7 +347,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
   const detailTex = detailTexture(look.groundStyle || 'grass', hash(map.id) % 1000 + 1);
   detailTex.colorSpace = THREE.NoColorSpace;
-  const pathTex = pathTexture(look.path.style, hash(map.id, 'p') % 1000 + 1);
+  const pathTex = pathTexture(look.path.style, hash(map.id, 'p') % 1000 + 1, { tone: look.path.tone });
   pathTex.colorSpace = THREE.NoColorSpace;
   disposables.push(detailTex, pathTex);
   const groundMat = createGroundMaterial(painted.texture, detailTex);
@@ -433,6 +451,17 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   mats.foliage = createFoliageMaterial();
   mats.glow = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   disposables.push(mats.solid, mats.foliage, mats.glow);
+  // blackout stages (look.blackout): the glow geometry carries a per-vertex `dimk` (1 = dims with
+  // the lights, 0 = a gate: stays lit) and the glow material scales by uDim (setDim, 0 calls)
+  const glowDim = look.blackout ? { value: 1 } : null;
+  if (glowDim) {
+    mats.glow.onBeforeCompile = (shader) => {
+      shader.uniforms.uDim = glowDim;
+      shader.vertexShader = `attribute float dimk;\nvarying float vDimk;\n${shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vDimk = dimk;')}`;
+      shader.fragmentShader = `uniform float uDim;\nvarying float vDimk;\n${shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= mix(1.0, uDim, vDimk);')}`;
+    };
+    mats.glow.customProgramCacheKey = () => 'glowDim';
+  }
   // city buildings: one opaque facade material (shader windows), shared with the kit's movers
   mats.facade = look.city ? createFacadeMaterial({ ...(look.city.glass || {}), night: look.night }) : null;
   if (mats.facade) disposables.push(mats.facade);
@@ -468,11 +497,16 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       push(p.solid, solidParts);
       push(p.foliage, foliageParts);
       push(p.glow, glowParts);
+      if (glowDim && p.glow) {
+        const g = glowParts[glowParts.length - 1];
+        g.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(KEEP_LIT.has(type) ? 0 : 1), 1));
+      }
       push(p.facade, facadeParts);
     }
+    const keep = KEEP_LIT.has(type);
     for (const gl of p.glows) {
       v3.set(gl.x, gl.y, gl.z).applyMatrix4(m4);
-      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}) });
+      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}) });
     }
     for (const em of p.emitters) {
       v3.set(em.x, em.y, em.z).applyMatrix4(m4);
@@ -523,7 +557,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           waterDecor.set(key, list);
         } else {
           const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine';
-          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : 1, h % 4);
+          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : (deco.s ?? 1), h % 4);
         }
         occupied.add(key);
         continue;
@@ -549,10 +583,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
         if (border) {
           const alongX = y === 0 || y === H - 1;
-          place(look.wall, cx, 0, cz, alongX ? (y === 0 ? Math.PI : 0) : (x === 0 ? Math.PI / 2 : -Math.PI / 2), 1, look.city ? cityWallVariant(map, x, y) : h % 4);
+          place(look.wall, cx, 0, cz, alongX ? (y === 0 ? Math.PI : 0) : (x === 0 ? Math.PI / 2 : -Math.PI / 2), 1, look.city ? cityWallVariant(map, x, y, look.city.kit) : h % 4);
         } else if (look.city) {
-          // the city kit picks the building: shops on the street, homes and offices behind
-          const b = cityBuildingFor(map, x, y, isPath);
+          // the city kit picks the building: shops on the street, homes and offices behind (the
+          // campus: classroom wings, the gym, club huts)
+          const b = cityBuildingFor(map, x, y, isPath, look.city.kit);
           place(b.type, cx, 0, cz, facePath(x, y), 1, b.variant);
         } else {
           place(look.building, cx, 0, cz, facePath(x, y), 1, h % 3);
@@ -572,7 +607,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   let roofStats = null;
   if (rows.some((r) => r.includes('U'))) {
     const roofAcc = new CityAcc();
-    roofStats = buildRoofs(map, roofAcc, { quality });
+    roofStats = buildRoofs(map, roofAcc, { quality, kit: look.city?.kit });
     const rg = roofAcc.build();
     if (rg) facadeParts.push(rg);
   }
@@ -670,7 +705,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   for (const e of exits) {
     const gi = gateInfo(e, true);
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
-    place(map.city?.goalGate || look.goalGate || 'goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, map.city?.goalVariant ?? 0);
+    place(map.city?.goalGate || look.goalGate || 'goalGate', gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, map.city?.goalVariant ?? look.goalVariant ?? 0);
     gates.push({ kind: 'goal', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.goal });
   }
 
@@ -747,7 +782,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
         const s = (rec.s ?? 1) * (spot.s ?? 1);
         const ry = rec.face ? (r() - 0.5) * 0.7 : spot.ry ?? r() * 6.28;
-        place(rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variant ?? Math.floor(r() * 4));
+        place(rec.props ? rec.props[n % rec.props.length] : rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variant ?? Math.floor(r() * 4));
         n++;
       }
     }
@@ -903,6 +938,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     city: city ? city.stats : null,
     /** Live positions of the city's patrol drones ({ x, y, z }, updated by update(); empty elsewhere): the actor layer shadows them. */
     flyers: city ? city.flyers : [],
+    /** The campus searchlights (map.city.searchlight): { x, y, z, a0, a1, period, reach, phase }; the ambient layer sweeps their beams. */
+    searchlights: city ? city.searchlights : [],
+    /**
+     * Blackout dimming (look.blackout stages only, src/render/blackout.js): scales the glow geometry
+     * (the gates excepted) and the lit windows by k (1 = normal). Uniforms only: no draw call, no
+     * allocation; the road, the ground and every other material stay as they are.
+     * @param {number} k
+     */
+    setDim(k) {
+      if (!look.blackout) return;
+      if (glowDim) glowDim.value = k;
+      const u = mats.facade?.userData.uniforms;
+      if (u?.uLit) u.uLit.value = k;
+    },
     /** Rooftop layout ({ regions, tiles }, null without 'U' tiles). */
     roofs: roofStats,
     /** Height a girl stands at on the board point (x, y): ROOF_Y on a rooftop tile, else 0. */

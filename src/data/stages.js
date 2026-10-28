@@ -188,7 +188,8 @@ export const CHAPTERS = [
     desc: 'Lizardfolk raid the lakeshore by moonlight. The lake itself becomes your battlefield.',
     mechanic: 'Water placement (Sango, Nami), regeneration, splitting slimes and fire-warded scales.',
     stages: ['2-1', '2-2', '2-3', '2-4', '2-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'Hilltop After Dark', act2Theme: 'campus',
+    act2Desc: 'Itomachi Hilltop High is Shelter 3 now, and the lake beside it is full of lizardfolk looking for somewhere warm. A night watch on the jetties, the club huts and the running track.',
   },
   {
     id: 3, name: 'Moonveil Shrine', theme: 'shrine', tier: 'intermediate',
@@ -896,6 +897,7 @@ export function act2Stage(o) {
     medalGemMul: plan.medalGemMul,
     modeChapter: plan.modeChapter,
     scenery: o.scenery,
+    ...(o.look ? { look: o.look } : {}),
     tier: plan.tier,
     rule: stageRule(o.id),
   };
@@ -964,6 +966,66 @@ const CAMPAIGN_ACT2 = [
     fam: ['feather', 'charm'],
     crown: { id: 'crown_slime', chance: 0.35, tokens: 1 },
     scenery: { props: ['strays', 'streetLamps', 'vendingMachines', 'slimePuddles', 'billboards'], weather: 'petals' },
+  }),
+
+  // ----- Chapter 2 · Act II — Hilltop After Dark (Itomachi Hilltop High at night; docs/specs/gate-arc/MAPS.md §1.3) -----
+  // Chapter-2 families and rules only; budgets start from the same slot of chapter 3. Every board is a night board.
+  act2Stage({
+    id: '2-6', name: 'Shelter 3', mapId: 'noon_school_gate',
+    desc: 'Hilltop High is Shelter 3 now. Skinks scuttle up the hill road after the last bus, and the corridor under the main building is the only way in.',
+    budget: [7, 80], groups: 3,
+    pool: [P('lizard_skink', 5), P('slime_green', 3), P('slime_pearl', 3, 3), P('goblin_runner', 2, 5)],
+    fixed: [F(6, 'slime_pearl', 5, 0.6), F(20, 'lizard_skink', 8, 0.5)],
+    recommended: ['water', 'multiHit'],
+    fam: ['charm', 'rune'],
+    scenery: { props: ['schoolGrounds', 'streetLamps', 'fireflies'], night: true },
+  }),
+  act2Stage({
+    id: '2-7', name: 'Lights Out', mapId: 'noon_rowing_jetty',
+    desc: 'The rowing club\'s jetties, and the power keeps cutting out. Two columns climb out of the lake in the dark and meet at the boat ramp.',
+    budget: [7, 76], groups: 3,
+    pool: [P('lizard_skink', 4), P('lizard_hunter', 3, 2), P('slime_pearl', 3), P('slime_droplet', 2, 4)],
+    fixed: [F(4, 'lizard_hunter', 3, 1.2), F(18, 'slime_droplet', 6, 0.6)],
+    recommended: ['water', 'multiHit'],
+    fam: ['feather', 'rime'],
+    scenery: { props: ['rowingClub', 'streetLamps', 'fireflies'], night: true },
+    look: { blackout: true },
+  }),
+  act2Stage({
+    id: '2-8', name: 'Club Huts', mapId: 'noon_footbridges',
+    desc: 'Down the club-hut lanes and over the mill canals on little footbridges. The Brigade has put sensor masts by the bridges; a girl beside one sees further.',
+    budget: [7, 315], groups: 3,
+    pool: [P('lizard_hunter', 4), P('lizard_sunscale', 3, 3), P('slime_prism', 3), P('slime_pearl', 2), P('goblin_dasher', 2, 5)],
+    fixed: [F(3, 'lizard_sunscale', 3, 1.5), F(16, 'slime_prism', 6, 0.8)],
+    recommended: ['water', 'multiHit'],
+    fam: ['rune', 'charm'],
+    scenery: { props: ['clubHuts', 'streetLamps', 'fireflies'], night: true },
+  }),
+  act2Stage({
+    id: '2-9', name: 'The Running Track', mapId: 'noon_running_track',
+    desc: 'Sports day was cancelled; the lizardfolk run it anyway. In through the marathon gate, once round the track and out past the finish.',
+    budget: [7, 332], groups: 3,
+    pool: [
+      P('lizard_sunscale', 4), P('lizard_hunter', 3), P('slime_prism', 3), P('slime_pearl', 2),
+      P('goblin_dasher', 3, 2), P('beast_boar', 2, 6),
+    ],
+    fixed: [F(5, 'goblin_dasher', 6, 0.4), F(22, 'beast_boar', 5, 1)],
+    recommended: ['water', 'slow'],
+    fam: ['blade', 'ember'],
+    scenery: { props: ['sportsField', 'streetLamps', 'fireflies'], night: true },
+  }),
+  act2Stage({
+    id: '2-10', name: 'The Boathouse Lamp', mapId: 'noon_boathouse_lamp',
+    desc: 'At the end of the breakwater stands the school\'s old iron lamp, dark for a thousand years, and an enormous lizard is curled round it like a cat on a stove.',
+    budget: [7, 80], groups: 3,
+    pool: [
+      P('lizard_hunter', 3), P('lizard_sunscale', 3), P('slime_pearl', 3), P('slime_prism', 2),
+      P('goblin_runner', 2), P('lizard_basilisk', 1, 12),
+    ],
+    fixed: [F(8, 'lizard_basilisk', 1), F(25, 'lizard_lamp_hugger', 1, 2, 6)],
+    introduces: ['lizard_lamp_hugger'], recommended: ['water', 'armorShred'],
+    fam: ['cog', 'feather'],
+    scenery: { props: ['lakeLamps', 'rowingClub', 'fireflies'], night: true },
   }),
 ];
 

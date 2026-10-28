@@ -47,6 +47,24 @@ const BANNED = [
  */
 const BANNED_ARC0 = ['kill', 'killed', 'kills', 'die', 'dies', 'died', 'dying', 'dead', 'death'];
 const isArc1 = (sc) => /^g[0-9]+\./.test(sc.id);
+/** Act 2 (Hilltop After Dark) is "quiet, not grim" (STORY.md §15): even the Arc 1 war words stay out of it. */
+const isQuietAct = (sc) => /^g2\./.test(sc.id);
+
+/**
+ * Main episodes of each Gate Arc act (the rest are side scenes); Hikari speaks in every one, in person or on Channel 9
+ * (STORY.md §11). Kept here because every Arc 1 episode is kind `event`.
+ */
+const ARC1_MAIN = {
+  g1: ['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.boss', 'g1.epi'],
+  g2: ['g2.pro', 'g2.mid', 'g2.boiler', 'g2.boss', 'g2.after', 'g2.epi'],
+};
+
+/**
+ * Planned girls who speak as story NPCs (`unknown` + a `{name:id}` plate) before their unit exists. Their token falls
+ * back to the capitalised id (tokens.js resolveText), and follows the unit's name once it lands. Kohaku is story-only
+ * until the Kohaku & Tsubaki duo after Act 5 (STORY.md §8.7, §13).
+ */
+const NPC_FIRST = ['kohaku'];
 const AGE_RE = /\b(\d+\s*(years?|yrs?)\s*old|aged?\s+\d+)\b/i;
 
 /** Every string a player can read in a scene: lines, replies, choice options, title and plate overrides. */
@@ -128,8 +146,9 @@ describe('story registry', () => {
     expect(new Set(ALL.map((s) => s.id)).size).toBe(ALL.length);
     expect(SCENE_LIST.length + LESSON_SCENES.length).toBe(ALL.length);
     // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
-    // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*)
-    expect(SCENE_LIST.length).toBe(39);
+    // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*) and Act 2
+    // (eleven episodes, g2.*)
+    expect(SCENE_LIST.length).toBe(50);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });
@@ -159,6 +178,57 @@ describe('story registry', () => {
     expect(sceneById('g1.boss').trigger).toEqual({ before: '1-10' });
     expect(sceneById('g1.epi').trigger).toEqual({ after: '1-10' });
     for (const s of SCENE_LIST) if (!s.id.startsWith('g')) expect(s.act, s.id).toBeUndefined();
+  });
+
+  it('Act II of chapter 2 (Hilltop After Dark): an opener before 2-6, a boss intro before 2-10, a closer after 2-10, six main scenes', () => {
+    const g2 = SCENE_LIST.filter((s) => s.id.startsWith('g2.'));
+    expect(g2.map((s) => s.id)).toEqual([
+      'g2.pro', 'g2.kohaku', 'g2.thirtyone', 'g2.lunch', 'g2.mid', 'g2.boiler', 'g2.class', 'g2.roof', 'g2.boss', 'g2.after',
+      'g2.epi',
+    ]);
+    for (const s of g2) expect([s.chapter, s.act, s.kind, storyRewardFor(s.kind)], s.id).toEqual([2, 2, 'event', []]);
+    const triggers = Object.fromEntries(g2.map((s) => [s.id, s.trigger]));
+    expect(triggers).toEqual({
+      'g2.pro': { before: '2-6' },
+      'g2.kohaku': { after: '2-6' },
+      'g2.thirtyone': { after: '2-6' },
+      'g2.lunch': { after: '2-7' },
+      'g2.mid': { before: '2-8' },
+      'g2.boiler': { after: '2-8' },
+      'g2.class': { after: '2-9' },
+      'g2.roof': { after: '2-9' },
+      'g2.boss': { before: '2-10' },
+      'g2.after': { after: '2-10' },
+      'g2.epi': { after: '2-10' },
+    });
+    expect(ARC1_MAIN.g2).toHaveLength(6);
+    for (const id of ARC1_MAIN.g2) expect(sceneById(id), id).toBeTruthy();
+    // chapter 2's Act II files right after chapter 2's own episodes, before chapter 3
+    const ids = SCENE_LIST.map((s) => s.id);
+    expect(ids.indexOf('g2.pro')).toBe(ids.indexOf('ch2.epi') + 1);
+    expect(ids.indexOf('ch3.pro')).toBe(ids.indexOf('g2.epi') + 1);
+    expect(sceneById('g2.boss').lines.some((l) => l.t === 'say' && l.who === 'lizard_lamp_hugger')).toBe(true);
+    expect(ENEMY_SPEAKERS).toContain('lizard_lamp_hugger');
+  });
+
+  it('Hikari speaks in every main Gate Arc episode, in person or on Channel 9', () => {
+    for (const ids of Object.values(ARC1_MAIN)) {
+      for (const id of ids) expect(sayLines(sceneById(id).lines).some((l) => l.who === 'hikari'), `${id}: Hikari speaks`).toBe(true);
+    }
+    // g2.boiler is Mahiru's secret: Hikari is only a voice on the radio there
+    const boiler = sayLines(sceneById('g2.boiler').lines).filter((l) => l.who === 'hikari');
+    expect(boiler.length).toBeGreaterThan(0);
+    for (const l of boiler) expect(l.at, 'Hikari on Channel 9').toBe('off');
+  });
+
+  it('only g2.class waits for a girl the player owns (ifOwned: Ruri, Iroha, Ena or Fuu)', () => {
+    const gated = ALL.filter((s) => s.ifOwned);
+    expect(gated.map((s) => [s.id, [...s.ifOwned]])).toEqual([['g2.class', ['ruri', 'iroha', 'ena', 'fuu']]]);
+    for (const s of gated) {
+      for (const id of s.ifOwned) expect(UNIT_MAP[id], `${s.id} ifOwned ${id}`).toBeTruthy();
+      expect(s.ifUnit, `${s.id}: ifOwned replaces a scene-level ifUnit`).toBeUndefined();
+      expect(Object.isFrozen(s.ifOwned)).toBe(true);
+    }
   });
 
   it('exactly one content note, on the arc\'s first episode', () => {
@@ -298,7 +368,8 @@ describe('story text (T-content-3, T-content-4)', () => {
     for (const sc of ALL) {
       for (const { where, text, line } of textsOf(sc)) {
         const cond = ifUnitOf(sc, line);
-        const problems = tokenProblems(text).filter((p) => !(cond && !hasUnit(cond) && p.includes(`:${cond}}`)));
+        const problems = tokenProblems(text).filter((p) => !(cond && !hasUnit(cond) && p.includes(`:${cond}}`))
+          && !NPC_FIRST.some((id) => !hasUnit(id) && p.includes(`{name:${id}}`)));
         expect(problems, `${sc.id} ${where}: ${text}`).toEqual([]);
         for (const t of tokensIn(text)) expect(['name', 'title', 'ult', 'stage', 'chapter']).toContain(t.kind);
         const bare = stripTokens(text).match(nameRe);
@@ -320,13 +391,15 @@ describe('story text (T-content-3, T-content-4)', () => {
     }
   });
 
-  it('content lint: no banned words, no ages (the war words only in Arc 1 episodes)', () => {
+  it('content lint: no banned words, no ages (the war words only in Arc 1 episodes, never in quiet Act 2)', () => {
     const banned = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'i');
     const arc0 = new RegExp(`\\b(${BANNED_ARC0.join('|')})\\b`, 'i');
+    // the scope: every gN.* episode is Arc 1 (Acts 1 and 2 so far), nothing else is
+    expect(ALL.filter(isArc1).map((s) => s.id.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i)).toEqual(['g1', 'g2']);
     for (const sc of ALL) {
       for (const { where, text } of textsOf(sc)) {
         expect(text.match(banned)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
-        if (!isArc1(sc)) expect(text.match(arc0)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+        if (!isArc1(sc) || isQuietAct(sc)) expect(text.match(arc0)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
         expect(AGE_RE.test(text), `${sc.id} ${where}: age in "${text}"`).toBe(false);
       }
     }
@@ -338,6 +411,22 @@ describe('story text (T-content-3, T-content-4)', () => {
     for (const sc of early) {
       for (const { where, text } of textsOf(sc)) expect(/dragon|matriarch/i.test(text), `${sc.id} ${where}`).toBe(false);
     }
+  });
+
+  it('the mystery holds in Act 2: the small winged sleeper is never named as a species and never speaks', () => {
+    const g2 = SCENE_LIST.filter((s) => s.id.startsWith('g2.'));
+    expect(g2.length).toBe(11);
+    // STORY.md §3 / §9.2 clue 8: only "a small grey winged thing" until Act 7, never a species
+    const species = /\b(dragons?|wyverns?|wyrms?|drakes?|hatchlings?|eggs?|chicks?|birds?|bats?|matriarch|specimen|lizard|reptile)\b/i;
+    for (const { where, text } of textsOf(sceneById('g2.boiler'))) expect(text.match(species)?.[0] ?? null, `g2.boiler ${where}`).toBeNull();
+    for (const sc of g2) {
+      for (const { where, text } of textsOf(sc)) {
+        expect(/dragon|matriarch|hatchling|wyvern|specimen/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
+      }
+      // it never speaks: every enemy line in Act 2 is a lizard at the lamp or Wobble
+      for (const l of sayLines(sc.lines)) if (ENEMY_SPEAKERS.includes(l.who)) expect(['lizard_lamp_hugger', 'slime_droplet'], sc.id).toContain(l.who);
+    }
+    expect(textsOf(sceneById('g2.boiler')).some((t) => t.text.includes('small grey winged thing'))).toBe(true);
   });
 
   it('every clue from the bible lands in its episode', () => {
@@ -358,6 +447,18 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('ch8.epi', 'keeping her eggs warm since the fountain')).toBe(true);
     expect(has('ch8.epi', 'Sensei: CLEARED')).toBe(true);
     for (let ch = 1; ch <= 8; ch++) expect(has(`ch${ch}.epi`, 'First light'), `ch${ch}.epi relights its stone`).toBe(true);
+    // Gate Arc Act 2 (STORY.md §9.2 clues 5-10)
+    expect(has('g2.kohaku', 'the most boring object in the city')).toBe(true);
+    expect(has('g2.mid', 'This is Commander Yūhi. Vesperline holds.')).toBe(true);
+    expect(has('g2.mid', 'The dawn is never late.')).toBe(true);
+    expect(has('g2.mid', "someone who's never scared")).toBe(true);
+    expect(has('g2.boiler', 'I said it was for a cat.')).toBe(true);
+    expect(has('g2.boiler', 'It follows warm things.')).toBe(true);
+    expect(has('g2.after', 'Prior: Itomachi, Noon')).toBe(true);
+    expect(has('g2.after', 'First light')).toBe(true);
+    expect(has('g2.epi', 'small Captain')).toBe(true);
+    expect(has('g2.pro', 'Forty-two stitches.')).toBe(true);
+    expect(has('g2.boss', 'Lamp. Mine. Handsome.')).toBe(true);
   });
 });
 

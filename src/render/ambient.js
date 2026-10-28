@@ -2,7 +2,10 @@
 // cloud shadows, wind gusts that move the foliage, butterflies and birds by day, fireflies
 // and lantern light pools by night, koi + fish ripples in ponds, snow sparkle, prop glows
 // that flicker, prop emitters (chimney smoke, vents, campfires, bog wisps, fountains,
-// fireworks) and the bouncing arrows + glowing discs at the spawn / goal gates.
+// fireworks) and the bouncing arrows + glowing discs at the spawn / goal gates. On the campus:
+// the searchlights' beams sweeping the lake (terrain.searchlights, ground quads: 0 draw calls) and
+// fireflies over the reeds. `dim` (blackout dimming, src/render/blackout.js) scales the prop glows,
+// light pools and beams; the gates' glows (`keep`) and the fireflies stay.
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
 
@@ -35,6 +38,10 @@ export class AmbientSystem {
     this.clouds = [];
     this.flocks = [];
     this.glows = terrain.glows;
+    this.searchlights = terrain.searchlights || [];
+    /** Blackout dim level (1 = lit; the battle renderer eases it while a blackout rule is active). */
+    this.dim = 1;
+    this._beam = new THREE.Color('#eaf2ff');
     this.gates = terrain.gates || [];
     this.marks = terrain.marks || [];
     this.emitters = terrain.emitters.map((e) => ({ ...e, timer: this.rand() * 2 }));
@@ -111,6 +118,13 @@ export class AmbientSystem {
       const n = Math.round(26 * this.density);
       for (let i = 0; i < n; i++) {
         this.flies.push({ x: x0 + r() * (x1 - x0), z: z0 + r() * (z1 - z0), y: 0.3 + r() * 1.0, ph: r() * TAU, sp: 0.3 + r() * 0.4 });
+      }
+      // the `fireflies` keyword (the campus lakeshore): more of them, low over the water's edge
+      if (this.terrain.ambient.has('fireflies') && this.waterTiles.length) {
+        for (let i = 0; i < Math.round(18 * this.density); i++) {
+          const [tx, ty] = this.waterTiles[Math.floor(r() * this.waterTiles.length)];
+          this.flies.push({ x: tx + r(), z: ty + r(), y: 0.15 + r() * 0.5, ph: r() * TAU, sp: 0.2 + r() * 0.3 });
+        }
       }
     }
     // butterflies by day on living ground
@@ -310,10 +324,25 @@ export class AmbientSystem {
       if (g.owner && !g.owner.visible) continue;
       // a traffic signal: the lit lamp steps through its colours (city kit)
       if (g.cycle) g.color = this._cycleColor(g.cycle, t + (g.phase || 0));
-      const fl = 1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2));
+      const fl = (1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2))) * (g.keep ? 1 : this.dim);
       const s = g.size * (night ? 1.1 : 0.8);
       bbA.push(g.x, g.y, g.z, s, s, R.glow, g.color.r, g.color.g, g.color.b, ga * fl);
       if (night && g.y < 1.6 && g.size >= 0.4) gA.push(g.x, 0.02, g.z, s * 2.2, s * 2.2, R.soft, g.color.r, g.color.g, g.color.b, 0.16 * fl);
+    }
+
+    // searchlights (the campus): a soft beam across the water and the bright spot it sweeps
+    if (night) {
+      const c = this._beam;
+      for (const sl of this.searchlights) {
+        const u = 0.5 - 0.5 * Math.cos((t / sl.period) * TAU + sl.phase);
+        const a = sl.a0 + (sl.a1 - sl.a0) * u;
+        const dx = Math.sin(a);
+        const dz = Math.cos(a);
+        const rot = Math.atan2(-dz, dx);
+        const k = this.dim;
+        gA.push(sl.x + dx * sl.reach * 0.5, WATER_Y + 0.03, sl.z + dz * sl.reach * 0.5, sl.reach * 1.05, 0.8, R.soft, c.r, c.g, c.b, 0.3 * k, rot);
+        gA.push(sl.x + dx * sl.reach, WATER_Y + 0.035, sl.z + dz * sl.reach, 2.1, 1.6, R.soft, c.r, c.g, c.b, 0.75 * k, rot);
+      }
     }
 
     // emitters

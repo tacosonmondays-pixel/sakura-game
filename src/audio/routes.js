@@ -19,6 +19,8 @@ export const THEME_FAMILY = {
   volcano: 'matsuri',
   // Gate Arc · Noon (Itomachi): the blossom family until a Noon city cue is written
   city: 'blossom',
+  // Hilltop High at night (Act 2): the shipped chapter-2 night family until a Hilltop cue is written
+  campus: 'moonlit',
 };
 export const FAMILIES = ['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri'];
 

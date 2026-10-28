@@ -352,3 +352,19 @@ describe('every stage kind in the tables is reachable by some metric', () => {
     expect(STAGES.filter((s) => s.kind === 'boss')).toHaveLength(3);
   });
 });
+
+describe('familiesFound and Act II members (Gate Arc)', () => {
+  it('a family stays complete while its Act II member\'s stage is still locked, and needs it once the stage opens', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const p = createProfile();
+    for (const e of ENEMIES.filter((x) => x.family === 'lizard' && x.id !== 'lizard_lamp_hugger')) p.bestiary[e.id] = { seen: true, discovered: true, kills: 1 };
+    expect(familiesFound(p)).toBe(1); // 2-10 is locked: Old Lamp-Hugger is not needed yet
+    for (const id of [...CHAPTERS[0].stages, ...CHAPTERS[1].stages, '1-6', '1-7', '1-8', '1-9', '1-10', '2-6', '2-7', '2-8', '2-9']) {
+      p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false };
+    }
+    expect(familiesFound(p)).toBe(0); // 2-10 is open now: the family needs its new member
+    p.bestiary.lizard_lamp_hugger = { seen: true, discovered: true, kills: 1 };
+    expect(familiesFound(p)).toBe(1);
+  });
+});

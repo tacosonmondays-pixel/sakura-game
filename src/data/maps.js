@@ -1414,6 +1414,163 @@ export const MAPS = [
   })),
 
   // -------------------------------------------------------------------------
+  // Chapter 2 · Act II — Hilltop After Dark (campus: Itomachi Hilltop High at night, lakeside; MAPS.md §1.3)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_school_gate', name: 'School Gate', theme: 'campus', tier: 'intermediate',
+    desc: 'Up the hill road from the south, an S round the front-court flowerbeds, then through the corridor under the main building and out at Shelter 3\'s door. The classroom wing beside the corridor has a flat roof a girl can stand on.',
+    concept: 'Hill-road chicane: up from the south, two flat S-bends round the front court, the corridor tunnel north under the main building',
+    rows: [
+      'HHHHHH.HHHHHH~~~~~~~',
+      'H.,..H.H.UU.,~~~~~~~',
+      'H.T..H.H.UU..~~~~~~~',
+      'H....H.H.UU.,~~~~~~~',
+      'H.,..H.H......~~~~~~',
+      'H............~~~~~~~',
+      'H.T...........~~~~~~',
+      'H.....,......~~~~~~~',
+      'H.,..T..,.....~~~~~~',
+      'H............~~~~~~~',
+      'H.............~~~~~~',
+      'HHHH.HHHHHHHH~~~~~~~',
+    ],
+    paths: [
+      street([[4.5, 13], [4.5, 10.5], [11.5, 10.5], [11.5, 6.5], [6.5, 6.5], [6.5, -1]], { r: 1.6, tunnel: [[6.5, 4.5], [6.5, 0.5]] }),
+    ],
+    decor: [
+      { type: 'flagpole', x: 2, y: 5, rot: 0 }, { type: 'bikeShed', x: 1, y: 8, rot: Math.PI / 2 },
+      { type: 'lantern', x: 9, y: 8 }, { type: 'lantern', x: 12, y: 4 },
+    ],
+    city: {
+      searchlight: { x: 12.8, z: 8.6, rot: -0.2, sweep: 1.4, reach: 3.6, period: 13 },
+      // the main building's clock tower over the corridor, in the strip past the north edge
+      pieces: [{ type: 'schoolBlock', variant: 3, x: 6.5, z: -1.7, s: 1.4 }],
+    },
+  }),
+  defineMap({
+    id: 'noon_rowing_jetty', name: 'Rowing Jetty', theme: 'campus', tier: 'intermediate',
+    desc: 'Two columns climb out of the lake on the rowing club\'s twin jetties and meet at the boat ramp. From there one road runs east along the shore, doubles back past the boathouse and leaves north. The water between the jetties is the place for swimmers.',
+    concept: 'Twin jetties: two lanes up parallel decks over the lake, merging at the boat ramp, then a Z of one hairpin and one bend out north',
+    rows: [
+      'HHH.HHHHHHHHHHHHHHHH',
+      'H.....,......,.....H',
+      'H.T.....HHH........H',
+      'H..................H',
+      'H...,....HHH....,..H',
+      'H.................HH',
+      'H..................H',
+      'H.,......,.........H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[5.5, 13], [5.5, 6.5], [16.5, 6.5], [16.5, 3.5], [3.5, 3.5], [3.5, -1]], { r: 1.5 }),
+      { nodes: [[9.5, 13], L, [9.5, 8.8], [9.8, 7.6], [10.6, 6.8]], join: { path: 0, at: [12.0, 6.5] } },
+    ],
+    decor: [
+      { type: 'boatRack', x: 1, y: 6, rot: Math.PI / 2 }, { type: 'boatRack', x: 13, y: 7, rot: 0 },
+      { type: 'lantern', x: 12, y: 5 }, { type: 'bench', x: 14, y: 2 },
+    ],
+    city: {
+      searchlight: { x: 17.6, z: 7.6, rot: Math.PI / 2 + 0.3, sweep: 1.5, reach: 3.6, period: 14, variant: 1 },
+    },
+  }),
+  defineMap({
+    id: 'noon_footbridges', name: 'Canal Footbridges', theme: 'campus', tier: 'intermediate',
+    desc: 'Down the club-hut lanes from the north-west, a staircase of short runs, each drop crossing a mill canal on a little footbridge, and a last run over the boiler-house cut to the south gate.',
+    concept: 'Staircase of footbridges: a stepped diagonal from north-west to south-east, every step down crossing a canal',
+    rows: [
+      'HHHHHHHHHHHHH~~HHHHH',
+      '..........,..~~...,H',
+      'H.T..........~~....H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'H...,.......,~~....H',
+      'H.......,....~~.T..H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'H..,.........~~..,.H',
+      'H......T.....~~....H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'H...,........~~....H',
+      'HHHHHHHHHHHHH~~..HHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[-1, 1.5], [3.5, 1.5], [3.5, 4.5], [7.5, 4.5], [7.5, 7.5], [11.5, 7.5], [11.5, 10.5], [15.5, 10.5], [15.5, 13]], { r: 1.5 }),
+    ],
+    decor: [
+      { type: 'clubHut', x: 9, y: 1, rot: Math.PI }, { type: 'clubHut', x: 2, y: 5, rot: 0 },
+      { type: 'clubHut', x: 17, y: 8, rot: -Math.PI / 2 }, { type: 'lantern', x: 6, y: 2 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_running_track', name: 'The Running Track', theme: 'campus', tier: 'advanced',
+    desc: 'In through the marathon gate under the grandstand, straight across the infield, then one lap of the running track: down the home bend, along the back straight, over its own entry on the grandstand footbridge, and out north past the finish gantry.',
+    concept: 'One lap: an infield straight, then a clockwise lap of the oval that crosses its own entry on a footbridge and leaves north',
+    rows: [
+      '~~~~~~~~~~~~~~~~.~~~',
+      '~~~~~~~~~~~~~~~~.~~~',
+      'HH.................H',
+      'H..................H',
+      'H........~~~~~.....H',
+      'HHH......~~~~~.....H',
+      '..................HH',
+      'HHH......~~~~~.....H',
+      'H........~~~~~.....H',
+      '~~~~~..............H',
+      '~~~~~..............H',
+      'HHHHHHHHHHHHHHHHHHHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      [[-1, 6.5], L, [0.2, 6.5], IN, L, [2.4, 6.5], OUT, L, [15.0, 6.5], [17.1, 7.3], [18.1, 8.6], [17.5, 10.0], [15.5, 10.4], L, [10.0, 10.4], [8.0, 9.9], [7.0, 8.5], [6.9, 6.5], [7.2, 4.5], [8.2, 3.4], [10.0, 2.9], L, [14.5, 2.9], [16.0, 2.4], [16.6, 1.3], L, [16.7, -1]],
+    ],
+    decor: [
+      { type: 'lantern', x: 17, y: 3 }, { type: 'bench', x: 3, y: 3 },
+    ],
+    city: {
+      road: 'track',
+      pieces: [
+        { type: 'finishGantry', x: 12.5, z: 10.4, rot: Math.PI / 2 },
+        { type: 'scoreboard', x: 2.2, z: 1.0, rot: 0.4 },
+      ],
+      searchlight: { x: 18.6, z: 1.6, rot: Math.PI + 0.5, sweep: 1.2, reach: 3.0, period: 15, variant: 1 },
+    },
+  }),
+  defineMap({
+    id: 'noon_boathouse_lamp', name: 'The Boathouse Lamp', theme: 'campus', tier: 'advanced',
+    desc: 'Along the shore road from the east, out along the stone breakwater, once round the old iron lamp at its end, back across the breakwater head and up the timber pier into the boathouse, out west. The lizardfolk curl round the lamp like cats on a stove.',
+    concept: 'Breakwater curl: out along a breakwater, a 270° curl round the old lamp, back across the breakwater head, a diagonal pier into the boathouse tunnel',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H...,......,........',
+      'H.T.....,...........',
+      '........HHH........H',
+      'H...HHH.~~~~~..~~~~~',
+      'H.,.....~~~~~.....~~',
+      'H.....~~~~~~.......~',
+      'H...~~~~~~~~.......~',
+      'H..~~~~~~~~~.......~',
+      'H.~~~~~~~~~~.......~',
+      '~~~~~~~~~~~~.......~',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    crossings: 'flat',
+    paths: [
+      [[21, 2.5], L, [15.0, 2.5], [13.9, 3.0], [13.5, 4.0], L, [13.5, 7.6], [13.9, 9.1], [15.5, 10.0], [17.1, 9.1], [17.5, 7.8], [17.1, 6.6], [15.5, 6.0], L, [12.4, 6.0], [11.2, 5.6], L, [8.6, 3.8], [7.8, 3.5], L, [7.4, 3.5], IN, L, [3.6, 3.5], OUT, L, [-1, 3.5]],
+    ],
+    decor: [
+      { type: 'oldLamp', x: 15, y: 8, rot: 0, s: 1.7 }, { type: 'boatRack', x: 2, y: 5, rot: Math.PI / 2 },
+      { type: 'lantern', x: 3, y: 1 }, { type: 'bench', x: 10, y: 1 },
+    ],
+    city: {
+      searchlight: { x: 18.5, z: 4.6, rot: Math.PI - 0.3, sweep: 1.3, reach: 3.4, period: 14 },
+    },
+  }),
+
+  // -------------------------------------------------------------------------
   // Bounty (resource) arenas
   // -------------------------------------------------------------------------
   defineMap({

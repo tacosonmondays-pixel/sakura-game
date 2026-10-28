@@ -66,10 +66,10 @@ describe('frames and banners', () => {
 });
 
 describe('medals and pins', () => {
-  it('medalTally counts over all 64 stages (59 + chapter 1\'s Act II)', () => {
-    expect(STAGES.length).toBe(64);
+  it('medalTally counts over all 69 stages (59 + chapters 1 and 2\'s Act II)', () => {
+    expect(STAGES.length).toBe(69);
     expect(medalTally(freshSave())).toEqual([0, 0, 0, 0]);
-    expect(medalTally(lateSave())).toEqual([64, 64, 64, 64]);
+    expect(medalTally(lateSave())).toEqual([69, 69, 69, 69]);
   });
   it('ribbonTally counts mode ribbons over the campaign, per mode (a Nightmare medal holds Last Petal)', () => {
     expect(ribbonTally(freshSave())).toEqual([0, 0, 0, 0, 0]);
@@ -79,7 +79,7 @@ describe('medals and pins', () => {
     // [reverse, rush, ironclad, frugal, laststand]
     expect(ribbonTally(p)).toEqual([0, 2, 0, 1, 2]);
     // a late save holds every medal: 45 campaign stages' Nightmare Last Petal ribbons
-    expect(ribbonTally(lateSave())[4]).toBe(45);
+    expect(ribbonTally(lateSave())[4]).toBe(50);
   });
   it('pinEarned per kind', () => {
     const p = freshSave();
@@ -116,7 +116,7 @@ describe('medals and pins', () => {
     expect(o.medals.indexOf('1-10:nightmare')).toBe(o.medals.indexOf('2-5:nightmare') - 1);
     expect(o.medals.indexOf('1-6:nightmare')).toBe(o.medals.indexOf('2-1:nightmare') - 1);
     expect(pinInfo('boss-colossus:hard').sub).toBe('Iron Colossus');
-    expect(o.medals.slice(0, 64).every((pin) => pin.endsWith(':nightmare'))).toBe(true);
+    expect(o.medals.slice(0, 69).every((pin) => pin.endsWith(':nightmare'))).toBe(true);
     expect(o.achievements.some((pin) => /a_pulls_|a_units_all|a_reroll_10/.test(pin))).toBe(false);
     // specials → shiny → plain Honor Ribbons → titled rows without a ribbon → the rest
     const RANK = { special: 0, shiny: 1, plain: 2 };
@@ -153,7 +153,7 @@ describe('showcase, freeplay, stats', () => {
   });
   it('collectionStats', () => {
     const s = collectionStats(lateSave());
-    expect(s.s).toBe(64);
+    expect(s.s).toBe(69);
     expect(s.k).toBe(25310);
     expect(s.h).toBeGreaterThan(0);
     expect(collectionStats(freshSave())).toMatchObject({ u: 3, s: 0, k: 0, h: 0 });
