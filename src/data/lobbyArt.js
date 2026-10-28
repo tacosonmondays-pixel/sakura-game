@@ -9,11 +9,11 @@
 //   full      kind full: a full illustration (src/data/lobbyIllustrations.js, the one table) that IS the whole
 //             lobby: no stand, no speech bubble ("you dont need the speech bubbles for these full illustration
 //             ones"), no academy behind it.
-//             kind bond: a warm, wholesome date memory (café, festival night, sunset walk, study session…)
+//             kind bond: a warm, wholesome memory together (café, festival night, sunset walk, study session…)
 //             unlocked by her bond level — the future City time-together / gift system raises
 //             profile.bond[id]. Their art is not painted yet: the picker shows a soft silhouette,
 //             a lock and the requirement. Painted, they are full illustrations too.
-// Content rule: the academy girls are students — bond scenes are cosy date moments, never
+// Content rule: the academy girls are students — bond scenes are cosy moments together, never
 // suggestive.
 //
 // Plain data + pure helpers (no DOM). Profile fields: profile.lobbyBg { [girlId]: bgId } and
@@ -100,9 +100,9 @@ export const TINTS = {
   night: { name: 'Courtyard by Night', desc: 'Lanterns and stars over the academy.' },
 };
 
-/** Bond memories: wholesome date moments only. */
+/** Bond memories: wholesome moments together only. */
 export const BOND_THEMES = {
-  cafe: { name: 'Café Date', desc: 'Sharing a strawberry parfait at the Sakura Street café.' },
+  cafe: { name: 'Café Afternoon', desc: 'Sharing a strawberry parfait at the Sakura Street café.' },
   festival: { name: 'Festival Night', desc: 'Yukata, lanterns and goldfish scooping at the summer festival.' },
   sunset: { name: 'Sunset Walk', desc: 'A slow walk home along the harbour at sunset.' },
   study: { name: 'Study Session', desc: 'Late-afternoon homework in the library, side by side.' },
