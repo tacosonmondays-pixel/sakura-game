@@ -575,7 +575,7 @@ export const FROST = {
 export const BRIDGE_LAYER = { deck: '#66707f', rail: '#f4a62a', post: '#2b3a5c', overpass: '#66707f', girder: '#2b3a5c', overRail: '#f4a62a', lacquer: false, grating: false, boardwalk: false, layer: true };
 
 /** Snow over the north rows (scenery keyword 'snowCover'): its colour stays under the road's tone. */
-export const SNOW_COVER = { color: '#d5dde6', shade: '#b9c4d0', rows: 5 };
+export const SNOW_COVER = { color: '#c9d1db', shade: '#b3bdc9', rows: 6 };
 
 /**
  * `stage.scenery.ruined === 'burning'` (Gate Arc 3-9, 3-10; GATE_ARC §18.1, §18.6): the city after

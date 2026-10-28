@@ -130,7 +130,7 @@ export const BRIGADE_BUILDERS = {
     } else {
       // the folded bridge sections on the flatbed
       for (let i = 0; i < 3; i++) c.solid.box(0.42, 0.05, 0.8, { y: 0.14 + i * 0.055, z: -0.22, color: i % 2 ? '#5c6577' : '#66707f' });
-      c.solid.box(0.44, 0.012, 0.82, { y: 0.31, z: -0.22, color: BRIGADE.amber });
+      for (const x of [-0.2, 0.2]) c.solid.box(0.03, 0.012, 0.82, { x, y: 0.3, z: -0.22, color: BRIGADE.amber });
     }
     if (far) return;
     for (const z of long ? [L / 2 - 0.2, -0.2, -0.5] : [L / 2 - 0.2, -L / 2 + 0.2]) {

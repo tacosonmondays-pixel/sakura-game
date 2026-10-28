@@ -99,15 +99,17 @@ export const HIGHWAY_BUILDERS = {
       return;
     }
     if (kind === 'rockCut') {
-      // the mountain the road was cut through: grey rock, a concrete toe wall, rockfall netting
-      for (const [x, y, z, r] of [[-0.24, 0.22, -0.12, 0.3], [0.22, 0.26, -0.18, 0.32], [0.02, 0.5, -0.24, 0.26], [0.3, 0.12, 0.14, 0.18], [-0.32, 0.1, 0.16, 0.16]]) {
-        c.solid.rock(r, { x, y, z, sy: 0.9, color: y > 0.3 ? HW.rock : HW.rockDark, jitter: 0.08, rand: c.rand });
+      // the mountain the road was cut through: grey rock filling the tile (snow on its tops on a
+      // frost stage), a concrete toe wall and rockfall netting toward the road (`far`: the rock
+      // alone; the kit uses it, turned and scaled per tile, inside a big block of H: the mountain)
+      const snowy = c.look.frost;
+      for (const [x, y, z, r] of [[-0.26, 0.2, -0.2, 0.34], [0.24, 0.24, -0.24, 0.36], [0.0, 0.46, -0.04, 0.3], [0.28, 0.14, 0.2, 0.26], [-0.28, 0.12, 0.22, 0.24]]) {
+        c.solid.rock(r, { x, y, z, sy: 0.85, ry: x * 3 + z, color: y > 0.3 ? (snowy ? '#c9d0d8' : HW.rock) : HW.rockDark, jitter: 0.08, rand: c.rand });
       }
       if (far) return;
       F.box(0, 0, 0.36, 1.0, 0.16, 0.08, { color: HW.concrete });
       for (let i = 0; i < 4; i++) c.solid.box(0.008, 0.5, 0.008, { x: -0.36 + i * 0.24, y: 0.16, z: 0.22, rx: -0.5, color: '#4a4f57' });
       c.solid.box(0.8, 0.008, 0.008, { y: 0.58, z: -0.02, color: '#4a4f57' });
-      if (c.look.frost) c.solid.rock(0.2, { x: 0.02, y: 0.66, z: -0.24, sy: 0.4, color: HW.rime });
       return;
     }
     if (kind === 'depot') {
@@ -140,9 +142,9 @@ export const HIGHWAY_BUILDERS = {
       F.box(0, 0.46, -0.05, 0.66, 0.04, 0.54, { color: HW.steelDark });
       if (far) return;
       F.box(0, 0, 0.21, 0.16, 0.26, 0.012, { color: HW.navy });
-      c.solid.cyl(0.012, 0.018, 0.38, 4, { x: 0.22, y: 0.5, z: -0.2, color: HW.steelDark });
-      c.glow.sphere(0.022, 5, 4, { x: 0.22, y: 0.88, z: -0.2, color: '#ff5d5d' });
-      glowPoint(c, 0.22, 0.88, -0.2, '#ff6b6b', 0.3, 0.5);
+      c.solid.cyl(0.012, 0.018, 0.34, 4, { x: 0.22, y: 0.5, z: -0.2, color: HW.steelDark });
+      c.glow.sphere(0.022, 5, 4, { x: 0.22, y: 0.85, z: -0.2, color: '#ff5d5d' });
+      glowPoint(c, 0.22, 0.85, -0.2, '#ff6b6b', 0.3, 0.5);
       return;
     }
     // restStop: a low pavilion, a vending row under its canopy, a bench

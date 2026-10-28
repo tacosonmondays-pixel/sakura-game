@@ -259,7 +259,8 @@ function buildTollCanopies(map, regions, acc, isRoof) {
  * @param {number} x tile
  * @param {number} y tile
  * @param {(x: number, y: number) => boolean} isPath
- * @returns {{ type: string, variant: number }}
+ * @returns {{ type: string, variant: number, ry?: number, s?: number, lod?: string }} (ry / s / lod: a
+ *   turn, scale and LOD of its own instead of facing the road: the highway's mountain rock)
  */
 export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
   let d = 9;
@@ -290,6 +291,10 @@ export function cityBuildingFor(map, x, y, isPath, kit = null, look = null) {
     // the highway: embankments with sound walls and rock cuts along the road, now and then the
     // control hut or the rest stop; one row back the depot, the salt dome, more rock (highwayProps
     // ROADSIDE_KINDS, every one ≤ BOARD_MAX_H)
+    // (inside a big block of H, the mountain the bores run through: all rock)
+    let mass = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && map.rows[y + dy]?.[x + dx] === 'H') mass++;
+    if (mass >= 6) return { type: 'roadsideBlock', variant: 1, lod: 'far', ry: (h % 4) * (Math.PI / 2) + ((h >>> 4) % 40) / 100, s: 1.08 + ((h >>> 9) % 20) / 100 };
     if (d <= 1) return { type: 'roadsideBlock', variant: roll < 46 ? 0 : roll < 78 ? 1 : roll < 90 ? 4 : 5 };
     return { type: 'roadsideBlock', variant: roll < 40 ? 1 : roll < 62 ? 2 : roll < 80 ? 3 : 0 };
   }
@@ -975,7 +980,8 @@ export function buildCity(o) {
     // the checkpoint hut beside the first post, where it stands clear of every road
     const hx = b.x - b.nx * 1.45;
     const hz = b.z - b.nz * 1.45;
-    if (roadDist(hx, hz) > 0.85 && freeSpot(hx, hz, 0.6) && inMap(hx, hz)) {
+    const ch = map.rows[Math.floor(hz)]?.[Math.floor(hx)];
+    if (roadDist(hx, hz) > 0.85 && (ch === '.' || ch === ',') && !wet(hx, hz) && !furniture.some(([fx, fz]) => Math.hypot(fx - hx, fz - hz) < 0.6)) {
       place('checkpointHut', hx, 0, hz, Math.atan2(b.nx, b.nz), 1, 0);
       furniture.push([hx, hz]);
       occupied.add(`${Math.floor(hx)},${Math.floor(hz)}`);

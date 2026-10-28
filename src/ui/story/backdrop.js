@@ -39,6 +39,8 @@ const PLACE_VARIANT = {
   // Act 3 (the Bell Festival): Old Town at night, then the night it burns
   noon_old_town: 'oldtown', noon_takoyaki_row: 'oldtown', noon_shrine_steps: 'oldtown',
   noon_old_town_burning: 'burning', noon_lakeside_shrine: 'burning',
+  // Act 4 (the Checkpoint): the mountain highway, then its tunnel mouth in snow (4-9 / 4-10 are painted places)
+  noon_toll_plaza: 'highway', noon_checkpoint: 'highway', noon_tunnel_mouth: 'highwaySnow',
 };
 
 /**

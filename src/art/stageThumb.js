@@ -26,6 +26,8 @@ export const MAP_THEMES = {
   // Gate Arc S3a · Old Town (MapDef.district 'oldtown'): stone ground, pale stone setts (the lightest band), tiled roofs, cherry trees, the mill race
   oldtown: { ground: '#8f8775', alt: '#877f6e', edge: '#615a4d', path: '#e3dccd', pathEdge: '#b9ad97', water: '#2f6f9e', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#a8a093', roof: '#56606e', wall: '#8a5a3a', flower: ['#ffd1e3', '#ffc46b', '#ffffff'], voidc: '#3a3330' },
   // Gate Arc S3a · the burning look (StageDef.scenery.ruined 'burning'): ash ground, an ash-grey road kept lightest, rubble, amber embers
+  // Gate Arc S4a · the mountain highway (MapDef.district 'highway'): gravel verges, the pale concrete road (the lightest band) with its dark shoulder, sound walls, pines
+  highway: { ground: '#8f8a80', alt: '#878278', edge: '#5f5b55', path: '#e2e0d9', pathEdge: '#6f7176', water: '#3f86b4', tree: '#3d7f5a', treeDark: '#2e6a4b', rock: '#8d9097', roof: '#cfccc4', wall: '#7a9a8c', flower: ['#f4a62a', '#eef3f8', '#7f8b5e'], voidc: '#3a3a3c' },
   burning: { ground: '#5f5955', alt: '#58524e', edge: '#3d3936', path: '#bdb8b0', pathEdge: '#8f8981', water: '#26384a', tree: '#3a3330', treeDark: '#241f1d', rock: '#6f6963', roof: '#3d3734', wall: '#6e675e', flower: ['#ffb347', '#ffd27a', '#6d6862'], voidc: '#2b2624' },
 };
 

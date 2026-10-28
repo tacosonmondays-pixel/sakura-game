@@ -720,12 +720,14 @@ export function buildTunnels(map, look) {
         const taper = Math.max(0.35, Math.min(1, edge));
         const ring = [];
         // (a highway bore's ridge is broader and taller: the mountain it cuts through)
-        const rx = highway ? RX * 1.45 : RX;
-        const ry = highway ? RY * 1.4 : RY;
+        const rx = highway ? RX * 1.3 : RX;
+        const ry = highway ? RY * 1.5 : RY;
         for (let j = 0; j <= SEG; j++) {
           const a = (j / SEG) * Math.PI;
-          const off = Math.cos(a) * rx;
-          ring.push([x + -dy * off, Math.sin(a) * ry * taper + 0.02, y + dx * off, Math.sin(a)]);
+          // (a highway ridge is rough rock: its cross-section wanders along the bore)
+          const rough = highway ? 1 + 0.1 * Math.sin(d * 5.3 + j * 2.1) + 0.06 * Math.sin(d * 11.7 + j * 4.3) : 1;
+          const off = Math.cos(a) * rx * rough;
+          ring.push([x + -dy * off, Math.sin(a) * ry * taper * (highway ? 1 + 0.14 * Math.sin(d * 3.7 + j * 1.9) : 1) + 0.02, y + dx * off, Math.sin(a)]);
         }
         if (prev && !blocked && !prev.blocked) {
           for (let j = 0; j < SEG; j++) {
@@ -740,6 +742,21 @@ export function buildTunnels(map, look) {
           }
         }
         prev = { ring, blocked };
+      }
+      // a highway bore's ridge: rock outcrops on both flanks (snowy where the tunnel top is)
+      if (highway) {
+        const cA = new THREE.Color(tl.side || '#74767b');
+        const cB = new THREE.Color(tl.top || '#8c8f94');
+        for (const f of [0.18, 0.42, 0.66, 0.88]) {
+          const d = d0 + (d1 - d0) * f;
+          pointAtDistance(t.points, t.cum, d, tmp);
+          const { x, y, dx, dy } = tmp;
+          for (const s of [-1, 1]) {
+            const k = Math.round(f * 10) + (s > 0 ? 3 : 0);
+            const off = 0.62 + (k % 3) * 0.08;
+            acc.spike(x - dy * s * off, 0.1, y + dx * s * off, 0.16 + (k % 2) * 0.05, 0.42 + (k % 4) * 0.08, -dy * s * 0.06, dx * s * 0.06, k % 2 ? cB : cA);
+          }
+        }
       }
       // an ice cave: clusters of crystal spikes along the north flank of the mound
       if (!hall && tl.crystals) {

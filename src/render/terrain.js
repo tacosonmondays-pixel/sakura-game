@@ -669,7 +669,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           // the city kit picks the building: shops on the street, homes and offices behind (the
           // campus: classroom wings, the gym, club huts; Old Town: wooden houses; burning: shells)
           const b = cityBuildingFor(map, x, y, isPath, look.city.kit, look);
-          place(b.type, cx, 0, cz, facePath(x, y), 1, b.variant);
+          place(b.type, cx, 0, cz, b.ry ?? facePath(x, y), b.s ?? 1, b.variant, null, b.lod || 'near');
         } else {
           place(look.building, cx, 0, cz, facePath(x, y), 1, h % 3);
         }
@@ -921,7 +921,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       for (const o of plan.roads) {
         for (let k = 0; k < o.pts.length; k += 2) {
           if (o === r && Math.abs(k - i) < 30) continue;
-          if (Math.hypot(o.pts[k][0] - x, o.pts[k][1] - z) < 2.0) return false;
+          if (Math.hypot(o.pts[k][0] - x, o.pts[k][1] - z) < 1.4) return false;
         }
       }
       return true;
