@@ -20,3 +20,6 @@ tools/audio/.venv/
 *.dls
 __pycache__/
 public/models/characters/_lookdev/
+
+# tools/story-bg raw output (PNGs, request JSON, manifest) when STORY_BG_OUT is not set
+story-bg-out/
