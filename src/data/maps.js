@@ -1847,6 +1847,147 @@ export const MAPS = [
   }),
 
   // -------------------------------------------------------------------------
+  // Chapter 5 · Act II — The Drowned Line (`drowned`: the flooded Line 2 under Itomachi, then the reservoir park on
+  // `city` with `district: 'park'`; MAPS.md §1.6, STEP5_BUILD_PLAN §4)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_flooded_platform', name: 'Flooded Platform', theme: 'drowned', tier: 'intermediate',
+    desc: 'Line 2\'s old station, half under black water. The column comes out of the dark bore in the middle of the board, west along the platform deck over the flooded tracks, up the station stairs at the far end and back east along the street above the station block.',
+    concept: 'Up from the platform: out of a bore mid-board, west along a deck over the flooded tracks, up the stairs, back east along the street above',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H.......,...........',
+      'H...................',
+      'H.....HHHHHHHHHHH..H',
+      'H..,..HHHHHHHHHHH..H',
+      'H..................H',
+      '~~~~~~~~~~~~~~~HHHHH',
+      '~~~~~~~~~~~~~~~HHHHH',
+      '~~~~~~~~~~~~~~~HHHHH',
+      'H.......,..........H',
+      'HHHHHHHHHHHHHHHHHHHH',
+      'HHHHHHHHHHHHHHHHHHHH',
+    ],
+    // the subway spawn (decision 7): the lane starts inside the bore, so the column is hidden until the OUT mouth
+    paths: [
+      { inside: true, nodes: street([[17.4, 7.5], [3.5, 7.5], [3.5, 2.0], [21, 2.0]], { r: 1.8, tunnel: [[17.3, 7.5], [14.6, 7.5]] }) },
+    ],
+    decor: [
+      { type: 'vendingMachine', x: 12, y: 5, rot: Math.PI }, { type: 'signpost', x: 7, y: 5 },
+      { type: 'missingPoster', x: 10, y: 9, rot: Math.PI }, { type: 'bench', x: 16, y: 9 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_line2_tunnels', name: 'Line 2 Tunnels', theme: 'drowned', tier: 'intermediate',
+    desc: 'The flooded Line 2 runs under the city blocks in one long gentle sag. The column is out of sight in four bores and in view only in the three open vent cuttings between them and the short run up to the goal. Hold the cuttings.',
+    concept: 'Dashed line: one gentle sag across the board, four bores under city blocks, three open vent cuttings',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'HHHHHH...,....HHHHHH',
+      'HHHHHH~.......HHHHHH',
+      'HHHHHH~~..........HH',
+      'H~.....HHH.HHHH.~~.H',
+      'H~.....HHH.HHHH.~~.H',
+      'H.,....HHH.HHHH....H',
+      'H......HHH.HHHH....H',
+      'H..~~.........~~.,.H',
+      'H..~~..........~...H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'HHHHHHHHHHHHHHHHHHHH',
+    ],
+    paths: [
+      [[-1, 2.5], L, [0.6, 2.5], IN, L, [4.4, 2.5], OUT, [5.8, 3.1], [6.8, 4.4], IN, [7.6, 6.2], [8.8, 7.6], OUT, [10.6, 8.2], [12.2, 7.6], IN, [13.4, 6.2], [14.4, 4.6], OUT, [15.6, 3.6], [17.0, 3.2], IN, L, [19.0, 3.2], OUT, L, [21, 3.2]],
+    ],
+    decor: [
+      { type: 'signpost', x: 9, y: 1 }, { type: 'lantern', x: 17, y: 7 }, { type: 'trashBin', x: 2, y: 7 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_pump_station', name: 'Pump Station', theme: 'drowned', tier: 'advanced',
+    desc: 'Something cold breathes out of a gate on the north wall of the old pump station. The column comes south past the pump hall, east along the sump, north through the hall itself, back west over its own first leg on the pipe gantry, then south and out west.',
+    concept: 'Pipe-gantry loop: south, east, north through the pump hall, west over its own first leg on a gantry, then out west',
+    rows: [
+      'HHHHHHHHH.HHHHHHHHHH',
+      'H........,.........H',
+      'H..................H',
+      'H..................H',
+      'H.....,....~~~~....H',
+      'H..........~~~~HHH.H',
+      'H..........~~~~HHH.H',
+      'H..........~~~~....H',
+      '...................H',
+      '~~~~~~.,...........H',
+      '~~~~~~.............H',
+      '~~~~~~HHHHHHHHHHHHHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[9.5, -1], [9.5, 9.5], [16.5, 9.5], [16.5, 3.0], [2.5, 3.0], [2.5, 7.5], [-1, 7.5]], { r: 1.8, tunnel: [[16.5, 7.4], [16.5, 5.4]] }),
+    ],
+    // the pipe gantry where the loop rides over its own first leg
+    bridge: { overpass: '#b9c4cc', girder: '#3a4650', grating: true },
+    decor: [
+      { type: 'gearTower', x: 13, y: 1 }, { type: 'chimney', x: 5, y: 1 }, { type: 'vent', x: 6, y: 9 },
+      { type: 'crane', x: 18, y: 1 },
+    ],
+    city: { spawnGate: 'noonGate' },
+  }),
+  defineMap({
+    id: 'noon_reservoir_park', name: 'Reservoir Park', theme: 'city', district: 'park', tier: 'expert',
+    desc: 'Fog on the reservoir. The column comes along the dam crest from the west, down the spillway steps into the park, back west across the lawns and north through the dam\'s service tunnel under its own first leg, then up the west promenade and out.',
+    concept: 'Spillway turn under the dam: east along the crest, down the steps, west across the bowl, north through a tunnel under its own first leg',
+    rows: [
+      'H....~~~~~~~~~~~~~~~',
+      'H....~~~~~~~~~~~~~~~',
+      'H....~~~~~~~~~~~~~~~',
+      'H.....~~~~~~~~~~~~~~',
+      '...................H',
+      'HHHHHHHHHHHHHHH...HH',
+      'H..................H',
+      'H.....,......,.....H',
+      'H..................H',
+      'H..................H',
+      'H.......~~~~~~.....H',
+      'H..,....~~~~~~...,.H',
+    ],
+    paths: [
+      street([[-1, 4.5], [16.5, 4.5], [16.5, 9.0], [3.5, 9.0], [3.5, -1]], { r: 1.5, tunnel: [[3.5, 6.6], [3.5, 2.6]] }),
+    ],
+    decor: [
+      { type: 'bench', x: 10, y: 7 }, { type: 'boat', x: 11, y: 1 }, { type: 'lantern', x: 7, y: 6 },
+      { type: 'lantern', x: 14, y: 6 }, { type: 'willow', x: 18, y: 2 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_reservoir_willow', name: 'The Reservoir Willow', theme: 'city', district: 'park', tier: 'expert',
+    desc: 'Night and fog on the reservoir, and a great willow on its island in the middle. Two columns come off the two dam walls: one along the north causeway, round the willow\'s east side and out east; the other along the south causeway, round its west side and out west. The lanes never meet.',
+    concept: 'Two curls round the willow: two S-shaped causeways, one over the island\'s north and east sides, one under its south and west sides, never crossing',
+    rows: [
+      '...~~~~~~~~~~~~~~~~~',
+      '..~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~..',
+      '~~~~~~~~~~~~~~~~~...',
+    ],
+    paths: [
+      // lane 0 (the Willow's: the longer one, with a wiggle on the way out)
+      [...street([[-1, 2.0], [14.0, 2.0], [14.0, 7.0], [15.7, 7.0]], { r: [3.0, 1.7] }), [17.2, 6.5], [18.7, 7.0], L, [21, 7.0]],
+      street([[21, 10.0], [6.0, 10.0], [6.0, 5.0], [-1, 5.0]], { r: [3.0, 1.7] }),
+    ],
+    decor: [
+      { type: 'willow', x: 10, y: 6 }, { type: 'boat', x: 16, y: 4 }, { type: 'boat', x: 3, y: 7 },
+      { type: 'lantern', x: 1, y: 0 }, { type: 'lantern', x: 18, y: 11 },
+    ],
+  }),
+
+  // -------------------------------------------------------------------------
   // Bounty (resource) arenas
   // -------------------------------------------------------------------------
   defineMap({

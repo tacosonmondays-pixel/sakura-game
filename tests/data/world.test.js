@@ -37,7 +37,7 @@ const STAGE_KEYS = [
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
 const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus', 'drowned'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
 const ERA_BY_THEME = {
@@ -422,7 +422,7 @@ describe('maps', () => {
         // spawn / exit off the board (or on its edge) unless the path forks off / joins another one
         // (a lane flagged `inside` starts at a rift inside the board: 3-8's lake lane, Gate Arc Step 3)
         if (!t.fork && !t.inside) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
-        if (t.inside) expect(m.id, `${m.id} path ${ti}: only declared rift lanes start inside`).toBe('noon_shrine_steps');
+        if (t.inside) expect(['noon_shrine_steps', 'noon_flooded_platform'], `${m.id} path ${ti}: only declared rift and subway lanes start inside`).toContain(m.id);
         if (!t.join) expect(offOrOnEdge(p[p.length - 1]), `${m.id} path ${ti} exit on the edge`).toBe(true);
         // tunnels sit inside the path, in order, at least a tile long
         let prev = 0;
@@ -665,6 +665,19 @@ describe('maps', () => {
         }
       }
     }
+  });
+
+  it('districts re-dress the city only: Old Town, the highway and the reservoir park (Gate Arc Steps 3-5)', () => {
+    for (const m of MAPS.filter((x) => x.district)) {
+      expect(['oldtown', 'highway', 'park'], m.id).toContain(m.district);
+      expect(m.theme, m.id).toBe('city');
+    }
+    expect(MAPS.filter((m) => m.district === 'park').map((m) => m.id)).toEqual(['noon_reservoir_park', 'noon_reservoir_willow']);
+    // the drowned line (Step 5): three maps of its own theme, and the one subway lane that opens inside a bore
+    expect(MAPS.filter((m) => m.theme === 'drowned').map((m) => m.id)).toEqual(['noon_flooded_platform', 'noon_line2_tunnels', 'noon_pump_station']);
+    const sub = getMap('noon_flooded_platform').tracks[0];
+    expect(sub.inside).toBe(true);
+    expect(sub.tunnels[0][0]).toBeLessThan(0.5);
   });
 
   it('has map variety: multi-lane, crossings and water maps', () => {
