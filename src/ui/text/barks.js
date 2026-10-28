@@ -32,8 +32,8 @@ export const BARKS = Object.freeze({
     spawn: Object.freeze(['Tortoise rolling!']),
     beaten: Object.freeze(['Crew out! Crew out!']),
   }),
+  // (the Badger rolls on in silence; only its crew's call when it is beaten)
   brigade_badger: Object.freeze({
-    spawn: Object.freeze([]),
     beaten: Object.freeze(['Fall back! Fall back!']),
   }),
 });

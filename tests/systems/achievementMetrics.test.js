@@ -114,7 +114,7 @@ describe('campaign and bounty', () => {
 describe('bestiary', () => {
   it('familyFound / familiesFound over discoverable members; familyKills and enemyKills', () => {
     const fam = enemyFamilies();
-    expect(Object.keys(fam).length).toBe(12);
+    expect(Object.keys(fam).length).toBe(13); // + the Brigade (Gate Arc Step 4)
     expect(fam.slime).toHaveLength(16); // + the Frostbitten Heir (1-10)
     expect(fam.dragon).toHaveLength(4);
     const p = createProfile();
@@ -369,48 +369,82 @@ describe('familiesFound and Act II members (Gate Arc)', () => {
   });
 });
 
-describe('familiesFound and Step 3 members (the Gnat on construct, the Ashen Warden on ghost)', () => {
+describe('familiesFound and Step 3 members (the Ashen Warden on ghost; the Gnat, on construct in Step 3, is a Brigade member since Step 4)', () => {
   const mark = (p, ids) => { for (const id of ids) p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false }; };
-  it('a veteran keeps construct and ghost while 3-9 / 3-10 are locked; each needs its new member once its stage opens', async () => {
+  it('a veteran keeps construct and ghost while 3-10 is locked; ghost needs its new member once 3-10 opens', async () => {
     const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
     const { ENEMIES } = await import('../../src/data/enemies.js');
     const p = createProfile();
-    for (const e of ENEMIES.filter((x) => (x.family === 'construct' && x.id !== 'brigade_gnat') || (x.family === 'ghost' && x.id !== 'ghost_ashen_warden'))) {
+    expect(ENEMIES.some((x) => x.family === 'construct' && x.id.startsWith('brigade_'))).toBe(false);
+    for (const e of ENEMIES.filter((x) => x.family === 'construct' || (x.family === 'ghost' && x.id !== 'ghost_ashen_warden'))) {
       p.bestiary[e.id] = { seen: true, discovered: true, kills: 1 };
     }
     expect(familiesFound(p)).toBe(2);
     mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...CHAPTERS.slice(0, 2).flatMap((c) => c.act2), '3-6', '3-7', '3-8']);
-    expect(familiesFound(p)).toBe(1); // 3-9 open: construct needs the Gnat; 3-10 still locked: ghost complete
+    expect(familiesFound(p)).toBe(2); // 3-9 open: the Brigade needs the Gnat (not found: not counted); construct keeps
     mark(p, ['3-9']);
-    expect(familiesFound(p)).toBe(0); // 3-10 open too
-    p.bestiary.brigade_gnat = { seen: true, discovered: true, kills: 1 };
+    expect(familiesFound(p)).toBe(1); // 3-10 open: ghost needs the Warden
     p.bestiary.ghost_ashen_warden = { seen: true, discovered: true, kills: 1 };
     expect(familiesFound(p)).toBe(2);
   });
 });
 
-describe('familiesFound is never vacuous (Gate Arc Step 4)', () => {
-  it('a family whose every member waits for an Act II stage the save cannot open yet is not found', async () => {
+describe('familiesFound is never vacuous; the Brigade family and the Frost Vanguard (Gate Arc Step 4)', () => {
+  const mark = (p, ids) => { for (const id of ids) p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false }; };
+  const act2 = (c, ns = [6, 7, 8, 9, 10]) => ns.map((n) => `${c}-${n}`);
+  const found = (p, ids) => { for (const id of ids) p.bestiary[id] = { seen: true, discovered: true, kills: 1 }; };
+
+  it('the Brigade, all of whose members arrive in Act II, is not found while the save can open none of their stages', async () => {
     const { familiesFound, enemyFamilies } = await import('../../src/systems/achievementMetrics.js');
     const fam = enemyFamilies();
+    expect(Object.keys(fam)).toContain('brigade');
+    expect(fam.brigade.sort()).toEqual(['brigade_badger', 'brigade_gnat', 'brigade_shieldline', 'brigade_tortoise', 'brigade_trooper']);
     const p = createProfile();
     expect(familiesFound(p)).toBe(0);
-    // a fixture family of one Act II member (the Gnat, 3-9): nothing to find while 3-9 is locked, so it is not counted
-    fam.fixture_act2 = ['brigade_gnat'];
-    try {
-      expect(familiesFound(p)).toBe(0);
-      // a co-op guest may have met it early: still nothing the save needs, so still not counted
-      p.bestiary.brigade_gnat = { seen: true, discovered: true, kills: 1 };
-      expect(familiesFound(p)).toBe(0);
-      // 3-9 opens: now the family needs the Gnat, and it is found
-      for (const id of [...CHAPTERS.flatMap((c) => c.stages), ...CHAPTERS.slice(0, 2).flatMap((c) => c.act2), '3-6', '3-7', '3-8']) {
-        p.progress.stages[id] = { clears: 1, easy: true, normal: false, hard: false, nightmare: false };
-      }
-      expect(familiesFound(p)).toBe(1);
-      delete p.bestiary.brigade_gnat;
-      expect(familiesFound(p)).toBe(0);
-    } finally {
-      delete fam.fixture_act2;
-    }
+    // a co-op guest may meet them early: still nothing the save needs, so still not counted
+    found(p, fam.brigade);
+    expect(familiesFound(p)).toBe(0);
+  });
+
+  it('a veteran (every Act I enemy, Act I cleared) keeps every family and gains none for the Brigade', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const { STAGE_MAP } = await import('../../src/data/stages.js');
+    const p = createProfile();
+    mark(p, CHAPTERS.flatMap((c) => c.stages));
+    const act1 = ENEMIES.filter((e) => e.introducedIn !== 'freeplay' && STAGE_MAP[e.introducedIn]?.act !== 2);
+    found(p, act1.map((e) => e.id));
+    // 12 families: every shipped one (orc keeps its place while 4-10 is locked); the Brigade needs nothing yet
+    expect(familiesFound(p)).toBe(12);
+    found(p, ['brigade_gnat', 'brigade_trooper']);
+    expect(familiesFound(p)).toBe(12);
+  });
+
+  it('once 3-9 is open the Brigade needs the Gnat; once 4-8 is open the troopers and the Tortoise; 4-9 the Badger', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const p = createProfile();
+    found(p, ['brigade_gnat']);
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), '3-6', '3-7', '3-8']);
+    expect(familiesFound(p)).toBe(1); // 3-9 open: the Gnat is all it needs, and it is found
+    mark(p, [...act2(3), '4-6', '4-7']);
+    expect(familiesFound(p)).toBe(0); // 4-8 open: the troopers and the Tortoise are needed
+    found(p, ['brigade_trooper', 'brigade_shieldline', 'brigade_tortoise']);
+    expect(familiesFound(p)).toBe(1);
+    mark(p, ['4-8']);
+    expect(familiesFound(p)).toBe(0); // 4-9 open: the Badger
+    found(p, ['brigade_badger']);
+    expect(familiesFound(p)).toBe(1);
+  });
+
+  it('orc stays complete for a veteran while 4-10 is locked, and needs the Frost Vanguard once it opens', async () => {
+    const { familiesFound } = await import('../../src/systems/achievementMetrics.js');
+    const { ENEMIES } = await import('../../src/data/enemies.js');
+    const p = createProfile();
+    found(p, ENEMIES.filter((e) => e.family === 'orc' && e.id !== 'orc_frost_vanguard').map((e) => e.id));
+    expect(familiesFound(p)).toBe(1);
+    mark(p, [...CHAPTERS.flatMap((c) => c.stages), ...act2(1), ...act2(2), ...act2(3), '4-6', '4-7', '4-8', '4-9']);
+    expect(familiesFound(p)).toBe(0);
+    found(p, ['orc_frost_vanguard']);
+    expect(familiesFound(p)).toBe(1);
   });
 });
