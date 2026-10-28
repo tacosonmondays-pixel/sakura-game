@@ -654,7 +654,7 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
     expect(guest.lockstep.start).toEqual(host.lockstep.start);
     const g = host.lockstep.start.players.find((p) => p.uid === GUEST);
-    expect(g.loadout[0].stats).toEqual({ damageMul: 10, rateMul: 5, costMul: 0.75, level: 99, potential: 6, awakenPassive: true });
+    expect(g.loadout[0].stats).toEqual({ damageMul: 15, rateMul: 5, costMul: 0.75, level: 99, potential: 6, awakenPassive: true });
     // an honest L85 P6 girl passes through as she is
     expect(g.loadout[1].stats).toEqual({ potential: 6, level: 85 });
     expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());
@@ -696,7 +696,7 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     ls.applyResync({ start: hostile, T: C.tick + 30, w: C.sim.wave, cmds, ck: { t: C.tick, snap: C.snapshot() } });
     while (ls.job) ls.runJob(Infinity);
     const t = ls.coop.sim.getTower(cheat.uid);
-    expect(t.unitStats).toMatchObject({ damageMul: 10, rateMul: 5 });
+    expect(t.unitStats).toMatchObject({ damageMul: 15, rateMul: 5 });
     // her stats and effective stats come from the clamped entry, not from the checkpoint's numbers
     const honest = createCoopSim(clampStart(hostile), { mySlot: 1 });
     for (const c of cmds) {

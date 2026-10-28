@@ -508,6 +508,7 @@ export function unitBattleStats(profile, unitId) {
     awaken: stars,
     breakthrough: gates,
     potential: potentialLevel(profile?.units?.[unitId]),
+    lr: boost.lr, // [banners G6] her LR ability form (Prismfall · Twin Star) reads it in the sim
   };
 }
 

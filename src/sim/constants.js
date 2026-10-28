@@ -208,6 +208,8 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   level: 1,
   awaken: 0,
   potential: 1,
+  // [banners G6] an LR unit after Limit Break (her LR ability form reads it: src/sim/abilities.js isLr)
+  lr: false,
 });
 
 // ---------------------------------------------------------------------------
