@@ -53,7 +53,7 @@ describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', (
       }
       for (const r of plan.roads) {
         const t = map.tracks[r.index];
-        if (!t.fork) expect(r.d[0], map.id).toBeLessThan(-8);
+        if (!t.fork && !t.inside) expect(r.d[0], map.id).toBeLessThan(-8); // (a rift lane starts on the board: no run-out)
         if (!t.join) expect(r.d[r.d.length - 1], map.id).toBeGreaterThan(t.length + 8);
       }
     }

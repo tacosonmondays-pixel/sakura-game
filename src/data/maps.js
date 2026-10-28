@@ -1692,6 +1692,8 @@ export const MAPS = [
     decor: [
       { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
       { type: 'stoneLantern', x: 1, y: 5 }, { type: 'stoneLantern', x: 18, y: 1 },
+      // the tear over the burning sanctum (pulses with The Tear, src/render/tear.js)
+      { type: 'hammerTear', x: 13, y: 5 },
     ],
   })),
 

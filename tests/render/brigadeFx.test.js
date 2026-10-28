@@ -36,8 +36,8 @@ describe('fall styles', () => {
     expect(fallStyleOf({ id: 'x', fall: 'breakdown' })).toBe('breakdown');
     expect(fallStyleOf({ id: 'x', fall: 'nonsense' })).toBe('sparkle');
     expect(fallStyleOf(null)).toBe('sparkle');
-    // every shipped enemy (the construct family included) keeps the shipped death
-    for (const e of ENEMIES) expect(fallStyleOf(e), e.id).toBe('sparkle');
+    // every shipped enemy (the construct family included) keeps the shipped death, but the real Gnat (3-9) sparks
+    for (const e of ENEMIES) expect(fallStyleOf(e), e.id).toBe(e.id === 'brigade_gnat' ? 'sparkFall' : 'sparkle');
     expect(FALL_STYLES.filter(homeward)).toEqual(['sparkle']);
   });
 

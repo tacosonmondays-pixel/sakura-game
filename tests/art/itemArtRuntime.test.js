@@ -198,7 +198,7 @@ describe('display only: the battle sim is untouched', () => {
     // stages and boss change it again).
     // The bundled co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only
     // this exact in-progress id passes here.
-    const PENDING_BUMP = { 8: '186a5dc6a58d' };
+    const PENDING_BUMP = { 8: 'f86ab7294b8f' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
