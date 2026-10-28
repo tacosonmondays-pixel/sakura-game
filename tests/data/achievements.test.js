@@ -204,9 +204,9 @@ describe('Act II rows wait for their stages (Gate Arc; docs/CAMPAIGN.md "Act II"
 });
 
 describe('the frozen ledger (shipped rewards never change)', () => {
-  it('every shipped id (the shipped 30, launch, social and Codex) is in the ledger with identical rewards', () => {
-    // (Tryout Day's rows join the ledger when the mode ships: TRYOUT_DAY.md §10.2 "frozen at ship")
-    for (const a of ACHIEVEMENTS.filter((x) => achievementLive(x) && x.wave !== 'tryout')) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
+  it('every shipped id (the shipped 30, launch, social, Codex and Tryout Day) is in the ledger with identical rewards', () => {
+    // (Tryout Day's 12 rows joined the ledger in its ship prep: TRYOUT_DAY.md §10.2 "frozen at ship")
+    for (const a of ACHIEVEMENTS.filter((x) => achievementLive(x))) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
   });
 
   it('no ledger id was removed or renamed', () => {

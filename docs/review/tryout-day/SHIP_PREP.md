@@ -26,8 +26,8 @@ Every row must read **go** on the release candidate (the merge of feature/tryout
 | 14 | Build | `npx vite build` | passes; bundle growth noted |
 | 15 | Co-op protocol bump | §3 below, done in the release commit | both sim-id pins updated, the old client refused with the update message |
 | 16 | Patch note | §2 below at the top of `src/data/patchNotes.js` | in the release commit |
-| 17 | Achievements frozen | add the 12 `a_try_*` rows to `tests/fixtures/achievements-ledger.json` and drop the `wave !== 'tryout'` filter in `tests/data/achievements.test.js` | the ledger test passes with them |
-| 18 | Secret scan | the HANDOFF §7 scan on the release diff | clean: only the Supabase URL and publishable key |
+| 17 | Achievements frozen | add the 12 `a_try_*` rows to `tests/fixtures/achievements-ledger.json` and drop the `wave !== 'tryout'` filter in `tests/data/achievements.test.js` | the ledger test passes with them — **done on feature/tryout-day (Oct 28)** |
+| 18 | Secret scan | the HANDOFF §7 scan on the release diff | clean: only the Supabase URL and publishable key — **feature/tryout-day build clean (Oct 28; the one hit is supabase-js's own `sb_secret_` prefix check)**; re-run on the merged release |
 | 19 | Owner board | `docs/review/tryout-day/m4/m4-board.jpg` (and M3's once it exists) | reviewed by the owner |
 | 20 | Jar items marked `soon` | Window Seat chalk ×4, the Blackboard Bloom frame, the lobby pennant (`src/data/tryoutMeta.js`) | either wired (seats, profile frames, lobby) and on sale, or left hidden |
 
