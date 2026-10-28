@@ -282,9 +282,11 @@ describe('triggers (T-trig-1)', () => {
     expect(requirementFor({ trigger: { before: '1-1' } })).toBeNull();
   });
 
-  it('a fully cleared save (with one of the old class owned) can reach every episode of the archive', () => {
+  it('a fully cleared save (owning the side scenes\' girls) can reach every episode of the archive', () => {
     const p = clearUpTo(createProfile(), CAMPAIGN_IDS[CAMPAIGN_IDS.length - 1]);
-    grantUnit(p, 'fuu'); // g2.class waits for Ruri, Iroha, Ena or Fuu (ifOwned)
+    grantUnit(p, 'fuu'); // g2.class waits for Ruri, Iroha, Ena or Fuu (ifOwned); g3.fuu for Fuu
+    grantUnit(p, 'iroha'); // g3.iroha
+    grantUnit(p, 'noa'); // g3.noa
     const rows = episodeList(p, SCENE_LIST, hasUnit);
     expect(rows.length).toBeGreaterThanOrEqual(27);
     expect(rows.filter((r) => !r.unlocked)).toEqual([]);
@@ -425,6 +427,44 @@ describe('ifOwned episodes wait for a girl the player owns (g2.class: Ruri, Iroh
     const row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
     expect(row.unlocked).toBe(false);
     expect(row.requirement).toBe('Clear 2-9 {stage:2-9}');
+  });
+
+  it('Act 3\'s three side scenes (Iroha 3-7, Noa 3-9, Fuu 3-10) wait for their girl, then play once each', () => {
+    const SIDES = { 'g3.iroha': 'iroha', 'g3.noa': 'noa', 'g3.fuu': 'fuu' };
+    const p = createProfile();
+    for (const id of Object.values(SIDES)) delete p.units[id];
+    const clear = (id) => { p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false }; };
+    for (const [id, girl] of Object.entries(SIDES)) expect([...sceneById(id).ifOwned], id).toEqual([girl]);
+    // after-triggers read progress only, so this needs no stage data
+    for (const st of ['3-7', '3-8', '3-9', '3-10']) clear(st);
+    expect(queueAfterClears(p, ['3-7', '3-8', '3-9', '3-10'], SCENE_LIST, hasUnit)).toEqual([
+      'g3.iroha', 'g3.hammer', 'g3.noa', 'g3.after', 'g3.fuu', 'g3.epi',
+    ]);
+    // the main episodes play in order; the sides are skipped, not dropped
+    for (const id of ['g3.hammer', 'g3.after', 'g3.epi']) {
+      expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe(id);
+      markSeen(p, sceneById(id));
+    }
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(pruneQueue(p, SCENE_LIST, hasUnit)).toEqual(['g3.iroha', 'g3.noa', 'g3.fuu']);
+    const rows = Object.fromEntries(episodeList(p, SCENE_LIST, hasUnit).map((r) => [r.id, r]));
+    expect(rows['g3.iroha']).toMatchObject({ unlocked: false, isNew: false, requirement: 'Needs {name:iroha}' });
+    expect(rows['g3.noa'].requirement).toBe('Needs {name:noa}');
+    expect(resolveText(rows['g3.fuu'].requirement)).toBe('Needs Fuu');
+    // each girl opens only her own scene, and each plays once
+    grantUnit(p, 'noa');
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g3.noa');
+    expect(markSeen(p, sceneById('g3.noa')).first).toBe(true);
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    grantUnit(p, 'fuu');
+    grantUnit(p, 'iroha');
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g3.iroha'); // 3-7 before 3-10
+    markSeen(p, sceneById('g3.iroha'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g3.fuu');
+    markSeen(p, sceneById('g3.fuu'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(queueAfterClears(p, ['3-7', '3-9', '3-10'], SCENE_LIST, hasUnit)).toEqual([]);
+    for (const id of Object.keys(SIDES)) expect(markSeen(p, sceneById(id))).toEqual({ first: false, rewards: [] });
   });
 
   it('a before-scene with ifOwned is offered only once a listed girl is owned; requirement text for one or many', () => {
