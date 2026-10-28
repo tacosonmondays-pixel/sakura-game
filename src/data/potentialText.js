@@ -7,13 +7,19 @@
 //          bench cannot see a step (a kept focus, an aura for others, Momo's coins); Power multiplies
 //          them, gate B5 compares their product with the bench (±10 %)
 //   fx     the render cue (attack FX, V4)
+// and, for the Potential Board's card (docs/specs/POTENTIAL_BOARD.md "Cards"; optional, CARDS below):
+//   card   one sentence of at most 60 characters with at most one number: the step in plain words
+//   chips  at most two kit chips of at most 14 characters, each naming its stat ("CRIT +6%"); the card
+//          shows them after the stat chip (src/systems/potential.js potentialStatLabel)
+//          A step without them falls back to `node` and the first sentence of `long`
+//          (src/ui/potentialBoard/card.js).
 // UI-only: imported by src/systems/potential.js and the screens, never by the sim, so it is outside
 // the co-op graph and the data hash (a wording fix never changes the co-op id).
 
 const t = (node, long, power, fx) => Object.freeze({ node, long, power, fx });
 const row = (...steps) => Object.freeze(steps);
 
-export const POTENTIAL_TEXT = Object.freeze({
+const RAW = Object.freeze({
   kage: row(
     t('+4% SPD', '+4% attack speed.', 1.04, 'rim'),
     t('SHURIKEN+', '+5% attack speed. Every throw carries 8% more shuriken (Thousand Shadows 13 → 14.04 on average; Blade Rain 7 → 7.56; on a 2-shuriken build a 3rd shuriken about every 6th throw), and they ignore 1 more armor.', 1.13, 'kage.moon'),
@@ -262,6 +268,264 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('SEAL', 'Her discounts are 4% deeper, her office radius is 0.3 tiles wider, and upgrades in it cost 3% less on top.', 1.12, 'rim'),
   ),
 });
+
+/** A card line and its kit chips (see the header): the numbers live in the chips and the stat chip. */
+const c = (card, ...chips) => Object.freeze({ card, chips: Object.freeze(chips) });
+
+/** The Board's card lines, per girl and step P2…P6 (each states what that step's `long` says, in short). */
+const CARDS = {
+  kage: [
+    c('Her throws come a little faster.'),
+    c('Every throw carries more shuriken, and they cut deeper.', 'SHURIKEN +8%', 'ARMOR PEN +1'),
+    c('An unbroken run of throws keeps speeding her up.', 'TEMPO MAX +6%'),
+    c('Every shuriken passes through one more enemy.', 'PIERCE +1'),
+    c('Every 8th throw, shadow clones hurl the volley again.', 'EVERY 8TH'),
+  ],
+  aoi: [
+    c('Her arrows hit a little harder.'),
+    c('Her arrows pierce more armor and crit more often.', 'ARMOR PEN +1', 'CRIT +3%'),
+    c('Sharper aim: she crits much more often.', 'CRIT +6%'),
+    c('Every 12th volley, she looses the whole volley again.', 'EVERY 12TH'),
+    c('Twin Fletch comes sooner, and her hawk dives in with it.', 'EVERY 10TH', 'HAWK +1 VOLLEY'),
+  ],
+  rei: [
+    c('Her sweeps hit a little harder.'),
+    c('Every 4th sweep cuts harder and staggers what it hits.', '4TH SWEEP +15%', 'STAGGER 0.3 S'),
+    c('Her sweeps gain crit chance.', 'CRIT +5%'),
+    c('Third Step cuts far harder and cracks armor for the team.', 'STEP +50%', 'ARMOR -1'),
+    c('A returning crescent follows every Third Step.', 'CRESCENT 30%'),
+  ],
+  yuki: [
+    c('Her throws come a little faster.'),
+    c('Her slows grow stronger and last longer.', 'SLOW +5', 'SLOW +1 S'),
+    c('Everything she hits takes more damage from everyone.', 'BRITTLE +5%'),
+    c('Every 5th throw is a Flurry that freezes what it hits.', 'FLURRY +30%', 'FREEZE 0.4 S'),
+    c('Flurry comes sooner, hits harder and leaves foes Brittle.', 'EVERY 4TH', 'BRITTLE +10%'),
+  ],
+  momo: [
+    c('A little more coin every wave.'),
+    c('Enemies defeated in her range pay out more coins.', 'LOOT +10%'),
+    c('Every 8th flick is a lucky coin that hits much harder.', 'LUCKY ×3', 'SPD +4%'),
+    c('Every 8th wave clear pays her wave income again.', 'HARVEST 8TH'),
+    c('Harvests and lucky coins come more often, and hit harder.', 'EVERY 6TH', 'LUCKY ×4'),
+  ],
+  akane: [
+    c('Her shells and burns hit a little harder.'),
+    c('Fire leaps from a fallen burning foe to the next one.', 'LEAP 1.2 TILES', 'BURN +1 S'),
+    c('Her shells hit flyers, and every 8th is a Starburst.', 'STARBURST +50%', 'BLAST +0.4'),
+    c('Starburst comes more often, with a bigger blast and burn.', 'EVERY 6TH', 'BURN +50%'),
+    c('Every Starburst blooms again with a follow-up firework.', 'FOLLOW-UP 50%'),
+  ],
+  sango: [
+    c('Her shells hit a little harder.'),
+    c('Every shell cracks armor for the whole team.', 'ARMOR -1'),
+    c('Every 6th shell is a Coral Shell with a wider blast.', 'CORAL +40%', 'BLAST +0.3'),
+    c('Coral Shell comes more often, hits harder and Soaks foes.', 'EVERY 4TH', 'CORAL +80%'),
+    c('Coral Shell comes every 3rd shell and leaves foes Brittle.', 'BRITTLE +10%'),
+  ],
+  umeko: [
+    c('Girls in her aura attack a little faster.'),
+    c('Her aura reaches further and speeds girls up more.', 'AURA WIDE +0.4'),
+    c('Girls in her aura pierce more armor.', 'ARMOR PEN +1', 'AURA WIDE +0.3'),
+    c('Girls in her aura crit more often.', 'CRIT +6%'),
+    c('Every 3rd pulse, girls in her aura surge even faster.', 'SURGE +15%'),
+  ],
+  shiro: [
+    c('Her rounds hit a little harder.'),
+    c('Her shots mark the target to take more damage from all.', 'MARK +6%'),
+    c('Steadier aim: her shots crit more often.', 'CRIT +5%'),
+    c('Her rounds pierce more armor; every 5th goes through foes.', 'ARMOR PEN +2', '5TH: PIERCE +2'),
+    c('Every 4th shot is a White Heron round that hits harder.', 'HERON +50%'),
+  ],
+  midori: [
+    c('Her flasks and poison hit a little harder.'),
+    c('Her splash leaves enemies taking more damage from all.', 'BRITTLE +5%'),
+    c('Her poison lasts longer and eats away at max HP.', 'POISON +1 S', 'HP 0.05%/S'),
+    c('Every 6th flask is a Cauldron Bomb with stronger poison.', 'BOMB +50%', 'WIDER +0.4'),
+    c('Her brew reaches one more girl; Cauldron Bomb comes sooner.', 'BREW +1 GIRL', 'EVERY 5TH'),
+  ],
+  suzu: [
+    c('Her traps hit a little harder.'),
+    c('An extra trap, and her traps slow what they catch.', 'TRAPS +1', 'SLOW 20%'),
+    c('Every 10th trap rings a temple bell with a bigger blast.', 'BELL +50%', 'BLAST +0.3'),
+    c('The temple bell rings more often, hits harder and silences.', 'EVERY 5TH', 'BELL +60%'),
+    c('Another trap, and the bell rings every 4th trap.', 'BELL +80%', 'BRITTLE +10%'),
+  ],
+  raika: [
+    c('Her lightning hits a little harder.'),
+    c('Her lightning jumps to one more foe and pierces armor.', 'JUMP +1', 'ARMOR PEN +1'),
+    c('Every 6th cast drops a thunder column on her target.', 'COLUMN 25%', 'AREA 0.9 TILES'),
+    c('The column comes sooner, hits harder and briefly stuns.', 'EVERY 5TH', 'STUN 0.3 S'),
+    c('Another jump, and every 4th cast Soaks what it hits.', 'JUMP +1', 'SOAK +15%'),
+  ],
+  miko: [
+    c("Her aura's damage bonus grows, and her talismans hit harder.", 'TALISMAN +4%'),
+    c('Girls in her aura pierce more armor; she throws faster.', 'ARMOR PEN +1', 'SPD +5%'),
+    c('Her aura reaches further, and her talismans hit harder.', 'AURA WIDE +0.4', 'TALISMAN +5%'),
+    c('Enemies inside her aura take more damage from everyone.', 'BRITTLE +6%', 'SPD +6%'),
+    c('Every 4th talisman rings the festival bells for her aura.', 'BELLS +10%', 'TALISMAN +7%'),
+  ],
+  hotaru: [
+    c('Her fireflies help nearby girls deal more damage.', 'AURA DMG +6%'),
+    c('Her pulse reaches one more foe and marks them all.', 'TARGETS +1', 'MARK +5%'),
+    c('Her pulses hit spectral foes harder and leave them Brittle.', 'SPECTRAL +20%', 'BRITTLE +6%'),
+    c('Every 4th pulse reaches further, hits harder and silences.', 'PULSE +40%', 'SILENCE +1 S'),
+    c('A stronger firefly aura; lanterns come every 3rd pulse.', 'AURA DMG +6%', 'BRITTLE +8%'),
+  ],
+  kaede: [
+    c('When her target falls, she keeps half her focus.', 'KEEP 50% FOCUS'),
+    c('Her focus builds faster with every strike.', 'FOCUS +2%/HIT'),
+    c('Her focus climbs higher, and she gains crit chance.', 'FOCUS CAP +30', 'CRIT +5%'),
+    c('All of her blade arts cut harder.', 'ARTS +10%'),
+    c('She hits bosses harder; every 3rd strike hits harder still.', 'BOSS +20%', 'ONE BLADE +50%'),
+  ],
+  chika: [
+    c('Every 30 s her drones Throttle Up and fire faster.', 'THROTTLE +50%'),
+    c('Her drones reach further; she and her drones pierce armor.', 'RANGE +0.3', 'ARMOR PEN +1'),
+    c('Throttle Up comes sooner, lasts longer and pushes harder.', 'EVERY 25 S', 'THROTTLE +60%'),
+    c('One more drone, and drone hits crack armor for the team.', 'DRONES +1', 'ARMOR -1'),
+    c('A faster Throttle Up, and her tune-up links another girl.', 'THROTTLE +75%', 'LINKS +1'),
+  ],
+  hikari: [
+    c('Every 6th sweep is a Sunrise that hits harder.', 'SUNRISE +50%'),
+    c('Celestial Bloom recharges faster.', 'RECHARGE +10%'),
+    c('Sunrise comes every 5th sweep and hits even harder.', 'SUNRISE +75%'),
+    c('Celestial Bloom reaches further and leaves foes Brittle.', 'BLOOM +75%', 'BRITTLE +15%'),
+    c('Every 4th sweep is a Sunrise that also stuns.', 'SUNRISE ×2', 'STUN 0.3 S'),
+  ],
+  luna: [
+    c('Every beam pierces more enemies.', 'PIERCE +2'),
+    c('Moonfall recharges faster.', 'RECHARGE +10%'),
+    c("Moonfall's haste lasts longer and runs stronger for all.", 'HASTE +5', 'HASTE +3 S'),
+    c('Moonfall slows longer and leaves every foe Brittle.', 'RECHARGE +10%', 'BRITTLE +15%'),
+    c('Stronger haste, and nearby girls hit harder and faster.', 'HASTE +5', 'NEARBY +8%'),
+  ],
+  nami: [
+    c('Her slows grow stronger.', 'SLOW +5'),
+    c('Her orbs Soak foes to take more frost and lightning damage.', 'SOAK +15%'),
+    c('Tidal Wave recharges faster.', 'RECHARGE +15%'),
+    c('Tidal Wave hits harder and leaves every foe Brittle.', 'WAVE +50%', 'BRITTLE +10%'),
+    c('Every 5th orb swells into a Tide Crown that freezes.', 'CROWN +50%', 'FREEZE 0.4 S'),
+  ],
+  fuu: [
+    c('Her gusts hit a little harder.'),
+    c('Every gust passes through one more enemy.', 'PIERCE +1'),
+    c('Every 6th sweep is a Turbine Kick with wider splash.', 'KICK +30%', 'SPLASH +0.3'),
+    c('Her gusts gain crit chance.', 'CRIT +5%'),
+    c('Turbine Kick comes every 4th sweep and stuns.', 'KICK +50%', 'STUN 0.3 S'),
+  ],
+  hana: [
+    c('Her arrows hit a little harder.'),
+    c('Her arrows pierce more armor and crit more often.', 'ARMOR PEN +1', 'CRIT +3%'),
+    c('Every 8th arrow, Kaze dives in with it.', 'DIVE ×2'),
+    c('Her arrows gain crit chance.', 'CRIT +5%'),
+    c('Kaze dives every 6th arrow and hits even harder.', 'DIVE ×2.5'),
+  ],
+  ruri: [
+    c('Her bolts hit a little harder.'),
+    c('Every bolt passes through one more enemy.', 'PIERCE +1'),
+    c('Every 6th bolt, Kon pounces in with it.', 'POUNCE +60%', 'SPLASH 0.3'),
+    c('Her bolts pierce more armor.', 'ARMOR PEN +1'),
+    c('Kon pounces every 4th bolt and hits much harder.', 'POUNCE ×2'),
+  ],
+  noa: [
+    c('Girls in her sanctuary attack a little faster.'),
+    c('Her sanctuary reaches further.', 'AURA WIDE +0.4'),
+    c('Girls in her sanctuary crit more often.', 'CRIT +4%'),
+    c('Girls in her sanctuary pierce more armor.', 'ARMOR PEN +1'),
+    c('Every 3rd chime, her sanctuary surges even faster.', 'SURGE +10%'),
+  ],
+  iroha: [
+    c('Every bolt passes through one more enemy.', 'PIERCE +1'),
+    c('Her bolts pierce more armor.', 'ARMOR PEN +1'),
+    c('Every 6th volley gleams and hits harder.', 'GLEAM +50%'),
+    c('Her bolts gain crit chance.', 'CRIT +6%'),
+    c('Every 4th volley is a Twin Gleam that hits much harder.', 'GLEAM ×2'),
+  ],
+  ena: [
+    c('Her curses last longer.', 'CURSE +1 S'),
+    c('Her cards gain crit chance.', 'CRIT +5%'),
+    c('Every 5th card is a Bad Omen that hits harder.', 'OMEN +60%'),
+    c('Her cards pierce more armor.', 'ARMOR PEN +1'),
+    c('Every 4th card is a Bad Omen that leaves foes Brittle.', 'OMEN ×2', 'BRITTLE +10%'),
+  ],
+  kanna: [
+    c('Every 6th strike is a Big Beat that hits harder.', 'BIG BEAT +50%'),
+    c('Festival Drumfall recharges faster.', 'RECHARGE +10%'),
+    c('Big Beat comes every 5th strike and hits even harder.', 'BIG BEAT +75%'),
+    c('Drumfall hits harder and leaves its target Brittle.', 'DRUMFALL +50%', 'BRITTLE +12%'),
+    c('Every 4th strike is a Big Beat that also stuns.', 'BIG BEAT ×2', 'STUN 0.3 S'),
+  ],
+  yoriko: [
+    c('Her threads slow foes more.', 'SLOW +5'),
+    c('Dream Detour recharges faster.', 'RECHARGE +10%'),
+    c("Dream Detour's hex eats more of max HP.", 'HEX +0.5%/S'),
+    c('Every 5th volley is a Curtain Rise that stuns.', 'CURTAIN +50%', 'STUN 0.3 S'),
+    c('Curtain Rise comes every 4th volley and hits harder.', 'CURTAIN +80%', 'RECHARGE +10%'),
+  ],
+  seiran: [
+    c('Her lightning jumps to one more enemy.', 'JUMP +1'),
+    c('Dragonflight recharges faster.', 'RECHARGE +10%'),
+    c('Every 6th bolt is a Thunder Lance that bursts around it.', 'LANCE 30%', 'BURST 0.8 TILE'),
+    c('Dragonflight hits harder, and its mark grows stronger.', 'FLIGHT +50%', 'MARK +5'),
+    c('One more jump, and Dragonflight recharges faster again.', 'JUMP +1', 'RECHARGE +10%'),
+  ],
+  azami: [
+    c('Her spike strips hit a little harder.'),
+    c('She keeps one more spike strip on the road.', 'STRIPS +1'),
+    c('Her strips crack the armor of what crosses them.', 'ARMOR -1'),
+    c('Her strips pierce more armor.', 'ARMOR PEN +1'),
+    c('More strips at once, and struck foes turn Brittle.', 'STRIPS +2', 'BRITTLE +8%'),
+  ],
+  kinu: [
+    c('Her pins hit a little harder.'),
+    c('Every pin passes through one more enemy.', 'PIERCE +1'),
+    c('Her pins gain crit chance.', 'CRIT +5%'),
+    c('Her pins pierce more armor.', 'ARMOR PEN +1'),
+    c('Her pins pierce further and leave foes Brittle.', 'PIERCE +1', 'BRITTLE +6%'),
+  ],
+  wakaba: [
+    c('She throws her drinks a little faster.'),
+    c('Her drinks last for more attacks.', 'DRINK +2 HITS'),
+    c('Her drinks splash wider.', 'SPLASH +0.2'),
+    c('Girls she hydrates deal more damage.', 'HYDRATED +3%'),
+    c('Hydrated girls attack faster, and her drinks last longer.', 'HYDRATED +5%', 'DRINK +2 HITS'),
+  ],
+  yuzuha: [
+    c('Her darts hit a little harder.'),
+    c('Her sentries last longer.', 'SENTRY +4 S'),
+    c('Her sentries hit harder.', 'SENTRY DMG +1'),
+    c('Her darts pierce more armor.', 'ARMOR PEN +1'),
+    c('One more sentry at a time, and they hit harder.', 'SENTRIES +1', 'SENTRY DMG +2'),
+  ],
+  ouka: [
+    c('Her upgrade discounts run a little deeper.', 'DISCOUNT +3%'),
+    c('Upgrades in her radius cost even less.', 'DISCOUNT +3%', 'COST -2%'),
+    c('Her office radius reaches further.', 'DISCOUNT +4%', 'RADIUS +0.2'),
+    c('Upgrades in her radius cost less again.', 'DISCOUNT +4%', 'COST -2%'),
+    c('A wider office, and upgrades in it cost even less.', 'RADIUS +0.3', 'COST -3%'),
+  ],
+  chigusa: [
+    c('Her thorn seeds hit a little harder.'),
+    c('Her vine holds walkers longer.', 'HOLD +0.2 S'),
+    c('Her thorn beds hit harder.', 'THORNS +1'),
+    c('Her vine comes back sooner.', 'VINE -0.5 S'),
+    c('Seeds pierce further; her vine holds longer, comes sooner.', 'PIERCE +1', 'HOLD +0.3 S'),
+  ],
+  marumi: [
+    c('Her bomb balls hit a little harder.'),
+    c('Her balls roll further up the road.', 'ROLL +1 TILE'),
+    c('Her balls roll faster.', 'SPEED +1'),
+    c('Her pins hit harder.', 'PINS +2 DMG'),
+    c('Her balls roll further, and her pins hit harder.', 'ROLL +1 TILE', 'PINS +2 DMG'),
+  ],
+};
+
+/** Every girl's text: her rows with their card lines merged in (frozen). */
+export const POTENTIAL_TEXT = Object.freeze(Object.fromEntries(Object.entries(RAW).map(([id, steps]) => [
+  id,
+  Object.freeze(steps.map((s, i) => (CARDS[id]?.[i] ? Object.freeze({ ...s, ...CARDS[id][i] }) : s))),
+])));
 
 /** A def's text row (kit variant first), or null (fixtures and dev units). */
 export function potentialTextRow(def) {
