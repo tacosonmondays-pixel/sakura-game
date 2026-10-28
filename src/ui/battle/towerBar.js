@@ -28,9 +28,10 @@ export function createTowerBar(ctx) {
   const cueR = h('button.bt-bar-cue.bt-bar-cue-r', { type: 'button', tabindex: '-1', 'aria-label': 'More cards', 'data-testid': 'bar-cue-r', onclick: () => page(1) }, '›');
   const el = h('nav.bt-bar', { 'data-testid': 'tower-bar' }, scroller, cueL, cueR);
 
-  for (const unitId of ids) {
+  /** One card (a Tryout Day girl who joins mid-run gets hers through sync()). */
+  function addCard(unitId) {
     const def = sim.data.unit(unitId);
-    if (!def) continue;
+    if (!def || cards.has(unitId)) return;
     const isHero = def.kind === 'hero';
     // the bar only holds YOUR girls (co-op: your own loadout), so your save decides UR (display only)
     const ur = isUR(def, ctx.profile);
@@ -54,6 +55,7 @@ export function createTowerBar(ctx) {
     cards.set(unitId, { card, cost, def, isHero, lastCost: -1, lastAfford: null, lastLv: -1 });
     scroller.append(card);
   }
+  for (const unitId of ids) addCard(unitId);
 
   function bindCard(card, unitId) {
     let down = null;
@@ -176,6 +178,19 @@ export function createTowerBar(ctx) {
     update,
     paintEdges,
     cardFor: (unitId) => cards.get(unitId)?.card || null,
+    /** A girl who joined the loadout (a Tryout Day pick) gets her card. */
+    sync() {
+      let added = false;
+      for (const unitId of sim.loadout.keys()) {
+        if (cards.has(unitId)) continue;
+        addCard(unitId);
+        added = true;
+      }
+      if (added) {
+        update();
+        paintEdges();
+      }
+    },
     /** Brief glow on a girl's card (just deployed), so the card connects to her chibi on the map. */
     flash(unitId) {
       const card = cards.get(unitId)?.card;

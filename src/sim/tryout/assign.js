@@ -140,7 +140,11 @@ const delta = (sim, o, k) => (sim.tryout.ctr[o]?.[k] || 0) - (sim.tryout.base?.c
 export function judge(sim, id, owner, final = false) {
   const ty = sim.tryout;
   const b = ty.base;
-  if (!b) return { st: 0, cur: 0, goal: 0 };
+  // before the period starts (the tracker shows the coming period's assignments): nothing yet, the bars as they will be
+  if (!b) {
+    const goal = { a_speed: A.a_speed.secs, a_quick: A.a_quick.secs, a_small: A.a_small.max, a_learner: A.a_learner.tiers, a_budget: budgetOf(sim) }[id] ?? 0;
+    return { st: 0, cur: 0, goal };
+  }
   const done = (ok) => (ok ? 1 : final ? -1 : 0);
   switch (id) {
     case 'a_hearts': {

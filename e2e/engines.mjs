@@ -366,6 +366,15 @@ for (const { name, r } of results) {
   // (the same coverage check as tests/online/engines.test.js: every lab class, both absorbs, each weapon)
   for (const miss of battle.tenkaCoverage(b)) failures.push(`the Tenka battle: ${miss}`);
 }
+// Tryout Day: a 2-player run on two views to wave 16, a third client rejoining from the wave-9 checkpoint
+const TY_KEYS = ['wave', 'lives', 'score', 'squads', 'lastDigest', 'digests', 'hash'];
+log('\nScripted co-op TRYOUT DAY run (two views, personal picks, a Tryout join, Recess moves, a rejoin at wave 9):');
+for (const { name, r } of results) {
+  const b = r.tryout;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews) failures.push(`${name}: its two Tryout Day views disagreed`);
+  for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryout[k])) failures.push(`${name}: tryout ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryout[k])} (${results[0].name})`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();

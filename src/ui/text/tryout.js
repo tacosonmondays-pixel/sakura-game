@@ -2,6 +2,7 @@
 // (src/data/tryout.js), so a wording fix never forces a co-op update. Players are "they".
 import { PEP_CARDS, SCALE, RARITIES } from '../../data/tryout.js';
 import { UNIT_MAP } from '../../data/units.js';
+import { fmtNum } from '../format.js';
 
 export const MODE_NAME = 'Tryout Day';
 
@@ -58,12 +59,12 @@ export const SLOT_NAMES = ['Team', 'One girl', 'Wild'];
 /** Assignments: name and a live line from assignProgress ({ cur, goal }). */
 export const ASSIGN_TEXT = {
   a_hearts: { name: 'Full Hearts', live: (p) => `♥ ${p.cur} lost` },
-  a_ace: { name: 'Ace the Test', live: (p) => `Score ${p.cur.toLocaleString('en-US')} / ${p.goal.toLocaleString('en-US')}` },
+  a_ace: { name: 'Ace the Test', live: (p) => `Score ${fmtNum(p.cur, 'count', { detail: true })} / ${fmtNum(p.goal, 'count', { detail: true })}` },
   a_speed: { name: 'Speed Round', live: (p) => `clear each wave within ${p.goal}s of its last foe` },
   a_quick: { name: 'Quick Answer', live: (p) => `beat the big foe within ${p.goal}s` },
   a_sky: { name: 'Sky Guard', live: () => 'flyers fall before halfway' },
   a_guest: { name: 'Guest Lecture', live: () => 'your hero deals 20% of the damage' },
-  a_budget: { name: 'Tight Budget', live: (p) => `spent ${p.cur.toLocaleString('en-US')} / ${p.goal.toLocaleString('en-US')}` },
+  a_budget: { name: 'Tight Budget', live: (p) => `spent ${fmtNum(p.cur, 'count', { detail: true })} / ${fmtNum(p.goal, 'count', { detail: true })}` },
   a_save: { name: 'Save It Up', live: () => 'keep coins unspent' },
   a_star: { name: 'Star Pupil', live: () => 'the named girl carries' },
   a_show: { name: 'Show Her Around', live: () => 'your newest girl defeats foes' },

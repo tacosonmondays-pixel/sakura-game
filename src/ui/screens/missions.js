@@ -7,6 +7,7 @@
 // Commissions live on the lobby (Tasks / dock), sweeps on stage prep, Bounty and Total Assault.
 // Locked tiles keep their colour and wear a small lock chip (big tiles) or a lock line in their
 // name plate (small tiles).
+import { tryoutUnlocked, TRYOUT_UNLOCK } from '../../systems/tryoutRuns.js';
 import '../styles/meta-a.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
 import { navigate } from '../router.js';
@@ -79,6 +80,8 @@ function build() {
     tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: lockFor('boss-lych'), onClick: () => navigate('assault') }),
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
     tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: titansUnlocked(profile) ? null : `Clear ${TITAN_STAGE}`, onClick: () => navigate('titans') }),
+    // [tryout] Tryout Day, the roguelike run mode (opens after 2-5)
+    tile({ id: 'tryout', title: 'Tryout Day', art: scene('sakura'), sub: 'Run mode', lockText: tryoutUnlocked(profile) ? null : `Clear ${TRYOUT_UNLOCK}`, onClick: () => navigate('tryout') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: lockFor('challenge'), onClick: () => navigate('challenge') }),
     // [online] 2-player real-time co-op on any unlocked campaign stage
     tile({ id: 'coop', title: 'Co-op', art: scene('festival'), sub: '2 players', ribbon: 'Online', onClick: () => navigate('coop') }),

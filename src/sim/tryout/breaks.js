@@ -276,3 +276,13 @@ export function seatBlocks(sim, p) {
   const b = blockOf(len, p);
   return { now: b, next: Math.min(len.blocks.length - 1, b + 1) };
 }
+
+/** During a break: the next block's seats (shown dashed, §6.2), else []. Read-only, for the board. */
+export function nextSeats(sim) {
+  const ty = sim.tryout;
+  if (!ty.players.some((p) => p.win === 'break')) return [];
+  const len = lengthOf(ty.length);
+  const b = blockOf(len, Math.min(len.periods, ty.period + 1));
+  if (b === ty.seats.block) return [];
+  return seatsOf(sim, b).map((p) => ({ x: p.x, y: p.y, r: p.r }));
+}

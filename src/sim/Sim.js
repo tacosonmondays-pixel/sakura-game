@@ -66,7 +66,7 @@ import {
   tryoutCount, tryoutPlaceCost, tryoutPlaced, tryoutTowerMods, tryoutUpgradeCost, tryoutUpgraded, tryoutResult, tryoutCommand,
   tryoutMove, windowOpen,
 } from './tryout/index.js';
-import { assignSeats } from './tryout/breaks.js';
+import { assignSeats, nextSeats } from './tryout/breaks.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -1587,7 +1587,10 @@ export class Sim {
 
   /** The map rule's HUD state (numbers and ids only), or null without a rule. */
   ruleInfo() {
-    return ruleInfo(this);
+    const info = ruleInfo(this);
+    // Tryout Day: during a break the next block's Window Seats show too (dashed)
+    if (info && this.tryout) info.nextPads = nextSeats(this);
+    return info;
   }
 
   /** Absolute route orientation of wave n (true = walked backwards). */

@@ -1,0 +1,86 @@
+/* Tryout Day, plain M1 battle UI (docs/specs/TRYOUT_DAY.md §13; the Ink & Paper screens replace it in M3).
+   12 px minimum text; grey for a missed assignment (never red: failing is not danger). */
+.ty-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.ty-tracker {
+  position: absolute; left: 8px; top: calc(var(--bt-hud-h) + 10px + var(--safe-top, 0px)); max-width: min(340px, 46vw);
+  background: rgba(255, 255, 255, 0.92); border-radius: 8px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(29, 78, 137, 0.18);
+  color: var(--navy); font-size: 12px; line-height: 1.35; pointer-events: auto;
+}
+.ty-head { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ty-score { font-variant-numeric: tabular-nums; }
+.ty-chips { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
+.ty-chip { display: flex; gap: 5px; align-items: baseline; white-space: nowrap; overflow: hidden; }
+.ty-chip-name { font-weight: 800; }
+.ty-chip-live { color: #4a5578; overflow: hidden; text-overflow: ellipsis; }
+.ty-mark { display: inline-block; min-width: 14px; text-align: center; font-weight: 900; }
+.ty-st1 .ty-mark, .ty-mark.ty-st1 { color: #d6457a; }
+.ty-st-1, .ty-mark.ty-st-1 { color: #8a90a4; }
+.ty-st-1 .ty-chip-name { text-decoration: line-through; text-decoration-color: #8a90a4; }
+.ty-odds { margin-top: 3px; font-weight: 700; color: #33406b; font-variant-numeric: tabular-nums; }
+.ty-dim { color: #5a6280; font-weight: 600; }
+
+.ty-sheet-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(20, 28, 56, 0.42); pointer-events: auto; padding: 12px; }
+.ty-sheet-wrap[hidden] { display: none; }
+.ty-sheet {
+  background: #fffaf0; border: 2px solid var(--navy); border-radius: 12px; padding: 12px 14px; max-width: 760px; width: 100%;
+  max-height: calc(100% - 8px); overflow: auto; color: var(--navy); font-size: 13px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.ty-sheet-title { font-family: var(--font-head); font-weight: 900; font-size: 18px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ty-reasons { font-size: 12px; color: #4a5578; margin-top: 2px; }
+.ty-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 10px 0; }
+.ty-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 8px 10px; border-radius: 10px;
+  background: #fff; border: 2px solid var(--rar-r, #8fa3b8); color: var(--navy); font-size: 12px; cursor: pointer; min-height: 120px;
+}
+.ty-card:hover, .ty-card:focus-visible { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(29, 78, 137, 0.25); }
+.ty-card.ty-r1 { border-color: var(--rar-sr, #4cc9f0); border-width: 3px; background: #f3fbff; }
+.ty-card.ty-r2 { border-color: var(--rar-ssr, #c77dff); box-shadow: inset 0 0 0 1px #fff, 0 0 8px rgba(199, 125, 255, 0.55); }
+.ty-card.ty-r3 { border-color: #c99a2e; background: linear-gradient(135deg, #fff8e1, #f3d78a 55%, #fff8e1); }
+.ty-card.ty-r4 { border-color: #c99a2e; background: #1d2550; color: #fff8e1; }
+.ty-card.ty-r4 .ty-card-line { color: #f3e7c4; }
+.ty-slot { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #5a6280; }
+.ty-card.ty-r4 .ty-slot { color: #f3d78a; }
+.ty-rar { display: inline-block; background: #1d2550; color: #ffd84d; border-radius: 999px; padding: 1px 8px; font-weight: 900; font-size: 12px; }
+.ty-rar-big { font-size: 14px; }
+.ty-card-name { font-size: 14px; }
+.ty-card-line { font-size: 12px; color: #33406b; }
+.ty-card-art { width: 54px; height: 54px; border-radius: 8px; overflow: hidden; display: block; }
+.ty-card-art img, .ty-card-art svg, .ty-squad-art img, .ty-squad-art svg { width: 100%; height: 100%; object-fit: cover; }
+.ty-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.ty-actions .bt-btn, .ty-actions .bt-cta { font-size: 13px; }
+.ty-brush { font-size: 13px; padding: 6px; border-radius: 8px; }
+
+.ty-break {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--bt-bar-h) + 10px); width: min(620px, calc(100% - 24px));
+  background: rgba(255, 250, 240, 0.96); border: 2px solid var(--navy); border-radius: 10px; padding: 8px 12px; pointer-events: auto;
+  color: var(--navy); font-size: 13px;
+}
+.ty-break[hidden] { display: none; }
+.ty-break-title { font-size: 14px; }
+.ty-break-hint { font-size: 12px; color: #4a5578; margin-top: 2px; }
+
+.ty-photo { text-align: left; }
+.ty-squad { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.ty-squad-art { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; display: block; }
+.ty-score-big { font-family: var(--font-head); font-weight: 900; font-size: 20px; }
+.ty-grid { display: grid; gap: 2px; margin: 8px 0; font-size: 13px; }
+.ty-grid-row { display: flex; gap: 6px; align-items: baseline; }
+.ty-grid-p { min-width: 26px; font-weight: 800; }
+.ty-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.ty-pickchip { font-size: 12px; background: #eef2fb; border-radius: 999px; padding: 2px 8px; }
+.ty-practice { font-size: 12px; background: #8a90a4; color: #fff; border-radius: 999px; padding: 1px 8px; }
+
+@media (max-width: 700px), (max-height: 430px) {
+  .ty-tracker { max-width: 44vw; padding: 4px 6px; }
+  .ty-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .ty-card { min-height: 0; padding: 6px; }
+  .ty-card-art { width: 40px; height: 40px; }
+  .ty-sheet { padding: 8px 10px; }
+  .ty-sheet-title { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .ty-card:hover { transform: none; } }
+
+/* the hub / Before Class (plain M1) */
+.ty-screen .ty-hub { max-width: 820px; margin: 10px auto; display: flex; flex-direction: column; gap: 8px; color: var(--navy); font-size: 13px; }
+.ty-picked { outline: 3px solid #d6457a; outline-offset: 1px; }
+.ty-card.ty-draft { min-height: 0; }

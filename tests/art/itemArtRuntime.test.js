@@ -196,7 +196,7 @@ describe('display only: the battle sim is untouched', () => {
     const PENDING_BUMP = { 8: 'c22b2587f4b7' };
     // feature/tryout-day only: Tryout Day changes the sim on top of the abilities work and ships later with its own
     // bump (docs/specs/TRYOUT_DAY.md §16); this branch's in-progress id, refreshed at each checkpoint
-    const TRYOUT_PENDING = { 8: '70f823f83702' };
+    const TRYOUT_PENDING = { 8: '372d3763b37c' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id || TRYOUT_PENDING[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

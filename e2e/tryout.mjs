@@ -1,0 +1,192 @@
+// Tryout Day e2e (docs/specs/TRYOUT_DAY.md, M1 plain UI): plays the real game in a browser.
+//   1. locked before 2-5; the hub opens once 2-5 is cleared; Before Class: 2 maps, a hero, 6 girls, pick 3, Redraw
+//   2. Start class → the battle: the tracker under the HUD, the hero and squad cards
+//   3. waves played (the Sim stepped from the page) to the first pick: the Tryout pick sheet; take a girl → her card
+//      joins the bar; the next wave waits while a pick is open
+//   4. to Recess: the break bar, the next block's seats; a Hall Pass move and Undo; Back to class
+//   5. a reload mid-break continues the same run at the same break (the run's own save slot)
+//   6. a reload mid-wave: the hub's Continue says it uses the Make-up Test; Continue voids that period
+//   7. Give up removes the run
+// Screenshots go to --shots. node e2e/tryout.mjs [--viewports 844x390,1280x720] [--shots dir]
+import { createServer } from 'vite';
+import { mkdirSync } from 'node:fs';
+import { launchChromium } from './browser.mjs';
+
+const args = process.argv.slice(2);
+const opt = (name, def) => {
+  const i = args.indexOf(`--${name}`);
+  return i >= 0 ? args[i + 1] : def;
+};
+const viewports = opt('viewports', '844x390,1280x720').split(',').map((v) => v.split('x').map(Number));
+const shotsDir = opt('shots', null);
+if (shotsDir) mkdirSync(shotsDir, { recursive: true });
+const SAVE_KEY = 'sakura-sentinels-save-v1';
+const IGNORE = [/GPU stall/i, /WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i, /Failed to load resource/i];
+
+const failures = [];
+const log = (...a) => console.log(...a);
+function check(cond, msg) {
+  log(`  ${cond ? 'ok  ' : 'FAIL'} ${msg}`);
+  if (!cond) failures.push(msg);
+  return cond;
+}
+
+const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+await server.listen();
+const { port } = server.httpServer.address();
+const base = `http://127.0.0.1:${port}/?online=local&onboarding=0`;
+const { browser, label } = await launchChromium();
+log(`browser: ${label}`);
+const errors = [];
+
+for (const [W, H] of viewports) {
+  log(`\n=== viewport ${W}x${H} ===`);
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: Math.min(W, H) < 600, reducedMotion: 'reduce' });
+  // a test-only unlock: once the test sets the flag, 1-1 … 2-5 count as cleared in the stored save before the app loads
+  await context.addInitScript((key) => {
+    if (!sessionStorage.getItem('__tyUnlock')) return;
+    try {
+      const s = JSON.parse(localStorage.getItem(key) || 'null');
+      if (!s) return;
+      s.progress = s.progress || {};
+      s.progress.stages = s.progress.stages || {};
+      for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2', '2-3', '2-4', '2-5']) s.progress.stages[id] = { ...(s.progress.stages[id] || {}), normal: true };
+      localStorage.setItem(key, JSON.stringify(s));
+    } catch { /* (a test helper) */ }
+  }, SAVE_KEY);
+  const page = await context.newPage();
+  page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((r) => r.test(m.text()))) errors.push(`${W}x${H} ${m.text()}`); });
+  page.on('pageerror', (e) => errors.push(`${W}x${H} pageerror ${e.message}`));
+  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${name}-${W}x${H}.png` }); };
+  const screenIs = (name) => page.waitForFunction((n) => document.querySelector('#app')?.dataset.screen === n && !document.documentElement.dataset.tx, name, { timeout: 60000, polling: 100 }).then(() => true).catch(() => false);
+  const battleReady = () => page.waitForFunction(() => window.__battle?.ui?.tryoutUi && document.querySelector('#app')?.dataset.screen === 'battle' && !document.documentElement.dataset.tx, null, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
+
+  // 1. locked, then open
+  await page.goto(`${base}#/tryout`);
+  await screenIs('tryout');
+  check(await page.locator('[data-testid="tryout-locked"]').isVisible(), 'locked before 2-5');
+  await page.evaluate(() => sessionStorage.setItem('__tyUnlock', '1'));
+  await page.reload();
+  await screenIs('tryout');
+  check(await page.locator('[data-testid="tryout-before-class"]').isVisible({ timeout: 10000 }).catch(() => false), 'Before Class shows after 2-5');
+  check(await page.locator('[data-testid^="tryout-draft-"]').count() === 6, 'six drafted girls');
+  check(await page.locator('[data-testid="tryout-start"]').isDisabled(), 'Start waits for 3 girls');
+  await page.click('[data-testid="tryout-redraw"]');
+  check(await page.locator('[data-testid="tryout-redraw"]').isDisabled(), 'one free redraw');
+  for (const i of [0, 1, 2]) await page.click(`[data-testid="tryout-draft-${i}"]`);
+  await shot('ty-before-class');
+  const noScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+  check(noScroll, 'no horizontal scroll on Before Class');
+
+  // 2. the battle
+  await page.click('[data-testid="tryout-start"]');
+  check(await battleReady(), 'battle mounts with the run UI');
+  check(await page.locator('[data-testid="ty-tracker"]').isVisible(), 'tracker shows');
+  const squad = await page.evaluate(() => window.__battle.sim.tryout.players[0].squad.slice());
+  for (const id of squad) check(await page.locator(`[data-testid="card-${id}"]`).count() === 1, `card for ${id}`);
+
+  // 3. play to the first pick
+  const playToWindow = () => page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    const spots = [];
+    for (let y = 0.75; y < sim.map.height; y += 0.5) for (let x = 0.75; x < sim.map.width; x += 0.5) if (!sim.placementReason('aoi', x, y)) spots.push([x, y]);
+    let guard = 0;
+    while (!sim.tryoutWindowOpen() && sim.state !== 'won' && sim.state !== 'lost' && guard++ < 60) {
+      // (a UI-flow test, not a balance test: hearts and coins topped up between waves)
+      sim.lives = sim.maxLives;
+      sim.cash += 3000;
+      for (const id of [sim.heroConfig?.unitId, ...sim.loadout.keys()]) {
+        if (!id || sim.towers.some((t) => t.unitId === id)) continue;
+        const s = spots.find(([x, y]) => sim.canPlace(id, x, y).ok);
+        if (s) ui.act.place(id, s[0], s[1]);
+      }
+      for (const t of sim.towers) if (!t.isHero) ui.act.upgrade(t.uid, 0) || ui.act.upgrade(t.uid, 2);
+      ui.startWave();
+      for (let i = 0; i < 6000 && sim.state === 'wave'; i++) sim.update(1 / 60);
+    }
+    return { wave: sim.wave, win: sim.tryout.players[0].win, state: sim.state };
+  });
+  let st = await playToWindow();
+  check(st.win === 'pick' && st.wave === 4, `first pick after wave 4 (${JSON.stringify(st)})`);
+  await page.waitForSelector('[data-testid="ty-pick"]:not([hidden])', { timeout: 5000 }).catch(() => {});
+  check(await page.locator('[data-testid="ty-pick"]').isVisible(), 'pick sheet shows');
+  check(await page.locator('[data-testid^="ty-card-"]').count() === 3, 'three cards');
+  await shot('ty-pick');
+  const waited = await page.evaluate(() => !window.__battle.sim.startNextWave());
+  check(waited, 'the next wave waits while the pick is open');
+  const girl = await page.evaluate(() => window.__battle.sim.tryout.players[0].offer.cards[0].girl);
+  await page.click('[data-testid="ty-card-0"]');
+  await page.waitForSelector(`[data-testid="card-${girl}"]`, { timeout: 30000 }).catch(() => {});
+  check(girl && await page.locator(`[data-testid="card-${girl}"]`).count() === 1, `the Tryout girl (${girl}) joins the bar`);
+
+  // 4. to Recess
+  for (let k = 0; k < 3; k++) {
+    st = await playToWindow();
+    if (st.win === 'pick') {
+      await page.waitForSelector('[data-testid="ty-pick"]:not([hidden])', { timeout: 30000 }).catch(() => {});
+      await page.click('[data-testid="ty-card-0"]');
+      await page.waitForFunction(() => !window.__battle.sim.tryout.players[0].offer, null, { timeout: 30000 }).catch(() => {});
+    }
+    if (await page.evaluate(() => window.__battle.sim.tryout.players[0].win === 'break')) break;
+  }
+  check(await page.evaluate(() => window.__battle?.sim.tryout.players[0].win === 'break'), `Recess opens after pick 3 (${JSON.stringify(st)})`);
+  await page.waitForSelector('[data-testid="ty-break"]:not([hidden])', { timeout: 30000 }).catch(() => {});
+  check(await page.locator('[data-testid="ty-break"]').isVisible(), 'break bar shows');
+  check(await page.evaluate(() => window.__battle.sim.ruleInfo().nextPads.length > 0), 'next seats show during the break');
+  await shot('ty-break');
+  const moved = await page.evaluate(() => {
+    const { sim } = window.__battle;
+    const t = sim.towers.find((x) => !x.isHero);
+    for (let y = 0.75; y < sim.map.height; y += 0.5) for (let x = 0.75; x < sim.map.width; x += 0.5) {
+      if ((x - t.x) ** 2 + (y - t.y) ** 2 < 4) continue;
+      if (sim.tryoutMove(0, t.uid, x, y).ok) return { uid: t.uid, passes: sim.tryout.players[0].passes };
+    }
+    return null;
+  });
+  check(moved && moved.passes === 2, 'a Hall Pass move spends a pass');
+
+  // 5. reload mid-break: the same run, the same break
+  await page.evaluate(() => window.__battle.ui.saver?.markProgress?.({ now: true }));
+  await page.reload();
+  check(await battleReady(), 'a reload continues the run');
+  check(await page.evaluate(() => window.__battle.sim.tryout.players[0].win === 'break'), 'still at the break after the reload');
+  await page.waitForSelector('[data-testid="ty-ready"]', { timeout: 30000 }).catch(() => {});
+  await page.click('[data-testid="ty-ready"]');
+  check(await page.evaluate(() => window.__battle.sim.tryout.players[0].win === null), 'Back to class closes the break');
+
+  // 6. reload mid-wave: the Make-up Test
+  await page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    ui.startWave();
+    for (let i = 0; i < 120; i++) sim.update(1 / 60);
+    ui.saver.tick();
+  });
+  await page.goto(`${base}#/tryout`);
+  await screenIs('tryout');
+  const band = await page.locator('[data-testid="tryout-continue"]').textContent().catch(() => '');
+  check(/Make-up Test/.test(band), 'Continue says it uses the Make-up Test');
+  await shot('ty-hub-continue');
+  await page.click('[data-testid="tryout-go-continue"]');
+  check(await battleReady(), 'Continue after a mid-wave leave');
+  check(await page.evaluate(() => window.__battle.sim.tryout.assign.resumed === true && window.__battle.sim.state !== 'wave'), 'the wave replays from its start and the period is resumed');
+
+  // 7. give up
+  await page.goto(`${base}#/tryout`);
+  await screenIs('tryout');
+  page.once('dialog', (d) => d.accept());
+  await page.click('[data-testid="tryout-abandon"]');
+  await page.locator('.modal button', { hasText: 'Give up' }).click().catch(() => {});
+  await page.waitForTimeout(400);
+  check(await page.locator('[data-testid="tryout-before-class"]').isVisible().catch(() => false), 'Give up removes the run');
+  await context.close();
+}
+
+await browser.close();
+await server.close();
+if (errors.length) {
+  log('\nconsole errors:');
+  for (const e of errors.slice(0, 20)) log(`  ${e}`);
+}
+check(errors.length === 0, 'no console errors');
+log(failures.length ? `\n${failures.length} check(s) failed` : '\nall checks passed');
+process.exit(failures.length ? 1 : 0);

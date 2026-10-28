@@ -10,6 +10,7 @@
 //
 // Plain ES module: no Vite-only imports, so Node and Bun can import it straight from disk and a
 // browser through the Vite dev server.
+import { runCoop as runTryoutCoop, coopStart as tryoutStart } from '../../tools/tryoutBot.mjs';
 import { Lockstep } from '../../src/online/coop/lockstep.js';
 import { createCoopSim, quantize, flyArgs, abilArgs } from '../../src/online/coop/commands.js';
 import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
@@ -2074,6 +2075,21 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
 }
 
 /** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
+/**
+ * Tryout Day (docs/specs/TRYOUT_DAY.md §15): one 2-player co-op run on two lockstep views (tools/tryoutBot.mjs runCoop: personal
+ * picks, a Tryout join, Hall Pass moves at Recess, Snack, the seats), a third client rejoining from the wave-9 checkpoint
+ * after a mid-run join, to wave 16. Every engine must reach the same digests and hashes.
+ */
+export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9 } = {}) {
+  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed: 2026 }), policy: 'random', maxWaves, checkpointAt });
+  const sim = views[0].sim;
+  return {
+    wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')),
+    lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
+    hash: hashes[0][hashes[0].length - 1],
+  };
+}
+
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2087,5 +2103,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
 }
