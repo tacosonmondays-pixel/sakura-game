@@ -44,9 +44,32 @@ describe('the menu sheet', () => {
     const src = readFileSync('src/ui/lobby/menuSheet.js', 'utf8');
     for (const r of MENU_GROUPS.flatMap((g) => g.rows)) expect(r.label).not.toMatch(/\d/);
     expect(src).not.toMatch(/var\(--yellow\)|ui-btn\.pri|btn-yellow/);
-    expect(src).toContain("'menu-sheet-close'");
-    expect(src).toContain('onEscape(close)');
-    expect(src).toContain("'menu-sheet-scrim', onclick: () => close()");
+    expect(src).toContain("'menu-sheet-close', onclick: () => dismiss()");
+    expect(src).toContain('onEscape(dismiss)');
+    expect(src).toContain("'menu-sheet-scrim', onclick: () => dismiss()");
     expect(src).toContain("addEventListener('hashchange', close)");
+  });
+
+  it('a modal dialog for the keys too: rows are buttons (Enter and Space), the page behind is inert, Tab wraps, and a dismissal gives the focus back to its opener', () => {
+    const src = readFileSync('src/ui/lobby/menuSheet.js', 'utf8');
+    expect(src).not.toMatch(/h\('a\.ui-hrow|role: 'button'/);
+    expect(src).toContain("h('button.ui-hrow', {");
+    expect(src).toContain("h('button.ui-hrow.foot', {");
+    expect(src).toContain('n.inert = true;');
+    expect(src).toContain('for (const n of behind) n.inert = false;');
+    expect(src).toContain("e.key !== 'Tab'");
+    expect(src).toMatch(/if \(how === 'dismiss'\) \{\s*const back = opener\?\.\(\);/);
+    const home = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(home).toContain("opener: () => top.querySelector('[data-testid=\"top-menu\"]')");
+  });
+
+  it('never uses the scene player\'s root class (.sp is story.css\'s fixed full-screen layer): the spacer is .ui-spacer', () => {
+    for (const f of ['src/ui/lobby/menuSheet.js', 'src/ui/screens/lobby.js']) {
+      const src = readFileSync(f, 'utf8');
+      expect(src, f).not.toMatch(/h\('[a-z]*\.sp['.]/);
+      expect(src, f).not.toMatch(/classList\.contains\('sp'\)/);
+    }
+    expect(readFileSync('src/ui/lobby/menuSheet.js', 'utf8')).toContain("h('span.ui-spacer')");
+    for (const f of ['src/ui/styles/ink.css', 'src/ui/styles/home.css']) expect(readFileSync(f, 'utf8'), f).not.toMatch(/\.sp\s*[{,]|\.sp\s+\{/);
   });
 });

@@ -14,13 +14,16 @@ import { PORTRAIT_DATA } from '../../src/art/portraits.js';
 
 /**
  * Home layout B's control boxes (measured in the game: window.__sakura.home.boxes()): the avatar, the three wallets and
- * the three buttons; the news chip (two lines); the four icons (one box for the row); CO-OP; the Battle plate.
+ * the three buttons; the news chip (two lines); the four icons (one box for the row: each cell its label and the same
+ * side room, the first label on the gutter); CO-OP; the Battle plate. A small phone (667x375) stacks the icons two by two.
  */
 const BOXES = {
   '844x390': [[16, 10, 140, 32], [386, 10, 59, 32], [453, 10, 99, 32], [560, 10, 111, 32], [696, 8, 36, 36], [744, 8, 36, 36], [792, 8, 36, 36],
-    [16, 52, 236, 60], [16, 318, 268, 56], [588, 224, 112, 46], [588, 270, 240, 104]],
+    [16, 52, 236, 60], [7, 318, 262, 56], [588, 224, 112, 46], [588, 270, 240, 104]],
   '1280x720': [[24, 16, 165, 48], [723, 20, 70, 40], [804, 20, 113, 40], [927, 20, 132, 40], [1092, 18, 44, 44], [1152, 18, 44, 44], [1212, 18, 44, 44],
-    [24, 84, 320, 68], [24, 616, 372, 80], [926, 468, 156, 60], [926, 528, 330, 168]],
+    [24, 84, 320, 68], [10, 616, 331, 80], [926, 468, 156, 60], [926, 528, 330, 168]],
+  '667x375': [[16, 10, 140, 32], [209, 10, 59, 32], [276, 10, 99, 32], [383, 10, 111, 32], [519, 8, 36, 36], [567, 8, 36, 36], [615, 8, 36, 36],
+    [16, 52, 236, 60], [16, 243, 132, 116], [451, 209, 112, 46], [451, 255, 200, 104]],
 };
 /** The same with the four icons folded two by two (.fold: Marumi's ball reaches into their corner). */
 const FOLDED = {
@@ -133,6 +136,16 @@ describe('Marumi\'s living scene (C5)', () => {
       expect(p.height / p.width).toBeCloseTo((FRAME.h + FRAME.ext) / FRAME.w, 6);
     });
   }
+  it('on a small phone (667x375) no size from 0.8 of the cover fit keeps her ball and hands 8 px clear of the icons and the chip: the home shows her still portrait there (lobby.js liveFits), and that one fits', () => {
+    const p = placeMarumi(667, 375, boxes('667x375'));
+    expect(p.fits).toBe(false);
+    const still = placeHost({ W: 667, H: 375, aspect: PORTRAIT_DATA.marumi.cut, anchor: FACE_ANCHORS.marumi.cut, extents: CUT_EXTENTS.marumi, boxes: boxes('667x375') });
+    expect(still.fits).toBe(true);
+    expect(still.scale).toBeGreaterThanOrEqual(0.8 - 1e-9);
+    expect(clearOf(bandsOf(CUT_EXTENTS.marumi, still, 375), boxes('667x375'), 8)).toBe(true);
+    // (her scene stays where it fits: 844x390 with the icons folded)
+    expect(placeMarumi(844, 390, boxes('844x390', FOLDED)).fits).toBe(true);
+  });
   it('her extents cover 40 bands of her 828 px figure, her face painted where her anchor says', () => {
     expect(M_EXTENTS).toHaveLength(40);
     const band = M_EXTENTS[Math.floor(M_ANCHOR.eye * 40)];

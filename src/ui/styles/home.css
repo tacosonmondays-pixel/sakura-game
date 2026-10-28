@@ -6,7 +6,8 @@
    phone held upright (the rotate prompt's fallback) stacks the UI under her. The lobby is the only night screen
    (src/ui/surfaceMode.js).
    The quiet home, 844x390 [1280x720]: the bar on top; one news chip top left x 16-252 [24-344]; her face in the
-   middle; four icons bottom left x 16-284 [24-412], y 318-374 [616-696]; the Battle plate bottom right x 588-828
+   middle; four icons bottom left, their first label on the 16 [24] px gutter, y 318-374 [616-696] (each cell its label
+   plus the same side room, so every label sits as far from the hairlines); the Battle plate bottom right x 588-828
    [916-1256], y 270-374 [528-696], CO-OP riding on its top-left corner y 224-270 [468-528]. A narrower screen (a
    small phone under 760 px, a 4:3 tablet under 1180 px) stacks the icons two by two and takes the plate down to 200 px
    [280], so her legs keep their gap between them. The corners never swap: Battle stays bottom right for every girl
@@ -101,7 +102,9 @@
 .home .home-top .lv .lbl { color: var(--on-ink-dim); }
 .home .home-top .serial { align-self: flex-start; margin-top: 6px; }
 /* (the decorative serial at full strength on the home: at the kit's 0.7 it read 4.0-4.5:1 over the brighter wallpapers) */
-.ui-night .home .home-top .serial { opacity: 1; }
+.ui-night .home .home-top .serial { opacity: 1; white-space: nowrap;
+  /* (the caps' soft ink halo: 4.5:1 or more over the brightest full illustrations too) */
+  text-shadow: 0 0 2px rgba(14, 25, 48, 0.9), 0 0 6px rgba(14, 25, 48, 0.85); }
 .home .home-top .ui-pill + .ui-pill { margin-left: -6px; }
 .home .home-top .ui-pill[role="button"] { cursor: pointer; }
 .home .home-top .ui-vr { margin: 12px 0; }
@@ -129,6 +132,9 @@
 /* the objective's page: its play square in cyan ink (the home's one yellow is Battle's) */
 .ui-night .home .home-news .ui-play.cy { --fill: var(--plate-2); --edge: rgba(76, 214, 255, 0.6); width: 44px; height: 44px; color: var(--cyan); }
 .home .home-news .obj .k .lbl { color: var(--cyan); }
+/* a kicker with a short form (lobby.js fitTexts .kshort: the long one would wrap beside the countdown on a phone) */
+.home .home-news .k .ks, .home .home-news.kshort .k .kl { display: none; }
+.home .home-news.kshort .k .ks { display: inline; }
 /* "›" with "1/3": the next page */
 .ui-night .home .home-news .pager { width: 60px; height: 100%; flex: none; display: flex; align-items: center; justify-content: center; gap: 2px; border: 0; background: none; cursor: pointer;
   color: var(--on-ink); box-shadow: inset 1px 0 0 var(--line-lo); }
@@ -136,10 +142,13 @@
 .home .home-news .pager svg.g { width: 18px; height: 18px; }
 
 /* ---------------------------------------------------------------- the four icons: x 24-412, y 616-696 */
-.home .home-dock { --ico-w: clamp(76px, 7.05vw, 90px); --ico-h: 80px; position: absolute; left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+/* (a row: each cell its label plus --ico-pad each side, at least --ico-min wide, so every label sits as far from the
+   hairlines; the row moves left by --ico-pad, so the first label stands on the gutter under the chip and the avatar.
+   Two by two (a narrow screen, .fold) the cells keep --ico-w and the gutter) */
+.home .home-dock { --ico-w: clamp(76px, 7.05vw, 90px); --ico-h: 80px; --ico-pad: 14px; --ico-min: 64px; position: absolute; left: calc(24px - var(--ico-pad) + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   display: flex; gap: 4px; }
-.ui-night .home .home-ico { position: relative; width: var(--ico-w); height: var(--ico-h); flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  padding: 0; border: 0; background: none; color: var(--on-ink); cursor: pointer; -webkit-tap-highlight-color: transparent;
+.ui-night .home .home-ico { position: relative; width: auto; min-width: var(--ico-min); height: var(--ico-h); flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 0 var(--ico-pad); border: 0; background: none; color: var(--on-ink); cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: scale 140ms cubic-bezier(0.3, 0, 0, 1); }
 .home .home-ico > * { position: relative; z-index: 1; }
 .home .home-ico .ico { position: relative; display: block; line-height: 0; }
@@ -149,8 +158,9 @@
   text-shadow: 0 0 2px rgba(14, 25, 48, 0.9), 0 0 6px rgba(14, 25, 48, 0.85), 0 1px 10px rgba(14, 25, 48, 0.7); }
 .ui-night .home .home-ico svg.g { filter: drop-shadow(0 0 3px rgba(14, 25, 48, 0.8)); }
 .home .home-ico .ui-dot { position: absolute; top: -2px; right: -7px; }
-/* a free pull (or a spark ready): the badge vocabulary's ink sticker with the word, up and right of the glyph */
-.ui-night .home .home-ico .home-free { position: absolute; left: calc(100% - 2px); bottom: calc(100% - 10px); height: 18px; padding: 0 5px; line-height: 1; pointer-events: none; }
+/* a free pull (or a spark ready): the badge vocabulary's ink sticker with the word, over the glyph's top right, in the
+   cell's own top right corner (never across the hairline into the next cell; --free-y: the glyph's top, less 15 px) */
+.ui-night .home .home-ico .home-free { --free-y: 1px; position: absolute; z-index: 2; right: 2px; top: var(--free-y); height: 18px; padding: 0 5px; line-height: 1; pointer-events: none; }
 /* a hairline between two icons; no plate at rest, the kit's slanted press plate on press and keyboard focus */
 .home .home-ico + .home-ico::after { content: ''; position: absolute; left: -2.5px; top: 22px; bottom: 22px; width: 1px; background: var(--line-lo); }
 .home .home-ico::before { content: ''; position: absolute; inset: 2px -2px; z-index: 0; transform: skewX(var(--skew)); background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi);
@@ -236,7 +246,7 @@
 .home-menu.home-menu-in { animation: home-menu-in 220ms var(--ease) both; }
 @keyframes home-menu-in { from { opacity: 0; transform: translateX(16px); } }
 .home-menu .m-head { flex: none; height: 48px; display: flex; align-items: center; gap: 10px; }
-.home-menu .m-head .sp { flex: 1; }
+.home-menu .m-head .ui-spacer { flex: 1; }
 .home-menu .m-tools { display: flex; gap: 6px; }
 /* (46 px tall: the kit's 44 px parallelogram measured 43.75-44 px of real tap at its edges) */
 .ui-night .home-menu .m-tool { --h: 46px; gap: 6px; padding: 0 calc(10px + var(--s)); font-size: 13px; }
@@ -249,16 +259,25 @@
 .home-menu .m-k + .m-grid { margin-top: 6px; }
 .home-menu .m-grid { display: grid; grid-template-columns: 1fr; row-gap: 4px; }
 .home-menu .m-foot { min-width: 0; }
-.home-menu .ui-hrow { color: var(--on-ink); text-decoration: none; }
+/* (its rows are buttons: as wide as their column, as the links they were) */
+.home-menu .ui-hrow { width: 100%; color: var(--on-ink); text-decoration: none; }
 .home-menu .ui-hrow .ui-dot { transform: translateY(-7px); }
-/* while the sheet is open, the home UI it covers or cuts fades out in 150 ms (the chip, the icons, the plate, the top
-   bar's wallets and buttons): she and the avatar stay under the scrim. Opacity only. */
-.home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home .home-news-host, .home .home-dock, .home .home-battle { transition: opacity 150ms linear; }
-.home-menu-open .home .home-top > :is(.ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-news-host, .home-menu-open .home .home-dock, .home-menu-open .home .home-battle {
+/* while the sheet is open, the home UI fades out in 150 ms (the chip, the icons, the plate, the whole top bar, the
+   avatar's words too: under the scrim they would read under 4.5:1): only she stays under the scrim. Opacity only. */
+.home .home-top > :is(.who, .ui-pill, .ui-vr, .ui-ibtn), .home .home-news-host, .home .home-dock, .home .home-battle { transition: opacity 150ms linear; }
+.home-menu-open .home .home-top > :is(.who, .ui-pill, .ui-vr, .ui-ibtn), .home-menu-open .home .home-news-host, .home-menu-open .home .home-dock, .home-menu-open .home .home-battle {
   opacity: 0; pointer-events: none; }
 /* a narrow screen: her stage slides aside under the sheet so her face stays clear of it (lobby.js shiftForSheet) */
 .home .home-stage-host { transition: translate 160ms cubic-bezier(0.4, 0, 1, 1); }
 .home.menu-shift .home-stage-host { translate: var(--sheet-dx, 0px) 0; transition: translate 240ms cubic-bezier(0.3, 0, 0, 1); }
+/* a tall sheet (a 4:3 tablet, 1024x768): taller rows, SQUAD and ACADEMY at its top, SOCIAL and Settings at its foot,
+   so its lower half is not left empty */
+@media (min-height: 700px) and (min-width: 701px) and (max-aspect-ratio: 3/2) {
+  .ui-night .home-menu .ui-hrow { height: 56px; }
+  .home-menu .m-cols { flex: 1; margin-top: 20px; align-content: space-between; row-gap: 24px; }
+  .home-menu .m-k + .m-grid { margin-top: 10px; }
+  .home-menu .m-grid { row-gap: 6px; }
+}
 @media (prefers-reduced-motion: reduce) { .home-menu.home-menu-in { animation: ui-fade 150ms linear both; } .home .home-stage-host { transition: none !important; } }
 html[data-reduce-motion] .home-menu.home-menu-in { animation: ui-fade 150ms linear both; }
 html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
@@ -294,9 +313,11 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .home .home-news .pager .num { font-size: 12px; }
   .home .home-news .pager svg.g { width: 16px; height: 16px; }
 
-  /* the four icons: x 16-284, y 318-374 (64 x 56 each: COMMISSIONS is 60 px at 12 px) */
-  .home .home-dock { --ico-w: 64px; --ico-h: 56px; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  /* the four icons: y 318-374, their first label at x 16 (each cell its label and 9 px each side, 52 px at least:
+     COMMISSIONS is 60 px at 12 px; 64 x 56 each two by two) */
+  .home .home-dock { --ico-w: 64px; --ico-h: 56px; --ico-pad: 9px; --ico-min: 52px; left: calc(16px - var(--ico-pad) + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
   .ui-night .home .home-ico { gap: 5px; }
+  .ui-night .home .home-ico .home-free { --free-y: -7px; }
   .ui-night .home .home-ico svg.g { width: 24px; height: 24px; }
   .ui-night .home .home-ico .lbl { font-size: 12px; letter-spacing: 0.03em; }
   .home .home-ico .ui-dot { top: -3px; right: -6px; }
@@ -334,19 +355,21 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 
 /* ================================================================ narrower landscape screens: the icons two by two */
 /* (a small phone, 667x375 or 740x360; a 4:3 tablet, 1024x768): four icons in a row and the plate leave her legs too
-   little room between them, so the icons stack in a 2 x 2 block in their corner */
+   little room between them, so the icons stack in a 2 x 2 block in their corner (cells of --ico-w, on the gutter) */
 @media (max-height: 480px) and (max-width: 759px), (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) {
-  .home .home-dock { display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
+  .home .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
+  .ui-night .home .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home .home-dock .home-ico:nth-child(3)::after { display: none; }
 }
 /* (.fold: a girl whose art reaches into the icons' corner on any landscape screen, Marumi's ball: the icons fold the
    same way, lobby.js refold) */
 @media (min-aspect-ratio: 1/1) {
-  .home.fold .home-dock { display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
+  .home.fold .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
+  .ui-night .home.fold .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home.fold .home-dock .home-ico:nth-child(3)::after { display: none; }
 }
 @media (max-height: 480px) and (max-width: 759px) { .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } }
-@media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .home .home-battle { --bw: 300px; } }
+@media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .ui-night .home .home-ico .home-free { --free-y: -2px; } .home .home-battle { --bw: 300px; } }
 
 /* ================================================================ a phone held upright (390x844) */
 /* the bar on two rows (the avatar and the buttons, then the wallets), her in the upper half, and under her, in thumb
@@ -354,15 +377,16 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 @media (max-width: 700px) and (min-height: 481px) {
   .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
   .home .home-top .who { height: 44px; order: 0; }
-  .home .home-top .sp { order: 1; }
+  .home .home-top .ui-spacer { order: 1; }
   .home .home-top > .ui-ibtn, .home .home-top > .ol-top-chat { order: 2; }
   .home .home-top .ui-vr { order: 3; flex-basis: 100%; height: 0; margin: 0; background: none; }
   .home .home-top .ui-pill { order: 4; }
   .home .home-top .ui-pill:first-of-type { margin-left: auto; }
   .home .home-top .serial { display: none; }
   .ui-night .home .ui-scrim.b { height: 360px; background: linear-gradient(0deg, rgba(14, 25, 48, 0.82) 0, rgba(14, 25, 48, 0.62) 55%, rgba(14, 25, 48, 0) 100%); }
-  .home .home-dock { --ico-h: 56px; left: 16px; right: 16px; bottom: 16px; }
-  .ui-night .home .home-ico { flex: 1; width: auto; gap: 5px; }
+  .home .home-dock { --ico-h: 56px; --ico-pad: 0px; left: 16px; right: 16px; bottom: 16px; }
+  .ui-night .home .home-ico { flex: 1; width: auto; min-width: 0; gap: 5px; }
+  .ui-night .home .home-ico .home-free { --free-y: -8px; }
   .ui-night .home .home-ico svg.g { width: 24px; height: 24px; }
   .ui-night .home .home-ico .lbl { font-size: 13px; letter-spacing: 0.03em; }
   .home .home-ico + .home-ico::after { top: 16px; bottom: 16px; }
@@ -382,7 +406,8 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   body.ui-night .home-menu.home-menu-in { animation-name: mo-sheet-up; }
   body.ui-night .home-menu-layer.closing > .home-menu { animation-name: mo-sheet-down; }
   .home-menu .m-head { height: 46px; gap: 6px; }
-  .ui-night .home-menu .m-tool { padding: 0 calc(8px + var(--s)); font-size: 12px; }
+  .home-menu .m-head .ui-kbd { display: none; }
+  .ui-night .home-menu .m-tool { padding: 0 calc(8px + var(--s)); font-size: 13px; }
   .ui-night .home-menu .ui-hrow { height: 45px; }
   .home-menu .m-cols { margin-top: 6px; column-gap: 12px; row-gap: 10px; }
 }

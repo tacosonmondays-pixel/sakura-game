@@ -104,6 +104,32 @@ describe('the home\'s source (C12: the hooks stay, the folded parts go)', () => 
     expect(src).toContain('openMenuSheet');
     expect(readFileSync('src/ui/lobby/menuSheet.js', 'utf8')).toContain("testid: 'shortcut-notice'");
   });
+  it('the keys: the home opts in (Esc closes its windows), Tab reads the bar first, Space never presses Battle under the chat drawer', () => {
+    const home = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(home).toContain("'data-keys': 'on'");
+    expect(home).toContain('el.append(stageHost, top, ui, restore);');
+    expect(home).toMatch(/document\.querySelector\('\.modal-overlay, \.ui-layer, \.ol-drawer'\)/);
+  });
+  it('a redraw keeps the focus: the bar, the icons, the chip and the plate are drawn inside keepFocus', () => {
+    const home = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(home).toMatch(/const drawAll = \(\) => \{\s*keepFocus\(\(\) => \{/);
+    expect(home).toContain('keepFocus(() => buildNews(newsHost');
+    expect(home).toContain('keepFocus(() => buildTop(top, { onMenu: openMenu, chat }))');
+  });
+  it('one chat button per visit, put back by every redraw of the bar, released when the home goes (no listener or watch left behind)', () => {
+    const home = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(home.match(/chatButton\(\)/g)).toHaveLength(1);
+    expect(home.match(/homeChat\(\)/g)).toHaveLength(2); // (its definition and its one call)
+    expect(home).toContain('chat.release?.();');
+    const chat = readFileSync('src/ui/online/lobbyChat.js', 'utf8');
+    expect(chat).toMatch(/btn\.release = \(\) => \{\s*released = true;\s*stop\(\);\s*mo\.disconnect\(\);/);
+  });
+  it('Marumi\'s living scene plays only where it keeps clear of every control (row or folded); else her still portrait', () => {
+    const home = readFileSync('src/ui/screens/lobby.js', 'utf8');
+    expect(home).toMatch(/const liveFits = \(def\) => \{/);
+    expect(home).toMatch(/if \(!liveFits\(def\)\) \{\s*\/\/ her still portrait stays/);
+    expect(home).toMatch(/if \(!liveFits\(live\.def\)\) \{\s*disposeLive\(\);/);
+  });
 });
 
 describe('the news chip\'s pages (home layout B: turned by hand only; what shows at landing)', () => {

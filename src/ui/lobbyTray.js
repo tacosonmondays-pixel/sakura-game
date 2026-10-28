@@ -82,26 +82,27 @@ export const NEWS_MAX = 3;
 /**
  * The news card's pages, in order: the event, the recruit banner, the weekly bosses.
  * @param {NewsState} s
- * @returns {{ id: string, kicker: string, title: string, testid: string, timeTestid: string|null, msLeft: number|null,
- *   phase: string|null, art: string|null }[]}
+ * @returns {{ id: string, kicker: string, short?: string, title: string, testid: string, timeTestid: string|null,
+ *   msLeft: number|null, phase: string|null, art: string|null }[]}
  *   testid: the page's link (event-card for a limited event, event-strip for the week's double drops, as before);
- *   timeTestid: its countdown chip's hook
+ *   timeTestid: its countdown chip's hook; short: the kicker's short form, shown where the long one would wrap beside
+ *   the countdown (the home's news chip on a phone)
  */
 export function homeNews(s = {}) {
   const out = [];
   if (s.limited) {
     out.push({ id: 'event', kicker: 'Event', title: s.limited.name, testid: 'event-card', timeTestid: 'event-card-time', msLeft: s.limited.msLeft ?? null, phase: s.limited.phase, art: s.limited.art || null });
   } else if (s.weekly) {
-    out.push({ id: 'weekly', kicker: `Event · ${s.weekly.dropMul || 2}× drops`, title: s.weekly.name, testid: 'event-strip', timeTestid: 'event-strip-time', msLeft: s.weekly.msLeft ?? null, phase: null, art: null });
+    out.push({ id: 'weekly', kicker: `Event · ${s.weekly.dropMul || 2}× drops`, short: `${s.weekly.dropMul || 2}× drops`, title: s.weekly.name, testid: 'event-strip', timeTestid: 'event-strip-time', msLeft: s.weekly.msLeft ?? null, phase: null, art: null });
   }
   if (s.recruit) {
     out.push({ id: 'recruit', kicker: 'Recruit', title: s.recruit.pity ? `Enrollment · SSR in ${s.recruit.pity}` : 'Enrollment', testid: 'banner-recruit', timeTestid: null, msLeft: null, phase: null, art: 'ticket_recruit' });
   }
   const b = s.bosses;
   if (b?.titans?.open) {
-    out.push({ id: 'bosses', kicker: 'Weekly bosses', title: b.titans.name ? `Titan Trials · ${b.titans.name}` : 'Titan Trials', testid: 'banner-titans', timeTestid: 'banner-bosses-time', msLeft: b.msLeft ?? null, phase: null, art: 'token_boss' });
+    out.push({ id: 'bosses', kicker: 'Weekly bosses', short: 'Bosses', title: b.titans.name ? `Titan Trials · ${b.titans.name}` : 'Titan Trials', testid: 'banner-titans', timeTestid: 'banner-bosses-time', msLeft: b.msLeft ?? null, phase: null, art: 'token_boss' });
   } else if (b?.assault?.open) {
-    out.push({ id: 'bosses', kicker: 'Weekly boss', title: 'Total Assault', testid: 'banner-assault', timeTestid: 'banner-bosses-time', msLeft: b.msLeft ?? null, phase: null, art: 'token_boss' });
+    out.push({ id: 'bosses', kicker: 'Weekly boss', short: 'Boss', title: 'Total Assault', testid: 'banner-assault', timeTestid: 'banner-bosses-time', msLeft: b.msLeft ?? null, phase: null, art: 'token_boss' });
   }
   return out.slice(0, NEWS_MAX);
 }

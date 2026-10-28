@@ -291,7 +291,7 @@ properties only; nothing blocks a tap):
 | What | ms | Notes |
 |---|---|---|
 | Home, first open (boot or a battle's cut) | wallpaper 1000 (scale 1.03 → 1), girl 360 (80 late, 8 px up), top bar 240 (100 late, 12 px down), pieces 240 each, 40 ms apart from 160 | waits at its first frame under the cover and plays from the reveal; still by ~0.7 s, the wallpaper by 1 s |
-| Home, return from a sub-screen | wallpaper 500 (1.015 → 1), girl 220, bar 180, pieces 200, 30 ms apart | `homeEntrance()`; the home concepts reuse it, or `stagger()` / `data-mo` on their own pieces |
+| Home, return from a sub-screen | wallpaper 500 (1.015 → 1, a settle only: it never fades from 0 again, the screen change's own fade brings the home in), girl 220, bar 180, pieces 200, 30 ms apart | `homeEntrance()`; the home concepts reuse it, or `stagger()` / `data-mo` on their own pieces; under Reduce Motion the wallpaper simply stays |
 | Screen push / pop | 80 + 200 forward, 60 + 160 back; the ink wipe 280 / 220 | `src/ui/transitions/` (MOTION); home ↔ battle keeps the cut and Mochi |
 | Tab switch | content 120 fade + 180 shift (12 px, the way the rail was walked) | `tabSwap()`: girl page, list screens (Mall, Mailroom, Happening, Settings), Commissions, the home's news pager |
 | Sheets, the home menu | in 240 (from the right 48 px / up 32 px) with a 160 scrim; out 160; menu rows 20 ms apart | |
@@ -302,6 +302,7 @@ properties only; nothing blocks a tap):
 | Home layout B: the news chip | a page turn by hand (its "›") 240: the old words 12 px left and out in 120, the new 12 px in from the right in 200, 40 late. It never turns on its own (P8; nothing on the home moves on its own but the living scene) | a 120 ms fade under Reduce Motion |
 | Home layout B: the menu over a narrow screen | her stage slides aside under the sheet (240 in, 160 back), only as far as her face box needs | a jump under Reduce Motion |
 | Home layout B: hide the UI | a long press (600 ms) on the wallpaper, not on her or a control, hides the UI or brings it back | the menu's Hide UI and the restore button as before |
+| Home layout B: Marumi's living scene | plays only where all her art keeps 8 px clear of every control, the icons in a row or folded two by two (5.5, C5); elsewhere (a small phone, 667x375) her still portrait, as on Low graphics | asked again on a resize |
 
 Reduce Motion (the setting or the system): no movement, a 120 ms fade at most, numbers change at once, no pops.
 

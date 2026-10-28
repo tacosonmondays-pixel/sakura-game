@@ -676,7 +676,8 @@
   padding: 0 calc(12px + env(safe-area-inset-right, 0px)) 0 calc(10px + env(safe-area-inset-left, 0px));
   background: var(--plate); color: var(--m-text); box-shadow: inset 0 -1px 0 var(--line-lo); }
 :where(.ui-day, .ui-night) .ui-topbar .tb-title { font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--m-text); white-space: nowrap; }
-:where(.ui-day, .ui-night) .ui-topbar .sp { flex: 1; }
+/* (the bar's spacer is .ui-spacer: .sp is the story scene player's root, a fixed full-screen layer, story.css) */
+:where(.ui-day, .ui-night) .ui-spacer { flex: 1; }
 :where(.ui-day, .ui-night) .ui-cur { display: inline-flex; align-items: center; gap: 6px; }
 :where(.ui-day, .ui-night) .ui-cur svg.g { width: var(--icon-s); height: var(--icon-s); color: var(--on-ink-dim); }
 :where(.ui-day, .ui-night) .ui-slash { width: 1px; height: 16px; background: var(--line-hi); transform: skewX(-18deg); flex: none; }

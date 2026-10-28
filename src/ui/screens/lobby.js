@@ -29,6 +29,9 @@
 // on the first open (from the boot loader or a battle's cut: waiting under the cover, playing from the reveal) and on
 // every return from a sub-screen (shorter); its stagger() brings the chip, the icons and the plate in from their own
 // edges; the balances count when they change; a red dot or count pops when it appears.
+// Keys (src/ui/keys.js, data-keys="on"): Space presses Battle, Esc closes the top dismissable window (the Notice, the
+// background picker, a rewards modal) as a tap outside it would; Tab reads the top bar first; a redraw (a store change,
+// the hub's badges, a page turn) gives the focus back to the control that had it.
 // Hooks kept from UI M5 and V2: tile-mission on the Battle plate (it opens Missions) with its "Open!" chip
 // (campaign-open), lobby-chapter on its band, lobby-multiplayer(-count) on CO-OP, dock-students / dock-recruit /
 // dock-commissions / dock-mall on the icons (recruit-free on the FREE sticker), dock-clan in the menu, top-mail, top-menu,
@@ -154,7 +157,7 @@ export function render(root) {
   // cover (the boot loader, a battle's cut), a return from a menu slide
   const txKind = globalThis.document?.documentElement?.dataset?.tx || '';
   const firstOpen = !txKind || txKind === 'boot' || txKind === 'cut';
-  const el = h('div.screen.lb.home', { 'data-testid': 'lobby', 'data-layout': 'b', 'data-mo-own': '', 'data-entrance': firstOpen ? 'first' : 'return' });
+  const el = h('div.screen.lb.home', { 'data-testid': 'lobby', 'data-layout': 'b', 'data-mo-own': '', 'data-keys': 'on', 'data-entrance': firstOpen ? 'first' : 'return' });
   const stageHost = h('div.home-stage-host');
   const top = h('header.ui-topbar.float.home-top');
   const newsHost = h('div.home-news-host');
@@ -162,7 +165,11 @@ export function render(root) {
   const battleHost = h('div.home-battle', { 'data-testid': 'home-battle' });
   const ui = h('div.home-ui', newsHost, dock, battleHost);
   const restore = h('button.ui-ibtn.home-restore', { type: 'button', 'aria-label': 'Show the menus', title: 'Show the menus', 'data-testid': 'lobby-restore' }, g('image'));
-  el.append(stageHost, ui, top, restore);
+  // (the bar first: Tab reads it before the corners, as the eye does; the layers' z-index does the stacking)
+  el.append(stageHost, top, ui, restore);
+  // [online] the chat button, made once for this home: its hub listeners and its watch live as long as the home does,
+  // and every redraw of the bar puts the same button back (src/ui/online/lobbyChat.js)
+  const chat = homeChat();
   let eventBackdrop = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the news chip reads the state
@@ -191,9 +198,10 @@ export function render(root) {
   // each box says what it is (kind): 'ctl' a control, 'pill' a wallet's plate (shown only), 'gap' the bar's spacer and
   // rule, 'soft' the words and icon inside a wallet. Her stand keeps clear of all of them; a full illustration keeps her
   // hair clear of the controls first and of the wallets' words and icons where the picture allows (artStage.js placeFull)
-  const kindOf = (e) => (e.classList.contains('sp') || e.classList.contains('ui-vr') ? 'gap' : e.classList.contains('ui-pill') ? 'pill' : 'ctl');
-  const uiBoxes = () => {
-    if (el.classList.contains('ui-hidden')) return [];
+  const kindOf = (e) => (e.classList.contains('ui-spacer') || e.classList.contains('ui-vr') ? 'gap' : e.classList.contains('ui-pill') ? 'pill' : 'ctl');
+  // (all: the controls' boxes while the UI is hidden too: whether her living scene can stand here at all)
+  const uiBoxes = ({ all = false } = {}) => {
+    if (!all && el.classList.contains('ui-hidden')) return [];
     const sel = [...top.children, ...dock.children, ...newsHost.querySelectorAll('.ui-news'), ...battleHost.querySelectorAll('.home-plate, .home-coop')];
     const inner = [...top.querySelectorAll(':scope > .ui-pill > *')];
     const o = laidOut(el);
@@ -273,10 +281,32 @@ export function render(root) {
   let liveToken = 0;
   let liveState = 'static';
   let loadingFor = '';
+  let liveWhy = ''; // why her still portrait shows while her scene could play: 'fit' (it would reach a control)
   const liveLayout = (def) => {
     const W = el.clientWidth || innerWidth;
     const H = el.clientHeight || innerHeight;
     return { W, H, place: def.place(W, H, uiBoxes()) };
+  };
+  /**
+   * Her living scene plays only where all of her art (the ball and both hands too) can keep 8 px clear of every control
+   * (5.5, C5), with the four icons in a row or folded two by two, at 80 % of the cover fit or more (live/marumi.js). Where
+   * neither does (a small phone: 667x375), her still portrait shows instead, as it does on Low graphics. Asked with the
+   * controls' boxes even while the UI is hidden, so hiding the UI never swaps her picture.
+   */
+  const liveFits = (def) => {
+    const W = el.clientWidth || innerWidth;
+    const H = el.clientHeight || innerHeight;
+    const was = el.classList.contains('fold');
+    let ok = false;
+    for (const fold of [false, true]) {
+      el.classList.toggle('fold', fold);
+      if (def.place(W, H, uiBoxes({ all: true })).fits !== false) {
+        ok = true;
+        break;
+      }
+    }
+    el.classList.toggle('fold', was);
+    return ok;
   };
   const disposeLive = () => {
     liveToken++;
@@ -308,19 +338,35 @@ export function render(root) {
     const illustration = stageModeOf(LOBBY_BG_MAP[currentBg]) === 'full';
     if (!want || illustration) {
       if (live || liveState === 'loading') disposeLive();
+      liveWhy = '';
       return;
     }
-    if (live?.id === id && live.quality === quality) return;
+    if (live?.id === id && live.quality === quality) {
+      // (the screen or its controls changed under her: where her scene would reach a control now, her still portrait)
+      if (!liveFits(live.def)) {
+        disposeLive();
+        liveWhy = 'fit';
+      }
+      return;
+    }
     if (liveState === 'loading' && loadingFor === `${id}:${quality}`) return; // (already on its way)
     disposeLive();
     const token = ++liveToken;
     liveState = 'loading';
     loadingFor = `${id}:${quality}`;
     try {
-      const [mod, eng] = await Promise.all([want.load(), import('../lobby/live/engine.js')]);
+      const def = (await want.load()).default;
+      if (token !== liveToken || !alive) return;
+      if (!liveFits(def)) {
+        // her still portrait stays (no engine, no WebGL context)
+        liveState = 'static';
+        loadingFor = '';
+        liveWhy = 'fit';
+        return;
+      }
+      const eng = await import('../lobby/live/engine.js');
       engineStats = eng.liveStats;
       if (token !== liveToken || !alive) return;
-      const def = mod.default;
       const canvas = h('canvas.home-live-canvas', { 'data-live': id, 'aria-hidden': 'true' });
       stage.liveHost().replaceChildren(canvas);
       const lay = liveLayout(def);
@@ -336,6 +382,7 @@ export function render(root) {
       stage.setLivePlacement(lay.place);
       handle.start();
       liveState = 'live';
+      liveWhy = '';
       refold();
     } catch (e) {
       if (token === liveToken) failLive(id, e);
@@ -356,13 +403,31 @@ export function render(root) {
   window.addEventListener('resize', onResize);
 
   // ---- the UI --------------------------------------------------------------------------------------------------
+  /**
+   * A redraw keeps the keyboard where it was: when a control of the home had the focus and the redraw took it away (the
+   * control was made again, or put back), the control with the same hook gets it back, else the first control of the
+   * same corner. (A pager pressed twice, a store change on a focused icon, the hub's badges under a focused button.)
+   */
+  const keepFocus = (draw) => {
+    const had = document.activeElement;
+    const mine = had && had !== document.body && el.contains(had) ? had : null;
+    const id = mine?.getAttribute('data-testid');
+    const zone = mine ? [top, newsHost, dock, battleHost].find((z) => z.contains(mine)) : null;
+    draw();
+    if (!mine || document.activeElement === mine) return;
+    if (document.activeElement && document.activeElement !== document.body) return; // (it moved on by itself)
+    const next = (mine.isConnected && mine) || (id && el.querySelector(`[data-testid="${CSS.escape(id)}"]`))
+      || zone?.querySelector('button:not([disabled]), a[href]');
+    next?.focus({ preventScroll: true });
+  };
+
   let newsPage = 0;
   // the news chip turns by hand only, by its "›" (UI v2 rule 11, P8: nothing on the home turns on its own); the pager
   // rebuilds only the chip: the old words wipe out to the left, the new in from the right
   const pageNews = (n) => {
     const old = newsHost.querySelector('.ui-news');
     newsPage = n;
-    buildNews(newsHost, { page: newsPage, onPage: (k) => pageNews(k) });
+    keepFocus(() => buildNews(newsHost, { page: newsPage, onPage: (k) => pageNews(k) }));
     wipeNews(newsHost, old, reduceMotion());
     fitTexts();
   };
@@ -387,6 +452,7 @@ export function render(root) {
     stage.hideBubble();
     const sh = openMenuSheet({
       reduced: reduceMotion(),
+      opener: () => top.querySelector('[data-testid="top-menu"]'),
       dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread(), clan: hub.badges.donationsReady > 0 },
       tools: [
         { id: 'hide', label: 'Hide UI', aria: 'Hide the menus', glyph: 'eyeoff', testid: 'lobby-hide', go: () => setHidden(true) },
@@ -405,10 +471,12 @@ export function render(root) {
     shiftForSheet(sh.el);
   }
   const drawAll = () => {
-    buildTop(top, { onMenu: openMenu });
-    buildDock(dock);
-    buildNews(newsHost, { page: newsPage, onPage: (k) => pageNews(k) });
-    buildBattle(battleHost);
+    keepFocus(() => {
+      buildTop(top, { onMenu: openMenu, chat });
+      buildDock(dock);
+      buildNews(newsHost, { page: newsPage, onPage: (k) => pageNews(k) });
+      buildBattle(battleHost);
+    });
     fitTexts();
   };
   drawAll();
@@ -446,7 +514,10 @@ export function render(root) {
   };
   const refreshInvites = () => openInvites().then(() => { if (alive) paintInvites(); }).catch(() => {});
   refreshInvites();
-  const offHub = [hub.on('invites', refreshInvites), hub.on('status', refreshInvites), hub.on('badges', () => { refreshInvites(); if (alive) buildTop(top, { onMenu: openMenu }); })];
+  const offHub = [hub.on('invites', refreshInvites), hub.on('status', refreshInvites), hub.on('badges', () => {
+    refreshInvites();
+    if (alive) keepFocus(() => buildTop(top, { onMenu: openMenu, chat }));
+  })];
   // (the webfonts change the words' widths, so the controls' boxes: she is placed again once they are in)
   document.fonts?.ready?.then(() => {
     if (!alive) return;
@@ -454,6 +525,7 @@ export function render(root) {
     stage.relayout();
     relayoutLive();
     refold();
+    syncLive();
   });
 
   // ---- hide the UI (the menu's Hide UI, a long press on the wallpaper; the restore button or a long press again) ----
@@ -491,7 +563,7 @@ export function render(root) {
 
   // ---- keys: Space presses Battle, the home's primary (desktop; never while a sheet, a dialog or a field has the keys) ----
   const onKey = (e) => {
-    if (e.code !== 'Space' || e.repeat || menuSheetOpen() || document.querySelector('.modal-overlay, .ui-layer')) return;
+    if (e.code !== 'Space' || e.repeat || menuSheetOpen() || document.querySelector('.modal-overlay, .ui-layer, .ol-drawer')) return;
     const t = e.target;
     if (t && (t.closest?.('input, textarea, select, button, a, [contenteditable]'))) return;
     const go = battleHost.querySelector('[data-testid="tile-mission"]');
@@ -537,6 +609,7 @@ export function render(root) {
     };
     window.__sakura.live = {
       get state() { return liveState; },
+      get why() { return liveWhy; },
       get stats() { return engineStats ? { ...engineStats } : null; },
       canvases: () => document.querySelectorAll('canvas[data-live]').length,
       placement: () => (live ? live.handle.place : null),
@@ -558,6 +631,7 @@ export function render(root) {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('keydown', onKey);
     closeMenuSheet();
+    chat.release?.();
     live?.handle.stop();
   };
   return Object.assign(() => {
@@ -622,7 +696,19 @@ function pill({ glyph = null, art = null, amount, testid, label, onPlus = null, 
   return el;
 }
 
-function buildTop(host, { onMenu }) {
+/**
+ * The home's chat button (src/ui/online/lobbyChat.js) in the kit's look: made once per home render (lobby.js render),
+ * its counts kept up by its own hub listeners; release() lets them go with the home.
+ */
+function homeChat() {
+  const chat = chatButton(); // [online] global / clan chat drawer, its unread dot and the unread messages count
+  chat.classList.remove('lb-tr-btn');
+  chat.classList.add('ui-ibtn');
+  (chat.querySelector('.lb-glyph') || chat.querySelector('svg'))?.replaceWith(g('chat'));
+  return chat;
+}
+
+function buildTop(host, { onMenu, chat }) {
   const profile = store.profile;
   clear(host);
   const mailCount = unclaimedMailCount(profile);
@@ -638,10 +724,6 @@ function buildTop(host, { onMenu }) {
   const who = h('button.who', { type: 'button', 'data-testid': 'account-level', title: 'Sensei Profile', onclick: () => navigate('profile'),
     'aria-label': `Profile: ${name}, level ${a.level}${a.need ? `, ${pct}% of the way to level ${a.level + 1}` : ''}` },
   av, h('span.who-t', h('span.body.who-name', name), h('span.lv', h('span.lbl', 'LV'), h('span.num', String(a.level)))), h('span.serial', { 'aria-hidden': 'true' }, 'SNT-HQ'));
-  const chat = chatButton(); // [online] global / clan chat drawer, its unread dot and the unread messages count
-  chat.classList.remove('lb-tr-btn');
-  chat.classList.add('ui-ibtn');
-  (chat.querySelector('.lb-glyph') || chat.querySelector('svg'))?.replaceWith(g('chat'));
   const mail = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-mail', title: 'Mail', 'aria-label': mailCount ? `Mail, ${mailCount} unread` : 'Mail', onclick: () => openMailbox() },
     g('mail'), badge(mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null, 'home:mail'));
   // (Clan lives in the menu on this home: its donations ready light the menu's dot too)
@@ -650,7 +732,8 @@ function buildTop(host, { onMenu }) {
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   host.append(
     who,
-    h('span.sp'),
+    // (the spacer is .ui-spacer, never .sp: that is the story scene player's root, a fixed full-screen layer, story.css)
+    h('span.ui-spacer'),
     pill({ glyph: 'ticket', amount: tickets, testid: 'tickets', label: 'Recruit tickets' }),
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins' }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
@@ -661,7 +744,7 @@ function buildTop(host, { onMenu }) {
 
 // ---------------------------------------------------------------------------------------------
 // The four icons, bottom left: STUDENTS · RECRUIT · COMMISSIONS · MALL (a glyph over a caps label; no plates; RECRUIT
-// wears a small FREE sticker for a free pull, COMMISSIONS a red dot for something to claim)
+// wears a small FREE sticker for a free pull, inside its own cell, COMMISSIONS a red dot for something to claim)
 // ---------------------------------------------------------------------------------------------
 
 function buildDock(host) {
@@ -680,10 +763,10 @@ function buildDock(host) {
   clear(host);
   for (const r of items) {
     host.appendChild(h('button.home-ico', { type: 'button', 'data-testid': r.testid, 'data-dock': r.id, 'aria-label': r.aria || r.label, onclick: r.go },
-      h('span.ico', g(r.glyph),
-        badge(r.dot ? h('i.ui-dot') : null, `home:dock:${r.id}`),
-        badge(r.sticker ? h('span.ui-bdg.new.home-free', { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)),
-      h('span.lbl', r.label)));
+      h('span.ico', g(r.glyph), badge(r.dot ? h('i.ui-dot') : null, `home:dock:${r.id}`)),
+      h('span.lbl', r.label),
+      // (the sticker sits in the cell's own top right corner, never across the hairline into the next cell)
+      badge(r.sticker ? h('span.ui-bdg.new.home-free', { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)));
   }
 }
 
@@ -855,9 +938,11 @@ function buildNews(host, { page = 0, onPage }) {
     };
     const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
     const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : n.id === 'notice' ? 'megaphone' : 'sparkles'));
+    // (a page with a short kicker carries both: fitTexts shows the short one where the long one would wrap)
+    const kicker = n.short ? [h('span.kl', n.kicker), h('span.ks', n.short)] : n.kicker;
     body = h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
       thumb,
-      h('span.col', h('span.k', h('span.lbl', n.kicker), chip), h('span.body', n.title)));
+      h('span.col', h('span.k', h('span.lbl', kicker), chip), h('span.body', n.title)));
   }
   host.appendChild(h('div.ui-news.home-news', { 'data-testid': 'lobby-news', 'data-page': n.id, 'data-pages': pages.length },
     body,
@@ -900,16 +985,22 @@ function wipeNews(host, old, reducedNow) {
 }
 
 /**
- * Long words step down instead of clipping (6, 12.1): the news chip's line wraps to a second line and the chip grows
- * (46 → 60 px on phones).
+ * Long words step down instead of clipping (6, 12.1): a kicker that would wrap takes its short form (WEEKLY BOSSES →
+ * BOSSES beside the countdown on a phone), and the news chip's line wraps to a second line and the chip grows (46 → 60 px
+ * on phones).
  */
 function fitTexts() {
+  const lines = (e) => {
+    const cs = getComputedStyle(e);
+    const lh = cs.lineHeight.endsWith('px') ? parseFloat(cs.lineHeight) : parseFloat(cs.fontSize) * 1.2;
+    return e.getBoundingClientRect().height / lh;
+  };
   for (const card of document.querySelectorAll('.home .home-news')) {
     const body = card.querySelector('.go:not(.ghost) .body');
     if (!body) continue;
-    card.classList.remove('two');
-    const cs = getComputedStyle(body);
-    const lh = cs.lineHeight.endsWith('px') ? parseFloat(cs.lineHeight) : parseFloat(cs.fontSize) * 1.2;
-    if (body.getBoundingClientRect().height > lh * 1.5) card.classList.add('two');
+    card.classList.remove('two', 'kshort');
+    const k = card.querySelector('.go:not(.ghost) .k .lbl');
+    if (k?.querySelector('.ks') && lines(k) > 1.5) card.classList.add('kshort');
+    if (lines(body) > 1.5) card.classList.add('two');
   }
 }

@@ -21,8 +21,15 @@
 //   7. Hikari's rampart (a bright full illustration) at 667x375, 844x390 and 1024x768: Battle bottom right, her face and
 //      hair clear of every control, the icons' caps and the SNT-HQ serial at 4.5:1 or more on the pixels under them
 //      (the glyphs' own pixels against the background with the halo, at the 10th percentile)
+//   8. after Story and the Journal (they load the scene player's styles, whose root class is .sp), the home takes taps
+//      again: the element at its centre is the home's, and Battle opens Missions (the bar's spacer is .ui-spacer)
+//   9. Marumi on a small phone (667x375, High, motion allowed): where her living scene cannot keep 8 px clear of every
+//      control, her still portrait shows (no canvas), 8 px clear of every control
+//  10. keys (desktop): Tab reads the top bar first; the news pager keeps the focus through its page turns, and a redraw
+//      keeps it on an icon; the menu sheet keeps Tab inside, its rows take Space, and closing it by Esc, its X or a tap
+//      outside gives the focus back to the menu button; Esc closes the Notice opened from it
 //
-//   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--rampart 667x375,844x390,1024x768] [--shots dir]
+//   node e2e/home.mjs [--viewport 844x390,1280x720,390x844] [--rampart 667x375,844x390,1024x768] [--small 667x375] [--shots dir]
 // Starts its own Vite dev server on a free port; exit code 1 when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -36,6 +43,7 @@ const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
 const viewports = opt('viewport', '844x390,1280x720,390x844').split(',').map((s) => s.trim());
 const rampartSizes = opt('rampart', '667x375,844x390,1024x768').split(',').map((s) => s.trim()).filter(Boolean);
+const smallSizes = opt('small', '667x375').split(',').map((s) => s.trim()).filter(Boolean);
 const shots = opt('shots', null);
 if (shots) mkdirSync(shots, { recursive: true });
 
@@ -299,6 +307,21 @@ async function staticChecks(vp) {
     await page.click('[data-testid="lobby-bg"]');
     check(!!(await page.waitForSelector('[data-testid="bgp-done"]', { timeout: 5000 }).catch(() => null)), `${vp} the background tool opens the background and secretary picker`);
     await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+    // 8. Story and the Journal load the scene player's styles (story.css: .sp is a fixed full-screen layer); back on the
+    // home, nothing of it covers the home: its centre is the home's, and Battle takes a tap
+    for (const r of ['story', 'journal']) {
+      await go(page, `#/${r}`, r);
+      await go(page, '#/lobby', 'lobby');
+      const c = await page.evaluate(() => {
+        const e = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+        return { home: !!e?.closest('#app .home'), sp: document.querySelectorAll('.sp').length, el: e ? `${e.tagName.toLowerCase()}.${[...e.classList].join('.')}` : null };
+      });
+      check(c.home && !c.sp, `${vp} after ${r}: the element at the home's centre is the home's (${c.el}; .sp elements ${c.sp})`);
+      await page.click('[data-testid="tile-mission"]', { timeout: 15000 }).catch(() => {});
+      await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'missions', null, { timeout: 15000 }).catch(() => {});
+      check(await screenIs(page) === 'missions', `${vp} after ${r}: Battle takes a tap and opens Missions (now ${await screenIs(page)})`);
+    }
+    if (W >= 1000) await keyChecks(page, vp);
     // a full illustration whose girl stands right of the middle (Hikari's rampart): the corners stay (Battle bottom
     // right), her face comes toward the middle, her face and hair clear of every control (rampartChecks)
     if (W > H) {
@@ -406,6 +429,96 @@ async function rampartChecks(vp) {
     check(c.length >= 5 && !low.length, `${vp} rampart: the icons' caps and the serial at 4.5:1 or more (${c.map((x) => `${x.text} ${x.p10 == null ? '-' : x.p10.toFixed(2)}`).join(', ')})`);
     await shot(page, 'home-rampart', vp);
     check(!errors.length, `${vp} rampart: no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
+  } finally {
+    await context.close();
+  }
+}
+
+/** 10. The home by keyboard (a desktop context: no touch). */
+async function keyChecks(page, vp) {
+  const tid = (t) => `[data-testid="${t}"]`;
+  const active = () => page.evaluate(() => { const e = document.activeElement; return !e || e === document.body ? 'BODY' : (e.dataset.testid || e.tagName); });
+  await go(page, '#/lobby', 'lobby');
+  await page.evaluate(() => document.activeElement?.blur());
+  // (the first Tab after a screen change may stop on the page itself)
+  let first = 'BODY';
+  for (let i = 0; i < 3 && first === 'BODY'; i++) {
+    await page.keyboard.press('Tab');
+    first = await active();
+  }
+  check(first === 'account-level', `${vp} keys: Tab reads the top bar first (${first})`);
+  // the pager keeps the focus through its page turns
+  await page.focus(tid('lobby-news-next'));
+  const p0 = await page.evaluate(() => document.querySelector('[data-testid="lobby-news-next"]').textContent.trim());
+  await page.keyboard.press('Enter');
+  await settle(page, 300);
+  const f1 = await active();
+  await page.keyboard.press('Enter');
+  await settle(page, 300);
+  const p2 = await page.evaluate(() => document.querySelector('[data-testid="lobby-news-next"]').textContent.trim());
+  check(f1 === 'lobby-news-next' && (await active()) === 'lobby-news-next' && p2 !== p0, `${vp} keys: the pager keeps the focus, Enter twice turns two pages (${p0} → ${p2}, focus ${f1})`);
+  // a redraw (a store change) keeps the focus on an icon
+  await page.focus(tid('dock-mall'));
+  await page.evaluate(() => window.__sakura.store.commit('e2e'));
+  await settle(page, 200);
+  check(await active() === 'dock-mall', `${vp} keys: a redraw keeps the focus on the focused icon (${await active()})`);
+  // the menu sheet: Tab stays inside it; Esc gives the focus back to the menu button
+  await page.focus(tid('top-menu'));
+  await page.keyboard.press('Enter');
+  await page.waitForSelector(tid('menu-sheet'), { timeout: 5000 });
+  await settle(page, 400);
+  const outside = [];
+  for (let i = 0; i < 16; i++) {
+    await page.keyboard.press(i < 13 ? 'Tab' : 'Shift+Tab');
+    if (!(await page.evaluate(() => !!document.activeElement?.closest('[data-testid="menu-sheet"]')))) outside.push(await active());
+  }
+  check(!outside.length, `${vp} keys: Tab and Shift+Tab stay in the menu sheet (left it for ${outside.join(', ') || 'nothing'})`);
+  await page.keyboard.press('Escape');
+  await settle(page, 300);
+  check(await active() === 'top-menu', `${vp} keys: Esc closes the sheet and the focus goes back to the menu button (${await active()})`);
+  // its X and a tap outside do the same
+  await page.keyboard.press('Enter');
+  await page.waitForSelector(tid('menu-sheet-close'), { timeout: 5000 });
+  await settle(page, 300);
+  await page.focus(tid('menu-sheet-close'));
+  await page.keyboard.press('Enter');
+  await settle(page, 300);
+  check(await active() === 'top-menu', `${vp} keys: its X gives the focus back to the menu button (${await active()})`);
+  // a row takes Space; Esc closes the Notice it opens
+  await page.keyboard.press('Enter');
+  await page.waitForSelector(tid('shortcut-notice'), { timeout: 5000 });
+  await settle(page, 300);
+  await page.focus(tid('shortcut-notice'));
+  await page.keyboard.press('Space');
+  const notice = !!(await page.waitForSelector('.modal-overlay', { timeout: 5000 }).catch(() => null));
+  await settle(page, 300);
+  await page.keyboard.press('Escape');
+  await settle(page, 400);
+  const closed = await page.evaluate(() => !document.querySelector('.modal-overlay:not(.closing)'));
+  check(notice && closed && (await screenIs(page)) === 'lobby', `${vp} keys: Space on the Notice row opens it, Esc closes it, the home stays (${notice}, ${closed})`);
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+}
+
+/** 9. Marumi on a small phone: her still portrait where her living scene would reach a control. */
+async function smallLiveChecks(vp) {
+  console.log(`\n== ${vp}: Marumi on a small phone (motion allowed) ==`);
+  const { context, page, errors } = await openHome(vp, { reduced: false });
+  try {
+    await homeWith(page, { secretary: 'marumi', settings: { quality: 'high', reduceMotion: false } });
+    await page.waitForFunction(() => window.__sakura?.live?.state !== 'loading', null, { timeout: 20000 }).catch(() => {});
+    await settle(page, 400);
+    const s = await page.evaluate(() => ({ state: window.__sakura.live.state, why: window.__sakura.live.why, canvases: document.querySelectorAll('canvas[data-live]').length, fig: !!document.querySelector('#app .home-fig img') }));
+    check(s.canvases === 0 && s.fig && s.state === 'static' && s.why === 'fit', `${vp} her living scene would reach a control here: her still portrait, no canvas (${JSON.stringify(s)})`);
+    // (her breath paused: its layer changes how the words around are drawn, which the pixel diff would count)
+    await page.evaluate(() => document.head.append(Object.assign(document.createElement('style'), { textContent: '#app .home .home-fig { animation: none !important; }' })));
+    await settle(page, 200);
+    const art = await artClearance(page, '#app [data-testid="secretary-art"]', UI, { min: 8 });
+    check(art.fails === 0, `${vp} Marumi's still art 8 px clear of every control: ${art.checks.length - art.fails}/${art.checks.length}${art.fails ? ` — ${art.checks.filter((c) => !c.ok).map((c) => c.msg).slice(0, 3).join('; ')}` : ''}`);
+    const pl = await page.evaluate(() => window.__sakura.home.placement());
+    const hit = (await boxesOf(page)).filter((b) => overlaps(pl.face, b));
+    check(pl.fits !== false && !hit.length, `${vp} her face box clear of every control${hit.length ? `; under ${hit.map((b) => b.name).join(', ')}` : ''}`);
+    await shot(page, 'home-marumi-small', vp);
+    check(!errors.length, `${vp} no page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   } finally {
     await context.close();
   }
@@ -519,6 +632,7 @@ try {
     await liveChecks(vp);
   }
   for (const vp of rampartSizes) await rampartChecks(vp);
+  for (const vp of smallSizes) await smallLiveChecks(vp);
 } finally {
   await browser.close();
   await server.close();
