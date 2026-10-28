@@ -140,3 +140,10 @@
 .bn-lr-crest.unlit { filter: grayscale(1) brightness(0.7); }
 .bn-of { font-weight: 800; color: var(--navy); }
 .bn-note { margin-top: 4px; font-size: 0.78rem; color: #4a5a7a; font-weight: 700; }
+
+/* a duo's cut art is twice a girl's width: on a phone held upright the duo stands alone, full height, so both girls
+   show (the two rate-up SRs' stands would cover them); landscape keeps the three stands */
+@media (orientation: portrait) {
+  .ma-banner-stands:has(.is-duo) > .s0, .ma-banner-stands:has(.is-duo) > .s2 { display: none; }
+  .ma-banner-stand.s1.is-duo { right: -6%; height: 100%; }
+}

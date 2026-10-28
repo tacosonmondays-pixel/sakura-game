@@ -293,7 +293,7 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
     b.slot === 'legend' ? h('div.bn-lr-frame', h('i.bn-lr-crest')) : null,
     // a girl without drawn art yet stands as her framed card
     h('div.ma-banner-stands', stands.map((u, i) => (hasPortrait(u)
-      ? h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) })
+      ? h(`div.ma-banner-stand.s${i}${u.duo ? '.is-duo' : ''}`, { html: portraitHTML(u, 'cut', { eager: true }) })
       : h(`div.ma-banner-stand.s${i}.bn-stand-card`, { html: portraitHTML(u, 'card', { eager: true }) })))),
     h('div.ma-banner-text',
       h('div.bn-kicker-row', h('div.ma-banner-kicker', b.slot === 'legend' ? b.name : kind.label), countdown(b)),
