@@ -2,6 +2,7 @@
 // (owner: systems). See CONTRACTS.md §5.
 
 import { creditLimitBreak, LB_REWARD } from './limitBreak.js';
+import { supportAllowed } from './friendSupport.js';
 import { STAGE_MAP, getStage } from '../data/stages.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { getItem } from '../data/items.js';
@@ -169,6 +170,10 @@ export function battleDropSeed(stageId, difficulty, seed) {
  *   touched at all and the result comes back with `practice: true`
  * - sandbox run (`result.sandbox`): the profile is not touched at all (`sandbox: true` comes back)
  * - `sandboxUnlocked` is true on the one result whose clear opened Sandbox (the 7th campaign clear)
+ * - Friend Support run (`result.support`, BANNERS §E.1): drops, sightings, mission ticks and a first clear on
+ *   Easy or Normal (its medal opens the next stage) pay as usual; a Hard / Nightmare medal (sweeps), mode ribbons,
+ *   clears, bestiary discoveries and kills, wins, the achievement counters and Limit Break credit never do. On a
+ *   battle that takes no Support Student (Titan Trials, Total Assault, events …) it is practice
  * @param {object} profile
  * @param {{ stageId, difficulty, won, wave, wavesCleared?, livesLeft, encountered, kills, stats }} result
  * @param {object} rng
@@ -199,6 +204,11 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   // [events] and a difficulty still locked there (Nightmare before its Normal / Hard medal) is practice too
   const locked = eventDifficultyStatus(profile, stage.id, difficulty);
   if (!locked.ok) return { ...out, practice: true, note: `${DIFFICULTIES[difficulty].name} opens here after a ${DIFFICULTIES[locked.needs].name} clear — this run was practice, no rewards.` };
+  // [friend support] a borrowed girl only where stage prep offers her (campaign, Bounty, solo Freeplay)
+  const support = !!result.support;
+  if (support && !supportAllowed(profile, stage, { difficulty })) return { ...out, practice: true, support: true, note: 'A Support Student can\'t join this battle — this run was practice, no rewards.' };
+  out.support = support;
+  const tick = (event, n = 1) => track(profile, event, n, { lifetime: !support });
   const won = !!result.won;
   const encountered = [...new Set([...(result.encountered || []), ...Object.keys(result.kills || {})])];
   const kills = result.kills || {};
@@ -208,7 +218,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   for (const id of encountered) {
     const b = (profile.bestiary[id] ||= { seen: false, discovered: false, kills: 0 });
     b.seen = true;
-    if (won && !b.discovered) {
+    if (won && !b.discovered && !support) {
       b.discovered = true;
       out.discovered.push(id);
     }
@@ -218,7 +228,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   for (const [id, nRaw] of Object.entries(kills)) {
     const n = Math.max(0, Math.floor(Number(nRaw) || 0));
     if (!n) continue;
-    profile.bestiary[id].kills += n;
+    if (!support) profile.bestiary[id].kills += n;
     totalKills += n;
     const tier = ENEMY_MAP[id]?.tier;
     if (tier === 'boss' || tier === 'miniboss') bossKills += n;
@@ -226,12 +236,12 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
 
   // Stats.
   profile.stats.battles += 1;
-  profile.stats.kills += totalKills;
-  if (won) profile.stats.wins += 1;
+  if (!support) profile.stats.kills += totalKills;
+  if (won && !support) profile.stats.wins += 1;
 
   const entry = stageEntry(profile, stage.id);
   const wavesCleared = Number.isFinite(result.wavesCleared) ? result.wavesCleared : Math.max(0, (result.wave || 0) - (won ? 0 : 1));
-  if (stage.kind === 'challenge' || result.wavesCleared != null) entry.bestWave = Math.max(entry.bestWave || 0, wavesCleared);
+  if (!support && (stage.kind === 'challenge' || result.wavesCleared != null)) entry.bestWave = Math.max(entry.bestWave || 0, wavesCleared);
 
   const rewards = [];
   const clearsBefore = campaignClears(profile);
@@ -243,10 +253,12 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     out.rewardDifficulty = payAt;
     const key = `${difficulty}:${mode}`;
     entry.modes ||= {};
-    out.newRibbon = !entry.modes[key];
-    out.ribbon = key;
-    entry.modes[key] = true;
-    entry.clears += 1;
+    out.newRibbon = !support && !entry.modes[key];
+    out.ribbon = support ? null : key;
+    if (!support) {
+      entry.modes[key] = true;
+      entry.clears += 1;
+    }
     if (out.newRibbon && MODE_RIBBON_GEMS[difficulty] > 0) rewards.push({ id: 'gems', count: MODE_RIBBON_GEMS[difficulty] });
     // a saved mode run keeps its start week's event (battle save), like a Standard win below
     const mul = battleEventMul(stage.id, now, eventAt);
@@ -255,26 +267,29 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     rewards.push(...split.items);
     const pity = celestialRun(profile, stage.id, payAt, split.gear);
     out.gear = pity ? [...split.gear, pity] : split.gear;
-    track(profile, 'battleWin', 1);
-    if (diffIndex(payAt) >= diffIndex('hard')) track(profile, 'battleWinHard', 1);
-    if (stage.kind === 'boss') track(profile, 'assaultClear', 1);
+    tick('battleWin', 1);
+    if (diffIndex(payAt) >= diffIndex('hard')) tick('battleWinHard', 1);
+    if (stage.kind === 'boss') tick('assaultClear', 1);
   } else if (won) {
     out.rewardDifficulty = difficulty;
+    // [friend support] a support win earns the medal (and first clear) on Easy or Normal only
+    const medalOk = !support || difficulty === 'easy' || difficulty === 'normal';
     const wasCleared = DIFFICULTY_ORDER.some((d) => entry[d]);
-    out.firstClear = !wasCleared;
-    out.newMedal = !entry[difficulty];
-    out.medal = DIFFICULTIES[difficulty].medal;
-    entry[difficulty] = true;
-    entry.clears += 1;
+    out.firstClear = medalOk && !wasCleared;
+    out.newMedal = medalOk && !entry[difficulty];
+    out.medal = medalOk ? DIFFICULTIES[difficulty].medal : null;
+    if (medalOk) entry[difficulty] = true;
+    else out.note = `Friend Support run: ${DIFFICULTIES[difficulty].name} medals need your own team. Drops and missions still count.`;
+    if (!support) entry.clears += 1;
     // Nightmare already has one heart: its Last Petal ribbon is the same battle, earned with the medal
-    if (difficulty === 'nightmare' && stage.kind === 'campaign') {
+    if (difficulty === 'nightmare' && stage.kind === 'campaign' && !support) {
       entry.modes ||= {};
       if (!entry.modes['nightmare:laststand']) out.newRibbon = true;
       entry.modes['nightmare:laststand'] = true;
     }
     if (out.newMedal && stage.kind !== 'challenge') rewards.push({ id: 'gems', count: DIFFICULTIES[difficulty].firstClearGems });
     if (out.firstClear) rewards.push(...(stage.firstClear || []));
-    for (const unitId of stage.unlocks?.units || []) {
+    for (const unitId of medalOk ? stage.unlocks?.units || [] : []) {
       if (!isOwned(profile, unitId)) {
         grantUnit(profile, unitId);
         out.unlockedUnits.push(unitId);
@@ -290,15 +305,15 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     rewards.push(...split.items);
     const pity = celestialRun(profile, stage.id, difficulty, split.gear);
     out.gear = pity ? [...split.gear, pity] : split.gear;
-    track(profile, 'battleWin', 1);
-    if (diffIndex(difficulty) >= diffIndex('hard')) track(profile, 'battleWinHard', 1);
-    if (stage.kind === 'boss') track(profile, 'assaultClear', 1); // Rainbow Hunt (gear-awaken §6.1)
+    tick('battleWin', 1);
+    if (diffIndex(difficulty) >= diffIndex('hard')) tick('battleWinHard', 1);
+    if (stage.kind === 'boss') tick('assaultClear', 1); // Rainbow Hunt (gear-awaken §6.1)
   } else if (wavesCleared > 0) {
     rewards.push({ id: 'coins', count: 40 * wavesCleared });
   }
-  if (totalKills) track(profile, 'kill', totalKills);
-  if (bossKills) track(profile, 'bossKill', bossKills);
-  countSoloBattle(profile, result, { won, difficulty, eventBonus: out.eventBonus });
+  if (totalKills) tick('kill', totalKills);
+  if (bossKills) tick('bossKill', bossKills);
+  if (!support) countSoloBattle(profile, result, { won, difficulty, eventBonus: out.eventBonus });
 
   out.sandboxUnlocked = clearsBefore < SANDBOX_UNLOCK_CLEARS && campaignClears(profile) >= SANDBOX_UNLOCK_CLEARS;
   if (stage.kind === 'event') Object.assign(out, eventAfterBattle(profile, stage, { won, firstClear: out.firstClear, newMedal: out.newMedal, difficulty, totalKills, now: now.getTime() }));

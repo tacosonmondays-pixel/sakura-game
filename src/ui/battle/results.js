@@ -289,7 +289,8 @@ export function createResults(ctx) {
       out.note ? h('p.bt-coop-note', { 'data-testid': 'result-note' }, out.note) : null,
       ctx.resultLine?.() || null,
       achLine(),
-      out.practice || out.coop
+      // ([friend support] a support win on Hard or Nightmare earns no medal: its note above says so)
+      out.practice || out.coop || (out.support && !out.medal)
         ? (out.practice ? practiceNote(out) : null)
         : out.mode && out.mode !== 'standard' ? resultRibbonRow(out, sim, store.profile) : h(
           'div.bt-medal-row',

@@ -7,6 +7,7 @@ import { RULES, verdict } from '../limits.js';
 import { OnlineError } from '../errors.js';
 import { createLocalSocial } from './localSocial.js';
 import { createLocalProfile } from './localProfile.js';
+import { createLocalSupport } from './localSupport.js';
 import { createLocalClanInvites } from './localClanInvites.js';
 import {
   CLAN_MAX_MEMBERS, LOCAL_DEV_CODE, DEV_CLAN, CLAN_XP, validateClan, validateName, can, levelFromXp, weekKey,
@@ -249,10 +250,17 @@ export function createLocalDb({
     addMember: (...a) => addMember(...a), clanOut: (...a) => clanOut(...a), liftClanBan, guardChat,
   });
 
+  // [friend support] Support Students and Friend Points (20261028000000_friend_support.sql)
+  const supportApi = createLocalSupport({
+    tx, rate, now, devClanId: DEV_CLAN_ID, relations,
+    enabled: () => features.social !== false && features.profile !== false && features.support !== false,
+  });
+
   return {
     ...socialApi,
     ...profileApi,
     ...invitesApi,
+    ...supportApi,
     // ---- account --------------------------------------------------------------------------
     /** Creates or refreshes the account row. */
     signIn(uid, { name = null, level = 1, avatar = 'hikari' } = {}) {

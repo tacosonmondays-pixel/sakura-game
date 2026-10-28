@@ -896,7 +896,8 @@ export function createTowerPanel(ctx) {
     // in co-op from her owner's battle stats (t.unitStats travels in the loadout)
     const mine = !ctx.coop || ctx.coop.isMine(t.uid);
     const ally = !mine;
-    const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
+    // ([friend support] a borrowed girl: her own clamped card, ctx.profileFor)
+    const profile = mine ? (ctx.profileFor?.(def.id) || ctx.profile) : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
     live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);

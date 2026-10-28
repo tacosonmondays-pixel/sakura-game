@@ -59,6 +59,7 @@ import { RESET, localResetHint } from '../../core/reset.js';
 import { eventOfStage } from '../../data/events/index.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { eventNow } from '../events/clock.js';
+import { supportPanel, supportParam } from './stageSupport.js'; // [friend support]
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -622,6 +623,9 @@ function buildPrep(stage, state, { endless, redraw }) {
 
   right.appendChild(countersPanel(stage));
   right.appendChild(formationPanel());
+  // [friend support] friends' Support Students (campaign, Bounty and solo Freeplay)
+  const sup = unlocked ? supportPanel(stage, state) : null;
+  if (sup) right.appendChild(sup);
 
   const dropsPanel = panel(
     stage.kind === 'challenge' ? 'Rewards per run' : 'Drops',
@@ -671,6 +675,8 @@ function buildPrep(stage, state, { endless, redraw }) {
       if (newMode !== 'standard') p.mode = newMode;
       if (endless) p.endless = 1;
       if (fpOn) p.freeplay = state.freeplay;
+      const owner = supportParam(stage, state);
+      if (owner) p.sup = owner;
       return p;
     };
     const fpName = fpOn ? freeplayTable(state.freeplay).name : null;

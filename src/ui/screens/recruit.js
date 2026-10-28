@@ -20,6 +20,7 @@ import { portraitHTML, portraitUrl, artUrl, hasPortrait } from '../../art/portra
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
 import { pull, pullCost, canSpark, spark, pullFixed, fixedCost, fpBalance } from '../../systems/gacha.js';
+import { supportCollectRow, refreshFriendshipTab } from '../online/supportCollect.js'; // [friend support]
 import {
   activeBanners, bannerOfSlot, bannerDay, noteBannerDay, bannerRates, lookAhead, upcomingDebuts, sparkRule, sparkPool,
   unitClass, promiseCount, LEGEND_PROMISE, setStandardPick, canChangePick, bannerEndsIn, numberKey, dayStartMs,
@@ -189,6 +190,7 @@ export function render(root, params = {}) {
   }
 
   draw();
+  refreshFriendshipTab(() => draw()); // [friend support] the Friendship tab follows Friend Support's availability
   const off = store.on('change', (e) => {
     if (!busy && e?.reason !== 'pull' && e?.reason !== 'spark') draw();
   });
@@ -347,6 +349,7 @@ function fixedSide(b) {
       h('div.ma-pity-head', h('span.ma-sub', coin ? 'Coins' : 'Friend Points'), h('b.ma-pity-left', formatNumber(coin ? itemCount(profile, 'coins') : fpBalance(profile))), h('span.muted', coin ? `${formatNumber(COIN.single)} a pull` : '100 a pull')),
       coin ? h('div.ma-progress', h('i', { style: { width: `${Math.round(((COIN.weeklyCap - left) / COIN.weeklyCap) * 100)}%` } })) : null,
       h('div.ma-pity-foot.muted', coin ? `${left} of ${COIN.weeklyCap} pulls left this week` : 'Wallet holds up to 5,000'),
+      coin ? null : supportCollectRow(),
     ),
     h('div.ma-pity.panel', h('div.ma-pity-foot', 'These pulls never move your pity or Recruit Points.')),
   );
