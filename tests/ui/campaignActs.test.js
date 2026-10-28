@@ -86,3 +86,14 @@ describe('two acts (fixture Act II stages)', () => {
     expect(chapterHasNewAct(p, ch2)).toBe(true);
   });
 });
+
+describe('an echo stage (1-10 echoes 1-5)', () => {
+  it('echoSource names the Act I stage on the echoed map; other maps have none', async () => {
+    const { echoSource } = await import('../../src/ui/screens/campaignActs.js');
+    const { getMap } = await import('../../src/data/maps.js');
+    const src = echoSource(getMap(STAGE_MAP['1-10'].mapId));
+    expect(src.stageId).toBe('1-5');
+    expect(src.map.id).toBe('sakura_court');
+    expect(echoSource(getMap('noon_station_plaza'))).toBe(null);
+  });
+});

@@ -9,8 +9,32 @@
 import '../styles/campaign-acts.css';
 import { h } from '../dom.js';
 import { newSticker, dot } from '../badges.js';
-import { stageRequires } from '../../data/stages.js';
+import { stageRequires, STAGES } from '../../data/stages.js';
+import { MAP_MAP } from '../../data/maps.js';
+import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isStageUnlocked, isStageCleared } from '../../systems/unlocks.js';
+
+/**
+ * The Act I stage an echo stage's map re-skins (MapDef.echoOf, Gate Arc: 1-10's Dry Fountain is 1-5's Blossom Court a
+ * thousand years later): { stageId, map } of the first campaign stage on that map, or null.
+ * @param {object} map MapDef
+ */
+export function echoSource(map) {
+  const orig = map?.echoOf ? MAP_MAP[map.echoOf] : null;
+  if (!orig) return null;
+  const st = STAGES.find((s) => s.kind === 'campaign' && s.mapId === orig.id);
+  return st ? { stageId: st.id, map: orig } : null;
+}
+
+/** The stage card's ghost of the echoed stage: its thumbnail, faint over the new one (the same roads line up), and a chip. */
+export function echoGhost(map, { width = 320, height = 200 } = {}) {
+  const src = echoSource(map);
+  if (!src) return null;
+  return [
+    h('div.ma-sc-ghost', { 'aria-hidden': 'true', html: stageThumbSVG(src.map, { width, height }) }),
+    h('span.ma-sc-echo', { 'data-testid': 'stage-echo', title: `The same place as ${src.stageId}, a thousand years later` }, `Echo of ${src.stageId}`),
+  ];
+}
 
 /** Act I's subtitle (Act II takes its chapter's `act2Name`). */
 export const ACT1_NAME = 'The Morning';

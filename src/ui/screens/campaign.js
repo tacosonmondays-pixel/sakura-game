@@ -26,7 +26,7 @@ import { uiIcon, medalIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isStageUnlocked, chapterProgress, nextStage, stageMedals } from '../../systems/unlocks.js';
 import { medalRow, requirementText, cssVar, rememberParams, savedBadge } from './stage.js';
-import { actRows, actRowHeader, chapterHasNewAct, actNewDot } from './campaignActs.js';
+import { actRows, actRowHeader, chapterHasNewAct, actNewDot, echoGhost } from './campaignActs.js';
 
 const TIER_KEYS = Object.keys(MAP_TIER_VIEW);
 
@@ -169,6 +169,8 @@ function stageCard(profile, stageId, { isNext }) {
     { 'data-testid': `stage-${stageId}`, onclick: () => navigate('stage', { id: stageId }) },
     h('div.ma-sc-top',
       h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
+      // an echo stage (Gate Arc 1-10): the stage it echoes shows through faintly
+      map?.echoOf ? echoGhost(map) : null,
       h('span.ma-sc-id', stage.id),
       isNext ? h('span.ma-sc-next', 'NEXT') : null,
       medalRow(profile, stageId, { size: 22, cls: 'ma-sc-medals' }),
