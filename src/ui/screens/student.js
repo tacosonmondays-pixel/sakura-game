@@ -39,7 +39,8 @@ import { artUrl } from '../../art/portraits.js';
 import { howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { TAG_GLYPHS } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR, lrBadge } from '../rarity.js';
-import { limitBreakState, payLimitBreak, UR_RESONANCE, LR_BOOST } from '../../systems/limitBreak.js';
+import { limitBreakState, payLimitBreak, UR_RESONANCE, LR_BOOST, resonanceOn, RESONANCE_FROM_DAY } from '../../systems/limitBreak.js';
+import { gameDayStart } from '../../core/reset.js';
 import { potentialTrack } from '../../data/potential.js';
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
@@ -968,7 +969,9 @@ function resonanceText(unit, short = false) {
   const aura = potentialTrack(unit) === 'aura';
   const pct = (f) => `+${Math.round((f - 1) * 100)}%`;
   const body = aura ? `${pct(UR_RESONANCE.aura)} aura · ${pct(UR_RESONANCE.rate)} attack speed` : `${pct(UR_RESONANCE.damage)} damage · ${pct(UR_RESONANCE.rate)} attack speed`;
-  return short ? body : `UR Resonance · ${body}`;
+  // before its first weekly reset the boost is not on yet: say when it starts (BANNERS §C.3)
+  const from = resonanceOn() ? '' : ` (from ${new Date(gameDayStart(RESONANCE_FROM_DAY)).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'America/Chicago' })})`;
+  return short ? `${body}${from}` : `UR Resonance · ${body}${from}`;
 }
 
 /**

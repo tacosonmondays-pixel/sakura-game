@@ -255,6 +255,18 @@ describe('Norika: Hold the Line', () => {
     expect(h.lines).toHaveLength(0);
   });
 
+  test('only during a wave: between waves the ult waits (the battle save holds no lines at a calm point)', () => {
+    const { sim, h, road } = quietNorika({ level: 3 });
+    h.ultUnlocked = true;
+    h.ultCooldown = 0;
+    const p = pointAt(road, road.length * 0.2, {});
+    h.aim = { x: p.x, y: p.y };
+    expect(sim.state).not.toBe('wave');
+    expect(activateUlt(sim)).toBe(false);
+    expect(h.lines || []).toHaveLength(0);
+    expect(h.ultCooldown).toBe(0);
+  });
+
   test('rank 3 stops minibosses; Road Closed adds one; never more than the cap at once', () => {
     const e20 = ultEffect({ def: units.norika, level: 20, stats: null });
     expect([e20.count, e20.budget, e20.duration, e20.mini, e20.held]).toEqual([3, 1200, 18, true, 0.2]);

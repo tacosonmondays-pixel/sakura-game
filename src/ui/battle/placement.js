@@ -5,6 +5,7 @@
 // her to the bar (a short toast only explains non-obvious reasons such as water-only girls or
 // missing coins). Move mode (a hero's Move button) reuses the same ghost: tap where she should
 // stand and she walks over (during a wave she pauses for 3 s).
+import { heroMoveDowntime } from '../../sim/hero.js';
 import { h, icon } from './util.js';
 import { fmtNum } from '../format.js';
 import { cue } from '../../audio/cue.js'; // [audio]
@@ -73,7 +74,7 @@ export function createPlacement(ctx) {
       const wave = sim.state === 'wave';
       hint.classList.toggle('bt-place-water', def.placement === 'water');
       hint.replaceChildren(...[
-        h('span.bt-place-text', `Tap ${where} to move `, h('b', def.name), h('span.bt-place-cost', wave ? ' · she pauses 3s' : ' · free')),
+        h('span.bt-place-text', `Tap ${where} to move `, h('b', def.name), h('span.bt-place-cost', wave ? ` · she pauses ${heroMoveDowntime(sim.hero)}s` : ' · free')),
         padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
         h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
       ].filter(Boolean));

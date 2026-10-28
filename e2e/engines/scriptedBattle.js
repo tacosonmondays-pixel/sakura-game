@@ -1667,7 +1667,7 @@ const POTENTIAL_BOSS_UPGRADES = Object.freeze([
  * by Hotaru / Kaede at P6).
  * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, script = null } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, script = null, ultInWave = false } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -1757,7 +1757,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
         todo[0][3] = frame;
       } else if (!waiting && (!st || st.reason !== 'cash')) todo.shift(); // never placed, maxed or locked: skip
     }
-    if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready && A.tick > lastUlt + 120) {
+    // (ultInWave: a hero whose ult only works during a wave, Norika's Hold the Line, casts in waves only)
+    if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready && A.tick > lastUlt + 120 && (!ultInWave || (A.sim.state === 'wave' && A.sim.enemies.length > 3))) {
       lastUlt = A.tick;
       A.queue('ult');
       ults++;
@@ -2228,7 +2229,7 @@ export function runStaffBattle({ maxFrames = 60 * 60 * 10 } = {}) {
       }
     }
   };
-  const r = runPotentialBattle({ start: STAFF_START, upgrades: [], spotsFirst: ['norika', 'kogane', 'aoi', 'rei'], maxFrames, probe, script });
+  const r = runPotentialBattle({ start: STAFF_START, upgrades: [], spotsFirst: ['norika', 'kogane', 'aoi', 'rei'], maxFrames, probe, script, ultInWave: true });
   r.staff = `${st.held}/${st.breaks}/${st.lines}/${st.oneWay}/${st.detours}/${st.plows}/${st.moves}`;
   r.heroLevels = host ? host.heroes.map((h) => h?.level ?? 0).join('/') : '';
   r.ms = Date.now() - t0;

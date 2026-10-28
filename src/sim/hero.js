@@ -461,8 +461,9 @@ export function activateUlt(sim) {
     }
   } else if (effect.type === 'barricade') {
     // Hold the Line (Norika): temporary barricades on the road at her aim point, else ahead of the lead walker
-    // in her range (src/sim/barricades.js); nothing to block: the ult waits
-    if (!h.bars) return false;
+    // in her range (src/sim/barricades.js); nothing to block: the ult waits. Only during a wave: its timers run
+    // with the wave, and a calm point (the battle save) holds no lines
+    if (!h.bars || sim.state !== 'wave') return false;
     const walkers = h.aim ? null : victims.filter((e) => !e.airborne && (e.x - h.x) * (e.x - h.x) + (e.y - h.y) * (e.y - h.y) <= h.eff.range * h.eff.range);
     const lead = walkers ? bestVictim(walkers, { ...h.eff, canHitAir: false, detection: true }, 'first', h.x, h.y) : null;
     const at = holdTheLine(sim, h, effect, h.aim, lead);

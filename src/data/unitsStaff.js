@@ -56,7 +56,7 @@ const KOGANE = {
     pathKeys: HERO_TRACKS.kogane.pathKeys,
     ult: {
       name: 'Clear the Road',
-      desc: 'Big Yellow drives onto the road at her aim point (or the busiest road\'s exit end) and plows 8 tiles back up it in 2.5s: each enemy it touches takes 120 damage and is pushed back 2 tiles (minibosses and bosses take the damage only).',
+      desc: 'Big Yellow plows the road clear. She drives onto the road at her aim point (or the busiest road\'s exit end) and plows 8 tiles back up it in 2.5s: each enemy it touches takes 120 damage and is pushed back 2 tiles (minibosses and bosses take the damage only).',
       unlockLevel: 3,
       cooldown: 70,
       effect: {
@@ -117,7 +117,7 @@ const NORIKA = {
     pathKeys: HERO_TRACKS.norika.pathKeys,
     ult: {
       name: 'Hold the Line',
-      desc: 'Two temporary barricades on the road at her aim point (or ahead of the lead walker in her range): a 400 hold budget each for 12s, and held enemies take +10% damage. Bosses and minibosses walk through them.',
+      desc: 'Norika closes the road. Two temporary barricades go up at her aim point (or ahead of the lead walker in her range): a 400 hold budget each for 12s, and held enemies take +10% damage. Bosses and minibosses walk through them.',
       unlockLevel: 3,
       cooldown: 60,
       effect: { type: 'barricade', center: 'aim', count: 2, budget: 400, duration: 12, held: 0.1, mini: false },

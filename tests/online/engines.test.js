@@ -315,8 +315,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(moves).toBeGreaterThan(0);
     expect(runStaffBattle().final).toBe(r.final);
     // pinned when the battle was added (banners G7, Oct 28). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned the same day (final review): Hold the Line now casts only during a wave (a calm point holds no lines),
+    // and the host casts it in waves only (ultInWave).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, staff: r.staff, heroLevels: r.heroLevels })
-      .toEqual({ ticks: 48686, state: 'won', wave: 20, wallets: '739/294', final: 2475818282, hashes: '6421deb0', staff: '709/13/32/0/0/14/27', heroLevels: '21/24' });
+      .toEqual({ ticks: 49465, state: 'won', wave: 20, wallets: '778/268', final: 3094781041, hashes: '8552ea5e', staff: '1082/21/32/0/0/15/28', heroLevels: '21/24' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {
