@@ -92,9 +92,15 @@ function snowfall(rnd, w, h, count, r0, rr, op) {
   return s;
 }
 
-/** A lit lamp: a bright core and a soft glow round it (story backdrops at dusk and at night). */
+/**
+ * A lit lamp: a bright core and a glow fading out round it (story backdrops at dusk and at night). The glow is a radial
+ * gradient keyed by colour and strength, so every lamp of one kind shares one definition (a flat disc read as grey on
+ * the night sky).
+ */
 function lamp(x, y, r, color, glow, glowOp) {
-  return `<circle cx="${n(x)}" cy="${n(y)}" r="${n(glow)}" fill="${color}" opacity="${n(glowOp * 0.45)}"/><circle cx="${n(x)}" cy="${n(y)}" r="${n(glow * 0.5)}" fill="${color}" opacity="${glowOp}"/><circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" fill="#fff4d6"/>`;
+  const gid = `lampglow-${color.replace('#', '')}-${Math.round(glowOp * 100)}`;
+  const grad = `<radialGradient id="${gid}"><stop offset="0" stop-color="${color}" stop-opacity="${glowOp}"/><stop offset="0.45" stop-color="${color}" stop-opacity="${n(glowOp * 0.45)}"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient>`;
+  return `${grad}<circle cx="${n(x)}" cy="${n(y)}" r="${n(glow)}" fill="url(#${gid})"/><circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" fill="#fff4d6"/>`;
 }
 
 function svg(w, h, body, label) {
@@ -305,7 +311,7 @@ function highwayScene(rnd, id, W, H, snow, time) {
   } else if (!night) s += cloud(260, 70, 0.9) + cloud(820, 96, 0.7);
   if (night) {
     const sky = seeded(`${id}-sky`);
-    lights += stars(sky, W, 170, 70) + '<path d="M180 50a34 34 0 1 0 28 54 27 27 0 1 1-28-54z" fill="#fff6c4"/>';
+    lights += stars(sky, W, 170, 70) + '<path d="M330 50a34 34 0 1 0 28 54 27 27 0 1 1-28-54z" fill="#fff6c4"/>';
   }
   s += peaks(rnd, W, 210, 150, H, snow ? '#b8c4d2' : '#8da2bb', 6, '#ffffff');
   s += peaks(rnd, W, 260, 90, H, snow ? '#a4b0bf' : '#6f8aa0', 8, snow ? '#f4f8fc' : null);
