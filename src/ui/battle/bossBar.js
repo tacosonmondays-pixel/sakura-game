@@ -61,7 +61,7 @@ export function createBossBar(ctx) {
     barrier.style.width = `${(bfrac * 100).toFixed(2)}%`;
     setVar(el, '--boss-color', e.def?.color || '#ff4d6d');
     // fmtBig: freeplay bosses reach billions ("132.3M / 132.3M", not "132300k")
-    const txt = `${fmtBig(Math.ceil(e.hp))} / ${fmtBig(e.maxHp)}${bfrac > 0 ? ` · Barrier ${fmtBig(Math.ceil(e.barrier))}` : ''}`;
+    const txt = `${fmtBig(Math.ceil(e.hp))} / ${fmtBig(Math.ceil(e.maxHp))}${bfrac > 0 ? ` · Barrier ${fmtBig(Math.ceil(e.barrier))}` : ''}`;
     if (hpText.textContent !== txt) hpText.textContent = txt;
   }
 

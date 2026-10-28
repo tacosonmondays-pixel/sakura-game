@@ -50,6 +50,7 @@ import { lastSoloTier, rememberSoloTier } from '../battle/soloFreeplay.js';
 import { rarityInfo } from '../rarity.js';
 import { modeId } from '../../data/modes.js';
 import { modeText } from '../text/modes.js';
+import { mechanicFor } from '../text/acts.js';
 import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES, runStartedAt,
 } from '../../systems/battleSave.js';
@@ -589,7 +590,7 @@ function buildPrep(stage, state, { endless, redraw }) {
       isEndless && entry?.bestWave ? fact('Best wave', String(entry.bestWave)) : null,
       !isEndless && entry?.clears ? fact('Clears', String(entry.clears)) : null,
     ),
-    chapter ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), chapter.mechanic) : null,
+    mechanicFor(chapter, stage) ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), mechanicFor(chapter, stage)) : null,
   ));
   const rule = rulePanel(stage);
   if (rule) left.appendChild(rule);
