@@ -7,11 +7,12 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES,
-  abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel,
+  ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN,
+  abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel, abilityRuns,
 } from '../../src/data/abilities.js';
+import { ABILITY_CHARGE_BASE, abilityChargePerTick, NOT_HASTED_KINDS } from '../../src/sim/gearRules.js';
 import {
-  ABILITY_TEXT, ABILITY_COPY, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
+  ABILITY_TEXT, ABILITY_COPY, ABILITY_AIMS, abilityText, abilityValues, fillAbilityText, abilityUnlockLine, abilityUpgradeLine,
 } from '../../src/data/abilityText.js';
 import { UNITS as ALL_UNITS, UNIT_MAP, towers as allTowers, heroes as allHeroes } from '../../src/data/units.js';
 import { POTENTIAL_GIRLS } from '../../src/data/potential.js';
@@ -20,14 +21,18 @@ import { STAGES } from '../../src/data/stages.js';
 import { BATTLE_MODES } from '../../src/data/modes.js';
 import { STATUSES } from '../../src/data/types.js';
 import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
+import * as EXPANSION from '../../src/data/unitsExpansion.js';
 import { GLYPHS } from '../../src/art/icons/glyphs.js';
 import { resolveStats } from '../../src/sim/mods.js';
 
-// The girls this table covers: every girl with a row in ABILITIES. The returning girls (roster wave,
-// src/data/unitsExpansion.js) keep theirs in RETURNING_ABILITIES until the ability track attaches them.
+const { EXPANSION_IDS } = EXPANSION;
+// The girls this table covers: every girl with a row in ABILITIES — every girl in the game since the returning girls'
+// rows moved in from the old RETURNING_ABILITIES table (A3 M3).
 const UNITS = ALL_UNITS.filter((u) => !!abilityRow(u));
 const towers = () => allTowers().filter((u) => !!abilityRow(u));
 const heroes = () => allHeroes().filter((u) => !!abilityRow(u));
+/** Every ⚡ entry of a tower, in path order (Ruri has one per familiar path). */
+const entriesOf = (u) => (u.kind === 'hero' ? [u.hero.skill] : u.paths.filter((p) => p.ability).map((p) => p.ability));
 
 const ROOT = join(import.meta.dirname, '../..');
 
@@ -37,9 +42,15 @@ const LIGHTNING = {
   akane: ['bigbang', 1940], sango: ['frag', 2000], kage: ['steel', 1860], umeko: ['lighthouse', 1750],
   shiro: ['execution', 2290], midori: ['toxicology', 1800], suzu: ['mines', 1800], raika: ['rhythm', 1780],
   miko: ['blessing', 2010], hotaru: ['prayer', 2240], kaede: ['flowing', 2170], chika: ['sentry', 2390],
+  // §5.3 the new girls: Tenka's Rail Arms, T3 Plasma Rails (5,150)
+  tenka: ['rails', 5150],
   // §5.3 the new girls (UNIT_GAPS §5)
   azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090], chigusa: ['greenhouse', 1970], marumi: ['lane', 1910],
+  // §5.2 the returning girls (Ruri: her first ⚡ path; Star Falcon 1,700 and Tide Otter 1,860 below)
+  fuu: ['gale', 1290], hana: ['falconry', 1280], ruri: ['hound', 1780], noa: ['sanctuary', 1730], iroha: ['hall', 2320], ena: ['bloom', 2170],
 };
+// Ruri's three familiar paths, each with its own ability (§3.1: data may declare one on several paths)
+const RURI_PATHS = { hound: ['ruri.moonPounce', 1780], falcon: ['ruri.starSnatch', 1700], otter: ['ruri.riverRush', 1860] };
 // §5.1 "Mix of kinds across the 16"
 const KIND_OF = {
   aoi: 'strike', shiro: 'strike', midori: 'strike', kaede: 'strike',
@@ -49,11 +60,20 @@ const KIND_OF = {
   umeko: 'debuff', hotaru: 'debuff',
   miko: 'rally',
   momo: 'econ',
+  tenka: 'strike', // §5.3
   azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally', chigusa: 'debuff', marumi: 'runner',
+  // §5.2 the returning girls (each one's first ⚡ entry; Ruri's is Moon Pounce)
+  fuu: 'move', hana: 'strike', ruri: 'strike', noa: 'rally', iroha: 'deploy', ena: 'debuff',
 };
-const HERO_SKILL = { hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'] };
+// the girls of §5.3 and §5.2 (not part of §5.1's live mix)
+const NEW_GIRLS = ['tenka', ...NEW_GIRL_IDS, ...EXPANSION_IDS];
+const HERO_SKILL = {
+  hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'],
+  // §5.2 the returning heroes
+  kanna: ['Heavy Beat', 'boost'], yoriko: ['Puppet Hex', 'debuff'], seiran: ['Storm Lance', 'strike'],
+};
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
-const MULTI_PATH = {};
+const MULTI_PATH = { ruri: 3 };
 
 // ABILITIES_SPEC §5.1, copied row by row: each tower's tier-3 entry with its tier-5 override, and each
 // hero's Lv 7 skill with its Lv 17 rank, exactly as the data must hold them. A1 builds on these numbers,
@@ -67,6 +87,10 @@ const soak = (duration) => ({ type: 'soak', duration });
 const mark = (bonus, duration) => ({ type: 'mark', bonus, duration });
 const silence = (duration) => ({ type: 'silence', duration });
 const reveal = (duration) => ({ type: 'reveal', duration });
+const ground = (duration) => ({ type: 'ground', duration });
+const hold = (duration) => ({ type: 'hold', duration });
+const curse = (burstMul, radius, duration) => ({ type: 'curse', burstMul, radius, duration });
+const hex = (pct, duration) => ({ type: 'hex', pct, duration });
 const SPEC_TOWERS = {
   aoi: {
     path: 'volley', id: 'aoi.skyfall', kind: 'strike', scope: 'local', cooldown: 35, duration: 0,
@@ -168,6 +192,13 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 5, reach: 'leash' },
     t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
   },
+  // §5.3 + BUILD_PLAN 6.1: a strike with a boost tail at tier 5 (Zero Point)
+  tenka: {
+    path: 'rails', id: 'tenka.criticalMass', kind: 'strike', scope: 'local', cooldown: 45, duration: 0,
+    effect: { pick: 'strong', count: 1, reachMul: 1, dmgMul: 40, splash: 2, armorPen: 99 },
+    auto: { when: 'elite' },
+    t5: { cooldown: 30, effect: { dmgMul: 120, splash: 3, after: { mods: { rateMul: 2 }, duration: 6 } } },
+  },
   // §5.3 the new girls
   azami: {
     path: 'checkpoint', id: 'azami.spikeRain', kind: 'deploy', scope: 'local', cooldown: 45, duration: 10,
@@ -211,6 +242,62 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 30, effect: { allPaths: true, toSpawn: true, dmgMul: 12 } },
   },
+  // §5.2 the returning girls (A3 M3: moved here from RETURNING_ABILITIES; numbers only). Auto rules marked
+  // "(not in the spec)" are M3's: the spec gives none, or one this vocabulary lacks.
+  fuu: {
+    // (the move kind: A5, so no button yet)
+    path: 'gale', id: 'fuu.backdraft', kind: 'move', scope: 'local', cooldown: 40, duration: 0,
+    effect: { reachMul: 1.5, push: 2, pushMiniboss: 1, status: [ground(2)] },
+    auto: { when: 'enemies', min: 5 },
+    t5: { cooldown: 32, effect: { push: 3, status: [ground(3)] } },
+  },
+  hana: {
+    path: 'falconry', id: 'hana.swoop', kind: 'strike', scope: 'map', cooldown: 30, duration: 0,
+    effect: { pick: 'air', count: 4, reach: 'map', dmgMul: 6, status: [ground(4)], fallback: { pick: 'strong', count: 2, ground: true } },
+    auto: { when: 'flyers', min: 6 }, // (min 6 not in the spec: "a flyer on the map, or ≥ min enemies")
+    t5: { cooldown: 25, effect: { count: 8, dmgMul: 8 } },
+  },
+  ruri: [
+    {
+      path: 'hound', id: 'ruri.moonPounce', kind: 'strike', scope: 'local', cooldown: 30, duration: 0,
+      effect: { pick: 'strong', count: 1, reachAdd: 2, fromOrigin: true, hits: 3, dmgMul: 8, status: [hold(1.5)], noBossStatus: true },
+      auto: { when: 'enemies', min: 4, orElite: true }, // (not in the spec)
+      t5: { cooldown: 25, effect: { hits: 5, status: [hold(2)] } },
+    },
+    {
+      // (the move kind: A5)
+      path: 'falcon', id: 'ruri.starSnatch', kind: 'move', scope: 'local', cooldown: 35, duration: 0,
+      effect: { pick: 'first', count: 1, carry: 3, carryMiniboss: 1.5 },
+      auto: { when: 'leak', min: 0.7 }, // (not in the spec: past 70% of the path)
+      t5: { cooldown: 30, effect: { count: 2, carry: 5 } },
+    },
+    {
+      // (a runner of type 'river': A6)
+      path: 'otter', id: 'ruri.riverRush', kind: 'runner', scope: 'local', cooldown: 40, duration: 0,
+      effect: { runner: 'river', length: 4, push: 1, status: [soak(4)] },
+      auto: { when: 'enemies', min: 5 },
+      t5: { cooldown: 32, effect: { length: 8, push: 1.5 } },
+    },
+  ],
+  noa: {
+    path: 'sanctuary', id: 'noa.firstAid', kind: 'rally', scope: 'local', cooldown: 50, duration: 10,
+    effect: { radius: 4, cleanse: true, ward: true, stunImmune: true, lifeEvery: 10, lifeRadius: 3, lifeMax: 3 },
+    auto: { when: 'sabotage', min: 6 }, // (min 6 not in the spec)
+    t5: { cooldown: 42, duration: 14, effect: { lifeMax: 5 } },
+  },
+  iroha: {
+    // (an aimed deploy with the mirror redirect: A6)
+    path: 'hall', id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 8,
+    effect: { deploy: 'mirror', count: 1, reflect: true },
+    auto: { when: 'enemies', min: 5 },
+    t5: { cooldown: 25, duration: 10, effect: { count: 2, permanentReflect: true } },
+  },
+  ena: {
+    path: 'bloom', id: 'ena.omenCard', kind: 'debuff', scope: 'local', cooldown: 40, duration: 0,
+    effect: { reachMul: 1.5, status: [curse(3, 1.6, 6)] },
+    auto: { when: 'enemies', min: 6 },
+    t5: { cooldown: 32, effect: { reachMul: 2, status: [curse(4, 1.6, 6)] } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -232,6 +319,28 @@ const SPEC_HEROES = {
     auto: { when: 'enemies', min: 5 }, // not in the spec
     ranks: [{ level: 17, cooldown: 21, effect: { radius: 2, status: [freeze(1.6), soak(5)] } }],
   },
+  // §5.2 the returning heroes: the old ranks' cooldownMul / durationAdd written as absolute values
+  kanna: {
+    // (a status-only splash rider: A5, so no button yet; auto not in the spec)
+    id: 'kanna.heavyBeat', kind: 'boost', scope: 'local', cooldown: 30, duration: 6,
+    effect: { splashArmor: { radius: 1.5, shred: 2 }, status: [stun(0.3)] },
+    auto: { when: 'enemies', min: 4 },
+    ranks: [{ level: 17, cooldown: 25, duration: 8, effect: { splashArmor: { radius: 1.5, shred: 3 } } }],
+  },
+  yoriko: {
+    // A3 M3 balance (the §11 bench at the stage's own HP; M3.md): the spec's 3 %/s for 8 s (Lv 17: 10 s) became
+    // 1.5 %/s for 5 s (Lv 17: 6 s), under the ×1.35 gate on a boss
+    id: 'yoriko.puppetHex', kind: 'debuff', scope: 'local', cooldown: 30, duration: 5,
+    effect: { pick: 'strong', count: 1, reachAdd: 1, status: [hex(0.015, 5), slow(0.3, 5)] },
+    auto: { when: 'enemies', min: 5, orElite: true }, // (not in the spec)
+    ranks: [{ level: 17, cooldown: 25, duration: 6, effect: { count: 2, status: [hex(0.015, 6), slow(0.3, 6)] } }],
+  },
+  seiran: {
+    id: 'seiran.stormLance', kind: 'strike', scope: 'local', cooldown: 30, duration: 0,
+    effect: { pick: 'chain', count: 8, dmgMul: 3, status: [ground(3)] },
+    auto: { when: 'enemies', min: 4 }, // (not in the spec)
+    ranks: [{ level: 17, cooldown: 25, effect: { count: 12, dmgMul: 4 } }],
+  },
 };
 
 /** The spec's upgrade column applied to its base row: named values replace, the rest carry over. */
@@ -242,17 +351,23 @@ function specUpgraded(base, { level, effect = {}, ...scalars }) {
 // The effect fields each kind may use (a typo in the data fails here, not silently in the sim).
 const STATUS_LIST = ['status'];
 const EFFECT_KEYS = {
-  strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', ...STATUS_LIST],
+  strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', 'after',
+    // (A3 M3: Kaze's Swoop's fallback pick, Moon Pounce's reach on top of her range from Kon's spot and its hold bosses shrug off)
+    'fallback', 'reachAdd', 'fromOrigin', 'noBossStatus', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
-  boost: ['mods'],
-  rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target', 'pierceAdd'],
-  debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', ...STATUS_LIST],
+  // (Kanna's Heavy Beat, a teaser until A5: a status-only splash rider instead of a ModSet)
+  boost: ['mods', 'splashArmor', ...STATUS_LIST],
+  // (Noa's First Aid Call: the stun half of the ward, and lives from kills near her)
+  rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target', 'pierceAdd', 'stunImmune', 'lifeEvery', 'lifeRadius', 'lifeMax'],
+  debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', 'reachAdd', ...STATUS_LIST],
   econ: ['coins'],
-  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul'],
-  // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push)
-  runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn'],
+  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul', 'reflect', 'permanentReflect'],
+  // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push; Ruri's River Rush)
+  runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn', 'push', ...STATUS_LIST],
+  // (A5: Fuu's Backdraft Fan, Ruri's Star Snatch)
+  move: ['reachMul', 'push', 'pushMiniboss', 'pick', 'count', 'carry', 'carryMiniboss', ...STATUS_LIST],
 };
-const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned'], debuff: ['all', 'veiled', 'strong', 'ground'] };
+const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned', 'air', 'chain'], debuff: ['all', 'veiled', 'strong', 'ground'], move: ['first'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];
 // the ModSet keys a boost may change (src/sim/mods.js applyModSet; CONTRACTS §3)
 const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit',
@@ -284,9 +399,9 @@ function states(u) {
     return [[`${u.id} Lv ${s.unlockLevel}`, skillAtLevel(s, s.unlockLevel), resolveStats(u, { heroLevel: s.unlockLevel })],
       ...s.ranks.map((r) => [`${u.id} Lv ${r.level}`, skillAtLevel(s, r.level), resolveStats(u, { heroLevel: r.level })])];
   }
-  const a = u.paths.find((p) => p.ability).ability;
-  return [[`${u.id} T3`, abilityAtTier(a, 3), resolveStats(u, { tiers: tiersAt(u, a.path, 3) })],
-    [`${u.id} T5`, abilityAtTier(a, 5), resolveStats(u, { tiers: tiersAt(u, a.path, 5) })]];
+  // every ⚡ entry (Ruri: one per familiar path), each at tier 3 and tier 5 of its own path
+  return entriesOf(u).flatMap((a) => [[`${u.id} ${a.path} T3`, abilityAtTier(a, 3), resolveStats(u, { tiers: tiersAt(u, a.path, 3) })],
+    [`${u.id} ${a.path} T5`, abilityAtTier(a, 5), resolveStats(u, { tiers: tiersAt(u, a.path, 5) })]]);
 }
 
 function statusErrors(list, where) {
@@ -314,8 +429,24 @@ function defErrors(d, where) {
   if (PICKS[d.kind] && e.pick != null && !PICKS[d.kind].includes(e.pick)) errs.push(`${where}: pick ${e.pick}`);
   for (const k of ['count', 'shells', 'hits']) if (k in e && !(Number.isInteger(e[k]) && e[k] > 0)) errs.push(`${where}: ${k} must be a whole number > 0`);
   // (a rally's radius may be 'map': every girl on the map, Ouka's Assembly Bell)
-  for (const k of ['reachMul', ...(e.radius === 'map' ? [] : ['radius']), 'radiusMul', 'dmgMul', 'poisonMul', 'splash', 'spacing', 'coins']) if (k in e && !(e[k] > 0)) errs.push(`${where}: ${k} must be > 0`);
+  for (const k of ['reachMul', 'reachAdd', ...(e.radius === 'map' ? [] : ['radius']), 'radiusMul', 'dmgMul', 'poisonMul', 'splash', 'spacing', 'coins', 'lifeRadius', 'push', 'pushMiniboss', 'carry', 'carryMiniboss', 'length']) if (k in e && !(e[k] > 0)) errs.push(`${where}: ${k} must be > 0`);
+  for (const k of ['lifeEvery', 'lifeMax']) if (k in e && !(Number.isInteger(e[k]) && e[k] > 0)) errs.push(`${where}: ${k} must be a whole number > 0`);
+  if ('lifeEvery' in e && !(e.lifeRadius > 0 && 'lifeMax' in e)) errs.push(`${where}: lives need a radius and a cap`);
   if ('reach' in e && e.reach !== 'map') errs.push(`${where}: reach is 'map' or a reachMul`);
+  if ('reachMul' in e && 'reachAdd' in e) errs.push(`${where}: a reachMul or a reachAdd, not both`);
+  for (const k of ['fromOrigin', 'noBossStatus', 'stunImmune', 'reflect', 'permanentReflect']) if (k in e && e[k] !== true) errs.push(`${where}: ${k} is true or absent`);
+  if (e.fallback) {
+    // Kaze's Swoop with no flyer up: another strike pick, a whole count, ground-only or not
+    const f = e.fallback;
+    for (const k of Object.keys(f)) if (!['pick', 'count', 'ground'].includes(k)) errs.push(`${where}: fallback key ${k}`);
+    if (!PICKS.strike.includes(f.pick) || f.pick === 'air' || f.pick === 'chain') errs.push(`${where}: fallback pick ${f.pick}`);
+    if (!(Number.isInteger(f.count) && f.count > 0)) errs.push(`${where}: fallback count must be a whole number > 0`);
+    if ('ground' in f && typeof f.ground !== 'boolean') errs.push(`${where}: fallback ground is a boolean`);
+    if (e.pick !== 'air') errs.push(`${where}: only an air pick falls back`);
+  }
+  if (e.splashArmor) {
+    for (const k of Object.keys(e.splashArmor)) if (!['radius', 'shred'].includes(k) || !(e.splashArmor[k] > 0)) errs.push(`${where}: splashArmor ${k}`);
+  }
   if (e.status) errs.push(...statusErrors(e.status, `${where}.status`));
   if (e.casterStatus) errs.push(...statusErrors(e.casterStatus, `${where}.casterStatus`));
   if (d.kind === 'boost') {
@@ -324,6 +455,7 @@ function defErrors(d, where) {
     if (!(d.duration > 0)) errs.push(`${where}: a boost lasts > 0 s`);
   }
   if (d.kind === 'rally') {
+    // a rally on one girl (target 'girl': the girl-target rule, spec §7.2) has no radius; a map rally reaches every girl
     if (!(e.radius > 0) && e.radius !== 'map' && e.inAura !== true && e.target !== 'girl') errs.push(`${where}: a rally needs a radius`);
     if (e.radius === 'map' && d.scope !== 'map') errs.push(`${where}: a map rally is map scope`);
     if ('pierceAdd' in e && !(Number.isInteger(e.pierceAdd) && e.pierceAdd > 0)) errs.push(`${where}: pierceAdd must be a whole number > 0`);
@@ -331,12 +463,22 @@ function defErrors(d, where) {
     if (!(d.duration > 0)) errs.push(`${where}: a rally lasts > 0 s`);
   }
   if (e.rally) {
-    for (const k of Object.keys(e.rally)) if (!EFFECT_KEYS.rally.includes(k)) errs.push(`${where}: rally rider key ${k}`);
+    for (const k of Object.keys(e.rally)) if (!EFFECT_KEYS.rally.includes(k) || k === 'target') errs.push(`${where}: rally rider key ${k}`);
     if (!(d.duration > 0)) errs.push(`${where}: a rally rider lasts > 0 s`);
   }
   for (const k of ['dmgMul', 'rateMul', 'rangeMul']) {
     for (const src of [d.kind === 'rally' ? e : null, e.rally].filter(Boolean)) if (k in src && !(src[k] > 1)) errs.push(`${where}: rally ${k} > 1`);
   }
+  if (e.after) {
+    // a strike's boost tail: a boost ModSet for `duration` s after each cast, shorter than the recharge
+    for (const k of Object.keys(e.after)) if (!['mods', 'duration'].includes(k)) errs.push(`${where}: after key ${k}`);
+    for (const k of Object.keys(e.after.mods || {})) if (!BOOST_MOD_KEYS.includes(k)) errs.push(`${where}: after mod ${k}`);
+    if (!e.after.mods || !Object.keys(e.after.mods).length) errs.push(`${where}: after needs mods`);
+    if (e.after.mods?.status) errs.push(...statusErrors(e.after.mods.status, `${where}.after.mods.status`));
+    if (!(e.after.duration > 0) || !isWholeTicks(e.after.duration)) errs.push(`${where}: after.duration must be > 0 whole ticks`);
+    if (!(e.after.duration < d.cooldown)) errs.push(`${where}: after.duration must be shorter than the cooldown`);
+  }
+  if ('splashShare' in e && !(e.splashShare > 0 && e.splashShare <= 1)) errs.push(`${where}: splashShare in (0, 1]`);
   if (d.kind === 'burst' && !e.at) errs.push(`${where}: a burst needs a point (at)`);
   if (d.kind === 'burst' && !(e.radius > 0) && !(e.radiusMul > 0)) errs.push(`${where}: a burst needs a radius`);
   // a multi-shell burst lasts until its last shell lands
@@ -345,7 +487,8 @@ function defErrors(d, where) {
     if (d.duration < (e.delay ?? 0) + (e.shells - 1) * e.every - 1e-9) errs.push(`${where}: duration ${d.duration}s ends before the last shell`);
   }
   if (d.kind === 'econ' && d.scope !== 'player') errs.push(`${where}: econ abilities are per player`);
-  if (d.kind === 'deploy' && !['double', 'trap', 'drone', 'strips', 'sentries'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
+  if (d.kind === 'deploy' && !['double', 'trap', 'drone', 'strips', 'sentries', 'mirror'].includes(e.deploy)) errs.push(`${where}: deploy ${e.deploy}`);
+  if (d.kind === 'runner' && !['giantBall', 'river'].includes(e.runner)) errs.push(`${where}: runner ${e.runner}`);
   // time fields in whole ticks; the cooldown in whole charge points
   for (const k of TIME_KEYS) {
     if (k in d && !isWholeTicks(d[k])) errs.push(`${where}: ${k} ${d[k]} is not a whole number of ticks`);
@@ -365,23 +508,55 @@ function isDeepFrozen(o) {
 }
 
 describe('ability rules and vocabulary', () => {
-  test('rules (spec §3.2, §6.1; Skill Haste at half rate, GEAR_STATS §B.4)', () => {
+  test('rules (spec §3.2, §6.1; Skill Haste at half rate has one rule, src/sim/gearRules.js, GEAR_STATS §B.4)', () => {
     expect(ABILITY_RULES).toEqual({
       ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6, econCapPerWave: 2,
-      densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'],
+      densestCap: 60, girlAimRadius: 0.6,
     });
     // a 40 s cooldown is 240,000 charge points; the CC guard is 4 s
     expect(40 * ABILITY_RULES.ticksPerSecond * ABILITY_RULES.chargePerTick).toBe(240000);
     expect(ABILITY_RULES.ccGuardTicks / ABILITY_RULES.ticksPerSecond).toBe(4);
-    // the fastest Skill Haste rate stays an integer ≤ 133 points per tick
-    expect(Math.round(100 / (1 - ABILITY_RULES.hasteShare * ABILITY_RULES.hasteCap))).toBe(133);
-    for (const k of ABILITY_RULES.unhastedKinds) expect(ABILITY_KINDS).toContain(k);
+    // the fastest Skill Haste rate stays an integer ≤ 133 points per tick (the one rule's base is the sim's charge)
+    expect(ABILITY_CHARGE_BASE).toBe(ABILITY_RULES.chargePerTick);
+    expect(abilityChargePerTick({ ultHaste: 1 }, 'strike')).toBe(133);
+    for (const k of NOT_HASTED_KINDS) expect(ABILITY_KINDS).toContain(k);
+  });
+
+  test('abilityRuns: the one live rule (kinds, a boost\'s mods, deploy and runner types)', () => {
+    const runs = ABILITY_KINDS.filter((kind) => abilityRuns({ kind, effect: { mods: {} } }));
+    expect(runs).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ']);
+    expect([...ABILITY_KINDS_RUN].sort()).toEqual([...runs].sort());
+    expect(abilityRuns({ kind: 'boost', effect: {} })).toBe(false);
+    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true]);
+    for (const deploy of ['double', 'trap', 'drone', 'mirror', undefined]) expect(abilityRuns({ kind: 'deploy', effect: { deploy } })).toBe(false);
+    expect(abilityRuns({ kind: 'runner', effect: { runner: 'giantBall' } })).toBe(true);
+    expect(abilityRuns({ kind: 'runner', effect: { runner: 'river' } })).toBe(false);
+    for (const x of [null, undefined, 0, 'strike', {}]) expect(abilityRuns(x)).toBe(false);
+    // the table: every tower's first ⚡ entry runs but the three deploy girls', Fuu's (move) and Iroha's (mirror);
+    // every hero skill but Kanna's (a boost without a ModSet); Ruri's Star Snatch / River Rush wait; tier 5 never flips it
+    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(!['kage', 'suzu', 'chika', 'fuu', 'iroha'].includes(u.id));
+    for (const h of heroes()) expect(abilityRuns(abilityRow(h).skill), h.id).toBe(h.id !== 'kanna');
+    expect(ABILITIES.ruri.map(abilityRuns)).toEqual([true, false, false]);
   });
 
   test('kinds, scopes and auto-cast rules', () => {
     expect(ABILITY_KINDS).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'deploy', 'move', 'zone', 'runner']);
     expect(ABILITY_SCOPES).toEqual(['local', 'map', 'player']);
-    expect(AUTO_WHEN).toEqual(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready']);
+    // (A3 M3: 'flyers' for Kaze's Swoop, 'sabotage' for First Aid Call)
+    expect(AUTO_WHEN).toEqual(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready', 'flyers', 'sabotage']);
+    // every rule a row uses is one the sim knows
+    for (const u of UNITS) for (const e of entriesOf(u)) expect(AUTO_WHEN, `${e.id} auto ${e.auto.when}`).toContain(e.auto.when);
+    expect(entriesOf(UNIT_MAP.hana)[0].auto.when).toBe('flyers');
+    expect(entriesOf(UNIT_MAP.noa)[0].auto.when).toBe('sabotage');
+  });
+
+  test('a rally on one girl (target: girl, the girl-target rule of spec §7.2) needs no radius; nothing else does', () => {
+    const rally = (effect) => ({ id: 'x.y', kind: 'rally', scope: 'local', cooldown: 45, duration: 12, effect });
+    expect(defErrors(rally({ target: 'girl', rateMul: 1.8, rangeMul: 1.2 }), 'one girl')).toEqual([]);
+    expect(defErrors(rally({ rateMul: 1.8 }), 'no radius')).toEqual(['no radius: a rally needs a radius']);
+    expect(defErrors(rally({ target: 'lane', rateMul: 1.8 }), 'bad target')).toEqual(['bad target: a rally needs a radius', 'bad target: rally target lane']);
+    const rider = { id: 'x.z', kind: 'debuff', scope: 'map', cooldown: 40, duration: 8, effect: { pick: 'all', status: [{ type: 'reveal', duration: 8 }], rally: { target: 'girl', rateMul: 1.2 } } };
+    expect(defErrors(rider, 'rider')).toEqual(['rider: rally rider key target']);
   });
 
   test('every table is deep-frozen', () => {
@@ -393,7 +568,22 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
   test('rows exist only for real girls (a kit variant is id@kitStyle)', () => {
     for (const id of Object.keys(ABILITIES)) expect(UNIT_MAP[id.split('@')[0]], id).toBeTruthy();
     for (const u of UNITS) expect(abilityRow(u), u.id).toBe(ABILITIES[u.id]);
-    expect(Object.keys(ABILITIES).length).toBe(19 + NEW_GIRL_IDS.length);
+    // one row per girl, every girl: the returning girls' moved in from RETURNING_ABILITIES (A3 M3), which is gone
+    for (const u of ALL_UNITS) expect(!!abilityRow(u), u.id).toBe(true);
+    expect(Object.keys(ABILITIES).length).toBe(ALL_UNITS.length);
+    for (const id of EXPANSION_IDS) expect(ABILITIES[id], id).toBeTruthy();
+    expect('RETURNING_ABILITIES' in EXPANSION).toBe(false);
+  });
+
+  test('Ruri: one ability per familiar path, each on its own path, unlocking at tier 3', () => {
+    const u = UNIT_MAP.ruri;
+    expect(ABILITIES.ruri).toHaveLength(3);
+    for (const [pathId, [id, coins]] of Object.entries(RURI_PATHS)) {
+      const p = u.paths.find((x) => x.id === pathId);
+      expect(p.ability.id).toBe(id);
+      expect(p.ability.unlockTier).toBe(3);
+      expect(u.base.cost + p.tiers.slice(0, 3).reduce((n, t) => n + t.cost, 0)).toBe(coins);
+    }
   });
 
   test.each(towers().map((u) => [u.id, u]))('%s: exactly one ⚡ path, the one the spec names, unlocking at tier 3', (id, u) => {
@@ -412,16 +602,25 @@ describe('every tower has one ⚡ path (spec §3.1, §5.1)', () => {
     expect(u.base.cost + p.tiers.slice(0, 3).reduce((n, t) => n + t.cost, 0)).toBe(coins);
     expect(p.ability.kind).toBe(KIND_OF[id]);
     expect(p.ability.id.startsWith(`${id}.`)).toBe(true);
-    // the other paths carry no ability
-    for (const q of u.paths) if (q !== p) expect(q.ability, `${id}.${q.id}`).toBeUndefined();
+    // the other paths carry no ability (a MULTI_PATH girl's carry their own, checked above and below)
+    if (!MULTI_PATH[id]) for (const q of u.paths) if (q !== p) expect(q.ability, `${id}.${q.id}`).toBeUndefined();
+    for (const [i, e] of row.entries()) {
+      expect(u.paths.find((q) => q.id === e.path).ability, `${id} entry ${i}`).toBe(e);
+      expect(e.unlockTier).toBe(3);
+      expect(e.id.startsWith(`${id}.`)).toBe(true);
+    }
     expect(u.hero).toBeUndefined();
   });
 
-  test('the kind mix matches the spec: strike 4, burst 3, deploy 3, boost 2, debuff 2, rally 1, econ 1', () => {
+  test('the kind mix matches the spec: §5.1\'s 16 are strike 4, burst 3, deploy 3, boost 2, debuff 2, rally 1, econ 1; the new and returning girls add theirs', () => {
     const count = {};
-    // (the 16 live towers of §5.1; the new girls' kinds are pinned in §5.3's rows)
-    for (const u of towers().filter((x) => !NEW_GIRL_IDS.includes(x.id))) { const k = u.paths.find((p) => p.ability).ability.kind; count[k] = (count[k] || 0) + 1; }
-    expect(count).toEqual({ strike: 4, burst: 3, deploy: 3, boost: 2, debuff: 2, rally: 1, econ: 1 });
+    for (const u of towers()) { const k = u.paths.find((p) => p.ability).ability.kind; count[k] = (count[k] || 0) + 1; }
+    const want = {};
+    for (const k of Object.values(KIND_OF)) want[k] = (want[k] || 0) + 1;
+    expect(count).toEqual(want);
+    const live = {};
+    for (const [id, k] of Object.entries(KIND_OF)) if (!NEW_GIRLS.includes(id)) live[k] = (live[k] || 0) + 1;
+    expect(live).toEqual({ strike: 4, burst: 3, deploy: 3, boost: 2, debuff: 2, rally: 1, econ: 1 });
   });
 
   test('Momo has exactly one ability, Market Day (spec §16 Q6 default)', () => {
@@ -468,16 +667,20 @@ describe('numbers', () => {
 
   test.each(all)('%s: valid vocabulary, effect fields, statuses and auto-cast rule at every state', (id, u) => {
     for (const [where, d] of states(u)) expect(defErrors(d, where)).toEqual([]);
-    const base = u.kind === 'hero' ? u.hero.skill : u.paths.find((p) => p.ability).ability;
-    expect(Object.keys(base.auto).every((k) => AUTO_KEYS.includes(k)), `${id} auto keys`).toBe(true);
-    expect(AUTO_WHEN).toContain(base.auto.when);
-    if (['enemies', 'poisoned'].includes(base.auto.when)) expect(Number.isInteger(base.auto.min) && base.auto.min > 0).toBe(true);
-    if ('orLeak' in base.auto) expect(base.auto.orLeak > 0 && base.auto.orLeak < 1).toBe(true);
-    // an upgrade changes only what the base defines (and never the kind, scope or id)
-    const over = u.kind === 'hero' ? base.ranks : [base.t5];
-    for (const o of over) {
-      expect(o, `${id} upgrade`).toBeTruthy();
-      for (const k of Object.keys(o)) expect(['level', 'cooldown', 'duration', 'effect'], `${id} upgrade key ${k}`).toContain(k);
+    for (const base of entriesOf(u)) {
+      expect(Object.keys(base.auto).every((k) => AUTO_KEYS.includes(k)), `${id} auto keys`).toBe(true);
+      expect(AUTO_WHEN).toContain(base.auto.when);
+      // (A3 M3: 'flyers' and 'sabotage' also take a whole count of enemies; 'leak' a share of the path)
+      if (['enemies', 'poisoned', 'flyers', 'sabotage'].includes(base.auto.when)) expect(Number.isInteger(base.auto.min) && base.auto.min > 0, `${base.id} min`).toBe(true);
+      if (base.auto.when === 'leak' && 'min' in base.auto) expect(base.auto.min > 0 && base.auto.min < 1).toBe(true);
+      if ('orLeak' in base.auto) expect(base.auto.orLeak > 0 && base.auto.orLeak < 1).toBe(true);
+      // an upgrade changes only what the base defines (and never the kind, scope or id); no cooldownMul /
+      // durationAdd any more: every upgrade says its own numbers
+      const over = u.kind === 'hero' ? base.ranks : [base.t5];
+      for (const o of over) {
+        expect(o, `${id} upgrade`).toBeTruthy();
+        for (const k of Object.keys(o)) expect(['level', 'cooldown', 'duration', 'effect'], `${id} upgrade key ${k}`).toContain(k);
+      }
     }
   });
 
@@ -488,7 +691,8 @@ describe('numbers', () => {
       expect(d.cooldown, where).toBeGreaterThanOrEqual(lo);
       expect(d.cooldown, where).toBeLessThanOrEqual(hi);
     }
-    for (let i = 1; i < st.length; i++) expect(st[i][1].cooldown, st[i][0]).toBeLessThanOrEqual(st[i - 1][1].cooldown);
+    // (each entry's own states in order: a hero's Lv 7 then her ranks; a tower entry's tier 3 then tier 5)
+    for (let i = 1; i < st.length; i++) if (st[i][1].id === st[i - 1][1].id) expect(st[i][1].cooldown, st[i][0]).toBeLessThanOrEqual(st[i - 1][1].cooldown);
   });
 
   test('the spec table covers every girl with an ability, and nobody else', () => {
@@ -497,11 +701,13 @@ describe('numbers', () => {
     expect(Object.keys(ABILITIES).sort()).toEqual([...Object.keys(SPEC_TOWERS), ...Object.keys(SPEC_HEROES)].sort());
   });
 
-  test.each(Object.keys(SPEC_TOWERS))('%s: the spec numbers (§5.1) at tier 3 and tier 5', (id) => {
-    const base = { unlockTier: 3, ...SPEC_TOWERS[id] };
-    expect(ABILITIES[id]).toEqual([base]);
-    expect(abilityAtTier(ABILITIES[id][0], 3)).toEqual(base);
-    expect(abilityAtTier(ABILITIES[id][0], 5)).toEqual(specUpgraded(base, base.t5));
+  test.each(Object.keys(SPEC_TOWERS))('%s: the spec numbers (§5.1–5.3) at tier 3 and tier 5', (id) => {
+    const rows = (Array.isArray(SPEC_TOWERS[id]) ? SPEC_TOWERS[id] : [SPEC_TOWERS[id]]).map((r) => ({ unlockTier: 3, ...r }));
+    expect(ABILITIES[id]).toEqual(rows);
+    rows.forEach((base, i) => {
+      expect(abilityAtTier(ABILITIES[id][i], 3)).toEqual(base);
+      expect(abilityAtTier(ABILITIES[id][i], 5)).toEqual(specUpgraded(base, base.t5));
+    });
   });
 
   test.each(Object.keys(SPEC_HEROES))('%s: the spec numbers (§5.1 heroes) at Lv 7 and Lv 17', (id) => {
@@ -512,9 +718,9 @@ describe('numbers', () => {
     expect(skillAtLevel(ABILITIES[id].skill, 25)).toEqual(specUpgraded(base, base.ranks[0]));
   });
 
-  test('map-scope abilities: Umeko, Shiro, Hotaru, Ouka (one cooldown per player) and Luna\'s skill', () => {
-    const map = UNITS.flatMap((u) => (u.kind === 'hero' ? [u.hero.skill] : u.paths.filter((p) => p.ability).map((p) => p.ability))).filter((d) => d.scope === 'map').map((d) => d.id.split('.')[0]);
-    expect(map.sort()).toEqual(['hotaru', 'luna', 'ouka', 'shiro', 'umeko']);
+  test('map-scope abilities: Umeko, Shiro, Hotaru, Ouka, Hana (one cooldown per player) and Luna\'s skill', () => {
+    const map = UNITS.flatMap(entriesOf).filter((d) => d.scope === 'map').map((d) => d.id.split('.')[0]);
+    expect(map.sort()).toEqual(['hana', 'hotaru', 'luna', 'ouka', 'shiro', 'umeko']);
   });
 
   test('ability hits scale with her hit at the ⚡ tier-3 build (spec §5.1 examples)', () => {
@@ -522,12 +728,28 @@ describe('numbers', () => {
     expect(at3('aoi').dmg).toBe(24); // 6 × 4 at 0-3-0
     expect(at3('shiro').dmg).toBe(295); // 5 × 59 at 3-0-0
     expect(at3('aoi').reach).toBe(5.4); // 1.5 × 3.6 tiles
+    expect(at3('tenka').dmg).toBe(320); // 40 × (3 + 5) at 0-3-0
+    expect(at3('tenka').reach).toBe(3.4);
+    const [, d5, s5] = states(UNIT_MAP.tenka)[1];
+    expect(abilityValues(d5, s5).dmg).toBe(7560); // 120 × (3 + 5 + 15 + 40) at 0-5-0
   });
 
   test('ids are unique and say whose they are', () => {
-    const ids = UNITS.map((u) => (u.kind === 'hero' ? u.hero.skill.id : u.paths.find((p) => p.ability).ability.id));
+    const ids = UNITS.flatMap(entriesOf).map((e) => e.id);
+    expect(ids.length).toBe(UNITS.length + 2); // Ruri's three familiar forms
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(id).toMatch(/^[a-z]+\.[a-zA-Z]+$/);
+  });
+
+  test('the returning girls at their unlock builds (§5.2 examples, base stats)', () => {
+    const v = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return abilityValues(d, s); };
+    expect(v('hana').dmg).toBe(6 * 5); // 6 × her hit at 3-0-0 (4 + 1)
+    expect(v('ruri').reach).toBe(4.4); // her range + 2 tiles, from Kon
+    expect(v('ruri').hits).toBe(3);
+    expect(v('ena').curseBurst).toBe(36); // 3 × her hit at 3-0-0 (12)
+    expect(v('yoriko').reach).toBe(Math.round((resolveStats(UNIT_MAP.yoriko, { heroLevel: 7 }).range + 1) * 10) / 10);
+    expect(v('seiran', 1)).toMatchObject({ count: 12, dmgMul: 4, cd: 25 }); // Lv 17
+    expect(v('noa', 1)).toMatchObject({ lifeMax: 5, dur: 14, cd: 42 }); // tier 5
   });
 });
 
@@ -555,11 +777,13 @@ describe('merging upgrades (tier 5, ranks)', () => {
 
 describe('text (src/data/abilityText.js, UI only)', () => {
   test('a text row for every ability and none for an ability that does not exist', () => {
-    const ids = UNITS.map((u) => (u.kind === 'hero' ? u.hero.skill.id : u.paths.find((p) => p.ability).ability.id));
+    const ids = UNITS.flatMap(entriesOf).map((e) => e.id);
     expect(Object.keys(ABILITY_TEXT).sort()).toEqual([...ids].sort());
     for (const id of ids) {
       const t = abilityText(id);
-      expect(Object.keys(t).sort(), id).toEqual(['desc', 'icon', 'name', 'short', 'up']);
+      // `aim` (UI only: how a tap aims it) is optional and names a known kind
+      expect(Object.keys(t).filter((k) => k !== 'aim').sort(), id).toEqual(['desc', 'icon', 'name', 'short', 'up']);
+      if ('aim' in t) expect(ABILITY_AIMS, `${id} aim`).toContain(t.aim);
       expect(t.name.length).toBeGreaterThan(3);
       expect(t.short.length).toBeGreaterThan(10);
       expect(/[{}]/.test(t.short), `${id} short is plain text`).toBe(false);
@@ -569,25 +793,49 @@ describe('text (src/data/abilityText.js, UI only)', () => {
   });
 
   test.each(UNITS.map((u) => [u.id, u]))('%s: every template fills completely at every state', (id, u) => {
-    const [first, ...ups] = states(u);
-    const t = abilityText(first[1].id);
     const check = (template, [where, d, s]) => {
       const out = fillAbilityText(template, abilityValues(d, s));
       expect(out, `${where}: ${out}`).not.toMatch(/[{}]|NaN|undefined|Infinity/);
       expect(out.length).toBeGreaterThan(20);
       return out;
     };
-    check(t.desc, first);
-    for (const st of ups) {
-      check(t.desc, st);
-      check(t.up, st);
+    // each entry's own states (Ruri: three entries)
+    const all = states(u);
+    for (const e of entriesOf(u)) {
+      const [first, ...ups] = all.filter(([, d]) => d.id === e.id);
+      const t = abilityText(e.id);
+      check(t.desc, first);
+      for (const st of ups) {
+        check(t.desc, st);
+        check(t.up, st);
+      }
     }
+  });
+
+  test('the returning girls read right at their unlock builds', () => {
+    const fill = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return fillAbilityText(abilityText(d.id).desc, abilityValues(d, s)); };
+    // (M3 review round 2: he dives only within her reach; the rest take a strike from the sky — the card says so)
+    expect(fill('hana')).toBe('Kaze strikes up to 4 flyers still in the sky anywhere on the map (casters, bosses and elites first): he dives on the ones near Hana and strikes the rest from the sky. 30 damage each, and they are grounded for 4s. With no flyer up, he takes the 2 strongest walkers instead.');
+    expect(fill('ena')).toBe('Every enemy within 4.8 tiles draws a cursed card: when it falls it bursts for 36 damage (3× her hit) within 1.6 tiles and passes a weaker curse on, so a dense wave chain-reacts.');
+    expect(fill('noa')).toMatch(/^Girls within 4 tiles of her, your ally's too, are cleansed and can't be sabotaged or stunned for 10s\. Meanwhile every 10 enemies that fall within 3 tiles of her bring back a life \(at most 3;/);
+    expect(fill('ruri')).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites of \d+ damage, then he holds it for 1\.5s/);
   });
 
   test('Aoi at 0-3-0 reads like the spec example (24 damage, 5.4 tiles)', () => {
     const [, d, s] = states(UNIT_MAP.aoi)[0];
     expect(fillAbilityText(abilityText(d.id).desc, abilityValues(d, s))).toBe(
       'Rains arrows on up to 6 enemies within 5.4 tiles, picked by her target mode: 24 damage each and a 0.5s pin.',
+    );
+  });
+
+  test('Tenka at 0-3-0 and 0-5-0: Critical Mass, then Zero Point\'s boost tail', () => {
+    const [[, d3, s3], [, d5, s5]] = states(UNIT_MAP.tenka);
+    expect(fillAbilityText(abilityText(d3.id).desc, abilityValues(d3, s3))).toBe(
+      'A plasma blast on the strongest enemy within 3.4 tiles: 320 damage that ignores armor, and every enemy within 2 tiles of it takes the blast too.',
+    );
+    expect(abilityUnlockLine('tenka.criticalMass')).toBe('Unlocks ⚡ Critical Mass: a plasma blast on the strongest enemy in her range.');
+    expect(abilityUpgradeLine('tenka.criticalMass', abilityValues(d5, s5))).toBe(
+      '⚡+ Critical Mass hits for 120× her hit in a 3-tile blast and recharges in 30s; after each cast her bolts fire 2× as fast for 6s.',
     );
   });
 
@@ -613,7 +861,7 @@ describe('text (src/data/abilityText.js, UI only)', () => {
 describe('names', () => {
   test('ability names are unique and clash with no other name in the game', () => {
     const names = Object.values(ABILITY_TEXT).map((t) => t.name);
-    expect(names.length).toBe(19 + NEW_GIRL_IDS.length);
+    expect(names.length).toBe(UNITS.length + 2); // one ability per girl, three for Ruri (one per familiar path)
     expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length);
     const taken = new Set();
     const add = (n) => { if (typeof n === 'string' && n) taken.add(n.toLowerCase()); };

@@ -636,9 +636,33 @@ async function runViewport(vp) {
     }), placedUid);
     check(!pan.open && pan.sel && pan.flash && !pan.paused, `battle: "Upgrade in panel ›" closes the tree, selects her and flashes that path (${JSON.stringify(pan)})`);
     await page.waitForTimeout(1300);
-    // 14. panel: Tree button opens; Escape closes without deselecting; chips on every open path
-    const chipRows = await page.evaluate(() => [...document.querySelectorAll('.bt-panel .bt-path')].filter((r) => !r.querySelector('.bt-path-max')).map((r) => r.querySelectorAll('.tag-chip').length));
-    check(chipRows.length > 0 && chipRows.every((n) => n >= 1), `battle panel: every next-tier line has a Self/Allies/Enemies chip (${chipRows.join(',')})`);
+    // (M4 review logic-2) the same from her MORE: the tree opens from there too (Tree button), and "Upgrade in
+    // panel ›" brings the drawer back to the Glance, where the path rows are, and flashes the row
+    await page.click('[data-testid="panel-more"]');
+    await page.waitForSelector('[data-testid="panel-details"]', { timeout: 3000 }).catch(() => null);
+    await page.click('[data-testid="panel-tree"]');
+    await page.waitForFunction(() => window.__battle.ui.tree.isOpen, null, { timeout: 3000 }).catch(() => null);
+    await page.click('[data-testid="upgrade-tree"] [data-testid="ut-cell-2-4"]');
+    await page.click('[data-testid="ut-goto-panel"]');
+    await page.waitForTimeout(300);
+    const fromMore = await page.evaluate(() => ({
+      open: window.__battle.ui.tree.isOpen, more: window.__battle.ui.panel.more, details: !!document.querySelector('[data-testid="panel-details"]'),
+      row: !!document.querySelector('.bt-panel [data-path="2"]'), flash: !!document.querySelector('.bt-panel [data-path="2"].bt-path-flash'),
+    }));
+    check(!fromMore.open && !fromMore.more && !fromMore.details && fromMore.row && fromMore.flash, `battle: "Upgrade in panel ›" from her MORE closes MORE, shows the path row and flashes it (${JSON.stringify(fromMore)})`);
+    await page.waitForTimeout(1300);
+    // 14. panel: Tree button opens; Escape closes without deselecting; an open path row (A3 M4 drawer: a tap on a
+    // row opens it) names who its next tier helps with a Self / Allies / Enemies tag
+    const chipRows = [];
+    for (const path of [0, 2]) {
+      await page.click(`.bt-panel .bt-path[data-path="${path}"] .bt-path-main`).catch(() => {});
+      await page.waitForTimeout(150);
+      chipRows.push(await page.evaluate((p) => {
+        const row = document.querySelector(`.bt-panel .bt-path[data-path="${p}"]`);
+        return row && row.classList.contains('armed') ? row.querySelectorAll('.tag-chip').length : row?.querySelector('.bt-dw-max, .bt-lock-final, .bt-path-lock') ? 1 : 0;
+      }, path));
+    }
+    check(chipRows.length > 0 && chipRows.every((n) => n >= 1), `battle panel: an open path row has a Self/Allies/Enemies tag (${chipRows.join(',')})`);
     await page.evaluate(() => { window.__battle.sim.cash = 5000; });
     await page.waitForTimeout(400);
     await shot('panel-chips');

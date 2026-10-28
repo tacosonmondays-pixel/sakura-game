@@ -322,9 +322,9 @@ const OUKA = {
     path('assembly', 'Assembly', 'Club activities', [
       tier('Morning Bell', 140, 'Girls in her radius attack 10% faster.', { hub: { rateMul: 1.1 } }),
       tier('Bigger Office', 300, 'Radius 3.2 tiles.', { hub: { radius: 3.2 } }),
-      tier('Club Mentors', 1100, 'Girls in her radius attack 15% faster.', { hub: { rateMul: 1.15 } }),
+      tier('Club Mentors', 1100, 'Girls in her radius attack 15% faster, and their abilities recharge 15% faster.', { hub: { rateMul: 1.15, cdCut: 0.15 } }),
       tier('Student Body', 3400, 'Radius 3.6 tiles; girls in her radius reach 10% further.', { hub: { radius: 3.6, rangeMul: 1.1 } }),
-      tier('Festival of Clubs', 19200, 'Girls in her radius attack 25% faster and reach 15% further.', { hub: { rateMul: 1.25, rangeMul: 1.15 } }),
+      tier('Festival of Clubs', 19200, 'Girls in her radius attack 25% faster and reach 15% further; their abilities recharge 25% faster.', { hub: { rateMul: 1.25, rangeMul: 1.15, cdCut: 0.25 } }),
     ]),
     path('safety', 'Safety Code', 'Rules for every threat', [
       tier('Hall Monitors', 120, 'Girls in her radius gain Veil Sight.', { hub: { detection: true } }),

@@ -7,7 +7,7 @@
 // the battlefield; the ally's chip says "Rin is re-syncing… 45%" meanwhile.
 import '../styles/online.css';
 import { h } from '../components.js';
-import { fmtCoins } from '../battle/util.js';
+import { fmtNum } from '../format.js';
 import { COOP } from '../../data/coop.js';
 
 /** World height of the owner pin (just above a chibi's halo). */
@@ -46,7 +46,7 @@ export function createCoopHud(ctx) {
 
   function update() {
     const w = ls.coop.wallets;
-    for (const slot of [0, 1]) cash[slot].textContent = fmtCoins(Math.floor(w[slot] ?? 0));
+    for (const slot of [0, 1]) cash[slot].textContent = fmtNum(Math.floor(w[slot] ?? 0), 'money');
     if (sim.freeplay) {
       const votes = ls.coop.endVotes?.() || [];
       for (const slot of [0, 1]) flags[slot].hidden = !votes[slot];

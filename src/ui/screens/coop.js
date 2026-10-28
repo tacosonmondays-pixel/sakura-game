@@ -483,7 +483,8 @@ export function render(root, params = {}) {
           code: roomCode, isHost, backend, stageId, difficulty, freeplay, mode,
           // battle modes need the host's own clear of the stage (docs/specs/CODEX_MODES.md §2)
           modesUnlocked: (id) => modesUnlocked(store.profile, id),
-          me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero },
+          // autoAbil: my Settings → Auto-cast abilities (only `true` turns it on; the start message carries it)
+          me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero, ...(profile.settings?.autoCastAbilities ? { autoAbil: true } : null) },
         }, { isBlocked: (uid) => social.isBlocked(uid) }); // [social] never pair with a player I blocked; session.seated
       } catch (e) {
         const err = toOnlineError(e);

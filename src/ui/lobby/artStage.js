@@ -30,6 +30,7 @@
 // backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
 // .graded), so the text over the scene keeps its contrast.
 import { h } from '../dom.js';
+import { boltText } from '../kit.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, stageModeOf, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
@@ -344,7 +345,10 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
       hideBubble();
       return;
     }
-    bubble.firstElementChild.textContent = text;
+    const span = bubble.firstElementChild;
+    // (a ⚡ tip: the bolt as the kit's yellow mark, never the colour emoji)
+    if (String(text).includes('⚡')) span.replaceChildren(...boltText(text));
+    else span.textContent = text;
     fitBubble();
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);

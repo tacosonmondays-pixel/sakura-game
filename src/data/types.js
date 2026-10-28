@@ -97,6 +97,8 @@ export const ROLES = {
   tideguard: { name: 'Tideguard', category: 'hero', goodAgainst: 'Fast enemies near water', limitation: 'Must stand in water', desc: 'Amphibious frost hero.' },
   marksman: { name: 'Marksman', category: 'dps', goodAgainst: 'Ordinary enemies, runners, crystal shells', limitation: 'Heavy armor shrugs off small hits', desc: 'Cheap, reliable single-target shooter.' },
   sniper: { name: 'Sniper', category: 'dps', goodAgainst: 'Casters, elites, bosses, armor', limitation: 'Overkills small fry; poor crowd coverage', desc: 'Map-wide heavy shots with priority targeting.' },
+  // the late-game carry: a deliberate investment unit priced above every other girl (CONTRACTS §5b PRICE_BANDS.powerhouse)
+  powerhouse: { name: 'Powerhouse', category: 'dps', goodAgainst: 'Late waves, elites and bosses', limitation: 'Very expensive; weak for her price early on', desc: 'A late-game carry who grows into the strongest girl on the field.' },
   cleaver: { name: 'Cleaver', category: 'dps', goodAgainst: 'Crowds at corners and choke points', limitation: 'Short reach; cannot hit flyers', desc: 'Melee sweeps that hit everything nearby.' },
   duelist: { name: 'Duelist', category: 'dps', goodAgainst: 'One tough enemy that stays in range, and the crowd around it', limitation: 'Melee reach; no flyers before Flowing Blade tier 3', desc: 'Focused melee whose damage builds on the same target; every 3rd strike cleaves the enemies around it.' },
   controller: { name: 'Controller', category: 'control', goodAgainst: 'Fast goblins, blinkers, leaks', limitation: 'Low damage; bosses resist', desc: 'Slows and freezes.' },
@@ -268,7 +270,7 @@ export const GEAR_STATS = {
   critDmg: { name: 'Crit DMG', pct: true, base: [0.05, 0.12] },
   armorPen: { name: 'Armor Pierce', pct: false, base: [1, 2] },
   costCut: { name: 'Cost Reduction', pct: true, base: [0.01, 0.03] },
-  ultHaste: { name: 'Ult Haste', pct: true, base: [0.03, 0.07] },
+  ultHaste: { name: 'Skill Haste', pct: true, base: [0.03, 0.07] }, // (the key keeps its old name: saves store it)
 };
 export const GEAR_MAIN_STATS = {
   charm: ['atkPct', 'critDmg'],

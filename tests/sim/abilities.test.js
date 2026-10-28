@@ -6,11 +6,18 @@ import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { UNITS, ENEMIES, STAGE, testData, run } from './fixtures.js';
 import { STEP, KNOCKBACK_RESIST, CC_RESIST, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from '../../src/sim/constants.js';
-import { ABILITY_RULES } from '../../src/data/abilities.js';
+import {
+  ABILITY_RULES, ABILITIES, ABILITY_KINDS, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN, ABILITY_RUNNERS_RUN, abilityRuns, abilityAtTier, skillAtLevel,
+} from '../../src/data/abilities.js';
 import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { typeMultiplier } from '../../src/data/types.js';
 import { refreshEffective, towerResolvedStats } from '../../src/sim/towers.js';
-import { abilityDef, abilityPathOf, abilitySource, chargeRate, densestPoint, abilitySpec, autoWants, ABILITY_KINDS_LIVE } from '../../src/sim/abilities.js';
+import {
+  abilityDef, abilityPathOf, abilitySource, chargeRate, densestPoint, abilitySpec, autoWants, handlerOf, waveStartCharge,
+  ABILITY_KINDS_LIVE, ABILITY_DEPLOYS_LIVE,
+} from '../../src/sim/abilities.js';
+import { abilityChargePerTick, firstBellCharge, NOT_HASTED_KINDS, ABILITY_HASTE_SHARE, SKILL_HASTE_CAP } from '../../src/sim/gearRules.js';
+import { MAP } from './fixtures.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { samplePath } from '../../src/sim/path.js';
 import { defaultData } from '../../src/sim/data.js';
@@ -122,6 +129,11 @@ const XU = {
   cheer3: girl('cheer3', 'archer', {
     id: 'cheer3.call', kind: 'rally', cooldown: 40, duration: 5,
     effect: { radius: 3, rateMul: 1.1, cleanse: true }, auto: { when: 'enemies', min: 2 },
+  }),
+  // a rally on one girl (the girl-target rule, spec §7.2: Time Out!'s shape)
+  coach: girl('coach', 'archer', {
+    id: 'coach.timeout', kind: 'rally', cooldown: 45, duration: 12,
+    effect: { target: 'girl', rateMul: 1.8, rangeMul: 1.2, cleanse: true }, auto: { when: 'enemies', min: 1 },
   }),
   // the leak rules: `orLeak` beside a crowd count, and `leak` alone (its default share, 0.7)
   sentry: girl('sentry', 'archer', {
@@ -296,6 +308,26 @@ describe('charging', () => {
     expect(events(sim, 'abilityReady')).toEqual([{ type: 'abilityReady', towerUid: t.uid, id: 'volley.rain' }]);
   });
 
+  test('Skill Haste has one rule: chargeRate is gearRules.abilityChargePerTick for every haste and every kind', () => {
+    const hs = [undefined, null, -0.2, 0, 0.0001, 0.03, 0.07, 0.1, 0.13, 0.2, 0.25, 0.333, 0.4, 0.49, 0.5, 0.51, 0.75, 1, 3];
+    for (let k = 0; k <= 60; k++) hs.push(k / 100);
+    let hasted = 0;
+    for (const kind of [...ABILITY_KINDS, null]) {
+      for (const h of hs) {
+        const us = h === undefined ? {} : { ultHaste: h };
+        const got = chargeRate({ unitStats: us }, kind);
+        expect(got, `${kind} @ ${h}`).toBe(abilityChargePerTick(us, kind));
+        expect(Number.isInteger(got)).toBe(true);
+        if (got > 100) hasted++;
+      }
+      expect(chargeRate({}, kind)).toBe(100); // no unit stats at all
+    }
+    expect(hasted).toBeGreaterThan(0);
+    // the old copy's constants are gone from ABILITY_RULES (one rule), and the rule's own match the spec
+    for (const k of ['hasteShare', 'hasteCap', 'unhastedKinds']) expect(ABILITY_RULES).not.toHaveProperty(k);
+    expect([ABILITY_HASTE_SHARE, SKILL_HASTE_CAP, [...NOT_HASTED_KINDS]]).toEqual([0.5, 0.5, ['rally', 'debuff']]);
+  });
+
   test('Skill Haste (gear ultHaste) speeds abilities at half rate, capped; rallies and debuffs never', () => {
     const at = (h, kind) => chargeRate({ unitStats: { ultHaste: h } }, kind);
     expect(at(0, 'strike')).toBe(100);
@@ -311,6 +343,181 @@ describe('charging', () => {
     const cd0 = t.abil.cd;
     run(sim, 1);
     expect(t.abil.cd).toBe(cd0 - 60 * 111);
+  });
+});
+
+describe('one live-ability rule (src/data/abilities.js abilityRuns = the sim\'s handlerOf)', () => {
+  /** Every definition a battle can hold from a table: each row's entries and their tier 5, each hero skill and rank. */
+  function everyDef(table) {
+    const out = [];
+    for (const [key, row] of Object.entries(table)) {
+      if (Array.isArray(row)) for (const e of row) out.push([`${key} ${e.id}`, e], [`${key} ${e.id} T5`, abilityAtTier(e, 5)]);
+      else if (row?.skill) {
+        out.push([`${key} skill`, row.skill]);
+        for (const r of row.skill.ranks || []) out.push([`${key} Lv ${r.level}`, skillAtLevel(row.skill, r.level)]);
+      }
+    }
+    return out;
+  }
+
+  test('every row, tier 5 and rank (the real table and the fixtures) and every odd shape: !!handlerOf(def) === abilityRuns(def)', () => {
+    const fixtures = {};
+    for (const u of Object.values(XU)) {
+      if (u.kind === 'hero') {
+        if (u.hero?.skill) fixtures[u.id] = { skill: u.hero.skill };
+      } else {
+        const row = (u.paths || []).filter((p) => p.ability).map((p) => p.ability);
+        if (row.length) fixtures[u.id] = row;
+      }
+    }
+    const odd = [
+      { kind: 'boost', effect: {} }, { kind: 'boost', effect: { mods: { rateMul: 2 } } }, { kind: 'boost' },
+      { kind: 'deploy', effect: { deploy: 'trap' } }, { kind: 'deploy', effect: { deploy: 'double' } }, { kind: 'deploy', effect: { deploy: 'drone' } },
+      { kind: 'deploy', effect: {} }, { kind: 'deploy', effect: { deploy: 'strips' } }, { kind: 'deploy', effect: { deploy: 'sentries' } },
+      { kind: 'runner', effect: { runner: 'river' } }, { kind: 'runner', effect: { runner: 'giantBall' } }, { kind: 'runner' },
+      { kind: 'move', effect: {} }, { kind: 'zone', effect: {} }, { kind: 'nope', effect: {} }, { effect: {} },
+      ...ABILITY_KINDS.map((kind) => ({ kind, effect: { mods: {}, deploy: 'strips', runner: 'giantBall' } })),
+      ...ABILITY_KINDS.map((kind) => ({ kind, effect: {} })),
+    ];
+    const defs = [...everyDef(ABILITIES), ...everyDef(fixtures), ...odd.map((d, i) => [`odd ${i} ${d.kind}`, d])];
+    expect(defs.length).toBeGreaterThan(100);
+    for (const [name, def] of defs) expect(!!handlerOf(def), name).toBe(abilityRuns(def));
+    expect(handlerOf(null)).toBeNull();
+    expect(abilityRuns(null)).toBe(false);
+    expect(abilityRuns(undefined)).toBe(false);
+  });
+
+  test('the data rule\'s lists are the sim\'s handler tables', () => {
+    expect([...ABILITY_KINDS_LIVE].sort()).toEqual([...ABILITY_KINDS_RUN].sort());
+    expect([...ABILITY_DEPLOYS_LIVE].sort()).toEqual([...ABILITY_DEPLOYS_RUN].sort());
+    expect([...ABILITY_RUNNERS_RUN]).toEqual(['giantBall']);
+    for (const k of [...ABILITY_KINDS_RUN, 'deploy', 'runner', 'move', 'zone']) expect(ABILITY_KINDS).toContain(k);
+  });
+
+  test('who has a button today: every tower row but Kage, Suzu and Chika (deploys, A4), Fuu (move, A5) and Iroha (mirror, A6); Ruri on Moonhound only; every hero skill but Kanna\'s', () => {
+    const off = Object.entries(ABILITIES).filter(([, row]) => Array.isArray(row) && !row.some(abilityRuns)).map(([k]) => k).sort();
+    expect(off).toEqual(['chika', 'fuu', 'iroha', 'kage', 'suzu']);
+    // Ruri: one entry per familiar path; only Moon Pounce runs (Star Snatch is a move, A5; River Rush a runner, A6)
+    expect(ABILITIES.ruri.map((e) => [e.id, abilityRuns(e)])).toEqual([['ruri.moonPounce', true], ['ruri.starSnatch', false], ['ruri.riverRush', false]]);
+    const heroOff = Object.entries(ABILITIES).filter(([, row]) => !Array.isArray(row) && !abilityRuns(row.skill)).map(([k]) => k);
+    expect(heroOff).toEqual(['kanna']); // Heavy Beat: a boost with a status-only splash rider (A5), no ModSet
+    for (const [k, row] of Object.entries(ABILITIES)) {
+      if (!Array.isArray(row)) {
+        for (const r of row.skill.ranks || []) expect(abilityRuns(skillAtLevel(row.skill, r.level)), `${k} Lv ${r.level}`).toBe(abilityRuns(row.skill));
+      } else for (const e of row) expect(abilityRuns(abilityAtTier(e, 5)), `${k} T5`).toBe(abilityRuns(e)); // tier 5 never flips it
+    }
+  });
+
+  test('a boost with no ModSet stays locked at tier 3 (the teaser: comes later), like a kind that does not run', () => {
+    const bare = girl('bare', 'archer', { id: 'bare.boost', kind: 'boost', cooldown: 30, duration: 4, effect: {}, auto: { when: 'enemies', min: 1 } });
+    const sim = new Sim({ stageId: QUIET.id, seed: 5, loadout: [{ unitId: 'bare' }], data: testData({ stage: QUIET, units: { ...XU, bare }, enemies: XE }) });
+    sim.cash = 1e9;
+    const t = up(sim, place(sim, 'bare', 'a'), 0, 3);
+    expect(t.abil).toBeUndefined();
+    expect(sim._abilOn).toBe(0);
+    expect(sim.abilityStatus(t.uid)).toMatchObject({ id: 'bare.boost', unlocked: false, later: true });
+  });
+});
+
+describe('First Bell (Bell Club, 3 pieces): charge at each wave start', () => {
+  const BELL = Object.freeze({ club: 'bell', clubN: 3 });
+  /** Ends the running wave (nothing left on the road) and lets the step see it. */
+  const endWave = (sim) => {
+    for (const e of sim.enemies) e.dead = true;
+    sim._spawnIndex = sim._spawnQueue.length;
+    run(sim, 0.1);
+    expect(sim.state).toBe('between');
+  };
+
+  test('a 3-piece Bell girl starts each wave with floor(cdMax × 0.1) less to charge; 2 pieces, nothing', () => {
+    const sim = mk({ stats: { volley: BELL, mortar: { club: 'bell', clubN: 2 } } });
+    const t = unlocked(sim, 'volley', 'a');
+    const m = unlocked(sim, 'mortar', 'b');
+    const bell = Math.floor(t.abil.cdMax * 0.1);
+    expect(bell).toBe(18000); // 30 s × 60 ticks × 100 points × 10 %
+    expect(firstBellCharge(BELL, t.abil.cdMax, 'strike')).toBe(bell);
+    expect(waveStartCharge(sim, t)).toBe(bell);
+    expect(waveStartCharge(sim, m)).toBe(0);
+    for (let w = 0; w < 3; w++) {
+      t.abil.cd = t.abil.cdMax;
+      m.abil.cd = m.abil.cdMax;
+      expect(sim.startNextWave()).toBe(true);
+      expect(t.abil.cd, `wave ${w + 1}`).toBe(t.abil.cdMax - bell);
+      expect(m.abil.cd).toBe(m.abil.cdMax);
+      endWave(sim);
+    }
+    // a bell that finishes the charge sends the ready event the step would have sent
+    t.abil.cd = bell - 1;
+    sim.drainEvents();
+    expect(sim.startNextWave()).toBe(true);
+    expect(t.abil.cd).toBe(0);
+    expect(events(sim, 'abilityReady')).toEqual([{ type: 'abilityReady', towerUid: t.uid, id: 'volley.rain' }]);
+  });
+
+  test('none for rallies and debuffs; a girl without the set or an ability gets nothing', () => {
+    const sim = mk({ stats: { cheer: BELL, hush: BELL, archer: BELL } });
+    const c = unlocked(sim, 'cheer', 'a');
+    const h = unlocked(sim, 'hush', 'far');
+    const plain = place(sim, 'archer', 'b');
+    for (const t of [c, h]) t.abil.cd = t.abil.cdMax;
+    expect(sim.startNextWave()).toBe(true);
+    expect(c.abil.cd).toBe(c.abil.cdMax);
+    expect(h.abil.cd).toBe(h.abil.cdMax);
+    for (const t of [c, h, plain]) expect(waveStartCharge(sim, t), t.unitId).toBe(0);
+  });
+
+  test('a map-scope ability: its shared entry gains the largest bell among her player\'s copies, once', () => {
+    const play = (bellOnB) => {
+      const sim = mk({ stats: { verdict: BELL } });
+      const a = unlocked(sim, 'verdict', 'a');
+      const b = unlocked(sim, 'verdict', 'b');
+      if (!bellOnB) b.unitStats = { ...b.unitStats, club: null, clubN: 0 };
+      wave(sim);
+      run(sim, STEP);
+      a.abil.cd = 0;
+      b.abil.cd = 0;
+      // b casts (a copy without the set when bellOnB is false): the shared entry starts full
+      expect(sim.castAbility(b.uid).ok).toBe(true);
+      const key = '0|verdict.round';
+      endWave(sim);
+      const before = sim.abilGroups.get(key).cd;
+      const cdMax = sim.abilGroups.get(key).cdMax;
+      expect(before).toBeGreaterThan(0);
+      expect(sim.startNextWave()).toBe(true);
+      return { before, after: sim.abilGroups.get(key)?.cd ?? 0, bell: Math.floor(cdMax * 0.1), own: b.abil.cd };
+    };
+    const one = play(false); // only copy a wears the set: the entry still gets her bell
+    expect(one.before - one.after).toBe(one.bell);
+    const two = play(true); // both wear it: once, not twice
+    expect(two.before - two.after).toBe(two.bell);
+    expect(one.bell).toBe(Math.floor(45 * 60 * 100 * 0.1));
+  });
+});
+
+describe('Ouka\'s office recharge (Club Mentors / Festival of Clubs, the real tiers)', () => {
+  const units = defaultData().units;
+  function office(tiers, girlTiers = 3) {
+    const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+    sim.cash = 1e9;
+    const o = sim.placeTower('ouka', 8.5, 6.2);
+    for (const p of [0, 1, 2]) for (let k = 0; k < tiers[p]; k++) expect(sim.upgradeTower(o.uid, p)).toBe(true);
+    const g = sim.placeTower('aoi', 9.7, 6.2);
+    for (let k = 0; k < girlTiers; k++) expect(sim.upgradeTower(g.uid, abilityPathOf(g.def))).toBe(true);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+    sim._spawnIndex = 0;
+    return { sim, o, g };
+  }
+  test('covered girls charge 115 points a tick at Club Mentors, 125 at Festival of Clubs; 100 below and outside', () => {
+    for (const [tiers, want, cut] of [[[0, 2, 0], 100, 0], [[0, 3, 0], 115, 0.15], [[2, 4, 0], 115, 0.15], [[0, 5, 0], 125, 0.25]]) {
+      const { sim, g } = office(tiers);
+      expect(g.abil?.rate, `${tiers}`).toBe(100);
+      expect(g.rules?.cdCut || 0, `${tiers}`).toBe(cut);
+      const cd = g.abil.cd;
+      run(sim, STEP);
+      expect(cd - g.abil.cd, `${tiers}`).toBe(want);
+    }
   });
 });
 
@@ -857,6 +1064,114 @@ describe('rally', () => {
   });
 });
 
+describe('the girl-target rule (an ability on one girl: spec §7.2)', () => {
+  /** The coach at `a` (tier 3), girls at b (hers), c (her partner's) and f; a wave running. */
+  function team() {
+    const sim = mk();
+    const coach = unlocked(sim, 'coach', 'a');
+    const b = place(sim, 'archer', 'b');
+    const c = place(sim, 'archer', 'c');
+    c.owner = 1;
+    const f = place(sim, 'archer', 'f');
+    wave(sim);
+    run(sim, STEP);
+    coach.abil.cd = 0;
+    sim.drainEvents();
+    return { sim, coach, b, c, f };
+  }
+  const rate = (t) => +t.buff.rateMul.toFixed(9);
+
+  test('the girl nearest the aim point within 0.6 tiles gets it, alone, for its duration; a partner\'s girl may be chosen', () => {
+    const { sim, coach, b, c, f } = team();
+    expect(ABILITY_RULES.girlAimRadius).toBe(0.6);
+    const r = sim.castAbility(coach.uid, { aim: [b.x + 0.25, b.y + 0.25] });
+    expect(r).toEqual({ ok: true, reason: null, casterUid: coach.uid });
+    expect([rate(b), rate(c), rate(f), rate(coach)]).toEqual([1.8, 1, 1, 1]);
+    expect(b.buffBy.rally).toBe(coach.uid);
+    expect(sim._rallies).toHaveLength(1);
+    expect(sim._rallies[0]).toMatchObject({ src: coach.uid, to: b.uid, r2: 0 });
+    expect(events(sim, 'ability')).toEqual([expect.objectContaining({ towerUid: coach.uid, kind: 'rally', x: b.x, y: b.y, radius: 0, targets: [b.uid] })]);
+    run(sim, 12 - STEP);
+    expect(rate(b)).toBe(1.8);
+    run(sim, 2 * STEP);
+    expect(sim._rallies).toEqual([]);
+    expect(rate(b)).toBe(1);
+    // her partner's girl, aimed at exactly
+    run(sim, 45);
+    expect(sim.castAbility(coach.uid, { aim: [c.x, c.y] }).ok).toBe(true);
+    expect([rate(b), rate(c), rate(f)]).toEqual([1, 1.8, 1]);
+  });
+
+  test('ties go to the lower uid; the caster is never her own target; a sabotaged target is cleansed', () => {
+    const sim = mk();
+    const coach = unlocked(sim, 'coach', 'a');
+    const g = sim.placeTower('archer', 10.5, 3.4);
+    const h = sim.placeTower('archer', 11.5, 3.4);
+    expect(g && h && g.uid < h.uid).toBe(true);
+    wave(sim);
+    run(sim, STEP);
+    coach.abil.cd = 0;
+    h.disabled = 3;
+    // exactly 0.5 from both: the lower uid
+    expect(sim.castAbility(coach.uid, { aim: [11, 3.4] }).ok).toBe(true);
+    expect(sim._rallies[0].to).toBe(g.uid);
+    expect(h.disabled).toBe(3);
+    run(sim, 13);
+    run(sim, 45);
+    // 0.49 from h, 0.51 from g: the nearer one (and her sabotage is cleared)
+    expect(sim.castAbility(coach.uid, { aim: [11.01, 3.4] }).ok).toBe(true);
+    expect(sim._rallies[0].to).toBe(h.uid);
+    expect(h.disabled).toBe(0);
+    run(sim, 13);
+    run(sim, 45);
+    // aimed at the caster herself: she is skipped, and with nobody else within 0.6 the pick rule decides
+    g.damageDealt = 10;
+    h.damageDealt = 20;
+    expect(sim.castAbility(coach.uid, { aim: [coach.x, coach.y] }).ok).toBe(true);
+    expect(sim._rallies[0].to).toBe(h.uid);
+  });
+
+  test('no aim, or no girl within 0.6: the girl in her range who dealt the most damage (ties: the lower uid); nobody is noTarget', () => {
+    const { sim, coach, b, c, f } = team();
+    b.damageDealt = 50;
+    c.damageDealt = 80;
+    f.damageDealt = 80;
+    expect(sim.castAbility(coach.uid).ok).toBe(true);
+    expect(sim._rallies[0].to).toBe(c.uid); // c and f tie at 80: c has the lower uid
+    run(sim, 13);
+    run(sim, 45);
+    c.damageDealt = 10;
+    expect(sim.castAbility(coach.uid, { aim: [AT.far[0] + 2, AT.far[1]] }).ok).toBe(true); // nobody within 0.6
+    expect(sim._rallies[0].to).toBe(f.uid);
+    // a malformed aim counts as none
+    run(sim, 13);
+    run(sim, 45);
+    expect(sim.castAbility(coach.uid, { aim: [Number.NaN, 3] }).ok).toBe(true);
+    expect(sim._rallies[0].to).toBe(f.uid);
+    // a girl out of her range is never the pick; alone, she is refused and keeps her charge
+    const solo = mk();
+    const lone = unlocked(solo, 'coach', 'a');
+    const away = place(solo, 'archer', 'far');
+    away.damageDealt = 999;
+    wave(solo);
+    lone.abil.cd = 0;
+    expect(solo.castAbility(lone.uid)).toEqual({ ok: false, reason: 'noTarget', casterUid: lone.uid });
+    expect(lone.abil.cd).toBe(0);
+    // ... but an aim right on her still reaches her (the aim rule has no range)
+    expect(solo.castAbility(lone.uid, { aim: [away.x, away.y] }).ok).toBe(true);
+    expect(solo._rallies[0].to).toBe(away.uid);
+  });
+
+  test('her target sold mid-rally: nobody else picks it up', () => {
+    const { sim, coach, b, f } = team();
+    expect(sim.castAbility(coach.uid, { aim: [b.x, b.y] }).ok).toBe(true);
+    sim.sellTower(b.uid);
+    run(sim, STEP);
+    expect(rate(f)).toBe(1);
+    expect(f.buffBy.rally).toBe(-1);
+  });
+});
+
 describe('debuff', () => {
   test('map-wide: every enemy outside the tunnels, veiled ones too; casters also stunned', () => {
     const sim = mk();
@@ -1385,11 +1700,13 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
     return { sim, t, spawn };
   }
 
-  test('every girl but the three deploy ones (A4) learns hers at tier 3 of her ⚡ path; every hero at Lv 7', () => {
+  test('every girl but the three deploy ones (A4), Fuu, Iroha and Kanna learns hers at tier 3 of her ⚡ path; every other hero at Lv 7', () => {
     const live = [];
     const later = [];
-    // (the girls with an ability row; the returning girls' rows wait in RETURNING_ABILITIES)
-    for (const u of Object.values(defaultData().units).filter((d) => abilitySource({ def: d, isHero: d.kind === 'hero', tiers: [0, 0, 0], level: 0 }))) {
+    // (every girl has an ability row since the returning girls' were attached, A3 M3)
+    const withRow = Object.values(defaultData().units).filter((d) => abilitySource({ def: d, isHero: d.kind === 'hero', tiers: [0, 0, 0], level: 0 }));
+    expect(withRow.length).toBe(Object.values(defaultData().units).length);
+    for (const u of withRow) {
       const sim = new Sim({ stageId: '1-1', loadout: u.kind === 'hero' ? [] : [{ unitId: u.id }], hero: u.kind === 'hero' ? { unitId: u.id } : null, seed: 1 });
       sim.cash = 1e9;
       const spot = autoPlan('1-1', [u.id]).find((a) => a.action === 'place');
@@ -1399,8 +1716,11 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
       (t.abil ? live : later).push(u.id);
       if (!t.abil) expect(sim.abilityStatus(t.uid)).toMatchObject({ unlocked: false, later: true });
     }
-    expect(later.sort()).toEqual(['chika', 'kage', 'suzu']);
-    expect(live.length).toBe(16 + NEW_GIRL_IDS.length); // the new girls' abilities all run (Azami's deploy: strips)
+    expect(later.sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
+    // every other girl with an ability row, the new ones too (Tenka's Critical Mass is a strike; Azami's
+    // deploy is strips, Yuzuha's sentries, Marumi's a runner) and the returning ones that run (A3 M3)
+    expect(live.length).toBe(withRow.length - later.length);
+    for (const id of ['tenka', ...NEW_GIRL_IDS, 'hana', 'ruri', 'noa', 'ena', 'yoriko', 'seiran']) expect(live).toContain(id);
   });
 
   test('Aoi, Skyfall Volley: 6 arrows, 6× her hit, a certain 0.5 s pin', () => {

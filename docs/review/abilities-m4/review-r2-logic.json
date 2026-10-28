@@ -1,0 +1,81 @@
+{
+ "verdict": "NOT_OK",
+ "lens": "logic",
+ "reviewed": "feature/abilities 04383d08752ec434bed037f8a895f1a95964d8de (A3 M4 + review round r2), in a private detached worktree; no tracked file changed. The task's full SHA 04383d082e1b72f5a1ce6c2fe8cf3a06e82a3be5 does not exist; the branch tip shares its 8-character prefix 04383d08.",
+ "summary": "I reviewed A3 M4 at 04383d0 through the logic lens. It is not ready: one medium finding blocks it, and there are three low ones.\n\nMedium (new in r2): on a phone, the target chips' tap areas now reach 14 px down over the stat row. A tap on the DMG, RATE, RANGE or PIERCE label changes her targeting, opens ⋯, or starts Set aim (Iroha).\n\nLow:\n- abilityRow's no-bolt fallback is undone on the next frame.\n- Keyboard focus on a lock 'i' falls to the page on any redraw.\n- The '13 numbers with HUD' line still needs the owner's ruling.\n\nCo-op stays display only:\n- The sim id is c22b2587f4b7, the same as e07e5e9, and COOP_PROTOCOL is still 8.\n- M4 touches none of the 63 sim-id files and nothing in src/sim, src/data or src/online.\n- Every drawer action goes through ctx.act. The per-frame stat paint only reads.\n\nEarlier findings:\n- Every earlier logic finding is fixed, except two partial lows: r1-4 (the lock 'i' case is left) and r1-3 (waiting on the owner).\n- r1-2 is fixed for every measured name (closed, open and with a fallback font), but its new no-bolt fallback is broken (low).\n\nWhat I tested in the browser, all passing:\n- Keyboard: Space and Enter on a focused row, price, chip, ⋯, Sell and MORE never start the wave. Two Spaces or two Enters buy one tier. Escape closes without selling.\n- Pointer: the 2.6 s arm and CONFIRM windows (timed in the page), two-tap buy, moving or dropping the arming, and Sell and Buy never armed together.\n- The poor-row toast is 'Need 95 more coins.' (cost 100, coins 5). Sell gives the coins back and closes the drawer.\n- Target chips, PRIORITY in use, the Auto switch, and FIRE wired to castAbility. A hero rally shows on the open drawer's stat row right away.\n- Hero Level up, including the poor-coins toast. The hero widget hides and comes back.\n- The ally drawer (read only, rows not focusable), and 13 numbers with Sango's ⚡ row open and a row armed.\n- The 288 px side drawer at 667x375, and no state leaking across battles.\n- No page errors. The only console error is this sandbox blocking Google Fonts.\n\nThe M4 harness passed at 844: m4-drawer-aoi, m4-drawer-armed (with key-space), m4-stat-live, m4-keys, m4-drawer-ally, m4-lock-why and m4-abname. tests/battle-ui plus tests/ui pass (52 files, 784 tests), and so does tests/tools/cssFloor.\n\nEnvironment: the load average was 30–55 from other workflows. The full vitest run hit my 1700 s cap. Three long sim tests timed out at 694–938 s: smoke campaign sweep, perf.tenka and balance winnable. M4 changes no sim file. Steps that needed two round trips inside 2.6 s were redone inside the page.",
+ "findings": [
+  {
+   "id": "logic-r2-1",
+   "severity": "medium",
+   "lens": "logic",
+   "title": "On phones the target chips' tap areas cover the top 14 px of the stat row: a tap on DMG / RATE / RANGE / PIERCE changes her target (or opens ⋯, or starts Set aim)",
+   "where": "src/ui/styles/battle.css:680 `.bt-panel .bt-tchip::after { top: 0; translate: none; }` (inside @media (max-height: 480px), added in 04383d08) with :413 (the ::after is var(--tap-dense) = 40 px tall) and :677 (chips 24 px tall); applies to every .bt-tchip in the drawer: target, strip, aim (AUTO / SET AIM), Midori's PICK / AUTO, Chika's flight chips",
+   "evidence": "probe2 at 844x390 and 667x375 (Aoi 3-0-1): sampling elementFromPoint down the middle of the stat row, its top 14 px of 39 px (844) and of 33 px (667) resolve to FIRST / LAST / STRONG / CLOSE / ⋯. A real touch tap 4 px into the stat row over the RATE label changed her target mode from first to strong at both sizes (/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/out/probe2-844x390.json, probe2-667.log). Painting the hit areas shows them covering the whole caps-label line of the stat row: /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/out/p4-hit-aoi-844x390.png; for Iroha the AUTO / SET AIM areas cover the DMG / RATE labels, so the same tap starts aim mode (p4-hit-iroha-844x390.png). Before r2 the centred 40 px area reached about 6 px into the row; r2 moved its top to the chip's top so it reaches about 14 px, the label line. The r2 commit treats the stat row as taking no taps, but players tap labels to learn them, and the drawer's own rule makes a tap there a 'tap elsewhere' (it disarms an open row). In co-op the mis-tap sends a tgt command. Nothing tests it: the UI probe's 'overlaps none' compares boxes, not hit areas.",
+   "fix": "Keep chip hit areas off other rows' content. For example make the stat row take its own taps (`.bt-panel .bt-dw-stats { position: relative; z-index: 1; }`) and give the chip rows the room another way (a 32 px row with the hit area centred, or the extra height taken from the gap above where the ⚡ row's FIRE is not), or end the ::after at the row gap. Add an e2e hit test at 844 and 667: every point of the stat row (and of the aim row's label) resolves to no control."
+  },
+  {
+   "id": "logic-r2-2",
+   "severity": "low",
+   "lens": "logic",
+   "title": "abilityRow's 'no bolt' fallback is undone on the next frame (update() rewrites the row's className every frame)",
+   "where": "src/ui/battle/abilityRow.js:258 (fit adds bt-abrow-nobolt to el) vs :311 (update assigns el.className from state, open and fold only; towerPanel updateLive calls abRow.update(t) every frame)",
+   "evidence": "probe3 at 844 (Sango 0-3-0, a wide letter-spacing forced on her name, then a fonts 'loadingdone' event): the class log shows 'bt-abrow s-between bt-abrow-nobolt' at t=145471 ms, then 'bt-abrow s-between' at t=154649 (the next update); every later frame has the ⚡ shown again (/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/out/probe3-844x390.json). With the fonts the e2e measures, no name needs the fallback (m4-abname: noBolt false for all six, nothing cut), so this only bites when even a name's longest word misses the two-line box. Names use Nunito from Google Fonts. Where that is blocked (as in this sandbox) the fallback font stays, and `.bt-panel .bt-abrow-name { overflow: visible }` would let the word run past its box toward FIRE. m4-abname logs noBolt but never asserts that it holds.",
+   "fix": "Keep the flag across updates. Store noBolt in fit() and add it to update()'s className, or toggle only the state classes with classList. In m4-abname, force a case that needs the fallback (letter-spacing) and assert that bt-abrow-nobolt is still set, and the name not cut, a few frames later."
+  },
+  {
+   "id": "logic-r2-3",
+   "severity": "low",
+   "lens": "logic",
+   "title": "Keyboard focus on a lock 'i' (or a Buffing face) falls to the page on any redraw, so the next Space starts the wave (r1-4 fixed for ⋯ and MAX only)",
+   "where": "src/ui/battle/towerPanel.js focusKeyOf (:1110-1122): .bt-dw-info (crosspath and held-tier 'i') and .bt-buffing-face have no data-testid or data-mode, so it returns [] and render() restores nothing",
+   "evidence": "probe2 at 844 and 667: Tab, focus the crosspath row's 'i', then change the coins (a row's afford state flips, so the drawer redraws). document.activeElement becomes BODY (/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/out/probe2-844x390.json 'i-focus-after-redraw'). Mid-wave this happens whenever a row becomes affordable. Between waves, the next Space then calls startWave.",
+   "fix": "Give the 'i' buttons stable keys (data-testid path-why-N / final-why-N) and the Buffing faces a data-uid, or fall back to the row's controls (rowOf) for any focused control inside a .bt-path."
+  },
+  {
+   "id": "logic-r2-4",
+   "severity": "low",
+   "lens": "logic",
+   "title": "'≤ 13 numbers with HUD' is still read as the drawer alone, pending the owner's ruling (r1-3, look-r1-5)",
+   "where": "docs/specs/UI_DIRECTION.md M2 done-when (the r2 'Reading in use' note); towerPanel.js DRAWER_NUMBERS",
+   "evidence": "The drawer holds 10 to 13 numbers (harness m4-drawer-ally 10, m4-drawer-aoi 11; probe2 Sango with her ⚡ row open and a row armed 13). The whole 844 screen shows 23 to 26 (harness probe). The spec now records this reading and marks it for the owner.",
+   "fix": "No M4 code change. Get the owner's ruling before M5 claims the line."
+  }
+ ],
+ "earlier_findings": {
+  "r0 logic-1 Space on a focused row starts the wave": "fixed. probe K1/K3/K5/K6/K7a/K9 at 1280 and harness m4-key-space at 844: Space on any keyboard-focused drawer control never starts the wave. After a pointer tap, Space starts it once and never presses the control (K11, K12, m4-key-space-click).",
+  "r0 logic-2 PIERCE for kits gear Pierce does not widen": "fixed. gearPierce only counts beam, turret or drones, projectile without splash, and duel with a blade, matching towers.js shotPierce, bladeArts and droneCarry. The title reads 'Pierces 1 enemy'. The unit tests pin trap, strip, duel, blast, pulse and chain.",
+  "r0 logic-3 drawer over 13 numbers": "fixed. The P pill is gone, ⋯ has no digit, and fitNumbers drops pieces. The measured totals are 10 to 13.",
+  "r0 logic-4 dead buffCell / ult rank": "fixed. buffCell is gone and drawerStats uses st.ultRank.",
+  "r0 logic-5 test-only helpers in src": "fixed. drawerSections and sectionNumbers live in the test.",
+  "r0 logic-6 layout read on a 250 ms timer": "fixed. fitAll runs on render, ResizeObserver and fonts loadingdone. The per-frame stat paint only computes.",
+  "r0 logic-7 480 vs 500": "fixed for the drawer. JS PHONE_H is 480 and the drawer CSS uses 480. The HUD and toast CSS keep 500 (not the drawer).",
+  "r0 logic-8 harness": "fixed. holdArm freezes the arm, and phone means at most 480 px tall.",
+  "r0 look-1 667 bottom sheet": "fixed. At 667x375 it is a 288 px side drawer (probe2-667).",
+  "r1 logic-r1-1 stale stat row": "fixed. m4-stat-live: DMG 11.4 to 12.6 with 0 redraws. probe A4: Hikari's rally (E) moves the open Aoi's RATE from 1.7 to 2/s at once.",
+  "r1 logic-r1-2 ability name cut once opened": "fixed for every measured name. Sango is not cut, closed or open, at 844 and 667 (probe2), and m4-abname passes for 6 names with the fallback font. Its new no-bolt fallback does not hold (logic-r2-2, low).",
+  "r1 logic-r1-3 13 numbers with HUD": "documented for the owner. Still open as a low (logic-r2-4).",
+  "r1 logic-r1-4 focus lost": "fixed for ⋯ (focus moves to PRIORITY: K6, m4-keys) and for a buy to MAX (m4-keys). Still open for the lock 'i' and the Buffing faces (logic-r2-3, low).",
+  "r1 logic-r1-5 Sell and Buy armed together": "fixed. probe T6 and T7 (both orders) and m4-keys.",
+  "r1 logic-r1-6 ally rows focusable": "fixed. probe L1: the ally drawer's focusables are Tree, Close, the lock 'i' and MORE, with no buy buttons, no Sell and no row role. m4-drawer-ally passes."
+ },
+ "checks": {
+  "sim_id": "c22b2587f4b7 at HEAD (unchanged from e07e5e9)",
+  "coop_protocol": "8 (unchanged)",
+  "vitest_battle_ui_and_ui": "52 files, 784 tests passed",
+  "vitest_full": "hit the 1700 s cap under load average 30–55. Three long sim tests timed out (tests/sim/smoke campaign sweep 694 s, perf.tenka 797 s, balance winnable 938 s). M4 changes no sim file.",
+  "harness_844": "m4-drawer-aoi, m4-drawer-armed, m4-key-space(-click), m4-stat-live, m4-keys, m4-drawer-ally, m4-lock-why, m4-abname: no FAIL (one earlier run stopped on a page.goto timeout under load and was rerun)",
+  "console": "no page errors. The only console error is net::ERR_CERT_AUTHORITY_INVALID for Google Fonts (sandbox proxy)."
+ },
+ "evidence_dir": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b",
+ "scripts": [
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe2.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe3.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe4.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe5.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe6.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe7.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe8.mjs",
+  "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/r2logic-b/tools/probe9.mjs"
+ ]
+}

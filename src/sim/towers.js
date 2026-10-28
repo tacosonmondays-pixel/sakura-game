@@ -29,6 +29,7 @@ import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
+import { labMods } from './lab.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -79,7 +80,7 @@ export function createTower(def, o) {
     ty: Math.floor(y),
     radius: o.radius ?? (o.isHero ? 0.5 : 0.42),
     isHero: !!o.isHero,
-    owner: o.owner ?? 0, // player index (co-op; set by the 'place' command); 0 solo
+    owner: o.owner ?? 0, // player index (co-op: the 'place' command's slot, through placeTower's owner); 0 solo
     // buffs (src/sim/buffs.js): aura winner uid per key, the girl her brew / link should pick first (-1 auto),
     // what her own limited buff is doing, the brew / link she holds, her DPS over the last DPS_WINDOW s
     buffBy: emptyBuffBy(),
@@ -145,9 +146,15 @@ export function createTower(def, o) {
  * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  return resolveStats(t.def, {
-    tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null,
-  });
+  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null };
+  const s = resolveStats(t.def, o);
+  // Tenka's lab team (src/sim/lab.js): her dps and support weapons from her lab record and her lab power,
+  // after every tier and before a running boost (a girl without a lab resolves exactly as before)
+  if (!t.lab || !s.lab) return s;
+  const lm = labMods(t.lab, s.lab.power);
+  if (!lm) return s;
+  o.extra = t.abilMods ? [lm, t.abilMods] : lm;
+  return resolveStats(t.def, o);
 }
 
 /** Re-resolves a tower's stats after an upgrade / hero level / placement. */
@@ -312,8 +319,36 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  if (s.strip || s.sentry) deployCrits(t);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
+}
+
+/**
+ * Azami's strips (each strip hit, Tall Barbs' flyer hit, the Charged Strips blast) and Yuzuha's sentries (every
+ * Specialist Kit and the Burst Cells burst) crit like her own hits: her effective crit chance (gear, Potential and
+ * aura crit, after applyBuffExtras) and crit multiplier. Suzu's traps keep never critting (no `strip` block). The
+ * roll is Sim._hit's: one sim.rng draw per hit with a crit chance, in the hit order the strips and sentries already
+ * use, so every engine and every peer draws the same numbers; with no crit chance nothing is drawn (as before).
+ * The specs were built just above in refreshEffective and nobody holds them yet.
+ */
+function deployCrits(t) {
+  const chance = t.eff.critChance || 0;
+  const mul = t.eff.critMul || 1;
+  const set = (spec) => {
+    if (!spec) return;
+    spec.critChance = chance;
+    spec.critMul = mul;
+  };
+  if (t.stats.strip) {
+    set(t.trapSpec);
+    set(t.stripAirSpec);
+    set(t.stripBoomSpec);
+  }
+  if (t.stats.sentry && t.sentrySpecs) {
+    for (const k of Object.keys(t.sentrySpecs)) set(t.sentrySpecs[k]);
+    set(t.sentryBurstSpec);
+  }
 }
 
 function mergeLists(a, b) {
@@ -1005,12 +1040,38 @@ function attackBeam(sim, t) {
   return true;
 }
 
+/** How far her chain lightning jumps from one enemy to the next (her base attack and Seiran's Storm Lance). */
+export function chainJump(spec) {
+  return CHAIN_JUMP_RANGE + spec.splash;
+}
+
+/**
+ * The next link of a chain from (cx, cy): the nearest enemy within `jump` that is eligible for `spec` and not in
+ * `hitSet` (uids), or null. Ties: the first in grid order, or with `uidTies` the lower uid (Storm Lance). Her base
+ * chain attack and the ability share this walk.
+ */
+export function chainNext(sim, cx, cy, jump, spec, hitSet, uidTies = false) {
+  const near = sim.grid.query(cx, cy, jump, sim._scratch2);
+  let next = null;
+  let bestD = Infinity;
+  for (const e of near) {
+    if (hitSet.has(e.uid) || !isEligible(e, spec)) continue;
+    const d = (e.x - cx) ** 2 + (e.y - cy) ** 2;
+    if (d < bestD || (uidTies && d === bestD && e.uid < next.uid)) {
+      bestD = d;
+      next = e;
+    }
+  }
+  sim._scratch2.length = 0;
+  return next;
+}
+
 function attackChain(sim, t) {
   const spec = gearSpec(t.eff);
   const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, spec.projectiles);
   if (!targets.length) return false;
   face(t, targets[0]);
-  const jump = CHAIN_JUMP_RANGE + spec.splash;
+  const jump = chainJump(spec);
   for (const start of targets) {
     if (start.dead) continue;
     const points = [[t.ox, t.oy]];
@@ -1024,19 +1085,7 @@ function attackChain(sim, t) {
       const cy = cur.y;
       sim._hit(cur, t, spec, 1);
       if (j === chain) break;
-      const near = sim.grid.query(cx, cy, jump, sim._scratch2);
-      let next = null;
-      let bestD = Infinity;
-      for (const e of near) {
-        if (hitSet.has(e.uid) || !isEligible(e, spec)) continue;
-        const d = (e.x - cx) ** 2 + (e.y - cy) ** 2;
-        if (d < bestD) {
-          bestD = d;
-          next = e;
-        }
-      }
-      sim._scratch2.length = 0;
-      cur = next;
+      cur = chainNext(sim, cx, cy, jump, spec, hitSet);
     }
     sim._emit('chain', { points, element: spec.element || null, towerUid: t.uid });
   }
@@ -1044,8 +1093,8 @@ function attackChain(sim, t) {
   return true;
 }
 
-/** Path sample points within range, nearest-to-exit first (trap candidate spots). */
-function trapSpots(sim, t) {
+/** Path sample points within range, nearest-to-exit first (trap candidate spots; Gravity Well spots, src/sim/zones.js). */
+export function trapSpots(sim, t) {
   const range = t.eff.range;
   if (t.trapSpots && t.trapSpotsRange === range) return t.trapSpots;
   const spots = [];

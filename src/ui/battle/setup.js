@@ -121,6 +121,12 @@ function eventPracticeNote(gate, difficulty) {
 }
 
 /**
+ * Settings → Battle → Auto-cast abilities (Off by default) as the Sim's option: only when on, so a battle with the
+ * setting off builds exactly the Sim it always did (the battle save's restore reads the same setting: snapshot.js).
+ */
+export const autoAbilities = (profile) => (profile?.settings?.autoCastAbilities ? { autoAbilities: true } : {});
+
+/**
  * Creates the Sim for a battle. `cfg` is what a battle save freezes at New game: the run seed
  * and the team's battle stats as they are now (Continue never reads the live profile again).
  * @param {object} profile
@@ -128,14 +134,14 @@ function eventPracticeNote(gate, difficulty) {
  */
 export function createBattleSim(profile, req) {
   const seed = (req.seed ?? (Date.now() ^ Math.floor(performance.now() * 1000))) >>> 0;
-  if (req.sandbox) return createSandboxSim(req, seed);
+  if (req.sandbox) return createSandboxSim(req, seed, profile);
   const { towers, hero } = resolveFormation(profile);
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
   if (req.titan) {
     // Titan Trials: the titan's stage and enemy overrides through the Sim's data hook (no hashed file)
     const { stage, enemies } = req.titan.battle;
-    const sim = new Sim({ stageId: stage.id, difficulty: 'normal', loadout, hero: heroEntry, seed, options: { autoStart: !!profile.settings?.autoStart }, data: { stage, enemies } });
+    const sim = new Sim({ stageId: stage.id, difficulty: 'normal', loadout, hero: heroEntry, seed, options: { autoStart: !!profile.settings?.autoStart, ...autoAbilities(profile) }, data: { stage, enemies } });
     return { sim, towers, hero, seed, cfg: null };
   }
   // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js); [events] a
@@ -148,7 +154,7 @@ export function createBattleSim(profile, req) {
     loadout,
     hero: heroEntry,
     seed,
-    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}) },
+    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}), ...autoAbilities(profile) },
     ...(fpStage || evStage ? { data: { stage: fpStage || evStage } } : {}),
   });
   return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };
@@ -174,7 +180,7 @@ export function resumeBattleSim(profile, rec) {
  * Sandbox: the chosen girls at their best (owned or not), endless waves that only start when asked,
  * and a 999,999-coin purse.
  */
-function createSandboxSim(req, seed) {
+function createSandboxSim(req, seed, profile = null) {
   const { towers, hero } = sandboxFormation(req.team, req.hero);
   const sim = new Sim({
     stageId: req.stageId,
@@ -182,7 +188,7 @@ function createSandboxSim(req, seed) {
     loadout: towers.map((unitId) => ({ unitId, stats: sandboxUnitStats(unitId) })),
     hero: hero ? { unitId: hero, stats: sandboxUnitStats(hero) } : null,
     seed,
-    options: { endless: true, autoStart: false },
+    options: { endless: true, autoStart: false, ...autoAbilities(profile) },
   });
   sim.cash = SANDBOX_COINS;
   // (cfg is what a battle save would freeze; a sandbox run is never saved, isSavableRun)
