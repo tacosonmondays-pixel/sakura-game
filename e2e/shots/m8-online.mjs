@@ -157,7 +157,11 @@ export const shots = {
   'clan-boss': clanTab('boss'),
   'clan-applicants': clanTab('requests'),
   // the server before the social update (?social=0): the needs-update card
-  'needs-update': { page: '?onboarding=0&social=0#/messages', ready: '() => !!document.querySelector(\'[data-testid="needs-update"]\')', rebuilt: true },
+  // (a fresh page load: ready once the card is drawn and the loading screen has gone)
+  'needs-update': {
+    page: '?onboarding=0&social=0#/messages', rebuilt: true,
+    ready: '() => !!document.querySelector(\'[data-testid="needs-update"]\') && !document.querySelector(\'#ld.on, .ld-chip.on\') && !document.documentElement.dataset.tx',
+  },
   'settings-battle': {
     hash: '#/settings?section=battle', ready: isScreen('settings'), kind: 'list',
     open: async (page) => { const t = await page.$('#app [data-testid="tab-battle"]'); if (t) await t.click(); },
