@@ -189,7 +189,11 @@ function topBar({ title, acts = null, onBack = () => back() }) {
     acts ? h('div.pf-top-acts', acts) : null);
 }
 
-const topBtn = (kind, icon, label, testid, onClick, short = null) => h(`button.btn.btn-${kind}.btn-small`, { type: 'button', 'data-testid': testid, onclick: onClick },
+/**
+ * [ui-v2 M7a] A button on the ink top bar: clear glass with a hairline ('ghost'), or with the cyan edge ('edit': Edit
+ * profile, whose sheet holds the one yellow). Its tap square hangs from the band's top (v2-records.css .rk-topbtn).
+ */
+const topBtn = (kind, icon, label, testid, onClick, short = null) => h(`button.rk-topbtn${kind === 'edit' ? '.cy' : ''}`, { type: 'button', 'data-testid': testid, 'aria-label': label, onclick: onClick },
   ico(icon), h('span', short ? [h('span.pf-long', label), h('span.pf-short', short)] : label));
 
 /**
@@ -210,7 +214,8 @@ function profileView(m, ctx) {
   // ---- top bar
   const acts = preview
     ? [h('span.pf-preview-tag', ico('eye'), preview.onlyMe ? 'Preview · only you can see your profile' : 'Preview · what other Senseis see'), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
-    : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('yellow', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
+    // (Edit profile is the cyan-edged one: the sheet it opens holds the one yellow, Save)
+    : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('edit', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
       : visit ? visit.acts : null;
   const title = own ? 'Sensei Profile' : `${m.name}'s Profile`;
 
@@ -222,12 +227,15 @@ function profileView(m, ctx) {
     onTap: own ? () => navigate('student', { id: fav.u.id }) : (el) => holdOpen({ id: fav.u.id, prof: m.fav.prof })(el),
     onHold: holdOpen({ id: fav.u.id, prof: m.fav.prof }),
   }));
-  const plate = h('div.pf-fav-plate', { 'data-testid': 'profile-fav-plate' },
-    h('span.pf-fav-kicker', h('span.tag-ribbon', h('span', '♥ Favorite'))),
-    own ? h('button.pf-fav-swap', { type: 'button', title: 'Choose your favorite', 'aria-label': 'Choose your favorite', 'data-testid': 'profile-fav-swap', onclick: () => actions.editProfile('favorite') }, svgEl(glyph('refresh'), 'pf-ico-fill')) : null,
+  // [ui-v2 M7a] her nameplate is the kit's night plate (.ui-np): a caps kicker, her name, LV, stars and P; the swap
+  // is an icon button on the ink (44 px)
+  const plate = h('div.pf-fav-plate.ui-np', { 'data-testid': 'profile-fav-plate' },
+    h('div.pf-fav-top',
+      h('span.lbl.pf-fav-kicker', ico('heart'), 'Favorite'),
+      own ? h('button.ui-ibtn.pf-fav-swap', { type: 'button', title: 'Choose your favorite', 'aria-label': 'Choose your favorite', 'data-testid': 'profile-fav-swap', onclick: () => actions.editProfile('favorite') }, ico('swap')) : null),
     h('div.pf-fav-name', fav.ur ? urBadge('pf-fav-ur') : null, h('b', fav.u.name)),
     h('div.pf-fav-sub', fav.u.title || ROLES[fav.u.role]?.name || ''),
-    fav.level != null ? h('div.pf-fav-meta', h('span.lv', 'Lv.', h('b', String(fav.level))), stars(fav.awaken, MAX_AWAKEN), potPill(fav.p)) : null);
+    fav.level != null ? h('div.pf-fav-meta', h('span.lv', h('span.lbl', 'LV'), h('b.num', String(fav.level))), stars(fav.awaken, MAX_AWAKEN), potPill(fav.p)) : null);
   const favCol = h('aside.pf-fav', h('div.pf-fav-halo'), h('div.pf-fav-ring'),
     PETALS.map(([x, y, r], i) => h('i.pf-petal', { style: { left: `${x}%`, top: `${y}%`, '--r': `${r}deg`, '--d': `${i * 1.3}s` } })),
     favWrap, plate);
@@ -595,7 +603,8 @@ async function openPreview() {
   const on = ownOnline.status === 'ready';
   const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: on && ownOnline.own?.bioHidden ? '' : p.sensei.bio, clan: on ? ownOnline.clan : null, since: on ? ownOnline.since : null });
   const detach = [];
-  const overlay = h('div.pf-preview', { 'data-testid': 'profile-preview-overlay' });
+  // [ui-v2 M7a] a full-screen layer over the profile (the kit's .ui-layer: the page under it waits until it closes)
+  const overlay = h('div.pf-preview.ui-layer', { 'data-testid': 'profile-preview-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Profile preview' });
   const close = () => {
     for (const off of detach.splice(0)) off();
     offEsc();

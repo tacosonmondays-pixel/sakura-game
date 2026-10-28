@@ -4,7 +4,7 @@
    under Reduce Motion (data-reduce-motion or the media query). */
 
 :root {
-  --pf-top: 50px;
+  --pf-top: 48px; /* [ui-v2 M7a] the ink top bar's height (ink.css --topbar-h) */
   --pf-fav-w: 372px;
   --pf-bn-h: 214px;
   --pf-bn-show: 92px;
@@ -14,7 +14,8 @@
 /* ---------- Screen ---------- */
 .pf-host { position: absolute; inset: 0; }
 .screen.pf { overflow: hidden; background: linear-gradient(165deg, #eef8ff 0%, var(--sky-2) 60%, var(--sky-3) 100%); }
-.pf .topbar.pf-top { position: absolute; left: 0; right: 0; top: 0; z-index: 4; min-height: var(--pf-top); background: linear-gradient(90deg, rgba(255,255,255,0.97), rgba(255,255,255,0.78) 60%, rgba(255,255,255,0.55)); backdrop-filter: blur(6px); }
+/* [ui-v2 M7a] the bar is the ink band of every day screen (ink.css), laid over the banner's top */
+.pf .topbar.pf-top { position: absolute; left: 0; right: 0; top: 0; z-index: 4; min-height: var(--pf-top); }
 .pf-top-acts { display: flex; gap: 8px; align-items: center; }
 .pf-top-acts .btn-small { min-height: 34px; padding: 5px 13px; }
 .pf-top-acts .btn-small > span { display: inline-flex; align-items: center; gap: 5px; }
@@ -58,23 +59,10 @@
   transform: rotate(var(--r, 0deg)); animation: pf-petal 9s ease-in-out var(--d, 0s) infinite alternate; }
 @keyframes pf-petal { from { transform: translate(0, 0) rotate(var(--r, 0deg)); } to { transform: translate(14px, 26px) rotate(calc(var(--r, 0deg) + 70deg)); } }
 
-.pf-fav-plate {
-  position: absolute; left: 16px; right: 22px; bottom: 14px; padding: 9px 14px 9px 16px; z-index: 2;
-  background: linear-gradient(100deg, rgba(255,255,255,0.97), rgba(255,255,255,0.88)); border-radius: 10px;
-  transform: skewX(var(--skew)); box-shadow: var(--shadow-strong); border: 1px solid #fff;
-}
-.pf-fav-plate > * { transform: skewX(calc(var(--skew) * -1)); }
-.pf-fav-plate::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: linear-gradient(180deg, #ff9fc2, var(--pink)); }
-.pf-fav-kicker { position: absolute; top: -12px; left: 14px; }
-.pf-fav-name { display: flex; align-items: center; gap: 8px; margin-top: 3px; min-width: 0; }
-.pf-fav-name b { font: italic 900 1.55rem/1.05 var(--font-head); color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pf-fav-name .ur-badge { font-size: max(0.8rem, var(--fs-label)); }
-.pf-fav-sub { font-size: max(0.78rem, var(--fs-label)); font-weight: 800; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pf-fav-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-weight: 800; color: var(--navy); font-size: 0.85rem; }
-.pf-fav-meta .lv b { font: italic 900 1.1rem/1 var(--font-head); }
+/* [ui-v2 M7a] her nameplate: the kit's night plate (.ui-np, ink.css) at the foot of the column; v2-records.css lays it out */
+.pf-fav-plate { position: absolute; left: 16px; right: 22px; bottom: 14px; z-index: 2; }
 .pf .stars { color: #ffc300; letter-spacing: -1px; }
 .pf .stars .star:not(.on) { color: #d5dde8; }
-.pf-fav-swap { position: absolute; right: 10px; top: -14px; width: 34px; height: 34px; border-radius: 50%; border: none; padding: 7px; color: #fff; background: linear-gradient(180deg, #ff9fc2, var(--pink)); box-shadow: 0 3px 8px rgba(255,92,138,0.4); }
 
 .pf-pot { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; background: var(--pf-plum); color: #fff; font: 900 var(--fs-label)/1 var(--font); letter-spacing: 0.02em; }
 .pf-pot.p6 { background: linear-gradient(90deg, #ff7aa8, #ffb6cf); color: var(--pf-plum); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.8); }
@@ -291,6 +279,9 @@ button.pf-bio.empty { display: block; width: 100%; text-align: left; cursor: poi
 .pf-visit-why { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .pf-visit-why .sc-card-why { font-size: var(--fs-label); padding: 4px 9px; }
 
+/* [ui-v2 M7a] The editors (Edit Profile, Edit Showcase, the pin picker: .ep-, .es-, .pp-) are kit side sheets on paper
+   now (profile/parts.js openSheetFrame on src/ui/sheet.js; its old frame and section rail rules went). Their layout
+   stays below; their Ink & Paper look (square tiles, the sakura selection, kit options) is in v2-records.css. */
 /* Edit Profile: the live bio field and privacy radios */
 .ep-field { padding: 0 0 18px; }
 .ep-input { display: block; width: 100%; min-height: 60px; resize: none; border: 0; outline: 0; background: transparent; padding: 9px 11px 0; font: inherit; font-weight: 700; color: var(--ink); }
@@ -298,19 +289,6 @@ button.pf-bio.empty { display: block; width: 100%; text-align: left; cursor: poi
 .ep-err[hidden] { display: none; }
 button.ep-priv { width: 100%; text-align: left; cursor: pointer; font-family: inherit; }
 button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,0.12); }
-
-/* ======================================================================================
-   Editor sheets: one frame (the Unit Sheet's look)
-   ====================================================================================== */
-.pf-sheet-overlay { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 16px; background: rgba(16,28,52,0.55); animation: fade-in 140ms var(--ease); }
-.pf-sheet-overlay.closing { animation: fade-out 140ms forwards; }
-.pf-sheet { width: min(940px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; background: #fff; border-radius: 16px; box-shadow: var(--shadow-strong); }
-.pf-sheet-head { flex: none; position: relative; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px 8px 6px 16px; background: linear-gradient(90deg, #dbeeff, #f4faff 55%, #fff); border-bottom: 1px solid var(--line); min-width: 0; }
-.pf-sheet-head::after { content: ''; position: absolute; left: 16px; bottom: -1px; width: 56px; height: 3px; border-radius: 2px; background: var(--yellow); }
-.pf-sheet-title { font: italic 900 1.4rem/1.1 var(--font-head); color: var(--navy); white-space: nowrap; }
-.pf-sheet-x { flex: none; margin-left: auto; width: 44px; height: 44px; border: none; border-radius: 50%; background: transparent; color: var(--blue-deep); padding: 12px; }
-.pf-sheet-x:hover { background: rgba(29,78,137,0.08); }
-.pf-sheet .pf-count { font-size: 0.85rem; font-weight: 900; color: var(--blue-deep); background: #fff; border-radius: 999px; padding: 1px 9px; border: 1px solid var(--line); flex: none; }
 
 /* Edit Showcase */
 .es-sheet { width: min(940px, 100%); }
@@ -371,10 +349,6 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
 /* Edit Profile */
 .ep-sheet { width: min(940px, 100%); height: min(600px, 100%); }
 .ep-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 168px minmax(0, 1fr) 300px; }
-.ep-nav { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; background: linear-gradient(180deg, #f3f9ff, #e3f0fd); border-right: 1px solid var(--line); overflow-y: auto; }
-.ep-nav button { display: flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 8px 10px; border-radius: 8px; font-weight: 900; font-size: 0.86rem; color: var(--muted); text-align: left; }
-.ep-nav button .pf-ico { width: 18px; height: 18px; }
-.ep-nav button.on { background: #fff; color: var(--blue-deep); box-shadow: 0 2px 6px rgba(29,78,137,0.12), inset 3px 0 0 var(--blue); }
 .ep-soon { margin-left: auto; font-style: normal; font-size: var(--fs-label); font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #a35f00; background: #fff3bf; border-radius: 999px; padding: 1px 6px; }
 .ep-body { padding: 12px 14px; overflow-y: auto; background: linear-gradient(180deg, #f6fbff, #eef6ff); min-width: 0; }
 .ep-lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font: italic 900 0.92rem/1.2 var(--font-head); color: var(--navy); margin: 0 0 6px; }
@@ -451,7 +425,7 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
    Phone landscape (844×390 class)
    ====================================================================================== */
 @media (max-height: 480px) {
-  :root { --pf-top: 42px; --pf-fav-w: 236px; --pf-bn-h: 150px; --pf-bn-show: 56px; }
+  :root { --pf-top: 40px; --pf-fav-w: 236px; --pf-bn-h: 150px; --pf-bn-show: 56px; }
   .pf-top-acts { gap: 6px; }
   .pf-top-acts .btn-small { min-height: 30px; padding: 4px 10px; font-size: max(0.78rem, var(--fs-label)); }
   .pf-long { display: none !important; }
@@ -460,15 +434,8 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .pf-banner-edit { top: 6px; right: 10px; }
   .pf-onart { font-size: var(--fs-label); padding: 4px 9px 4px 6px; }
   .pf-fav-stand { bottom: 40px; top: 6px; }
-  .pf-fav-plate { left: 10px; right: 14px; bottom: 8px; padding: 5px 10px 6px 12px; }
-  .pf-fav-kicker { top: -10px; }
-  .pf-fav-kicker .tag-ribbon { font-size: var(--fs-label); }
-  .pf-fav-name b { font-size: 1.12rem; }
-  .pf-fav-name .ur-badge { font-size: var(--fs-label); }
+  .pf-fav-plate { left: 10px; right: 14px; bottom: 8px; }
   .pf-fav-sub { display: none; }
-  .pf-fav-meta { margin-top: 1px; font-size: var(--fs-label); gap: 7px; }
-  .pf-fav-meta .lv b { font-size: 0.95rem; }
-  .pf-fav-swap { width: 28px; height: 28px; padding: 6px; top: -12px; right: 6px; }
 
   .pf-main { padding: var(--pf-bn-show) calc(12px + var(--safe-right, 0px)) 12px 4px; }
   .pf-pick-name { font-size: var(--fs-label); padding: 2px 8px 2px 5px; }
@@ -508,52 +475,12 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .pf-pl-art { width: 32px; height: 32px; }
   .pf-records { display: block; }
 
-  .pf-sheet-overlay { padding: 8px; }
-  .pf-sheet { border-radius: 12px; height: 100%; }
-  .pf-sheet-head { min-height: 40px; padding: 3px 4px 3px 12px; gap: 8px; }
-  .pf-sheet-title { font-size: 1.1rem; }
-  .pf-sheet-x { width: 36px; height: 36px; padding: 10px; }
-  .es-tip, .es-note { display: none; }
-  .es-body { padding: 8px 10px 4px; }
-  .es-row { gap: 6px; padding: 7px; }
-  .es-slot .es-nm { font-size: var(--fs-label); }
-  .es-slot .es-grip { bottom: 14px; }
-  .es-x { width: 20px; height: 20px; }
-  .es-bar { margin: 6px 2px 5px; }
-  .es-grid { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 5px; }
-  .es-pick .es-pw { display: none; }
-  .es-on { width: 20px; height: 20px; font-size: var(--fs-label); line-height: 16px; }
-  .es-foot, .ep-foot { padding: 6px 10px 8px; }
-  .es-foot .btn:not(.btn-small), .ep-foot .btn:not(.btn-small) { min-height: 32px; padding: 4px 14px; font-size: 0.85rem; }
-  .pp-row { padding: 10px 7px 7px; gap: 6px; }
-  .pp-list { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
-  .ep-sheet { height: 100%; }
-  .ep-main { grid-template-columns: 124px minmax(0, 1fr); }
-  .ep-prev { display: none; }
-  .ep-nav { padding: 6px; gap: 2px; }
-  .ep-nav button { padding: 5px 8px; font-size: var(--fs-label); gap: 6px; }
-  .ep-nav button .pf-ico { width: 15px; height: 15px; }
-  /* the "soon" badge stays inside its button: the label gives way first (124px column) */
-  .ep-nav button { min-width: 0; }
-  .ep-nav button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ep-soon { flex: none; padding: 1px 4px; font-size: var(--fs-label); letter-spacing: 0.03em; }
-  .ep-body { padding: 8px 10px; }
-  .ep-text { min-height: 54px; font-size: 0.82rem; padding: 6px 9px 18px; }
-  .ep-field { padding: 0 0 16px; }
-  .ep-input { min-height: 44px; padding: 6px 9px 0; font-size: 0.82rem; }
   .pf-clan, .pf-since { font-size: var(--fs-label); }
   .pf-more { width: 30px; height: 30px; }
   .pf-visit-state .pf-empty-card { padding: 12px 14px; gap: 6px; }
   .pf-basic-card .pf-ava { width: 64px; height: 64px; }
   .pf-basic-card .pf-name { font-size: 1.25rem; }
   .pf-empty-card p.pf-basic-note { font-size: var(--fs-label); padding: 6px 10px; }
-  .ep-warn, .ep-later { font-size: var(--fs-label); padding: 5px 8px; }
-  .ep-sec { margin-top: 8px; }
-  .ep-chips button { font-size: var(--fs-label); padding: 3px 9px; }
-  .ep-girls { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 5px; }
-  .ep-banners { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-  .ep-banner { height: 56px; }
-  .ep-foot .muted { display: none; }
 }
 
 /* Very narrow (a phone held upright): the stand steps aside, everything stacks */
@@ -566,10 +493,6 @@ button.ep-priv.on { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127
   .pf-show-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .pf-grid2 { grid-template-columns: minmax(0, 1fr); }
   .pf-mstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ep-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .ep-nav { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--line); }
-  .ep-prev { display: none; }
-  .es-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 /* A phone held upright (the fallback when the rotate overlay is dismissed; UI M5 merge review): the avatar fits its
    70 px column (at 104 px it covered the name), the Showcase header keeps Edit in view (the "Auto" chip goes, as on
@@ -616,8 +539,7 @@ html[data-reduce-motion] .pf-slot.is-ur::after { display: none; }
 
 /* ---------- UI M5d: the page at the floor on every screen (12 px phones, 13 px desktop) and a 40 px tap on its small
    buttons (an invisible hit box: the look is unchanged) ---------- */
-.pf-fav-kicker .tag-ribbon { font-size: var(--fs-label); }
-.pf-fav-swap::before, .pf-banner-edit::before, .pf-ava-edit::before, .pf-pick-name::before, .pf-ph .btn-small::before, .pf-top-acts .btn-small::before, .pf-bio-edit::before, .pf-chip-all::before {
+.pf-banner-edit::before, .pf-ava-edit::before, .pf-pick-name::before, .pf-ph .btn-small::before, .pf-top-acts .btn-small::before, .pf-bio-edit::before, .pf-chip-all::before {
   content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%);
 }
 .pf-pick-name, .pf-ph .btn-small, .pf-top-acts .btn-small, .pf-chip-all { position: relative; overflow: visible; }

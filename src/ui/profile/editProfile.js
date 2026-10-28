@@ -18,6 +18,8 @@ import { ownOnline, setOwnState, refreshOwnOnline } from './online.js';
 import { storedName, askName } from '../online/common.js';
 import { displayRarity, rarityInfo } from '../rarity.js';
 import { ico, bannerArt, avatarEl, titlePlate, openSheetFrame } from './parts.js';
+import { sideRail } from '../kit.js';
+import { tabSwap } from '../motion.js';
 
 const SECTIONS = [['bio', 'edit', 'Bio'], ['picture', 'students', 'Picture'], ['banner', 'map', 'Banner'], ['title', 'sparkle', 'Title'], ['favorite', 'heart', 'Favorite'], ['privacy', 'eye', 'Privacy']];
 const TIERS = [['prism', 'Prism · rarest'], ['gold', 'Gold'], ['std', 'Standard']];
@@ -40,7 +42,13 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
   let bioErr = '';
   let saving = false;
   let current = SECTIONS.some(([id]) => id === section) ? section : 'picture';
-  const nav = h('nav.ep-nav');
+  // [ui-v2 M7a] the section rail is the kit's E3 rail (kit.js sideRail): the same edit-tab-<id> test ids; "soon" rides
+  // inside a tab while its section waits for the server update
+  const nav = sideRail(SECTIONS.map(([id, icon, name]) => ({ id, icon, label: name })), current, (id) => {
+    current = id;
+    draw();
+    tabSwap(body);
+  }, { testidPrefix: 'edit-tab-', label: 'Edit Profile sections', cls: 'ep-nav' });
   const body = h('div.ep-body', { 'data-testid': 'edit-profile-body' });
   const prev = h('div.ep-card', { 'data-testid': 'edit-profile-preview' });
   const titles = new Set(earnedTitles(p));
@@ -100,7 +108,7 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
         h('div.ep-sec', label('Quick lines', 'Tap one to use it'), h('div.ep-chips', { 'data-testid': 'edit-quick-lines' }, QUICK_LINES.map((q) => h('button', { type: 'button', disabled: !canEdit, onclick: () => { draft.bio = q; bioErr = ''; draw(); } }, q)))),
       h('div.ep-sec', label('Name', 'Your online name · 3 changes a day'),
         h('div.ep-card-row', h('span.ep-namechip', storedName() || 'Not chosen yet'),
-          h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'edit-change-name', onclick: () => { frame.close(); askName({ title: 'Change your name', current: storedName() }).then(() => store.commit('identity')).catch(() => {}); } }, h('span', storedName() ? 'Change name' : 'Pick a name')))),
+          h('button.ui-btn.sec', { type: 'button', 'data-testid': 'edit-change-name', onclick: () => { frame.close(); askName({ title: 'Change your name', current: storedName() }).then(() => store.commit('identity')).catch(() => {}); } }, h('span', storedName() ? 'Change name' : 'Pick a name')))),
       ];
     },
     picture: () => [
@@ -160,8 +168,13 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
   }
 
   function draw() {
-    nav.replaceChildren(...SECTIONS.map(([id, icon, name]) => h(`button${current === id ? '.on' : ''}`, { type: 'button', 'data-testid': `edit-tab-${id}`, onclick: () => { current = id; draw(); } }, ico(icon), h('span', name),
-      (id === 'bio' || id === 'privacy') && ownOnline.status === 'needs_update' ? h('i.ep-soon', 'soon') : null)));
+    nav.setActive(current);
+    for (const b of nav.querySelectorAll('.ui-stab')) {
+      const soon = (b.dataset.tab === 'bio' || b.dataset.tab === 'privacy') && ownOnline.status === 'needs_update';
+      const has = b.querySelector('.ep-soon');
+      if (soon && !has) b.append(h('i.ep-soon', 'soon'));
+      else if (!soon && has) has.remove();
+    }
     const scroll = body.scrollTop;
     body.replaceChildren(...sections[current]().filter(Boolean));
     body.scrollTop = scroll;
@@ -223,12 +236,14 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
     title: 'Edit Profile',
     cls: 'ep-sheet',
     testid: 'edit-profile',
-    body: h('div.ep-main', nav, body, h('aside.ep-prev', h('span.ep-prev-t', 'Preview'), prev, h('span.ep-help', 'Others see this once profiles go online. Your gems, pulls, mail, friend code and saves are never shown.'))),
-    foot: h('div.ep-foot',
-      h('span.muted', live() ? 'Saved to your game and your online profile.' : 'Saved to your game. Your bio and privacy save when you\'re online.'),
-      h('span.es-spacer'),
-      h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'edit-profile-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
-      h('button.btn.btn-yellow', { type: 'button', 'data-testid': 'edit-profile-save', onclick: save }, h('span', 'Save'))),
+    // [ui-v2 M7a] the rail takes the sheet's whole height (six 46 px tabs fit a phone); the actions sit under the section
+    body: h('div.ep-main', nav,
+      h('div.ep-col', body, h('div.ep-foot.pf-sheet-foot',
+        h('span.desc.pf-foot-why', live() ? 'Saved to your game and your online profile.' : 'Saved to your game. Your bio and privacy save when you\'re online.'),
+        h('span.es-spacer'),
+        h('button.ui-btn.sec', { type: 'button', 'data-testid': 'edit-profile-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
+        h('button.ui-btn.pri', { type: 'button', 'data-testid': 'edit-profile-save', onclick: save }, h('span', 'Save')))),
+      h('aside.ep-prev', h('span.ep-prev-t', 'Preview'), prev, h('span.ep-help', 'Others see this once profiles go online. Your gems, pulls, mail, friend code and saves are never shown.'))),
   });
   draw();
   // the server's answer may still be coming: adopt it if nothing was typed yet

@@ -58,8 +58,8 @@ export function openPinPicker({ pin: want = null } = {}) {
     }
     list.replaceChildren(...[...items.slice(0, shown).map((pin) => {
       const at = pins.indexOf(pin);
-      return h(`button.pp-opt${at >= 0 ? '.on' : ''}`, { type: 'button', 'data-pin': pin, 'data-testid': 'pin-option', onclick: () => toggle(pin) }, plaqueEl(pin), at >= 0 ? h('span.es-on', String(at + 1)) : null);
-    }), items.length > shown ? h('button.btn.btn-ghost.btn-small.pp-more', { type: 'button', onclick: () => { shown += PAGE; draw(); } }, h('span', `Show more (${items.length - shown})`)) : null].filter(Boolean));
+      return h(`button.pp-opt${at >= 0 ? '.on' : ''}`, { type: 'button', 'data-pin': pin, 'data-testid': 'pin-option', 'data-probe': 'tile', onclick: () => toggle(pin) }, plaqueEl(pin), at >= 0 ? h('span.es-on', String(at + 1)) : null);
+    }), items.length > shown ? h('button.ui-btn.sec.pp-more', { type: 'button', onclick: () => { shown += PAGE; draw(); } }, h('span', `Show more (${items.length - shown})`)) : null].filter(Boolean));
   }
 
   const save = () => {
@@ -75,11 +75,11 @@ export function openPinPicker({ pin: want = null } = {}) {
     testid: 'pin-picker',
     head: [note],
     body: h('div.es-body', top, h('div.es-bar', tabs, h('span.es-note', 'Only what you have earned · best first')), list),
-    foot: h('div.es-foot',
-      h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'pin-auto', onclick: () => { pins = []; draw(); } }, h('span', 'Use my best medals')),
+    foot: h('div.es-foot.pf-sheet-foot',
+      h('button.ui-btn.ghost', { type: 'button', 'data-testid': 'pin-auto', onclick: () => { pins = []; draw(); } }, h('span', 'Use my best medals')),
       h('span.es-spacer'),
-      h('button.btn.btn-ghost.btn-small', { type: 'button', onclick: () => frame.close() }, h('span', 'Cancel')),
-      h('button.btn.btn-yellow', { type: 'button', 'data-testid': 'pin-save', onclick: save }, h('span', 'Save pins'))),
+      h('button.ui-btn.sec', { type: 'button', onclick: () => frame.close() }, h('span', 'Cancel')),
+      h('button.ui-btn.pri', { type: 'button', 'data-testid': 'pin-save', onclick: save }, h('span', 'Save pins'))),
   });
   draw();
   return frame;

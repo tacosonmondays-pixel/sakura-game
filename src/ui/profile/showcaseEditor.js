@@ -65,9 +65,10 @@ export function openShowcaseEditor({ slot = null } = {}) {
   function slotEl(id, i) {
     const n = h('span.es-n', String(i + 1));
     if (!id) {
-      return h(`button.es-slot.empty${selected === i ? '.sel' : ''}`, { type: 'button', 'data-slot': String(i), 'data-testid': 'showcase-slot', onclick: () => tapSlot(i) }, n, ico('plus'), h('span.es-nm', 'Add'));
+      return h(`button.es-slot.empty${selected === i ? '.sel' : ''}`, { type: 'button', 'data-slot': String(i), 'data-testid': 'showcase-slot', 'data-probe': 'tile', onclick: () => tapSlot(i) }, n, ico('plus'), h('span.es-nm', 'Add'));
     }
-    const el = h(`div.es-slot${selected === i ? '.sel' : ''}`, { 'data-slot': String(i), 'data-unit': id, 'data-testid': 'showcase-slot', role: 'button', tabindex: '0' },
+    // (data-probe: a repeated tile, its numbers budgeted per tile; e2e/probe.mjs)
+    const el = h(`div.es-slot${selected === i ? '.sel' : ''}`, { 'data-slot': String(i), 'data-unit': id, 'data-testid': 'showcase-slot', 'data-probe': 'tile', role: 'button', tabindex: '0' },
       svgEl(portraitHTML(UNIT_MAP[id], 'thumb', { alt: '' }), 'es-art'), n,
       h('button.es-x', { type: 'button', 'aria-label': `Remove ${UNIT_MAP[id].name}`, 'data-testid': 'showcase-remove', onclick: (e) => { e.stopPropagation(); picked[i] = null; if (selected === i) selected = null; draw(); } }, svgEl(glyph('close'), 'pf-ico-fill')),
       h('span.es-grip', h('i'), h('i'), h('i')),
@@ -137,7 +138,7 @@ export function openShowcaseEditor({ slot = null } = {}) {
 
   function pickEl(id) {
     const at = picked.indexOf(id);
-    const el = h(`button.es-pick${at >= 0 ? '.on' : ''}`, { type: 'button', 'data-unit': id, 'data-testid': 'showcase-pick', title: `${UNIT_MAP[id].name} · hold for her build` },
+    const el = h(`button.es-pick${at >= 0 ? '.on' : ''}`, { type: 'button', 'data-unit': id, 'data-testid': 'showcase-pick', 'data-probe': 'tile', title: `${UNIT_MAP[id].name} · hold for her build` },
       svgEl(portraitHTML(UNIT_MAP[id], 'thumb', { alt: '' }), 'es-art'),
       h('span.es-lv', `Lv.${p.units[id].level || 1}`),
       at >= 0 ? h('span.es-on', String(at + 1)) : null,
@@ -168,11 +169,11 @@ export function openShowcaseEditor({ slot = null } = {}) {
     testid: 'showcase-editor',
     head: [count, h('span.es-tip', ico('hold'), 'Drag to reorder · × to remove · tap a girl to add · hold for her build')],
     body: h('div.es-body', row, h('div.es-bar', h('span.es-bar-t', 'Your students'), sortBar, h('span.es-note', 'Only girls you own · the picture is taken when you save')), grid),
-    foot: h('div.es-foot',
-      h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'showcase-autofill', onclick: () => { const auto = autoShowcase(p); for (let i = 0; i < SHOWCASE_MAX; i++) picked[i] = auto[i] || null; selected = null; draw(); } }, h('span', 'Auto-fill by power')),
+    foot: h('div.es-foot.pf-sheet-foot',
+      h('button.ui-btn.ghost', { type: 'button', 'data-testid': 'showcase-autofill', onclick: () => { const auto = autoShowcase(p); for (let i = 0; i < SHOWCASE_MAX; i++) picked[i] = auto[i] || null; selected = null; draw(); } }, h('span', 'Auto-fill by power')),
       h('span.es-spacer'),
-      h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'showcase-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
-      h('button.btn.btn-yellow', { type: 'button', 'data-testid': 'showcase-save', onclick: save }, h('span', 'Save showcase'))),
+      h('button.ui-btn.sec', { type: 'button', 'data-testid': 'showcase-cancel', onclick: () => frame.close() }, h('span', 'Cancel')),
+      h('button.ui-btn.pri', { type: 'button', 'data-testid': 'showcase-save', onclick: save }, h('span', 'Save showcase'))),
     onClose: () => { for (const off of detach.splice(0)) off(); },
   });
   draw();

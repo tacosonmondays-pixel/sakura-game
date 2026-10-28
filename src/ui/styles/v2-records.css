@@ -25,7 +25,8 @@
     var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
     calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw));
 }
-:is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op) { font: inherit; text-align: left; cursor: pointer; padding: 0; transition: transform var(--t-press) var(--ease); }
+:is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op) { font: inherit; text-align: left; cursor: pointer; opacity: 1; transition: transform var(--t-press) var(--ease); }
+:is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op):disabled { cursor: default; }
 :is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op):active:not(:disabled) { transform: scale(0.98); }
 :is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op):focus-visible { outline: none; --edge: var(--cyan-ink); --rw: 2px; }
 @media (prefers-reduced-motion: reduce) { :is(.ui-day) :is(button.rk-card, button.sa-card, button.ev-ep, button.ev-op):active { transform: none; } }
@@ -176,7 +177,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 /* the episode cards: kit tiles in two columns, the list scrolls down inside the panel */
 :is(.ui-day) .sa-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px; padding: 10px 0 12px; align-content: start; scrollbar-width: thin; }
-:is(.ui-day) .sa-card { display: grid; grid-template-columns: minmax(88px, 40%) minmax(0, 1fr); min-height: 108px; overflow: hidden; }
+:is(.ui-day) .sa-card { display: grid; grid-template-columns: minmax(88px, 40%) minmax(0, 1fr); min-height: 108px; padding: 0; overflow: hidden; }
 :is(.ui-day) .sa-card.locked { --fill: #f3f6fa; }
 :is(.ui-day) .sa-card.locked .sa-thumb { filter: grayscale(0.85) brightness(0.85); }
 :is(.ui-day) .sa-card.locked .sa-title { color: var(--muted); }
@@ -226,4 +227,419 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 }
 @media (max-width: 560px) {
   :is(.ui-day) .sa-tabs { grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr)); row-gap: 6px; }
+}
+
+/* ==========================================================================================================
+   THE EVENT PAGE (#/event/<id>?tab=…): one ink header band, then the kit's folder tabs on the content panel
+   ========================================================================================================== */
+:is(.ui-day) .ev-screen .screen-body { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; padding-bottom: calc(8px + var(--safe-bottom)); overflow: hidden; }
+/* the event's currency in the top bar (a button: it opens the Exchange): clear glass, its tap square from the band's top */
+:is(.ui-day) .ev-screen .topbar .ev-pill { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 6px; min-height: 0; height: 32px; padding: 0 10px 0 6px; }
+:is(.ui-day) .ev-screen .topbar .ev-pill::before { content: ''; position: absolute; left: 0; right: 0; top: calc(50% - var(--topbar-h) / 2); height: max(calc(var(--tap) + 2px), var(--topbar-h)); }
+:is(.ui-day) .ev-pill .svg-icon { width: 22px; height: 22px; }
+:is(.ui-day) .ev-bal-val { font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--on-ink); }
+@media (max-width: 440px) {
+  /* (the event's name wraps in the bar rather than ending in an ellipsis) */
+  :is(.ui-day) .ev-screen .topbar-title { white-space: normal; overflow: visible; text-overflow: clip; font-size: var(--fs-body); line-height: 1.1; min-width: 0; }
+}
+
+/* the header: one ink band over the event's painting (a night surface on the day page), the lantern string along it */
+:is(.ui-day) .ev-head { flex: none; overflow: hidden; color: var(--on-ink); }
+:is(.ui-day) .ev-head > .ev-head-art { position: absolute; inset: 0; z-index: 0; line-height: 0; }
+:is(.ui-day) .ev-head-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; filter: brightness(0.5) saturate(0.8); }
+:is(.ui-day) .ev-head > .ev-head-shade { position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(14, 25, 48, 0.96) 0%, rgba(14, 25, 48, 0.82) 50%, rgba(14, 25, 48, 0.45) 100%); }
+:is(.ui-day) .ev-head > .ev-lanterns { position: absolute; right: 0; top: 0; z-index: 0; width: 44%; height: 34px; line-height: 0; pointer-events: none; opacity: 0.9; }
+:is(.ui-day) .ev-lanterns svg { width: 100%; height: 100%; }
+:is(.ui-day) .ev-head > .ev-head-body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; padding: 9px 18px 10px; }
+:is(.ui-day) .ev-kicker { color: #ffc98a; }
+:is(.ui-day) .ev-head-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+:is(.ui-day) .ev-title { margin: 0; font: italic 900 var(--fs-num)/1.05 var(--font-head); color: var(--on-ink); }
+:is(.ui-day) .ev-dates { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--on-ink-dim); }
+:is(.ui-day) .ev-dev { padding: 2px 6px; background: var(--bad-text); color: #fff; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); }
+:is(.ui-day) .ev-head .ev-phase { border-radius: 0; background: var(--plate-2); box-shadow: inset 0 0 0 1px var(--line-lo); }
+@media (min-height: 481px) { :is(.ui-day) .ev-head > .ev-head-body { padding: 14px 22px 16px; gap: 6px; } :is(.ui-day) .ev-head > .ev-lanterns { height: 46px; } }
+
+/* the folder tabs: the strip is ink, the open tab a hole of the panel's white (S4); one word each, a glyph on wide screens */
+:is(.ui-day) .ev-tabbed { flex: 1; min-height: 0; }
+:is(.ui-day) .ev-tabs > .ui-tab { cursor: pointer; }
+/* (the hit hangs 2 px past the tap, as the kit's bar squares: a sub-pixel place never reads it under 44) */
+:is(.ui-day) .ev-tabs > .ui-tab > .hit { height: max(100%, calc(var(--tap) + 2px)); }
+:is(.ui-day) .ev-tabs > .ui-tab .ui-ico { display: inline-flex; width: 18px; height: 18px; line-height: 0; }
+:is(.ui-day) .ev-tabs > .ui-tab .ui-ico svg { width: 100%; height: 100%; }
+:is(.ui-day) .ev-tab-sh { display: none; }
+:is(.ui-day) .ev-tabs > .ui-tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+@media (max-width: 560px) {
+  :is(.ui-day) .ev-tabs > .ui-tab .ui-ico, :is(.ui-day) .ev-tab-lg { display: none; }
+  :is(.ui-day) .ev-tab-sh { display: inline; }
+}
+:is(.ui-day) .ev-content { display: block; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding-bottom: 14px; scrollbar-width: thin; }
+@media (min-height: 481px) { :is(.ui-day) .ev-content { padding: 16px 20px 18px; } }
+
+/* a tab's sections: the kit's band + tick rule over their content */
+:is(.ui-day) .ev-sec + .ev-sec { margin-top: 16px; }
+:is(.ui-day) .ev-sec-head { margin-bottom: 10px; }
+:is(.ui-day) .ev-hint { margin: 10px 0 0; }
+:is(.ui-day) .ev-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-top: 12px; }
+:is(.ui-day) .ev-foot > .ev-hint { flex: 1 1 260px; margin: 0; }
+:is(.ui-day) .ev-foot .ui-btn { --h: calc(var(--tap) + 2px); }
+:is(.ui-day) .ev-mini { display: inline-flex; width: 18px; height: 18px; flex: none; line-height: 0; }
+:is(.ui-day) .ev-mini svg { width: 100%; height: 100%; }
+:is(.ui-day) .ev-content > .ui-offseason { min-height: 132px; margin-bottom: 14px; border-radius: 0; box-shadow: none; }
+:is(.ui-day) .ev-content > .ui-offseason .ui-offseason-band { flex-wrap: wrap; }
+:is(.ui-day) .ev-content > .ui-offseason .ui-offseason-text { max-width: 60ch; text-align: center; }
+:is(.ui-day) .ev-gone { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 18px 22px; }
+:is(.ui-day) .ev-gone .ui-btn { --h: calc(var(--tap) + 2px); }
+
+/* Story: the episodes as kit tiles */
+:is(.ui-day) .ev-eps { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+:is(.ui-day) .ev-ep { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 96px; padding: 10px 14px 12px; }
+:is(.ui-day) .ev-ep:disabled { --fill: #f3f6fa; cursor: default; }
+:is(.ui-day) .ev-ep-title { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ev-ep:disabled .ev-ep-title { color: var(--muted); }
+:is(.ui-day) .ev-ep-state { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: auto; font: 600 var(--fs-label)/1.25 var(--font); color: var(--muted); }
+:is(.ui-day) .ev-ep-state.read { color: var(--good-text); }
+:is(.ui-day) .ev-ep-state .rk-ico { width: 14px; height: 14px; }
+:is(.ui-day) .ev-ep-rw { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+:is(.ui-day) .ev-ep-rw .num { font-size: var(--fs-num-s); }
+
+/* Operations: kit tiles, the map on top with its tag, then the name, the medals and the candy per win */
+:is(.ui-day) .ev-ops { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+:is(.ui-day) .ev-op { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+:is(.ui-day) .ev-op.boss { grid-column: span 2; }
+:is(.ui-day) .ev-op-thumb { position: relative; height: 64px; flex: none; line-height: 0; overflow: hidden; background: var(--plate); }
+:is(.ui-day) .ev-op-thumb svg { width: 100%; height: 100%; filter: brightness(0.7) sepia(0.35) hue-rotate(-20deg) saturate(1.3); }
+:is(.ui-day) .ev-op.locked .ev-op-thumb svg { filter: grayscale(0.8) brightness(0.65); }
+:is(.ui-day) .ev-op-tag { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; background: var(--plate); color: var(--on-ink);
+  box-shadow: inset 0 0 0 1px var(--line-lo); font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day) .ev-op-body { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 10px; }
+:is(.ui-day) .ev-op-top { display: flex; align-items: center; gap: 8px; }
+:is(.ui-day) .ev-op-name { flex: 1; min-width: 0; font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ev-op-done { flex: none; display: inline-flex; color: var(--good-text); }
+:is(.ui-day) .ev-op-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+:is(.ui-day) .ev-diff { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--ink); }
+:is(.ui-day) .ev-diff.locked { color: var(--muted); }
+:is(.ui-day) .ev-diff-medal { display: inline-flex; width: 18px; height: 18px; line-height: 0; }
+:is(.ui-day) .ev-diff-medal svg { width: 100%; height: 100%; }
+:is(.ui-day) .ev-diff-lock { display: inline-flex; }
+:is(.ui-day) .ev-diff-lock .rk-ico { width: 13px; height: 13px; }
+:is(.ui-day) .ev-op-candy { display: inline-flex; align-items: center; gap: 4px; font: 700 var(--fs-body)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink); }
+:is(.ui-day) .ev-op-lock { display: flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1.25 var(--font); color: var(--muted); }
+
+/* Missions: kit rows (one ink Claim each), Claim all the page's one yellow beside the daily reset */
+:is(.ui-day) .ev-mis-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+:is(.ui-day) .ev-claim-all.ui-btn { --h: calc(var(--tap) + 2px); }
+:is(.ui-day) .ev-mis { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 14px; min-height: 64px; padding: 8px 0; border-bottom: 1px solid var(--line-ink-soft); }
+:is(.ui-day) .ev-mis:last-child { border-bottom: 0; }
+:is(.ui-day) .ev-mis-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+:is(.ui-day) .ev-mis-text > b { font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+:is(.ui-day) .ev-mis.claimed .ev-mis-text > b { color: var(--muted); }
+:is(.ui-day) .ev-mis-prog { display: flex; align-items: center; gap: 10px; }
+:is(.ui-day) .ev-mis-prog .ui-bar { width: min(180px, 40%); flex: none; }
+:is(.ui-day) .ev-mis-prog .num { font-size: var(--fs-label); color: var(--ink); }
+:is(.ui-day) .ev-rw { display: flex; gap: 6px; }
+:is(.ui-day) .ev-mis.claimed .ev-rw { filter: grayscale(0.7); }
+:is(.ui-day) .ev-mis-act { min-width: 96px; display: flex; justify-content: flex-end; }
+:is(.ui-day) .ev-act.ui-btn { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); }
+:is(.ui-day) .ev-claimed { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .ev-claimed .rk-ico { width: 14px; height: 14px; }
+
+/* Exchange: offer tiles with an ink cost button (the colour candy and a white price) */
+:is(.ui-day) .ev-offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+:is(.ui-day) .ev-offer { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px 8px; text-align: center; }
+:is(.ui-day) .ev-offer-tag { position: absolute; z-index: 2; left: 6px; top: 6px; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; background: var(--plate); color: var(--on-ink);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day) .ev-offer-art { height: 64px; display: grid; place-items: center; }
+:is(.ui-day) .ev-cos-art { width: 72px; height: 60px; line-height: 0; }
+:is(.ui-day) .ev-cos-art svg { width: 100%; height: 100%; }
+:is(.ui-day) .ev-offer-name { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+:is(.ui-day) .ev-offer-stock { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
+:is(.ui-day) .ev-buy.ui-btn { --h: calc(var(--tap) + 2px); width: 100%; margin-top: auto; gap: 6px; }
+:is(.ui-day) .ev-buy .num { font-size: var(--fs-num-s); }
+:is(.ui-day) .ev-offer.sold .ev-offer-art { filter: grayscale(0.85); }
+
+/* Daily Gifts: a calendar of kit day cards; the next visit's gift framed in ink, the sent ones checked */
+:is(.ui-day) .ev-gifts { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; }
+:is(.ui-day) .ev-gift { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 8px 10px; }
+:is(.ui-day) .ev-gift.next { --edge: var(--plate); --rw: 2px; }
+:is(.ui-day) .ev-gift-head { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 20px; padding-right: 4px; }
+:is(.ui-day) .ev-gift-day { color: var(--ink); }
+:is(.ui-day) .ev-gift-got { display: inline-flex; color: var(--good-text); }
+:is(.ui-day) .ev-gift-got .rk-ico { width: 16px; height: 16px; }
+:is(.ui-day) .ev-gift-next { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; background: var(--plate); color: var(--on-ink);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .ev-gift.got .ev-rw { filter: grayscale(0.7); }
+@media (max-width: 520px) { :is(.ui-day) .ev-op.boss { grid-column: auto; } :is(.ui-day) .ev-mis { grid-template-columns: minmax(0, 1fr) auto; } :is(.ui-day) .ev-mis-rw { grid-column: 1; } }
+
+/* ==========================================================================================================
+   SENSEI PROFILE (#/profile, a visit #/profile/<id>, Preview): the ink bar over the banner, her night nameplate,
+   kit panels (ink.css paints .pf panels), square-cut cards, ink chips; one yellow (Edit profile)
+   ========================================================================================================== */
+/* the bar: the ink band (ink.css still gives the old white glass bar's title ink: white on the band here) */
+:is(.ui-day) .screen.pf .topbar.pf-top .topbar-title { color: var(--on-ink); }
+:is(.ui-day) .rk-topbtn .pf-ico { width: 16px; height: 16px; color: inherit; }
+:is(.ui-day) .rk-topbtn.cy { box-shadow: inset 0 0 0 1px var(--cyan); }
+:is(.ui-day) .rk-topbtn.cy .pf-ico { color: var(--cyan); }
+:is(.ui-day) .rk-topbtn > span { display: inline-flex; align-items: center; }
+:is(.ui-day) .pf-preview-tag { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 0; background: var(--plate-2); color: var(--on-ink);
+  box-shadow: inset 0 0 0 1px var(--line-lo); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pf-preview-tag .pf-ico { width: 14px; height: 14px; color: var(--on-ink-dim); }
+/* the banner's button: dark glass on the painting, its tap square inside the scroller and clear of the bar's
+   (they hang 6 px under the band) */
+:is(.ui-day) .pf-onart.pf-banner-edit { top: 16px; height: 30px; padding: 0 12px 0 9px; border-radius: 0; background: rgba(14, 25, 48, 0.72); box-shadow: inset 0 0 0 1px var(--line-hi);
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; backdrop-filter: none; }
+:is(.ui-day) .pf-banner-edit::before { height: calc(var(--tap) + 2px); }
+
+/* (her halo: a circle in px, so it reads as a circle at any size; S5) */
+:is(.ui-day) :is(.pf-fav-halo, .pf-fav-ring) { border-radius: 9999px; }
+/* her nameplate: the night plate (.ui-np) with a caps kicker and the swap glyph, her name, LV · stars · P */
+:is(.ui-day) .pf-fav-plate.ui-np { gap: 4px; padding: 6px 6px 10px 14px; }
+:is(.ui-day) .pf-fav-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+:is(.ui-day) .pf-fav-kicker { display: inline-flex; align-items: center; gap: 6px; color: var(--on-ink-dim); }
+:is(.ui-day) .pf-fav-kicker .pf-ico { width: 14px; height: 14px; }
+:is(.ui-day) .pf-fav-swap.ui-ibtn { color: var(--on-ink); }
+:is(.ui-day) .pf-fav-swap .pf-ico { width: 20px; height: 20px; }
+:is(.ui-day) .pf-fav-swap:active { color: var(--cyan); }
+:is(.ui-day) .pf-fav-name { display: flex; align-items: center; gap: 8px; min-width: 0; padding-right: 8px; }
+:is(.ui-day) .pf-fav-name b { min-width: 0; font: italic 900 var(--fs-num)/1.05 var(--font-head); color: var(--on-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(.ui-day) .pf-fav-sub { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--on-ink-dim); }
+:is(.ui-day) .pf-fav-meta { display: flex; align-items: center; gap: 10px; color: var(--on-ink); }
+:is(.ui-day) .pf-fav-meta .lv { display: inline-flex; align-items: baseline; gap: 4px; }
+:is(.ui-day) .pf-fav-meta .lv .lbl { color: var(--on-ink-dim); }
+:is(.ui-day) .pf-fav-meta .lv .num { font-size: var(--fs-num-s); color: var(--on-ink); }
+:is(.ui-day) .pf-fav-meta .stars .star:not(.on) { color: rgba(234, 243, 255, 0.28); }
+@media (min-height: 481px) { :is(.ui-day) .pf-fav-name b { font-size: var(--fs-title); } :is(.ui-day) .pf-fav-plate.ui-np { padding: 8px 8px 14px 18px; gap: 6px; } }
+/* Potential: an ink pill; P6 its gold letters (pink stays for a selection) */
+:is(.ui-day) .pf-pot { border-radius: 0; background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-lo); font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; }
+:is(.ui-day) .pf-pot.p6 { background: var(--plate); color: #ffd36b; box-shadow: inset 0 0 0 1px rgba(255, 211, 107, 0.7); }
+
+/* the ID card */
+:is(.ui-day) .pf-name { font: italic 900 var(--fs-num)/1.1 var(--font-head); color: var(--ink); }
+@media (min-height: 481px) { :is(.ui-day) .pf-name { font-size: var(--fs-title); } }
+:is(.ui-day) .pf-lv { gap: 4px; padding: 4px 9px 4px 8px; border-radius: 0; transform: none; background: var(--plate); box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day) .pf-lv > * { transform: none; }
+:is(.ui-day) .pf-lv small { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--on-ink-dim); }
+:is(.ui-day) .pf-lv b { font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--on-ink); }
+:is(.ui-day) .pf-pick-name { min-height: 32px; padding: 0 12px 0 9px; border: 0; border-radius: 0; background: var(--panel-w); color: var(--ink); box-shadow: inset 0 0 0 1px var(--cyan-ink);
+  font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pf-pick-name .pf-ico { color: var(--cyan-ink); }
+:is(.ui-day) .pf-pick-name::before { height: calc(var(--tap) + 2px); }
+:is(.ui-day) :is(.pf, .ep-sheet) .tp { border-radius: 0; }
+:is(.ui-day) .pf-chip-all { padding: 4px 2px; border: 0; border-radius: 0; background: none; color: var(--cyan-text); font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pf-chip-all::before { height: calc(var(--tap) + 2px); }
+:is(.ui-day) .pf-bio { border: 0; border-radius: 0; background: var(--paper-a); box-shadow: inset 2px 0 0 var(--line-ink); font: 500 var(--fs-body)/1.4 var(--font); color: var(--ink); }
+:is(.ui-day) .pf-bio::before { color: var(--cyan-ink); }
+:is(.ui-day) .pf-bio.empty { border-style: none; box-shadow: inset 0 0 0 1px var(--line-ink-soft); color: var(--muted); }
+:is(.ui-day) .pf-bio-edit { background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .pf-bio-edit::before { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); transform: translate(-50%, -50%); }
+:is(.ui-day) .pf-ava-edit { background: var(--plate); border-color: #fff; box-shadow: none; }
+:is(.ui-day) .pf-ava-edit::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+:is(.ui-day) .pf-stat { border: 0; border-radius: 0; background: var(--paper-a); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .pf-stat .ico { border-radius: 50%; }
+:is(.ui-day) .pf-stat b { font: 700 var(--fs-num-s)/1.05 var(--font-num); }
+:is(.ui-day) .pf-foot-note .pf-ico { color: var(--cyan-ink); }
+
+/* section heads: the count an ink pill, Edit / Pin the cyan words on 46 px squares */
+:is(.ui-day) .pf-ph .pf-count { border: 0; border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1 var(--font-num); padding: 4px 7px; }
+:is(.ui-day) .pf-ph .pf-auto { border-radius: 0; background: var(--sky-1); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-ink-soft); font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pf-ph .pf-hint .pf-ico { color: var(--cyan-ink); }
+:is(.ui-day) .pf-ph .btn-small { background: none; box-shadow: none; color: var(--cyan-text); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); }
+:is(.ui-day) .pf-ph .btn-small::before { height: calc(var(--tap) + 2px); }
+
+/* the showcase: today's cards, square-cut (girl tiles come with M3): the rarity edge along the bottom, the rarity an ink tag */
+:is(.ui-day) .pf-slot { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+:is(.ui-day) .pf-slot .rar { left: 4px; top: 4px; padding: 3px 5px; background: var(--plate); color: var(--rarity); text-shadow: none; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em; }
+:is(.ui-day) .pf-slot .rar:has(.ur-badge) { padding: 0; background: none; }
+:is(.ui-day) .pf-slot.empty { border-radius: 0; border: 1px dashed var(--line-ink); background: var(--paper-a); color: var(--cyan-ink); clip-path: none; }
+:is(.ui-day) .pf-slot.is-ur { box-shadow: none; }
+:is(.ui-day) .pf-add { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+
+/* medals, ribbons, pins, honors, freeplay: flat cells and square plaques; the pin an ink head */
+:is(.ui-day) .pf-tc { border: 0; border-radius: 0; background: var(--paper-a); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .pf-tc b { font: 700 var(--fs-num-s)/1 var(--font-num); }
+:is(.ui-day) .pf-shelf-empty { border-radius: 0; border: 1px dashed var(--line-ink); }
+:is(.ui-day) .pf-plaque { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+:is(.ui-day) .pf-plaque .pin { top: 4px; background: var(--plate); box-shadow: inset 0 0 0 1.5px var(--line-lo); }
+:is(.ui-day) .pf-plaque.honor-special::before { border-radius: 0; }
+:is(.ui-day) .pf-honors { border-radius: 0; background: var(--plate); box-shadow: none; min-height: var(--tap); }
+:is(.ui-day) .pf-honors-k { color: var(--on-ink-dim); font-family: var(--font-num); }
+:is(.ui-day) .pf-honors > b { font: 700 var(--fs-num-s)/1 var(--font-num); }
+:is(.ui-day) .pf-honors-go { color: var(--cyan); font-family: var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pf-fp-row { border: 0; border-radius: 0; background: var(--paper-a); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .pf-tier { border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pf-tier.blossom { background: var(--plate); color: #ffc2d9; }
+:is(.ui-day) .pf-tier.tempest { background: var(--plate); color: #7fdcff; }
+:is(.ui-day) .pf-tier.crimson { background: var(--plate); color: #ff95a6; }
+:is(.ui-day) .pf-fp-wave b { font: 700 var(--fs-num-s)/1 var(--font-num); }
+:is(.ui-day) .pf-chip-frame { background: var(--plate); color: var(--on-ink); }
+/* the states of a visit: a kit panel card */
+:is(.ui-day) .pf-empty-card { border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink); clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))); }
+:is(.ui-day) .pf-empty-card p.pf-basic-note { border-radius: 0; border: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+
+/* ==========================================================================================================
+   THE PROFILE'S EDITORS: the kit side sheet (src/ui/sheet.js, .ui-sheet.side) worn on paper. Edit Profile: the E3
+   section rail (kit.js sideRail) beside the section, the live card on wide screens; Edit Showcase and the pin
+   picker: the shelf on top, the picker under it. Selection = the sakura bar and check (medium 3); Save the one yellow.
+   ========================================================================================================== */
+:is(.ui-day) .ui-sheet.side.pf-sheet {
+  /* (the day surface's mode values: ink.css counts every side sheet among the night surfaces) */
+  --m-text: var(--ink); --m-dim: var(--muted); --m-cy: var(--cyan-text); --m-cy-stroke: var(--cyan-ink); --m-cy-wash: var(--cyan-wash);
+  --m-hair: var(--line-ink); --m-hair-lo: var(--line-ink-soft); --m-seg-on: var(--cyan-ink); --m-seg-off: rgba(29, 78, 137, 0.14);
+  --m-inv-bg: var(--plate); --m-inv-fg: var(--on-ink); --m-pink: var(--pink-ink); --m-pink-text: var(--pink-text);
+  --m-raised: var(--panel-w); --m-opt-fill: var(--panel-w); --dot-ring: #fff; --m-plate-edge: transparent; --m-new-edge: transparent; --m-new-text: var(--on-ink);
+  width: min(calc(100vw - 96px), 760px); max-width: 100vw; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0;
+  background: var(--panel-w); color: var(--ink); box-shadow: inset 1px 0 0 var(--line-ink);
+}
+:is(.ui-day) .ui-sheet.side.ep-sheet { width: min(calc(100vw - 64px), 960px); }
+:is(.ui-day) .ui-sheet.side.pf-sheet:is(.ep-sheet, .es-sheet, .pp-sheet) { height: auto; max-height: none; }
+:is(.ui-day) .ui-sheet.side.pf-sheet > .ui-head { flex: none; min-height: calc(var(--tap) + 2px); padding-left: 16px; padding-top: var(--safe-top, 0px); }
+:is(.ui-day) .ui-sheet.side.pf-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+:is(.ui-day) .ui-sheet.side.pf-sheet > .ui-body { flex: 1; min-height: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+:is(.ui-day) .pf-sheet-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+:is(.ui-day) .pf-sheet-extra { display: inline-flex; align-items: center; gap: 10px; min-width: 0; color: var(--on-ink-dim); }
+:is(.ui-day) .pf-sheet-extra .pf-count { border-radius: 0; border: 0; background: var(--plate-2); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-lo); font: 700 var(--fs-label)/1 var(--font-num); padding: 4px 7px; }
+:is(.ui-day) .pf-sheet-extra :is(.es-tip, .pp-note) { margin: 0; color: var(--on-ink-dim); font: 600 var(--fs-label)/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(.ui-day) .pf-sheet-extra .es-tip .pf-ico { color: var(--on-ink-dim); width: 14px; height: 14px; }
+:is(.ui-day) .pf-sheet-foot { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 16px calc(10px + var(--safe-bottom)); background: var(--panel-w); box-shadow: inset 0 1px 0 var(--line-ink-soft); }
+:is(.ui-day) .pf-sheet-foot .ui-btn { --h: calc(var(--tap) + 2px); }
+:is(.ui-day) .pf-sheet-foot .es-spacer { flex: 1; }
+:is(.ui-day) .pf-foot-why { min-width: 0; font-size: var(--fs-label); }
+
+/* Edit Profile: the rail, the section, the live card */
+:is(.ui-day) .ep-main { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) 280px; }
+:is(.ui-day) .ep-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+:is(.ui-day) .ep-col > .ep-body { flex: 1; min-height: 0; }
+:is(.ui-day) .ep-nav.ui-srail { --rail-w: 168px; gap: 6px; padding: 12px 0; overflow-x: hidden; overflow-y: auto; background: var(--paper-a); box-shadow: inset -1px 0 0 var(--line-ink-soft); }
+:is(.ui-day) .ep-nav > .ui-stab { --h: calc(var(--tap) + 2px); font-size: var(--fs-body); padding-left: 14px; gap: 8px; flex: none; }
+:is(.ui-day) .ep-nav > .ui-stab.on { width: 100%; }
+:is(.ui-day) .ep-nav > .ui-stab .ui-ico { width: 18px; height: 18px; }
+:is(.ui-day) .ep-soon { flex: none; margin-left: auto; padding: 3px 5px; background: var(--sky-1); color: var(--ink); font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; letter-spacing: 0.04em; text-transform: uppercase; }
+:is(.ui-day) .ep-body { min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; background: var(--panel-w); }
+:is(.ui-day) .ep-lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 8px; font: italic 900 var(--fs-name)/1.2 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ep-lbl small { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); text-align: right; }
+:is(.ui-day) .ep-sec { margin-top: 16px; }
+:is(.ui-day) .ep-help { display: block; margin: 0 0 8px; font: 500 var(--fs-label)/1.35 var(--font); color: var(--muted); }
+:is(.ui-day) .ep-text { position: relative; min-height: 74px; padding: 10px 12px 24px; border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink);
+  font: 500 var(--fs-body)/1.4 var(--font); color: var(--ink); overflow-wrap: anywhere; }
+:is(.ui-day) .ep-text.ep-field { padding: 0 0 22px; }
+:is(.ui-day) .ep-text.ep-field:focus-within { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+:is(.ui-day) .ep-text.ro { background: var(--paper-a); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .ep-text .cnt { position: absolute; right: 10px; bottom: 6px; font: 600 var(--fs-label)/1 var(--font-num); color: var(--muted); }
+:is(.ui-day) .ep-input { min-height: 60px; padding: 10px 12px 0; font: 500 var(--fs-body)/1.4 var(--font); }
+:is(.ui-day) :is(.ep-warn, .ep-later, .ep-err) { border: 0; border-radius: 0; font: 500 var(--fs-label)/1.35 var(--font); }
+:is(.ui-day) .ep-warn { box-shadow: inset 2px 0 0 #c99a1a; }
+:is(.ui-day) .ep-later { box-shadow: inset 2px 0 0 var(--cyan-ink); }
+:is(.ui-day) .ep-err { box-shadow: inset 2px 0 0 var(--bad); }
+/* the quick lines: kit rows (a tap each) */
+:is(.ui-day) .ep-chips { display: flex; flex-direction: column; gap: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .ep-chips button { min-height: var(--tap); padding: 6px 12px; border: 0; border-radius: 0; border-bottom: 1px solid var(--line-ink-soft); background: var(--panel-w); box-shadow: none;
+  text-align: left; font: 500 var(--fs-body)/1.3 var(--font); color: var(--ink); cursor: pointer; }
+:is(.ui-day) .ep-chips button:last-child { border-bottom: 0; }
+:is(.ui-day) .ep-chips button:active:not(:disabled) { background: var(--sky-1); }
+:is(.ui-day) .ep-chips button:disabled { opacity: 1; color: var(--muted); background: var(--paper-a); cursor: default; }
+:is(.ui-day) .ep-namechip { border-radius: 0; border: 0; background: var(--paper-a); box-shadow: inset 0 0 0 1px var(--line-ink-soft); font: 700 var(--fs-body)/1 var(--font); color: var(--ink); padding: 8px 12px; }
+:is(.ui-day) .ep-card-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+/* the pickers: square tiles; the picked one carries the sakura bar and check (medium 3), never a ring */
+:is(.ui-day) .ep-check { left: 4px; right: auto; top: 4px; width: 20px; height: 20px; border-radius: 0; background: var(--pink-ink); color: #fff; box-shadow: none; line-height: 20px;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day) .ep-girls { gap: 6px; }
+:is(.ui-day) .ep-girl { border-radius: 0; box-shadow: none; }
+:is(.ui-day) .ep-girl.on { outline: 0; box-shadow: inset 0 -4px 0 var(--pink-ink); }
+:is(.ui-day) .ep-girl > span:not(.ep-girl-art) { font: italic 900 var(--fs-label)/1.1 var(--font-head); }
+:is(.ui-day) :is(.ep-frame, .ep-title, .ep-priv) { border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); min-height: var(--tap); }
+:is(.ui-day) :is(.ep-frame, .ep-title, .ep-priv).on { box-shadow: inset 0 0 0 1px var(--line-ink), inset 0 -3px 0 var(--pink-ink); }
+:is(.ui-day) :is(.ep-frame, .ep-title).locked { opacity: 1; background: var(--paper-a); }
+:is(.ui-day) .ep-frame-t b, :is(.ui-day) .ep-priv b { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+:is(.ui-day) .ep-frame-t small, :is(.ui-day) .ep-priv small, :is(.ui-day) .ep-how { font: 500 var(--fs-label)/1.3 var(--font); color: var(--muted); }
+:is(.ui-day) .ep-priv.ro { opacity: 1; background: var(--paper-a); }
+:is(.ui-day) .ep-radio { border-color: var(--line-ink); }
+:is(.ui-day) .ep-priv.on .ep-radio { border-color: var(--plate); background: radial-gradient(circle, var(--plate) 0 40%, #fff 45%); }
+:is(.ui-day) .ep-title-head { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-caps); color: var(--muted); }
+:is(.ui-day) .ep-title-head small { font: 700 var(--fs-label)/1 var(--font-num); color: var(--ink); }
+:is(.ui-day) .ep-title-none { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .ep-banner { border-radius: 0; box-shadow: none; }
+:is(.ui-day) .ep-banner.on { outline: 0; box-shadow: inset 0 -4px 0 var(--pink-ink); }
+:is(.ui-day) .ep-banner-t { font: italic 900 var(--fs-label)/1.1 var(--font-head); }
+:is(.ui-day) .ep-banner-lock { border-radius: 0; background: var(--plate); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; }
+/* the live card (wide screens) */
+:is(.ui-day) .ep-prev { min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--paper-a); box-shadow: inset 1px 0 0 var(--line-ink-soft); }
+:is(.ui-day) .ep-prev-t { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:is(.ui-day) .ep-card { flex: none; position: relative; overflow: hidden; border: 0; border-radius: 0; background: var(--panel-w); box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+:is(.ui-day) .ep-card-bn { position: relative; height: 84px; overflow: hidden; }
+:is(.ui-day) .ep-card-in { padding: 0 12px 12px; }
+:is(.ui-day) .ep-card .pf-ava { width: 70px; height: 70px; margin-top: -32px; flex: none; }
+:is(.ui-day) .ep-card .pf-ava-img { inset: 6px; }
+:is(.ui-day) .ep-card .pf-name { font-size: var(--fs-name); }
+:is(.ui-day) .ep-card .pf-bio { font-size: var(--fs-label); padding: 5px 9px 5px 24px; }
+:is(.ui-day) .ep-card .pf-bio::before { font-size: 1.5rem; left: 7px; }
+:is(.ui-day) .ep-card-who { min-width: 0; }
+
+/* Edit Showcase and the pin picker */
+:is(.ui-day) .pf-sheet .es-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px 14px; background: var(--paper-a); }
+:is(.ui-day) :is(.es-row, .pp-row) { border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+:is(.ui-day) .es-slot { border-radius: 0; box-shadow: none; }
+:is(.ui-day) .es-slot.sel { outline: 2px solid var(--pink-ink); outline-offset: 2px; }
+:is(.ui-day) .es-slot.empty { border: 1px dashed var(--line-ink); background: var(--paper-a); color: var(--cyan-ink); }
+:is(.ui-day) .es-slot.empty .es-n { background: var(--muted); }
+:is(.ui-day) .es-art { border-radius: 0; }
+:is(.ui-day) .es-slot .es-nm { font: italic 900 var(--fs-label)/1.1 var(--font-head); }
+:is(.ui-day) .es-slot.empty .es-nm { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--cyan-text); }
+:is(.ui-day) .es-x { background: var(--bad-text); box-shadow: none; }
+:is(.ui-day) .es-x::before { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); transform: translate(-50%, -50%); }
+:is(.ui-day) .es-ghost { border-radius: 0; }
+:is(.ui-day) .es-bar { display: flex; align-items: center; gap: 12px; margin: 14px 0 10px; min-width: 0; }
+:is(.ui-day) .es-bar-t { font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--ink); }
+:is(.ui-day) .es-note { font: 500 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+/* the sort and the pin tabs: kit options (selected = ink with the sakura bar) */
+:is(.ui-day) .es-sort { display: inline-flex; gap: 0; padding: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); flex: none; }
+:is(.ui-day) .es-sort button { position: relative; min-height: calc(var(--tap) + 2px); padding: 0 14px; border: 0; border-radius: 0; background: none; box-shadow: none; cursor: pointer;
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--ink); white-space: nowrap; }
+:is(.ui-day) .es-sort button.on { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--pink); }
+:is(.ui-day) .es-pick { border-radius: 0; box-shadow: none; }
+:is(.ui-day) .es-pick.on { outline: 0; box-shadow: inset 0 -4px 0 var(--pink-ink); }
+/* (a picked girl's slot number sits in the status corner, top-left (5.7), never over her face; her art stays bright) */
+:is(.ui-day) .es-pick.on .es-art { filter: none; }
+:is(.ui-day) .es-pick .es-on { left: 3px; top: 3px; transform: none; width: 20px; height: 20px; border-width: 1.5px; line-height: 17px; }
+:is(.ui-day) .es-pick .es-lv, :is(.ui-day) .es-pick .es-pw { font-family: var(--font-num); font-style: normal; font-weight: 700; }
+:is(.ui-day) .es-on { background: var(--plate); border-color: #fff; font: 700 var(--fs-label)/22px var(--font-num); }
+:is(.ui-day) .pp-slot.empty { border: 1px dashed var(--line-ink); border-radius: 0; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .pp-opt { border-radius: 0; }
+:is(.ui-day) .pp-opt.on .pf-plaque { outline: 2px solid var(--pink-ink); outline-offset: -2px; }
+:is(.ui-day) .pp-empty { font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+
+/* phones: a narrower rail, no live card, no footnote; the sheet leaves 72 px of the page in view */
+@media (max-height: 480px) {
+  :is(.ui-day) .ui-sheet.side.pf-sheet, :is(.ui-day) .ui-sheet.side.ep-sheet { width: min(calc(100vw - 72px), 720px); }
+  :is(.ui-day) .ep-main { grid-template-columns: auto minmax(0, 1fr); }
+  :is(.ui-day) .ep-nav.ui-srail { --rail-w: 140px; padding: 6px 0; gap: 4px; }
+  :is(.ui-day) .ep-prev, :is(.ui-day) .pf-foot-why, :is(.ui-day) .pf-sheet-extra .es-tip, :is(.ui-day) .es-note { display: none; }
+  :is(.ui-day) .ep-body { padding: 10px 12px 12px; }
+  :is(.ui-day) .pf-sheet .es-body { padding: 8px 12px 10px; }
+  :is(.ui-day) .pf-sheet-foot { padding: 6px 12px calc(8px + var(--safe-bottom)); }
+  :is(.ui-day) .es-bar { margin: 8px 0 6px; }
+  :is(.ui-day) .es-grid { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+  :is(.ui-day) .es-row { gap: 6px; padding: 7px; }
+  :is(.ui-day) .es-slot .es-grip { bottom: 14px; }
+  :is(.ui-day) .es-x { width: 20px; height: 20px; }
+  :is(.ui-day) .es-pick .es-pw { display: none; }
+  :is(.ui-day) .es-on { width: 20px; height: 20px; line-height: 16px; }
+  :is(.ui-day) .pp-row { padding: 10px 7px 7px; gap: 6px; }
+  :is(.ui-day) .pp-list { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+  :is(.ui-day) .ep-text { min-height: 54px; }
+  :is(.ui-day) .ep-input { min-height: 44px; }
+  :is(.ui-day) .ep-sec { margin-top: 12px; }
+  :is(.ui-day) .ep-girls { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 5px; }
+  :is(.ui-day) .ep-banners { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  :is(.ui-day) .ep-banner { height: 56px; }
+}
+/* a phone held upright: the sheet takes the width */
+@media (max-width: 700px) {
+  :is(.ui-day) .ui-sheet.side.pf-sheet, :is(.ui-day) .ui-sheet.side.ep-sheet { width: 100vw; }
+  :is(.ui-day) .ep-main { grid-template-columns: auto minmax(0, 1fr); }
+  :is(.ui-day) .ep-prev { display: none; }
+  :is(.ui-day) .ep-nav.ui-srail { --rail-w: 132px; }
+  :is(.ui-day) .es-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  :is(.ui-day) .pf-foot-why { display: none; }
 }

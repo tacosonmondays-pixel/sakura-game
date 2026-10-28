@@ -21,7 +21,9 @@ import { pinInfo, stageLabel, STAGE_COUNT, UNIT_COUNT } from '../../systems/prof
 import { fmtNum } from '../format.js';
 import { ribbonArt, titlePlate as honorPlate } from '../honorFx.js';
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles } from '../rarity.js';
-import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, onEscape, HOLD_MS, RING_DELAY_MS } from '../hold.js';
+import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, HOLD_MS, RING_DELAY_MS } from '../hold.js';
+import { openSheet } from '../sheet.js';
+import '../styles/v2-records.css';
 
 export const ico = (name, cls = 'pf-ico') => svgEl(glyph(name), cls);
 
@@ -267,31 +269,25 @@ export function attachHold(el, { onTap = null, onHold = null } = {}) {
 // Sheet frame for the editors (Edit Showcase, Edit Profile, pin picker)
 // ---------------------------------------------------------------------------
 
-const reduced = () => document.documentElement.hasAttribute('data-reduce-motion') || matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
 /**
- * A modal sheet in the Unit Sheet's frame: header (title, extras, ✕), body, footer. Escape, the
- * backdrop and leaving the screen close it. @returns {{ el, body, close }}
+ * [ui-v2 M7a] The editors' sheet (Edit Profile, Edit Showcase, the pin picker): the kit's SIDE sheet (src/ui/sheet.js
+ * openSheet, `.ui-sheet.side`) worn on paper (styles/v2-records.css): full height from the right edge, the ink head
+ * with the title, its extras and a 44 px close; the body; a footer with the actions (Save is the sheet's one yellow).
+ * A tap on the scrim, the close, Escape and leaving the screen close it. Its layer sits under the hold sheet (170),
+ * so holding a girl in the showcase editor still shows her build on top.
+ * @returns {{ el: HTMLElement, close(): void }}
  */
 export function openSheetFrame({ title, cls = '', testid, head = [], body, foot = null, onClose = null }) {
-  let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
-    offEsc();
-    window.removeEventListener('hashchange', close);
-    overlay.classList.add('closing');
-    setTimeout(() => overlay.remove(), reduced() ? 0 : 140);
-    onClose?.();
-  };
-  const sheet = h(`div.pf-sheet${cls ? `.${cls}` : ''}`, { role: 'dialog', 'aria-modal': 'true', 'aria-label': title, 'data-testid': testid },
-    h('div.pf-sheet-head', h('span.pf-sheet-title', title), ...head,
-      h('button.pf-sheet-x', { type: 'button', 'aria-label': 'Close', title: 'Close', 'data-testid': `${testid}-close`, onclick: close }, svgEl(glyph('close'), 'pf-ico-fill'))),
-    body,
-    foot);
-  const overlay = h('div.pf-sheet-overlay', { 'data-hold-info': 'off', onclick: (e) => { if (e.target === overlay) close(); } }, sheet);
-  document.body.append(overlay);
-  const offEsc = onEscape(close);
-  window.addEventListener('hashchange', close);
-  return { el: sheet, close };
+  const extra = head.filter(Boolean);
+  const api = openSheet({
+    title,
+    testid,
+    cls: ['side', 'pf-sheet', ...String(cls).split(/[\s.]+/).filter(Boolean)].join('.'),
+    head: extra.length ? h('span.pf-sheet-extra', extra) : null,
+    body: h('div.pf-sheet-main', body, foot),
+    onClose,
+  });
+  const layer = api.el.parentElement;
+  if (layer) layer.style.zIndex = '150';
+  return { el: api.el, close: api.close };
 }
