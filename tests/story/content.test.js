@@ -19,7 +19,7 @@ import { STORY_REWARDS, storyRewardFor } from '../../src/data/story/lessons.js';
 import { resolveText, tokenProblems } from '../../src/data/story/tokens.js';
 import { UNITS, UNIT_MAP, freeUnlocksByStage } from '../../src/data/units.js';
 import { ENEMY_MAP } from '../../src/data/enemies.js';
-import { STAGE_MAP, CHAPTERS, CAMPAIGN_IDS } from '../../src/data/stages.js';
+import { STAGE_MAP, CHAPTERS, stageOrderKey } from '../../src/data/stages.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PORTRAITS = join(ROOT, 'public', 'art', 'portraits');
@@ -33,14 +33,20 @@ const available = ALL.filter((s) => sceneAvailable(s, hasUnit));
 const FUTURE_NAMES = ['Kanna', 'Yoriko', 'Seiran', 'Fuu', 'Hana', 'Ruri', 'Noa', 'Tsubaki', 'Kohaku', 'Iroha', 'Ena'];
 const ROSTER_NAMES = [...new Set([...UNITS.map((u) => u.name), ...FUTURE_NAMES])];
 
-/** STORY_SPEC §4.5 / BIBLE §9.1: whole words, case-insensitive. */
+/** STORY_SPEC §4.5 / BIBLE §9.1: whole words, case-insensitive. Banned in every scene. */
 const BANNED = [
   'date', 'dates', 'dating', 'kiss', 'kissed', 'crush', 'flirt', 'flirting', 'romance', 'romantic', 'sexy', 'bikini',
   'swimsuit', 'lingerie', 'boyfriend', 'girlfriend', 'marry', 'married', 'wife', 'husband', 'blush', 'blushes',
   'breast', 'thigh', 'thighs', 'waifu',
-  // monsters "poof", "pop" or "go home" — nobody is ever hurt for good
-  'kill', 'killed', 'kills', 'die', 'dies', 'died', 'dying', 'dead', 'death', 'blood', 'bloody',
+  // no gore, ever
+  'blood', 'bloody',
 ];
+/**
+ * Arc 0 (the shipped chapters): monsters "poof", "pop" or "go home", and nobody is ever hurt for good. Arc 1 (the Gate
+ * Arc's `gN.*` episodes) is a war with losses and may name them (STORY.md §18), though it prefers absence.
+ */
+const BANNED_ARC0 = ['kill', 'killed', 'kills', 'die', 'dies', 'died', 'dying', 'dead', 'death'];
+const isArc1 = (sc) => /^g[0-9]+\./.test(sc.id);
 const AGE_RE = /\b(\d+\s*(years?|yrs?)\s*old|aged?\s+\d+)\b/i;
 
 /** Every string a player can read in a scene: lines, replies, choice options, title and plate overrides. */
@@ -122,8 +128,8 @@ describe('story registry', () => {
     expect(new Set(ALL.map((s) => s.id)).size).toBe(ALL.length);
     expect(SCENE_LIST.length + LESSON_SCENES.length).toBe(ALL.length);
     // 27 bible episodes + the two roster joins (Noa 6-2, Hana 7-5) that wait for feature/roster + the
-    // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5)
-    expect(SCENE_LIST.length).toBe(32);
+    // new girls' joins (Azami 2-2, Yuzuha 4-2, Wakaba 6-5) + the Gate Arc's Act 1 (seven episodes, g1.*)
+    expect(SCENE_LIST.length).toBe(39);
     expect(LESSON_SCENES.map((s) => s.id)).toEqual(['lesson.home', 'lesson.recruit', 'lesson.gear']);
     expect(sceneById('opening').trigger).toEqual({ opening: true });
     expect(sceneById('tut.outro').trigger).toEqual({ tutorial: 'won' });
@@ -145,12 +151,27 @@ describe('story registry', () => {
     expect(scenesWithTrigger('after', '3-2').map((s) => s.kind)).toContain('join');
   });
 
-  it('archive order follows the campaign, and chapters match their trigger stages', () => {
+  it('Act II of chapter 1 (Rush Hour): an opener before 1-6, a boss intro before 1-10, a closer after 1-10; all event, act 2', () => {
+    const g1 = SCENE_LIST.filter((s) => s.id.startsWith('g1.'));
+    expect(g1.map((s) => s.id)).toEqual(['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.poster', 'g1.boss', 'g1.epi']);
+    for (const s of g1) expect([s.chapter, s.act, s.kind, storyRewardFor(s.kind)], s.id).toEqual([1, 2, 'event', []]);
+    expect(sceneById('g1.pro').trigger).toEqual({ before: '1-6' });
+    expect(sceneById('g1.boss').trigger).toEqual({ before: '1-10' });
+    expect(sceneById('g1.epi').trigger).toEqual({ after: '1-10' });
+    for (const s of SCENE_LIST) if (!s.id.startsWith('g')) expect(s.act, s.id).toBeUndefined();
+  });
+
+  it('exactly one content note, on the arc\'s first episode', () => {
+    const noted = ALL.filter((s) => s.note);
+    expect(noted.map((s) => [s.id, s.note])).toEqual([['g1.pro', 'This arc contains war and loss.']]);
+  });
+
+  it('archive order follows play order (chapter, act, stage), and chapters match their trigger stages', () => {
     const pos = (s) => {
       const t = s.trigger || {};
       const stage = t.before || t.after;
       if (!stage) return -1;
-      return CAMPAIGN_IDS.indexOf(stage) * 2 + (t.after ? 1 : 0);
+      return stageOrderKey(stage) * 2 + (t.after ? 1 : 0);
     };
     const order = SCENE_LIST.map(pos);
     for (let i = 1; i < order.length; i++) expect(order[i], SCENE_LIST[i].id).toBeGreaterThanOrEqual(order[i - 1]);
@@ -291,11 +312,13 @@ describe('story text (T-content-3, T-content-4)', () => {
     }
   });
 
-  it('content lint: no banned words, no ages', () => {
+  it('content lint: no banned words, no ages (the war words only in Arc 1 episodes)', () => {
     const banned = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'i');
+    const arc0 = new RegExp(`\\b(${BANNED_ARC0.join('|')})\\b`, 'i');
     for (const sc of ALL) {
       for (const { where, text } of textsOf(sc)) {
         expect(text.match(banned)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
+        if (!isArc1(sc)) expect(text.match(arc0)?.[0] ?? null, `${sc.id} ${where}: "${text}"`).toBeNull();
         expect(AGE_RE.test(text), `${sc.id} ${where}: age in "${text}"`).toBe(false);
       }
     }

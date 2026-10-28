@@ -21,5 +21,5 @@ export const CHAPTER_SCENE_IDS = Object.freeze({
  * never goes backwards when its Act II episodes ship. Filled as each act's scenes land (Act 1: seven episodes).
  */
 export const ACT_SCENE_IDS = Object.freeze({
-  '1:2': Object.freeze([]),
+  '1:2': Object.freeze(['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.poster', 'g1.boss', 'g1.epi']),
 });

@@ -33,6 +33,9 @@ describe('title cards and plates', () => {
     expect(c.kicker).toBe('Chapter 2 · Moonlit Lakeshore');
     expect(c.sub).toBe('Episode 1');
     expect(titleCardText(sceneById('lesson.home')).kicker).toBe("Captain's Journal");
+    // a Gate Arc (Act II) episode names its act, not "Event Story"
+    expect(titleCardText(sceneById('g1.pro'), 1)).toEqual({ kicker: 'Chapter 1 · Rush Hour', title: 'Two Sunrises', sub: 'Episode 1' });
+    expect(titleCardText({ ...sceneById('g1.pro'), act: undefined }).kicker).toBe('Event Story');
   });
 
   it('plates come from data: girls by unit id, monsters by enemy id, plain speakers and overrides', () => {

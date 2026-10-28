@@ -3,7 +3,9 @@
 // music cues throw when the scene module is evaluated, so a typo never reaches a player.
 //
 // Scenes are plain frozen objects:
-//   scene(id, { title, chapter, kind, trigger, bg, music, cast?, ifUnit? }, lines)
+//   scene(id, { title, chapter, kind, trigger, bg, music, cast?, ifUnit?, act?, note? }, lines)
+//     act: 2 marks a Gate Arc (Act II) episode (the player's kicker names the act); note: a content note the
+//     player shows on its own card before the first line ("This arc contains war and loss.")
 //   say(who, text, { at?, face?, fx?, name?, ifUnit?, sfx? })   who = unit id, NPC id or 'sensei'
 //   narrate(text, { ifUnit? })
 //   cue({ bg?, music?, sfx?, exit?, enter?, flash?, shake?, petals?, fade?, wait? })
@@ -55,7 +57,7 @@ export const SCENE_KINDS = ['opening', 'prologue', 'join', 'mid', 'epilogue', 'o
 export const PLAIN_SPEAKERS = ['narrator', 'sensei', 'unknown'];
 /** Enemy speakers by enemy id: plate from ENEMY_MAP[id].name in the family colour, no portrait. */
 export const ENEMY_SPEAKERS = [
-  'slime_prince', 'slime_droplet', 'lizard_basilisk', 'ghost_hollowknight', 'orc_general', 'plant_treant',
+  'slime_prince', 'slime_frost_heir', 'slime_droplet', 'lizard_basilisk', 'ghost_hollowknight', 'orc_general', 'plant_treant',
   'goblin_machine', 'goblin_chief', 'oni_champion', 'dragon_ashwing',
 ];
 export const NPCS = [...PLAIN_SPEAKERS, ...ENEMY_SPEAKERS];
@@ -88,7 +90,7 @@ export const LIMITS = {
 const SAY_KEYS = ['at', 'face', 'fx', 'name', 'ifUnit', 'sfx'];
 const NARRATE_KEYS = ['ifUnit'];
 const CUE_KEYS = ['bg', 'music', 'sfx', 'exit', 'enter', 'flash', 'shake', 'petals', 'fade', 'wait'];
-const META_KEYS = ['title', 'chapter', 'kind', 'trigger', 'bg', 'music', 'cast', 'ifUnit'];
+const META_KEYS = ['title', 'chapter', 'kind', 'trigger', 'bg', 'music', 'cast', 'ifUnit', 'act', 'note'];
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 const STAGE_RE = /^[0-9]+-[0-9]+$/;
 
@@ -236,6 +238,8 @@ export function scene(id, meta, lines) {
   if (!isBackgroundId(meta.bg)) fail(`scene ${id}: unknown background "${meta.bg}"`);
   if (meta.music !== undefined && !STORY_MUSIC[meta.music]) fail(`scene ${id}: unknown music cue "${meta.music}"`);
   if (meta.ifUnit !== undefined) checkId(meta.ifUnit, `scene ${id} ifUnit`);
+  if (meta.act !== undefined && meta.act !== 1 && meta.act !== 2) fail(`scene ${id}: act must be 1 or 2`);
+  if (meta.note !== undefined) checkText(meta.note, `scene ${id} note`);
   if (!Array.isArray(lines) || !lines.length) fail(`scene ${id}: needs lines`);
   for (const l of lines) {
     if (!l || !['say', 'narrate', 'cue', 'choice'].includes(l.t)) fail(`scene ${id}: lines must come from say/narrate/cue/choice`);
@@ -251,6 +255,8 @@ export function scene(id, meta, lines) {
     bg: meta.bg,
     music: meta.music,
     ifUnit: meta.ifUnit,
+    act: meta.act,
+    note: meta.note,
     cast: Object.freeze(cast),
     lines: Object.freeze([...lines]),
   }));
