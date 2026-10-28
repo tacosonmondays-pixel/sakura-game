@@ -609,7 +609,12 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .es-slot .es-nm { font: italic 900 var(--fs-label)/1.1 var(--font-head); }
 :is(.ui-day) .es-slot.empty .es-nm { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--cyan-text); }
 :is(.ui-day) .es-x { background: var(--bad-text); box-shadow: none; }
+/* (the × hangs off the slot's top-right corner and its tap square is centred on it, so most of the square lies outside
+   the slot and the slot's middle stays the slot's: a drag starts there, never on the ×; the shelf's top padding keeps
+   the square inside the scroller) */
+:is(.ui-day) .es-slot > .es-x { right: -8px; top: -8px; }
 :is(.ui-day) .es-x::before { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); transform: translate(-50%, -50%); }
+:is(.ui-day) .es-row { padding-top: 20px; }
 :is(.ui-day) .es-ghost { border-radius: 0; }
 :is(.ui-day) .es-bar { display: flex; align-items: center; gap: 12px; margin: 14px 0 10px; min-width: 0; }
 :is(.ui-day) .es-bar-t { font: italic 900 var(--fs-name)/1 var(--font-head); color: var(--ink); }
@@ -642,7 +647,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   :is(.ui-day) .pf-sheet-foot { padding: 6px 12px calc(8px + var(--safe-bottom)); }
   :is(.ui-day) .es-bar { margin: 8px 0 6px; }
   :is(.ui-day) .es-grid { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
-  :is(.ui-day) .es-row { gap: 6px; padding: 7px; }
+  :is(.ui-day) .es-row { gap: 10px; padding: 18px 10px 8px; }
   :is(.ui-day) .es-slot .es-grip { bottom: 14px; }
   :is(.ui-day) .es-x { width: 20px; height: 20px; }
   :is(.ui-day) .es-pick .es-pw { display: none; }

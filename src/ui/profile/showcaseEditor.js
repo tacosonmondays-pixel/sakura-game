@@ -125,6 +125,9 @@ export function openShowcaseEditor({ slot = null } = {}) {
       window.addEventListener('pointercancel', onUp, true);
     });
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tapSlot(i); } });
+    // [ui-v2 M7a] the slot answers taps itself (its tap is the pointerup above): a node with a click handler is a tap
+    // target to the browser's touch adjustment, so a finger on the slot's face is never moved onto the 44 px × beside it
+    el.addEventListener('click', () => {});
   }
 
   function sorted() {
