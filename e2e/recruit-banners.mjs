@@ -5,7 +5,7 @@
 //
 //   node e2e/recruit-banners.mjs                                   # 844x390 (touch) and 1280x720
 //   node e2e/recruit-banners.mjs --viewport 844x390 --shots /tmp/rb   # one size + screenshots
-//   node e2e/recruit-banners.mjs --at 2026-11-10T12:00:00-06:00      # another banner day
+//   node e2e/recruit-banners.mjs --at 2026-11-08T12:00:00-06:00      # another banner day (the duo's debut week)
 // Exit code 1 if any check fails. Starts its own Vite dev server on a free port.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -20,7 +20,7 @@ const viewports = opt('viewport', null) ? opt('viewport').split(',') : ['844x390
 const shotsDir = opt('shots', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 // a day in Tenka's debut week (pins in src/data/banners.js), 6:50 PM Central: the rollover is 10 minutes away
-const AT = Date.parse(opt('at', '2026-11-10T18:50:00-06:00'));
+const AT = Date.parse(opt('at', '2026-11-03T18:50:00-06:00'));
 
 const failures = [];
 const log = (...a) => console.log(...a);
