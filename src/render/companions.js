@@ -486,7 +486,7 @@ export class Companions {
         g.scale.z *= _gait.stretch;
         if (s.steps !== a.kon.steps) {
           a.kon.steps = s.steps;
-          this._dust(g.position.x, g.position.y - _gait.lift, g.position.z, 3, 0.42);
+          this._stride(g.position.x, g.position.y - _gait.lift, g.position.z, a.height * scale);
         }
       } else if (s.mode === 'spot') {
         facing = a.faceT > 0 ? a.face : v.facing;
@@ -622,6 +622,23 @@ export class Companions {
     _sp.flags = 0;
   }
 
+  /**
+   * One bound of Kon's run lands: a dust puff, a glowing holo paw mark on the ground that fades behind him and a soft
+   * afterimage glow on his body (`h`: his drawn height), so the run reads from the battle camera.
+   */
+  _stride(x, y, z, h) {
+    const R = this.R;
+    if (!this.fx || !R) return;
+    this._dust(x, y, z, 4, 0.5);
+    this._setSp('groundA', R.glow, x, y + 0.03, z, 0.5, 0.3, 0.75, C.holo, 0.75);
+    _sp.flags = 1; // flat on the ground
+    this._spawn();
+    if (this.quality !== 'low') {
+      this._setSp('bbA', R.glow, x, y + h * 0.4, z, h * 0.9, h * 1.3, 0.28, C.holo, 0.45);
+      this._spawn();
+    }
+  }
+
   /** A little dust puff where Kon's paws land (`n` puffs, before the graphics density). Reduce motion: still. */
   _dust(x, y, z, n, size) {
     const fx = this.fx;
@@ -629,7 +646,7 @@ export class Companions {
     const k = fx.n(n);
     for (let i = 0; i < k; i++) {
       const a = Math.random() * TAU;
-      this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.05, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, C.dust, 0.85);
+      this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.14, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, C.dust, 0.85);
       if (!this.reduceMotion) {
         _sp.vx = Math.cos(a) * 0.5;
         _sp.vz = Math.sin(a) * 0.5;

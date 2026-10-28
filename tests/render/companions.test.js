@@ -59,7 +59,7 @@ describe('Kon: home → travel → at his spot', () => {
     expect([s.mode, s.x]).toEqual(['spot', 3.6]);
     konStep(s, 1 / 60, 1, 1, null);
     expect(s.mode).toBe('travel');
-    run(s, 2, 1, 1, null);
+    run(s, 2.6 / KON_SPEED + 0.2, 1, 1, null); // (2.6 tiles back to her at his pace)
     expect([s.mode, s.x, s.z]).toEqual(['home', 1, 1]);
     // at home he follows her home point exactly
     konStep(s, 1 / 60, 1.5, 0.8, null);

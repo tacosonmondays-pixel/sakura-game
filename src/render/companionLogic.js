@@ -12,8 +12,8 @@
 //   trails:      a fixed ring of recent positions per companion (trail*), drawn as fading ribbons
 //   doll (Yoriko): a dash = the same out-and-back, short and low, stopping short of the target
 
-/** Kon's running speed (tiles / s): slow enough that a 1.5-tile run reads (about a second on screen). */
-export const KON_SPEED = 1.5;
+/** Kon's running speed (tiles / s): slow enough that a 1.5-tile run reads (over a second on screen). */
+export const KON_SPEED = 1.25;
 /** One bound of his run (tiles): a hop, a dust puff where he lands. */
 export const KON_STRIDE = 0.36;
 /** How high a bound lifts him (tiles) and how far he pitches (radians, nose up on take-off). */
