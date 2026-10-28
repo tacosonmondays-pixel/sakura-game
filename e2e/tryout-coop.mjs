@@ -89,7 +89,30 @@ for (const p of [A, B]) {
     await p.waitForFunction((n) => document.querySelectorAll('[data-testid="coop-run-girl"][aria-pressed="true"]').length >= n, i + 1, T).catch(() => {});
   }
 }
-if (shotsDir) await A.screenshot({ path: `${shotsDir}/tycoop-room-host-${W}x${H}.png` });
+// M3: the run panel in the kit: girl tiles, the Grade segRow (a locked Grade says why), map and length options
+const panel = await A.evaluate(() => {
+  const run = document.querySelector('[data-testid="coop-run"]');
+  return {
+    tiles: run.querySelectorAll('[data-testid="coop-run-girl"].ui-girltile').length,
+    picked: run.querySelectorAll('[data-testid="coop-run-girl"].ui-girltile.sel').length,
+    grades: run.querySelectorAll('[data-testid="coop-run-grade"] > .ui-opt').length,
+    locked: run.querySelectorAll('[data-testid="coop-run-grade"] > .ui-opt.locked').length,
+    maps: run.querySelectorAll('[data-testid="coop-run-map"] .ty-map').length,
+    lengths: run.querySelectorAll('[data-testid="coop-run-length"] > .ui-opt').length,
+    heroes: run.querySelectorAll('[data-testid="coop-run-hero"] .ui-opt').length,
+    scroll: document.documentElement.scrollWidth <= innerWidth + 1,
+  };
+});
+check(panel.tiles === 6 && panel.picked === 3, `the host's six are girl tiles, three selected (${JSON.stringify(panel)})`);
+check(panel.grades === 12 && panel.locked >= 1 && panel.maps === 2 && panel.lengths === 2 && panel.heroes >= 1, `Grades as a segRow, map and length as options (${JSON.stringify(panel)})`);
+await A.click('[data-testid="coop-run-grade-12"]');
+check(await A.waitForFunction(() => /Grade 12/.test([...document.querySelectorAll('.toast-host .toast')].map((t) => t.textContent).join(' ')), null, { timeout: 5000 }).then(() => true).catch(() => false)
+  && await A.evaluate(() => window.__coop.tryout.grade === 1), 'a locked Grade tap says why and changes nothing');
+check(panel.scroll, 'no horizontal scroll in the room');
+const guestPanel = await B.evaluate(() => ({ tiles: document.querySelectorAll('[data-testid="coop-run-girl"].ui-girltile').length, grades: document.querySelectorAll('[data-testid="coop-run-grade"]').length, map: document.querySelectorAll('[data-testid="coop-run-map"] .ty-map').length }));
+check(guestPanel.tiles === 6 && guestPanel.grades === 0 && guestPanel.map === 1, `the guest's panel: their six, the host's map, no Grade row (${JSON.stringify(guestPanel)})`);
+if (shotsDir) await A.screenshot({ path: `${shotsDir}/tycoop-room-host-${W}x${H}.png`, fullPage: true });
+if (shotsDir) await B.screenshot({ path: `${shotsDir}/tycoop-room-guest-${W}x${H}.png`, fullPage: true });
 await clearModal(B);
 await B.click('[data-testid="coop-ready"]', T);
 check(await A.waitForFunction(() => window.__coop?.canStart, null, T).then(() => true).catch(() => false), 'the host can start once both picked 3 and the guest is ready');

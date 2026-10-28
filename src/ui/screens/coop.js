@@ -5,11 +5,13 @@
 // Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
 // difficulty: the host picks Off / Blossom / Tempest / Crimson Moon, the guest sees a chip and
 // their Ready is consent. The Battlefield panel says what freeplay brings and the best wave so far.
-// Tryout Day (docs/specs/TRYOUT_DAY.md §11; M1's plain panels) is a room setting too: the host turns a
+// Tryout Day (docs/specs/TRYOUT_DAY.md §11; the run panel in the kit since M3) is a room setting too: the host turns a
 // run on instead of a stage (locked until the Spring Term clear), picks one of the seed's two maps,
 // and each player drafts 3 of their own six (one Redraw) and picks the hero they bring.
 import '../styles/coop-modes.css';
-import { h, screen, button, svgEl, toast, modal } from '../components.js';
+import '../styles/tryout.css';
+import { h, screen, button, svgEl, toast, modal, girlTile } from '../components.js';
+import { segRow, secondaryBtn } from '../kit.js';
 import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -35,6 +37,8 @@ import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode, draftReady } from '../../online/coop/session.js';
 import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, halfCleared } from '../../systems/tryoutRuns.js';
 import { mapChoices } from '../../sim/tryout/plan.js';
+import { TRYOUT } from '../../data/tryout.js';
+import { CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
@@ -792,11 +796,10 @@ export function render(root, params = {}) {
     }
 
     // -------------------------------------------------------------------------------------
-    // Tryout Day (M1: plain panels in today's look)
+    // Tryout Day (the Off / On row in today's look; the run panel in the Ink & Paper kit, M3)
     // -------------------------------------------------------------------------------------
     const ownedNow = (id) => isOwned(store.profile, id);
-    const RUN_TEXT = { fontSize: '12px' };
-    const RUN_TILE = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '72px', padding: '6px 6px', fontStyle: 'normal' };
+    const TRYOUT_WINDOW_UNLOCK = (n) => TRYOUT.windows[TRYOUT.grades[n]?.window]?.unlock || '';
 
     /** A fresh run for the host: a new seed, Grade 1, Half Day, the seed's first (or second) map. */
     function newRun(mapPick = 0, grade = 1, length = 'half') {
@@ -844,6 +847,8 @@ export function render(root, params = {}) {
     }
 
     /** The run: its map (the host picks one of two), my six (pick 3, one Redraw), my hero, my ally's progress. */
+    // [M3] in the kit (docs/specs/TRYOUT_DAY.md §13.10): the six as girl tiles, the Grades as a segRow (a locked one
+    // says why), the map and the length as .ui-opt cards, the heroes as .ui-opt rows; the same test ids as M1
     function runPanel(s) {
       if (!s.tryout) return null;
       const run = s.tryout;
@@ -858,58 +863,76 @@ export function render(root, params = {}) {
       };
       const tile = (id) => {
         const on = picked.includes(id);
-        return h(`button.ol-seg-btn${on ? '.on' : ''}`, { type: 'button', 'data-testid': 'coop-run-girl', 'data-unit': id, 'aria-pressed': String(on), style: RUN_TILE, onclick: () => toggle(id) },
-          avatar(id, 40),
-          h('span', { style: { fontSize: '12px', fontWeight: '900' } }, UNIT_MAP[id]?.name || id),
-          h('span', { style: { fontSize: '12px', fontWeight: '700' } }, on ? 'Picked' : ownedNow(id) ? 'Yours' : 'Loaner'));
+        const mine = ownedNow(id);
+        const t = girlTile(id, { owned: true, selected: on, potential: mine ? undefined : 0, testid: 'coop-run-girl', cls: 'ty-draft', onClick: () => toggle(id) });
+        t.setAttribute('aria-pressed', String(on));
+        t.append(h('span.ui-chip.ink.dup.ty-tag', mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner));
+        return t;
       };
       const heroes = heroChoices(store.profile);
       const myHero = s.me.runHero?.unitId || null;
       const maps = mapChoices(run.seed, run.grade);
       const ally = s.peer;
       const allyN = ally?.draft?.length || 0;
-      return h('section.panel', { 'data-testid': 'coop-run' },
+      const mapCard = (id, { on, onClick = null }) => {
+        let m = null;
+        try {
+          m = getMap(id);
+        } catch { /* (an unknown map: its id) */ }
+        return h(`${onClick ? 'button' : 'div'}.ui-panel.ty-map${on ? '.on' : ''}`, {
+          type: onClick ? 'button' : null, 'data-map': id, 'aria-pressed': onClick ? String(on) : null, onclick: onClick,
+        },
+        h('span.ty-map-thumb', { 'aria-hidden': 'true', html: m ? stageThumbSVG(m, { width: 320, height: 200 }) : '' }),
+        h('span.ty-map-txt', h('b.ty-map-name', m?.name || id), h('span.ty-map-line', m?.tracks ? CLASS_TEXT.roads(m.tracks.length) : '')));
+      };
+      const gradeItems = Array.from({ length: TRYOUT_GRADES }, (_, i) => {
+        const n = i + 1;
+        const st = gradeOpen(store.profile, n);
+        const why = st.open ? null : gradeWhy(st.why, n, TRYOUT_WINDOW_UNLOCK(n));
+        return { id: String(n), label: String(n), locked: !st.open, title: why || `Grade ${n}`, why };
+      });
+      const grades = s.isHost ? segRow(gradeItems, String(run.grade), (id, it) => {
+        if (it.locked) return toast(it.why, 'info');
+        // (another Grade can change the content window: a new seed's maps come with it)
+        if (run.grade !== Number(id)) s.setTryout(newRun(0, Number(id), run.length));
+      }, { label: 'Grade', testidPrefix: 'coop-run-grade-', min: 36 }) : null;
+      if (grades) grades.dataset.testid = 'coop-run-grade';
+      const fullLocked = !halfCleared(store.profile);
+      const lengths = s.isHost ? segRow([['half', 'Half Day'], ['full', 'Full Day']].map(([k, label]) => ({ id: k, label, locked: k === 'full' && fullLocked, title: k === 'full' && fullLocked ? CLASS_TEXT.full : label })),
+        run.length || 'half', (k, it) => {
+          if (it.locked) return toast(CLASS_TEXT.full, 'info');
+          if (run.length !== k) s.setTryout({ ...run, length: k });
+        }, { label: 'Length', testidPrefix: 'coop-run-length-', min: 96 }) : null;
+      if (lengths) lengths.dataset.testid = 'coop-run-length';
+      return h('section.panel.ty-coop', { 'data-testid': 'coop-run' },
         h('h3.panel-title', 'Tryout Day'),
-        h('div.ol-fp-row',
-          h('span.ol-fp-label', 'Map'),
-          s.isHost
-            ? h('div.ol-seg', { 'data-testid': 'coop-run-map' }, ...maps.map((id) => h(`button.ol-seg-btn${run.mapId === id ? '.on' : ''}`, {
-              type: 'button', 'data-map': id, onclick: () => { if (run.mapId !== id) s.setTryout({ ...run, mapId: id }); },
-            }, mapName(id))))
-            : h('b', { 'data-testid': 'coop-run-map' }, mapName(run.mapId)),
-          s.isHost
-            ? h('div.ol-seg', { 'data-testid': 'coop-run-grade' }, ...Array.from({ length: TRYOUT_GRADES }, (_, i) => i + 1).map((n) => h(`button.ol-seg-btn${run.grade === n ? '.on' : ''}`, {
-              type: 'button', 'data-grade': String(n), disabled: !gradeOpen(store.profile, n).open, title: `Grade ${n}`,
-              // (another Grade can change the content window: a new seed's maps come with it)
-              onclick: () => { if (run.grade !== n) s.setTryout(newRun(0, n, run.length)); },
-            }, `G${n}`)))
-            : null,
-          s.isHost
-            ? h('div.ol-seg', { 'data-testid': 'coop-run-length' }, ...[['half', 'Half Day'], ['full', 'Full Day']].map(([k, label]) => h(`button.ol-seg-btn${run.length === k ? '.on' : ''}`, {
-              type: 'button', 'data-length': k, disabled: k === 'full' && !halfCleared(store.profile), title: k === 'full' && !halfCleared(store.profile) ? 'Clear a Half Day first' : label,
-              onclick: () => { if (run.length !== k) s.setTryout({ ...run, length: k }); },
-            }, label)))
-            : null,
-          h('span', { style: RUN_TEXT }, `Grade ${run.grade} · ${run.length === 'full' ? 'Full Day' : 'Half Day'}`),
-          s.isHost ? button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade, run.length)) }) : null),
-        h('div.ol-fp-row',
-          h('span.ol-fp-label', `Your squad: ${picked.length}/3`),
-          button(ui.redraw ? 'Redrawn' : 'Redraw (1)', {
-            kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-redraw', disabled: ui.redraw >= 1,
+        h('div.ty-coop-row',
+          h('span.lbl.ty-coop-lbl', 'Map'),
+          h('div.ty-coop-maps', { 'data-testid': 'coop-run-map' }, ...(s.isHost
+            ? maps.map((id) => mapCard(id, { on: run.mapId === id, onClick: () => { if (run.mapId !== id) s.setTryout({ ...run, mapId: id }); } }))
+            : [mapCard(run.mapId, { on: true })]))),
+        s.isHost ? h('div.ty-coop-row', h('span.lbl.ty-coop-lbl', 'Grade'), grades) : null,
+        s.isHost ? h('div.ty-coop-row', h('span.lbl.ty-coop-lbl', 'Length'), lengths,
+          button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade, run.length)) })) : null,
+        h('p.ty-coop-note', `Grade ${run.grade} · ${run.length === 'full' ? 'Full Day' : 'Half Day'}${s.isHost ? '' : ' (the host picks)'} · ${gradeTwist(TRYOUT.grades, TRYOUT.windows, run.grade)}`),
+        h('div.ty-coop-row',
+          h('span.lbl.ty-coop-lbl', `Your squad: ${picked.length}/3`),
+          secondaryBtn(ui.redraw ? CLASS_TEXT.redrawn : CLASS_TEXT.redraw(1), {
+            icon: 'refresh', testid: 'coop-run-redraw', disabled: ui.redraw >= 1,
             onClick: () => {
               ui.redraw = 1;
               s.setRunPicks({ draft: [] });
             },
           }),
-          h('span', { style: { ...RUN_TEXT, flexBasis: '100%' } }, 'Pick 3 of your six. Loaners are girls you do not own yet: they play at the run\'s floor.')),
-        h('div', { 'data-testid': 'coop-run-six', style: { display: 'flex', flexWrap: 'wrap', gap: '6px' } }, ...six.map(tile)),
-        h('div.ol-fp-row',
-          h('span.ol-fp-label', 'Hero'),
-          h('div.ol-seg', { 'data-testid': 'coop-run-hero' }, ...heroes.map((id) => h(`button.ol-seg-btn${myHero === id ? '.on' : ''}`, {
-            type: 'button', 'data-unit': id, style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px' },
+          h('span.ty-coop-note', 'Pick 3 of your six. Loaners are girls you do not own yet: they play at the run\'s floor.')),
+        h('div.ty-coop-six', { 'data-testid': 'coop-run-six' }, ...six.map(tile)),
+        h('div.ty-coop-row',
+          h('span.lbl.ty-coop-lbl', 'Hero'),
+          h('div.ty-bc-heroes', { 'data-testid': 'coop-run-hero', role: 'radiogroup', 'aria-label': 'Hero' }, ...heroes.map((id) => h(`button.ui-opt.ty-hero${myHero === id ? '.on' : ''}`, {
+            type: 'button', role: 'radio', 'data-unit': id, 'aria-checked': String(myHero === id),
             onclick: () => { if (myHero !== id) s.setRunPicks({ runHero: heroEntry(store.profile, id) }); },
-          }, avatar(id, 24), UNIT_MAP[id]?.name || id)))),
-        ally ? h('p', { style: RUN_TEXT, 'data-testid': 'coop-run-ally' }, `${ally.name || 'Your ally'}: ${allyN}/3 picked${ally.runHero ? ` · hero ${UNIT_MAP[ally.runHero.unitId]?.name || ally.runHero.unitId}` : ''}`) : null);
+          }, avatar(id, 34), h('span.ty-hero-txt', h('b', UNIT_MAP[id]?.name || id), h('span.ty-hero-whose', ownedNow(id) ? CLASS_TEXT.heroYours : CLASS_TEXT.heroFree)))))),
+        ally ? h('p.ty-coop-note', { 'data-testid': 'coop-run-ally' }, `${ally.name || 'Your ally'}: ${allyN}/3 picked${ally.runHero ? ` · hero ${UNIT_MAP[ally.runHero.unitId]?.name || ally.runHero.unitId}` : ''}`) : null);
     }
 
     function tipsPanel() {

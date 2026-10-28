@@ -1,288 +1,268 @@
-// Tryout Day hub and Before Class (docs/specs/TRYOUT_DAY.md §10, §13.2, §13.3): the plain screens on today's
-// components (the Ink & Paper hub with Wakaba comes in M3). Routes: #/tryout (the hub: Marbles, the Weekly Timetable,
-// a share code, then Continue or Before Class), #/tryout/jar (the Marble Jar), #/tryout/yearbook (the Yearbook);
-// ?weekly=1 opens the week's timetable, ?code=XXXXX-XXXXX a shared seed as practice.
+// Tryout Day hub (docs/specs/TRYOUT_DAY.md §10, §13.2; docs/review/tryout-day/M3_PLAN.md §1): the Ink & Paper hub.
+// Wakaba, the track team manager with her clipboard, runs the tryouts: her stand in the left 35% (or, by the collapse
+// rule, her chip in the head row) with a line for the state (locked / fresh / run in progress / weekly done). Hub
+// tiles: Start (or the Continue band of an open run), Weekly Timetable (its reset countdown in the corner, locked before
+// a Grade 4 clear), Marble Jar, Yearbook and Records; under them the share-code box. Marbles sit in the top bar
+// (registerWallet, the Tryout routes only).
+// Routes: #/tryout (this hub), #/tryout/class (Before Class: ./tryoutSetup.js; ?weekly=1 the week's timetable,
+// ?code=XXXXX-XXXXX a shared seed as practice, ?again=1 from the Class Photo), #/tryout/jar (./tryoutJar.js),
+// #/tryout/yearbook (./tryoutYearbook.js; ?tab=records opens its Records), ?makeup=<run id> the defeat sheet's
+// Make-up Test (straight back into the open run). The battle's "Again" / "Replay this seed" land on #/tryout with
+// ?again / ?code: they open Before Class too.
+import '../styles/hubs.css';
 import '../styles/tryout.css';
-import { h, clear, screen, svgEl, button, toast, confirmDialog } from '../components.js';
+import { h, screen, toast, confirmDialog } from '../components.js';
+import { hubTile, countdownChip, secondaryBtn, ico, fillIn } from '../kit.js';
+import { girlTile } from '../components.js';
+import { hubBackdrop } from '../hubArt.js';
+import { hostStand } from '../host.js';
+import { hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
+import { linesFor } from '../hostLines.js';
+import { lineGlyph } from '../lineGlyphs.js';
+import { registerWallet, walletDef } from '../wallets.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
+import { formatNumber } from '../../core/util.js';
 import { SIM_ID } from '../../core/buildInfo.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { ROLES } from '../../data/types.js';
 import { getMap } from '../../data/maps.js';
 import { TRYOUT } from '../../data/tryout.js';
-import { TRYOUT_META } from '../../data/tryoutMeta.js';
-import { portraitHTML } from '../../art/portraits.js';
+import { themeBackdropSVG } from '../../art/backdrops.js';
 import { isOwned } from '../../systems/unlocks.js';
 import {
-  tryoutUnlocked, TRYOUT_UNLOCK, halfCleared, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, getTryoutRun, putTryoutRun, clearTryoutRun, continueKind,
-  activePerks, weeklyState, parseShareCode,
+  tryoutUnlocked, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, gradeCleared, getTryoutRun, clearTryoutRun, continueKind, weeklyState, parseShareCode,
 } from '../../systems/tryoutRuns.js';
-import { weekState, applyTryoutRecord } from '../../systems/tryoutRewards.js';
+import { weekState, marbles, applyTryoutRecord } from '../../systems/tryoutRewards.js';
+import { yearbookPages } from '../../systems/tryoutYearbook.js';
 import { buildTryoutPlan } from '../../sim/tryout/plan.js';
-import { MODE_NAME, LENGTH_NAMES, MARBLES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, rewardLines } from '../text/tryout.js';
-import { jarPanel } from './tryoutJar.js';
-import { yearbookPanel } from './tryoutYearbook.js';
+import { MODE_NAME, LENGTH_NAMES, MARBLES, WEEKLY_TEXT, SHARE_TEXT, HUB_TEXT, rewardLines } from '../text/tryout.js';
+import { renderSetup } from './tryoutSetup.js';
+import { renderJar } from './tryoutJar.js';
+import { renderYearbook } from './tryoutYearbook.js';
 
-/** Before Class's choices survive a redraw and a re-render (not a reload: a new seed then). */
-let pending = null;
+/** The Continue band's tiles: the hero and four girls (the rest as "+n"). */
+const SQUAD_SHOWN = 5;
 
-const fmtLeft = (ms) => {
-  const hrs = Math.max(0, Math.round(ms / 3600000));
-  return hrs >= 48 ? `${Math.round(hrs / 24)} days` : `${hrs} h`;
-};
+/** Wakaba hosts the tryouts (hosts.js has no Tryout row yet: the hub builds her stand itself, as hubHost would). */
+export const TRYOUT_HOST = 'wakaba';
+
+// Marbles in the top bar on the Tryout routes (once, at module load; a hot reload keeps the first registration).
+if (!walletDef('marbles')) registerWallet({ id: 'marbles', item: 'ty:marbles', label: MARBLES, glyph: 'marble', screens: ['tryout'] });
+
+/**
+ * The bar reads a wallet with itemCount(profile, item), and Marbles live in missions.counters (not profile.items), so
+ * the pill would read 0: until the kit's registerWallet takes a count function (a kit request, M3), the Tryout screens
+ * write the real balance into their own bar's pill after every store change (this listener runs after the bar's).
+ * @param {HTMLElement} el the screen root
+ * @returns {() => void} stop
+ */
+export function paintMarblesPill(el) {
+  const paint = () => {
+    const v = el.querySelector('.topbar [data-wallet="marbles"] .cur-val');
+    if (v) v.textContent = formatNumber(marbles(store.profile));
+  };
+  paint();
+  const off = store.on('change', paint);
+  const mo = new MutationObserver(() => {
+    if (el.isConnected) return;
+    off();
+    mo.disconnect();
+  });
+  queueMicrotask(() => el.parentNode && mo.observe(el.parentNode, { childList: true }));
+  return () => {
+    off();
+    mo.disconnect();
+  };
+}
+
+/** Pure: the hub's state for Wakaba's lines and the tiles (hostLines.js `tryout`). */
+export function hubState(profile, now = Date.now()) {
+  const locked = !tryoutUnlocked(profile);
+  const w = weeklyState(profile, now);
+  return {
+    locked, unlock: TRYOUT_UNLOCK, running: !locked && !!getTryoutRun(profile),
+    weeklyOpen: !locked && w.open, weeklyDone: !locked && w.open && w.done,
+  };
+}
+
+/** The hub's state word (data-state on the hub, for tests and styles). */
+export const stateWord = (s) => (s.locked ? 'locked' : s.running ? 'run' : s.weeklyDone ? 'weekly-done' : 'fresh');
+
+/** A tile's picture: a drawn scene with one big line glyph over it. */
+function tileArt(theme, glyph) {
+  return h('span.ty-tile-art',
+    h('span.ty-tile-scene', { html: themeBackdropSVG(theme) }),
+    glyph ? h('span.ty-tile-glyph', { html: lineGlyph(glyph, '', { kitSize: false }) }) : null);
+}
 
 export function render(root, params = {}) {
+  const p0 = store.profile;
   // the Make-up Test from the defeat sheet: straight back into the open run (the Continue spends it)
-  if (params.makeup && getTryoutRun(store.profile)?.id === params.makeup) {
+  if (params.makeup && getTryoutRun(p0)?.id === params.makeup) {
     queueMicrotask(() => navigate('battle', { tryout: params.makeup }, { replace: true }));
     return () => {};
   }
-  const sub = params.id === 'jar' || params.id === 'yearbook' ? params.id : null;
-  const { el, body } = screen(sub === 'jar' ? 'Marble Jar' : sub === 'yearbook' ? 'Yearbook' : MODE_NAME, { cls: 'ty-screen' });
+  if (tryoutUnlocked(p0)) {
+    if (params.id === 'jar') return renderJar(root, params);
+    if (params.id === 'yearbook') return renderYearbook(root, params);
+    if (!getTryoutRun(p0) && (params.id === 'class' || params.code || params.weekly || params.again)) return renderSetup(root, params);
+  }
+  return renderHub(root);
+}
+
+function renderHub(root) {
+  const { el, body } = screen(MODE_NAME, { cls: 'ty-screen ty-hub-screen hb-screen' });
+  el.insertBefore(hubBackdrop('academy'), el.firstChild);
   root.appendChild(el);
-  const profile = () => store.profile;
-  // what this visit opened: a shared code (practice) or the week's timetable; consumed by the first draw
-  let ask = params.code ? { code: String(params.code) } : params.weekly ? { weekly: true } : null;
+  const offPill = paintMarblesPill(el);
+
+  let drawn = hubMode(viewport());
+  const host = hostStand(UNIT_MAP[TRYOUT_HOST], { lines: linesFor('tryout', hubState(store.profile)), kind: 'hub', mode: drawn, testid: 'host' });
+  const head = h('div.ty-hub-head');
+  const grid = h('div.ty-hub-grid');
+  const code = h('div.ty-hub-code');
+  const main = h('div.hb-main.ty-hub-main', { 'data-testid': 'tryout-hub' }, head, grid, code);
+  const hb = h('div.hb.ty-hb', main);
+  body.append(hb);
+  placeHost(host, drawn, { hb, slot: head });
+  const offResize = watchHostMode(el, () => drawn, () => hubMode(viewport()), () => {
+    drawn = hubMode(viewport());
+    placeHost(host, drawn, { hb, slot: head });
+  });
 
   const draw = () => {
-    clear(body);
-    const p = profile();
-    if (!tryoutUnlocked(p)) {
-      body.appendChild(h('section.panel.ty-hub', { 'data-testid': 'tryout-locked' },
-        h('b', `Clear ${TRYOUT_UNLOCK} to open ${MODE_NAME}`),
-        h('p.muted', 'One school day of defense: pick Pep Talks after every period, take in girls who try out, and move your squad at Recess.')));
-      return;
-    }
-    const hub = () => navigate('tryout', {}, { back: true });
-    if (sub === 'jar') return void body.appendChild(jarPanel({ redraw: draw, back: hub }));
-    if (sub === 'yearbook') return void body.appendChild(yearbookPanel({ back: hub }));
-    const run = getTryoutRun(p);
-    if (run) {
-      body.appendChild(continueBand(run));
-      body.appendChild(walletPanel(p, true));
-      return;
-    }
-    body.appendChild(walletPanel(p, false));
-    if (ask) {
-      const a = ask;
-      ask = null;
-      if (a.weekly) startWeekly(p);
-      else startCode(p, a.code);
-    }
-    // a Desk Supply bought or switched in the Jar since: a normal run's Before Class starts over with it
-    if (pending?.mode === 'normal' && JSON.stringify(pending.perks) !== JSON.stringify(activePerks(p))) pending = null;
-    if (!pending) pending = fresh(p, 'normal');
-    body.appendChild(beforeClassPanel(p));
-  };
-
-  /** A new Before Class: a normal run (the highest open Grade), the week's timetable, or a shared seed (practice). */
-  function fresh(p, mode, fixed = null) {
-    const weekly = mode === 'weekly';
-    const seed = fixed ? fixed.seed : newRunSeed();
-    let grade = fixed ? fixed.grade : 1;
-    if (!fixed) for (let g = TRYOUT_GRADES; g > 1; g--) if (gradeOpen(p, g).open) { grade = g; break; }
-    const perks = weekly ? {} : activePerks(p);
-    const bc = beforeClass(p, seed, grade, 0, { floor: weekly, perks });
-    const length = fixed?.length || 'half';
-    return {
-      ...bc, mode, length, perks, redraw: 0, pick: [], week: fixed?.week ?? null,
-      maps: fixed?.mapId ? [fixed.mapId] : bc.maps, mapId: fixed?.mapId || bc.maps[0],
-      hero: bc.heroes.includes(p.formation?.hero) ? p.formation.hero : bc.heroes[0],
-    };
-  }
-
-  function startWeekly(p) {
+    const p = store.profile;
+    const st = hubState(p);
+    main.dataset.state = stateWord(st);
+    host.setLines(linesFor('tryout', st));
+    const run = st.running ? getTryoutRun(p) : null;
+    const lock = st.locked ? HUB_TEXT.locked(TRYOUT_UNLOCK) : null;
+    const lockedTap = () => toast(HUB_TEXT.lockedWhy(TRYOUT_UNLOCK), 'info');
     const w = weeklyState(p);
-    if (!w.open) return toast(WEEKLY_TEXT.locked, 'warn');
-    pending = fresh(p, 'weekly', { seed: w.seed, grade: w.grade, length: w.length, mapId: w.mapId, week: w.week });
-  }
-
-  function startCode(p, text) {
-    const c = parseShareCode(text);
-    if (!c) return toast(SHARE_TEXT.bad, 'warn');
-    // practice records nothing, so the ladder does not gate it; the Grade's content window still does
-    const st = gradeOpen(p, c.grade);
-    if (!st.open && st.why !== 'ladder') return toast(SHARE_TEXT.locked, 'warn');
-    pending = fresh(p, 'practice', c);
-  }
-
-  function walletPanel(p, running) {
     const wk = weekState(p);
-    const w = weeklyState(p);
-    const codeIn = h('input.ty-code-in', { 'data-testid': 'tryout-code-in', placeholder: SHARE_TEXT.enter, maxlength: 13, 'aria-label': SHARE_TEXT.title });
-    const weeklyBtn = button(w.open ? (w.done ? `${WEEKLY_TEXT.name} ✓` : WEEKLY_TEXT.name) : `${WEEKLY_TEXT.name} 🔒`, {
-      small: true, kind: w.open && !w.done ? 'primary' : 'ghost', testid: 'tryout-weekly-go', disabled: !w.open || running,
-      title: w.open ? `${WEEKLY_TEXT.line} ${w.done ? WEEKLY_TEXT.done : WEEKLY_TEXT.reward}` : WEEKLY_TEXT.locked,
+    const yb = st.locked ? null : yearbookPages(p);
+
+    // Start (or the open run's Continue band in its place)
+    const len = LENGTH_NAMES.half;
+    let grade = 1;
+    if (!st.locked) for (let g = TRYOUT_GRADES; g > 1; g--) if (gradeOpen(p, g).open) { grade = g; break; }
+    const first = run ? continueBand(run) : hubTile({
+      title: HUB_TEXT.start, kicker: st.locked ? null : HUB_TEXT.startKicker(len, grade), line: st.locked ? HUB_TEXT.pitch : HUB_TEXT.startLine,
+      art: tileArt('sakura', 'desk'), lock, testid: 'tryout-tile-start', cls: 'ty-tile-start',
+      onClick: st.locked ? lockedTap : () => navigate('tryout', { id: 'class' }),
+    });
+
+    // the Weekly Timetable: its reset in the corner (a weekly cycle: never red), locked before a Grade 4 clear
+    const weeklyLock = st.locked ? lock : !w.open ? HUB_TEXT.weeklyLocked : null;
+    const weekly = hubTile({
+      title: WEEKLY_TEXT.name, sm: true,
+      line: weeklyLock ? null : w.done ? HUB_TEXT.weeklyDone(w.best) : HUB_TEXT.weeklyOpen,
+      corner: weeklyLock ? null : countdownChip(w.resetsAt - Date.now(), { label: HUB_TEXT.weeklyResets, urgent: false, testid: 'tryout-weekly-cd', onDone: () => draw() }),
+      art: tileArt('campus', 'weekly'), lock: weeklyLock, testid: 'tryout-weekly-go', cls: 'ty-tile-weekly',
+      label: weeklyLock ? `${WEEKLY_TEXT.name}: ${st.locked ? HUB_TEXT.lockedWhy(TRYOUT_UNLOCK) : WEEKLY_TEXT.locked}` : null,
       onClick: () => {
-        startWeekly(profile());
-        draw();
+        if (st.locked) return lockedTap();
+        if (!w.open) return toast(WEEKLY_TEXT.locked, 'info');
+        if (run) return toast(HUB_TEXT.runOpen, 'info');
+        navigate('tryout', { id: 'class', weekly: 1 });
       },
     });
-    // one compact strip (phones: the run's own panel stays near the top): the wallet, then the meta doors
-    return h('section.panel.ty-hub.ty-meta', { 'data-testid': 'tryout-hub' },
-      h('div.ty-wallet', { 'data-testid': 'tryout-wallet' },
-        h('span', h('b', String(wk.marbles)), ` ${MARBLES}`),
-        h('span.ty-dim', `${wk.week} / ${wk.cap} this week`),
-        h('span.ty-dim', `Lunchboxes ${Math.floor(wk.boxesLeft * 10) / 10} / ${TRYOUT_META.lunchbox.perWeek} left`),
-        h('span.ty-dim', `Grade cleared ${gradeCleared(p) || '–'}`)),
-      h('div.ty-actions',
-        button('Marble Jar', { small: true, testid: 'tryout-open-jar', onClick: () => navigate('tryout', { id: 'jar' }) }),
-        button('Yearbook', { small: true, kind: 'ghost', testid: 'tryout-open-yearbook', onClick: () => navigate('tryout', { id: 'yearbook' }) }),
-        weeklyBtn,
-        h('span.ty-codebox', codeIn, button('Go', {
-          small: true, kind: 'ghost', testid: 'tryout-code-go', disabled: running, title: SHARE_TEXT.note,
-          onClick: () => {
-            startCode(profile(), codeIn.value);
-            draw();
-          },
-        }))),
-      h('p.ty-dim.ty-weekly-line', { 'data-testid': 'tryout-weekly' },
-        w.open ? `${WEEKLY_TEXT.name}: ${w.done ? `${WEEKLY_TEXT.done}${w.best ? ` Best ${w.best}.` : ''}` : WEEKLY_TEXT.reward} New timetable in ${fmtLeft(w.resetsAt - Date.now())}.` : WEEKLY_TEXT.locked));
+    weekly.dataset.state = weeklyLock ? 'locked' : w.done ? 'done' : 'open';
+
+    const jar = hubTile({
+      title: HUB_TEXT.jar, sm: true, line: st.locked ? null : HUB_TEXT.jarLine(wk.week, wk.cap), art: tileArt('festival', 'marble'), lock,
+      testid: 'tryout-open-jar', cls: 'ty-tile-jar', onClick: st.locked ? lockedTap : () => navigate('tryout', { id: 'jar' }),
+    });
+    const girlsIn = yb ? yb.girls.filter((g) => g.stamped).length : 0;
+    const book = hubTile({
+      title: HUB_TEXT.yearbook, sm: true, line: yb ? HUB_TEXT.yearbookLine(girlsIn, yb.girls.length, yb.stamps) : null, art: tileArt('shrine', 'book'), lock,
+      testid: 'tryout-open-yearbook', cls: 'ty-tile-yearbook', onClick: st.locked ? lockedTap : () => navigate('tryout', { id: 'yearbook' }),
+    });
+    const best = yb ? Math.max(0, ...yb.records.map((r) => r.score)) : 0;
+    const records = hubTile({
+      title: HUB_TEXT.records, sm: true, line: st.locked ? null : HUB_TEXT.recordsLine(gradeCleared(p), best), art: tileArt('arena', 'trophy'), lock,
+      testid: 'tryout-open-records', cls: 'ty-tile-records', onClick: st.locked ? lockedTap : () => navigate('tryout', { id: 'yearbook', tab: 'records' }),
+    });
+    for (const t of [first, jar, book, records]) if (t.classList.contains('ui-hubtile')) t.dataset.state = t.classList.contains('locked') ? 'locked' : 'open';
+    grid.classList.toggle('run', !!run);
+    fillIn(grid, first, weekly, jar, book, records);
+    fillIn(code, st.locked ? null : codeBox(!!run));
+  };
+
+  /** The share-code box: a code from a friend's Class Photo plays as practice. */
+  function codeBox(running) {
+    const input = h('input', { type: 'text', 'data-testid': 'tryout-code-in', placeholder: SHARE_TEXT.enter, maxlength: 13, 'aria-label': SHARE_TEXT.title, autocomplete: 'off', spellcheck: false });
+    const go = () => {
+      if (running) return toast(HUB_TEXT.runOpen, 'info');
+      const c = parseShareCode(input.value);
+      if (!c) return toast(SHARE_TEXT.bad, 'warn');
+      navigate('tryout', { id: 'class', code: input.value.trim().toUpperCase() });
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    return [
+      h('span.lbl.ty-code-lbl', SHARE_TEXT.title),
+      h('label.ui-input.ty-code-in', input),
+      secondaryBtn(HUB_TEXT.codeGo, { testid: 'tryout-code-go', title: SHARE_TEXT.note, onClick: go }),
+      h('span.ty-code-note', SHARE_TEXT.note),
+    ];
   }
 
+  /** The open run: its squad as small girl tiles, one line, Continue (the one yellow) and Give up. */
   function continueBand(run) {
     const kind = continueKind(run, SIM_ID);
     const plan = buildTryoutPlan(run);
     const len = TRYOUT.lengths[run.length || 'half'] || TRYOUT.lengths.half;
-    const note = kind === 'makeup' ? ' · uses your Make-up Test' : kind === 'practice' ? ' · continues as practice' : kind === 'stale' ? ' · closed by an update' : '';
+    const note = kind === 'makeup' ? HUB_TEXT.makeup : kind === 'practice' ? HUB_TEXT.practice : kind === 'stale' ? HUB_TEXT.stale : null;
     const tag = Number.isInteger(run.weekly) ? `${WEEKLY_TEXT.name} · ` : run.practice ? 'Practice · ' : '';
-    return h('section.panel.ty-hub', { 'data-testid': 'tryout-continue' },
-      h('b', `${tag}${LENGTH_NAMES[plan.length] || 'Half Day'} · Grade ${plan.grade} · ${getMap(plan.mapId)?.name || plan.mapId}`),
-      h('p', `Period ${Math.ceil(((run.wave || 0) + 1) / len.wavesPerPeriod)} · wave ${(run.wave || 0) + 1} · ♥ ${run.lives ?? TRYOUT.grades[run.grade].hearts}${note}`),
-      h('div.ty-squad', ...run.squad.map((id) => svgEl(portraitHTML(UNIT_MAP[id], 'thumb', { eager: true }), 'ty-squad-art'))),
-      kind === 'makeup' ? h('p.muted', 'You left during a wave: continuing replays that wave once, and that period\'s assignments no longer count.') : null,
-      h('div.ty-actions',
-        kind === 'stale' ? null : button('Continue', { testid: 'tryout-go-continue', icon: 'play', onClick: () => navigate('battle', { tryout: run.id }) }),
-        button('Give up this run', {
-          kind: 'ghost', testid: 'tryout-abandon',
-          onClick: async () => {
-            if (!(await confirmDialog('Give up this run? It ends here, and the periods you finished are paid.', { title: MODE_NAME, ok: 'Give up', danger: true }))) return;
-            const cur = getTryoutRun(store.profile);
-            if (!cur || cur.id !== run.id) return draw();
-            // paid from its last calm point (§12.4), deleted in the same write
-            let out = null;
-            try {
-              out = applyTryoutRecord(store.profile, cur);
-            } catch (e) {
-              console.error('[tryout] paying a given-up run failed', e);
-            }
-            clearTryoutRun(store.profile, run.id);
-            store.commit('tryout-run');
-            store.saveNow();
-            const line = rewardLines(out?.run).find((l) => l.key === 'marbles');
-            if (out?.run && (out.run.marbles?.paid || out.run.box?.fill)) toast(`Run over. ${line ? line.text : ''}`, 'good');
-            draw();
-          },
-        })));
-  }
-
-  function girlTile(id, i) {
-    const def = UNIT_MAP[id];
-    const picked = pending.pick.includes(id);
-    const owned = pending.mode !== 'weekly' && isOwned(profile(), id);
-    return h(`button.ty-card.ty-draft${picked ? '.ty-picked' : ''}`, {
-      'data-testid': `tryout-draft-${i}`, 'aria-pressed': picked ? 'true' : 'false',
-      onclick: () => {
-        if (picked) pending.pick = pending.pick.filter((x) => x !== id);
-        else if (pending.pick.length < TRYOUT.squad.start) pending.pick.push(id);
-        draw();
-      },
-    },
-    svgEl(portraitHTML(def, 'thumb', { eager: true }), 'ty-card-art'),
-    h('b.ty-card-name', def.name),
-    h('span.ty-card-line', `${ROLES[def.role]?.name || ''} · ${def.attackType}${def.base?.canHitAir ? ' · hits flyers' : ''}`),
-    h('span.ty-card-line.ty-dim', owned ? 'Yours · plays in the band' : pending.mode === 'weekly' ? 'At the floor' : 'Loaner'));
-  }
-
-  function beforeClassPanel(p) {
-    const mode = pending.mode;
-    const free = mode === 'normal';
-    const maps = h('div.ty-actions', ...pending.maps.map((id) => {
-      const b = button(getMap(id)?.name || id, { kind: pending.mapId === id ? 'primary' : 'ghost', small: true, testid: `tryout-map-${id}`, onClick: () => { pending.mapId = id; draw(); } });
-      b.setAttribute('aria-pressed', pending.mapId === id ? 'true' : 'false');
-      return b;
+    let mapName = plan.mapId;
+    try {
+      mapName = getMap(plan.mapId).name;
+    } catch { /* (an unknown map id: its id) */ }
+    const p = store.profile;
+    // the hero and the first girls as small tiles (one row on a phone), the rest as a count
+    const ids = [run.hero?.unitId, ...run.squad].filter((id) => UNIT_MAP[id]);
+    const squad = ids.slice(0, SQUAD_SHOWN).map((id) => girlTile(id, {
+      owned: true, potential: isOwned(p, id) ? undefined : 0, level: null, cls: 'ty-sq', testid: null,
     }));
-    const heroes = h('select.ty-brush', { 'data-testid': 'tryout-hero', onchange: (e) => { pending.hero = e.target.value || null; } },
-      ...pending.heroes.map((id) => h('option', { value: id, selected: id === pending.hero }, `${UNIT_MAP[id].name}${isOwned(p, id) && mode !== 'weekly' ? '' : mode === 'weekly' ? ' (at the floor)' : ' (Loaner)'}`)));
-    const ready = pending.pick.length === TRYOUT.squad.start;
-    const g = TRYOUT.grades[pending.grade];
-    const len = TRYOUT.lengths[pending.length] || TRYOUT.lengths.half;
-    const grades = free ? h('div.ty-actions', ...Array.from({ length: TRYOUT_GRADES }, (_, i) => {
-      const n = i + 1;
-      const st = gradeOpen(p, n);
-      const b = button(st.open ? `${n}` : `${n} 🔒`, {
-        kind: pending.grade === n ? 'primary' : 'ghost', small: true, testid: `tryout-grade-${n}`, disabled: !st.open,
-        onClick: () => {
-          // a Grade can change the content window: its maps come with it (the draft stays)
-          pending.grade = n;
-          pending.maps = beforeClass(store.profile, pending.seed, n, pending.redraw, { perks: pending.perks }).maps;
-          if (!pending.maps.includes(pending.mapId)) pending.mapId = pending.maps[0];
-          draw();
-        },
-      });
-      b.setAttribute('aria-pressed', pending.grade === n ? 'true' : 'false');
-      if (!st.open) b.title = st.why === 'window' ? `Needs ${TRYOUT.windows[TRYOUT.grades[n].window].unlock} cleared` : st.why === 'build' ? 'Coming later' : `Clear Grade ${n - 1} first`;
-      return b;
-    })) : null;
-    // Half Day, or a Full Day once a Half Day is cleared (§16 Q3)
-    const lengths = free && TRYOUT.lengths.full ? h('div.ty-actions', ...['half', 'full'].map((id) => {
-      const locked = id === 'full' && !halfCleared(p);
-      const b = button(locked ? `${LENGTH_NAMES[id]} 🔒` : LENGTH_NAMES[id], {
-        kind: pending.length === id ? 'primary' : 'ghost', small: true, testid: `tryout-length-${id}`, disabled: locked,
-        onClick: () => { pending.length = id; draw(); },
-      });
-      b.setAttribute('aria-pressed', pending.length === id ? 'true' : 'false');
-      if (locked) b.title = 'Clear a Half Day first';
-      return b;
-    })) : null;
-    const perkNames = Object.keys(pending.perks || {}).map((k) => JAR_TEXT[k]?.name || k);
-    const title = mode === 'weekly' ? `${WEEKLY_TEXT.name} · Grade ${pending.grade}` : mode === 'practice' ? `Practice · ${LENGTH_NAMES[pending.length]} · Grade ${pending.grade}` : `Before Class · ${LENGTH_NAMES[pending.length]} · Grade ${pending.grade}`;
-    return h('section.panel.ty-hub', { 'data-testid': 'tryout-before-class', 'data-mode': mode },
-      h('div.ty-sheet-title', title),
-      mode === 'weekly' ? h('p.muted', `${WEEKLY_TEXT.line} ${WEEKLY_TEXT.reward}`) : null,
-      mode === 'practice' ? h('p.muted', { 'data-testid': 'tryout-practice-note' }, SHARE_TEXT.note) : null,
-      free ? h('b', `Grade${gradeCleared(p) ? ` · cleared up to ${gradeCleared(p)}` : ''}`) : null, grades, lengths,
-      h('p.muted', `${g.hearts} hearts · ${g.seats} Window Seats · ${g.erasers + (pending.perks?.eraser ? 1 : 0)} Eraser${g.erasers === 1 && !pending.perks?.eraser ? '' : 's'}${g.hpMul > 1 ? ` · foes +${Math.round((g.hpMul - 1) * 100)} % HP` : ''}`),
-      h('p.muted', `${len.periods} periods of ${len.wavesPerPeriod} waves. After each period, pick a Pep Talk; at each break the Window Seats move and you get Hall Passes.`),
-      perkNames.length ? h('p.muted', { 'data-testid': 'tryout-perks' }, `Desk Supplies: ${perkNames.join(', ')}`) : null,
-      h('b', 'Map'), maps,
-      h('b', 'Hero'), h('div.ty-actions', heroes),
-      h('b', `Squad · pick ${TRYOUT.squad.start} (${pending.pick.length}/${TRYOUT.squad.start})`),
-      h('div.ty-cards', ...pending.draft.map(girlTile)),
-      h('div.ty-actions',
-        button(`Redraw (${TRYOUT.squad.redraws - pending.redraw})`, {
-          kind: 'ghost', small: true, testid: 'tryout-redraw', disabled: pending.redraw >= TRYOUT.squad.redraws,
-          onClick: () => {
-            pending.redraw++;
-            pending.draft = beforeClass(store.profile, pending.seed, pending.grade, pending.redraw, { floor: mode === 'weekly', perks: pending.perks }).draft;
-            pending.pick = [];
-            draw();
-          },
-        }),
-        mode === 'normal' ? null : button('Back to a normal run', {
-          kind: 'ghost', small: true, testid: 'tryout-normal',
-          onClick: () => {
-            pending = fresh(store.profile, 'normal');
-            draw();
-          },
-        }),
-        button(ready ? 'Start class' : `Pick ${TRYOUT.squad.start - pending.pick.length} more`, {
-          testid: 'tryout-start', icon: 'play', disabled: !ready,
-          onClick: () => {
-            const rec = newRunRecord(store.profile, {
-              seed: pending.seed, grade: pending.grade, length: pending.length, mapId: pending.mapId, hero: pending.hero, squad: pending.pick, simId: SIM_ID,
-              perks: pending.perks, ...(mode === 'weekly' ? { weekly: pending.week } : null), ...(mode === 'practice' ? { practice: true, shared: true } : null),
-            });
-            putTryoutRun(store.profile, rec);
-            store.commit('tryout-run');
-            if (!store.saveNow()) toast('This run could not be saved on this device.', 'warn');
-            pending = null;
-            navigate('battle', { tryout: rec.id });
-          },
-        })));
+    for (const t of squad) t.tabIndex = -1;
+    if (ids.length > SQUAD_SHOWN) squad.push(h('span.ui-chip.ink.ty-cont-n', { title: ids.slice(SQUAD_SHOWN).map((id) => UNIT_MAP[id].name).join(', ') }, `+${ids.length - SQUAD_SHOWN}`));
+    const line = HUB_TEXT.continueLine(Math.ceil(((run.wave || 0) + 1) / len.wavesPerPeriod), (run.wave || 0) + 1, run.lives ?? TRYOUT.grades[run.grade]?.hearts ?? '');
+    const primary = kind === 'stale' ? null : h('button.ui-hit.ty-pri', { type: 'button', 'data-testid': 'tryout-go-continue', onclick: () => navigate('battle', { tryout: run.id }) },
+      h('span.ui-btn.pri', ico('play'), h('span', HUB_TEXT.continueGo)));
+    return h('section.ui-panel.ty-cont', { 'data-testid': 'tryout-continue', 'data-kind': kind },
+      h('div.ty-cont-squad', { 'aria-label': 'Squad' }, squad),
+      h('div.ty-cont-body',
+        h('span.lbl.ty-cont-kicker', `${tag}${LENGTH_NAMES[plan.length] || LENGTH_NAMES.half} · Grade ${plan.grade} · ${mapName}`),
+        h('b.ty-cont-title', HUB_TEXT.continueTitle),
+        h('p.ty-cont-line', line, note ? h('span.ty-cont-note', ` · ${note}`) : null),
+        kind === 'makeup' ? h('p.ty-cont-more', HUB_TEXT.makeupLine) : kind === 'stale' ? h('p.ty-cont-more', HUB_TEXT.staleLine) : null,
+        h('div.ty-cont-acts',
+          secondaryBtn(HUB_TEXT.giveUp, { testid: 'tryout-abandon', onClick: () => giveUp(run) }),
+          primary)));
+  }
+
+  async function giveUp(run) {
+    if (!(await confirmDialog(HUB_TEXT.giveUpAsk, { title: MODE_NAME, ok: 'Give up', danger: true }))) return;
+    const cur = getTryoutRun(store.profile);
+    if (!cur || cur.id !== run.id) return draw();
+    // paid from its last calm point (§12.4), deleted in the same write
+    let out = null;
+    try {
+      out = applyTryoutRecord(store.profile, cur);
+    } catch (e) {
+      console.error('[tryout] paying a given-up run failed', e);
+    }
+    clearTryoutRun(store.profile, run.id);
+    store.commit('tryout-run');
+    store.saveNow();
+    const line = rewardLines(out?.run).find((l) => l.key === 'marbles');
+    if (out?.run && (out.run.marbles?.paid || out.run.box?.fill)) toast(`Run over. ${line ? line.text : ''}`, 'good');
+    draw();
   }
 
   draw();
-  return () => {};
+  return () => {
+    offResize();
+    offPill();
+  };
 }

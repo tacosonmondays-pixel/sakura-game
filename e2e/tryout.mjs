@@ -9,9 +9,13 @@
 //   5. a reload mid-break continues the same run at the same break (the run's own save slot)
 //   6. a reload mid-wave: the hub's Continue says it uses the Make-up Test; Continue voids that period
 //   7. Give up removes the run (and pays what it banked)
-//   8. M4 meta: the hub's wallet; the Weekly Timetable is locked before a Grade 4 clear; a run ends in an Early
-//      Dismissal and the Class Photo shows its rewards and share code; Replay this seed opens a practice Before Class;
-//      the Yearbook opens with stamps; the Marble Jar opens and a purchase works (its perk shows at Before Class)
+//   8. M4 meta: a run ends in an Early Dismissal and the Class Photo shows its rewards and share code; Replay this seed
+//      opens a practice Before Class; the Yearbook opens with stamps; the Marble Jar opens and a purchase works (its perk
+//      shows at Before Class)
+//   M3 (the Ink & Paper menus): the hub's tiles and their states (all locked before 2-5, Weekly locked before a Grade 4
+//      clear, its countdown once open), Wakaba's line, Marbles in the top bar on the Tryout routes only, Before Class's
+//      Grade segRow (a locked tap says why), its girl tiles selected, the Jar's rail, the Yearbook's pencil tiles, no
+//      horizontal scroll on any of them
 // Screenshots go to --shots. node e2e/tryout.mjs [--viewports 844x390,1280x720] [--shots dir]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -73,25 +77,55 @@ for (const [W, H] of viewports) {
   const screenIs = (name) => page.waitForFunction((n) => document.querySelector('#app')?.dataset.screen === n && !document.documentElement.dataset.tx, name, { timeout: 60000, polling: 100 }).then(() => true).catch(() => false);
   const battleReady = () => page.waitForFunction(() => window.__battle?.ui?.tryoutUi && document.querySelector('#app')?.dataset.screen === 'battle' && !document.documentElement.dataset.tx, null, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
 
-  // 1. locked, then open
+  const noHScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1
+    && [...document.querySelectorAll('.screen-body, .ls-list, .hb-main')].every((e) => e.scrollWidth <= e.clientWidth + 1));
+  const tileState = (id) => page.locator(`[data-testid="${id}"]`).getAttribute('data-locked').then((v) => (v ? 'locked' : 'open')).catch(() => 'missing');
+  const marblesPill = () => page.locator('.topbar [data-wallet="marbles"]');
+
+  // 1. locked: Wakaba, every tile locked with the rule; Marbles already in the top bar
   await page.goto(`${base}#/tryout`);
   await screenIs('tryout');
-  check(await page.locator('[data-testid="tryout-locked"]').isVisible(), 'locked before 2-5');
+  check(await page.locator('[data-testid="tryout-hub"][data-state="locked"]').isVisible(), 'the hub is locked before 2-5');
+  const lockedTiles = await Promise.all(['tryout-tile-start', 'tryout-weekly-go', 'tryout-open-jar', 'tryout-open-yearbook', 'tryout-open-records'].map(tileState));
+  check(lockedTiles.every((x) => x === 'locked'), `every hub tile is locked before 2-5 (${lockedTiles})`);
+  check(/Clear 2-5/.test(await page.locator('[data-testid="tryout-tile-start"]').textContent()), 'the Start tile says what opens it');
+  check(/2-5/.test(await page.locator('[data-testid="host"]').textContent().catch(() => '')), 'Wakaba says what opens the tryouts');
+  check(await marblesPill().isVisible(), 'Marbles sit in the top bar on the Tryout hub');
+  await shot('ty-hub-locked');
   await page.evaluate(() => sessionStorage.setItem('__tyUnlock', '1'));
   await page.reload();
   await screenIs('tryout');
-  check(await page.locator('[data-testid="tryout-before-class"]').isVisible({ timeout: 10000 }).catch(() => false), 'Before Class shows after 2-5');
-  check(await page.locator('[data-testid^="tryout-draft-"]').count() === 6, 'six drafted girls');
-  check(await page.locator('[data-testid="tryout-wallet"]').isVisible(), 'the hub shows the Marble wallet');
-  check(await page.locator('[data-testid="tryout-weekly-go"]').isDisabled() && /Grade 4/.test(await page.locator('[data-testid="tryout-weekly"]').textContent()),
+  check(await page.waitForSelector('[data-testid="tryout-hub"][data-state="fresh"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the hub opens after 2-5');
+  const openTiles = await Promise.all(['tryout-tile-start', 'tryout-open-jar', 'tryout-open-yearbook', 'tryout-open-records'].map(tileState));
+  check(openTiles.every((x) => x === 'open'), `Start, the Jar, the Yearbook and Records open after 2-5 (${openTiles})`);
+  check(await tileState('tryout-weekly-go') === 'locked' && /Grade 4/.test(await page.locator('[data-testid="tryout-weekly-go"]').textContent()),
     'the Weekly Timetable is locked before a Grade 4 clear');
+  check(await page.locator('[data-testid="tryout-weekly-cd"]').count() === 0, 'no countdown on the locked Weekly tile');
+  check((await marblesPill().textContent()).trim() === '0', 'the top bar shows the Marbles held (0)');
+  check(await noHScroll(), 'no horizontal scroll on the hub');
+  await shot('ty-hub-fresh');
+  // Before Class: from the Start tile
+  await page.click('[data-testid="tryout-tile-start"]');
+  check(await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).then(() => screenIs('tryout')).catch(() => false), 'Start opens Before Class');
+  check(await page.locator('[data-testid^="tryout-draft-"]:not([data-testid="tryout-draft-tag"])').count() === 6, 'six drafted girls');
+  check(await page.locator('.ty-bc-six > .ui-girltile').count() === 6, 'the six are girl tiles');
+  const tags = await page.locator('[data-testid="tryout-draft-tag"]').allTextContents();
+  check(tags.length === 6 && tags.every((t) => /^(Yours · band cap|Loaner)$/i.test(t.trim())), `each girl wears Yours · band cap or Loaner (${tags})`);
   check(await page.locator('[data-testid="tryout-start"]').isDisabled(), 'Start waits for 3 girls');
+  check(/Pick 3 more/.test(await page.locator('[data-testid="tryout-start-why"]').textContent().catch(() => '')), 'the disabled Start says why');
+  // the Grade row: 12 Grades, a locked one says why
+  check(await page.locator('[data-testid^="tryout-grade-"]:not([data-testid="tryout-grade-line"])').count() === 12, 'Grades 1-12 in one row');
+  check(await page.locator('[data-testid="tryout-grade-1"]').getAttribute('aria-checked') === 'true', 'Grade 1 is chosen');
+  await page.click('[data-testid="tryout-grade-2"]');
+  const why = await page.locator('[data-testid="tryout-grade-line"]').textContent();
+  check(/Clear Grade 1/.test(why) && await page.locator('[data-testid="tryout-grade-1"]').getAttribute('aria-checked') === 'true', `a locked Grade says why and stays unchosen (${why})`);
   await page.click('[data-testid="tryout-redraw"]');
   check(await page.locator('[data-testid="tryout-redraw"]').isDisabled(), 'one free redraw');
   for (const i of [0, 1, 2]) await page.click(`[data-testid="tryout-draft-${i}"]`);
+  check(await page.locator('.ty-bc-six > .ui-girltile.sel[aria-pressed="true"]').count() === 3, 'the three picked tiles show selected');
+  check(!(await page.locator('[data-testid="tryout-start"]').isDisabled()), 'Start opens with 3 girls');
   await shot('ty-before-class');
-  const noScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-  check(noScroll, 'no horizontal scroll on Before Class');
+  check(await noHScroll(), 'no horizontal scroll on Before Class');
 
   // 2. the battle
   await page.click('[data-testid="tryout-start"]');
@@ -117,7 +151,11 @@ for (const [W, H] of viewports) {
       }
       for (const t of sim.towers) if (!t.isHero) ui.act.upgrade(t.uid, 0) || ui.act.upgrade(t.uid, 2);
       ui.startWave();
-      for (let i = 0; i < 6000 && sim.state === 'wave'; i++) sim.update(1 / 60);
+      // (hearts topped up inside the wave too: a boss leak at a hard Subject must not end a UI-flow run)
+      for (let i = 0; i < 6000 && sim.state === 'wave'; i++) {
+        sim.update(1 / 60);
+        if (sim.lives < sim.maxLives / 2) sim.lives = sim.maxLives;
+      }
     }
     return { wave: sim.wave, win: sim.tryout.players[0].win, state: sim.state };
   });
@@ -256,11 +294,13 @@ for (const [W, H] of viewports) {
   await page.click('[data-testid="tryout-abandon"]');
   await page.locator('.modal button', { hasText: 'Give up' }).click().catch(() => {});
   await page.waitForTimeout(400);
-  check(await page.locator('[data-testid="tryout-before-class"]').isVisible().catch(() => false), 'Give up removes the run');
+  check(await page.locator('[data-testid="tryout-tile-start"]').isVisible().catch(() => false) && await page.locator('[data-testid="tryout-continue"]').count() === 0, 'Give up removes the run');
   const paidGiveUp = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).missions.counters['ty:lbw'] || 0, SAVE_KEY);
   check(paidGiveUp > 0, `giving up paid the periods it banked (Lunchbox sevenths ${paidGiveUp})`);
 
   // 8. a new run to an Early Dismissal: the Class Photo shows its rewards
+  await page.click('[data-testid="tryout-tile-start"]');
+  await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
   for (const i of [0, 1, 2]) await page.click(`[data-testid="tryout-draft-${i}"]`);
   await page.click('[data-testid="tryout-start"]');
   check(await battleReady(), 'a second run starts');
@@ -306,14 +346,35 @@ for (const [W, H] of viewports) {
   check(await page.locator('[data-testid="tryout-practice-note"]').isVisible(), 'the practice note says it pays nothing');
   await shot('ty-practice');
 
-  // 10. the Yearbook
+  // 10. the Yearbook (from the hub's tile): the rail with its counts, a page per student, a pencil sketch for a Loaner
+  await page.goto(`${base}#/tryout`);
+  await screenIs('tryout');
   await page.click('[data-testid="tryout-open-yearbook"]');
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-yearbook"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Yearbook opens');
   const stamps = await page.locator('[data-testid="yb-stamps"]').textContent().catch(() => '');
   check(/^[1-9]\d* stamps/.test(stamps), `the Yearbook has stamps (${stamps})`);
-  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll in the Yearbook');
+  const ybTabs = await page.locator('[data-testid="yb-rail"] .ui-stab').evaluateAll((els) => els.map((e) => `${e.dataset.tab}:${e.querySelector('.num')?.textContent || ''}`));
+  check(ybTabs.length === 4 && /^girls:\d+\/\d+$/.test(ybTabs[0]), `the Yearbook rail: four sections with counts (${ybTabs})`);
+  check(await page.locator('[data-testid^="yb-girl-"].ui-girltile').count() >= 20, 'a girl tile per student');
+  // a Loaner who tried out is a pencil sketch: stamp one the player does not own, then look again
+  const blank = await page.locator('[data-page="blank"]').first().getAttribute('data-unit').catch(() => null);
+  await page.evaluate((id) => {
+    const { store } = window.__sakura;
+    store.profile.tryoutMeta.yb.girls[id] = 1;
+    store.commit('test');
+  }, blank);
+  await page.goto(`${base}#/tryout/yearbook?tab=girls`);
+  await page.waitForSelector(`[data-testid="yb-girl-${blank}"][data-page="pencil"]`, { timeout: 10000 }).catch(() => {});
+  const pencil = page.locator(`[data-testid="yb-girl-${blank}"]`);
+  check(blank && await pencil.getAttribute('data-page') === 'pencil' && /Not in your class yet/i.test(await pencil.textContent()) && await pencil.evaluate((e) => e.classList.contains('locked')),
+    `a Loaner's page is a pencil tile: "Not in your class yet" (${blank})`);
+  check(await noHScroll(), 'no horizontal scroll in the Yearbook');
   await shot('ty-yearbook');
+  await pencil.click();
+  check(await page.waitForSelector('[data-testid="yb-page"]', { timeout: 5000 }).then(() => true).catch(() => false) && await page.locator('[data-testid="yb-page"] [data-testid="girl-plate"]').count() === 1, 'her page opens with her nameplate');
+  await shot('ty-yearbook-page');
+  await page.keyboard.press('Escape');
 
   // 11. the Marble Jar: a purchase (Pencil Money) and its switch; the perk rides into Before Class
   await page.evaluate(() => sessionStorage.setItem('__tyMarbles', '200'));
@@ -321,22 +382,48 @@ for (const [W, H] of viewports) {
   await page.reload();
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-jar"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Marble Jar opens');
-  const wallet = async () => Number((await page.locator('[data-testid="jar-wallet"] b').textContent()).trim());
+  const jarTabs = await page.locator('[data-testid="jar-rail"] .ui-stab').evaluateAll((els) => els.map((e) => `${e.dataset.tab}:${e.querySelector('.num')?.textContent || ''}`));
+  check(jarTabs.length === 3 && jarTabs[0] === 'desk:0/4', `the Jar's rail: three shelves with counts (${jarTabs})`);
+  const wallet = async () => Number((await marblesPill().textContent()).replace(/\D/g, ''));
   const before = await wallet();
-  check(before >= 60, `Marbles to spend (${before})`);
+  check(before >= 60, `Marbles to spend, in the top bar (${before})`);
   await page.click('[data-testid="jar-buy-coins"]');
   await page.waitForSelector('[data-testid="jar-toggle-coins"]', { timeout: 5000 }).catch(() => {});
   check(await wallet() === before - 60, 'a purchase spends its Marbles');
   check(await page.locator('[data-testid="jar-toggle-coins"]').getAttribute('aria-pressed') === 'true', 'a bought Desk Supply is on, with its switch');
-  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll in the Marble Jar');
+  check(await page.locator('[data-testid="jar-rail"] [data-tab="desk"] .num').textContent() === '1/4', 'the shelf count follows the purchase');
+  check(await noHScroll(), 'no horizontal scroll in the Marble Jar');
   await shot('ty-jar');
-  await page.click('[data-testid="tryout-sub-back"]');
+  await page.goto(`${base}#/tryout`);
   await screenIs('tryout');
+  await page.click('[data-testid="tryout-tile-start"]');
   await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
   if (await page.locator('[data-testid="tryout-normal"]').isVisible().catch(() => false)) await page.click('[data-testid="tryout-normal"]');
   check(/Pencil Money/.test(await page.locator('[data-testid="tryout-perks"]').textContent().catch(() => '')), 'Before Class lists the Desk Supply');
-  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll on the hub');
+  // Marbles only on the Tryout routes
+  await page.goto(`${base}#/students`);
+  await screenIs('students');
+  check(await page.locator('.topbar [data-wallet="marbles"]').count() === 0, 'no Marbles in the top bar off the Tryout routes');
+  // a Grade 4 clear (and Summer Term's 4-5) opens the Weekly Timetable: its countdown in the corner, never red
+  await page.evaluate(() => {
+    const { store } = window.__sakura;
+    for (const id of ['3-1', '3-2', '3-3', '3-4', '3-5', '4-1', '4-2', '4-3', '4-4', '4-5']) store.profile.progress.stages[id] = { ...(store.profile.progress.stages[id] || {}), clears: 1, normal: true };
+    store.profile.tryoutGrade = 4;
+    store.commit('test');
+    store.saveNow?.();
+  });
+  await page.goto(`${base}#/tryout`);
+  await screenIs('tryout');
+  await page.waitForSelector('[data-testid="tryout-weekly-cd"]', { timeout: 10000 }).catch(() => {});
+  const cd = page.locator('[data-testid="tryout-weekly-cd"]');
+  check(await tileState('tryout-weekly-go') === 'open' && await cd.isVisible() && await cd.getAttribute('data-urgent') === 'off' && /\d/.test(await cd.textContent()),
+    `the open Weekly tile shows its reset countdown, never urgent (${await cd.textContent().catch(() => '')})`);
+  check(await noHScroll(), 'no horizontal scroll on the hub');
   await shot('ty-hub');
+  await page.click('[data-testid="tryout-weekly-go"]');
+  check(await page.waitForSelector('[data-testid="tryout-before-class"][data-mode="weekly"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Weekly tile opens the week\'s Before Class');
+  check(await page.locator('[data-testid^="tryout-grade-"]:not([data-testid="tryout-grade-line"])').count() === 0, 'the Weekly plays a fixed Grade (no Grade row)');
+  await shot('ty-before-class-weekly');
   await context.close();
 }
 

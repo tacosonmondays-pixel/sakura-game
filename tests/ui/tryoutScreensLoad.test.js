@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 
 const FILES = [
-  'src/ui/screens/tryout.js', 'src/ui/screens/tryoutJar.js', 'src/ui/screens/tryoutYearbook.js', 'src/ui/screens/coop.js',
+  'src/ui/screens/tryout.js', 'src/ui/screens/tryoutSetup.js', 'src/ui/screens/tryoutJar.js', 'src/ui/screens/tryoutYearbook.js', 'src/ui/screens/coop.js',
   'src/ui/battle/tryout.js', 'src/ui/battle/controller.js', 'src/ui/battle/setup.js', 'src/online/coop/rewards.js',
   'src/systems/tryoutRuns.js', 'src/systems/tryoutRewards.js', 'src/systems/tryoutJar.js', 'src/systems/tryoutYearbook.js',
 ];
