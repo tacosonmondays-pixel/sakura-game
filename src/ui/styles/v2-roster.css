@@ -124,7 +124,12 @@ body.ui-day .gp-tabs > .ui-tab > .ui-tab-word { font: 600 var(--fs-body)/1 var(-
 body.ui-day .gp-tabs > .ui-tab > .ui-dot.ur-dot { margin: 0 0 0 -3px; background: conic-gradient(var(--ur-rainbow)); }
 body.ui-day .gp-host.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: block; padding: 12px 8px calc(14px + var(--safe-bottom)); }
 @media (min-height: 481px) { body.ui-day .gp-host.ui-tabbed-body { padding: 16px 14px calc(18px + var(--safe-bottom)); } }
-@media (max-width: 599px) { body.ui-day .gp-band { --np-h: 104px; } }
+@media (max-width: 599px) {
+  body.ui-day .gp-band { --np-h: 104px; }
+  /* an upright phone: only the open tab keeps its word (the others their glyph; the word is the tab's aria-label) */
+  body.ui-day :is(.gp-tabs, .gs-tabs) > .ui-tab:not(.on) > .ui-tab-word { display: none; }
+  body.ui-day :is(.gp-tabs, .gs-tabs) > .ui-tab.on { flex: 2 1 0; }
+}
 
 /* ---------- the tabs' sections in the folder body: flat, the folder panel is the one panel (5.4: one level deep). A
    kicker heads a section; a hairline parts two. ---------- */
@@ -142,6 +147,10 @@ body.ui-day .gp-info > .gp-role-card { padding-top: 0; border-top: 0; }
 body.ui-day .gp-info > .gp-pot-card { position: relative; }
 body.ui-day .gp-info > .gp-pot-card::before { content: ''; position: absolute; left: -8px; top: 12px; bottom: 12px; width: 1px; background: var(--line-ink-soft); }
 body.ui-day .gp-info.detailed > .gp-pot-card::before { display: none; }
+@media (max-width: 599px) {
+  body.ui-day .gp-info { grid-template-columns: minmax(0, 1fr); }
+  body.ui-day .gp-info > .gp-pot-card::before { display: none; }
+}
 body.ui-day .gp-role .gp-role-name { color: var(--ink); }
 body.ui-day .gp-one { margin: 8px 0 10px; color: var(--ink); }
 /* the ⚡ ability line (feature/abilities adds it between the sentence and the strip): a kit row, 44 px */
@@ -195,6 +204,10 @@ body.ui-day .mb-book { border: 0; border-radius: 0; background: var(--panel-w); 
   padding: 2px 2px 2px 4px; }
 /* the book's tile (a tap adds one) a full tap tall: 50 px wide on the tile's 1.09 aspect (itemTile sets 44 inline) */
 body.ui-day .mb-book > .item-tile { width: 50px !important; }
+@media (min-height: 481px) {
+  body.ui-day .mb-book { grid-template-columns: 64px minmax(0, 1fr) auto; }
+  body.ui-day .mb-book > .item-tile { width: 64px !important; } /* (its count at 13 px, the desktop floor) */
+}
 body.ui-day .mb-book.on { background: var(--cyan-wash); box-shadow: inset 0 0 0 1px var(--cyan-ink); }
 body.ui-day .mb-stepper { gap: 2px; }
 body.ui-day .mb-step { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-name)/1 var(--font-num);
@@ -249,6 +262,7 @@ body.ui-day .gk-equip { color: var(--cyan-text); }
 body.ui-day .gk-from { padding-top: 12px; border-top: 1px solid var(--line-ink-soft); }
 body.ui-day .gk-set { border-radius: 0; height: var(--tap); clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
 @media (min-height: 481px) { body.ui-day .gk-slot-tile { --gt: 120px; } }
+@media (max-width: 599px) { body.ui-day .gk-slot-tile { --gt: 92px; } }
 /* every gear tile on the girl page and her sheets: square corners (S5), the frame ladder of components.css */
 body.ui-day :is(.gp-host, .gk-sheet, .gs-slots, .gp-details) .ui-gtile { border-radius: 0; }
 body.ui-day :is(.gp-host, .gk-sheet, .gs-slots, .gp-details) .ui-gtile.is-ur > .ur-ring { border-radius: 0; }
@@ -274,6 +288,10 @@ body.ui-day .gp-hl { border-radius: 0; background: none; box-shadow: inset 0 -1p
 body.ui-day .gp-hl.cur { background: var(--cyan-wash); box-shadow: inset 3px 0 0 var(--cyan-ink), inset 0 -1px 0 var(--line-ink-soft); }
 body.ui-day .gp-ult-badge { border-radius: 0; transform: none; clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%); color: var(--on-ink); }
 body.ui-day .gp-band-card .ui-ghost { min-height: var(--tap); }
+@media (max-width: 599px) {
+  body.ui-day .gp-tree { grid-template-columns: minmax(0, 1fr); }
+  body.ui-day :is(.gp-tree > .gp-tier, .gp-hero > .gp-ult-card) { padding: 12px 0 0; margin: 12px 0 0; border-left: 0; border-top: 1px solid var(--line-ink-soft); }
+}
 
 /* ---------- SHEETS: the slot sheet (the piece she wears beside its picker) and the Backpack's piece sheet are the
    kit's day sheet (the white panel, its bleed ink head), as tall as the screen allows; the Details sheets (a piece,
@@ -314,6 +332,9 @@ body.ui-day .gp-details .gk-clubline { border-radius: 0; }
 body.ui-day .gp-details .mb-aw-node { border-radius: 0; }
 body.ui-day .gp-details .mb-card { border-radius: 0; }
 body.ui-day .gp-details .gk-acts-main .btn { min-height: calc(var(--tap) + 2px); }
+body.ui-day .ui-sheet.full.gk-sheet { border-radius: 0; }
+/* a long name on two lines in a sheet's ink head keeps its letters inside the sheet */
+body.ui-day .ui-sheet:is(.gk-sheet, .gp-details, .gp-outfits, .st-sheet) > .ui-head { padding-top: 4px; padding-bottom: 4px; }
 
 /* ---------- HOLD SHEET (src/ui/unitSheet.js): the kit's day sheet (the white panel, the chamfer pair, one ring) with
    her art band and the night nameplate, then the content panel: folder tabs (Build · Info · Tree) on an ink strip that
@@ -355,7 +376,7 @@ body.ui-day .gs-ult .gp-ult-badge { padding: 4px 8px; }
 body.ui-day .gs-tree .ugp { border-radius: 0; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
 body.ui-day .gs-tree .ug-hit { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
 body.ui-day .gs-tree .ug-why::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
-@media (max-width: 599px) { body.ui-day .gs-top { padding-right: 0; } body.ui-day .gs-top .ui-ghost { padding: 0 4px; } }
+@media (max-width: 599px) { body.ui-day .gs-top { flex-wrap: nowrap; padding-right: 0; } body.ui-day .gs-top .ui-ghost { padding: 0 4px; } }
 body.ui-day .st-arrow { font: 700 var(--fs-name)/1 var(--font-num); }
 
 /* ---------- OUTFITS (the outfit sheet, a kit day sheet): her outfits as girl tiles (the one she wears selected, a

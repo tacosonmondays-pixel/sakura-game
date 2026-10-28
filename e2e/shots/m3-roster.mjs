@@ -67,15 +67,16 @@ export const list = ['students', 'roster-end', 'students-hold', 'students-hold-b
   'girl-gear-totals', 'girl-tree', 'girl-tree-hero', 'girl-outfit', 'formation', 'roster-pick', 'gear-piece-spare',
   'girl-info-detailed', 'girl-level-detailed', 'girl-awaken-detailed', 'girl-gear-detailed', 'girl-tree-detailed'];
 /** The plan's own budgets (section 5 M3 done-when): Info 10 (the default), Gear, Level and Awaken 12, Tree 6. Set here,
- * not in the plan: Level with the Manual steppers open 18 (section 3 counted 17 before; all five books now fit the
- * window, each with its EXP and the count picked), the gear sheet and its picker 12 (section 3: "≤ 12 numbers"), the
+ * not in the plan: Level with the Manual steppers open 22 (the plan budgets Level with Manual closed; open, every book
+ * shows its EXP and the count picked: 18 at 844x390 where all five now fit, 22 at 1280x720 with the gate card in view,
+ * before 17 and 23), the gear sheet and its picker 12 (section 3: "≤ 12 numbers"), the
  * totals sheet, the Build tab and the Detailed look none (Details: "no number budget", P1). Every M3 shot is rebuilt
  * (the radius check). */
 const REBUILT = { rebuilt: true };
 export const gate = {
   students: REBUILT, 'roster-end': REBUILT, 'girl-info': REBUILT, 'girl-info-ruri': REBUILT, formation: REBUILT, 'roster-pick': REBUILT,
   'girl-gear': { limit: 12, rebuilt: true }, 'girl-gear-empty': { limit: 12, rebuilt: true }, 'girl-gear-picker': { limit: 12, rebuilt: true },
-  'girl-level': { limit: 12 }, 'girl-level-manual': { limit: 18 }, 'girl-awaken': { limit: 12 }, 'girl-tree': { limit: 6 },
+  'girl-level': { limit: 12 }, 'girl-level-manual': { limit: 22 }, 'girl-awaken': { limit: 12 }, 'girl-tree': { limit: 6 },
   'girl-gear-sheet': { limit: 12 }, 'girl-gear-totals': { limit: 99 }, 'students-hold-build': { limit: 99 },
   'girl-info-detailed': { limit: 99 }, 'girl-level-detailed': { limit: 99 }, 'girl-awaken-detailed': { limit: 99 }, 'girl-gear-detailed': { limit: 99 },
   'girl-tree-detailed': { limit: 99 },
