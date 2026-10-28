@@ -3,12 +3,24 @@
 //   · the secretary as the hero: a full-screen drawn illustration (memorial-lobby style; was a 3D chibi (~83% of the screen height) with
 //     idle + breathing, pointer follow, tap reactions and a speech bubble; ‹ › swap her
 //   · UI hugging the edges: level badge (top-left), dark slanted currency pills, a dark pill with
-//     Settings / Mail / Menu (top-right), ⤢ hide-UI, a 2×2 column of illustrated shortcuts
-//     (Notice, Tasks, Login gift, Buy gems), an event/banner carousel, the bottom-left EVENT
-//     card, Total Assault + the big Campaign folder (bottom-right) and a thin translucent dock
+//     Settings / Mail / Menu (top-right), ⤢ hide-UI, the tray of illustrated shortcuts (Notice, Tasks,
+//     Login gift), an event/banner carousel, the bottom-left EVENT card, the Multiplayer button with
+//     Total Assault above it + the big Campaign folder (bottom-right) and a thin translucent dock
 //     of illustrated icons (Students … Recruit) with the clock at its right end
+// UI M5d (notes/ui-m5/PLAN.md §5 M5d; owner #79, #108, Q11, Q12): the top-left shortcuts fold into one tray (Buy gems
+// went: the gem pill's "+" does the same); the Multiplayer button (Momo + Sango, a red number for open invites) stands
+// left of Campaign with Total Assault just above it; Campaign wears "In Progress" and "Open!" (a mode newly open inside
+// Missions); at most two stickers open Happening Now; every label is 12 px or more and the EVENT card's title wraps.
+// The lobby's rules moved from meta-a.css to hubs.css.
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, svgEl, modal, toast, levelBadge, menuTabModal, glyph, applyMotionPreference } from '../components.js';
+import { countdownChip } from '../kit.js';
+import { dot, countBadge, progressBadge, inProgress, openSticker, openModes } from '../badges.js';
+import { modesOpenNow } from '../modesOpen.js';
+import { trayItems, lobbyStickers, MULTIPLAYER_GIRLS, multiplayerLabel } from '../lobbyTray.js';
+import { openInvites, lastInvites } from '../online/openInvites.js';
+import { msToLocalWeekEnd } from '../countdown.js';
 import { chatButton } from '../online/lobbyChat.js';
 import { storedName } from '../online/common.js';
 import { hub } from '../online/socialHub.js';
@@ -21,11 +33,11 @@ import { GACHA } from '../../data/types.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { openBackgroundPicker } from '../lobby/bgPicker.js';
 import { openMailbox, maybeShowBetaGift } from '../lobby/mailbox.js';
-import { eventLobbyCard, eventLobbyDecor, lobbyEventVisit } from '../events/lobby.js'; // [events]
+import { eventLobbyCard, eventLobbyBackdrop, lobbyEventVisit } from '../events/lobby.js'; // [events]
 import '../styles/events.css';
 import { lobbyIcon, campaignFolderSVG } from '../../art/lobbyIcons.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { lobbyArtUrl, lobbyBackgroundFor } from '../../data/lobbyArt.js';
+import { lobbyArtUrl, lobbyBackgroundFor, showsBubble, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon, currencyIcon } from '../../art/icons.js';
@@ -37,7 +49,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, recruitFeatured } from '../lobby/notice.js';
+import { showNoticeModal, noticeUnread, ARENA_ART, ARENA_GUEST, recruitFeatured } from '../lobby/notice.js';
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek, TIER_STAGE } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
@@ -118,12 +130,12 @@ export function render(root) {
   const nameplate = h('div.lb-nameplate', { 'aria-live': 'polite' });
   const restore = h('button.lb-restore', { 'aria-label': 'Show the menus', 'data-testid': 'lobby-restore' });
   el.append(room, stageHost, motes, nameplate, hud, restore);
+  let eventBackdrop = null;
   try {
     lobbyEventVisit(); // [events] today's event gift / settle, before the card reads the state
-    const decor = eventLobbyDecor(); // [events] lanterns + pumpkins while Halloween runs (render-only, no taps)
-    if (decor) el.insertBefore(decor, nameplate);
+    eventBackdrop = eventLobbyBackdrop(); // [events] its painted backdrop behind every stand
   } catch (e) {
-    console.warn('[lobby] event decor failed', e);
+    console.warn('[lobby] event backdrop failed', e);
   }
   root.appendChild(el);
 
@@ -133,6 +145,20 @@ export function render(root) {
   const lines = () => secretaryLines(store.profile);
   const stage = createArtStage(stageHost, {
     reduceMotion,
+    lowGfx: profile0.settings?.quality === 'low',
+    backdrop: eventBackdrop,
+    // (her speech bubble keeps clear of the tray and the sticker row under it, while the menus show: UI M5d review)
+    avoid: () => (el.classList.contains('ui-hidden') ? [] : [...el.querySelectorAll('.lb-hud > .lb-tray, .lb-hud > .lb-stickers')]),
+    // a full illustration keeps her face clear of these menus (layout boxes, so the entrance slides do not move them;
+    // hidden ones are skipped). Bars (the top bar, the dock) only limit her face up or down. (A full illustration has
+    // no speech bubble: stage.say() does nothing over one.) UI M5d's tray took the shortcuts' place, and its sticker
+    // row under it is a menu too.
+    obstacles: () => {
+      const box = (n, bar = false) => ({ l: n.offsetLeft, t: n.offsetTop, r: n.offsetLeft + n.offsetWidth, b: n.offsetTop + n.offsetHeight, bar });
+      return [top, shortcuts, stickers, chevL, chevR, carouselHost, eventHost, rightHost, dock, hideBtn, bgBtn]
+        .filter((n) => n.offsetParent === hud && n.offsetWidth && n.offsetHeight)
+        .map((n) => box(n, n === top || n === dock));
+    },
     onTap: (part, at) => {
       stage.react(part, at);
       if (part === 'head') stage.say(HEAD_PAT_LINES[patIndex++ % HEAD_PAT_LINES.length]);
@@ -151,13 +177,15 @@ export function render(root) {
     const bg = lobbyBackgroundFor(p, id);
     if (id === currentSec && bg.id === currentBg && !direction) return;
     const sameGirl = id === currentSec;
+    // back from a full illustration (which has no speech bubble) to her stand: she greets you again
+    const backToStand = sameGirl && !showsBubble(LOBBY_BG_MAP[currentBg]) && showsBubble(bg);
     currentSec = id;
     currentBg = bg.id;
     const u = getUnit(id);
     stage.hideBubble();
     await stage.show(u, { direction, background: bg });
     if (currentSec !== id) return;
-    if (sameGirl && !direction) return; // a new background for the same girl: no greeting again
+    if (sameGirl && !direction && !backToStand) return; // another backdrop for the same girl: no greeting again
     lineIndex = 0;
     setTimeout(() => stage.say(lines()[0]), direction ? 120 : 650);
     if (direction) flashName(u);
@@ -183,29 +211,50 @@ export function render(root) {
   const top = h('header.lb-top');
   const hideBtn = h('button.lb-hide', { title: 'Hide the menus', 'aria-label': 'Hide the menus', 'data-testid': 'lobby-hide', onclick: () => setHidden(true) }, svgEl(glyph('expand'), 'lb-glyph'));
   const bgBtn = h('button.lb-hide.lb-bgbtn', { title: 'Lobby background', 'aria-label': 'Lobby background', 'data-testid': 'lobby-bg', onclick: () => openBackgroundPicker() }, svgEl(BG_GLYPH, 'lb-glyph'));
-  const shortcuts = h('nav.lb-shortcuts', { 'aria-label': 'Shortcuts' });
+  const shortcuts = h('nav.lb-tray', { 'aria-label': 'Shortcuts', 'data-testid': 'lobby-tray' });
+  const stickers = h('div.lb-stickers', { 'data-testid': 'lobby-stickers' });
   const chevL = h('button.lb-chev.lb-chev-l', { 'aria-label': 'Previous secretary', title: 'Previous secretary', 'data-testid': 'secretary-prev', onclick: () => swap(-1) }, svgEl(glyph('chevron'), 'lb-glyph'));
   const chevR = h('button.lb-chev.lb-chev-r', { 'aria-label': 'Next secretary', title: 'Next secretary', 'data-testid': 'secretary-next', onclick: () => swap(1) }, svgEl(glyph('chevron'), 'lb-glyph'));
   const carouselHost = h('section.lb-carousel', { 'aria-label': 'Events' });
   const eventHost = h('div.lb-eventcard-host');
   const rightHost = h('div.lb-br');
   const dock = h('nav.lb-dock', { 'aria-label': 'Main menu' });
-  hud.append(top, hideBtn, bgBtn, shortcuts, chevL, chevR, carouselHost, eventHost, rightHost, dock);
+  hud.append(top, hideBtn, bgBtn, shortcuts, stickers, chevL, chevR, carouselHost, eventHost, rightHost, dock);
 
   const carousel = buildCarousel(carouselHost, { reduceMotion });
   const draw = () => {
     clear(top);
     clear(shortcuts);
+    clear(stickers);
     clear(eventHost);
     clear(rightHost);
     clear(dock);
     buildTop(top, { openSecretaryPicker: () => openBackgroundPicker() });
     buildShortcuts(shortcuts);
     buildEventCard(eventHost);
-    buildRight(rightHost);
+    // (a limited event holds the EVENT card: then the week's double drops get a sticker, never twice on screen)
+    buildStickers(stickers, { limitedOnCard: !!eventHost.querySelector('[data-testid="event-card"]') });
+    buildRight(rightHost, { invites: lastInvites().count });
     buildDock(dock);
   };
   draw();
+
+  // ---- the Multiplayer button's red number: open invites from friends and clanmates (read only once the social hub
+  // is ready: the lobby never signs in or creates an online account) ----
+  let alive = true;
+  const paintInvites = () => {
+    const btn = rightHost.querySelector('[data-testid="lobby-multiplayer"]');
+    if (btn) setMultiplayerCount(btn, lastInvites().count);
+  };
+  // (one read is shared for a few seconds across lobby visits; a new invite or a status change makes the next one fresh:
+  // openInvites.js)
+  const refreshInvites = () => openInvites().then(() => { if (alive) paintInvites(); }).catch(() => {});
+  refreshInvites();
+  const offHub = [
+    hub.on('invites', refreshInvites),
+    hub.on('status', refreshInvites),
+    hub.on('badges', refreshInvites),
+  ];
   // entrance animations play once; later redraws (store changes) must not replay them
   const staticTimer = setTimeout(() => el.classList.add('lb-static'), 1400);
 
@@ -220,7 +269,7 @@ export function render(root) {
   };
   tick();
   const clockTimer = setInterval(tick, 20000);
-  const clockWrap = h('div.lb-clock-wrap', h('span.lb-clock-deco', '✿ ✦ ✿'), clock);
+  const clockWrap = h('div.lb-clock-wrap', h('span.lb-clock-deco.deco', { 'aria-hidden': 'true' }, '✿ ✦ ✿'), clock);
   hud.appendChild(clockWrap);
 
   // ---- hide UI ----------------------------------------------------------------------------------
@@ -295,6 +344,8 @@ export function render(root) {
   // leaving: the timers and listeners stop at once (no gift pop-up, redraw or carousel turn while
   // the lobby fades out); her art stays up until the lobby is off screen (router: cleanup.stop)
   const stop = () => {
+    alive = false;
+    offHub.forEach((fn) => fn());
     clearTimeout(betaTimer);
     off();
     clearTimeout(staticTimer);
@@ -349,7 +400,7 @@ function pill({ iconSvg, value, testid, title, onPlus = null, onClick = null }) 
   return h('div.lb-pill', { title, onclick: onClick || undefined, role: onClick ? 'button' : undefined },
     h('span.lb-pill-ico', { html: iconSvg }),
     h('span.lb-pill-val', { 'data-testid': testid }, value),
-    onPlus ? h('button.lb-pill-plus', { onclick: (e) => { e.stopPropagation(); onPlus(); }, 'aria-label': `Get more ${title}` }, svgEl(glyph('plus'), 'lb-glyph')) : null,
+    onPlus ? h('button.lb-pill-plus', { onclick: (e) => { e.stopPropagation(); onPlus(); }, 'aria-label': `Get more ${title}`, 'data-testid': `${testid}-plus` }, svgEl(glyph('plus'), 'lb-glyph')) : null,
   );
 }
 
@@ -372,7 +423,7 @@ function buildTop(host, { openSecretaryPicker }) {
       h('button.lb-tr-btn', { title: 'Settings', 'aria-label': 'Settings', 'data-testid': 'settings', onclick: () => navigate('settings') }, svgEl(glyph('settings'), 'lb-glyph')),
       sep(),
       h('button.lb-tr-btn', { title: 'Mail', 'aria-label': 'Mail', 'data-testid': 'top-mail', onclick: () => openMailbox() },
-        svgEl(glyph('mail'), 'lb-glyph'), mailCount ? h('span.lb-badge', String(mailCount)) : null),
+        svgEl(glyph('mail'), 'lb-glyph'), countBadge(mailCount, { cls: 'lb-badge', title: `${mailCount} letters with gifts` })),
       sep(),
       h('button.lb-tr-btn', { title: 'Menu', 'aria-label': 'Menu', 'data-testid': 'top-menu', onclick: () => menuTabModal({ extra: [
         { icon: 'secretary', label: 'Lobby Background', testid: 'menu-background', go: openSecretaryPicker },
@@ -384,18 +435,20 @@ function buildTop(host, { openSecretaryPicker }) {
         { icon: 'students', label: 'Clan', testid: 'menu-clan', badge: hub.badges.donationsReady > 0, go: () => navigate('clan') },
         { icon: 'wiki', label: 'Wiki', testid: 'menu-wiki', go: () => navigate('wiki') },
         { icon: 'items', label: 'Workbench', testid: 'menu-workbench', dot: workbenchReady(profile), go: () => navigate('workbench') }, // [workbench] club lab
-        { icon: 'formation', label: 'Co-op', testid: 'menu-coop', go: () => navigate('coop') },
+        // [ui-m5] the Multiplayer hub (co-op, friends, the clan boss; PvP coming soon): the old Co-op item's test id stays
+        { icon: 'formation', label: 'Multiplayer', testid: 'menu-coop', go: () => navigate('multiplayer') },
         { icon: 'chat', label: 'Chat', testid: 'menu-chat', go: () => navigate('chat') },
         // [social] private messages (shown once the server has the social update)
         ...(hub.ready ? [{ icon: 'messages', label: 'Messages', testid: 'menu-messages', badge: hub.count || null, go: () => navigate('messages') }] : []),
       ] }) },
-        svgEl(glyph('menu'), 'lb-glyph'), journalDot(profile) ? h('span.notif-dot', { 'data-testid': 'journal-dot' }) : null),
+        svgEl(glyph('menu'), 'lb-glyph'), journalDot(profile) ? dot('claim', { cls: 'notif-dot', testid: 'journal-dot' }) : null),
     ),
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Left shortcuts: Notice · Tasks · Login gift · Buy gems (2×2, illustrated)
+// The tray (UI M5d): Notice · Tasks · Login gift in one glass strip under the level plate. Buy gems went: the gem
+// pill's "+" opens the Gem Shop too (Q11). One badge each (badges.js): a red dot to claim or read, else n/m.
 // ---------------------------------------------------------------------------------------------
 
 function buildShortcuts(host) {
@@ -403,31 +456,43 @@ function buildShortcuts(host) {
   const notice = commissionsNotice(profile);
   const login = loginCalendar(profile);
   const event = currentEvent();
-  const sc = (name, label, { badge = null, badgeKind = 'red', dot = false, onClick, testid, cls = '' }) => h(
-    `button.lb-sc${cls ? `.${cls}` : ''}`,
-    { onclick: onClick, 'data-testid': testid, title: label },
-    icon(name, 'lb-sc-ico'),
-    h('span.lb-sc-label', label),
-    badge != null ? h(`span.lb-sc-badge.${badgeKind}`, String(badge)) : null,
-    dot ? h('span.lb-dot') : null,
-  );
-  host.append(
-    sc('notice', 'Notice', { onClick: () => { showNoticeModal(); host.querySelector('[data-testid="shortcut-notice"] .lb-dot')?.remove(); }, testid: 'shortcut-notice', dot: noticeUnread() }),
-    sc('tasks', 'Tasks', { badge: `${notice.dailyDone}/${notice.dailyTotal}`, badgeKind: 'blue', dot: notice.missions || notice.ach, onClick: () => navigate('commissions', notice.ach && !notice.missions ? { tab: 'achievements' } : {}), testid: 'shortcut-tasks' }),
-    sc('gift', 'Login gift', {
-      badge: login.claimable ? '1' : null,
-      cls: login.claimable ? 'ready' : '',
-      testid: 'login-claim',
-      onClick: () => {
-        if (!login.claimable) return navigate('commissions', { tab: 'login' });
-        const r = claimLogin(profile);
-        if (!r.ok) return navigate('commissions', { tab: 'login' });
-        store.commit('login');
-        showRewardsModal({ title: `Login Day ${r.day}`, rewards: r.rewards, note: `${event.name} week — see you tomorrow, Sensei!` });
-      },
-    }),
-    sc('gems', 'Buy gems', { onClick: () => navigate('mall', { tab: 'gems' }), testid: 'shortcut-gems' }),
-  );
+  const go = {
+    notice: () => {
+      showNoticeModal();
+      host.querySelector('[data-testid="shortcut-notice"] .lb-dot')?.remove();
+    },
+    tasks: () => navigate('commissions', notice.ach && !notice.missions ? { tab: 'achievements' } : {}),
+    gift: () => {
+      if (!login.claimable) return navigate('commissions', { tab: 'login' });
+      const r = claimLogin(profile);
+      if (!r.ok) return navigate('commissions', { tab: 'login' });
+      store.commit('login');
+      showRewardsModal({ title: `Login Day ${r.day}`, rewards: r.rewards, note: `${event.name} week — see you tomorrow, Sensei!` });
+      return null;
+    },
+  };
+  const items = trayItems({
+    noticeUnread: noticeUnread(), tasksDone: notice.dailyDone, tasksTotal: notice.dailyTotal, tasksClaim: notice.missions || notice.ach, loginReady: login.claimable,
+  });
+  for (const it of items) {
+    // (the red dot keeps .lb-dot: the patch-notes check finds the Notice dot by it)
+    const b = it.badge?.kind === 'dot' ? dot('claim', { cls: 'lb-dot' })
+      : it.badge?.kind === 'prog' ? progressBadge(notice.dailyDone, notice.dailyTotal, { cls: 'lb-tray-badge' }) : null;
+    host.appendChild(h(`button.lb-tray-btn${it.ready ? '.ready' : ''}`, { type: 'button', onclick: go[it.id], 'data-testid': it.testid, title: it.label },
+      icon(it.icon, 'lb-tray-ico'),
+      h('span.lb-tray-label', it.label),
+      b));
+  }
+}
+
+/** At most two stickers for running things the lobby does not show elsewhere; each opens Happening Now (Q12). */
+function buildStickers(host, { limitedOnCard = false } = {}) {
+  const profile = store.profile;
+  const list = lobbyStickers({
+    limitedOnCard, bountyOpen: isStageUnlocked(profile, 'res-books-1'), dropMul: currentEvent().dropMul, titansOpen: titansUnlocked(profile),
+  });
+  list.forEach((s, i) => host.appendChild(h(`button.lb-sticker.s${i}`, { type: 'button', 'data-testid': `lobby-sticker-${s.id}`, title: 'Happening Now', onclick: () => navigate(s.go.name, s.go.params) },
+    h('span.lb-sticker-in', s.text))));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -448,7 +513,6 @@ function buildCarousel(host, { reduceMotion }) {
   const build = () => {
     const profile = store.profile;
     const event = currentEvent();
-    const days = eventDaysLeft();
     let f2p = 0;
     try {
       f2p = Math.round(f2pIncomeSummary().totals.pulls);
@@ -461,7 +525,7 @@ function buildCarousel(host, { reduceMotion }) {
     // (the weekly event has its own card bottom-left, so it is not repeated here)
     slides = [
       { id: 'recruit', pill: 'Today\'s banners', kicker: 'RECRUIT', title: 'Spotlights', sub: `SSR in ≤ ${pity}`, fan: recruitFeatured(profile), paint: 'thumbs/academy.webp', go: () => navigate('recruit') },
-      { id: 'f2p', pill: 'Free-to-play guide', kicker: 'F2P', title: 'Free pulls', sub: `≈${f2p} every 28 days`, iconName: 'chest', paint: 'thumbs/sango.webp', go: () => navigate('rewards') },
+      { id: 'f2p', pill: 'Free-to-play guide', kicker: 'F2P', title: 'Free pulls', sub: `≈${f2p} every 28 days`, iconName: 'chest', paint: 'thumbs/sango.webp', go: () => navigate('rewards', { tab: 'free' }) }, // [ui-m5] Happening Now › Free pulls
       { id: 'assault', pill: assaultLock ? 'Locked' : 'Weekly boss', kicker: 'TOTAL ASSAULT', title: 'Boss Raid', sub: assaultLock ? 'Clear more stages' : 'Crowns & tokens', iconName: 'assault', paint: 'thumbs/hikari.webp', lock: assaultLock, go: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')) },
       // [ascension] Titan Trials: 4 titans this week, the Titan of the Week named
       { id: 'titans', pill: titansLock ? 'Locked' : 'Weekly bosses', kicker: 'TITAN TRIALS', title: '4 titans this week', sub: titansLock ? `Clear ${TIER_STAGE.normal}` : `★ ${TITAN_MAP[titanOfWeek()].name}`, iconName: 'assault', paint: 'thumbs/academy.webp', lock: titansLock, go: () => (titansLock ? toast(titansLock, 'info') : navigate('titans')) },
@@ -547,14 +611,19 @@ function continueChip(profile) {
 function buildEventCard(host) {
   const chip = continueChip(store.profile);
   if (chip) host.appendChild(chip);
+  // [ui-m5] a card's chip that reaches zero on screen redraws the card (the next phase, the next week's arena)
+  const redraw = () => {
+    if (!host.isConnected) return;
+    clear(host);
+    buildEventCard(host);
+  };
   // [events] a running limited event takes the card; the weekly double-drop keeps it otherwise
-  const limited = eventLobbyCard();
+  const limited = eventLobbyCard({ onPhaseEnd: redraw });
   if (limited) {
     host.appendChild(limited);
     return;
   }
   const event = currentEvent();
-  const days = eventDaysLeft();
   const guest = UNIT_MAP[ARENA_GUEST[event.arena]] || UNIT_MAP.hikari;
   host.appendChild(h('button.lb-eventcard', { onclick: () => navigate('bounty', { arena: event.arena }), 'data-testid': 'event-strip', title: event.desc },
     h('div.lb-ev-clip',
@@ -563,30 +632,51 @@ function buildEventCard(host) {
       h('div.lb-ev-shade'),
     ),
     h('span.lb-ev-kicker', 'EVENT!'),
-    h('div.lb-ev-text', h('b', event.name), h('small', `${event.dropMul}× drops · ${days}d left`)),
+    // [ui-m5] the time left is the countdown chip (§5.9): the double drops end with the week, and a new arena takes
+    // over (a recurring cycle: never red)
+    h('div.lb-ev-text', h('b', event.name), h('div.lb-ev-sub', h('small', `${event.dropMul}× drops`), countdownChip(msToLocalWeekEnd(), { cls: 's', urgent: false, doneText: 'New week!', onDone: redraw, testid: 'event-strip-time' }))),
   ));
 }
 
 // ---------------------------------------------------------------------------------------------
-// Bottom-right: Total Assault shortcut + the big Campaign folder
+// Bottom-right: the Multiplayer button with Total Assault just above it, and the big Campaign folder
 // ---------------------------------------------------------------------------------------------
 
-function buildRight(host) {
+function buildRight(host, { invites = 0 } = {}) {
   const profile = store.profile;
-  const { nextDef, chapter, prog, complete } = campaignStatus(profile);
+  const { nextDef, chapter, complete } = campaignStatus(profile);
   const assaultLock = isStageUnlocked(profile, 'boss-lych') ? null : requirementText(profile, 'boss-lych');
   const assault = h(`button.lb-sc.lb-assault${assaultLock ? '.locked' : ''}`, { onclick: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')), 'data-testid': 'shortcut-assault', title: 'Total Assault' },
     icon('assault', 'lb-sc-ico'),
     assaultLock ? h('span.lb-lock', svgEl(glyph('lock'), 'lb-glyph')) : null,
     h('span.lb-sc-label', 'Assault'),
   );
+  // [ui-m5] the Multiplayer button (owner #79, #108): Momo + Sango, the label, a red number for open invites
+  const multiplayer = h('button.lb-mp', { type: 'button', onclick: () => navigate('multiplayer'), 'data-testid': 'lobby-multiplayer', title: 'Multiplayer', 'aria-label': multiplayerLabel(invites) },
+    h('span.lb-mp-girls', { 'aria-hidden': 'true' }, MULTIPLAYER_GIRLS.map((id, i) => (UNIT_MAP[id] ? h(`span.lb-mp-girl.g${i}`, { html: portraitHTML(UNIT_MAP[id], 'cutS') }) : null))),
+    h('span.lb-mp-plate', h('b.lb-mp-label', 'Multiplayer')),
+    countBadge(invites, { cls: 'lb-mp-count', testid: 'lobby-multiplayer-count', title: multiplayerLabel(invites) }));
+  // "Open!": a mode inside Missions opened since the last look (badges.js; the Missions tile wears it too)
+  const fresh = openModes(modesOpenNow(profile)).length > 0;
   const campaign = h('button.lb-campaign', { onclick: () => navigate('missions'), 'data-testid': 'tile-mission', title: complete ? 'Campaign' : `Campaign · Ch.${chapter?.id} ${chapter?.name}` },
     nextDef ? h('span.lb-tag.yellow.lb-camp-next', `Next ${nextDef.id}`) : h('span.lb-tag.yellow.lb-camp-next', 'All clear!'),
     h('div.lb-camp-folder', { html: campaignFolderSVG({ uid: `camp-${++iconSeq}`, art: themeBackdropSVG(chapter?.theme || 'sakura') }) }),
-    h('span.lb-tag.pink.lb-camp-prog', complete ? 'Medals' : 'In Progress'),
-    h('div.lb-camp-label', h('b', 'Campaign'), h('small.lb-camp-sub', complete ? 'Chase Sakura medals' : h('span', h('span.lb-camp-ch', `Ch.${chapter?.id}`), h('span.lb-camp-name', ` ${chapter?.name}`), prog ? ` · ${prog.cleared}/${prog.total}` : ''))),
+    fresh ? openSticker({ cls: 'lb-camp-open', testid: 'campaign-open' }) : null,
+    complete ? h('span.lb-tag.pink.lb-camp-prog', 'Medals') : inProgress({ cls: 'lb-camp-prog', testid: 'campaign-inprog' }),
+    // (the chapter's progress lives on its map and in Missions; "In Progress" says it here, P7)
+    h('div.lb-camp-label', h('b', 'Campaign'), h('small.lb-camp-sub', complete ? 'Chase Sakura medals' : h('span', h('span.lb-camp-ch', `Ch.${chapter?.id}`), h('span.lb-camp-name', ` ${chapter?.name}`)))),
   );
-  host.append(assault, campaign);
+  host.append(h('div.lb-br-side', assault, multiplayer), campaign);
+}
+
+/** The Multiplayer button's red number, in place (a new invite, one that ended). */
+function setMultiplayerCount(btn, n) {
+  btn.setAttribute('aria-label', multiplayerLabel(n));
+  const had = btn.querySelector('.lb-mp-count');
+  if (had && had.textContent === String(n)) return;
+  had?.remove();
+  const b = countBadge(n, { cls: 'lb-mp-count', testid: 'lobby-multiplayer-count', title: multiplayerLabel(n) });
+  if (b) btn.appendChild(b);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -612,7 +702,7 @@ function buildDock(host) {
     host.appendChild(h('button.lb-dock-btn', { onclick: () => navigate(it.id), 'data-testid': `dock-${it.id}`, style: { '--i': i }, title: it.label },
       icon(it.icon, 'lb-dock-ico'),
       h(`span.lb-dock-label${it.short ? '.has-short' : ''}`, h('span.lb-full', it.label), it.short ? h('span.lb-short', it.short) : null),
-      it.dot ? h('span.lb-dot') : null,
+      it.dot ? dot('claim', { cls: 'lb-dot' }) : null,
       it.tag ? h('span.lb-dock-tag', it.tag) : null,
     ));
   });

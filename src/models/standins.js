@@ -3,8 +3,9 @@
 //
 // These units have no character GLB yet: until the owner approves their real art, the battle,
 // the student 3D view and the formation / lobby show the procedural chibi (src/models/chibi.js)
-// built from the unit's own palette + look, and menus show the SVG portrait (src/art/portraits.js
-// has no PORTRAIT_DATA row for them). The ids are model asset keys (= unit ids, the asset of their
+// built from the unit's own palette + look. Menus show her drawn portraits once they have a PORTRAIT_DATA
+// row in src/art/portraits.js (Tenka's shipped with the ultimates; her Oct 20 test-build GLB, still
+// without clips or game bone names, waits on feature/tenka-art), else the SVG portrait. The ids are model asset keys (= unit ids, the asset of their
 // '<id>_default' skin row). For a stand-in, preloadCharacters / preloadModels / loadCharacter never
 // request a .glb (no 404s) and buildChibi keeps the procedural figure without an upgrade hook
 // (userData.standIn = true).

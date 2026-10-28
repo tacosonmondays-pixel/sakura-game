@@ -13,8 +13,11 @@ import { HONOR_CLASSES, HONOR_EFFECTS, EFFECT_LINES } from '../../../data/honors
 import { ownedRibbons, liveRibbons, newHonorCount, markHonorsSeen } from '../../../systems/honors.js';
 import { achievementList } from '../../../systems/missions.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
+import { ico, KIT_SVG } from '../../kit.js';
 
-const phone = () => typeof matchMedia === 'function' && matchMedia('(max-height: 480px)').matches;
+// (a narrow portrait screen is a phone too: the detail pane beside the shelves left them 20 px wide at 390x844, the
+// UI M5b review's portrait shots; there the detail opens as the phone's modal)
+const phone = () => typeof matchMedia === 'function' && matchMedia('(max-height: 480px), (max-width: 560px)').matches;
 const short = (name) => name.replace(/ Ribbon$/, '');
 const SHELVES = [
   { cls: 'special', label: 'Special', sub: 'cool effects', size: [72, 44] },
@@ -26,10 +29,11 @@ const SHELVES = [
 export const recentHonors = new Set();
 
 /**
- * @param {{ onBack: () => void, onAchievement: (id: string) => void }} opts
+ * @param {{ onBack: () => void, onAchievement: (id: string) => void, onTitles?: (() => void)|null }} opts
+ *   onTitles: opens the Titles sheet (UI M5b: the Achievements header keeps one row, so Titles live by the Case)
  * @returns {HTMLElement}
  */
-export function ribbonCaseView({ onBack, onAchievement }) {
+export function ribbonCaseView({ onBack, onAchievement, onTitles = null }) {
   const profile = store.profile;
   const small = phone();
   const owned = ownedRibbons(profile);
@@ -72,14 +76,17 @@ export function ribbonCaseView({ onBack, onAchievement }) {
     const shown = live.filter((hr) => (filter === 'all' ? true : filter === 'earned' ? ownedSet.has(hr.id) : !ownedSet.has(hr.id)));
     const head = h('div.ach-case-head',
       h('button.ach-case-back', { 'data-testid': 'ach-case-back', 'aria-label': 'Back to achievements', onclick: onBack }, svgEl(uiIcon('back'), 'ach-case-back-ico')),
-      h('div.ach-case-title', h('h3', 'Honor Ribbon Case'), h('div.ach-case-sub', `${owned.length} / ${live.length} earned${fresh.size ? ` · ${fresh.size} new` : ''}`)),
+      h('div.ach-case-title', h('h3', 'Honor Ribbon Case'), h('div.ach-case-sub', `${owned.length}/${live.length} earned${fresh.size ? ` · ${fresh.size} new` : ''}`)),
+      // (the Titles sheet: a plain "Titles" label at the 12 / 13 px floor with a gold star; the small title plate it wore
+      // in M5b drew its word at 10 px, the UI M5b review)
+      onTitles ? h('button.ach-case-titles', { type: 'button', 'data-testid': 'ach-titles', 'aria-label': 'Titles', onclick: onTitles }, ico(KIT_SVG.starFill, 'ui-ico.ach-case-titles-ico'), h('span', 'Titles')) : null,
       h('div.ach-filters', ['all', 'earned', 'not'].map((f) => h(`button.ach-filter${filter === f ? '.on' : ''}`, { onclick: () => { filter = f; drawPanel(); } }, { all: 'All', earned: 'Earned', not: 'Not yet' }[f]))));
     const shelves = SHELVES.map((s) => {
       const all = live.filter((hr) => hr.class === s.cls);
       const list = shown.filter((hr) => hr.class === s.cls);
       if (!list.length) return null;
       return h(`div.ach-shelf.${s.cls}`, { 'data-testid': `ach-shelf-${s.cls}` },
-        h('div.ach-shelf-k', h('span.ach-shelf-label', s.label), s.sub ? h('span.ach-shelf-sub', ` · ${s.sub}`) : null, h('b', ` ${all.filter((x) => ownedSet.has(x.id)).length} / ${all.length}`)),
+        h('div.ach-shelf-k', h('span.ach-shelf-label', s.label), s.sub ? h('span.ach-shelf-sub', ` · ${s.sub}`) : null, h('b', ` ${all.filter((x) => ownedSet.has(x.id)).length}/${all.length}`)),
         h('div.ach-shelf-row', list.map((hr) => cell(hr, s.size[small ? 1 : 0]))),
         h('i.ach-ledge'));
     });

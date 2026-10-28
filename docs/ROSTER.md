@@ -44,7 +44,7 @@ Type chart reminder (attack → armor): **Blast** ×1.5 heavy, ×0.5 spectral ·
 
 | **Kanna** — Drum Club Advisor | Hero · SSR | Champion | Slash | – | Land | Gacha | Melee drum strikes that build focus and crack armor; flyers from Lv 6. Ult *Festival Drumfall*: 260 armor-ignoring damage on the strongest enemy anywhere, shred + stagger, 30 % splash. | Elites, armored bosses | Flyers early; wide swarms |
 | **Yoriko** — Drama Club Director | Hero · SSR | Puppeteer | Mystic | – | Land | Gacha | Two slowing marionette threads, stage aura from Lv 5. Ult *Dream Detour*: pushes every enemy back 5 tiles, 50 % slow and a **hex** (1 % max HP/s, no regen). | Fast waves, regenerators, leaks | Raw damage |
-| **Seiran** — Sky Patrol Instructor | Hero · SSR | Storm Rider | Mystic | Lightning | **Land + water** | Gacha | Chain lightning that prefers flyers (×1.25). Ult *Dragonflight*: a **sky dragon** flies back along the road from her aim point, 140 damage to each enemy once, grounds flyers, marks +18 %. | Flyers, spread-out waves | Warded oni and fae |
+| **Seiran** — Sky Patrol Instructor | Hero · SSR | Storm Rider | Mystic | Lightning | **Land + water** | Gacha | Chain lightning that prefers flyers (×1.25). Ult *Dragonflight*: a **sky dragon** flies back along the road from her aim point (or the busiest road's exit) all the way to its start, 140 damage to each enemy once, grounds flyers, marks +18 %. | Flyers, spread-out waves | Warded oni and fae |
 | **Fuu** — Dance Club Turbine Dancer | Tower · R | Displacer | Mystic | – | Land | Gacha | Three gusts that push enemies back (push lock 1.5 s); paths: stronger push, **gather** the wave together, ground flyers. | Rushes, leaks near the exit | Bosses (never move) |
 | **Hana** — Wildlife Club Drone Falconer | Tower · R | Aerial Hunter | Pierce | – | Land | **Free after 7-5** | Arrows ×2 vs flyers that **ground** them (Air targeting by default); paths: falconry, Hunter's Mark, volleys. | Flyers (wyverns), elites with the mark | Ground crowds |
 | **Ruri** — Library Club Holo-Summoner | Tower · SR | Summoner | Mystic | – | Land | Gacha | Her bolts leave **Kon**, a holo fox at the edge of the nearest lane (range ring on Kon); paths: Moonhound, Star Falcon, Tide Otter. | Lanes she cannot stand next to | Short reach of the familiar |
@@ -68,9 +68,11 @@ only (`RETURNING_ABILITIES`), for the ability system.
 | Marumi | Strike Bowler | SR · gacha | Demolition Bowler | Bomb balls rolled up the road against the enemies: blast, push, pins, ricochets from walker to walker, a lob at flyers | Giant Strike |
 | Ouka | Student Council President | SR · gacha | Council Hub | No attack: rules in her office radius (discounts, free tiers, sell value, coins per kill); banners | Assembly Bell |
 
-Art: drawn Clean Cel portraits since October 2026 (one 1024² card per girl, cut into the six
-`public/art/portraits/<id>-*.webp` files; `src/art/portraits.js`). They replaced the coming-soon placeholder
-portraits (`tools/art/placeholder_portraits.py`, kept for a future girl who ships before her art). Battle figures: Blender
+Art: v2 scene portraits since Oct 23 2026 (each girl in her club scene with a dynamic camera, one 768×1024
+master each; the bust, card and thumb are crops of it and her stand is cut out of it: the six
+`public/art/portraits/<id>-*.webp` files, `src/art/portraits.js`). They replaced the plain Clean Cel cards of
+October 2026, which had replaced the coming-soon placeholder portraits (`tools/art/placeholder_portraits.py`, kept
+for a future girl who ships before her art). Battle figures: Blender
 (`tools/blender/build_characters.py azami kinu wakaba yuzuha ouka chigusa marumi`; their weapons — the strip
 reel, the needle, the tablet, the council banner, the watering can and the bowling ball — are in `tools/blender/lib/weapon.py`;
 Chigusa's straw sun hat is a tools-only extra part, `lib/extras.py` sunHat).

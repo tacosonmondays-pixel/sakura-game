@@ -9,6 +9,8 @@
 // 7 PM Central while the screen was open is refused before payment and the screen redraws.
 import '../styles/meta-a.css';
 import '../styles/banners.css';
+import '../styles/hubs.css';
+import { hubBackdrop } from '../hubArt.js';
 import { h, clear, screen, svgEl, modal, toast, button, confirmDialog } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -57,6 +59,7 @@ function dayName(d) {
 
 export function render(root, params = {}) {
   const { el, body } = screen('Recruit', { cls: 'ma-recruit-screen' });
+  el.insertBefore(hubBackdrop('recruit'), el.firstChild); // E6: the admissions hall (the academy with its tint, Q5)
   root.appendChild(el);
   let busy = false;
   let overlay = null;
@@ -453,10 +456,10 @@ function showNoGems(need) {
     title: 'Not enough gems',
     body: h('div',
       h('div.ma-spend-line.short', svgEl(currencyIcon('gems'), 'ma-pay-icon'), h('b', formatNumber(have)), ` / ${formatNumber(need)}`),
-      h('p', 'Gems come from daily and weekly commissions, the login calendar, first clears and medals. The Events page shows exactly how much you earn for free.'),
+      h('p', 'Gems come from daily and weekly commissions, the login calendar, first clears and medals. Happening Now › Free pulls shows exactly how much you earn for free.'), // (no break inside a name)
     ),
     actions: [
-      { label: 'Income overview', kind: 'ghost', onClick: (c) => { c(); navigate('rewards'); } },
+      { label: 'Income overview', kind: 'ghost', onClick: (c) => { c(); navigate('rewards', { tab: 'free' }); } },
       { label: 'Commissions', kind: 'yellow', onClick: (c) => { c(); navigate('commissions'); } },
     ],
   });

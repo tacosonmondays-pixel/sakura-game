@@ -2,11 +2,26 @@
 // Three boss arenas. Each card shows the boss (3D model — a black silhouette until the
 // boss is discovered), stats, telegraphed phases, counters, and the crown-heavy drop
 // table, then teleports into stage prep.
+// UI M5b (docs/specs/UI_DIRECTION.md §5.10, P1): a hub with a host. Rei stands in the left 35% with a line for the
+// state; the arena at dusk behind (E6, the academy with a warm tint for now); the boss list under an ink plate header
+// (E2). The chosen boss shows her model, three headline stats with MORE (the lore, traits, phases and counters move
+// into the intel sheet), her drops and one yellow Challenge (data-primary).
+// The M5b review: under 800 px of width Rei is a chip in the plate header and the boss list takes the whole width
+// (the collapse rule, host.js); Sweep is the secondary button (§5.5), its locked state a lock and one reason; a drop
+// that needs a harder tier shows a lock and "NM+" (hubDrops.js).
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, button, toast } from '../components.js';
+import { plateHead, statStrip, kbdHint, fillIn, secondaryBtn } from '../kit.js';
+import { openSheet } from '../sheet.js';
+import { hubBackdrop } from '../hubArt.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
+import { shortGatedDrops } from '../hubDrops.js';
+import { assaultState } from '../hubStates.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
+import { fmtNum } from '../format.js';
 import { stagesOfKind } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
@@ -33,15 +48,32 @@ function themeOf(stage) {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Total Assault', { cls: 'ma-assault-screen' });
+  const { el, body } = screen('Total Assault', { cls: 'ma-assault-screen hb-screen' });
+  el.insertBefore(hubBackdrop('assault'), el.firstChild);
   root.appendChild(el);
   const stages = stagesOfKind('boss');
   let selected = stages.some((s) => s.id === params.boss) ? params.boss : (stages.find((s) => isStageUnlocked(store.profile, s.id)) || stages[0]).id;
   let viewerState = null;
 
+  // [ui-m5] the host: Rei, talking about the first boss being open or not (her stand, or her chip in the plate header)
+  let drawn = hubMode(viewport());
+  const host = hubHost('assault', store.profile, { state: assaultState(store.profile), mode: drawn });
   const cards = h('div.ma-boss-cards');
   const detail = h('div.ma-boss-detail');
-  body.append(h('div.ma-wrap', cards, detail));
+  // the chosen boss's actions stay in view under the detail (Challenge: the one yellow)
+  const footer = h('div.as-actions', { 'data-testid': 'assault-actions' });
+  const head = plateHead('Bosses', {
+    testid: 'assault-head',
+    right: button('Boss Exchange', { kind: 'ghost', small: true, icon: 'mall', testid: 'assault-exchange', onClick: () => navigate('mall', { tab: 'boss' }) }),
+  });
+  const hb = h('div.hb.as-hb', h('div.hb-main', h('section.panel.as-panel', head, cards, detail, footer)));
+  body.append(hb);
+  placeHost(host, drawn, { hb, slot: head });
+  // a resize that flips the collapse rule (a phone turned, a window resized) moves her to her other place
+  const offResize = watchHostMode(el, () => drawn, () => hubMode(viewport()), () => {
+    drawn = hubMode(viewport());
+    placeHost(host, drawn, { hb, slot: head });
+  });
 
   const drawCards = () => {
     clear(cards);
@@ -54,9 +86,8 @@ export function render(root, params = {}) {
         h('div.ma-boss-card-art', { html: themeBackdropSVG(themeOf(s)) }),
         h('div.ma-boss-card-shade'),
         h('div.ma-boss-card-text',
-          h('span.ma-boss-kicker', 'BOSS'),
           h('span.ma-boss-card-name', boss?.name || s.name),
-          h('span.ma-boss-card-sub', unlocked ? `HP ${formatNumber(Math.round((boss?.hp || 0) * s.hpScale))}` : requirementText(profile, s.id)),
+          h('span.ma-boss-card-sub', unlocked ? `HP ${fmtNum(Math.round((boss?.hp || 0) * s.hpScale))}` : requirementText(profile, s.id)),
           unlocked ? savedBadge(profile, s.id) : null,
         ),
         unlocked ? medalRow(profile, s.id, { size: 18, cls: 'ma-boss-card-medals' }) : svgEl(uiIcon('lock'), 'ma-boss-card-lock'),
@@ -73,6 +104,26 @@ export function render(root, params = {}) {
     drawDetail();
   };
 
+  /** The intel sheet (Details, P1): the lore, armor, traits, phases, counters and where the crowns go. */
+  const intel = (stage, boss) => {
+    const traits = enemyTraits(boss);
+    const bossWave = Math.max(...stage.waveGen.fixed.filter((f) => f.enemy === boss.id).map((f) => f.wave));
+    openSheet({
+      title: `${boss.name} · intel`,
+      testid: 'assault-intel',
+      cls: 'as-intel',
+      body: h('div.as-intel-body',
+        h('p.ma-boss-lore', boss.lore),
+        h('p.as-intel-line', svgEl(armorClassIcon(boss.armorClass), 'ma-inline-icon'), `${ARMOR_CLASSES[boss.armorClass]?.name || boss.armorClass} armor${boss.armor ? ` · ${boss.armor}` : ''} · the boss comes on wave ${bossWave}`),
+        h('div.ma-sub', 'Traits'),
+        h('ul.ma-trait-list', traits.map((t) => h('li', svgEl(traitIcon(t), 'ma-trait-lg'), h('div', h('b', TRAITS[t]?.name || t), h('div.muted', TRAITS[t]?.desc || ''))))),
+        boss.phases?.length ? h('div', h('div.ma-sub', 'Phases'), h('ol.ma-phase-track', boss.phases.map((p) => h('li', h('span.ma-phase-hp', `${Math.round(p.atHp * 100)}%`), h('span', p.announce))))) : null,
+        h('p.ma-counter-tip', svgEl(uiIcon('info'), 'ma-inline-icon'), boss.counters),
+        h('p.muted', 'Crowns awaken students. Assault Tokens buy more crowns in the Mall\'s Boss Exchange.'),
+      ),
+    });
+  };
+
   const drawDetail = () => {
     const profile = store.profile;
     const stage = stages.find((s) => s.id === selected);
@@ -81,7 +132,6 @@ export function render(root, params = {}) {
     const discovered = !!profile.bestiary?.[boss?.id]?.discovered;
     clear(detail);
     if (!boss) return;
-    const traits = enemyTraits(boss);
     const medals = stageMedals(profile, stage.id);
     const sweepDiff = medals.nightmare ? 'nightmare' : medals.hard ? 'hard' : null;
 
@@ -97,52 +147,44 @@ export function render(root, params = {}) {
     );
     mountBoss(viewerHost, boss, discovered);
 
-    const statRow = h('div.ma-facts',
-      fact('HP', formatNumber(Math.round(boss.hp * stage.hpScale))),
-      fact('Armor', h('span.ma-inline', svgEl(armorClassIcon(boss.armorClass), 'ma-inline-icon'), `${ARMOR_CLASSES[boss.armorClass]?.name || boss.armorClass}${boss.armor ? ` · ${boss.armor}` : ''}`)),
-      fact('Speed', `${boss.speed} t/s`),
-      fact('Waves', `${stage.waves} · boss on ${Math.max(...stage.waveGen.fixed.filter((f) => f.enemy === boss.id).map((f) => f.wave))}`),
-    );
+    // three headline stats + MORE (§5.2): the rest is one tap away
+    const strip = statStrip([
+      { label: 'HP', value: fmtNum(Math.round(boss.hp * stage.hpScale)), title: `HP ${formatNumber(Math.round(boss.hp * stage.hpScale))}` },
+      { label: 'Speed', value: String(boss.speed), unit: '/s', title: `Speed ${boss.speed} tiles a second` },
+      { label: 'Waves', value: String(stage.waves) },
+    ], { onMore: () => intel(stage, boss), testid: 'assault-stats', moreTestid: 'assault-more' });
 
-    const info = h('div.ma-boss-info',
-      h('section.panel',
-        h('h3.panel-title', 'Boss intel'),
-        h('p.ma-boss-lore', boss.lore),
-        statRow,
-        h('div.ma-sub', 'Traits'),
-        h('ul.ma-trait-list', traits.map((t) => h('li', svgEl(traitIcon(t), 'ma-trait-lg'), h('div', h('b', TRAITS[t]?.name || t), h('div.muted', TRAITS[t]?.desc || ''))))),
-        boss.phases?.length ? h('div', h('div.ma-sub', 'Phases'), h('ol.ma-phase-track', boss.phases.map((p) => h('li', h('span.ma-phase-hp', `${Math.round(p.atHp * 100)}%`), h('span', p.announce))))) : null,
-        h('p.ma-counter-tip', svgEl(uiIcon('info'), 'ma-inline-icon'), boss.counters),
-        stage.recommended?.length ? h('div.ma-rec-chips', stage.recommended.map((c) => h('span.chip', svgEl(capabilityIcon(c)), CAPABILITIES[c]?.name || c))) : null,
-      ),
-      h('section.panel',
-        h('h3.panel-title', 'Drops'),
-        h('p.muted', 'Crowns awaken students. Assault Tokens buy more crowns in the Mall\'s Boss Exchange.'),
-        dropGrid(stage, sweepDiff || 'normal'),
-      ),
-      h('div.ma-prep-actions',
-        unlocked && canSweep(profile, stage.id)
-          ? button(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {
-            kind: 'primary',
-            icon: 'ff2',
-            onClick: () => {
-              const r = sweep(profile, stage.id, sweepDiff, MAX_SWEEPS, uiRng());
-              if (!r.ok) {
-                toast('Sweep unavailable', 'bad');
-                return;
-              }
-              store.commit('sweep');
-              showRewardsModal({ title: `Sweep ×${r.runs.length}`, rewards: r.rewards, gear: r.gear, note: stage.name });
-            },
-          })
-          : null,
-        button('Mall · Boss Exchange', { kind: 'ghost', icon: 'mall', onClick: () => navigate('mall', { tab: 'boss' }) }),
-        unlocked
-          ? button('Challenge', { kind: 'yellow', icon: 'assault', testid: 'assault-go', onClick: () => navigate('stage', { id: stage.id }) })
-          : h('span.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, stage.id)),
-      ),
+    let challenge = null;
+    if (unlocked) {
+      challenge = button('Challenge', { kind: 'yellow', icon: 'assault', testid: 'assault-go', onClick: () => navigate('stage', { id: stage.id }) });
+      challenge.setAttribute('data-primary', '');
+      challenge.appendChild(kbdHint('Space'));
+    }
+    const info = h('div.ma-boss-info.as-info',
+      strip,
+      stage.recommended?.length ? h('div.ma-rec-chips', stage.recommended.slice(0, 2).map((c) => h('span.chip', svgEl(capabilityIcon(c)), CAPABILITIES[c]?.name || c))) : null,
+      h('div.as-drops', h('div.ma-sub', 'Drops'), shortGatedDrops(dropGrid(stage, sweepDiff || 'normal', { compact: true }))),
     );
-    detail.append(h('div.ma-boss-layout', show, info));
+    // (Sweep: the secondary button beside the one yellow; until a Hard clear, its lock and the reason)
+    fillIn(footer,
+      unlocked && canSweep(profile, stage.id)
+        ? secondaryBtn(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {
+          icon: 'ff2',
+          testid: 'assault-sweep',
+          onClick: () => {
+            const r = sweep(profile, stage.id, sweepDiff, MAX_SWEEPS, uiRng());
+            if (!r.ok) {
+              toast('Sweep unavailable', 'bad');
+              return;
+            }
+            store.commit('sweep');
+            showRewardsModal({ title: `Sweep ×${r.runs.length}`, rewards: r.rewards, gear: r.gear, note: stage.name });
+          },
+        })
+        : unlocked ? secondaryBtn('Sweep', { testid: 'assault-sweep', disabled: true, reason: 'Clear on Hard first' }) : null,
+      challenge || h('span.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, stage.id)),
+    );
+    detail.append(h('div.ma-boss-layout.as-layout', show, info));
   };
 
   function mountBoss(host, boss, discovered) {
@@ -169,11 +211,8 @@ export function render(root, params = {}) {
   drawCards();
   drawDetail();
   return () => {
+    offResize();
     viewerState?.dispose();
     viewerState = null;
   };
-}
-
-function fact(label, value) {
-  return h('div.ma-fact', h('div.ma-fact-label', label), h('div.ma-fact-value', value));
 }

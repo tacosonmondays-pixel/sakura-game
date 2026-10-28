@@ -1,20 +1,34 @@
 // Bounty (owner: ui / meta-a). Route: #/bounty?arena=res-books&tier=2
-// A "Location Select" screen: the secretary on the left, the five resource arenas as a
+// A "Location Select" screen: the host girl on the left, the five resource arenas as a
 // list on the right (thumbnail, name, what it drops, Bounty Token yield, 2× event badge).
 // Tapping a location expands it: tier I–III picker with medals, drops, enemies, and the
-// Prepare / Sweep actions. The footer shows the Bounty Token balance and the Bounty Shop.
+// Prepare / Sweep actions.
+// UI M5b (docs/specs/UI_DIRECTION.md §5.10): the host is this week's double-drop guest (notes Q4: the girl of the
+// lobby's EVENT card; an adult hero falls back by hosts.js), with a line for the state. The arena list sits under an
+// ink plate header (E2) that holds the Bounty Token balance (said once), the week's countdown chip and the Bounty
+// Shop; Prepare is the screen's one yellow (data-primary). New rules are scoped under .ma-bounty-screen: stage prep
+// shares the meta-a .ma-loc / .ma-tier / .ma-drop rules.
+// The M5b review: under 800 px of width the guest is a chip in the plate header and the list takes the whole width
+// (the collapse rule, host.js); Sweep is the secondary button (§5.5), its locked state a lock and one reason; a drop
+// that needs a harder tier shows a lock and "NM+" (hubDrops.js).
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, button, toast, glyph } from '../components.js';
-import { navigate } from '../router.js';
+import { countdownChip, plateHead, kbdHint, secondaryBtn } from '../kit.js';
+import { msToLocalWeekEnd } from '../countdown.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
+import { shortGatedDrops } from '../hubDrops.js';
+import { bountyState } from '../hubStates.js';
+import { navigate, currentRoute } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { bountyArenas, STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { CAPABILITIES, DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
-import { UNIT_MAP } from '../../data/units.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
-import { hubBackdrop, hubStand, hubSecretary } from '../hubArt.js';
+import { hubBackdrop } from '../hubArt.js';
+import { ARENA_GUEST } from '../lobby/notice.js';
 import { capabilityIcon, uiIcon, itemIcon, currencyIcon } from '../../art/icons.js';
 import { isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
 import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
@@ -35,7 +49,7 @@ function tokenYield(stage) {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Bounty', { cls: 'ma-bounty-screen ma-char-screen' });
+  const { el, body } = screen('Bounty', { cls: 'ma-bounty-screen hb-screen' });
   el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
@@ -51,20 +65,34 @@ export function render(root, params = {}) {
   };
   pickTier(arenas.find((a) => a.id === arenaId));
 
-  const char = hubStand(hubSecretary(profile), { cls: 'ma-hub-char' });
+  // [ui-m5] the host: this week's double-drop guest, talking about the week (her stand, or her chip in the plate header)
+  const weekLeft = msToLocalWeekEnd();
+  let drawn = hubMode(viewport());
+  const host = hubHost('bounty', profile, { guest: ARENA_GUEST[event.arena], state: bountyState(), mode: drawn });
 
   const list = h('div.ma-loc-list');
-  const tokens = h('span.ma-loc-balance-val', { 'data-testid': 'bounty-tokens' });
-  const footer = h('div.ma-loc-footer',
-    h('div.ma-loc-balance', svgEl(currencyIcon('token_bounty'), 'ma-loc-balance-icon'), tokens, h('span.muted', 'Bounty Tokens')),
-    button('Bounty Shop', { kind: 'yellow', icon: 'mall', testid: 'bounty-shop', onClick: () => navigate('mall', { tab: 'bounty' }) }),
-  );
-  const panelEl = h('section.panel.ma-loc-panel',
-    h('h3.panel-title', 'Location Select', h('span.ma-loc-title-note', svgEl(glyph('info'), 'ma-inline-icon'), `${event.name} · ${event.dropMul}× drops this week`)),
-    list,
-    footer,
-  );
-  body.append(h('div.ma-hub.ma-bounty', char, h('div.ma-loc-col', panelEl)));
+  const tokens = h('span.num.bn-balance-val', { 'data-testid': 'bounty-tokens' });
+  // E2: the plate header: the balance once, the week's chip (a recurring cycle, never red), the shop
+  const head = plateHead('Location Select', {
+    testid: 'bounty-head',
+    right: [
+      h('span.bn-balance', { title: 'Bounty Tokens' }, svgEl(currencyIcon('token_bounty'), 'bn-balance-icon'), tokens),
+      // (at zero the screen draws again: the new week's arena and guest)
+      countdownChip(weekLeft, { cls: 's', urgent: false, doneText: 'New week!', testid: 'bounty-week', onDone: () => { if (el.isConnected) navigate('bounty', currentRoute().params || {}, { replace: true }); } }),
+      button('Shop', { kind: 'ghost', small: true, icon: 'mall', testid: 'bounty-shop', title: 'Bounty Shop', onClick: () => navigate('mall', { tab: 'bounty' }) }),
+    ],
+  });
+  // the chosen tier's actions stay in view under the list (Prepare: the one yellow)
+  const footer = h('div.bn-footer', { 'data-testid': 'bounty-actions' });
+  const panelEl = h('section.panel.ma-loc-panel.bn-panel', head, list, footer);
+  const hb = h('div.hb.bn-hb', h('div.hb-main', panelEl));
+  body.append(hb);
+  placeHost(host, drawn, { hb, slot: head });
+  // a resize that flips the collapse rule (a phone turned, a window resized) moves her to her other place
+  const offResize = watchHostMode(el, () => drawn, () => hubMode(viewport()), () => {
+    drawn = hubMode(viewport());
+    placeHost(host, drawn, { hb, slot: head });
+  });
 
   const remember = () => rememberParams('bounty', { arena: arenaId, tier: stageId.slice(-1) });
 
@@ -87,8 +115,9 @@ export function render(root, params = {}) {
           h('div.ma-loc-desc', a.desc),
           h('div.ma-loc-meta',
             h('span.ma-loc-tag', ARENA_TAG[a.id] || ''),
-            h('span.ma-loc-ticket', svgEl(currencyIcon('token_bounty'), 'ma-inline-icon'), `Bounty Token ${tokenYield(top) || '×1'}`),
-            h('span.muted', unlocked ? `${cleared}/3 tiers cleared` : requirementText(profile, a.stages[0])),
+            h('span.ma-loc-ticket', svgEl(currencyIcon('token_bounty'), 'ma-inline-icon'), tokenYield(top) || '×1'),
+            // a zero is not news (P7): the tiers cleared show once there are any; a locked arena says what opens it
+            unlocked ? (cleared ? h('span.muted', `${cleared}/3 cleared`) : null) : h('span.muted', requirementText(profile, a.stages[0])),
           ),
         ),
         unlocked ? h('span.ma-loc-chev', svgEl(glyph('chevron'))) : svgEl(uiIcon('lock'), 'ma-loc-lock'),
@@ -127,10 +156,18 @@ export function render(root, params = {}) {
       );
     }));
     const enemies = stageEnemies(stage).slice(0, 10).map((id) => enemyChip(id, { hpScale: stage.hpScale }));
-    const actions = h('div.ma-loc-actions',
+    let prepare = null;
+    if (unlocked) {
+      prepare = button('Prepare', { kind: 'yellow', icon: 'teleport', testid: 'bounty-prepare', onClick: () => navigate('stage', { id: stageId }) });
+      prepare.setAttribute('data-primary', '');
+      prepare.appendChild(kbdHint('Space'));
+    }
+    // (the actions go to the panel's footer, always in view; Sweep is the secondary button beside the one yellow, and
+    // until a Hard clear it shows its lock and the reason, never a faded button)
+    footer.replaceChildren(h('div.ma-loc-actions',
       unlocked && canSweep(profile, stageId)
-        ? button(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {
-          kind: 'primary', icon: 'ff2', testid: 'bounty-sweep',
+        ? secondaryBtn(`Sweep ×${MAX_SWEEPS} · ${DIFFICULTIES[sweepDiff].name}`, {
+          icon: 'ff2', testid: 'bounty-sweep',
           onClick: () => {
             const r = sweep(profile, stageId, sweepDiff, MAX_SWEEPS, uiRng());
             if (!r.ok) return toast('Sweep unavailable', 'bad');
@@ -139,23 +176,23 @@ export function render(root, params = {}) {
             drawList();
           },
         })
-        : unlocked ? h('span.ma-sweep-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), 'Clear on Hard to unlock sweep') : null,
-      unlocked
-        ? button('Prepare', { kind: 'yellow', icon: 'teleport', testid: 'bounty-prepare', onClick: () => navigate('stage', { id: stageId }) })
-        : h('span.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, stageId)),
-    );
+        : unlocked ? secondaryBtn('Sweep', { testid: 'bounty-sweep', disabled: true, reason: 'Clear on Hard first' }) : null,
+      prepare || h('span.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, stageId)),
+    ));
     return h('div.ma-loc-detail',
       h('div.ma-loc-detail-grid',
         h('div', h('div.ma-sub', 'Tier'), tiers),
-        h('div', h('div.ma-sub', `Drops · ${best ? DIFFICULTIES[best].name : 'Normal'}`), dropGrid(stage, best || 'normal', { dropMul, compact: true })),
+        h('div', h('div.ma-sub', `Drops · ${best ? DIFFICULTIES[best].name : 'Normal'}`), shortGatedDrops(dropGrid(stage, best || 'normal', { dropMul, compact: true }))),
       ),
       h('div.ma-loc-enemies', h('div.ma-sub', 'Enemies & counters'), h('div.ma-enemy-list', enemies),
         stage.recommended?.length ? h('div.ma-rec-chips', stage.recommended.map((c) => h('span.chip', svgEl(capabilityIcon(c)), CAPABILITIES[c]?.name || c))) : null),
-      actions,
     );
   };
 
   drawList();
   const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'sweep' || e?.reason === 'secretary' || e?.reason === 'battle-save') drawList(); });
-  return () => off();
+  return () => {
+    off();
+    offResize();
+  };
 }

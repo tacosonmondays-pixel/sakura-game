@@ -169,7 +169,7 @@ function articles() {
         f2p ? `Commissions, the login calendar and the Mall give about ${Math.round(f2p.totals.pulls)} free recruits every ${f2p.periodDays} days.` : 'Commissions, the login calendar and the Mall give free recruits every week.',
         'Every essential counter is available from free girls — no stage ever requires a specific pull.',
       ],
-      cta: { label: 'See the overview', go: () => navigate('rewards') },
+      cta: { label: 'See the overview', go: () => navigate('rewards', { tab: 'free' }) }, // [ui-m5] Happening Now › Free pulls
     },
     {
       id: 'tips', tag: 'Tips', icon: 'wiki', title: 'Sensei\'s handbook', date: 'Tips',

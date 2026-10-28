@@ -177,12 +177,12 @@ function controls() {
         'While you hold a card, the spots where she cannot stand (road, obstacles, wrong terrain, other girls) are shaded red. Water girls (Sango, Umeko, Nami) stand on water instead of land.',
         'Placement shows her range circle; a red, shaking ghost means the spot is invalid and a short message says why.',
         'Hold a girl\'s card (or right-click it) in the menus to open her info sheet.',
-        'In battle, hold a placed girl or a card in the bar (or press Tree in her panel, or T) to see her whole upgrade tree.',
+        'In battle, hold a placed girl or a card in the bar (or tap the tree button in her panel, or press T) to see her whole upgrade tree.',
       ])),
     sec('During a battle',
       table(['Action', 'Touch', 'Mouse'], [
         ['Select a girl', 'Tap her', 'Click her'],
-        ['Upgrade / sell', 'Selected panel buttons', 'Selected panel buttons'],
+        ['Upgrade / sell', 'Tap a price (or Sell) in her panel, then tap it again', 'Click a price (or Sell) in her panel, then click it again'],
         ['Pan the camera (Camera: Free)', 'Drag empty ground', 'Drag empty ground'],
         ['Zoom (Camera: Free)', 'Pinch', 'Mouse wheel'],
         ['Reset camera (Camera: Free)', 'Double-tap empty ground', 'Double-click empty ground'],
@@ -214,7 +214,7 @@ function abilitiesArticle() {
   return article('abilities', 'Abilities', 'basics', 'lightning', 'Every girl learns an ability with a short recharge: how to fire it, charge it and let it fire by itself.', ['ability', 'abilities', 'skill', 'auto', 'auto-cast', 'cooldown', 'recharge', 'lightning', 'bar', 'keys'], [
     sec('The ability path',
       p('At tier 3 of one of her paths, marked with a yellow bolt, a girl learns an ability: a button with a short recharge. Tier 5 of that path makes it stronger and recharge faster. Her page shows it on the Info tab and marks the path on the Tree tab.'),
-      p('Some girls\' abilities come in a later update: their bolt path says so, and the path\'s tiers work as usual.')),
+      p('Some girls\' abilities, and one hero\'s skill, come in a later update: their bolt path or hero level says so, and everything else about them works as usual.')),
     sec('Using it',
       list([
         'Tap her portrait in the ability bar (bottom right, above the cards), or press 1–9. Her panel has the same button (FIRE).',
@@ -284,7 +284,7 @@ function rolesArticle() {
   });
   return article('roles', 'Roles & Subclasses', 'students', 'students', 'Every girl\'s job in one place, at a glance: what she is for and what she cannot do.', ['role', 'class', 'subclass', 'sniper', 'artillery', 'support', 'dps', 'control', 'frag', 'economy', 'hero', 'precision', 'siege'], [
     sec('How roles work',
-      p('Like monkey classes in tower defense classics, every girl has a role. The role tells you what problems she solves; the subclass label on her Info tab ("Precision · Pierce · Armor Pierce · Veil Sight") sums up her attack type and key capabilities.'),
+      p('Every girl has a role. The role tells you what problems she solves; the subclass label on her Info tab ("Precision · Pierce · Armor Pierce · Veil Sight") sums up her attack type and key capabilities.'),
       p('A good formation covers several roles: someone to thin swarms, someone to break armor, someone to see veiled enemies, and someone to stop leaks.')),
     ...byCat,
     sec('A classic mixed wave',
