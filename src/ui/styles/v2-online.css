@@ -709,3 +709,17 @@
   /* (64 px reward tiles: their counts at the 13 px desktop floor) */
   :is(.ui-day) .ol-tiles .item-tile { width: 64px !important; }
 }
+/* a phone held upright: the clan's head in rows (emblem and who · the level and Leave · the daily post), the five tabs
+   in tight caps so every word fits its tab; a conversation's head without the level chip (it is on the player card) */
+@media (max-width: 560px) {
+  :is(.ui-day) .ol-clan-head { flex-wrap: wrap; row-gap: 8px; }
+  :is(.ui-day) .ol-clan-head > .ol-clan-id { flex: 1 1 calc(100% - 70px); }
+  :is(.ui-day) .ol-clan-head > .ol-clan-level { flex: 1 1 auto; align-items: flex-start; }
+  :is(.ui-day) .ol-ftabs > .ui-tab { padding: 0 2px; letter-spacing: 0.02em; }
+  :is(.ui-day) .ol-ftab-l { white-space: normal; text-align: center; line-height: 1.05; overflow: visible; }
+}
+@media (max-width: 440px) {
+  :is(.ui-day) .sc-thread-who .ol-lv { display: none; }
+  :is(.ui-day) .sc-thread-head { gap: 4px; padding-right: 4px; }
+  :is(.ui-day) .sc-thread-head .btn-small { padding: 0 10px; }
+}
