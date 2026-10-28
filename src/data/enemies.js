@@ -597,8 +597,8 @@ const LIZARDS = [
   enemy({
     id: 'lizard_lamp_hugger', name: 'Old Lamp-Hugger', family: 'lizard', tier: 'miniboss', hp: 3900, speed: 0.45,
     armorClass: 'scaled', armor: 4, bounty: 360, leak: 25, threat: 170, size: 2.4, color: '#8a7a3e', accent: '#ffd08a',
-    // warm lamplight scales and a lantern it will not let go of (the Bog Basilisk is mossy green, no lantern)
-    variant: 'basilisk', props: ['tail', 'crystals', 'lantern'],
+    // warm lamplight scales (the Bog Basilisk is mossy green); the lizard GLB carries no lantern prop
+    variant: 'basilisk', props: ['tail', 'crystals'],
     traits: { regen: { pct: 0.025, delay: 3 } },
     phases: [
       { atHp: 0.66, announce: 'Old Lamp-Hugger thumps its tail. Marsh Hunters wade in from the lake!', set: { traits: { regen: { pct: 0.025, delay: 3 }, summoner: { spawn: 'lizard_hunter', count: 2, every: 6 } } } },
