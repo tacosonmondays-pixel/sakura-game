@@ -3,7 +3,8 @@
 // milestone's shot list (e2e/shots/m*.mjs), reads the probe of every shot and judges it:
 //   text ≥ 12 px (≥ 13 px from 481 px tall) · no sideways overflow · no ellipsis on a stat, price or rule ·
 //   taps ≥ 44 px (40 px in the rows a shot names as dense) · at most one yellow fill · no stray pink ·
-//   nothing painted over a control · bar and head faults 0 · children cut by their panel 0 ·
+//   nothing painted over a control · bar and head faults 0 · children cut by their panel 0 · nothing cut at a side
+//   edge (controls, tiles, counts, button labels) ·
 //   numbers ≤ 10 with the top bar counted (or the shot's own limit) · host ≤ 35% on hubs, ≤ 28% on detail screens ·
 //   content window ≥ 300 px · no rounded corner off a circle (only on shots marked `rebuilt`)
 // and prints each shot's numbers beside the "before" file (e2e/shots/before/<milestone>.json, recorded at M0 from
@@ -48,7 +49,7 @@ mkdirSync(out, { recursive: true });
 /** The default number budget with the top bar counted (UI v2 rule 8). */
 const NUMBERS = 10;
 /** The v2 checks every menu shot is judged on (probe.mjs judge names); radius only on rebuilt shots. */
-const CHECKS = ['text', 'overflow', 'ellipsis', 'content', 'host', 'v2yellow', 'pink', 'covered', 'heads', 'clipped'];
+const CHECKS = ['text', 'overflow', 'ellipsis', 'content', 'host', 'v2yellow', 'pink', 'covered', 'heads', 'clipped', 'cutside'];
 
 const names = [...new Set(ids.flatMap((m) => MILESTONES[m]))].filter((n) => !only || only.includes(n));
 if (!names.length) {
@@ -77,6 +78,7 @@ const metrics = (r) => ({
   ellipsis: r.ellipsis.length,
   heads: r.v2?.headsCount ?? null,
   clipped: r.v2?.clippedCount ?? null,
+  cutSide: r.v2?.cutSideCount ?? null,
   content: r.content,
   host: r.hostShare != null ? Math.round(r.hostShare * 100) : null,
 });
@@ -97,7 +99,7 @@ const beforeFile = (m) => join(here, 'shots', 'before', `${m}.json`);
 const before = {};
 for (const m of ids) if (existsSync(beforeFile(m))) Object.assign(before, JSON.parse(readFileSync(beforeFile(m), 'utf8')));
 const fmtM = (x) => (x == null ? '–' : x === true ? 'yes' : x === false ? 'no' : typeof x === 'number' ? String(Math.round(x * 100) / 100) : String(x));
-const KEYS = ['text', 'numbers', 'tapMin', 'under44', 'yellow', 'pinkStray', 'covered', 'radius', 'overflow', 'ellipsis', 'heads', 'clipped', 'content', 'host'];
+const KEYS = ['text', 'numbers', 'tapMin', 'under44', 'yellow', 'pinkStray', 'covered', 'radius', 'overflow', 'ellipsis', 'heads', 'clipped', 'cutSide', 'content', 'host'];
 
 const results = {};
 let failing = 0;

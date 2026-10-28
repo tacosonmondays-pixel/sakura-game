@@ -630,6 +630,26 @@ function probeInPage(o) {
         else if (corner > 1.5) clipped.push(`${nm} ${corner.toFixed(1)} px into a chamfer of ${pname}, cut by its clip`);
       }
     }
+    // [ui-v2-menus] cut sideways: a control, an item or gear tile or its count, or a button label whose box loses more
+    // than 2 px at a side edge, to the screen or to a box on the way up that clips sideways without scrolling
+    // (the M7a review: gift tiles cut at a day card's right edge, a sheet's Save cut at the screen edge)
+    const cutSide = [];
+    for (const el of rt.querySelectorAll(`${CONTROLS}, .item-tile, .ui-gtile, .item-count, .btn-label`)) {
+      if (out2(el) || el.closest('[aria-hidden="true"]') || !isShown(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4 || r.bottom <= 0 || r.top >= vh) continue;
+      let lo = Math.max(0, r.left);
+      let hi = Math.min(vw, r.right);
+      for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+        const pcs = getComputedStyle(p);
+        if (!/hidden|clip/.test(pcs.overflowX)) continue;
+        const b = p.getBoundingClientRect();
+        lo = Math.max(lo, b.left);
+        hi = Math.min(hi, b.right);
+      }
+      const lost = r.width - Math.max(0, hi - lo);
+      if (lost > 2 && lost < r.width - 0.5) cutSide.push(`${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}" ${lost.toFixed(1)} px cut`);
+    }
     const fmt = (t) => `${t.w.toFixed(2)}x${t.h.toFixed(2)} ${t.name}`;
     const tapMin = taps.length ? Math.min(...taps.map((t) => t.s)) : null;
     return {
@@ -655,6 +675,8 @@ function probeInPage(o) {
       tapsUnder44Strict: taps.filter((t) => t.s < 44 && !t.dense).sort((a, b) => a.s - b.s).slice(0, 20).map(fmt),
       tapsUnder44StrictCount: taps.filter((t) => t.s < 44 && !t.dense).length,
       tapsDenseUnder40: taps.filter((t) => t.s < 40 && t.dense).map(fmt),
+      cutSide: cutSide.slice(0, 20),
+      cutSideCount: cutSide.length,
       heads: heads.slice(0, 20),
       headsCount: heads.length,
       clipped: clipped.slice(0, 20),
@@ -693,6 +715,7 @@ export function judge(r, { skip = [], only = null, also = [], v2 = false } = {})
     // the number printed is the number judged: both are tapMin, in 0.25 px steps
     if (on('v2taps') && x.tapMin != null && x.tapMin < LIMITS_V2.tap) fails.push(`tap ${x.tapMinText} px < ${LIMITS_V2.tap} px (${x.tapsUnder44Count}: ${x.tapsUnder44.slice(0, 3).join('; ')})`);
     if (on('heads') && x.headsCount) fails.push(`${x.headsCount} bar or head faults (${x.heads.slice(0, 3).join('; ')})`);
+    if (on('cutside') && x.cutSideCount) fails.push(`${x.cutSideCount} cut at a side edge (${x.cutSide.slice(0, 3).join('; ')})`);
     if (on('clipped') && x.clippedCount) fails.push(`${x.clippedCount} children cut by or run past their panel (${x.clipped.slice(0, 3).join('; ')})`);
   }
   if (on('text') && r.minText != null && r.minText < r.floor) fails.push(`text ${r.minText}px < ${r.floor}px (${r.smallCount}: ${r.small.slice(0, 3).join('; ')})`);
