@@ -15,8 +15,9 @@
 // into #/coop and calls joinInvite().
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
+import '../styles/v2-hubs.css';
 import { h, screen, button, toast } from '../components.js';
-import { plateHead, kbdHint, inkBtn, secondaryBtn, lockedTile, countdownChip, ico, fillIn, KIT_SVG } from '../kit.js';
+import { plateHead, kbdHint, inkBtn, secondaryBtn, lockedTile, countdownChip, ico, fillIn, KIT_SVG, hubTile } from '../kit.js';
 import { countBadge, soonSticker } from '../badges.js';
 import { openSheet } from '../sheet.js';
 import { hubBackdrop } from '../hubArt.js';
@@ -72,7 +73,7 @@ export function openRivalRun() {
 }
 
 export function render(root) {
-  const { el, body } = screen('Multiplayer', { cls: 'mp-screen hb-screen', extra: inboxButton() });
+  const { el, body } = screen('Multiplayer', { cls: 'mp-screen hb-screen v2h', extra: inboxButton() });
   el.insertBefore(hubBackdrop('multiplayer'), el.firstChild);
   root.appendChild(el);
   let alive = true;
@@ -88,10 +89,10 @@ export function render(root) {
   const head = plateHead('Co-op', { right: [chip, create], testid: 'mp-coop-head' });
   const invitesBox = h('div.mp-invites', { 'data-testid': 'mp-invites', 'aria-live': 'polite' });
   const quick = h('div.mp-quick');
-  const codeInput = h('input.ol-input.mp-code', { type: 'text', maxlength: 8, placeholder: 'ROOM CODE', 'aria-label': 'Room code', 'data-testid': 'mp-code', autocomplete: 'off', spellcheck: false });
+  const codeInput = h('input.mp-code', { type: 'text', maxlength: 8, placeholder: 'ROOM CODE', 'aria-label': 'Room code', 'data-testid': 'mp-code', autocomplete: 'off', spellcheck: false });
   codeInput.addEventListener('input', () => { codeInput.value = normalizeCode(codeInput.value); });
   codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinCode(); });
-  const actions = h('div.mp-actions', quick, h('div.mp-code-row', codeInput, inkBtn('Join', { testid: 'mp-code-join', onClick: () => joinCode() })));
+  const actions = h('div.mp-actions', quick, h('div.mp-code-row', h('label.ui-input.mp-code-box', codeInput), inkBtn('Join', { testid: 'mp-code-join', onClick: () => joinCode() })));
   const card = h('section.panel.mp-coop', { 'data-testid': 'mp-coop' }, head, invitesBox, actions);
   const tiles = h('div.mp-tiles', { 'data-testid': 'mp-tiles' });
   const hb = h('div.hb.mp-hb', h('div.hb-main.mp-main', card, tiles));
@@ -206,14 +207,17 @@ export function render(root) {
         onClick: t.sheet === 'rival' ? () => openRivalRun() : () => toast(`${t.title} is on its way. Stay tuned!`, 'info'),
       });
     }
-    const icon = t.id === 'friends' ? PEOPLE_GLYPH : 'assault';
-    return h(`button.mp-tile.mp-${t.id}`, { type: 'button', 'data-testid': `mp-${t.id}`, 'aria-label': `${t.title}${t.count ? `, ${t.count} new` : ''}. ${t.line}`, onclick: () => navigate(t.route.name, t.route.params) },
-      h('span.mp-tile-art', { 'aria-hidden': 'true' }, scenery(t.theme)),
-      h('span.mp-tile-ico', { 'aria-hidden': 'true' }, ico(icon)),
-      t.count ? countBadge(t.count, { cls: 'mp-tile-count', testid: `mp-${t.id}-count`, title: `${t.count} friend requests` }) : null,
-      // the clan boss's week (a recurring reset: never red)
-      t.id === 'clanboss' && state.inClan ? countdownChip(msToWeekReset(), { cls: 's.mp-tile-cd', urgent: false, doneText: 'Reset!', testid: 'mp-clanboss-time' }) : null,
-      h('span.mp-tile-text', h('b.mp-tile-title', t.title), h('span.mp-tile-line', t.line)));
+    // [ui-v2 M5] an open mode: a kit hub tile (V4: its scenery over an ink caption band); the friend requests' red
+    // number or the clan boss's week (a recurring reset: never red) in its top-right corner
+    return hubTile({
+      title: t.title, line: t.line, art: scenery(t.theme), sm: true, testid: `mp-${t.id}`, cls: `mp-tile.mp-${t.id}`,
+      label: `${t.title}${t.count ? `, ${t.count} new` : ''}. ${t.line}`,
+      corner: [
+        t.count ? countBadge(t.count, { cls: 'mp-tile-count', testid: `mp-${t.id}-count`, title: `${t.count} friend requests` }) : null,
+        t.id === 'clanboss' && state.inClan ? countdownChip(msToWeekReset(), { cls: 's.mp-tile-cd', urgent: false, doneText: 'Reset!', testid: 'mp-clanboss-time' }) : null,
+      ],
+      onClick: () => navigate(t.route.name, t.route.params),
+    });
   }
 
   function paintTiles() {

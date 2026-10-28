@@ -33,6 +33,8 @@
 :is(.ui-day) .v2h .ui-cost.dense { height: calc(var(--tap) + 2px); min-width: calc(var(--tap) + 2px); }
 :is(.ui-day) .v2h .ui-host-bubble { min-height: calc(var(--tap) + 2px); }
 :is(.ui-day) .v2h .ui-ibtn { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+/* the M5 sheets (sheet.js, by their cls): the close square 2 px over the tap too */
+:is(.ui-day) :is(.mp-rival-sheet, .ach-ls, .ach-catsheet, .tt-sheet, .as-intel, .ach-titles, .v2h-sheet) .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
 
 /* ==========================================================================================================
    MISSIONS (#/missions): the secretary hosts; the modes as hub tiles (V4), Quick start the one yellow
@@ -70,4 +72,64 @@
 @media (min-height: 481px) {
   :is(.ui-day) .ma-hub-grid > .ui-hubtile > .cap { padding: 8px 14px 10px; gap: 3px; }
   :is(.ui-day) .ma-hub-grid > .ui-hubtile.sm > .cap { padding: 7px 10px 9px; }
+}
+
+/* ==========================================================================================================
+   MULTIPLAYER (#/multiplayer): Momo hosts; the Co-op card (a kit panel under its plate head, invites as kit rows, the
+   room code in a kit input); the four modes as hub tiles (the two not out yet: the kit's locked tile, drawn the same)
+   ========================================================================================================== */
+/* (Messages in the bar: its hit square is the bar's, 46 px, like Settings and Home) */
+:is(.ui-day) .v2h .topbar .sc-inbox-btn .icon-btn { position: relative; }
+:is(.ui-day) .v2h .topbar .sc-inbox-btn .icon-btn::before { content: ''; position: absolute; left: 50%; top: calc(50% - var(--topbar-h) / 2); width: calc(var(--tap) + 2px);
+  height: max(calc(var(--tap) + 2px), var(--topbar-h)); transform: translateX(-50%); }
+:is(.ui-day) .mp-coop > .ui-plate-head { min-height: calc(var(--tap) + 8px); }
+/* the room Create room opens: clear glass on the ink head with a hairline, one tap to #/coop */
+:is(.ui-day) .mp-room-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: calc(var(--tap) + 2px); padding: 0 12px; border: 0; border-radius: 0;
+  background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi); color: var(--on-ink);
+  font: 700 var(--fs-body)/1 var(--font-num); letter-spacing: 0.02em; white-space: nowrap; cursor: pointer;
+}
+:is(.ui-day) .mp-room-chip .mp-room-ico { display: inline-flex; width: 16px; height: 16px; color: var(--on-ink-dim); }
+:is(.ui-day) .mp-room-chip:active { background: rgba(76, 214, 255, 0.12); }
+/* the invites: kit rows (a hairline each, the avatar, the name and one line, an ink Join) */
+:is(.ui-day) .mp-invites { gap: 0; padding: 2px var(--sp-3) 0; }
+:is(.ui-day) .mp-invite {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 54px; padding: 4px 0;
+  border: 0; border-bottom: 1px solid var(--line-ink-soft); border-radius: 0; background: none; box-shadow: none;
+}
+:is(.ui-day) .mp-invite:last-child { border-bottom: 0; }
+:is(.ui-day) .mp-inv-name { color: var(--ink); }
+:is(.ui-day) button.mp-more:active { transform: none; background: var(--sky-1); }
+/* Quick join · a room code + Join */
+:is(.ui-day) .mp-actions { padding-top: var(--sp-2); }
+:is(.ui-day) .mp-code-row { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; }
+:is(.ui-day) .mp-code-box { flex: none; width: 10em; height: calc(var(--tap) + 2px); }
+:is(.ui-day) .mp-code-box > .mp-code { font-size: var(--fs-body); letter-spacing: 0.18em; }
+:is(.ui-day) .mp-code-box > .mp-code::placeholder { letter-spacing: 0.12em; }
+/* the four tiles: they take the height the Co-op card leaves (up to a cap) */
+:is(.ui-day) .mp-tiles { flex: 1 1 auto; min-height: 0; max-height: 300px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); padding-top: 10px; }
+:is(.ui-day) .mp-tiles > .ui-hubtile { min-height: 104px; }
+:is(.ui-day) .mp-tiles > .ui-hubtile > .cap { justify-content: flex-start; min-height: 0; padding: 6px 8px 8px 10px; }
+:is(.ui-day) .mp-tiles .mp-tile-scene { position: absolute; inset: 0; line-height: 0; }
+:is(.ui-day) .mp-tiles .mp-tile-scene > svg { width: 100%; height: 100%; display: block; }
+:is(.ui-day) .mp-tiles > .ui-hubtile > .tr { top: 6px; right: calc(var(--c) + 4px); }
+/* a mode not out yet (kit.js lockedTile): the same tile, its scenery greyed above the ink band; its one lock is its sticker's */
+:is(.ui-day) .mp-tiles > .ui-ltile {
+  --c: var(--cut); position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px;
+  min-height: 104px; padding: 0 8px 8px 10px; border: 0; border-radius: 0; background: var(--plate); box-shadow: none; color: var(--on-ink); overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day) .mp-tiles > .ui-ltile > .ui-ltile-art { position: relative; inset: auto; flex: 1 1 0; min-height: 24px; align-self: stretch; margin: 0 -8px 4px -10px; border-radius: 0; filter: saturate(0.25) brightness(0.7); }
+:is(.ui-day) .mp-tiles > .ui-ltile > .ui-ltile-art::after { display: none; }
+:is(.ui-day) .mp-tiles > .ui-ltile > .ui-bdg.soon { position: static; flex: none; }
+:is(.ui-day) .mp-tiles > .ui-ltile > .ui-ltile-title { font: italic 900 var(--fs-body)/1.1 var(--font-head); color: var(--on-ink); white-space: normal; }
+:is(.ui-day) .mp-tiles > .ui-ltile > .ui-ltile-line { font: 600 var(--fs-label)/1.2 var(--font); color: var(--on-ink); }
+:is(.ui-day) .mp-tiles > .ui-ltile:active { transform: none; filter: brightness(0.94); }
+@media (min-height: 481px) {
+  :is(.ui-day) .mp-tiles > :is(.ui-hubtile, .ui-ltile) { min-height: 140px; }
+  :is(.ui-day) .mp-tiles > .ui-ltile > .ui-ltile-title { font-size: var(--fs-name); }
+}
+@media (max-aspect-ratio: 1/1) {
+  :is(.ui-day) .mp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :is(.ui-day) .mp-code-row { margin-left: 0; }
 }
