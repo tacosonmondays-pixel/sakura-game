@@ -64,6 +64,30 @@ export const STAGE_RULE_SKINS = {
     rule: 'supply_ship', name: 'Brigade Airdrop', short: 'Airdrop',
     desc: 'Brigade crates parachute in after every 4th wave: 150 battle coins. Rain boosts Lightning by 20%.',
   },
+  // Chapter 2 · Act II — Hilltop After Dark (docs/specs/gate-arc/MAPS.md §1.3)
+  '2-6': {
+    rule: 'petal_sanctuary', name: 'Shelter Intake', short: 'Intake',
+    desc: 'Shelter 3 takes people in through the night: 3 hearts come back after every cleared wave.',
+  },
+  '2-7': {
+    rule: 'lunar_eclipse', name: 'Lights Out', short: 'Lights out', activeWord: 'lights out',
+    desc: 'The campus lights cut out for 6 s (every 20 s): Holy deals 50% more damage and spectral enemies move 20% faster in the dark.',
+    toast: 'Lights out! Holy +50%, spirits faster (6 s)',
+  },
+  '2-8': {
+    rule: 'prism_conduits', name: 'Sensor Masts', short: 'Masts',
+    desc: 'A girl standing at a Brigade sensor mast gets +0.7 range and +25% damage. One girl per mast.',
+  },
+  '2-9': {
+    rule: 'firefly_chorus', name: 'Starting Pistol', short: 'Pistol', activeWord: 'race on',
+    desc: 'For 6 s in every 16 the starting pistol fires and the stands cheer: every girl deals 25% more damage.',
+    toast: 'Starting pistol! Every girl +25% damage (6 s)',
+  },
+  '2-10': {
+    rule: 'changing_tides', name: 'Lake Swell', short: 'Swell', activeWord: 'lake swell',
+    desc: 'The lake swells over the breakwater (7 s in every 18): slimes wade 35% slower and Lightning hits 35% harder.',
+    toast: 'The lake swells! Slimes slowed, Lightning +35% (7 s)',
+  },
 };
 
 /**

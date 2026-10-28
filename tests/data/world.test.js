@@ -36,7 +36,7 @@ const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
-const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter'];
+const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
 const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
@@ -296,10 +296,11 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 5 minibosses and 3 bosses with announced phases', () => {
+  it('has the 6 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
-    // (the Frostbitten Heir, 1-10: the Slime Prince's model in frost colours, Gate Arc)
-    expect(minis).toEqual(['goblin_machine', 'oni_champion', 'orc_general', 'slime_frost_heir', 'slime_prince']);
+    // (Gate Arc: the Frostbitten Heir, 1-10, on the Slime Prince's model in frost colours; Old Lamp-Hugger, 2-10, on
+    // the Bog Basilisk's model at miniboss scale)
+    expect(minis).toEqual(['goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_general', 'slime_frost_heir', 'slime_prince']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -880,6 +881,7 @@ describe('stages', () => {
     const fixedHas = (sid, eid) => getStage(sid).waveGen.fixed.some((f) => f.enemy === eid && f.wave === getStage(sid).waves);
     expect(fixedHas('1-5', 'slime_prince')).toBe(true);
     expect(fixedHas('1-10', 'slime_frost_heir')).toBe(true);
+    expect(fixedHas('2-10', 'lizard_lamp_hugger')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);
