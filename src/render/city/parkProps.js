@@ -164,7 +164,7 @@ export const PARK_BUILDERS = {
 
   greatWillow(c) {
     // the great willow on the reservoir's island (about two tiles across at s 1): a short thick trunk
-    // on spreading roots, a broad low crown of sage green in three layers, two rings of long weeping
+    // on spreading roots, a fluffy low crown of sage green, two rings of long weeping
     // strands hanging almost to the ground (foliage: they sway), a pale stone half buried in the roots
     const far = c.lod === 'far';
     const bark = '#5f4a38';
@@ -179,12 +179,18 @@ export const PARK_BUILDERS = {
     c.solid.sphere(0.12, 6, 4, { x: 0.18, y: 0.04, z: 0.22, sy: 0.7, color: '#d9e4ea' });
     c.glow.sphere(0.04, 5, 4, { x: 0.18, y: 0.1, z: 0.32, color: '#e6f6ff' });
     glowPoint(c, 0.18, 0.12, 0.34, '#d8f0ff', 0.4, 0.1);
-    const leaf = ['#7fa88a', '#6f9a7c', '#93b99d'];
-    c.foliage.blob(0.78, { y: 1.12, sy: 0.5, detail: far ? 0 : 1, wobble: 0.18, jitter: 0.05, rand: c.rand, color: leaf[1], attrs: { sway: () => 0.25 } });
-    c.foliage.blob(0.62, { x: 0.18, y: 1.32, z: -0.1, sy: 0.55, detail: far ? 0 : 1, wobble: 0.18, jitter: 0.05, rand: c.rand, color: leaf[0], attrs: { sway: () => 0.3 } });
-    c.foliage.blob(0.4, { x: -0.16, y: 1.5, z: 0.08, sy: 0.6, detail: 0, wobble: 0.18, jitter: 0.05, rand: c.rand, color: leaf[2], attrs: { sway: () => 0.35 } });
+    // a fluffy crown (a broad low heart, four side puffs, a top), sage green kept light enough to read
+    // on a night-and-fog board, and the strands round its rim, outside it, so the fringe shows from above
+    const leaf = ['#86b394', '#76a585', '#a3c9ad'];
+    const blob = (r, x, y, z, sy, col, detail) => c.foliage.blob(r, { x, y, z, sy, detail, wobble: 0.2, jitter: 0.05, rand: c.rand, color: col, attrs: { sway: () => 0.3 } });
+    blob(0.72, 0, 1.12, 0, 0.55, leaf[1], far ? 0 : 1);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      blob(0.4, Math.cos(a) * 0.5, 1.2 + (i % 2) * 0.06, Math.sin(a) * 0.5, 0.6, leaf[i % 2 ? 0 : 2], 0);
+    }
+    blob(0.36, 0.06, 1.48, -0.04, 0.65, leaf[2], 0);
     // the weeping strands: thin tapered cones hanging tip down round the crown's rim
-    const rings = far ? [[0.8, 12]] : [[0.84, 16], [0.6, 10]];
+    const rings = far ? [[0.9, 12]] : [[0.94, 18], [0.72, 10]];
     for (const [r, n] of rings) {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + r;

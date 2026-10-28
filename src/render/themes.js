@@ -650,7 +650,7 @@ const PARK = {
   bankDark: '#736f68',
   path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#9a9da6', base: '#6d727c', crisp: true, plainJunction: true, tone: 2.5 },
   // the reservoir: cold and deep, a notch darker than the lawns in greyscale
-  water: { deep: '#245a74', shallow: '#4a879c', foam: '#e2f0f4', glow: 0.03, caustic: 0.4, foamAmt: 0.65 },
+  water: { deep: '#245a74', shallow: '#4a879c', foam: '#e2f0f4', glow: 0.03, caustic: 0.26, foamAmt: 0.55 },
   trees: ['willow', 'sakura', 'round'],
   scatter: ['round', 'willow', 'sakura', 'streetTree'],
   scatterDensity: 0.45,
