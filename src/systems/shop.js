@@ -16,6 +16,7 @@ import { isOwned, ownedUnits } from './unlocks.js';
 import { spark } from './gacha.js';
 import { track } from './missions.js';
 import { kindredUseful, canAddChosenEssence, addChosenEssence, fuseShards, essenceBalance, essenceCap, KINDRED, SHARD_FUSION } from './essence.js';
+import { isLegendUnit } from '../data/recruitFeature.js';
 
 /** missions.counters key: the game week Ascension's rows were last reset for. */
 export const ASC_SHOP_MARK = 'shopwk:asc';
@@ -51,9 +52,9 @@ export function currencyBalance(profile, currency) {
   return itemCount(profile, currency);
 }
 
-/** Owned SSR girls who can take one more Essence (the Chosen SSR Essence row). */
+/** Owned SSR girls who can take one more Essence (the Chosen SSR Essence row; never an LR unit). */
 export function chosenEssenceTargets(profile, rarity = 'SSR') {
-  return ownedUnits(profile).filter((id) => UNIT_MAP[id]?.rarity === rarity && canAddChosenEssence(profile, id));
+  return ownedUnits(profile).filter((id) => UNIT_MAP[id]?.rarity === rarity && !isLegendUnit(id) && canAddChosenEssence(profile, id));
 }
 
 /** Does a row show at all? (§A.4 "no dead rows") */
@@ -147,7 +148,7 @@ export function buyOffer(profile, offerId, qty = 1, now = new Date(), opts = {})
   }
   if (offer.chosenEssence) {
     const id = opts.unitId;
-    if (!id || UNIT_MAP[id]?.rarity !== offer.chosenEssence || !canAddChosenEssence(profile, id)) return { ok: false, error: 'pick', rewards: [] };
+    if (!id || UNIT_MAP[id]?.rarity !== offer.chosenEssence || isLegendUnit(id) || !canAddChosenEssence(profile, id)) return { ok: false, error: 'pick', rewards: [] };
     if (!consumeItems(profile, [{ id: offer.currency, count: offer.price }])) return { ok: false, error: 'funds', rewards: [] };
     addChosenEssence(profile, id);
     profile.shop.bought[key] = bought + 1;

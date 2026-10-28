@@ -23,7 +23,7 @@ import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
 import { portraitHTML, portraitUrl, artUrl } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
-import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems/gacha.js';
+import { pull, pullCost, canSpark, spark, ratesTable, POOL, recruitFeature, promiseCount } from '../../systems/gacha.js';
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
@@ -151,19 +151,27 @@ function buildPage({ doPull, openSpark }) {
   const left = GACHA.pity - (g.pity || 0);
   const wrap = h('div.ma-recruit');
 
-  // Banner
-  const featured = FEATURED.map((id) => UNIT_MAP[id]).filter(Boolean);
+  // Banner (a spotlight, src/data/recruitFeature.js: her stand in the middle, her chip first, her rate and Promise)
+  const feature = recruitFeature();
+  const featured = (feature ? [feature.with[0], feature.unit, feature.with[1], ...FEATURED.filter((id) => !feature.with.includes(id))] : FEATURED)
+    .map((id) => UNIT_MAP[id]).filter(Boolean);
+  const chips = feature ? [UNIT_MAP[feature.unit], ...featured.filter((u) => u.id !== feature.unit)] : featured;
   const banner = h('section.ma-banner',
     h('div.ma-banner-bg', h('img.ma-banner-paint', { src: lobbyArtUrl('academy.webp'), alt: '', loading: 'eager', decoding: 'async', draggable: false })),
     h('div.ma-banner-rays'),
     // drawn key art: three featured girls' stands, the centre one in front (a three-girl banner)
     h('div.ma-banner-stands', featured.slice(0, 3).map((u, i) => h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) }))),
     h('div.ma-banner-text',
-      h('div.ma-banner-kicker-row', h('div.ma-banner-kicker', BANNER.kicker), bannerTimer()),
-      h('h2.ma-banner-title', 'Sakura Academy', h('br'), 'Open Enrollment'),
+      h('div.ma-banner-kicker-row', h(`div.ma-banner-kicker${feature ? '.new' : ''}`, { 'data-testid': 'banner-kicker' }, feature ? feature.kicker : BANNER.kicker), bannerTimer()),
+      feature
+        ? h('h2.ma-banner-title', UNIT_MAP[feature.unit].name, h('br'), UNIT_MAP[feature.unit].title)
+        : h('h2.ma-banner-title', 'Sakura Academy', h('br'), 'Open Enrollment'),
       // [ui-m5] the pity is said once, in the pity panel (P7)
-      h('p.ma-banner-desc', 'Every student and guardian is in the pool. SSR rate 1.5%.'),
-      h('div.ma-banner-featured', featured.map((u) => h('span.ma-feat-chip', svgEl(roleIcon(u.role), 'ma-trait'), u.name))),
+      feature
+        ? h('p.ma-banner-desc', { 'data-testid': 'feature-desc' }, `${UNIT_MAP[feature.unit].name} ${formatPct(GACHA.rates.SSR * feature.share, 1)} of the ${formatPct(GACHA.rates.SSR, 1)} SSR rate. Legend Promise: `,
+          h('b', { 'data-testid': 'feature-promise' }, `${promiseCount(profile)}/${feature.promise}`), '.')
+        : h('p.ma-banner-desc', 'Every student and guardian is in the pool. SSR rate 1.5%.'),
+      h('div.ma-banner-featured', chips.map((u) => h(`span.ma-feat-chip${feature?.unit === u.id ? '.feat' : ''}`, svgEl(roleIcon(u.role), 'ma-trait'), u.name))),
       h('div.ma-banner-links',
         button('Rates', { kind: 'ghost', small: true, icon: 'info', testid: 'rates', onClick: showRates }),
         button('History', { kind: 'ghost', small: true, icon: 'calendar', onClick: showHistory }),
@@ -184,7 +192,7 @@ function buildPage({ doPull, openSpark }) {
     h('div.ma-spark.panel',
       h('div.ma-pity-head', h('span.ma-sub', 'Recruit points'), h('b.ma-pity-left', formatNumber(g.recruitPoints || 0)), h('span.muted', `/ ${GACHA.sparkCost} to spark an SSR`)),
       h(`div.ma-progress${canSpark(profile) ? '.done' : ''}`, h('i', { style: { width: `${Math.min(100, Math.round(((g.recruitPoints || 0) / GACHA.sparkCost) * 100))}%` } })),
-      h('div.ma-spark-row', h('span.muted', 'Pick any SSR once you reach the goal.'), button('Spark', { kind: canSpark(profile) ? 'yellow' : 'ghost', small: true, icon: 'sparkle', onClick: openSpark, testid: 'spark' })),
+      h('div.ma-spark-row', h('span.muted', feature ? `Pick any SSR but ${UNIT_MAP[feature.unit].name} once you reach the goal.` : 'Pick any SSR once you reach the goal.'), button('Spark', { kind: canSpark(profile) ? 'yellow' : 'ghost', small: true, icon: 'sparkle', onClick: openSpark, testid: 'spark' })),
     ),
     h('div.ma-tickets',
       ticketPill('ticket_recruit', itemCount(profile, 'ticket_recruit')),
@@ -260,7 +268,7 @@ function showRates() {
   const t = ratesTable();
   const rarityRow = (r) => h('tr', h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[r].color } }, r)), h('td', formatPct(t.base[r], 1)), h('td', `${t.perUnit[r].length} units`));
   const unitRows = ['SSR', 'SR', 'R'].flatMap((r) => t.perUnit[r].map((x) => h('tr',
-    h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[r].color } }, r), ' ', UNIT_MAP[x.unitId]?.name || x.unitId, UNIT_MAP[x.unitId]?.kind === 'hero' ? h('span.ma-hero-tag', 'HERO') : null),
+    h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[r].color } }, r), ' ', UNIT_MAP[x.unitId]?.name || x.unitId, UNIT_MAP[x.unitId]?.kind === 'hero' ? h('span.ma-hero-tag', 'HERO') : null, x.featured ? h('span.ma-hero-tag.new', 'NEW') : null),
     h('td', ROLES[UNIT_MAP[x.unitId]?.role]?.name || ''),
     h('td', formatPct(x.rate, 3)),
   )));
@@ -273,7 +281,8 @@ function showRates() {
         h('li', h('b', `Pity: `), `the ${t.pity}th recruit without an SSR is always an SSR. The counter resets whenever any SSR appears and carries over between sessions.`),
         h('li', h('b', 'Consolidated SSR rate: '), `${formatPct(t.consolidatedSSR, 2)} per recruit including pity (on average one SSR every ${Math.round(1 / t.consolidatedSSR)} recruits).`),
         h('li', h('b', '10× guarantee: '), 'every 10× recruit contains at least one SR or better.'),
-        h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${t.sparkCost} points exchange for any SSR in the Recruit Exchange.`),
+        t.feature ? h('li', h('b', `${t.feature.kicker}: `), `${UNIT_MAP[t.feature.unit].name} is ${formatPct(t.base.SSR * t.feature.share, 1)} of the ${formatPct(t.base.SSR, 1)} SSR rate (a pity SSR is her ${Math.round(t.feature.share * 100)}% of the time). Legend Promise: after ${t.feature.promise - 1} recruits without her, the next one is her; the count starts over when she joins.`) : null,
+        h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${t.sparkCost} points exchange for any SSR in the Recruit Exchange${t.feature ? ` except ${UNIT_MAP[t.feature.unit].name}, who can't be sparked or picked with a Select Ticket` : ''}.`),
         h('li', h('b', 'Duplicates: '), potentialDupesRule()),
         h('li', h('b', 'Tickets first: '), 'Recruit tickets are always used before gems.'),
       ),
@@ -463,6 +472,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
 function showcaseKicker(r) {
   const parts = ['SSR'];
   if (r.pity) parts.push('pity');
+  if (r.promise) parts.push('Legend Promise');
   if (!r.isNew && r.readyStep) parts.push(`+1 Essence · P${r.readyStep} ready!`);
   else if (!r.isNew && r.essence) parts.push('+1 Essence');
   else if (!r.isNew && r.spare) parts.push(`Spare → ${spareText(r.spare)}`);
