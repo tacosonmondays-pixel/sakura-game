@@ -84,9 +84,14 @@ export function listAt(name, d) {
 /** Day number a pin starts on (its start instant converted with the game-day clock). */
 export const pinStartDay = (pin) => gameDayNumber(Date.parse(pin.start));
 
-/** The pin that holds `slot` on day d, if any (only for released units). */
+/** The pins that hold `slot` on day d (only for released units), in PINS order. */
+export function pinsAt(slot, d) {
+  return PINS.filter((p) => p.slot === slot && exists(p.unit) && d >= pinStartDay(p) && d < pinStartDay(p) + p.days);
+}
+
+/** The pin that holds `slot` on day d, if any (the first, when two premieres run together). */
 export function pinAt(slot, d) {
-  return PINS.find((p) => p.slot === slot && exists(p.unit) && d >= pinStartDay(p) && d < pinStartDay(p) + p.days) || null;
+  return pinsAt(slot, d)[0] || null;
 }
 
 /**
@@ -181,9 +186,20 @@ export function heroBanner(d) {
   });
 }
 
-/** The LR Banner on day d: a debut pin, else the everyday rotation of released LR units; null when none. */
-export function legendBanner(d) {
-  const pin = pinAt('legend', d);
+/**
+ * The LR Banners on day d: one per debut pin that runs that day (two premieres can run side by side, each with its
+ * own rate and Legend Promise), else the one everyday-rotation banner; empty when none.
+ */
+export function legendBanners(d) {
+  const pins = pinsAt('legend', d);
+  if (pins.length) return pins.map((pin) => legendBanner(d, pin));
+  const b = legendBanner(d);
+  return b ? [b] : [];
+}
+
+/** The LR Banner on day d: a debut pin (`only` picks one when two run), else the everyday rotation; null when none. */
+export function legendBanner(d, only = null) {
+  const pin = only || pinAt('legend', d);
   let unit = pin?.unit || null;
   if (!unit) {
     const rot = legendRotation(d);
@@ -292,7 +308,7 @@ export const isFriendshipLive = () => friendshipLive;
 export function activeBanners(profile, now = Date.now()) {
   const d = bannerDay(profile, now);
   return [
-    legendBanner(d), towerBanner(d), heroBanner(d), standardBanner(d, profile),
+    ...legendBanners(d), towerBanner(d), heroBanner(d), standardBanner(d, profile),
     coinUnlocked(profile) ? coinBanner(d) : null,
     friendshipLive ? friendBanner(d) : null,
   ].filter(Boolean);

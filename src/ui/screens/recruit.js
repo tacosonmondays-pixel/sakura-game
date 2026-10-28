@@ -43,6 +43,9 @@ const SLOT_ICON = { legend: 'star', tower: 'students', hero: 'shield', standard:
 const TAB_KEY = 'sakura-recruit-tab';
 const CLASS_LABEL = { standard: 'Standard', premium: 'Premium', legend: 'LR unit' };
 
+/** A rail tab's key: its slot, and for an LR Banner its unit too (two premieres can run side by side). */
+const tabKey = (b) => (b.slot === 'legend' ? `legend:${b.legend}` : b.slot);
+
 function savedTab() {
   try { return localStorage.getItem(TAB_KEY); } catch { return null; }
 }
@@ -71,14 +74,14 @@ export function render(root, params = {}) {
   const banners = () => activeBanners(store.profile);
   const current = () => {
     const list = banners();
-    return list.find((b) => b.slot === slot) || list.find((b) => b.slot === 'tower') || list[0];
+    return list.find((b) => tabKey(b) === slot) || list.find((b) => b.slot === slot) || list.find((b) => b.slot === 'tower') || list[0];
   };
 
   const draw = () => {
     clear(body);
     const list = banners();
     const b = current();
-    slot = b.slot;
+    slot = tabKey(b);
     shownDay = bannerDay(store.profile);
     body.appendChild(buildPage(list, b, { doPull, openSpark, pick: (s) => { slot = s; saveTab(s); draw(); } }));
   };
@@ -218,13 +221,16 @@ export function render(root, params = {}) {
 // ---------------------------------------------------------------------------
 
 function bannerRail(list, active, pick) {
+  const firstLegend = list.find((b) => b.slot === 'legend');
   return h('nav.bn-rail', { role: 'tablist', 'aria-label': 'Banners' }, list.map((b) => {
     const k = BANNER_KINDS[b.slot];
-    const on = b.slot === active.slot;
+    const on = tabKey(b) === tabKey(active);
+    // (two premieres side by side: the first LR tab keeps its test id, the next one is named by its unit)
+    const testid = b.slot === 'legend' && b !== firstLegend ? `banner-tab-legend-${b.legend}` : `banner-tab-${b.slot}`;
     return h(`button.bn-tab.k-${b.slot}${on ? '.on' : ''}`, {
-      type: 'button', role: 'tab', 'aria-selected': on ? 'true' : 'false', 'data-testid': `banner-tab-${b.slot}`,
+      type: 'button', role: 'tab', 'aria-selected': on ? 'true' : 'false', 'data-testid': testid,
       title: `${k.label}${b.slot === 'standard' ? '' : ` · ${UNIT_MAP[b.select].name}`}`,
-      onclick: () => pick(b.slot),
+      onclick: () => pick(tabKey(b)),
     },
     h('span.bn-tab-art', { html: portraitHTML(UNIT_MAP[b.select], 'thumb') }),
     h('span.bn-tab-label', k.short),
@@ -271,7 +277,7 @@ function nextLine(b) {
 function bannerDesc(b) {
   if (b.slot === 'coin') return 'Paid with coins: mostly R and SR copies for Potential, a tiny Standard SSR chance. No pity and no Recruit Points; spare copies pay coins.';
   if (b.slot === 'friend') return 'Paid with Friend Points: Standard girls only. No pity and no Recruit Points; spare copies pay coins.';
-  if (b.slot === 'legend') return 'An LR unit starts in SSR form, becomes UR at ★5 and LR through Limit Break. She cannot be sparked, but pulls here still earn Recruit Points for other girls.';
+  if (b.slot === 'legend') return `An LR unit starts in SSR form, becomes UR at ★5 and LR through Limit Break. ${UNIT_MAP[b.legend]?.duo ? 'They' : 'She'} cannot be sparked, but pulls here still earn Recruit Points for other girls.`;
   if (b.slot === 'standard') return 'Standard students and guardians only. You choose its featured SSR.';
   if (b.slot === 'hero') return 'Guardians: the featured SSR hero, plus every Standard SR and R.';
   return 'Towers only: the featured SSR student, plus every Standard SR and R student.';

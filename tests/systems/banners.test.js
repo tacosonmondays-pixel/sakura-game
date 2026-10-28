@@ -139,7 +139,7 @@ describe('rotation (§A.4)', () => {
     expect(p.missions.counters['gb:seen']).toBe(B.keyNumber('2026-11-20'));
     expect(B.bannerDay(p, at('2026-11-22'))).toBe(B.keyNumber('2026-11-22'));
   });
-  it('pins: a debut wins its slot for its days; two pins in one slot never overlap; no LR unit on a Spotlight', () => {
+  it('pins: a debut wins its slot for its days; Spotlight pins never overlap; LR premieres may run side by side', () => {
     for (const pin of PINS) {
       expect(Number.isFinite(Date.parse(pin.start))).toBe(true);
       expect(['tower', 'hero', 'legend']).toContain(pin.slot);
@@ -150,22 +150,32 @@ describe('rotation (§A.4)', () => {
       for (const q of PINS) {
         if (q === pin || q.slot !== pin.slot) continue;
         const a = B.pinStartDay(pin), b = B.pinStartDay(q);
-        expect(a + pin.days <= b || b + q.days <= a).toBe(true);
+        const apart = a + pin.days <= b || b + q.days <= a;
+        // (two LR premieres may overlap, each its own LR tab; never the same unit twice)
+        if (pin.slot === 'legend') expect(apart || pin.unit !== q.unit).toBe(true);
+        else expect(apart).toBe(true);
       }
     }
     const tenka = PINS.find((x) => x.unit === 'tenka');
     const d = B.pinStartDay(tenka);
-    for (let k = 0; k < tenka.days; k++) expect(B.legendBanner(d + k)).toMatchObject({ legend: 'tenka', debut: true });
+    const lrOf = (day, unit) => B.legendBanners(day).find((b) => b.legend === unit);
+    for (let k = 0; k < tenka.days; k++) expect(lrOf(d + k, 'tenka')).toMatchObject({ debut: true, legendRate: 7000 });
     const after = B.legendBanner(d + tenka.days);
     expect(after.legend === 'tenka' && after.debut).toBe(false);
     // the duo (a new LR unit, `hold`): never on the LR tab before her debut, then her debut week, then daily with Tenka
     const duo = PINS.find((x) => x.unit === 'kohaku_tsubaki');
     if (UNIT_MAP.kohaku_tsubaki) {
       const s0 = B.pinStartDay(duo);
-      for (let k = 1; k <= 20; k++) expect(B.legendBanner(s0 - k)?.legend).not.toBe('kohaku_tsubaki');
-      for (let k = 0; k < duo.days; k++) expect(B.legendBanner(s0 + k)).toMatchObject({ legend: 'kohaku_tsubaki', debut: true, legendRate: 7000 });
-      const later = new Set([0, 1, 2, 3].map((k) => B.legendBanner(s0 + duo.days + k).legend));
+      for (let k = 1; k <= 20; k++) expect(lrOf(s0 - k, 'kohaku_tsubaki')).toBeUndefined();
+      for (let k = 0; k < duo.days; k++) expect(lrOf(s0 + k, 'kohaku_tsubaki')).toMatchObject({ debut: true, legendRate: 7000 });
+      // both premieres together: two LR banners, two ids, each with its own Legend Promise unit
+      const both = B.legendBanners(s0);
+      expect(both.map((b) => b.legend)).toEqual(['tenka', 'kohaku_tsubaki']);
+      expect(new Set(both.map((b) => b.id)).size).toBe(2);
+      const end = Math.max(d + tenka.days, s0 + duo.days);
+      const later = new Set([0, 1, 2, 3].map((k) => B.legendBanner(end + k).legend));
       expect([...later].sort()).toEqual(['kohaku_tsubaki', 'tenka']);
+      for (let k = 0; k < 4; k++) expect(B.legendBanners(end + k)).toHaveLength(1);
     }
   });
   it('look-ahead shows the next two days; Tenka (out before banners) is on the everyday LR tab before her debut', () => {

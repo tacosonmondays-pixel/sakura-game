@@ -82,7 +82,7 @@ export const PINS = Object.freeze([
     sr: ['miko', 'umeko', 'raika'], name: 'Physics Club Premiere', debut: true,
   },
   {
-    slot: 'legend', unit: 'kohaku_tsubaki', start: '2026-11-05T19:00:00-06:00', days: 7, rate: 7000,
+    slot: 'legend', unit: 'kohaku_tsubaki', start: '2026-10-28T19:00:00-05:00', days: 7, rate: 7000,
     sr: ['akane', 'sango', 'shiro'], name: 'Starfall Premiere', debut: true, hold: true,
   },
 ]);

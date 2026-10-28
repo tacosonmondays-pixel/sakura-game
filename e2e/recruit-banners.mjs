@@ -69,7 +69,9 @@ async function run(vp) {
   await page.waitForTimeout(600);
 
   const tabs = await page.$$eval('.bn-tab', (els) => els.map((e) => e.dataset.testid));
-  check(JSON.stringify(tabs) === JSON.stringify(['banner-tab-legend', 'banner-tab-tower', 'banner-tab-hero', 'banner-tab-standard']), `rail shows LR, Student, Guardian, Standard (${tabs.join(', ')})`);
+  // (in the release week two LR premieres run side by side: Tenka's and the duo's, each its own LR tab)
+  const lrTabs = tabs.filter((t) => t.startsWith('banner-tab-legend'));
+  check(JSON.stringify(tabs.filter((t) => !t.startsWith('banner-tab-legend'))) === JSON.stringify(['banner-tab-tower', 'banner-tab-hero', 'banner-tab-standard']) && tabs[0] === 'banner-tab-legend' && lrTabs.length >= 1, `rail shows the LR tab(s), Student, Guardian, Standard (${tabs.join(', ')})`);
   check(await page.isVisible('[data-testid="banner-time"]'), 'the countdown shows');
   await shot('1-student');
 
@@ -92,6 +94,15 @@ async function run(vp) {
   check(/Physics Club/.test(title), `LR tab is Tenka's debut banner (${title})`);
   check(/0\s*\/ 300|0\/ 300|300/.test(await page.textContent('[data-testid="promise"]')), 'Legend Promise bar shows /300');
   await shot('3-lr');
+  if (lrTabs.includes('banner-tab-legend-kohaku_tsubaki')) {
+    await tap('[data-testid="banner-tab-legend-kohaku_tsubaki"]');
+    await page.waitForTimeout(300);
+    const t2 = await page.textContent('[data-testid="banner-title"]');
+    check(/Starfall Premiere/.test(t2) && /0\.7%/.test(await page.textContent('.bn-banner, .ma-banner')), `the duo's LR tab is their Starfall Premiere at 0.7% (${t2})`);
+    await shot('3b-lr-duo');
+    await tap('[data-testid="banner-tab-legend"]');
+    await page.waitForTimeout(300);
+  }
   await tap('[data-testid="rates"]');
   await page.waitForSelector('[data-testid="rates-page"]');
   check(/0\.7%/.test(await page.textContent('[data-testid="rates-page"]')), 'LR rates page shows 0.7% in the debut week');
