@@ -15,6 +15,7 @@ import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
 import { hashString, createRng } from '../core/rng.js';
 import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
+import { LEGACY_JOIN_STAGES, JOIN_PREFIX } from './catchUpJoins.js';
 import { eventRunGate, eventAfterBattle, eventStageStatus, eventDifficultyStatus, trackEvent, eventSweepsLeft, useEventSweeps } from './events.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
@@ -26,6 +27,19 @@ export const MAX_SWEEPS = 10;
 export const MODE_RIBBON_GEMS = Object.freeze({ easy: 0, normal: 0, hard: 0, nightmare: 0 });
 
 const diffIndex = (d) => Math.max(0, DIFFICULTY_ORDER.indexOf(d));
+
+/**
+ * The gems a stage's first medal on a difficulty pays: DIFFICULTIES[d].firstClearGems (20 / 40 / 60 / 100) × the
+ * stage's `medalGemMul` (Act II: 0.5 → 10 / 20 / 30 / 50), rounded. Stage prep shows the same number.
+ * @param {object} stage StageDef
+ * @param {string} difficulty
+ * @returns {number}
+ */
+export function medalGems(stage, difficulty) {
+  const base = DIFFICULTIES[difficulty]?.firstClearGems || 0;
+  const mul = Number.isFinite(stage?.medalGemMul) && stage.medalGemMul >= 0 ? stage.medalGemMul : 1;
+  return Math.round(base * mul);
+}
 
 /** [events] An event stage pays only on its own `difficulties`; every other stage on all four (a locked one: eventDifficultyStatus). */
 export function eventDifficultyOk(stage, difficulty) {
@@ -162,7 +176,8 @@ export function battleDropSeed(stageId, difficulty, seed) {
 /**
  * Apply a finished battle (sim.result()) to the profile.
  * - bestiary: every encountered enemy becomes `seen`; on a WIN it also becomes `discovered`
- * - win: medal for the difficulty, first-clear gems per difficulty (DIFFICULTIES.firstClearGems),
+ * - win: medal for the difficulty, first-clear gems per difficulty (medalGems: DIFFICULTIES.firstClearGems × the
+ *   stage's medalGemMul),
  *   stage.firstClear on the very first clear, free unit unlocks, drop rolls
  * - loss: a small coin consolation (40 per wave cleared)
  * - stats, kills and mission tracking (battleWin/battleWinHard/kill/bossKill) are handled here
@@ -287,7 +302,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
       if (!entry.modes['nightmare:laststand']) out.newRibbon = true;
       entry.modes['nightmare:laststand'] = true;
     }
-    if (out.newMedal && stage.kind !== 'challenge') rewards.push({ id: 'gems', count: DIFFICULTIES[difficulty].firstClearGems });
+    if (out.newMedal && stage.kind !== 'challenge') rewards.push({ id: 'gems', count: medalGems(stage, difficulty) });
     if (out.firstClear) rewards.push(...(stage.firstClear || []));
     for (const unitId of medalOk ? stage.unlocks?.units || [] : []) {
       if (!isOwned(profile, unitId)) {
@@ -298,6 +313,15 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     // [banners G6] Limit Break: a won trial (or its stand-in) makes an LR unit LR, once, with 300 gems + 1 ticket
     out.limitBreak = creditLimitBreak(profile, result, difficulty);
     for (let i = 0; i < out.limitBreak.length; i++) rewards.push(...LB_REWARD);
+    // a girl whose join moved (Gate Arc: Yuzuha 4-2 → 1-7) still joins on a win of her old stage when she has not
+    // met the squad yet: the same grant and results card; her 'join:' mark settles the lobby catch-up
+    const counters = ((profile.missions ||= {}).counters ||= {});
+    for (const [unitId, ids] of Object.entries(LEGACY_JOIN_STAGES)) {
+      if (!ids.includes(stage.id) || isOwned(profile, unitId) || counters[JOIN_PREFIX + unitId] > 0) continue;
+      grantUnit(profile, unitId);
+      counters[JOIN_PREFIX + unitId] = 1;
+      out.unlockedUnits.push(unitId);
+    }
     const mul = battleEventMul(stage.id, now, eventAt);
     out.eventBonus = mul > 1;
     const drops = rollStageDrops(stage.id, difficulty, rng, { dropMul: mul });

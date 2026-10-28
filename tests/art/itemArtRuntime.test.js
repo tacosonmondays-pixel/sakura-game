@@ -192,13 +192,9 @@ describe('display only: the battle sim is untouched', () => {
 
   it('the sim id for this co-op protocol is unchanged (a sim change must bump COOP_PROTOCOL)', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
-    const KNOWN = { 8: '92e2e22527cf' };
-    // feature/abilities only: the abilities work changes the sim on protocol 8 and bumps it to 9 once, at its release
-    // (A3 plan M7, which adds `9: '<id>'` above and removes this line). Only this exact in-progress id passes here.
-    // (wip/duo-unit: the duo Kohaku & Tsubaki moves the in-progress id from c22b2587f4b7; the coordinator bumps once)
-    const PENDING_BUMP = { 8: 'c871d96ae6db' };
+    // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c' };
     if (!KNOWN[COOP_PROTOCOL]) return;
-    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });

@@ -15,7 +15,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CameraRig, clearSlide } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
-import { attachBoardInput } from './boardInput.js';
+import { attachBoardInput, boardPoint } from './boardInput.js';
 import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
@@ -24,7 +24,7 @@ import { RuleDecals } from './ruleDecals.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
 import { BuffIcons } from './buffIcons.js';
-import { buildTerrain, resolveScenery } from './terrain.js';
+import { buildTerrain, resolveScenery, ROOF_Y } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
 import { clearCostumeCache } from './costumes.js';
@@ -35,6 +35,7 @@ import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
 import { fmtNum } from '../ui/format.js';
+import { createBlackout } from './blackout.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -171,8 +172,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const terrain = buildTerrain(map, look, scenery, { shadows: false, quality, reverse: !!sim.mode?.reverse });
   scene.add(terrain.group);
   const fx = new FxSystem({ atlas, batches, camera });
+  if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
+  // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
+  // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
+  const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
@@ -311,7 +316,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function applyLighting() {
     const ex = THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8);
     const w = THREE.MathUtils.clamp(lighting.warmth ?? 0, -1, 1);
-    hemi.intensity = baseLight.hemi * ex;
+    hemi.intensity = baseLight.hemi * ex * blackout.hemiScale();
     key.intensity = baseLight.key * ex;
     fill.intensity = baseLight.fill * ex;
     key.color.copy(baseLight.keyColor).lerp(new THREE.Color(w >= 0 ? '#ffc890' : '#b8d0ff'), Math.abs(w) * 0.45);
@@ -534,8 +539,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const v = actors.towerView(ev.towerUid);
           if (v) {
             const m = v.model.position;
-            fx.shards(m.x, 0.6, m.z, '#ffcc33', 6);
-            fx.puff(m.x, 0.5, m.z, '#4a4a55', 5, 0.3, 0.35);
+            fx.shards(m.x, m.y + 0.55, m.z, '#ffcc33', 6);
+            fx.puff(m.x, m.y + 0.45, m.z, '#4a4a55', 5, 0.3, 0.35);
           }
           break;
         }
@@ -560,7 +565,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (!t) break;
           const col = PATH_COLORS[ev.path] || '#ffd84d';
           fx.sparkle(t.x, t.y, col, { count: 10 + ev.tier * 4, height: 0.8 + ev.tier * 0.2 });
-          if (ev.tier >= 3) fx.flash(t.x, 0.6, t.y, col, 1.4 + ev.tier * 0.2, 0.3);
+          if (ev.tier >= 3) fx.flash(t.x, 0.6 + fx.lift(t.x, t.y), t.y, col, 1.4 + ev.tier * 0.2, 0.3);
           if (ev.tier >= 5) {
             shake(0.05);
             screenFlash(col, 0.25, 3);
@@ -571,8 +576,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const v = actors.towerView(ev.towerUid);
           if (v) {
             const m = v.model.position;
-            fx.puff(m.x, 0.3, m.z, '#ffffff', 6, 0.4, 0.35);
-            fx.coin(m.x, 0.2, m.z, ev.refund);
+            fx.puff(m.x, m.y + 0.25, m.z, '#ffffff', 6, 0.4, 0.35);
+            fx.coin(m.x, m.y + 0.15, m.z, ev.refund);
           }
           overlays.refreshHints();
           break;
@@ -592,7 +597,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (v) {
             const m = v.model.position;
             fx.sparkle(m.x, m.z, '#ffd84d', { count: 16, height: 1.2 });
-            fx.text(fmtNum(ev.level, 'level'), m.x, 1.2, m.z, '#ffd84d', 0.24, 1.2, 0.5);
+            fx.text(fmtNum(ev.level, 'level'), m.x, 1.15 + m.y, m.z, '#ffd84d', 0.24, 1.2, 0.5);
           }
           break;
         }
@@ -658,6 +663,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
     actors.cameraYaw = rig.yaw;
+    if (blackout.enabled) {
+      for (const ev of events) blackout.handle(ev);
+      if (blackout.step(d)) {
+        terrain.setDim(blackout.dim);
+        ambient.dim = blackout.dim;
+        hemi.intensity = baseLight.hemi * THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8) * blackout.hemiScale();
+      }
+    }
     actors.sync(d);
     if (!compBroken) {
       try {
@@ -666,6 +679,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
         compFail(err);
       }
     }
+    // the lane schedule (Gate Arc): the level crossings show this wave's lanes, or the next wave's
+    // between waves (the barrier comes down before the column arrives)
+    terrain.setLanes(sim.openLanes ? sim.openLanes() : null);
     terrain.update(time);
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
@@ -750,14 +766,15 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const rect = canvas.getBoundingClientRect();
     ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    const hit = raycaster.ray.intersectPlane(plane, hitP);
+    // the ground plane, or a rooftop's top first (Gate Arc 'U' tiles: boardInput.js boardPoint)
+    const hit = terrain.roofs ? boardPoint(raycaster.ray, terrain.roofAt, ROOF_Y) : raycaster.ray.intersectPlane(plane, hitP) && { x: hitP.x, y: hitP.z };
     let x = null;
     let y = null;
     let tx = -999;
     let ty = -999;
     if (hit) {
-      x = hitP.x;
-      y = hitP.z;
+      x = hit.x;
+      y = hit.y;
       tx = Math.floor(x);
       ty = Math.floor(y);
     }
@@ -778,7 +795,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const radius = 0.38 / rig.scale;
       let best = radius * radius;
       for (const t of sim.towers) {
-        const s = projectPx(t.x, t.y, 0.45, rect);
+        const s = projectPx(t.x, t.y, 0.45 + (terrain.roofAt?.(t.x, t.y) || 0), rect);
         const dd = (s.x - px) ** 2 + (s.y - py) ** 2;
         if (dd < best) {
           best = dd;
@@ -1042,7 +1059,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {
-      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
+      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null };
     },
     dispose() {
       if (disposed) return;

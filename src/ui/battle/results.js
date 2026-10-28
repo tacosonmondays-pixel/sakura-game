@@ -22,6 +22,7 @@ import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
 import { abilityResultLine } from './abilityBar.js';
 import { boltText } from '../kit.js';
+import { isStageUnlocked } from '../../systems/unlocks.js';
 import { fellTo } from './freeplay.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { FREEPLAY_REWARDS, freeplayTomeLine } from '../../online/coop/rewards.js';
@@ -228,7 +229,9 @@ export function createResults(ctx) {
     if (ctx.extraActions) {
       return h('div.bt-result-actions', ctx.extraActions().map((a) => h(`button.${a.cta ? 'bt-cta' : 'bt-btn'}`, { 'data-testid': a.testid, onclick: a.onClick }, a.icon ? icon(a.icon, 'bt-ico-sm') : null, a.label)));
     }
-    const next = won ? followingStage(stage.id) : null;
+    // Next Stage only leads somewhere playable: 1-10's next is 2-6, which also waits for 2-5 (a two-key stage)
+    const following = won ? followingStage(stage.id) : null;
+    const next = following && isStageUnlocked(store.profile, following) ? following : null;
     return h(
       'div.bt-result-actions',
       next ? h('button.bt-cta', { 'data-testid': 'next-stage', onclick: () => ctx.goNext(next) }, 'Next Stage', icon('play', 'bt-ico-sm')) : null,

@@ -173,6 +173,8 @@ export async function drawerPathsInView(page) {
  *          a control (none may)
  *   faces  every chip, FIRE and her ability's name: points of the control's own face that reach anything else (none may)
  *   chips  each chip's hit height and width, hit tested out from its centre
+ *   foot   points of the scroll body (the rows above the footer) that reach a footer control, Sell or MORE (none may;
+ *          the M4 review, round r3: Sell's hit area reached 8 px up over the last row's lock "i")
  * Also each path row's name line: its lines and whether its ⚡ chip sits on a line of its own.
  */
 export async function drawerHits(page) {
@@ -220,6 +222,15 @@ export async function drawerHits(page) {
       });
       if (Object.keys(other).length) faces.push({ face: `${name(e)} "${e.textContent.trim().slice(0, 16)}"`, covered: other });
     }
+    const foot = {};
+    const footEl = p.querySelector('.bt-panel-foot');
+    if (footEl) {
+      const fr = footEl.getBoundingClientRect();
+      grid(clip({ left: port.left, right: port.right, top: port.top, bottom: Math.min(port.bottom, fr.top) }), (x, y) => {
+        const { c } = ctlAt(x, y);
+        if (c && footEl.contains(c)) foot[name(c)] = (foot[name(c)] || 0) + 1;
+      });
+    }
     const chips = [...p.querySelectorAll('.bt-tchip')].filter(shown).map((e) => {
       const r = e.getBoundingClientRect();
       const cx = r.left + r.width / 2;
@@ -247,7 +258,7 @@ export async function drawerHits(page) {
       const br = shown(bolt) ? bolt.getBoundingClientRect() : null;
       return { path: Number(row.dataset.path), name: nm.textContent.trim(), lines: lines(nm), px: parseFloat(getComputedStyle(nm).fontSize), boltOwnLine: br ? br.top >= nr.bottom - 3 : false, rowH: Math.round(row.getBoundingClientRect().height) };
     });
-    return { dead, faces, chips, minChipH: chips.length ? Math.min(...chips.map((c) => c.hitH)) : null, names };
+    return { dead, faces, foot: Object.keys(foot).length ? foot : null, chips, minChipH: chips.length ? Math.min(...chips.map((c) => c.hitH)) : null, names };
   });
 }
 

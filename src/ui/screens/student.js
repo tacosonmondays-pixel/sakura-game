@@ -61,6 +61,7 @@ import { buildTreeModel } from '../treeModel.js';
 import { heroTrackBand, fullTrackList } from '../heroTrack.js';
 import { UPGRADE_TAGS, TAG_ORDER } from '../upgradeTags.js';
 import { girlPageMode, infoView, awakenStars, starBonus, manualOpen, pathTiers } from '../girlDetail.js';
+import { tabSwap } from '../motion.js';
 
 // one word per tab (§5.3); the ids and their tab-<id> testids never change
 const TABS = [
@@ -1233,7 +1234,8 @@ export function render(root, params = {}) {
     }
     tabHost.appendChild(content);
     if (animate) {
-      content.classList.add('mb-fade');
+      // [ui-ink] the tab's content comes in: a 120 ms crossfade, a 12 px shift the way the rail was walked (motion.js)
+      tabSwap(content);
       tabHost.scrollTop = 0;
     } else tabHost.scrollTop = scroll;
   }

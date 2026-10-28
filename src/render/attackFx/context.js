@@ -58,6 +58,8 @@ export function createContext(o) {
     shed: 0,
     readScale: 1,
     selectedUid: null,
+    /** true while a style's projectile origin() runs (see hand) */
+    inOrigin: false,
     /** scratch arrays for victim lookups (reused) */
     victims: [],
     vpos: [],
@@ -196,13 +198,23 @@ export function createContext(o) {
       return v ? v.scale / 1.22 : 1;
     },
 
-    /** Weapon-hand point of a girl. Writes out.x, out.y (ground), out.h (height). */
+    /** Rooftop height a girl stands on (Gate Arc 'U' tiles; her view's lift), else 0. */
+    lift(t) {
+      const v = ctx.actors.towers.get(t.uid);
+      return v ? v.lift || 0 : 0;
+    },
+
+    /**
+     * Weapon-hand point of a girl. Writes out.x, out.y (ground), out.h (height). A roof girl's
+     * hand is lifted with her, except inside a style's projectile `origin` (index.js lifts the
+     * muzzle itself there, so every origin gets it once).
+     */
     hand(t, out) {
       const f = ctx.facing(t);
       const s = ctx.bodyScale(t);
       out.x = t.x + Math.sin(f) * 0.22 * s;
       out.y = t.y + Math.cos(f) * 0.22 * s;
-      out.h = 0.55 * s;
+      out.h = 0.55 * s + (ctx.inOrigin ? 0 : ctx.lift(t));
       return out;
     },
 

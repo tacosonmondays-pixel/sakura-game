@@ -17,6 +17,7 @@ import { countdownChip, iconBtn, ico } from '../kit.js';
 import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
 import { nextWeeklyReset } from '../../core/reset.js';
 import { navigate, rememberParams } from '../router.js';
+import { walletsFor } from '../wallets.js';
 import { listScreen } from '../listScreen.js';
 import { openSheet } from '../sheet.js';
 import { railTabs, walletChips, restockKind, RESTOCK_LABEL, mallHostState, stockLine, onGameWeek } from '../mallView.js';
@@ -111,6 +112,8 @@ export function render(root, params = {}) {
   const draw = () => {
     clear(content);
     const tab = shopTabs(store.profile).find((t) => t.id === active);
+    // [ui-ink] the top bar shows the active shop's own currency (src/ui/wallets.js, UI v2 Q3)
+    el.querySelector('.topbar .cur-pills')?.setWallets?.(walletsFor('mall', { tab: active }));
     // E2: the shop's name, its restock chip (a recurring cycle: never red; at zero the shelves restock and redraw),
     // its wallet once (token shops only) and its sentence behind "i"
     const kind = restockKind(tab);

@@ -285,3 +285,172 @@ describe('autoPlan on the continuous lattice', () => {
     void STAGE;
   });
 });
+
+// ---------------------------------------------------------------------------
+// Rooftops ('U', Gate Arc): a flat roof is land; a girl centred on one keeps her whole footprint
+// on roof tiles; for a girl on the ground a roof is a wall; water girls cannot stand there.
+// ---------------------------------------------------------------------------
+// 16 × 9, path along row 4 (y = 4.5): a 2×2 roof at x 1-2 / y 1-2, a one-tile roof at (9, 2), a
+// 3×2 roof at x 12-14 / y 6-7, a roof on the board's west edge at (0, 7), water at x 5-6 / y 1.
+const ROOF_MAP = {
+  id: 'test-roofs',
+  name: 'Roof Test',
+  theme: 'sakura',
+  tier: 'beginner',
+  width: 16,
+  height: 9,
+  rows: [
+    '................',
+    '.UU..~~.........',
+    '.UU......U......',
+    '................',
+    '................',
+    '................',
+    '............UUU.',
+    'U...........UUU.',
+    '................',
+  ],
+  paths: [[[-1, 4], [16, 4]]],
+};
+const WIDE = { ...UNITS.archer, id: 'wide', footprint: 0.6 };
+const AMPHI = { ...UNITS.archer, id: 'amphi', placement: 'amphibious' };
+
+describe('rooftops (U)', () => {
+  const rules = createPlacementRules(ROOF_MAP, buildPaths(ROOF_MAP));
+
+  test('a girl centred on a roof fits; one straddling its edge is blocked', () => {
+    expect(rules.isRoof(2, 2)).toBe(true);
+    expect(rules.isRoof(3.2, 2)).toBe(false);
+    expect(rules.isRoof(-0.5, 2)).toBe(false);
+    // the 2×2 roof covers [1, 3] × [1, 3]: from its middle the edge is 1 tile away
+    expect(rules.obstacleDistance(2, 2)).toBeCloseTo(1, 9);
+    expect(rules.check(UNITS.archer, 2, 2, [])).toBe(null);
+    expect(rules.check(UNITS.archer, 1.42, 1.42, [])).toBe(null); // exactly her radius from both edges
+    expect(rules.check(UNITS.archer, 1.41, 2, [])).toBe('blocked'); // a hair over the west edge
+    expect(rules.check(UNITS.archer, 2, 2.75, [])).toBe('blocked'); // half her footprint off the roof
+    // inside a roof region the tile seams are no edge
+    expect(rules.obstacleDistance(2, 1.5)).toBeCloseTo(0.5, 9);
+    expect(rules.check(UNITS.archer, 2.0, 1.6, [])).toBe(null);
+  });
+
+  test('the board edge is a roof edge: a girl may not hang off the board from a roof', () => {
+    expect(rules.isRoof(0.5, 7.5)).toBe(true);
+    // on the ground a girl may hug the board edge (only map tiles count) ...
+    expect(rules.check(UNITS.archer, 0.45, 4.5 - 0.97 - 1.5, [])).toBe(null);
+    // ... but from a roof the outside counts as off the roof
+    expect(rules.obstacleDistance(0.3, 7.5)).toBeCloseTo(0.3, 9);
+    expect(rules.check(UNITS.archer, 0.3, 7.5, [])).toBe('blocked');
+    expect(rules.check(UNITS.archer, 0.5, 7.5, [])).toBe(null);
+  });
+
+  test('a girl on the ground cannot overlap a roof: it blocks like a building', () => {
+    // (3.2, 2) is ground, 0.2 east of the 2×2 roof
+    expect(rules.obstacleDistance(3.2, 2)).toBeCloseTo(0.2, 9);
+    expect(rules.check(UNITS.archer, 3.2, 2, [])).toBe('blocked');
+    expect(rules.check(UNITS.archer, 3.42, 2, [])).toBe(null);
+    // the same for the one-tile roof, from every side
+    expect(rules.check(UNITS.archer, 8.7, 2.5, [])).toBe('blocked');
+    expect(rules.check(UNITS.archer, 9.5, 3.3, [])).toBe('blocked');
+    expect(rules.check(UNITS.archer, 9.5, 3.42, [])).toBe(null);
+  });
+
+  test('water girls cannot stand on a roof; amphibious girls can', () => {
+    expect(rules.check(UNITS.boat, 2, 2, [])).toBe('needsWater');
+    expect(rules.check(UNITS.boat, 5.5, 1.5, [])).toBe(null);
+    expect(rules.check(AMPHI, 2, 2, [])).toBe(null);
+    expect(rules.check(UNITS.stormer, 13.5, 7, [])).toBe(null);
+  });
+
+  test('size matters: a footprint fits only on a roof big enough for it', () => {
+    // the one-tile roof: an ordinary girl with a little room, a hero (radius 0.5) only dead centre
+    expect(rules.check(UNITS.archer, 9.45, 2.5, [])).toBe(null);
+    expect(rules.check(UNITS.heroine, 9.5, 2.5, [])).toBe(null);
+    expect(rules.check(UNITS.heroine, 9.45, 2.5, [])).toBe('blocked');
+    // a wider footprint (0.6) never fits a one-tile roof, but fits the 2×2 and the 3×2 roofs
+    expect(rules.check(WIDE, 9.5, 2.5, [])).toBe('blocked');
+    expect(rules.check(WIDE, 2, 2, [])).toBe(null);
+    expect(rules.check(WIDE, 13.5, 7, [])).toBe(null);
+    expect(rules.check(WIDE, 12.5, 7, [])).toBe('blocked'); // 0.5 from the west edge
+  });
+
+  test('overlap and the path band still apply on a roof', () => {
+    const others = [{ x: 2, y: 2, radius: TOWER_RADIUS }];
+    expect(rules.check(UNITS.archer, 2, 1.7, others)).toBe('occupied');
+    // a roof right beside the road: the band wins over the roof
+    const near = { ...ROOF_MAP, id: 'test-roofs-near', rows: ROOF_MAP.rows.map((r, y) => (y === 3 ? '....UU..........' : r)) };
+    const nr = createPlacementRules(near, buildPaths(near));
+    // (row 3's roof covers [4, 6] × [3, 4]; the road's centreline is y = 4.5, its band reaches 3.95)
+    expect(nr.check(UNITS.archer, 4.6, 3.6, [])).toBe('path');
+    expect(nr.check(UNITS.archer, 5.0, 3.5, [])).toBe(null); // 1.0 from the centreline, 0.5 from every roof edge
+  });
+
+  test('Sim: place, find and sell a girl on a roof; the same reasons as the pure check', () => {
+    const sim = makeSim({ map: ROOF_MAP, cash: 100000, hero: 'heroine' });
+    // (two integers would be a legacy tile call: the tile's centre)
+    expect(sim.canPlace('archer', 1.95, 1.95)).toMatchObject({ ok: true, x: 1.95, y: 1.95 });
+    expect(sim.canPlace('archer', 1.95, 2.75).reason).toBe('blocked');
+    expect(sim.canPlace('archer', 3.2, 1.95).reason).toBe('blocked');
+    expect(sim.canPlace('boat', 1.95, 1.95).reason).toBe('needsWater');
+    expect(sim.canPlace('archer', 9, 2)).toMatchObject({ ok: true, x: 9.5, y: 2.5 }); // tile (9, 2): its centre, on the roof
+    const t = sim.placeTower('archer', 1.95, 1.95);
+    expect(t).toMatchObject({ x: 1.95, y: 1.95, tx: 1, ty: 1 });
+    expect(sim.towerAt(2.1, 2.1)).toBe(t);
+    expect(sim.placement.isRoof(t.x, t.y)).toBe(true);
+    expect(sim.placeTower('heroine', 9.5, 2.5)).toBeTruthy();
+    expect(sim.sellTower(t.uid)).toBeTruthy();
+    expect(sim.canPlace('archer', 1.95, 1.95).ok).toBe(true);
+  });
+});
+
+describe('autoPlan on rooftops', () => {
+  // every ground tile beside the road is a building; the only free spots near it are the roofs
+  const ROOFTOWN = {
+    id: 'test-rooftown',
+    name: 'Rooftown',
+    theme: 'sakura',
+    tier: 'beginner',
+    width: 16,
+    height: 9,
+    rows: [
+      'HHHHHHHHHHHHHHHH',
+      'HHHHHHHHHHHHHHHH',
+      'HUUUHHHUUUHHUUUH',
+      'HUUUHHHUUUHHUUUH',
+      '................',
+      'HUUUHHHHHUUUHHHH',
+      'HUUUHHHHHUUUHHHH',
+      'HHHHHHHHHHHHHHHH',
+      '...............~',
+    ],
+    paths: [[[-1, 4], [16, 4]]],
+  };
+  const stage = { ...STAGE, id: 'test-rooftown', mapId: 'test-rooftown' };
+  const opts = { data: testData({ stage, map: ROOFTOWN }) };
+  const units = ['archer', 'bomber', 'cleaver', 'chainer'];
+
+  test('places girls on the roofs, every action legal in order', () => {
+    const plan = autoPlan('test-rooftown', units, opts);
+    const places = plan.filter((a) => a.action === 'place');
+    expect(places.length).toBeGreaterThanOrEqual(4);
+    expect(places.filter((a) => a.roof).length).toBeGreaterThanOrEqual(3);
+    const rules = createPlacementRules(ROOFTOWN, buildPaths(ROOFTOWN));
+    const placed = [];
+    for (const a of places) {
+      expect(rules.check(UNITS[a.unitId], a.x, a.y, placed), `${a.unitId} at ${a.x}, ${a.y}`).toBe(null);
+      expect(!!a.roof, `${a.unitId} roof flag`).toBe(rules.isRoof(a.x, a.y));
+      placed.push({ x: a.x, y: a.y, radius: footprintRadius(UNITS[a.unitId]) });
+    }
+  });
+
+  test('is deterministic: the same plan and the same battle every time', () => {
+    const a = autoPlan('test-rooftown', units, opts);
+    const b = autoPlan('test-rooftown', units, opts);
+    expect(b).toEqual(a);
+    const run = () => runHeadless({ stageId: 'test-rooftown', plan: a, seed: 11, data: opts.data, maxTime: 600 });
+    const r1 = run();
+    const r2 = run();
+    expect(r2.result).toEqual(r1.result);
+    expect(r2.cash).toBe(r1.cash);
+    expect(r1.won).toBe(true);
+  });
+});

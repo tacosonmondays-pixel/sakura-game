@@ -6,7 +6,7 @@ import { h, svgEl, panel } from '../components.js';
 import { MODE_ORDER, modeId } from '../../data/modes.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { MODE_TEXT, modeText, modeDesc } from '../text/modes.js';
-import { RULE_TEXT, ruleCycleLabel, ruleHasMarks } from '../text/rules.js';
+import { ruleTextFor, ruleCycleLabel, ruleHasMarks } from '../text/rules.js';
 import { modeIcon, ruleIcon, ruleColor, uiIcon } from '../../art/icons.js';
 import { stageMedals, modeRibbons, modesUnlocked, ribbonCount, bestDifficulty } from '../../systems/unlocks.js';
 
@@ -67,7 +67,7 @@ export function rewardLine(profile, stage, difficulty, mode) {
 /** The Map rule panel (null on stages without a rule). */
 export function rulePanel(stage) {
   const rule = stage.rule;
-  const t = rule && RULE_TEXT[rule.id];
+  const t = rule && ruleTextFor(stage);
   if (!t) return null;
   const body = h('div.ma-rule',
     h('div.ma-rule-head',
@@ -75,6 +75,8 @@ export function rulePanel(stage) {
       h('div.ma-rule-text',
         h('div.ma-rule-name-row', h('b.ma-rule-name', t.name), h(`span.ma-rule-chip${rule.cycle ? '' : '.always'}`, ruleCycleLabel(rule))),
         h('p.ma-rule-desc', t.desc),
+        // a stage skin renamed the rule: say which shipped rule it is
+        t.baseName ? h('p.muted.ma-rule-hint', { 'data-testid': 'rule-base-name' }, `The ${t.baseName} rule.`) : null,
         ruleHasMarks(rule) ? h('p.muted.ma-rule-hint', 'Glowing marks on the map show where.') : null,
       ),
     ),
@@ -162,7 +164,7 @@ export function modePanel(profile, stage, state, onPick) {
 
 /** Campaign stage card chips: the rule chip (icon + name; icon only on phones) and "Ribbons n/20". */
 export function stageCardRuleChip(stage) {
-  const t = stage.rule && RULE_TEXT[stage.rule.id];
+  const t = stage.rule && ruleTextFor(stage);
   if (!t) return null;
   const chip = h('span.ma-sc-rule', { title: `Map rule: ${t.name}`, 'data-testid': `rule-chip-${stage.id}` }, svgEl(ruleIcon(stage.rule.id), 'ma-sc-rule-icon'), h('span.ma-sc-rule-name', t.name));
   chip.style.setProperty('--rule', ruleColor(stage.rule.id));

@@ -12,7 +12,9 @@ import { UNITS } from '../../src/data/units.js';
 import { LESSONS } from '../../src/data/story/lessons.js';
 
 const DIFFS = ['easy', 'normal', 'hard', 'nightmare'];
-const range = (a, b) => CAMPAIGN_IDS.slice(CAMPAIGN_IDS.indexOf(a), CAMPAIGN_IDS.indexOf(b) + 1);
+/** Act I (1-1 … 8-5): these are saves from before the Gate Arc, which never cleared an Act II stage. */
+const ACT1_IDS = CAMPAIGN_IDS.filter((id) => STAGES.find((s) => s.id === id)?.act !== 2);
+const range = (a, b) => ACT1_IDS.slice(ACT1_IDS.indexOf(a), ACT1_IDS.indexOf(b) + 1);
 const ORDER = ['hikari', 'aoi', 'rei', 'yuki', 'nami', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'momo', 'akane', 'miko', 'raika', 'luna', 'hotaru', 'kaede', 'chika'];
 const BIGS = ENEMIES.filter((e) => ['boss', 'miniboss', 'elite'].includes(e.tier)).map((e) => e.id);
 const CLAIMABLE_LESSONS = LESSONS.filter((l) => l.via !== 'mail').map((l) => l.id);
@@ -37,7 +39,7 @@ export const ARCH = {
     retro: { lessons: 11, challengeWave: 25, fpBest: { '2-2': { blossom: 45 } }, fullSets: 9, lobbyBgs: 1 },
   },
   late: {
-    normal: CAMPAIGN_IDS, easy: range('1-1', '3-5'), hard: CAMPAIGN_IDS, nightmare: range('1-1', '2-5'),
+    normal: ACT1_IDS, easy: range('1-1', '3-5'), hard: ACT1_IDS, nightmare: range('1-1', '2-5'),
     bounty: Object.fromEntries(STAGES.filter((s) => s.kind === 'resource').map((s) => [s.id, ['normal', 'hard']])),
     boss: { 'boss-lych': ['normal', 'hard'], 'boss-colossus': ['normal', 'hard'], 'boss-ashwing': ['normal'] }, arenaRunsPerStage: 60,
     units: 19, unitLevels: [60, 58, 55, 52, 50, 50, 48, 46, 45, 44, 42, 40, 40, 38, 35, 32, 30, 28, 25], awaken: [5, 3, 3, 2, 2, 1, 1, 1], pulls: 480, battles: 700, wins: 620, kills: 140000, bigKills: 12, slimeGold: 150, slimeMimic: 60, fae: 15,

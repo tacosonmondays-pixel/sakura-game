@@ -3,13 +3,12 @@
 import { h, fromHTML, clear } from './dom.js';
 import { dot, countBadge } from './badges.js';
 import { store } from '../core/store.js';
-import { navigate, back } from './router.js';
+import { navigate, back, currentRoute } from './router.js';
 import { formatNumber } from '../core/util.js';
 import { fmtItemCount } from './format.js';
 import { itemIcon, uiIcon, currencyIcon, UI_ICON_NAMES } from '../art/icons.js';
 import { cardArtSVG } from '../art/cardArt.js';
 import { portraitHTML } from '../art/portraits.js';
-import { lobbyIcon } from '../art/lobbyIcons.js';
 import { getItem } from '../data/items.js';
 import { getUnit } from '../data/units.js';
 import { ITEM_RARITIES, UNIT_RARITIES, DIFFICULTY_ORDER } from '../data/types.js';
@@ -17,6 +16,12 @@ import { itemSources, itemCount } from '../systems/inventory.js';
 import { displayRarity, rarityInfo, urBadge, rankBadge, applyUrFrame } from './rarity.js';
 import { potentialOf, potPill } from './potential.js';
 import { hasPotentialNew } from '../systems/potential.js';
+import { pickMarks } from './pickMarks.js';
+import { inkSurface } from './surfaceMode.js';
+import { lineGlyph, lineFor } from './lineGlyphs.js';
+import { walletsFor, WALLET_DEFS } from './wallets.js';
+import { curArt } from './kit.js';
+import { countTo } from './motion.js';
 
 /** Inline SVG string -> element wrapper span. */
 export function svgEl(svg, cls = 'svg-icon') {
@@ -80,8 +85,14 @@ const EXTRA_GLYPHS = {
   more: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/>',
 };
 
-/** SVG markup for a UI glyph: every uiIcon() name plus the extra ones above. */
+/**
+ * SVG markup for a UI glyph: every uiIcon() name plus the extra ones above. [ui-ink] On the menus and the home (a
+ * surface mode on <body>, src/ui/surfaceMode.js) a name with a UI v2 line glyph (src/ui/lineGlyphs.js LINE_ALIASES)
+ * draws that one; the battle keeps the old drawings.
+ */
 export function glyph(name) {
+  const line = inkSurface() ? lineFor(name) : null;
+  if (line) return lineGlyph(line, '', { kitSize: false });
   if (EXTRA_GLYPHS[name]) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${EXTRA_GLYPHS[name]}</g></svg>`;
   }
@@ -194,8 +205,16 @@ function autoCleanup(el, off) {
   queueMicrotask(() => el.parentNode && mo.observe(document.body, { childList: true, subtree: true }));
 }
 
-/** Coins + gems pills (gems carry a "+" that opens the Mall). Auto-updates. */
-export function currencyPills({ plus = true } = {}) {
+/**
+ * Coins + gems pills (gems carry a "+" that opens the Mall). Auto-updates.
+ * [ui-ink] On the menus (a surface mode on <body>): only the currencies this screen spends (src/ui/wallets.js, Q3), each
+ * its icon (coins and gems their colour art, tickets a line glyph) and its number, split by slanted slashes, "+" as a
+ * hairline square; `wallets` overrides the table, and
+ * the element's setWallets(ids) redraws them (the Mall, when its shop changes). The test ids stay (coins, gems,
+ * tickets). Empty: the group is hidden.
+ */
+export function currencyPills({ plus = true, wallets = null } = {}) {
+  if (inkSurface()) return inkWallets({ plus, wallets });
   const coins = h('span.cur-val', { 'data-testid': 'coins' });
   const gems = h('span.cur-val', { 'data-testid': 'gems' });
   const refresh = () => {
@@ -213,18 +232,54 @@ export function currencyPills({ plus = true } = {}) {
   return el;
 }
 
+/** [ui-ink] The UI v2 wallets (see currencyPills). */
+function inkWallets({ plus = true, wallets = null } = {}) {
+  const route = currentRoute();
+  let ids = wallets || walletsFor(route.name, route.params || {});
+  const vals = {};
+  const el = h('div.topbar-group.cur-pills');
+  const line = (name) => svgEl(lineGlyph(name, '', { kitSize: false }));
+  const pill = (id) => {
+    const d = WALLET_DEFS[id];
+    vals[id] = h('span.cur-val.num', { 'data-testid': id });
+    const more = plus && d.plus
+      ? h('button.cur-plus', { type: 'button', onclick: () => navigate(d.plus.route, d.plus.params), title: d.plus.label, 'aria-label': d.plus.label }, line('plus'))
+      : null;
+    return h('div.cur-pill.ui-cur', { title: d.label, 'data-wallet': id }, d.art ? curArt(d.art) : line(d.glyph), vals[id], more);
+  };
+  // (a balance that changed since it was last on show, here or on the home, counts there: motion.js countTo)
+  const refresh = () => {
+    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, WALLET_DEFS[id].item), { key: id });
+  };
+  const draw = (next) => {
+    ids = (next || []).filter((id) => WALLET_DEFS[id]);
+    for (const k of Object.keys(vals)) delete vals[k];
+    el.replaceChildren(...ids.flatMap((id, i) => [i ? h('span.ui-slash', { 'aria-hidden': 'true' }) : null, pill(id)]).filter(Boolean));
+    el.hidden = !ids.length;
+    el.dataset.wallets = ids.join(' ');
+    refresh();
+  };
+  draw(ids);
+  el.setWallets = draw;
+  autoCleanup(el, store.on('change', refresh));
+  return el;
+}
+
 /** Top bar with back/home, title, currencies and settings. Auto-updates on store change. */
 export function topBar({ title = '', showBack = true, showHome = true, extra = null } = {}) {
+  const pills = currencyPills();
   const bar = h(
     'header.topbar',
-    showBack ? h('button.topbar-back', { onclick: () => back(), title: 'Back', 'data-testid': 'back' }, svgEl(uiIcon('back'))) : null,
+    showBack ? h('button.topbar-back', { onclick: () => back(), title: 'Back', 'data-testid': 'back' }, svgEl(glyph('back'))) : null,
     h('div.topbar-title', title),
     h('div.topbar-spacer'),
     extra,
-    currencyPills(),
+    pills,
+    // [ui-ink] a hairline between the wallets and the icon buttons (the kit's .ui-vr), only when there are wallets
+    inkSurface() ? h('span.ui-vr', { 'aria-hidden': 'true' }) : null,
     h('div.topbar-group',
-      h('button.topbar-icon', { onclick: () => navigate('settings'), title: 'Settings', 'data-testid': 'settings' }, svgEl(uiIcon('settings'))),
-      showHome ? h('button.topbar-icon', { onclick: () => navigate('lobby'), title: 'Home', 'data-testid': 'home' }, svgEl(uiIcon('home'))) : null,
+      h('button.topbar-icon', { onclick: () => navigate('settings'), title: 'Settings', 'data-testid': 'settings' }, svgEl(glyph('settings'))),
+      showHome ? h('button.topbar-icon', { onclick: () => navigate('lobby'), title: 'Home', 'data-testid': 'home' }, svgEl(glyph('home'))) : null,
     ),
   );
   return bar;
@@ -340,55 +395,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
   });
 }
 
-/**
- * The "Menu Tab" popup: a white header with a centred title, yellow underline and an
- * X, then a 2-column grid of light buttons with illustrated icons — Options, Account,
- * Equipment, Items, Bestiary, Wiki, Fullscreen, plus any `extra` entries a screen adds
- * (the lobby adds Secretary and Notice).
- * @param {{ extra?: {icon: string, label: string, testid?: string, badge?: number|boolean, go: () => void}[] }} [opts]
- */
-export function menuTabModal({ extra = [] } = {}) {
-  const entries = [
-    { icon: 'options', label: 'Options', go: () => navigate('settings') },
-    { icon: 'account', label: 'Account', go: () => navigate('settings', { section: 'save' }) },
-    { icon: 'equipment', label: 'Equipment', go: () => navigate('backpack', { tab: 'equipment' }) },
-    { icon: 'items', label: 'Items', go: () => navigate('backpack') },
-    { icon: 'bestiary', label: 'Bestiary', go: () => navigate('bestiary') },
-    { icon: 'wiki', label: 'Wiki', go: () => navigate('wiki') },
-    ...extra,
-  ];
-  const grid = h('div.menu-tab-grid');
-  const m = modal({
-    title: 'Menu Tab',
-    body: grid,
-    actions: [],
-    cls: 'menu-tab',
-  });
-  const ico = (name, key) => svgEl(lobbyIcon(name, { uid: `menu-${key}`, shadow: false }), 'menu-tab-icon');
-  for (const e of entries) {
-    const key = e.label.toLowerCase();
-    // badge: a number (an unread count: the red number) or true (the red dot), e.g. unread messages; `dot` is a red
-    // dot. [ui-m5] one badge vocabulary (badges.js); the old classes stay for their place and the e2e tests
-    const badge = e.badge
-      ? (e.badge === true ? dot('claim', { cls: 'notif-dot' }) : countBadge(e.badge, { cls: 'menu-tab-badge' }))
-      : (e.dot ? dot('claim', { cls: 'notif-dot' }) : null);
-    grid.appendChild(h('button.menu-tab-btn', { onclick: () => { m.close(); e.go(); }, 'data-testid': e.testid || `menu-${key}` }, ico(e.icon, key), h('span', e.label), badge));
-  }
-  const fs = h('button.menu-tab-btn', { 'data-testid': 'menu-fullscreen' }, ico('fullscreen', 'fullscreen'), h('span', 'Fullscreen'));
-  fs.addEventListener('click', async () => {
-    try {
-      const o = await import('./orientation.js');
-      await o.toggleFullscreen();
-      fs.querySelector('span:last-child').textContent = o.isFullscreen() ? 'Exit fullscreen' : 'Fullscreen';
-    } catch (e) {
-      console.warn('[menu] fullscreen unavailable', e);
-    }
-  });
-  grid.appendChild(fs);
-  m.el.querySelector('.modal-title')?.appendChild(h('button.menu-tab-x', { onclick: () => m.close(), 'aria-label': 'Close', 'data-testid': 'menu-close' }, svgEl(glyph('close'), 'menu-tab-x-icon')));
-  return m;
-}
-
+// ([ui-ink] the Menu Tab modal went with UI v2's home, V2: the home's menu is a side sheet, src/ui/lobby/menuSheet.js)
 /**
  * A short notice at the top. `message` is text or a node (kind 'ach': the achievement card of src/ui/achToast.js,
  * which takes taps and sits a little lower).
@@ -437,21 +444,25 @@ export function tileCount(count) {
 /**
  * Item tile: the slanted rarity plate, the baked item art and the count. Click opens item info by default.
  * size is the tile width; its height follows the plate's 1.09:1 shape.
+ * [ui-ink] selected: the plate stays and the tile carries the pink check chip and the 3 px pink bar (pickMarks.js;
+ * UI v2 medium 3), never a pink ring.
  */
-export function itemTile(itemId, count = null, { onClick, size = 64, showName = false } = {}) {
+export function itemTile(itemId, count = null, { onClick, size = 64, showName = false, selected = false } = {}) {
   const item = getItem(itemId);
   const rarity = item ? ITEM_RARITIES[item.rarity] : null;
   const tile = h(
-    'button.item-tile',
+    `button.item-tile${selected ? '.sel' : ''}`,
     {
       style: { width: `${size}px`, '--rarity': rarity?.color || '#999' },
       title: item ? item.name : itemId,
       'data-item': itemId,
       'data-tier': tileTier(item),
+      'aria-pressed': selected ? 'true' : null,
       onclick: () => (onClick ? onClick(itemId) : showItemInfo(itemId)),
     },
     svgEl(itemIcon(itemId, { px: size }), 'item-tile-icon'),
     count != null ? tileCount(count) : null,
+    ...(selected ? pickMarks() : []),
   );
   // Belt and braces: custom properties must go through setProperty.
   tile.style.setProperty('--rarity', rarity?.color || '#999');

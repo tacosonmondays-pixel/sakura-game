@@ -474,10 +474,21 @@ export function getMap(id)
 export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
 MapDef = {
   id, name, theme: 'sakura'|'lake'|'shrine'|'mountain'|'marsh'|'foundry'|'festival'|'volcano'|'snow'|'night'|'arena',
+        // (+ 'city', the Gate Arc's Noon city: render only so far, src/render/city/; no map uses
+        //  it until the Act II maps, which may also carry `city` render hints: { railway?: { z }
+        //  (no railway unless given; z ≈ -1.2…-0.5 is the strip the battle shows past the far edge),
+        //  waterBus: { z, x0, x1 } | { x, z0, z1 }, areas: [{ type: 'plaza'|'lawn', x, y, w, h }],
+        //  spawnGate?, goalGate?, goalVariant? })
+        // (+ 'campus', Hilltop High at night (Gate Arc Step 2): the city kit with the school set,
+        //  src/render/city/campusProps.js; extra `city` hints: road?: 'track' (the running track),
+        //  searchlight?: { x, z, rot?, sweep?, reach?, period?, variant? } (its beam sweeps the water),
+        //  pieces?: [{ type, x, z, rot?, variant?, s? }] (free-standing set pieces))
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
-                        // ',' flowers/decor (buildable), 'X' void/blocked
+                        // ',' flowers/decor (buildable), 'X' void/blocked,
+                        // 'U' rooftop (Gate Arc): a low flat roof girls stand on (§6); like 'X' it is
+                        // never cleared under a road, and a road over a roof fails the path test
   // Tracks v3 (src/core/track.js): paths are authored as smooth curves in WORLD coords and
   // sampled ONCE into dense centrelines that the sim walks, the renderer draws and the
   // thumbnails trace (no re-smoothing downstream).
@@ -488,13 +499,21 @@ MapDef = {
              fork?, join?, forkD, joinD }],
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
-  decor?: [{ type, x, y, rot? }],  // optional composed set pieces for the renderer
+  decor?: [{ type, x, y, rot?, r?, s? }],  // optional composed set pieces for the renderer; `r` (Gate Arc): the set
+                                   // piece draws the building tiles within r of it itself (1-10's dry fountain);
+                                   // `s`: a land piece's scale (default 1; 2-10's old lamp stands at 1.7)
   bridge?, path?, tunnel?: {...},  // optional per-map looks merged over the theme's (e.g. a steel-
                                    // grating overpass, conveyor-belt road, ice-cave tunnel)
   ground?: [{ type: 'vat', x, y, w, h }      // machined tank rim, square water / lava mask
           | { type: 'icefall', x0, x1, y }  // frozen falls over a river head
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
+  city?: {...},                    // the city kit's render hints (see `theme` above)
+  echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
+                                   // Gate Arc echo: the same place as an Act I map in another era, its
+                                   // rows / paths / crossings / tunnels literal except the tiles echoDiff
+                                   // lists (e.g. the dry fountain basin '~' → '.'). At most three; only
+                                   // declared pairs skip the silhouette and turning tests
 }
 ```
 
@@ -521,7 +540,9 @@ edge, no two maps with the same silhouette: coarse 10×6 raster IoU < 0.65, and 
 turning signatures match (the sequence of signed curvature lobes, mirrored / reversed variants
 included — tests/data/trackShape.js) must sit differently on the board (IoU < 0.5, < 0.45 for three
 or more lobes); at most two maps may be meanders (three or more alternating U-bends marching across
-the board).
+the board). A declared echo pair (`echoOf`, `isDeclaredEcho`) is the only exemption from the
+silhouette and turning rules: at most three echoes, each of a map of another era (Morning = the
+eleven shipped themes, Noon = city / campus / drowned, Evening = vesper), literal except `echoDiff`.
 
 Rendering rules for the road (src/render/trackMesh.js, terrain.js): a road section over water is
 ONE continuous plank ribbon along the centreline over the whole wet span (short dry gaps bridged,
@@ -553,16 +574,28 @@ renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
 ### `src/data/stages.js`
 
 ```js
-export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] }] // 8 chapters × 5 stages
-export const STAGES = [StageDef...]   // campaign (40) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
+export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] /*Act I*/,
+  act2: ['1-6',...] /*registered Act II ids, [] until that act ships*/, act2Name, act2Theme, act2Desc /*null until then*/ }] // 8 chapters × 5 (+5)
+export const STAGES = [StageDef...]   // campaign (40 Act I + registered Act II) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
 export const STAGE_MAP
+export const CAMPAIGN_IDS             // Act I (1-1 … 8-5) first, then Act II by (chapter, n); never a play-order index
 export function getStage(id)
-export function campaignStages()
+export function campaignStages()      // StageDefs in CAMPAIGN_IDS order
 export function stagesOfKind(kind)
+// Gate Arc Act II (docs/CAMPAIGN.md "Act II", docs/specs/GATE_ARC.md):
+export const ACT2_PLAN, ACT2_PLAN_MAP // the 40 computed Act II rows { id, chapter, k, n, waves, hpScale, hpPass, cashScale,
+                                      //   startCash, tier, requires, dropChapter, modeChapter, medalGemMul, finale }
+export const CHAPTER_HP_PASS_MEAN     // { [chapter]: mean HERO_HP_PASS of its Act I }
+export function act2Stage(o)          // Act II StageDef builder: authored parts from o, numbers/requires/tier/drops from the plan
+export function stageRequires(stageOrId)            // -> string[]: the ONLY reader of StageDef.requires
+export function requirementsMet(stageOrId, isCleared) // every requirement cleared (the unlock rule)
+export function stageOrderKey(id)     // (chapter, act, n) as a number; non-campaign ids → Infinity
+export function actStages(chapterId, act = 1)       // chapter.stages (act 1) / chapter.act2 (act 2)
+export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null)
 
 StageDef = {
   id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge'*/, kind: 'campaign'|'resource'|'boss'|'challenge',
-  chapter?, name, mapId, desc,
+  chapter?, act? /*campaign: 1 | 2*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
   waves /*count; challenge = Infinity*/,
   waveGen: {
     pool: [{ enemy, weight, from /*wave idx, 1-based*/, to? }],
@@ -571,13 +604,22 @@ StageDef = {
     groups /*max groups per wave*/,
     fixed: [{ wave, enemy, count, spacing?, delay?, path? }],   // scripted additions (minibosses, intros);
                                                           // bosses/minibosses default to the longest path
+    laneCycle?: [[laneIdx...]...],  // Gate Arc lane schedule: wave n walks only the lanes of entry (n-1) mod
+                                    // length, e.g. [[0, 1], [1]] = even waves keep off lane 0 (a level
+                                    // crossing's barrier). Generated groups round-robin over the open
+                                    // lanes; a fixed group pinned to a closed lane moves to the first open
+                                    // one, a boss to the longest open one; freeplay waves follow the same
+                                    // cycle. Absent = the waves exactly as before (waves.js openLanes)
   },
   hpScale /*1.0 at 1-1 rising to ~6 at 8-5*/, startCash, lives /*base before difficulty override*/,
   cashScale? /*optional economy multiplier on kill bounties + wave-clear bonus (default 1; campaign = hpScale^0.6)*/,
   introduces: (enemyId|TraitKey)[],   // shown as "New!" on prep + reflected in scenery
   recommended: CapabilityKey[],        // drives the "add counters" shortcut
   unlocks: { units?: unitId[] },       // free recruits granted on first clear (any difficulty)
-  requires: stageId|null,              // previous stage that must be cleared
+  requires: stageId|stageId[]|null,    // stage(s) that must be cleared: Act I the previous stage; an Act II x-6 two
+                                       // (x-5 and (c-1)-10). Read it only through stageRequires / requirementsMet
+  medalGemMul?: number,                // campaign Act II: 0.5 (medal gems × it, rewards.js medalGems); default 1
+  modeChapter?: number,                // campaign Act II: Ironclad's armor row (c+1); default `chapter`
   drops: [{ item, chance, min, max, difficulty? /*min difficulty*/ }],
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
@@ -594,7 +636,11 @@ enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € live
 padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
 zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
 1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
-(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`).
+(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`). Screens read a stage's rule text through
+`ruleTextFor(stage, ruleId?)`: Gate Arc stages may tell a shipped rule in their own words
+(`STAGE_RULE_SKINS[stageId] = { rule, name?, short?, desc?, toast?, activeWord? }`, applied only to the rule it
+names; the numbers stay the rule's own, tests/ui/ruleSkins.test.js). A lane schedule's wave banner line is
+`laneClosedText(stage)` (`STAGE_LANE_TEXT` per stage, else "Crossing closed: long way round").
 
 Free recruits arrive one stage **before** their mechanic (see roster table). Chapters:
 1 Sakura Gardens (basics, slimes, hasty goblins; 1-5 Slime Prince), 2 Moonlit Lakeshore
@@ -962,6 +1008,7 @@ export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) 
 export function rewardDifficulty(profile, stageId, difficulty, mode) // Standard: difficulty; a mode: min(difficulty, best Standard medal here)
 export function resultMode(profile, stageId, difficulty, mode)       // the mode a result counts as (Standard when locked / Nightmare × Last Petal)
 export const MODE_RIBBON_GEMS  // { easy: 0, normal: 0, hard: 0, nightmare: 0 } (owner Q1; switching on needs a SAVE_VERSION bump)
+export function medalGems(stage, difficulty) // a first medal's gems: DIFFICULTIES[d].firstClearGems × (stage.medalGemMul ?? 1), rounded
 export function sweep(profile, stageId, difficulty, times, rng)  // instant rewards; allowed when stage cleared on hard+
 export function canSweep(profile, stageId)
 ```
@@ -973,17 +1020,17 @@ export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
 export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, tomes, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments;
   // past P6 it also pays Akashic Tomes (SR 1, SSR 5; potential.js DUPE_PAST_MAX_TOMES / dupePastMaxTomes, next to potentialLevel)
-export function isStageUnlocked(profile, stageId)
+export function isStageUnlocked(profile, stageId)  // stages.js requirementsMet (story.js stageOpen reads the same)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
 export function stageMedals(profile, stageId) // -> { easy, normal, hard, nightmare }
-export function chapterProgress(profile, chapterId) // -> { cleared, total, medals }
-export function nextStage(profile)           // first uncleared campaign stage
+export function chapterProgress(profile, chapterId, act = 1) // -> { cleared, total, medals } over that act's stages
+export function nextStage(profile)           // first uncleared stage in CAMPAIGN_IDS (Act I first: never pulls a veteran to 1-6)
 export function recommendedFor(profile, stageId) // -> { needs: CapabilityKey[], ownedCounters: {cap: unitId[]}, missing: cap[] }
 export function modesUnlocked(profile, stageId)  // a campaign stage cleared once (any difficulty)
 export function modeRibbons(profile, stageId)    // -> { 'easy:reverse': bool, … } 20 keys (nightmare:laststand derived from the medal)
 export function ribbonCount(profile, stageId)    // -> { have, total: 20 }
-export function chapterRibbons(profile, chapterId) // -> { have, total: 100 }
+export function chapterRibbons(profile, chapterId, act = 1) // -> { have, total: 100 } over that act's stages
 export function stageShowcase(profile, stageId)  // the medal and ribbon showcase of a stage (the profile showcase reads this):
   // -> { stageId, chapter, cleared, modesUnlocked, medals: { have, total: 4 }, ribbons: { have, total: 20 },
   //      grid: { [mode in MODE_ORDER]: { [difficulty in DIFFICULTY_ORDER]: { earned, kind: 'medal'|'ribbon', merged? } } } }
@@ -1033,7 +1080,10 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 
 - **Def fields** (`src/data/achievements.js`): `{ id, name, desc, metric, param?, goal, rewards, cat, tier, series?,
   honor?: { no, name, cls: plain|shiny|special, fx, emblem }, title?: { text, tier: std|gold|prism }, hidden?, hint?,
-  since?, grind?, wave: launch|social|codex|later, shipped?, retired? }`. Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
+  since?, grind?, wave: launch|social|codex|later|act2, needs?, shipped?, retired? }`. `needs` (Gate Arc Act II rows):
+  stage ids that must all exist in this build before the row is live (`achievementLive` → `achievementStagesExist`), so
+  "Chapter c · Act II Complete" (`chapterActClear`, param `'c:2'`) and the 80-stage rows light up as their stages ship.
+  Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
   a shipped row's `rewards` never change (frozen in `tests/fixtures/achievements-ledger.json`); rewards are item ids
   only, never a ribbon or a title. Metrics: `src/systems/achievementMetrics.js` (pure; an unknown metric throws).
 - **Claim gate**: a `gearbox_*` reward waits for `featureOpen(p, 'gear')`, a `crown_*` for `featureOpen(p, 'awaken')`
@@ -1077,7 +1127,14 @@ a UnitDef may override with `footprint`). A spot is legal when the centre is ins
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
 line ≥ 0.55 + r), it clears obstacles (trees = discs r 0.45 at the tile centre; rocks / buildings /
 void = the tile square) and the terrain under the CENTRE matches her placement ('~' and 'B' water —
-the road itself is excluded by the band —, '.' / ',' land). Path distance is measured to the dense
+the road itself is excluded by the band —, '.' / ',' / 'U' land). Rooftops ('U', Gate Arc): a girl
+whose centre is on a roof needs her whole footprint on roof tiles (every other tile, and the board's
+outside, is the roof's edge: else 'blocked'); for a girl on the ground a roof tile blocks like a
+building; water girls get 'needsWater' there, amphibious girls may stand there; a roof adds no range.
+`sim.placement.isRoof(x, y)` answers it; the renderer (terrain `roofAt`) stands roof girls ROOF_Y (0.56) higher, and their
+shots, hand flashes, beams, first chain links, sparkles and pick rings start up there too (display only: a projectile
+blends down to the sim's own height by f′ 0.6; `fx.liftAt`, attack-FX `ctx.lift(t)`); autoPlan
+takes roofs as land and marks such place actions `roof: true`. Path distance is measured to the dense
 Tracks v3 centrelines (segments bucketed per tile, so the hundreds of short segments stay cheap).
 Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
 `towerAt` / `placeCost` are read as a tile (tx, ty) and resolve to its centre (legacy wrapper;
@@ -1192,7 +1249,11 @@ SimEvent = { type, ...payload } with types:
   'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
-  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
+  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
+               lanes? /*the open lane indices, only on a stage with waveGen.laneCycle*/ }
+  sim.openLanes(n?) → number[]|null   // lanes open on wave n (default: this wave, or the next between waves); null = all
+                                      // (city kit: one level crossing per road crossing; a fork's shared trunk guards all its lanes
+                                      //  and shuts only when every one is closed; a line with no schedule keeps the 40 s timetable)
   'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
   'rift' {uid, x, y, x2, y2} (Shifting Stars)   'won' {finished: true} (freeplay Finish)
 ```
@@ -1585,6 +1646,7 @@ r.dispose()
 r.canvas                         // the WebGL canvas
 r.towerSkin(uid)                 // the outfit (skin id) a placed girl's model wears, null before it is drawn (e2e / debug)
 r.pick(clientX, clientY)         // -> { x, y /*continuous world point, free placement*/, tx, ty /*tile under it*/, towerUid|null, inBounds }
+                                 //    (a ray over a rooftop lands on the roof's top first: boardInput.js boardPoint)
 r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + small footprint
                                  //    circle: white = valid, red = invalid; neutral white range circle). Two integers = a tile centre (legacy).
 r.setPlacementRange(on)          // show/hide the ghost's range circle (settings.showRanges)
@@ -1813,8 +1875,13 @@ export function hasArt(bg), isBackgroundSelectable(profile, bg) // bond memories
 export function unlockText(bg, profile?)              // "Recruit X to unlock" / "Bond Lv 5 with X (now 0) — date her and give gifts in the City to unlock"
 export function defaultBackgroundFor(girlId), lobbyBackgroundFor(profile, girlId)
 export function chooseBackground(profile, bgId)       // → { ok, error?: 'unknown'|'locked'|'noArt' }; sets lobbyBg[girl] + secretary
-// src/ui/lobby/artStage.js
-export function createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout }) // { show(unitDef,{direction,background}), react, say, look, hideBubble, dispose }
+// src/ui/lobby/artStage.js ([ui-ink] UI v2 V2's night home, feature/ui-v2; live main still has the M5 stage above:
+// createArtStage(host, { reduceMotion, lowGfx, onTap, obstacles, onLayout, backdrop }) → { show, react, say, look, hideBubble, dispose })
+export function createArtStage(host, { reduceMotion, onTap, boxes, backdrop }) // { show(unitDef,{background}), relayout, say, hideBubble,
+                                                      //   setLive, setLivePlacement, liveHost, isLive, isIllustration, placement, current, dispose }
+export const HOME_BAKED                               // the lobby paintings with a baked night copy (<name>-home.webp)
+export function homeBackdropArt(file), homeFullArt(id, { portrait }) // the home's picture: the baked copy, else the CSS night grade
+export function placeFull(W, H, art, boxes)           // a full illustration: her face on the spot (placeScene), lower when a control is over her hair
 // src/ui/lobby/bgPicker.js
 export function openBackgroundPicker({ girl })        // Menu Tab "Lobby Background" + the lobby's picture button;
                                                       // her tiles (thumbnails) under "Backdrops" and "Full illustrations"
@@ -1930,9 +1997,12 @@ in-game result, relevant tests, and evidence against the original request."
   and screen-level motion is now 180–320 ms (this replaces the 300–450 ms in the bullet above):
   a slanted black **cut** for big moves (into / out of a battle or a story scene, out of the title;
   cover 200 ms, reveal 260 ms), a shared-axis **slide** menu → submenu, out then in and all in
-  place (the old body fades out where it is in 90 ms, then the new one slides in over 220 ms; nothing is
-  copied or moved in the DOM; the top bar stays and only its title crossfades) and **slide-back** for
-  the arrow, the back gesture, Home and parents, a **crossfade** for the same screen with new params
+  place (the old body fades out where it is in 80 ms, then the new one slides in from the right over
+  200 ms; UI v2, Oct 27: a short slanted ink wipe sweeps across behind the screens for the change's
+  280 ms; nothing is copied or moved in the DOM; the top bar stays and only its title crossfades) and
+  **slide-back** for the arrow, the back gesture, Home and parents (60 + 160 = 220 ms, the wipe the
+  other way; a screen with its own entrance, `data-mo-own`: the home, only fades in and plays its
+  pieces itself, `src/ui/motion.js`), a **crossfade** for the same screen with new params
   (70 + 150 ms), and the **boot** hold on the first screen. A screen's own entrance animations (panels,
   staggered cards) jump to their end when a slide brings it in. Loaders (owner: "just black or
   colored ... it saying loading is enough"): the full loader (`#ld`, in index.html from the first
@@ -2114,7 +2184,7 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 9 (`version.js`; 9 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  `COOP_PROTOCOL` 10 (`version.js`; 10 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 9 was Gate Arc Acts 1–2: the Act II stages, rooftops and the lane schedule; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
   v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in
@@ -2298,7 +2368,11 @@ production; in dev builds only, `localStorage['sakura-dev-now']` (an ISO instant
 
 **Render** — `stage.look.night === 'lantern'` (warm lantern night) and `look.costumes` (render-only monster
 costumes, `src/render/costumes.js`; never bosses / minibosses, never over armour or ward signs); scenery
-keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look.
+keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look. `look.blackout: true` (Gate Arc, render only,
+`src/render/blackout.js`): while the stage's map rule is ACTIVE (`ruleState` events) the lamps, lit windows, glow
+sprites and light pools ease to 25 % and the hemisphere light to 60 % (0.4 s); enemies, girls, the road, the gates
+and the HUD get no dimming of their own (only the shared hemisphere light; the road stays the lightest band). Set
+pieces built as separate objects (water set pieces) keep their glow geometry lit: none stands on a blackout stage yet.
 
 **Tests** — `tests/core/resetBounds.test.js`, `tests/data/events.test.js`, `tests/systems/events*.test.js`,
 `tests/integration/event-balance.test.js`, `tests/render/halloween.test.js`, `node e2e/halloween.mjs`.

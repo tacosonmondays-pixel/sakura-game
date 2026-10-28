@@ -9,6 +9,8 @@
 // UR gear is rarity step 5: the rainbow ring exactly as ur.css draws it. Styles: components.css (.ui-gtile).
 //
 // gearTileView() is pure (tests/ui/gearTile.test.js); gearTile() puts it into the DOM.
+// [ui-ink] Selected (UI v2 medium 3): the frame stays and the tile carries pickMarks(), the pink check chip in the
+// status corner and a 3 px pink bottom bar (src/ui/styles/ink.css "THE SELECTED TILE"); itemTile() uses the same marks.
 import { h } from './dom.js';
 import { ico } from './kit.js';
 import { fmtNum } from './format.js';
@@ -20,6 +22,7 @@ import { isUrLook, awakenReady, gearLines } from '../systems/gear.js';
 import { gearIcon } from '../art/icons.js';
 import { portraitHTML } from '../art/portraits.js';
 import { urRing } from './rarity.js';
+import { pickMarks } from './pickMarks.js';
 
 /** A line glyph (src/art/icons/glyphs.js) per gear stat: the main stat icon and the stat chips. */
 export const STAT_GLYPH = Object.freeze({
@@ -106,9 +109,13 @@ export function gearTile(g, o = {}) {
     if (kind === 'lock') return h(`span.ui-gtile-${where}.k-lock`, { 'aria-hidden': 'true' }, ico('lock'));
     return null;
   };
+  if (v.selected) props['aria-pressed'] = 'true';
   return h(`${tag}.${cls}.ui-fr.${v.frame}${v.ur ? '.is-ur' : ''}`, props,
     h('span.ui-gtile-ic', { 'aria-hidden': 'true', html: gearIcon(v.slot, g.rarity, { ur: v.ur }) }),
     corner('tl', v.tl), corner('tr', v.tr), corner('bl', v.bl),
     v.level ? h('span.ui-gtile-lv.num', { 'aria-hidden': 'true' }, v.level) : null,
-    v.ur ? urRing() : null);
+    v.ur ? urRing() : null,
+    // [ui-ink] medium 3: a selected tile keeps its rarity frame and gets the pink check chip and a 3 px pink bottom bar,
+    // never a pink ring (a Mythic frame is pink too); one rule in ink.css for every selected tile
+    ...(v.selected ? pickMarks() : []));
 }
