@@ -1666,7 +1666,7 @@ const POTENTIAL_BOSS_UPGRADES = Object.freeze([
  * by Hotaru / Kaede at P6).
  * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, script = null } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -1719,6 +1719,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
     if (frame === 20) A.queue('wave');
     if (frame === 30) A.queue('auto', [true]);
     if (frame === 40) B.queue('speed', [2]);
+    // (an optional script of extra commands: the duo battle's Auto-cast and aim)
+    script?.(frame, A, B);
     // each player: her next girl when her own wallet allows it; one in flight at a time, and a
     // girl leaves the list only once she stands on the map (a refused place is tried again)
     for (const c of clients) {
@@ -2073,7 +2075,77 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
+// ---------------------------------------------------------------------------
+// The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
+// the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
+// ---------------------------------------------------------------------------
+
+const DUO_STATS = { costMul: 0.12, damageMul: 3, rateMul: 1.2 };
+/**
+ * The host's duo carries the LR flag (`lr: true`: Prismfall · Twin Star), the guest's is P6 (every 8th volley splits
+ * completely) without it; both go Refraction ⚡ to tier 3 (Prismfall) and the host's on to tier 5, the guest's takes
+ * Prism Corridor 2 beside it. 2-5 Normal has flyers for the beam and the shards.
+ */
+export const DUO_START = Object.freeze({
+  seed: 545454,
+  stageId: '2-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'kohaku_tsubaki', stats: { ...DUO_STATS, lr: true } }, { unitId: 'aoi', stats: DUO_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'kohaku_tsubaki', stats: { ...DUO_STATS, potential: 6 } }, { unitId: 'akane', stats: DUO_STATS }], hero: null },
+  ],
+});
+const DUO_UPGRADES = Object.freeze([
+  [0, 'kohaku_tsubaki', 2], [1, 'kohaku_tsubaki', 2], [0, 'kohaku_tsubaki', 2], [1, 'kohaku_tsubaki', 2], [0, 'kohaku_tsubaki', 2],
+  [1, 'kohaku_tsubaki', 2], [1, 'kohaku_tsubaki', 1], [1, 'kohaku_tsubaki', 1], [0, 'kohaku_tsubaki', 2], [0, 'kohaku_tsubaki', 2],
+]);
+
+/**
+ * DUO_START to the end (or 10 minutes): the runPotentialBattle fields plus `duo` (refractions / shards / beams /
+ * Prismfall casts / Twin Star shells / mortar aims, counted on the host's copy). Both players switch Auto-cast on;
+ * the host aims her duo's mortar at the road once, a little after the first wave starts.
+ */
+export function runDuoBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const duo = { refract: 0, shards: 0, beams: 0, casts: 0, twinStar: 0, aims: 0 };
+  const probe = (sim) => {
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'refract') {
+          duo.refract++;
+          duo.shards += ev.shards;
+        } else if (type === 'attack' && ev?.kind === 'beam' && sim.getTower(ev.towerUid)?.def.id === 'kohaku_tsubaki') duo.beams++;
+        else if (type === 'ability' && ev?.id === 'kohaku_tsubaki.prismfall') duo.casts++;
+        else if (type === 'abilityShell' && ev?.finale) duo.twinStar++;
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  let aimed = false;
+  const script = (frame, A, B) => {
+    if (frame === 21) A.queue('acast', [0, 1]);
+    if (frame === 22) B.queue('acast', [0, 1]);
+    if (!aimed && frame > 600 && frame % 60 === 0) {
+      const t = A.sim.towers.find((x) => x.def.id === 'kohaku_tsubaki' && A.coop.isMine(x.uid));
+      const e = t && A.sim.enemies.find((x) => !x.dead && !x.hidden && !x.airborne);
+      if (e) {
+        A.queue('aim', [t.uid, Math.round(e.x * 1024), Math.round(e.y * 1024)]);
+        aimed = true;
+        duo.aims++;
+      }
+    }
+  };
+  const r = runPotentialBattle({ start: DUO_START, upgrades: DUO_UPGRADES, spotsFirst: ['kohaku_tsubaki', 'aoi', 'akane'], maxFrames, probe, script });
+  r.duo = `${duo.refract}/${duo.shards}/${duo.beams}/${duo.casts}/${duo.twinStar}/${duo.aims}`;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the duo (DUO_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2087,5 +2159,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
 }

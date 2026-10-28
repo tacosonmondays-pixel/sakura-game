@@ -218,6 +218,20 @@ for (const { name, r } of results) {
   if (!(bounced > 0 && finales > 0)) failures.push(`the Glow Bowl battle: no bounce or no finale (${g.bowl})`);
 }
 
+// the duo Kohaku & Tsubaki (DUO_START): Refraction, Kohaku's beam, Prismfall on Auto-cast, the LR Twin Star
+log('\nScripted co-op DUO battle (2-5, DUO_START: Refraction to Constellation Lattice, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star):');
+for (const { name, r } of results) {
+  const g = r.duo;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · refract/shards/beams/casts/twinStar/aims ${g.duo} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two duo-battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} duo battle command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'duo', 'dealt']) if (g[k] !== ref.duo[k]) failures.push(`${name}: duo ${k} ${g[k]} ≠ ${ref.duo[k]} (${results[0].name})`);
+}
+{
+  const [refract, , beams, casts, twinStar] = ref.duo.duo.split('/').map(Number);
+  if (!(refract > 0 && beams > 0 && casts > 0 && twinStar > 0)) failures.push(`the duo battle: a part never ran (refract/shards/beams/casts/twinStar/aims ${ref.duo.duo})`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
