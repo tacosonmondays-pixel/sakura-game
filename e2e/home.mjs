@@ -307,16 +307,34 @@ async function staticChecks(vp) {
     await page.click('[data-testid="lobby-bg"]');
     check(!!(await page.waitForSelector('[data-testid="bgp-done"]', { timeout: 5000 }).catch(() => null)), `${vp} the background tool opens the background and secretary picker`);
     await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
-    // 8. Story and the Journal load the scene player's styles (story.css: .sp is a fixed full-screen layer); back on the
-    // home, nothing of it covers the home: its centre is the home's, and Battle takes a tap
+    // 8. Story and the Journal load the scene player's styles (story.css: .sp is a fixed full-screen near-black layer);
+    // back on the home, nothing of it covers the home: the element under its centre and under Battle is the home's, no
+    // fixed black cover, under half of its pixels near-black, and Battle takes a real tap
     for (const r of ['story', 'journal']) {
       await go(page, `#/${r}`, r);
       await go(page, '#/lobby', 'lobby');
       const c = await page.evaluate(() => {
-        const e = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
-        return { home: !!e?.closest('#app .home'), sp: document.querySelectorAll('.sp').length, el: e ? `${e.tagName.toLowerCase()}.${[...e.classList].join('.')}` : null };
+        const css = [...document.styleSheets].some((s) => { try { return [...s.cssRules].some((x) => x.selectorText === '.sp-bg'); } catch { return false; } });
+        const at = (x, y) => { const e = document.elementFromPoint(x, y); return { home: !!e?.closest('#app .home'), name: e ? `${e.tagName.toLowerCase()}.${[...e.classList].join('.')}` : 'none' }; };
+        const plate = document.querySelector('[data-testid="tile-mission"]').getBoundingClientRect();
+        const covers = [...document.querySelectorAll('#app .home *')].filter((e) => { const s = getComputedStyle(e); const b = e.getBoundingClientRect(); return s.position === 'fixed' && b.width >= innerWidth - 1 && b.height >= innerHeight - 1 && s.backgroundColor === 'rgb(5, 6, 10)'; }).length;
+        return { css, sp: document.querySelectorAll('.sp').length, centre: at(innerWidth / 2, innerHeight / 2), plate: at(plate.x + plate.width / 2, plate.y + plate.height / 2), covers };
       });
-      check(c.home && !c.sp, `${vp} after ${r}: the element at the home's centre is the home's (${c.el}; .sp elements ${c.sp})`);
+      const dark = await page.evaluate(async (src) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${src}`;
+        await img.decode();
+        const cv = document.createElement('canvas');
+        cv.width = img.width;
+        cv.height = img.height;
+        const g2 = cv.getContext('2d');
+        g2.drawImage(img, 0, 0);
+        const d = g2.getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0, black = 0;
+        for (let y = 0; y < cv.height; y += 7) for (let x = 0; x < cv.width; x += 7) { const i = (y * cv.width + x) * 4; n++; if (d[i] < 12 && d[i + 1] < 12 && d[i + 2] < 16) black++; }
+        return black / n;
+      }, (await page.screenshot({ type: 'png' })).toString('base64'));
+      check(c.css && !c.sp && c.centre.home && c.plate.home && !c.covers && dark < 0.5, `${vp} after ${r} (story styles loaded: ${c.css}): the home on top (centre ${c.centre.name}, Battle ${c.plate.name}, .sp ${c.sp}, black covers ${c.covers}, near-black pixels ${Math.round(dark * 100)} %)`);
       await page.click('[data-testid="tile-mission"]', { timeout: 15000 }).catch(() => {});
       await page.waitForFunction(() => document.querySelector('#app')?.dataset.screen === 'missions', null, { timeout: 15000 }).catch(() => {});
       check(await screenIs(page) === 'missions', `${vp} after ${r}: Battle takes a tap and opens Missions (now ${await screenIs(page)})`);
