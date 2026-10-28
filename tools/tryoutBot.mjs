@@ -467,7 +467,8 @@ function printSweep(r) {
 //        [--runs N] [--grade N] [--policy p] [--strength new|mid|maxed|none] [--length half|full] [--seed0 N] [--json]
 //   … --sweep [--runs N] [--grade N]: N seeds for each of the three strengths (new, mid, maxed) at that Grade
 // ---------------------------------------------------------------------------
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+// (a browser bundle has no `process`: e2e/engines.mjs runs this module in Chromium too)
+const isMain = typeof process !== 'undefined' && !!process.argv?.[1] && import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   const argv = process.argv.slice(2);
   const VALUED = ['--runs', '--grade', '--policy', '--strength', '--length', '--seed0'];

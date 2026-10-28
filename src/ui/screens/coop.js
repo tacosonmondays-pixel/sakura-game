@@ -33,7 +33,7 @@ import { ensureOnline, avatar, levelChip, showError, connecting, storedName, loc
 import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode, draftReady } from '../../online/coop/session.js';
-import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen } from '../../systems/tryoutRuns.js';
+import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, halfCleared } from '../../systems/tryoutRuns.js';
 import { mapChoices } from '../../sim/tryout/plan.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
@@ -884,7 +884,8 @@ export function render(root, params = {}) {
             : null,
           s.isHost
             ? h('div.ol-seg', { 'data-testid': 'coop-run-length' }, ...[['half', 'Half Day'], ['full', 'Full Day']].map(([k, label]) => h(`button.ol-seg-btn${run.length === k ? '.on' : ''}`, {
-              type: 'button', 'data-length': k, onclick: () => { if (run.length !== k) s.setTryout({ ...run, length: k }); },
+              type: 'button', 'data-length': k, disabled: k === 'full' && !halfCleared(store.profile), title: k === 'full' && !halfCleared(store.profile) ? 'Clear a Half Day first' : label,
+              onclick: () => { if (run.length !== k) s.setTryout({ ...run, length: k }); },
             }, label)))
             : null,
           h('span', { style: RUN_TEXT }, `Grade ${run.grade} · ${run.length === 'full' ? 'Full Day' : 'Half Day'}`),

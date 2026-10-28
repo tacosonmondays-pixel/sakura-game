@@ -42,6 +42,8 @@ export const TRYOUT_META = deepFreeze({
 
   // ---- the Marble Jar (§10.3) -----------------------------------------------------------------------
   // shelf: desk (once; a perk the run config carries, switchable) · cosmetic (once) · material (a weekly stock).
+  // `soon`: not on sale yet (nothing shows it: Window Seat chalk, the profile frame and the lobby pennant come with
+  // the M3 screens; M4 review); its bit stays reserved.
   // `bit`: the item's fixed place in the owned mask (missions.counters 'ty:jar'): never reuse or renumber one.
   // desk `perk`: the key in options.tryout.players[0].perks (src/sim/tryout, solo only, never in the Weekly).
   jar: [
@@ -49,16 +51,16 @@ export const TRYOUT_META = deepFreeze({
     { id: 'draft7', shelf: 'desk', price: 120, bit: 1, perk: 'draft7' },
     { id: 'coins', shelf: 'desk', price: 60, bit: 2, perk: 'coins' },
     { id: 'pocket', shelf: 'desk', price: 100, bit: 3, perk: 'pocket' },
-    { id: 'chalk_pink', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 4 },
-    { id: 'chalk_sky', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 5 },
-    { id: 'chalk_mint', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 6 },
-    { id: 'chalk_gold', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 7 },
+    { id: 'chalk_pink', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 4, soon: true },
+    { id: 'chalk_sky', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 5, soon: true },
+    { id: 'chalk_mint', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 6, soon: true },
+    { id: 'chalk_gold', shelf: 'cosmetic', kind: 'chalk', price: 40, bit: 7, soon: true },
     { id: 'bd_classroom', shelf: 'cosmetic', kind: 'backdrop', price: 75, bit: 8 },
     { id: 'bd_rooftop', shelf: 'cosmetic', kind: 'backdrop', price: 75, bit: 9 },
     { id: 'bd_gate', shelf: 'cosmetic', kind: 'backdrop', price: 75, bit: 10 },
     { id: 'bd_festival', shelf: 'cosmetic', kind: 'backdrop', price: 75, bit: 11 },
-    { id: 'frame_bloom', shelf: 'cosmetic', kind: 'frame', price: 150, bit: 12 },
-    { id: 'pennant', shelf: 'cosmetic', kind: 'pennant', price: 100, bit: 13 },
+    { id: 'frame_bloom', shelf: 'cosmetic', kind: 'frame', price: 150, bit: 12, soon: true },
+    { id: 'pennant', shelf: 'cosmetic', kind: 'pennant', price: 100, bit: 13, soon: true },
     // weekly stock; priced below the campaign's per-minute material rate at the fastest Marble pace (the test checks)
     { id: 'sg_bundle', shelf: 'material', price: 80, perWeek: 3, items: [{ id: 'book_rare', count: 3 }] },
     { id: 'fam_pack', shelf: 'material', price: 75, perWeek: 2, mats: [{ rarity: 'rare', count: 5 }], family: true },

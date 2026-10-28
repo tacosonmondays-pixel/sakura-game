@@ -1348,7 +1348,7 @@ on the same engine; co-op Continue and the co-op Make-up Test; 3-4 player co-op.
    `tests/online/tryoutCoop.test.js`): 12 periods, 11 picks (1 and 5 Tryout picks), Recess, Lunch Break and Cleaning
    Time, minibosses on 12, 28 and 44, the boss on 48. The Subject draw could corner itself in about 0.7 % of Full Days
    (a Subject a third time); it now redraws from the same stream when it does (a draw that never corners is unchanged,
-   so every Half Day and 99 % of Full Days keep their timetable). The co-op room still offers Half Days only.
+   so every Half Day and 99 % of Full Days keep their timetable). The co-op room's host picks a Half or Full Day (the Full Day opens after the host's Half Day clear).
 4. **Perf check at wave 48** (Node 22, one core; mean / p95 per 1/60 s step on waves 47-48, the bot's board): Grade 1
    Full Day, mid account, 42-43 girls: 0.07 / 0.22-0.27 ms; new account, 36-37 girls: 0.05-0.08 / 0.19-0.25 ms; Grade 11
    maxed, waves 41-48, 36-55 girls, up to 66 foes and 112 shots: 0.09-0.11 / 0.23-0.45 ms. A campaign stage with the

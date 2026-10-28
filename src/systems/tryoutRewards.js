@@ -312,6 +312,9 @@ export function resultFromRecord(rec) {
         squad: Array.isArray(p?.squad) ? p.squad.filter((x) => typeof x === 'string') : [],
         picks: Array.isArray(p?.picks) ? p.picks.filter(isObj) : [],
         ...(Number.isInteger(p?.moves) ? { moves: p.moves } : null),
+        // (the Yearbook's seen Pep Talks and the girls who tried out, as a finished run gives them)
+        seen: Array.isArray(p?.seen) ? p.seen.filter((x) => typeof x === 'string') : [],
+        tried: Array.isArray(p?.tried) ? p.tried.filter((x) => typeof x === 'string') : [],
       })),
     },
   };

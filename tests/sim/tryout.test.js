@@ -202,6 +202,19 @@ describe('tryout: Hall Passes, seats and vouchers', () => {
     sim.tryoutMove(0, kage.uid, far.x, far.y);
     expect(sim.tryoutMove(0, kage.uid, home[0], home[1]).ok).toBe(true);
     expect(p.passes).toBe(3);
+    // refunded moves (back home, Undo) never count toward the move counters (Hall Pass Pro)
+    expect(p.moves).toBe(0);
+    expect(sim.tryout.moves).toBe(0);
+    for (let i = 0; i < 5; i++) {
+      sim.tryoutMove(0, kage.uid, far.x, far.y);
+      sim.tryoutMove(0, kage.uid, home[0], home[1]);
+    }
+    sim.tryoutMove(0, kage.uid, far.x, far.y);
+    sim.tryoutCommand(0, 'undo');
+    expect(p.moves).toBe(0);
+    sim.tryoutMove(0, kage.uid, far.x, far.y);
+    expect(p.moves).toBe(1);
+    sim.tryoutMove(0, kage.uid, home[0], home[1]);
     const hero = sim.towers.find((t) => t.isHero);
     if (hero) expect(sim.tryoutMove(0, hero.uid, far.x, far.y).reason).toBe('hero');
     expect(sim.tryoutCommand(0, 'ready').ok).toBe(true);

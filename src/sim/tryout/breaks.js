@@ -195,6 +195,12 @@ function relocateGirl(sim, t, x, y) {
   }
 }
 
+/** Paid Hall Pass moves, the player's and the run's (by the change in a girl's spent passes). */
+function countMoves(ty, p, d) {
+  ty.moves += d;
+  p.moves = (p.moves || 0) + d;
+}
+
 /** A Hall Pass move (the `mv` command). */
 export function moveGirl(sim, owner, uid, x, y) {
   const chk = canMoveGirl(sim, owner, uid, x, y);
@@ -203,16 +209,18 @@ export function moveGirl(sim, owner, uid, x, y) {
   const p = ty.players[owner];
   const t = sim.getTower(uid);
   if (!p.start[uid]) p.start[uid] = [t.x, t.y];
-  p.undo.push({ uid, x: t.x, y: t.y, passes: p.passes, used: p.used[uid] || 0 });
+  const before = p.used[uid] || 0;
+  p.undo.push({ uid, x: t.x, y: t.y, passes: p.passes, used: before });
   if (chk.cost > 0) {
     p.passes -= 1;
-    p.used[uid] = (p.used[uid] || 0) + 1;
+    p.used[uid] = before + 1;
   } else {
     p.passes = Math.min(passMax(sim), p.passes - chk.cost);
     p.used[uid] = 0;
   }
-  ty.moves++;
-  p.moves = (p.moves || 0) + 1;
+  // the move counts only while its pass stays spent: a move back home (refunded) takes her moves of this break off
+  // again, and so does Undo (M4 review: Hall Pass Pro counts moves that cost a pass)
+  countMoves(ty, p, p.used[uid] - before);
   if (!ty.breakMoves.includes(uid)) ty.breakMoves.push(uid);
   relocateGirl(sim, t, x, y);
   sim._emit('tryoutMove', { towerUid: uid, x, y, owner });
@@ -227,6 +235,7 @@ export function undoMove(sim, owner) {
   if (!m) return { ok: false, reason: 'nothing' };
   const t = sim.getTower(m.uid);
   p.passes = m.passes;
+  countMoves(sim.tryout, p, m.used - (p.used[m.uid] || 0));
   p.used[m.uid] = m.used;
   if (t) relocateGirl(sim, t, m.x, m.y);
   sim._emit('tryoutMove', { towerUid: m.uid, x: m.x, y: m.y, owner, undo: true });

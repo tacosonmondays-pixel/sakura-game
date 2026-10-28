@@ -566,3 +566,16 @@ describe('the save keeps the meta (additive)', () => {
     expect(migrateProfile({ ...JSON.parse(JSON.stringify(createProfile())), tryoutMeta: 'junk' }).tryoutMeta).toBeUndefined();
   });
 });
+
+describe('the Jar sells only what the game shows (M4 review)', () => {
+  it('items marked soon (Window Seat chalk, the frame, the pennant) are neither listed nor sold', () => {
+    const p = profileTo('2-5');
+    const soon = TRYOUT_META.jar.filter((it) => it.soon).map((it) => it.id);
+    expect(soon.sort()).toEqual(['chalk_gold', 'chalk_mint', 'chalk_pink', 'chalk_sky', 'frame_bloom', 'pennant']);
+    const listed = Object.values(jarShelves(p, NOW)).filter(Array.isArray).flat().map((r) => r.id);
+    for (const id of soon) {
+      expect(listed).not.toContain(id);
+      expect(buyJar(p, id, { now: NOW })).toMatchObject({ ok: false, error: 'unknown' });
+    }
+  });
+});

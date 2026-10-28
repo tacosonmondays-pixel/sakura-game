@@ -38,7 +38,8 @@ export function stockLeft(profile, id, now = Date.now()) {
 export function jarShelves(profile, now = Date.now()) {
   const held = marbles(profile);
   const sel = jarState(profile).sel;
-  const rows = TRYOUT_META.jar.map((it) => {
+  // (items marked `soon` are not on sale yet: nothing in the game shows them)
+  const rows = TRYOUT_META.jar.filter((it) => !it.soon).map((it) => {
     const once = it.shelf !== 'material';
     const owned = once && jarOwned(profile, it.id);
     const left = once ? (owned ? 0 : 1) : stockLeft(profile, it.id, now);
@@ -62,7 +63,7 @@ export function jarShelves(profile, now = Date.now()) {
  */
 export function buyJar(profile, id, { family = null, now = Date.now() } = {}) {
   const it = JAR_MAP[id];
-  if (!it) return { ok: false, error: 'unknown', rewards: [] };
+  if (!it || it.soon) return { ok: false, error: 'unknown', rewards: [] };
   const once = it.shelf !== 'material';
   if (once && jarOwned(profile, id)) return { ok: false, error: 'owned', rewards: [] };
   if (!once && stockLeft(profile, id, now) <= 0) return { ok: false, error: 'soldOut', rewards: [] };

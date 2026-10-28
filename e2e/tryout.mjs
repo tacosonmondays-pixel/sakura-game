@@ -291,6 +291,12 @@ for (const [W, H] of viewports) {
     return r.right <= window.innerWidth + 1 && document.documentElement.scrollWidth <= window.innerWidth + 1;
   });
   check(photoFit, 'the Class Photo fits the width');
+  const againSeen = await page.evaluate(() => {
+    const s = document.querySelector('[data-testid="ty-photo-sheet"]').getBoundingClientRect();
+    const b = document.querySelector('[data-testid="ty-again"]').getBoundingClientRect();
+    return b.top >= s.top && b.bottom <= Math.min(s.bottom, window.innerHeight) + 1;
+  });
+  check(againSeen, 'the Class Photo buttons are in view without scrolling');
   await shot('ty-photo');
 
   // 9. Replay this seed: a practice Before Class of the same seed

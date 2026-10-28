@@ -15,7 +15,7 @@ import { TRYOUT_META } from '../../data/tryoutMeta.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isOwned } from '../../systems/unlocks.js';
 import {
-  tryoutUnlocked, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, getTryoutRun, putTryoutRun, clearTryoutRun, continueKind,
+  tryoutUnlocked, TRYOUT_UNLOCK, halfCleared, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, getTryoutRun, putTryoutRun, clearTryoutRun, continueKind,
   activePerks, weeklyState, parseShareCode,
 } from '../../systems/tryoutRuns.js';
 import { weekState, applyTryoutRecord } from '../../systems/tryoutRewards.js';
@@ -27,7 +27,6 @@ import { yearbookPanel } from './tryoutYearbook.js';
 /** Before Class's choices survive a redraw and a re-render (not a reload: a new seed then). */
 let pending = null;
 
-const halfCleared = (p) => (Number(p?.missions?.counters?.[TRYOUT_META.keys.half]) || 0) > 0;
 const fmtLeft = (ms) => {
   const hrs = Math.max(0, Math.round(ms / 3600000));
   return hrs >= 48 ? `${Math.round(hrs / 24)} days` : `${hrs} h`;
