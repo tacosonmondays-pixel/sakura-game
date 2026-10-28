@@ -20,6 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.58', version: '0.1.58', date: '2026-10-28', title: 'Brighter Details',
+    changed: [
+      'Marumi’s living scene on the home now shows in full colour too.',
+      'The “new lesson” bubble on the home no longer covers your coins or your secretary’s face.',
+      'Locked stage numbers stay readable on phones.',
+    ],
+  },
+  {
     id: 'v0.1.57', version: '0.1.57', date: '2026-10-28', title: 'Ultimates',
     added: [
       'Tower abilities are here! Upgrade a girl along her ability path and her ultimate joins the ability bar: tap it to cast, or hold it (right-click on PC) and switch on Auto. Heroes get their skill button too.',
