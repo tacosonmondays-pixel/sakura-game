@@ -1,9 +1,11 @@
 // Roster mechanics on the board (roster B3, docs/ATTACK_FX.md "Roster mechanics"): mortar warning
 // rings + shell arcs, relay props (Ruri's holo fox, Iroha's mirror panel) with a dashed tether, aim
 // reticles, curse bursts, Kanna's drum strike and Seiran's sky dragon. Purely visual: it reads sim
-// events and sim state (towers, shells, runners, sim.time) and never writes to them.
+// events and sim state (towers, shells, runners, sim.time) and never writes to them. Iroha's panel moves
+// with src/render/mirrorFx.js (this.mirrors): it flips and glints for each relayed bolt, leaves afterimages
+// when it jumps and echoes while Mirror Shift runs.
 //
-//   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
+//   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
 //   roster.handle(ev)   // every drained sim event (BattleRenderer.handleEvents); true = drawn here
 //   roster.update(dt)   // once per frame, after the events
 import * as THREE from 'three';
@@ -11,6 +13,7 @@ import { GeoBuilder } from './geo.js';
 import { aimMode } from '../sim/towers.js';
 import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
+import { MirrorFx } from './mirrorFx.js';
 
 const TAU = Math.PI * 2;
 
@@ -137,8 +140,8 @@ const _head = { x: 0, y: 0 };
 const _start = {};
 
 export class RosterFx {
-  /** @param {{ sim, scene, fx, batches, atlas, actors, quality? }} o */
-  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium' }) {
+  /** @param {{ sim, scene, fx, batches, atlas, actors, quality?, reduceMotion? }} o */
+  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', reduceMotion = false }) {
     this.sim = sim;
     this.fx = fx;
     this.b = batches;
@@ -175,10 +178,20 @@ export class RosterFx {
     this._curseThisFrame = 0;
     /** companion figures (src/render/companions.js, set by the renderer): Kon's 3D figure replaces the holo fox */
     this.companions = null;
+    this.reduceMotion = !!reduceMotion;
+    /** Iroha's panel motion (flips, glints, afterimages; styles/iroha.js reports her relayed bolts to it) */
+    this.mirrors = new MirrorFx({
+      sim, fx, batches, atlas, root: this.root, quality, reduceMotion: this.reduceMotion,
+      geometry: () => {
+        this._ensureGeo();
+        return this._geo.mirror;
+      },
+    });
   }
 
   setQuality(q) {
     this.quality = q;
+    this.mirrors.setQuality(q);
   }
 
   /** Game speed (1-3x, co-op: the shared speed): the board's frames are real time, the sim's clock is this much faster. */
@@ -214,12 +227,25 @@ export class RosterFx {
       case 'relay': {
         const p = this.props.get(ev.towerUid);
         if (p && Math.hypot(p.x - ev.x, p.y - ev.y) > 0.5) {
+          if (p.kind === 'mirror') {
+            // the panel jumps (no glide): afterimages bridge where it was and where it lands
+            this.mirrors.jump(ev.towerUid, p.x, p.y, ev.x, ev.y);
+            p.x = ev.x;
+            p.y = ev.y;
+            if (this.reduceMotion) this.fx.ring(ev.x, ev.y, 0.5, 0.5, 0.35, COL.mirror);
+            else this.fx.ring(ev.x, ev.y, 0.1, 0.6, 0.35, COL.mirror);
+            return true;
+          }
           // the 3D Kon runs there himself: no puff where he left
-          if (!(p.kind === 'familiar' && this.companions?.konAt(ev.towerUid))) this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
-          this.fx.ring(ev.x, ev.y, 0.1, 0.55, 0.35, ev.kind === 'mirror' ? COL.mirror : COL.familiar);
+          if (!this.companions?.konAt(ev.towerUid)) this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
+          this.fx.ring(ev.x, ev.y, 0.1, 0.55, 0.35, COL.familiar);
         }
         return true;
       }
+      case 'ability':
+        // Mirror Shift opens her echo window (the generic ability FX still draws the cast)
+        if (ev.id === 'iroha.mirrorShift') this.mirrors.ability(ev, this._tower(ev.towerUid));
+        return false;
       case 'aim':
         if (ev.x != null) {
           const t = this._tower(ev.towerUid);
@@ -401,6 +427,7 @@ export class RosterFx {
     if (!p) return;
     this.root.remove(p.mesh);
     this.props.delete(uid);
+    if (p.kind === 'mirror') this.mirrors.drop(uid);
   }
 
   // ---- frame -------------------------------------------------------------------------------
@@ -408,6 +435,7 @@ export class RosterFx {
   update(dt) {
     this.time += dt;
     this._curseThisFrame = 0;
+    this.mirrors.update(dt);
     this._drawWarns();
     this._syncProps(dt);
     this._drawAims();
@@ -466,6 +494,8 @@ export class RosterFx {
         const kind = relay.kind === 'mirror' ? 'mirror' : 'familiar';
         const mesh = new THREE.Mesh(kind === 'mirror' ? this._geo.mirror : this._geo.fox, kind === 'mirror' ? this._mats.mirror : this._mats.fox);
         mesh.frustumCulled = false;
+        // yaw first, then the tip about the panel's own axis (mirrorFx flips)
+        mesh.rotation.order = 'YXZ';
         this.root.add(mesh);
         p = { kind, mesh, x: t.ox, y: t.oy };
         this.props.set(t.uid, p);
@@ -518,10 +548,10 @@ export class RosterFx {
       this.b.groundA.push(x, 0.072, y, 0.6, 0.6, R.ring, c[0], c[1], c[2], 0.55 + 0.2 * Math.sin(this.time * 5), this.time);
       if (this.quality !== 'low') this.b.bbA.push(x, bob + 0.4, y, 0.8, 0.8, R.glow, c[0], c[1], c[2], 0.3);
     } else {
-      // the glass always faces the camera side (the sim's mirror has no facing) with a slow sway
+      // idle, the glass faces the camera side (the sim's mirror has no facing) with a slow sway; each relayed
+      // bolt flips it toward the shot with a glint (mirrorFx)
       m.position.set(x, 0.02, y);
-      m.rotation.set(0, 0.25 * Math.sin(this.time * 0.7 + t.uid), 0);
-      m.scale.setScalar(1.6);
+      this.mirrors.pose(t, m, x, y, 0.25 * Math.sin(this.time * 0.7 + t.uid));
       this.b.groundN.push(x, 0.06, y, 0.55, 0.55, R.shadow, 0.05, 0.05, 0.1, 0.35);
       this.b.groundA.push(x, 0.07, y, 0.6, 0.6, R.ring, c[0], c[1], c[2], 0.45, this.time * 0.5);
       // a soft sheen on the glass and a glint sweeping over it
@@ -688,6 +718,7 @@ export class RosterFx {
 
   dispose() {
     for (const uid of [...this.props.keys()]) this._dropProp(uid);
+    this.mirrors.dispose();
     if (this._geo) {
       this._geo.fox.dispose();
       this._geo.mirror.dispose();

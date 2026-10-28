@@ -202,7 +202,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
   }
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
-  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
+  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
+  // Iroha's bolt style reports each bolt that leaves her mirror panel, so the panel flips and glints (display only)
+  if (attackFx) attackFx.ctx.mirrors = roster.mirrors;
+  // a far zoom (a phone showing the whole board): the panel's cues draw up to 1.7x (42 px a tile reads as is)
+  roster.mirrors.readScale = () => 42 * (rig.scale || 1 / 42);
   // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
   const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion });
   actors.companions = companions;
@@ -1007,6 +1011,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: attack-FX snapshot for previews / e2e (allocates; dev tooling only). */
     attackFxProbe() {
       return attackFx?.probe() ?? null;
+    },
+
+    /** Extra: Iroha's mirror panels (flips, glints, afterimages) for e2e / debug (allocates). */
+    mirrorProbe() {
+      return roster.mirrors.probe();
+    },
+
+    /** Extra (e2e / previews; display only): show Mirror Shift's echo on her panel for `seconds` of sim time. */
+    previewMirrorShift(uid, seconds = 8) {
+      roster.mirrors.previewShift(uid, seconds);
     },
 
     /** Extra: companion actors (Kon, Kaze, the doll) for e2e / debug (allocates). */
