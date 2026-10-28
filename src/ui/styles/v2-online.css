@@ -454,7 +454,7 @@
 :is(.ui-day) .ol-form-row { gap: 8px; }
 :is(.ui-day) .ol-input-tag { width: 84px; }
 :is(.ui-day) .ol-side .ol-form p.muted { margin: 0; font: 500 var(--fs-label)/1.35 var(--font); }
-:is(.ui-day) .ol-clan-invites .sc-row { padding-left: 2px; padding-right: 2px; }
+:is(.ui-day) .ol-clan-invites .sc-row { padding-left: 2px; padding-right: 6px; } /* (the slanted buttons hang 3 px past their box) */
 
 /* in a clan: the head (emblem, name and tag, role · members · how to join, the level), the tabs, the pane */
 :is(.ui-day) .ol-clan-wrap { gap: 8px; padding-top: 8px; }
@@ -481,7 +481,7 @@
 :is(.ui-day) .ol-pane[data-tab="chat"] .ol-chat { border: 0; border-radius: 0; box-shadow: none; background: none; min-height: 0; }
 /* Members and Applicants: kit rows, one hairline each, two columns where they fit */
 :is(.ui-day) .ol-members { gap: 0 16px; }
-:is(.ui-day) .ol-member { gap: 6px 10px; min-height: 60px; padding: 4px 2px; border: 0; border-bottom: 1px solid var(--line-ink-soft); border-radius: 0; background: none; box-shadow: none; animation: none; }
+:is(.ui-day) .ol-member { gap: 6px 10px; min-height: 60px; padding: 4px 6px 4px 2px; border: 0; border-bottom: 1px solid var(--line-ink-soft); border-radius: 0; background: none; box-shadow: none; animation: none; }
 :is(.ui-day) .ol-member.me { background: none; }
 :is(.ui-day) .ol-member.me .ol-member-name b::after { content: ' · you'; font: 600 var(--fs-label)/1 var(--font); font-style: normal; color: var(--muted); }
 :is(.ui-day) .ol-member-tap { min-height: calc(var(--tap) + 2px); border-radius: 0; }
@@ -725,8 +725,8 @@
   :is(.ui-day) .sc-thread-head { gap: 4px; padding-right: 4px; }
   :is(.ui-day) .sc-thread-head .btn-small { padding: 0 10px; }
 }
-/* (an upright phone hides the bar's status pill: the note says the reason itself) */
-@media (max-width: 420px) {
+/* (a narrow screen hides the bar's status pill words (online.css, ≤ 640 px): the note says the reason itself) */
+@media (max-width: 640px) {
   :is(.ui-day) .ol-screen .ol-local-why { display: inline; }
   :is(.ui-day) .ol-screen .ol-local-what { display: inline; }
 }

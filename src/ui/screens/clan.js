@@ -417,7 +417,8 @@ function bossTab(backend, clan, pane, { quiet = false } = {}) {
           // the server times the battle from here (start_boss_attempt): starting uses no attempt
           try {
             const a = await backend.startBossAttempt();
-            if (alive) navigate('battle', { stage: s.stageId, difficulty: 'normal', clanBoss: a.attemptId });
+            // (a quiet refresh keeps this panel on screen after its cleanup ran: the button still being on screen is what counts)
+            if (alive || fight.isConnected) navigate('battle', { stage: s.stageId, difficulty: 'normal', clanBoss: a.attemptId });
           } catch (e) {
             showError(e);
           }
@@ -440,7 +441,7 @@ function bossTab(backend, clan, pane, { quiet = false } = {}) {
           store.commit('clan-boss');
           store.saveNow();
           toast(`Tier ${r.tier} rewards claimed!`, 'good');
-          if (alive) bossTab(backend, clan, pane);
+          if (alive || pane.isConnected) bossTab(backend, clan, pane);
         } catch (e) {
           showError(e);
         }
