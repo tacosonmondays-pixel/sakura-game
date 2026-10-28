@@ -12,8 +12,8 @@ import { rngOn, noWelcome } from '../fixtures/gachaRng.js';
 const fixedRng = (value, pickIndex = 0) => ({ next: () => value, pick: (arr) => arr[Math.min(pickIndex, arr.length - 1)], int: (a) => a, range: (a) => a, chance: () => false });
 
 describe('pool', () => {
-  it('contains every unit under its rarity, except LR units (their LR Banner only)', () => {
-    const lr = (id) => unitClass(id) === 'legend';
+  it('contains every unit under its rarity, except LR units (their LR Banner only) and held units (not yet)', () => {
+    const lr = (id) => ['legend', 'held'].includes(unitClass(id));
     const all = [...POOL.R, ...POOL.SR, ...POOL.SSR];
     expect(all.sort()).toEqual(UNITS.filter((u) => !lr(u.id)).map((u) => u.id).sort());
     for (const u of UNITS) if (!lr(u.id)) expect(POOL[u.rarity]).toContain(u.id);

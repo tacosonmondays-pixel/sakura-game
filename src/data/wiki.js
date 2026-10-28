@@ -26,7 +26,11 @@ import {
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { MAP_TIER_VIEW } from './mapTierNames.js';
-import { UNITS } from './units.js';
+import { UNITS as ALL_UNITS } from './units.js';
+import { listedUnits } from './banners.js';
+
+// (the wiki lists the girls players can meet: a held girl waits until she can be recruited)
+const UNITS = listedUnits(ALL_UNITS);
 import { statName, BASE_STAT_KEYS } from './gearStats.js';
 import { CLUBS, LIVE_CLUBS } from './clubs.js';
 import { LEGACY, LEGACY_IDS } from './legacy.js';

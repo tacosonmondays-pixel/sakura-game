@@ -432,7 +432,7 @@ export function sparkRule(profile, unitId, now = Date.now()) {
   if (!def || def.rarity !== 'SSR') return { ok: false, error: 'notSSR' };
   const cls = unitClass(unitId);
   if (cls === 'legend') return { ok: false, error: 'legend' };
-  if (cls === 'event') return { ok: false, error: 'event' };
+  if (cls === 'event' || cls === 'held') return { ok: false, error: 'event' };
   if (cls === 'standard') return { ok: true };
   const d = bannerDay(profile, now);
   if (inSpotlightWindow(unitId, d) || inGrace(profile, unitId, d)) return { ok: true };
@@ -457,7 +457,7 @@ export function chosenEssenceAllowed(profile, unitId, now = Date.now()) {
   const def = UNIT_MAP[unitId];
   if (!def) return false;
   const cls = unitClass(unitId);
-  if (cls === 'legend' || cls === 'event') return false;
+  if (cls === 'legend' || cls === 'event' || cls === 'held') return false;
   if (def.rarity !== 'SSR' || cls === 'standard') return true;
   return sparkRule(profile, unitId, now).ok;
 }

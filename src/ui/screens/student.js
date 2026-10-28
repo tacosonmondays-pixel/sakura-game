@@ -19,6 +19,7 @@ import {
   STATUSES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
+import { listedUnits } from '../../data/banners.js';
 import { ITEMS, bookId, materialId } from '../../data/items.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
@@ -1159,7 +1160,7 @@ export function render(root, params = {}) {
   el.classList.add('mb-screen', 'mb-student-screen', 'gp-screen');
   root.appendChild(el);
 
-  const order = [...UNITS].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
+  const order = [...listedUnits(UNITS, store.profile)].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
   const cycle = (d) => {
     const i = order.findIndex((u) => u.id === unit.id);
     const next = order[(i + d + order.length) % order.length];

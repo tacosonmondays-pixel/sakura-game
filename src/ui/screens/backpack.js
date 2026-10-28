@@ -112,6 +112,7 @@ export function howToGet(unit) {
   if (a.type === 'free') return { short: `Free after ${a.afterStage}`, long: a.note || `Joins for free after clearing stage ${a.afterStage}.`, stageId: a.afterStage };
   // [banners] where she can be pulled (BANNERS §B): LR units only on their LR Banner, premium SSRs on their Spotlights
   const cls = unitClass(unit.id);
+  if (cls === 'held') return { short: 'Coming soon', long: 'She joins the academy in a later update.' };
   if (cls === 'legend') return { short: 'LR Banner', long: 'LR unit: recruit her on her own LR Banner (Legend Promise at 300). She cannot be sparked.' };
   if (unit.rarity === 'SSR' && cls === 'premium') return { short: 'Spotlight', long: `Recruit her on her ${unit.kind === 'hero' ? 'Guardian' : 'Student'} Spotlight (1.0%), or spark her there with 200 Recruit Points.` };
   return { short: 'Recruit', long: unit.rarity === 'SSR' ? 'Recruit (1.5%, pity at 90) or spark her with 200 Recruit Points.' : 'Recruit her in the gacha.' };

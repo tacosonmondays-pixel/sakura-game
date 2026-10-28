@@ -23,8 +23,8 @@ describe('classes (§B)', () => {
   it('every unit has a class; the five original SSRs are standard; every R and SR is standard', () => {
     for (const u of UNITS) {
       const c = B.unitClass(u.id);
-      expect(['standard', 'premium', 'legend', 'event']).toContain(c);
-      if (u.rarity !== 'SSR') expect(c).toBe('standard');
+      expect(['standard', 'premium', 'legend', 'event', 'held']).toContain(c);
+      if (u.rarity !== 'SSR' && c !== 'held') expect(c).toBe('standard');
     }
     for (const id of STANDARD_SSR) expect(B.unitClass(id)).toBe('standard');
     expect(B.unitClass('tenka')).toBe('legend');
@@ -175,6 +175,28 @@ describe('rotation (§A.4)', () => {
     expect(B.legendBanner(B.pinStartDay(tenka) - 1)).toMatchObject({ legend: 'tenka', debut: false, legendRate: 5000 });
     // a brand-new LR unit's debut pin holds her off the everyday tab until her debut (`hold`)
     expect(PINS.filter((p) => p.hold).every((p) => p.unit !== 'tenka')).toBe(true);
+  });
+});
+
+describe('held units', () => {
+  it('Kogane and Norika (art not drawn yet) are in no pool, list, rate-up, spark, Select Ticket or Chosen Essence', () => {
+    const p = rich(createProfile());
+    for (const id of ['kogane', 'norika']) {
+      expect(B.unitClass(id)).toBe('held');
+      expect(B.selectTicketPool()).not.toContain(id);
+      expect(B.sparkRule(p, id).ok).toBe(false);
+      expect(B.chosenEssenceAllowed(p, id)).toBe(false);
+      for (const versions of Object.values(LISTS)) for (const v of versions) expect(v.list).not.toContain(id);
+    }
+    const t0 = at('2026-10-30');
+    for (let d = 0; d < 60; d++) {
+      for (const slot of ['tower', 'hero', 'legend', 'standard', 'coin', 'friend']) {
+        const b = B.bannerOfSlot(p, slot, t0 + d * 86400000);
+        if (!b) continue;
+        const w = JSON.stringify(B.bannerWeights(b));
+        expect(w, `${slot} day ${d}`).not.toMatch(/"(kogane|norika)"/);
+      }
+    }
   });
 });
 

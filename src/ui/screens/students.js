@@ -11,6 +11,7 @@ import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { ROLES, ROLE_CATEGORIES, ATTACK_TYPES, UNIT_RARITIES } from '../../data/types.js';
 import { UNITS } from '../../data/units.js';
+import { listedUnits } from '../../data/banners.js';
 import { unitPower } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
 import { hasOutfitOn, equippedSkin } from '../../systems/skins.js';
@@ -126,9 +127,10 @@ export function render(root) {
           activeFilters ? h('button.mb-chip.mb-clear', { onclick: () => { Object.assign(state, { cat: null, type: null, rarity: null, water: false }); rerender(); } }, 'Clear') : null)),
     );
 
-    const list = sortList(UNITS.filter((u) => matches(u, profile)), profile);
+    const roster = listedUnits(UNITS, profile); // (a held girl is not listed until she can be recruited)
+    const list = sortList(roster.filter((u) => matches(u, profile)), profile);
     clear(summary);
-    put(summary, h('span', `${list.length} shown`), h('span.muted', ` · ${ownedCount}/${UNITS.length} recruited`));
+    put(summary, h('span', `${list.length} shown`), h('span.muted', ` · ${ownedCount}/${roster.length} recruited`));
     clear(grid);
     grid.classList.remove('mb-fade');
     void grid.offsetWidth;
