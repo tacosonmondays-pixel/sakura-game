@@ -84,7 +84,9 @@ const plain = (v) => {
 // (heroes: tower references, compared below by uid; _stepping is true for a snapshot taken inside the step)
 const SIM_SKIP = new Set(['data', 'stage', 'map', 'diff', 'options', 'pathData', 'paths', 'pathTiles', 'placement', 'loadout', 'heroConfigs', '_heroConfig', 'grid',
   'rng', '_statusCtx', 'events', '_waveCache', '_scratch', '_scratch2', '_hitOut', '_dotOut', '_capSources', '_towerByUid', 'heroes', 'towers', 'traps',
-  'enemies', 'projectiles', 'fields', '_acc', '_stepping']);
+  'enemies', 'projectiles', 'fields', '_acc', '_stepping',
+  // the mortar's lead point (scratch: KNOWN_SIM_KEYS; written before every read, first by the duo's shells)
+  '_leadPt']);
 // a calm point resets these anyway (startNextWave overwrites the spawn cursor and timers)
 // (_waveTick: a map rule's step clock, restarted at every wave start)
 const CALM_SKIP = new Set(['_autoTimer', '_spawnQueue', '_spawnIndex', '_waveTime', '_waveHpMul', '_buffTimer', '_buffsDirty', '_waveTick']);
@@ -1608,6 +1610,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of tenkaLabRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Tenka with wells and Last Line: both timers)
     for (const t of tenkaWellRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the duo: her Refraction and volley counts, Kohaku's beam timer and spec)
+    for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 
@@ -1746,5 +1750,71 @@ describe('Marumi\'s ricochet and the battle save', () => {
     expect(mb2.balls ?? []).toHaveLength(0);
     back.update(STEP);
     expect(back.drainEvents().filter((e) => e.type === 'ballPop' || e.type === 'explode')).toEqual([]);
+  });
+});
+
+/**
+ * The duo Kohaku & Tsubaki (src/sim/duo.js): her Refraction counter, her volley count (P6's full split) and
+ * Kohaku's beam timer cross the calm point (`du`); Quit → restore (the migrate path: an older save without `du`
+ * comes back with fresh counters) → Continue plays on like the original.
+ */
+function duoRun() {
+  const c = { stageId: '2-5', difficulty: 'normal', towers: ['kohaku_tsubaki', 'aoi'], hero: 'hikari', stats: { damageMul: 2, potential: 6 }, seed: 3314 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan(c.stageId, ['aoi', c.hero], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const aoi = sim.towers.find((t) => t.unitId === 'aoi');
+  const duo = sim.placeTower('kohaku_tsubaki', ...spotNear(sim, 'kohaku_tsubaki', aoi));
+  expect(duo).toBeTruthy();
+  for (let k = 0; k < 3; k++) expect(sim.upgradeTower(duo.uid, 2)).toBe(true); // Refraction 3: every 2nd shell
+  sim.startNextWave();
+  while (sim.state === 'wave') {
+    sim.update(STEP);
+    sim.drainEvents();
+  }
+  return { c, sim, duo };
+}
+
+describe('the duo in a battle save (src/sim/duo.js)', SLOW, () => {
+  it('her counters travel (`du`), Continue plays on exactly, and a save without them restores fresh', () => {
+    const { c, sim, duo } = duoRun();
+    // counters mid-way, so the round trip has something to carry
+    duo.prismN = 1;
+    duo.duoVolley = 5;
+    duo.duoCd = 17;
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'kohaku_tsubaki');
+    expect(row.du).toEqual([1, 5, 17]);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
+    expect(dropped).toEqual([]);
+    const bd = back.getTower(duo.uid);
+    expect([bd.prismN, bd.duoVolley, bd.duoCd]).toEqual([1, 5, 17]);
+    expect(JSON.stringify(bd.stats)).toBe(JSON.stringify(duo.stats));
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    // Continue: the same next wave on both
+    wrapWaves(back, c.seed);
+    for (const s of [sim, back]) expect(s.startNextWave()).toBeTruthy();
+    for (const s of [sim, back]) {
+      while (s.state === 'wave') {
+        s.update(STEP);
+        s.drainEvents();
+      }
+    }
+    expect(bd.damageDealt).toBe(duo.damageDealt);
+    expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
+    // an older save (no `du`): fresh counters; an edited one is held to her stats
+    const old = JSON.parse(JSON.stringify(snap));
+    delete old.towers.find((t) => t.u === 'kohaku_tsubaki').du;
+    const fresh = restoreSim(recordOf(c, old)).sim.getTower(duo.uid);
+    expect(fresh.prismN ?? 0).toBe(0);
+    expect(fresh.duoCd ?? 0).toBe(0);
+    const bad = JSON.parse(JSON.stringify(snap));
+    bad.towers.find((t) => t.u === 'kohaku_tsubaki').du = [99, 'x', 1e9];
+    const held = restoreSim(recordOf(c, bad)).sim.getTower(duo.uid);
+    expect(held.prismN).toBe(1); // every 2nd shell: at most 1 since the last split
+    expect(held.duoVolley ?? 0).toBe(0); // (not a number: left fresh)
+    expect(held.duoCd).toBe(600);
   });
 });
