@@ -22,4 +22,10 @@ export const CHAPTER_SCENE_IDS = Object.freeze({
  */
 export const ACT_SCENE_IDS = Object.freeze({
   '1:2': Object.freeze(['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.poster', 'g1.boss', 'g1.epi']),
+  // Act 2 (eleven episodes). g2.class is listed: its `ifOwned` gate waits for a girl the player owns, but the scene
+  // always exists in code, so the list never changes with the roster.
+  '2:2': Object.freeze([
+    'g2.pro', 'g2.kohaku', 'g2.thirtyone', 'g2.lunch', 'g2.mid', 'g2.boiler', 'g2.class', 'g2.roof', 'g2.boss', 'g2.after',
+    'g2.epi',
+  ]),
 });
