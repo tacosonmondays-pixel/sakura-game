@@ -154,6 +154,52 @@
 :is(.ui-day) .ma-bounty-screen .bn-panel > .ui-plate-head { margin: 8px 8px 0; min-height: calc(var(--tap) + 8px); padding-right: calc(var(--sp-3) + var(--s)); }
 
 /* ==========================================================================================================
+   TOTAL ASSAULT (#/assault): Rei hosts; the bosses as hub cards (V4: the arena's art over an ink caption band; the
+   picked one ringed in --pink-ink), the boss on a chamfered stage, her strip + Details; Challenge the one yellow
+   ========================================================================================================== */
+:is(.ui-day) .ma-assault-screen .as-panel > .ui-plate-head { margin: 8px 8px 0; min-height: calc(var(--tap) + 8px); padding-right: calc(var(--sp-3) + var(--s)); }
+:is(.ui-day) .ma-assault-screen .ma-boss-cards { gap: 8px; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card {
+  --c: var(--cut); --rw: 1px; --edge: var(--line-ink); position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: flex-end;
+  min-height: 72px; padding: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink); transform: none; animation: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day) .ma-assault-screen .ma-boss-card::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142), calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw));
+}
+:is(.ui-day) .ma-assault-screen .ma-boss-card.active { --edge: var(--pink-ink); --rw: 3px; border: 0; box-shadow: none; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card:active { transform: none; filter: brightness(0.94); }
+:is(.ui-day) .ma-assault-screen .ma-boss-card:focus-visible { outline: none; --edge: var(--cyan); --rw: 2px; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-art { position: relative; inset: auto; flex: 1 1 0; min-height: 18px; transform: none; filter: saturate(0.85); }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card.locked .ma-boss-card-art { filter: saturate(0.25) brightness(0.7); }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-shade { display: none; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-text { flex: none; transform: none; padding: 5px 10px 7px; background: var(--plate); gap: 1px; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-name { font: italic 900 var(--fs-body)/1.15 var(--font-head); text-shadow: none; color: var(--on-ink); }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-sub { font: 600 var(--fs-label)/1.2 var(--font); color: var(--on-ink); }
+:is(.ui-day) .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { display: none; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-lock { top: 6px; right: calc(var(--c) + 4px); width: 16px; height: 16px; color: var(--on-ink); transform: none; }
+:is(.ui-day) .ma-assault-screen .ma-boss-card-medals { top: 4px; bottom: auto; right: calc(var(--c) + 4px); transform: none; border-radius: 0; background: var(--plate); padding: 1px 4px; }
+/* the boss on her stage: a chamfered ink panel, the family and her name on ink tags (no yellow: Challenge is the one) */
+:is(.ui-day) .ma-assault-screen .ma-boss-show {
+  --c: var(--cut); border: 0; border-radius: 0; box-shadow: none; animation: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day) .ma-assault-screen .ma-boss-family { background: var(--plate); color: var(--on-ink-dim); font: 700 var(--fs-label)/1.4 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:is(.ui-day) .ma-assault-screen .ma-boss-name { border-radius: 0; background: var(--plate); }
+:is(.ui-day) .ma-assault-screen .ma-boss-undisc { border-radius: 0; background: var(--glass-ink); }
+:is(.ui-day) .ma-assault-screen .ma-sub { font: 700 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); color: var(--ink); }
+:is(.ui-day) .ma-assault-screen .ma-rec-chips .chip { border-radius: 0; }
+:is(.ui-day) .ma-assault-screen .as-actions { border-top: 1px solid var(--line-ink-soft); }
+/* (a phone: the strip and the drops whole in view; the counters are in the boss's Details sheet) */
+@media (max-height: 480px) { :is(.ui-day) .ma-assault-screen .as-info > .ma-rec-chips { display: none; } }
+@media (min-height: 481px) { :is(.ui-day) .ma-assault-screen .ma-boss-card { min-height: 96px; } :is(.ui-day) .ma-assault-screen .ma-boss-card-text { padding: 7px 14px 9px; } }
+
+/* ==========================================================================================================
    COMMISSIONS (#/commissions): Miko hosts; Daily and Weekly as kit rows (one ink Claim each, Claim all the one
    yellow); the login calendar as day cards; the code in a kit input
    ========================================================================================================== */

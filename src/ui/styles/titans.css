@@ -1,4 +1,7 @@
 /* Titan Trials hub and its result sheet (docs/specs/ASCENSION.md §D.3). Phone landscape first (844×390).
+   [ui-v2 M5] The hub part wears the Ink & Paper look (V4): the titans as chamfered ink cards (the picked one ringed in
+   --pink-ink), the detail on kit cards (v2-hubs.css draws their ring), the target and tier chips 46 px, Fight the one
+   yellow (the week's ★ an ink sticker). The result sheet's rules (battle-side) are unchanged.
    UI M5b: the type tokens only (nothing under 12 px, tools/cssFloor.mjs); Kaede hosts on the collapse rule (hubs.css
    places the stand, and the bust chip at the start of the top row). */
 
@@ -13,10 +16,15 @@
 /* (a size container: the cards' type follows the width each card really gets, not the viewport: the UI M5 final
    review found the desktop names and kicker squeezed under the token beside Kaede's stand at 1024-1180 px) */
 .tt-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; container: tt-cards / inline-size; }
-.tt-card { position: relative; height: 58px; border: 0; padding: 0; border-radius: var(--radius); overflow: hidden; cursor: pointer; text-align: left; background: var(--navy); box-shadow: var(--shadow); transform: skewX(var(--skew)); transition: transform var(--t-press) var(--ease); }
-.tt-card > * { transform: skewX(calc(var(--skew) * -1)); }
+.tt-card { --c: var(--cut-s); --rw: 1px; --edge: var(--line-ink); position: relative; isolation: isolate; height: 58px; border: 0; padding: 0; border-radius: 0; overflow: hidden; cursor: pointer; text-align: left; background: var(--plate); box-shadow: none; transform: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%); transition: transform var(--t-press) var(--ease); }
+.tt-card > * { transform: none; }
+.tt-card::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd, 0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
 .tt-card-art { position: absolute; inset: 0; opacity: 0.55; }
-.tt-card-art > svg { width: 120%; height: 120%; margin-left: -10%; }
+.tt-card-art > svg { width: 100%; height: 100%; }
 .tt-card-token { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
 .tt-card-text { position: absolute; inset: 4px 46px 4px 12px; display: flex; flex-direction: column; justify-content: center; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); min-width: 0; }
 .tt-card-name { flex: none; font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: var(--fs-body); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -24,23 +32,24 @@
 /* the titan of the week: a yellow ★ sticker on her token; the "Titan of the Week" kicker only on the tall desktop cards */
 .tt-star {
   position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 20px; height: 20px;
-  border-radius: 50%; background: var(--yellow); color: var(--plate); box-shadow: 0 0 0 2px var(--plate);
+  border-radius: 50%; background: var(--plate); color: var(--plate-accent); box-shadow: 0 0 0 1px var(--line-hi);
   font: 900 var(--fs-label)/1 var(--font); text-shadow: none;
 }
 .tt-week { display: none; font-size: var(--fs-label); font-weight: 900; color: var(--yellow); letter-spacing: 0.02em; white-space: nowrap; }
-.tt-card.active { outline: 3px solid var(--yellow); outline-offset: -3px; }
-.tt-card.week { box-shadow: 0 0 0 2px var(--yellow-deep), var(--shadow); }
-.tt-card:active { transform: skewX(var(--skew)) scale(0.97); }
+.tt-card.active { --edge: var(--pink-ink); --rw: 3px; outline: 0; }
+
+.tt-card:active { transform: none; filter: brightness(0.94); }
+.tt-card:focus-visible { outline: none; --edge: var(--cyan); --rw: 2px; }
 
 .tt-detail { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 8px; }
-.tt-main, .tt-side { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 10px; min-width: 0; }
+.tt-main, .tt-side { background: var(--panel-w); border-radius: 0; box-shadow: none; padding: 8px 10px; min-width: 0; }
 .tt-main { display: flex; flex-direction: column; gap: 6px; }
-.tt-show { position: relative; height: 128px; border-radius: 10px; overflow: hidden; background: var(--navy); }
+.tt-show { --c: var(--cut-s); position: relative; height: 128px; border-radius: 0; overflow: hidden; background: var(--plate); clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%); }
 .tt-show-bg { position: absolute; inset: 0; opacity: 0.85; }
 .tt-show-bg > svg { width: 100%; height: 100%; }
 .tt-show-token { position: absolute; left: 50%; top: 46%; translate: -50% -50%; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45)); }
 /* the name on an ink plate (text never sits on the art without one, P6) */
-.tt-show-plate { position: absolute; left: 0; bottom: 8px; display: flex; flex-direction: column; padding: 3px 14px 4px 10px; border-radius: 0 var(--radius-plate) var(--radius-plate) 0; background: var(--plate-glass); color: var(--on-plate); }
+.tt-show-plate { position: absolute; left: 0; bottom: 8px; display: flex; flex-direction: column; padding: 3px 14px 4px 10px; border-radius: 0; background: var(--plate); color: var(--on-ink); }
 .tt-show-plate b { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: var(--fs-name); line-height: 1.1; }
 .tt-show-plate span { font-size: var(--fs-label); color: var(--on-plate-dim); }
 .tt-show-more { position: absolute; right: 10px; bottom: 10px; }
@@ -51,21 +60,21 @@
 .tt-side { display: flex; flex-direction: column; gap: 6px; }
 .tt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .tt-label { font-family: var(--font-num); font-size: var(--fs-label); font-weight: 600; letter-spacing: var(--track-label); color: var(--muted); text-transform: uppercase; }
-.tt-fam, .tt-tier { display: inline-flex; align-items: center; gap: 3px; min-height: var(--tap-dense); font-size: var(--fs-label); padding: 3px 10px; }
+.tt-fam, .tt-tier { display: inline-flex; align-items: center; gap: 3px; min-height: calc(var(--tap) + 2px); font-size: var(--fs-label); padding: 3px 12px; border-radius: calc(var(--tap) / 2 + 1px); }
 /* the selected chip is sakura pink with ink letters (selection, §4) */
 .tt-fam.on, .tt-tier.on { background: var(--pink); color: var(--plate); border-color: var(--pink); }
 .tt-tier.locked { opacity: 1; background: var(--sky-1); color: var(--muted); }
 .tt-rank { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-body); }
 .tt-need { margin: 0; font-size: var(--fs-label); color: var(--blue-deep); font-weight: 800; }
 .tt-meter { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); color: var(--navy); }
-.tt-meter-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tt-meter-bar { flex: 1; height: 6px; border-radius: 0; background: var(--line); overflow: hidden; transform: skewX(var(--skew)); }
 .tt-meter-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #ff7ab6, #ffd166, #8be78b, #7ee8fa, #a78bfa); }
 /* the actions: a row under the detail that stays in view (sticky at the bottom of the scroll, as the Bounty footer):
    Practice, Sweep (+ its reason), then Fight, the one yellow, at the right */
 .tt-actions {
   position: sticky; bottom: 0; z-index: 2;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px;
-  padding: 6px 10px; border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow);
+  padding: 6px 10px; border-radius: 0; background: var(--panel-w); box-shadow: none;
 }
 .tt-actions .btn > .ui-kbd { margin-left: 8px; }
 .tt-locked { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; text-align: center; }

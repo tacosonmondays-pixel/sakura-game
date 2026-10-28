@@ -19,8 +19,8 @@ export const shots = {
   'achievements-claim': { ...ach, open: clickOpen('#app [data-testid="ach-claim-all"]', '[data-testid="ach-fanfare-skip"], [data-testid="ach-claimall-modal"]'), settleMs: 600 },
   // the Bounty arena list scrolled to the open arena's tiers (the locked tier row)
   'bounty-tiers': { hash: '#/bounty', ready: isScreen('bounty'), seed: 'm5', rebuilt: true, open: scrollBody(160, '#app .ma-loc-list') },
-  // Titan Trials' MORE sheet
-  'titans-more': { hash: '#/titans', ready: isScreen('titans'), seed: 'm5', rebuilt: true, open: clickOpen('#app [data-testid="titan-more"]'), after: closeSheets },
+  // Titan Trials' MORE sheet (a Details sheet: P3's budgets do not apply inside it, its weaknesses and odds are its job)
+  'titans-more': { hash: '#/titans', ready: isScreen('titans'), seed: 'm5', rebuilt: true, limit: 16, open: clickOpen('#app [data-testid="titan-more"]'), after: closeSheets },
   challenge: { hash: '#/challenge', ready: isScreen('challenge'), rebuilt: true },
   sandbox: { hash: '#/sandbox', ready: isScreen('sandbox'), rebuilt: true },
   'happening-soon': { hash: '#/rewards?tab=soon', ready: isScreen('rewards'), kind: 'list', rebuilt: true },
