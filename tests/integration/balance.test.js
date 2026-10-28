@@ -23,8 +23,7 @@ import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { towers as towerDefs, heroes as heroDefs } from '../../src/data/units.js';
 import { HERO_LEVEL_PRICES } from '../../src/data/heroTracks.js';
 import { headroom, geoMean } from '../../tools/balance/headroom.js';
-import { stageRequires, stageOrderKey } from '../../src/data/stages.js';
-import { LEGACY_JOIN_STAGES } from '../../src/systems/catchUpJoins.js';
+import { freeUnitsBefore } from '../sim/modesBot.js';
 import { benchDps, towerBest, median } from '../../tools/balance/bench.js';
 
 const ready = hasRealData();
@@ -42,33 +41,7 @@ export function expectedLevel(s) {
   return EXPECTED_LEVEL[s.act === 2 ? Math.min(8, s.chapter + 1) : s.chapter] || 1;
 }
 
-/** Every stage that must be cleared before `id` opens (stageRequires, transitive): "earlier" never means array order. */
-function unlockAncestors(id) {
-  const out = new Set();
-  const stack = [...stageRequires(id)];
-  while (stack.length) {
-    const r = stack.pop();
-    if (out.has(r)) continue;
-    out.add(r);
-    stack.push(...stageRequires(r));
-  }
-  return out;
-}
-
-function freeUnitsBefore(d, stageId) {
-  const before = unlockAncestors(stageId);
-  const avail = Object.values(d.units).filter((u) => {
-    const a = u.acquisition || {};
-    if (a.type === 'starter') return true;
-    // (Yuzuha joins after 1-7, and still after 4-2 for a player who gets there first: catchUpJoins LEGACY_JOIN_STAGES)
-    return a.type === 'free' && (before.has(a.afterStage) || (LEGACY_JOIN_STAGES[u.id] || []).some((id) => before.has(id)));
-  });
-  const joinedAt = (u) => [u.acquisition.afterStage, ...(LEGACY_JOIN_STAGES[u.id] || [])].filter((id) => before.has(id));
-  const recency = (u) => (u.acquisition?.type === 'free' ? Math.min(...joinedAt(u).map(stageOrderKey)) : -1);
-  const towers = avail.filter((u) => u.kind === 'tower').sort((a, b) => recency(b) - recency(a)).slice(0, 8);
-  const hero = avail.filter((u) => u.kind === 'hero').sort((a, b) => recency(b) - recency(a))[0] || null;
-  return { towers: towers.map((u) => u.id), hero: hero?.id || null };
-}
+// the F2P roster before a stage (unlock ancestors; Yuzuha from 1-7 or her legacy 4-2): tests/sim/modesBot.js
 
 function statsAtLevel(unitId, level) {
   const breakthrough = Math.max(0, Math.ceil((level - 10) / 10));

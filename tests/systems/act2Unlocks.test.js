@@ -73,16 +73,16 @@ describe('old saves keep every unlock (Act I as before; Act II opens after 1-5)'
         expect(stageOpen(p, s.id), `${name} ${s.id} story`).toBe(isStageUnlocked(p, s.id));
       }
     });
-    it(`${name}: nextStage is unchanged (first uncleared Act I stage)`, () => {
-      expect(nextStage(p)).toBe(oldNext(p));
+    it(`${name}: nextStage is unchanged (first uncleared Act I stage; only once Act I is done, 1-6)`, () => {
+      expect(nextStage(p)).toBe(oldNext(p) ?? '1-6');
     });
   }
 
-  it('veterans keep their next stage: fresh 1-1, up to 3-2 → 3-3, late (all Normal) → 1-1 already cleared → null', () => {
+  it('veterans keep their next stage: fresh 1-1, up to 3-2 → 3-3, late (all of Act I) → 1-6 (TECH B2: Act I first)', () => {
     const s = SAVES();
     expect(nextStage(s.fresh)).toBe('1-1');
     expect(nextStage(s.upTo32)).toBe('3-3');
-    expect(nextStage(s.late)).toBe(null);
+    expect(nextStage(s.late)).toBe('1-6');
   });
 
   it('chapter progress and ribbons default to Act I', () => {

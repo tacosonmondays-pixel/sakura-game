@@ -285,8 +285,10 @@ describe('lane schedule', () => {
     let n = 0;
     let fh = 0x811c9dc5;
     let fn = 0;
-    expect(CAMPAIGN_IDS).toHaveLength(40);
-    for (const id of CAMPAIGN_IDS) {
+    // (Act I: Gate Arc's Act II stages come after it and carry their own schedule where they need one)
+    const ACT1 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 1);
+    expect(ACT1).toHaveLength(40);
+    for (const id of ACT1) {
       const st = STAGE_MAP[id];
       expect(st.waveGen.laneCycle, id).toBeUndefined();
       const paths = buildPaths(getMap(st.mapId));

@@ -197,7 +197,7 @@ describe('display only: the battle sim is untouched', () => {
     // Ironclad's modeChapter in modes.js; S1c: rooftops, the lane schedule and the map fields; S1d changes it again).
     // The bundled co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only
     // this exact in-progress id passes here.
-    const PENDING_BUMP = { 8: 'cff8a860676d' };
+    const PENDING_BUMP = { 8: 'a05d1c3bff14' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

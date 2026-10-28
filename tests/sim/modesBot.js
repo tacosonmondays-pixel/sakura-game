@@ -3,20 +3,38 @@
 import { defaultData } from '../../src/sim/data.js';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { stageRequires, stageOrderKey } from '../../src/data/stages.js';
+import { LEGACY_JOIN_STAGES } from '../../src/systems/catchUpJoins.js';
 
 export const LEVEL = { 1: 1, 2: 8, 3: 14, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40 };
 
-function freeUnitsBefore(d, stageId, exclude = []) {
-  const campaign = Object.values(d.stages).filter((s) => s.kind === 'campaign');
-  const order = new Map(campaign.map((s, i) => [s.id, i]));
-  const idx = order.get(stageId);
+/** Every stage that must be cleared before `id` opens (stageRequires, transitive): "earlier" never means array order. */
+export function unlockAncestors(id) {
+  const out = new Set();
+  const stack = [...stageRequires(id)];
+  while (stack.length) {
+    const r = stack.pop();
+    if (out.has(r)) continue;
+    out.add(r);
+    stack.push(...stageRequires(r));
+  }
+  return out;
+}
+
+/**
+ * The F2P roster before a stage: starters plus the free girls whose join stage is an unlock ancestor (Yuzuha also from
+ * her legacy 4-2, catchUpJoins LEGACY_JOIN_STAGES), the eight most recent towers and the most recent hero.
+ */
+export function freeUnitsBefore(d, stageId, exclude = []) {
+  const before = unlockAncestors(stageId);
+  const joinedAt = (u) => [u.acquisition.afterStage, ...(LEGACY_JOIN_STAGES[u.id] || [])].filter((id) => before.has(id));
   const avail = Object.values(d.units).filter((u) => {
     if (exclude.includes(u.id)) return false;
     const a = u.acquisition || {};
     if (a.type === 'starter') return true;
-    return a.type === 'free' && order.has(a.afterStage) && order.get(a.afterStage) < idx;
+    return a.type === 'free' && joinedAt(u).length > 0;
   });
-  const recency = (u) => (u.acquisition?.type === 'free' ? order.get(u.acquisition.afterStage) : -1);
+  const recency = (u) => (u.acquisition?.type === 'free' ? Math.min(...joinedAt(u).map(stageOrderKey)) : -1);
   const towers = avail.filter((u) => u.kind === 'tower').sort((a, b) => recency(b) - recency(a)).slice(0, 8);
   const hero = avail.filter((u) => u.kind === 'hero').sort((a, b) => recency(b) - recency(a))[0] || null;
   return { towers: towers.map((u) => u.id), hero: hero?.id || null };
