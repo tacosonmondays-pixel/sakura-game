@@ -197,6 +197,7 @@ export class Marionette {
     this.gdt = 0;
     this.speed = 1;
     this.lastSim = null;
+    this.strings = new Set(); // every doll's ribbons
     this.camera = null;
     this.viewH = 0;
     this.material = new THREE.MeshBasicMaterial({
@@ -228,6 +229,8 @@ export class Marionette {
     this.lastSim = typeof st === 'number' ? st : null;
     this.gdt = dt * Math.max(1, this.speed);
     this.time += this.gdt;
+    // strings show only for dolls drawn this frame (update() turns theirs back on)
+    for (const st of this.strings) st.mesh.visible = false;
   }
 
   /** Binds an actor's (new) figure: cuts the GLB threads and makes the strings. Keeps the attack state. */
@@ -253,6 +256,7 @@ export class Marionette {
     mesh.onBeforeRender = this._seeCamera;
     this.root.add(mesh);
     a.strings = { mesh, threads, n: threads.length };
+    this.strings.add(a.strings);
   }
 
   /** Drops an actor's strings (its figure goes or is rebuilt). */
@@ -261,6 +265,7 @@ export class Marionette {
     if (s) {
       s.mesh.removeFromParent();
       s.mesh.geometry.dispose();
+      this.strings.delete(s);
       a.strings = null;
     }
     if (all && a.mar) a.mar = marionetteState();
@@ -491,6 +496,11 @@ export class Marionette {
   }
 
   dispose() {
+    for (const st of this.strings) {
+      st.mesh.removeFromParent();
+      st.mesh.geometry.dispose();
+    }
+    this.strings.clear();
     this.material.dispose();
     this.camera = null;
   }

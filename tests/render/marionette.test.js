@@ -2,6 +2,7 @@
 // (src/render/marionetteLogic.js) and the renderer side's reading of her needles (src/render/marionette.js).
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   planStages, marionetteState, startMarionette, stepMarionette, retargetMarionette, loseTarget, landMarionette,
   marionetteBusy, stringPoint, sagFor, BASE_TIMES, BASE_TOTAL, FILL, MIN_SCALE, LEAD_MIN, CATCH_UP, CHOP_AT, REACH, STOP,
@@ -263,6 +264,54 @@ describe('strings', () => {
   });
 
   it('threadInfo finds each thread (bottom bone, top on the bar) and leaves them out of the figure', () => {
+    const { scene } = rig();
+    const info = threadInfo({ scene, unitScale: 2 });
+    expect(Array.from(info.keep)).toEqual([0, 1, 2]);
+    expect(info.threads.length).toBe(1);
+    const th = info.threads[0];
+    expect(th.bone).toBe('head');
+    expect(th.attach.y).toBeCloseTo(0.05, 6); // 0.25 in bind space, 0.2 above the head bone
+    expect(th.top.y).toBeCloseTo(0, 6); // on the bar
+    expect(th.top.x).toBeCloseTo(0.002, 6); // × unitScale 2, half-way across the thread's two top points
+  });
+
+  it('bind cuts the GLB threads, draws pooled ribbons tied to the bar and the doll, and disposes them', () => {
+    const asset = { scene: rig().scene, unitScale: 1, clips: {} };
+    const fig = skeletonClone(asset.scene); // the figure: a clone sharing the asset's geometry, as glbChibi makes it
+    const group = new THREE.Group();
+    group.add(fig);
+    const sim = { time: 0, projectiles: [], getTower: () => ({ uid: 1, eff: { rate: 0.9 } }) };
+    const root = new THREE.Group();
+    const m = new Marionette({ sim, actors: { enemies: new Map(), enemyPos: () => null }, root });
+    const a = { uid: 1, cid: 'doll', group, home: new THREE.Vector3(1, 0.5, 2), facing: 0, height: 0.3, mar: null, barRest: new THREE.Vector3(0, 0.5, 0) };
+    m.bind(a, asset);
+    const mesh = fig.children.find((o) => o.isSkinnedMesh);
+    expect(Array.from(mesh.geometry.index.array)).toEqual([0, 1, 2]); // no thread triangles on the figure
+    expect(a.strings.n).toBe(1);
+    const strings = root.children.find((o) => o.name === 'doll-strings');
+    expect(strings).toBeTruthy();
+    const geo = strings.geometry;
+    const before = geo.attributes.position.array;
+    m.tick(1 / 60);
+    expect(strings.visible).toBe(false); // hidden until the doll is drawn this frame
+    m.update(a, { facing: 0 }, sim.getTower(1), 1 / 60, 1);
+    expect(strings.visible).toBe(true);
+    const P = geo.attributes.position.array;
+    expect(P).toBe(before); // pooled: the same buffer every frame
+    expect(P.every(Number.isFinite)).toBe(true);
+    // the top of the string sits on her bar (home + barRest), the bottom on the doll
+    expect((P[1] + P[4]) / 2).toBeCloseTo(1.0, 3);
+    let disposed = false;
+    geo.addEventListener('dispose', () => { disposed = true; });
+    m.release(a);
+    expect(root.children.includes(strings)).toBe(false);
+    expect(disposed).toBe(true);
+    m.dispose();
+  });
+});
+
+function rig() {
+  {
     const root = new THREE.Bone();
     root.name = 'root';
     const head = new THREE.Bone();
@@ -287,16 +336,9 @@ describe('strings', () => {
     scene.add(root, mesh);
     scene.updateMatrixWorld(true);
     mesh.bind(new THREE.Skeleton([root, head, bar]));
-    const info = threadInfo({ scene, unitScale: 2 });
-    expect(Array.from(info.keep)).toEqual([0, 1, 2]);
-    expect(info.threads.length).toBe(1);
-    const th = info.threads[0];
-    expect(th.bone).toBe('head');
-    expect(th.attach.y).toBeCloseTo(0.05, 6); // 0.25 in bind space, 0.2 above the head bone
-    expect(th.top.y).toBeCloseTo(0, 6); // on the bar
-    expect(th.top.x).toBeCloseTo(0.002, 6); // × unitScale 2, half-way across the thread's two top points
-  });
-});
+    return { scene };
+  }
+}
 
 describe('the renderer side reads her needles (never writes the sim)', () => {
   const setup = () => {
