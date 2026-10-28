@@ -1,6 +1,6 @@
 # M4a: the Potential Board's layouts (review)
 
-`families.jpg` (392 KB) shows every layout the pure half of M4 can draw, from `src/ui/potentialBoard/layout.js`, at the
+`families.jpg` (under 400 KB) shows every layout the pure half of M4 can draw, from `src/ui/potentialBoard/layout.js`, at the
 844x390 board box (372 x 240 px) on the night plate:
 
 - **Rows 1-5:** the five families, three layouts each (Spear, Burst, Ring, Circuit, Crest), each at P3, LV 63 with 6
