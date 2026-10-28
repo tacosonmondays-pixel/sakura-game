@@ -138,7 +138,14 @@ for (const vp of viewports) {
   page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message.split('\n')[0]}`));
   const shot = async (name) => {
     if (!SHOTS) return;
-    await page.waitForTimeout(900); // (the drawer's slide and cross-fade between girls)
+    // the drawer settled: open, fully shown, its slide and cross-fade between girls finished (slow frames here)
+    await page.waitForFunction(() => {
+      const p = document.querySelector('[data-testid="tower-panel"]');
+      if (!p || p.hidden) return false;
+      const running = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.target && (p.contains(a.effect.target) || a.effect.target.contains?.(p)));
+      return !running.length && Number(getComputedStyle(p).opacity) > 0.99;
+    }, null, { timeout: 15000, polling: 200 }).catch(() => console.log('  (the drawer did not settle before the still)'));
+    await page.waitForTimeout(300);
     await page.screenshot({ path: join(SHOTS, `${name}-${vp}.png`), timeout: 120000 });
   };
   // a real frame between game-time steps, so the drawer's meter samples (it reads sim.time every frame)
