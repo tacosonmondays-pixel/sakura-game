@@ -187,10 +187,14 @@ export function runModsFor(sim, owner, unitId, isHero, t = null) {
   const s = cappedSums(sim, owner, unitId, isHero, t);
   const m = {};
   // the "vs" bonuses count inside the run-damage cap (M0 review): the largest one (elite and boss together
-  // against a boss) times the damage family never passes ×2.5; damage gives way first
-  const vsTop = vsFactor(s);
-  let dmg = 1 + s.damageMul;
-  if (dmg * vsTop > TRYOUT.caps.runDamage) dmg = Math.max(Math.min(1, dmg), TRYOUT.caps.runDamage / vsTop);
+  // against a boss) times the damage family never passes ×2.5; the vs bonus gives way (a vs card never costs damage
+  // against ordinary foes, M2 bench)
+  // card crit counts too, as its expected gain (M2 bench): the room left for vs after damage and crit
+  const dmg = 1 + s.damageMul;
+  const room = Math.max(1, TRYOUT.caps.runDamage / Math.max(1, dmg * critFactor(s.critChance, s.critMul)));
+  for (const k of ['airMul', 'barrierMul', 'eliteMul']) s[k] = Math.min(s[k], room - 1);
+  s.bossMul = Math.min(s.bossMul, room / (1 + s.eliteMul) - 1);
+  for (const k of Object.keys(s.classMul)) s.classMul[k] = Math.min(s.classMul[k], room - 1);
   if (dmg !== 1) m.damageMul = dmg;
   if (s.rateMul) m.rateMul = 1 + s.rateMul;
   if (s.range) m.range = s.range;
@@ -214,13 +218,18 @@ export function vsFactor(s) {
   return top;
 }
 
-/** A girl's whole card damage factor (damage × the largest vs bonus): the seat clamp divides by it. */
+/** A girl's whole card damage factor (damage × the largest vs bonus × crit): the seat clamp divides by it. */
 export function cardFactor(t) {
   const m = Array.isArray(t.runMods) ? t.runMods[0] : t.runMods;
   if (!m) return 1;
   let vs = Math.max(m.airMul ?? 1, m.barrierMul ?? 1, (m.eliteMul ?? 1) * (m.bossMul ?? 1));
   for (const v of Object.values(m.classMul || {})) vs = Math.max(vs, v);
-  return (m.damageMul ?? 1) * vs;
+  return (m.damageMul ?? 1) * vs * critFactor(m.crit?.chance || 0, m.crit?.mulAdd || 0);
+}
+
+/** The expected hit gain of card crit (chance on a ×1.5 crit, extra crit damage on the band's 15 % chance). */
+export function critFactor(chance, mulAdd) {
+  return 1 + chance * (0.5 + mulAdd) + TRYOUT.bandCap.critChance * mulAdd;
 }
 
 /** A player's cost cut on one girl (Scholarship, Varsity; placing and upgrading), capped. */

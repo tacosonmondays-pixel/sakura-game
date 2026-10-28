@@ -158,12 +158,12 @@ export const TRYOUT = deepFreeze({
 
   // ---- Pep Talk caps per girl type (§4.4); fractions, points and tiles ------------------------------
   caps: {
-    damageMul: 1.0, rateMul: 0.5, range: 1.0, critChance: 0.2, critMul: 0.5, pierce: 2, projectiles: 2, chain: 3, splash: 0.5,
+    damageMul: 1.0, rateMul: 0.5, range: 0.5, critChance: 0.1, critMul: 0.25, pierce: 1, projectiles: 1, chain: 2, splash: 0.25,
     vs: 0.3, costCut: 0.3, runDamage: 2.5, reveal: 3, auraPoints: 0.1,
   },
 
   // ---- Window Seats and Hall Passes (§6) -----------------------------------------------------------
-  seats: { solo: 3, coop: 4, radius: 0.9, dmg: 0.25, reach: 0.7, dmgCap: 0.5, reachCap: 1.0, minDist: 1.2, maxDist: 2.6, spacing: 3 },
+  seats: { solo: 3, coop: 4, radius: 0.9, dmg: 0.25, reach: 0.7, dmgCap: 0.5, reachCap: 0.7, minDist: 1.2, maxDist: 2.6, spacing: 3 },
   passes: { max: 5 },
   snack: { heal: 15, fullMax: 5, coopHeal: 8 },
   heartsMaxRise: 50,

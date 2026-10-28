@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { defaultData } from '../../src/sim/data.js';
 import { TRYOUT, TRYOUT_STUDENTS } from '../../src/data/tryout.js';
 import { bandStats } from '../../src/sim/tryout/power.js';
+import { cardFactor } from '../../src/sim/tryout/pep.js';
 import { capFold, ceilingSeat, ceilingStats } from '../../tools/benchHit.mjs';
 import { STRENGTHS, poolFor } from '../../tools/tryoutBot.mjs';
 
@@ -18,14 +19,14 @@ describe('run ceiling inputs', () => {
     expect(s.critChance).toBe(TRYOUT.bandCap.critChance);
   });
 
-  it('the card fold reaches the damage, speed and reach caps and the seat clamp keeps cards × seat at ×2.5', () => {
+  it('the card fold reaches the damage, speed and reach caps and the seat clamp keeps cards (crit counted) × seat at ×2.5', () => {
     for (const id of TRYOUT_STUDENTS) {
       const m = first(capFold(d, id));
       expect(m.damageMul).toBeCloseTo(1 + TRYOUT.caps.damageMul, 6);
       expect(m.rateMul).toBeCloseTo(1 + TRYOUT.caps.rateMul, 6);
       if (id !== 'shiro') expect(m.range).toBeCloseTo(TRYOUT.caps.range, 6);
       const seat = ceilingSeat(capFold(d, id));
-      expect(m.damageMul * seat.padMul).toBeCloseTo(TRYOUT.caps.runDamage, 6);
+      expect(cardFactor({ runMods: m }) * seat.padMul).toBeCloseTo(TRYOUT.caps.runDamage, 6);
     }
   });
 

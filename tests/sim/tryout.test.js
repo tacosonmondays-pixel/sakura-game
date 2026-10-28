@@ -152,8 +152,10 @@ describe('tryout: band, caps and score', () => {
     expect(cappedSums(sim, 0, 'aoi', false).damageMul).toBe(1);
     for (let i = 0; i < 3; i++) p.cards.push({ id: 'E06', r: 4 });
     const m = runModsFor(sim, 0, 'aoi', false);
-    expect(m.eliteMul).toBeCloseTo(1.3, 10);
-    expect(m.damageMul * m.eliteMul * m.bossMul).toBeLessThanOrEqual(2.5 + 1e-9);
+    // damage at its cap (×2) leaves ×1.25 for vs: the vs card gives way, never the damage
+    expect(m.damageMul).toBe(2);
+    expect(m.eliteMul).toBeCloseTo(1.25, 10);
+    expect(m.damageMul * m.eliteMul * (m.bossMul ?? 1)).toBeLessThanOrEqual(2.5 + 1e-9);
   });
 
   it('scores kills from 2× at the gate to 1× at the exit; children score 0', () => {
