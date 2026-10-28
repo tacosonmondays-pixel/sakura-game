@@ -100,7 +100,7 @@ function build() {
       const best = fp ? fp.wave : old;
       const tier = MAP_TIER_VIEW[s.tier];
       grid.appendChild(h(`button.ma-endless-card${cleared ? '' : '.locked'}`,
-        { onclick: () => cleared && navigate('stage', { id, endless: 1 }), disabled: !cleared, 'data-testid': `endless-${id}` },
+        { onclick: () => cleared && navigate('stage', { id, endless: 1 }), disabled: !cleared, 'data-testid': `endless-${id}`, 'data-probe': 'tile' },
         h('div.ma-ec-thumb', { html: map ? stageThumbSVG(map, { width: 240, height: 150 }) : '' }),
         h('span.ma-ec-id', id),
         best ? h('span.ma-ec-best', svgEl(medalIcon(best >= 50 ? 'nightmare' : best >= 40 ? 'hard' : best >= 30 ? 'normal' : 'easy'), 'ma-ec-medal'), `Wave ${best}`) : null,

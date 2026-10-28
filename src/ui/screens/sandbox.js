@@ -110,7 +110,7 @@ function mapStep(choice, redraw) {
     const on = map.id === choice.mapId;
     const tier = MAP_TIER_VIEW[stage.tier];
     return h(`button.ma-endless-card.sbx-map${on ? '.on' : ''}`, {
-      'data-testid': `sandbox-map-${map.id}`,
+      'data-testid': `sandbox-map-${map.id}`, 'data-probe': 'tile', // (a grid tile: P3 budgets it on its own)
       'aria-pressed': on ? 'true' : 'false',
       onclick: () => { choice.mapId = map.id; saveChoice(choice); redraw(); },
     },

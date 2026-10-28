@@ -199,6 +199,91 @@
 @media (max-height: 480px) { :is(.ui-day) .ma-assault-screen .as-info > .ma-rec-chips { display: none; } }
 @media (min-height: 481px) { :is(.ui-day) .ma-assault-screen .ma-boss-card { min-height: 96px; } :is(.ui-day) .ma-assault-screen .ma-boss-card-text { padding: 7px 14px 9px; } }
 
+/* ---------- shared: a map card (Tactical Challenge's Freeplay maps, the Sandbox maps) as a kit tile: the map's
+   picture over an ink caption band (its name, one line), the stage id on an ink tag; picked = --pink-ink ring ---------- */
+:is(.ui-day) .v2h .ma-endless-card {
+  --c: var(--cut-s); --rw: 1px; --edge: var(--line-ink); position: relative; isolation: isolate;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink); animation: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+:is(.ui-day) .v2h .ma-endless-card::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw));
+}
+:is(.ui-day) .v2h .ma-endless-card:active:not(:disabled) { transform: none; filter: brightness(0.94); }
+:is(.ui-day) .v2h .ma-endless-card:focus-visible { outline: none; --edge: var(--cyan); --rw: 2px; }
+:is(.ui-day) .v2h .ma-endless-card.on { --edge: var(--pink-ink); --rw: 3px; box-shadow: none; }
+:is(.ui-day) .v2h .ma-ec-info { gap: 2px; padding: 6px 10px 8px; background: var(--plate); font: 600 var(--fs-label)/1.25 var(--font); color: var(--on-ink); }
+:is(.ui-day) .v2h .ma-ec-info b { font: italic 900 var(--fs-body)/1.15 var(--font-head); color: var(--on-ink); }
+:is(.ui-day) .v2h .ma-ec-info :is(.muted, .ma-ec-fp) { font: 600 var(--fs-label)/1.25 var(--font); color: var(--on-ink-dim); }
+:is(.ui-day) .v2h .ma-ec-info .ma-ec-fp { color: var(--on-ink); font-style: normal; }
+:is(.ui-day) .v2h .ma-ec-id { left: 0; top: 6px; border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1.5 var(--font-num); letter-spacing: 0.04em; }
+:is(.ui-day) .v2h .ma-ec-best { right: calc(var(--c) + 4px); border-radius: 0; background: var(--plate); font: 700 var(--fs-label)/1.5 var(--font-num); }
+:is(.ui-day) .v2h .sbx-map-check { right: auto; left: 6px; top: 6px; width: 22px; height: 22px; padding: 3px; border-radius: 0; background: var(--pink-ink); box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+
+/* ==========================================================================================================
+   TACTICAL CHALLENGE (#/challenge): the colosseum as a V4 card (its arena over an ink caption: ENDLESS, the name, one
+   line, Prepare the one yellow; the best wave on the caption's right); the rewards on a kit panel; the Freeplay maps
+   ========================================================================================================== */
+:is(.ui-day) .ma-challenge-screen .ma-colosseum {
+  --c: var(--cut); display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 88px auto; gap: 0; min-height: 0; margin-bottom: 10px; padding: 0;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--plate); color: var(--on-ink); overflow: hidden; animation: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+:is(.ui-day) .ma-challenge-screen .ma-col-art { position: relative; inset: auto; grid-column: 1 / -1; grid-row: 1; align-self: stretch; overflow: hidden; filter: saturate(0.85); }
+:is(.ui-day) .ma-challenge-screen .ma-col-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+:is(.ui-day) .ma-challenge-screen .ma-col-shade { display: none; }
+:is(.ui-day) .ma-challenge-screen .ma-col-text { grid-row: 2; grid-column: 1; max-width: none; padding: 10px 14px 12px; gap: 4px; }
+:is(.ui-day) .ma-challenge-screen .ma-col-name { color: var(--on-ink); font: italic 900 calc(var(--fs-name) * 1.35)/1.05 var(--font-head); }
+:is(.ui-day) .ma-challenge-screen .ma-col-desc { color: var(--on-ink); font: 500 var(--fs-body)/1.35 var(--font); }
+:is(.ui-day) .ma-challenge-screen .ma-endless-badge { border-radius: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--cyan); color: var(--cyan); text-shadow: none; font: 700 var(--fs-label)/1.5 var(--font-num); letter-spacing: var(--track-caps); padding: 0 8px; transform: none; }
+:is(.ui-day) .ma-challenge-screen .ma-col-actions { margin-top: 4px; }
+:is(.ui-day) .ma-challenge-screen .ma-col-lock { border-radius: 0; background: var(--glass-ink-1); color: var(--on-ink); }
+:is(.ui-day) .ma-challenge-screen .ma-col-best {
+  grid-row: 2; grid-column: 2; align-self: stretch; display: flex; flex-direction: column; justify-content: center; margin: 0; padding: 10px 20px;
+  border-radius: 0; transform: none; background: var(--plate-2); box-shadow: inset 1px 0 0 var(--line-lo); color: var(--on-ink);
+}
+:is(.ui-day) .ma-challenge-screen .ma-col-best > * { transform: none; }
+:is(.ui-day) .ma-challenge-screen .ma-col-best-label { opacity: 1; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); color: var(--on-ink-dim); }
+:is(.ui-day) .ma-challenge-screen .ma-col-best-val { margin: 4px 0 2px; font: 700 var(--fs-num)/1 var(--font-num); font-style: normal; color: var(--plate-accent); }
+:is(.ui-day) .ma-challenge-screen .ma-col-best-sub { font: 600 var(--fs-label)/1.2 var(--font); color: var(--on-ink); }
+:is(.ui-day) .ma-challenge-screen .ma-hint { font: 500 var(--fs-body)/1.35 var(--font); white-space: normal; overflow: visible; text-overflow: clip; }
+:is(.ui-day) .ma-challenge-screen .ma-section-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--ink); }
+:is(.ui-day) .ma-challenge-screen .ma-wrap > section > p.muted { font: 500 var(--fs-body)/1.35 var(--font); }
+:is(.ui-day) .ma-challenge-screen .ma-drop-chance { font: 700 var(--fs-label)/1.1 var(--font-num); color: var(--ink); }
+@media (min-height: 481px) {
+  :is(.ui-day) .ma-challenge-screen .ma-colosseum { grid-template-rows: 150px auto; }
+  :is(.ui-day) .ma-challenge-screen .ma-col-text { padding: 14px 20px 16px; }
+}
+
+/* ==========================================================================================================
+   SANDBOX (#/sandbox): the header as the kit's ink plate (the badge, the map's name, the difficulty as kit options,
+   Next the one yellow); the maps as kit tiles
+   ========================================================================================================== */
+:is(.ui-day) .ma-sandbox-screen .sbx-head {
+  --s: calc(48px * var(--tan8)); border: 0; border-radius: 0; box-shadow: none; backdrop-filter: none; background: var(--plate); color: var(--on-ink);
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--s)) 100%, 0 100%); padding-right: calc(14px + var(--s));
+}
+:is(.ui-day) .ma-sandbox-screen .sbx-badge { border-radius: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--cyan); color: var(--cyan); font: 700 var(--fs-label)/1.5 var(--font-num); letter-spacing: var(--track-caps); font-style: normal; transform: none; }
+:is(.ui-day) .ma-sandbox-screen .sbx-title { color: var(--on-ink); white-space: normal; overflow: visible; text-overflow: clip; }
+:is(.ui-day) .ma-sandbox-screen .sbx-rule { border-radius: 0; font: 600 var(--fs-label)/1.4 var(--font); background: var(--glass-ink-1); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-lo); }
+:is(.ui-day) .ma-sandbox-screen .sbx-rule-no { color: var(--on-ink); }
+/* the difficulty: the kit's options on ink (white words, the picked one a cyan hairline box), 46 px taps */
+:is(.ui-day) .ma-sandbox-screen .sbx-diff { gap: 2px; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(.ui-day) .ma-sandbox-screen .sbx-diff .mb-seg-btn {
+  min-height: calc(var(--tap) + 2px); padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--on-ink-dim);
+  font: 700 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-menu); text-transform: uppercase;
+}
+:is(.ui-day) .ma-sandbox-screen .sbx-diff .mb-seg-btn.on { color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--cyan); background: var(--glass-ink-1); }
+:is(.ui-day) .ma-sandbox-screen .sbx-map-grid { gap: 8px; }
+:is(.ui-day) .ma-sandbox-screen .sbx-bar { border: 0; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink); backdrop-filter: none; background: var(--panel-w); }
+:is(.ui-day) .ma-sandbox-screen .sbx-bar-diff { border-radius: 0; font: 700 var(--fs-label)/1.5 var(--font-num); background: var(--plate); }
+:is(.ui-day) .ma-sandbox-screen .sbx-trial { border-radius: 0; font: 700 var(--fs-label)/1.4 var(--font-num); background: var(--plate); box-shadow: none; }
+
 /* ==========================================================================================================
    COMMISSIONS (#/commissions): Miko hosts; Daily and Weekly as kit rows (one ink Claim each, Claim all the one
    yellow); the login calendar as day cards; the code in a kit input
