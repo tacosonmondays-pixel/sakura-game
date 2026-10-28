@@ -69,6 +69,7 @@ Normal; 5-9 and 5-10 unchanged. 5-10 at [9, 300] fell to 40 Normal lives (below 
 | willow by day in fog (5-9's dressing: the bandstand, boats, buoys, the great willow's crown far off, search boats) | high | 7 | 1 | 20,092 | 32 | 10 | 0 |
 | willow by day | medium | 7 | 1 | 19,852 | 32 | 10 | 0 |
 | willow by day | low | 7 | 1 | 17,488 | 32 | 10 | 0 |
+| Merge main v0.1.57 (Oct 28) | the merge of origin/main 793dfcfa | ea79ed487b3a | 040793eb | **10** | main's ultimates (COOP 10, KNOWN 10: '2c3c74708a2c'); PENDING_BUMP moves to protocol 10 { 10: 'ea79ed487b3a' }. Tenka is a unit on main, so g5 lets her speak as herself (`{name:tenka}`, her portrait) instead of a plate; three lines shortened to fit. abilitiesGolden 4-5 Hard re-pinned on main's hash (L26/0/67565/2710/89ff1e0b/22: Azami still out of 4-5's free team) |
 
 All within the limits (≤ 10 draw calls + ≤ 3 instanced movers, < 90k triangles high / < 65k low, ≤ 250 glow
 sprites, ≤ 40 emitters, 0 sorted transparent meshes); the drowned boards sit well under §18.7's 50-60k estimate. The
