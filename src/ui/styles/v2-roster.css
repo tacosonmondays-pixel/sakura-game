@@ -1,0 +1,473 @@
+/* ==========================================================================================================
+   UI v2 menus M3: the roster and the girl page (V3) in the Ink & Paper kit (docs/specs/UI_V2_MENUS.md §5 M3,
+   docs/specs/UI_DIRECTION.md §6.2). Imported by src/ui/screens/students.js, src/ui/screens/student.js,
+   src/ui/screens/formation.js and the girl page's modules (girlFrame.js, unitSheet.js, girlGear.js). Every rule sits
+   under body.ui-day (the menus' surface mode); the night nameplate is the kit's .ui-np, a night surface on the day page.
+   Nothing here is under 12 px. Shapes follow ink.css S1-S5: chamfers, -8 degree controls, one ring, folder tabs, radius
+   only on circles. The girl tile itself is the kit's (girlTile(), ink.css "THE GIRL TILE").
+   Parts: STUDENTS · FILTER SHEET · GIRL PAGE FRAME · INFO · LEVEL · AWAKEN · GEAR · TREE · SHEETS · HOLD SHEET ·
+   OUTFITS · FORMATION.
+   ========================================================================================================== */
+
+/* ---------- STUDENTS: one 44 px row (show · sort · direction · Filter), the count, the grid of girl tiles ---------- */
+body.ui-day .st-screen .screen-body { padding-top: 10px; }
+body.ui-day .st-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: calc(var(--tap) + 2px); margin-bottom: 8px; }
+body.ui-day .st-gap { flex: 1 1 0; min-width: 0; }
+body.ui-day .st-seg { display: flex; gap: 4px; }
+body.ui-day .ui-opt.st-opt { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; white-space: nowrap; cursor: pointer; }
+body.ui-day .ui-opt.st-opt > .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+/* the sort: the native select fills the control (a phone opens its own picker); the glyphs sit over it */
+body.ui-day .ui-opt.st-sort { padding: 0; }
+body.ui-day .st-sort > select { -webkit-appearance: none; appearance: none; height: 100%; margin: 0; border: 0; border-radius: 0; background: none; outline: none; cursor: pointer;
+  padding: 0 calc(30px + var(--s)) 0 calc(38px + var(--s)); color: inherit; font: inherit; letter-spacing: inherit; text-transform: uppercase; }
+body.ui-day .st-sort > .ui-ico { position: absolute; z-index: 2; top: 50%; margin-top: calc(var(--icon-s) / -2); pointer-events: none; }
+body.ui-day .st-sort > .ui-ico:first-child { left: calc(12px + var(--s)); }
+body.ui-day .st-sort > .st-sort-chev { right: calc(8px + var(--s)); }
+body.ui-day .st-sort:focus-within { --edge: var(--m-cy-stroke); --rw: 2px; }
+body.ui-day .ui-opt.st-dir { padding: 0 calc(12px + var(--s)); }
+body.ui-day .st-arrow { font: 700 var(--fs-name)/1 var(--font-num); }
+body.ui-day .st-filter > .ui-dot { position: absolute; top: 7px; right: calc(var(--s) + 6px); z-index: 2; }
+body.ui-day .st-summary { display: flex; align-items: baseline; gap: 6px; margin: 0 2px 10px; min-height: 18px; }
+body.ui-day .st-summary .num { font-size: var(--fs-num-s); color: var(--ink); }
+body.ui-day .st-sep { width: 1px; height: 14px; margin: 0 6px; align-self: center; background: var(--line-ink); transform: skewX(var(--skew)); }
+/* the grid: 7 tiles across at 844 (≥ 104 px each: the caption keeps her name and LV whole), 9 to 11 on a desktop */
+body.ui-day .st-grid.mb-student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px 8px; padding-bottom: 12px; }
+@media (min-height: 481px) { body.ui-day .st-grid.mb-student-grid { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 16px 12px; } }
+body.ui-day .st-grid > .ui-girltile { --gw: 100%; }
+body.ui-day .st-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px 16px; background: var(--panel-w);
+  box-shadow: inset 0 0 0 1px var(--line-ink-soft); text-align: center; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+body.ui-day .st-empty b { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+body.ui-day .st-empty p { margin: 0; }
+@media (max-width: 560px) {
+  body.ui-day .st-gap { display: none; }
+  body.ui-day .st-seg { flex: 1 0 100%; }
+  body.ui-day .st-seg > .ui-opt { flex: 1 1 0; }
+}
+
+/* ---------- FILTER SHEET (a kit day sheet): one row of options per facet; a tap applies at once ---------- */
+body.ui-day .st-fsheet { display: flex; flex-direction: column; gap: 14px; }
+body.ui-day .st-fsec { display: flex; flex-direction: column; gap: 8px; }
+body.ui-day .st-fkick { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps);
+  text-transform: uppercase; color: var(--muted); }
+body.ui-day .st-fkick::before { content: ''; width: 3px; height: 12px; flex: none; background: var(--plate); transform: skewX(var(--skew)); }
+body.ui-day .st-fkick::after { content: ''; flex: 1; height: 1px; background: var(--line-ink-soft); }
+body.ui-day .st-opts { display: flex; flex-wrap: wrap; gap: 8px 6px; }
+body.ui-day .st-opt-ic { display: inline-grid; width: 22px; height: 22px; flex: none; }
+body.ui-day .st-opt-ic > svg { width: 100%; height: 100%; display: block; }
+body.ui-day .st-opt .ui-rar { height: 22px; min-width: 34px; }
+body.ui-day .st-facts { display: flex; align-items: center; justify-content: flex-end; min-height: calc(var(--tap) + 2px); }
+body.ui-day .st-facts .btn { min-height: calc(var(--tap) + 2px); font-size: var(--fs-body); }
+body.ui-day .st-fnone { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+:is(body.ui-day) .ui-sheet.st-sheet .ui-body { padding-bottom: 16px; }
+
+/* ---------- GIRL PAGE FRAME: the art band (chamfered, one ring) with the night nameplate over her art, the content
+   panel with folder tabs (S4). The band's controls are ink-glass circles; every hit 44 px. ---------- */
+body.ui-day .gp-screen .screen-body { padding-bottom: 8px; }
+@media (min-height: 481px) { body.ui-day .gp-screen .screen-body { padding-bottom: 16px; } }
+body.ui-day .gp-screen .gp { gap: 12px; }
+@media (min-height: 481px) { body.ui-day .gp-screen .gp { gap: 20px; } }
+body.ui-day .gp-band { --c: var(--cut); --rw: 1px; --edge: var(--line-ink); --np-in: 8px; --gp-plate-h: calc(var(--np-h, 104px) + var(--np-in));
+  margin: 0; border: 0; border-radius: 0; box-shadow: none; background: #dde7f2; isolation: isolate;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); }
+body.ui-day .gp-band::after { content: ''; position: absolute; inset: 0; z-index: 6; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142), calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+body.ui-day .gp-band > .mb-show-stage { border-radius: 0; border: 0; }
+body.ui-day .gp-band > .mb-show-stage:not(.is-3d)::after { border-radius: 0; box-shadow: none; background: linear-gradient(180deg, transparent 52%, rgba(14, 25, 48, 0.28)); }
+body.ui-day .gp-band > .mb-show-stage.is-3d { background: radial-gradient(ellipse at 50% 80%, rgba(29, 78, 137, 0.12), transparent 62%), linear-gradient(180deg, #eef4fa, #dde7f2); }
+/* a UR girl: ur.css's turning rainbow, cut to the band's chamfer pair (4 px) */
+body.ui-day .gp-band > .mb-show-stage > .ur-ring { --rw: 4px; padding: 0; border-radius: 0; -webkit-mask: none; mask: none;
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142), calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+/* the band's controls: ink glass circles over her art (prev / next on its edges, Outfit and 3D in its top corners) */
+body.ui-day .gp-band .ui-ibtn.glass { border-radius: 50%; background: rgba(14, 25, 48, 0.62); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-hi); }
+body.ui-day .gp-band .ui-ibtn.glass .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+body.ui-day .gp-band .gp-corner { top: 8px; }
+body.ui-day .gp-band .gp-corner.tl { left: 8px; }
+body.ui-day .gp-band .gp-corner.tr { right: calc(8px + var(--c) * 0.5); }
+body.ui-day .gp-band .gp-nav.l { left: 6px; }
+body.ui-day .gp-band .gp-nav.r { right: 6px; }
+body.ui-day .gp-band .gp-outfit.trying { box-shadow: inset 0 0 0 2px var(--pink-on-ink); }
+body.ui-day .gp-band .gp-outfit .ui-sticker { left: 24px; top: -4px; }
+/* the night nameplate: an ink plate inset over her art (S2: its chamfers touch nothing) */
+body.ui-day .gp-band .gp-plate-host { left: var(--np-in); right: var(--np-in); bottom: var(--np-in); z-index: 7; border-radius: 0; overflow: visible; }
+body.ui-day .gp-plate.ui-np { gap: 5px; padding: 10px 12px 10px 12px; background: var(--fill); }
+@media (min-height: 481px) { body.ui-day .gp-band { --np-h: 128px; --np-in: 12px; } body.ui-day .gp-plate.ui-np { gap: 8px; padding: 14px 16px; } }
+body.ui-day .gp-plate .gp-np1 { gap: 8px; }
+body.ui-day .gp-plate .np-name { text-shadow: none; overflow-wrap: normal; }
+body.ui-day .gp-plate .gp-np2 > .lbl { color: var(--on-ink-dim); }
+body.ui-day .gp-plate .gp-pwr { gap: 4px; color: var(--on-ink); }
+body.ui-day .gp-plate .gp-pwr .ui-ico { width: 14px; height: 14px; color: var(--on-ink-dim); }
+body.ui-day .gp-plate .gp-pwr .num { font-size: var(--fs-num-s); }
+body.ui-day .gp-plate .gp-lv .lbl { color: var(--on-ink-dim); }
+body.ui-day .gp-plate .gp-lv .num { font-size: var(--fs-num-s); color: var(--on-ink); }
+body.ui-day .gp-plate .ui-stars .ui-star { width: 14px; height: 14px; color: rgba(255, 255, 255, 0.22); }
+body.ui-day .gp-plate .ui-stars .ui-star.on { color: #ffc94d; }
+/* the P sticker on ink: a hairline chip with white figures (the kit's chip on ink); P6 pale sakura with the plum crown */
+body.ui-day .gp-plate .ui-sticker.gp-p { background: transparent; color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-hi); padding: 4px 8px;
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; }
+body.ui-day .gp-plate .ui-sticker.gp-p.p6 { background: #ffd9e7; color: var(--pot-plum, #3b2350); box-shadow: none; }
+
+/* the content panel: folder tabs over one window (the kit's .ui-tabbed); only the window scrolls */
+body.ui-day .gp-right.ui-tabbed { min-height: 0; }
+/* the tabs a full tap tall at every height (the kit's 40 px short tab hangs its hit 4 px into the window, over the
+   window's first row of controls) */
+body.ui-day .gp-tabs.ui-tabs { --h: max(var(--tab-h), calc(var(--tap) + 2px)); }
+body.ui-day .gp-tabs > .ui-tab { min-width: 0; }
+body.ui-day .gp-tabs > .ui-tab > .ui-tab-word { font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); }
+body.ui-day .gp-tabs > .ui-tab > .ui-dot.ur-dot { margin: 0 0 0 -3px; background: conic-gradient(var(--ur-rainbow)); }
+body.ui-day .gp-host.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: block; padding: 12px 8px calc(14px + var(--safe-bottom)); }
+@media (min-height: 481px) { body.ui-day .gp-host.ui-tabbed-body { padding: 16px 14px calc(18px + var(--safe-bottom)); } }
+@media (max-width: 599px) {
+  body.ui-day .gp-band { --np-h: 104px; }
+  /* an upright phone: only the open tab keeps its word (the others their glyph; the word is the tab's aria-label) */
+  body.ui-day :is(.gp-tabs, .gs-tabs) > .ui-tab:not(.on) > .ui-tab-word { display: none; }
+  body.ui-day :is(.gp-tabs, .gs-tabs) > .ui-tab.on { flex: 2 1 0; }
+}
+
+/* ---------- the tabs' sections in the folder body: flat, the folder panel is the one panel (5.4: one level deep). A
+   kicker heads a section; a hairline parts two. ---------- */
+body.ui-day .gp-host .ui-panel { --fill: transparent; --edge: transparent; clip-path: none; background: none; }
+body.ui-day .gp-host .ui-panel::after { display: none; }
+body.ui-day .gp-host .ui-panel > .ui-panel-in { padding: 0 4px; }
+body.ui-day .gp-host .ui-panel-head { min-height: 20px; margin-bottom: 8px; }
+body.ui-day .gp-host .ui-kicker { color: var(--ink); }
+
+/* ---------- INFO: her role row (≤ 3 chips + "+N"; the ⚡ ability line takes the row under the sentence when it ships),
+   the ink strip, then Matchup | Potential side by side, the Profile row ---------- */
+body.ui-day .gp-info { gap: 0 16px; }
+body.ui-day .gp-info > .ui-panel { padding: 12px 0; border-top: 1px solid var(--line-ink-soft); }
+body.ui-day .gp-info > .gp-role-card { padding-top: 0; border-top: 0; }
+body.ui-day .gp-info > .gp-pot-card { position: relative; }
+body.ui-day .gp-info > .gp-pot-card::before { content: ''; position: absolute; left: -8px; top: 12px; bottom: 12px; width: 1px; background: var(--line-ink-soft); }
+body.ui-day .gp-info.detailed > .gp-pot-card::before { display: none; }
+@media (max-width: 599px) {
+  body.ui-day .gp-info { grid-template-columns: minmax(0, 1fr); }
+  body.ui-day .gp-info > .gp-pot-card::before { display: none; }
+}
+body.ui-day .gp-role .gp-role-name { color: var(--ink); }
+body.ui-day .gp-one { margin: 8px 0 10px; color: var(--ink); }
+/* the ⚡ ability line (feature/abilities adds it between the sentence and the strip): a kit row, 44 px */
+body.ui-day .gp-host .gp-abil { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); margin: 0 0 10px; padding: 0 8px 0 12px; border: 0; border-radius: 0;
+  background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); color: var(--ink); text-align: left; font: 700 var(--fs-body)/1.2 var(--font); cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .gp-pot-card { color: var(--ink); text-align: left; cursor: pointer; min-height: var(--tap); }
+body.ui-day .gp-pot-card .gp-chev { color: var(--cyan-ink); }
+body.ui-day .gp-pip { color: #e1e8f1; }
+body.ui-day .gp-pip.on { color: #ff8fb8; }
+body.ui-day .gp-line .lbl { color: var(--ink); }
+/* the Profile row: her face and her quote on a paper card with one cut (no round bubble on a rebuilt page, S5) */
+body.ui-day .gp-quote { gap: 12px; }
+body.ui-day .gp-qface { box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--line-ink); }
+body.ui-day .gp-bubble { border: 0; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); background: var(--sky-1); color: var(--ink);
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .gp-bubble::before, body.ui-day .gp-bubble::after { display: none; }
+body.ui-day .gp-profile-card .ui-ghost { min-height: var(--tap); padding: 0 6px; }
+body.ui-day .gp-caps { min-height: var(--tap); }
+body.ui-day .gp-mu { min-height: 28px; }
+
+/* the girl page's buttons at a full tap (the M0 small ones were 32 px); disabled ones never fade (5.5) */
+body.ui-day .gp-host .btn, body.ui-day .gk-sheet .btn { min-height: calc(var(--tap) + 2px); }
+body.ui-day :is(.gp-host, .gk-sheet) .btn-small { padding: 0 14px; font-size: var(--fs-body); }
+body.ui-day :is(.gp-host, .gk-sheet) .ui-ghost { min-height: var(--tap); display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; }
+/* the progress bar: a flat track, the cyan fill, a striped preview (kit: square ends) */
+body.ui-day :is(.gp-host, .gp-details) .gk-bar { border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); background: #e8eef6; }
+body.ui-day :is(.gp-host, .gp-details) .gk-bar > i { border-radius: 0; background: var(--cyan-ink); }
+body.ui-day :is(.gp-host, .gp-details) .gk-bar > i.pv { background: repeating-linear-gradient(45deg, #ffe680 0 6px, #ffd23f 6px 12px); }
+
+/* ---------- LEVEL: the level, its bar and the EXP line; Manual · Auto select · Level up on one row; the next gate ---------- */
+body.ui-day .gk-level { gap: 0; }
+body.ui-day .gk-level > .ui-panel + .ui-panel, body.ui-day .gk-level > .gk-bt-host { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line-ink-soft); }
+body.ui-day .gp-host .gk-lv > .ui-panel-in { padding-top: 4px; }
+body.ui-day .gk-lv .mb-lv-big > .num { font-size: var(--fs-num); }
+body.ui-day .gk-lv .gk-acts-main { gap: 8px; }
+body.ui-day .ui-chip.gk-toggle { --h: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px 0 10px; font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; }
+body.ui-day .ui-chip.gk-toggle.on { --fill: var(--plate); color: var(--on-ink); }
+/* a landscape phone: the EXP line rides beside the level on its row (the cap stays right), so Manual's five books fit
+   under the bar without a scroll */
+@media (max-height: 480px) and (min-width: 600px) {
+  body.ui-day .gp-host .gk-lv > .ui-panel-in { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; }
+  body.ui-day .gp-host .gk-lv > .ui-panel-in > * { grid-column: 1 / -1; }
+  body.ui-day .gp-host .gk-lv-head { display: contents; }
+  body.ui-day .gp-host .gk-lv-head > .mb-lv-big { grid-column: 1; grid-row: 1; }
+  body.ui-day .gp-host .gk-lv > .ui-panel-in > .mb-lv-exp { grid-column: 2; grid-row: 1; }
+  body.ui-day .gp-host .gk-lv-head > .mb-lv-cap { grid-column: 3; grid-row: 1; }
+}
+/* the Manual steppers: a row a book, 44 px steppers (ink squares), the chosen book on a pale wash */
+body.ui-day .mb-book { border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink-soft); grid-template-columns: 50px minmax(0, 1fr) auto;
+  padding: 2px 2px 2px 4px; }
+/* the book's tile (a tap adds one) a full tap tall: 50 px wide on the tile's 1.09 aspect (itemTile sets 44 inline);
+   its count at 13 px, the tall screens' floor (the tile's own clamp gives 12 px at this width) */
+body.ui-day .mb-book > .item-tile { width: 50px !important; }
+body.ui-day .mb-book > .item-tile :is(.item-count, .item-count small) { font-size: 13px; }
+body.ui-day .mb-book.on { background: var(--cyan-wash); box-shadow: inset 0 0 0 1px var(--cyan-ink); }
+body.ui-day .mb-stepper { gap: 2px; }
+body.ui-day .mb-step { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); border-radius: 0; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-name)/1 var(--font-num);
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%); }
+body.ui-day .mb-step:disabled { background: var(--sky-1); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+/* the gate: its title, the ten pips (flat, slanted), the note, the requirement chips (44 px), Break through */
+body.ui-day .gk-gate .gk-gate-title { color: var(--ink); }
+body.ui-day .gk-gate.mb-bt.ready > .ui-panel-in { box-shadow: none; }
+body.ui-day .mb-gate { border-radius: 0; background: #e3eaf3; }
+body.ui-day .mb-gate.on { background: var(--plate); }
+body.ui-day .mb-gate.next { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+body.ui-day .gk-note { border: 0; border-radius: 0; background: #fff6d6; box-shadow: inset 3px 0 0 #e0a800; color: #5c4400; }
+body.ui-day .gk-req { height: calc(var(--tap) + 2px); border: 0; border-radius: 0; background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink);
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); padding: 0 12px 0 6px; }
+body.ui-day .gk-req.short { background: #fff6f8; box-shadow: inset 0 0 0 1px #e9a3b3; }
+body.ui-day .gk-req .gk-req-go { color: var(--cyan-ink); }
+body.ui-day .gk-where .ui-ghost { min-height: var(--tap); }
+/* a landscape phone: the gate's title beside its pips, its requirement chips beside Break through (Where to get, an
+   Ascension gate's, under them), so the tab fits its window without a scroll */
+@media (max-height: 480px) and (min-width: 600px) {
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; align-items: center; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > * { grid-column: 1 / -1; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > :is(.gk-gate-title, .gk-reqs) { grid-column: 1; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > :is(.mb-bt-gates, .gk-acts-main) { grid-column: 2; }
+  body.ui-day .gp-host .gk-gate:not(.mb-potcap) > .ui-panel-in > .gk-where { order: 1; }
+}
+
+/* ---------- AWAKEN: the star row, the next star, her passive, then the cost and Awaken ---------- */
+body.ui-day .gk-awaken { gap: 0; }
+body.ui-day .gk-awaken > .ui-panel + .ui-panel { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line-ink-soft); }
+body.ui-day .gk-aw-bonus { border: 0; border-radius: 0; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+body.ui-day .gk-passive { border: 0; border-radius: 0; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft);
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .gk-passive.on { background: #fff8db; box-shadow: inset 0 0 0 1px #f0cf63; }
+body.ui-day .gk-passive .ui-sticker { flex: none; }
+body.ui-day .gk-aw-star { border-radius: 0; }
+body.ui-day .gk-aw-star.next { background: var(--cyan-wash); box-shadow: inset 3px 0 0 var(--cyan-ink); }
+body.ui-day .gk-aw-star > .lbl { color: var(--cyan-text); }
+body.ui-day .gk-aw-head .ui-more { min-height: var(--tap); }
+body.ui-day .mb-ur-panel { display: flex; align-items: center; gap: 12px; }
+
+/* ---------- GEAR: three slot columns (the gear tile of the Backpack's grid: square, the 5.6 ladder), the totals strip ---------- */
+body.ui-day .gk-gear { min-height: 0; height: auto; }
+body.ui-day .gk-panel > .ui-panel-in { gap: 12px; }
+body.ui-day .gk-slot { gap: 8px; border: 0; border-radius: 0; background: none; padding: 4px 6px 8px; box-shadow: inset -1px 0 0 var(--line-ink-soft); }
+/* (the slot's kicker stays in the column's flow at every height: a flat column has no frame to hang it in) */
+body.ui-day .gk-slot > .ui-kicker { position: static; align-self: flex-start; }
+body.ui-day .gk-slot:last-child { box-shadow: none; }
+body.ui-day .gk-slot:active { transform: none; background: var(--cyan-wash); }
+body.ui-day .gk-slot.is-ur { box-shadow: inset -1px 0 0 var(--line-ink-soft); }
+body.ui-day .gk-slot-tile { --gt: 84px; }
+body.ui-day .gk-main { --fill: var(--panel-w); }
+body.ui-day .gk-equip { color: var(--cyan-text); }
+body.ui-day .gk-from { padding-top: 12px; border-top: 1px solid var(--line-ink-soft); }
+body.ui-day .gk-set { border-radius: 0; height: var(--tap); clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+@media (min-height: 481px) { body.ui-day .gk-slot-tile { --gt: 120px; } }
+@media (max-width: 599px) { body.ui-day .gk-slot-tile { --gt: 92px; } }
+/* every gear tile on the girl page and her sheets: square corners (S5), the frame ladder of components.css */
+body.ui-day :is(.gp-host, .gk-sheet, .gs-slots, .gp-details) .ui-gtile { border-radius: 0; }
+body.ui-day :is(.gp-host, .gk-sheet, .gs-slots, .gp-details) .ui-gtile.is-ur > .ur-ring { border-radius: 0; }
+body.ui-day :is(.gp-host, .gk-sheet, .gs-slots, .gp-details) .ui-gtile.empty { border-style: dashed; }
+/* Detailed: the slot's substats and every total on ink, flat */
+body.ui-day .gk-sub { border-radius: 0; }
+body.ui-day .gk-tot-grid { border-radius: 0; }
+body.ui-day .gk-bonus { border-radius: 0; }
+
+/* ---------- TREE: the grid (shared with the battle tree: its look stays) with each cell's hit at 44 px by padding only,
+   the tier panel beside it parted by a hairline; a hero's track band as flat rows ---------- */
+body.ui-day .gp-tree { gap: 0 16px; }
+body.ui-day .gp-tree > .gp-tier { padding-left: 16px; margin-left: -8px; border-left: 1px solid var(--line-ink-soft); }
+body.ui-day .gp-tree > .gp-path-list { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-ink-soft); }
+body.ui-day .gp-tree .ug-hit { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+body.ui-day .gp-tree .ug-why::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+body.ui-day .gp-rule .ui-ibtn { color: var(--cyan-ink); }
+body.ui-day .gp-tl { border-radius: 0; }
+body.ui-day .gp-tl.capstone { box-shadow: inset 3px 0 0 #e9b10c; }
+body.ui-day .gp-hero { gap: 0 16px; }
+body.ui-day .gp-hero > .gp-ult-card { padding-left: 16px; margin-left: -8px; border-left: 1px solid var(--line-ink-soft); }
+body.ui-day .gp-hl { border-radius: 0; background: none; box-shadow: inset 0 -1px 0 var(--line-ink-soft); min-height: 36px; }
+body.ui-day .gp-hl.cur { background: var(--cyan-wash); box-shadow: inset 3px 0 0 var(--cyan-ink), inset 0 -1px 0 var(--line-ink-soft); }
+body.ui-day .gp-ult-badge { border-radius: 0; transform: none; clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%); color: var(--on-ink); }
+body.ui-day .gp-band-card .ui-ghost { min-height: var(--tap); }
+@media (max-width: 599px) {
+  body.ui-day .gp-tree { grid-template-columns: minmax(0, 1fr); }
+  body.ui-day :is(.gp-tree > .gp-tier, .gp-hero > .gp-ult-card) { padding: 12px 0 0; margin: 12px 0 0; border-left: 0; border-top: 1px solid var(--line-ink-soft); }
+}
+
+/* ---------- SHEETS: the slot sheet (the piece she wears beside its picker) and the Backpack's piece sheet are the
+   kit's day sheet (the white panel, its bleed ink head), as tall as the screen allows; the Details sheets (a piece,
+   the totals, base stats, profile) keep the full height and get the kit's flat rows ---------- */
+body.ui-day .ui-sheet.gk-tall:not(.full) { width: min(calc(100% - 32px), 860px); max-height: calc(100dvh - 16px - var(--safe-bottom)); }
+body.ui-day .ui-sheet.gk-piece-sheet:not(.full) { width: min(calc(100% - 32px), 560px); max-height: calc(100dvh - 16px - var(--safe-bottom)); }
+body.ui-day .ui-sheet.gk-sheet { background: var(--panel-w); }
+body.ui-day .ui-sheet.gk-sheet > .ui-body { padding: 12px 14px 14px; }
+@media (min-height: 481px) { body.ui-day .ui-sheet.gk-sheet > .ui-body { padding: 16px 20px 20px; } }
+body.ui-day .gk-ss { gap: 0; }
+body.ui-day .gk-ss > .gk-pick { padding-left: 14px; margin-left: 14px; border-left: 1px solid var(--line-ink-soft); }
+@media (max-width: 599px) { body.ui-day .gk-ss > .gk-pick { padding: 12px 0 0; margin: 12px 0 0; border-left: 0; border-top: 1px solid var(--line-ink-soft); } }
+body.ui-day .gk-item-tile { --gt: 64px; margin: 4px 6px 6px 0; }
+@media (min-height: 481px) { body.ui-day .gk-item-tile { --gt: 88px; } }
+body.ui-day .gk-acts { display: flex; flex-direction: column; gap: 8px; }
+body.ui-day .gk-acts-main .btn-yellow { min-width: 0; }
+body.ui-day .gk-acts-more { gap: 4px 6px; }
+body.ui-day .gk-acts-more .btn-small { min-height: calc(var(--tap) + 2px); padding: 0 12px; }
+body.ui-day .gk-pick-head { min-height: var(--tap); }
+body.ui-day .ui-chip.gk-filter { --h: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px 0 10px; border: 0; font: 600 var(--fs-body)/1 var(--font-num);
+  letter-spacing: var(--track-caps); text-transform: uppercase; }
+body.ui-day .ui-chip.gk-filter.on { --fill: var(--plate); color: var(--on-ink); }
+/* the picker: the Backpack's gear grid (square tiles, 72 px on a phone), the worn piece first as the selected tile */
+body.ui-day .gk-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 16px 10px; padding: 8px 8px 10px 6px; }
+body.ui-day .gk-grid .ui-gtile { --gt: 68px; }
+@media (min-height: 481px) { body.ui-day .gk-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 18px 14px; } body.ui-day .gk-grid .ui-gtile { --gt: 88px; } }
+body.ui-day .gk-hint { min-height: 24px; }
+/* the piece sheet (the Backpack): the compare view's ▲ / ▼ show only while its strip is held */
+body.ui-day .gk-piece { display: flex; flex-direction: column; gap: 10px; }
+body.ui-day .gk-piece .ui-strip:not(.comparing) .ui-delta { display: none; }
+body.ui-day .gk-piece .ui-strip { touch-action: none; -webkit-user-select: none; user-select: none; }
+body.ui-day .gk-acts-main > .gk-piece-foot { margin-left: auto; }
+/* Details: a piece's lines, every total, the stars, the club line, as flat kit rows */
+body.ui-day .gp-details .gk-line { border-radius: 0; background: none; box-shadow: inset 0 -1px 0 var(--line-ink-soft); min-height: 40px; }
+body.ui-day .gp-details .gk-line.main { background: var(--plate); box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .gp-details .gk-delta { border-radius: 0; }
+body.ui-day .gp-details .gk-clubline { border-radius: 0; }
+body.ui-day .gp-details .mb-aw-node { border-radius: 0; }
+body.ui-day .gp-details .mb-card { border-radius: 0; }
+/* Base stats and the other Details rows: square (S5; only circles and stadiums stay round) */
+body.ui-day .gp-details :is(.mb-good-bad > div, .mb-eff, .mb-cap, .mb-passive, .mb-ult, .mb-ult-badge, .mb-howto, .mb-crosspath, .mb-cp-pip) { border-radius: 0; }
+/* her Profile sheet: the quote on a paper wash with an ink rule (pink stays for what is picked), cyan bullets */
+body.ui-day .gp-details .mb-quote { border: 0; border-radius: 0; background: var(--sky-1); box-shadow: inset 3px 0 0 var(--cyan-ink); color: var(--ink); }
+body.ui-day .gp-details .mb-tips li::marker { color: var(--cyan-ink); }
+body.ui-day .gp-details .gk-acts-main .btn { min-height: calc(var(--tap) + 2px); }
+body.ui-day .ui-sheet.full.gk-sheet { border-radius: 0; }
+/* a long name on two lines in a sheet's ink head keeps its letters inside the sheet */
+body.ui-day .ui-sheet:is(.gk-sheet, .gp-details, .gp-outfits, .st-sheet) > .ui-head { padding-top: 4px; padding-bottom: 4px; }
+
+/* ---------- HOLD SHEET (src/ui/unitSheet.js): the kit's day sheet (the white panel, the chamfer pair, one ring) with
+   her art band and the night nameplate, then the content panel: folder tabs (Build · Info · Tree) on an ink strip that
+   also holds Full page ▸ and ✕; only the window scrolls; every hit 44 px ---------- */
+body.ui-day .us-sheet.gs { --c: var(--cut); --rw: 1px; --edge: var(--line-ink); bottom: calc(8px + var(--safe-bottom)); width: min(calc(100% - 32px), 680px);
+  height: min(calc(var(--sheet-max-h) + 24px), calc(100% - 16px)); padding: 8px; gap: 8px; border-radius: 0; background: var(--panel-w); overflow: visible;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); }
+body.ui-day .us-sheet.gs::after { content: ''; position: absolute; inset: 0; z-index: 8; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--c) - var(--rw) * 0.4142), calc(var(--c) + var(--rw) * 0.4142) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+@media (min-height: 481px) { body.ui-day .us-sheet.gs { width: min(calc(100% - 48px), 860px); padding: 12px; gap: 12px; } }
+body.ui-day .gs-art { --c: var(--cut-s); border-radius: 0; box-shadow: none; background: #dde7f2;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%); }
+body.ui-day .gs-art.is-ur > .ur-ring { --rw: 3px; padding: 0; border-radius: 0; -webkit-mask: none; mask: none;
+  clip-path: polygon(evenodd, 0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+body.ui-day .gs-art .gp-plate-host { left: 6px; right: 6px; bottom: 6px; border-radius: 0; overflow: visible; }
+body.ui-day .gs-art .gp-plate.ui-np { padding: 8px 10px; gap: 4px; background: var(--fill); }
+body.ui-day .gs-art .np-name { font-size: var(--fs-num); }
+body.ui-day .gs-art .gp-np2 > .lbl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (min-height: 481px) { body.ui-day .gs-art .gp-plate.ui-np { padding: 12px 14px; gap: 6px; } body.ui-day .gs-art .np-name { font-size: var(--fs-title); } }
+/* an upright phone: the art is a band over the sheet; a taller band and a tighter plate keep her face in view */
+@media (max-width: 599px) {
+  body.ui-day .us-sheet.gs { grid-template-rows: 212px minmax(0, 1fr); }
+  body.ui-day .gs-art .gp-plate.ui-np { padding: 6px 10px; gap: 2px; }
+  body.ui-day .gs-art .np-name { font-size: var(--fs-num); }
+}
+/* the right: the folder panel; its ink strip (a full tap tall) carries the tabs, Full page ▸ and ✕ */
+body.ui-day .gs-right.ui-tabbed { gap: 0; min-height: 0; }
+body.ui-day .gs-top { --h: max(var(--tab-h), calc(var(--tap) + 2px)); flex: none; height: var(--h); min-height: 0; gap: 0; padding: 0 calc(var(--cut) * 0.6) 0 0; background: var(--plate); }
+body.ui-day .gs-top > .ui-tabs { --h: max(var(--tab-h), calc(var(--tap) + 2px)); flex: 1 1 auto; min-width: 0; height: 100%; background: none; }
+body.ui-day .gs-top > .ui-tabs > .ui-tab { padding: 0 6px; }
+body.ui-day .gs-top > .ui-tabs > .ui-tab > .ui-tab-word { font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); }
+body.ui-day .gs-top .ui-ghost { position: relative; flex: none; height: 100%; padding: 0 8px; color: var(--cyan); }
+body.ui-day .gs-top .us-owner { margin: 0 6px; }
+body.ui-day .gs-close { position: relative; flex: none; width: calc(var(--tap) + 2px); height: 100%; border-radius: 0; background: none; color: var(--on-ink); }
+body.ui-day .gs-close .ui-ico { width: var(--icon-s); height: var(--icon-s); }
+body.ui-day .gs-body.ui-tabbed-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
+body.ui-day .gs-slots { gap: 10px; padding: 6px 6px 8px 0; }
+body.ui-day .gs-ult .gp-ult-badge { padding: 4px 8px; }
+body.ui-day .gs-tree .ugp { border-radius: 0; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+body.ui-day .gs-tree .ug-hit { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+body.ui-day .gs-tree .ug-why::before { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
+@media (max-width: 599px) { body.ui-day .gs-top { flex-wrap: nowrap; padding-right: 0; } body.ui-day .gs-top .ui-ghost { padding: 0 4px; } }
+
+/* ---------- OUTFITS (the outfit sheet, a kit day sheet): her outfits as girl tiles (the one she wears selected, a
+   3D sticker on the 3D ones), each with Try on and an ink Wear ---------- */
+body.ui-day .ui-sheet.gp-outfits:not(.full) { width: min(calc(100% - 32px), 720px); max-height: calc(100dvh - 16px - var(--safe-bottom)); }
+body.ui-day .gt-outfits { display: flex; flex-direction: column; gap: 12px; }
+body.ui-day .gt-outfit-grid { display: flex; flex-wrap: wrap; gap: 14px 16px; }
+body.ui-day .gt-outfit { display: flex; flex-direction: column; gap: 6px; width: 124px; }
+body.ui-day .gt-outfit > .ui-girltile { --gw: 124px; }
+body.ui-day .gt-outfit-acts { display: flex; flex-direction: column; gap: 4px; }
+body.ui-day .gt-outfit-acts .btn { width: 100%; min-height: calc(var(--tap) + 2px); padding: 0 8px; font-size: var(--fs-body); }
+body.ui-day .gt-outfit-acts .gt-wear.ui-cost { width: 100%; height: calc(var(--tap) + 2px); justify-content: center; }
+body.ui-day .gt-outfit-acts .gt-wear:disabled { background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
+body.ui-day .gt-outfit-acts .gt-wear:disabled > .ui-cost-lbl { color: var(--muted); }
+body.ui-day .gt-outfit .ui-girltile > .dup { bottom: 30px; }
+body.ui-day .gt-outfit-note { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+@media (min-height: 481px) { body.ui-day .gt-outfit { width: 148px; } body.ui-day .gt-outfit > .ui-girltile { --gw: 148px; } }
+
+/* ---------- FORMATION: the squad as a row of girl tiles (hero, then eight), the stage's counter needs as kit rows, the
+   pick grid of girl tiles; one yellow (Go to the stage) ---------- */
+body.ui-day .fm-screen .screen-body { padding-top: 10px; }
+body.ui-day .fm.mb-formation { gap: 12px; }
+body.ui-day .fm > .mb-card { padding: 12px; }
+@media (min-height: 481px) { body.ui-day .fm > .mb-card { padding: 16px; } }
+body.ui-day .fm .mb-card-title { margin: 0; padding: 0; border: 0; font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+body.ui-day .fm-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+body.ui-day .fm-gap { flex: 1 1 0; min-width: 0; }
+body.ui-day .fm-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; }
+body.ui-day .fm-acts .btn { min-height: calc(var(--tap) + 2px); font-size: var(--fs-body); padding: 0 14px; }
+@media (min-height: 481px) { body.ui-day .fm-acts .btn { font-size: var(--fs-name); padding: 0 18px; } }
+/* the squad row: the hero's column, then eight; the tiles are girl tiles (name only) */
+body.ui-day .fm-row.mb-squad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8fr); gap: 10px; align-items: start; }
+body.ui-day .fm-row .mb-slot-label { display: flex; align-items: baseline; gap: 4px; margin: 0 0 6px; color: var(--muted); }
+body.ui-day .fm-row .mb-slot-label .num { font-size: var(--fs-num-s); color: var(--ink); }
+body.ui-day .fm-hero { width: auto; }
+body.ui-day .fm-slots.mb-tower-slots { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+body.ui-day .fm-row .ui-girltile.mb-fslot { --gw: 100%; width: 100%; height: auto; aspect-ratio: 10 / 13; border: 0; border-radius: 0; box-shadow: none; outline: 0; padding: 0;
+  display: block; background: var(--fill); color: inherit; font: inherit; overflow: hidden; }
+body.ui-day .fm-row .ui-girltile.mb-fslot > .cap { height: 24px; padding-left: 6px; }
+body.ui-day .fm-row .ui-girltile.mb-fslot > .cap .nm { font-size: var(--fs-label); }
+body.ui-day .fm-row .fm-empty.mb-fslot { width: 100%; aspect-ratio: 10 / 13; border: 0; border-radius: 0; display: grid; place-items: center; background: var(--sky-1);
+  box-shadow: inset 0 0 0 1px var(--line-ink); color: var(--cyan-ink); cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .fm-row .fm-empty .ui-ico { width: 24px; height: 24px; }
+body.ui-day .fm-foot.mb-squad-foot { margin-top: 8px; }
+body.ui-day .fm-line { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+body.ui-day .fm .mb-saved { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--good-text); }
+body.ui-day .fm .mb-saved .ui-ico { width: 16px; height: 16px; }
+/* the stage and its counter needs: kit rows (an icon, the need, who covers it, the girls who would) */
+body.ui-day .fm-rec-head { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; }
+body.ui-day .fm-thumb { width: 104px; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line-ink-soft); clip-path: polygon(0 0, calc(100% - var(--cut-s)) 0, 100% var(--cut-s), 100% 100%, 0 100%); }
+body.ui-day .fm-rec-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+body.ui-day .fm-rec .mb-rec-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--ink); }
+body.ui-day .fm-desc { margin: 0; font: 500 var(--fs-body)/1.35 var(--font); color: var(--muted); }
+body.ui-day .fm-needs.mb-rec-list { gap: 0; }
+body.ui-day .fm-need.mb-rec { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; min-height: 52px; padding: 4px 4px 4px 8px; border: 0; border-radius: 0; background: none;
+  box-shadow: inset 0 -1px 0 var(--line-ink-soft), inset 3px 0 0 var(--fm-c, var(--line-ink)); }
+body.ui-day .fm-need.ok { --fm-c: var(--good); }
+body.ui-day .fm-need.bench { --fm-c: #e0a800; }
+body.ui-day .fm-need.missing { --fm-c: var(--bad); }
+body.ui-day .fm-need .mb-rec-icon { width: 28px; height: 28px; }
+body.ui-day .fm-need .mb-rec-cap { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+body.ui-day .fm-need .mb-rec-status { font: 500 var(--fs-label)/1.3 var(--font); }
+body.ui-day .fm-need.ok .mb-rec-status { color: var(--good-text); }
+body.ui-day .fm-need.bench .mb-rec-status { color: #7a5200; }
+body.ui-day .fm-need.missing .mb-rec-status { color: var(--bad-text); }
+body.ui-day .fm-need .mb-rec-add { min-width: calc(var(--tap) + 2px); min-height: calc(var(--tap) + 2px); }
+body.ui-day .fm-need .mb-rec-add::after { border-radius: 0; background: var(--plate); color: var(--on-ink); box-shadow: none; clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%); }
+/* the pick grid: girl tiles (104 px and up, so her name and LV stay whole), the squad's own selected */
+body.ui-day .fm-pick-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+body.ui-day .fm-seg { display: flex; gap: 4px; }
+body.ui-day .ui-opt.fm-opt { --h: calc(var(--tap) + 2px); padding: 0 calc(14px + var(--s)); font: 600 var(--fs-body)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; cursor: pointer; }
+body.ui-day .fm-hint { font: 500 var(--fs-body)/1.3 var(--font); color: var(--muted); }
+body.ui-day .fm-grid.mb-pick-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px 8px; }
+body.ui-day .fm-grid > .mb-pick > .ui-girltile { --gw: 100%; width: 100%; }
+body.ui-day .fm-cover { position: absolute; left: 0; bottom: 25px; z-index: 2; display: flex; align-items: center; gap: 2px; height: 26px; padding: 0 8px 0 4px; background: var(--plate);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+body.ui-day .fm-cover-ic { width: 20px; height: 20px; display: inline-grid; }
+body.ui-day .fm-cover-ic > svg { width: 100%; height: 100%; }
+@media (max-width: 699px) and (min-height: 481px) {
+  body.ui-day .fm-slots.mb-tower-slots { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.ui-day .fm-row.mb-squad { grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); }
+}

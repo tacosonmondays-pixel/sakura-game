@@ -28,7 +28,7 @@ import { itemCount } from '../systems/inventory.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
 import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock } from './gearUr.js';
-import { ico, lbl, statStrip, sticker, rarityTag, ghostBtn, fillIn } from './kit.js';
+import { ico, lbl, statStrip, sticker, rarityTag, ghostBtn, fillIn, secondaryBtn } from './kit.js';
 import { openSheet } from './sheet.js';
 import { gearTile, STAT_GLYPH, STAT_SHORT, statValue, statFact } from './gearTile.js';
 import { gearTotalsRows, pieceSummary, compareDeltas, setView, fillLine, nextGrowth, wearerName } from './gearView.js';
@@ -175,37 +175,15 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
       actionsOf(g));
   };
 
-  const actionsOf = (g) => {
-    const coins = itemCount(profile, 'coins');
-    const cost = enhanceCost(g);
-    let primary;
-    if (awakenReady(g)) {
-      primary = h('button.btn.gu-awaken-btn.gk-primary', { type: 'button', 'data-testid': 'gear-awaken', onclick: () => awakenModal(g.uid, { unitId: unit.id, onDone: changed }) }, h('span.btn-label', '✦ Awaken'));
-    } else if (cost == null) {
-      primary = button(`Max +${maxGearLevel(g)}`, { kind: 'yellow', icon: 'check', testid: 'enhance', disabled: true });
-    } else {
-      primary = button(`Enhance · ${fmtNum(cost, 'money', { round: 'up' })}`, {
-        kind: 'yellow', icon: 'upgrade', testid: 'enhance', disabled: coins < cost, title: coins < cost ? `Needs ${fmtNum(cost, 'money', { detail: true })} coins` : null,
-        onClick: () => { ui.undo = null; enhanceOnce(g.uid, changed); },
-      });
-    }
-    const slots = stitchSlots(g);
-    const sec = (label, o) => button(label, { kind: 'ghost', small: true, ...o });
-    return h('div.gk-acts',
-      h('div.gk-acts-main', primary, ui.undo ? undoBtn() : null),
-      h('div.gk-acts-more',
-        sec('Reroll subs', { icon: 'dice', testid: 'reroll-subs', disabled: !g.subs.length, onClick: () => rerollModal(g, 'subs', changed) }),
-        sec('Change main', { icon: 'dice', testid: 'reroll-main', onClick: () => rerollModal(g, 'main', changed) }),
-        slots.gold.open ? sec(slots.free ? 'Stitch ✦' : 'Stitches', { testid: 'gear-stitch', onClick: () => stitchModal(g.uid, { unitId: unit.id, onDone: changed }) }) : null,
-        CLUB_RARITIES.includes(g.rarity) ? sec(g.club ? 'Club' : 'Join a club', { testid: 'gear-club', onClick: () => armbandModal(g.uid, { onDone: changed }) }) : null,
-        sec(g.locked ? 'Unlock' : 'Lock', { icon: 'lock', testid: 'gear-lock', onClick: () => toggleGearLock(g.uid, changed) }),
-        sec('Unequip', { testid: 'gear-unequip', onClick: () => {
-          ui.undo = { prev: g.uid, uid: null, from: null, prevPiece: null };
-          unequipGear(profile, unit.id, slot);
-          store.commit('gear-unequip');
-          changed();
-        } })));
-  };
+  const actionsOf = (g) => pieceActions(g, {
+    unitId: unit.id, onChange: changed, beforeEnhance: () => { ui.undo = null; }, extra: ui.undo ? undoBtn() : null,
+    unequip: () => {
+      ui.undo = { prev: g.uid, uid: null, from: null, prevPiece: null };
+      unequipGear(profile, unit.id, slot);
+      store.commit('gear-unequip');
+      changed();
+    },
+  });
 
   const undoBtn = () => ghostBtn('Undo', { testid: 'gear-undo', icon: 'refresh', title: 'Put the last piece back', onClick: () => {
     const u = ui.undo;
@@ -241,7 +219,8 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
     const active = activeGearFilters(f);
     const head = h('div.ui-panel-head.gk-pick-head',
       h('span.ui-kicker', g ? 'Change' : 'Equip'),
-      all.length ? h('span.gk-count', `${shown.length === all.length ? '' : `${shown.length} of `}${all.length}`) : null,
+      // (how many spares: only while a filter hides some, "2 of 5"; the grid shows the rest itself, P7)
+      all.length && shown.length !== all.length ? h('span.gk-count', `${shown.length} of ${all.length}`) : null,
       all.length ? h(`button.ui-chip.gk-filter${ui.filter ? '.on' : ''}`, {
         type: 'button', 'data-testid': 'gear-filter-open', 'aria-expanded': ui.filter ? 'true' : 'false',
         onclick: () => { ui.filter = !ui.filter; draw(); },
@@ -280,8 +259,140 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
   };
 
   draw();
-  sheet = openSheet({ title: titleOf(pieceOf(profile, unit.id, slot)), body, full: true, testid: 'gear-sheet', cls: 'gp-details.gk-sheet' });
+  // [ui-ink] V3: the kit's day sheet (the white panel, its bleed ink head), as tall as the screen allows
+  sheet = openSheet({ title: titleOf(pieceOf(profile, unit.id, slot)), body, testid: 'gear-sheet', cls: 'gp-details.gk-sheet.gk-tall' });
   return sheet;
+}
+
+/**
+ * A piece's actions (the slot sheet and the Backpack's piece sheet share them): Enhance · price as the sheet's one
+ * yellow (✦ Awaken for a gold +10 when a Seed waits), then Reroll subs, Change main, Stitch, Club, Lock and, on a girl,
+ * Unequip as quiet buttons. `extra`: beside the primary (Undo); `unequip`: her slot's Unequip.
+ */
+function pieceActions(g, { unitId = null, onChange, beforeEnhance = null, extra = null, unequip = null }) {
+  const profile = store.profile;
+  const coins = itemCount(profile, 'coins');
+  const cost = enhanceCost(g);
+  let primary;
+  if (awakenReady(g)) {
+    primary = h('button.btn.gu-awaken-btn.gk-primary', { type: 'button', 'data-testid': 'gear-awaken', onclick: () => awakenModal(g.uid, { unitId, onDone: onChange }) }, h('span.btn-label', '✦ Awaken'));
+  } else if (cost == null) {
+    primary = button(`Max +${maxGearLevel(g)}`, { kind: 'yellow', icon: 'check', testid: 'enhance', disabled: true });
+  } else {
+    primary = button(`Enhance · ${fmtNum(cost, 'money', { round: 'up' })}`, {
+      kind: 'yellow', icon: 'upgrade', testid: 'enhance', disabled: coins < cost, title: coins < cost ? `Needs ${fmtNum(cost, 'money', { detail: true })} coins` : null,
+      onClick: () => { beforeEnhance?.(); enhanceOnce(g.uid, onChange); },
+    });
+  }
+  const slots = stitchSlots(g);
+  const sec = (label, o) => button(label, { kind: 'ghost', small: true, ...o });
+  return h('div.gk-acts',
+    h('div.gk-acts-main', primary, extra),
+    h('div.gk-acts-more',
+      sec('Reroll subs', { icon: 'dice', testid: 'reroll-subs', disabled: !g.subs.length, onClick: () => rerollModal(g, 'subs', onChange) }),
+      sec('Change main', { icon: 'dice', testid: 'reroll-main', onClick: () => rerollModal(g, 'main', onChange) }),
+      slots.gold.open ? sec(slots.free ? 'Stitch ✦' : 'Stitches', { testid: 'gear-stitch', onClick: () => stitchModal(g.uid, { unitId, onDone: onChange }) }) : null,
+      CLUB_RARITIES.includes(g.rarity) ? sec(g.club ? 'Club' : 'Join a club', { testid: 'gear-club', onClick: () => armbandModal(g.uid, { onDone: onChange }) }) : null,
+      sec(g.locked ? 'Unlock' : 'Lock', { icon: 'lock', testid: 'gear-lock', onClick: () => toggleGearLock(g.uid, onChange) }),
+      unequip ? sec('Unequip', { testid: 'gear-unequip', onClick: unequip }) : null));
+}
+
+/**
+ * [ui-ink] V3: one piece from the Backpack (UI_V2_MENUS.md §3, "the M3 sheet with a compare view; the Backpack only
+ * opens it"): the piece sheet in its spare mode, the slot sheet's piece pane without a picker. Its tile, rarity tag and
+ * flags, its ink strip (main stat + 2 best substats; Details ›), the actions (Enhance as the one yellow, ✦ Awaken,
+ * rerolls, Stitch, Club, Lock), and Salvage (asks with a second tap) for a piece nobody wears, or "Open <her page>"
+ * for a worn one. Hold its strip to compare it with the piece she wears in that slot (a worn piece: the best spare).
+ * @param {object} g a GearInstance @param {{ onChange?: Function }} [o] onChange: after any change (the grid redraws)
+ */
+export function openPieceSheet(g, { onChange = () => {} } = {}) {
+  const profile = store.profile;
+  const body = h('div.gk-piece', { 'data-testid': 'gear-piece' });
+  let sheet = null;
+  let armed = false;
+  const changed = () => { draw(); onChange(); };
+  const draw = () => {
+    const x = profile.gear[g.uid];
+    if (!x) { sheet?.close(); return; }
+    const wearer = x.equippedBy && UNIT_MAP[x.equippedBy] ? UNIT_MAP[x.equippedBy] : null;
+    const rewards = !x.equippedBy && !x.locked ? salvageRewards(x, profile) : null;
+    const rival = compareTarget(x);
+    const sum = pieceSummary(x);
+    // the compare view: its ▲ / ▼ ride under the strip's numbers while the strip is held (shown by a class, so a
+    // held finger keeps the same element)
+    const deltas = rival ? compareDeltas(x, rival.g) : [];
+    const strip = statStrip(sum.cells.map((c, i) => ({ ...c, delta: deltas[i] || null })), {
+      onMore: () => openPieceDetails(x, { unit: wearer, onChange: changed, compareTo: rival && !wearer ? rival.g : null }), testid: 'gear-item-strip', moreTestid: 'gear-item-more',
+    });
+    const hint = rival ? h('p.gk-hint.gk-compare', { 'data-testid': 'gear-compare' }, ico('info'), h('span', `Hold the strip to compare with ${rival.label}`)) : null;
+    if (rival) {
+      bindCompare(strip, (on) => {
+        strip.classList.toggle('comparing', on);
+        hint.lastChild.textContent = on ? `▲ / ▼ against ${rival.label}` : `Hold the strip to compare with ${rival.label}`;
+      });
+    }
+    // her page for a worn piece, Salvage (a second tap) for a spare: on the primary's row, at its far end
+    const foot = wearer
+      ? secondaryBtn(`Open ${wearer.name}`, { icon: 'students', testid: 'gear-open-wearer', onClick: () => { sheet?.close(); navigate('student', { id: wearer.id, tab: 'gear' }); } })
+      : rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: () => {
+        if (!armed) { armed = true; draw(); return; }
+        const res = salvageGear(profile, x.uid);
+        if (!res.ok) { toast('Cannot salvage this piece.', 'bad'); return; }
+        store.commit('gear-salvage');
+        toast(`Salvaged: ${res.rewards.map((r) => `${getItem(r.id)?.name} ×${fmtNum(r.count, 'count', { detail: true })}`).join(', ')}`, 'good');
+        sheet?.close();
+        onChange();
+      } })) : null;
+    foot?.classList.add('gk-piece-foot');
+    fillIn(body,
+      h('div.gk-item-top',
+        gearTile(x, { slot: x.slot, cls: 'gk-item-tile' }),
+        h('div.gk-item-id',
+          pieceTag(x), h('span.gk-flag', `${GEAR_SLOTS[x.slot]?.name} · +${x.level}`),
+          x.club ? clubTag(x.club) : null,
+          x.locked ? h('span.gk-flag', ico('lock'), 'Locked') : null,
+          wearer ? h('span.gk-flag', `Worn by ${wearer.name}`) : null)),
+      strip,
+      hint,
+      pieceActions(x, { unitId: x.equippedBy || null, onChange: changed, extra: foot }),
+      rewards && armed ? h('p.gk-salvage', `For ${rewards.map((r) => `${getItem(r.id)?.name} ×${fmtNum(r.count, 'count', { detail: true })}`).join(', ')}.`) : null,
+      x.locked && !x.equippedBy ? h('p.gp-sub', 'Locked pieces cannot be salvaged.') : null);
+  };
+  draw();
+  sheet = openSheet({ title: g.name, body, testid: 'gear-piece-sheet', cls: 'gk-sheet.gk-piece-sheet' });
+  return sheet;
+}
+
+/**
+ * What a piece from the Backpack compares with: for a spare, the piece of its slot worn by the first girl of the squad
+ * who wears one (the hero, then the squad in order: "Ruri's charm"); for a worn piece, the best spare of its slot (the
+ * highest level). Null when there is none.
+ */
+function compareTarget(g) {
+  const profile = store.profile;
+  if (!g.equippedBy) {
+    const f = profile.formation || {};
+    const order = [f.hero, ...(f.towers || [])].filter((id) => id && profile.units[id]);
+    for (const id of order) {
+      const uid = profile.units[id].gear?.[g.slot];
+      if (uid && profile.gear[uid] && uid !== g.uid) return { g: profile.gear[uid], label: `${UNIT_MAP[id]?.name}'s ${GEAR_SLOTS[g.slot].name.toLowerCase()}` };
+    }
+    return null;
+  }
+  const spare = gearList(profile, { slot: g.slot }).filter((x) => !x.equippedBy && x.uid !== g.uid).sort((a, b) => b.level - a.level)[0];
+  return spare ? { g: spare, label: `your best spare ${GEAR_SLOTS[g.slot].name.toLowerCase()}` } : null;
+}
+
+/** Hold an element (pointer or a pressed key) to compare: `on(true)` while held, `on(false)` when let go. */
+function bindCompare(el, on) {
+  let held = false;
+  const start = (e) => { if (e.target.closest('button')) return; held = true; on(true); };
+  const stop = () => { if (!held) return; held = false; on(false); };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('pointerleave', stop);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 /** Hold (or right-click) a tile for its Details; a tap stays a tap. */
@@ -328,9 +439,9 @@ function clubTag(clubId) {
  * @param {object} g
  * @param {{ unit: object, slot: string, onChange?: Function, compareTo?: object|null, onEquip?: Function|null }} o
  */
-export function openPieceDetails(g, { unit, slot, onChange = () => {}, compareTo = null, onEquip = null }) {
+export function openPieceDetails(g, { unit = null, slot = g.slot, onChange = () => {}, compareTo = null, onEquip = null }) {
   const profile = store.profile;
-  const worn = g.equippedBy === unit.id;
+  const worn = !!unit && g.equippedBy === unit.id;
   const body = h('div.gp-sheet-body.gk-details');
   let sheet = null;
   let armed = false;
@@ -338,7 +449,7 @@ export function openPieceDetails(g, { unit, slot, onChange = () => {}, compareTo
     const x = profile.gear[g.uid];
     if (!x) { sheet?.close(); return; }
     const L = gearLines(x);
-    const fill = fillNotes(unit.id, x.uid);
+    const fill = unit ? fillNotes(unit.id, x.uid) : {};
     const cur = !worn && compareTo ? compareTo : null;
     const curTot = cur ? totals(cur) : null;
     const delta = (stat, v) => {

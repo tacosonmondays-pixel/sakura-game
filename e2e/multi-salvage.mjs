@@ -73,7 +73,8 @@ try {
     check(await picked() === 0 && /Locked gear is protected/.test(toastText), `${W}x${H} tapping locked gear: not picked, toast "${toastText}"`);
     await tap(page.locator(`.mb-gear[data-gear="${seeded.worn}"]`));
     check(await picked() === 0, `${W}x${H} tapping equipped gear: not picked`);
-    check(await page.locator('.modal').count() === 0, `${W}x${H} picking never opens the gear popup`);
+    // (UI v2 M3: a tap outside pick mode opens the piece sheet, the girl page's sheet in its spare mode)
+    check(await page.locator('.modal, [data-testid="gear-piece-sheet"]').count() === 0, `${W}x${H} picking never opens the gear popup`);
 
     // phone: scroll into the middle of the list, pick there, and the bar is still on screen
     // (salvage mode: the grid scrolls in its own window above the bar, .bp-scroll)
@@ -152,7 +153,7 @@ try {
     await tap(page.locator('[data-testid="salvage-mode"]'));
     check(await page.locator('[data-testid="salvage-bar"]').count() === 0, `${W}x${H} Done leaves pick mode`);
     await tap(cards().first());
-    check(await page.locator('.modal-title', { hasText: 'Gear' }).count() === 1, `${W}x${H} after Done, a tap opens the gear popup`);
+    check(await page.locator('[data-testid="gear-piece-sheet"]').count() === 1, `${W}x${H} after Done, a tap opens the piece sheet`);
     check(errs.length === 0, `${W}x${H} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
     await page.close();
   }

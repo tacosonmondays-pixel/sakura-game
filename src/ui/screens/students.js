@@ -1,27 +1,31 @@
-// Students list (owner: meta-b). Tall portrait cards with filters
-// (role category, attack type, rarity, owned/all, water) and sorting (level, rarity, power, name).
-// Unowned girls are shown locked with how to get them.
-// UI M5d (notes/ui-m5/PLAN.md §5 M5d): every label 12 px or more (hubs.css, scoped under .mb-students-screen), one
-// fact per slot (the role's name went: its icon says it, with the attack type, in the badge column's title), each
-// count said once ("Owned", the summary's "19/35 recruited").
+// Students list (owner: meta-b). The roster as kit girl tiles (UI v2 menus M3, V3: girlTile(), src/ui/components.js),
+// with the owned/locked choice, the sort, its direction and a Filter sheet (role family, attack type, rarity, water)
+// on one 44 px row. Unowned girls are shown locked with how they join.
+// UI M5d (notes/ui-m5/PLAN.md §5 M5d): every label 12 px or more, one fact per slot, each count said once.
+// [ui-ink] V3 (docs/specs/UI_V2_MENUS.md §5 M3): the tiles carry at most two numbers (LV and P); the role family is
+// the tile's top-right glyph (the families the Filter sheet lists); the old inline filter panel is a kit sheet.
 import '../styles/meta-b.css';
 import '../styles/hubs.css';
-import { h, clear, screen, svgEl, unitCard } from '../components.js';
+import '../styles/v2-roster.css';
+import { h, clear, screen, svgEl, girlTile, ROLE_GLYPH } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { ROLES, ROLE_CATEGORIES, ATTACK_TYPES, UNIT_RARITIES } from '../../data/types.js';
 import { UNITS } from '../../data/units.js';
 import { unitPower } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
-import { hasOutfitOn, equippedSkin } from '../../systems/skins.js';
-import { roleIcon, attackTypeIcon, uiIcon } from '../../art/icons.js';
-import { howToGet, cssVars, put } from './backpack.js';
-import { displayRarity, rarityColor, DISPLAY_RARITY_RANK } from '../rarity.js';
+import { attackTypeIcon } from '../../art/icons.js';
+import { put } from './backpack.js';
+import { displayRarity, DISPLAY_RARITY_RANK } from '../rarity.js';
+import { ico, RARITY_CLASS } from '../kit.js';
+import { openSheet } from '../sheet.js';
+import { lg } from '../girlFrame.js';
 
 // sorting by rarity puts UR (fully awakened SSRs, display only) above SSR; the rarity filter
 // keeps matching the drop rarity, so "SSR" lists URs too
 const RARITY_RANK = DISPLAY_RARITY_RANK;
-const SORTS = [
+/** The sorts, in the select's order. (M4's Growth sort takes its row here and its key in sortList's table.) */
+export const SORTS = [
   { id: 'power', label: 'Power' },
   { id: 'level', label: 'Level' },
   { id: 'rarity', label: 'Rarity' },
@@ -30,7 +34,7 @@ const SORTS = [
 ];
 
 /** Filter state survives navigation while the app is open. */
-const state = { cat: null, type: null, rarity: null, owned: 'all', water: false, sort: 'power', desc: true, filtersOpen: false };
+const state = { cat: null, type: null, rarity: null, owned: 'all', water: false, sort: 'power', desc: true };
 
 function matches(u, profile) {
   const owned = !!profile.units[u.id];
@@ -64,81 +68,87 @@ function sortList(list, profile) {
   });
 }
 
-function chips(options, active, onPick) {
-  return h('div.mb-chips', options.map((o) => h(`button.mb-chip${o.id === active ? '.on' : ''}`, { onclick: () => onPick(o.id), style: o.color ? cssVars({ '--chip': o.color }) : null, title: o.title || o.label },
-    o.icon ? svgEl(o.icon, 'mb-chip-icon') : null, o.label ? h('span', o.label) : null)));
+/** How many filters of the sheet are on (the Filter button carries a red dot, never the count: P7). */
+const filtersOn = () => [state.cat, state.type, state.rarity, state.water || null].filter(Boolean).length;
+
+/** One choice of the Filter sheet: a kit option (the inverse fill and the sakura bar when on). */
+function opt({ label = null, on, onPick, icon = null, rar = null, testid = null, title = null }) {
+  return h(`button.ui-opt.st-opt${on ? '.on' : ''}`, { type: 'button', 'aria-pressed': on ? 'true' : 'false', 'data-testid': testid, title, onclick: onPick },
+    rar ? h(`span.ui-rar.${RARITY_CLASS[rar] || 'r'}`, rar) : null,
+    icon,
+    label ? h('span', label) : null);
 }
 
-function studentCard(u, profile) {
-  const st = profile.units[u.id];
-  const how = st ? null : howToGet(u);
-  const card = unitCard(u.id, {
-    owned: !!st, level: st?.level ?? null, awaken: st?.awaken || 0, variant: 'tall',
-    onClick: () => navigate('student', { id: u.id }),
-  });
-  card.classList.add('mb-tall');
-  card.style.setProperty('--rarity', rarityColor(u, profile));
-  put(card,
-    h('div.mb-card-badges', { title: `${ROLES[u.role]?.name || u.role} · ${ATTACK_TYPES[u.attackType]?.name || u.attackType}${u.placement !== 'land' ? ' · water' : ''}` },
-      svgEl(roleIcon(u.role), 'mb-card-badge'),
-      svgEl(attackTypeIcon(u.attackType), 'mb-card-badge'),
-      u.placement !== 'land' ? h('span.mb-card-water', svgEl(uiIcon('water'))) : null,
-      st && hasOutfitOn(profile, u.id) ? h('span.mb-card-outfit', { title: `Wearing ${equippedSkin(profile, u.id).name}` }, svgEl(uiIcon('hanger'))) : null),
-    u.kind === 'hero' ? h('div.mb-card-hero', 'HERO') : null,
-    how ? h('div.mb-card-how', how.short) : null,
-  );
-  return card;
+/** The Filter sheet: role family, attack type, rarity and water; a tap applies at once (tap again: off). */
+function openFilter(rerender) {
+  const body = h('div.st-fsheet');
+  const draw = () => {
+    const row = (title, kids) => h('section.st-fsec', h('h3.st-fkick', title), h('div.st-opts', kids));
+    const set = (k, v) => () => { state[k] = state[k] === v ? null : v; draw(); rerender(); };
+    body.replaceChildren(
+      row('Role', Object.entries(ROLE_CATEGORIES).map(([id, c]) => opt({ label: c.name, on: state.cat === id, onPick: set('cat', id), icon: lg(ROLE_GLYPH[id] || 'sword'), testid: `students-cat-${id}` }))),
+      row('Attack', Object.values(ATTACK_TYPES).map((t) => opt({ label: t.name, on: state.type === t.id, onPick: set('type', t.id), icon: svgEl(attackTypeIcon(t.id), 'st-opt-ic'), testid: `students-type-${t.id}` }))),
+      row('Rarity', [
+        ...Object.values(UNIT_RARITIES).map((r) => opt({ rar: r.id, on: state.rarity === r.id, onPick: set('rarity', r.id), testid: `students-rarity-${r.id}`, title: r.name })),
+        opt({ label: 'Water', on: state.water, onPick: () => { state.water = !state.water; draw(); rerender(); }, icon: lg('waves'), testid: 'students-water', title: 'Girls who can stand in water' }),
+      ]),
+      h('div.st-facts', filtersOn()
+        ? h('button.btn.ui-sec.st-clear', { type: 'button', 'data-testid': 'students-clear', onclick: () => { Object.assign(state, { cat: null, type: null, rarity: null, water: false }); draw(); rerender(); } }, h('span.btn-label', 'Clear filters'))
+        : h('p.st-fnone', 'Showing every girl. Tap a choice to narrow the list.')));
+  };
+  draw();
+  return openSheet({ title: 'Filter', body, testid: 'students-filter-sheet', cls: 'st-sheet' });
 }
 
 export function render(root) {
   const { el, body } = screen('Students');
-  el.classList.add('mb-screen', 'mb-students-screen');
+  el.classList.add('mb-screen', 'mb-students-screen', 'st-screen');
   root.appendChild(el);
   const profile = store.profile;
 
-  const bar = h('div.mb-filterbar');
-  const grid = h('div.mb-student-grid');
-  const summary = h('div.mb-summary');
+  const bar = h('div.st-bar');
+  const grid = h('div.mb-student-grid.st-grid');
+  const summary = h('div.st-summary');
   put(body, bar, summary, grid);
 
   const rerender = () => {
-    clear(bar);
     const ownedCount = UNITS.filter((u) => profile.units[u.id]).length;
-    const activeFilters = [state.cat, state.type, state.rarity, state.water || null].filter(Boolean).length;
+    const on = filtersOn();
+    clear(bar);
     put(bar,
-      h('div.mb-filter-top',
-        h('div.mb-seg',
-          // (the owned count is said once, in the summary under the bar)
-          ['all', 'owned', 'locked'].map((o) => h(`button.mb-seg-btn${state.owned === o ? '.on' : ''}`, { onclick: () => { state.owned = o; rerender(); } }, { all: 'All', owned: 'Owned', locked: 'Locked' }[o]))),
-        h('div.mb-sort',
-          h('label.mb-select', svgEl(uiIcon('sort'), 'mb-select-icon'),
-            h('select', { 'aria-label': 'Sort', onchange: (e) => { state.sort = e.target.value; rerender(); } }, SORTS.map((s) => h('option', { value: s.id, selected: s.id === state.sort }, s.label)))),
-          h('button.mb-icon-btn', { title: state.desc ? 'Descending' : 'Ascending', onclick: () => { state.desc = !state.desc; rerender(); } }, state.desc ? '↓' : '↑'),
-          h(`button.mb-icon-btn.mb-filter-toggle${state.filtersOpen ? '.on' : ''}`, { title: 'Filters', onclick: () => { state.filtersOpen = !state.filtersOpen; rerender(); } }, svgEl(uiIcon('filter')), activeFilters ? h('span.mb-filter-count', String(activeFilters)) : null))),
-      h(`div.mb-filter-body${state.filtersOpen ? '.open' : ''}`,
-        h('div.mb-filter-row', h('span.mb-filter-label', 'Role'),
-          chips([{ id: null, label: 'All' }, ...Object.entries(ROLE_CATEGORIES).map(([id, c]) => ({ id, label: c.name, color: c.color }))], state.cat, (id) => { state.cat = id; rerender(); })),
-        h('div.mb-filter-row', h('span.mb-filter-label', 'Type'),
-          chips([{ id: null, label: 'All' }, ...Object.values(ATTACK_TYPES).map((t) => ({ id: t.id, label: t.name, icon: attackTypeIcon(t.id), color: t.color }))], state.type, (id) => { state.type = id; rerender(); })),
-        h('div.mb-filter-row', h('span.mb-filter-label', 'Rarity'),
-          chips([{ id: null, label: 'All' }, ...Object.values(UNIT_RARITIES).map((r) => ({ id: r.id, label: r.name, color: r.color }))], state.rarity, (id) => { state.rarity = id; rerender(); }),
-          h(`button.mb-chip.mb-water-toggle${state.water ? '.on' : ''}`, { onclick: () => { state.water = !state.water; rerender(); }, style: cssVars({ '--chip': '#4cc9f0' }) }, svgEl(uiIcon('water'), 'mb-chip-icon'), h('span', 'Water')),
-          activeFilters ? h('button.mb-chip.mb-clear', { onclick: () => { Object.assign(state, { cat: null, type: null, rarity: null, water: false }); rerender(); } }, 'Clear') : null)),
-    );
+      h('div.st-seg', { role: 'group', 'aria-label': 'Show' },
+        ['all', 'owned', 'locked'].map((o) => h(`button.ui-opt.st-opt${state.owned === o ? '.on' : ''}`, {
+          type: 'button', 'aria-pressed': state.owned === o ? 'true' : 'false', 'data-testid': `students-show-${o}`,
+          onclick: () => { state.owned = o; rerender(); },
+        }, { all: 'All', owned: 'Owned', locked: 'Locked' }[o]))),
+      h('span.st-gap'),
+      // (a native select: a phone opens its own picker; e2e reads .mb-sort select)
+      h('label.ui-opt.st-opt.st-sort.mb-sort', { title: 'Sort' }, ico('sort'),
+        h('select', { 'aria-label': 'Sort', 'data-testid': 'students-sort', onchange: (e) => { state.sort = e.target.value; rerender(); } }, SORTS.map((s) => h('option', { value: s.id, selected: s.id === state.sort }, s.label))),
+        lg('chevD', 'ui-ico.st-sort-chev')),
+      h('button.ui-opt.st-opt.st-dir', {
+        type: 'button', 'data-testid': 'students-dir', 'aria-label': state.desc ? 'Highest first' : 'Lowest first', title: state.desc ? 'Highest first' : 'Lowest first',
+        onclick: () => { state.desc = !state.desc; rerender(); },
+      }, h('span.st-arrow', { 'aria-hidden': 'true' }, state.desc ? '↓' : '↑')),
+      h(`button.ui-opt.st-opt.st-filter${on ? '.on' : ''}`, { type: 'button', 'data-testid': 'students-filter', 'aria-label': on ? `Filter, ${on} on` : 'Filter', onclick: () => openFilter(rerender) },
+        ico('filter'), h('span', 'Filter'), on ? h('i.ui-dot', { 'aria-hidden': 'true' }) : null));
 
     const list = sortList(UNITS.filter((u) => matches(u, profile)), profile);
+    // each count said once: how many are recruited; how many show only while something is filtered out
     clear(summary);
-    put(summary, h('span', `${list.length} shown`), h('span.muted', ` · ${ownedCount}/${UNITS.length} recruited`));
+    put(summary, h('span.lbl', 'Recruited'), h('span.num', `${ownedCount}/${UNITS.length}`),
+      list.length !== UNITS.length ? [h('span.st-sep', { 'aria-hidden': 'true' }), h('span.lbl', 'Shown'), h('span.num', String(list.length))] : null);
     clear(grid);
     grid.classList.remove('mb-fade');
     void grid.offsetWidth;
     grid.classList.add('mb-fade');
     if (!list.length) {
-      grid.appendChild(h('div.mb-empty', h('div.mb-empty-title', 'No students match'), h('p.muted', 'Try clearing a filter.')));
+      grid.appendChild(h('div.st-empty', h('b', 'No students match'), h('p', 'Try clearing a filter.')));
       return;
     }
     list.forEach((u, i) => {
-      const c = studentCard(u, profile);
+      const st = profile.units[u.id];
+      const c = girlTile(u.id, { owned: !!st, level: st?.level ?? null, cls: 'ui-in', onClick: () => navigate('student', { id: u.id }) });
       c.style.setProperty('--i', String(Math.min(i, 20)));
       grid.appendChild(c);
     });

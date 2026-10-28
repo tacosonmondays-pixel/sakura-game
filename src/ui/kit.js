@@ -153,6 +153,41 @@ export function rail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sec
   return el;
 }
 
+/**
+ * [ui-ink] Folder tabs (S4, ink.css "folder tabs on a panel"): the ink strip on top of a `.ui-tabbed` panel, the open
+ * tab a hole of the panel's own white with the sakura mark; its 44 px hit area hangs into the body's padding. The same
+ * `tabs` shape, test ids and setActive() as rail(), so a screen swaps one for the other (the girl page, V3).
+ * @returns {HTMLElement & { setActive(id: string): void }}
+ */
+export function folderTabs(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
+  const el = h(`nav.ui-tabs${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label });
+  const btns = new Map();
+  const order = tabs.map((t) => t.id);
+  let on = active;
+  for (const t of tabs) {
+    const b = h(`button.ui-tab${t.locked ? '.locked' : ''}`, {
+      type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
+      'aria-label': `${t.label}${t.locked ? ' (locked)' : ''}${t.dot ? ` (${t.dotTitle || 'new'})` : ''}`,
+      onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); },
+    },
+    h('span.mark', { 'aria-hidden': 'true' }),
+    t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, h('span.ui-tab-word', t.label),
+    badge(t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null, `tab:${testidPrefix}${t.id}`),
+    h('span.hit', { 'aria-hidden': 'true' }));
+    btns.set(t.id, b);
+    el.append(b);
+  }
+  el.setActive = (id) => {
+    on = id;
+    for (const [k, b] of btns) {
+      b.classList.toggle('on', k === id);
+      b.setAttribute('aria-selected', k === id ? 'true' : 'false');
+    }
+  };
+  el.setActive(active);
+  return el;
+}
+
 /** Icon button (§5.5): 44 × 44, icon only, an accessible name. `glass` for one sitting on art. */
 export function iconBtn(icon, { label, onClick = null, testid = null, cls = '', title = null } = {}) {
   return h(`button.ui-ibtn${cls ? `.${cls}` : ''}`, { type: 'button', 'aria-label': label, title: title || label, 'data-testid': testid, onclick: onClick }, ico(icon));
