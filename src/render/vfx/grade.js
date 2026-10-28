@@ -40,6 +40,9 @@ export const GRADES = {
   volcano: { shadow: [0.016, -0.006, 0.0], high: [0.024, 0.006, -0.018], contrast: 1.08, sat: 1.05 },
   night: { shadow: [-0.006, -0.002, 0.026], high: [0.016, 0.0, 0.016], contrast: 1.05, sat: 1.06 },
   arena: { shadow: [0.004, 0.0, 0.012], high: [0.014, 0.008, -0.006], contrast: 1.07, sat: 1.05 },
+  // Gate Arc: the city's cool stone and the campus's warm brick and lawns
+  city: { shadow: [-0.008, 0.0, 0.02], high: [0.01, 0.006, -0.004], contrast: 1.06, sat: 1.03 },
+  campus: { shadow: [0.01, -0.002, 0.014], high: [0.016, 0.008, -0.008], contrast: 1.05, sat: 1.06 },
 };
 
 /**

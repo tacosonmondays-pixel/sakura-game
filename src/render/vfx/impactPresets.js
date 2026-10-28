@@ -45,7 +45,7 @@ export const GIRL_WEIGHT = {
   miko: 'normal', hotaru: 'normal', yoriko: 'normal', seiran: 'normal', fuu: 'normal', hana: 'normal', ruri: 'normal', iroha: 'normal',
   chigusa: 'normal', yuzuha: 'normal',
   // light: streams of small hits, rings, auras, strips
-  kage: 'light', umeko: 'light', chika: 'light', momo: 'light', noa: 'light', azami: 'light', kinu: 'light',
+  kage: 'light', umeko: 'light', chika: 'light', momo: 'light', noa: 'light', azami: 'light', kinu: 'light', tenka: 'light',
   // no damage of their own
   wakaba: 'none', ouka: 'none',
 };
