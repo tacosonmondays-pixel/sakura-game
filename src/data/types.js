@@ -290,7 +290,7 @@ export const GACHA = {
   rates: { SSR: 0.015, SR: 0.185, R: 0.8 },
   pity: 90, // guaranteed SSR on the 90th pull without one
   tenPullGuaranteeSR: true,
-  sparkCost: 200, // recruit points to pick any SSR
+  sparkCost: 200, // recruit points to spark an SSR (standard any day, premium on her Spotlight day, never LR)
 };
 
 // ---------------------------------------------------------------------------

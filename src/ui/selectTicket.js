@@ -1,4 +1,4 @@
-// SSR Select Ticket (Beta Tester Thank-You gift): pick ANY SSR student. New girls join the
+// SSR Select Ticket (Beta Tester Thank-You gift): pick any standard or premium SSR student (never an LR unit). New girls join the
 // academy; owned girls count as a duplicate (1 Essence of her, or a spare past her hold cap). Opened from the item's
 // "Use" button (Backpack / item info) and right after the beta gift is claimed.
 import { h } from './dom.js';
@@ -8,7 +8,8 @@ import { store } from '../core/store.js';
 import { UNIT_MAP } from '../data/units.js';
 import { UNIT_RARITIES, ROLES } from '../data/types.js';
 import { portraitHTML } from '../art/portraits.js';
-import { POOL, redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
+import { redeemSelectTicket, SSR_SELECT_TICKET } from '../systems/gacha.js';
+import { selectTicketPool } from '../systems/banners.js';
 import { itemCount } from '../systems/inventory.js';
 import { isUR, urBadge, applyUrFrame } from './rarity.js';
 import { MAX_POTENTIAL, potentialLevel, potentialNext, dupePastMaxPay } from '../systems/potential.js';
@@ -39,10 +40,10 @@ export function openSelectTicket() {
     title: 'SSR Select Ticket',
     wide: true,
     cls: 'sst-modal',
-    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}). Already in your academy? She gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay({ rarity: 'SSR' })}).`), grid),
+    body: h('div.sst', h('p.muted', `Choose any SSR student (tickets: ${have}; LR units arrive only through their LR Banners). Already in your academy? She gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay({ rarity: 'SSR' })}).`), grid),
     actions: [{ label: 'Cancel', kind: 'ghost' }],
   });
-  for (const id of POOL.SSR) {
+  for (const id of selectTicketPool()) { // [banners] never an LR unit
     const u = UNIT_MAP[id];
     const owned = !!profile.units[id];
     const cell = h(`button.sst-cell${owned ? '.owned' : ''}`, {

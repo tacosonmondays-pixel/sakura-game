@@ -4,6 +4,7 @@
 //
 // Also exports small shared pieces used by other meta-b screens: gearCard, requirementRow,
 // requirementList, unitMini.
+import { unitClass } from '../../data/banners.js';
 import '../styles/meta-b.css';
 import { h, clear, screen, svgEl, button, itemTile, showItemInfo, modal, toast, confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
@@ -108,6 +109,10 @@ export function howToGet(unit) {
   const a = unit.acquisition || {};
   if (a.type === 'starter') return { short: 'Starter', long: 'Part of your starting team.' };
   if (a.type === 'free') return { short: `Free after ${a.afterStage}`, long: a.note || `Joins for free after clearing stage ${a.afterStage}.`, stageId: a.afterStage };
+  // [banners] where she can be pulled (BANNERS §B): LR units only on their LR Banner, premium SSRs on their Spotlights
+  const cls = unitClass(unit.id);
+  if (cls === 'legend') return { short: 'LR Banner', long: 'LR unit: recruit her on her own LR Banner (Legend Promise at 300). She cannot be sparked.' };
+  if (unit.rarity === 'SSR' && cls === 'premium') return { short: 'Spotlight', long: `Recruit her on her ${unit.kind === 'hero' ? 'Guardian' : 'Student'} Spotlight (1.0%), or spark her there with 200 Recruit Points.` };
   return { short: 'Recruit', long: unit.rarity === 'SSR' ? 'Recruit (1.5%, pity at 90) or spark her with 200 Recruit Points.' : 'Recruit her in the gacha.' };
 }
 

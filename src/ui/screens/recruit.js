@@ -1,21 +1,31 @@
-// Recruitment (owner: meta-a). Banner with the featured SSRs, rates popup (base,
-// consolidated, per unit, pity), pity counter, 1×/10× recruit with gems or tickets,
-// animated reveal (anticipation → flips with rarity glow → SSR showcase → results),
-// recruit history and the spark exchange.
+// Recruitment (owner: meta-a). Banners (docs/specs/BANNERS.md §A.5): a rail of today's gem banners (LR,
+// Student Spotlight, Guardian Spotlight, Standard), each with its select girl, three SR rate-ups, the countdown
+// and look-ahead; the shared pity, the recruit points and spark (by the spark rules), the Legend Promise on the
+// LR tab, the rates page of each banner, history, 1×/10× recruit with gems or tickets, and the animated reveal
+// (anticipation → flips with rarity glow → SSR showcase → results).
 //
 // Results are written to the profile and saved BEFORE the animation starts, so a reload
-// mid-reveal never loses or double-charges a pull.
+// mid-reveal never loses or double-charges a pull. A pull carries its banner id: a banner that rotated at
+// 7 PM Central while the screen was open is refused before payment and the screen redraws.
 import '../styles/meta-a.css';
-import { h, clear, screen, svgEl, modal, toast, button } from '../components.js';
+import '../styles/banners.css';
+import { h, clear, screen, svgEl, modal, toast, button, confirmDialog } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber, formatPct } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
-import { portraitHTML, portraitUrl, artUrl } from '../../art/portraits.js';
+import { BANNER_KINDS, STANDARD_SSR } from '../../data/banners.js';
+import { portraitHTML, portraitUrl, artUrl, hasPortrait } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
-import { pull, pullCost, canSpark, spark, ratesTable, POOL } from '../../systems/gacha.js';
+import { pull, pullCost, canSpark, spark } from '../../systems/gacha.js';
+import {
+  activeBanners, bannerOfSlot, bannerDay, noteBannerDay, bannerRates, lookAhead, upcomingDebuts, sparkRule, sparkPool,
+  unitClass, promiseCount, LEGEND_PROMISE, setStandardPick, canChangePick, bannerEndsIn, numberKey, dayStartMs,
+  towerBanner, heroBanner, legendBanner, standardBanner,
+} from '../../systems/banners.js';
+import { formatCountdown } from '../../core/reset.js';
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
@@ -23,36 +33,71 @@ import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potential
 import { revealTag, revealRibbon, showPotentialUp, spareText } from '../potential.js';
 import { spareFifths } from '../../systems/essence.js';
 
-const FEATURED = ['luna', 'hotaru', 'kaede', 'chika', 'hikari'];
+/** Rail order (§A.5): LR, Student, Guardian, Standard (Coin and Friendship join with G4 / G5). */
+const SLOTS = ['legend', 'tower', 'hero', 'standard'];
+const SLOT_ICON = { legend: 'star', tower: 'students', hero: 'shield', standard: 'gacha' };
+const TAB_KEY = 'sakura-recruit-tab';
+const CLASS_LABEL = { standard: 'Standard', premium: 'Premium', legend: 'LR unit' };
 
-export function render(root) {
+function savedTab() {
+  try { return localStorage.getItem(TAB_KEY); } catch { return null; }
+}
+function saveTab(slot) {
+  try { localStorage.setItem(TAB_KEY, slot); } catch { /* a per-device convenience only */ }
+}
+
+/** A weekday name for a game day ("Sun"), the day the 7 PM reset that ends it falls on. */
+function dayName(d) {
+  return new Date(dayStartMs(d + 1)).toLocaleDateString([], { weekday: 'short', timeZone: 'America/Chicago' });
+}
+
+export function render(root, params = {}) {
   const { el, body } = screen('Recruit', { cls: 'ma-recruit-screen' });
   root.appendChild(el);
   let busy = false;
   let overlay = null;
+  noteBannerDay(store.profile);
+  let slot = params.tab || savedTab() || null;
+  let shownDay = bannerDay(store.profile);
+
+  const banners = () => activeBanners(store.profile);
+  const current = () => {
+    const list = banners();
+    return list.find((b) => b.slot === slot) || list.find((b) => b.slot === 'tower') || list[0];
+  };
 
   const draw = () => {
     clear(body);
-    body.appendChild(buildPage({ doPull, openSpark }));
+    const list = banners();
+    const b = current();
+    slot = b.slot;
+    shownDay = bannerDay(store.profile);
+    body.appendChild(buildPage(list, b, { doPull, openSpark, pick: (s) => { slot = s; saveTab(s); draw(); } }));
   };
+
+  /** The day rolled over while the screen was open: redraw (the pull itself is refused with 'rotated'). */
+  const rolled = () => bannerDay(store.profile) !== shownDay;
 
   async function doPull(count) {
     if (busy) return;
     const profile = store.profile;
+    const b = current();
+    if (rolled()) { toast('The banners just changed (7 PM Central). Here are today\'s.', 'info'); draw(); return; }
     const cost = pullCost(profile, count);
     if (!cost.ok) {
       showNoGems(cost.gems);
       return;
     }
     if (cost.gems > 0) {
-      const ok = await confirmSpend(count, cost);
+      const ok = await confirmSpend(count, cost, b);
       if (!ok) return;
     }
     busy = true;
-    const r = pull(profile, count, uiRng());
+    const r = pull(profile, count, uiRng(), { bannerId: b.id });
     if (!r.ok) {
       busy = false;
       if (r.error === 'gems') showNoGems(cost.gems);
+      else if (r.error === 'rotated') { toast('The banners just changed (7 PM Central). Nothing was spent.', 'info'); draw(); }
       else toast('Recruitment failed', 'bad');
       return;
     }
@@ -70,32 +115,35 @@ export function render(root) {
     const profile = store.profile;
     const grid = h('div.ma-spark-grid');
     const m = modal({
-      title: 'Spark — pick any SSR',
+      title: 'Spark: pick an SSR',
       wide: true,
       body: h('div',
-        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice. If she is already in your academy, she gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay(UNIT_MAP[POOL.SSR[0]])}).`),
+        h('p', `Every recruit earns 1 Recruit Point. Exchange ${GACHA.sparkCost} points for the SSR of your choice: a Standard SSR on any day, a Premium SSR on her Spotlight day. LR units cannot be sparked. If she is already in your academy, she gains 1 Essence for her next Potential step (past her Essence cap: ${dupePastMaxPay(UNIT_MAP[STANDARD_SSR[0]])}).`),
         h('div.ma-spark-points', svgEl(currencyIcon('recruitPoints'), 'ma-inline-icon'), h('b', formatNumber(profile.gacha?.recruitPoints || 0)), ` / ${GACHA.sparkCost} points`),
         grid),
       actions: [{ label: 'Close', kind: 'ghost' }],
     });
-    for (const id of POOL.SSR) {
+    // sparkable girls first, then the premium girls whose Spotlight is another day
+    const ids = sparkPool().map((id) => ({ id, rule: sparkRule(profile, id) })).sort((a, b) => Number(b.rule.ok) - Number(a.rule.ok));
+    for (const { id, rule } of ids) {
       const u = UNIT_MAP[id];
       const owned = !!profile.units[id];
       const p = owned ? potentialLevel(profile.units[id]) : 0;
       // (an owned girl below P6: what her next duplicate unlocks)
-      const meta = !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → Moonpearls` : `Owned · +1 Essence → P${p + 1} ${potentialNext(u, profile.units[id])?.brief || ''}`.trim();
-      grid.appendChild(h('div.ma-spark-cell',
+      const meta = !rule.ok ? (rule.days == null ? 'Spark on her Spotlight day' : rule.days <= 1 ? 'Spotlight tomorrow' : `Spotlight in ${rule.days} days`)
+        : !owned ? u.title : p >= MAX_POTENTIAL ? `P${MAX_POTENTIAL} → Moonpearls` : `Owned · +1 Essence → P${p + 1} ${potentialNext(u, profile.units[id])?.brief || ''}`.trim();
+      grid.appendChild(h(`div.ma-spark-cell${rule.ok ? '' : '.closed'}`,
         card(id, { variant: 'tall', owned: true }),
-        h('div.ma-spark-meta', h('b', u.name), h('span.muted', { 'data-testid': `spark-meta-${id}` }, meta)),
+        h('div.ma-spark-meta', h('b', u.name, h('span.bn-class', { 'data-cls': unitClass(id) }, CLASS_LABEL[unitClass(id)])), h('span.muted', { 'data-testid': `spark-meta-${id}` }, meta)),
         button('Spark', {
           kind: 'yellow',
           small: true,
-          disabled: !canSpark(profile),
+          disabled: !canSpark(profile) || !rule.ok,
           testid: `spark-${id}`,
           onClick: () => {
             const r = spark(profile, id);
             if (!r.ok) {
-              toast(r.error === 'points' ? `Need ${GACHA.sparkCost} Recruit Points` : 'Spark failed', 'bad');
+              toast(r.error === 'points' ? `Need ${GACHA.sparkCost} Recruit Points` : r.error === 'window' ? 'Her Spotlight ended: spark her on her next Spotlight day.' : 'Spark failed', 'bad');
               return;
             }
             store.commit('spark');
@@ -114,8 +162,15 @@ export function render(root) {
   const off = store.on('change', (e) => {
     if (!busy && e?.reason !== 'pull' && e?.reason !== 'spark') draw();
   });
+  // the countdown ticks once a minute and the banners switch at 7 PM Central while the screen is open
+  const tick = setInterval(() => {
+    if (busy) return;
+    if (rolled()) { noteBannerDay(store.profile); draw(); return; }
+    body.querySelectorAll('[data-ends]').forEach((n) => { n.textContent = formatCountdown(Number(n.dataset.ends) - Date.now()); });
+  }, 30000);
   return () => {
     off();
+    clearInterval(tick);
     overlay?.remove();
   };
 }
@@ -124,45 +179,116 @@ export function render(root) {
 // Page
 // ---------------------------------------------------------------------------
 
-function buildPage({ doPull, openSpark }) {
+function bannerRail(list, active, pick) {
+  return h('nav.bn-rail', { role: 'tablist', 'aria-label': 'Banners' }, list.map((b) => {
+    const k = BANNER_KINDS[b.slot];
+    const on = b.slot === active.slot;
+    return h(`button.bn-tab.k-${b.slot}${on ? '.on' : ''}`, {
+      type: 'button', role: 'tab', 'aria-selected': on ? 'true' : 'false', 'data-testid': `banner-tab-${b.slot}`,
+      title: `${k.label}${b.slot === 'standard' ? '' : ` · ${UNIT_MAP[b.select].name}`}`,
+      onclick: () => pick(b.slot),
+    },
+    h('span.bn-tab-art', { html: portraitHTML(UNIT_MAP[b.select], 'thumb') }),
+    h('span.bn-tab-label', k.short),
+    b.debut ? h('i.bn-tab-dot', { title: 'Debut week' }) : null);
+  }));
+}
+
+function countdown(b) {
+  const ms = bannerEndsIn(b);
+  if (ms == null) return h('span.bn-time.perm', 'Always open');
+  return h('span.bn-time', { title: b.debut ? 'Debut week ends' : 'Changes at 7 PM Central' }, svgEl(uiIcon('calendar'), 'bn-time-ico'), h('b', { 'data-ends': String(b.endsAt), 'data-testid': 'banner-time' }, formatCountdown(ms)));
+}
+
+function featuredLine(b) {
+  const u = UNIT_MAP[b.select];
+  const cls = unitClass(b.select);
+  const rate = b.legend ? b.legendRate / 10000 : 1;
+  return h('div.bn-feat', { 'data-testid': 'banner-featured' },
+    h('span.bn-feat-k', b.legend ? 'LR unit' : 'Featured SSR'),
+    h('b.bn-feat-name', u.name),
+    h('span.bn-feat-rate', `${rate.toFixed(1)}%`),
+    h('span.bn-class', { 'data-cls': cls }, cls === 'legend' ? 'No spark' : CLASS_LABEL[cls]));
+}
+
+function srLine(b) {
+  return h('div.bn-srs', h('span.bn-feat-k', 'Rate-up SR'),
+    b.srUps.map((id) => h('span.ma-feat-chip', { 'data-testid': `sr-up-${id}` }, svgEl(roleIcon(UNIT_MAP[id].role), 'ma-trait'), UNIT_MAP[id].name)),
+    h('span.bn-feat-rate', '3.0% each'));
+}
+
+function nextLine(b) {
+  if (b.slot === 'standard') return null;
+  if (b.slot === 'legend') {
+    if (b.debut) return h('div.bn-next', `Debut week · ends ${dayName(b.day + Math.round((b.endsAt - Date.now()) / 86400000))} 7 PM Central`);
+    return h('div.bn-next', 'LR Banners switch daily at 7 PM Central');
+  }
+  const la = lookAhead(b.slot, b.day, 2);
+  if (!la.length) return null;
+  return h('div.bn-next', { 'data-testid': 'banner-next' }, 'Next: ', la.map((x, i) => [i ? ' · then ' : 'tomorrow ', h('b', UNIT_MAP[x.select].name)]));
+}
+
+function bannerDesc(b) {
+  if (b.slot === 'legend') return 'An LR unit starts in SSR form, becomes UR at ★5 and LR through Limit Break. She cannot be sparked, but pulls here still earn Recruit Points for other girls.';
+  if (b.slot === 'standard') return 'Standard students and guardians only. You choose its featured SSR.';
+  if (b.slot === 'hero') return 'Guardians: the featured SSR hero, plus every Standard SR and R.';
+  return 'Towers only: the featured SSR student, plus every Standard SR and R student.';
+}
+
+function buildPage(list, b, { doPull, openSpark, pick }) {
   const profile = store.profile;
   const g = profile.gacha || { pity: 0, recruitPoints: 0, totalPulls: 0 };
   const left = GACHA.pity - (g.pity || 0);
-  const wrap = h('div.ma-recruit');
+  const wrap = h(`div.ma-recruit.bn-page.k-${b.slot}`, { 'data-banner': b.id });
+  wrap.appendChild(bannerRail(list, b, pick));
 
-  // Banner
-  const featured = FEATURED.map((id) => UNIT_MAP[id]).filter(Boolean);
-  const banner = h('section.ma-banner',
+  // Banner key art: the select girl in front, two of her SR rate-ups beside her
+  const stands = [b.srUps[0], b.select, b.srUps[1]].map((id) => UNIT_MAP[id]).filter(Boolean);
+  const kind = BANNER_KINDS[b.slot];
+  const banner = h(`section.ma-banner.bn-banner.k-${b.slot}`, { style: { '--bn-k': kind.color } },
     h('div.ma-banner-bg', h('img.ma-banner-paint', { src: lobbyArtUrl('academy.webp'), alt: '', loading: 'eager', decoding: 'async', draggable: false })),
     h('div.ma-banner-rays'),
-    // drawn key art: three featured girls' stands, the centre one in front (a three-girl banner)
-    h('div.ma-banner-stands', featured.slice(0, 3).map((u, i) => h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) }))),
+    b.slot === 'legend' ? h('div.bn-lr-frame', h('i.bn-lr-crest')) : null,
+    // a girl without drawn art yet stands as her framed card
+    h('div.ma-banner-stands', stands.map((u, i) => (hasPortrait(u)
+      ? h(`div.ma-banner-stand.s${i}`, { html: portraitHTML(u, 'cut', { eager: true }) })
+      : h(`div.ma-banner-stand.s${i}.bn-stand-card`, { html: portraitHTML(u, 'card', { eager: true }) })))),
     h('div.ma-banner-text',
-      h('div.ma-banner-kicker', 'Standard Recruitment'),
-      h('h2.ma-banner-title', 'Sakura Academy', h('br'), 'Open Enrollment'),
-      h('p.ma-banner-desc', 'Every student and guardian is in the pool. SSR rate 1.5% — guaranteed within 90 recruits.'),
-      h('div.ma-banner-featured', featured.map((u) => h('span.ma-feat-chip', svgEl(roleIcon(u.role), 'ma-trait'), u.name))),
+      h('div.bn-kicker-row', h('div.ma-banner-kicker', b.slot === 'legend' ? b.name : kind.label), countdown(b)),
+      h('h2.ma-banner-title', { 'data-testid': 'banner-title' }, b.title),
+      featuredLine(b),
+      srLine(b),
+      nextLine(b),
+      b.slot === 'standard' ? standardPickLine(b) : null,
+      h('p.ma-banner-desc.bn-desc', bannerDesc(b)),
       h('div.ma-banner-links',
-        button('Rates', { kind: 'ghost', small: true, icon: 'info', testid: 'rates', onClick: showRates }),
+        button('Rates', { kind: 'ghost', small: true, icon: 'info', testid: 'rates', onClick: () => showRates(b) }),
         button('History', { kind: 'ghost', small: true, icon: 'calendar', onClick: showHistory }),
       ),
     ),
   );
   wrap.appendChild(banner);
 
-  // Side: pity + spark + tickets
+  // Side: pity + Legend Promise + spark + tickets
   const pityPct = (g.pity || 0) / GACHA.pity;
+  const promise = b.legend ? promiseCount(profile, b.legend) : 0;
+  const debutSoon = b.slot !== 'legend' ? upcomingDebuts(b.day, 7)[0] : null;
   const side = h('section.ma-recruit-side',
-    h('div.ma-pity.panel',
+    h('div.ma-pity.panel', { 'data-testid': 'pity' },
       h('div.ma-pity-head', h('span.ma-sub', 'SSR pity'), h('b.ma-pity-left', { 'data-testid': 'pity-left' }, `${left}`), h('span.muted', left === 1 ? 'pull to a guaranteed SSR' : 'pulls to a guaranteed SSR')),
-      h('div.ma-progress', h('i', { style: { width: `${Math.round(pityPct * 100)}%` } })),
-      h('div.ma-pity-foot.muted', `${g.pity || 0}/${GACHA.pity} since your last SSR · ${formatNumber(g.totalPulls || 0)} recruits total`),
+      h('div.ma-progress', { role: 'img', 'aria-label': `${g.pity || 0} of ${GACHA.pity} pulls since your last SSR` }, h('i', { style: { width: `${Math.round(pityPct * 100)}%` } })),
+      h('div.ma-pity-foot.muted', 'Shared by every gem banner'),
     ),
+    b.legend ? h('div.ma-pity.panel.bn-promise', { 'data-testid': 'promise' },
+      h('div.ma-pity-head', h('span.ma-sub', 'Legend Promise'), h('b.ma-pity-left', `${promise}`), h('span.muted', `/ ${LEGEND_PROMISE}: the ${LEGEND_PROMISE}th pull here is ${UNIT_MAP[b.legend].name}`)),
+      h('div.ma-progress.bn-gold', h('i', { style: { width: `${Math.round((promise / LEGEND_PROMISE) * 100)}%` } })),
+    ) : null,
     h('div.ma-spark.panel',
       h('div.ma-pity-head', h('span.ma-sub', 'Recruit points'), h('b.ma-pity-left', formatNumber(g.recruitPoints || 0)), h('span.muted', `/ ${GACHA.sparkCost} to spark an SSR`)),
       h(`div.ma-progress${canSpark(profile) ? '.done' : ''}`, h('i', { style: { width: `${Math.min(100, Math.round(((g.recruitPoints || 0) / GACHA.sparkCost) * 100))}%` } })),
-      h('div.ma-spark-row', h('span.muted', 'Pick any SSR once you reach the goal.'), button('Spark', { kind: canSpark(profile) ? 'yellow' : 'ghost', small: true, icon: 'sparkle', onClick: openSpark, testid: 'spark' })),
+      h('div.ma-spark-row', h('span.muted', sparkHint(profile, b)), button('Spark', { kind: canSpark(profile) ? 'yellow' : 'ghost', small: true, icon: 'sparkle', onClick: openSpark, testid: 'spark' })),
     ),
+    debutSoon ? h('div.bn-coming.panel', { 'data-testid': 'debut-coming' }, h('b', `${UNIT_MAP[debutSoon.unit].name} is coming`), ` ${dayName(debutSoon.startDay - 1)} 7 PM Central · save gems for her debut week`) : null,
     h('div.ma-tickets',
       ticketPill('ticket_recruit', itemCount(profile, 'ticket_recruit')),
       ticketPill('ticket_recruit10', itemCount(profile, 'ticket_recruit10')),
@@ -172,32 +298,71 @@ function buildPage({ doPull, openSpark }) {
   wrap.appendChild(side);
 
   // Pull buttons
-  const bar = h('section.ma-pull-bar', pullButton(1, doPull), pullButton(10, doPull));
+  const bar = h('section.ma-pull-bar', pullButton(1, doPull, b), pullButton(10, doPull, b));
   wrap.appendChild(bar);
   return wrap;
+}
+
+function sparkHint(profile, b) {
+  if (b.legend) return `${UNIT_MAP[b.legend].name} cannot be sparked; points spark other girls.`;
+  if (sparkRule(profile, b.select).ok) return `${UNIT_MAP[b.select].name} can be sparked today.`;
+  return 'Pick a Standard SSR any day.';
+}
+
+function standardPickLine(b) {
+  const can = canChangePick(store.profile);
+  return h('div.bn-pick', { 'data-testid': 'standard-pick' },
+    h('span', 'Your pick: ', h('b', UNIT_MAP[b.select].name)),
+    button(can ? 'Change' : 'Changed today', { kind: 'ghost', small: true, disabled: !can, testid: 'pick-change', onClick: () => openPick(b) }),
+    b.firstTen ? h('span.bn-welcome', { 'data-testid': 'standard-welcome' }, 'First 10×: an SSR guaranteed') : null);
+}
+
+function openPick(b) {
+  const grid = h('div.ma-spark-grid');
+  const m = modal({
+    title: 'Standard banner: your featured SSR',
+    wide: true,
+    body: h('div', h('p', 'She is the Standard banner\'s featured SSR (1.0%). You can change her once a game day.'), grid),
+    actions: [{ label: 'Close', kind: 'ghost' }],
+  });
+  for (const id of STANDARD_SSR.filter((x) => UNIT_MAP[x])) {
+    grid.appendChild(h('div.ma-spark-cell',
+      card(id, { variant: 'tall', owned: true }),
+      h('div.ma-spark-meta', h('b', UNIT_MAP[id].name), h('span.muted', UNIT_MAP[id].title)),
+      button(id === b.select ? 'Featured' : 'Feature her', {
+        kind: id === b.select ? 'ghost' : 'yellow', small: true, disabled: id === b.select, testid: `pick-${id}`,
+        onClick: () => {
+          const r = setStandardPick(store.profile, id);
+          if (!r.ok) return toast('You can change her again after 7 PM Central.', 'info');
+          m.close();
+          store.commit('standard-pick');
+        },
+      })));
+  }
 }
 
 function ticketPill(id, count) {
   return h(`div.ma-ticket-pill${count ? '' : '.zero'}`, svgEl(itemIcon(id, { px: 24 }), 'ma-ticket-icon'), h('b', formatNumber(count)));
 }
 
-function pullButton(count, doPull) {
+function pullButton(count, doPull, b) {
   const profile = store.profile;
   const cost = pullCost(profile, count);
   const payment = cost.items.length
     ? cost.items.map((it) => h('span.ma-pay', svgEl(itemIcon(it.id, { px: 22 }), 'ma-pay-icon'), `×${it.count}`))
     : [];
   if (cost.gems > 0) payment.push(h(`span.ma-pay${cost.ok ? '' : '.short'}`, svgEl(currencyIcon('gems'), 'ma-pay-icon'), formatNumber(cost.gems)));
+  const note = count === 10 ? (b.slot === 'standard' && b.firstTen ? 'SSR guaranteed (first 10×)' : 'SR or better guaranteed') : null;
   return h(
     `button.ma-pull.ma-pull-${count}${cost.ok ? '' : '.short'}`,
     { onclick: () => doPull(count), 'data-testid': `pull-${count}` },
     h('span.ma-pull-label', `Recruit ×${count}`),
     h('span.ma-pull-cost', payment),
-    count === 10 ? h('span.ma-pull-note', 'SR or better guaranteed') : null,
+    note ? h('span.ma-pull-note', note) : null,
   );
 }
 
-function confirmSpend(count, cost) {
+function confirmSpend(count, cost, b) {
   const profile = store.profile;
   return new Promise((resolve) => {
     let done = false;
@@ -205,6 +370,7 @@ function confirmSpend(count, cost) {
     modal({
       title: `Recruit ×${count}`,
       body: h('div.ma-confirm-spend',
+        h('p', 'On ', h('b', b.slot === 'legend' ? b.name : `${BANNER_KINDS[b.slot].label} · ${UNIT_MAP[b.select].name}`)),
         cost.items.length ? h('p', `Uses ${cost.items.map((i) => `${i.count} ticket${i.count > 1 ? 's' : ''}`).join(' + ')} and`) : null,
         h('div.ma-spend-line', svgEl(currencyIcon('gems'), 'ma-pay-icon'), h('b', formatNumber(cost.gems)), ' gems'),
         h('p.muted', `Balance ${formatNumber(itemCount(profile, 'gems'))} → ${formatNumber(itemCount(profile, 'gems') - cost.gems)}`),
@@ -233,26 +399,34 @@ function showNoGems(need) {
   });
 }
 
-function showRates() {
-  const t = ratesTable();
-  const rarityRow = (r) => h('tr', h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[r].color } }, r)), h('td', formatPct(t.base[r], 1)), h('td', `${t.perUnit[r].length} units`));
-  const unitRows = ['SSR', 'SR', 'R'].flatMap((r) => t.perUnit[r].map((x) => h('tr',
-    h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[r].color } }, r), ' ', UNIT_MAP[x.unitId]?.name || x.unitId, UNIT_MAP[x.unitId]?.kind === 'hero' ? h('span.ma-hero-tag', 'HERO') : null),
+const pct = (x, d = 3) => `${(+x.toFixed(d)).toString()}%`;
+
+/** The rates page of one banner (§A.5): its lines, every unit's rate, pity, the 10× rule, spark and the Promise. */
+function showRates(b) {
+  const t = bannerRates(b);
+  const rarityRow = (r) => h('tr', h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[r].color } }, r)), h('td', pct(t.lines[r], 2)), h('td', `${t.units.filter((u) => u.rarity === r).length} units`));
+  const tagText = { select: 'Featured', legend: 'LR', up: 'Rate-up' };
+  const unitRows = t.units.map((x) => h(`tr${x.tag ? '.bn-up' : ''}`,
+    h('td', h('span.ma-r-badge', { style: { background: UNIT_RARITIES[x.rarity].color } }, x.tag === 'legend' ? 'LR' : x.rarity), ' ', UNIT_MAP[x.unitId]?.name || x.unitId, UNIT_MAP[x.unitId]?.kind === 'hero' ? h('span.ma-hero-tag', 'HERO') : null, x.tag ? h('span.bn-up-tag', tagText[x.tag]) : null),
     h('td', ROLES[UNIT_MAP[x.unitId]?.role]?.name || ''),
-    h('td', formatPct(x.rate, 3)),
-  )));
+    h('td', pct(x.pct)),
+  ));
+  const name = UNIT_MAP[b.select].name;
   modal({
-    title: 'Recruitment rates',
+    title: `Rates · ${b.slot === 'legend' ? b.name : `${BANNER_KINDS[b.slot].label} · ${name}`}`,
     wide: true,
-    body: h('div.ma-rates',
+    body: h('div.ma-rates', { 'data-testid': 'rates-page' },
       h('table.ma-table', h('thead', h('tr', h('th', 'Rarity'), h('th', 'Rate'), h('th', 'Pool'))), h('tbody', ['SSR', 'SR', 'R'].map(rarityRow))),
       h('ul.ma-rate-rules',
-        h('li', h('b', `Pity: `), `the ${t.pity}th recruit without an SSR is always an SSR. The counter resets whenever any SSR appears and carries over between sessions.`),
-        h('li', h('b', 'Consolidated SSR rate: '), `${formatPct(t.consolidatedSSR, 2)} per recruit including pity (on average one SSR every ${Math.round(1 / t.consolidatedSSR)} recruits).`),
-        h('li', h('b', '10× guarantee: '), 'every 10× recruit contains at least one SR or better.'),
-        h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${t.sparkCost} points exchange for any SSR in the Recruit Exchange.`),
+        b.legend ? h('li', h('b', 'LR unit: '), `${name} is ${pct(b.legendRate / 10000, 2)}, taken out of the 1.5% SSR line${b.debut ? ' (debut week)' : ''}. She cannot be sparked or chosen with a Select Ticket.`) : h('li', h('b', 'Featured SSR: '), `${name} is 1.0% of the 1.5% SSR line.`),
+        h('li', h('b', 'Rate-up SR: '), `${b.srUps.map((id) => UNIT_MAP[id].name).join(', ')}: 3.0% each.`),
+        h('li', h('b', 'Pity: '), `the ${GACHA.pity}th recruit without an SSR is always an SSR. One counter for every gem banner; any SSR resets it.${b.legend ? ` On this banner that SSR is ${name} ${Math.round(t.legendShare * 100)}% of the time.` : ''}`),
+        b.legend ? h('li', h('b', 'Legend Promise: '), `the ${LEGEND_PROMISE}th pull counted on ${name}'s LR Banners is ${name}. The count restarts when she joins you.`) : null,
+        h('li', h('b', 'Consolidated SSR rate: '), 'about 2.02% per recruit including pity, on every gem banner.'),
+        h('li', h('b', '10× guarantee: '), `every 10× recruit contains at least one SR or better.${b.slot === 'standard' && b.firstTen ? ' Your first Standard 10× also guarantees a Standard SSR.' : ''}`),
+        h('li', h('b', 'Spark: '), `each recruit earns 1 Recruit Point; ${GACHA.sparkCost} points spark a Standard SSR any day, or a Premium SSR on her Spotlight day. LR units cannot be sparked.`),
         h('li', h('b', 'Duplicates: '), potentialDupesRule()),
-        h('li', h('b', 'Tickets first: '), 'Recruit tickets are always used before gems.'),
+        h('li', h('b', 'Tickets first: '), 'Recruit tickets work on every gem banner and are always used before gems.'),
       ),
       h('h4', 'Per-unit rates'),
       h('table.ma-table.ma-unit-rates', h('thead', h('tr', h('th', 'Unit'), h('th', 'Role'), h('th', 'Rate'))), h('tbody', unitRows)),
@@ -261,21 +435,35 @@ function showRates() {
   });
 }
 
+/** "Student Spotlight · Iroha" for a history line's banner id ('tower:20766', 'legend:tenka:20766', 'standard:20766'). */
+export function bannerLabel(id) {
+  const m = /^([a-z]+):(?:([a-z0-9_]+):)?(\d+)$/.exec(String(id || ''));
+  if (!m) return null;
+  const [, s, unit, d] = m;
+  const day = Number(d);
+  if (s === 'legend') return unit && UNIT_MAP[unit] ? `LR Banner · ${UNIT_MAP[unit].name}` : 'LR Banner';
+  if (s === 'standard') return 'Standard';
+  const b = (s === 'tower' ? towerBanner : s === 'hero' ? heroBanner : null)?.(day);
+  return b ? `${BANNER_KINDS[s].label} · ${UNIT_MAP[b.select].name}` : BANNER_KINDS[s]?.label || null;
+}
+
 function showHistory() {
   const hist = [...(store.profile.gacha?.history || [])].reverse();
+  const total = store.profile.gacha?.totalPulls || 0;
   modal({
     title: 'Recruit history',
     body: hist.length
-      ? h('ul.ma-history', hist.map((e) => h(`li.r-${e.rarity}`,
+      ? h('div', h('p.muted.ma-history-total', { 'data-testid': 'history-total' }, `${formatNumber(total)} recruit${total === 1 ? '' : 's'} in all`), h('ul.ma-history', hist.map((e) => h(`li.r-${e.rarity}`,
         h('span.ma-r-badge', { style: { background: UNIT_RARITIES[e.rarity]?.color } }, e.rarity),
         h('b', UNIT_MAP[e.unitId]?.name || e.unitId),
-        e.spark ? h('span.chip', 'Spark') : null,
+        e.spark ? h('span.chip', 'Spark') : e.select ? h('span.chip', 'Select Ticket') : e.banner ? h('span.chip.bn-hist', bannerLabel(e.banner)) : null,
         h('span.muted', new Date(e.at).toLocaleString()),
-      )))
-      : h('div.ma-empty-state', svgEl(uiIcon('gacha')), h('p', 'No recruits yet — your first student is waiting!')),
+      ))))
+      : h('div.ma-empty-state', svgEl(uiIcon('gacha')), h('p', 'No recruits yet: your first student is waiting!')),
     actions: [{ label: 'Close', kind: 'primary' }],
   });
 }
+
 
 // ---------------------------------------------------------------------------
 // Reveal

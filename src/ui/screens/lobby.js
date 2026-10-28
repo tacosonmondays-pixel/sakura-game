@@ -37,7 +37,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, card, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, RECRUIT_FEATURED } from '../lobby/notice.js';
+import { showNoticeModal, noticeUnread, eventDaysLeft, ARENA_ART, ARENA_GUEST, recruitFeatured } from '../lobby/notice.js';
 import { onboardingRoute, journalDot } from '../../systems/story.js';
 import { titansUnlocked, titanOfWeek, TIER_STAGE } from '../../systems/titans.js'; // [ascension]
 import { TITAN_MAP } from '../../data/titans.js';
@@ -458,7 +458,7 @@ function buildCarousel(host, { reduceMotion }) {
     const titansLock = titansUnlocked(profile) ? null : `Clear ${TIER_STAGE.normal} to open Titan Trials`;
     // (the weekly event has its own card bottom-left, so it is not repeated here)
     slides = [
-      { id: 'recruit', pill: 'Standard recruitment', kicker: 'RECRUIT', title: 'Enrollment', sub: `SSR in ≤ ${pity}`, fan: RECRUIT_FEATURED, paint: 'thumbs/academy.webp', go: () => navigate('recruit') },
+      { id: 'recruit', pill: 'Today\'s banners', kicker: 'RECRUIT', title: 'Spotlights', sub: `SSR in ≤ ${pity}`, fan: recruitFeatured(profile), paint: 'thumbs/academy.webp', go: () => navigate('recruit') },
       { id: 'f2p', pill: 'Free-to-play guide', kicker: 'F2P', title: 'Free pulls', sub: `≈${f2p} every 28 days`, iconName: 'chest', paint: 'thumbs/sango.webp', go: () => navigate('rewards') },
       { id: 'assault', pill: assaultLock ? 'Locked' : 'Weekly boss', kicker: 'TOTAL ASSAULT', title: 'Boss Raid', sub: assaultLock ? 'Clear more stages' : 'Crowns & tokens', iconName: 'assault', paint: 'thumbs/hikari.webp', lock: assaultLock, go: () => (assaultLock ? toast(assaultLock, 'info') : navigate('assault')) },
       // [ascension] Titan Trials: 4 titans this week, the Titan of the Week named

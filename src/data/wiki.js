@@ -462,12 +462,19 @@ function gachaArticle() {
       list([
         `Pity: the ${GACHA.pity}th recruit without an SSR is always an SSR. The counter carries over between banners and sessions.`,
         'Every 10× recruit contains at least one SR or better.',
-        `Spark: every recruit earns 1 Recruit Point. ${GACHA.sparkCost} points exchange for any SSR you choose (Mall · Recruit Exchange).`,
+        `Spark: every recruit earns 1 Recruit Point. ${GACHA.sparkCost} points spark a Standard SSR any day, or a Premium SSR on her Spotlight day (Mall · Recruit Exchange). LR units cannot be sparked: the Legend Promise gives her on the 300th pull on her LR Banners.`,
       ])),
     sec('Costs',
       table(['Recruit', 'Gems', 'Ticket'], [['Single', fmt(GACHA.costSingle), itemName('ticket_recruit')], ['10×', fmt(GACHA.costTen), itemName('ticket_recruit10')]]),
       tip('Tickets are always used before gems.', 'info'),
-      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).'),
+      p('Every Standard girl (every R and SR, free recruits and heroes included, and the five original SSRs) is in every gem banner\'s pool, so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).')),
+    sec('Banners',
+      list([
+        'Student Spotlight (towers) and Guardian Spotlight (heroes) change every day at 7 PM Central: one featured SSR at 1.0% and three SR rate-ups at 3.0% each.',
+        'Premium SSRs appear only as a Spotlight\'s featured girl. The Standard banner holds Standard girls only, and you choose its featured SSR (once a game day). Your first Standard 10× guarantees a Standard SSR.',
+        'LR units are on their own LR Banner: 0.5% (0.7% in their debut week), taken out of the 1.5% SSR line. They cannot be sparked or chosen with a Select Ticket; the 300th pull on their LR Banners is them (the Legend Promise). Pulls there still earn Recruit Points for other girls.',
+        'Pity is one counter for every gem banner.',
+      ]),
       { type: 'links', ids: ['potential'] }),
   ]);
 }
@@ -595,7 +602,7 @@ function economyArticle() {
       table(['Currency', 'Earned from', 'Spent on'], [
         [{ text: 'Coins', icon: 'item:coins', strong: true }, 'Stage drops, Coin Bounty, commissions, salvage', 'Levels, breakthroughs, awakening, gear, General shop'],
         [{ text: 'Sakura Gems', icon: 'item:gems', strong: true }, 'First clears, commissions, login, achievements, codes', 'Recruits, Gem Shop'],
-        [{ text: 'Recruit Points', strong: true }, '+1 per recruit', 'Spark any SSR, Star Fragments'],
+        [{ text: 'Recruit Points', strong: true }, '+1 per recruit', 'Spark an SSR, Star Fragments'],
         [{ text: itemName('token_boss'), icon: 'item:token_boss', strong: true }, 'Minibosses, Total Assault', 'Boss Exchange: crowns, dice, pins'],
         [{ text: itemName('token_bounty'), icon: 'item:token_bounty', strong: true }, 'Bounty arenas, Tactical Challenge, commissions', 'Bounty Exchange: gear boxes, dice, pins'],
       ])),

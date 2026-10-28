@@ -142,11 +142,17 @@ function groupCard(g, redraw) {
   return card;
 }
 
+/** A premium SSR's spark row outside her window (BANNERS §A.1): when she is back. */
+function spotlightText(o) {
+  if (o.opensIn == null) return 'Spark on her Spotlight day';
+  return o.opensIn <= 1 ? 'Spotlight tomorrow' : `Spotlight in ${o.opensIn} days`;
+}
+
 function offerCard(o, redraw) {
   const isUnit = !!o.unitId;
   const item = o.item ? getItem(o.item) : o.chosenEssence ? getItem('kindred_ssr') : null;
   const name = isUnit ? UNIT_MAP[o.unitId]?.name : o.chosenEssence ? 'Chosen SSR Essence' : item?.name || o.item;
-  const stockText = o.away ? 'Back next week' : o.blocked ? 'No SSR can hold more' : o.stock != null ? `${RESET_LABEL[o.resets] || ''} ${o.remaining}/${o.stock}` : isUnit ? unitStockText(o) : 'Unlimited';
+  const stockText = o.closed ? spotlightText(o) : o.away ? 'Back next week' : o.blocked ? 'No SSR can hold more' : o.stock != null ? `${RESET_LABEL[o.resets] || ''} ${o.remaining}/${o.stock}` : isUnit ? unitStockText(o) : 'Unlimited';
   // "Needed for" tag: the girl whose next gate takes this item ("Kage · Gate 9")
   const needTag = o.item && !isUnit ? neededFor(store.profile, o.item) : null;
   const el = h(
@@ -166,7 +172,7 @@ function offerCard(o, redraw) {
     needTag ? h('div.ma-offer-need', { 'data-testid': `need-${o.id}` }, `Needed: ${needTag}`) : null,
     h('div.ma-offer-stock', stockText),
     h(`button.ma-offer-buy${o.affordable ? '' : '.short'}`,
-      { disabled: o.soldOut || o.blocked, onclick: () => (o.chosenEssence ? pickChosen(o, redraw) : startBuy(o, redraw)), 'data-testid': `buy-${o.id}` },
+      { disabled: o.soldOut || o.blocked || o.closed, onclick: () => (o.chosenEssence ? pickChosen(o, redraw) : startBuy(o, redraw)), 'data-testid': `buy-${o.id}` },
       o.soldOut ? h('span', 'Sold out') : [curIcon(o.currency), h('span', formatNumber(o.price))]),
   );
   if (item) cssVar(el, '--rc', ITEM_RARITIES[item.rarity]?.color || '#9aa5b1');
@@ -236,7 +242,7 @@ function startBuy(o, redraw) {
           const r = buyOffer(store.profile, o.id, qty);
           c();
           if (!r.ok) {
-            toast({ soldOut: 'Sold out', funds: 'Not enough currency', qty: 'Invalid amount' }[r.error] || 'Purchase failed', 'bad');
+            toast({ soldOut: 'Sold out', funds: 'Not enough currency', qty: 'Invalid amount', window: 'Her Spotlight ended: spark her on her next Spotlight day.' }[r.error] || 'Purchase failed', 'bad');
             return;
           }
           store.commit('shop');

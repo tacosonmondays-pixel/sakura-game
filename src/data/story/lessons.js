@@ -59,7 +59,7 @@ export const LESSONS = [
     unlock: { stage: '1-3' },
     body: [
       'Three stages cleared, and that deserves a celebration! I left a 10× Recruit Ticket in your Mail.',
-      'Every ten-pull has at least one SR, an SSR is guaranteed by pull 90, and recruit points let you pick any SSR.',
+      'Every ten-pull has at least one SR, an SSR is guaranteed by pull 90, and recruit points spark a Standard SSR any day, or a Premium SSR on her Spotlight day.',
       'Duplicates turn into Star Fragments for awakening. Nothing goes to waste!',
     ],
     action: { label: 'Show me', route: 'recruit', params: {} },

@@ -11,7 +11,7 @@ import { UR_MAX_LEVEL } from '../data/gearAwaken.js';
 import { restoreGearMarks } from './gearMarks.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
-import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { emptyMail, MAIL_LIMIT, amendBetaLetter } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { settleLevels, MAX_LEVEL } from './progression.js';
@@ -390,6 +390,7 @@ function cleanMail(raw) {
       claimed: bool(l.claimed),
       ...(l.claimedAt != null ? { claimedAt: num(l.claimedAt, 0, 0) } : {}),
     });
+    amendBetaLetter(m.letters[m.letters.length - 1]); // [banners G0] "ANY SSR" → LR units excluded
     if (!m.delivered.includes(l.id)) m.delivered.push(l.id);
   }
   m.letters = m.letters.slice(0, MAIL_LIMIT);
@@ -481,7 +482,14 @@ export function migrateProfile(raw) {
     recruitPoints: int(g.recruitPoints, 0, 0),
     history: (Array.isArray(g.history) ? g.history : [])
       .filter((h) => isObj(h) && UNIT_MAP[h.unitId])
-      .map((h) => ({ unitId: h.unitId, rarity: UNIT_MAP[h.unitId].rarity, at: num(h.at, 0, 0) }))
+      .map((h) => {
+        // [banners] the banner a pull came from, and spark / Select Ticket marks (BANNERS §A.5 History)
+        const e = { unitId: h.unitId, rarity: UNIT_MAP[h.unitId].rarity, at: num(h.at, 0, 0) };
+        if (typeof h.banner === 'string' && /^[a-z]+(:[a-z0-9_]+)?:\d{1,7}$/.test(h.banner)) e.banner = h.banner;
+        if (h.spark === true) e.spark = true;
+        if (h.select === true) e.select = true;
+        return e;
+      })
       .slice(-HISTORY_LIMIT),
   };
 

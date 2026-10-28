@@ -1,0 +1,124 @@
+/* Banners (docs/specs/BANNERS.md §A.5): the Recruit rail of today's banners, kind colours, the featured lines, the
+   LR Banner's Nightglass navy frame with its white-gold edge, the Legend Promise bar. Text never under 12 px. */
+
+.bn-page {
+  grid-template-columns: auto minmax(0, 1.6fr) minmax(260px, 1fr);
+  grid-template-areas: 'rail banner side' 'rail bar bar';
+}
+@media (max-width: 820px) {
+  .bn-page { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'rail banner' 'rail bar' 'rail side'; }
+}
+
+/* ---- the rail: one tab per live banner (portrait thumb + one word) ---- */
+.bn-rail { grid-area: rail; display: flex; flex-direction: column; gap: 8px; }
+.bn-tab {
+  --k: #5b8de8;
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 76px; padding: 6px 4px 5px;
+  border: 2px solid rgba(255,255,255,0.9); border-left: 5px solid var(--k); border-radius: 10px;
+  background: rgba(255,255,255,0.78); color: var(--navy); font-weight: 900; font-size: 0.78rem; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(29,78,137,0.12); transition: transform var(--ma-press, 120ms) ease;
+}
+.bn-tab:active { transform: scale(0.96); }
+.bn-tab.on { background: #fff; box-shadow: 0 0 0 2px var(--k), 0 4px 12px rgba(29,78,137,0.22); }
+.bn-tab-art { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; line-height: 0; border: 2px solid var(--k); background: #fff; }
+.bn-tab-art .pt-img, .bn-tab-art img, .bn-tab-art svg { width: 100%; height: 100%; object-fit: cover; }
+.bn-tab-label { line-height: 1.1; white-space: nowrap; }
+.bn-tab-dot { position: absolute; top: 4px; right: 6px; width: 10px; height: 10px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 0 2px #0e1930; }
+.bn-tab.k-legend { --k: #0e1930; background: linear-gradient(160deg, #1a2a4d, #0e1930); color: #ffe7b0; border-color: #ffd27a; border-left-color: #ffd27a; }
+.bn-tab.k-legend.on { background: linear-gradient(160deg, #22365f, #0e1930); box-shadow: 0 0 0 2px #ffd27a, 0 4px 14px rgba(14,25,48,0.45); }
+.bn-tab.k-legend .bn-tab-art { border-color: #ffd27a; }
+.bn-tab.k-tower { --k: #ff7aa8; }
+.bn-tab.k-hero { --k: #d99a2b; }
+.bn-tab.k-standard { --k: #5b8de8; }
+
+/* ---- the banner panel ---- */
+.bn-banner { border-color: #fff; box-shadow: 0 0 0 3px var(--bn-k, #5b8de8), var(--shadow-strong); }
+.bn-kicker-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bn-banner.k-tower .ma-banner-kicker { background: #c2185b; }
+.bn-banner.k-hero .ma-banner-kicker { background: #8a5a00; }
+.bn-time {
+  display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.92); color: var(--navy);
+  border-radius: 999px; padding: 1px 9px 1px 6px; font-size: 0.78rem; font-weight: 800;
+}
+.bn-time.perm { padding: 1px 9px; }
+.bn-time-ico { width: 14px; height: 14px; display: inline-flex; }
+.bn-feat, .bn-srs { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: 0.8rem; font-weight: 800; color: var(--navy); }
+.bn-feat { background: rgba(255,255,255,0.88); padding: 3px 8px; border-radius: 8px; align-self: flex-start; }
+.bn-feat-k { font-size: 0.75rem; font-weight: 800; color: #4a5a7a; text-transform: uppercase; letter-spacing: 0.02em; }
+.bn-feat-name { font-size: 1rem; font-style: italic; }
+.bn-feat-rate { font-weight: 900; color: #c2185b; }
+.bn-srs .bn-feat-k { background: rgba(255,255,255,0.88); padding: 1px 6px; border-radius: 6px; }
+.bn-srs .bn-feat-rate { background: rgba(255,255,255,0.88); padding: 1px 6px; border-radius: 6px; }
+.bn-srs .ma-feat-chip { font-size: 0.75rem; }
+.bn-class { display: inline-block; margin-left: 4px; padding: 0 7px; border-radius: 999px; font-size: 0.75rem; font-weight: 900; font-style: normal; background: #e3ecfb; color: #2a4d8f; }
+.bn-class[data-cls='premium'] { background: #ffe0ec; color: #a3124b; }
+.bn-class[data-cls='legend'] { background: #0e1930; color: #ffd27a; }
+.bn-next { align-self: flex-start; background: rgba(255,255,255,0.82); border-radius: 8px; padding: 2px 8px; font-size: 0.78rem; font-weight: 700; color: var(--navy); }
+.bn-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.82rem; font-weight: 700; color: var(--navy); }
+.bn-pick > span:first-child { background: rgba(255,255,255,0.88); padding: 2px 8px; border-radius: 8px; }
+.bn-welcome { background: #fff3c4; color: #7a5200; padding: 2px 8px; border-radius: 8px; font-weight: 900; }
+.bn-desc { max-width: 100%; }
+
+/* ---- the LR Banner: Nightglass navy, a white-gold inner line, the crest (no rainbow: that is UR's) ---- */
+.bn-banner.k-legend { border-color: #ffd27a; box-shadow: 0 0 0 3px #0e1930, var(--shadow-strong); }
+.bn-banner.k-legend .ma-banner-bg { background: radial-gradient(circle at 72% 30%, #2e4677 0%, #16244a 45%, #0e1930 100%); }
+.bn-banner.k-legend .ma-banner-paint { opacity: 0.22; mix-blend-mode: luminosity; }
+.bn-banner.k-legend .ma-banner-rays { background: repeating-conic-gradient(from 0deg at 72% 45%, rgba(255,210,122,0.14) 0deg 5deg, rgba(255,210,122,0) 5deg 18deg); }
+.bn-lr-frame { position: absolute; inset: 6px; border: 2px solid rgba(255,231,176,0.85); border-radius: 11px; pointer-events: none; z-index: 4; }
+.bn-lr-crest {
+  position: absolute; top: -9px; left: 50%; width: 30px; height: 18px; transform: translateX(-50%);
+  background:
+    radial-gradient(circle at 35% 50%, #ffd27a 0 5px, transparent 6px),
+    radial-gradient(circle at 65% 50%, #fff 0 5px, transparent 6px),
+    #0e1930;
+  border: 2px solid #ffd27a; border-radius: 999px;
+}
+.bn-banner.k-legend .ma-banner-kicker { background: linear-gradient(90deg, #ffe7b0, #ffd27a); color: #0e1930; }
+.bn-banner.k-legend .ma-banner-title { color: #fff; text-shadow: 0 2px 0 #0e1930, 0 0 14px rgba(255,210,122,0.6); }
+.bn-banner.k-legend .bn-feat-rate { color: #a36a00; }
+.bn-banner.k-legend .ma-banner-desc { background: rgba(14,25,48,0.72); color: #ffefcf; }
+.bn-banner.k-legend .bn-next { background: rgba(14,25,48,0.72); color: #ffefcf; }
+.bn-promise { border: 2px solid #ffd27a; }
+.ma-progress.bn-gold i { background: linear-gradient(90deg, #ffe7b0, #ffd27a, #e8a93a); }
+.bn-coming { font-size: 0.8rem; background: #0e1930; color: #ffefcf; border: 2px solid #ffd27a; }
+.bn-coming b { color: #ffd27a; }
+
+/* ---- rates page, history, spark grid ---- */
+.ma-unit-rates tr.bn-up td { font-weight: 900; }
+.bn-up-tag { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #fff3c4; color: #7a5200; font-size: 0.75rem; font-weight: 900; }
+.chip.bn-hist { font-size: 0.75rem; }
+.ma-spark-cell.closed { opacity: 0.62; }
+
+/* a girl without drawn art yet: her card, framed, standing in the key art */
+.ma-banner-stand.bn-stand-card { height: 78% !important; bottom: 6%; aspect-ratio: 3 / 5; border: 3px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 28px rgba(14,25,48,0.45); }
+.ma-banner-stand.bn-stand-card .pt-img, .ma-banner-stand.bn-stand-card svg { width: 100%; height: 100%; object-fit: cover; }
+.bn-banner.k-legend .ma-banner-stand.bn-stand-card { border-color: #ffd27a; }
+
+/* ---- landscape phone: everything on one screen ---- */
+@media (max-height: 480px) {
+  .bn-page .ma-pity-head { flex-wrap: nowrap; align-items: center; margin-bottom: 3px; }
+  .bn-page .ma-pity-head .ma-sub { width: auto; flex: 0 0 auto; }
+  .bn-page .ma-pity-head .ma-pity-left { font-size: 1.15rem; }
+  .bn-page .ma-pity-head .muted { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .bn-page .ma-recruit-side .panel { padding: 6px 10px; margin-bottom: 6px; }
+  .bn-page .ma-spark-row { margin-top: 3px; }
+  .bn-rail { gap: 5px; }
+  .bn-tab { width: 58px; padding: 3px 2px; font-size: 0.75rem; border-left-width: 4px; }
+  .bn-tab-art { width: 32px; height: 32px; }
+  .bn-feat { padding: 2px 6px; font-size: 0.75rem; }
+  .bn-feat-name { font-size: 0.9rem; }
+  .bn-srs .ma-feat-chip:nth-of-type(n+3) { display: none; }
+  .bn-desc { display: none; }
+  .bn-next { font-size: 0.75rem; }
+  .bn-pick { font-size: 0.75rem; gap: 4px; }
+  .bn-page .ma-pity-foot { display: none; }
+  .bn-page .bn-promise .muted { display: none; }
+  .bn-coming { display: none; }
+  .bn-welcome { display: none; } /* the 10× button says it */
+  .bn-feat .bn-class { margin-left: 0; }
+  .bn-time { font-size: 0.75rem; }
+}
+@media (max-width: 560px) {
+  .bn-tab { width: 56px; }
+  .bn-srs { display: none; }
+}

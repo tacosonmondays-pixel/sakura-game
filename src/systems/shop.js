@@ -14,6 +14,7 @@ import { gameWeekNumber } from '../core/reset.js';
 import { addItems, consumeItems, itemCount } from './inventory.js';
 import { isOwned, ownedUnits } from './unlocks.js';
 import { spark } from './gacha.js';
+import { sparkRule, chosenEssenceAllowed } from './banners.js';
 import { track } from './missions.js';
 import { kindredUseful, canAddChosenEssence, addChosenEssence, fuseShards, essenceBalance, essenceCap, KINDRED, SHARD_FUSION } from './essence.js';
 
@@ -52,8 +53,9 @@ export function currencyBalance(profile, currency) {
 }
 
 /** Owned SSR girls who can take one more Essence (the Chosen SSR Essence row). */
-export function chosenEssenceTargets(profile, rarity = 'SSR') {
-  return ownedUnits(profile).filter((id) => UNIT_MAP[id]?.rarity === rarity && canAddChosenEssence(profile, id));
+export function chosenEssenceTargets(profile, rarity = 'SSR', now = Date.now()) {
+  // [banners] never an LR unit; a premium SSR only in her spark window (BANNERS §A.1, J14)
+  return ownedUnits(profile).filter((id) => UNIT_MAP[id]?.rarity === rarity && canAddChosenEssence(profile, id) && chosenEssenceAllowed(profile, id, +now));
 }
 
 /** Does a row show at all? (§A.4 "no dead rows") */
@@ -76,7 +78,9 @@ function describeOffer(profile, offer, now) {
   const bought = profile.shop.bought[stockKey(offer)] || 0;
   const limited = offer.resets != null && offer.stock != null;
   const away = offWeek(offer, now);
-  const chosen = offer.chosenEssence ? chosenEssenceTargets(profile, offer.chosenEssence) : null;
+  const chosen = offer.chosenEssence ? chosenEssenceTargets(profile, offer.chosenEssence, now) : null;
+  // [banners] a premium SSR's spark row is closed outside her Spotlight window ("Spotlight in N days")
+  const rule = offer.unitId ? sparkRule(profile, offer.unitId, +now) : null;
   return {
     id: offer.id,
     item: offer.item,
@@ -93,6 +97,8 @@ function describeOffer(profile, offer, now) {
     affordable: currencyBalance(profile, offer.currency) >= offer.price,
     owned: offer.unitId ? isOwned(profile, offer.unitId) : undefined,
     highlight: !!offer.highlight,
+    closed: rule ? !rule.ok : false,
+    opensIn: rule && !rule.ok ? rule.days ?? null : null,
     section: offer.section || null,
     group: offer.group || null,
     family: offer.family || null,
@@ -124,7 +130,7 @@ export function shopTabs(profile, now = new Date()) {
  * Buy an offer `qty` times. Payment and stock are checked before anything changes.
  * Spark offers grant the unit (a duplicate gives her Essence) and ignore qty. A Chosen Essence row
  * needs `opts.unitId` (an owned girl of its rarity below her hold cap) and ignores qty.
- * @returns {{ ok: boolean, error?: 'unknown'|'qty'|'soldOut'|'funds'|'hidden'|'pick', rewards: object[], unit?: object, fused?: object[] }}
+ * @returns {{ ok: boolean, error?: 'unknown'|'qty'|'soldOut'|'funds'|'hidden'|'pick'|'window', rewards: object[], unit?: object, fused?: object[] }}
  */
 export function buyOffer(profile, offerId, qty = 1, now = new Date(), opts = {}) {
   const offer = SHOP_OFFER_MAP[offerId];
@@ -139,15 +145,15 @@ export function buyOffer(profile, offerId, qty = 1, now = new Date(), opts = {})
   const bought = profile.shop.bought[key] || 0;
   if (offer.resets != null && offer.stock != null && bought + n > offer.stock) return { ok: false, error: 'soldOut', rewards: [] };
   if (offer.unitId) {
-    const r = spark(profile, offer.unitId);
-    if (!r.ok) return { ok: false, error: r.error === 'points' ? 'funds' : 'unknown', rewards: [] };
+    const r = spark(profile, offer.unitId, { now: +now });
+    if (!r.ok) return { ok: false, error: r.error === 'points' ? 'funds' : r.error === 'window' ? 'window' : 'unknown', rewards: [] };
     profile.shop.bought[key] = bought + 1;
     const rewards = r.spare ? [{ id: 'memento', count: r.spare.mementos }, { id: 'moonpearl', count: r.spare.moonpearls }].filter((x) => x.count > 0) : [];
     return { ok: true, rewards, unit: { unitId: r.unitId, isNew: r.isNew, essence: r.essence, spare: r.spare, potential: r.potential, essenceHeld: r.essenceHeld, readyStep: r.readyStep } };
   }
   if (offer.chosenEssence) {
     const id = opts.unitId;
-    if (!id || UNIT_MAP[id]?.rarity !== offer.chosenEssence || !canAddChosenEssence(profile, id)) return { ok: false, error: 'pick', rewards: [] };
+    if (!id || UNIT_MAP[id]?.rarity !== offer.chosenEssence || !canAddChosenEssence(profile, id) || !chosenEssenceAllowed(profile, id, +now)) return { ok: false, error: 'pick', rewards: [] };
     if (!consumeItems(profile, [{ id: offer.currency, count: offer.price }])) return { ok: false, error: 'funds', rewards: [] };
     addChosenEssence(profile, id);
     profile.shop.bought[key] = bought + 1;
