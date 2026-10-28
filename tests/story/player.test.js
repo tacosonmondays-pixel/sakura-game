@@ -33,6 +33,9 @@ describe('title cards and plates', () => {
     expect(c.kicker).toBe('Chapter 2 · Moonlit Lakeshore');
     expect(c.sub).toBe('Episode 1');
     expect(titleCardText(sceneById('lesson.home')).kicker).toBe("Captain's Journal");
+    // a Gate Arc (Act II) episode names its act, not "Event Story"
+    expect(titleCardText(sceneById('g1.pro'), 1)).toEqual({ kicker: 'Chapter 1 · Rush Hour', title: 'Two Sunrises', sub: 'Episode 1' });
+    expect(titleCardText({ ...sceneById('g1.pro'), act: undefined }).kicker).toBe('Event Story');
   });
 
   it('plates come from data: girls by unit id, monsters by enemy id, plain speakers and overrides', () => {
@@ -97,7 +100,7 @@ describe('backgrounds', () => {
       ids.add(sc.bg);
       for (const l of sc.lines) if (l.t === 'cue' && l.bg) ids.add(l.bg);
     }
-    for (const id of ids) expect(resolveBackground(id, 1).kind, id).toMatch(/paint|cg|solid/);
+    for (const id of ids) expect(resolveBackground(id, 1).kind, id).toMatch(/paint|cg|solid|svg/);
   });
 
   it('stand nudges only name roster girls', () => {
@@ -125,3 +128,25 @@ describe('story music hook', () => {
     expect(stemMix(null)).toBeNull();
   });
 });
+
+describe('Act II stage backgrounds', () => {
+  it('a stage:1-6 … 1-10 background is its painted city place (STAGE_PLACE), not the academy; Act I keeps its own', () => {
+    const want = { '1-6': 'station-plaza', '1-7': 'covered-arcade', '1-8': 'corner-store', '1-9': 'station-plaza', '1-10': 'dry-fountain' };
+    for (const [id, place] of Object.entries(want)) {
+      const b = resolveBackground(`stage:${id}`, 1);
+      expect(b.kind, id).toBe('paint');
+      expect(b.place, id).toBe(place);
+      expect(backgroundUrls(`stage:${id}`, 1).length, id).toBe(1);
+    }
+    expect(resolveBackground('stage:1-5', 1).place).toBe('blossom-court');
+  });
+
+  it('2-7 and 2-10 show their own places (the jetty, the old lamp) over the campus night', () => {
+    const plain = resolveBackground('stage:2-6', 2).html;
+    const jetty = resolveBackground('stage:2-7', 2).html;
+    const lamp = resolveBackground('stage:2-10', 2).html;
+    expect(plain).toMatch(/aria-label="campus scenery"/);
+    expect(new Set([plain, jetty, lamp]).size).toBe(3);
+  });
+});
+

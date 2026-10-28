@@ -37,7 +37,8 @@ describe('campaign battles are bit-identical to before freeplay', () => {
     const look = (id) => ENEMY_MAP[id] || null;
     let h = 0x811c9dc5;
     let n = 0;
-    for (const st of STAGES) {
+    // every stage that existed before the Gate Arc (its Act II stages are new: e2e/engines pins all tables)
+    for (const st of STAGES.filter((s) => s.act !== 2)) {
       const cs = coopStage(st.id);
       const waves = Number.isFinite(cs.waves) ? cs.waves : 30;
       for (let w = 1; w <= waves; w++, n++) {

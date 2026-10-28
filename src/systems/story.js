@@ -15,7 +15,7 @@
 // already pulls in) and NEVER the scene chunk (the story index and its scene files). Scene-aware logic lives in
 // src/systems/storyTriggers.js.
 
-import { STAGE_MAP, CAMPAIGN_IDS } from '../data/stages.js';
+import { STAGE_MAP, CAMPAIGN_IDS, requirementsMet } from '../data/stages.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { LESSONS, LESSON_IDS, LESSON_MAP, FEATURE_GATES, WELCOME_MAIL, JOURNAL_TEXT } from '../data/story/lessons.js';
@@ -220,11 +220,14 @@ export function stageCleared(profile, stageId) {
   return !!e && DIFFICULTY_ORDER.some((d) => e[d]);
 }
 
-/** Same rule as systems/unlocks.js isStageUnlocked (kept local: unlocks.js imports save.js). */
+/**
+ * Same rule as systems/unlocks.js isStageUnlocked: both read stages.js requirementsMet (kept local: unlocks.js imports
+ * save.js).
+ */
 export function stageOpen(profile, stageId) {
   const stage = STAGE_MAP[stageId];
   if (!stage) return false;
-  return !stage.requires || stageCleared(profile, stage.requires);
+  return requirementsMet(stage, (id) => stageCleared(profile, id));
 }
 
 /** @returns {Set<string>} campaign stage ids cleared on any difficulty */

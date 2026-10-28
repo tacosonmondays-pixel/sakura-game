@@ -1,10 +1,13 @@
 // Placement & selection overlays (free placement): range circles, the
 // placement ghost (translucent girl with a small circle under her — white where she can
 // stand, red where she can't; no zone shading) and the selected-tower highlight.
+// Rooftops ('U', Gate Arc): the ghost, her footprint circle and a selected girl's ring stand on
+// the roof; range circles stay on the ground, where the enemies walk; while a girl is being placed
+// each roof's edge is outlined (roofs are places to stand).
 import * as THREE from 'three';
 import { buildChibi, disposeObject } from '../models/index.js';
 import { footprintRadius } from '../sim/placement.js';
-import { WATER_Y, PATH_H } from './terrain.js';
+import { WATER_Y, PATH_H, ROOF_Y } from './terrain.js';
 
 const RANGE_VERT = /* glsl */`
 varying vec2 vP;
@@ -151,6 +154,33 @@ export class Overlays {
     return this.terrain.isWater(Math.floor(x), Math.floor(y));
   }
 
+  /** Rooftop height under a world point (0 off the roofs). */
+  _roofAt(x, y) {
+    return this.terrain.roofAt?.(x, y) || 0;
+  }
+
+  /**
+   * The outline of every rooftop region ('U' tiles) as segments on the roof's top edge (cached):
+   * [x0, z0, x1, z1] per outer tile edge.
+   */
+  _roofEdges() {
+    if (this._roofSegs) return this._roofSegs;
+    const rows = this.sim.map?.rows || [];
+    const roof = (x, y) => rows[y]?.[x] === 'U';
+    const out = [];
+    for (let y = 0; y < rows.length; y++) {
+      for (let x = 0; x < rows[y].length; x++) {
+        if (!roof(x, y)) continue;
+        if (!roof(x, y - 1)) out.push([x, y, x + 1, y]);
+        if (!roof(x, y + 1)) out.push([x, y + 1, x + 1, y + 1]);
+        if (!roof(x - 1, y)) out.push([x, y, x, y + 1]);
+        if (!roof(x + 1, y)) out.push([x + 1, y, x + 1, y + 1]);
+      }
+    }
+    this._roofSegs = out;
+    return out;
+  }
+
   /**
    * Shows the placement preview for `unitId` with its footprint centred at world (x, y)
    * (continuous, no snapping). `null` hides it.
@@ -195,9 +225,10 @@ export class Overlays {
     g.valid = !!valid;
     const inMap = Number.isFinite(x) && Number.isFinite(y);
     const water = inMap && this._waterAt(x, y);
+    const roof = inMap && !water ? this._roofAt(x, y) : 0;
     if (g.model) {
       g.model.visible = inMap;
-      if (inMap) g.model.position.set(x, (water ? WATER_Y : 0) + 0.12, y);
+      if (inMap) g.model.position.set(x, (water ? WATER_Y : roof) + 0.12, y);
     }
     const range = g.def ? this._baseRange(g.def) : 0;
     this.ghostRange.visible = inMap && range > 0 && this.showGhostRange;
@@ -241,6 +272,8 @@ export class Overlays {
       const range = this._ringRange;
       const v = this.actors.towerView(uid);
       const y = v?.water ? WATER_Y + 0.04 : PATH_H + 0.03;
+      // a girl on a roof: her ring and marker stand on the roof, her range stays on the ground
+      const lift = v?.lift || 0;
       this.selRange.visible = range > 0;
       // relay girls (familiar / mirror) fight from their origin: the ring is centred there
       const rc = tower.stats?.relay && tower.origin ? tower.origin : tower;
@@ -249,8 +282,8 @@ export class Overlays {
       this.selRange.material.uniforms.uRadius.value = range;
       this.selRange.material.uniforms.uColor.value.set('#ffffff');
       const fr = (tower.radius || 0.42) * 2.3;
-      this.b.groundA.push(tower.x, y + 0.01, tower.y, fr, fr, this.R.ringThick, 0.55, 0.85, 1, 0.9, t * 1.5);
-      this.b.overlay.push(tower.x, 1.35 + Math.sin(t * 4) * 0.06, tower.y, 0.22, 0.22, this.R.chevron, 1, 0.85, 0.3, 1, -Math.PI / 2);
+      this.b.groundA.push(tower.x, y + 0.01 + lift, tower.y, fr, fr, this.R.ringThick, 0.55, 0.85, 1, 0.9, t * 1.5);
+      this.b.overlay.push(tower.x, 1.35 + lift + Math.sin(t * 4) * 0.06, tower.y, 0.22, 0.22, this.R.chevron, 1, 0.85, 0.3, 1, -Math.PI / 2);
       this._drawWing(tower, y, t);
     } else {
       this.selRange.visible = false;
@@ -269,7 +302,7 @@ export class Overlays {
       }
       this.pulses.set(puid, nl);
       const v = this.actors.towerView(puid);
-      const py = (v?.water ? WATER_Y + 0.05 : PATH_H + 0.04);
+      const py = (v?.water ? WATER_Y + 0.05 : PATH_H + 0.04) + (v?.lift || 0);
       for (const ph of [0, 0.5]) {
         const k = ((PULSE_T - nl) / PULSE_T * 2 + ph) % 1;
         const d = (pt.radius || 0.42) * (2 + k * 3.2);
@@ -288,7 +321,8 @@ export class Overlays {
         sx = Math.sin((SHAKE_T - this.ghostShake) * 52) * SHAKE_AMP * k;
       }
       const water = this._waterAt(g.x, g.y);
-      const y = (water ? WATER_Y : PATH_H) + 0.035;
+      const roof = water ? 0 : this._roofAt(g.x, g.y);
+      const y = (water ? WATER_Y : PATH_H + roof) + 0.035;
       // small circle under her: white = can stand here, red = can't
       const c = g.valid ? [1, 1, 1] : [1, 0.08, 0.16];
       const d = g.radius * 2;
@@ -297,10 +331,21 @@ export class Overlays {
       this.b.groundA.push(px, y + 0.005, g.y, d * 1.08, d * 1.08, this.R.ring, c[0], c[1], c[2], 0.95);
       if (g.model) {
         g.model.position.x = px;
-        g.model.position.y = (water ? WATER_Y : 0) + 0.12 + Math.sin(t * 5) * 0.04;
+        g.model.position.y = (water ? WATER_Y : roof) + 0.12 + Math.sin(t * 5) * 0.04;
         g.model.userData.animate?.(t, dt, 'idle');
       }
       this.ghostRange.position.x = px;
+    }
+    // placing a girl: outline each rooftop's edge (a place to stand), brighter while she is over one;
+    // drawn just above the parapet so it reads from every side
+    if (g && this._roofEdges().length) {
+      const over = Number.isFinite(g.x) && this._roofAt(g.x, g.y) > 0;
+      const a = (over ? 0.85 : 0.5) + 0.12 * Math.sin(t * 3);
+      const yy = ROOF_Y + 0.062;
+      for (const [x0, z0, x1, z1] of this._roofEdges()) {
+        if (x0 === x1) this.b.groundA.push(x0, yy, (z0 + z1) / 2, 0.07, 1.04, this.R.white, 0.55, 0.9, 1, a);
+        else this.b.groundA.push((x0 + x1) / 2, yy, z0, 1.04, 0.07, this.R.white, 0.55, 0.9, 1, a);
+      }
     }
   }
 

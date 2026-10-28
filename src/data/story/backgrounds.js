@@ -58,7 +58,7 @@ export const BACKGROUNDS = {
   'festival-drum': place('festival-drum', '54% 40%'),
   'base-camp': place('base-camp', '50% 75%'),
   'summit-nest': place('summit-nest', '50% 75%'),
-  // Gate Arc, Act 1 (its scenes and stages 1-6 to 1-10 are not written yet)
+  // Gate Arc places (Act II stages and scenes)
   'station-plaza': place('station-plaza', '50% 55%'),
   'covered-arcade': place('covered-arcade', '50% 55%'),
   'corner-store': place('corner-store', '50% 60%'),
@@ -70,11 +70,14 @@ export const BACKGROUND_IDS = Object.keys(BACKGROUNDS);
 
 /**
  * The painted place a `stage:<id>` background shows (scenes stay written as `stage:<id>`). Every campaign stage
- * has one; the Gate Arc stages get theirs when they exist (1-6 and 1-9 station-plaza, 1-7 covered-arcade,
- * 1-8 corner-store, 1-10 dry-fountain).
+ * has one, and so do chapter 1's Act II stages (Rush Hour: 1-6 and 1-9 station-plaza, 1-7 covered-arcade, 1-8
+ * corner-store, 1-10 dry-fountain). An Act II stage without one (chapter 2's Hilltop After Dark, 2-6…2-10: no painted
+ * Hilltop-at-night place exists yet) shows its map theme's night skyline, with its own jetty and old-lamp variants for
+ * 2-7 and 2-10 (backdrop.js PLACE_VARIANT).
  */
 export const STAGE_PLACE = {
   '1-1': 'blossom-court', '1-2': 'blossom-court', '1-3': 'blossom-court', '1-4': 'blossom-court', '1-5': 'blossom-court',
+  '1-6': 'station-plaza', '1-7': 'covered-arcade', '1-8': 'corner-store', '1-9': 'station-plaza', '1-10': 'dry-fountain',
   '2-1': 'lakeshore', '2-2': 'lakeshore', '2-3': 'lakeshore', '2-4': 'moon-pier', '2-5': 'moon-pier',
   '3-1': 'shrine-steps', '3-2': 'shrine-steps', '3-3': 'shrine-steps', '3-4': 'shrine-bell', '3-5': 'shrine-bell',
   '4-1': 'mountain-pass', '4-2': 'mountain-pass', '4-3': 'beacon-gate', '4-4': 'mountain-pass', '4-5': 'beacon-gate',
@@ -86,11 +89,12 @@ export const STAGE_PLACE = {
 
 /**
  * Listed but not used by any scene yet: the old academy looks (kept for scenes that want the lobby painting), the
- * day gate and night fountain variants, and the Gate Arc places. The content test keeps this list honest.
+ * day gate and night fountain variants, and the Gate Arc's shelter (daylit; Hilltop's scenes are at night). The
+ * content test keeps this list honest.
  */
 export const SPARE_BACKGROUNDS = [
   'academy-soft', 'academy-gate', 'blossom-court-night',
-  'station-plaza', 'covered-arcade', 'corner-store', 'dry-fountain', 'shelter',
+  'shelter',
 ];
 
 /** Academy tint shown for a stage background whose stage has no STAGE_PLACE (and no still). */

@@ -43,15 +43,17 @@ describe('update day: veterans claim everything already earned, in full', () => 
     expect(d.titles).toEqual([3, 1]);
   });
 
-  it('late (day ~60): 56 rows, 2,810 gems (≤ 4,000), 58 boxes, 20 ribbons and 19 titles', () => {
+  it('late (day ~60): 56 rows, 2,810 gems (≤ 4,000), 58 boxes, 19 ribbons and 18 titles', () => {
     const d = updateDay('late');
     // + Trying Something New and Rulebook Scholar (Codex wave, v0.1.45)
     expect(d.r.ids.filter((id) => ACHIEVEMENT_MAP[id].wave === 'codex')).toEqual(['a_mr_1', 'a_rules_15']);
     expect([d.newMet, d.gems, d.tickets]).toEqual([56, 2810, 0]);
     expect(d.gems).toBeLessThanOrEqual(4000);
     expect(d.boxes).toEqual({ sturdy: 7, ornate: 44, radiant: 7, celestial: 0 });
-    expect(d.ribbons).toEqual([12, 8]);
-    expect(d.titles).toEqual([9, 10]);
+    // (11 and 8 before, not 12 and 9: the fixture claims only the shipped rows met today, and the Frostbitten Heir (Gate Arc 1-10)
+    // is a new bestiary entry, so its 100 % bestiary row reads 98 % until they meet it; a real save keeps its claim)
+    expect(d.ribbons).toEqual([11, 8]);
+    expect(d.titles).toEqual([8, 10]);
     // Achiever counts the claims of the same tap (Claim all repeats until nothing is left)
     expect(d.r.ids).toContain('a_ach_25');
   });

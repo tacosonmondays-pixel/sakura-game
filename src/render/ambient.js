@@ -2,7 +2,10 @@
 // cloud shadows, wind gusts that move the foliage, butterflies and birds by day, fireflies
 // and lantern light pools by night, koi + fish ripples in ponds, snow sparkle, prop glows
 // that flicker, prop emitters (chimney smoke, vents, campfires, bog wisps, fountains,
-// fireworks) and the bouncing arrows + glowing discs at the spawn / goal gates.
+// fireworks) and the bouncing arrows + glowing discs at the spawn / goal gates. On the campus:
+// the searchlights' beams sweeping the lake (terrain.searchlights, ground quads: 0 draw calls) and
+// fireflies over the reeds. `dim` (blackout dimming, src/render/blackout.js) scales the prop glows,
+// light pools and beams; the gates' glows (`keep`) and the fireflies stay.
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
 
@@ -35,6 +38,10 @@ export class AmbientSystem {
     this.clouds = [];
     this.flocks = [];
     this.glows = terrain.glows;
+    this.searchlights = terrain.searchlights || [];
+    /** Blackout dim level (1 = lit; the battle renderer eases it while a blackout rule is active). */
+    this.dim = 1;
+    this._beam = new THREE.Color('#eaf2ff');
     this.gates = terrain.gates || [];
     this.marks = terrain.marks || [];
     this.emitters = terrain.emitters.map((e) => ({ ...e, timer: this.rand() * 2 }));
@@ -72,7 +79,8 @@ export class AmbientSystem {
     const count = (base) => Math.round(base * this.density * area / 300);
     if (w === 'petals' || this.terrain.ambient.has('feathers')) {
       const feathers = w !== 'petals';
-      const pinks = feathers ? ['#ffffff', '#f4f0ff'] : ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ff9ec4'];
+      // (the city mixes paper litter into the petals: look.weatherColors)
+      const pinks = feathers ? ['#ffffff', '#f4f0ff'] : (this.look.weatherColors || ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ff9ec4']);
       for (let i = 0; i < count(80); i++) {
         this.particles.push({
           kind: 'petal', x: x0 + r() * (x1 - x0), y: r() * 4, z: z0 + r() * (z1 - z0), vy: -(0.3 + r() * 0.25),
@@ -110,6 +118,13 @@ export class AmbientSystem {
       const n = Math.round(26 * this.density);
       for (let i = 0; i < n; i++) {
         this.flies.push({ x: x0 + r() * (x1 - x0), z: z0 + r() * (z1 - z0), y: 0.3 + r() * 1.0, ph: r() * TAU, sp: 0.3 + r() * 0.4 });
+      }
+      // the `fireflies` keyword (the campus lakeshore): more of them, low over the water's edge
+      if (this.terrain.ambient.has('fireflies') && this.waterTiles.length) {
+        for (let i = 0; i < Math.round(18 * this.density); i++) {
+          const [tx, ty] = this.waterTiles[Math.floor(r() * this.waterTiles.length)];
+          this.flies.push({ x: tx + r(), z: ty + r(), y: 0.15 + r() * 0.5, ph: r() * TAU, sp: 0.2 + r() * 0.3 });
+        }
       }
     }
     // butterflies by day on living ground
@@ -307,10 +322,27 @@ export class AmbientSystem {
     const ga = night ? 0.6 : 0.32;
     for (const g of this.glows) {
       if (g.owner && !g.owner.visible) continue;
-      const fl = 1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2));
+      // a traffic signal: the lit lamp steps through its colours (city kit)
+      if (g.cycle) g.color = this._cycleColor(g.cycle, t + (g.phase || 0));
+      const fl = (1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2))) * (g.keep ? 1 : this.dim);
       const s = g.size * (night ? 1.1 : 0.8);
       bbA.push(g.x, g.y, g.z, s, s, R.glow, g.color.r, g.color.g, g.color.b, ga * fl);
       if (night && g.y < 1.6 && g.size >= 0.4) gA.push(g.x, 0.02, g.z, s * 2.2, s * 2.2, R.soft, g.color.r, g.color.g, g.color.b, 0.16 * fl);
+    }
+
+    // searchlights (the campus): a soft beam across the water and the bright spot it sweeps
+    if (night) {
+      const c = this._beam;
+      for (const sl of this.searchlights) {
+        const u = 0.5 - 0.5 * Math.cos((t / sl.period) * TAU + sl.phase);
+        const a = sl.a0 + (sl.a1 - sl.a0) * u;
+        const dx = Math.sin(a);
+        const dz = Math.cos(a);
+        const rot = Math.atan2(-dz, dx);
+        const k = this.dim;
+        gA.push(sl.x + dx * sl.reach * 0.5, WATER_Y + 0.03, sl.z + dz * sl.reach * 0.5, sl.reach * 1.05, 0.8, R.soft, c.r, c.g, c.b, 0.3 * k, rot);
+        gA.push(sl.x + dx * sl.reach, WATER_Y + 0.035, sl.z + dz * sl.reach, 2.1, 1.6, R.soft, c.r, c.g, c.b, 0.75 * k, rot);
+      }
     }
 
     // emitters
@@ -353,6 +385,18 @@ export class AmbientSystem {
         gA.push(m.x, PATH_H + 0.026, m.z, D, D, R.rune, c.r, c.g, c.b, 0.5 + 0.25 * pulse, t * 0.18);
         gA.push(m.x, PATH_H + 0.03, m.z, D * 0.62, D * 0.62, R.rune, c.r, c.g, c.b, 0.3 + 0.2 * (1 - pulse), -t * 0.3);
         gA.push(m.x, PATH_H + 0.032, m.z, D * 1.12, D * 1.12, R.ringSoft, c.r, c.g, c.b, 0.18 + 0.12 * pulse);
+      } else if (m.kind === 'zebra' || m.kind === 'stopLine' || m.kind === 'junctionBox') {
+        // city crossings: white paint on the road (the quad's u runs across the road)
+        const big = m.kind === 'junctionBox';
+        const w = big ? 1.0 : m.kind === 'zebra' ? 0.86 : 0.86;
+        const h = big ? 1.0 : m.kind === 'zebra' ? 0.34 : 0.06;
+        gN.push(m.x, PATH_H + (big ? 0.014 : 0.018), m.z, w, h, R[m.kind], 0.96, 0.95, 0.92, big ? 0.55 : 0.88, m.rot);
+      } else if (m.kind === 'cracks') {
+        // the Petal Gate's cracks in the road: dark seams with a slow violet glow inside
+        c.set(m.color);
+        const pulse = 0.5 + 0.5 * Math.sin(t * 1.4 + m.x);
+        gN.push(m.x, PATH_H + 0.016, m.z, 1.5, 1.5, R.cracks, 0.12, 0.08, 0.16, 0.8, m.rot);
+        gA.push(m.x, PATH_H + 0.022, m.z, 1.42, 1.42, R.cracks, c.r, c.g, c.b, 0.3 + 0.3 * pulse, m.rot);
       } else if (m.kind === 'chevron') {
         // a soft pulse runs along the road in its travel direction
         const rv = this.chevronsReversed;
@@ -426,7 +470,18 @@ export class AmbientSystem {
     const members = [];
     const n = 3 + Math.floor(r() * 3);
     for (let i = 0; i < n; i++) members.push({ ox: -i * 0.42 * Math.sign(vx) + (r() - 0.5) * 0.2, oz: (i % 2 ? 1 : -1) * i * 0.3, ph: r() * TAU });
-    this.flocks.push({ x: fromLeft ? x0 - 3 : x1 + 3, z: z0 + 1 + r() * (z1 - z0 - 2), y: 2.6 + r() * 0.8, vx, vz, members, c: new THREE.Color(this.look.night ? '#1d2b4f' : '#3a4a6a') });
+    // the city's birds are pigeons: grey, flying low over the roofs
+    const city = !!this.look.city;
+    const y = city ? 1.7 + r() * 0.4 : 2.6 + r() * 0.8;
+    const col = this.look.night ? '#1d2b4f' : city ? '#7d828c' : '#3a4a6a';
+    this.flocks.push({ x: fromLeft ? x0 - 3 : x1 + 3, z: z0 + 1 + r() * (z1 - z0 - 2), y, vx, vz, members, c: new THREE.Color(col) });
+  }
+
+  /** The colour a cycling glow shows at time t ({ colors, period }, colours cached). */
+  _cycleColor(cy, t) {
+    if (!cy._c) cy._c = cy.colors.map((h) => new THREE.Color(h));
+    const k = Math.floor(((t % cy.period) / cy.period) * cy._c.length) % cy._c.length;
+    return cy._c[k];
   }
 
   _respawnTop(p, h) {
@@ -479,6 +534,34 @@ export class AmbientSystem {
           const a = r() * TAU;
           const rad = 0.15 + r() * 0.3;
           fx.spawn({ batch: 'bbA', uv: R.glow, x: e.x + Math.cos(a) * rad, y: e.y, z: e.z + Math.sin(a) * rad, vy: 0.5 + r() * 0.4, vx: -Math.sin(a) * 0.25, vz: Math.cos(a) * 0.25, drag: 0.6, s0: 0.14, s1: 0.03, life: 1.1, color: e.color || '#c48cff' });
+        }
+        break;
+      case 'debris':
+        // the Petal Gate: dark shards of street drifting slowly into the rift
+        e.timer = 0.16;
+        {
+          const a = r() * TAU;
+          const rad = (e.r || 0.6) * (1.3 + r() * 0.5);
+          const ox = Math.cos(a) * rad;
+          const oy = Math.sin(a) * rad * 0.8;
+          fx.spawn({ batch: 'bbN', uv: R.dot, x: e.x + ox * 0.7, y: Math.max(0.1, e.y + oy), z: e.z + ox * 0.5, vx: -ox * 0.7, vy: -oy * 0.7, vz: -ox * 0.35, drag: 0.4, s0: 0.07 + r() * 0.05, s1: 0.02, life: 1.3, color: r() > 0.4 ? '#3b3346' : '#5a5066', a0: 0.9, a1: 0.4, rot: r() * TAU, vrot: 2 });
+        }
+        break;
+      case 'riftPetals':
+        // petals spilling out of the rift (the Morning's sakura, through the gate)
+        e.timer = 0.3;
+        {
+          const a = r() * TAU;
+          fx.spawn({ batch: 'bbN', uv: R.petal, x: e.x + Math.cos(a) * 0.3, y: e.y + Math.sin(a) * 0.3, z: e.z, vx: Math.cos(a) * 0.5 + this.gust.value * 0.4, vy: 0.1 + Math.sin(a) * 0.3, vz: 0.35 + r() * 0.3, g: -0.6, drag: 0.6, s0: 0.12, s1: 0.09, life: 1.8, color: ['#ffc2d8', '#ffb3cf', '#ff9ec4'][Math.floor(r() * 3)], a0: 0.95, a1: 0, rot: r() * TAU, vrot: (r() - 0.5) * 6 });
+        }
+        break;
+      case 'frost':
+        // frost motes breathing out of the rift (the Night's cold rides through the Merge)
+        e.timer = 0.35;
+        {
+          const a = r() * TAU;
+          const rad = (e.r || 0.6) * r();
+          fx.spawn({ batch: 'bbA', uv: R.glow, x: e.x + Math.cos(a) * rad, y: e.y + Math.sin(a) * rad, z: e.z, vx: (r() - 0.5) * 0.2, vy: -0.12, vz: 0.2 + r() * 0.2, drag: 0.3, s0: 0.08, s1: 0.03, life: 1.6, color: '#d8f2ff' });
         }
         break;
       case 'goal':

@@ -192,7 +192,7 @@ describe('display only: the battle sim is untouched', () => {
 
   it('the sim id for this co-op protocol is unchanged (a sim change must bump COOP_PROTOCOL)', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
-    const KNOWN = { 8: '92e2e22527cf' };
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

@@ -68,6 +68,19 @@ describe('story format builders', () => {
     expect(n).toBe(lines.length + 2);
   });
 
+  it('ifOwned: a non-empty list of distinct unit ids from UNIT_MAP, frozen on the scene', () => {
+    const meta = (ifOwned) => ({ title: 'T', chapter: 2, kind: 'event', trigger: { after: '2-9' }, bg: 'black', ifOwned });
+    const sc = scene('t.owned', meta(['ruri', 'fuu']), [narrate('a')]);
+    expect(sc.ifOwned).toEqual(['ruri', 'fuu']);
+    expect(Object.isFrozen(sc.ifOwned)).toBe(true);
+    expect(scene('t.plain', { ...meta(undefined) }, [narrate('a')]).ifOwned).toBeUndefined();
+    expect(() => scene('t.x', meta([]), [narrate('a')])).toThrow(/ifOwned/);
+    expect(() => scene('t.x', meta('ruri'), [narrate('a')])).toThrow(/ifOwned/);
+    expect(() => scene('t.x', meta(['nobody']), [narrate('a')])).toThrow(/UNIT_MAP/);
+    expect(() => scene('t.x', meta(['ruri', 'ruri']), [narrate('a')])).toThrow(/twice/);
+    expect(() => scene('t.x', meta(['Ruri']), [narrate('a')])).toThrow(/bad id/);
+  });
+
   it('vocabularies are closed and consistent', () => {
     expect(FACE_IDS).toContain('neutral');
     for (const f of Object.values(FACES)) if (f.fx) expect(FX).toContain(f.fx);

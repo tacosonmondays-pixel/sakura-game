@@ -2,7 +2,8 @@
 // Academy menu layout: the painted academy (soft), Hikari's drawn stand bottom-left, a strip of chapter
 // tabs (Opening, Ch 1 … Ch 8 with names from CHAPTERS) and the chapter's episode cards on the right. A card shows
 // its background thumb with the cast's heads, "Episode n", the title and its state: NEW (unlocked, unread, with
-// the first-read gems), read (✓), or locked with the requirement ("Clear 2-5"). Tapping a card plays it in the
+// the first-read gems), read (✓), or locked with the requirement ("Clear 2-5"; "Needs Ruri, Iroha, Ena or Fuu" for an
+// episode that waits for a girl the player owns, scene meta `ifOwned`). Tapping a card plays it in the
 // scene player and returns here on the same tab. Replays never grant anything.
 import '../styles/meta-a.css'; // hub backdrop + drawn stand (shared with the missions hub)
 import '../styles/story.css';
@@ -28,6 +29,16 @@ export function chapterLabel(id) {
   if (id === 0) return { short: 'Opening', name: 'Meet the Sentinels' };
   const ch = CHAPTERS.find((c) => c.id === id);
   return { short: `Ch ${id}`, name: ch?.name || `Chapter ${id}` };
+}
+
+/**
+ * Toast for a tap on a locked card: "Clear 2-5 Basilisk Moon to unlock this episode." or, for an episode waiting for
+ * a girl the player owns (`ifOwned`), "Needs Ruri, Iroha, Ena or Fuu. Recruit one of them to unlock this episode."
+ */
+export function lockedToast(requirement) {
+  if (!requirement) return 'Locked';
+  const text = resolveText(requirement);
+  return /^Needs /.test(text) ? `${text}. Recruit one of them to unlock this episode.` : `${text} to unlock this episode.`;
 }
 
 /** The tab to open first: the chapter of the earliest NEW episode, else the latest unlocked one. */
@@ -124,7 +135,7 @@ export function render(root, params = {}) {
     return h(`button.sa-card${r.unlocked ? '' : '.locked'}${r.isNew ? '.new' : ''}${r.seen ? '.read' : ''}`, {
       type: 'button', 'data-testid': `story-ep-${r.id}`, style: { animationDelay: `${i * 50}ms` },
       onclick: () => {
-        if (!r.unlocked) return toast(r.requirement ? `${resolveText(r.requirement)} to unlock this episode.` : 'Locked', 'info');
+        if (!r.unlocked) return toast(lockedToast(r.requirement), 'info');
         navigate('scene', { id: r.id, next: 'story', ch: r.chapter });
       },
     },

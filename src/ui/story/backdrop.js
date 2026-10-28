@@ -4,13 +4,16 @@
 //          soft = blurred + dimmed); a story place carries its focal point (object-position)
 //   cg     a painted lobby scene with a girl in it (the player hides portraits while it is up)
 //   solid  a flat colour (black for fades and title cards)
-//   stage  `stage:<id>` — that stage's painted place (STAGE_PLACE), else the chapter's academy tint
-//          (CHAPTER_FALLBACK_BG). A still from the stage-still hook would replace either; nothing registers one.
-//          A still is never a reason to delay text.
+//   stage  `stage:<id>` — that stage's painted place (STAGE_PLACE); an Act II stage without one shows its map
+//          theme's painted skyline (svg: the Gate Arc's Noon city, not the academy); else the chapter's academy
+//          tint (CHAPTER_FALLBACK_BG). A still from the stage-still hook would replace any of these; nothing
+//          registers one. A still is never a reason to delay text.
 import { h } from '../dom.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { BACKGROUNDS, CHAPTER_FALLBACK_BG, placeOfStage, stageOfBackground } from '../../data/story/backgrounds.js';
 import { STAGE_MAP } from '../../data/stages.js';
+import { MAP_MAP } from '../../data/maps.js';
+import { themeBackdropSVG } from '../../art/backdrops.js';
 
 const FADE_MS = 420;
 
@@ -29,6 +32,10 @@ export function setStageStillProvider(fn) {
   stillCache.clear();
 }
 
+
+/** Act II stage maps whose story background shows a place of its own (src/art/backdrops.js themeBackdropSVG variant). */
+const PLACE_VARIANT = { noon_rowing_jetty: 'jetty', noon_boathouse_lamp: 'lamp' };
+
 /**
  * What a background id draws. Stage backgrounds resolve to their painted place (STAGE_PLACE), or to their
  * chapter's academy tint when the stage has none (with the stage id kept, so a still can replace either).
@@ -41,7 +48,11 @@ export function resolveBackground(id, chapter = 0) {
   if (stageId) {
     const place = placeOfStage(stageId);
     if (place) return { ...resolveBackground(place, chapter), id, stageId, place, fallback: true };
-    const ch = STAGE_MAP[stageId]?.chapter ?? chapter;
+    // an Act II stage (Gate Arc: the Noon city, not the academy) without a painted place shows its map theme's skyline
+    const st = STAGE_MAP[stageId];
+    const theme = st?.act === 2 ? MAP_MAP[st.mapId]?.theme : null;
+    if (theme) return { id, kind: 'svg', html: themeBackdropSVG(theme, { variant: PLACE_VARIANT[st.mapId] ?? null }), stageId, fallback: true };
+    const ch = st?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);
     return { ...fb, id, stageId, fallback: true };
   }
@@ -155,6 +166,7 @@ function stillFor(stageId) {
 
 function layerFor(spec) {
   if (spec.kind === 'solid') return h('div.sp-bg-layer.solid', { style: { background: spec.color } });
+  if (spec.kind === 'svg') return h('div.sp-bg-layer.svg', { html: spec.html });
   const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async', style: spec.focus ? { objectPosition: spec.focus } : null });
   const cls = spec.kind === 'cg' ? '.cg' : `.paint.tint-${spec.tint || 'day'}${spec.blur ? '.soft' : ''}`;
   const layer = h(`div.sp-bg-layer${cls}`, img, spec.kind === 'cg' ? null : h('div.sp-bg-tint'));
