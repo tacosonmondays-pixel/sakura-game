@@ -11,6 +11,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { Sim } from '../../src/sim/Sim.js';
+import { pointAt } from '../../src/sim/path.js';
 import { STAGE, testData } from '../sim/fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { Companions } from '../../src/render/companions.js';
@@ -165,6 +166,39 @@ describe('Kaze on Kaze\'s Swoop: never across the map', () => {
     expect(kaze().perch.next).toBe(null);
     shoot(32);
     expect(kaze().perch.next).toBe(null);
+  });
+
+  test('the real sim: Hana\'s own attack events send him out at the enemy each one names (flyers first is the sim\'s pick)', async () => {
+    const { sim, hana, c, enemies, kaze } = await board();
+    // a slime on the road by her (the fixture's first road), drawn where the sim has it
+    let best = null;
+    sim.pathData.forEach((p, pi) => {
+      for (let dist = 0; dist <= p.length; dist += 0.25) {
+        const pt = pointAt(p, dist, {});
+        const d = Math.hypot(pt.x - hana.x, pt.y - hana.y);
+        if (!best || d < best.d) best = { d, pi, dist };
+      }
+    });
+    expect(best.d).toBeLessThan(2);
+    sim.startNextWave();
+    const e = sim.spawnEnemy('slime_green', { pathIndex: best.pi, dist: Math.max(0, best.dist - 1.5), hpMul: 2000 });
+    expect(e).toBeTruthy();
+    const named = new Set();
+    const flown = new Set();
+    for (let i = 0; i < 60 * 6; i++) {
+      sim.update(1 / 60);
+      enemies.clear();
+      for (const x of sim.enemies) if (!x.dead) enemies.set(x.uid, { x: x.x, y: 0.1, z: x.y, height: 0.5, airborne: !!x.airborne });
+      for (const ev of sim.drainEvents()) {
+        if (ev.type === 'attack' && ev.towerUid === hana.uid) named.add(ev.targetUid);
+        c.handle(ev);
+      }
+      c.update(1 / 60);
+      if (kaze().sortie.busy) flown.add(kaze().sortie.uid);
+    }
+    expect(named.size).toBeGreaterThan(0);
+    expect(flown.size).toBeGreaterThan(0);
+    for (const u of flown) expect(named.has(u)).toBe(true);
   });
 
   test('a near target that walks away mid-dive: he still turns back at her reach', async () => {
