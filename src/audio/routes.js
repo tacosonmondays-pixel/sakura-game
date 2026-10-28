@@ -21,6 +21,8 @@ export const THEME_FAMILY = {
   city: 'blossom',
   // Hilltop High at night (Act 2): the shipped chapter-2 night family until a Hilltop cue is written
   campus: 'moonlit',
+  // the Drowned Line (Act 5, Gate Arc S5a): marsh's family until a Noon cue is written
+  drowned: 'lantern',
 };
 export const FAMILIES = ['blossom', 'moonlit', 'lantern', 'ironclock', 'matsuri'];
 

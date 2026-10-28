@@ -8,7 +8,9 @@
 //   • overpasses: the later pass rises on its elevation profile; railings and pillars,
 //   • boardwalk / bridge decks wherever the centreline is over water (curved, plank by plank),
 //   • tunnels: the road is buried between two portal arches under a low mound (enemies inside
-//     are hidden by the sim and the renderer).
+//     are hidden by the sim and the renderer). An inside lane that opens in a tunnel (Gate Arc 5-6:
+//     the subway spawn, `{ inside: true, nodes: [start, IN, …, OUT, …] }`) has no portal behind its
+//     start (the bore runs on into the dark) and its entrance stands at the OUT mouth (`mouth`).
 // `planRoads` is pure (testable in Node); the mesh builders return BufferGeometries.
 import * as THREE from 'three';
 import { mapTracks, pointAtDistance, elevationAt, inTunnel, stampBand, DECK_HALF } from '../core/track.js';
@@ -48,6 +50,24 @@ export function startsInside(t, W, H) {
   return x >= m && y >= m && x <= W - m && y <= H - m;
 }
 
+/** An inside lane's first tunnel opens the lane when it starts this close to d = 0 (tiles). */
+export const HEAD_TUNNEL = 0.5;
+
+/**
+ * The tunnel a lane opens in (Gate Arc S5a, the subway spawn): an inside lane (startsInside) whose
+ * first tunnel starts within HEAD_TUNNEL of its start. The sim spawns at the first point, inside the
+ * bore (hidden by the shipped tunnel rule); the first place the column is seen is the OUT mouth.
+ * @param {object} t Track
+ * @param {number} W board width
+ * @param {number} H board height
+ * @returns {number[]|null} [d0, d1] or null
+ */
+export function headTunnel(t, W, H) {
+  if (!startsInside(t, W, H)) return null;
+  const first = (t.tunnels || [])[0];
+  return first && first[0] <= HEAD_TUNNEL ? first : null;
+}
+
 /**
  * Pure drawing plan for a map's roads.
  * @param {object} map MapDef
@@ -56,7 +76,8 @@ export function startsInside(t, W, H) {
  *   road = { index, pts: [[x, z]], d: number[] (distance along the track; < 0 / > length on run-outs),
  *            elev: number[], tunnel: boolean[], lift: number[], noSide: boolean[] }
  *   entrance / exit = { track, x, z (where the centreline crosses the board edge), tx, ty (edge tile), dir: [dx, dz] (unit, travel) };
- *   an entrance inside the board (startsInside) sits on the track's first point and carries `inside: true`
+ *   an entrance inside the board (startsInside) sits on the track's first point and carries `inside: true`;
+ *   one whose lane opens in a tunnel (headTunnel) sits at that tunnel's OUT mouth and carries `mouth: true`
  */
 export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
   const W = map.width;
@@ -138,7 +159,9 @@ export function planRoads(map, { margin = 8, step = 0.2 } = {}) {
       links.push({ x: tmp.x, y: tmp.y });
     }
     // entrance: where the centreline first enters the board; exit: where it last leaves
-    if (mid) entrances.push(insidePoint(t, ti, W, H));
+    const opensIn = mid ? headTunnel(t, W, H) : null;
+    if (opensIn) entrances.push(mouthPoint(t, ti, opensIn[1], W, H));
+    else if (mid) entrances.push(insidePoint(t, ti, W, H));
     else if (!t.fork) {
       const i = t.points.findIndex(([x, y]) => inside(x, y));
       if (i >= 0) entrances.push(edgePoint(t, i, true, ti, W, H));
@@ -163,6 +186,16 @@ function insidePoint(t, ti, W, H) {
   const tx = Math.max(0, Math.min(W - 1, Math.floor(x)));
   const ty = Math.max(0, Math.min(H - 1, Math.floor(y)));
   return { track: ti, x, z: y, tx, ty, dir: [(bx - x) / len, (by - y) / len], inside: true };
+}
+
+/** The entrance of a lane that opens in a tunnel: the OUT mouth at distance d1, facing along the lane. */
+function mouthPoint(t, ti, d1, W, H) {
+  const tmp = {};
+  pointAtDistance(t.points, t.cum, d1, tmp);
+  const len = Math.hypot(tmp.dx, tmp.dy) || 1;
+  const tx = Math.max(0, Math.min(W - 1, Math.floor(tmp.x)));
+  const ty = Math.max(0, Math.min(H - 1, Math.floor(tmp.y)));
+  return { track: ti, x: tmp.x, z: tmp.y, tx, ty, dir: [tmp.dx / len, tmp.dy / len], inside: true, mouth: true, d: d1 };
 }
 
 /** Board-edge crossing near point i (entering: between i-1 and i; leaving: between i and i+1). */
@@ -332,6 +365,10 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
   const girder = new THREE.Color(look.bridge.girder || look.bridge.post);
   const overRail = new THREE.Color(look.bridge.overRail || look.bridge.rail);
   const waterSections = new Set();
+  // (the Drowned Line: the platform's yellow edge, the pipe gantry's pipes; frosted round the Noon Gate)
+  const platformEdge = new THREE.Color(look.bridge.rail);
+  const pipeA = new THREE.Color(look.frost ? '#dfeaf0' : '#6f8a84');
+  const pipeB = new THREE.Color(look.frost ? '#cfdde6' : '#8a6a4f');
   const nearCrossing = (x, z, r = CROSS_CLEAR) => crossings.some((c) => Math.hypot(c.x - x, c.y - z) < r);
   const nearLink = (x, z) => links.some((c) => Math.hypot(c.x - x, c.y - z) < 1.3);
   // lower passes: the railings run on under an overpass deck (low enough to pass beneath it,
@@ -500,12 +537,29 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
           // the Brigade's bridge-layer deck (look.bridge.layer, Gate Arc 4-10): steel treadway in
           // two-tile folding sections, a dark hinge seam between them
           else if (look.bridge.layer) plank.copy(base).multiplyScalar(i % 10 === 0 ? 0.55 : i % 2 ? 0.92 : 1.0);
+          // the Drowned Line's platform slab over the flooded track bed (look.bridge.platform, Gate Arc
+          // S5a): plain concrete with a joint every two tiles
+          else if (look.bridge.platform && !raised) plank.copy(base).multiplyScalar(i % 10 === 0 ? 0.86 : 1.0);
           else plank.copy(base).multiplyScalar(0.88 + (((i * 7) % 5) / 5) * 0.16);
           const side = asOver ? girder : post;
           acc.quad(P.tl, sec.tl, sec.tr, P.tr, plank);
           acc.quad(P.tl, P.bl, sec.bl, sec.tl, side);
           acc.quad(P.tr, sec.tr, sec.br, P.br, side);
           acc.quad(P.bl, P.br, sec.br, sec.bl, side);
+          if (look.bridge.platform && !raised) {
+            // the platform's yellow edge along both sides, a hair over the slab (no rails)
+            const k = 0.09 / (2 * W);
+            const at = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + 0.003, a[2] + (b[2] - a[2]) * t];
+            acc.quad(at(P.tl, P.tr, 0), at(sec.tl, sec.tr, 0), at(sec.tl, sec.tr, k), at(P.tl, P.tr, k), platformEdge);
+            acc.quad(at(P.tl, P.tr, 1 - k), at(sec.tl, sec.tr, 1 - k), at(sec.tl, sec.tr, 1), at(P.tl, P.tr, 1), platformEdge);
+          }
+          if (look.bridge.pipes && raised && asOver) {
+            // the pipe gantry (look.bridge.pipes): a pipe along each side under the deck edge
+            const mx = (P.bl[0] + sec.bl[0] + P.br[0] + sec.br[0]) / 4;
+            const mz = (P.bl[2] + sec.bl[2] + P.br[2] + sec.br[2]) / 4;
+            const half = Math.hypot(sec.bl[0] - P.bl[0], sec.bl[2] - P.bl[2]) / 2 + 0.01;
+            for (const sd of [-1, 1]) acc.box(mx + nx * sd * (W - 0.02), sec.bl[1] - 0.05, mz + nz * sd * (W - 0.02), half, 0.04, 0.04, dx, dz, sd > 0 ? pipeA : pipeB);
+          }
         } else if (onDeck && !raised && i > 0 && !tunnel[i - 1] && !isWaterAt(x, z)) {
           // abutment sill where a deck run starts on the bank (a low step in a shade of the deck)
           acc.box(x, pathH - 0.005, z, 0.06, 0.035, W + 0.03, dx, dz, sill);
@@ -522,7 +576,8 @@ export function buildDecks(roads, isWaterAt, look, { pathH, waterY, crossings = 
         }
       } else if (!raised) pileAcc = 0;
       // rails on decks and on raised overpasses (never across a deck that spans this road)
-      const railedAt = (k) => !tunnel[k] && (padded[k] || elev[k] > 0.14) && !nearLink(pts[k][0], pts[k][1]);
+      // (a platform slab over the flood has its yellow edge instead of rails)
+      const railedAt = (k) => !tunnel[k] && ((padded[k] && !look.bridge.platform) || elev[k] > 0.14) && !nearLink(pts[k][0], pts[k][1]);
       const RS = raised ? OVER_HALF - 0.04 : 0.53;
       const stone = overMat[i] && look.bridge.overRail;
       const railC = stone ? overRail : rail;
@@ -632,6 +687,8 @@ export function buildTunnels(map, look) {
   const cStripe = new THREE.Color(tl.stripe || '#4f9a62');
   const cGlass = new THREE.Color(tl.glass || '#9cc4d8');
   tracks.forEach((t) => {
+    // (the tunnel an inside lane opens in has no mouth behind its start: the bore runs on into the dark)
+    const head = headTunnel(t, map.width || 0, map.height || 0);
     for (const [d0, d1] of t.tunnels || []) {
       // A tunnel under buildings ('H' tiles beside it) becomes ONE composed hall / gatehouse set
       // piece over the buried road (instead of a mound hidden among generic building props).
@@ -782,6 +839,7 @@ export function buildTunnels(map, look) {
       }
       // portals at both mouths
       for (const [d, end] of [[d0, 'in'], [d1, 'out']]) {
+        if (end === 'in' && head && head[0] === d0) continue;
         pointAtDistance(t.points, t.cum, d, tmp);
         const { x, y, dx, dy } = tmp;
         const sgn = end === 'in' ? -1 : 1;

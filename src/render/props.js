@@ -12,6 +12,8 @@ import { RUIN_BUILDERS } from './city/ruinProps.js';
 import { HIGHWAY_BUILDERS } from './city/highwayProps.js';
 import { BRIGADE_BUILDERS } from './city/brigadeProps.js';
 import { NORTH_BUILDERS } from './northProps.js';
+import { DROWNED_BUILDERS } from './city/drownedProps.js';
+import { PARK_BUILDERS } from './city/parkProps.js';
 import { CityAcc } from './city/cityMaterials.js';
 
 const swayW = (x, y) => Math.max(0, Math.min(1, (y - 0.25) * 0.9));
@@ -23,8 +25,9 @@ const cache = new Map();
  * @param {string} type prop type
  * @param {object} look resolved theme look (themes.js)
  * @param {number} variant small integer for variation
- * @returns {{ solid, foliage, glow, facade, glows: object[], emitters: object[] }}
- *   facade: city buildings (src/render/city/: shader windows), null for every other prop
+ * @returns {{ solid, foliage, glow, facade, glows: object[], emitters: object[], keepLit: boolean }}
+ *   facade: city buildings (src/render/city/: shader windows), null for every other prop;
+ *   keepLit: its glow geometry never dims in a blackout (the drowned kit's red emergency lamps)
  */
 export function buildProp(type, look, variant = 0, lod = 'near') {
   // (a district or a ruined look may recolour shared builders: trees, walls)
@@ -55,6 +58,7 @@ export function buildProp(type, look, variant = 0, lod = 'near') {
     facade: ctx.facade.build(),
     glows: ctx.glows,
     emitters: ctx.emitters,
+    keepLit: !!ctx.keepLit,
   };
   cache.set(key, p);
   return p;
@@ -1035,4 +1039,4 @@ const BUILDERS = {
 };
 
 // the city kit (Gate Arc, Noon `city` theme): street furniture, Act 1 set pieces, the city gates
-Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS, OLD_TOWN_BUILDERS, RUIN_BUILDERS, HIGHWAY_BUILDERS, BRIGADE_BUILDERS, NORTH_BUILDERS);
+Object.assign(BUILDERS, CITY_BUILDERS, CAMPUS_BUILDERS, OLD_TOWN_BUILDERS, RUIN_BUILDERS, HIGHWAY_BUILDERS, BRIGADE_BUILDERS, NORTH_BUILDERS, DROWNED_BUILDERS, PARK_BUILDERS);

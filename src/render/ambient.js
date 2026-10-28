@@ -12,9 +12,15 @@
 // sprites and crackling sparks ('tearSparks') follow `tear` (src/render/tear.js: 0 rest … 1 pulse).
 // Gate Arc S4a: snow blowing out of the highway bores ('snowGust', one reused spawn description) and
 // the far north's vast shadow crossing the board once a minute (terrain ambient 'vastShadow').
+// Gate Arc S5a: water dripping off the Drowned Line's tunnel mouths and vent shafts with a ripple where
+// it lands ('drip'), the steam valves' columns ('steamColumn'), the red emergency lamps pulsing (glows
+// with `pulse`: slow by day, quick and strong while a blackout dims everything else; they keep their
+// light), the reservoir's search boats sweeping their beams (terrain.searchlights, as the campus's),
+// fireflies over the reservoir at night (terrain ambient 'fireflies'). All on reused spawn descriptions.
 import * as THREE from 'three';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { SMOKE_PUFF } from './city/ruinProps.js';
+import { GROUND } from './fx.js';
 
 const TAU = Math.PI * 2;
 const BUTTERFLY_COLORS = ['#ffffff', '#ffe066', '#9fd8ff', '#ffb3cf', '#c4a6ff', '#ffa94d'];
@@ -70,6 +76,11 @@ export class AmbientSystem {
     this.vastShadow = this.terrain.ambient?.has?.('vastShadow') ? { period: 60, cross: 14, t0: 20 } : null;
     /** one reused spawn description for the snow gusts out of the highway bores (no allocation per puff) */
     this._gust = { batch: 'bbN', uv: this.R.snow, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: -0.15, drag: 0.6, s0: 0.07, s1: 0.04, life: 1.6, color: new THREE.Color('#ffffff'), a0: 0.85, a1: 0, rot: 0, vrot: 1.5 };
+    // reused spawn descriptions for the Drowned Line: a falling drop, its ripple (fading in as the drop
+    // lands), a puff of a steam valve's column
+    this._drop = { batch: 'bbN', uv: this.R.dot, x: 0, y: 0, z: 0, vx: 0, vy: -0.2, vz: 0, g: -6, s0: 0.05, s1: 0.04, life: 0.3, color: new THREE.Color('#d6ecf4'), a0: 0.9, a1: 0.7 };
+    this._ripple = { batch: 'groundN', uv: this.R.ring, x: 0, y: 0, z: 0, s0: 0.06, s1: 0.7, life: 0.9, color: new THREE.Color('#e8f4f8'), a0: 0.45, a1: 0, fadeIn: 0.28, flags: GROUND };
+    this._column = { batch: 'bbN', uv: this.R.smoke, x: 0, y: 0, z: 0, vx: 0, vy: 0.95, vz: 0, drag: 0.35, s0: 0.24, s1: 0.95, life: 1.6, color: new THREE.Color('#f2f6f8'), a0: 0.55, a1: 0, fadeIn: 0.2, rot: 0, vrot: 0.4 };
     this._gateColors = new Map();
     /** a wave walks the other way than the terrain's gates show (Rear Ambush's even waves) */
     this.gatesReversed = false;
@@ -373,6 +384,12 @@ export class AmbientSystem {
       if (g.cycle) g.color = this._cycleColor(g.cycle, t + (g.phase || 0));
       let fl = (1 - g.flicker * (0.5 + 0.5 * Math.sin(t * 9 + g.phase) * Math.sin(t * 3.7 + g.phase * 2))) * (g.keep ? 1 : this.dim);
       let s = g.size * (night ? 1.1 : dusk ? 1.0 : 0.8);
+      // a red emergency lamp (the Drowned Line): a slow pulse, quick and strong in a blackout
+      if (g.pulse) {
+        const dark = this.dim < 1;
+        fl *= dark ? 0.55 + 0.45 * Math.sin(t * 4.2 + g.phase) : 0.82 + 0.18 * Math.sin(t * 1.6 + g.phase);
+        if (dark) s *= 1.25;
+      }
       // the tear's glow swells while the rule pulses
       if (g.tear) {
         s *= 0.75 + 0.55 * this.tear;
@@ -650,6 +667,35 @@ export class AmbientSystem {
           P.s0 = 0.05 + r() * 0.05;
           P.rot = r() * TAU;
           fx.spawn(P);
+        }
+        break;
+      case 'drip':
+        // water dripping off a tunnel mouth or a vent shaft (the Drowned Line), a ripple where it lands
+        e.timer = 0.9 + r() * 1.4;
+        {
+          const D = this._drop;
+          D.x = e.x + (r() - 0.5) * 0.12;
+          D.y = e.y;
+          D.z = e.z + (r() - 0.5) * 0.06;
+          fx.spawn(D);
+          const P = this._ripple;
+          P.x = D.x;
+          P.y = PATH_H + 0.02;
+          P.z = D.z;
+          fx.spawn(P);
+        }
+        break;
+      case 'steamColumn':
+        // a steam valve's column: big pale puffs climbing a tile and a half, leaning with the wind
+        e.timer = 0.22;
+        {
+          const C = this._column;
+          C.x = e.x + (r() - 0.5) * 0.1;
+          C.y = e.y;
+          C.z = e.z + (r() - 0.5) * 0.1;
+          C.vx = 0.06 + this.gust.value * 0.3;
+          C.rot = r() * TAU;
+          fx.spawn(C);
         }
         break;
       case 'goal':

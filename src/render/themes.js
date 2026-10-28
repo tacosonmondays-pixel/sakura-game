@@ -38,6 +38,16 @@
 //   BRIDGE_LAYER scenery keyword 'snowBridge': the Brigade's folding military deck (navy steel,
 //                amber hazard rails) over the water instead of the theme's planks (4-10)
 //   'snowCover'  scenery keyword: snow on the board's north rows (terrain.js paints it), flurries
+//
+// Gate Arc Step 5 (S5a):
+//   THEMES.drowned  the flooded Line 2 under Itomachi (MapDef.theme 'drowned'): the city kit with its own
+//                set (`city.kit: 'drowned'`, src/render/city/drownedProps.js), wet station tiles, a pale
+//                `grating` road (the lightest band), retaining walls, the `subway` tunnel style with red
+//                emergency lamps, dark teal flood water; lit underground (`forceNight`, its own light)
+//   EMERGENCY    the drowned kit's small accent lamps (red, amber): never on the road
+//   DISTRICTS.park  the reservoir park (MapDef.district 'park' on `city`): mown lawns with paved bands,
+//                park lamps, the dam wall on its H tiles, willows, the reservoir (parkProps.js)
+//   'noonGateFrost'  scenery keyword: rime on the pipes round the Noon Gate (look.frost) without snow
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -442,7 +452,76 @@ export const THEMES = {
       drones: false,
     },
   },
+  // ----- Gate Arc · Noon: the Drowned Line, Itomachi's old Line 2 under the city, flooded --------------
+  // The city kit with the drowned set (kit 'drowned', src/render/city/drownedProps.js): wet station
+  // tiles with grout lines and puddles, a pale galvanised `grating` road (the lightest band, a yellow
+  // platform edge), the painted platform band along it, station blocks, retaining walls on the
+  // border, pump halls and the lake mosaic in the skirt, work lamps and red emergency lamps along the
+  // lanes, the `subway` tunnel style, dark teal flood water. Underground: always lit by its own lamps
+  // (forceNight with its own cool light), fog on every drowned stage (StageDef.scenery.fog). The
+  // Petal Gate tears open in the street as in the city; the goal is the station exit (goalVariant 3).
+  drowned: {
+    ground: ['#66777a', '#5e6f72'],
+    groundSpeck: '#738487',
+    groundShade: '#4b5a5f',
+    clover: '#506259',
+    wet: '#3e4f58',
+    dirt: '#6d7575',
+    pebble: '#7d8584',
+    groundStyle: 'tile',
+    flowers: ['#5d6d6a', '#6a7a76'],
+    bank: '#4a5458',
+    bankDark: '#353d42',
+    shore: '#56636a',
+    // the grating carries its own colour (textures.pathTexture 'grating'): the theme's tint is white
+    path: { style: 'grating', color: '#ffffff', curb: '#e7c64a', side: '#4f565c', base: '#454b51', crisp: true, plainJunction: true },
+    // decks over the flooded track bed are platform slabs (concrete, a yellow edge, no rails: trackMesh
+    // `platform`); an overpass is the pipe gantry (steel grating with pipes along its girders)
+    bridge: { deck: '#a7aaa6', rail: '#e7c64a', post: '#5a6066', lacquer: false, overpass: '#b4b9bd', girder: '#40464c', overRail: '#e7c64a', grating: true, platform: true, pipes: true, shadow: 0.34 },
+    // the Line 2 bores: square portals, the line's blue band, red emergency lamps (the kit hangs them)
+    tunnel: { style: 'subway', top: '#58626a', side: '#465057', portal: '#c4c2b8', dark: '#0b0f13', stripe: '#3f8fbf', hall: '#7f888c', roof: '#3a434a', glass: '#3c5560', lamp: '#ff4d5a' },
+    // flood water: deep, dark teal, a soft caustic web (darker than the tiles in greyscale)
+    water: { deep: '#0f363e', shallow: '#1d5660', foam: '#8fbcbc', glow: 0.04, caustic: 0.35, foamAmt: 0.45 },
+    trees: ['pumpUnit', 'pipes'],
+    scatter: ['pipeRun', 'maintenanceCart', 'pipes', 'crate', 'pumpUnit'],
+    scatterDensity: 0.3,
+    treeColors: { leaf: '#5d6d6a', leaf2: '#4d5d5a', trunk: '#4d535c' },
+    rocks: ['maintenanceCart', 'pumpUnit'],
+    rock: '#7d8584',
+    building: 'stationBox',
+    wall: 'retainingWall',
+    frame: ['pipeRun', 'pipeRun', 'bollard', 'pipeRun', 'crate'],
+    detail: 'manhole',
+    detailDensity: 0.03,
+    life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: false },
+    gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    spawnGate: 'petalRift',
+    goalGate: 'shelterDoor',
+    /** shelterDoor variant: the Line 2 station exit (cityProps SHELTER_KINDS) */
+    goalVariant: 3,
+    weather: null,
+    // underground: always lit by its own lamps, never by the sky (its dark keeps its own colour)
+    forceNight: true,
+    underground: true,
+    light: { sky: '#cfe2ea', ground: '#3a4a52', hemi: 1.0, key: '#e6f0f4', keyI: 1.2, fill: '#ffb48a', fillI: 0.3 },
+    nightLight: { sky: '#a9cad6', ground: '#25333b', hemi: 1.0, key: '#dcebf2', keyI: 1.2, fill: '#ff9a7a', fillI: 0.34 },
+    /** the fog down here (StageDef.scenery.fog): a dark teal haze, not the moonlit blue */
+    nightFog: '#2f434b',
+    bg: '#0d171b',
+    city: {
+      kit: 'drowned', drones: false, kerbs: false,
+      // the painted platform band along every lane (textures.paintGround kerb band) and its yellow edge
+      sidewalk: '#7f878a', kerb: '#d9b740', kerbSide: '#4a5056', lawn: '#4f6159', plaza: ['#6c7779', '#667173'],
+      glass: { glassA: '#3c5a66', glassB: '#7fa2ae', warm: '#ffe2b0' },
+    },
+  },
 };
+
+/**
+ * The drowned kit's small accent lamps (Gate Arc S5a, src/render/city/drownedProps.js): red emergency
+ * lamps (they stay lit and pulse through a blackout) and amber beacons. Small lamps only, never on the road.
+ */
+export const EMERGENCY = Object.freeze({ red: '#ff4d5a', amber: '#ffb347' });
 
 /**
  * `stage.look.night === 'lantern'` (Halloween event stages): night re-lit warm — a deep
@@ -547,6 +626,51 @@ const HIGHWAY = {
   },
 };
 DISTRICTS.highway = HIGHWAY;
+
+/**
+ * The reservoir park (Gate Arc S5a, `MapDef.district: 'park'` on `city` maps of Act 5, GATE_ARC §18.1):
+ * mown lawns with paved bands along the paths, a pale park road (the lightest band, by day, in fog and
+ * at night), park lamps instead of utility poles and wires, willows and cherries, the dam wall on the
+ * board's H tiles (parkProps.js damWall), the reservoir's cold water, the city beyond the trees in the
+ * skirt. At night the lawns go deep green so the road stays the lightest band; fireflies over the water.
+ */
+const PARK = {
+  // (mown lawn a shade deeper than the campus's: the pale park road stays the lightest band by day)
+  ground: ['#7cb068', '#73a760'],
+  groundSpeck: '#93c47e',
+  groundShade: '#5f9652',
+  clover: '#548f4a',
+  wet: '#7c9e88',
+  dirt: '#c6bfb1',
+  pebble: '#b6afa1',
+  groundStyle: 'grass',
+  groundPaint: { kerb: 1, flowers: 0.3, cloverAmt: 0.45 },
+  shore: '#b4aea0',
+  bank: '#97938a',
+  bankDark: '#736f68',
+  path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#9a9da6', base: '#6d727c', crisp: true, plainJunction: true, tone: 2.5 },
+  // the reservoir: cold and deep, a notch darker than the lawns in greyscale
+  water: { deep: '#245a74', shallow: '#4a879c', foam: '#e2f0f4', glow: 0.03, caustic: 0.4, foamAmt: 0.65 },
+  trees: ['willow', 'sakura', 'round'],
+  scatter: ['round', 'willow', 'sakura', 'streetTree'],
+  scatterDensity: 0.45,
+  treeColors: { leaf: '#86b86a', leaf2: '#6a9e58', trunk: '#6a4a36' },
+  rocks: ['planterBox', 'rescueBuoy'],
+  building: 'damWall',
+  frame: ['hedge', 'planterBox', 'hedge', 'bollard', 'hedge'],
+  detail: 'tuft',
+  detailDensity: 0.12,
+  life: { butterflies: true, birds: true, koi: false, clouds: true, fireflies: true, sparkle: false },
+  // lawns at night: deep green, well under the road's tone (resolveLook)
+  nightGround: { ground: ['#4b785c', '#447055'], groundSpeck: '#588568', groundShade: '#385d4a', clover: '#3f6952' },
+  nightCity: { lawn: '#4d8859', sidewalk: '#8d8a82' },
+  city: {
+    district: 'park', kit: 'park', kerbs: false,
+    // (the paved bands and plazas a notch under the park road's tone)
+    sidewalk: '#b5afa2', kerb: '#e9e5dc', kerbSide: '#8f8b82', lawn: '#7fb86c', plaza: ['#b3ad9f', '#aaa496'],
+  },
+};
+DISTRICTS.park = PARK;
 
 /**
  * `stage.look.dusk` (Gate Arc 4-7, Azami's checkpoint): evening, not noon. The sun low (keyY: the key
@@ -684,7 +808,7 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
     look.light = t.nightLight ? { ...t.nightLight } : {
       sky: '#aebfff', ground: '#39406a', hemi: 0.8, key: '#d8e2ff', keyI: 1.15, fill: '#ffb8de', fillI: 0.35,
     };
-    look.bg = themeId === 'night' ? look.bg : mixBg(look.bg, '#232c52', 0.75);
+    look.bg = themeId === 'night' || t.underground ? look.bg : mixBg(look.bg, '#232c52', 0.75);
     look.ground = look.ground.map((g) => mixBg(g, '#4f8fb0', 0.08));
     look.groundShade = mixBg(look.groundShade, '#2c3a66', 0.2);
     look.clover = mixBg(look.clover, '#2c3a66', 0.15);
@@ -760,8 +884,15 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
   if (kw.includes('frozenVillage')) look.building = 'frozenHut';
   // the Brigade's bridge-layer deck over the water (scenery keyword 'snowBridge', Gate Arc 4-10)
   if (kw.includes('snowBridge')) look.bridge = { ...look.bridge, ...BRIDGE_LAYER };
+  // the Noon Gate's cold (scenery keyword 'noonGateFrost', Gate Arc 5-8): rime on the pipes and rails
+  // (props read look.frost) and a light cold wash on the tiles; no snow falls underground
+  if (kw.includes('noonGateFrost')) {
+    look.frost = true;
+    look.ground = look.ground.map((g) => mixBg(g, FROST.tint, 0.12));
+    look.groundShade = mixBg(look.groundShade, FROST.tint, 0.08);
+  }
   if (look.fog) {
-    look.fogColor = ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : dusk ? DUSK.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
+    look.fogColor = ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : dusk ? DUSK.fogColor : look.night ? (t.nightFog || '#4a5378') : (t.fogTint || '#dfe7ef');
   }
   return look;
 }

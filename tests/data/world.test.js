@@ -37,7 +37,7 @@ const STAGE_KEYS = [
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
 const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus', 'drowned'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
 const ERA_BY_THEME = {
