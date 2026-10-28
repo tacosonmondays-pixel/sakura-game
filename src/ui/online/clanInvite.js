@@ -143,7 +143,7 @@ export function recruitSlot({ clan, role }) {
     const note = st.can ? 'Once a day: a card with your clan in global chat.' : recruitWhyText(st.why);
     slot.replaceChildren(
       button(st.can ? 'Post to global chat' : 'Posted today ✓', {
-        kind: st.can ? 'pink' : 'ghost', small: true, icon: 'chat', testid: 'clan-recruit', disabled: !st.can,
+        kind: st.can ? 'pink' : 'ghost', small: true, icon: 'chat', testid: 'clan-recruit', disabled: !st.can, title: note,
         onClick: async () => {
           try {
             await b.postRecruit();

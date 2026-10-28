@@ -138,6 +138,8 @@ export const shots = {
   // the co-op invite pop-up (src/ui/online/inviteToast.js) over the co-op menu
   'invite-toast': online('#/coop', 'coop', {
     toast: true,
+    // (the pop-up brings its own two numbers, the stage and its minutes, over the menu's)
+    limit: 12,
     open: async (page) => {
       await page.evaluate(async (f) => {
         const { showSocialToast } = await import('/src/ui/online/inviteToast.js');

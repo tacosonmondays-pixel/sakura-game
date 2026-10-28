@@ -685,3 +685,27 @@
   /* (the clan's XP stays a bar on a phone; its numbers are in the bar's title) */
   :is(.ui-day) .ol-clan-level > small { display: none; }
 }
+/* (the kit's .panel adoption weighs (0,4,0) through its :is(): the boss card's ink outweighs it here) */
+:is(.ui-day) .ol-pane .ol-boss > .panel.ol-boss-card { --edge: var(--line-lo); background: var(--plate); color: var(--on-ink); }
+/* the clan's head on a phone held sideways: one band (emblem · name over role and members · the daily post · the level · Leave) */
+@media (max-height: 480px) {
+  :is(.ui-day) .ol-clan-id { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); column-gap: 16px; row-gap: 2px; align-items: center; }
+  :is(.ui-day) .ol-clan-id > :not(.ol-recruit) { grid-column: 1; }
+  :is(.ui-day) .ol-clan-id > .ol-recruit { grid-column: 2; grid-row: 1 / span 2; margin: 0; justify-self: start; }
+  :is(.ui-day) .ol-clan-id .ol-recruit-note { display: none; }
+  :is(.ui-day) .ol-clan-head .ol-emblem { --size: 40px !important; }
+}
+/* the clan's XP is a bar (its numbers in the bar's title); the room's tips are marked, not numbered */
+:is(.ui-day) .ol-clan-level > small { display: none; }
+:is(.ui-day) .ol-tip-n { width: 6px; height: 16px; margin: 2px 4px 0 2px; transform: skewX(var(--skew)); clip-path: none; background: var(--cyan-ink); }
+:is(.ui-day) .ol-field-waves { font: 600 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+:is(.ui-day) .ol-field-waves b { font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--ink); }
+/* (a circle: a radius of half its side, in px, so no reading of "50%" takes it for a rounded square) */
+:is(.ui-day) .ol-boss-art { border-radius: 999px; }
+:is(.ui-day) .ol-chat-list { padding-top: 20px; }
+/* the pop-ups hang under the top bar, never over its buttons */
+:is(.ui-day) .sc-toast-host { top: calc(var(--topbar-h) + var(--safe-top) + 6px); }
+@media (min-height: 481px) {
+  /* (64 px reward tiles: their counts at the 13 px desktop floor) */
+  :is(.ui-day) .ol-tiles .item-tile { width: 64px !important; }
+}

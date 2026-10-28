@@ -280,7 +280,8 @@ function versionDiff(mine, theirs) {
 
 export function render(root, params = {}) {
   const code = normalizeCode(params.id || '');
-  const { el, body } = screen(code ? `Co-op · ${code}` : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
+  // ([ui-v2 M8] a room's code is on its plate: the bar says Co-op room)
+  const { el, body } = screen(code ? 'Co-op room' : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
   root.append(el);
   let destroyed = false;
   let cleanup = () => {};
@@ -666,13 +667,10 @@ export function render(root, params = {}) {
         h('div.ol-field-body',
           thumb(s.stageId, 'ol-field-thumb'),
           h('div.ol-field-info',
-            h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode, { testid: 'coop-field-mode' })),
+            // [ui-v2 M8] said once: the stage, its difficulty, the enemy HP and the coins are on the room's head
+            h('div.ol-coop-stage-name', h('span.ol-field-waves', h('b', String(st.waves ?? '—')), ' waves'), modeChip(s.mode, { testid: 'coop-field-mode' })),
             st.desc ? h('p.ol-field-desc', st.desc) : null,
             st.rule && RULE_TEXT[st.rule.id] ? h('p.ol-field-rule', { 'data-testid': 'coop-field-rule' }, 'Map rule: ', h('b', RULE_TEXT[st.rule.id].name), `: ${RULE_TEXT[st.rule.id].desc}`) : null,
-            h('div.ol-field-stats',
-              h('span', h('b', String(st.waves ?? '—')), ' waves'),
-              h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),
-              h('span', h('b', formatNumber(coopStartCash(st))), ' coins each')),
             freeplayPanel(s, st),
             foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
     }
@@ -792,7 +790,7 @@ export function render(root, params = {}) {
         ['Nobody is left alone', 'If a connection drops, the other keeps playing — her girls keep fighting.'],
       ];
       return h('section.panel.ol-room-tips', h('h3.panel-title', 'How co-op works'),
-        h('ol.ol-tips', tips.map(([t, d], i) => h('li', h('span.ol-tip-n', String(i + 1)), h('div', h('b', t), h('small', d))))));
+        h('ol.ol-tips', tips.map(([t, d]) => h('li', h('span.ol-tip-n', { 'aria-hidden': 'true' }), h('div', h('b', t), h('small', d))))));
     }
 
     const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
