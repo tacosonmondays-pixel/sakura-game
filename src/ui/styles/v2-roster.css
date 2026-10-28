@@ -329,6 +329,9 @@ body.ui-day .gp-details .gk-delta { border-radius: 0; }
 body.ui-day .gp-details .gk-clubline { border-radius: 0; }
 body.ui-day .gp-details .mb-aw-node { border-radius: 0; }
 body.ui-day .gp-details .mb-card { border-radius: 0; }
+/* her Profile sheet: the quote on a paper wash with an ink rule (pink stays for what is picked), cyan bullets */
+body.ui-day .gp-details .mb-quote { border: 0; border-radius: 0; background: var(--sky-1); box-shadow: inset 3px 0 0 var(--cyan-ink); color: var(--ink); }
+body.ui-day .gp-details .mb-tips li::marker { color: var(--cyan-ink); }
 body.ui-day .gp-details .gk-acts-main .btn { min-height: calc(var(--tap) + 2px); }
 body.ui-day .ui-sheet.full.gk-sheet { border-radius: 0; }
 /* a long name on two lines in a sheet's ink head keeps its letters inside the sheet */
