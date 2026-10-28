@@ -57,11 +57,11 @@ html[data-loader-bg="colour"] .ld-chip { background: rgba(11, 22, 48, 0.9); }
 .ld-chip .ld-label { font-size: 12px; padding-bottom: 6px; }
 .ld-chip .ld-dots i { width: 3px; height: 3px; }
 .ld-chip:not(.on) .mochi *, .ld-chip:not(.on) .ld-dots i { animation: none !important; }
-/* [ui-ink] the night home (V2): in its empty bottom band, right of the text rail on phones (the rail runs to y 358) and
-   under it on desktop, so it covers no control */
-@media (max-height: 480px) { body:has(#app .home) .ld-chip { left: calc(216px + env(safe-area-inset-left, 0px)); } }
-@media (min-height: 481px) { body:has(#app .home) .ld-chip { left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); } }
-@media (max-width: 700px) and (min-height: 481px) { body:has(#app .home) .ld-chip { bottom: calc(432px + env(safe-area-inset-bottom, 0px)); } }
+/* [ui-ink] the night home (home layout B): in the bottom band between the four icons and the Battle plate (the icons end
+   by x 316 on phones, 412 on desktop; the plate starts at x 588 / 916), so it covers no control; upright, over the chip */
+@media (max-height: 480px) { body:has(#app .home) .ld-chip { left: calc(332px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
+@media (min-height: 481px) { body:has(#app .home) .ld-chip { left: calc(428px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 700px) and (min-height: 481px) { body:has(#app .home) .ld-chip { left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(316px + env(safe-area-inset-bottom, 0px)); } }
 
 /* ---------- inline: inside a panel that is fetching (chat, clan, profile, co-op) ---------- */
 .ld-inline { display: flex; align-items: flex-end; justify-content: center; gap: 4px; color: var(--navy, #22385c); padding: 14px 0 6px; animation: ld-inline-in 160ms ease-out 150ms both; }
