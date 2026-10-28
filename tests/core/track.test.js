@@ -323,6 +323,25 @@ describe('viaducts', () => {
     expect(elevationAt(child, child.forkD + 1)).toBe(0);
   });
 
+  it('a fork lane whose first node is on the fork point keeps its markers and straights on their own nodes', () => {
+    const MAIN = [[-1, 5], L, [21, 5]];
+    // the first node (within 0.05 of the fork point) is replaced by the fork point: the same lane as without it
+    const on = build([MAIN, { fork: { path: 0, at: [10, 5] }, nodes: [[10.02, 5], [13, 6], IN, [15, 8], OUT, [17, 10]] }]).tracks[1];
+    const off = build([MAIN, { fork: { path: 0, at: [10, 5] }, nodes: [[13, 6], IN, [15, 8], OUT, [17, 10]] }]).tracks[1];
+    expect(on.points).toEqual(off.points);
+    expect(on.tunnels).toEqual(off.tunnels);
+    const [ta, tb] = on.tunnels[0];
+    expect(nearestOnPolyline(on.points, on.cum, 13, 6).d).toBeCloseTo(ta, 3);
+    expect(nearestOnPolyline(on.points, on.cum, 15, 8).d).toBeCloseTo(tb, 3);
+    // a straight authored from that first node starts at the fork point
+    const st = build([MAIN, { fork: { path: 0, at: [10, 5] }, nodes: [[10, 5], L, [13, 5], [15, 8], [17, 12]] }]).tracks[1];
+    for (const [x, y] of st.points) if (x <= 13) expect(y, `on the straight at x ${x}`).toBeCloseTo(5, 4);
+    // and the viaduct markers move with their nodes the same way
+    const v = build([MAIN, { fork: { path: 0, at: [6, 5] }, nodes: [[6, 5], [8, 7], UP, L, [8, 15], DOWN, L, [8, 18]] }]).tracks[1];
+    expect(v.viaducts[0][0]).toBeCloseTo(nearestOnPolyline(v.points, v.cum, 8, 7).d, 3);
+    expect(v.viaducts[0][1]).toBeCloseTo(nearestOnPolyline(v.points, v.cum, 8, 15).d, 3);
+  });
+
   it('is deterministic (build twice: deep equal)', () => {
     const specs = [SKY, ns(5), { fork: { path: 0, at: [13, 5] }, nodes: [[15, 8], [17, 12]] }];
     expect(JSON.stringify(build(specs, 'flat'))).toBe(JSON.stringify(build(specs, 'flat')));
@@ -372,6 +391,43 @@ describe('viaducts', () => {
       fails([[[-1, 5], L, [4, 5], UP, L, [12, 5], DOWN, L, [21, 5]], ns(2.5)], /within 2\.1 tiles of a viaduct's foot/, 'bridgeUnder');
     });
 
+    it('a road under a viaduct within 2.1 tiles of its own viaduct\'s foot', () => {
+      // its own viaduct ends 0.1 before the crossing: the ramp would lift it inside its under-deck span
+      fails([SKY, [[5, -7], UP, L, [5, 4.9], DOWN, L, [5, 11]]], /\(5\.00, 5\.00\): the road under the viaduct passes within 2\.1 tiles of its own viaduct's foot/);
+      // … or starts 1 tile after it
+      fails([SKY, [[5, -1], L, [5, 6], UP, L, [5, 13], DOWN, L, [5, 15]]], /passes within 2\.1 tiles of its own viaduct's foot/);
+      // 2.15 tiles clear: fine, and the road under stays on the ground there
+      const { tracks, crossings } = build([SKY, [[5, -9], UP, L, [5, 2.85], DOWN, L, [5, 11]]]);
+      expect(crossings[0].over).toBe('a');
+      const [ua, ub] = tracks[1].under[0];
+      for (let i = 0; i < tracks[1].points.length; i++) if (tracks[1].cum[i] >= ua && tracks[1].cum[i] <= ub) expect(tracks[1].elev[i]).toBe(0);
+    });
+
+    // a viaduct along row 5 from x 1 to x 10 (d 2 to 11)
+    const SKY2 = [[-1, 5], L, [1, 5], UP, L, [10, 5], DOWN, L, [21, 5]];
+
+    it('a lane forking or joining where its parent\'s road is raised by inheritance (nested forks / joins)', () => {
+      // path 1 forks from path 0 after the viaduct (its prefix carries the viaduct); path 2 forks from path 1 on that prefix
+      fails([SKY2, { fork: { path: 0, at: [14, 5] }, nodes: [[17, 8], [19, 12]] }, { fork: { path: 1, at: [6, 5] }, nodes: [[8, 8], [9, 12]] }],
+        /^path 2 forks from path 1 at elevation 0\.620 .*a fork must be on the ground/);
+      // path 1 joins path 0 before its viaduct (its suffix carries it); path 2 joins path 1 on that suffix
+      const Q0 = [[-1, 5], L, [8, 5], UP, L, [17, 5], DOWN, L, [24, 5]];
+      fails([Q0, { nodes: [[2, 12], [4, 8]], join: { path: 0, at: [6, 5] } }, { nodes: [[10, 12], [11, 8]], join: { path: 1, at: [13, 5] } }],
+        /^path 2 joins path 1 at elevation 0\.620 .*a join must be on the ground/);
+      // the same lanes forking / joining on the ground are fine
+      expect(() => build([SKY2, { fork: { path: 0, at: [14, 5] }, nodes: [[17, 8], [19, 12]] }, { fork: { path: 1, at: [0, 5] }, nodes: [[2, 8], [3, 12]] }])).not.toThrow();
+      expect(() => build([Q0, { nodes: [[2, 12], [4, 8]], join: { path: 0, at: [6, 5] } }, { nodes: [[18, 12], [19, 8]], join: { path: 1, at: [20.5, 5] } }])).not.toThrow();
+    });
+
+    it('a lane whose own overpass ramp reaches back over its fork onto the shared road', () => {
+      // path 1 forks at the viaduct's far foot; path 2 crosses under it ~1.4 tiles later (flat with path 0)
+      const lane = { fork: { path: 0, at: [10.0001, 5] }, nodes: [[13, 8], [15, 12]] };
+      fails([SKY2, lane, [[13.23, 3.3], L, [8.58, 8.52]]], /^path 1 forks from path 0: their shared road is at elevation 0\.151 on path 1 but 0\.084 on path 0 .*an overpass ramp reaches over the fork/, ['flat', 'bridgeUnder']);
+      // with the crossing a flat junction the lane is fine, and its prefix is its parent's road
+      const { tracks } = build([SKY2, lane, [[13.23, 3.3], L, [8.58, 8.52]]], 'flat');
+      for (let i = 0; tracks[1].cum[i] <= tracks[1].forkD; i++) expect(tracks[1].elev[i]).toBe(elevationAt(tracks[0], tracks[1].cum[i]));
+    });
+
     it('the shipped "lower pass on a bridge ramp" error still holds under a viaduct', () => {
       // the north-south road is itself the upper pass of an overpass just south of the viaduct
       fails([SKY, ns(5), [[-1, 6.3], L, [21, 6.3]]], /the lower pass is itself on a bridge ramp/, ['bridge', 'bridgeUnder']);
@@ -379,6 +435,14 @@ describe('viaducts', () => {
 
     it('defineMap names the map an authoring error comes from', () => {
       expect(() => defineMap({ id: 'bad_viaduct', rows: ['................'], paths: [[[0, 0.5], UP, L, [9, 0.5]]] })).toThrow(/^map bad_viaduct: viaduct without an end marker/);
+      let err;
+      try {
+        defineMap({ id: 'bad_viaduct', rows: ['................'], paths: [[[0, 0.5], UP, L, [9, 0.5]]] });
+      } catch (e) {
+        err = e;
+      }
+      expect(err.cause).toBeInstanceOf(Error);
+      expect(err.cause.message).toMatch(/^viaduct without an end marker/);
     });
   });
 });

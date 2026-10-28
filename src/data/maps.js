@@ -135,7 +135,7 @@ export function defineMap(o) {
     built = buildMapTracks(o.paths, o.crossings ?? 'bridge');
   } catch (err) {
     // authoring errors (tunnels, viaducts, crossings) name the map they come from
-    throw new Error(`map ${o.id}: ${err.message}`);
+    throw new Error(`map ${o.id}: ${err.message}`, { cause: err });
   }
   const { tracks, crossings, tiles: onPath } = built;
   // Gate Arc Step 3: a lane that starts inside the board (a rift on the lake, 3-8). The sim spawns at a track's first
