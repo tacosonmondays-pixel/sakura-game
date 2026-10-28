@@ -94,7 +94,7 @@ export const HANG_OK = ['.pf-id .pf-ava'].join(', ');
 export async function probe(page, opts = {}) {
   const o = {
     kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null, apart: [],
-    v2: false, skipV2: SKIP_V2, pinkRgb: PINK_RGB, pinkOk: PINK_OK, tapScanMax: 160, hangOk: HANG_OK,
+    v2: false, skipV2: SKIP_V2, pinkRgb: PINK_RGB, pinkOk: PINK_OK, tapScanMax: 160, hangOk: HANG_OK, dense: null,
     ...opts,
   };
   return page.evaluate(probeInPage, o);
@@ -474,7 +474,7 @@ function probeInPage(o) {
       };
       const w = Math.round((reach(-1, 0) + reach(1, 0)) / STEP) * STEP;
       const hh = Math.round((reach(0, -1) + reach(0, 1)) / STEP) * STEP;
-      taps.push({ w, h: hh, s: Math.min(w, hh), name: `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"` });
+      taps.push({ w, h: hh, s: Math.min(w, hh), dense: !!(opt.dense && el.closest(opt.dense)), name: `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"` });
     }
     // the bars and heads (V1 review 1, findings 1 and 3). The control scan above skips a control whose centre is off
     // the screen, so a top bar that pushed Settings and Home past the right edge passed it: here every control of a
@@ -651,6 +651,10 @@ function probeInPage(o) {
       tapsUnder44: taps.filter((t) => t.s < 44).sort((a, b) => a.s - b.s).slice(0, 20).map(fmt),
       tapsUnder44Count: taps.filter((t) => t.s < 44).length,
       tapsUnder40Count: taps.filter((t) => t.s < 40).length,
+      // [ui-v2-menus] taps in rows a screen names as dense (opts.dense): 40 px is enough there
+      tapsUnder44Strict: taps.filter((t) => t.s < 44 && !t.dense).sort((a, b) => a.s - b.s).slice(0, 20).map(fmt),
+      tapsUnder44StrictCount: taps.filter((t) => t.s < 44 && !t.dense).length,
+      tapsDenseUnder40: taps.filter((t) => t.s < 40 && t.dense).map(fmt),
       heads: heads.slice(0, 20),
       headsCount: heads.length,
       clipped: clipped.slice(0, 20),

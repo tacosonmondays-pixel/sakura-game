@@ -230,3 +230,56 @@ export async function goOffline(page) {
   await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 30000 });
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// [ui-v2-menus] M0: the extra states the menus milestones shoot (docs/specs/UI_V2_MENUS.md section 5, M0). Each one
+// adds to the `ink` save already seeded and is safe to call twice.
+// ---------------------------------------------------------------------------------------------------------------
+
+/** The girl at each Potential state the Board shots use (M4): P1, P4 with a Raise she can afford, P6, a hero. */
+export const POTENTIAL_GIRLS = Object.freeze({ p1: 'momo', p4: 'aoi', p6: 'kaede', hero: 'hikari' });
+
+/**
+ * M4: Momo at P1, Aoi at P4 with one Essence and the coins for her Raise, Kaede at P6 (the girls of POTENTIAL_GIRLS;
+ * Hikari, the hero, stays as the `ink` save has her). The page has window.__sakura.
+ * @param {import('playwright').Page} page
+ */
+export async function seedPotentialStates(page) {
+  await page.evaluate(async (g) => {
+    const { store } = window.__sakura;
+    const p = store.profile;
+    const ess = await import('/src/systems/essence.js');
+    Object.assign(p.units[g.p1], { pl: 1, dupes: 0 });
+    Object.assign(p.units[g.p4], { pl: 4 });
+    // (one Essence: what she was given for the steps she bought, plus one)
+    for (let d = 0; d < 12 && ess.essenceBalance(p, g.p4) < 1; d++) p.units[g.p4].dupes = (p.units[g.p4].dupes || 0) + 1;
+    Object.assign(p.units[g.p6], { pl: 6, level: Math.max(p.units[g.p6].level || 1, 70) });
+    store.commit('e2e');
+    store.saveNow?.();
+  }, POTENTIAL_GIRLS);
+}
+
+/**
+ * M2: 30 gear pieces in all (the Backpack's Equipment target, "≤ 32 numbers for 30 pieces"): the `ink` save's eight
+ * plus 22 rolled from fixed seeds over every slot and rarity, a few worn by the squad.
+ * @param {import('playwright').Page} page
+ */
+export async function seedGearMany(page) {
+  await page.evaluate(async () => {
+    const { store } = window.__sakura;
+    const p = store.profile;
+    const gear = await import('/src/systems/gear.js');
+    const { createRng } = await import('/src/core/rng.js');
+    const slots = ['charm', 'ribbon', 'shoes'];
+    const rarities = ['common', 'rare', 'superRare', 'mythic', 'legendary'];
+    const wearers = ['aoi', 'rei', 'yuki', 'momo'];
+    const have = Object.keys(p.gear || {}).length;
+    for (let i = 0; have + i < 30; i++) {
+      const g = gear.rollGear(createRng(9100 + i), { slot: slots[i % 3], rarity: rarities[(i * 7) % 5], level: (i * 5) % 13 });
+      const uid = gear.addGear(p, g);
+      if (i < 8) gear.equipGear(p, wearers[Math.floor(i / 3) % wearers.length], uid);
+    }
+    store.commit('e2e');
+    store.saveNow?.();
+  });
+}

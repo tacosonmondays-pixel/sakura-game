@@ -1057,6 +1057,28 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 :is(.ui-day, .ui-night) .ui-rail > .ui-tab.on { background: var(--plate); border-color: var(--plate); box-shadow: none; color: var(--on-ink); }
 :is(.ui-day, .ui-night) .ui-rail > .ui-tab.on::after { left: 6px; right: 6px; bottom: -5px; height: 3px; border-radius: 0; background: var(--pink-ink); }
 :is(.ui-day, .ui-night) .ui-rail > .ui-tab > .ui-dot { background: var(--badge-red); }
+/* [M0] 44 px taps without growing the 40 px phone rail: the tab's hit area hangs under it into the gap below (the
+   tab is skewed, not clipped, so the pseudo element is part of its hit area; above it the scroller clips) */
+@media (max-height: 480px) {
+  :is(.ui-day, .ui-night) .ui-rail { position: relative; z-index: 3; }
+  :is(.ui-day, .ui-night) .ui-rail > .ui-tab::before { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: calc(var(--tab-h) - var(--tap) - 2px); }
+}
+/* [M0] the small buttons drawn as a chamfered chip or sticker (the "+N" chip, the P sticker): their clip-path is the
+   hit area too, so it reaches 12 px past the box (nothing paints there) and only the chamfer is cut; their 44 px hit
+   area is a centred ::before */
+:is(.ui-day, .ui-night) :is(button.ui-chip.more-n, button.ui-sticker.p) {
+  clip-path: polygon(-12px -12px, calc(100% - var(--c, 4px)) -12px, calc(100% - var(--c, 4px)) 0, 100% var(--c, 4px), calc(100% + 12px) var(--c, 4px),
+    calc(100% + 12px) calc(100% + 12px), -12px calc(100% + 12px));
+}
+:is(.ui-day, .ui-night) :is(button.ui-chip.more-n, button.ui-sticker.p)::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); transform: translate(-50%, -50%);
+}
+/* (the P sticker sits 8 px above the bottom of the girl's plate, which clips: its hit area leans up, over the plate's
+   level line, which is not a control) */
+:is(.ui-day, .ui-night) button.ui-sticker.p {
+  clip-path: polygon(-12px -20px, calc(100% - 4px) -20px, calc(100% - 4px) 0, 100% 4px, calc(100% + 12px) 4px, calc(100% + 12px) calc(100% + 12px), -12px calc(100% + 12px));
+}
+:is(.ui-day, .ui-night) button.ui-sticker.p::before { height: max(100%, calc(var(--tap) + 2px)); transform: translate(-50%, calc(-50% - 6px)); }
 
 /* ---------- the strip, the chips, the tags, the countdown on M5's markup ---------- */
 :is(.ui-day, .ui-night) .ui-strip:has(> .ui-cell) { display: flex; }
