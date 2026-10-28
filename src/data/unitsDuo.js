@@ -2,7 +2,7 @@
 // who cost one slot. Appended to UNITS by one line in src/data/units.js, after the new girls.
 //
 // Kit (DUO_LR §1.2): Tsubaki's star shells are her main weapon (the mortar behaviour: aimed, delayed,
-// whole map, ground only); Kohaku's prism beam is the partner weapon (the `duo` block: its own integer-tick
+// whole map, ground only); Kohaku's constant prism beam is the partner weapon (the `duo` block: its own integer-tick
 // timer, ticked after the main one, src/sim/duo.js); Refraction splits every 4th shell into shards of light
 // at a fixed offset table (mystic, they hit flyers). Her ⚡ ability Prismfall lives in src/data/abilities.js.
 //
@@ -39,11 +39,12 @@ const KOHAKU_TSUBAKI = {
     hairStyle: 'side', bangs: 'swept', accessory: 'cap', outfit: 'coat', weapon: 'cannon',
     halo: 'star', eyeStyle: 'sharp', expression: 'determined',
   },
-  bio: 'Two friends from the academy who always work as a pair. Tsubaki, of the security club\'s cadet corps, wears a navy cadet cap and uniform with a grey vest and carries binoculars and a star launcher on her shoulder that drops shells anywhere on the map. Kohaku, the student council\'s science secretary, wears a lilac council blazer with a short cape, a plaid skirt and a gold monocle, and tunes a prism crystal that bends light into a piercing beam. When Tsubaki\'s shell passes through Kohaku\'s prism, it splits into shards of starlight.',
+  bio: 'Two friends from the academy who always work as a pair. Tsubaki, of the security club\'s cadet corps, wears a navy cadet cap and uniform with a grey vest and carries binoculars and a star launcher on her shoulder that drops shells anywhere on the map. Kohaku, the student council\'s science secretary, wears a lilac council blazer with a short cape, a plaid skirt and a gold monocle, and tunes a prism crystal that bends light into a constant, piercing beam. When Tsubaki\'s shell passes through Kohaku\'s prism, it splits into shards of starlight.',
   personality: 'Tsubaki is calm and precise and keeps time for both of them; Kohaku is curious and cheerful and always measuring angles. They finish each other\'s plans.',
   quote: 'You mark the spot, I\'ll bend the light. Starfall!',
   tips: [
-    'Tsubaki\'s shells reach the whole map but only hit the ground; Kohaku\'s beam guards the sky close to them.',
+    'Tsubaki\'s shells reach the whole map but only hit the ground; Kohaku\'s constant beam guards the sky close to them.',
+    'Kohaku\'s beam stays on while an enemy is in reach and pierces the enemies lined up behind it: line it up along a straight.',
     'Every 4th shell splits into shards of light that hit flyers too: give them an aim point where the road bunches up.',
     '⚡ Refraction tier 3 teaches Prismfall: a barrage of split shells on her aim point, or on the densest crowd anywhere.',
   ],
@@ -67,9 +68,9 @@ const KOHAKU_TSUBAKI = {
     path('corridor', 'Prism Corridor', 'Kohaku\'s beam: flyers and armour', [
       tier('Polished Lens', 170, 'Kohaku\'s beam pierces 1 more enemy.', { duo: { beamPierce: 1 } }),
       tier('Long Focus', 380, 'Kohaku\'s beam reaches 0.3 tiles further.', { duo: { beamRange: 0.3 } }),
-      tier('Prism Corridor', 1250, 'Kohaku fires 1 more beam; beams ignore 2 armour and deal ×1.3 vs flyers.', { duo: { beams: 1, beamPen: 2, beamAir: 1.3 } }),
-      tier('Resonant Light', 4000, 'Her beam grows 8% stronger with every hit on the same enemy (up to +60%).', { duo: { rampPer: 0.08, rampMax: 0.6 } }),
-      tier('Grand Spectrum', 24000, '+2 beams, +16 beam damage; beams pierce 8 enemies and silence for 1s.', { duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1 } }),
+      tier('Prism Corridor', 1250, 'Kohaku holds 1 more constant beam, on another enemy; beams ignore 2 armour and deal ×1.3 vs flyers.', { duo: { beams: 1, beamPen: 2, beamAir: 1.3 } }),
+      tier('Resonant Light', 4000, 'Her beam grows stronger the longer it holds the same enemy (up to +60%).', { duo: { rampPer: 0.08, rampMax: 0.6 } }),
+      tier('Grand Spectrum', 24000, '+2 constant beams, +16 beam damage; beams pierce 8 enemies and silence for 1s on lock-on and every 2s they hold.', { duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1 } }),
     ]),
     path('refraction', 'Refraction', 'The two together: more shells split into light', [
       tier('Cut Facets', 160, 'Every 3rd shell splits.', { duo: { every: 3 } }),

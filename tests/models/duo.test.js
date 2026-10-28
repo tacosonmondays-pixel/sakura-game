@@ -1,10 +1,11 @@
-// The duo's figure (src/models/duo.js): both girls on one base as procedural stand-ins in their drawn colours
-// (their test-build GLBs have no clips, so they would stand still), with idle, attack and hurt, and the attack
-// on the right girl (Kohaku's beam, Tsubaki's shells). Nothing is fetched for her.
+// The duo's figure (src/models/duo.js): both girls on one base. In the game each member is her own GLB
+// (tests/models/duo-members.test.js checks the files); here, with no WebGL, they are the procedural stand-ins in
+// their drawn colours (the fallback), with idle, attack and hurt, the attack on the right girl (Kohaku's beam,
+// Tsubaki's shells), the cheer for Prismfall, the DUO_READY layout and the FX anchors.
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { buildChibi, disposeObject } from '../../src/models/index.js';
-import { DUO_MEMBERS, DUO_CHIN_UP, modelIds } from '../../src/models/duo.js';
+import { DUO_MEMBERS, DUO_CHIN_UP, DUO_SCALE, DUO_LAYOUT, DUO_TURN_OUT, modelIds } from '../../src/models/duo.js';
 import { getUnit } from '../../src/data/units.js';
 
 const DUO = getUnit('kohaku_tsubaki');
@@ -81,8 +82,68 @@ describe('duo figure', () => {
     for (const x of [g, a, b, h]) disposeObject(x);
   });
 
-  it('fetches no model file (the members are drawn procedurally)', () => {
-    expect(modelIds(DUO)).toEqual([]);
+  it('fetches her two members\' files, never one of her own', () => {
+    expect(modelIds(DUO)).toEqual(['kohaku', 'tsubaki']);
     expect(modelIds(getUnit('aoi'))).toEqual(['aoi']);
+  });
+
+  it('stands Tsubaki on the left and Kohaku on the right, each at DUO_SCALE and turned 12° outward', () => {
+    expect(DUO_TURN_OUT).toBeCloseTo((12 * Math.PI) / 180, 6);
+    const g = buildChibi(DUO, { quality: 'low' });
+    const [k, t] = g.children;
+    for (const f of [k, t]) expect(f.scale.x).toBeCloseTo(DUO_SCALE, 6);
+    expect(t.position.x).toBeLessThan(0);
+    expect(k.position.x).toBeGreaterThan(0);
+    expect(t.rotation.y).toBeCloseTo(-DUO_TURN_OUT, 6);
+    expect(k.rotation.y).toBeCloseTo(DUO_TURN_OUT, 6);
+    expect(DUO_LAYOUT.tsubaki.x).toBeCloseTo(-DUO_LAYOUT.kohaku.x, 6);
+    // the battle turns the whole figure to her target: the pair keeps its spots across the screen
+    for (const r of [0.6, -0.9, 2.4]) {
+      g.rotation.y = r;
+      g.userData.animate(0, 0.016, 'idle');
+      g.updateMatrixWorld(true);
+      const wk = k.getWorldPosition(new THREE.Vector3());
+      const wt = t.getWorldPosition(new THREE.Vector3());
+      expect(wk.x).toBeCloseTo(DUO_LAYOUT.kohaku.x, 5);
+      expect(wk.z).toBeCloseTo(DUO_LAYOUT.kohaku.z, 5);
+      expect(wt.x).toBeCloseTo(DUO_LAYOUT.tsubaki.x, 5);
+      expect(wt.z).toBeCloseTo(DUO_LAYOUT.tsubaki.z, 5);
+    }
+    disposeObject(g);
+  });
+
+  it('both cheer for the Prismfall cast, and both attack when no kind is given (the girl page)', () => {
+    const a = buildChibi(DUO, { quality: 'low' });
+    const b = buildChibi(DUO, { quality: 'low' });
+    for (const x of [a, b]) x.userData.animate(1, 0.016, 'idle');
+    a.userData.playCheer();
+    for (let i = 1; i <= 30; i++) for (const x of [a, b]) x.userData.animate(1 + i * 0.016, 0.016, 'idle');
+    for (const i of [0, 1]) expect(moved(pose(a.children[i]), pose(b.children[i])), `member ${i} cheers`).toBe(true);
+    const c = buildChibi(DUO, { quality: 'low' });
+    const d = buildChibi(DUO, { quality: 'low' });
+    for (const x of [c, d]) x.userData.animate(1, 0.016, 'idle');
+    c.userData.playAttack();
+    for (let i = 1; i <= 12; i++) for (const x of [c, d]) x.userData.animate(1 + i * 0.016, 0.016, 'idle');
+    for (const i of [0, 1]) expect(moved(pose(c.children[i]), pose(d.children[i])), `member ${i} attacks`).toBe(true);
+    for (const x of [a, b, c, d]) disposeObject(x);
+  });
+
+  it('gives the FX world-space anchors: Kohaku\'s lens and Tsubaki\'s muzzle, on their own sides', () => {
+    const g = buildChibi(DUO, { quality: 'low' });
+    g.position.set(5, 0, 3);
+    g.scale.setScalar(1.5);
+    g.updateMatrixWorld(true);
+    const lens = g.userData.anchors.lens.clone();
+    const muzzle = g.userData.anchors.muzzle.clone();
+    for (const p of [lens, muzzle]) {
+      expect(Number.isFinite(p.x + p.y + p.z)).toBe(true);
+      expect(p.y).toBeGreaterThan(0.3);
+    }
+    expect(lens.x).toBeGreaterThan(5);
+    expect(muzzle.x).toBeLessThan(5.3);
+    expect(Math.abs(lens.z - 3)).toBeLessThan(1);
+    // a stand-in has no stored direction
+    expect(g.userData.anchorDir('lens')).toBeNull();
+    disposeObject(g);
   });
 });

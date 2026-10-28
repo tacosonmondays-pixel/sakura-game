@@ -132,7 +132,7 @@ export const ROLES = {
   ring: { name: 'Burst Emitter', category: 'dps', goodAgainst: 'Crowds that wrap around her', limitation: 'Very short reach', desc: 'Fires a ring of pins in every direction at once.' },
   spiker: { name: 'Spike Layer', category: 'control', goodAgainst: 'Ground crowds and leaks near the exit', limitation: 'Flyers fly over her strips', desc: 'Lays spike strips that hit everything that walks over them.' },
   // the duo unit (docs/specs/DUO_LR.md §1): two girls on one base, a map-wide mortar and a short-range beam
-  battery: { name: 'Prism Battery', category: 'frag', goodAgainst: 'Clumps anywhere on the map, and flyers close to them', limitation: 'Shells miss flyers and fast foes; the beam is short', desc: 'Two girls on one base: aimed star shells across the map, a piercing beam for the sky, and shells that split into light.' },
+  battery: { name: 'Prism Battery', category: 'frag', goodAgainst: 'Clumps anywhere on the map, and flyers close to them', limitation: 'Shells miss flyers and fast foes; the beam is short', desc: 'Two girls on one base: aimed star shells across the map, a constant piercing beam for the sky, and shells that split into light.' },
   stormrider: { name: 'Storm Rider', category: 'hero', goodAgainst: 'Flyers and spread-out waves', limitation: 'Halved by warded oni and fae', desc: 'Amphibious lightning hero with an aimed storm.' },
   // the staff heroes of the banners wave (BANNERS §D)
   pilot: { name: 'Mech Pilot', category: 'hero', goodAgainst: 'Armored walkers and crowded roads', limitation: 'Ground only before Lv 6; bosses are never pushed', desc: 'Hero in a construction walker: armor-piercing rivets, a Move that recharges fast and a plow that pushes the road back.' },

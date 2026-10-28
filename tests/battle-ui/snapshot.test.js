@@ -12,7 +12,7 @@
 // Hover, Hold, Patrol, Pursuit), so the checkpoints catch drones flying home, jammed or far out.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP } from '../../src/sim/constants.js';
+import { STEP, PRISM_BEAM_TICK } from '../../src/sim/constants.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { createRng } from '../../src/core/rng.js';
 import { TARGET_MODES } from '../../src/data/types.js';
@@ -1786,14 +1786,14 @@ describe('the duo in a battle save (src/sim/duo.js)', SLOW, () => {
     // counters mid-way, so the round trip has something to carry
     duo.prismN = 1;
     duo.duoVolley = 5;
-    duo.duoCd = 17;
+    duo.duoCd = 4; // (Kohaku's constant beam ticks every PRISM_BEAM_TICK steps)
     const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
     const row = snap.towers.find((t) => t.u === 'kohaku_tsubaki');
-    expect(row.du).toEqual([1, 5, 17]);
+    expect(row.du).toEqual([1, 5, 4]);
     const { sim: back, dropped } = restoreSim(recordOf(c, snap), { settings: { autoStart: false } });
     expect(dropped).toEqual([]);
     const bd = back.getTower(duo.uid);
-    expect([bd.prismN, bd.duoVolley, bd.duoCd]).toEqual([1, 5, 17]);
+    expect([bd.prismN, bd.duoVolley, bd.duoCd]).toEqual([1, 5, 4]);
     expect(JSON.stringify(bd.stats)).toBe(JSON.stringify(duo.stats));
     expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
     expect(diffPaths(digest(back, { calm: true }), digest(sim, { calm: true }))).toEqual([]);
@@ -1819,7 +1819,7 @@ describe('the duo in a battle save (src/sim/duo.js)', SLOW, () => {
     const held = restoreSim(recordOf(c, bad)).sim.getTower(duo.uid);
     expect(held.prismN).toBe(1); // every 2nd shell: at most 1 since the last split
     expect(held.duoVolley ?? 0).toBe(0); // (not a number: left fresh)
-    expect(held.duoCd).toBe(600);
+    expect(held.duoCd).toBe(PRISM_BEAM_TICK); // (her constant beam's tick timer: at most one tick)
   });
 });
 
