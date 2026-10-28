@@ -57,6 +57,21 @@ const unreadFirst = (page) => page.evaluate(async () => {
   window.__m7aRead = null;
   store.commit('e2e');
 });
+/** The game again with (`online`) or without ?online=local: a visit needs the local test server (e2e/profile.mjs too). */
+const reopen = async (page, online) => {
+  const u = new URL(page.url());
+  await page.goto(`${u.origin}${u.pathname}?${online ? 'online=local&' : ''}onboarding=0#/lobby`, { waitUntil: 'load', timeout: 90000 });
+  await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 60000 });
+};
+/** A visit: online on the local test server with Bea as a friend (uiSeed.mjs), and back to the plain game after. */
+const visitPrep = async (page) => {
+  await reopen(page, true);
+  await seedOnlineInvite(page);
+};
+const visitAfter = async (page) => {
+  await closeSheets(page);
+  await reopen(page, false);
+};
 const profileSheet = (sel, waitFor) => ({ hash: '#/profile', ready: isScreen('profile'), kind: 'detail', rebuilt: true, open: clickOpen(sel, waitFor), after: closeSheets });
 export const shots = {
   'profile-edit': profileSheet('#app [data-testid="profile-edit"]', '[data-testid="edit-profile"]'),
@@ -65,9 +80,9 @@ export const shots = {
   'profile-pins': profileSheet('#app [data-testid="profile-pin"]', '[data-testid="pin-picker"]'),
   'profile-preview': profileSheet('#app [data-testid="profile-preview"]', '[data-testid="profile-preview-overlay"]'),
   // a visit: a friend's basic profile on the local test server (uiSeed.mjs seedOnlineInvite), then its More sheet
-  'profile-visit': { hash: `#/profile/${INVITE_FRIEND.id}`, prepare: seedOnlineInvite, settleMs: 1800, ready: isScreen('profile'), kind: 'detail', rebuilt: true },
-  'profile-visit-more': { hash: `#/profile/${INVITE_FRIEND.id}`, prepare: seedOnlineInvite, settleMs: 1800, ready: isScreen('profile'), kind: 'detail', rebuilt: true,
-    open: clickOpen('#app [data-testid="profile-more"]', '[data-testid="profile-more-sheet"]'), after: closeSheets },
+  'profile-visit': { hash: `#/profile/${INVITE_FRIEND.id}`, prepare: visitPrep, after: visitAfter, settleMs: 1800, ready: isScreen('profile'), kind: 'detail', rebuilt: true },
+  'profile-visit-more': { hash: `#/profile/${INVITE_FRIEND.id}`, prepare: visitPrep, after: visitAfter, settleMs: 1800, ready: isScreen('profile'), kind: 'detail', rebuilt: true,
+    open: clickOpen('#app [data-testid="profile-more"]', '[data-testid="profile-more-sheet"]') },
   story: { hash: '#/story', ready: isScreen('story'), rebuilt: true },
   // a chapter with read, NEW and locked episode cards (its first open episode marked read for the shot)
   'story-mixed': { hash: '#/story?ch=2', resolve: async (page) => { const c = await mixedChapter(page); return c == null ? null : `#/story?ch=${c}`; }, prepare: readFirst, after: unreadFirst, ready: isScreen('story'), rebuilt: true },

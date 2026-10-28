@@ -424,9 +424,38 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   :is(.ui-day) .rk-wide { display: none; }
   :is(.ui-day) .rk-narrow { display: inline; }
 }
+/* a visit's top bar: the player card's actions (Message, Invite to co-op, the friend control) as the bar's glass buttons,
+   the co-op invite with the cyan edge (no yellow on the bar), More as the kit's bar icon */
+:is(.ui-day) .pf-top-acts .btn {
+  position: relative; z-index: 2; flex: none; min-height: 0; height: 32px; padding: 0 12px; gap: 6px; margin: 0;
+  background: var(--glass-ink-1); color: var(--on-ink); box-shadow: inset 0 0 0 1px var(--line-hi); clip-path: none; transform: none;
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; white-space: nowrap;
+}
+:is(.ui-day) .pf-top-acts .btn::before {
+  content: ''; position: absolute; left: 0; right: 0; width: auto; transform: none; top: calc(50% - var(--topbar-h) / 2); height: max(calc(var(--tap) + 2px), var(--topbar-h));
+}
+:is(.ui-day) .pf-top-acts .btn .btn-icon { width: 14px; height: 14px; color: var(--on-ink-dim); }
+:is(.ui-day) .pf-top-acts .btn-yellow { box-shadow: inset 0 0 0 1px var(--cyan); }
+:is(.ui-day) .pf-top-acts .btn-yellow .btn-icon { color: var(--cyan); }
+:is(.ui-day) .pf-top-acts .btn:active:not(:disabled) { background: rgba(76, 214, 255, 0.12); }
+:is(.ui-day) .pf-top-acts .btn:disabled { background: transparent; color: var(--on-ink-dim); box-shadow: inset 0 0 0 1px var(--line-lo); }
+:is(.ui-day) .pf-top .pf-more { flex: none; width: calc(var(--tap) + 2px); height: 36px; padding: 8px 13px; }
+@media (min-height: 481px) {
+  :is(.ui-day) .pf-top-acts .btn { height: 36px; padding: 0 14px; }
+  :is(.ui-day) .pf-top .pf-more { height: 44px; padding: 10px 13px; }
+}
+/* a phone held upright: Message and Invite are their glyphs (names in aria-label), the title the player's name */
+@media (max-width: 560px) {
+  :is(.ui-day) .pf-top-acts { gap: 4px; }
+  :is(.ui-day) .pf-top-acts :is([data-testid="card-message"], [data-testid="card-coop"]) { width: calc(var(--tap) + 2px); padding: 0; justify-content: center; }
+  :is(.ui-day) .pf-top-acts :is([data-testid="card-message"], [data-testid="card-coop"]) > .btn-label { display: none; }
+}
+
 /* a visit's More sheet (the kit's bottom sheet): a short one, the player card's actions on paper */
-:is(.ui-day) .ui-sheet.pf-more-sheet { width: min(calc(100% - 32px), 480px); }
+:is(.ui-day) .ui-sheet.pf-more-sheet:not(.full):not(.side) { width: min(calc(100% - 32px), 480px); }
+:is(.ui-day) .ui-sheet.pf-more-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
 :is(.ui-day) .pf-more-sheet .pf-more-body { padding: 14px 16px 16px; gap: 12px; }
+:is(.ui-day) .pf-more-sheet .pf-more-body .btn { min-height: calc(var(--tap) + 2px); }
 @media (max-width: 440px) {
   :is(.ui-day) .pf-top-acts { gap: 4px; }
   :is(.ui-day) .pf-top-acts .rk-topbtn:not([data-testid="profile-preview-close"]) > span:not(.pf-ico) { display: none; }

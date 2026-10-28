@@ -218,7 +218,7 @@ function profileView(m, ctx) {
     // (Edit profile is the cyan-edged one: the sheet it opens holds the one yellow, Save)
     : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('edit', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
       : visit ? visit.acts : null;
-  const title = own ? 'Sensei Profile' : `${m.name}'s Profile`;
+  const title = own ? 'Sensei Profile' : [m.name, h('span.rk-wide', "'s Profile")]; // (a phone held upright: the name alone)
 
   // ---- favorite column
   const fav = favInfo(m.fav.id, m.fav.prof);
@@ -443,7 +443,7 @@ function renderVisit(root, userId) {
       h('p.pf-basic-note', { 'data-testid': 'profile-basic-note' }, ico('info'), BASIC_NOTE),
       why);
     host.replaceChildren(h('div.screen.pf.pf-visit-state.pf-visit-basic', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
-      h('div.pf-banner', bannerArt('academy:day')), topBar({ title: `${view.name}'s Profile`, acts: top }), card));
+      h('div.pf-banner', bannerArt('academy:day')), topBar({ title: [view.name, h('span.rk-wide', "'s Profile")], acts: top }), card));
   }
 
   const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading', testid: 'profile-loading', loading: true }); how().finally(load); } });
@@ -473,8 +473,9 @@ function renderVisit(root, userId) {
         mm.el.addEventListener('click', (e) => { if (e.target.closest('button[data-testid="card-block"], button[data-testid="card-report"], button[data-testid="card-unblock"]')) closeSheet(); });
       },
     }, svgEl(glyph('more'), 'btn-icon'));
-    a.message.classList.add('btn-small');
-    a.coop.classList.add('btn-small');
+    // [ui-v2 M7a] the bar's glass buttons (v2-records.css .pf-top-acts .btn); on a narrow phone their glyphs, so the
+    // name goes on aria-label too
+    for (const el of [a.message, a.coop]) el.setAttribute('aria-label', el.textContent.trim());
     // why Message / Co-op (or Add friend) are off: a note under the bio, tied to the disabled buttons
     const whyId = `pf-why-${userId}`;
     const lines = [a.whyText, a.friendWhyText].filter(Boolean);
