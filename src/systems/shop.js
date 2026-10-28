@@ -14,7 +14,7 @@ import { gameWeekNumber } from '../core/reset.js';
 import { addItems, consumeItems, itemCount } from './inventory.js';
 import { isOwned, ownedUnits } from './unlocks.js';
 import { spark } from './gacha.js';
-import { sparkRule, chosenEssenceAllowed } from './banners.js';
+import { sparkRule, chosenEssenceAllowed, noteBannerDay } from './banners.js';
 import { track } from './missions.js';
 import { kindredUseful, canAddChosenEssence, addChosenEssence, fuseShards, essenceBalance, essenceCap, KINDRED, SHARD_FUSION } from './essence.js';
 
@@ -115,6 +115,7 @@ function describeOffer(profile, offer, now) {
  */
 export function shopTabs(profile, now = new Date()) {
   refreshShop(profile, now);
+  noteBannerDay(profile, +now); // [banners] the grace of the five starts on the first banner look (Mall included)
   return SHOP_TABS.map((tab) => ({
     id: tab.id,
     name: tab.name,

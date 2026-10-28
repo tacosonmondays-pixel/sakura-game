@@ -76,7 +76,9 @@ export function listAt(name, d) {
   for (const x of versions) if (keyNumber(x.since) <= d) v = x;
   if (!v) return { list: [], i: 0, since: d };
   const since = keyNumber(v.since);
-  return { list: v.list.filter(exists), i: Math.max(0, d - since), since };
+  // before `since` the cycle simply runs backwards (picks use mod), so the release day still shows list[0] and
+  // a device clock set early never stalls on one girl
+  return { list: v.list.filter(exists), i: d - since, since };
 }
 
 /** Day number a pin starts on (its start instant converted with the game-day clock). */
@@ -87,13 +89,17 @@ export function pinAt(slot, d) {
   return PINS.find((p) => p.slot === slot && exists(p.unit) && d >= pinStartDay(p) && d < pinStartDay(p) + p.days) || null;
 }
 
-/** LR units in the everyday LR rotation on day d: released, and past their debut pin if they have one. */
+/**
+ * LR units in the everyday LR rotation on day d: released, and (for a debut pin with `hold`) past their debut.
+ * A unit that reached players before banners (Tenka, featured in the one-pool Recruit) has no hold: she stays
+ * on the LR tab until her debut pin takes it over.
+ */
 function legendRotation(d) {
   const { list, since } = listAt('legend', d);
   return {
     since,
     list: list.filter((id) => {
-      const debut = PINS.find((p) => p.slot === 'legend' && p.unit === id && p.debut);
+      const debut = PINS.find((p) => p.slot === 'legend' && p.unit === id && p.debut && p.hold);
       return !debut || d >= pinStartDay(debut) + debut.days;
     }),
   };
@@ -273,7 +279,8 @@ export function coinUnlocked(profile) {
 export function coinPullsLeft(profile, now = Date.now()) {
   const w = weekOfDay(bannerDay(profile, now));
   const c = profile?.missions?.counters || {};
-  return c['gc:wk'] === w ? Math.max(0, COIN.weeklyCap - (Number(c['gc:n']) || 0)) : COIN.weeklyCap;
+  // forward-only: a stored week at or past this one keeps its count (a clock set back never refills it)
+  return c['gc:wk'] >= w ? Math.max(0, COIN.weeklyCap - (Number(c['gc:n']) || 0)) : COIN.weeklyCap;
 }
 
 /** Friend Support (G5) switches the Friendship tab on. */

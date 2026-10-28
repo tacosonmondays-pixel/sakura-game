@@ -194,7 +194,7 @@ export function pullFixed(profile, kind, count, rng, { bannerId = null, now = Da
   if (kind === 'coin') {
     if (!consumeItems(profile, [{ id: 'coins', count: price }])) return { ok: false, error: 'funds', results: [] };
     const w = weekOfDay(d);
-    if (c['gc:wk'] !== w) { c['gc:wk'] = w; c['gc:n'] = 0; }
+    if (!(c['gc:wk'] >= w)) { c['gc:wk'] = w; c['gc:n'] = 0; }
     c['gc:n'] = (Number(c['gc:n']) || 0) + n;
     track(profile, 'spendCoins', price);
   } else {

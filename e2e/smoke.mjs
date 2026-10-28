@@ -282,10 +282,11 @@ async function runViewport(vp) {
   // cancelled at the gem confirm.
   const recruitLive = () => page.evaluate(() => {
     const g = window.__sakura.store.profile.gacha;
-    const foot = document.querySelector('#app .ma-pity-foot')?.textContent || '';
+    // (banners: the pity panel shows the pulls left to the guaranteed SSR, shared by every gem banner)
+    const left = (document.querySelector('#app [data-testid="pity-left"]')?.textContent || '').trim();
     const gemsPill = Number((document.querySelector('#app .ma-tickets .ma-ticket-pill:last-child b')?.textContent || '').replace(/\D/g, ''));
-    const ok = foot.startsWith(`${g.pity}/`) && foot.includes(`· ${g.totalPulls.toLocaleString('en-US')} recruits`) && gemsPill === window.__sakura.store.profile.currencies.gems;
-    return { ok, text: `"${foot}", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
+    const ok = left === String(90 - g.pity) && gemsPill === window.__sakura.store.profile.currencies.gems;
+    return { ok, text: `"${left} pulls left", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
   });
   let live = await recruitLive();
   check(live.ok, `recruit: page updated after Close without leaving — ${live.text}`);

@@ -60,7 +60,8 @@ export const LISTS = Object.freeze({
  * Pins (§A.4): a debut or a featured run that wins its slot for `days` game days from the instant `start`
  * (converted with gameDay(), never written as a key: keys are named by the date a day ENDS). The rotation
  * index keeps counting underneath, so a pin never shifts later days.
- * `rate` (LR only) is the LR unit's ppm in the debut week; `sr` the three SR rate-ups; `name` the banner title.
+ * `rate` (LR only) is the LR unit's ppm in the debut week; `sr` the three SR rate-ups; `name` the banner title;
+ * `hold` keeps a brand-new LR unit off the everyday LR tab until her debut (Tenka has none: she was out first).
  */
 export const PINS = Object.freeze([
   {
@@ -69,7 +70,7 @@ export const PINS = Object.freeze([
   },
   {
     slot: 'legend', unit: 'kohaku_tsubaki', start: '2026-11-15T19:00:00-06:00', days: 7, rate: 7000,
-    sr: ['akane', 'sango', 'shiro'], name: 'Starfall Premiere', debut: true,
+    sr: ['akane', 'sango', 'shiro'], name: 'Starfall Premiere', debut: true, hold: true,
   },
 ]);
 

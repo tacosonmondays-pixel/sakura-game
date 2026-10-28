@@ -1,6 +1,7 @@
 // Ownership, stage unlocks, medals and counter recommendations (owner: systems).
 // See CONTRACTS.md §5.
 
+import { isLegendUnit } from '../data/banners.js';
 import { UNIT_MAP, UNITS, hasCapability } from '../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS, CHAPTERS } from '../data/stages.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
@@ -33,6 +34,8 @@ export function isOwned(profile, unitId) {
 export function grantUnit(profile, unitId, now = Date.now(), { source = null } = {}) {
   const def = UNIT_MAP[unitId];
   if (!def) throw new Error(`Unknown unit: ${unitId}`);
+  // [banners] the Legend Promise restarts whenever an LR unit arrives, from any source (BANNERS §C.1)
+  if (isLegendUnit(unitId)) ((profile.missions ||= {}).counters ||= {})[`gl:${unitId}`] = 0;
   if (!profile.units[unitId]) {
     profile.units[unitId] = newUnitState(now);
     // bond (affection) starts at 0; the future City dating / gift system raises it

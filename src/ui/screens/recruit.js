@@ -47,6 +47,9 @@ function saveTab(slot) {
   try { localStorage.setItem(TAB_KEY, slot); } catch { /* a per-device convenience only */ }
 }
 
+/** The weekday of an instant in Central time ("Sun"): a banner's end is the 7 PM reset itself. */
+const endDayName = (ms) => new Date(ms).toLocaleDateString([], { weekday: 'short', timeZone: 'America/Chicago' });
+
 /** A weekday name for a game day ("Sun"), the day the 7 PM reset that ends it falls on. */
 function dayName(d) {
   return new Date(dayStartMs(d + 1)).toLocaleDateString([], { weekday: 'short', timeZone: 'America/Chicago' });
@@ -252,7 +255,7 @@ function nextLine(b) {
   if (b.slot === 'coin') return h('div.bn-next', { 'data-testid': 'coin-week' }, `This week ${COIN.weeklyCap - coinPullsLeft(store.profile)}/${COIN.weeklyCap} · resets Sunday 7 PM Central`);
   if (b.slot === 'friend') return h('div.bn-next', 'Earn Friend Points when friends team up with your Support Student');
   if (b.slot === 'legend') {
-    if (b.debut) return h('div.bn-next', `Debut week · ends ${dayName(b.day + Math.round((b.endsAt - Date.now()) / 86400000))} 7 PM Central`);
+    if (b.debut) return h('div.bn-next', `Debut week · ends ${endDayName(b.endsAt)} 7 PM Central`);
     return h('div.bn-next', 'LR Banners switch daily at 7 PM Central');
   }
   const la = lookAhead(b.slot, b.day, 2);
@@ -314,7 +317,7 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
       h('div.ma-pity-foot.muted', 'Shared by every gem banner'),
     ),
     b.legend ? h('div.ma-pity.panel.bn-promise', { 'data-testid': 'promise' },
-      h('div.ma-pity-head', h('span.ma-sub', 'Legend Promise'), h('b.ma-pity-left', `${promise}`), h('span.muted', `/ ${LEGEND_PROMISE}: the ${LEGEND_PROMISE}th pull here is ${UNIT_MAP[b.legend].name}`)),
+      h('div.ma-pity-head', h('span.ma-sub', 'Legend Promise'), h('b.ma-pity-left', `${promise}`), h('span.bn-of', `/${LEGEND_PROMISE}`), h('span.muted', `the ${LEGEND_PROMISE}th pull here is ${UNIT_MAP[b.legend].name}`)),
       h('div.ma-progress.bn-gold', h('i', { style: { width: `${Math.round((promise / LEGEND_PROMISE) * 100)}%` } })),
     ) : null,
     h('div.ma-spark.panel',
@@ -346,9 +349,9 @@ function fixedSide(b) {
     h('div.ma-pity.panel', { 'data-testid': coin ? 'coin-wallet' : 'fp-wallet' },
       h('div.ma-pity-head', h('span.ma-sub', coin ? 'Coins' : 'Friend Points'), h('b.ma-pity-left', formatNumber(coin ? itemCount(profile, 'coins') : fpBalance(profile))), h('span.muted', coin ? `${formatNumber(COIN.single)} a pull` : '100 a pull')),
       coin ? h('div.ma-progress', h('i', { style: { width: `${Math.round(((COIN.weeklyCap - left) / COIN.weeklyCap) * 100)}%` } })) : null,
-      h('div.ma-pity-foot.muted', coin ? `${left} of ${COIN.weeklyCap} pulls left this week` : 'Wallet holds up to 5,000'),
+      h('div.bn-note', coin ? `${left} of ${COIN.weeklyCap} pulls left this week` : 'Wallet holds up to 5,000'),
     ),
-    h('div.ma-pity.panel', h('div.ma-pity-foot', 'These pulls never move your pity or Recruit Points.')),
+    h('div.ma-pity.panel', h('div.bn-note', 'These pulls never move your pity or Recruit Points.')),
   );
 }
 

@@ -123,9 +123,11 @@ describe('rotation (§A.4)', () => {
       expect(B.bannerDay(p, start)).toBe(B.keyNumber(key));
     }
   });
-  it('a device clock before the release day shows the release-day banner (no negative index)', () => {
-    expect(B.towerBanner(D0 - 400).select).toBe(LISTS.tower[0].list[0]);
-    expect(B.listAt('tower', 0).i).toBe(0);
+  it('the release day shows list[0]; a device clock before it keeps rotating (never stuck, never undefined)', () => {
+    expect(B.towerBanner(D0).select).toBe(LISTS.tower[0].list[0]);
+    const early = new Set(Array.from({ length: 10 }, (_, k) => B.towerBanner(D0 - 400 + k).select));
+    expect(early.size).toBeGreaterThan(1);
+    for (const id of early) expect(UNIT_MAP[id]).toBeTruthy();
   });
   it('gb:seen is forward-only: a clock set back shows the latest day already seen', () => {
     const p = createProfile();
@@ -155,11 +157,13 @@ describe('rotation (§A.4)', () => {
     for (let k = 0; k < tenka.days; k++) expect(B.legendBanner(d + k)).toMatchObject({ legend: 'tenka', debut: true });
     expect(B.legendBanner(d + tenka.days).debut).toBe(false);
   });
-  it('look-ahead shows the next two days, and an LR unit is never in the everyday tab before her debut', () => {
+  it('look-ahead shows the next two days; Tenka (out before banners) is on the everyday LR tab before her debut', () => {
     const la = B.lookAhead('tower', D0, 2);
     expect(la.map((x) => x.select)).toEqual([B.towerBanner(D0 + 1).select, B.towerBanner(D0 + 2).select]);
     const tenka = PINS.find((x) => x.unit === 'tenka');
-    expect(B.legendBanner(B.pinStartDay(tenka) - 1)).toBeNull();
+    expect(B.legendBanner(B.pinStartDay(tenka) - 1)).toMatchObject({ legend: 'tenka', debut: false, legendRate: 5000 });
+    // a brand-new LR unit's debut pin holds her off the everyday tab until her debut (`hold`)
+    expect(PINS.filter((p) => p.hold).every((p) => p.unit !== 'tenka')).toBe(true);
   });
 });
 
@@ -343,7 +347,9 @@ describe('G0 housekeeping', () => {
     expect(migrateProfile(JSON.parse(JSON.stringify(back))).mail.letters[0].body).toBe(l.body);
   });
   it('the banner counter prefixes never collide with the existing namespaces', () => {
-    const mine = ['gl:', 'gs:', 'gb:', 'gc:', 'frp:', 'wb:', 'lr:', 'lbt:'];
+    // 'gc:' is shared with gearMarks' one key 'gc:gift' (nothing iterates the prefix): the exact keys must differ
+    expect(['gc:wk', 'gc:n', 'gc:t']).not.toContain('gc:gift');
+    const mine = ['gl:', 'gs:', 'gb:', 'frp:', 'wb:', 'lr:', 'lbt:'];
     const existing = ['ach:', 'bt:', 'clan:', 'craft:', 'evb:', 'evm:', 'evo:', 'evp:', 'evr:', 'evs:', 'evsw:', 'evswd:', 'evt:', 'fpm:', 'fpu:', 'gear:', 'inv:', 'join:', 'lv:', 'own:', 'pfs:', 'pg:', 'pl:', 'pot:', 'sl:', 'ss:', 'tag:', 'tagt:', 'tbest:', 'essB:', 'essU:', 'essX:', 'spk:'];
     for (const a of mine) for (const b of existing) expect(a.startsWith(b) || b.startsWith(a)).toBe(false);
   });

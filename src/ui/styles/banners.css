@@ -91,7 +91,9 @@
 .ma-unit-rates tr.bn-up td { font-weight: 900; }
 .bn-up-tag { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #fff3c4; color: #7a5200; font-size: 0.75rem; font-weight: 900; }
 .chip.bn-hist { font-size: 0.75rem; }
-.ma-spark-cell.closed { opacity: 0.62; }
+.ma-spark-cell.closed { background: #eef1f6; }
+.ma-spark-cell.closed .ma-spark-meta .muted { color: #4a5a7a; }
+.ma-spark-cell.closed .unit-card { filter: grayscale(0.6); }
 
 /* a girl without drawn art yet: her card, framed, standing in the key art */
 .ma-banner-stand.bn-stand-card { height: 78% !important; bottom: 6%; aspect-ratio: 3 / 5; border: 3px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 28px rgba(14,25,48,0.45); }
@@ -111,13 +113,14 @@
   .bn-tab-art { width: 32px; height: 32px; }
   .bn-feat { padding: 2px 6px; font-size: 0.75rem; }
   .bn-feat-name { font-size: 0.9rem; }
-  .bn-srs .ma-feat-chip:nth-of-type(n+3) { display: none; }
+  .bn-srs .ma-feat-chip { padding-right: 6px; }
+  .bn-srs .ma-feat-chip .ma-trait { display: none; } /* the three names fit without their role icons */
   .bn-desc { display: none; }
   .bn-next { font-size: 0.75rem; }
   .bn-pick { font-size: 0.75rem; gap: 4px; }
   .bn-page .ma-pity-foot { display: none; }
-  .bn-page .bn-promise .muted { display: none; }
-  .bn-coming { display: none; }
+  .bn-page .bn-promise .muted { display: none; } /* "/300" stays (.bn-of) */
+  .bn-coming { padding: 4px 10px; font-size: 0.75rem; }
   .bn-welcome { display: none; } /* the 10× button says it */
   .bn-feat .bn-class { margin-left: 0; }
   .bn-time { font-size: 0.75rem; }
@@ -134,3 +137,5 @@
 .bn-lr-reveal { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 12px; border-radius: 8px; background: #0e1930; color: #ffefcf; border: 2px solid #ffd27a; font-weight: 800; font-size: 0.85rem; }
 .bn-lr-reveal .bn-lr-crest { position: static; transform: none; flex: 0 0 auto; }
 .bn-lr-crest.unlit { filter: grayscale(1) brightness(0.7); }
+.bn-of { font-weight: 800; color: var(--navy); }
+.bn-note { margin-top: 4px; font-size: 0.78rem; color: #4a5a7a; font-weight: 700; }
