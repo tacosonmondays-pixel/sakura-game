@@ -46,9 +46,9 @@ export const STAGE_RULE_SKINS = {
     desc: 'Commuters file out to the shelters: 3 hearts come back after every cleared wave.',
   },
   '1-7': {
-    rule: 'tailwind', name: 'Rush Hour', short: 'Rush hour', activeWord: 'surge',
+    rule: 'tailwind', name: 'Crowd Surge', short: 'Surge', activeWord: 'surge',
     desc: 'The crowd surges (6 s in every 16): enemies hurry 25% faster, and Pierce, Slash and Blast hit them 25% harder in the crush.',
-    toast: 'Rush hour! Enemies faster; Pierce, Slash, Blast +25% (6 s)',
+    toast: 'Crowd surge! Enemies faster; Pierce, Slash, Blast +25% (6 s)',
   },
   '1-8': {
     rule: 'firefly_chorus', name: 'Time Sale', short: 'Sale', activeWord: 'time sale',

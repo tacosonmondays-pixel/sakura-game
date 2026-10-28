@@ -113,7 +113,7 @@ describe('the rule card stays readable on a phone', () => {
 
 describe('Chapter 1 · Act II skins (Rush Hour)', () => {
   it('every Act II stage of chapter 1 shows its rule under its modern name, with the base name kept', () => {
-    const names = { '1-6': 'Rush-hour Evacuation', '1-7': 'Rush Hour', '1-8': 'Time Sale', '1-9': 'Lock Cycle', '1-10': 'Brigade Airdrop' };
+    const names = { '1-6': 'Rush-hour Evacuation', '1-7': 'Crowd Surge', '1-8': 'Time Sale', '1-9': 'Lock Cycle', '1-10': 'Brigade Airdrop' };
     for (const [id, name] of Object.entries(names)) {
       const t = ruleTextFor(STAGE_MAP[id]);
       expect(t.name, id).toBe(name);

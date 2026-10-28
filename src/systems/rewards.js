@@ -13,6 +13,7 @@ import { track, currentEvent } from './missions.js';
 import { countSoloBattle } from './achievementCounters.js';
 import { hashString, createRng } from '../core/rng.js';
 import { campaignClears, SANDBOX_UNLOCK_CLEARS, sandboxOutcome } from './sandbox.js';
+import { LEGACY_JOIN_STAGES, JOIN_PREFIX } from './catchUpJoins.js';
 import { eventRunGate, eventAfterBattle, eventStageStatus, eventDifficultyStatus, trackEvent, eventSweepsLeft, useEventSweeps } from './events.js';
 
 /** Coin drops scale with difficulty (harder = richer). */
@@ -292,6 +293,15 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
         grantUnit(profile, unitId);
         out.unlockedUnits.push(unitId);
       }
+    }
+    // a girl whose join moved (Gate Arc: Yuzuha 4-2 → 1-7) still joins on a win of her old stage when she has not
+    // met the squad yet: the same grant and results card; her 'join:' mark settles the lobby catch-up
+    const counters = ((profile.missions ||= {}).counters ||= {});
+    for (const [unitId, ids] of Object.entries(LEGACY_JOIN_STAGES)) {
+      if (!ids.includes(stage.id) || isOwned(profile, unitId) || counters[JOIN_PREFIX + unitId] > 0) continue;
+      grantUnit(profile, unitId);
+      counters[JOIN_PREFIX + unitId] = 1;
+      out.unlockedUnits.push(unitId);
     }
     const mul = battleEventMul(stage.id, now, eventAt);
     out.eventBonus = mul > 1;

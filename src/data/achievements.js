@@ -213,7 +213,7 @@ export const ACHIEVEMENTS = [
   // Bestiary
   N('bestiary', 'a_family_1', 'Family Portrait', 'Discover every member of one enemy family.', 'familiesFound', null, 1, 1, [g(20), S()], 'launch', { series: 'family' }),
   N('bestiary', 'a_family_6', 'Family Reunion', 'Discover every member of 6 enemy families.', 'familiesFound', null, 6, 3, [g(100), O(2)], 'launch', { series: 'family' }),
-  N('bestiary', 'a_slime_15', 'Slime Specialist', 'Discover all 15 kinds of slime.', 'familyFound', 'slime', 15, 2, [g(50), O()], 'launch', { honor: hr(7, 'Jelly Jar Ribbon', 'plain', 'slime'), title: tt('Slime Specialist') }),
+  N('bestiary', 'a_slime_15', 'Slime Specialist', 'Discover 15 kinds of slime.', 'familyFound', 'slime', 15, 2, [g(50), O()], 'launch', { honor: hr(7, 'Jelly Jar Ribbon', 'plain', 'slime'), title: tt('Slime Specialist') }),
   N('bestiary', 'a_slime_1000', 'Bubble Patrol', 'Defeat 1,000 slimes.', 'familyKills', 'slime', 1000, 1, [g(20), S()], 'launch'),
   N('bestiary', 'a_ghost_500', 'Night Light', 'Defeat 500 ghosts.', 'familyKills', 'ghost', 500, 2, [g(50), O()], 'launch'),
   N('bestiary', 'a_oni_500', 'Festival Peacekeeper', 'Defeat 500 oni.', 'familyKills', 'oni', 500, 3, [g(50), O(2)], 'launch'),

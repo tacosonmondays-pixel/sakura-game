@@ -226,7 +226,7 @@ const YUZUHA = {
   materialFamily: 'cog',
   capabilities: ['antiAir', 'summon'],
   pathCapabilities: ['slow', 'stun', 'buff', 'reveal'],
-  acquisition: free('1-7', 'Joins after 1-7: the Campus Security Bureau sends its technician, her tablet and a case of fold-out sentries, to the rush-hour evacuation route.'),
+  acquisition: free('1-7', 'Joins after 1-7 (or 4-2, whichever comes first): the Campus Security Bureau sends its technician, her tablet and a case of fold-out sentries, to the rush-hour evacuation route.'),
   palette: {
     hair: '#8f7f73', hairShade: '#665850', eyes: '#e08a3c', skin: '#ffe4d4',
     outfit: '#2a3c66', outfitShade: '#182440', accent: '#ff8a2a', halo: '#ffd29a', weapon: '#3a4256',

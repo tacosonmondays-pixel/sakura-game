@@ -18,8 +18,8 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runScriptedBattle().final).toBe(r.final);
     // pinned: re-pinned by the hero rework (START fields Hikari, who now deploys for free and levels
     // on her track; landing plan S12) together with its stage-HP pass. The wave tables re-pinned by Gate Arc Step 1:
-    // chapter 1's five Act II stages add 252 tables (102 waves + 5 × 30 endless); Act I and the side stages alone still
-    // hash 3018:9657f4ba, bit for bit
+    // chapter 1's five Act II stages add 252 tables (102 waves + 5 × 30 endless); the tables of the stages that existed
+    // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
       .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3270:5af3c31c' });
   }, 120000);

@@ -320,10 +320,20 @@ describe('Yuzuha joins after 1-7 now; a 4-2 clear still settles her once', () =>
     expect(letters(p, 'yuzuha')).toHaveLength(1);
   });
 
-  it('a 4-2 win grants nobody now; a 1-7 win grants her; a 1-7 clear without her settles her too', () => {
+  it('a 4-2 win still grants her (with the results card) to a player who has not met her; a 1-7 win grants her', () => {
     const p = clearedOnly(act1Upto('4-1'));
     expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami']);
-    expect(win(p, '4-2', 4).unlockedUnits).toEqual([]);
+    expect(win(p, '4-2', 4).unlockedUnits).toEqual(['yuzuha']);
+    expect(p.missions.counters[JOIN_PREFIX + 'yuzuha']).toBe(1);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual([]); // settled: no letter, no second grant
+    expect(letters(p, 'yuzuha')).toHaveLength(0);
+    expect(win(p, '4-2', 6).unlockedUnits).toEqual([]); // a re-clear grants nothing
+    // a girl lost after her join (an older tab's save) is never granted again by a 4-2 win: her join mark holds
+    const lost = clone(p);
+    delete lost.units.yuzuha;
+    for (const k of Object.keys(lost.missions.counters)) if (k.startsWith(`${OWN_PREFIX}yuzuha`)) delete lost.missions.counters[k];
+    const back = migrateProfile(lost);
+    expect(win(back, '4-2', 7).unlockedUnits).toEqual([]);
     const q = clearedOnly(act1Upto('1-5').concat('1-6'));
     expect(ensureCatchUpJoins(q, NOW)).toEqual([]);
     expect(win(q, '1-7', 5).unlockedUnits).toEqual(['yuzuha']);

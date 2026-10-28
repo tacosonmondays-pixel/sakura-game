@@ -94,7 +94,7 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   | Stage | Map | Headline | Rule (skin) | Notes |
   |---|---|---|---|---|
   | 1-6 Rush Hour | `noon_station_plaza` | the station underpass (the hall drawn over it) | petal_sanctuary (Rush-hour Evacuation) | slime, goblin runner; scene `g1.pro` (content note) before, `g1.mahiru` after |
-  | 1-7 The Covered Arcade | `noon_covered_arcade` (22×12) | shop rooftops ('U') between the alleys | tailwind (Rush Hour) | goblins; **Yuzuha joins** (`g1.yuzuha`) |
+  | 1-7 The Covered Arcade | `noon_covered_arcade` (22×12) | shop rooftops ('U') between the alleys | tailwind (Crowd Surge) | goblins; **Yuzuha joins** (`g1.yuzuha`) |
   | 1-8 Time Sale | `noon_corner_store` | a flat scramble crossing passed twice | firefly_chorus (Time Sale) | gold slimes, dashers, a few orc grunts |
   | 1-9 Canal Crossing | `noon_canal_crossing` | a level crossing shut on even waves (`laneCycle [[0,1],[1]]`) | changing_tides (Lock Cycle) | orc grunts, boars |
   | 1-10 The Frostbitten Heir | `noon_dry_fountain` (echo of `sakura_court`) | the boss in the dry fountain | supply_ship (Brigade Airdrop) | `slime_frost_heir` (the Slime Prince's model in frost), crown drop |
