@@ -840,7 +840,7 @@ push. Each builder runs a screenshot-critic pass at 844×390 and 1280×720 befor
 3. **The tutorial runs on 1-1 Easy**, so a new player's first medal is bronze. The alternative is Normal with
    the coach. Easy is safer for a first battle.
 4. **Content risks outside this area** (for the lead, not changed here): a lobby head-pat line ("W-what are you
-   doing, Sensei?! …I don't mind.") and bond backgrounds named "Café Date" lean romantic for student characters.
+   doing, Sensei?! …I don't mind.") and bond backgrounds named "Café Date" lean romantic for student characters (renamed "Café Afternoon" in v0.1.54).
    Suggest "outing" wording and a neutral line, in keeping with the content rule.
 5. **Stage stills** depend on the renderer working headless-ish off-screen. If it misbehaves on low-end phones,
    chapter backgrounds fall back to academy tints. That is ugly-free, but less varied.
