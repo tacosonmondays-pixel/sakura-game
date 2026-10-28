@@ -12,6 +12,7 @@
 // screen's back arrow. The model is pure: ../mailroom.js.
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
+import '../styles/v2-hubs.css';
 import { h } from '../dom.js';
 import { svgEl, glyph, toast } from '../components.js';
 import { countdownChip, inkBtn, btnCount, kbdHint, ico, KIT_SVG, secondaryBtn } from '../kit.js';
@@ -55,7 +56,7 @@ export function render(root, params = {}) {
   const model0 = mailroomModel(mailList(store.profile));
 
   const ls = listScreen({
-    title: 'Mailroom', cls: 'mbx-screen', location: 'mail', host: 'mail', state: mailHostState(model0),
+    title: 'Mailroom', cls: 'mbx-screen v2h', location: 'mail', host: 'mail', state: mailHostState(model0),
     sections: sectionsFor(model0), active: tab, railLabel: 'Mail sections', headTestid: 'mail-head',
     onPick: (id) => {
       if (id === tab) return;

@@ -11,6 +11,7 @@
 // that needs a harder tier shows a lock and "NM+" (hubDrops.js).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
+import '../styles/v2-hubs.css';
 import { h, clear, screen, svgEl, button, toast } from '../components.js';
 import { plateHead, statStrip, kbdHint, fillIn, secondaryBtn } from '../kit.js';
 import { openSheet } from '../sheet.js';
@@ -48,7 +49,7 @@ function themeOf(stage) {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Total Assault', { cls: 'ma-assault-screen hb-screen' });
+  const { el, body } = screen('Total Assault', { cls: 'ma-assault-screen hb-screen v2h' });
   el.insertBefore(hubBackdrop('assault'), el.firstChild);
   root.appendChild(el);
   const stages = stagesOfKind('boss');

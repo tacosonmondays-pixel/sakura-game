@@ -40,6 +40,44 @@ export function listMode({ vw, vh }) {
   return hostMode({ vw, vh, kind: 'list', railW: vh <= 480 ? LIST_RAIL_W.phone : LIST_RAIL_W.desk }).mode;
 }
 
+/**
+ * [ui-v2 M5] A scrolling list at rest never cuts a control across its middle (P6: a tap is 44 px): when an edge of the
+ * list crosses a button with the button's middle still in view, the list scrolls back by the hidden part (at the top)
+ * or past its middle (at the bottom), so the button shows whole or its middle leaves the view. Runs once now and after
+ * every scroll that comes to rest. Returns the stop function.
+ * @param {HTMLElement} list the scroller
+ * @returns {() => void}
+ */
+export function keepWholeTaps(list) {
+  if (!list?.addEventListener) return () => {};
+  const CONTROLS = 'button:not(:disabled), [role="button"], a[href]';
+  const settle = () => {
+    if (!list.isConnected || list.scrollHeight <= list.clientHeight + 1) return;
+    const box = list.getBoundingClientRect();
+    let up = 0;
+    for (const c of list.querySelectorAll(CONTROLS)) {
+      const r = c.getBoundingClientRect();
+      if (!r.height) continue;
+      const mid = (r.top + r.bottom) / 2;
+      // cut at the top with its middle in view: show it whole; cut at the bottom with its middle in view: push it out
+      if (r.top < box.top - 0.5 && r.bottom > box.top && mid >= box.top) up = Math.max(up, box.top - r.top + 1);
+      else if (r.bottom > box.bottom + 0.5 && r.top < box.bottom && mid <= box.bottom) up = Math.max(up, box.bottom - mid + 1);
+    }
+    if (up > 0) list.scrollTop = Math.max(0, list.scrollTop - Math.ceil(up));
+  };
+  let t = null;
+  const later = () => {
+    clearTimeout(t);
+    t = setTimeout(settle, 140);
+  };
+  list.addEventListener('scroll', later, { passive: true });
+  requestAnimationFrame(() => requestAnimationFrame(settle));
+  return () => {
+    clearTimeout(t);
+    list.removeEventListener('scroll', later);
+  };
+}
+
 /** The viewport now (the collapse rule's input). */
 export const viewport = () => ({ vw: globalThis.innerWidth || 1280, vh: globalThis.innerHeight || 720 });
 

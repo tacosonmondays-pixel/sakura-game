@@ -13,10 +13,11 @@
 // that needs a harder tier shows a lock and "NM+" (hubDrops.js).
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
+import '../styles/v2-hubs.css';
 import { h, clear, screen, svgEl, button, toast, glyph } from '../components.js';
 import { countdownChip, plateHead, kbdHint, secondaryBtn } from '../kit.js';
 import { msToLocalWeekEnd } from '../countdown.js';
-import { hubHost, hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
+import { hubHost, hubMode, placeHost, viewport, watchHostMode, keepWholeTaps } from '../hubHost.js';
 import { shortGatedDrops } from '../hubDrops.js';
 import { bountyState } from '../hubStates.js';
 import { navigate, currentRoute } from '../router.js';
@@ -49,7 +50,7 @@ function tokenYield(stage) {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Bounty', { cls: 'ma-bounty-screen hb-screen' });
+  const { el, body } = screen('Bounty', { cls: 'ma-bounty-screen hb-screen v2h' });
   el.insertBefore(hubBackdrop(), el.firstChild);
   root.appendChild(el);
 
@@ -190,9 +191,12 @@ export function render(root, params = {}) {
   };
 
   drawList();
+  // [ui-v2 M5] at rest the list never cuts a tier, a drop or a foe across its middle (44 px taps)
+  const offWhole = keepWholeTaps(list);
   const off = store.on('change', (e) => { if (e?.reason === 'replace' || e?.reason === 'sweep' || e?.reason === 'secretary' || e?.reason === 'battle-save') drawList(); });
   return () => {
     off();
     offResize();
+    offWhole();
   };
 }

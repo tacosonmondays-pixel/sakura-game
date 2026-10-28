@@ -99,6 +99,60 @@
 :is(.ui-day) .v2h .cm-panel .ui-plate-head { --h: 48px; min-height: calc(var(--tap) + 8px); border-radius: 0; padding-right: calc(var(--sp-3) + var(--s)); }
 :is(.ui-day) .v2h .cm-panel .ui-plate-head .ui-cd { box-shadow: none; }
 
+/* ---------- shared: a single-cut white card with one hairline ring (S1, S3; M7a's .rk-card), for the repeated cards
+   and rows of the M5 hubs; picked = a 2 px --pink-ink ring (a selection) ---------- */
+:is(.ui-day) .v2h :is(.ma-loc, .ma-tier-btn, .hn-row, .tt-side, .tt-main, .tt-actions, .ma-boss-detail-card) {
+  --c: var(--cut-s); --rw: 1px; --edge: var(--line-ink); position: relative; isolation: isolate;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--panel-w); color: var(--ink); animation: none; opacity: 1;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+:is(.ui-day) .v2h :is(.ma-loc, .ma-tier-btn, .hn-row, .tt-side, .tt-main, .tt-actions, .ma-boss-detail-card)::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw));
+}
+:is(.ui-day) .v2h :is(.ma-loc, .ma-tier-btn).active { --edge: var(--pink-ink); --rw: 2px; background: var(--panel-w); box-shadow: none; }
+:is(.ui-day) .v2h :is(button.ma-loc, button.ma-tier-btn) { transition: background-color var(--t-press) var(--ease); }
+:is(.ui-day) .v2h :is(button.ma-loc, button.ma-tier-btn):active { transform: none; background: var(--sky-1); }
+:is(.ui-day) .v2h :is(button.ma-loc, button.ma-tier-btn):focus-visible { outline: none; --edge: var(--cyan-ink); --rw: 2px; }
+
+/* ==========================================================================================================
+   BOUNTY (#/bounty): the week's guest hosts; the arenas as cards (the picked one opens its tiers, drops and foes), the
+   tiers as 46 px rows; Prepare the one yellow in the footer
+   ========================================================================================================== */
+:is(.ui-day) .ma-bounty-screen .ma-loc-list { gap: 6px; padding: 8px 10px 6px; }
+:is(.ui-day) .ma-bounty-screen .ma-loc { padding: 5px 10px 5px 5px; }
+@media (max-height: 480px) {
+  :is(.ui-day) .ma-bounty-screen .ma-loc { grid-template-columns: 80px minmax(0, 1fr) 24px; }
+  :is(.ui-day) .ma-bounty-screen .ma-loc-thumb { width: 80px; }
+  :is(.ui-day) .ma-bounty-screen .ma-loc-detail { padding-top: 8px; }
+}
+:is(.ui-day) .ma-bounty-screen .ma-loc.locked .ma-loc-thumb { filter: grayscale(0.9) brightness(0.85); }
+:is(.ui-day) .ma-bounty-screen .ma-loc-thumb { --c: var(--cut-s); border: 0; border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%); }
+:is(.ui-day) .ma-bounty-screen .ma-loc-name { color: var(--ink); }
+/* (an arena card: its name, what it drops and its token; its story line went: it was cut with "…" on phones, P6) */
+:is(.ui-day) .ma-bounty-screen .ma-loc-desc { display: none; }
+:is(.ui-day) .ma-bounty-screen .ma-event-badge { border-radius: 0; background: var(--plate); color: var(--on-ink); text-shadow: none; transform: skewX(var(--skew)); font: 700 var(--fs-label)/1 var(--font-num); padding: 3px 8px; }
+:is(.ui-day) .ma-bounty-screen .ma-loc-tag { color: var(--cyan-text); }
+:is(.ui-day) .ma-bounty-screen .ma-loc-ticket { gap: 2px; padding: 0 8px 0 2px; border: 0; border-radius: 0; background: var(--sky-1); color: var(--ink); font: 700 var(--fs-label)/1.6 var(--font-num); }
+:is(.ui-day) .ma-bounty-screen .ma-loc-chev { color: var(--cyan-ink); }
+:is(.ui-day) .ma-bounty-screen .ma-loc-detail {
+  margin: -2px 0 4px; padding: 10px 10px 8px; border: 0; border-radius: 0; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); animation: none;
+}
+:is(.ui-day) .ma-bounty-screen .ma-sub { font: 700 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-caps); color: var(--ink); }
+:is(.ui-day) .ma-bounty-screen .ma-loc-detail .ma-tier-btn { min-height: calc(var(--tap) + 2px); padding: 4px 8px; }
+:is(.ui-day) .ma-bounty-screen .ma-tier-btn.locked .ma-tier-meta b { color: var(--muted); }
+:is(.ui-day) .ma-bounty-screen .ma-tier-num { width: 30px; height: 30px; border-radius: 0; background: var(--plate); color: var(--on-ink); box-shadow: none; transform: skewX(var(--skew)); font: 700 var(--fs-body)/1 var(--font-num); }
+:is(.ui-day) .ma-bounty-screen .ma-tier-btn.active .ma-tier-num { background: var(--pink-ink); }
+:is(.ui-day) .ma-bounty-screen .ma-tier-meta b { color: var(--ink); font: italic 900 var(--fs-body)/1.15 var(--font-head); }
+:is(.ui-day) .ma-bounty-screen .ma-enemy { min-height: calc(var(--tap) + 2px); border-radius: 0; }
+:is(.ui-day) :is(.ma-bounty-screen, .ma-assault-screen) .ma-enemy-tier { border-radius: 0; }
+:is(.ui-day) .ma-bounty-screen .ma-rec-chips .chip { border-radius: 0; }
+:is(.ui-day) .ma-bounty-screen .bn-footer { border-top: 1px solid var(--line-ink-soft); }
+:is(.ui-day) .ma-bounty-screen .bn-panel > .ui-plate-head { margin: 8px 8px 0; min-height: calc(var(--tap) + 8px); padding-right: calc(var(--sp-3) + var(--s)); }
+
 /* ==========================================================================================================
    COMMISSIONS (#/commissions): Miko hosts; Daily and Weekly as kit rows (one ink Claim each, Claim all the one
    yellow); the login calendar as day cards; the code in a kit input

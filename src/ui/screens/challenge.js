@@ -4,6 +4,7 @@
 // on campaign maps were replaced by Freeplay; a best wave from them still shows until a freeplay
 // run beats it).
 import '../styles/meta-a.css';
+import '../styles/v2-hubs.css';
 import { h, clear, screen, svgEl, button } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -36,7 +37,7 @@ export function endlessBest(profile, stage) {
 }
 
 export function render(root) {
-  const { el, body } = screen('Tactical Challenge', { cls: 'ma-challenge-screen' });
+  const { el, body } = screen('Tactical Challenge', { cls: 'ma-challenge-screen v2h' });
   root.appendChild(el);
   const draw = () => {
     clear(body);

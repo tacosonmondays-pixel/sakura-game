@@ -5,6 +5,7 @@
 import '../styles/meta-a.css';
 import '../styles/meta-b.css';
 import '../styles/sandbox.css';
+import '../styles/v2-hubs.css';
 import { h, clear, screen, svgEl, button, unitCard, toast } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
@@ -56,7 +57,7 @@ function saveChoice(c) {
 
 export function render(root, params = {}) {
   const step = params.id === 'team' ? 'team' : 'map';
-  const { el, body } = screen(step === 'team' ? 'Sandbox · Squad' : 'Sandbox', { cls: 'ma-sandbox-screen' });
+  const { el, body } = screen(step === 'team' ? 'Sandbox · Squad' : 'Sandbox', { cls: 'ma-sandbox-screen v2h' });
   root.appendChild(el);
   const choice = loadChoice(store.profile);
   const draw = () => {

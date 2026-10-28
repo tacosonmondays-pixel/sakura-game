@@ -12,6 +12,7 @@
 import '../styles/meta-a.css';
 import '../styles/titans.css';
 import '../styles/hubs.css';
+import '../styles/v2-hubs.css';
 import { h, clear, screen, svgEl, button, toast } from '../components.js';
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
@@ -57,7 +58,7 @@ export function titanHostMode({ vw, vh } = viewport()) {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Titan Trials', { cls: 'tt-screen hb-screen' });
+  const { el, body } = screen('Titan Trials', { cls: 'tt-screen hb-screen v2h' });
   el.insertBefore(hubBackdrop('titans'), el.firstChild);
   root.appendChild(el);
   warmBattle(); // [transitions] Fight / Practice then cut to a battle whose code is already here, like stage prep
