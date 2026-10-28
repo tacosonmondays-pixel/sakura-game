@@ -502,6 +502,9 @@ MapDef = {
              tunnels: [[d0,d1]...],   // enemies inside are hidden AND untargetable
              under: [[d0,d1]...],     // walking under an overpass deck (hidden by the renderer, still targetable)
              elev: number[]|null,     // overpass deck height per point (0 on the ground, ≤ BRIDGE_HEIGHT)
+             viaducts?: [[a,b]...],   // Gate Arc Step 6: the viaducts this path authors (foot to foot, in distance);
+                                      // the key exists ONLY on a track with one (shipped tracks are unchanged);
+                                      // a fork prefix / join suffix shows its parent's viaduct through elev only
              fork?, join?, forkD, joinD }],
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
@@ -551,7 +554,20 @@ point nearest `at` (it shares that path's entrance or exit). The first point sit
 board (spawn), the last is the exit. Crossings are found automatically; `crossings` is one mode
 for all or one per crossing in `findCrossings` order: `'bridge'` (default: the later pass rises
 over the earlier one), `'bridgeUnder'` (the earlier pass goes over) or `'flat'` (a junction);
-where one pass is inside a tunnel the crossing is always `'tunnel'`. Everything is sampled ONCE
+where one pass is inside a tunnel the crossing is always `'tunnel'`. **Viaducts** (Gate Arc Step 6, S6v): `UP` / `DOWN`
+(= `RAISE` `'^'` / `LOWER` `'v'`) after a point start / end a viaduct there, a long overpass the road climbs onto on
+purpose: `elev(d) = BRIDGE_HEIGHT × ramp(d − a) × ramp(b − d)` on [a, b] (`ramp` the shipped smoothstep over
+`VIADUCT_RAMP` = `BRIDGE_RAMP` 1.3 tiles, rounded like every elevation), written before the crossings. A crossing
+with one pass on a viaduct's flat top (≥ `VIADUCT_CLEAR` 2.1 tiles from each foot: the ramp plus an overpass's flat)
+and the other on the ground is always `'bridge'` with `over` = the viaduct pass, whatever `crossings` says (the
+ground pass gets its `under` span as under any overpass; the deck adds no bump); a tunnel pass under it stays
+`'tunnel'`. Authoring errors (thrown at module load, prefixed `map <id>:`): an unclosed, unopened or nested viaduct,
+a span under `VIADUCT_MIN` (2 × 1.3 + 2 = 4.6 tiles), a viaduct overlapping a tunnel, a fork or join point on a
+parent's viaduct, both passes of a crossing on viaducts (no three-level interchanges), a crossing on a viaduct ramp
+(closer than 2.1 tiles to a foot), an ordinary overpass within 2.1 tiles of a viaduct's span. In battle a viaduct is
+a shipped overpass: `EnemyRT.elev` 0.62 on the top, never `hidden` (every attack that reaches its 2D position hits
+it), forge-vent zones skip raised and under-deck walkers, the band is road (nobody builds on or under it), no new
+command or message. Fixture: `previews/viaductMaps.js` (`VIADUCT_FIXTURE`, never in MAPS). Everything is sampled ONCE
 (`TRACK_STEP` 0.1) by `src/core/track.js` (`buildMapTracks`); `mapTracks(map)` returns
 `map.tracks`, or a straight-segment view of a legacy MapDef that only has tile-waypoint `paths`
 (test fixtures passed as `data.map` keep working).
@@ -591,7 +607,9 @@ Tunnels: between `IN` and `OUT` the road is drawn under a hill / hall / cave and
 enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
 are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
 already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
-renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
+renderer only (`EnemyRT.underDeck`) — enemies there stay targetable. Viaducts draw through `elev` on the
+overpass deck code (any run with elev > 0.015 is decked); their own looks (sky-rail girder, piers along the raised
+run, the deck's shadow) read `track.viaducts` (Gate Arc Step 6 S6a).
 
 ### `src/data/stages.js`
 

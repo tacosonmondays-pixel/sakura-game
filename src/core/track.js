@@ -10,6 +10,12 @@
 //   TUNNEL_IN ('[')   a tunnel starts at the previous control point …
 //   TUNNEL_OUT (']')  … and ends at the previous control point (enemies inside are hidden and
 //                     cannot be targeted, like tunnels)
+//   RAISE ('^')       a viaduct starts at the previous control point (the road climbs a smooth
+//                     VIADUCT_RAMP ramp onto a deck at the overpass height BRIDGE_HEIGHT) …
+//   LOWER ('v')       … and ends at the previous control point (the ramp back down ends there).
+//                     A viaduct is a long overpass: the same deck height, the same targeting (every
+//                     girl can hit an enemy on it), the same ground-hazard exemption; a road that
+//                     crosses under its flat top always passes under it (see applyCrossings)
 //   ...arc(cx, cy, r, a0, a1)        control points along a circle (degrees, 0 = +x, 90 = +y/south)
 //   ...spiral(cx, cy, r0, r1, a0, a1) the same with a radius that changes with the angle
 //
@@ -43,6 +49,16 @@ export const BRIDGE_RAMP = 1.3;
 
 /** Half-width of an overpass deck (world units): the lower pass is "under the deck" within it. */
 export const DECK_HALF = 0.62;
+/** Viaduct ramps (tiles along the road): the same smoothstep length as an overpass ramp. */
+export const VIADUCT_RAMP = BRIDGE_RAMP;
+/** Shortest viaduct (foot to foot): two ramps and at least 2 tiles at full height. */
+export const VIADUCT_MIN = 2 * VIADUCT_RAMP + 2;
+/**
+ * A crossing on a viaduct sits at least this far (along the viaduct) from each foot: the ramp plus
+ * the flat a shipped overpass keeps either side of its crossing, so the whole deck over the lower
+ * road is at full height. Ordinary overpasses keep the same distance from a viaduct's span.
+ */
+export const VIADUCT_CLEAR = VIADUCT_RAMP + BRIDGE_FLAT;
 
 /** Marker: the section to the next control point is an exact straight. */
 export const LINE = '-';
@@ -50,6 +66,10 @@ export const LINE = '-';
 export const TUNNEL_IN = '[';
 /** Marker: the tunnel ends at the previous control point. */
 export const TUNNEL_OUT = ']';
+/** Marker: a viaduct starts at the previous control point. */
+export const RAISE = '^';
+/** Marker: the viaduct ends at the previous control point. */
+export const LOWER = 'v';
 
 const DEG = Math.PI / 180;
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
@@ -223,7 +243,7 @@ function flattenNodes(nodes) {
   return flat;
 }
 
-/** Splits a node list into control points, straight flags and tunnel markers. */
+/** Splits a node list into control points, straight flags and tunnel / viaduct markers. */
 export function parseNodes(nodes) {
   const pts = [];
   const straight = [];
@@ -232,7 +252,7 @@ export function parseNodes(nodes) {
     if (typeof n === 'string') {
       if (!pts.length) throw new Error(`track marker '${n}' before the first point`);
       if (n === LINE) straight[pts.length - 1] = true;
-      else if (n === TUNNEL_IN || n === TUNNEL_OUT) marks.push({ kind: n, at: pts.length - 1 });
+      else if (n === TUNNEL_IN || n === TUNNEL_OUT || n === RAISE || n === LOWER) marks.push({ kind: n, at: pts.length - 1 });
       else throw new Error(`unknown track marker '${n}'`);
       continue;
     }
@@ -333,9 +353,12 @@ function resampleRange(points, cum, from, to, step) {
 }
 
 /**
- * @typedef {{ points: number[][], cum: number[], length: number, tunnels: number[][],
+ * @typedef {{ points: number[][], cum: number[], length: number, tunnels: number[][], viaducts?: number[][],
  *   forkD: number, joinD: number, fork: {path: number, d: number}|null, join: {path: number, d: number}|null,
  *   elev: number[]|null, control: number[][] }} Track
+ * `viaducts` ([[a, b]], distances of the two feet) is written only on a track that authors one, so a
+ * track without a viaduct is the same object it always was. A fork prefix / join suffix carries its
+ * parent's viaduct through `elev` (applyCrossings), not through this list.
  */
 
 /**
@@ -396,16 +419,41 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
   const prefixLen = prefix.length ? cumulative([...prefix, mid[0]]).pop() : 0;
   const midLen = cumulative(mid).pop();
   const tunnels = [];
+  const viaducts = [];
   let open = null;
+  let raised = null;
   for (const m of marks) {
     const d = prefixLen + fcum[fine.at[m.at]] * (midLen / (fcum[fcum.length - 1] || 1));
-    if (m.kind === TUNNEL_IN) open = d;
+    if (m.kind === RAISE) {
+      if (raised != null) throw new Error(`viaduct: a second '${RAISE}' before the '${LOWER}' that ends the first (viaducts do not nest)`);
+      raised = d;
+    } else if (m.kind === LOWER) {
+      if (raised == null) throw new Error(`viaduct: '${LOWER}' without a '${RAISE}' before it`);
+      viaducts.push([raised, d]);
+      raised = null;
+    } else if (m.kind === TUNNEL_IN) open = d;
     else if (open != null) {
       tunnels.push([open, d]);
       open = null;
     }
   }
   if (open != null) throw new Error('tunnel without an end marker');
+  if (raised != null) throw new Error(`viaduct without an end marker ('${RAISE}' needs a '${LOWER}')`);
+  for (const [a, b] of viaducts) {
+    const at = `viaduct from d ${a.toFixed(2)} to ${b.toFixed(2)}`;
+    if (b - a < VIADUCT_MIN - 1e-6) throw new Error(`${at} is ${(b - a).toFixed(2)} tiles long: a viaduct needs at least ${VIADUCT_MIN.toFixed(1)} (two ${VIADUCT_RAMP}-tile ramps and 2 tiles at full height)`);
+    for (const [ta, tb] of tunnels) if (a < tb && ta < b) throw new Error(`${at} overlaps a tunnel (d ${ta.toFixed(2)} to ${tb.toFixed(2)})`);
+    if (fork && a < prefixLen - 1e-6) throw new Error(`${at} starts on the fork prefix it shares with path ${fork.path}`);
+    if (join && b > prefixLen + midLen + 1e-6) throw new Error(`${at} ends on the join suffix it shares with path ${join.path}`);
+  }
+  // the seam where a lane leaves or merges into its parent may not sit on the parent's viaduct
+  // (the shared section inherits the parent's elevation: it would end in mid-air)
+  for (const link of [fork, join]) {
+    if (!link) continue;
+    for (const [a, b] of prior[link.path].viaducts || []) {
+      if (link.d > a && link.d < b) throw new Error(`a lane ${link === fork ? 'forks from' : 'joins'} path ${link.path} on its viaduct (d ${a.toFixed(2)} to ${b.toFixed(2)}): move the ${link === fork ? 'fork' : 'join'} off the viaduct`);
+    }
+  }
   const length = cum[cum.length - 1];
   // shared sections inherit the parent's tunnels
   if (fork) {
@@ -422,6 +470,7 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
     cum,
     length,
     tunnels: tunnels.map(([a, b]) => [r4(a), r4(b)]),
+    ...(viaducts.length ? { viaducts: viaducts.map(([a, b]) => [r4(a), r4(b)]) } : {}),
     forkD: fork ? r4(prefixLen) : 0,
     joinD: join ? r4(prefixLen + midLen) : r4(length),
     fork,
@@ -526,17 +575,62 @@ export function bridgeProfile(u) {
   return s * s * (3 - 2 * s);
 }
 
+/** Viaduct ramp: the shipped smoothstep over VIADUCT_RAMP (0 at the foot, 1 at full height). */
+function viaductRamp(u) {
+  if (u <= 0) return 0;
+  if (u >= VIADUCT_RAMP) return 1;
+  const s = u / VIADUCT_RAMP;
+  return s * s * (3 - 2 * s);
+}
+
+/** Viaduct height factor at distance d on the span [a, b] (0 outside, 1 on the flat top). */
+export function viaductProfile(d, a, b) {
+  if (d < a || d > b) return 0;
+  return viaductRamp(d - a) * viaductRamp(b - d);
+}
+
+/** The viaduct span [a, b] of this track that contains distance d (feet included), or null. */
+export function viaductAt(track, d) {
+  for (const v of track.viaducts || []) if (d >= v[0] && d <= v[1]) return v;
+  return null;
+}
+
 /**
  * Resolves every crossing into a flat junction or a bridge and writes the overpass elevation
  * profiles into the tracks (`track.elev`, one value per point, null when flat everywhere).
+ * Viaducts (`track.viaducts`) are written first, then the crossings:
+ *   - a pass inside a tunnel: always 'tunnel' (the other pass runs over the buried one; `over`
+ *     names the surface pass), also when the other pass is on a viaduct;
+ *   - a pass on a viaduct's flat top (≥ VIADUCT_CLEAR from each foot) and the other on the ground:
+ *     always 'bridge' with the viaduct pass `over`, whatever the map authored; the ground pass
+ *     gets its `under` span as under any overpass;
+ *   - both passes on viaducts, a pass on a viaduct ramp (closer than VIADUCT_CLEAR to a foot), or
+ *     an ordinary overpass within VIADUCT_CLEAR of a viaduct: authoring errors (thrown);
+ *   - otherwise the authored mode.
  * @param {Track[]} tracks
  * @param {object[]} crossings from findCrossings (mutated: gets `mode` and `over`)
  * @param {string|string[]} [modes='bridge'] one mode for all, or one per crossing:
  *   'bridge' (the later pass goes over), 'bridgeUnder' (the earlier pass goes over) or 'flat'.
- *   A crossing where one pass is inside a tunnel always becomes 'tunnel' (the other pass runs
- *   over the buried one; `over` names the surface pass).
  */
 export function applyCrossings(tracks, crossings, modes = 'bridge') {
+  for (const t of tracks) {
+    t.elev = null;
+    t.under = [];
+  }
+  // viaducts first: their own elevation profile, a smooth ramp up to the overpass height and down
+  for (const t of tracks) {
+    if (!t.viaducts?.length) continue;
+    t.elev = new Array(t.points.length).fill(0);
+    for (const [a, b] of t.viaducts) {
+      for (let i = 0; i < t.points.length; i++) {
+        const d = t.cum[i];
+        if (d < a || d > b) continue;
+        t.elev[i] = Math.max(t.elev[i], r4(BRIDGE_HEIGHT * viaductProfile(d, a, b)));
+      }
+    }
+  }
+  const onViaduct = new Set();
+  const where = (c) => `crossing at (${c.x.toFixed(2)}, ${c.y.toFixed(2)})`;
   crossings.forEach((c, k) => {
     const m = Array.isArray(modes) ? modes[k] ?? 'bridge' : modes;
     if (inTunnel(tracks[c.a.path], c.a.d) || inTunnel(tracks[c.b.path], c.b.d)) {
@@ -545,13 +639,34 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
       c.over = inTunnel(tracks[c.a.path], c.a.d) ? 'b' : 'a';
       return;
     }
+    const va = viaductAt(tracks[c.a.path], c.a.d);
+    const vb = viaductAt(tracks[c.b.path], c.b.d);
+    if (va && vb) throw new Error(`${where(c)}: both passes are on viaducts (no three-level interchanges)`);
+    if (va || vb) {
+      const key = va ? 'a' : 'b';
+      const [a, b] = va || vb;
+      const d = c[key].d;
+      if (d < a + VIADUCT_CLEAR - 1e-6 || d > b - VIADUCT_CLEAR + 1e-6) {
+        throw new Error(`${where(c)}: no crossing on a viaduct ramp (keep it at least ${VIADUCT_CLEAR.toFixed(1)} tiles from each foot; it is ${Math.min(d - a, b - d).toFixed(2)})`);
+      }
+      // the viaduct always goes over: the ground pass runs under its flat top
+      c.mode = 'bridge';
+      c.over = key;
+      onViaduct.add(c);
+      return;
+    }
     c.mode = m === 'flat' ? 'flat' : 'bridge';
     c.over = c.mode === 'flat' ? null : m === 'bridgeUnder' ? 'a' : 'b';
+    if (c.mode !== 'bridge') return;
+    // an ordinary overpass keeps its ramps and its deck clear of any viaduct on either pass
+    for (const key of ['a', 'b']) {
+      for (const [a, b] of tracks[c[key].path].viaducts || []) {
+        if (c[key].d > a - VIADUCT_CLEAR && c[key].d < b + VIADUCT_CLEAR) {
+          throw new Error(`${where(c)}: an overpass within ${VIADUCT_CLEAR.toFixed(1)} tiles of a viaduct's foot (move the crossing or the viaduct)`);
+        }
+      }
+    }
   });
-  for (const t of tracks) {
-    t.elev = null;
-    t.under = [];
-  }
   for (const c of crossings) {
     if (c.mode !== 'bridge') continue;
     // the lower pass is under the deck for the deck's width (measured along the lower road)
@@ -559,6 +674,8 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
     const sin = Math.max(0.35, DM.sin((c.angle || 90) * DEG));
     const w = Math.min(1.6, DECK_HALF / sin);
     tracks[low.path].under.push([r4(Math.max(0, low.d - w)), r4(low.d + w)]);
+    // a viaduct's own profile already carries the deck over the crossing (its flat top)
+    if (onViaduct.has(c)) continue;
     const pass = c[c.over];
     const t = tracks[pass.path];
     if (!t.elev) t.elev = new Array(t.points.length).fill(0);
