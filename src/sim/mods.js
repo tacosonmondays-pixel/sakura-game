@@ -584,6 +584,8 @@ export function applyModSet(s, mods, acc) {
     else if (key === 'crit') {
       if (v.chance) s.crit.chance += v.chance;
       if (v.mul) s.crit.mul = Math.max(s.crit.mul, v.mul);
+      // an additive crit damage (Tryout Day's Hot Streak, src/sim/tryout/pep.js); absent everywhere else
+      if (v.mulAdd) s.crit.mul += v.mulAdd;
     } else if (key === 'aura') {
       if (!s.aura) s.aura = normAura();
       if (v.range != null) s.aura.range = Math.max(s.aura.range, v.range);
@@ -731,6 +733,23 @@ export function applyModSet(s, mods, acc) {
     } else if (key === 'relay') {
       // only a girl who already has a familiar / mirror can extend its reach
       if (s.relay) s.relay.reach += v.reach ?? 0;
+    } else if (key === 'dotMul') {
+      // Tryout Day's Weather Report (src/sim/tryout/pep.js): her burns and poisons × v (absent everywhere else)
+      for (const list of [s.status, s.trap?.status, s.turret?.status]) {
+        for (const st of list || []) {
+          if (st.type !== 'burn' && st.type !== 'poison') continue;
+          if (typeof st.dps === 'number') st.dps *= v;
+          if (typeof st.pct === 'number') st.pct *= v;
+        }
+      }
+    } else if (key === 'auraBoost') {
+      // Tryout Day's Backstage Crew: her aura reaches further and each bonus it gives grows by `points`
+      if (s.aura) {
+        const a = { ...s.aura };
+        a.range += v.range || 0;
+        if (v.points) for (const k of ['dmgMul', 'rateMul']) if (a[k] > 1) a[k] += v.points;
+        s.aura = a;
+      }
     } else if (Object.hasOwn(POTENTIAL_KEYS, key)) POTENTIAL_KEYS[key](s, v);
     // Unknown keys are ignored on purpose (only the contract keys are understood).
   }

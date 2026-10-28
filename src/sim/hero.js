@@ -494,6 +494,7 @@ export function activateUlt(sim) {
   if (effect.dmgBuff > 1) sim.addGlobalDamageBuff(effect.dmgBuff, effect.dmgBuffDuration ?? 4, h.uid);
   h.ultCooldown = ultCooldown(h);
   sim.stats.ultsUsed = (sim.stats.ultsUsed || 0) + 1;
+  if (sim.tryout) sim.tryoutCount(h.heroIndex ?? 0, 'ults');
   sim._emit('ult', { name: ult.name || 'Ultimate', effect: effect.type, x: ux, y: uy, fromX: h.x, fromY: h.y, towerUid: h.uid, rank: ultRank(h) });
   return true;
 }

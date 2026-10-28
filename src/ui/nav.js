@@ -29,6 +29,8 @@ const PARENTS = {
   assault: 'missions',
   challenge: 'missions',
   sandbox: (p) => (p.id ? 'sandbox' : 'missions'), // the squad step (#/sandbox/team) → the map step → Missions
+  // Tryout Day: Before Class, the Marble Jar and the Yearbook (#/tryout/<id>) → the Tryout hub → Missions
+  tryout: (p) => (p.id ? 'tryout' : 'missions'),
   commissions: 'lobby', // the lobby's Tasks shortcut / dock button (not on the Missions hub)
   // a room → the co-op screen → the Multiplayer hub (UI M5d); #/multiplayer has no fixed parent on purpose: it opens
   // from the lobby's Multiplayer button, Missions and the Menu, and its arrow goes back there (the lobby when nothing

@@ -30,6 +30,7 @@ registerRoute('backpack', () => import('./ui/screens/backpack.js'));
 registerRoute('bounty', () => import('./ui/screens/bounty.js'));
 registerRoute('assault', () => import('./ui/screens/assault.js'));
 registerRoute('titans', () => import('./ui/screens/titans.js')); // [ascension] Titan Trials, the weekly bosses
+registerRoute('tryout', () => import('./ui/screens/tryout.js')); // [tryout] Tryout Day, the roguelike run mode
 registerRoute('challenge', () => import('./ui/screens/challenge.js'));
 registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));

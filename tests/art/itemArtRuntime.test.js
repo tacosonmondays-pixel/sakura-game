@@ -195,7 +195,12 @@ describe('display only: the battle sim is untouched', () => {
     // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START;
     // 11: the banners release: the duo Kohaku & Tsubaki, LR Limit Break, UR Resonance, the staff heroes)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '40fbf094038c' };
+    // feature/tryout-day only: Tryout Day changes the sim on top of protocol 10 and ships later with its own bump (the
+    // next free number at its ship: docs/review/tryout-day/SHIP_PREP.md); this branch's in-progress id, refreshed at
+    // each checkpoint
+    const TRYOUT_PENDING = { 10: 'b6c17def5421' };
     if (!KNOWN[COOP_PROTOCOL]) return;
+    if (TRYOUT_PENDING[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });

@@ -415,6 +415,34 @@ export function cleanModeRibbons(raw) {
   return out;
 }
 
+/** Tryout Day's meta block (src/systems/tryoutYearbook.js): only well-formed keys survive; null when empty. */
+export function cleanTryoutMeta(raw) {
+  if (!isObj(raw)) return null;
+  const ID = /^[A-Za-z0-9_]{1,40}$/;
+  const marks = (o) => {
+    const out = {};
+    if (isObj(o)) for (const k of Object.keys(o).slice(0, 400)) if (ID.test(k) && o[k]) out[k] = 1;
+    return out;
+  };
+  const out = {};
+  const yb = isObj(raw.yb) ? raw.yb : {};
+  out.yb = {
+    girls: marks(yb.girls), cards: marks(yb.cards), seen: marks(yb.seen), bosses: marks(yb.bosses),
+    weeks: (Array.isArray(yb.weeks) ? yb.weeks : []).filter((w) => Number.isInteger(w) && w > 0).slice(-520),
+  };
+  out.best = {};
+  if (isObj(raw.best)) {
+    for (const [k, v] of Object.entries(raw.best).slice(0, 400)) if (/^(half|full):\d{1,2}:[a-z0-9_]{1,40}$/.test(k)) out.best[k] = int(v, 0, 0);
+  }
+  if (isObj(raw.weekly) && Number.isInteger(raw.weekly.week)) out.weekly = { week: raw.weekly.week, best: int(raw.weekly.best, 0, 0) };
+  if (isObj(raw.jar)) {
+    const sel = {};
+    if (isObj(raw.jar.sel)) for (const [k, v] of Object.entries(raw.jar.sel)) if (ID.test(k) && typeof v === 'string' && ID.test(v)) sel[k] = v;
+    out.jar = { off: strList(raw.jar.off, 20).filter((x) => ID.test(x)), sel };
+  }
+  return out;
+}
+
 /**
  * Upgrade/repair any stored profile. Never throws: missing or corrupt fields are replaced
  * with defaults, unknown units/items are dropped, references (formation, gear owners,
@@ -584,6 +612,14 @@ export function migrateProfile(raw) {
   p.seenIntro = strList(raw.seenIntro);
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
+  // [tryout] the one open Tryout Day run (its own slot, outside the 5 battle saves; additive)
+  if (isObj(raw.tryoutRun) && typeof raw.tryoutRun.id === 'string' && Number.isInteger(raw.tryoutRun.seed)) p.tryoutRun = raw.tryoutRun;
+  // [tryout] the highest Grade cleared (the ladder: clearing Grade N opens N + 1)
+  if (Number.isInteger(raw.tryoutGrade) && raw.tryoutGrade > 0) p.tryoutGrade = Math.min(12, raw.tryoutGrade);
+  // [tryout] the meta block: the Yearbook, local records, the Marble Jar's switches and selections (additive; Marbles,
+  // purchases and the paid counts live in missions.counters 'ty:*', src/systems/tryoutRewards.js)
+  const tm = cleanTryoutMeta(raw.tryoutMeta);
+  if (tm) p.tryoutMeta = tm;
   creditPotential(p, now);
   // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
   // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten

@@ -246,7 +246,8 @@ export function ruleWaveClear(sim) {
   const sets = [r.def.always, r.def.active];
   for (const s of sets) {
     const b = s.bonusEvery;
-    if (b && b.n > 0 && sim.wave % b.n === 0) {
+    // (offset: Tryout Day counts a Subject's every-Nth clear from its period's start; absent everywhere else)
+    if (b && b.n > 0 && (sim.wave - (b.offset || 0)) % b.n === 0) {
       if (b.coins) {
         const amount = sim._gainCash(b.coins * (sim.diff.cashMul ?? 1) * sim.cashScale * sim.incomeMul);
         if (amount > 0) sim._emit('cash', { amount, reason: 'rule', rule: r.id });
@@ -281,6 +282,8 @@ export function ruleBountyAdd(def, sim) {
  * owns no earlier pad. Sets padIndex / onPad / padMul / padRangeAdd; a change sets _buffsDirty.
  */
 export function assignPads(sim) {
+  // Tryout Day keeps stored seat holders (src/sim/tryout/breaks.js assignSeats)
+  if (sim.tryout) return sim.tryoutSeats();
   const r = sim.rule;
   if (!r || !r.pads.length) return;
   const owner = new Map();
