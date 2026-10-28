@@ -48,6 +48,12 @@
 // The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam timer (`du`).
 // A save without it restores her with fresh counters.
 //
+// The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
+// at a calm point they all stand at full budget, since the wave clear refills them). Her Hold the Line barricades and
+// One-Way Street's count end at every wave clear, and Kogane's Overdrive ends with the wave, so a calm point holds
+// none of them; Kogane's Move cooldown is the hero's `mc` (her shorter `moveCd` recharge is data). A save without
+// `br` restores Norika's barricades at the spots her restored range picks.
+//
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
 // every field the Sim has, and tests/battle-ui/snapshot.test.js fails when a new one appears that
@@ -65,6 +71,7 @@ import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { modeId } from '../../data/modes.js';
 import { LAB_CLASSES, emptyLab } from '../../sim/lab.js';
+import { barricadeMax } from '../../sim/barricades.js';
 
 /**
  * Leak groups a snapshot keeps (the most recent ones): stats.leakLog is stored grouped by
@@ -171,6 +178,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // created lazily and never deleted: after her sale they stay [] / 0, where a restore has none, which
   // runs the same.)
   zones: 'calm', _nearExitOn: 'derived',
+  // Norika's barricades (src/sim/barricades.js): how many heroes have them follows the restored hero
+  _blockOn: 'derived',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -235,6 +244,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // the duo (src/sim/duo.js): her Refraction counter, her volley count (Potential's full split) and Kohaku's beam
   // timer travel (`du`); the beam's spec follows her stats and buffs (refreshEffective)
   prismN: 'snap', duoVolley: 'snap', duoCd: 'snap', beamSpec: 'derived',
+  // the staff heroes (BANNERS §D.6): Norika's own barricades travel (`br`); Hold the Line and One-Way Street's
+  // count end at the wave clear; Kogane's Overdrive ends with the wave
+  bars: 'snap', lines: 'calm', oneWayN: 'calm', overdriveLeft: 'calm',
 });
 
 /**
@@ -353,6 +365,8 @@ function packTower(sim, t) {
   if (t.wellCd != null || t.lastLineCd != null) o.zc = [t.wellCd ?? -1, t.lastLineCd ?? -1];
   // the duo: shells since the last split, volleys since the last full split, Kohaku's beam timer (ticks)
   if (t.prismN != null || t.duoVolley != null || t.duoCd != null) o.du = [t.prismN ?? -1, t.duoVolley ?? -1, t.duoCd ?? -1];
+  // Norika's barricades: uid, spot, budget left (drain units), ticks to rebuild
+  if (t.bars?.length) o.br = t.bars.map((b) => [b.uid, b.x, b.y, b.hp, b.down]);
   return o;
 }
 
@@ -650,6 +664,16 @@ export function restoreSim(rec, profile = null) {
     }
     if (Number.isInteger(o.sc) && o.sc > 0) t.stripCursor = o.sc;
     if (Number.isInteger(o.rg) && o.rg > 0 && o.rg < 16) t.ringTurn = o.rg;
+    // Norika's barricades, at most her count, each held to her full budget (an older save: fresh spots on the first step)
+    if (Array.isArray(o.br) && t.bars && t.stats.barricade) {
+      const max = barricadeMax(sim, t.stats.barricade);
+      const whole = (v) => Math.max(0, Math.floor(r(v)));
+      for (const b of o.br.slice(0, t.stats.barricade.count)) {
+        if (!Array.isArray(b) || !Number.isInteger(b[0]) || !Number.isFinite(b[1]) || !Number.isFinite(b[2])) continue;
+        const down = Math.min(whole(b[4]), 600);
+        t.bars.push({ uid: b[0], x: b[1], y: b[2], hp: down > 0 ? 0 : Math.max(1, Math.min(max, whole(b[3]))), max, down });
+      }
+    }
     if (Array.isArray(o.nt) && t.nets) {
       for (const n of o.nt.slice(0, t.stats.sentry?.nets ?? 0)) t.nets.push({ x: r(n[0]), y: r(n[1]), left: r(n[2]), wave: Math.floor(r(n[3])) });
     }

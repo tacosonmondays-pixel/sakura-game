@@ -157,8 +157,11 @@ export function rebuildTicks(br) {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-/** Placement / Sim._refreshTower: a barricade hero gets her lists, and the sim its blocker count. */
+/** Placement / Sim._refreshTower: a barricade hero gets her lists, and the sim its blocker count (and Kogane her Overdrive timer). */
 export function syncBarricades(sim, t) {
+  // (Kogane's Overdrive timer, src/sim/hero.js: present from placement on a hero whose stats carry it, so a
+  // restored hero carries exactly the fields the saved one did)
+  if (t?.stats?.overdrive && t.overdriveLeft == null) t.overdriveLeft = 0;
   if (!t || !t.stats?.barricade || t.bars) return;
   t.bars = [];
   t.lines = [];

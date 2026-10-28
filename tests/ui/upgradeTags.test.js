@@ -60,7 +60,7 @@ describe('every tier of every girl is classified', () => {
   it('covers the whole roster (3 paths × 5 tiers each; heroes: one 25-level track, no paths)', () => {
     expect(UNITS.length).toBeGreaterThanOrEqual(19);
     const heroes = UNITS.filter((u) => u.kind === 'hero');
-    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'luna', 'nami', 'seiran', 'yoriko']);
+    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'kogane', 'luna', 'nami', 'norika', 'seiran', 'yoriko']);
     for (const u of heroes) {
       expect(u.paths, u.id).toEqual([]);
       expect(u.hero.levels.map((l) => l.level), u.id).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
