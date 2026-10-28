@@ -56,8 +56,8 @@ export function render(root, params = {}) {
   let tab = params.tab === 'craft' ? 'craft' : 'bench';
   pick.family ||= richestFamily(store.profile);
   // opening the Workbench is a Workbench action: re-anchor after a clock rollback, mark it seen
-  touchWorkbench(store.profile, Date.now());
-  store.commit('workbench-open');
+  const seenBefore = store.profile.missions?.counters?.['wb:seen'];
+  if (touchWorkbench(store.profile, Date.now()) || store.profile.missions.counters['wb:seen'] !== seenBefore) store.commit('workbench-open');
 
   const content = h('div.wb-content');
   const railEl = rail([
