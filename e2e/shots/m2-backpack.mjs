@@ -5,11 +5,13 @@ import { seedGearMany } from '../uiSeed.mjs';
 export const milestone = 'm2';
 const bp = (tab, extra = {}) => ({ hash: `#/backpack?tab=${tab}`, ready: isScreen('backpack'), kind: 'list', rebuilt: true, ...extra });
 
-/** Gives the save items (a prepare step: it runs on another screen before the Backpack is drawn). */
+/** Sets the save's count of items (a prepare step: it runs on another screen before the Backpack is drawn). It sets,
+ * never adds, so a shot taken at three sizes in one save shows the same counts at each. */
 const giveItems = (items) => (page) => page.evaluate(async (list) => {
   const { store } = window.__sakura;
-  const inv = await import('/src/systems/inventory.js');
-  inv.addItems(store.profile, list);
+  const p = store.profile;
+  p.items ||= {};
+  for (const { id, count } of list) p.items[id] = count;
   store.commit('e2e');
   store.saveNow?.();
 }, items);
@@ -45,6 +47,11 @@ export const shots = {
   'backpack-salvage-picks': bp('equipment', { prepare: gear30, open: salvagePicks }),
   // the SSR Select Ticket (its picker over the Tickets tab) and the Craft Room (from a family material's item sheet)
   'backpack-sst': bp('tickets', { prepare: giveItems([{ id: 'ticket_ssr_select', count: 1 }]), open: clickOpen('#app [data-testid="use-ticket_ssr_select"]', '.sst-modal') }),
+  // a family material's item sheet: its Craft Room action and its sources, on one screen at 844x390
+  'backpack-item-material': bp('enhancement', {
+    prepare: giveItems([{ id: 'mat_feather_legendary', count: 6 }]),
+    open: clickOpen('#app [data-item="mat_feather_legendary"]', '[data-testid="item-sheet"]'),
+  }),
   'backpack-craft': bp('enhancement', {
     prepare: giveItems([{ id: 'mat_feather_legendary', count: 6 }]),
     open: async (page) => {
@@ -58,4 +65,4 @@ export const shots = {
 export const gate = { 'backpack-equipment': { rebuilt: true }, 'backpack-salvage': { rebuilt: true } };
 export const list = ['backpack-all', 'backpack-enhancement', 'backpack-awakening', 'backpack-tickets', 'backpack-tokens', 'backpack-equipment',
   'backpack-equipment-end', 'backpack-item-sheet', 'backpack-salvage', 'backpack-gear30', 'backpack-gear30-end', 'backpack-supplies', 'backpack-filter',
-  'backpack-sort', 'backpack-salvage-picks', 'backpack-sst', 'backpack-craft'];
+  'backpack-sort', 'backpack-salvage-picks', 'backpack-sst', 'backpack-item-material', 'backpack-craft'];

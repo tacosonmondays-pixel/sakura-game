@@ -11,7 +11,7 @@ export default [
     narrate('After the goblin runners fled, the whole garden path sparkled with frost. In spring.'),
     say('aoi', 'Captain! The goblins slipped on the ice and slid all the way back into the hedge!', { face: 'surprise' }),
     say('hikari', "Ice? On a spring morning? …Let's follow the frosty footprints, Sensei."),
-    cue({ bg: 'academy-day', enter: [{ who: 'hikari', at: 'center' }, { who: 'aoi', at: 'left' }] }),
+    cue({ bg: 'library-garden', enter: [{ who: 'hikari', at: 'center' }, { who: 'aoi', at: 'left' }] }),
     narrate('The footprints end at the library steps, beside a birdbath frozen solid.'),
     say('yuki', '…Oh. Hello. {name:yuki}, library committee. If this is about the birdbath, it was an accident.', { at: 'right', face: 'sleepy', fx: 'slide-in' }),
     say('yuki', "The librarian says I frost the reading room. I'm trying very hard not to be cold at people.", { face: 'sad' }),
@@ -54,7 +54,7 @@ export default [
   ]),
 
   scene('ch1.epi', {
-    title: 'Ripples on the Lake', chapter: 1, kind: 'epilogue', trigger: { after: '1-5' }, bg: 'academy-sunset', music: 'home',
+    title: 'Ripples on the Lake', chapter: 1, kind: 'epilogue', trigger: { after: '1-5' }, bg: 'blossom-court-sunset', music: 'home',
   }, [
     narrate('The Slime Prince popped into a hundred happy droplets, and they bounced away toward the lake.'),
     say('hikari', 'Our turn. Hold still, little stone… First light.', { at: 'center', fx: 'nod' }),

@@ -66,7 +66,8 @@ for (const [W, H] of [[844, 390], [1280, 720]]) {
   await page.locator('#app [data-testid="bp-sort"]').click();
   await page.locator('[data-testid="gear-sort-level"]').click();
   await page.waitForTimeout(300);
-  const levels = await page.evaluate(() => [...document.querySelectorAll('#app .mb-gear-grid .ui-gtile[data-gear]')].map((t) => `+${window.__sakura.store.profile.gear[t.dataset.gear].level}`));
+  // (the tiles' own +level badges, in grid order; a +0 piece has no badge, P7)
+  const levels = await page.evaluate(() => [...document.querySelectorAll('#app .mb-gear-grid .ui-gtile[data-gear]')].map((t) => t.querySelector('.ui-gtile-lv')?.textContent.trim() || '+0'));
   check(levels.join(',') === '+6,+4,+2,+0', `${W}x${H} sort by level: ${levels.join(',')}`);
   check(/level/i.test(await page.locator('#app [data-testid="bp-sort"]').innerText()), `${W}x${H} the Sort button names the order`);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/backpack-mythic-${W}x${H}.png` });

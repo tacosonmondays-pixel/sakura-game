@@ -35,6 +35,15 @@ body.ui-day .bp-tools .btn.ui-sec.bp-tool.on { background: var(--plate); color: 
 body.ui-day .bp-tools .btn.ui-sec.bp-tool.on > .ui-sec-ico { color: var(--on-ink); }
 body.ui-day .bp-tools .btn.ui-sec.bp-tool { position: relative; overflow: visible; }
 body.ui-day .bp-tool > .bp-tool-dot { position: absolute; top: -4px; right: 2px; }
+/* the kit's edge only: a button's white stops at its ring (the 2 px border space showed as a white halo on the paper
+   field and on ink) */
+:is(body.ui-day, body.ui-night) :is(.bp, .bp-sheet) .btn { background-clip: padding-box; }
+/* an upright phone: Filter, Sort and Salvage keep their glyph only (the word stays in each aria-label, §6.4 "Salvage
+   (icon, danger)"), so the toolbar is one row */
+@media (max-width: 560px) {
+  body.ui-day .bp-tools .btn.bp-icon-narrow { padding: 0 14px; }
+  body.ui-day .bp-tools .btn.bp-icon-narrow > .btn-label { display: none; }
+}
 body.ui-day .bp-cap { display: inline-flex; align-items: baseline; gap: 6px; color: var(--ink); white-space: nowrap; }
 body.ui-day .bp-cap .num { font-size: var(--fs-num-s); }
 body.ui-day .bp-picktools { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -141,6 +150,20 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 :is(body.ui-day, body.ui-night) .bp-gfsheet .gf-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 560px) { :is(body.ui-day, body.ui-night) .bp-gfsheet .gf-row { grid-template-columns: minmax(0, 1fr); } }
 
+/* a landscape phone: the sheet takes the height it needs (the kit's 60dvh showed one row and hid the actions) */
+@media (max-height: 480px) {
+  :is(body.ui-day, body.ui-night) .ui-sheet.bp-sheet:not(.full):not(.side) { max-height: calc(100dvh - 16px); }
+  :is(body.ui-day, body.ui-night) .bp-sheet .ui-body { padding-top: 10px; padding-bottom: 10px; }
+  :is(body.ui-day, body.ui-night) .bp-sheet .bp-kick { margin-bottom: 4px; }
+  :is(body.ui-day, body.ui-night) .bp-ssec + .bp-ssec, :is(body.ui-day, body.ui-night) .bp-ssec + .gf-bar { margin-top: 8px; }
+  :is(body.ui-day, body.ui-night) .bp-gfsheet .gf-bar { margin-top: 8px; }
+  :is(body.ui-day, body.ui-night) .bp-srow { min-height: 56px; padding: 3px 0; }
+  :is(body.ui-day, body.ui-night) .bp-isheet { gap: 8px; }
+  :is(body.ui-day, body.ui-night) .bp-src { min-height: 48px; }
+  :is(body.ui-day, body.ui-night) .bp-craft { gap: 6px; }
+  :is(body.ui-day, body.ui-night) .bp-craft .craft-row.bp-crow { padding: 4px 0; }
+}
+
 /* the Supplies sheet: one row a box or tool: its tile, its name (and one line), its actions */
 :is(body.ui-day, body.ui-night) .bp-srows { display: flex; flex-direction: column; }
 :is(body.ui-day, body.ui-night) .bp-srow { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px 0; border-bottom: 1px solid var(--line-ink-soft); }
@@ -177,9 +200,13 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 :is(body.ui-day, body.ui-night) .bp-face { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: var(--sky-1); box-shadow: inset 0 0 0 1px var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-face > img, :is(body.ui-day, body.ui-night) .bp-face > svg { width: 100%; height: 100%; object-fit: cover; display: block; }
 :is(body.ui-day, body.ui-night) .bp-srcs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+/* (more places than the sheet can show: the list scrolls on its own, sized to whole rows; itemSheet.js fitRows) */
+:is(body.ui-day, body.ui-night) .bp-srcs.fit { overflow: hidden auto; overscroll-behavior: contain; padding-right: 8px; box-shadow: inset 0 -1px 0 var(--line-ink-soft); }
+:is(body.ui-day, body.ui-night) .bp-srcs.fit > .bp-src { flex: none; }
 :is(body.ui-day, body.ui-night) .bp-src { display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--line-ink-soft); }
 :is(body.ui-day, body.ui-night) .bp-src:last-child { border-bottom: 0; }
 :is(body.ui-day, body.ui-night) .bp-src-t { flex: 1 1 auto; min-width: 0; font: 700 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+:is(body.ui-day, body.ui-night) .bp-src-t > .bp-chance { margin-left: 6px; font: 600 var(--fs-label)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
 :is(body.ui-day, body.ui-night) .bp-src .btn.bp-go { flex: none; min-height: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); padding: 0 14px; font-size: var(--fs-body); }
 :is(body.ui-day, body.ui-night) .bp-acts { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
 :is(body.ui-day, body.ui-night) .bp-acts .btn { min-height: calc(var(--tap) + 2px); }
@@ -190,7 +217,13 @@ body.ui-day .bp-empty .btn { min-height: calc(var(--tap) + 2px); }
 :is(body.ui-day, body.ui-night) .bp-sst { display: flex; flex-direction: column; gap: 10px; }
 :is(body.ui-day, body.ui-night) .bp-sst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; max-height: min(56vh, 480px);
   overflow-y: auto; overscroll-behavior: contain; padding: 4px 2px; }
-@media (max-height: 480px) { :is(body.ui-day, body.ui-night) .bp-sst-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); max-height: calc(100vh - 176px); } }
+/* a landscape phone: two whole rows of 80 px tiles (every SSR at once, no face cut by the scroll edge); the caption keeps
+   her name (the dialog's title says SSR; a UR girl keeps her UR tag) */
+@media (max-height: 480px) {
+  :is(body.ui-day, body.ui-night) .bp-sst-grid { grid-template-columns: repeat(auto-fill, 80px); justify-content: center; gap: 10px; max-height: none; overflow: visible; }
+  :is(body.ui-day, body.ui-night) .bp-sst-grid .ui-rar.sst-rarity { display: none; }
+  :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap { height: 24px; padding-left: 6px; }
+}
 :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile { --gw: 100%; width: 100%; height: auto; aspect-ratio: 1 / 1.3; }
 :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile > .cap { height: 28px; }
 :is(body.ui-day, body.ui-night) .bp-sst-grid > .ui-girltile.is-ur > .ur-ring { border-radius: 0; --ur-w: 3px; }
