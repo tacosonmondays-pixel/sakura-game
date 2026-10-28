@@ -39,7 +39,7 @@ describe('the home objective', () => {
   });
 
   it('the login gift: its day, and the play tile keeps the tray\'s hook (login-claim); a claimed gift is skipped', () => {
-    expect(homeObjective(without('save'))).toMatchObject({ kicker: 'Daily gift', text: 'Claim your login gift: day 3', testid: 'login-claim' });
+    expect(homeObjective(without('save'))).toMatchObject({ kicker: 'Daily gift', text: 'Claim your login gift: day\u00a03', testid: 'login-claim' });
     expect(homeObjective({ ...without('save'), login: { ready: false, day: 3 } }).kind).toBe('commissions');
   });
 

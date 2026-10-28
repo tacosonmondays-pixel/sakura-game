@@ -507,7 +507,7 @@ export function render(root) {
     const sh = openMenuSheet({
       reduced: reduceMotion(),
       opener: () => top.querySelector('[data-testid="top-menu"]'),
-      dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread(), clan: hub.badges.donationsReady > 0 },
+      dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread(), clan: clanDot() },
       tools: [
         { id: 'hide', label: 'Hide UI', aria: 'Hide the menus', glyph: 'eyeoff', testid: 'lobby-hide', go: () => setHidden(true) },
         { id: 'bg', label: 'Background', aria: 'Background and secretary', glyph: 'image', testid: 'lobby-bg', go: () => { openBackgroundPicker(); focusMenuAfterWindow(); } },
@@ -788,6 +788,7 @@ function buildTop(host, { onMenu, chat }) {
   const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || hub.badges.donationsReady > 0;
   const menu = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-menu', title: 'Menu', 'aria-label': newInside ? 'Menu, something new inside' : 'Menu', 'aria-haspopup': 'dialog', onclick: onMenu },
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
+  const clan = HOME_CLAN === 'top' ? clanButton(h('button.ui-ibtn', { type: 'button', title: 'Clan' }), g('flag')) : null;
   host.append(
     who,
     // (the spacer is .ui-spacer, never .sp: that is the story scene player's root, a fixed full-screen layer, story.css)
@@ -796,8 +797,25 @@ function buildTop(host, { onMenu, chat }) {
     pill({ art: 'coins', amount: profile.currencies.coins, testid: 'coins', label: 'Coins' }),
     pill({ art: 'gems', amount: profile.currencies.gems, testid: 'gems', label: 'Gems', onPlus: () => navigate('mall', { tab: 'gems' }), plusLabel: 'Get gems' }),
     h('span.ui-vr', { 'aria-hidden': 'true' }),
-    chat, mail, menu,
+    ...[chat, clan, mail, menu].filter(Boolean),
   );
+}
+
+/**
+ * Clans on the home (owner, Oct 28: "add an icon for clans"): the Menu's flag glyph, a red dot when donations are ready
+ * to collect or a clan invite waits (as the Menu's Clan row), opening the clan screen. Where it stands: 'top' an icon
+ * button in the top right cluster beside chat, mail and the menu (the recommended one: the four icons keep their row),
+ * or 'dock' a fifth shortcut CLAN after MALL.
+ */
+export const HOME_CLAN = 'top';
+const clanDot = () => hub.badges.donationsReady > 0 || hub.badges.clanInvites > 0;
+function clanButton(btn, glyph) {
+  const dot = clanDot();
+  btn.dataset.testid = 'home-clan';
+  btn.setAttribute('aria-label', dot ? 'Clan, something new' : 'Clan');
+  btn.addEventListener('click', () => navigate('clan'));
+  btn.append(...[glyph, badge(dot ? h('i.ui-dot', { 'data-testid': 'home-clan-dot' }) : null, 'home:clan')].filter(Boolean));
+  return btn;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -818,6 +836,7 @@ function buildDock(host) {
       go: () => navigate('commissions', notice.ach && !notice.missions && !notice.login ? { tab: 'achievements' } : {}) },
     { id: 'mall', label: 'Mall', glyph: 'bag', testid: 'dock-mall', go: () => navigate('mall') },
   ];
+  if (HOME_CLAN === 'dock') items.push({ id: 'clan', label: 'Clan', glyph: 'flag', testid: 'home-clan', dot: clanDot(), aria: clanDot() ? 'Clan, something new' : 'Clan', go: () => navigate('clan') });
   clear(host);
   for (const r of items) {
     host.appendChild(h('button.home-ico', { type: 'button', 'data-testid': r.testid, 'data-dock': r.id, 'aria-label': r.aria || r.label, onclick: r.go },
