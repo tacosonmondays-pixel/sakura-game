@@ -192,11 +192,12 @@ describe('display only: the battle sim is untouched', () => {
 
   it('the sim id for this co-op protocol is unchanged (a sim change must bump COOP_PROTOCOL)', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8' };
-    // feature/gate-arc only: Gate Arc Step 3 (Act 3 maps, stages, the Warden and the Gnat; the rift lane) changes the
-    // sim on protocol 9. The next bundled co-op release sets COOP_PROTOCOL once (after the ultimates' bump), adds its
-    // `N: '<id>'` line above and removes this one. Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 9: 'e471e8a5d9d8' };
+    // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c' };
+    // feature/gate-arc only: Gate Arc Steps 3-5 (Acts 3-5: maps, stages, enemies) change the sim on protocol 10. The
+    // next bundled co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only
+    // this exact in-progress id passes here.
+    const PENDING_BUMP = { 10: 'ea79ed487b3a' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

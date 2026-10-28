@@ -15,14 +15,15 @@ import {
 // The reviewed tag combinations of every path tier (update on purpose when units.js changes).
 // (path cap: Midori's brews and Chika's tune-up links are Allies, so her 15 tiers and Repair Bay 4-5
 // gained an Allies tag; aura armor pen / crit on tier 4-5 auras; the tier 4 / 5 first pass)
+// (Tenka, T0: her lab and Rail Arms tiers read Self, Singularity's slow / wells / Last Line Enemies: +11 self, +4 enemies)
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 207, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi)
+  self: 218, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka)
   'enemies* + self': 35,
   'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
-  enemies: 28,
+  enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
   coins: 8,
   'coins + enemies': 1,
   'allies + coins + enemies': 1,

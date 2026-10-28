@@ -2,7 +2,26 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { launchAttempts } from '../../e2e/browser.mjs';
+
+// T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
+// them SpiderMonkey never ran even with Firefox installed. It now falls back to the installed browsers
+// (no download), the system Firefox kept apart from one the user has open and, on Windows, held by its
+// launcher (without -wait-for-browser Playwright loses it and a stray Firefox window can stay open).
+describe('the cross-engine runner finds the browsers (e2e/browser.mjs launchAttempts)', () => {
+  it('Firefox: Playwright\'s, else the system Firefox (SpiderMonkey) through WebDriver BiDi; Chrome / Edge as launchChromium; WebKit only Playwright\'s', () => {
+    const ff = launchAttempts('firefox', {}, 'win32');
+    expect(ff.map(([, label]) => label)).toEqual(['Playwright Firefox', 'system Firefox']);
+    expect(ff[0][0]).toEqual({});
+    expect(ff[1][0]).toMatchObject({ channel: 'moz-firefox', args: ['-no-remote', '-wait-for-browser'] });
+    expect(launchAttempts('firefox', {}, 'linux')[1][0].args).toEqual(['-no-remote']);
+    expect(launchAttempts('chromium', {}).map(([, label]) => label)).toEqual(['Playwright Chromium', 'system Chrome', 'system Edge']);
+    expect(launchAttempts('chromium', { CHROME_PATH: 'C:/x/chrome.exe' })).toEqual([[{ executablePath: 'C:/x/chrome.exe' }, 'CHROME_PATH=C:/x/chrome.exe']]);
+    expect(launchAttempts('chromium', { PLAYWRIGHT_CHANNEL: 'msedge' })).toEqual([[{ channel: 'msedge' }, 'channel msedge']]);
+    expect(launchAttempts('webkit', {})).toEqual([[{}, 'Playwright WebKit']]);
+  });
+});
 
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
@@ -123,6 +142,111 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.ckSame).toBe(true);
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runDronesBattle().final).toBe(r.final);
+  }, 240000);
+
+  it('runs a co-op battle with abilities in sync: ≥ 30 casts of ≥ 6 kinds, every tap accepted or refused for a known reason, its checkpoint replaying', () => {
+    const r = runAbilitiesBattle();
+    expect(r.agree).toBe(true);
+    expect(r.refused).toBe('');
+    expect(r.cleared).toBeGreaterThanOrEqual(12);
+    expect(r.casts).toBeGreaterThanOrEqual(30);
+    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'econ', 'rally', 'strike']); // no deploy (A4)
+    // both players cast, and some host taps met a recharging girl (the late-tap rule)
+    expect(r.byOwner.split('/').every((n) => Number(n) > 0)).toBe(true);
+    expect(r.taps).toMatch(/ cooldown/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runAbilitiesBattle().final).toBe(r.final);
+    // pinned when the scenario landed (A2; V8, JSC and SpiderMonkey gave these): change only with a
+    // deliberate sim / data / ability change, and say why. Re-pinned by the A2 review fixes (was 40227 /
+    // '636/487' / 2145385076 / '5726405e', 46 casts): a manual cast's kill coins are pooled and split like
+    // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
+    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
+      .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+  }, 240000);
+
+  it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
+    const r = runReturningAbilBattle();
+    expect(r.agree).toBe(true);
+    expect(r.refused).toBe('');
+    expect(r.cleared).toBe(14);
+    for (const id of RETURNING_ABIL_IDS) expect(r.ids.split(','), id).toContain(id);
+    expect(r.lifeRestored).toBeGreaterThanOrEqual(1); // First Aid Call's kills brought a life back
+    expect(r.curseBursts).toBeGreaterThan(0);
+    expect(r.hexed).toBeGreaterThan(0);
+    // both heroes reached their Lv 17 rank (the merged skill: the * mark)
+    expect(r.towers).toMatch(/0:seiran:Lv(1[7-9]|2\d)\+\d+\*/);
+    expect(r.towers).toMatch(/1:yoriko:Lv(1[7-9]|2\d)\+\d+\*/);
+    expect(r.taps).toMatch(/ cooldown/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runReturningAbilBattle().final).toBe(r.final);
+    // pinned when the scenario landed (A3 M3; V8 and SpiderMonkey gave these, e2e/engines.mjs): change only with a
+    // deliberate sim / data / ability change, and say why
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({
+        ticks: 47017, state: 'between', wallets: '568/782', lives: 100, final: 3293782298, hashes: '6e087590', casts: 72,
+        byId: 'aoi.skyfall 11 · ena.omenCard 9 · hana.swoop 19 · noa.firstAid 2 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 13',
+        ckDigest: 'c653f418', finalDigest: '089da6b4',
+      });
+  }, 240000);
+
+  it('runs the returning girls\' battle (ROSTER_START) bit-identical to before their abilities were attached (none is cast there)', () => {
+    const r = runRosterBattle();
+    expect(r.agree).toBe(true);
+    expect(r.ckSame).toBe(true);
+    expect(r.abilityUnlocks).toBeGreaterThanOrEqual(4);
+    expect(r.abilityCasts).toBe(0);
+    // pinned in A3 M3 from the tree BEFORE the returning girls' rows were attached (fbdf8b3f352b): Ena, Ruri, Hana and
+    // Noa reach their ⚡ tier 3 and Seiran / Yoriko Lv 7 here, so their abilities unlock and charge, but nobody casts
+    // and nobody is on Auto: damage, lives, coins and every hash stay exactly what they were.
+    // Re-pinned once for fix/seiran-dragon (merged in 98a4677; the pin above still held on fea20ee, just before it):
+    // Dragonflight now flies all the way back to START, so the run reaches the same wave sooner (12239 → 11492
+    // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
+    // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
+      .toEqual({ ticks: 11492, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2891/3480', final: 253530618, hashes: 'a90dc673', curseBursts: 61, runners: 2 });
+  }, 240000);
+
+  it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
+    const r = runTenkaBattle();
+    expect(r.agree).toBe(true);
+    expect(r.final).toBe(r.finalB);
+    expect(r.refused).toBe('');
+    expect(r.cleared).toBe(14);
+    // Joint Research takes the host's Aoi, Akane and Yuki in wave 1; Unified Theory, bought mid-wave after the
+    // wave-7 checkpoint, takes Miko and Momo: all five classes joined. The guest's Rei stood in her range and stays.
+    expect(r.absorbed).toMatch(/^0:\d+,\d+,\d+ \(w\d+ mid-wave\) 0:\d+,\d+ \(w\d+ mid-wave\)$/);
+    expect(Number(r.absorbed.match(/\(w(\d+) mid-wave\)$/)[1])).toBeGreaterThan(r.ckWave);
+    expect(r.joins).toBe('r1:3 r2:2');
+    expect(r.joined).toBe(5);
+    // (T3 review spec-1) one girl of each class, read from her lab record, not only five girls: a role moved
+    // to another category would leave a class empty, and tenkaCoverage (engines.mjs's guard too) says so
+    expect(r.members).toBe('dps:1 frag:1 control:1 support:1 economy:1');
+    expect(tenkaCoverage(r)).toEqual([]);
+    expect(tenkaCoverage({ ...r, members: 'dps:2 frag:1 control:0 support:1 economy:1' })).toEqual([expect.stringMatching(/nobody joined as control$/)]);
+    expect(r.towers).toContain('1:rei:');
+    // her weapons ran (grenades, the economy weapon's coins: Momo's income and interest, #146), the guest's
+    // wells opened and her Last Line swallowed near the exit after the host sold her Tenka mid-wave
+    expect(r.labFrags).toBeGreaterThan(0);
+    expect(r.labCash).toBeGreaterThan(0);
+    expect(r.wells).toBeGreaterThan(0);
+    expect(r.lastLines).toBeGreaterThan(0);
+    expect(r.swallowed).toBeGreaterThan(0);
+    expect(r.sale).toMatch(/^\d+ \(w\d+ mid-wave\)$/);
+    expect(r.ckWave).toBe(7);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runTenkaBattle().final).toBe(r.final);
+    // pinned when the scenario landed (T3; V8 gave these, and SpiderMonkey matched them in the T3 review
+    // fixes; JavaScriptCore not run yet): change only with a deliberate sim / data change, and say why. The
+    // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
+    // sale, so only ckDigest holds a lab record)
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'e864bd71', finalDigest: '8e111df8' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {

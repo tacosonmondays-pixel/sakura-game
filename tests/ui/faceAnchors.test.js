@@ -1,5 +1,5 @@
 // [ui-ink] UI v2 V2: every girl's face anchors (src/ui/faceAnchors.js), read off the contact sheets of
-// tools/art/faceSheet.mjs: all 35 girls have a -cut and a -card entry, each in sane ranges (the brow above the eyes,
+// tools/art/faceSheet.mjs: all 36 girls have a -cut and a -card entry, each in sane ranges (the brow above the eyes,
 // the eyes above the chin, a face of a believable size, inside the picture), and every -cut has its paint extents.
 // Right or wrong is checked by eye on the --overlay sheet; this checks they exist and hang together.
 import { describe, it, expect } from 'vitest';
@@ -8,8 +8,8 @@ import { UNITS } from '../../src/data/units.js';
 import { FACE_ANCHORS, CUT_EXTENTS, faceAnchor, cutExtents, DEFAULT_ANCHOR, DEFAULT_EXTENTS } from '../../src/ui/faceAnchors.js';
 
 describe('face anchors', () => {
-  it('every girl (35) has both entries, and no stray girl has one', () => {
-    expect(UNITS).toHaveLength(35);
+  it('every girl (36, Tenka with the ultimates) has both entries, and no stray girl has one', () => {
+    expect(UNITS).toHaveLength(36);
     for (const u of UNITS) {
       expect(FACE_ANCHORS[u.id]?.cut, `${u.id} cut`).toBeTruthy();
       expect(FACE_ANCHORS[u.id]?.card, `${u.id} card`).toBeTruthy();

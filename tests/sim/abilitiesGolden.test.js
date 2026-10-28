@@ -11,26 +11,34 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
 import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
+// Re-pinned in A2 (hashSim only; was f5875291 / 1c3a6fcc / e5394bdb): the co-op hash now folds each girl's
+// ability state once she cast or is on Auto, the map-scope groups, rallies and queued shots, and the Auto
+// default (src/online/coop/simHash.js). The battles themselves are unchanged: same waves, lives, steps,
+// coins and casts. Re-pinned again at the v0.1.40 sync (feature/abilities 93e902c + main 1b9ba02), hashSim
+// only, for the same reason: main's three tables were taken on its hashSim without A2's fold (every wave,
+// life, step, coin and cast below is main's; the A1 and base hashes are the ones feature/abilities had).
 const GOLDEN = {
-  '1-3:normal': 'W15/100/20746/864/f5875291/4',
+  '1-3:normal': 'W15/100/20746/864/ab76d249/4',
   // Gate Arc Step 4: Azami joins after 4-7, so 4-5's free team is without her (her strips held the 2-life win):
   // re-pinned, a narrow Hard loss as in BASE_GOLDEN below
-  '4-5:hard': 'L26/0/67565/2710/7f4c1c2d/22',
+  '4-5:hard': 'L26/0/67565/2710/89ff1e0b/22',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
-  // stays below, with the returning girls left out)
-  '8-5:normal': 'L30/0/37594/8800/f23b76ee/14',
+  // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
+  // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)
+  '8-5:normal': 'L30/0/37439/8586/c7958807/22',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
-  '1-3:normal': 'W15/100/20746/864/f5875291/4',
-  '4-5:hard': 'L26/0/67651/3566/1c3a6fcc/20',
+  '1-3:normal': 'W15/100/20746/864/ab76d249/4',
+  '4-5:hard': 'L26/0/67651/3566/3decde6a/20',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
-  // stays below, with the returning girls left out)
-  '8-5:normal': 'L30/0/39114/7321/5ea79a66/18',
+  // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/39114/7321/a30aaa7b/18): Hana's
+  // and Noa's abilities cast on Auto now (18 → 23 casts)
+  '8-5:normal': 'L30/0/38801/7168/d359d2ce/23',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 const LIVE_GOLDEN = {
-  '8-5:normal': 'L30/0/40233/8036/e5394bdb/30',
+  '8-5:normal': 'L30/0/40233/8036/a5d9340a/30',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

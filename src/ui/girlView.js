@@ -8,6 +8,116 @@ import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
+import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
+import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine, abilityNote } from '../data/abilityText.js';
+
+/**
+ * Her ⚡ ability for the girl page (ABILITIES_SPEC §10): the Info tab's one-line chip ("⚡ Skyfall Volley · Rapid
+ * Volley T3") and its Details sheet — the description with her stats on that path at the unlock tier (no gear or
+ * level: the base numbers), the cooldown, how it unlocks, the tier-5 / Lv 17 upgrade, and "Comes in a later update"
+ * for a kind this build does not run. Null when she has none. A girl with one ability per path (Ruri: one per familiar
+ * path; she learns the one whose path she raises) gets one chip naming them all ("⚡ Moon Pounce · Star Snatch · River
+ * Rush · T3") and `forms`, one entry per path for the Details sheet; everyone has `forms` (one entry for most).
+ * @param {object} unit UnitDef
+ */
+export function abilityInfoView(unit) {
+  const hero = unit?.kind === 'hero';
+  if (hero) return unit?.hero?.skill ? withForms([abilityFormView(unit, -1)]) : null;
+  const idx = (unit?.paths || []).map((p, i) => (p?.ability ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) return null;
+  const forms = idx.map((pi) => abilityFormView(unit, pi));
+  if (forms.length === 1) return withForms(forms);
+  const at = new Set(forms.map((f) => f.at));
+  return {
+    ...forms[0],
+    multi: true,
+    forms,
+    chip: `⚡ ${forms.map((f) => f.name).join(' · ')} · ${at.size === 1 ? `T${forms[0].at}` : 'by path'}`,
+    unlock: `Unlocks at tier ${[...at].join(' / ')} of the path she raises: ${forms.map((f) => `${f.pathName} → ${f.name}`).join(', ')}`,
+    howTo: howToFire(forms),
+  };
+}
+
+const withForms = (forms) => ({ ...forms[0], multi: false, forms, howTo: howToFire(forms) });
+
+/**
+ * The Details sheet's closing "In battle, tap…" sentence speaks only of what runs today (the "Comes in a later update"
+ * teaser is the only promise): null when no form runs (Fuu, Iroha, Kanna: no button to point at); else `hero` (the
+ * button by her portrait) and `name` — the forms that run, named when some of hers wait (Ruri: "Moon Pounce"), null
+ * when the sentence can say "it".
+ */
+function howToFire(forms) {
+  const live = forms.filter((f) => f.live);
+  if (!live.length) return null;
+  return { hero: !!forms[0].hero, name: live.length < forms.length ? live.map((f) => f.name).join(' or ') : null };
+}
+
+/** One ⚡ entry's view (a tower's path `pi`, or a hero's skill with pi −1). */
+function abilityFormView(unit, pi) {
+  const hero = pi < 0;
+  const entry = hero ? unit.hero.skill : unit.paths[pi].ability;
+  const name = abilityText(entry.id)?.name || entry.id;
+  const at = hero ? entry.unlockLevel ?? 7 : entry.unlockTier ?? 3;
+  const where = hero ? `LV ${at}` : `${unit.paths[pi].name} T${at}`;
+  const live = abilityRuns(entry); // the one rule (src/data/abilities.js), the same as the sim's handlerOf
+  const tiersAt = (n) => [0, 1, 2].map((p) => (p === pi ? n : 0));
+  const statsAt = (n) => {
+    try {
+      return resolveStats(unit, hero ? { heroLevel: n } : { tiers: tiersAt(n) });
+    } catch {
+      return unit.base || null;
+    }
+  };
+  const fill = (template, def, stats) => {
+    try {
+      return fillAbilityText(template, abilityValues(def, stats));
+    } catch {
+      return template.replace(/\{\w+\}/g, '…');
+    }
+  };
+  const text = abilityText(entry.id);
+  const note = abilityNote(entry.id); // (Details only: never on the battle's live hold card)
+  const desc = text ? `${fill(text.desc, entry, statsAt(at))}${note ? ` ${note}` : ''}` : '';
+  let up = null;
+  if (hero && entry.ranks?.length) {
+    const lv = entry.ranks[0].level;
+    try {
+      up = { at: `LV ${lv}`, line: abilityUpgradeLine(entry.id, abilityValues(skillAtLevel(entry, lv), statsAt(lv))) };
+    } catch {
+      up = null;
+    }
+  } else if (!hero && entry.t5) {
+    try {
+      up = { at: `${unit.paths[pi].name} T5`, line: abilityUpgradeLine(entry.id, abilityValues(abilityAtTier(entry, 5), statsAt(5))) };
+    } catch {
+      up = null;
+    }
+  }
+  const cooldown = `Recharges in ${entry.cooldown}s of wave time`;
+  const unlock = hero ? `Unlocks at hero LV ${at}` : `Unlocks at ${unit.paths[pi].name} tier ${at}`;
+  return {
+    id: entry.id,
+    name,
+    hero,
+    path: pi,
+    pathName: hero ? null : unit.paths[pi].name,
+    at,
+    where,
+    live,
+    chip: `⚡ ${name} · ${where}`,
+    desc,
+    cooldown,
+    unlock,
+    up,
+    later: live ? null : 'Comes in a later update',
+    // the Details sheet's facts: unlock, recharge and the tier-5 / Lv 17 upgrade for one that runs; for one that
+    // waits only where it is planned — no unlock, recharge or upgrade numbers it cannot keep yet (the teaser is the
+    // only promise; the hero track says nothing at Lv 17 for it either)
+    facts: live
+      ? [{ k: 'Unlock', t: unlock }, { k: 'Recharge', t: cooldown }, ...(up ? [{ k: up.at, t: up.line.replace(/^⚡\+\s*/, '') }] : [])]
+      : [{ k: 'Planned', t: hero ? `for hero LV ${at}` : `for ${unit.paths[pi].name} tier ${at}` }],
+  };
+}
 
 /** One decimal at most, trailing ".0" dropped (11.8, 12, 0.9); large values in the short form. */
 const stat1 = (v) => (Math.abs(v) >= 10000 ? fmtNum(v) : String(Math.round(v * 10) / 10));
@@ -26,8 +136,11 @@ export function headlineKind(unit) {
   return 'shooter';
 }
 
-/** What a support's buff is: "+10%" with its stat, or one word (Veil Sight, cleanse). */
-function buffOf(b) {
+/**
+ * What a support's buff is: "+10%" with its stat, or one word (Veil Sight, cleanse). The girl page passes her def's base,
+ * the battle drawer her live aura / office (drawerView.drawerStats).
+ */
+export function buffOf(b) {
   const a = b.aura || null;
   if (a?.dmgMul && a.dmgMul !== 1) return { value: `+${pctWhole(a.dmgMul)}%`, unit: 'DMG', title: `Allies in her aura deal +${pctWhole(a.dmgMul)}% damage` };
   if (a?.rateMul && a.rateMul !== 1) return { value: `+${pctWhole(a.rateMul)}%`, unit: 'SPD', title: `Allies in her aura attack +${pctWhole(a.rateMul)}% faster` };
@@ -106,9 +219,8 @@ export function roleDetails(unit) {
 }
 
 /**
- * The tips her Profile sheet lists. A ⚡ tip ("<path> tier 3 teaches <ability>: …") is about an ability, and
- * abilities are dormant in this build (nothing in a battle casts one yet), so it stays out until the ability bar
- * ships: never promise a button players cannot use (the same rule as the menus' shownTips in v0.1.40).
+ * The tips her Profile sheet lists. A ⚡ tip ("<path> tier 3 teaches <ability>: …") shows only when her first ⚡
+ * ability runs in this build (abilityRuns): never promise a button players cannot use (the menus' shownTips rule).
  */
 export { isAbilityTip };
 export function profileTips(unit) {

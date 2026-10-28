@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { POOL, rollOnce, pull, pullCost, canSpark, spark, expectedSSRRate, ratesTable } from '../../src/systems/gacha.js';
+import { POOL, rollOnce, pull, pullCost, canSpark, spark, expectedSSRRate, ratesTable, recruitFeature, redeemSelectTicket } from '../../src/systems/gacha.js';
+import { LEGEND_UNITS } from '../../src/data/recruitFeature.js';
+import { SHOP_OFFERS } from '../../src/data/shop.js';
+import { chosenEssenceTargets } from '../../src/systems/shop.js';
 import { createProfile } from '../../src/systems/save.js';
 import { essenceBalance } from '../../src/systems/essence.js';
 import { createRng } from '../../src/core/rng.js';
@@ -10,10 +13,76 @@ import { GACHA } from '../../src/data/types.js';
 const fixedRng = (value, pickIndex = 0) => ({ next: () => value, pick: (arr) => arr[Math.min(pickIndex, arr.length - 1)], int: (a) => a, range: (a) => a, chance: () => false });
 
 describe('pool', () => {
-  it('contains every unit under its rarity', () => {
+  it('contains every unit under its rarity, except LR units (spotlight only)', () => {
     const all = [...POOL.R, ...POOL.SR, ...POOL.SSR];
-    expect(all.sort()).toEqual(UNITS.map((u) => u.id).sort());
-    for (const u of UNITS) expect(POOL[u.rarity]).toContain(u.id);
+    expect(all.sort()).toEqual(UNITS.filter((u) => !LEGEND_UNITS.includes(u.id)).map((u) => u.id).sort());
+    for (const u of UNITS) if (!LEGEND_UNITS.includes(u.id)) expect(POOL[u.rarity]).toContain(u.id);
+    expect(POOL.SSR).not.toContain('tenka');
+  });
+});
+
+describe('the Recruit spotlight (New: Tenka; src/data/recruitFeature.js)', () => {
+  it('is on, with her 0.7% of the 1.5% SSR rate and a 300-pull Legend Promise on the banner system key', () => {
+    const f = recruitFeature();
+    expect(f.unit).toBe('tenka');
+    expect(GACHA.rates.SSR * f.share).toBeCloseTo(0.007, 6);
+    expect(f.promise).toBe(300);
+    expect(f.counter).toBe('gl:tenka');
+    expect(f.kicker).toBe('New: Tenka');
+  });
+
+  it('gives her about 0.7% of all pulls and every other SSR its share of the rest', () => {
+    const state = { pity: 0, totalPulls: 0, recruitPoints: 0, history: [] };
+    const rng = createRng('tenka-share');
+    const N = 300000;
+    let her = 0;
+    let ssr = 0;
+    for (let i = 0; i < N; i++) {
+      const r = rollOnce(state, rng);
+      if (r.rarity === 'SSR') ssr++;
+      if (r.unitId === 'tenka') her++;
+    }
+    // with pity the SSR-class rate is ~2.02%, of which she is 7/15
+    expect(her / ssr).toBeGreaterThan(0.44);
+    expect(her / ssr).toBeLessThan(0.50);
+    expect(her / N).toBeGreaterThan(0.0085);
+    expect(her / N).toBeLessThan(0.0105);
+  });
+
+  it('rates table: her row first, SSR rows still sum to 1.5%', () => {
+    const t = ratesTable();
+    expect(t.perUnit.SSR[0]).toMatchObject({ unitId: 'tenka', featured: true });
+    expect(t.perUnit.SSR[0].rate).toBeCloseTo(0.007, 6);
+    expect(t.perUnit.SSR.filter((u) => u.unitId === 'tenka')).toHaveLength(1);
+  });
+
+  it('the Legend Promise: the 300th pull without her is her, and the count starts over', () => {
+    const p = createProfile();
+    p.currencies.gems = 1e7;
+    p.missions ||= {};
+    p.missions.counters = { 'gl:tenka': 298 };
+    const r1 = pull(p, 1, fixedRng(0.99));
+    expect(r1.results[0].unitId).not.toBe('tenka');
+    expect(p.missions.counters['gl:tenka']).toBe(299);
+    const r2 = pull(p, 1, fixedRng(0.99));
+    expect(r2.results[0]).toMatchObject({ unitId: 'tenka', rarity: 'SSR', promise: true, isNew: true });
+    expect(p.units.tenka).toBeTruthy();
+    expect(p.gacha.pity).toBe(0);
+    expect(p.missions.counters['gl:tenka']).toBe(0);
+    pull(p, 10, fixedRng(0.99));
+    expect(p.missions.counters['gl:tenka']).toBe(10);
+  });
+
+  it('never sparks her, and no SSR Select Ticket, Mall spark row or Chosen Essence offers her', () => {
+    const p = createProfile();
+    p.gacha.recruitPoints = 1000;
+    expect(spark(p, 'tenka')).toMatchObject({ ok: false, error: 'notSSR' });
+    expect(p.gacha.recruitPoints).toBe(1000);
+    p.inventory = p.inventory || {};
+    expect(redeemSelectTicket(p, 'tenka').ok).toBe(false);
+    expect(SHOP_OFFERS.some((o) => o.unitId === 'tenka')).toBe(false);
+    p.units.tenka = { level: 1 };
+    expect(chosenEssenceTargets(p)).not.toContain('tenka');
   });
 });
 

@@ -185,6 +185,111 @@ describe('Emergency Deploy (Field Ops tier 3)', () => {
   });
 });
 
+/** Yuzuha with her unit stats (gear, level), her paths bought to `tiers`; a wave running. */
+function setupWith(stats, { tiers = [0, 0, 0], seed = 7 } = {}) {
+  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'yuzuha', stats }], seed, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+  sim.cash = 1e9;
+  const t = sim.placeTower('yuzuha', 9.5, 6.2);
+  for (const p of [0, 1, 2]) for (let k = 0; k < tiers[p]; k++) expect(sim.upgradeTower(t.uid, p)).toBe(true);
+  sim.state = 'wave';
+  sim.wave = 1;
+  sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+  sim._spawnIndex = 0;
+  return { sim, t };
+}
+/** Records every hit with the spec that dealt it: { dmg (the spec's damage), crit }; `out.draws`: rng draws inside hits. */
+function recordHits(sim) {
+  const out = [];
+  out.draws = 0;
+  const hit = sim._hit.bind(sim);
+  const emit = sim._emit.bind(sim);
+  const next = sim.rng.next;
+  let cur = null;
+  sim.rng.next = () => {
+    if (cur) out.draws++;
+    return next();
+  };
+  sim._emit = (type, p) => {
+    if (type === 'hit' && cur) out.push({ dmg: cur.damage, crit: !!p.crit });
+    return emit(type, p);
+  };
+  sim._hit = (e, tower, spec, ...rest) => {
+    const prev = cur;
+    cur = spec;
+    try {
+      return hit(e, tower, spec, ...rest);
+    } finally {
+      cur = prev;
+    }
+  };
+  return out;
+}
+
+describe('sentries crit like her own hits', () => {
+  /** Her sentries up, her own darts held back: only sentry guns (then, with Burst Cells, a burst) hit a parked tank. */
+  function sentryHits(stats, tiers = [0, 0, 0]) {
+    const { sim, t } = setupWith(stats, { tiers });
+    for (let i = 0; i < 900 && !t.sentries.length; i++) sim._step(STEP);
+    const s = t.sentries[0];
+    const e = parkAt(sim, 'tank', s.x + 0.3, 4.5);
+    e.hp = e.maxHp = 1e9;
+    const hits = recordHits(sim);
+    for (let i = 0; i < 4 * 60; i++) {
+      t.cooldown = 1e9; // (only her sentries fire)
+      sim._step(STEP);
+    }
+    let burst = [];
+    if (t.stats.sentry.burst > 0) {
+      const n = hits.length;
+      for (const o of t.sentries) o.cooldown = 1e9;
+      s.ttl = STEP;
+      sim._step(STEP);
+      burst = hits.slice(n).filter((x) => x.dmg === t.sentryBurstSpec.damage); // (a shot still in flight may land too)
+    }
+    return { t, hits, burst, draws: hits.draws };
+  }
+
+  test('crit chance 1: every sentry shot and every burst crits at her crit multiplier; 0: none, and no rng is drawn', () => {
+    const on = sentryHits({ critChance: 1, critMul: 1.4 }, [4, 0, 0]);
+    expect(on.t.eff.critMul).toBeCloseTo(1.5 * 1.4, 9);
+    for (const k of ['plain', 'net', 'flash', 'heavy', 'flak']) expect(on.t.sentrySpecs[k], k).toMatchObject({ critChance: 1, critMul: on.t.eff.critMul });
+    expect(on.t.sentryBurstSpec).toMatchObject({ critChance: 1, critMul: on.t.eff.critMul });
+    const shots = on.hits.filter((x) => x.dmg === on.t.sentrySpecs.plain.damage);
+    expect(shots.length).toBeGreaterThan(2);
+    expect(on.burst.length).toBeGreaterThan(0);
+    expect(on.burst.every((x) => x.crit)).toBe(true);
+    expect(on.hits.every((x) => x.crit)).toBe(true);
+    expect(on.draws).toBeGreaterThanOrEqual(on.hits.length); // a roll per hit (an ineligible target still rolls first)
+    const off = sentryHits({}, [4, 0, 0]);
+    expect(off.t.sentrySpecs.plain.critChance).toBe(0);
+    expect(off.hits.length).toBeGreaterThan(2);
+    expect(off.hits.some((x) => x.crit)).toBe(false);
+    expect(off.draws).toBe(0);
+    // Specialist Kits: every kit's gun carries it (Spare Tripods → Specialist Kits)
+    const kits = setupWith({ critChance: 0.3 }, { tiers: [3, 0, 0] });
+    for (const k of Object.keys(kits.t.sentrySpecs)) expect(kits.t.sentrySpecs[k].critChance, k).toBe(0.3);
+  });
+
+  test('crit chance 0.5: some crits, the same ones for the same seed (rolls in the existing hit order)', () => {
+    const play = () => {
+      const { sim } = setupWith({ critChance: 0.5 }, { tiers: [4, 2, 0] });
+      const hits = recordHits(sim);
+      for (let k = 0; k < 60; k++) {
+        if (k % 3 === 0) {
+          const e = sim.spawnEnemy(k % 6 ? 'orc' : 'bat', { pathIndex: 0, dist: 0 });
+          e.hp = e.maxHp = 300;
+        }
+        run(sim, 0.25);
+      }
+      return { crits: hits.map((x) => (x.crit ? 1 : 0)).join(''), hp: sim.enemies.map((e) => [e.uid, e.hp]).join(';'), rng: sim.rng.getState() };
+    };
+    const a = play();
+    expect(play()).toEqual(a);
+    expect(a.crits).toContain('1');
+    expect(a.crits).toContain('0');
+  });
+});
+
 describe('determinism', () => {
   test('two copies of a battle with sentries, kits, nets and Emergency Deploy stay identical', () => {
     const play = () => {

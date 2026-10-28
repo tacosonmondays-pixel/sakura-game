@@ -83,8 +83,11 @@ const ARC1_MAIN = {
  * (from g5.mid) are story-only until the Kohaku & Tsubaki duo unit (STORY.md §8.7, §13).
  */
 const NPC_FIRST = ['kohaku', 'tsubaki'];
-/** Act 5's plain-plate speakers: the Last Watch (Evening survivors) and Kohaku. None of them is a unit in Act 5. */
-const G5_PLATES = ['Tenka', 'Toki', '{name:tsubaki}', '{name:kohaku}'];
+/**
+ * Act 5's plain-plate speakers: the Last Watch (Evening survivors) and Kohaku. None of them is a unit in Act 5. Tenka
+ * speaks as herself (her unit and portrait shipped with the ultimates, v0.1.57); she still never joins in the story.
+ */
+const G5_PLATES = ['Toki', '{name:tsubaki}', '{name:kohaku}'];
 const AGE_RE = /\b(\d+\s*(years?|yrs?)\s*old|aged?\s+\d+)\b/i;
 
 /** Every string a player can read in a scene: lines, replies, choice options, title and plate overrides. */
@@ -332,17 +335,17 @@ describe('story registry', () => {
     for (const sc of g5) {
       for (const l of sayLines(sc.lines)) {
         if (G5_PLATES.includes(l.name)) expect(l.who, `${sc.id}: ${l.name} speaks as unknown`).toBe('unknown');
-        expect(['tenka', 'toki', 'tsubaki', 'kohaku', 'mori', 'mahiru', 'kagari'], sc.id).not.toContain(l.who);
+        expect(['toki', 'tsubaki', 'kohaku', 'mori', 'mahiru', 'kagari'], sc.id).not.toContain(l.who);
       }
       // no portrait for any of them: the only stands in Act 5 are girls the player already has
-      for (const c of sc.cast) expect(['hikari', 'luna', 'kage', 'midori', 'azami'], `${sc.id} cast ${c}`).toContain(c);
+      for (const c of sc.cast) expect(['hikari', 'luna', 'kage', 'midori', 'azami', 'tenka'], `${sc.id} cast ${c}`).toContain(c);
       for (const { where, text } of textsOf(sc)) {
         expect(/\b(joins?|joined|joining|recruits?|recruited|new member)\b/i.test(text), `${sc.id} ${where}: "${text}"`).toBe(false);
       }
     }
     // the Last Watch first speak when they walk out of the Noon Gate (g5.mid)
-    const firstSpeaks = (name) => g5.find((sc) => sayLines(sc.lines).some((l) => l.name === name))?.id;
-    for (const name of ['Tenka', 'Toki', '{name:tsubaki}']) expect(firstSpeaks(name), name).toBe('g5.mid');
+    const firstSpeaks = (name) => g5.find((sc) => sayLines(sc.lines).some((l) => l.name === name || (name === 'tenka' && l.who === 'tenka')))?.id;
+    for (const name of ['tenka', 'Toki', '{name:tsubaki}']) expect(firstSpeaks(name), name).toBe('g5.mid');
   });
 
   it('Azami joins the line after 4-7 in g4.azami: a meeting or a reunion reads the same, and it carries the parley', () => {
@@ -631,7 +634,7 @@ describe('story text (T-content-3, T-content-4)', () => {
     // two cups, not three; then a third, for the one Sensei remembers
     expect(has('g5.epi', 'There were always two of us.')).toBe(true);
     expect(has('g5.epi', 'Two cups. She does not reach for a third.')).toBe(true);
-    expect(has('g5.epi', 'Tenka takes a third cup down from the shelf')).toBe(true);
+    expect(has('g5.epi', '{name:tenka} takes a third cup down from the shelf')).toBe(true);
   });
 
   it('Toki is not there between one line and the next: she never speaks again, and only Sensei notices', () => {
@@ -644,10 +647,10 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(lines.slice(0, last).some((l) => l.t === 'narrate' && /\bToki\b.*whistling four notes/.test(l.text))).toBe(true);
     // no fade, no exit, no word for it: the very next line is Tenka's, then Sensei looks, and nobody else does
     const rest = lines.slice(last + 1);
-    expect(rest[0]).toMatchObject({ t: 'say', who: 'unknown', name: 'Tenka' });
+    expect(rest[0]).toMatchObject({ t: 'say', who: 'tenka' });
     const restText = textsOf({ title: '', lines: rest }).map((t) => t.text);
     for (const t of restText) expect(/\bToki\b/.test(t), `g5.after after her last line: "${t}"`).toBe(false);
-    expect(restText).toContain('Sensei looks at the causeway beside Tenka. There is nobody there. Only the fog, the rail and the water.');
+    expect(restText).toContain('Sensei looks at the causeway beside {name:tenka}. There is nobody there. Only the fog, the rail and the water.');
     expect(restText.some((t) => t.startsWith('Nobody else looks round.'))).toBe(true);
     // nowhere later in Act 5: no line and no plate of hers; only Sensei's telling in g5.epi says her name
     const later = SCENE_LIST.slice(SCENE_LIST.indexOf(after) + 1).filter((s) => s.id.startsWith('g5.'));

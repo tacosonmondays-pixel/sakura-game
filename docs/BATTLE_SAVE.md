@@ -172,6 +172,22 @@ the record's frozen stats (`potential`), like her level and gear. A format-1 or 
 girl at P2+ continues with the v3 steps of her saved P: `restoreSim` returns `potentialNew: true` and
 Continue says "This run continues with Potential's new effects." (POTENTIAL.md v2 §8).
 
+**Tenka (formats 2 and 3, additive; `src/sim/lab.js`, `src/sim/zones.js`).** Her lab team's record travels
+as `lb: [rounds, members[5], coins[5], income, uids, interest]` (classes in `LAB_CLASSES` order: dps, frag,
+control, support, economy; `income` the joiners' wave income and `interest` their interest rates, which feed
+her economy weapon, owner decision #146). The girls who joined are not in the save (they left the field),
+and the tier replay runs with `{ restoring: true }`, which never absorbs, so a girl placed after her Joint
+Research stays where she is. The record comes back only on a girl whose restored tiers give her a lab (an
+edited row, or a Tenka whose tiers did not come back, gets none; `rounds` is held to her tiers), numbers
+only; then her lab weapons (`labAtk`, derived: both timers are 0 at every wave clear) and the lab count
+(`_labOn`, derived) follow. Her well and Last Line timers count wave time only, so they run on across calm
+points and travel as `zc: [wellCd, lastLineCd]` (-1: she has none yet), restored only for a tier that has
+them. Wells and Last Line zones end at every wave clear: `zones` is calm and `_nearExitOn` derived. (A Tenka
+sold before the save leaves `zones: []` / `_nearExitOn: 0` / `_labOn: 0` behind, where a restore has none;
+both run the same.) Zero Point's boost tail (`abilMods`) ends at the clear like every ability effect, so a
+save never holds one: leaving mid-tail continues from the wave start, and a wave that clears mid-tail cuts it.
+A save without these fields restores her tiers with no lab team and fresh timers.
+
 A wave can end while shots are still flying at the last enemy's spot (Kage's storm makes it common);
 the snapshot does not carry them (they have nothing left to hit unless the next wave's first enemy
 walks into one), so a Start tapped before they land can play a hair differently after Continue.
@@ -212,7 +228,9 @@ The co-op wave-end checkpoints are a different, generic serializer (`src/sim/sna
   path cap (a pre-rule save with two copies at the same tier 5; Midori's brews and Chika's tune-up
   links round-trip and play on the same; an older save without the brew / link fields), battle modes
   and map rules (Reverse Route on Rear Ambush 4-2 Hard, whose route turns between checkpoints; Ironclad
-  on the crystal pads of 6-1 with a hero who Moves), and the guards (Sim, girl and drone fields).
+  on the crystal pads of 6-1 with a hero who Moves), Tenka (her lab record round trip and Continue through
+  Unified Theory, the saves-4 guard, her well / Last Line timers, Zero Point's tail mid-tail and cut by a
+  clear), and the guards (Sim, girl and drone fields; a lab Tenka and a Last Line Tenka among the runs).
 - `tests/systems/battleSave.test.js`: profile field, migrate allowlist, each sanitiser rule (including
   a save past the end and a missing start time), the cap and its order, titles, slots and modes,
   run-scoped clears, drop seed, event bonus by start time and its 48 h window.

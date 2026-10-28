@@ -30,6 +30,7 @@
 // backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
 // .graded), so the text over the scene keeps its contrast.
 import { h } from '../dom.js';
+import { boltText } from '../kit.js';
 import { cardArtSVG } from '../../art/cardArt.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl, stageModeOf, LOBBY_BG_MAP, defaultBackgroundFor } from '../../data/lobbyArt.js';
@@ -43,7 +44,9 @@ export const BUBBLE_MS = 2400;
 const BUBBLE_W = { phone: 222, desk: 300 };
 
 /** The lobby paintings (public/art/lobby/) that have a baked night copy beside them (<name>-home.webp). */
-export const HOME_BAKED = Object.freeze(['academy.webp', 'hikari.webp', 'aoi.webp', 'sango.webp']);
+// (none since the owner asked for a livelier home, Oct 28: "it looks a little dead … bland": every picture now shows in
+// its own colours under the light grade in home.css --home-grade; the baked copies stay on disk for tools/art/bakeHome.mjs)
+export const HOME_BAKED = Object.freeze([]);
 
 /** The baked night copy of a lobby painting (tools/art/bakeHome.mjs): academy.webp → academy-home.webp. */
 export function homeArt(file) {
@@ -342,7 +345,10 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
       hideBubble();
       return;
     }
-    bubble.firstElementChild.textContent = text;
+    const span = bubble.firstElementChild;
+    // (a ⚡ tip: the bolt as the kit's yellow mark, never the colour emoji)
+    if (String(text).includes('⚡')) span.replaceChildren(...boltText(text));
+    else span.textContent = text;
     fitBubble();
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);

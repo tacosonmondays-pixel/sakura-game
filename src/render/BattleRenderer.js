@@ -32,6 +32,8 @@ import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { Companions } from './companions.js';
+import { createAbilityFx } from './abilityFx.js';
+import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
 import { createTear } from './tear.js';
 import { fallStyleOf, playFall } from './fallStyles.js';
@@ -233,7 +235,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
   // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
-  const companions = new Companions({ sim, scene, actors, terrain, quality });
+  const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion });
   actors.companions = companions;
   roster.companions = companions;
   // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
@@ -361,15 +363,24 @@ export function createBattleRenderer(container, sim, opts = {}) {
     if (!reduceMotion && !placingNow()) rig.shake(a);
   }
 
+  /** A floating damage number in the one number style (src/ui/format.js: "2,600", "12.3k", "1.2M"; never below 1). */
   function fmt(n) {
-    if (n >= 100000) return `${Math.round(n / 1000)}K`;
-    if (n >= 10000) return `${(n / 1000).toFixed(1).replace('.0', '')}K`;
-    return String(Math.max(1, Math.round(n)));
+    return fmtNum(Math.max(1, n), 'count');
   }
+
+  // generic ability FX (src/render/abilityFx.js): casts, warning rings, shells, fizzles, unlock sparkles
+  // (Moon Pounce is Kon's to draw while his figure is up; on Kaze's Swoop, Kaze's figure dives on the targets in her
+  // reach and abilityFx strikes the rest from the sky: companions.js swoopTargets)
+  const abilityFx = createAbilityFx({
+    sim, fx, actors, colorOf: (uid) => towerColor(uid), reduceMotion, flash: screenFlash, shake,
+    companionOn: (uid) => !compBroken && companions.enabled && companions.has(uid),
+    companionDives: (uid) => (compBroken ? null : companions.swoopTargets(uid)),
+  });
 
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
+    abilityFx.frame();
     for (let i = 0; i < events.length; i++) {
       const ev = events[i];
       // companions observe only (before the FX layers that consume events)
@@ -382,6 +393,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       }
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
+      if (abilityFx.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
           actors.hitFlash(ev.uid);
@@ -455,7 +467,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (p) {
             fx.flash(p.x, 0.4, p.z, '#ff4d6d', 1.2, 0.35);
             fx.ring(p.x, p.z, 0.2, 1.1, 0.45, '#ff4d6d');
-            if (fx.numbers) fx.text(`-${ev.lives}`, p.x, 0.9, p.z, '#ff4d6d', 0.26, 1, 0.6);
+            if (fx.numbers) fx.text(`-${fmtNum(ev.lives, 'count')}`, p.x, 0.9, p.z, '#ff4d6d', 0.26, 1, 0.6);
           }
           if (ev.lives >= 5) {
             shake(0.06);
@@ -598,7 +610,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (v) {
             const m = v.model.position;
             fx.sparkle(m.x, m.z, '#ffd84d', { count: 16, height: 1.2 });
-            fx.text(`LV${ev.level}`, m.x, 1.15 + m.y, m.z, '#ffd84d', 0.24, 1.2, 0.5);
+            fx.text(fmtNum(ev.level, 'level'), m.x, 1.15 + m.y, m.z, '#ffd84d', 0.24, 1.2, 0.5);
           }
           break;
         }
@@ -975,9 +987,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     setPanelCover(c = {}) {
       panelCover = { right: Math.max(0, c.right || 0), bottom: Math.max(0, c.bottom || 0) };
     },
-    /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies. */
+    /** Extra: game-time speed (1–3×) so attack FX (drones) keep pace with the enemies, and a wave-clear sky dragon reaches START before an Auto start. */
     setTimeScale(s) {
       attackFx?.setTimeScale(s);
+      roster.setTimeScale(s);
     },
     /** Extra: buff icons over the girls — 'all' | 'selected' | 'off' (settings.buffIcons). */
     setBuffIcons(mode) {
@@ -994,6 +1007,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: a 1.2 s pulse ring on a girl the UI points at (the holder of a locked final tier). */
     pulseTower(uid) {
       overlays.pulseTower(uid);
+    },
+    /** Extra: an ability's reach ring on the map ({ x, y, r } in tiles; null hides it): the hold card, aim mode. */
+    setAbilityReach(o) {
+      overlays.setAbilityReach(o || null);
     },
     /** Legacy no-op: free placement shows no forbidden-zone shading (owner request). */
     showTileHints() {},

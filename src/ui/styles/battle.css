@@ -173,6 +173,17 @@
 .bt-card.bt-poor:not(.bt-deployed) .bt-card-art, .bt-card.bt-poor:not(.bt-deployed) .bt-card-name { filter: grayscale(0.85) brightness(0.62); }
 .bt-card.bt-poor:not(.bt-deployed) .bt-card-cost { color: #ff8a9b; }
 .bt-card.bt-active { transform: translateY(-5px); box-shadow: 0 0 0 3px var(--yellow), 0 8px 18px rgba(242,183,5,0.55); }
+/* a card the strip's edge cuts (an open drawer ends the strip early): faded, its price hidden until it is in view (a cut
+   price reads as a lower one), and a ‹ / › cue on that edge; a tap on the cue scrolls (towerBar paintEdges) */
+.bt-card.bt-card-part { opacity: 0.5; }
+.bt-card.bt-card-part .bt-card-cost-val, .bt-card.bt-card-part .bt-card-coin { visibility: hidden; }
+.bt-bar-cue {
+  display: none; position: absolute; top: 0; bottom: 0; z-index: 1; width: 32px; padding: 0 0 2px; border: 0; place-items: center; cursor: pointer;
+  font: 700 var(--fs-num)/1 var(--font-num); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+.bt-bar-cue-r { right: 0; background: linear-gradient(90deg, rgba(18, 36, 70, 0), rgba(18, 36, 70, 0.92) 55%); }
+.bt-bar-cue-l { left: 0; background: linear-gradient(270deg, rgba(18, 36, 70, 0), rgba(18, 36, 70, 0.92) 55%); }
+.bt-bar.bt-bar-more .bt-bar-cue-r, .bt-bar.bt-bar-less .bt-bar-cue-l { display: grid; }
 
 /* ---------- Placement hint ---------- */
 .bt-place-hint {
@@ -271,7 +282,7 @@
 }
 
 /* ---------- Feed + banners ---------- */
-.bt-feed { position: absolute; z-index: 6; left: 12px; top: calc(var(--bt-hud-h) + var(--safe-top) + 12px); display: flex; flex-direction: column; gap: 6px; width: min(340px, calc(100% - 24px)); }
+.bt-feed { position: absolute; z-index: 6; left: 12px; top: calc(var(--bt-hud-h) + var(--safe-top) + 12px); display: flex; flex-direction: column; gap: 6px; width: min(360px, calc(100% - 24px)); }
 .bt-toast {
   display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; color: #fff;
   background: rgba(31, 42, 68, 0.88); box-shadow: 0 2px 8px rgba(0,0,0,0.2); border-left: 4px solid #7cc4ff;
@@ -317,153 +328,476 @@
 @media (max-height: 500px) and (min-width: 701px) { .bt-banner-titan .bt-banner-title { font-size: 2rem; } }
 @media (max-width: 700px) { .bt-banner-titan { padding: 12px 40px 14px; } .bt-banner-titan .bt-banner-title { font-size: 1.9rem; } }
 
-/* ---------- Tower panel ---------- */
+/* ---------- The girl drawer and the hero drawer (towerPanel.js; UI_DIRECTION M2, the owner's tactical pick) ----------
+   One navy ink-plate drawer, --drawer-w wide (288 px on phones, 340 on PC), full height under the HUD, one --cut chamfer
+   at the top right with a hairline that follows it, hairline dividers inside. No backdrop blur over WebGL. Numbers in
+   Barlow Condensed tabular; caps labels; the yellow price buttons (owner default Q7); text pairs ≥ 4.5:1; nothing
+   under 12 px. Reduce motion: the drawer fades in (no slide). */
 .bt-panel {
-  position: absolute; z-index: 6; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 10px); bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 10px);
-  width: 352px; display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.97); backdrop-filter: blur(10px);
-  border-radius: 14px; box-shadow: var(--shadow-strong); overflow: hidden; border: 1px solid #fff;
+  --dw-line: var(--plate-line);
+  --dw-line-hi: rgba(150, 200, 255, 0.42);
+  --dw-fill: rgba(255, 255, 255, 0.06);
+  position: absolute; z-index: 6; right: calc(8px + var(--safe-right)); top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); bottom: calc(8px + var(--safe-bottom));
+  width: var(--drawer-w); display: flex; flex-direction: column; color: var(--on-plate);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  background:
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--dw-line-hi) calc(50% - 1px) 50%, transparent 50%) top right / var(--cut) var(--cut) no-repeat,
+    var(--plate-glass);
+  box-shadow: 0 8px 24px rgba(14, 25, 48, 0.35);
+  font-family: var(--font);
 }
-.bt-panel.bt-panel-in { animation: bt-panel-in 0.22s var(--bt-ease); }
-@keyframes bt-panel-in { from { opacity: 0; transform: translateX(24px); } }
-.bt-panel-scroll { flex: 1; overflow-y: auto; padding: 10px 12px; overscroll-behavior: contain; }
-.bt-panel-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
-.bt-panel-portrait { width: 64px; height: 64px; flex: none; border-radius: 10px; overflow: hidden; line-height: 0; box-shadow: 0 0 0 2px var(--rarity, #7aa7d9), 0 3px 8px rgba(29,78,137,0.25); }
-.bt-panel-portrait svg { width: 100%; height: 100%; }
-.bt-panel-id { flex: 1; min-width: 0; }
-.bt-panel-name { font-family: var(--font-head); font-weight: 900; font-style: italic; color: var(--navy); font-size: 1.25rem; display: flex; align-items: baseline; gap: 8px; }
-.bt-panel-tiers { font-size: 0.8rem; font-style: normal; color: #fff; background: var(--blue-deep); padding: 1px 8px; border-radius: 999px; letter-spacing: 0.06em; }
-.bt-panel-role { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; font-size: 0.78rem; font-weight: 800; color: var(--blue-deep); margin-top: 2px; }
-.bt-role-ico { width: 16px; height: 16px; display: inline-flex; line-height: 0; }
-.bt-role-ico svg { width: 100%; height: 100%; }
-.bt-dot { color: var(--muted); margin: 0 2px; }
-.bt-panel-meta { display: flex; gap: 12px; font-size: 0.76rem; color: var(--muted); font-weight: 700; margin-top: 3px; }
-.bt-panel-meta b { color: var(--navy); }
-.bt-section-label { display: flex; align-items: center; gap: 5px; font-weight: 900; font-style: italic; color: var(--navy); font-size: 0.82rem; margin: 8px 0 5px; }
-.bt-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.bt-target .bt-section-label { margin: 0; }
-.bt-seg { display: flex; background: rgba(29,78,137,0.08); border-radius: 8px; padding: 2px; gap: 2px; flex-wrap: wrap; }
-.bt-seg-btn { border: none; background: transparent; padding: 6px 9px; border-radius: 6px; font-weight: 800; font-size: 0.76rem; color: var(--muted); min-height: 30px; }
-.bt-seg-btn.on { background: #fff; color: var(--blue-deep); box-shadow: 0 1px 4px rgba(29,78,137,0.2); }
-.bt-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.bt-stat-cell { background: #fff; border-radius: 7px; padding: 4px 7px; display: flex; flex-direction: column; box-shadow: inset 0 0 0 1px var(--line); min-width: 0; }
-.bt-stat-cell span { font-size: 0.64rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-.bt-stat-cell b { font-size: 0.9rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-stat-main { background: linear-gradient(135deg, #eaf4ff, #fff); box-shadow: inset 0 0 0 1px #9fd0ff; }
-.bt-stat-main b { color: var(--blue); }
-.bt-stat-wide { grid-column: 1 / -1; }
-.bt-stat-wide2 { grid-column: span 2; }
-.bt-stat-wide b { white-space: normal; font-size: 0.8rem; }
-.bt-caps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.bt-cap { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px 2px 4px; border-radius: 999px; background: #eef6ff; color: var(--blue-deep); font-size: 0.7rem; font-weight: 800; }
-.bt-cap-ico { width: 16px; height: 16px; display: inline-flex; line-height: 0; }
-.bt-cap-ico svg { width: 100%; height: 100%; }
-.bt-cap-no { background: #f1f3f7; color: var(--muted); padding-left: 8px; }
-.bt-cap-status { background: #f3ecff; color: #6b3fc4; padding-left: 8px; }
-.bt-cap-buff { background: #fff4c2; color: #8a6200; padding-left: 8px; }
-.bt-cap-bad { background: #ffe3e8; color: #c9184a; padding-left: 8px; }
-.bt-paths { display: flex; flex-direction: column; gap: 6px; }
-.bt-path { background: #fff; border-radius: 10px; padding: 7px 8px; box-shadow: inset 0 0 0 1px var(--line); }
-.bt-path.main { box-shadow: inset 0 0 0 2px #9fd0ff; }
-.bt-path.locked { background: #f4f6fa; }
-.bt-path-head { display: flex; align-items: center; gap: 6px; }
-.bt-path-name { font-weight: 900; font-style: italic; color: var(--navy); font-size: 0.86rem; white-space: nowrap; }
-.bt-path-focus { flex: 1; min-width: 0; font-size: 0.68rem; color: var(--muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-pips { display: flex; gap: 3px; flex: none; }
-.bt-pip { width: 13px; height: 9px; border-radius: 2px; background: #dfe8f3; transform: skewX(var(--skew)); }
-.bt-pip.on { background: linear-gradient(180deg, #5fb0ff, var(--blue)); box-shadow: 0 0 4px rgba(43,127,255,0.6); }
-.bt-pip.next { background: #fff; box-shadow: inset 0 0 0 2px var(--yellow-deep); }
-.bt-pip.capped:not(.on) { background: repeating-linear-gradient(90deg, #e6e9ef 0 2px, #c9d0db 2px 4px); }
-.bt-path-body { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
-.bt-path-next { flex: 1; min-width: 0; }
-.bt-path-tname { font-weight: 900; font-size: 0.8rem; color: var(--blue-deep); }
-.bt-path-desc { font-size: 0.72rem; color: var(--ink); line-height: 1.3; }
-.bt-path-max { margin-top: 4px; font-size: 0.78rem; color: var(--muted); font-weight: 700; }
-.bt-path-max b { color: #c58a00; font-style: italic; }
+/* the straight edges of the hairline (the diagonal is the background's) */
+.bt-panel::before {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; padding: 1px; background: var(--dw-line-hi);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.bt-panel.bt-panel-in { animation: bt-panel-in var(--t-panel) var(--bt-ease); }
+@keyframes bt-panel-in { from { opacity: 0; transform: translateX(16px); } }
+/* Reduce motion (the system's or the game's): the drawer is simply there, never sliding */
+html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bt-panel.bt-panel-in { animation: none; } }
+/* caps labels and the section rule */
+.bt-dw-k { flex: none; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--blue-on-plate); }
+.bt-dw-rule {
+  flex: 1; height: 5px; align-self: center;
+  background: linear-gradient(var(--dw-line-hi) 0 0) left bottom / 100% 1px no-repeat, repeating-linear-gradient(90deg, var(--dw-line-hi) 0 1px, transparent 1px 8px) left bottom / 100% 4px no-repeat;
+}
+.bt-dw-sec, .bt-dt-sec, .bt-dt-title { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.bt-dt-title .bt-dw-k { color: var(--on-plate); }
+
+/* ---- header: portrait, name + code chip, role and attack chips, Tree, close */
+.bt-panel-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 6px; padding: 6px 8px 6px 10px; border-bottom: 1px solid var(--dw-line); }
+.bt-panel-portrait { width: 40px; height: 40px; flex: none; border-radius: var(--radius-plate); overflow: hidden; line-height: 0; cursor: pointer; background: #dbeeff; box-shadow: 0 0 0 2px var(--rarity, #7aa7d9); }
+.bt-panel-portrait svg, .bt-panel-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.bt-panel-id { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bt-panel-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
+.bt-panel-nm { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); }
+.bt-panel-tiers {
+  font: 700 var(--fs-body)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; font-style: normal;
+  padding: 3px 6px 2px; border-radius: 2px; color: var(--plate); background: var(--blue-on-plate);
+}
+.bt-panel-name .ur-badge { font-size: var(--fs-label); }
+.bt-panel-name .pot-pill { font-size: var(--fs-label); }
+.bt-dw-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.bt-dw-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px 3px 5px; border-radius: 2px;
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
+}
+.bt-dw-tag-ico, .bt-ult-ico .bt-dw-tag-ico { width: 14px; height: 14px; display: inline-flex; line-height: 0; flex: none; }
+.bt-dw-tag-ico svg { width: 100%; height: 100%; }
+/* Tree and close: 30 px icons whose hit area reaches the dense tap size */
+.bt-panel .bt-x {
+  position: relative; align-self: start; width: 30px; height: 30px; padding: 7px; border-radius: 2px; background: transparent; color: var(--on-plate-dim); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
+}
+.bt-panel .bt-x::after { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap-dense); height: var(--tap-dense); translate: -50% -50%; }
+.bt-panel .bt-x:active { transform: scale(0.96); }
+/* (Tree's hit area reaches left, over the name, ending where Close's begins: each one the dense tap size wide; the M4
+   review, round r1: Tree was 36 px wide) */
+.bt-panel .bt-panel-tree::after { left: auto; right: calc((var(--tap-dense) - 30px) / 2 - 6px); translate: 0 -50%; }
+
+/* ---- the scroll body */
+.bt-panel-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: thin; scrollbar-color: rgba(169, 188, 220, 0.5) transparent;
+}
+.bt-panel .bt-ally-note { margin: 0; padding: 6px 8px; border-radius: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); background: var(--dw-fill); border-left: 3px solid var(--ally, #ff8fab); }
+.bt-panel .bt-ally-note .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--on-plate-dim); }
+/* the scroll cue (phones hide thin scrollbars): a fade at the foot of the body and a ▾, while content sits below */
+.bt-panel-foot { position: relative; z-index: 2; } /* (over the stat row's layer: the cue and Sell's hit area stay on top) */
+.bt-scroll-cue {
+  display: none; position: absolute; left: 0; right: 0; bottom: 100%; height: 22px; pointer-events: none; place-items: end center;
+  background: linear-gradient(rgba(14, 25, 48, 0), rgba(14, 25, 48, 0.94));
+}
+/* (the ▾ on its own small ink pill: it lands on whatever text sits at the fold, and its glyph never mixes with that
+   text's letters; the M4 review, round r2: "ca▾n pass T2") */
+.bt-scroll-cue span {
+  margin-bottom: 1px; padding: 2px 9px 1px; border-radius: 999px; background: var(--plate); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
+  font: 700 var(--fs-label)/1 var(--font-num); color: var(--on-plate);
+}
+.bt-panel.bt-scroll-more .bt-scroll-cue { display: grid; }
+
+/* ---- rows of ink chips: target, strips, aim, flight */
+.bt-dw-row { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; min-height: 32px; }
+.bt-tchips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.bt-tchip {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 0 8px; border: 0; border-radius: 2px;
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.06em; text-transform: uppercase; color: var(--on-plate); background: var(--dw-fill);
+  box-shadow: inset 0 0 0 1px var(--dw-line-hi); cursor: pointer;
+}
+/* the hit area reaches the dense tap size above and below the 30 px chip */
+.bt-tchip::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
+.bt-tchip.on { background: var(--blue-on-plate); color: var(--plate); box-shadow: none; }
+.bt-tchip.picking { background: var(--yellow); color: var(--plate); box-shadow: none; }
+/* disabled (an ally's girl): the dim ink at full strength, never base.css's opacity 0.5 (UI_DIRECTION §5.5); the ally
+   note's lock and line say why */
+.bt-tchip:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
+.bt-tchip.on:disabled { color: var(--plate); }
+.bt-tchip-more { min-width: var(--tap-dense); color: var(--blue-on-plate); }
+.bt-tchip-more-ico { display: inline-flex; width: 18px; height: 4px; line-height: 0; }
+.bt-tchip-more-ico svg { width: 100%; height: 100%; display: block; }
+.bt-tchip:active:not(:disabled) { transform: scale(0.96); }
+/* (the keyboard's ring inside the chip: a phone's chip row clips what reaches past its band) */
+.bt-tchip:focus-visible { outline: 2px solid var(--on-plate); outline-offset: -3px; }
+.bt-buff-pick-now { flex: 1 1 auto; min-width: 0; font: 500 var(--fs-body)/1.25 var(--font); color: var(--on-plate-dim); }
+.bt-buff-pick-now b { color: var(--on-plate); font-weight: 700; }
+
+/* ---- the stat row: caps labels over big numbers (the first in the plate accent). It sits over every hit area that
+   reaches into it (a chip's above, the first path row's price and "i" below), so a tap on a label never changes her
+   target or buys (the M4 review, round r2); it takes its own taps instead: a tap on a stat says what it is (towerPanel
+   statRow) */
+.bt-dw-stats { position: relative; z-index: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border-top: 1px solid var(--dw-line); border-bottom: 1px solid var(--dw-line); }
+.bt-dw-stat { display: flex; flex-direction: column; gap: 3px; padding: 5px 6px 6px 8px; min-width: 0; }
+.bt-dw-stat + .bt-dw-stat { border-left: 1px solid var(--dw-line); }
+.bt-dw-lbl { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate-dim); white-space: nowrap; }
+.bt-dw-num { font: 700 var(--fs-num)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--on-plate); white-space: nowrap; }
+.bt-dw-num small { margin-left: 1px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate-dim); }
+.bt-dw-stat.acc .bt-dw-num { color: var(--plate-accent); }
+
+/* ---- path rows: the coloured edge, italic name, tier pips, "T3 · TIER NAME", the price button */
+.bt-paths { display: flex; flex-direction: column; }
+.bt-path {
+  --path: #ff5d7a;
+  display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; grid-template-areas: 'edge main act' 'edge extra extra'; column-gap: 9px; row-gap: 4px;
+  align-items: center; padding: 6px 0; border-bottom: 1px solid var(--dw-line);
+}
+.bt-path:last-child { border-bottom: 0; }
+.bt-path-edge { grid-area: edge; align-self: stretch; background: linear-gradient(180deg, var(--path), color-mix(in srgb, var(--path) 55%, #fff)); }
+.bt-path-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bt-path-main[role='button'] { cursor: pointer; }
+.bt-path-main:focus-visible { outline: 2px solid var(--blue-on-plate); outline-offset: 2px; }
+.bt-path-top { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px 6px; min-width: 0; }
+.bt-path-name { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); white-space: nowrap; }
+/* the name line stays one line on every drawer (towerPanel fitPaths; the M4 review, round r2: at 1024 and 1280 Sango's
+   "Wide Fragmentation" took two lines and its ⚡ a third): the pips move to the tier line, then the open row's ⚡ chip
+   folds (its open line says what the tier does), then the name takes the smaller size; last, a name that still would
+   not fit wraps beside its ⚡, never cut */
+.bt-pips-low .bt-path-tier { display: flex; align-items: center; gap: 6px; }
+.bt-pips-low .bt-path-tier .bt-pips { margin-left: auto; }
+.bt-path-name.bt-path-name-s { font-size: var(--fs-body); }
+.bt-path-name.bt-path-name-2l { min-width: 0; white-space: normal; }
+.bt-path.armed .bt-path-bolt.bt-fold { display: none; }
+.bt-path-tier { font: 600 var(--fs-label)/1.15 var(--font-num); letter-spacing: var(--track-label); color: var(--on-plate); }
+.bt-path-tier b { font-weight: 700; color: var(--blue-on-plate); }
+.bt-pips { display: flex; gap: 2px; flex: none; margin-left: auto; }
+/* tap 1 on any drawer: the open row's tier sentence takes the line and the pips step away, so its tier name never
+   breaks around them (the M4 review, round r3: look-r3-1, "T3 · STEEL / BROADHEADS" at 1024 and 1280) */
+.bt-path.armed .bt-pips { display: none; }
+.bt-pip { width: 11px; height: 6px; background: rgba(255, 255, 255, 0.16); transform: skewX(var(--skew)); }
+.bt-pip.on { background: var(--path); box-shadow: 0 0 5px color-mix(in srgb, var(--path) 55%, transparent); }
+.bt-pip.next { background: transparent; box-shadow: inset 0 0 0 1.5px var(--yellow); }
+.bt-pip.capped { background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 4px); }
+.bt-pip.held { background: repeating-linear-gradient(-45deg, var(--bad-on-plate) 0 2px, transparent 2px 4px); }
+.bt-path.armed { background: linear-gradient(90deg, color-mix(in srgb, var(--path) 14%, transparent), transparent 70%); }
+.bt-path-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.bt-panel .bt-dw-who { display: inline-flex; align-items: center; padding: 3px 6px; border: 0; border-radius: 2px; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-label); color: var(--blue-on-plate); background: transparent; box-shadow: inset 0 0 0 1px var(--blue-on-plate); }
+.bt-dw-fx { padding: 3px 6px; border-radius: 2px; font: 700 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.02em; color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); }
+.bt-path-desc { font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
+/* the open row (tap 1): under the whole row, the price included */
+.bt-path-open { grid-area: extra; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bt-path-abil { padding: 2px 6px; border-left: 3px solid var(--yellow); background: rgba(255, 221, 74, 0.1); color: var(--on-plate); font: 700 var(--fs-label)/1.3 var(--font); }
+.bt-path-abil.inline { flex: none; display: inline-flex; align-items: center; white-space: nowrap; }
+.bt-path-abil .kit-bolt { color: var(--yellow); }
+.bt-path-bolt { display: inline-flex; align-items: center; height: 18px; padding: 0 4px; border-radius: 2px; color: var(--yellow); box-shadow: inset 0 0 0 1px rgba(255, 221, 74, 0.55); flex: none; }
+.bt-path-bolt-ico { width: 12px; height: 12px; line-height: 0; }
+.bt-path-bolt-ico svg { width: 100%; height: 100%; display: block; }
+/* the yellow price button: tap 1 arms ("Buy · 565"), tap 2 buys */
 .bt-buy {
-  flex: none; display: flex; align-items: center; gap: 3px; border: none; min-width: 78px; min-height: 40px; padding: 6px 12px; border-radius: 8px; transform: skewX(var(--skew));
-  background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--navy); font-weight: 900; font-size: 0.9rem; box-shadow: 0 2px 6px rgba(242,183,5,0.45);
-  font-variant-numeric: tabular-nums; justify-content: center;
+  grid-area: act; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 62px; min-height: var(--tap-dense); padding: 0 10px;
+  border: 0; border-radius: var(--radius-plate); transform: skewX(var(--skew)); cursor: pointer;
+  background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--plate); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .bt-buy > * { transform: skewX(calc(var(--skew) * -1)); }
-.bt-buy:active:not(:disabled) { transform: skewX(var(--skew)) scale(0.94); }
-.bt-buy.poor { background: #e9edf3; color: #9aa5b8; box-shadow: none; }
-.bt-buy-coin { width: 16px; height: 16px; display: inline-flex; line-height: 0; }
-/* full price before gear Cost Reduction / cost-cut auras, struck through */
-.bt-buy-was { font-size: 0.72rem; font-weight: 700; opacity: 0.6; margin-right: 2px; }
-.bt-buy-coin svg { width: 100%; height: 100%; }
-.bt-lock { flex: none; max-width: 46%; display: flex; gap: 4px; align-items: flex-start; font-size: 0.68rem; font-weight: 700; color: #8a94a6; line-height: 1.25; }
-/* one final tier per path: the lock takes the row's full width under the tier text; the holder
-   line is its own button (Show selects and pulses her) */
-.bt-path-body-final { flex-wrap: wrap; }
+.bt-buy:active:not(:disabled) { transform: skewX(var(--skew)) scale(0.96); }
+.bt-buy.armed { box-shadow: 0 0 0 2px var(--on-plate), 0 2px 0 rgba(0, 0, 0, 0.45); }
+.bt-buy-label { font: italic 900 var(--fs-body)/1 var(--font-head); }
+.bt-buy.poor, .bt-buy:disabled, .bt-dw-price {
+  background: var(--dw-fill); color: var(--on-plate-dim); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
+}
+.bt-buy:disabled { cursor: default; opacity: 1; }
+.bt-dw-price { grid-area: act; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: var(--radius-plate); font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.bt-buy-coin { width: 16px; height: 16px; display: inline-flex; line-height: 0; flex: none; }
+.bt-buy-coin svg, .bt-buy-coin img { width: 100%; height: 100%; }
+.bt-dw-lockcoin { position: relative; display: inline-flex; line-height: 0; }
+.bt-dw-lockcoin .bt-buy-coin { filter: grayscale(1) brightness(0.8); }
+.bt-dw-lockcoin-lock { position: absolute; right: -4px; bottom: -3px; width: 11px; height: 11px; line-height: 0; color: var(--on-plate); filter: drop-shadow(0 0 1px #000); }
+.bt-dw-lockcoin-lock svg { width: 100%; height: 100%; }
+.bt-dw-max {
+  grid-area: act; padding: 3px 8px; transform: rotate(var(--sticker-tilt)); border-radius: 2px; background: var(--on-plate); color: var(--plate);
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+/* a locked path: one line and an "i"; the final tier another copy holds: the rule and her line with Show › */
+.bt-path-lock { grid-column: 2 / -1; display: flex; align-items: center; gap: 4px; font: 500 var(--fs-body)/1.25 var(--font); color: var(--bad-on-plate); }
+.bt-path-lock .bt-ico-sm { width: 14px; height: 14px; }
+.bt-dw-info {
+  position: relative; flex: none; width: 22px; height: 22px; margin-left: 2px; border: 0; border-radius: 50%; padding: 0; cursor: pointer;
+  font: 700 var(--fs-label)/22px var(--font-num); color: var(--plate); background: var(--on-plate-dim);
+}
+.bt-dw-info::after { content: ''; position: absolute; left: 50%; top: 50%; width: var(--tap-dense); height: var(--tap-dense); translate: -50% -50%; }
+/* (on a lock row the "i" sits on the row's second line: its hit area reaches up over the locked row's own name, which
+   takes no tap, so the last row's "i" keeps it whole above the drawer's footer; the M4 review, round r1: 28 px) */
+.bt-path-lock .bt-dw-info::after, .bt-lock-held .bt-dw-info::after { translate: -50% -75%; }
+.bt-path.locked .bt-path-name { color: var(--on-plate-dim); }
 .bt-lock-final {
-  flex: 1 1 100%; max-width: none; flex-direction: column; gap: 4px; padding: 5px 7px; border-radius: 8px;
-  background: #fff6e8; box-shadow: inset 0 0 0 1px #ffd8a8; color: #8a5300;
+  grid-column: 2 / -1; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border-radius: 2px;
+  background: rgba(255, 128, 149, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 128, 149, 0.45); color: var(--on-plate);
 }
-.bt-lock-line { display: flex; gap: 4px; align-items: flex-start; }
-.bt-lock-line .bt-ico-sm { flex: none; }
+.bt-lock-line { display: flex; gap: 4px; align-items: flex-start; font: 500 var(--fs-body)/1.25 var(--font); color: var(--bad-on-plate); }
+.bt-lock-line .bt-ico-sm { flex: none; width: 14px; height: 14px; margin-top: 2px; }
 .bt-final-show {
-  display: block; width: 100%; min-height: 28px; text-align: left; border: none; border-radius: 6px; padding: 4px 8px;
-  background: #fff; color: var(--blue-deep); font: inherit; font-size: 0.68rem; font-weight: 800; line-height: 1.25;
-  box-shadow: inset 0 0 0 1px #c9dcf5; cursor: pointer; white-space: normal; overflow-wrap: anywhere;
+  display: block; width: 100%; min-height: var(--tap-dense); text-align: left; border: 0; border-radius: 2px; padding: 4px 8px; cursor: pointer;
+  background: var(--dw-fill); color: var(--on-plate); font: 500 var(--fs-body)/1.25 var(--font); box-shadow: inset 0 0 0 1px var(--dw-line-hi); white-space: normal; overflow-wrap: anywhere;
 }
-.bt-final-show b { color: var(--blue); white-space: nowrap; }
+.bt-final-show b { color: var(--blue-on-plate); white-space: nowrap; }
 .bt-final-show:active { transform: scale(0.98); }
-.bt-pip.held:not(.on) { background: repeating-linear-gradient(135deg, #ffe0b3 0 2px, #f4a340 2px 4px); box-shadow: inset 0 0 0 1px #e8590c; }
-/* "Buffed by" / "Buffing": one row per source girl, her rim colour on the left edge (the same tint
-   as the icons over the girls); limited sources (brews, tune-ups) in a warmer card */
-.bt-buffs { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
-.bt-buff-row {
-  --tint: #adb5bd; display: flex; align-items: center; gap: 7px; width: 100%; min-height: 34px; border: none; border-radius: 8px; padding: 4px 8px 4px 5px;
-  background: #fff; text-align: left; font: inherit; cursor: pointer; box-shadow: inset 3px 0 0 var(--tint), inset 0 0 0 1px var(--line);
+/* (a phone's one-line holder: the lock on her line, the rule behind the "i") */
+.bt-lock-held { display: flex; align-items: center; gap: 6px; }
+.bt-lock-why, .bt-lock-held-ico { display: none; }
+
+/* ---- footer: INVESTED · MORE ▸ · SELL +n */
+.bt-panel-foot {
+  /* (56 px, Sell's dense tap size and its padding, with or without Sell: MORE's hit area stays inside an ally's footer) */
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: calc(56px + var(--safe-bottom)); padding: 6px 10px calc(6px + var(--safe-bottom));
+  border-top: 1px solid var(--dw-line); background: rgba(255, 255, 255, 0.03);
 }
-.bt-buff-row.limited { background: linear-gradient(90deg, #fffbea, #fff); box-shadow: inset 4px 0 0 var(--tint), inset 0 0 0 1px #ffe08a; }
+.bt-spent { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.bt-spent .bt-dw-k { color: var(--on-plate-dim); }
+.bt-spent b { font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--on-plate); }
+.bt-dw-more {
+  position: relative; flex: none; padding: 4px 9px; border: 0; border-radius: 2px; transform: rotate(var(--sticker-tilt)); cursor: pointer;
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi);
+}
+/* (an ink chip like the target chips: yellow is for prices) */
+.bt-dw-more::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap-dense)); height: var(--tap-dense); translate: -50% -50%; }
+.bt-dw-more.open { background: var(--blue-on-plate); color: var(--plate); box-shadow: none; }
+/* an ally's girl: MORE still opens her Details (online.css greys the ally drawer's other footer buttons) */
+.bt-panel-ally .bt-panel-foot .bt-dw-more { filter: none; opacity: 1; }
+.bt-sell {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap-dense); padding: 0 12px; border: 0; border-radius: 2px; cursor: pointer; white-space: nowrap;
+  font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.1em; color: var(--bad-on-plate); background: rgba(255, 77, 109, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 128, 149, 0.7);
+}
+.bt-sell b { font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--on-plate); }
+.bt-sell.armed { background: #c9184a; color: #fff; box-shadow: 0 0 0 2px var(--on-plate); }
+.bt-sell.armed b { color: #fff; }
+.bt-sell:active { transform: scale(0.96); }
+.bt-move { color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); letter-spacing: var(--track-label); }
+.bt-move .bt-ico-sm { width: 16px; height: 16px; }
+.bt-move:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
+
+/* ---- the hero drawer: XP bar (no numbers), Level up · price, Next, the ult row, the skill row */
+.bt-xp { display: flex; align-items: center; gap: 8px; }
+.bt-xp-bar { flex: 1; height: 8px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+.bt-xp-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8fe3ff, #c79bff); transition: width 0.3s; }
+.bt-xp-mastery { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--good-on-plate); white-space: nowrap; }
+.bt-hero-buy { display: flex; }
+.bt-hero-lvup { flex: 1; min-height: var(--tap); }
+.bt-hero-lvup .bt-buy-label { font-size: var(--fs-name); }
+.bt-hero-next { margin: 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); }
+.bt-hero-next .kit-bolt { color: var(--yellow); }
+.bt-ult-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid var(--dw-line); }
+.bt-ult-ico { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 2px; color: var(--yellow); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); }
+.bt-ult-ico .bt-dw-tag-ico { width: 20px; height: 20px; }
+.bt-ult-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bt-ult-info b { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); }
+.bt-ult-line { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--on-plate-dim); }
+.bt-ult-line .bt-ico-sm { width: 13px; height: 13px; }
+.bt-ult-btn {
+  --p: 0; flex: none; position: relative; width: 84px; height: var(--tap-dense); border: none; border-radius: 2px; padding: 0; overflow: hidden;
+  background: linear-gradient(90deg, var(--yellow) calc(var(--p) * 100%), rgba(255, 255, 255, 0.14) 0); display: grid; place-items: center;
+}
+.bt-ult-btn .bt-ult-ring { position: absolute; inset: 2px; border-radius: 1px; background: var(--plate); }
+.bt-ult-btn .bt-ult-label { position: relative; font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--on-plate); }
+.bt-ult-btn.ready .bt-ult-ring { background: linear-gradient(180deg, #fff38a, var(--yellow)); }
+.bt-ult-btn.ready .bt-ult-label { color: var(--plate); }
+.bt-ult-btn:disabled { opacity: 1; cursor: default; }
+.bt-ult-btn.locked .bt-ult-label { color: var(--on-plate-dim); }
+.bt-panel .bt-abrow { margin: 0; background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); clip-path: none; }
+.bt-panel .bt-abrow.hero { margin-top: 0; }
+/* a locked skill: its LV chip says when (the "Unlocks at LV 7" line would say it twice) */
+.bt-panel .bt-abrow.s-locked .bt-abrow-sub { display: none; }
+
+/* ---- MORE: the Details sheet (every stat, kills and damage dealt, Potential, buffs, the drone tabs, the track) */
+.bt-dt-line { margin: 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
+.bt-dt-line .bt-dw-tag-ico { width: 16px; height: 16px; vertical-align: -3px; }
+.bt-dt-ult b { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); }
+.bt-dt-ult p { margin: 2px 0 0; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
+.bt-dt-ult small { font-size: inherit; color: var(--on-plate-dim); }
+.bt-stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.bt-stat-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 4px 6px; border-radius: 2px; background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.bt-stat-cell span { font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-plate-dim); overflow-wrap: anywhere; }
+.bt-stat-cell b { font: 700 var(--fs-num-s)/1.1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--on-plate); overflow-wrap: anywhere; }
+.bt-stat-main b { color: var(--plate-accent); }
+.bt-stat-wide { grid-column: 1 / -1; }
+.bt-stat-wide2 { grid-column: span 2; }
+.bt-stat-wide b, .bt-stat-wide2 b { font: 600 var(--fs-body)/1.25 var(--font); }
+.bt-stat-main.bt-stat-wide2 b { font: 700 var(--fs-num-s)/1.1 var(--font-num); }
+.bt-caps { display: flex; flex-wrap: wrap; gap: 4px; }
+.bt-cap { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 5px; border-radius: 2px; font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: 0.04em; color: var(--on-plate); background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.bt-cap-ico { width: 16px; height: 16px; display: inline-flex; line-height: 0; }
+.bt-cap-ico svg { width: 100%; height: 100%; }
+.bt-cap-no { color: var(--on-plate-dim); padding-left: 8px; }
+.bt-cap-status { color: #d6c3ff; padding-left: 8px; }
+.bt-cap-bad { color: var(--bad-on-plate); padding-left: 8px; }
+.bt-panel .bt-pot { margin: 0; gap: 4px; }
+.bt-panel .bt-pot-row { font: 500 var(--fs-body)/1.25 var(--font); color: var(--on-plate); flex-wrap: wrap; }
+.bt-panel .bt-pot-row > b { white-space: normal; overflow: visible; }
+.bt-panel .bt-pot-row small { font-size: var(--fs-label); opacity: 1; color: var(--on-plate-dim); white-space: normal; }
+.bt-panel .bt-pot-pip { width: 8px; height: 8px; }
+/* "Buffed by" / "Buffing": one row per source girl, her rim colour on the left edge (limited sources warmer) */
+.bt-buffs { display: flex; flex-direction: column; gap: 4px; }
+.bt-buff-row {
+  --tint: #adb5bd; display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap-dense); border: none; border-radius: 2px; padding: 4px 8px 4px 6px;
+  background: var(--dw-fill); text-align: left; font: inherit; color: var(--on-plate); cursor: pointer; box-shadow: inset 3px 0 0 var(--tint), inset 0 0 0 1px var(--dw-line);
+}
+.bt-buff-row.limited { background: rgba(255, 221, 74, 0.08); box-shadow: inset 4px 0 0 var(--tint), inset 0 0 0 1px rgba(255, 221, 74, 0.4); }
 .bt-buff-row:active { transform: scale(0.98); }
-.bt-buff-face { flex: none; width: 22px; height: 22px; border-radius: 50%; overflow: hidden; display: inline-grid; place-items: center; background: #eef3fa; box-shadow: 0 0 0 2px var(--tint, #c9d6e6); }
-.bt-buff-face svg { width: 100%; height: 100%; }
-.bt-buff-face-none { color: var(--muted); }
+.bt-buff-face { flex: none; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; display: inline-grid; place-items: center; background: #dbeeff; box-shadow: 0 0 0 2px var(--tint, #c9d6e6); }
+.bt-buff-face svg, .bt-buff-face img { width: 100%; height: 100%; }
+.bt-buff-face-none { color: var(--plate); }
 .bt-buff-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
-.bt-buff-info b { font-size: 0.74rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-buff-what { font-size: 0.7rem; font-weight: 700; color: var(--blue-deep); }
-.bt-buff-kind { flex: none; font-size: 0.64rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.bt-buffs-more { align-self: flex-start; border: none; background: transparent; color: var(--blue); font: inherit; font-size: 0.72rem; font-weight: 900; padding: 2px 4px; min-height: 26px; cursor: pointer; }
-.bt-buffs-foot { font-size: 0.68rem; color: var(--muted); font-weight: 700; font-style: italic; }
-.bt-buff-lim { font-size: 0.72rem; color: var(--ink); line-height: 1.3; }
-.bt-buff-lim b { color: #8a5300; }
-.bt-buff-oc { color: #b26b00; font-weight: 800; }
-.bt-buff-held { font-size: 0.7rem; font-weight: 800; color: var(--blue-deep); }
-.bt-buffing-faces { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.bt-buffing-face { border: none; background: transparent; padding: 0; cursor: pointer; line-height: 0; }
-.bt-buffing-more { font-size: 0.7rem; font-weight: 900; color: var(--muted); }
-.bt-buff-pick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
-.bt-buff-pick-now { flex: 1 1 auto; min-width: 0; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
-.bt-buff-pick-now b { color: var(--navy); }
-.bt-buff-pick .bt-btn { min-height: 32px; padding: 5px 12px; font-size: 0.76rem; }
-.bt-buff-pick-btn.on { background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--navy); }
+.bt-buff-info b { font: 700 var(--fs-body)/1.2 var(--font); color: var(--on-plate); overflow-wrap: anywhere; }
+.bt-buff-what { font: 600 var(--fs-label)/1.25 var(--font-num); letter-spacing: 0.02em; color: var(--blue-on-plate); }
+.bt-buff-kind { flex: none; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-plate-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bt-buffs-more { align-self: flex-start; min-height: var(--tap-dense); border: none; background: transparent; color: var(--blue-on-plate); font: 700 var(--fs-body)/1 var(--font); padding: 0 4px; cursor: pointer; }
+.bt-buffs-foot { font: 500 var(--fs-label)/1.3 var(--font); font-style: italic; color: var(--on-plate-dim); }
+.bt-buff-lim { font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); }
+.bt-buff-lim b { color: var(--yellow); }
+.bt-buff-oc { color: var(--yellow); font-weight: 700; }
+.bt-buff-held { font: 700 var(--fs-body)/1.3 var(--font); color: var(--blue-on-plate); }
+.bt-buffing-faces { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bt-buffing-face { border: none; background: transparent; padding: 0; cursor: pointer; line-height: 0; min-width: 32px; min-height: 32px; display: grid; place-items: center; }
+.bt-buffing-more { font: 700 var(--fs-label)/1 var(--font-num); color: var(--on-plate-dim); }
 /* pick mode: the board says what a tap does */
 .bt-picking canvas { cursor: crosshair; }
-.bt-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px calc(8px + var(--safe-bottom)); background: rgba(234,246,255,0.95); border-top: 1px solid var(--line); }
-.bt-spent { font-size: 0.74rem; color: var(--muted); font-weight: 700; }
-.bt-sell { display: flex; align-items: center; gap: 5px; border: none; border-radius: 8px; padding: 8px 14px; min-height: 38px; font-weight: 900; background: #fff; color: #c9184a; box-shadow: inset 0 0 0 2px #ffb3c1; }
-.bt-sell.armed { background: linear-gradient(180deg, #ff7a90, var(--bad)); color: #fff; box-shadow: 0 2px 8px rgba(255,77,109,0.5); }
-.bt-hero-block { background: linear-gradient(135deg, #f6efff, #fff); border-radius: 10px; padding: 8px; margin-bottom: 6px; box-shadow: inset 0 0 0 1px #e2d3ff; }
-.bt-xp { display: flex; align-items: center; gap: 8px; }
-.bt-xp-lv { font-weight: 900; font-style: italic; color: #7a3fd6; }
-.bt-xp-bar { flex: 1; height: 8px; border-radius: 4px; background: #e6dcf7; overflow: hidden; }
-.bt-xp-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8fe3ff, #a86bff); transition: width 0.3s; }
-.bt-xp-text { font-size: 0.68rem; font-weight: 800; color: var(--muted); white-space: nowrap; }
-.bt-ult-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-.bt-ult-info { flex: 1; font-size: 0.74rem; }
-.bt-ult-info b { color: #7a3fd6; font-style: italic; }
-.bt-ult-desc { color: var(--ink); line-height: 1.25; }
-.bt-ult-btn {
-  --p: 0; flex: none; position: relative; width: 84px; height: 44px; border: none; border-radius: 10px; padding: 0; overflow: hidden;
-  background: linear-gradient(90deg, #ffd84d calc(var(--p) * 100%), #3c4f7d 0); display: grid; place-items: center;
+/* the hero's full track (MORE) */
+.bt-track { display: grid; gap: 2px; }
+.bt-track-row { display: grid; grid-template-columns: 34px 1fr; gap: 6px; align-items: start; padding: 4px; border-radius: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate-dim); }
+.bt-track-row.on { color: var(--on-plate); background: rgba(168, 107, 255, 0.14); }
+.bt-track-row.next { box-shadow: inset 0 0 0 1px #c79bff; color: var(--on-plate); }
+.bt-track-row.rank .bt-track-lv { color: var(--yellow); }
+.bt-track-lv { font: 700 var(--fs-body)/1.3 var(--font-num); color: #d6c3ff; }
+.bt-track-desc small { display: block; font-size: var(--fs-label); color: var(--on-plate-dim); }
+.bt-track .kit-bolt { color: var(--yellow); }
+.bt-track-skill { color: #ffb3cf; }
+
+/* the HUD hero widget steps away while her drawer is open (its level, ult and Level up are in the drawer: said once) */
+.bt-hero-drawer-open .bt-herow { display: none; }
+/* the tower bar ends left of the open drawer (the approved panel image), so no card hides under it; the wave control
+   steps left of it with the ability bar (landscape phones hide it while a drawer is open) */
+@media (min-width: 701px), (max-width: 700px) and (orientation: landscape) {
+  .bt-has-panel .bt-bar { right: calc(var(--drawer-w) + 8px + var(--safe-right)); }
+  .bt-has-panel .bt-wavectl { right: var(--bt-abar-panel-r); }
 }
-.bt-ult-btn .bt-ult-ring { position: absolute; inset: 3px; border-radius: 8px; background: #1d2a48; }
-.bt-ult-btn .bt-ult-label { position: relative; color: #fff; font-weight: 900; font-style: italic; font-size: 0.8rem; }
-.bt-ult-btn.ready .bt-ult-ring { background: linear-gradient(180deg, #fff38a, #f2b705); }
-.bt-ult-btn.ready .bt-ult-label { color: var(--navy); }
-.bt-ult-btn:disabled { opacity: 1; cursor: default; }
+
+/* phones (the 288 px drawer, 844x390): the three path rows stay in view with her ⚡ ability row, an aim / pick row or
+   Flight on the Glance (UI_DIRECTION §6.6 "all 3 visible without scrolling"; ABILITIES_SPEC §8.4). The approved
+   image's density: buttons and chips are smaller to the eye while their hit areas keep the dense tap size; tighter
+   paddings; the open row is one line under the whole row; Details in three columns. */
+@media (max-height: 480px) {
+  .bt-panel-head { padding: 4px 6px 4px 8px; row-gap: 3px; }
+  .bt-panel-id { gap: 3px; }
+  .bt-panel-tiers { padding: 2px 5px; }
+  .bt-dw-tag { padding: 2px 6px 2px 4px; }
+  /* the role and attack words would wrap (fitHeader): the attack type keeps its icon */
+  .bt-dw-chips-icons { flex-wrap: nowrap; }
+  .bt-dw-chips-icons .bt-dw-type { padding: 3px 5px; }
+  .bt-dw-chips-icons .bt-dw-type .bt-dw-tag-word { display: none; }
+  .bt-panel-scroll { padding: 2px 8px; gap: 2px; }
+  /* a chip row's band holds its chips' hit areas (the centred dense tap size, clipped to the band), so a chip never
+     takes a tap on the stat row, on another row's label or on her ⚡ row's FIRE and name (the M4 review, round r2: the
+     target chips reached 14 px down over DMG · RATE · RANGE and over Iroha's MIRROR). The room the drawer has to spare
+     under its last path row widens the bands, up to the dense tap size (towerPanel fitRowAir: --bt-row-air). A band
+     never shrinks under its chips when the body overflows (its clip would cut them): the body scrolls instead */
+  .bt-panel .bt-dw-row { flex-shrink: 0; min-height: 24px; padding-block: var(--bt-row-air, 0px); overflow: hidden; overflow: clip; }
+  /* each chip the dense tap size wide at least (the M4 review, round r1: LAST was 38 px, "+" 20 px); the target row's
+     TARGET label steps away for the room (FIRST · LAST · STRONG · CLOSE say what they are; the row's group label keeps
+     the word), as UPGRADES does below */
+  .bt-tchip { min-height: 24px; padding: 0 7px; min-width: var(--tap-dense); }
+  .bt-panel [data-testid="target-row"] > .bt-dw-k { display: none; }
+  .bt-dw-stat { padding: 2px 4px 1px 6px; gap: 0; }
+  /* (the phone type scale: 12 · 13 · 16 · 22, UI_DIRECTION P6) */
+  .bt-dw-num { font-size: var(--fs-num); }
+  /* the three path rows: their coloured edges say "upgrades" (the label is for the wide drawer) */
+  .bt-panel-scroll > .bt-dw-sec { display: none; }
+  .bt-path { padding: 2px 0; row-gap: 0; column-gap: 6px; }
+  .bt-path-open { margin-top: 2px; }
+  /* a locked path is one row high like the others (the M4 re-review: a lock under the tier line made the row two lines
+     and cut the third row): its lock line takes the tier line's place, the lock, the short reason and the "i"
+     (UI_DIRECTION §6.6 "a lock icon … tap for the one-line reason"; the pips still show the capped tiers). The "i" is
+     16 px to the eye, its hit area the dense tap size. The final tier another copy holds shows her "Held by … · Show ›"
+     line there, the rule behind the "i". */
+  .bt-path.locked .bt-path-tier { display: none; }
+  .bt-path-lock, .bt-lock-final { margin-top: 1px; }
+  .bt-path-lock, .bt-lock-line { font-size: var(--fs-label); line-height: 1.25; }
+  .bt-panel .bt-dw-info { width: 16px; height: 16px; line-height: 16px; }
+  .bt-lock-final.has-holder { padding: 0; background: none; box-shadow: none; }
+  .bt-lock-final.has-holder .bt-lock-line { display: none; }
+  .bt-lock-final.has-holder .bt-lock-why { display: inline-block; }
+  .bt-lock-final .bt-final-show { position: relative; flex: 1; min-width: 0; width: auto; min-height: 17px; display: flex; align-items: center; gap: 4px; padding: 1px 6px; font-size: var(--fs-label); line-height: 1.25; }
+  .bt-lock-final .bt-final-show::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
+  /* her line stays one line: when her place on the map ("· bottom right") would not fit, it steps away, whole
+     (towerPanel fitHolder; the button's title keeps it) */
+  .bt-lock-final .bt-final-show > span { white-space: nowrap; }
+  .bt-lock-final .bt-final-show.bt-final-short > span { white-space: normal; }
+  .bt-final-show.bt-final-short .bt-final-where { display: none; }
+  .bt-lock-held-ico { display: inline-flex; flex: none; width: 13px; height: 13px; color: var(--bad-on-plate); }
+  .bt-path-main { gap: 1px; }
+  /* the name, its ⚡ chip and the pips share the first line (a longer name used to push the pips onto a line of their
+     own; the fit steps are above) */
+  .bt-path-top { gap: 2px 5px; }
+  .bt-path-name { font-size: var(--fs-name); line-height: 1; }
+  .bt-path-bolt { height: 16px; padding: 0 3px; }
+  .bt-pips { gap: 2px; }
+  .bt-pip { width: 8px; height: 5px; }
+  /* tap 1 widens the price ("Buy · 100", its words say coins): for that moment the open line says what the tier does
+     and the pips step away */
+  .bt-path.armed .bt-pips, .bt-path .bt-buy.armed:not(.poor) .bt-buy-coin { display: none; }
+  .bt-path .bt-buy, .bt-dw-price { min-height: 30px; }
+  .bt-path .bt-buy::after, .bt-panel-foot .bt-sell::after, .bt-panel .bt-abrow-fire::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%;
+  }
+  /* the open row: ONE line (towerPanel showOpenRow leaves out an effect chip that would wrap, whole) */
+  .bt-path-open { gap: 2px; }
+  .bt-path-chips { flex-wrap: nowrap; overflow: hidden; }
+  .bt-path-chips > * { flex: none; white-space: nowrap; }
+  .bt-panel .bt-path-chips .bt-dw-who, .bt-path-chips .bt-dw-fx { padding: 2px 5px; }
+  .bt-path-abil.inline { padding: 1px 5px; }
+  /* her ⚡ row: one 34 px line (FIRE is 28 px to the eye; the row is its hit area) */
+  .bt-panel .bt-abrow { padding: 3px 6px 3px 8px; }
+  .bt-panel .bt-abrow-top { min-height: 28px; }
+  /* (no clip: fitAll keeps the name in its box, two smaller lines or no ⚡ before an ellipsis, and the e2e measures it;
+     a clip would also cut the hit area below, which reaches the dense tap size) */
+  .bt-panel .bt-abrow-name { position: relative; min-height: 28px; overflow: visible; }
+  .bt-panel .bt-abrow-name::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-dense); translate: 0 -50%; }
+  /* the edge controls' hit areas step inward from the drawer's edge, which would clip them (Tree and Close at its top,
+     Sell and MORE at its foot), so each stays the dense tap size */
+  .bt-panel .bt-x::after { translate: -50% calc(-50% + 2px); }
+  .bt-panel .bt-panel-tree::after { translate: 0 calc(-50% + 2px); }
+  /* Sell and MORE: their hit areas fill the footer's own height and never reach above it, so a tap on the last path
+     row (its lock "i", its price) can never land on Sell (the M4 review, round r3: two quick taps on that "i" sold
+     her). The footer is 36 px tall here: 3 px padding over and under the 30 px Sell; MORE's is 30 px. */
+  .bt-panel-foot .bt-sell::after { top: -3px; bottom: calc(-3px - var(--safe-bottom)); height: auto; translate: none; }
+  .bt-panel-foot .bt-dw-more::after { top: calc(50% - 15px); bottom: auto; height: 30px; translate: -50% 0; }
+  .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
+  /* (her open row's Auto keeps its own face: FIRE's and her name's hit areas reach 6 px down over it; the M4 review,
+     round r2 measured Auto at 35 px) */
+  .bt-panel .bt-abrow-auto { position: relative; }
+  /* an ability that comes later: its name on one line, the short note ("Later update", abilityRow.js) beside it, so the
+     row stays one line (the M4 review: two two-line pieces pushed the third path row under the fold) */
+  .bt-panel .bt-abrow.s-later { display: flex; align-items: center; gap: 8px; }
+  .bt-panel .bt-abrow.s-later .bt-abrow-top { flex: 1 1 auto; min-width: 0; }
+  .bt-panel .bt-abrow.s-later .bt-abrow-name { line-height: 1.05; }
+  .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-sub { flex: none; margin: 0; }
+  .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: none; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
+  /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
+  .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
+  .bt-panel .bt-ally-note .bt-ico-sm { width: 13px; height: 13px; margin-right: 3px; }
+  /* (36 px with or without Sell: an ally's footer has none, and MORE's 30 px hit area stays inside it) */
+  .bt-panel-foot { min-height: calc(36px + var(--safe-bottom)); padding: 3px 8px calc(3px + var(--safe-bottom)); }
+  .bt-panel-foot .bt-sell { position: relative; min-height: 30px; }
+  .bt-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 /* ---------- Overlays: pause + results ---------- */
 .bt-overlay { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(20, 35, 60, 0.5); backdrop-filter: blur(3px); animation: fade-in 0.2s; overflow-y: auto; }
@@ -588,12 +922,6 @@
   .bt-card { width: 68px; height: 80px; }
   .bt-card-hero { width: 72px; }
   .bt-card-art { height: 58px; }
-  .bt-panel {
-    left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 64%; border-radius: 16px 16px 0 0; z-index: 8;
-  }
-  .bt-panel::before { content: ''; position: absolute; left: 50%; top: 5px; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: #c9d4e5; }
-  .bt-panel.bt-panel-in { animation: bt-sheet-up 0.26s var(--bt-ease); }
-  .bt-panel-scroll { padding-top: 14px; }
   .bt-has-panel .bt-wavectl, .bt-has-panel .bt-herow { display: none; }
   .bt-feed { left: 0; right: 0; margin: 0 auto; align-items: center; }
   .bt-place-hint { bottom: auto; top: calc(var(--bt-hud-h) + var(--safe-top) + 10px); font-size: 0.8rem; }
@@ -618,6 +946,20 @@
   .bt-wave-label { font-size: 0.56rem; letter-spacing: 0; }
   .bt-speed { width: 48px; padding: 0 6px; }
 }
+/* narrow portrait: the ink drawer is a bottom sheet (the full width, at most 64 % tall). A phone held sideways under
+   701 px wide (667x375) keeps the 288 px side drawer and the phone density (the M4 review: a 667 px sheet hid the path
+   rows) */
+@media (max-width: 700px) and (orientation: portrait) {
+  .bt-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 64%; z-index: 8; }
+  .bt-panel.bt-panel-in { animation: bt-sheet-up 0.26s var(--bt-ease); }
+}
+/* a phone held sideways under 701 px wide (667x375): the side drawer starts under the HUD's first row (the next-wave
+   row's words sit at its left, clear of the drawer), and the feed stays left of the drawer */
+@media (max-width: 700px) and (orientation: landscape) {
+  .bt-panel { top: calc(47px + var(--safe-top)); bottom: calc(4px + var(--safe-bottom)); z-index: 8; }
+  /* (its one-line toasts are the landscape phone's, below) */
+  .bt-has-panel .bt-feed { left: 8px; right: auto; margin: 0; align-items: stretch; width: min(350px, calc(100% - var(--drawer-w) - 24px - var(--safe-right))); }
+}
 @keyframes bt-sheet-up { from { transform: translateY(40%); opacity: 0.4; } }
 
 /* Landscape phones: compact everything vertically */
@@ -634,30 +976,28 @@
   .bt-card-art { height: 48px; }
   .bt-card-name { display: none; }
   .bt-card.bt-deployed .bt-card-deployed { font-size: 0.66rem; } /* "Deployed" fits the 64px hero card */
-  .bt-panel { width: 340px; bottom: calc(6px + var(--safe-bottom)); top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); z-index: 8; }
+  /* the drawer: --drawer-w (288 px on a phone), full height under the HUD, beside the tower bar's right end */
+  .bt-panel { bottom: calc(6px + var(--safe-bottom)); top: calc(var(--bt-hud-h) + var(--safe-top) + 4px); z-index: 8; }
   /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
-  .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(300px, 40%); gap: 4px; align-items: stretch; }
+  .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(350px, 42%); gap: 4px; align-items: stretch; }
   .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px); }
-  .bt-toast { padding: 4px 9px; font-size: 0.72rem; border-left-width: 3px; opacity: 0.92; }
-  .bt-toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .bt-toast-ico { width: 14px; height: 14px; }
   .bt-banner { padding: 6px 44px 7px; }
   .bt-banner-title { font-size: 1.35rem; }
   .bt-banner-sub { font-size: 0.78rem; }
   .bt-has-panel .bt-wavectl { display: none; }
-  .bt-panel-scroll { padding: 8px 10px; }
-  .bt-panel-portrait { width: 46px; height: 46px; }
-  .bt-panel-name { font-size: 1.05rem; }
-  .bt-panel-head { margin-bottom: 4px; }
-  .bt-seg-btn { padding: 4px 7px; min-height: 26px; font-size: 0.7rem; }
-  .bt-section-label { margin: 5px 0 4px; }
-  .bt-path { padding: 5px 7px; }
-  .bt-buy { min-height: 34px; min-width: 70px; padding: 4px 10px; }
-  .bt-panel-foot { padding: 6px 10px calc(6px + var(--safe-bottom)); }
-  .bt-sell { padding: 6px 12px; }
   .bt-herow-portrait { width: 54px; height: 54px; }
   .bt-ult { width: 48px; height: 48px; }
   .bt-start-label { font-size: 1.15rem; }
+}
+/* landscape phones, 844x390 and under 701 px wide (667x375): compact toasts at the type floor (one rule for both, so the
+   lock "i"'s longest reason fits the same feed width on each: one line in the 350 px feed, rules.js LOCK_WHY_MAX; it
+   was 340 px before the floor). A longer toast (a tip)
+   wraps onto a second line, never cut by an ellipsis (UI_DIRECTION P6; the M4 review, round r1: 11.5 px, and "Tip: hold
+   a girl (or her card) to see her whole u…") */
+@media (max-height: 500px) and (min-width: 701px), (max-width: 700px) and (orientation: landscape) {
+  .bt-toast { padding: 4px 8px; font-size: var(--fs-label); line-height: 1.3; border-left-width: 3px; opacity: 0.92; }
+  .bt-toast-text { min-width: 0; overflow-wrap: break-word; }
 }
 
 /* spawn-aware feed docking (feed.js): swap to the other top corner when a spawn gate sits under
@@ -667,6 +1007,9 @@
   .bt-feed.bt-feed-l { left: 12px; right: auto; }
   .bt-feed.bt-feed-r .bt-toast { animation-name: bt-slide-r; }
   .bt-feed.bt-feed-r .bt-toast.out { transform: translateX(12px); }
+  /* a feed docked right steps left of an open drawer, beside it like the ability bar (the M4 re-review: at 1280 a lock
+     "i"'s reason and "Need N more coins" sat under the drawer); landscape phones dock right by default, see below */
+  .bt-has-panel .bt-feed.bt-feed-r { right: var(--bt-abar-panel-r); max-width: calc(100% - var(--bt-abar-panel-r) - 12px); }
 }
 @keyframes bt-slide-r { from { opacity: 0; transform: translateX(14px); } }
 
@@ -1077,22 +1420,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 .bt-herow-lvup-cost { display: flex; align-items: center; gap: 2px; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
 .bt-herow-lvup.poor { background: linear-gradient(180deg, #e9edf3, #c9d1de); color: #6d7890; box-shadow: inset 0 0 0 2px #fff; }
 .bt-herow-lvup:active { transform: scale(0.95); }
-.bt-hero-buy { margin-top: 6px; }
-.bt-hero-lvup { width: 100%; justify-content: center; }
-.bt-track-nexts { margin-top: 6px; display: grid; gap: 3px; font-size: 0.72rem; color: var(--muted); }
-.bt-track-next b { color: #7a3fd6; }
-.bt-track-next.first { color: var(--navy); }
-.bt-track-toggle { margin-top: 5px; border: none; background: none; padding: 2px 0; font-weight: 900; font-size: 0.72rem; color: #7a3fd6; }
-.bt-track { margin-top: 4px; display: grid; gap: 2px; }
-.bt-track-row { display: grid; grid-template-columns: 34px 1fr; gap: 6px; align-items: start; padding: 3px 4px; border-radius: 6px; font-size: 0.7rem; color: var(--muted); }
-.bt-track-row.on { color: var(--navy); background: rgba(168,107,255,0.08); }
-.bt-track-row.next { box-shadow: inset 0 0 0 1px #c79bff; color: var(--navy); }
-.bt-track-row.rank .bt-track-lv { color: #d18a00; }
-.bt-track-lv { font-weight: 900; font-style: italic; color: #7a3fd6; }
-.bt-track-desc small { display: block; font-size: 0.6rem; opacity: 0.75; }
-.bt-ult-desc small { opacity: 0.8; }
-.bt-move { color: #1d4e89; box-shadow: inset 0 0 0 2px #9fd3ff; }
-.bt-move:disabled { opacity: 0.6; }
+/* (the hero drawer's Level up, Next line, track and Move: the drawer section above) */
 .bt-sum-hero { margin: -6px 0 10px; font-weight: 800; font-size: 0.8rem; color: #7a3fd6; text-align: center; }
 @media (max-width: 700px) {
   .bt-herow-lvup { width: 80px; height: 30px; }
@@ -1106,67 +1434,315 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 @media (prefers-reduced-motion: reduce) { .bt-card-hero-arm { animation: none; box-shadow: 0 0 0 3px #7ff0c5; } }
 .bt-herow-lv { white-space: nowrap; }
 
-/* ---------- Drone owners (Chika): split bar, Flight row, tabs, drone list and card (chikaPanel.js) ---------- */
-.bt-dr-split { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 800; color: var(--muted); margin: 0 0 6px; }
-.bt-dr-split-her { color: #b07d00; white-space: nowrap; }
-.bt-dr-split-wing { color: #1c8fb8; white-space: nowrap; }
-.bt-dr-split-bar { height: 6px; border-radius: 3px; background: #4cc9f0; overflow: hidden; }
-.bt-dr-split-fill { display: block; height: 100%; width: 0; background: #ffb703; transition: width 0.4s; }
-.bt-dr-flight { margin-bottom: 6px; }
-.bt-dr-flight .bt-target { margin-bottom: 2px; flex-wrap: nowrap; }
-.bt-dr-flight-seg { flex-wrap: nowrap; }
-.bt-dr-flight-seg .bt-seg-btn.on { color: #0e7ea6; }
-.bt-dr-flight-seg .bt-seg-btn.picking { background: #fff3cf; color: #9a6a00; box-shadow: inset 0 0 0 1px #ffb703; }
-.bt-dr-flight-seg .bt-seg-btn:disabled { opacity: 0.55; }
-.bt-dr-hint { font-size: 0.68rem; font-weight: 700; color: var(--muted); line-height: 1.25; }
-.bt-dr-picking { color: #9a6a00; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.bt-dr-link { border: none; background: none; padding: 0 2px; font-weight: 900; font-size: 0.7rem; color: var(--blue-deep); text-decoration: underline; cursor: pointer; }
-.bt-dr-tabs { position: sticky; top: -10px; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 2px; margin: 0 0 6px; border-radius: 9px; background: rgba(29,78,137,0.1); }
-.bt-dr-tab { position: relative; border: none; background: transparent; min-height: 30px; padding: 4px 2px; border-radius: 7px; font-weight: 900; font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-dr-tab.on { background: #fff; color: var(--blue-deep); box-shadow: 0 1px 4px rgba(29,78,137,0.22); }
-.bt-dr-coin { position: absolute; top: 3px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: #ffc531; box-shadow: 0 0 0 1px #c58a00; }
-.bt-dr-body .bt-stats-grid { margin-bottom: 4px; }
-.bt-dr-note { margin: 4px 0 0; font-size: 0.68rem; font-weight: 700; color: var(--muted); line-height: 1.3; }
-.bt-dr-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
-.bt-dr-row { display: grid; grid-template-columns: 10px 1fr auto auto auto; align-items: center; gap: 6px; min-height: 28px; padding: 3px 8px; border: none; border-radius: 7px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); text-align: left; font-size: 0.76rem; color: var(--navy); cursor: pointer; }
-.bt-dr-row:hover { box-shadow: inset 0 0 0 1px #9fd0ff; }
-.bt-dr-row-name { font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-dr-row-kills { font-size: 0.66rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
-.bt-dr-row-dmg { min-width: 44px; text-align: right; }
-.bt-dr-top { font-size: 0.6rem; font-weight: 900; color: #9a6a00; background: #fff3cf; border-radius: 999px; padding: 0 6px; }
+/* ---------- Drone owners (Chika): the Flight row on the drawer; MORE's split bar, tabs, drone list and card (chikaPanel.js) ---------- */
+.bt-dr-split { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; }
+.bt-dr-split-her { color: var(--yellow); white-space: nowrap; }
+.bt-dr-split-wing { color: var(--blue-on-plate); white-space: nowrap; }
+.bt-dr-split-bar { height: 6px; border-radius: 1px; background: var(--blue-on-plate); overflow: hidden; }
+.bt-dr-split-fill { display: block; height: 100%; width: 0; background: var(--yellow); transition: width 0.4s; }
+.bt-dr-flight { display: flex; flex-direction: column; gap: 4px; }
+.bt-dr-flight-seg { flex: 1; flex-wrap: nowrap; }
+.bt-dr-flight-seg .bt-tchip { flex: 1; padding: 0 4px; }
+.bt-dr-hint { font: 500 var(--fs-label)/1.3 var(--font); color: var(--on-plate-dim); }
+.bt-dr-picking { color: var(--yellow); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bt-dr-link { min-height: 32px; border: none; background: none; padding: 0 4px; font: 700 var(--fs-label)/1 var(--font); color: var(--blue-on-plate); text-decoration: underline; cursor: pointer; }
+.bt-dr-tabs { position: sticky; top: -8px; z-index: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 2px; background: var(--plate); box-shadow: inset 0 0 0 1px var(--dw-line-hi); }
+.bt-dr-tab { position: relative; border: none; background: transparent; min-height: var(--tap-dense); padding: 0 4px; border-radius: 1px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--on-plate-dim); cursor: pointer; }
+.bt-dr-tab.on { background: var(--blue-on-plate); color: var(--plate); }
+.bt-dr-body { display: flex; flex-direction: column; gap: 6px; }
+.bt-dr-body > div { display: flex; flex-direction: column; gap: 6px; }
+.bt-dr-note { margin: 0; font: 500 var(--fs-label)/1.35 var(--font); color: var(--on-plate-dim); }
+.bt-dr-list { display: flex; flex-direction: column; gap: 3px; }
+.bt-dr-row {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto auto; align-items: center; gap: 6px; min-height: var(--tap-dense); padding: 0 8px; border: none; border-radius: 2px;
+  background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line); text-align: left; font: 700 var(--fs-body)/1.2 var(--font); color: var(--on-plate); cursor: pointer;
+}
+.bt-dr-row:hover { box-shadow: inset 0 0 0 1px var(--dw-line-hi); }
+.bt-dr-row-name { overflow-wrap: anywhere; }
+.bt-dr-row-kills { font: 600 var(--fs-label)/1 var(--font-num); color: var(--on-plate-dim); white-space: nowrap; }
+.bt-dr-row-dmg { min-width: 40px; text-align: right; font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.bt-dr-top { font: 700 var(--fs-label)/1 var(--font-num); color: var(--plate); background: var(--yellow); border-radius: 2px; padding: 2px 5px; }
 .bt-dr-dot { width: 9px; height: 9px; border-radius: 50%; background: #aab4c3; display: inline-block; flex: none; }
 .bt-dr-dot[data-state='hunting'] { background: #4cc9f0; box-shadow: 0 0 0 2px rgba(76,201,240,0.25); }
 .bt-dr-dot[data-state='returning'] { background: #8fd3ea; }
 .bt-dr-dot[data-state='jammed'], .bt-dr-dot[data-state='stalled'] { background: #ffb703; }
-.bt-dr-card { display: flex; flex-direction: column; gap: 4px; }
-.bt-dr-card-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
-.bt-dr-card-name { text-align: center; font-family: var(--font-head); font-style: italic; color: var(--navy); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-dr-back, .bt-dr-step { border: none; border-radius: 7px; min-height: 30px; padding: 3px 9px; background: rgba(29,78,137,0.08); font-weight: 900; font-size: 0.74rem; color: var(--blue-deep); cursor: pointer; }
+.bt-dr-card { display: flex; flex-direction: column; gap: 6px; }
+.bt-dr-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.bt-dr-card-name { text-align: center; font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); overflow-wrap: anywhere; }
+.bt-dr-back, .bt-dr-step { border: none; border-radius: 2px; min-height: var(--tap-dense); min-width: var(--tap-dense); padding: 0 8px; background: var(--dw-fill); box-shadow: inset 0 0 0 1px var(--dw-line-hi); font: 700 var(--fs-body)/1 var(--font); color: var(--on-plate); cursor: pointer; }
 .bt-dr-steps { display: flex; gap: 3px; }
-.bt-dr-owner { font-size: 0.7rem; font-weight: 800; color: var(--muted); }
-.bt-dr-state { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 900; color: var(--navy); }
+.bt-dr-owner { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: 0.02em; color: var(--on-plate-dim); }
+.bt-dr-state { display: flex; align-items: center; gap: 6px; font: 700 var(--fs-body)/1.2 var(--font); color: var(--on-plate); }
 .bt-dr-banner { position: absolute; z-index: 9; left: 50%; transform: translateX(-50%); top: calc(var(--bt-hud-h) + var(--safe-top) + 8px); display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); padding: 6px 12px; border-radius: 999px; background: rgba(255, 243, 207, 0.97); box-shadow: 0 0 0 1px #ffb703, var(--shadow-strong); font-weight: 900; font-size: 0.8rem; color: #7a5300; white-space: nowrap; }
 .bt-dr-banner[hidden] { display: none; }
+.bt-dr-banner > .bt-dr-link { flex: none; color: var(--blue-deep); }
+/* while an aim banner is up, the feed steps below it, so its toasts ("Tap a point on the map.") are never under it
+   (--bt-aim-h: the banner's height + 8 px, set by aimControl.js; 0 without one) */
+.bt-feed { translate: 0 var(--bt-aim-h, 0px); }
 @media (max-height: 500px) and (min-width: 701px) {
-  .bt-dr-split { margin-bottom: 4px; font-size: 0.68rem; }
-  .bt-dr-flight { margin-bottom: 4px; }
-  .bt-panel-drones .bt-target { flex-wrap: nowrap; gap: 6px; }
-  .bt-panel-drones .bt-target > .bt-section-label { font-size: 0; gap: 0; flex: none; }
-  .bt-panel-drones .bt-target > .bt-seg { flex: 1; flex-wrap: nowrap; }
-  .bt-panel-drones .bt-target > .bt-seg .bt-seg-btn { flex: 1; padding: 4px 3px; }
-  .bt-dr-flight-seg { flex: 1; }
-  .bt-dr-flight-seg .bt-seg-btn { flex: 1; }
-  .bt-dr-tabs { top: -8px; margin-bottom: 4px; }
-  .bt-dr-tab { font-size: 0.72rem; min-height: 28px; }
-  .bt-has-panel .bt-dr-banner { left: calc(50% - 175px); }
-  /* a short screen: the drone owner's header stays on one line and the mode hint shows only while picking */
-  .bt-panel-drones .bt-panel-role { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
-  .bt-panel-drones .bt-panel-meta { margin-top: 1px; }
-  .bt-panel-drones .bt-dr-hint:not(.bt-dr-picking) { display: none; }
-  .bt-panel-drones .bt-target { margin-bottom: 4px; }
+  /* beside an open drawer the banner is centred in the map left of it and never wider than that strip: a long line
+     (Time Out! from her drawer's FIRE) wraps onto two lines instead of running off the left edge or under the drawer */
+  .bt-has-panel .bt-dr-banner {
+    left: calc((100% - var(--bt-abar-panel-r)) / 2); max-width: calc(100% - var(--bt-abar-panel-r) - 24px);
+    white-space: normal; text-wrap: balance; border-radius: 16px; line-height: 1.25;
+  }
+  .bt-has-panel .bt-dr-banner > span { min-width: 0; }
 }
+
+/* ---------- Ability bar (src/ui/battle/abilityBar.js; ABILITIES_SPEC §8.1–§8.2, UI_DIRECTION §4.5, §6.6) ----------
+   Bottom right, the right thumb's corner (the hero widget holds the left). Ink plates with one chamfer and condensed
+   tabular numbers, so the M2 battle look keeps it where it is. It sets --hud-ability-h on the battle shell: the wave
+   control lifts by it and the drawer, toasts and banners keep clear. A card armed or dragged: 35%, no taps. */
+/* (--ab-herow-top: the hero widget's top over the tower bar, its Lv badge included: the hold card's left-side floor) */
+/* (--bt-abar-panel-r: the bar's right edge beside the open drawer: the drawer's width, its 8 px margin and a 12 px gap) */
+.bt-root { --ab-s: 56px; --ab-gap: 8px; --ab-cut: 8px; --ab-right: 14px; --ab-bottom: 12px; --ab-herow-top: 84px; --bt-abar-h: 66px; --bt-abar-panel-r: calc(var(--drawer-w) + 20px + var(--safe-right)); }
+.bt-wavectl { bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px + var(--hud-ability-h, 0px)); }
+@media (min-width: 701px) {
+  .bt-place-hint { bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px + var(--hud-ability-h, 0px)); }
+}
+.bt-abar {
+  position: absolute; z-index: 5; right: calc(var(--ab-right) + var(--safe-right)); bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-bottom));
+  display: flex; align-items: flex-end; gap: var(--ab-gap); transition: right var(--t-panel) var(--bt-ease), opacity 0.15s;
+}
+.bt-abar-list { display: flex; gap: var(--ab-gap); }
+.bt-has-panel .bt-abar { right: var(--bt-abar-panel-r); }
+.bt-placing .bt-abar { opacity: 0.35; pointer-events: none; }
+.bt-ended .bt-abar { display: none; }
+.bt-abar-fly { position: absolute; right: 0; bottom: calc(100% + var(--ab-gap)); display: flex; flex-direction: column-reverse; gap: var(--ab-gap); }
+
+.bt-ab {
+  --p: 0; --a: 0; position: relative; flex: none; width: var(--ab-s); height: var(--ab-s); padding: 0; border: none; background: none;
+  cursor: pointer; filter: drop-shadow(0 2px 0 rgba(14, 25, 48, 0.55)); -webkit-tap-highlight-color: transparent;
+}
+.bt-ab:focus-visible { outline: 3px solid var(--blue-on-plate); outline-offset: 2px; }
+.bt-ab:active { transform: scale(0.96); }
+.bt-ab-face, .bt-ab-sweep, .bt-ab-ring, .bt-ab-more-face {
+  position: absolute; inset: 0; clip-path: polygon(0 0, calc(100% - var(--ab-cut)) 0, 100% var(--ab-cut), 100% 100%, 0 100%);
+}
+.bt-ab-face { background: var(--plate); overflow: hidden; }
+.bt-ab-art { position: absolute; inset: 0; line-height: 0; }
+.bt-ab-art svg, .bt-ab-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; display: block; }
+/* (a light sweep over a lightly dimmed face: whose ability is charging stays readable at every point of the cooldown) */
+.bt-ab-sweep { background: conic-gradient(rgba(14, 25, 48, 0.5) calc(var(--p) * 360deg), transparent 0); pointer-events: none; display: none; }
+.bt-ab-ring { box-shadow: inset 0 0 0 2px var(--plate-line); pointer-events: none; }
+.bt-ab-num {
+  position: absolute; left: 0; right: 0; bottom: 3px; text-align: center; pointer-events: none;
+  font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--on-plate);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(14, 25, 48, 0.9); white-space: nowrap;
+}
+.bt-ab-num.lbl { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); bottom: 5px; }
+/* (a word label sits on a plate, so it reads over any portrait: the M4 review, round r1 measured WAVE at 2.9-3.6:1) */
+.bt-ab-num.lbl { left: 4px; right: 4px; padding: 2px 0 1px; border-radius: 2px; background: var(--plate-glass); }
+/* badges: Auto top-left, the ready count sticker over the top-right corner, map-wide below the chamfer, the key
+   hint (hover devices only, E8) over the top edge */
+.bt-ab-auto {
+  position: absolute; left: 2px; top: 2px; min-width: 16px; height: 16px; padding: 0 2px; pointer-events: none;
+  font: 700 12px/16px var(--font-num); text-align: center; color: var(--plate); background: var(--good-on-plate); border-radius: 3px;
+}
+.bt-ab-x {
+  position: absolute; right: -6px; top: -8px; padding: 1px 4px; pointer-events: none; transform: rotate(var(--sticker-tilt));
+  font: 700 12px/1.1 var(--font-num); color: var(--plate); background: var(--yellow); border: 2px solid var(--plate); box-shadow: var(--sticker-drop);
+}
+.bt-ab-globe { position: absolute; right: 2px; top: calc(var(--ab-cut) + 3px); width: 15px; height: 15px; line-height: 0; color: var(--blue-on-plate); pointer-events: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8)); }
+.bt-ab-globe svg, .bt-ab-block svg { width: 100%; height: 100%; }
+.bt-ab-key {
+  position: absolute; left: 50%; top: -9px; translate: -50% 0; min-width: 18px; padding: 0 4px; pointer-events: none;
+  font: 700 12px/16px var(--font-num); text-align: center; color: var(--plate); background: var(--on-plate); border: 1px solid var(--plate); border-radius: 3px;
+}
+@media (hover: none) { .bt-ab-key { display: none; } }
+.bt-ab-drain {
+  position: absolute; left: 3px; right: 3px; bottom: 3px; height: 5px; border-radius: 2px; background: var(--pink); transform-origin: left center;
+  transform: scaleX(var(--a)); box-shadow: 0 0 0 1px var(--plate); display: none; pointer-events: none;
+}
+.bt-ab-block { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; translate: -50% -50%; line-height: 0; color: var(--yellow); pointer-events: none; filter: drop-shadow(0 1px 2px #000); }
+.bt-ab-spin {
+  position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; pointer-events: none;
+  border: 3px solid rgba(255, 255, 255, 0.25); border-top-color: var(--yellow); animation: bt-spin 0.9s linear infinite;
+}
+/* states */
+.bt-ab.s-charging .bt-ab-art, .bt-ab.s-pending .bt-ab-art { filter: grayscale(0.25) brightness(0.86); }
+.bt-ab.s-charging .bt-ab-sweep, .bt-ab.s-between .bt-ab-sweep { display: block; }
+.bt-ab.s-between .bt-ab-art { filter: grayscale(1) brightness(0.72); }
+.bt-ab.s-between .bt-ab-sweep { opacity: 0.6; }
+.bt-ab.s-between .bt-ab-num { color: var(--on-plate); }
+.bt-ab.s-blocked .bt-ab-art { filter: grayscale(0.7) brightness(0.48); }
+.bt-ab.s-blocked:not(.jammed)::before {
+  content: '—'; position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; z-index: 1; text-align: center; pointer-events: none;
+  font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--on-plate); text-shadow: 0 1px 2px #000;
+}
+.bt-ab.s-ready .bt-ab-ring { box-shadow: inset 0 0 0 3px var(--yellow), inset 0 0 0 5px rgba(14, 25, 48, 0.55); }
+/* the ready glow follows the chamfer (a drop-shadow of the clipped face) */
+.bt-ab.s-ready { filter: drop-shadow(0 0 2px rgba(255, 221, 74, 0.95)) drop-shadow(0 0 7px rgba(255, 221, 74, 0.75)) drop-shadow(0 2px 0 rgba(14, 25, 48, 0.55)); }
+.bt-ab.s-active .bt-ab-ring { box-shadow: inset 0 0 0 2px var(--pink); }
+.bt-ab.s-active .bt-ab-drain { display: block; }
+/* the ready glow breathes (Reduce motion: it holds still) */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-reduce-motion]) .bt-ab.s-ready { animation: bt-ab-glow 1.4s ease-in-out infinite; }
+}
+@keyframes bt-ab-glow { 50% { filter: drop-shadow(0 0 3px rgba(255, 221, 74, 1)) drop-shadow(0 0 12px rgba(255, 221, 74, 0.9)) drop-shadow(0 2px 0 rgba(14, 25, 48, 0.55)); } }
+/* "+N": the rest in a flyout above it */
+.bt-ab-more { filter: drop-shadow(0 2px 0 rgba(14, 25, 48, 0.55)); }
+.bt-ab-more::before {
+  content: ''; position: absolute; inset: 0; background: var(--plate-glass);
+  clip-path: polygon(0 0, calc(100% - var(--ab-cut)) 0, 100% var(--ab-cut), 100% 100%, 0 100%);
+}
+.bt-ab-more .num { position: relative; font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--on-plate); }
+.bt-ab-more[aria-expanded='true']::before { box-shadow: inset 0 0 0 2px var(--yellow); }
+
+/* the hold card: name, live description, cooldown, the copies sharing it, the Auto switch (the wave control steps back).
+   It sits on the layer above the bar's row, on the side that hides fewer girls (abilityBar.js cardSide): by the bar,
+   or (.side-l) on the left above the hero widget */
+.bt-ab-card .bt-wavectl { opacity: 0; pointer-events: none; }
+.bt-abcard {
+  position: absolute; right: calc(var(--ab-right) + var(--safe-right)); bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-bottom) + var(--ab-s) + 12px);
+  z-index: 7; width: 320px; padding: 8px 10px 10px;
+  max-height: calc(100dvh - var(--bt-hud-h) - var(--safe-top) - var(--bt-bar-h) - var(--safe-bottom) - var(--ab-s) - 30px); overflow-y: auto;
+  background: var(--plate-glass); color: var(--on-plate); box-shadow: 0 6px 18px rgba(14, 25, 48, 0.4);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  font-size: var(--fs-body); line-height: var(--lh-body);
+}
+.bt-has-panel .bt-abcard { right: var(--bt-abar-panel-r); }
+.bt-abcard.side-l {
+  left: calc(12px + var(--safe-left)); right: auto; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-herow-top) + 8px);
+  max-height: calc(100dvh - var(--bt-hud-h) - var(--safe-top) - var(--bt-bar-h) - var(--safe-bottom) - var(--ab-herow-top) - 20px);
+}
+.bt-abcard-head { display: flex; align-items: center; gap: 8px; }
+.bt-abcard-face { width: 36px; height: 36px; flex: none; overflow: hidden; line-height: 0; border-radius: 4px; box-shadow: 0 0 0 2px var(--plate-line); }
+.bt-abcard-face svg, .bt-abcard-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.bt-abcard-id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bt-abcard-name { font: 900 italic var(--fs-name)/1.1 var(--font-head); color: var(--on-plate); }
+.bt-abcard-kind { font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--on-plate-dim); }
+.bt-abcard-x { width: 40px; height: 40px; flex: none; border: none; background: transparent; color: var(--on-plate); font: 700 22px/1 var(--font-num); cursor: pointer; }
+.bt-abcard-state { font: 700 var(--fs-body)/1 var(--font); color: var(--good-on-plate); }
+.bt-abcard-desc { margin: 6px 0; color: var(--on-plate); }
+.bt-abcard-facts { display: flex; flex-wrap: wrap; gap: 2px 10px; font: 600 var(--fs-label)/1.3 var(--font-num); letter-spacing: 0.02em; color: var(--on-plate-dim); }
+.bt-abcard-help { display: block; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--plate-line); font-size: 12px; line-height: 1.3; color: var(--on-plate-dim); }
+.bt-ab-switch {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 10px; flex: none; border: 2px solid var(--plate-line); border-radius: 999px;
+  background: transparent; color: var(--on-plate); font: 700 var(--fs-num-s)/1 var(--font-num); cursor: pointer;
+}
+.bt-ab-knob { position: relative; width: 34px; height: 20px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); }
+.bt-ab-knob::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--on-plate); transition: left 0.15s; }
+.bt-ab-switch.on { border-color: var(--good-on-plate); }
+.bt-ab-switch.on .bt-ab-knob { background: var(--good-on-plate); }
+.bt-ab-switch.on .bt-ab-knob::after { left: 16px; background: var(--plate); }
+.bt-ab-switch:disabled { opacity: 1; color: var(--on-plate-dim); cursor: default; }
+
+/* the selected girl's ⚡ row (abilityRow.js): an ink stripe under her header, before Target */
+.bt-abrow {
+  margin: 2px 0 8px; padding: 5px 8px 7px; color: var(--on-plate); background: var(--plate); border-radius: var(--radius-plate);
+  clip-path: polygon(0 0, calc(100% - var(--ab-cut)) 0, 100% var(--ab-cut), 100% 100%, 0 100%);
+}
+.bt-abrow-top { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+.bt-abrow-bolt { width: 18px; height: 18px; flex: none; line-height: 0; color: var(--yellow); }
+.bt-abrow-bolt svg { width: 100%; height: 100%; }
+.bt-abrow-name {
+  flex: 1; min-width: 0; padding: 0; border: none; background: none; text-align: left; cursor: default;
+  font: 900 italic var(--fs-name)/1.1 var(--font-head); color: var(--on-plate);
+}
+@media (max-height: 480px) { .bt-abrow-name { cursor: pointer; min-height: 36px; } }
+/* a wide drawer at its 13 numbers (towerPanel fitNumbers): her live line and Auto open with a tap on her name, as on a
+   phone */
+.bt-abrow.fold .bt-abrow-name { cursor: pointer; }
+.bt-abrow.fold:not(.open) .bt-abrow-sub { display: none; }
+.bt-abrow.fold .bt-abrow-name::after { content: ' ▾'; font: 700 var(--fs-label)/1 var(--font-num); font-style: normal; color: var(--on-plate-dim); }
+.bt-abrow.fold.open .bt-abrow-name::after { content: ' ▴'; }
+.bt-abrow-fire, .bt-abrow-chip {
+  min-width: 68px; min-height: 40px; padding: 0 10px; flex: none; border: 2px solid var(--plate-line); border-radius: var(--radius-plate);
+  display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--on-plate);
+  font: 700 var(--fs-num-s)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap;
+}
+.bt-abrow-fire { cursor: pointer; }
+.bt-abrow-fire.ready { background: var(--yellow); border-color: var(--yellow); color: var(--plate); }
+.bt-abrow-fire:active { transform: scale(0.96); }
+.bt-abrow.s-active .bt-abrow-fire { border-color: var(--pink); }
+.bt-abrow.s-between .bt-abrow-fire, .bt-abrow.s-blocked .bt-abrow-fire, .bt-abrow.s-locked .bt-abrow-chip { color: var(--on-plate-dim); }
+.bt-abrow-auto {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap-dense); padding: 0 6px; margin-left: auto; flex: none; border: none; background: transparent;
+  color: var(--on-plate-dim); font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; cursor: pointer;
+}
+.bt-abrow-knob { position: relative; width: 30px; height: 18px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); }
+.bt-abrow-knob::after { content: ''; position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--on-plate); transition: left 0.15s; }
+.bt-abrow-auto.on { color: var(--good-on-plate); }
+.bt-abrow-auto.on .bt-abrow-knob { background: var(--good-on-plate); }
+.bt-abrow-auto.on .bt-abrow-knob::after { left: 14px; background: var(--plate); }
+/* the second line: her live line, and Auto at its right (never beside her name: the name keeps its room open or closed) */
+.bt-abrow-sub { display: flex; align-items: center; gap: 8px; margin-top: 1px; }
+.bt-abrow-line { display: block; flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); line-height: 1.25; color: var(--on-plate-dim); text-wrap: pretty; }
+/* (a name whose longest word would not fit its two-line box: the ⚡ steps away, abilityRow fit) */
+.bt-abrow.bt-abrow-nobolt .bt-abrow-bolt { display: none; }
+.bt-abrow.s-later .bt-abrow-line, .bt-abrow.s-locked .bt-abrow-line { color: var(--on-plate); }
+.bt-abrow.hero { margin-top: 6px; }
+/* (the ⚡ path's bolt, its teaser and the track's bolt live in the drawer section: on the ink plate the plain yellow reads) */
+.bt-toast-bolt { color: var(--yellow); }
+.bt-sum-abil { margin: -4px 0 10px; font-weight: 800; font-size: 0.8rem; color: var(--blue-text); text-align: center; }
+
+/* the hero's Lv 7 skill: a 40 px ring between the ult and LV UP, no number (UI_DIRECTION §6.6) */
+.bt-skill {
+  --p: 1; position: relative; flex: none; align-self: center; width: 40px; height: 40px; padding: 0; border: none; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(rgba(14, 24, 48, 0.62) calc(var(--p) * 360deg), var(--yellow) 0); box-shadow: 0 3px 10px rgba(29, 78, 137, 0.35); cursor: pointer;
+}
+.bt-skill-ring { position: absolute; inset: 4px; border-radius: 50%; display: grid; place-items: center; background: var(--plate); }
+.bt-skill-bolt { width: 18px; height: 18px; line-height: 0; color: var(--on-plate-dim); }
+.bt-skill-bolt svg { width: 100%; height: 100%; }
+.bt-skill-label { position: relative; font: 700 12px/1 var(--font-num); color: var(--on-plate); letter-spacing: 0.02em; text-shadow: 0 1px 1px #000; }
+.bt-skill.s-locked { background: rgba(14, 24, 48, 0.55); }
+.bt-skill.s-locked .bt-skill-bolt { display: none; }
+.bt-skill.s-ready { background: var(--yellow); box-shadow: 0 0 0 2px rgba(255, 221, 74, 0.6), 0 0 14px rgba(255, 221, 74, 0.8); }
+.bt-skill.s-ready .bt-skill-bolt { color: var(--yellow); }
+.bt-skill.s-active { background: conic-gradient(var(--pink) 0 360deg); }
+.bt-skill.s-between .bt-skill-ring, .bt-skill.s-blocked .bt-skill-ring { background: #2a3550; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-reduce-motion]) .bt-skill.s-ready { animation: bt-ult 1.2s ease-in-out infinite; }
+}
+
+/* the ability aim banner (aimControl.js 'ability' mode): an ink plate, the one action in words */
+.bt-dr-banner.bt-aim-ability { background: var(--plate-glass); color: var(--on-plate); box-shadow: 0 0 0 2px var(--yellow), var(--shadow-strong); font-size: 13px; }
+.bt-dr-banner.bt-aim-ability .bt-dr-link { color: var(--yellow); font-size: 13px; }
+
+/* landscape phones: 44 × 44 buttons, 6 px apart, 10 px from the edge; beside the 340 px panel */
+@media (max-height: 500px) and (min-width: 701px) {
+  .bt-root { --ab-s: 44px; --ab-gap: 6px; --ab-cut: 7px; --ab-right: 10px; --ab-bottom: 8px; --ab-herow-top: 72px; --bt-abar-h: 52px; --bt-abar-panel-r: calc(var(--drawer-w) + 18px + var(--safe-right)); }
+  .bt-wavectl { bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px + var(--hud-ability-h, 0px)); }
+  .bt-abcard { width: 330px; }
+  .bt-abcard-help { display: none; }
+  /* the feed docks left of an open panel (it used to sit under it: a "learned" toast nobody saw); here it docks right
+     even before feed.js picks a corner. (--bt-abar-panel-r holds the safe area already) */
+  .bt-has-panel .bt-feed:not(.bt-feed-l) { left: auto; right: var(--bt-abar-panel-r); }
+}
+/* phones (the drawer's density, battle.css max-height: 480px; 844x390 and 667x375): her ⚡ row */
+@media (max-height: 480px) {
+  /* the panel's ability row is ONE 44 px line (ABILITIES_SPEC §8.4): bolt, name, FIRE / 12s / WAVE. Its live line
+     and Auto open with a tap on her name (they are also on the hold card), so the first Buy button stays in view */
+  .bt-abrow { margin: 0 0 6px; padding: 4px 6px 4px 8px; }
+  .bt-abrow-top { min-height: 36px; }
+  .bt-abrow-fire, .bt-abrow-chip { min-height: 36px; }
+  .bt-abrow:not(.open) .bt-abrow-sub { display: none; }
+  .bt-abrow.open { padding-bottom: 6px; }
+  .bt-abrow-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* never cut (UI_DIRECTION P6): a name that would not fit beside the button takes two smaller lines (abilityRow fit;
+     the ellipsis above is only a safety net the UI probe would flag) */
+  .bt-abrow-name.bt-abrow-2l { white-space: normal; font-size: var(--fs-label); line-height: 1.1; }
+  .bt-abrow-name::after { content: ' ▾'; font: 700 12px/1 var(--font-num); font-style: normal; color: var(--on-plate-dim); }
+  .bt-abrow.open .bt-abrow-name::after { content: ' ▴'; }
+  /* an ability that comes later (Fuu, Iroha, Ruri's other forms) has no button: its one line says so at once, and
+     there is nothing to open */
+  .bt-abrow.s-later:not(.open) .bt-abrow-sub { display: flex; }
+  .bt-abrow.s-later .bt-abrow-name::after { content: none; }
+  /* a short screen: Chika's flight mode hint shows only while picking */
+  .bt-panel-drones .bt-dr-hint:not(.bt-dr-picking) { display: none; }
+}
+/* the shortest phones (667x375, 15 px shorter than 844x390): a tighter header, ⚡ row gap and stat row, so the three
+   path rows stay in view with an aim, pick or Flight row on the Glance */
+@media (max-height: 380px) {
+  .bt-panel .bt-panel-head { padding-top: 2px; padding-bottom: 2px; }
+  .bt-panel .bt-abrow { margin-bottom: 3px; }
+  .bt-panel .bt-dw-num { font-size: var(--fs-num-s); }
+}
+/* narrow screens: 44 px buttons; hidden while a panel is open (cast from her panel row instead) */
 @media (max-width: 700px) {
-  .bt-dr-tabs { top: -14px; }
-  .bt-dr-flight-seg { flex: 1; }
-  .bt-dr-flight-seg .bt-seg-btn { flex: 1; }
+  .bt-root { --ab-s: 44px; --ab-gap: 6px; --ab-cut: 7px; --ab-right: 10px; --bt-abar-h: 52px; }
+  .bt-has-panel .bt-abar { display: none; }
+  .bt-abcard { width: min(320px, calc(100vw - 24px)); }
+  .bt-has-panel .bt-abcard { right: calc(var(--ab-right) + var(--safe-right)); }
 }
