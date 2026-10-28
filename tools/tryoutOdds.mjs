@@ -2,12 +2,9 @@
 // usage: node tools/tryoutOdds.mjs [runs]
 const RUNS = +(process.argv[2] || 200000);
 const T = ['R', 'SR', 'SSR', 'UR', 'LR'];
-// rows = credits k 0..4; columns R SR SSR UR LR (percent)
-const TABLE = {
-  early: [[60, 32, 8, 0, 0], [40, 45, 14, 1, 0], [0, 72, 24, 4, 0], [0, 0, 85, 13, 2], [0, 0, 70, 24, 6]],
-  mid:   [[45, 38, 15, 2, 0], [28, 47, 21, 4, 0], [0, 62, 31, 6, 1], [0, 0, 78, 18, 4], [0, 0, 60, 30, 10]],
-  late:  [[30, 42, 22, 5, 1], [15, 45, 30, 8, 2], [0, 50, 36, 11, 3], [0, 0, 68, 24, 8], [0, 0, 50, 35, 15]],
-};
+// rows = credits k 0..4; columns R SR SSR UR LR (percent): the run table's own (src/data/tryout.js)
+import { TRYOUT } from '../src/data/tryout.js';
+const TABLE = TRYOUT.odds;
 const LENGTHS = {
   half: { picks: 6, band: (i) => (i < 2 ? 'early' : i < 4 ? 'mid' : 'late'), lrCap: 1 },
   full: { picks: 11, band: (i) => (i < 4 ? 'early' : i < 8 ? 'mid' : 'late'), lrCap: 2 },

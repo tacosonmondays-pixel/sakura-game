@@ -8,6 +8,8 @@
 
 # Tryout Day: the roguelike run mode (final spec)
 
+Line numbers below are `origin/main`'s at writing time and have drifted on the build branches; search by name.
+
 Final spec for the owner's roguelike run idea of Oct 27, 2026 (decision 155). Written Oct 27, 2026 from a read-only look
 at `origin/main` v0.1.53 (`f4cf107b`, sim id `92e2e22527cf`, `COOP_PROTOCOL` 8), `origin/feature/abilities`
 (`a2a20fe7`) and `origin/feature/ui-v2` (`36c3ce4c`). Nothing in the repo was changed. Line numbers are `origin/main`
@@ -348,7 +350,7 @@ One rarity is rolled per pick from the band (which pick it is) and the credits, 
 - The last pick (**Exam Prep**) is at least SR.
 - **LR cap:** 1 per Half Day, 2 per Full Day; a later LR roll becomes UR.
 
-**Measured** (`tryout-odds.mjs` beside this file, 200,000 runs each; "casual" clears assignments at 40 / 35 / 45 % and
+**Measured** (`tools/tryoutOdds.mjs`, 200,000 runs each; "casual" clears assignments at 40 / 35 / 45 % and
 takes a Double Dare 10 % of the time, "average" 60 / 55 / 60 % and 25 %, "strong" 80 / 75 / 78 % and 50 %, "expert"
 takes every Double Dare; a Double Dare costs 15 % on each assignment, so the expert clears each one 85 % of the time):
 
@@ -546,11 +548,14 @@ always bites, even on a girl at her cap: `min(cap, Σ bonus) − Σ drawback`.
 | Crit chance / crit damage | +20 points / +0.5 |
 | Pierce / projectiles / chain jumps | +2 / +2 / +3 |
 | Splash | +0.5 tiles |
-| Each "vs" bonus (air, heavy and scaled, elite and boss, barrier, warded) | +60 % |
+| Each "vs" bonus (air, heavy and scaled, elite and boss, barrier, warded) | +30 % (and inside the ×2.5 run damage, below) |
 | Cost cuts (placing and upgrading) | −30 % |
 | Window Seat bonus (one team-wide value) | +50 % damage, +1.0 tile reach |
 | **Run damage, cards × seat together** | **×2.5 per girl** |
 
+- - **The "vs" bonuses count inside the run-damage cap** (M0 review: E06 gives elite and boss together, ×1.3 × ×1.3 against
+  a boss, which broke the ceiling proof): each vs family caps at **+30 %**, and a girl's card damage times her largest vs
+  multiplier never passes ×2.5 (damage gives way first); the seat clamp divides by that same product.
 - Every card shows a **cap bar**: "Team damage +36 % → +52 % / 100 %"; a Team card shows the most-affected girl and
   "applies fully to 4 of 5 girls".
 - A family at its cap drops out of offers. If the filters empty a slot, it falls back to Big Breakfast (Team) or Extra
@@ -723,6 +728,11 @@ windows match campaign progress, so the mode can open early without meeting chap
 | 11 | | foes +45 % HP in total; the Final Period adds a second boss escort group | 50 |
 | 12 | | **no healing** (`canHeal` off, the Last Petal rule) | 20 |
 
+- **Minibosses and bosses** are the window's named list whatever chapter they first appear in (Goblin Machine is a
+  chapter 6 enemy, yet Spring Term's miniboss on purpose: one big foe is a set piece, not a family the squad must
+  answer every wave); the families come from the window's chapters.
+- **Boss leaks** (M0 review): every boss has `leak: Infinity` and generated waves carry no `leak`, so the run sets a
+  boss's leak to the Grade's 40 or 60 in its `spawnEnemy` hook (`tryoutSpawn`); split children keep theirs.
 - **Targets for the bot** (§15): at Grade 1, a new account (2-5 cleared) wins ~60 % of Half Days and an average player
   ~75 %; a random-legal-picks bot ~50 %; strong players clear Grade 12 ~5-10 % of the time.
 - **Make-up Test** (solo): once per run, replay a wave from its start with the hearts, coins and luck you had then. It
@@ -937,9 +947,10 @@ About 1,100 Marbles of content: roughly 8 weeks at the cap, a long-term goal wit
 
 ## 11. Co-op
 
-Co-op ships after solo (M5), as Titan Trials did. Every choice is a sim command from day one, and the per-owner
-counters are in the Sim from M1 (solo reads owner 0). M5 adds the co-op seams this mode needs: personal coins through
-`ownerCash`, the start message's `pool` and the checkpoint's `squads` (§12.2), the timeouts and the room UI.
+**Co-op ships with solo at launch** (owner, Oct 28; §16 re-plan). Every choice is a sim command from day one, and the
+per-owner counters are in the Sim from M1 (solo reads owner 0). M1 builds the co-op seams this mode needs alongside solo:
+personal coins through `ownerCash`, the start message's `pool` and the checkpoint's `squads` (§12.2), the timeouts and a
+plain room option; M3 gives the room its Ink & Paper panels.
 
 | Topic | Rule |
 |---|---|
@@ -949,7 +960,8 @@ counters are in the Sim from M1 (solo reads owner 0). M5 adds the co-op seams th
 | **Assignments** | slots 1 and 2 are team assignments; slot 3 is drawn per player from the assignments the Sim can judge per owner (Tight Budget, Small Class, Quick Learner, No Returns, Big Finish, Star Pupil, Show Her Around, By the Window, Team Effort), read from the per-owner counters and owner-filtered damage (§3.1). Save It Up is solo only. Each player's credits = team cleared + own slot 3 + Double Dare + own banked hand-in, so each player's rarity roll is their own. |
 | **Coins** | shared income (wave bonus, bounties, the period-end bonus) is split as today (`stepSim`). Personal coins (Hand it in later, Snack Fund's per-wave pay) go through `sim._gainCashFor(owner, n)` (`Sim.js:400`) into `sim.ownerCash`, which the command layer moves into that player's wallet after every command and step. That flush ships with the abilities sim (COOP 9, `flushOwnerCash` in `feature/abilities` `commands.js`), which this mode already waits for (Q12). Cards and assignments that would read a wallet inside the Sim (Rainy-Day Fund, Save It Up) are solo only. |
 | **Subject choice** | alternates by period (period number mod 2 → slot); the other player taps an option to suggest it (a room message outside lockstep). |
-| **Windows** | while a pick or break is open, `wave` and `auto` are refused. **Timeout: 90 s of lockstep ticks** (the tick counter runs between waves, `commands.js:305`): an unresolved pick hands in for coins, an unresolved break becomes Ready. A player marked `gone` (`MARKERS`, `commands.js:64`) resolves at once the same way; their girls keep fighting. |
+| **Team cards and caps** | a team-wide one-of-a-kind card (Sunny Window, Golden Chalk) is offered only while no player holds it; two players taking it on one tick resolve in command order, and the second gets Big Breakfast at that rarity. Spare Change stacks across players. The LR cap counts per player; a card's Hall Pass drawback costs its taker's passes. Tight Budget's bar is the team's last-period income ÷ players. |
+| **Windows** | while a pick or break is open, `wave` and `auto` are refused. **Timeout: 5400 lockstep ticks (90 s at 1×; ticks run faster at 2× and 3×)** (the tick counter runs between waves, `commands.js:305`): an unresolved pick hands in for coins, an unresolved break becomes Ready. A player marked `gone` (`MARKERS`, `commands.js:64`) resolves at once the same way, and every later window of theirs resolves as it opens while they stay gone (the marker is mirrored into `sim.tryout`); their girls keep fighting. A Subject choice whose chooser is gone or times out takes the first Subject; a Double Dare needs both taps, so it stays off. |
 | **Commands** | one kind **`tr[op, a, b, c]`** (ops: pick card + path, Eraser, hand in, Double Dare, Subject, Snack or Brush Up, Ready) and **`mv[uid, qx, qy]`** (a Hall Pass move, owner-only, quantised to 1/1024 like `hmv`). `KINDS` grows by two, arity stays ≤ 4 (`isValidCmd`, `commands.js:72`). Every op carries the open offer's sequence number and is validated **in the Sim** at its tick; a stale or wrong one is a no-op with a reason. |
 | **Start message** | `{ tryout: { seed, grade, length, mapId, tableVersion }, players: [{ hero, draft, pool }] }`. `pool` holds the player's frozen account stats for **every student they own** (≤ 29 entries, each clamped by the `statLimits.js` plausibility clamp; Loaners need no entry, the floor comes from the table), so a girl who joins mid-run always has an entry every client can resolve. The loadout field stays the draft, inside `LOADOUT_MAX`. |
 | **Checkpoints** | period ends are wave ends, so the existing wave-end checkpoint holds the open offers and run state (the generic snapshot saves every own field except `REBUILT`, `src/sim/snapshot.js:44`). The envelope beside `wallets` and `owners` gains `squads` (each player's girl ids in join order) and `period`, so a fresh client rebuilds every loadout entry **before** `sim.restore` (§12.2). |
@@ -985,11 +997,18 @@ data` when that entry is missing (`snapshot.js:121`). A girl who joined at a pic
 lives inside the very snapshot that would fail. So the squad and the frozen stats travel **outside** the snapshot, and
 the loadout is rebuilt **before** `restore`:
 
-| Step | Solo Continue (`restoreSim`, `src/ui/battle/snapshot.js`) | Co-op resync or rejoin (`restore(snap)`, `commands.js`) |
+**M0 review (blocker):** today's solo battle save does not use `sim.restore`; it replays placements and upgrades
+(`src/ui/battle/snapshot.js` `restoreSim`), which would fire every run hook again (counters, vouchers, refills, seat
+claims) and refuses any stage id outside `STAGE_MAP`. A **Tryout Day save therefore stores the generic Sim snapshot**
+(`sim.snapshot(config)`, `src/sim/snapshot.js`, the format co-op checkpoints use) in its record, and Continue takes a
+`tryout` branch before the `STAGE_MAP` check: build the stage from the plan, build the Sim with the record's squads and
+period (the constructor fills the loadouts, step 2), then `sim.restore`. Nothing is replayed.
+
+| Step | Solo Continue (the `tryout` branch of `restoreSim`, `src/ui/battle/snapshot.js`) | Co-op resync or rejoin (`restore(snap)`, `commands.js`) |
 |---|---|---|
-| 1. Stage | `buildTryoutStage(plan)` from the record (the event-variant pattern, record format 2) | the same, from the start message |
-| 2. Loadout, **before** restore | for each id in `record.squad`: `bandStats(record.pool[id] ?? LOANER, floorOf(record.period))` into `sim.loadout` | for each player i and each id in `snap.squads[i]`: `bandStats(players[i].pool[id] ?? LOANER, floorOf(snap.period))` into `views[i].loadout`; then `view(viewSlot)` |
-| 3. Restore | `sim.restore(snapshot, config)`: every `['cfg', …]` path resolves | `withDetMath(() => sim.restore(snap.sim, config()))` |
+| 1. Stage | `buildTryoutStage(plan)` from the record's run config | the same, from the start message |
+| 2. Loadout, **before** restore | `new Sim({ …, options: { tryout: { …, pools: [record.pool], squads: [record.squad], period: record.period } } })`: the constructor's `tryoutLoadouts` puts `bandStats(pool[id] ?? LOANER, runLevelOf(period))` into `sim.loadout` | for each player i and each id in `snap.squads[i]`: the same into `views[i].loadout` (`tryoutLoadouts` on the fresh CoopSim's Sim); then `view(viewSlot)` |
+| 3. Restore | `sim.restore(record.snap, simConfig(sim))`: every `['cfg', …]` path resolves | `withDetMath(() => sim.restore(snap.sim, config()))` |
 | 4. `tryoutRestore(sim)` | the rule (`tryoutRuleDef` → `createRuleRuntime`, `_bountyAdd`, `rebuildRuleTables`, `assignSeats` with the seat clamp), `maxLives`, `t.runMods` per tower, `_refreshTower` each, `recomputeBuffs` once | the same |
 | 5. Check | — | `rederiveStats` (`lockstep.js:121`) finds each girl's stored stats equal to her rebuilt entry, so an honest checkpoint is left exactly as it is |
 
@@ -1029,7 +1048,7 @@ in-memory ledger (CONTEXT C3). Crash tests at each write.
 
 ### 12.5 Updates mid-run
 
-The record carries `tableVersion` (a hash of the `TRYOUT` table) and the sim id. On a mismatch the open run is **closed
+The record carries `tableVersion` (`tryoutTableVersion()`: a hash of `TRYOUT`, `PEP_CARDS` and the student list) and the sim id. On a mismatch the open run is **closed
 and paid for the periods it cleared**, with a toast that says so. An open offer can never point at a card that no longer
 exists, because the run closes first. Wording fixes (text files) never close a run.
 
@@ -1161,8 +1180,9 @@ Display text lives in `src/ui/text/tryout.js`, never in hashed data, so a wordin
 - `src/sim/rules.js` `assignPads` (`:283`): one guarded line, `if (sim.tryout) return assignSeats(sim)`. The run's
   assigner keeps stored holders, skips heroes and applies the seat clamp; a battle without a run keeps the lowest-uid
   rule bit for bit.
-- **Unchanged:** `waves.js`, `finalTier.js`, `mods.js` (no new ModSet keys; every card uses existing keys, including the
-  Potential keys `classMul`, `keepRamp`, `gather`, `mark`, `netElite`).
+- **Unchanged:** `waves.js`, `finalTier.js`. `mods.js` gains exactly one key, the additive `crit.mulAdd` (Hot Streak's
+  crit damage; §16.1); the scaling cards carry run keys that `pep.js` sums, caps and turns into existing ModSet keys,
+  and the Hidden Talents carry raw ModSets (`src/data/tryout.js` header, `RUN_KEYS`).
 
 ### 14.2 Data and text
 
@@ -1181,19 +1201,27 @@ Display text lives in `src/ui/text/tryout.js`, never in hashed data, so a wordin
   (`waveOpen`, `resumes`, `makeUpUsed`, `practice`) in the record, set by `src/ui/battle/battleSaver.js` at wave start
   and wave end and checked on Continue before the battle restarts (§12.3).
 - `src/ui/battle/setup.js`: a `req.tryout` branch (stage from the plan, loadout from the record, `options.tryout`).
-- `src/ui/battle/snapshot.js`: classify `tryout: 'snap'` and `_tryoutPlan: 'derived'` in `KNOWN_SIM_KEYS`; `runMods:
-  'derived'` and `gift: 'snap'` in `KNOWN_TOWER_KEYS` (the key-guard test fails until they are classified; the classes
-  are snap, config, calm, derived, stream, scratch); build the loadout from `record.squad` and `record.pool` before
-  `restore`, then call `tryoutRestore` (§12.2).
+- `src/ui/battle/snapshot.js`: classify `tryout: 'snap'`, and `_tryoutCfg`, `_loadouts`, `viewOwner: 'config'` (all
+  three are in the Sim snapshot's `REBUILT`) in `KNOWN_SIM_KEYS`; `runMods: 'derived'`, `gift: 'snap'` and `tyAt: 'snap'`
+  (an enemy's arrival tick for Quick Answer) where the key guards list tower and enemy keys; the `tryout` branch of
+  `restoreSim` that restores the stored generic snapshot (§12.2), then calls `tryoutRestore`.
 - `src/systems/rewards.js`: dispatch to `applyTryoutResult`. Achievements: `src/data/achievements.js` (wave `tryout`),
   `src/systems/achievementCounters.js`, `achievementMetrics.js`, `honors.js`; the frozen ledger gains the rows.
 
 ### 14.4 Co-op
 
-- `src/online/coop/commands.js`: `KINDS` += `tr`, `mv`; `isValidCmd` arity; `stepSim` cases with `views[slot]`;
+- `src/online/coop/commands.js`: a `start.tryout` branch in `createCoopSim` (the stage from `buildTryoutStage(plan, {
+  coop: true })`, never `coopStage`, which knows no `tryout:` id; the Sim built with each player's `pool`, `draft` and
+  hero; `views[i].loadout` = the Sim's `_loadouts[i]`); `view(slot)` also sets `sim.viewOwner`; the `gone` / `join`
+  markers also call `tryoutGone` so a later window of a player still gone resolves at once (§11); `KINDS` += `tr`, `mv`; `isValidCmd` arity; `stepSim` cases with `views[slot]`;
   `view(slot)` exposes the player's run state; `snapshot()` adds `squads` and `period` to the envelope, and `restore(snap)`
   rebuilds `views[i].loadout` from the start message's `pool` before `sim.restore` (§12.2); a join adds her entry to
   `views[slot].loadout` from the pool; personal coins through `ownerCash` (§11); window gating and the tick timeout.
+- `src/online/coop/session.js`: the room carries the run settings (`tryout: { seed, grade, length, mapId }`, the host's)
+  and every hello and ready carries the player's `pool` and `draft` (3 ids) besides the hero; the start message is built
+  from them (§11). `src/online/coop/simHash.js`: `hashSim` also folds in a compact digest of `sim.tryout` (offers, cards,
+  credits, counters, seat holders, score), so a desync in run state is caught at the next hash, not only once a tower
+  differs.
 - `src/online/coop/statLimits.js`: `clampStart` clamps each `pool` entry like a loadout entry; the pool is not a loadout,
   so `LOADOUT_MAX` doesn't apply to it (at most 29 entries).
 - `src/online/coop/lockstep.js`: restore order (`tryoutRestore` before the stats check).
@@ -1238,23 +1266,53 @@ nothing outside `withDetMath` in co-op.
 
 ## 16. Milestones
 
-| M | Content | Size |
-|---|---|---|
-| **M0** | Spec gate: owner answers (defaults allowed), final names, data table draft, independent review | S · 2-3 days |
-| **M1** | **The first fun slice.** Solo Half Day on 4 maps; generated stage; 7 periods; Full Hearts + 2 drawn assignments from 6; the integer score; the odds table and Teacher's Note; Eraser and Hand it in later; 20 Pep Talks (Everyone, Personal, Board) through `t.runMods` with caps; the Tryout pick with the band and Loaners; Recess and Cleaning Time with Window Seats, Seat Change, 3 Hall Passes and the §6.4 table; offers in state; the battle-save slot, the restore contract (pool and squad outside the snapshot) and the mid-wave rule; per-owner counters; the seat holders and the seat clamp; the headless bot; plain UI on today's HUD (pick sheet, tracker chips, break banner). A pick every 2 minutes, rarity from effort, girls joining and seats moving: the whole loop. | M · 2 weeks |
-| **M2** | All 53 first-ship cards, 16 assignments, Subjects with the class choice and the Back Gate, Double Dare, the coverage guarantee, arrival packages and Varsity, the Make-up Test, Grades 1-6; the hit-DPS bench gate on every girl and Hidden Talent (`bench.mjs --hit`); bot sweeps at three roster strengths; a playtest timing the sheets | M · 1.5-2 weeks |
-| **M3** | Ink & Paper UI: hub, Before Class, timetable strip, period-end sheet, tracker states, girl cards, break mode, Class Photo, Stationery frames, text, Reduce Motion, screenshots at 844 × 390 and 1280 × 720 | M · 1.5-2 weeks |
-| **M4** | Meta and solo ship: Marbles and the Marble Jar, Lunchbox, coin cap, Yearbook, the achievement wave (360 gems counted), Grades 7-12, Weekly Timetable, share codes, the Full Day (data + wave-48 perf check); review gate, go/no-go, live check, patch note → **solo ship** (the sim changes, so the COOP bump ships here) | M · 1 week |
-| **M5** | Co-op: `tr` / `mv`, personal picks, tick timeouts, `gone`, the start message with each player's `pool`, the checkpoint `squads` and restore order, personal coins through `ownerCash`, rewards, cross-engine e2e incl. a rejoin after a mid-run join, live check | M · 1.5 weeks |
+**Re-planned at M0 (Oct 28, 2026) for co-op at launch** (the owner: "It has to be multiplayer too!!"). The old M5 is
+folded in: every milestone builds solo and 2-player co-op together, and from M1 on every sim feature has a **two-view
+lockstep test** (two CoopSims fed the same command log, digests compared at every wave end) next to its solo test. The
+build branch is `feature/tryout-day` (from `feature/abilities`, for `ownerCash` and the per-owner coin flush); it merges
+`origin/feature/abilities` between milestones, **never bumps `COOP_PROTOCOL`** (the mode ships later in one release with
+its own bump) and records the sim id at the end of each milestone.
 
-**Total: about 8-9 weeks (XL); the solo ship after M4 at about 6.5-7.5 weeks.** The build waits for UI v2, the
-ultimates (COOP 9) and the balance pass (decision 155), unless the owner says sooner.
+| M | Content | Gate |
+|---|---|---|
+| **M0** | Spec gate: owner answers (all defaults, Q7 changed), this re-plan, the data table draft (`src/data/tryout.js`), the M0 build notes below, an independent spec review and its fixes. | review fixed |
+| **M1** | **The first fun slice, solo and co-op.** Half Day on the 4 Spring Term maps (Grade 1); the generated stage; 7 periods; Full Hearts + slot 2 from {Ace the Test, Speed Round, Quick Answer} + slot 3 from {Tight Budget, No Returns, Small Class, Quick Learner} (co-op: slot 3 per player); the integer score; the odds table and Teacher's Note; Eraser and Hand it in later; the 20 M1 Pep Talks (Everyone, Personal, Board) through `t.runMods` with caps; the Tryout pick with the band and Loaners (vouchers at tier 0); Recess and Cleaning Time with Window Seats (stored holders, the seat clamp), Seat Change, 3 Hall Passes with Undo, Snack, Ready, and the §6.4 table; offers in run state; per-owner counters. **Co-op in the same slice:** `tr` / `mv`, personal picks (one stream per slot), the 90 s tick timeout, `gone` resolution, the start message with each player's `pool`, the checkpoint envelope's `squads` and `period` and the §12.2 restore order, personal coins through `ownerCash`. **Solo save:** the `tryout` slot, the restore contract and the mid-wave rule. Plain UI on today's HUD (pick sheet, tracker chips, break banner, a Tryout Day card in the co-op room); the headless bot. | two-view lockstep digests; `e2e/engines.mjs`; screenshots 844 × 390 and 1280 × 720 |
+| **M2** | All 53 first-ship cards, 16 assignments, Subjects with the class choice (co-op: alternating chooser, partner suggestion) and the Back Gate, Double Dare (co-op: both tap), the coverage guarantee, arrival packages and Varsity, the Make-up Test (solo), Grades 1-6; the hit-DPS bench gate on every girl and Hidden Talent (`bench.mjs --hit`); bot sweeps at three roster strengths, solo and co-op; a playtest timing the sheets. | bench and bot gates |
+| **M3** | Ink & Paper UI **after the UI v2 menus land** (merge `feature/ui-v2`, build with its kit): hub, Before Class (co-op: a panel per player and the Ready row in the room), timetable strip, period-end sheet (co-op partner chip), tracker states, girl cards, break mode, Class Photo, Stationery frames, text, Reduce Motion. Until UI v2 lands the plain M1 UI stays. | screenshots |
+| **M4** | Meta and **ship prep only**: Marbles and the Marble Jar, Lunchbox, coin cap, Yearbook, the achievement wave (360 gems counted), Grades 7-12, Weekly Timetable, share codes, the Full Day (data + wave-48 perf check), co-op rewards (`src/online/coop/rewards.js`); go/no-go list, patch note draft, the planned `COOP_PROTOCOL` bump written down but not made. **Not shipped**: the mode goes out after the ultimates (COOP 9) and the balance pass, with the owner's yes on screenshots. | full review |
+
+**Every milestone's review gate:** an independent reviewer (a subagent that did not build it) checks logic and look
+(screenshots at 844 × 390 and 1280 × 720) and determinism (headless two-view lockstep digests and `e2e/engines.mjs`
+across engines); every blocker, high and medium finding is fixed, at most 3 fix rounds. Gates: `npm test`,
+`e2e/smoke.mjs`, `vite build` then `rm -rf dist`. Each milestone ends with a labelled board under
+`docs/review/tryout-day/<milestone>/` and an updated draft PR.
 
 **Later, each its own decision:** the other 17 Hidden Talents (content updates); lanes per period (with a golden-hash test on
 `waves.js`); the rule-bending cards (Q10); a Full-power "Open Day" variant; a two-map "Field Day" variant that packs up
 the board at 100 % of `t.spent` plus coins in hand and offers rebuild cards that send ordinary `place` and `upg`
 commands, with the hero's level carried (the node map's design, kept here so it never has to be reinvented); Night Watch
-on the same engine.
+on the same engine; co-op Continue and the co-op Make-up Test; 3-4 player co-op.
+
+### 16.1 M0 build notes (decisions taken while reading the code; each is also an owner question with its default)
+
+1. **Tenka is not a student.** The pool is the 29 students of HANDOFF §1 (`TRYOUT_STUDENTS`); Tenka, the ultimate tower,
+   never tries out and is never drafted.
+2. **Heroes are banded too** (the floor and the band cap apply to the hero's account stats), so the co-op partner and a
+   whale's hero sit in the same band. Hikari and Nami are free for everyone; an unowned free hero plays at the floor.
+3. **Hot Streak's crit damage** needs an additive crit-damage key: `crit.mulAdd` (one line in `mods.js`; `crit.mul` is a
+   max today). Everything else in the 53 uses existing keys. The non-first-ship Hidden Talents' keys are drafts and are
+   checked against `mods.js` before each one ships.
+4. **Two Sim fields the snapshot skips** (`REBUILT`): `_loadouts` (each player's loadout map; co-op points it at its
+   views, so a join or a period-start band update reaches the right player whatever the current view) and `viewOwner`
+   (the viewing or commanding player, so `placeCost` can price that player's voucher and Scholarship). Both are set by
+   their owner (the constructor solo, `createCoopSim` co-op), never stored.
+5. **The band's other keys:** Pierce ≤ 20 hundredths, burn and poison share ≤ ×1.2, aura fill-in reach ≤ ×1.1, ult
+   haste ≤ 0.1, Potential ≤ P3 (in `TRYOUT.bandCap`).
+6. **Windows** for M1: one at a time per player is open (`pick`, then `break` when a break follows that pick); the next
+   wave starts by the usual Start button (or Auto) once every player has resolved. Co-op counts window ticks inside the
+   Sim's step, so the 90 s timeout fires on the same tick on every client.
+7. **Blocks** (seats and enemy families) are the stretches between breaks: Half Day P1-P3, P4-P6, P7.
+8. **M1 vouchers** arrive at tier 0 for every rarity (the R package); the tiered packages are M2 as planned.
 
 ---
 
@@ -1268,7 +1326,7 @@ on the same engine.
 | Q4 | Rarity look on Pep Talk cards | **R / SR / SSR / UR / LR letters on our own Stationery frames** (UR gold foil, LR Pressed Blossom); girls keep their real frames, UR rainbow and LR Nightglass included. Alternative: put the girls' rainbow and Nightglass on cards too (breaks the house rule in `UI_DIRECTION.md` §5.6). |
 | Q5 | Girls you don't own | **Yes, as Loaners** at Run Level, run only, with a link to her page after the run. |
 | Q6 | The break | **3 Hall Passes per break** (carry up to 5), free, Undo refunds; Window Seats redrawn at every break; seat bonus +25 % (cards can raise it to +50 %); the first girl to sit keeps a seat. |
-| Q7 | Co-op | **After solo** (M5); each player picks their own cards; hearts, seats and Board cards shared; no co-op Continue in v1. |
+| Q7 | Co-op | ~~After solo (M5)~~ **Owner: required at launch** (built alongside solo from M1); each player picks their own cards; hearts, seats and Board cards shared; no co-op Continue in v1. |
 | Q8 | Rewards | **0 gems per run**; Marbles (150 a week) and the Marble Jar; 3 Lunchboxes a week; 360 one-time gems from 12 achievements; Merit Stamps at Grades 4, 8, 12 once they exist. |
 | Q9 | Entry and unlock | **Free, no energy; opens after 2-5.** |
 | Q10 | Rule-bending cards (two final tiers on one path, a second path past tier 2, mid-wave moves, 3 girls per seat, stacking auras) | **Leave them out.** |
@@ -1358,7 +1416,8 @@ is unaffected. No other game's or anime's names appear in this spec. No player n
    paths, round-trip tests.
 5. **Content volume.** 53 cards and 17 assignments of text and glyphs. Mitigation: a 20-card M1; the other Hidden Talents
    later.
-6. **Co-op windows.** Mitigation: personal picks, tick timeouts, `gone` resolution; co-op ships last.
+6. **Co-op windows and co-op at launch.** Mitigation: personal picks, tick timeouts, `gone` resolution; two-view lockstep
+   tests and cross-engine hashes from M1 on, so co-op is never a late add-on.
 7. **Schedule.** It waits on COOP 9, the balance pass and UI v2; one COOP bump lands with it.
 8. **The mid-wave rule may feel harsh on phones that kill tabs.** Mitigation: calm-point quits are free, the first
    mid-wave Continue costs only the Make-up Test, the hub warns before the tap, and Q14 has a gentler rule.
@@ -1408,10 +1467,31 @@ modes (Q11); scope (§16).
 | Low | Lunchbox above the campaign per-minute rate | coins at 60 %; the box filled by periods cleared, worth ≤ 4 minutes (§10.1) |
 | Low | The owner page headline used the working title | the page is headed Tryout Day; the working title appears once in the intro and in the browser tab title the brief asked for |
 
-## Appendix B. Scripts beside this file
+### A.3 M0: the independent review of the build plan (Oct 28)
 
-- `tryout-odds.mjs`: the §3.4 Monte Carlo (`node tryout-odds.mjs 200000`); "expert" takes every Double Dare.
-- `tryout-power.mjs`: the §9 band and ceiling numbers, every seat card case and the Subject comparison
-  (`node tryout-power.mjs`).
+| Severity | Finding | Fix (where) |
+|---|---|---|
+| Blocker | Solo Continue replays placements and refuses non-campaign stage ids, so it could not restore a run | a run save stores the generic Sim snapshot and Continue takes a `tryout` branch (§12.2, §14.3) |
+| High | Card `mods` used keys `mods.js` does not have or reads differently (multiply vs add, max vs add) | two kinds of `mods`: run keys summed by `pep.js` (`RUN_KEYS`, a data test) and raw ModSets for Hidden Talents; talent keys fixed or marked `draft`; one new key, `crit.mulAdd` (§14.1, data header) |
+| High | The ceiling proof left out the "vs" cards (E06 hits a boss twice) | vs caps +30 % and inside the ×2.5 run damage; the seat clamp divides by the product (§4.4) |
+| High | Co-op hashes missed run state | `hashSim` folds in a `sim.tryout` digest (§14.4) |
+| High | The co-op lobby and `createCoopSim` had no path for a run | `session.js` and a `start.tryout` branch in M1 scope (§14.4, §16) |
+| Medium | Snapshot key lists incomplete | `REBUILT` += `_tryoutCfg`, `_loadouts`, `viewOwner`; key-guard classes (§14.3) |
+| Medium | A boss leak took every heart (`leak: Infinity`, waves carry none) | the `spawnEnemy` hook sets the Grade's boss leak (§7) |
+| Medium | Simultaneous co-op takes of team-wide one-of-a-kind cards; per-team or per-player caps unstated | command order, the second taker gets Big Breakfast; caps stated (§11) |
+| Medium | `gone` lived only in the command layer; Subject and Dare had no timeout default | mirrored into `sim.tryout`; first Subject, Dare off (§11) |
+| Medium | Tight Budget per player had no per-player income | the team's income ÷ players (§11) |
+| Medium | `costMul` clamp direction | clamped to [cap, 1] (data table) |
+| Medium | Window bosses from later chapters | stated as intended set pieces (§7) |
+| Low | Seats before wave 1; rule defs without `active` | the run's rule is installed at construction with both `always` and `active` (§16.1) |
+| Low | Festival Prep's `wave % 3` is absolute | M2 counts the period's waves for Subjects (noted for M2) |
+| Low | The timeout is 90 s only at 1× | stated as ticks (§11) |
+| Low | Table version was hand-bumped; the odds script kept its own copy | `tryoutTableVersion()` hashes the table; `tools/tryoutOdds.mjs` reads `src/data/tryout.js` (§12.5, Appendix B) |
+| Low | Line numbers drifted | a note at the top |
 
-Land them as `tools/tryoutOdds.mjs` and `tools/tryoutPower.mjs` when this spec lands.
+## Appendix B. Check scripts
+
+- `tools/tryoutOdds.mjs`: the §3.4 Monte Carlo (`node tools/tryoutOdds.mjs 200000`), reading its odds from
+  `src/data/tryout.js`; "expert" takes every Double Dare.
+- `tools/tryoutPower.mjs`: the §9 band and ceiling numbers, every seat card case and the Subject comparison
+  (`node tools/tryoutPower.mjs`).
