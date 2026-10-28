@@ -173,7 +173,10 @@ get name plates). Leaving the CG brings the stage portraits back.
 lakeshore, 2-4 and 2-5 the Moon Pier), so scene data keeps `stage:<id>`. A scene loads its own background when it
 opens and each cue's background one cue ahead; nothing loads at boot. Each place's `focus` keeps its landmark in the
 open band above the text box on a landscape phone (844x390) and its middle on a portrait one. `SPARE_BACKGROUNDS`
-lists the pictures no scene uses yet (the Gate Arc places wait for their scenes and stages 1-6 to 1-10).
+lists the pictures no scene uses yet (the Gate Arc places wait for their scenes and stages 1-6 to 1-10). A new
+background fades in once its picture has decoded (or after 2.5 s, `BG_READY_CAP_MS`, so it never holds the scene
+up), and the old one stays underneath until the new picture has really decoded, so a slow phone never shows black
+between two places.
 
 **Stage stills** (not built; the hook `setStageStillProvider()` in `backdrop.js` stays, nothing registers a
 provider, and a registered still would crossfade over the stage's place). The original plan: build a headless `Sim` for the stage (`new Sim({ stageId })`, prep state, no
