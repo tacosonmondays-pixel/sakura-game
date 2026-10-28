@@ -60,6 +60,22 @@ export function homeBackdropArt(file = 'academy.webp') {
 }
 
 /**
+ * The pictures the home will draw for this background, for the title's preload (title.js lobbyPreloadSteps): a full
+ * illustration's own picture (its baked night copy when it has one), else the picture behind her stand (the baked night
+ * academy, or the event's painted backdrop) and her stand. Pure.
+ * @param {object} bg a lobby background (src/data/lobbyArt.js)
+ * @param {{ portrait?: boolean, backdrop?: { file: string }|null }} [opts]
+ * @returns {string[]}
+ */
+export function homeStageUrls(bg, { portrait = false, backdrop = null } = {}) {
+  if (stageModeOf(bg) === 'full') {
+    const art = homeFullArt(bg.id, { portrait });
+    if (art) return [art.src];
+  }
+  return [homeBackdropArt(backdrop?.file || bg?.file || 'academy.webp').src, portraitUrl(bg?.girl, 'cut')].filter(Boolean);
+}
+
+/**
  * A full illustration as the home draws it on this screen (lobbyIllustrations.js fullArt): an older lobby scene's baked
  * night copy when it has one, else its own picture (graded in CSS); fx / fy = her face as fractions of the picture.
  * @param {string} id a FULL_ILLUSTRATIONS id
@@ -93,21 +109,10 @@ export function homeFullArt(id, { portrait = false } = {}) {
  * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean, clearCtl: boolean, dx: number, dy: number }}
  */
 export function placeFull(W, H, art, boxes = []) {
-  const scene = (x, y) => placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x, y } });
+  // (zoom 1: the whole picture as painted, at the cover fit; only the side that overflows the screen pans)
+  const scene = (x, y) => placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x, y }, maxZoom: 1 });
   const y0 = H * 0.31;
-  let across = homeTarget(W, H).x;
-  if (W > H) {
-    const own = W * Math.min(FULL_FACE_X[1], Math.max(FULL_FACE_X[0], art.fx));
-    const mid = W * 0.5;
-    const dir = Math.sign(mid - own);
-    const h0 = scene(own, y0).height;
-    across = own;
-    for (let x = own + dir * 4; dir && (x - mid) * dir <= 0; x += dir * 4) {
-      if (scene(x, y0).height > h0 * FULL_ZOOM_MAX) break;
-      across = x;
-    }
-    if (dir && scene(mid, y0).height <= h0 * FULL_ZOOM_MAX) across = mid;
-  }
+  const across = W > H ? W * 0.5 : homeTarget(W, H).x;
   const ctl = boxes.filter((b) => !b.kind || b.kind === 'ctl');
   const soft = boxes.filter((b) => b.kind === 'soft');
   const apart = (list, f, m) => list.every((b) => b.x + b.w <= f.x0 - m || b.x >= f.x1 + m || b.y + b.h <= f.y0 - m || b.y >= f.y1 + m);
@@ -130,12 +135,6 @@ export function placeFull(W, H, art, boxes = []) {
   }
   return firstCtl || at(0, 0);
 }
-
-/** Where a full illustration's own face point counts across a landscape screen (fractions of the width; placeFull). */
-export const FULL_FACE_X = Object.freeze([0.38, 0.62]);
-/** How much further a full illustration may zoom in to bring her face toward the middle (placeFull; a picture painted
- * narrower than the screen has no room to pan otherwise). */
-export const FULL_ZOOM_MAX = 1.1;
 
 /** An element's box in viewport px. */
 const rectOf = (el) => {
