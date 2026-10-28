@@ -642,7 +642,8 @@ function probeInPage(o) {
       let hi = Math.min(vw, r.right);
       for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
         const pcs = getComputedStyle(p);
-        if (!/hidden|clip/.test(pcs.overflowX)) continue;
+        // (a kit surface clips with its chamfer polygon: its sides are its box's sides)
+        if (!/hidden|clip/.test(pcs.overflowX) && (!pcs.clipPath || pcs.clipPath === 'none')) continue;
         const b = p.getBoundingClientRect();
         lo = Math.max(lo, b.left);
         hi = Math.min(hi, b.right);
