@@ -49,6 +49,23 @@ describe('stand-in list', () => {
   });
 });
 
+describe('stand-in chin-up', () => {
+  it('the staff heroes lift their chins so their eyes read under the brim from the battle camera', () => {
+    for (const id of ['kogane', 'norika']) {
+      const g = buildChibi(getUnit(id), { quality: 'low' });
+      expect(g.userData.chinUp, id).toBeGreaterThan(0.1);
+      g.userData.animate(0.5, 0.016, 'idle');
+      // the head bone pitches back (negative x) past her own idle
+      const e = new THREE.Euler().setFromQuaternion(g.userData.bones[3].quaternion);
+      expect(e.x, id).toBeLessThan(-0.05);
+      disposeObject(g);
+    }
+    const t = buildChibi(getUnit('tenka'), { quality: 'low' });
+    expect(t.userData.chinUp).toBeUndefined();
+    disposeObject(t);
+  });
+});
+
 describe('stand-in chibis (procedural)', () => {
   // the suite needs a test while the list is empty (every girl has her GLB)
   if (!ART_PENDING.length) it('none left: every girl ships her own GLB', () => expect(STANDIN_UNITS).toHaveLength(0));

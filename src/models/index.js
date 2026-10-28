@@ -7,13 +7,13 @@
 // Stand-ins (standins.js: the returning girls without approved art) are always procedural: no
 // GLB is requested for them and their chibi is final (userData.standIn = true), not a placeholder.
 import { loadBaseBody } from './body.js';
-import { buildChibi as buildChibiProc, clearChibiCache } from './chibi.js';
+import { buildChibi as buildChibiProc, clearChibiCache, liftChin } from './chibi.js';
 import { makeSilhouette as silhouette } from './util.js';
 import {
   getCharacter, loadCharacter, loadManifest, preloadCharacters, instantiateCharacter, ensureSkeletonUtils, skeletonUtilsReady,
   canLoadCharacters, detailFor,
 } from './glbChibi.js';
-import { isStandIn } from './standins.js';
+import { isStandIn, STANDIN_CHIN_UP } from './standins.js';
 import { attachCompanionFigure } from './companions.js';
 import { buildDuo, modelIds } from './duo.js';
 import { resolveSkin } from '../data/skins.js';
@@ -88,6 +88,7 @@ export function buildChibi(unitDef, opts = {}) {
     // deliberate stand-in: the procedural chibi in her own palette/look, nothing to fetch or upgrade
     const group = tagSkin(buildChibiProc(skinLook(unitDef, skin), opts), skin);
     group.userData.standIn = true;
+    liftChin(group, STANDIN_CHIN_UP[key] || 0);
     return markDisposed(group);
   }
   if (skeletonUtilsReady()) {
