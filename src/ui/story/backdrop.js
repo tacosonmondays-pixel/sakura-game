@@ -1,20 +1,23 @@
 // Scene backgrounds for the story player (owner: story; STORY_SPEC §1.2.4). Resolves a background id from
 // src/data/story/backgrounds.js to a layer element and crossfades between layers:
-//   paint  the painted academy under one of the lobby's tints (day / sunset / night; soft = blurred + dimmed)
+//   paint  a painted picture (the academy or a story place) under one of the lobby's tints (day / sunset / night;
+//          soft = blurred + dimmed); a story place carries its focal point (object-position)
 //   cg     a painted lobby scene with a girl in it (the player hides portraits while it is up)
 //   solid  a flat colour (black for fades and title cards)
-//   stage  `stage:<id>` — a still of that stage's battle map when one is available (stageStill hook), else the
-//          chapter's academy tint (CHAPTER_FALLBACK_BG). A still is never a reason to delay text.
+//   stage  `stage:<id>` — that stage's painted place (STAGE_PLACE), else the chapter's academy tint
+//          (CHAPTER_FALLBACK_BG). A still from the stage-still hook would replace either; nothing registers one.
+//          A still is never a reason to delay text.
 import { h } from '../dom.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
-import { BACKGROUNDS, CHAPTER_FALLBACK_BG, stageOfBackground } from '../../data/story/backgrounds.js';
+import { BACKGROUNDS, CHAPTER_FALLBACK_BG, placeOfStage, stageOfBackground } from '../../data/story/backgrounds.js';
 import { STAGE_MAP } from '../../data/stages.js';
 
 const FADE_MS = 420;
 
 /**
- * Optional provider of stage stills: (stageId) => Promise<string|null> (an image URL). Set by a later build
- * step (renderer stills); until then stage backgrounds use the chapter's academy tint.
+ * Optional provider of stage stills: (stageId) => Promise<string|null> (an image URL). Planned for renderer
+ * stills of the battle maps; nothing in src/ registers one (Oct 27: every campaign stage shows its painted place,
+ * STAGE_PLACE, instead). Kept as a hook: a registered still crossfades over the place once it is ready.
  * @type {null | ((stageId: string) => Promise<string|null>)}
  */
 let stillProvider = null;
@@ -27,15 +30,17 @@ export function setStageStillProvider(fn) {
 }
 
 /**
- * What a background id draws. Stage backgrounds resolve to their chapter's academy tint (with the stage id
- * kept, so a still can replace it).
+ * What a background id draws. Stage backgrounds resolve to their painted place (STAGE_PLACE), or to their
+ * chapter's academy tint when the stage has none (with the stage id kept, so a still can replace either).
  * @param {string} id
  * @param {number} [chapter] the scene's chapter (fallback tint for stage stills)
- * @returns {{ id: string, kind: string, url?: string, thumb?: string, tint?: string, blur?: number, dim?: number, color?: string, stageId?: string, cg?: boolean }}
+ * @returns {{ id: string, kind: string, url?: string, thumb?: string, tint?: string, blur?: number, dim?: number, focus?: string|null, color?: string, stageId?: string, place?: string, cg?: boolean }}
  */
 export function resolveBackground(id, chapter = 0) {
   const stageId = stageOfBackground(id);
   if (stageId) {
+    const place = placeOfStage(stageId);
+    if (place) return { ...resolveBackground(place, chapter), id, stageId, place, fallback: true };
     const ch = STAGE_MAP[stageId]?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);
     return { ...fb, id, stageId, fallback: true };
@@ -50,6 +55,7 @@ export function resolveBackground(id, chapter = 0) {
     tint: bg.tint || null,
     blur: bg.blur || 0,
     dim: bg.dim || 0,
+    focus: bg.focus || null,
     cg: bg.kind === 'cg',
   };
 }
@@ -73,6 +79,68 @@ export function preloadImage(url, timeout = 2500) {
   });
 }
 
+/** How long a new background may keep the scene waiting before it fades in anyway (its picture still decoding). */
+export const BG_READY_CAP_MS = 2500;
+
+/**
+ * Resolves true once an <img> has loaded and decoded, false if it failed (no img, e.g. a solid layer: true at
+ * once). No time cap (callers race it against one when they must not wait). Never rejects.
+ * @param {{ decode?: () => Promise<void>, complete?: boolean, naturalWidth?: number, addEventListener?: Function } | null} img
+ * @returns {Promise<boolean>}
+ */
+export function imageDecoded(img) {
+  if (!img) return Promise.resolve(true);
+  const painted = () => !!(img.complete && img.naturalWidth > 0);
+  if (img.decode) return img.decode().then(() => true, () => painted());
+  return new Promise((r) => {
+    if (img.complete) return r(painted());
+    img.addEventListener('load', () => r(true), { once: true });
+    img.addEventListener('error', () => r(false), { once: true });
+  });
+}
+
+/** Safety net after the 'on' class: a layer counts as faded in even if its transitionend never comes. */
+export const FADE_FALLBACK_MS = FADE_MS + 250;
+
+/**
+ * The layers that can go: every layer beneath the topmost one that fully covers the screen (faded in and its
+ * picture decoded). Nothing goes while no layer covers, so the screen always has a layer at full opacity, and a
+ * second swap that arrives mid-fade just becomes the new top: whichever layer finishes first only clears what is
+ * beneath it, never a layer above it.
+ * @template T
+ * @param {T[]} layers bottom to top (DOM order)
+ * @param {(layer: T) => boolean} covers
+ * @returns {T[]}
+ */
+export function layersToDrop(layers, covers) {
+  for (let i = layers.length - 1; i >= 0; i--) if (covers(layers[i])) return layers.slice(0, i);
+  return [];
+}
+
+/**
+ * Resolves once `layer` has finished its opacity fade: its own transitionend for opacity (not a child's, not
+ * another property), or `fallbackMs` later if that event never comes (tab hidden, transition cancelled). Call it
+ * when the 'on' class is added, so the fallback counts from the start of the fade.
+ * @param {{ addEventListener: Function, removeEventListener: Function }} layer
+ * @param {{ fallbackMs?: number, setTimer?: Function, clearTimer?: Function }} [o]
+ * @returns {Promise<void>}
+ */
+export function fadedIn(layer, { fallbackMs = FADE_FALLBACK_MS, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  return new Promise((resolve) => {
+    let timer = null;
+    const done = () => {
+      layer.removeEventListener('transitionend', onEnd);
+      clearTimer(timer);
+      resolve();
+    };
+    const onEnd = (e) => {
+      if (e.target === layer && e.propertyName === 'opacity') done();
+    };
+    layer.addEventListener('transitionend', onEnd);
+    timer = setTimer(done, fallbackMs);
+  });
+}
+
 function stillFor(stageId) {
   if (!stillProvider || !stageId) return Promise.resolve(null);
   if (!stillCache.has(stageId)) {
@@ -87,7 +155,7 @@ function stillFor(stageId) {
 
 function layerFor(spec) {
   if (spec.kind === 'solid') return h('div.sp-bg-layer.solid', { style: { background: spec.color } });
-  const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async' });
+  const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async', style: spec.focus ? { objectPosition: spec.focus } : null });
   const cls = spec.kind === 'cg' ? '.cg' : `.paint.tint-${spec.tint || 'day'}${spec.blur ? '.soft' : ''}`;
   const layer = h(`div.sp-bg-layer${cls}`, img, spec.kind === 'cg' ? null : h('div.sp-bg-tint'));
   if (spec.blur) layer.style.setProperty('--sp-bg-blur', `${spec.blur}px`);
@@ -104,14 +172,43 @@ export function createBackdrop(el, { chapter = 0 } = {}) {
   let current = null;
   let token = 0;
 
+  /** Layers that are fully in (faded in and decoded): the ones that may cover what is beneath them. */
+  const covering = new WeakSet();
+  function prune() {
+    for (const o of layersToDrop([...el.children], (l) => covering.has(l))) o.remove();
+  }
+
   function swap(layer, instant) {
-    const old = [...el.children];
     layer.classList.add('sp-bg-in');
     if (instant) layer.classList.add('sp-bg-instant');
     el.appendChild(layer);
-    // two frames so the opacity transition runs
-    requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('on')));
-    setTimeout(() => old.forEach((o) => o.remove()), instant ? 0 : FADE_MS + 60);
+    // every place is its own picture now. The new layer fades in once its picture has decoded, or after
+    // BG_READY_CAP_MS so a slow picture never holds the scene up. The layers beneath it go only once it has really
+    // faded in (its opacity transitionend, or FADE_FALLBACK_MS after 'on') and its picture has decoded, so the
+    // screen always has a layer at full opacity and a slow frame never shows black between two places. A picture
+    // that fails keeps the old one under it (the next swap clears both).
+    const decoded = imageDecoded(layer.querySelector('img'));
+    let faded;
+    if (instant) faded = Promise.resolve();
+    else {
+      faded = Promise.race([decoded, new Promise((r) => setTimeout(r, BG_READY_CAP_MS))]).then(
+        () =>
+          new Promise((resolve) => {
+            // two frames so the opacity transition runs; the fallback timer starts with the fade, not before
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => {
+                layer.classList.add('on');
+                fadedIn(layer).then(resolve);
+              }),
+            );
+          }),
+      );
+    }
+    Promise.all([decoded, faded]).then(([ok]) => {
+      if (!ok || !layer.isConnected) return;
+      covering.add(layer);
+      prune();
+    });
   }
 
   return {
