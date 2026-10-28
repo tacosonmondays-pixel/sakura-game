@@ -218,7 +218,9 @@ describe('the clamp: a run\'s pool, draft and settings', () => {
 describe('the room\'s Tryout Day setting', () => {
   it('tryoutSetting: Grade 1 Half Day on one of the seed\'s two maps; sameTryout; draftReady', () => {
     const [a, b] = mapChoices(42, 1);
-    expect(tryoutSetting({ seed: 42, mapId: b, grade: 7, length: 'full' })).toEqual({ seed: 42, grade: 1, length: 'half', mapId: b });
+    expect(tryoutSetting({ seed: 42, mapId: b, grade: 1, length: 'full' })).toEqual({ seed: 42, grade: 1, length: 'half', mapId: b });
+    // the host's Grade rides along, up to the Grades this build plays
+    expect(tryoutSetting({ seed: 42, mapId: b, grade: 9 }).grade).toBe(6);
     expect(tryoutSetting({ seed: 42, mapId: 'nowhere' }).mapId).toBe(a);
     expect(tryoutSetting(null)).toBe(null);
     expect(sameTryout(null, undefined)).toBe(true);

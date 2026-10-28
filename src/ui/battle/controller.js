@@ -19,7 +19,7 @@ import { createTryoutSaver } from './tryoutSaver.js';
 import { createTryoutBattle } from './tryout.js';
 import { MODE_NAME as TRYOUT_MODE_NAME } from '../text/tryout.js';
 import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
-import { getTryoutRun, markResume, continueKind, clearTryoutRun } from '../../systems/tryoutRuns.js';
+import { getTryoutRun, markResume, continueKind, clearTryoutRun, recordGradeClear } from '../../systems/tryoutRuns.js';
 import { SIM_ID as TRYOUT_SIM_ID } from '../../core/buildInfo.js';
 import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
@@ -419,7 +419,11 @@ export function mountBattle(root, params, hooks) {
     }
     if (sim.tryout) {
       // Tryout Day (src/ui/battle/tryout.js): tracker, picks, breaks, the Class Photo
-      ctx.applyResult = () => ({ firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, tryout: true });
+      // a won run (not practice) clears its Grade: the ladder opens the next (rewards are M4)
+      ctx.applyResult = (prof, result) => {
+        const cleared = !!result?.won && !req.practice && recordGradeClear(prof, sim.tryout.grade);
+        return { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, tryout: true, gradeUp: cleared };
+      };
       ctx.tryoutAgain = ls ? () => ctx.quit() : () => navigate('tryout', { again: 1 });
       const send = ls
         ? (kind, args) => {
@@ -1068,6 +1072,20 @@ export function mountBattle(root, params, hooks) {
       else if (endedRun) feed.announce('RUN OVER', `Ended on wave ${sim.wave}`, 'bad', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       if (req.tryout) {
+        // the Make-up Test (solo, once a run, §7): at 0 hearts the defeat sheet offers the wave again from its start
+        // (the record keeps the calm snapshot before it and the open wave: the Continue spends the Make-up Test)
+        if (!ls && !won && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
+          ctx.saver?.close();
+          later(() => ctx.tryoutUi?.showMakeUp({
+            wave: sim.wave,
+            retry: () => navigate('battle', { tryout: tryRec.id, makeup: sim.wave }, { replace: true }),
+            giveUp: () => {
+              results.apply(); // (pays nothing yet and closes the run record: saver.finish)
+              ctx.tryoutUi?.showPhoto({ practice: !!req.practice });
+            },
+          }), RESULT_DELAY_MS);
+          return;
+        }
         // Tryout Day: no rewards in M1 (Marbles and the Lunchbox are M4); the run's record goes with the result
         results.apply();
         later(() => ctx.tryoutUi?.showPhoto({ practice: !!req.practice }), RESULT_DELAY_MS);

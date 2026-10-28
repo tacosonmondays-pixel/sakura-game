@@ -100,3 +100,27 @@ export function oddsLine(w) {
   const tot = w.reduce((a, b) => a + b, 0) || 1;
   return w.map((x, i) => (x > 0 ? `${RARITIES[i]} ${Math.round((100 * x) / tot)}` : null)).filter(Boolean).join(' · ');
 }
+
+/** The class choice's Subjects (§2.4): name and the period's twist. */
+export const SUBJECT_TEXT = {
+  subj_science: { name: 'Science', line: 'Poison ×1.4; heavy foes slower' },
+  subj_pe: { name: 'P.E.', line: 'In pulses: foes faster; pierce, slash and blast ×1.25' },
+  subj_music: { name: 'Music', line: 'In pulses: all damage ×1.25' },
+  subj_festival: { name: 'Festival Prep', line: 'Every 3rd wave clear: +120 coins and ult charge' },
+  subj_shop: { name: 'Shop Class', line: 'Every 4th wave clear: +150 coins; lightning ×1.2' },
+  subj_homeec: { name: 'Home Ec', line: '+3 hearts at every wave clear' },
+  subj_night: { name: 'Night Class', line: 'In pulses: holy ×1.5; spectral foes faster' },
+  subj_lit: { name: 'Literature', line: 'In pulses: holy ×1.3' },
+  subj_geo: { name: 'Geography', line: 'In pulses: slimes slower; lightning ×1.35' },
+  subj_winter: { name: 'Winter Sports', line: 'In pulses: foes ×0.7 speed, reach ×0.85' },
+  subj_history: { name: 'History', line: 'The Back Gate: even waves come in by the exit road' },
+  subj_art: { name: 'Art Class', line: '+1 Window Seat this period' },
+};
+
+/** Double Dare curses (§8.3). */
+export const DARE_TEXT = {
+  swift: 'foes ×1.2 speed',
+  regen: 'foes regenerate 2 %/s',
+  armored: 'foes +3 armour',
+  shielded: 'foes carry a 30 % barrier',
+};

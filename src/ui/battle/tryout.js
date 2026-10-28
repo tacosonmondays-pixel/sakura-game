@@ -9,10 +9,10 @@ import { portraitHTML } from '../../art/portraits.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { ROLES } from '../../data/types.js';
 import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
-import { assignProgress } from '../../sim/tryout/index.js';
+import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor } from '../../sim/tryout/offers.js';
 import { lengthOf, periodWaves } from '../../sim/tryout/plan.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine } from '../text/tryout.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT } from '../text/tryout.js';
 import '../styles/tryout.css';
 
 const Q = 1024;
@@ -39,8 +39,9 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   // ---- pick sheet / break bar / result ------------------------------------------------------------
   const sheet = h('div.ty-sheet-wrap', { 'data-testid': 'ty-pick', hidden: true });
   const brk = h('div.ty-break', { 'data-testid': 'ty-break', hidden: true });
+  const cls = h('div.ty-class', { 'data-testid': 'ty-class', hidden: true });
   const photo = h('div.ty-sheet-wrap', { 'data-testid': 'ty-photo', hidden: true });
-  const el = h('div.ty-layer', tracker, sheet, brk, photo);
+  const el = h('div.ty-layer', tracker, cls, sheet, brk, photo);
   ctx.layer.append(el);
 
   /** Credits if every assignment still open clears (locked-in ones, open ones on track, a banked hand-in). */
@@ -89,13 +90,20 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   function girlCard(c, i, o) {
     const def = UNIT_MAP[c.girl];
     const owned = !!sim._tryoutCfg?.pools?.[mySlot]?.[c.girl];
-    return h(`button.ty-card.ty-girl.ty-r${o.rarity}`, { 'data-testid': `ty-card-${i}`, onclick: () => take(i) },
+    // her arrival tiers go on a path she picks (§5): a tap on the card takes the first one
+    const tier = TRYOUT.arrival[Math.max(0, Math.min(4, o.rarity - (TRYOUT.grades[ty().grade]?.arrivalDown || 0)))].tier;
+    const paths = tier > 0 ? def?.paths || [] : [];
+    const pathRow = paths.length > 1 ? h('span.ty-paths', ...paths.map((pa, k) => h('button.bt-btn.ty-path', {
+      'data-testid': `ty-path-${i}-${k}`, onclick: (e) => { e.stopPropagation(); take(i, k); },
+    }, pa.name || `Path ${k + 1}`))) : null;
+    return h(`div.ty-card.ty-girl.ty-r${o.rarity}`, { 'data-testid': `ty-card-${i}`, role: 'button', tabindex: 0, onclick: () => take(i, 0) },
       h('span.ty-slot', o.kind === 'girls' ? 'Tryout' : SLOT_NAMES[i] || 'Wild'),
       svgEl(portraitHTML(def, 'thumb', { eager: true }), 'ty-card-art'),
       h('b.ty-card-name', def?.name || c.girl),
       h('span.ty-card-line', `${ROLES[def?.role]?.name || ''} · ${def?.attackType || ''}`),
       h('span.ty-card-line', owned ? 'Yours · plays in the band' : `Loaner · Run Level ${ty().level}`),
-      h('span.ty-card-line.ty-dim', 'Joins the squad · first copy free'));
+      h('span.ty-card-line.ty-dim', tier > 0 ? `Joins the squad · first copy free at tier ${tier}` : 'Joins the squad · first copy free'),
+      pathRow);
   }
 
   function pepCard(c, i, o) {
@@ -139,11 +147,38 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     sheet.hidden = false;
   }
 
-  function take(i) {
+  function take(i, path = 0) {
     const o = me().offer;
     if (!o) return;
-    const r = send('tr', ['take', o.seq, i]);
+    const r = send('tr', ['take', o.seq, i, path]);
     if (r && r.ok === false && r.reason === 'squadFull') ctx.feed?.push('Your squad is full.', 'warn', { key: 'ty-full', ms: 1600 });
+  }
+
+  // ---- between periods: the class choice and Double Dare (§2.4, §8.3) ------------------------------
+  function paintClass() {
+    const t = ty();
+    const next = t.period + (t.started >= t.period ? 1 : 0);
+    if (t.base || t.done || sim.state === 'wave' || sim.state === 'won' || sim.state === 'lost' || next > len.periods || t.started < 1) {
+      cls.hidden = true;
+      return;
+    }
+    const pair = t.subjects[next];
+    const mine = chooserOf(t, next) === mySlot;
+    const chosen = pair ? (pair.includes(t.nextSubject) ? t.nextSubject : pair[0]) : null;
+    const dare = dareOf(t, next);
+    const partner = t.coop ? t.players.find((_, i) => i !== mySlot) : null;
+    cls.replaceChildren(
+      pair ? h('div.ty-class-row',
+        h('b', mine ? 'Next class:' : 'Next class (partner picks):'),
+        ...pair.map((id, k) => h(`button.bt-btn.ty-subject${id === chosen ? '.on' : ''}`, {
+          'data-testid': `ty-subject-${k}`, disabled: !mine, title: SUBJECT_TEXT[id]?.line, onclick: () => send('tr', ['subject', k]),
+        }, h('b', SUBJECT_TEXT[id]?.name || id), h('span.ty-dim', ` ${SUBJECT_TEXT[id]?.line || ''}`)))) : null,
+      h('div.ty-class-row',
+        h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
+          `Double Dare: ${me().dare ? 'on' : 'off'}`),
+        h('span.ty-dim', ` ${DARE_TEXT[dare.id] || dare.id} · +1 credit, Period Score ×1.1${t.coop ? ' · both must tap' : ''}`),
+        partner ? h('span.ty-dim', ` · Partner: ${partner.dare ? 'on' : 'off'}`) : null));
+    cls.hidden = false;
   }
 
   // ---- the break -----------------------------------------------------------------------------------
@@ -227,6 +262,21 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     photo.hidden = false;
     sheet.hidden = true;
     brk.hidden = true;
+    cls.hidden = true;
+  }
+
+  /** Out of hearts with the Make-up Test unused (solo): replay the wave, or end the run. */
+  function showMakeUp({ wave, retry, giveUp }) {
+    photo.replaceChildren(h('div.ty-sheet.ty-photo', { 'data-testid': 'ty-makeup' },
+      h('div.ty-sheet-title', 'Out of hearts'),
+      h('p', `The Make-up Test replays wave ${wave} from its start, with the hearts and coins you had then. Once a run; that period's assignments won't count.`),
+      h('div.ty-actions',
+        h('button.bt-cta', { 'data-testid': 'ty-makeup-go', onclick: retry }, 'Make-up Test'),
+        h('button.bt-btn', { 'data-testid': 'ty-makeup-no', onclick: giveUp }, 'Early Dismissal'))));
+    photo.hidden = false;
+    sheet.hidden = true;
+    brk.hidden = true;
+    cls.hidden = true;
   }
 
   let last = '';
@@ -241,12 +291,13 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       squadN = p.squad.length;
       import('../../models/index.js').then((m) => m.preloadModels(fresh, { skins: ctx.skins || {} })).catch(() => {});
     }
-    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => x.win).join()}`;
+    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}`;
     if (sig === last) return;
     last = sig;
     paintTracker();
     paintPick();
     paintBreak();
+    paintClass();
     el.classList.toggle('ty-open', !!p.win);
   }
   update();
@@ -256,6 +307,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     update,
     handleTap,
     showPhoto,
+    showMakeUp,
     /** Is my pick sheet open (the Start button waits)? */
     get open() {
       return !!me().win;

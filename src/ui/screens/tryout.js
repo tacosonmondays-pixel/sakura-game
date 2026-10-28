@@ -13,7 +13,7 @@ import { TRYOUT } from '../../data/tryout.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isOwned } from '../../systems/unlocks.js';
 import {
-  tryoutUnlocked, TRYOUT_UNLOCK, newRunSeed, beforeClass, newRunRecord, getTryoutRun, putTryoutRun, clearTryoutRun, continueKind,
+  tryoutUnlocked, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, getTryoutRun, putTryoutRun, clearTryoutRun, continueKind,
 } from '../../systems/tryoutRuns.js';
 import { buildTryoutPlan } from '../../sim/tryout/plan.js';
 import { MODE_NAME } from '../text/tryout.js';
@@ -42,7 +42,10 @@ export function render(root) {
     }
     if (!pending) {
       const seed = newRunSeed();
-      const bc = beforeClass(p, seed, 1, 0);
+      // the highest open Grade by default (the ladder: clearing Grade N opens N + 1)
+      let grade = 1;
+      for (let g = TRYOUT_GRADES; g > 1; g--) if (gradeOpen(p, g).open) { grade = g; break; }
+      const bc = beforeClass(p, seed, grade, 0);
       pending = { ...bc, redraw: 0, mapId: bc.maps[0], hero: bc.heroes.includes(p.formation?.hero) ? p.formation.hero : bc.heroes[0], pick: [] };
     }
     body.appendChild(beforeClassPanel(p));
@@ -53,7 +56,7 @@ export function render(root) {
     const plan = buildTryoutPlan(run);
     const note = kind === 'makeup' ? ' · uses your Make-up Test' : kind === 'practice' ? ' · continues as practice' : kind === 'stale' ? ' · closed by an update' : '';
     return h('section.panel.ty-hub', { 'data-testid': 'tryout-continue' },
-      h('b', `Half Day · ${getMap(plan.mapId)?.name || plan.mapId}`),
+      h('b', `Half Day · Grade ${plan.grade} · ${getMap(plan.mapId)?.name || plan.mapId}`),
       h('p', `Period ${Math.ceil(((run.wave || 0) + 1) / TRYOUT.lengths[run.length || 'half'].wavesPerPeriod)} · wave ${(run.wave || 0) + 1} · ♥ ${run.lives ?? TRYOUT.grades[run.grade].hearts}${note}`),
       h('div.ty-squad', ...run.squad.map((id) => svgEl(portraitHTML(UNIT_MAP[id], 'thumb', { eager: true }), 'ty-squad-art'))),
       kind === 'makeup' ? h('p.muted', 'You left during a wave: continuing replays that wave once, and that period\'s assignments no longer count.') : null,
@@ -98,8 +101,28 @@ export function render(root) {
     const heroes = h('select.ty-brush', { 'data-testid': 'tryout-hero', onchange: (e) => { pending.hero = e.target.value || null; } },
       ...pending.heroes.map((id) => h('option', { value: id, selected: id === pending.hero }, `${UNIT_MAP[id].name}${isOwned(p, id) ? '' : ' (Loaner)'}`)));
     const ready = pending.pick.length === TRYOUT.squad.start;
+    const g = TRYOUT.grades[pending.grade];
+    const grades = h('div.ty-actions', ...Array.from({ length: TRYOUT_GRADES }, (_, i) => {
+      const n = i + 1;
+      const st = gradeOpen(p, n);
+      const b = button(st.open ? `${n}` : `${n} 🔒`, {
+        kind: pending.grade === n ? 'primary' : 'ghost', small: true, testid: `tryout-grade-${n}`, disabled: !st.open,
+        onClick: () => {
+          // a Grade can change the content window: its maps come with it (the draft stays)
+          pending.grade = n;
+          pending.maps = beforeClass(store.profile, pending.seed, n, pending.redraw).maps;
+          if (!pending.maps.includes(pending.mapId)) pending.mapId = pending.maps[0];
+          draw();
+        },
+      });
+      b.setAttribute('aria-pressed', pending.grade === n ? 'true' : 'false');
+      if (!st.open) b.title = st.why === 'window' ? `Needs ${TRYOUT.windows[TRYOUT.grades[n].window].unlock} cleared` : `Clear Grade ${n - 1} first`;
+      return b;
+    }));
     return h('section.panel.ty-hub', { 'data-testid': 'tryout-before-class' },
-      h('div.ty-sheet-title', 'Before Class · Half Day · Grade 1'),
+      h('div.ty-sheet-title', `Before Class · Half Day · Grade ${pending.grade}`),
+      h('b', `Grade${gradeCleared(p) ? ` · cleared up to ${gradeCleared(p)}` : ''}`), grades,
+      h('p.muted', `${g.hearts} hearts · ${g.seats} Window Seats · ${g.erasers} Eraser${g.erasers === 1 ? '' : 's'}${g.hpMul > 1 ? ` · foes +${Math.round((g.hpMul - 1) * 100)} % HP` : ''}`),
       h('p.muted', '7 periods of 4 waves. After each period, pick a Pep Talk; at Recess and Cleaning Time the Window Seats move and you get 3 Hall Passes.'),
       h('b', 'Map'), maps,
       h('b', 'Hero'), h('div.ty-actions', heroes),
@@ -110,7 +133,7 @@ export function render(root) {
           kind: 'ghost', small: true, testid: 'tryout-redraw', disabled: pending.redraw >= TRYOUT.squad.redraws,
           onClick: () => {
             pending.redraw++;
-            pending.draft = beforeClass(store.profile, pending.seed, 1, pending.redraw).draft;
+            pending.draft = beforeClass(store.profile, pending.seed, pending.grade, pending.redraw).draft;
             pending.pick = [];
             draw();
           },
@@ -118,7 +141,7 @@ export function render(root) {
         button(ready ? 'Start class' : `Pick ${TRYOUT.squad.start - pending.pick.length} more`, {
           testid: 'tryout-start', icon: 'play', disabled: !ready,
           onClick: () => {
-            const rec = newRunRecord(store.profile, { seed: pending.seed, grade: 1, length: 'half', mapId: pending.mapId, hero: pending.hero, squad: pending.pick, simId: SIM_ID });
+            const rec = newRunRecord(store.profile, { seed: pending.seed, grade: pending.grade, length: 'half', mapId: pending.mapId, hero: pending.hero, squad: pending.pick, simId: SIM_ID });
             putTryoutRun(store.profile, rec);
             store.commit('tryout-run');
             if (!store.saveNow()) toast('This run could not be saved on this device.', 'warn');

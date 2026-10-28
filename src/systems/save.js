@@ -574,6 +574,8 @@ export function migrateProfile(raw) {
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
   // [tryout] the one open Tryout Day run (its own slot, outside the 5 battle saves; additive)
   if (isObj(raw.tryoutRun) && typeof raw.tryoutRun.id === 'string' && Number.isInteger(raw.tryoutRun.seed)) p.tryoutRun = raw.tryoutRun;
+  // [tryout] the highest Grade cleared (the ladder: clearing Grade N opens N + 1)
+  if (Number.isInteger(raw.tryoutGrade) && raw.tryoutGrade > 0) p.tryoutGrade = Math.min(12, raw.tryoutGrade);
   creditPotential(p, now);
   // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
   // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten

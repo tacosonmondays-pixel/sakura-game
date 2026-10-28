@@ -33,7 +33,7 @@ import { ensureOnline, avatar, levelChip, showError, connecting, storedName, loc
 import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode, draftReady } from '../../online/coop/session.js';
-import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK } from '../../systems/tryoutRuns.js';
+import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen } from '../../systems/tryoutRuns.js';
 import { mapChoices } from '../../sim/tryout/plan.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
@@ -797,9 +797,9 @@ export function render(root, params = {}) {
     const RUN_TILE = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '72px', padding: '6px 6px', fontStyle: 'normal' };
 
     /** A fresh run for the host: a new seed, Grade 1, Half Day, the seed's first (or second) map. */
-    function newRun(mapPick = 0) {
+    function newRun(mapPick = 0, grade = 1) {
       const seed = newRunSeed();
-      return { seed, grade: 1, length: 'half', mapId: mapChoices(seed, 1)[mapPick] };
+      return { seed, grade, length: 'half', mapId: mapChoices(seed, grade)[mapPick] };
     }
 
     function mapName(id) {
@@ -875,8 +875,15 @@ export function render(root, params = {}) {
               type: 'button', 'data-map': id, onclick: () => { if (run.mapId !== id) s.setTryout({ ...run, mapId: id }); },
             }, mapName(id))))
             : h('b', { 'data-testid': 'coop-run-map' }, mapName(run.mapId)),
-          h('span', { style: RUN_TEXT }, 'Grade 1 · Half Day'),
-          s.isHost ? button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun()) }) : null),
+          s.isHost
+            ? h('div.ol-seg', { 'data-testid': 'coop-run-grade' }, ...Array.from({ length: TRYOUT_GRADES }, (_, i) => i + 1).map((n) => h(`button.ol-seg-btn${run.grade === n ? '.on' : ''}`, {
+              type: 'button', 'data-grade': String(n), disabled: !gradeOpen(store.profile, n).open, title: `Grade ${n}`,
+              // (another Grade can change the content window: a new seed's maps come with it)
+              onclick: () => { if (run.grade !== n) s.setTryout(newRun(0, n)); },
+            }, `G${n}`)))
+            : null,
+          h('span', { style: RUN_TEXT }, `Grade ${run.grade} · Half Day`),
+          s.isHost ? button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade)) }) : null),
         h('div.ol-fp-row',
           h('span.ol-fp-label', `Your squad: ${picked.length}/3`),
           button(ui.redraw ? 'Redrawn' : 'Redraw (1)', {

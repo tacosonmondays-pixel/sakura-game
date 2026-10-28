@@ -67,6 +67,7 @@ import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
 import { clampStart, clampTryout, clampDraft, DRAFT_MAX } from './statLimits.js';
 import { mapChoices } from '../../sim/tryout/plan.js';
+import { TRYOUT_GRADES } from '../../systems/tryoutRuns.js';
 
 let current = null;
 
@@ -100,12 +101,12 @@ export function normalizeCode(code) {
 
 /**
  * A Tryout Day room setting: null (off) or { seed, grade, length, mapId } with the map one of the
- * seed's two mapChoices (the first when it is not). M1 runs Grade 1 Half Days only.
+ * seed's two mapChoices (the first when it is not). Half Days only; Grades 1 to TRYOUT_GRADES (the host's ladder).
  */
 export function tryoutSetting(t) {
   const c = clampTryout(t);
   if (!c) return null;
-  const run = { ...c, grade: 1, length: 'half' };
+  const run = { ...c, grade: Math.min(TRYOUT_GRADES, c.grade), length: 'half' };
   const maps = mapChoices(run.seed, run.grade);
   if (!maps.includes(run.mapId)) run.mapId = maps[0];
   return run;

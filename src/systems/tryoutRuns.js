@@ -15,6 +15,32 @@ export function tryoutUnlocked(profile) {
   return isStageCleared(profile, TRYOUT_UNLOCK);
 }
 
+/** Grades in this build (the first ship plays 1-6; §16). */
+export const TRYOUT_GRADES = 6;
+
+/** The highest Grade cleared (0: none). */
+export function gradeCleared(profile) {
+  return profile?.tryoutGrade || 0;
+}
+
+/**
+ * Is Grade g open (§7): the ladder (Grade g - 1 cleared) and its content window's campaign stage.
+ * @returns {{ open: boolean, why: string|null }} why: 'ladder' | 'window' | 'build'
+ */
+export function gradeOpen(profile, g) {
+  if (!TRYOUT.grades[g] || g > TRYOUT_GRADES) return { open: false, why: 'build' };
+  if (g > 1 && gradeCleared(profile) < g - 1) return { open: false, why: 'ladder' };
+  if (!isStageCleared(profile, TRYOUT.windows[TRYOUT.grades[g].window].unlock)) return { open: false, why: 'window' };
+  return { open: true, why: null };
+}
+
+/** A won run (not practice) clears its Grade. @returns {boolean} a new Grade opened */
+export function recordGradeClear(profile, grade) {
+  if (!Number.isInteger(grade) || grade <= gradeCleared(profile)) return false;
+  profile.tryoutGrade = Math.min(12, grade);
+  return true;
+}
+
 /** A fresh run seed (the UI may use the clock here, never inside the Sim). */
 export function newRunSeed(now = Date.now(), rand = Math.random) {
   return ((Math.floor(now) ^ Math.floor(rand() * 0x7fffffff)) >>> 0) || 1;
