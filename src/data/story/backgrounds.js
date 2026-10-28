@@ -7,8 +7,8 @@
 //          above the text box on a landscape phone (and its middle on a portrait one)
 //   cg     a painted lobby scene with a girl already in it; the player hides portraits while it is up
 //   stage  `stage:<stageId>` — that stage's painted place (STAGE_PLACE below); a stage without one falls back to
-//          its chapter's academy tint (CHAPTER_FALLBACK_BG). Not listed here: any campaign stage id works (the
-//          content test checks it exists). `stage:<stageId>@dusk` / `@dawn` / `@night` asks for that time of day (STAGE_TIMES):
+//          its chapter's academy tint (CHAPTER_FALLBACK_BG). Not listed here: any campaign stage id works, and so does
+//          a side stage's `side-<c>-<slug>` id (the content test checks it exists). `stage:<stageId>@dusk` / `@dawn` / `@night` asks for that time of day (STAGE_TIMES):
 //          a drawn skyline is re-lit (src/art/backdrops.js TIME_OF_DAY); a painted place shows its `-sunset` /
 //          `-night` picture when one is listed, else the place as painted
 //   solid  a flat colour for fades and title cards
@@ -18,7 +18,12 @@
 export const STAGE_BG_PREFIX = 'stage:';
 /** Times of day a `stage:<id>@<time>` background may ask for. */
 export const STAGE_TIMES = ['dusk', 'dawn', 'night'];
-const STAGE_BG_RE = new RegExp(`^([0-9]+-[0-9]+)(?:@(${STAGE_TIMES.join('|')}))?$`);
+/**
+ * A stage id a scene may name (a `stage:` background or a before / after trigger): a campaign id `<c>-<n>`, or a side
+ * stage `side-<c>-<slug>` (kind 'side', e.g. `side-6-starfall`: not in CAMPAIGN_IDS, drawn after its anchor).
+ */
+export const STORY_STAGE_ID = '(?:[0-9]+-[0-9]+|side-[0-9]+-[a-z][a-z0-9]*)';
+const STAGE_BG_RE = new RegExp(`^(${STORY_STAGE_ID})(?:@(${STAGE_TIMES.join('|')}))?$`);
 
 /** A story place: public/art/lobby/story/<id>.webp, its 320 px archive thumb, and its focal point. */
 function place(id, focus) {
