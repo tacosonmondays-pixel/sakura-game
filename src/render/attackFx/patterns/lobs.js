@@ -119,7 +119,7 @@ export class Lobs {
           const qx = o.x0 + (o.x1 - o.x0) * kj;
           const qy = o.y0 + (o.y1 - o.y0) * kj;
           const qh = arcHeight(kj, o.h0, o.h1, o.apex);
-          ctx.line(ctx.b.bbA, j === 1 ? CORE : DECOR, px, ph, py, qx, qh, qy, 0.07 * (1 - j / (steps + 1)) + 0.02, o.c2, 0.7 * (1 - j / (steps + 1)));
+          ctx.line(ctx.b.bbA, j === 1 ? CORE : DECOR, px, ph, py, qx, qh, qy, 0.1 * (1 - j / (steps + 1)) + 0.025, o.c2, 0.8 * (1 - j / (steps + 1)));
           px = qx;
           py = qy;
           ph = qh;

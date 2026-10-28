@@ -44,12 +44,13 @@ function drawBar(o, x, h, y, k, ctx) {
   const dx = o.x1 - o.x0;
   const dy = o.y1 - o.y0;
   const d = Math.hypot(dx, dy) || 1;
-  const c = Math.cos(o.rot) * 0.17;
-  const s = Math.sin(o.rot) * 0.17;
+  const c = Math.cos(o.rot) * 0.24;
+  const s = Math.sin(o.rot) * 0.24;
   const ux = (dx / d) * c;
   const uy = (dy / d) * c;
-  ctx.line(ctx.b.bbN, CORE, x - ux, h - s, y - uy, x + ux, h + s, y + uy, 0.075, ctx.col('#5b6270'), 1, ctx.R.white);
-  ctx.line(ctx.b.bbA, CORE, x - ux, h - s + 0.015, y - uy, x + ux, h + s + 0.015, y + uy, 0.035, o.c, 1);
+  ctx.line(ctx.b.bbN, CORE, x - ux, h - s, y - uy, x + ux, h + s, y + uy, 0.1, ctx.col('#5b6270'), 1, ctx.R.white);
+  ctx.line(ctx.b.bbA, CORE, x - ux, h - s + 0.02, y - uy, x + ux, h + s + 0.02, y + uy, 0.05, o.c, 1);
+  ctx.quad(ctx.b.bbA, DECOR, x + ux, h + s + 0.02, y + uy, 0.12, 0.12, ctx.R.star, o.c, 1, o.rot);
 }
 
 /** Lob landing: the clack (a skid along the strip, spikes snapping up, two sparks). */
