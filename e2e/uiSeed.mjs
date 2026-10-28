@@ -38,6 +38,100 @@ export async function seedUiSave(page, m5) {
   }, [GIRLS, SQUAD, m5]);
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// [ui-ink] UI v2 "Ink & Paper": the mock-ups' sample save (notes/ui-v2, the build plan's V1 tooling)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * The clock of the `ink` seed: Thursday 4:30 PM Central, so Pumpkin Lantern Night's countdown reads "10d 4h" as on
+ * the mock-ups (it ends 2026-11-02 01:00 UTC; the chip rounds up).
+ */
+export const INK_NOW = '2026-10-22T21:30:00Z';
+/** The `ink` roster: the shots' girls plus Ruri (the mock-ups' secretary, with Kon) and Marumi (the living home). */
+export const INK_GIRLS = [...GIRLS, 'ruri', 'marumi'];
+/** Math.random's seed for the `ink` runs (inkRandomInit). */
+export const INK_RANDOM_SEED = 0x5a4b;
+/**
+ * Ruri's three pieces as the girl page mock-up shows them, plus the spares the gear picker and the Backpack's salvage
+ * shots need: a Mythic charm beside the others (medium 3: a selected tile next to an unselected Mythic one).
+ * [slot, rarity, level, main stat, name, equipped]
+ */
+export const INK_GEAR = Object.freeze([
+  ['charm', 'legendary', 8, 'atkPct', 'Fierce Omamori of the Eternal Sakura', true],
+  ['ribbon', 'superRare', 4, 'rangePct', 'Starlit Hair Bow', true],
+  ['shoes', 'rare', 2, 'ratePct', 'Swift Sneakers', true],
+  ['charm', 'mythic', 3, 'critDmg', 'Ruthless Pendant of the Crimson Moon', false],
+  ['charm', 'rare', 0, 'atkPct', 'Valiant Brooch', false],
+  ['charm', 'superRare', 2, 'critDmg', 'Keen Charm Bracelet', false],
+  ['ribbon', 'mythic', 0, 'rangePct', 'Farsight Ribbon of the Crimson Moon', false],
+  ['shoes', 'common', 0, 'ratePct', 'Swift Loafers', false],
+]);
+
+/**
+ * An init script (page.addInitScript(inkRandomInit, INK_RANDOM_SEED)): Math.random from a fixed seed (mulberry32),
+ * so anything the UI rolls with it is the same every run. With the fixed clock it keeps the `ink` shots repeatable.
+ * @param {number} seed
+ */
+export function inkRandomInit(seed) {
+  let a = seed >>> 0;
+  Math.random = function random() {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The `ink` seed: the mock-ups' sample save. Ruri is the secretary (with Kon), LV 24/40, P4, wearing Fierce Omamori,
+ * Starlit Hair Bow and Swift Sneakers; chapter 4 at 3/5 with 4-4 next (chapters 1-3 cleared, so every hub mode is
+ * open); 12 Recruit Tickets, 284,650 coins and 16,570 gems; Morning Roll Call and Study Session ready to claim,
+ * Patrol Duty at 1/3. The beta letter is the one unread letter. The page has window.__sakura.
+ * @param {import('playwright').Page} page
+ */
+export async function seedInkSave(page) {
+  await page.evaluate(async ([girls, squad, pieces]) => {
+    const { store } = window.__sakura;
+    const unlocks = await import('/src/systems/unlocks.js');
+    const gear = await import('/src/systems/gear.js');
+    const { createRng } = await import('/src/core/rng.js');
+    const { levelCapAt } = await import('/src/systems/progression.js');
+    const missions = await import('/src/systems/missions.js');
+    const p = store.profile;
+    for (const id of girls) if (!p.units[id]) unlocks.grantUnit(p, id, 1760000000000);
+    Object.assign(p.units.aoi, { level: 48, breakthrough: 4, awaken: 3 });
+    Object.assign(p.units.hikari, { level: 30, breakthrough: 3, awaken: 2 });
+    let gates = 0;
+    while (gates < 8 && levelCapAt(gates, 4) < 40) gates++;
+    Object.assign(p.units.ruri, { level: 24, breakthrough: gates, pl: 4 });
+    p.secretary = 'ruri';
+    p.formation = { hero: 'hikari', towers: ['ruri', ...squad.slice(0, 7)] };
+    Object.assign(p.currencies, { coins: 284650, gems: 16570 });
+    p.items ||= {};
+    p.items.ticket_recruit = 12;
+    Object.assign(p.settings, { autoStart: false });
+    for (let c = 1; c <= 3; c++) for (let s = 1; s <= 5; s++) p.progress.stages[`${c}-${s}`] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
+    for (let s = 1; s <= 3; s++) p.progress.stages[`4-${s}`] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
+    // each piece rolled from the first seed whose main stat is the one the mock-up shows, then named as it shows it
+    for (const [slot, rarity, level, main, name, worn] of pieces) {
+      let g = null;
+      for (let s = 1; s < 4000 && !g; s++) {
+        const r = gear.rollGear(createRng(7000 + s), { slot, rarity, level });
+        if (r.main.stat === main) g = r;
+      }
+      if (!g) continue;
+      g.name = name;
+      const uid = gear.addGear(p, g);
+      if (worn) gear.equipGear(p, 'ruri', uid);
+    }
+    missions.track(p, 'levelUp', 1);
+    missions.track(p, 'battleWin', 1);
+    store.commit('e2e');
+    store.saveNow?.();
+  }, [INK_GIRLS, SQUAD, INK_GEAR]);
+}
+
 /** The friend whose co-op invite the Multiplayer shots show (her account lives in the local test server only). */
 export const INVITE_FRIEND = Object.freeze({ id: 'shot-bea', name: 'Bea', level: 42, avatar: 'sango', room: 'BEA42', stage: '1-3' });
 

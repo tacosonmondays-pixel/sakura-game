@@ -161,7 +161,7 @@ export function render(root, params = {}) {
     const chips = h('div.tt-row', h('span.tt-label', 'Target'), t.families.map((f) => h(`button.chip.tt-fam${f === fam ? '.on' : ''}`, {
       'data-testid': `titan-target-${f}`,
       onclick: () => { setTargetFamily(p, id, f); store.commit('titan-target'); draw(); },
-    }, svgEl(itemIcon(zenithId(f)), 'tt-chip-ico'), MATERIAL_FAMILIES[f]?.name || f)));
+    }, svgEl(itemIcon(zenithId(f), { px: 18 }), 'tt-chip-ico'), MATERIAL_FAMILIES[f]?.name || f)));
     const needLine = need ? h('p.tt-need', { 'data-testid': 'titan-need' }, `${UNIT_MAP[need.unitId].name} · Gate ${need.gate} needs ${need.missing.slice(0, 2).map((m) => `${m.need - m.have} ${ITEMS[m.id]?.name || m.id}`).join(', ')}`) : null;
 
     // tier chips (+ the Mayhem rank stepper)

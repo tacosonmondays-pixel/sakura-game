@@ -49,17 +49,7 @@ async function render(enemyId, size) {
     model.userData.animate?.(0.4, 0, { moving: false, speed: 1 });
     model.rotation.y = 0.6;
     scene.add(model);
-    model.updateMatrixWorld(true);
-    // frame what is drawn: the posed skinned vertices (a SkinnedMesh's cached bounding box can be
-    // the asset's bind pose at another scale), visible meshes only (not the hidden barrier bubble)
-    const box = new THREE.Box3();
-    model.traverse((o) => {
-      if (!o.isMesh || !o.visible || /outline/i.test(o.name)) return;
-      let shown = true;
-      for (let p = o.parent; p && p !== model; p = p.parent) if (!p.visible) shown = false;
-      if (shown) box.expandByObject(o, true);
-    });
-    if (box.isEmpty()) box.setFromObject(model);
+    const box = models.drawnBox(model); // frame what is drawn (posed, visible meshes only)
     const sz = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const span = Math.max(sz.x, sz.y, sz.z) * 1.05;

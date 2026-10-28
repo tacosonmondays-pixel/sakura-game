@@ -63,7 +63,7 @@ export default [
     say('aoi', "Captain… every stone we relit sent its light up here. We've been keeping her eggs warm since the fountain!", { at: 'left', face: 'sparkle' }),
     say('hikari', "We have, haven't we? And all this time I thought we were fighting her.", { face: 'joy' }),
     narrate("The Matriarch bows, leaves one last grey scale at the Captain's feet, and flies her family home."),
-    cue({ bg: 'academy-day', petals: true, music: 'home', exit: 'all', enter: [{ who: 'rei', at: 'left' }, { who: 'yuki', at: 'right' }] }),
+    cue({ bg: 'blossom-court', petals: true, music: 'home', exit: 'all', enter: [{ who: 'rei', at: 'left' }, { who: 'yuki', at: 'right' }] }),
     narrate('Back home, the cherry trees bloom a second time. Nobody has seen that in a hundred years.'),
     say('rei', 'Final ledger. Lost: two tulips and some heather. Roses: returned. Slightly sticky.'),
     say('rei', 'Flowers planted: two hundred. I am satisfied.', { face: 'smile' }),

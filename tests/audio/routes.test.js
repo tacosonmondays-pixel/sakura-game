@@ -56,6 +56,13 @@ describe('battle families', () => {
       expect(resolveTrack(waveSting(t), man), t).toBeTruthy();
     }
   });
+  test('Gate Arc looks: the city plays blossom, the campus (Hilltop at night) the moonlit family', () => {
+    expect(THEME_FAMILY.city).toBe('blossom');
+    expect(THEME_FAMILY.campus).toBe('moonlit');
+    expect(familyForTheme('campus')).toBe('moonlit');
+    expect(resolveTrack(battleTrack('campus'), man)).toBeTruthy();
+    expect(resolveTrack(waveSting('campus'), man)).toBeTruthy();
+  });
   test('every stage gets a battle track; bosses get boss tracks', () => {
     const mapTheme = Object.fromEntries(MAPS.map((m) => [m.id, m.theme]));
     for (const s of STAGES) expect(battleTrack(mapTheme[s.mapId])).toMatch(/^battle_(blossom|moonlit|lantern|ironclock|matsuri)$/);

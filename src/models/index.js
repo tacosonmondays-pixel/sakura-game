@@ -21,7 +21,7 @@ import { UNIT_IDS } from '../data/units.js';
 export { CHIBI_HEIGHT } from './chibi.js';
 export { buildEnemy, preloadEnemies, enemyUrl } from './enemies.js';
 export { makeSilhouette, disposeObject } from './util.js';
-export { createModelViewer } from './viewer.js';
+export { createModelViewer, drawnBox } from './viewer.js';
 export { characterUrl, FACE_CELLS, detailFor } from './glbChibi.js';
 export { STANDIN_UNITS, isStandIn } from './standins.js';
 

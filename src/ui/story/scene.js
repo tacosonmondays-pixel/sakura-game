@@ -6,7 +6,8 @@ import { h, toast } from '../components.js';
 import { navigate, back } from '../router.js';
 import { store } from '../../core/store.js';
 import { storyOf, tutorialRoute } from '../../systems/story.js';
-import { sceneUnlocked } from '../../systems/storyTriggers.js';
+import { sceneUnlocked, ownedReady, ownedRequirementFor } from '../../systems/storyTriggers.js';
+import { resolveText } from '../../data/story/tokens.js';
 import { TUTORIAL_TEXT } from '../../data/story/tutorial.js';
 import { playStoryScene, hasUnit } from './play.js';
 
@@ -46,6 +47,11 @@ export function render(root, params = {}) {
     // archive episodes need their trigger; lesson scenes are opened by the journal, the opening always plays
     if (scene.kind !== 'lesson' && !sceneUnlocked(profile, scene)) {
       toast('Keep playing the campaign to unlock this episode.', 'info');
+      navigate('story', { ch: scene.chapter }, { replace: true });
+      return;
+    }
+    if (!ownedReady(profile, scene)) { // an `ifOwned` episode waits for one of its girls
+      toast(`${resolveText(ownedRequirementFor(scene))}. Recruit one of them to unlock this episode.`, 'info');
       navigate('story', { ch: scene.chapter }, { replace: true });
       return;
     }

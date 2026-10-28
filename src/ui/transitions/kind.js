@@ -3,9 +3,11 @@
 //   cut        big moves (into or out of a battle or a story scene, out of the title): a slanted
 //              black wipe covers, the screen swaps under it (the full loader shows there when the
 //              load passes 150 ms), then it wipes away
-//   slide      menu → submenu: shared-axis, out then in: the old body fades out in place (90 ms),
-//              then the new one slides in (220 ms); the top bar stays, only its title crossfades
-//   slide-back the same, mirrored: the back arrow, the back gesture, Home, a parent screen
+//   slide      menu → submenu: shared-axis, out then in: the old body fades out in place (80 ms),
+//              then the new one slides in from the right (200 ms) over a short ink wipe (280 ms in all,
+//              UI v2, owner Oct 27: "add animated transitions"); the top bar stays, its title crossfades
+//   slide-back the same, mirrored and quicker (60 + 160 = 220 ms): the back arrow, the back gesture,
+//              Home, a parent screen
 //   crossfade  the same screen with new params (the next girl, a co-op room of the hub, a tab)
 // Reduced motion turns the slides into a fade through (opacity only) and the cut into a fade
 // through black.
@@ -64,13 +66,21 @@ export function loaderInfoFor(name) {
 
 /**
  * Motion timings (ms). Every screen-level animation is within 120–320 ms in all (CONTRACTS §12):
- * a slide is its 90 ms exit plus its 220 ms entrance (310 ms), a crossfade 70 + 150 ms.
+ * a slide forward is its 80 ms exit plus its 200 ms entrance (280 ms, the ink wipe's length), a slide
+ * back 60 + 160 (220 ms), a crossfade 70 + 150 ms. Paths the player takes many times stay at or under
+ * 280 ms forward and 220 ms back (UI v2 motion layer, Oct 27); the new screen takes taps from its
+ * first frame.
  */
 export const MOTION = Object.freeze({
-  slide: 220,
-  slideOut: 90,
-  slideFadeIn: 170,
+  slide: 200,
+  slideOut: 80,
+  slideFadeIn: 150,
+  slideBack: 160,
+  slideBackOut: 60,
+  slideBackFadeIn: 120,
   slideShift: 24,
+  wipe: 280,
+  wipeBack: 220,
   titleOut: 80,
   titleIn: 110,
   crossfadeOut: 70,

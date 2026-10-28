@@ -7,7 +7,7 @@ export default [
   scene('opening', {
     title: 'Meet {name:hikari}', chapter: 0, kind: 'opening', trigger: { opening: true }, bg: 'black', music: 'title',
   }, [
-    cue({ bg: 'academy-day', fade: 'in', petals: true }),
+    cue({ bg: 'academy-courtyard', fade: 'in', petals: true }),
     narrate('Spring. Above Moonpetal City, the cherry trees of Sakura Academy are in full bloom.'),
     narrate('Here, students with halos train as Sentinels — the cheerful guardians of the academy and the city below.'),
     say('hikari', 'Sensei! Up here — on the wall!', { at: 'off', name: '???' }),
@@ -18,7 +18,7 @@ export default [
       { text: 'Nice to meet you, Captain!', lines: [say('hikari', "Just {name:hikari} is fine. We're partners from today, after all.", { face: 'wink' })] },
       { text: 'Do you greet everyone from a wall?', lines: [say('hikari', 'Only the important ones! …And the bakery delivery girl. She was very impressed.', { face: 'sweat' })] },
     ]),
-    cue({ bg: 'academy-day', music: 'home', enter: [{ who: 'hikari', at: 'center' }] }),
+    cue({ bg: 'academy-courtyard', music: 'home', enter: [{ who: 'hikari', at: 'center' }] }),
     say('hikari', "The academy asked for a Sensei who can read a battlefield. That's you — I've been looking forward to this."),
     say('hikari', "Around the city stand eight old wardstones that keep the wilds calm. This spring, they've started to dim."),
     say('hikari', 'So monsters keep wandering out. Slimes, goblins… and a few things that are much bigger.'),
@@ -34,7 +34,7 @@ export default [
   ]),
 
   scene('tut.outro', {
-    title: 'First Petals', chapter: 0, kind: 'outro', trigger: { tutorial: 'won' }, bg: 'academy-sunset', music: 'victory',
+    title: 'First Petals', chapter: 0, kind: 'outro', trigger: { tutorial: 'won' }, bg: 'academy-courtyard-sunset', music: 'victory',
   }, [
     say('hikari', 'Wonderful work, Sensei! The flowerbeds are safe… mostly.', { at: 'center', face: 'joy' }),
     say('aoi', 'I upgraded my arrows! Well — Sensei told me when. I did the shooting, though!', { at: 'left', fx: 'hop' }),

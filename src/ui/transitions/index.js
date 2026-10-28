@@ -5,9 +5,12 @@
 //               there once the cover lasts 150 ms),
 //               then it sweeps out to the left while the new screen drifts in 14 px
 //   slide       shared axis, out then in, all in place (no copy of the old screen): the old body
-//               fades out as it starts to move (90 ms), the screens swap, the new body slides in
-//               (220 ms). The top bar stays put; only its title crossfades
-//   slide-back  mirrored
+//               fades out as it starts to move (80 ms), the screens swap, the new body slides in
+//               from the right (200 ms) while a short slanted ink wipe sweeps across behind the
+//               screens (280 ms; UI v2 motion layer, owner Oct 27). The top bar stays put; only its
+//               title crossfades. A screen that brings its own entrance (data-mo-own: the home)
+//               only fades in (120 ms) and runs its pieces itself (src/ui/motion.js)
+//   slide-back  mirrored and quicker: out 60, in 160, the wipe the other way (220 ms in all)
 //   crossfade   opacity only, out then in (the same screen with new params)
 //   boot        the boot loader of index.html holds until the first screen is really drawn
 // Input: the outgoing screen goes inert on the tap that starts the change (no double taps), the
@@ -124,6 +127,7 @@ function baseTx(kind, info) {
       if (active === tx) {
         active = null;
         document.documentElement.removeAttribute('data-tx');
+        document.documentElement.removeAttribute('data-reveal');
         // (a change that supersedes this one starts right after: only a real pause counts as settled)
         queueMicrotask(() => {
           if (!active) flushSettled();
@@ -264,6 +268,8 @@ function coverTx(kind, root, prev, info) {
     if (tx.superseded) return;
     // … and only then the loader leaves, in the same frame as the panel starts to move
     tx.revealing = true;
+    // (the screen's own entrance, waiting at its first frame under the cover, plays from here: motion.css)
+    document.documentElement.setAttribute('data-reveal', '');
     if (ticket?.visible) tx.rec.loader = true;
     const gone = ticket ? ticket.end() : Promise.resolve();
     if (kind === 'cut' && panel) {
@@ -367,12 +373,52 @@ function settleAnims(list) {
   list.length = 0;
 }
 
+// ---------------------------------------------------------------------------------------------
+// the ink wipe: a short slanted ink band that sweeps across BEHIND the screens (z-index -1 under
+// #app) during a slide, seen through the old screen as it fades and in the gap before the new one
+// is in; it never covers a control and never takes a tap
+// ---------------------------------------------------------------------------------------------
+let wipe = null;
+function wipeBand() {
+  if (wipe?.isConnected) return wipe;
+  wipe = document.createElement('div');
+  wipe.className = 'tx-wipe';
+  wipe.setAttribute('aria-hidden', 'true');
+  document.body.append(wipe);
+  return wipe;
+}
+/** Sweeps the band: forward from the right edge to past the left one, back the other way. */
+function runWipe(dir, duration) {
+  const w = wipeBand();
+  w.getAnimations().forEach((a) => a.cancel());
+  w.classList.add('on');
+  const right = `translateX(110vw) ${SKEW}`;
+  const left = `translateX(-75vw) ${SKEW}`;
+  const a = anim(w, [{ transform: dir > 0 ? right : left }, { transform: dir > 0 ? left : right }], { duration, easing: 'cubic-bezier(0.45, 0, 0.25, 1)' });
+  const off = () => {
+    if (!w.getAnimations().some((x) => x.playState === 'running')) w.classList.remove('on');
+  };
+  if (a) a.finished.then(off, off);
+  else off();
+}
+/**
+ * Ends the band with its change: on a busy frame clock it can still be a few frames short of the
+ * edge when the new screen is fully in, and by then it is behind that opaque screen, so it simply
+ * stops there (nothing is left running once a change has settled).
+ */
+function endWipe() {
+  if (!wipe) return;
+  wipe.getAnimations().forEach((a) => a.cancel());
+  wipe.classList.remove('on');
+}
+
 function slideTx(kind, root, info) {
   const tx = baseTx(kind, info);
   root.inert = true;
   const R = reducedMotion();
   const dir = kind === 'slide-back' ? -1 : 1;
   const shift = kind === 'crossfade' || R ? 0 : MOTION.slideShift * dir;
+  const back = kind === 'slide-back';
   const anims = [];
   const add = (el, kf, o) => {
     if (el) anims.push(anim(el, kf, o));
@@ -405,11 +451,13 @@ function slideTx(kind, root, info) {
   // opacity / transform animate, on the compositor); its cleanup runs once it is invisible
   tx.covered = loadedP.then(async () => {
     if (tx.superseded) return;
+    // the wipe starts with the out phase (once the screen's code is here): as long as the change itself
+    if (!R && kind !== 'crossfade') runWipe(dir, back ? MOTION.wipeBack : MOTION.wipe);
     const L = layersOf(root);
     hadBar = !!L.bar;
     // into a screen without the top bar (the lobby): the bar leaves with the body
     const dropBar = !!L.bar && BARLESS_SCREENS.has(info?.to);
-    const T = R ? MOTION.reducedOut : kind === 'crossfade' ? MOTION.crossfadeOut : MOTION.slideOut;
+    const T = R ? MOTION.reducedOut : kind === 'crossfade' ? MOTION.crossfadeOut : back ? MOTION.slideBackOut : MOTION.slideOut;
     // (to-only keyframes: each layer fades from what it shows now, e.g. after a change handed on)
     const out = shift ? { opacity: 0, transform: `translateX(${Math.round(-shift * 0.6)}px)` } : { opacity: 0 };
     for (const el of dropBar ? [L.bar, ...L.body] : L.body) add(el, [out], { duration: T, easing: EASE_IN, fill: 'forwards' });
@@ -435,9 +483,14 @@ function slideTx(kind, root, info) {
     // its animations in the render's own task would force that work early and make one long task)
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => quietEntrances(r));
     const L = layersOf(r);
-    const T = R ? MOTION.reducedFade : kind === 'crossfade' ? MOTION.crossfade : MOTION.slide;
-    const fadeIn = R || kind === 'crossfade' ? T : MOTION.slideFadeIn;
+    const T = R ? MOTION.reducedFade : kind === 'crossfade' ? MOTION.crossfade : back ? MOTION.slideBack : MOTION.slide;
+    const fadeIn = R || kind === 'crossfade' ? T : back ? MOTION.slideBackFadeIn : MOTION.slideFadeIn;
     for (const el of L.body) {
+      // a screen with its own entrance (the home: its wallpaper, girl and pieces come in by themselves) only fades in
+      if (el.dataset?.moOwn != null) {
+        add(el, [{ opacity: 0, offset: 0 }], { duration: Math.min(fadeIn, MOTION.reducedFade), easing: 'ease-out' });
+        continue;
+      }
       if (shift) add(el, [{ transform: `translateX(${shift}px)` }, { transform: 'none' }], { duration: T, easing: EASE_OUT });
       add(el, [{ opacity: 0, offset: 0 }], { duration: fadeIn, easing: 'ease-out' });
     }
@@ -447,6 +500,7 @@ function slideTx(kind, root, info) {
       if (tx.superseded) return;
       for (const a of anims) a?.cancel();
       anims.length = 0;
+      endWipe();
       tx.finish();
     });
   };

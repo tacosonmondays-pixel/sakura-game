@@ -184,7 +184,9 @@ async function weeklyBounty(page) {
     await tap(page, '#app [data-testid="event-strip"]');
     return 'the event strip';
   }
-  await tap(page, '[data-testid="shortcut-notice"]');
+  // ([ui-ink] V2: the Notice is the menu sheet's Notice row, C12)
+  await tap(page, '[data-testid="top-menu"]');
+  await tap(page, '[data-testid="menu-sheet"] [data-testid="shortcut-notice"]');
   await tap(page, '.lb-notice-modal [data-testid="notice-event"]');
   await tap(page, '.lb-notice-modal:not(.closing) .lb-notice-cta button');
   return 'the Notice\'s weekly event';
@@ -513,19 +515,31 @@ async function shortcutsFlow() {
     check(st === 0, `shortcuts: … stepping back onto the lobby entry, like the back gesture (entry ${st})`);
   };
   await fromLobby('the Commissions dock button', () => tap(S, '[data-testid="dock-commissions"]'), 'commissions');
-  await fromLobby('the Tasks shortcut', () => tap(S, '[data-testid="shortcut-tasks"]'), 'commissions');
   // the event strip (or, while a limited event runs, its card in the strip's place, and Bounty from the Notice)
   if ((await eventEntry(S)) === 'event-card') {
     await fromLobby('the limited event card', () => tap(S, '#app [data-testid="event-card"]'), 'event');
     await fromLobby('the Notice\'s weekly event', () => weeklyBounty(S), 'bounty');
   } else await fromLobby('the event strip', () => tap(S, '#app [data-testid="event-strip"]'), 'bounty');
-  await fromLobby('the Total Assault shortcut', () => tap(S, '[data-testid="shortcut-assault"]'), 'assault');
-  // UI M5d: the Menu's old Co-op item opens the Multiplayer hub (menu-coop kept), and so does the lobby's Multiplayer button
-  await fromLobby('Menu → Multiplayer', async () => {
+  // [ui-ink] V2 (C12): the Tasks shortcut folded into the COMMISSIONS row's dot, the Total Assault shortcut went (Missions
+  // and the news card's weekly bosses page have it), and the Menu's Co-op item is the rail's MULTIPLAYER row. The news card
+  // pages by hand: its last page (the weekly bosses) opens Titan Trials, or Total Assault before Titan Trials opens
+  const bosses = await S.evaluate(async () => {
+    for (let i = 0; i < 3; i++) {
+      const page = document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page;
+      if (page === 'bosses') return document.querySelector('#app [data-testid="lobby-news"] .go')?.dataset.testid;
+      document.querySelector('#app [data-testid="lobby-news-next"]')?.click();
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    return null;
+  });
+  if (check(!!bosses, `shortcuts: the news card pages by hand to the weekly bosses (${bosses})`)) {
+    await fromLobby('the news card\'s weekly bosses page', () => tap(S, `#app [data-testid="${bosses}"]`), bosses === 'banner-titans' ? 'titans' : 'assault');
+  }
+  await fromLobby('Menu → Formation', async () => {
     await tap(S, '[data-testid="top-menu"]');
-    await tap(S, '[data-testid="menu-coop"]');
-  }, 'multiplayer');
-  await fromLobby('the Multiplayer button', () => tap(S, '[data-testid="lobby-multiplayer"]'), 'multiplayer');
+    await tap(S, '[data-testid="menu-sheet"] [data-testid="menu-formation"]');
+  }, 'formation');
+  await fromLobby('the MULTIPLAYER row', () => tap(S, '[data-testid="lobby-multiplayer"]'), 'multiplayer');
   // Multiplayer → the co-op screen (its stage chip) → arrow: back to Multiplayer, then to the lobby
   await tap(S, '[data-testid="lobby-multiplayer"]');
   await onScreen(S, 'multiplayer');

@@ -3,13 +3,14 @@ import { describe, it, expect } from 'vitest';
 import {
   FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, getEnemy, enemiesByFamily, enemyTraits, spawnedBy,
 } from '../../src/data/enemies.js';
-import { MAPS, getMap, pathTiles, buildableTiles } from '../../src/data/maps.js';
+import { MAPS, MAP_MAP, getMap, pathTiles, buildableTiles, defineMap } from '../../src/data/maps.js';
 import { TRACK_STEP, BRIDGE_HEIGHT } from '../../src/core/track.js';
 import {
-  silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount,
+  silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount, isDeclaredEcho,
 } from './trackShape.js';
 import {
   CHAPTERS, STAGES, STAGE_MAP, getStage, campaignStages, stagesOfKind, bountyArenas, stageEnemies, CAMPAIGN_IDS,
+  ACT2_PLAN, ACT2_PLAN_MAP, stageRequires,
 } from '../../src/data/stages.js';
 import { UNITS, freeUnlocksByStage } from '../../src/data/units.js';
 import * as itemsModule from '../../src/data/items.js';
@@ -30,14 +31,95 @@ const ENEMY_OPTIONAL = ['phases'];
 const FREEPLAY_ONLY = (e) => e.introducedIn === 'freeplay';
 const CAMPAIGN_ENEMIES = ENEMIES.filter((e) => !FREEPLAY_ONLY(e));
 const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths', 'tracks', 'crossings'];
-const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground'];
+const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground', 'echoOf', 'echoDiff', 'city'];
 const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
-const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena'];
-const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X']);
+const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus'];
+const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
+/** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
+const ERA_BY_THEME = {
+  sakura: 'morning', lake: 'morning', shrine: 'morning', mountain: 'morning', marsh: 'morning', foundry: 'morning',
+  festival: 'morning', volcano: 'morning', snow: 'morning', night: 'morning', arena: 'morning',
+  city: 'noon', campus: 'noon', drowned: 'noon', vesper: 'evening',
+};
+/** At most this many declared echo maps (GATE_ARC §17: 1-10, 3-10, 8-10). */
+const MAX_ECHOES = 3;
+
+/**
+ * Pairs of maps whose tracks clash: a silhouette IoU ≥ 0.65, or the same bend sequence placed too
+ * similarly on the board. Declared echo pairs (MapDef.echoOf) are skipped, and only they.
+ * @returns {string[]} one line per clash
+ */
+function shapeClashes(maps) {
+  const out = [];
+  const sigs = maps.map((m) => turningSignature(m));
+  for (let i = 0; i < maps.length; i++) {
+    for (let j = i + 1; j < maps.length; j++) {
+      if (isDeclaredEcho(maps[i], maps[j])) continue;
+      const iou = silhouetteIoU(maps[i], maps[j]);
+      if (iou >= 0.65) out.push(`silhouette ${maps[i].id} vs ${maps[j].id}: IoU ${iou.toFixed(2)}`);
+      // signature = the signed curvature lobes between inflections (mirrored / reversed variants
+      // count as the same); two maps with the same bend sequence must at least sit differently on
+      // the board, and a sequence of three or more lobes may not repeat on an overlapping layout
+      if (!signaturesMatch(sigs[i], sigs[j])) continue;
+      const complex = Math.min(lobeCount(sigs[i]), lobeCount(sigs[j])) >= 3;
+      if (iou >= (complex ? 0.45 : 0.5)) {
+        out.push(`turning ${maps[i].id} (${signatureText(sigs[i])}) vs ${maps[j].id} (${signatureText(sigs[j])}), IoU ${iou.toFixed(2)}`);
+      }
+    }
+  }
+  return out;
+}
+
+/** Tiles an echo map's `echoDiff` lists ({ x, y, w?, h?, from?, to }) → Map "x,y" → { from, to }. */
+function echoDiffTiles(echo) {
+  const out = new Map();
+  for (const d of echo.echoDiff || []) {
+    for (let y = d.y; y < d.y + (d.h ?? 1); y++) for (let x = d.x; x < d.x + (d.w ?? 1); x++) out.set(`${x},${y}`, d);
+  }
+  return out;
+}
+
+/**
+ * What is wrong with a declared echo (empty = a valid echo of `original`): another era, the same
+ * size, the paths, crossings and tunnels literal, and the rows equal except the tiles its echoDiff
+ * lists (each of those really changed, from `from` to `to`).
+ * @returns {string[]}
+ */
+function echoProblems(echo, original) {
+  const out = [];
+  const id = echo.id;
+  if (!original) return [`${id}: echoOf '${echo.echoOf}' names no map`];
+  if (echo.echoOf !== original.id) out.push(`${id}: echoOf is not ${original.id}`);
+  const ea = ERA_BY_THEME[echo.theme];
+  const eb = ERA_BY_THEME[original.theme];
+  if (!ea || !eb || ea === eb) out.push(`${id}: an echo must be of another era (${echo.theme}: ${ea}, ${original.theme}: ${eb})`);
+  if (echo.width !== original.width || echo.height !== original.height) out.push(`${id}: size differs`);
+  if (JSON.stringify(echo.paths) !== JSON.stringify(original.paths)) out.push(`${id}: paths differ`);
+  if (JSON.stringify(echo.tracks.map((t) => t.points)) !== JSON.stringify(original.tracks.map((t) => t.points))) out.push(`${id}: tracks differ`);
+  if (JSON.stringify(echo.tracks.map((t) => t.tunnels)) !== JSON.stringify(original.tracks.map((t) => t.tunnels))) out.push(`${id}: tunnels differ`);
+  if (JSON.stringify(echo.crossings) !== JSON.stringify(original.crossings)) out.push(`${id}: crossings differ`);
+  if (!Array.isArray(echo.echoDiff)) out.push(`${id}: echoDiff must be a list`);
+  const diff = echoDiffTiles(echo);
+  for (let y = 0; y < Math.min(echo.height, original.height); y++) {
+    for (let x = 0; x < Math.min(echo.width, original.width); x++) {
+      const a = echo.rows[y][x];
+      const b = original.rows[y][x];
+      const d = diff.get(`${x},${y}`);
+      if (!d) {
+        if (a !== b) out.push(`${id}: tile ${x},${y} is '${a}', the original's '${b}' (not in echoDiff)`);
+      } else {
+        if (a === b) out.push(`${id}: echoDiff lists ${x},${y} but it did not change`);
+        if (d.from != null && b !== d.from) out.push(`${id}: echoDiff ${x},${y} expects '${d.from}' in the original, found '${b}'`);
+        if (d.to != null && a !== d.to) out.push(`${id}: echoDiff ${x},${y} expects '${d.to}', found '${a}'`);
+      }
+    }
+  }
+  return out;
+}
 const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
 const TRAIT_SHAPES = {
   barrier: ['hp'], crystal: ['cap', 'hits'], regen: ['pct', 'delay'], hasty: ['mul', 'every', 'duration'],
@@ -69,7 +151,7 @@ const isCrossing = (map) => (map.crossings || []).length;
 // ---------------------------------------------------------------------------
 
 describe('enemies', () => {
-  it('has 12 families and 60-75 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
+  it('has 12 families and 60-110 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_IDS].sort());
     expect([...FAMILY_ORDER].sort()).toEqual([...FAMILY_IDS].sort());
     for (const [id, f] of Object.entries(FAMILIES)) {
@@ -77,7 +159,8 @@ describe('enemies', () => {
       for (const k of ['name', 'color', 'desc', 'behavior']) expect(f[k], `${id}.${k}`).toBeTruthy();
     }
     expect(CAMPAIGN_ENEMIES.length).toBeGreaterThanOrEqual(60);
-    expect(CAMPAIGN_ENEMIES.length).toBeLessThanOrEqual(75);
+    // (Gate Arc raises the cap from 75 to 110: eight Act II bosses and the new factions, GATE_ARC §18)
+    expect(CAMPAIGN_ENEMIES.length).toBeLessThanOrEqual(110);
     expect(ENEMIES.filter(FREEPLAY_ONLY).map((e) => e.id).sort()).toEqual(['fp_eclipse_wyrm', 'fp_foundry_titan', 'fp_gloom_regent', 'fp_hyakki_daimyo']);
     expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(ENEMIES.length);
     expect(Object.keys(ENEMY_MAP).length).toBe(ENEMIES.length);
@@ -213,9 +296,11 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 4 minibosses and 3 bosses with announced phases', () => {
+  it('has the 6 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
-    expect(minis).toEqual(['goblin_machine', 'oni_champion', 'orc_general', 'slime_prince']);
+    // (Gate Arc: the Frostbitten Heir, 1-10, on the Slime Prince's model in frost colours; Old Lamp-Hugger, 2-10, on
+    // the Bog Basilisk's model at miniboss scale)
+    expect(minis).toEqual(['goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_general', 'slime_frost_heir', 'slime_prince']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -240,6 +325,10 @@ describe('enemies', () => {
     }
     // Specific phase mechanics from the design.
     expect(getEnemy('slime_prince').traits.splitter).toBeTruthy();
+    expect(getEnemy('slime_frost_heir').traits.splitter.spawn).toBe('slime_courtier');
+    expect(getEnemy('slime_frost_heir').model).toEqual(getEnemy('slime_prince').model);
+    expect(getEnemy('slime_frost_heir').hp).toBeGreaterThan(getEnemy('slime_prince').hp);
+    expect(getEnemy('slime_frost_heir').threat).toBeGreaterThan(getEnemy('slime_prince').threat);
     expect(getEnemy('orc_general').phases.some((p) => p.set.armor >= 10)).toBe(true);
     expect(getEnemy('orc_general').phases.some((p) => p.set.traits?.guardian === null)).toBe(true);
     expect(enemyTraits('goblin_machine')).toEqual(expect.arrayContaining(['barrier', 'summoner']));
@@ -382,27 +471,53 @@ describe('maps', () => {
   });
 
   it('silhouettes differ: no two maps share a track shape (coarse 10x6 raster IoU < 0.65)', () => {
-    for (let i = 0; i < MAPS.length; i++) {
-      for (let j = i + 1; j < MAPS.length; j++) {
-        expect(silhouetteIoU(MAPS[i], MAPS[j]), `${MAPS[i].id} vs ${MAPS[j].id}`).toBeLessThan(0.65);
-      }
-    }
+    // (declared echo pairs only are exempt: see 'echoes' below)
+    expect(shapeClashes(MAPS).filter((c) => c.startsWith('silhouette'))).toEqual([]);
   });
 
   it('turning signatures differ: no two maps bend the same way in the same place', () => {
-    // signature = the signed curvature lobes between inflections (mirrored / reversed variants
-    // count as the same); two maps with the same bend sequence must at least sit differently on
-    // the board, and a sequence of three or more lobes may not repeat on an overlapping layout
-    const sigs = MAPS.map((m) => turningSignature(m));
-    for (let i = 0; i < MAPS.length; i++) {
-      for (let j = i + 1; j < MAPS.length; j++) {
-        if (!signaturesMatch(sigs[i], sigs[j])) continue;
-        const iou = silhouetteIoU(MAPS[i], MAPS[j]);
-        const complex = Math.min(lobeCount(sigs[i]), lobeCount(sigs[j])) >= 3;
-        const what = `${MAPS[i].id} (${signatureText(sigs[i])}) vs ${MAPS[j].id} (${signatureText(sigs[j])}), IoU ${iou.toFixed(2)}`;
-        expect(iou, what).toBeLessThan(complex ? 0.45 : 0.5);
-      }
-    }
+    expect(shapeClashes(MAPS).filter((c) => c.startsWith('turning'))).toEqual([]);
+  });
+
+  it('echoes: at most three, each a literal re-skin of a map of another era', () => {
+    const echoes = MAPS.filter((m) => m.echoOf);
+    expect(echoes.length, echoes.map((m) => m.id).join(', ')).toBeLessThanOrEqual(MAX_ECHOES);
+    for (const m of echoes) expect(echoProblems(m, MAP_MAP[m.echoOf]), m.id).toEqual([]);
+    // an original is echoed once at most, and an echo is never itself echoed
+    const originals = echoes.map((m) => m.echoOf);
+    expect(new Set(originals).size).toBe(originals.length);
+    for (const m of echoes) expect(MAP_MAP[m.echoOf].echoOf, `${m.echoOf} is an echo itself`).toBeFalsy();
+  });
+
+  it('the echo exemption covers a declared pair only: an undeclared copy still fails', () => {
+    // a synthetic Noon echo of Blossom Court with its fountain basin dried out (the 1-10 idea)
+    const court = getMap('sakura_court');
+    const basin = [{ x: 8, y: 5, w: 3, h: 1, from: '~', to: '.' }];
+    const dryRows = court.rows.map((r, y) => (y === 5 ? `${r.slice(0, 8)}...${r.slice(11)}` : r));
+    const echo = { ...court, id: 'noon_fixture_echo', theme: 'city', rows: dryRows, echoOf: 'sakura_court', echoDiff: basin };
+    // (the real echo, 1-10's noon_dry_fountain, steps aside: the fixture plays its part here)
+    const MAPS_ = MAPS.filter((m) => m.echoOf !== 'sakura_court');
+    expect(isDeclaredEcho(echo, court)).toBe(true);
+    expect(isDeclaredEcho(court, echo)).toBe(true);
+    expect(echoProblems(echo, court)).toEqual([]);
+    expect(shapeClashes([...MAPS_, echo])).toEqual([]);
+    // the same copy, undeclared: both shape tests catch it
+    const copy = { ...echo, id: 'noon_fixture_copy', echoOf: undefined, echoDiff: undefined };
+    expect(isDeclaredEcho(copy, court)).toBe(false);
+    expect(silhouetteIoU(copy, court)).toBeGreaterThanOrEqual(0.65);
+    const clashes = shapeClashes([...MAPS_, copy]);
+    expect(clashes.some((c) => c.startsWith('silhouette sakura_court vs noon_fixture_copy'))).toBe(true);
+    // a declared echo is exempt from its original only, never from a third map
+    const third = { ...echo, id: 'noon_fixture_third', echoOf: 'sakura_terrace' };
+    expect(shapeClashes([...MAPS_, third]).some((c) => c.includes('sakura_court vs noon_fixture_third'))).toBe(true);
+    // what the echo test refuses: the same era, a moved road, a changed tile it does not list,
+    // a listed tile that did not change
+    expect(echoProblems({ ...echo, theme: 'lake' }, court).join()).toMatch(/another era/);
+    expect(echoProblems({ ...echo, paths: [court.paths[0].slice(1)] }, court).join()).toMatch(/paths differ/);
+    expect(echoProblems({ ...echo, crossings: [] }, court).join()).toMatch(/crossings differ/);
+    expect(echoProblems({ ...echo, echoDiff: [] }, court).join()).toMatch(/not in echoDiff/);
+    expect(echoProblems({ ...echo, echoDiff: [...basin, { x: 1, y: 1, to: ',' }] }, court).join()).toMatch(/did not change/);
+    expect(echoProblems({ ...echo, echoOf: 'nope' }, undefined).join()).toMatch(/names no map/);
   });
 
   it('meanders are rare: at most two maps are U-bends marching across the board', () => {
@@ -469,6 +584,33 @@ describe('maps', () => {
     }
   });
 
+  it('rooftops (U) are a tile of their own: never cleared under a road, so a road over a roof fails', () => {
+    expect(TILE_CHARS.has('U')).toBe(true);
+    // a fixture: a 2×2 roof beside the road and a roof tile the road runs over
+    const rows = [
+      '..........',
+      '..UU......',
+      '..UU......',
+      '..........',
+      '......U...',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+    ];
+    const m = defineMap({ id: 'fixture_roofs', name: 'Roofs', theme: 'city', tier: 'beginner', rows, paths: [[[-1, 4.5], [11, 4.5]]], decor: [] });
+    expect(m.rows[1]).toBe('..UU......');
+    const onRoad = [...pathTiles(m)].filter((k) => {
+      const [x, y] = k.split(',').map(Number);
+      return m.rows[y]?.[x] === 'U';
+    });
+    expect(onRoad).toEqual(['6,4']); // kept: the path test above refuses it
+    // a roof is land for the build counts
+    const flat = defineMap({ id: 'fixture_flat', name: 'Flat', theme: 'city', tier: 'beginner', rows: rows.map((r) => r.replace(/U/g, '.')), paths: [[[-1, 4.5], [11, 4.5]]] });
+    const roofs = defineMap({ id: 'fixture_roofs2', name: 'Roofs', theme: 'city', tier: 'beginner', rows: rows.map((r, y) => (y === 4 ? '..........' : r)), paths: [[[-1, 4.5], [11, 4.5]]] });
+    expect(buildableTiles(roofs)).toEqual(buildableTiles(flat));
+  });
+
   it('paths are long enough and every map has room to build', () => {
     for (const m of MAPS) {
       const inside = [...pathTiles(m)].filter((k) => {
@@ -532,15 +674,41 @@ describe('maps', () => {
 // Stages
 // ---------------------------------------------------------------------------
 
+/**
+ * Every stage that must be cleared, directly or through its own requirements, before `id` opens (its unlock
+ * ancestors). The campaign's "earlier" is this set, never an array index: an Act II stage appended after 8-5 is not
+ * "after" 8-5 (docs/CAMPAIGN.md "Act II").
+ */
+const ancestorMemo = new Map();
+function unlockAncestors(id) {
+  if (ancestorMemo.has(id)) return ancestorMemo.get(id);
+  const out = new Set();
+  const stack = [...stageRequires(id)];
+  while (stack.length) {
+    const r = stack.pop();
+    if (out.has(r)) continue;
+    out.add(r);
+    stack.push(...stageRequires(r));
+  }
+  ancestorMemo.set(id, out);
+  return out;
+}
+
 describe('stages', () => {
   const campaign = campaignStages();
+  const act1 = campaign.filter((s) => s.act === 1);
+  const act2 = campaign.filter((s) => s.act === 2);
 
   it('has the expected stage counts and lookup helpers', () => {
-    expect(campaign.length).toBe(40);
+    // 40 Act I + the registered Act II stages (none yet: Gate Arc S1a)
+    expect(act1.length).toBe(40);
+    expect(act2.length).toBe(CHAPTERS.reduce((n, c) => n + c.act2.length, 0));
+    expect(campaign.length).toBe(40 + act2.length);
+    expect(campaign.every((s) => s.act === 1 || s.act === 2)).toBe(true);
     expect(stagesOfKind('resource').length).toBe(15);
     expect(stagesOfKind('boss').map((s) => s.id).sort()).toEqual(['boss-ashwing', 'boss-colossus', 'boss-lych']);
     expect(stagesOfKind('challenge').map((s) => s.id)).toEqual(['challenge']);
-    expect(STAGES.length).toBe(59);
+    expect(STAGES.length).toBe(59 + act2.length);
     expect(new Set(STAGES.map((s) => s.id)).size).toBe(STAGES.length);
     expect(getStage('1-1')).toBe(STAGE_MAP['1-1']);
     expect(() => getStage('nope')).toThrow();
@@ -557,9 +725,16 @@ describe('stages', () => {
       expect(c.stages).toEqual([1, 2, 3, 4, 5].map((n) => `${i + 1}-${n}`));
       for (const k of ['name', 'theme', 'tier', 'desc', 'mechanic']) expect(c[k], `chapter ${c.id} ${k}`).toBeTruthy();
       expect(MAP_TIERS[c.tier]).toBeTruthy();
-      for (const sid of c.stages) expect(getStage(sid).chapter).toBe(c.id);
+      for (const sid of c.stages) expect(getStage(sid)).toMatchObject({ chapter: c.id, act: 1, finale: sid === `${c.id}-5` });
+      // Act II: only registered c-6 … c-10 ids, in order; its row needs its header text once it has stages
+      expect(Array.isArray(c.act2)).toBe(true);
+      expect(c.act2).toEqual([6, 7, 8, 9, 10].map((n) => `${c.id}-${n}`).slice(0, c.act2.length));
+      for (const sid of c.act2) expect(getStage(sid)).toMatchObject({ chapter: c.id, act: 2, finale: sid === `${c.id}-10` });
+      if (c.act2.length) for (const k of ['act2Name', 'act2Theme', 'act2Desc']) expect(c[k], `chapter ${c.id} ${k}`).toBeTruthy();
     });
-    expect(campaign.map((s) => s.id)).toEqual(CHAPTERS.flatMap((c) => c.stages));
+    // CAMPAIGN_IDS: Act I first (1-1 … 8-5, unchanged), then Act II by (chapter, n)
+    expect(CAMPAIGN_IDS).toEqual([...CHAPTERS.flatMap((c) => c.stages), ...CHAPTERS.flatMap((c) => c.act2)]);
+    expect(campaign.map((s) => s.id)).toEqual(CAMPAIGN_IDS);
   });
 
   it('every StageDef matches the contract schema', () => {
@@ -575,7 +750,13 @@ describe('stages', () => {
       if (s.kind === 'challenge') expect(s.waves).toBe(Infinity);
       else expect(Number.isInteger(s.waves) && s.waves >= 12 && s.waves <= 30, s.id).toBe(true);
       const wg = s.waveGen;
-      expect(Object.keys(wg).sort()).toEqual(['budget', 'fixed', 'groups', 'pool', 'spacing']);
+      expect(Object.keys(wg).filter((k) => k !== 'laneCycle').sort()).toEqual(['budget', 'fixed', 'groups', 'pool', 'spacing']);
+      // a lane schedule (Gate Arc) only on a map with at least two lanes, each entry naming real lanes
+      if (wg.laneCycle) {
+        const lanes = getMap(s.mapId).paths.length;
+        expect(lanes, `${s.id} laneCycle on a one-lane map`).toBeGreaterThanOrEqual(2);
+        for (const e of wg.laneCycle) expect(e.length > 0 && e.every((l) => Number.isInteger(l) && l >= 0 && l < lanes), `${s.id} laneCycle`).toBe(true);
+      }
       expect(wg.budget.start).toBeGreaterThan(0);
       expect(wg.budget.growth).toBeGreaterThan(1);
       expect(wg.spacing).toBeGreaterThan(0);
@@ -601,7 +782,9 @@ describe('stages', () => {
       for (const c of s.recommended) expect(CAPABILITIES[c], `${s.id} recommends ${c}`).toBeTruthy();
       expect(Array.isArray(s.scenery.props) && s.scenery.props.length > 0, `${s.id} scenery`).toBe(true);
       if (s.scenery.weather != null) expect(['rain', 'snow', 'petals', 'embers']).toContain(s.scenery.weather);
-      if (s.requires !== null) expect(STAGE_MAP[s.requires], `${s.id} requires`).toBeTruthy();
+      // requires: null, one stage id or (an Act II x-6) a list of two, read through stageRequires
+      expect(s.requires === null || typeof s.requires === 'string' || (Array.isArray(s.requires) && s.requires.length === 2), `${s.id} requires`).toBe(true);
+      for (const r of stageRequires(s)) expect(STAGE_MAP[r], `${s.id} requires ${r}`).toBeTruthy();
       expect(typeof s.unlocks).toBe('object');
     }
   });
@@ -629,24 +812,27 @@ describe('stages', () => {
     }
   });
 
-  it('campaign requires-chain, hpScale, waves and start cash ramp (§5b)', () => {
-    campaign.forEach((s, i) => {
-      expect(s.requires).toBe(i === 0 ? null : campaign[i - 1].id);
+  it('Act I requires-chain, hpScale, waves and start cash ramp (§5b)', () => {
+    act1.forEach((s, i) => {
+      expect(s.requires).toBe(i === 0 ? null : act1[i - 1].id);
       if (i > 0) {
         // the base ramp is monotonic; the hero-rework HP pass (hpPass, per stage) sits on top of it
-        expect(s.hpScale / s.hpPass, s.id).toBeGreaterThanOrEqual(campaign[i - 1].hpScale / campaign[i - 1].hpPass - 0.01);
+        expect(s.hpScale / s.hpPass, s.id).toBeGreaterThanOrEqual(act1[i - 1].hpScale / act1[i - 1].hpPass - 0.01);
         expect(s.hpPass, s.id).toBeGreaterThanOrEqual(1);
-        expect(s.waves, s.id).toBeGreaterThanOrEqual(campaign[i - 1].waves - 2);
+        expect(s.waves, s.id).toBeGreaterThanOrEqual(act1[i - 1].waves - 2);
         expect(s.startCash, s.id).toBeGreaterThanOrEqual(700);
         expect(s.startCash, s.id).toBeLessThanOrEqual(900);
       }
+      expect(s.medalGemMul, s.id).toBeUndefined();
+      expect(s.modeChapter, s.id).toBeUndefined();
     });
-    expect(campaign[0].hpScale / campaign[0].hpPass).toBe(1);
-    expect(campaign[0].startCash).toBe(650);
-    expect(campaign[0].waves).toBe(12);
-    expect(campaign[39].hpScale / campaign[39].hpPass).toBeGreaterThanOrEqual(6);
-    expect(campaign[39].hpScale / campaign[39].hpPass).toBeLessThanOrEqual(7);
-    expect(campaign[39].waves).toBe(30);
+    expect(act1[0].hpScale / act1[0].hpPass).toBe(1);
+    expect(act1[0].startCash).toBe(650);
+    expect(act1[0].waves).toBe(12);
+    expect(act1[39].id).toBe('8-5');
+    expect(act1[39].hpScale / act1[39].hpPass).toBeGreaterThanOrEqual(6);
+    expect(act1[39].hpScale / act1[39].hpPass).toBeLessThanOrEqual(7);
+    expect(act1[39].waves).toBe(30);
     const res = stagesOfKind('resource');
     for (const s of res) {
       const t = Number(s.id.slice(-1));
@@ -655,6 +841,30 @@ describe('stages', () => {
     for (const s of stagesOfKind('boss')) {
       expect(s.hpScale).toBeGreaterThanOrEqual(5);
       expect(s.hpScale).toBeLessThanOrEqual(7);
+    }
+  });
+
+  it('Act II chain and ramp (ACT2_PLAN, and every registered Act II stage follows it)', () => {
+    for (const ch of CHAPTERS) {
+      const rows = ACT2_PLAN.filter((r) => r.chapter === ch.id);
+      expect(rows.map((r) => r.id)).toEqual([6, 7, 8, 9, 10].map((n) => `${ch.id}-${n}`));
+      // x-6: two keys (x-5 and the previous chapter's x-10; 1-6 only 1-5); x-7 … x-10: the Act II stage before
+      expect(rows[0].requires).toEqual(ch.id === 1 ? '1-5' : [`${ch.id}-5`, `${ch.id - 1}-10`]);
+      for (let k = 1; k < 5; k++) {
+        expect(rows[k].requires).toBe(rows[k - 1].id);
+        expect(rows[k].hpScale, rows[k].id).toBeGreaterThanOrEqual(rows[k - 1].hpScale);
+        expect(rows[k].hpScale / rows[k].hpPass, rows[k].id).toBeGreaterThanOrEqual(rows[k - 1].hpScale / rows[k - 1].hpPass);
+      }
+      for (const r of rows) {
+        if (ch.id < 8) expect(r.waves, r.id).toBe(getStage(`${ch.id + 1}-${r.k}`).waves);
+        expect(r.startCash, r.id).toBeLessThanOrEqual(900);
+      }
+    }
+    for (const s of act2) {
+      const r = ACT2_PLAN_MAP[s.id];
+      expect(r, s.id).toBeTruthy();
+      expect(s).toMatchObject({ waves: r.waves, hpScale: r.hpScale, hpPass: r.hpPass, cashScale: r.cashScale, startCash: r.startCash, tier: r.tier, medalGemMul: 0.5, modeChapter: r.modeChapter });
+      expect(stageRequires(s)).toEqual(Array.isArray(r.requires) ? [...r.requires] : [r.requires]);
     }
   });
 
@@ -670,12 +880,15 @@ describe('stages', () => {
   it('minibosses and bosses are scripted where the campaign says, with crown drops', () => {
     const fixedHas = (sid, eid) => getStage(sid).waveGen.fixed.some((f) => f.enemy === eid && f.wave === getStage(sid).waves);
     expect(fixedHas('1-5', 'slime_prince')).toBe(true);
+    expect(fixedHas('1-10', 'slime_frost_heir')).toBe(true);
+    expect(fixedHas('2-10', 'lizard_lamp_hugger')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);
     expect(fixedHas('8-5', 'dragon_ashwing')).toBe(true);
     const drops = (sid) => getStage(sid).drops.map((d) => d.item);
     expect(drops('1-5')).toContain('crown_slime');
+    expect(drops('1-10')).toContain('crown_slime');
     expect(drops('4-5')).toContain('crown_iron');
     expect(drops('6-5')).toContain('crown_cog');
     expect(drops('7-5')).toContain('crown_oni');
@@ -758,9 +971,10 @@ describe('stages', () => {
   });
 
   it('FREE-COUNTER RULE: essential counters come from starters and earlier free recruits', () => {
-    const order = new Map(campaign.map((s, i) => [s.id, i]));
-    const available = (idx) => UNITS.filter((u) => u.acquisition.type === 'starter'
-      || (u.acquisition.type === 'free' && order.has(u.acquisition.afterStage) && order.get(u.acquisition.afterStage) < idx));
+    // "earlier" = an unlock ancestor (stageRequires, transitive), never an index in CAMPAIGN_IDS: an Act II stage of
+    // chapter 1 sits right after 1-5, so a chapter-3 recruit never counts for it (A15)
+    const available = (s) => UNITS.filter((u) => u.acquisition.type === 'starter'
+      || (u.acquisition.type === 'free' && unlockAncestors(s.id).has(u.acquisition.afterStage)));
     const provides = (u, cap) => {
       const b = u.base;
       if (cap === 'detection') return !!(b.detection || b.aura?.detection) || u.capabilities.includes('detection') || u.pathCapabilities.includes('detection');
@@ -768,8 +982,8 @@ describe('stages', () => {
       if (cap === 'water') return u.placement === 'water' || u.placement === 'amphibious';
       return u.capabilities.includes(cap) || u.pathCapabilities.includes(cap);
     };
-    campaign.forEach((s, idx) => {
-      const units = available(idx);
+    campaign.forEach((s) => {
+      const units = available(s);
       const traits = new Set(stageEnemies(s).flatMap((id) => enemyTraits(id)));
       if (traits.has('veiled')) expect(units.some((u) => provides(u, 'detection')), `${s.id} detection`).toBe(true);
       if (traits.has('airborne')) expect(units.some((u) => provides(u, 'antiAir')), `${s.id} antiAir`).toBe(true);
@@ -779,7 +993,7 @@ describe('stages', () => {
     // Each free recruit arrives right before the mechanic it counters.
     const firstWith = (trait, tier = null) => campaign.find((s) => stageEnemies(s)
       .some((id) => enemyTraits(id).includes(trait) && (!tier || getEnemy(id).tier === tier))).id;
-    const before = (a, b) => order.get(a) < order.get(b);
+    const before = (a, b) => unlockAncestors(b).has(a);
     expect(before('1-2', firstWith('hasty'))).toBe(true); // Yuki
     expect(firstWith('veiled')).toBe('3-1'); // Kage after 2-5
     expect(firstWith('armored', 'normal')).toBe('4-1'); // Shiro after 3-5 (armored elites before then are light)
