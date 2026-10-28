@@ -723,3 +723,16 @@
   :is(.ui-day) .sc-thread-head { gap: 4px; padding-right: 4px; }
   :is(.ui-day) .sc-thread-head .btn-small { padding: 0 10px; }
 }
+/* (an upright phone hides the bar's status pill: the note says the reason itself) */
+@media (max-width: 420px) {
+  :is(.ui-day) .ol-screen .ol-local-why { display: inline; }
+  :is(.ui-day) .ol-screen .ol-local-what { display: inline; }
+}
+/* (an avatar's 46 px tap square never runs past the log's edges) */
+:is(.ui-day) .ol-chat-list { gap: 10px; padding-bottom: 14px; }
+@media (max-width: 560px) {
+  :is(.ui-day) .ol-clan-head .ol-emblem { --size: 44px !important; }
+  :is(.ui-day) .ol-clan-head > .ol-clan-id { flex-basis: calc(100% - 60px); }
+  :is(.ui-day) .ol-clan-id .ol-recruit-note { display: none; }
+  :is(.ui-day) .ol-clan-wrap > .ol-clan-tabbed { min-height: 420px; }
+}
