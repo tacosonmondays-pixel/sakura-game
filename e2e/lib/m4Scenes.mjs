@@ -67,7 +67,7 @@ export const M4_SCENES = [
   'm4-drawer-aoi', 'm4-drawer-armed', 'm4-drawer-locked', 'm4-drawer-azami', 'm4-drawer-chika', 'm4-drawer-chika-more', 'm4-drawer-more', 'm4-hero-drawer', 'm4-reduce-motion',
   'm4-drawer-ability', 'm4-drawer-ability-armed', 'm4-drawer-midori', 'm4-drawer-iroha', 'm4-drawer-teaser', 'm4-hero-more',
   'm4-drawer-fit', 'm4-drawer-ally', 'm4-lock-why',
-  'm4-stat-live', 'm4-keys', 'm4-abname',
+  'm4-stat-live', 'm4-keys', 'm4-abname', 'm4-sell-edge',
 ];
 const GIRLS = ['hikari', 'aoi', 'azami', 'chika', 'miko', 'momo', 'rei', 'akane', 'midori', 'iroha'];
 const SQUAD = ['aoi', 'azami', 'chika', 'miko', 'momo', 'midori', 'iroha'];
@@ -736,7 +736,7 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
   }
 
   // ---- the M4 re-review (look-1 and the scroll cue): a second battle with another squad
-  if (has('m4-drawer-fit') || has('m4-drawer-ally') || has('m4-lock-why')) {
+  if (has('m4-drawer-fit') || has('m4-drawer-ally') || has('m4-lock-why') || has('m4-sell-edge')) {
     // (a real page load: a goto that only changes the hash would keep the first battle's page; and the first battle's
     // save goes, or 1-1 would open on Continue)
     await page.goto('about:blank');
@@ -939,6 +939,58 @@ export async function runM4Scenes(page, { base, vp, want, shot: rawShot, log = c
         await sellAll([b.t]);
         await settle(page, 200);
       }
+    }
+
+    if (has('m4-sell-edge') && phone) {
+      // (the M4 review, round r4: a phone moves a finger tap that lands on no tap target onto the nearest one, its
+      // pointerdown included, so taps 1-9 px above the footer, on the last row's lock line, armed Sell and two sold her;
+      // drawerHits' elementFromPoint cannot see that. Real CDP touches, a finger's radius, over Sell's column: none may
+      // arm Sell, and a quick pair may never sell; one in the footer still arms it)
+      const E = (out['m4-sell-edge'] = {});
+      const cdp = await page.context().newCDPSession(page);
+      const touch = async (x, y) => {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, radiusX: 6, radiusY: 6, force: 1, id: 1 }] });
+        await page.waitForTimeout(40);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      };
+      for (const g of ['iroha', 'midori', 'chika']) {
+        const b = await build(g, 'abil3+2');
+        if (b.err) { fail('m4-sell-edge', b.err); continue; }
+        const reset = async () => {
+          await page.evaluate((u) => { window.__battle.ui.select(null); window.__battle.ui.select(u); }, b.t);
+          await panelOpen(page);
+          await settle(page, 250);
+          return page.evaluate(() => {
+            const p = document.querySelector('[data-testid="tower-panel"]');
+            const f = p.querySelector('.bt-panel-foot').getBoundingClientRect();
+            const s = p.querySelector('[data-testid="sell"]').getBoundingClientRect();
+            return { top: f.top, x: s.left + s.width / 2, y: (f.top + f.bottom) / 2 };
+          });
+        };
+        const sellState = () => page.evaluate((u) => ({ alive: !!window.__battle.sim.getTower(u), armed: !!document.querySelector('[data-testid="tower-panel"] [data-testid="sell"].armed') }), b.t);
+        const rows = [];
+        for (const d of [1, 3, 5, 8]) {
+          const g0 = await reset();
+          await touch(g0.x, g0.top - d);
+          await settle(page, 150);
+          const one = await sellState();
+          await touch(g0.x, g0.top - d);
+          await settle(page, 150);
+          const two = await sellState();
+          rows.push(`${d}px: ${one.armed ? 'ARMED' : 'no'}/${two.alive ? (two.armed ? 'ARMED' : 'no') : 'SOLD'}`);
+          if (one.armed || two.armed || !two.alive) fail('m4-sell-edge', `${g} ${b.tiers}: touches ${d} px above the footer reached Sell (${one.armed ? 'armed' : ''}${two.alive ? '' : ' sold'})`);
+          if (!two.alive) break;
+        }
+        const g1 = await reset();
+        await touch(g1.x, g1.y);
+        await settle(page, 150);
+        const inFoot = await sellState();
+        if (!inFoot.armed) fail('m4-sell-edge', `${g} ${b.tiers}: a touch on Sell itself did not arm it`);
+        E[g] = `${rows.join(' · ')} · on Sell: ${inFoot.armed ? 'armed' : 'NOT ARMED'}`;
+        log(`  m4-sell-edge ${g} ${b.tiers}: ${E[g]}`);
+        await sellAll([b.t]);
+      }
+      await cdp.detach().catch(() => {});
     }
 
     if (has('m4-lock-why')) {

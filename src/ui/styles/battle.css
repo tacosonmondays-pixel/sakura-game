@@ -546,7 +546,8 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 
 /* ---- footer: INVESTED · MORE ▸ · SELL +n */
 .bt-panel-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px calc(6px + var(--safe-bottom));
+  /* (56 px, Sell's dense tap size and its padding, with or without Sell: MORE's hit area stays inside an ally's footer) */
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: calc(56px + var(--safe-bottom)); padding: 6px 10px calc(6px + var(--safe-bottom));
   border-top: 1px solid var(--dw-line); background: rgba(255, 255, 255, 0.03);
 }
 .bt-spent { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
@@ -764,7 +765,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-panel .bt-panel-tree::after { translate: 0 calc(-50% + 2px); }
   /* Sell and MORE: their hit areas fill the footer's own height and never reach above it, so a tap on the last path
      row (its lock "i", its price) can never land on Sell (the M4 review, round r3: two quick taps on that "i" sold
-     her). The footer is 36 px tall here: 3 px padding over and under the 30 px Sell. */
+     her). The footer is 36 px tall here: 3 px padding over and under the 30 px Sell; MORE's is 30 px. */
   .bt-panel-foot .bt-sell::after { top: -3px; bottom: calc(-3px - var(--safe-bottom)); height: auto; translate: none; }
   .bt-panel-foot .bt-dw-more::after { top: calc(50% - 15px); bottom: auto; height: 30px; translate: -50% 0; }
   .bt-panel .bt-abrow-fire, .bt-panel .bt-abrow-chip { position: relative; min-height: 28px; }
@@ -781,7 +782,8 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
   .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
   .bt-panel .bt-ally-note .bt-ico-sm { width: 13px; height: 13px; margin-right: 3px; }
-  .bt-panel-foot { padding: 3px 8px calc(3px + var(--safe-bottom)); }
+  /* (36 px with or without Sell: an ally's footer has none, and MORE's 30 px hit area stays inside it) */
+  .bt-panel-foot { min-height: calc(36px + var(--safe-bottom)); padding: 3px 8px calc(3px + var(--safe-bottom)); }
   .bt-panel-foot .bt-sell { position: relative; min-height: 30px; }
   .bt-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
