@@ -388,8 +388,10 @@ try {
       (await import('/src/ui/selectTicket.js')).openSelectTicket();
     });
     await page.waitForSelector('[data-testid="sst-hotaru"]');
-    const pick = await page.evaluate(() => document.querySelector('.sst p')?.textContent);
-    check(/Already in your academy\? She gains 1 Essence for her next Potential step \(past her Essence cap: 10 Moonpearls and 5 recruit points\)\./.test(pick), `${tag} select ticket: picker text "${pick}"`);
+    const pick = await page.evaluate(() => document.querySelector('.bp-sst p')?.textContent);
+    // the kit dialog (BANNERS: the LR units by name, never from a ticket) and the dupe line
+    check(/One you already have gains 1 Essence for her next Potential step \(past her Essence cap: 10 Moonpearls and 5 recruit points\)\./.test(pick), `${tag} select ticket: picker text "${pick}"`);
+    check(/but Tenka and Kohaku & Tsubaki, who come only from their LR Banners/.test(pick), `${tag} select ticket: names the LR units "${pick}"`);
     // a P6 girl (Kaede) holds no Essence: the ticket becomes her spare payout (then cancel)
     await page.click('[data-testid="sst-kaede"]');
     await page.waitForSelector('[data-testid="confirm-cancel"]');

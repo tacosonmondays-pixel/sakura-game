@@ -570,7 +570,7 @@
 :where(.ui-day, .ui-night) .ui-girltile > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 :where(.ui-day, .ui-night) .ui-girltile > .cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; height: 26px;
   padding: 0 calc(6px + var(--rw) + var(--inl)) calc(var(--rw) + var(--inl)) 8px; background: var(--plate); color: var(--on-ink); }
-:where(.ui-day, .ui-night) .ui-girltile > .cap .nm { flex: 1; min-width: 0; font: italic 900 var(--fs-body)/1 var(--font-head); white-space: nowrap; }
+:where(.ui-day, .ui-night) .ui-girltile > .cap .nm { flex: 1; min-width: 0; font: italic 900 var(--fs-body)/1 var(--font-head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 1px; }
 :where(.ui-day, .ui-night) .ui-girltile > .cap .num { font-size: var(--fs-label); color: var(--on-ink); }
 :where(.ui-day, .ui-night) .ui-girltile > .cap .lbl { color: var(--on-ink-dim); }
 :where(.ui-day, .ui-night) .ui-girltile > .cap > svg.g { width: 14px; height: 14px; flex: none; color: var(--on-ink-dim); }

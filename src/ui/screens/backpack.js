@@ -573,7 +573,10 @@ export function render(root, params = {}) {
       const ready = workbenchReady(profile);
       const wb = toolBtn('Workbench', { icon: 'timer', testid: 'backpack-workbench', narrow: true, dot: ready, onClick: () => navigate('workbench'), cls: 'bp-wb-btn' });
       wb.setAttribute('aria-label', ready ? 'Workbench (a craft is ready)' : 'Workbench');
-      toolbar.append(wb);
+      // with the other tools: before the GEAR tab's gap (so never after the danger Salvage), else after Sort
+      const gap = toolbar.querySelector(':scope > .bp-gap');
+      if (gap) toolbar.insertBefore(wb, gap);
+      else toolbar.append(wb);
     }
     body.scrollTop = scrollTop;
   };
