@@ -21,7 +21,7 @@
 //     upper zone opens Missions (with its OPEN chip), its lower band the campaign's chapter; CO-OP rides on its top-left
 //     corner as a tab (the red number of open invites)
 //   · the corners never swap: Battle stays bottom right in thumb reach for every girl and picture; a full illustration
-//     whose girl stands off the middle is panned to bring her face toward the middle instead (artStage.js placeFull)
+//     shows whole, as painted (never zoomed), panned toward the middle where the picture allows (artStage.js placeFull)
 //   · the main menu: a side sheet from the right, in groups (src/ui/lobby/menuSheet.js); its head carries hide the UI
 //     and the background picker; a long press (600 ms) on the wallpaper hides the UI too
 // The pure model (the objective's first-match order, the news pages): src/ui/lobbyTray.js.

@@ -38,11 +38,12 @@ describe('the home pictures', () => {
 });
 
 describe('placeFull: her face on the spot, clear of the controls', () => {
-  it('lands her face on the spot when nothing stands there', () => {
-    const p = placeFull(844, 390, homeFullArt('azami-scene'), []);
+  it('her face as near the spot as the picture pans when nothing stands there', () => {
+    const art = homeFullArt('azami-scene');
+    const p = placeFull(844, 390, art, []);
     expect(p.clear).toBe(true);
-    expect(Math.round(p.faceY)).toBe(Math.round(390 * 0.31));
-    // the picture still covers the whole screen
+    // (a 1920x889 picture at 844x390 overflows by under a pixel down: her face stays where it is painted)
+    expect(p.faceY).toBeCloseTo(p.top + art.fy * p.height, 3);
     expect(p.left).toBeLessThanOrEqual(0);
     expect(p.top).toBeLessThanOrEqual(0);
     expect(p.left + p.width).toBeGreaterThanOrEqual(844 - 0.5);
@@ -56,43 +57,74 @@ describe('placeFull: her face on the spot, clear of the controls', () => {
       const p = placeFull(844, 390, homeFullArt(row.id), [pills]);
       // her face itself (brow down, sceneLayout.js CORE: 0.6 head radii up) always under the bar
       expect(p.faceY - 0.6 * p.r, row.id).toBeGreaterThanOrEqual(pills.y + pills.h);
-      // her hair too, unless the picture cannot come down that far (her face near its top edge, the zoom capped)
       if (p.clear) {
         cleared++;
         expect(p.faceY - 1.4 * p.r - 8, row.id).toBeGreaterThanOrEqual(pills.y + pills.h - 0.5);
       }
       expect(p.faceY, row.id).toBeLessThanOrEqual(390 * 0.31 + 390 * 0.12 + 0.5);
     }
-    // (the academy girls' wide scenes clear it; the older scenes with her face near the top edge cannot come down)
     expect(cleared).toBeGreaterThan(0);
   });
 });
 
-describe('placeFull, home layout B: Battle keeps its corner, so a girl painted off the middle comes toward it', () => {
-  it('on a landscape screen her face goes toward the middle as far as the picture allows (≤ 10 % more zoom)', () => {
-    const art = homeFullArt('hikari-rampart');
-    expect(art.fx).toBeGreaterThan(0.6);
-    for (const [W, H] of [[844, 390], [667, 375], [915, 412], [1280, 720], [1024, 768]]) {
-      const p = placeFull(W, H, art, []);
-      expect(Math.abs(p.faceX - W / 2), `${W}x${H}`).toBeLessThanOrEqual(W * 0.06);
-      expect(p.left + p.width, `${W}x${H}`).toBeGreaterThanOrEqual(W - 0.5);
-      expect(p.left, `${W}x${H}`).toBeLessThanOrEqual(0.5);
+describe('placeFull: the whole picture as painted, never zoomed (owner, v0.1.50)', () => {
+  const SIZES = [[844, 390], [667, 375], [740, 360], [915, 412], [1280, 720], [1024, 768], [1920, 1080], [390, 844]];
+  it('every full illustration at every size: zoom 1 (the cover fit), the picture covers the screen, panned only', () => {
+    for (const row of FULL_ILLUSTRATIONS) {
+      for (const [W, H] of SIZES) {
+        const art = homeFullArt(row.id, { portrait: H > W });
+        const p = placeFull(W, H, art, []);
+        const tag = `${row.id} ${W}x${H}`;
+        expect(p.zoom, tag).toBeCloseTo(1, 6);
+        expect(p.width, tag).toBeCloseTo(Math.max(W, H * (art.w / art.h)), 3);
+        expect(p.left, tag).toBeLessThanOrEqual(0.001);
+        expect(p.top, tag).toBeLessThanOrEqual(0.001);
+        expect(p.left + p.width, tag).toBeGreaterThanOrEqual(W - 0.001);
+        expect(p.top + p.height, tag).toBeGreaterThanOrEqual(H - 0.001);
+      }
     }
   });
 
-  it('clears a control over her hair before the wallets\' words; a wallet\'s plate may pass over it', () => {
+  it('pans her face toward the spot as far as the picture allows (a girl painted right of the middle: the middle)', () => {
     const art = homeFullArt('hikari-rampart');
-    const base = placeFull(667, 375, art, []);
+    expect(art.fx).toBeGreaterThan(0.6);
+    // 1024x768: the picture is wider than the screen, so it pans toward the middle, as far as its right edge allows
+    const t = placeFull(1024, 768, art, []);
+    expect(t.left).toBeCloseTo(1024 - t.width, 3);
+    expect(t.faceX).toBeLessThan(1024 * art.fx - 100);
+    expect(t.faceX).toBeGreaterThanOrEqual(512);
+    // 844x390: as wide as the screen, it cannot pan across: her face stays where it is painted, and the picture pans
+    // down only as far as its top edge
+    const p = placeFull(844, 390, art, []);
+    expect(p.faceX).toBeCloseTo(844 * art.fx, 3);
+    expect(p.top).toBeLessThanOrEqual(0);
+  });
+
+  it('pans a little more when a control stands over her hair, where the picture has room; a wallet\'s plate never moves it', () => {
+    // a phone held upright: the rampart overflows sideways, so a "+" just right of her hair pans it until it is 8 px clear
+    const art = homeFullArt('hikari-rampart');
+    const base = placeFull(390, 844, art, []);
     const r = base.r;
-    // a "+" over the edge of her hair (the gems' "+" at 667x375 before): she moves until it is 8 px clear
-    const plus = { x: base.faceX + 1.1 * r - 6, y: 12, w: 20, h: 26, kind: 'ctl' };
-    const p = placeFull(667, 375, art, [plus]);
+    const plus = { x: base.faceX + 1.1 * r - 6, y: base.faceY - 1.4 * r + 10, w: 20, h: 26, kind: 'ctl' };
+    const p = placeFull(390, 844, art, [plus]);
     expect(p.clearCtl).toBe(true);
+    expect(p.zoom).toBeCloseTo(1, 6);
     const f = { x0: p.faceX - 1.1 * p.r, x1: p.faceX + 1.1 * p.r, y0: p.faceY - 1.4 * p.r, y1: p.faceY + p.r };
     expect(plus.x + plus.w <= f.x0 - 8 || plus.x >= f.x1 + 8 || plus.y + plus.h <= f.y0 - 8 || plus.y >= f.y1 + 8).toBe(true);
     // a plate alone (kind 'pill') never moves her
-    const plate = { x: base.faceX - 50, y: 10, w: 100, h: 32, kind: 'pill' };
-    const q = placeFull(667, 375, art, [plate]);
+    const plate = { x: base.faceX - 50, y: base.faceY - 1.4 * r, w: 100, h: 32, kind: 'pill' };
+    const q = placeFull(390, 844, art, [plate]);
     expect([q.faceX, q.faceY]).toEqual([base.faceX, base.faceY]);
+  });
+
+  it('where the painting has no room left (667x375: the rampart as wide as the screen, her head at its top), it stays as painted', () => {
+    const art = homeFullArt('hikari-rampart');
+    const base = placeFull(667, 375, art, []);
+    const plus = { x: base.faceX + 0.5 * base.r, y: 16, w: 20, h: 20, kind: 'ctl' };
+    const p = placeFull(667, 375, art, [plus]);
+    expect(p.zoom).toBeCloseTo(1, 6);
+    expect(Math.abs(p.faceX - base.faceX)).toBeLessThanOrEqual(5); // (the 5 px it overflows)
+    // her face itself (brow down, CORE: 0.6 head radii up) stays under that control
+    expect(p.faceY - 0.6 * p.r).toBeGreaterThanOrEqual(plus.y + plus.h);
   });
 });

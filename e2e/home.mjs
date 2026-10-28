@@ -17,7 +17,7 @@
 //      setting and the system's) and Low graphics show her still portrait with no canvas; a phone held upright too
 //   6. the news chip turns by hand only, never on its own (motion allowed or not: UI v2 rule 11, P8); a running event
 //      leads it, so the event shows at landing; a full illustration whose girl stands right of the middle keeps the
-//      corners (Battle bottom right) and comes toward the middle, her face and hair clear of every control
+//      corners (Battle bottom right), the whole picture as painted (never zoomed), her face clear of every control
 //   7. Hikari's rampart (a bright full illustration) at 667x375, 844x390 and 1024x768: Battle bottom right, her face and
 //      hair clear of every control, the icons' caps and the SNT-HQ serial at 4.5:1 or more on the pixels under them
 //      (the glyphs' own pixels against the background with the halo, at the 10th percentile)
@@ -341,7 +341,7 @@ async function staticChecks(vp) {
     }
     if (W >= 1000) await keyChecks(page, vp);
     // a full illustration whose girl stands right of the middle (Hikari's rampart): the corners stay (Battle bottom
-    // right), her face comes toward the middle, her face and hair clear of every control (rampartChecks)
+    // right), the whole picture as painted (never zoomed), her face clear of every control (rampartChecks)
     if (W > H) {
       await homeWith(page, { secretary: 'hikari', lobbyBg: { hikari: 'hikari-rampart' } });
       await page.waitForFunction(() => window.__sakura?.home?.current?.() === 'hikari', null, { timeout: 15000 }).catch(() => {});
@@ -362,8 +362,8 @@ async function staticChecks(vp) {
   }
 }
 
-/** Battle bottom right, her face toward the middle, her face (CORE) and hair (placeFull's head box) clear of every
- * control (the top bar's "+" included), and the controls clear of her body box's middle (a full illustration). */
+/** Battle bottom right; the whole picture as painted (zoom 1, the cover fit: owner, v0.1.50); her face (CORE) clear of
+ * every control (the top bar's "+" included), her hair (placeFull's head box) too where the picture has room to pan. */
 async function rampartLayout(page, vp, W, H) {
   const m = await page.evaluate(() => {
     const pl = window.__sakura.home.placement();
@@ -377,6 +377,9 @@ async function rampartLayout(page, vp, W, H) {
     });
     return {
       plate: { right: plate.right, bottom: plate.bottom, left: plate.left },
+      zoom: sc.zoom,
+      clearCtl: sc.clearCtl,
+      img: (() => { const im = document.querySelector('#app .home-scene-art'); const b = im.getBoundingClientRect(); return { w: b.width, h: b.height, nw: im.naturalWidth, nh: im.naturalHeight, x: b.left, y: b.top }; })(),
       faceX: sc.faceX,
       core: { x: sc.faceX - 0.85 * r, y: sc.faceY - 0.6 * r, w: 1.7 * r, h: 1.55 * r },
       hair: { x: sc.faceX - 1.1 * r, y: sc.faceY - 1.4 * r, w: 2.2 * r, h: 2.4 * r },
@@ -385,10 +388,12 @@ async function rampartLayout(page, vp, W, H) {
   });
   if (!check(!!m, `${vp} Hikari's rampart shows as a full illustration`)) return;
   check(m.plate.left > W / 2 && Math.abs(m.plate.right - W) < 40 && Math.abs(m.plate.bottom - H) < 40, `${vp} rampart: Battle stays bottom right (plate x ${Math.round(m.plate.left)}-${Math.round(m.plate.right)})`);
-  check(Math.abs(m.faceX - W / 2) <= W * 0.12, `${vp} rampart: her face toward the middle (x ${Math.round(m.faceX)} of ${W})`);
+  const cover = Math.max(W, H * (m.img.nw / m.img.nh));
+  check(Math.abs(m.zoom - 1) < 1e-6 && Math.abs(m.img.w - cover) < 1 && m.img.x <= 0.5 && m.img.y <= 0.5 && m.img.x + m.img.w >= W - 0.5 && m.img.y + m.img.h >= H - 0.5, `${vp} rampart: the whole picture as painted, never zoomed (${Math.round(m.img.w)}x${Math.round(m.img.h)} at ${Math.round(m.img.x)},${Math.round(m.img.y)}; cover ${Math.round(cover)} wide)`);
   const hitCore = m.ctl.filter((b) => overlaps(m.core, b));
   const hitHair = m.ctl.filter((b) => overlaps(m.hair, b));
-  check(!hitCore.length && !hitHair.length, `${vp} rampart: her face and hair clear of every control${hitHair.length ? `; under ${hitHair.map((b) => b.name).join(', ')}` : ''}`);
+  check(!hitCore.length, `${vp} rampart: her face clear of every control${hitCore.length ? `; under ${hitCore.map((b) => b.name).join(', ')}` : ''}`);
+  check(!hitHair.length || !m.clearCtl, `${vp} rampart: her hair clear of every control where the picture can pan (${m.clearCtl ? 'it can' : 'painted at its top edge: the bar may pass over her hair'})${hitHair.length ? `; under ${hitHair.map((b) => b.name).join(', ')}` : ''}`);
 }
 
 /**

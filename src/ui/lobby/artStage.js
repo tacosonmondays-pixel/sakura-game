@@ -21,9 +21,9 @@
 //          row shows her 3:4 full art on a portrait screen.
 // Where she stands: her face anchor (src/ui/faceAnchors.js) on the home's face spot, her art 8 px clear of every
 // control (src/ui/lobby/hostPlace.js placeHost; boxes() gives the controls' boxes). A full illustration cannot move her
-// alone: the whole picture is zoomed and panned so her face (the row's face point) lands on the spot (placeFull over
-// hostPlace.js placeScene), between the home's corners (home layout B: as near the middle as the picture allows without
-// zooming in much), moved a little when a control would stand over her hair there, so no control covers her face or hair.
+// alone: the whole picture is shown as painted, never zoomed, at the cover fit, and panned so her face (the row's face
+// point) comes as near the spot as it allows (placeFull over hostPlace.js placeScene), between the home's corners, a
+// little more where a control would stand over her hair, so no control covers her face.
 // Her still stand breathes at 1 % over 4.5 s (the direction's Q10; off under Reduce motion).
 // A painting with a baked night copy (HOME_BAKED, tools/art/bakeHome.mjs) shows that copy; any other picture (the event
 // backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
@@ -92,15 +92,17 @@ export function homeFullArt(id, { portrait = false } = {}) {
 }
 
 /**
- * A full illustration on the home: zoomed and panned so her face lands on the face spot (placeScene). Pure.
- * Home layout B "Quiet Home": the corners never swap (Battle stays bottom right), so on a landscape screen her face goes
- * as near the middle as the picture allows, zooming in at most 10 % past the zoom her own face point needs
- * (FULL_FACE_X keeps that point between 38 % and 62 % of the width): a girl painted right of the middle comes toward
- * the middle, clear of the Battle plate, and the picture stays close to whole (the wallpaper is the show).
+ * A full illustration on the home: the whole picture as painted, never zoomed (owner, v0.1.50: a full illustration
+ * shows the whole picture as it is), at the cover fit, panned along the side that overflows the screen so her face
+ * comes as near the face spot as the picture allows (placeScene with maxZoom 1). Pure.
+ * Home layout B "Quiet Home": the corners never swap (Battle stays bottom right), so on a landscape screen the spot is
+ * the middle of the width (a picture as wide as the screen cannot pan across: her face stays where it is painted).
  * Her head there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit): when a control stands over it
- * (8 px clear) or a wallet's words and icon do, her face moves a little, 4 px at a time, down (up to 12 %
- * of the height) and across (up to 8 % of the width), the smallest move that clears everything, else the smallest that
- * clears the controls. The boxes say what they are (`kind`, lobby.js uiBoxes): 'ctl' (or none) a control, 'soft' a
+ * (8 px clear) or a wallet's words and icon do, the picture pans a little more, 4 px at a time, down (up to 12 %
+ * of the height) and across (up to 8 % of the width) where it has room, the smallest move that clears everything, else
+ * the smallest that clears the controls; where the painting has no room left (her head painted at its top edge on a
+ * screen of its own shape), she stays as painted: her face itself stays clear of the controls, the bar may pass over
+ * the top of her hair. The boxes say what they are (`kind`, lobby.js uiBoxes): 'ctl' (or none) a control, 'soft' a
  * wallet's words or icon, 'pill' / 'gap' a wallet's plate and the bar's spacer (the plates may pass over her hair).
  * @param {number} W
  * @param {number} H
@@ -170,7 +172,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   function build(u, bg) {
     const layer = h('div.home-scene-layer', { dataset: { bg: bg?.id || '' } });
     if (stageModeOf(bg) === 'full') {
-      // a full illustration: the whole picture is placed (zoomed, panned) so her face is on the spot; no stand
+      // a full illustration: the whole picture as painted (never zoomed), panned toward the spot; no stand
       const art = homeFullArt(bg.id, { portrait: portraitScreen() });
       const img = h(`img.home-scene-art${art.baked ? '.baked' : '.graded'}`, { src: art.src, width: art.w, height: art.h, alt: bg.name || u.name, draggable: false, decoding: 'async' });
       layer.classList.add('full');
