@@ -504,6 +504,8 @@ export function applyModSet(s, mods, acc) {
     else if (key === 'crit') {
       if (v.chance) s.crit.chance += v.chance;
       if (v.mul) s.crit.mul = Math.max(s.crit.mul, v.mul);
+      // an additive crit damage (Tryout Day's Hot Streak, src/sim/tryout/pep.js); absent everywhere else
+      if (v.mulAdd) s.crit.mul += v.mulAdd;
     } else if (key === 'aura') {
       if (!s.aura) s.aura = normAura();
       if (v.range != null) s.aura.range = Math.max(s.aura.range, v.range);

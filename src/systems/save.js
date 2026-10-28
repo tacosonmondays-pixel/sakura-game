@@ -572,6 +572,8 @@ export function migrateProfile(raw) {
   p.seenIntro = strList(raw.seenIntro);
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
+  // [tryout] the one open Tryout Day run (its own slot, outside the 5 battle saves; additive)
+  if (isObj(raw.tryoutRun) && typeof raw.tryoutRun.id === 'string' && Number.isInteger(raw.tryoutRun.seed)) p.tryoutRun = raw.tryoutRun;
   creditPotential(p, now);
   // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
   // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten

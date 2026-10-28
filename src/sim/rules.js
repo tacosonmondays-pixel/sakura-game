@@ -281,6 +281,8 @@ export function ruleBountyAdd(def, sim) {
  * owns no earlier pad. Sets padIndex / onPad / padMul / padRangeAdd; a change sets _buffsDirty.
  */
 export function assignPads(sim) {
+  // Tryout Day keeps stored seat holders (src/sim/tryout/breaks.js assignSeats)
+  if (sim.tryout) return sim.tryoutSeats();
   const r = sim.rule;
   if (!r || !r.pads.length) return;
   const owner = new Map();

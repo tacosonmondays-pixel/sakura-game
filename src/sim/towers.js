@@ -146,7 +146,11 @@ export function createTower(def, o) {
  * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null };
+  // Tryout Day's Pep Talks (`runMods`, src/sim/tryout/pep.js) come after a running boost; a girl without
+  // them resolves exactly as before
+  const run = t.runMods || null;
+  const tail = (m) => (run ? (m ? [m, run] : run) : m);
+  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: tail(t.abilMods || null) };
   const s = resolveStats(t.def, o);
   // Tenka's lab team (src/sim/lab.js): her dps and support weapons from her lab record and her lab power,
   // after every tier and before a running boost (a girl without a lab resolves exactly as before)
@@ -154,6 +158,7 @@ export function towerResolvedStats(t) {
   const lm = labMods(t.lab, s.lab.power);
   if (!lm) return s;
   o.extra = t.abilMods ? [lm, t.abilMods] : lm;
+  if (run) o.extra = [].concat(o.extra, run);
   return resolveStats(t.def, o);
 }
 

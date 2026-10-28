@@ -194,8 +194,11 @@ describe('display only: the battle sim is untouched', () => {
     // feature/abilities only: the abilities work changes the sim on protocol 8 and bumps it to 9 once, at its release
     // (A3 plan M7, which adds `9: '<id>'` above and removes this line). Only this exact in-progress id passes here.
     const PENDING_BUMP = { 8: 'c22b2587f4b7' };
+    // feature/tryout-day only: Tryout Day changes the sim on top of the abilities work and ships later with its own
+    // bump (docs/specs/TRYOUT_DAY.md §16); this branch's in-progress id, refreshed at each checkpoint
+    const TRYOUT_PENDING = { 8: '70f823f83702' };
     if (!KNOWN[COOP_PROTOCOL]) return;
-    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
+    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id || TRYOUT_PENDING[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });
