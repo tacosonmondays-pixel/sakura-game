@@ -71,6 +71,7 @@ import { eventBattleStage } from '../../data/events/wire.js';
 import { eventNow } from '../events/clock.js';
 import { supportPanel, supportParam } from './stageSupport.js'; // [friend support]
 import { supportAllowed } from '../../systems/friendSupport.js'; // [friend support] the Support row on prep
+import { isFriendshipLive } from '../../systems/banners.js'; // [friend support] the row waits for the server's SQL
 import { supportPick } from '../battle/supportPick.js';
 import { wentOnline } from '../online/common.js';
 
@@ -609,7 +610,9 @@ function prepFacts(stage, state, { endless }) {
  * once the player has gone online (only then can a friend lend one), on the stages that take a Support Student.
  */
 function supportRow(stage, state, ctx) {
-  if (!wentOnline() || !supportAllowed(store.profile, stage, { difficulty: state.difficulty })) return null;
+  // (only while Friend Support is live on the server, the Friendship tab's own switch: a deploy that lands before the
+  // friend support SQL shows no Support slot, supabase/migrations/20261028000000_friend_support.sql)
+  if (!wentOnline() || !isFriendshipLive() || !supportAllowed(store.profile, stage, { difficulty: state.difficulty })) return null;
   const pick = supportParam(stage, state) ? supportPick() : null;
   const who = pick && UNIT_MAP[pick.unitId] ? `${UNIT_MAP[pick.unitId].name} · ${pick.name || 'a friend'}` : null;
   const open = () => {
