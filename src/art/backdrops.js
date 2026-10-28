@@ -235,7 +235,190 @@ const THEME_SKY = {
   campus: ['#16244a', '#3f5d96'],
   // (the Drowned Line is underground: its scenes cover the sky with the station's ceiling)
   drowned: ['#0b1418', '#1d3640'],
+  // Vesperline frozen under its eclipse (Gate Arc S6a): a violet sky going teal at the rim
+  vesper: ['#221d3c', '#4f8494'],
 };
+
+/** Vesperline's drawn story places (Gate Arc S6a, themeBackdropSVG('vesper', { variant })); the first is the default. */
+export const VESPER_PLACES = Object.freeze(['causeway', 'skyrail', 'museum', 'towers', 'spindle', 'starfall']);
+
+/**
+ * Vesperline frozen (Gate Arc S6a, Act 6 "Vesperline"; story backgrounds of 6-6…6-10 and the Starfall Deck; the
+ * `vesper` theme's variants, VESPER_PLACES). Over every one: the eclipse (a dark disc in a pale gold ring, inside the
+ * 16:9 crop) and a cold aurora, glass towers frozen on the skyline, snow falling; at night stars instead of the
+ * eclipse. `causeway` (6-6): the frozen lake, the broken causeway mended with two fold-out light-bridges over the
+ * open leads, an abandoned round bus on it, the city's gate and towers at its end. `skyrail` (6-7): sky-rail girders on
+ * white pylons sweeping over the ruins, one broken off with a pod left hanging, a station canopy, the frozen canal.
+ * `museum` (6-8): the rotunda, columns under a dome with its oculus open to the eclipse, the Doorie statue on her
+ * plinth between reflecting pools (round, faceless, a lantern held up, a keychain at her belt). `towers` (6-9): the
+ * ring of lecture towers round the scramble plaza, podiums, holo signs flickering. `spindle` (6-10): the white tower
+ * rising out of the frame, the gate's terminal ring at its foot, the Vesper Gate (white-gold round black-violet) and
+ * the shelter with one warm window. `starfall` (the side stage, at night): the observatory deck under the cracked
+ * dome's ribs, star-map shards on the floor, stars and falling streaks. Lamps, holo light, the gate and the warm
+ * window go into `lights` (drawn over a time-of-day wash). No people.
+ * @returns {{ s: string, lights: string }}
+ */
+function vesperScene(rnd, id, W, H, variant, time) {
+  let s = '';
+  let lights = '';
+  const n2 = (v) => Math.round(v * 10) / 10;
+  const night = time === 'night' || variant === 'starfall';
+  // the eclipse: inside the 16:9 crop (x 195…905), over the rotunda's oculus in the museum
+  const [ex, ey] = variant === 'museum' ? [550, 64] : [720, 84];
+  // the sky: the eclipse (or stars at night) and the aurora
+  const interior = variant === 'museum';
+  if (interior) {
+    if (!night) lights += lamp(ex, ey, 0, '#fff1c4', 70, 0.3) + `<circle cx="${ex}" cy="${ey}" r="37" fill="none" stroke="#fff1c4" stroke-width="3"/>`;
+  } else if (night) {
+    lights += stars(seeded(`${id}-stars`), W, 190, 70);
+  } else {
+    lights += lamp(ex, ey, 0, '#fff1c4', 92, 0.32);
+    s += `<circle cx="${ex}" cy="${ey}" r="36" fill="#120e22"/>`;
+    lights += `<circle cx="${ex}" cy="${ey}" r="37" fill="none" stroke="#fff1c4" stroke-width="3"/><circle cx="${ex}" cy="${ey}" r="41" fill="none" stroke="#ffd27a" stroke-width="1.5" opacity="0.6"/>`;
+  }
+  for (const [y, c, op, a] of interior ? [] : [[60, '#5fe8d0', 0.22, 30], [90, '#9a7fff', 0.18, 22], [40, '#7fe9a8', 0.14, 26]]) {
+    let d = `M-20 ${y}`;
+    for (let x = 0; x <= W + 40; x += 110) d += `Q${x + 55} ${n2(y + (rnd() - 0.5) * a * 2)} ${x + 110} ${n2(y + (rnd() - 0.5) * a)}`;
+    lights += `<path d="${d}" stroke="${c}" stroke-width="${n2(14 + rnd() * 10)}" fill="none" opacity="${night ? op * 1.4 : op}" stroke-linecap="round"/>`;
+  }
+  // glass towers frozen on the skyline (white frames, dark panes, snow on the ledges)
+  const towers = (y0, count, hMin, hMax, col, edge) => {
+    let x = -20;
+    for (let i = 0; i < count && x < W; i++) {
+      const w = 40 + rnd() * 50;
+      const h = hMin + rnd() * (hMax - hMin);
+      s += `<rect x="${n2(x)}" y="${n2(y0 - h)}" width="${n2(w)}" height="${n2(h + 4)}" fill="${col}"/><rect x="${n2(x)}" y="${n2(y0 - h)}" width="${n2(w)}" height="4" fill="${edge}"/>`;
+      for (let wy = y0 - h + 14; wy < y0 - 8; wy += 18) s += `<rect x="${n2(x + 6)}" y="${n2(wy)}" width="${n2(w - 12)}" height="6" fill="#2c3550" opacity="0.7"/>`;
+      x += w + 10 + rnd() * 40;
+    }
+  };
+  if (variant === 'museum') {
+    // the rotunda: a dark interior, a ring of columns, the dome's oculus open to the sky
+    s = `<rect width="${W}" height="${H}" fill="#1a2030"/>`;
+    s += '<path d="M0 0H1100V160Q550 40 0 160Z" fill="#2a3246"/><path d="M0 160Q550 40 1100 160" stroke="#dfe7ee" stroke-width="6" fill="none"/>';
+    // the oculus open to the sky (the eclipse in it, or stars at night), its white rim
+    s += `<circle cx="550" cy="64" r="64" fill="url(#${id}-sky)"/>${night ? '' : '<circle cx="550" cy="64" r="36" fill="#120e22"/>'}`;
+    if (night) for (let i = 0; i < 9; i++) lights += `<circle cx="${n2(512 + rnd() * 76)}" cy="${n2(30 + rnd() * 64)}" r="1.4" fill="#fff"/>`;
+    lights += '<circle cx="550" cy="64" r="66" fill="none" stroke="#eef3f7" stroke-width="5"/>';
+    for (let k = 0; k < 9; k++) {
+      const x = 60 + k * 122;
+      s += `<rect x="${x}" y="150" width="34" height="200" fill="#d8e0e8"/><rect x="${x - 6}" y="142" width="46" height="12" fill="#eef3f7"/><rect x="${x + 4}" y="150" width="6" height="200" fill="#b4c0cc"/>`;
+      s += `<rect x="${x - 4}" y="140" width="42" height="5" fill="#f1f5f9"/>`;
+    }
+    // the floor, the reflecting pools either side (dark, the eclipse's ring in them)
+    s += '<rect y="350" width="1100" height="50" fill="#9fb0c0"/><path d="M0 350H1100" stroke="#eef3f7" stroke-width="3"/>';
+    s += '<ellipse cx="300" cy="372" rx="170" ry="16" fill="#0c1424"/><ellipse cx="800" cy="372" rx="170" ry="16" fill="#0c1424"/>';
+    lights += '<ellipse cx="300" cy="372" rx="30" ry="4" fill="none" stroke="#fff1c4" stroke-width="1.5" opacity="0.7"/><ellipse cx="800" cy="372" rx="30" ry="4" fill="none" stroke="#fff1c4" stroke-width="1.5" opacity="0.7"/>';
+    // Doorie on her plinth: round head under a little cap, a bell-shaped coat, a lantern held up, a keychain
+    s += '<rect x="500" y="318" width="100" height="34" fill="#c3cdd6"/><rect x="494" y="312" width="112" height="8" fill="#eef3f7"/>';
+    s += '<path d="M520 312Q550 236 580 312Z" fill="#d8dde2"/><circle cx="550" cy="232" r="24" fill="#dfe4e8"/><path d="M526 230Q550 198 574 230Z" fill="#b4bcc4"/><circle cx="550" cy="204" r="5" fill="#b4bcc4"/>';
+    s += '<path d="M570 268L590 236" stroke="#c3cdd6" stroke-width="7" stroke-linecap="round"/><path d="M590 236V214M590 214H604" stroke="#3d4b58" stroke-width="3"/><rect x="598" y="216" width="14" height="16" fill="#b4bcc4"/>';
+    s += '<circle cx="538" cy="282" r="5" fill="none" stroke="#b4bcc4" stroke-width="2"/><circle cx="538" cy="291" r="3.5" fill="#b4bcc4"/>';
+    s += '<path d="M530 222Q550 214 570 222" stroke="#f1f5f9" stroke-width="5" fill="none" stroke-linecap="round"/>';
+    // dead holo exhibit frames between the columns, one still flickering
+    for (const x of [196, 440, 684, 928]) s += `<rect x="${x}" y="220" width="56" height="70" fill="#1c2434" stroke="#8a9cab" stroke-width="3"/>`;
+    lights += '<rect x="690" y="226" width="44" height="58" fill="#7ff0ff" opacity="0.22"/>' + lamp(712, 254, 0, '#7ff0ff', 40, 0.25);
+    lights += snowfall(rnd, W, 140, 20, 1.2, 1.6, 0.7);
+    return { s, lights };
+  }
+  // the far skyline
+  towers(300, 22, 60, 160, '#55657a', '#e8eef3');
+  if (variant === 'starfall') {
+    // the observatory deck at night under the cracked dome's ribs; star-map shards on the floor
+    s += '<rect y="300" width="1100" height="100" fill="#3a4660"/><path d="M0 300H1100" stroke="#d8e0e8" stroke-width="4"/>';
+    for (let k = 0; k < 7; k++) {
+      const x0 = -60 + k * 200;
+      const broken = k === 2 || k === 5;
+      s += `<path d="M${x0} 300Q${x0 + 100} ${broken ? 150 : -60} ${x0 + (broken ? 150 : 220)} ${broken ? 90 : 300}" stroke="#e6edf3" stroke-width="10" fill="none"/>`;
+    }
+    s += '<path d="M-20 60Q550 -40 1120 60" stroke="#c9d3db" stroke-width="8" fill="none" stroke-dasharray="180 60"/>';
+    // the orrery's brass rings, centre left
+    for (const [rx, ry, rot] of [[90, 30, -10], [70, 50, 25], [50, 20, 60]]) s += `<ellipse cx="300" cy="250" rx="${rx}" ry="${ry}" transform="rotate(${rot} 300 250)" fill="none" stroke="#c79a4a" stroke-width="5"/>`;
+    s += '<rect x="292" y="250" width="16" height="50" fill="#c79a4a"/>';
+    lights += lamp(300, 250, 6, '#fff1c4', 30, 0.5);
+    // star-map shards: dark glass with points of light
+    for (const [x, y, w] of [[560, 340, 90], [720, 360, 70], [880, 336, 60], [160, 350, 64]]) {
+      s += `<path d="M${x} ${y}l${w} -8l-12 26l-${w - 20} 6z" fill="#1f2a44" stroke="#6f86a8" stroke-width="2"/>`;
+      for (let i = 0; i < 4; i++) lights += `<circle cx="${n2(x + 10 + rnd() * (w - 24))}" cy="${n2(y + 2 + rnd() * 12)}" r="1.8" fill="#fff1c4"/>`;
+    }
+    // falling streaks
+    for (let i = 0; i < 5; i++) {
+      const x = 220 + rnd() * 660;
+      const y = 30 + rnd() * 120;
+      lights += `<path d="M${n2(x)} ${n2(y)}l-46 24" stroke="#e6f4ff" stroke-width="2" opacity="0.8" stroke-linecap="round"/>`;
+    }
+    lights += snowfall(rnd, W, H, 30, 1.2, 1.6, 0.6);
+    return { s, lights };
+  }
+  if (variant === 'skyrail') {
+    // the frozen canal and the ruins below, the sky-rail sweeping over on white pylons
+    s += '<rect y="300" width="1100" height="100" fill="#7d8fa1"/><path d="M0 350Q550 330 1100 352V380Q550 360 0 382Z" fill="#0b1626"/>';
+    for (const [x, w, h] of [[60, 120, 50], [260, 90, 34], [740, 140, 46], [960, 100, 30]]) s += `<rect x="${x}" y="${300 - h}" width="${w}" height="${h}" fill="#66788b"/><rect x="${x}" y="${300 - h}" width="${w}" height="5" fill="#eef3f7"/>`;
+    for (const x of [140, 380, 620, 860]) s += `<rect x="${x - 9}" y="${x === 860 ? 200 : 170}" width="18" height="${x === 860 ? 130 : 160}" fill="#e6edf3"/><rect x="${x - 6}" y="170" width="4" height="160" fill="#b4c0cc"/>`;
+    s += '<path d="M-10 166L380 150Q560 144 700 162L800 168" stroke="#d9e2e9" stroke-width="22" fill="none"/><path d="M-10 178L380 162Q560 156 700 174L800 180" stroke="#8ea3b5" stroke-width="8" fill="none"/>';
+    // the broken end, a pod left hanging under it
+    s += '<path d="M800 158l14 -6l-6 14l12 2l-20 14z" fill="#d9e2e9"/><rect x="760" y="182" width="6" height="34" fill="#3d4b58"/>';
+    s += '<rect x="726" y="214" width="74" height="54" rx="14" fill="#eef3f6"/><rect x="726" y="234" width="74" height="7" fill="#2ec4e6"/><rect x="738" y="220" width="50" height="12" rx="4" fill="#2c3550"/>';
+    lights += lamp(800, 262, 3, '#ff4d5a', 16, 0.45);
+    // the station canopy on the left with its holo sign
+    s += '<path d="M40 250H300L280 236H60Z" fill="#c7d9e4"/><rect x="70" y="250" width="6" height="56" fill="#8a9cab"/><rect x="270" y="250" width="6" height="56" fill="#8a9cab"/><rect x="140" y="262" width="80" height="22" fill="#18202c"/>';
+    lights += '<rect x="146" y="266" width="68" height="14" fill="#7ff0ff" opacity="0.6"/>' + lamp(180, 273, 0, '#7ff0ff', 46, 0.28);
+    for (let i = 0; i < 5; i++) s += `<path d="M${n2(80 + rnd() * 940)} ${n2(356 + rnd() * 20)}h${n2(30 + rnd() * 60)}" stroke="#4f6f8f" stroke-width="2" opacity="0.6"/>`;
+    lights += snowfall(rnd, W, H, 36, 1.2, 1.8, 0.7);
+    return { s, lights };
+  }
+  if (variant === 'towers') {
+    // the ring of lecture towers round the scramble plaza, podiums low between them, holo signs
+    for (const [x, w, h, c] of [[40, 130, 260, '#7d8fa1'], [210, 100, 300, '#8a9cab'], [400, 120, 230, '#76889a'], [600, 110, 320, '#8496a8'], [790, 130, 270, '#7d8fa1'], [960, 110, 290, '#8a9cab']]) {
+      s += `<rect x="${x}" y="${330 - h}" width="${w}" height="${h}" fill="${c}"/><rect x="${x - 4}" y="${330 - h}" width="${w + 8}" height="8" fill="#eef3f7"/>`;
+      for (let wy = 330 - h + 22; wy < 320; wy += 24) s += `<rect x="${x + 10}" y="${wy}" width="${w - 20}" height="10" fill="#2c3550" opacity="0.75"/>`;
+      s += `<circle cx="${x + w / 2}" cy="${330 - h - 14}" r="10" fill="none" stroke="#c9d3db" stroke-width="3"/>`;
+    }
+    s += '<rect y="326" width="1100" height="74" fill="#8fa0b2"/><path d="M0 362H1100M550 326V400" stroke="#e6edf3" stroke-width="16"/><path d="M0 362H1100M550 326V400" stroke="#5fd6ea" stroke-width="2"/>';
+    for (const x of [170, 360, 760, 950]) s += `<rect x="${x - 50}" y="334" width="100" height="14" fill="#c7d9e4"/><rect x="${x - 34}" y="326" width="68" height="10" fill="#e4eff5"/>`;
+    for (const [x, c] of [[300, '#ff9ed8'], [700, '#7ff0ff'], [520, '#7ff0ff']]) {
+      s += `<rect x="${x - 30}" y="240" width="60" height="34" fill="#18202c"/><rect x="${x - 2}" y="274" width="4" height="52" fill="#8a9cab"/>`;
+      lights += `<rect x="${x - 26}" y="244" width="52" height="26" fill="${c}" opacity="0.55"/>` + lamp(x, 257, 0, c, 40, 0.25);
+    }
+    lights += snowfall(rnd, W, H, 34, 1.2, 1.8, 0.7);
+    return { s, lights };
+  }
+  if (variant === 'spindle') {
+    // the white tower rising out of the frame, its terminal ring at its foot
+    s += '<path d="M500 0H600L620 330H480Z" fill="#e6edf3"/><path d="M548 0H556L566 330H552Z" fill="#b4c0cc"/>';
+    for (const y of [60, 140, 220]) s += `<rect x="${492 + y * 0.03}" y="${y}" width="${116 - y * 0.06}" height="8" fill="#9db3c2"/>`;
+    s += '<path d="M520 120l8 60l-6 40" stroke="#5a6f81" stroke-width="3" fill="none"/>';
+    s += '<rect y="300" width="1100" height="100" fill="#8496a8"/><path d="M60 330Q550 270 1040 330V350H60Z" fill="#dfe8ee"/>';
+    for (let k = 0; k < 8; k++) s += `<path d="M${120 + k * 110} 340a30 30 0 0 1 60 0" fill="#2c3550" stroke="#eef3f7" stroke-width="4"/>`;
+    // the Vesper Gate on the left: white-gold round black-violet, dark snow falling out
+    s += '<circle cx="250" cy="230" r="58" fill="#120e22"/><circle cx="250" cy="230" r="40" fill="#2a1f4a"/>';
+    lights += '<circle cx="250" cy="230" r="58" fill="none" stroke="#fff1c4" stroke-width="7"/><circle cx="250" cy="230" r="64" fill="none" stroke="#ffd27a" stroke-width="2" opacity="0.7"/>' + lamp(250, 230, 0, '#fff1c4', 110, 0.3);
+    for (let i = 0; i < 18; i++) s += `<circle cx="${n2(210 + rnd() * 120)}" cy="${n2(250 + rnd() * 110)}" r="${n2(1.5 + rnd() * 2)}" fill="#2a2140" opacity="0.85"/>`;
+    // the shelter on the right with its one warm window
+    s += '<rect x="800" y="264" width="160" height="66" fill="#e4eff5"/><rect x="792" y="256" width="176" height="10" fill="#9db3c2"/><rect x="866" y="290" width="30" height="40" fill="#1c2230"/><rect x="822" y="282" width="24" height="20" fill="#3a3026"/>';
+    lights += '<rect x="825" y="285" width="18" height="14" fill="#ffd9a0"/>' + lamp(834, 292, 0, '#ffb347', 40, 0.45);
+    lights += lamp(551, 330, 0, '#5fe1f2', 36, 0.3);
+    lights += snowfall(rnd, W, H, 30, 1.2, 1.6, 0.7);
+    return { s, lights };
+  }
+  // causeway (the default): the frozen lake, the broken causeway and its two light-bridges, the city at its end
+  s += '<rect y="290" width="1100" height="110" fill="#8a9cae"/>';
+  for (let i = 0; i < 6; i++) s += `<path d="M${n2(rnd() * W)} ${n2(300 + rnd() * 80)}l${n2(40 + rnd() * 80)} ${n2((rnd() - 0.5) * 10)}" stroke="#57c9df" stroke-width="1.5" opacity="0.45"/>`;
+  // the open leads (near-black water) cutting the ice
+  s += '<path d="M300 400Q330 330 380 290H430Q390 340 380 400Z" fill="#0b1626"/><path d="M700 400Q690 330 640 290H690Q740 340 790 400Z" fill="#0b1626"/>';
+  // the causeway running into the distance, the light-bridges over the leads (pale decks, cyan edges)
+  s += '<path d="M120 400L520 292H580L980 400Z" fill="#dfe7ee"/><path d="M500 300H600" stroke="#eef3f7" stroke-width="3"/>';
+  s += '<path d="M372 352L692 352L700 340L360 340Z" fill="#d4e6ef"/><path d="M450 318L640 318L646 310L444 310Z" fill="#d4e6ef"/>';
+  lights += '<path d="M360 340H700M372 352H692M444 310H646M450 318H640" stroke="#5fe1f2" stroke-width="2.5" opacity="0.9"/>';
+  // the round bus left on the causeway, snow on its roof
+  s += '<rect x="610" y="356" width="120" height="34" rx="14" fill="#f6f2ea"/><rect x="610" y="370" width="120" height="6" fill="#e2645a"/><path d="M616 356Q670 344 724 356Z" fill="#f1f5f9"/><circle cx="636" cy="392" r="7" fill="#18202c"/><circle cx="706" cy="392" r="7" fill="#18202c"/><circle cx="696" cy="380" r="5" fill="#d9b45a"/>';
+  // a halo statue at the city gate, the gate's frosted pylons
+  s += '<rect x="474" y="262" width="12" height="30" fill="#e6edf3"/><rect x="614" y="262" width="12" height="30" fill="#e6edf3"/><rect x="540" y="264" width="20" height="22" fill="#d8dde2"/><circle cx="550" cy="258" r="7" fill="#d8dde2"/>';
+  lights += '<ellipse cx="550" cy="248" rx="9" ry="3" fill="none" stroke="#fff1c4" stroke-width="2"/>';
+  for (const x of [474, 626]) lights += lamp(x + 6, 260, 2, '#7ff0ff', 14, 0.45);
+  lights += snowfall(rnd, W, H, 40, 1.2, 1.8, 0.7);
+  return { s, lights };
+}
 
 
 /**
@@ -736,6 +919,8 @@ const VARIANT_SKY = {
   // the reservoir in fog (5-9), the willow's reservoir under an overcast sky (5-10 by day)
   reservoir: ['#a9bccb', '#e6ecef'],
   willow: ['#8fa4b4', '#dfe7ec'],
+  // the Starfall Deck is a night place whatever the scene's time
+  starfall: ['#0a1430', '#2a3c68'],
 };
 
 /**
@@ -744,7 +929,8 @@ const VARIANT_SKY = {
  * 'oldtown' / 'burning' (Act 3), 'highway' / 'highwaySnow' (Act 4's mountain highway, its tunnel mouth in snow);
  * snow: 'north' / 'northBridge' (Act 4's frozen villages, the snow bridge in a blizzard); drowned: 'platform' (the
  * default), 'tunnels', 'noonGate' (Act 5 underground); city: 'reservoir' / 'willow' (Act 5's reservoir park in fog,
- * the willow on its island)). `time` ('dusk' / 'night', TIME_OF_DAY) re-lights it for a story scene: the sky, a
+ * the willow on its island); vesper: VESPER_PLACES (Act 6's frozen city: 'causeway' the default, 'skyrail', 'museum',
+ * 'towers', 'spindle', 'starfall')). `time` ('dusk' / 'night', TIME_OF_DAY) re-lights it for a story scene: the sky, a
  * wash, and the scene's lamps lit over it.
  */
 export function themeBackdropSVG(theme, { variant = null, time = null } = {}) {
@@ -930,6 +1116,13 @@ export function themeBackdropSVG(theme, { variant = null, time = null } = {}) {
         s += '<path d="M586 140h44l-8 -42h-28z" fill="none" stroke="#3a3d46" stroke-width="6"/><path d="M584 98h48l-24 -20z" fill="#3a3d46"/>';
         s += '<path d="M598 104h20l-4 30h-12z" fill="#2a3442"/><circle cx="608" cy="120" r="5" fill="#8fa3bf" opacity="0.7"/>';
       }
+      break;
+    }
+    case 'vesper': {
+      // Vesperline frozen under its eclipse (VESPER_PLACES; the causeway by default)
+      const vs = vesperScene(rnd, id, W, H, VESPER_PLACES.includes(variant) ? variant : 'causeway', tod ? time : null);
+      s += vs.s;
+      lights += vs.lights;
       break;
     }
     case 'drowned': {

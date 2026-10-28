@@ -49,6 +49,10 @@ export const PLACE_VARIANT = {
   // willow on its island (`city`, district 'park'; `stage:5-10@night` re-lights it)
   noon_flooded_platform: 'platform', noon_line2_tunnels: 'tunnels', noon_pump_station: 'noonGate',
   noon_reservoir_park: 'reservoir', noon_reservoir_willow: 'willow',
+  // Act 6 (Vesperline, Gate Arc Step 6; the maps arrive with S6b): the frozen city's drawn places (`vesper`;
+  // `stage:<id>@night` re-lights each), the Starfall Deck at night for the side stage
+  vesper_frost_causeway: 'causeway', vesper_skyrail: 'skyrail', vesper_museum: 'museum',
+  vesper_tower_ring: 'towers', vesper_spindle_foot: 'spindle', vesper_starfall: 'starfall',
 };
 
 /** A painted place's own picture for a time of day (`<place>-sunset` / `<place>-night`), when one is listed. */

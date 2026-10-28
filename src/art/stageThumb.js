@@ -32,6 +32,10 @@ export const MAP_THEMES = {
   drowned: { ground: '#5e6f72', alt: '#58686b', edge: '#3a464b', path: '#c9ced1', pathEdge: '#e7c64a', water: '#1d5660', tree: '#5f7a72', treeDark: '#475c56', rock: '#7d8584', roof: '#3f8fbf', wall: '#c4c9c3', flower: ['#ff4d5a', '#e7c64a', '#7ff0ff'], voidc: '#11191d' },
   // Gate Arc S5a · the reservoir park (MapDef.district 'park'): mown lawns, the pale park road, the reservoir, willows, the dam's concrete
   park: { ground: '#7cb068', alt: '#73a760', edge: '#4f7a46', path: '#d6d3cb', pathEdge: '#b5afa2', water: '#2f6f8a', tree: '#7fa88a', treeDark: '#5f8a6c', rock: '#b9b6ad', roof: '#3f7a5a', wall: '#b9b6ad', flower: ['#ffd98f', '#ff7a2a', '#ffffff'], voidc: '#2a3a34' },
+  // Gate Arc S6a · Vesperline living (theme 'vesper'): white glass panels, the white glassway (the lightest band) with its cyan line, sky-blue pools, cherry courtyards
+  vesper: { ground: '#b6c6d5', alt: '#afbfcf', edge: '#7d8fa1', path: '#f4f8fb', pathEdge: '#5fe1f2', water: '#4f94bf', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#c7d9e4', roof: '#e4eff5', wall: '#9db3c2', flower: ['#ffd1e3', '#ffffff', '#7ff0ff'], voidc: '#1b2033' },
+  // Gate Arc S6a · Vesperline frozen (StageDef.scenery.ruined 'frozen'): frosted blue-grey glass, the white glassway kept lightest, near-black open water, frosted trees, snow
+  frozen: { ground: '#8496a8', alt: '#7d8fa1', edge: '#55677a', path: '#eef3f7', pathEdge: '#5fe1f2', water: '#0b1626', tree: '#e2ecf4', treeDark: '#9db3c2', rock: '#b4c2ce', roof: '#c7d9e4', wall: '#5a6f81', flower: ['#f1f5f9', '#7ff0ff', '#b9a8ff'], voidc: '#0e1426' },
   burning: { ground: '#5f5955', alt: '#58524e', edge: '#3d3936', path: '#bdb8b0', pathEdge: '#8f8981', water: '#26384a', tree: '#3a3330', treeDark: '#241f1d', rock: '#6f6963', roof: '#3d3734', wall: '#6e675e', flower: ['#ffb347', '#ffd27a', '#6d6862'], voidc: '#2b2624' },
 };
 
